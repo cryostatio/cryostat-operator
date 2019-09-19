@@ -1,0 +1,7 @@
+apiVersion: rhjmc.redhat.com/v1alpha1
+kind: ContainerJFR
+metadata:
+  name: containerjfr
+spec:
+  # Add fields here
+  size: 1
