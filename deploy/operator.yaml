@@ -16,7 +16,7 @@ spec:
       containers:
         - name: container-jfr-operator
           # Replace this with the built image name
-          image: REPLACE_IMAGE
+          image: quay.io/rh-jmc-team/container-jfr-operator
           command:
           - container-jfr-operator
           imagePullPolicy: Always
