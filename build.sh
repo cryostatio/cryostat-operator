@@ -9,4 +9,6 @@ fi
 
 echo "Building operator image $IMAGE_TAG to local registry..."
 
+operator-sdk generate k8s
+
 operator-sdk build "$IMAGE_TAG"

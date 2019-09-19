@@ -15,7 +15,6 @@ spec:
       serviceAccountName: container-jfr-operator
       containers:
         - name: container-jfr-operator
-          # Replace this with the built image name
           image: quay.io/rh-jmc-team/container-jfr-operator
           command:
           - container-jfr-operator
