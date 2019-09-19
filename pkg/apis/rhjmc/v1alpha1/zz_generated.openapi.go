@@ -135,7 +135,16 @@ func schema_pkg_apis_rhjmc_v1alpha1_FlightRecorderSpec(ref common.ReferenceCallb
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
 				Description: "FlightRecorderSpec defines the desired state of FlightRecorder",
-				Properties:  map[string]spec.Schema{},
+				Properties: map[string]spec.Schema{
+					"recordingActive": {
+						SchemaProps: spec.SchemaProps{
+							Description: "INSERT ADDITIONAL SPEC FIELDS - desired state of cluster Important: Run \"operator-sdk generate k8s\" to regenerate code after modifying this file Add custom validation using kubebuilder tags: https://book-v1.book.kubebuilder.io/beyond_basics/generating_crd.html",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
+				},
+				Required: []string{"recordingActive"},
 			},
 		},
 		Dependencies: []string{},
@@ -147,9 +156,37 @@ func schema_pkg_apis_rhjmc_v1alpha1_FlightRecorderStatus(ref common.ReferenceCal
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
 				Description: "FlightRecorderStatus defines the observed state of FlightRecorder",
-				Properties:  map[string]spec.Schema{},
+				Properties: map[string]spec.Schema{
+					"objectName": {
+						SchemaProps: spec.SchemaProps{
+							Description: "INSERT ADDITIONAL STATUS FIELD - define observed state of cluster Important: Run \"operator-sdk generate k8s\" to regenerate code after modifying this file Add custom validation using kubebuilder tags: https://book-v1.book.kubebuilder.io/beyond_basics/generating_crd.html",
+							Ref:         ref("k8s.io/api/core/v1.ObjectReference"),
+						},
+					},
+					"recordingActive": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"boolean"},
+							Format: "",
+						},
+					},
+					"recordings": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Type:   []string{"string"},
+										Format: "",
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"objectName", "recordingActive", "recordings"},
 			},
 		},
-		Dependencies: []string{},
+		Dependencies: []string{
+			"k8s.io/api/core/v1.ObjectReference"},
 	}
 }
