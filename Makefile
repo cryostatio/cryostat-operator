@@ -20,7 +20,9 @@ deploy: undeploy
 	oc create -f deploy/role.yaml
 	oc create -f deploy/role_binding.yaml
 	oc create -f deploy/crds/rhjmc_v1alpha1_flightrecorder_crd.yaml
+	oc create -f deploy/crds/rhjmc_v1alpha1_containerjfr_crd.yaml
 	sed -e 's|REPLACE_IMAGE|$(IMAGE_TAG)|g' deploy/operator.yaml | oc create -f -
+	oc create -f deploy/crds/rhjmc_v1alpha1_containerjfr_cr.yaml
 
 .PHONY: undeploy
 undeploy:
@@ -28,7 +30,10 @@ undeploy:
 	- oc delete containerjfr --all
 	- oc delete flightrecorder --all
 	- oc delete all -l name=container-jfr-operator
+	- oc delete all -l app=containerjfr
+	- oc delete all -l app=containerjfr-pod
 	- oc delete role container-jfr-operator
 	- oc delete rolebinding container-jfr-operator
 	- oc delete serviceaccount container-jfr-operator
 	- oc delete crd flightrecorders.rhjmc.redhat.com
+	- oc delete crd containerjfrs.rhjmc.redhat.com

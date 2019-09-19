@@ -11,9 +11,79 @@ import (
 
 func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenAPIDefinition {
 	return map[string]common.OpenAPIDefinition{
-		"github.com/rh-jmc-team/container-jfr-operator/pkg/apis/rhjmc/v1alpha1.FlightRecorder":       schema_pkg_apis_rhjmc_v1alpha1_FlightRecorder(ref),
-		"github.com/rh-jmc-team/container-jfr-operator/pkg/apis/rhjmc/v1alpha1.FlightRecorderSpec":   schema_pkg_apis_rhjmc_v1alpha1_FlightRecorderSpec(ref),
-		"github.com/rh-jmc-team/container-jfr-operator/pkg/apis/rhjmc/v1alpha1.FlightRecorderStatus": schema_pkg_apis_rhjmc_v1alpha1_FlightRecorderStatus(ref),
+		"./pkg/apis/rhjmc/v1alpha1.ContainerJFR":         schema_pkg_apis_rhjmc_v1alpha1_ContainerJFR(ref),
+		"./pkg/apis/rhjmc/v1alpha1.ContainerJFRSpec":     schema_pkg_apis_rhjmc_v1alpha1_ContainerJFRSpec(ref),
+		"./pkg/apis/rhjmc/v1alpha1.ContainerJFRStatus":   schema_pkg_apis_rhjmc_v1alpha1_ContainerJFRStatus(ref),
+		"./pkg/apis/rhjmc/v1alpha1.FlightRecorder":       schema_pkg_apis_rhjmc_v1alpha1_FlightRecorder(ref),
+		"./pkg/apis/rhjmc/v1alpha1.FlightRecorderSpec":   schema_pkg_apis_rhjmc_v1alpha1_FlightRecorderSpec(ref),
+		"./pkg/apis/rhjmc/v1alpha1.FlightRecorderStatus": schema_pkg_apis_rhjmc_v1alpha1_FlightRecorderStatus(ref),
+	}
+}
+
+func schema_pkg_apis_rhjmc_v1alpha1_ContainerJFR(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "ContainerJFR is the Schema for the containerjfrs API",
+				Properties: map[string]spec.Schema{
+					"kind": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#types-kinds",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"apiVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#resources",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"metadata": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"),
+						},
+					},
+					"spec": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("./pkg/apis/rhjmc/v1alpha1.ContainerJFRSpec"),
+						},
+					},
+					"status": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("./pkg/apis/rhjmc/v1alpha1.ContainerJFRStatus"),
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"./pkg/apis/rhjmc/v1alpha1.ContainerJFRSpec", "./pkg/apis/rhjmc/v1alpha1.ContainerJFRStatus", "k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"},
+	}
+}
+
+func schema_pkg_apis_rhjmc_v1alpha1_ContainerJFRSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "ContainerJFRSpec defines the desired state of ContainerJFR",
+				Properties:  map[string]spec.Schema{},
+			},
+		},
+		Dependencies: []string{},
+	}
+}
+
+func schema_pkg_apis_rhjmc_v1alpha1_ContainerJFRStatus(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "ContainerJFRStatus defines the observed state of ContainerJFR",
+				Properties:  map[string]spec.Schema{},
+			},
+		},
+		Dependencies: []string{},
 	}
 }
 
@@ -44,19 +114,19 @@ func schema_pkg_apis_rhjmc_v1alpha1_FlightRecorder(ref common.ReferenceCallback)
 					},
 					"spec": {
 						SchemaProps: spec.SchemaProps{
-							Ref: ref("github.com/rh-jmc-team/container-jfr-operator/pkg/apis/rhjmc/v1alpha1.FlightRecorderSpec"),
+							Ref: ref("./pkg/apis/rhjmc/v1alpha1.FlightRecorderSpec"),
 						},
 					},
 					"status": {
 						SchemaProps: spec.SchemaProps{
-							Ref: ref("github.com/rh-jmc-team/container-jfr-operator/pkg/apis/rhjmc/v1alpha1.FlightRecorderStatus"),
+							Ref: ref("./pkg/apis/rhjmc/v1alpha1.FlightRecorderStatus"),
 						},
 					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"github.com/rh-jmc-team/container-jfr-operator/pkg/apis/rhjmc/v1alpha1.FlightRecorderSpec", "github.com/rh-jmc-team/container-jfr-operator/pkg/apis/rhjmc/v1alpha1.FlightRecorderStatus", "k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"},
+			"./pkg/apis/rhjmc/v1alpha1.FlightRecorderSpec", "./pkg/apis/rhjmc/v1alpha1.FlightRecorderStatus", "k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"},
 	}
 }
 
