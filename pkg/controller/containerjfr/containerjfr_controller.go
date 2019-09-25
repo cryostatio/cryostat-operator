@@ -119,13 +119,13 @@ func (r *ReconcileContainerJFR) Reconcile(request reconcile.Request) (reconcile.
 			return reconcile.Result{}, err
 		}
 
-		svc := newExporterServiceForPod(pod)
-		err = r.client.Create(context.TODO(), svc)
+		exporter := newExporterServiceForPod(pod.ObjectMeta.Namespace)
+		err = r.client.Create(context.TODO(), exporter)
 		if err != nil {
 			return reconcile.Result{}, err
 		}
 
-		cmdChan := newCommandChannelServiceForPod(pod)
+		cmdChan := newCommandChannelServiceForPod(pod.ObjectMeta.Namespace)
 		err = r.client.Create(context.TODO(), cmdChan)
 		if err != nil {
 			return reconcile.Result{}, err
@@ -164,11 +164,48 @@ func newPodForCR(cr *rhjmcv1alpha1.ContainerJFR) *corev1.Pod {
 						{
 							ContainerPort: 9090,
 						},
+						{
+							ContainerPort: 9091,
+						},
 					},
 					Env: []corev1.EnvVar{
 						{
-							Name:  "X_TEST_VAR",
-							Value: "hello world",
+							Name:  "CONTAINER_JFR_WEB_PORT",
+							Value: "8181",
+						},
+						{
+							Name:  "CONTAINER_JFR_EXT_WEB_PORT",
+							Value: "80",
+						},
+						{
+							Name: "CONTAINER_JFR_WEB_HOST",
+							ValueFrom: &corev1.EnvVarSource{
+								ConfigMapKeyRef: &corev1.ConfigMapKeySelector{
+									LocalObjectReference: corev1.LocalObjectReference{
+										Name: "containerjfr",
+									},
+									Key: "CONTAINER_JFR_WEB_HOST",
+								},
+							},
+						},
+						{
+							Name:  "CONTAINER_JFR_LISTEN_PORT",
+							Value: "9090",
+						},
+						{
+							Name:  "CONTAINER_JFR_EXT_LISTEN_PORT",
+							Value: "80",
+						},
+						{
+							Name: "CONTAINER_JFR_LISTEN_HOST",
+							ValueFrom: &corev1.EnvVarSource{
+								ConfigMapKeyRef: &corev1.ConfigMapKeySelector{
+									LocalObjectReference: corev1.LocalObjectReference{
+										Name: "containerjfr-command",
+									},
+									Key: "CONTAINER_JFR_LISTEN_HOST",
+								},
+							},
 						},
 					},
 				},
@@ -177,42 +214,61 @@ func newPodForCR(cr *rhjmcv1alpha1.ContainerJFR) *corev1.Pod {
 	}
 }
 
-func newExporterServiceForPod(pod *corev1.Pod) *corev1.Service {
-	return newService(
-		"containerjfr",
-		pod.ObjectMeta.Namespace,
-		pod.ObjectMeta.Name,
-		80,
-		8181,
-	)
-}
-
-func newCommandChannelServiceForPod(pod *corev1.Pod) *corev1.Service {
-	return newService(
-		"containerjfr-command",
-		pod.ObjectMeta.Namespace,
-		pod.ObjectMeta.Name,
-		80,
-		9090,
-	)
-}
-
-func newService(name string, namespace string, appName string, port int32, targetPort int32) *corev1.Service {
+func newExporterServiceForPod(namespace string) *corev1.Service {
 	return &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      name,
+			Name:      "containerjfr",
 			Namespace: namespace,
 			Labels: map[string]string{
-				"app": appName,
+				"app": "containerjfr",
+			},
+			Annotations: map[string]string{
+				"fabric8.io/expose": "true",
 			},
 		},
 		Spec: corev1.ServiceSpec{
-			Type:                  corev1.ServiceTypeNodePort,
-			ExternalTrafficPolicy: corev1.ServiceExternalTrafficPolicyTypeLocal,
+			Type: corev1.ServiceTypeClusterIP,
+			Selector: map[string]string{
+				"app": "containerjfr",
+			},
 			Ports: []corev1.ServicePort{
 				{
-					Port:       port,
-					TargetPort: intstr.IntOrString{IntVal: targetPort},
+					Name:       "8181-tcp",
+					Port:       8181,
+					TargetPort: intstr.IntOrString{IntVal: 8181},
+				},
+				{
+					Name:       "9091-tcp",
+					Port:       9091,
+					TargetPort: intstr.IntOrString{IntVal: 9091},
+				},
+			},
+		},
+	}
+}
+
+func newCommandChannelServiceForPod(namespace string) *corev1.Service {
+	return &corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "containerjfr-command",
+			Namespace: namespace,
+			Labels: map[string]string{
+				"app": "containerjfr",
+			},
+			Annotations: map[string]string{
+				"fabric8.io/expose": "true",
+			},
+		},
+		Spec: corev1.ServiceSpec{
+			Type: corev1.ServiceTypeClusterIP,
+			Selector: map[string]string{
+				"app": "containerjfr",
+			},
+			Ports: []corev1.ServicePort{
+				{
+					Name:       "9090-tcp",
+					Port:       9090,
+					TargetPort: intstr.IntOrString{IntVal: 9090},
 				},
 			},
 		},

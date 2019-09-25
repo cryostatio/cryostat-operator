@@ -1,0 +1,11 @@
+---
+apiVersion: "v1"
+kind: "ConfigMap"
+metadata:
+  labels:
+    provider: "fabric8"
+    project: "exposecontroller"
+  name: "exposecontroller"
+data:
+  config.yml: |-
+    watch-namespaces: myproject
