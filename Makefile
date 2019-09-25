@@ -21,19 +21,30 @@ deploy: undeploy
 	oc create -f deploy/role_binding.yaml
 	oc create -f deploy/crds/rhjmc_v1alpha1_flightrecorder_crd.yaml
 	oc create -f deploy/crds/rhjmc_v1alpha1_containerjfr_crd.yaml
+	oc create -f deploy/containerjfr_command_config_map.yaml
+	oc create -f deploy/containerjfr_config_map.yaml
 	sed -e 's|REPLACE_IMAGE|$(IMAGE_TAG)|g' deploy/operator.yaml | oc create -f -
 	oc create -f deploy/crds/rhjmc_v1alpha1_containerjfr_cr.yaml
+	oc create -f deploy/exposecontroller_config_map.yaml
+	oc create -f deploy/exposecontroller.yaml
 
 .PHONY: undeploy
 undeploy:
+	- oc delete deployment exposecontroller
+	- oc delete configmap exposecontroller
+	- oc delete all -l project=exposecontroller
+	- oc delete routes -l generator=exposecontroller
 	- oc delete deployment container-jfr-operator
 	- oc delete containerjfr --all
 	- oc delete flightrecorder --all
 	- oc delete all -l name=container-jfr-operator
 	- oc delete all -l app=containerjfr
 	- oc delete all -l app=containerjfr-pod
+	- oc delete configmaps -l app=containerjfr
 	- oc delete role container-jfr-operator
 	- oc delete rolebinding container-jfr-operator
 	- oc delete serviceaccount container-jfr-operator
 	- oc delete crd flightrecorders.rhjmc.redhat.com
 	- oc delete crd containerjfrs.rhjmc.redhat.com
+	- oc adm policy remove-cluster-role-from-user cluster-admin system:serviceaccount:default:exposecontroller
+	- oc adm policy remove-cluster-role-from-group cluster-reader system:serviceaccounts

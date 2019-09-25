@@ -1,0 +1,30 @@
+---
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: exposecontroller
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      name: exposecontroller
+  template:
+    metadata:
+      labels:
+        name: exposecontroller
+    spec:
+      serviceAccountName: container-jfr-operator
+      containers:
+      - image: fabric8/exposecontroller
+        name: exposecontroller
+        args:
+          - --v=8
+          - --watch-namespace=myproject
+          - --http=true
+        volumeMounts:
+        - name: config-volume
+          mountPath: /etc/exposecontroller
+      volumes:
+      - name: config-volume
+        configMap:
+          name: exposecontroller
