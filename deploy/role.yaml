@@ -59,6 +59,5 @@ rules:
   - rhjmc.redhat.com
   resources:
   - '*'
-  - containerjfrs
   verbs:
   - '*'
