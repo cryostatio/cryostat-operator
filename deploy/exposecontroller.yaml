@@ -19,7 +19,8 @@ spec:
         name: exposecontroller
         args:
           - --v=8
-          - --watch-namespace=myproject
+            # TODO investigate --watch-current-namespace flag
+          - --watch-namespace=REPLACE_PROJECT
           - --http=true
         volumeMounts:
         - name: config-volume
