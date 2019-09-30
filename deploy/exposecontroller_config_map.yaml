@@ -8,4 +8,3 @@ metadata:
   name: exposecontroller
 data:
   config.yml: |-
-    watch-namespaces: myproject
