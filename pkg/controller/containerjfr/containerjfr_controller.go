@@ -119,13 +119,13 @@ func (r *ReconcileContainerJFR) Reconcile(request reconcile.Request) (reconcile.
 			return reconcile.Result{}, err
 		}
 
-		exporter := newExporterServiceForPod(pod.ObjectMeta.Namespace)
+		exporter := newExporterServiceForPod(instance)
 		err = r.client.Create(context.TODO(), exporter)
 		if err != nil {
 			return reconcile.Result{}, err
 		}
 
-		cmdChan := newCommandChannelServiceForPod(pod.ObjectMeta.Namespace)
+		cmdChan := newCommandChannelServiceForPod(instance)
 		err = r.client.Create(context.TODO(), cmdChan)
 		if err != nil {
 			return reconcile.Result{}, err
@@ -214,13 +214,13 @@ func newPodForCR(cr *rhjmcv1alpha1.ContainerJFR) *corev1.Pod {
 	}
 }
 
-func newExporterServiceForPod(namespace string) *corev1.Service {
+func newExporterServiceForPod(cr *rhjmcv1alpha1.ContainerJFR) *corev1.Service {
 	return &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "containerjfr",
-			Namespace: namespace,
+			Name:      cr.Name,
+			Namespace: cr.Namespace,
 			Labels: map[string]string{
-				"app": "containerjfr",
+				"app": cr.Name,
 			},
 			Annotations: map[string]string{
 				"fabric8.io/expose": "true",
@@ -229,7 +229,7 @@ func newExporterServiceForPod(namespace string) *corev1.Service {
 		Spec: corev1.ServiceSpec{
 			Type: corev1.ServiceTypeClusterIP,
 			Selector: map[string]string{
-				"app": "containerjfr",
+				"app": cr.Name,
 			},
 			Ports: []corev1.ServicePort{
 				{
@@ -247,13 +247,13 @@ func newExporterServiceForPod(namespace string) *corev1.Service {
 	}
 }
 
-func newCommandChannelServiceForPod(namespace string) *corev1.Service {
+func newCommandChannelServiceForPod(cr *rhjmcv1alpha1.ContainerJFR) *corev1.Service {
 	return &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "containerjfr-command",
-			Namespace: namespace,
+			Name:      cr.Name + "-command",
+			Namespace: cr.Namespace,
 			Labels: map[string]string{
-				"app": "containerjfr",
+				"app": cr.Name,
 			},
 			Annotations: map[string]string{
 				"fabric8.io/expose": "true",
@@ -262,7 +262,7 @@ func newCommandChannelServiceForPod(namespace string) *corev1.Service {
 		Spec: corev1.ServiceSpec{
 			Type: corev1.ServiceTypeClusterIP,
 			Selector: map[string]string{
-				"app": "containerjfr",
+				"app": cr.Name,
 			},
 			Ports: []corev1.ServicePort{
 				{
