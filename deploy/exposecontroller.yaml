@@ -15,7 +15,7 @@ spec:
     spec:
       serviceAccountName: container-jfr-operator
       containers:
-      - image: fabric8/exposecontroller
+      - image: jenkinsxio/exposecontroller
         name: exposecontroller
         args:
           - --v=8
