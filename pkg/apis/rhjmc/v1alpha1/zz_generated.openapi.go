@@ -138,7 +138,7 @@ func schema_pkg_apis_rhjmc_v1alpha1_FlightRecorderSpec(ref common.ReferenceCallb
 				Properties: map[string]spec.Schema{
 					"recordingActive": {
 						SchemaProps: spec.SchemaProps{
-							Description: "INSERT ADDITIONAL SPEC FIELDS - desired state of cluster Important: Run \"operator-sdk generate k8s\" to regenerate code after modifying this file Add custom validation using kubebuilder tags: https://book-v1.book.kubebuilder.io/beyond_basics/generating_crd.html",
+							Description: "INSERT ADDITIONAL SPEC FIELDS - desired state of cluster Important: Run \"operator-sdk generate k8s\" to regenerate code after modifying this file Add custom validation using kubebuilder tags: https://book-v1.book.kubebuilder.io/beyond_basics/generating_crd.html Specifies whether a JFR recording should be started or stopped",
 							Type:        []string{"boolean"},
 							Format:      "",
 						},
@@ -157,21 +157,23 @@ func schema_pkg_apis_rhjmc_v1alpha1_FlightRecorderStatus(ref common.ReferenceCal
 			SchemaProps: spec.SchemaProps{
 				Description: "FlightRecorderStatus defines the observed state of FlightRecorder",
 				Properties: map[string]spec.Schema{
-					"objectName": {
+					"target": {
 						SchemaProps: spec.SchemaProps{
-							Description: "INSERT ADDITIONAL STATUS FIELD - define observed state of cluster Important: Run \"operator-sdk generate k8s\" to regenerate code after modifying this file Add custom validation using kubebuilder tags: https://book-v1.book.kubebuilder.io/beyond_basics/generating_crd.html",
+							Description: "Reference to the pod/service that this object controls JFR for",
 							Ref:         ref("k8s.io/api/core/v1.ObjectReference"),
 						},
 					},
 					"recordingActive": {
 						SchemaProps: spec.SchemaProps{
-							Type:   []string{"boolean"},
-							Format: "",
+							Description: "Whether the pod/service is currently recording",
+							Type:        []string{"boolean"},
+							Format:      "",
 						},
 					},
 					"recordings": {
 						SchemaProps: spec.SchemaProps{
-							Type: []string{"array"},
+							Description: "Lists all recordings for the pod/service that may be downloaded",
+							Type:        []string{"array"},
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
@@ -183,7 +185,7 @@ func schema_pkg_apis_rhjmc_v1alpha1_FlightRecorderStatus(ref common.ReferenceCal
 						},
 					},
 				},
-				Required: []string{"objectName", "recordingActive", "recordings"},
+				Required: []string{"target", "recordingActive", "recordings"},
 			},
 		},
 		Dependencies: []string{
