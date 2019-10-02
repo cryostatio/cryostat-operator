@@ -143,6 +143,18 @@ func (r *ReconcileContainerJFR) Reconcile(request reconcile.Request) (reconcile.
 			return reconcile.Result{}, err
 		}
 
+		datasource := newDatasourcePodforCR(instance)
+		err = r.client.Create(context.TODO(), datasource)
+		if err != nil {
+			return reconcile.Result{}, err
+		}
+
+		datasourceSvc := newDatasourceServiceForPod(instance)
+		err = r.client.Create(context.TODO(), datasourceSvc)
+		if err != nil {
+			return reconcile.Result{}, err
+		}
+
 		// Pod created successfully - don't requeue
 		return reconcile.Result{}, nil
 	} else if err != nil {
@@ -229,6 +241,17 @@ func newPodForCR(cr *rhjmcv1alpha1.ContainerJFR) *corev1.Pod {
 								},
 							},
 						},
+						{
+							Name: "GRAFANA_DATASOURCE_URL",
+							ValueFrom: &corev1.EnvVarSource{
+								ConfigMapKeyRef: &corev1.ConfigMapKeySelector{
+									LocalObjectReference: corev1.LocalObjectReference{
+										Name: "containerjfr-grafana-datasource",
+									},
+									Key: "GRAFANA_DATASOURCE_URL",
+								},
+							},
+						},
 					},
 				},
 			},
@@ -269,7 +292,8 @@ func newGrafanaServiceForPod(cr *rhjmcv1alpha1.ContainerJFR) *corev1.Service {
 			Name:      cr.Name + "-grafana",
 			Namespace: cr.Namespace,
 			Labels: map[string]string{
-				"app": cr.Name,
+				"app":       cr.Name,
+				"component": "grafana",
 			},
 			Annotations: map[string]string{
 				"fabric8.io/expose": "true",
@@ -285,6 +309,62 @@ func newGrafanaServiceForPod(cr *rhjmcv1alpha1.ContainerJFR) *corev1.Service {
 					Name:       "3000-tcp",
 					Port:       3000,
 					TargetPort: intstr.IntOrString{IntVal: 3000},
+				},
+			},
+		},
+	}
+}
+
+func newDatasourcePodforCR(cr *rhjmcv1alpha1.ContainerJFR) *corev1.Pod {
+	return &corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      cr.Name + "-grafana-datasource-pod",
+			Namespace: cr.Namespace,
+			Labels: map[string]string{
+				"app":       cr.Name,
+				"component": "grafana",
+			},
+		},
+		Spec: corev1.PodSpec{
+			Containers: []corev1.Container{
+				{
+					Name:  cr.Name,
+					Image: "docker.io/grafana/grafana",
+					Ports: []corev1.ContainerPort{
+						{
+							ContainerPort: 8080,
+						},
+					},
+					Env: []corev1.EnvVar{},
+				},
+			},
+		},
+	}
+}
+
+func newDatasourceServiceForPod(cr *rhjmcv1alpha1.ContainerJFR) *corev1.Service {
+	return &corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      cr.Name + "-grafana-datasource",
+			Namespace: cr.Namespace,
+			Labels: map[string]string{
+				"app":       cr.Name,
+				"component": "grafana",
+			},
+			Annotations: map[string]string{
+				"fabric8.io/expose": "true",
+			},
+		},
+		Spec: corev1.ServiceSpec{
+			Type: corev1.ServiceTypeClusterIP,
+			Selector: map[string]string{
+				"app": cr.Name,
+			},
+			Ports: []corev1.ServicePort{
+				{
+					Name:       "8080-tcp",
+					Port:       8080,
+					TargetPort: intstr.IntOrString{IntVal: 8080},
 				},
 			},
 		},
