@@ -131,6 +131,18 @@ func (r *ReconcileContainerJFR) Reconcile(request reconcile.Request) (reconcile.
 			return reconcile.Result{}, err
 		}
 
+		grafana := newGrafanaPodforCR(instance)
+		err = r.client.Create(context.TODO(), grafana)
+		if err != nil {
+			return reconcile.Result{}, err
+		}
+
+		grafanaSvc := newGrafanaServiceForPod(instance)
+		err = r.client.Create(context.TODO(), grafanaSvc)
+		if err != nil {
+			return reconcile.Result{}, err
+		}
+
 		// Pod created successfully - don't requeue
 		return reconcile.Result{}, nil
 	} else if err != nil {
@@ -143,14 +155,13 @@ func (r *ReconcileContainerJFR) Reconcile(request reconcile.Request) (reconcile.
 }
 
 func newPodForCR(cr *rhjmcv1alpha1.ContainerJFR) *corev1.Pod {
-	labels := map[string]string{
-		"app": cr.Name,
-	}
 	return &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      cr.Name + "-pod",
 			Namespace: cr.Namespace,
-			Labels:    labels,
+			Labels: map[string]string{
+				"app": cr.Name,
+			},
 		},
 		Spec: corev1.PodSpec{
 			Containers: []corev1.Container{
@@ -207,7 +218,73 @@ func newPodForCR(cr *rhjmcv1alpha1.ContainerJFR) *corev1.Pod {
 								},
 							},
 						},
+						{
+							Name: "GRAFANA_DASHBOARD_URL",
+							ValueFrom: &corev1.EnvVarSource{
+								ConfigMapKeyRef: &corev1.ConfigMapKeySelector{
+									LocalObjectReference: corev1.LocalObjectReference{
+										Name: "containerjfr-grafana",
+									},
+									Key: "GRAFANA_DASHBOARD_URL",
+								},
+							},
+						},
 					},
+				},
+			},
+		},
+	}
+}
+
+func newGrafanaPodforCR(cr *rhjmcv1alpha1.ContainerJFR) *corev1.Pod {
+	return &corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      cr.Name + "-grafana-pod",
+			Namespace: cr.Namespace,
+			Labels: map[string]string{
+				"app":       cr.Name,
+				"component": "grafana",
+			},
+		},
+		Spec: corev1.PodSpec{
+			Containers: []corev1.Container{
+				{
+					Name:  cr.Name,
+					Image: "docker.io/grafana/grafana",
+					Ports: []corev1.ContainerPort{
+						{
+							ContainerPort: 3000,
+						},
+					},
+					Env: []corev1.EnvVar{},
+				},
+			},
+		},
+	}
+}
+
+func newGrafanaServiceForPod(cr *rhjmcv1alpha1.ContainerJFR) *corev1.Service {
+	return &corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      cr.Name + "-grafana",
+			Namespace: cr.Namespace,
+			Labels: map[string]string{
+				"app": cr.Name,
+			},
+			Annotations: map[string]string{
+				"fabric8.io/expose": "true",
+			},
+		},
+		Spec: corev1.ServiceSpec{
+			Type: corev1.ServiceTypeClusterIP,
+			Selector: map[string]string{
+				"app": cr.Name,
+			},
+			Ports: []corev1.ServicePort{
+				{
+					Name:       "3000-tcp",
+					Port:       3000,
+					TargetPort: intstr.IntOrString{IntVal: 3000},
 				},
 			},
 		},
