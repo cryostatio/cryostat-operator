@@ -22,11 +22,6 @@ import (
 
 var log = logf.Log.WithName("controller_service")
 
-/**
-* USER ACTION REQUIRED: This is a scaffold file intended for the user to modify with their own Controller
-* business logic.  Delete these comments after modifying this file.*
- */
-
 // Add creates a new Service Controller and adds it to the Manager. The Manager will set fields on the Controller
 // and Start it when the Manager is Started.
 func Add(mgr manager.Manager) error {
@@ -52,9 +47,8 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 		return err
 	}
 
-	// TODO(user): Modify this to be the types you create that are owned by the primary resource
-	// Watch for changes to secondary resource Pods and requeue the owner Service
-	err = c.Watch(&source.Kind{Type: &corev1.Pod{}}, &handler.EnqueueRequestForOwner{
+	// Watch for changes to secondary resource FlightRecorder and requeue the owner Service
+	err = c.Watch(&source.Kind{Type: &cjfrapi.FlightRecorder{}}, &handler.EnqueueRequestForOwner{
 		IsController: true,
 		OwnerType:    &corev1.Service{},
 	})
