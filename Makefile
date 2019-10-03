@@ -17,6 +17,7 @@ clean:
 .PHONY: deploy
 deploy: undeploy
 	oc create -f deploy/service_account.yaml
+	oc adm policy add-cluster-role-to-user system:persistent-volume-provisioner -z container-jfr-operator
 	oc create -f deploy/role.yaml
 	oc create -f deploy/role_binding.yaml
 	oc create -f deploy/crds/rhjmc_v1alpha1_flightrecorder_crd.yaml
@@ -41,9 +42,12 @@ undeploy:
 	- oc delete flightrecorder --all
 	- oc delete all -l name=container-jfr-operator
 	- oc delete all -l app=containerjfr
+	- oc delete persistentvolumeclaims -l app=containerjfr
+	- oc delete persistentvolumes -l app=containerjfr
 	- oc delete configmaps -l app=containerjfr
 	- oc delete role container-jfr-operator
 	- oc delete rolebinding container-jfr-operator
+	- oc adm policy remove-cluster-role-from-user system:persistent-volume-provisioner -z container-jfr-operator
 	- oc delete serviceaccount container-jfr-operator
 	- oc delete crd flightrecorders.rhjmc.redhat.com
 	- oc delete crd containerjfrs.rhjmc.redhat.com

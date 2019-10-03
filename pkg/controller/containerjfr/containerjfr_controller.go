@@ -6,6 +6,7 @@ import (
 	rhjmcv1alpha1 "github.com/rh-jmc-team/container-jfr-operator/pkg/apis/rhjmc/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -114,6 +115,23 @@ func (r *ReconcileContainerJFR) Reconcile(request reconcile.Request) (reconcile.
 	err = r.client.Get(context.TODO(), types.NamespacedName{Name: pod.Name, Namespace: pod.Namespace}, found)
 	if err != nil && errors.IsNotFound(err) {
 		reqLogger.Info("Creating a new Pod", "Pod.Namespace", pod.Namespace, "Pod.Name", pod.Name)
+
+		pv := newPersistentVolumeForCR(instance)
+		err = r.client.Create(context.TODO(), pv)
+		if err != nil && errors.IsAlreadyExists(err) {
+			reqLogger.Info("Skipping creation of persistentvolume " + instance.Name + " - already exists")
+		} else if err != nil {
+			return reconcile.Result{}, err
+		}
+
+		pvc := newPersistentVolumeClaimForCR(instance)
+		err = r.client.Create(context.TODO(), pvc)
+		if err != nil && errors.IsAlreadyExists(err) {
+			reqLogger.Info("Skipping creation of persistentvolumeclaim " + instance.Name + " - already exists")
+		} else if err != nil {
+			return reconcile.Result{}, err
+		}
+
 		err = r.client.Create(context.TODO(), pod)
 		if err != nil {
 			return reconcile.Result{}, err
@@ -176,10 +194,26 @@ func newPodForCR(cr *rhjmcv1alpha1.ContainerJFR) *corev1.Pod {
 			},
 		},
 		Spec: corev1.PodSpec{
+			Volumes: []corev1.Volume{
+				{
+					Name: cr.Name,
+					VolumeSource: corev1.VolumeSource{
+						PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
+							ClaimName: cr.Name,
+						},
+					},
+				},
+			},
 			Containers: []corev1.Container{
 				{
 					Name:  cr.Name,
 					Image: "quay.io/rh-jmc-team/container-jfr:0.4.0-debug",
+					VolumeMounts: []corev1.VolumeMount{
+						{
+							Name:      cr.Name,
+							MountPath: "/flightrecordings",
+						},
+					},
 					Ports: []corev1.ContainerPort{
 						{
 							ContainerPort: 8181,
@@ -253,6 +287,59 @@ func newPodForCR(cr *rhjmcv1alpha1.ContainerJFR) *corev1.Pod {
 							},
 						},
 					},
+				},
+			},
+		},
+	}
+}
+
+func newPersistentVolumeForCR(cr *rhjmcv1alpha1.ContainerJFR) *corev1.PersistentVolume {
+	return &corev1.PersistentVolume{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      cr.Name,
+			Namespace: cr.Namespace,
+			Labels: map[string]string{
+				"app": cr.Name,
+			},
+		},
+		Spec: corev1.PersistentVolumeSpec{
+			Capacity: map[corev1.ResourceName]resource.Quantity{
+				"storage": *resource.NewQuantity(500*1024*1024, resource.BinarySI),
+			},
+			PersistentVolumeSource: corev1.PersistentVolumeSource{
+				//TODO replace this with a production quality source
+				HostPath: &corev1.HostPathVolumeSource{
+					Path: "/" + cr.Name,
+				},
+			},
+			AccessModes: []corev1.PersistentVolumeAccessMode{"ReadWriteMany"},
+		},
+	}
+}
+
+func newPersistentVolumeClaimForCR(cr *rhjmcv1alpha1.ContainerJFR) *corev1.PersistentVolumeClaim {
+	return &corev1.PersistentVolumeClaim{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      cr.Name,
+			Namespace: cr.Namespace,
+			Labels: map[string]string{
+				"app": cr.Name,
+			},
+		},
+		Spec: corev1.PersistentVolumeClaimSpec{
+			Selector: &metav1.LabelSelector{
+				MatchLabels: map[string]string{
+					"app": cr.Name,
+				},
+			},
+			VolumeName:  cr.Name,
+			AccessModes: []corev1.PersistentVolumeAccessMode{"ReadWriteMany"},
+			Resources: corev1.ResourceRequirements{
+				Limits: map[corev1.ResourceName]resource.Quantity{
+					"storage": *resource.NewQuantity(500*1024*1024, resource.BinarySI),
+				},
+				Requests: map[corev1.ResourceName]resource.Quantity{
+					"storage": *resource.NewQuantity(500*1024*1024, resource.BinarySI),
 				},
 			},
 		},
