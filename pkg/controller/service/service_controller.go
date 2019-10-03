@@ -72,8 +72,6 @@ type ReconcileService struct {
 
 // Reconcile reads that state of the cluster for a Service object and makes changes based on the state read
 // and what is in the Service.Spec
-// TODO(user): Modify this Reconcile function to implement your Controller logic.  This example creates
-// a Pod as an example
 // Note:
 // The Controller will requeue the Request to be processed again if the returned error is non-nil or
 // Result.Requeue is true, otherwise upon completion it will remove the work from the queue.
@@ -100,7 +98,7 @@ func (r *ReconcileService) Reconcile(request reconcile.Request) (reconcile.Resul
 	if !isJFRAwareService(svc) {
 		return reconcile.Result{}, nil
 	}
-	reqLogger.Info("Found service that appears to be compatible with ContainerJFR", "Namespace",
+	reqLogger.Info("Found service that appears to be compatible with Container JFR", "Namespace",
 		svc.Namespace, "Name", svc.Name)
 
 	// Define a new FlightRecorder object for this service
@@ -141,9 +139,11 @@ func (r *ReconcileService) Reconcile(request reconcile.Request) (reconcile.Resul
 	return reconcile.Result{}, nil
 }
 
+const containerJFRPort int = 9091 // TODO make a property in ContainerJFR CRD?
+
 func isJFRAwareService(svc *corev1.Service) bool {
 	for _, port := range svc.Spec.Ports {
-		if port.TargetPort.IntValue() == 9091 { // TODO extract as constant, make a property in ContainerJFR resource
+		if port.TargetPort.IntValue() == containerJFRPort {
 			return true
 		}
 	}
@@ -152,8 +152,12 @@ func isJFRAwareService(svc *corev1.Service) bool {
 
 // newFlightRecorderForService returns a FlightRecorder with the same name/namespace as the service
 func (r *ReconcileService) newFlightRecorderForService(svc *corev1.Service) (*cjfrapi.FlightRecorder, error) {
+	appLabel := svc.Name // Use service name as fallback
+	if label, pres := svc.Labels["app"]; pres {
+		appLabel = label
+	}
 	labels := map[string]string{
-		"app": svc.Name, // FIXME copy from svc label instead
+		"app": appLabel,
 	}
 	ref, err := reference.GetReference(r.scheme, svc)
 	if err != nil {
