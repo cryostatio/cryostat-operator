@@ -236,6 +236,7 @@ func newPodForCR(cr *rhjmcv1alpha1.ContainerJFR) *corev1.Pod {
 			},
 		},
 		Spec: corev1.PodSpec{
+			ServiceAccountName: "container-jfr-operator",
 			Volumes: []corev1.Volume{
 				{
 					Name: cr.Name,
