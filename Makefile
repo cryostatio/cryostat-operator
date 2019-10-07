@@ -32,7 +32,7 @@ deploy: undeploy
 	sed -e 's|REPLACE_PROJECT|$(shell oc project -q)|g' deploy/exposecontroller.yaml | oc create -f -
 
 .PHONY: undeploy
-undeploy:
+undeploy: undeploy_sample_app
 	- oc delete deployment exposecontroller
 	- oc delete configmap exposecontroller
 	- oc delete all -l project=exposecontroller
@@ -51,3 +51,11 @@ undeploy:
 	- oc delete serviceaccount container-jfr-operator
 	- oc delete crd flightrecorders.rhjmc.redhat.com
 	- oc delete crd containerjfrs.rhjmc.redhat.com
+
+.PHONY: sample_app
+sample_app:
+	oc new-app andrewazores/container-jmx-docker-listener:latest --name=jmx-listener
+
+.PHONY: undeploy_sample_app
+undeploy_sample_app:
+	- oc delete all -l app=jmx-listener
