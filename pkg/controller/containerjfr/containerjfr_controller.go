@@ -132,7 +132,20 @@ func (r *ReconcileContainerJFR) Reconcile(request reconcile.Request) (reconcile.
 			return reconcile.Result{}, err
 		}
 
+		pod := newPodForCR(instance)
 		err = r.client.Create(context.TODO(), pod)
+		if err != nil {
+			return reconcile.Result{}, err
+		}
+
+		grafana := newGrafanaServiceForPod(instance)
+		err = r.client.Create(context.TODO(), grafana)
+		if err != nil {
+			return reconcile.Result{}, err
+		}
+
+		datasource := newDatasourceServiceForPod(instance)
+		err = r.client.Create(context.TODO(), datasource)
 		if err != nil {
 			return reconcile.Result{}, err
 		}
@@ -149,30 +162,6 @@ func (r *ReconcileContainerJFR) Reconcile(request reconcile.Request) (reconcile.
 			return reconcile.Result{}, err
 		}
 
-		grafana := newGrafanaPodforCR(instance)
-		err = r.client.Create(context.TODO(), grafana)
-		if err != nil {
-			return reconcile.Result{}, err
-		}
-
-		grafanaSvc := newGrafanaServiceForPod(instance)
-		err = r.client.Create(context.TODO(), grafanaSvc)
-		if err != nil {
-			return reconcile.Result{}, err
-		}
-
-		datasource := newDatasourcePodforCR(instance)
-		err = r.client.Create(context.TODO(), datasource)
-		if err != nil {
-			return reconcile.Result{}, err
-		}
-
-		datasourceSvc := newDatasourceServiceForPod(instance)
-		err = r.client.Create(context.TODO(), datasourceSvc)
-		if err != nil {
-			return reconcile.Result{}, err
-		}
-
 		// Pod created successfully - don't requeue
 		return reconcile.Result{}, nil
 	} else if err != nil {
@@ -182,115 +171,6 @@ func (r *ReconcileContainerJFR) Reconcile(request reconcile.Request) (reconcile.
 	// Pod already exists - don't requeue
 	reqLogger.Info("Skip reconcile: Pod already exists", "Pod.Namespace", found.Namespace, "Pod.Name", found.Name)
 	return reconcile.Result{}, nil
-}
-
-func newPodForCR(cr *rhjmcv1alpha1.ContainerJFR) *corev1.Pod {
-	return &corev1.Pod{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      cr.Name + "-pod",
-			Namespace: cr.Namespace,
-			Labels: map[string]string{
-				"app": cr.Name,
-			},
-		},
-		Spec: corev1.PodSpec{
-			Volumes: []corev1.Volume{
-				{
-					Name: cr.Name,
-					VolumeSource: corev1.VolumeSource{
-						PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
-							ClaimName: cr.Name,
-						},
-					},
-				},
-			},
-			Containers: []corev1.Container{
-				{
-					Name:  cr.Name,
-					Image: "quay.io/rh-jmc-team/container-jfr:0.4.3-debug",
-					VolumeMounts: []corev1.VolumeMount{
-						{
-							Name:      cr.Name,
-							MountPath: "/flightrecordings",
-						},
-					},
-					Ports: []corev1.ContainerPort{
-						{
-							ContainerPort: 8181,
-						},
-						{
-							ContainerPort: 9090,
-						},
-						{
-							ContainerPort: 9091,
-						},
-					},
-					Env: []corev1.EnvVar{
-						{
-							Name:  "CONTAINER_JFR_WEB_PORT",
-							Value: "8181",
-						},
-						{
-							Name:  "CONTAINER_JFR_EXT_WEB_PORT",
-							Value: "80",
-						},
-						{
-							Name: "CONTAINER_JFR_WEB_HOST",
-							ValueFrom: &corev1.EnvVarSource{
-								ConfigMapKeyRef: &corev1.ConfigMapKeySelector{
-									LocalObjectReference: corev1.LocalObjectReference{
-										Name: "containerjfr",
-									},
-									Key: "CONTAINER_JFR_WEB_HOST",
-								},
-							},
-						},
-						{
-							Name:  "CONTAINER_JFR_LISTEN_PORT",
-							Value: "9090",
-						},
-						{
-							Name:  "CONTAINER_JFR_EXT_LISTEN_PORT",
-							Value: "80",
-						},
-						{
-							Name: "CONTAINER_JFR_LISTEN_HOST",
-							ValueFrom: &corev1.EnvVarSource{
-								ConfigMapKeyRef: &corev1.ConfigMapKeySelector{
-									LocalObjectReference: corev1.LocalObjectReference{
-										Name: "containerjfr-command",
-									},
-									Key: "CONTAINER_JFR_LISTEN_HOST",
-								},
-							},
-						},
-						{
-							Name: "GRAFANA_DASHBOARD_URL",
-							ValueFrom: &corev1.EnvVarSource{
-								ConfigMapKeyRef: &corev1.ConfigMapKeySelector{
-									LocalObjectReference: corev1.LocalObjectReference{
-										Name: "containerjfr-grafana",
-									},
-									Key: "GRAFANA_DASHBOARD_URL",
-								},
-							},
-						},
-						{
-							Name: "GRAFANA_DATASOURCE_URL",
-							ValueFrom: &corev1.EnvVarSource{
-								ConfigMapKeyRef: &corev1.ConfigMapKeySelector{
-									LocalObjectReference: corev1.LocalObjectReference{
-										Name: "containerjfr-grafana-datasource",
-									},
-									Key: "GRAFANA_DATASOURCE_URL",
-								},
-							},
-						},
-					},
-				},
-			},
-		},
-	}
 }
 
 func newPersistentVolumeForCR(cr *rhjmcv1alpha1.ContainerJFR) *corev1.PersistentVolume {
@@ -346,115 +226,144 @@ func newPersistentVolumeClaimForCR(cr *rhjmcv1alpha1.ContainerJFR) *corev1.Persi
 	}
 }
 
-func newGrafanaPodforCR(cr *rhjmcv1alpha1.ContainerJFR) *corev1.Pod {
+func newPodForCR(cr *rhjmcv1alpha1.ContainerJFR) *corev1.Pod {
 	return &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      cr.Name + "-grafana-pod",
+			Name:      cr.Name + "-pod",
 			Namespace: cr.Namespace,
 			Labels: map[string]string{
-				"app":       cr.Name,
-				"component": "grafana",
+				"app": cr.Name,
 			},
 		},
 		Spec: corev1.PodSpec{
-			Containers: []corev1.Container{
+			Volumes: []corev1.Volume{
 				{
-					Name:  cr.Name,
-					Image: "docker.io/grafana/grafana",
-					Ports: []corev1.ContainerPort{
-						{
-							ContainerPort: 3000,
+					Name: cr.Name,
+					VolumeSource: corev1.VolumeSource{
+						PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
+							ClaimName: cr.Name,
 						},
 					},
-					Env: []corev1.EnvVar{},
 				},
 			},
-		},
-	}
-}
-
-func newGrafanaServiceForPod(cr *rhjmcv1alpha1.ContainerJFR) *corev1.Service {
-	return &corev1.Service{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      cr.Name + "-grafana",
-			Namespace: cr.Namespace,
-			Labels: map[string]string{
-				"app":       cr.Name,
-				"component": "grafana",
-			},
-			Annotations: map[string]string{
-				"fabric8.io/expose": "true",
-			},
-		},
-		Spec: corev1.ServiceSpec{
-			Type: corev1.ServiceTypeClusterIP,
-			Selector: map[string]string{
-				"app": cr.Name,
-			},
-			Ports: []corev1.ServicePort{
-				{
-					Name:       "3000-tcp",
-					Port:       3000,
-					TargetPort: intstr.IntOrString{IntVal: 3000},
-				},
-			},
-		},
-	}
-}
-
-func newDatasourcePodforCR(cr *rhjmcv1alpha1.ContainerJFR) *corev1.Pod {
-	return &corev1.Pod{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      cr.Name + "-grafana-datasource-pod",
-			Namespace: cr.Namespace,
-			Labels: map[string]string{
-				"app":       cr.Name,
-				"component": "grafana",
-			},
-		},
-		Spec: corev1.PodSpec{
 			Containers: []corev1.Container{
-				{
-					Name:  cr.Name,
-					Image: "docker.io/grafana/grafana",
-					Ports: []corev1.ContainerPort{
-						{
-							ContainerPort: 8080,
+				newCoreContainer(cr),
+				newGrafanaContainer(cr),
+				newGrafanaDatasourceContainer(cr),
+			},
+		},
+	}
+}
+
+func newCoreContainer(cr *rhjmcv1alpha1.ContainerJFR) corev1.Container {
+	return corev1.Container{
+		Name:  cr.Name,
+		Image: "quay.io/rh-jmc-team/container-jfr:0.4.3-debug",
+		VolumeMounts: []corev1.VolumeMount{
+			{
+				Name:      cr.Name,
+				MountPath: "/flightrecordings",
+			},
+		},
+		Ports: []corev1.ContainerPort{
+			{
+				ContainerPort: 8181,
+			},
+			{
+				ContainerPort: 9090,
+			},
+			{
+				ContainerPort: 9091,
+			},
+		},
+		Env: []corev1.EnvVar{
+			{
+				Name:  "CONTAINER_JFR_WEB_PORT",
+				Value: "8181",
+			},
+			{
+				Name:  "CONTAINER_JFR_EXT_WEB_PORT",
+				Value: "80",
+			},
+			{
+				Name: "CONTAINER_JFR_WEB_HOST",
+				ValueFrom: &corev1.EnvVarSource{
+					ConfigMapKeyRef: &corev1.ConfigMapKeySelector{
+						LocalObjectReference: corev1.LocalObjectReference{
+							Name: "containerjfr",
 						},
+						Key: "CONTAINER_JFR_WEB_HOST",
 					},
-					Env: []corev1.EnvVar{},
+				},
+			},
+			{
+				Name:  "CONTAINER_JFR_LISTEN_PORT",
+				Value: "9090",
+			},
+			{
+				Name:  "CONTAINER_JFR_EXT_LISTEN_PORT",
+				Value: "80",
+			},
+			{
+				Name: "CONTAINER_JFR_LISTEN_HOST",
+				ValueFrom: &corev1.EnvVarSource{
+					ConfigMapKeyRef: &corev1.ConfigMapKeySelector{
+						LocalObjectReference: corev1.LocalObjectReference{
+							Name: "containerjfr-command",
+						},
+						Key: "CONTAINER_JFR_LISTEN_HOST",
+					},
+				},
+			},
+			{
+				Name: "GRAFANA_DASHBOARD_URL",
+				ValueFrom: &corev1.EnvVarSource{
+					ConfigMapKeyRef: &corev1.ConfigMapKeySelector{
+						LocalObjectReference: corev1.LocalObjectReference{
+							Name: "containerjfr-grafana",
+						},
+						Key: "GRAFANA_DASHBOARD_URL",
+					},
+				},
+			},
+			{
+				Name: "GRAFANA_DATASOURCE_URL",
+				ValueFrom: &corev1.EnvVarSource{
+					ConfigMapKeyRef: &corev1.ConfigMapKeySelector{
+						LocalObjectReference: corev1.LocalObjectReference{
+							Name: "containerjfr-grafana-datasource",
+						},
+						Key: "GRAFANA_DATASOURCE_URL",
+					},
 				},
 			},
 		},
 	}
 }
 
-func newDatasourceServiceForPod(cr *rhjmcv1alpha1.ContainerJFR) *corev1.Service {
-	return &corev1.Service{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      cr.Name + "-grafana-datasource",
-			Namespace: cr.Namespace,
-			Labels: map[string]string{
-				"app":       cr.Name,
-				"component": "grafana",
-			},
-			Annotations: map[string]string{
-				"fabric8.io/expose": "true",
+func newGrafanaContainer(cr *rhjmcv1alpha1.ContainerJFR) corev1.Container {
+	return corev1.Container{
+		Name:  cr.Name + "-grafana",
+		Image: "docker.io/grafana/grafana",
+		Ports: []corev1.ContainerPort{
+			{
+				ContainerPort: 3000,
 			},
 		},
-		Spec: corev1.ServiceSpec{
-			Type: corev1.ServiceTypeClusterIP,
-			Selector: map[string]string{
-				"app": cr.Name,
-			},
-			Ports: []corev1.ServicePort{
-				{
-					Name:       "8080-tcp",
-					Port:       8080,
-					TargetPort: intstr.IntOrString{IntVal: 8080},
-				},
+		Env: []corev1.EnvVar{},
+	}
+}
+
+func newGrafanaDatasourceContainer(cr *rhjmcv1alpha1.ContainerJFR) corev1.Container {
+	return corev1.Container{
+		Name:  cr.Name + "-grafana-datasource",
+		Image: "quay.io/rh-jmc-team/jfr-datasource",
+		Ports: []corev1.ContainerPort{
+			{
+				ContainerPort: 8080,
 			},
 		},
+		Env: []corev1.EnvVar{},
 	}
 }
 
@@ -513,6 +422,64 @@ func newCommandChannelServiceForPod(cr *rhjmcv1alpha1.ContainerJFR) *corev1.Serv
 					Name:       "9090-tcp",
 					Port:       9090,
 					TargetPort: intstr.IntOrString{IntVal: 9090},
+				},
+			},
+		},
+	}
+}
+
+func newGrafanaServiceForPod(cr *rhjmcv1alpha1.ContainerJFR) *corev1.Service {
+	return &corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      cr.Name + "-grafana",
+			Namespace: cr.Namespace,
+			Labels: map[string]string{
+				"app":       cr.Name,
+				"component": "grafana",
+			},
+			Annotations: map[string]string{
+				"fabric8.io/expose": "true",
+			},
+		},
+		Spec: corev1.ServiceSpec{
+			Type: corev1.ServiceTypeClusterIP,
+			Selector: map[string]string{
+				"app": cr.Name,
+			},
+			Ports: []corev1.ServicePort{
+				{
+					Name:       "3000-tcp",
+					Port:       3000,
+					TargetPort: intstr.IntOrString{IntVal: 3000},
+				},
+			},
+		},
+	}
+}
+
+func newDatasourceServiceForPod(cr *rhjmcv1alpha1.ContainerJFR) *corev1.Service {
+	return &corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      cr.Name + "-grafana-datasource",
+			Namespace: cr.Namespace,
+			Labels: map[string]string{
+				"app":       cr.Name,
+				"component": "grafana",
+			},
+			Annotations: map[string]string{
+				"fabric8.io/expose": "true",
+			},
+		},
+		Spec: corev1.ServiceSpec{
+			Type: corev1.ServiceTypeClusterIP,
+			Selector: map[string]string{
+				"app": cr.Name,
+			},
+			Ports: []corev1.ServicePort{
+				{
+					Name:       "8080-tcp",
+					Port:       8080,
+					TargetPort: intstr.IntOrString{IntVal: 8080},
 				},
 			},
 		},
