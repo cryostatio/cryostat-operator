@@ -3,7 +3,7 @@ package service
 import (
 	"context"
 
-	cjfrapi "github.com/rh-jmc-team/container-jfr-operator/pkg/apis/rhjmc/v1alpha1"
+	rhjmcv1alpha1 "github.com/rh-jmc-team/container-jfr-operator/pkg/apis/rhjmc/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -48,7 +48,7 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 	}
 
 	// Watch for changes to secondary resource FlightRecorder and requeue the owner Service
-	err = c.Watch(&source.Kind{Type: &cjfrapi.FlightRecorder{}}, &handler.EnqueueRequestForOwner{
+	err = c.Watch(&source.Kind{Type: &rhjmcv1alpha1.FlightRecorder{}}, &handler.EnqueueRequestForOwner{
 		IsController: true,
 		OwnerType:    &corev1.Service{},
 	})
@@ -113,7 +113,7 @@ func (r *ReconcileService) Reconcile(request reconcile.Request) (reconcile.Resul
 	}
 
 	// Check if this FlightRecorder already exists
-	found := &cjfrapi.FlightRecorder{}
+	found := &rhjmcv1alpha1.FlightRecorder{}
 	err = r.client.Get(ctx, types.NamespacedName{Name: jfr.Name, Namespace: jfr.Namespace}, found)
 	if err != nil && errors.IsNotFound(err) {
 		reqLogger.Info("Creating a new FlightRecorder", "Namespace", jfr.Namespace, "Name", jfr.Name)
@@ -151,7 +151,7 @@ func isJFRAwareService(svc *corev1.Service) bool {
 }
 
 // newFlightRecorderForService returns a FlightRecorder with the same name/namespace as the service
-func (r *ReconcileService) newFlightRecorderForService(svc *corev1.Service) (*cjfrapi.FlightRecorder, error) {
+func (r *ReconcileService) newFlightRecorderForService(svc *corev1.Service) (*rhjmcv1alpha1.FlightRecorder, error) {
 	appLabel := svc.Name // Use service name as fallback
 	if label, pres := svc.Labels["app"]; pres {
 		appLabel = label
@@ -163,13 +163,13 @@ func (r *ReconcileService) newFlightRecorderForService(svc *corev1.Service) (*cj
 	if err != nil {
 		return nil, err
 	}
-	return &cjfrapi.FlightRecorder{ // TODO should we use OwnerReference for this?
+	return &rhjmcv1alpha1.FlightRecorder{ // TODO should we use OwnerReference for this?
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      svc.Name,
 			Namespace: svc.Namespace,
 			Labels:    labels,
 		},
-		Status: cjfrapi.FlightRecorderStatus{
+		Status: rhjmcv1alpha1.FlightRecorderStatus{
 			Target:          ref,
 			RecordingActive: false,
 			Recordings:      []string{},
