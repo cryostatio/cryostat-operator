@@ -117,38 +117,32 @@ func (r *ReconcileContainerJFR) Reconcile(request reconcile.Request) (reconcile.
 		reqLogger.Info("Creating a new Pod", "Pod.Namespace", pod.Namespace, "Pod.Name", pod.Name)
 
 		pvc := newPersistentVolumeClaimForCR(instance)
-		err = r.client.Create(context.TODO(), pvc)
-		if err != nil {
+		if err := r.client.Create(context.TODO(), pvc); err != nil {
 			return reconcile.Result{}, err
 		}
 
 		pod := newPodForCR(instance)
-		err = r.client.Create(context.TODO(), pod)
-		if err != nil {
+		if err := r.client.Create(context.TODO(), pod); err != nil {
 			return reconcile.Result{}, err
 		}
 
 		grafana := newGrafanaServiceForPod(instance)
-		err = r.client.Create(context.TODO(), grafana)
-		if err != nil {
+		if err := r.client.Create(context.TODO(), grafana); err != nil {
 			return reconcile.Result{}, err
 		}
 
 		datasource := newJfrDatasourceServiceForPod(instance)
-		err = r.client.Create(context.TODO(), datasource)
-		if err != nil {
+		if err := r.client.Create(context.TODO(), datasource); err != nil {
 			return reconcile.Result{}, err
 		}
 
 		exporter := newExporterServiceForPod(instance)
-		err = r.client.Create(context.TODO(), exporter)
-		if err != nil {
+		if err := r.client.Create(context.TODO(), exporter); err != nil {
 			return reconcile.Result{}, err
 		}
 
 		cmdChan := newCommandChannelServiceForPod(instance)
-		err = r.client.Create(context.TODO(), cmdChan)
-		if err != nil {
+		if err := r.client.Create(context.TODO(), cmdChan); err != nil {
 			return reconcile.Result{}, err
 		}
 
