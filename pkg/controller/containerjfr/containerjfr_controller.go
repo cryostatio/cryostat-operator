@@ -351,7 +351,12 @@ func newGrafanaContainer(cr *rhjmcv1alpha1.ContainerJFR) corev1.Container {
 				ContainerPort: 3000,
 			},
 		},
-		Env: []corev1.EnvVar{},
+		Env: []corev1.EnvVar{
+			{
+				Name:  "GF_INSTALL_PLUGINS",
+				Value: "grafana-simple-json-datasource",
+			},
+		},
 	}
 }
 
