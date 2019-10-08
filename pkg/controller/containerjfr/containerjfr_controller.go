@@ -345,7 +345,7 @@ func newCoreContainer(cr *rhjmcv1alpha1.ContainerJFR) corev1.Container {
 func newGrafanaContainer(cr *rhjmcv1alpha1.ContainerJFR) corev1.Container {
 	return corev1.Container{
 		Name:  cr.Name + "-grafana",
-		Image: "docker.io/grafana/grafana",
+		Image: "docker.io/grafana/grafana:6.2.2",
 		Ports: []corev1.ContainerPort{
 			{
 				ContainerPort: 3000,
