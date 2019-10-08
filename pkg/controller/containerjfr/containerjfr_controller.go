@@ -259,7 +259,7 @@ func newPodForCR(cr *rhjmcv1alpha1.ContainerJFR) *corev1.Pod {
 func newCoreContainer(cr *rhjmcv1alpha1.ContainerJFR) corev1.Container {
 	return corev1.Container{
 		Name:  cr.Name,
-		Image: "quay.io/rh-jmc-team/container-jfr:0.4.3-debug",
+		Image: "quay.io/rh-jmc-team/container-jfr:0.4.4-debug",
 		VolumeMounts: []corev1.VolumeMount{
 			{
 				Name:      cr.Name,
