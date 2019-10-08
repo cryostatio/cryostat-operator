@@ -4,6 +4,6 @@ kind: ConfigMap
 metadata:
   labels:
     app: containerjfr
-  name: containerjfr-grafana-datasource
+  name: containerjfr-jfr-datasource
   annotations:
     expose.config.fabric8.io/url-key: GRAFANA_DATASOURCE_URL

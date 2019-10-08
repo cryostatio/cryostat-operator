@@ -144,7 +144,7 @@ func (r *ReconcileContainerJFR) Reconcile(request reconcile.Request) (reconcile.
 			return reconcile.Result{}, err
 		}
 
-		datasource := newDatasourceServiceForPod(instance)
+		datasource := newJfrDatasourceServiceForPod(instance)
 		err = r.client.Create(context.TODO(), datasource)
 		if err != nil {
 			return reconcile.Result{}, err
@@ -250,7 +250,7 @@ func newPodForCR(cr *rhjmcv1alpha1.ContainerJFR) *corev1.Pod {
 			Containers: []corev1.Container{
 				newCoreContainer(cr),
 				newGrafanaContainer(cr),
-				newGrafanaDatasourceContainer(cr),
+				newJfrDatasourceContainer(cr),
 			},
 		},
 	}
@@ -332,7 +332,7 @@ func newCoreContainer(cr *rhjmcv1alpha1.ContainerJFR) corev1.Container {
 				ValueFrom: &corev1.EnvVarSource{
 					ConfigMapKeyRef: &corev1.ConfigMapKeySelector{
 						LocalObjectReference: corev1.LocalObjectReference{
-							Name: "containerjfr-grafana-datasource",
+							Name: "containerjfr-jfr-datasource",
 						},
 						Key: "GRAFANA_DATASOURCE_URL",
 					},
@@ -355,9 +355,9 @@ func newGrafanaContainer(cr *rhjmcv1alpha1.ContainerJFR) corev1.Container {
 	}
 }
 
-func newGrafanaDatasourceContainer(cr *rhjmcv1alpha1.ContainerJFR) corev1.Container {
+func newJfrDatasourceContainer(cr *rhjmcv1alpha1.ContainerJFR) corev1.Container {
 	return corev1.Container{
-		Name:  cr.Name + "-grafana-datasource",
+		Name:  cr.Name + "-jfr-datasource",
 		Image: "quay.io/rh-jmc-team/jfr-datasource",
 		Ports: []corev1.ContainerPort{
 			{
@@ -458,10 +458,10 @@ func newGrafanaServiceForPod(cr *rhjmcv1alpha1.ContainerJFR) *corev1.Service {
 	}
 }
 
-func newDatasourceServiceForPod(cr *rhjmcv1alpha1.ContainerJFR) *corev1.Service {
+func newJfrDatasourceServiceForPod(cr *rhjmcv1alpha1.ContainerJFR) *corev1.Service {
 	return &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      cr.Name + "-grafana-datasource",
+			Name:      cr.Name + "-jfr-datasource",
 			Namespace: cr.Namespace,
 			Labels: map[string]string{
 				"app":       cr.Name,
