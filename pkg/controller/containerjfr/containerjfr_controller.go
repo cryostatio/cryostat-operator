@@ -116,19 +116,9 @@ func (r *ReconcileContainerJFR) Reconcile(request reconcile.Request) (reconcile.
 	if err != nil && errors.IsNotFound(err) {
 		reqLogger.Info("Creating a new Pod", "Pod.Namespace", pod.Namespace, "Pod.Name", pod.Name)
 
-		pv := newPersistentVolumeForCR(instance)
-		err = r.client.Create(context.TODO(), pv)
-		if err != nil && errors.IsAlreadyExists(err) {
-			reqLogger.Info("Skipping creation of persistentvolume " + instance.Name + " - already exists")
-		} else if err != nil {
-			return reconcile.Result{}, err
-		}
-
 		pvc := newPersistentVolumeClaimForCR(instance)
 		err = r.client.Create(context.TODO(), pvc)
-		if err != nil && errors.IsAlreadyExists(err) {
-			reqLogger.Info("Skipping creation of persistentvolumeclaim " + instance.Name + " - already exists")
-		} else if err != nil {
+		if err != nil {
 			return reconcile.Result{}, err
 		}
 
@@ -173,31 +163,8 @@ func (r *ReconcileContainerJFR) Reconcile(request reconcile.Request) (reconcile.
 	return reconcile.Result{}, nil
 }
 
-func newPersistentVolumeForCR(cr *rhjmcv1alpha1.ContainerJFR) *corev1.PersistentVolume {
-	return &corev1.PersistentVolume{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      cr.Name,
-			Namespace: cr.Namespace,
-			Labels: map[string]string{
-				"app": cr.Name,
-			},
-		},
-		Spec: corev1.PersistentVolumeSpec{
-			Capacity: map[corev1.ResourceName]resource.Quantity{
-				"storage": *resource.NewQuantity(500*1024*1024, resource.BinarySI),
-			},
-			PersistentVolumeSource: corev1.PersistentVolumeSource{
-				//TODO replace this with a production quality source
-				HostPath: &corev1.HostPathVolumeSource{
-					Path: "/" + cr.Name,
-				},
-			},
-			AccessModes: []corev1.PersistentVolumeAccessMode{"ReadWriteMany"},
-		},
-	}
-}
-
 func newPersistentVolumeClaimForCR(cr *rhjmcv1alpha1.ContainerJFR) *corev1.PersistentVolumeClaim {
+	storageClassName := ""
 	return &corev1.PersistentVolumeClaim{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      cr.Name,
@@ -207,17 +174,9 @@ func newPersistentVolumeClaimForCR(cr *rhjmcv1alpha1.ContainerJFR) *corev1.Persi
 			},
 		},
 		Spec: corev1.PersistentVolumeClaimSpec{
-			Selector: &metav1.LabelSelector{
-				MatchLabels: map[string]string{
-					"app": cr.Name,
-				},
-			},
-			VolumeName:  cr.Name,
-			AccessModes: []corev1.PersistentVolumeAccessMode{"ReadWriteMany"},
+			StorageClassName: &storageClassName,
+			AccessModes:      []corev1.PersistentVolumeAccessMode{"ReadWriteOnce"},
 			Resources: corev1.ResourceRequirements{
-				Limits: map[corev1.ResourceName]resource.Quantity{
-					"storage": *resource.NewQuantity(500*1024*1024, resource.BinarySI),
-				},
 				Requests: map[corev1.ResourceName]resource.Quantity{
 					"storage": *resource.NewQuantity(500*1024*1024, resource.BinarySI),
 				},
@@ -263,7 +222,7 @@ func newCoreContainer(cr *rhjmcv1alpha1.ContainerJFR) corev1.Container {
 		VolumeMounts: []corev1.VolumeMount{
 			{
 				Name:      cr.Name,
-				MountPath: "/flightrecordings",
+				MountPath: "flightrecordings",
 			},
 		},
 		Ports: []corev1.ContainerPort{

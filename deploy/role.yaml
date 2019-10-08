@@ -13,7 +13,6 @@ rules:
   - routes
   - routes.route.openshift.io
   - endpoints
-  - persistentvolumes
   - persistentvolumeclaims
   - events
   - configmaps
