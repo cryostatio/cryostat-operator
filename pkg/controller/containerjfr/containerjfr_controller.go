@@ -2,6 +2,7 @@ package containerjfr
 
 import (
 	"context"
+	"fmt"
 
 	rhjmcv1alpha1 "github.com/rh-jmc-team/container-jfr-operator/pkg/apis/rhjmc/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
@@ -79,11 +80,6 @@ type ReconcileContainerJFR struct {
 
 // Reconcile reads that state of the cluster for a ContainerJFR object and makes changes based on the state read
 // and what is in the ContainerJFR.Spec
-// TODO(user): Modify this Reconcile function to implement your Controller logic.  This example creates
-// a Pod as an example
-// Note:
-// The Controller will requeue the Request to be processed again if the returned error is non-nil or
-// Result.Requeue is true, otherwise upon completion it will remove the work from the queue.
 func (r *ReconcileContainerJFR) Reconcile(request reconcile.Request) (reconcile.Result, error) {
 	reqLogger := log.WithValues("Request.Namespace", request.Namespace, "Request.Name", request.Name)
 	reqLogger.Info("Reconciling ContainerJFR")
@@ -100,83 +96,44 @@ func (r *ReconcileContainerJFR) Reconcile(request reconcile.Request) (reconcile.
 			return reconcile.Result{}, nil
 		}
 		reqLogger.Error(err, "Error reading ContainerJFR instance")
-		// Error reading the object - requeue the request.
 		return reconcile.Result{}, err
 	}
 
-	reqLogger.Info("Checking ContainerJFR PersistentVolumeClaim")
-	pvc := &corev1.PersistentVolumeClaim{}
-	err = r.client.Get(context.TODO(), request.NamespacedName, pvc)
-	if err != nil {
-		if errors.IsNotFound(err) {
-			reqLogger.Info("PersistentVolumeClaim not found")
-			pvc := newPersistentVolumeClaimForCR(instance)
-			if err := r.client.Create(context.TODO(), pvc); err != nil {
-				reqLogger.Error(err, "PersistentVolumeClaim could not be created")
-				return reconcile.Result{}, err
-			} else {
-				reqLogger.Info("PersistentVolumeClaim created")
-				return reconcile.Result{Requeue: true}, nil
-			}
-		} else {
-			reqLogger.Error(err, "Error reading PersistentVolumeClaim")
-			return reconcile.Result{}, err
-		}
+	pvc := newPersistentVolumeClaimForCR(instance)
+	if err = r.createObjectIfNotExists(context.TODO(), types.NamespacedName{Name: pvc.Name, Namespace: pvc.Namespace}, &corev1.PersistentVolumeClaim{}, pvc); err != nil {
+		return reconcile.Result{}, err
 	}
-	reqLogger.Info("PersistentVolumeClaim already exists")
 
-	// Define a new Pod object
 	pod := newPodForCR(instance)
-	// Set ContainerJFR instance as the owner and controller
 	if err := controllerutil.SetControllerReference(instance, pod, r.scheme); err != nil {
-		reqLogger.Error(err, "ContainerJFR could not be set as pod owner")
+		return reconcile.Result{}, err
+	}
+	if err = r.createObjectIfNotExists(context.TODO(), types.NamespacedName{Name: pod.Name, Namespace: pod.Namespace}, &corev1.Pod{}, pod); err != nil {
+		reqLogger.Error(err, "Could not create pod")
 		return reconcile.Result{}, err
 	}
 
-	// Check if this Pod already exists
-	found := &corev1.Pod{}
-	err = r.client.Get(context.TODO(), types.NamespacedName{Name: pod.Name, Namespace: pod.Namespace}, found)
-	if err != nil && errors.IsNotFound(err) {
-		reqLogger.Info("Creating a new Pod", "Pod.Namespace", pod.Namespace, "Pod.Name", pod.Name)
-
-		if err := r.client.Create(context.TODO(), pod); err != nil {
-			reqLogger.Error(err, "Could not create pod")
-			return reconcile.Result{}, err
-		}
-
-		grafana := newGrafanaServiceForPod(instance)
-		if err := r.client.Create(context.TODO(), grafana); err != nil {
-			reqLogger.Error(err, "Could not create Grafana service")
-			return reconcile.Result{}, err
-		}
-
-		datasource := newJfrDatasourceServiceForPod(instance)
-		if err := r.client.Create(context.TODO(), datasource); err != nil {
-			reqLogger.Error(err, "Could not create jfr-datasource service")
-			return reconcile.Result{}, err
-		}
-
-		exporter := newExporterServiceForPod(instance)
-		if err := r.client.Create(context.TODO(), exporter); err != nil {
-			reqLogger.Error(err, "Could not create exporter service")
-			return reconcile.Result{}, err
-		}
-
-		cmdChan := newCommandChannelServiceForPod(instance)
-		if err := r.client.Create(context.TODO(), cmdChan); err != nil {
-			reqLogger.Error(err, "Could not create command channel service")
-			return reconcile.Result{}, err
-		}
-
-		// Pod created successfully - don't requeue
-		reqLogger.Info("Pod created successfully")
-		return reconcile.Result{}, nil
-	} else if err != nil {
+	grafana := newGrafanaServiceForPod(instance)
+	if err = r.createObjectIfNotExists(context.TODO(), types.NamespacedName{Name: grafana.Name, Namespace: grafana.Namespace}, &corev1.Service{}, grafana); err != nil {
 		return reconcile.Result{}, err
 	}
 
-	// Pod already exists - don't requeue
-	reqLogger.Info("Skip reconcile: Pod already exists", "Pod.Namespace", found.Namespace, "Pod.Name", found.Name)
+	datasource := newJfrDatasourceServiceForPod(instance)
+	if err = r.createObjectIfNotExists(context.TODO(), types.NamespacedName{Name: datasource.Name, Namespace: datasource.Namespace}, &corev1.Service{}, datasource); err != nil {
+		return reconcile.Result{}, err
+	}
+
+	exporter := newExporterServiceForPod(instance)
+	if err = r.createObjectIfNotExists(context.TODO(), types.NamespacedName{Name: exporter.Name, Namespace: exporter.Namespace}, &corev1.Service{}, exporter); err != nil {
+		return reconcile.Result{}, err
+	}
+
+	cmdChan := newCommandChannelServiceForPod(instance)
+	if err = r.createObjectIfNotExists(context.TODO(), types.NamespacedName{Name: cmdChan.Name, Namespace: cmdChan.Namespace}, &corev1.Service{}, cmdChan); err != nil {
+		return reconcile.Result{}, err
+	}
+
+	reqLogger.Info("Skip reconcile: Pod already exists", "Pod.Namespace", pod.Namespace, "Pod.Name", pod.Name)
 	return reconcile.Result{}, nil
 }
 
@@ -466,4 +423,23 @@ func newJfrDatasourceServiceForPod(cr *rhjmcv1alpha1.ContainerJFR) *corev1.Servi
 			},
 		},
 	}
+}
+
+func (r *ReconcileContainerJFR) createObjectIfNotExists(ctx context.Context, ns types.NamespacedName, found runtime.Object, toCreate runtime.Object) error {
+	logger := log.WithValues("Request.Namespace", ns.Namespace, "Name", ns.Name, "Kind", fmt.Sprintf("%T", toCreate))
+	err := r.client.Get(ctx, ns, found)
+	if err != nil && errors.IsNotFound(err) {
+		logger.Info("Not found")
+		if err := r.client.Create(ctx, toCreate); err != nil {
+			logger.Error(err, "Could not be created")
+			return err
+		} else {
+			logger.Info("Created")
+		}
+	} else if err != nil {
+		logger.Error(err, "Could not be read")
+		return err
+	}
+	logger.Info("Already exists")
+	return nil
 }
