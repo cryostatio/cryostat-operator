@@ -113,35 +113,19 @@ func (r *ReconcileContainerJFR) Reconcile(request reconcile.Request) (reconcile.
 		return reconcile.Result{}, err
 	}
 
-	grafana := newGrafanaServiceForPod(instance)
-	if err := controllerutil.SetControllerReference(instance, grafana, r.scheme); err != nil {
-		return reconcile.Result{}, err
-	}
-	if err = r.createObjectIfNotExists(context.TODO(), types.NamespacedName{Name: grafana.Name, Namespace: grafana.Namespace}, &corev1.Service{}, grafana); err != nil {
+	if err := r.createService(context.TODO(), instance, newGrafanaServiceForPod(instance)); err != nil {
 		return reconcile.Result{}, err
 	}
 
-	datasource := newJfrDatasourceServiceForPod(instance)
-	if err := controllerutil.SetControllerReference(instance, datasource, r.scheme); err != nil {
-		return reconcile.Result{}, err
-	}
-	if err = r.createObjectIfNotExists(context.TODO(), types.NamespacedName{Name: datasource.Name, Namespace: datasource.Namespace}, &corev1.Service{}, datasource); err != nil {
+	if err := r.createService(context.TODO(), instance, newJfrDatasourceServiceForPod(instance)); err != nil {
 		return reconcile.Result{}, err
 	}
 
-	exporter := newExporterServiceForPod(instance)
-	if err := controllerutil.SetControllerReference(instance, exporter, r.scheme); err != nil {
-		return reconcile.Result{}, err
-	}
-	if err = r.createObjectIfNotExists(context.TODO(), types.NamespacedName{Name: exporter.Name, Namespace: exporter.Namespace}, &corev1.Service{}, exporter); err != nil {
+	if err := r.createService(context.TODO(), instance, newExporterServiceForPod(instance)); err != nil {
 		return reconcile.Result{}, err
 	}
 
-	cmdChan := newCommandChannelServiceForPod(instance)
-	if err := controllerutil.SetControllerReference(instance, cmdChan, r.scheme); err != nil {
-		return reconcile.Result{}, err
-	}
-	if err = r.createObjectIfNotExists(context.TODO(), types.NamespacedName{Name: cmdChan.Name, Namespace: cmdChan.Namespace}, &corev1.Service{}, cmdChan); err != nil {
+	if err := r.createService(context.TODO(), instance, newCommandChannelServiceForPod(instance)); err != nil {
 		return reconcile.Result{}, err
 	}
 
@@ -435,6 +419,16 @@ func newJfrDatasourceServiceForPod(cr *rhjmcv1alpha1.ContainerJFR) *corev1.Servi
 			},
 		},
 	}
+}
+
+func (r *ReconcileContainerJFR) createService(ctx context.Context, controller *rhjmcv1alpha1.ContainerJFR, svc *corev1.Service) error {
+	if err := controllerutil.SetControllerReference(controller, svc, r.scheme); err != nil {
+		return err
+	}
+	if err := r.createObjectIfNotExists(context.TODO(), types.NamespacedName{Name: svc.Name, Namespace: svc.Namespace}, &corev1.Service{}, svc); err != nil {
+		return err
+	}
+	return nil
 }
 
 func (r *ReconcileContainerJFR) createObjectIfNotExists(ctx context.Context, ns types.NamespacedName, found runtime.Object, toCreate runtime.Object) error {
