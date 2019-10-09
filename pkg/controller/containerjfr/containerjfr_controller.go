@@ -96,17 +96,40 @@ func (r *ReconcileContainerJFR) Reconcile(request reconcile.Request) (reconcile.
 			// Request object not found, could have been deleted after reconcile request.
 			// Owned objects are automatically garbage collected. For additional cleanup logic use finalizers.
 			// Return and don't requeue
+			reqLogger.Info("ContainerJFR instance not found")
 			return reconcile.Result{}, nil
 		}
+		reqLogger.Error(err, "Error reading ContainerJFR instance")
 		// Error reading the object - requeue the request.
 		return reconcile.Result{}, err
 	}
 
+	reqLogger.Info("Checking ContainerJFR PersistentVolumeClaim")
+	pvc := &corev1.PersistentVolumeClaim{}
+	err = r.client.Get(context.TODO(), request.NamespacedName, pvc)
+	if err != nil {
+		if errors.IsNotFound(err) {
+			reqLogger.Info("PersistentVolumeClaim not found")
+			pvc := newPersistentVolumeClaimForCR(instance)
+			if err := r.client.Create(context.TODO(), pvc); err != nil {
+				reqLogger.Error(err, "PersistentVolumeClaim could not be created")
+				return reconcile.Result{}, err
+			} else {
+				reqLogger.Info("PersistentVolumeClaim created")
+				return reconcile.Result{Requeue: true}, nil
+			}
+		} else {
+			reqLogger.Error(err, "Error reading PersistentVolumeClaim")
+			return reconcile.Result{}, err
+		}
+	}
+	reqLogger.Info("PersistentVolumeClaim already exists")
+
 	// Define a new Pod object
 	pod := newPodForCR(instance)
-
 	// Set ContainerJFR instance as the owner and controller
 	if err := controllerutil.SetControllerReference(instance, pod, r.scheme); err != nil {
+		reqLogger.Error(err, "ContainerJFR could not be set as pod owner")
 		return reconcile.Result{}, err
 	}
 
@@ -116,37 +139,37 @@ func (r *ReconcileContainerJFR) Reconcile(request reconcile.Request) (reconcile.
 	if err != nil && errors.IsNotFound(err) {
 		reqLogger.Info("Creating a new Pod", "Pod.Namespace", pod.Namespace, "Pod.Name", pod.Name)
 
-		pvc := newPersistentVolumeClaimForCR(instance)
-		if err := r.client.Create(context.TODO(), pvc); err != nil {
-			return reconcile.Result{}, err
-		}
-
-		pod := newPodForCR(instance)
 		if err := r.client.Create(context.TODO(), pod); err != nil {
+			reqLogger.Error(err, "Could not create pod")
 			return reconcile.Result{}, err
 		}
 
 		grafana := newGrafanaServiceForPod(instance)
 		if err := r.client.Create(context.TODO(), grafana); err != nil {
+			reqLogger.Error(err, "Could not create Grafana service")
 			return reconcile.Result{}, err
 		}
 
 		datasource := newJfrDatasourceServiceForPod(instance)
 		if err := r.client.Create(context.TODO(), datasource); err != nil {
+			reqLogger.Error(err, "Could not create jfr-datasource service")
 			return reconcile.Result{}, err
 		}
 
 		exporter := newExporterServiceForPod(instance)
 		if err := r.client.Create(context.TODO(), exporter); err != nil {
+			reqLogger.Error(err, "Could not create exporter service")
 			return reconcile.Result{}, err
 		}
 
 		cmdChan := newCommandChannelServiceForPod(instance)
 		if err := r.client.Create(context.TODO(), cmdChan); err != nil {
+			reqLogger.Error(err, "Could not create command channel service")
 			return reconcile.Result{}, err
 		}
 
 		// Pod created successfully - don't requeue
+		reqLogger.Info("Pod created successfully")
 		return reconcile.Result{}, nil
 	} else if err != nil {
 		return reconcile.Result{}, err
