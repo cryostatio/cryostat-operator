@@ -28,8 +28,32 @@ spec:
         metadata:
           type: object
         spec:
+          properties:
+            recordingActive:
+              description: Specifies whether a JFR recording should be started or
+                stopped
+              type: boolean
+          required:
+          - recordingActive
           type: object
         status:
+          properties:
+            recordingActive:
+              description: Whether the pod/service is currently recording
+              type: boolean
+            recordings:
+              description: Lists all recordings for the pod/service that may be downloaded
+              items:
+                type: string
+              type: array
+            target:
+              description: Reference to the pod/service that this object controls
+                JFR for
+              type: object
+          required:
+          - target
+          - recordingActive
+          - recordings
           type: object
   version: v1alpha1
   versions:

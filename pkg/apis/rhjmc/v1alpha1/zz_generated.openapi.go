@@ -135,7 +135,16 @@ func schema_pkg_apis_rhjmc_v1alpha1_FlightRecorderSpec(ref common.ReferenceCallb
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
 				Description: "FlightRecorderSpec defines the desired state of FlightRecorder",
-				Properties:  map[string]spec.Schema{},
+				Properties: map[string]spec.Schema{
+					"recordingActive": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Specifies whether a JFR recording should be started or stopped",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
+				},
+				Required: []string{"recordingActive"},
 			},
 		},
 		Dependencies: []string{},
@@ -147,9 +156,39 @@ func schema_pkg_apis_rhjmc_v1alpha1_FlightRecorderStatus(ref common.ReferenceCal
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
 				Description: "FlightRecorderStatus defines the observed state of FlightRecorder",
-				Properties:  map[string]spec.Schema{},
+				Properties: map[string]spec.Schema{
+					"target": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Reference to the pod/service that this object controls JFR for",
+							Ref:         ref("k8s.io/api/core/v1.ObjectReference"),
+						},
+					},
+					"recordingActive": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Whether the pod/service is currently recording",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
+					"recordings": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Lists all recordings for the pod/service that may be downloaded",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Type:   []string{"string"},
+										Format: "",
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"target", "recordingActive", "recordings"},
 			},
 		},
-		Dependencies: []string{},
+		Dependencies: []string{
+			"k8s.io/api/core/v1.ObjectReference"},
 	}
 }
