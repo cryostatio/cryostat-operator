@@ -5,10 +5,9 @@ import (
 	"fmt"
 
 	rhjmcv1alpha1 "github.com/rh-jmc-team/container-jfr-operator/pkg/apis/rhjmc/v1alpha1"
+	resources "github.com/rh-jmc-team/container-jfr-operator/pkg/controller/containerjfr/resource_definitions"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/api/resource"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -98,12 +97,12 @@ func (r *ReconcileContainerJFR) Reconcile(request reconcile.Request) (reconcile.
 		return reconcile.Result{}, err
 	}
 
-	pvc := newPersistentVolumeClaimForCR(instance)
+	pvc := resources.NewPersistentVolumeClaimForCR(instance)
 	if err = r.createObjectIfNotExists(context.TODO(), types.NamespacedName{Name: pvc.Name, Namespace: pvc.Namespace}, &corev1.PersistentVolumeClaim{}, pvc); err != nil {
 		return reconcile.Result{}, err
 	}
 
-	pod := newPodForCR(instance)
+	pod := resources.NewPodForCR(instance)
 	if err := controllerutil.SetControllerReference(instance, pod, r.scheme); err != nil {
 		return reconcile.Result{}, err
 	}
@@ -112,19 +111,19 @@ func (r *ReconcileContainerJFR) Reconcile(request reconcile.Request) (reconcile.
 		return reconcile.Result{}, err
 	}
 
-	if err := r.createService(context.TODO(), instance, newGrafanaServiceForPod(instance)); err != nil {
+	if err := r.createService(context.TODO(), instance, resources.NewGrafanaServiceForPod(instance)); err != nil {
 		return reconcile.Result{}, err
 	}
 
-	if err := r.createService(context.TODO(), instance, newJfrDatasourceServiceForPod(instance)); err != nil {
+	if err := r.createService(context.TODO(), instance, resources.NewJfrDatasourceServiceForPod(instance)); err != nil {
 		return reconcile.Result{}, err
 	}
 
-	if err := r.createService(context.TODO(), instance, newExporterServiceForPod(instance)); err != nil {
+	if err := r.createService(context.TODO(), instance, resources.NewExporterServiceForPod(instance)); err != nil {
 		return reconcile.Result{}, err
 	}
 
-	if err := r.createService(context.TODO(), instance, newCommandChannelServiceForPod(instance)); err != nil {
+	if err := r.createService(context.TODO(), instance, resources.NewCommandChannelServiceForPod(instance)); err != nil {
 		return reconcile.Result{}, err
 	}
 
