@@ -21,6 +21,8 @@ deploy: undeploy
 	oc create -f deploy/role_binding.yaml
 	oc create -f deploy/crds/rhjmc_v1alpha1_flightrecorder_crd.yaml
 	oc create -f deploy/crds/rhjmc_v1alpha1_containerjfr_crd.yaml
+	oc create -f deploy/containerjfr_grafana_config_map.yaml
+	oc create -f deploy/containerjfr_jfr_datasource_config_map.yaml
 	oc create -f deploy/containerjfr_command_config_map.yaml
 	oc create -f deploy/containerjfr_config_map.yaml
 	sed -e 's|REPLACE_IMAGE|$(IMAGE_TAG)|g' deploy/operator.yaml | oc create -f -
@@ -29,7 +31,7 @@ deploy: undeploy
 	sed -e 's|REPLACE_PROJECT|$(shell oc project -q)|g' deploy/exposecontroller.yaml | oc create -f -
 
 .PHONY: undeploy
-undeploy:
+undeploy: undeploy_sample_app
 	- oc delete deployment exposecontroller
 	- oc delete configmap exposecontroller
 	- oc delete all -l project=exposecontroller
@@ -39,9 +41,19 @@ undeploy:
 	- oc delete flightrecorder --all
 	- oc delete all -l name=container-jfr-operator
 	- oc delete all -l app=containerjfr
+	- oc delete persistentvolumeclaims -l app=containerjfr
+	- oc delete persistentvolumes -l app=containerjfr
 	- oc delete configmaps -l app=containerjfr
 	- oc delete role container-jfr-operator
 	- oc delete rolebinding container-jfr-operator
 	- oc delete serviceaccount container-jfr-operator
 	- oc delete crd flightrecorders.rhjmc.redhat.com
 	- oc delete crd containerjfrs.rhjmc.redhat.com
+
+.PHONY: sample_app
+sample_app:
+	oc new-app andrewazores/container-jmx-docker-listener:latest --name=jmx-listener
+
+.PHONY: undeploy_sample_app
+undeploy_sample_app:
+	- oc delete all -l app=jmx-listener

@@ -2,14 +2,14 @@ package containerjfr
 
 import (
 	"context"
+	"fmt"
 
 	rhjmcv1alpha1 "github.com/rh-jmc-team/container-jfr-operator/pkg/apis/rhjmc/v1alpha1"
+	resources "github.com/rh-jmc-team/container-jfr-operator/pkg/controller/containerjfr/resource_definitions"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/apimachinery/pkg/util/intstr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -78,11 +78,6 @@ type ReconcileContainerJFR struct {
 
 // Reconcile reads that state of the cluster for a ContainerJFR object and makes changes based on the state read
 // and what is in the ContainerJFR.Spec
-// TODO(user): Modify this Reconcile function to implement your Controller logic.  This example creates
-// a Pod as an example
-// Note:
-// The Controller will requeue the Request to be processed again if the returned error is non-nil or
-// Result.Requeue is true, otherwise upon completion it will remove the work from the queue.
 func (r *ReconcileContainerJFR) Reconcile(request reconcile.Request) (reconcile.Result, error) {
 	reqLogger := log.WithValues("Request.Namespace", request.Namespace, "Request.Name", request.Name)
 	reqLogger.Info("Reconciling ContainerJFR")
@@ -95,182 +90,72 @@ func (r *ReconcileContainerJFR) Reconcile(request reconcile.Request) (reconcile.
 			// Request object not found, could have been deleted after reconcile request.
 			// Owned objects are automatically garbage collected. For additional cleanup logic use finalizers.
 			// Return and don't requeue
+			reqLogger.Info("ContainerJFR instance not found")
 			return reconcile.Result{}, nil
 		}
-		// Error reading the object - requeue the request.
+		reqLogger.Error(err, "Error reading ContainerJFR instance")
 		return reconcile.Result{}, err
 	}
 
-	// Define a new Pod object
-	pod := newPodForCR(instance)
+	pvc := resources.NewPersistentVolumeClaimForCR(instance)
+	if err = r.createObjectIfNotExists(context.TODO(), types.NamespacedName{Name: pvc.Name, Namespace: pvc.Namespace}, &corev1.PersistentVolumeClaim{}, pvc); err != nil {
+		return reconcile.Result{}, err
+	}
 
-	// Set ContainerJFR instance as the owner and controller
+	pod := resources.NewPodForCR(instance)
 	if err := controllerutil.SetControllerReference(instance, pod, r.scheme); err != nil {
 		return reconcile.Result{}, err
 	}
-
-	// Check if this Pod already exists
-	found := &corev1.Pod{}
-	err = r.client.Get(context.TODO(), types.NamespacedName{Name: pod.Name, Namespace: pod.Namespace}, found)
-	if err != nil && errors.IsNotFound(err) {
-		reqLogger.Info("Creating a new Pod", "Pod.Namespace", pod.Namespace, "Pod.Name", pod.Name)
-		err = r.client.Create(context.TODO(), pod)
-		if err != nil {
-			return reconcile.Result{}, err
-		}
-
-		exporter := newExporterServiceForPod(instance)
-		err = r.client.Create(context.TODO(), exporter)
-		if err != nil {
-			return reconcile.Result{}, err
-		}
-
-		cmdChan := newCommandChannelServiceForPod(instance)
-		err = r.client.Create(context.TODO(), cmdChan)
-		if err != nil {
-			return reconcile.Result{}, err
-		}
-
-		// Pod created successfully - don't requeue
-		return reconcile.Result{}, nil
-	} else if err != nil {
+	if err = r.createObjectIfNotExists(context.TODO(), types.NamespacedName{Name: pod.Name, Namespace: pod.Namespace}, &corev1.Pod{}, pod); err != nil {
+		reqLogger.Error(err, "Could not create pod")
 		return reconcile.Result{}, err
 	}
 
-	// Pod already exists - don't requeue
-	reqLogger.Info("Skip reconcile: Pod already exists", "Pod.Namespace", found.Namespace, "Pod.Name", found.Name)
+	if err := r.createService(context.TODO(), instance, resources.NewGrafanaServiceForPod(instance)); err != nil {
+		return reconcile.Result{}, err
+	}
+
+	if err := r.createService(context.TODO(), instance, resources.NewJfrDatasourceServiceForPod(instance)); err != nil {
+		return reconcile.Result{}, err
+	}
+
+	if err := r.createService(context.TODO(), instance, resources.NewExporterServiceForPod(instance)); err != nil {
+		return reconcile.Result{}, err
+	}
+
+	if err := r.createService(context.TODO(), instance, resources.NewCommandChannelServiceForPod(instance)); err != nil {
+		return reconcile.Result{}, err
+	}
+
+	reqLogger.Info("Skip reconcile: Pod already exists", "Pod.Namespace", pod.Namespace, "Pod.Name", pod.Name)
 	return reconcile.Result{}, nil
 }
 
-func newPodForCR(cr *rhjmcv1alpha1.ContainerJFR) *corev1.Pod {
-	labels := map[string]string{
-		"app": cr.Name,
+func (r *ReconcileContainerJFR) createService(ctx context.Context, controller *rhjmcv1alpha1.ContainerJFR, svc *corev1.Service) error {
+	if err := controllerutil.SetControllerReference(controller, svc, r.scheme); err != nil {
+		return err
 	}
-	return &corev1.Pod{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      cr.Name + "-pod",
-			Namespace: cr.Namespace,
-			Labels:    labels,
-		},
-		Spec: corev1.PodSpec{
-			Containers: []corev1.Container{
-				{
-					Name:  cr.Name,
-					Image: "quay.io/rh-jmc-team/container-jfr:0.4.0-debug",
-					Ports: []corev1.ContainerPort{
-						{
-							ContainerPort: 8181,
-						},
-						{
-							ContainerPort: 9090,
-						},
-						{
-							ContainerPort: 9091,
-						},
-					},
-					Env: []corev1.EnvVar{
-						{
-							Name:  "CONTAINER_JFR_WEB_PORT",
-							Value: "8181",
-						},
-						{
-							Name:  "CONTAINER_JFR_EXT_WEB_PORT",
-							Value: "80",
-						},
-						{
-							Name: "CONTAINER_JFR_WEB_HOST",
-							ValueFrom: &corev1.EnvVarSource{
-								ConfigMapKeyRef: &corev1.ConfigMapKeySelector{
-									LocalObjectReference: corev1.LocalObjectReference{
-										Name: "containerjfr",
-									},
-									Key: "CONTAINER_JFR_WEB_HOST",
-								},
-							},
-						},
-						{
-							Name:  "CONTAINER_JFR_LISTEN_PORT",
-							Value: "9090",
-						},
-						{
-							Name:  "CONTAINER_JFR_EXT_LISTEN_PORT",
-							Value: "80",
-						},
-						{
-							Name: "CONTAINER_JFR_LISTEN_HOST",
-							ValueFrom: &corev1.EnvVarSource{
-								ConfigMapKeyRef: &corev1.ConfigMapKeySelector{
-									LocalObjectReference: corev1.LocalObjectReference{
-										Name: "containerjfr-command",
-									},
-									Key: "CONTAINER_JFR_LISTEN_HOST",
-								},
-							},
-						},
-					},
-				},
-			},
-		},
+	if err := r.createObjectIfNotExists(context.TODO(), types.NamespacedName{Name: svc.Name, Namespace: svc.Namespace}, &corev1.Service{}, svc); err != nil {
+		return err
 	}
+	return nil
 }
 
-func newExporterServiceForPod(cr *rhjmcv1alpha1.ContainerJFR) *corev1.Service {
-	return &corev1.Service{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      cr.Name,
-			Namespace: cr.Namespace,
-			Labels: map[string]string{
-				"app": cr.Name,
-			},
-			Annotations: map[string]string{
-				"fabric8.io/expose": "true",
-			},
-		},
-		Spec: corev1.ServiceSpec{
-			Type: corev1.ServiceTypeClusterIP,
-			Selector: map[string]string{
-				"app": cr.Name,
-			},
-			Ports: []corev1.ServicePort{
-				{
-					Name:       "8181-tcp",
-					Port:       8181,
-					TargetPort: intstr.IntOrString{IntVal: 8181},
-				},
-				{
-					Name:       "9091-tcp",
-					Port:       9091,
-					TargetPort: intstr.IntOrString{IntVal: 9091},
-				},
-			},
-		},
+func (r *ReconcileContainerJFR) createObjectIfNotExists(ctx context.Context, ns types.NamespacedName, found runtime.Object, toCreate runtime.Object) error {
+	logger := log.WithValues("Request.Namespace", ns.Namespace, "Name", ns.Name, "Kind", fmt.Sprintf("%T", toCreate))
+	err := r.client.Get(ctx, ns, found)
+	if err != nil && errors.IsNotFound(err) {
+		logger.Info("Not found")
+		if err := r.client.Create(ctx, toCreate); err != nil {
+			logger.Error(err, "Could not be created")
+			return err
+		} else {
+			logger.Info("Created")
+		}
+	} else if err != nil {
+		logger.Error(err, "Could not be read")
+		return err
 	}
-}
-
-func newCommandChannelServiceForPod(cr *rhjmcv1alpha1.ContainerJFR) *corev1.Service {
-	return &corev1.Service{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      cr.Name + "-command",
-			Namespace: cr.Namespace,
-			Labels: map[string]string{
-				"app": cr.Name,
-			},
-			Annotations: map[string]string{
-				"fabric8.io/expose": "true",
-			},
-		},
-		Spec: corev1.ServiceSpec{
-			Type: corev1.ServiceTypeClusterIP,
-			Selector: map[string]string{
-				"app": cr.Name,
-			},
-			Ports: []corev1.ServicePort{
-				{
-					Name:       "9090-tcp",
-					Port:       9090,
-					TargetPort: intstr.IntOrString{IntVal: 9090},
-				},
-			},
-		},
-	}
+	logger.Info("Already exists")
+	return nil
 }
