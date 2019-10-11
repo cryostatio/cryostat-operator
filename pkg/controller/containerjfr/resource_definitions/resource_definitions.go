@@ -20,7 +20,7 @@ func NewPersistentVolumeClaimForCR(cr *rhjmcv1alpha1.ContainerJFR) *corev1.Persi
 		},
 		Spec: corev1.PersistentVolumeClaimSpec{
 			StorageClassName: &storageClassName,
-			AccessModes:      []corev1.PersistentVolumeAccessMode{"ReadWriteOnce"},
+			AccessModes:      []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce},
 			Resources: corev1.ResourceRequirements{
 				Requests: map[corev1.ResourceName]resource.Quantity{
 					"storage": *resource.NewQuantity(500*1024*1024, resource.BinarySI),
