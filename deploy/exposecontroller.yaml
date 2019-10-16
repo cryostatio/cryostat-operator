@@ -13,19 +13,14 @@ spec:
       labels:
         name: exposecontroller
     spec:
-      serviceAccountName: container-jfr-operator
+      serviceAccountName: exposecontroller
       containers:
-      - image: jenkinsxio/exposecontroller
-        name: exposecontroller
-        args:
-          - --v=8
-            # TODO investigate --watch-current-namespace flag
-          - --watch-namespace=REPLACE_PROJECT
-          - --http=true
-        volumeMounts:
-        - name: config-volume
-          mountPath: /etc/exposecontroller
-      volumes:
-      - name: config-volume
-        configMap:
-          name: exposecontroller
+        - name: exposecontroller
+          image: jenkinsxio/exposecontroller:2.3.98
+          env:
+            - name: KUBERNETES_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+          args:
+            - --http=true

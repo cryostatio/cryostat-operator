@@ -63,7 +63,7 @@ func NewPodForCR(cr *rhjmcv1alpha1.ContainerJFR) *corev1.Pod {
 func NewCoreContainer(cr *rhjmcv1alpha1.ContainerJFR) corev1.Container {
 	return corev1.Container{
 		Name:  cr.Name,
-		Image: "quay.io/rh-jmc-team/container-jfr:0.4.6-debug",
+		Image: "quay.io/rh-jmc-team/container-jfr:0.4.7",
 		VolumeMounts: []corev1.VolumeMount{
 			{
 				Name:      cr.Name,
@@ -186,7 +186,8 @@ func NewExporterServiceForPod(cr *rhjmcv1alpha1.ContainerJFR) *corev1.Service {
 				"app": cr.Name,
 			},
 			Annotations: map[string]string{
-				"fabric8.io/expose": "true",
+				"fabric8.io/expose":     "true",
+				"fabric8.io/exposePort": "8181",
 			},
 		},
 		Spec: corev1.ServiceSpec{
@@ -219,7 +220,8 @@ func NewCommandChannelServiceForPod(cr *rhjmcv1alpha1.ContainerJFR) *corev1.Serv
 				"app": cr.Name,
 			},
 			Annotations: map[string]string{
-				"fabric8.io/expose": "true",
+				"fabric8.io/expose":     "true",
+				"fabric8.io/exposePort": "9090",
 			},
 		},
 		Spec: corev1.ServiceSpec{
@@ -248,7 +250,8 @@ func NewGrafanaServiceForPod(cr *rhjmcv1alpha1.ContainerJFR) *corev1.Service {
 				"component": "grafana",
 			},
 			Annotations: map[string]string{
-				"fabric8.io/expose": "true",
+				"fabric8.io/expose":     "true",
+				"fabric8.io/exposePort": "3000",
 			},
 		},
 		Spec: corev1.ServiceSpec{
