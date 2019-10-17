@@ -22,12 +22,10 @@ deploy: undeploy
 	oc create -f deploy/exposecontroller_role.yaml
 	oc create -f deploy/operator_role_binding.yaml
 	oc create -f deploy/exposecontroller_role_binding.yaml
+	oc create -f deploy/exposecontroller_role_binding_cluster_admin.yaml
+	oc create -f deploy/exposecontroller_role_binding_cluster_reader.yaml
 	oc create -f deploy/crds/rhjmc_v1alpha1_flightrecorder_crd.yaml
 	oc create -f deploy/crds/rhjmc_v1alpha1_containerjfr_crd.yaml
-	oc create -f deploy/containerjfr_grafana_config_map.yaml
-	oc create -f deploy/containerjfr_jfr_datasource_config_map.yaml
-	oc create -f deploy/containerjfr_command_config_map.yaml
-	oc create -f deploy/containerjfr_config_map.yaml
 	sed -e 's|REPLACE_IMAGE|$(IMAGE_TAG)|g' deploy/dev_operator.yaml | oc create -f -
 	oc create -f deploy/crds/rhjmc_v1alpha1_containerjfr_cr.yaml
 	oc create -f deploy/exposecontroller.yaml

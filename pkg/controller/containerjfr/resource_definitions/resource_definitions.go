@@ -30,6 +30,35 @@ func NewPersistentVolumeClaimForCR(cr *rhjmcv1alpha1.ContainerJFR) *corev1.Persi
 	}
 }
 
+func NewCoreConfigMap(cr *rhjmcv1alpha1.ContainerJFR) *corev1.ConfigMap {
+	return NewConfigMap(cr.Name, cr.Name, cr.Namespace, map[string]string{"expose.config.fabric8.io/host-key": "CONTAINER_JFR_WEB_HOST"})
+}
+
+func NewCommandChannelConfigMap(cr *rhjmcv1alpha1.ContainerJFR) *corev1.ConfigMap {
+	return NewConfigMap(cr.Name+"-command", cr.Name, cr.Namespace, map[string]string{"expose.config.fabric8.io/host-key": "CONTAINER_JFR_LISTEN_HOST"})
+}
+
+func NewJfrDatasourceConfigMap(cr *rhjmcv1alpha1.ContainerJFR) *corev1.ConfigMap {
+	return NewConfigMap(cr.Name+"-jfr-datasource", cr.Name, cr.Namespace, map[string]string{"expose.config.fabric8.io/url-key": "GRAFANA_DATASOURCE_URL"})
+}
+
+func NewGrafanaConfigMap(cr *rhjmcv1alpha1.ContainerJFR) *corev1.ConfigMap {
+	return NewConfigMap(cr.Name+"-grafana", cr.Name, cr.Namespace, map[string]string{"expose.config.fabric8.io/url-key": "GRAFANA_DASHBOARD_URL"})
+}
+
+func NewConfigMap(name string, appName string, namespace string, annotations map[string]string) *corev1.ConfigMap {
+	return &corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:        name,
+			Namespace:   namespace,
+			Annotations: annotations,
+			Labels: map[string]string{
+				"app": appName,
+			},
+		},
+	}
+}
+
 func NewPodForCR(cr *rhjmcv1alpha1.ContainerJFR) *corev1.Pod {
 	return &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
@@ -177,7 +206,7 @@ func NewJfrDatasourceContainer(cr *rhjmcv1alpha1.ContainerJFR) corev1.Container 
 	}
 }
 
-func NewExporterServiceForPod(cr *rhjmcv1alpha1.ContainerJFR) *corev1.Service {
+func NewExporterService(cr *rhjmcv1alpha1.ContainerJFR) *corev1.Service {
 	return &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      cr.Name,
@@ -211,7 +240,7 @@ func NewExporterServiceForPod(cr *rhjmcv1alpha1.ContainerJFR) *corev1.Service {
 	}
 }
 
-func NewCommandChannelServiceForPod(cr *rhjmcv1alpha1.ContainerJFR) *corev1.Service {
+func NewCommandChannelService(cr *rhjmcv1alpha1.ContainerJFR) *corev1.Service {
 	return &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      cr.Name + "-command",
@@ -240,7 +269,7 @@ func NewCommandChannelServiceForPod(cr *rhjmcv1alpha1.ContainerJFR) *corev1.Serv
 	}
 }
 
-func NewGrafanaServiceForPod(cr *rhjmcv1alpha1.ContainerJFR) *corev1.Service {
+func NewGrafanaService(cr *rhjmcv1alpha1.ContainerJFR) *corev1.Service {
 	return &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      cr.Name + "-grafana",
@@ -270,7 +299,7 @@ func NewGrafanaServiceForPod(cr *rhjmcv1alpha1.ContainerJFR) *corev1.Service {
 	}
 }
 
-func NewJfrDatasourceServiceForPod(cr *rhjmcv1alpha1.ContainerJFR) *corev1.Service {
+func NewJfrDatasourceService(cr *rhjmcv1alpha1.ContainerJFR) *corev1.Service {
 	return &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      cr.Name + "-jfr-datasource",
