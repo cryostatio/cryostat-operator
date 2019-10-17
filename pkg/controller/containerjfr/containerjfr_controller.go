@@ -102,6 +102,22 @@ func (r *ReconcileContainerJFR) Reconcile(request reconcile.Request) (reconcile.
 		return reconcile.Result{}, err
 	}
 
+	if err := r.createConfigMap(context.TODO(), resources.NewCoreConfigMap(instance)); err != nil {
+		return reconcile.Result{}, err
+	}
+
+	if err := r.createConfigMap(context.TODO(), resources.NewCommandChannelConfigMap(instance)); err != nil {
+		return reconcile.Result{}, err
+	}
+
+	if err := r.createConfigMap(context.TODO(), resources.NewJfrDatasourceConfigMap(instance)); err != nil {
+		return reconcile.Result{}, err
+	}
+
+	if err := r.createConfigMap(context.TODO(), resources.NewGrafanaConfigMap(instance)); err != nil {
+		return reconcile.Result{}, err
+	}
+
 	pod := resources.NewPodForCR(instance)
 	if err := controllerutil.SetControllerReference(instance, pod, r.scheme); err != nil {
 		return reconcile.Result{}, err
@@ -111,24 +127,31 @@ func (r *ReconcileContainerJFR) Reconcile(request reconcile.Request) (reconcile.
 		return reconcile.Result{}, err
 	}
 
-	if err := r.createService(context.TODO(), instance, resources.NewGrafanaServiceForPod(instance)); err != nil {
+	if err := r.createService(context.TODO(), instance, resources.NewGrafanaService(instance)); err != nil {
 		return reconcile.Result{}, err
 	}
 
-	if err := r.createService(context.TODO(), instance, resources.NewJfrDatasourceServiceForPod(instance)); err != nil {
+	if err := r.createService(context.TODO(), instance, resources.NewJfrDatasourceService(instance)); err != nil {
 		return reconcile.Result{}, err
 	}
 
-	if err := r.createService(context.TODO(), instance, resources.NewExporterServiceForPod(instance)); err != nil {
+	if err := r.createService(context.TODO(), instance, resources.NewExporterService(instance)); err != nil {
 		return reconcile.Result{}, err
 	}
 
-	if err := r.createService(context.TODO(), instance, resources.NewCommandChannelServiceForPod(instance)); err != nil {
+	if err := r.createService(context.TODO(), instance, resources.NewCommandChannelService(instance)); err != nil {
 		return reconcile.Result{}, err
 	}
 
 	reqLogger.Info("Skip reconcile: Pod already exists", "Pod.Namespace", pod.Namespace, "Pod.Name", pod.Name)
 	return reconcile.Result{}, nil
+}
+
+func (r *ReconcileContainerJFR) createConfigMap(ctx context.Context, cm *corev1.ConfigMap) error {
+	if err := r.createObjectIfNotExists(context.TODO(), types.NamespacedName{Name: cm.Name, Namespace: cm.Namespace}, &corev1.ConfigMap{}, cm); err != nil {
+		return err
+	}
+	return nil
 }
 
 func (r *ReconcileContainerJFR) createService(ctx context.Context, controller *rhjmcv1alpha1.ContainerJFR, svc *corev1.Service) error {
