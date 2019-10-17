@@ -5,7 +5,7 @@ A Kubernetes Operator to automate deployment of [Container-JFR](https://github.c
 # Using
 Once deployed, the `containerjfr` instance can be accessed via web browser
 at the URL provided by
-`oc get -o json svc/containerjfr | jq -crM '.metadata.annotations["fabric8.io/exposeUrl"]'`.
+`oc get svc/containerjfr --template='{{index .metadata.annotations "fabric8.io/exposeUrl"}}'`.
 
 # Building
 `make image` will create an OCI image to the local registry, tagged as
