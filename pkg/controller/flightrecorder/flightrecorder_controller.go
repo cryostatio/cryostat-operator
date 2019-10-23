@@ -2,10 +2,14 @@ package flightrecorder
 
 import (
 	"context"
+	"net/url"
 
 	rhjmcv1alpha1 "github.com/rh-jmc-team/container-jfr-operator/pkg/apis/rhjmc/v1alpha1"
+	jfrclient "github.com/rh-jmc-team/container-jfr-operator/pkg/client"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
@@ -73,9 +77,30 @@ func (r *ReconcileFlightRecorder) Reconcile(request reconcile.Request) (reconcil
 	reqLogger := log.WithValues("Request.Namespace", request.Namespace, "Request.Name", request.Name)
 	reqLogger.Info("Reconciling FlightRecorder")
 
+	commandSvc := &corev1.Service{}
+	commandSvcName := "containerjfr-command"                                                                       // TODO make const or get from ContainerJFR
+	err := r.client.Get(ctx, types.NamespacedName{Namespace: request.Namespace, Name: commandSvcName}, commandSvc) // TODO what if it's a different namespace
+	if err != nil {
+		// Need service in order to reconcile anything, requeue until it appears
+		return reconcile.Result{}, err
+	}
+
+	clusterIP := commandSvc.Spec.ClusterIP
+	if clusterIP == "" || clusterIP == corev1.ClusterIPNone {
+		// TODO log error
+	}
+	commandURL := &url.URL{Scheme: "ws", Host: clusterIP + ":9090" /* FIXME make nicer */, Path: "command"}
+	config := &jfrclient.ClientConfig{ServerURL: commandURL}
+	jfrClient := jfrclient.Create(config)
+	err = jfrClient.Connect()
+	if err != nil {
+		log.Error(err, "failed to connect to command server")
+		return reconcile.Result{}, err
+	}
+
 	// Fetch the FlightRecorder instance
 	instance := &rhjmcv1alpha1.FlightRecorder{}
-	err := r.client.Get(ctx, request.NamespacedName, instance)
+	err = r.client.Get(ctx, request.NamespacedName, instance)
 	if err != nil {
 		if errors.IsNotFound(err) {
 			// Request object not found, could have been deleted after reconcile request.
