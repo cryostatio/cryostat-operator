@@ -8,6 +8,13 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
+type ServiceSpecs struct {
+	CoreAddress       string
+	CommandAddress    string
+	GrafanaAddress    string
+	DatasourceAddress string
+}
+
 func NewPersistentVolumeClaimForCR(cr *rhjmcv1alpha1.ContainerJFR) *corev1.PersistentVolumeClaim {
 	storageClassName := ""
 	return &corev1.PersistentVolumeClaim{
@@ -30,42 +37,17 @@ func NewPersistentVolumeClaimForCR(cr *rhjmcv1alpha1.ContainerJFR) *corev1.Persi
 	}
 }
 
-func NewCoreConfigMap(cr *rhjmcv1alpha1.ContainerJFR) *corev1.ConfigMap {
-	return NewConfigMap(cr.Name, cr.Name, cr.Namespace, map[string]string{"expose.config.fabric8.io/host-key": "CONTAINER_JFR_WEB_HOST"})
-}
-
-func NewCommandChannelConfigMap(cr *rhjmcv1alpha1.ContainerJFR) *corev1.ConfigMap {
-	return NewConfigMap(cr.Name+"-command", cr.Name, cr.Namespace, map[string]string{"expose.config.fabric8.io/host-key": "CONTAINER_JFR_LISTEN_HOST"})
-}
-
-func NewJfrDatasourceConfigMap(cr *rhjmcv1alpha1.ContainerJFR) *corev1.ConfigMap {
-	return NewConfigMap(cr.Name+"-jfr-datasource", cr.Name, cr.Namespace, map[string]string{"expose.config.fabric8.io/url-key": "GRAFANA_DATASOURCE_URL"})
-}
-
-func NewGrafanaConfigMap(cr *rhjmcv1alpha1.ContainerJFR) *corev1.ConfigMap {
-	return NewConfigMap(cr.Name+"-grafana", cr.Name, cr.Namespace, map[string]string{"expose.config.fabric8.io/url-key": "GRAFANA_DASHBOARD_URL"})
-}
-
-func NewConfigMap(name string, appName string, namespace string, annotations map[string]string) *corev1.ConfigMap {
-	return &corev1.ConfigMap{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:        name,
-			Namespace:   namespace,
-			Annotations: annotations,
-			Labels: map[string]string{
-				"app": appName,
-			},
-		},
-	}
-}
-
-func NewPodForCR(cr *rhjmcv1alpha1.ContainerJFR) *corev1.Pod {
+func NewPodForCR(cr *rhjmcv1alpha1.ContainerJFR, specs *ServiceSpecs) *corev1.Pod {
 	return &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      cr.Name + "-pod",
 			Namespace: cr.Namespace,
 			Labels: map[string]string{
-				"app": cr.Name,
+				"app":  cr.Name,
+				"kind": "containerjfr",
+			},
+			Annotations: map[string]string{
+				"redhat.com/containerJfrUrl": specs.CoreAddress,
 			},
 		},
 		Spec: corev1.PodSpec{
@@ -81,7 +63,7 @@ func NewPodForCR(cr *rhjmcv1alpha1.ContainerJFR) *corev1.Pod {
 				},
 			},
 			Containers: []corev1.Container{
-				NewCoreContainer(cr),
+				NewCoreContainer(cr, specs),
 				NewGrafanaContainer(cr),
 				NewJfrDatasourceContainer(cr),
 			},
@@ -89,10 +71,10 @@ func NewPodForCR(cr *rhjmcv1alpha1.ContainerJFR) *corev1.Pod {
 	}
 }
 
-func NewCoreContainer(cr *rhjmcv1alpha1.ContainerJFR) corev1.Container {
+func NewCoreContainer(cr *rhjmcv1alpha1.ContainerJFR, specs *ServiceSpecs) corev1.Container {
 	return corev1.Container{
 		Name:  cr.Name,
-		Image: "quay.io/rh-jmc-team/container-jfr:0.4.7",
+		Image: "quay.io/rh-jmc-team/container-jfr:0.4.8",
 		VolumeMounts: []corev1.VolumeMount{
 			{
 				Name:      cr.Name,
@@ -120,15 +102,8 @@ func NewCoreContainer(cr *rhjmcv1alpha1.ContainerJFR) corev1.Container {
 				Value: "80",
 			},
 			{
-				Name: "CONTAINER_JFR_WEB_HOST",
-				ValueFrom: &corev1.EnvVarSource{
-					ConfigMapKeyRef: &corev1.ConfigMapKeySelector{
-						LocalObjectReference: corev1.LocalObjectReference{
-							Name: "containerjfr",
-						},
-						Key: "CONTAINER_JFR_WEB_HOST",
-					},
-				},
+				Name:  "CONTAINER_JFR_WEB_HOST",
+				Value: specs.CoreAddress,
 			},
 			{
 				Name:  "CONTAINER_JFR_LISTEN_PORT",
@@ -139,37 +114,16 @@ func NewCoreContainer(cr *rhjmcv1alpha1.ContainerJFR) corev1.Container {
 				Value: "80",
 			},
 			{
-				Name: "CONTAINER_JFR_LISTEN_HOST",
-				ValueFrom: &corev1.EnvVarSource{
-					ConfigMapKeyRef: &corev1.ConfigMapKeySelector{
-						LocalObjectReference: corev1.LocalObjectReference{
-							Name: "containerjfr-command",
-						},
-						Key: "CONTAINER_JFR_LISTEN_HOST",
-					},
-				},
+				Name:  "CONTAINER_JFR_LISTEN_HOST",
+				Value: specs.CommandAddress,
 			},
 			{
-				Name: "GRAFANA_DASHBOARD_URL",
-				ValueFrom: &corev1.EnvVarSource{
-					ConfigMapKeyRef: &corev1.ConfigMapKeySelector{
-						LocalObjectReference: corev1.LocalObjectReference{
-							Name: "containerjfr-grafana",
-						},
-						Key: "GRAFANA_DASHBOARD_URL",
-					},
-				},
+				Name:  "GRAFANA_DASHBOARD_URL",
+				Value: specs.GrafanaAddress,
 			},
 			{
-				Name: "GRAFANA_DATASOURCE_URL",
-				ValueFrom: &corev1.EnvVarSource{
-					ConfigMapKeyRef: &corev1.ConfigMapKeySelector{
-						LocalObjectReference: corev1.LocalObjectReference{
-							Name: "containerjfr-jfr-datasource",
-						},
-						Key: "GRAFANA_DATASOURCE_URL",
-					},
-				},
+				Name:  "GRAFANA_DATASOURCE_URL",
+				Value: specs.DatasourceAddress,
 			},
 		},
 	}
@@ -196,7 +150,7 @@ func NewGrafanaContainer(cr *rhjmcv1alpha1.ContainerJFR) corev1.Container {
 func NewJfrDatasourceContainer(cr *rhjmcv1alpha1.ContainerJFR) corev1.Container {
 	return corev1.Container{
 		Name:  cr.Name + "-jfr-datasource",
-		Image: "quay.io/rh-jmc-team/jfr-datasource",
+		Image: "quay.io/rh-jmc-team/jfr-datasource:0.0.1",
 		Ports: []corev1.ContainerPort{
 			{
 				ContainerPort: 8080,
@@ -214,13 +168,9 @@ func NewExporterService(cr *rhjmcv1alpha1.ContainerJFR) *corev1.Service {
 			Labels: map[string]string{
 				"app": cr.Name,
 			},
-			Annotations: map[string]string{
-				"fabric8.io/expose":     "true",
-				"fabric8.io/exposePort": "8181",
-			},
 		},
 		Spec: corev1.ServiceSpec{
-			Type: corev1.ServiceTypeClusterIP,
+			Type: corev1.ServiceTypeLoadBalancer,
 			Selector: map[string]string{
 				"app": cr.Name,
 			},
@@ -248,13 +198,9 @@ func NewCommandChannelService(cr *rhjmcv1alpha1.ContainerJFR) *corev1.Service {
 			Labels: map[string]string{
 				"app": cr.Name,
 			},
-			Annotations: map[string]string{
-				"fabric8.io/expose":     "true",
-				"fabric8.io/exposePort": "9090",
-			},
 		},
 		Spec: corev1.ServiceSpec{
-			Type: corev1.ServiceTypeClusterIP,
+			Type: corev1.ServiceTypeLoadBalancer,
 			Selector: map[string]string{
 				"app": cr.Name,
 			},
@@ -278,13 +224,9 @@ func NewGrafanaService(cr *rhjmcv1alpha1.ContainerJFR) *corev1.Service {
 				"app":       cr.Name,
 				"component": "grafana",
 			},
-			Annotations: map[string]string{
-				"fabric8.io/expose":     "true",
-				"fabric8.io/exposePort": "3000",
-			},
 		},
 		Spec: corev1.ServiceSpec{
-			Type: corev1.ServiceTypeClusterIP,
+			Type: corev1.ServiceTypeLoadBalancer,
 			Selector: map[string]string{
 				"app": cr.Name,
 			},
@@ -308,12 +250,9 @@ func NewJfrDatasourceService(cr *rhjmcv1alpha1.ContainerJFR) *corev1.Service {
 				"app":       cr.Name,
 				"component": "grafana",
 			},
-			Annotations: map[string]string{
-				"fabric8.io/expose": "true",
-			},
 		},
 		Spec: corev1.ServiceSpec{
-			Type: corev1.ServiceTypeClusterIP,
+			Type: corev1.ServiceTypeLoadBalancer,
 			Selector: map[string]string{
 				"app": cr.Name,
 			},

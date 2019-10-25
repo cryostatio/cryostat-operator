@@ -3,6 +3,8 @@ module github.com/rh-jmc-team/container-jfr-operator
 require (
 	github.com/NYTimes/gziphandler v1.0.1 // indirect
 	github.com/go-openapi/spec v0.19.0
+	github.com/openshift/api v3.9.0+incompatible
+	github.com/openshift/client-go v3.9.0+incompatible
 	github.com/operator-framework/operator-sdk v0.10.1-0.20190919134858-8bdd7c5bd54b
 	github.com/spf13/pflag v1.0.3
 	k8s.io/api v0.0.0-20190612125737-db0771252981

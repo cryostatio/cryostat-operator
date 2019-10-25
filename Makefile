@@ -1,4 +1,4 @@
-IMAGE_TAG ?= quay.io/rh-jmc-team/container-jfr-operator:0.1.0
+IMAGE_TAG ?= quay.io/rh-jmc-team/container-jfr-operator:0.1.1
 
 .DEFAULT_GOAL := image
 
@@ -17,24 +17,15 @@ clean:
 .PHONY: deploy
 deploy: undeploy
 	oc create -f deploy/operator_service_account.yaml
-	oc create -f deploy/exposecontroller_service_account.yaml
 	oc create -f deploy/operator_role.yaml
-	oc create -f deploy/exposecontroller_role.yaml
 	oc create -f deploy/operator_role_binding.yaml
-	oc create -f deploy/exposecontroller_role_binding.yaml
-	oc create -f deploy/exposecontroller_role_binding_cluster_admin.yaml
-	oc create -f deploy/exposecontroller_role_binding_cluster_reader.yaml
 	oc create -f deploy/crds/rhjmc_v1alpha1_flightrecorder_crd.yaml
 	oc create -f deploy/crds/rhjmc_v1alpha1_containerjfr_crd.yaml
 	sed -e 's|REPLACE_IMAGE|$(IMAGE_TAG)|g' deploy/dev_operator.yaml | oc create -f -
 	oc create -f deploy/crds/rhjmc_v1alpha1_containerjfr_cr.yaml
-	oc create -f deploy/exposecontroller.yaml
 
 .PHONY: undeploy
 undeploy: undeploy_sample_app
-	- oc delete deployment exposecontroller
-	- oc delete all -l project=exposecontroller
-	- oc delete routes -l generator=exposecontroller
 	- oc delete deployment container-jfr-operator
 	- oc delete containerjfr --all
 	- oc delete flightrecorder --all
@@ -44,13 +35,8 @@ undeploy: undeploy_sample_app
 	- oc delete persistentvolumes -l app=containerjfr
 	- oc delete configmaps -l app=containerjfr
 	- oc delete role container-jfr-operator
-	- oc delete role exposecontroller
 	- oc delete rolebinding container-jfr-operator
-	- oc delete rolebinding exposecontroller
-	- oc delete clusterrolebinding exposecontroller-cluster-admin
-	- oc delete clusterrolebinding serviceaccounts-cluster-reader
 	- oc delete serviceaccount container-jfr-operator
-	- oc delete serviceaccount exposecontroller
 	- oc delete crd flightrecorders.rhjmc.redhat.com
 	- oc delete crd containerjfrs.rhjmc.redhat.com
 
