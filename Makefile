@@ -2,6 +2,9 @@ IMAGE_TAG ?= quay.io/rh-jmc-team/container-jfr-operator:0.1.1
 
 .DEFAULT_GOAL := image
 
+CRD_DIR=deploy/crds
+CRDS=$(patsubst $(CRD_DIR)/%,%,$(wildcard $(CRD_DIR)/*.crd.yaml))
+
 .PHONY: compile
 compile:
 	operator-sdk generate k8s
@@ -10,17 +13,35 @@ compile:
 image: compile
 	operator-sdk build $(IMAGE_TAG)
 
+.PHONY: bundle
+bundle: image $(CRDS)
+	@echo "Bundle prepared, use operator-courier to push it to Quay"
+
+%.crd.yaml:
+	cp -f $(CRD_DIR)/$@ bundle/
+
 .PHONY: clean
-clean:
+clean: clean-bundle
 	rm -rf build/_output
+
+.PHONY: clean-bundle
+clean-bundle:
+	rm -f bundle/$(CRDS)
+
+
+
+
+#########################################
+# "Local" (ex. MiniShift) testing targets #
+#########################################
 
 .PHONY: deploy
 deploy: undeploy
 	oc create -f deploy/operator_service_account.yaml
 	oc create -f deploy/operator_role.yaml
 	oc create -f deploy/operator_role_binding.yaml
-	oc create -f deploy/crds/rhjmc_v1alpha1_flightrecorder_crd.yaml
-	oc create -f deploy/crds/rhjmc_v1alpha1_containerjfr_crd.yaml
+	oc create -f deploy/crds/flightrecorders.rhjmc.redhat.com.crd.yaml
+	oc create -f deploy/crds/containerjfrs.rhjmc.redhat.com.crd.yaml
 	sed -e 's|REPLACE_IMAGE|$(IMAGE_TAG)|g' deploy/dev_operator.yaml | oc create -f -
 	oc create -f deploy/crds/rhjmc_v1alpha1_containerjfr_cr.yaml
 
