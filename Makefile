@@ -2,8 +2,6 @@ IMAGE_TAG ?= quay.io/rh-jmc-team/container-jfr-operator:0.1.1
 
 .DEFAULT_GOAL := image
 
-CRD_DIR=deploy/crds
-CRDS=$(patsubst $(CRD_DIR)/%,%,$(wildcard $(CRD_DIR)/*.crd.yaml))
 .PHONY: generate
 generate: k8s openapi
 
@@ -20,11 +18,12 @@ image: generate
 	operator-sdk build $(IMAGE_TAG)
 
 .PHONY: bundle
-bundle: image $(CRDS)
+bundle: image copy-crds
 	@echo "Bundle prepared, use operator-courier to push it to Quay"
 
-%.crd.yaml:
-	cp -f $(CRD_DIR)/$@ bundle/
+.PHONY: copy-crds
+copy-crds:
+	$(foreach res, containerjfr flightrecorder, cp -f deploy/crds/rhjmc_v1alpha1_$(res)_crd.yaml bundle/$(res)s.rhjmc.redhat.com.crd.yaml;)
 
 .PHONY: clean
 clean: clean-bundle
@@ -32,7 +31,7 @@ clean: clean-bundle
 
 .PHONY: clean-bundle
 clean-bundle:
-	rm -f bundle/$(CRDS)
+	rm -f bundle/*.crd.yaml
 
 
 
