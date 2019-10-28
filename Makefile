@@ -20,7 +20,7 @@ image: generate
 
 .PHONY: bundle
 bundle: image copy-crds
-	@echo "Bundle prepared, use operator-courier to push it to Quay"
+	operator-courier verify --ui_validate_io bundle
 
 .PHONY: copy-crds
 copy-crds:
