@@ -89,7 +89,7 @@ func (r *ReconcileContainerJFR) Reconcile(request reconcile.Request) (reconcile.
 
 	// Fetch the ContainerJFR instance
 	instance := &rhjmcv1alpha1.ContainerJFR{}
-	err := r.client.Get(context.TODO(), request.NamespacedName, instance)
+	err := r.client.Get(context.Background(), request.NamespacedName, instance)
 	if err != nil {
 		if errors.IsNotFound(err) {
 			// Request object not found, could have been deleted after reconcile request.
@@ -106,30 +106,30 @@ func (r *ReconcileContainerJFR) Reconcile(request reconcile.Request) (reconcile.
 	if err := controllerutil.SetControllerReference(instance, pvc, r.scheme); err != nil {
 		return reconcile.Result{}, err
 	}
-	if err = r.createObjectIfNotExists(context.TODO(), types.NamespacedName{Name: pvc.Name, Namespace: pvc.Namespace}, &corev1.PersistentVolumeClaim{}, pvc); err != nil {
+	if err = r.createObjectIfNotExists(context.Background(), types.NamespacedName{Name: pvc.Name, Namespace: pvc.Namespace}, &corev1.PersistentVolumeClaim{}, pvc); err != nil {
 		return reconcile.Result{}, err
 	}
 
 	serviceSpecs := &resources.ServiceSpecs{}
-	url, err := r.createService(context.TODO(), instance, resources.NewGrafanaService(instance))
+	url, err := r.createService(context.Background(), instance, resources.NewGrafanaService(instance))
 	if err != nil {
 		return reconcile.Result{}, err
 	}
 	serviceSpecs.GrafanaAddress = url
 
-	url, err = r.createService(context.TODO(), instance, resources.NewJfrDatasourceService(instance))
+	url, err = r.createService(context.Background(), instance, resources.NewJfrDatasourceService(instance))
 	if err != nil {
 		return reconcile.Result{}, err
 	}
 	serviceSpecs.DatasourceAddress = url
 
-	url, err = r.createService(context.TODO(), instance, resources.NewExporterService(instance))
+	url, err = r.createService(context.Background(), instance, resources.NewExporterService(instance))
 	if err != nil {
 		return reconcile.Result{}, err
 	}
 	serviceSpecs.CoreAddress = url
 
-	url, err = r.createService(context.TODO(), instance, resources.NewCommandChannelService(instance))
+	url, err = r.createService(context.Background(), instance, resources.NewCommandChannelService(instance))
 	if err != nil {
 		return reconcile.Result{}, err
 	}
@@ -139,7 +139,7 @@ func (r *ReconcileContainerJFR) Reconcile(request reconcile.Request) (reconcile.
 	if err := controllerutil.SetControllerReference(instance, pod, r.scheme); err != nil {
 		return reconcile.Result{}, err
 	}
-	if err = r.createObjectIfNotExists(context.TODO(), types.NamespacedName{Name: pod.Name, Namespace: pod.Namespace}, &corev1.Pod{}, pod); err != nil {
+	if err = r.createObjectIfNotExists(context.Background(), types.NamespacedName{Name: pod.Name, Namespace: pod.Namespace}, &corev1.Pod{}, pod); err != nil {
 		reqLogger.Error(err, "Could not create pod")
 		return reconcile.Result{}, err
 	}
@@ -152,7 +152,7 @@ func (r *ReconcileContainerJFR) createService(ctx context.Context, controller *r
 	if err := controllerutil.SetControllerReference(controller, svc, r.scheme); err != nil {
 		return "", err
 	}
-	if err := r.createObjectIfNotExists(context.TODO(), types.NamespacedName{Name: svc.Name, Namespace: svc.Namespace}, &corev1.Service{}, svc); err != nil {
+	if err := r.createObjectIfNotExists(context.Background(), types.NamespacedName{Name: svc.Name, Namespace: svc.Namespace}, &corev1.Service{}, svc); err != nil {
 		return "", err
 	}
 
