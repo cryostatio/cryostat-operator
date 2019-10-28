@@ -4,13 +4,19 @@ IMAGE_TAG ?= quay.io/rh-jmc-team/container-jfr-operator:0.1.1
 
 CRD_DIR=deploy/crds
 CRDS=$(patsubst $(CRD_DIR)/%,%,$(wildcard $(CRD_DIR)/*.crd.yaml))
+.PHONY: generate
+generate: k8s openapi
 
-.PHONY: compile
-compile:
+.PHONY: k8s
+k8s:
 	operator-sdk generate k8s
 
+.PHONY: openapi
+openapi:
+	operator-sdk generate openapi
+
 .PHONY: image
-image: compile
+image: generate
 	operator-sdk build $(IMAGE_TAG)
 
 .PHONY: bundle
