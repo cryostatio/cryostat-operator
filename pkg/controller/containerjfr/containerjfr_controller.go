@@ -103,6 +103,9 @@ func (r *ReconcileContainerJFR) Reconcile(request reconcile.Request) (reconcile.
 	}
 
 	pvc := resources.NewPersistentVolumeClaimForCR(instance)
+	if err := controllerutil.SetControllerReference(instance, pvc, r.scheme); err != nil {
+		return reconcile.Result{}, err
+	}
 	if err = r.createObjectIfNotExists(context.TODO(), types.NamespacedName{Name: pvc.Name, Namespace: pvc.Namespace}, &corev1.PersistentVolumeClaim{}, pvc); err != nil {
 		return reconcile.Result{}, err
 	}
