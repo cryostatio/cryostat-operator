@@ -20,6 +20,12 @@ rules:
   verbs:
   - '*'
 - apiGroups:
+    - 'route.openshift.io'
+  resources:
+    - routes
+  verbs:
+    - '*'
+- apiGroups:
   - apps
   resources:
   - deployments

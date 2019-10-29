@@ -89,6 +89,7 @@ spec:
   install:
     strategy: deployment
     spec:
+      # TODO copy in operator_role.yaml permissions rather than duplicating
       permissions:
         - serviceAccountName: container-jfr-operator
           rules:
