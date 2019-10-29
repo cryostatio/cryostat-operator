@@ -26,6 +26,13 @@ bundle: image copy-crds
 copy-crds:
 	$(foreach res, $(CRDS), cp -f deploy/crds/rhjmc_v1alpha1_$(res)_crd.yaml bundle/$(res)s.rhjmc.redhat.com.crd.yaml;)
 
+.PHONY: test
+test: scorecard
+
+.PHONY: scorecard
+scorecard:
+	operator-sdk scorecard
+
 .PHONY: clean
 clean: clean-bundle
 	rm -rf build/_output
