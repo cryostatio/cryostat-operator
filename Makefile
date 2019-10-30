@@ -30,7 +30,7 @@ copy-crds:
 test: undeploy scorecard
 
 .PHONY: scorecard
-scorecard:
+scorecard: generate
 	operator-sdk scorecard
 
 .PHONY: clean
@@ -45,7 +45,7 @@ clean-bundle:
 
 
 #########################################
-# "Local" (ex. MiniShift) testing targets #
+# "Local" (ex. minishift/crc) testing targets #
 #########################################
 
 .PHONY: deploy
