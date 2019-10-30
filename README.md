@@ -33,3 +33,12 @@ An invocation like
 `export IMAGE_TAG=quay.io/some-user/container-jfr-operator`
 `make clean image && docker image push $IMAGE_TAG && make deploy`
 is handy for local development testing using ex. Minishift.
+
+# Testing
+`make test` will run the automated tests. This requires an OpenShift 4 cluster
+to be available and logged in with your `oc` OpenShift Client. The recommended
+setup for development testing is
+[CodeReady Containers](https://github.com/code-ready/crc).
+
+Before the tests are run, all container-jfr and container-jfr-operator
+resources will be deleted to ensure a clean slate.

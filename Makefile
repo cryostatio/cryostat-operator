@@ -27,7 +27,7 @@ copy-crds:
 	$(foreach res, $(CRDS), cp -f deploy/crds/rhjmc_v1alpha1_$(res)_crd.yaml bundle/$(res)s.rhjmc.redhat.com.crd.yaml;)
 
 .PHONY: test
-test: scorecard
+test: undeploy scorecard
 
 .PHONY: scorecard
 scorecard:
