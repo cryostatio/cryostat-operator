@@ -45,7 +45,7 @@ clean-bundle:
 
 
 #########################################
-# "Local" (ex. minishift/crc) testing targets #
+# "Local" (ex. crc) testing targets #
 #########################################
 
 .PHONY: deploy
