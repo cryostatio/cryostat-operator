@@ -1,7 +1,7 @@
 IMAGE_TAG ?= quay.io/rh-jmc-team/container-jfr-operator:0.1.1
 CRDS := containerjfr flightrecorder
 
-.DEFAULT_GOAL := image
+.DEFAULT_GOAL := bundle
 
 .PHONY: generate
 generate: k8s openapi
@@ -26,6 +26,13 @@ bundle: image copy-crds
 copy-crds:
 	$(foreach res, $(CRDS), cp -f deploy/crds/rhjmc_v1alpha1_$(res)_crd.yaml bundle/$(res)s.rhjmc.redhat.com.crd.yaml;)
 
+.PHONY: test
+test: undeploy scorecard
+
+.PHONY: scorecard
+scorecard: generate
+	operator-sdk scorecard
+
 .PHONY: clean
 clean: clean-bundle
 	rm -rf build/_output
@@ -38,14 +45,14 @@ clean-bundle:
 
 
 #########################################
-# "Local" (ex. MiniShift) testing targets #
+# "Local" (ex. minishift/crc) testing targets #
 #########################################
 
 .PHONY: deploy
 deploy: undeploy
-	oc create -f deploy/operator_service_account.yaml
-	oc create -f deploy/operator_role.yaml
-	oc create -f deploy/operator_role_binding.yaml
+	oc create -f deploy/service_account.yaml
+	oc create -f deploy/role.yaml
+	oc create -f deploy/role_binding.yaml
 	oc create -f deploy/crds/rhjmc_v1alpha1_flightrecorder_crd.yaml
 	oc create -f deploy/crds/rhjmc_v1alpha1_containerjfr_crd.yaml
 	sed -e 's|REPLACE_IMAGE|$(IMAGE_TAG)|g' deploy/dev_operator.yaml | oc create -f -
