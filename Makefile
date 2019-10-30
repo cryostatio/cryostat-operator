@@ -1,7 +1,7 @@
 IMAGE_TAG ?= quay.io/rh-jmc-team/container-jfr-operator:0.1.1
 CRDS := containerjfr flightrecorder
 
-.DEFAULT_GOAL := image
+.DEFAULT_GOAL := bundle
 
 .PHONY: generate
 generate: k8s openapi
