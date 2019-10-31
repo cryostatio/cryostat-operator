@@ -25,6 +25,7 @@ func schema_pkg_apis_rhjmc_v1alpha1_ContainerJFR(ref common.ReferenceCallback) c
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
 				Description: "ContainerJFR is the Schema for the containerjfrs API",
+				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
 					"kind": {
 						SchemaProps: spec.SchemaProps{
@@ -68,10 +69,9 @@ func schema_pkg_apis_rhjmc_v1alpha1_ContainerJFRSpec(ref common.ReferenceCallbac
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
 				Description: "ContainerJFRSpec defines the desired state of ContainerJFR",
-				Properties:  map[string]spec.Schema{},
+				Type:        []string{"object"},
 			},
 		},
-		Dependencies: []string{},
 	}
 }
 
@@ -80,10 +80,9 @@ func schema_pkg_apis_rhjmc_v1alpha1_ContainerJFRStatus(ref common.ReferenceCallb
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
 				Description: "ContainerJFRStatus defines the observed state of ContainerJFR",
-				Properties:  map[string]spec.Schema{},
+				Type:        []string{"object"},
 			},
 		},
-		Dependencies: []string{},
 	}
 }
 
@@ -92,6 +91,7 @@ func schema_pkg_apis_rhjmc_v1alpha1_FlightRecorder(ref common.ReferenceCallback)
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
 				Description: "FlightRecorder is the Schema for the flightrecorders API",
+				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
 					"kind": {
 						SchemaProps: spec.SchemaProps{
@@ -135,6 +135,7 @@ func schema_pkg_apis_rhjmc_v1alpha1_FlightRecorderSpec(ref common.ReferenceCallb
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
 				Description: "FlightRecorderSpec defines the desired state of FlightRecorder",
+				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
 					"recordingActive": {
 						SchemaProps: spec.SchemaProps{
@@ -147,7 +148,6 @@ func schema_pkg_apis_rhjmc_v1alpha1_FlightRecorderSpec(ref common.ReferenceCallb
 				Required: []string{"recordingActive"},
 			},
 		},
-		Dependencies: []string{},
 	}
 }
 
@@ -156,6 +156,7 @@ func schema_pkg_apis_rhjmc_v1alpha1_FlightRecorderStatus(ref common.ReferenceCal
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
 				Description: "FlightRecorderStatus defines the observed state of FlightRecorder",
+				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
 					"target": {
 						SchemaProps: spec.SchemaProps{
@@ -171,6 +172,11 @@ func schema_pkg_apis_rhjmc_v1alpha1_FlightRecorderStatus(ref common.ReferenceCal
 						},
 					},
 					"recordings": {
+						VendorExtensible: spec.VendorExtensible{
+							Extensions: spec.Extensions{
+								"x-kubernetes-list-type": "set",
+							},
+						},
 						SchemaProps: spec.SchemaProps{
 							Description: "Lists all recordings for the pod/service that may be downloaded",
 							Type:        []string{"array"},

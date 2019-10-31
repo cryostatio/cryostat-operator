@@ -12,7 +12,7 @@ at the URL provided by
 # Building
 ## Requirements
 - `go`
-- [operator-sdk](https://github.com/operator-framework/operator-sdk) v0.10.1
+- [operator-sdk](https://github.com/operator-framework/operator-sdk) v0.11.0
 - [operator-courier](https://github.com/operator-framework/operator-courier) 2.1.7+
 
 ## Instructions
