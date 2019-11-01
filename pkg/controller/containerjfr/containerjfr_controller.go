@@ -17,9 +17,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
+	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 )
 
@@ -115,13 +115,13 @@ func (r *ReconcileContainerJFR) Reconcile(request reconcile.Request) (reconcile.
 	if err != nil {
 		return reconcile.Result{}, err
 	}
-	serviceSpecs.GrafanaAddress = url
+	serviceSpecs.GrafanaAddress = fmt.Sprintf("http://%s", url)
 
 	url, err = r.createService(context.Background(), instance, resources.NewJfrDatasourceService(instance))
 	if err != nil {
 		return reconcile.Result{}, err
 	}
-	serviceSpecs.DatasourceAddress = url
+	serviceSpecs.DatasourceAddress = fmt.Sprintf("http://%s", url)
 
 	url, err = r.createService(context.Background(), instance, resources.NewExporterService(instance))
 	if err != nil {

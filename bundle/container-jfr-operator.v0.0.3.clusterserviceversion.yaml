@@ -1,7 +1,7 @@
 apiVersion: operators.coreos.com/v1alpha1
 kind: ClusterServiceVersion
 metadata:
-  name: container-jfr-operator-bundle.v0.0.2
+  name: container-jfr-operator-bundle.v0.0.3
   namespace: placeholder
   annotations:
     alm-examples: >-
@@ -20,7 +20,7 @@ spec:
     ## About this Operator
     ## Prerequisites for enabling this Operator
   maturity: pre-alpha
-  version: 0.0.2
+  version: 0.0.3
   replaces: ''
   minKubeVersion: ''
   keywords:
@@ -172,7 +172,7 @@ spec:
                 serviceAccountName: container-jfr-operator
                 containers:
                   - name: container-jfr-operator
-                    image: 'quay.io/rh-jmc-team/container-jfr-operator:0.1.2'
+                    image: 'quay.io/rh-jmc-team/container-jfr-operator:0.1.3'
                     command:
                       - container-jfr-operator
                     imagePullPolicy: Always
