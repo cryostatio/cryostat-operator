@@ -14,7 +14,7 @@ type FlightRecorderSpec struct {
 	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
 	// Important: Run "operator-sdk generate k8s" to regenerate code after modifying this file
 	// Add custom validation using kubebuilder tags: https://book-v1.book.kubebuilder.io/beyond_basics/generating_crd.html
-	
+
 	// Specifies whether a JFR recording should be started or stopped
 	RecordingActive bool `json:"recordingActive"`
 }
@@ -31,6 +31,7 @@ type FlightRecorderStatus struct {
 	// Whether the pod/service is currently recording
 	RecordingActive bool `json:"recordingActive"` // TODO Maybe replace with a Status with STOPPED, STARTED, ERROR, etc.
 	// Lists all recordings for the pod/service that may be downloaded
+	// +listType=set
 	Recordings []string `json:"recordings"` // TODO Name, URL, composite type with a route?
 }
 
@@ -39,6 +40,7 @@ type FlightRecorderStatus struct {
 // FlightRecorder is the Schema for the flightrecorders API
 // +k8s:openapi-gen=true
 // +kubebuilder:subresource:status
+// +kubebuilder:resource:path=flightrecorders,scope=Namespaced
 type FlightRecorder struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`

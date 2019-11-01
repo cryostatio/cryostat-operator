@@ -28,6 +28,7 @@ type ContainerJFRStatus struct {
 // ContainerJFR is the Schema for the containerjfrs API
 // +k8s:openapi-gen=true
 // +kubebuilder:subresource:status
+// +kubebuilder:resource:path=containerjfrs,scope=Namespaced
 type ContainerJFR struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
