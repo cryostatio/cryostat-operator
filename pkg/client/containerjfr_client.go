@@ -1,7 +1,6 @@
-package flightrecorder
+package client
 
 import (
-	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"net/url"
@@ -22,11 +21,6 @@ type ContainerJfrClient struct {
 	conn   *websocket.Conn
 }
 
-type CommandMessage struct {
-	Command string   `json:"command"`
-	Args    []string `json:"args"`
-}
-
 func Create(config *ClientConfig) (*ContainerJfrClient, error) {
 	conn, err := newWebSocketConn(config.ServerURL)
 	if err != nil {
@@ -40,108 +34,71 @@ func (client *ContainerJfrClient) Close() error {
 	return client.conn.Close()
 }
 
-Mesages can be out of order, maybe queue, and filter. Look at what container-jfr-web does
-
 func newWebSocketConn(server *url.URL) (*websocket.Conn, error) {
-	time.Sleep(time.Minute) // XXX
+	time.Sleep(time.Minute) // FIXME Use some kind of readiness probe to check when the server is ready
 	urlStr := server.String()
 	conn, resp, err := websocket.DefaultDialer.Dial(urlStr, nil)
 	if err != nil {
 		log.Error(err, "failed to connect to command channel", "server", urlStr)
 		if resp != nil {
-			body, _ := ioutil.ReadAll(resp.Body)
+			body, err := ioutil.ReadAll(resp.Body)
+			if err != nil {
+				return nil, err
+			}
 			log.Info("response", "status", resp.Status, "body", string(body))
 		}
 		return nil, err
 	}
-	/*conn.SetCloseHandler(func(code int, text string) error {
-		// Attempt to reconnect
-		log.Info("attempting to reconnect to server", "server", urlStr)
-		conn.Close()
-		err = client.newWebSocketConn(server)
-		if err != nil {
-			log.Error(err, "failed to reconnect to server")
-			return err
-		}
-		return nil
-	}) */
 	return conn, nil
 }
 
 func (client *ContainerJfrClient) connect(host string, port int) error {
 	target := fmt.Sprintf("%s:%d", host, port)
-	connectCmd := &CommandMessage{Command: "connect", Args: []string{target}}
-	jsonCmd, err := json.Marshal(connectCmd)
+	connectCmd := NewCommandMessage("connect", target)
+	var resp string
+	err := client.syncMessage(connectCmd, &resp)
 	if err != nil {
 		return err
 	}
-	log.Info("sending command", "json", string(jsonCmd))
-
-	err = client.conn.WriteJSON(connectCmd)
-	if err != nil {
-		log.Error(err, "could not write connect message")
-		return err
-	}
-
-	_, msg, err := client.conn.ReadMessage()
-	if err != nil {
-		log.Error(err, "could not read connect message")
-		return err
-	}
-	log.Info(string(msg))
+	log.Info("got connect response", "resp", resp)
 	return nil
 }
 
-func (client *ContainerJfrClient) isConnected() error {
-	isConnectedCmd := &CommandMessage{Command: "is-connected", Args: []string{}}
-	jsonCmd, err := json.Marshal(isConnectedCmd)
+func (client *ContainerJfrClient) isConnected() (bool, error) {
+	isConnectedCmd := NewCommandMessage("is-connected")
+	var resp string
+	err := client.syncMessage(isConnectedCmd, &resp)
 	if err != nil {
-		return err
+		return false, err
 	}
-	log.Info("sending command", "json", string(jsonCmd))
-
-	err = client.conn.WriteJSON(isConnectedCmd)
-	if err != nil {
-		log.Error(err, "could not write is-connected message")
-		return err
-	}
-
-	_, msg, err := client.conn.ReadMessage()
-	if err != nil {
-		log.Error(err, "could not read is-connected message")
-		return err
-	}
-	log.Info(string(msg))
-	return nil
+	log.Info("got is-connected response", "resp", resp)
+	isConnected := resp != "false"
+	return isConnected, nil
 }
 
 func (client *ContainerJfrClient) disconnect() error {
-	disconnectCmd := &CommandMessage{Command: "disconnect", Args: []string{}}
-	jsonCmd, err := json.Marshal(disconnectCmd)
+	disconnectCmd := NewCommandMessage("disconnect")
+	var resp string
+	err := client.syncMessage(disconnectCmd, &resp)
 	if err != nil {
 		return err
 	}
-	log.Info("sending command", "json", string(jsonCmd))
-
-	err = client.conn.WriteJSON(disconnectCmd)
-	if err != nil {
-		log.Error(err, "could not write disconnect message")
-		return err
-	}
-
-	_, msg, err := client.conn.ReadMessage()
-	if err != nil {
-		log.Error(err, "could not read disconnect message")
-		return err
-	}
-	log.Info(string(msg))
+	log.Info("got disconnect response:", "resp", resp)
 	return nil
 }
 
+// ListRecordings connects to a JVM addressed by the host and port and returns
+// a list of its in-memory Flight Recordings
 func (client *ContainerJfrClient) ListRecordings(host string, port int) error {
-	err := client.isConnected()
+	connected, err := client.isConnected()
 	if err != nil {
 		return err
+	} else if connected {
+		log.Info("already connected, will disconnect first")
+		err = client.disconnect()
+		if err != nil {
+			return err
+		}
 	}
 
 	err = client.connect(host, port)
@@ -150,24 +107,42 @@ func (client *ContainerJfrClient) ListRecordings(host string, port int) error {
 	}
 	defer client.disconnect()
 
-	listCmd := &CommandMessage{Command: "list", Args: []string{}}
-	jsonCmd, err := json.Marshal(listCmd)
+	listCmd := NewCommandMessage("list")
+	recordings := []RecordingDescriptor{}
+	err = client.syncMessage(listCmd, recordings)
 	if err != nil {
 		return err
 	}
-	log.Info("sending command", "json", string(jsonCmd))
-
-	err = client.conn.WriteJSON(listCmd)
-	if err != nil {
-		log.Error(err, "could not write list message")
-		return err
-	}
-
-	_, msg, err := client.conn.ReadMessage()
-	if err != nil {
-		log.Error(err, "could not read list message")
-		return err
-	}
-	log.Info(string(msg))
+	log.Info("got list response", "resp", recordings)
 	return nil
+}
+
+func (client *ContainerJfrClient) syncMessage(msg *CommandMessage, responsePayload interface{}) error {
+	err := client.conn.WriteJSON(msg)
+	if err != nil {
+		log.Error(err, "could not write message", "message", msg)
+		return err
+	}
+	log.Info("sent command", "json", msg)
+
+	// By setting the output argument in the struct, the decoder knows what type
+	// to unmarshall the payload into and also stores it for returing to the caller
+	resp := &ResponseMessage{Payload: responsePayload}
+	err = client.conn.ReadJSON(resp)
+	if err != nil {
+		log.Error(err, "could not read response", "message", msg)
+		return err
+	}
+	log.Info("got response", "resp", resp)
+	if resp.Status < 0 {
+		// Parse exception/failure response and convert to error
+		errMsg, ok := resp.Payload.(string)
+		if !ok {
+			errMsg = "unknown error response"
+		}
+		err = fmt.Errorf("server failed to execute \"%s\": %s (code %d)", resp.CommandName, errMsg, resp.Status)
+		log.Error(err, "command failed", "request", msg)
+		return err
+	}
+	return err
 }
