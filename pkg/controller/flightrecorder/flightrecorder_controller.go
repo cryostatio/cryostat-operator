@@ -113,6 +113,8 @@ func (r *ReconcileFlightRecorder) Reconcile(request reconcile.Request) (reconcil
 	if err != nil {
 		return reconcile.Result{}, err // TODO should we requeue?
 	}
+	log.Info("Listing recordings for service", "service", targetSvc.Name, "namespace", targetSvc.Namespace,
+		"host", *clusterIP, "port", 9091)
 	err = r.jfrClient.ListRecordings(*clusterIP, 9091) // FIXME hardcoded port
 	if err != nil {
 		log.Error(err, "failed to connect to command server")
