@@ -53,10 +53,10 @@ deploy: undeploy
 	oc create -f deploy/service_account.yaml
 	oc create -f deploy/role.yaml
 	oc create -f deploy/role_binding.yaml
-	oc create -f deploy/crds/rhjmc_v1alpha1_flightrecorder_crd.yaml
-	oc create -f deploy/crds/rhjmc_v1alpha1_containerjfr_crd.yaml
+	oc create -f deploy/crds/rhjmc.redhat.com_flightrecorders_crd.yaml
+	oc create -f deploy/crds/rhjmc.redhat.com_containerjfrs_crd.yaml
 	sed -e 's|REPLACE_IMAGE|$(IMAGE_TAG)|g' deploy/dev_operator.yaml | oc create -f -
-	oc create -f deploy/crds/rhjmc_v1alpha1_containerjfr_cr.yaml
+	oc create -f deploy/crds/rhjmc.redhat.com_v1alpha1_containerjfr_cr.yaml
 
 .PHONY: undeploy
 undeploy: undeploy_sample_app
