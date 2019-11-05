@@ -14,9 +14,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
+	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 )
 
@@ -129,8 +129,9 @@ func (r *ReconcileFlightRecorder) Reconcile(request reconcile.Request) (reconcil
 
 func (r *ReconcileFlightRecorder) connectToContainerJFR(ctx context.Context, namespace string) (*jfrclient.ContainerJfrClient, error) {
 	commandSvc := &corev1.Service{}
-	commandSvcName := "containerjfr-command"                                                               // TODO make const or get from ContainerJFR
-	err := r.client.Get(ctx, types.NamespacedName{Namespace: namespace, Name: commandSvcName}, commandSvc) // TODO what if it's a different namespace
+	// TODO Get service namespace/name from ContainerJFR CR
+	commandSvcName := "containerjfr-command"
+	err := r.client.Get(ctx, types.NamespacedName{Namespace: namespace, Name: commandSvcName}, commandSvc)
 	if err != nil {
 		return nil, err
 	}
