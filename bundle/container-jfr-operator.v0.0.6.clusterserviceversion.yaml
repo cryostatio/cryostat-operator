@@ -55,6 +55,8 @@ spec:
   maintainers:
     - name: Andrew Azores
       email: aazores@redhat.com
+    - Name: Elliott Baron
+      email: ebaron@redhat.com
   provider:
     name: Red Hat
   labels: {}
