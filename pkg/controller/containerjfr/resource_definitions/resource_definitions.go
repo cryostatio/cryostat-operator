@@ -74,7 +74,7 @@ func NewPodForCR(cr *rhjmcv1alpha1.ContainerJFR, specs *ServiceSpecs) *corev1.Po
 func NewCoreContainer(cr *rhjmcv1alpha1.ContainerJFR, specs *ServiceSpecs) corev1.Container {
 	return corev1.Container{
 		Name:  cr.Name,
-		Image: "quay.io/rh-jmc-team/container-jfr:0.4.11",
+		Image: "quay.io/rh-jmc-team/container-jfr:0.4.12",
 		VolumeMounts: []corev1.VolumeMount{
 			{
 				Name:      cr.Name,
