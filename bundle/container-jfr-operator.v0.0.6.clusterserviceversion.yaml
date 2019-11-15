@@ -37,8 +37,13 @@ metadata:
 spec:
   displayName: ContainerJFR
   description: |
-    Placeholder for description about JFR, JMC, container-jfr, and the
-    capabilities of the container-jfr-operator.
+    ContainerJFR provides a cloud-based solution for interacting with the
+    JDK Flight Recorder already present in OpenJDK 11+ JVMs. With ContainerJFR,
+    users can remotely start, stop, retrieve, and even analyze JFR event data,
+    providing the capbility to easily take advantage of Flight Recorder's
+    extremely low runtime cost and overhead and the flexibility to monitor
+    applications and analyze recording data without transferring data outside
+    of the cluster the application runs within.
   maturity: pre-alpha
   version: 0.0.6
   replaces: ''
