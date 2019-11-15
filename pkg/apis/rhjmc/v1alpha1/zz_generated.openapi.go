@@ -70,6 +70,15 @@ func schema_pkg_apis_rhjmc_v1alpha1_ContainerJFRSpec(ref common.ReferenceCallbac
 			SchemaProps: spec.SchemaProps{
 				Description: "ContainerJFRSpec defines the desired state of ContainerJFR",
 				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"minimal": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"boolean"},
+							Format: "",
+						},
+					},
+				},
+				Required: []string{"minimal"},
 			},
 		},
 	}

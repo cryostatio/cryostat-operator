@@ -3,6 +3,7 @@ package containerjfr
 import (
 	"context"
 	"fmt"
+	"time"
 
 	openshiftv1 "github.com/openshift/api/route/v1"
 	routeClient "github.com/openshift/client-go/route/clientset/versioned/typed/route/v1"
@@ -24,11 +25,6 @@ import (
 )
 
 var log = logf.Log.WithName("controller_containerjfr")
-
-/**
-* USER ACTION REQUIRED: This is a scaffold file intended for the user to modify with their own Controller
-* business logic.  Delete these comments after modifying this file.*
- */
 
 // Add creates a new ContainerJFR Controller and adds it to the Manager. The Manager will set fields on the Controller
 // and Start it when the Manager is Started.
@@ -102,6 +98,8 @@ func (r *ReconcileContainerJFR) Reconcile(request reconcile.Request) (reconcile.
 		return reconcile.Result{}, err
 	}
 
+	reqLogger.Info("Spec", "Minimal", instance.Spec.Minimal)
+
 	pvc := resources.NewPersistentVolumeClaimForCR(instance)
 	if err := controllerutil.SetControllerReference(instance, pvc, r.scheme); err != nil {
 		return reconcile.Result{}, err
@@ -111,17 +109,67 @@ func (r *ReconcileContainerJFR) Reconcile(request reconcile.Request) (reconcile.
 	}
 
 	serviceSpecs := &resources.ServiceSpecs{}
-	url, err := r.createService(context.Background(), instance, resources.NewGrafanaService(instance))
-	if err != nil {
-		return reconcile.Result{}, err
-	}
-	serviceSpecs.GrafanaAddress = fmt.Sprintf("http://%s", url)
+	var url string
+	if !instance.Spec.Minimal {
+		url, err = r.createService(context.Background(), instance, resources.NewGrafanaService(instance))
+		if err != nil {
+			return reconcile.Result{}, err
+		}
+		serviceSpecs.GrafanaAddress = fmt.Sprintf("http://%s", url)
 
-	url, err = r.createService(context.Background(), instance, resources.NewJfrDatasourceService(instance))
-	if err != nil {
-		return reconcile.Result{}, err
+		url, err = r.createService(context.Background(), instance, resources.NewJfrDatasourceService(instance))
+		if err != nil {
+			return reconcile.Result{}, err
+		}
+		serviceSpecs.DatasourceAddress = fmt.Sprintf("http://%s", url)
+
+		// check for existing minimal pod and delete if found
+		pod := resources.NewPodForCR(instance, serviceSpecs)
+		err = r.client.Get(context.Background(), types.NamespacedName{Name: pod.Name, Namespace: pod.Namespace}, pod)
+		if err == nil && len(pod.Spec.Containers) == 1 {
+			reqLogger.Info("Deleting existing minimal pod")
+			err = r.client.Delete(context.Background(), pod)
+			if err != nil && !errors.IsNotFound(err) {
+				return reconcile.Result{Requeue: true, RequeueAfter: time.Second * 10}, err
+			}
+		}
+	} else {
+		// check for existing non-minimal resources and delete if found
+
+		services := []*corev1.Service{
+			resources.NewGrafanaService(instance),
+			resources.NewJfrDatasourceService(instance),
+		}
+		for _, svc := range services {
+			reqLogger.Info("Deleting existing non-minimal route", "route.Name", svc.Name)
+			err = r.routeClient.Routes(svc.Namespace).Delete(svc.Name, metav1.NewDeleteOptions(0))
+			if err != nil && !errors.IsNotFound(err) {
+				reqLogger.Info("Could not delete non-minimal route", "route.Name", svc.Name)
+				return reconcile.Result{}, err
+			}
+
+			err = r.client.Get(context.Background(), types.NamespacedName{Name: svc.Name, Namespace: svc.Namespace}, svc)
+			if err == nil {
+				reqLogger.Info("Deleting existing non-minimal service", "svc.Name", svc.Name)
+				err = r.client.Delete(context.Background(), svc)
+				if err != nil && !errors.IsNotFound(err) {
+					reqLogger.Info("Could not delete non-minimal service")
+					return reconcile.Result{}, err
+				}
+			}
+		}
+
+		pod := resources.NewPodForCR(instance, serviceSpecs)
+		err = r.client.Get(context.Background(), types.NamespacedName{Name: pod.Name, Namespace: pod.Namespace}, pod)
+		if err == nil && len(pod.Spec.Containers) > 1 {
+			reqLogger.Info("Deleting existing non-minimal pod")
+			err = r.client.Delete(context.Background(), pod)
+			if err != nil && !errors.IsNotFound(err) {
+				reqLogger.Info("Could not delete non-minimal pod")
+				return reconcile.Result{Requeue: true, RequeueAfter: time.Second * 10}, err
+			}
+		}
 	}
-	serviceSpecs.DatasourceAddress = fmt.Sprintf("http://%s", url)
 
 	url, err = r.createService(context.Background(), instance, resources.NewExporterService(instance))
 	if err != nil {
