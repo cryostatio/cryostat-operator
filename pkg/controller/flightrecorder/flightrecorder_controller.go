@@ -109,7 +109,9 @@ func (r *ReconcileFlightRecorder) Reconcile(request reconcile.Request) (reconcil
 		return reconcile.Result{}, err // TODO should we requeue?
 	}
 
-	clusterIP, err := getClusterIP(targetSvc)
+	//clusterIP, err := getClusterIP(targetSvc)
+	hostHack := fmt.Sprintf("%s.%s.svc", targetSvc.Name, targetSvc.Namespace) // XXX
+	clusterIP := &hostHack
 	if err != nil {
 		return reconcile.Result{}, err // TODO should we requeue?
 	}
@@ -136,7 +138,9 @@ func (r *ReconcileFlightRecorder) connectToContainerJFR(ctx context.Context, nam
 		return nil, err
 	}
 
-	clusterIP, err := getClusterIP(commandSvc)
+	//clusterIP, err := getClusterIP(commandSvc)
+	hostHack := fmt.Sprintf("%s.%s.svc", commandSvc.Name, commandSvc.Namespace) // XXX
+	clusterIP := &hostHack
 	if err != nil {
 		return nil, err
 	}
