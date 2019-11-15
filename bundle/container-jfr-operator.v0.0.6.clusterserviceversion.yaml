@@ -5,40 +5,70 @@ metadata:
   namespace: placeholder
   annotations:
     alm-examples: >-
-      [{"apiVersion":"","kind":"ContainerJFR","metadata":{"name":""},"spec":{}},{"apiVersion":"","kind":"FlightRecorder","metadata":{"name":""},"spec":{}},{"apiVersion":"","kind":"","metadata":{"name":""},"spec":{}}]
+      [
+        {
+          "apiVersion":"apiextensions.k8s.io/v1beta1",
+          "kind":"ContainerJFR",
+          "metadata":{
+            "name":"containerjfr"
+          },
+          "spec":{}
+        },
+        {
+          "apiVersion":"apiextensions.k8s.io/v1beta1",
+          "kind":"FlightRecorder",
+          "metadata":{
+            "name":"flightrecorder"
+          },
+          "spec":{
+            "recordingActive":false
+          }
+        }
+      ]
     categories: 'Monitoring, Developer Tools'
     certified: 'false'
+    createdAt: 2019-11-04T00:00:00Z
     description: JVM monitoring and profiling tool
-    containerImage: ''
-    support: ''
+    # TODO automatically replace the version tag
+    containerImage: quay.io/rh-jmc-team/container-jfr-operator:0.1.6
+    support: Red Hat
     capabilities: Basic Install
-    repository: ''
+    repository: github.com/rh-jmc-team/container-jfr-operator
 spec:
   displayName: ContainerJFR
   description: |
-    ## About the managed application
-    ## About this Operator
-    ## Prerequisites for enabling this Operator
+    ContainerJFR provides a cloud-based solution for interacting with the
+    JDK Flight Recorder already present in OpenJDK 11+ JVMs. With ContainerJFR,
+    users can remotely start, stop, retrieve, and even analyze JFR event data,
+    providing the capbility to easily take advantage of Flight Recorder's
+    extremely low runtime cost and overhead and the flexibility to monitor
+    applications and analyze recording data without transferring data outside
+    of the cluster the application runs within.
   maturity: pre-alpha
   version: 0.0.6
   replaces: ''
   minKubeVersion: ''
   keywords:
+    - flightrecorder
     - java
+    - jdk
+    - jfr
+    - jmc
+    - missioncontrol
     - monitoring
     - profiling
-    - jfr
-    - flightrecorder
   maintainers:
     - name: Andrew Azores
       email: aazores@redhat.com
+    - Name: Elliott Baron
+      email: ebaron@redhat.com
   provider:
-    name: ''
+    name: Red Hat
   labels: {}
   selector:
     matchLabels: {}
   links:
-    - name: Upstream
+    - name: Upstream Project
       url: 'https://github.com/rh-jmc-team/container-jfr'
   icon:
     - base64data: ''
