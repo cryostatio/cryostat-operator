@@ -38,6 +38,18 @@ func NewPersistentVolumeClaimForCR(cr *rhjmcv1alpha1.ContainerJFR) *corev1.Persi
 }
 
 func NewPodForCR(cr *rhjmcv1alpha1.ContainerJFR, specs *ServiceSpecs) *corev1.Pod {
+	var containers []corev1.Container
+	if cr.Spec.Minimal {
+		containers = []corev1.Container{
+			NewCoreContainer(cr, specs),
+		}
+	} else {
+		containers = []corev1.Container{
+			NewCoreContainer(cr, specs),
+			NewGrafanaContainer(cr),
+			NewJfrDatasourceContainer(cr),
+		}
+	}
 	return &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      cr.Name + "-pod",
@@ -62,19 +74,19 @@ func NewPodForCR(cr *rhjmcv1alpha1.ContainerJFR, specs *ServiceSpecs) *corev1.Po
 					},
 				},
 			},
-			Containers: []corev1.Container{
-				NewCoreContainer(cr, specs),
-				NewGrafanaContainer(cr),
-				NewJfrDatasourceContainer(cr),
-			},
+			Containers: containers,
 		},
 	}
 }
 
 func NewCoreContainer(cr *rhjmcv1alpha1.ContainerJFR, specs *ServiceSpecs) corev1.Container {
+	imageTag := "quay.io/rh-jmc-team/container-jfr:0.4.14"
+	if cr.Spec.Minimal {
+		imageTag += "-minimal"
+	}
 	return corev1.Container{
 		Name:  cr.Name,
-		Image: "quay.io/rh-jmc-team/container-jfr:0.4.14",
+		Image: imageTag,
 		VolumeMounts: []corev1.VolumeMount{
 			{
 				Name:      cr.Name,
