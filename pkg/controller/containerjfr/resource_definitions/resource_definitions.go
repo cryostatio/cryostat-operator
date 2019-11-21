@@ -162,7 +162,7 @@ func NewGrafanaContainer(cr *rhjmcv1alpha1.ContainerJFR) corev1.Container {
 func NewJfrDatasourceContainer(cr *rhjmcv1alpha1.ContainerJFR) corev1.Container {
 	return corev1.Container{
 		Name:  cr.Name + "-jfr-datasource",
-		Image: "quay.io/rh-jmc-team/jfr-datasource:0.0.1",
+		Image: "quay.io/rh-jmc-team/jfr-datasource:0.0.2",
 		Ports: []corev1.ContainerPort{
 			{
 				ContainerPort: 8080,
