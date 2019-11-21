@@ -80,7 +80,7 @@ func NewPodForCR(cr *rhjmcv1alpha1.ContainerJFR, specs *ServiceSpecs) *corev1.Po
 }
 
 func NewCoreContainer(cr *rhjmcv1alpha1.ContainerJFR, specs *ServiceSpecs) corev1.Container {
-	imageTag := "quay.io/rh-jmc-team/container-jfr:0.4.14"
+	imageTag := "quay.io/rh-jmc-team/container-jfr:0.5.2"
 	if cr.Spec.Minimal {
 		imageTag += "-minimal"
 	}
