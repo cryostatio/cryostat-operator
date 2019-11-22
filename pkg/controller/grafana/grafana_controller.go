@@ -60,7 +60,6 @@ type ReconcileGrafana struct {
 
 func (r *ReconcileGrafana) Reconcile(request reconcile.Request) (reconcile.Result, error) {
 	reqLogger := log.WithValues("Request.Namespace", request.Namespace, "Request.Name", request.Name)
-	reqLogger.Info("Reconciling Grafana")
 
 	svc := &corev1.Service{}
 	ctx := context.Background()
@@ -101,6 +100,11 @@ func (r *ReconcileGrafana) Reconcile(request reconcile.Request) (reconcile.Resul
 	}
 	reqLogger.Info("Grafana datasource configured")
 
+	if err := r.configureGrafanaDashboard(route); err != nil {
+		return reconcile.Result{}, err
+	}
+	reqLogger.Info("Grafana dashboard configured")
+
 	return reconcile.Result{}, nil
 }
 
@@ -129,6 +133,7 @@ func (r *ReconcileGrafana) configureGrafanaDatasource(route *openshiftv1.Route) 
 	logger := log.WithValues("Route.Namespace", route.Namespace, "Route.Name", route.Name)
 
 	logger.Info("Checking existing datasource definitions")
+	// TODO get an API token, rather than using basic auth and assumed default credentials
 	getResp, err := http.Get(fmt.Sprintf("http://admin:admin@%s/api/datasources", route.Status.Ingress[0].Host))
 	if err != nil {
 		return err
@@ -194,6 +199,27 @@ func (r *ReconcileGrafana) configureGrafanaDatasource(route *openshiftv1.Route) 
 	defer postResp.Body.Close()
 	if postResp.StatusCode != 200 {
 		return errors.NewInternalError(goerrors.New(fmt.Sprintf("Grafana service responded HTTP %d when creating datasource", postResp.StatusCode)))
+	}
+	postBody, err := ioutil.ReadAll(postResp.Body)
+	if err != nil {
+		return err
+	}
+	logger.Info("POST response", "Body", string(postBody))
+	return nil
+}
+
+func (r *ReconcileGrafana) configureGrafanaDashboard(route *openshiftv1.Route) error {
+	logger := log.WithValues("Route.Namespace", route.Namespace, "Route.Name", route.Name)
+
+	// TODO find a way to list/search existing dashboards to avoid creating a duplicate
+	postResp, err := http.Post(fmt.Sprintf("http://admin:admin@%s/api/dashboards/db", route.Status.Ingress[0].Host), "application/json", bytes.NewBufferString(DashboardDefinitionJSON))
+	logger.Info("POST response", "Status", postResp.Status, "StatusCode", postResp.StatusCode)
+	if err != nil {
+		return err
+	}
+	defer postResp.Body.Close()
+	if postResp.StatusCode != 200 {
+		return errors.NewInternalError(goerrors.New(fmt.Sprintf("Grafana service responded HTTP %d when creating dashboard", postResp.StatusCode)))
 	}
 	postBody, err := ioutil.ReadAll(postResp.Body)
 	if err != nil {
