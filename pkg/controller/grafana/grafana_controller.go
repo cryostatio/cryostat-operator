@@ -60,7 +60,7 @@ type ReconcileGrafana struct {
 
 func (r *ReconcileGrafana) Reconcile(request reconcile.Request) (reconcile.Result, error) {
 	reqLogger := log.WithValues("Request.Namespace", request.Namespace, "Request.Name", request.Name)
-	reqLogger.Info("Reconciling Service")
+	reqLogger.Info("Reconciling Grafana")
 
 	svc := &corev1.Service{}
 	ctx := context.Background()
@@ -128,8 +128,34 @@ func isServiceHealthy(route *openshiftv1.Route) (bool, error) {
 func (r *ReconcileGrafana) configureGrafanaDatasource(route *openshiftv1.Route) error {
 	logger := log.WithValues("Route.Namespace", route.Namespace, "Route.Name", route.Name)
 
+	logger.Info("Checking existing datasource definitions")
+	getResp, err := http.Get(fmt.Sprintf("http://admin:admin@%s/api/datasources", route.Status.Ingress[0].Host))
+	if err != nil {
+		return err
+	}
+	defer getResp.Body.Close()
+	configuredDatasources := GrafanaDatasourceList{}
+	getBody, err := ioutil.ReadAll(getResp.Body)
+	if err != nil {
+		return err
+	}
+	if err = json.Unmarshal(getBody, &configuredDatasources); err != nil {
+		return err
+	}
+	logger.Info("Found existing datasource definitions", "datasources", configuredDatasources)
+	if len(configuredDatasources) > 1 {
+		return errors.NewInternalError(goerrors.New(fmt.Sprintf("Expected zero or one configured datasources, found %d", len(configuredDatasources))))
+	} else if len(configuredDatasources) == 1 {
+		if configuredDatasources[0].Name != "jfr-datasource" {
+			return errors.NewInternalError(goerrors.New(fmt.Sprintf("Found unexpected configured datasource %s", configuredDatasources[0].Name)))
+		} else {
+			return nil
+		}
+	}
+
+	logger.Info("Checking for jfr-datasource service")
 	services := corev1.ServiceList{}
-	err := r.client.List(context.Background(), &services, client.InNamespace(route.Namespace), client.MatchingLabels{"component": "jfr-datasource"})
+	err = r.client.List(context.Background(), &services, client.InNamespace(route.Namespace), client.MatchingLabels{"component": "jfr-datasource"})
 	if err != nil {
 		return err
 	}
@@ -137,6 +163,7 @@ func (r *ReconcileGrafana) configureGrafanaDatasource(route *openshiftv1.Route) 
 		return errors.NewInternalError(goerrors.New(fmt.Sprintf("Expected one jfr-datasource service, found %d", len(services.Items))))
 	}
 
+	logger.Info("Checking for jfr-datasource route")
 	datasourceRoute, err := r.routeClient.Routes(route.Namespace).Get(services.Items[0].Name, metav1.GetOptions{})
 	if err != nil {
 		return err
@@ -144,13 +171,12 @@ func (r *ReconcileGrafana) configureGrafanaDatasource(route *openshiftv1.Route) 
 	if len(datasourceRoute.Status.Ingress) < 1 {
 		return errors.NewInternalError(goerrors.New("jfr-datasource route has no Ingress"))
 	}
-	url := fmt.Sprintf("http://%s", datasourceRoute.Status.Ingress[0].Host)
+	datasourceUrl := fmt.Sprintf("http://%s", datasourceRoute.Status.Ingress[0].Host)
 
-	// TODO check for existing datasource(s) before creating this one
 	datasource := GrafanaDatasource{
 		Name:      "jfr-datasource",
 		Type:      "grafana-simple-json-datasource",
-		Url:       url,
+		Url:       datasourceUrl,
 		Access:    "proxy",
 		BasicAuth: false,
 		IsDefault: true,
@@ -160,22 +186,24 @@ func (r *ReconcileGrafana) configureGrafanaDatasource(route *openshiftv1.Route) 
 	if err != nil {
 		return err
 	}
-	resp, err := http.Post(fmt.Sprintf("http://admin:admin@%s/api/datasources", route.Status.Ingress[0].Host), "application/json", bytes.NewBuffer(dsStr))
-	logger.Info("POST response", "Status", resp.Status, "StatusCode", resp.StatusCode)
+	postResp, err := http.Post(fmt.Sprintf("http://admin:admin@%s/api/datasources", route.Status.Ingress[0].Host), "application/json", bytes.NewBuffer(dsStr))
+	logger.Info("POST response", "Status", postResp.Status, "StatusCode", postResp.StatusCode)
 	if err != nil {
 		return err
 	}
-	defer resp.Body.Close()
-	if resp.StatusCode != 200 {
-		return errors.NewInternalError(goerrors.New(fmt.Sprintf("Grafana service responded HTTP %d when creating datasource", resp.StatusCode)))
+	defer postResp.Body.Close()
+	if postResp.StatusCode != 200 {
+		return errors.NewInternalError(goerrors.New(fmt.Sprintf("Grafana service responded HTTP %d when creating datasource", postResp.StatusCode)))
 	}
-	body, err := ioutil.ReadAll(resp.Body)
+	postBody, err := ioutil.ReadAll(postResp.Body)
 	if err != nil {
 		return err
 	}
-	logger.Info("POST response", "Body", string(body))
+	logger.Info("POST response", "Body", string(postBody))
 	return nil
 }
+
+type GrafanaDatasourceList []GrafanaDatasource
 
 type GrafanaDatasource struct {
 	Name      string `json:"name"`
