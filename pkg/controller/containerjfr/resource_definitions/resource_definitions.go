@@ -80,9 +80,47 @@ func NewPodForCR(cr *rhjmcv1alpha1.ContainerJFR, specs *ServiceSpecs) *corev1.Po
 }
 
 func NewCoreContainer(cr *rhjmcv1alpha1.ContainerJFR, specs *ServiceSpecs) corev1.Container {
+	envs := []corev1.EnvVar{
+		{
+			Name:  "CONTAINER_JFR_WEB_PORT",
+			Value: "8181",
+		},
+		{
+			Name:  "CONTAINER_JFR_EXT_WEB_PORT",
+			Value: "80",
+		},
+		{
+			Name:  "CONTAINER_JFR_WEB_HOST",
+			Value: specs.CoreAddress,
+		},
+		{
+			Name:  "CONTAINER_JFR_LISTEN_PORT",
+			Value: "9090",
+		},
+		{
+			Name:  "CONTAINER_JFR_EXT_LISTEN_PORT",
+			Value: "80",
+		},
+		{
+			Name:  "CONTAINER_JFR_LISTEN_HOST",
+			Value: specs.CommandAddress,
+		},
+		{
+			Name:  "GRAFANA_DASHBOARD_URL",
+			Value: specs.GrafanaAddress,
+		},
+		{
+			Name:  "GRAFANA_DATASOURCE_URL",
+			Value: specs.DatasourceAddress,
+		},
+	}
 	imageTag := "quay.io/rh-jmc-team/container-jfr:0.5.2"
 	if cr.Spec.Minimal {
 		imageTag += "-minimal"
+		envs = append(envs, corev1.EnvVar{
+			Name:  "USE_LOW_MEM_PRESSURE_STREAMING",
+			Value: "true",
+		})
 	}
 	return corev1.Container{
 		Name:  cr.Name,
@@ -104,40 +142,7 @@ func NewCoreContainer(cr *rhjmcv1alpha1.ContainerJFR, specs *ServiceSpecs) corev
 				ContainerPort: 9091,
 			},
 		},
-		Env: []corev1.EnvVar{
-			{
-				Name:  "CONTAINER_JFR_WEB_PORT",
-				Value: "8181",
-			},
-			{
-				Name:  "CONTAINER_JFR_EXT_WEB_PORT",
-				Value: "80",
-			},
-			{
-				Name:  "CONTAINER_JFR_WEB_HOST",
-				Value: specs.CoreAddress,
-			},
-			{
-				Name:  "CONTAINER_JFR_LISTEN_PORT",
-				Value: "9090",
-			},
-			{
-				Name:  "CONTAINER_JFR_EXT_LISTEN_PORT",
-				Value: "80",
-			},
-			{
-				Name:  "CONTAINER_JFR_LISTEN_HOST",
-				Value: specs.CommandAddress,
-			},
-			{
-				Name:  "GRAFANA_DASHBOARD_URL",
-				Value: specs.GrafanaAddress,
-			},
-			{
-				Name:  "GRAFANA_DATASOURCE_URL",
-				Value: specs.DatasourceAddress,
-			},
-		},
+		Env: envs,
 	}
 }
 
