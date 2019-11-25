@@ -183,7 +183,8 @@ func NewExporterService(cr *rhjmcv1alpha1.ContainerJFR) *corev1.Service {
 			Name:      cr.Name,
 			Namespace: cr.Namespace,
 			Labels: map[string]string{
-				"app": cr.Name,
+				"app":       cr.Name,
+				"component": "container-jfr",
 			},
 		},
 		Spec: corev1.ServiceSpec{
@@ -213,7 +214,8 @@ func NewCommandChannelService(cr *rhjmcv1alpha1.ContainerJFR) *corev1.Service {
 			Name:      cr.Name + "-command",
 			Namespace: cr.Namespace,
 			Labels: map[string]string{
-				"app": cr.Name,
+				"app":       cr.Name,
+				"component": "command-channel",
 			},
 		},
 		Spec: corev1.ServiceSpec{
@@ -265,7 +267,7 @@ func NewJfrDatasourceService(cr *rhjmcv1alpha1.ContainerJFR) *corev1.Service {
 			Namespace: cr.Namespace,
 			Labels: map[string]string{
 				"app":       cr.Name,
-				"component": "grafana",
+				"component": "jfr-datasource",
 			},
 		},
 		Spec: corev1.ServiceSpec{
