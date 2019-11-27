@@ -111,13 +111,15 @@ func (r *ReconcileContainerJFR) Reconcile(request reconcile.Request) (reconcile.
 	serviceSpecs := &resources.ServiceSpecs{}
 	var url string
 	if !instance.Spec.Minimal {
-		url, err = r.createService(context.Background(), instance, resources.NewGrafanaService(instance))
+		grafanaSvc := resources.NewGrafanaService(instance)
+		url, err = r.createService(context.Background(), instance, grafanaSvc, grafanaSvc.Spec.Ports[0])
 		if err != nil {
 			return reconcile.Result{}, err
 		}
 		serviceSpecs.GrafanaAddress = fmt.Sprintf("http://%s", url)
 
-		url, err = r.createService(context.Background(), instance, resources.NewJfrDatasourceService(instance))
+		datasourceSvc := resources.NewJfrDatasourceService(instance)
+		url, err = r.createService(context.Background(), instance, datasourceSvc, datasourceSvc.Spec.Ports[0])
 		if err != nil {
 			return reconcile.Result{}, err
 		}
@@ -171,13 +173,15 @@ func (r *ReconcileContainerJFR) Reconcile(request reconcile.Request) (reconcile.
 		}
 	}
 
-	url, err = r.createService(context.Background(), instance, resources.NewExporterService(instance))
+	exporterSvc := resources.NewExporterService(instance)
+	url, err = r.createService(context.Background(), instance, exporterSvc, exporterSvc.Spec.Ports[0])
 	if err != nil {
 		return reconcile.Result{}, err
 	}
 	serviceSpecs.CoreAddress = url
 
-	url, err = r.createService(context.Background(), instance, resources.NewCommandChannelService(instance))
+	cmdChanSvc := resources.NewCommandChannelService(instance)
+	url, err = r.createService(context.Background(), instance, cmdChanSvc, cmdChanSvc.Spec.Ports[0])
 	if err != nil {
 		return reconcile.Result{}, err
 	}
@@ -196,7 +200,7 @@ func (r *ReconcileContainerJFR) Reconcile(request reconcile.Request) (reconcile.
 	return reconcile.Result{}, nil
 }
 
-func (r *ReconcileContainerJFR) createService(ctx context.Context, controller *rhjmcv1alpha1.ContainerJFR, svc *corev1.Service) (string, error) {
+func (r *ReconcileContainerJFR) createService(ctx context.Context, controller *rhjmcv1alpha1.ContainerJFR, svc *corev1.Service, exposePort corev1.ServicePort) (string, error) {
 	if err := controllerutil.SetControllerReference(controller, svc, r.scheme); err != nil {
 		return "", err
 	}
@@ -204,10 +208,10 @@ func (r *ReconcileContainerJFR) createService(ctx context.Context, controller *r
 		return "", err
 	}
 
-	return r.createRouteForService(controller, svc)
+	return r.createRouteForService(controller, svc, exposePort)
 }
 
-func (r *ReconcileContainerJFR) createRouteForService(controller *rhjmcv1alpha1.ContainerJFR, svc *corev1.Service) (string, error) {
+func (r *ReconcileContainerJFR) createRouteForService(controller *rhjmcv1alpha1.ContainerJFR, svc *corev1.Service, exposePort corev1.ServicePort) (string, error) {
 	logger := log.WithValues("Request.Namespace", svc.Namespace, "Name", svc.Name, "Kind", fmt.Sprintf("%T", &openshiftv1.Route{}))
 	route := &openshiftv1.Route{
 		ObjectMeta: metav1.ObjectMeta{
@@ -219,6 +223,7 @@ func (r *ReconcileContainerJFR) createRouteForService(controller *rhjmcv1alpha1.
 				Kind: "Service",
 				Name: svc.Name,
 			},
+			Port: &openshiftv1.RoutePort{TargetPort: exposePort.TargetPort},
 		},
 	}
 	if err := controllerutil.SetControllerReference(controller, route, r.scheme); err != nil {
