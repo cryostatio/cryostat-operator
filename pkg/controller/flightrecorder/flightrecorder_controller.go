@@ -2,13 +2,18 @@ package flightrecorder
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"io/ioutil"
+	"net/http"
 	"net/url"
+	"time"
 
 	rhjmcv1alpha1 "github.com/rh-jmc-team/container-jfr-operator/pkg/apis/rhjmc/v1alpha1"
 	jfrclient "github.com/rh-jmc-team/container-jfr-operator/pkg/client"
 	corev1 "k8s.io/api/core/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -103,6 +108,10 @@ func (r *ReconcileFlightRecorder) Reconcile(request reconcile.Request) (reconcil
 	}
 
 	targetRef := instance.Status.Target
+	if targetRef == nil {
+		// FlightRecorder status must not have been updated yet
+		return reconcile.Result{RequeueAfter: time.Second}, nil
+	}
 	targetSvc := &corev1.Service{}
 	err = r.client.Get(ctx, types.NamespacedName{Namespace: targetRef.Namespace, Name: targetRef.Name}, targetSvc)
 	if err != nil {
@@ -117,7 +126,7 @@ func (r *ReconcileFlightRecorder) Reconcile(request reconcile.Request) (reconcil
 	}
 	log.Info("Listing recordings for service", "service", targetSvc.Name, "namespace", targetSvc.Namespace,
 		"host", *clusterIP, "port", 9091)
-	err = r.jfrClient.ListRecordings(*clusterIP, 9091) // FIXME hardcoded port
+	descriptors, err := r.jfrClient.ListRecordings(*clusterIP, 9091) // FIXME hardcoded port
 	if err != nil {
 		log.Error(err, "failed to connect to command server")
 		r.jfrClient.Close()
@@ -125,28 +134,24 @@ func (r *ReconcileFlightRecorder) Reconcile(request reconcile.Request) (reconcil
 		return reconcile.Result{}, err
 	}
 
-	reqLogger.Info("Found FlightRecorder", "Namespace", instance.Namespace, "Name", instance.Name)
+	reqLogger.Info("Updating FlightRecorder", "Namespace", instance.Namespace, "Name", instance.Name)
+	recordings := createRecordingInfo(descriptors)
+	instance.Status.Recordings = recordings
+	err = r.client.Status().Update(ctx, instance)
+	if err != nil {
+		return reconcile.Result{}, err
+	}
+
 	return reconcile.Result{}, nil
 }
 
 func (r *ReconcileFlightRecorder) connectToContainerJFR(ctx context.Context, namespace string) (*jfrclient.ContainerJfrClient, error) {
-	commandSvc := &corev1.Service{}
-	// TODO Get service namespace/name from ContainerJFR CR
-	commandSvcName := "containerjfr-command"
-	err := r.client.Get(ctx, types.NamespacedName{Namespace: namespace, Name: commandSvcName}, commandSvc)
+	// Query the clienturl endpoint of container JFR for the command URL
+	clientURL, err := r.getClientURL(ctx, namespace)
 	if err != nil {
 		return nil, err
 	}
-
-	//clusterIP, err := getClusterIP(commandSvc)
-	hostHack := fmt.Sprintf("%s.%s.svc", commandSvc.Name, commandSvc.Namespace) // XXX
-	clusterIP := &hostHack
-	if err != nil {
-		return nil, err
-	}
-	host := fmt.Sprintf("%s:%d", *clusterIP, 9090) // FIXME hardcoded port
-	commandURL := &url.URL{Scheme: "ws", Host: host, Path: "command"}
-	config := &jfrclient.ClientConfig{ServerURL: commandURL}
+	config := &jfrclient.ClientConfig{ServerURL: clientURL}
 	jfrClient, err := jfrclient.Create(config)
 	if err != nil {
 		return nil, err
@@ -160,4 +165,57 @@ func getClusterIP(svc *corev1.Service) (*string, error) {
 		return nil, fmt.Errorf("ClusterIP unavailable for %s", svc.Name)
 	}
 	return &clusterIP, nil
+}
+
+func createRecordingInfo(descriptors []jfrclient.RecordingDescriptor) []rhjmcv1alpha1.RecordingInfo {
+	infos := make([]rhjmcv1alpha1.RecordingInfo, len(descriptors))
+	for i, descriptor := range descriptors {
+		// Consider any recording not stopped to be "active"
+		active := descriptor.State != jfrclient.RecordingStateStopped
+		startTime := metav1.Unix(0, descriptor.StartTime*int64(time.Millisecond))
+		duration := metav1.Duration{
+			Duration: time.Duration(descriptor.Duration) * time.Millisecond,
+		}
+		info := rhjmcv1alpha1.RecordingInfo{
+			Name:        descriptor.Name,
+			Active:      active,
+			StartTime:   startTime,
+			Duration:    duration,
+			DownloadURL: descriptor.DownloadURL,
+		}
+		infos[i] = info
+	}
+	return infos
+}
+
+func (r *ReconcileFlightRecorder) getClientURL(ctx context.Context, namespace string) (*url.URL, error) {
+	cjfrSvc := &corev1.Service{}
+	// TODO Get service namespace/name from ContainerJFR CR
+	cjfrSvcName := "containerjfr"
+	err := r.client.Get(ctx, types.NamespacedName{Namespace: namespace, Name: cjfrSvcName}, cjfrSvc)
+	if err != nil {
+		return nil, err
+	}
+	clusterIP, err := getClusterIP(cjfrSvc)
+	if err != nil {
+		return nil, err
+	}
+	host := fmt.Sprintf("http://%s:%d/clienturl", *clusterIP, 8181) // FIXME hardcoded port
+	resp, err := http.Get(host)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+	clientURLHolder := struct {
+		ClientURL string `json:"clientUrl"`
+	}{}
+	err = json.Unmarshal(body, &clientURLHolder)
+	if err != nil {
+		return nil, err
+	}
+	return url.Parse(clientURLHolder.ClientURL)
 }

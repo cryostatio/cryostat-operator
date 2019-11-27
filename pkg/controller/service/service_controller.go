@@ -14,9 +14,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
+	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 )
 
@@ -170,9 +170,8 @@ func (r *ReconcileService) newFlightRecorderForService(svc *corev1.Service) (*rh
 			Labels:    labels,
 		},
 		Status: rhjmcv1alpha1.FlightRecorderStatus{
-			Target:          ref,
-			RecordingActive: false,
-			Recordings:      []string{},
+			Target:     ref,
+			Recordings: []rhjmcv1alpha1.RecordingInfo{},
 		},
 	}, nil
 }

@@ -32,8 +32,9 @@ spec:
           description: FlightRecorderSpec defines the desired state of FlightRecorder
           properties:
             recordingActive:
-              description: Specifies whether a JFR recording should be started or
-                stopped
+              description: TODO replace with list of active recordings to reconcile
+                with container jfr (e.g. name, events, duration) Specifies whether
+                a JFR recording should be started or stopped
               type: boolean
           required:
           - recordingActive
@@ -41,13 +42,28 @@ spec:
         status:
           description: FlightRecorderStatus defines the observed state of FlightRecorder
           properties:
-            recordingActive:
-              description: Whether the pod/service is currently recording
-              type: boolean
             recordings:
               description: Lists all recordings for the pod/service that may be downloaded
               items:
-                type: string
+                properties:
+                  active:
+                    type: boolean
+                  downloadUrl:
+                    type: string
+                  duration:
+                    type: string
+                  name:
+                    type: string
+                  startTime:
+                    format: date-time
+                    type: string
+                required:
+                - active
+                - downloadUrl
+                - duration
+                - name
+                - startTime
+                type: object
               type: array
             target:
               description: Reference to the pod/service that this object controls
@@ -87,7 +103,6 @@ spec:
                   type: string
               type: object
           required:
-          - recordingActive
           - recordings
           - target
           type: object

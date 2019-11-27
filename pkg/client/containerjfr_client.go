@@ -89,32 +89,32 @@ func (client *ContainerJfrClient) disconnect() error {
 
 // ListRecordings connects to a JVM addressed by the host and port and returns
 // a list of its in-memory Flight Recordings
-func (client *ContainerJfrClient) ListRecordings(host string, port int) error {
+func (client *ContainerJfrClient) ListRecordings(host string, port int) ([]RecordingDescriptor, error) {
 	connected, err := client.isConnected()
 	if err != nil {
-		return err
+		return nil, err
 	} else if connected {
 		log.Info("already connected, will disconnect first")
 		err = client.disconnect()
 		if err != nil {
-			return err
+			return nil, err
 		}
 	}
 
 	err = client.connect(host, port)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	defer client.disconnect()
 
 	listCmd := NewCommandMessage("list")
 	recordings := []RecordingDescriptor{}
-	err = client.syncMessage(listCmd, recordings)
+	err = client.syncMessage(listCmd, &recordings)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	log.Info("got list response", "resp", recordings)
-	return nil
+	return recordings, nil
 }
 
 func (client *ContainerJfrClient) syncMessage(msg *CommandMessage, responsePayload interface{}) error {

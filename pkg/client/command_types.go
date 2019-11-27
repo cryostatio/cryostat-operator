@@ -29,15 +29,17 @@ const (
 )
 
 type RecordingDescriptor struct {
-	ID         int64          `json:"id"`
-	Name       string         `json:"name"`
-	State      RecordingState `json:"state"`
-	StartTime  int64          `json:"startTime"`
-	Duration   int64          `json:"duration"`
-	Continuous bool           `json:"continuous"`
-	ToDisk     bool           `json:"toDisk"`
-	MaxSize    int64          `json:"maxSize"`
-	MaxAge     int64          `json:"maxAge"`
+	ID          int64          `json:"id"`
+	Name        string         `json:"name"`
+	State       RecordingState `json:"state"`
+	StartTime   int64          `json:"startTime"`
+	Duration    int64          `json:"duration"`
+	Continuous  bool           `json:"continuous"`
+	ToDisk      bool           `json:"toDisk"`
+	MaxSize     int64          `json:"maxSize"`
+	MaxAge      int64          `json:"maxAge"`
+	DownloadURL string         `json:"downloadUrl"`
+	ReportURL   string         `json:"reportUrl"`
 }
 
 // UnmarshalJSON overrides standard JSON parsing to handle error payloads
