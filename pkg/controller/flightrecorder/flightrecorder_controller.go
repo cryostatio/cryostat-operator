@@ -124,17 +124,56 @@ func (r *ReconcileFlightRecorder) Reconcile(request reconcile.Request) (reconcil
 	if err != nil {
 		return reconcile.Result{}, err // TODO should we requeue?
 	}
+	err = r.jfrClient.Connect(*clusterIP, 9091) // FIXME hardcoded port
+	if err != nil {
+		log.Error(err, "failed to connect to target JVM")
+		r.closeClient()
+		return reconcile.Result{}, err
+	}
+	defer r.disconnectClient()
+
+	log.Info("Syncing recording requests for service", "service", targetSvc.Name, "namespace", targetSvc.Namespace,
+		"host", *clusterIP, "port", 9091)
+	for _, request := range instance.Spec.Requests {
+		log.Info("Creating new recording", "name", request.Name, "duration", request.Duration, "events", request.Events)
+		err := r.jfrClient.DumpRecording(request.Name, int(request.Duration.Seconds()), request.Events)
+		if err != nil {
+			log.Error(err, "failed to create new recording")
+			r.closeClient() // TODO maybe track an error state in the client instead of relying on calling this everywhere
+			return reconcile.Result{}, err
+		}
+	}
+
 	log.Info("Listing recordings for service", "service", targetSvc.Name, "namespace", targetSvc.Namespace,
 		"host", *clusterIP, "port", 9091)
-	descriptors, err := r.jfrClient.ListRecordings(*clusterIP, 9091) // FIXME hardcoded port
+	descriptors, err := r.jfrClient.ListRecordings()
 	if err != nil {
-		log.Error(err, "failed to connect to command server")
-		r.jfrClient.Close()
-		r.jfrClient = nil
+		log.Error(err, "failed to list flight recordings")
+		r.closeClient()
 		return reconcile.Result{}, err
 	}
 
 	reqLogger.Info("Updating FlightRecorder", "Namespace", instance.Namespace, "Name", instance.Name)
+	// Remove any recording requests that are now showing in Container JFR's list
+	newRequests := []rhjmcv1alpha1.RecordingRequest{}
+	for _, req := range instance.Spec.Requests { // TODO optimize?
+		found := false
+		for _, desc := range descriptors {
+			if req.Name == desc.Name {
+				found = true
+			}
+		}
+		if !found {
+			newRequests = append(newRequests, req)
+		}
+	}
+	instance.Spec.Requests = newRequests
+	err = r.client.Update(ctx, instance)
+	if err != nil {
+		return reconcile.Result{}, err
+	}
+
+	// Update recording info in Status with info received from Container JFR
 	recordings := createRecordingInfo(descriptors)
 	instance.Status.Recordings = recordings
 	err = r.client.Status().Update(ctx, instance)
@@ -142,7 +181,10 @@ func (r *ReconcileFlightRecorder) Reconcile(request reconcile.Request) (reconcil
 		return reconcile.Result{}, err
 	}
 
-	return reconcile.Result{}, nil
+	reqLogger.Info("FlightRecorder successfully updated", "Namespace", instance.Namespace, "Name", instance.Name)
+	// TODO Maybe a better solution than polling
+	// Requeue to periodically sync with Container JFR
+	return reconcile.Result{RequeueAfter: 10 * time.Second}, nil
 }
 
 func (r *ReconcileFlightRecorder) connectToContainerJFR(ctx context.Context, namespace string) (*jfrclient.ContainerJfrClient, error) {
@@ -218,4 +260,17 @@ func (r *ReconcileFlightRecorder) getClientURL(ctx context.Context, namespace st
 		return nil, err
 	}
 	return url.Parse(clientURLHolder.ClientURL)
+}
+
+func (r *ReconcileFlightRecorder) disconnectClient() {
+	err := r.jfrClient.Disconnect()
+	if err != nil {
+		log.Error(err, "failed to disconnect from target JVM")
+		r.closeClient()
+	}
+}
+
+func (r *ReconcileFlightRecorder) closeClient() {
+	r.jfrClient.Close()
+	r.jfrClient = nil
 }

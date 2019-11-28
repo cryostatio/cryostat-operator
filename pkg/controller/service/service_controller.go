@@ -169,6 +169,9 @@ func (r *ReconcileService) newFlightRecorderForService(svc *corev1.Service) (*rh
 			Namespace: svc.Namespace,
 			Labels:    labels,
 		},
+		Spec: rhjmcv1alpha1.FlightRecorderSpec{
+			Requests: []rhjmcv1alpha1.RecordingRequest{},
+		},
 		Status: rhjmcv1alpha1.FlightRecorderStatus{
 			Target:     ref,
 			Recordings: []rhjmcv1alpha1.RecordingInfo{},

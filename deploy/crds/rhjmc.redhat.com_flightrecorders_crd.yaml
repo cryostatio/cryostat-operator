@@ -31,13 +31,26 @@ spec:
         spec:
           description: FlightRecorderSpec defines the desired state of FlightRecorder
           properties:
-            recordingActive:
-              description: TODO replace with list of active recordings to reconcile
-                with container jfr (e.g. name, events, duration) Specifies whether
-                a JFR recording should be started or stopped
-              type: boolean
+            recordingRequests:
+              description: Requests to create new flight recordings
+              items:
+                properties:
+                  duration:
+                    type: string
+                  events:
+                    items:
+                      type: string
+                    type: array
+                  name:
+                    type: string
+                required:
+                - duration
+                - events
+                - name
+                type: object
+              type: array
           required:
-          - recordingActive
+          - recordingRequests
           type: object
         status:
           description: FlightRecorderStatus defines the observed state of FlightRecorder

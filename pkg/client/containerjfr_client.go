@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/url"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/gorilla/websocket"
@@ -52,11 +54,24 @@ func newWebSocketConn(server *url.URL) (*websocket.Conn, error) {
 	return conn, nil
 }
 
-func (client *ContainerJfrClient) connect(host string, port int) error {
+// Connect tells Container JFR to connect to a JVM addressed by the host and port
+func (client *ContainerJfrClient) Connect(host string, port int) error {
+	// Disconnect first if already connected
+	connected, err := client.isConnected()
+	if err != nil {
+		return err
+	} else if connected {
+		log.Info("already connected, will disconnect first")
+		err = client.Disconnect()
+		if err != nil {
+			return err
+		}
+	}
+
 	target := fmt.Sprintf("%s:%d", host, port)
 	connectCmd := NewCommandMessage("connect", target)
 	var resp string
-	err := client.syncMessage(connectCmd, &resp)
+	err = client.syncMessage(connectCmd, &resp)
 	if err != nil {
 		return err
 	}
@@ -76,7 +91,8 @@ func (client *ContainerJfrClient) isConnected() (bool, error) {
 	return isConnected, nil
 }
 
-func (client *ContainerJfrClient) disconnect() error {
+// Disconnect tells Container JFR to disconnect from its target JVM
+func (client *ContainerJfrClient) Disconnect() error {
 	disconnectCmd := NewCommandMessage("disconnect")
 	var resp string
 	err := client.syncMessage(disconnectCmd, &resp)
@@ -87,34 +103,27 @@ func (client *ContainerJfrClient) disconnect() error {
 	return nil
 }
 
-// ListRecordings connects to a JVM addressed by the host and port and returns
-// a list of its in-memory Flight Recordings
-func (client *ContainerJfrClient) ListRecordings(host string, port int) ([]RecordingDescriptor, error) {
-	connected, err := client.isConnected()
-	if err != nil {
-		return nil, err
-	} else if connected {
-		log.Info("already connected, will disconnect first")
-		err = client.disconnect()
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	err = client.connect(host, port)
-	if err != nil {
-		return nil, err
-	}
-	defer client.disconnect()
-
+// ListRecordings returns a list of its in-memory Flight Recordings
+func (client *ContainerJfrClient) ListRecordings() ([]RecordingDescriptor, error) {
 	listCmd := NewCommandMessage("list")
 	recordings := []RecordingDescriptor{}
-	err = client.syncMessage(listCmd, &recordings)
+	err := client.syncMessage(listCmd, &recordings)
 	if err != nil {
 		return nil, err
 	}
 	log.Info("got list response", "resp", recordings)
 	return recordings, nil
+}
+
+func (client *ContainerJfrClient) DumpRecording(name string, seconds int, events []string) error {
+	dumpCmd := NewCommandMessage("dump", name, strconv.Itoa(seconds), strings.Join(events, ","))
+	var resp string
+	err := client.syncMessage(dumpCmd, &resp)
+	if err != nil {
+		return err
+	}
+	log.Info("got dump response:", "resp", resp)
+	return nil
 }
 
 func (client *ContainerJfrClient) syncMessage(msg *CommandMessage, responsePayload interface{}) error {

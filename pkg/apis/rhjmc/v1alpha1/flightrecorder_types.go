@@ -15,9 +15,9 @@ type FlightRecorderSpec struct {
 	// Important: Run "operator-sdk generate k8s" to regenerate code after modifying this file
 	// Add custom validation using kubebuilder tags: https://book-v1.book.kubebuilder.io/beyond_basics/generating_crd.html
 
-	// TODO replace with list of active recordings to reconcile with container jfr (e.g. name, events, duration)
-	// Specifies whether a JFR recording should be started or stopped
-	RecordingActive bool `json:"recordingActive"`
+	// Requests to create new flight recordings
+	// +listType=set
+	Requests []RecordingRequest `json:"recordingRequests"`
 }
 
 // FlightRecorderStatus defines the observed state of FlightRecorder
@@ -32,6 +32,13 @@ type FlightRecorderStatus struct {
 	// Lists all recordings for the pod/service that may be downloaded
 	// +listType=set
 	Recordings []RecordingInfo `json:"recordings"`
+}
+
+type RecordingRequest struct {
+	Name string `json:"name"`
+	// +listType=set
+	Events   []string        `json:"events"`
+	Duration metav1.Duration `json:"duration"`
 }
 
 type RecordingInfo struct {
