@@ -1,7 +1,7 @@
 apiVersion: operators.coreos.com/v1alpha1
 kind: ClusterServiceVersion
 metadata:
-  name: container-jfr-operator-bundle.v0.2.1
+  name: container-jfr-operator-bundle.v0.2.2
   namespace: placeholder
   annotations:
     alm-examples: >-
@@ -32,7 +32,7 @@ metadata:
     createdAt: 2019-11-04T00:00:00Z
     description: JVM monitoring and profiling tool
     # TODO automatically replace the version tag
-    containerImage: quay.io/rh-jmc-team/container-jfr-operator:0.2.1
+    containerImage: quay.io/rh-jmc-team/container-jfr-operator:0.2.2
     support: Red Hat
     capabilities: Basic Install
     repository: github.com/rh-jmc-team/container-jfr-operator
@@ -47,7 +47,7 @@ spec:
     applications and analyze recording data without transferring data outside
     of the cluster the application runs within.
   maturity: pre-alpha
-  version: 0.2.1
+  version: 0.2.2
   replaces: ''
   minKubeVersion: ''
   keywords:
@@ -204,7 +204,7 @@ spec:
                 serviceAccountName: container-jfr-operator
                 containers:
                   - name: container-jfr-operator
-                    image: 'quay.io/rh-jmc-team/container-jfr-operator:0.2.1'
+                    image: 'quay.io/rh-jmc-team/container-jfr-operator:0.2.2'
                     command:
                       - container-jfr-operator
                     imagePullPolicy: Always
