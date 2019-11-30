@@ -72,7 +72,6 @@ spec:
                     type: string
                 required:
                 - active
-                - downloadUrl
                 - duration
                 - name
                 - startTime

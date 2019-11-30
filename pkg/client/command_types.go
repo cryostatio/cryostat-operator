@@ -42,6 +42,12 @@ type RecordingDescriptor struct {
 	ReportURL   string         `json:"reportUrl"`
 }
 
+type SavedRecording struct {
+	Name        string `json:"name"`
+	DownloadURL string `json:"downloadUrl"`
+	ReportURL   string `json:"reportUrl"`
+}
+
 // UnmarshalJSON overrides standard JSON parsing to handle error payloads
 func (msg *ResponseMessage) UnmarshalJSON(data []byte) error {
 	// Unmarshall only status at first to determine if we need to

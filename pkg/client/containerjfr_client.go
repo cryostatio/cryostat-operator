@@ -99,7 +99,7 @@ func (client *ContainerJfrClient) Disconnect() error {
 	if err != nil {
 		return err
 	}
-	log.Info("got disconnect response:", "resp", resp)
+	log.Info("got disconnect response", "resp", resp)
 	return nil
 }
 
@@ -122,8 +122,30 @@ func (client *ContainerJfrClient) DumpRecording(name string, seconds int, events
 	if err != nil {
 		return err
 	}
-	log.Info("got dump response:", "resp", resp)
+	log.Info("got dump response", "resp", resp)
 	return nil
+}
+
+func (client *ContainerJfrClient) SaveRecording(name string) (*string, error) {
+	saveCmd := NewCommandMessage("save", name)
+	var resp string
+	err := client.syncMessage(saveCmd, &resp)
+	if err != nil {
+		return nil, err
+	}
+	log.Info("got save response", "resp", resp)
+	return &resp, nil
+}
+
+func (client *ContainerJfrClient) ListSavedRecordings() ([]SavedRecording, error) {
+	listCmd := NewCommandMessage("list-saved")
+	recordings := []SavedRecording{}
+	err := client.syncMessage(listCmd, &recordings)
+	if err != nil {
+		return nil, err
+	}
+	log.Info("got list-saved response", "resp", recordings)
+	return recordings, nil
 }
 
 func (client *ContainerJfrClient) syncMessage(msg *CommandMessage, responsePayload interface{}) error {

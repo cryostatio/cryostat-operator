@@ -175,16 +175,68 @@ func (r *ReconcileFlightRecorder) Reconcile(request reconcile.Request) (reconcil
 
 	// Update recording info in Status with info received from Container JFR
 	recordings := createRecordingInfo(descriptors)
+
+	toUpdate := map[string]*rhjmcv1alpha1.RecordingInfo{}
+	for idx, newInfo := range recordings { // TODO optimize/remove
+		oldInfo := findRecordingByName(instance.Status.Recordings, newInfo.Name)
+		log.Info("test", "old info", oldInfo, "new info", newInfo) // XXX
+		// Recording completed since last observation
+		if !newInfo.Active && (oldInfo == nil || oldInfo.Active) {
+			filename, err := r.jfrClient.SaveRecording(newInfo.Name)
+			if err != nil {
+				log.Error(err, "failed to save recording", "name", newInfo.Name)
+				return reconcile.Result{}, err
+			}
+			toUpdate[*filename] = &recordings[idx]
+		} else if oldInfo != nil && len(oldInfo.DownloadURL) > 0 {
+			// Use previously obtained download URL
+			recordings[idx].DownloadURL = oldInfo.DownloadURL
+		}
+	}
+
+	if len(toUpdate) > 0 {
+		savedRecordings, err := r.jfrClient.ListSavedRecordings()
+		if err != nil {
+			return reconcile.Result{}, err
+		}
+		// Update download URLs using list of saved recordings
+		for _, saved := range savedRecordings {
+			if info, pres := toUpdate[saved.Name]; pres {
+				log.Info("updating download URL", "name", info.Name, "url", saved.DownloadURL)
+				info.DownloadURL = saved.DownloadURL
+			}
+		}
+	}
+
 	instance.Status.Recordings = recordings
 	err = r.client.Status().Update(ctx, instance)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
+	// XXX
+	log.Info("updated recordings", "recordings", recordings)
+
+	// Requeue if any recordings are still in progress
+	result := reconcile.Result{}
+	for _, recording := range recordings {
+		if recording.Active {
+			// TODO Maybe find a better solution than polling
+			result = reconcile.Result{RequeueAfter: 10 * time.Second}
+			break
+		}
+	}
 
 	reqLogger.Info("FlightRecorder successfully updated", "Namespace", instance.Namespace, "Name", instance.Name)
-	// TODO Maybe a better solution than polling
-	// Requeue to periodically sync with Container JFR
-	return reconcile.Result{RequeueAfter: 10 * time.Second}, nil
+	return result, nil
+}
+
+func findRecordingByName(recordings []rhjmcv1alpha1.RecordingInfo, name string) *rhjmcv1alpha1.RecordingInfo {
+	for idx, recording := range recordings {
+		if recording.Name == name {
+			return &recordings[idx]
+		}
+	}
+	return nil
 }
 
 func (r *ReconcileFlightRecorder) connectToContainerJFR(ctx context.Context, namespace string) (*jfrclient.ContainerJfrClient, error) {
@@ -219,11 +271,11 @@ func createRecordingInfo(descriptors []jfrclient.RecordingDescriptor) []rhjmcv1a
 			Duration: time.Duration(descriptor.Duration) * time.Millisecond,
 		}
 		info := rhjmcv1alpha1.RecordingInfo{
-			Name:        descriptor.Name,
-			Active:      active,
-			StartTime:   startTime,
-			Duration:    duration,
-			DownloadURL: descriptor.DownloadURL,
+			Name:      descriptor.Name,
+			Active:    active,
+			StartTime: startTime,
+			Duration:  duration,
+			//DownloadURL: descriptor.DownloadURL,
 		}
 		infos[i] = info
 	}

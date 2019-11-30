@@ -3,4 +3,4 @@ kind: ContainerJFR
 metadata:
   name: containerjfr
 spec:
-  minimal: false
+  minimal: true

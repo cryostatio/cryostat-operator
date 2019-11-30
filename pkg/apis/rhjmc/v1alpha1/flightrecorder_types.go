@@ -46,7 +46,7 @@ type RecordingInfo struct {
 	Active      bool            `json:"active"`
 	StartTime   metav1.Time     `json:"startTime"`
 	Duration    metav1.Duration `json:"duration"`
-	DownloadURL string          `json:"downloadUrl"`
+	DownloadURL string          `json:"downloadUrl,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
