@@ -186,16 +186,10 @@ func (r *ReconcileGrafana) configureGrafanaDatasource(route *openshiftv1.Route) 
 	if len(services.Items) != 1 {
 		return errors.NewInternalError(goerrors.New(fmt.Sprintf("Expected one jfr-datasource service, found %d", len(services.Items))))
 	}
-
-	logger.Info("Checking for jfr-datasource route")
-	datasourceRoute, err := r.routeClient.Routes(route.Namespace).Get(services.Items[0].Name, metav1.GetOptions{})
-	if err != nil {
-		return err
+	if len(services.Items[0].Spec.Ports) != 1 {
+		return errors.NewInternalError(goerrors.New(fmt.Sprintf("Expected service %s to have one Port, but got %d", services.Items[0].Name, len(services.Items[0].Spec.Ports))))
 	}
-	if len(datasourceRoute.Status.Ingress) < 1 {
-		return errors.NewInternalError(goerrors.New("jfr-datasource route has no Ingress"))
-	}
-	datasourceUrl := fmt.Sprintf("https://%s", datasourceRoute.Status.Ingress[0].Host)
+	datasourceUrl := fmt.Sprintf("http://%s:%d", services.Items[0].Spec.ClusterIP, services.Items[0].Spec.Ports[0].TargetPort.IntVal)
 
 	datasource := GrafanaDatasource{
 		Name:      "jfr-datasource",
