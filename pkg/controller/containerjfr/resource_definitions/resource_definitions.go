@@ -82,12 +82,20 @@ func NewPodForCR(cr *rhjmcv1alpha1.ContainerJFR, specs *ServiceSpecs) *corev1.Po
 func NewCoreContainer(cr *rhjmcv1alpha1.ContainerJFR, specs *ServiceSpecs) corev1.Container {
 	envs := []corev1.EnvVar{
 		{
+			Name:  "CONTAINER_JFR_SSL_PROXIED",
+			Value: "true",
+		},
+		{
+			Name:  "CONTAINER_JFR_ALLOW_UNTRUSTED_SSL",
+			Value: "true",
+		},
+		{
 			Name:  "CONTAINER_JFR_WEB_PORT",
 			Value: "8181",
 		},
 		{
 			Name:  "CONTAINER_JFR_EXT_WEB_PORT",
-			Value: "80",
+			Value: "443",
 		},
 		{
 			Name:  "CONTAINER_JFR_WEB_HOST",
@@ -99,7 +107,7 @@ func NewCoreContainer(cr *rhjmcv1alpha1.ContainerJFR, specs *ServiceSpecs) corev
 		},
 		{
 			Name:  "CONTAINER_JFR_EXT_LISTEN_PORT",
-			Value: "80",
+			Value: "443",
 		},
 		{
 			Name:  "CONTAINER_JFR_LISTEN_HOST",

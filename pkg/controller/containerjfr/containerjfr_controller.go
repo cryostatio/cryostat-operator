@@ -116,7 +116,7 @@ func (r *ReconcileContainerJFR) Reconcile(request reconcile.Request) (reconcile.
 		if err != nil {
 			return reconcile.Result{}, err
 		}
-		serviceSpecs.GrafanaAddress = fmt.Sprintf("http://%s", url)
+		serviceSpecs.GrafanaAddress = fmt.Sprintf("https://%s", url)
 
 		datasourceSvc := resources.NewJfrDatasourceService(instance)
 		url, err = r.createService(context.Background(), instance, datasourceSvc, datasourceSvc.Spec.Ports[0])
@@ -224,6 +224,10 @@ func (r *ReconcileContainerJFR) createRouteForService(controller *rhjmcv1alpha1.
 				Name: svc.Name,
 			},
 			Port: &openshiftv1.RoutePort{TargetPort: exposePort.TargetPort},
+			TLS: &openshiftv1.TLSConfig{
+				Termination:                   openshiftv1.TLSTerminationEdge,
+				InsecureEdgeTerminationPolicy: openshiftv1.InsecureEdgeTerminationPolicyRedirect,
+			},
 		},
 	}
 	if err := controllerutil.SetControllerReference(controller, route, r.scheme); err != nil {

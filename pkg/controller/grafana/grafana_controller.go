@@ -3,6 +3,7 @@ package grafana
 import (
 	"bytes"
 	"context"
+	"crypto/tls"
 	"encoding/json"
 	goerrors "errors"
 	"fmt"
@@ -33,7 +34,22 @@ func Add(mgr manager.Manager) error {
 
 func newReconciler(mgr manager.Manager) reconcile.Reconciler {
 	rc := routeClient.NewForConfigOrDie(mgr.GetConfig())
-	return &ReconcileGrafana{client: mgr.GetClient(), routeClient: *rc, scheme: mgr.GetScheme()}
+
+	defaultTransport := http.DefaultTransport.(*http.Transport)
+	httpClient := http.Client{
+		Transport: &http.Transport{
+			Proxy:                 defaultTransport.Proxy,
+			DialContext:           defaultTransport.DialContext,
+			MaxIdleConns:          defaultTransport.MaxIdleConns,
+			IdleConnTimeout:       defaultTransport.IdleConnTimeout,
+			ExpectContinueTimeout: defaultTransport.ExpectContinueTimeout,
+			TLSHandshakeTimeout:   defaultTransport.TLSHandshakeTimeout,
+			// TODO for CRC development only. Make this configurable and only set in a -dev image
+			TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+		},
+	}
+
+	return &ReconcileGrafana{client: mgr.GetClient(), routeClient: *rc, scheme: mgr.GetScheme(), httpClient: httpClient}
 }
 
 func add(mgr manager.Manager, r reconcile.Reconciler) error {
@@ -56,6 +72,7 @@ type ReconcileGrafana struct {
 	client      client.Client
 	routeClient routeClient.RouteV1Client
 	scheme      *runtime.Scheme
+	httpClient  http.Client
 }
 
 func (r *ReconcileGrafana) Reconcile(request reconcile.Request) (reconcile.Result, error) {
@@ -71,7 +88,7 @@ func (r *ReconcileGrafana) Reconcile(request reconcile.Request) (reconcile.Resul
 		return reconcile.Result{}, err
 	}
 
-	if !isGrafanaService(svc) {
+	if !r.isGrafanaService(svc) {
 		return reconcile.Result{}, nil
 	}
 	reqLogger.Info("Found Grafana service", "Namespace",
@@ -84,7 +101,7 @@ func (r *ReconcileGrafana) Reconcile(request reconcile.Request) (reconcile.Resul
 	reqLogger.Info("Found Grafana route", "Namespace",
 		route.Namespace, "Name", route.Name)
 
-	healthy, err := isServiceHealthy(route)
+	healthy, err := r.isServiceHealthy(route)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
@@ -108,7 +125,7 @@ func (r *ReconcileGrafana) Reconcile(request reconcile.Request) (reconcile.Resul
 	return reconcile.Result{}, nil
 }
 
-func isGrafanaService(svc *corev1.Service) bool {
+func (r *ReconcileGrafana) isGrafanaService(svc *corev1.Service) bool {
 	for k, v := range svc.Labels {
 		if k == "component" && v == "grafana" {
 			return true
@@ -117,11 +134,11 @@ func isGrafanaService(svc *corev1.Service) bool {
 	return false
 }
 
-func isServiceHealthy(route *openshiftv1.Route) (bool, error) {
+func (r *ReconcileGrafana) isServiceHealthy(route *openshiftv1.Route) (bool, error) {
 	if len(route.Status.Ingress) < 1 {
 		return false, nil
 	}
-	resp, err := http.Get(fmt.Sprintf("http://%s/api/health", route.Status.Ingress[0].Host))
+	resp, err := r.httpClient.Get(fmt.Sprintf("https://%s/api/health", route.Status.Ingress[0].Host))
 	if err != nil {
 		return false, err
 	}
@@ -134,7 +151,8 @@ func (r *ReconcileGrafana) configureGrafanaDatasource(route *openshiftv1.Route) 
 
 	logger.Info("Checking existing datasource definitions")
 	// TODO get an API token, rather than using basic auth and assumed default credentials
-	getResp, err := http.Get(fmt.Sprintf("http://admin:admin@%s/api/datasources", route.Status.Ingress[0].Host))
+	getUrl := fmt.Sprintf("https://admin:admin@%s/api/datasources", route.Status.Ingress[0].Host)
+	getResp, err := r.httpClient.Get(getUrl)
 	if err != nil {
 		return err
 	}
@@ -145,6 +163,7 @@ func (r *ReconcileGrafana) configureGrafanaDatasource(route *openshiftv1.Route) 
 		return err
 	}
 	if err = json.Unmarshal(getBody, &configuredDatasources); err != nil {
+		logger.Error(err, "Invalid GET response", "Request URL", getUrl, "Response JSON", getBody)
 		return err
 	}
 	logger.Info("Found existing datasource definitions", "datasources", configuredDatasources)
@@ -176,7 +195,7 @@ func (r *ReconcileGrafana) configureGrafanaDatasource(route *openshiftv1.Route) 
 	if len(datasourceRoute.Status.Ingress) < 1 {
 		return errors.NewInternalError(goerrors.New("jfr-datasource route has no Ingress"))
 	}
-	datasourceUrl := fmt.Sprintf("http://%s", datasourceRoute.Status.Ingress[0].Host)
+	datasourceUrl := fmt.Sprintf("https://%s", datasourceRoute.Status.Ingress[0].Host)
 
 	datasource := GrafanaDatasource{
 		Name:      "jfr-datasource",
@@ -191,7 +210,7 @@ func (r *ReconcileGrafana) configureGrafanaDatasource(route *openshiftv1.Route) 
 	if err != nil {
 		return err
 	}
-	postResp, err := http.Post(fmt.Sprintf("http://admin:admin@%s/api/datasources", route.Status.Ingress[0].Host), "application/json", bytes.NewBuffer(dsStr))
+	postResp, err := r.httpClient.Post(fmt.Sprintf("https://admin:admin@%s/api/datasources", route.Status.Ingress[0].Host), "application/json", bytes.NewBuffer(dsStr))
 	logger.Info("POST response", "Status", postResp.Status, "StatusCode", postResp.StatusCode)
 	if err != nil {
 		return err
@@ -212,7 +231,7 @@ func (r *ReconcileGrafana) configureGrafanaDashboard(route *openshiftv1.Route) e
 	logger := log.WithValues("Route.Namespace", route.Namespace, "Route.Name", route.Name)
 
 	// TODO find a way to list/search existing dashboards to avoid creating a duplicate
-	postResp, err := http.Post(fmt.Sprintf("http://admin:admin@%s/api/dashboards/db", route.Status.Ingress[0].Host), "application/json", bytes.NewBufferString(DashboardDefinitionJSON))
+	postResp, err := r.httpClient.Post(fmt.Sprintf("https://admin:admin@%s/api/dashboards/db", route.Status.Ingress[0].Host), "application/json", bytes.NewBufferString(DashboardDefinitionJSON))
 	logger.Info("POST response", "Status", postResp.Status, "StatusCode", postResp.StatusCode)
 	if err != nil {
 		return err
