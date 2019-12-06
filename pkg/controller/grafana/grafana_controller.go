@@ -189,7 +189,7 @@ func (r *ReconcileGrafana) configureGrafanaDatasource(route *openshiftv1.Route) 
 	if len(services.Items[0].Spec.Ports) != 1 {
 		return errors.NewInternalError(goerrors.New(fmt.Sprintf("Expected service %s to have one Port, but got %d", services.Items[0].Name, len(services.Items[0].Spec.Ports))))
 	}
-	datasourceUrl := fmt.Sprintf("http://%s:%d", services.Items[0].Spec.ClusterIP, services.Items[0].Spec.Ports[0].TargetPort.IntVal)
+	datasourceUrl := fmt.Sprintf("http://%s:%d", services.Items[0].Spec.ClusterIP, services.Items[0].Spec.Ports[0].Port)
 
 	datasource := GrafanaDatasource{
 		Name:      "jfr-datasource",
