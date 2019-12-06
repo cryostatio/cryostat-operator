@@ -82,12 +82,20 @@ func NewPodForCR(cr *rhjmcv1alpha1.ContainerJFR, specs *ServiceSpecs) *corev1.Po
 func NewCoreContainer(cr *rhjmcv1alpha1.ContainerJFR, specs *ServiceSpecs) corev1.Container {
 	envs := []corev1.EnvVar{
 		{
+			Name:  "CONTAINER_JFR_SSL_PROXIED",
+			Value: "true",
+		},
+		{
+			Name:  "CONTAINER_JFR_ALLOW_UNTRUSTED_SSL",
+			Value: "true",
+		},
+		{
 			Name:  "CONTAINER_JFR_WEB_PORT",
 			Value: "8181",
 		},
 		{
 			Name:  "CONTAINER_JFR_EXT_WEB_PORT",
-			Value: "80",
+			Value: "443",
 		},
 		{
 			Name:  "CONTAINER_JFR_WEB_HOST",
@@ -99,7 +107,7 @@ func NewCoreContainer(cr *rhjmcv1alpha1.ContainerJFR, specs *ServiceSpecs) corev
 		},
 		{
 			Name:  "CONTAINER_JFR_EXT_LISTEN_PORT",
-			Value: "80",
+			Value: "443",
 		},
 		{
 			Name:  "CONTAINER_JFR_LISTEN_HOST",
@@ -114,7 +122,7 @@ func NewCoreContainer(cr *rhjmcv1alpha1.ContainerJFR, specs *ServiceSpecs) corev
 			Value: specs.DatasourceAddress,
 		},
 	}
-	imageTag := "quay.io/rh-jmc-team/container-jfr:0.7.0"
+	imageTag := "quay.io/rh-jmc-team/container-jfr:0.8.0"
 	if cr.Spec.Minimal {
 		imageTag += "-minimal"
 		envs = append(envs, corev1.EnvVar{
@@ -271,7 +279,7 @@ func NewJfrDatasourceService(cr *rhjmcv1alpha1.ContainerJFR) *corev1.Service {
 			},
 		},
 		Spec: corev1.ServiceSpec{
-			Type: corev1.ServiceTypeLoadBalancer,
+			Type: corev1.ServiceTypeClusterIP,
 			Selector: map[string]string{
 				"app": cr.Name,
 			},

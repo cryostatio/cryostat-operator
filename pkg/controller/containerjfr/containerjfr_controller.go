@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"time"
 
+	goerrors "errors"
 	openshiftv1 "github.com/openshift/api/route/v1"
 	routeClient "github.com/openshift/client-go/route/clientset/versioned/typed/route/v1"
 	rhjmcv1alpha1 "github.com/rh-jmc-team/container-jfr-operator/pkg/apis/rhjmc/v1alpha1"
@@ -112,14 +113,14 @@ func (r *ReconcileContainerJFR) Reconcile(request reconcile.Request) (reconcile.
 	var url string
 	if !instance.Spec.Minimal {
 		grafanaSvc := resources.NewGrafanaService(instance)
-		url, err = r.createService(context.Background(), instance, grafanaSvc, grafanaSvc.Spec.Ports[0])
+		url, err = r.createService(context.Background(), instance, grafanaSvc, &grafanaSvc.Spec.Ports[0])
 		if err != nil {
 			return reconcile.Result{}, err
 		}
-		serviceSpecs.GrafanaAddress = fmt.Sprintf("http://%s", url)
+		serviceSpecs.GrafanaAddress = fmt.Sprintf("https://%s", url)
 
 		datasourceSvc := resources.NewJfrDatasourceService(instance)
-		url, err = r.createService(context.Background(), instance, datasourceSvc, datasourceSvc.Spec.Ports[0])
+		url, err = r.createService(context.Background(), instance, datasourceSvc, nil)
 		if err != nil {
 			return reconcile.Result{}, err
 		}
@@ -174,14 +175,14 @@ func (r *ReconcileContainerJFR) Reconcile(request reconcile.Request) (reconcile.
 	}
 
 	exporterSvc := resources.NewExporterService(instance)
-	url, err = r.createService(context.Background(), instance, exporterSvc, exporterSvc.Spec.Ports[0])
+	url, err = r.createService(context.Background(), instance, exporterSvc, &exporterSvc.Spec.Ports[0])
 	if err != nil {
 		return reconcile.Result{}, err
 	}
 	serviceSpecs.CoreAddress = url
 
 	cmdChanSvc := resources.NewCommandChannelService(instance)
-	url, err = r.createService(context.Background(), instance, cmdChanSvc, cmdChanSvc.Spec.Ports[0])
+	url, err = r.createService(context.Background(), instance, cmdChanSvc, &cmdChanSvc.Spec.Ports[0])
 	if err != nil {
 		return reconcile.Result{}, err
 	}
@@ -200,7 +201,7 @@ func (r *ReconcileContainerJFR) Reconcile(request reconcile.Request) (reconcile.
 	return reconcile.Result{}, nil
 }
 
-func (r *ReconcileContainerJFR) createService(ctx context.Context, controller *rhjmcv1alpha1.ContainerJFR, svc *corev1.Service, exposePort corev1.ServicePort) (string, error) {
+func (r *ReconcileContainerJFR) createService(ctx context.Context, controller *rhjmcv1alpha1.ContainerJFR, svc *corev1.Service, exposePort *corev1.ServicePort) (string, error) {
 	if err := controllerutil.SetControllerReference(controller, svc, r.scheme); err != nil {
 		return "", err
 	}
@@ -208,7 +209,20 @@ func (r *ReconcileContainerJFR) createService(ctx context.Context, controller *r
 		return "", err
 	}
 
-	return r.createRouteForService(controller, svc, exposePort)
+	if exposePort != nil {
+		return r.createRouteForService(controller, svc, *exposePort)
+	}
+
+	if err := r.client.Get(context.Background(), types.NamespacedName{Name: svc.Name, Namespace: svc.Namespace}, svc); err != nil {
+		return "", err
+	}
+	if svc.Spec.ClusterIP == "" {
+		return "", errors.NewInternalError(goerrors.New(fmt.Sprintf("Expected service %s to have ClusterIP, but got empty string", svc.Name)))
+	}
+	if len(svc.Spec.Ports) != 1 {
+		return "", errors.NewInternalError(goerrors.New(fmt.Sprintf("Expected service %s to have one Port, but got %d", svc.Name, len(svc.Spec.Ports))))
+	}
+	return fmt.Sprintf("%s:%d", svc.Spec.ClusterIP, svc.Spec.Ports[0].Port), nil
 }
 
 func (r *ReconcileContainerJFR) createRouteForService(controller *rhjmcv1alpha1.ContainerJFR, svc *corev1.Service, exposePort corev1.ServicePort) (string, error) {
@@ -224,6 +238,10 @@ func (r *ReconcileContainerJFR) createRouteForService(controller *rhjmcv1alpha1.
 				Name: svc.Name,
 			},
 			Port: &openshiftv1.RoutePort{TargetPort: exposePort.TargetPort},
+			TLS: &openshiftv1.TLSConfig{
+				Termination:                   openshiftv1.TLSTerminationEdge,
+				InsecureEdgeTerminationPolicy: openshiftv1.InsecureEdgeTerminationPolicyRedirect,
+			},
 		},
 	}
 	if err := controllerutil.SetControllerReference(controller, route, r.scheme); err != nil {
