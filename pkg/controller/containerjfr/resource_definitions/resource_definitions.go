@@ -151,6 +151,14 @@ func NewCoreContainer(cr *rhjmcv1alpha1.ContainerJFR, specs *ServiceSpecs) corev
 			},
 		},
 		Env: envs,
+		LivenessProbe: &corev1.Probe{
+			Handler: corev1.Handler{
+				HTTPGet: &corev1.HTTPGetAction{
+					Port: intstr.IntOrString{IntVal: 8181},
+					Path: "/clienturl",
+				},
+			},
+		},
 	}
 }
 
@@ -169,6 +177,14 @@ func NewGrafanaContainer(cr *rhjmcv1alpha1.ContainerJFR) corev1.Container {
 				Value: "grafana-simple-json-datasource",
 			},
 		},
+		LivenessProbe: &corev1.Probe{
+			Handler: corev1.Handler{
+				HTTPGet: &corev1.HTTPGetAction{
+					Port: intstr.IntOrString{IntVal: 3000},
+					Path: "/api/health",
+				},
+			},
+		},
 	}
 }
 
@@ -182,6 +198,14 @@ func NewJfrDatasourceContainer(cr *rhjmcv1alpha1.ContainerJFR) corev1.Container 
 			},
 		},
 		Env: []corev1.EnvVar{},
+		LivenessProbe: &corev1.Probe{
+			Handler: corev1.Handler{
+				HTTPGet: &corev1.HTTPGetAction{
+					Port: intstr.IntOrString{IntVal: 8080},
+					Path: "/",
+				},
+			},
+		},
 	}
 }
 
