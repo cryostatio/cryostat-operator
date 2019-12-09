@@ -48,6 +48,14 @@ clean-bundle:
 # "Local" (ex. minishift/crc) testing targets #
 #########################################
 
+.PHONY: catalog
+catalog: remove_catalog
+	oc create -f bundle/openshift/operator-source.yaml
+
+.PHONY: remove_catalog
+remove_catalog:
+	- oc delete -f bundle/openshift/operator-source.yaml
+
 .PHONY: deploy
 deploy: undeploy
 	oc create -f deploy/service_account.yaml
@@ -73,6 +81,7 @@ undeploy: undeploy_sample_app
 	- oc delete serviceaccount container-jfr-operator
 	- oc delete crd flightrecorders.rhjmc.redhat.com
 	- oc delete crd containerjfrs.rhjmc.redhat.com
+	- oc delete -f bundle/openshift/operator-source.yaml
 
 .PHONY: sample_app
 sample_app:
