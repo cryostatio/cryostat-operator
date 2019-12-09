@@ -10,6 +10,7 @@ import (
 	routeClient "github.com/openshift/client-go/route/clientset/versioned/typed/route/v1"
 	rhjmcv1alpha1 "github.com/rh-jmc-team/container-jfr-operator/pkg/apis/rhjmc/v1alpha1"
 	resources "github.com/rh-jmc-team/container-jfr-operator/pkg/controller/containerjfr/resource_definitions"
+	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -126,12 +127,12 @@ func (r *ReconcileContainerJFR) Reconcile(request reconcile.Request) (reconcile.
 		}
 		serviceSpecs.DatasourceAddress = fmt.Sprintf("http://%s", url)
 
-		// check for existing minimal pod and delete if found
-		pod := resources.NewPodForCR(instance, serviceSpecs)
-		err = r.client.Get(context.Background(), types.NamespacedName{Name: pod.Name, Namespace: pod.Namespace}, pod)
-		if err == nil && len(pod.Spec.Containers) == 1 {
-			reqLogger.Info("Deleting existing minimal pod")
-			err = r.client.Delete(context.Background(), pod)
+		// check for existing minimal deployment and delete if found
+		deployment := resources.NewDeploymentForCR(instance, serviceSpecs)
+		err = r.client.Get(context.Background(), types.NamespacedName{Name: deployment.Name, Namespace: deployment.Namespace}, deployment)
+		if err == nil && len(deployment.Spec.Template.Spec.Containers) == 1 {
+			reqLogger.Info("Deleting existing minimal deployment")
+			err = r.client.Delete(context.Background(), deployment)
 			if err != nil && !errors.IsNotFound(err) {
 				return reconcile.Result{Requeue: true, RequeueAfter: time.Second * 10}, err
 			}
@@ -162,13 +163,13 @@ func (r *ReconcileContainerJFR) Reconcile(request reconcile.Request) (reconcile.
 			}
 		}
 
-		pod := resources.NewPodForCR(instance, serviceSpecs)
-		err = r.client.Get(context.Background(), types.NamespacedName{Name: pod.Name, Namespace: pod.Namespace}, pod)
-		if err == nil && len(pod.Spec.Containers) > 1 {
-			reqLogger.Info("Deleting existing non-minimal pod")
-			err = r.client.Delete(context.Background(), pod)
+		deployment := resources.NewDeploymentForCR(instance, serviceSpecs)
+		err = r.client.Get(context.Background(), types.NamespacedName{Name: deployment.Name, Namespace: deployment.Namespace}, deployment)
+		if err == nil && len(deployment.Spec.Template.Spec.Containers) > 1 {
+			reqLogger.Info("Deleting existing non-minimal deployment")
+			err = r.client.Delete(context.Background(), deployment)
 			if err != nil && !errors.IsNotFound(err) {
-				reqLogger.Info("Could not delete non-minimal pod")
+				reqLogger.Info("Could not delete non-minimal deployment")
 				return reconcile.Result{Requeue: true, RequeueAfter: time.Second * 10}, err
 			}
 		}
@@ -188,16 +189,16 @@ func (r *ReconcileContainerJFR) Reconcile(request reconcile.Request) (reconcile.
 	}
 	serviceSpecs.CommandAddress = url
 
-	pod := resources.NewPodForCR(instance, serviceSpecs)
-	if err := controllerutil.SetControllerReference(instance, pod, r.scheme); err != nil {
+	deployment := resources.NewDeploymentForCR(instance, serviceSpecs)
+	if err := controllerutil.SetControllerReference(instance, deployment, r.scheme); err != nil {
 		return reconcile.Result{}, err
 	}
-	if err = r.createObjectIfNotExists(context.Background(), types.NamespacedName{Name: pod.Name, Namespace: pod.Namespace}, &corev1.Pod{}, pod); err != nil {
-		reqLogger.Error(err, "Could not create pod")
+	if err = r.createObjectIfNotExists(context.Background(), types.NamespacedName{Name: deployment.Name, Namespace: deployment.Namespace}, &appsv1.Deployment{}, deployment); err != nil {
+		reqLogger.Error(err, "Could not create deployment")
 		return reconcile.Result{}, err
 	}
 
-	reqLogger.Info("Skip reconcile: Pod already exists", "Pod.Namespace", pod.Namespace, "Pod.Name", pod.Name)
+	reqLogger.Info("Skip reconcile: Deployment already exists", "Deployment.Namespace", deployment.Namespace, "Deployment.Name", deployment.Name)
 	return reconcile.Result{}, nil
 }
 

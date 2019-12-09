@@ -2,6 +2,7 @@ package resource_definitions
 
 import (
 	rhjmcv1alpha1 "github.com/rh-jmc-team/container-jfr-operator/pkg/apis/rhjmc/v1alpha1"
+	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -37,7 +38,45 @@ func NewPersistentVolumeClaimForCR(cr *rhjmcv1alpha1.ContainerJFR) *corev1.Persi
 	}
 }
 
-func NewPodForCR(cr *rhjmcv1alpha1.ContainerJFR, specs *ServiceSpecs) *corev1.Pod {
+func NewDeploymentForCR(cr *rhjmcv1alpha1.ContainerJFR, specs *ServiceSpecs) *appsv1.Deployment {
+	return &appsv1.Deployment{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      cr.Name,
+			Namespace: cr.Namespace,
+			Labels: map[string]string{
+				"app":  cr.Name,
+				"kind": "containerjfr",
+			},
+			Annotations: map[string]string{
+				"redhat.com/containerJfrUrl": specs.CoreAddress,
+			},
+		},
+		Spec: appsv1.DeploymentSpec{
+			Selector: &metav1.LabelSelector{
+				MatchLabels: map[string]string{
+					"app":  cr.Name,
+					"kind": "containerjfr",
+				},
+			},
+			Template: corev1.PodTemplateSpec{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      cr.Name,
+					Namespace: cr.Namespace,
+					Labels: map[string]string{
+						"app":  cr.Name,
+						"kind": "containerjfr",
+					},
+					Annotations: map[string]string{
+						"redhat.com/containerJfrUrl": specs.CoreAddress,
+					},
+				},
+				Spec: *NewPodForCR(cr, specs),
+			},
+		},
+	}
+}
+
+func NewPodForCR(cr *rhjmcv1alpha1.ContainerJFR, specs *ServiceSpecs) *corev1.PodSpec {
 	var containers []corev1.Container
 	if cr.Spec.Minimal {
 		containers = []corev1.Container{
@@ -50,32 +89,19 @@ func NewPodForCR(cr *rhjmcv1alpha1.ContainerJFR, specs *ServiceSpecs) *corev1.Po
 			NewJfrDatasourceContainer(cr),
 		}
 	}
-	return &corev1.Pod{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      cr.Name + "-pod",
-			Namespace: cr.Namespace,
-			Labels: map[string]string{
-				"app":  cr.Name,
-				"kind": "containerjfr",
-			},
-			Annotations: map[string]string{
-				"redhat.com/containerJfrUrl": specs.CoreAddress,
-			},
-		},
-		Spec: corev1.PodSpec{
-			ServiceAccountName: "container-jfr-operator",
-			Volumes: []corev1.Volume{
-				{
-					Name: cr.Name,
-					VolumeSource: corev1.VolumeSource{
-						PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
-							ClaimName: cr.Name,
-						},
+	return &corev1.PodSpec{
+		ServiceAccountName: "container-jfr-operator",
+		Volumes: []corev1.Volume{
+			{
+				Name: cr.Name,
+				VolumeSource: corev1.VolumeSource{
+					PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
+						ClaimName: cr.Name,
 					},
 				},
 			},
-			Containers: containers,
 		},
+		Containers: containers,
 	}
 }
 
