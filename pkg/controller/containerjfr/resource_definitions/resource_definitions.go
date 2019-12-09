@@ -44,11 +44,13 @@ func NewDeploymentForCR(cr *rhjmcv1alpha1.ContainerJFR, specs *ServiceSpecs) *ap
 			Name:      cr.Name,
 			Namespace: cr.Namespace,
 			Labels: map[string]string{
-				"app":  cr.Name,
-				"kind": "containerjfr",
+				"app":                    cr.Name,
+				"kind":                   "containerjfr",
+				"app.kubernetes.io/name": "container-jfr",
 			},
 			Annotations: map[string]string{
-				"redhat.com/containerJfrUrl": specs.CoreAddress,
+				"redhat.com/containerJfrUrl":   specs.CoreAddress,
+				"app.openshift.io/connects-to": "container-jfr-operator",
 			},
 		},
 		Spec: appsv1.DeploymentSpec{
