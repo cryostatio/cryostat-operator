@@ -34,18 +34,25 @@ spec:
             recordingRequests:
               description: Requests to create new flight recordings
               items:
+                description: RecordingRequest allows the user to specify new recordings
+                  for Container JFR to create
                 properties:
                   duration:
+                    description: The requested total duration of the recording
                     type: string
-                  events:
+                  eventOptions:
+                    description: 'A list of event options to use when creating the
+                      recording. These are used to enable and fine-tune individual
+                      events. Examples: "jdk.ExecutionSample:enabled=true", "jdk.ExecutionSample:period=200ms"'
                     items:
                       type: string
                     type: array
                   name:
+                    description: Name of the recording to be created
                     type: string
                 required:
                 - duration
-                - events
+                - eventOptions
                 - name
                 type: object
               type: array
@@ -58,16 +65,23 @@ spec:
             recordings:
               description: Lists all recordings for the pod/service that may be downloaded
               items:
+                description: RecordingInfo contains the status of recordings that
+                  have already been created by Container JFR
                 properties:
                   active:
+                    description: Whether the recording is currently running
                     type: boolean
                   downloadUrl:
+                    description: A URL to download the JFR file for the recording
                     type: string
                   duration:
+                    description: The duration of the recording specified during creation
                     type: string
                   name:
+                    description: Name of the created recording
                     type: string
                   startTime:
+                    description: The date/time when the recording started
                     format: date-time
                     type: string
                 required:

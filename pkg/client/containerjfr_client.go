@@ -1,6 +1,7 @@
 package client
 
 import (
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"net/url"
@@ -14,16 +15,25 @@ import (
 
 var log = logf.Log.WithName("containerjfr_client")
 
-type ClientConfig struct {
+// Config stores configuration options to connect to Container JFR's
+// command server
+type Config struct {
+	// URL to Container JFR's command server
 	ServerURL *url.URL
 }
 
+// ContainerJfrClient communicates with Container JFR's command server
+// using a WebSocket connection
 type ContainerJfrClient struct {
-	config *ClientConfig
+	config *Config
 	conn   *websocket.Conn
 }
 
-func Create(config *ClientConfig) (*ContainerJfrClient, error) {
+// Create creates a ContainerJfrClient using the provided configuration
+func Create(config *Config) (*ContainerJfrClient, error) {
+	if config.ServerURL == nil {
+		return nil, errors.New("ServerURL in config must not be nil")
+	}
 	conn, err := newWebSocketConn(config.ServerURL)
 	if err != nil {
 		return nil, err
@@ -32,6 +42,7 @@ func Create(config *ClientConfig) (*ContainerJfrClient, error) {
 	return client, nil
 }
 
+// Close releases the WebSocket connection used by this client
 func (client *ContainerJfrClient) Close() error {
 	return client.conn.Close()
 }
@@ -42,7 +53,7 @@ func newWebSocketConn(server *url.URL) (*websocket.Conn, error) {
 	conn, resp, err := websocket.DefaultDialer.Dial(urlStr, nil)
 	if err != nil {
 		log.Error(err, "failed to connect to command channel", "server", urlStr)
-		if resp != nil {
+		if resp != nil { // FIXME do we care about resp here?
 			body, err := ioutil.ReadAll(resp.Body)
 			if err != nil {
 				return nil, err
@@ -115,6 +126,7 @@ func (client *ContainerJfrClient) ListRecordings() ([]RecordingDescriptor, error
 	return recordings, nil
 }
 
+// DumpRecording instructs Container JFR to create a new recording of fixed duration
 func (client *ContainerJfrClient) DumpRecording(name string, seconds int, events []string) error {
 	dumpCmd := NewCommandMessage("dump", name, strconv.Itoa(seconds), strings.Join(events, ","))
 	var resp string
@@ -126,6 +138,7 @@ func (client *ContainerJfrClient) DumpRecording(name string, seconds int, events
 	return nil
 }
 
+// SaveRecording copies a flight recording file from local memory to persistent storage
 func (client *ContainerJfrClient) SaveRecording(name string) (*string, error) {
 	saveCmd := NewCommandMessage("save", name)
 	var resp string
@@ -137,6 +150,7 @@ func (client *ContainerJfrClient) SaveRecording(name string) (*string, error) {
 	return &resp, nil
 }
 
+// ListSavedRecordings returns a list of recordings contained in persistent storage
 func (client *ContainerJfrClient) ListSavedRecordings() ([]SavedRecording, error) {
 	listCmd := NewCommandMessage("list-saved")
 	recordings := []SavedRecording{}
