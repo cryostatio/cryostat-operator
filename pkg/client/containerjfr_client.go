@@ -3,11 +3,9 @@ package client
 import (
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"net/url"
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/gorilla/websocket"
 	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
@@ -48,18 +46,10 @@ func (client *ContainerJfrClient) Close() error {
 }
 
 func newWebSocketConn(server *url.URL) (*websocket.Conn, error) {
-	time.Sleep(time.Minute) // FIXME Use some kind of readiness probe to check when the server is ready
 	urlStr := server.String()
-	conn, resp, err := websocket.DefaultDialer.Dial(urlStr, nil)
+	conn, _, err := websocket.DefaultDialer.Dial(urlStr, nil)
 	if err != nil {
 		log.Error(err, "failed to connect to command channel", "server", urlStr)
-		if resp != nil { // FIXME do we care about resp here?
-			body, err := ioutil.ReadAll(resp.Body)
-			if err != nil {
-				return nil, err
-			}
-			log.Info("response", "status", resp.Status, "body", string(body))
-		}
 		return nil, err
 	}
 	return conn, nil
