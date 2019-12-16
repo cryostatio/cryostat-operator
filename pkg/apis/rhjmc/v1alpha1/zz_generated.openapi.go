@@ -146,17 +146,30 @@ func schema_pkg_apis_rhjmc_v1alpha1_FlightRecorderSpec(ref common.ReferenceCallb
 				Description: "FlightRecorderSpec defines the desired state of FlightRecorder",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
-					"recordingActive": {
+					"recordingRequests": {
+						VendorExtensible: spec.VendorExtensible{
+							Extensions: spec.Extensions{
+								"x-kubernetes-list-type": "set",
+							},
+						},
 						SchemaProps: spec.SchemaProps{
-							Description: "Specifies whether a JFR recording should be started or stopped",
-							Type:        []string{"boolean"},
-							Format:      "",
+							Description: "Requests to create new flight recordings",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Ref: ref("./pkg/apis/rhjmc/v1alpha1.RecordingRequest"),
+									},
+								},
+							},
 						},
 					},
 				},
-				Required: []string{"recordingActive"},
+				Required: []string{"recordingRequests"},
 			},
 		},
+		Dependencies: []string{
+			"./pkg/apis/rhjmc/v1alpha1.RecordingRequest"},
 	}
 }
 
@@ -173,13 +186,6 @@ func schema_pkg_apis_rhjmc_v1alpha1_FlightRecorderStatus(ref common.ReferenceCal
 							Ref:         ref("k8s.io/api/core/v1.ObjectReference"),
 						},
 					},
-					"recordingActive": {
-						SchemaProps: spec.SchemaProps{
-							Description: "Whether the pod/service is currently recording",
-							Type:        []string{"boolean"},
-							Format:      "",
-						},
-					},
 					"recordings": {
 						VendorExtensible: spec.VendorExtensible{
 							Extensions: spec.Extensions{
@@ -192,18 +198,17 @@ func schema_pkg_apis_rhjmc_v1alpha1_FlightRecorderStatus(ref common.ReferenceCal
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
-										Type:   []string{"string"},
-										Format: "",
+										Ref: ref("./pkg/apis/rhjmc/v1alpha1.RecordingInfo"),
 									},
 								},
 							},
 						},
 					},
 				},
-				Required: []string{"target", "recordingActive", "recordings"},
+				Required: []string{"target", "recordings"},
 			},
 		},
 		Dependencies: []string{
-			"k8s.io/api/core/v1.ObjectReference"},
+			"./pkg/apis/rhjmc/v1alpha1.RecordingInfo", "k8s.io/api/core/v1.ObjectReference"},
 	}
 }

@@ -15,8 +15,9 @@ type FlightRecorderSpec struct {
 	// Important: Run "operator-sdk generate k8s" to regenerate code after modifying this file
 	// Add custom validation using kubebuilder tags: https://book-v1.book.kubebuilder.io/beyond_basics/generating_crd.html
 
-	// Specifies whether a JFR recording should be started or stopped
-	RecordingActive bool `json:"recordingActive"`
+	// Requests to create new flight recordings
+	// +listType=set
+	Requests []RecordingRequest `json:"recordingRequests"`
 }
 
 // FlightRecorderStatus defines the observed state of FlightRecorder
@@ -28,11 +29,38 @@ type FlightRecorderStatus struct {
 
 	// Reference to the pod/service that this object controls JFR for
 	Target *corev1.ObjectReference `json:"target"`
-	// Whether the pod/service is currently recording
-	RecordingActive bool `json:"recordingActive"` // TODO Maybe replace with a Status with STOPPED, STARTED, ERROR, etc.
 	// Lists all recordings for the pod/service that may be downloaded
 	// +listType=set
-	Recordings []string `json:"recordings"` // TODO Name, URL, composite type with a route?
+	Recordings []RecordingInfo `json:"recordings"`
+}
+
+// RecordingRequest allows the user to specify new recordings for
+// Container JFR to create
+type RecordingRequest struct {
+	// Name of the recording to be created
+	Name string `json:"name"`
+	// A list of event options to use when creating the recording.
+	// These are used to enable and fine-tune individual events.
+	// Examples: "jdk.ExecutionSample:enabled=true", "jdk.ExecutionSample:period=200ms"
+	// +listType=set
+	EventOptions []string `json:"eventOptions"`
+	// The requested total duration of the recording
+	Duration metav1.Duration `json:"duration"`
+}
+
+// RecordingInfo contains the status of recordings that have already
+// been created by Container JFR
+type RecordingInfo struct {
+	// Name of the created recording
+	Name string `json:"name"`
+	// Whether the recording is currently running
+	Active bool `json:"active"`
+	// The date/time when the recording started
+	StartTime metav1.Time `json:"startTime"`
+	// The duration of the recording specified during creation
+	Duration metav1.Duration `json:"duration"`
+	// A URL to download the JFR file for the recording
+	DownloadURL string `json:"downloadUrl,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
