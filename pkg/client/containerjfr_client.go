@@ -1,6 +1,7 @@
 package client
 
 import (
+	"crypto/tls"
 	"errors"
 	"fmt"
 	"net/url"
@@ -17,7 +18,9 @@ var log = logf.Log.WithName("containerjfr_client")
 // command server
 type Config struct {
 	// URL to Container JFR's command server
-	ServerURL *url.URL
+	ServerURL   *url.URL
+	AccessToken *string
+	TLSVerify   bool
 }
 
 // ContainerJfrClient communicates with Container JFR's command server
@@ -32,7 +35,10 @@ func Create(config *Config) (*ContainerJfrClient, error) {
 	if config.ServerURL == nil {
 		return nil, errors.New("ServerURL in config must not be nil")
 	}
-	conn, err := newWebSocketConn(config.ServerURL)
+	if config.AccessToken == nil {
+		return nil, errors.New("AccessToken in config must not be nil")
+	}
+	conn, err := newWebSocketConn(config.ServerURL, config.AccessToken, config.TLSVerify)
 	if err != nil {
 		return nil, err
 	}
@@ -45,9 +51,17 @@ func (client *ContainerJfrClient) Close() error {
 	return client.conn.Close()
 }
 
-func newWebSocketConn(server *url.URL) (*websocket.Conn, error) {
+func newWebSocketConn(server *url.URL, token *string, tlsVerify bool) (*websocket.Conn, error) {
+	q := server.Query()
+	q.Add("token", *token)
+	server.RawQuery = q.Encode()
 	urlStr := server.String()
-	conn, _, err := websocket.DefaultDialer.Dial(urlStr, nil)
+	dialer := &websocket.Dialer{
+		Proxy:            websocket.DefaultDialer.Proxy,
+		HandshakeTimeout: websocket.DefaultDialer.HandshakeTimeout,
+		TLSClientConfig:  &tls.Config{InsecureSkipVerify: !tlsVerify},
+	}
+	conn, _, err := dialer.Dial(urlStr, nil)
 	if err != nil {
 		log.Error(err, "failed to connect to command channel", "server", urlStr)
 		return nil, err

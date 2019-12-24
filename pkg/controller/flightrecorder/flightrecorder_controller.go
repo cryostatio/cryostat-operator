@@ -244,7 +244,13 @@ func (r *ReconcileFlightRecorder) connectToContainerJFR(ctx context.Context, nam
 	if err != nil {
 		return nil, err
 	}
-	config := &jfrclient.Config{ServerURL: clientURL}
+	tok, err := ioutil.ReadFile("/var/run/secrets/kubernetes.io/serviceaccount/token")
+	if err != nil {
+		return nil, err
+	}
+	strTok := string(tok)
+	// TODO set TLSVerify according to some externally configurable source (env var? CR?)
+	config := &jfrclient.Config{ServerURL: clientURL, AccessToken: &strTok, TLSVerify: false}
 	jfrClient, err := jfrclient.Create(config)
 	if err != nil {
 		return nil, err
