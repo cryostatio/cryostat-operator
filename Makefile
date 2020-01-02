@@ -86,8 +86,8 @@ undeploy: undeploy_sample_app
 
 .PHONY: sample_app
 sample_app:
-	oc new-app andrewazores/container-jmx-docker-listener:latest --name=jmx-listener
+	oc new-app quay.io/andrewazores/vertx-fib-demo
 
 .PHONY: undeploy_sample_app
 undeploy_sample_app:
-	- oc delete all -l app=jmx-listener
+	- oc delete all -l app=vertx-fib-demo
