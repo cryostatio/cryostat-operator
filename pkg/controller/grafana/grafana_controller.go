@@ -9,6 +9,8 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"os"
+	"strings"
 	"time"
 
 	openshiftv1 "github.com/openshift/api/route/v1"
@@ -44,8 +46,7 @@ func newReconciler(mgr manager.Manager) reconcile.Reconciler {
 			IdleConnTimeout:       defaultTransport.IdleConnTimeout,
 			ExpectContinueTimeout: defaultTransport.ExpectContinueTimeout,
 			TLSHandshakeTimeout:   defaultTransport.TLSHandshakeTimeout,
-			// TODO for CRC development only. Make this configurable and only set in a -dev image
-			TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+			TLSClientConfig:       &tls.Config{InsecureSkipVerify: strings.EqualFold(os.Getenv("TLS_VERIFY"), "false")},
 		},
 	}
 
