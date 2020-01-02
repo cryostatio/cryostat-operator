@@ -7,6 +7,8 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/url"
+	"os"
+	"strings"
 	"time"
 
 	rhjmcv1alpha1 "github.com/rh-jmc-team/container-jfr-operator/pkg/apis/rhjmc/v1alpha1"
@@ -249,8 +251,7 @@ func (r *ReconcileFlightRecorder) connectToContainerJFR(ctx context.Context, nam
 		return nil, err
 	}
 	strTok := string(tok)
-	// TODO set TLSVerify according to some externally configurable source (env var? CR?)
-	config := &jfrclient.Config{ServerURL: clientURL, AccessToken: &strTok, TLSVerify: false}
+	config := &jfrclient.Config{ServerURL: clientURL, AccessToken: &strTok, TLSVerify: !strings.EqualFold(os.Getenv("TLS_VERIFY"), "false")}
 	jfrClient, err := jfrclient.Create(config)
 	if err != nil {
 		return nil, err
