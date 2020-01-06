@@ -14,6 +14,7 @@ at the URL provided by
 - `go`
 - [operator-sdk](https://github.com/operator-framework/operator-sdk) v0.11.0
 - [operator-courier](https://github.com/operator-framework/operator-courier) 2.1.7+
+- `podman`
 
 ## Instructions
 `make image` will create an OCI image to the local registry, tagged as
@@ -40,8 +41,8 @@ can be easily deployed.
 # Development
 An invocation like
 `export IMAGE_TAG=quay.io/some-user/container-jfr-operator`
-`make clean image && docker image push $IMAGE_TAG && make deploy`
-is handy for local development testing using ex. Minishift.
+`make clean image && podman image push $IMAGE_TAG && make deploy`
+is handy for local development testing using ex. CodeReady Containers.
 
 # Testing
 ## Requirements
