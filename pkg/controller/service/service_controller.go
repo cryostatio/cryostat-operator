@@ -139,6 +139,7 @@ func (r *ReconcileService) Reconcile(request reconcile.Request) (reconcile.Resul
 	return reconcile.Result{}, nil
 }
 
+// FIXME this constant is duplicated here and in flightrecorder_controller
 const defaultContainerJFRPort int = 9091
 
 func isJFRAwareService(svc *corev1.Service) bool {

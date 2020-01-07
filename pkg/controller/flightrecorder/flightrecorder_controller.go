@@ -3,6 +3,7 @@ package flightrecorder
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"net/http"
@@ -69,8 +70,7 @@ type ReconcileFlightRecorder struct {
 	jfrClient *jfrclient.ContainerJfrClient
 }
 
-// TODO Make this configurable, perhaps use named port
-const webServerPort = 8181
+// FIXME this constant is duplicated here and in service_controller
 const defaultRemoteJmxPort = 9091
 
 // Reconcile reads that state of the cluster for a FlightRecorder object and makes changes based on the state read
@@ -309,6 +309,10 @@ func (r *ReconcileFlightRecorder) getClientURL(ctx context.Context, namespace st
 	if err != nil {
 		return nil, err
 	}
+	webServerPort, err := getWebServerPort(cjfrSvc)
+	if err != nil {
+		return nil, err
+	}
 	host := fmt.Sprintf("http://%s:%d/clienturl", *clusterIP, webServerPort)
 	resp, err := http.Get(host)
 	if err != nil {
@@ -329,6 +333,15 @@ func (r *ReconcileFlightRecorder) getClientURL(ctx context.Context, namespace st
 		return nil, err
 	}
 	return url.Parse(clientURLHolder.ClientURL)
+}
+
+func getWebServerPort(svc *corev1.Service) (int32, error) {
+	for _, port := range svc.Spec.Ports {
+		if port.Name == "export" {
+			return port.Port, nil
+		}
+	}
+	return 0, errors.New("ContainerJFR service had no port named \"export\"")
 }
 
 func (r *ReconcileFlightRecorder) disconnectClient() {
