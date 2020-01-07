@@ -139,11 +139,14 @@ func (r *ReconcileService) Reconcile(request reconcile.Request) (reconcile.Resul
 	return reconcile.Result{}, nil
 }
 
-const containerJFRPort int = 9091 // TODO make a property in ContainerJFR CRD?
+const defaultContainerJFRPort int = 9091
 
 func isJFRAwareService(svc *corev1.Service) bool {
 	for _, port := range svc.Spec.Ports {
-		if port.TargetPort.IntValue() == containerJFRPort {
+		if port.Name == "jmx" {
+			return true
+		}
+		if port.TargetPort.IntValue() == defaultContainerJFRPort {
 			return true
 		}
 	}

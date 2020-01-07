@@ -68,7 +68,7 @@ deploy: undeploy
 	oc create -f deploy/crds/rhjmc.redhat.com_v1alpha1_containerjfr_cr.yaml
 
 .PHONY: undeploy
-undeploy: undeploy_sample_app
+undeploy: undeploy_sample_app undeploy_sample_app2
 	- oc delete deployment container-jfr-operator
 	- oc delete containerjfr --all
 	- oc delete flightrecorder --all
@@ -91,3 +91,12 @@ sample_app:
 .PHONY: undeploy_sample_app
 undeploy_sample_app:
 	- oc delete all -l app=vertx-fib-demo
+
+.PHONY: sample_app2
+sample_app2:
+	oc new-app andrewazores/container-jmx-docker-listener:latest --name=jmx-listener
+	oc patch svc/jmx-listener -p '{"spec":{"$setElementOrder/ports":[{"port":7095},{"port":9092},{"port":9093}],"ports":[{"name":"jmx","port":9093}]}}'
+
+.PHONY: undeploy_sample_app2
+undeploy_sample_app2:
+	- oc delete all -l app=jmx-listener

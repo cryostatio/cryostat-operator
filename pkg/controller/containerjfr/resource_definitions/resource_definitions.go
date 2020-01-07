@@ -254,12 +254,12 @@ func NewExporterService(cr *rhjmcv1alpha1.ContainerJFR) *corev1.Service {
 			},
 			Ports: []corev1.ServicePort{
 				{
-					Name:       "8181-tcp",
+					Name:       "export",
 					Port:       8181,
 					TargetPort: intstr.IntOrString{IntVal: 8181},
 				},
 				{
-					Name:       "9091-tcp",
+					Name:       "jmx",
 					Port:       9091,
 					TargetPort: intstr.IntOrString{IntVal: 9091},
 				},
@@ -285,7 +285,7 @@ func NewCommandChannelService(cr *rhjmcv1alpha1.ContainerJFR) *corev1.Service {
 			},
 			Ports: []corev1.ServicePort{
 				{
-					Name:       "9090-tcp",
+					Name:       "cmdchan",
 					Port:       9090,
 					TargetPort: intstr.IntOrString{IntVal: 9090},
 				},

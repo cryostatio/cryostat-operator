@@ -69,9 +69,9 @@ type ReconcileFlightRecorder struct {
 	jfrClient *jfrclient.ContainerJfrClient
 }
 
-// TODO Make these configurable, perhaps use named port
+// TODO Make this configurable, perhaps use named port
 const webServerPort = 8181
-const remoteJMXPort = 9091
+const defaultRemoteJmxPort = 9091
 
 // Reconcile reads that state of the cluster for a FlightRecorder object and makes changes based on the state read
 // and what is in the FlightRecorder.Spec
@@ -124,7 +124,8 @@ func (r *ReconcileFlightRecorder) Reconcile(request reconcile.Request) (reconcil
 	if err != nil {
 		return reconcile.Result{}, err
 	}
-	err = r.jfrClient.Connect(*clusterIP, remoteJMXPort)
+	jmxPort := getJmxPort(targetSvc)
+	err = r.jfrClient.Connect(*clusterIP, jmxPort)
 	if err != nil {
 		log.Error(err, "failed to connect to target JVM")
 		r.closeClient()
@@ -135,7 +136,7 @@ func (r *ReconcileFlightRecorder) Reconcile(request reconcile.Request) (reconcil
 	// Check for any new recording requests in this FlightRecorder's spec
 	// and instruct Container JFR to create corresponding recordings
 	log.Info("Syncing recording requests for service", "service", targetSvc.Name, "namespace", targetSvc.Namespace,
-		"host", *clusterIP, "port", remoteJMXPort)
+		"host", *clusterIP, "port", jmxPort)
 	for _, request := range instance.Spec.Requests {
 		log.Info("Creating new recording", "name", request.Name, "duration", request.Duration, "eventOptions", request.EventOptions)
 		err := r.jfrClient.DumpRecording(request.Name, int(request.Duration.Seconds()), request.EventOptions)
@@ -148,7 +149,7 @@ func (r *ReconcileFlightRecorder) Reconcile(request reconcile.Request) (reconcil
 
 	// Get an updated list of in-memory flight recordings
 	log.Info("Listing recordings for service", "service", targetSvc.Name, "namespace", targetSvc.Namespace,
-		"host", *clusterIP, "port", remoteJMXPort)
+		"host", *clusterIP, "port", jmxPort)
 	descriptors, err := r.jfrClient.ListRecordings()
 	if err != nil {
 		log.Error(err, "failed to list flight recordings")
@@ -265,6 +266,15 @@ func getClusterIP(svc *corev1.Service) (*string, error) {
 		return nil, fmt.Errorf("ClusterIP unavailable for %s", svc.Name)
 	}
 	return &clusterIP, nil
+}
+
+func getJmxPort(svc *corev1.Service) int32 {
+	for _, port := range svc.Spec.Ports {
+		if port.Name == "jmx" {
+			return port.Port
+		}
+	}
+	return defaultRemoteJmxPort
 }
 
 func createRecordingInfo(descriptors []jfrclient.RecordingDescriptor) []rhjmcv1alpha1.RecordingInfo {
