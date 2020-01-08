@@ -146,6 +146,13 @@ func schema_pkg_apis_rhjmc_v1alpha1_FlightRecorderSpec(ref common.ReferenceCallb
 				Description: "FlightRecorderSpec defines the desired state of FlightRecorder",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
+					"port": {
+						SchemaProps: spec.SchemaProps{
+							Description: "JMX port for target JVM",
+							Type:        []string{"integer"},
+							Format:      "int32",
+						},
+					},
 					"recordingRequests": {
 						VendorExtensible: spec.VendorExtensible{
 							Extensions: spec.Extensions{
@@ -165,7 +172,7 @@ func schema_pkg_apis_rhjmc_v1alpha1_FlightRecorderSpec(ref common.ReferenceCallb
 						},
 					},
 				},
-				Required: []string{"recordingRequests"},
+				Required: []string{"port", "recordingRequests"},
 			},
 		},
 		Dependencies: []string{

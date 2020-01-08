@@ -70,9 +70,6 @@ type ReconcileFlightRecorder struct {
 	jfrClient *jfrclient.ContainerJfrClient
 }
 
-// FIXME this constant is duplicated here and in service_controller
-const defaultRemoteJmxPort = 9091
-
 // Reconcile reads that state of the cluster for a FlightRecorder object and makes changes based on the state read
 // and what is in the FlightRecorder.Spec
 // Note:
@@ -124,7 +121,7 @@ func (r *ReconcileFlightRecorder) Reconcile(request reconcile.Request) (reconcil
 	if err != nil {
 		return reconcile.Result{}, err
 	}
-	jmxPort := getJmxPort(targetSvc)
+	jmxPort := instance.Spec.Port
 	err = r.jfrClient.Connect(*clusterIP, jmxPort)
 	if err != nil {
 		log.Error(err, "failed to connect to target JVM")
@@ -266,15 +263,6 @@ func getClusterIP(svc *corev1.Service) (*string, error) {
 		return nil, fmt.Errorf("ClusterIP unavailable for %s", svc.Name)
 	}
 	return &clusterIP, nil
-}
-
-func getJmxPort(svc *corev1.Service) int32 {
-	for _, port := range svc.Spec.Ports {
-		if port.Name == "jmx" {
-			return port.Port
-		}
-	}
-	return defaultRemoteJmxPort
 }
 
 func createRecordingInfo(descriptors []jfrclient.RecordingDescriptor) []rhjmcv1alpha1.RecordingInfo {

@@ -2,10 +2,11 @@ package service
 
 import (
 	"context"
+	"errors"
 
 	rhjmcv1alpha1 "github.com/rh-jmc-team/container-jfr-operator/pkg/apis/rhjmc/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
+	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -84,7 +85,7 @@ func (r *ReconcileService) Reconcile(request reconcile.Request) (reconcile.Resul
 	ctx := context.Background()
 	err := r.client.Get(ctx, request.NamespacedName, svc)
 	if err != nil {
-		if errors.IsNotFound(err) {
+		if kerrors.IsNotFound(err) {
 			// Request object not found, could have been deleted after reconcile request.
 			// Owned objects are automatically garbage collected. For additional cleanup logic use finalizers.
 			// Return and don't requeue
@@ -115,8 +116,13 @@ func (r *ReconcileService) Reconcile(request reconcile.Request) (reconcile.Resul
 	// Check if this FlightRecorder already exists
 	found := &rhjmcv1alpha1.FlightRecorder{}
 	err = r.client.Get(ctx, types.NamespacedName{Name: jfr.Name, Namespace: jfr.Namespace}, found)
-	if err != nil && errors.IsNotFound(err) {
+	if err != nil && kerrors.IsNotFound(err) {
 		reqLogger.Info("Creating a new FlightRecorder", "Namespace", jfr.Namespace, "Name", jfr.Name)
+		jmxPort, err := getServiceJMXPort(svc)
+		if err != nil {
+			return reconcile.Result{}, err
+		}
+		jfr.Spec.Port = jmxPort
 		err = r.client.Create(ctx, jfr)
 		if err != nil {
 			return reconcile.Result{}, err
@@ -139,19 +145,23 @@ func (r *ReconcileService) Reconcile(request reconcile.Request) (reconcile.Resul
 	return reconcile.Result{}, nil
 }
 
-// FIXME this constant is duplicated here and in flightrecorder_controller
-const defaultContainerJFRPort int = 9091
-
 func isJFRAwareService(svc *corev1.Service) bool {
+	_, err := getServiceJMXPort(svc)
+	return err == nil
+}
+
+const defaultContainerJFRPort int32 = 9091
+
+func getServiceJMXPort(svc *corev1.Service) (int32, error) {
 	for _, port := range svc.Spec.Ports {
 		if port.Name == "jmx" {
-			return true
+			return port.Port, nil
 		}
-		if port.TargetPort.IntValue() == defaultContainerJFRPort {
-			return true
+		if port.TargetPort.IntValue() == int(defaultContainerJFRPort) {
+			return defaultContainerJFRPort, nil
 		}
 	}
-	return false
+	return 0, errors.New("Service does not appear to have a JMX port")
 }
 
 // newFlightRecorderForService returns a FlightRecorder with the same name/namespace as the service
