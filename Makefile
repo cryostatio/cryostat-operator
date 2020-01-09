@@ -16,7 +16,7 @@ openapi:
 
 .PHONY: image
 image: generate
-	operator-sdk build $(IMAGE_TAG)
+	operator-sdk build --image-builder podman $(IMAGE_TAG)
 
 .PHONY: bundle
 bundle: image copy-crds
