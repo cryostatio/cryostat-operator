@@ -7,6 +7,8 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/url"
+	"os"
+	"strings"
 	"time"
 
 	rhjmcv1alpha1 "github.com/rh-jmc-team/container-jfr-operator/pkg/apis/rhjmc/v1alpha1"
@@ -244,7 +246,12 @@ func (r *ReconcileFlightRecorder) connectToContainerJFR(ctx context.Context, nam
 	if err != nil {
 		return nil, err
 	}
-	config := &jfrclient.Config{ServerURL: clientURL}
+	tok, err := ioutil.ReadFile("/var/run/secrets/kubernetes.io/serviceaccount/token")
+	if err != nil {
+		return nil, err
+	}
+	strTok := string(tok)
+	config := &jfrclient.Config{ServerURL: clientURL, AccessToken: &strTok, TLSVerify: !strings.EqualFold(os.Getenv("TLS_VERIFY"), "false")}
 	jfrClient, err := jfrclient.Create(config)
 	if err != nil {
 		return nil, err
