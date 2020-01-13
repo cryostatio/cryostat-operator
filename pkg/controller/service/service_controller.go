@@ -134,10 +134,21 @@ func (r *ReconcileService) Reconcile(request reconcile.Request) (reconcile.Resul
 		return reconcile.Result{}, nil
 	} else if err != nil {
 		return reconcile.Result{}, err
+	} else {
+		// existing FlightRecorder found
+		jmxPort = getServiceJMXPort(svc)
+		if found.Spec.Port != jmxPort {
+			// FlightRecorder is incorrect - service was likely modified. Delete outdated FlightRecorder
+			// and requeue creation of corrected one
+			err = r.client.Delete(ctx, found)
+			if err != nil {
+				return reconcile.Result{}, err
+			}
+			return reconcile.Result{Requeue: true}, nil
+		}
 	}
 
-	// TODO do we want to delete and recreate?
-	// FlightRecorder already exists - don't requeue
+	// FlightRecorder already exists and is correct - don't requeue
 	reqLogger.Info("Skip reconcile: FlightRecorder already exists", "Namespace", found.Namespace, "Name", found.Name)
 	return reconcile.Result{}, nil
 }
