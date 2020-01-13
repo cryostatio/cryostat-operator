@@ -96,7 +96,8 @@ func (r *ReconcileService) Reconcile(request reconcile.Request) (reconcile.Resul
 	}
 
 	// Check if this service appears to be compatible with Container JFR
-	if !isJFRAwareService(svc) {
+	jmxPort, err := getServiceJMXPort(svc)
+	if err != nil {
 		return reconcile.Result{}, nil
 	}
 	reqLogger.Info("Found service that appears to be compatible with Container JFR", "Namespace",
@@ -118,10 +119,6 @@ func (r *ReconcileService) Reconcile(request reconcile.Request) (reconcile.Resul
 	err = r.client.Get(ctx, types.NamespacedName{Name: jfr.Name, Namespace: jfr.Namespace}, found)
 	if err != nil && kerrors.IsNotFound(err) {
 		reqLogger.Info("Creating a new FlightRecorder", "Namespace", jfr.Namespace, "Name", jfr.Name)
-		jmxPort, err := getServiceJMXPort(svc)
-		if err != nil {
-			return reconcile.Result{}, err
-		}
 		jfr.Spec.Port = jmxPort
 		err = r.client.Create(ctx, jfr)
 		if err != nil {
@@ -143,11 +140,6 @@ func (r *ReconcileService) Reconcile(request reconcile.Request) (reconcile.Resul
 	// FlightRecorder already exists - don't requeue
 	reqLogger.Info("Skip reconcile: FlightRecorder already exists", "Namespace", found.Namespace, "Name", found.Name)
 	return reconcile.Result{}, nil
-}
-
-func isJFRAwareService(svc *corev1.Service) bool {
-	_, err := getServiceJMXPort(svc)
-	return err == nil
 }
 
 const defaultContainerJFRPort int32 = 9091
