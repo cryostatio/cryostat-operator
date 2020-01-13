@@ -95,7 +95,7 @@ undeploy_sample_app:
 .PHONY: sample_app2
 sample_app2:
 	oc new-app andrewazores/container-jmx-docker-listener:latest --name=jmx-listener
-	oc patch svc/jmx-listener -p '{"spec":{"$setElementOrder/ports":[{"port":7095},{"port":9092},{"port":9093}],"ports":[{"name":"jmx","port":9093}]}}'
+	oc patch svc/jmx-listener -p '{"spec":{"$setElementOrder/ports":[{"port":7095},{"port":9092},{"port":9093}],"ports":[{"name":"jfr-jmx","port":9093}]}}'
 
 .PHONY: undeploy_sample_app2
 undeploy_sample_app2:

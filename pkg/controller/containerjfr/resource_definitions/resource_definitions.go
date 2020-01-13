@@ -259,7 +259,7 @@ func NewExporterService(cr *rhjmcv1alpha1.ContainerJFR) *corev1.Service {
 					TargetPort: intstr.IntOrString{IntVal: 8181},
 				},
 				{
-					Name:       "jmx",
+					Name:       "jfr-jmx",
 					Port:       9091,
 					TargetPort: intstr.IntOrString{IntVal: 9091},
 				},

@@ -151,10 +151,11 @@ func isJFRAwareService(svc *corev1.Service) bool {
 }
 
 const defaultContainerJFRPort int32 = 9091
+const jmxServicePortName = "jfr-jmx"
 
 func getServiceJMXPort(svc *corev1.Service) (int32, error) {
 	for _, port := range svc.Spec.Ports {
-		if port.Name == "jmx" {
+		if port.Name == jmxServicePortName {
 			return port.Port, nil
 		}
 		if port.TargetPort.IntValue() == int(defaultContainerJFRPort) {
