@@ -146,13 +146,14 @@ func (r *ReconcileContainerJFR) Reconcile(request reconcile.Request) (reconcile.
 			route := &openshiftv1.Route{}
 			err = r.client.Get(context.Background(), types.NamespacedName{Name: svc.Name, Namespace: svc.Namespace}, route)
 			if err != nil && !errors.IsNotFound(err) {
-				reqLogger.Info("Non-minimal could not be retrieved", "route.Name", svc.Name)
+				reqLogger.Info("Non-minimal route could not be retrieved", "route.Name", svc.Name)
 				return reconcile.Result{}, err
-			}
-			err = r.client.Delete(context.Background(), route)
-			if err != nil && !errors.IsNotFound(err) {
-				reqLogger.Info("Could not delete non-minimal route", "route.Name", svc.Name)
-				return reconcile.Result{}, err
+			} else if err == nil {
+				err = r.client.Delete(context.Background(), route)
+				if err != nil && !errors.IsNotFound(err) {
+					reqLogger.Info("Could not delete non-minimal route", "route.Name", svc.Name)
+					return reconcile.Result{}, err
+				}
 			}
 
 			err = r.client.Get(context.Background(), types.NamespacedName{Name: svc.Name, Namespace: svc.Namespace}, svc)
