@@ -4,7 +4,6 @@ require (
 	github.com/go-openapi/spec v0.17.2
 	github.com/gorilla/websocket v1.4.1
 	github.com/openshift/api v3.9.0+incompatible
-	github.com/openshift/client-go v3.9.0+incompatible
 	github.com/operator-framework/operator-sdk v0.11.0
 	github.com/spf13/pflag v1.0.3
 	k8s.io/api v0.0.0-20190918155943-95b840bb6a1f

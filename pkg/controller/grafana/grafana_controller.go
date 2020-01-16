@@ -14,11 +14,10 @@ import (
 	"time"
 
 	openshiftv1 "github.com/openshift/api/route/v1"
-	routeClient "github.com/openshift/client-go/route/clientset/versioned/typed/route/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
@@ -35,8 +34,6 @@ func Add(mgr manager.Manager) error {
 }
 
 func newReconciler(mgr manager.Manager) reconcile.Reconciler {
-	rc := routeClient.NewForConfigOrDie(mgr.GetConfig())
-
 	defaultTransport := http.DefaultTransport.(*http.Transport)
 	httpClient := http.Client{
 		Transport: &http.Transport{
@@ -50,7 +47,7 @@ func newReconciler(mgr manager.Manager) reconcile.Reconciler {
 		},
 	}
 
-	return &ReconcileGrafana{client: mgr.GetClient(), routeClient: *rc, scheme: mgr.GetScheme(), httpClient: httpClient}
+	return &ReconcileGrafana{client: mgr.GetClient(), scheme: mgr.GetScheme(), httpClient: httpClient}
 }
 
 func add(mgr manager.Manager, r reconcile.Reconciler) error {
@@ -70,10 +67,9 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 var _ reconcile.Reconciler = &ReconcileGrafana{}
 
 type ReconcileGrafana struct {
-	client      client.Client
-	routeClient routeClient.RouteV1Client
-	scheme      *runtime.Scheme
-	httpClient  http.Client
+	client     client.Client
+	scheme     *runtime.Scheme
+	httpClient http.Client
 }
 
 func (r *ReconcileGrafana) Reconcile(request reconcile.Request) (reconcile.Result, error) {
@@ -95,7 +91,8 @@ func (r *ReconcileGrafana) Reconcile(request reconcile.Request) (reconcile.Resul
 	reqLogger.Info("Found Grafana service", "Namespace",
 		svc.Namespace, "Name", svc.Name)
 
-	route, err := r.routeClient.Routes(svc.Namespace).Get(svc.Name, metav1.GetOptions{})
+	route := &openshiftv1.Route{}
+	err = r.client.Get(ctx, types.NamespacedName{Namespace: svc.Namespace, Name: svc.Name}, route)
 	if err != nil {
 		return reconcile.Result{}, err
 	}

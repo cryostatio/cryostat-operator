@@ -7,7 +7,6 @@ import (
 
 	goerrors "errors"
 	openshiftv1 "github.com/openshift/api/route/v1"
-	routeClient "github.com/openshift/client-go/route/clientset/versioned/typed/route/v1"
 	rhjmcv1alpha1 "github.com/rh-jmc-team/container-jfr-operator/pkg/apis/rhjmc/v1alpha1"
 	resources "github.com/rh-jmc-team/container-jfr-operator/pkg/controller/containerjfr/resource_definitions"
 	appsv1 "k8s.io/api/apps/v1"
@@ -36,8 +35,7 @@ func Add(mgr manager.Manager) error {
 
 // newReconciler returns a new reconcile.Reconciler
 func newReconciler(mgr manager.Manager) reconcile.Reconciler {
-	rc := routeClient.NewForConfigOrDie(mgr.GetConfig())
-	return &ReconcileContainerJFR{client: mgr.GetClient(), routeClient: *rc, scheme: mgr.GetScheme()}
+	return &ReconcileContainerJFR{client: mgr.GetClient(), scheme: mgr.GetScheme()}
 }
 
 // add adds a new Controller to mgr with r as the reconcile.Reconciler
@@ -74,9 +72,8 @@ var _ reconcile.Reconciler = &ReconcileContainerJFR{}
 type ReconcileContainerJFR struct {
 	// This client, initialized using mgr.Client() above, is a split client
 	// that reads objects from the cache and writes to the apiserver
-	client      client.Client
-	routeClient routeClient.RouteV1Client
-	scheme      *runtime.Scheme
+	client client.Client
+	scheme *runtime.Scheme
 }
 
 // Reconcile reads that state of the cluster for a ContainerJFR object and makes changes based on the state read
@@ -146,10 +143,17 @@ func (r *ReconcileContainerJFR) Reconcile(request reconcile.Request) (reconcile.
 		}
 		for _, svc := range services {
 			reqLogger.Info("Deleting existing non-minimal route", "route.Name", svc.Name)
-			err = r.routeClient.Routes(svc.Namespace).Delete(svc.Name, metav1.NewDeleteOptions(0))
+			route := &openshiftv1.Route{}
+			err = r.client.Get(context.Background(), types.NamespacedName{Name: svc.Name, Namespace: svc.Namespace}, route)
 			if err != nil && !errors.IsNotFound(err) {
-				reqLogger.Info("Could not delete non-minimal route", "route.Name", svc.Name)
+				reqLogger.Info("Non-minimal route could not be retrieved", "route.Name", svc.Name)
 				return reconcile.Result{}, err
+			} else if err == nil {
+				err = r.client.Delete(context.Background(), route)
+				if err != nil && !errors.IsNotFound(err) {
+					reqLogger.Info("Could not delete non-minimal route", "route.Name", svc.Name)
+					return reconcile.Result{}, err
+				}
 			}
 
 			err = r.client.Get(context.Background(), types.NamespacedName{Name: svc.Name, Namespace: svc.Namespace}, svc)
@@ -249,16 +253,19 @@ func (r *ReconcileContainerJFR) createRouteForService(controller *rhjmcv1alpha1.
 		return "", err
 	}
 
-	rc := r.routeClient.Routes(svc.Namespace)
-	found, err := rc.Get(svc.Name, metav1.GetOptions{})
+	found := &openshiftv1.Route{}
+	err := r.client.Get(context.Background(), types.NamespacedName{Name: svc.Name, Namespace: svc.Namespace}, found)
 	if err != nil && errors.IsNotFound(err) {
 		logger.Info("Not found")
-		if created, err := rc.Create(route); err != nil {
+		if err := r.client.Create(context.Background(), route); err != nil {
 			logger.Error(err, "Could not be created")
 			return "", err
-		} else {
-			logger.Info("Created")
-			found = created
+		}
+		logger.Info("Created")
+		err = r.client.Get(context.Background(), types.NamespacedName{Name: svc.Name, Namespace: svc.Namespace}, found)
+		if err != nil {
+			logger.Error(err, "Failed to get newly created route", "name", svc.Name)
+			return "", err
 		}
 	} else if err != nil {
 		logger.Error(err, "Could not be read")
