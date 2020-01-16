@@ -3,5 +3,5 @@ kind: FlightRecorder
 metadata:
   name: example-flightrecorder
 spec:
-  # Add fields here
-  size: 3
+  port: 9091
+  recordingRequests: []

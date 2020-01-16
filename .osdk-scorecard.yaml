@@ -8,7 +8,9 @@ scorecard:
         - basic:
             cr-manifest:
                 - "deploy/crds/rhjmc.redhat.com_v1alpha1_containerjfr_cr.yaml"
+                - "deploy/crds/rhjmc.redhat.com_v1alpha1_flightrecorder_cr.yaml"
         - olm:
             cr-manifest:
                 - "deploy/crds/rhjmc.redhat.com_v1alpha1_containerjfr_cr.yaml"
+                - "deploy/crds/rhjmc.redhat.com_v1alpha1_flightrecorder_cr.yaml"
             csv-path: "bundle/container-jfr-operator.v0.2.2.clusterserviceversion.yaml"

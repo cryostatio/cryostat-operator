@@ -23,7 +23,8 @@ metadata:
             "name":"flightrecorder"
           },
           "spec":{
-            "recordingActive":false
+            "port": 9091,
+            "recordingRequests":[]
           }
         }
       ]
