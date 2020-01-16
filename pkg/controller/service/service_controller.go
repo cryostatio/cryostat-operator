@@ -2,10 +2,11 @@ package service
 
 import (
 	"context"
+	"errors"
 
 	rhjmcv1alpha1 "github.com/rh-jmc-team/container-jfr-operator/pkg/apis/rhjmc/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
+	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -84,7 +85,7 @@ func (r *ReconcileService) Reconcile(request reconcile.Request) (reconcile.Resul
 	ctx := context.Background()
 	err := r.client.Get(ctx, request.NamespacedName, svc)
 	if err != nil {
-		if errors.IsNotFound(err) {
+		if kerrors.IsNotFound(err) {
 			// Request object not found, could have been deleted after reconcile request.
 			// Owned objects are automatically garbage collected. For additional cleanup logic use finalizers.
 			// Return and don't requeue
@@ -95,11 +96,8 @@ func (r *ReconcileService) Reconcile(request reconcile.Request) (reconcile.Resul
 	}
 
 	// Check if this service appears to be compatible with Container JFR
-	if !isJFRAwareService(svc) {
-		return reconcile.Result{}, nil
-	}
-	reqLogger.Info("Found service that appears to be compatible with Container JFR", "Namespace",
-		svc.Namespace, "Name", svc.Name)
+	jmxPort, err := getServiceJMXPort(svc)
+	jmxCompatible := err == nil
 
 	// Define a new FlightRecorder object for this service
 	jfr, err := r.newFlightRecorderForService(svc)
@@ -115,39 +113,74 @@ func (r *ReconcileService) Reconcile(request reconcile.Request) (reconcile.Resul
 	// Check if this FlightRecorder already exists
 	found := &rhjmcv1alpha1.FlightRecorder{}
 	err = r.client.Get(ctx, types.NamespacedName{Name: jfr.Name, Namespace: jfr.Namespace}, found)
-	if err != nil && errors.IsNotFound(err) {
-		reqLogger.Info("Creating a new FlightRecorder", "Namespace", jfr.Namespace, "Name", jfr.Name)
-		err = r.client.Create(ctx, jfr)
-		if err != nil {
-			return reconcile.Result{}, err
-		}
-		// Update FlightRecorder Status
-		err = r.client.Status().Update(ctx, jfr)
-		if err != nil {
-			return reconcile.Result{}, err
+	if err != nil && kerrors.IsNotFound(err) {
+
+		if jmxCompatible {
+			reqLogger.Info("Creating a new FlightRecorder", "Namespace", jfr.Namespace, "Name", jfr.Name)
+			jfr.Spec.Port = jmxPort
+			err = r.client.Create(ctx, jfr)
+			if err != nil {
+				return reconcile.Result{}, err
+			}
+			// Update FlightRecorder Status
+			err = r.client.Status().Update(ctx, jfr)
+			if err != nil {
+				return reconcile.Result{}, err
+			}
+
+			// FlightRecorder created successfully - don't requeue
+			return reconcile.Result{}, nil
+		} else {
+			// this service is not compatible and no existing FlightRecorder found, so nothing to do
+			return reconcile.Result{}, nil
 		}
 
-		// FlightRecorder created successfully - don't requeue
-		return reconcile.Result{}, nil
-	} else if err != nil {
+	} else if err == nil {
+		// existing FlightRecorder found
+
+		if !jmxCompatible {
+			// Service was previously JMX-compatible but is not anymore,
+			// so delete its FlightRecorder and do not requeue a new one
+			reqLogger.Info("Deleting dangling FlightRecorder", "Namespace", jfr.Namespace, "Name", jfr.Name)
+			err = r.client.Delete(ctx, found)
+			if err != nil {
+				return reconcile.Result{}, err
+			}
+			return reconcile.Result{}, nil
+		}
+
+		if found.Spec.Port != jmxPort {
+			// FlightRecorder is incorrect - service was likely modified. Delete outdated FlightRecorder
+			// and requeue creation of corrected one
+			reqLogger.Info("Deleting outdated FlightRecorder", "Namespace", jfr.Namespace, "Name", jfr.Name)
+			err = r.client.Delete(ctx, found)
+			if err != nil {
+				return reconcile.Result{}, err
+			}
+			return reconcile.Result{Requeue: true}, nil
+		}
+	} else if err != nil && jmxCompatible {
 		return reconcile.Result{}, err
 	}
 
-	// TODO do we want to delete and recreate?
-	// FlightRecorder already exists - don't requeue
+	// FlightRecorder already exists and is correct - don't requeue
 	reqLogger.Info("Skip reconcile: FlightRecorder already exists", "Namespace", found.Namespace, "Name", found.Name)
 	return reconcile.Result{}, nil
 }
 
-const containerJFRPort int = 9091 // TODO make a property in ContainerJFR CRD?
+const defaultContainerJFRPort int32 = 9091
+const jmxServicePortName = "jfr-jmx"
 
-func isJFRAwareService(svc *corev1.Service) bool {
+func getServiceJMXPort(svc *corev1.Service) (int32, error) {
 	for _, port := range svc.Spec.Ports {
-		if port.TargetPort.IntValue() == containerJFRPort {
-			return true
+		if port.Name == jmxServicePortName {
+			return port.Port, nil
+		}
+		if port.TargetPort.IntValue() == int(defaultContainerJFRPort) {
+			return defaultContainerJFRPort, nil
 		}
 	}
-	return false
+	return 0, errors.New("Service does not appear to have a JMX port")
 }
 
 // newFlightRecorderForService returns a FlightRecorder with the same name/namespace as the service

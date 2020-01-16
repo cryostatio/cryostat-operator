@@ -3,6 +3,7 @@ package flightrecorder
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"net/http"
@@ -69,10 +70,6 @@ type ReconcileFlightRecorder struct {
 	jfrClient *jfrclient.ContainerJfrClient
 }
 
-// TODO Make these configurable, perhaps use named port
-const webServerPort = 8181
-const remoteJMXPort = 9091
-
 // Reconcile reads that state of the cluster for a FlightRecorder object and makes changes based on the state read
 // and what is in the FlightRecorder.Spec
 // Note:
@@ -124,7 +121,8 @@ func (r *ReconcileFlightRecorder) Reconcile(request reconcile.Request) (reconcil
 	if err != nil {
 		return reconcile.Result{}, err
 	}
-	err = r.jfrClient.Connect(*clusterIP, remoteJMXPort)
+	jmxPort := instance.Spec.Port
+	err = r.jfrClient.Connect(*clusterIP, jmxPort)
 	if err != nil {
 		log.Error(err, "failed to connect to target JVM")
 		r.closeClient()
@@ -135,7 +133,7 @@ func (r *ReconcileFlightRecorder) Reconcile(request reconcile.Request) (reconcil
 	// Check for any new recording requests in this FlightRecorder's spec
 	// and instruct Container JFR to create corresponding recordings
 	log.Info("Syncing recording requests for service", "service", targetSvc.Name, "namespace", targetSvc.Namespace,
-		"host", *clusterIP, "port", remoteJMXPort)
+		"host", *clusterIP, "port", jmxPort)
 	for _, request := range instance.Spec.Requests {
 		log.Info("Creating new recording", "name", request.Name, "duration", request.Duration, "eventOptions", request.EventOptions)
 		err := r.jfrClient.DumpRecording(request.Name, int(request.Duration.Seconds()), request.EventOptions)
@@ -148,7 +146,7 @@ func (r *ReconcileFlightRecorder) Reconcile(request reconcile.Request) (reconcil
 
 	// Get an updated list of in-memory flight recordings
 	log.Info("Listing recordings for service", "service", targetSvc.Name, "namespace", targetSvc.Namespace,
-		"host", *clusterIP, "port", remoteJMXPort)
+		"host", *clusterIP, "port", jmxPort)
 	descriptors, err := r.jfrClient.ListRecordings()
 	if err != nil {
 		log.Error(err, "failed to list flight recordings")
@@ -299,6 +297,10 @@ func (r *ReconcileFlightRecorder) getClientURL(ctx context.Context, namespace st
 	if err != nil {
 		return nil, err
 	}
+	webServerPort, err := getWebServerPort(cjfrSvc)
+	if err != nil {
+		return nil, err
+	}
 	host := fmt.Sprintf("http://%s:%d/clienturl", *clusterIP, webServerPort)
 	resp, err := http.Get(host)
 	if err != nil {
@@ -319,6 +321,15 @@ func (r *ReconcileFlightRecorder) getClientURL(ctx context.Context, namespace st
 		return nil, err
 	}
 	return url.Parse(clientURLHolder.ClientURL)
+}
+
+func getWebServerPort(svc *corev1.Service) (int32, error) {
+	for _, port := range svc.Spec.Ports {
+		if port.Name == "export" {
+			return port.Port, nil
+		}
+	}
+	return 0, errors.New("ContainerJFR service had no port named \"export\"")
 }
 
 func (r *ReconcileFlightRecorder) disconnectClient() {

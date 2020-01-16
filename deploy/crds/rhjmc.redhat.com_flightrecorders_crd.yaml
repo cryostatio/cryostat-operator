@@ -31,6 +31,10 @@ spec:
         spec:
           description: FlightRecorderSpec defines the desired state of FlightRecorder
           properties:
+            port:
+              description: JMX port for target JVM
+              format: int32
+              type: integer
             recordingRequests:
               description: Requests to create new flight recordings
               items:
@@ -57,6 +61,7 @@ spec:
                 type: object
               type: array
           required:
+          - port
           - recordingRequests
           type: object
         status:

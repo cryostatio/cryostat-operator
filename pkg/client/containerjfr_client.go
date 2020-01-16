@@ -70,7 +70,7 @@ func newWebSocketConn(server *url.URL, token *string, tlsVerify bool) (*websocke
 }
 
 // Connect tells Container JFR to connect to a JVM addressed by the host and port
-func (client *ContainerJfrClient) Connect(host string, port int) error {
+func (client *ContainerJfrClient) Connect(host string, port int32) error {
 	// Disconnect first if already connected
 	connected, err := client.isConnected()
 	if err != nil {

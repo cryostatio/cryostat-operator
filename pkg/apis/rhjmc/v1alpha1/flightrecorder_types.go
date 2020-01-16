@@ -15,6 +15,8 @@ type FlightRecorderSpec struct {
 	// Important: Run "operator-sdk generate k8s" to regenerate code after modifying this file
 	// Add custom validation using kubebuilder tags: https://book-v1.book.kubebuilder.io/beyond_basics/generating_crd.html
 
+	// JMX port for target JVM
+	Port int32 `json:"port"`
 	// Requests to create new flight recordings
 	// +listType=set
 	Requests []RecordingRequest `json:"recordingRequests"`
