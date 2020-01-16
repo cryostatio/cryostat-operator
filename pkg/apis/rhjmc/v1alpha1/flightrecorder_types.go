@@ -19,7 +19,7 @@ type FlightRecorderSpec struct {
 	Port int32 `json:"port"`
 	// Requests to create new flight recordings
 	// +listType=set
-	Requests []RecordingRequest `json:"recordingRequests"`
+	RecordingRequests []RecordingRequest `json:"recordingRequests"`
 }
 
 // FlightRecorderStatus defines the observed state of FlightRecorder

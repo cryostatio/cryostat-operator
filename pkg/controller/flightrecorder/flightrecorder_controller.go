@@ -134,7 +134,7 @@ func (r *ReconcileFlightRecorder) Reconcile(request reconcile.Request) (reconcil
 	// and instruct Container JFR to create corresponding recordings
 	log.Info("Syncing recording requests for service", "service", targetSvc.Name, "namespace", targetSvc.Namespace,
 		"host", *clusterIP, "port", jmxPort)
-	for _, request := range instance.Spec.Requests {
+	for _, request := range instance.Spec.RecordingRequests {
 		log.Info("Creating new recording", "name", request.Name, "duration", request.Duration, "eventOptions", request.EventOptions)
 		err := r.jfrClient.DumpRecording(request.Name, int(request.Duration.Seconds()), request.EventOptions)
 		if err != nil {
@@ -157,7 +157,7 @@ func (r *ReconcileFlightRecorder) Reconcile(request reconcile.Request) (reconcil
 	reqLogger.Info("Updating FlightRecorder", "Namespace", instance.Namespace, "Name", instance.Name)
 	// Remove any recording requests from the spec that are now showing in Container JFR's list
 	newRequests := []rhjmcv1alpha1.RecordingRequest{}
-	for _, req := range instance.Spec.Requests {
+	for _, req := range instance.Spec.RecordingRequests {
 		for _, desc := range descriptors {
 			if req.Name != desc.Name {
 				newRequests = append(newRequests, req)
@@ -165,7 +165,7 @@ func (r *ReconcileFlightRecorder) Reconcile(request reconcile.Request) (reconcil
 			}
 		}
 	}
-	instance.Spec.Requests = newRequests
+	instance.Spec.RecordingRequests = newRequests
 	err = r.client.Update(ctx, instance)
 	if err != nil {
 		return reconcile.Result{}, err
