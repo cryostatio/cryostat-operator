@@ -52,18 +52,15 @@ func (client *ContainerJfrClient) Close() error {
 }
 
 func newWebSocketConn(server *url.URL, token *string, tlsVerify bool) (*websocket.Conn, error) {
-	q := server.Query()
-	q.Add("token", *token)
-	server.RawQuery = q.Encode()
-	urlStr := server.String()
 	dialer := &websocket.Dialer{
 		Proxy:            websocket.DefaultDialer.Proxy,
 		HandshakeTimeout: websocket.DefaultDialer.HandshakeTimeout,
 		TLSClientConfig:  &tls.Config{InsecureSkipVerify: !tlsVerify},
+		Subprotocols:     []string{"base64url.bearer.authorization.containerjfr." + *token},
 	}
-	conn, _, err := dialer.Dial(urlStr, nil)
+	conn, _, err := dialer.Dial(server.String(), nil)
 	if err != nil {
-		log.Error(err, "failed to connect to command channel", "server", urlStr)
+		log.Error(err, "failed to connect to command channel", "server", server.String())
 		return nil, err
 	}
 	return conn, nil
