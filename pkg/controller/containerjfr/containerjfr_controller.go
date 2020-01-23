@@ -262,11 +262,7 @@ func (r *ReconcileContainerJFR) createRouteForService(controller *rhjmcv1alpha1.
 			return "", err
 		}
 		logger.Info("Created")
-		err = r.client.Get(context.Background(), types.NamespacedName{Name: svc.Name, Namespace: svc.Namespace}, found)
-		if err != nil {
-			logger.Error(err, "Failed to get newly created route", "name", svc.Name)
-			return "", err
-		}
+		found = route
 	} else if err != nil {
 		logger.Error(err, "Could not be read")
 		return "", err
