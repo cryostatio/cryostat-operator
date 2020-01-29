@@ -1,4 +1,4 @@
 packageName: container-jfr-operator-bundle
 channels:
   - name: alpha
-    currentCSV: container-jfr-operator-bundle.v0.2.2
+    currentCSV: container-jfr-operator-bundle.v0.3.0
