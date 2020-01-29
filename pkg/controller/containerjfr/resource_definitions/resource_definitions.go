@@ -1,7 +1,7 @@
 package resource_definitions
 
 import (
-	rhjmcv1alpha1 "github.com/rh-jmc-team/container-jfr-operator/pkg/apis/rhjmc/v1alpha1"
+	rhjmcv1alpha2 "github.com/rh-jmc-team/container-jfr-operator/pkg/apis/rhjmc/v1alpha2"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -16,7 +16,7 @@ type ServiceSpecs struct {
 	DatasourceAddress string
 }
 
-func NewPersistentVolumeClaimForCR(cr *rhjmcv1alpha1.ContainerJFR) *corev1.PersistentVolumeClaim {
+func NewPersistentVolumeClaimForCR(cr *rhjmcv1alpha2.ContainerJFR) *corev1.PersistentVolumeClaim {
 	storageClassName := ""
 	return &corev1.PersistentVolumeClaim{
 		ObjectMeta: metav1.ObjectMeta{
@@ -38,7 +38,7 @@ func NewPersistentVolumeClaimForCR(cr *rhjmcv1alpha1.ContainerJFR) *corev1.Persi
 	}
 }
 
-func NewDeploymentForCR(cr *rhjmcv1alpha1.ContainerJFR, specs *ServiceSpecs) *appsv1.Deployment {
+func NewDeploymentForCR(cr *rhjmcv1alpha2.ContainerJFR, specs *ServiceSpecs) *appsv1.Deployment {
 	return &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      cr.Name,
@@ -78,7 +78,7 @@ func NewDeploymentForCR(cr *rhjmcv1alpha1.ContainerJFR, specs *ServiceSpecs) *ap
 	}
 }
 
-func NewPodForCR(cr *rhjmcv1alpha1.ContainerJFR, specs *ServiceSpecs) *corev1.PodSpec {
+func NewPodForCR(cr *rhjmcv1alpha2.ContainerJFR, specs *ServiceSpecs) *corev1.PodSpec {
 	var containers []corev1.Container
 	if cr.Spec.Minimal {
 		containers = []corev1.Container{
@@ -107,7 +107,7 @@ func NewPodForCR(cr *rhjmcv1alpha1.ContainerJFR, specs *ServiceSpecs) *corev1.Po
 	}
 }
 
-func NewCoreContainer(cr *rhjmcv1alpha1.ContainerJFR, specs *ServiceSpecs) corev1.Container {
+func NewCoreContainer(cr *rhjmcv1alpha2.ContainerJFR, specs *ServiceSpecs) corev1.Container {
 	envs := []corev1.EnvVar{
 		{
 			Name:  "CONTAINER_JFR_PLATFORM",
@@ -194,7 +194,7 @@ func NewCoreContainer(cr *rhjmcv1alpha1.ContainerJFR, specs *ServiceSpecs) corev
 	}
 }
 
-func NewGrafanaContainer(cr *rhjmcv1alpha1.ContainerJFR) corev1.Container {
+func NewGrafanaContainer(cr *rhjmcv1alpha2.ContainerJFR) corev1.Container {
 	return corev1.Container{
 		Name:  cr.Name + "-grafana",
 		Image: "docker.io/grafana/grafana:6.4.4",
@@ -220,7 +220,7 @@ func NewGrafanaContainer(cr *rhjmcv1alpha1.ContainerJFR) corev1.Container {
 	}
 }
 
-func NewJfrDatasourceContainer(cr *rhjmcv1alpha1.ContainerJFR) corev1.Container {
+func NewJfrDatasourceContainer(cr *rhjmcv1alpha2.ContainerJFR) corev1.Container {
 	return corev1.Container{
 		Name:  cr.Name + "-jfr-datasource",
 		Image: "quay.io/rh-jmc-team/jfr-datasource:0.0.1",
@@ -241,7 +241,7 @@ func NewJfrDatasourceContainer(cr *rhjmcv1alpha1.ContainerJFR) corev1.Container 
 	}
 }
 
-func NewExporterService(cr *rhjmcv1alpha1.ContainerJFR) *corev1.Service {
+func NewExporterService(cr *rhjmcv1alpha2.ContainerJFR) *corev1.Service {
 	return &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      cr.Name,
@@ -272,7 +272,7 @@ func NewExporterService(cr *rhjmcv1alpha1.ContainerJFR) *corev1.Service {
 	}
 }
 
-func NewCommandChannelService(cr *rhjmcv1alpha1.ContainerJFR) *corev1.Service {
+func NewCommandChannelService(cr *rhjmcv1alpha2.ContainerJFR) *corev1.Service {
 	return &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      cr.Name + "-command",
@@ -298,7 +298,7 @@ func NewCommandChannelService(cr *rhjmcv1alpha1.ContainerJFR) *corev1.Service {
 	}
 }
 
-func NewGrafanaService(cr *rhjmcv1alpha1.ContainerJFR) *corev1.Service {
+func NewGrafanaService(cr *rhjmcv1alpha2.ContainerJFR) *corev1.Service {
 	return &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      cr.Name + "-grafana",
@@ -324,7 +324,7 @@ func NewGrafanaService(cr *rhjmcv1alpha1.ContainerJFR) *corev1.Service {
 	}
 }
 
-func NewJfrDatasourceService(cr *rhjmcv1alpha1.ContainerJFR) *corev1.Service {
+func NewJfrDatasourceService(cr *rhjmcv1alpha2.ContainerJFR) *corev1.Service {
 	return &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      cr.Name + "-jfr-datasource",

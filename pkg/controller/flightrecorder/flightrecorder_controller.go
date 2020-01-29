@@ -12,7 +12,7 @@ import (
 	"strings"
 	"time"
 
-	rhjmcv1alpha1 "github.com/rh-jmc-team/container-jfr-operator/pkg/apis/rhjmc/v1alpha1"
+	rhjmcv1alpha2 "github.com/rh-jmc-team/container-jfr-operator/pkg/apis/rhjmc/v1alpha2"
 	jfrclient "github.com/rh-jmc-team/container-jfr-operator/pkg/client"
 	corev1 "k8s.io/api/core/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
@@ -50,7 +50,7 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 	}
 
 	// Watch for changes to primary resource FlightRecorder
-	err = c.Watch(&source.Kind{Type: &rhjmcv1alpha1.FlightRecorder{}}, &handler.EnqueueRequestForObject{})
+	err = c.Watch(&source.Kind{Type: &rhjmcv1alpha2.FlightRecorder{}}, &handler.EnqueueRequestForObject{})
 	if err != nil {
 		return err
 	}
@@ -91,7 +91,7 @@ func (r *ReconcileFlightRecorder) Reconcile(request reconcile.Request) (reconcil
 	}
 
 	// Fetch the FlightRecorder instance
-	instance := &rhjmcv1alpha1.FlightRecorder{}
+	instance := &rhjmcv1alpha2.FlightRecorder{}
 	err := r.client.Get(ctx, request.NamespacedName, instance)
 	if err != nil {
 		if kerrors.IsNotFound(err) {
@@ -156,7 +156,7 @@ func (r *ReconcileFlightRecorder) Reconcile(request reconcile.Request) (reconcil
 
 	reqLogger.Info("Updating FlightRecorder", "Namespace", instance.Namespace, "Name", instance.Name)
 	// Remove any recording requests from the spec that are now showing in Container JFR's list
-	newRequests := []rhjmcv1alpha1.RecordingRequest{}
+	newRequests := []rhjmcv1alpha2.RecordingRequest{}
 	for _, req := range instance.Spec.RecordingRequests {
 		for _, desc := range descriptors {
 			if req.Name != desc.Name {
@@ -178,7 +178,7 @@ func (r *ReconcileFlightRecorder) Reconcile(request reconcile.Request) (reconcil
 	// work when it is connected to the target JVM. To work around this,
 	// we archive the recording to persistent storage and update the download
 	// URL to point to that saved file.
-	toUpdate := map[string]*rhjmcv1alpha1.RecordingInfo{}
+	toUpdate := map[string]*rhjmcv1alpha2.RecordingInfo{}
 	for idx, newInfo := range recordings {
 		oldInfo := findRecordingByName(instance.Status.Recordings, newInfo.Name)
 		// Recording completed since last observation
@@ -229,7 +229,7 @@ func (r *ReconcileFlightRecorder) Reconcile(request reconcile.Request) (reconcil
 	return result, nil
 }
 
-func findRecordingByName(recordings []rhjmcv1alpha1.RecordingInfo, name string) *rhjmcv1alpha1.RecordingInfo {
+func findRecordingByName(recordings []rhjmcv1alpha2.RecordingInfo, name string) *rhjmcv1alpha2.RecordingInfo {
 	for idx, recording := range recordings {
 		if recording.Name == name {
 			return &recordings[idx]
@@ -265,8 +265,8 @@ func getClusterIP(svc *corev1.Service) (*string, error) {
 	return &clusterIP, nil
 }
 
-func createRecordingInfo(descriptors []jfrclient.RecordingDescriptor) []rhjmcv1alpha1.RecordingInfo {
-	infos := make([]rhjmcv1alpha1.RecordingInfo, len(descriptors))
+func createRecordingInfo(descriptors []jfrclient.RecordingDescriptor) []rhjmcv1alpha2.RecordingInfo {
+	infos := make([]rhjmcv1alpha2.RecordingInfo, len(descriptors))
 	for i, descriptor := range descriptors {
 		// Consider any recording not stopped to be "active"
 		active := descriptor.State != jfrclient.RecordingStateStopped
@@ -274,7 +274,7 @@ func createRecordingInfo(descriptors []jfrclient.RecordingDescriptor) []rhjmcv1a
 		duration := metav1.Duration{
 			Duration: time.Duration(descriptor.Duration) * time.Millisecond,
 		}
-		info := rhjmcv1alpha1.RecordingInfo{
+		info := rhjmcv1alpha2.RecordingInfo{
 			Name:      descriptor.Name,
 			Active:    active,
 			StartTime: startTime,

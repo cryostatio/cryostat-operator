@@ -81,7 +81,7 @@ spec:
       - name: containerjfrs.rhjmc.redhat.com
         displayName: ContainerJFR
         kind: ContainerJFR
-        version: v1alpha1
+        version: v1alpha2
         description: Container JFR
         resources:
           - version: v1
@@ -101,7 +101,7 @@ spec:
       - name: flightrecorders.rhjmc.redhat.com
         displayName: FlightRecorder
         kind: FlightRecorder
-        version: v1alpha1
+        version: v1alpha2
         description: FlightRecorders
         resources:
           - version: v1

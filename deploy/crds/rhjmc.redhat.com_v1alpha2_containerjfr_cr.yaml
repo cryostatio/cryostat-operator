@@ -1,4 +1,4 @@
-apiVersion: rhjmc.redhat.com/v1alpha1
+apiVersion: rhjmc.redhat.com/v1alpha2
 kind: ContainerJFR
 metadata:
   name: containerjfr
