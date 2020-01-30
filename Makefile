@@ -1,4 +1,4 @@
-IMAGE_TAG ?= quay.io/rh-jmc-team/container-jfr-operator:0.3.0
+IMAGE_TAG ?= quay.io/rh-jmc-team/container-jfr-operator:0.3.1
 CRDS := containerjfr flightrecorder
 
 .DEFAULT_GOAL := bundle
