@@ -2,6 +2,7 @@ package client
 
 import (
 	"crypto/tls"
+	b64 "encoding/base64"
 	"errors"
 	"fmt"
 	"net/url"
@@ -52,11 +53,12 @@ func (client *ContainerJfrClient) Close() error {
 }
 
 func newWebSocketConn(server *url.URL, token *string, tlsVerify bool) (*websocket.Conn, error) {
+	b64tok := b64.StdEncoding.EncodeToString([]byte(*token))
 	dialer := &websocket.Dialer{
 		Proxy:            websocket.DefaultDialer.Proxy,
 		HandshakeTimeout: websocket.DefaultDialer.HandshakeTimeout,
 		TLSClientConfig:  &tls.Config{InsecureSkipVerify: !tlsVerify},
-		Subprotocols:     []string{"base64url.bearer.authorization.containerjfr." + *token},
+		Subprotocols:     []string{"base64url.bearer.authorization.containerjfr." + b64tok},
 	}
 	conn, _, err := dialer.Dial(server.String(), nil)
 	if err != nil {
