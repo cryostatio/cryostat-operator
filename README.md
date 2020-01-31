@@ -33,6 +33,32 @@ add the custom Operator Source via `oc apply -f bundle/openshift/operator-source
 
 # Setup / Deployment
 
+## UI-Guided Deployment
+
+The operator can be deployed using the Operator Marketplace in the graphical
+OpenShift console by first adding a custom operator source. A YAML definition
+of such a custom source is at `bundle/openshift/operator-source.yaml`, which
+can be added to your cluster by
+`oc create -f bundle/openshift/operator-source.yaml` or simply `make catalog`.
+This method allows the latest released version of the operator to be installed
+into the cluster with the same method and in the same form that end users would
+receive it.
+
+### Configuration
+
+Once deployed, the operator deployment will be active in the cluster, but no
+ContainerJFR instance will be created. To trigger its creation, add a
+ContainerJFR CR using the UI for operator "provided APIs". The `spec` field
+of the CR must contain the boolean property `minimal: true|false`. A full
+deployment includes ContainerJFR itself and its web client assets, as well as
+jfr-datasource and Grafana containers within the pod. A minimal deployment
+uses a ContainerJFR image with the web client assets removed and excludes the
+jfr-datasource and Grafana containers, resulting in a ContainerJFR deployment
+that can only be used headlessly and which consumes as few cluster resources as
+possible.
+
+## Manual Deployment
+
 `make deploy` will deploy the operator using `oc` to whichever OpenShift
 cluster is configured with the local client. This also respects the
 `IMAGE_TAG` environment variable, so that different versions of the operator
