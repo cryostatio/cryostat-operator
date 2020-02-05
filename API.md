@@ -77,11 +77,11 @@ oc edit -o json flightrecorders/containerjfr
     "spec": {
         "port": 9091,
         "recordingRequests": [
-                {
-                        "name": "my-recording",
-                        "eventOptions": [ "jdk.SocketRead:enabled=true", "jdk.SocketWrite:enabled=true" ],
-                        "duration": "30s"
-                }
+            {
+                "name": "my-recording",
+                "eventOptions": [ "jdk.SocketRead:enabled=true", "jdk.SocketWrite:enabled=true" ],
+                "duration": "30s"
+            }
         ]
     },
     "status": {
