@@ -86,6 +86,15 @@ oc edit -o json flightrecorders/containerjfr
     },
     "status": {
         "recordings": [],
+        "target": {
+            "apiVersion": "v1",
+            "kind": "Service",
+            "name": "containerjfr",
+            "namespace": "default",
+            "resourceVersion": "298899",
+            "uid": "f895e203-37e9-11ea-8866-52fdfc072182"
+        }
+    }
 ```
 
 Once the operator has processed the request, it will be removed from the `spec.recordingRequests` array and a corresponding entry will appear in the `status.recordings` array. A recording is considered `active` if it is currently running.
@@ -107,6 +116,15 @@ $ oc get -o json flightrecorders/containerjfr
                 "startTime": "2020-01-23T15:55:04Z"
             }
         ],
+        "target": {
+            "apiVersion": "v1",
+            "kind": "Service",
+            "name": "containerjfr",
+            "namespace": "default",
+            "resourceVersion": "298899",
+            "uid": "f895e203-37e9-11ea-8866-52fdfc072182"
+        }
+    }
 ```
 
 ## Downloading a Flight Recording
@@ -131,6 +149,15 @@ $ oc get -o json flightrecorders/containerjfr
                 "startTime": "2020-01-23T15:55:04Z"
             }
         ],
+        "target": {
+            "apiVersion": "v1",
+            "kind": "Service",
+            "name": "containerjfr",
+            "namespace": "default",
+            "resourceVersion": "298899",
+            "uid": "f895e203-37e9-11ea-8866-52fdfc072182"
+        }
+    }
 ```
 
 You'll need to pass your bearer token with the curl request. (You may also need -k if your test cluster uses a self-signed certificate)
