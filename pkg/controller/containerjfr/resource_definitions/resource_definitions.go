@@ -110,6 +110,10 @@ func NewPodForCR(cr *rhjmcv1alpha1.ContainerJFR, specs *ServiceSpecs) *corev1.Po
 func NewCoreContainer(cr *rhjmcv1alpha1.ContainerJFR, specs *ServiceSpecs) corev1.Container {
 	envs := []corev1.EnvVar{
 		{
+			Name:  "CONTAINER_JFR_PLATFORM",
+			Value: "com.redhat.rhjmc.containerjfr.platform.openshift.OpenShiftPlatformStrategy",
+		},
+		{
 			Name:  "CONTAINER_JFR_SSL_PROXIED",
 			Value: "true",
 		},
@@ -150,7 +154,7 @@ func NewCoreContainer(cr *rhjmcv1alpha1.ContainerJFR, specs *ServiceSpecs) corev
 			Value: specs.DatasourceAddress,
 		},
 	}
-	imageTag := "quay.io/rh-jmc-team/container-jfr:0.13.0"
+	imageTag := "quay.io/rh-jmc-team/container-jfr:0.16.0"
 	if cr.Spec.Minimal {
 		imageTag += "-minimal"
 		envs = append(envs, corev1.EnvVar{
