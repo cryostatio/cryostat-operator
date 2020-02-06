@@ -23,7 +23,12 @@ func NewPersistentVolumeClaimForCR(cr *rhjmcv1alpha1.ContainerJFR) *corev1.Persi
 			Name:      cr.Name,
 			Namespace: cr.Namespace,
 			Labels: map[string]string{
-				"app": cr.Name,
+				"app":                          cr.Name,
+				"app.kubernetes.io/name":       cr.Name + "-core",
+				"app.kubernetes.io/instance":   cr.Name,
+				"app.kubernetes.io/component":  "storage",
+				"app.kubernetes.io/part-of":    "container-jfr",
+				"app.kubernetes.io/managed-by": "container-jfr-operator",
 			},
 		},
 		Spec: corev1.PersistentVolumeClaimSpec{
@@ -44,20 +49,26 @@ func NewDeploymentForCR(cr *rhjmcv1alpha1.ContainerJFR, specs *ServiceSpecs) *ap
 			Name:      cr.Name,
 			Namespace: cr.Namespace,
 			Labels: map[string]string{
-				"app":                    cr.Name,
-				"kind":                   "containerjfr",
-				"app.kubernetes.io/name": "container-jfr",
+				"app":                          cr.Name,
+				"app.kubernetes.io/name":       "container-jfr",
+				"app.kubernetes.io/instance":   cr.Name,
+				"app.kubernetes.io/component":  "deployment",
+				"app.kubernetes.io/part-of":    "container-jfr",
+				"app.kubernetes.io/managed-by": "container-jfr-operator",
 			},
 			Annotations: map[string]string{
-				"redhat.com/containerJfrUrl":   specs.CoreAddress,
-				"app.openshift.io/connects-to": "container-jfr-operator",
+				"rhjmc.redhat.com/containerJfrUrl": specs.CoreAddress,
+				"app.openshift.io/connects-to":     "container-jfr-operator",
 			},
 		},
 		Spec: appsv1.DeploymentSpec{
 			Selector: &metav1.LabelSelector{
 				MatchLabels: map[string]string{
-					"app":  cr.Name,
-					"kind": "containerjfr",
+					"app":                          cr.Name,
+					"app.kubernetes.io/name":       "container-jfr",
+					"app.kubernetes.io/instance":   cr.Name,
+					"app.kubernetes.io/part-of":    "container-jfr",
+					"app.kubernetes.io/managed-by": "container-jfr-operator",
 				},
 			},
 			Template: corev1.PodTemplateSpec{
@@ -65,11 +76,15 @@ func NewDeploymentForCR(cr *rhjmcv1alpha1.ContainerJFR, specs *ServiceSpecs) *ap
 					Name:      cr.Name,
 					Namespace: cr.Namespace,
 					Labels: map[string]string{
-						"app":  cr.Name,
-						"kind": "containerjfr",
+						"app":                          cr.Name,
+						"app.kubernetes.io/name":       "container-jfr",
+						"app.kubernetes.io/instance":   cr.Name,
+						"app.kubernetes.io/component":  "pod",
+						"app.kubernetes.io/part-of":    "container-jfr",
+						"app.kubernetes.io/managed-by": "container-jfr-operator",
 					},
 					Annotations: map[string]string{
-						"redhat.com/containerJfrUrl": specs.CoreAddress,
+						"rhjmc.redhat.com/containerJfrUrl": specs.CoreAddress,
 					},
 				},
 				Spec: *NewPodForCR(cr, specs),
@@ -247,14 +262,19 @@ func NewExporterService(cr *rhjmcv1alpha1.ContainerJFR) *corev1.Service {
 			Name:      cr.Name,
 			Namespace: cr.Namespace,
 			Labels: map[string]string{
-				"app":       cr.Name,
-				"component": "container-jfr",
+				"app":                          cr.Name,
+				"app.kubernetes.io/name":       cr.Name + "-exporter",
+				"app.kubernetes.io/instance":   cr.Name,
+				"app.kubernetes.io/component":  "exporter",
+				"app.kubernetes.io/part-of":    "container-jfr",
+				"app.kubernetes.io/managed-by": "container-jfr-operator",
 			},
 		},
 		Spec: corev1.ServiceSpec{
 			Type: corev1.ServiceTypeLoadBalancer,
 			Selector: map[string]string{
-				"app": cr.Name,
+				"app.kubernetes.io/name":     "container-jfr",
+				"app.kubernetes.io/instance": cr.Name,
 			},
 			Ports: []corev1.ServicePort{
 				{
@@ -278,14 +298,19 @@ func NewCommandChannelService(cr *rhjmcv1alpha1.ContainerJFR) *corev1.Service {
 			Name:      cr.Name + "-command",
 			Namespace: cr.Namespace,
 			Labels: map[string]string{
-				"app":       cr.Name,
-				"component": "command-channel",
+				"app":                          cr.Name,
+				"app.kubernetes.io/name":       cr.Name + "-command-channel",
+				"app.kubernetes.io/instance":   cr.Name,
+				"app.kubernetes.io/component":  "command-channel",
+				"app.kubernetes.io/part-of":    "container-jfr",
+				"app.kubernetes.io/managed-by": "container-jfr-operator",
 			},
 		},
 		Spec: corev1.ServiceSpec{
 			Type: corev1.ServiceTypeLoadBalancer,
 			Selector: map[string]string{
-				"app": cr.Name,
+				"app.kubernetes.io/name":     "container-jfr",
+				"app.kubernetes.io/instance": cr.Name,
 			},
 			Ports: []corev1.ServicePort{
 				{
@@ -304,14 +329,19 @@ func NewGrafanaService(cr *rhjmcv1alpha1.ContainerJFR) *corev1.Service {
 			Name:      cr.Name + "-grafana",
 			Namespace: cr.Namespace,
 			Labels: map[string]string{
-				"app":       cr.Name,
-				"component": "grafana",
+				"app":                          cr.Name,
+				"app.kubernetes.io/name":       cr.Name + "-grafana",
+				"app.kubernetes.io/instance":   cr.Name,
+				"app.kubernetes.io/component":  "grafana",
+				"app.kubernetes.io/part-of":    "container-jfr",
+				"app.kubernetes.io/managed-by": "container-jfr-operator",
 			},
 		},
 		Spec: corev1.ServiceSpec{
 			Type: corev1.ServiceTypeLoadBalancer,
 			Selector: map[string]string{
-				"app": cr.Name,
+				"app.kubernetes.io/name":     "container-jfr",
+				"app.kubernetes.io/instance": cr.Name,
 			},
 			Ports: []corev1.ServicePort{
 				{
@@ -330,14 +360,19 @@ func NewJfrDatasourceService(cr *rhjmcv1alpha1.ContainerJFR) *corev1.Service {
 			Name:      cr.Name + "-jfr-datasource",
 			Namespace: cr.Namespace,
 			Labels: map[string]string{
-				"app":       cr.Name,
-				"component": "jfr-datasource",
+				"app":                          cr.Name,
+				"app.kubernetes.io/name":       cr.Name + "-jfr-datasource",
+				"app.kubernetes.io/instance":   cr.Name,
+				"app.kubernetes.io/component":  "grafana-datasource",
+				"app.kubernetes.io/part-of":    "container-jfr",
+				"app.kubernetes.io/managed-by": "container-jfr-operator",
 			},
 		},
 		Spec: corev1.ServiceSpec{
 			Type: corev1.ServiceTypeClusterIP,
 			Selector: map[string]string{
-				"app": cr.Name,
+				"app.kubernetes.io/name":     "container-jfr",
+				"app.kubernetes.io/instance": cr.Name,
 			},
 			Ports: []corev1.ServicePort{
 				{

@@ -7,7 +7,7 @@ API to manage [JDK Flight Recordings](https://openjdk.java.net/jeps/328).
 # Using
 Once deployed, the `containerjfr` instance can be accessed via web browser
 at the URL provided by
-`oc get pod -l kind=containerjfr -o jsonpath='http://{$.items[0].metadata.annotations.redhat\.com/containerJfrUrl} '`
+`oc get pod -l kind=containerjfr -o jsonpath='http://{$.items[0].metadata.annotations.rhjmc\.redhat\.com/containerJfrUrl} '`
 
 # Building
 ## Requirements

@@ -186,11 +186,12 @@ func getServiceJMXPort(svc *corev1.Service) (int32, error) {
 // newFlightRecorderForService returns a FlightRecorder with the same name/namespace as the service
 func (r *ReconcileService) newFlightRecorderForService(svc *corev1.Service) (*rhjmcv1alpha1.FlightRecorder, error) {
 	appLabel := svc.Name // Use service name as fallback
-	if label, pres := svc.Labels["app"]; pres {
+	// TODO should this also use other labels?
+	if label, pres := svc.Labels["app.kubernetes.io/instance"]; pres {
 		appLabel = label
 	}
 	labels := map[string]string{
-		"app": appLabel,
+		"app.kubernetes.io/instance": appLabel,
 	}
 	ref, err := reference.GetReference(r.scheme, svc)
 	if err != nil {

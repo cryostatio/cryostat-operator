@@ -73,10 +73,10 @@ undeploy: undeploy_sample_app undeploy_sample_app2
 	- oc delete containerjfr --all
 	- oc delete flightrecorder --all
 	- oc delete all -l name=container-jfr-operator
-	- oc delete all -l app=containerjfr
-	- oc delete persistentvolumeclaims -l app=containerjfr
-	- oc delete persistentvolumes -l app=containerjfr
-	- oc delete configmaps -l app=containerjfr
+	- oc delete all -l app.kubernetes.io/name=container-jfr
+	- oc delete persistentvolumeclaims -l app.kubernetes.io/name=container-jfr
+	- oc delete persistentvolumes -l app.kubernetes.io/name=container-jfr
+	- oc delete configmaps -l app.kubernetes.io/name=container-jfr
 	- oc delete role container-jfr-operator
 	- oc delete rolebinding container-jfr-operator
 	- oc delete serviceaccount container-jfr-operator

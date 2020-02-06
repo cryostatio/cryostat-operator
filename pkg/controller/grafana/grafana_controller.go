@@ -125,7 +125,7 @@ func (r *ReconcileGrafana) Reconcile(request reconcile.Request) (reconcile.Resul
 
 func (r *ReconcileGrafana) isGrafanaService(svc *corev1.Service) bool {
 	for k, v := range svc.Labels {
-		if k == "component" && v == "grafana" {
+		if k == "app.kubernetes.io/name" && v == "grafana" {
 			return true
 		}
 	}
@@ -177,7 +177,7 @@ func (r *ReconcileGrafana) configureGrafanaDatasource(route *openshiftv1.Route) 
 
 	logger.Info("Checking for jfr-datasource service")
 	services := corev1.ServiceList{}
-	err = r.client.List(context.Background(), &services, client.InNamespace(route.Namespace), client.MatchingLabels{"component": "jfr-datasource"})
+	err = r.client.List(context.Background(), &services, client.InNamespace(route.Namespace), client.MatchingLabels{"app.kubernetes.io/name": "jfr-datasource"})
 	if err != nil {
 		return err
 	}
