@@ -1,4 +1,5 @@
-IMAGE_TAG ?= quay.io/rh-jmc-team/container-jfr-operator:0.3.1
+VERSION := 0.3.1
+IMAGE_TAG ?= quay.io/rh-jmc-team/container-jfr-operator:$(VERSION)
 CRDS := containerjfr flightrecorder
 
 .DEFAULT_GOAL := bundle
@@ -24,7 +25,7 @@ bundle: image copy-crds
 
 .PHONY: copy-crds
 copy-crds:
-	$(foreach res, $(CRDS), cp -f deploy/crds/rhjmc.redhat.com_$(res)s_crd.yaml bundle/$(res)s.rhjmc.redhat.com.crd.yaml;)
+	$(foreach res, $(CRDS), cp -f deploy/crds/rhjmc.redhat.com_$(res)s_crd.yaml bundle/$(VERSION)/$(res)s.rhjmc.redhat.com.crd.yaml;)
 
 .PHONY: test
 test: undeploy scorecard
