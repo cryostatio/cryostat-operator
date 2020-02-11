@@ -1,4 +1,3 @@
----
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
@@ -20,11 +19,11 @@ rules:
   verbs:
   - '*'
 - apiGroups:
-    - 'route.openshift.io'
+  - route.openshift.io
   resources:
-    - routes
+  - routes
   verbs:
-    - '*'
+  - '*'
 - apiGroups:
   - apps
   resources:
@@ -65,5 +64,7 @@ rules:
   - rhjmc.redhat.com
   resources:
   - '*'
+  - flightrecorders
+  - recordings
   verbs:
   - '*'

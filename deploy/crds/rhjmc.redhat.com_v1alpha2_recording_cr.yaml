@@ -1,0 +1,7 @@
+apiVersion: rhjmc.redhat.com/v1alpha2
+kind: Recording
+metadata:
+  name: example-recording
+spec:
+  # Add fields here
+  size: 3
