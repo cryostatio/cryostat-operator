@@ -24,6 +24,8 @@ type RecordingSpec struct {
 	// The requested total duration of the recording, a zero value will record indefinitely
 	Duration metav1.Duration `json:"duration"`
 	// Desired state of the recording. If omitted, RUNNING will be assumed
+	// TODO Should we not allow CREATED and STOPPING for this? Do they make sense?
+	// +kubebuilder:validation:Enum=CREATED;RUNNING;STOPPING;STOPPED
 	State RecordingState `json:"state,omitempty"`
 }
 
@@ -54,6 +56,7 @@ type RecordingStatus struct {
 	// Add custom validation using kubebuilder tags: https://book-v1.book.kubebuilder.io/beyond_basics/generating_crd.html
 
 	// Current state of the recording
+	// +kubebuilder:validation:Enum=CREATED;RUNNING;STOPPING;STOPPED
 	State RecordingState `json:"state"`
 	// The date/time when the recording started
 	StartTime metav1.Time `json:"startTime"`
@@ -61,6 +64,8 @@ type RecordingStatus struct {
 	Duration metav1.Duration `json:"duration"` // FIXME Needed?
 	// A URL to download the JFR file for the recording
 	DownloadURL string `json:"downloadURL,omitempty"`
+	// TODO Consider adding Conditions:
+	// https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/api-conventions.md#typical-status-properties
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

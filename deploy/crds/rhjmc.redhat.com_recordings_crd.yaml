@@ -47,7 +47,13 @@ spec:
               type: string
             state:
               description: Desired state of the recording. If omitted, RUNNING will
-                be assumed
+                be assumed TODO Should we not allow CREATED and STOPPING for this?
+                Do they make sense?
+              enum:
+              - CREATED
+              - RUNNING
+              - STOPPING
+              - STOPPED
               type: string
           required:
           - duration
@@ -69,6 +75,11 @@ spec:
               type: string
             state:
               description: Current state of the recording
+              enum:
+              - CREATED
+              - RUNNING
+              - STOPPING
+              - STOPPED
               type: string
           required:
           - duration
