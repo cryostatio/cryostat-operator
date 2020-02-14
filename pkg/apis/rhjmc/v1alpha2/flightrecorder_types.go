@@ -31,6 +31,7 @@ type FlightRecorderStatus struct {
 	// Reference to the pod/service that this object controls JFR for
 	Target *corev1.ObjectReference `json:"target"`
 	// JMX port for target JVM
+	// +kubebuilder:validation:Minimum=0
 	Port int32 `json:"port"`
 	// Recordings that match this selector belong to this FlightRecorder
 	RecordingSelector *metav1.LabelSelector `json:"recordingSelector"`
@@ -59,7 +60,8 @@ type OptionDescriptor struct {
 // +k8s:openapi-gen=true
 // +kubebuilder:subresource:status
 // +kubebuilder:resource:path=flightrecorders,scope=Namespaced
-type FlightRecorder struct {
+// +kubebuilder:storageversion
+type FlightRecorder struct { // TODO Conversion with v1alpha1? Might not be possible due to moving data to Recording
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 

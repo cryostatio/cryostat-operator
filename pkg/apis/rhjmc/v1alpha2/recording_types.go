@@ -13,20 +13,23 @@ type RecordingSpec struct {
 	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
 	// Important: Run "operator-sdk generate k8s" to regenerate code after modifying this file
 	// Add custom validation using kubebuilder tags: https://book-v1.book.kubebuilder.io/beyond_basics/generating_crd.html
+	// TODO Full validation marker list: https://book.kubebuilder.io/reference/markers/crd-validation.html
 
-	// Name of the recording to be created
+	// Name of the recording to be created.
 	Name string `json:"name"`
 	// A list of event options to use when creating the recording.
 	// These are used to enable and fine-tune individual events.
 	// Examples: "jdk.ExecutionSample:enabled=true", "jdk.ExecutionSample:period=200ms"
 	// +listType=set
 	EventOptions []string `json:"eventOptions"` // TODO Maybe replace with more specific type (e.g. "typeID, option, value" tuples)
-	// The requested total duration of the recording, a zero value will record indefinitely
+	// The requested total duration of the recording, a zero value will record indefinitely.
 	Duration metav1.Duration `json:"duration"`
-	// Desired state of the recording. If omitted, RUNNING will be assumed
-	// TODO Should we not allow CREATED and STOPPING for this? Do they make sense?
-	// +kubebuilder:validation:Enum=CREATED;RUNNING;STOPPING;STOPPED
+	// Desired state of the recording. If omitted, RUNNING will be assumed.
+	// +kubebuilder:validation:Enum=RUNNING;STOPPED
 	State RecordingState `json:"state,omitempty"`
+	// Whether this recording should be saved to persistent storage. If true, the JFR file will be retained until
+	// this object is deleted. If false, the JFR file will be deleted when its corresponding JVM exits.
+	Archive bool `json:"archive"`
 }
 
 // RecordingState describes the current state of the recording according
@@ -35,16 +38,16 @@ type RecordingState string // FIXME From client/command_types.go
 
 const (
 	// RecordingStateCreated means the recording has been accepted, but
-	// has not started yet
+	// has not started yet.
 	RecordingStateCreated RecordingState = "CREATED"
 	// RecordingStateRunning means the recording has started and is
-	// currently running
+	// currently running.
 	RecordingStateRunning RecordingState = "RUNNING"
 	// RecordingStateStopping means that the recording is in the process
-	// of finishing
+	// of finishing.
 	RecordingStateStopping RecordingState = "STOPPING"
 	// RecordingStateStopped means the recording has completed and the
-	// JFR file is fully written
+	// JFR file is fully written.
 	RecordingStateStopped RecordingState = "STOPPED"
 )
 
@@ -55,14 +58,14 @@ type RecordingStatus struct {
 	// Important: Run "operator-sdk generate k8s" to regenerate code after modifying this file
 	// Add custom validation using kubebuilder tags: https://book-v1.book.kubebuilder.io/beyond_basics/generating_crd.html
 
-	// Current state of the recording
+	// Current state of the recording.
 	// +kubebuilder:validation:Enum=CREATED;RUNNING;STOPPING;STOPPED
 	State RecordingState `json:"state"`
-	// The date/time when the recording started
+	// The date/time when the recording started.
 	StartTime metav1.Time `json:"startTime"`
-	// The duration of the recording specified during creation
+	// The duration of the recording specified during creation.
 	Duration metav1.Duration `json:"duration"` // FIXME Needed?
-	// A URL to download the JFR file for the recording
+	// A URL to download the JFR file for the recording.
 	DownloadURL string `json:"downloadURL,omitempty"`
 	// TODO Consider adding Conditions:
 	// https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/api-conventions.md#typical-status-properties

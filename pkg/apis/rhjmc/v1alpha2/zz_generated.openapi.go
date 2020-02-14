@@ -181,7 +181,7 @@ func schema_pkg_apis_rhjmc_v1alpha2_RecordingSpec(ref common.ReferenceCallback) 
 				Properties: map[string]spec.Schema{
 					"name": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Name of the recording to be created",
+							Description: "Name of the recording to be created.",
 							Type:        []string{"string"},
 							Format:      "",
 						},
@@ -207,19 +207,26 @@ func schema_pkg_apis_rhjmc_v1alpha2_RecordingSpec(ref common.ReferenceCallback) 
 					},
 					"duration": {
 						SchemaProps: spec.SchemaProps{
-							Description: "The requested total duration of the recording, a zero value will record indefinitely",
+							Description: "The requested total duration of the recording, a zero value will record indefinitely.",
 							Ref:         ref("k8s.io/apimachinery/pkg/apis/meta/v1.Duration"),
 						},
 					},
 					"state": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Desired state of the recording. If omitted, RUNNING will be assumed",
+							Description: "Desired state of the recording. If omitted, RUNNING will be assumed.",
 							Type:        []string{"string"},
 							Format:      "",
 						},
 					},
+					"archive": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Whether this recording should be saved to persistent storage. If true, the JFR file will be retained until this object is deleted. If false, the JFR file will be deleted when its corresponding JVM exits.",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
 				},
-				Required: []string{"name", "eventOptions", "duration"},
+				Required: []string{"name", "eventOptions", "duration", "archive"},
 			},
 		},
 		Dependencies: []string{
@@ -236,26 +243,26 @@ func schema_pkg_apis_rhjmc_v1alpha2_RecordingStatus(ref common.ReferenceCallback
 				Properties: map[string]spec.Schema{
 					"state": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Current state of the recording",
+							Description: "Current state of the recording.",
 							Type:        []string{"string"},
 							Format:      "",
 						},
 					},
 					"startTime": {
 						SchemaProps: spec.SchemaProps{
-							Description: "The date/time when the recording started",
+							Description: "The date/time when the recording started.",
 							Ref:         ref("k8s.io/apimachinery/pkg/apis/meta/v1.Time"),
 						},
 					},
 					"duration": {
 						SchemaProps: spec.SchemaProps{
-							Description: "The duration of the recording specified during creation",
+							Description: "The duration of the recording specified during creation.",
 							Ref:         ref("k8s.io/apimachinery/pkg/apis/meta/v1.Duration"),
 						},
 					},
 					"downloadURL": {
 						SchemaProps: spec.SchemaProps{
-							Description: "A URL to download the JFR file for the recording",
+							Description: "A URL to download the JFR file for the recording.",
 							Type:        []string{"string"},
 							Format:      "",
 						},

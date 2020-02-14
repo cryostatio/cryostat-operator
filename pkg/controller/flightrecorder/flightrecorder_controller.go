@@ -33,7 +33,8 @@ var log = logf.Log.WithName("controller_flightrecorder")
 // Add creates a new FlightRecorder Controller and adds it to the Manager. The Manager will set fields on the Controller
 // and Start it when the Manager is Started.
 func Add(mgr manager.Manager) error {
-	return add(mgr, newReconciler(mgr))
+	//return add(mgr, newReconciler(mgr))
+	return nil // FIXME
 }
 
 // newReconciler returns a new reconcile.Reconciler
