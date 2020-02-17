@@ -4,15 +4,15 @@ CRDS := containerjfr flightrecorder
 .DEFAULT_GOAL := bundle
 
 .PHONY: generate
-generate: k8s openapi
+generate: k8s crds
 
 .PHONY: k8s
 k8s:
 	operator-sdk generate k8s
 
-.PHONY: openapi
-openapi:
-	operator-sdk generate openapi
+.PHONY: crds
+crds:
+	operator-sdk generate crds
 
 .PHONY: image
 image: generate
