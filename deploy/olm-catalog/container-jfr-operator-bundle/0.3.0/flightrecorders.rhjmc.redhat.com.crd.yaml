@@ -1,0 +1,145 @@
+apiVersion: apiextensions.k8s.io/v1beta1
+kind: CustomResourceDefinition
+metadata:
+  name: flightrecorders.rhjmc.redhat.com
+spec:
+  group: rhjmc.redhat.com
+  names:
+    kind: FlightRecorder
+    listKind: FlightRecorderList
+    plural: flightrecorders
+    singular: flightrecorder
+  scope: Namespaced
+  subresources:
+    status: {}
+  validation:
+    openAPIV3Schema:
+      description: FlightRecorder is the Schema for the flightrecorders API
+      properties:
+        apiVersion:
+          description: 'APIVersion defines the versioned schema of this representation
+            of an object. Servers should convert recognized schemas to the latest
+            internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#resources'
+          type: string
+        kind:
+          description: 'Kind is a string value representing the REST resource this
+            object represents. Servers may infer this from the endpoint the client
+            submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#types-kinds'
+          type: string
+        metadata:
+          type: object
+        spec:
+          description: FlightRecorderSpec defines the desired state of FlightRecorder
+          properties:
+            port:
+              description: JMX port for target JVM
+              format: int32
+              type: integer
+            recordingRequests:
+              description: Requests to create new flight recordings
+              items:
+                description: RecordingRequest allows the user to specify new recordings
+                  for Container JFR to create
+                properties:
+                  duration:
+                    description: The requested total duration of the recording
+                    type: string
+                  eventOptions:
+                    description: 'A list of event options to use when creating the
+                      recording. These are used to enable and fine-tune individual
+                      events. Examples: "jdk.ExecutionSample:enabled=true", "jdk.ExecutionSample:period=200ms"'
+                    items:
+                      type: string
+                    type: array
+                  name:
+                    description: Name of the recording to be created
+                    type: string
+                required:
+                - duration
+                - eventOptions
+                - name
+                type: object
+              type: array
+          required:
+          - port
+          - recordingRequests
+          type: object
+        status:
+          description: FlightRecorderStatus defines the observed state of FlightRecorder
+          properties:
+            recordings:
+              description: Lists all recordings for the pod/service that may be downloaded
+              items:
+                description: RecordingInfo contains the status of recordings that
+                  have already been created by Container JFR
+                properties:
+                  active:
+                    description: Whether the recording is currently running
+                    type: boolean
+                  downloadUrl:
+                    description: A URL to download the JFR file for the recording
+                    type: string
+                  duration:
+                    description: The duration of the recording specified during creation
+                    type: string
+                  name:
+                    description: Name of the created recording
+                    type: string
+                  startTime:
+                    description: The date/time when the recording started
+                    format: date-time
+                    type: string
+                required:
+                - active
+                - duration
+                - name
+                - startTime
+                type: object
+              type: array
+            target:
+              description: Reference to the pod/service that this object controls
+                JFR for
+              properties:
+                apiVersion:
+                  description: API version of the referent.
+                  type: string
+                fieldPath:
+                  description: 'If referring to a piece of an object instead of an
+                    entire object, this string should contain a valid JSON/Go field
+                    access statement, such as desiredState.manifest.containers[2].
+                    For example, if the object reference is to a container within
+                    a pod, this would take on a value like: "spec.containers{name}"
+                    (where "name" refers to the name of the container that triggered
+                    the event) or if no container name is specified "spec.containers[2]"
+                    (container with index 2 in this pod). This syntax is chosen only
+                    to have some well-defined way of referencing a part of an object.
+                    TODO: this design is not final and this field is subject to change
+                    in the future.'
+                  type: string
+                kind:
+                  description: 'Kind of the referent. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#types-kinds'
+                  type: string
+                name:
+                  description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names'
+                  type: string
+                namespace:
+                  description: 'Namespace of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces/'
+                  type: string
+                resourceVersion:
+                  description: 'Specific resourceVersion to which this reference is
+                    made, if any. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#concurrency-control-and-consistency'
+                  type: string
+                uid:
+                  description: 'UID of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#uids'
+                  type: string
+              type: object
+          required:
+          - recordings
+          - target
+          type: object
+      type: object
+  version: v1alpha1
+  versions:
+  - name: v1alpha1
+    served: true
+    storage: true

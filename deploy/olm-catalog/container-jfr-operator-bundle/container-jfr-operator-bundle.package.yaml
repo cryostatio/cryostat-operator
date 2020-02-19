@@ -1,0 +1,5 @@
+channels:
+- currentCSV: container-jfr-operator-bundle.v0.3.0
+  name: alpha
+defaultChannel: alpha
+packageName: container-jfr-operator-bundle

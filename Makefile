@@ -1,5 +1,16 @@
-IMAGE_TAG ?= quay.io/rh-jmc-team/container-jfr-operator:0.3.0
-CRDS := containerjfr flightrecorder
+IMAGE_STREAM ?= quay.io/rh-jmc-team/container-jfr-operator
+IMAGE_VERSION ?= 0.3.0
+IMAGE_TAG ?= $(IMAGE_STREAM):$(IMAGE_VERSION)
+
+BUNDLE_STREAM ?= $(IMAGE_STREAM)-bundle
+CSV_VERSION ?= 0.3.0
+PREV_CSV_VERSION ?= $(CSV_VERSION)
+
+INDEX_STREAM ?= $(IMAGE_STREAM)-index
+INDEX_VERSION ?= 0.0.1
+PREV_INDEX_VERSION ?= $(INDEX_VERSION)
+
+BUILDER ?= podman
 
 .DEFAULT_GOAL := bundle
 
@@ -14,17 +25,51 @@ k8s:
 crds:
 	operator-sdk generate crds
 
+.PHONY: csv
+csv:
+	# TODO
+	# from-version should be programatically determined
+	operator-sdk generate csv \
+		--from-version $(PREV_CSV_VERSION) \
+		--csv-config ./deploy/olm-catalog/csv-config.yaml \
+		--csv-version $(CSV_VERSION) \
+		--csv-channel alpha \
+		--default-channel \
+		--update-crds \
+		--operator-name container-jfr-operator-bundle
+
 .PHONY: image
 image: generate
-	operator-sdk build --image-builder podman $(IMAGE_TAG)
+	operator-sdk build --image-builder $(BUILDER) $(IMAGE_TAG)
 
 .PHONY: bundle
-bundle: image copy-crds
-	operator-courier verify --ui_validate_io bundle
+bundle:
+	operator-sdk bundle create \
+		$(BUNDLE_STREAM):$(CSV_VERSION) \
+		--image-builder $(BUILDER) \
+		--directory ./deploy/olm-catalog/container-jfr-operator-bundle/$(CSV_VERSION) \
+		--default-channel alpha \
+		--channels alpha \
+		--package container-jfr-operator-bundle
 
-.PHONY: copy-crds
-copy-crds:
-	$(foreach res, $(CRDS), cp -f deploy/crds/rhjmc.redhat.com_$(res)s_crd.yaml bundle/$(res)s.rhjmc.redhat.com.crd.yaml;)
+.PHONY: validate
+validate: verify-csv
+	operator-sdk bundle validate \
+		--image-builder $(BUILDER) \
+		$(IMAGE_TAG)
+
+.PHONY: verify-csv
+verify-csv:
+	operator-courier verify deploy/olm-catalog/container-jfr-operator-bundle
+
+.PHONY: index
+index:
+	# TODO
+	# previous index version should be programatically determined
+	opm index add \
+		--from-index $(INDEX_STREAM):$(PREV_INDEX_VERSION) \
+		--bundles $(BUNDLE_STREAM):$(CSV_VERSION) \
+		--tag $(INDEX_STREAM):$(INDEX_VERSION)
 
 .PHONY: test
 test: undeploy scorecard
@@ -34,12 +79,8 @@ scorecard: generate
 	operator-sdk scorecard
 
 .PHONY: clean
-clean: clean-bundle
+clean:
 	rm -rf build/_output
-
-.PHONY: clean-bundle
-clean-bundle:
-	rm -f bundle/*.crd.yaml
 
 
 
@@ -50,11 +91,11 @@ clean-bundle:
 
 .PHONY: catalog
 catalog: remove_catalog
-	oc create -f bundle/openshift/operator-source.yaml
+	oc create -f deploy/olm-catalog/catalog-source.yaml
 
 .PHONY: remove_catalog
 remove_catalog:
-	- oc delete -f bundle/openshift/operator-source.yaml
+	- oc delete -f deploy/olm-catalog/catalog-source.yaml
 
 .PHONY: deploy
 deploy: undeploy
@@ -82,7 +123,7 @@ undeploy: undeploy_sample_app undeploy_sample_app2
 	- oc delete serviceaccount container-jfr-operator
 	- oc delete crd flightrecorders.rhjmc.redhat.com
 	- oc delete crd containerjfrs.rhjmc.redhat.com
-	- oc delete -f bundle/openshift/operator-source.yaml
+	- oc delete -f deploy/olm-catalog/catalog-source.yaml
 
 .PHONY: sample_app
 sample_app:
