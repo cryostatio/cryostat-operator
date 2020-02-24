@@ -26,7 +26,16 @@ crds:
 	operator-sdk generate crds
 
 .PHONY: csv
-csv:
+csv: generate
+ifeq ($(CSV_VERSION), $(PREV_CSV_VERSION))
+	operator-sdk generate csv \
+		--csv-config ./deploy/olm-catalog/csv-config.yaml \
+		--csv-version $(CSV_VERSION) \
+		--csv-channel alpha \
+		--default-channel \
+		--update-crds \
+		--operator-name container-jfr-operator-bundle
+else
 	# TODO
 	# from-version should be programatically determined
 	operator-sdk generate csv \
@@ -37,6 +46,7 @@ csv:
 		--default-channel \
 		--update-crds \
 		--operator-name container-jfr-operator-bundle
+endif
 
 .PHONY: image
 image: generate
