@@ -1,17 +1,17 @@
 ---
+# TODO automatically update bundle/CSV version number
 scorecard:
     output: text
-    namespace: scorecard
-    crds-dir: "deploy/crds"
+    bundle: "deploy/olm-catalog/container-jfr-operator-bundle"
     plugins:
-        # TODO add test configurations for FlightRecorders
         - basic:
+            crds-dir: "deploy/crds"
             cr-manifest:
                 - "deploy/crds/rhjmc.redhat.com_v1alpha1_containerjfr_cr.yaml"
                 - "deploy/crds/rhjmc.redhat.com_v1alpha1_flightrecorder_cr.yaml"
         - olm:
+            crds-dir: "deploy/crds"
             cr-manifest:
                 - "deploy/crds/rhjmc.redhat.com_v1alpha1_containerjfr_cr.yaml"
                 - "deploy/crds/rhjmc.redhat.com_v1alpha1_flightrecorder_cr.yaml"
-            # TODO automatically update version number
             csv-path: "deploy/olm-catalog/container-jfr-operator-bundle/0.3.0/container-jfr-operator-bundle.v0.3.0.clusterserviceversion.yaml"
