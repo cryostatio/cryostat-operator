@@ -75,7 +75,7 @@ index:
 test: undeploy scorecard
 
 .PHONY: scorecard
-scorecard: generate
+scorecard:
 	operator-sdk scorecard
 
 .PHONY: clean
