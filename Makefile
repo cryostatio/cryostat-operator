@@ -74,12 +74,18 @@ verify-csv:
 
 .PHONY: index
 index:
+ifeq ($(INDEX_VERSION), $(PREV_INDEX_VERSION))
+	opm index add \
+		--bundles $(BUNDLE_STREAM):$(CSV_VERSION) \
+		--tag $(INDEX_STREAM):$(INDEX_VERSION)
+else
 	# TODO
 	# previous index version should be programatically determined
 	opm index add \
 		--from-index $(INDEX_STREAM):$(PREV_INDEX_VERSION) \
 		--bundles $(BUNDLE_STREAM):$(CSV_VERSION) \
 		--tag $(INDEX_STREAM):$(INDEX_VERSION)
+endif
 
 .PHONY: test
 test: undeploy scorecard
