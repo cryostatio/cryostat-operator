@@ -11,9 +11,9 @@ at the URL provided by
 
 # Building
 ## Requirements
-- `go`
-- [operator-sdk](https://github.com/operator-framework/operator-sdk) v0.11.0
-- [operator-courier](https://github.com/operator-framework/operator-courier) 2.1.7+
+- `go` v1.13
+- [`operator-sdk`](https://github.com/operator-framework/operator-sdk) v0.15.2
+- [`opm`](https://github.com/operator-framework/operator-registry)
 - `podman`
 
 ## Instructions
@@ -21,25 +21,28 @@ at the URL provided by
 `quay.io/rh-jmc-team/container-jfr-operator`. This tag can be overridden by
 setting the environment variable `IMAGE_TAG`.
 
-To (re)build the Operator bundle for packaging in catalogs (ex. OperatorHub),
-use operator-courier, ex.
-`operator-courier push bundle rh-jmc-team container-jfr-operator-bundle $VERSION $TOKEN`
-, where `$VERSION` is the version string matching that within the bundle
-definition YAMLs, and `$TOKEN` has been replaced by your personal quay.io
-access token.
+To create a CSV bundle, use `CSV_VERSION=1.2.3 make csv`. This will generate
+a CSV and CRDs for a bundle versioned 1.2.3 at
+`./deploy/olm-catalog/container-jfr-operator-bundle/1.2.3`.
 
-To make this bundle available within the OpenShift Console's Operator Catalog,
-add the custom Operator Source via `oc apply -f bundle/openshift/operator-source.yaml`
+To (re)build the Operator bundle for packaging in catalogs (ex. OperatorHub),
+`CSV_VERSION=1.2.3 make bundle`. This will create an Operator bundle image
+containing the required YAML manifest files and metadata for publishing the
+bundle, based on the manifest files at
+`./deploy/olm-catalog/container-jfr-operator-bundle/1.2.3`. Push the resulting
+bundle image to an image registry such as quay.io.
+
+To create an index of these bundles, use `make index`. Push the index to an
+image registry such as quay.io.
 
 # Setup / Deployment
-
 ## UI-Guided Deployment
 
 The operator can be deployed using the Operator Marketplace in the graphical
-OpenShift console by first adding a custom operator source. A YAML definition
-of such a custom source is at `bundle/openshift/operator-source.yaml`, which
+OpenShift console by first adding a custom catalog source. A YAML definition
+of such a custom source is at `deploy/olm-catalog/catalog-source.yaml`, which
 can be added to your cluster by
-`oc create -f bundle/openshift/operator-source.yaml` or simply `make catalog`.
+`oc create -f deploy/olm-catalog/catalog-source.yaml` or simply `make catalog`.
 This method allows the latest released version of the operator to be installed
 into the cluster with the same method and in the same form that end users would
 receive it.

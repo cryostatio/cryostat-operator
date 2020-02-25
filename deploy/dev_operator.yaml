@@ -22,6 +22,8 @@ spec:
           - container-jfr-operator
           imagePullPolicy: Always
           env:
+            - name: TLS_VERIFY
+              value: 'false'
             - name: WATCH_NAMESPACE
               valueFrom:
                 fieldRef:

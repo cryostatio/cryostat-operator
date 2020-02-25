@@ -1,0 +1,8 @@
+apiVersion: operators.coreos.com/v1alpha1
+kind: CatalogSource
+metadata:
+  name: rh-jmc-team-manifests
+  namespace: default
+spec:
+  sourceType: grpc
+  image: quay.io/rh-jmc-team/container-jfr-operator-index:0.0.1

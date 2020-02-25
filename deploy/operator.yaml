@@ -16,11 +16,13 @@ spec:
       serviceAccountName: container-jfr-operator
       containers:
         - name: container-jfr-operator
-          image: quay.io/rh-jmc-team/container-jfr-operator:0.1.7
+          image: quay.io/rh-jmc-team/container-jfr-operator:0.3.0
           command:
           - container-jfr-operator
           imagePullPolicy: Always
           env:
+            - name: TLS_VERIFY
+              value: 'true'
             - name: WATCH_NAMESPACE
               valueFrom:
                 fieldRef:
