@@ -70,7 +70,7 @@ func (in *FlightRecorder) DeepCopyObject() runtime.Object {
 func (in *FlightRecorderList) DeepCopyInto(out *FlightRecorderList) {
 	*out = *in
 	out.TypeMeta = in.TypeMeta
-	out.ListMeta = in.ListMeta
+	in.ListMeta.DeepCopyInto(&out.ListMeta)
 	if in.Items != nil {
 		in, out := &in.Items, &out.Items
 		*out = make([]FlightRecorder, len(*in))
@@ -196,7 +196,7 @@ func (in *Recording) DeepCopyObject() runtime.Object {
 func (in *RecordingList) DeepCopyInto(out *RecordingList) {
 	*out = *in
 	out.TypeMeta = in.TypeMeta
-	out.ListMeta = in.ListMeta
+	in.ListMeta.DeepCopyInto(&out.ListMeta)
 	if in.Items != nil {
 		in, out := &in.Items, &out.Items
 		*out = make([]Recording, len(*in))

@@ -30,74 +30,99 @@ spec:
           type: object
         spec:
           description: FlightRecorderSpec defines the desired state of FlightRecorder
-          properties:
-            port:
-              description: JMX port for target JVM
-              format: int32
-              type: integer
-            recordingRequests:
-              description: Requests to create new flight recordings
-              items:
-                description: RecordingRequest allows the user to specify new recordings
-                  for Container JFR to create
-                properties:
-                  duration:
-                    description: The requested total duration of the recording
-                    type: string
-                  eventOptions:
-                    description: 'A list of event options to use when creating the
-                      recording. These are used to enable and fine-tune individual
-                      events. Examples: "jdk.ExecutionSample:enabled=true", "jdk.ExecutionSample:period=200ms"'
-                    items:
-                      type: string
-                    type: array
-                  name:
-                    description: Name of the recording to be created
-                    type: string
-                required:
-                - duration
-                - eventOptions
-                - name
-                type: object
-              type: array
-          required:
-          - port
-          - recordingRequests
           type: object
         status:
           description: FlightRecorderStatus defines the observed state of FlightRecorder
           properties:
-            recordings:
-              description: Lists all recordings for the pod/service that may be downloaded
+            events:
+              description: Listing of events available in the target JVM
               items:
-                description: RecordingInfo contains the status of recordings that
-                  have already been created by Container JFR
                 properties:
-                  active:
-                    description: Whether the recording is currently running
-                    type: boolean
-                  downloadUrl:
-                    description: A URL to download the JFR file for the recording
+                  category:
+                    items:
+                      type: string
+                    type: array
+                  description:
                     type: string
-                  duration:
-                    description: The duration of the recording specified during creation
+                  id:
                     type: string
                   name:
-                    description: Name of the created recording
                     type: string
-                  startTime:
-                    description: The date/time when the recording started
-                    format: date-time
-                    type: string
+                  options:
+                    additionalProperties:
+                      properties:
+                        defaultValue:
+                          type: string
+                        description:
+                          type: string
+                        name:
+                          type: string
+                      required:
+                      - defaultValue
+                      - description
+                      - name
+                      type: object
+                    type: object
                 required:
-                - active
-                - duration
+                - category
+                - description
+                - id
                 - name
-                - startTime
+                - options
                 type: object
               type: array
+            port:
+              description: JMX port for target JVM
+              format: int32
+              minimum: 0
+              type: integer
+            recordingSelector:
+              description: Recordings that match this selector belong to this FlightRecorder
+              properties:
+                matchExpressions:
+                  description: matchExpressions is a list of label selector requirements.
+                    The requirements are ANDed.
+                  items:
+                    description: A label selector requirement is a selector that contains
+                      values, a key, and an operator that relates the key and values.
+                    properties:
+                      key:
+                        description: key is the label key that the selector applies
+                          to.
+                        type: string
+                      operator:
+                        description: operator represents a key's relationship to a
+                          set of values. Valid operators are In, NotIn, Exists and
+                          DoesNotExist.
+                        type: string
+                      values:
+                        description: values is an array of string values. If the operator
+                          is In or NotIn, the values array must be non-empty. If the
+                          operator is Exists or DoesNotExist, the values array must
+                          be empty. This array is replaced during a strategic merge
+                          patch.
+                        items:
+                          type: string
+                        type: array
+                    required:
+                    - key
+                    - operator
+                    type: object
+                  type: array
+                matchLabels:
+                  additionalProperties:
+                    type: string
+                  description: matchLabels is a map of {key,value} pairs. A single
+                    {key,value} in the matchLabels map is equivalent to an element
+                    of matchExpressions, whose key field is "key", the operator is
+                    "In", and the values array contains only "value". The requirements
+                    are ANDed.
+                  type: object
+              type: object
             target:
-              description: Reference to the pod/service that this object controls
+              description: TODO Can we do this with labels/selectors instead? TODO
+                Need to potentially figure out how to manage this across both services
+                and pods in future Reference to the pod/service that this object controls
                 JFR for
               properties:
                 apiVersion:
@@ -134,12 +159,14 @@ spec:
                   type: string
               type: object
           required:
-          - recordings
+          - events
+          - port
+          - recordingSelector
           - target
           type: object
       type: object
-  version: v1alpha1
+  version: v1alpha2
   versions:
-  - name: v1alpha1
+  - name: v1alpha2
     served: true
     storage: true
