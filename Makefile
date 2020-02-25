@@ -63,14 +63,10 @@ bundle:
 		--package container-jfr-operator-bundle
 
 .PHONY: validate
-validate: verify-csv
+validate:
 	operator-sdk bundle validate \
 		--image-builder $(BUILDER) \
 		$(IMAGE_TAG)
-
-.PHONY: verify-csv
-verify-csv:
-	operator-courier verify deploy/olm-catalog/container-jfr-operator-bundle
 
 .PHONY: index
 index:
