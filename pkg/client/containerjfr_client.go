@@ -173,10 +173,7 @@ func (client *ContainerJfrClient) syncMessage(msg *CommandMessage, responsePaylo
 	}
 	log.Info("sent command", "json", msg)
 
-	// By setting the output argument in the struct, the decoder knows what type
-	// to unmarshall the payload into and also stores it for returing to the caller
-	resp := &ResponseMessage{Payload: responsePayload}
-	err = client.conn.ReadJSON(resp)
+	resp, err := client.readResponse(msg, responsePayload)
 	if err != nil {
 		log.Error(err, "could not read response", "message", msg)
 		return err
@@ -193,4 +190,21 @@ func (client *ContainerJfrClient) syncMessage(msg *CommandMessage, responsePaylo
 		return err
 	}
 	return err
+}
+
+func (client *ContainerJfrClient) readResponse(msg *CommandMessage,
+	responsePayload interface{}) (*ResponseMessage, error) {
+	// Set the original message ID so our decoder can verify it.
+	// By setting the output argument in the struct, the decoder knows what type
+	// to unmarshall the payload into and also stores it for returning to the caller.
+	resp := &ResponseMessage{ID: msg.ID, Payload: responsePayload}
+
+	// Keep reading messages until we find a response to this message,
+	// or encounter an error other than ErrWrongID
+	for {
+		err := client.conn.ReadJSON(resp)
+		if err == nil || err != ErrWrongID {
+			return resp, err
+		}
+	}
 }
