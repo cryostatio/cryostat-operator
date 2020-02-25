@@ -85,10 +85,6 @@ spec:
               - STOPPING
               - STOPPED
               type: string
-          required:
-          - duration
-          - startTime
-          - state
           type: object
       type: object
   version: v1alpha2

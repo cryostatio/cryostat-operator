@@ -26,6 +26,7 @@ type RecordingSpec struct {
 	Duration metav1.Duration `json:"duration"`
 	// Desired state of the recording. If omitted, RUNNING will be assumed.
 	// +kubebuilder:validation:Enum=RUNNING;STOPPED
+	// +optional
 	State RecordingState `json:"state,omitempty"`
 	// Whether this recording should be saved to persistent storage. If true, the JFR file will be retained until
 	// this object is deleted. If false, the JFR file will be deleted when its corresponding JVM exits.
@@ -60,12 +61,16 @@ type RecordingStatus struct {
 
 	// Current state of the recording.
 	// +kubebuilder:validation:Enum=CREATED;RUNNING;STOPPING;STOPPED
-	State RecordingState `json:"state"`
+	// +optional
+	State RecordingState `json:"state,omitempty"`
 	// The date/time when the recording started.
-	StartTime metav1.Time `json:"startTime"`
+	// +optional
+	StartTime metav1.Time `json:"startTime,omitempty"`
 	// The duration of the recording specified during creation.
-	Duration metav1.Duration `json:"duration"` // FIXME Needed?
+	// +optional
+	Duration metav1.Duration `json:"duration,omitempty"` // FIXME Needed?
 	// A URL to download the JFR file for the recording.
+	// +optional
 	DownloadURL string `json:"downloadURL,omitempty"`
 	// TODO Consider adding Conditions:
 	// https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/api-conventions.md#typical-status-properties
