@@ -80,9 +80,24 @@ func (r *ReconcileFlightRecorder) Reconcile(request reconcile.Request) (reconcil
 	reqLogger := log.WithValues("Request.Namespace", request.Namespace, "Request.Name", request.Name)
 	reqLogger.Info("Reconciling FlightRecorder")
 
+	// Look up the ContainerJFR object for this operator, which will help us find its services
+	cjfrList := &rhjmcv1alpha1.ContainerJFRList{}
+	err := r.client.List(ctx, cjfrList)
+	if err != nil {
+		return reconcile.Result{}, err
+	}
+	if len(cjfrList.Items) == 0 {
+		return reconcile.Result{}, errors.New("No ContainerJFR objects found")
+	} else if len(cjfrList.Items) > 1 {
+		// Does not seem like a proper use-case
+		log.Info("More than one ContainerJFR object found in namespace, using only the first one listed",
+			"namespace", request.Namespace)
+	}
+	cjfr := cjfrList.Items[0]
+
 	// Keep client open to Container JFR as long as it doesn't fail
 	if r.jfrClient == nil {
-		jfrClient, err := r.connectToContainerJFR(ctx, request.Namespace)
+		jfrClient, err := r.connectToContainerJFR(ctx, request.Namespace, cjfr.Name)
 		if err != nil {
 			// Need Container JFR in order to reconcile anything, requeue until it appears
 			return reconcile.Result{}, err
@@ -92,7 +107,7 @@ func (r *ReconcileFlightRecorder) Reconcile(request reconcile.Request) (reconcil
 
 	// Fetch the FlightRecorder instance
 	instance := &rhjmcv1alpha1.FlightRecorder{}
-	err := r.client.Get(ctx, request.NamespacedName, instance)
+	err = r.client.Get(ctx, request.NamespacedName, instance)
 	if err != nil {
 		if kerrors.IsNotFound(err) {
 			// Request object not found, could have been deleted after reconcile request.
@@ -238,9 +253,10 @@ func findRecordingByName(recordings []rhjmcv1alpha1.RecordingInfo, name string) 
 	return nil
 }
 
-func (r *ReconcileFlightRecorder) connectToContainerJFR(ctx context.Context, namespace string) (*jfrclient.ContainerJfrClient, error) {
+func (r *ReconcileFlightRecorder) connectToContainerJFR(ctx context.Context, namespace string,
+	svcName string) (*jfrclient.ContainerJfrClient, error) {
 	// Query the "clienturl" endpoint of Container JFR for the command URL
-	clientURL, err := r.getClientURL(ctx, namespace)
+	clientURL, err := r.getClientURL(ctx, namespace, svcName)
 	if err != nil {
 		return nil, err
 	}
@@ -285,11 +301,10 @@ func createRecordingInfo(descriptors []jfrclient.RecordingDescriptor) []rhjmcv1a
 	return infos
 }
 
-func (r *ReconcileFlightRecorder) getClientURL(ctx context.Context, namespace string) (*url.URL, error) {
+func (r *ReconcileFlightRecorder) getClientURL(ctx context.Context, namespace string, svcName string) (*url.URL, error) {
+	// Look up Container JFR service, and query "clienturl" endpoint
 	cjfrSvc := &corev1.Service{}
-	// TODO Get service namespace/name from ContainerJFR CR
-	cjfrSvcName := "containerjfr"
-	err := r.client.Get(ctx, types.NamespacedName{Namespace: namespace, Name: cjfrSvcName}, cjfrSvc)
+	err := r.client.Get(ctx, types.NamespacedName{Namespace: namespace, Name: svcName}, cjfrSvc)
 	if err != nil {
 		return nil, err
 	}
