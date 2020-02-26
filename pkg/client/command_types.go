@@ -131,7 +131,7 @@ func (msg *ResponseMessage) UnmarshalJSON(data []byte) error {
 	// to parse a response which could contain a different kind of
 	// payload
 	if msg.ID != peek.ID {
-		log.Info("Skipping response with unexpected ID", "expected", msg.ID,
+		debugLog.Info("Skipping response with unexpected ID", "expected", msg.ID,
 			"actual", peek.ID)
 		return ErrWrongID
 	}

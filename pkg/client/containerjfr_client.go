@@ -8,12 +8,16 @@ import (
 	"net/url"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/gorilla/websocket"
 	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
 )
 
 var log = logf.Log.WithName("containerjfr_client")
+var debugLog = log.V(1)
+
+const ioTimeout = 30 * time.Second
 
 // Config stores configuration options to connect to Container JFR's
 // command server
@@ -166,6 +170,7 @@ func (client *ContainerJfrClient) ListSavedRecordings() ([]SavedRecording, error
 }
 
 func (client *ContainerJfrClient) syncMessage(msg *CommandMessage, responsePayload interface{}) error {
+	client.conn.SetWriteDeadline(time.Now().Add(ioTimeout))
 	err := client.conn.WriteJSON(msg)
 	if err != nil {
 		log.Error(err, "could not write message", "message", msg)
@@ -199,12 +204,17 @@ func (client *ContainerJfrClient) readResponse(msg *CommandMessage,
 	// to unmarshall the payload into and also stores it for returning to the caller.
 	resp := &ResponseMessage{ID: msg.ID, Payload: responsePayload}
 
+	// Time out if we don't get our response in a reasonable timeframe
+	loopDeadline := time.Now().Add(ioTimeout)
+
 	// Keep reading messages until we find a response to this message,
-	// or encounter an error other than ErrWrongID
-	for {
+	// or encounter an error other than ErrWrongID.
+	for time.Now().Before(loopDeadline) {
+		client.conn.SetReadDeadline(time.Now().Add(ioTimeout))
 		err := client.conn.ReadJSON(resp)
 		if err == nil || err != ErrWrongID {
 			return resp, err
 		}
 	}
+	return nil, errors.New("Timed out waiting for a response")
 }
