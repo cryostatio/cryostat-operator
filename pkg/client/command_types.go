@@ -2,11 +2,16 @@ package client
 
 import (
 	"encoding/json"
+	"errors"
+	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/uuid"
 )
 
 // CommandMessage represents the body of a command request to be sent
 // to Container JFR
 type CommandMessage struct {
+	// ID used to uniquely identify a response to this message
+	ID types.UID `json:"id"`
 	// The name of the command, must be recognized by Container JFR
 	Command string `json:"command"`
 	// Any arguments that Container JFR accepts for the named command
@@ -16,7 +21,7 @@ type CommandMessage struct {
 // NewCommandMessage provides a conventient shorthand for constructing
 // new CommandMessages
 func NewCommandMessage(command string, args ...string) *CommandMessage {
-	return &CommandMessage{Command: command, Args: args}
+	return &CommandMessage{ID: uuid.NewUUID(), Command: command, Args: args}
 }
 
 // ResponseStatus is a response code used by Container JFR to indiciate
@@ -38,6 +43,8 @@ const (
 // ResponseMessage corresponds to the response from Container JFR to
 // a command message previously sent
 type ResponseMessage struct {
+	// Identifier of the command message that triggered this response
+	ID types.UID `json:"id"`
 	// The name of the command that this message is responding to
 	CommandName string `json:"commandName"`
 	// The response code showing whether this command succeeded
@@ -102,18 +109,33 @@ type SavedRecording struct {
 	ReportURL   string `json:"reportUrl"`
 }
 
+// ErrWrongID is returned when a JSON response has an unexpected ID
+var ErrWrongID error = errors.New("Response in reply to different command")
+
 // UnmarshalJSON overrides standard JSON parsing to handle error payloads
+// and filter out messages intended for other clients.
+// The receiver's ID should be populated with the command message's ID
+// and the Payload should be set to the expected type's zero value.
 func (msg *ResponseMessage) UnmarshalJSON(data []byte) error {
-	// Unmarshall only status at first to determine if we need to
-	// parse an error string
-	peekStatus := struct {
-		Status int `json:"status"`
+	// Unmarshall ID to check if we are the intended recipient, and
+	// also status to determine if we need to parse an error string
+	peek := struct {
+		ID     types.UID `json:"id"`
+		Status int       `json:"status"`
 	}{}
-	err := json.Unmarshal(data, &peekStatus)
+	err := json.Unmarshal(data, &peek)
 	if err != nil {
 		return err
 	}
-	if peekStatus.Status < 0 {
+	// By checking the ID here, we can abort early and not attempt
+	// to parse a response which could contain a different kind of
+	// payload
+	if msg.ID != peek.ID {
+		debugLog.Info("Skipping response with unexpected ID", "expected", msg.ID,
+			"actual", peek.ID)
+		return ErrWrongID
+	}
+	if peek.Status < 0 {
 		// Expect a string payload for non-zero status
 		msg.Payload = ""
 	}

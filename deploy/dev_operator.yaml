@@ -20,6 +20,8 @@ spec:
           image: REPLACE_IMAGE
           command:
           - container-jfr-operator
+          args:
+          - "--zap-level=debug"
           imagePullPolicy: Always
           env:
             - name: TLS_VERIFY
