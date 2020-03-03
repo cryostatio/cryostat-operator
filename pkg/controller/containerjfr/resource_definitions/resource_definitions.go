@@ -7,6 +7,8 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
+	"math/rand"
+	"time"
 )
 
 type ServiceSpecs struct {
@@ -194,6 +196,29 @@ func NewCoreContainer(cr *rhjmcv1alpha1.ContainerJFR, specs *ServiceSpecs) corev
 	}
 }
 
+func NewGrafanaSecretForCR(cr *rhjmcv1alpha1.ContainerJFR) *corev1.Secret {
+	return &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      cr.Name + "-grafana-basic",
+			Namespace: cr.Namespace,
+		},
+		StringData: map[string]string{
+			"GF_SECURITY_ADMIN_USER":     "admin",
+			"GF_SECURITY_ADMIN_PASSWORD": GenPasswd(20),
+		},
+	}
+}
+
+func GenPasswd(length int) string {
+	rand.Seed(time.Now().UnixNano())
+	chars := "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_"
+	b := make([]byte, length)
+	for i := range b {
+		b[i] = chars[rand.Intn(len(chars))]
+	}
+	return string(b)
+}
+
 func NewGrafanaContainer(cr *rhjmcv1alpha1.ContainerJFR) corev1.Container {
 	return corev1.Container{
 		Name:  cr.Name + "-grafana",
@@ -207,6 +232,15 @@ func NewGrafanaContainer(cr *rhjmcv1alpha1.ContainerJFR) corev1.Container {
 			{
 				Name:  "GF_INSTALL_PLUGINS",
 				Value: "grafana-simple-json-datasource",
+			},
+		},
+		EnvFrom: []corev1.EnvFromSource{
+			{
+				SecretRef: &corev1.SecretEnvSource{
+					LocalObjectReference: corev1.LocalObjectReference{
+						Name: cr.Name + "-grafana-basic",
+					},
+				},
 			},
 		},
 		LivenessProbe: &corev1.Probe{

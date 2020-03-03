@@ -107,6 +107,14 @@ func (r *ReconcileContainerJFR) Reconcile(request reconcile.Request) (reconcile.
 		return reconcile.Result{}, err
 	}
 
+	grafanaSecret := resources.NewGrafanaSecretForCR(instance)
+	if err := controllerutil.SetControllerReference(instance, grafanaSecret, r.scheme); err != nil {
+		return reconcile.Result{}, err
+	}
+	if err = r.createObjectIfNotExists(context.Background(), types.NamespacedName{Name: grafanaSecret.Name, Namespace: grafanaSecret.Namespace}, &corev1.Secret{}, grafanaSecret); err != nil {
+		return reconcile.Result{}, err
+	}
+
 	serviceSpecs := &resources.ServiceSpecs{}
 	var url string
 	if !instance.Spec.Minimal {
