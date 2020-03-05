@@ -91,6 +91,18 @@ func (r *ReconcileGrafana) Reconcile(request reconcile.Request) (reconcile.Resul
 	reqLogger.Info("Found Grafana service", "Namespace",
 		svc.Namespace, "Name", svc.Name)
 
+	secret := &corev1.Secret{}
+	err = r.client.Get(ctx, types.NamespacedName{Name: svc.Name + "-basic", Namespace: request.Namespace}, secret)
+	if err != nil {
+		if errors.IsNotFound(err) {
+			reqLogger.Info("Could not find Grafana credentials secret")
+			return reconcile.Result{Requeue: true}, nil
+		}
+		return reconcile.Result{}, err
+	}
+	reqLogger.Info("Found Grafana credentials secret", "Namespace",
+		secret.Namespace, "Name", secret.Name)
+
 	route := &openshiftv1.Route{}
 	err = r.client.Get(ctx, types.NamespacedName{Namespace: svc.Namespace, Name: svc.Name}, route)
 	if err != nil {
@@ -110,12 +122,12 @@ func (r *ReconcileGrafana) Reconcile(request reconcile.Request) (reconcile.Resul
 		reqLogger.Info("Grafana service is healthy")
 	}
 
-	if err := r.configureGrafanaDatasource(route); err != nil {
+	if err := r.configureGrafanaDatasource(secret, route); err != nil {
 		return reconcile.Result{}, err
 	}
 	reqLogger.Info("Grafana datasource configured")
 
-	if err := r.configureGrafanaDashboard(route); err != nil {
+	if err := r.configureGrafanaDashboard(secret, route); err != nil {
 		return reconcile.Result{}, err
 	}
 	reqLogger.Info("Grafana dashboard configured")
@@ -144,12 +156,12 @@ func (r *ReconcileGrafana) isServiceHealthy(route *openshiftv1.Route) (bool, err
 	return resp.StatusCode == 200, nil
 }
 
-func (r *ReconcileGrafana) configureGrafanaDatasource(route *openshiftv1.Route) error {
+func (r *ReconcileGrafana) configureGrafanaDatasource(secret *corev1.Secret, route *openshiftv1.Route) error {
 	logger := log.WithValues("Route.Namespace", route.Namespace, "Route.Name", route.Name)
 
 	logger.Info("Checking existing datasource definitions")
 	// TODO get an API token, rather than using basic auth and assumed default credentials
-	getUrl := fmt.Sprintf("https://admin:admin@%s/api/datasources", route.Status.Ingress[0].Host)
+	getUrl := GetCredentialedHostPathUrl(secret, route.Status.Ingress[0].Host, "/api/datasources")
 	getResp, err := r.httpClient.Get(getUrl)
 	if err != nil {
 		return err
@@ -202,7 +214,7 @@ func (r *ReconcileGrafana) configureGrafanaDatasource(route *openshiftv1.Route) 
 	if err != nil {
 		return err
 	}
-	postResp, err := r.httpClient.Post(fmt.Sprintf("https://admin:admin@%s/api/datasources", route.Status.Ingress[0].Host), "application/json", bytes.NewBuffer(dsStr))
+	postResp, err := r.httpClient.Post(GetCredentialedHostPathUrl(secret, route.Status.Ingress[0].Host, "/api/datasources"), "application/json", bytes.NewBuffer(dsStr))
 	logger.Info("POST response", "Status", postResp.Status, "StatusCode", postResp.StatusCode)
 	if err != nil {
 		return err
@@ -219,11 +231,11 @@ func (r *ReconcileGrafana) configureGrafanaDatasource(route *openshiftv1.Route) 
 	return nil
 }
 
-func (r *ReconcileGrafana) configureGrafanaDashboard(route *openshiftv1.Route) error {
+func (r *ReconcileGrafana) configureGrafanaDashboard(secret *corev1.Secret, route *openshiftv1.Route) error {
 	logger := log.WithValues("Route.Namespace", route.Namespace, "Route.Name", route.Name)
 
 	// TODO find a way to list/search existing dashboards to avoid creating a duplicate
-	postResp, err := r.httpClient.Post(fmt.Sprintf("https://admin:admin@%s/api/dashboards/db", route.Status.Ingress[0].Host), "application/json", bytes.NewBufferString(DashboardDefinitionJSON))
+	postResp, err := r.httpClient.Post(GetCredentialedHostPathUrl(secret, route.Status.Ingress[0].Host, "/api/dashboards/db"), "application/json", bytes.NewBufferString(DashboardDefinitionJSON))
 	logger.Info("POST response", "Status", postResp.Status, "StatusCode", postResp.StatusCode)
 	if err != nil {
 		return err
@@ -238,6 +250,12 @@ func (r *ReconcileGrafana) configureGrafanaDashboard(route *openshiftv1.Route) e
 	}
 	logger.Info("POST response", "Body", string(postBody))
 	return nil
+}
+
+func GetCredentialedHostPathUrl(secret *corev1.Secret, host string, path string) string {
+	user := secret.Data["GF_SECURITY_ADMIN_USER"]
+	pass := secret.Data["GF_SECURITY_ADMIN_PASSWORD"]
+	return fmt.Sprintf("https://%s:%s@%s%s", strings.TrimSpace(string(user)), strings.TrimSpace(string(pass)), host, path)
 }
 
 type GrafanaDatasourceList []GrafanaDatasource
