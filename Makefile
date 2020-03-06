@@ -115,6 +115,8 @@ deploy: undeploy
 	oc create -f deploy/role.yaml
 	oc create -f deploy/role_binding.yaml
 	oc create -f deploy/crds/rhjmc.redhat.com_flightrecorders_crd.yaml
+	# TODO Update bundle
+	oc create -f deploy/crds/rhjmc.redhat.com_recordings_crd.yaml
 	oc create -f deploy/crds/rhjmc.redhat.com_containerjfrs_crd.yaml
 	sed -e 's|REPLACE_IMAGE|$(IMAGE_TAG)|g' deploy/dev_operator.yaml | oc create -f -
 	oc set env deployment/container-jfr-operator TLS_VERIFY=false
@@ -134,6 +136,7 @@ undeploy: undeploy_sample_app undeploy_sample_app2
 	- oc delete rolebinding container-jfr-operator
 	- oc delete serviceaccount container-jfr-operator
 	- oc delete crd flightrecorders.rhjmc.redhat.com
+	- oc delete crd recordings.rhjmc.redhat.com
 	- oc delete crd containerjfrs.rhjmc.redhat.com
 	- oc delete -f deploy/olm-catalog/catalog-source.yaml
 

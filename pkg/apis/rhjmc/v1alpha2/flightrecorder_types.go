@@ -61,7 +61,7 @@ type OptionDescriptor struct {
 // +kubebuilder:subresource:status
 // +kubebuilder:resource:path=flightrecorders,scope=Namespaced
 // +kubebuilder:storageversion
-type FlightRecorder struct { // TODO Conversion with v1alpha1? Might not be possible due to moving data to Recording
+type FlightRecorder struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 

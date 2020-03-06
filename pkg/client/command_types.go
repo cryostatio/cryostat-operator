@@ -55,25 +55,6 @@ type ResponseMessage struct {
 	Payload interface{} `json:"payload"`
 }
 
-// RecordingState describes the current state of the recording according
-// to JFR
-type RecordingState string
-
-const (
-	// RecordingStateCreated means the recording has been accepted, but
-	// has not started yet
-	RecordingStateCreated RecordingState = "CREATED"
-	// RecordingStateRunning means the recording has started and is
-	// currently running
-	RecordingStateRunning RecordingState = "RUNNING"
-	// RecordingStateStopping means that the recording is in the process
-	// of finishing
-	RecordingStateStopping RecordingState = "STOPPING"
-	// RecordingStateStopped means the recording has completed and the
-	// JFR file is fully written
-	RecordingStateStopped RecordingState = "STOPPED"
-)
-
 // RecordingDescriptor contains various metadata for a particular
 // flight recording retrieved from the JVM
 type RecordingDescriptor struct {
@@ -82,7 +63,7 @@ type RecordingDescriptor struct {
 	// Name of the recording specified during creation
 	Name string `json:"name"`
 	// State of the recording within its lifecycle
-	State RecordingState `json:"state"`
+	State string `json:"state"`
 	// Time when the recording first started, in milliseconds since Unix epoch
 	StartTime int64 `json:"startTime"`
 	// How long the recording was configured to run for, in milliseconds

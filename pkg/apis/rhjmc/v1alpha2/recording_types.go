@@ -1,6 +1,7 @@
 package v1alpha2
 
 import (
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -27,10 +28,12 @@ type RecordingSpec struct {
 	// Desired state of the recording. If omitted, RUNNING will be assumed.
 	// +kubebuilder:validation:Enum=RUNNING;STOPPED
 	// +optional
-	State RecordingState `json:"state,omitempty"`
+	State *RecordingState `json:"state,omitempty"`
 	// Whether this recording should be saved to persistent storage. If true, the JFR file will be retained until
 	// this object is deleted. If false, the JFR file will be deleted when its corresponding JVM exits.
 	Archive bool `json:"archive"`
+	// Reference to the FlightRecorder object that corresponds to this Recording
+	FlightRecorder *corev1.LocalObjectReference `json:"flightRecorder"`
 }
 
 // RecordingState describes the current state of the recording according
@@ -62,7 +65,7 @@ type RecordingStatus struct {
 	// Current state of the recording.
 	// +kubebuilder:validation:Enum=CREATED;RUNNING;STOPPING;STOPPED
 	// +optional
-	State RecordingState `json:"state,omitempty"`
+	State *RecordingState `json:"state,omitempty"`
 	// The date/time when the recording started.
 	// +optional
 	StartTime metav1.Time `json:"startTime,omitempty"`
@@ -71,7 +74,7 @@ type RecordingStatus struct {
 	Duration metav1.Duration `json:"duration,omitempty"` // FIXME Needed?
 	// A URL to download the JFR file for the recording.
 	// +optional
-	DownloadURL string `json:"downloadURL,omitempty"`
+	DownloadURL *string `json:"downloadURL,omitempty"`
 	// TODO Consider adding Conditions:
 	// https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/api-conventions.md#typical-status-properties
 }

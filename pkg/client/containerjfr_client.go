@@ -8,6 +8,7 @@ import (
 	"net/url"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/gorilla/websocket"
@@ -18,6 +19,11 @@ var log = logf.Log.WithName("containerjfr_client")
 var debugLog = log.V(1)
 
 const ioTimeout = 30 * time.Second
+
+// ClientLock synchronizes access to Container JFR while it is connected to a particular JVM.
+// This prevents clients from interfering with each other since Container JFR can
+// currently only be connected to one JVM at a time.
+var ClientLock = &sync.Mutex{}
 
 // Config stores configuration options to connect to Container JFR's
 // command server
@@ -142,6 +148,30 @@ func (client *ContainerJfrClient) DumpRecording(name string, seconds int, events
 		return err
 	}
 	log.Info("got dump response", "resp", resp)
+	return nil
+}
+
+// StartRecording instructs Container JFR to create a new continuous recording
+func (client *ContainerJfrClient) StartRecording(name string, events []string) error {
+	startCmd := NewCommandMessage("start", name, strings.Join(events, ","))
+	var resp string
+	err := client.syncMessage(startCmd, &resp)
+	if err != nil {
+		return err
+	}
+	log.Info("got start response", "resp", resp)
+	return nil
+}
+
+// StopRecording instructs Container JFR to stop a recording
+func (client *ContainerJfrClient) StopRecording(name string) error {
+	stopCmd := NewCommandMessage("stop", name)
+	var resp string
+	err := client.syncMessage(stopCmd, &resp)
+	if err != nil {
+		return err
+	}
+	log.Info("got stop response", "resp", resp)
 	return nil
 }
 
