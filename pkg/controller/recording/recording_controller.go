@@ -166,7 +166,7 @@ func (r *ReconcileRecording) Reconcile(request reconcile.Request) (reconcile.Res
 		err = r.JfrClient.StopRecording(instance.Spec.Name)
 		if err != nil {
 			log.Error(err, "failed to stop recording")
-			r.CloseClient() // TODO maybe track an error state in the client instead of relying on calling this everywhere
+			r.CloseClient()
 			return reconcile.Result{}, err
 		}
 	}

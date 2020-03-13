@@ -122,6 +122,22 @@ func (r *ReconcileFlightRecorder) Reconcile(request reconcile.Request) (reconcil
 	}
 	defer r.DisconnectClient()
 
+	// Retrieve list of available events
+	log.Info("Listing event types for service", "service", targetSvc.Name, "namespace", targetSvc.Namespace)
+	events, err := r.JfrClient.ListEventTypes()
+	if err != nil {
+		log.Error(err, "failed to list event types")
+		r.CloseClient()
+		return reconcile.Result{}, err
+	}
+
+	// Update Status with events
+	instance.Status.Events = events
+	err = r.Client.Status().Update(ctx, instance)
+	if err != nil {
+		return reconcile.Result{}, err
+	}
+
 	reqLogger.Info("FlightRecorder successfully updated", "Namespace", instance.Namespace, "Name", instance.Name)
 	return reconcile.Result{}, nil
 }

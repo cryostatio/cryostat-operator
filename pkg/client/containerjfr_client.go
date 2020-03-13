@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/gorilla/websocket"
+	rhjmcv1alpha2 "github.com/rh-jmc-team/container-jfr-operator/pkg/apis/rhjmc/v1alpha2"
 	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
 )
 
@@ -197,6 +198,18 @@ func (client *ContainerJfrClient) ListSavedRecordings() ([]SavedRecording, error
 	}
 	log.Info("got list-saved response", "resp", recordings)
 	return recordings, nil
+}
+
+// ListEventTypes returns a list of events available in the target JVM
+func (client *ContainerJfrClient) ListEventTypes() ([]rhjmcv1alpha2.EventInfo, error) {
+	listCmd := NewCommandMessage("list-event-types")
+	events := []rhjmcv1alpha2.EventInfo{}
+	err := client.syncMessage(listCmd, &events)
+	if err != nil {
+		return nil, err
+	}
+	log.Info("got list-event-types response", "resp", events)
+	return events, nil
 }
 
 func (client *ContainerJfrClient) syncMessage(msg *CommandMessage, responsePayload interface{}) error {

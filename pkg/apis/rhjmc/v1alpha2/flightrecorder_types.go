@@ -11,18 +11,11 @@ import (
 // FlightRecorderSpec defines the desired state of FlightRecorder
 // +k8s:openapi-gen=true
 type FlightRecorderSpec struct {
-	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
-	// Important: Run "operator-sdk generate k8s" to regenerate code after modifying this file
-	// Add custom validation using kubebuilder tags: https://book-v1.book.kubebuilder.io/beyond_basics/generating_crd.html
 }
 
 // FlightRecorderStatus defines the observed state of FlightRecorder
 // +k8s:openapi-gen=true
 type FlightRecorderStatus struct {
-	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
-	// Important: Run "operator-sdk generate k8s" to regenerate code after modifying this file
-	// Add custom validation using kubebuilder tags: https://book-v1.book.kubebuilder.io/beyond_basics/generating_crd.html
-
 	// Listing of events available in the target JVM
 	// +listType=set
 	Events []EventInfo `json:"events"`
@@ -33,6 +26,7 @@ type FlightRecorderStatus struct {
 	// JMX port for target JVM
 	// +kubebuilder:validation:Minimum=0
 	Port int32 `json:"port"`
+	// TODO is this useful?
 	// Recordings that match this selector belong to this FlightRecorder
 	RecordingSelector *metav1.LabelSelector `json:"recordingSelector"`
 }
@@ -40,7 +34,7 @@ type FlightRecorderStatus struct {
 const RecordingLabel = "rhjmc.redhat.com/flightrecorder"
 
 type EventInfo struct { // TODO if this becomes too much to store in each object, consider making JFREvent resource
-	ID          string `json:"id"`
+	TypeID      string `json:"typeId"`
 	Name        string `json:"name"`
 	Description string `json:"description"`
 	// +listType=atomic

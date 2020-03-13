@@ -44,8 +44,6 @@ spec:
                     type: array
                   description:
                     type: string
-                  id:
-                    type: string
                   name:
                     type: string
                   options:
@@ -63,12 +61,14 @@ spec:
                       - name
                       type: object
                     type: object
+                  typeId:
+                    type: string
                 required:
                 - category
                 - description
-                - id
                 - name
                 - options
+                - typeId
                 type: object
               type: array
             port:
@@ -77,7 +77,8 @@ spec:
               minimum: 0
               type: integer
             recordingSelector:
-              description: Recordings that match this selector belong to this FlightRecorder
+              description: TODO is this useful? Recordings that match this selector
+                belong to this FlightRecorder
               properties:
                 matchExpressions:
                   description: matchExpressions is a list of label selector requirements.

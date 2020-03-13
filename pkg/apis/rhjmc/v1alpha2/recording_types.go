@@ -11,11 +11,6 @@ import (
 // RecordingSpec defines the desired state of Recording
 // +k8s:openapi-gen=true
 type RecordingSpec struct {
-	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
-	// Important: Run "operator-sdk generate k8s" to regenerate code after modifying this file
-	// Add custom validation using kubebuilder tags: https://book-v1.book.kubebuilder.io/beyond_basics/generating_crd.html
-	// TODO Full validation marker list: https://book.kubebuilder.io/reference/markers/crd-validation.html
-
 	// Name of the recording to be created.
 	Name string `json:"name"`
 	// A list of event options to use when creating the recording.
@@ -38,7 +33,7 @@ type RecordingSpec struct {
 
 // RecordingState describes the current state of the recording according
 // to JFR
-type RecordingState string // FIXME From client/command_types.go
+type RecordingState string
 
 const (
 	// RecordingStateCreated means the recording has been accepted, but
@@ -58,10 +53,6 @@ const (
 // RecordingStatus defines the observed state of Recording
 // +k8s:openapi-gen=true
 type RecordingStatus struct {
-	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
-	// Important: Run "operator-sdk generate k8s" to regenerate code after modifying this file
-	// Add custom validation using kubebuilder tags: https://book-v1.book.kubebuilder.io/beyond_basics/generating_crd.html
-
 	// Current state of the recording.
 	// +kubebuilder:validation:Enum=CREATED;RUNNING;STOPPING;STOPPED
 	// +optional
