@@ -161,6 +161,14 @@ func (r *ReconcileRecording) Reconcile(request reconcile.Request) (reconcile.Res
 			r.CloseClient() // TODO maybe track an error state in the client instead of relying on calling this everywhere
 			return reconcile.Result{}, err
 		}
+	} else if shouldStopRecording(instance) {
+		log.Info("stopping recording", "name", instance.Spec.Name)
+		err = r.JfrClient.StopRecording(instance.Spec.Name)
+		if err != nil {
+			log.Error(err, "failed to stop recording")
+			r.CloseClient() // TODO maybe track an error state in the client instead of relying on calling this everywhere
+			return reconcile.Result{}, err
+		}
 	}
 
 	// Get an updated list of in-memory flight recordings
@@ -198,6 +206,7 @@ func (r *ReconcileRecording) Reconcile(request reconcile.Request) (reconcile.Res
 		filename, err := r.JfrClient.SaveRecording(instance.Spec.Name)
 		if err != nil {
 			log.Error(err, "failed to save recording", "name", instance.Spec.Name)
+			r.CloseClient()
 			return reconcile.Result{}, err
 		}
 
@@ -214,8 +223,6 @@ func (r *ReconcileRecording) Reconcile(request reconcile.Request) (reconcile.Res
 		return reconcile.Result{}, err
 	}
 
-	// TODO requested state/stop recording
-
 	// Requeue if the recording is still in progress
 	result := reconcile.Result{}
 	if !isStopped {
@@ -231,6 +238,8 @@ func (r *ReconcileRecording) getDownloadURL(recordingName string, filename strin
 	// Look for our saved recording in list from Container JFR
 	savedRecordings, err := r.JfrClient.ListSavedRecordings()
 	if err != nil {
+		log.Error(err, "failed to list saved flight recordings")
+		r.CloseClient()
 		return nil, err
 	}
 	for idx, saved := range savedRecordings {
@@ -261,4 +270,17 @@ func validateRecordingState(state string) (*rhjmcv1alpha2.RecordingState, error)
 		return &convState, nil
 	}
 	return nil, fmt.Errorf("unknown recording state %s", state)
+}
+
+func shouldStopRecording(recording *rhjmcv1alpha2.Recording) bool {
+	// Need to know user's request, and current state of recording
+	requested := recording.Spec.State
+	current := recording.Status.State
+	if requested == nil || current == nil {
+		return false
+	}
+
+	// Should stop if user wants recording stopped and we're not already doing/done so
+	return *requested == rhjmcv1alpha2.RecordingStateStopped && *current != rhjmcv1alpha2.RecordingStateStopped &&
+		*current != rhjmcv1alpha2.RecordingStateStopping
 }
