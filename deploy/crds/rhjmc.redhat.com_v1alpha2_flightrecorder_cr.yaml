@@ -2,6 +2,4 @@ apiVersion: rhjmc.redhat.com/v1alpha2
 kind: FlightRecorder
 metadata:
   name: example-flightrecorder
-spec:
-  # Add fields here
-  size: 3
+spec: {}

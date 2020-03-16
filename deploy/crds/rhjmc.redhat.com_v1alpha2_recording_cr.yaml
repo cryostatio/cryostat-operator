@@ -3,5 +3,9 @@ kind: Recording
 metadata:
   name: example-recording
 spec:
-  # Add fields here
-  size: 3
+  name: example-recording
+  eventOptions: [ ALL ]
+  duration: 30s
+  archive: true
+  flightRecorder:
+    name: example-flightrecorder

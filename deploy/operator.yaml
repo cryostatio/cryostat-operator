@@ -16,7 +16,7 @@ spec:
       serviceAccountName: container-jfr-operator
       containers:
         - name: container-jfr-operator
-          image: quay.io/rh-jmc-team/container-jfr-operator:0.3.0
+          image: quay.io/rh-jmc-team/container-jfr-operator:0.4.0
           command:
           - container-jfr-operator
           imagePullPolicy: Always

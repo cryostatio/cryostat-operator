@@ -1,5 +1,5 @@
 IMAGE_STREAM ?= quay.io/rh-jmc-team/container-jfr-operator
-IMAGE_VERSION ?= 0.3.0
+IMAGE_VERSION ?= 0.4.0
 IMAGE_TAG ?= $(IMAGE_STREAM):$(IMAGE_VERSION)
 
 BUNDLE_STREAM ?= $(IMAGE_STREAM)-bundle
@@ -115,7 +115,6 @@ deploy: undeploy
 	oc create -f deploy/role.yaml
 	oc create -f deploy/role_binding.yaml
 	oc create -f deploy/crds/rhjmc.redhat.com_flightrecorders_crd.yaml
-	# TODO Update bundle
 	oc create -f deploy/crds/rhjmc.redhat.com_recordings_crd.yaml
 	oc create -f deploy/crds/rhjmc.redhat.com_containerjfrs_crd.yaml
 	sed -e 's|REPLACE_IMAGE|$(IMAGE_TAG)|g' deploy/dev_operator.yaml | oc create -f -
