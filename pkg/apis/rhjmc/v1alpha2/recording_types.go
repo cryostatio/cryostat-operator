@@ -62,7 +62,7 @@ type RecordingStatus struct {
 	StartTime metav1.Time `json:"startTime,omitempty"`
 	// The duration of the recording specified during creation.
 	// +optional
-	Duration metav1.Duration `json:"duration,omitempty"` // FIXME Needed?
+	Duration metav1.Duration `json:"duration,omitempty"`
 	// A URL to download the JFR file for the recording.
 	// +optional
 	DownloadURL *string `json:"downloadURL,omitempty"`

@@ -112,6 +112,8 @@ func (r *ReconcileRecording) Reconcile(request reconcile.Request) (reconcile.Res
 	if jfrRef == nil || len(jfrRef.Name) == 0 {
 		// TODO set Condition for user/log error
 		// Don't requeue until user fixes Recording
+		log.Info("FlightRecorder reference missing from Recording", "name", request.Name,
+			"namespace", request.Namespace)
 		return reconcile.Result{}, nil
 	}
 
@@ -185,7 +187,8 @@ func (r *ReconcileRecording) Reconcile(request reconcile.Request) (reconcile.Res
 	if descriptor != nil {
 		state, err := validateRecordingState(descriptor.State)
 		if err != nil {
-			// TODO inform user?
+			// TODO Likely an internal error, requeuing may not help. Status.Condition may be useful.
+			log.Error(err, "unknown recording state observed from Container JFR")
 			return reconcile.Result{}, err
 		}
 		instance.Status.State = state
