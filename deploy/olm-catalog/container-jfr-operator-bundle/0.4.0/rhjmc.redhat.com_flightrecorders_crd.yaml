@@ -30,55 +30,9 @@ spec:
           type: object
         spec:
           description: FlightRecorderSpec defines the desired state of FlightRecorder
-          type: object
-        status:
-          description: FlightRecorderStatus defines the observed state of FlightRecorder
           properties:
-            events:
-              description: Listing of events available in the target JVM
-              items:
-                properties:
-                  category:
-                    items:
-                      type: string
-                    type: array
-                  description:
-                    type: string
-                  name:
-                    type: string
-                  options:
-                    additionalProperties:
-                      properties:
-                        defaultValue:
-                          type: string
-                        description:
-                          type: string
-                        name:
-                          type: string
-                      required:
-                      - defaultValue
-                      - description
-                      - name
-                      type: object
-                    type: object
-                  typeId:
-                    type: string
-                required:
-                - category
-                - description
-                - name
-                - options
-                - typeId
-                type: object
-              type: array
-            port:
-              description: JMX port for target JVM
-              format: int32
-              minimum: 0
-              type: integer
             recordingSelector:
-              description: TODO is this useful? Recordings that match this selector
-                belong to this FlightRecorder
+              description: Recordings that match this selector belong to this FlightRecorder
               properties:
                 matchExpressions:
                   description: matchExpressions is a list of label selector requirements.
@@ -120,10 +74,71 @@ spec:
                     are ANDed.
                   type: object
               type: object
+          required:
+          - recordingSelector
+          type: object
+        status:
+          description: FlightRecorderStatus defines the observed state of FlightRecorder
+          properties:
+            events:
+              description: Listing of events available in the target JVM
+              items:
+                description: EventInfo contains metadata for a JFR event type
+                properties:
+                  category:
+                    description: A hierarchical category used to organize related
+                      event types
+                    items:
+                      type: string
+                    type: array
+                  description:
+                    description: A description detailing what this event does
+                    type: string
+                  name:
+                    description: Human-readable name for this type of event
+                    type: string
+                  options:
+                    additionalProperties:
+                      description: OptionDescriptor contains metadata for an option
+                        for a particular event type
+                      properties:
+                        defaultValue:
+                          description: The value implicitly used when this option
+                            isn't specified
+                          type: string
+                        description:
+                          description: A description of what this option does
+                          type: string
+                        name:
+                          description: Human-readable name for this option
+                          type: string
+                      required:
+                      - defaultValue
+                      - description
+                      - name
+                      type: object
+                    description: Options that may be used to tune this event. This
+                      map is indexed by the option IDs.
+                    type: object
+                  typeId:
+                    description: The ID used by JFR to uniquely identify this event
+                      type
+                    type: string
+                required:
+                - category
+                - description
+                - name
+                - options
+                - typeId
+                type: object
+              type: array
+            port:
+              description: JMX port for target JVM
+              format: int32
+              minimum: 0
+              type: integer
             target:
-              description: TODO Can we do this with labels/selectors instead? TODO
-                Need to potentially figure out how to manage this across both services
-                and pods in future Reference to the pod/service that this object controls
+              description: Reference to the pod/service that this object controls
                 JFR for
               properties:
                 apiVersion:
@@ -162,7 +177,6 @@ spec:
           required:
           - events
           - port
-          - recordingSelector
           - target
           type: object
       type: object

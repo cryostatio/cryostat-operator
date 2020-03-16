@@ -11,6 +11,8 @@ import (
 // FlightRecorderSpec defines the desired state of FlightRecorder
 // +k8s:openapi-gen=true
 type FlightRecorderSpec struct {
+	// Recordings that match this selector belong to this FlightRecorder
+	RecordingSelector *metav1.LabelSelector `json:"recordingSelector"`
 }
 
 // FlightRecorderStatus defines the observed state of FlightRecorder
@@ -19,32 +21,39 @@ type FlightRecorderStatus struct {
 	// Listing of events available in the target JVM
 	// +listType=set
 	Events []EventInfo `json:"events"`
-	// TODO Can we do this with labels/selectors instead?
-	// TODO Need to potentially figure out how to manage this across both services and pods in future
 	// Reference to the pod/service that this object controls JFR for
 	Target *corev1.ObjectReference `json:"target"`
 	// JMX port for target JVM
 	// +kubebuilder:validation:Minimum=0
 	Port int32 `json:"port"`
-	// TODO is this useful?
-	// Recordings that match this selector belong to this FlightRecorder
-	RecordingSelector *metav1.LabelSelector `json:"recordingSelector"`
 }
 
+// RecordingLabel is the label name to be used with FlightRecorderSpec.RecordingSelector
 const RecordingLabel = "rhjmc.redhat.com/flightrecorder"
 
-type EventInfo struct { // TODO if this becomes too much to store in each object, consider making JFREvent resource
-	TypeID      string `json:"typeId"`
-	Name        string `json:"name"`
+// EventInfo contains metadata for a JFR event type
+type EventInfo struct {
+	// The ID used by JFR to uniquely identify this event type
+	TypeID string `json:"typeId"`
+	// Human-readable name for this type of event
+	Name string `json:"name"`
+	// A description detailing what this event does
 	Description string `json:"description"`
+	// A hierarchical category used to organize related event types
 	// +listType=atomic
-	Category []string                    `json:"category"`
-	Options  map[string]OptionDescriptor `json:"options"`
+	Category []string `json:"category"`
+	// Options that may be used to tune this event. This map is indexed
+	// by the option IDs.
+	Options map[string]OptionDescriptor `json:"options"`
 }
 
+// OptionDescriptor contains metadata for an option for a particular event type
 type OptionDescriptor struct {
-	Name         string `json:"name"`
-	Description  string `json:"description"`
+	// Human-readable name for this option
+	Name string `json:"name"`
+	// A description of what this option does
+	Description string `json:"description"`
+	// The value implicitly used when this option isn't specified
 	DefaultValue string `json:"defaultValue"`
 }
 

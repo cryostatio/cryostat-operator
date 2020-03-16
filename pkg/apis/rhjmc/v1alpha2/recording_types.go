@@ -13,11 +13,13 @@ import (
 type RecordingSpec struct {
 	// Name of the recording to be created.
 	Name string `json:"name"`
+	// TODO Maybe replace with more specific type (e.g. "typeID, option, value" tuples)
+
 	// A list of event options to use when creating the recording.
 	// These are used to enable and fine-tune individual events.
 	// Examples: "jdk.ExecutionSample:enabled=true", "jdk.ExecutionSample:period=200ms"
 	// +listType=set
-	EventOptions []string `json:"eventOptions"` // TODO Maybe replace with more specific type (e.g. "typeID, option, value" tuples)
+	EventOptions []string `json:"eventOptions"`
 	// The requested total duration of the recording, a zero value will record indefinitely.
 	Duration metav1.Duration `json:"duration"`
 	// Desired state of the recording. If omitted, RUNNING will be assumed.

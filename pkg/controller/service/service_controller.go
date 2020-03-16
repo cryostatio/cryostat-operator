@@ -211,12 +211,13 @@ func (r *ReconcileService) newFlightRecorderForService(name string, svc *corev1.
 			Namespace: svc.Namespace,
 			Labels:    labels,
 		},
-		Spec: rhjmcv1alpha2.FlightRecorderSpec{},
-		Status: rhjmcv1alpha2.FlightRecorderStatus{
-			Events:            []rhjmcv1alpha2.EventInfo{},
-			Target:            ref,
-			Port:              jmxPort,
+		Spec: rhjmcv1alpha2.FlightRecorderSpec{
 			RecordingSelector: selector,
+		},
+		Status: rhjmcv1alpha2.FlightRecorderStatus{
+			Events: []rhjmcv1alpha2.EventInfo{},
+			Target: ref,
+			Port:   jmxPort,
 		},
 	}, nil
 }

@@ -20,7 +20,13 @@ metadata:
           "metadata": {
             "name": "example-flightrecorder"
           },
-          "spec": {}
+          "spec": {
+            "recordingSelector": {
+              "matchLabels": {
+                "rhjmc.redhat.com/flightrecorder": "example-flightrecorder"
+              }
+            }
+          }
         },
         {
           "apiVersion": "rhjmc.redhat.com/v1alpha2",
