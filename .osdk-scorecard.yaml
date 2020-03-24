@@ -14,4 +14,4 @@ scorecard:
             cr-manifest:
                 - "deploy/crds/rhjmc.redhat.com_v1alpha1_containerjfr_cr.yaml"
                 - "deploy/crds/rhjmc.redhat.com_v1alpha1_flightrecorder_cr.yaml"
-            csv-path: "deploy/olm-catalog/container-jfr-operator-bundle/0.3.0/container-jfr-operator-bundle.v0.3.0.clusterserviceversion.yaml"
+            csv-path: "deploy/olm-catalog/container-jfr-operator-bundle/0.4.0/container-jfr-operator-bundle.v0.4.0.clusterserviceversion.yaml"
