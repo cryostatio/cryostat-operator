@@ -176,6 +176,18 @@ func (client *ContainerJfrClient) StopRecording(name string) error {
 	return nil
 }
 
+// DeleteRecording deletes a recording from Container JFR
+func (client *ContainerJfrClient) DeleteRecording(name string) error {
+	deleteCmd := NewCommandMessage("delete", name)
+	var resp string
+	err := client.syncMessage(deleteCmd, &resp)
+	if err != nil {
+		return err
+	}
+	log.Info("got delete response", "resp", resp)
+	return nil
+}
+
 // SaveRecording copies a flight recording file from local memory to persistent storage
 func (client *ContainerJfrClient) SaveRecording(name string) (*string, error) {
 	saveCmd := NewCommandMessage("save", name)
@@ -198,6 +210,19 @@ func (client *ContainerJfrClient) ListSavedRecordings() ([]SavedRecording, error
 	}
 	log.Info("got list-saved response", "resp", recordings)
 	return recordings, nil
+}
+
+// DeleteSavedRecording deletes a recording from the persistent storage managed
+// by Container JFR
+func (client *ContainerJfrClient) DeleteSavedRecording(jfrFile string) error {
+	deleteCmd := NewCommandMessage("delete-saved", jfrFile)
+	var resp string
+	err := client.syncMessage(deleteCmd, &resp)
+	if err != nil {
+		return err
+	}
+	log.Info("got delete response", "resp", resp)
+	return nil
 }
 
 // ListEventTypes returns a list of events available in the target JVM
