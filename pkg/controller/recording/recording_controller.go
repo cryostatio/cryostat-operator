@@ -166,9 +166,9 @@ func (r *ReconcileRecording) Reconcile(request reconcile.Request) (reconcile.Res
 			if err != nil {
 				return reconcile.Result{}, err
 			}
+			// Ready for deletion
+			return reconcile.Result{}, nil
 		}
-		// Ready for deletion
-		return reconcile.Result{}, nil
 	}
 
 	// Tell Container JFR to connect to the target service
