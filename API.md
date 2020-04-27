@@ -1,7 +1,7 @@
 # `FlightRecorder` API overview
 
 This operator provides a Kubernetes API to interact with [Container JFR](https://github.com/rh-jmc-team/container-jfr).
-This API comes in the form of the `FlightRecorders` Custom Resource Definition, and allows you to create, list, and download recordings from a Kubernetes cluster.
+This API comes in the form of the `FlightRecorders` and `Recordings` Custom Resource Definitions, and allows you to create, list, delete, and download recordings from a Kubernetes cluster.
 
 ## Retrieving `FlightRecorder` objects
 You can use `FlightRecorders` like any other built-in resource on the command line with oc/kubectl.
