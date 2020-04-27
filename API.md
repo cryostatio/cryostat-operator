@@ -9,7 +9,8 @@ You can use `FlightRecorders` like any other built-in resource on the command li
 ```shell
 $ oc get flightrecorders
 NAME           AGE
-containerjfr   7d16h
+containerjfr   75s
+jmx-listener   77s
 ```
 
 `FlightRecorder` objects are created by the operator whenever a new Container JFR-compatible service is detected.
