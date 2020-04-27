@@ -292,40 +292,54 @@ $ oc edit -o json recording/my-cont-recording
 
 ## Downloading a Flight Recording
 
-Once the recording completes, the operator archives the recording and places a download link in the recording's status that you can then download with curl.
+Once the recording completes and `spec.archive` is `true`, the operator archives the recording and places a download link in the `status.downloadUrl` of the `Recording` that you can then download with curl.
 
 ```shell
-$ oc get -o json flightrecorders/containerjfr
+$ oc get -o json recording/my-recording
 ```
 ```json
+{
+    "apiVersion": "rhjmc.redhat.com/v1alpha2",
+    "kind": "Recording",
+    "metadata": {
+        "creationTimestamp": "2020-03-26T22:11:04Z",
+        "generation": 1,
+        "labels": {
+            "app": "jmx-listener",
+            "rhjmc.redhat.com/flightrecorder": "jmx-listener"
+        },
+        "name": "my-recording",
+        "namespace": "default",
+        "resourceVersion": "395834",
+        "selfLink": "/apis/rhjmc.redhat.com/v1alpha2/namespaces/default/recordings/my-recording",
+        "uid": "af1631e2-6fae-11ea-ae0c-52fdfc072182"
+    },
     "spec": {
-        "port": 9091,
-        "recordingRequests": []
+        "archive": true,
+        "duration": "30s",
+        "eventOptions": [
+            "jdk.SocketRead:enabled=true",
+            "jdk.SocketWrite:enabled=true"
+        ],
+        "flightRecorder": {
+            "name": "jmx-listener"
+        },
+        "name": "my-recording"
     },
     "status": {
-        "recordings": [
-            {
-                "active": false,
-                "downloadUrl": "https://containerjfr-default.apps-crc.testing:443/recordings/172-30-157-32_my-recording_20200123T155535Z.jfr",
-                "duration": "30s",
-                "name": "my-recording",
-                "startTime": "2020-01-23T15:55:04Z"
-            }
-        ],
-        "target": {
-            "apiVersion": "v1",
-            "kind": "Service",
-            "name": "containerjfr",
-            "namespace": "default",
-            "resourceVersion": "298899",
-            "uid": "f895e203-37e9-11ea-8866-52fdfc072182"
-        }
+        "downloadURL": "https://containerjfr-default.apps-crc.testing:443/recordings/172-30-177-37_my-recording_20200326T221136Z.jfr",
+        "duration": "30s",
+        "startTime": "2020-03-26T22:11:04Z",
+        "state": "STOPPED"
     }
+}
 ```
 
 You'll need to pass your bearer token with the curl request. (You may also need -k if your test cluster uses a self-signed certificate)
 ```shell
-$ curl -k -H "Authorization: Bearer $(oc whoami -t)" https://containerjfr-default.apps-crc.testing:443/recordings/172-30-157-32_my-recording_20200123T155535Z.jfr my-recording.jfr
+$ curl -k -H "Authorization: Bearer $(oc whoami -t)" \
+https://containerjfr-default.apps-crc.testing:443/recordings/172-30-177-37_my-recording_20200326T221136Z.jfr \
+my-recording.jfr
 ```
 
 You can then open and analyze the recording with [JDK Mission Control](https://github.com/openjdk/jmc/) on your local machine.
