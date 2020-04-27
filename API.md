@@ -164,7 +164,11 @@ $ cat my-recording.json
 $ oc create -f my-recording.json
 ```
 
-Once the operator has processed the new `Recording`, it will communicate with Container JFR via the referenced `FlightRecorder` to remotely create the JFR recording. Once this occurs, details of the recording are populated in the `status` of the `Recording` object.
+Once the operator has processed the new `Recording`, it will communicate with Container JFR via the referenced `FlightRecorder` to remotely create the JFR recording. Once this occurs, details of the recording are populated in the `status` of the `Recording` object. The `status.duration` property corresponds to the duration the recording was created with, `status.startTime` is when the recording actually started in the target JVM, and `status.state` is the current state of the recording from the following:
+* `CREATED`: the recording has been accepted, but has not started yet.
+* `RUNNING`: the recording has started and is currently running.
+* `STOPPING`: the recording is in the process of finishing.
+* `STOPPED`: the recording has completed and the JFR file is fully written.
 
 ```shell
 $ oc get -o json recording/my-recording
@@ -201,6 +205,86 @@ $ oc get -o json recording/my-recording
     "status": {
         "duration": "30s",
         "startTime": "2020-03-26T22:11:04Z",
+        "state": "RUNNING"
+    }
+}
+```
+
+### Creating a continuous Flight Recording
+
+You may not necessarily want your recording to be a fixed duration, in this case you can specify that you want your `Recording` to be continuous. This is done by setting the `spec.duration` to a zero-value.
+
+```shell
+$ cat my-cont-recording.json
+```
+```json
+{
+    "apiVersion": "rhjmc.redhat.com/v1alpha2",
+    "kind": "Recording",
+    "metadata": {
+        "labels": {
+            "app": "jmx-listener",
+            "rhjmc.redhat.com/flightrecorder": "jmx-listener"
+        },
+        "name": "cont-recording",
+        "namespace": "default"
+    },
+    "spec": {
+        "name": "cont-recording",
+        "eventOptions": [
+            "jdk.SocketRead:enabled=true",
+            "jdk.SocketWrite:enabled=true"
+        ],
+        "duration": "0s",
+        "archive": true,
+        "flightRecorder": {
+            "name": "jmx-listener"
+        }
+    },
+    "status": {}
+}
+```
+```shell
+$ oc create -f my-cont-recording.json
+```
+
+In order to stop this recording, you'll need to set `spec.state` to `"STOPPED"`, like the following:
+```shell
+$ oc edit -o json recording/my-cont-recording
+```
+```json
+{
+    "apiVersion": "rhjmc.redhat.com/v1alpha2",
+    "kind": "Recording",
+    "metadata": {
+        "creationTimestamp": "2020-03-26T22:12:30Z",
+        "generation": 1,
+        "labels": {
+            "app": "jmx-listener",
+            "rhjmc.redhat.com/flightrecorder": "jmx-listener"
+        },
+        "name": "cont-recording",
+        "namespace": "default",
+        "resourceVersion": "395986",
+        "selfLink": "/apis/rhjmc.redhat.com/v1alpha2/namespaces/default/recordings/cont-recording",
+        "uid": "e2b7f375-6fae-11ea-ae0c-52fdfc072182"
+    },
+    "spec": {
+        "archive": true,
+        "duration": "0s",
+        "eventOptions": [
+            "jdk.SocketRead:enabled=true",
+            "jdk.SocketWrite:enabled=true"
+        ],
+        "flightRecorder": {
+            "name": "jmx-listener"
+        },
+        "name": "cont-recording",
+        "state": "STOPPED"
+    },
+    "status": {
+        "duration": "0s",
+        "startTime": "2020-03-26T22:12:31Z",
         "state": "RUNNING"
     }
 }
