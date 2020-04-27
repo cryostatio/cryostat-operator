@@ -14,22 +14,22 @@ jmx-listener   77s
 ```
 
 `FlightRecorder` objects are created by the operator whenever a new Container JFR-compatible service is detected.
-Services that expose a port named `jfr-jmx` are considered compatible. The number of this port is stored in the `spec.port` property for use by the operator. Each `FlightRecorder` object maps one-to-one with a Kubernetes service. This service is stored in the `status.target` property of the `FlightRecorder` object.
+Services that expose a port named `jfr-jmx` are considered compatible. The number of this port is stored in the `status.port` property for use by the operator. Each `FlightRecorder` object maps one-to-one with a Kubernetes service. This service is stored in the `status.target` property of the `FlightRecorder` object. When the operator learns of a new `FlightRecorder` object, it queries Container JFR for a list of all available JFR events for the JVM behind the `FlightRecorder's` service. The details of these event types are stored in the `status.events` property of the `FlightRecorder`. The `spec.recordingSelector` property provides an association of `Recordings` (outlined below) with this `FlightRecorder` object.
 
 ```shell
-$ oc get -o json flightrecorders/containerjfr
+$ oc get -o json flightrecorders/jmx-listener
 ```
 ```json
 {
-    "apiVersion": "rhjmc.redhat.com/v1alpha1",
+    "apiVersion": "rhjmc.redhat.com/v1alpha2",
     "kind": "FlightRecorder",
     "metadata": {
-        "creationTimestamp": "2020-01-15T22:54:22Z",
+        "creationTimestamp": "2020-03-26T21:54:29Z",
         "generation": 1,
         "labels": {
-            "app": "containerjfr"
+            "app": "jmx-listener"
         },
-        "name": "containerjfr",
+        "name": "jmx-listener",
         "namespace": "default",
         "ownerReferences": [
             {
@@ -37,31 +37,87 @@ $ oc get -o json flightrecorders/containerjfr
                 "blockOwnerDeletion": true,
                 "controller": true,
                 "kind": "Service",
-                "name": "containerjfr",
-                "uid": "f895e203-37e9-11ea-8866-52fdfc072182"
+                "name": "jmx-listener",
+                "uid": "4f5b0695-6fac-11ea-ae0c-52fdfc072182"
             }
         ],
-        "resourceVersion": "298903",
-        "selfLink": "/apis/rhjmc.redhat.com/v1alpha1/namespaces/default/flightrecorders/containerjfr",
-        "uid": "f896b6e1-37e9-11ea-8866-52fdfc072182"
+        "resourceVersion": "393024",
+        "selfLink": "/apis/rhjmc.redhat.com/v1alpha2/namespaces/default/flightrecorders/jmx-listener",
+        "uid": "5e53b4ee-6fac-11ea-ae0c-52fdfc072182"
     },
     "spec": {
-        "port": 9091,
-        "recordingRequests": []
+        "recordingSelector": {
+            "matchLabels": {
+                "rhjmc.redhat.com/flightrecorder": "jmx-listener"
+            }
+        }
     },
     "status": {
-        "recordings": [],
+        "events": [
+            {
+                "category": [
+                    "Java Application"
+                ],
+                "description": "Writing data to a socket",
+                "name": "Socket Write",
+                "options": {
+                    "enabled": {
+                        "defaultValue": "false",
+                        "description": "Record event",
+                        "name": "Enabled"
+                    },
+                    "stackTrace": {
+                        "defaultValue": "false",
+                        "description": "Record stack traces",
+                        "name": "Stack Trace"
+                    },
+                    "threshold": {
+                        "defaultValue": "0ns[ns]",
+                        "description": "Record event with duration above or equal to threshold",
+                        "name": "Threshold"
+                    }
+                },
+                "typeId": "jdk.SocketWrite"
+            },
+            {
+                "category": [
+                    "Java Application"
+                ],
+                "description": "Reading data from a socket",
+                "name": "Socket Read",
+                "options": {
+                    "enabled": {
+                        "defaultValue": "false",
+                        "description": "Record event",
+                        "name": "Enabled"
+                    },
+                    "stackTrace": {
+                        "defaultValue": "false",
+                        "description": "Record stack traces",
+                        "name": "Stack Trace"
+                    },
+                    "threshold": {
+                        "defaultValue": "0ns[ns]",
+                        "description": "Record event with duration above or equal to threshold",
+                        "name": "Threshold"
+                    }
+                },
+                "typeId": "jdk.SocketRead"
+            }
+        ],
+        "port": 9093,
         "target": {
             "apiVersion": "v1",
             "kind": "Service",
-            "name": "containerjfr",
+            "name": "jmx-listener",
             "namespace": "default",
-            "resourceVersion": "298899",
-            "uid": "f895e203-37e9-11ea-8866-52fdfc072182"
+            "resourceVersion": "392780",
+            "uid": "4f5b0695-6fac-11ea-ae0c-52fdfc072182"
         }
     }
 }
 ```
+(Event listing abbreviated for readability)
 
 ## Creating a new Flight Recording
 
