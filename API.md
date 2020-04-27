@@ -121,67 +121,89 @@ $ oc get -o json flightrecorders/jmx-listener
 
 ## Creating a new Flight Recording
 
-To start a new recording, you will need to add a new recording request to the `FlightRecorder` in the `spec.recordingRequests` array. You can do this nicely on the command line with `oc edit`. The recording request must include the following:
+To start a new recording, you will need to create a new `Recording` custom resource. The `Recording` must include the following:
 
-1. `name`: a string uniquely identifying the recording within that service
+1. `name`: a string uniquely identifying the recording within that service.
 2. `eventOptions`: an array of string options passed to Container JFR. The `"ALL"` special string can be used to enable all available events.
 3. `duration`: length of the requested recording as a [duration string](https://golang.org/pkg/time/#ParseDuration).
+4. `archive`: whether to save the completed recording to persistent storage.
+5. `flightRecorder`: a [`LocalObjectReference`](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.18/#localobjectreference-v1-core) pointing to the `FlightRecorder` that should perform the recording.
 
+The following example can serve as a template when creating your own `Recording` object:
 ```shell
-oc edit -o json flightrecorders/containerjfr
+$ cat my-recording.json
 ```
 ```json
-    "spec": {
-        "port": 9091,
-        "recordingRequests": [
-            {
-                "name": "my-recording",
-                "eventOptions": [ "jdk.SocketRead:enabled=true", "jdk.SocketWrite:enabled=true" ],
-                "duration": "30s"
-            }
-        ]
+{
+    "apiVersion": "rhjmc.redhat.com/v1alpha2",
+    "kind": "Recording",
+    "metadata": {
+        "labels": {
+            "app": "jmx-listener",
+            "rhjmc.redhat.com/flightrecorder": "jmx-listener"
+        },
+        "name": "my-recording",
+        "namespace": "default"
     },
-    "status": {
-        "recordings": [],
-        "target": {
-            "apiVersion": "v1",
-            "kind": "Service",
-            "name": "containerjfr",
-            "namespace": "default",
-            "resourceVersion": "298899",
-            "uid": "f895e203-37e9-11ea-8866-52fdfc072182"
-        }
-    }
-```
-
-Once the operator has processed the request, it will be removed from the `spec.recordingRequests` array and a corresponding entry will appear in the `status.recordings` array. A recording is considered `active` if it is currently running.
-
-```shell
-$ oc get -o json flightrecorders/containerjfr
-```
-```json
     "spec": {
-        "port": 9091,
-        "recordingRequests": []
-    },
-    "status": {
-        "recordings": [
-            {
-                "active": true,
-                "duration": "30s",
-                "name": "my-recording",
-                "startTime": "2020-01-23T15:55:04Z"
-            }
+        "name": "my-recording",
+        "eventOptions": [
+            "jdk.SocketRead:enabled=true",
+            "jdk.SocketWrite:enabled=true"
         ],
-        "target": {
-            "apiVersion": "v1",
-            "kind": "Service",
-            "name": "containerjfr",
-            "namespace": "default",
-            "resourceVersion": "298899",
-            "uid": "f895e203-37e9-11ea-8866-52fdfc072182"
+        "duration": "30s",
+        "archive": true,
+        "flightRecorder": {
+            "name": "jmx-listener"
         }
+    },
+    "status": {}
+}
+```
+```shell
+$ oc create -f my-recording.json
+```
+
+Once the operator has processed the new `Recording`, it will communicate with Container JFR via the referenced `FlightRecorder` to remotely create the JFR recording. Once this occurs, details of the recording are populated in the `status` of the `Recording` object.
+
+```shell
+$ oc get -o json recording/my-recording
+```
+```json
+{
+    "apiVersion": "rhjmc.redhat.com/v1alpha2",
+    "kind": "Recording",
+    "metadata": {
+        "creationTimestamp": "2020-03-26T22:11:04Z",
+        "generation": 1,
+        "labels": {
+            "app": "jmx-listener",
+            "rhjmc.redhat.com/flightrecorder": "jmx-listener"
+        },
+        "name": "my-recording",
+        "namespace": "default",
+        "resourceVersion": "395738",
+        "selfLink": "/apis/rhjmc.redhat.com/v1alpha2/namespaces/default/recordings/my-recording",
+        "uid": "af1631e2-6fae-11ea-ae0c-52fdfc072182"
+    },
+    "spec": {
+        "archive": true,
+        "duration": "30s",
+        "eventOptions": [
+            "jdk.SocketRead:enabled=true",
+            "jdk.SocketWrite:enabled=true"
+        ],
+        "flightRecorder": {
+            "name": "jmx-listener"
+        },
+        "name": "my-recording"
+    },
+    "status": {
+        "duration": "30s",
+        "startTime": "2020-03-26T22:11:04Z",
+        "state": "RUNNING"
     }
+}
 ```
 
 ## Downloading a Flight Recording
