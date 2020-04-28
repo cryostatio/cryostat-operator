@@ -124,7 +124,7 @@ $ oc get -o json flightrecorders/jmx-listener
 To start a new recording, you will need to create a new `Recording` custom resource. The `Recording` must include the following:
 
 1. `name`: a string uniquely identifying the recording within that service.
-2. `eventOptions`: an array of string options passed to Container JFR. The `"ALL"` special string can be used to enable all available events.
+2. `eventOptions`: an array of string options passed to Container JFR. The `"template=ALL"` special string can be used to enable all available events.
 3. `duration`: length of the requested recording as a [duration string](https://golang.org/pkg/time/#ParseDuration).
 4. `archive`: whether to save the completed recording to persistent storage.
 5. `flightRecorder`: a [`LocalObjectReference`](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.18/#localobjectreference-v1-core) pointing to the `FlightRecorder` that should perform the recording.
