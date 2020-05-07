@@ -8,8 +8,8 @@ rules:
   - ""
   resources:
   - pods
+  - pods/finalizers
   - services
-  - services/finalizers
   - routes
   - endpoints
   - persistentvolumeclaims
