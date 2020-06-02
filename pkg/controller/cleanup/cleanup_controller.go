@@ -2,11 +2,13 @@ package cleanup
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/operator-framework/operator-sdk/pkg/k8sutil"
+	"github.com/rh-jmc-team/container-jfr-operator/pkg/apis/rhjmc/v1alpha2"
 	rhjmcv1alpha2 "github.com/rh-jmc-team/container-jfr-operator/pkg/apis/rhjmc/v1alpha2"
 	appsv1 "k8s.io/api/apps/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
+	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -112,7 +114,7 @@ func (r *ReconcileDeployment) Reconcile(request reconcile.Request) (reconcile.Re
 	instance := &appsv1.Deployment{}
 	err := r.client.Get(ctx, request.NamespacedName, instance)
 	if err != nil {
-		if errors.IsNotFound(err) {
+		if kerrors.IsNotFound(err) {
 			// Request object not found, could have been deleted after reconcile request.
 			// Owned objects are automatically garbage collected. For additional cleanup logic use finalizers.
 			// Return and don't requeue
@@ -130,6 +132,7 @@ func (r *ReconcileDeployment) Reconcile(request reconcile.Request) (reconcile.Re
 			if err != nil {
 				log.Error(err, "failed to delete recordings", "namespace", instance.Namespace,
 					"name", instance.Name)
+				return reconcile.Result{}, err
 			}
 
 			// Remove our finalizer only once our cleanup logic has succeeded
@@ -166,6 +169,16 @@ func (r *ReconcileDeployment) deleteRecordings(ctx context.Context, namespace st
 		},
 	})
 	// TODO Do we need finalizer on ContainerJFR CR as well?
+
+	// Check if any recordings still exist
+	recordings := &v1alpha2.RecordingList{}
+	err = r.client.List(ctx, recordings)
+	if err != nil {
+		return err
+	}
+	if len(recordings.Items) > 0 {
+		return fmt.Errorf("%d recordings still exist in %s", len(recordings.Items), namespace)
+	}
 	return err
 }
 
