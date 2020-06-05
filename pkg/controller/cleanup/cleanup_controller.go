@@ -168,6 +168,9 @@ func (r *ReconcileDeployment) deleteRecordings(ctx context.Context, namespace st
 			Namespace: namespace, // TODO Might make more sense to delete at cluster-level going forward
 		},
 	})
+	if err != nil {
+		return err
+	}
 	// TODO Do we need finalizer on ContainerJFR CR as well?
 
 	// Check if any recordings still exist
