@@ -48,9 +48,11 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
+	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
+	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 )
@@ -64,7 +66,7 @@ func Add(mgr manager.Manager) error {
 }
 
 // newReconciler returns a new reconcile.Reconciler
-func newReconciler(mgr manager.Manager) reconcile.Reconciler {
+func newReconciler(mgr manager.Manager) *ReconcileFlightRecorder {
 	return &ReconcileFlightRecorder{scheme: mgr.GetScheme(),
 		CommonReconciler: &common.CommonReconciler{
 			Client: mgr.GetClient(),
@@ -73,7 +75,7 @@ func newReconciler(mgr manager.Manager) reconcile.Reconciler {
 }
 
 // add adds a new Controller to mgr with r as the reconcile.Reconciler
-func add(mgr manager.Manager, r reconcile.Reconciler) error {
+func add(mgr manager.Manager, r *ReconcileFlightRecorder) error {
 	// Create a new controller
 	c, err := controller.New("flightrecorder-controller", mgr, controller.Options{Reconciler: r})
 	if err != nil {
@@ -82,6 +84,48 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 
 	// Watch for changes to primary resource FlightRecorder
 	err = c.Watch(&source.Kind{Type: &rhjmcv1alpha2.FlightRecorder{}}, &handler.EnqueueRequestForObject{})
+	if err != nil {
+		return err
+	}
+
+	// Watch for pod deletions, and enqueue matching FlightRecorder if it exists.
+	// This is necessary if a user already tried to delete the FlightRecorder and our
+	// finalizer prevented it.
+	mapFunc := handler.ToRequestsFunc(
+		func(obj handler.MapObject) []reconcile.Request {
+			result := []reconcile.Request{}
+
+			// FlightRecorder will have same name as pod
+			key := types.NamespacedName{
+				Namespace: obj.Meta.GetNamespace(),
+				Name:      obj.Meta.GetName(),
+			}
+			err := r.Client.Get(context.TODO(), key, &rhjmcv1alpha2.FlightRecorder{})
+			if err != nil && !kerrors.IsNotFound(err) {
+				log.Error(err, "failed to lookup FlightRecorder", "namespace", key.Namespace,
+					"name", key.Name)
+			} else {
+				// FlightRecorder still exists, so enqueue it for deletion
+				result = append(result, reconcile.Request{
+					NamespacedName: key,
+				})
+				log.Info("enqueuing FlightRecorder for deletion", "namespace", key.Namespace,
+					"name", key.Name)
+			}
+			return result
+		})
+
+	// Only care about deletion
+	deleteOnly := predicate.Funcs{
+		CreateFunc:  func(e event.CreateEvent) bool { return false },
+		UpdateFunc:  func(e event.UpdateEvent) bool { return false },
+		DeleteFunc:  func(e event.DeleteEvent) bool { return true },
+		GenericFunc: func(e event.GenericEvent) bool { return false },
+	}
+
+	err = c.Watch(&source.Kind{Type: &corev1.Pod{}}, &handler.EnqueueRequestsFromMapFunc{
+		ToRequests: mapFunc,
+	}, deleteOnly)
 	if err != nil {
 		return err
 	}
@@ -98,6 +142,9 @@ type ReconcileFlightRecorder struct {
 	*common.CommonReconciler
 }
 
+// Name used for Finalizer that prevents FlightRecorder deletion
+const flightRecorderFinalizer = "flightrecorder.finalizer.rhjmc.redhat.com"
+
 // Reconcile reads that state of the cluster for a FlightRecorder object and makes changes based on the state read
 // and what is in the FlightRecorder.Spec
 // Note:
@@ -107,6 +154,58 @@ func (r *ReconcileFlightRecorder) Reconcile(request reconcile.Request) (reconcil
 	ctx := context.Background()
 	reqLogger := log.WithValues("Request.Namespace", request.Namespace, "Request.Name", request.Name)
 	reqLogger.Info("Reconciling FlightRecorder")
+
+	// Fetch the FlightRecorder instance
+	instance := &rhjmcv1alpha2.FlightRecorder{}
+	err := r.Client.Get(ctx, request.NamespacedName, instance)
+	if err != nil {
+		if kerrors.IsNotFound(err) {
+			// Request object not found, could have been deleted after reconcile request.
+			// Owned objects are automatically garbage collected. For additional cleanup logic use finalizers.
+			// Return and don't requeue
+			return reconcile.Result{}, nil
+		}
+		// Error reading the object - requeue the request.
+		return reconcile.Result{}, err
+	}
+
+	// Check for a valid target reference
+	targetRef := instance.Status.Target
+	if targetRef == nil {
+		// FlightRecorder status must not have been updated yet
+		return reconcile.Result{RequeueAfter: time.Second}, nil
+	}
+
+	// Check if this FlightRecorder is being deleted
+	if instance.GetDeletionTimestamp() != nil {
+		if !hasFinalizer(instance) {
+			// Allow deletion if our finalizer is not set
+			return reconcile.Result{}, nil
+		}
+
+		// Check if target object still exists
+		err := r.Client.Get(ctx, types.NamespacedName{Namespace: targetRef.Namespace, Name: targetRef.Name}, &corev1.Pod{})
+		if err != nil {
+			if !kerrors.IsNotFound(err) {
+				return reconcile.Result{}, err
+			}
+			// Remove our finalizer since this FlightRecorder is no longer in use
+			err = r.removeFinalizer(ctx, instance)
+			if err != nil {
+				return reconcile.Result{}, err
+			}
+			// Ready for deletion
+			return reconcile.Result{}, nil
+		}
+	}
+
+	// Add our finalizer, so we can prevent deletion while in use
+	if !hasFinalizer(instance) {
+		err := r.addFinalizer(ctx, instance)
+		if err != nil {
+			return reconcile.Result{}, err
+		}
+	}
 
 	cjfr, err := r.FindContainerJFR(ctx, request.Namespace)
 	if err != nil {
@@ -123,43 +222,24 @@ func (r *ReconcileFlightRecorder) Reconcile(request reconcile.Request) (reconcil
 		r.JfrClient = jfrClient
 	}
 
-	// Fetch the FlightRecorder instance
-	instance := &rhjmcv1alpha2.FlightRecorder{}
-	err = r.Client.Get(ctx, request.NamespacedName, instance)
-	if err != nil {
-		if kerrors.IsNotFound(err) {
-			// Request object not found, could have been deleted after reconcile request.
-			// Owned objects are automatically garbage collected. For additional cleanup logic use finalizers.
-			// Return and don't requeue
-			return reconcile.Result{}, nil
-		}
-		// Error reading the object - requeue the request.
-		return reconcile.Result{}, err
-	}
-
-	// Look up service corresponding to this FlightRecorder object
-	targetRef := instance.Status.Target
-	if targetRef == nil {
-		// FlightRecorder status must not have been updated yet
-		return reconcile.Result{RequeueAfter: time.Second}, nil
-	}
-	targetSvc := &corev1.Service{}
-	err = r.Client.Get(ctx, types.NamespacedName{Namespace: targetRef.Namespace, Name: targetRef.Name}, targetSvc)
+	// Look up pod corresponding to this FlightRecorder object
+	targetPod := &corev1.Pod{}
+	err = r.Client.Get(ctx, types.NamespacedName{Namespace: targetRef.Namespace, Name: targetRef.Name}, targetPod)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
 
-	// Tell Container JFR to connect to the target service
+	// Tell Container JFR to connect to the target pod
 	jfrclient.ClientLock.Lock()
 	defer jfrclient.ClientLock.Unlock()
-	err = r.ConnectToService(targetSvc, instance.Status.Port)
+	err = r.ConnectToPod(targetPod, instance.Status.Port)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
 	defer r.DisconnectClient()
 
 	// Retrieve list of available events
-	log.Info("Listing event types for service", "service", targetSvc.Name, "namespace", targetSvc.Namespace)
+	log.Info("Listing event types for pod", "name", targetPod.Name, "namespace", targetPod.Namespace)
 	events, err := r.JfrClient.ListEventTypes()
 	if err != nil {
 		log.Error(err, "failed to list event types")
@@ -176,4 +256,51 @@ func (r *ReconcileFlightRecorder) Reconcile(request reconcile.Request) (reconcil
 
 	reqLogger.Info("FlightRecorder successfully updated", "Namespace", instance.Namespace, "Name", instance.Name)
 	return reconcile.Result{}, nil
+}
+
+func (r *ReconcileFlightRecorder) addFinalizer(ctx context.Context, jfr *rhjmcv1alpha2.FlightRecorder) error {
+	log.Info("adding finalizer for FlightRecorder", "namespace", jfr.Namespace, "name", jfr.Name)
+	finalizers := append(jfr.GetFinalizers(), flightRecorderFinalizer)
+	jfr.SetFinalizers(finalizers)
+
+	err := r.Client.Update(ctx, jfr)
+	if err != nil {
+		log.Error(err, "failed to add finalizer to FlightRecorder", "namespace", jfr.Namespace,
+			"name", jfr.Name)
+		return err
+	}
+	return nil
+}
+
+func (r *ReconcileFlightRecorder) removeFinalizer(ctx context.Context, jfr *rhjmcv1alpha2.FlightRecorder) error {
+	finalizers := jfr.GetFinalizers()
+	foundIdx := -1
+	for idx, finalizer := range finalizers {
+		if finalizer == flightRecorderFinalizer {
+			foundIdx = idx
+			break
+		}
+	}
+
+	if foundIdx >= 0 {
+		// Remove our finalizer from the slice
+		finalizers = append(finalizers[:foundIdx], finalizers[foundIdx+1:]...)
+		jfr.SetFinalizers(finalizers)
+		err := r.Client.Update(ctx, jfr)
+		if err != nil {
+			log.Error(err, "failed to remove finalizer from FlightRecorder", "namespace", jfr.Namespace,
+				"name", jfr.Name)
+			return err
+		}
+	}
+	return nil
+}
+
+func hasFinalizer(recording *rhjmcv1alpha2.FlightRecorder) bool {
+	for _, finalizer := range recording.GetFinalizers() {
+		if finalizer == flightRecorderFinalizer {
+			return true
+		}
+	}
+	return false
 }

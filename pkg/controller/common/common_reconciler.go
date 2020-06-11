@@ -103,20 +103,20 @@ func (r *CommonReconciler) ConnectToContainerJFR(ctx context.Context, namespace 
 	return jfrClient, nil
 }
 
-func (r *CommonReconciler) ConnectToService(targetSvc *corev1.Service, jmxPort int32) error {
+func (r *CommonReconciler) ConnectToPod(targetPod *corev1.Pod, jmxPort int32) error {
 	// Have Container JFR connect to the target JVM
-	clusterIP, err := getClusterIP(targetSvc)
+	podIP, err := getPodIP(targetPod)
 	if err != nil {
 		return err
 	}
-	err = r.JfrClient.Connect(*clusterIP, jmxPort)
+	err = r.JfrClient.Connect(*podIP, jmxPort)
 	if err != nil {
 		log.Error(err, "failed to connect to target JVM")
 		r.CloseClient()
 		return err
 	}
-	log.Info("Container JFR connected to service", "service", targetSvc.Name, "namespace", targetSvc.Namespace,
-		"host", *clusterIP, "port", jmxPort)
+	log.Info("Container JFR connected to pod", "name", targetPod.Name, "namespace", targetPod.Namespace,
+		"host", *podIP, "port", jmxPort)
 	return nil
 }
 
@@ -170,6 +170,14 @@ func (r *CommonReconciler) getClientURL(ctx context.Context, namespace string, s
 		return nil, err
 	}
 	return url.Parse(clientURLHolder.ClientURL)
+}
+
+func getPodIP(pod *corev1.Pod) (*string, error) {
+	podIP := pod.Status.PodIP
+	if len(podIP) == 0 {
+		return nil, fmt.Errorf("PodIP unavailable for %s", pod.Name)
+	}
+	return &podIP, nil
 }
 
 func getClusterIP(svc *corev1.Service) (*string, error) {

@@ -168,7 +168,7 @@ func (r *ReconcileRecording) Reconcile(request reconcile.Request) (reconcile.Res
 	if jfr == nil {
 		// Check if this Recording is being deleted
 		if instance.GetDeletionTimestamp() != nil && hasRecordingFinalizer(instance) {
-			// Allow deletion to proceed, since no FlightRecorder/Service to clean up
+			// Allow deletion to proceed, since no FlightRecorder/Pod to clean up
 			log.Info("no matching FlightRecorder, proceeding with recording deletion")
 			r.removeRecordingFinalizer(ctx, instance)
 		}
@@ -176,43 +176,22 @@ func (r *ReconcileRecording) Reconcile(request reconcile.Request) (reconcile.Res
 		return reconcile.Result{}, nil
 	}
 
-	// Look up service corresponding to this FlightRecorder object
+	// Look up pod corresponding to this FlightRecorder object
 	targetRef := jfr.Status.Target
 	if targetRef == nil {
 		// FlightRecorder status must not have been updated yet
 		return reconcile.Result{RequeueAfter: time.Second}, nil
 	}
-	targetSvc := &corev1.Service{}
-	err = r.Client.Get(ctx, types.NamespacedName{Namespace: targetRef.Namespace, Name: targetRef.Name}, targetSvc)
+	targetPod := &corev1.Pod{}
+	err = r.Client.Get(ctx, types.NamespacedName{Namespace: targetRef.Namespace, Name: targetRef.Name}, targetPod)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
 
-	// If this recording is being deleted, and the service has no matching pods, we won't be able
-	// to clean up any in-memory recordings. Remove the finalizer to allow deletion.
-	if instance.GetDeletionTimestamp() != nil && hasRecordingFinalizer(instance) {
-		endpoints := &corev1.Endpoints{}
-		err = r.Client.Get(ctx, types.NamespacedName{Namespace: targetRef.Namespace, Name: targetRef.Name}, endpoints)
-		if err != nil && !kerrors.IsNotFound(err) {
-			return reconcile.Result{}, err
-		}
-		if len(endpoints.Subsets) == 0 {
-			log.Info("no available pod to clean up, proceeding with recording deletion")
-			err = r.removeRecordingFinalizer(ctx, instance)
-			if err != nil {
-				return reconcile.Result{}, err
-			}
-			// Ready for deletion
-			return reconcile.Result{}, nil
-		}
-	}
-
-	// Tell Container JFR to connect to the target service
+	// Tell Container JFR to connect to the target pod
 	jfrclient.ClientLock.Lock()
 	defer jfrclient.ClientLock.Unlock()
-	// FIXME If a service manages more than one pod, there's no guarantee that subsequent connections
-	// over JMX are connecting to the same pod.
-	err = r.ConnectToService(targetSvc, jfr.Status.Port)
+	err = r.ConnectToPod(targetPod, jfr.Status.Port)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
@@ -271,7 +250,7 @@ func (r *ReconcileRecording) Reconcile(request reconcile.Request) (reconcile.Res
 	}
 
 	// If the recording is found in Container JFR's list, update Recording.Status with the newest info
-	log.Info("Looking for recordings for service", "service", targetSvc.Name, "namespace", targetSvc.Namespace)
+	log.Info("Looking for recordings for pod", "pod", targetPod.Name, "namespace", targetPod.Namespace)
 	descriptor, err := r.findRecordingByName(instance.Spec.Name)
 	if err != nil {
 		return reconcile.Result{}, err
@@ -343,7 +322,7 @@ func (r *ReconcileRecording) getFlightRecorder(ctx context.Context, recording *r
 	err := r.Client.Get(ctx, types.NamespacedName{Namespace: recording.Namespace, Name: jfrRef.Name}, jfr)
 	if err != nil {
 		if kerrors.IsNotFound(err) {
-			// TODO set Condition for user, could be legitimate if service is deleted
+			// TODO set Condition for user, could be legitimate if pod is deleted
 			log.Info("FlightRecorder referenced from Recording not found", "name", jfrRef.Name,
 				"namespace", recording.Namespace)
 			return nil, nil

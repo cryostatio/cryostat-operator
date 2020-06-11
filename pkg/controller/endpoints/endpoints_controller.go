@@ -125,12 +125,14 @@ func (r *ReconcileEndpoints) Reconcile(request reconcile.Request) (reconcile.Res
 		// Check if this subset appears to be compatible with Container JFR
 		jmxPort := getServiceJMXPort(subset)
 
-		for _, address := range subset.Addresses {
-			target := address.TargetRef
-			if target != nil && target.Kind == "Pod" {
-				err := r.handlePodAddress(ctx, target, jmxPort, reqLogger)
-				if err != nil {
-					return reconcile.Result{}, err
+		if jmxPort != nil {
+			for _, address := range subset.Addresses {
+				target := address.TargetRef
+				if target != nil && target.Kind == "Pod" {
+					err := r.handlePodAddress(ctx, target, jmxPort, reqLogger)
+					if err != nil {
+						return reconcile.Result{}, err
+					}
 				}
 			}
 		}
@@ -151,36 +153,10 @@ func (r *ReconcileEndpoints) handlePodAddress(ctx context.Context, target *corev
 		if !kerrors.IsNotFound(err) {
 			return err
 		}
-		if jmxPort != nil {
-			reqLogger.Info("Creating a new FlightRecorder", "Namespace", target.Namespace, "Name", jfrName)
-			err := r.createNewFlightRecorder(ctx, target, jmxPort)
-			if err != nil {
-				return err
-			}
-		}
-	} else {
-		// existing FlightRecorder found
-		if jmxPort == nil { // FIXME Doesn't work, a pod may be served by multiple endpoints
-			// Service was previously JMX-compatible but is not anymore,
-			// so delete its FlightRecorder and do not requeue a new one
-			reqLogger.Info("Deleting dangling FlightRecorder", "Namespace", target.Namespace, "Name", jfrName)
-			err = r.client.Delete(ctx, found)
-			if err != nil {
-				return err
-			}
-		} else if found.Status.Port != *jmxPort {
-			// FlightRecorder is incorrect - service was likely modified. Delete outdated FlightRecorder
-			// and recreate it
-			reqLogger.Info("Deleting outdated FlightRecorder", "Namespace", target.Namespace, "Name", jfrName)
-			err = r.client.Delete(ctx, found)
-			if err != nil {
-				return err
-			}
-			reqLogger.Info("Re-creating FlightRecorder", "Namespace", target.Namespace, "Name", jfrName)
-			err = r.createNewFlightRecorder(ctx, target, jmxPort)
-			if err != nil {
-				return err
-			}
+		reqLogger.Info("Creating a new FlightRecorder", "Namespace", target.Namespace, "Name", jfrName)
+		err := r.createNewFlightRecorder(ctx, target, jmxPort)
+		if err != nil {
+			return err
 		}
 	}
 	return nil
