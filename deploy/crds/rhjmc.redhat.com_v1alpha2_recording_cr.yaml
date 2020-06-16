@@ -4,7 +4,7 @@ metadata:
   name: example-recording
 spec:
   name: example-recording
-  eventOptions: [ ALL ]
+  eventOptions: [ "template=ALL" ]
   duration: 30s
   archive: true
   flightRecorder:

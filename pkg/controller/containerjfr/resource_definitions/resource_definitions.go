@@ -192,7 +192,7 @@ func NewCoreContainer(cr *rhjmcv1alpha1.ContainerJFR, specs *ServiceSpecs) corev
 			Value: specs.DatasourceAddress,
 		},
 	}
-	imageTag := "quay.io/rh-jmc-team/container-jfr:0.16.0"
+	imageTag := "quay.io/rh-jmc-team/container-jfr:0.19.0"
 	if cr.Spec.Minimal {
 		imageTag += "-minimal"
 		envs = append(envs, corev1.EnvVar{
@@ -225,7 +225,7 @@ func NewCoreContainer(cr *rhjmcv1alpha1.ContainerJFR, specs *ServiceSpecs) corev
 			Handler: corev1.Handler{
 				HTTPGet: &corev1.HTTPGetAction{
 					Port: intstr.IntOrString{IntVal: 8181},
-					Path: "/clienturl",
+					Path: "/api/v1/clienturl",
 				},
 			},
 		},
