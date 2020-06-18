@@ -56,7 +56,13 @@ type CommandMessage struct {
 
 // NewCommandMessage provides a conventient shorthand for constructing
 // new CommandMessages
-func NewCommandMessage(command string, args ...string) *CommandMessage {
+func NewCommandMessage(command string, targetID string, args ...string) *CommandMessage {
+	return NewControlMessage(command, append([]string{targetID}, args...)...)
+}
+
+// NewControlMessage provides a convenient shorthand for constructing
+// new control CommandMessages, which do not include a targetID
+func NewControlMessage(command string, args ...string) *CommandMessage {
 	return &CommandMessage{ID: uuid.NewUUID(), Command: command, Args: args}
 }
 

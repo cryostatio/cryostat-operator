@@ -57,10 +57,10 @@ var debugLog = log.V(1)
 
 const ioTimeout = 30 * time.Second
 
-// ClientLock synchronizes access to Container JFR while it is connected to a particular JVM.
-// This prevents clients from interfering with each other since Container JFR can
-// currently only be connected to one JVM at a time.
+// ClientLock synchronizes access to Container JFR while it is operating on a particular JVM
 var ClientLock = &sync.Mutex{}
+var targetHost *string = nil
+var targetPort *int32 = new(int32)
 
 // Config stores configuration options to connect to Container JFR's
 // command server
@@ -117,56 +117,25 @@ func newWebSocketConn(server *url.URL, token *string, tlsVerify bool) (*websocke
 
 // Connect tells Container JFR to connect to a JVM addressed by the host and port
 func (client *ContainerJfrClient) Connect(host string, port int32) error {
-	// Disconnect first if already connected
-	connected, err := client.isConnected()
-	if err != nil {
-		return err
-	} else if connected {
-		log.Info("already connected, will disconnect first")
-		err = client.Disconnect()
-		if err != nil {
-			return err
-		}
-	}
-
-	target := fmt.Sprintf("%s:%d", host, port)
-	connectCmd := NewCommandMessage("connect", target)
-	var resp string
-	err = client.syncMessage(connectCmd, &resp)
-	if err != nil {
-		return err
-	}
-	log.Info("got connect response", "resp", resp)
+	targetHost = &host
+	targetPort = &port
 	return nil
-}
-
-func (client *ContainerJfrClient) isConnected() (bool, error) {
-	isConnectedCmd := NewCommandMessage("is-connected")
-	var resp string
-	err := client.syncMessage(isConnectedCmd, &resp)
-	if err != nil {
-		return false, err
-	}
-	log.Info("got is-connected response", "resp", resp)
-	isConnected := resp != "false"
-	return isConnected, nil
 }
 
 // Disconnect tells Container JFR to disconnect from its target JVM
 func (client *ContainerJfrClient) Disconnect() error {
-	disconnectCmd := NewCommandMessage("disconnect")
-	var resp string
-	err := client.syncMessage(disconnectCmd, &resp)
-	if err != nil {
-		return err
-	}
-	log.Info("got disconnect response", "resp", resp)
+	targetHost = nil
+	targetPort = new(int32)
 	return nil
+}
+
+func TargetID() string {
+	return fmt.Sprintf("%s:%d", *targetHost, *targetPort)
 }
 
 // ListRecordings returns a list of its in-memory Flight Recordings
 func (client *ContainerJfrClient) ListRecordings() ([]RecordingDescriptor, error) {
-	listCmd := NewCommandMessage("list")
+	listCmd := NewCommandMessage("list", TargetID())
 	recordings := []RecordingDescriptor{}
 	err := client.syncMessage(listCmd, &recordings)
 	if err != nil {
@@ -178,7 +147,7 @@ func (client *ContainerJfrClient) ListRecordings() ([]RecordingDescriptor, error
 
 // DumpRecording instructs Container JFR to create a new recording of fixed duration
 func (client *ContainerJfrClient) DumpRecording(name string, seconds int, events []string) error {
-	dumpCmd := NewCommandMessage("dump", name, strconv.Itoa(seconds), strings.Join(events, ","))
+	dumpCmd := NewCommandMessage("dump", TargetID(), name, strconv.Itoa(seconds), strings.Join(events, ","))
 	var resp string
 	err := client.syncMessage(dumpCmd, &resp)
 	if err != nil {
@@ -190,7 +159,7 @@ func (client *ContainerJfrClient) DumpRecording(name string, seconds int, events
 
 // StartRecording instructs Container JFR to create a new continuous recording
 func (client *ContainerJfrClient) StartRecording(name string, events []string) error {
-	startCmd := NewCommandMessage("start", name, strings.Join(events, ","))
+	startCmd := NewCommandMessage("start", TargetID(), name, strings.Join(events, ","))
 	var resp string
 	err := client.syncMessage(startCmd, &resp)
 	if err != nil {
@@ -202,7 +171,7 @@ func (client *ContainerJfrClient) StartRecording(name string, events []string) e
 
 // StopRecording instructs Container JFR to stop a recording
 func (client *ContainerJfrClient) StopRecording(name string) error {
-	stopCmd := NewCommandMessage("stop", name)
+	stopCmd := NewCommandMessage("stop", TargetID(), name)
 	var resp string
 	err := client.syncMessage(stopCmd, &resp)
 	if err != nil {
@@ -214,7 +183,7 @@ func (client *ContainerJfrClient) StopRecording(name string) error {
 
 // DeleteRecording deletes a recording from Container JFR
 func (client *ContainerJfrClient) DeleteRecording(name string) error {
-	deleteCmd := NewCommandMessage("delete", name)
+	deleteCmd := NewCommandMessage("delete", TargetID(), name)
 	var resp string
 	err := client.syncMessage(deleteCmd, &resp)
 	if err != nil {
@@ -226,7 +195,7 @@ func (client *ContainerJfrClient) DeleteRecording(name string) error {
 
 // SaveRecording copies a flight recording file from local memory to persistent storage
 func (client *ContainerJfrClient) SaveRecording(name string) (*string, error) {
-	saveCmd := NewCommandMessage("save", name)
+	saveCmd := NewCommandMessage("save", TargetID(), name)
 	var resp string
 	err := client.syncMessage(saveCmd, &resp)
 	if err != nil {
@@ -238,7 +207,7 @@ func (client *ContainerJfrClient) SaveRecording(name string) (*string, error) {
 
 // ListSavedRecordings returns a list of recordings contained in persistent storage
 func (client *ContainerJfrClient) ListSavedRecordings() ([]SavedRecording, error) {
-	listCmd := NewCommandMessage("list-saved")
+	listCmd := NewControlMessage("list-saved")
 	recordings := []SavedRecording{}
 	err := client.syncMessage(listCmd, &recordings)
 	if err != nil {
@@ -251,7 +220,7 @@ func (client *ContainerJfrClient) ListSavedRecordings() ([]SavedRecording, error
 // DeleteSavedRecording deletes a recording from the persistent storage managed
 // by Container JFR
 func (client *ContainerJfrClient) DeleteSavedRecording(jfrFile string) error {
-	deleteCmd := NewCommandMessage("delete-saved", jfrFile)
+	deleteCmd := NewControlMessage("delete-saved", jfrFile)
 	var resp string
 	err := client.syncMessage(deleteCmd, &resp)
 	if err != nil {
@@ -263,7 +232,7 @@ func (client *ContainerJfrClient) DeleteSavedRecording(jfrFile string) error {
 
 // ListEventTypes returns a list of events available in the target JVM
 func (client *ContainerJfrClient) ListEventTypes() ([]rhjmcv1alpha2.EventInfo, error) {
-	listCmd := NewCommandMessage("list-event-types")
+	listCmd := NewCommandMessage("list-event-types", TargetID())
 	events := []rhjmcv1alpha2.EventInfo{}
 	err := client.syncMessage(listCmd, &events)
 	if err != nil {

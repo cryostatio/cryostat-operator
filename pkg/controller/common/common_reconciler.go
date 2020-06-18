@@ -150,7 +150,7 @@ func (r *CommonReconciler) getClientURL(ctx context.Context, namespace string, s
 	if err != nil {
 		return nil, err
 	}
-	host := fmt.Sprintf("http://%s:%d/clienturl", *clusterIP, webServerPort)
+	host := fmt.Sprintf("http://%s:%d/api/v1/clienturl", *clusterIP, webServerPort)
 	resp, err := http.Get(host)
 	if err != nil {
 		return nil, err
