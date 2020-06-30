@@ -8,7 +8,6 @@ rules:
   - ""
   resources:
   - pods
-  - pods/finalizers
   - services
   - routes
   - endpoints

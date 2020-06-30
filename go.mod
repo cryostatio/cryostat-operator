@@ -1,6 +1,7 @@
 module github.com/rh-jmc-team/container-jfr-operator
 
 require (
+	github.com/go-logr/logr v0.1.0
 	github.com/go-openapi/spec v0.19.4
 	github.com/gorilla/websocket v1.4.1
 	github.com/openshift/api v3.9.1-0.20190924102528-32369d4db2ad+incompatible
