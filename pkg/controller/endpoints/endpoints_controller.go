@@ -48,7 +48,6 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
-	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
@@ -193,10 +192,14 @@ func (r *ReconcileEndpoints) createNewFlightRecorder(ctx context.Context, target
 		return err
 	}
 
-	// Set Pod instance as the owner and controller
-	if err := controllerutil.SetControllerReference(pod, jfr, r.scheme); err != nil {
-		return err
+	// Set Pod instance as the owner
+	ownerRef := metav1.OwnerReference{
+		APIVersion: pod.APIVersion,
+		Kind:       pod.Kind,
+		UID:        pod.UID,
+		Name:       pod.Name,
 	}
+	jfr.SetOwnerReferences([]metav1.OwnerReference{ownerRef})
 
 	err = r.client.Create(ctx, jfr)
 	if err != nil {
