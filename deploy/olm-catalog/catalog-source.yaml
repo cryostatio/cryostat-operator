@@ -5,4 +5,4 @@ metadata:
   namespace: default
 spec:
   sourceType: grpc
-  image: quay.io/rh-jmc-team/container-jfr-operator-index:0.0.1
+  image: quay.io/rh-jmc-team/container-jfr-operator-index:0.0.2

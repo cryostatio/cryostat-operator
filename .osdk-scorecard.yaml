@@ -8,10 +8,12 @@ scorecard:
             crds-dir: "deploy/crds"
             cr-manifest:
                 - "deploy/crds/rhjmc.redhat.com_v1alpha1_containerjfr_cr.yaml"
-                - "deploy/crds/rhjmc.redhat.com_v1alpha1_flightrecorder_cr.yaml"
+                - "deploy/crds/rhjmc.redhat.com_v1alpha2_flightrecorder_cr.yaml"
+                - "deploy/crds/rhjmc.redhat.com_v1alpha2_recording_cr.yaml"
         - olm:
             crds-dir: "deploy/crds"
             cr-manifest:
                 - "deploy/crds/rhjmc.redhat.com_v1alpha1_containerjfr_cr.yaml"
-                - "deploy/crds/rhjmc.redhat.com_v1alpha1_flightrecorder_cr.yaml"
-            csv-path: "deploy/olm-catalog/container-jfr-operator-bundle/0.4.0/container-jfr-operator-bundle.v0.4.0.clusterserviceversion.yaml"
+                - "deploy/crds/rhjmc.redhat.com_v1alpha2_flightrecorder_cr.yaml"
+                - "deploy/crds/rhjmc.redhat.com_v1alpha2_recording_cr.yaml"
+            csv-path: "deploy/olm-catalog/container-jfr-operator-bundle/0.5.0/container-jfr-operator-bundle.v0.5.0.clusterserviceversion.yaml"
