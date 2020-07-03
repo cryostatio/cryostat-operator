@@ -9,7 +9,6 @@ rules:
   resources:
   - pods
   - services
-  - services/finalizers
   - routes
   - endpoints
   - persistentvolumeclaims

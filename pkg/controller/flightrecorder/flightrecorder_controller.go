@@ -64,7 +64,7 @@ func Add(mgr manager.Manager) error {
 }
 
 // newReconciler returns a new reconcile.Reconciler
-func newReconciler(mgr manager.Manager) reconcile.Reconciler {
+func newReconciler(mgr manager.Manager) *ReconcileFlightRecorder {
 	return &ReconcileFlightRecorder{scheme: mgr.GetScheme(),
 		CommonReconciler: &common.CommonReconciler{
 			Client: mgr.GetClient(),
@@ -73,7 +73,7 @@ func newReconciler(mgr manager.Manager) reconcile.Reconciler {
 }
 
 // add adds a new Controller to mgr with r as the reconcile.Reconciler
-func add(mgr manager.Manager, r reconcile.Reconciler) error {
+func add(mgr manager.Manager, r *ReconcileFlightRecorder) error {
 	// Create a new controller
 	c, err := controller.New("flightrecorder-controller", mgr, controller.Options{Reconciler: r})
 	if err != nil {
@@ -108,6 +108,27 @@ func (r *ReconcileFlightRecorder) Reconcile(request reconcile.Request) (reconcil
 	reqLogger := log.WithValues("Request.Namespace", request.Namespace, "Request.Name", request.Name)
 	reqLogger.Info("Reconciling FlightRecorder")
 
+	// Fetch the FlightRecorder instance
+	instance := &rhjmcv1alpha2.FlightRecorder{}
+	err := r.Client.Get(ctx, request.NamespacedName, instance)
+	if err != nil {
+		if kerrors.IsNotFound(err) {
+			// Request object not found, could have been deleted after reconcile request.
+			// Owned objects are automatically garbage collected. For additional cleanup logic use finalizers.
+			// Return and don't requeue
+			return reconcile.Result{}, nil
+		}
+		// Error reading the object - requeue the request.
+		return reconcile.Result{}, err
+	}
+
+	// Check for a valid target reference
+	targetRef := instance.Status.Target
+	if targetRef == nil {
+		// FlightRecorder status must not have been updated yet
+		return reconcile.Result{RequeueAfter: time.Second}, nil
+	}
+
 	cjfr, err := r.FindContainerJFR(ctx, request.Namespace)
 	if err != nil {
 		return reconcile.Result{}, err
@@ -123,43 +144,24 @@ func (r *ReconcileFlightRecorder) Reconcile(request reconcile.Request) (reconcil
 		r.JfrClient = jfrClient
 	}
 
-	// Fetch the FlightRecorder instance
-	instance := &rhjmcv1alpha2.FlightRecorder{}
-	err = r.Client.Get(ctx, request.NamespacedName, instance)
-	if err != nil {
-		if kerrors.IsNotFound(err) {
-			// Request object not found, could have been deleted after reconcile request.
-			// Owned objects are automatically garbage collected. For additional cleanup logic use finalizers.
-			// Return and don't requeue
-			return reconcile.Result{}, nil
-		}
-		// Error reading the object - requeue the request.
-		return reconcile.Result{}, err
-	}
-
-	// Look up service corresponding to this FlightRecorder object
-	targetRef := instance.Status.Target
-	if targetRef == nil {
-		// FlightRecorder status must not have been updated yet
-		return reconcile.Result{RequeueAfter: time.Second}, nil
-	}
-	targetSvc := &corev1.Service{}
-	err = r.Client.Get(ctx, types.NamespacedName{Namespace: targetRef.Namespace, Name: targetRef.Name}, targetSvc)
+	// Look up pod corresponding to this FlightRecorder object
+	targetPod := &corev1.Pod{}
+	err = r.Client.Get(ctx, types.NamespacedName{Namespace: targetRef.Namespace, Name: targetRef.Name}, targetPod)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
 
-	// Tell Container JFR to connect to the target service
+	// Tell Container JFR to connect to the target pod
 	jfrclient.ClientLock.Lock()
 	defer jfrclient.ClientLock.Unlock()
-	err = r.ConnectToService(targetSvc, instance.Status.Port)
+	err = r.ConnectToPod(targetPod, instance.Status.Port)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
 	defer r.DisconnectClient()
 
 	// Retrieve list of available events
-	log.Info("Listing event types for service", "service", targetSvc.Name, "namespace", targetSvc.Namespace)
+	log.Info("Listing event types for pod", "name", targetPod.Name, "namespace", targetPod.Namespace)
 	events, err := r.JfrClient.ListEventTypes()
 	if err != nil {
 		log.Error(err, "failed to list event types")
