@@ -1,5 +1,5 @@
 IMAGE_STREAM ?= quay.io/rh-jmc-team/container-jfr-operator
-IMAGE_VERSION ?= 0.4.0
+IMAGE_VERSION ?= 0.5.0
 IMAGE_TAG ?= $(IMAGE_STREAM):$(IMAGE_VERSION)
 
 BUNDLE_STREAM ?= $(IMAGE_STREAM)-bundle
@@ -7,7 +7,7 @@ CSV_VERSION ?= $(IMAGE_VERSION)
 PREV_CSV_VERSION ?= $(CSV_VERSION)
 
 INDEX_STREAM ?= $(IMAGE_STREAM)-index
-INDEX_VERSION ?= 0.0.1
+INDEX_VERSION ?= 0.0.2
 PREV_INDEX_VERSION ?= $(INDEX_VERSION)
 
 BUILDER ?= podman
@@ -125,6 +125,7 @@ deploy: undeploy
 undeploy: undeploy_sample_app undeploy_sample_app2
 	- oc delete deployment container-jfr-operator
 	- oc delete containerjfr --all
+	- oc delete recording --all
 	- oc delete flightrecorder --all
 	- oc delete all -l name=container-jfr-operator
 	- oc delete all -l app=containerjfr
