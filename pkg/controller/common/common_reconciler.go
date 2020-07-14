@@ -57,6 +57,8 @@ import (
 
 var log = logf.Log.WithName("common_reconciler")
 
+// CommonReconciler contains helpful methods to communicate with Container JFR.
+// It is meant to be embedded within other Reconcilers.
 type CommonReconciler struct {
 	// This client, initialized using mgr.Client(), is a split client
 	// that reads objects from the cache and writes to the apiserver
@@ -83,6 +85,8 @@ func (r *CommonReconciler) FindContainerJFR(ctx context.Context, namespace strin
 	return &cjfrList.Items[0], nil
 }
 
+// ConnectToContainerJFR opens a WebSocket connect to the Container JFR service deployed
+// by this operator
 func (r *CommonReconciler) ConnectToContainerJFR(ctx context.Context, namespace string,
 	svcName string) (*jfrclient.ContainerJfrClient, error) {
 	// Query the "clienturl" endpoint of Container JFR for the command URL
@@ -103,33 +107,20 @@ func (r *CommonReconciler) ConnectToContainerJFR(ctx context.Context, namespace 
 	return jfrClient, nil
 }
 
-func (r *CommonReconciler) ConnectToPod(targetPod *corev1.Pod, jmxPort int32) error {
+// GetPodTarget returns a TargetAddress for a particular pod and port number
+func (r *CommonReconciler) GetPodTarget(targetPod *corev1.Pod, jmxPort int32) (*jfrclient.TargetAddress, error) {
 	// Have Container JFR connect to the target JVM
 	podIP, err := getPodIP(targetPod)
 	if err != nil {
-		return err
+		return nil, err
 	}
-	err = r.JfrClient.Connect(*podIP, jmxPort)
-	if err != nil {
-		log.Error(err, "failed to connect to target JVM")
-		r.CloseClient()
-		return err
-	}
-	log.Info("Container JFR connected to pod", "name", targetPod.Name, "namespace", targetPod.Namespace,
-		"host", *podIP, "port", jmxPort)
-	return nil
+	return &jfrclient.TargetAddress{
+		Host: *podIP,
+		Port: jmxPort,
+	}, nil
 }
 
-func (r *CommonReconciler) DisconnectClient() {
-	if r.JfrClient != nil {
-		err := r.JfrClient.Disconnect()
-		if err != nil {
-			log.Error(err, "failed to disconnect from target JVM")
-			r.CloseClient()
-		}
-	}
-}
-
+// CloseClient closes the underlying WebSocket connection to Container JFR
 func (r *CommonReconciler) CloseClient() {
 	r.JfrClient.Close()
 	r.JfrClient = nil
