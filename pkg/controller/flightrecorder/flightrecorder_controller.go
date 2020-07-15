@@ -41,7 +41,6 @@ import (
 	"time"
 
 	rhjmcv1alpha2 "github.com/rh-jmc-team/container-jfr-operator/pkg/apis/rhjmc/v1alpha2"
-	jfrclient "github.com/rh-jmc-team/container-jfr-operator/pkg/client"
 	common "github.com/rh-jmc-team/container-jfr-operator/pkg/controller/common"
 	corev1 "k8s.io/api/core/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
@@ -151,18 +150,15 @@ func (r *ReconcileFlightRecorder) Reconcile(request reconcile.Request) (reconcil
 		return reconcile.Result{}, err
 	}
 
-	// Tell Container JFR to connect to the target pod
-	jfrclient.ClientLock.Lock()
-	defer jfrclient.ClientLock.Unlock()
-	err = r.ConnectToPod(targetPod, instance.Status.Port)
+	// Get a TargetAddress for this pod
+	targetAddr, err := r.GetPodTarget(targetPod, instance.Status.Port)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
-	defer r.DisconnectClient()
 
 	// Retrieve list of available events
 	log.Info("Listing event types for pod", "name", targetPod.Name, "namespace", targetPod.Namespace)
-	events, err := r.JfrClient.ListEventTypes()
+	events, err := r.JfrClient.ListEventTypes(targetAddr)
 	if err != nil {
 		log.Error(err, "failed to list event types")
 		r.CloseClient()
