@@ -183,7 +183,7 @@ func (r *ReconcileRecording) Reconcile(request reconcile.Request) (reconcile.Res
 		return reconcile.Result{}, err
 	}
 
-	// Tell Container JFR to connect to the target pod
+	// Get TargetAddress for the referenced pod and port number listed in FlightRecorder
 	targetAddr, err := r.GetPodTarget(targetPod, jfr.Status.Port)
 	if err != nil {
 		return reconcile.Result{}, err

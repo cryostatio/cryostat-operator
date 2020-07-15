@@ -109,7 +109,7 @@ func (r *CommonReconciler) ConnectToContainerJFR(ctx context.Context, namespace 
 
 // GetPodTarget returns a TargetAddress for a particular pod and port number
 func (r *CommonReconciler) GetPodTarget(targetPod *corev1.Pod, jmxPort int32) (*jfrclient.TargetAddress, error) {
-	// Have Container JFR connect to the target JVM
+	// Create TargetAddress using pod's IP address and provided port
 	podIP, err := getPodIP(targetPod)
 	if err != nil {
 		return nil, err
