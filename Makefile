@@ -123,10 +123,10 @@ deploy: undeploy
 
 .PHONY: undeploy
 undeploy: undeploy_sample_app undeploy_sample_app2
-	- oc delete deployment container-jfr-operator
-	- oc delete containerjfr --all
 	- oc delete recording --all
 	- oc delete flightrecorder --all
+	- oc delete containerjfr --all
+	- oc delete deployment container-jfr-operator
 	- oc delete all -l name=container-jfr-operator
 	- oc delete all -l app=containerjfr
 	- oc delete persistentvolumeclaims -l app=containerjfr
