@@ -4,6 +4,8 @@ require (
 	github.com/go-logr/logr v0.1.0
 	github.com/go-openapi/spec v0.19.4
 	github.com/gorilla/websocket v1.4.1
+	github.com/onsi/ginkgo v1.10.1
+	github.com/onsi/gomega v1.7.0
 	github.com/openshift/api v3.9.1-0.20190924102528-32369d4db2ad+incompatible
 	github.com/operator-framework/operator-sdk v0.15.2
 	github.com/spf13/pflag v1.0.5
