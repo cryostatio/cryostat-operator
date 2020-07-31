@@ -21,6 +21,10 @@ and
 - `podman`
 
 ## Instructions
+Operator SDK requires the `GOROOT` environment variable to be set to the root
+of your Go installation. In Bash, this can be done with
+`export GOROOT="$(go env GOROOT)"`.
+
 `make image` will create an OCI image to the local registry, tagged as
 `quay.io/rh-jmc-team/container-jfr-operator`. This tag can be overridden by
 setting the environment variable `IMAGE_TAG`.
