@@ -43,6 +43,7 @@ import (
 	"net/url"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/gorilla/websocket"
 	. "github.com/onsi/ginkgo"
@@ -54,8 +55,10 @@ import (
 	"k8s.io/client-go/kubernetes/scheme"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
+	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
+	"github.com/operator-framework/operator-sdk/pkg/log/zap"
 	rhjmcv1alpha1 "github.com/rh-jmc-team/container-jfr-operator/pkg/apis/rhjmc/v1alpha1"
 	rhjmcv1alpha2 "github.com/rh-jmc-team/container-jfr-operator/pkg/apis/rhjmc/v1alpha2"
 	jfrclient "github.com/rh-jmc-team/container-jfr-operator/pkg/client"
@@ -73,6 +76,7 @@ var _ = Describe("FlightRecorderController", func() {
 	)
 
 	JustBeforeEach(func() {
+		logf.SetLogger(zap.Logger())
 		s := scheme.Scheme
 
 		s.AddKnownTypes(rhjmcv1alpha1.SchemeGroupVersion, &rhjmcv1alpha1.ContainerJFR{},
@@ -103,32 +107,40 @@ var _ = Describe("FlightRecorderController", func() {
 	})
 
 	JustAfterEach(func() {
+		controller.CloseClient()
 		server.Close()
+	})
+
+	BeforeEach(func() {
+		objs = []runtime.Object{
+			cjfr, fr, pod, cjfrSvc,
+		}
+		messages = []wsMessage{
+			{
+				expectedMsg: jfrclient.NewCommandMessage(
+					"list-event-types",
+					"1.2.3.4:8001",
+					types.UID("0")),
+				reply: &jfrclient.ResponseMessage{
+					ID:          types.UID("0"),
+					CommandName: "list-event-types",
+					Status:      jfrclient.ResponseStatusSuccess,
+					Payload: []rhjmcv1alpha2.EventInfo{
+						socketReadEvent,
+					},
+				},
+			},
+		}
+	})
+
+	AfterEach(func() {
+		// Reset test inputs
+		objs = nil
+		messages = nil
 	})
 
 	Describe("reconciling a request", func() {
 		Context("successfully updates FlightRecorder CR", func() {
-			BeforeEach(func() {
-				objs = []runtime.Object{
-					cjfr, fr, pod, cjfrSvc,
-				}
-				messages = []wsMessage{
-					{
-						expectedMsg: jfrclient.NewCommandMessage(
-							"list-event-types",
-							"1.2.3.4:8001",
-							types.UID("0")),
-						reply: &jfrclient.ResponseMessage{
-							ID:          types.UID("0"),
-							CommandName: "list-event-types",
-							Status:      jfrclient.ResponseStatusSuccess,
-							Payload: []rhjmcv1alpha2.EventInfo{
-								socketReadEvent,
-							},
-						},
-					},
-				}
-			})
 			It("should update event type list", func() {
 				req := reconcile.Request{NamespacedName: types.NamespacedName{Name: "test-pod", Namespace: "default"}}
 				result, err := controller.Reconcile(req)
@@ -140,21 +152,165 @@ var _ = Describe("FlightRecorderController", func() {
 				Expect(obj.Status.Events).To(Equal(messages[0].reply.Payload))
 			})
 		})
+		Context("after FlightRecorder already reconciled successfully", func() {
+			BeforeEach(func() {
+				messages = append(messages, wsMessage{
+					expectedMsg: jfrclient.NewCommandMessage(
+						"list-event-types",
+						"1.2.3.4:8001",
+						types.UID("1")),
+					reply: &jfrclient.ResponseMessage{
+						ID:          types.UID("1"),
+						CommandName: "list-event-types",
+						Status:      jfrclient.ResponseStatusSuccess,
+						Payload: []rhjmcv1alpha2.EventInfo{
+							socketReadEvent,
+						},
+					},
+				})
+			})
+			It("should be idempotent", func() {
+				req := reconcile.Request{NamespacedName: types.NamespacedName{Name: "test-pod", Namespace: "default"}}
+				result, err := controller.Reconcile(req)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(result).To(Equal(reconcile.Result{}))
+
+				obj := &rhjmcv1alpha2.FlightRecorder{}
+				client.Get(context.Background(), req.NamespacedName, obj)
+
+				// Reconcile same FlightRecorder again
+				result, err = controller.Reconcile(req)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(result).To(Equal(reconcile.Result{}))
+
+				obj2 := &rhjmcv1alpha2.FlightRecorder{}
+				client.Get(context.Background(), req.NamespacedName, obj2)
+				Expect(obj2.Status).To(Equal(obj.Status))
+				Expect(obj2.Spec).To(Equal(obj.Spec))
+			})
+		})
+		Context("FlightRecorder does not exist", func() {
+			BeforeEach(func() {
+				messages = []wsMessage{}
+			})
+			It("should do nothing", func() {
+				req := reconcile.Request{NamespacedName: types.NamespacedName{Name: "does-not-exist", Namespace: "default"}}
+				result, err := controller.Reconcile(req)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(result).To(Equal(reconcile.Result{}))
+			})
+		})
+		Context("FlightRecorder Status not updated yet", func() {
+			BeforeEach(func() {
+				otherFr := *fr
+				otherFr.Status = rhjmcv1alpha2.FlightRecorderStatus{}
+				objs = []runtime.Object{
+					cjfr, &otherFr, pod, cjfrSvc,
+				}
+				messages = []wsMessage{}
+			})
+			It("should requeue", func() {
+				req := reconcile.Request{NamespacedName: types.NamespacedName{Name: "test-pod", Namespace: "default"}}
+				result, err := controller.Reconcile(req)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(result).To(Equal(reconcile.Result{RequeueAfter: time.Second}))
+			})
+		})
+		Context("list-event-types command fails", func() {
+			BeforeEach(func() {
+				messages = []wsMessage{
+					{
+						expectedMsg: jfrclient.NewCommandMessage(
+							"list-event-types",
+							"1.2.3.4:8001",
+							types.UID("0")),
+						reply: &jfrclient.ResponseMessage{
+							ID:          types.UID("0"),
+							CommandName: "list-event-types",
+							Status:      jfrclient.ResponseStatusFailure,
+							Payload:     "command failed",
+						},
+					},
+				}
+			})
+			It("should requeue with error", func() {
+				expectReconcileError(controller)
+			})
+			It("should close Container JFR client", func() {
+				req := reconcile.Request{NamespacedName: types.NamespacedName{Name: "test-pod", Namespace: "default"}}
+				controller.Reconcile(req)
+				Expect(controller.IsClientConnected()).To(BeFalse())
+			})
+		})
+		Context("Container JFR CR is missing", func() {
+			BeforeEach(func() {
+				objs = []runtime.Object{
+					fr, pod, cjfrSvc,
+				}
+				messages = []wsMessage{}
+			})
+			It("should requeue with error", func() {
+				expectReconcileError(controller)
+			})
+		})
+		Context("Container JFR service is missing", func() {
+			BeforeEach(func() {
+				objs = []runtime.Object{
+					cjfr, fr, pod,
+				}
+				messages = []wsMessage{}
+			})
+			It("should requeue with error", func() {
+				expectReconcileError(controller)
+			})
+		})
+		Context("Target pod is missing", func() {
+			BeforeEach(func() {
+				objs = []runtime.Object{
+					cjfr, fr, cjfrSvc,
+				}
+				messages = []wsMessage{}
+			})
+			It("should requeue with error", func() {
+				expectReconcileError(controller)
+			})
+		})
+		Context("Target pod has no IP", func() {
+			BeforeEach(func() {
+				otherPod := *pod
+				otherPod.Status.PodIP = ""
+				objs = []runtime.Object{
+					cjfr, fr, &otherPod, cjfrSvc,
+				}
+				messages = []wsMessage{}
+			})
+			It("should requeue with error", func() {
+				expectReconcileError(controller)
+			})
+		})
 	})
 })
+
+func expectReconcileError(controller *flightrecorder.ReconcileFlightRecorder) {
+	req := reconcile.Request{NamespacedName: types.NamespacedName{Name: "test-pod", Namespace: "default"}}
+	result, err := controller.Reconcile(req)
+	Expect(err).To(HaveOccurred())
+	Expect(result).To(Equal(reconcile.Result{}))
+}
 
 type wsMessage struct {
 	expectedMsg *jfrclient.CommandMessage
 	reply       *jfrclient.ResponseMessage
 }
 
-type testConnector struct{}
+type testConnector struct {
+	uidCount int
+}
 
 func (c *testConnector) Connect(config *jfrclient.Config) (jfrclient.ContainerJfrClient, error) {
-	uidCount := 0
 	uidFunc := func() types.UID {
-		uid := strconv.Itoa(uidCount)
-		uidCount++
+		uid := strconv.Itoa(c.uidCount)
+		c.uidCount++
 		return types.UID(uid)
 	}
 

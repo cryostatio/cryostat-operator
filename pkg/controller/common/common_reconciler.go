@@ -161,7 +161,9 @@ func (r *commonReconciler) IsClientConnected() bool {
 
 // CloseClient closes the underlying WebSocket connection to Container JFR
 func (r *commonReconciler) CloseClient() {
-	r.ContainerJfrClient.Close()
+	if r.ContainerJfrClient != nil {
+		r.ContainerJfrClient.Close()
+	}
 	r.ContainerJfrClient = nil
 }
 
