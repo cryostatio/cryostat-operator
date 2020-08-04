@@ -142,7 +142,7 @@ undeploy: undeploy_sample_app undeploy_sample_app2
 
 .PHONY: sample_app
 sample_app:
-	oc new-app quay.io/andrewazores/vertx-fib-demo
+	oc new-app quay.io/andrewazores/vertx-fib-demo:0.1.0
 
 .PHONY: undeploy_sample_app
 undeploy_sample_app:
@@ -150,7 +150,7 @@ undeploy_sample_app:
 
 .PHONY: sample_app2
 sample_app2:
-	oc new-app andrewazores/container-jmx-docker-listener:latest --name=jmx-listener
+	oc new-app quay.io/andrewazores/container-jmx-docker-listener:0.1.0 --name=jmx-listener
 	oc patch svc/jmx-listener -p '{"spec":{"$setElementOrder/ports":[{"port":7095},{"port":9092},{"port":9093}],"ports":[{"name":"jfr-jmx","port":9093}]}}'
 
 .PHONY: undeploy_sample_app2
