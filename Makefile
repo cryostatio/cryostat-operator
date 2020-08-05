@@ -12,6 +12,8 @@ PREV_INDEX_VERSION ?= $(INDEX_VERSION)
 
 BUILDER ?= podman
 
+GINKGO ?= $(shell go env GOPATH)/bin/ginkgo
+
 .DEFAULT_GOAL := bundle
 
 .PHONY: generate
@@ -84,7 +86,19 @@ else
 endif
 
 .PHONY: test
-test: undeploy scorecard
+test: undeploy test-unit test-integration
+
+.PHONY: test-unit
+test-unit:
+# Run tests with Ginkgo CLI if available
+ifneq ("$(wildcard $(GINKGO))","")
+	"$(GINKGO)" -v ./...
+else
+	go test -v ./...
+endif
+
+.PHONY: test-integration
+test-integration: scorecard
 
 .PHONY: scorecard
 scorecard:
