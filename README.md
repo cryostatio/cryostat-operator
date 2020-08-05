@@ -19,6 +19,7 @@ and
 - [`operator-sdk`](https://github.com/operator-framework/operator-sdk) v0.15.2
 - [`opm`](https://github.com/operator-framework/operator-registry)
 - `podman`
+- `ginkgo` (Optional)
 
 ## Instructions
 Operator SDK requires the `GOROOT` environment variable to be set to the root
@@ -87,9 +88,13 @@ is handy for local development testing using ex. CodeReady Containers.
 - (optional) [crc](https://github.com/code-ready/crc)
 
 ## Instructions
-`make test` will run the automated tests. This requires an OpenShift 4 cluster
-to be available and logged in with your `oc` OpenShift Client. The recommended
-setup for development testing is CodeReady Containers (`crc`).
+`make test` will run all automated tests listed below. `make test-unit` will
+run only the operator's unit tests using `ginkgo` if installed, or `go test` if
+not. `make test-integration` and `make scorecard` are currently synonyms and
+will run only the Operator SDK's scorecard test suite. This requires an
+OpenShift 4 cluster to be available and logged in with your `oc` OpenShift
+Client. The recommended setup for development testing is CodeReady Containers
+(`crc`).
 
-Before the tests are run, all container-jfr and container-jfr-operator
+Before the scorecard tests are run, all container-jfr and container-jfr-operator
 resources will be deleted to ensure a clean slate.
