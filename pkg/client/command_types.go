@@ -39,8 +39,8 @@ package client
 import (
 	"encoding/json"
 	"errors"
+
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/apimachinery/pkg/util/uuid"
 )
 
 // CommandMessage represents the body of a command request to be sent
@@ -56,14 +56,14 @@ type CommandMessage struct {
 
 // NewCommandMessage provides a conventient shorthand for constructing
 // new CommandMessages
-func NewCommandMessage(command string, targetID string, args ...string) *CommandMessage {
-	return NewControlMessage(command, append([]string{targetID}, args...)...)
+func NewCommandMessage(command string, targetID string, id types.UID, args ...string) *CommandMessage {
+	return NewControlMessage(command, id, append([]string{targetID}, args...)...)
 }
 
 // NewControlMessage provides a convenient shorthand for constructing
 // new control CommandMessages, which do not include a targetID
-func NewControlMessage(command string, args ...string) *CommandMessage {
-	return &CommandMessage{ID: uuid.NewUUID(), Command: command, Args: args}
+func NewControlMessage(command string, id types.UID, args ...string) *CommandMessage {
+	return &CommandMessage{ID: id, Command: command, Args: args}
 }
 
 // ResponseStatus is a response code used by Container JFR to indiciate

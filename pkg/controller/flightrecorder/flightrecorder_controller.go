@@ -46,6 +46,7 @@ import (
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
@@ -64,10 +65,10 @@ func Add(mgr manager.Manager) error {
 
 // newReconciler returns a new reconcile.Reconciler
 func newReconciler(mgr manager.Manager) *ReconcileFlightRecorder {
-	return &ReconcileFlightRecorder{scheme: mgr.GetScheme(),
-		CommonReconciler: &common.CommonReconciler{
+	return &ReconcileFlightRecorder{Client: mgr.GetClient(), Scheme: mgr.GetScheme(),
+		Reconciler: common.NewReconciler(&common.ReconcilerConfig{
 			Client: mgr.GetClient(),
-		},
+		}),
 	}
 }
 
@@ -93,8 +94,11 @@ var _ reconcile.Reconciler = &ReconcileFlightRecorder{}
 
 // ReconcileFlightRecorder reconciles a FlightRecorder object
 type ReconcileFlightRecorder struct {
-	scheme *runtime.Scheme
-	*common.CommonReconciler
+	// This client, initialized using mgr.Client() above, is a split client
+	// that reads objects from the cache and writes to the apiserver
+	Client client.Client
+	Scheme *runtime.Scheme
+	common.Reconciler
 }
 
 // Reconcile reads that state of the cluster for a FlightRecorder object and makes changes based on the state read
@@ -134,13 +138,12 @@ func (r *ReconcileFlightRecorder) Reconcile(request reconcile.Request) (reconcil
 	}
 
 	// Keep client open to Container JFR as long as it doesn't fail
-	if r.JfrClient == nil {
-		jfrClient, err := r.ConnectToContainerJFR(ctx, cjfr.Namespace, cjfr.Name)
+	if !r.IsClientConnected() {
+		err := r.ConnectToContainerJFR(ctx, cjfr.Namespace, cjfr.Name)
 		if err != nil {
 			// Need Container JFR in order to reconcile anything, requeue until it appears
 			return reconcile.Result{}, err
 		}
-		r.JfrClient = jfrClient
 	}
 
 	// Look up pod corresponding to this FlightRecorder object
@@ -158,7 +161,7 @@ func (r *ReconcileFlightRecorder) Reconcile(request reconcile.Request) (reconcil
 
 	// Retrieve list of available events
 	log.Info("Listing event types for pod", "name", targetPod.Name, "namespace", targetPod.Namespace)
-	events, err := r.JfrClient.ListEventTypes(targetAddr)
+	events, err := r.ListEventTypes(targetAddr)
 	if err != nil {
 		log.Error(err, "failed to list event types")
 		r.CloseClient()

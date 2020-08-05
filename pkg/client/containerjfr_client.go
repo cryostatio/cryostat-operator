@@ -48,6 +48,8 @@ import (
 
 	"github.com/gorilla/websocket"
 	rhjmcv1alpha2 "github.com/rh-jmc-team/container-jfr-operator/pkg/apis/rhjmc/v1alpha2"
+	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/uuid"
 	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
 )
 
@@ -63,11 +65,25 @@ type Config struct {
 	ServerURL   *url.URL
 	AccessToken *string
 	TLSVerify   bool
+	UIDProvider func() types.UID
 }
 
 // ContainerJfrClient communicates with Container JFR's command server
 // using a WebSocket connection
-type ContainerJfrClient struct {
+type ContainerJfrClient interface {
+	ListRecordings(target *TargetAddress) ([]RecordingDescriptor, error)
+	DumpRecording(target *TargetAddress, name string, seconds int, events []string) error
+	StartRecording(target *TargetAddress, name string, events []string) error
+	StopRecording(target *TargetAddress, name string) error
+	DeleteRecording(target *TargetAddress, name string) error
+	SaveRecording(target *TargetAddress, name string) (*string, error)
+	ListSavedRecordings() ([]SavedRecording, error)
+	DeleteSavedRecording(jfrFile string) error
+	ListEventTypes(target *TargetAddress) ([]rhjmcv1alpha2.EventInfo, error)
+	Close() error
+}
+
+type containerJfrClient struct {
 	config *Config
 	conn   *websocket.Conn
 }
@@ -80,23 +96,27 @@ type TargetAddress struct {
 }
 
 // Create creates a ContainerJfrClient using the provided configuration
-func Create(config *Config) (*ContainerJfrClient, error) {
+func Create(config *Config) (ContainerJfrClient, error) {
+	configCopy := *config
 	if config.ServerURL == nil {
 		return nil, errors.New("ServerURL in config must not be nil")
 	}
 	if config.AccessToken == nil {
 		return nil, errors.New("AccessToken in config must not be nil")
 	}
+	if config.UIDProvider == nil {
+		configCopy.UIDProvider = uuid.NewUUID
+	}
 	conn, err := newWebSocketConn(config.ServerURL, config.AccessToken, config.TLSVerify)
 	if err != nil {
 		return nil, err
 	}
-	client := &ContainerJfrClient{config: config, conn: conn}
+	client := &containerJfrClient{config: &configCopy, conn: conn}
 	return client, nil
 }
 
 // Close releases the WebSocket connection used by this client
-func (client *ContainerJfrClient) Close() error {
+func (client *containerJfrClient) Close() error {
 	return client.conn.Close()
 }
 
@@ -121,8 +141,8 @@ func (target TargetAddress) String() string {
 }
 
 // ListRecordings returns a list of its in-memory Flight Recordings
-func (client *ContainerJfrClient) ListRecordings(target *TargetAddress) ([]RecordingDescriptor, error) {
-	listCmd := NewCommandMessage("list", target.String())
+func (client *containerJfrClient) ListRecordings(target *TargetAddress) ([]RecordingDescriptor, error) {
+	listCmd := NewCommandMessage("list", target.String(), client.newUID())
 	recordings := []RecordingDescriptor{}
 	err := client.syncMessage(listCmd, &recordings)
 	if err != nil {
@@ -133,9 +153,10 @@ func (client *ContainerJfrClient) ListRecordings(target *TargetAddress) ([]Recor
 }
 
 // DumpRecording instructs Container JFR to create a new recording of fixed duration
-func (client *ContainerJfrClient) DumpRecording(target *TargetAddress, name string, seconds int,
+func (client *containerJfrClient) DumpRecording(target *TargetAddress, name string, seconds int,
 	events []string) error {
-	dumpCmd := NewCommandMessage("dump", target.String(), name, strconv.Itoa(seconds), strings.Join(events, ","))
+	dumpCmd := NewCommandMessage("dump", target.String(), client.newUID(), name, strconv.Itoa(seconds),
+		strings.Join(events, ","))
 	var resp string
 	err := client.syncMessage(dumpCmd, &resp)
 	if err != nil {
@@ -146,8 +167,8 @@ func (client *ContainerJfrClient) DumpRecording(target *TargetAddress, name stri
 }
 
 // StartRecording instructs Container JFR to create a new continuous recording
-func (client *ContainerJfrClient) StartRecording(target *TargetAddress, name string, events []string) error {
-	startCmd := NewCommandMessage("start", target.String(), name, strings.Join(events, ","))
+func (client *containerJfrClient) StartRecording(target *TargetAddress, name string, events []string) error {
+	startCmd := NewCommandMessage("start", target.String(), client.newUID(), name, strings.Join(events, ","))
 	var resp string
 	err := client.syncMessage(startCmd, &resp)
 	if err != nil {
@@ -158,8 +179,8 @@ func (client *ContainerJfrClient) StartRecording(target *TargetAddress, name str
 }
 
 // StopRecording instructs Container JFR to stop a recording
-func (client *ContainerJfrClient) StopRecording(target *TargetAddress, name string) error {
-	stopCmd := NewCommandMessage("stop", target.String(), name)
+func (client *containerJfrClient) StopRecording(target *TargetAddress, name string) error {
+	stopCmd := NewCommandMessage("stop", target.String(), client.newUID(), name)
 	var resp string
 	err := client.syncMessage(stopCmd, &resp)
 	if err != nil {
@@ -170,8 +191,8 @@ func (client *ContainerJfrClient) StopRecording(target *TargetAddress, name stri
 }
 
 // DeleteRecording deletes a recording from Container JFR
-func (client *ContainerJfrClient) DeleteRecording(target *TargetAddress, name string) error {
-	deleteCmd := NewCommandMessage("delete", target.String(), name)
+func (client *containerJfrClient) DeleteRecording(target *TargetAddress, name string) error {
+	deleteCmd := NewCommandMessage("delete", target.String(), client.newUID(), name)
 	var resp string
 	err := client.syncMessage(deleteCmd, &resp)
 	if err != nil {
@@ -182,8 +203,8 @@ func (client *ContainerJfrClient) DeleteRecording(target *TargetAddress, name st
 }
 
 // SaveRecording copies a flight recording file from local memory to persistent storage
-func (client *ContainerJfrClient) SaveRecording(target *TargetAddress, name string) (*string, error) {
-	saveCmd := NewCommandMessage("save", target.String(), name)
+func (client *containerJfrClient) SaveRecording(target *TargetAddress, name string) (*string, error) {
+	saveCmd := NewCommandMessage("save", target.String(), client.newUID(), name)
 	var resp string
 	err := client.syncMessage(saveCmd, &resp)
 	if err != nil {
@@ -194,8 +215,8 @@ func (client *ContainerJfrClient) SaveRecording(target *TargetAddress, name stri
 }
 
 // ListSavedRecordings returns a list of recordings contained in persistent storage
-func (client *ContainerJfrClient) ListSavedRecordings() ([]SavedRecording, error) {
-	listCmd := NewControlMessage("list-saved")
+func (client *containerJfrClient) ListSavedRecordings() ([]SavedRecording, error) {
+	listCmd := NewControlMessage("list-saved", client.newUID())
 	recordings := []SavedRecording{}
 	err := client.syncMessage(listCmd, &recordings)
 	if err != nil {
@@ -207,8 +228,8 @@ func (client *ContainerJfrClient) ListSavedRecordings() ([]SavedRecording, error
 
 // DeleteSavedRecording deletes a recording from the persistent storage managed
 // by Container JFR
-func (client *ContainerJfrClient) DeleteSavedRecording(jfrFile string) error {
-	deleteCmd := NewControlMessage("delete-saved", jfrFile)
+func (client *containerJfrClient) DeleteSavedRecording(jfrFile string) error {
+	deleteCmd := NewControlMessage("delete-saved", client.newUID(), jfrFile)
 	var resp string
 	err := client.syncMessage(deleteCmd, &resp)
 	if err != nil {
@@ -219,8 +240,8 @@ func (client *ContainerJfrClient) DeleteSavedRecording(jfrFile string) error {
 }
 
 // ListEventTypes returns a list of events available in the target JVM
-func (client *ContainerJfrClient) ListEventTypes(target *TargetAddress) ([]rhjmcv1alpha2.EventInfo, error) {
-	listCmd := NewCommandMessage("list-event-types", target.String())
+func (client *containerJfrClient) ListEventTypes(target *TargetAddress) ([]rhjmcv1alpha2.EventInfo, error) {
+	listCmd := NewCommandMessage("list-event-types", target.String(), client.newUID())
 	events := []rhjmcv1alpha2.EventInfo{}
 	err := client.syncMessage(listCmd, &events)
 	if err != nil {
@@ -230,7 +251,7 @@ func (client *ContainerJfrClient) ListEventTypes(target *TargetAddress) ([]rhjmc
 	return events, nil
 }
 
-func (client *ContainerJfrClient) syncMessage(msg *CommandMessage, responsePayload interface{}) error {
+func (client *containerJfrClient) syncMessage(msg *CommandMessage, responsePayload interface{}) error {
 	client.conn.SetWriteDeadline(time.Now().Add(ioTimeout))
 	err := client.conn.WriteJSON(msg)
 	if err != nil {
@@ -258,7 +279,7 @@ func (client *ContainerJfrClient) syncMessage(msg *CommandMessage, responsePaylo
 	return err
 }
 
-func (client *ContainerJfrClient) readResponse(msg *CommandMessage,
+func (client *containerJfrClient) readResponse(msg *CommandMessage,
 	responsePayload interface{}) (*ResponseMessage, error) {
 	// Set the original message ID so our decoder can verify it.
 	// By setting the output argument in the struct, the decoder knows what type
@@ -278,4 +299,8 @@ func (client *ContainerJfrClient) readResponse(msg *CommandMessage,
 		}
 	}
 	return nil, errors.New("Timed out waiting for a response")
+}
+
+func (client *containerJfrClient) newUID() types.UID {
+	return client.config.UIDProvider()
 }
