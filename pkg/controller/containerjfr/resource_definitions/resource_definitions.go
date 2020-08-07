@@ -191,6 +191,10 @@ func NewCoreContainer(cr *rhjmcv1alpha1.ContainerJFR, specs *ServiceSpecs) corev
 			Name:  "GRAFANA_DATASOURCE_URL",
 			Value: specs.DatasourceAddress,
 		},
+		{
+			Name:  "CONTAINER_JFR_RJMX_PASS",
+			Value: GenPasswd(20),
+		},
 	}
 	imageTag := "quay.io/rh-jmc-team/container-jfr:0.19.0"
 	if cr.Spec.Minimal {
