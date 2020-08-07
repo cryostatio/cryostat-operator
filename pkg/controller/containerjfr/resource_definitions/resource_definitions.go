@@ -192,6 +192,10 @@ func NewCoreContainer(cr *rhjmcv1alpha1.ContainerJFR, specs *ServiceSpecs) corev
 			Value: specs.DatasourceAddress,
 		},
 		{
+			Name:  "CONTAINER_JFR_RJMX_USER",
+			Value: "containerjfr",
+		},
+		{
 			Name:  "CONTAINER_JFR_RJMX_PASS",
 			Value: GenPasswd(20),
 		},
