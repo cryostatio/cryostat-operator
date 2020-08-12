@@ -64,41 +64,8 @@ var _ = Describe("RecordingController", func() {
 			test.NewContainerJFRService(), test.NewRecording(false),
 		}
 		messages = []test.WsMessage{
-			{
-				ExpectedMsg: jfrclient.NewCommandMessage(
-					"dump",
-					"1.2.3.4:8001",
-					types.UID("0"),
-					"test-recording",
-					"30",
-					"jdk.socketRead:enabled=true,jdk.socketWrite:enabled=true"),
-				Reply: &jfrclient.ResponseMessage{
-					ID:          types.UID("0"),
-					CommandName: "dump",
-					Status:      jfrclient.ResponseStatusSuccess,
-					Payload:     "",
-				},
-			},
-			{
-				ExpectedMsg: jfrclient.NewCommandMessage(
-					"list",
-					"1.2.3.4:8001",
-					types.UID("1")),
-				Reply: &jfrclient.ResponseMessage{
-					ID:          types.UID("1"),
-					CommandName: "list",
-					Status:      jfrclient.ResponseStatusSuccess,
-					Payload: []jfrclient.RecordingDescriptor{
-						{
-							Name:        "test-recording",
-							State:       "RUNNING",
-							StartTime:   1597090030341,
-							Duration:    30000,
-							DownloadURL: "http://path/to/test-recording.jfr",
-						},
-					},
-				},
-			},
+			test.NewDumpMessage(),
+			test.NewListMessage("RUNNING", 30000),
 		}
 	})
 
@@ -139,40 +106,8 @@ var _ = Describe("RecordingController", func() {
 					test.NewContainerJFRService(), test.NewRecording(true),
 				}
 				messages = []test.WsMessage{
-					{
-						ExpectedMsg: jfrclient.NewCommandMessage(
-							"start",
-							"1.2.3.4:8001",
-							types.UID("0"),
-							"test-recording",
-							"jdk.socketRead:enabled=true,jdk.socketWrite:enabled=true"),
-						Reply: &jfrclient.ResponseMessage{
-							ID:          types.UID("0"),
-							CommandName: "start",
-							Status:      jfrclient.ResponseStatusSuccess,
-							Payload:     "http://path/to/test-recording.jfr",
-						},
-					},
-					{
-						ExpectedMsg: jfrclient.NewCommandMessage(
-							"list",
-							"1.2.3.4:8001",
-							types.UID("1")),
-						Reply: &jfrclient.ResponseMessage{
-							ID:          types.UID("1"),
-							CommandName: "list",
-							Status:      jfrclient.ResponseStatusSuccess,
-							Payload: []jfrclient.RecordingDescriptor{
-								{
-									Name:        "test-recording",
-									State:       "RUNNING",
-									StartTime:   1597090030341,
-									Duration:    0,
-									DownloadURL: "http://path/to/test-recording.jfr",
-								},
-							},
-						},
-					},
+					test.NewStartMessage(),
+					test.NewListMessage("RUNNING", 0),
 				}
 			})
 			It("updates status with recording info", func() {
@@ -186,26 +121,7 @@ var _ = Describe("RecordingController", func() {
 					test.NewContainerJFRService(), test.NewRunningRecording(false),
 				}
 				messages = []test.WsMessage{
-					{
-						ExpectedMsg: jfrclient.NewCommandMessage(
-							"list",
-							"1.2.3.4:8001",
-							types.UID("0")),
-						Reply: &jfrclient.ResponseMessage{
-							ID:          types.UID("0"),
-							CommandName: "list",
-							Status:      jfrclient.ResponseStatusSuccess,
-							Payload: []jfrclient.RecordingDescriptor{
-								{
-									Name:        "test-recording",
-									State:       "RUNNING",
-									StartTime:   1597090030341,
-									Duration:    30000,
-									DownloadURL: "http://path/to/test-recording.jfr",
-								},
-							},
-						},
-					},
+					test.NewListMessage("RUNNING", 30000),
 				}
 			})
 			It("should not change status", func() {
@@ -241,39 +157,8 @@ var _ = Describe("RecordingController", func() {
 					test.NewContainerJFRService(), rec,
 				}
 				messages = []test.WsMessage{
-					{
-						ExpectedMsg: jfrclient.NewCommandMessage(
-							"stop",
-							"1.2.3.4:8001",
-							types.UID("0"),
-							"test-recording"),
-						Reply: &jfrclient.ResponseMessage{
-							ID:          types.UID("0"),
-							CommandName: "stop",
-							Status:      jfrclient.ResponseStatusSuccess,
-							Payload:     "",
-						},
-					},
-					{
-						ExpectedMsg: jfrclient.NewCommandMessage(
-							"list",
-							"1.2.3.4:8001",
-							types.UID("1")),
-						Reply: &jfrclient.ResponseMessage{
-							ID:          types.UID("1"),
-							CommandName: "list",
-							Status:      jfrclient.ResponseStatusSuccess,
-							Payload: []jfrclient.RecordingDescriptor{
-								{
-									Name:        "test-recording",
-									State:       "STOPPED",
-									StartTime:   1597090030341,
-									Duration:    30000,
-									DownloadURL: "http://path/to/test-recording.jfr",
-								},
-							},
-						},
-					},
+					test.NewStopMessage(),
+					test.NewListMessage("STOPPED", 30000),
 				}
 			})
 			It("should stop recording", func() {
@@ -290,67 +175,10 @@ var _ = Describe("RecordingController", func() {
 					test.NewContainerJFRService(), rec,
 				}
 				messages = []test.WsMessage{
-					{
-						ExpectedMsg: jfrclient.NewCommandMessage(
-							"list",
-							"1.2.3.4:8001",
-							types.UID("0")),
-						Reply: &jfrclient.ResponseMessage{
-							ID:          types.UID("0"),
-							CommandName: "list",
-							Status:      jfrclient.ResponseStatusSuccess,
-							Payload: []jfrclient.RecordingDescriptor{
-								{
-									Name:        "test-recording",
-									State:       "STOPPED",
-									StartTime:   1597090030341,
-									Duration:    30000,
-									DownloadURL: "http://path/to/test-recording.jfr",
-								},
-							},
-						},
-					},
-					{
-						ExpectedMsg: jfrclient.NewControlMessage(
-							"list-saved",
-							types.UID("1")),
-						Reply: &jfrclient.ResponseMessage{
-							ID:          types.UID("1"),
-							CommandName: "list-saved",
-							Status:      jfrclient.ResponseStatusSuccess,
-							Payload:     []jfrclient.SavedRecording{},
-						},
-					},
-					{
-						ExpectedMsg: jfrclient.NewCommandMessage(
-							"save",
-							"1.2.3.4:8001",
-							types.UID("2"),
-							"test-recording"),
-						Reply: &jfrclient.ResponseMessage{
-							ID:          types.UID("2"),
-							CommandName: "save",
-							Status:      jfrclient.ResponseStatusSuccess,
-							Payload:     "saved-test-recording.jfr",
-						},
-					},
-					{
-						ExpectedMsg: jfrclient.NewControlMessage(
-							"list-saved",
-							types.UID("3")),
-						Reply: &jfrclient.ResponseMessage{
-							ID:          types.UID("3"),
-							CommandName: "list-saved",
-							Status:      jfrclient.ResponseStatusSuccess,
-							Payload: []jfrclient.SavedRecording{
-								{
-									Name:        "saved-test-recording.jfr",
-									DownloadURL: "http://path/to/saved-test-recording.jfr",
-									ReportURL:   "http://path/to/saved-test-recording.html",
-								},
-							},
-						},
-					},
+					test.NewListMessage("STOPPED", 30000),
+					test.NewListSavedEmptyMessage(),
+					test.NewSaveMessage(),
+					test.NewListSavedMessage(),
 				}
 			})
 			It("should update download URL", func() {
@@ -391,80 +219,11 @@ var _ = Describe("RecordingController", func() {
 					test.NewContainerJFRService(), rec,
 				}
 				messages = []test.WsMessage{
-					{
-						ExpectedMsg: jfrclient.NewCommandMessage(
-							"stop",
-							"1.2.3.4:8001",
-							types.UID("0"),
-							"test-recording"),
-						Reply: &jfrclient.ResponseMessage{
-							ID:          types.UID("0"),
-							CommandName: "stop",
-							Status:      jfrclient.ResponseStatusSuccess,
-							Payload:     "",
-						},
-					},
-					{
-						ExpectedMsg: jfrclient.NewCommandMessage(
-							"list",
-							"1.2.3.4:8001",
-							types.UID("1")),
-						Reply: &jfrclient.ResponseMessage{
-							ID:          types.UID("1"),
-							CommandName: "list",
-							Status:      jfrclient.ResponseStatusSuccess,
-							Payload: []jfrclient.RecordingDescriptor{
-								{
-									Name:        "test-recording",
-									State:       "STOPPED",
-									StartTime:   1597090030341,
-									Duration:    30000,
-									DownloadURL: "http://path/to/test-recording.jfr",
-								},
-							},
-						},
-					},
-					{
-						ExpectedMsg: jfrclient.NewControlMessage(
-							"list-saved",
-							types.UID("2")),
-						Reply: &jfrclient.ResponseMessage{
-							ID:          types.UID("2"),
-							CommandName: "list-saved",
-							Status:      jfrclient.ResponseStatusSuccess,
-							Payload:     []jfrclient.SavedRecording{},
-						},
-					},
-					{
-						ExpectedMsg: jfrclient.NewCommandMessage(
-							"save",
-							"1.2.3.4:8001",
-							types.UID("3"),
-							"test-recording"),
-						Reply: &jfrclient.ResponseMessage{
-							ID:          types.UID("3"),
-							CommandName: "save",
-							Status:      jfrclient.ResponseStatusSuccess,
-							Payload:     "saved-test-recording.jfr",
-						},
-					},
-					{
-						ExpectedMsg: jfrclient.NewControlMessage(
-							"list-saved",
-							types.UID("4")),
-						Reply: &jfrclient.ResponseMessage{
-							ID:          types.UID("4"),
-							CommandName: "list-saved",
-							Status:      jfrclient.ResponseStatusSuccess,
-							Payload: []jfrclient.SavedRecording{
-								{
-									Name:        "saved-test-recording.jfr",
-									DownloadURL: "http://path/to/saved-test-recording.jfr",
-									ReportURL:   "http://path/to/saved-test-recording.html",
-								},
-							},
-						},
-					},
+					test.NewStopMessage(),
+					test.NewListMessage("STOPPED", 30000),
+					test.NewListSavedEmptyMessage(),
+					test.NewSaveMessage(),
+					test.NewListSavedMessage(),
 				}
 			})
 			It("should stop recording", func() {
@@ -520,8 +279,4 @@ func expectRecordingStatus(controller *recording.ReconcileRecording, client clie
 	}))
 	Expect(obj.Status.DownloadURL).ToNot(BeNil())
 	Expect(*obj.Status.DownloadURL).To(Equal(desc.DownloadURL))
-}
-
-func expectDownloadURLUpdated(controller *recording.ReconcileRecording, client client.Client, newURL string) {
-
 }

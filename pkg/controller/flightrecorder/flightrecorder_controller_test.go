@@ -53,7 +53,6 @@ import (
 	"github.com/operator-framework/operator-sdk/pkg/log/zap"
 	rhjmcv1alpha1 "github.com/rh-jmc-team/container-jfr-operator/pkg/apis/rhjmc/v1alpha1"
 	rhjmcv1alpha2 "github.com/rh-jmc-team/container-jfr-operator/pkg/apis/rhjmc/v1alpha2"
-	jfrclient "github.com/rh-jmc-team/container-jfr-operator/pkg/client"
 	"github.com/rh-jmc-team/container-jfr-operator/pkg/controller/flightrecorder"
 	"github.com/rh-jmc-team/container-jfr-operator/test"
 )
@@ -95,20 +94,7 @@ var _ = Describe("FlightRecorderController", func() {
 			test.NewContainerJFR(), test.NewFlightRecorder(), test.NewTargetPod(), test.NewContainerJFRService(),
 		}
 		messages = []test.WsMessage{
-			{
-				ExpectedMsg: jfrclient.NewCommandMessage(
-					"list-event-types",
-					"1.2.3.4:8001",
-					types.UID("0")),
-				Reply: &jfrclient.ResponseMessage{
-					ID:          types.UID("0"),
-					CommandName: "list-event-types",
-					Status:      jfrclient.ResponseStatusSuccess,
-					Payload: []rhjmcv1alpha2.EventInfo{
-						test.NewSocketReadEventInfo(),
-					},
-				},
-			},
+			test.NewListEventTypesMessage(),
 		}
 	})
 
@@ -134,20 +120,10 @@ var _ = Describe("FlightRecorderController", func() {
 		})
 		Context("after FlightRecorder already reconciled successfully", func() {
 			BeforeEach(func() {
-				messages = append(messages, test.WsMessage{
-					ExpectedMsg: jfrclient.NewCommandMessage(
-						"list-event-types",
-						"1.2.3.4:8001",
-						types.UID("1")),
-					Reply: &jfrclient.ResponseMessage{
-						ID:          types.UID("1"),
-						CommandName: "list-event-types",
-						Status:      jfrclient.ResponseStatusSuccess,
-						Payload: []rhjmcv1alpha2.EventInfo{
-							test.NewSocketReadEventInfo(),
-						},
-					},
-				})
+				messages = []test.WsMessage{
+					test.NewListEventTypesMessage(),
+					test.NewListEventTypesMessage(),
+				}
 			})
 			It("should be idempotent", func() {
 				req := reconcile.Request{NamespacedName: types.NamespacedName{Name: "test-pod", Namespace: "default"}}
@@ -201,18 +177,7 @@ var _ = Describe("FlightRecorderController", func() {
 		Context("list-event-types command fails", func() {
 			BeforeEach(func() {
 				messages = []test.WsMessage{
-					{
-						ExpectedMsg: jfrclient.NewCommandMessage(
-							"list-event-types",
-							"1.2.3.4:8001",
-							types.UID("0")),
-						Reply: &jfrclient.ResponseMessage{
-							ID:          types.UID("0"),
-							CommandName: "list-event-types",
-							Status:      jfrclient.ResponseStatusFailure,
-							Payload:     "command failed",
-						},
-					},
+					test.NewListEventTypesMessageFail(),
 				}
 			})
 			It("should requeue with error", func() {
