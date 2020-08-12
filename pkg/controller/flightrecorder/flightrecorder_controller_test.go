@@ -38,18 +38,10 @@ package flightrecorder_test
 
 import (
 	"context"
-	"fmt"
-	"net/http"
-	"net/url"
-	"strconv"
-	"strings"
 	"time"
 
-	"github.com/gorilla/websocket"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	"github.com/onsi/gomega/ghttp"
-	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes/scheme"
@@ -62,15 +54,15 @@ import (
 	rhjmcv1alpha1 "github.com/rh-jmc-team/container-jfr-operator/pkg/apis/rhjmc/v1alpha1"
 	rhjmcv1alpha2 "github.com/rh-jmc-team/container-jfr-operator/pkg/apis/rhjmc/v1alpha2"
 	jfrclient "github.com/rh-jmc-team/container-jfr-operator/pkg/client"
-	"github.com/rh-jmc-team/container-jfr-operator/pkg/controller/common"
 	"github.com/rh-jmc-team/container-jfr-operator/pkg/controller/flightrecorder"
+	"github.com/rh-jmc-team/container-jfr-operator/test"
 )
 
 var _ = Describe("FlightRecorderController", func() {
 	var (
 		objs       []runtime.Object
-		messages   []wsMessage
-		server     *ghttp.Server
+		messages   []test.WsMessage
+		server     *test.ContainerJFRServer
 		client     client.Client
 		controller *flightrecorder.ReconcileFlightRecorder
 	)
@@ -84,25 +76,12 @@ var _ = Describe("FlightRecorderController", func() {
 		s.AddKnownTypes(rhjmcv1alpha2.SchemeGroupVersion, &rhjmcv1alpha2.FlightRecorder{},
 			&rhjmcv1alpha2.FlightRecorderList{})
 
-		server = ghttp.NewServer()
-		clientURLResp := struct {
-			ClientURL string `json:"clientUrl"`
-		}{
-			getClientURL(server),
-		}
-		server.RouteToHandler("GET", "/api/v1/clienturl", ghttp.RespondWithJSONEncoded(http.StatusOK, clientURLResp))
-		server.RouteToHandler("GET", "/command", replayHandler(messages))
-		updateContainerJFRService(server, cjfrSvc)
-
 		client = fake.NewFakeClientWithScheme(s, objs...)
+		server = test.NewServer(client, messages)
 		controller = &flightrecorder.ReconcileFlightRecorder{
-			Client: client,
-			Scheme: s,
-			Reconciler: common.NewReconciler(&common.ReconcilerConfig{
-				Client:    client,
-				Connector: &testConnector{},
-				OS:        &testOSUtils{},
-			}),
+			Client:     client,
+			Scheme:     s,
+			Reconciler: test.NewTestReconciler(client),
 		}
 	})
 
@@ -113,20 +92,20 @@ var _ = Describe("FlightRecorderController", func() {
 
 	BeforeEach(func() {
 		objs = []runtime.Object{
-			cjfr, fr, pod, cjfrSvc,
+			test.NewContainerJFR(), test.NewFlightRecorder(), test.NewTargetPod(), test.NewContainerJFRService(),
 		}
-		messages = []wsMessage{
+		messages = []test.WsMessage{
 			{
-				expectedMsg: jfrclient.NewCommandMessage(
+				ExpectedMsg: jfrclient.NewCommandMessage(
 					"list-event-types",
 					"1.2.3.4:8001",
 					types.UID("0")),
-				reply: &jfrclient.ResponseMessage{
+				Reply: &jfrclient.ResponseMessage{
 					ID:          types.UID("0"),
 					CommandName: "list-event-types",
 					Status:      jfrclient.ResponseStatusSuccess,
 					Payload: []rhjmcv1alpha2.EventInfo{
-						socketReadEvent,
+						test.NewSocketReadEventInfo(),
 					},
 				},
 			},
@@ -148,23 +127,24 @@ var _ = Describe("FlightRecorderController", func() {
 				Expect(result).To(Equal(reconcile.Result{}))
 
 				obj := &rhjmcv1alpha2.FlightRecorder{}
-				client.Get(context.Background(), req.NamespacedName, obj)
-				Expect(obj.Status.Events).To(Equal(messages[0].reply.Payload))
+				err = client.Get(context.Background(), req.NamespacedName, obj)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(obj.Status.Events).To(Equal(messages[0].Reply.Payload))
 			})
 		})
 		Context("after FlightRecorder already reconciled successfully", func() {
 			BeforeEach(func() {
-				messages = append(messages, wsMessage{
-					expectedMsg: jfrclient.NewCommandMessage(
+				messages = append(messages, test.WsMessage{
+					ExpectedMsg: jfrclient.NewCommandMessage(
 						"list-event-types",
 						"1.2.3.4:8001",
 						types.UID("1")),
-					reply: &jfrclient.ResponseMessage{
+					Reply: &jfrclient.ResponseMessage{
 						ID:          types.UID("1"),
 						CommandName: "list-event-types",
 						Status:      jfrclient.ResponseStatusSuccess,
 						Payload: []rhjmcv1alpha2.EventInfo{
-							socketReadEvent,
+							test.NewSocketReadEventInfo(),
 						},
 					},
 				})
@@ -176,7 +156,8 @@ var _ = Describe("FlightRecorderController", func() {
 				Expect(result).To(Equal(reconcile.Result{}))
 
 				obj := &rhjmcv1alpha2.FlightRecorder{}
-				client.Get(context.Background(), req.NamespacedName, obj)
+				err = client.Get(context.Background(), req.NamespacedName, obj)
+				Expect(err).ToNot(HaveOccurred())
 
 				// Reconcile same FlightRecorder again
 				result, err = controller.Reconcile(req)
@@ -184,14 +165,15 @@ var _ = Describe("FlightRecorderController", func() {
 				Expect(result).To(Equal(reconcile.Result{}))
 
 				obj2 := &rhjmcv1alpha2.FlightRecorder{}
-				client.Get(context.Background(), req.NamespacedName, obj2)
+				err = client.Get(context.Background(), req.NamespacedName, obj2)
+				Expect(err).ToNot(HaveOccurred())
 				Expect(obj2.Status).To(Equal(obj.Status))
 				Expect(obj2.Spec).To(Equal(obj.Spec))
 			})
 		})
 		Context("FlightRecorder does not exist", func() {
 			BeforeEach(func() {
-				messages = []wsMessage{}
+				messages = []test.WsMessage{}
 			})
 			It("should do nothing", func() {
 				req := reconcile.Request{NamespacedName: types.NamespacedName{Name: "does-not-exist", Namespace: "default"}}
@@ -202,12 +184,12 @@ var _ = Describe("FlightRecorderController", func() {
 		})
 		Context("FlightRecorder Status not updated yet", func() {
 			BeforeEach(func() {
-				otherFr := *fr
+				otherFr := test.NewFlightRecorder()
 				otherFr.Status = rhjmcv1alpha2.FlightRecorderStatus{}
 				objs = []runtime.Object{
-					cjfr, &otherFr, pod, cjfrSvc,
+					test.NewContainerJFR(), otherFr, test.NewTargetPod(), test.NewContainerJFRService(),
 				}
-				messages = []wsMessage{}
+				messages = []test.WsMessage{}
 			})
 			It("should requeue", func() {
 				req := reconcile.Request{NamespacedName: types.NamespacedName{Name: "test-pod", Namespace: "default"}}
@@ -218,13 +200,13 @@ var _ = Describe("FlightRecorderController", func() {
 		})
 		Context("list-event-types command fails", func() {
 			BeforeEach(func() {
-				messages = []wsMessage{
+				messages = []test.WsMessage{
 					{
-						expectedMsg: jfrclient.NewCommandMessage(
+						ExpectedMsg: jfrclient.NewCommandMessage(
 							"list-event-types",
 							"1.2.3.4:8001",
 							types.UID("0")),
-						reply: &jfrclient.ResponseMessage{
+						Reply: &jfrclient.ResponseMessage{
 							ID:          types.UID("0"),
 							CommandName: "list-event-types",
 							Status:      jfrclient.ResponseStatusFailure,
@@ -245,9 +227,9 @@ var _ = Describe("FlightRecorderController", func() {
 		Context("Container JFR CR is missing", func() {
 			BeforeEach(func() {
 				objs = []runtime.Object{
-					fr, pod, cjfrSvc,
+					test.NewFlightRecorder(), test.NewTargetPod(), test.NewContainerJFRService(),
 				}
-				messages = []wsMessage{}
+				messages = []test.WsMessage{}
 			})
 			It("should requeue with error", func() {
 				expectReconcileError(controller)
@@ -256,9 +238,9 @@ var _ = Describe("FlightRecorderController", func() {
 		Context("Container JFR service is missing", func() {
 			BeforeEach(func() {
 				objs = []runtime.Object{
-					cjfr, fr, pod,
+					test.NewContainerJFR(), test.NewFlightRecorder(), test.NewTargetPod(),
 				}
-				messages = []wsMessage{}
+				messages = []test.WsMessage{}
 			})
 			It("should requeue with error", func() {
 				expectReconcileError(controller)
@@ -267,9 +249,9 @@ var _ = Describe("FlightRecorderController", func() {
 		Context("Target pod is missing", func() {
 			BeforeEach(func() {
 				objs = []runtime.Object{
-					cjfr, fr, cjfrSvc,
+					test.NewContainerJFR(), test.NewFlightRecorder(), test.NewContainerJFRService(),
 				}
-				messages = []wsMessage{}
+				messages = []test.WsMessage{}
 			})
 			It("should requeue with error", func() {
 				expectReconcileError(controller)
@@ -277,12 +259,12 @@ var _ = Describe("FlightRecorderController", func() {
 		})
 		Context("Target pod has no IP", func() {
 			BeforeEach(func() {
-				otherPod := *pod
+				otherPod := test.NewTargetPod()
 				otherPod.Status.PodIP = ""
 				objs = []runtime.Object{
-					cjfr, fr, &otherPod, cjfrSvc,
+					test.NewContainerJFR(), test.NewFlightRecorder(), otherPod, test.NewContainerJFRService(),
 				}
-				messages = []wsMessage{}
+				messages = []test.WsMessage{}
 			})
 			It("should requeue with error", func() {
 				expectReconcileError(controller)
@@ -296,69 +278,4 @@ func expectReconcileError(controller *flightrecorder.ReconcileFlightRecorder) {
 	result, err := controller.Reconcile(req)
 	Expect(err).To(HaveOccurred())
 	Expect(result).To(Equal(reconcile.Result{}))
-}
-
-type wsMessage struct {
-	expectedMsg *jfrclient.CommandMessage
-	reply       *jfrclient.ResponseMessage
-}
-
-type testConnector struct {
-	uidCount int
-}
-
-func (c *testConnector) Connect(config *jfrclient.Config) (jfrclient.ContainerJfrClient, error) {
-	uidFunc := func() types.UID {
-		uid := strconv.Itoa(c.uidCount)
-		c.uidCount++
-		return types.UID(uid)
-	}
-
-	config.UIDProvider = uidFunc
-	return jfrclient.Create(config)
-}
-
-type testOSUtils struct{}
-
-func (o *testOSUtils) GetFileContents(path string) ([]byte, error) {
-	Expect(path).To(Equal("/var/run/secrets/kubernetes.io/serviceaccount/token"))
-	return []byte("myToken"), nil
-}
-
-func (o *testOSUtils) GetEnv(name string) string {
-	Expect(name).To(Equal("TLS_VERIFY"))
-	return "false"
-}
-
-func updateContainerJFRService(server *ghttp.Server, svc *corev1.Service) {
-	serverURL, err := url.Parse(server.URL())
-	Expect(err).ToNot(HaveOccurred())
-
-	svc.Spec.ClusterIP = serverURL.Hostname()
-	port, err := strconv.Atoi(serverURL.Port())
-	Expect(err).ToNot(HaveOccurred())
-	svc.Spec.Ports[0].Port = int32(port)
-}
-
-func replayHandler(messages []wsMessage) http.HandlerFunc {
-	return func(rw http.ResponseWriter, req *http.Request) {
-		upgrader := websocket.Upgrader{}
-
-		conn, err := upgrader.Upgrade(rw, req, nil)
-		Expect(err).ToNot(HaveOccurred())
-		defer conn.Close()
-
-		for _, msg := range messages {
-			in := &jfrclient.CommandMessage{}
-			err := conn.ReadJSON(in)
-			Expect(err).ToNot(HaveOccurred())
-			Expect(in).To(Equal(msg.expectedMsg))
-			err = conn.WriteJSON(msg.reply)
-			Expect(err).ToNot(HaveOccurred())
-		}
-	}
-}
-
-func getClientURL(server *ghttp.Server) string {
-	return fmt.Sprintf("ws%s/command", strings.TrimPrefix(server.URL(), "http"))
 }

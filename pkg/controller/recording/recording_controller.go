@@ -70,7 +70,7 @@ func Add(mgr manager.Manager) error {
 
 // newReconciler returns a new reconcile.Reconciler
 func newReconciler(mgr manager.Manager) reconcile.Reconciler {
-	return &ReconcileRecording{scheme: mgr.GetScheme(), Client: mgr.GetClient(),
+	return &ReconcileRecording{Scheme: mgr.GetScheme(), Client: mgr.GetClient(),
 		Reconciler: common.NewReconciler(&common.ReconcilerConfig{
 			Client: mgr.GetClient(),
 		}),
@@ -102,7 +102,7 @@ type ReconcileRecording struct {
 	// This client, initialized using mgr.Client() above, is a split client
 	// that reads objects from the cache and writes to the apiserver
 	Client client.Client
-	scheme *runtime.Scheme
+	Scheme *runtime.Scheme
 	common.Reconciler
 }
 
