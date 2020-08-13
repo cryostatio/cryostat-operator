@@ -177,7 +177,7 @@ var _ = Describe("FlightRecorderController", func() {
 		Context("list-event-types command fails", func() {
 			BeforeEach(func() {
 				messages = []test.WsMessage{
-					test.NewListEventTypesMessageFail(),
+					test.FailMessage(test.NewListEventTypesMessage()),
 				}
 			})
 			It("should requeue with error", func() {

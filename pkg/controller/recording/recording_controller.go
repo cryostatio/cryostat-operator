@@ -141,6 +141,7 @@ func (r *ReconcileRecording) Reconcile(request reconcile.Request) (reconcile.Res
 			// Request object not found, could have been deleted after reconcile request.
 			// Owned objects are automatically garbage collected. For additional cleanup logic use finalizers.
 			// Return and don't requeue
+			reqLogger.Info("Recording does not exist")
 			return reconcile.Result{}, nil
 		}
 		// Error reading the object - requeue the request.
@@ -152,7 +153,7 @@ func (r *ReconcileRecording) Reconcile(request reconcile.Request) (reconcile.Res
 		// Delete any persisted JFR file for this recording
 		err := r.removeSavedRecording(ctx, instance)
 		if err != nil {
-			log.Error(err, "failed to delete saved recording in Container JFR", "namespace",
+			reqLogger.Error(err, "failed to delete saved recording in Container JFR", "namespace",
 				instance.Namespace, "name", instance.Name)
 			return reconcile.Result{}, err
 		}

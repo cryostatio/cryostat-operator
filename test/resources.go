@@ -78,30 +78,61 @@ func NewFlightRecorder() *rhjmcv1alpha2.FlightRecorder {
 	}
 }
 
-func NewRecording(continuous bool) *rhjmcv1alpha2.Recording {
-	return &rhjmcv1alpha2.Recording{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "my-recording",
-			Namespace: "default",
-		},
-		Spec: rhjmcv1alpha2.RecordingSpec{
-			Name: "test-recording",
-			EventOptions: []string{
-				"jdk.socketRead:enabled=true",
-				"jdk.socketWrite:enabled=true",
-			},
-			Duration: metav1.Duration{Duration: getDuration(continuous)},
-			Archive:  true,
-			FlightRecorder: &corev1.LocalObjectReference{
-				Name: "test-pod",
-			},
-		},
-	}
+func NewRecording() *rhjmcv1alpha2.Recording {
+	return newRecording(getDuration(false), nil, nil, false)
 }
 
-func NewRunningRecording(continuous bool) *rhjmcv1alpha2.Recording {
-	state := rhjmcv1alpha2.RecordingStateRunning
-	url := "http://path/to/test-recording.jfr"
+func NewContinuousRecording() *rhjmcv1alpha2.Recording {
+	return newRecording(getDuration(true), nil, nil, false)
+}
+
+func NewRunningRecording() *rhjmcv1alpha2.Recording {
+	running := rhjmcv1alpha2.RecordingStateRunning
+	return newRecording(getDuration(false), &running, nil, false)
+}
+
+func NewRunningContinuousRecording() *rhjmcv1alpha2.Recording {
+	running := rhjmcv1alpha2.RecordingStateRunning
+	return newRecording(getDuration(true), &running, nil, false)
+}
+
+func NewRecordingToStop() *rhjmcv1alpha2.Recording {
+	running := rhjmcv1alpha2.RecordingStateRunning
+	stopped := rhjmcv1alpha2.RecordingStateStopped
+	return newRecording(getDuration(true), &running, &stopped, false)
+}
+
+func NewStoppedRecordingToArchive() *rhjmcv1alpha2.Recording {
+	stopped := rhjmcv1alpha2.RecordingStateStopped
+	return newRecording(getDuration(false), &stopped, nil, true)
+}
+
+func NewRecordingToStopAndArchive() *rhjmcv1alpha2.Recording {
+	running := rhjmcv1alpha2.RecordingStateRunning
+	stopped := rhjmcv1alpha2.RecordingStateStopped
+	return newRecording(getDuration(true), &running, &stopped, true)
+}
+
+func NewArchivedRecording() *rhjmcv1alpha2.Recording {
+	stopped := rhjmcv1alpha2.RecordingStateStopped
+	rec := newRecording(getDuration(false), &stopped, nil, true)
+	savedURL := "http://path/to/saved-test-recording.jfr"
+	rec.Status.DownloadURL = &savedURL
+	return rec
+}
+
+func newRecording(duration time.Duration, currentState *rhjmcv1alpha2.RecordingState,
+	requestedState *rhjmcv1alpha2.RecordingState, archive bool) *rhjmcv1alpha2.Recording {
+	status := rhjmcv1alpha2.RecordingStatus{}
+	if currentState != nil {
+		url := "http://path/to/test-recording.jfr"
+		status = rhjmcv1alpha2.RecordingStatus{
+			State:       currentState,
+			StartTime:   metav1.Unix(0, 1597090030341*int64(time.Millisecond)),
+			Duration:    metav1.Duration{Duration: duration},
+			DownloadURL: &url,
+		}
+	}
 	return &rhjmcv1alpha2.Recording{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:       "my-recording",
@@ -114,18 +145,14 @@ func NewRunningRecording(continuous bool) *rhjmcv1alpha2.Recording {
 				"jdk.socketRead:enabled=true",
 				"jdk.socketWrite:enabled=true",
 			},
-			Duration: metav1.Duration{Duration: getDuration(continuous)},
-			Archive:  true,
+			Duration: metav1.Duration{Duration: duration},
+			State:    requestedState,
+			Archive:  archive,
 			FlightRecorder: &corev1.LocalObjectReference{
 				Name: "test-pod",
 			},
 		},
-		Status: rhjmcv1alpha2.RecordingStatus{
-			State:       &state,
-			StartTime:   metav1.Unix(0, 1597090030341*int64(time.Millisecond)),
-			Duration:    metav1.Duration{Duration: 30 * time.Second},
-			DownloadURL: &url,
-		},
+		Status: status,
 	}
 }
 

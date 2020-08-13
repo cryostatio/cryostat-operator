@@ -61,7 +61,7 @@ var _ = Describe("RecordingController", func() {
 	BeforeEach(func() {
 		objs = []runtime.Object{
 			test.NewContainerJFR(), test.NewFlightRecorder(), test.NewTargetPod(),
-			test.NewContainerJFRService(), test.NewRecording(false),
+			test.NewContainerJFRService(), test.NewRecording(),
 		}
 		messages = []test.WsMessage{
 			test.NewDumpMessage(),
@@ -99,11 +99,30 @@ var _ = Describe("RecordingController", func() {
 				Expect(result).To(Equal(reconcile.Result{RequeueAfter: 10 * time.Second}))
 			})
 		})
+		Context("with a new recording that fails", func() {
+			BeforeEach(func() {
+				objs = []runtime.Object{
+					test.NewContainerJFR(), test.NewFlightRecorder(), test.NewTargetPod(),
+					test.NewContainerJFRService(), test.NewRecording(),
+				}
+				messages = []test.WsMessage{
+					test.FailMessage(test.NewDumpMessage()),
+				}
+			})
+			It("should requeue with error", func() {
+				expectReconcileError(controller)
+			})
+			It("should close Container JFR client", func() {
+				req := reconcile.Request{NamespacedName: types.NamespacedName{Name: "my-recording", Namespace: "default"}}
+				controller.Reconcile(req)
+				Expect(controller.IsClientConnected()).To(BeFalse())
+			})
+		})
 		Context("with a new continuous recording", func() {
 			BeforeEach(func() {
 				objs = []runtime.Object{
 					test.NewContainerJFR(), test.NewFlightRecorder(), test.NewTargetPod(),
-					test.NewContainerJFRService(), test.NewRecording(true),
+					test.NewContainerJFRService(), test.NewContinuousRecording(),
 				}
 				messages = []test.WsMessage{
 					test.NewStartMessage(),
@@ -114,30 +133,37 @@ var _ = Describe("RecordingController", func() {
 				expectRecordingStatus(controller, client, messages)
 			})
 		})
+		Context("with a new continuous recording that fails", func() {
+			BeforeEach(func() {
+				objs = []runtime.Object{
+					test.NewContainerJFR(), test.NewFlightRecorder(), test.NewTargetPod(),
+					test.NewContainerJFRService(), test.NewContinuousRecording(),
+				}
+				messages = []test.WsMessage{
+					test.FailMessage(test.NewStartMessage()),
+				}
+			})
+			It("should requeue with error", func() {
+				expectReconcileError(controller)
+			})
+			It("should close Container JFR client", func() {
+				req := reconcile.Request{NamespacedName: types.NamespacedName{Name: "my-recording", Namespace: "default"}}
+				controller.Reconcile(req)
+				Expect(controller.IsClientConnected()).To(BeFalse())
+			})
+		})
 		Context("with a running recording", func() {
 			BeforeEach(func() {
 				objs = []runtime.Object{
 					test.NewContainerJFR(), test.NewFlightRecorder(), test.NewTargetPod(),
-					test.NewContainerJFRService(), test.NewRunningRecording(false),
+					test.NewContainerJFRService(), test.NewRunningRecording(),
 				}
 				messages = []test.WsMessage{
 					test.NewListMessage("RUNNING", 30000),
 				}
 			})
 			It("should not change status", func() {
-				req := reconcile.Request{NamespacedName: types.NamespacedName{Name: "my-recording", Namespace: "default"}}
-
-				before := &rhjmcv1alpha2.Recording{}
-				err := client.Get(context.Background(), req.NamespacedName, before)
-				Expect(err).ToNot(HaveOccurred())
-
-				_, err = controller.Reconcile(req)
-				Expect(err).ToNot(HaveOccurred())
-
-				after := &rhjmcv1alpha2.Recording{}
-				err = client.Get(context.Background(), req.NamespacedName, after)
-				Expect(err).ToNot(HaveOccurred())
-				Expect(after.Status).To(Equal(before.Status))
+				expectStatusUnchanged(controller, client)
 			})
 			It("should requeue after 10 seconds", func() {
 				req := reconcile.Request{NamespacedName: types.NamespacedName{Name: "my-recording", Namespace: "default"}}
@@ -146,33 +172,92 @@ var _ = Describe("RecordingController", func() {
 				Expect(result).To(Equal(reconcile.Result{RequeueAfter: 10 * time.Second}))
 			})
 		})
-		Context("with a running recording to be stopped", func() {
+		Context("with a running recording not found in Container JFR", func() {
 			BeforeEach(func() {
-				state := rhjmcv1alpha2.RecordingStateStopped
-				rec := test.NewRunningRecording(true)
-				rec.Spec.State = &state
-				rec.Spec.Archive = false
 				objs = []runtime.Object{
 					test.NewContainerJFR(), test.NewFlightRecorder(), test.NewTargetPod(),
-					test.NewContainerJFRService(), rec,
+					test.NewContainerJFRService(), test.NewRunningRecording(),
+				}
+				messages = []test.WsMessage{
+					test.NewListEmptyMessage(),
+				}
+			})
+			It("should not change status", func() {
+				expectStatusUnchanged(controller, client)
+			})
+		})
+		Context("when listing recordings fail", func() {
+			BeforeEach(func() {
+				objs = []runtime.Object{
+					test.NewContainerJFR(), test.NewFlightRecorder(), test.NewTargetPod(),
+					test.NewContainerJFRService(), test.NewRunningRecording(),
+				}
+				messages = []test.WsMessage{
+					test.FailMessage(test.NewListMessage("RUNNING", 30000)),
+				}
+			})
+			It("should requeue with error", func() {
+				expectReconcileError(controller)
+			})
+			It("should close Container JFR client", func() {
+				req := reconcile.Request{NamespacedName: types.NamespacedName{Name: "my-recording", Namespace: "default"}}
+				controller.Reconcile(req)
+				Expect(controller.IsClientConnected()).To(BeFalse())
+			})
+		})
+		Context("when listing recordings has unexpected state", func() {
+			BeforeEach(func() {
+				objs = []runtime.Object{
+					test.NewContainerJFR(), test.NewFlightRecorder(), test.NewTargetPod(),
+					test.NewContainerJFRService(), test.NewRunningRecording(),
+				}
+				messages = []test.WsMessage{
+					test.NewListMessage("DOES-NOT-EXIST", 30000),
+				}
+			})
+			It("should requeue with error", func() {
+				expectReconcileError(controller)
+			})
+		})
+		Context("with a running recording to be stopped", func() {
+			BeforeEach(func() {
+				objs = []runtime.Object{
+					test.NewContainerJFR(), test.NewFlightRecorder(), test.NewTargetPod(),
+					test.NewContainerJFRService(), test.NewRecordingToStop(),
 				}
 				messages = []test.WsMessage{
 					test.NewStopMessage(),
-					test.NewListMessage("STOPPED", 30000),
+					test.NewListMessage("STOPPED", 0),
 				}
 			})
 			It("should stop recording", func() {
 				expectRecordingStatus(controller, client, messages)
 			})
 		})
-		Context("with a stopped recording to be archived", func() {
+		Context("with a running recording to be stopped that fails", func() {
 			BeforeEach(func() {
-				state := rhjmcv1alpha2.RecordingStateStopped
-				rec := test.NewRunningRecording(true)
-				rec.Status.State = &state
 				objs = []runtime.Object{
 					test.NewContainerJFR(), test.NewFlightRecorder(), test.NewTargetPod(),
-					test.NewContainerJFRService(), rec,
+					test.NewContainerJFRService(), test.NewRecordingToStop(),
+				}
+				messages = []test.WsMessage{
+					test.FailMessage(test.NewStopMessage()),
+				}
+			})
+			It("should requeue with error", func() {
+				expectReconcileError(controller)
+			})
+			It("should close Container JFR client", func() {
+				req := reconcile.Request{NamespacedName: types.NamespacedName{Name: "my-recording", Namespace: "default"}}
+				controller.Reconcile(req)
+				Expect(controller.IsClientConnected()).To(BeFalse())
+			})
+		})
+		Context("with a stopped recording to be archived", func() {
+			BeforeEach(func() {
+				objs = []runtime.Object{
+					test.NewContainerJFR(), test.NewFlightRecorder(), test.NewTargetPod(),
+					test.NewContainerJFRService(), test.NewStoppedRecordingToArchive(),
 				}
 				messages = []test.WsMessage{
 					test.NewListMessage("STOPPED", 30000),
@@ -209,14 +294,52 @@ var _ = Describe("RecordingController", func() {
 				Expect(result).To(Equal(reconcile.Result{}))
 			})
 		})
-		Context("with a running recording to be stopped and archived", func() {
+		Context("when listing saved recordings fails", func() {
 			BeforeEach(func() {
-				state := rhjmcv1alpha2.RecordingStateStopped
-				rec := test.NewRunningRecording(true)
-				rec.Spec.State = &state
 				objs = []runtime.Object{
 					test.NewContainerJFR(), test.NewFlightRecorder(), test.NewTargetPod(),
-					test.NewContainerJFRService(), rec,
+					test.NewContainerJFRService(), test.NewStoppedRecordingToArchive(),
+				}
+				messages = []test.WsMessage{
+					test.NewListMessage("STOPPED", 30000),
+					test.NewListSavedMessage(),
+					test.FailMessage(test.NewSaveMessage()),
+				}
+			})
+			It("should requeue with error", func() {
+				expectReconcileError(controller)
+			})
+			It("should close Container JFR client", func() {
+				req := reconcile.Request{NamespacedName: types.NamespacedName{Name: "my-recording", Namespace: "default"}}
+				controller.Reconcile(req)
+				Expect(controller.IsClientConnected()).To(BeFalse())
+			})
+		})
+		Context("when archiving recording fails", func() {
+			BeforeEach(func() {
+				objs = []runtime.Object{
+					test.NewContainerJFR(), test.NewFlightRecorder(), test.NewTargetPod(),
+					test.NewContainerJFRService(), test.NewStoppedRecordingToArchive(),
+				}
+				messages = []test.WsMessage{
+					test.NewListMessage("STOPPED", 30000),
+					test.FailMessage(test.NewListSavedMessage()),
+				}
+			})
+			It("should requeue with error", func() {
+				expectReconcileError(controller)
+			})
+			It("should close Container JFR client", func() {
+				req := reconcile.Request{NamespacedName: types.NamespacedName{Name: "my-recording", Namespace: "default"}}
+				controller.Reconcile(req)
+				Expect(controller.IsClientConnected()).To(BeFalse())
+			})
+		})
+		Context("with a running recording to be stopped and archived", func() {
+			BeforeEach(func() {
+				objs = []runtime.Object{
+					test.NewContainerJFR(), test.NewFlightRecorder(), test.NewTargetPod(),
+					test.NewContainerJFRService(), test.NewRecordingToStopAndArchive(),
 				}
 				messages = []test.WsMessage{
 					test.NewStopMessage(),
@@ -257,6 +380,114 @@ var _ = Describe("RecordingController", func() {
 				Expect(result).To(Equal(reconcile.Result{}))
 			})
 		})
+		Context("with an archived recording", func() {
+			BeforeEach(func() {
+				objs = []runtime.Object{
+					test.NewContainerJFR(), test.NewFlightRecorder(), test.NewTargetPod(),
+					test.NewContainerJFRService(), test.NewArchivedRecording(),
+				}
+				messages = []test.WsMessage{
+					test.NewListMessage("STOPPED", 30000),
+					test.NewListSavedMessage(),
+				}
+			})
+			It("should not change status", func() {
+				expectStatusUnchanged(controller, client)
+			})
+		})
+		Context("Recording does not exist", func() {
+			BeforeEach(func() {
+				messages = []test.WsMessage{}
+			})
+			It("should do nothing", func() {
+				req := reconcile.Request{NamespacedName: types.NamespacedName{Name: "does-not-exist", Namespace: "default"}}
+				result, err := controller.Reconcile(req)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(result).To(Equal(reconcile.Result{}))
+			})
+		})
+		Context("FlightRecorder Status not updated yet", func() {
+			BeforeEach(func() {
+				otherFr := test.NewFlightRecorder()
+				otherFr.Status = rhjmcv1alpha2.FlightRecorderStatus{}
+				objs = []runtime.Object{
+					test.NewContainerJFR(), otherFr, test.NewTargetPod(), test.NewContainerJFRService(),
+					test.NewRecording(),
+				}
+				messages = []test.WsMessage{}
+			})
+			It("should requeue", func() {
+				req := reconcile.Request{NamespacedName: types.NamespacedName{Name: "my-recording", Namespace: "default"}}
+				result, err := controller.Reconcile(req)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(result).To(Equal(reconcile.Result{RequeueAfter: time.Second}))
+			})
+		})
+		Context("Container JFR CR is missing", func() {
+			BeforeEach(func() {
+				objs = []runtime.Object{
+					test.NewFlightRecorder(), test.NewTargetPod(), test.NewContainerJFRService(),
+					test.NewRecording(),
+				}
+				messages = []test.WsMessage{}
+			})
+			It("should requeue with error", func() {
+				expectReconcileError(controller)
+			})
+		})
+		Context("Container JFR service is missing", func() {
+			BeforeEach(func() {
+				objs = []runtime.Object{
+					test.NewContainerJFR(), test.NewFlightRecorder(), test.NewTargetPod(),
+					test.NewRecording(),
+				}
+				messages = []test.WsMessage{}
+			})
+			It("should requeue with error", func() {
+				expectReconcileError(controller)
+			})
+		})
+		Context("FlightRecorder is missing", func() {
+			BeforeEach(func() {
+				objs = []runtime.Object{
+					test.NewContainerJFR(), test.NewTargetPod(), test.NewContainerJFRService(),
+					test.NewRecording(),
+				}
+				messages = []test.WsMessage{}
+			})
+			It("should not requeue", func() {
+				req := reconcile.Request{NamespacedName: types.NamespacedName{Name: "my-recording", Namespace: "default"}}
+				result, err := controller.Reconcile(req)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(result).To(Equal(reconcile.Result{}))
+			})
+		})
+		Context("Target pod is missing", func() {
+			BeforeEach(func() {
+				objs = []runtime.Object{
+					test.NewContainerJFR(), test.NewFlightRecorder(), test.NewContainerJFRService(),
+					test.NewRecording(),
+				}
+				messages = []test.WsMessage{}
+			})
+			It("should requeue with error", func() {
+				expectReconcileError(controller)
+			})
+		})
+		Context("Target pod has no IP", func() {
+			BeforeEach(func() {
+				otherPod := test.NewTargetPod()
+				otherPod.Status.PodIP = ""
+				objs = []runtime.Object{
+					test.NewContainerJFR(), test.NewFlightRecorder(), otherPod, test.NewContainerJFRService(),
+					test.NewRecording(),
+				}
+				messages = []test.WsMessage{}
+			})
+			It("should requeue with error", func() {
+				expectReconcileError(controller)
+			})
+		})
 	})
 })
 
@@ -279,4 +510,27 @@ func expectRecordingStatus(controller *recording.ReconcileRecording, client clie
 	}))
 	Expect(obj.Status.DownloadURL).ToNot(BeNil())
 	Expect(*obj.Status.DownloadURL).To(Equal(desc.DownloadURL))
+}
+
+func expectStatusUnchanged(controller *recording.ReconcileRecording, client client.Client) {
+	req := reconcile.Request{NamespacedName: types.NamespacedName{Name: "my-recording", Namespace: "default"}}
+
+	before := &rhjmcv1alpha2.Recording{}
+	err := client.Get(context.Background(), req.NamespacedName, before)
+	Expect(err).ToNot(HaveOccurred())
+
+	_, err = controller.Reconcile(req)
+	Expect(err).ToNot(HaveOccurred())
+
+	after := &rhjmcv1alpha2.Recording{}
+	err = client.Get(context.Background(), req.NamespacedName, after)
+	Expect(err).ToNot(HaveOccurred())
+	Expect(after.Status).To(Equal(before.Status))
+}
+
+func expectReconcileError(controller *recording.ReconcileRecording) {
+	req := reconcile.Request{NamespacedName: types.NamespacedName{Name: "my-recording", Namespace: "default"}}
+	result, err := controller.Reconcile(req)
+	Expect(err).To(HaveOccurred())
+	Expect(result).To(Equal(reconcile.Result{}))
 }

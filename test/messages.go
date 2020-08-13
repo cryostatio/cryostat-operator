@@ -77,6 +77,22 @@ func NewSaveMessage() WsMessage {
 }
 
 func NewListMessage(state string, duration int64) WsMessage {
+	return newListMessage([]jfrclient.RecordingDescriptor{
+		{
+			Name:        "test-recording",
+			State:       state,
+			StartTime:   1597090030341,
+			Duration:    duration,
+			DownloadURL: "http://path/to/test-recording.jfr",
+		},
+	})
+}
+
+func NewListEmptyMessage() WsMessage {
+	return newListMessage([]jfrclient.RecordingDescriptor{})
+}
+
+func newListMessage(descriptors []jfrclient.RecordingDescriptor) WsMessage {
 	return WsMessage{
 		ExpectedMsg: jfrclient.NewCommandMessage(
 			"list",
@@ -86,15 +102,7 @@ func NewListMessage(state string, duration int64) WsMessage {
 			ID:          tmpUID,
 			CommandName: "list",
 			Status:      jfrclient.ResponseStatusSuccess,
-			Payload: []jfrclient.RecordingDescriptor{
-				{
-					Name:        "test-recording",
-					State:       state,
-					StartTime:   1597090030341,
-					Duration:    duration,
-					DownloadURL: "http://path/to/test-recording.jfr",
-				},
-			},
+			Payload:     descriptors,
 		},
 	}
 }
@@ -166,17 +174,8 @@ func NewListEventTypesMessage() WsMessage {
 	}
 }
 
-func NewListEventTypesMessageFail() WsMessage {
-	return WsMessage{
-		ExpectedMsg: jfrclient.NewCommandMessage(
-			"list-event-types",
-			"1.2.3.4:8001",
-			tmpUID),
-		Reply: &jfrclient.ResponseMessage{
-			ID:          tmpUID,
-			CommandName: "list-event-types",
-			Status:      jfrclient.ResponseStatusFailure,
-			Payload:     "command failed",
-		},
-	}
+func FailMessage(message WsMessage) WsMessage {
+	message.Reply.Status = jfrclient.ResponseStatusFailure
+	message.Reply.Payload = "command failed"
+	return message
 }
