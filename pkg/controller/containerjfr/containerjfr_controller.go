@@ -151,6 +151,14 @@ func (r *ReconcileContainerJFR) Reconcile(request reconcile.Request) (reconcile.
 		return reconcile.Result{}, err
 	}
 
+	jmxAuthSecret := resources.NewJmxSecretForCR(instance)
+	if err := controllerutil.SetControllerReference(instance, jmxAuthSecret, r.scheme); err != nil {
+		return reconcile.Result{}, err
+	}
+	if err = r.createObjectIfNotExists(context.Background(), types.NamespacedName{Name: jmxAuthSecret.Name, Namespace: jmxAuthSecret.Namespace}, &corev1.Secret{}, jmxAuthSecret); err != nil {
+		return reconcile.Result{}, err
+	}
+
 	serviceSpecs := &resources.ServiceSpecs{}
 	var url string
 	if !instance.Spec.Minimal {
