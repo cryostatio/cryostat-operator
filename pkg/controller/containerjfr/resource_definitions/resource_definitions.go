@@ -191,14 +191,6 @@ func NewCoreContainer(cr *rhjmcv1alpha1.ContainerJFR, specs *ServiceSpecs) corev
 			Name:  "GRAFANA_DATASOURCE_URL",
 			Value: specs.DatasourceAddress,
 		},
-		{
-			Name:  "CONTAINER_JFR_RJMX_USER",
-			Value: "containerjfr",
-		},
-		{
-			Name:  "CONTAINER_JFR_RJMX_PASS",
-			Value: GenPasswd(20),
-		},
 	}
 	imageTag := "quay.io/rh-jmc-team/container-jfr:0.19.0"
 	if cr.Spec.Minimal {
@@ -229,6 +221,15 @@ func NewCoreContainer(cr *rhjmcv1alpha1.ContainerJFR, specs *ServiceSpecs) corev
 			},
 		},
 		Env: envs,
+		EnvFrom: []corev1.EnvFromSource{
+			{
+				SecretRef: &corev1.SecretEnvSource{
+					LocalObjectReference: corev1.LocalObjectReference{
+						Name: cr.Name + "-jmx-auth",
+					},
+				},
+			},
+		},
 		LivenessProbe: &corev1.Probe{
 			Handler: corev1.Handler{
 				HTTPGet: &corev1.HTTPGetAction{
@@ -424,6 +425,19 @@ func NewJfrDatasourceService(cr *rhjmcv1alpha1.ContainerJFR) *corev1.Service {
 					TargetPort: intstr.IntOrString{IntVal: 8080},
 				},
 			},
+		},
+	}
+}
+
+func NewJmxSecretForCR(cr *rhjmcv1alpha1.ContainerJFR) *corev1.Secret {
+	return &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:	   cr.Name + "-jmx-auth",
+			Namespace: cr.Namespace,
+		},
+		StringData: map[string]string{
+			"CONTAINER_JFR_RJMX_USER": "containerjfr",
+			"CONTAINER_JFR_RJMX_PASS": GenPasswd(20),
 		},
 	}
 }
