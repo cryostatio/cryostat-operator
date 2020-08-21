@@ -78,7 +78,8 @@ var _ = Describe("RecordingController", func() {
 	Describe("reconciling a request", func() {
 		Context("with a new recording", func() {
 			It("updates status with recording info", func() {
-				expectRecordingStatus(controller, client, messages)
+				desc := getFirstDescriptor(&messages[1])
+				expectRecordingStatus(controller, client, desc)
 			})
 			It("adds finalizer to recording", func() {
 				req := reconcile.Request{NamespacedName: types.NamespacedName{Name: "my-recording", Namespace: "default"}}
@@ -130,7 +131,8 @@ var _ = Describe("RecordingController", func() {
 				}
 			})
 			It("updates status with recording info", func() {
-				expectRecordingStatus(controller, client, messages)
+				desc := getFirstDescriptor(&messages[1])
+				expectRecordingStatus(controller, client, desc)
 			})
 		})
 		Context("with a new continuous recording that fails", func() {
@@ -231,7 +233,8 @@ var _ = Describe("RecordingController", func() {
 				}
 			})
 			It("should stop recording", func() {
-				expectRecordingStatus(controller, client, messages)
+				desc := getFirstDescriptor(&messages[1])
+				expectRecordingStatus(controller, client, desc)
 			})
 		})
 		Context("with a running recording to be stopped that fails", func() {
@@ -491,7 +494,7 @@ var _ = Describe("RecordingController", func() {
 	})
 })
 
-func expectRecordingStatus(controller *recording.ReconcileRecording, client client.Client, messages []test.WsMessage) {
+func expectRecordingStatus(controller *recording.ReconcileRecording, client client.Client, desc *jfrclient.RecordingDescriptor) {
 	req := reconcile.Request{NamespacedName: types.NamespacedName{Name: "my-recording", Namespace: "default"}}
 	_, err := controller.Reconcile(req)
 	Expect(err).ToNot(HaveOccurred())
@@ -500,7 +503,6 @@ func expectRecordingStatus(controller *recording.ReconcileRecording, client clie
 	err = client.Get(context.Background(), req.NamespacedName, obj)
 	Expect(err).ToNot(HaveOccurred())
 
-	desc := messages[1].Reply.Payload.([]jfrclient.RecordingDescriptor)[0]
 	Expect(obj.Status.State).ToNot(BeNil())
 	Expect(*obj.Status.State).To(Equal(rhjmcv1alpha2.RecordingState(desc.State)))
 	// Converted to RFC3339 during serialization (sub-second precision lost)
@@ -533,4 +535,9 @@ func expectReconcileError(controller *recording.ReconcileRecording) {
 	result, err := controller.Reconcile(req)
 	Expect(err).To(HaveOccurred())
 	Expect(result).To(Equal(reconcile.Result{}))
+}
+
+// Return the first descriptor contained in the response of supplied "list" message
+func getFirstDescriptor(listMsg *test.WsMessage) *jfrclient.RecordingDescriptor {
+	return &listMsg.Reply.Payload.([]jfrclient.RecordingDescriptor)[0]
 }
