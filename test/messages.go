@@ -135,6 +135,37 @@ func listSavedMessage(saved []jfrclient.SavedRecording) WsMessage {
 	}
 }
 
+func NewDeleteMessage() WsMessage {
+	return WsMessage{
+		ExpectedMsg: jfrclient.NewCommandMessage(
+			"delete",
+			"1.2.3.4:8001",
+			tmpUID,
+			"test-recording"),
+		Reply: &jfrclient.ResponseMessage{
+			ID:          tmpUID,
+			CommandName: "delete",
+			Status:      jfrclient.ResponseStatusSuccess,
+			Payload:     "",
+		},
+	}
+}
+
+func NewDeleteSavedMessage() WsMessage {
+	return WsMessage{
+		ExpectedMsg: jfrclient.NewControlMessage(
+			"delete-saved",
+			tmpUID,
+			"saved-test-recording.jfr"),
+		Reply: &jfrclient.ResponseMessage{
+			ID:          tmpUID,
+			CommandName: "delete-saved",
+			Status:      jfrclient.ResponseStatusSuccess,
+			Payload:     "",
+		},
+	}
+}
+
 func NewListEventTypesMessage() WsMessage {
 	return WsMessage{
 		ExpectedMsg: jfrclient.NewCommandMessage(

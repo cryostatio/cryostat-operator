@@ -201,6 +201,7 @@ func (r *ReconcileRecording) Reconcile(request reconcile.Request) (reconcile.Res
 			if err != nil {
 				log.Error(err, "failed to delete recording in Container JFR", "namespace", instance.Namespace,
 					"name", instance.Name)
+				return reconcile.Result{}, err
 			}
 
 			// Remove our finalizer only once our cleanup logic has succeeded

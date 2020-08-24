@@ -121,11 +121,20 @@ func NewArchivedRecording() *rhjmcv1alpha2.Recording {
 	return rec
 }
 
+func NewDeletedArchivedRecording() *rhjmcv1alpha2.Recording {
+	rec := NewArchivedRecording()
+	delTime := metav1.Unix(0, 1598045501618*int64(time.Millisecond))
+	rec.DeletionTimestamp = &delTime
+	return rec
+}
+
 func newRecording(duration time.Duration, currentState *rhjmcv1alpha2.RecordingState,
 	requestedState *rhjmcv1alpha2.RecordingState, archive bool) *rhjmcv1alpha2.Recording {
+	finalizers := []string{}
 	status := rhjmcv1alpha2.RecordingStatus{}
 	if currentState != nil {
 		url := "http://path/to/test-recording.jfr"
+		finalizers = append(finalizers, "recording.finalizer.rhjmc.redhat.com")
 		status = rhjmcv1alpha2.RecordingStatus{
 			State:       currentState,
 			StartTime:   metav1.Unix(0, 1597090030341*int64(time.Millisecond)),
@@ -137,7 +146,7 @@ func newRecording(duration time.Duration, currentState *rhjmcv1alpha2.RecordingS
 		ObjectMeta: metav1.ObjectMeta{
 			Name:       "my-recording",
 			Namespace:  "default",
-			Finalizers: []string{"recording.finalizer.rhjmc.redhat.com"},
+			Finalizers: finalizers,
 		},
 		Spec: rhjmcv1alpha2.RecordingSpec{
 			Name: "test-recording",
