@@ -82,22 +82,10 @@ var _ = Describe("RecordingController", func() {
 				expectRecordingStatus(controller, client, desc)
 			})
 			It("adds finalizer to recording", func() {
-				req := reconcile.Request{NamespacedName: types.NamespacedName{Name: "my-recording", Namespace: "default"}}
-				_, err := controller.Reconcile(req)
-				Expect(err).ToNot(HaveOccurred())
-
-				obj := &rhjmcv1alpha2.Recording{}
-				err = client.Get(context.Background(), req.NamespacedName, obj)
-				Expect(err).ToNot(HaveOccurred())
-
-				finalizers := obj.GetFinalizers()
-				Expect(finalizers).To(ContainElement("recording.finalizer.rhjmc.redhat.com"))
+				expectFinalizerPresent(controller, client)
 			})
 			It("should requeue after 10 seconds", func() {
-				req := reconcile.Request{NamespacedName: types.NamespacedName{Name: "my-recording", Namespace: "default"}}
-				result, err := controller.Reconcile(req)
-				Expect(err).ToNot(HaveOccurred())
-				Expect(result).To(Equal(reconcile.Result{RequeueAfter: 10 * time.Second}))
+				expectResult(controller, reconcile.Result{RequeueAfter: 10 * time.Second})
 			})
 		})
 		Context("with a new recording that fails", func() {
@@ -134,6 +122,9 @@ var _ = Describe("RecordingController", func() {
 				desc := getFirstDescriptor(&messages[1])
 				expectRecordingStatus(controller, client, desc)
 			})
+			It("should requeue after 10 seconds", func() {
+				expectResult(controller, reconcile.Result{RequeueAfter: 10 * time.Second})
+			})
 		})
 		Context("with a new continuous recording that fails", func() {
 			BeforeEach(func() {
@@ -168,10 +159,7 @@ var _ = Describe("RecordingController", func() {
 				expectStatusUnchanged(controller, client)
 			})
 			It("should requeue after 10 seconds", func() {
-				req := reconcile.Request{NamespacedName: types.NamespacedName{Name: "my-recording", Namespace: "default"}}
-				result, err := controller.Reconcile(req)
-				Expect(err).ToNot(HaveOccurred())
-				Expect(result).To(Equal(reconcile.Result{RequeueAfter: 10 * time.Second}))
+				expectResult(controller, reconcile.Result{RequeueAfter: 10 * time.Second})
 			})
 		})
 		Context("with a running recording not found in Container JFR", func() {
@@ -186,6 +174,9 @@ var _ = Describe("RecordingController", func() {
 			})
 			It("should not change status", func() {
 				expectStatusUnchanged(controller, client)
+			})
+			It("should requeue after 10 seconds", func() {
+				expectResult(controller, reconcile.Result{RequeueAfter: 10 * time.Second})
 			})
 		})
 		Context("when listing recordings fail", func() {
@@ -235,6 +226,9 @@ var _ = Describe("RecordingController", func() {
 			It("should stop recording", func() {
 				desc := getFirstDescriptor(&messages[1])
 				expectRecordingStatus(controller, client, desc)
+			})
+			It("should not requeue", func() {
+				expectResult(controller, reconcile.Result{})
 			})
 		})
 		Context("with a running recording to be stopped that fails", func() {
@@ -291,10 +285,7 @@ var _ = Describe("RecordingController", func() {
 				Expect(*after.Status.DownloadURL).To(Equal("http://path/to/saved-test-recording.jfr"))
 			})
 			It("should not requeue", func() {
-				req := reconcile.Request{NamespacedName: types.NamespacedName{Name: "my-recording", Namespace: "default"}}
-				result, err := controller.Reconcile(req)
-				Expect(err).ToNot(HaveOccurred())
-				Expect(result).To(Equal(reconcile.Result{}))
+				expectResult(controller, reconcile.Result{})
 			})
 		})
 		Context("when listing saved recordings fails", func() {
@@ -377,10 +368,7 @@ var _ = Describe("RecordingController", func() {
 				Expect(*obj.Status.DownloadURL).To(Equal("http://path/to/saved-test-recording.jfr"))
 			})
 			It("should not requeue", func() {
-				req := reconcile.Request{NamespacedName: types.NamespacedName{Name: "my-recording", Namespace: "default"}}
-				result, err := controller.Reconcile(req)
-				Expect(err).ToNot(HaveOccurred())
-				Expect(result).To(Equal(reconcile.Result{}))
+				expectResult(controller, reconcile.Result{})
 			})
 		})
 		Context("with an archived recording", func() {
@@ -396,6 +384,95 @@ var _ = Describe("RecordingController", func() {
 			})
 			It("should not change status", func() {
 				expectStatusUnchanged(controller, client)
+			})
+			It("should not requeue", func() {
+				expectResult(controller, reconcile.Result{})
+			})
+		})
+		Context("with a deleted archived recording", func() {
+			BeforeEach(func() {
+				objs = []runtime.Object{
+					test.NewContainerJFR(), test.NewFlightRecorder(), test.NewTargetPod(),
+					test.NewContainerJFRService(), test.NewDeletedArchivedRecording(),
+				}
+				messages = []test.WsMessage{
+					test.NewListSavedMessage(),
+					test.NewDeleteSavedMessage(),
+					test.NewListMessage("STOPPED", 30000),
+					test.NewDeleteMessage(),
+				}
+			})
+			It("should remove the finalizer", func() {
+				expectFinalizerAbsent(controller, client)
+			})
+			It("should not requeue", func() {
+				expectResult(controller, reconcile.Result{})
+			})
+		})
+		Context("with a deleted recording with missing FlightRecorder", func() {
+			BeforeEach(func() {
+				objs = []runtime.Object{
+					test.NewContainerJFR(), test.NewTargetPod(),
+					test.NewContainerJFRService(), test.NewDeletedArchivedRecording(),
+				}
+				messages = []test.WsMessage{
+					test.NewListSavedMessage(),
+					test.NewDeleteSavedMessage(),
+				}
+			})
+			It("should remove the finalizer", func() {
+				expectFinalizerAbsent(controller, client)
+			})
+			It("should not requeue", func() {
+				expectResult(controller, reconcile.Result{})
+			})
+		})
+		Context("when deleting the saved recording fails", func() {
+			BeforeEach(func() {
+				objs = []runtime.Object{
+					test.NewContainerJFR(), test.NewFlightRecorder(), test.NewTargetPod(),
+					test.NewContainerJFRService(), test.NewDeletedArchivedRecording(),
+				}
+				messages = []test.WsMessage{
+					test.NewListSavedMessage(),
+					test.FailMessage(test.NewDeleteSavedMessage()),
+				}
+			})
+			It("should keep the finalizer", func() {
+				expectFinalizerPresent(controller, client)
+			})
+			It("should requeue with error", func() {
+				expectReconcileError(controller)
+			})
+			It("should close Container JFR client", func() {
+				req := reconcile.Request{NamespacedName: types.NamespacedName{Name: "my-recording", Namespace: "default"}}
+				controller.Reconcile(req)
+				Expect(controller.IsClientConnected()).To(BeFalse())
+			})
+		})
+		Context("when deleting the in-memory recording fails", func() {
+			BeforeEach(func() {
+				objs = []runtime.Object{
+					test.NewContainerJFR(), test.NewFlightRecorder(), test.NewTargetPod(),
+					test.NewContainerJFRService(), test.NewDeletedArchivedRecording(),
+				}
+				messages = []test.WsMessage{
+					test.NewListSavedMessage(),
+					test.NewDeleteSavedMessage(),
+					test.NewListMessage("STOPPED", 30000),
+					test.FailMessage(test.NewDeleteMessage()),
+				}
+			})
+			It("should keep the finalizer", func() {
+				expectFinalizerPresent(controller, client)
+			})
+			It("should requeue with error", func() {
+				expectReconcileError(controller)
+			})
+			It("should close Container JFR client", func() {
+				req := reconcile.Request{NamespacedName: types.NamespacedName{Name: "my-recording", Namespace: "default"}}
+				controller.Reconcile(req)
+				Expect(controller.IsClientConnected()).To(BeFalse())
 			})
 		})
 		Context("Recording does not exist", func() {
@@ -420,10 +497,7 @@ var _ = Describe("RecordingController", func() {
 				messages = []test.WsMessage{}
 			})
 			It("should requeue", func() {
-				req := reconcile.Request{NamespacedName: types.NamespacedName{Name: "my-recording", Namespace: "default"}}
-				result, err := controller.Reconcile(req)
-				Expect(err).ToNot(HaveOccurred())
-				Expect(result).To(Equal(reconcile.Result{RequeueAfter: time.Second}))
+				expectResult(controller, reconcile.Result{RequeueAfter: time.Second})
 			})
 		})
 		Context("Container JFR CR is missing", func() {
@@ -495,13 +569,7 @@ var _ = Describe("RecordingController", func() {
 })
 
 func expectRecordingStatus(controller *recording.ReconcileRecording, client client.Client, desc *jfrclient.RecordingDescriptor) {
-	req := reconcile.Request{NamespacedName: types.NamespacedName{Name: "my-recording", Namespace: "default"}}
-	_, err := controller.Reconcile(req)
-	Expect(err).ToNot(HaveOccurred())
-
-	obj := &rhjmcv1alpha2.Recording{}
-	err = client.Get(context.Background(), req.NamespacedName, obj)
-	Expect(err).ToNot(HaveOccurred())
+	obj := reconcileAndGet(controller, client)
 
 	Expect(obj.Status.State).ToNot(BeNil())
 	Expect(*obj.Status.State).To(Equal(rhjmcv1alpha2.RecordingState(desc.State)))
@@ -515,19 +583,24 @@ func expectRecordingStatus(controller *recording.ReconcileRecording, client clie
 }
 
 func expectStatusUnchanged(controller *recording.ReconcileRecording, client client.Client) {
-	req := reconcile.Request{NamespacedName: types.NamespacedName{Name: "my-recording", Namespace: "default"}}
-
 	before := &rhjmcv1alpha2.Recording{}
-	err := client.Get(context.Background(), req.NamespacedName, before)
+	err := client.Get(context.Background(), types.NamespacedName{Name: "my-recording", Namespace: "default"}, before)
 	Expect(err).ToNot(HaveOccurred())
 
-	_, err = controller.Reconcile(req)
-	Expect(err).ToNot(HaveOccurred())
-
-	after := &rhjmcv1alpha2.Recording{}
-	err = client.Get(context.Background(), req.NamespacedName, after)
-	Expect(err).ToNot(HaveOccurred())
+	after := reconcileAndGet(controller, client)
 	Expect(after.Status).To(Equal(before.Status))
+}
+
+func expectFinalizerPresent(controller *recording.ReconcileRecording, client client.Client) {
+	obj := reconcileAndGet(controller, client)
+	finalizers := obj.GetFinalizers()
+	Expect(finalizers).To(ContainElement("recording.finalizer.rhjmc.redhat.com"))
+}
+
+func expectFinalizerAbsent(controller *recording.ReconcileRecording, client client.Client) {
+	obj := reconcileAndGet(controller, client)
+	finalizers := obj.GetFinalizers()
+	Expect(finalizers).ToNot(ContainElement("recording.finalizer.rhjmc.redhat.com"))
 }
 
 func expectReconcileError(controller *recording.ReconcileRecording) {
@@ -535,6 +608,23 @@ func expectReconcileError(controller *recording.ReconcileRecording) {
 	result, err := controller.Reconcile(req)
 	Expect(err).To(HaveOccurred())
 	Expect(result).To(Equal(reconcile.Result{}))
+}
+
+func expectResult(controller *recording.ReconcileRecording, result reconcile.Result) {
+	req := reconcile.Request{NamespacedName: types.NamespacedName{Name: "my-recording", Namespace: "default"}}
+	result, err := controller.Reconcile(req)
+	Expect(err).ToNot(HaveOccurred())
+	Expect(result).To(Equal(result))
+}
+
+func reconcileAndGet(controller *recording.ReconcileRecording, client client.Client) *rhjmcv1alpha2.Recording {
+	req := reconcile.Request{NamespacedName: types.NamespacedName{Name: "my-recording", Namespace: "default"}}
+	controller.Reconcile(req)
+
+	obj := &rhjmcv1alpha2.Recording{}
+	err := client.Get(context.Background(), req.NamespacedName, obj)
+	Expect(err).ToNot(HaveOccurred())
+	return obj
 }
 
 // Return the first descriptor contained in the response of supplied "list" message
