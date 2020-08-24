@@ -34,17 +34,19 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-package flightrecorder_test
+package test
 
 import (
+	"time"
+
 	rhjmcv1alpha1 "github.com/rh-jmc-team/container-jfr-operator/pkg/apis/rhjmc/v1alpha1"
 	rhjmcv1alpha2 "github.com/rh-jmc-team/container-jfr-operator/pkg/apis/rhjmc/v1alpha2"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-var (
-	cjfr = &rhjmcv1alpha1.ContainerJFR{
+func NewContainerJFR() *rhjmcv1alpha1.ContainerJFR {
+	return &rhjmcv1alpha1.ContainerJFR{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "containerjfr",
 			Namespace: "default",
@@ -53,7 +55,10 @@ var (
 			Minimal: false,
 		},
 	}
-	fr = &rhjmcv1alpha2.FlightRecorder{
+}
+
+func NewFlightRecorder() *rhjmcv1alpha2.FlightRecorder {
+	return &rhjmcv1alpha2.FlightRecorder{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "test-pod",
 			Namespace: "default",
@@ -71,7 +76,96 @@ var (
 			Port: 8001,
 		},
 	}
-	pod = &corev1.Pod{
+}
+
+func NewRecording() *rhjmcv1alpha2.Recording {
+	return newRecording(getDuration(false), nil, nil, false)
+}
+
+func NewContinuousRecording() *rhjmcv1alpha2.Recording {
+	return newRecording(getDuration(true), nil, nil, false)
+}
+
+func NewRunningRecording() *rhjmcv1alpha2.Recording {
+	running := rhjmcv1alpha2.RecordingStateRunning
+	return newRecording(getDuration(false), &running, nil, false)
+}
+
+func NewRunningContinuousRecording() *rhjmcv1alpha2.Recording {
+	running := rhjmcv1alpha2.RecordingStateRunning
+	return newRecording(getDuration(true), &running, nil, false)
+}
+
+func NewRecordingToStop() *rhjmcv1alpha2.Recording {
+	running := rhjmcv1alpha2.RecordingStateRunning
+	stopped := rhjmcv1alpha2.RecordingStateStopped
+	return newRecording(getDuration(true), &running, &stopped, false)
+}
+
+func NewStoppedRecordingToArchive() *rhjmcv1alpha2.Recording {
+	stopped := rhjmcv1alpha2.RecordingStateStopped
+	return newRecording(getDuration(false), &stopped, nil, true)
+}
+
+func NewRecordingToStopAndArchive() *rhjmcv1alpha2.Recording {
+	running := rhjmcv1alpha2.RecordingStateRunning
+	stopped := rhjmcv1alpha2.RecordingStateStopped
+	return newRecording(getDuration(true), &running, &stopped, true)
+}
+
+func NewArchivedRecording() *rhjmcv1alpha2.Recording {
+	stopped := rhjmcv1alpha2.RecordingStateStopped
+	rec := newRecording(getDuration(false), &stopped, nil, true)
+	savedURL := "http://path/to/saved-test-recording.jfr"
+	rec.Status.DownloadURL = &savedURL
+	return rec
+}
+
+func newRecording(duration time.Duration, currentState *rhjmcv1alpha2.RecordingState,
+	requestedState *rhjmcv1alpha2.RecordingState, archive bool) *rhjmcv1alpha2.Recording {
+	status := rhjmcv1alpha2.RecordingStatus{}
+	if currentState != nil {
+		url := "http://path/to/test-recording.jfr"
+		status = rhjmcv1alpha2.RecordingStatus{
+			State:       currentState,
+			StartTime:   metav1.Unix(0, 1597090030341*int64(time.Millisecond)),
+			Duration:    metav1.Duration{Duration: duration},
+			DownloadURL: &url,
+		}
+	}
+	return &rhjmcv1alpha2.Recording{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:       "my-recording",
+			Namespace:  "default",
+			Finalizers: []string{"recording.finalizer.rhjmc.redhat.com"},
+		},
+		Spec: rhjmcv1alpha2.RecordingSpec{
+			Name: "test-recording",
+			EventOptions: []string{
+				"jdk.socketRead:enabled=true",
+				"jdk.socketWrite:enabled=true",
+			},
+			Duration: metav1.Duration{Duration: duration},
+			State:    requestedState,
+			Archive:  archive,
+			FlightRecorder: &corev1.LocalObjectReference{
+				Name: "test-pod",
+			},
+		},
+		Status: status,
+	}
+}
+
+func getDuration(continuous bool) time.Duration {
+	seconds := 0
+	if !continuous {
+		seconds = 30
+	}
+	return time.Duration(seconds) * time.Second
+}
+
+func NewTargetPod() *corev1.Pod {
+	return &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "test-pod",
 			Namespace: "default",
@@ -80,7 +174,10 @@ var (
 			PodIP: "1.2.3.4",
 		},
 	}
-	cjfrSvc = &corev1.Service{
+}
+
+func NewContainerJFRService() *corev1.Service {
+	return &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "containerjfr",
 			Namespace: "default",
@@ -95,28 +192,4 @@ var (
 			},
 		},
 	}
-
-	socketReadEvent = rhjmcv1alpha2.EventInfo{
-		TypeID:      "jdk.socketRead",
-		Name:        "Socket Read",
-		Description: "Reading data from a socket",
-		Category:    []string{"Java Application"},
-		Options: map[string]rhjmcv1alpha2.OptionDescriptor{
-			"enabled": {
-				Name:         "Enabled",
-				Description:  "Record event",
-				DefaultValue: "false",
-			},
-			"stackTrace": {
-				Name:         "Stack Trace",
-				Description:  "Record stack traces",
-				DefaultValue: "false",
-			},
-			"threshold": {
-				Name:         "Threshold",
-				Description:  "Record event with duration above or equal to threshold",
-				DefaultValue: "0ns[ns]",
-			},
-		},
-	}
-)
+}
