@@ -147,6 +147,11 @@ func (r *ReconcileFlightRecorder) Reconcile(request reconcile.Request) (reconcil
 		}
 	}
 
+	// If Container JFR is not yet ready for requests, requeue after 5 seconds
+	//if !r.IsContainerJFRReady() {
+	//	return reconcile.Result{RequeueAfter: 5 * time.Second}, nil
+	//}
+
 	// Look up pod corresponding to this FlightRecorder object
 	targetPod := &corev1.Pod{}
 	err = r.Client.Get(ctx, types.NamespacedName{Namespace: targetRef.Namespace, Name: targetRef.Name}, targetPod)

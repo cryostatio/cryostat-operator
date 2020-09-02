@@ -57,7 +57,7 @@ type OSUtils interface {
 type defaultConnector struct{}
 
 func (c *defaultConnector) Connect(config *jfrclient.Config) (jfrclient.ContainerJfrClient, error) {
-	return jfrclient.Create(config)
+	return jfrclient.NewHTTPClient(config)
 }
 
 type defaultOSUtils struct{}

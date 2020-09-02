@@ -71,6 +71,7 @@ type ReconcilerConfig struct {
 type Reconciler interface {
 	FindContainerJFR(ctx context.Context, namespace string) (*rhjmcv1alpha1.ContainerJFR, error)
 	ConnectToContainerJFR(ctx context.Context, namespace string, svcName string) error
+	IsContainerJFRReady() bool
 	IsClientConnected() bool
 	GetPodTarget(targetPod *corev1.Pod, jmxPort int32) (*jfrclient.TargetAddress, error)
 	CloseClient()
@@ -123,7 +124,7 @@ func (r *commonReconciler) FindContainerJFR(ctx context.Context, namespace strin
 func (r *commonReconciler) ConnectToContainerJFR(ctx context.Context, namespace string,
 	svcName string) error {
 	// Query the "clienturl" endpoint of Container JFR for the command URL
-	clientURL, err := r.getClientURL(ctx, namespace, svcName)
+	serverURL, err := r.getServerURL(ctx, namespace, svcName)
 	if err != nil {
 		return err
 	}
@@ -132,7 +133,7 @@ func (r *commonReconciler) ConnectToContainerJFR(ctx context.Context, namespace 
 		return err
 	}
 	strTok := string(tok)
-	config := &jfrclient.Config{ServerURL: clientURL, AccessToken: &strTok, TLSVerify: !strings.EqualFold(r.OS.GetEnv("TLS_VERIFY"), "false")}
+	config := &jfrclient.Config{ServerURL: serverURL, AccessToken: &strTok, TLSVerify: !strings.EqualFold(r.OS.GetEnv("TLS_VERIFY"), "false")}
 	jfrClient, err := r.Connector.Connect(config)
 	if err != nil {
 		return err
@@ -154,6 +155,20 @@ func (r *commonReconciler) GetPodTarget(targetPod *corev1.Pod, jmxPort int32) (*
 	}, nil
 }
 
+func (r *commonReconciler) IsContainerJFRReady() bool { // TODO cache ready state?
+	log.Info("Is it ready?") // XXX
+	ready, err := r.IsReady()
+	if err != nil {
+		log.Info("Container JFR not yet ready", "err", err.Error())
+		return false
+	}
+	if !ready {
+		log.Info("Container JFR not yet ready")
+		return false
+	}
+	return true
+}
+
 // IsClientConnected returns whether the client is connected to Container JFR
 func (r *commonReconciler) IsClientConnected() bool {
 	return r.ContainerJfrClient != nil
@@ -167,6 +182,25 @@ func (r *commonReconciler) CloseClient() {
 	r.ContainerJfrClient = nil
 }
 
+func (r *commonReconciler) getServerURL(ctx context.Context, namespace string, svcName string) (*url.URL, error) {
+	// Look up Container JFR service, and build URL to web service
+	cjfrSvc := &corev1.Service{}
+	err := r.Client.Get(ctx, types.NamespacedName{Namespace: namespace, Name: svcName}, cjfrSvc)
+	if err != nil {
+		return nil, err
+	}
+	clusterIP, err := getClusterIP(cjfrSvc)
+	if err != nil {
+		return nil, err
+	}
+	webServerPort, err := getWebServerPort(cjfrSvc)
+	if err != nil {
+		return nil, err
+	}
+	return url.Parse(fmt.Sprintf("http://%s:%d/", *clusterIP, webServerPort))
+}
+
+// TODO Remove
 func (r *commonReconciler) getClientURL(ctx context.Context, namespace string, svcName string) (*url.URL, error) {
 	// Look up Container JFR service, and query "clienturl" endpoint
 	cjfrSvc := &corev1.Service{}

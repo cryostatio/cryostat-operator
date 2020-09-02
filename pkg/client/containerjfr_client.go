@@ -80,6 +80,7 @@ type ContainerJfrClient interface {
 	ListSavedRecordings() ([]SavedRecording, error)
 	DeleteSavedRecording(jfrFile string) error
 	ListEventTypes(target *TargetAddress) ([]rhjmcv1alpha2.EventInfo, error)
+	IsReady() (bool, error)
 	Close() error
 }
 
@@ -249,6 +250,10 @@ func (client *containerJfrClient) ListEventTypes(target *TargetAddress) ([]rhjmc
 	}
 	log.Info("got list-event-types response", "resp", events)
 	return events, nil
+}
+
+func (client *containerJfrClient) IsReady() (bool, error) {
+	return true, nil // XXX
 }
 
 func (client *containerJfrClient) syncMessage(msg *CommandMessage, responsePayload interface{}) error {
