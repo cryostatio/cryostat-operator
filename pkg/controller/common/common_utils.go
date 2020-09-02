@@ -39,25 +39,12 @@ package common
 import (
 	"io/ioutil"
 	"os"
-
-	jfrclient "github.com/rh-jmc-team/container-jfr-operator/pkg/client"
 )
-
-// ContainerJFRConnector provides a mechanism to connect to Container JFR
-type ContainerJFRConnector interface {
-	Connect(config *jfrclient.Config) (jfrclient.ContainerJfrClient, error)
-}
 
 // OSUtils is an abstraction on functionality that interacts with the operating system
 type OSUtils interface {
 	GetEnv(name string) string
 	GetFileContents(path string) ([]byte, error)
-}
-
-type defaultConnector struct{}
-
-func (c *defaultConnector) Connect(config *jfrclient.Config) (jfrclient.ContainerJfrClient, error) {
-	return jfrclient.NewHTTPClient(config)
 }
 
 type defaultOSUtils struct{}

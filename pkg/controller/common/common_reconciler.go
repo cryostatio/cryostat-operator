@@ -38,11 +38,8 @@ package common
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
-	"io/ioutil"
-	"net/http"
 	"net/url"
 	"strings"
 
@@ -61,26 +58,20 @@ var log = logf.Log.WithName("common_reconciler")
 type ReconcilerConfig struct {
 	// This client, initialized using mgr.Client(), is a split client
 	// that reads objects from the cache and writes to the apiserver
-	Client    client.Client
-	Connector ContainerJFRConnector
-	OS        OSUtils
+	Client client.Client
+	OS     OSUtils
 }
 
 // Reconciler contains helpful methods to communicate with Container JFR.
 // It is meant to be embedded within other Reconcilers.
 type Reconciler interface {
-	FindContainerJFR(ctx context.Context, namespace string) (*rhjmcv1alpha1.ContainerJFR, error)
-	ConnectToContainerJFR(ctx context.Context, namespace string, svcName string) error
-	IsContainerJFRReady() bool
-	IsClientConnected() bool
+	GetContainerJFRClient(ctx context.Context, namespace string) (jfrclient.ContainerJfrClient, error)
 	GetPodTarget(targetPod *corev1.Pod, jmxPort int32) (*jfrclient.TargetAddress, error)
-	CloseClient()
-	jfrclient.ContainerJfrClient
 }
 
 type commonReconciler struct {
 	*ReconcilerConfig
-	jfrclient.ContainerJfrClient
+	jfrclient jfrclient.ContainerJfrClient
 }
 
 // blank assignment to verify that commonReconciler implements Reconciler
@@ -89,9 +80,6 @@ var _ Reconciler = &commonReconciler{}
 // NewReconciler creates a new Reconciler using the provided configuration
 func NewReconciler(config *ReconcilerConfig) Reconciler {
 	configCopy := *config
-	if config.Connector == nil {
-		configCopy.Connector = &defaultConnector{}
-	}
 	if config.OS == nil {
 		configCopy.OS = &defaultOSUtils{}
 	}
@@ -100,46 +88,39 @@ func NewReconciler(config *ReconcilerConfig) Reconciler {
 	}
 }
 
-// FindContainerJFR retrieves a ContainerJFR instance within a given namespace
-func (r *commonReconciler) FindContainerJFR(ctx context.Context, namespace string) (*rhjmcv1alpha1.ContainerJFR, error) {
-	// TODO Consider how to find ContainerJFR object if this operator becomes cluster-scoped
-	// Look up the ContainerJFR object for this operator, which will help us find its services
-	cjfrList := &rhjmcv1alpha1.ContainerJFRList{}
-	err := r.Client.List(ctx, cjfrList)
+// ConnectToContainerJFR opens a WebSocket connect to the Container JFR service deployed
+// by this operator
+func (r *commonReconciler) GetContainerJFRClient(ctx context.Context, namespace string) (jfrclient.ContainerJfrClient, error) {
+	// Check if we've already created the client
+	if r.jfrclient != nil {
+		return r.jfrclient, nil
+	}
+	// Look up ContainerJFR instance within the given namespace
+	cjfr, err := r.findContainerJFR(ctx, namespace)
 	if err != nil {
 		return nil, err
 	}
-	if len(cjfrList.Items) == 0 {
-		return nil, errors.New("No ContainerJFR objects found")
-	} else if len(cjfrList.Items) > 1 {
-		// Does not seem like a proper use-case
-		log.Info("More than one ContainerJFR object found in namespace, using only the first one listed",
-			"namespace", namespace)
-	}
-	return &cjfrList.Items[0], nil
-}
-
-// ConnectToContainerJFR opens a WebSocket connect to the Container JFR service deployed
-// by this operator
-func (r *commonReconciler) ConnectToContainerJFR(ctx context.Context, namespace string,
-	svcName string) error {
 	// Query the "clienturl" endpoint of Container JFR for the command URL
-	serverURL, err := r.getServerURL(ctx, namespace, svcName)
+	serverURL, err := r.getServerURL(ctx, cjfr.Namespace, cjfr.Name)
 	if err != nil {
-		return err
+		return nil, err
 	}
+	// Read bearer token from mounted secret
 	tok, err := r.OS.GetFileContents("/var/run/secrets/kubernetes.io/serviceaccount/token")
 	if err != nil {
-		return err
+		return nil, err
 	}
 	strTok := string(tok)
+
+	// Create Container JFR HTTP(S) client
 	config := &jfrclient.Config{ServerURL: serverURL, AccessToken: &strTok, TLSVerify: !strings.EqualFold(r.OS.GetEnv("TLS_VERIFY"), "false")}
-	jfrClient, err := r.Connector.Connect(config)
+	jfrClient, err := jfrclient.NewHTTPClient(config)
 	if err != nil {
-		return err
+		return nil, err
 	}
-	r.ContainerJfrClient = jfrClient
-	return nil
+	// Store client for reuse by later Reconcile calls
+	r.jfrclient = jfrClient
+	return jfrClient, nil
 }
 
 // GetPodTarget returns a TargetAddress for a particular pod and port number
@@ -155,31 +136,22 @@ func (r *commonReconciler) GetPodTarget(targetPod *corev1.Pod, jmxPort int32) (*
 	}, nil
 }
 
-func (r *commonReconciler) IsContainerJFRReady() bool { // TODO cache ready state?
-	log.Info("Is it ready?") // XXX
-	ready, err := r.IsReady()
+func (r *commonReconciler) findContainerJFR(ctx context.Context, namespace string) (*rhjmcv1alpha1.ContainerJFR, error) {
+	// TODO Consider how to find ContainerJFR object if this operator becomes cluster-scoped
+	// Look up the ContainerJFR object for this operator, which will help us find its services
+	cjfrList := &rhjmcv1alpha1.ContainerJFRList{}
+	err := r.Client.List(ctx, cjfrList)
 	if err != nil {
-		log.Info("Container JFR not yet ready", "err", err.Error())
-		return false
+		return nil, err
 	}
-	if !ready {
-		log.Info("Container JFR not yet ready")
-		return false
+	if len(cjfrList.Items) == 0 {
+		return nil, errors.New("No ContainerJFR objects found")
+	} else if len(cjfrList.Items) > 1 {
+		// Does not seem like a proper use-case
+		log.Info("More than one ContainerJFR object found in namespace, using only the first one listed",
+			"namespace", namespace)
 	}
-	return true
-}
-
-// IsClientConnected returns whether the client is connected to Container JFR
-func (r *commonReconciler) IsClientConnected() bool {
-	return r.ContainerJfrClient != nil
-}
-
-// CloseClient closes the underlying WebSocket connection to Container JFR
-func (r *commonReconciler) CloseClient() {
-	if r.ContainerJfrClient != nil {
-		r.ContainerJfrClient.Close()
-	}
-	r.ContainerJfrClient = nil
+	return &cjfrList.Items[0], nil
 }
 
 func (r *commonReconciler) getServerURL(ctx context.Context, namespace string, svcName string) (*url.URL, error) {
@@ -198,44 +170,6 @@ func (r *commonReconciler) getServerURL(ctx context.Context, namespace string, s
 		return nil, err
 	}
 	return url.Parse(fmt.Sprintf("http://%s:%d/", *clusterIP, webServerPort))
-}
-
-// TODO Remove
-func (r *commonReconciler) getClientURL(ctx context.Context, namespace string, svcName string) (*url.URL, error) {
-	// Look up Container JFR service, and query "clienturl" endpoint
-	cjfrSvc := &corev1.Service{}
-	err := r.Client.Get(ctx, types.NamespacedName{Namespace: namespace, Name: svcName}, cjfrSvc)
-	if err != nil {
-		return nil, err
-	}
-	clusterIP, err := getClusterIP(cjfrSvc)
-	if err != nil {
-		return nil, err
-	}
-	webServerPort, err := getWebServerPort(cjfrSvc)
-	if err != nil {
-		return nil, err
-	}
-	host := fmt.Sprintf("http://%s:%d/api/v1/clienturl", *clusterIP, webServerPort)
-	resp, err := http.Get(host)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-
-	// Find "clientUrl" JSON property in repsonse
-	body, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		return nil, err
-	}
-	clientURLHolder := struct {
-		ClientURL string `json:"clientUrl"`
-	}{}
-	err = json.Unmarshal(body, &clientURLHolder)
-	if err != nil {
-		return nil, err
-	}
-	return url.Parse(clientURLHolder.ClientURL)
 }
 
 func getPodIP(pod *corev1.Pod) (*string, error) {

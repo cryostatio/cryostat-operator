@@ -119,18 +119,9 @@ func (r *ReconcileRecording) Reconcile(request reconcile.Request) (reconcile.Res
 	reqLogger := log.WithValues("Request.Namespace", request.Namespace, "Request.Name", request.Name)
 	reqLogger.Info("Reconciling Recording")
 
-	cjfr, err := r.FindContainerJFR(ctx, request.Namespace)
+	cjfr, err := r.GetContainerJFRClient(ctx, request.Namespace)
 	if err != nil {
 		return reconcile.Result{}, err
-	}
-
-	// Keep client open to Container JFR as long as it doesn't fail
-	if !r.IsClientConnected() {
-		err := r.ConnectToContainerJFR(ctx, cjfr.Namespace, cjfr.Name)
-		if err != nil {
-			// Need Container JFR in order to reconcile anything, requeue until it appears
-			return reconcile.Result{}, err
-		}
 	}
 
 	// Fetch the Recording instance
@@ -151,7 +142,7 @@ func (r *ReconcileRecording) Reconcile(request reconcile.Request) (reconcile.Res
 	// Check if this Recording is being deleted
 	if instance.GetDeletionTimestamp() != nil && hasRecordingFinalizer(instance) {
 		// Delete any persisted JFR file for this recording
-		err := r.removeSavedRecording(ctx, instance)
+		err := r.removeSavedRecording(cjfr, instance)
 		if err != nil {
 			reqLogger.Error(err, "failed to delete saved recording in Container JFR", "namespace",
 				instance.Namespace, "name", instance.Name)
@@ -197,7 +188,7 @@ func (r *ReconcileRecording) Reconcile(request reconcile.Request) (reconcile.Res
 	if instance.GetDeletionTimestamp() != nil {
 		if hasRecordingFinalizer(instance) {
 			// Delete in-memory recording in Container JFR
-			err := r.removeRecording(targetAddr, instance)
+			err := removeRecording(cjfr, targetAddr, instance)
 			if err != nil {
 				log.Error(err, "failed to delete recording in Container JFR", "namespace", instance.Namespace,
 					"name", instance.Name)
@@ -226,22 +217,20 @@ func (r *ReconcileRecording) Reconcile(request reconcile.Request) (reconcile.Res
 	if instance.Status.State == nil { // Recording hasn't been created yet
 		if instance.Spec.Duration.Duration == time.Duration(0) {
 			log.Info("creating new continuous recording", "name", instance.Spec.Name, "eventOptions", instance.Spec.EventOptions)
-			err = r.StartRecording(targetAddr, instance.Spec.Name, instance.Spec.EventOptions)
+			err = cjfr.StartRecording(targetAddr, instance.Spec.Name, instance.Spec.EventOptions)
 		} else {
 			log.Info("creating new recording", "name", instance.Spec.Name, "duration", instance.Spec.Duration, "eventOptions", instance.Spec.EventOptions)
-			err = r.DumpRecording(targetAddr, instance.Spec.Name, int(instance.Spec.Duration.Seconds()), instance.Spec.EventOptions)
+			err = cjfr.DumpRecording(targetAddr, instance.Spec.Name, int(instance.Spec.Duration.Seconds()), instance.Spec.EventOptions)
 		}
 		if err != nil {
 			log.Error(err, "failed to create new recording")
-			r.CloseClient() // TODO maybe track an error state in the client instead of relying on calling this everywhere
 			return reconcile.Result{}, err
 		}
 	} else if shouldStopRecording(instance) {
 		log.Info("stopping recording", "name", instance.Spec.Name)
-		err = r.StopRecording(targetAddr, instance.Spec.Name)
+		err = cjfr.StopRecording(targetAddr, instance.Spec.Name)
 		if err != nil {
 			log.Error(err, "failed to stop recording")
-			r.CloseClient()
 			return reconcile.Result{}, err
 		}
 	}
@@ -250,7 +239,7 @@ func (r *ReconcileRecording) Reconcile(request reconcile.Request) (reconcile.Res
 	log.Info("Looking for recordings for pod", "pod", targetPod.Name, "namespace", targetPod.Namespace)
 	// Updated Download URL, use existing URL as default
 	downloadURL := instance.Status.DownloadURL
-	descriptor, err := r.findRecordingByName(targetAddr, instance.Spec.Name)
+	descriptor, err := findRecordingByName(cjfr, targetAddr, instance.Spec.Name)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
@@ -272,7 +261,7 @@ func (r *ReconcileRecording) Reconcile(request reconcile.Request) (reconcile.Res
 	// Archive completed recording if requested and not already done
 	isStopped := instance.Status.State != nil && *instance.Status.State == rhjmcv1alpha2.RecordingStateStopped
 	if instance.Spec.Archive && isStopped {
-		url, err := r.archiveStoppedRecording(instance, targetAddr)
+		url, err := archiveStoppedRecording(cjfr, instance, targetAddr)
 		if err != nil {
 			return reconcile.Result{}, err
 		} else if url == nil {
@@ -325,12 +314,11 @@ func (r *ReconcileRecording) getFlightRecorder(ctx context.Context, recording *r
 	return jfr, nil
 }
 
-func (r *ReconcileRecording) findDownloadURL(filename string) (*string, error) {
+func findDownloadURL(cjfr jfrclient.ContainerJfrClient, filename string) (*string, error) {
 	// Look for our saved recording in list from Container JFR
-	savedRecordings, err := r.ListSavedRecordings()
+	savedRecordings, err := cjfr.ListSavedRecordings()
 	if err != nil {
 		log.Error(err, "failed to list saved flight recordings")
-		r.CloseClient()
 		return nil, err
 	}
 	for idx, saved := range savedRecordings {
@@ -341,7 +329,7 @@ func (r *ReconcileRecording) findDownloadURL(filename string) (*string, error) {
 	return nil, nil
 }
 
-func (r *ReconcileRecording) archiveStoppedRecording(recording *rhjmcv1alpha2.Recording,
+func archiveStoppedRecording(cjfr jfrclient.ContainerJfrClient, recording *rhjmcv1alpha2.Recording,
 	target *jfrclient.TargetAddress) (*string, error) {
 	// Check if existing download URL points to an archived recording
 	jfrFile, err := recordingFilename(*recording.Status.DownloadURL)
@@ -349,7 +337,7 @@ func (r *ReconcileRecording) archiveStoppedRecording(recording *rhjmcv1alpha2.Re
 		return nil, err
 	}
 
-	existing, err := r.findDownloadURL(*jfrFile)
+	existing, err := findDownloadURL(cjfr, *jfrFile)
 	if err != nil {
 		return nil, err
 	}
@@ -360,29 +348,28 @@ func (r *ReconcileRecording) archiveStoppedRecording(recording *rhjmcv1alpha2.Re
 
 	// Recording hasn't been archived yet, do so now
 	log.Info("saving recording", "name", recording.Spec.Name)
-	filename, err := r.SaveRecording(target, recording.Spec.Name)
+	filename, err := cjfr.SaveRecording(target, recording.Spec.Name)
 	if err != nil {
 		log.Error(err, "failed to save recording", "name", recording.Spec.Name)
-		r.CloseClient()
 		return nil, err
 	}
 
 	// Look up full URL for filename returned by SaveRecording
-	return r.findDownloadURL(*filename)
+	return findDownloadURL(cjfr, *filename)
 }
 
-func (r *ReconcileRecording) removeRecording(target *jfrclient.TargetAddress, recording *rhjmcv1alpha2.Recording) error {
+func removeRecording(cjfr jfrclient.ContainerJfrClient, target *jfrclient.TargetAddress,
+	recording *rhjmcv1alpha2.Recording) error {
 	// Check if recording exists in Container JFR's in-memory list
 	recName := recording.Spec.Name
-	found, err := r.findRecordingByName(target, recName)
+	found, err := findRecordingByName(cjfr, target, recName)
 	if err != nil {
 		return err
 	}
 	if found != nil {
 		// Found matching recording, delete it
-		err = r.DeleteRecording(target, recName)
+		err = cjfr.DeleteRecording(target, recName)
 		if err != nil {
-			r.CloseClient()
 			return err
 		}
 		log.Info("recording successfully deleted", "name", recName)
@@ -390,23 +377,23 @@ func (r *ReconcileRecording) removeRecording(target *jfrclient.TargetAddress, re
 	return nil
 }
 
-func (r *ReconcileRecording) removeSavedRecording(ctx context.Context, recording *rhjmcv1alpha2.Recording) error {
+func (r *ReconcileRecording) removeSavedRecording(cjfr jfrclient.ContainerJfrClient,
+	recording *rhjmcv1alpha2.Recording) error {
 	if recording.Status.DownloadURL != nil {
 		jfrFile, err := recordingFilename(*recording.Status.DownloadURL)
 		if err != nil {
 			return err
 		}
 		// Look for this JFR file within Container JFR's list of saved recordings
-		found, err := r.findDownloadURL(*jfrFile)
+		found, err := findDownloadURL(cjfr, *jfrFile)
 		if err != nil {
 			return err
 		}
 
 		if found != nil {
 			// JFR file exists, so delete it
-			err = r.DeleteSavedRecording(*jfrFile)
+			err = cjfr.DeleteSavedRecording(*jfrFile)
 			if err != nil {
-				r.CloseClient()
 				return err
 			}
 			log.Info("saved recording successfully deleted", "file", jfrFile)
@@ -453,12 +440,12 @@ func (r *ReconcileRecording) removeRecordingFinalizer(ctx context.Context, recor
 	return nil
 }
 
-func (r *ReconcileRecording) findRecordingByName(target *jfrclient.TargetAddress, name string) (*jfrclient.RecordingDescriptor, error) {
+func findRecordingByName(cjfr jfrclient.ContainerJfrClient, target *jfrclient.TargetAddress,
+	name string) (*jfrclient.RecordingDescriptor, error) {
 	// Get an updated list of in-memory flight recordings
-	descriptors, err := r.ListRecordings(target)
+	descriptors, err := cjfr.ListRecordings(target)
 	if err != nil {
 		log.Error(err, "failed to list flight recordings", "name", name)
-		r.CloseClient()
 		return nil, err
 	}
 

@@ -51,7 +51,37 @@ import (
 
 	"github.com/go-logr/logr"
 	rhjmcv1alpha2 "github.com/rh-jmc-team/container-jfr-operator/pkg/apis/rhjmc/v1alpha2"
+	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
 )
+
+var log = logf.Log.WithName("containerjfr_client")
+
+const ioTimeout = 30 * time.Second
+
+// Config stores configuration options to connect to Container JFR's
+// web server
+type Config struct {
+	// URL to Container JFR's web server
+	ServerURL *url.URL
+	// Bearer token to authenticate with Container JFR
+	AccessToken *string
+	// Whether to enabled TLS hostname verification
+	TLSVerify bool
+}
+
+// ContainerJfrClient contains methods for interacting with Container JFR's
+// REST API
+type ContainerJfrClient interface {
+	ListRecordings(target *TargetAddress) ([]RecordingDescriptor, error)
+	DumpRecording(target *TargetAddress, name string, seconds int, events []string) error
+	StartRecording(target *TargetAddress, name string, events []string) error
+	StopRecording(target *TargetAddress, name string) error
+	DeleteRecording(target *TargetAddress, name string) error
+	SaveRecording(target *TargetAddress, name string) (*string, error)
+	ListSavedRecordings() ([]SavedRecording, error)
+	DeleteSavedRecording(jfrFile string) error
+	ListEventTypes(target *TargetAddress) ([]rhjmcv1alpha2.EventInfo, error)
+}
 
 type httpClient struct {
 	config *Config
@@ -64,6 +94,7 @@ const (
 	attrDuration      = "duration"
 )
 
+// NewHTTPClient creates a client to communicate with Container JFR over HTTP(S)
 func NewHTTPClient(config *Config) (ContainerJfrClient, error) {
 	configCopy := *config
 	if config.ServerURL == nil {
@@ -76,24 +107,28 @@ func NewHTTPClient(config *Config) (ContainerJfrClient, error) {
 	transport.TLSClientConfig = &tls.Config{InsecureSkipVerify: !config.TLSVerify}
 	client := &http.Client{
 		Transport: transport,
-		Timeout:   30 * time.Second,
+		Timeout:   ioTimeout,
 	}
+	log.Info("creating new Container JFR client", "server", config.ServerURL)
 	return &httpClient{
 		config: &configCopy,
 		client: client,
 	}, nil
 }
 
+// ListRecordings returns a list of its in-memory Flight Recordings
 func (c *httpClient) ListRecordings(target *TargetAddress) ([]RecordingDescriptor, error) {
 	result := []RecordingDescriptor{}
 	err := c.httpGet(apiPath("recordings", nil, target), &result)
 	return result, err
 }
 
+// DumpRecording instructs Container JFR to create a new recording of fixed duration
 func (c *httpClient) DumpRecording(target *TargetAddress, name string, seconds int, events []string) error {
 	return c.postRecording(target, name, seconds, events)
 }
 
+// StartRecording instructs Container JFR to create a new continuous recording
 func (c *httpClient) StartRecording(target *TargetAddress, name string, events []string) error {
 	return c.postRecording(target, name, 0, events)
 }
@@ -110,52 +145,41 @@ func (c *httpClient) postRecording(target *TargetAddress, name string, seconds i
 	return err
 }
 
+// StopRecording instructs Container JFR to stop a recording
 func (c *httpClient) StopRecording(target *TargetAddress, name string) error {
 	return c.httpPatch(apiPath("recordings", &name, target), "stop", nil)
 }
 
+// DeleteRecording deletes a recording from Container JFR
 func (c *httpClient) DeleteRecording(target *TargetAddress, name string) error {
 	return c.httpDelete(apiPath("recordings", &name, target), nil)
 }
 
+// SaveRecording copies a flight recording file from local memory to persistent storage
 func (c *httpClient) SaveRecording(target *TargetAddress, name string) (*string, error) {
 	var result string
 	err := c.httpPatch(apiPath("recordings", &name, target), "save", &result)
 	return &result, err
 }
 
+// ListSavedRecordings returns a list of recordings contained in persistent storage
 func (c *httpClient) ListSavedRecordings() ([]SavedRecording, error) {
 	result := []SavedRecording{}
 	err := c.httpGet(apiPath("recordings", nil, nil), &result)
 	return result, err
 }
 
+// DeleteSavedRecording deletes a recording from the persistent storage managed
+// by Container JFR
 func (c *httpClient) DeleteSavedRecording(jfrFile string) error {
 	return c.httpDelete(apiPath("recordings", &jfrFile, nil), nil)
 }
 
+// ListEventTypes returns a list of events available in the target JVM
 func (c *httpClient) ListEventTypes(target *TargetAddress) ([]rhjmcv1alpha2.EventInfo, error) {
 	result := []rhjmcv1alpha2.EventInfo{}
 	err := c.httpGet(apiPath("events", nil, target), &result)
 	return result, err
-}
-
-func (c *httpClient) IsReady() (bool, error) { // TODO maybe don't need this after all
-	pathURL, err := url.Parse("/api/v1/clienturl")
-	if err != nil {
-		return false, err
-	}
-	requestURL := c.config.ServerURL.ResolveReference(pathURL)
-	resp, err := c.client.Get(requestURL.String())
-	if err != nil {
-		return false, err
-	}
-	defer resp.Body.Close()
-	return resp.StatusCode == http.StatusOK, nil
-}
-
-func (c *httpClient) Close() error {
-	return nil // TODO
 }
 
 func (c *httpClient) httpGet(apiPath string, result interface{}) error {
@@ -237,16 +261,9 @@ func decodeResponse(body io.Reader, result interface{}, httpLogger logr.Logger) 
 			*resultStr = string(buf)
 			httpDebug.Info("parsed plain text response", "result", *resultStr)
 		} else { // Otherwise, decode as JSON into struct
-			dec := json.NewDecoder(body)
-			err := dec.Decode(result)
+			err := json.NewDecoder(body).Decode(result)
 			if err != nil {
 				httpLogger.Error(err, "could not parse JSON response")
-				buf, err := ioutil.ReadAll(dec.Buffered()) // XXX
-				if err != nil {
-					httpLogger.Error(err, "could not parse plain text response")
-					return err
-				}
-				httpLogger.Info("got plain text response instead of JSON", "body", string(buf))
 				return err
 			}
 			httpDebug.Info("parsed JSON response", "result", result)
