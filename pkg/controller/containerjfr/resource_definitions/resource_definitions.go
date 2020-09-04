@@ -37,14 +37,15 @@
 package resource_definitions
 
 import (
+	"math/rand"
+	"time"
+
 	rhjmcv1alpha1 "github.com/rh-jmc-team/container-jfr-operator/pkg/apis/rhjmc/v1alpha1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
-	"math/rand"
-	"time"
 )
 
 type ServiceSpecs struct {
@@ -190,6 +191,11 @@ func NewCoreContainer(cr *rhjmcv1alpha1.ContainerJFR, specs *ServiceSpecs) corev
 		{
 			Name:  "GRAFANA_DATASOURCE_URL",
 			Value: specs.DatasourceAddress,
+		},
+		{
+			// FIXME remove once JMX auth support is present in operator
+			Name:  "CONTAINER_JFR_DISABLE_JMX_AUTH",
+			Value: "true",
 		},
 	}
 	imageTag := "quay.io/rh-jmc-team/container-jfr:0.19.0"
@@ -432,7 +438,7 @@ func NewJfrDatasourceService(cr *rhjmcv1alpha1.ContainerJFR) *corev1.Service {
 func NewJmxSecretForCR(cr *rhjmcv1alpha1.ContainerJFR) *corev1.Secret {
 	return &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:	   cr.Name + "-jmx-auth",
+			Name:      cr.Name + "-jmx-auth",
 			Namespace: cr.Namespace,
 		},
 		StringData: map[string]string{
