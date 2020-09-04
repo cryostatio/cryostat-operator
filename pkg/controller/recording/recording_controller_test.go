@@ -2,6 +2,7 @@ package recording_test
 
 import (
 	"context"
+	"net/http"
 	"time"
 
 	. "github.com/onsi/ginkgo"
@@ -27,7 +28,7 @@ import (
 var _ = Describe("RecordingController", func() {
 	var (
 		objs       []runtime.Object
-		messages   []test.WsMessage
+		handlers   []http.HandlerFunc
 		server     *test.ContainerJFRServer
 		client     client.Client
 		controller *recording.ReconcileRecording
@@ -45,7 +46,7 @@ var _ = Describe("RecordingController", func() {
 			&rhjmcv1alpha2.RecordingList{})
 
 		client = fake.NewFakeClientWithScheme(s, objs...)
-		server = test.NewServer(client, messages)
+		server = test.NewServer(client, handlers)
 		controller = &recording.ReconcileRecording{
 			Client:     client,
 			Scheme:     s,
@@ -54,7 +55,6 @@ var _ = Describe("RecordingController", func() {
 	})
 
 	JustAfterEach(func() {
-		controller.CloseClient()
 		server.Close()
 	})
 
@@ -63,23 +63,23 @@ var _ = Describe("RecordingController", func() {
 			test.NewContainerJFR(), test.NewFlightRecorder(), test.NewTargetPod(),
 			test.NewContainerJFRService(), test.NewRecording(),
 		}
-		messages = []test.WsMessage{
-			test.NewDumpMessage(),
-			test.NewListMessage("RUNNING", 30000),
+		handlers = []http.HandlerFunc{
+			test.NewDumpHandler(),
+			test.NewListHandler(test.NewRecordingDescriptors("RUNNING", 30000)),
 		}
 	})
 
 	AfterEach(func() {
 		// Reset test inputs
 		objs = nil
-		messages = nil
+		handlers = nil
 	})
 
 	Describe("reconciling a request", func() {
 		Context("with a new recording", func() {
 			It("updates status with recording info", func() {
-				desc := getFirstDescriptor(&messages[1])
-				expectRecordingStatus(controller, client, desc)
+				desc := test.NewRecordingDescriptors("RUNNING", 30000)[0]
+				expectRecordingStatus(controller, client, &desc)
 			})
 			It("adds finalizer to recording", func() {
 				expectFinalizerPresent(controller, client)
@@ -94,17 +94,12 @@ var _ = Describe("RecordingController", func() {
 					test.NewContainerJFR(), test.NewFlightRecorder(), test.NewTargetPod(),
 					test.NewContainerJFRService(), test.NewRecording(),
 				}
-				messages = []test.WsMessage{
-					test.FailMessage(test.NewDumpMessage()),
+				handlers = []http.HandlerFunc{
+					test.NewDumpFailHandler(),
 				}
 			})
 			It("should requeue with error", func() {
 				expectReconcileError(controller)
-			})
-			It("should close Container JFR client", func() {
-				req := reconcile.Request{NamespacedName: types.NamespacedName{Name: "my-recording", Namespace: "default"}}
-				controller.Reconcile(req)
-				Expect(controller.IsClientConnected()).To(BeFalse())
 			})
 		})
 		Context("with a new continuous recording", func() {
@@ -113,14 +108,14 @@ var _ = Describe("RecordingController", func() {
 					test.NewContainerJFR(), test.NewFlightRecorder(), test.NewTargetPod(),
 					test.NewContainerJFRService(), test.NewContinuousRecording(),
 				}
-				messages = []test.WsMessage{
-					test.NewStartMessage(),
-					test.NewListMessage("RUNNING", 0),
+				handlers = []http.HandlerFunc{
+					test.NewStartHandler(),
+					test.NewListHandler(test.NewRecordingDescriptors("RUNNING", 0)),
 				}
 			})
 			It("updates status with recording info", func() {
-				desc := getFirstDescriptor(&messages[1])
-				expectRecordingStatus(controller, client, desc)
+				desc := test.NewRecordingDescriptors("RUNNING", 0)[0]
+				expectRecordingStatus(controller, client, &desc)
 			})
 			It("should requeue after 10 seconds", func() {
 				expectResult(controller, reconcile.Result{RequeueAfter: 10 * time.Second})
@@ -132,17 +127,12 @@ var _ = Describe("RecordingController", func() {
 					test.NewContainerJFR(), test.NewFlightRecorder(), test.NewTargetPod(),
 					test.NewContainerJFRService(), test.NewContinuousRecording(),
 				}
-				messages = []test.WsMessage{
-					test.FailMessage(test.NewStartMessage()),
+				handlers = []http.HandlerFunc{
+					test.NewStartFailHandler(),
 				}
 			})
 			It("should requeue with error", func() {
 				expectReconcileError(controller)
-			})
-			It("should close Container JFR client", func() {
-				req := reconcile.Request{NamespacedName: types.NamespacedName{Name: "my-recording", Namespace: "default"}}
-				controller.Reconcile(req)
-				Expect(controller.IsClientConnected()).To(BeFalse())
 			})
 		})
 		Context("with a running recording", func() {
@@ -151,8 +141,8 @@ var _ = Describe("RecordingController", func() {
 					test.NewContainerJFR(), test.NewFlightRecorder(), test.NewTargetPod(),
 					test.NewContainerJFRService(), test.NewRunningRecording(),
 				}
-				messages = []test.WsMessage{
-					test.NewListMessage("RUNNING", 30000),
+				handlers = []http.HandlerFunc{
+					test.NewListHandler(test.NewRecordingDescriptors("RUNNING", 30000)),
 				}
 			})
 			It("should not change status", func() {
@@ -168,8 +158,8 @@ var _ = Describe("RecordingController", func() {
 					test.NewContainerJFR(), test.NewFlightRecorder(), test.NewTargetPod(),
 					test.NewContainerJFRService(), test.NewRunningRecording(),
 				}
-				messages = []test.WsMessage{
-					test.NewListEmptyMessage(),
+				handlers = []http.HandlerFunc{
+					test.NewListHandler([]jfrclient.RecordingDescriptor{}),
 				}
 			})
 			It("should not change status", func() {
@@ -185,17 +175,12 @@ var _ = Describe("RecordingController", func() {
 					test.NewContainerJFR(), test.NewFlightRecorder(), test.NewTargetPod(),
 					test.NewContainerJFRService(), test.NewRunningRecording(),
 				}
-				messages = []test.WsMessage{
-					test.FailMessage(test.NewListMessage("RUNNING", 30000)),
+				handlers = []http.HandlerFunc{
+					test.NewListFailHandler(test.NewRecordingDescriptors("RUNNING", 30000)),
 				}
 			})
 			It("should requeue with error", func() {
 				expectReconcileError(controller)
-			})
-			It("should close Container JFR client", func() {
-				req := reconcile.Request{NamespacedName: types.NamespacedName{Name: "my-recording", Namespace: "default"}}
-				controller.Reconcile(req)
-				Expect(controller.IsClientConnected()).To(BeFalse())
 			})
 		})
 		Context("when listing recordings has unexpected state", func() {
@@ -204,8 +189,8 @@ var _ = Describe("RecordingController", func() {
 					test.NewContainerJFR(), test.NewFlightRecorder(), test.NewTargetPod(),
 					test.NewContainerJFRService(), test.NewRunningRecording(),
 				}
-				messages = []test.WsMessage{
-					test.NewListMessage("DOES-NOT-EXIST", 30000),
+				handlers = []http.HandlerFunc{
+					test.NewListHandler(test.NewRecordingDescriptors("DOES-NOT-EXIST", 30000)),
 				}
 			})
 			It("should requeue with error", func() {
@@ -218,14 +203,14 @@ var _ = Describe("RecordingController", func() {
 					test.NewContainerJFR(), test.NewFlightRecorder(), test.NewTargetPod(),
 					test.NewContainerJFRService(), test.NewRecordingToStop(),
 				}
-				messages = []test.WsMessage{
-					test.NewStopMessage(),
-					test.NewListMessage("STOPPED", 0),
+				handlers = []http.HandlerFunc{
+					test.NewStopHandler(),
+					test.NewListHandler(test.NewRecordingDescriptors("STOPPED", 0)),
 				}
 			})
 			It("should stop recording", func() {
-				desc := getFirstDescriptor(&messages[1])
-				expectRecordingStatus(controller, client, desc)
+				desc := test.NewRecordingDescriptors("STOPPED", 0)[0]
+				expectRecordingStatus(controller, client, &desc)
 			})
 			It("should not requeue", func() {
 				expectResult(controller, reconcile.Result{})
@@ -237,17 +222,12 @@ var _ = Describe("RecordingController", func() {
 					test.NewContainerJFR(), test.NewFlightRecorder(), test.NewTargetPod(),
 					test.NewContainerJFRService(), test.NewRecordingToStop(),
 				}
-				messages = []test.WsMessage{
-					test.FailMessage(test.NewStopMessage()),
+				handlers = []http.HandlerFunc{
+					test.NewStopFailHandler(),
 				}
 			})
 			It("should requeue with error", func() {
 				expectReconcileError(controller)
-			})
-			It("should close Container JFR client", func() {
-				req := reconcile.Request{NamespacedName: types.NamespacedName{Name: "my-recording", Namespace: "default"}}
-				controller.Reconcile(req)
-				Expect(controller.IsClientConnected()).To(BeFalse())
 			})
 		})
 		Context("with a stopped recording to be archived", func() {
@@ -256,11 +236,11 @@ var _ = Describe("RecordingController", func() {
 					test.NewContainerJFR(), test.NewFlightRecorder(), test.NewTargetPod(),
 					test.NewContainerJFRService(), test.NewStoppedRecordingToArchive(),
 				}
-				messages = []test.WsMessage{
-					test.NewListMessage("STOPPED", 30000),
-					test.NewListSavedEmptyMessage(),
-					test.NewSaveMessage(),
-					test.NewListSavedMessage(),
+				handlers = []http.HandlerFunc{
+					test.NewListHandler(test.NewRecordingDescriptors("STOPPED", 30000)),
+					test.NewListSavedHandler([]jfrclient.SavedRecording{}),
+					test.NewSaveHandler(),
+					test.NewListSavedHandler(test.NewSavedRecordings()),
 				}
 			})
 			It("should update download URL", func() {
@@ -278,11 +258,12 @@ var _ = Describe("RecordingController", func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				// Should all be the same except for Download URL
+				saved := test.NewSavedRecordings()[0]
 				Expect(after.Status.State).To(Equal(before.Status.State))
 				Expect(after.Status.Duration).To(Equal(before.Status.Duration))
 				Expect(after.Status.StartTime).To(Equal(before.Status.StartTime))
 				Expect(after.Status.DownloadURL).ToNot(BeNil())
-				Expect(*after.Status.DownloadURL).To(Equal("http://path/to/saved-test-recording.jfr"))
+				Expect(*after.Status.DownloadURL).To(Equal(saved.DownloadURL))
 			})
 			It("should not requeue", func() {
 				expectResult(controller, reconcile.Result{})
@@ -294,19 +275,13 @@ var _ = Describe("RecordingController", func() {
 					test.NewContainerJFR(), test.NewFlightRecorder(), test.NewTargetPod(),
 					test.NewContainerJFRService(), test.NewStoppedRecordingToArchive(),
 				}
-				messages = []test.WsMessage{
-					test.NewListMessage("STOPPED", 30000),
-					test.NewListSavedMessage(),
-					test.FailMessage(test.NewSaveMessage()),
+				handlers = []http.HandlerFunc{
+					test.NewListHandler(test.NewRecordingDescriptors("STOPPED", 30000)),
+					test.NewListSavedFailHandler(test.NewSavedRecordings()),
 				}
 			})
 			It("should requeue with error", func() {
 				expectReconcileError(controller)
-			})
-			It("should close Container JFR client", func() {
-				req := reconcile.Request{NamespacedName: types.NamespacedName{Name: "my-recording", Namespace: "default"}}
-				controller.Reconcile(req)
-				Expect(controller.IsClientConnected()).To(BeFalse())
 			})
 		})
 		Context("when archiving recording fails", func() {
@@ -315,18 +290,14 @@ var _ = Describe("RecordingController", func() {
 					test.NewContainerJFR(), test.NewFlightRecorder(), test.NewTargetPod(),
 					test.NewContainerJFRService(), test.NewStoppedRecordingToArchive(),
 				}
-				messages = []test.WsMessage{
-					test.NewListMessage("STOPPED", 30000),
-					test.FailMessage(test.NewListSavedMessage()),
+				handlers = []http.HandlerFunc{
+					test.NewListHandler(test.NewRecordingDescriptors("STOPPED", 30000)),
+					test.NewListSavedHandler(test.NewSavedRecordings()),
+					test.NewSaveFailHandler(),
 				}
 			})
 			It("should requeue with error", func() {
 				expectReconcileError(controller)
-			})
-			It("should close Container JFR client", func() {
-				req := reconcile.Request{NamespacedName: types.NamespacedName{Name: "my-recording", Namespace: "default"}}
-				controller.Reconcile(req)
-				Expect(controller.IsClientConnected()).To(BeFalse())
 			})
 		})
 		Context("with a running recording to be stopped and archived", func() {
@@ -335,12 +306,12 @@ var _ = Describe("RecordingController", func() {
 					test.NewContainerJFR(), test.NewFlightRecorder(), test.NewTargetPod(),
 					test.NewContainerJFRService(), test.NewRecordingToStopAndArchive(),
 				}
-				messages = []test.WsMessage{
-					test.NewStopMessage(),
-					test.NewListMessage("STOPPED", 30000),
-					test.NewListSavedEmptyMessage(),
-					test.NewSaveMessage(),
-					test.NewListSavedMessage(),
+				handlers = []http.HandlerFunc{
+					test.NewStopHandler(),
+					test.NewListHandler(test.NewRecordingDescriptors("STOPPED", 30000)),
+					test.NewListSavedHandler([]jfrclient.SavedRecording{}),
+					test.NewSaveHandler(),
+					test.NewListSavedHandler(test.NewSavedRecordings()),
 				}
 			})
 			It("should stop recording", func() {
@@ -377,9 +348,9 @@ var _ = Describe("RecordingController", func() {
 					test.NewContainerJFR(), test.NewFlightRecorder(), test.NewTargetPod(),
 					test.NewContainerJFRService(), test.NewArchivedRecording(),
 				}
-				messages = []test.WsMessage{
-					test.NewListMessage("STOPPED", 30000),
-					test.NewListSavedMessage(),
+				handlers = []http.HandlerFunc{
+					test.NewListHandler(test.NewRecordingDescriptors("STOPPED", 30000)),
+					test.NewListSavedHandler(test.NewSavedRecordings()),
 				}
 			})
 			It("should not change status", func() {
@@ -395,11 +366,11 @@ var _ = Describe("RecordingController", func() {
 					test.NewContainerJFR(), test.NewFlightRecorder(), test.NewTargetPod(),
 					test.NewContainerJFRService(), test.NewDeletedArchivedRecording(),
 				}
-				messages = []test.WsMessage{
-					test.NewListSavedMessage(),
-					test.NewDeleteSavedMessage(),
-					test.NewListMessage("STOPPED", 30000),
-					test.NewDeleteMessage(),
+				handlers = []http.HandlerFunc{
+					test.NewListSavedHandler(test.NewSavedRecordings()),
+					test.NewDeleteSavedHandler(),
+					test.NewListHandler(test.NewRecordingDescriptors("STOPPED", 30000)),
+					test.NewDeleteHandler(),
 				}
 			})
 			It("should remove the finalizer", func() {
@@ -415,9 +386,9 @@ var _ = Describe("RecordingController", func() {
 					test.NewContainerJFR(), test.NewTargetPod(),
 					test.NewContainerJFRService(), test.NewDeletedArchivedRecording(),
 				}
-				messages = []test.WsMessage{
-					test.NewListSavedMessage(),
-					test.NewDeleteSavedMessage(),
+				handlers = []http.HandlerFunc{
+					test.NewListSavedHandler(test.NewSavedRecordings()),
+					test.NewDeleteSavedHandler(),
 				}
 			})
 			It("should remove the finalizer", func() {
@@ -433,9 +404,9 @@ var _ = Describe("RecordingController", func() {
 					test.NewContainerJFR(), test.NewFlightRecorder(), test.NewTargetPod(),
 					test.NewContainerJFRService(), test.NewDeletedArchivedRecording(),
 				}
-				messages = []test.WsMessage{
-					test.NewListSavedMessage(),
-					test.FailMessage(test.NewDeleteSavedMessage()),
+				handlers = []http.HandlerFunc{
+					test.NewListSavedHandler(test.NewSavedRecordings()),
+					test.NewDeleteSavedFailHandler(),
 				}
 			})
 			It("should keep the finalizer", func() {
@@ -443,11 +414,6 @@ var _ = Describe("RecordingController", func() {
 			})
 			It("should requeue with error", func() {
 				expectReconcileError(controller)
-			})
-			It("should close Container JFR client", func() {
-				req := reconcile.Request{NamespacedName: types.NamespacedName{Name: "my-recording", Namespace: "default"}}
-				controller.Reconcile(req)
-				Expect(controller.IsClientConnected()).To(BeFalse())
 			})
 		})
 		Context("when deleting the in-memory recording fails", func() {
@@ -456,11 +422,11 @@ var _ = Describe("RecordingController", func() {
 					test.NewContainerJFR(), test.NewFlightRecorder(), test.NewTargetPod(),
 					test.NewContainerJFRService(), test.NewDeletedArchivedRecording(),
 				}
-				messages = []test.WsMessage{
-					test.NewListSavedMessage(),
-					test.NewDeleteSavedMessage(),
-					test.NewListMessage("STOPPED", 30000),
-					test.FailMessage(test.NewDeleteMessage()),
+				handlers = []http.HandlerFunc{
+					test.NewListSavedHandler(test.NewSavedRecordings()),
+					test.NewDeleteSavedHandler(),
+					test.NewListHandler(test.NewRecordingDescriptors("STOPPED", 30000)),
+					test.NewDeleteFailHandler(),
 				}
 			})
 			It("should keep the finalizer", func() {
@@ -469,15 +435,10 @@ var _ = Describe("RecordingController", func() {
 			It("should requeue with error", func() {
 				expectReconcileError(controller)
 			})
-			It("should close Container JFR client", func() {
-				req := reconcile.Request{NamespacedName: types.NamespacedName{Name: "my-recording", Namespace: "default"}}
-				controller.Reconcile(req)
-				Expect(controller.IsClientConnected()).To(BeFalse())
-			})
 		})
 		Context("Recording does not exist", func() {
 			BeforeEach(func() {
-				messages = []test.WsMessage{}
+				handlers = []http.HandlerFunc{}
 			})
 			It("should do nothing", func() {
 				req := reconcile.Request{NamespacedName: types.NamespacedName{Name: "does-not-exist", Namespace: "default"}}
@@ -494,7 +455,7 @@ var _ = Describe("RecordingController", func() {
 					test.NewContainerJFR(), otherFr, test.NewTargetPod(), test.NewContainerJFRService(),
 					test.NewRecording(),
 				}
-				messages = []test.WsMessage{}
+				handlers = []http.HandlerFunc{}
 			})
 			It("should requeue", func() {
 				expectResult(controller, reconcile.Result{RequeueAfter: time.Second})
@@ -506,7 +467,7 @@ var _ = Describe("RecordingController", func() {
 					test.NewFlightRecorder(), test.NewTargetPod(), test.NewContainerJFRService(),
 					test.NewRecording(),
 				}
-				messages = []test.WsMessage{}
+				handlers = []http.HandlerFunc{}
 			})
 			It("should requeue with error", func() {
 				expectReconcileError(controller)
@@ -518,7 +479,7 @@ var _ = Describe("RecordingController", func() {
 					test.NewContainerJFR(), test.NewFlightRecorder(), test.NewTargetPod(),
 					test.NewRecording(),
 				}
-				messages = []test.WsMessage{}
+				handlers = []http.HandlerFunc{}
 			})
 			It("should requeue with error", func() {
 				expectReconcileError(controller)
@@ -530,7 +491,7 @@ var _ = Describe("RecordingController", func() {
 					test.NewContainerJFR(), test.NewTargetPod(), test.NewContainerJFRService(),
 					test.NewRecording(),
 				}
-				messages = []test.WsMessage{}
+				handlers = []http.HandlerFunc{}
 			})
 			It("should not requeue", func() {
 				req := reconcile.Request{NamespacedName: types.NamespacedName{Name: "my-recording", Namespace: "default"}}
@@ -545,7 +506,7 @@ var _ = Describe("RecordingController", func() {
 					test.NewContainerJFR(), test.NewFlightRecorder(), test.NewContainerJFRService(),
 					test.NewRecording(),
 				}
-				messages = []test.WsMessage{}
+				handlers = []http.HandlerFunc{}
 			})
 			It("should requeue with error", func() {
 				expectReconcileError(controller)
@@ -559,7 +520,7 @@ var _ = Describe("RecordingController", func() {
 					test.NewContainerJFR(), test.NewFlightRecorder(), otherPod, test.NewContainerJFRService(),
 					test.NewRecording(),
 				}
-				messages = []test.WsMessage{}
+				handlers = []http.HandlerFunc{}
 			})
 			It("should requeue with error", func() {
 				expectReconcileError(controller)
@@ -625,9 +586,4 @@ func reconcileAndGet(controller *recording.ReconcileRecording, client client.Cli
 	err := client.Get(context.Background(), req.NamespacedName, obj)
 	Expect(err).ToNot(HaveOccurred())
 	return obj
-}
-
-// Return the first descriptor contained in the response of supplied "list" message
-func getFirstDescriptor(listMsg *test.WsMessage) *jfrclient.RecordingDescriptor {
-	return &listMsg.Reply.Payload.([]jfrclient.RecordingDescriptor)[0]
 }

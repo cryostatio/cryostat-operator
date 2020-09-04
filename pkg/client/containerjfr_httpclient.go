@@ -88,10 +88,20 @@ type httpClient struct {
 	client *http.Client
 }
 
+type apiPath struct {
+	resource string
+	target   *TargetAddress
+	name     *string
+}
+
 const (
+	resRecordings     = "recordings"
+	resEvents         = "events"
 	attrRecordingName = "recordingName"
 	attrEvents        = "events"
 	attrDuration      = "duration"
+	cmdStop           = "stop"
+	cmdSave           = "save"
 )
 
 // NewHTTPClient creates a client to communicate with Container JFR over HTTP(S)
@@ -118,8 +128,12 @@ func NewHTTPClient(config *Config) (ContainerJfrClient, error) {
 
 // ListRecordings returns a list of its in-memory Flight Recordings
 func (c *httpClient) ListRecordings(target *TargetAddress) ([]RecordingDescriptor, error) {
+	path := &apiPath{
+		resource: resRecordings,
+		target:   target,
+	}
 	result := []RecordingDescriptor{}
-	err := c.httpGet(apiPath("recordings", nil, target), &result)
+	err := c.httpGet(path, &result)
 	return result, err
 }
 
@@ -134,85 +148,115 @@ func (c *httpClient) StartRecording(target *TargetAddress, name string, events [
 }
 
 func (c *httpClient) postRecording(target *TargetAddress, name string, seconds int, events []string) error {
+	path := &apiPath{
+		resource: resRecordings,
+		target:   target,
+	}
 	values := url.Values{}
 	values.Add(attrRecordingName, name)
 	values.Add(attrEvents, strings.Join(events, ","))
 	if seconds > 0 {
 		values.Add(attrDuration, strconv.Itoa(seconds))
 	}
-	result := RecordingDescriptor{} // TODO use this to avoid get call
-	err := c.httpPostForm(apiPath("recordings", nil, target), values, &result)
+	result := RecordingDescriptor{} // TODO use this in reconciler to avoid get call
+	err := c.httpPostForm(path, values, &result)
 	return err
 }
 
 // StopRecording instructs Container JFR to stop a recording
 func (c *httpClient) StopRecording(target *TargetAddress, name string) error {
-	return c.httpPatch(apiPath("recordings", &name, target), "stop", nil)
+	path := &apiPath{
+		resource: resRecordings,
+		target:   target,
+		name:     &name,
+	}
+	return c.httpPatch(path, cmdStop, nil)
 }
 
 // DeleteRecording deletes a recording from Container JFR
 func (c *httpClient) DeleteRecording(target *TargetAddress, name string) error {
-	return c.httpDelete(apiPath("recordings", &name, target), nil)
+	path := &apiPath{
+		resource: resRecordings,
+		target:   target,
+		name:     &name,
+	}
+	return c.httpDelete(path, nil)
 }
 
 // SaveRecording copies a flight recording file from local memory to persistent storage
 func (c *httpClient) SaveRecording(target *TargetAddress, name string) (*string, error) {
+	path := &apiPath{
+		resource: resRecordings,
+		target:   target,
+		name:     &name,
+	}
 	var result string
-	err := c.httpPatch(apiPath("recordings", &name, target), "save", &result)
+	err := c.httpPatch(path, cmdSave, &result)
 	return &result, err
 }
 
 // ListSavedRecordings returns a list of recordings contained in persistent storage
 func (c *httpClient) ListSavedRecordings() ([]SavedRecording, error) {
+	path := &apiPath{
+		resource: resRecordings,
+	}
 	result := []SavedRecording{}
-	err := c.httpGet(apiPath("recordings", nil, nil), &result)
+	err := c.httpGet(path, &result)
 	return result, err
 }
 
 // DeleteSavedRecording deletes a recording from the persistent storage managed
 // by Container JFR
 func (c *httpClient) DeleteSavedRecording(jfrFile string) error {
-	return c.httpDelete(apiPath("recordings", &jfrFile, nil), nil)
+	path := &apiPath{
+		resource: resRecordings,
+		name:     &jfrFile,
+	}
+	return c.httpDelete(path, nil)
 }
 
 // ListEventTypes returns a list of events available in the target JVM
 func (c *httpClient) ListEventTypes(target *TargetAddress) ([]rhjmcv1alpha2.EventInfo, error) {
+	path := &apiPath{
+		resource: resEvents,
+		target:   target,
+	}
 	result := []rhjmcv1alpha2.EventInfo{}
-	err := c.httpGet(apiPath("events", nil, target), &result)
+	err := c.httpGet(path, &result)
 	return result, err
 }
 
-func (c *httpClient) httpGet(apiPath string, result interface{}) error {
-	return c.sendRequest(http.MethodGet, apiPath, nil, nil, result)
+func (c *httpClient) httpGet(path *apiPath, result interface{}) error {
+	return c.sendRequest(http.MethodGet, path, nil, nil, result)
 }
 
-func (c *httpClient) httpPatch(apiPath string, body string, result interface{}) error {
+func (c *httpClient) httpPatch(path *apiPath, body string, result interface{}) error {
 	contentType := "text/plain"
-	return c.sendRequest(http.MethodPatch, apiPath, strings.NewReader(body),
+	return c.sendRequest(http.MethodPatch, path, strings.NewReader(body),
 		&contentType, result)
 }
 
-func (c *httpClient) httpPostForm(apiPath string, formData url.Values, result interface{}) error {
+func (c *httpClient) httpPostForm(path *apiPath, formData url.Values, result interface{}) error {
 	contentType := "application/x-www-form-urlencoded"
-	return c.sendRequest(http.MethodPost, apiPath, strings.NewReader(formData.Encode()),
+	return c.sendRequest(http.MethodPost, path, strings.NewReader(formData.Encode()),
 		&contentType, result)
 }
 
-func (c *httpClient) httpDelete(apiPath string, result interface{}) error {
-	return c.sendRequest(http.MethodDelete, apiPath, nil, nil, result)
+func (c *httpClient) httpDelete(path *apiPath, result interface{}) error {
+	return c.sendRequest(http.MethodDelete, path, nil, nil, result)
 }
 
-func (c *httpClient) sendRequest(method string, apiPath string, body io.Reader, contentType *string,
+func (c *httpClient) sendRequest(method string, path *apiPath, body io.Reader, contentType *string,
 	result interface{}) error {
 	// Resolve API path with server URL
-	pathURL, err := url.Parse(apiPath)
+	pathURL, err := path.URL()
 	if err != nil {
 		return err
 	}
 	requestURL := c.config.ServerURL.ResolveReference(pathURL)
 	httpLogger := log.WithValues("method", method, "url", requestURL)
 
-	// Create request and add authorization header(s)
+	// Create request and set authorization header(s)
 	req, err := http.NewRequest(method, requestURL.String(), body)
 	if err != nil {
 		return err
@@ -233,18 +277,20 @@ func (c *httpClient) sendRequest(method string, apiPath string, body io.Reader, 
 
 	// Convert non-2xx responses to errors
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		err := fmt.Errorf("server returned status: %s", resp.Status)
+		// Error response body will be plain text
 		errMsg, err := ioutil.ReadAll(resp.Body)
 		if err != nil {
 			httpLogger.Error(err, "failed to read error message from response body")
+			return err
 		}
+		err = fmt.Errorf("server returned status: %s", resp.Status)
 		httpLogger.Error(err, "request failed", "message", string(errMsg))
 		return err
 	}
 	httpLogger.Info("request succeeded")
 
 	// Decode response body stream directly
-	return decodeResponse(resp.Body, result, httpLogger) // TODO maybe use Accept header to specify what kind of response we want? But what about errors then?
+	return decodeResponse(resp.Body, result, httpLogger)
 }
 
 func decodeResponse(body io.Reader, result interface{}, httpLogger logr.Logger) error {
@@ -272,15 +318,19 @@ func decodeResponse(body io.Reader, result interface{}, httpLogger logr.Logger) 
 	return nil
 }
 
-func apiPath(resource string, name *string, target *TargetAddress) string { // TODO maybe turn this into a type
-	if target != nil {
-		if name != nil {
-			return fmt.Sprintf("/api/v1/targets/%s/%s/%s", url.PathEscape(target.String()), resource, *name)
+func (p *apiPath) URL() (*url.URL, error) {
+	// Build path based on what fields are defined in the receiver
+	var strPath string
+	if p.target != nil {
+		if p.name != nil {
+			strPath = fmt.Sprintf("/api/v1/targets/%s/%s/%s", url.PathEscape(p.target.String()), p.resource, *p.name)
+		} else {
+			strPath = fmt.Sprintf("/api/v1/targets/%s/%s", url.PathEscape(p.target.String()), p.resource)
 		}
-		return fmt.Sprintf("/api/v1/targets/%s/%s", url.PathEscape(target.String()), resource)
+	} else if p.name != nil {
+		strPath = fmt.Sprintf("/api/v1/%s/%s", p.resource, *p.name)
+	} else {
+		strPath = fmt.Sprintf("/api/v1/%s", p.resource)
 	}
-	if name != nil {
-		return fmt.Sprintf("/api/v1/%s/%s", resource, *name)
-	}
-	return fmt.Sprintf("/api/v1/%s", resource)
+	return url.Parse(strPath)
 }
