@@ -10,8 +10,9 @@ import (
 // NewTestReconciler returns a common.Reconciler for use by unit tests
 func NewTestReconciler(client client.Client) common.Reconciler {
 	return common.NewReconciler(&common.ReconcilerConfig{
-		Client: client,
-		OS:     &testOSUtils{},
+		Client:     client,
+		OS:         &testOSUtils{},
+		DisableTLS: true, // FIXME look into switching tests to HTTPS
 	})
 }
 

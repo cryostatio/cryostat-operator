@@ -58,8 +58,9 @@ var log = logf.Log.WithName("common_reconciler")
 type ReconcilerConfig struct {
 	// This client, initialized using mgr.Client(), is a split client
 	// that reads objects from the cache and writes to the apiserver
-	Client client.Client
-	OS     OSUtils
+	Client     client.Client
+	OS         OSUtils
+	DisableTLS bool
 }
 
 // Reconciler contains helpful methods to communicate with Container JFR.
@@ -161,15 +162,15 @@ func (r *commonReconciler) getServerURL(ctx context.Context, namespace string, s
 	if err != nil {
 		return nil, err
 	}
-	clusterIP, err := getClusterIP(cjfrSvc)
-	if err != nil {
-		return nil, err
-	}
 	webServerPort, err := getWebServerPort(cjfrSvc)
 	if err != nil {
 		return nil, err
 	}
-	return url.Parse(fmt.Sprintf("http://%s:%d/", *clusterIP, webServerPort))
+	protocol := "https"
+	if r.DisableTLS {
+		protocol = "http"
+	}
+	return url.Parse(fmt.Sprintf("%s://%s.%s.svc:%d/", protocol, svcName, namespace, webServerPort))
 }
 
 func getPodIP(pod *corev1.Pod) (*string, error) {
@@ -178,14 +179,6 @@ func getPodIP(pod *corev1.Pod) (*string, error) {
 		return nil, fmt.Errorf("PodIP unavailable for %s", pod.Name)
 	}
 	return &podIP, nil
-}
-
-func getClusterIP(svc *corev1.Service) (*string, error) {
-	clusterIP := svc.Spec.ClusterIP
-	if clusterIP == "" || clusterIP == corev1.ClusterIPNone {
-		return nil, fmt.Errorf("ClusterIP unavailable for %s", svc.Name)
-	}
-	return &clusterIP, nil
 }
 
 func getWebServerPort(svc *corev1.Service) (int32, error) {
