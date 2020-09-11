@@ -50,7 +50,7 @@ var _ = Describe("RecordingController", func() {
 		controller = &recording.ReconcileRecording{
 			Client:     client,
 			Scheme:     s,
-			Reconciler: test.NewTestReconciler(client),
+			Reconciler: test.NewTestReconciler(server, client),
 		}
 	})
 

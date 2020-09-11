@@ -113,6 +113,8 @@ func NewHTTPClient(config *Config) (ContainerJfrClient, error) {
 	if config.AccessToken == nil {
 		return nil, errors.New("AccessToken in config must not be nil")
 	}
+
+	// Use settings from default Transport with modified TLS config
 	transport := http.DefaultTransport.(*http.Transport).Clone()
 	transport.TLSClientConfig = &tls.Config{InsecureSkipVerify: !config.TLSVerify}
 	client := &http.Client{

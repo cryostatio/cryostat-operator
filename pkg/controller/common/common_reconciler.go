@@ -58,9 +58,10 @@ var log = logf.Log.WithName("common_reconciler")
 type ReconcilerConfig struct {
 	// This client, initialized using mgr.Client(), is a split client
 	// that reads objects from the cache and writes to the apiserver
-	Client     client.Client
-	OS         OSUtils
-	DisableTLS bool
+	Client        client.Client
+	ClientFactory ContainerJFRClientFactory
+	OS            OSUtils
+	DisableTLS    bool
 }
 
 // Reconciler contains helpful methods to communicate with Container JFR.
@@ -72,6 +73,9 @@ type Reconciler interface {
 
 type commonReconciler struct {
 	*ReconcilerConfig
+	// TODO Will need some way to invalidate client when ContainerJFR changes. Maybe store CJFR metadata
+	// (UID, ResourceVersion) along with it, and invalidate on mismatch. If this operator becomes
+	// cluster-scoped we may need to cache multiple clients.
 	jfrclient jfrclient.ContainerJfrClient
 }
 
@@ -81,6 +85,9 @@ var _ Reconciler = &commonReconciler{}
 // NewReconciler creates a new Reconciler using the provided configuration
 func NewReconciler(config *ReconcilerConfig) Reconciler {
 	configCopy := *config
+	if config.ClientFactory == nil {
+		configCopy.ClientFactory = &defaultClientFactory{}
+	}
 	if config.OS == nil {
 		configCopy.OS = &defaultOSUtils{}
 	}
@@ -89,8 +96,8 @@ func NewReconciler(config *ReconcilerConfig) Reconciler {
 	}
 }
 
-// ConnectToContainerJFR opens a WebSocket connect to the Container JFR service deployed
-// by this operator
+// GetContainerJFRClient gets or creates a client to communicate with the Container JFR
+// instance deployed by this operator in the given namespace
 func (r *commonReconciler) GetContainerJFRClient(ctx context.Context, namespace string) (jfrclient.ContainerJfrClient, error) {
 	// Check if we've already created the client
 	if r.jfrclient != nil {
@@ -101,7 +108,7 @@ func (r *commonReconciler) GetContainerJFRClient(ctx context.Context, namespace 
 	if err != nil {
 		return nil, err
 	}
-	// Query the "clienturl" endpoint of Container JFR for the command URL
+	// Get the URL to the Container JFR web service
 	serverURL, err := r.getServerURL(ctx, cjfr.Namespace, cjfr.Name)
 	if err != nil {
 		return nil, err
@@ -115,7 +122,7 @@ func (r *commonReconciler) GetContainerJFRClient(ctx context.Context, namespace 
 
 	// Create Container JFR HTTP(S) client
 	config := &jfrclient.Config{ServerURL: serverURL, AccessToken: &strTok, TLSVerify: !strings.EqualFold(r.OS.GetEnv("TLS_VERIFY"), "false")}
-	jfrClient, err := jfrclient.NewHTTPClient(config)
+	jfrClient, err := r.ClientFactory.CreateClient(config)
 	if err != nil {
 		return nil, err
 	}

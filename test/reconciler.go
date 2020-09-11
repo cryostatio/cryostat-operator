@@ -1,19 +1,39 @@
 package test
 
 import (
+	"net/url"
+
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/onsi/gomega"
+	jfrclient "github.com/rh-jmc-team/container-jfr-operator/pkg/client"
 	"github.com/rh-jmc-team/container-jfr-operator/pkg/controller/common"
 )
 
 // NewTestReconciler returns a common.Reconciler for use by unit tests
-func NewTestReconciler(client client.Client) common.Reconciler {
+func NewTestReconciler(server *ContainerJFRServer, client client.Client) common.Reconciler {
 	return common.NewReconciler(&common.ReconcilerConfig{
-		Client:     client,
-		OS:         &testOSUtils{},
-		DisableTLS: true, // FIXME look into switching tests to HTTPS
+		Client:        client,
+		ClientFactory: &testClientFactory{serverURL: server.impl.URL()},
+		OS:            &testOSUtils{},
+		DisableTLS:    true, // FIXME look into switching tests to HTTPS
 	})
+}
+
+type testClientFactory struct {
+	serverURL string
+}
+
+func (c *testClientFactory) CreateClient(config *jfrclient.Config) (jfrclient.ContainerJfrClient, error) {
+	// Verify the provided server URL before substituting it
+	gomega.Expect(config.ServerURL.String()).To(gomega.Equal("http://containerjfr.default.svc:8181/"))
+
+	// Replace server URL with one to httptest server
+	url, err := url.Parse(c.serverURL)
+	gomega.Expect(err).ToNot(gomega.HaveOccurred())
+	config.ServerURL = url
+
+	return jfrclient.NewHTTPClient(config)
 }
 
 type testOSUtils struct{}

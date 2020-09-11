@@ -81,7 +81,7 @@ var _ = Describe("FlightRecorderController", func() {
 		controller = &flightrecorder.ReconcileFlightRecorder{
 			Client:     client,
 			Scheme:     s,
-			Reconciler: test.NewTestReconciler(client),
+			Reconciler: test.NewTestReconciler(server, client),
 		}
 	})
 

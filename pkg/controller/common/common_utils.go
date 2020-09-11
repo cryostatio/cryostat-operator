@@ -39,12 +39,25 @@ package common
 import (
 	"io/ioutil"
 	"os"
+
+	jfrclient "github.com/rh-jmc-team/container-jfr-operator/pkg/client"
 )
+
+// ContainerJFRClientFactory provides a method for creating Container JFR clients
+type ContainerJFRClientFactory interface {
+	CreateClient(config *jfrclient.Config) (jfrclient.ContainerJfrClient, error)
+}
 
 // OSUtils is an abstraction on functionality that interacts with the operating system
 type OSUtils interface {
 	GetEnv(name string) string
 	GetFileContents(path string) ([]byte, error)
+}
+
+type defaultClientFactory struct{}
+
+func (c *defaultClientFactory) CreateClient(config *jfrclient.Config) (jfrclient.ContainerJfrClient, error) {
+	return jfrclient.NewHTTPClient(config)
 }
 
 type defaultOSUtils struct{}
