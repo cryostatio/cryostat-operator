@@ -198,7 +198,7 @@ func NewCoreContainer(cr *rhjmcv1alpha1.ContainerJFR, specs *ServiceSpecs) corev
 			Value: "true",
 		},
 	}
-	imageTag := "quay.io/rh-jmc-team/container-jfr:0.19.0"
+	imageTag := "quay.io/rh-jmc-team/container-jfr:0.20.0"
 	if cr.Spec.Minimal {
 		imageTag += "-minimal"
 		envs = append(envs, corev1.EnvVar{
