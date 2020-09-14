@@ -197,6 +197,11 @@ func NewCoreContainer(cr *rhjmcv1alpha1.ContainerJFR, specs *ServiceSpecs) corev
 			Name:  "CONTAINER_JFR_DISABLE_JMX_AUTH",
 			Value: "true",
 		},
+		{
+			// FIXME remove once TLS support is present in operator
+			Name:  "CONTAINER_JFR_DISABLE_SSL",
+			Value: "true",
+		},
 	}
 	imageTag := "quay.io/rh-jmc-team/container-jfr:0.20.0"
 	if cr.Spec.Minimal {
