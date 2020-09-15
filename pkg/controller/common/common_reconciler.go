@@ -38,11 +38,8 @@ package common
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
-	"io/ioutil"
-	"net/http"
 	"net/url"
 	"strings"
 
@@ -61,25 +58,25 @@ var log = logf.Log.WithName("common_reconciler")
 type ReconcilerConfig struct {
 	// This client, initialized using mgr.Client(), is a split client
 	// that reads objects from the cache and writes to the apiserver
-	Client    client.Client
-	Connector ContainerJFRConnector
-	OS        OSUtils
+	Client        client.Client
+	ClientFactory ContainerJFRClientFactory
+	OS            OSUtils
+	DisableTLS    bool
 }
 
 // Reconciler contains helpful methods to communicate with Container JFR.
 // It is meant to be embedded within other Reconcilers.
 type Reconciler interface {
-	FindContainerJFR(ctx context.Context, namespace string) (*rhjmcv1alpha1.ContainerJFR, error)
-	ConnectToContainerJFR(ctx context.Context, namespace string, svcName string) error
-	IsClientConnected() bool
+	GetContainerJFRClient(ctx context.Context, namespace string) (jfrclient.ContainerJfrClient, error)
 	GetPodTarget(targetPod *corev1.Pod, jmxPort int32) (*jfrclient.TargetAddress, error)
-	CloseClient()
-	jfrclient.ContainerJfrClient
 }
 
 type commonReconciler struct {
 	*ReconcilerConfig
-	jfrclient.ContainerJfrClient
+	// TODO Will need some way to invalidate client when ContainerJFR changes. Maybe store CJFR metadata
+	// (UID, ResourceVersion) along with it, and invalidate on mismatch. If this operator becomes
+	// cluster-scoped we may need to cache multiple clients.
+	jfrclient jfrclient.ContainerJfrClient
 }
 
 // blank assignment to verify that commonReconciler implements Reconciler
@@ -88,8 +85,8 @@ var _ Reconciler = &commonReconciler{}
 // NewReconciler creates a new Reconciler using the provided configuration
 func NewReconciler(config *ReconcilerConfig) Reconciler {
 	configCopy := *config
-	if config.Connector == nil {
-		configCopy.Connector = &defaultConnector{}
+	if config.ClientFactory == nil {
+		configCopy.ClientFactory = &defaultClientFactory{}
 	}
 	if config.OS == nil {
 		configCopy.OS = &defaultOSUtils{}
@@ -99,8 +96,55 @@ func NewReconciler(config *ReconcilerConfig) Reconciler {
 	}
 }
 
-// FindContainerJFR retrieves a ContainerJFR instance within a given namespace
-func (r *commonReconciler) FindContainerJFR(ctx context.Context, namespace string) (*rhjmcv1alpha1.ContainerJFR, error) {
+// GetContainerJFRClient gets or creates a client to communicate with the Container JFR
+// instance deployed by this operator in the given namespace
+func (r *commonReconciler) GetContainerJFRClient(ctx context.Context, namespace string) (jfrclient.ContainerJfrClient, error) {
+	// Check if we've already created the client
+	if r.jfrclient != nil {
+		return r.jfrclient, nil
+	}
+	// Look up ContainerJFR instance within the given namespace
+	cjfr, err := r.findContainerJFR(ctx, namespace)
+	if err != nil {
+		return nil, err
+	}
+	// Get the URL to the Container JFR web service
+	serverURL, err := r.getServerURL(ctx, cjfr.Namespace, cjfr.Name)
+	if err != nil {
+		return nil, err
+	}
+	// Read bearer token from mounted secret
+	tok, err := r.OS.GetFileContents("/var/run/secrets/kubernetes.io/serviceaccount/token")
+	if err != nil {
+		return nil, err
+	}
+	strTok := string(tok)
+
+	// Create Container JFR HTTP(S) client
+	config := &jfrclient.Config{ServerURL: serverURL, AccessToken: &strTok, TLSVerify: !strings.EqualFold(r.OS.GetEnv("TLS_VERIFY"), "false")}
+	jfrClient, err := r.ClientFactory.CreateClient(config)
+	if err != nil {
+		return nil, err
+	}
+	// Store client for reuse by later Reconcile calls
+	r.jfrclient = jfrClient
+	return jfrClient, nil
+}
+
+// GetPodTarget returns a TargetAddress for a particular pod and port number
+func (r *commonReconciler) GetPodTarget(targetPod *corev1.Pod, jmxPort int32) (*jfrclient.TargetAddress, error) {
+	// Create TargetAddress using pod's IP address and provided port
+	podIP, err := getPodIP(targetPod)
+	if err != nil {
+		return nil, err
+	}
+	return &jfrclient.TargetAddress{
+		Host: *podIP,
+		Port: jmxPort,
+	}, nil
+}
+
+func (r *commonReconciler) findContainerJFR(ctx context.Context, namespace string) (*rhjmcv1alpha1.ContainerJFR, error) {
 	// TODO Consider how to find ContainerJFR object if this operator becomes cluster-scoped
 	// Look up the ContainerJFR object for this operator, which will help us find its services
 	cjfrList := &rhjmcv1alpha1.ContainerJFRList{}
@@ -118,63 +162,10 @@ func (r *commonReconciler) FindContainerJFR(ctx context.Context, namespace strin
 	return &cjfrList.Items[0], nil
 }
 
-// ConnectToContainerJFR opens a WebSocket connect to the Container JFR service deployed
-// by this operator
-func (r *commonReconciler) ConnectToContainerJFR(ctx context.Context, namespace string,
-	svcName string) error {
-	// Query the "clienturl" endpoint of Container JFR for the command URL
-	clientURL, err := r.getClientURL(ctx, namespace, svcName)
-	if err != nil {
-		return err
-	}
-	tok, err := r.OS.GetFileContents("/var/run/secrets/kubernetes.io/serviceaccount/token")
-	if err != nil {
-		return err
-	}
-	strTok := string(tok)
-	config := &jfrclient.Config{ServerURL: clientURL, AccessToken: &strTok, TLSVerify: !strings.EqualFold(r.OS.GetEnv("TLS_VERIFY"), "false")}
-	jfrClient, err := r.Connector.Connect(config)
-	if err != nil {
-		return err
-	}
-	r.ContainerJfrClient = jfrClient
-	return nil
-}
-
-// GetPodTarget returns a TargetAddress for a particular pod and port number
-func (r *commonReconciler) GetPodTarget(targetPod *corev1.Pod, jmxPort int32) (*jfrclient.TargetAddress, error) {
-	// Create TargetAddress using pod's IP address and provided port
-	podIP, err := getPodIP(targetPod)
-	if err != nil {
-		return nil, err
-	}
-	return &jfrclient.TargetAddress{
-		Host: *podIP,
-		Port: jmxPort,
-	}, nil
-}
-
-// IsClientConnected returns whether the client is connected to Container JFR
-func (r *commonReconciler) IsClientConnected() bool {
-	return r.ContainerJfrClient != nil
-}
-
-// CloseClient closes the underlying WebSocket connection to Container JFR
-func (r *commonReconciler) CloseClient() {
-	if r.ContainerJfrClient != nil {
-		r.ContainerJfrClient.Close()
-	}
-	r.ContainerJfrClient = nil
-}
-
-func (r *commonReconciler) getClientURL(ctx context.Context, namespace string, svcName string) (*url.URL, error) {
-	// Look up Container JFR service, and query "clienturl" endpoint
+func (r *commonReconciler) getServerURL(ctx context.Context, namespace string, svcName string) (*url.URL, error) {
+	// Look up Container JFR service, and build URL to web service
 	cjfrSvc := &corev1.Service{}
 	err := r.Client.Get(ctx, types.NamespacedName{Namespace: namespace, Name: svcName}, cjfrSvc)
-	if err != nil {
-		return nil, err
-	}
-	clusterIP, err := getClusterIP(cjfrSvc)
 	if err != nil {
 		return nil, err
 	}
@@ -182,26 +173,11 @@ func (r *commonReconciler) getClientURL(ctx context.Context, namespace string, s
 	if err != nil {
 		return nil, err
 	}
-	host := fmt.Sprintf("http://%s:%d/api/v1/clienturl", *clusterIP, webServerPort)
-	resp, err := http.Get(host)
-	if err != nil {
-		return nil, err
+	protocol := "https"
+	if r.DisableTLS {
+		protocol = "http"
 	}
-	defer resp.Body.Close()
-
-	// Find "clientUrl" JSON property in repsonse
-	body, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		return nil, err
-	}
-	clientURLHolder := struct {
-		ClientURL string `json:"clientUrl"`
-	}{}
-	err = json.Unmarshal(body, &clientURLHolder)
-	if err != nil {
-		return nil, err
-	}
-	return url.Parse(clientURLHolder.ClientURL)
+	return url.Parse(fmt.Sprintf("%s://%s.%s.svc:%d/", protocol, svcName, namespace, webServerPort))
 }
 
 func getPodIP(pod *corev1.Pod) (*string, error) {
@@ -210,14 +186,6 @@ func getPodIP(pod *corev1.Pod) (*string, error) {
 		return nil, fmt.Errorf("PodIP unavailable for %s", pod.Name)
 	}
 	return &podIP, nil
-}
-
-func getClusterIP(svc *corev1.Service) (*string, error) {
-	clusterIP := svc.Spec.ClusterIP
-	if clusterIP == "" || clusterIP == corev1.ClusterIPNone {
-		return nil, fmt.Errorf("ClusterIP unavailable for %s", svc.Name)
-	}
-	return &clusterIP, nil
 }
 
 func getWebServerPort(svc *corev1.Service) (int32, error) {

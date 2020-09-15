@@ -67,7 +67,8 @@ func Add(mgr manager.Manager) error {
 func newReconciler(mgr manager.Manager) *ReconcileFlightRecorder {
 	return &ReconcileFlightRecorder{Client: mgr.GetClient(), Scheme: mgr.GetScheme(),
 		Reconciler: common.NewReconciler(&common.ReconcilerConfig{
-			Client: mgr.GetClient(),
+			Client:     mgr.GetClient(),
+			DisableTLS: true, // FIXME remove once TLS support is present in operator
 		}),
 	}
 }
@@ -133,18 +134,9 @@ func (r *ReconcileFlightRecorder) Reconcile(request reconcile.Request) (reconcil
 		return reconcile.Result{RequeueAfter: time.Second}, nil
 	}
 
-	cjfr, err := r.FindContainerJFR(ctx, request.Namespace)
+	cjfr, err := r.GetContainerJFRClient(ctx, request.Namespace)
 	if err != nil {
 		return reconcile.Result{}, err
-	}
-
-	// Keep client open to Container JFR as long as it doesn't fail
-	if !r.IsClientConnected() {
-		err := r.ConnectToContainerJFR(ctx, cjfr.Namespace, cjfr.Name)
-		if err != nil {
-			// Need Container JFR in order to reconcile anything, requeue until it appears
-			return reconcile.Result{}, err
-		}
 	}
 
 	// Look up pod corresponding to this FlightRecorder object
@@ -162,10 +154,9 @@ func (r *ReconcileFlightRecorder) Reconcile(request reconcile.Request) (reconcil
 
 	// Retrieve list of available events
 	log.Info("Listing event types for pod", "name", targetPod.Name, "namespace", targetPod.Namespace)
-	events, err := r.ListEventTypes(targetAddr)
+	events, err := cjfr.ListEventTypes(targetAddr)
 	if err != nil {
 		log.Error(err, "failed to list event types")
-		r.CloseClient()
 		return reconcile.Result{}, err
 	}
 

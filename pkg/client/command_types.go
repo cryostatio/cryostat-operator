@@ -37,65 +37,8 @@
 package client
 
 import (
-	"encoding/json"
-	"errors"
-
-	"k8s.io/apimachinery/pkg/types"
+	"fmt"
 )
-
-// CommandMessage represents the body of a command request to be sent
-// to Container JFR
-type CommandMessage struct {
-	// ID used to uniquely identify a response to this message
-	ID types.UID `json:"id"`
-	// The name of the command, must be recognized by Container JFR
-	Command string `json:"command"`
-	// Any arguments that Container JFR accepts for the named command
-	Args []string `json:"args"`
-}
-
-// NewCommandMessage provides a conventient shorthand for constructing
-// new CommandMessages
-func NewCommandMessage(command string, targetID string, id types.UID, args ...string) *CommandMessage {
-	return NewControlMessage(command, id, append([]string{targetID}, args...)...)
-}
-
-// NewControlMessage provides a convenient shorthand for constructing
-// new control CommandMessages, which do not include a targetID
-func NewControlMessage(command string, id types.UID, args ...string) *CommandMessage {
-	return &CommandMessage{ID: id, Command: command, Args: args}
-}
-
-// ResponseStatus is a response code used by Container JFR to indiciate
-// the outcome of executed commands
-type ResponseStatus int
-
-const (
-	// ResponseStatusSuccess indicates that the command succeeded
-	ResponseStatusSuccess ResponseStatus = 0
-	// ResponseStatusFailure indicates that the command failed due to
-	// invalid state/arguments, such as a recording of a given name
-	// already existing
-	ResponseStatusFailure ResponseStatus = -1
-	// ResponseStatusException indicates that an unexpected error
-	// occurred while executing the command
-	ResponseStatusException ResponseStatus = -2
-)
-
-// ResponseMessage corresponds to the response from Container JFR to
-// a command message previously sent
-type ResponseMessage struct {
-	// Identifier of the command message that triggered this response
-	ID types.UID `json:"id"`
-	// The name of the command that this message is responding to
-	CommandName string `json:"commandName"`
-	// The response code showing whether this command succeeded
-	Status ResponseStatus `json:"status"`
-	// The data expected in response to the issued command. The type
-	// of payload will differ depending on the command and whether
-	// the command was successful
-	Payload interface{} `json:"payload"`
-}
 
 // RecordingDescriptor contains various metadata for a particular
 // flight recording retrieved from the JVM
@@ -132,38 +75,13 @@ type SavedRecording struct {
 	ReportURL   string `json:"reportUrl"`
 }
 
-// ErrWrongID is returned when a JSON response has an unexpected ID
-var ErrWrongID error = errors.New("Response in reply to different command")
+// TargetAddress contains an address that Container JFR can use to connect
+// to a particular JVM
+type TargetAddress struct {
+	Host string
+	Port int32
+}
 
-// UnmarshalJSON overrides standard JSON parsing to handle error payloads
-// and filter out messages intended for other clients.
-// The receiver's ID should be populated with the command message's ID
-// and the Payload should be set to the expected type's zero value.
-func (msg *ResponseMessage) UnmarshalJSON(data []byte) error {
-	// Unmarshall ID to check if we are the intended recipient, and
-	// also status to determine if we need to parse an error string
-	peek := struct {
-		ID     types.UID `json:"id"`
-		Status int       `json:"status"`
-	}{}
-	err := json.Unmarshal(data, &peek)
-	if err != nil {
-		return err
-	}
-	// By checking the ID here, we can abort early and not attempt
-	// to parse a response which could contain a different kind of
-	// payload
-	if msg.ID != peek.ID {
-		debugLog.Info("Skipping response with unexpected ID", "expected", msg.ID,
-			"actual", peek.ID)
-		return ErrWrongID
-	}
-	if peek.Status < 0 {
-		// Expect a string payload for non-zero status
-		msg.Payload = ""
-	}
-	// Use an alias to prevent infinite recursion on this method
-	type responseMessageAlias ResponseMessage
-	err = json.Unmarshal(data, (*responseMessageAlias)(msg))
-	return err
+func (target TargetAddress) String() string {
+	return fmt.Sprintf("%s:%d", target.Host, target.Port)
 }

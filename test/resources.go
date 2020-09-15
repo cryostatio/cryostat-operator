@@ -192,11 +192,11 @@ func NewContainerJFRService() *corev1.Service {
 			Namespace: "default",
 		},
 		Spec: corev1.ServiceSpec{
-			ClusterIP: "TBD",
+			ClusterIP: "1.2.3.4",
 			Ports: []corev1.ServicePort{
 				{
 					Name: "export",
-					Port: -1,
+					Port: 8181,
 				},
 			},
 		},
