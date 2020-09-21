@@ -37,6 +37,7 @@
 package resource_definitions
 
 import (
+	"fmt"
 	"math/rand"
 	"time"
 
@@ -118,14 +119,15 @@ func NewDeploymentForCR(cr *rhjmcv1alpha1.ContainerJFR, specs *ServiceSpecs) *ap
 }
 
 func NewPodForCR(cr *rhjmcv1alpha1.ContainerJFR, specs *ServiceSpecs) *corev1.PodSpec {
+	storePass := GenPasswd(20)
 	var containers []corev1.Container
 	if cr.Spec.Minimal {
 		containers = []corev1.Container{
-			NewCoreContainer(cr, specs),
+			NewCoreContainer(cr, specs, storePass),
 		}
 	} else {
 		containers = []corev1.Container{
-			NewCoreContainer(cr, specs),
+			NewCoreContainer(cr, specs, storePass),
 			NewGrafanaContainer(cr),
 			NewJfrDatasourceContainer(cr),
 		}
@@ -141,12 +143,45 @@ func NewPodForCR(cr *rhjmcv1alpha1.ContainerJFR, specs *ServiceSpecs) *corev1.Po
 					},
 				},
 			},
+			{
+				Name: "service-certs",
+				VolumeSource: corev1.VolumeSource{
+					Secret: &corev1.SecretVolumeSource{
+						SecretName: cr.Name,
+					},
+				},
+			},
+			{
+				Name: "ca-bundle",
+				VolumeSource: corev1.VolumeSource{
+					ConfigMap: &corev1.ConfigMapVolumeSource{
+						LocalObjectReference: corev1.LocalObjectReference{
+							Name: cr.Name + "-ca-bundle",
+						},
+					},
+				},
+			},
+			{
+				Name: "keystore",
+				VolumeSource: corev1.VolumeSource{
+					EmptyDir: &corev1.EmptyDirVolumeSource{},
+				},
+			},
+			{
+				Name: "truststore",
+				VolumeSource: corev1.VolumeSource{
+					EmptyDir: &corev1.EmptyDirVolumeSource{},
+				},
+			},
 		},
 		Containers: containers,
+		InitContainers: []corev1.Container{
+			NewTLSSetupInitContainer(cr, storePass),
+		},
 	}
 }
 
-func NewCoreContainer(cr *rhjmcv1alpha1.ContainerJFR, specs *ServiceSpecs) corev1.Container {
+func NewCoreContainer(cr *rhjmcv1alpha1.ContainerJFR, specs *ServiceSpecs, storePass string) corev1.Container {
 	envs := []corev1.EnvVar{
 		{
 			Name:  "CONTAINER_JFR_PLATFORM",
@@ -193,13 +228,16 @@ func NewCoreContainer(cr *rhjmcv1alpha1.ContainerJFR, specs *ServiceSpecs) corev
 			Value: specs.DatasourceAddress,
 		},
 		{
-			// FIXME remove once JMX auth support is present in operator
-			Name:  "CONTAINER_JFR_DISABLE_JMX_AUTH",
-			Value: "true",
+			Name:  "KEYSTORE_PATH",
+			Value: fmt.Sprintf("/var/run/secrets/rhjmc.redhat.com/%s-pkcs12/keystore.p12", cr.Name),
 		},
 		{
-			// FIXME remove once TLS support is present in operator
-			Name:  "CONTAINER_JFR_DISABLE_SSL",
+			Name:  "KEYSTORE_PASS",
+			Value: storePass,
+		},
+		{
+			// FIXME remove once JMX auth support is present in operator
+			Name:  "CONTAINER_JFR_DISABLE_JMX_AUTH",
 			Value: "true",
 		},
 	}
@@ -218,6 +256,14 @@ func NewCoreContainer(cr *rhjmcv1alpha1.ContainerJFR, specs *ServiceSpecs) corev
 			{
 				Name:      cr.Name,
 				MountPath: "flightrecordings",
+			},
+			{
+				Name:      "keystore",
+				MountPath: fmt.Sprintf("/var/run/secrets/rhjmc.redhat.com/%s-pkcs12", cr.Name),
+			},
+			{
+				Name:      "truststore",
+				MountPath: "/truststore",
 			},
 		},
 		Ports: []corev1.ContainerPort{
@@ -244,8 +290,9 @@ func NewCoreContainer(cr *rhjmcv1alpha1.ContainerJFR, specs *ServiceSpecs) corev
 		LivenessProbe: &corev1.Probe{
 			Handler: corev1.Handler{
 				HTTPGet: &corev1.HTTPGetAction{
-					Port: intstr.IntOrString{IntVal: 8181},
-					Path: "/api/v1/clienturl",
+					Port:   intstr.IntOrString{IntVal: 8181},
+					Path:   "/api/v1/clienturl",
+					Scheme: corev1.URISchemeHTTPS,
 				},
 			},
 		},
@@ -331,6 +378,66 @@ func NewJfrDatasourceContainer(cr *rhjmcv1alpha1.ContainerJFR) corev1.Container 
 	}
 }
 
+func NewTLSSetupInitContainer(cr *rhjmcv1alpha1.ContainerJFR, storePass string) corev1.Container {
+	bashCmd := "openssl pkcs12 -export -inkey $(KEY_FILE)" +
+		" -in $(CERT_FILE) -out $(KEYSTORE_FILE)" +
+		" -password pass:$(KEYSTORE_PASS)" +
+		" && chmod 644 $(KEYSTORE_FILE)" +
+		" && csplit -z -f /truststore/crt- $(CA_CERTS) '/-----BEGIN CERTIFICATE-----/' '{*}'"
+	return corev1.Container{
+		Name: "tls-setup",
+		// TODO Better or custom image?
+		Image:   "registry.access.redhat.com/ubi8/s2i-base", // UBI image with openssl
+		Command: []string{"/bin/bash"},
+		Args: []string{
+			"-c",
+			bashCmd,
+		},
+		Env: []corev1.EnvVar{
+			{
+				Name:  "KEY_FILE",
+				Value: fmt.Sprintf("/var/run/secrets/rhjmc.redhat.com/%s/tls.key", cr.Name),
+			},
+			{
+				Name:  "CERT_FILE",
+				Value: fmt.Sprintf("/var/run/secrets/rhjmc.redhat.com/%s/tls.crt", cr.Name),
+			},
+			{
+				Name:  "KEYSTORE_FILE",
+				Value: fmt.Sprintf("/var/run/secrets/rhjmc.redhat.com/%s-pkcs12/keystore.p12", cr.Name),
+			},
+			{
+				Name:  "KEYSTORE_PASS",
+				Value: storePass,
+			},
+			{
+				Name:  "CA_CERTS",
+				Value: fmt.Sprintf("/var/run/secrets/rhjmc.redhat.com/%s-ca-bundle/service-ca.crt", cr.Name),
+			},
+		},
+		VolumeMounts: []corev1.VolumeMount{
+			{
+				Name:      "service-certs",
+				MountPath: fmt.Sprintf("/var/run/secrets/rhjmc.redhat.com/%s", cr.Name),
+			},
+			{
+				Name:      "ca-bundle",
+				MountPath: fmt.Sprintf("/var/run/secrets/rhjmc.redhat.com/%s-ca-bundle", cr.Name),
+			},
+			{
+				Name:      "keystore",
+				MountPath: fmt.Sprintf("/var/run/secrets/rhjmc.redhat.com/%s-pkcs12", cr.Name),
+			},
+			{
+				Name:      "truststore",
+				MountPath: "/truststore",
+			},
+		},
+	}
+}
+
+const servingCertAnnotation = "service.beta.openshift.io/serving-cert-secret-name"
+
 func NewExporterService(cr *rhjmcv1alpha1.ContainerJFR) *corev1.Service {
 	return &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
@@ -339,6 +446,10 @@ func NewExporterService(cr *rhjmcv1alpha1.ContainerJFR) *corev1.Service {
 			Labels: map[string]string{
 				"app":       cr.Name,
 				"component": "container-jfr",
+			},
+			Annotations: map[string]string{
+				// Get OpenShift to generate key-pair/certificate and store in secret
+				servingCertAnnotation: cr.Name,
 			},
 		},
 		Spec: corev1.ServiceSpec{
@@ -449,6 +560,18 @@ func NewJmxSecretForCR(cr *rhjmcv1alpha1.ContainerJFR) *corev1.Secret {
 		StringData: map[string]string{
 			"CONTAINER_JFR_RJMX_USER": "containerjfr",
 			"CONTAINER_JFR_RJMX_PASS": GenPasswd(20),
+		},
+	}
+}
+
+func NewCABundleConfigMap(cr *rhjmcv1alpha1.ContainerJFR) *corev1.ConfigMap {
+	return &corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      cr.Name + "-ca-bundle",
+			Namespace: cr.Namespace,
+			Annotations: map[string]string{
+				"service.beta.openshift.io/inject-cabundle": "true",
+			},
 		},
 	}
 }
