@@ -166,17 +166,20 @@ remove_cert_manager:
 	- oc delete -f $(CERT_MANAGER_MANIFEST)
 
 .PHONY: sample_app
-sample_app:
+sample_app: undeploy_sample_app
 	oc new-app quay.io/andrewazores/vertx-fib-demo:0.1.0
+	oc patch svc/vertx-fib-demo -p '{"spec":{"$setElementOrder/ports":[{"port":8080},{"port":9093}],"ports":[{"name":"jfr-jmx","port":9093}]}}'
+	oc expose svc/vertx-fib-demo
 
 .PHONY: undeploy_sample_app
 undeploy_sample_app:
 	- oc delete all -l app=vertx-fib-demo
 
 .PHONY: sample_app2
-sample_app2:
+sample_app2: undeploy_sample_app2
 	oc new-app quay.io/andrewazores/container-jmx-docker-listener:0.1.0 --name=jmx-listener
 	oc patch svc/jmx-listener -p '{"spec":{"$setElementOrder/ports":[{"port":7095},{"port":9092},{"port":9093}],"ports":[{"name":"jfr-jmx","port":9093}]}}'
+	oc expose svc/jmx-listener
 
 .PHONY: undeploy_sample_app2
 undeploy_sample_app2:
