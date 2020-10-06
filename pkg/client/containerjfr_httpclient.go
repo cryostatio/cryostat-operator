@@ -116,7 +116,7 @@ func NewHTTPClient(config *Config) (ContainerJfrClient, error) {
 
 	// Use settings from default Transport with modified TLS config
 	transport := http.DefaultTransport.(*http.Transport).Clone()
-	transport.TLSClientConfig = &tls.Config{InsecureSkipVerify: !config.TLSVerify}
+	transport.TLSClientConfig = &tls.Config{InsecureSkipVerify: !config.TLSVerify} // TODO Trust Container JFR CA
 	client := &http.Client{
 		Transport: transport,
 		Timeout:   ioTimeout,

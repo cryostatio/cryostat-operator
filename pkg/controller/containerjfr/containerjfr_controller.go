@@ -42,6 +42,7 @@ import (
 	"time"
 
 	goerrors "errors"
+
 	openshiftv1 "github.com/openshift/api/route/v1"
 	rhjmcv1alpha1 "github.com/rh-jmc-team/container-jfr-operator/pkg/apis/rhjmc/v1alpha1"
 	resources "github.com/rh-jmc-team/container-jfr-operator/pkg/controller/containerjfr/resource_definitions"
@@ -163,21 +164,21 @@ func (r *ReconcileContainerJFR) Reconcile(request reconcile.Request) (reconcile.
 	var url string
 	if !instance.Spec.Minimal {
 		grafanaSvc := resources.NewGrafanaService(instance)
-		url, err = r.createService(context.Background(), instance, grafanaSvc, &grafanaSvc.Spec.Ports[0])
+		url, err = r.createService(context.Background(), instance, grafanaSvc, &grafanaSvc.Spec.Ports[0], nil)
 		if err != nil {
 			return reconcile.Result{}, err
 		}
 		serviceSpecs.GrafanaAddress = fmt.Sprintf("https://%s", url)
 
 		datasourceSvc := resources.NewJfrDatasourceService(instance)
-		url, err = r.createService(context.Background(), instance, datasourceSvc, nil)
+		url, err = r.createService(context.Background(), instance, datasourceSvc, nil, nil)
 		if err != nil {
 			return reconcile.Result{}, err
 		}
 		serviceSpecs.DatasourceAddress = fmt.Sprintf("http://%s", url)
 
 		// check for existing minimal deployment and delete if found
-		deployment := resources.NewDeploymentForCR(instance, serviceSpecs)
+		deployment := resources.NewDeploymentForCR(instance, serviceSpecs, nil)
 		err = r.client.Get(context.Background(), types.NamespacedName{Name: deployment.Name, Namespace: deployment.Namespace}, deployment)
 		if err == nil && len(deployment.Spec.Template.Spec.Containers) == 1 {
 			reqLogger.Info("Deleting existing minimal deployment")
@@ -219,7 +220,7 @@ func (r *ReconcileContainerJFR) Reconcile(request reconcile.Request) (reconcile.
 			}
 		}
 
-		deployment := resources.NewDeploymentForCR(instance, serviceSpecs)
+		deployment := resources.NewDeploymentForCR(instance, serviceSpecs, nil)
 		err = r.client.Get(context.Background(), types.NamespacedName{Name: deployment.Name, Namespace: deployment.Namespace}, deployment)
 		if err == nil && len(deployment.Spec.Template.Spec.Containers) > 1 {
 			reqLogger.Info("Deleting existing non-minimal deployment")
@@ -231,21 +232,55 @@ func (r *ReconcileContainerJFR) Reconcile(request reconcile.Request) (reconcile.
 		}
 	}
 
+	// Set up TLS using cert-manager, if available
+	var tlsConfig *resources.TLSConfig
+	var routeTLS *openshiftv1.TLSConfig
+	if r.certManagerAvailable() {
+		tlsConfig, err = r.setupTLS(context.Background(), instance)
+		if err != nil {
+			reqLogger.Error(err, "Failed to set up TLS for Container JFR")
+			return reconcile.Result{}, err
+		}
+
+		// Get CA certificate from secret and set as destination CA in route
+		certSecret := &corev1.Secret{}
+		err = r.client.Get(context.Background(), types.NamespacedName{Name: tlsConfig.CertSecretName, Namespace: instance.Namespace}, certSecret)
+		if err != nil {
+			if errors.IsNotFound(err) {
+				log.Info("Waiting for certificate secret to become available", "secret", tlsConfig.CertSecretName)
+				return reconcile.Result{RequeueAfter: 5 * time.Second}, nil
+			}
+			return reconcile.Result{}, err
+		}
+		routeTLS = &openshiftv1.TLSConfig{
+			Termination:              openshiftv1.TLSTerminationReencrypt,
+			DestinationCACertificate: string(certSecret.Data["ca.crt"]),
+		}
+
+		// Update owner references of TLS secrets created by cert-manager to ensure proper cleanup
+		err := r.setCertSecretOwner(context.Background(), instance)
+		if err != nil {
+			return reconcile.Result{}, err
+		}
+	}
+	// TODO Set up TLS for Grafana as well
+	// TODO Restrict jfr-datasource to localhost?
+
 	exporterSvc := resources.NewExporterService(instance)
-	url, err = r.createService(context.Background(), instance, exporterSvc, &exporterSvc.Spec.Ports[0])
+	url, err = r.createService(context.Background(), instance, exporterSvc, &exporterSvc.Spec.Ports[0], routeTLS)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
 	serviceSpecs.CoreAddress = url
 
 	cmdChanSvc := resources.NewCommandChannelService(instance)
-	url, err = r.createService(context.Background(), instance, cmdChanSvc, &cmdChanSvc.Spec.Ports[0])
+	url, err = r.createService(context.Background(), instance, cmdChanSvc, &cmdChanSvc.Spec.Ports[0], routeTLS)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
 	serviceSpecs.CommandAddress = url
 
-	deployment := resources.NewDeploymentForCR(instance, serviceSpecs)
+	deployment := resources.NewDeploymentForCR(instance, serviceSpecs, tlsConfig)
 	if err := controllerutil.SetControllerReference(instance, deployment, r.scheme); err != nil {
 		return reconcile.Result{}, err
 	}
@@ -258,7 +293,8 @@ func (r *ReconcileContainerJFR) Reconcile(request reconcile.Request) (reconcile.
 	return reconcile.Result{}, nil
 }
 
-func (r *ReconcileContainerJFR) createService(ctx context.Context, controller *rhjmcv1alpha1.ContainerJFR, svc *corev1.Service, exposePort *corev1.ServicePort) (string, error) {
+func (r *ReconcileContainerJFR) createService(ctx context.Context, controller *rhjmcv1alpha1.ContainerJFR, svc *corev1.Service, exposePort *corev1.ServicePort,
+	tlsConfig *openshiftv1.TLSConfig) (string, error) {
 	if err := controllerutil.SetControllerReference(controller, svc, r.scheme); err != nil {
 		return "", err
 	}
@@ -266,8 +302,15 @@ func (r *ReconcileContainerJFR) createService(ctx context.Context, controller *r
 		return "", err
 	}
 
+	// Use edge termination by default
+	if tlsConfig == nil {
+		tlsConfig = &openshiftv1.TLSConfig{
+			Termination:                   openshiftv1.TLSTerminationEdge,
+			InsecureEdgeTerminationPolicy: openshiftv1.InsecureEdgeTerminationPolicyRedirect,
+		}
+	}
 	if exposePort != nil {
-		return r.createRouteForService(controller, svc, *exposePort)
+		return r.createRouteForService(controller, svc, *exposePort, tlsConfig)
 	}
 
 	if err := r.client.Get(context.Background(), types.NamespacedName{Name: svc.Name, Namespace: svc.Namespace}, svc); err != nil {
@@ -282,7 +325,8 @@ func (r *ReconcileContainerJFR) createService(ctx context.Context, controller *r
 	return fmt.Sprintf("%s:%d", svc.Spec.ClusterIP, svc.Spec.Ports[0].Port), nil
 }
 
-func (r *ReconcileContainerJFR) createRouteForService(controller *rhjmcv1alpha1.ContainerJFR, svc *corev1.Service, exposePort corev1.ServicePort) (string, error) {
+func (r *ReconcileContainerJFR) createRouteForService(controller *rhjmcv1alpha1.ContainerJFR, svc *corev1.Service, exposePort corev1.ServicePort,
+	tlsConfig *openshiftv1.TLSConfig) (string, error) {
 	logger := log.WithValues("Request.Namespace", svc.Namespace, "Name", svc.Name, "Kind", fmt.Sprintf("%T", &openshiftv1.Route{}))
 	route := &openshiftv1.Route{
 		ObjectMeta: metav1.ObjectMeta{
@@ -295,10 +339,7 @@ func (r *ReconcileContainerJFR) createRouteForService(controller *rhjmcv1alpha1.
 				Name: svc.Name,
 			},
 			Port: &openshiftv1.RoutePort{TargetPort: exposePort.TargetPort},
-			TLS: &openshiftv1.TLSConfig{
-				Termination:                   openshiftv1.TLSTerminationEdge,
-				InsecureEdgeTerminationPolicy: openshiftv1.InsecureEdgeTerminationPolicyRedirect,
-			},
+			TLS:  tlsConfig,
 		},
 	}
 	if err := controllerutil.SetControllerReference(controller, route, r.scheme); err != nil {

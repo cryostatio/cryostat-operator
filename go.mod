@@ -45,6 +45,7 @@ replace github.com/openshift/api => github.com/openshift/api v0.0.0-201909241025
 
 // Required for cert-manager until we upgrade Operator SDK
 replace (
+	github.com/go-logr/zapr => github.com/go-logr/zapr v0.2.0
 	github.com/googleapis/gnostic => github.com/googleapis/gnostic v0.4.0
 	k8s.io/kube-openapi => k8s.io/kube-openapi v0.0.0-20190918143330-0270cf2f1c1d
 	sigs.k8s.io/controller-runtime => sigs.k8s.io/controller-runtime v0.4.0

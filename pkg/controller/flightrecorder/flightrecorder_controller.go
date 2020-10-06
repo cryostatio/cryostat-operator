@@ -67,8 +67,7 @@ func Add(mgr manager.Manager) error {
 func newReconciler(mgr manager.Manager) *ReconcileFlightRecorder {
 	return &ReconcileFlightRecorder{Client: mgr.GetClient(), Scheme: mgr.GetScheme(),
 		Reconciler: common.NewReconciler(&common.ReconcilerConfig{
-			Client:     mgr.GetClient(),
-			DisableTLS: true, // FIXME remove once TLS support is present in operator
+			Client: mgr.GetClient(),
 		}),
 	}
 }

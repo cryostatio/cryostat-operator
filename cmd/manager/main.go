@@ -50,6 +50,7 @@ import (
 	"github.com/rh-jmc-team/container-jfr-operator/pkg/apis"
 	"github.com/rh-jmc-team/container-jfr-operator/pkg/controller"
 
+	certv1 "github.com/jetstack/cert-manager/pkg/apis/certmanager/v1"
 	routev1 "github.com/openshift/api/route/v1"
 	"github.com/operator-framework/operator-sdk/pkg/k8sutil"
 	kubemetrics "github.com/operator-framework/operator-sdk/pkg/kube-metrics"
@@ -146,6 +147,12 @@ func main() {
 
 	// Add OpenShift route/v1 scheme
 	if err := routev1.AddToScheme(mgr.GetScheme()); err != nil {
+		log.Error(err, "")
+		os.Exit(1)
+	}
+
+	// Add cert-manager v1 scheme for managing TLS
+	if err := certv1.AddToScheme(mgr.GetScheme()); err != nil {
 		log.Error(err, "")
 		os.Exit(1)
 	}

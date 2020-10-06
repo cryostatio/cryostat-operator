@@ -56,7 +56,7 @@ func NewContainerJFRCACert(cr *rhjmcv1alpha1.ContainerJFR) *certv1.Certificate {
 	}
 }
 
-func NewContainerJFRCert(cr *rhjmcv1alpha1.ContainerJFR, keystorePass string) *certv1.Certificate {
+func NewContainerJFRCert(cr *rhjmcv1alpha1.ContainerJFR) *certv1.Certificate {
 	return &certv1.Certificate{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      cr.Name,
@@ -77,7 +77,7 @@ func NewContainerJFRCert(cr *rhjmcv1alpha1.ContainerJFR, keystorePass string) *c
 						LocalObjectReference: certMeta.LocalObjectReference{
 							Name: cr.Name + "-keystore",
 						},
-						Key: keystorePass,
+						Key: "KEYSTORE_PASS",
 					},
 				},
 			},
