@@ -266,7 +266,7 @@ func NewCoreContainer(cr *rhjmcv1alpha1.ContainerJFR, specs *ServiceSpecs, tls *
 		caCertMount := corev1.VolumeMount{
 			Name:      "tls-secret",
 			MountPath: fmt.Sprintf("/truststore/%s-ca.crt", cr.Name),
-			SubPath:   "ca.crt",
+			SubPath:   CAKey,
 			ReadOnly:  true,
 		}
 		// TODO add mechanism to add other certs to /truststore

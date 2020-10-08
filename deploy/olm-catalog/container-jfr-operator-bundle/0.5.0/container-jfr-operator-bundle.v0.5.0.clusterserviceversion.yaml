@@ -60,7 +60,7 @@ metadata:
 spec:
   apiservicedefinitions: {}
   customresourcedefinitions:
-    owned:
+    owned: # TODO Add required CRDs for cert-manager in updated CSV
     - description: ContainerJFR is the Schema for the containerjfrs API
       kind: ContainerJFR
       name: containerjfrs.rhjmc.redhat.com

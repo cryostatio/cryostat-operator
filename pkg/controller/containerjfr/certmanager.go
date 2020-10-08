@@ -5,8 +5,10 @@ import (
 
 	certv1 "github.com/jetstack/cert-manager/pkg/apis/certmanager/v1"
 	rhjmcv1alpha1 "github.com/rh-jmc-team/container-jfr-operator/pkg/apis/rhjmc/v1alpha1"
+	"github.com/rh-jmc-team/container-jfr-operator/pkg/controller/common"
 	resources "github.com/rh-jmc-team/container-jfr-operator/pkg/controller/containerjfr/resource_definitions"
 	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
@@ -62,35 +64,39 @@ func (r *ReconcileContainerJFR) setupTLS(ctx context.Context, cr *rhjmcv1alpha1.
 		return nil, err
 	}
 
+	// Update owner references of TLS secrets created by cert-manager to ensure proper cleanup
+	err := r.setCertSecretOwner(context.Background(), cr, caCert, cert)
+	if err != nil {
+		return nil, err
+	}
+
 	return &resources.TLSConfig{
 		CertSecretName:         cert.Spec.SecretName,
 		KeystorePassSecretName: cert.Spec.Keystores.PKCS12.PasswordSecretRef.Name,
 	}, nil
 }
 
-func (r *ReconcileContainerJFR) setCertSecretOwner(ctx context.Context, cr *rhjmcv1alpha1.ContainerJFR) error {
+func (r *ReconcileContainerJFR) setCertSecretOwner(ctx context.Context, cr *rhjmcv1alpha1.ContainerJFR, certs ...*certv1.Certificate) error {
 	// Make ContainerJFR CR controller of secrets created by cert-manager
-	secretNames := []string{cr.Name + "-tls", cr.Name + "-ca"}
-	for _, name := range secretNames {
-		secret := &corev1.Secret{}
-		err := r.client.Get(ctx, types.NamespacedName{Name: name, Namespace: cr.Namespace}, secret)
+	for _, cert := range certs {
+		secret, err := r.GetCertificateSecret(ctx, cert.Name, cert.Namespace)
 		if err != nil {
+			if err == common.ErrNotReady {
+				log.Info("Certificate not yet ready", "name", cert.Name, "namespace", cert.Namespace)
+			}
 			return err
 		}
-		err = controllerutil.SetControllerReference(cr, secret, r.scheme)
-		if err != nil {
-			return err
+		if !metav1.IsControlledBy(secret, cr) {
+			err = controllerutil.SetControllerReference(cr, secret, r.scheme)
+			if err != nil {
+				return err
+			}
+			err = r.client.Update(ctx, secret)
+			if err != nil {
+				return err
+			}
+			log.Info("Set ContainerJFR CR as owner reference of secret", "name", secret.Name, "namespace", secret.Namespace)
 		}
-		err = r.client.Update(ctx, secret)
-		if err != nil {
-			return err
-		}
-		log.Info("Set ContainerJFR CR as owner reference of secret", "name", secret.Name, "namespace", secret.Namespace)
 	}
 	return nil
-}
-
-func (r *ReconcileContainerJFR) certManagerAvailable() bool {
-	// TODO Implement check
-	return true
 }

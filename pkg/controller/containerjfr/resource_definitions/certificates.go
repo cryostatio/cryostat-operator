@@ -9,6 +9,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+const CAKey = certMeta.TLSCAKey
+
 func NewSelfSignedIssuer(cr *rhjmcv1alpha1.ContainerJFR) *certv1.Issuer {
 	return &certv1.Issuer{
 		ObjectMeta: metav1.ObjectMeta{
@@ -84,12 +86,10 @@ func NewContainerJFRCert(cr *rhjmcv1alpha1.ContainerJFR) *certv1.Certificate {
 			IssuerRef: certMeta.ObjectReference{
 				Name: cr.Name + "-ca",
 			},
-			Usages: []certv1.KeyUsage{
-				certv1.UsageDigitalSignature,
-				certv1.UsageKeyEncipherment,
+			Usages: append(certv1.DefaultKeyUsages(),
 				certv1.UsageServerAuth,
 				certv1.UsageClientAuth,
-			},
+			),
 		},
 	}
 }

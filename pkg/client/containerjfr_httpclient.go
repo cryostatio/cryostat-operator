@@ -38,6 +38,7 @@ package client
 
 import (
 	"crypto/tls"
+	"crypto/x509"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -65,8 +66,10 @@ type Config struct {
 	ServerURL *url.URL
 	// Bearer token to authenticate with Container JFR
 	AccessToken *string
+	// Certificate of CA to trust, in PEM format
+	CACertificate []byte
 	// Whether to enabled TLS hostname verification
-	TLSVerify bool
+	TLSVerify bool // TODO should no longer be necessary
 }
 
 // ContainerJfrClient contains methods for interacting with Container JFR's
@@ -114,9 +117,22 @@ func NewHTTPClient(config *Config) (ContainerJfrClient, error) {
 		return nil, errors.New("AccessToken in config must not be nil")
 	}
 
+	// Create CertPool for CA certificate
+	var rootCAPool *x509.CertPool
+	if config.CACertificate != nil {
+		rootCAPool = x509.NewCertPool()
+		ok := rootCAPool.AppendCertsFromPEM(config.CACertificate)
+		if !ok {
+			return nil, errors.New("Failed to parse CA certificate")
+		}
+	}
+
 	// Use settings from default Transport with modified TLS config
 	transport := http.DefaultTransport.(*http.Transport).Clone()
-	transport.TLSClientConfig = &tls.Config{InsecureSkipVerify: !config.TLSVerify} // TODO Trust Container JFR CA
+	transport.TLSClientConfig = &tls.Config{
+		RootCAs:            rootCAPool,
+		InsecureSkipVerify: !config.TLSVerify,
+	}
 	client := &http.Client{
 		Transport: transport,
 		Timeout:   ioTimeout,

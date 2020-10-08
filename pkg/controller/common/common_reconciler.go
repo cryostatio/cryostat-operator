@@ -69,6 +69,7 @@ type ReconcilerConfig struct {
 type Reconciler interface {
 	GetContainerJFRClient(ctx context.Context, namespace string) (jfrclient.ContainerJfrClient, error)
 	GetPodTarget(targetPod *corev1.Pod, jmxPort int32) (*jfrclient.TargetAddress, error)
+	TLSReconciler
 }
 
 type commonReconciler struct {
@@ -108,6 +109,14 @@ func (r *commonReconciler) GetContainerJFRClient(ctx context.Context, namespace 
 	if err != nil {
 		return nil, err
 	}
+	// Get CA certificate if TLS is enabled
+	var caCert []byte
+	if r.IsCertManagerEnabled() {
+		caCert, err = r.GetContainerJFRCABytes(ctx, cjfr)
+		if err != nil {
+			return nil, err
+		}
+	}
 	// Get the URL to the Container JFR web service
 	serverURL, err := r.getServerURL(ctx, cjfr.Namespace, cjfr.Name)
 	if err != nil {
@@ -121,7 +130,8 @@ func (r *commonReconciler) GetContainerJFRClient(ctx context.Context, namespace 
 	strTok := string(tok)
 
 	// Create Container JFR HTTP(S) client
-	config := &jfrclient.Config{ServerURL: serverURL, AccessToken: &strTok, TLSVerify: !strings.EqualFold(r.OS.GetEnv("TLS_VERIFY"), "false")}
+	config := &jfrclient.Config{ServerURL: serverURL, AccessToken: &strTok, CACertificate: caCert,
+		TLSVerify: !strings.EqualFold(r.OS.GetEnv("TLS_VERIFY"), "false")}
 	jfrClient, err := r.ClientFactory.CreateClient(config)
 	if err != nil {
 		return nil, err

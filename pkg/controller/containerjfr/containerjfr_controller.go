@@ -45,6 +45,7 @@ import (
 
 	openshiftv1 "github.com/openshift/api/route/v1"
 	rhjmcv1alpha1 "github.com/rh-jmc-team/container-jfr-operator/pkg/apis/rhjmc/v1alpha1"
+	"github.com/rh-jmc-team/container-jfr-operator/pkg/controller/common"
 	resources "github.com/rh-jmc-team/container-jfr-operator/pkg/controller/containerjfr/resource_definitions"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -72,7 +73,11 @@ func Add(mgr manager.Manager) error {
 
 // newReconciler returns a new reconcile.Reconciler
 func newReconciler(mgr manager.Manager) reconcile.Reconciler {
-	return &ReconcileContainerJFR{client: mgr.GetClient(), scheme: mgr.GetScheme()}
+	return &ReconcileContainerJFR{scheme: mgr.GetScheme(), client: mgr.GetClient(),
+		Reconciler: common.NewReconciler(&common.ReconcilerConfig{
+			Client: mgr.GetClient(),
+		}),
+	}
 }
 
 // add adds a new Controller to mgr with r as the reconcile.Reconciler
@@ -111,6 +116,7 @@ type ReconcileContainerJFR struct {
 	// that reads objects from the cache and writes to the apiserver
 	client client.Client
 	scheme *runtime.Scheme
+	common.Reconciler
 }
 
 // Reconcile reads that state of the cluster for a ContainerJFR object and makes changes based on the state read
@@ -235,33 +241,26 @@ func (r *ReconcileContainerJFR) Reconcile(request reconcile.Request) (reconcile.
 	// Set up TLS using cert-manager, if available
 	var tlsConfig *resources.TLSConfig
 	var routeTLS *openshiftv1.TLSConfig
-	if r.certManagerAvailable() {
+	if r.IsCertManagerEnabled() {
 		tlsConfig, err = r.setupTLS(context.Background(), instance)
 		if err != nil {
+			if err == common.ErrNotReady {
+				return reconcile.Result{RequeueAfter: 5 * time.Second}, nil
+			}
 			reqLogger.Error(err, "Failed to set up TLS for Container JFR")
 			return reconcile.Result{}, err
 		}
 
 		// Get CA certificate from secret and set as destination CA in route
-		certSecret := &corev1.Secret{}
-		err = r.client.Get(context.Background(), types.NamespacedName{Name: tlsConfig.CertSecretName, Namespace: instance.Namespace}, certSecret)
+		caCert, err := r.GetContainerJFRCABytes(context.Background(), instance)
 		if err != nil {
-			if errors.IsNotFound(err) {
-				log.Info("Waiting for certificate secret to become available", "secret", tlsConfig.CertSecretName)
-				return reconcile.Result{RequeueAfter: 5 * time.Second}, nil
-			}
 			return reconcile.Result{}, err
 		}
 		routeTLS = &openshiftv1.TLSConfig{
 			Termination:              openshiftv1.TLSTerminationReencrypt,
-			DestinationCACertificate: string(certSecret.Data["ca.crt"]),
+			DestinationCACertificate: string(caCert),
 		}
 
-		// Update owner references of TLS secrets created by cert-manager to ensure proper cleanup
-		err := r.setCertSecretOwner(context.Background(), instance)
-		if err != nil {
-			return reconcile.Result{}, err
-		}
 	}
 	// TODO Set up TLS for Grafana as well
 	// TODO Restrict jfr-datasource to localhost?
