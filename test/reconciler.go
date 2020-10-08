@@ -16,7 +16,6 @@ func NewTestReconciler(server *ContainerJFRServer, client client.Client) common.
 		Client:        client,
 		ClientFactory: &testClientFactory{serverURL: server.impl.URL()},
 		OS:            &testOSUtils{},
-		DisableTLS:    true, // FIXME look into switching tests to HTTPS
 	})
 }
 
@@ -26,7 +25,7 @@ type testClientFactory struct {
 
 func (c *testClientFactory) CreateClient(config *jfrclient.Config) (jfrclient.ContainerJfrClient, error) {
 	// Verify the provided server URL before substituting it
-	gomega.Expect(config.ServerURL.String()).To(gomega.Equal("http://containerjfr.default.svc:8181/"))
+	gomega.Expect(config.ServerURL.String()).To(gomega.Equal("https://containerjfr.default.svc:8181/"))
 
 	// Replace server URL with one to httptest server
 	url, err := url.Parse(c.serverURL)

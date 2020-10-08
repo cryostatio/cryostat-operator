@@ -39,11 +39,31 @@ package test
 import (
 	"time"
 
+	certv1 "github.com/jetstack/cert-manager/pkg/apis/certmanager/v1"
+	"github.com/onsi/gomega"
+	routev1 "github.com/openshift/api/route/v1"
+	"github.com/rh-jmc-team/container-jfr-operator/pkg/apis"
 	rhjmcv1alpha1 "github.com/rh-jmc-team/container-jfr-operator/pkg/apis/rhjmc/v1alpha1"
 	rhjmcv1alpha2 "github.com/rh-jmc-team/container-jfr-operator/pkg/apis/rhjmc/v1alpha2"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/client-go/kubernetes/scheme"
 )
+
+func NewTestScheme() *runtime.Scheme {
+	s := scheme.Scheme
+
+	// Add all APIs used by the operator to the scheme
+	err := apis.AddToScheme(s)
+	gomega.Expect(err).ToNot(gomega.HaveOccurred())
+	err = certv1.AddToScheme(s)
+	gomega.Expect(err).ToNot(gomega.HaveOccurred())
+	err = routev1.AddToScheme(s)
+	gomega.Expect(err).ToNot(gomega.HaveOccurred())
+
+	return s
+}
 
 func NewContainerJFR() *rhjmcv1alpha1.ContainerJFR {
 	return &rhjmcv1alpha1.ContainerJFR{
@@ -199,6 +219,30 @@ func NewContainerJFRService() *corev1.Service {
 					Port: 8181,
 				},
 			},
+		},
+	}
+}
+
+func NewCACert() *certv1.Certificate {
+	return &certv1.Certificate{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "containerjfr-ca",
+			Namespace: "default",
+		},
+		Spec: certv1.CertificateSpec{
+			SecretName: "containerjfr-ca",
+		},
+	}
+}
+
+func newCASecret(certData []byte) *corev1.Secret {
+	return &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "containerjfr-ca",
+			Namespace: "default",
+		},
+		Data: map[string][]byte{
+			corev1.TLSCertKey: certData,
 		},
 	}
 }
