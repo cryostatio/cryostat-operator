@@ -45,6 +45,7 @@ import (
 
 	rhjmcv1alpha1 "github.com/rh-jmc-team/container-jfr-operator/pkg/apis/rhjmc/v1alpha1"
 	jfrclient "github.com/rh-jmc-team/container-jfr-operator/pkg/client"
+	"github.com/rh-jmc-team/container-jfr-operator/pkg/controller/tls"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -67,9 +68,10 @@ type ReconcilerConfig struct {
 // Reconciler contains helpful methods to communicate with Container JFR.
 // It is meant to be embedded within other Reconcilers.
 type Reconciler interface {
+	FindContainerJFR(ctx context.Context, namespace string) (*rhjmcv1alpha1.ContainerJFR, error)
 	GetContainerJFRClient(ctx context.Context, namespace string) (jfrclient.ContainerJfrClient, error)
 	GetPodTarget(targetPod *corev1.Pod, jmxPort int32) (*jfrclient.TargetAddress, error)
-	TLSReconciler
+	tls.ReconcilerTLS
 }
 
 type commonReconciler struct {
@@ -78,6 +80,7 @@ type commonReconciler struct {
 	// (UID, ResourceVersion) along with it, and invalidate on mismatch. If this operator becomes
 	// cluster-scoped we may need to cache multiple clients.
 	jfrclient jfrclient.ContainerJfrClient
+	tls.ReconcilerTLS
 }
 
 // blank assignment to verify that commonReconciler implements Reconciler
@@ -94,6 +97,9 @@ func NewReconciler(config *ReconcilerConfig) Reconciler {
 	}
 	return &commonReconciler{
 		ReconcilerConfig: &configCopy,
+		ReconcilerTLS: tls.NewReconciler(&tls.ReconcilerTLSConfig{
+			Client: configCopy.Client,
+		}),
 	}
 }
 
@@ -105,7 +111,7 @@ func (r *commonReconciler) GetContainerJFRClient(ctx context.Context, namespace 
 		return r.jfrclient, nil
 	}
 	// Look up ContainerJFR instance within the given namespace
-	cjfr, err := r.findContainerJFR(ctx, namespace)
+	cjfr, err := r.FindContainerJFR(ctx, namespace)
 	if err != nil {
 		return nil, err
 	}
@@ -154,7 +160,7 @@ func (r *commonReconciler) GetPodTarget(targetPod *corev1.Pod, jmxPort int32) (*
 	}, nil
 }
 
-func (r *commonReconciler) findContainerJFR(ctx context.Context, namespace string) (*rhjmcv1alpha1.ContainerJFR, error) {
+func (r *commonReconciler) FindContainerJFR(ctx context.Context, namespace string) (*rhjmcv1alpha1.ContainerJFR, error) {
 	// TODO Consider how to find ContainerJFR object if this operator becomes cluster-scoped
 	// Look up the ContainerJFR object for this operator, which will help us find its services
 	cjfrList := &rhjmcv1alpha1.ContainerJFRList{}

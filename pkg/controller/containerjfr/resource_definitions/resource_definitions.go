@@ -57,8 +57,9 @@ type ServiceSpecs struct {
 }
 
 type TLSConfig struct {
-	CertSecretName         string
-	KeystorePassSecretName string
+	ContainerJFRSecret string
+	GrafanaSecret      string
+	KeystorePassSecret string
 }
 
 func NewPersistentVolumeClaimForCR(cr *rhjmcv1alpha1.ContainerJFR) *corev1.PersistentVolumeClaim {
@@ -132,7 +133,7 @@ func NewPodForCR(cr *rhjmcv1alpha1.ContainerJFR, specs *ServiceSpecs, tls *TLSCo
 	} else {
 		containers = []corev1.Container{
 			NewCoreContainer(cr, specs, tls),
-			NewGrafanaContainer(cr),
+			NewGrafanaContainer(cr, tls),
 			NewJfrDatasourceContainer(cr),
 		}
 	}
@@ -147,16 +148,24 @@ func NewPodForCR(cr *rhjmcv1alpha1.ContainerJFR, specs *ServiceSpecs, tls *TLSCo
 		},
 	}
 	if tls != nil {
-		// Create certificate secret volume in deployment
+		// Create certificate secret volumes in deployment
 		secretVolume := corev1.Volume{
 			Name: "tls-secret",
 			VolumeSource: corev1.VolumeSource{
 				Secret: &corev1.SecretVolumeSource{
-					SecretName: tls.CertSecretName,
+					SecretName: tls.ContainerJFRSecret,
 				},
 			},
 		}
-		volumes = append(volumes, secretVolume)
+		grafanaSecretVolume := corev1.Volume{
+			Name: "grafana-tls-secret",
+			VolumeSource: corev1.VolumeSource{
+				Secret: &corev1.SecretVolumeSource{
+					SecretName: tls.GrafanaSecret,
+				},
+			},
+		}
+		volumes = append(volumes, secretVolume, grafanaSecretVolume)
 	}
 	return &corev1.PodSpec{
 		ServiceAccountName: "container-jfr-operator",
@@ -234,6 +243,7 @@ func NewCoreContainer(cr *rhjmcv1alpha1.ContainerJFR, specs *ServiceSpecs, tls *
 		},
 	}
 
+	livenessProbeScheme := corev1.URISchemeHTTP
 	if tls == nil {
 		// If TLS isn't set up, tell Container JFR to not use it
 		envs = append(envs, corev1.EnvVar{
@@ -244,12 +254,12 @@ func NewCoreContainer(cr *rhjmcv1alpha1.ContainerJFR, specs *ServiceSpecs, tls *
 		// Configure keystore location and password in expected environment variables
 		envs = append(envs, corev1.EnvVar{
 			Name:  "KEYSTORE_PATH",
-			Value: fmt.Sprintf("/var/run/secrets/rhjmc.redhat.com/%s/keystore.p12", tls.CertSecretName),
+			Value: fmt.Sprintf("/var/run/secrets/rhjmc.redhat.com/%s/keystore.p12", tls.ContainerJFRSecret),
 		})
 		envsFrom = append(envsFrom, corev1.EnvFromSource{
 			SecretRef: &corev1.SecretEnvSource{
 				LocalObjectReference: corev1.LocalObjectReference{
-					Name: tls.KeystorePassSecretName,
+					Name: tls.KeystorePassSecret,
 				},
 			},
 		})
@@ -257,7 +267,7 @@ func NewCoreContainer(cr *rhjmcv1alpha1.ContainerJFR, specs *ServiceSpecs, tls *
 		// Mount the TLS secret's keystore
 		keystoreMount := corev1.VolumeMount{
 			Name:      "tls-secret",
-			MountPath: fmt.Sprintf("/var/run/secrets/rhjmc.redhat.com/%s/keystore.p12", tls.CertSecretName),
+			MountPath: fmt.Sprintf("/var/run/secrets/rhjmc.redhat.com/%s/keystore.p12", tls.ContainerJFRSecret),
 			SubPath:   "keystore.p12",
 			ReadOnly:  true,
 		}
@@ -272,6 +282,9 @@ func NewCoreContainer(cr *rhjmcv1alpha1.ContainerJFR, specs *ServiceSpecs, tls *
 		// TODO add mechanism to add other certs to /truststore
 
 		mounts = append(mounts, keystoreMount, caCertMount)
+
+		// Use HTTPS for liveness probe
+		livenessProbeScheme = corev1.URISchemeHTTPS
 	}
 	imageTag := "quay.io/rh-jmc-team/container-jfr:0.20.0"
 	if cr.Spec.Minimal {
@@ -303,7 +316,7 @@ func NewCoreContainer(cr *rhjmcv1alpha1.ContainerJFR, specs *ServiceSpecs, tls *
 				HTTPGet: &corev1.HTTPGetAction{
 					Port:   intstr.IntOrString{IntVal: 8181},
 					Path:   "/api/v1/clienturl",
-					Scheme: corev1.URISchemeHTTPS,
+					Scheme: livenessProbeScheme,
 				},
 			},
 		},
@@ -333,21 +346,55 @@ func GenPasswd(length int) string {
 	return string(b)
 }
 
-func NewGrafanaContainer(cr *rhjmcv1alpha1.ContainerJFR) corev1.Container {
+func NewGrafanaContainer(cr *rhjmcv1alpha1.ContainerJFR, tls *TLSConfig) corev1.Container {
+	envs := []corev1.EnvVar{
+		{
+			Name:  "GF_INSTALL_PLUGINS",
+			Value: "grafana-simple-json-datasource",
+		},
+	}
+	mounts := []corev1.VolumeMount{}
+
+	// Configure TLS key/cert if enabled
+	livenessProbeScheme := corev1.URISchemeHTTP
+	if tls != nil {
+		tlsEnvs := []corev1.EnvVar{
+			{
+				Name:  "GF_SERVER_PROTOCOL",
+				Value: "https",
+			},
+			{
+				Name:  "GF_SERVER_CERT_KEY",
+				Value: fmt.Sprintf("/var/run/secrets/rhjmc.redhat.com/%s/%s", tls.GrafanaSecret, corev1.TLSPrivateKeyKey),
+			},
+			{
+				Name:  "GF_SERVER_CERT_FILE",
+				Value: fmt.Sprintf("/var/run/secrets/rhjmc.redhat.com/%s/%s", tls.GrafanaSecret, corev1.TLSCertKey),
+			},
+		}
+
+		tlsSecretMount := corev1.VolumeMount{
+			Name:      "grafana-tls-secret",
+			MountPath: "/var/run/secrets/rhjmc.redhat.com/" + tls.GrafanaSecret,
+			ReadOnly:  true,
+		}
+
+		envs = append(envs, tlsEnvs...)
+		mounts = append(mounts, tlsSecretMount)
+
+		// Use HTTPS for liveness probe
+		livenessProbeScheme = corev1.URISchemeHTTPS
+	}
 	return corev1.Container{
-		Name:  cr.Name + "-grafana",
-		Image: "docker.io/grafana/grafana:7.2.1",
+		Name:         cr.Name + "-grafana",
+		Image:        "docker.io/grafana/grafana:7.2.1",
+		VolumeMounts: mounts,
 		Ports: []corev1.ContainerPort{
 			{
 				ContainerPort: 3000,
 			},
 		},
-		Env: []corev1.EnvVar{
-			{
-				Name:  "GF_INSTALL_PLUGINS",
-				Value: "grafana-simple-json-datasource",
-			},
-		},
+		Env: envs,
 		EnvFrom: []corev1.EnvFromSource{
 			{
 				SecretRef: &corev1.SecretEnvSource{
@@ -360,8 +407,9 @@ func NewGrafanaContainer(cr *rhjmcv1alpha1.ContainerJFR) corev1.Container {
 		LivenessProbe: &corev1.Probe{
 			Handler: corev1.Handler{
 				HTTPGet: &corev1.HTTPGetAction{
-					Port: intstr.IntOrString{IntVal: 3000},
-					Path: "/api/health",
+					Port:   intstr.IntOrString{IntVal: 3000},
+					Path:   "/api/health",
+					Scheme: livenessProbeScheme,
 				},
 			},
 		},

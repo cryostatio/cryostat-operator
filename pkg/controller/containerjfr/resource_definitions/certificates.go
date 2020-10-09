@@ -129,3 +129,27 @@ func NewContainerJFRCert(cr *rhjmcv1alpha1.ContainerJFR) *certv1.Certificate {
 		},
 	}
 }
+
+func NewGrafanaCert(cr *rhjmcv1alpha1.ContainerJFR) *certv1.Certificate {
+	return &certv1.Certificate{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      cr.Name + "-grafana",
+			Namespace: cr.Namespace,
+		},
+		Spec: certv1.CertificateSpec{
+			CommonName: fmt.Sprintf("%s-grafana.%s.svc", cr.Name, cr.Namespace),
+			DNSNames: []string{
+				cr.Name,
+				fmt.Sprintf("%s-grafana.%s.svc", cr.Name, cr.Namespace),
+				fmt.Sprintf("%s-grafana.%s.svc.cluster.local", cr.Name, cr.Namespace),
+			},
+			SecretName: cr.Name + "-grafana-tls",
+			IssuerRef: certMeta.ObjectReference{
+				Name: cr.Name + "-ca",
+			},
+			Usages: append(certv1.DefaultKeyUsages(),
+				certv1.UsageServerAuth,
+			),
+		},
+	}
+}

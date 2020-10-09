@@ -34,7 +34,7 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-package common
+package tls
 
 import (
 	"context"
@@ -46,22 +46,44 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 // TODO doc
-type TLSReconciler interface {
+type ReconcilerTLS interface {
 	IsCertManagerEnabled() bool
 	GetContainerJFRCABytes(ctx context.Context, cjfr *rhjmcv1alpha1.ContainerJFR) ([]byte, error)
 	GetCertificateSecret(ctx context.Context, name string, namespace string) (*corev1.Secret, error)
 }
 
-func (r *commonReconciler) IsCertManagerEnabled() bool {
+type ReconcilerTLSConfig struct {
+	// This client, initialized using mgr.Client(), is a split client
+	// that reads objects from the cache and writes to the apiserver
+	Client client.Client
+}
+
+type tlsReconciler struct {
+	*ReconcilerTLSConfig
+}
+
+// blank assignment to verify that commonReconciler implements Reconciler
+var _ ReconcilerTLS = &tlsReconciler{}
+
+// NewReconciler creates a new Reconciler using the provided configuration
+func NewReconciler(config *ReconcilerTLSConfig) ReconcilerTLS {
+	configCopy := *config
+	return &tlsReconciler{
+		ReconcilerTLSConfig: &configCopy,
+	}
+}
+
+func (r *tlsReconciler) IsCertManagerEnabled() bool {
 	return true // TODO
 }
 
 var ErrNotReady error = errors.New("Certificate secret not yet ready")
 
-func (r *commonReconciler) GetCertificateSecret(ctx context.Context, name string, namespace string) (*corev1.Secret, error) {
+func (r *tlsReconciler) GetCertificateSecret(ctx context.Context, name string, namespace string) (*corev1.Secret, error) {
 	// Look up named certificate
 	cert := &certv1.Certificate{}
 	err := r.Client.Get(ctx, types.NamespacedName{Name: name, Namespace: namespace}, cert)
@@ -84,7 +106,7 @@ func (r *commonReconciler) GetCertificateSecret(ctx context.Context, name string
 	return secret, nil
 }
 
-func (r *commonReconciler) GetContainerJFRCABytes(ctx context.Context, cjfr *rhjmcv1alpha1.ContainerJFR) ([]byte, error) {
+func (r *tlsReconciler) GetContainerJFRCABytes(ctx context.Context, cjfr *rhjmcv1alpha1.ContainerJFR) ([]byte, error) {
 	caName := cjfr.Name + "-ca"
 	secret, err := r.GetCertificateSecret(ctx, caName, cjfr.Namespace)
 	if err != nil {

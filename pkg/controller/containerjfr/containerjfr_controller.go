@@ -45,8 +45,8 @@ import (
 
 	openshiftv1 "github.com/openshift/api/route/v1"
 	rhjmcv1alpha1 "github.com/rh-jmc-team/container-jfr-operator/pkg/apis/rhjmc/v1alpha1"
-	"github.com/rh-jmc-team/container-jfr-operator/pkg/controller/common"
 	resources "github.com/rh-jmc-team/container-jfr-operator/pkg/controller/containerjfr/resource_definitions"
+	"github.com/rh-jmc-team/container-jfr-operator/pkg/controller/tls"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -74,7 +74,7 @@ func Add(mgr manager.Manager) error {
 // newReconciler returns a new reconcile.Reconciler
 func newReconciler(mgr manager.Manager) reconcile.Reconciler {
 	return &ReconcileContainerJFR{scheme: mgr.GetScheme(), client: mgr.GetClient(),
-		Reconciler: common.NewReconciler(&common.ReconcilerConfig{
+		ReconcilerTLS: tls.NewReconciler(&tls.ReconcilerTLSConfig{
 			Client: mgr.GetClient(),
 		}),
 	}
@@ -103,6 +103,7 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 	if err != nil {
 		return err
 	}
+	// TODO watch certificates and redeploy when renewed
 
 	return nil
 }
@@ -116,7 +117,7 @@ type ReconcileContainerJFR struct {
 	// that reads objects from the cache and writes to the apiserver
 	client client.Client
 	scheme *runtime.Scheme
-	common.Reconciler
+	tls.ReconcilerTLS
 }
 
 // Reconcile reads that state of the cluster for a ContainerJFR object and makes changes based on the state read
@@ -166,15 +167,41 @@ func (r *ReconcileContainerJFR) Reconcile(request reconcile.Request) (reconcile.
 		return reconcile.Result{}, err
 	}
 
+	// Set up TLS using cert-manager, if available
+	protocol := "http"
+	var tlsConfig *resources.TLSConfig
+	var routeTLS *openshiftv1.TLSConfig
+	if r.IsCertManagerEnabled() {
+		tlsConfig, err = r.setupTLS(context.Background(), instance)
+		if err != nil {
+			if err == tls.ErrNotReady {
+				return reconcile.Result{RequeueAfter: 5 * time.Second}, nil
+			}
+			reqLogger.Error(err, "Failed to set up TLS for Container JFR")
+			return reconcile.Result{}, err
+		}
+
+		// Get CA certificate from secret and set as destination CA in route
+		caCert, err := r.GetContainerJFRCABytes(context.Background(), instance)
+		if err != nil {
+			return reconcile.Result{}, err
+		}
+		routeTLS = &openshiftv1.TLSConfig{
+			Termination:              openshiftv1.TLSTerminationReencrypt,
+			DestinationCACertificate: string(caCert),
+		}
+		protocol = "https"
+	}
+
 	serviceSpecs := &resources.ServiceSpecs{}
 	var url string
 	if !instance.Spec.Minimal {
 		grafanaSvc := resources.NewGrafanaService(instance)
-		url, err = r.createService(context.Background(), instance, grafanaSvc, &grafanaSvc.Spec.Ports[0], nil)
+		url, err := r.createService(context.Background(), instance, grafanaSvc, &grafanaSvc.Spec.Ports[0], routeTLS)
 		if err != nil {
 			return reconcile.Result{}, err
 		}
-		serviceSpecs.GrafanaAddress = fmt.Sprintf("https://%s", url)
+		serviceSpecs.GrafanaAddress = fmt.Sprintf("%s://%s", protocol, url)
 
 		datasourceSvc := resources.NewJfrDatasourceService(instance)
 		url, err = r.createService(context.Background(), instance, datasourceSvc, nil, nil)
@@ -237,32 +264,6 @@ func (r *ReconcileContainerJFR) Reconcile(request reconcile.Request) (reconcile.
 			}
 		}
 	}
-
-	// Set up TLS using cert-manager, if available
-	var tlsConfig *resources.TLSConfig
-	var routeTLS *openshiftv1.TLSConfig
-	if r.IsCertManagerEnabled() {
-		tlsConfig, err = r.setupTLS(context.Background(), instance)
-		if err != nil {
-			if err == common.ErrNotReady {
-				return reconcile.Result{RequeueAfter: 5 * time.Second}, nil
-			}
-			reqLogger.Error(err, "Failed to set up TLS for Container JFR")
-			return reconcile.Result{}, err
-		}
-
-		// Get CA certificate from secret and set as destination CA in route
-		caCert, err := r.GetContainerJFRCABytes(context.Background(), instance)
-		if err != nil {
-			return reconcile.Result{}, err
-		}
-		routeTLS = &openshiftv1.TLSConfig{
-			Termination:              openshiftv1.TLSTerminationReencrypt,
-			DestinationCACertificate: string(caCert),
-		}
-
-	}
-	// TODO Set up TLS for Grafana as well
 	// TODO Restrict jfr-datasource to localhost?
 
 	exporterSvc := resources.NewExporterService(instance)

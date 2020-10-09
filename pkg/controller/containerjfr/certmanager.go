@@ -41,8 +41,8 @@ import (
 
 	certv1 "github.com/jetstack/cert-manager/pkg/apis/certmanager/v1"
 	rhjmcv1alpha1 "github.com/rh-jmc-team/container-jfr-operator/pkg/apis/rhjmc/v1alpha1"
-	"github.com/rh-jmc-team/container-jfr-operator/pkg/controller/common"
 	resources "github.com/rh-jmc-team/container-jfr-operator/pkg/controller/containerjfr/resource_definitions"
+	"github.com/rh-jmc-team/container-jfr-operator/pkg/controller/tls"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -91,24 +91,35 @@ func (r *ReconcileContainerJFR) setupTLS(ctx context.Context, cr *rhjmcv1alpha1.
 	}
 
 	// Create a certificate for Container JFR signed by the CA just created
-	cert := resources.NewContainerJFRCert(cr)
-	if err := controllerutil.SetControllerReference(cr, cert, r.scheme); err != nil {
+	cjfrCert := resources.NewContainerJFRCert(cr)
+	if err := controllerutil.SetControllerReference(cr, cjfrCert, r.scheme); err != nil {
 		return nil, err
 	}
-	if err := r.createObjectIfNotExists(ctx, types.NamespacedName{Name: cert.Name, Namespace: cert.Namespace},
-		&certv1.Certificate{}, cert); err != nil {
+	if err := r.createObjectIfNotExists(ctx, types.NamespacedName{Name: cjfrCert.Name, Namespace: cjfrCert.Namespace},
+		&certv1.Certificate{}, cjfrCert); err != nil {
+		return nil, err
+	}
+
+	// Create a certificate for Grafana signed by the Container JFR CA
+	grafanaCert := resources.NewGrafanaCert(cr)
+	if err := controllerutil.SetControllerReference(cr, grafanaCert, r.scheme); err != nil {
+		return nil, err
+	}
+	if err := r.createObjectIfNotExists(ctx, types.NamespacedName{Name: grafanaCert.Name, Namespace: grafanaCert.Namespace},
+		&certv1.Certificate{}, grafanaCert); err != nil {
 		return nil, err
 	}
 
 	// Update owner references of TLS secrets created by cert-manager to ensure proper cleanup
-	err := r.setCertSecretOwner(context.Background(), cr, caCert, cert)
+	err := r.setCertSecretOwner(context.Background(), cr, caCert, cjfrCert, grafanaCert)
 	if err != nil {
 		return nil, err
 	}
 
 	return &resources.TLSConfig{
-		CertSecretName:         cert.Spec.SecretName,
-		KeystorePassSecretName: cert.Spec.Keystores.PKCS12.PasswordSecretRef.Name,
+		ContainerJFRSecret: cjfrCert.Spec.SecretName,
+		GrafanaSecret:      grafanaCert.Spec.SecretName,
+		KeystorePassSecret: cjfrCert.Spec.Keystores.PKCS12.PasswordSecretRef.Name,
 	}, nil
 }
 
@@ -117,7 +128,7 @@ func (r *ReconcileContainerJFR) setCertSecretOwner(ctx context.Context, cr *rhjm
 	for _, cert := range certs {
 		secret, err := r.GetCertificateSecret(ctx, cert.Name, cert.Namespace)
 		if err != nil {
-			if err == common.ErrNotReady {
+			if err == tls.ErrNotReady {
 				log.Info("Certificate not yet ready", "name", cert.Name, "namespace", cert.Namespace)
 			}
 			return err

@@ -39,7 +39,8 @@ package grafana
 import (
 	"bytes"
 	"context"
-	"crypto/tls"
+	gotls "crypto/tls"
+	"crypto/x509"
 	"encoding/json"
 	goerrors "errors"
 	"fmt"
@@ -49,7 +50,8 @@ import (
 	"strings"
 	"time"
 
-	openshiftv1 "github.com/openshift/api/route/v1"
+	"github.com/rh-jmc-team/container-jfr-operator/pkg/controller/common"
+	"github.com/rh-jmc-team/container-jfr-operator/pkg/controller/tls"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -70,20 +72,10 @@ func Add(mgr manager.Manager) error {
 }
 
 func newReconciler(mgr manager.Manager) reconcile.Reconciler {
-	defaultTransport := http.DefaultTransport.(*http.Transport)
-	httpClient := http.Client{
-		Transport: &http.Transport{
-			Proxy:                 defaultTransport.Proxy,
-			DialContext:           defaultTransport.DialContext,
-			MaxIdleConns:          defaultTransport.MaxIdleConns,
-			IdleConnTimeout:       defaultTransport.IdleConnTimeout,
-			ExpectContinueTimeout: defaultTransport.ExpectContinueTimeout,
-			TLSHandshakeTimeout:   defaultTransport.TLSHandshakeTimeout,
-			TLSClientConfig:       &tls.Config{InsecureSkipVerify: strings.EqualFold(os.Getenv("TLS_VERIFY"), "false")},
-		},
-	}
-
-	return &ReconcileGrafana{client: mgr.GetClient(), scheme: mgr.GetScheme(), httpClient: httpClient}
+	return &ReconcileGrafana{client: mgr.GetClient(), scheme: mgr.GetScheme(),
+		Reconciler: common.NewReconciler(&common.ReconcilerConfig{
+			Client: mgr.GetClient(),
+		})}
 }
 
 func add(mgr manager.Manager, r reconcile.Reconciler) error {
@@ -105,7 +97,8 @@ var _ reconcile.Reconciler = &ReconcileGrafana{}
 type ReconcileGrafana struct {
 	client     client.Client
 	scheme     *runtime.Scheme
-	httpClient http.Client
+	httpClient *http.Client
+	common.Reconciler
 }
 
 func (r *ReconcileGrafana) Reconcile(request reconcile.Request) (reconcile.Result, error) {
@@ -127,6 +120,48 @@ func (r *ReconcileGrafana) Reconcile(request reconcile.Request) (reconcile.Resul
 	reqLogger.Info("Found Grafana service", "Namespace",
 		svc.Namespace, "Name", svc.Name)
 
+	https := r.IsCertManagerEnabled()
+	if r.httpClient == nil { // TODO disable caching? CA changing would cause problem
+		// Get CA certificate if TLS is enabled
+		cjfr, err := r.FindContainerJFR(ctx, svc.Namespace)
+		if err != nil {
+			return reconcile.Result{}, err
+		}
+		var rootCAPool *x509.CertPool
+		if https {
+			caCert, err := r.GetContainerJFRCABytes(ctx, cjfr)
+			if err != nil {
+				if err == tls.ErrNotReady {
+					log.Info("Waiting for CA certificate")
+					return reconcile.Result{RequeueAfter: 5 * time.Second}, nil
+				}
+				return reconcile.Result{}, err
+			}
+
+			// Create CertPool for CA certificate
+			rootCAPool = x509.NewCertPool()
+			ok := rootCAPool.AppendCertsFromPEM(caCert)
+			if !ok {
+				return reconcile.Result{}, goerrors.New("Failed to parse CA certificate")
+			}
+		}
+
+		transport := http.DefaultTransport.(*http.Transport).Clone()
+		transport.TLSClientConfig = &gotls.Config{
+			RootCAs:            rootCAPool,
+			InsecureSkipVerify: strings.EqualFold(os.Getenv("TLS_VERIFY"), "false"),
+		}
+		httpClient := &http.Client{
+			Transport: transport,
+		}
+		r.httpClient = httpClient
+	}
+
+	protocol := "http"
+	if https {
+		protocol = "https"
+	}
+
 	secret := &corev1.Secret{}
 	err = r.client.Get(ctx, types.NamespacedName{Name: svc.Name + "-basic", Namespace: request.Namespace}, secret)
 	if err != nil {
@@ -139,15 +174,7 @@ func (r *ReconcileGrafana) Reconcile(request reconcile.Request) (reconcile.Resul
 	reqLogger.Info("Found Grafana credentials secret", "Namespace",
 		secret.Namespace, "Name", secret.Name)
 
-	route := &openshiftv1.Route{}
-	err = r.client.Get(ctx, types.NamespacedName{Namespace: svc.Namespace, Name: svc.Name}, route)
-	if err != nil {
-		return reconcile.Result{}, err
-	}
-	reqLogger.Info("Found Grafana route", "Namespace",
-		route.Namespace, "Name", route.Name)
-
-	healthy, err := r.isServiceHealthy(route)
+	healthy, err := r.isServiceHealthy(svc, protocol)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
@@ -158,12 +185,12 @@ func (r *ReconcileGrafana) Reconcile(request reconcile.Request) (reconcile.Resul
 		reqLogger.Info("Grafana service is healthy")
 	}
 
-	if err := r.configureGrafanaDatasource(secret, route); err != nil {
+	if err := r.configureGrafanaDatasource(secret, svc, protocol); err != nil {
 		return reconcile.Result{}, err
 	}
 	reqLogger.Info("Grafana datasource configured")
 
-	if err := r.configureGrafanaDashboard(secret, route); err != nil {
+	if err := r.configureGrafanaDashboard(secret, svc, protocol); err != nil {
 		return reconcile.Result{}, err
 	}
 	reqLogger.Info("Grafana dashboard configured")
@@ -180,11 +207,9 @@ func (r *ReconcileGrafana) isGrafanaService(svc *corev1.Service) bool {
 	return false
 }
 
-func (r *ReconcileGrafana) isServiceHealthy(route *openshiftv1.Route) (bool, error) {
-	if len(route.Status.Ingress) < 1 {
-		return false, nil
-	}
-	resp, err := r.httpClient.Get(fmt.Sprintf("https://%s/api/health", route.Status.Ingress[0].Host))
+func (r *ReconcileGrafana) isServiceHealthy(svc *corev1.Service, protocol string) (bool, error) {
+	resp, err := r.httpClient.Get(fmt.Sprintf("%s://%s.%s.svc:%d/api/health", protocol, svc.Name, svc.Namespace,
+		svc.Spec.Ports[0].Port))
 	if err != nil {
 		return false, err
 	}
@@ -192,13 +217,13 @@ func (r *ReconcileGrafana) isServiceHealthy(route *openshiftv1.Route) (bool, err
 	return resp.StatusCode == 200, nil
 }
 
-func (r *ReconcileGrafana) configureGrafanaDatasource(secret *corev1.Secret, route *openshiftv1.Route) error {
-	logger := log.WithValues("Route.Namespace", route.Namespace, "Route.Name", route.Name)
+func (r *ReconcileGrafana) configureGrafanaDatasource(secret *corev1.Secret, svc *corev1.Service, protocol string) error {
+	logger := log.WithValues("Route.Namespace", svc.Namespace, "Route.Name", svc.Name)
 
 	logger.Info("Checking existing datasource definitions")
 	// TODO get an API token, rather than using basic auth and assumed default credentials
-	getUrl := GetCredentialedHostPathUrl(secret, route.Status.Ingress[0].Host, "/api/datasources")
-	getResp, err := r.httpClient.Get(getUrl)
+	getURL := GetCredentialedHostPathURL(secret, svc, protocol, "/api/datasources")
+	getResp, err := r.httpClient.Get(getURL)
 	if err != nil {
 		return err
 	}
@@ -209,7 +234,7 @@ func (r *ReconcileGrafana) configureGrafanaDatasource(secret *corev1.Secret, rou
 		return err
 	}
 	if err = json.Unmarshal(getBody, &configuredDatasources); err != nil {
-		logger.Error(err, "Invalid GET response", "Request URL", getUrl, "Response JSON", getBody)
+		logger.Error(err, "Invalid GET response", "Request URL", getURL, "Response JSON", getBody)
 		return err
 	}
 	logger.Info("Found existing datasource definitions", "datasources", configuredDatasources)
@@ -225,7 +250,7 @@ func (r *ReconcileGrafana) configureGrafanaDatasource(secret *corev1.Secret, rou
 
 	logger.Info("Checking for jfr-datasource service")
 	services := corev1.ServiceList{}
-	err = r.client.List(context.Background(), &services, client.InNamespace(route.Namespace), client.MatchingLabels{"component": "jfr-datasource"})
+	err = r.client.List(context.Background(), &services, client.InNamespace(svc.Namespace), client.MatchingLabels{"component": "jfr-datasource"})
 	if err != nil {
 		return err
 	}
@@ -235,12 +260,12 @@ func (r *ReconcileGrafana) configureGrafanaDatasource(secret *corev1.Secret, rou
 	if len(services.Items[0].Spec.Ports) != 1 {
 		return errors.NewInternalError(goerrors.New(fmt.Sprintf("Expected service %s to have one Port, but got %d", services.Items[0].Name, len(services.Items[0].Spec.Ports))))
 	}
-	datasourceUrl := fmt.Sprintf("http://%s:%d", services.Items[0].Spec.ClusterIP, services.Items[0].Spec.Ports[0].Port)
+	datasourceURL := fmt.Sprintf("http://%s:%d", services.Items[0].Spec.ClusterIP, services.Items[0].Spec.Ports[0].Port)
 
 	datasource := GrafanaDatasource{
 		Name:      "jfr-datasource",
 		Type:      "grafana-simple-json-datasource",
-		Url:       datasourceUrl,
+		URL:       datasourceURL,
 		Access:    "proxy",
 		BasicAuth: false,
 		IsDefault: true,
@@ -250,7 +275,7 @@ func (r *ReconcileGrafana) configureGrafanaDatasource(secret *corev1.Secret, rou
 	if err != nil {
 		return err
 	}
-	postResp, err := r.httpClient.Post(GetCredentialedHostPathUrl(secret, route.Status.Ingress[0].Host, "/api/datasources"), "application/json", bytes.NewBuffer(dsStr))
+	postResp, err := r.httpClient.Post(GetCredentialedHostPathURL(secret, svc, protocol, "/api/datasources"), "application/json", bytes.NewBuffer(dsStr))
 	logger.Info("POST response", "Status", postResp.Status, "StatusCode", postResp.StatusCode)
 	if err != nil {
 		return err
@@ -267,11 +292,11 @@ func (r *ReconcileGrafana) configureGrafanaDatasource(secret *corev1.Secret, rou
 	return nil
 }
 
-func (r *ReconcileGrafana) configureGrafanaDashboard(secret *corev1.Secret, route *openshiftv1.Route) error {
-	logger := log.WithValues("Route.Namespace", route.Namespace, "Route.Name", route.Name)
+func (r *ReconcileGrafana) configureGrafanaDashboard(secret *corev1.Secret, svc *corev1.Service, protocol string) error {
+	logger := log.WithValues("Route.Namespace", svc.Namespace, "Route.Name", svc.Name)
 
 	// TODO find a way to list/search existing dashboards to avoid creating a duplicate
-	postResp, err := r.httpClient.Post(GetCredentialedHostPathUrl(secret, route.Status.Ingress[0].Host, "/api/dashboards/db"), "application/json", bytes.NewBufferString(DashboardDefinitionJSON))
+	postResp, err := r.httpClient.Post(GetCredentialedHostPathURL(secret, svc, protocol, "/api/dashboards/db"), "application/json", bytes.NewBufferString(DashboardDefinitionJSON))
 	logger.Info("POST response", "Status", postResp.Status, "StatusCode", postResp.StatusCode)
 	if err != nil {
 		return err
@@ -288,10 +313,11 @@ func (r *ReconcileGrafana) configureGrafanaDashboard(secret *corev1.Secret, rout
 	return nil
 }
 
-func GetCredentialedHostPathUrl(secret *corev1.Secret, host string, path string) string {
+func GetCredentialedHostPathURL(secret *corev1.Secret, svc *corev1.Service, protocol string, path string) string {
 	user := secret.Data["GF_SECURITY_ADMIN_USER"]
 	pass := secret.Data["GF_SECURITY_ADMIN_PASSWORD"]
-	return fmt.Sprintf("https://%s:%s@%s%s", strings.TrimSpace(string(user)), strings.TrimSpace(string(pass)), host, path)
+	return fmt.Sprintf("%s://%s:%s@%s.%s.svc:%d%s", protocol, strings.TrimSpace(string(user)), strings.TrimSpace(string(pass)),
+		svc.Name, svc.Namespace, svc.Spec.Ports[0].Port, path)
 }
 
 type GrafanaDatasourceList []GrafanaDatasource
@@ -299,7 +325,7 @@ type GrafanaDatasourceList []GrafanaDatasource
 type GrafanaDatasource struct {
 	Name      string `json:"name"`
 	Type      string `json:"type"`
-	Url       string `json:"url"`
+	URL       string `json:"url"`
 	Access    string `json:"access"`
 	BasicAuth bool   `json:"basicAuth"`
 	IsDefault bool   `json:"isDefault"`
