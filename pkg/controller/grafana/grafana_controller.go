@@ -94,9 +94,8 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 var _ reconcile.Reconciler = &ReconcileGrafana{}
 
 type ReconcileGrafana struct {
-	client     client.Client
-	scheme     *runtime.Scheme
-	httpClient *http.Client
+	client client.Client
+	scheme *runtime.Scheme
 	common.Reconciler
 }
 
@@ -119,45 +118,37 @@ func (r *ReconcileGrafana) Reconcile(request reconcile.Request) (reconcile.Resul
 	reqLogger.Info("Found Grafana service", "Namespace",
 		svc.Namespace, "Name", svc.Name)
 
-	https := r.IsCertManagerEnabled()
-	if r.httpClient == nil { // TODO disable caching? CA changing would cause problem
-		// Get CA certificate if TLS is enabled
-		cjfr, err := r.FindContainerJFR(ctx, svc.Namespace)
+	// Get CA certificate if TLS is enabled
+	cjfr, err := r.FindContainerJFR(ctx, svc.Namespace)
+	if err != nil {
+		return reconcile.Result{}, err
+	}
+	transport := http.DefaultTransport.(*http.Transport).Clone()
+	protocol := "http"
+	if r.IsCertManagerEnabled() {
+		caCert, err := r.GetContainerJFRCABytes(ctx, cjfr)
 		if err != nil {
+			if err == tls.ErrNotReady {
+				log.Info("Waiting for CA certificate")
+				return reconcile.Result{RequeueAfter: 5 * time.Second}, nil
+			}
 			return reconcile.Result{}, err
 		}
-		var rootCAPool *x509.CertPool
-		if https {
-			caCert, err := r.GetContainerJFRCABytes(ctx, cjfr)
-			if err != nil {
-				if err == tls.ErrNotReady {
-					log.Info("Waiting for CA certificate")
-					return reconcile.Result{RequeueAfter: 5 * time.Second}, nil
-				}
-				return reconcile.Result{}, err
-			}
 
-			// Create CertPool for CA certificate
-			rootCAPool = x509.NewCertPool()
-			ok := rootCAPool.AppendCertsFromPEM(caCert)
-			if !ok {
-				return reconcile.Result{}, goerrors.New("Failed to parse CA certificate")
-			}
+		// Create CertPool for CA certificate
+		rootCAPool := x509.NewCertPool()
+		ok := rootCAPool.AppendCertsFromPEM(caCert)
+		if !ok {
+			return reconcile.Result{}, goerrors.New("Failed to parse CA certificate")
 		}
-
-		transport := http.DefaultTransport.(*http.Transport).Clone()
 		transport.TLSClientConfig = &gotls.Config{
 			RootCAs: rootCAPool,
 		}
-		httpClient := &http.Client{
-			Transport: transport,
-		}
-		r.httpClient = httpClient
+		protocol = "https"
 	}
 
-	protocol := "http"
-	if https {
-		protocol = "https"
+	httpClient := &http.Client{
+		Transport: transport,
 	}
 
 	secret := &corev1.Secret{}
@@ -172,7 +163,7 @@ func (r *ReconcileGrafana) Reconcile(request reconcile.Request) (reconcile.Resul
 	reqLogger.Info("Found Grafana credentials secret", "Namespace",
 		secret.Namespace, "Name", secret.Name)
 
-	healthy, err := r.isServiceHealthy(svc, protocol)
+	healthy, err := r.isServiceHealthy(httpClient, svc, protocol)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
@@ -183,12 +174,12 @@ func (r *ReconcileGrafana) Reconcile(request reconcile.Request) (reconcile.Resul
 		reqLogger.Info("Grafana service is healthy")
 	}
 
-	if err := r.configureGrafanaDatasource(secret, svc, protocol); err != nil {
+	if err := r.configureGrafanaDatasource(httpClient, secret, svc, protocol); err != nil {
 		return reconcile.Result{}, err
 	}
 	reqLogger.Info("Grafana datasource configured")
 
-	if err := r.configureGrafanaDashboard(secret, svc, protocol); err != nil {
+	if err := r.configureGrafanaDashboard(httpClient, secret, svc, protocol); err != nil {
 		return reconcile.Result{}, err
 	}
 	reqLogger.Info("Grafana dashboard configured")
@@ -205,8 +196,8 @@ func (r *ReconcileGrafana) isGrafanaService(svc *corev1.Service) bool {
 	return false
 }
 
-func (r *ReconcileGrafana) isServiceHealthy(svc *corev1.Service, protocol string) (bool, error) {
-	resp, err := r.httpClient.Get(fmt.Sprintf("%s://%s.%s.svc:%d/api/health", protocol, svc.Name, svc.Namespace,
+func (r *ReconcileGrafana) isServiceHealthy(httpClient *http.Client, svc *corev1.Service, protocol string) (bool, error) {
+	resp, err := httpClient.Get(fmt.Sprintf("%s://%s.%s.svc:%d/api/health", protocol, svc.Name, svc.Namespace,
 		svc.Spec.Ports[0].Port))
 	if err != nil {
 		return false, err
@@ -215,13 +206,14 @@ func (r *ReconcileGrafana) isServiceHealthy(svc *corev1.Service, protocol string
 	return resp.StatusCode == 200, nil
 }
 
-func (r *ReconcileGrafana) configureGrafanaDatasource(secret *corev1.Secret, svc *corev1.Service, protocol string) error {
+func (r *ReconcileGrafana) configureGrafanaDatasource(httpClient *http.Client, secret *corev1.Secret, svc *corev1.Service,
+	protocol string) error {
 	logger := log.WithValues("Route.Namespace", svc.Namespace, "Route.Name", svc.Name)
 
 	logger.Info("Checking existing datasource definitions")
 	// TODO get an API token, rather than using basic auth and assumed default credentials
 	getURL := GetCredentialedHostPathURL(secret, svc, protocol, "/api/datasources")
-	getResp, err := r.httpClient.Get(getURL)
+	getResp, err := httpClient.Get(getURL)
 	if err != nil {
 		return err
 	}
@@ -273,7 +265,7 @@ func (r *ReconcileGrafana) configureGrafanaDatasource(secret *corev1.Secret, svc
 	if err != nil {
 		return err
 	}
-	postResp, err := r.httpClient.Post(GetCredentialedHostPathURL(secret, svc, protocol, "/api/datasources"), "application/json", bytes.NewBuffer(dsStr))
+	postResp, err := httpClient.Post(GetCredentialedHostPathURL(secret, svc, protocol, "/api/datasources"), "application/json", bytes.NewBuffer(dsStr))
 	logger.Info("POST response", "Status", postResp.Status, "StatusCode", postResp.StatusCode)
 	if err != nil {
 		return err
@@ -290,11 +282,12 @@ func (r *ReconcileGrafana) configureGrafanaDatasource(secret *corev1.Secret, svc
 	return nil
 }
 
-func (r *ReconcileGrafana) configureGrafanaDashboard(secret *corev1.Secret, svc *corev1.Service, protocol string) error {
+func (r *ReconcileGrafana) configureGrafanaDashboard(httpClient *http.Client, secret *corev1.Secret, svc *corev1.Service,
+	protocol string) error {
 	logger := log.WithValues("Route.Namespace", svc.Namespace, "Route.Name", svc.Name)
 
 	// TODO find a way to list/search existing dashboards to avoid creating a duplicate
-	postResp, err := r.httpClient.Post(GetCredentialedHostPathURL(secret, svc, protocol, "/api/dashboards/db"), "application/json", bytes.NewBufferString(DashboardDefinitionJSON))
+	postResp, err := httpClient.Post(GetCredentialedHostPathURL(secret, svc, protocol, "/api/dashboards/db"), "application/json", bytes.NewBufferString(DashboardDefinitionJSON))
 	logger.Info("POST response", "Status", postResp.Status, "StatusCode", postResp.StatusCode)
 	if err != nil {
 		return err

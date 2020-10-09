@@ -194,7 +194,6 @@ func (r *ReconcileContainerJFR) Reconcile(request reconcile.Request) (reconcile.
 	}
 
 	serviceSpecs := &resources.ServiceSpecs{}
-	var url string
 	if !instance.Spec.Minimal {
 		grafanaSvc := resources.NewGrafanaService(instance)
 		url, err := r.createService(context.Background(), instance, grafanaSvc, &grafanaSvc.Spec.Ports[0], routeTLS)
@@ -267,7 +266,7 @@ func (r *ReconcileContainerJFR) Reconcile(request reconcile.Request) (reconcile.
 	// TODO Restrict jfr-datasource to localhost?
 
 	exporterSvc := resources.NewExporterService(instance)
-	url, err = r.createService(context.Background(), instance, exporterSvc, &exporterSvc.Spec.Ports[0], routeTLS)
+	url, err := r.createService(context.Background(), instance, exporterSvc, &exporterSvc.Spec.Ports[0], routeTLS)
 	if err != nil {
 		return reconcile.Result{}, err
 	}

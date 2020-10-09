@@ -74,10 +74,6 @@ type Reconciler interface {
 
 type commonReconciler struct {
 	*ReconcilerConfig
-	// TODO Will need some way to invalidate client when ContainerJFR changes. Maybe store CJFR metadata
-	// (UID, ResourceVersion) along with it, and invalidate on mismatch. If this operator becomes
-	// cluster-scoped we may need to cache multiple clients.
-	jfrclient jfrclient.ContainerJfrClient
 	tls.ReconcilerTLS
 }
 
@@ -101,13 +97,9 @@ func NewReconciler(config *ReconcilerConfig) Reconciler {
 	}
 }
 
-// GetContainerJFRClient gets or creates a client to communicate with the Container JFR
+// GetContainerJFRClient creates a client to communicate with the Container JFR
 // instance deployed by this operator in the given namespace
 func (r *commonReconciler) GetContainerJFRClient(ctx context.Context, namespace string) (jfrclient.ContainerJfrClient, error) {
-	// Check if we've already created the client
-	if r.jfrclient != nil {
-		return r.jfrclient, nil
-	}
 	// Look up ContainerJFR instance within the given namespace
 	cjfr, err := r.FindContainerJFR(ctx, namespace)
 	if err != nil {
@@ -141,8 +133,6 @@ func (r *commonReconciler) GetContainerJFRClient(ctx context.Context, namespace 
 	if err != nil {
 		return nil, err
 	}
-	// Store client for reuse by later Reconcile calls
-	r.jfrclient = jfrClient
 	return jfrClient, nil
 }
 
