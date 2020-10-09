@@ -41,7 +41,6 @@ import (
 	"errors"
 	"fmt"
 	"net/url"
-	"strings"
 
 	rhjmcv1alpha1 "github.com/rh-jmc-team/container-jfr-operator/pkg/apis/rhjmc/v1alpha1"
 	jfrclient "github.com/rh-jmc-team/container-jfr-operator/pkg/client"
@@ -62,7 +61,6 @@ type ReconcilerConfig struct {
 	Client        client.Client
 	ClientFactory ContainerJFRClientFactory
 	OS            OSUtils
-	DisableTLS    bool
 }
 
 // Reconciler contains helpful methods to communicate with Container JFR.
@@ -117,14 +115,16 @@ func (r *commonReconciler) GetContainerJFRClient(ctx context.Context, namespace 
 	}
 	// Get CA certificate if TLS is enabled
 	var caCert []byte
+	protocol := "http"
 	if r.IsCertManagerEnabled() {
 		caCert, err = r.GetContainerJFRCABytes(ctx, cjfr)
 		if err != nil {
 			return nil, err
 		}
+		protocol = "https"
 	}
 	// Get the URL to the Container JFR web service
-	serverURL, err := r.getServerURL(ctx, cjfr.Namespace, cjfr.Name)
+	serverURL, err := r.getServerURL(ctx, cjfr.Namespace, cjfr.Name, protocol)
 	if err != nil {
 		return nil, err
 	}
@@ -136,8 +136,7 @@ func (r *commonReconciler) GetContainerJFRClient(ctx context.Context, namespace 
 	strTok := string(tok)
 
 	// Create Container JFR HTTP(S) client
-	config := &jfrclient.Config{ServerURL: serverURL, AccessToken: &strTok, CACertificate: caCert,
-		TLSVerify: !strings.EqualFold(r.OS.GetEnv("TLS_VERIFY"), "false")}
+	config := &jfrclient.Config{ServerURL: serverURL, AccessToken: &strTok, CACertificate: caCert}
 	jfrClient, err := r.ClientFactory.CreateClient(config)
 	if err != nil {
 		return nil, err
@@ -178,7 +177,7 @@ func (r *commonReconciler) FindContainerJFR(ctx context.Context, namespace strin
 	return &cjfrList.Items[0], nil
 }
 
-func (r *commonReconciler) getServerURL(ctx context.Context, namespace string, svcName string) (*url.URL, error) {
+func (r *commonReconciler) getServerURL(ctx context.Context, namespace string, svcName string, protocol string) (*url.URL, error) {
 	// Look up Container JFR service, and build URL to web service
 	cjfrSvc := &corev1.Service{}
 	err := r.Client.Get(ctx, types.NamespacedName{Namespace: namespace, Name: svcName}, cjfrSvc)
@@ -188,10 +187,6 @@ func (r *commonReconciler) getServerURL(ctx context.Context, namespace string, s
 	webServerPort, err := getWebServerPort(cjfrSvc)
 	if err != nil {
 		return nil, err
-	}
-	protocol := "https"
-	if r.DisableTLS {
-		protocol = "http"
 	}
 	return url.Parse(fmt.Sprintf("%s://%s.%s.svc:%d/", protocol, svcName, namespace, webServerPort))
 }

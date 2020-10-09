@@ -68,8 +68,6 @@ type Config struct {
 	AccessToken *string
 	// Certificate of CA to trust, in PEM format
 	CACertificate []byte
-	// Whether to enabled TLS hostname verification
-	TLSVerify bool // TODO should no longer be necessary
 }
 
 // ContainerJfrClient contains methods for interacting with Container JFR's
@@ -130,8 +128,7 @@ func NewHTTPClient(config *Config) (ContainerJfrClient, error) {
 	// Use settings from default Transport with modified TLS config
 	transport := http.DefaultTransport.(*http.Transport).Clone()
 	transport.TLSClientConfig = &tls.Config{
-		RootCAs:            rootCAPool,
-		InsecureSkipVerify: !config.TLSVerify,
+		RootCAs: rootCAPool,
 	}
 	client := &http.Client{
 		Transport: transport,

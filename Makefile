@@ -132,7 +132,6 @@ deploy: undeploy
 	oc create -f deploy/crds/rhjmc.redhat.com_recordings_crd.yaml
 	oc create -f deploy/crds/rhjmc.redhat.com_containerjfrs_crd.yaml
 	sed -e 's|REPLACE_IMAGE|$(IMAGE_TAG)|g' deploy/dev_operator.yaml | oc create -f -
-	oc set env deployment/container-jfr-operator TLS_VERIFY=false
 	oc create -f deploy/crds/rhjmc.redhat.com_v1alpha1_containerjfr_cr.yaml
 
 .PHONY: undeploy

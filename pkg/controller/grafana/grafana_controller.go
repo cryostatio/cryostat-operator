@@ -46,7 +46,6 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
-	"os"
 	"strings"
 	"time"
 
@@ -148,8 +147,7 @@ func (r *ReconcileGrafana) Reconcile(request reconcile.Request) (reconcile.Resul
 
 		transport := http.DefaultTransport.(*http.Transport).Clone()
 		transport.TLSClientConfig = &gotls.Config{
-			RootCAs:            rootCAPool,
-			InsecureSkipVerify: strings.EqualFold(os.Getenv("TLS_VERIFY"), "false"),
+			RootCAs: rootCAPool,
 		}
 		httpClient := &http.Client{
 			Transport: transport,

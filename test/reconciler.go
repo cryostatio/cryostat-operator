@@ -79,6 +79,6 @@ func (o *testOSUtils) GetFileContents(path string) ([]byte, error) {
 }
 
 func (o *testOSUtils) GetEnv(name string) string {
-	gomega.Expect(name).To(gomega.Equal("TLS_VERIFY"))
+	gomega.Expect(name).To(gomega.BeNil())
 	return "false"
 }
