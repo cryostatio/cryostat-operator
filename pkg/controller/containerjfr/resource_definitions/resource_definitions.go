@@ -278,7 +278,7 @@ func GenPasswd(length int) string {
 func NewGrafanaContainer(cr *rhjmcv1alpha1.ContainerJFR) corev1.Container {
 	return corev1.Container{
 		Name:  cr.Name + "-grafana",
-		Image: "docker.io/grafana/grafana:6.4.4",
+		Image: "docker.io/grafana/grafana:7.2.1",
 		Ports: []corev1.ContainerPort{
 			{
 				ContainerPort: 3000,
