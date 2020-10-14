@@ -18,6 +18,7 @@ and
 - `go` v1.13
 - [`operator-sdk`](https://github.com/operator-framework/operator-sdk) v0.15.2
 - [`opm`](https://github.com/operator-framework/operator-registry)
+- [`cert-manager`](https://github.com/jetstack/cert-manager) v1.0.2 (Recommended)
 - `podman`
 - `ginkgo` (Optional)
 
@@ -68,6 +69,16 @@ uses a ContainerJFR image with the web client assets removed and excludes the
 jfr-datasource and Grafana containers, resulting in a ContainerJFR deployment
 that can only be used headlessly and which consumes as few cluster resources as
 possible.
+
+## Security
+
+By default, the operator expects cert-manager to be available in the cluster.
+This allows the operator to deploy Container JFR with all communication
+between its internal services done over HTTPS. If you wish to disable this
+feature and not use cert-manager, you can set the environment variable
+`DISABLE_SERVICE_TLS=true`. We provide `make cert_manager` and
+`make remove_cert_manager` targets to easily install/remove cert-manager
+from your cluster.
 
 ## Manual Deployment
 
