@@ -50,7 +50,6 @@ import (
 	"time"
 
 	"github.com/rh-jmc-team/container-jfr-operator/pkg/controller/common"
-	"github.com/rh-jmc-team/container-jfr-operator/pkg/controller/tls"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -128,7 +127,7 @@ func (r *ReconcileGrafana) Reconcile(request reconcile.Request) (reconcile.Resul
 	if r.IsCertManagerEnabled() {
 		caCert, err := r.GetContainerJFRCABytes(ctx, cjfr)
 		if err != nil {
-			if err == tls.ErrNotReady {
+			if err == common.ErrCertNotReady {
 				log.Info("Waiting for CA certificate")
 				return reconcile.Result{RequeueAfter: 5 * time.Second}, nil
 			}

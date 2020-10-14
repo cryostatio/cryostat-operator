@@ -41,8 +41,8 @@ import (
 
 	certv1 "github.com/jetstack/cert-manager/pkg/apis/certmanager/v1"
 	rhjmcv1alpha1 "github.com/rh-jmc-team/container-jfr-operator/pkg/apis/rhjmc/v1alpha1"
+	"github.com/rh-jmc-team/container-jfr-operator/pkg/controller/common"
 	resources "github.com/rh-jmc-team/container-jfr-operator/pkg/controller/containerjfr/resource_definitions"
-	"github.com/rh-jmc-team/container-jfr-operator/pkg/controller/tls"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -128,7 +128,7 @@ func (r *ReconcileContainerJFR) setCertSecretOwner(ctx context.Context, cr *rhjm
 	for _, cert := range certs {
 		secret, err := r.GetCertificateSecret(ctx, cert.Name, cert.Namespace)
 		if err != nil {
-			if err == tls.ErrNotReady {
+			if err == common.ErrCertNotReady {
 				log.Info("Certificate not yet ready", "name", cert.Name, "namespace", cert.Namespace)
 			}
 			return err

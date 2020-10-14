@@ -44,7 +44,6 @@ import (
 
 	rhjmcv1alpha1 "github.com/rh-jmc-team/container-jfr-operator/pkg/apis/rhjmc/v1alpha1"
 	jfrclient "github.com/rh-jmc-team/container-jfr-operator/pkg/client"
-	"github.com/rh-jmc-team/container-jfr-operator/pkg/controller/tls"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -69,12 +68,12 @@ type Reconciler interface {
 	FindContainerJFR(ctx context.Context, namespace string) (*rhjmcv1alpha1.ContainerJFR, error)
 	GetContainerJFRClient(ctx context.Context, namespace string) (jfrclient.ContainerJfrClient, error)
 	GetPodTarget(targetPod *corev1.Pod, jmxPort int32) (*jfrclient.TargetAddress, error)
-	tls.ReconcilerTLS
+	ReconcilerTLS
 }
 
 type commonReconciler struct {
 	*ReconcilerConfig
-	tls.ReconcilerTLS
+	ReconcilerTLS
 }
 
 // blank assignment to verify that commonReconciler implements Reconciler
@@ -91,8 +90,9 @@ func NewReconciler(config *ReconcilerConfig) Reconciler {
 	}
 	return &commonReconciler{
 		ReconcilerConfig: &configCopy,
-		ReconcilerTLS: tls.NewReconciler(&tls.ReconcilerTLSConfig{
+		ReconcilerTLS: NewReconcilerTLS(&ReconcilerTLSConfig{
 			Client: configCopy.Client,
+			OS:     configCopy.OS,
 		}),
 	}
 }

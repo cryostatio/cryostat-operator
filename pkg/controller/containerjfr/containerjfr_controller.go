@@ -45,8 +45,8 @@ import (
 
 	openshiftv1 "github.com/openshift/api/route/v1"
 	rhjmcv1alpha1 "github.com/rh-jmc-team/container-jfr-operator/pkg/apis/rhjmc/v1alpha1"
+	"github.com/rh-jmc-team/container-jfr-operator/pkg/controller/common"
 	resources "github.com/rh-jmc-team/container-jfr-operator/pkg/controller/containerjfr/resource_definitions"
-	"github.com/rh-jmc-team/container-jfr-operator/pkg/controller/tls"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -74,7 +74,7 @@ func Add(mgr manager.Manager) error {
 // newReconciler returns a new reconcile.Reconciler
 func newReconciler(mgr manager.Manager) reconcile.Reconciler {
 	return &ReconcileContainerJFR{scheme: mgr.GetScheme(), client: mgr.GetClient(),
-		ReconcilerTLS: tls.NewReconciler(&tls.ReconcilerTLSConfig{
+		ReconcilerTLS: common.NewReconcilerTLS(&common.ReconcilerTLSConfig{
 			Client: mgr.GetClient(),
 		}),
 	}
@@ -117,7 +117,7 @@ type ReconcileContainerJFR struct {
 	// that reads objects from the cache and writes to the apiserver
 	client client.Client
 	scheme *runtime.Scheme
-	tls.ReconcilerTLS
+	common.ReconcilerTLS
 }
 
 // Reconcile reads that state of the cluster for a ContainerJFR object and makes changes based on the state read
@@ -174,7 +174,7 @@ func (r *ReconcileContainerJFR) Reconcile(request reconcile.Request) (reconcile.
 	if r.IsCertManagerEnabled() {
 		tlsConfig, err = r.setupTLS(context.Background(), instance)
 		if err != nil {
-			if err == tls.ErrNotReady {
+			if err == common.ErrCertNotReady {
 				return reconcile.Result{RequeueAfter: 5 * time.Second}, nil
 			}
 			reqLogger.Error(err, "Failed to set up TLS for Container JFR")

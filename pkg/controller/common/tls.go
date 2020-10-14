@@ -34,11 +34,12 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-package tls
+package common
 
 import (
 	"context"
 	"errors"
+	"strings"
 
 	certv1 "github.com/jetstack/cert-manager/pkg/apis/certmanager/v1"
 	certMeta "github.com/jetstack/cert-manager/pkg/apis/meta/v1"
@@ -60,42 +61,50 @@ type ReconcilerTLSConfig struct {
 	// This client, initialized using mgr.Client(), is a split client
 	// that reads objects from the cache and writes to the apiserver
 	Client client.Client
+	OS     OSUtils
 }
 
-type tlsReconciler struct {
+type reconcilerTLS struct {
 	*ReconcilerTLSConfig
 }
 
-// blank assignment to verify that commonReconciler implements Reconciler
-var _ ReconcilerTLS = &tlsReconciler{}
+// blank assignment to verify that tlsReconciler implements ReconcilerTLS
+var _ ReconcilerTLS = &reconcilerTLS{}
 
-// NewReconciler creates a new Reconciler using the provided configuration
-func NewReconciler(config *ReconcilerTLSConfig) ReconcilerTLS {
+// Environment variable to disable TLS for services
+const disableServiceTLS = "DISABLE_SERVICE_TLS"
+
+// NewReconcilerTLS creates a new ReconcilerTLS using the provided configuration
+func NewReconcilerTLS(config *ReconcilerTLSConfig) ReconcilerTLS {
 	configCopy := *config
-	return &tlsReconciler{
+	if config.OS == nil {
+		configCopy.OS = &defaultOSUtils{}
+	}
+	return &reconcilerTLS{
 		ReconcilerTLSConfig: &configCopy,
 	}
 }
 
-func (r *tlsReconciler) IsCertManagerEnabled() bool {
-	return true // TODO
+func (r *reconcilerTLS) IsCertManagerEnabled() bool {
+	// Check if the user has explicitly requested cert-manager to be disabled
+	return strings.ToLower(r.OS.GetEnv(disableServiceTLS)) != "true"
 }
 
-var ErrNotReady error = errors.New("Certificate secret not yet ready")
+var ErrCertNotReady error = errors.New("Certificate secret not yet ready")
 
-func (r *tlsReconciler) GetCertificateSecret(ctx context.Context, name string, namespace string) (*corev1.Secret, error) {
+func (r *reconcilerTLS) GetCertificateSecret(ctx context.Context, name string, namespace string) (*corev1.Secret, error) {
 	// Look up named certificate
 	cert := &certv1.Certificate{}
 	err := r.Client.Get(ctx, types.NamespacedName{Name: name, Namespace: namespace}, cert)
 	if err != nil {
 		if kerrors.IsNotFound(err) {
-			return nil, ErrNotReady
+			return nil, ErrCertNotReady
 		}
 		return nil, err
 	}
 
 	if !isCertificateReady(cert) {
-		return nil, ErrNotReady
+		return nil, ErrCertNotReady
 	}
 
 	secret := &corev1.Secret{}
@@ -106,7 +115,7 @@ func (r *tlsReconciler) GetCertificateSecret(ctx context.Context, name string, n
 	return secret, nil
 }
 
-func (r *tlsReconciler) GetContainerJFRCABytes(ctx context.Context, cjfr *rhjmcv1alpha1.ContainerJFR) ([]byte, error) {
+func (r *reconcilerTLS) GetContainerJFRCABytes(ctx context.Context, cjfr *rhjmcv1alpha1.ContainerJFR) ([]byte, error) {
 	caName := cjfr.Name + "-ca"
 	secret, err := r.GetCertificateSecret(ctx, caName, cjfr.Namespace)
 	if err != nil {

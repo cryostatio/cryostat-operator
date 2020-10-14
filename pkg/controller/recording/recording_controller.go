@@ -46,7 +46,6 @@ import (
 	rhjmcv1alpha2 "github.com/rh-jmc-team/container-jfr-operator/pkg/apis/rhjmc/v1alpha2"
 	jfrclient "github.com/rh-jmc-team/container-jfr-operator/pkg/client"
 	common "github.com/rh-jmc-team/container-jfr-operator/pkg/controller/common"
-	"github.com/rh-jmc-team/container-jfr-operator/pkg/controller/tls"
 	corev1 "k8s.io/api/core/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -122,7 +121,7 @@ func (r *ReconcileRecording) Reconcile(request reconcile.Request) (reconcile.Res
 
 	cjfr, err := r.GetContainerJFRClient(ctx, request.Namespace)
 	if err != nil {
-		if err == tls.ErrNotReady {
+		if err == common.ErrCertNotReady {
 			log.Info("Waiting for CA certificate")
 			return reconcile.Result{RequeueAfter: 5 * time.Second}, nil
 		}
