@@ -76,9 +76,9 @@ By default, the operator expects cert-manager to be available in the cluster.
 This allows the operator to deploy Container JFR with all communication
 between its internal services done over HTTPS. If you wish to disable this
 feature and not use cert-manager, you can set the environment variable
-`DISABLE_SERVICE_TLS=true`. We provide `make cert_manager` and
-`make remove_cert_manager` targets to easily install/remove cert-manager
-from your cluster.
+`DISABLE_SERVICE_TLS=true` when you deploy the operator. We provide
+`make cert_manager` and `make remove_cert_manager` targets to easily
+install/remove cert-manager from your cluster.
 
 ## Manual Deployment
 
