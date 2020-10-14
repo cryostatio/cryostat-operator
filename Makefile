@@ -14,6 +14,10 @@ BUILDER ?= podman
 
 GINKGO ?= $(shell go env GOPATH)/bin/ginkgo
 
+CERT_MANAGER_VERSION ?= 1.0.2
+CERT_MANAGER_MANIFEST ?= \
+	https://github.com/jetstack/cert-manager/releases/download/v$(CERT_MANAGER_VERSION)/cert-manager.yaml
+
 .DEFAULT_GOAL := bundle
 
 .PHONY: generate
@@ -152,6 +156,14 @@ undeploy: undeploy_sample_app undeploy_sample_app2
 	- oc delete crd recordings.rhjmc.redhat.com
 	- oc delete crd containerjfrs.rhjmc.redhat.com
 	- oc delete -f deploy/olm-catalog/catalog-source.yaml
+
+.PHONY: cert_manager
+cert_manager:
+	oc create --validate=false -f $(CERT_MANAGER_MANIFEST)
+
+.PHONY: remove_cert_manager
+remove_cert_manager:
+	- oc delete -f $(CERT_MANAGER_MANIFEST)
 
 .PHONY: sample_app
 sample_app:
