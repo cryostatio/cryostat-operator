@@ -429,12 +429,17 @@ func NewJfrDatasourceContainer(cr *rhjmcv1alpha1.ContainerJFR) corev1.Container 
 				ContainerPort: 8080,
 			},
 		},
-		Env: []corev1.EnvVar{},
+		Env: []corev1.EnvVar{
+			{
+				Name:  "LISTEN_HOST",
+				Value: "127.0.0.1",
+			},
+		},
+		// Can't use HTTP probe since the port is not exposed over the network
 		LivenessProbe: &corev1.Probe{
 			Handler: corev1.Handler{
-				HTTPGet: &corev1.HTTPGetAction{
-					Port: intstr.IntOrString{IntVal: 8080},
-					Path: "/",
+				Exec: &corev1.ExecAction{
+					Command: []string{"curl", "--fail", "http://127.0.0.1:8080"},
 				},
 			},
 		},
