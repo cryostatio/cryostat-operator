@@ -45,6 +45,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+// CAKey is the key for a CA certificate within a TLS secret
 const CAKey = certMeta.TLSCAKey
 
 func NewSelfSignedIssuer(cr *rhjmcv1alpha1.ContainerJFR) *certv1.Issuer {

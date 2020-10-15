@@ -57,9 +57,13 @@ var log = logf.Log.WithName("common_reconciler")
 type ReconcilerConfig struct {
 	// This client, initialized using mgr.Client(), is a split client
 	// that reads objects from the cache and writes to the apiserver
-	Client        client.Client
+	Client client.Client
+	// Optional field to specify an alternate ClientFactory used by
+	// Reconciler to create ContainerJFRClients
 	ClientFactory ContainerJFRClientFactory
-	OS            OSUtils
+	// Optional field to override the default behaviour when interacting
+	// with the operating system
+	OS OSUtils
 }
 
 // Reconciler contains helpful methods to communicate with Container JFR.

@@ -50,18 +50,22 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-// TODO doc
+// ReconcilerTLS contains methods a reconciler may wish to use when configuring
+// TLS-related functionality
 type ReconcilerTLS interface {
 	IsCertManagerEnabled() bool
 	GetContainerJFRCABytes(ctx context.Context, cjfr *rhjmcv1alpha1.ContainerJFR) ([]byte, error)
 	GetCertificateSecret(ctx context.Context, name string, namespace string) (*corev1.Secret, error)
 }
 
+// ReconcilerTLSConfig contains parameters used to create a ReconcilerTLS
 type ReconcilerTLSConfig struct {
 	// This client, initialized using mgr.Client(), is a split client
 	// that reads objects from the cache and writes to the apiserver
 	Client client.Client
-	OS     OSUtils
+	// Optional field to override the default behaviour when interacting
+	// with the operating system
+	OS OSUtils
 }
 
 type reconcilerTLS struct {
@@ -85,13 +89,20 @@ func NewReconcilerTLS(config *ReconcilerTLSConfig) ReconcilerTLS {
 	}
 }
 
+// IsCertManagerEnabled returns whether TLS using cert-manager is enabled
+// for this operator
 func (r *reconcilerTLS) IsCertManagerEnabled() bool {
 	// Check if the user has explicitly requested cert-manager to be disabled
 	return strings.ToLower(r.OS.GetEnv(disableServiceTLS)) != "true"
 }
 
+// ErrCertNotReady is returned when cert-manager has not marked the certificate
+// as ready, and no TLS secret has been populated yet.
 var ErrCertNotReady error = errors.New("Certificate secret not yet ready")
 
+// GetCertificateSecret returns the Secret corresponding to the named
+// cert-manager Certificate. This can return ErrCertNotReady if the
+// certificate secret is not available yet.
 func (r *reconcilerTLS) GetCertificateSecret(ctx context.Context, name string, namespace string) (*corev1.Secret, error) {
 	// Look up named certificate
 	cert := &certv1.Certificate{}
@@ -115,6 +126,8 @@ func (r *reconcilerTLS) GetCertificateSecret(ctx context.Context, name string, n
 	return secret, nil
 }
 
+// GetContainerJFRCABytes returns the CA certificate created for the provided
+// ContainerJFR CR, as a byte slice.
 func (r *reconcilerTLS) GetContainerJFRCABytes(ctx context.Context, cjfr *rhjmcv1alpha1.ContainerJFR) ([]byte, error) {
 	caName := cjfr.Name + "-ca"
 	secret, err := r.GetCertificateSecret(ctx, caName, cjfr.Namespace)

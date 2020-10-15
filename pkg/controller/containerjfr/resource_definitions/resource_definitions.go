@@ -56,9 +56,13 @@ type ServiceSpecs struct {
 	DatasourceAddress string
 }
 
+// TLSConfig contains TLS-related information useful when creating other objects
 type TLSConfig struct {
+	// Name of the TLS secret for Container JFR
 	ContainerJFRSecret string
-	GrafanaSecret      string
+	// Name of the TLS secret for Grafana
+	GrafanaSecret string
+	// Name of the secret containing the password for the keystore in ContainerJFRSecret
 	KeystorePassSecret string
 }
 

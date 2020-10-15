@@ -202,6 +202,7 @@ func (r *ReconcileContainerJFR) Reconcile(request reconcile.Request) (reconcile.
 		}
 		serviceSpecs.GrafanaAddress = fmt.Sprintf("%s://%s", protocol, url)
 
+		// TODO Restrict jfr-datasource to localhost
 		datasourceSvc := resources.NewJfrDatasourceService(instance)
 		url, err = r.createService(context.Background(), instance, datasourceSvc, nil, nil)
 		if err != nil {
@@ -263,7 +264,6 @@ func (r *ReconcileContainerJFR) Reconcile(request reconcile.Request) (reconcile.
 			}
 		}
 	}
-	// TODO Restrict jfr-datasource to localhost?
 
 	exporterSvc := resources.NewExporterService(instance)
 	url, err := r.createService(context.Background(), instance, exporterSvc, &exporterSvc.Spec.Ports[0], routeTLS)

@@ -117,14 +117,14 @@ func (r *ReconcileGrafana) Reconcile(request reconcile.Request) (reconcile.Resul
 	reqLogger.Info("Found Grafana service", "Namespace",
 		svc.Namespace, "Name", svc.Name)
 
-	// Get CA certificate if TLS is enabled
-	cjfr, err := r.FindContainerJFR(ctx, svc.Namespace)
-	if err != nil {
-		return reconcile.Result{}, err
-	}
 	transport := http.DefaultTransport.(*http.Transport).Clone()
 	protocol := "http"
+	// Get CA certificate if TLS is enabled
 	if r.IsCertManagerEnabled() {
+		cjfr, err := r.FindContainerJFR(ctx, svc.Namespace)
+		if err != nil {
+			return reconcile.Result{}, err
+		}
 		caCert, err := r.GetContainerJFRCABytes(ctx, cjfr)
 		if err != nil {
 			if err == common.ErrCertNotReady {
