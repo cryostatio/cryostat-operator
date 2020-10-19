@@ -45,14 +45,12 @@ import (
 	. "github.com/onsi/gomega"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/client-go/kubernetes/scheme"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/operator-framework/operator-sdk/pkg/log/zap"
-	rhjmcv1alpha1 "github.com/rh-jmc-team/container-jfr-operator/pkg/apis/rhjmc/v1alpha1"
 	rhjmcv1alpha2 "github.com/rh-jmc-team/container-jfr-operator/pkg/apis/rhjmc/v1alpha2"
 	"github.com/rh-jmc-team/container-jfr-operator/pkg/controller/flightrecorder"
 	"github.com/rh-jmc-team/container-jfr-operator/test"
@@ -69,12 +67,7 @@ var _ = Describe("FlightRecorderController", func() {
 
 	JustBeforeEach(func() {
 		logf.SetLogger(zap.Logger())
-		s := scheme.Scheme
-
-		s.AddKnownTypes(rhjmcv1alpha1.SchemeGroupVersion, &rhjmcv1alpha1.ContainerJFR{},
-			&rhjmcv1alpha1.ContainerJFRList{})
-		s.AddKnownTypes(rhjmcv1alpha2.SchemeGroupVersion, &rhjmcv1alpha2.FlightRecorder{},
-			&rhjmcv1alpha2.FlightRecorderList{})
+		s := test.NewTestScheme()
 
 		client = fake.NewFakeClientWithScheme(s, objs...)
 		server = test.NewServer(client, handlers)
@@ -91,7 +84,8 @@ var _ = Describe("FlightRecorderController", func() {
 
 	BeforeEach(func() {
 		objs = []runtime.Object{
-			test.NewContainerJFR(), test.NewFlightRecorder(), test.NewTargetPod(), test.NewContainerJFRService(),
+			test.NewContainerJFR(), test.NewCACert(), test.NewFlightRecorder(), test.NewTargetPod(),
+			test.NewContainerJFRService(),
 		}
 		handlers = []http.HandlerFunc{
 			test.NewListEventTypesHandler(),
@@ -163,7 +157,7 @@ var _ = Describe("FlightRecorderController", func() {
 				otherFr := test.NewFlightRecorder()
 				otherFr.Status = rhjmcv1alpha2.FlightRecorderStatus{}
 				objs = []runtime.Object{
-					test.NewContainerJFR(), otherFr, test.NewTargetPod(), test.NewContainerJFRService(),
+					test.NewContainerJFR(), test.NewCACert(), otherFr, test.NewTargetPod(), test.NewContainerJFRService(),
 				}
 				handlers = []http.HandlerFunc{}
 			})
@@ -187,7 +181,7 @@ var _ = Describe("FlightRecorderController", func() {
 		Context("Container JFR CR is missing", func() {
 			BeforeEach(func() {
 				objs = []runtime.Object{
-					test.NewFlightRecorder(), test.NewTargetPod(), test.NewContainerJFRService(),
+					test.NewFlightRecorder(), test.NewCACert(), test.NewTargetPod(), test.NewContainerJFRService(),
 				}
 				handlers = []http.HandlerFunc{}
 			})
@@ -198,7 +192,7 @@ var _ = Describe("FlightRecorderController", func() {
 		Context("Container JFR service is missing", func() {
 			BeforeEach(func() {
 				objs = []runtime.Object{
-					test.NewContainerJFR(), test.NewFlightRecorder(), test.NewTargetPod(),
+					test.NewContainerJFR(), test.NewCACert(), test.NewFlightRecorder(), test.NewTargetPod(),
 				}
 				handlers = []http.HandlerFunc{}
 			})
@@ -209,7 +203,7 @@ var _ = Describe("FlightRecorderController", func() {
 		Context("Target pod is missing", func() {
 			BeforeEach(func() {
 				objs = []runtime.Object{
-					test.NewContainerJFR(), test.NewFlightRecorder(), test.NewContainerJFRService(),
+					test.NewContainerJFR(), test.NewCACert(), test.NewFlightRecorder(), test.NewContainerJFRService(),
 				}
 				handlers = []http.HandlerFunc{}
 			})
@@ -222,7 +216,7 @@ var _ = Describe("FlightRecorderController", func() {
 				otherPod := test.NewTargetPod()
 				otherPod.Status.PodIP = ""
 				objs = []runtime.Object{
-					test.NewContainerJFR(), test.NewFlightRecorder(), otherPod, test.NewContainerJFRService(),
+					test.NewContainerJFR(), test.NewCACert(), test.NewFlightRecorder(), otherPod, test.NewContainerJFRService(),
 				}
 				handlers = []http.HandlerFunc{}
 			})

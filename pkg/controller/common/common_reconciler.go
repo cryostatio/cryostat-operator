@@ -41,7 +41,6 @@ import (
 	"errors"
 	"fmt"
 	"net/url"
-	"strings"
 
 	rhjmcv1alpha1 "github.com/rh-jmc-team/container-jfr-operator/pkg/apis/rhjmc/v1alpha1"
 	jfrclient "github.com/rh-jmc-team/container-jfr-operator/pkg/client"
@@ -58,25 +57,27 @@ var log = logf.Log.WithName("common_reconciler")
 type ReconcilerConfig struct {
 	// This client, initialized using mgr.Client(), is a split client
 	// that reads objects from the cache and writes to the apiserver
-	Client        client.Client
+	Client client.Client
+	// Optional field to specify an alternate ClientFactory used by
+	// Reconciler to create ContainerJFRClients
 	ClientFactory ContainerJFRClientFactory
-	OS            OSUtils
-	DisableTLS    bool
+	// Optional field to override the default behaviour when interacting
+	// with the operating system
+	OS OSUtils
 }
 
 // Reconciler contains helpful methods to communicate with Container JFR.
 // It is meant to be embedded within other Reconcilers.
 type Reconciler interface {
+	FindContainerJFR(ctx context.Context, namespace string) (*rhjmcv1alpha1.ContainerJFR, error)
 	GetContainerJFRClient(ctx context.Context, namespace string) (jfrclient.ContainerJfrClient, error)
 	GetPodTarget(targetPod *corev1.Pod, jmxPort int32) (*jfrclient.TargetAddress, error)
+	ReconcilerTLS
 }
 
 type commonReconciler struct {
 	*ReconcilerConfig
-	// TODO Will need some way to invalidate client when ContainerJFR changes. Maybe store CJFR metadata
-	// (UID, ResourceVersion) along with it, and invalidate on mismatch. If this operator becomes
-	// cluster-scoped we may need to cache multiple clients.
-	jfrclient jfrclient.ContainerJfrClient
+	ReconcilerTLS
 }
 
 // blank assignment to verify that commonReconciler implements Reconciler
@@ -93,23 +94,33 @@ func NewReconciler(config *ReconcilerConfig) Reconciler {
 	}
 	return &commonReconciler{
 		ReconcilerConfig: &configCopy,
+		ReconcilerTLS: NewReconcilerTLS(&ReconcilerTLSConfig{
+			Client: configCopy.Client,
+			OS:     configCopy.OS,
+		}),
 	}
 }
 
-// GetContainerJFRClient gets or creates a client to communicate with the Container JFR
+// GetContainerJFRClient creates a client to communicate with the Container JFR
 // instance deployed by this operator in the given namespace
 func (r *commonReconciler) GetContainerJFRClient(ctx context.Context, namespace string) (jfrclient.ContainerJfrClient, error) {
-	// Check if we've already created the client
-	if r.jfrclient != nil {
-		return r.jfrclient, nil
-	}
 	// Look up ContainerJFR instance within the given namespace
-	cjfr, err := r.findContainerJFR(ctx, namespace)
+	cjfr, err := r.FindContainerJFR(ctx, namespace)
 	if err != nil {
 		return nil, err
 	}
+	// Get CA certificate if TLS is enabled
+	var caCert []byte
+	protocol := "http"
+	if r.IsCertManagerEnabled() {
+		caCert, err = r.GetContainerJFRCABytes(ctx, cjfr)
+		if err != nil {
+			return nil, err
+		}
+		protocol = "https"
+	}
 	// Get the URL to the Container JFR web service
-	serverURL, err := r.getServerURL(ctx, cjfr.Namespace, cjfr.Name)
+	serverURL, err := r.getServerURL(ctx, cjfr.Namespace, cjfr.Name, protocol)
 	if err != nil {
 		return nil, err
 	}
@@ -121,13 +132,11 @@ func (r *commonReconciler) GetContainerJFRClient(ctx context.Context, namespace 
 	strTok := string(tok)
 
 	// Create Container JFR HTTP(S) client
-	config := &jfrclient.Config{ServerURL: serverURL, AccessToken: &strTok, TLSVerify: !strings.EqualFold(r.OS.GetEnv("TLS_VERIFY"), "false")}
+	config := &jfrclient.Config{ServerURL: serverURL, AccessToken: &strTok, CACertificate: caCert}
 	jfrClient, err := r.ClientFactory.CreateClient(config)
 	if err != nil {
 		return nil, err
 	}
-	// Store client for reuse by later Reconcile calls
-	r.jfrclient = jfrClient
 	return jfrClient, nil
 }
 
@@ -144,7 +153,7 @@ func (r *commonReconciler) GetPodTarget(targetPod *corev1.Pod, jmxPort int32) (*
 	}, nil
 }
 
-func (r *commonReconciler) findContainerJFR(ctx context.Context, namespace string) (*rhjmcv1alpha1.ContainerJFR, error) {
+func (r *commonReconciler) FindContainerJFR(ctx context.Context, namespace string) (*rhjmcv1alpha1.ContainerJFR, error) {
 	// TODO Consider how to find ContainerJFR object if this operator becomes cluster-scoped
 	// Look up the ContainerJFR object for this operator, which will help us find its services
 	cjfrList := &rhjmcv1alpha1.ContainerJFRList{}
@@ -162,7 +171,7 @@ func (r *commonReconciler) findContainerJFR(ctx context.Context, namespace strin
 	return &cjfrList.Items[0], nil
 }
 
-func (r *commonReconciler) getServerURL(ctx context.Context, namespace string, svcName string) (*url.URL, error) {
+func (r *commonReconciler) getServerURL(ctx context.Context, namespace string, svcName string, protocol string) (*url.URL, error) {
 	// Look up Container JFR service, and build URL to web service
 	cjfrSvc := &corev1.Service{}
 	err := r.Client.Get(ctx, types.NamespacedName{Namespace: namespace, Name: svcName}, cjfrSvc)
@@ -172,10 +181,6 @@ func (r *commonReconciler) getServerURL(ctx context.Context, namespace string, s
 	webServerPort, err := getWebServerPort(cjfrSvc)
 	if err != nil {
 		return nil, err
-	}
-	protocol := "https"
-	if r.DisableTLS {
-		protocol = "http"
 	}
 	return url.Parse(fmt.Sprintf("%s://%s.%s.svc:%d/", protocol, svcName, namespace, webServerPort))
 }

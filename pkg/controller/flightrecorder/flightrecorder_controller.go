@@ -67,8 +67,7 @@ func Add(mgr manager.Manager) error {
 func newReconciler(mgr manager.Manager) *ReconcileFlightRecorder {
 	return &ReconcileFlightRecorder{Client: mgr.GetClient(), Scheme: mgr.GetScheme(),
 		Reconciler: common.NewReconciler(&common.ReconcilerConfig{
-			Client:     mgr.GetClient(),
-			DisableTLS: true, // FIXME remove once TLS support is present in operator
+			Client: mgr.GetClient(),
 		}),
 	}
 }
@@ -136,6 +135,10 @@ func (r *ReconcileFlightRecorder) Reconcile(request reconcile.Request) (reconcil
 
 	cjfr, err := r.GetContainerJFRClient(ctx, request.Namespace)
 	if err != nil {
+		if err == common.ErrCertNotReady {
+			log.Info("Waiting for CA certificate")
+			return reconcile.Result{RequeueAfter: 5 * time.Second}, nil
+		}
 		return reconcile.Result{}, err
 	}
 
