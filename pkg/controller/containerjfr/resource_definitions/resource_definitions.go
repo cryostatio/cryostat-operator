@@ -50,10 +50,9 @@ import (
 )
 
 type ServiceSpecs struct {
-	CoreAddress       string
-	CommandAddress    string
-	GrafanaAddress    string
-	DatasourceAddress string
+	CoreAddress    string
+	CommandAddress string
+	GrafanaAddress string
 }
 
 // TLSConfig contains TLS-related information useful when creating other objects
@@ -222,7 +221,7 @@ func NewCoreContainer(cr *rhjmcv1alpha1.ContainerJFR, specs *ServiceSpecs, tls *
 		},
 		{
 			Name:  "GRAFANA_DATASOURCE_URL",
-			Value: specs.DatasourceAddress,
+			Value: DatasourceURL,
 		},
 		{
 			// FIXME remove once JMX auth support is present in operator
@@ -420,21 +419,32 @@ func NewGrafanaContainer(cr *rhjmcv1alpha1.ContainerJFR, tls *TLSConfig) corev1.
 	}
 }
 
+const datasourceHost = "127.0.0.1"
+const datasourcePort = "8080"
+
+// DatasourceURL contains the fixed URL to jfr-datasource's web server
+const DatasourceURL = "http://" + datasourceHost + ":" + datasourcePort
+
 func NewJfrDatasourceContainer(cr *rhjmcv1alpha1.ContainerJFR) corev1.Container {
 	return corev1.Container{
 		Name:  cr.Name + "-jfr-datasource",
-		Image: "quay.io/rh-jmc-team/jfr-datasource:0.0.1",
+		Image: "quay.io/rh-jmc-team/jfr-datasource:0.0.2",
 		Ports: []corev1.ContainerPort{
 			{
 				ContainerPort: 8080,
 			},
 		},
-		Env: []corev1.EnvVar{},
+		Env: []corev1.EnvVar{
+			{
+				Name:  "LISTEN_HOST",
+				Value: datasourceHost,
+			},
+		},
+		// Can't use HTTP probe since the port is not exposed over the network
 		LivenessProbe: &corev1.Probe{
 			Handler: corev1.Handler{
-				HTTPGet: &corev1.HTTPGetAction{
-					Port: intstr.IntOrString{IntVal: 8080},
-					Path: "/",
+				Exec: &corev1.ExecAction{
+					Command: []string{"curl", "--fail", DatasourceURL},
 				},
 			},
 		},
@@ -518,32 +528,6 @@ func NewGrafanaService(cr *rhjmcv1alpha1.ContainerJFR) *corev1.Service {
 					Name:       "3000-tcp",
 					Port:       3000,
 					TargetPort: intstr.IntOrString{IntVal: 3000},
-				},
-			},
-		},
-	}
-}
-
-func NewJfrDatasourceService(cr *rhjmcv1alpha1.ContainerJFR) *corev1.Service {
-	return &corev1.Service{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      cr.Name + "-jfr-datasource",
-			Namespace: cr.Namespace,
-			Labels: map[string]string{
-				"app":       cr.Name,
-				"component": "jfr-datasource",
-			},
-		},
-		Spec: corev1.ServiceSpec{
-			Type: corev1.ServiceTypeClusterIP,
-			Selector: map[string]string{
-				"app": cr.Name,
-			},
-			Ports: []corev1.ServicePort{
-				{
-					Name:       "8080-tcp",
-					Port:       8080,
-					TargetPort: intstr.IntOrString{IntVal: 8080},
 				},
 			},
 		},

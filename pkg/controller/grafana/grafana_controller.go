@@ -50,6 +50,7 @@ import (
 	"time"
 
 	"github.com/rh-jmc-team/container-jfr-operator/pkg/controller/common"
+	resources "github.com/rh-jmc-team/container-jfr-operator/pkg/controller/containerjfr/resource_definitions"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -237,24 +238,10 @@ func (r *ReconcileGrafana) configureGrafanaDatasource(httpClient *http.Client, s
 		}
 	}
 
-	logger.Info("Checking for jfr-datasource service")
-	services := corev1.ServiceList{}
-	err = r.client.List(context.Background(), &services, client.InNamespace(svc.Namespace), client.MatchingLabels{"component": "jfr-datasource"})
-	if err != nil {
-		return err
-	}
-	if len(services.Items) != 1 {
-		return errors.NewInternalError(goerrors.New(fmt.Sprintf("Expected one jfr-datasource service, found %d", len(services.Items))))
-	}
-	if len(services.Items[0].Spec.Ports) != 1 {
-		return errors.NewInternalError(goerrors.New(fmt.Sprintf("Expected service %s to have one Port, but got %d", services.Items[0].Name, len(services.Items[0].Spec.Ports))))
-	}
-	datasourceURL := fmt.Sprintf("http://%s:%d", services.Items[0].Spec.ClusterIP, services.Items[0].Spec.Ports[0].Port)
-
 	datasource := GrafanaDatasource{
 		Name:      "jfr-datasource",
 		Type:      "grafana-simple-json-datasource",
-		URL:       datasourceURL,
+		URL:       resources.DatasourceURL,
 		Access:    "proxy",
 		BasicAuth: false,
 		IsDefault: true,
