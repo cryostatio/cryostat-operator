@@ -50,10 +50,9 @@ import (
 )
 
 type ServiceSpecs struct {
-	CoreAddress       string
-	CommandAddress    string
-	GrafanaAddress    string
-	DatasourceAddress string
+	CoreAddress    string
+	CommandAddress string
+	GrafanaAddress string
 }
 
 // TLSConfig contains TLS-related information useful when creating other objects
@@ -222,7 +221,7 @@ func NewCoreContainer(cr *rhjmcv1alpha1.ContainerJFR, specs *ServiceSpecs, tls *
 		},
 		{
 			Name:  "GRAFANA_DATASOURCE_URL",
-			Value: specs.DatasourceAddress,
+			Value: DatasourceURL,
 		},
 		{
 			// FIXME remove once JMX auth support is present in operator
@@ -420,6 +419,12 @@ func NewGrafanaContainer(cr *rhjmcv1alpha1.ContainerJFR, tls *TLSConfig) corev1.
 	}
 }
 
+const datasourceHost = "127.0.0.1"
+const datasourcePort = "8080"
+
+// DatasourceURL contains the fixed URL to jfr-datasource's web server
+const DatasourceURL = "http://" + datasourceHost + datasourcePort
+
 func NewJfrDatasourceContainer(cr *rhjmcv1alpha1.ContainerJFR) corev1.Container {
 	return corev1.Container{
 		Name:  cr.Name + "-jfr-datasource",
@@ -432,14 +437,14 @@ func NewJfrDatasourceContainer(cr *rhjmcv1alpha1.ContainerJFR) corev1.Container 
 		Env: []corev1.EnvVar{
 			{
 				Name:  "LISTEN_HOST",
-				Value: "127.0.0.1",
+				Value: datasourceHost,
 			},
 		},
 		// Can't use HTTP probe since the port is not exposed over the network
 		LivenessProbe: &corev1.Probe{
 			Handler: corev1.Handler{
 				Exec: &corev1.ExecAction{
-					Command: []string{"curl", "--fail", "http://127.0.0.1:8080"},
+					Command: []string{"curl", "--fail", DatasourceURL},
 				},
 			},
 		},

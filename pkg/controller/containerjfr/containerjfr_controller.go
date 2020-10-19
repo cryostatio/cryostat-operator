@@ -201,7 +201,6 @@ func (r *ReconcileContainerJFR) Reconcile(request reconcile.Request) (reconcile.
 			return reconcile.Result{}, err
 		}
 		serviceSpecs.GrafanaAddress = fmt.Sprintf("%s://%s", protocol, url)
-		serviceSpecs.DatasourceAddress = "http://127.0.0.1:8080"
 
 		// check for existing minimal deployment and delete if found
 		deployment := resources.NewDeploymentForCR(instance, serviceSpecs, nil)
@@ -215,34 +214,28 @@ func (r *ReconcileContainerJFR) Reconcile(request reconcile.Request) (reconcile.
 		}
 	} else {
 		// check for existing non-minimal resources and delete if found
-
-		services := []*corev1.Service{
-			resources.NewGrafanaService(instance),
-			resources.NewJfrDatasourceService(instance),
-		}
-		for _, svc := range services {
-			reqLogger.Info("Deleting existing non-minimal route", "route.Name", svc.Name)
-			route := &openshiftv1.Route{}
-			err = r.client.Get(context.Background(), types.NamespacedName{Name: svc.Name, Namespace: svc.Namespace}, route)
+		svc := resources.NewGrafanaService(instance)
+		reqLogger.Info("Deleting existing non-minimal route", "route.Name", svc.Name)
+		route := &openshiftv1.Route{}
+		err = r.client.Get(context.Background(), types.NamespacedName{Name: svc.Name, Namespace: svc.Namespace}, route)
+		if err != nil && !errors.IsNotFound(err) {
+			reqLogger.Info("Non-minimal route could not be retrieved", "route.Name", svc.Name)
+			return reconcile.Result{}, err
+		} else if err == nil {
+			err = r.client.Delete(context.Background(), route)
 			if err != nil && !errors.IsNotFound(err) {
-				reqLogger.Info("Non-minimal route could not be retrieved", "route.Name", svc.Name)
+				reqLogger.Info("Could not delete non-minimal route", "route.Name", svc.Name)
 				return reconcile.Result{}, err
-			} else if err == nil {
-				err = r.client.Delete(context.Background(), route)
-				if err != nil && !errors.IsNotFound(err) {
-					reqLogger.Info("Could not delete non-minimal route", "route.Name", svc.Name)
-					return reconcile.Result{}, err
-				}
 			}
+		}
 
-			err = r.client.Get(context.Background(), types.NamespacedName{Name: svc.Name, Namespace: svc.Namespace}, svc)
-			if err == nil {
-				reqLogger.Info("Deleting existing non-minimal service", "svc.Name", svc.Name)
-				err = r.client.Delete(context.Background(), svc)
-				if err != nil && !errors.IsNotFound(err) {
-					reqLogger.Info("Could not delete non-minimal service")
-					return reconcile.Result{}, err
-				}
+		err = r.client.Get(context.Background(), types.NamespacedName{Name: svc.Name, Namespace: svc.Namespace}, svc)
+		if err == nil {
+			reqLogger.Info("Deleting existing non-minimal service", "svc.Name", svc.Name)
+			err = r.client.Delete(context.Background(), svc)
+			if err != nil && !errors.IsNotFound(err) {
+				reqLogger.Info("Could not delete non-minimal service")
+				return reconcile.Result{}, err
 			}
 		}
 

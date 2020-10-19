@@ -50,6 +50,7 @@ import (
 	"time"
 
 	"github.com/rh-jmc-team/container-jfr-operator/pkg/controller/common"
+	resources "github.com/rh-jmc-team/container-jfr-operator/pkg/controller/containerjfr/resource_definitions"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -240,7 +241,7 @@ func (r *ReconcileGrafana) configureGrafanaDatasource(httpClient *http.Client, s
 	datasource := GrafanaDatasource{
 		Name:      "jfr-datasource",
 		Type:      "grafana-simple-json-datasource",
-		URL:       "http://127.0.0.1:8080",
+		URL:       resources.DatasourceURL,
 		Access:    "proxy",
 		BasicAuth: false,
 		IsDefault: true,
