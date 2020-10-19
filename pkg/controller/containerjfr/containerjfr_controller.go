@@ -201,14 +201,7 @@ func (r *ReconcileContainerJFR) Reconcile(request reconcile.Request) (reconcile.
 			return reconcile.Result{}, err
 		}
 		serviceSpecs.GrafanaAddress = fmt.Sprintf("%s://%s", protocol, url)
-
-		// TODO Restrict jfr-datasource to localhost
-		datasourceSvc := resources.NewJfrDatasourceService(instance)
-		url, err = r.createService(context.Background(), instance, datasourceSvc, nil, nil)
-		if err != nil {
-			return reconcile.Result{}, err
-		}
-		serviceSpecs.DatasourceAddress = fmt.Sprintf("http://%s", url)
+		serviceSpecs.DatasourceAddress = "http://127.0.0.1:8080"
 
 		// check for existing minimal deployment and delete if found
 		deployment := resources.NewDeploymentForCR(instance, serviceSpecs, nil)

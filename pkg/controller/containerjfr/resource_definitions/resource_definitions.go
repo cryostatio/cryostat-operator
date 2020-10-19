@@ -529,32 +529,6 @@ func NewGrafanaService(cr *rhjmcv1alpha1.ContainerJFR) *corev1.Service {
 	}
 }
 
-func NewJfrDatasourceService(cr *rhjmcv1alpha1.ContainerJFR) *corev1.Service {
-	return &corev1.Service{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      cr.Name + "-jfr-datasource",
-			Namespace: cr.Namespace,
-			Labels: map[string]string{
-				"app":       cr.Name,
-				"component": "jfr-datasource",
-			},
-		},
-		Spec: corev1.ServiceSpec{
-			Type: corev1.ServiceTypeClusterIP,
-			Selector: map[string]string{
-				"app": cr.Name,
-			},
-			Ports: []corev1.ServicePort{
-				{
-					Name:       "8080-tcp",
-					Port:       8080,
-					TargetPort: intstr.IntOrString{IntVal: 8080},
-				},
-			},
-		},
-	}
-}
-
 func NewJmxSecretForCR(cr *rhjmcv1alpha1.ContainerJFR) *corev1.Secret {
 	return &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{

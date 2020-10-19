@@ -237,24 +237,10 @@ func (r *ReconcileGrafana) configureGrafanaDatasource(httpClient *http.Client, s
 		}
 	}
 
-	logger.Info("Checking for jfr-datasource service")
-	services := corev1.ServiceList{}
-	err = r.client.List(context.Background(), &services, client.InNamespace(svc.Namespace), client.MatchingLabels{"component": "jfr-datasource"})
-	if err != nil {
-		return err
-	}
-	if len(services.Items) != 1 {
-		return errors.NewInternalError(goerrors.New(fmt.Sprintf("Expected one jfr-datasource service, found %d", len(services.Items))))
-	}
-	if len(services.Items[0].Spec.Ports) != 1 {
-		return errors.NewInternalError(goerrors.New(fmt.Sprintf("Expected service %s to have one Port, but got %d", services.Items[0].Name, len(services.Items[0].Spec.Ports))))
-	}
-	datasourceURL := fmt.Sprintf("http://%s:%d", services.Items[0].Spec.ClusterIP, services.Items[0].Spec.Ports[0].Port)
-
 	datasource := GrafanaDatasource{
 		Name:      "jfr-datasource",
 		Type:      "grafana-simple-json-datasource",
-		URL:       datasourceURL,
+		URL:       "http://127.0.0.1:8080",
 		Access:    "proxy",
 		BasicAuth: false,
 		IsDefault: true,
