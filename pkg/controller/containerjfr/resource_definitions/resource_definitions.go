@@ -423,7 +423,7 @@ const datasourceHost = "127.0.0.1"
 const datasourcePort = "8080"
 
 // DatasourceURL contains the fixed URL to jfr-datasource's web server
-const DatasourceURL = "http://" + datasourceHost + datasourcePort
+const DatasourceURL = "http://" + datasourceHost + ":" + datasourcePort
 
 func NewJfrDatasourceContainer(cr *rhjmcv1alpha1.ContainerJFR) corev1.Container {
 	return corev1.Container{
