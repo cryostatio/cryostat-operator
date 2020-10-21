@@ -48,6 +48,7 @@ type FlightRecorderSpec struct {
 	RecordingSelector *metav1.LabelSelector `json:"recordingSelector"`
 	// If JMX authentication is enabled for this FlightRecorder's JVM, specify the credentials in a secret
 	// and reference it here
+	// +optional
 	JMXCredentials *JMXAuthSecret `json:"jmxCredentials,omitempty"`
 }
 
