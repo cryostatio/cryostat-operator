@@ -108,8 +108,10 @@ type JMXAuthSecret struct {
 	// Name of secret in the local namespace
 	SecretName string `json:"secretName"`
 	// Key within secret containing the username, defaults to DefaultUsernameKey
+	// +optional
 	UsernameKey *string `json:"usernameKey,omitempty"`
 	// Key within secret containing the password, defaults to DefaultPasswordKey
+	// +optional
 	PasswordKey *string `json:"passwordKey,omitempty"`
 }
 
