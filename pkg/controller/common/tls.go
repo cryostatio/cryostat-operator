@@ -43,7 +43,7 @@ import (
 
 	certv1 "github.com/jetstack/cert-manager/pkg/apis/certmanager/v1"
 	certMeta "github.com/jetstack/cert-manager/pkg/apis/meta/v1"
-	rhjmcv1alpha1 "github.com/rh-jmc-team/container-jfr-operator/pkg/apis/rhjmc/v1alpha1"
+	rhjmcv1beta1 "github.com/rh-jmc-team/container-jfr-operator/pkg/apis/rhjmc/v1beta1"
 	corev1 "k8s.io/api/core/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
@@ -54,7 +54,7 @@ import (
 // TLS-related functionality
 type ReconcilerTLS interface {
 	IsCertManagerEnabled() bool
-	GetContainerJFRCABytes(ctx context.Context, cjfr *rhjmcv1alpha1.ContainerJFR) ([]byte, error)
+	GetContainerJFRCABytes(ctx context.Context, cjfr *rhjmcv1beta1.ContainerJFR) ([]byte, error)
 	GetCertificateSecret(ctx context.Context, name string, namespace string) (*corev1.Secret, error)
 }
 
@@ -128,7 +128,7 @@ func (r *reconcilerTLS) GetCertificateSecret(ctx context.Context, name string, n
 
 // GetContainerJFRCABytes returns the CA certificate created for the provided
 // ContainerJFR CR, as a byte slice.
-func (r *reconcilerTLS) GetContainerJFRCABytes(ctx context.Context, cjfr *rhjmcv1alpha1.ContainerJFR) ([]byte, error) {
+func (r *reconcilerTLS) GetContainerJFRCABytes(ctx context.Context, cjfr *rhjmcv1beta1.ContainerJFR) ([]byte, error) {
 	caName := cjfr.Name + "-ca"
 	secret, err := r.GetCertificateSecret(ctx, caName, cjfr.Namespace)
 	if err != nil {

@@ -40,7 +40,7 @@ import (
 	"context"
 	"time"
 
-	rhjmcv1alpha2 "github.com/rh-jmc-team/container-jfr-operator/pkg/apis/rhjmc/v1alpha2"
+	rhjmcv1beta1 "github.com/rh-jmc-team/container-jfr-operator/pkg/apis/rhjmc/v1beta1"
 	common "github.com/rh-jmc-team/container-jfr-operator/pkg/controller/common"
 	corev1 "k8s.io/api/core/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
@@ -81,7 +81,7 @@ func add(mgr manager.Manager, r *ReconcileFlightRecorder) error {
 	}
 
 	// Watch for changes to primary resource FlightRecorder
-	err = c.Watch(&source.Kind{Type: &rhjmcv1alpha2.FlightRecorder{}}, &handler.EnqueueRequestForObject{})
+	err = c.Watch(&source.Kind{Type: &rhjmcv1beta1.FlightRecorder{}}, &handler.EnqueueRequestForObject{})
 	if err != nil {
 		return err
 	}
@@ -112,7 +112,7 @@ func (r *ReconcileFlightRecorder) Reconcile(request reconcile.Request) (reconcil
 	reqLogger.Info("Reconciling FlightRecorder")
 
 	// Fetch the FlightRecorder instance
-	instance := &rhjmcv1alpha2.FlightRecorder{}
+	instance := &rhjmcv1beta1.FlightRecorder{}
 	err := r.Client.Get(ctx, request.NamespacedName, instance)
 	if err != nil {
 		if kerrors.IsNotFound(err) {
@@ -133,7 +133,8 @@ func (r *ReconcileFlightRecorder) Reconcile(request reconcile.Request) (reconcil
 		return reconcile.Result{RequeueAfter: time.Second}, nil
 	}
 
-	cjfr, err := r.GetContainerJFRClient(ctx, request.Namespace)
+	// Obtain a client configured to communicate with Container JFR
+	cjfr, err := r.GetContainerJFRClient(ctx, request.Namespace, instance.Spec.JMXCredentials)
 	if err != nil {
 		if err == common.ErrCertNotReady {
 			log.Info("Waiting for CA certificate")

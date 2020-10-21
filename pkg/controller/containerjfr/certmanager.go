@@ -40,7 +40,7 @@ import (
 	"context"
 
 	certv1 "github.com/jetstack/cert-manager/pkg/apis/certmanager/v1"
-	rhjmcv1alpha1 "github.com/rh-jmc-team/container-jfr-operator/pkg/apis/rhjmc/v1alpha1"
+	rhjmcv1beta1 "github.com/rh-jmc-team/container-jfr-operator/pkg/apis/rhjmc/v1beta1"
 	"github.com/rh-jmc-team/container-jfr-operator/pkg/controller/common"
 	resources "github.com/rh-jmc-team/container-jfr-operator/pkg/controller/containerjfr/resource_definitions"
 	corev1 "k8s.io/api/core/v1"
@@ -49,7 +49,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
-func (r *ReconcileContainerJFR) setupTLS(ctx context.Context, cr *rhjmcv1alpha1.ContainerJFR) (*resources.TLSConfig, error) {
+func (r *ReconcileContainerJFR) setupTLS(ctx context.Context, cr *rhjmcv1beta1.ContainerJFR) (*resources.TLSConfig, error) {
 	// Create self-signed issuer used to bootstrap CA
 	selfSignedIssuer := resources.NewSelfSignedIssuer(cr)
 	if err := controllerutil.SetControllerReference(cr, selfSignedIssuer, r.scheme); err != nil {
@@ -123,7 +123,7 @@ func (r *ReconcileContainerJFR) setupTLS(ctx context.Context, cr *rhjmcv1alpha1.
 	}, nil
 }
 
-func (r *ReconcileContainerJFR) setCertSecretOwner(ctx context.Context, cr *rhjmcv1alpha1.ContainerJFR, certs ...*certv1.Certificate) error {
+func (r *ReconcileContainerJFR) setCertSecretOwner(ctx context.Context, cr *rhjmcv1beta1.ContainerJFR, certs ...*certv1.Certificate) error {
 	// Make ContainerJFR CR controller of secrets created by cert-manager
 	for _, cert := range certs {
 		secret, err := r.GetCertificateSecret(ctx, cert.Name, cert.Namespace)

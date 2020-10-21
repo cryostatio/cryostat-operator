@@ -42,7 +42,7 @@ import (
 	"fmt"
 	"net/url"
 
-	rhjmcv1alpha1 "github.com/rh-jmc-team/container-jfr-operator/pkg/apis/rhjmc/v1alpha1"
+	rhjmcv1beta1 "github.com/rh-jmc-team/container-jfr-operator/pkg/apis/rhjmc/v1beta1"
 	jfrclient "github.com/rh-jmc-team/container-jfr-operator/pkg/client"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -69,8 +69,8 @@ type ReconcilerConfig struct {
 // Reconciler contains helpful methods to communicate with Container JFR.
 // It is meant to be embedded within other Reconcilers.
 type Reconciler interface {
-	FindContainerJFR(ctx context.Context, namespace string) (*rhjmcv1alpha1.ContainerJFR, error)
-	GetContainerJFRClient(ctx context.Context, namespace string) (jfrclient.ContainerJfrClient, error)
+	FindContainerJFR(ctx context.Context, namespace string) (*rhjmcv1beta1.ContainerJFR, error)
+	GetContainerJFRClient(ctx context.Context, namespace string, jmxAuth *rhjmcv1beta1.JMXAuthSecret) (jfrclient.ContainerJfrClient, error)
 	GetPodTarget(targetPod *corev1.Pod, jmxPort int32) (*jfrclient.TargetAddress, error)
 	ReconcilerTLS
 }
@@ -103,7 +103,8 @@ func NewReconciler(config *ReconcilerConfig) Reconciler {
 
 // GetContainerJFRClient creates a client to communicate with the Container JFR
 // instance deployed by this operator in the given namespace
-func (r *commonReconciler) GetContainerJFRClient(ctx context.Context, namespace string) (jfrclient.ContainerJfrClient, error) {
+func (r *commonReconciler) GetContainerJFRClient(ctx context.Context, namespace string,
+	jmxAuth *rhjmcv1beta1.JMXAuthSecret) (jfrclient.ContainerJfrClient, error) {
 	// Look up ContainerJFR instance within the given namespace
 	cjfr, err := r.FindContainerJFR(ctx, namespace)
 	if err != nil {
@@ -131,8 +132,22 @@ func (r *commonReconciler) GetContainerJFRClient(ctx context.Context, namespace 
 	}
 	strTok := string(tok)
 
+	// Get JMX authentication credentials, if present
+	var jmxCreds *jfrclient.JMXAuthCredentials
+	if jmxAuth != nil {
+		jmxCreds, err = r.getJMXCredentialsFromSecret(ctx, namespace, jmxAuth)
+		if err != nil {
+			return nil, err
+		}
+	}
+
 	// Create Container JFR HTTP(S) client
-	config := &jfrclient.Config{ServerURL: serverURL, AccessToken: &strTok, CACertificate: caCert}
+	config := &jfrclient.Config{
+		ServerURL:      serverURL,
+		AccessToken:    &strTok,
+		CACertificate:  caCert,
+		JMXCredentials: jmxCreds,
+	}
 	jfrClient, err := r.ClientFactory.CreateClient(config)
 	if err != nil {
 		return nil, err
@@ -153,10 +168,10 @@ func (r *commonReconciler) GetPodTarget(targetPod *corev1.Pod, jmxPort int32) (*
 	}, nil
 }
 
-func (r *commonReconciler) FindContainerJFR(ctx context.Context, namespace string) (*rhjmcv1alpha1.ContainerJFR, error) {
+func (r *commonReconciler) FindContainerJFR(ctx context.Context, namespace string) (*rhjmcv1beta1.ContainerJFR, error) {
 	// TODO Consider how to find ContainerJFR object if this operator becomes cluster-scoped
 	// Look up the ContainerJFR object for this operator, which will help us find its services
-	cjfrList := &rhjmcv1alpha1.ContainerJFRList{}
+	cjfrList := &rhjmcv1beta1.ContainerJFRList{}
 	err := r.Client.List(ctx, cjfrList)
 	if err != nil {
 		return nil, err
@@ -185,6 +200,31 @@ func (r *commonReconciler) getServerURL(ctx context.Context, namespace string, s
 	return url.Parse(fmt.Sprintf("%s://%s.%s.svc:%d/", protocol, svcName, namespace, webServerPort))
 }
 
+func (r *commonReconciler) getJMXCredentialsFromSecret(ctx context.Context, namespace string,
+	jmxSecret *rhjmcv1beta1.JMXAuthSecret) (*jfrclient.JMXAuthCredentials, error) {
+	// Look up referenced secret
+	secret := &corev1.Secret{}
+	err := r.Client.Get(ctx, types.NamespacedName{Name: jmxSecret.SecretName, Namespace: namespace}, secret)
+	if err != nil {
+		return nil, err
+	}
+
+	// Get credentials from secret
+	username, err := getValueFromSecret(secret, jmxSecret.UsernameKey, rhjmcv1beta1.DefaultUsernameKey)
+	if err != nil {
+		return nil, err
+	}
+	password, err := getValueFromSecret(secret, jmxSecret.PasswordKey, rhjmcv1beta1.DefaultPasswordKey)
+	if err != nil {
+		return nil, err
+	}
+
+	return &jfrclient.JMXAuthCredentials{
+		Username: *username,
+		Password: *password,
+	}, nil
+}
+
 func getPodIP(pod *corev1.Pod) (*string, error) {
 	podIP := pod.Status.PodIP
 	if len(podIP) == 0 {
@@ -200,4 +240,16 @@ func getWebServerPort(svc *corev1.Service) (int32, error) {
 		}
 	}
 	return 0, errors.New("ContainerJFR service had no port named \"export\"")
+}
+
+func getValueFromSecret(secret *corev1.Secret, key *string, defaultKey string) (*string, error) {
+	if key == nil {
+		key = &defaultKey
+	}
+	rawValue, pres := secret.Data[*key]
+	if !pres {
+		return nil, fmt.Errorf("No key \"%s\" found in secret \"%s/%s\"", *key, secret.Namespace, secret.Name)
+	}
+	result := string(rawValue)
+	return &result, nil
 }

@@ -41,7 +41,7 @@ import (
 	"strconv"
 
 	"github.com/onsi/gomega/ghttp"
-	rhjmcv1alpha2 "github.com/rh-jmc-team/container-jfr-operator/pkg/apis/rhjmc/v1alpha2"
+	rhjmcv1beta1 "github.com/rh-jmc-team/container-jfr-operator/pkg/apis/rhjmc/v1beta1"
 	jfrclient "github.com/rh-jmc-team/container-jfr-operator/pkg/client"
 )
 
@@ -233,14 +233,14 @@ func NewListEventTypesFailHandler() http.HandlerFunc {
 	)
 }
 
-func NewEventTypes() []rhjmcv1alpha2.EventInfo {
-	return []rhjmcv1alpha2.EventInfo{
+func NewEventTypes() []rhjmcv1beta1.EventInfo {
+	return []rhjmcv1beta1.EventInfo{
 		{
 			TypeID:      "jdk.socketRead",
 			Name:        "Socket Read",
 			Description: "Reading data from a socket",
 			Category:    []string{"Java Application"},
-			Options: map[string]rhjmcv1alpha2.OptionDescriptor{
+			Options: map[string]rhjmcv1beta1.OptionDescriptor{
 				"enabled": {
 					Name:         "Enabled",
 					Description:  "Record event",

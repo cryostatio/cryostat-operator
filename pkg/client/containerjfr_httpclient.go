@@ -39,6 +39,7 @@ package client
 import (
 	"crypto/tls"
 	"crypto/x509"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -51,7 +52,7 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
-	rhjmcv1alpha2 "github.com/rh-jmc-team/container-jfr-operator/pkg/apis/rhjmc/v1alpha2"
+	rhjmcv1beta1 "github.com/rh-jmc-team/container-jfr-operator/pkg/apis/rhjmc/v1beta1"
 	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
 )
 
@@ -68,6 +69,16 @@ type Config struct {
 	AccessToken *string
 	// Certificate of CA to trust, in PEM format
 	CACertificate []byte
+	// JMX authentication credentials
+	JMXCredentials *JMXAuthCredentials
+}
+
+// JMXAuthCredentials holds the JMX authentication credentials to send along with requests
+type JMXAuthCredentials struct {
+	// JMX authentication username
+	Username string
+	// JMX authentication password
+	Password string
 }
 
 // ContainerJfrClient contains methods for interacting with Container JFR's
@@ -81,7 +92,7 @@ type ContainerJfrClient interface {
 	SaveRecording(target *TargetAddress, name string) (*string, error)
 	ListSavedRecordings() ([]SavedRecording, error)
 	DeleteSavedRecording(jfrFile string) error
-	ListEventTypes(target *TargetAddress) ([]rhjmcv1alpha2.EventInfo, error)
+	ListEventTypes(target *TargetAddress) ([]rhjmcv1beta1.EventInfo, error)
 }
 
 type httpClient struct {
@@ -231,12 +242,12 @@ func (c *httpClient) DeleteSavedRecording(jfrFile string) error {
 }
 
 // ListEventTypes returns a list of events available in the target JVM
-func (c *httpClient) ListEventTypes(target *TargetAddress) ([]rhjmcv1alpha2.EventInfo, error) {
+func (c *httpClient) ListEventTypes(target *TargetAddress) ([]rhjmcv1beta1.EventInfo, error) {
 	path := &apiPath{
 		resource: resEvents,
 		target:   target,
 	}
-	result := []rhjmcv1alpha2.EventInfo{}
+	result := []rhjmcv1beta1.EventInfo{}
 	err := c.httpGet(path, &result)
 	return result, err
 }
@@ -279,6 +290,13 @@ func (c *httpClient) sendRequest(method string, path *apiPath, body io.Reader, c
 	req.Header.Set("Authorization", "Bearer "+*c.config.AccessToken)
 	if contentType != nil {
 		req.Header.Set("Content-Type", *contentType)
+	}
+
+	// If JMX authentication credentials are present, set the proper header
+	jmxCreds := c.config.JMXCredentials
+	if jmxCreds != nil {
+		jmxBasicAuth := getBasicAuth(jmxCreds)
+		req.Header.Set("X-JMX-Authorization", "Basic "+jmxBasicAuth)
 	}
 
 	// Send request to server
@@ -348,4 +366,9 @@ func (p *apiPath) URL() (*url.URL, error) {
 		strPath = fmt.Sprintf("/api/v1/%s", p.resource)
 	}
 	return url.Parse(strPath)
+}
+
+func getBasicAuth(creds *JMXAuthCredentials) string {
+	rawCreds := []byte(creds.Username + ":" + creds.Password)
+	return base64.StdEncoding.EncodeToString(rawCreds)
 }

@@ -41,14 +41,14 @@ import (
 
 	certv1 "github.com/jetstack/cert-manager/pkg/apis/certmanager/v1"
 	certMeta "github.com/jetstack/cert-manager/pkg/apis/meta/v1"
-	rhjmcv1alpha1 "github.com/rh-jmc-team/container-jfr-operator/pkg/apis/rhjmc/v1alpha1"
+	rhjmcv1beta1 "github.com/rh-jmc-team/container-jfr-operator/pkg/apis/rhjmc/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 // CAKey is the key for a CA certificate within a TLS secret
 const CAKey = certMeta.TLSCAKey
 
-func NewSelfSignedIssuer(cr *rhjmcv1alpha1.ContainerJFR) *certv1.Issuer {
+func NewSelfSignedIssuer(cr *rhjmcv1beta1.ContainerJFR) *certv1.Issuer {
 	return &certv1.Issuer{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      cr.Name + "-self-signed",
@@ -62,7 +62,7 @@ func NewSelfSignedIssuer(cr *rhjmcv1alpha1.ContainerJFR) *certv1.Issuer {
 	}
 }
 
-func NewContainerJFRCAIssuer(cr *rhjmcv1alpha1.ContainerJFR) *certv1.Issuer {
+func NewContainerJFRCAIssuer(cr *rhjmcv1beta1.ContainerJFR) *certv1.Issuer {
 	return &certv1.Issuer{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      cr.Name + "-ca",
@@ -78,7 +78,7 @@ func NewContainerJFRCAIssuer(cr *rhjmcv1alpha1.ContainerJFR) *certv1.Issuer {
 	}
 }
 
-func NewContainerJFRCACert(cr *rhjmcv1alpha1.ContainerJFR) *certv1.Certificate {
+func NewContainerJFRCACert(cr *rhjmcv1beta1.ContainerJFR) *certv1.Certificate {
 	return &certv1.Certificate{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      cr.Name + "-ca",
@@ -95,7 +95,7 @@ func NewContainerJFRCACert(cr *rhjmcv1alpha1.ContainerJFR) *certv1.Certificate {
 	}
 }
 
-func NewContainerJFRCert(cr *rhjmcv1alpha1.ContainerJFR) *certv1.Certificate {
+func NewContainerJFRCert(cr *rhjmcv1beta1.ContainerJFR) *certv1.Certificate {
 	return &certv1.Certificate{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      cr.Name,
@@ -131,7 +131,7 @@ func NewContainerJFRCert(cr *rhjmcv1alpha1.ContainerJFR) *certv1.Certificate {
 	}
 }
 
-func NewGrafanaCert(cr *rhjmcv1alpha1.ContainerJFR) *certv1.Certificate {
+func NewGrafanaCert(cr *rhjmcv1beta1.ContainerJFR) *certv1.Certificate {
 	return &certv1.Certificate{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      cr.Name + "-grafana",

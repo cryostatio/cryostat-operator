@@ -53,7 +53,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/operator-framework/operator-sdk/pkg/log/zap"
-	rhjmcv1alpha2 "github.com/rh-jmc-team/container-jfr-operator/pkg/apis/rhjmc/v1alpha2"
+	rhjmcv1beta1 "github.com/rh-jmc-team/container-jfr-operator/pkg/apis/rhjmc/v1beta1"
 	jfrclient "github.com/rh-jmc-team/container-jfr-operator/pkg/client"
 	"github.com/rh-jmc-team/container-jfr-operator/pkg/controller/recording"
 	"github.com/rh-jmc-team/container-jfr-operator/test"
@@ -246,14 +246,14 @@ var _ = Describe("RecordingController", func() {
 			It("should update download URL", func() {
 				req := reconcile.Request{NamespacedName: types.NamespacedName{Name: "my-recording", Namespace: "default"}}
 
-				before := &rhjmcv1alpha2.Recording{}
+				before := &rhjmcv1beta1.Recording{}
 				err := client.Get(context.Background(), req.NamespacedName, before)
 				Expect(err).ToNot(HaveOccurred())
 
 				_, err = controller.Reconcile(req)
 				Expect(err).ToNot(HaveOccurred())
 
-				after := &rhjmcv1alpha2.Recording{}
+				after := &rhjmcv1beta1.Recording{}
 				err = client.Get(context.Background(), req.NamespacedName, after)
 				Expect(err).ToNot(HaveOccurred())
 
@@ -310,19 +310,19 @@ var _ = Describe("RecordingController", func() {
 				_, err := controller.Reconcile(req)
 				Expect(err).ToNot(HaveOccurred())
 
-				obj := &rhjmcv1alpha2.Recording{}
+				obj := &rhjmcv1beta1.Recording{}
 				err = client.Get(context.Background(), req.NamespacedName, obj)
 				Expect(err).ToNot(HaveOccurred())
 
 				Expect(obj.Status.State).ToNot(BeNil())
-				Expect(*obj.Status.State).To(Equal(rhjmcv1alpha2.RecordingStateStopped))
+				Expect(*obj.Status.State).To(Equal(rhjmcv1beta1.RecordingStateStopped))
 			})
 			It("should update download URL", func() {
 				req := reconcile.Request{NamespacedName: types.NamespacedName{Name: "my-recording", Namespace: "default"}}
 				_, err := controller.Reconcile(req)
 				Expect(err).ToNot(HaveOccurred())
 
-				obj := &rhjmcv1alpha2.Recording{}
+				obj := &rhjmcv1beta1.Recording{}
 				err = client.Get(context.Background(), req.NamespacedName, obj)
 				Expect(err).ToNot(HaveOccurred())
 
@@ -429,7 +429,7 @@ var _ = Describe("RecordingController", func() {
 		Context("FlightRecorder Status not updated yet", func() {
 			BeforeEach(func() {
 				otherFr := test.NewFlightRecorder()
-				otherFr.Status = rhjmcv1alpha2.FlightRecorderStatus{}
+				otherFr.Status = rhjmcv1beta1.FlightRecorderStatus{}
 				objs = []runtime.Object{
 					test.NewContainerJFR(), test.NewCACert(), otherFr, test.NewTargetPod(),
 					test.NewContainerJFRService(), test.NewRecording(),
@@ -512,7 +512,7 @@ func expectRecordingStatus(controller *recording.ReconcileRecording, client clie
 	obj := reconcileAndGet(controller, client)
 
 	Expect(obj.Status.State).ToNot(BeNil())
-	Expect(*obj.Status.State).To(Equal(rhjmcv1alpha2.RecordingState(desc.State)))
+	Expect(*obj.Status.State).To(Equal(rhjmcv1beta1.RecordingState(desc.State)))
 	// Converted to RFC3339 during serialization (sub-second precision lost)
 	Expect(obj.Status.StartTime).To(Equal(metav1.Unix(0, desc.StartTime*int64(time.Millisecond)).Rfc3339Copy()))
 	Expect(obj.Status.Duration).To(Equal(metav1.Duration{
@@ -523,7 +523,7 @@ func expectRecordingStatus(controller *recording.ReconcileRecording, client clie
 }
 
 func expectStatusUnchanged(controller *recording.ReconcileRecording, client client.Client) {
-	before := &rhjmcv1alpha2.Recording{}
+	before := &rhjmcv1beta1.Recording{}
 	err := client.Get(context.Background(), types.NamespacedName{Name: "my-recording", Namespace: "default"}, before)
 	Expect(err).ToNot(HaveOccurred())
 
@@ -557,11 +557,11 @@ func expectResult(controller *recording.ReconcileRecording, result reconcile.Res
 	Expect(result).To(Equal(result))
 }
 
-func reconcileAndGet(controller *recording.ReconcileRecording, client client.Client) *rhjmcv1alpha2.Recording {
+func reconcileAndGet(controller *recording.ReconcileRecording, client client.Client) *rhjmcv1beta1.Recording {
 	req := reconcile.Request{NamespacedName: types.NamespacedName{Name: "my-recording", Namespace: "default"}}
 	controller.Reconcile(req)
 
-	obj := &rhjmcv1alpha2.Recording{}
+	obj := &rhjmcv1beta1.Recording{}
 	err := client.Get(context.Background(), req.NamespacedName, obj)
 	Expect(err).ToNot(HaveOccurred())
 	return obj

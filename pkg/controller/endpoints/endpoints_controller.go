@@ -40,7 +40,9 @@ import (
 	"context"
 
 	"github.com/go-logr/logr"
-	rhjmcv1alpha2 "github.com/rh-jmc-team/container-jfr-operator/pkg/apis/rhjmc/v1alpha2"
+	rhjmcv1beta1 "github.com/rh-jmc-team/container-jfr-operator/pkg/apis/rhjmc/v1beta1"
+	"github.com/rh-jmc-team/container-jfr-operator/pkg/controller/common"
+	resources "github.com/rh-jmc-team/container-jfr-operator/pkg/controller/containerjfr/resource_definitions"
 	corev1 "k8s.io/api/core/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -65,7 +67,10 @@ func Add(mgr manager.Manager) error {
 
 // newReconciler returns a new reconcile.Reconciler
 func newReconciler(mgr manager.Manager) reconcile.Reconciler {
-	return &ReconcileEndpoints{client: mgr.GetClient(), scheme: mgr.GetScheme()}
+	return &ReconcileEndpoints{client: mgr.GetClient(), scheme: mgr.GetScheme(),
+		Reconciler: common.NewReconciler(&common.ReconcilerConfig{
+			Client: mgr.GetClient(),
+		})}
 }
 
 // add adds a new Controller to mgr with r as the reconcile.Reconciler
@@ -94,6 +99,7 @@ type ReconcileEndpoints struct {
 	// that reads objects from the cache and writes to the apiserver
 	client client.Client
 	scheme *runtime.Scheme
+	common.Reconciler
 }
 
 // Reconcile reads that state of the cluster for a Endpoints object and makes changes based on the state read
@@ -128,7 +134,7 @@ func (r *ReconcileEndpoints) Reconcile(request reconcile.Request) (reconcile.Res
 			for _, address := range subset.Addresses {
 				target := address.TargetRef
 				if target != nil && target.Kind == "Pod" {
-					err := r.handlePodAddress(ctx, target, jmxPort, reqLogger)
+					err := r.handlePodAddress(ctx, target, ep, jmxPort, reqLogger)
 					if err != nil {
 						return reconcile.Result{}, err
 					}
@@ -142,9 +148,9 @@ func (r *ReconcileEndpoints) Reconcile(request reconcile.Request) (reconcile.Res
 }
 
 func (r *ReconcileEndpoints) handlePodAddress(ctx context.Context, target *corev1.ObjectReference,
-	jmxPort *int32, reqLogger logr.Logger) error {
+	ep *corev1.Endpoints, jmxPort *int32, reqLogger logr.Logger) error {
 	// Check if this FlightRecorder already exists
-	found := &rhjmcv1alpha2.FlightRecorder{}
+	found := &rhjmcv1beta1.FlightRecorder{}
 	jfrName := target.Name
 
 	err := r.client.Get(ctx, types.NamespacedName{Name: jfrName, Namespace: target.Namespace}, found)
@@ -152,8 +158,16 @@ func (r *ReconcileEndpoints) handlePodAddress(ctx context.Context, target *corev
 		if !kerrors.IsNotFound(err) {
 			return err
 		}
+
+		// If this Endpoints is for Container JFR itself, fill in the JMX authentication credentials
+		// that the operator generated
+		jmxAuth, err := r.getJMXCredentials(ctx, ep)
+		if err != nil {
+			return err
+		}
+
 		reqLogger.Info("Creating a new FlightRecorder", "Namespace", target.Namespace, "Name", jfrName)
-		err := r.createNewFlightRecorder(ctx, target, jmxPort)
+		err = r.createNewFlightRecorder(ctx, target, jmxPort, jmxAuth)
 		if err != nil {
 			return err
 		}
@@ -179,7 +193,8 @@ func getServiceJMXPort(subset corev1.EndpointSubset) *int32 {
 	return portNum
 }
 
-func (r *ReconcileEndpoints) createNewFlightRecorder(ctx context.Context, target *corev1.ObjectReference, jmxPort *int32) error {
+func (r *ReconcileEndpoints) createNewFlightRecorder(ctx context.Context, target *corev1.ObjectReference, jmxPort *int32,
+	jmxAuth *rhjmcv1beta1.JMXAuthSecret) error {
 	pod := &corev1.Pod{}
 	err := r.client.Get(ctx, types.NamespacedName{Name: target.Name, Namespace: target.Namespace}, pod)
 	if err != nil {
@@ -187,7 +202,7 @@ func (r *ReconcileEndpoints) createNewFlightRecorder(ctx context.Context, target
 	}
 
 	// Define a new FlightRecorder object for this Pod
-	jfr, err := r.newFlightRecorderForPod(target, pod, *jmxPort)
+	jfr, err := r.newFlightRecorderForPod(target, pod, *jmxPort, jmxAuth)
 	if err != nil {
 		return err
 	}
@@ -215,8 +230,8 @@ func (r *ReconcileEndpoints) createNewFlightRecorder(ctx context.Context, target
 }
 
 // newFlightRecorderForPod returns a FlightRecorder with the same name/namespace as the target
-func (r *ReconcileEndpoints) newFlightRecorderForPod(target *corev1.ObjectReference,
-	pod *corev1.Pod, jmxPort int32) (*rhjmcv1alpha2.FlightRecorder, error) {
+func (r *ReconcileEndpoints) newFlightRecorderForPod(target *corev1.ObjectReference, pod *corev1.Pod,
+	jmxPort int32, jmxAuth *rhjmcv1beta1.JMXAuthSecret) (*rhjmcv1beta1.FlightRecorder, error) {
 	// Inherit "app" label from endpoints
 	appLabel := pod.Name // Use endpoints name as fallback
 	if label, pres := pod.Labels["app"]; pres {
@@ -228,21 +243,59 @@ func (r *ReconcileEndpoints) newFlightRecorderForPod(target *corev1.ObjectRefere
 
 	// Use label selector matching the name of this FlightRecorder
 	selector := &metav1.LabelSelector{}
-	selector = metav1.AddLabelToSelector(selector, rhjmcv1alpha2.RecordingLabel, target.Name)
+	selector = metav1.AddLabelToSelector(selector, rhjmcv1beta1.RecordingLabel, target.Name)
 
-	return &rhjmcv1alpha2.FlightRecorder{
+	return &rhjmcv1beta1.FlightRecorder{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      target.Name,
 			Namespace: target.Namespace,
 			Labels:    labels,
 		},
-		Spec: rhjmcv1alpha2.FlightRecorderSpec{
+		Spec: rhjmcv1beta1.FlightRecorderSpec{
 			RecordingSelector: selector,
+			JMXCredentials:    jmxAuth,
 		},
-		Status: rhjmcv1alpha2.FlightRecorderStatus{
-			Events: []rhjmcv1alpha2.EventInfo{},
+		Status: rhjmcv1beta1.FlightRecorderStatus{
+			Events: []rhjmcv1beta1.EventInfo{},
 			Target: target,
 			Port:   jmxPort,
 		},
 	}, nil
+}
+
+func (r *ReconcileEndpoints) getJMXCredentials(ctx context.Context, ep *corev1.Endpoints) (*rhjmcv1beta1.JMXAuthSecret, error) {
+	// Look up the ContainerJFR CR in this namespace
+	cjfr, err := r.FindContainerJFR(ctx, ep.Namespace)
+	if err != nil {
+		return nil, err
+	}
+
+	// Get service corresponding to this Endpoints
+	svc := &corev1.Service{}
+	err = r.client.Get(ctx, types.NamespacedName{Name: ep.Name, Namespace: ep.Namespace}, svc)
+	if err != nil {
+		return nil, err
+	}
+
+	// Is the service owned by the ContainerJFR CR
+	var result *rhjmcv1beta1.JMXAuthSecret
+	if metav1.IsControlledBy(svc, cjfr) {
+		// Look up JMX auth secret created for this ContainerJFR
+		secret := &corev1.Secret{}
+		err := r.client.Get(ctx, types.NamespacedName{Name: cjfr.Name + "-jmx-auth", Namespace: cjfr.Namespace}, secret)
+		if err != nil {
+			return nil, err
+		}
+
+		// Found the JMX auth secret, fill in corresponding values for FlightRecorder
+		userKey := resources.JMXSecretUserKey
+		passKey := resources.JMXSecretPassKey
+		result = &rhjmcv1beta1.JMXAuthSecret{
+			SecretName:  secret.Name,
+			UsernameKey: &userKey,
+			PasswordKey: &passKey,
+		}
+	}
+
+	return result, nil
 }
