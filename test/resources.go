@@ -77,12 +77,39 @@ func NewContainerJFR() *rhjmcv1beta1.ContainerJFR {
 }
 
 func NewFlightRecorder() *rhjmcv1beta1.FlightRecorder {
+	return newFlightRecorder(&rhjmcv1beta1.JMXAuthSecret{
+		SecretName: "test-jmx-auth",
+	})
+}
+
+func NewFlightRecorderNoJMXAuth() *rhjmcv1beta1.FlightRecorder {
+	return newFlightRecorder(nil)
+}
+
+func NewFlightRecorderBadJMXUserKey() *rhjmcv1beta1.FlightRecorder {
+	key := "not-username"
+	return newFlightRecorder(&rhjmcv1beta1.JMXAuthSecret{
+		SecretName:  "test-jmx-auth",
+		UsernameKey: &key,
+	})
+}
+
+func NewFlightRecorderBadJMXPassKey() *rhjmcv1beta1.FlightRecorder {
+	key := "not-password"
+	return newFlightRecorder(&rhjmcv1beta1.JMXAuthSecret{
+		SecretName:  "test-jmx-auth",
+		PasswordKey: &key,
+	})
+}
+
+func newFlightRecorder(jmxAuth *rhjmcv1beta1.JMXAuthSecret) *rhjmcv1beta1.FlightRecorder {
 	return &rhjmcv1beta1.FlightRecorder{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "test-pod",
 			Namespace: "default",
 		},
 		Spec: rhjmcv1beta1.FlightRecorderSpec{
+			JMXCredentials:    jmxAuth,
 			RecordingSelector: metav1.AddLabelToSelector(&metav1.LabelSelector{}, rhjmcv1beta1.RecordingLabel, "test-pod"),
 		},
 		Status: rhjmcv1beta1.FlightRecorderStatus{
@@ -242,6 +269,19 @@ func newCASecret(certData []byte) *corev1.Secret {
 		},
 		Data: map[string][]byte{
 			corev1.TLSCertKey: certData,
+		},
+	}
+}
+
+func NewJMXAuthSecret() *corev1.Secret {
+	return &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-jmx-auth",
+			Namespace: "default",
+		},
+		Data: map[string][]byte{
+			rhjmcv1beta1.DefaultUsernameKey: []byte("hello"),
+			rhjmcv1beta1.DefaultPasswordKey: []byte("world"),
 		},
 	}
 }

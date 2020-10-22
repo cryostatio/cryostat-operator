@@ -88,7 +88,7 @@ var _ = Describe("RecordingController", func() {
 	BeforeEach(func() {
 		objs = []runtime.Object{
 			test.NewContainerJFR(), test.NewCACert(), test.NewFlightRecorder(),
-			test.NewTargetPod(), test.NewContainerJFRService(),
+			test.NewTargetPod(), test.NewContainerJFRService(), test.NewJMXAuthSecret(),
 		}
 	})
 
@@ -370,6 +370,7 @@ var _ = Describe("RecordingController", func() {
 				objs = []runtime.Object{
 					test.NewContainerJFR(), test.NewCACert(), test.NewTargetPod(),
 					test.NewContainerJFRService(), test.NewDeletedArchivedRecording(),
+					test.NewJMXAuthSecret(),
 				}
 				handlers = []http.HandlerFunc{
 					test.NewListSavedHandler(test.NewSavedRecordings()),
@@ -432,7 +433,7 @@ var _ = Describe("RecordingController", func() {
 				otherFr.Status = rhjmcv1beta1.FlightRecorderStatus{}
 				objs = []runtime.Object{
 					test.NewContainerJFR(), test.NewCACert(), otherFr, test.NewTargetPod(),
-					test.NewContainerJFRService(), test.NewRecording(),
+					test.NewContainerJFRService(), test.NewRecording(), test.NewJMXAuthSecret(),
 				}
 				handlers = []http.HandlerFunc{}
 			})
@@ -444,7 +445,7 @@ var _ = Describe("RecordingController", func() {
 			BeforeEach(func() {
 				objs = []runtime.Object{
 					test.NewFlightRecorder(), test.NewCACert(), test.NewTargetPod(),
-					test.NewContainerJFRService(), test.NewRecording(),
+					test.NewContainerJFRService(), test.NewRecording(), test.NewJMXAuthSecret(),
 				}
 				handlers = []http.HandlerFunc{}
 			})
@@ -456,7 +457,7 @@ var _ = Describe("RecordingController", func() {
 			BeforeEach(func() {
 				objs = []runtime.Object{
 					test.NewContainerJFR(), test.NewCACert(), test.NewFlightRecorder(),
-					test.NewTargetPod(), test.NewRecording(),
+					test.NewTargetPod(), test.NewRecording(), test.NewJMXAuthSecret(),
 				}
 				handlers = []http.HandlerFunc{}
 			})
@@ -468,7 +469,7 @@ var _ = Describe("RecordingController", func() {
 			BeforeEach(func() {
 				objs = []runtime.Object{
 					test.NewContainerJFR(), test.NewCACert(), test.NewTargetPod(),
-					test.NewContainerJFRService(), test.NewRecording(),
+					test.NewContainerJFRService(), test.NewRecording(), test.NewJMXAuthSecret(),
 				}
 				handlers = []http.HandlerFunc{}
 			})
@@ -483,7 +484,7 @@ var _ = Describe("RecordingController", func() {
 			BeforeEach(func() {
 				objs = []runtime.Object{
 					test.NewContainerJFR(), test.NewCACert(), test.NewFlightRecorder(),
-					test.NewContainerJFRService(), test.NewRecording(),
+					test.NewContainerJFRService(), test.NewRecording(), test.NewJMXAuthSecret(),
 				}
 				handlers = []http.HandlerFunc{}
 			})
@@ -497,7 +498,7 @@ var _ = Describe("RecordingController", func() {
 				otherPod.Status.PodIP = ""
 				objs = []runtime.Object{
 					test.NewContainerJFR(), test.NewCACert(), test.NewFlightRecorder(), otherPod,
-					test.NewContainerJFRService(), test.NewRecording(),
+					test.NewContainerJFRService(), test.NewRecording(), test.NewJMXAuthSecret(),
 				}
 				handlers = []http.HandlerFunc{}
 			})

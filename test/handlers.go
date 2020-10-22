@@ -69,6 +69,7 @@ func createRecordingHandler(duration int64, succeed bool) http.HandlerFunc {
 		ghttp.VerifyFormKV("recordingName", "test-recording"),
 		ghttp.VerifyFormKV("events", "jdk.socketRead:enabled=true,jdk.socketWrite:enabled=true"),
 		verifyToken(),
+		verifyJMXAuth(),
 	}
 	if duration > 0 {
 		handlers = append(handlers, ghttp.VerifyFormKV("duration", strconv.Itoa(int(duration))))
@@ -96,6 +97,7 @@ func stopHandler(succeed bool) http.HandlerFunc {
 		ghttp.VerifyContentType("text/plain"),
 		ghttp.VerifyBody([]byte("stop")),
 		verifyToken(),
+		verifyJMXAuth(),
 	}
 	if succeed {
 		handlers = append(handlers, ghttp.RespondWith(http.StatusOK, nil))
@@ -120,6 +122,7 @@ func saveHandler(succeed bool) http.HandlerFunc {
 		ghttp.VerifyContentType("text/plain"),
 		ghttp.VerifyBody([]byte("save")),
 		verifyToken(),
+		verifyJMXAuth(),
 	}
 	if succeed {
 		handlers = append(handlers, ghttp.RespondWith(http.StatusOK, "saved-test-recording.jfr"))
@@ -134,6 +137,7 @@ func NewListHandler(descriptors []jfrclient.RecordingDescriptor) http.HandlerFun
 	return ghttp.CombineHandlers(
 		ghttp.VerifyRequest(http.MethodGet, "/api/v1/targets/1.2.3.4:8001/recordings"),
 		verifyToken(),
+		verifyJMXAuth(),
 		ghttp.RespondWithJSONEncoded(http.StatusOK, descriptors),
 	)
 }
@@ -142,6 +146,7 @@ func NewListFailHandler(descriptors []jfrclient.RecordingDescriptor) http.Handle
 	return ghttp.CombineHandlers(
 		ghttp.VerifyRequest(http.MethodGet, "/api/v1/targets/1.2.3.4:8001/recordings"),
 		verifyToken(),
+		verifyJMXAuth(),
 		ghttp.RespondWith(http.StatusInternalServerError, "test message"),
 	)
 }
@@ -162,6 +167,7 @@ func NewListSavedHandler(saved []jfrclient.SavedRecording) http.HandlerFunc {
 	return ghttp.CombineHandlers(
 		ghttp.VerifyRequest(http.MethodGet, "/api/v1/recordings"),
 		verifyToken(),
+		verifyJMXAuth(),
 		ghttp.RespondWithJSONEncoded(http.StatusOK, saved),
 	)
 }
@@ -170,6 +176,7 @@ func NewListSavedFailHandler(saved []jfrclient.SavedRecording) http.HandlerFunc 
 	return ghttp.CombineHandlers(
 		ghttp.VerifyRequest(http.MethodGet, "/api/v1/recordings"),
 		verifyToken(),
+		verifyJMXAuth(),
 		ghttp.RespondWith(http.StatusNotImplemented, "Archive path /bad/dir does not exist"),
 	)
 }
@@ -188,6 +195,7 @@ func NewDeleteHandler() http.HandlerFunc {
 	return ghttp.CombineHandlers(
 		ghttp.VerifyRequest(http.MethodDelete, "/api/v1/targets/1.2.3.4:8001/recordings/test-recording"),
 		verifyToken(),
+		verifyJMXAuth(),
 		ghttp.RespondWithJSONEncoded(http.StatusOK, nil),
 	)
 }
@@ -196,6 +204,7 @@ func NewDeleteFailHandler() http.HandlerFunc {
 	return ghttp.CombineHandlers(
 		ghttp.VerifyRequest(http.MethodDelete, "/api/v1/targets/1.2.3.4:8001/recordings/test-recording"),
 		verifyToken(),
+		verifyJMXAuth(),
 		ghttp.RespondWithJSONEncoded(http.StatusNotFound,
 			"No recording with name \"test-recording\" found"),
 	)
@@ -205,6 +214,7 @@ func NewDeleteSavedHandler() http.HandlerFunc {
 	return ghttp.CombineHandlers(
 		ghttp.VerifyRequest(http.MethodDelete, "/api/v1/recordings/saved-test-recording.jfr"),
 		verifyToken(),
+		verifyJMXAuth(),
 		ghttp.RespondWithJSONEncoded(http.StatusOK, nil),
 	)
 }
@@ -213,11 +223,21 @@ func NewDeleteSavedFailHandler() http.HandlerFunc {
 	return ghttp.CombineHandlers(
 		ghttp.VerifyRequest(http.MethodDelete, "/api/v1/recordings/saved-test-recording.jfr"),
 		verifyToken(),
+		verifyJMXAuth(),
 		ghttp.RespondWithJSONEncoded(http.StatusNotFound, "saved-test-recording.jfr"),
 	)
 }
 
 func NewListEventTypesHandler() http.HandlerFunc {
+	return ghttp.CombineHandlers(
+		ghttp.VerifyRequest(http.MethodGet, "/api/v1/targets/1.2.3.4:8001/events"),
+		verifyToken(),
+		verifyJMXAuth(),
+		ghttp.RespondWithJSONEncoded(http.StatusOK, NewEventTypes()),
+	)
+}
+
+func NewListEventTypesNoJMXAuthHandler() http.HandlerFunc {
 	return ghttp.CombineHandlers(
 		ghttp.VerifyRequest(http.MethodGet, "/api/v1/targets/1.2.3.4:8001/events"),
 		verifyToken(),
@@ -229,6 +249,7 @@ func NewListEventTypesFailHandler() http.HandlerFunc {
 	return ghttp.CombineHandlers(
 		ghttp.VerifyRequest(http.MethodGet, "/api/v1/targets/1.2.3.4:8001/events"),
 		verifyToken(),
+		verifyJMXAuth(),
 		ghttp.RespondWith(http.StatusUnauthorized, nil),
 	)
 }
@@ -263,4 +284,8 @@ func NewEventTypes() []rhjmcv1beta1.EventInfo {
 
 func verifyToken() http.HandlerFunc {
 	return ghttp.VerifyHeaderKV("Authorization", "Bearer myToken")
+}
+
+func verifyJMXAuth() http.HandlerFunc {
+	return ghttp.VerifyHeaderKV("X-JMX-Authorization", "Basic aGVsbG86d29ybGQ=")
 }
