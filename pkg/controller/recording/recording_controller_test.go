@@ -82,6 +82,7 @@ var _ = Describe("RecordingController", func() {
 	})
 
 	JustAfterEach(func() {
+		server.VerifyRequestsReceived(handlers)
 		server.Close()
 	})
 

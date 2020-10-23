@@ -79,6 +79,7 @@ var _ = Describe("FlightRecorderController", func() {
 	})
 
 	JustAfterEach(func() {
+		server.VerifyRequestsReceived(handlers)
 		server.Close()
 	})
 
@@ -87,9 +88,7 @@ var _ = Describe("FlightRecorderController", func() {
 			test.NewContainerJFR(), test.NewCACert(), test.NewFlightRecorder(), test.NewTargetPod(),
 			test.NewContainerJFRService(), test.NewJMXAuthSecret(),
 		}
-		handlers = []http.HandlerFunc{
-			test.NewListEventTypesHandler(),
-		}
+		handlers = []http.HandlerFunc{}
 	})
 
 	AfterEach(func() {
@@ -100,6 +99,11 @@ var _ = Describe("FlightRecorderController", func() {
 
 	Describe("reconciling a request", func() {
 		Context("successfully updates FlightRecorder CR", func() {
+			BeforeEach(func() {
+				handlers = []http.HandlerFunc{
+					test.NewListEventTypesHandler(),
+				}
+			})
 			It("should update event type list", func() {
 				expectReconcileSuccess(controller, client)
 			})
@@ -134,9 +138,6 @@ var _ = Describe("FlightRecorderController", func() {
 			})
 		})
 		Context("FlightRecorder does not exist", func() {
-			BeforeEach(func() {
-				handlers = []http.HandlerFunc{}
-			})
 			It("should do nothing", func() {
 				req := reconcile.Request{NamespacedName: types.NamespacedName{Name: "does-not-exist", Namespace: "default"}}
 				result, err := controller.Reconcile(req)
@@ -152,7 +153,6 @@ var _ = Describe("FlightRecorderController", func() {
 					test.NewContainerJFR(), test.NewCACert(), otherFr, test.NewTargetPod(), test.NewContainerJFRService(),
 					test.NewJMXAuthSecret(),
 				}
-				handlers = []http.HandlerFunc{}
 			})
 			It("should requeue", func() {
 				req := reconcile.Request{NamespacedName: types.NamespacedName{Name: "test-pod", Namespace: "default"}}
@@ -177,7 +177,6 @@ var _ = Describe("FlightRecorderController", func() {
 					test.NewFlightRecorder(), test.NewCACert(), test.NewTargetPod(), test.NewContainerJFRService(),
 					test.NewJMXAuthSecret(),
 				}
-				handlers = []http.HandlerFunc{}
 			})
 			It("should requeue with error", func() {
 				expectReconcileError(controller)
@@ -189,7 +188,6 @@ var _ = Describe("FlightRecorderController", func() {
 					test.NewContainerJFR(), test.NewCACert(), test.NewFlightRecorder(), test.NewTargetPod(),
 					test.NewJMXAuthSecret(),
 				}
-				handlers = []http.HandlerFunc{}
 			})
 			It("should requeue with error", func() {
 				expectReconcileError(controller)
@@ -201,7 +199,6 @@ var _ = Describe("FlightRecorderController", func() {
 					test.NewContainerJFR(), test.NewCACert(), test.NewFlightRecorder(), test.NewContainerJFRService(),
 					test.NewJMXAuthSecret(),
 				}
-				handlers = []http.HandlerFunc{}
 			})
 			It("should requeue with error", func() {
 				expectReconcileError(controller)
@@ -215,7 +212,6 @@ var _ = Describe("FlightRecorderController", func() {
 					test.NewContainerJFR(), test.NewCACert(), test.NewFlightRecorder(), otherPod, test.NewContainerJFRService(),
 					test.NewJMXAuthSecret(),
 				}
-				handlers = []http.HandlerFunc{}
 			})
 			It("should requeue with error", func() {
 				expectReconcileError(controller)

@@ -65,6 +65,12 @@ func NewServer(client client.Client, handlers []http.HandlerFunc) *ContainerJFRS
 	}
 }
 
+// VerifyRequestsReceived checks that the number of requests received by the server
+// match the length of the handlers argument
+func (s *ContainerJFRServer) VerifyRequestsReceived(handlers []http.HandlerFunc) {
+	gomega.Expect(s.impl.ReceivedRequests()).To(gomega.HaveLen(len(handlers)))
+}
+
 // Close shuts down this test server
 func (s *ContainerJFRServer) Close() {
 	s.impl.Close()
