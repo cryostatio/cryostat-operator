@@ -142,33 +142,16 @@ func (r *ReconcileRecording) Reconcile(request reconcile.Request) (reconcile.Res
 	if jfr == nil {
 		// Check if this Recording is being deleted
 		if instance.GetDeletionTimestamp() != nil && hasRecordingFinalizer(instance) {
-			// Allow deletion to proceed, since no FlightRecorder/Pod to clean up
-			log.Info("no matching FlightRecorder, proceeding with recording deletion")
-			r.removeRecordingFinalizer(ctx, instance)
+			return r.deleteWithoutLiveTarget(ctx, instance)
 		}
-		// No matching FlightRecorder, don't requeue until FlightRecorder field is fixed
+		// No matching FlightRecorder, its corresponding Pod might have been deleted
 		return reconcile.Result{}, nil
 	}
 
 	// Obtain a client configured to communicate with Container JFR
 	cjfr, err := r.GetContainerJFRClient(ctx, request.Namespace, jfr.Spec.JMXCredentials)
 	if err != nil {
-		if err == common.ErrCertNotReady {
-			log.Info("Waiting for CA certificate")
-			return reconcile.Result{RequeueAfter: 5 * time.Second}, nil
-		}
-		return reconcile.Result{}, err
-	}
-
-	// Check if this Recording is being deleted
-	if instance.GetDeletionTimestamp() != nil && hasRecordingFinalizer(instance) {
-		// Delete any persisted JFR file for this recording
-		err := r.removeSavedRecording(cjfr, instance)
-		if err != nil {
-			reqLogger.Error(err, "failed to delete saved recording in Container JFR", "namespace",
-				instance.Namespace, "name", instance.Name)
-			return reconcile.Result{}, err
-		}
+		return requeueIfNotReady(err)
 	}
 
 	// Look up pod corresponding to this FlightRecorder object
@@ -192,19 +175,7 @@ func (r *ReconcileRecording) Reconcile(request reconcile.Request) (reconcile.Res
 	// Check if this Recording is being deleted
 	if instance.GetDeletionTimestamp() != nil {
 		if hasRecordingFinalizer(instance) {
-			// Delete in-memory recording in Container JFR
-			err := removeRecording(cjfr, targetAddr, instance)
-			if err != nil {
-				log.Error(err, "failed to delete recording in Container JFR", "namespace", instance.Namespace,
-					"name", instance.Name)
-				return reconcile.Result{}, err
-			}
-
-			// Remove our finalizer only once our cleanup logic has succeeded
-			err = r.removeRecordingFinalizer(ctx, instance)
-			if err != nil {
-				return reconcile.Result{}, err
-			}
+			return r.deleteWithLiveTarget(ctx, cjfr, instance, targetAddr)
 		}
 		// Ready for deletion
 		return reconcile.Result{}, nil
@@ -445,6 +416,50 @@ func (r *ReconcileRecording) removeRecordingFinalizer(ctx context.Context, recor
 	return nil
 }
 
+func (r *ReconcileRecording) deleteWithoutLiveTarget(ctx context.Context, recording *rhjmcv1beta1.Recording) (reconcile.Result, error) {
+	reqLogger := log.WithValues("Request.Namespace", recording.Namespace, "Request.Name", recording.Name)
+	reqLogger.Info("no matching FlightRecorder, proceeding with recording deletion")
+
+	// Obtain a client configured to communicate with Container JFR without JMX credentials
+	cjfr, err := r.GetContainerJFRClient(ctx, recording.Namespace, nil)
+	if err != nil {
+		return requeueIfNotReady(err)
+	}
+
+	// Delete any persisted JFR file for this recording
+	err = r.removeSavedRecording(cjfr, recording)
+	if err != nil {
+		reqLogger.Error(err, "failed to delete saved recording in Container JFR")
+		return reconcile.Result{}, err
+	}
+
+	// Allow deletion to proceed, since no FlightRecorder/Pod to clean up
+	err = r.removeRecordingFinalizer(ctx, recording)
+	return reconcile.Result{}, err
+}
+
+func (r *ReconcileRecording) deleteWithLiveTarget(ctx context.Context, cjfr jfrclient.ContainerJfrClient,
+	recording *rhjmcv1beta1.Recording, target *jfrclient.TargetAddress) (reconcile.Result, error) {
+	reqLogger := log.WithValues("Request.Namespace", recording.Namespace, "Request.Name", recording.Name)
+	// Delete any persisted JFR file for this recording
+	err := r.removeSavedRecording(cjfr, recording)
+	if err != nil {
+		reqLogger.Error(err, "failed to delete saved recording in Container JFR")
+		return reconcile.Result{}, err
+	}
+
+	// Delete in-memory recording in Container JFR
+	err = removeRecording(cjfr, target, recording)
+	if err != nil {
+		reqLogger.Error(err, "failed to delete recording in Container JFR")
+		return reconcile.Result{}, err
+	}
+
+	// Remove our finalizer only once our cleanup logic has succeeded
+	err = r.removeRecordingFinalizer(ctx, recording)
+	return reconcile.Result{}, err
+}
+
 func findRecordingByName(cjfr jfrclient.ContainerJfrClient, target *jfrclient.TargetAddress,
 	name string) (*jfrclient.RecordingDescriptor, error) {
 	// Get an updated list of in-memory flight recordings
@@ -504,4 +519,12 @@ func hasRecordingFinalizer(recording *rhjmcv1beta1.Recording) bool {
 		}
 	}
 	return false
+}
+
+func requeueIfNotReady(err error) (reconcile.Result, error) {
+	if err == common.ErrCertNotReady {
+		log.Info("Waiting for CA certificate")
+		return reconcile.Result{RequeueAfter: 5 * time.Second}, nil
+	}
+	return reconcile.Result{}, err
 }

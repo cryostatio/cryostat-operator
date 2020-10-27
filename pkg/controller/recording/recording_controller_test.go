@@ -374,8 +374,8 @@ var _ = Describe("RecordingController", func() {
 					test.NewJMXAuthSecret(),
 				}
 				handlers = []http.HandlerFunc{
-					test.NewListSavedHandler(test.NewSavedRecordings()),
-					test.NewDeleteSavedHandler(),
+					test.NewListSavedNoJMXAuthHandler(test.NewSavedRecordings()),
+					test.NewDeleteSavedNoJMXAuthHandler(),
 				}
 			})
 			It("should remove the finalizer", func() {
