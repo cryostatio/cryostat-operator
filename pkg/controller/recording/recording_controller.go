@@ -49,13 +49,16 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
+	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
+	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 )
@@ -87,6 +90,54 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 
 	// Watch for changes to primary resource Recording
 	err = c.Watch(&source.Kind{Type: &rhjmcv1beta1.Recording{}}, &handler.EnqueueRequestForObject{})
+	if err != nil {
+		return err
+	}
+
+	ctx := context.Background()
+	cl := mgr.GetClient()
+	jfrPredicate := predicate.Funcs{
+		UpdateFunc: func(e event.UpdateEvent) bool {
+			return true
+		},
+		CreateFunc: func(e event.CreateEvent) bool {
+			return true
+		},
+	}
+
+	mapFunc := handler.ToRequestsFunc(
+		func(obj handler.MapObject) []reconcile.Request {
+			// Look up all recordings that reference the changed FlightRecorder
+			recordings := &rhjmcv1beta1.RecordingList{}
+			selector := labels.SelectorFromSet(labels.Set{
+				rhjmcv1beta1.RecordingLabel: obj.Meta.GetName(),
+			})
+			err := cl.List(ctx, recordings, &client.ListOptions{
+				Namespace:     obj.Meta.GetNamespace(),
+				LabelSelector: selector,
+			})
+			if err != nil {
+				log.Error(err, "Failed to list Recordings", "namespace", obj.Meta.GetNamespace(),
+					"selector", selector.String())
+			}
+
+			// Reconcile each recording that was found
+			requests := make([]reconcile.Request, len(recordings.Items))
+			for idx, recording := range recordings.Items {
+				request := reconcile.Request{
+					NamespacedName: types.NamespacedName{
+						Namespace: recording.Namespace,
+						Name:      recording.Name,
+					},
+				}
+				requests[idx] = request
+			}
+			return requests
+		})
+
+	err = c.Watch(&source.Kind{Type: &rhjmcv1beta1.FlightRecorder{}}, &handler.EnqueueRequestsFromMapFunc{
+		ToRequests: mapFunc,
+	}, jfrPredicate)
 	if err != nil {
 		return err
 	}
