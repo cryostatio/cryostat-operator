@@ -276,8 +276,14 @@ func (r *ReconcileRecording) getFlightRecorder(ctx context.Context, recording *r
 		return nil, nil
 	}
 
+	// Apply FlightRecorder label if not already present
+	err := r.applyFlightRecorderLabel(ctx, recording, jfrRef.Name)
+	if err != nil {
+		return nil, err
+	}
+
 	jfr := &rhjmcv1beta1.FlightRecorder{}
-	err := r.Client.Get(ctx, types.NamespacedName{Namespace: recording.Namespace, Name: jfrRef.Name}, jfr)
+	err = r.Client.Get(ctx, types.NamespacedName{Namespace: recording.Namespace, Name: jfrRef.Name}, jfr)
 	if err != nil {
 		if kerrors.IsNotFound(err) {
 			// TODO set Condition for user, could be legitimate if pod is deleted
@@ -374,6 +380,27 @@ func (r *ReconcileRecording) removeSavedRecording(cjfr jfrclient.ContainerJfrCli
 			}
 			log.Info("saved recording successfully deleted", "file", jfrFile)
 		}
+	}
+	return nil
+}
+
+func (r *ReconcileRecording) applyFlightRecorderLabel(ctx context.Context, recording *rhjmcv1beta1.Recording,
+	jfrName string) error {
+	// Set label if not present or contains the wrong FlightRecorder name
+	labels := recording.GetLabels()
+	if labels[rhjmcv1beta1.RecordingLabel] != jfrName {
+		// Initialize labels map if recording has no labels
+		if labels == nil {
+			labels = map[string]string{}
+		}
+		labels[rhjmcv1beta1.RecordingLabel] = jfrName
+		recording.SetLabels(labels)
+
+		err := r.Client.Update(ctx, recording)
+		if err != nil {
+			return err
+		}
+		log.Info("added label for recording", "namespace", recording.Namespace, "name", recording.Name)
 	}
 	return nil
 }

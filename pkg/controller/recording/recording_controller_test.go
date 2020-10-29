@@ -110,7 +110,7 @@ var _ = Describe("RecordingController", func() {
 			})
 			It("updates status with recording info", func() {
 				desc := test.NewRecordingDescriptors("RUNNING", 30000)[0]
-				expectRecordingStatus(controller, client, &desc)
+				expectRecordingUpdated(controller, client, &desc)
 			})
 			It("adds finalizer to recording", func() {
 				expectFinalizerPresent(controller, client)
@@ -140,7 +140,7 @@ var _ = Describe("RecordingController", func() {
 			})
 			It("updates status with recording info", func() {
 				desc := test.NewRecordingDescriptors("RUNNING", 0)[0]
-				expectRecordingStatus(controller, client, &desc)
+				expectRecordingUpdated(controller, client, &desc)
 			})
 			It("should requeue after 10 seconds", func() {
 				expectResult(controller, reconcile.Result{RequeueAfter: 10 * time.Second})
@@ -217,7 +217,7 @@ var _ = Describe("RecordingController", func() {
 			})
 			It("should stop recording", func() {
 				desc := test.NewRecordingDescriptors("STOPPED", 0)[0]
-				expectRecordingStatus(controller, client, &desc)
+				expectRecordingUpdated(controller, client, &desc)
 			})
 			It("should not requeue", func() {
 				expectResult(controller, reconcile.Result{})
@@ -480,6 +480,31 @@ var _ = Describe("RecordingController", func() {
 				Expect(err).ToNot(HaveOccurred())
 				Expect(result).To(Equal(reconcile.Result{}))
 			})
+			It("should set FlightRecorder label", func() {
+				obj := reconcileAndGet(controller, client)
+				Expect(obj.Labels).To(HaveKeyWithValue(rhjmcv1beta1.RecordingLabel, "test-pod"))
+			})
+		})
+		Context("FlightRecorder is not defined in Recording", func() {
+			BeforeEach(func() {
+				recording := test.NewRecording()
+				recording.Spec.FlightRecorder = nil
+				objs = []runtime.Object{
+					test.NewContainerJFR(), test.NewCACert(), test.NewFlightRecorder(), test.NewTargetPod(),
+					test.NewContainerJFRService(), recording, test.NewJMXAuthSecret(),
+				}
+				handlers = []http.HandlerFunc{}
+			})
+			It("should not requeue", func() {
+				req := reconcile.Request{NamespacedName: types.NamespacedName{Name: "my-recording", Namespace: "default"}}
+				result, err := controller.Reconcile(req)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(result).To(Equal(reconcile.Result{}))
+			})
+			It("should not set FlightRecorder label", func() {
+				obj := reconcileAndGet(controller, client)
+				Expect(obj.Labels).To(BeEmpty())
+			})
 		})
 		Context("Target pod is missing", func() {
 			BeforeEach(func() {
@@ -510,8 +535,10 @@ var _ = Describe("RecordingController", func() {
 	})
 })
 
-func expectRecordingStatus(controller *recording.ReconcileRecording, client client.Client, desc *jfrclient.RecordingDescriptor) {
+func expectRecordingUpdated(controller *recording.ReconcileRecording, client client.Client, desc *jfrclient.RecordingDescriptor) {
 	obj := reconcileAndGet(controller, client)
+
+	Expect(obj.Labels).To(HaveKeyWithValue(rhjmcv1beta1.RecordingLabel, "test-pod"))
 
 	Expect(obj.Status.State).ToNot(BeNil())
 	Expect(*obj.Status.State).To(Equal(rhjmcv1beta1.RecordingState(desc.State)))
