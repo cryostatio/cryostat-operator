@@ -243,9 +243,11 @@ func getWebServerPort(svc *corev1.Service) (int32, error) {
 }
 
 func getValueFromSecret(secret *corev1.Secret, key *string, defaultKey string) (*string, error) {
+	// Use the default key if no key was specified
 	if key == nil {
 		key = &defaultKey
 	}
+	// Return an error if value is missing in secret
 	rawValue, pres := secret.Data[*key]
 	if !pres {
 		return nil, fmt.Errorf("No key \"%s\" found in secret \"%s/%s\"", *key, secret.Namespace, secret.Name)

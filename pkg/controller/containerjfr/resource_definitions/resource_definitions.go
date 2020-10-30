@@ -529,6 +529,10 @@ func NewGrafanaService(cr *rhjmcv1beta1.ContainerJFR) *corev1.Service {
 	}
 }
 
+// JMXSecretNameSuffix is the suffix to be appended to the name of a
+// ContainerJFR CR to name its JMX credentials secret
+const JMXSecretNameSuffix = "-jmx-auth"
+
 // JMXSecretUserKey indexes the username within the Container JFR JMX auth secret
 const JMXSecretUserKey = "CONTAINER_JFR_RJMX_USER"
 
@@ -538,7 +542,7 @@ const JMXSecretPassKey = "CONTAINER_JFR_RJMX_PASS"
 func NewJmxSecretForCR(cr *rhjmcv1beta1.ContainerJFR) *corev1.Secret {
 	return &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      cr.Name + "-jmx-auth",
+			Name:      cr.Name + JMXSecretNameSuffix,
 			Namespace: cr.Namespace,
 		},
 		StringData: map[string]string{

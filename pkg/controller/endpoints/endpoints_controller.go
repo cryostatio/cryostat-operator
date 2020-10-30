@@ -282,7 +282,8 @@ func (r *ReconcileEndpoints) getJMXCredentials(ctx context.Context, ep *corev1.E
 	if metav1.IsControlledBy(svc, cjfr) {
 		// Look up JMX auth secret created for this ContainerJFR
 		secret := &corev1.Secret{}
-		err := r.client.Get(ctx, types.NamespacedName{Name: cjfr.Name + "-jmx-auth", Namespace: cjfr.Namespace}, secret)
+		err := r.client.Get(ctx, types.NamespacedName{Name: cjfr.Name + resources.JMXSecretNameSuffix,
+			Namespace: cjfr.Namespace}, secret)
 		if err != nil {
 			return nil, err
 		}

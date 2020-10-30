@@ -94,50 +94,8 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 		return err
 	}
 
-	ctx := context.Background()
-	cl := mgr.GetClient()
-	jfrPredicate := predicate.Funcs{
-		UpdateFunc: func(e event.UpdateEvent) bool {
-			return true
-		},
-		CreateFunc: func(e event.CreateEvent) bool {
-			return true
-		},
-	}
-
-	mapFunc := handler.ToRequestsFunc(
-		func(obj handler.MapObject) []reconcile.Request {
-			// Look up all recordings that reference the changed FlightRecorder
-			recordings := &rhjmcv1beta1.RecordingList{}
-			selector := labels.SelectorFromSet(labels.Set{
-				rhjmcv1beta1.RecordingLabel: obj.Meta.GetName(),
-			})
-			err := cl.List(ctx, recordings, &client.ListOptions{
-				Namespace:     obj.Meta.GetNamespace(),
-				LabelSelector: selector,
-			})
-			if err != nil {
-				log.Error(err, "Failed to list Recordings", "namespace", obj.Meta.GetNamespace(),
-					"selector", selector.String())
-			}
-
-			// Reconcile each recording that was found
-			requests := make([]reconcile.Request, len(recordings.Items))
-			for idx, recording := range recordings.Items {
-				request := reconcile.Request{
-					NamespacedName: types.NamespacedName{
-						Namespace: recording.Namespace,
-						Name:      recording.Name,
-					},
-				}
-				requests[idx] = request
-			}
-			return requests
-		})
-
-	err = c.Watch(&source.Kind{Type: &rhjmcv1beta1.FlightRecorder{}}, &handler.EnqueueRequestsFromMapFunc{
-		ToRequests: mapFunc,
-	}, jfrPredicate)
+	// Watch FlightRecorders for changes that would affect associated Recordings
+	err = watchFlightRecorders(c, mgr.GetClient())
 	if err != nil {
 		return err
 	}
@@ -536,6 +494,51 @@ func (r *ReconcileRecording) deleteWithLiveTarget(ctx context.Context, cjfr jfrc
 	// Remove our finalizer only once our cleanup logic has succeeded
 	err = r.removeRecordingFinalizer(ctx, recording)
 	return reconcile.Result{}, err
+}
+
+func watchFlightRecorders(ctrl controller.Controller, cl client.Client) error {
+	ctx := context.Background()
+	jfrPredicate := predicate.Funcs{
+		UpdateFunc: func(e event.UpdateEvent) bool {
+			return true
+		},
+		CreateFunc: func(e event.CreateEvent) bool {
+			return true
+		},
+	}
+
+	mapFunc := handler.ToRequestsFunc(
+		func(obj handler.MapObject) []reconcile.Request {
+			// Look up all recordings that reference the changed FlightRecorder
+			recordings := &rhjmcv1beta1.RecordingList{}
+			selector := labels.SelectorFromSet(labels.Set{
+				rhjmcv1beta1.RecordingLabel: obj.Meta.GetName(),
+			})
+			err := cl.List(ctx, recordings, &client.ListOptions{
+				Namespace:     obj.Meta.GetNamespace(),
+				LabelSelector: selector,
+			})
+			if err != nil {
+				log.Error(err, "Failed to list Recordings", "namespace", obj.Meta.GetNamespace(),
+					"selector", selector.String())
+			}
+
+			// Reconcile each recording that was found
+			requests := make([]reconcile.Request, len(recordings.Items))
+			for idx, recording := range recordings.Items {
+				request := reconcile.Request{
+					NamespacedName: types.NamespacedName{
+						Namespace: recording.Namespace,
+						Name:      recording.Name,
+					},
+				}
+				requests[idx] = request
+			}
+			return requests
+		})
+
+	return ctrl.Watch(&source.Kind{Type: &rhjmcv1beta1.FlightRecorder{}},
+		&handler.EnqueueRequestsFromMapFunc{ToRequests: mapFunc}, jfrPredicate)
 }
 
 func findRecordingByName(cjfr jfrclient.ContainerJfrClient, target *jfrclient.TargetAddress,
