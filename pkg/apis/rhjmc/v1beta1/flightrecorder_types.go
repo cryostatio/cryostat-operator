@@ -34,21 +34,22 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-package v1alpha2
+package v1beta1
 
 import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
-// NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
-
 // FlightRecorderSpec defines the desired state of FlightRecorder
 // +k8s:openapi-gen=true
 type FlightRecorderSpec struct {
 	// Recordings that match this selector belong to this FlightRecorder
 	RecordingSelector *metav1.LabelSelector `json:"recordingSelector"`
+	// If JMX authentication is enabled for this FlightRecorder's JVM, specify the credentials in a secret
+	// and reference it here
+	// +optional
+	JMXCredentials *JMXAuthSecret `json:"jmxCredentials,omitempty"`
 }
 
 // FlightRecorderStatus defines the observed state of FlightRecorder
@@ -93,12 +94,34 @@ type OptionDescriptor struct {
 	DefaultValue string `json:"defaultValue"`
 }
 
+// DefaultUsernameKey will be used when looking up the username within a JMX auth secret,
+// if a key is not manually specified
+const DefaultUsernameKey = corev1.BasicAuthUsernameKey
+
+// DefaultPasswordKey will be used when looking up the password within a JMX auth secret,
+// if a key is not manually specified
+const DefaultPasswordKey = corev1.BasicAuthPasswordKey
+
+// JMXAuthSecret references a secret containing JMX authentication credentials
+// for the FlightRecorder's JVM
+type JMXAuthSecret struct {
+	// Name of secret in the local namespace
+	SecretName string `json:"secretName"`
+	// Key within secret containing the username, defaults to DefaultUsernameKey
+	// +optional
+	UsernameKey *string `json:"usernameKey,omitempty"`
+	// Key within secret containing the password, defaults to DefaultPasswordKey
+	// +optional
+	PasswordKey *string `json:"passwordKey,omitempty"`
+}
+
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 // FlightRecorder is the Schema for the flightrecorders API
 // +k8s:openapi-gen=true
 // +kubebuilder:subresource:status
 // +kubebuilder:resource:path=flightrecorders,scope=Namespaced
+// +kubebuilder:storageversion
 type FlightRecorder struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`

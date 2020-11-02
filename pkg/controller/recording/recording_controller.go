@@ -43,19 +43,22 @@ import (
 	"path"
 	"time"
 
-	rhjmcv1alpha2 "github.com/rh-jmc-team/container-jfr-operator/pkg/apis/rhjmc/v1alpha2"
+	rhjmcv1beta1 "github.com/rh-jmc-team/container-jfr-operator/pkg/apis/rhjmc/v1beta1"
 	jfrclient "github.com/rh-jmc-team/container-jfr-operator/pkg/client"
 	common "github.com/rh-jmc-team/container-jfr-operator/pkg/controller/common"
 	corev1 "k8s.io/api/core/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
+	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
+	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 )
@@ -86,7 +89,13 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 	}
 
 	// Watch for changes to primary resource Recording
-	err = c.Watch(&source.Kind{Type: &rhjmcv1alpha2.Recording{}}, &handler.EnqueueRequestForObject{})
+	err = c.Watch(&source.Kind{Type: &rhjmcv1beta1.Recording{}}, &handler.EnqueueRequestForObject{})
+	if err != nil {
+		return err
+	}
+
+	// Watch FlightRecorders for changes that would affect associated Recordings
+	err = watchFlightRecorders(c, mgr.GetClient())
 	if err != nil {
 		return err
 	}
@@ -119,18 +128,9 @@ func (r *ReconcileRecording) Reconcile(request reconcile.Request) (reconcile.Res
 	reqLogger := log.WithValues("Request.Namespace", request.Namespace, "Request.Name", request.Name)
 	reqLogger.Info("Reconciling Recording")
 
-	cjfr, err := r.GetContainerJFRClient(ctx, request.Namespace)
-	if err != nil {
-		if err == common.ErrCertNotReady {
-			log.Info("Waiting for CA certificate")
-			return reconcile.Result{RequeueAfter: 5 * time.Second}, nil
-		}
-		return reconcile.Result{}, err
-	}
-
 	// Fetch the Recording instance
-	instance := &rhjmcv1alpha2.Recording{}
-	err = r.Client.Get(ctx, request.NamespacedName, instance)
+	instance := &rhjmcv1beta1.Recording{}
+	err := r.Client.Get(ctx, request.NamespacedName, instance)
 	if err != nil {
 		if kerrors.IsNotFound(err) {
 			// Request object not found, could have been deleted after reconcile request.
@@ -143,17 +143,6 @@ func (r *ReconcileRecording) Reconcile(request reconcile.Request) (reconcile.Res
 		return reconcile.Result{}, err
 	}
 
-	// Check if this Recording is being deleted
-	if instance.GetDeletionTimestamp() != nil && hasRecordingFinalizer(instance) {
-		// Delete any persisted JFR file for this recording
-		err := r.removeSavedRecording(cjfr, instance)
-		if err != nil {
-			reqLogger.Error(err, "failed to delete saved recording in Container JFR", "namespace",
-				instance.Namespace, "name", instance.Name)
-			return reconcile.Result{}, err
-		}
-	}
-
 	// Look up FlightRecorder referenced by this Recording
 	jfr, err := r.getFlightRecorder(ctx, instance)
 	if err != nil {
@@ -162,12 +151,16 @@ func (r *ReconcileRecording) Reconcile(request reconcile.Request) (reconcile.Res
 	if jfr == nil {
 		// Check if this Recording is being deleted
 		if instance.GetDeletionTimestamp() != nil && hasRecordingFinalizer(instance) {
-			// Allow deletion to proceed, since no FlightRecorder/Pod to clean up
-			log.Info("no matching FlightRecorder, proceeding with recording deletion")
-			r.removeRecordingFinalizer(ctx, instance)
+			return r.deleteWithoutLiveTarget(ctx, instance)
 		}
-		// No matching FlightRecorder, don't requeue until FlightRecorder field is fixed
+		// No matching FlightRecorder, its corresponding Pod might have been deleted
 		return reconcile.Result{}, nil
+	}
+
+	// Obtain a client configured to communicate with Container JFR
+	cjfr, err := r.GetContainerJFRClient(ctx, request.Namespace, jfr.Spec.JMXCredentials)
+	if err != nil {
+		return requeueIfNotReady(err)
 	}
 
 	// Look up pod corresponding to this FlightRecorder object
@@ -191,19 +184,7 @@ func (r *ReconcileRecording) Reconcile(request reconcile.Request) (reconcile.Res
 	// Check if this Recording is being deleted
 	if instance.GetDeletionTimestamp() != nil {
 		if hasRecordingFinalizer(instance) {
-			// Delete in-memory recording in Container JFR
-			err := removeRecording(cjfr, targetAddr, instance)
-			if err != nil {
-				log.Error(err, "failed to delete recording in Container JFR", "namespace", instance.Namespace,
-					"name", instance.Name)
-				return reconcile.Result{}, err
-			}
-
-			// Remove our finalizer only once our cleanup logic has succeeded
-			err = r.removeRecordingFinalizer(ctx, instance)
-			if err != nil {
-				return reconcile.Result{}, err
-			}
+			return r.deleteWithLiveTarget(ctx, cjfr, instance, targetAddr)
 		}
 		// Ready for deletion
 		return reconcile.Result{}, nil
@@ -263,7 +244,7 @@ func (r *ReconcileRecording) Reconcile(request reconcile.Request) (reconcile.Res
 	}
 
 	// Archive completed recording if requested and not already done
-	isStopped := instance.Status.State != nil && *instance.Status.State == rhjmcv1alpha2.RecordingStateStopped
+	isStopped := instance.Status.State != nil && *instance.Status.State == rhjmcv1beta1.RecordingStateStopped
 	if instance.Spec.Archive && isStopped {
 		url, err := archiveStoppedRecording(cjfr, instance, targetAddr)
 		if err != nil {
@@ -295,7 +276,7 @@ func (r *ReconcileRecording) Reconcile(request reconcile.Request) (reconcile.Res
 	return result, nil
 }
 
-func (r *ReconcileRecording) getFlightRecorder(ctx context.Context, recording *rhjmcv1alpha2.Recording) (*rhjmcv1alpha2.FlightRecorder, error) {
+func (r *ReconcileRecording) getFlightRecorder(ctx context.Context, recording *rhjmcv1beta1.Recording) (*rhjmcv1beta1.FlightRecorder, error) {
 	jfrRef := recording.Spec.FlightRecorder
 	if jfrRef == nil || len(jfrRef.Name) == 0 {
 		// TODO set Condition for user/log error
@@ -304,8 +285,14 @@ func (r *ReconcileRecording) getFlightRecorder(ctx context.Context, recording *r
 		return nil, nil
 	}
 
-	jfr := &rhjmcv1alpha2.FlightRecorder{}
-	err := r.Client.Get(ctx, types.NamespacedName{Namespace: recording.Namespace, Name: jfrRef.Name}, jfr)
+	// Apply FlightRecorder label if not already present
+	err := r.applyFlightRecorderLabel(ctx, recording, jfrRef.Name)
+	if err != nil {
+		return nil, err
+	}
+
+	jfr := &rhjmcv1beta1.FlightRecorder{}
+	err = r.Client.Get(ctx, types.NamespacedName{Namespace: recording.Namespace, Name: jfrRef.Name}, jfr)
 	if err != nil {
 		if kerrors.IsNotFound(err) {
 			// TODO set Condition for user, could be legitimate if pod is deleted
@@ -333,7 +320,7 @@ func findDownloadURL(cjfr jfrclient.ContainerJfrClient, filename string) (*strin
 	return nil, nil
 }
 
-func archiveStoppedRecording(cjfr jfrclient.ContainerJfrClient, recording *rhjmcv1alpha2.Recording,
+func archiveStoppedRecording(cjfr jfrclient.ContainerJfrClient, recording *rhjmcv1beta1.Recording,
 	target *jfrclient.TargetAddress) (*string, error) {
 	// Check if existing download URL points to an archived recording
 	jfrFile, err := recordingFilename(*recording.Status.DownloadURL)
@@ -363,7 +350,7 @@ func archiveStoppedRecording(cjfr jfrclient.ContainerJfrClient, recording *rhjmc
 }
 
 func removeRecording(cjfr jfrclient.ContainerJfrClient, target *jfrclient.TargetAddress,
-	recording *rhjmcv1alpha2.Recording) error {
+	recording *rhjmcv1beta1.Recording) error {
 	// Check if recording exists in Container JFR's in-memory list
 	recName := recording.Spec.Name
 	found, err := findRecordingByName(cjfr, target, recName)
@@ -382,7 +369,7 @@ func removeRecording(cjfr jfrclient.ContainerJfrClient, target *jfrclient.Target
 }
 
 func (r *ReconcileRecording) removeSavedRecording(cjfr jfrclient.ContainerJfrClient,
-	recording *rhjmcv1alpha2.Recording) error {
+	recording *rhjmcv1beta1.Recording) error {
 	if recording.Status.DownloadURL != nil {
 		jfrFile, err := recordingFilename(*recording.Status.DownloadURL)
 		if err != nil {
@@ -406,7 +393,28 @@ func (r *ReconcileRecording) removeSavedRecording(cjfr jfrclient.ContainerJfrCli
 	return nil
 }
 
-func (r *ReconcileRecording) addRecordingFinalizer(ctx context.Context, recording *rhjmcv1alpha2.Recording) error {
+func (r *ReconcileRecording) applyFlightRecorderLabel(ctx context.Context, recording *rhjmcv1beta1.Recording,
+	jfrName string) error {
+	// Set label if not present or contains the wrong FlightRecorder name
+	labels := recording.GetLabels()
+	if labels[rhjmcv1beta1.RecordingLabel] != jfrName {
+		// Initialize labels map if recording has no labels
+		if labels == nil {
+			labels = map[string]string{}
+		}
+		labels[rhjmcv1beta1.RecordingLabel] = jfrName
+		recording.SetLabels(labels)
+
+		err := r.Client.Update(ctx, recording)
+		if err != nil {
+			return err
+		}
+		log.Info("added label for recording", "namespace", recording.Namespace, "name", recording.Name)
+	}
+	return nil
+}
+
+func (r *ReconcileRecording) addRecordingFinalizer(ctx context.Context, recording *rhjmcv1beta1.Recording) error {
 	log.Info("adding finalizer for recording", "namespace", recording.Namespace, "name", recording.Name)
 	finalizers := append(recording.GetFinalizers(), recordingFinalizer)
 	recording.SetFinalizers(finalizers)
@@ -420,7 +428,7 @@ func (r *ReconcileRecording) addRecordingFinalizer(ctx context.Context, recordin
 	return nil
 }
 
-func (r *ReconcileRecording) removeRecordingFinalizer(ctx context.Context, recording *rhjmcv1alpha2.Recording) error {
+func (r *ReconcileRecording) removeRecordingFinalizer(ctx context.Context, recording *rhjmcv1beta1.Recording) error {
 	finalizers := recording.GetFinalizers()
 	foundIdx := -1
 	for idx, finalizer := range finalizers {
@@ -444,6 +452,95 @@ func (r *ReconcileRecording) removeRecordingFinalizer(ctx context.Context, recor
 	return nil
 }
 
+func (r *ReconcileRecording) deleteWithoutLiveTarget(ctx context.Context, recording *rhjmcv1beta1.Recording) (reconcile.Result, error) {
+	reqLogger := log.WithValues("Request.Namespace", recording.Namespace, "Request.Name", recording.Name)
+	reqLogger.Info("no matching FlightRecorder, proceeding with recording deletion")
+
+	// Obtain a client configured to communicate with Container JFR without JMX credentials
+	cjfr, err := r.GetContainerJFRClient(ctx, recording.Namespace, nil)
+	if err != nil {
+		return requeueIfNotReady(err)
+	}
+
+	// Delete any persisted JFR file for this recording
+	err = r.removeSavedRecording(cjfr, recording)
+	if err != nil {
+		reqLogger.Error(err, "failed to delete saved recording in Container JFR")
+		return reconcile.Result{}, err
+	}
+
+	// Allow deletion to proceed, since no FlightRecorder/Pod to clean up
+	err = r.removeRecordingFinalizer(ctx, recording)
+	return reconcile.Result{}, err
+}
+
+func (r *ReconcileRecording) deleteWithLiveTarget(ctx context.Context, cjfr jfrclient.ContainerJfrClient,
+	recording *rhjmcv1beta1.Recording, target *jfrclient.TargetAddress) (reconcile.Result, error) {
+	reqLogger := log.WithValues("Request.Namespace", recording.Namespace, "Request.Name", recording.Name)
+	// Delete any persisted JFR file for this recording
+	err := r.removeSavedRecording(cjfr, recording)
+	if err != nil {
+		reqLogger.Error(err, "failed to delete saved recording in Container JFR")
+		return reconcile.Result{}, err
+	}
+
+	// Delete in-memory recording in Container JFR
+	err = removeRecording(cjfr, target, recording)
+	if err != nil {
+		reqLogger.Error(err, "failed to delete recording in Container JFR")
+		return reconcile.Result{}, err
+	}
+
+	// Remove our finalizer only once our cleanup logic has succeeded
+	err = r.removeRecordingFinalizer(ctx, recording)
+	return reconcile.Result{}, err
+}
+
+func watchFlightRecorders(ctrl controller.Controller, cl client.Client) error {
+	ctx := context.Background()
+	jfrPredicate := predicate.Funcs{
+		UpdateFunc: func(e event.UpdateEvent) bool {
+			return true
+		},
+		CreateFunc: func(e event.CreateEvent) bool {
+			return true
+		},
+	}
+
+	mapFunc := handler.ToRequestsFunc(
+		func(obj handler.MapObject) []reconcile.Request {
+			// Look up all recordings that reference the changed FlightRecorder
+			recordings := &rhjmcv1beta1.RecordingList{}
+			selector := labels.SelectorFromSet(labels.Set{
+				rhjmcv1beta1.RecordingLabel: obj.Meta.GetName(),
+			})
+			err := cl.List(ctx, recordings, &client.ListOptions{
+				Namespace:     obj.Meta.GetNamespace(),
+				LabelSelector: selector,
+			})
+			if err != nil {
+				log.Error(err, "Failed to list Recordings", "namespace", obj.Meta.GetNamespace(),
+					"selector", selector.String())
+			}
+
+			// Reconcile each recording that was found
+			requests := make([]reconcile.Request, len(recordings.Items))
+			for idx, recording := range recordings.Items {
+				request := reconcile.Request{
+					NamespacedName: types.NamespacedName{
+						Namespace: recording.Namespace,
+						Name:      recording.Name,
+					},
+				}
+				requests[idx] = request
+			}
+			return requests
+		})
+
+	return ctrl.Watch(&source.Kind{Type: &rhjmcv1beta1.FlightRecorder{}},
+		&handler.EnqueueRequestsFromMapFunc{ToRequests: mapFunc}, jfrPredicate)
+}
+
 func findRecordingByName(cjfr jfrclient.ContainerJfrClient, target *jfrclient.TargetAddress,
 	name string) (*jfrclient.RecordingDescriptor, error) {
 	// Get an updated list of in-memory flight recordings
@@ -461,13 +558,13 @@ func findRecordingByName(cjfr jfrclient.ContainerJfrClient, target *jfrclient.Ta
 	return nil, nil
 }
 
-func validateRecordingState(state string) (*rhjmcv1alpha2.RecordingState, error) {
-	convState := rhjmcv1alpha2.RecordingState(state)
+func validateRecordingState(state string) (*rhjmcv1beta1.RecordingState, error) {
+	convState := rhjmcv1beta1.RecordingState(state)
 	switch convState {
-	case rhjmcv1alpha2.RecordingStateCreated,
-		rhjmcv1alpha2.RecordingStateRunning,
-		rhjmcv1alpha2.RecordingStateStopping,
-		rhjmcv1alpha2.RecordingStateStopped:
+	case rhjmcv1beta1.RecordingStateCreated,
+		rhjmcv1beta1.RecordingStateRunning,
+		rhjmcv1beta1.RecordingStateStopping,
+		rhjmcv1beta1.RecordingStateStopped:
 		return &convState, nil
 	}
 	return nil, fmt.Errorf("unknown recording state %s", state)
@@ -483,7 +580,7 @@ func recordingFilename(recordingURL string) (*string, error) {
 	return &jfrFile, nil
 }
 
-func shouldStopRecording(recording *rhjmcv1alpha2.Recording) bool {
+func shouldStopRecording(recording *rhjmcv1beta1.Recording) bool {
 	// Need to know user's request, and current state of recording
 	requested := recording.Spec.State
 	current := recording.Status.State
@@ -492,15 +589,23 @@ func shouldStopRecording(recording *rhjmcv1alpha2.Recording) bool {
 	}
 
 	// Should stop if user wants recording stopped and we're not already doing/done so
-	return *requested == rhjmcv1alpha2.RecordingStateStopped && *current != rhjmcv1alpha2.RecordingStateStopped &&
-		*current != rhjmcv1alpha2.RecordingStateStopping
+	return *requested == rhjmcv1beta1.RecordingStateStopped && *current != rhjmcv1beta1.RecordingStateStopped &&
+		*current != rhjmcv1beta1.RecordingStateStopping
 }
 
-func hasRecordingFinalizer(recording *rhjmcv1alpha2.Recording) bool {
+func hasRecordingFinalizer(recording *rhjmcv1beta1.Recording) bool {
 	for _, finalizer := range recording.GetFinalizers() {
 		if finalizer == recordingFinalizer {
 			return true
 		}
 	}
 	return false
+}
+
+func requeueIfNotReady(err error) (reconcile.Result, error) {
+	if err == common.ErrCertNotReady {
+		log.Info("Waiting for CA certificate")
+		return reconcile.Result{RequeueAfter: 5 * time.Second}, nil
+	}
+	return reconcile.Result{}, err
 }

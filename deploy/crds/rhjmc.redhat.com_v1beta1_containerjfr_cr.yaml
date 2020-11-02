@@ -1,0 +1,6 @@
+apiVersion: rhjmc.redhat.com/v1beta1
+kind: ContainerJFR
+metadata:
+  name: containerjfr
+spec:
+  minimal: false

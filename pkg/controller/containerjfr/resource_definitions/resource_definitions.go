@@ -41,7 +41,7 @@ import (
 	"math/rand"
 	"time"
 
-	rhjmcv1alpha1 "github.com/rh-jmc-team/container-jfr-operator/pkg/apis/rhjmc/v1alpha1"
+	rhjmcv1beta1 "github.com/rh-jmc-team/container-jfr-operator/pkg/apis/rhjmc/v1beta1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -65,7 +65,7 @@ type TLSConfig struct {
 	KeystorePassSecret string
 }
 
-func NewPersistentVolumeClaimForCR(cr *rhjmcv1alpha1.ContainerJFR) *corev1.PersistentVolumeClaim {
+func NewPersistentVolumeClaimForCR(cr *rhjmcv1beta1.ContainerJFR) *corev1.PersistentVolumeClaim {
 	storageClassName := ""
 	return &corev1.PersistentVolumeClaim{
 		ObjectMeta: metav1.ObjectMeta{
@@ -87,7 +87,7 @@ func NewPersistentVolumeClaimForCR(cr *rhjmcv1alpha1.ContainerJFR) *corev1.Persi
 	}
 }
 
-func NewDeploymentForCR(cr *rhjmcv1alpha1.ContainerJFR, specs *ServiceSpecs, tls *TLSConfig) *appsv1.Deployment {
+func NewDeploymentForCR(cr *rhjmcv1beta1.ContainerJFR, specs *ServiceSpecs, tls *TLSConfig) *appsv1.Deployment {
 	return &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      cr.Name,
@@ -127,7 +127,7 @@ func NewDeploymentForCR(cr *rhjmcv1alpha1.ContainerJFR, specs *ServiceSpecs, tls
 	}
 }
 
-func NewPodForCR(cr *rhjmcv1alpha1.ContainerJFR, specs *ServiceSpecs, tls *TLSConfig) *corev1.PodSpec {
+func NewPodForCR(cr *rhjmcv1beta1.ContainerJFR, specs *ServiceSpecs, tls *TLSConfig) *corev1.PodSpec {
 	var containers []corev1.Container
 	if cr.Spec.Minimal {
 		containers = []corev1.Container{
@@ -177,7 +177,7 @@ func NewPodForCR(cr *rhjmcv1alpha1.ContainerJFR, specs *ServiceSpecs, tls *TLSCo
 	}
 }
 
-func NewCoreContainer(cr *rhjmcv1alpha1.ContainerJFR, specs *ServiceSpecs, tls *TLSConfig) corev1.Container {
+func NewCoreContainer(cr *rhjmcv1beta1.ContainerJFR, specs *ServiceSpecs, tls *TLSConfig) corev1.Container {
 	envs := []corev1.EnvVar{
 		{
 			Name:  "CONTAINER_JFR_PLATFORM",
@@ -222,11 +222,6 @@ func NewCoreContainer(cr *rhjmcv1alpha1.ContainerJFR, specs *ServiceSpecs, tls *
 		{
 			Name:  "GRAFANA_DATASOURCE_URL",
 			Value: DatasourceURL,
-		},
-		{
-			// FIXME remove once JMX auth support is present in operator
-			Name:  "CONTAINER_JFR_DISABLE_JMX_AUTH",
-			Value: "true",
 		},
 	}
 	envsFrom := []corev1.EnvFromSource{
@@ -326,7 +321,7 @@ func NewCoreContainer(cr *rhjmcv1alpha1.ContainerJFR, specs *ServiceSpecs, tls *
 	}
 }
 
-func NewGrafanaSecretForCR(cr *rhjmcv1alpha1.ContainerJFR) *corev1.Secret {
+func NewGrafanaSecretForCR(cr *rhjmcv1beta1.ContainerJFR) *corev1.Secret {
 	return &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      cr.Name + "-grafana-basic",
@@ -349,7 +344,7 @@ func GenPasswd(length int) string {
 	return string(b)
 }
 
-func NewGrafanaContainer(cr *rhjmcv1alpha1.ContainerJFR, tls *TLSConfig) corev1.Container {
+func NewGrafanaContainer(cr *rhjmcv1beta1.ContainerJFR, tls *TLSConfig) corev1.Container {
 	envs := []corev1.EnvVar{
 		{
 			Name:  "GF_INSTALL_PLUGINS",
@@ -425,7 +420,7 @@ const datasourcePort = "8080"
 // DatasourceURL contains the fixed URL to jfr-datasource's web server
 const DatasourceURL = "http://" + datasourceHost + ":" + datasourcePort
 
-func NewJfrDatasourceContainer(cr *rhjmcv1alpha1.ContainerJFR) corev1.Container {
+func NewJfrDatasourceContainer(cr *rhjmcv1beta1.ContainerJFR) corev1.Container {
 	return corev1.Container{
 		Name:  cr.Name + "-jfr-datasource",
 		Image: "quay.io/rh-jmc-team/jfr-datasource:0.0.2",
@@ -451,7 +446,7 @@ func NewJfrDatasourceContainer(cr *rhjmcv1alpha1.ContainerJFR) corev1.Container 
 	}
 }
 
-func NewExporterService(cr *rhjmcv1alpha1.ContainerJFR) *corev1.Service {
+func NewExporterService(cr *rhjmcv1beta1.ContainerJFR) *corev1.Service {
 	return &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      cr.Name,
@@ -482,7 +477,7 @@ func NewExporterService(cr *rhjmcv1alpha1.ContainerJFR) *corev1.Service {
 	}
 }
 
-func NewCommandChannelService(cr *rhjmcv1alpha1.ContainerJFR) *corev1.Service {
+func NewCommandChannelService(cr *rhjmcv1beta1.ContainerJFR) *corev1.Service {
 	return &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      cr.Name + "-command",
@@ -508,7 +503,7 @@ func NewCommandChannelService(cr *rhjmcv1alpha1.ContainerJFR) *corev1.Service {
 	}
 }
 
-func NewGrafanaService(cr *rhjmcv1alpha1.ContainerJFR) *corev1.Service {
+func NewGrafanaService(cr *rhjmcv1beta1.ContainerJFR) *corev1.Service {
 	return &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      cr.Name + "-grafana",
@@ -534,10 +529,20 @@ func NewGrafanaService(cr *rhjmcv1alpha1.ContainerJFR) *corev1.Service {
 	}
 }
 
-func NewJmxSecretForCR(cr *rhjmcv1alpha1.ContainerJFR) *corev1.Secret {
+// JMXSecretNameSuffix is the suffix to be appended to the name of a
+// ContainerJFR CR to name its JMX credentials secret
+const JMXSecretNameSuffix = "-jmx-auth"
+
+// JMXSecretUserKey indexes the username within the Container JFR JMX auth secret
+const JMXSecretUserKey = "CONTAINER_JFR_RJMX_USER"
+
+// JMXSecretPassKey indexes the password within the Container JFR JMX auth secret
+const JMXSecretPassKey = "CONTAINER_JFR_RJMX_PASS"
+
+func NewJmxSecretForCR(cr *rhjmcv1beta1.ContainerJFR) *corev1.Secret {
 	return &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      cr.Name + "-jmx-auth",
+			Name:      cr.Name + JMXSecretNameSuffix,
 			Namespace: cr.Namespace,
 		},
 		StringData: map[string]string{
@@ -547,7 +552,7 @@ func NewJmxSecretForCR(cr *rhjmcv1alpha1.ContainerJFR) *corev1.Secret {
 	}
 }
 
-func NewKeystoreSecretForCR(cr *rhjmcv1alpha1.ContainerJFR) *corev1.Secret {
+func NewKeystoreSecretForCR(cr *rhjmcv1beta1.ContainerJFR) *corev1.Secret {
 	return &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      cr.Name + "-keystore",

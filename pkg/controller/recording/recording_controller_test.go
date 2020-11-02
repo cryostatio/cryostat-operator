@@ -53,7 +53,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/operator-framework/operator-sdk/pkg/log/zap"
-	rhjmcv1alpha2 "github.com/rh-jmc-team/container-jfr-operator/pkg/apis/rhjmc/v1alpha2"
+	rhjmcv1beta1 "github.com/rh-jmc-team/container-jfr-operator/pkg/apis/rhjmc/v1beta1"
 	jfrclient "github.com/rh-jmc-team/container-jfr-operator/pkg/client"
 	"github.com/rh-jmc-team/container-jfr-operator/pkg/controller/recording"
 	"github.com/rh-jmc-team/container-jfr-operator/test"
@@ -82,13 +82,14 @@ var _ = Describe("RecordingController", func() {
 	})
 
 	JustAfterEach(func() {
+		server.VerifyRequestsReceived(handlers)
 		server.Close()
 	})
 
 	BeforeEach(func() {
 		objs = []runtime.Object{
 			test.NewContainerJFR(), test.NewCACert(), test.NewFlightRecorder(),
-			test.NewTargetPod(), test.NewContainerJFRService(),
+			test.NewTargetPod(), test.NewContainerJFRService(), test.NewJMXAuthSecret(),
 		}
 	})
 
@@ -109,7 +110,7 @@ var _ = Describe("RecordingController", func() {
 			})
 			It("updates status with recording info", func() {
 				desc := test.NewRecordingDescriptors("RUNNING", 30000)[0]
-				expectRecordingStatus(controller, client, &desc)
+				expectRecordingUpdated(controller, client, &desc)
 			})
 			It("adds finalizer to recording", func() {
 				expectFinalizerPresent(controller, client)
@@ -139,7 +140,7 @@ var _ = Describe("RecordingController", func() {
 			})
 			It("updates status with recording info", func() {
 				desc := test.NewRecordingDescriptors("RUNNING", 0)[0]
-				expectRecordingStatus(controller, client, &desc)
+				expectRecordingUpdated(controller, client, &desc)
 			})
 			It("should requeue after 10 seconds", func() {
 				expectResult(controller, reconcile.Result{RequeueAfter: 10 * time.Second})
@@ -216,7 +217,7 @@ var _ = Describe("RecordingController", func() {
 			})
 			It("should stop recording", func() {
 				desc := test.NewRecordingDescriptors("STOPPED", 0)[0]
-				expectRecordingStatus(controller, client, &desc)
+				expectRecordingUpdated(controller, client, &desc)
 			})
 			It("should not requeue", func() {
 				expectResult(controller, reconcile.Result{})
@@ -246,14 +247,14 @@ var _ = Describe("RecordingController", func() {
 			It("should update download URL", func() {
 				req := reconcile.Request{NamespacedName: types.NamespacedName{Name: "my-recording", Namespace: "default"}}
 
-				before := &rhjmcv1alpha2.Recording{}
+				before := &rhjmcv1beta1.Recording{}
 				err := client.Get(context.Background(), req.NamespacedName, before)
 				Expect(err).ToNot(HaveOccurred())
 
 				_, err = controller.Reconcile(req)
 				Expect(err).ToNot(HaveOccurred())
 
-				after := &rhjmcv1alpha2.Recording{}
+				after := &rhjmcv1beta1.Recording{}
 				err = client.Get(context.Background(), req.NamespacedName, after)
 				Expect(err).ToNot(HaveOccurred())
 
@@ -310,19 +311,19 @@ var _ = Describe("RecordingController", func() {
 				_, err := controller.Reconcile(req)
 				Expect(err).ToNot(HaveOccurred())
 
-				obj := &rhjmcv1alpha2.Recording{}
+				obj := &rhjmcv1beta1.Recording{}
 				err = client.Get(context.Background(), req.NamespacedName, obj)
 				Expect(err).ToNot(HaveOccurred())
 
 				Expect(obj.Status.State).ToNot(BeNil())
-				Expect(*obj.Status.State).To(Equal(rhjmcv1alpha2.RecordingStateStopped))
+				Expect(*obj.Status.State).To(Equal(rhjmcv1beta1.RecordingStateStopped))
 			})
 			It("should update download URL", func() {
 				req := reconcile.Request{NamespacedName: types.NamespacedName{Name: "my-recording", Namespace: "default"}}
 				_, err := controller.Reconcile(req)
 				Expect(err).ToNot(HaveOccurred())
 
-				obj := &rhjmcv1alpha2.Recording{}
+				obj := &rhjmcv1beta1.Recording{}
 				err = client.Get(context.Background(), req.NamespacedName, obj)
 				Expect(err).ToNot(HaveOccurred())
 
@@ -370,10 +371,11 @@ var _ = Describe("RecordingController", func() {
 				objs = []runtime.Object{
 					test.NewContainerJFR(), test.NewCACert(), test.NewTargetPod(),
 					test.NewContainerJFRService(), test.NewDeletedArchivedRecording(),
+					test.NewJMXAuthSecret(),
 				}
 				handlers = []http.HandlerFunc{
-					test.NewListSavedHandler(test.NewSavedRecordings()),
-					test.NewDeleteSavedHandler(),
+					test.NewListSavedNoJMXAuthHandler(test.NewSavedRecordings()),
+					test.NewDeleteSavedNoJMXAuthHandler(),
 				}
 			})
 			It("should remove the finalizer", func() {
@@ -429,10 +431,10 @@ var _ = Describe("RecordingController", func() {
 		Context("FlightRecorder Status not updated yet", func() {
 			BeforeEach(func() {
 				otherFr := test.NewFlightRecorder()
-				otherFr.Status = rhjmcv1alpha2.FlightRecorderStatus{}
+				otherFr.Status = rhjmcv1beta1.FlightRecorderStatus{}
 				objs = []runtime.Object{
 					test.NewContainerJFR(), test.NewCACert(), otherFr, test.NewTargetPod(),
-					test.NewContainerJFRService(), test.NewRecording(),
+					test.NewContainerJFRService(), test.NewRecording(), test.NewJMXAuthSecret(),
 				}
 				handlers = []http.HandlerFunc{}
 			})
@@ -444,7 +446,7 @@ var _ = Describe("RecordingController", func() {
 			BeforeEach(func() {
 				objs = []runtime.Object{
 					test.NewFlightRecorder(), test.NewCACert(), test.NewTargetPod(),
-					test.NewContainerJFRService(), test.NewRecording(),
+					test.NewContainerJFRService(), test.NewRecording(), test.NewJMXAuthSecret(),
 				}
 				handlers = []http.HandlerFunc{}
 			})
@@ -456,7 +458,7 @@ var _ = Describe("RecordingController", func() {
 			BeforeEach(func() {
 				objs = []runtime.Object{
 					test.NewContainerJFR(), test.NewCACert(), test.NewFlightRecorder(),
-					test.NewTargetPod(), test.NewRecording(),
+					test.NewTargetPod(), test.NewRecording(), test.NewJMXAuthSecret(),
 				}
 				handlers = []http.HandlerFunc{}
 			})
@@ -468,7 +470,7 @@ var _ = Describe("RecordingController", func() {
 			BeforeEach(func() {
 				objs = []runtime.Object{
 					test.NewContainerJFR(), test.NewCACert(), test.NewTargetPod(),
-					test.NewContainerJFRService(), test.NewRecording(),
+					test.NewContainerJFRService(), test.NewRecording(), test.NewJMXAuthSecret(),
 				}
 				handlers = []http.HandlerFunc{}
 			})
@@ -478,12 +480,37 @@ var _ = Describe("RecordingController", func() {
 				Expect(err).ToNot(HaveOccurred())
 				Expect(result).To(Equal(reconcile.Result{}))
 			})
+			It("should set FlightRecorder label", func() {
+				obj := reconcileAndGet(controller, client)
+				Expect(obj.Labels).To(HaveKeyWithValue(rhjmcv1beta1.RecordingLabel, "test-pod"))
+			})
+		})
+		Context("FlightRecorder is not defined in Recording", func() {
+			BeforeEach(func() {
+				recording := test.NewRecording()
+				recording.Spec.FlightRecorder = nil
+				objs = []runtime.Object{
+					test.NewContainerJFR(), test.NewCACert(), test.NewFlightRecorder(), test.NewTargetPod(),
+					test.NewContainerJFRService(), recording, test.NewJMXAuthSecret(),
+				}
+				handlers = []http.HandlerFunc{}
+			})
+			It("should not requeue", func() {
+				req := reconcile.Request{NamespacedName: types.NamespacedName{Name: "my-recording", Namespace: "default"}}
+				result, err := controller.Reconcile(req)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(result).To(Equal(reconcile.Result{}))
+			})
+			It("should not set FlightRecorder label", func() {
+				obj := reconcileAndGet(controller, client)
+				Expect(obj.Labels).To(BeEmpty())
+			})
 		})
 		Context("Target pod is missing", func() {
 			BeforeEach(func() {
 				objs = []runtime.Object{
 					test.NewContainerJFR(), test.NewCACert(), test.NewFlightRecorder(),
-					test.NewContainerJFRService(), test.NewRecording(),
+					test.NewContainerJFRService(), test.NewRecording(), test.NewJMXAuthSecret(),
 				}
 				handlers = []http.HandlerFunc{}
 			})
@@ -497,7 +524,7 @@ var _ = Describe("RecordingController", func() {
 				otherPod.Status.PodIP = ""
 				objs = []runtime.Object{
 					test.NewContainerJFR(), test.NewCACert(), test.NewFlightRecorder(), otherPod,
-					test.NewContainerJFRService(), test.NewRecording(),
+					test.NewContainerJFRService(), test.NewRecording(), test.NewJMXAuthSecret(),
 				}
 				handlers = []http.HandlerFunc{}
 			})
@@ -508,11 +535,13 @@ var _ = Describe("RecordingController", func() {
 	})
 })
 
-func expectRecordingStatus(controller *recording.ReconcileRecording, client client.Client, desc *jfrclient.RecordingDescriptor) {
+func expectRecordingUpdated(controller *recording.ReconcileRecording, client client.Client, desc *jfrclient.RecordingDescriptor) {
 	obj := reconcileAndGet(controller, client)
 
+	Expect(obj.Labels).To(HaveKeyWithValue(rhjmcv1beta1.RecordingLabel, "test-pod"))
+
 	Expect(obj.Status.State).ToNot(BeNil())
-	Expect(*obj.Status.State).To(Equal(rhjmcv1alpha2.RecordingState(desc.State)))
+	Expect(*obj.Status.State).To(Equal(rhjmcv1beta1.RecordingState(desc.State)))
 	// Converted to RFC3339 during serialization (sub-second precision lost)
 	Expect(obj.Status.StartTime).To(Equal(metav1.Unix(0, desc.StartTime*int64(time.Millisecond)).Rfc3339Copy()))
 	Expect(obj.Status.Duration).To(Equal(metav1.Duration{
@@ -523,7 +552,7 @@ func expectRecordingStatus(controller *recording.ReconcileRecording, client clie
 }
 
 func expectStatusUnchanged(controller *recording.ReconcileRecording, client client.Client) {
-	before := &rhjmcv1alpha2.Recording{}
+	before := &rhjmcv1beta1.Recording{}
 	err := client.Get(context.Background(), types.NamespacedName{Name: "my-recording", Namespace: "default"}, before)
 	Expect(err).ToNot(HaveOccurred())
 
@@ -557,11 +586,11 @@ func expectResult(controller *recording.ReconcileRecording, result reconcile.Res
 	Expect(result).To(Equal(result))
 }
 
-func reconcileAndGet(controller *recording.ReconcileRecording, client client.Client) *rhjmcv1alpha2.Recording {
+func reconcileAndGet(controller *recording.ReconcileRecording, client client.Client) *rhjmcv1beta1.Recording {
 	req := reconcile.Request{NamespacedName: types.NamespacedName{Name: "my-recording", Namespace: "default"}}
 	controller.Reconcile(req)
 
-	obj := &rhjmcv1alpha2.Recording{}
+	obj := &rhjmcv1beta1.Recording{}
 	err := client.Get(context.Background(), req.NamespacedName, obj)
 	Expect(err).ToNot(HaveOccurred())
 	return obj

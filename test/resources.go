@@ -43,8 +43,7 @@ import (
 	"github.com/onsi/gomega"
 	routev1 "github.com/openshift/api/route/v1"
 	"github.com/rh-jmc-team/container-jfr-operator/pkg/apis"
-	rhjmcv1alpha1 "github.com/rh-jmc-team/container-jfr-operator/pkg/apis/rhjmc/v1alpha1"
-	rhjmcv1alpha2 "github.com/rh-jmc-team/container-jfr-operator/pkg/apis/rhjmc/v1alpha2"
+	rhjmcv1beta1 "github.com/rh-jmc-team/container-jfr-operator/pkg/apis/rhjmc/v1beta1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -65,28 +64,55 @@ func NewTestScheme() *runtime.Scheme {
 	return s
 }
 
-func NewContainerJFR() *rhjmcv1alpha1.ContainerJFR {
-	return &rhjmcv1alpha1.ContainerJFR{
+func NewContainerJFR() *rhjmcv1beta1.ContainerJFR {
+	return &rhjmcv1beta1.ContainerJFR{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "containerjfr",
 			Namespace: "default",
 		},
-		Spec: rhjmcv1alpha1.ContainerJFRSpec{
+		Spec: rhjmcv1beta1.ContainerJFRSpec{
 			Minimal: false,
 		},
 	}
 }
 
-func NewFlightRecorder() *rhjmcv1alpha2.FlightRecorder {
-	return &rhjmcv1alpha2.FlightRecorder{
+func NewFlightRecorder() *rhjmcv1beta1.FlightRecorder {
+	return newFlightRecorder(&rhjmcv1beta1.JMXAuthSecret{
+		SecretName: "test-jmx-auth",
+	})
+}
+
+func NewFlightRecorderNoJMXAuth() *rhjmcv1beta1.FlightRecorder {
+	return newFlightRecorder(nil)
+}
+
+func NewFlightRecorderBadJMXUserKey() *rhjmcv1beta1.FlightRecorder {
+	key := "not-username"
+	return newFlightRecorder(&rhjmcv1beta1.JMXAuthSecret{
+		SecretName:  "test-jmx-auth",
+		UsernameKey: &key,
+	})
+}
+
+func NewFlightRecorderBadJMXPassKey() *rhjmcv1beta1.FlightRecorder {
+	key := "not-password"
+	return newFlightRecorder(&rhjmcv1beta1.JMXAuthSecret{
+		SecretName:  "test-jmx-auth",
+		PasswordKey: &key,
+	})
+}
+
+func newFlightRecorder(jmxAuth *rhjmcv1beta1.JMXAuthSecret) *rhjmcv1beta1.FlightRecorder {
+	return &rhjmcv1beta1.FlightRecorder{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "test-pod",
 			Namespace: "default",
 		},
-		Spec: rhjmcv1alpha2.FlightRecorderSpec{
-			RecordingSelector: metav1.AddLabelToSelector(&metav1.LabelSelector{}, rhjmcv1alpha2.RecordingLabel, "test-pod"),
+		Spec: rhjmcv1beta1.FlightRecorderSpec{
+			JMXCredentials:    jmxAuth,
+			RecordingSelector: metav1.AddLabelToSelector(&metav1.LabelSelector{}, rhjmcv1beta1.RecordingLabel, "test-pod"),
 		},
-		Status: rhjmcv1alpha2.FlightRecorderStatus{
+		Status: rhjmcv1beta1.FlightRecorderStatus{
 			Target: &corev1.ObjectReference{
 				APIVersion: "v1",
 				Kind:       "Pod",
@@ -98,77 +124,77 @@ func NewFlightRecorder() *rhjmcv1alpha2.FlightRecorder {
 	}
 }
 
-func NewRecording() *rhjmcv1alpha2.Recording {
+func NewRecording() *rhjmcv1beta1.Recording {
 	return newRecording(getDuration(false), nil, nil, false)
 }
 
-func NewContinuousRecording() *rhjmcv1alpha2.Recording {
+func NewContinuousRecording() *rhjmcv1beta1.Recording {
 	return newRecording(getDuration(true), nil, nil, false)
 }
 
-func NewRunningRecording() *rhjmcv1alpha2.Recording {
-	running := rhjmcv1alpha2.RecordingStateRunning
+func NewRunningRecording() *rhjmcv1beta1.Recording {
+	running := rhjmcv1beta1.RecordingStateRunning
 	return newRecording(getDuration(false), &running, nil, false)
 }
 
-func NewRunningContinuousRecording() *rhjmcv1alpha2.Recording {
-	running := rhjmcv1alpha2.RecordingStateRunning
+func NewRunningContinuousRecording() *rhjmcv1beta1.Recording {
+	running := rhjmcv1beta1.RecordingStateRunning
 	return newRecording(getDuration(true), &running, nil, false)
 }
 
-func NewRecordingToStop() *rhjmcv1alpha2.Recording {
-	running := rhjmcv1alpha2.RecordingStateRunning
-	stopped := rhjmcv1alpha2.RecordingStateStopped
+func NewRecordingToStop() *rhjmcv1beta1.Recording {
+	running := rhjmcv1beta1.RecordingStateRunning
+	stopped := rhjmcv1beta1.RecordingStateStopped
 	return newRecording(getDuration(true), &running, &stopped, false)
 }
 
-func NewStoppedRecordingToArchive() *rhjmcv1alpha2.Recording {
-	stopped := rhjmcv1alpha2.RecordingStateStopped
+func NewStoppedRecordingToArchive() *rhjmcv1beta1.Recording {
+	stopped := rhjmcv1beta1.RecordingStateStopped
 	return newRecording(getDuration(false), &stopped, nil, true)
 }
 
-func NewRecordingToStopAndArchive() *rhjmcv1alpha2.Recording {
-	running := rhjmcv1alpha2.RecordingStateRunning
-	stopped := rhjmcv1alpha2.RecordingStateStopped
+func NewRecordingToStopAndArchive() *rhjmcv1beta1.Recording {
+	running := rhjmcv1beta1.RecordingStateRunning
+	stopped := rhjmcv1beta1.RecordingStateStopped
 	return newRecording(getDuration(true), &running, &stopped, true)
 }
 
-func NewArchivedRecording() *rhjmcv1alpha2.Recording {
-	stopped := rhjmcv1alpha2.RecordingStateStopped
+func NewArchivedRecording() *rhjmcv1beta1.Recording {
+	stopped := rhjmcv1beta1.RecordingStateStopped
 	rec := newRecording(getDuration(false), &stopped, nil, true)
 	savedURL := "http://path/to/saved-test-recording.jfr"
 	rec.Status.DownloadURL = &savedURL
 	return rec
 }
 
-func NewDeletedArchivedRecording() *rhjmcv1alpha2.Recording {
+func NewDeletedArchivedRecording() *rhjmcv1beta1.Recording {
 	rec := NewArchivedRecording()
 	delTime := metav1.Unix(0, 1598045501618*int64(time.Millisecond))
 	rec.DeletionTimestamp = &delTime
 	return rec
 }
 
-func newRecording(duration time.Duration, currentState *rhjmcv1alpha2.RecordingState,
-	requestedState *rhjmcv1alpha2.RecordingState, archive bool) *rhjmcv1alpha2.Recording {
+func newRecording(duration time.Duration, currentState *rhjmcv1beta1.RecordingState,
+	requestedState *rhjmcv1beta1.RecordingState, archive bool) *rhjmcv1beta1.Recording {
 	finalizers := []string{}
-	status := rhjmcv1alpha2.RecordingStatus{}
+	status := rhjmcv1beta1.RecordingStatus{}
 	if currentState != nil {
 		url := "http://path/to/test-recording.jfr"
 		finalizers = append(finalizers, "recording.finalizer.rhjmc.redhat.com")
-		status = rhjmcv1alpha2.RecordingStatus{
+		status = rhjmcv1beta1.RecordingStatus{
 			State:       currentState,
 			StartTime:   metav1.Unix(0, 1597090030341*int64(time.Millisecond)),
 			Duration:    metav1.Duration{Duration: duration},
 			DownloadURL: &url,
 		}
 	}
-	return &rhjmcv1alpha2.Recording{
+	return &rhjmcv1beta1.Recording{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:       "my-recording",
 			Namespace:  "default",
 			Finalizers: finalizers,
 		},
-		Spec: rhjmcv1alpha2.RecordingSpec{
+		Spec: rhjmcv1beta1.RecordingSpec{
 			Name: "test-recording",
 			EventOptions: []string{
 				"jdk.socketRead:enabled=true",
@@ -243,6 +269,19 @@ func newCASecret(certData []byte) *corev1.Secret {
 		},
 		Data: map[string][]byte{
 			corev1.TLSCertKey: certData,
+		},
+	}
+}
+
+func NewJMXAuthSecret() *corev1.Secret {
+	return &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-jmx-auth",
+			Namespace: "default",
+		},
+		Data: map[string][]byte{
+			rhjmcv1beta1.DefaultUsernameKey: []byte("hello"),
+			rhjmcv1beta1.DefaultPasswordKey: []byte("world"),
 		},
 	}
 }

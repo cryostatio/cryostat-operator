@@ -44,7 +44,7 @@ import (
 	goerrors "errors"
 
 	openshiftv1 "github.com/openshift/api/route/v1"
-	rhjmcv1alpha1 "github.com/rh-jmc-team/container-jfr-operator/pkg/apis/rhjmc/v1alpha1"
+	rhjmcv1beta1 "github.com/rh-jmc-team/container-jfr-operator/pkg/apis/rhjmc/v1beta1"
 	"github.com/rh-jmc-team/container-jfr-operator/pkg/controller/common"
 	resources "github.com/rh-jmc-team/container-jfr-operator/pkg/controller/containerjfr/resource_definitions"
 	appsv1 "k8s.io/api/apps/v1"
@@ -89,7 +89,7 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 	}
 
 	// Watch for changes to primary resource ContainerJFR
-	err = c.Watch(&source.Kind{Type: &rhjmcv1alpha1.ContainerJFR{}}, &handler.EnqueueRequestForObject{})
+	err = c.Watch(&source.Kind{Type: &rhjmcv1beta1.ContainerJFR{}}, &handler.EnqueueRequestForObject{})
 	if err != nil {
 		return err
 	}
@@ -98,7 +98,7 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 	// Watch for changes to secondary resource Pods and requeue the owner ContainerJFR
 	err = c.Watch(&source.Kind{Type: &corev1.Pod{}}, &handler.EnqueueRequestForOwner{
 		IsController: true,
-		OwnerType:    &rhjmcv1alpha1.ContainerJFR{},
+		OwnerType:    &rhjmcv1beta1.ContainerJFR{},
 	})
 	if err != nil {
 		return err
@@ -127,7 +127,7 @@ func (r *ReconcileContainerJFR) Reconcile(request reconcile.Request) (reconcile.
 	reqLogger.Info("Reconciling ContainerJFR")
 
 	// Fetch the ContainerJFR instance
-	instance := &rhjmcv1alpha1.ContainerJFR{}
+	instance := &rhjmcv1beta1.ContainerJFR{}
 	err := r.client.Get(context.Background(), request.NamespacedName, instance)
 	if err != nil {
 		if errors.IsNotFound(err) {
@@ -278,7 +278,7 @@ func (r *ReconcileContainerJFR) Reconcile(request reconcile.Request) (reconcile.
 	return reconcile.Result{}, nil
 }
 
-func (r *ReconcileContainerJFR) createService(ctx context.Context, controller *rhjmcv1alpha1.ContainerJFR, svc *corev1.Service, exposePort *corev1.ServicePort,
+func (r *ReconcileContainerJFR) createService(ctx context.Context, controller *rhjmcv1beta1.ContainerJFR, svc *corev1.Service, exposePort *corev1.ServicePort,
 	tlsConfig *openshiftv1.TLSConfig) (string, error) {
 	if err := controllerutil.SetControllerReference(controller, svc, r.scheme); err != nil {
 		return "", err
@@ -310,7 +310,7 @@ func (r *ReconcileContainerJFR) createService(ctx context.Context, controller *r
 	return fmt.Sprintf("%s:%d", svc.Spec.ClusterIP, svc.Spec.Ports[0].Port), nil
 }
 
-func (r *ReconcileContainerJFR) createRouteForService(controller *rhjmcv1alpha1.ContainerJFR, svc *corev1.Service, exposePort corev1.ServicePort,
+func (r *ReconcileContainerJFR) createRouteForService(controller *rhjmcv1beta1.ContainerJFR, svc *corev1.Service, exposePort corev1.ServicePort,
 	tlsConfig *openshiftv1.TLSConfig) (string, error) {
 	logger := log.WithValues("Request.Namespace", svc.Namespace, "Name", svc.Name, "Kind", fmt.Sprintf("%T", &openshiftv1.Route{}))
 	route := &openshiftv1.Route{
