@@ -95,38 +95,17 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 	}
 
 	// Watch for changes to secondary resource Deployements and requeue the owner ContainerJFR
-	err = c.Watch(&source.Kind{Type: &appsv1.Deployment{}}, &handler.EnqueueRequestForOwner{
-		IsController: true,
-		OwnerType:    &rhjmcv1beta1.ContainerJFR{},
-	})
-	if err != nil {
-		return err
-	}
+	resources := []runtime.Object{&appsv1.Deployment{}, &corev1.Service{}, &corev1.Secret{}, &openshiftv1.Route{}, &corev1.PersistentVolumeClaim{}}
 
-	err = c.Watch(&source.Kind{Type: &corev1.Service{}}, &handler.EnqueueRequestForOwner{
-		IsController: true,
-		OwnerType:    &rhjmcv1beta1.ContainerJFR{},
-	})
-	if err != nil {
-		return err
+	for _, resource := range resources {
+		err = c.Watch(&source.Kind{Type: resource}, &handler.EnqueueRequestForOwner{
+			IsController: true,
+			OwnerType:    &rhjmcv1beta1.ContainerJFR{},
+		})
+		if err != nil {
+			return err
+		}
 	}
-
-	err = c.Watch(&source.Kind{Type: &corev1.Secret{}}, &handler.EnqueueRequestForOwner{
-		IsController: true,
-		OwnerType:    &rhjmcv1beta1.ContainerJFR{},
-	})
-	if err != nil {
-		return err
-	}
-
-	err = c.Watch(&source.Kind{Type: &openshiftv1.Route{}}, &handler.EnqueueRequestForOwner{
-		IsController: true,
-		OwnerType:    &rhjmcv1beta1.ContainerJFR{},
-	})
-	if err != nil {
-		return err
-	}
-
 	// TODO watch certificates and redeploy when renewed
 
 	return nil
