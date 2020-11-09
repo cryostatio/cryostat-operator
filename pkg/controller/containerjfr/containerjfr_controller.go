@@ -94,14 +94,17 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 		return err
 	}
 
-	// TODO(user): Modify this to be the types you create that are owned by the primary resource
-	// Watch for changes to secondary resource Pods and requeue the owner ContainerJFR
-	err = c.Watch(&source.Kind{Type: &corev1.Pod{}}, &handler.EnqueueRequestForOwner{
-		IsController: true,
-		OwnerType:    &rhjmcv1beta1.ContainerJFR{},
-	})
-	if err != nil {
-		return err
+	// Watch for changes to secondary resources and requeue the owner ContainerJFR
+	resources := []runtime.Object{&appsv1.Deployment{}, &corev1.Service{}, &corev1.Secret{}, &openshiftv1.Route{}, &corev1.PersistentVolumeClaim{}}
+
+	for _, resource := range resources {
+		err = c.Watch(&source.Kind{Type: resource}, &handler.EnqueueRequestForOwner{
+			IsController: true,
+			OwnerType:    &rhjmcv1beta1.ContainerJFR{},
+		})
+		if err != nil {
+			return err
+		}
 	}
 	// TODO watch certificates and redeploy when renewed
 
