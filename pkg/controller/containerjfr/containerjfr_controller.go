@@ -94,7 +94,7 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 		return err
 	}
 
-	// Watch for changes to secondary resource Deployements and requeue the owner ContainerJFR
+	// Watch for changes to secondary resources and requeue the owner ContainerJFR
 	resources := []runtime.Object{&appsv1.Deployment{}, &corev1.Service{}, &corev1.Secret{}, &openshiftv1.Route{}, &corev1.PersistentVolumeClaim{}}
 
 	for _, resource := range resources {
