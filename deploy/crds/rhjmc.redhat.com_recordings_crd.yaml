@@ -80,6 +80,9 @@ spec:
             downloadURL:
               description: A URL to download the JFR file for the recording.
               type: string
+            reportURL:
+              description: A URL to download the automated report for the recording.
+              type: string
             duration:
               description: The duration of the recording specified during creation.
               type: string
