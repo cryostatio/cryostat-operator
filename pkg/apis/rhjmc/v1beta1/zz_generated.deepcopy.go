@@ -396,6 +396,11 @@ func (in *RecordingStatus) DeepCopyInto(out *RecordingStatus) {
 		*out = new(string)
 		**out = **in
 	}
+	if in.ReportURL != nil {
+		in, out := &in.ReportURL, &out.ReportURL
+		*out = new(string)
+		**out = **in
+	}
 	return
 }
 

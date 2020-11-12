@@ -224,6 +224,7 @@ func (r *ReconcileRecording) Reconcile(request reconcile.Request) (reconcile.Res
 	log.Info("Looking for recordings for pod", "pod", targetPod.Name, "namespace", targetPod.Namespace)
 	// Updated Download URL, use existing URL as default
 	downloadURL := instance.Status.DownloadURL
+	reportURL := instance.Status.ReportURL
 	descriptor, err := findRecordingByName(cjfr, targetAddr, instance.Spec.Name)
 	if err != nil {
 		return reconcile.Result{}, err
@@ -241,23 +242,27 @@ func (r *ReconcileRecording) Reconcile(request reconcile.Request) (reconcile.Res
 			Duration: time.Duration(descriptor.Duration) * time.Millisecond,
 		}
 		downloadURL = &descriptor.DownloadURL
+		reportURL = &descriptor.ReportURL
 	}
 
 	// Archive completed recording if requested and not already done
 	isStopped := instance.Status.State != nil && *instance.Status.State == rhjmcv1beta1.RecordingStateStopped
 	if instance.Spec.Archive && isStopped {
-		url, err := archiveStoppedRecording(cjfr, instance, targetAddr)
+		downloadUrl, reportUrl, err := archiveStoppedRecording(cjfr, instance, targetAddr)
 		if err != nil {
 			return reconcile.Result{}, err
-		} else if url == nil {
+		} else if downloadUrl == nil || reportUrl == nil {
 			// Unlikely, but log just in case
 			log.Info("Cannot find JFR URL just saved", "name", instance.Spec.Name)
 		} else {
-			log.Info("updating download URL", "name", instance.Spec.Name, "url", url)
-			downloadURL = url
+			log.Info("updating download URL", "name", instance.Spec.Name, "url", downloadUrl)
+			downloadURL = downloadUrl
+			log.Info("updating report URL", "name", instance.Spec.Name, "url", reportUrl)
+			reportURL = reportUrl
 		}
 	}
 	instance.Status.DownloadURL = downloadURL
+	instance.Status.ReportURL = reportURL
 
 	// Update Recording status
 	err = r.Client.Status().Update(ctx, instance)
@@ -305,36 +310,36 @@ func (r *ReconcileRecording) getFlightRecorder(ctx context.Context, recording *r
 	return jfr, nil
 }
 
-func findDownloadURL(cjfr jfrclient.ContainerJfrClient, filename string) (*string, error) {
+func findURLs(cjfr jfrclient.ContainerJfrClient, filename string) (*string, *string, error) {
 	// Look for our saved recording in list from Container JFR
 	savedRecordings, err := cjfr.ListSavedRecordings()
 	if err != nil {
 		log.Error(err, "failed to list saved flight recordings")
-		return nil, err
+		return nil, nil, err
 	}
 	for idx, saved := range savedRecordings {
 		if filename == saved.Name {
-			return &savedRecordings[idx].DownloadURL, nil
+			return &savedRecordings[idx].DownloadURL, &savedRecordings[idx].ReportURL, nil
 		}
 	}
-	return nil, nil
+	return nil, nil, nil
 }
 
 func archiveStoppedRecording(cjfr jfrclient.ContainerJfrClient, recording *rhjmcv1beta1.Recording,
-	target *jfrclient.TargetAddress) (*string, error) {
+	target *jfrclient.TargetAddress) (*string, *string, error) {
 	// Check if existing download URL points to an archived recording
 	jfrFile, err := recordingFilename(*recording.Status.DownloadURL)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
-	existing, err := findDownloadURL(cjfr, *jfrFile)
+	existingDownload, existingReport, err := findURLs(cjfr, *jfrFile)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
-	if existing != nil {
+	if existingDownload != nil && existingReport != nil {
 		// Use already archived recording as download URL
-		return existing, nil
+		return existingDownload, existingReport, nil
 	}
 
 	// Recording hasn't been archived yet, do so now
@@ -342,11 +347,11 @@ func archiveStoppedRecording(cjfr jfrclient.ContainerJfrClient, recording *rhjmc
 	filename, err := cjfr.SaveRecording(target, recording.Spec.Name)
 	if err != nil {
 		log.Error(err, "failed to save recording", "name", recording.Spec.Name)
-		return nil, err
+		return nil, nil, err
 	}
 
 	// Look up full URL for filename returned by SaveRecording
-	return findDownloadURL(cjfr, *filename)
+	return findURLs(cjfr, *filename)
 }
 
 func removeRecording(cjfr jfrclient.ContainerJfrClient, target *jfrclient.TargetAddress,
@@ -376,7 +381,7 @@ func (r *ReconcileRecording) removeSavedRecording(cjfr jfrclient.ContainerJfrCli
 			return err
 		}
 		// Look for this JFR file within Container JFR's list of saved recordings
-		found, err := findDownloadURL(cjfr, *jfrFile)
+		found, _, err := findURLs(cjfr, *jfrFile)
 		if err != nil {
 			return err
 		}
