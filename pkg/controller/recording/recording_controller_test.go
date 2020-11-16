@@ -265,6 +265,8 @@ var _ = Describe("RecordingController", func() {
 				Expect(after.Status.StartTime).To(Equal(before.Status.StartTime))
 				Expect(after.Status.DownloadURL).ToNot(BeNil())
 				Expect(*after.Status.DownloadURL).To(Equal(saved.DownloadURL))
+				Expect(after.Status.ReportURL).ToNot(BeNil())
+				Expect(*after.Status.ReportURL).To(Equal(saved.ReportURL))
 			})
 			It("should not requeue", func() {
 				expectResult(controller, reconcile.Result{})
@@ -329,6 +331,18 @@ var _ = Describe("RecordingController", func() {
 
 				Expect(obj.Status.DownloadURL).ToNot(BeNil())
 				Expect(*obj.Status.DownloadURL).To(Equal("http://path/to/saved-test-recording.jfr"))
+			})
+			It("should update report URL", func() {
+				req := reconcile.Request{NamespacedName: types.NamespacedName{Name: "my-recording", Namespace: "default"}}
+				_, err := controller.Reconcile(req)
+				Expect(err).ToNot(HaveOccurred())
+
+				obj := &rhjmcv1beta1.Recording{}
+				err = client.Get(context.Background(), req.NamespacedName, obj)
+				Expect(err).ToNot(HaveOccurred())
+
+				Expect(obj.Status.ReportURL).ToNot(BeNil())
+				Expect(*obj.Status.ReportURL).To(Equal("http://path/to/saved-test-recording.html"))
 			})
 			It("should not requeue", func() {
 				expectResult(controller, reconcile.Result{})
@@ -549,6 +563,8 @@ func expectRecordingUpdated(controller *recording.ReconcileRecording, client cli
 	}))
 	Expect(obj.Status.DownloadURL).ToNot(BeNil())
 	Expect(*obj.Status.DownloadURL).To(Equal(desc.DownloadURL))
+	Expect(obj.Status.ReportURL).ToNot(BeNil())
+	Expect(*obj.Status.ReportURL).To(Equal(desc.ReportURL))
 }
 
 func expectStatusUnchanged(controller *recording.ReconcileRecording, client client.Client) {
