@@ -159,6 +159,7 @@ func NewRecordingDescriptors(state string, duration int64) []jfrclient.Recording
 			StartTime:   1597090030341,
 			Duration:    duration,
 			DownloadURL: "http://path/to/test-recording.jfr",
+			ReportURL:   "http://path/to/test-recording.html",
 		},
 	}
 }

@@ -162,8 +162,10 @@ func NewRecordingToStopAndArchive() *rhjmcv1beta1.Recording {
 func NewArchivedRecording() *rhjmcv1beta1.Recording {
 	stopped := rhjmcv1beta1.RecordingStateStopped
 	rec := newRecording(getDuration(false), &stopped, nil, true)
-	savedURL := "http://path/to/saved-test-recording.jfr"
-	rec.Status.DownloadURL = &savedURL
+	savedDownloadURL := "http://path/to/saved-test-recording.jfr"
+	savedReportURL := "http://path/to/saved-test-recording.html"
+	rec.Status.DownloadURL = &savedDownloadURL
+	rec.Status.ReportURL = &savedReportURL
 	return rec
 }
 
@@ -179,13 +181,15 @@ func newRecording(duration time.Duration, currentState *rhjmcv1beta1.RecordingSt
 	finalizers := []string{}
 	status := rhjmcv1beta1.RecordingStatus{}
 	if currentState != nil {
-		url := "http://path/to/test-recording.jfr"
+		downloadUrl := "http://path/to/test-recording.jfr"
+		reportUrl := "http://path/to/test-recording.html"
 		finalizers = append(finalizers, "recording.finalizer.rhjmc.redhat.com")
 		status = rhjmcv1beta1.RecordingStatus{
 			State:       currentState,
 			StartTime:   metav1.Unix(0, 1597090030341*int64(time.Millisecond)),
 			Duration:    metav1.Duration{Duration: duration},
-			DownloadURL: &url,
+			DownloadURL: &downloadUrl,
+			ReportURL:   &reportUrl,
 		}
 	}
 	return &rhjmcv1beta1.Recording{
