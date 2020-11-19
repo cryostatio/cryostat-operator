@@ -368,10 +368,36 @@ spec:
                     description: 'UID of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#uids'
                     type: string
                 type: object
+              templates:
+                description: Listing of templates available in the target JVM
+                items:
+                  description: TemplateInfo contains metadata for a JFR template
+                  properties:
+                    description:
+                      description: A description of the template and its performance
+                        impact
+                      type: string
+                    name:
+                      description: The name of the template
+                      type: string
+                    provider:
+                      description: The organization which has provided the template
+                      type: string
+                    type:
+                      description: The type of template
+                      type: string
+                  required:
+                  - description
+                  - name
+                  - provider
+                  - type
+                  type: object
+                type: array
             required:
             - events
             - port
             - target
+            - templates
             type: object
         type: object
     served: true

@@ -58,6 +58,9 @@ type FlightRecorderStatus struct {
 	// Listing of events available in the target JVM
 	// +listType=set
 	Events []EventInfo `json:"events"`
+	// Listing of templates available in the target JVM
+	// +listType=set
+	Templates []TemplateInfo `json:"templates"`
 	// Reference to the pod/service that this object controls JFR for
 	Target *corev1.ObjectReference `json:"target"`
 	// JMX port for target JVM
@@ -82,6 +85,18 @@ type EventInfo struct {
 	// Options that may be used to tune this event. This map is indexed
 	// by the option IDs.
 	Options map[string]OptionDescriptor `json:"options"`
+}
+
+// TemplateInfo contains metadata for a JFR template
+type TemplateInfo struct {
+	// The name of the template
+	Name string `json:"name"`
+	// A description of the template and its performance impact
+	Description string `json:"description"`
+	// The organization which has provided the template
+	Provider string `json:"provider"`
+	// The type of template
+	Type string `json:"type"`
 }
 
 // OptionDescriptor contains metadata for an option for a particular event type

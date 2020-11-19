@@ -171,6 +171,21 @@ func (r *ReconcileFlightRecorder) Reconcile(request reconcile.Request) (reconcil
 		return reconcile.Result{}, err
 	}
 
+	// Retrieve list of available templates
+	log.Info("Listing templates for pod", "name", targetPod.Name, "namespace", targetPod.Namespace)
+	templates, err := cjfr.ListTemplates(targetAddr)
+	if err != nil {
+		log.Error(err, "failed to list templates")
+		return reconcile.Result{}, err
+	}
+
+	// Update Status with templates
+	instance.Status.Templates = templates
+	err = r.Client.Status().Update(ctx, instance)
+	if err != nil {
+		return reconcile.Result{}, err
+	}
+
 	reqLogger.Info("FlightRecorder successfully updated", "Namespace", instance.Namespace, "Name", instance.Name)
 	return reconcile.Result{}, nil
 }
