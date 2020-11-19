@@ -114,6 +114,8 @@ var _ = Describe("FlightRecorderController", func() {
 				handlers = []http.HandlerFunc{
 					test.NewListEventTypesHandler(),
 					test.NewListTemplatesHandler(),
+					test.NewListEventTypesHandler(),
+					test.NewListTemplatesHandler(),
 				}
 			})
 			It("should be idempotent", func() {
