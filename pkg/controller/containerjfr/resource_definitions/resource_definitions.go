@@ -345,12 +345,7 @@ func GenPasswd(length int) string {
 }
 
 func NewGrafanaContainer(cr *rhjmcv1beta1.ContainerJFR, tls *TLSConfig) corev1.Container {
-	envs := []corev1.EnvVar{
-		{
-			Name:  "GF_INSTALL_PLUGINS",
-			Value: "grafana-simple-json-datasource",
-		},
-	}
+	envs := []corev1.EnvVar{}
 	mounts := []corev1.VolumeMount{}
 
 	// Configure TLS key/cert if enabled
@@ -385,7 +380,7 @@ func NewGrafanaContainer(cr *rhjmcv1beta1.ContainerJFR, tls *TLSConfig) corev1.C
 	}
 	return corev1.Container{
 		Name:         cr.Name + "-grafana",
-		Image:        "docker.io/grafana/grafana:7.2.1",
+		Image:        "quay.io/rh-jmc-team/container-jfr-grafana-dashboard:0.1.0",
 		VolumeMounts: mounts,
 		Ports: []corev1.ContainerPort{
 			{

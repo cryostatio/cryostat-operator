@@ -179,11 +179,6 @@ func (r *ReconcileGrafana) Reconcile(request reconcile.Request) (reconcile.Resul
 	}
 	reqLogger.Info("Grafana datasource configured")
 
-	if err := r.configureGrafanaDashboard(httpClient, secret, svc, protocol); err != nil {
-		return reconcile.Result{}, err
-	}
-	reqLogger.Info("Grafana dashboard configured")
-
 	return reconcile.Result{}, nil
 }
 
@@ -259,28 +254,6 @@ func (r *ReconcileGrafana) configureGrafanaDatasource(httpClient *http.Client, s
 	defer postResp.Body.Close()
 	if postResp.StatusCode != 200 {
 		return errors.NewInternalError(goerrors.New(fmt.Sprintf("Grafana service responded HTTP %d when creating datasource", postResp.StatusCode)))
-	}
-	postBody, err := ioutil.ReadAll(postResp.Body)
-	if err != nil {
-		return err
-	}
-	logger.Info("POST response", "Body", string(postBody))
-	return nil
-}
-
-func (r *ReconcileGrafana) configureGrafanaDashboard(httpClient *http.Client, secret *corev1.Secret, svc *corev1.Service,
-	protocol string) error {
-	logger := log.WithValues("Route.Namespace", svc.Namespace, "Route.Name", svc.Name)
-
-	// TODO find a way to list/search existing dashboards to avoid creating a duplicate
-	postResp, err := httpClient.Post(GetCredentialedHostPathURL(secret, svc, protocol, "/api/dashboards/db"), "application/json", bytes.NewBufferString(DashboardDefinitionJSON))
-	logger.Info("POST response", "Status", postResp.Status, "StatusCode", postResp.StatusCode)
-	if err != nil {
-		return err
-	}
-	defer postResp.Body.Close()
-	if postResp.StatusCode != 200 {
-		return errors.NewInternalError(goerrors.New(fmt.Sprintf("Grafana service responded HTTP %d when creating dashboard", postResp.StatusCode)))
 	}
 	postBody, err := ioutil.ReadAll(postResp.Body)
 	if err != nil {
