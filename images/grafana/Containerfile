@@ -1,0 +1,11 @@
+FROM docker.io/grafana/grafana:7.2.1
+
+EXPOSE 3000
+
+ARG CONF_DIR=/etc/grafana/provisioning/dashboards
+
+RUN grafana-cli plugins install grafana-simple-json-datasource
+
+COPY --chown=grafana:grafana dashboards.yaml $CONF_DIR
+
+COPY --chown=grafana:grafana dashboard.json $CONF_DIR
