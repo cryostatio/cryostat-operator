@@ -56,10 +56,10 @@ type FlightRecorderSpec struct {
 // +k8s:openapi-gen=true
 type FlightRecorderStatus struct {
 	// Listing of events available in the target JVM
-	// +listType=set
+	// +listType=atomic
 	Events []EventInfo `json:"events"`
 	// Listing of templates available in the target JVM
-	// +listType=set
+	// +listType=atomic
 	Templates []TemplateInfo `json:"templates"`
 	// Reference to the pod/service that this object controls JFR for
 	Target *corev1.ObjectReference `json:"target"`
@@ -95,9 +95,20 @@ type TemplateInfo struct {
 	Description string `json:"description"`
 	// The organization which has provided the template
 	Provider string `json:"provider"`
-	// The type of template
-	Type string `json:"type"`
+	// The type of template, which is either "TARGET" for built-in templates,
+	// or "CUSTOM" for user created templates
+	// +kubebuilder:validation:Enum=TARGET;CUSTOM
+	Type TemplateType `json:"type"`
 }
+
+type TemplateType string
+
+const (
+	// TemplateTypeTarget means the template is provided by the target JVM
+	TemplateTypeTarget TemplateType = "TARGET"
+	// TemplateTypeCustom means the template is created by the user
+	TemplateTypeCustom TemplateType = "CUSTOM"
+)
 
 // OptionDescriptor contains metadata for an option for a particular event type
 type OptionDescriptor struct {

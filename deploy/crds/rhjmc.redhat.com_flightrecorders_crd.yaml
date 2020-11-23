@@ -384,7 +384,11 @@ spec:
                       description: The organization which has provided the template
                       type: string
                     type:
-                      description: The type of template
+                      description: The type of template, which is either "TARGET"
+                        for built-in templates, or "CUSTOM" for user created templates
+                      enum:
+                      - TARGET
+                      - CUSTOM
                       type: string
                   required:
                   - description
