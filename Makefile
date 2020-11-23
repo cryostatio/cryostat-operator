@@ -54,6 +54,10 @@ else
 		--operator-name container-jfr-operator-bundle
 endif
 
+.PHONY: images
+images: image
+	sh images/build-all.sh
+
 .PHONY: image
 image: generate
 	operator-sdk build --image-builder $(BUILDER) $(IMAGE_TAG)
