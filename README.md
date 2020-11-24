@@ -6,12 +6,26 @@ API to manage [JDK Flight Recordings](https://openjdk.java.net/jeps/328).
 
 # Using
 Once deployed, the `containerjfr` instance can be accessed via web browser
-at the URL provided by
-`oc get pod -l kind=containerjfr -o jsonpath='http://{$.items[0].metadata.annotations.redhat\.com/containerJfrUrl} '`.
+at the URL provided by:
+```
+oc get pod -l kind=containerjfr -o jsonpath='https://{$.items[0].metadata.annotations.redhat\.com/containerJfrUrl} '
+```
 The Grafana credentials can be obtained with:
-`oc get secret containerjfr-grafana-basic -o jsonpath='{$.data.GF_SECURITY_ADMIN_USER}' | base64 -d`
-and
-`oc get secret containerjfr-grafana-basic -o jsonpath='{$.data.GF_SECURITY_ADMIN_PASSWORD}' | base64 -d`.
+```shell
+CJFR_NAME=$(oc get containerjfr -o jsonpath='{$.items[0].metadata.name}')
+# Username
+oc get secret ${CJFR_NAME}-grafana-basic -o jsonpath='{$.data.GF_SECURITY_ADMIN_USER}' | base64 -d
+# Password
+oc get secret ${CJFR_NAME}-grafana-basic -o jsonpath='{$.data.GF_SECURITY_ADMIN_PASSWORD}' | base64 -d
+```
+The JMX authentication credentials for Container JFR itself can be obtained with:
+```shell
+CJFR_NAME=$(oc get containerjfr -o jsonpath='{$.items[0].metadata.name}')
+# Username
+oc get secret ${CJFR_NAME}-jmx-auth -o jsonpath='{$.data.CONTAINER_JFR_RJMX_USER}' | base64 -d
+# Password
+oc get secret ${CJFR_NAME}-jmx-auth -o jsonpath='{$.data.CONTAINER_JFR_RJMX_PASS}' | base64 -d
+```
 
 # Building
 ## Requirements
