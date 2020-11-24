@@ -303,6 +303,43 @@ func NewEventTypes() []rhjmcv1beta1.EventInfo {
 	}
 }
 
+func NewListTemplatesHandler() http.HandlerFunc {
+	return ghttp.CombineHandlers(
+		ghttp.VerifyRequest(http.MethodGet, "/api/v1/targets/1.2.3.4:8001/templates"),
+		verifyToken(),
+		verifyJMXAuth(),
+		ghttp.RespondWithJSONEncoded(http.StatusOK, NewTemplates()),
+	)
+}
+
+func NewListTemplatesNoJMXAuthHandler() http.HandlerFunc {
+	return ghttp.CombineHandlers(
+		ghttp.VerifyRequest(http.MethodGet, "/api/v1/targets/1.2.3.4:8001/templates"),
+		verifyToken(),
+		ghttp.RespondWithJSONEncoded(http.StatusOK, NewTemplates()),
+	)
+}
+
+func NewListTemplatesFailHandler() http.HandlerFunc {
+	return ghttp.CombineHandlers(
+		ghttp.VerifyRequest(http.MethodGet, "/api/v1/targets/1.2.3.4:8001/templates"),
+		verifyToken(),
+		verifyJMXAuth(),
+		ghttp.RespondWith(http.StatusUnauthorized, nil),
+	)
+}
+
+func NewTemplates() []rhjmcv1beta1.TemplateInfo {
+	return []rhjmcv1beta1.TemplateInfo{
+		{
+			Name:        "Profiling",
+			Description: "Low overhead configuration for profiling, typically around 2 % overhead.",
+			Provider:    "Oracle",
+			Type:        "TARGET",
+		},
+	}
+}
+
 func verifyToken() http.HandlerFunc {
 	return ghttp.VerifyHeaderKV("Authorization", "Bearer myToken")
 }

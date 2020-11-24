@@ -102,6 +102,7 @@ var _ = Describe("FlightRecorderController", func() {
 			BeforeEach(func() {
 				handlers = []http.HandlerFunc{
 					test.NewListEventTypesHandler(),
+					test.NewListTemplatesHandler(),
 				}
 			})
 			It("should update event type list", func() {
@@ -112,7 +113,9 @@ var _ = Describe("FlightRecorderController", func() {
 			BeforeEach(func() {
 				handlers = []http.HandlerFunc{
 					test.NewListEventTypesHandler(),
+					test.NewListTemplatesHandler(),
 					test.NewListEventTypesHandler(),
+					test.NewListTemplatesHandler(),
 				}
 			})
 			It("should be idempotent", func() {
@@ -165,6 +168,17 @@ var _ = Describe("FlightRecorderController", func() {
 			BeforeEach(func() {
 				handlers = []http.HandlerFunc{
 					test.NewListEventTypesFailHandler(),
+				}
+			})
+			It("should requeue with error", func() {
+				expectReconcileError(controller)
+			})
+		})
+		Context("list-templates command fails", func() {
+			BeforeEach(func() {
+				handlers = []http.HandlerFunc{
+					test.NewListEventTypesHandler(),
+					test.NewListTemplatesFailHandler(),
 				}
 			})
 			It("should requeue with error", func() {
@@ -225,9 +239,10 @@ var _ = Describe("FlightRecorderController", func() {
 				}
 				handlers = []http.HandlerFunc{
 					test.NewListEventTypesNoJMXAuthHandler(),
+					test.NewListTemplatesNoJMXAuthHandler(),
 				}
 			})
-			It("should update event type list", func() {
+			It("should update event type list and template list", func() {
 				expectReconcileSuccess(controller, client)
 			})
 		})
@@ -277,6 +292,7 @@ func expectReconcileSuccess(controller *flightrecorder.ReconcileFlightRecorder, 
 	err = client.Get(context.Background(), req.NamespacedName, obj)
 	Expect(err).ToNot(HaveOccurred())
 	Expect(obj.Status.Events).To(Equal(test.NewEventTypes()))
+	Expect(obj.Status.Templates).To(Equal(test.NewTemplates()))
 }
 
 func expectReconcileError(controller *flightrecorder.ReconcileFlightRecorder) {

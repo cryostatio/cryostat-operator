@@ -166,6 +166,18 @@ func (r *ReconcileFlightRecorder) Reconcile(request reconcile.Request) (reconcil
 
 	// Update Status with events
 	instance.Status.Events = events
+
+	// Retrieve list of available templates
+	log.Info("Listing templates for pod", "name", targetPod.Name, "namespace", targetPod.Namespace)
+	templates, err := cjfr.ListTemplates(targetAddr)
+	if err != nil {
+		log.Error(err, "failed to list templates")
+		return reconcile.Result{}, err
+	}
+
+	// Update Status with templates
+	instance.Status.Templates = templates
+
 	err = r.Client.Status().Update(ctx, instance)
 	if err != nil {
 		return reconcile.Result{}, err

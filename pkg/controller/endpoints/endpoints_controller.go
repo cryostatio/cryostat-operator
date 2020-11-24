@@ -256,9 +256,10 @@ func (r *ReconcileEndpoints) newFlightRecorderForPod(target *corev1.ObjectRefere
 			JMXCredentials:    jmxAuth,
 		},
 		Status: rhjmcv1beta1.FlightRecorderStatus{
-			Events: []rhjmcv1beta1.EventInfo{},
-			Target: target,
-			Port:   jmxPort,
+			Events:    []rhjmcv1beta1.EventInfo{},
+			Templates: []rhjmcv1beta1.TemplateInfo{},
+			Target:    target,
+			Port:      jmxPort,
 		},
 	}, nil
 }

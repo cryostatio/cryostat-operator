@@ -93,6 +93,7 @@ type ContainerJfrClient interface {
 	ListSavedRecordings() ([]SavedRecording, error)
 	DeleteSavedRecording(jfrFile string) error
 	ListEventTypes(target *TargetAddress) ([]rhjmcv1beta1.EventInfo, error)
+	ListTemplates(target *TargetAddress) ([]rhjmcv1beta1.TemplateInfo, error)
 }
 
 type httpClient struct {
@@ -109,6 +110,7 @@ type apiPath struct {
 const (
 	resRecordings     = "recordings"
 	resEvents         = "events"
+	resTemplates      = "templates"
 	attrRecordingName = "recordingName"
 	attrEvents        = "events"
 	attrDuration      = "duration"
@@ -248,6 +250,17 @@ func (c *httpClient) ListEventTypes(target *TargetAddress) ([]rhjmcv1beta1.Event
 		target:   target,
 	}
 	result := []rhjmcv1beta1.EventInfo{}
+	err := c.httpGet(path, &result)
+	return result, err
+}
+
+// ListTemplates returns a list of templates available in the target JVM
+func (c *httpClient) ListTemplates(target *TargetAddress) ([]rhjmcv1beta1.TemplateInfo, error) {
+	path := &apiPath{
+		resource: resTemplates,
+		target:   target,
+	}
+	result := []rhjmcv1beta1.TemplateInfo{}
 	err := c.httpGet(path, &result)
 	return result, err
 }
