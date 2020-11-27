@@ -223,6 +223,10 @@ func NewCoreContainer(cr *rhjmcv1beta1.ContainerJFR, specs *ServiceSpecs, tls *T
 			Name:  "GRAFANA_DATASOURCE_URL",
 			Value: DatasourceURL,
 		},
+		{
+			Name:  "CONTAINER_JFR_TEMPLATE_PATH",
+			Value: "/templates",
+		},
 	}
 	envsFrom := []corev1.EnvFromSource{
 		{
@@ -238,6 +242,10 @@ func NewCoreContainer(cr *rhjmcv1beta1.ContainerJFR, specs *ServiceSpecs, tls *T
 		{
 			Name:      cr.Name,
 			MountPath: "flightrecordings",
+		},
+		{
+			Name:      cr.Name,
+			MountPath: "templates",
 		},
 	}
 
