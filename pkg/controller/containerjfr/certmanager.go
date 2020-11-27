@@ -52,7 +52,7 @@ import (
 func (r *ReconcileContainerJFR) setupTLS(ctx context.Context, cr *rhjmcv1beta1.ContainerJFR) (*resources.TLSConfig, error) {
 	// Create self-signed issuer used to bootstrap CA
 	selfSignedIssuer := resources.NewSelfSignedIssuer(cr)
-	if err := controllerutil.SetControllerReference(cr, selfSignedIssuer, r.scheme); err != nil {
+	if err := controllerutil.SetControllerReference(cr, selfSignedIssuer, r.Scheme); err != nil {
 		return nil, err
 	}
 	if err := r.createObjectIfNotExists(ctx, types.NamespacedName{Name: selfSignedIssuer.Name, Namespace: selfSignedIssuer.Namespace},
@@ -62,7 +62,7 @@ func (r *ReconcileContainerJFR) setupTLS(ctx context.Context, cr *rhjmcv1beta1.C
 
 	// Create CA certificate for Container JFR using the self-signed issuer
 	caCert := resources.NewContainerJFRCACert(cr)
-	if err := controllerutil.SetControllerReference(cr, caCert, r.scheme); err != nil {
+	if err := controllerutil.SetControllerReference(cr, caCert, r.Scheme); err != nil {
 		return nil, err
 	}
 	if err := r.createObjectIfNotExists(ctx, types.NamespacedName{Name: caCert.Name, Namespace: caCert.Namespace},
@@ -72,7 +72,7 @@ func (r *ReconcileContainerJFR) setupTLS(ctx context.Context, cr *rhjmcv1beta1.C
 
 	// Create CA issuer using the CA cert just created
 	caIssuer := resources.NewContainerJFRCAIssuer(cr)
-	if err := controllerutil.SetControllerReference(cr, caIssuer, r.scheme); err != nil {
+	if err := controllerutil.SetControllerReference(cr, caIssuer, r.Scheme); err != nil {
 		return nil, err
 	}
 	if err := r.createObjectIfNotExists(ctx, types.NamespacedName{Name: caIssuer.Name, Namespace: caIssuer.Namespace},
@@ -82,7 +82,7 @@ func (r *ReconcileContainerJFR) setupTLS(ctx context.Context, cr *rhjmcv1beta1.C
 
 	// Create secret to hold keystore password
 	keystorePassSecret := resources.NewKeystoreSecretForCR(cr)
-	if err := controllerutil.SetControllerReference(cr, keystorePassSecret, r.scheme); err != nil {
+	if err := controllerutil.SetControllerReference(cr, keystorePassSecret, r.Scheme); err != nil {
 		return nil, err
 	}
 	if err := r.createObjectIfNotExists(ctx, types.NamespacedName{Name: keystorePassSecret.Name, Namespace: keystorePassSecret.Namespace},
@@ -92,7 +92,7 @@ func (r *ReconcileContainerJFR) setupTLS(ctx context.Context, cr *rhjmcv1beta1.C
 
 	// Create a certificate for Container JFR signed by the CA just created
 	cjfrCert := resources.NewContainerJFRCert(cr)
-	if err := controllerutil.SetControllerReference(cr, cjfrCert, r.scheme); err != nil {
+	if err := controllerutil.SetControllerReference(cr, cjfrCert, r.Scheme); err != nil {
 		return nil, err
 	}
 	if err := r.createObjectIfNotExists(ctx, types.NamespacedName{Name: cjfrCert.Name, Namespace: cjfrCert.Namespace},
@@ -102,7 +102,7 @@ func (r *ReconcileContainerJFR) setupTLS(ctx context.Context, cr *rhjmcv1beta1.C
 
 	// Create a certificate for Grafana signed by the Container JFR CA
 	grafanaCert := resources.NewGrafanaCert(cr)
-	if err := controllerutil.SetControllerReference(cr, grafanaCert, r.scheme); err != nil {
+	if err := controllerutil.SetControllerReference(cr, grafanaCert, r.Scheme); err != nil {
 		return nil, err
 	}
 	if err := r.createObjectIfNotExists(ctx, types.NamespacedName{Name: grafanaCert.Name, Namespace: grafanaCert.Namespace},
@@ -134,11 +134,11 @@ func (r *ReconcileContainerJFR) setCertSecretOwner(ctx context.Context, cr *rhjm
 			return err
 		}
 		if !metav1.IsControlledBy(secret, cr) {
-			err = controllerutil.SetControllerReference(cr, secret, r.scheme)
+			err = controllerutil.SetControllerReference(cr, secret, r.Scheme)
 			if err != nil {
 				return err
 			}
-			err = r.client.Update(ctx, secret)
+			err = r.Client.Update(ctx, secret)
 			if err != nil {
 				return err
 			}
