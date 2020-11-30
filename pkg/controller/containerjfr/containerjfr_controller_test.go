@@ -38,12 +38,15 @@ package containerjfr_test
 
 import (
 	"context"
-	"net/http"
+	"time"
 
 	certv1 "github.com/jetstack/cert-manager/pkg/apis/certmanager/v1"
 	certMeta "github.com/jetstack/cert-manager/pkg/apis/meta/v1"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	openshiftv1 "github.com/openshift/api/route/v1"
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -54,14 +57,13 @@ import (
 	"github.com/operator-framework/operator-sdk/pkg/log/zap"
 	rhjmcv1beta1 "github.com/rh-jmc-team/container-jfr-operator/pkg/apis/rhjmc/v1beta1"
 	"github.com/rh-jmc-team/container-jfr-operator/pkg/controller/containerjfr"
+	"github.com/rh-jmc-team/container-jfr-operator/pkg/controller/containerjfr/resource_definitions"
 	"github.com/rh-jmc-team/container-jfr-operator/test"
 )
 
 var _ = Describe("ContainerjfrController", func() {
 	var (
 		objs       []runtime.Object
-		handlers   []http.HandlerFunc
-		server     *test.ContainerJFRServer
 		client     client.Client
 		controller *containerjfr.ReconcileContainerJFR
 	)
@@ -71,7 +73,6 @@ var _ = Describe("ContainerjfrController", func() {
 		s := test.NewTestScheme()
 
 		client = fake.NewFakeClientWithScheme(s, objs...)
-		server = test.NewServer(client, handlers)
 		controller = &containerjfr.ReconcileContainerJFR{
 			Client:        client,
 			Scheme:        s,
@@ -79,15 +80,9 @@ var _ = Describe("ContainerjfrController", func() {
 		}
 	})
 
-	JustAfterEach(func() {
-		server.VerifyRequestsReceived(handlers)
-		server.Close()
-	})
-
 	BeforeEach(func() {
 		objs = []runtime.Object{
-			test.NewContainerJFR(), test.NewCACert(), test.NewTargetPod(),
-			test.NewContainerJFRService(), test.NewJMXAuthSecret(),
+			test.NewContainerJFR(),
 		}
 	})
 
@@ -99,26 +94,14 @@ var _ = Describe("ContainerjfrController", func() {
 		Context("after Containerjfr already reconciled successfully", func() {
 			It("should be idempotent", func() {
 				req := reconcile.Request{NamespacedName: types.NamespacedName{Name: "containerjfr", Namespace: "default"}}
-				result, err := controller.Reconcile(req)
-				Expect(err).ToNot(HaveOccurred())
-				//Expect(result).To(Equal(reconcile.Result{}))
+				ReconcileFully(client, *controller)
 
 				obj := &rhjmcv1beta1.ContainerJFR{}
-				err = client.Get(context.Background(), req.NamespacedName, obj)
+				err := client.Get(context.Background(), req.NamespacedName, obj)
 				Expect(err).ToNot(HaveOccurred())
 
-				caCert := &certv1.Certificate{}
-				err = client.Get(context.Background(), types.NamespacedName{Name: "containerjfr-ca", Namespace: "default"}, caCert)
-				Expect(err).ToNot(HaveOccurred())
-				caCert.Status.Conditions = append(caCert.Status.Conditions, certv1.CertificateCondition{
-					Type:   certv1.CertificateConditionReady,
-					Status: certMeta.ConditionTrue,
-				})
-				err = client.Status().Update(context.Background(), caCert)
-				Expect(err).ToNot(HaveOccurred())
-
-				// Reconcile same containerjfr again
-				result, err = controller.Reconcile(req)
+				// Reconcile again
+				result, err := controller.Reconcile(req)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(result).To(Equal(reconcile.Result{}))
 
@@ -129,6 +112,93 @@ var _ = Describe("ContainerjfrController", func() {
 				Expect(obj2.Spec).To(Equal(obj.Spec))
 			})
 		})
+		Context("succesfully creates the resources", func() {
+			It("should create persistent volume claim", func() {
+				pvc := &corev1.PersistentVolumeClaim{}
+				err := client.Get(context.Background(), types.NamespacedName{Name: "containerjfr", Namespace: "default"}, pvc)
+				Expect(err).To(HaveOccurred())
+
+				ReconcileFully(client, *controller)
+
+				err = client.Get(context.Background(), types.NamespacedName{Name: "containerjfr", Namespace: "default"}, pvc)
+				Expect(err).ToNot(HaveOccurred())
+				// To Do: compare created pvc to desired spec
+				Expect(pvc.Spec).To(Equal(resource_definitions.NewPersistentVolumeClaimForCR(test.NewContainerJFR()).Spec))
+			})
+
+		})
 
 	})
 })
+
+func NewFakeSecret(name string) *corev1.Secret {
+	return &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: "default",
+		},
+		Data: map[string][]byte{
+			corev1.TLSCertKey: nil,
+		},
+	}
+
+}
+
+func MakeCertificatesReady(client client.Client) {
+	certNames := []string{"containerjfr", "containerjfr-ca", "containerjfr-grafana"}
+	for _, certName := range certNames {
+		cert := &certv1.Certificate{}
+		err := client.Get(context.Background(), types.NamespacedName{Name: certName, Namespace: "default"}, cert)
+		Expect(err).ToNot(HaveOccurred())
+		cert.Status.Conditions = append(cert.Status.Conditions, certv1.CertificateCondition{
+			Type:   certv1.CertificateConditionReady,
+			Status: certMeta.ConditionTrue,
+		})
+		err = client.Status().Update(context.Background(), cert)
+		Expect(err).ToNot(HaveOccurred())
+	}
+}
+
+func InitializeSecrets(client client.Client) {
+	// Create secrets
+	secretNames := []string{"containerjfr-ca", "containerjfr-tls", "containerjfr-grafana-tls"}
+	for _, secretName := range secretNames {
+		secret := NewFakeSecret(secretName)
+		err := client.Create(context.Background(), secret)
+		Expect(err).ToNot(HaveOccurred())
+	}
+}
+
+func ingressConfig(client client.Client, controller containerjfr.ReconcileContainerJFR, req reconcile.Request) {
+	routes := []string{"containerjfr-grafana", "containerjfr", "containerjfr-command"}
+	for _, routeName := range routes {
+		route := &openshiftv1.Route{}
+		err := client.Get(context.Background(), types.NamespacedName{Name: routeName, Namespace: "default"}, route)
+		Expect(err).ToNot(HaveOccurred())
+		route.Status.Ingress = append(route.Status.Ingress, openshiftv1.RouteIngress{
+			Host: "test",
+		})
+		err = client.Status().Update(context.Background(), route)
+		Expect(err).ToNot(HaveOccurred())
+		_, err = controller.Reconcile(req)
+	}
+}
+
+func ReconcileFully(client client.Client, controller containerjfr.ReconcileContainerJFR) {
+	req := reconcile.Request{NamespacedName: types.NamespacedName{Name: "containerjfr", Namespace: "default"}}
+	result, err := controller.Reconcile(req)
+	Expect(err).ToNot(HaveOccurred())
+	Expect(result).To(Equal(reconcile.Result{RequeueAfter: 5 * time.Second}))
+
+	// Update certificate status
+	MakeCertificatesReady(client)
+	InitializeSecrets(client)
+
+	// Add ingress config to routes
+	result, err = controller.Reconcile(req)
+	ingressConfig(client, controller, req)
+
+	result, err = controller.Reconcile(req)
+	Expect(err).ToNot(HaveOccurred())
+	Expect(result).To(Equal(reconcile.Result{}))
+}
