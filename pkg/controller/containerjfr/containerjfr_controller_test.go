@@ -266,9 +266,130 @@ var _ = Describe("ContainerjfrController", func() {
 				err = client.Get(context.Background(), types.NamespacedName{Name: "containerjfr", Namespace: "default"}, &deployment)
 				Expect(err).ToNot(HaveOccurred())
 
-				testSpecs := NewFakeServiceSpecs()
+				testSpecs := NewFakeServiceSpecs(false)
 				testTLSConfig := NewFakeTLSConfig()
 				expectedDeployment := resource_definitions.NewDeploymentForCR(test.NewContainerJFR(), &testSpecs, &testTLSConfig)
+				Expect(deployment.ObjectMeta.Name).To(Equal(expectedDeployment.ObjectMeta.Name))
+				Expect(deployment.ObjectMeta.Namespace).To(Equal(expectedDeployment.ObjectMeta.Namespace))
+				Expect(deployment.ObjectMeta.Labels).To(Equal(expectedDeployment.ObjectMeta.Labels))
+				Expect(deployment.ObjectMeta.Annotations).To(Equal(expectedDeployment.ObjectMeta.Annotations))
+				Expect(deployment.Spec.Selector).To(Equal(expectedDeployment.Spec.Selector))
+
+				// compare Pod template
+				template := deployment.Spec.Template
+				expectedTemplate := expectedDeployment.Spec.Template
+				Expect(template.ObjectMeta).To(Equal(expectedTemplate.ObjectMeta))
+				Expect(template.Spec.Containers).To(Equal(expectedTemplate.Spec.Containers))
+				Expect(template.Spec.Volumes).To(Equal(expectedTemplate.Spec.Volumes))
+			})
+		})
+		Context("succesfully creates required resources for minimal deployment", func() {
+			BeforeEach(func() {
+				objs = []runtime.Object{
+					test.NewMinimalContainerJFR(),
+				}
+			})
+			It("should create persistent volume claim and set owner", func() {
+				pvc := &corev1.PersistentVolumeClaim{}
+				err := client.Get(context.Background(), types.NamespacedName{Name: "containerjfr", Namespace: "default"}, pvc)
+				Expect(err).To(HaveOccurred())
+
+				ReconcileFully(client, *controller, true)
+
+				err = client.Get(context.Background(), types.NamespacedName{Name: "containerjfr", Namespace: "default"}, pvc)
+				Expect(err).ToNot(HaveOccurred())
+
+				// Compare to desired spec
+				expectedPvc := resource_definitions.NewPersistentVolumeClaimForCR(test.NewContainerJFR())
+				Expect(pvc.ObjectMeta.Name).To(Equal(expectedPvc.ObjectMeta.Name))
+				Expect(pvc.ObjectMeta.Namespace).To(Equal(expectedPvc.ObjectMeta.Namespace))
+				Expect(pvc.Spec.AccessModes).To(Equal(expectedPvc.Spec.AccessModes))
+				Expect(pvc.Spec.StorageClassName).To(Equal(expectedPvc.Spec.StorageClassName))
+
+				pvcStorage := pvc.Spec.Resources.Requests["storage"]
+				expectedPvcStorage := expectedPvc.Spec.Resources.Requests["storage"]
+				Expect(pvcStorage.Equal(expectedPvcStorage)).To(BeTrue())
+
+				// Check for owner
+				Expect(pvc.ObjectMeta.OwnerReferences[0].Kind).To(Equal("ContainerJFR"))
+				Expect(pvc.ObjectMeta.OwnerReferences[0].Name).To(Equal("containerjfr"))
+			})
+			It("should create JMX secret and set owner", func() {
+				secret := &corev1.Secret{}
+				err := client.Get(context.Background(), types.NamespacedName{Name: "containerjfr-jmx-auth", Namespace: "default"}, secret)
+				Expect(err).To(HaveOccurred())
+
+				ReconcileFully(client, *controller, true)
+
+				err = client.Get(context.Background(), types.NamespacedName{Name: "containerjfr-jmx-auth", Namespace: "default"}, secret)
+				Expect(err).ToNot(HaveOccurred())
+
+				expectedSecret := resource_definitions.NewJmxSecretForCR(test.NewContainerJFR())
+				Expect(secret.ObjectMeta.Name).To(Equal(expectedSecret.ObjectMeta.Name))
+				Expect(secret.ObjectMeta.Namespace).To(Equal(expectedSecret.ObjectMeta.Namespace))
+				Expect(secret.StringData["CONTAINER_JFR_RJMX_USER"]).To(Equal(expectedSecret.StringData["CONTAINER_JFR_RJMX_USER"]))
+
+				// Check for owner
+				Expect(secret.ObjectMeta.OwnerReferences[0].Kind).To(Equal("ContainerJFR"))
+				Expect(secret.ObjectMeta.OwnerReferences[0].Name).To(Equal("containerjfr"))
+			})
+			It("should create exporter service and set owner", func() {
+				service := &corev1.Service{}
+				err := client.Get(context.Background(), types.NamespacedName{Name: "containerjfr", Namespace: "default"}, service)
+				Expect(err).To(HaveOccurred())
+
+				ReconcileFully(client, *controller, true)
+
+				err = client.Get(context.Background(), types.NamespacedName{Name: "containerjfr", Namespace: "default"}, service)
+				Expect(err).ToNot(HaveOccurred())
+
+				expectedService := resource_definitions.NewExporterService(test.NewContainerJFR())
+				Expect(service.ObjectMeta.Name).To(Equal(expectedService.ObjectMeta.Name))
+				Expect(service.ObjectMeta.Namespace).To(Equal(expectedService.ObjectMeta.Namespace))
+				Expect(service.ObjectMeta.Labels).To(Equal(expectedService.ObjectMeta.Labels))
+				Expect(service.Spec.Type).To(Equal(expectedService.Spec.Type))
+				Expect(service.Spec.Selector).To(Equal(expectedService.Spec.Selector))
+				Expect(service.Spec.Ports).To(Equal(expectedService.Spec.Ports))
+
+				// Check for owner
+				Expect(service.ObjectMeta.OwnerReferences[0].Kind).To(Equal("ContainerJFR"))
+				Expect(service.ObjectMeta.OwnerReferences[0].Name).To(Equal("containerjfr"))
+			})
+			It("should create command channel service and set owner", func() {
+				service := &corev1.Service{}
+				err := client.Get(context.Background(), types.NamespacedName{Name: "containerjfr-command", Namespace: "default"}, service)
+				Expect(err).To(HaveOccurred())
+
+				ReconcileFully(client, *controller, true)
+
+				err = client.Get(context.Background(), types.NamespacedName{Name: "containerjfr-command", Namespace: "default"}, service)
+				Expect(err).ToNot(HaveOccurred())
+
+				expectedService := resource_definitions.NewCommandChannelService(test.NewContainerJFR())
+				Expect(service.ObjectMeta.Name).To(Equal(expectedService.ObjectMeta.Name))
+				Expect(service.ObjectMeta.Namespace).To(Equal(expectedService.ObjectMeta.Namespace))
+				Expect(service.ObjectMeta.Labels).To(Equal(expectedService.ObjectMeta.Labels))
+				Expect(service.Spec.Type).To(Equal(expectedService.Spec.Type))
+				Expect(service.Spec.Selector).To(Equal(expectedService.Spec.Selector))
+				Expect(service.Spec.Ports).To(Equal(expectedService.Spec.Ports))
+
+				// Check for owner
+				Expect(service.ObjectMeta.OwnerReferences[0].Kind).To(Equal("ContainerJFR"))
+				Expect(service.ObjectMeta.OwnerReferences[0].Name).To(Equal("containerjfr"))
+			})
+			It("should create deployment and set owner", func() {
+				deployment := appsv1.Deployment{}
+				err := client.Get(context.Background(), types.NamespacedName{Name: "containerjfr", Namespace: "default"}, &deployment)
+				Expect(err).To(HaveOccurred())
+
+				ReconcileFully(client, *controller, true)
+
+				err = client.Get(context.Background(), types.NamespacedName{Name: "containerjfr", Namespace: "default"}, &deployment)
+				Expect(err).ToNot(HaveOccurred())
+
+				testSpecs := NewFakeServiceSpecs(true)
+				testTLSConfig := NewFakeTLSConfig()
+				expectedDeployment := resource_definitions.NewDeploymentForCR(test.NewMinimalContainerJFR(), &testSpecs, &testTLSConfig)
 				Expect(deployment.ObjectMeta.Name).To(Equal(expectedDeployment.ObjectMeta.Name))
 				Expect(deployment.ObjectMeta.Namespace).To(Equal(expectedDeployment.ObjectMeta.Namespace))
 				Expect(deployment.ObjectMeta.Labels).To(Equal(expectedDeployment.ObjectMeta.Labels))
@@ -335,6 +456,14 @@ var _ = Describe("ContainerjfrController", func() {
 				Expect(obj2.Spec).To(Equal(obj.Spec))
 			})
 		})
+		Context("ContainerJFR does not exist", func() {
+			It("Should do nothing", func() {
+				req := reconcile.Request{NamespacedName: types.NamespacedName{Name: "does-not-exist", Namespace: "default"}}
+				result, err := controller.Reconcile(req)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(result).To(Equal(reconcile.Result{}))
+			})
+		})
 
 	})
 })
@@ -351,11 +480,15 @@ func NewFakeSecret(name string) *corev1.Secret {
 	}
 }
 
-func NewFakeServiceSpecs() resource_definitions.ServiceSpecs {
+func NewFakeServiceSpecs(minimal bool) resource_definitions.ServiceSpecs {
+	grafanaUrl := "https://test"
+	if minimal {
+		grafanaUrl = ""
+	}
 	return resource_definitions.ServiceSpecs{
 		CoreHostname:    "test",
 		CommandHostname: "test",
-		GrafanaURL:      "https://test",
+		GrafanaURL:      grafanaUrl,
 	}
 }
 
