@@ -203,7 +203,7 @@ func (r *ReconcileContainerJFR) Reconcile(request reconcile.Request) (reconcile.
 		if err != nil {
 			return reconcile.Result{}, err
 		}
-		serviceSpecs.GrafanaAddress = fmt.Sprintf("%s://%s", protocol, url)
+		serviceSpecs.GrafanaURL = fmt.Sprintf("%s://%s", protocol, url)
 
 		// check for existing minimal deployment and delete if found
 		deployment := resources.NewDeploymentForCR(instance, serviceSpecs, nil)
@@ -259,14 +259,14 @@ func (r *ReconcileContainerJFR) Reconcile(request reconcile.Request) (reconcile.
 	if err != nil {
 		return reconcile.Result{}, err
 	}
-	serviceSpecs.CoreAddress = url
+	serviceSpecs.CoreHostname = url
 
 	cmdChanSvc := resources.NewCommandChannelService(instance)
 	url, err = r.createService(context.Background(), instance, cmdChanSvc, &cmdChanSvc.Spec.Ports[0], routeTLS)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
-	serviceSpecs.CommandAddress = url
+	serviceSpecs.CommandHostname = url
 
 	deployment := resources.NewDeploymentForCR(instance, serviceSpecs, tlsConfig)
 	if err := controllerutil.SetControllerReference(instance, deployment, r.Scheme); err != nil {

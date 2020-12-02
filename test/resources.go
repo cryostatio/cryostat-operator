@@ -76,6 +76,18 @@ func NewContainerJFR() *rhjmcv1beta1.ContainerJFR {
 	}
 }
 
+func NewMinimalContainerJFR() *rhjmcv1beta1.ContainerJFR {
+	return &rhjmcv1beta1.ContainerJFR{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "containerjfr",
+			Namespace: "default",
+		},
+		Spec: rhjmcv1beta1.ContainerJFRSpec{
+			Minimal: true,
+		},
+	}
+}
+
 func NewFlightRecorder() *rhjmcv1beta1.FlightRecorder {
 	return newFlightRecorder(&rhjmcv1beta1.JMXAuthSecret{
 		SecretName: "test-jmx-auth",
