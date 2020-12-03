@@ -113,11 +113,8 @@ var _ = Describe("ContainerjfrController", func() {
 
 				// Compare to desired spec
 				expectedSecret := resource_definitions.NewGrafanaSecretForCR(test.NewContainerJFR())
-				Expect(secret.ObjectMeta.Name).To(Equal(expectedSecret.ObjectMeta.Name))
-				Expect(secret.ObjectMeta.Namespace).To(Equal(expectedSecret.ObjectMeta.Namespace))
+				checkMetadata(&secret.ObjectMeta, &expectedSecret.ObjectMeta)
 				Expect(secret.StringData["GF_SECURITY_ADMIN_USER"]).To(Equal(expectedSecret.StringData["GF_SECURITY_ADMIN_USER"]))
-
-				checkOwner(&secret.ObjectMeta)
 			})
 			It("should create JMX secret and set owner", func() {
 				expectJMXSecret(client, *controller, false)
@@ -133,14 +130,10 @@ var _ = Describe("ContainerjfrController", func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				expectedService := resource_definitions.NewGrafanaService(test.NewContainerJFR())
-				Expect(service.ObjectMeta.Name).To(Equal(expectedService.ObjectMeta.Name))
-				Expect(service.ObjectMeta.Namespace).To(Equal(expectedService.ObjectMeta.Namespace))
-				Expect(service.ObjectMeta.Labels).To(Equal(expectedService.ObjectMeta.Labels))
+				checkMetadata(&service.ObjectMeta, &expectedService.ObjectMeta)
 				Expect(service.Spec.Type).To(Equal(expectedService.Spec.Type))
 				Expect(service.Spec.Selector).To(Equal(expectedService.Spec.Selector))
 				Expect(service.Spec.Ports).To(Equal(expectedService.Spec.Ports))
-
-				checkOwner(&service.ObjectMeta)
 			})
 			It("should create exporter service and set owner", func() {
 				expectExporterService(client, *controller, false)
@@ -306,7 +299,11 @@ func reconcileFully(client client.Client, controller containerjfr.ReconcileConta
 	Expect(result).To(Equal(reconcile.Result{}))
 }
 
-func checkOwner(object metav1.Object) {
+func checkMetadata(object metav1.Object, expected metav1.Object) {
+	Expect(object.GetName()).To(Equal(expected.GetName()))
+	Expect(object.GetNamespace()).To(Equal(expected.GetNamespace()))
+	Expect(object.GetLabels()).To(Equal(expected.GetLabels()))
+	Expect(object.GetAnnotations()).To(Equal(expected.GetAnnotations()))
 	ownerReferences := object.GetOwnerReferences()
 	Expect(ownerReferences[0].Kind).To(Equal("ContainerJFR"))
 	Expect(ownerReferences[0].Name).To(Equal("containerjfr"))
@@ -353,16 +350,13 @@ func expectPVC(client client.Client, controller containerjfr.ReconcileContainerJ
 
 	// Compare to desired spec
 	expectedPvc := resource_definitions.NewPersistentVolumeClaimForCR(test.NewContainerJFR())
-	Expect(pvc.ObjectMeta.Name).To(Equal(expectedPvc.ObjectMeta.Name))
-	Expect(pvc.ObjectMeta.Namespace).To(Equal(expectedPvc.ObjectMeta.Namespace))
+	checkMetadata(&pvc.ObjectMeta, &expectedPvc.ObjectMeta)
 	Expect(pvc.Spec.AccessModes).To(Equal(expectedPvc.Spec.AccessModes))
 	Expect(pvc.Spec.StorageClassName).To(Equal(expectedPvc.Spec.StorageClassName))
 
 	pvcStorage := pvc.Spec.Resources.Requests["storage"]
 	expectedPvcStorage := expectedPvc.Spec.Resources.Requests["storage"]
 	Expect(pvcStorage.Equal(expectedPvcStorage)).To(BeTrue())
-
-	checkOwner(&pvc.ObjectMeta)
 }
 
 func expectJMXSecret(client client.Client, controller containerjfr.ReconcileContainerJFR, minimal bool) {
@@ -376,11 +370,8 @@ func expectJMXSecret(client client.Client, controller containerjfr.ReconcileCont
 	Expect(err).ToNot(HaveOccurred())
 
 	expectedSecret := resource_definitions.NewJmxSecretForCR(test.NewContainerJFR())
-	Expect(secret.ObjectMeta.Name).To(Equal(expectedSecret.ObjectMeta.Name))
-	Expect(secret.ObjectMeta.Namespace).To(Equal(expectedSecret.ObjectMeta.Namespace))
+	checkMetadata(&secret.ObjectMeta, &expectedSecret.ObjectMeta)
 	Expect(secret.StringData["CONTAINER_JFR_RJMX_USER"]).To(Equal(expectedSecret.StringData["CONTAINER_JFR_RJMX_USER"]))
-
-	checkOwner(&secret.ObjectMeta)
 }
 
 func expectExporterService(client client.Client, controller containerjfr.ReconcileContainerJFR, minimal bool) {
@@ -394,14 +385,10 @@ func expectExporterService(client client.Client, controller containerjfr.Reconci
 	Expect(err).ToNot(HaveOccurred())
 
 	expectedService := resource_definitions.NewExporterService(test.NewContainerJFR())
-	Expect(service.ObjectMeta.Name).To(Equal(expectedService.ObjectMeta.Name))
-	Expect(service.ObjectMeta.Namespace).To(Equal(expectedService.ObjectMeta.Namespace))
-	Expect(service.ObjectMeta.Labels).To(Equal(expectedService.ObjectMeta.Labels))
+	checkMetadata(&service.ObjectMeta, &expectedService.ObjectMeta)
 	Expect(service.Spec.Type).To(Equal(expectedService.Spec.Type))
 	Expect(service.Spec.Selector).To(Equal(expectedService.Spec.Selector))
 	Expect(service.Spec.Ports).To(Equal(expectedService.Spec.Ports))
-
-	checkOwner(&service.ObjectMeta)
 }
 
 func expectCommandChannel(client client.Client, controller containerjfr.ReconcileContainerJFR, minimal bool) {
@@ -415,14 +402,10 @@ func expectCommandChannel(client client.Client, controller containerjfr.Reconcil
 	Expect(err).ToNot(HaveOccurred())
 
 	expectedService := resource_definitions.NewCommandChannelService(test.NewContainerJFR())
-	Expect(service.ObjectMeta.Name).To(Equal(expectedService.ObjectMeta.Name))
-	Expect(service.ObjectMeta.Namespace).To(Equal(expectedService.ObjectMeta.Namespace))
-	Expect(service.ObjectMeta.Labels).To(Equal(expectedService.ObjectMeta.Labels))
+	checkMetadata(&service.ObjectMeta, &expectedService.ObjectMeta)
 	Expect(service.Spec.Type).To(Equal(expectedService.Spec.Type))
 	Expect(service.Spec.Selector).To(Equal(expectedService.Spec.Selector))
 	Expect(service.Spec.Ports).To(Equal(expectedService.Spec.Ports))
-
-	checkOwner(&service.ObjectMeta)
 }
 
 func expectDeployment(client client.Client, controller containerjfr.ReconcileContainerJFR, minimal bool) {
