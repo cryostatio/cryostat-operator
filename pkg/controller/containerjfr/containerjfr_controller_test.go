@@ -86,77 +86,27 @@ var _ = Describe("ContainerjfrController", func() {
 	})
 
 	Describe("reconciling a request", func() {
-		Context("when reconciling", func() {
-			BeforeEach(func() {
-				objs = []runtime.Object{
-					test.NewContainerJFR(),
-				}
-			})
-			It("should create certificates", func() {
-				req := reconcile.Request{NamespacedName: types.NamespacedName{Name: "containerjfr", Namespace: "default"}}
-				result, err := controller.Reconcile(req)
-				Expect(err).ToNot(HaveOccurred())
-				Expect(result).To(Equal(reconcile.Result{RequeueAfter: 5 * time.Second}))
-				certNames := []string{"containerjfr", "containerjfr-ca", "containerjfr-grafana"}
-				for _, certName := range certNames {
-					cert := &certv1.Certificate{}
-					err := client.Get(context.Background(), types.NamespacedName{Name: certName, Namespace: "default"}, cert)
-					Expect(err).ToNot(HaveOccurred())
-				}
-			})
-			It("should create routes", func() {
-				req := reconcile.Request{NamespacedName: types.NamespacedName{Name: "containerjfr", Namespace: "default"}}
-				result, err := controller.Reconcile(req)
-				Expect(err).ToNot(HaveOccurred())
-				Expect(result).To(Equal(reconcile.Result{RequeueAfter: 5 * time.Second}))
-
-				// Update certificate status
-				MakeCertificatesReady(client)
-				InitializeSecrets(client)
-
-				// Check for routes, ingress configuration needs to be added as each
-				// one is created so that they all reconcile successfully
-				result, err = controller.Reconcile(req)
-				IngressConfig(client, *controller, req, false)
-			})
-		})
 		Context("succesfully creates required resources", func() {
 			BeforeEach(func() {
 				objs = []runtime.Object{
 					test.NewContainerJFR(),
 				}
 			})
+			It("should create certificates", func() {
+				expectCertificates(client, *controller)
+			})
+			It("should create routes", func() {
+				expectRoutes(client, *controller, false)
+			})
 			It("should create persistent volume claim and set owner", func() {
-				pvc := &corev1.PersistentVolumeClaim{}
-				err := client.Get(context.Background(), types.NamespacedName{Name: "containerjfr", Namespace: "default"}, pvc)
-				Expect(err).To(HaveOccurred())
-
-				ReconcileFully(client, *controller, false)
-
-				err = client.Get(context.Background(), types.NamespacedName{Name: "containerjfr", Namespace: "default"}, pvc)
-				Expect(err).ToNot(HaveOccurred())
-
-				// Compare to desired spec
-				expectedPvc := resource_definitions.NewPersistentVolumeClaimForCR(test.NewContainerJFR())
-				Expect(pvc.ObjectMeta.Name).To(Equal(expectedPvc.ObjectMeta.Name))
-				Expect(pvc.ObjectMeta.Namespace).To(Equal(expectedPvc.ObjectMeta.Namespace))
-				Expect(pvc.Spec.AccessModes).To(Equal(expectedPvc.Spec.AccessModes))
-				Expect(pvc.Spec.StorageClassName).To(Equal(expectedPvc.Spec.StorageClassName))
-
-				pvcStorage := pvc.Spec.Resources.Requests["storage"]
-				expectedPvcStorage := expectedPvc.Spec.Resources.Requests["storage"]
-				Expect(pvcStorage.Equal(expectedPvcStorage)).To(BeTrue())
-
-				// Check for owner
-				Expect(pvc.ObjectMeta.OwnerReferences[0].Kind).To(Equal("ContainerJFR"))
-				Expect(pvc.ObjectMeta.OwnerReferences[0].Name).To(Equal("containerjfr"))
+				expectPVC(client, *controller, false)
 			})
 			It("should create Grafana secret and set owner", func() {
 				secret := &corev1.Secret{}
 				err := client.Get(context.Background(), types.NamespacedName{Name: "containerjfr-grafana-basic", Namespace: "default"}, secret)
 				Expect(err).To(HaveOccurred())
 
-				ReconcileFully(client, *controller, false)
+				reconcileFully(client, *controller, false)
 
 				err = client.Get(context.Background(), types.NamespacedName{Name: "containerjfr-grafana-basic", Namespace: "default"}, secret)
 				Expect(err).ToNot(HaveOccurred())
@@ -167,35 +117,17 @@ var _ = Describe("ContainerjfrController", func() {
 				Expect(secret.ObjectMeta.Namespace).To(Equal(expectedSecret.ObjectMeta.Namespace))
 				Expect(secret.StringData["GF_SECURITY_ADMIN_USER"]).To(Equal(expectedSecret.StringData["GF_SECURITY_ADMIN_USER"]))
 
-				// Check for owner
-				Expect(secret.ObjectMeta.OwnerReferences[0].Kind).To(Equal("ContainerJFR"))
-				Expect(secret.ObjectMeta.OwnerReferences[0].Name).To(Equal("containerjfr"))
+				checkOwner(&secret.ObjectMeta)
 			})
 			It("should create JMX secret and set owner", func() {
-				secret := &corev1.Secret{}
-				err := client.Get(context.Background(), types.NamespacedName{Name: "containerjfr-jmx-auth", Namespace: "default"}, secret)
-				Expect(err).To(HaveOccurred())
-
-				ReconcileFully(client, *controller, false)
-
-				err = client.Get(context.Background(), types.NamespacedName{Name: "containerjfr-jmx-auth", Namespace: "default"}, secret)
-				Expect(err).ToNot(HaveOccurred())
-
-				expectedSecret := resource_definitions.NewJmxSecretForCR(test.NewContainerJFR())
-				Expect(secret.ObjectMeta.Name).To(Equal(expectedSecret.ObjectMeta.Name))
-				Expect(secret.ObjectMeta.Namespace).To(Equal(expectedSecret.ObjectMeta.Namespace))
-				Expect(secret.StringData["CONTAINER_JFR_RJMX_USER"]).To(Equal(expectedSecret.StringData["CONTAINER_JFR_RJMX_USER"]))
-
-				// Check for owner
-				Expect(secret.ObjectMeta.OwnerReferences[0].Kind).To(Equal("ContainerJFR"))
-				Expect(secret.ObjectMeta.OwnerReferences[0].Name).To(Equal("containerjfr"))
+				expectJMXSecret(client, *controller, false)
 			})
 			It("should create Grafana service and set owner", func() {
 				service := &corev1.Service{}
 				err := client.Get(context.Background(), types.NamespacedName{Name: "containerjfr-grafana", Namespace: "default"}, service)
 				Expect(err).To(HaveOccurred())
 
-				ReconcileFully(client, *controller, false)
+				reconcileFully(client, *controller, false)
 
 				err = client.Get(context.Background(), types.NamespacedName{Name: "containerjfr-grafana", Namespace: "default"}, service)
 				Expect(err).ToNot(HaveOccurred())
@@ -208,79 +140,16 @@ var _ = Describe("ContainerjfrController", func() {
 				Expect(service.Spec.Selector).To(Equal(expectedService.Spec.Selector))
 				Expect(service.Spec.Ports).To(Equal(expectedService.Spec.Ports))
 
-				// Check for owner
-				Expect(service.ObjectMeta.OwnerReferences[0].Kind).To(Equal("ContainerJFR"))
-				Expect(service.ObjectMeta.OwnerReferences[0].Name).To(Equal("containerjfr"))
+				checkOwner(&service.ObjectMeta)
 			})
 			It("should create exporter service and set owner", func() {
-				service := &corev1.Service{}
-				err := client.Get(context.Background(), types.NamespacedName{Name: "containerjfr", Namespace: "default"}, service)
-				Expect(err).To(HaveOccurred())
-
-				ReconcileFully(client, *controller, false)
-
-				err = client.Get(context.Background(), types.NamespacedName{Name: "containerjfr", Namespace: "default"}, service)
-				Expect(err).ToNot(HaveOccurred())
-
-				expectedService := resource_definitions.NewExporterService(test.NewContainerJFR())
-				Expect(service.ObjectMeta.Name).To(Equal(expectedService.ObjectMeta.Name))
-				Expect(service.ObjectMeta.Namespace).To(Equal(expectedService.ObjectMeta.Namespace))
-				Expect(service.ObjectMeta.Labels).To(Equal(expectedService.ObjectMeta.Labels))
-				Expect(service.Spec.Type).To(Equal(expectedService.Spec.Type))
-				Expect(service.Spec.Selector).To(Equal(expectedService.Spec.Selector))
-				Expect(service.Spec.Ports).To(Equal(expectedService.Spec.Ports))
-
-				// Check for owner
-				Expect(service.ObjectMeta.OwnerReferences[0].Kind).To(Equal("ContainerJFR"))
-				Expect(service.ObjectMeta.OwnerReferences[0].Name).To(Equal("containerjfr"))
+				expectExporterService(client, *controller, false)
 			})
 			It("should create command channel service and set owner", func() {
-				service := &corev1.Service{}
-				err := client.Get(context.Background(), types.NamespacedName{Name: "containerjfr-command", Namespace: "default"}, service)
-				Expect(err).To(HaveOccurred())
-
-				ReconcileFully(client, *controller, false)
-
-				err = client.Get(context.Background(), types.NamespacedName{Name: "containerjfr-command", Namespace: "default"}, service)
-				Expect(err).ToNot(HaveOccurred())
-
-				expectedService := resource_definitions.NewCommandChannelService(test.NewContainerJFR())
-				Expect(service.ObjectMeta.Name).To(Equal(expectedService.ObjectMeta.Name))
-				Expect(service.ObjectMeta.Namespace).To(Equal(expectedService.ObjectMeta.Namespace))
-				Expect(service.ObjectMeta.Labels).To(Equal(expectedService.ObjectMeta.Labels))
-				Expect(service.Spec.Type).To(Equal(expectedService.Spec.Type))
-				Expect(service.Spec.Selector).To(Equal(expectedService.Spec.Selector))
-				Expect(service.Spec.Ports).To(Equal(expectedService.Spec.Ports))
-
-				// Check for owner
-				Expect(service.ObjectMeta.OwnerReferences[0].Kind).To(Equal("ContainerJFR"))
-				Expect(service.ObjectMeta.OwnerReferences[0].Name).To(Equal("containerjfr"))
+				expectCommandChannel(client, *controller, false)
 			})
 			It("should create deployment and set owner", func() {
-				deployment := appsv1.Deployment{}
-				err := client.Get(context.Background(), types.NamespacedName{Name: "containerjfr", Namespace: "default"}, &deployment)
-				Expect(err).To(HaveOccurred())
-
-				ReconcileFully(client, *controller, false)
-
-				err = client.Get(context.Background(), types.NamespacedName{Name: "containerjfr", Namespace: "default"}, &deployment)
-				Expect(err).ToNot(HaveOccurred())
-
-				testSpecs := NewFakeServiceSpecs(false)
-				testTLSConfig := NewFakeTLSConfig()
-				expectedDeployment := resource_definitions.NewDeploymentForCR(test.NewContainerJFR(), &testSpecs, &testTLSConfig)
-				Expect(deployment.ObjectMeta.Name).To(Equal(expectedDeployment.ObjectMeta.Name))
-				Expect(deployment.ObjectMeta.Namespace).To(Equal(expectedDeployment.ObjectMeta.Namespace))
-				Expect(deployment.ObjectMeta.Labels).To(Equal(expectedDeployment.ObjectMeta.Labels))
-				Expect(deployment.ObjectMeta.Annotations).To(Equal(expectedDeployment.ObjectMeta.Annotations))
-				Expect(deployment.Spec.Selector).To(Equal(expectedDeployment.Spec.Selector))
-
-				// compare Pod template
-				template := deployment.Spec.Template
-				expectedTemplate := expectedDeployment.Spec.Template
-				Expect(template.ObjectMeta).To(Equal(expectedTemplate.ObjectMeta))
-				Expect(template.Spec.Containers).To(Equal(expectedTemplate.Spec.Containers))
-				Expect(template.Spec.Volumes).To(Equal(expectedTemplate.Spec.Volumes))
+				expectDeployment(client, *controller, false)
 			})
 		})
 		Context("succesfully creates required resources for minimal deployment", func() {
@@ -289,119 +158,26 @@ var _ = Describe("ContainerjfrController", func() {
 					test.NewMinimalContainerJFR(),
 				}
 			})
+			It("should create certificates", func() {
+				expectCertificates(client, *controller)
+			})
+			It("should create routes", func() {
+				expectRoutes(client, *controller, true)
+			})
 			It("should create persistent volume claim and set owner", func() {
-				pvc := &corev1.PersistentVolumeClaim{}
-				err := client.Get(context.Background(), types.NamespacedName{Name: "containerjfr", Namespace: "default"}, pvc)
-				Expect(err).To(HaveOccurred())
-
-				ReconcileFully(client, *controller, true)
-
-				err = client.Get(context.Background(), types.NamespacedName{Name: "containerjfr", Namespace: "default"}, pvc)
-				Expect(err).ToNot(HaveOccurred())
-
-				// Compare to desired spec
-				expectedPvc := resource_definitions.NewPersistentVolumeClaimForCR(test.NewContainerJFR())
-				Expect(pvc.ObjectMeta.Name).To(Equal(expectedPvc.ObjectMeta.Name))
-				Expect(pvc.ObjectMeta.Namespace).To(Equal(expectedPvc.ObjectMeta.Namespace))
-				Expect(pvc.Spec.AccessModes).To(Equal(expectedPvc.Spec.AccessModes))
-				Expect(pvc.Spec.StorageClassName).To(Equal(expectedPvc.Spec.StorageClassName))
-
-				pvcStorage := pvc.Spec.Resources.Requests["storage"]
-				expectedPvcStorage := expectedPvc.Spec.Resources.Requests["storage"]
-				Expect(pvcStorage.Equal(expectedPvcStorage)).To(BeTrue())
-
-				// Check for owner
-				Expect(pvc.ObjectMeta.OwnerReferences[0].Kind).To(Equal("ContainerJFR"))
-				Expect(pvc.ObjectMeta.OwnerReferences[0].Name).To(Equal("containerjfr"))
+				expectPVC(client, *controller, true)
 			})
 			It("should create JMX secret and set owner", func() {
-				secret := &corev1.Secret{}
-				err := client.Get(context.Background(), types.NamespacedName{Name: "containerjfr-jmx-auth", Namespace: "default"}, secret)
-				Expect(err).To(HaveOccurred())
-
-				ReconcileFully(client, *controller, true)
-
-				err = client.Get(context.Background(), types.NamespacedName{Name: "containerjfr-jmx-auth", Namespace: "default"}, secret)
-				Expect(err).ToNot(HaveOccurred())
-
-				expectedSecret := resource_definitions.NewJmxSecretForCR(test.NewContainerJFR())
-				Expect(secret.ObjectMeta.Name).To(Equal(expectedSecret.ObjectMeta.Name))
-				Expect(secret.ObjectMeta.Namespace).To(Equal(expectedSecret.ObjectMeta.Namespace))
-				Expect(secret.StringData["CONTAINER_JFR_RJMX_USER"]).To(Equal(expectedSecret.StringData["CONTAINER_JFR_RJMX_USER"]))
-
-				// Check for owner
-				Expect(secret.ObjectMeta.OwnerReferences[0].Kind).To(Equal("ContainerJFR"))
-				Expect(secret.ObjectMeta.OwnerReferences[0].Name).To(Equal("containerjfr"))
+				expectJMXSecret(client, *controller, true)
 			})
 			It("should create exporter service and set owner", func() {
-				service := &corev1.Service{}
-				err := client.Get(context.Background(), types.NamespacedName{Name: "containerjfr", Namespace: "default"}, service)
-				Expect(err).To(HaveOccurred())
-
-				ReconcileFully(client, *controller, true)
-
-				err = client.Get(context.Background(), types.NamespacedName{Name: "containerjfr", Namespace: "default"}, service)
-				Expect(err).ToNot(HaveOccurred())
-
-				expectedService := resource_definitions.NewExporterService(test.NewContainerJFR())
-				Expect(service.ObjectMeta.Name).To(Equal(expectedService.ObjectMeta.Name))
-				Expect(service.ObjectMeta.Namespace).To(Equal(expectedService.ObjectMeta.Namespace))
-				Expect(service.ObjectMeta.Labels).To(Equal(expectedService.ObjectMeta.Labels))
-				Expect(service.Spec.Type).To(Equal(expectedService.Spec.Type))
-				Expect(service.Spec.Selector).To(Equal(expectedService.Spec.Selector))
-				Expect(service.Spec.Ports).To(Equal(expectedService.Spec.Ports))
-
-				// Check for owner
-				Expect(service.ObjectMeta.OwnerReferences[0].Kind).To(Equal("ContainerJFR"))
-				Expect(service.ObjectMeta.OwnerReferences[0].Name).To(Equal("containerjfr"))
+				expectExporterService(client, *controller, true)
 			})
 			It("should create command channel service and set owner", func() {
-				service := &corev1.Service{}
-				err := client.Get(context.Background(), types.NamespacedName{Name: "containerjfr-command", Namespace: "default"}, service)
-				Expect(err).To(HaveOccurred())
-
-				ReconcileFully(client, *controller, true)
-
-				err = client.Get(context.Background(), types.NamespacedName{Name: "containerjfr-command", Namespace: "default"}, service)
-				Expect(err).ToNot(HaveOccurred())
-
-				expectedService := resource_definitions.NewCommandChannelService(test.NewContainerJFR())
-				Expect(service.ObjectMeta.Name).To(Equal(expectedService.ObjectMeta.Name))
-				Expect(service.ObjectMeta.Namespace).To(Equal(expectedService.ObjectMeta.Namespace))
-				Expect(service.ObjectMeta.Labels).To(Equal(expectedService.ObjectMeta.Labels))
-				Expect(service.Spec.Type).To(Equal(expectedService.Spec.Type))
-				Expect(service.Spec.Selector).To(Equal(expectedService.Spec.Selector))
-				Expect(service.Spec.Ports).To(Equal(expectedService.Spec.Ports))
-
-				// Check for owner
-				Expect(service.ObjectMeta.OwnerReferences[0].Kind).To(Equal("ContainerJFR"))
-				Expect(service.ObjectMeta.OwnerReferences[0].Name).To(Equal("containerjfr"))
+				expectCommandChannel(client, *controller, true)
 			})
 			It("should create deployment and set owner", func() {
-				deployment := appsv1.Deployment{}
-				err := client.Get(context.Background(), types.NamespacedName{Name: "containerjfr", Namespace: "default"}, &deployment)
-				Expect(err).To(HaveOccurred())
-
-				ReconcileFully(client, *controller, true)
-
-				err = client.Get(context.Background(), types.NamespacedName{Name: "containerjfr", Namespace: "default"}, &deployment)
-				Expect(err).ToNot(HaveOccurred())
-
-				testSpecs := NewFakeServiceSpecs(true)
-				testTLSConfig := NewFakeTLSConfig()
-				expectedDeployment := resource_definitions.NewDeploymentForCR(test.NewMinimalContainerJFR(), &testSpecs, &testTLSConfig)
-				Expect(deployment.ObjectMeta.Name).To(Equal(expectedDeployment.ObjectMeta.Name))
-				Expect(deployment.ObjectMeta.Namespace).To(Equal(expectedDeployment.ObjectMeta.Namespace))
-				Expect(deployment.ObjectMeta.Labels).To(Equal(expectedDeployment.ObjectMeta.Labels))
-				Expect(deployment.ObjectMeta.Annotations).To(Equal(expectedDeployment.ObjectMeta.Annotations))
-				Expect(deployment.Spec.Selector).To(Equal(expectedDeployment.Spec.Selector))
-
-				// compare Pod template
-				template := deployment.Spec.Template
-				expectedTemplate := expectedDeployment.Spec.Template
-				Expect(template.ObjectMeta).To(Equal(expectedTemplate.ObjectMeta))
-				Expect(template.Spec.Containers).To(Equal(expectedTemplate.Spec.Containers))
-				Expect(template.Spec.Volumes).To(Equal(expectedTemplate.Spec.Volumes))
+				expectDeployment(client, *controller, true)
 			})
 		})
 		Context("after containerjfr reconciled successfully", func() {
@@ -411,23 +187,7 @@ var _ = Describe("ContainerjfrController", func() {
 				}
 			})
 			It("should be idempotent", func() {
-				req := reconcile.Request{NamespacedName: types.NamespacedName{Name: "containerjfr", Namespace: "default"}}
-				ReconcileFully(client, *controller, false)
-
-				obj := &rhjmcv1beta1.ContainerJFR{}
-				err := client.Get(context.Background(), req.NamespacedName, obj)
-				Expect(err).ToNot(HaveOccurred())
-
-				// Reconcile again
-				result, err := controller.Reconcile(req)
-				Expect(err).ToNot(HaveOccurred())
-				Expect(result).To(Equal(reconcile.Result{}))
-
-				obj2 := &rhjmcv1beta1.ContainerJFR{}
-				err = client.Get(context.Background(), req.NamespacedName, obj2)
-				Expect(err).ToNot(HaveOccurred())
-				Expect(obj2.Status).To(Equal(obj.Status))
-				Expect(obj2.Spec).To(Equal(obj.Spec))
+				expectIdempotence(client, *controller, false)
 			})
 		})
 		Context("After a minimal containerjfr reconciled successfully", func() {
@@ -437,23 +197,7 @@ var _ = Describe("ContainerjfrController", func() {
 				}
 			})
 			It("should be idempotent", func() {
-				req := reconcile.Request{NamespacedName: types.NamespacedName{Name: "containerjfr", Namespace: "default"}}
-				ReconcileFully(client, *controller, true)
-
-				obj := &rhjmcv1beta1.ContainerJFR{}
-				err := client.Get(context.Background(), req.NamespacedName, obj)
-				Expect(err).ToNot(HaveOccurred())
-
-				// Reconcile again
-				result, err := controller.Reconcile(req)
-				Expect(err).ToNot(HaveOccurred())
-				Expect(result).To(Equal(reconcile.Result{}))
-
-				obj2 := &rhjmcv1beta1.ContainerJFR{}
-				err = client.Get(context.Background(), req.NamespacedName, obj2)
-				Expect(err).ToNot(HaveOccurred())
-				Expect(obj2.Status).To(Equal(obj.Status))
-				Expect(obj2.Spec).To(Equal(obj.Spec))
+				expectIdempotence(client, *controller, true)
 			})
 		})
 		Context("ContainerJFR does not exist", func() {
@@ -468,7 +212,7 @@ var _ = Describe("ContainerjfrController", func() {
 	})
 })
 
-func NewFakeSecret(name string) *corev1.Secret {
+func newFakeSecret(name string) *corev1.Secret {
 	return &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
@@ -480,7 +224,7 @@ func NewFakeSecret(name string) *corev1.Secret {
 	}
 }
 
-func NewFakeServiceSpecs(minimal bool) resource_definitions.ServiceSpecs {
+func newFakeServiceSpecs(minimal bool) resource_definitions.ServiceSpecs {
 	grafanaUrl := "https://test"
 	if minimal {
 		grafanaUrl = ""
@@ -492,7 +236,7 @@ func NewFakeServiceSpecs(minimal bool) resource_definitions.ServiceSpecs {
 	}
 }
 
-func NewFakeTLSConfig() resource_definitions.TLSConfig {
+func newFakeTLSConfig() resource_definitions.TLSConfig {
 	return resource_definitions.TLSConfig{
 		ContainerJFRSecret: "containerjfr-tls",
 		GrafanaSecret:      "containerjfr-grafana-tls",
@@ -500,7 +244,7 @@ func NewFakeTLSConfig() resource_definitions.TLSConfig {
 	}
 }
 
-func MakeCertificatesReady(client client.Client) {
+func makeCertificatesReady(client client.Client) {
 	certNames := []string{"containerjfr", "containerjfr-ca", "containerjfr-grafana"}
 	for _, certName := range certNames {
 		cert := &certv1.Certificate{}
@@ -515,17 +259,17 @@ func MakeCertificatesReady(client client.Client) {
 	}
 }
 
-func InitializeSecrets(client client.Client) {
+func initializeSecrets(client client.Client) {
 	// Create secrets
 	secretNames := []string{"containerjfr-ca", "containerjfr-tls", "containerjfr-grafana-tls"}
 	for _, secretName := range secretNames {
-		secret := NewFakeSecret(secretName)
+		secret := newFakeSecret(secretName)
 		err := client.Create(context.Background(), secret)
 		Expect(err).ToNot(HaveOccurred())
 	}
 }
 
-func IngressConfig(client client.Client, controller containerjfr.ReconcileContainerJFR, req reconcile.Request, minimal bool) {
+func ingressConfig(client client.Client, controller containerjfr.ReconcileContainerJFR, req reconcile.Request, minimal bool) {
 	routes := []string{"containerjfr", "containerjfr-command"}
 	if !minimal {
 		routes = append([]string{"containerjfr-grafana"}, routes...)
@@ -543,21 +287,193 @@ func IngressConfig(client client.Client, controller containerjfr.ReconcileContai
 	}
 }
 
-func ReconcileFully(client client.Client, controller containerjfr.ReconcileContainerJFR, minimal bool) {
+func reconcileFully(client client.Client, controller containerjfr.ReconcileContainerJFR, minimal bool) {
 	req := reconcile.Request{NamespacedName: types.NamespacedName{Name: "containerjfr", Namespace: "default"}}
 	result, err := controller.Reconcile(req)
 	Expect(err).ToNot(HaveOccurred())
 	Expect(result).To(Equal(reconcile.Result{RequeueAfter: 5 * time.Second}))
 
 	// Update certificate status
-	MakeCertificatesReady(client)
-	InitializeSecrets(client)
+	makeCertificatesReady(client)
+	initializeSecrets(client)
 
 	// Add ingress config to routes
 	result, err = controller.Reconcile(req)
-	IngressConfig(client, controller, req, minimal)
+	ingressConfig(client, controller, req, minimal)
 
 	result, err = controller.Reconcile(req)
 	Expect(err).ToNot(HaveOccurred())
 	Expect(result).To(Equal(reconcile.Result{}))
+}
+
+func checkOwner(object metav1.Object) {
+	ownerReferences := object.GetOwnerReferences()
+	Expect(ownerReferences[0].Kind).To(Equal("ContainerJFR"))
+	Expect(ownerReferences[0].Name).To(Equal("containerjfr"))
+}
+
+func expectCertificates(client client.Client, controller containerjfr.ReconcileContainerJFR) {
+	req := reconcile.Request{NamespacedName: types.NamespacedName{Name: "containerjfr", Namespace: "default"}}
+	result, err := controller.Reconcile(req)
+	Expect(err).ToNot(HaveOccurred())
+	Expect(result).To(Equal(reconcile.Result{RequeueAfter: 5 * time.Second}))
+	certNames := []string{"containerjfr", "containerjfr-ca", "containerjfr-grafana"}
+	for _, certName := range certNames {
+		cert := &certv1.Certificate{}
+		err := client.Get(context.Background(), types.NamespacedName{Name: certName, Namespace: "default"}, cert)
+		Expect(err).ToNot(HaveOccurred())
+	}
+}
+
+func expectRoutes(client client.Client, controller containerjfr.ReconcileContainerJFR, minimal bool) {
+	req := reconcile.Request{NamespacedName: types.NamespacedName{Name: "containerjfr", Namespace: "default"}}
+	result, err := controller.Reconcile(req)
+	Expect(err).ToNot(HaveOccurred())
+	Expect(result).To(Equal(reconcile.Result{RequeueAfter: 5 * time.Second}))
+
+	// Update certificate status
+	makeCertificatesReady(client)
+	initializeSecrets(client)
+
+	// Check for routes, ingress configuration needs to be added as each
+	// one is created so that they all reconcile successfully
+	result, err = controller.Reconcile(req)
+	ingressConfig(client, controller, req, minimal)
+}
+
+func expectPVC(client client.Client, controller containerjfr.ReconcileContainerJFR, minimal bool) {
+	pvc := &corev1.PersistentVolumeClaim{}
+	err := client.Get(context.Background(), types.NamespacedName{Name: "containerjfr", Namespace: "default"}, pvc)
+	Expect(err).To(HaveOccurred())
+
+	reconcileFully(client, controller, minimal)
+
+	err = client.Get(context.Background(), types.NamespacedName{Name: "containerjfr", Namespace: "default"}, pvc)
+	Expect(err).ToNot(HaveOccurred())
+
+	// Compare to desired spec
+	expectedPvc := resource_definitions.NewPersistentVolumeClaimForCR(test.NewContainerJFR())
+	Expect(pvc.ObjectMeta.Name).To(Equal(expectedPvc.ObjectMeta.Name))
+	Expect(pvc.ObjectMeta.Namespace).To(Equal(expectedPvc.ObjectMeta.Namespace))
+	Expect(pvc.Spec.AccessModes).To(Equal(expectedPvc.Spec.AccessModes))
+	Expect(pvc.Spec.StorageClassName).To(Equal(expectedPvc.Spec.StorageClassName))
+
+	pvcStorage := pvc.Spec.Resources.Requests["storage"]
+	expectedPvcStorage := expectedPvc.Spec.Resources.Requests["storage"]
+	Expect(pvcStorage.Equal(expectedPvcStorage)).To(BeTrue())
+
+	checkOwner(&pvc.ObjectMeta)
+}
+
+func expectJMXSecret(client client.Client, controller containerjfr.ReconcileContainerJFR, minimal bool) {
+	secret := &corev1.Secret{}
+	err := client.Get(context.Background(), types.NamespacedName{Name: "containerjfr-jmx-auth", Namespace: "default"}, secret)
+	Expect(err).To(HaveOccurred())
+
+	reconcileFully(client, controller, minimal)
+
+	err = client.Get(context.Background(), types.NamespacedName{Name: "containerjfr-jmx-auth", Namespace: "default"}, secret)
+	Expect(err).ToNot(HaveOccurred())
+
+	expectedSecret := resource_definitions.NewJmxSecretForCR(test.NewContainerJFR())
+	Expect(secret.ObjectMeta.Name).To(Equal(expectedSecret.ObjectMeta.Name))
+	Expect(secret.ObjectMeta.Namespace).To(Equal(expectedSecret.ObjectMeta.Namespace))
+	Expect(secret.StringData["CONTAINER_JFR_RJMX_USER"]).To(Equal(expectedSecret.StringData["CONTAINER_JFR_RJMX_USER"]))
+
+	checkOwner(&secret.ObjectMeta)
+}
+
+func expectExporterService(client client.Client, controller containerjfr.ReconcileContainerJFR, minimal bool) {
+	service := &corev1.Service{}
+	err := client.Get(context.Background(), types.NamespacedName{Name: "containerjfr", Namespace: "default"}, service)
+	Expect(err).To(HaveOccurred())
+
+	reconcileFully(client, controller, minimal)
+
+	err = client.Get(context.Background(), types.NamespacedName{Name: "containerjfr", Namespace: "default"}, service)
+	Expect(err).ToNot(HaveOccurred())
+
+	expectedService := resource_definitions.NewExporterService(test.NewContainerJFR())
+	Expect(service.ObjectMeta.Name).To(Equal(expectedService.ObjectMeta.Name))
+	Expect(service.ObjectMeta.Namespace).To(Equal(expectedService.ObjectMeta.Namespace))
+	Expect(service.ObjectMeta.Labels).To(Equal(expectedService.ObjectMeta.Labels))
+	Expect(service.Spec.Type).To(Equal(expectedService.Spec.Type))
+	Expect(service.Spec.Selector).To(Equal(expectedService.Spec.Selector))
+	Expect(service.Spec.Ports).To(Equal(expectedService.Spec.Ports))
+
+	checkOwner(&service.ObjectMeta)
+}
+
+func expectCommandChannel(client client.Client, controller containerjfr.ReconcileContainerJFR, minimal bool) {
+	service := &corev1.Service{}
+	err := client.Get(context.Background(), types.NamespacedName{Name: "containerjfr-command", Namespace: "default"}, service)
+	Expect(err).To(HaveOccurred())
+
+	reconcileFully(client, controller, minimal)
+
+	err = client.Get(context.Background(), types.NamespacedName{Name: "containerjfr-command", Namespace: "default"}, service)
+	Expect(err).ToNot(HaveOccurred())
+
+	expectedService := resource_definitions.NewCommandChannelService(test.NewContainerJFR())
+	Expect(service.ObjectMeta.Name).To(Equal(expectedService.ObjectMeta.Name))
+	Expect(service.ObjectMeta.Namespace).To(Equal(expectedService.ObjectMeta.Namespace))
+	Expect(service.ObjectMeta.Labels).To(Equal(expectedService.ObjectMeta.Labels))
+	Expect(service.Spec.Type).To(Equal(expectedService.Spec.Type))
+	Expect(service.Spec.Selector).To(Equal(expectedService.Spec.Selector))
+	Expect(service.Spec.Ports).To(Equal(expectedService.Spec.Ports))
+
+	checkOwner(&service.ObjectMeta)
+}
+
+func expectDeployment(client client.Client, controller containerjfr.ReconcileContainerJFR, minimal bool) {
+	deployment := appsv1.Deployment{}
+	err := client.Get(context.Background(), types.NamespacedName{Name: "containerjfr", Namespace: "default"}, &deployment)
+	Expect(err).To(HaveOccurred())
+
+	reconcileFully(client, controller, minimal)
+
+	err = client.Get(context.Background(), types.NamespacedName{Name: "containerjfr", Namespace: "default"}, &deployment)
+	Expect(err).ToNot(HaveOccurred())
+
+	testSpecs := newFakeServiceSpecs(minimal)
+	testTLSConfig := newFakeTLSConfig()
+	testContainer := &rhjmcv1beta1.ContainerJFR{}
+	if minimal {
+		testContainer = test.NewMinimalContainerJFR()
+	} else {
+		testContainer = test.NewContainerJFR()
+	}
+	expectedDeployment := resource_definitions.NewDeploymentForCR(testContainer, &testSpecs, &testTLSConfig)
+	Expect(deployment.ObjectMeta.Name).To(Equal(expectedDeployment.ObjectMeta.Name))
+	Expect(deployment.ObjectMeta.Namespace).To(Equal(expectedDeployment.ObjectMeta.Namespace))
+	Expect(deployment.ObjectMeta.Labels).To(Equal(expectedDeployment.ObjectMeta.Labels))
+	Expect(deployment.ObjectMeta.Annotations).To(Equal(expectedDeployment.ObjectMeta.Annotations))
+	Expect(deployment.Spec.Selector).To(Equal(expectedDeployment.Spec.Selector))
+
+	// compare Pod template
+	template := deployment.Spec.Template
+	expectedTemplate := expectedDeployment.Spec.Template
+	Expect(template.ObjectMeta).To(Equal(expectedTemplate.ObjectMeta))
+	Expect(template.Spec.Containers).To(Equal(expectedTemplate.Spec.Containers))
+	Expect(template.Spec.Volumes).To(Equal(expectedTemplate.Spec.Volumes))
+}
+
+func expectIdempotence(client client.Client, controller containerjfr.ReconcileContainerJFR, minimal bool) {
+	req := reconcile.Request{NamespacedName: types.NamespacedName{Name: "containerjfr", Namespace: "default"}}
+	reconcileFully(client, controller, minimal)
+
+	obj := &rhjmcv1beta1.ContainerJFR{}
+	err := client.Get(context.Background(), req.NamespacedName, obj)
+	Expect(err).ToNot(HaveOccurred())
+
+	// Reconcile again
+	result, err := controller.Reconcile(req)
+	Expect(err).ToNot(HaveOccurred())
+	Expect(result).To(Equal(reconcile.Result{}))
+
+	obj2 := &rhjmcv1beta1.ContainerJFR{}
+	err = client.Get(context.Background(), req.NamespacedName, obj2)
+	Expect(err).ToNot(HaveOccurred())
+	Expect(obj2.Status).To(Equal(obj.Status))
+	Expect(obj2.Spec).To(Equal(obj.Spec))
 }
