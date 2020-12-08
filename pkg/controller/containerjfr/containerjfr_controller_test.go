@@ -113,7 +113,7 @@ var _ = Describe("ContainerjfrController", func() {
 
 				// Compare to desired spec
 				expectedSecret := resource_definitions.NewGrafanaSecretForCR(test.NewContainerJFR())
-				checkMetadata(&secret.ObjectMeta, &expectedSecret.ObjectMeta)
+				checkMetadata(secret, expectedSecret)
 				Expect(secret.StringData["GF_SECURITY_ADMIN_USER"]).To(Equal(expectedSecret.StringData["GF_SECURITY_ADMIN_USER"]))
 			})
 			It("should create JMX secret and set owner", func() {
@@ -130,7 +130,7 @@ var _ = Describe("ContainerjfrController", func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				expectedService := resource_definitions.NewGrafanaService(test.NewContainerJFR())
-				checkMetadata(&service.ObjectMeta, &expectedService.ObjectMeta)
+				checkMetadata(service, expectedService)
 				Expect(service.Spec.Type).To(Equal(expectedService.Spec.Type))
 				Expect(service.Spec.Selector).To(Equal(expectedService.Spec.Selector))
 				Expect(service.Spec.Ports).To(Equal(expectedService.Spec.Ports))
@@ -350,7 +350,7 @@ func expectPVC(client client.Client, controller containerjfr.ReconcileContainerJ
 
 	// Compare to desired spec
 	expectedPvc := resource_definitions.NewPersistentVolumeClaimForCR(test.NewContainerJFR())
-	checkMetadata(&pvc.ObjectMeta, &expectedPvc.ObjectMeta)
+	checkMetadata(pvc, expectedPvc)
 	Expect(pvc.Spec.AccessModes).To(Equal(expectedPvc.Spec.AccessModes))
 	Expect(pvc.Spec.StorageClassName).To(Equal(expectedPvc.Spec.StorageClassName))
 
@@ -370,7 +370,7 @@ func expectJMXSecret(client client.Client, controller containerjfr.ReconcileCont
 	Expect(err).ToNot(HaveOccurred())
 
 	expectedSecret := resource_definitions.NewJmxSecretForCR(test.NewContainerJFR())
-	checkMetadata(&secret.ObjectMeta, &expectedSecret.ObjectMeta)
+	checkMetadata(secret, expectedSecret)
 	Expect(secret.StringData["CONTAINER_JFR_RJMX_USER"]).To(Equal(expectedSecret.StringData["CONTAINER_JFR_RJMX_USER"]))
 }
 
@@ -385,7 +385,7 @@ func expectExporterService(client client.Client, controller containerjfr.Reconci
 	Expect(err).ToNot(HaveOccurred())
 
 	expectedService := resource_definitions.NewExporterService(test.NewContainerJFR())
-	checkMetadata(&service.ObjectMeta, &expectedService.ObjectMeta)
+	checkMetadata(service, expectedService)
 	Expect(service.Spec.Type).To(Equal(expectedService.Spec.Type))
 	Expect(service.Spec.Selector).To(Equal(expectedService.Spec.Selector))
 	Expect(service.Spec.Ports).To(Equal(expectedService.Spec.Ports))
@@ -402,20 +402,20 @@ func expectCommandChannel(client client.Client, controller containerjfr.Reconcil
 	Expect(err).ToNot(HaveOccurred())
 
 	expectedService := resource_definitions.NewCommandChannelService(test.NewContainerJFR())
-	checkMetadata(&service.ObjectMeta, &expectedService.ObjectMeta)
+	checkMetadata(service, expectedService)
 	Expect(service.Spec.Type).To(Equal(expectedService.Spec.Type))
 	Expect(service.Spec.Selector).To(Equal(expectedService.Spec.Selector))
 	Expect(service.Spec.Ports).To(Equal(expectedService.Spec.Ports))
 }
 
 func expectDeployment(client client.Client, controller containerjfr.ReconcileContainerJFR, minimal bool) {
-	deployment := appsv1.Deployment{}
-	err := client.Get(context.Background(), types.NamespacedName{Name: "containerjfr", Namespace: "default"}, &deployment)
+	deployment := &appsv1.Deployment{}
+	err := client.Get(context.Background(), types.NamespacedName{Name: "containerjfr", Namespace: "default"}, deployment)
 	Expect(err).To(HaveOccurred())
 
 	reconcileFully(client, controller, minimal)
 
-	err = client.Get(context.Background(), types.NamespacedName{Name: "containerjfr", Namespace: "default"}, &deployment)
+	err = client.Get(context.Background(), types.NamespacedName{Name: "containerjfr", Namespace: "default"}, deployment)
 	Expect(err).ToNot(HaveOccurred())
 
 	testSpecs := newFakeServiceSpecs(minimal)
@@ -427,10 +427,7 @@ func expectDeployment(client client.Client, controller containerjfr.ReconcileCon
 		testContainer = test.NewContainerJFR()
 	}
 	expectedDeployment := resource_definitions.NewDeploymentForCR(testContainer, &testSpecs, &testTLSConfig)
-	Expect(deployment.ObjectMeta.Name).To(Equal(expectedDeployment.ObjectMeta.Name))
-	Expect(deployment.ObjectMeta.Namespace).To(Equal(expectedDeployment.ObjectMeta.Namespace))
-	Expect(deployment.ObjectMeta.Labels).To(Equal(expectedDeployment.ObjectMeta.Labels))
-	Expect(deployment.ObjectMeta.Annotations).To(Equal(expectedDeployment.ObjectMeta.Annotations))
+	checkMetadata(deployment, expectedDeployment)
 	Expect(deployment.Spec.Selector).To(Equal(expectedDeployment.Spec.Selector))
 
 	// compare Pod template
