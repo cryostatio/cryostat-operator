@@ -125,15 +125,7 @@ var _ = Describe("ContainerjfrController", func() {
 				Expect(err).To(HaveOccurred())
 
 				reconcileFully(client, *controller, false)
-
-				err = client.Get(context.Background(), types.NamespacedName{Name: "containerjfr-grafana", Namespace: "default"}, service)
-				Expect(err).ToNot(HaveOccurred())
-
-				expectedService := resource_definitions.NewGrafanaService(test.NewContainerJFR())
-				checkMetadata(service, expectedService)
-				Expect(service.Spec.Type).To(Equal(expectedService.Spec.Type))
-				Expect(service.Spec.Selector).To(Equal(expectedService.Spec.Selector))
-				Expect(service.Spec.Ports).To(Equal(expectedService.Spec.Ports))
+				checkGrafanaService(client)
 			})
 			It("should create exporter service and set owner", func() {
 				expectExporterService(client, *controller, false)
@@ -201,7 +193,71 @@ var _ = Describe("ContainerjfrController", func() {
 				Expect(result).To(Equal(reconcile.Result{}))
 			})
 		})
+		Context("Switching from a minimal to a non-minimal deployment", func() {
+			BeforeEach(func() {
+				objs = []runtime.Object{
+					test.NewMinimalContainerJFR(),
+				}
+			})
+			JustBeforeEach(func() {
+				reconcileFully(client, *controller, true)
 
+				cjfr := &rhjmcv1beta1.ContainerJFR{}
+				err := client.Get(context.Background(), types.NamespacedName{Name: "containerjfr", Namespace: "default"}, cjfr)
+				Expect(err).ToNot(HaveOccurred())
+
+				cjfr.Spec.Minimal = false
+				err = client.Status().Update(context.Background(), cjfr)
+				Expect(err).ToNot(HaveOccurred())
+
+				req := reconcile.Request{NamespacedName: types.NamespacedName{Name: "containerjfr", Namespace: "default"}}
+				_, err = controller.Reconcile(req)
+				Expect(err).To(HaveOccurred())
+				ingressConfig(client, *controller, req, false)
+				_, err = controller.Reconcile(req)
+				Expect(err).ToNot(HaveOccurred())
+			})
+			It("should create grafana resources", func() {
+				checkGrafanaService(client)
+			})
+			It("should configure deployment appropriately", func() {
+				checkDeployment(client, false)
+			})
+		})
+		Context("Switching from a non-minimal to a minimal deployment", func() {
+			BeforeEach(func() {
+				objs = []runtime.Object{
+					test.NewContainerJFR(),
+				}
+			})
+			JustBeforeEach(func() {
+				reconcileFully(client, *controller, false)
+
+				cjfr := &rhjmcv1beta1.ContainerJFR{}
+				err := client.Get(context.Background(), types.NamespacedName{Name: "containerjfr", Namespace: "default"}, cjfr)
+				Expect(err).ToNot(HaveOccurred())
+
+				cjfr.Spec.Minimal = true
+				err = client.Status().Update(context.Background(), cjfr)
+				Expect(err).ToNot(HaveOccurred())
+
+				req := reconcile.Request{NamespacedName: types.NamespacedName{Name: "containerjfr", Namespace: "default"}}
+				_, err = controller.Reconcile(req)
+				Expect(err).ToNot(HaveOccurred())
+			})
+			It("should delete grafana resources", func() {
+				service := &corev1.Service{}
+				err := client.Get(context.Background(), types.NamespacedName{Name: "containerjfr-grafana", Namespace: "default"}, service)
+				Expect(err).To(HaveOccurred())
+
+				route := &openshiftv1.Route{}
+				err = client.Get(context.Background(), types.NamespacedName{Name: "containerjfr-grafana", Namespace: "default"}, route)
+				Expect(err).To(HaveOccurred())
+			})
+			It("should configure deployment appropriately", func() {
+				checkDeployment(client, true)
+			})
+		})
 	})
 })
 
@@ -414,28 +470,7 @@ func expectDeployment(client client.Client, controller containerjfr.ReconcileCon
 	Expect(err).To(HaveOccurred())
 
 	reconcileFully(client, controller, minimal)
-
-	err = client.Get(context.Background(), types.NamespacedName{Name: "containerjfr", Namespace: "default"}, deployment)
-	Expect(err).ToNot(HaveOccurred())
-
-	testSpecs := newFakeServiceSpecs(minimal)
-	testTLSConfig := newFakeTLSConfig()
-	testContainer := &rhjmcv1beta1.ContainerJFR{}
-	if minimal {
-		testContainer = test.NewMinimalContainerJFR()
-	} else {
-		testContainer = test.NewContainerJFR()
-	}
-	expectedDeployment := resource_definitions.NewDeploymentForCR(testContainer, &testSpecs, &testTLSConfig)
-	checkMetadata(deployment, expectedDeployment)
-	Expect(deployment.Spec.Selector).To(Equal(expectedDeployment.Spec.Selector))
-
-	// compare Pod template
-	template := deployment.Spec.Template
-	expectedTemplate := expectedDeployment.Spec.Template
-	Expect(template.ObjectMeta).To(Equal(expectedTemplate.ObjectMeta))
-	Expect(template.Spec.Containers).To(Equal(expectedTemplate.Spec.Containers))
-	Expect(template.Spec.Volumes).To(Equal(expectedTemplate.Spec.Volumes))
+	checkDeployment(client, minimal)
 }
 
 func expectIdempotence(client client.Client, controller containerjfr.ReconcileContainerJFR, minimal bool) {
@@ -456,4 +491,41 @@ func expectIdempotence(client client.Client, controller containerjfr.ReconcileCo
 	Expect(err).ToNot(HaveOccurred())
 	Expect(obj2.Status).To(Equal(obj.Status))
 	Expect(obj2.Spec).To(Equal(obj.Spec))
+}
+
+func checkGrafanaService(client client.Client) {
+	service := &corev1.Service{}
+	err := client.Get(context.Background(), types.NamespacedName{Name: "containerjfr-grafana", Namespace: "default"}, service)
+	Expect(err).ToNot(HaveOccurred())
+
+	expectedService := resource_definitions.NewGrafanaService(test.NewContainerJFR())
+	checkMetadata(service, expectedService)
+	Expect(service.Spec.Type).To(Equal(expectedService.Spec.Type))
+	Expect(service.Spec.Selector).To(Equal(expectedService.Spec.Selector))
+	Expect(service.Spec.Ports).To(Equal(expectedService.Spec.Ports))
+}
+
+func checkDeployment(client client.Client, minimal bool) {
+	deployment := &appsv1.Deployment{}
+	err := client.Get(context.Background(), types.NamespacedName{Name: "containerjfr", Namespace: "default"}, deployment)
+	Expect(err).ToNot(HaveOccurred())
+
+	testSpecs := newFakeServiceSpecs(minimal)
+	testTLSConfig := newFakeTLSConfig()
+	testContainer := &rhjmcv1beta1.ContainerJFR{}
+	if minimal {
+		testContainer = test.NewMinimalContainerJFR()
+	} else {
+		testContainer = test.NewContainerJFR()
+	}
+	expectedDeployment := resource_definitions.NewDeploymentForCR(testContainer, &testSpecs, &testTLSConfig)
+	checkMetadata(deployment, expectedDeployment)
+	Expect(deployment.Spec.Selector).To(Equal(expectedDeployment.Spec.Selector))
+
+	// compare Pod template
+	template := deployment.Spec.Template
+	expectedTemplate := expectedDeployment.Spec.Template
+	Expect(template.ObjectMeta).To(Equal(expectedTemplate.ObjectMeta))
+	Expect(template.Spec.Containers).To(Equal(expectedTemplate.Spec.Containers))
+	Expect(template.Spec.Volumes).To(Equal(expectedTemplate.Spec.Volumes))
 }
