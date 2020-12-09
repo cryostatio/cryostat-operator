@@ -73,7 +73,7 @@ func Add(mgr manager.Manager) error {
 
 // newReconciler returns a new reconcile.Reconciler
 func newReconciler(mgr manager.Manager) reconcile.Reconciler {
-	return &ReconcileContainerJFR{scheme: mgr.GetScheme(), client: mgr.GetClient(),
+	return &ReconcileContainerJFR{Scheme: mgr.GetScheme(), Client: mgr.GetClient(),
 		ReconcilerTLS: common.NewReconcilerTLS(&common.ReconcilerTLSConfig{
 			Client: mgr.GetClient(),
 		}),
@@ -118,8 +118,8 @@ var _ reconcile.Reconciler = &ReconcileContainerJFR{}
 type ReconcileContainerJFR struct {
 	// This client, initialized using mgr.Client() above, is a split client
 	// that reads objects from the cache and writes to the apiserver
-	client client.Client
-	scheme *runtime.Scheme
+	Client client.Client
+	Scheme *runtime.Scheme
 	common.ReconcilerTLS
 }
 
@@ -131,7 +131,7 @@ func (r *ReconcileContainerJFR) Reconcile(request reconcile.Request) (reconcile.
 
 	// Fetch the ContainerJFR instance
 	instance := &rhjmcv1beta1.ContainerJFR{}
-	err := r.client.Get(context.Background(), request.NamespacedName, instance)
+	err := r.Client.Get(context.Background(), request.NamespacedName, instance)
 	if err != nil {
 		if errors.IsNotFound(err) {
 			// Request object not found, could have been deleted after reconcile request.
@@ -147,7 +147,7 @@ func (r *ReconcileContainerJFR) Reconcile(request reconcile.Request) (reconcile.
 	reqLogger.Info("Spec", "Minimal", instance.Spec.Minimal)
 
 	pvc := resources.NewPersistentVolumeClaimForCR(instance)
-	if err := controllerutil.SetControllerReference(instance, pvc, r.scheme); err != nil {
+	if err := controllerutil.SetControllerReference(instance, pvc, r.Scheme); err != nil {
 		return reconcile.Result{}, err
 	}
 	if err = r.createObjectIfNotExists(context.Background(), types.NamespacedName{Name: pvc.Name, Namespace: pvc.Namespace}, &corev1.PersistentVolumeClaim{}, pvc); err != nil {
@@ -155,7 +155,7 @@ func (r *ReconcileContainerJFR) Reconcile(request reconcile.Request) (reconcile.
 	}
 
 	grafanaSecret := resources.NewGrafanaSecretForCR(instance)
-	if err := controllerutil.SetControllerReference(instance, grafanaSecret, r.scheme); err != nil {
+	if err := controllerutil.SetControllerReference(instance, grafanaSecret, r.Scheme); err != nil {
 		return reconcile.Result{}, err
 	}
 	if err = r.createObjectIfNotExists(context.Background(), types.NamespacedName{Name: grafanaSecret.Name, Namespace: grafanaSecret.Namespace}, &corev1.Secret{}, grafanaSecret); err != nil {
@@ -163,7 +163,7 @@ func (r *ReconcileContainerJFR) Reconcile(request reconcile.Request) (reconcile.
 	}
 
 	jmxAuthSecret := resources.NewJmxSecretForCR(instance)
-	if err := controllerutil.SetControllerReference(instance, jmxAuthSecret, r.scheme); err != nil {
+	if err := controllerutil.SetControllerReference(instance, jmxAuthSecret, r.Scheme); err != nil {
 		return reconcile.Result{}, err
 	}
 	if err = r.createObjectIfNotExists(context.Background(), types.NamespacedName{Name: jmxAuthSecret.Name, Namespace: jmxAuthSecret.Namespace}, &corev1.Secret{}, jmxAuthSecret); err != nil {
@@ -203,14 +203,14 @@ func (r *ReconcileContainerJFR) Reconcile(request reconcile.Request) (reconcile.
 		if err != nil {
 			return reconcile.Result{}, err
 		}
-		serviceSpecs.GrafanaAddress = fmt.Sprintf("%s://%s", protocol, url)
+		serviceSpecs.GrafanaURL = fmt.Sprintf("%s://%s", protocol, url)
 
 		// check for existing minimal deployment and delete if found
 		deployment := resources.NewDeploymentForCR(instance, serviceSpecs, nil)
-		err = r.client.Get(context.Background(), types.NamespacedName{Name: deployment.Name, Namespace: deployment.Namespace}, deployment)
+		err = r.Client.Get(context.Background(), types.NamespacedName{Name: deployment.Name, Namespace: deployment.Namespace}, deployment)
 		if err == nil && len(deployment.Spec.Template.Spec.Containers) == 1 {
 			reqLogger.Info("Deleting existing minimal deployment")
-			err = r.client.Delete(context.Background(), deployment)
+			err = r.Client.Delete(context.Background(), deployment)
 			if err != nil && !errors.IsNotFound(err) {
 				return reconcile.Result{Requeue: true, RequeueAfter: time.Second * 10}, err
 			}
@@ -220,22 +220,22 @@ func (r *ReconcileContainerJFR) Reconcile(request reconcile.Request) (reconcile.
 		svc := resources.NewGrafanaService(instance)
 		reqLogger.Info("Deleting existing non-minimal route", "route.Name", svc.Name)
 		route := &openshiftv1.Route{}
-		err = r.client.Get(context.Background(), types.NamespacedName{Name: svc.Name, Namespace: svc.Namespace}, route)
+		err = r.Client.Get(context.Background(), types.NamespacedName{Name: svc.Name, Namespace: svc.Namespace}, route)
 		if err != nil && !errors.IsNotFound(err) {
 			reqLogger.Info("Non-minimal route could not be retrieved", "route.Name", svc.Name)
 			return reconcile.Result{}, err
 		} else if err == nil {
-			err = r.client.Delete(context.Background(), route)
+			err = r.Client.Delete(context.Background(), route)
 			if err != nil && !errors.IsNotFound(err) {
 				reqLogger.Info("Could not delete non-minimal route", "route.Name", svc.Name)
 				return reconcile.Result{}, err
 			}
 		}
 
-		err = r.client.Get(context.Background(), types.NamespacedName{Name: svc.Name, Namespace: svc.Namespace}, svc)
+		err = r.Client.Get(context.Background(), types.NamespacedName{Name: svc.Name, Namespace: svc.Namespace}, svc)
 		if err == nil {
 			reqLogger.Info("Deleting existing non-minimal service", "svc.Name", svc.Name)
-			err = r.client.Delete(context.Background(), svc)
+			err = r.Client.Delete(context.Background(), svc)
 			if err != nil && !errors.IsNotFound(err) {
 				reqLogger.Info("Could not delete non-minimal service")
 				return reconcile.Result{}, err
@@ -243,10 +243,10 @@ func (r *ReconcileContainerJFR) Reconcile(request reconcile.Request) (reconcile.
 		}
 
 		deployment := resources.NewDeploymentForCR(instance, serviceSpecs, nil)
-		err = r.client.Get(context.Background(), types.NamespacedName{Name: deployment.Name, Namespace: deployment.Namespace}, deployment)
+		err = r.Client.Get(context.Background(), types.NamespacedName{Name: deployment.Name, Namespace: deployment.Namespace}, deployment)
 		if err == nil && len(deployment.Spec.Template.Spec.Containers) > 1 {
 			reqLogger.Info("Deleting existing non-minimal deployment")
-			err = r.client.Delete(context.Background(), deployment)
+			err = r.Client.Delete(context.Background(), deployment)
 			if err != nil && !errors.IsNotFound(err) {
 				reqLogger.Info("Could not delete non-minimal deployment")
 				return reconcile.Result{Requeue: true, RequeueAfter: time.Second * 10}, err
@@ -259,17 +259,17 @@ func (r *ReconcileContainerJFR) Reconcile(request reconcile.Request) (reconcile.
 	if err != nil {
 		return reconcile.Result{}, err
 	}
-	serviceSpecs.CoreAddress = url
+	serviceSpecs.CoreHostname = url
 
 	cmdChanSvc := resources.NewCommandChannelService(instance)
 	url, err = r.createService(context.Background(), instance, cmdChanSvc, &cmdChanSvc.Spec.Ports[0], routeTLS)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
-	serviceSpecs.CommandAddress = url
+	serviceSpecs.CommandHostname = url
 
 	deployment := resources.NewDeploymentForCR(instance, serviceSpecs, tlsConfig)
-	if err := controllerutil.SetControllerReference(instance, deployment, r.scheme); err != nil {
+	if err := controllerutil.SetControllerReference(instance, deployment, r.Scheme); err != nil {
 		return reconcile.Result{}, err
 	}
 	if err = r.createObjectIfNotExists(context.Background(), types.NamespacedName{Name: deployment.Name, Namespace: deployment.Namespace}, &appsv1.Deployment{}, deployment); err != nil {
@@ -283,7 +283,7 @@ func (r *ReconcileContainerJFR) Reconcile(request reconcile.Request) (reconcile.
 
 func (r *ReconcileContainerJFR) createService(ctx context.Context, controller *rhjmcv1beta1.ContainerJFR, svc *corev1.Service, exposePort *corev1.ServicePort,
 	tlsConfig *openshiftv1.TLSConfig) (string, error) {
-	if err := controllerutil.SetControllerReference(controller, svc, r.scheme); err != nil {
+	if err := controllerutil.SetControllerReference(controller, svc, r.Scheme); err != nil {
 		return "", err
 	}
 	if err := r.createObjectIfNotExists(context.Background(), types.NamespacedName{Name: svc.Name, Namespace: svc.Namespace}, &corev1.Service{}, svc); err != nil {
@@ -301,7 +301,7 @@ func (r *ReconcileContainerJFR) createService(ctx context.Context, controller *r
 		return r.createRouteForService(controller, svc, *exposePort, tlsConfig)
 	}
 
-	if err := r.client.Get(context.Background(), types.NamespacedName{Name: svc.Name, Namespace: svc.Namespace}, svc); err != nil {
+	if err := r.Client.Get(context.Background(), types.NamespacedName{Name: svc.Name, Namespace: svc.Namespace}, svc); err != nil {
 		return "", err
 	}
 	if svc.Spec.ClusterIP == "" {
@@ -330,15 +330,15 @@ func (r *ReconcileContainerJFR) createRouteForService(controller *rhjmcv1beta1.C
 			TLS:  tlsConfig,
 		},
 	}
-	if err := controllerutil.SetControllerReference(controller, route, r.scheme); err != nil {
+	if err := controllerutil.SetControllerReference(controller, route, r.Scheme); err != nil {
 		return "", err
 	}
 
 	found := &openshiftv1.Route{}
-	err := r.client.Get(context.Background(), types.NamespacedName{Name: svc.Name, Namespace: svc.Namespace}, found)
+	err := r.Client.Get(context.Background(), types.NamespacedName{Name: svc.Name, Namespace: svc.Namespace}, found)
 	if err != nil && errors.IsNotFound(err) {
 		logger.Info("Not found")
-		if err := r.client.Create(context.Background(), route); err != nil {
+		if err := r.Client.Create(context.Background(), route); err != nil {
 			logger.Error(err, "Could not be created")
 			return "", err
 		}
@@ -359,10 +359,10 @@ func (r *ReconcileContainerJFR) createRouteForService(controller *rhjmcv1beta1.C
 
 func (r *ReconcileContainerJFR) createObjectIfNotExists(ctx context.Context, ns types.NamespacedName, found runtime.Object, toCreate runtime.Object) error {
 	logger := log.WithValues("Request.Namespace", ns.Namespace, "Name", ns.Name, "Kind", fmt.Sprintf("%T", toCreate))
-	err := r.client.Get(ctx, ns, found)
+	err := r.Client.Get(ctx, ns, found)
 	if err != nil && errors.IsNotFound(err) {
 		logger.Info("Not found")
-		if err := r.client.Create(ctx, toCreate); err != nil {
+		if err := r.Client.Create(ctx, toCreate); err != nil {
 			logger.Error(err, "Could not be created")
 			return err
 		} else {

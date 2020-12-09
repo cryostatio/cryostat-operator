@@ -59,6 +59,13 @@ type testClientFactory struct {
 	serverURL string
 }
 
+func NewTestReconcilerTLS(client client.Client) common.ReconcilerTLS {
+	return common.NewReconcilerTLS(&common.ReconcilerTLSConfig{
+		Client: client,
+		OS:     &testOSUtils{},
+	})
+}
+
 func (c *testClientFactory) CreateClient(config *jfrclient.Config) (jfrclient.ContainerJfrClient, error) {
 	// Verify the provided server URL before substituting it
 	gomega.Expect(config.ServerURL.String()).To(gomega.Equal("https://containerjfr.default.svc:8181/"))

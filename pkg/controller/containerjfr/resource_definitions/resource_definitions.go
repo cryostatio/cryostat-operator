@@ -50,9 +50,9 @@ import (
 )
 
 type ServiceSpecs struct {
-	CoreAddress    string
-	CommandAddress string
-	GrafanaAddress string
+	CoreHostname    string
+	CommandHostname string
+	GrafanaURL      string
 }
 
 // TLSConfig contains TLS-related information useful when creating other objects
@@ -98,7 +98,7 @@ func NewDeploymentForCR(cr *rhjmcv1beta1.ContainerJFR, specs *ServiceSpecs, tls 
 				"app.kubernetes.io/name": "container-jfr",
 			},
 			Annotations: map[string]string{
-				"redhat.com/containerJfrUrl":   specs.CoreAddress,
+				"redhat.com/containerJfrUrl":   specs.CoreHostname,
 				"app.openshift.io/connects-to": "container-jfr-operator",
 			},
 		},
@@ -118,7 +118,7 @@ func NewDeploymentForCR(cr *rhjmcv1beta1.ContainerJFR, specs *ServiceSpecs, tls 
 						"kind": "containerjfr",
 					},
 					Annotations: map[string]string{
-						"redhat.com/containerJfrUrl": specs.CoreAddress,
+						"redhat.com/containerJfrUrl": specs.CoreHostname,
 					},
 				},
 				Spec: *NewPodForCR(cr, specs, tls),
@@ -201,7 +201,7 @@ func NewCoreContainer(cr *rhjmcv1beta1.ContainerJFR, specs *ServiceSpecs, tls *T
 		},
 		{
 			Name:  "CONTAINER_JFR_WEB_HOST",
-			Value: specs.CoreAddress,
+			Value: specs.CoreHostname,
 		},
 		{
 			Name:  "CONTAINER_JFR_LISTEN_PORT",
@@ -213,11 +213,11 @@ func NewCoreContainer(cr *rhjmcv1beta1.ContainerJFR, specs *ServiceSpecs, tls *T
 		},
 		{
 			Name:  "CONTAINER_JFR_LISTEN_HOST",
-			Value: specs.CommandAddress,
+			Value: specs.CommandHostname,
 		},
 		{
 			Name:  "GRAFANA_DASHBOARD_URL",
-			Value: specs.GrafanaAddress,
+			Value: specs.GrafanaURL,
 		},
 		{
 			Name:  "GRAFANA_DATASOURCE_URL",
