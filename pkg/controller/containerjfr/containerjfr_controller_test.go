@@ -47,6 +47,7 @@ import (
 	openshiftv1 "github.com/openshift/api/route/v1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -93,20 +94,20 @@ var _ = Describe("ContainerjfrController", func() {
 				}
 			})
 			It("should create certificates", func() {
-				expectCertificates(client, *controller)
+				expectCertificates(client, controller)
 			})
 			It("should create routes", func() {
-				expectRoutes(client, *controller, false)
+				expectRoutes(client, controller, false)
 			})
 			It("should create persistent volume claim and set owner", func() {
-				expectPVC(client, *controller, false)
+				expectPVC(client, controller, false)
 			})
 			It("should create Grafana secret and set owner", func() {
 				secret := &corev1.Secret{}
 				err := client.Get(context.Background(), types.NamespacedName{Name: "containerjfr-grafana-basic", Namespace: "default"}, secret)
-				Expect(err).To(HaveOccurred())
+				Expect(kerrors.IsNotFound(err)).To(Equal(true))
 
-				reconcileFully(client, *controller, false)
+				reconcileFully(client, controller, false)
 
 				err = client.Get(context.Background(), types.NamespacedName{Name: "containerjfr-grafana-basic", Namespace: "default"}, secret)
 				Expect(err).ToNot(HaveOccurred())
@@ -117,24 +118,24 @@ var _ = Describe("ContainerjfrController", func() {
 				Expect(secret.StringData["GF_SECURITY_ADMIN_USER"]).To(Equal(expectedSecret.StringData["GF_SECURITY_ADMIN_USER"]))
 			})
 			It("should create JMX secret and set owner", func() {
-				expectJMXSecret(client, *controller, false)
+				expectJMXSecret(client, controller, false)
 			})
 			It("should create Grafana service and set owner", func() {
 				service := &corev1.Service{}
 				err := client.Get(context.Background(), types.NamespacedName{Name: "containerjfr-grafana", Namespace: "default"}, service)
-				Expect(err).To(HaveOccurred())
+				Expect(kerrors.IsNotFound(err)).To(Equal(true))
 
-				reconcileFully(client, *controller, false)
+				reconcileFully(client, controller, false)
 				checkGrafanaService(client)
 			})
 			It("should create exporter service and set owner", func() {
-				expectExporterService(client, *controller, false)
+				expectExporterService(client, controller, false)
 			})
 			It("should create command channel service and set owner", func() {
-				expectCommandChannel(client, *controller, false)
+				expectCommandChannel(client, controller, false)
 			})
 			It("should create deployment and set owner", func() {
-				expectDeployment(client, *controller, false)
+				expectDeployment(client, controller, false)
 			})
 		})
 		Context("succesfully creates required resources for minimal deployment", func() {
@@ -144,25 +145,25 @@ var _ = Describe("ContainerjfrController", func() {
 				}
 			})
 			It("should create certificates", func() {
-				expectCertificates(client, *controller)
+				expectCertificates(client, controller)
 			})
 			It("should create routes", func() {
-				expectRoutes(client, *controller, true)
+				expectRoutes(client, controller, true)
 			})
 			It("should create persistent volume claim and set owner", func() {
-				expectPVC(client, *controller, true)
+				expectPVC(client, controller, true)
 			})
 			It("should create JMX secret and set owner", func() {
-				expectJMXSecret(client, *controller, true)
+				expectJMXSecret(client, controller, true)
 			})
 			It("should create exporter service and set owner", func() {
-				expectExporterService(client, *controller, true)
+				expectExporterService(client, controller, true)
 			})
 			It("should create command channel service and set owner", func() {
-				expectCommandChannel(client, *controller, true)
+				expectCommandChannel(client, controller, true)
 			})
 			It("should create deployment and set owner", func() {
-				expectDeployment(client, *controller, true)
+				expectDeployment(client, controller, true)
 			})
 		})
 		Context("after containerjfr reconciled successfully", func() {
@@ -172,7 +173,7 @@ var _ = Describe("ContainerjfrController", func() {
 				}
 			})
 			It("should be idempotent", func() {
-				expectIdempotence(client, *controller, false)
+				expectIdempotence(client, controller, false)
 			})
 		})
 		Context("After a minimal containerjfr reconciled successfully", func() {
@@ -182,7 +183,7 @@ var _ = Describe("ContainerjfrController", func() {
 				}
 			})
 			It("should be idempotent", func() {
-				expectIdempotence(client, *controller, true)
+				expectIdempotence(client, controller, true)
 			})
 		})
 		Context("ContainerJFR does not exist", func() {
@@ -200,7 +201,7 @@ var _ = Describe("ContainerjfrController", func() {
 				}
 			})
 			JustBeforeEach(func() {
-				reconcileFully(client, *controller, true)
+				reconcileFully(client, controller, true)
 
 				cjfr := &rhjmcv1beta1.ContainerJFR{}
 				err := client.Get(context.Background(), types.NamespacedName{Name: "containerjfr", Namespace: "default"}, cjfr)
@@ -213,7 +214,7 @@ var _ = Describe("ContainerjfrController", func() {
 				req := reconcile.Request{NamespacedName: types.NamespacedName{Name: "containerjfr", Namespace: "default"}}
 				_, err = controller.Reconcile(req)
 				Expect(err).To(HaveOccurred())
-				ingressConfig(client, *controller, req, false)
+				ingressConfig(client, controller, req, false)
 				_, err = controller.Reconcile(req)
 				Expect(err).ToNot(HaveOccurred())
 			})
@@ -231,7 +232,7 @@ var _ = Describe("ContainerjfrController", func() {
 				}
 			})
 			JustBeforeEach(func() {
-				reconcileFully(client, *controller, false)
+				reconcileFully(client, controller, false)
 
 				cjfr := &rhjmcv1beta1.ContainerJFR{}
 				err := client.Get(context.Background(), types.NamespacedName{Name: "containerjfr", Namespace: "default"}, cjfr)
@@ -248,11 +249,11 @@ var _ = Describe("ContainerjfrController", func() {
 			It("should delete grafana resources", func() {
 				service := &corev1.Service{}
 				err := client.Get(context.Background(), types.NamespacedName{Name: "containerjfr-grafana", Namespace: "default"}, service)
-				Expect(err).To(HaveOccurred())
+				Expect(kerrors.IsNotFound(err)).To(Equal(true))
 
 				route := &openshiftv1.Route{}
 				err = client.Get(context.Background(), types.NamespacedName{Name: "containerjfr-grafana", Namespace: "default"}, route)
-				Expect(err).To(HaveOccurred())
+				Expect(kerrors.IsNotFound(err)).To(Equal(true))
 			})
 			It("should configure deployment appropriately", func() {
 				checkDeployment(client, true)
@@ -318,7 +319,7 @@ func initializeSecrets(client client.Client) {
 	}
 }
 
-func ingressConfig(client client.Client, controller containerjfr.ReconcileContainerJFR, req reconcile.Request, minimal bool) {
+func ingressConfig(client client.Client, controller *containerjfr.ReconcileContainerJFR, req reconcile.Request, minimal bool) {
 	routes := []string{"containerjfr", "containerjfr-command"}
 	if !minimal {
 		routes = append([]string{"containerjfr-grafana"}, routes...)
@@ -336,7 +337,7 @@ func ingressConfig(client client.Client, controller containerjfr.ReconcileContai
 	}
 }
 
-func reconcileFully(client client.Client, controller containerjfr.ReconcileContainerJFR, minimal bool) {
+func reconcileFully(client client.Client, controller *containerjfr.ReconcileContainerJFR, minimal bool) {
 	req := reconcile.Request{NamespacedName: types.NamespacedName{Name: "containerjfr", Namespace: "default"}}
 	result, err := controller.Reconcile(req)
 	Expect(err).ToNot(HaveOccurred())
@@ -365,7 +366,7 @@ func checkMetadata(object metav1.Object, expected metav1.Object) {
 	Expect(ownerReferences[0].Name).To(Equal("containerjfr"))
 }
 
-func expectCertificates(client client.Client, controller containerjfr.ReconcileContainerJFR) {
+func expectCertificates(client client.Client, controller *containerjfr.ReconcileContainerJFR) {
 	req := reconcile.Request{NamespacedName: types.NamespacedName{Name: "containerjfr", Namespace: "default"}}
 	result, err := controller.Reconcile(req)
 	Expect(err).ToNot(HaveOccurred())
@@ -378,7 +379,7 @@ func expectCertificates(client client.Client, controller containerjfr.ReconcileC
 	}
 }
 
-func expectRoutes(client client.Client, controller containerjfr.ReconcileContainerJFR, minimal bool) {
+func expectRoutes(client client.Client, controller *containerjfr.ReconcileContainerJFR, minimal bool) {
 	req := reconcile.Request{NamespacedName: types.NamespacedName{Name: "containerjfr", Namespace: "default"}}
 	result, err := controller.Reconcile(req)
 	Expect(err).ToNot(HaveOccurred())
@@ -394,10 +395,10 @@ func expectRoutes(client client.Client, controller containerjfr.ReconcileContain
 	ingressConfig(client, controller, req, minimal)
 }
 
-func expectPVC(client client.Client, controller containerjfr.ReconcileContainerJFR, minimal bool) {
+func expectPVC(client client.Client, controller *containerjfr.ReconcileContainerJFR, minimal bool) {
 	pvc := &corev1.PersistentVolumeClaim{}
 	err := client.Get(context.Background(), types.NamespacedName{Name: "containerjfr", Namespace: "default"}, pvc)
-	Expect(err).To(HaveOccurred())
+	Expect(kerrors.IsNotFound(err)).To(Equal(true))
 
 	reconcileFully(client, controller, minimal)
 
@@ -415,10 +416,10 @@ func expectPVC(client client.Client, controller containerjfr.ReconcileContainerJ
 	Expect(pvcStorage.Equal(expectedPvcStorage)).To(BeTrue())
 }
 
-func expectJMXSecret(client client.Client, controller containerjfr.ReconcileContainerJFR, minimal bool) {
+func expectJMXSecret(client client.Client, controller *containerjfr.ReconcileContainerJFR, minimal bool) {
 	secret := &corev1.Secret{}
 	err := client.Get(context.Background(), types.NamespacedName{Name: "containerjfr-jmx-auth", Namespace: "default"}, secret)
-	Expect(err).To(HaveOccurred())
+	Expect(kerrors.IsNotFound(err)).To(Equal(true))
 
 	reconcileFully(client, controller, minimal)
 
@@ -430,10 +431,10 @@ func expectJMXSecret(client client.Client, controller containerjfr.ReconcileCont
 	Expect(secret.StringData["CONTAINER_JFR_RJMX_USER"]).To(Equal(expectedSecret.StringData["CONTAINER_JFR_RJMX_USER"]))
 }
 
-func expectExporterService(client client.Client, controller containerjfr.ReconcileContainerJFR, minimal bool) {
+func expectExporterService(client client.Client, controller *containerjfr.ReconcileContainerJFR, minimal bool) {
 	service := &corev1.Service{}
 	err := client.Get(context.Background(), types.NamespacedName{Name: "containerjfr", Namespace: "default"}, service)
-	Expect(err).To(HaveOccurred())
+	Expect(kerrors.IsNotFound(err)).To(Equal(true))
 
 	reconcileFully(client, controller, minimal)
 
@@ -447,10 +448,10 @@ func expectExporterService(client client.Client, controller containerjfr.Reconci
 	Expect(service.Spec.Ports).To(Equal(expectedService.Spec.Ports))
 }
 
-func expectCommandChannel(client client.Client, controller containerjfr.ReconcileContainerJFR, minimal bool) {
+func expectCommandChannel(client client.Client, controller *containerjfr.ReconcileContainerJFR, minimal bool) {
 	service := &corev1.Service{}
 	err := client.Get(context.Background(), types.NamespacedName{Name: "containerjfr-command", Namespace: "default"}, service)
-	Expect(err).To(HaveOccurred())
+	Expect(kerrors.IsNotFound(err)).To(Equal(true))
 
 	reconcileFully(client, controller, minimal)
 
@@ -464,16 +465,16 @@ func expectCommandChannel(client client.Client, controller containerjfr.Reconcil
 	Expect(service.Spec.Ports).To(Equal(expectedService.Spec.Ports))
 }
 
-func expectDeployment(client client.Client, controller containerjfr.ReconcileContainerJFR, minimal bool) {
+func expectDeployment(client client.Client, controller *containerjfr.ReconcileContainerJFR, minimal bool) {
 	deployment := &appsv1.Deployment{}
 	err := client.Get(context.Background(), types.NamespacedName{Name: "containerjfr", Namespace: "default"}, deployment)
-	Expect(err).To(HaveOccurred())
+	Expect(kerrors.IsNotFound(err)).To(Equal(true))
 
 	reconcileFully(client, controller, minimal)
 	checkDeployment(client, minimal)
 }
 
-func expectIdempotence(client client.Client, controller containerjfr.ReconcileContainerJFR, minimal bool) {
+func expectIdempotence(client client.Client, controller *containerjfr.ReconcileContainerJFR, minimal bool) {
 	req := reconcile.Request{NamespacedName: types.NamespacedName{Name: "containerjfr", Namespace: "default"}}
 	reconcileFully(client, controller, minimal)
 
