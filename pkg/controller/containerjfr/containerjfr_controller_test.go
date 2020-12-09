@@ -105,7 +105,7 @@ var _ = Describe("ContainerjfrController", func() {
 			It("should create Grafana secret and set owner", func() {
 				secret := &corev1.Secret{}
 				err := client.Get(context.Background(), types.NamespacedName{Name: "containerjfr-grafana-basic", Namespace: "default"}, secret)
-				Expect(kerrors.IsNotFound(err)).To(Equal(true))
+				Expect(kerrors.IsNotFound(err)).To(BeTrue())
 
 				reconcileFully(client, controller, false)
 
@@ -123,7 +123,7 @@ var _ = Describe("ContainerjfrController", func() {
 			It("should create Grafana service and set owner", func() {
 				service := &corev1.Service{}
 				err := client.Get(context.Background(), types.NamespacedName{Name: "containerjfr-grafana", Namespace: "default"}, service)
-				Expect(kerrors.IsNotFound(err)).To(Equal(true))
+				Expect(kerrors.IsNotFound(err)).To(BeTrue())
 
 				reconcileFully(client, controller, false)
 				checkGrafanaService(client)
@@ -249,11 +249,11 @@ var _ = Describe("ContainerjfrController", func() {
 			It("should delete grafana resources", func() {
 				service := &corev1.Service{}
 				err := client.Get(context.Background(), types.NamespacedName{Name: "containerjfr-grafana", Namespace: "default"}, service)
-				Expect(kerrors.IsNotFound(err)).To(Equal(true))
+				Expect(kerrors.IsNotFound(err)).To(BeTrue())
 
 				route := &openshiftv1.Route{}
 				err = client.Get(context.Background(), types.NamespacedName{Name: "containerjfr-grafana", Namespace: "default"}, route)
-				Expect(kerrors.IsNotFound(err)).To(Equal(true))
+				Expect(kerrors.IsNotFound(err)).To(BeTrue())
 			})
 			It("should configure deployment appropriately", func() {
 				checkDeployment(client, true)
@@ -398,7 +398,7 @@ func expectRoutes(client client.Client, controller *containerjfr.ReconcileContai
 func expectPVC(client client.Client, controller *containerjfr.ReconcileContainerJFR, minimal bool) {
 	pvc := &corev1.PersistentVolumeClaim{}
 	err := client.Get(context.Background(), types.NamespacedName{Name: "containerjfr", Namespace: "default"}, pvc)
-	Expect(kerrors.IsNotFound(err)).To(Equal(true))
+	Expect(kerrors.IsNotFound(err)).To(BeTrue())
 
 	reconcileFully(client, controller, minimal)
 
@@ -419,7 +419,7 @@ func expectPVC(client client.Client, controller *containerjfr.ReconcileContainer
 func expectJMXSecret(client client.Client, controller *containerjfr.ReconcileContainerJFR, minimal bool) {
 	secret := &corev1.Secret{}
 	err := client.Get(context.Background(), types.NamespacedName{Name: "containerjfr-jmx-auth", Namespace: "default"}, secret)
-	Expect(kerrors.IsNotFound(err)).To(Equal(true))
+	Expect(kerrors.IsNotFound(err)).To(BeTrue())
 
 	reconcileFully(client, controller, minimal)
 
@@ -434,7 +434,7 @@ func expectJMXSecret(client client.Client, controller *containerjfr.ReconcileCon
 func expectExporterService(client client.Client, controller *containerjfr.ReconcileContainerJFR, minimal bool) {
 	service := &corev1.Service{}
 	err := client.Get(context.Background(), types.NamespacedName{Name: "containerjfr", Namespace: "default"}, service)
-	Expect(kerrors.IsNotFound(err)).To(Equal(true))
+	Expect(kerrors.IsNotFound(err)).To(BeTrue())
 
 	reconcileFully(client, controller, minimal)
 
@@ -451,7 +451,7 @@ func expectExporterService(client client.Client, controller *containerjfr.Reconc
 func expectCommandChannel(client client.Client, controller *containerjfr.ReconcileContainerJFR, minimal bool) {
 	service := &corev1.Service{}
 	err := client.Get(context.Background(), types.NamespacedName{Name: "containerjfr-command", Namespace: "default"}, service)
-	Expect(kerrors.IsNotFound(err)).To(Equal(true))
+	Expect(kerrors.IsNotFound(err)).To(BeTrue())
 
 	reconcileFully(client, controller, minimal)
 
@@ -468,7 +468,7 @@ func expectCommandChannel(client client.Client, controller *containerjfr.Reconci
 func expectDeployment(client client.Client, controller *containerjfr.ReconcileContainerJFR, minimal bool) {
 	deployment := &appsv1.Deployment{}
 	err := client.Get(context.Background(), types.NamespacedName{Name: "containerjfr", Namespace: "default"}, deployment)
-	Expect(kerrors.IsNotFound(err)).To(Equal(true))
+	Expect(kerrors.IsNotFound(err)).To(BeTrue())
 
 	reconcileFully(client, controller, minimal)
 	checkDeployment(client, minimal)
