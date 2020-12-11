@@ -116,9 +116,25 @@ func NewFlightRecorderBadJMXPassKey() *rhjmcv1beta1.FlightRecorder {
 
 func newFlightRecorder(jmxAuth *rhjmcv1beta1.JMXAuthSecret) *rhjmcv1beta1.FlightRecorder {
 	return &rhjmcv1beta1.FlightRecorder{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "FlightRecorder",
+			APIVersion: "rhjmc.redhat.com/v1beta1",
+		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "test-pod",
-			Namespace: "default",
+			Name:            "test-pod",
+			Namespace:       "default",
+			ResourceVersion: "2",
+			Labels: map[string]string{
+				"app": "test-pod",
+			},
+			OwnerReferences: []metav1.OwnerReference{
+				{
+					APIVersion: "v1",
+					Kind:       "Pod",
+					Name:       "test-pod",
+					UID:        "",
+				},
+			},
 		},
 		Spec: rhjmcv1beta1.FlightRecorderSpec{
 			JMXCredentials:    jmxAuth,
@@ -243,6 +259,40 @@ func NewTargetPod() *corev1.Pod {
 		},
 		Status: corev1.PodStatus{
 			PodIP: "1.2.3.4",
+		},
+	}
+}
+
+func NewTestEndpoints() *corev1.Endpoints {
+	return &corev1.Endpoints{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "containerjfr",
+			Namespace: "default",
+		},
+		Subsets: []corev1.EndpointSubset{
+			{
+				Addresses: []corev1.EndpointAddress{
+					{
+						IP:       "1.2.3.4",
+						Hostname: "test-pod",
+						TargetRef: &corev1.ObjectReference{
+							Kind:      "Pod",
+							Name:      "test-pod",
+							Namespace: "default",
+						},
+					},
+				},
+				Ports: []corev1.EndpointPort{
+					{
+						Name: "jfr-jmx",
+						Port: 1234,
+					},
+					{
+						Name: "other-port",
+						Port: 9091,
+					},
+				},
+			},
 		},
 	}
 }

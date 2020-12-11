@@ -59,6 +59,14 @@ type testClientFactory struct {
 	serverURL string
 }
 
+func NewServerlessTestReconciler(client client.Client) common.Reconciler {
+	return common.NewReconciler(&common.ReconcilerConfig{
+		Client:        client,
+		ClientFactory: &testClientFactory{},
+		OS:            &testOSUtils{},
+	})
+}
+
 func NewTestReconcilerTLS(client client.Client) common.ReconcilerTLS {
 	return common.NewReconcilerTLS(&common.ReconcilerTLSConfig{
 		Client: client,
