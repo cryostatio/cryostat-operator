@@ -94,6 +94,50 @@ feature and not use cert-manager, you can set the environment variable
 `make cert_manager` and `make remove_cert_manager` targets to easily
 install/remove cert-manager from your cluster.
 
+
+### User Authentication
+
+Users can use `oc whoami --show-token` to retrieve their OpenShift OAuth token
+for the currently logged in user account. This token can be used when directly
+interacting with the deployed ContainerJFR instance(s), for example on the
+web-client login page.
+
+If the current user account does not have sufficient permissions to list
+routes, list endpoints, or perform other actions that ContainerJFR requires,
+then the user may also try to authenticate using the Operator's service
+account. This, of course, assumes that the user has permission to view this
+service account's secrets.
+
+`oc get secrets | grep container-jfr-operator-token` will provide at least one
+such operator service account token secret name which can be used - for
+example, `container-jfr-operator-token-m5rmq`. The token can then be retrieved
+for use in authenticating as the operator service account:
+
+```
+$ oc describe secret container-jfr-operator-token-m5rmq
+Name:         container-jfr-operator-token-m5rmq
+Namespace:    default
+Labels:       <none>
+Annotations:  kubernetes.io/service-account.name: container-jfr-operator
+              kubernetes.io/service-account.uid: 18586e70-3e24-11eb-85c4-525400bae188
+
+Type:  kubernetes.io/service-account-token
+
+Data
+====
+token:           eyJhbGciOiJSUzI1NiIsImtpZCI6IiJ9.eyJpc3MiOiJrdWJlcm5ldGVzL3NlcnZpY2VhY2NvdW50Iiwia3ViZXJuZXRlcy5pby9zZXJ2aWNlYWNjb3VudC9uYW1lc3BhY2UiOiJkZWZhdWx0Iiwia3ViZXJuZXRlcy5pby9zZXJ2aWNlYWNjb3VudC9zZWNyZXQubmFtZSI6ImNvbnRhaW5lci1qZnItb3BlcmF0b3ItdG9rZW4tbTVybXEiLCJrdWJlcm5ldGVzLmlvL3NlcnZpY2VhY2NvdW50L3NlcnZpY2UtYWNjb3VudC5uYW1lIjoiY29udGFpbmVyLWpmci1vcGVyYXRvciIsImt1YmVybmV0ZXMuaW8vc2VydmljZWFjY291bnQvc2VydmljZS1hY2NvdW50LnVpZCI6IjE4NTg2ZTcwLTNlMjQtMTFlYi04NWM0LTUyNTQwMGJhZTE4OCIsInN1YiI6InN5c3RlbTpzZXJ2aWNlYWNjb3VudDpkZWZhdWx0OmNvbnRhaW5lci1qZnItb3BlcmF0b3IifQ.ZaEkAxYq_2Sx9-kDZEI9x3VK3GUe9hY3oHDLvmAIGbHcIG5dtDnFytmugw-riVCra5wvl4-F5yGAp3F-h5FZcjMCyI9a7JUCOJ0_YdIxS1Gn5w3gcJj6nw0qRyNM20FjsnNVNbhhHOU5YL1kbYctAqZzs2HfpEhjMYzSqimrLLwkpg6llGmdq0IqkHoFyBXxJPRgVexpsyM1CDz2CvPxtDP3-B6plmgiLov1rWtIfUykGk0B1PCsagqlm3csvqCdzCRvnRxgEFibwwsUKFFM3smOoj829g5KVezaZIc5YURHxRvRvKhW-h1GevhhdvJKi5Qyebst0MbG-Fwh07nB7g
+ca.crt:          1070 bytes
+namespace:       7 bytes
+service-ca.crt:  2186 bytes
+```
+
+or more briefly:
+
+```
+$ oc get -o jsonpath='{.data.token}' secret container-jfr-operator-token-m5rmq | base64 -d
+eyJhbGciOiJSUzI1NiIsImtpZCI6IiJ9.eyJpc3MiOiJrdWJlcm5ldGVzL3NlcnZpY2VhY2NvdW50Iiwia3ViZXJuZXRlcy5pby9zZXJ2aWNlYWNjb3VudC9uYW1lc3BhY2UiOiJkZWZhdWx0Iiwia3ViZXJuZXRlcy5pby9zZXJ2aWNlYWNjb3VudC9zZWNyZXQubmFtZSI6ImNvbnRhaW5lci1qZnItb3BlcmF0b3ItdG9rZW4tbTVybXEiLCJrdWJlcm5ldGVzLmlvL3NlcnZpY2VhY2NvdW50L3NlcnZpY2UtYWNjb3VudC5uYW1lIjoiY29udGFpbmVyLWpmci1vcGVyYXRvciIsImt1YmVybmV0ZXMuaW8vc2VydmljZWFjY291bnQvc2VydmljZS1hY2NvdW50LnVpZCI6IjE4NTg2ZTcwLTNlMjQtMTFlYi04NWM0LTUyNTQwMGJhZTE4OCIsInN1YiI6InN5c3RlbTpzZXJ2aWNlYWNjb3VudDpkZWZhdWx0OmNvbnRhaW5lci1qZnItb3BlcmF0b3IifQ.ZaEkAxYq_2Sx9-kDZEI9x3VK3GUe9hY3oHDLvmAIGbHcIG5dtDnFytmugw-riVCra5wvl4-F5yGAp3F-h5FZcjMCyI9a7JUCOJ0_YdIxS1Gn5w3gcJj6nw0qRyNM20FjsnNVNbhhHOU5YL1kbYctAqZzs2HfpEhjMYzSqimrLLwkpg6llGmdq0IqkHoFyBXxJPRgVexpsyM1CDz2CvPxtDP3-B6plmgiLov1rWtIfUykGk0B1PCsagqlm3csvqCdzCRvnRxgEFibwwsUKFFM3smOoj829g5KVezaZIc5YURHxRvRvKhW-h1GevhhdvJKi5Qyebst0MbG-Fwh07nB7g
+```
+
 ## Manual Deployment
 
 `make deploy` will deploy the operator using `oc` to whichever OpenShift
