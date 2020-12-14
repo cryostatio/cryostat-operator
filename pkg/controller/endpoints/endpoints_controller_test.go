@@ -97,7 +97,10 @@ var _ = Describe("EndpointsController", func() {
 				// compare found to desired spec
 				expected := test.NewFlightRecorderNoJMXAuth()
 				Expect(found.TypeMeta).To(Equal(expected.TypeMeta))
-				Expect(found.ObjectMeta).To(Equal(expected.ObjectMeta))
+				Expect(found.ObjectMeta.Name).To(Equal(expected.ObjectMeta.Name))
+				Expect(found.ObjectMeta.Namespace).To(Equal(expected.ObjectMeta.Namespace))
+				Expect(found.ObjectMeta.Labels).To(Equal(expected.ObjectMeta.Labels))
+				Expect(found.ObjectMeta.OwnerReferences).To(Equal(expected.ObjectMeta.OwnerReferences))
 				Expect(found.Spec).To(Equal(expected.Spec))
 			})
 		})

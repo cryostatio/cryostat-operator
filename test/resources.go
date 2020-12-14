@@ -121,9 +121,8 @@ func newFlightRecorder(jmxAuth *rhjmcv1beta1.JMXAuthSecret) *rhjmcv1beta1.Flight
 			APIVersion: "rhjmc.redhat.com/v1beta1",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:            "test-pod",
-			Namespace:       "default",
-			ResourceVersion: "2",
+			Name:      "test-pod",
+			Namespace: "default",
 			Labels: map[string]string{
 				"app": "test-pod",
 			},
