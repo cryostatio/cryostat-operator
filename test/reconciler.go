@@ -59,7 +59,7 @@ type testClientFactory struct {
 	serverURL string
 }
 
-func NewServerlessTestReconciler(client client.Client) common.Reconciler {
+func NewTestReconcilerNoServer(client client.Client) common.Reconciler {
 	return common.NewReconciler(&common.ReconcilerConfig{
 		Client:        client,
 		ClientFactory: &testClientFactory{},

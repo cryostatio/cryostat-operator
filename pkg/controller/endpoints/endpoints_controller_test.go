@@ -69,7 +69,7 @@ var _ = Describe("EndpointsController", func() {
 		controller = &endpoints.ReconcileEndpoints{
 			Client:     client,
 			Scheme:     s,
-			Reconciler: test.NewServerlessTestReconciler(client),
+			Reconciler: test.NewTestReconcilerNoServer(client),
 		}
 	})
 
