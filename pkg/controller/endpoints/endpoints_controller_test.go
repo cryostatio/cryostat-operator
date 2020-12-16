@@ -42,6 +42,7 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
+	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -127,12 +128,7 @@ var _ = Describe("EndpointsController", func() {
 				Expect(err).ToNot(HaveOccurred())
 				// compare found to desired spec
 				expected := test.NewFlightRecorderWithKeys()
-				Expect(found.TypeMeta).To(Equal(expected.TypeMeta))
-				Expect(found.ObjectMeta.Name).To(Equal(expected.ObjectMeta.Name))
-				Expect(found.ObjectMeta.Namespace).To(Equal(expected.ObjectMeta.Namespace))
-				Expect(found.ObjectMeta.Labels).To(Equal(expected.ObjectMeta.Labels))
-				Expect(found.ObjectMeta.OwnerReferences).To(Equal(expected.ObjectMeta.OwnerReferences))
-				Expect(found.Spec).To(Equal(expected.Spec))
+				compareFlightRecorders(found, expected)
 			})
 		})
 		Context("endpoints does not exist", func() {
@@ -146,6 +142,71 @@ var _ = Describe("EndpointsController", func() {
 				result, err := controller.Reconcile(req)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(result).To(Equal(reconcile.Result{}))
+			})
+		})
+		Context("endpoints has no targetRef", func() {
+			BeforeEach(func() {
+				objs = []runtime.Object{
+					test.NewContainerJFR(), test.NewContainerJFRService(),
+					test.NewTargetPod(), test.NewTestEndpointsNoTargetRef(),
+				}
+			})
+			It("should return without error", func() {
+				req := reconcile.Request{NamespacedName: types.NamespacedName{Name: "containerjfr", Namespace: "default"}}
+				result, err := controller.Reconcile(req)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(result).To(Equal(reconcile.Result{}))
+			})
+			It("should not create flightrecorder", func() {
+				req := reconcile.Request{NamespacedName: types.NamespacedName{Name: "containerjfr", Namespace: "default"}}
+				controller.Reconcile(req)
+				recorder := &rhjmcv1beta1.FlightRecorder{}
+				err := client.Get(context.Background(), types.NamespacedName{Name: "test-pod", Namespace: "default"}, recorder)
+				Expect(kerrors.IsNotFound(err)).To(BeTrue())
+			})
+		})
+		Context("endpoints has no ports", func() {
+			BeforeEach(func() {
+				objs = []runtime.Object{
+					test.NewContainerJFR(), test.NewContainerJFRService(),
+					test.NewTargetPod(), test.NewTestEndpointsNoPorts(),
+				}
+			})
+			It("should return without error", func() {
+				req := reconcile.Request{NamespacedName: types.NamespacedName{Name: "containerjfr", Namespace: "default"}}
+				result, err := controller.Reconcile(req)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(result).To(Equal(reconcile.Result{}))
+			})
+			It("should not create flightrecorder", func() {
+				req := reconcile.Request{NamespacedName: types.NamespacedName{Name: "containerjfr", Namespace: "default"}}
+				controller.Reconcile(req)
+				recorder := &rhjmcv1beta1.FlightRecorder{}
+				err := client.Get(context.Background(), types.NamespacedName{Name: "test-pod", Namespace: "default"}, recorder)
+				Expect(kerrors.IsNotFound(err)).To(BeTrue())
+			})
+		})
+		Context("endpoints only has default port", func() {
+			BeforeEach(func() {
+				objs = []runtime.Object{
+					test.NewContainerJFR(), test.NewContainerJFRService(),
+					test.NewTargetPod(), test.NewTestEndpointsNoJmxPort(),
+				}
+			})
+			It("should return without error", func() {
+				req := reconcile.Request{NamespacedName: types.NamespacedName{Name: "containerjfr", Namespace: "default"}}
+				result, err := controller.Reconcile(req)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(result).To(Equal(reconcile.Result{}))
+			})
+			It("should create flightrecorder", func() {
+				req := reconcile.Request{NamespacedName: types.NamespacedName{Name: "containerjfr", Namespace: "default"}}
+				controller.Reconcile(req)
+				recorder := &rhjmcv1beta1.FlightRecorder{}
+				err := client.Get(context.Background(), types.NamespacedName{Name: "test-pod", Namespace: "default"}, recorder)
+				Expect(err).ToNot(HaveOccurred())
+				expected := test.NewFlightRecorderNoJMXAuth()
+				compareFlightRecorders(recorder, expected)
 			})
 		})
 
@@ -164,4 +225,13 @@ func setServiceOwner(client client.Client, controller *endpoints.ReconcileEndpoi
 	svc.OwnerReferences = append(refs, *ownerRef)
 	err = client.Status().Update(context.Background(), svc)
 	Expect(err).ToNot(HaveOccurred())
+}
+
+func compareFlightRecorders(found *rhjmcv1beta1.FlightRecorder, expected *rhjmcv1beta1.FlightRecorder) {
+	Expect(found.TypeMeta).To(Equal(expected.TypeMeta))
+	Expect(found.ObjectMeta.Name).To(Equal(expected.ObjectMeta.Name))
+	Expect(found.ObjectMeta.Namespace).To(Equal(expected.ObjectMeta.Namespace))
+	Expect(found.ObjectMeta.Labels).To(Equal(expected.ObjectMeta.Labels))
+	Expect(found.ObjectMeta.OwnerReferences).To(Equal(expected.ObjectMeta.OwnerReferences))
+	Expect(found.Spec).To(Equal(expected.Spec))
 }

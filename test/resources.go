@@ -273,6 +273,63 @@ func NewTargetPod() *corev1.Pod {
 }
 
 func NewTestEndpoints() *corev1.Endpoints {
+	target := &corev1.ObjectReference{
+		Kind:      "Pod",
+		Name:      "test-pod",
+		Namespace: "default",
+	}
+	ports := []corev1.EndpointPort{
+		{
+			Name: "jfr-jmx",
+			Port: 1234,
+		},
+		{
+			Name: "other-port",
+			Port: 9091,
+		},
+	}
+	return newTestEndpoints(target, ports)
+}
+
+func NewTestEndpointsNoTargetRef() *corev1.Endpoints {
+	ports := []corev1.EndpointPort{
+		{
+			Name: "jfr-jmx",
+			Port: 1234,
+		},
+		{
+			Name: "other-port",
+			Port: 9091,
+		},
+	}
+	return newTestEndpoints(nil, ports)
+}
+
+func NewTestEndpointsNoPorts() *corev1.Endpoints {
+	target := &corev1.ObjectReference{
+		Kind:      "Pod",
+		Name:      "test-pod",
+		Namespace: "default",
+	}
+	return newTestEndpoints(target, nil)
+}
+
+func NewTestEndpointsNoJmxPort() *corev1.Endpoints {
+	target := &corev1.ObjectReference{
+		Kind:      "Pod",
+		Name:      "test-pod",
+		Namespace: "default",
+	}
+	ports := []corev1.EndpointPort{
+		{
+			Name: "other-port",
+			Port: 9091,
+		},
+	}
+	return newTestEndpoints(target, ports)
+}
+
+func newTestEndpoints(targetRef *corev1.ObjectReference, ports []corev1.EndpointPort) *corev1.Endpoints {
 	return &corev1.Endpoints{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "containerjfr",
@@ -282,25 +339,12 @@ func NewTestEndpoints() *corev1.Endpoints {
 			{
 				Addresses: []corev1.EndpointAddress{
 					{
-						IP:       "1.2.3.4",
-						Hostname: "test-pod",
-						TargetRef: &corev1.ObjectReference{
-							Kind:      "Pod",
-							Name:      "test-pod",
-							Namespace: "default",
-						},
+						IP:        "1.2.3.4",
+						Hostname:  "test-pod",
+						TargetRef: targetRef,
 					},
 				},
-				Ports: []corev1.EndpointPort{
-					{
-						Name: "jfr-jmx",
-						Port: 1234,
-					},
-					{
-						Name: "other-port",
-						Port: 9091,
-					},
-				},
+				Ports: ports,
 			},
 		},
 	}
