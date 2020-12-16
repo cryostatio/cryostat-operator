@@ -114,6 +114,16 @@ func NewFlightRecorderBadJMXPassKey() *rhjmcv1beta1.FlightRecorder {
 	})
 }
 
+func NewFlightRecorderWithKeys() *rhjmcv1beta1.FlightRecorder {
+	userKey := "CONTAINER_JFR_RJMX_USER"
+	passKey := "CONTAINER_JFR_RJMX_PASS"
+	return newFlightRecorder(&rhjmcv1beta1.JMXAuthSecret{
+		SecretName:  "containerjfr-jmx-auth",
+		UsernameKey: &userKey,
+		PasswordKey: &passKey,
+	})
+}
+
 func newFlightRecorder(jmxAuth *rhjmcv1beta1.JMXAuthSecret) *rhjmcv1beta1.FlightRecorder {
 	return &rhjmcv1beta1.FlightRecorder{
 		TypeMeta: metav1.TypeMeta{
@@ -342,6 +352,19 @@ func NewJMXAuthSecret() *corev1.Secret {
 	return &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "test-jmx-auth",
+			Namespace: "default",
+		},
+		Data: map[string][]byte{
+			rhjmcv1beta1.DefaultUsernameKey: []byte("hello"),
+			rhjmcv1beta1.DefaultPasswordKey: []byte("world"),
+		},
+	}
+}
+
+func NewCjfrJMXAuthSecret() *corev1.Secret {
+	return &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "containerjfr-jmx-auth",
 			Namespace: "default",
 		},
 		Data: map[string][]byte{

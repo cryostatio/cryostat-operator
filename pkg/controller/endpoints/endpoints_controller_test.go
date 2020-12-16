@@ -41,7 +41,10 @@ import (
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
@@ -78,7 +81,7 @@ var _ = Describe("EndpointsController", func() {
 	})
 
 	Describe("reconciling a request", func() {
-		Context("successfully reconcile", func() {
+		Context("successfully reconcile, without JMX auth", func() {
 			BeforeEach(func() {
 				objs = []runtime.Object{
 					test.NewContainerJFR(), test.NewContainerJFRService(),
@@ -104,6 +107,34 @@ var _ = Describe("EndpointsController", func() {
 				Expect(found.Spec).To(Equal(expected.Spec))
 			})
 		})
+		Context("successfully reconcile, with JMX auth", func() {
+			BeforeEach(func() {
+				objs = []runtime.Object{
+					test.NewContainerJFR(), test.NewContainerJFRService(),
+					test.NewTargetPod(), test.NewTestEndpoints(),
+					test.NewCjfrJMXAuthSecret(),
+				}
+			})
+			It("should create new flightrecorder", func() {
+				setServiceOwner(client, controller)
+				req := reconcile.Request{NamespacedName: types.NamespacedName{Name: "containerjfr", Namespace: "default"}}
+				result, err := controller.Reconcile(req)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(result).To(Equal(reconcile.Result{}))
+
+				found := &rhjmcv1beta1.FlightRecorder{}
+				err = client.Get(context.Background(), types.NamespacedName{Name: "test-pod", Namespace: "default"}, found)
+				Expect(err).ToNot(HaveOccurred())
+				// compare found to desired spec
+				expected := test.NewFlightRecorderWithKeys()
+				Expect(found.TypeMeta).To(Equal(expected.TypeMeta))
+				Expect(found.ObjectMeta.Name).To(Equal(expected.ObjectMeta.Name))
+				Expect(found.ObjectMeta.Namespace).To(Equal(expected.ObjectMeta.Namespace))
+				Expect(found.ObjectMeta.Labels).To(Equal(expected.ObjectMeta.Labels))
+				Expect(found.ObjectMeta.OwnerReferences).To(Equal(expected.ObjectMeta.OwnerReferences))
+				Expect(found.Spec).To(Equal(expected.Spec))
+			})
+		})
 		Context("endpoints does not exist", func() {
 			BeforeEach(func() {
 				objs = []runtime.Object{
@@ -120,3 +151,17 @@ var _ = Describe("EndpointsController", func() {
 
 	})
 })
+
+func setServiceOwner(client client.Client, controller *endpoints.ReconcileEndpoints) {
+	cjfr, err := controller.FindContainerJFR(context.Background(), "default")
+	Expect(err).ToNot(HaveOccurred())
+	ownerRef := metav1.NewControllerRef(cjfr, schema.EmptyObjectKind.GroupVersionKind().GroupKind().WithVersion("v1"))
+
+	svc := &corev1.Service{}
+	err = client.Get(context.Background(), types.NamespacedName{Name: "containerjfr", Namespace: "default"}, svc)
+	Expect(err).ToNot(HaveOccurred())
+	refs := svc.GetOwnerReferences()
+	svc.OwnerReferences = append(refs, *ownerRef)
+	err = client.Status().Update(context.Background(), svc)
+	Expect(err).ToNot(HaveOccurred())
+}
