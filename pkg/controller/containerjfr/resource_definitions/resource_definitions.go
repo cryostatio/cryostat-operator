@@ -242,10 +242,12 @@ func NewCoreContainer(cr *rhjmcv1beta1.ContainerJFR, specs *ServiceSpecs, tls *T
 		{
 			Name:      cr.Name,
 			MountPath: "flightrecordings",
+			SubPath:   "flightrecordings",
 		},
 		{
 			Name:      cr.Name,
 			MountPath: "templates",
+			SubPath:   "templates",
 		},
 	}
 
