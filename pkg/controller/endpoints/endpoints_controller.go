@@ -67,7 +67,7 @@ func Add(mgr manager.Manager) error {
 
 // newReconciler returns a new reconcile.Reconciler
 func newReconciler(mgr manager.Manager) reconcile.Reconciler {
-	return &ReconcileEndpoints{client: mgr.GetClient(), scheme: mgr.GetScheme(),
+	return &ReconcileEndpoints{Client: mgr.GetClient(), Scheme: mgr.GetScheme(),
 		Reconciler: common.NewReconciler(&common.ReconcilerConfig{
 			Client: mgr.GetClient(),
 		})}
@@ -97,8 +97,8 @@ var _ reconcile.Reconciler = &ReconcileEndpoints{}
 type ReconcileEndpoints struct {
 	// This client, initialized using mgr.Client() above, is a split client
 	// that reads objects from the cache and writes to the apiserver
-	client client.Client
-	scheme *runtime.Scheme
+	Client client.Client
+	Scheme *runtime.Scheme
 	common.Reconciler
 }
 
@@ -114,7 +114,7 @@ func (r *ReconcileEndpoints) Reconcile(request reconcile.Request) (reconcile.Res
 	// Fetch the Endpoints instance
 	ep := &corev1.Endpoints{}
 	ctx := context.Background()
-	err := r.client.Get(ctx, request.NamespacedName, ep)
+	err := r.Client.Get(ctx, request.NamespacedName, ep)
 	if err != nil {
 		if kerrors.IsNotFound(err) {
 			// Request object not found, could have been deleted after reconcile request.
@@ -153,7 +153,7 @@ func (r *ReconcileEndpoints) handlePodAddress(ctx context.Context, target *corev
 	found := &rhjmcv1beta1.FlightRecorder{}
 	jfrName := target.Name
 
-	err := r.client.Get(ctx, types.NamespacedName{Name: jfrName, Namespace: target.Namespace}, found)
+	err := r.Client.Get(ctx, types.NamespacedName{Name: jfrName, Namespace: target.Namespace}, found)
 	if err != nil {
 		if !kerrors.IsNotFound(err) {
 			return err
@@ -196,7 +196,7 @@ func getServiceJMXPort(subset corev1.EndpointSubset) *int32 {
 func (r *ReconcileEndpoints) createNewFlightRecorder(ctx context.Context, target *corev1.ObjectReference, jmxPort *int32,
 	jmxAuth *rhjmcv1beta1.JMXAuthSecret) error {
 	pod := &corev1.Pod{}
-	err := r.client.Get(ctx, types.NamespacedName{Name: target.Name, Namespace: target.Namespace}, pod)
+	err := r.Client.Get(ctx, types.NamespacedName{Name: target.Name, Namespace: target.Namespace}, pod)
 	if err != nil {
 		return err
 	}
@@ -216,12 +216,12 @@ func (r *ReconcileEndpoints) createNewFlightRecorder(ctx context.Context, target
 	}
 	jfr.SetOwnerReferences([]metav1.OwnerReference{ownerRef})
 
-	err = r.client.Create(ctx, jfr)
+	err = r.Client.Create(ctx, jfr)
 	if err != nil {
 		return err
 	}
 	// Update FlightRecorder Status
-	err = r.client.Status().Update(ctx, jfr)
+	err = r.Client.Status().Update(ctx, jfr)
 	if err != nil {
 		return err
 	}
@@ -273,7 +273,7 @@ func (r *ReconcileEndpoints) getJMXCredentials(ctx context.Context, ep *corev1.E
 
 	// Get service corresponding to this Endpoints
 	svc := &corev1.Service{}
-	err = r.client.Get(ctx, types.NamespacedName{Name: ep.Name, Namespace: ep.Namespace}, svc)
+	err = r.Client.Get(ctx, types.NamespacedName{Name: ep.Name, Namespace: ep.Namespace}, svc)
 	if err != nil {
 		return nil, err
 	}
@@ -283,7 +283,7 @@ func (r *ReconcileEndpoints) getJMXCredentials(ctx context.Context, ep *corev1.E
 	if metav1.IsControlledBy(svc, cjfr) {
 		// Look up JMX auth secret created for this ContainerJFR
 		secret := &corev1.Secret{}
-		err := r.client.Get(ctx, types.NamespacedName{Name: cjfr.Name + resources.JMXSecretNameSuffix,
+		err := r.Client.Get(ctx, types.NamespacedName{Name: cjfr.Name + resources.JMXSecretNameSuffix,
 			Namespace: cjfr.Namespace}, secret)
 		if err != nil {
 			return nil, err

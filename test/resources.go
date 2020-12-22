@@ -114,11 +114,41 @@ func NewFlightRecorderBadJMXPassKey() *rhjmcv1beta1.FlightRecorder {
 	})
 }
 
+func NewFlightRecorderForCJFR() *rhjmcv1beta1.FlightRecorder {
+	userKey := "CONTAINER_JFR_RJMX_USER"
+	passKey := "CONTAINER_JFR_RJMX_PASS"
+	recorder := newFlightRecorder(&rhjmcv1beta1.JMXAuthSecret{
+		SecretName:  "containerjfr-jmx-auth",
+		UsernameKey: &userKey,
+		PasswordKey: &passKey,
+	})
+	recorder.Name = "containerjfr-pod"
+	recorder.Labels = map[string]string{"app": "containerjfr-pod"}
+	recorder.OwnerReferences[0].Name = "containerjfr-pod"
+	recorder.Spec.RecordingSelector.MatchLabels = map[string]string{"rhjmc.redhat.com/flightrecorder": "containerjfr-pod"}
+	return recorder
+}
+
 func newFlightRecorder(jmxAuth *rhjmcv1beta1.JMXAuthSecret) *rhjmcv1beta1.FlightRecorder {
 	return &rhjmcv1beta1.FlightRecorder{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "FlightRecorder",
+			APIVersion: "rhjmc.redhat.com/v1beta1",
+		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "test-pod",
 			Namespace: "default",
+			Labels: map[string]string{
+				"app": "test-pod",
+			},
+			OwnerReferences: []metav1.OwnerReference{
+				{
+					APIVersion: "v1",
+					Kind:       "Pod",
+					Name:       "test-pod",
+					UID:        "",
+				},
+			},
 		},
 		Spec: rhjmcv1beta1.FlightRecorderSpec{
 			JMXCredentials:    jmxAuth,
@@ -247,17 +277,165 @@ func NewTargetPod() *corev1.Pod {
 	}
 }
 
+func NewContainerJFRPod() *corev1.Pod {
+	return &corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "containerjfr-pod",
+			Namespace: "default",
+		},
+		Status: corev1.PodStatus{
+			PodIP: "1.2.3.4",
+		},
+	}
+}
+
+func NewTestEndpoints() *corev1.Endpoints {
+	target := &corev1.ObjectReference{
+		Kind:      "Pod",
+		Name:      "test-pod",
+		Namespace: "default",
+	}
+	ports := []corev1.EndpointPort{
+		{
+			Name: "jfr-jmx",
+			Port: 1234,
+		},
+		{
+			Name: "other-port",
+			Port: 9091,
+		},
+	}
+	return newTestEndpoints(target, ports)
+}
+
+func NewTestEndpointsNoTargetRef() *corev1.Endpoints {
+	ports := []corev1.EndpointPort{
+		{
+			Name: "jfr-jmx",
+			Port: 1234,
+		},
+		{
+			Name: "other-port",
+			Port: 9091,
+		},
+	}
+	return newTestEndpoints(nil, ports)
+}
+
+func NewTestEndpointsNoPorts() *corev1.Endpoints {
+	target := &corev1.ObjectReference{
+		Kind:      "Pod",
+		Name:      "test-pod",
+		Namespace: "default",
+	}
+	return newTestEndpoints(target, nil)
+}
+
+func NewTestEndpointsNoJMXPort() *corev1.Endpoints {
+	target := &corev1.ObjectReference{
+		Kind:      "Pod",
+		Name:      "test-pod",
+		Namespace: "default",
+	}
+	ports := []corev1.EndpointPort{
+		{
+			Name: "other-port",
+			Port: 9091,
+		},
+	}
+	return newTestEndpoints(target, ports)
+}
+
+func newTestEndpoints(targetRef *corev1.ObjectReference, ports []corev1.EndpointPort) *corev1.Endpoints {
+	return &corev1.Endpoints{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-svc",
+			Namespace: "default",
+		},
+		Subsets: []corev1.EndpointSubset{
+			{
+				Addresses: []corev1.EndpointAddress{
+					{
+						IP:        "1.2.3.4",
+						Hostname:  "test-pod",
+						TargetRef: targetRef,
+					},
+				},
+				Ports: ports,
+			},
+		},
+	}
+}
+
+func NewContainerJFREndpoints() *corev1.Endpoints {
+	return &corev1.Endpoints{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "containerjfr",
+			Namespace: "default",
+		},
+		Subsets: []corev1.EndpointSubset{
+			{
+				Addresses: []corev1.EndpointAddress{
+					{
+						IP:       "1.2.3.4",
+						Hostname: "containerjfr-pod",
+						TargetRef: &corev1.ObjectReference{
+							Kind:      "Pod",
+							Name:      "containerjfr-pod",
+							Namespace: "default",
+						},
+					},
+				},
+				Ports: []corev1.EndpointPort{
+					{
+						Name: "jfr-jmx",
+						Port: 1234,
+					},
+				},
+			},
+		},
+	}
+}
+
 func NewContainerJFRService() *corev1.Service {
+	c := true
 	return &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "containerjfr",
 			Namespace: "default",
+			OwnerReferences: []metav1.OwnerReference{
+				{
+					APIVersion: rhjmcv1beta1.SchemeGroupVersion.String(),
+					Kind:       "ContainerJFR",
+					Name:       "containerjfr",
+					UID:        "",
+					Controller: &c,
+				},
+			},
 		},
 		Spec: corev1.ServiceSpec{
 			ClusterIP: "1.2.3.4",
 			Ports: []corev1.ServicePort{
 				{
 					Name: "export",
+					Port: 8181,
+				},
+			},
+		},
+	}
+}
+
+func NewTestService() *corev1.Service {
+	return &corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-svc",
+			Namespace: "default",
+		},
+		Spec: corev1.ServiceSpec{
+			ClusterIP: "1.2.3.4",
+			Ports: []corev1.ServicePort{
+				{
+					Name: "test",
 					Port: 8181,
 				},
 			},
@@ -293,6 +471,19 @@ func NewJMXAuthSecret() *corev1.Secret {
 	return &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "test-jmx-auth",
+			Namespace: "default",
+		},
+		Data: map[string][]byte{
+			rhjmcv1beta1.DefaultUsernameKey: []byte("hello"),
+			rhjmcv1beta1.DefaultPasswordKey: []byte("world"),
+		},
+	}
+}
+
+func NewJMXAuthSecretForCJFR() *corev1.Secret {
+	return &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "containerjfr-jmx-auth",
 			Namespace: "default",
 		},
 		Data: map[string][]byte{
