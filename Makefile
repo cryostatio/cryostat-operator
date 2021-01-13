@@ -133,6 +133,11 @@ remove_catalog:
 
 .PHONY: deploy
 deploy: undeploy
+ifeq ($(shell oc api-versions | grep -c '^cert-manager.io/v1$$'), 0)
+ifneq ($(DISABLE_SERVICE_TLS), true)
+	$(error cert-manager is not installed, install using "make cert-manager" or disable TLS for services by setting DISABLE_SERVICE_TLS to true)
+endif
+endif
 	oc create -f deploy/service_account.yaml
 	oc create -f deploy/role.yaml
 	oc create -f deploy/role_binding.yaml
