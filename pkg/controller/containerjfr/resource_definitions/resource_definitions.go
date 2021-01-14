@@ -181,7 +181,7 @@ func NewCoreContainer(cr *rhjmcv1beta1.ContainerJFR, specs *ServiceSpecs, tls *T
 	envs := []corev1.EnvVar{
 		{
 			Name:  "CONTAINER_JFR_PLATFORM",
-			Value: "com.redhat.rhjmc.containerjfr.platform.openshift.OpenShiftPlatformStrategy",
+			Value: "com.redhat.rhjmc.containerjfr.platform.internal.OpenShiftPlatformStrategy",
 		},
 		{
 			Name:  "CONTAINER_JFR_SSL_PROXIED",
@@ -294,7 +294,7 @@ func NewCoreContainer(cr *rhjmcv1beta1.ContainerJFR, specs *ServiceSpecs, tls *T
 		// Use HTTPS for liveness probe
 		livenessProbeScheme = corev1.URISchemeHTTPS
 	}
-	imageTag := "quay.io/rh-jmc-team/container-jfr:1.0.0-BETA1"
+	imageTag := "quay.io/rh-jmc-team/container-jfr:1.0.0-BETA4"
 	if cr.Spec.Minimal {
 		imageTag += "-minimal"
 		envs = append(envs, corev1.EnvVar{
