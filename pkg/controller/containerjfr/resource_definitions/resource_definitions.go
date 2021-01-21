@@ -47,6 +47,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
+	logf "sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 type ServiceSpecs struct {
@@ -287,9 +288,27 @@ func NewCoreContainer(cr *rhjmcv1beta1.ContainerJFR, specs *ServiceSpecs, tls *T
 			SubPath:   CAKey,
 			ReadOnly:  true,
 		}
-		// TODO add mechanism to add other certs to /truststore
 
 		mounts = append(mounts, keystoreMount, caCertMount)
+
+		// TODO add mechanism to add other certs to /truststore
+		secretMounts := []corev1.VolumeMount{}
+		var log = logf.Log.WithName("controller_containerjfr")
+		if cr.Spec.Secrets != nil {
+			log.Info("Array is not null")
+		}
+		log.Info("Length of secrets array: ", string(len(cr.Spec.Secrets)))
+		for i := 0; i < len(cr.Spec.Secrets); i++ {
+			mount := corev1.VolumeMount{
+				Name:      "tls-secret",
+				MountPath: fmt.Sprintf("/truststore/%s.crt", cr.Spec.Secrets[i].SecretName),
+				SubPath:   cr.Spec.Secrets[i].SecretName,
+				ReadOnly:  true,
+			}
+			secretMounts = append(secretMounts, mount)
+		}
+
+		mounts = append(mounts, secretMounts...)
 
 		// Use HTTPS for liveness probe
 		livenessProbeScheme = corev1.URISchemeHTTPS

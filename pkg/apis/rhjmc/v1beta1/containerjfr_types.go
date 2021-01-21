@@ -43,7 +43,8 @@ import (
 // ContainerJFRSpec defines the desired state of ContainerJFR
 // +k8s:openapi-gen=true
 type ContainerJFRSpec struct {
-	Minimal bool `json:"minimal"`
+	Minimal bool                `json:"minimal"`
+	Secrets []CertificateSecret `json:"secrets"`
 }
 
 // ContainerJFRStatus defines the observed state of ContainerJFR
@@ -80,4 +81,12 @@ type ContainerJFRList struct {
 
 func init() {
 	SchemeBuilder.Register(&ContainerJFR{}, &ContainerJFRList{})
+}
+
+type CertificateSecret struct {
+	// Name of secret in the local namespace
+	SecretName string `json:"secretName"`
+	// Key within secret containing the certificate, defaults to DefaultCertificateKey
+	// +optional
+	CertificateKey *string `json:"certificateKey,omitempty"`
 }

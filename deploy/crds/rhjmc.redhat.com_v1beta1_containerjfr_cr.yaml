@@ -4,3 +4,7 @@ metadata:
   name: containerjfr
 spec:
   minimal: false
+  secrets:
+  - secretName: "testsecret"
+    certificateKey: "testKey"
+
