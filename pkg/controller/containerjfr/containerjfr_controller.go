@@ -44,6 +44,7 @@ import (
 	goerrors "errors"
 
 	"github.com/google/go-cmp/cmp"
+	consolev1 "github.com/openshift/api/console/v1"
 	openshiftv1 "github.com/openshift/api/route/v1"
 	rhjmcv1beta1 "github.com/rh-jmc-team/container-jfr-operator/pkg/apis/rhjmc/v1beta1"
 	"github.com/rh-jmc-team/container-jfr-operator/pkg/controller/common"
@@ -293,6 +294,12 @@ func (r *ReconcileContainerJFR) Reconcile(request reconcile.Request) (reconcile.
 				return reconcile.Result{}, err
 			}
 		}
+	}
+	// OpenShift-specific
+	link := resources.NewConsoleLink(instance, "https://"+url)
+	if err = r.createObjectIfNotExists(context.Background(), types.NamespacedName{Name: link.Name, Namespace: link.Namespace}, &consolev1.ConsoleLink{}, link); err != nil {
+		reqLogger.Error(err, "Could not create ConsoleLink")
+		return reconcile.Result{}, err
 	}
 
 	reqLogger.Info("Skip reconcile: Deployment already exists", "Deployment.Namespace", deployment.Namespace, "Deployment.Name", deployment.Name)

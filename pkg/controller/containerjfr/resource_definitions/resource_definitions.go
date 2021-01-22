@@ -41,6 +41,7 @@ import (
 	"math/rand"
 	"time"
 
+	consolev1 "github.com/openshift/api/console/v1"
 	rhjmcv1beta1 "github.com/rh-jmc-team/container-jfr-operator/pkg/apis/rhjmc/v1beta1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -602,6 +603,26 @@ func NewKeystoreSecretForCR(cr *rhjmcv1beta1.ContainerJFR) *corev1.Secret {
 		},
 		StringData: map[string]string{
 			"KEYSTORE_PASS": GenPasswd(20),
+		},
+	}
+}
+
+func NewConsoleLink(cr *rhjmcv1beta1.ContainerJFR, url string) *consolev1.ConsoleLink {
+	// Cluster scoped, so differentiate by adding namespace to name
+	// TODO Probably need finalizer since this can't be owned by ContainerJFR CR
+	return &consolev1.ConsoleLink{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "containerjfr-" + cr.Namespace,
+		},
+		Spec: consolev1.ConsoleLinkSpec{
+			Link: consolev1.Link{
+				Text: "Container JDK Flight Recorder",
+				Href: url,
+			},
+			Location: consolev1.NamespaceDashboard,
+			NamespaceDashboard: &consolev1.NamespaceDashboardSpec{
+				Namespaces: []string{cr.Namespace},
+			},
 		},
 	}
 }
