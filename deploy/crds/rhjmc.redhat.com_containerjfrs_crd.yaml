@@ -71,8 +71,7 @@ spec:
                 items:
                   properties:
                     certificateKey:
-                      description: Key within secret containing the certificate, defaults
-                        to DefaultCertificateKey
+                      description: Key within secret containing the certificate
                       type: string
                     secretName:
                       description: Name of secret in the local namespace

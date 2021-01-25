@@ -86,7 +86,7 @@ func init() {
 type CertificateSecret struct {
 	// Name of secret in the local namespace
 	SecretName string `json:"secretName"`
-	// Key within secret containing the certificate, defaults to DefaultCertificateKey
+	// Key within secret containing the certificate
 	// +optional
 	CertificateKey *string `json:"certificateKey,omitempty"`
 }

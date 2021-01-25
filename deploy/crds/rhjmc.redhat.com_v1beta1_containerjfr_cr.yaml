@@ -5,6 +5,7 @@ metadata:
 spec:
   minimal: false
   secrets:
-  - secretName: "testsecret"
-    certificateKey: "testKey"
+  - secretName: "test-tls"
+    certificateKey: "tls.crt"
+
 

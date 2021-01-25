@@ -145,7 +145,7 @@ endif
 	oc create -f deploy/crds/rhjmc.redhat.com_recordings_crd.yaml
 	oc create -f deploy/crds/rhjmc.redhat.com_containerjfrs_crd.yaml
 	sed -e 's|REPLACE_IMAGE|$(IMAGE_TAG)|g' deploy/dev_operator.yaml | oc create -f -
-	oc create -f deploy/crds/rhjmc.redhat.com_v1alpha1_containerjfr_cr.yaml
+	oc create -f deploy/crds/rhjmc.redhat.com_v1beta1_containerjfr_cr.yaml
 
 .PHONY: undeploy
 undeploy: undeploy_sample_app undeploy_sample_app2

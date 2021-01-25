@@ -47,7 +47,6 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
-	logf "sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 type ServiceSpecs struct {
@@ -170,6 +169,20 @@ func NewPodForCR(cr *rhjmcv1beta1.ContainerJFR, specs *ServiceSpecs, tls *TLSCon
 			},
 		}
 		volumes = append(volumes, secretVolume, grafanaSecretVolume)
+
+		customVolumes := []corev1.Volume{}
+		for i := 0; i < len(cr.Spec.Secrets); i++ {
+			volume := corev1.Volume{
+				Name: cr.Spec.Secrets[i].SecretName,
+				VolumeSource: corev1.VolumeSource{
+					Secret: &corev1.SecretVolumeSource{
+						SecretName: cr.Spec.Secrets[i].SecretName,
+					},
+				},
+			}
+			customVolumes = append(customVolumes, volume)
+		}
+		volumes = append(volumes, customVolumes...)
 	}
 	return &corev1.PodSpec{
 		ServiceAccountName: "container-jfr-operator",
@@ -293,16 +306,11 @@ func NewCoreContainer(cr *rhjmcv1beta1.ContainerJFR, specs *ServiceSpecs, tls *T
 
 		// TODO add mechanism to add other certs to /truststore
 		secretMounts := []corev1.VolumeMount{}
-		var log = logf.Log.WithName("controller_containerjfr")
-		if cr.Spec.Secrets != nil {
-			log.Info("Array is not null")
-		}
-		log.Info("Length of secrets array: ", string(len(cr.Spec.Secrets)))
 		for i := 0; i < len(cr.Spec.Secrets); i++ {
 			mount := corev1.VolumeMount{
-				Name:      "tls-secret",
-				MountPath: fmt.Sprintf("/truststore/%s.crt", cr.Spec.Secrets[i].SecretName),
-				SubPath:   cr.Spec.Secrets[i].SecretName,
+				Name:      cr.Spec.Secrets[i].SecretName,
+				MountPath: fmt.Sprintf("/truststore/%s-%s", cr.Spec.Secrets[i].SecretName, *cr.Spec.Secrets[i].CertificateKey),
+				SubPath:   *cr.Spec.Secrets[i].CertificateKey,
 				ReadOnly:  true,
 			}
 			secretMounts = append(secretMounts, mount)
