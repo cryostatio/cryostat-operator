@@ -277,6 +277,36 @@ func (r *ReconcileContainerJFR) Reconcile(request reconcile.Request) (reconcile.
 		return reconcile.Result{}, err
 	}
 
+	// Check that secrets mounted in /truststore conincide with CRD
+	err = r.Client.Get(context.Background(), types.NamespacedName{Name: deployment.Name, Namespace: deployment.Namespace}, deployment)
+	if err == nil {
+		deploymentSecrets := deployment.Spec.Template.Spec.Containers[0].VolumeMounts
+		secrets := instance.Spec.Secrets
+		for i := 0; i < len(secrets); i++ {
+			found := false
+			for j := 0; j < len(deploymentSecrets); j++ {
+				if deploymentSecrets[j].MountPath == fmt.Sprintf("/truststore/%s-%s", secrets[i].SecretName, *secrets[i].CertificateKey) {
+					found = true
+					break
+				}
+			}
+			if !found {
+				reqLogger.Info("Secrets mounted do not conicide with those specified in CRD, modifying deployment")
+				// Modify deployment
+				deployment := resources.NewDeploymentForCR(instance, serviceSpecs, tlsConfig)
+				if err := controllerutil.SetControllerReference(instance, deployment, r.Scheme); err != nil {
+					return reconcile.Result{}, err
+				}
+
+				err = r.Client.Update(context.Background(), deployment)
+				if err != nil {
+					return reconcile.Result{}, err
+				}
+				break
+			}
+		}
+	}
+
 	reqLogger.Info("Skip reconcile: Deployment already exists", "Deployment.Namespace", deployment.Namespace, "Deployment.Name", deployment.Name)
 	return reconcile.Result{}, nil
 }

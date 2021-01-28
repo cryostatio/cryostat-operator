@@ -4,8 +4,6 @@ metadata:
   name: containerjfr
 spec:
   minimal: false
-  secrets:
-  - secretName: "test-tls"
-    certificateKey: "tls.crt"
+  secrets: []
 
 
