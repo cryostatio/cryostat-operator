@@ -53,6 +53,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -125,6 +126,9 @@ type ReconcileContainerJFR struct {
 	common.ReconcilerTLS
 }
 
+// Name used for Finalizer that handles ContainerJFR deletion
+const cjfrFinalizer = "containerjfr.finalizer.rhjmc.redhat.com"
+
 // Reconcile reads that state of the cluster for a ContainerJFR object and makes changes based on the state read
 // and what is in the ContainerJFR.Spec
 func (r *ReconcileContainerJFR) Reconcile(request reconcile.Request) (reconcile.Result, error) {
@@ -144,6 +148,24 @@ func (r *ReconcileContainerJFR) Reconcile(request reconcile.Request) (reconcile.
 		}
 		reqLogger.Error(err, "Error reading ContainerJFR instance")
 		return reconcile.Result{}, err
+	}
+
+	// OpenShift-specific
+	// Check if this Recording is being deleted
+	if instance.GetDeletionTimestamp() != nil {
+		if common.HasFinalizer(instance, cjfrFinalizer) {
+			return r.deleteConsoleLinks(context.Background(), instance)
+		}
+		// Ready for deletion
+		return reconcile.Result{}, nil
+	}
+
+	// Add our finalizer, so we can clean up Container JFR resources upon deletion
+	if !common.HasFinalizer(instance, cjfrFinalizer) {
+		err := common.AddFinalizer(context.Background(), r.Client, instance, cjfrFinalizer)
+		if err != nil {
+			return reconcile.Result{}, err
+		}
 	}
 
 	reqLogger.Info("Spec", "Minimal", instance.Spec.Minimal)
@@ -296,10 +318,17 @@ func (r *ReconcileContainerJFR) Reconcile(request reconcile.Request) (reconcile.
 		}
 	}
 	// OpenShift-specific
-	link := resources.NewConsoleLink(instance, "https://"+url)
-	if err = r.createObjectIfNotExists(context.Background(), types.NamespacedName{Name: link.Name, Namespace: link.Namespace}, &consolev1.ConsoleLink{}, link); err != nil {
-		reqLogger.Error(err, "Could not create ConsoleLink")
+	links, err := r.getConsoleLinks(instance)
+	if err != nil {
 		return reconcile.Result{}, err
+	}
+	if len(links) == 0 {
+		link := resources.NewConsoleLink(instance, "https://"+serviceSpecs.CoreHostname)
+		if err = r.Client.Create(context.Background(), link); err != nil {
+			reqLogger.Error(err, "Could not create ConsoleLink")
+			return reconcile.Result{}, err
+		}
+		reqLogger.Info("Created ConsoleLink", "linkName", link.Name)
 	}
 
 	reqLogger.Info("Skip reconcile: Deployment already exists", "Deployment.Namespace", deployment.Namespace, "Deployment.Name", deployment.Name)
@@ -400,4 +429,43 @@ func (r *ReconcileContainerJFR) createObjectIfNotExists(ctx context.Context, ns 
 	}
 	logger.Info("Already exists")
 	return nil
+}
+
+func (r *ReconcileContainerJFR) getConsoleLinks(cr *rhjmcv1beta1.ContainerJFR) ([]consolev1.ConsoleLink, error) {
+	links := &consolev1.ConsoleLinkList{}
+	linkLabels := labels.Set{
+		resources.ConsoleLinkNSLabel:   cr.Namespace,
+		resources.ConsoleLinkNameLabel: cr.Name,
+	}
+	err := r.Client.List(context.Background(), links, &client.ListOptions{
+		LabelSelector: linkLabels.AsSelectorPreValidated(),
+	})
+	if err != nil {
+		return nil, err
+	}
+	return links.Items, nil
+}
+
+func (r *ReconcileContainerJFR) deleteConsoleLinks(ctx context.Context, cr *rhjmcv1beta1.ContainerJFR) (reconcile.Result, error) {
+	reqLogger := log.WithValues("Request.Namespace", cr.Namespace, "Request.Name", cr.Name)
+	links, err := r.getConsoleLinks(cr)
+	if err != nil {
+		return reconcile.Result{}, err
+	}
+
+	// Should just be one, but use loop just in case
+	for _, link := range links {
+		err := r.Client.Delete(ctx, &link)
+		if err != nil {
+			reqLogger.Error(err, "failed to delete ConsoleLink", "linkName", link.Name)
+			return reconcile.Result{}, err
+		}
+	}
+
+	// Remove finalizer upon success
+	err = common.RemoveFinalizer(ctx, r.Client, cr, cjfrFinalizer)
+	if err != nil {
+		return reconcile.Result{}, err
+	}
+	return reconcile.Result{}, nil
 }

@@ -607,12 +607,18 @@ func NewKeystoreSecretForCR(cr *rhjmcv1beta1.ContainerJFR) *corev1.Secret {
 	}
 }
 
+const ConsoleLinkNSLabel = "rhjmc.redhat.com/containerjfr-consolelink-namespace"
+const ConsoleLinkNameLabel = "rhjmc.redhat.com/containerjfr-consolelink-name"
+
 func NewConsoleLink(cr *rhjmcv1beta1.ContainerJFR, url string) *consolev1.ConsoleLink {
-	// Cluster scoped, so differentiate by adding namespace to name
-	// TODO Probably need finalizer since this can't be owned by ContainerJFR CR
+	// Cluster scoped, so use generated name to avoid conflicts. Look up using labels.
 	return &consolev1.ConsoleLink{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: "containerjfr-" + cr.Namespace,
+			GenerateName: "containerjfr-",
+			Labels: map[string]string{
+				ConsoleLinkNSLabel:   cr.Namespace,
+				ConsoleLinkNameLabel: cr.Name,
+			},
 		},
 		Spec: consolev1.ConsoleLinkSpec{
 			Link: consolev1.Link{

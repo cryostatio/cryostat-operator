@@ -150,7 +150,7 @@ func (r *ReconcileRecording) Reconcile(request reconcile.Request) (reconcile.Res
 	}
 	if jfr == nil {
 		// Check if this Recording is being deleted
-		if instance.GetDeletionTimestamp() != nil && hasRecordingFinalizer(instance) {
+		if instance.GetDeletionTimestamp() != nil && common.HasFinalizer(instance, recordingFinalizer) {
 			return r.deleteWithoutLiveTarget(ctx, instance)
 		}
 		// No matching FlightRecorder, its corresponding Pod might have been deleted
@@ -183,7 +183,7 @@ func (r *ReconcileRecording) Reconcile(request reconcile.Request) (reconcile.Res
 
 	// Check if this Recording is being deleted
 	if instance.GetDeletionTimestamp() != nil {
-		if hasRecordingFinalizer(instance) {
+		if common.HasFinalizer(instance, recordingFinalizer) {
 			return r.deleteWithLiveTarget(ctx, cjfr, instance, targetAddr)
 		}
 		// Ready for deletion
@@ -191,8 +191,8 @@ func (r *ReconcileRecording) Reconcile(request reconcile.Request) (reconcile.Res
 	}
 
 	// Add our finalizer, so we can clean up Container JFR resources upon deletion
-	if !hasRecordingFinalizer(instance) {
-		err := r.addRecordingFinalizer(ctx, instance)
+	if !common.HasFinalizer(instance, recordingFinalizer) {
+		err := common.AddFinalizer(ctx, r.Client, instance, recordingFinalizer)
 		if err != nil {
 			return reconcile.Result{}, err
 		}
@@ -419,44 +419,6 @@ func (r *ReconcileRecording) applyFlightRecorderLabel(ctx context.Context, recor
 	return nil
 }
 
-func (r *ReconcileRecording) addRecordingFinalizer(ctx context.Context, recording *rhjmcv1beta1.Recording) error {
-	log.Info("adding finalizer for recording", "namespace", recording.Namespace, "name", recording.Name)
-	finalizers := append(recording.GetFinalizers(), recordingFinalizer)
-	recording.SetFinalizers(finalizers)
-
-	err := r.Client.Update(ctx, recording)
-	if err != nil {
-		log.Error(err, "failed to add finalizer to recording", "namespace", recording.Namespace,
-			"name", recording.Name)
-		return err
-	}
-	return nil
-}
-
-func (r *ReconcileRecording) removeRecordingFinalizer(ctx context.Context, recording *rhjmcv1beta1.Recording) error {
-	finalizers := recording.GetFinalizers()
-	foundIdx := -1
-	for idx, finalizer := range finalizers {
-		if finalizer == recordingFinalizer {
-			foundIdx = idx
-			break
-		}
-	}
-
-	if foundIdx >= 0 {
-		// Remove our finalizer from the slice
-		finalizers = append(finalizers[:foundIdx], finalizers[foundIdx+1:]...)
-		recording.SetFinalizers(finalizers)
-		err := r.Client.Update(ctx, recording)
-		if err != nil {
-			log.Error(err, "failed to remove finalizer from recording", "namespace", recording.Namespace,
-				"name", recording.Name)
-			return err
-		}
-	}
-	return nil
-}
-
 func (r *ReconcileRecording) deleteWithoutLiveTarget(ctx context.Context, recording *rhjmcv1beta1.Recording) (reconcile.Result, error) {
 	reqLogger := log.WithValues("Request.Namespace", recording.Namespace, "Request.Name", recording.Name)
 	reqLogger.Info("no matching FlightRecorder, proceeding with recording deletion")
@@ -475,7 +437,7 @@ func (r *ReconcileRecording) deleteWithoutLiveTarget(ctx context.Context, record
 	}
 
 	// Allow deletion to proceed, since no FlightRecorder/Pod to clean up
-	err = r.removeRecordingFinalizer(ctx, recording)
+	err = common.RemoveFinalizer(ctx, r.Client, recording, recordingFinalizer)
 	return reconcile.Result{}, err
 }
 
@@ -497,7 +459,7 @@ func (r *ReconcileRecording) deleteWithLiveTarget(ctx context.Context, cjfr jfrc
 	}
 
 	// Remove our finalizer only once our cleanup logic has succeeded
-	err = r.removeRecordingFinalizer(ctx, recording)
+	err = common.RemoveFinalizer(ctx, r.Client, recording, recordingFinalizer)
 	return reconcile.Result{}, err
 }
 
@@ -596,15 +558,6 @@ func shouldStopRecording(recording *rhjmcv1beta1.Recording) bool {
 	// Should stop if user wants recording stopped and we're not already doing/done so
 	return *requested == rhjmcv1beta1.RecordingStateStopped && *current != rhjmcv1beta1.RecordingStateStopped &&
 		*current != rhjmcv1beta1.RecordingStateStopping
-}
-
-func hasRecordingFinalizer(recording *rhjmcv1beta1.Recording) bool {
-	for _, finalizer := range recording.GetFinalizers() {
-		if finalizer == recordingFinalizer {
-			return true
-		}
-	}
-	return false
 }
 
 func requeueIfNotReady(err error) (reconcile.Result, error) {
