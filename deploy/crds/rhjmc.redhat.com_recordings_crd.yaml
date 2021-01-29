@@ -51,6 +51,7 @@ spec:
                 items:
                   type: string
                 type: array
+                x-kubernetes-list-type: set
               flightRecorder:
                 description: Reference to the FlightRecorder object that corresponds
                   to this Recording
@@ -139,6 +140,7 @@ spec:
                 items:
                   type: string
                 type: array
+                x-kubernetes-list-type: set
               flightRecorder:
                 description: Reference to the FlightRecorder object that corresponds
                   to this Recording

@@ -95,6 +95,7 @@ spec:
                       items:
                         type: string
                       type: array
+                      x-kubernetes-list-type: atomic
                     description:
                       description: A description detailing what this event does
                       type: string
@@ -136,6 +137,7 @@ spec:
                   - typeId
                   type: object
                 type: array
+                x-kubernetes-list-type: atomic
               port:
                 description: JMX port for target JVM
                 format: int32
@@ -285,6 +287,7 @@ spec:
                       items:
                         type: string
                       type: array
+                      x-kubernetes-list-type: atomic
                     description:
                       description: A description detailing what this event does
                       type: string
@@ -326,6 +329,7 @@ spec:
                   - typeId
                   type: object
                 type: array
+                x-kubernetes-list-type: atomic
               port:
                 description: JMX port for target JVM
                 format: int32
@@ -397,6 +401,7 @@ spec:
                   - type
                   type: object
                 type: array
+                x-kubernetes-list-type: atomic
             required:
             - events
             - port

@@ -72,6 +72,7 @@ type FlightRecorderStatus struct {
 const RecordingLabel = "rhjmc.redhat.com/flightrecorder"
 
 // EventInfo contains metadata for a JFR event type
+// +mapType=atomic
 type EventInfo struct {
 	// The ID used by JFR to uniquely identify this event type
 	TypeID string `json:"typeId"`
