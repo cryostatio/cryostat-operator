@@ -37,6 +37,7 @@
 package v1beta1
 
 import (
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -83,6 +84,10 @@ type ContainerJFRList struct {
 func init() {
 	SchemeBuilder.Register(&ContainerJFR{}, &ContainerJFRList{})
 }
+
+// DefaultCertificateKey will be used when looking up the certificate within a secret,
+// if a key is not manually specified
+const DefaultCertificateKey = corev1.TLSCertKey
 
 type CertificateSecret struct {
 	// Name of secret in the local namespace

@@ -306,10 +306,16 @@ func NewCoreContainer(cr *rhjmcv1beta1.ContainerJFR, specs *ServiceSpecs, tls *T
 
 		secretMounts := []corev1.VolumeMount{}
 		for _, secret := range cr.Spec.TrustedCertSecrets {
+			var key string
+			if secret.CertificateKey != nil {
+				key = *secret.CertificateKey
+			} else {
+				key = rhjmcv1beta1.DefaultCertificateKey
+			}
 			mount := corev1.VolumeMount{
 				Name:      secret.SecretName,
-				MountPath: fmt.Sprintf("/truststore/%s-%s", secret.SecretName, *secret.CertificateKey),
-				SubPath:   *secret.CertificateKey,
+				MountPath: fmt.Sprintf("/truststore/%s-%s", secret.SecretName, key),
+				SubPath:   key,
 				ReadOnly:  true,
 			}
 			secretMounts = append(secretMounts, mount)
