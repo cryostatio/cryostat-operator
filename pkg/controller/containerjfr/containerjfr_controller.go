@@ -277,7 +277,7 @@ func (r *ReconcileContainerJFR) Reconcile(request reconcile.Request) (reconcile.
 		return reconcile.Result{}, err
 	}
 
-	// Check that secrets mounted in /truststore conincide with CRD
+	// Check that secrets mounted in /truststore coincide with CRD
 	err = r.Client.Get(context.Background(), types.NamespacedName{Name: deployment.Name, Namespace: deployment.Namespace}, deployment)
 	if err == nil {
 		deploymentMounts := deployment.Spec.Template.Spec.Containers[0].VolumeMounts
