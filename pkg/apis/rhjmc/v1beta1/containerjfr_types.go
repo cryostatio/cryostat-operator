@@ -43,8 +43,9 @@ import (
 // ContainerJFRSpec defines the desired state of ContainerJFR
 // +k8s:openapi-gen=true
 type ContainerJFRSpec struct {
-	Minimal bool                `json:"minimal"`
-	Secrets []CertificateSecret `json:"secrets"`
+	Minimal bool `json:"minimal"`
+	// List of certificates to enable tls when connecting to targets
+	TrustedCertSecrets []CertificateSecret `json:"trustedCertSecrets"`
 }
 
 // ContainerJFRStatus defines the observed state of ContainerJFR

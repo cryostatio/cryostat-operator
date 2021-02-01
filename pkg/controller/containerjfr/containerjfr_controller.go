@@ -280,29 +280,18 @@ func (r *ReconcileContainerJFR) Reconcile(request reconcile.Request) (reconcile.
 	// Check that secrets mounted in /truststore conincide with CRD
 	err = r.Client.Get(context.Background(), types.NamespacedName{Name: deployment.Name, Namespace: deployment.Namespace}, deployment)
 	if err == nil {
-		deploymentSecrets := deployment.Spec.Template.Spec.Containers[0].VolumeMounts
-		secrets := instance.Spec.Secrets
-		for i := 0; i < len(secrets); i++ {
-			found := false
-			for j := 0; j < len(deploymentSecrets); j++ {
-				if deploymentSecrets[j].MountPath == fmt.Sprintf("/truststore/%s-%s", secrets[i].SecretName, *secrets[i].CertificateKey) {
-					found = true
-					break
-				}
+		deploymentMounts := deployment.Spec.Template.Spec.Containers[0].VolumeMounts
+		expectedMounts := resources.NewDeploymentForCR(instance, serviceSpecs, tlsConfig).Spec.Template.Spec.Containers[0].VolumeMounts
+		if !equals(deploymentMounts, expectedMounts) {
+			reqLogger.Info("cert secrets mounted do not conicide with those specified in CRD, modifying deployment")
+			// Modify deployment
+			deployment := resources.NewDeploymentForCR(instance, serviceSpecs, tlsConfig)
+			if err := controllerutil.SetControllerReference(instance, deployment, r.Scheme); err != nil {
+				return reconcile.Result{}, err
 			}
-			if !found {
-				reqLogger.Info("Secrets mounted do not conicide with those specified in CRD, modifying deployment")
-				// Modify deployment
-				deployment := resources.NewDeploymentForCR(instance, serviceSpecs, tlsConfig)
-				if err := controllerutil.SetControllerReference(instance, deployment, r.Scheme); err != nil {
-					return reconcile.Result{}, err
-				}
-
-				err = r.Client.Update(context.Background(), deployment)
-				if err != nil {
-					return reconcile.Result{}, err
-				}
-				break
+			err = r.Client.Update(context.Background(), deployment)
+			if err != nil {
+				return reconcile.Result{}, err
 			}
 		}
 	}
@@ -405,4 +394,16 @@ func (r *ReconcileContainerJFR) createObjectIfNotExists(ctx context.Context, ns 
 	}
 	logger.Info("Already exists")
 	return nil
+}
+
+func equals(a, b []corev1.VolumeMount) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i, val := range a {
+		if val != b[i] {
+			return false
+		}
+	}
+	return true
 }

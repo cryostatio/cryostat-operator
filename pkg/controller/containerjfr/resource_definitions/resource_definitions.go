@@ -171,12 +171,12 @@ func NewPodForCR(cr *rhjmcv1beta1.ContainerJFR, specs *ServiceSpecs, tls *TLSCon
 		volumes = append(volumes, secretVolume, grafanaSecretVolume)
 
 		customVolumes := []corev1.Volume{}
-		for i := 0; i < len(cr.Spec.Secrets); i++ {
+		for i := 0; i < len(cr.Spec.TrustedCertSecrets); i++ {
 			volume := corev1.Volume{
-				Name: cr.Spec.Secrets[i].SecretName,
+				Name: cr.Spec.TrustedCertSecrets[i].SecretName,
 				VolumeSource: corev1.VolumeSource{
 					Secret: &corev1.SecretVolumeSource{
-						SecretName: cr.Spec.Secrets[i].SecretName,
+						SecretName: cr.Spec.TrustedCertSecrets[i].SecretName,
 					},
 				},
 			}
@@ -304,13 +304,12 @@ func NewCoreContainer(cr *rhjmcv1beta1.ContainerJFR, specs *ServiceSpecs, tls *T
 
 		mounts = append(mounts, keystoreMount, caCertMount)
 
-		// TODO add mechanism to add other certs to /truststore
 		secretMounts := []corev1.VolumeMount{}
-		for i := 0; i < len(cr.Spec.Secrets); i++ {
+		for i := 0; i < len(cr.Spec.TrustedCertSecrets); i++ {
 			mount := corev1.VolumeMount{
-				Name:      cr.Spec.Secrets[i].SecretName,
-				MountPath: fmt.Sprintf("/truststore/%s-%s", cr.Spec.Secrets[i].SecretName, *cr.Spec.Secrets[i].CertificateKey),
-				SubPath:   *cr.Spec.Secrets[i].CertificateKey,
+				Name:      cr.Spec.TrustedCertSecrets[i].SecretName,
+				MountPath: fmt.Sprintf("/truststore/%s-%s", cr.Spec.TrustedCertSecrets[i].SecretName, *cr.Spec.TrustedCertSecrets[i].CertificateKey),
+				SubPath:   *cr.Spec.TrustedCertSecrets[i].CertificateKey,
 				ReadOnly:  true,
 			}
 			secretMounts = append(secretMounts, mount)
