@@ -16,7 +16,6 @@ require (
 )
 
 replace (
-	github.com/docker/docker => github.com/moby/moby v0.7.3-0.20190826074503-38ab9da00309 // Required by Helm
 	github.com/go-logr/zapr => github.com/go-logr/zapr v0.2.0 // Required for cert-manager
 	github.com/openshift/api => github.com/openshift/api v0.0.0-20190924102528-32369d4db2ad // Required until https://github.com/operator-framework/operator-lifecycle-manager/pull/1241 is resolved
 	k8s.io/client-go => k8s.io/client-go v0.19.2 // Required by prometheus-operator
