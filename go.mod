@@ -7,12 +7,12 @@ require (
 	github.com/onsi/ginkgo v1.12.1
 	github.com/onsi/gomega v1.10.1
 	github.com/openshift/api v0.0.0-00010101000000-000000000000
-	github.com/operator-framework/operator-sdk v0.18.0
+	github.com/operator-framework/operator-sdk v0.19.0
 	github.com/spf13/pflag v1.0.5
 	k8s.io/api v0.19.2
 	k8s.io/apimachinery v0.19.2
 	k8s.io/client-go v12.0.0+incompatible
-	sigs.k8s.io/controller-runtime v0.6.2 // github.com/Azure/go-autorest => github.com/Azure/go-autorest v13.3.2+incompatible // Required by OLM
+	sigs.k8s.io/controller-runtime v0.6.2
 )
 
 // Pinned to kubernetes-1.16.2
