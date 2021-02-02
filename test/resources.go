@@ -71,7 +71,30 @@ func NewContainerJFR() *rhjmcv1beta1.ContainerJFR {
 			Namespace: "default",
 		},
 		Spec: rhjmcv1beta1.ContainerJFRSpec{
+			Minimal:            false,
+			TrustedCertSecrets: []rhjmcv1beta1.CertificateSecret{},
+		},
+	}
+}
+
+func NewContainerJFRWithSecrets() *rhjmcv1beta1.ContainerJFR {
+	key := "tls.crt"
+	return &rhjmcv1beta1.ContainerJFR{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "containerjfr",
+			Namespace: "default",
+		},
+		Spec: rhjmcv1beta1.ContainerJFRSpec{
 			Minimal: false,
+			TrustedCertSecrets: []rhjmcv1beta1.CertificateSecret{
+				{
+					SecretName:     "testCert1",
+					CertificateKey: &key,
+				},
+				{
+					SecretName: "testCert2",
+				},
+			},
 		},
 	}
 }

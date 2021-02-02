@@ -259,6 +259,61 @@ var _ = Describe("ContainerjfrController", func() {
 				checkDeployment(client, true)
 			})
 		})
+		Context("Container jfr has list of certificate secrets", func() {
+			BeforeEach(func() {
+				objs = []runtime.Object{
+					test.NewContainerJFRWithSecrets(), newFakeSecret("testCert1"), newFakeSecret("testCert2"),
+				}
+			})
+			It("Should add volumeMounts to deployment", func() {
+				reconcileFully(client, controller, false)
+				deployment := &appsv1.Deployment{}
+				err := client.Get(context.Background(), types.NamespacedName{Name: "containerjfr", Namespace: "default"}, deployment)
+				Expect(err).ToNot(HaveOccurred())
+
+				testSpecs := newFakeServiceSpecs(false)
+				testTLSConfig := newFakeTLSConfig()
+				testContainer := test.NewContainerJFRWithSecrets()
+				expectedDeployment := resource_definitions.NewDeploymentForCR(testContainer, &testSpecs, &testTLSConfig)
+
+				volumeMounts := deployment.Spec.Template.Spec.Containers[0].VolumeMounts
+				expectedVolumeMounts := expectedDeployment.Spec.Template.Spec.Containers[0].VolumeMounts
+				Expect(volumeMounts).To(Equal(expectedVolumeMounts))
+			})
+		})
+		/*
+			Context("Adding a certificate to the TrustedCertSecrets list", func() {
+				BeforeEach(func() {
+					objs = []runtime.Object{
+						test.NewContainerJFR(),
+					}
+				})
+				JustBeforeEach(func() {
+					reconcileFully(client, controller, false)
+				})
+				It("Should update the corresponding deployment", func() {
+					objs = []runtime.Object{
+						test.NewContainerJFRWithSecrets(), newFakeSecret("testCert1"), newFakeSecret("testCert2"),
+					}
+					req := reconcile.Request{NamespacedName: types.NamespacedName{Name: "containerjfr", Namespace: "default"}}
+					result, err := controller.Reconcile(req)
+					Expect(err).ToNot(HaveOccurred())
+					Expect(result).To(Equal(reconcile.Result{}))
+
+					deployment := &appsv1.Deployment{}
+					err = client.Get(context.Background(), types.NamespacedName{Name: "containerjfr", Namespace: "default"}, deployment)
+					Expect(err).ToNot(HaveOccurred())
+
+					testSpecs := newFakeServiceSpecs(false)
+					testTLSConfig := newFakeTLSConfig()
+					testContainer := test.NewContainerJFRWithSecrets()
+					expectedDeployment := resource_definitions.NewDeploymentForCR(testContainer, &testSpecs, &testTLSConfig)
+
+					volumeMounts := deployment.Spec.Template.Spec.Containers[0].VolumeMounts
+					expectedVolumeMounts := expectedDeployment.Spec.Template.Spec.Containers[0].VolumeMounts
+					Expect(volumeMounts).To(Equal(expectedVolumeMounts))
+				})
+			})*/
 	})
 })
 
