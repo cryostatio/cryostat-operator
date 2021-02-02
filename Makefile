@@ -14,7 +14,7 @@ BUILDER ?= podman
 
 GINKGO ?= $(shell go env GOPATH)/bin/ginkgo
 
-CERT_MANAGER_VERSION ?= 1.0.2
+CERT_MANAGER_VERSION ?= 1.1.0
 CERT_MANAGER_MANIFEST ?= \
 	https://github.com/jetstack/cert-manager/releases/download/v$(CERT_MANAGER_VERSION)/cert-manager.yaml
 
