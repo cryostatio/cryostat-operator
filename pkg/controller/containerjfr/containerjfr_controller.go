@@ -43,6 +43,7 @@ import (
 
 	goerrors "errors"
 
+	"github.com/google/go-cmp/cmp"
 	openshiftv1 "github.com/openshift/api/route/v1"
 	rhjmcv1beta1 "github.com/rh-jmc-team/container-jfr-operator/pkg/apis/rhjmc/v1beta1"
 	"github.com/rh-jmc-team/container-jfr-operator/pkg/controller/common"
@@ -282,10 +283,10 @@ func (r *ReconcileContainerJFR) Reconcile(request reconcile.Request) (reconcile.
 	if err == nil {
 		deploymentMounts := deployment.Spec.Template.Spec.Containers[0].VolumeMounts
 		expectedMounts := resources.NewDeploymentForCR(instance, serviceSpecs, tlsConfig).Spec.Template.Spec.Containers[0].VolumeMounts
-		if !equals(deploymentMounts, expectedMounts) {
-			reqLogger.Info("cert secrets mounted do not conicide with those specified in CRD, modifying deployment")
+		if !cmp.Equal(deploymentMounts, expectedMounts) {
+			reqLogger.Info("cert secrets mounted do not coincide with those specified in CRD, modifying deployment")
 			// Modify deployment
-			deployment := resources.NewDeploymentForCR(instance, serviceSpecs, tlsConfig)
+			deployment.Spec.Template.Spec.Containers[0].VolumeMounts = expectedMounts
 			if err := controllerutil.SetControllerReference(instance, deployment, r.Scheme); err != nil {
 				return reconcile.Result{}, err
 			}
@@ -394,16 +395,4 @@ func (r *ReconcileContainerJFR) createObjectIfNotExists(ctx context.Context, ns 
 	}
 	logger.Info("Already exists")
 	return nil
-}
-
-func equals(a, b []corev1.VolumeMount) bool {
-	if len(a) != len(b) {
-		return false
-	}
-	for i, val := range a {
-		if val != b[i] {
-			return false
-		}
-	}
-	return true
 }
