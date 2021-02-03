@@ -281,39 +281,38 @@ var _ = Describe("ContainerjfrController", func() {
 				Expect(volumeMounts).To(Equal(expectedVolumeMounts))
 			})
 		})
-		/*
-			Context("Adding a certificate to the TrustedCertSecrets list", func() {
-				BeforeEach(func() {
-					objs = []runtime.Object{
-						test.NewContainerJFR(),
-					}
-				})
-				JustBeforeEach(func() {
-					reconcileFully(client, controller, false)
-				})
-				It("Should update the corresponding deployment", func() {
-					objs = []runtime.Object{
-						test.NewContainerJFRWithSecrets(), newFakeSecret("testCert1"), newFakeSecret("testCert2"),
-					}
-					req := reconcile.Request{NamespacedName: types.NamespacedName{Name: "containerjfr", Namespace: "default"}}
-					result, err := controller.Reconcile(req)
-					Expect(err).ToNot(HaveOccurred())
-					Expect(result).To(Equal(reconcile.Result{}))
+		Context("Adding a certificate to the TrustedCertSecrets list", func() {
+			BeforeEach(func() {
+				objs = []runtime.Object{
+					test.NewContainerJFR(), newFakeSecret("testCert1"), newFakeSecret("testCert2"),
+				}
+			})
+			JustBeforeEach(func() {
+				reconcileFully(client, controller, false)
+			})
+			It("Should update the corresponding deployment", func() {
+				err := client.Update(context.Background(), test.NewContainerJFRWithSecrets())
+				Expect(err).ToNot(HaveOccurred())
 
-					deployment := &appsv1.Deployment{}
-					err = client.Get(context.Background(), types.NamespacedName{Name: "containerjfr", Namespace: "default"}, deployment)
-					Expect(err).ToNot(HaveOccurred())
+				req := reconcile.Request{NamespacedName: types.NamespacedName{Name: "containerjfr", Namespace: "default"}}
+				result, err := controller.Reconcile(req)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(result).To(Equal(reconcile.Result{}))
 
-					testSpecs := newFakeServiceSpecs(false)
-					testTLSConfig := newFakeTLSConfig()
-					testContainer := test.NewContainerJFRWithSecrets()
-					expectedDeployment := resource_definitions.NewDeploymentForCR(testContainer, &testSpecs, &testTLSConfig)
+				deployment := &appsv1.Deployment{}
+				err = client.Get(context.Background(), types.NamespacedName{Name: "containerjfr", Namespace: "default"}, deployment)
+				Expect(err).ToNot(HaveOccurred())
 
-					volumeMounts := deployment.Spec.Template.Spec.Containers[0].VolumeMounts
-					expectedVolumeMounts := expectedDeployment.Spec.Template.Spec.Containers[0].VolumeMounts
-					Expect(volumeMounts).To(Equal(expectedVolumeMounts))
-				})
-			})*/
+				testSpecs := newFakeServiceSpecs(false)
+				testTLSConfig := newFakeTLSConfig()
+				testContainer := test.NewContainerJFRWithSecrets()
+				expectedDeployment := resource_definitions.NewDeploymentForCR(testContainer, &testSpecs, &testTLSConfig)
+
+				volumeMounts := deployment.Spec.Template.Spec.Containers[0].VolumeMounts
+				expectedVolumeMounts := expectedDeployment.Spec.Template.Spec.Containers[0].VolumeMounts
+				Expect(volumeMounts).To(Equal(expectedVolumeMounts))
+			})
+		})
 	})
 })
 
