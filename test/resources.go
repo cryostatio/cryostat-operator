@@ -515,3 +515,44 @@ func NewJMXAuthSecretForCJFR() *corev1.Secret {
 		},
 	}
 }
+
+func NewVolumeMountsWithSecrets() *[]corev1.VolumeMount {
+	return &[]corev1.VolumeMount{
+		{
+			Name:      "containerjfr",
+			ReadOnly:  false,
+			MountPath: "flightrecordings",
+			SubPath:   "flightrecordings",
+		},
+		{
+			Name:      "containerjfr",
+			ReadOnly:  false,
+			MountPath: "templates",
+			SubPath:   "templates",
+		},
+		{
+			Name:      "tls-secret",
+			ReadOnly:  true,
+			MountPath: "/var/run/secrets/rhjmc.redhat.com/containerjfr-tls/keystore.p12",
+			SubPath:   "keystore.p12",
+		},
+		{
+			Name:      "tls-secret",
+			ReadOnly:  true,
+			MountPath: "/truststore/containerjfr-ca.crt",
+			SubPath:   "ca.crt",
+		},
+		{
+			Name:      "testCert1",
+			ReadOnly:  true,
+			MountPath: "/truststore/testCert1-tls.crt",
+			SubPath:   "tls.crt",
+		},
+		{
+			Name:      "testCert2",
+			ReadOnly:  true,
+			MountPath: "/truststore/testCert2-tls.crt",
+			SubPath:   "tls.crt",
+		},
+	}
+}

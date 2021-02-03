@@ -271,14 +271,9 @@ var _ = Describe("ContainerjfrController", func() {
 				err := client.Get(context.Background(), types.NamespacedName{Name: "containerjfr", Namespace: "default"}, deployment)
 				Expect(err).ToNot(HaveOccurred())
 
-				testSpecs := newFakeServiceSpecs(false)
-				testTLSConfig := newFakeTLSConfig()
-				testContainer := test.NewContainerJFRWithSecrets()
-				expectedDeployment := resource_definitions.NewDeploymentForCR(testContainer, &testSpecs, &testTLSConfig)
-
 				volumeMounts := deployment.Spec.Template.Spec.Containers[0].VolumeMounts
-				expectedVolumeMounts := expectedDeployment.Spec.Template.Spec.Containers[0].VolumeMounts
-				Expect(volumeMounts).To(Equal(expectedVolumeMounts))
+				expectedVolumeMounts := test.NewVolumeMountsWithSecrets()
+				Expect(&volumeMounts).To(Equal(expectedVolumeMounts))
 			})
 		})
 		Context("Adding a certificate to the TrustedCertSecrets list", func() {
@@ -303,14 +298,9 @@ var _ = Describe("ContainerjfrController", func() {
 				err = client.Get(context.Background(), types.NamespacedName{Name: "containerjfr", Namespace: "default"}, deployment)
 				Expect(err).ToNot(HaveOccurred())
 
-				testSpecs := newFakeServiceSpecs(false)
-				testTLSConfig := newFakeTLSConfig()
-				testContainer := test.NewContainerJFRWithSecrets()
-				expectedDeployment := resource_definitions.NewDeploymentForCR(testContainer, &testSpecs, &testTLSConfig)
-
 				volumeMounts := deployment.Spec.Template.Spec.Containers[0].VolumeMounts
-				expectedVolumeMounts := expectedDeployment.Spec.Template.Spec.Containers[0].VolumeMounts
-				Expect(volumeMounts).To(Equal(expectedVolumeMounts))
+				expectedVolumeMounts := test.NewVolumeMountsWithSecrets()
+				Expect(&volumeMounts).To(Equal(expectedVolumeMounts))
 			})
 		})
 	})
