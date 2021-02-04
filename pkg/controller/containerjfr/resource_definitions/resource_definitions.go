@@ -407,6 +407,10 @@ func NewGrafanaContainer(cr *rhjmcv1beta1.ContainerJFR, tls *TLSConfig) corev1.C
 				Name:  "GF_SERVER_CERT_FILE",
 				Value: fmt.Sprintf("/var/run/secrets/rhjmc.redhat.com/%s/%s", tls.GrafanaSecret, corev1.TLSCertKey),
 			},
+			{
+				Name:  "JFR_DATASOURCE_URL",
+				Value: DatasourceURL,
+			},
 		}
 
 		tlsSecretMount := corev1.VolumeMount{
@@ -423,7 +427,7 @@ func NewGrafanaContainer(cr *rhjmcv1beta1.ContainerJFR, tls *TLSConfig) corev1.C
 	}
 	return corev1.Container{
 		Name:         cr.Name + "-grafana",
-		Image:        "quay.io/rh-jmc-team/container-jfr-grafana-dashboard:0.1.0",
+		Image:        "quay.io/rh-jmc-team/container-jfr-grafana-dashboard:1.0.0-BETA1",
 		VolumeMounts: mounts,
 		Ports: []corev1.ContainerPort{
 			{
