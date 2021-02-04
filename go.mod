@@ -2,6 +2,7 @@ module github.com/rh-jmc-team/container-jfr-operator
 
 require (
 	github.com/go-logr/logr v0.2.1-0.20200730175230-ee2de8da5be6
+	github.com/google/go-cmp v0.4.1
 	github.com/jetstack/cert-manager v1.0.2
 	github.com/onsi/ginkgo v1.12.1
 	github.com/onsi/gomega v1.10.1
