@@ -1,192 +1,119 @@
-IMAGE_STREAM ?= quay.io/rh-jmc-team/container-jfr-operator
-IMAGE_VERSION ?= 0.5.0
-IMAGE_TAG ?= $(IMAGE_STREAM):$(IMAGE_VERSION)
+# Current Operator version
+VERSION ?= 0.0.1
+# Default bundle image tag
+BUNDLE_IMG ?= controller-bundle:$(VERSION)
+# Options for 'bundle-build'
+ifneq ($(origin CHANNELS), undefined)
+BUNDLE_CHANNELS := --channels=$(CHANNELS)
+endif
+ifneq ($(origin DEFAULT_CHANNEL), undefined)
+BUNDLE_DEFAULT_CHANNEL := --default-channel=$(DEFAULT_CHANNEL)
+endif
+BUNDLE_METADATA_OPTS ?= $(BUNDLE_CHANNELS) $(BUNDLE_DEFAULT_CHANNEL)
 
-BUNDLE_STREAM ?= $(IMAGE_STREAM)-bundle
-CSV_VERSION ?= $(IMAGE_VERSION)
-PREV_CSV_VERSION ?= $(CSV_VERSION)
+# Image URL to use all building/pushing image targets
+IMG ?= controller:latest
+# Produce CRDs that work back to Kubernetes 1.11 (no version conversion)
+CRD_OPTIONS ?= "crd:trivialVersions=true,preserveUnknownFields=false"
 
-INDEX_STREAM ?= $(IMAGE_STREAM)-index
-INDEX_VERSION ?= 0.0.2
-PREV_INDEX_VERSION ?= $(INDEX_VERSION)
-
-BUILDER ?= podman
-
-GINKGO ?= $(shell go env GOPATH)/bin/ginkgo
-
-CERT_MANAGER_VERSION ?= 1.1.0
-CERT_MANAGER_MANIFEST ?= \
-	https://github.com/jetstack/cert-manager/releases/download/v$(CERT_MANAGER_VERSION)/cert-manager.yaml
-
-.DEFAULT_GOAL := bundle
-
-.PHONY: generate
-generate: k8s crds
-
-.PHONY: k8s
-k8s:
-	operator-sdk generate k8s
-
-.PHONY: crds
-crds:
-	operator-sdk generate crds
-
-.PHONY: csv
-csv: generate
-ifeq ($(CSV_VERSION), $(PREV_CSV_VERSION))
-	operator-sdk generate csv \
-		--csv-config ./deploy/olm-catalog/csv-config.yaml \
-		--csv-version $(CSV_VERSION) \
-		--csv-channel alpha \
-		--default-channel \
-		--update-crds \
-		--operator-name container-jfr-operator-bundle
+# Get the currently used golang install path (in GOPATH/bin, unless GOBIN is set)
+ifeq (,$(shell go env GOBIN))
+GOBIN=$(shell go env GOPATH)/bin
 else
-	# TODO
-	# from-version should be programatically determined
-	operator-sdk generate csv \
-		--from-version $(PREV_CSV_VERSION) \
-		--csv-config ./deploy/olm-catalog/csv-config.yaml \
-		--csv-version $(CSV_VERSION) \
-		--csv-channel alpha \
-		--default-channel \
-		--update-crds \
-		--operator-name container-jfr-operator-bundle
+GOBIN=$(shell go env GOBIN)
 endif
 
-.PHONY: images
-images: image
-	sh images/build-all.sh
+all: manager
 
-.PHONY: image
-image: generate
-	operator-sdk build --image-builder $(BUILDER) $(IMAGE_TAG)
+# Run tests
+ENVTEST_ASSETS_DIR=$(shell pwd)/testbin
+test: generate fmt vet manifests
+	mkdir -p ${ENVTEST_ASSETS_DIR}
+	test -f ${ENVTEST_ASSETS_DIR}/setup-envtest.sh || curl -sSLo ${ENVTEST_ASSETS_DIR}/setup-envtest.sh https://raw.githubusercontent.com/kubernetes-sigs/controller-runtime/v0.7.0/hack/setup-envtest.sh
+	source ${ENVTEST_ASSETS_DIR}/setup-envtest.sh; fetch_envtest_tools $(ENVTEST_ASSETS_DIR); setup_envtest_env $(ENVTEST_ASSETS_DIR); go test ./... -coverprofile cover.out
 
+# Build manager binary
+manager: generate fmt vet
+	go build -o bin/manager main.go
+
+# Run against the configured Kubernetes cluster in ~/.kube/config
+run: generate fmt vet manifests
+	go run ./main.go
+
+# Install CRDs into a cluster
+install: manifests kustomize
+	$(KUSTOMIZE) build config/crd | kubectl apply -f -
+
+# Uninstall CRDs from a cluster
+uninstall: manifests kustomize
+	$(KUSTOMIZE) build config/crd | kubectl delete -f -
+
+# Deploy controller in the configured Kubernetes cluster in ~/.kube/config
+deploy: manifests kustomize
+	cd config/manager && $(KUSTOMIZE) edit set image controller=${IMG}
+	$(KUSTOMIZE) build config/default | kubectl apply -f -
+
+# UnDeploy controller from the configured Kubernetes cluster in ~/.kube/config
+undeploy:
+	$(KUSTOMIZE) build config/default | kubectl delete -f -
+
+# Generate manifests e.g. CRD, RBAC etc.
+manifests: controller-gen
+	$(CONTROLLER_GEN) $(CRD_OPTIONS) rbac:roleName=manager-role webhook paths="./..." output:crd:artifacts:config=config/crd/bases
+
+# Run go fmt against code
+fmt:
+	go fmt ./...
+
+# Run go vet against code
+vet:
+	go vet ./...
+
+# Generate code
+generate: controller-gen
+	$(CONTROLLER_GEN) object:headerFile="hack/boilerplate.go.txt" paths="./..."
+
+# Build the docker image
+docker-build: test
+	docker build -t ${IMG} .
+
+# Push the docker image
+docker-push:
+	docker push ${IMG}
+
+# Download controller-gen locally if necessary
+CONTROLLER_GEN = $(shell pwd)/bin/controller-gen
+controller-gen:
+	$(call go-get-tool,$(CONTROLLER_GEN),sigs.k8s.io/controller-tools/cmd/controller-gen@v0.4.1)
+
+# Download kustomize locally if necessary
+KUSTOMIZE = $(shell pwd)/bin/kustomize
+kustomize:
+	$(call go-get-tool,$(KUSTOMIZE),sigs.k8s.io/kustomize/kustomize/v3@v3.8.7)
+
+# go-get-tool will 'go get' any package $2 and install it to $1.
+PROJECT_DIR := $(shell dirname $(abspath $(lastword $(MAKEFILE_LIST))))
+define go-get-tool
+@[ -f $(1) ] || { \
+set -e ;\
+TMP_DIR=$$(mktemp -d) ;\
+cd $$TMP_DIR ;\
+go mod init tmp ;\
+echo "Downloading $(2)" ;\
+GOBIN=$(PROJECT_DIR)/bin go get $(2) ;\
+rm -rf $$TMP_DIR ;\
+}
+endef
+
+# Generate bundle manifests and metadata, then validate generated files.
 .PHONY: bundle
-bundle:
-	operator-sdk bundle create \
-		$(BUNDLE_STREAM):$(CSV_VERSION) \
-		--image-builder $(BUILDER) \
-		--directory ./deploy/olm-catalog/container-jfr-operator-bundle/$(CSV_VERSION) \
-		--default-channel alpha \
-		--channels alpha \
-		--package container-jfr-operator-bundle
+bundle: manifests kustomize
+	operator-sdk generate kustomize manifests -q
+	cd config/manager && $(KUSTOMIZE) edit set image controller=$(IMG)
+	$(KUSTOMIZE) build config/manifests | operator-sdk generate bundle -q --overwrite --version $(VERSION) $(BUNDLE_METADATA_OPTS)
+	operator-sdk bundle validate ./bundle
 
-.PHONY: validate
-validate:
-	operator-sdk bundle validate \
-		--image-builder $(BUILDER) \
-		$(IMAGE_TAG)
-
-.PHONY: index
-index:
-ifeq ($(INDEX_VERSION), $(PREV_INDEX_VERSION))
-	opm index add \
-		--bundles $(BUNDLE_STREAM):$(CSV_VERSION) \
-		--tag $(INDEX_STREAM):$(INDEX_VERSION)
-else
-	# TODO
-	# previous index version should be programatically determined
-	opm index add \
-		--from-index $(INDEX_STREAM):$(PREV_INDEX_VERSION) \
-		--bundles $(BUNDLE_STREAM):$(CSV_VERSION) \
-		--tag $(INDEX_STREAM):$(INDEX_VERSION)
-endif
-
-.PHONY: test
-test: undeploy test-unit test-integration
-
-.PHONY: test-unit
-test-unit:
-# Run tests with Ginkgo CLI if available
-ifneq ("$(wildcard $(GINKGO))","")
-	"$(GINKGO)" -v ./...
-else
-	go test -v ./...
-endif
-
-.PHONY: test-integration
-test-integration: scorecard
-
-.PHONY: scorecard
-scorecard:
-	operator-sdk scorecard
-
-.PHONY: clean
-clean:
-	rm -rf build/_output
-
-
-
-
-#########################################
-# "Local" (ex. minishift/crc) testing targets #
-#########################################
-
-.PHONY: catalog
-catalog: remove_catalog
-	oc create -f deploy/olm-catalog/catalog-source.yaml
-
-.PHONY: remove_catalog
-remove_catalog:
-	- oc delete -f deploy/olm-catalog/catalog-source.yaml
-
-.PHONY: deploy
-deploy: undeploy
-ifeq ($(shell oc api-versions | grep -c '^cert-manager.io/v1$$'), 0)
-ifneq ($(DISABLE_SERVICE_TLS), true)
-	$(error cert-manager is not installed, install using "make cert_manager" or disable TLS for services by setting DISABLE_SERVICE_TLS to true)
-endif
-endif
-	oc create -f deploy/service_account.yaml
-	oc create -f deploy/role.yaml
-	oc create -f deploy/role_binding.yaml
-	oc create -f deploy/crds/rhjmc.redhat.com_flightrecorders_crd.yaml
-	oc create -f deploy/crds/rhjmc.redhat.com_recordings_crd.yaml
-	oc create -f deploy/crds/rhjmc.redhat.com_containerjfrs_crd.yaml
-	sed -e 's|REPLACE_IMAGE|$(IMAGE_TAG)|g' deploy/dev_operator.yaml | oc create -f -
-	oc create -f deploy/crds/rhjmc.redhat.com_v1beta1_containerjfr_cr.yaml
-
-.PHONY: undeploy
-undeploy: undeploy_sample_app undeploy_sample_app2
-	- oc delete recording --all
-	- oc delete flightrecorder --all
-	- oc delete containerjfr --all
-	- oc delete deployment container-jfr-operator
-	- oc delete all -l name=container-jfr-operator
-	- oc delete all -l app=containerjfr
-	- oc delete persistentvolumeclaims -l app=containerjfr
-	- oc delete persistentvolumes -l app=containerjfr
-	- oc delete configmaps -l app=containerjfr
-	- oc delete role container-jfr-operator
-	- oc delete rolebinding container-jfr-operator
-	- oc delete serviceaccount container-jfr-operator
-	- oc delete crd flightrecorders.rhjmc.redhat.com
-	- oc delete crd recordings.rhjmc.redhat.com
-	- oc delete crd containerjfrs.rhjmc.redhat.com
-	- oc delete -f deploy/olm-catalog/catalog-source.yaml
-
-.PHONY: cert_manager
-cert_manager:
-	oc create --validate=false -f $(CERT_MANAGER_MANIFEST)
-
-.PHONY: remove_cert_manager
-remove_cert_manager:
-	- oc delete -f $(CERT_MANAGER_MANIFEST)
-
-.PHONY: sample_app
-sample_app:
-	oc new-app quay.io/andrewazores/vertx-fib-demo:0.1.0
-
-.PHONY: undeploy_sample_app
-undeploy_sample_app:
-	- oc delete all -l app=vertx-fib-demo
-
-.PHONY: sample_app2
-sample_app2:
-	oc new-app quay.io/andrewazores/container-jmx-docker-listener:0.1.0 --name=jmx-listener
-	oc patch svc/jmx-listener -p '{"spec":{"$setElementOrder/ports":[{"port":7095},{"port":9092},{"port":9093}],"ports":[{"name":"jfr-jmx","port":9093}]}}'
-
-.PHONY: undeploy_sample_app2
-undeploy_sample_app2:
-	- oc delete all -l app=jmx-listener
+# Build the bundle image.
+.PHONY: bundle-build
+bundle-build:
+	docker build -f bundle.Dockerfile -t $(BUNDLE_IMG) .
