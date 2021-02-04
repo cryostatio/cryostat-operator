@@ -265,11 +265,15 @@ var _ = Describe("ContainerjfrController", func() {
 					test.NewContainerJFRWithSecrets(), newFakeSecret("testCert1"), newFakeSecret("testCert2"),
 				}
 			})
-			It("Should add volumeMounts to deployment", func() {
+			It("Should add volumes and volumeMounts to deployment", func() {
 				reconcileFully(client, controller, false)
 				deployment := &appsv1.Deployment{}
 				err := client.Get(context.Background(), types.NamespacedName{Name: "containerjfr", Namespace: "default"}, deployment)
 				Expect(err).ToNot(HaveOccurred())
+
+				volumes := deployment.Spec.Template.Spec.Volumes
+				expectedVolumes := test.NewVolumesWithSecrets()
+				Expect(&volumes).To(Equal(expectedVolumes))
 
 				volumeMounts := deployment.Spec.Template.Spec.Containers[0].VolumeMounts
 				expectedVolumeMounts := test.NewVolumeMountsWithSecrets()
@@ -297,6 +301,10 @@ var _ = Describe("ContainerjfrController", func() {
 				deployment := &appsv1.Deployment{}
 				err = client.Get(context.Background(), types.NamespacedName{Name: "containerjfr", Namespace: "default"}, deployment)
 				Expect(err).ToNot(HaveOccurred())
+
+				volumes := deployment.Spec.Template.Spec.Volumes
+				expectedVolumes := test.NewVolumesWithSecrets()
+				Expect(&volumes).To(Equal(expectedVolumes))
 
 				volumeMounts := deployment.Spec.Template.Spec.Containers[0].VolumeMounts
 				expectedVolumeMounts := test.NewVolumeMountsWithSecrets()

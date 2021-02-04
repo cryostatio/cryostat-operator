@@ -304,6 +304,7 @@ func NewCoreContainer(cr *rhjmcv1beta1.ContainerJFR, specs *ServiceSpecs, tls *T
 
 		mounts = append(mounts, keystoreMount, caCertMount)
 
+		// Mount the certificates specified in containerjfr CRD in /truststore location
 		secretMounts := []corev1.VolumeMount{}
 		for _, secret := range cr.Spec.TrustedCertSecrets {
 			var key string
@@ -314,7 +315,7 @@ func NewCoreContainer(cr *rhjmcv1beta1.ContainerJFR, specs *ServiceSpecs, tls *T
 			}
 			mount := corev1.VolumeMount{
 				Name:      secret.SecretName,
-				MountPath: fmt.Sprintf("/truststore/%s-%s", secret.SecretName, key),
+				MountPath: fmt.Sprintf("/truststore/%s_%s", secret.SecretName, key),
 				SubPath:   key,
 				ReadOnly:  true,
 			}

@@ -78,7 +78,7 @@ func NewContainerJFR() *rhjmcv1beta1.ContainerJFR {
 }
 
 func NewContainerJFRWithSecrets() *rhjmcv1beta1.ContainerJFR {
-	key := "tls.crt"
+	key := "test.crt"
 	return &rhjmcv1beta1.ContainerJFR{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "containerjfr",
@@ -545,14 +545,60 @@ func NewVolumeMountsWithSecrets() *[]corev1.VolumeMount {
 		{
 			Name:      "testCert1",
 			ReadOnly:  true,
-			MountPath: "/truststore/testCert1-tls.crt",
-			SubPath:   "tls.crt",
+			MountPath: "/truststore/testCert1_test.crt",
+			SubPath:   "test.crt",
 		},
 		{
 			Name:      "testCert2",
 			ReadOnly:  true,
-			MountPath: "/truststore/testCert2-tls.crt",
+			MountPath: "/truststore/testCert2_tls.crt",
 			SubPath:   "tls.crt",
+		},
+	}
+}
+
+func NewVolumesWithSecrets() *[]corev1.Volume {
+	return &[]corev1.Volume{
+		{
+			Name: "containerjfr",
+			VolumeSource: corev1.VolumeSource{
+				PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
+					ClaimName: "containerjfr",
+					ReadOnly:  false,
+				},
+			},
+		},
+		{
+			Name: "tls-secret",
+			VolumeSource: corev1.VolumeSource{
+				Secret: &corev1.SecretVolumeSource{
+					SecretName: "containerjfr-tls",
+				},
+			},
+		},
+		{
+			Name: "grafana-tls-secret",
+			VolumeSource: corev1.VolumeSource{
+				Secret: &corev1.SecretVolumeSource{
+					SecretName: "containerjfr-grafana-tls",
+				},
+			},
+		},
+		{
+			Name: "testCert1",
+			VolumeSource: corev1.VolumeSource{
+				Secret: &corev1.SecretVolumeSource{
+					SecretName: "testCert1",
+				},
+			},
+		},
+		{
+			Name: "testCert2",
+			VolumeSource: corev1.VolumeSource{
+				Secret: &corev1.SecretVolumeSource{
+					SecretName: "testCert2",
+				},
+			},
 		},
 	}
 }

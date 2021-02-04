@@ -282,14 +282,12 @@ func (r *ReconcileContainerJFR) Reconcile(request reconcile.Request) (reconcile.
 	err = r.Client.Get(context.Background(), types.NamespacedName{Name: deployment.Name, Namespace: deployment.Namespace}, deployment)
 	if err == nil {
 		deploymentMounts := deployment.Spec.Template.Spec.Containers[0].VolumeMounts
-		expectedMounts := resources.NewDeploymentForCR(instance, serviceSpecs, tlsConfig).Spec.Template.Spec.Containers[0].VolumeMounts
-		if !cmp.Equal(deploymentMounts, expectedMounts) {
+		expectedDeploymentSpec := resources.NewDeploymentForCR(instance, serviceSpecs, tlsConfig).Spec.Template.Spec
+		if !cmp.Equal(deploymentMounts, expectedDeploymentSpec.Containers[0].VolumeMounts) {
 			reqLogger.Info("cert secrets mounted do not coincide with those specified in CRD, modifying deployment")
 			// Modify deployment
-			deployment.Spec.Template.Spec.Containers[0].VolumeMounts = expectedMounts
-			if err := controllerutil.SetControllerReference(instance, deployment, r.Scheme); err != nil {
-				return reconcile.Result{}, err
-			}
+			deployment.Spec.Template.Spec.Containers[0].VolumeMounts = expectedDeploymentSpec.Containers[0].VolumeMounts
+			deployment.Spec.Template.Spec.Volumes = expectedDeploymentSpec.Volumes
 			err = r.Client.Update(context.Background(), deployment)
 			if err != nil {
 				return reconcile.Result{}, err
