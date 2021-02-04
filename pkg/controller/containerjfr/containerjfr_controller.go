@@ -43,6 +43,7 @@ import (
 
 	goerrors "errors"
 
+	"github.com/google/go-cmp/cmp"
 	openshiftv1 "github.com/openshift/api/route/v1"
 	rhjmcv1beta1 "github.com/rh-jmc-team/container-jfr-operator/pkg/apis/rhjmc/v1beta1"
 	"github.com/rh-jmc-team/container-jfr-operator/pkg/controller/common"
@@ -275,6 +276,23 @@ func (r *ReconcileContainerJFR) Reconcile(request reconcile.Request) (reconcile.
 	if err = r.createObjectIfNotExists(context.Background(), types.NamespacedName{Name: deployment.Name, Namespace: deployment.Namespace}, &appsv1.Deployment{}, deployment); err != nil {
 		reqLogger.Error(err, "Could not create deployment")
 		return reconcile.Result{}, err
+	}
+
+	// Check that secrets mounted in /truststore coincide with CRD
+	err = r.Client.Get(context.Background(), types.NamespacedName{Name: deployment.Name, Namespace: deployment.Namespace}, deployment)
+	if err == nil {
+		deploymentMounts := deployment.Spec.Template.Spec.Containers[0].VolumeMounts
+		expectedDeploymentSpec := resources.NewDeploymentForCR(instance, serviceSpecs, tlsConfig).Spec.Template.Spec
+		if !cmp.Equal(deploymentMounts, expectedDeploymentSpec.Containers[0].VolumeMounts) {
+			reqLogger.Info("cert secrets mounted do not coincide with those specified in CRD, modifying deployment")
+			// Modify deployment
+			deployment.Spec.Template.Spec.Containers[0].VolumeMounts = expectedDeploymentSpec.Containers[0].VolumeMounts
+			deployment.Spec.Template.Spec.Volumes = expectedDeploymentSpec.Volumes
+			err = r.Client.Update(context.Background(), deployment)
+			if err != nil {
+				return reconcile.Result{}, err
+			}
+		}
 	}
 
 	reqLogger.Info("Skip reconcile: Deployment already exists", "Deployment.Namespace", deployment.Namespace, "Deployment.Name", deployment.Name)

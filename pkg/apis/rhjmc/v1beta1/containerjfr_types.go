@@ -37,6 +37,7 @@
 package v1beta1
 
 import (
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -44,6 +45,8 @@ import (
 // +k8s:openapi-gen=true
 type ContainerJFRSpec struct {
 	Minimal bool `json:"minimal"`
+	// List of certificates to enable tls when connecting to targets
+	TrustedCertSecrets []CertificateSecret `json:"trustedCertSecrets"`
 }
 
 // ContainerJFRStatus defines the observed state of ContainerJFR
@@ -80,4 +83,16 @@ type ContainerJFRList struct {
 
 func init() {
 	SchemeBuilder.Register(&ContainerJFR{}, &ContainerJFRList{})
+}
+
+// DefaultCertificateKey will be used when looking up the certificate within a secret,
+// if a key is not manually specified
+const DefaultCertificateKey = corev1.TLSCertKey
+
+type CertificateSecret struct {
+	// Name of secret in the local namespace
+	SecretName string `json:"secretName"`
+	// Key within secret containing the certificate
+	// +optional
+	CertificateKey *string `json:"certificateKey,omitempty"`
 }

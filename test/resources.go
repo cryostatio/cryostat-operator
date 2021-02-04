@@ -71,7 +71,30 @@ func NewContainerJFR() *rhjmcv1beta1.ContainerJFR {
 			Namespace: "default",
 		},
 		Spec: rhjmcv1beta1.ContainerJFRSpec{
+			Minimal:            false,
+			TrustedCertSecrets: []rhjmcv1beta1.CertificateSecret{},
+		},
+	}
+}
+
+func NewContainerJFRWithSecrets() *rhjmcv1beta1.ContainerJFR {
+	key := "test.crt"
+	return &rhjmcv1beta1.ContainerJFR{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "containerjfr",
+			Namespace: "default",
+		},
+		Spec: rhjmcv1beta1.ContainerJFRSpec{
 			Minimal: false,
+			TrustedCertSecrets: []rhjmcv1beta1.CertificateSecret{
+				{
+					SecretName:     "testCert1",
+					CertificateKey: &key,
+				},
+				{
+					SecretName: "testCert2",
+				},
+			},
 		},
 	}
 }
@@ -489,6 +512,93 @@ func NewJMXAuthSecretForCJFR() *corev1.Secret {
 		Data: map[string][]byte{
 			rhjmcv1beta1.DefaultUsernameKey: []byte("hello"),
 			rhjmcv1beta1.DefaultPasswordKey: []byte("world"),
+		},
+	}
+}
+
+func NewVolumeMountsWithSecrets() *[]corev1.VolumeMount {
+	return &[]corev1.VolumeMount{
+		{
+			Name:      "containerjfr",
+			ReadOnly:  false,
+			MountPath: "flightrecordings",
+			SubPath:   "flightrecordings",
+		},
+		{
+			Name:      "containerjfr",
+			ReadOnly:  false,
+			MountPath: "templates",
+			SubPath:   "templates",
+		},
+		{
+			Name:      "tls-secret",
+			ReadOnly:  true,
+			MountPath: "/var/run/secrets/rhjmc.redhat.com/containerjfr-tls/keystore.p12",
+			SubPath:   "keystore.p12",
+		},
+		{
+			Name:      "tls-secret",
+			ReadOnly:  true,
+			MountPath: "/truststore/containerjfr-ca.crt",
+			SubPath:   "ca.crt",
+		},
+		{
+			Name:      "testCert1",
+			ReadOnly:  true,
+			MountPath: "/truststore/testCert1_test.crt",
+			SubPath:   "test.crt",
+		},
+		{
+			Name:      "testCert2",
+			ReadOnly:  true,
+			MountPath: "/truststore/testCert2_tls.crt",
+			SubPath:   "tls.crt",
+		},
+	}
+}
+
+func NewVolumesWithSecrets() *[]corev1.Volume {
+	return &[]corev1.Volume{
+		{
+			Name: "containerjfr",
+			VolumeSource: corev1.VolumeSource{
+				PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
+					ClaimName: "containerjfr",
+					ReadOnly:  false,
+				},
+			},
+		},
+		{
+			Name: "tls-secret",
+			VolumeSource: corev1.VolumeSource{
+				Secret: &corev1.SecretVolumeSource{
+					SecretName: "containerjfr-tls",
+				},
+			},
+		},
+		{
+			Name: "grafana-tls-secret",
+			VolumeSource: corev1.VolumeSource{
+				Secret: &corev1.SecretVolumeSource{
+					SecretName: "containerjfr-grafana-tls",
+				},
+			},
+		},
+		{
+			Name: "testCert1",
+			VolumeSource: corev1.VolumeSource{
+				Secret: &corev1.SecretVolumeSource{
+					SecretName: "testCert1",
+				},
+			},
+		},
+		{
+			Name: "testCert2",
+			VolumeSource: corev1.VolumeSource{
+				Secret: &corev1.SecretVolumeSource{
+					SecretName: "testCert2",
+				},
+			},
 		},
 	}
 }

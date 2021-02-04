@@ -4,3 +4,4 @@ metadata:
   name: containerjfr
 spec:
   minimal: false
+  trustedCertSecrets: []

@@ -259,6 +259,58 @@ var _ = Describe("ContainerjfrController", func() {
 				checkDeployment(client, true)
 			})
 		})
+		Context("Container jfr has list of certificate secrets", func() {
+			BeforeEach(func() {
+				objs = []runtime.Object{
+					test.NewContainerJFRWithSecrets(), newFakeSecret("testCert1"), newFakeSecret("testCert2"),
+				}
+			})
+			It("Should add volumes and volumeMounts to deployment", func() {
+				reconcileFully(client, controller, false)
+				deployment := &appsv1.Deployment{}
+				err := client.Get(context.Background(), types.NamespacedName{Name: "containerjfr", Namespace: "default"}, deployment)
+				Expect(err).ToNot(HaveOccurred())
+
+				volumes := deployment.Spec.Template.Spec.Volumes
+				expectedVolumes := test.NewVolumesWithSecrets()
+				Expect(&volumes).To(Equal(expectedVolumes))
+
+				volumeMounts := deployment.Spec.Template.Spec.Containers[0].VolumeMounts
+				expectedVolumeMounts := test.NewVolumeMountsWithSecrets()
+				Expect(&volumeMounts).To(Equal(expectedVolumeMounts))
+			})
+		})
+		Context("Adding a certificate to the TrustedCertSecrets list", func() {
+			BeforeEach(func() {
+				objs = []runtime.Object{
+					test.NewContainerJFR(), newFakeSecret("testCert1"), newFakeSecret("testCert2"),
+				}
+			})
+			JustBeforeEach(func() {
+				reconcileFully(client, controller, false)
+			})
+			It("Should update the corresponding deployment", func() {
+				err := client.Update(context.Background(), test.NewContainerJFRWithSecrets())
+				Expect(err).ToNot(HaveOccurred())
+
+				req := reconcile.Request{NamespacedName: types.NamespacedName{Name: "containerjfr", Namespace: "default"}}
+				result, err := controller.Reconcile(req)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(result).To(Equal(reconcile.Result{}))
+
+				deployment := &appsv1.Deployment{}
+				err = client.Get(context.Background(), types.NamespacedName{Name: "containerjfr", Namespace: "default"}, deployment)
+				Expect(err).ToNot(HaveOccurred())
+
+				volumes := deployment.Spec.Template.Spec.Volumes
+				expectedVolumes := test.NewVolumesWithSecrets()
+				Expect(&volumes).To(Equal(expectedVolumes))
+
+				volumeMounts := deployment.Spec.Template.Spec.Containers[0].VolumeMounts
+				expectedVolumeMounts := test.NewVolumeMountsWithSecrets()
+				Expect(&volumeMounts).To(Equal(expectedVolumeMounts))
+			})
+		})
 	})
 })
 
