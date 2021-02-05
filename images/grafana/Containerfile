@@ -8,3 +8,16 @@ COPY --chown=grafana:grafana \
 	dashboards.yaml \
 	dashboard.json \
 	/etc/grafana/provisioning/dashboards
+
+COPY --chown=grafana:grafana \
+    datasource.yaml.in \
+    /tmp/
+
+# Listen address of jfr-datasource
+ENV JFR_DATASOURCE_URL "http://0.0.0.0:8080"
+
+USER root
+COPY cjfr-run.sh /
+
+USER grafana
+ENTRYPOINT [ "/cjfr-run.sh" ]
