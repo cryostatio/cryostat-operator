@@ -1,23 +1,45 @@
-/*
-Copyright 2021.
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-*/
+// Copyright (c) 2021 Red Hat, Inc.
+//
+// The Universal Permissive License (UPL), Version 1.0
+//
+// Subject to the condition set forth below, permission is hereby granted to any
+// person obtaining a copy of this software, associated documentation and/or data
+// (collectively the "Software"), free of charge and under any and all copyright
+// rights in the Software, and any and all patent rights owned or freely
+// licensable by each licensor hereunder covering either (i) the unmodified
+// Software as contributed to or provided by such licensor, or (ii) the Larger
+// Works (as defined below), to deal in both
+//
+// (a) the Software, and
+// (b) any piece of software and/or hardware listed in the lrgrwrks.txt file if
+// one is included with the Software (each a "Larger Work" to which the Software
+// is contributed by such licensors),
+//
+// without restriction, including without limitation the rights to copy, create
+// derivative works of, display, perform, and distribute the Software and make,
+// use, sell, offer for sale, import, export, have made, and have sold the
+// Software and the Larger Work(s), and to sublicense the foregoing rights on
+// either these or other terms.
+//
+// This license is subject to the following condition:
+// The above copyright notice and either this complete permission notice or at
+// a minimum a reference to the UPL must be included in all copies or
+// substantial portions of the Software.
+//
+// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+// SOFTWARE.
 
 package controllers
 
 import (
 	"context"
+	"fmt"
+	"time"
 
 	"github.com/go-logr/logr"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -25,6 +47,21 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	rhjmcv1beta1 "github.com/rh-jmc-team/container-jfr-operator/api/v1beta1"
+
+	goerrors "errors"
+
+	openshiftv1 "github.com/openshift/api/route/v1"
+	"github.com/rh-jmc-team/container-jfr-operator/controllers/common"
+	resources "github.com/rh-jmc-team/container-jfr-operator/controllers/common/resource_definitions"
+	appsv1 "k8s.io/api/apps/v1"
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+	"sigs.k8s.io/controller-runtime/pkg/handler"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+	"sigs.k8s.io/controller-runtime/pkg/source"
 )
 
 // ContainerJFRReconciler reconciles a ContainerJFR object
@@ -32,32 +69,279 @@ type ContainerJFRReconciler struct {
 	client.Client
 	Log    logr.Logger
 	Scheme *runtime.Scheme
+	common.ReconcilerTLS
 }
 
 // +kubebuilder:rbac:groups=rhjmc.redhat.com,resources=containerjfrs,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=rhjmc.redhat.com,resources=containerjfrs/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=rhjmc.redhat.com,resources=containerjfrs/finalizers,verbs=update
+func (r *ContainerJFRReconciler) Reconcile(ctx context.Context, request ctrl.Request) (ctrl.Result, error) {
+	reqLogger := r.Log.WithValues("Request.Namespace", request.Namespace, "Request.Name", request.Name)
+	reqLogger.Info("Reconciling ContainerJFR")
 
-// Reconcile is part of the main kubernetes reconciliation loop which aims to
-// move the current state of the cluster closer to the desired state.
-// TODO(user): Modify the Reconcile function to compare the state specified by
-// the ContainerJFR object against the actual cluster state, and then
-// perform operations to make the cluster state reflect the state specified by
-// the user.
-//
-// For more details, check Reconcile and its Result here:
-// - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.7.0/pkg/reconcile
-func (r *ContainerJFRReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	_ = r.Log.WithValues("containerjfr", req.NamespacedName)
+	// Fetch the ContainerJFR instance
+	instance := &rhjmcv1beta1.ContainerJFR{}
+	err := r.Client.Get(context.Background(), request.NamespacedName, instance)
+	if err != nil {
+		if errors.IsNotFound(err) {
+			// Request object not found, could have been deleted after reconcile request.
+			// Owned objects are automatically garbage collected. For additional cleanup logic use finalizers.
+			// Return and don't requeue
+			reqLogger.Info("ContainerJFR instance not found")
+			return reconcile.Result{}, nil
+		}
+		reqLogger.Error(err, "Error reading ContainerJFR instance")
+		return reconcile.Result{}, err
+	}
 
-	// your logic here
+	reqLogger.Info("Spec", "Minimal", instance.Spec.Minimal)
 
-	return ctrl.Result{}, nil
+	pvc := resources.NewPersistentVolumeClaimForCR(instance)
+	if err := controllerutil.SetControllerReference(instance, pvc, r.Scheme); err != nil {
+		return reconcile.Result{}, err
+	}
+	if err = r.createObjectIfNotExists(context.Background(), types.NamespacedName{Name: pvc.Name, Namespace: pvc.Namespace}, &corev1.PersistentVolumeClaim{}, pvc); err != nil {
+		return reconcile.Result{}, err
+	}
+
+	grafanaSecret := resources.NewGrafanaSecretForCR(instance)
+	if err := controllerutil.SetControllerReference(instance, grafanaSecret, r.Scheme); err != nil {
+		return reconcile.Result{}, err
+	}
+	if err = r.createObjectIfNotExists(context.Background(), types.NamespacedName{Name: grafanaSecret.Name, Namespace: grafanaSecret.Namespace}, &corev1.Secret{}, grafanaSecret); err != nil {
+		return reconcile.Result{}, err
+	}
+
+	jmxAuthSecret := resources.NewJmxSecretForCR(instance)
+	if err := controllerutil.SetControllerReference(instance, jmxAuthSecret, r.Scheme); err != nil {
+		return reconcile.Result{}, err
+	}
+	if err = r.createObjectIfNotExists(context.Background(), types.NamespacedName{Name: jmxAuthSecret.Name, Namespace: jmxAuthSecret.Namespace}, &corev1.Secret{}, jmxAuthSecret); err != nil {
+		return reconcile.Result{}, err
+	}
+
+	// Set up TLS using cert-manager, if available
+	protocol := "http"
+	var tlsConfig *resources.TLSConfig
+	var routeTLS *openshiftv1.TLSConfig
+	if r.IsCertManagerEnabled() {
+		tlsConfig, err = r.setupTLS(context.Background(), instance)
+		if err != nil {
+			if err == common.ErrCertNotReady {
+				return reconcile.Result{RequeueAfter: 5 * time.Second}, nil
+			}
+			reqLogger.Error(err, "Failed to set up TLS for Container JFR")
+			return reconcile.Result{}, err
+		}
+
+		// Get CA certificate from secret and set as destination CA in route
+		caCert, err := r.GetContainerJFRCABytes(context.Background(), instance)
+		if err != nil {
+			return reconcile.Result{}, err
+		}
+		routeTLS = &openshiftv1.TLSConfig{
+			Termination:              openshiftv1.TLSTerminationReencrypt,
+			DestinationCACertificate: string(caCert),
+		}
+		protocol = "https"
+	}
+
+	serviceSpecs := &resources.ServiceSpecs{}
+	if !instance.Spec.Minimal {
+		grafanaSvc := resources.NewGrafanaService(instance)
+		url, err := r.createService(context.Background(), instance, grafanaSvc, &grafanaSvc.Spec.Ports[0], routeTLS)
+		if err != nil {
+			return reconcile.Result{}, err
+		}
+		serviceSpecs.GrafanaURL = fmt.Sprintf("%s://%s", protocol, url)
+
+		// check for existing minimal deployment and delete if found
+		deployment := resources.NewDeploymentForCR(instance, serviceSpecs, nil)
+		err = r.Client.Get(context.Background(), types.NamespacedName{Name: deployment.Name, Namespace: deployment.Namespace}, deployment)
+		if err == nil && len(deployment.Spec.Template.Spec.Containers) == 1 {
+			reqLogger.Info("Deleting existing minimal deployment")
+			err = r.Client.Delete(context.Background(), deployment)
+			if err != nil && !errors.IsNotFound(err) {
+				return reconcile.Result{Requeue: true, RequeueAfter: time.Second * 10}, err
+			}
+		}
+	} else {
+		// check for existing non-minimal resources and delete if found
+		svc := resources.NewGrafanaService(instance)
+		reqLogger.Info("Deleting existing non-minimal route", "route.Name", svc.Name)
+		route := &openshiftv1.Route{}
+		err = r.Client.Get(context.Background(), types.NamespacedName{Name: svc.Name, Namespace: svc.Namespace}, route)
+		if err != nil && !errors.IsNotFound(err) {
+			reqLogger.Info("Non-minimal route could not be retrieved", "route.Name", svc.Name)
+			return reconcile.Result{}, err
+		} else if err == nil {
+			err = r.Client.Delete(context.Background(), route)
+			if err != nil && !errors.IsNotFound(err) {
+				reqLogger.Info("Could not delete non-minimal route", "route.Name", svc.Name)
+				return reconcile.Result{}, err
+			}
+		}
+
+		err = r.Client.Get(context.Background(), types.NamespacedName{Name: svc.Name, Namespace: svc.Namespace}, svc)
+		if err == nil {
+			reqLogger.Info("Deleting existing non-minimal service", "svc.Name", svc.Name)
+			err = r.Client.Delete(context.Background(), svc)
+			if err != nil && !errors.IsNotFound(err) {
+				reqLogger.Info("Could not delete non-minimal service")
+				return reconcile.Result{}, err
+			}
+		}
+
+		deployment := resources.NewDeploymentForCR(instance, serviceSpecs, nil)
+		err = r.Client.Get(context.Background(), types.NamespacedName{Name: deployment.Name, Namespace: deployment.Namespace}, deployment)
+		if err == nil && len(deployment.Spec.Template.Spec.Containers) > 1 {
+			reqLogger.Info("Deleting existing non-minimal deployment")
+			err = r.Client.Delete(context.Background(), deployment)
+			if err != nil && !errors.IsNotFound(err) {
+				reqLogger.Info("Could not delete non-minimal deployment")
+				return reconcile.Result{Requeue: true, RequeueAfter: time.Second * 10}, err
+			}
+		}
+	}
+
+	exporterSvc := resources.NewExporterService(instance)
+	url, err := r.createService(context.Background(), instance, exporterSvc, &exporterSvc.Spec.Ports[0], routeTLS)
+	if err != nil {
+		return reconcile.Result{}, err
+	}
+	serviceSpecs.CoreHostname = url
+
+	cmdChanSvc := resources.NewCommandChannelService(instance)
+	url, err = r.createService(context.Background(), instance, cmdChanSvc, &cmdChanSvc.Spec.Ports[0], routeTLS)
+	if err != nil {
+		return reconcile.Result{}, err
+	}
+	serviceSpecs.CommandHostname = url
+
+	deployment := resources.NewDeploymentForCR(instance, serviceSpecs, tlsConfig)
+	if err := controllerutil.SetControllerReference(instance, deployment, r.Scheme); err != nil {
+		return reconcile.Result{}, err
+	}
+	if err = r.createObjectIfNotExists(context.Background(), types.NamespacedName{Name: deployment.Name, Namespace: deployment.Namespace}, &appsv1.Deployment{}, deployment); err != nil {
+		reqLogger.Error(err, "Could not create deployment")
+		return reconcile.Result{}, err
+	}
+
+	reqLogger.Info("Skip reconcile: Deployment already exists", "Deployment.Namespace", deployment.Namespace, "Deployment.Name", deployment.Name)
+	return reconcile.Result{}, nil
 }
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *ContainerJFRReconciler) SetupWithManager(mgr ctrl.Manager) error {
-	return ctrl.NewControllerManagedBy(mgr).
-		For(&rhjmcv1beta1.ContainerJFR{}).
-		Complete(r)
+	c := ctrl.NewControllerManagedBy(mgr).
+		For(&rhjmcv1beta1.ContainerJFR{})
+
+	// Watch for changes to secondary resources and requeue the owner ContainerJFR
+	resources := []client.Object{&appsv1.Deployment{}, &corev1.Service{}, &corev1.Secret{}, &openshiftv1.Route{}, &corev1.PersistentVolumeClaim{}}
+	// TODO watch certificates and redeploy when renewed
+
+	for _, resource := range resources {
+		c = c.Watches(&source.Kind{Type: resource}, &handler.EnqueueRequestForOwner{
+			IsController: true,
+			OwnerType:    &rhjmcv1beta1.ContainerJFR{},
+		})
+	}
+
+	return c.Complete(r)
+}
+
+func (r *ContainerJFRReconciler) createService(ctx context.Context, controller *rhjmcv1beta1.ContainerJFR, svc *corev1.Service, exposePort *corev1.ServicePort,
+	tlsConfig *openshiftv1.TLSConfig) (string, error) {
+	if err := controllerutil.SetControllerReference(controller, svc, r.Scheme); err != nil {
+		return "", err
+	}
+	if err := r.createObjectIfNotExists(context.Background(), types.NamespacedName{Name: svc.Name, Namespace: svc.Namespace}, &corev1.Service{}, svc); err != nil {
+		return "", err
+	}
+
+	// Use edge termination by default
+	if tlsConfig == nil {
+		tlsConfig = &openshiftv1.TLSConfig{
+			Termination:                   openshiftv1.TLSTerminationEdge,
+			InsecureEdgeTerminationPolicy: openshiftv1.InsecureEdgeTerminationPolicyRedirect,
+		}
+	}
+	if exposePort != nil {
+		return r.createRouteForService(controller, svc, *exposePort, tlsConfig)
+	}
+
+	if err := r.Client.Get(context.Background(), types.NamespacedName{Name: svc.Name, Namespace: svc.Namespace}, svc); err != nil {
+		return "", err
+	}
+	if svc.Spec.ClusterIP == "" {
+		return "", errors.NewInternalError(goerrors.New(fmt.Sprintf("Expected service %s to have ClusterIP, but got empty string", svc.Name)))
+	}
+	if len(svc.Spec.Ports) != 1 {
+		return "", errors.NewInternalError(goerrors.New(fmt.Sprintf("Expected service %s to have one Port, but got %d", svc.Name, len(svc.Spec.Ports))))
+	}
+	return fmt.Sprintf("%s:%d", svc.Spec.ClusterIP, svc.Spec.Ports[0].Port), nil
+}
+
+func (r *ContainerJFRReconciler) createRouteForService(controller *rhjmcv1beta1.ContainerJFR, svc *corev1.Service, exposePort corev1.ServicePort,
+	tlsConfig *openshiftv1.TLSConfig) (string, error) {
+	logger := r.Log.WithValues("Request.Namespace", svc.Namespace, "Name", svc.Name, "Kind", fmt.Sprintf("%T", &openshiftv1.Route{}))
+	route := &openshiftv1.Route{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      svc.Name,
+			Namespace: svc.Namespace,
+		},
+		Spec: openshiftv1.RouteSpec{
+			To: openshiftv1.RouteTargetReference{
+				Kind: "Service",
+				Name: svc.Name,
+			},
+			Port: &openshiftv1.RoutePort{TargetPort: exposePort.TargetPort},
+			TLS:  tlsConfig,
+		},
+	}
+	if err := controllerutil.SetControllerReference(controller, route, r.Scheme); err != nil {
+		return "", err
+	}
+
+	found := &openshiftv1.Route{}
+	err := r.Client.Get(context.Background(), types.NamespacedName{Name: svc.Name, Namespace: svc.Namespace}, found)
+	if err != nil && errors.IsNotFound(err) {
+		logger.Info("Not found")
+		if err := r.Client.Create(context.Background(), route); err != nil {
+			logger.Error(err, "Could not be created")
+			return "", err
+		}
+		logger.Info("Created")
+		found = route
+	} else if err != nil {
+		logger.Error(err, "Could not be read")
+		return "", err
+	}
+
+	logger.Info("Route created", "Service.Status", fmt.Sprintf("%#v", found.Status))
+	if len(found.Status.Ingress) < 1 {
+		return "", errors.NewTooManyRequestsError("Ingress configuration not yet available")
+	}
+
+	return found.Status.Ingress[0].Host, nil
+}
+
+func (r *ContainerJFRReconciler) createObjectIfNotExists(ctx context.Context, ns types.NamespacedName, found client.Object, toCreate client.Object) error {
+	logger := r.Log.WithValues("Request.Namespace", ns.Namespace, "Name", ns.Name, "Kind", fmt.Sprintf("%T", toCreate))
+	err := r.Client.Get(ctx, ns, found)
+	if err != nil && errors.IsNotFound(err) {
+		logger.Info("Not found")
+		if err := r.Client.Create(ctx, toCreate); err != nil {
+			logger.Error(err, "Could not be created")
+			return err
+		} else {
+			logger.Info("Created")
+			found = toCreate
+		}
+	} else if err != nil {
+		logger.Error(err, "Could not be read")
+		return err
+	}
+	logger.Info("Already exists")
+	return nil
 }
