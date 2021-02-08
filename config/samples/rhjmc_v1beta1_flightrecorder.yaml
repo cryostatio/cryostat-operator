@@ -1,0 +1,7 @@
+apiVersion: rhjmc.redhat.com/v1beta1
+kind: FlightRecorder
+metadata:
+  name: flightrecorder-sample
+spec:
+  # Add fields here
+  foo: bar
