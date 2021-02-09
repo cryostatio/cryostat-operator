@@ -11,6 +11,7 @@ BUNDLE_DEFAULT_CHANNEL := --default-channel=$(DEFAULT_CHANNEL)
 endif
 BUNDLE_METADATA_OPTS ?= $(BUNDLE_CHANNELS) $(BUNDLE_DEFAULT_CHANNEL)
 
+IMAGE_BUILDER ?= podman
 # Image URL to use all building/pushing image targets
 IMG ?= controller:latest
 # Produce CRDs that work back to Kubernetes 1.11 (no version conversion)
@@ -73,13 +74,13 @@ vet:
 generate: controller-gen
 	$(CONTROLLER_GEN) object:headerFile="hack/boilerplate.go.txt" paths="./..."
 
-# Build the docker image
-docker-build: test
-	docker build -t ${IMG} .
+# Build the OCI image
+oci-build: test
+	$(IMAGE_BUILDER) build -t ${IMG} .
 
-# Push the docker image
-docker-push:
-	docker push ${IMG}
+# Push the OCI image
+oci-push:
+	$(IMAGE_BUILDER) push ${IMG}
 
 # Download controller-gen locally if necessary
 CONTROLLER_GEN = $(shell pwd)/bin/controller-gen
@@ -116,4 +117,4 @@ bundle: manifests kustomize
 # Build the bundle image.
 .PHONY: bundle-build
 bundle-build:
-	docker build -f bundle.Dockerfile -t $(BUNDLE_IMG) .
+	$(IMAGE_BUILDER) build -f bundle.Dockerfile -t $(BUNDLE_IMG) .
