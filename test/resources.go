@@ -43,7 +43,6 @@ import (
 	"github.com/onsi/gomega"
 	routev1 "github.com/openshift/api/route/v1"
 	rhjmcv1beta1 "github.com/rh-jmc-team/container-jfr-operator/api/v1beta1"
-	"github.com/rh-jmc-team/container-jfr-operator/pkg/apis"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
