@@ -62,19 +62,18 @@ type FlightRecorderReconciler struct {
 	common.Reconciler
 }
 
+// +kubebuilder:rbac:groups="",resources=pods;services;services/finalizers;routes;endpoints;persistentvolumeclaims;events;configmaps;secrets,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=route.openshift.io,resources=routes;routes/custom-host,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=apps,resources=deployments;daemonsets;replicasets;statefulsets,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=monitoring.coreos.com,resources=servicemonitors,verbs=get;create
+// +kubebuilder:rbac:groups=apps,resources=deployments/finalizers,resourceNames=container-jfr-operator,verbs=update
+// +kubebuilder:rbac:groups="",resources=pods,verbs=get
+// +kubebuilder:rbac:groups=apps,resources=replicasets,verbs=get
+// +kubebuilder:rbac:groups=rhjmc.redhat.com,resources=*;flightrecorders;recordings;containerjfrs,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=cert-manager.io,resources=issuers;certificates,verbs=create;get;list;update;watch
 // +kubebuilder:rbac:groups=rhjmc.redhat.com,resources=flightrecorders,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=rhjmc.redhat.com,resources=flightrecorders/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=rhjmc.redhat.com,resources=flightrecorders/finalizers,verbs=update
-
-// Reconcile is part of the main kubernetes reconciliation loop which aims to
-// move the current state of the cluster closer to the desired state.
-// TODO(user): Modify the Reconcile function to compare the state specified by
-// the FlightRecorder object against the actual cluster state, and then
-// perform operations to make the cluster state reflect the state specified by
-// the user.
-//
-// For more details, check Reconcile and its Result here:
-// - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.7.0/pkg/reconcile
 func (r *FlightRecorderReconciler) Reconcile(ctx context.Context, request ctrl.Request) (ctrl.Result, error) {
 	reqLogger := r.Log.WithValues("Request.Namespace", request.Namespace, "Request.Name", request.Name)
 	reqLogger.Info("Reconciling FlightRecorder")
