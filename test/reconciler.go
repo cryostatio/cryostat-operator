@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Red Hat, Inc.
+// Copyright (c) 2020 Red Hat, Inc.
 //
 // The Universal Permissive License (UPL), Version 1.0
 //
@@ -34,60 +34,66 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-package v1beta1
+package test
 
 import (
-	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"net/url"
+
+	"sigs.k8s.io/controller-runtime/pkg/client"
+
+	"github.com/onsi/gomega"
+	jfrclient "github.com/rh-jmc-team/container-jfr-operator/controllers/client"
+	"github.com/rh-jmc-team/container-jfr-operator/controllers/common"
 )
 
-// ContainerJFRSpec defines the desired state of ContainerJFR
-type ContainerJFRSpec struct {
-	Minimal bool `json:"minimal"`
-	// List of certificates to enable tls when connecting to targets
-	TrustedCertSecrets []CertificateSecret `json:"trustedCertSecrets"`
+// NewTestReconciler returns a common.Reconciler for use by unit tests
+func NewTestReconciler(server *ContainerJFRServer, client client.Client) common.Reconciler {
+	return common.NewReconciler(&common.ReconcilerConfig{
+		Client:        client,
+		ClientFactory: &testClientFactory{serverURL: server.impl.URL()},
+		OS:            &testOSUtils{},
+	})
 }
 
-// ContainerJFRStatus defines the observed state of ContainerJFR
-type ContainerJFRStatus struct {
-	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
-	// Important: Run "make" to regenerate code after modifying this file
+type testClientFactory struct {
+	serverURL string
 }
 
-// +kubebuilder:object:root=true
-// +kubebuilder:subresource:status
-// +kubebuilder:storageversion
-
-// ContainerJFR is the Schema for the containerjfrs API
-type ContainerJFR struct {
-	metav1.TypeMeta   `json:",inline"`
-	metav1.ObjectMeta `json:"metadata,omitempty"`
-
-	Spec   ContainerJFRSpec   `json:"spec,omitempty"`
-	Status ContainerJFRStatus `json:"status,omitempty"`
+func NewTestReconcilerNoServer(client client.Client) common.Reconciler {
+	return common.NewReconciler(&common.ReconcilerConfig{
+		Client:        client,
+		ClientFactory: &testClientFactory{},
+		OS:            &testOSUtils{},
+	})
 }
 
-// +kubebuilder:object:root=true
-
-// ContainerJFRList contains a list of ContainerJFR
-type ContainerJFRList struct {
-	metav1.TypeMeta `json:",inline"`
-	metav1.ListMeta `json:"metadata,omitempty"`
-	Items           []ContainerJFR `json:"items"`
+func NewTestReconcilerTLS(client client.Client) common.ReconcilerTLS {
+	return common.NewReconcilerTLS(&common.ReconcilerTLSConfig{
+		Client: client,
+		OS:     &testOSUtils{},
+	})
 }
 
-func init() {
-	SchemeBuilder.Register(&ContainerJFR{}, &ContainerJFRList{})
+func (c *testClientFactory) CreateClient(config *jfrclient.Config) (jfrclient.ContainerJfrClient, error) {
+	// Verify the provided server URL before substituting it
+	gomega.Expect(config.ServerURL.String()).To(gomega.Equal("https://containerjfr.default.svc:8181/"))
+
+	// Replace server URL with one to httptest server
+	url, err := url.Parse(c.serverURL)
+	gomega.Expect(err).ToNot(gomega.HaveOccurred())
+	config.ServerURL = url
+
+	return jfrclient.NewHTTPClient(config)
 }
 
-// DefaultCertificateKey will be used when looking up the certificate within a secret,
-// if a key is not manually specified
-const DefaultCertificateKey = corev1.TLSCertKey
+type testOSUtils struct{}
 
-type CertificateSecret struct {
-	// Name of secret in the local namespace
-	SecretName string `json:"secretName"`
-	// Key within secret containing the certificate
-	// +optional
-	CertificateKey *string `json:"certificateKey,omitempty"`
+func (o *testOSUtils) GetFileContents(path string) ([]byte, error) {
+	gomega.Expect(path).To(gomega.Equal("/var/run/secrets/kubernetes.io/serviceaccount/token"))
+	return []byte("myToken"), nil
+}
+
+func (o *testOSUtils) GetEnv(name string) string {
+	gomega.Expect(name).To(gomega.Equal("DISABLE_SERVICE_TLS"))
+	return ""
 }

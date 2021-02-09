@@ -43,11 +43,12 @@ import (
 	"github.com/onsi/gomega"
 	consolev1 "github.com/openshift/api/console/v1"
 	routev1 "github.com/openshift/api/route/v1"
+	rhjmcv1beta1 "github.com/rh-jmc-team/container-jfr-operator/api/v1beta1"
 	"github.com/rh-jmc-team/container-jfr-operator/pkg/apis"
-	rhjmcv1beta1 "github.com/rh-jmc-team/container-jfr-operator/pkg/apis/rhjmc/v1beta1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/kubernetes/scheme"
 )
 
@@ -55,13 +56,13 @@ func NewTestScheme() *runtime.Scheme {
 	s := scheme.Scheme
 
 	// Add all APIs used by the operator to the scheme
-	sb := runtime.NewSchemeBuilder(
-		apis.AddToScheme,
-		certv1.AddToScheme,
-		routev1.AddToScheme,
-		consolev1.AddToScheme,
-	)
-	err := sb.AddToScheme(s)
+	err := rhjmcv1beta1.AddToScheme(s)
+	gomega.Expect(err).ToNot(gomega.HaveOccurred())
+	err = certv1.AddToScheme(s)
+	gomega.Expect(err).ToNot(gomega.HaveOccurred())
+	err = routev1.AddToScheme(s)
+	gomega.Expect(err).ToNot(gomega.HaveOccurred())
+	err = consolev1.AddToScheme(s)
 	gomega.Expect(err).ToNot(gomega.HaveOccurred())
 
 	return s
@@ -431,7 +432,7 @@ func NewContainerJFRService() *corev1.Service {
 			Namespace: "default",
 			OwnerReferences: []metav1.OwnerReference{
 				{
-					APIVersion: rhjmcv1beta1.SchemeGroupVersion.String(),
+					APIVersion: schema.GroupVersion{Group: "rhjmc.redhat.com", Version: "v1beta1"}.String(),
 					Kind:       "ContainerJFR",
 					Name:       "containerjfr",
 					UID:        "",
