@@ -14,7 +14,7 @@ BUILDER ?= podman
 
 GINKGO ?= $(shell go env GOPATH)/bin/ginkgo
 
-CERT_MANAGER_VERSION ?= 1.0.2
+CERT_MANAGER_VERSION ?= 1.1.0
 CERT_MANAGER_MANIFEST ?= \
 	https://github.com/jetstack/cert-manager/releases/download/v$(CERT_MANAGER_VERSION)/cert-manager.yaml
 
@@ -135,7 +135,7 @@ remove_catalog:
 deploy: undeploy
 ifeq ($(shell oc api-versions | grep -c '^cert-manager.io/v1$$'), 0)
 ifneq ($(DISABLE_SERVICE_TLS), true)
-	$(error cert-manager is not installed, install using "make cert-manager" or disable TLS for services by setting DISABLE_SERVICE_TLS to true)
+	$(error cert-manager is not installed, install using "make cert_manager" or disable TLS for services by setting DISABLE_SERVICE_TLS to true)
 endif
 endif
 	oc create -f deploy/service_account.yaml

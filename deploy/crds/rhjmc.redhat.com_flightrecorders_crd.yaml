@@ -1,4 +1,4 @@
-apiVersion: apiextensions.k8s.io/v1beta1
+apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   name: flightrecorders.rhjmc.redhat.com
@@ -10,9 +10,6 @@ spec:
     plural: flightrecorders
     singular: flightrecorder
   scope: Namespaced
-  subresources:
-    status: {}
-  version: v1alpha2
   versions:
   - name: v1alpha2
     schema:
@@ -95,6 +92,7 @@ spec:
                       items:
                         type: string
                       type: array
+                      x-kubernetes-list-type: atomic
                     description:
                       description: A description detailing what this event does
                       type: string
@@ -136,6 +134,7 @@ spec:
                   - typeId
                   type: object
                 type: array
+                x-kubernetes-list-type: atomic
               port:
                 description: JMX port for target JVM
                 format: int32
@@ -186,6 +185,8 @@ spec:
         type: object
     served: true
     storage: false
+    subresources:
+      status: {}
   - name: v1beta1
     schema:
       openAPIV3Schema:
@@ -285,6 +286,7 @@ spec:
                       items:
                         type: string
                       type: array
+                      x-kubernetes-list-type: atomic
                     description:
                       description: A description detailing what this event does
                       type: string
@@ -326,6 +328,7 @@ spec:
                   - typeId
                   type: object
                 type: array
+                x-kubernetes-list-type: atomic
               port:
                 description: JMX port for target JVM
                 format: int32
@@ -397,6 +400,7 @@ spec:
                   - type
                   type: object
                 type: array
+                x-kubernetes-list-type: atomic
             required:
             - events
             - port
@@ -406,3 +410,5 @@ spec:
         type: object
     served: true
     storage: true
+    subresources:
+      status: {}

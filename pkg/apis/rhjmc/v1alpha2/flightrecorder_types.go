@@ -55,7 +55,7 @@ type FlightRecorderSpec struct {
 // +k8s:openapi-gen=true
 type FlightRecorderStatus struct {
 	// Listing of events available in the target JVM
-	// +listType=set
+	// +listType=atomic
 	Events []EventInfo `json:"events"`
 	// Reference to the pod/service that this object controls JFR for
 	Target *corev1.ObjectReference `json:"target"`
@@ -68,6 +68,7 @@ type FlightRecorderStatus struct {
 const RecordingLabel = "rhjmc.redhat.com/flightrecorder"
 
 // EventInfo contains metadata for a JFR event type
+// +mapType=atomic
 type EventInfo struct {
 	// The ID used by JFR to uniquely identify this event type
 	TypeID string `json:"typeId"`
