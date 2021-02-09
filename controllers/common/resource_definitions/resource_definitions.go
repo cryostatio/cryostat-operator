@@ -169,6 +169,20 @@ func NewPodForCR(cr *rhjmcv1beta1.ContainerJFR, specs *ServiceSpecs, tls *TLSCon
 			},
 		}
 		volumes = append(volumes, secretVolume, grafanaSecretVolume)
+
+		customVolumes := []corev1.Volume{}
+		for _, secret := range cr.Spec.TrustedCertSecrets {
+			volume := corev1.Volume{
+				Name: secret.SecretName,
+				VolumeSource: corev1.VolumeSource{
+					Secret: &corev1.SecretVolumeSource{
+						SecretName: secret.SecretName,
+					},
+				},
+			}
+			customVolumes = append(customVolumes, volume)
+		}
+		volumes = append(volumes, customVolumes...)
 	}
 	return &corev1.PodSpec{
 		ServiceAccountName: "container-jfr-operator",
@@ -287,9 +301,28 @@ func NewCoreContainer(cr *rhjmcv1beta1.ContainerJFR, specs *ServiceSpecs, tls *T
 			SubPath:   CAKey,
 			ReadOnly:  true,
 		}
-		// TODO add mechanism to add other certs to /truststore
 
 		mounts = append(mounts, keystoreMount, caCertMount)
+
+		// Mount the certificates specified in containerjfr CRD in /truststore location
+		secretMounts := []corev1.VolumeMount{}
+		for _, secret := range cr.Spec.TrustedCertSecrets {
+			var key string
+			if secret.CertificateKey != nil {
+				key = *secret.CertificateKey
+			} else {
+				key = rhjmcv1beta1.DefaultCertificateKey
+			}
+			mount := corev1.VolumeMount{
+				Name:      secret.SecretName,
+				MountPath: fmt.Sprintf("/truststore/%s_%s", secret.SecretName, key),
+				SubPath:   key,
+				ReadOnly:  true,
+			}
+			secretMounts = append(secretMounts, mount)
+		}
+
+		mounts = append(mounts, secretMounts...)
 
 		// Use HTTPS for liveness probe
 		livenessProbeScheme = corev1.URISchemeHTTPS
@@ -374,6 +407,10 @@ func NewGrafanaContainer(cr *rhjmcv1beta1.ContainerJFR, tls *TLSConfig) corev1.C
 				Name:  "GF_SERVER_CERT_FILE",
 				Value: fmt.Sprintf("/var/run/secrets/rhjmc.redhat.com/%s/%s", tls.GrafanaSecret, corev1.TLSCertKey),
 			},
+			{
+				Name:  "JFR_DATASOURCE_URL",
+				Value: DatasourceURL,
+			},
 		}
 
 		tlsSecretMount := corev1.VolumeMount{
@@ -390,7 +427,7 @@ func NewGrafanaContainer(cr *rhjmcv1beta1.ContainerJFR, tls *TLSConfig) corev1.C
 	}
 	return corev1.Container{
 		Name:         cr.Name + "-grafana",
-		Image:        "quay.io/rh-jmc-team/container-jfr-grafana-dashboard:0.1.0",
+		Image:        "quay.io/rh-jmc-team/container-jfr-grafana-dashboard:1.0.0-BETA1",
 		VolumeMounts: mounts,
 		Ports: []corev1.ContainerPort{
 			{
