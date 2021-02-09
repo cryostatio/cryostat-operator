@@ -42,11 +42,12 @@ import (
 	certv1 "github.com/jetstack/cert-manager/pkg/apis/certmanager/v1"
 	"github.com/onsi/gomega"
 	routev1 "github.com/openshift/api/route/v1"
+	rhjmcv1beta1 "github.com/rh-jmc-team/container-jfr-operator/api/v1beta1"
 	"github.com/rh-jmc-team/container-jfr-operator/pkg/apis"
-	rhjmcv1beta1 "github.com/rh-jmc-team/container-jfr-operator/pkg/apis/rhjmc/v1beta1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/kubernetes/scheme"
 )
 
@@ -54,7 +55,7 @@ func NewTestScheme() *runtime.Scheme {
 	s := scheme.Scheme
 
 	// Add all APIs used by the operator to the scheme
-	err := apis.AddToScheme(s)
+	err := rhjmcv1beta1.AddToScheme(s)
 	gomega.Expect(err).ToNot(gomega.HaveOccurred())
 	err = certv1.AddToScheme(s)
 	gomega.Expect(err).ToNot(gomega.HaveOccurred())
@@ -428,7 +429,7 @@ func NewContainerJFRService() *corev1.Service {
 			Namespace: "default",
 			OwnerReferences: []metav1.OwnerReference{
 				{
-					APIVersion: rhjmcv1beta1.SchemeGroupVersion.String(),
+					APIVersion: schema.GroupVersion{Group: "rhjmc.redhat.com", Version: "v1beta1"}.String(),
 					Kind:       "ContainerJFR",
 					Name:       "containerjfr",
 					UID:        "",

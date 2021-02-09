@@ -71,8 +71,24 @@ spec:
             properties:
               minimal:
                 type: boolean
+              trustedCertSecrets:
+                description: List of certificates to enable tls when connecting to
+                  targets
+                items:
+                  properties:
+                    certificateKey:
+                      description: Key within secret containing the certificate
+                      type: string
+                    secretName:
+                      description: Name of secret in the local namespace
+                      type: string
+                  required:
+                  - secretName
+                  type: object
+                type: array
             required:
             - minimal
+            - trustedCertSecrets
             type: object
           status:
             description: ContainerJFRStatus defines the observed state of ContainerJFR
