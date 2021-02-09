@@ -34,7 +34,7 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-package v1beta1
+package v1alpha1
 
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -47,13 +47,11 @@ type ContainerJFRSpec struct {
 
 // ContainerJFRStatus defines the observed state of ContainerJFR
 type ContainerJFRStatus struct {
-	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
-	// Important: Run "make" to regenerate code after modifying this file
 }
 
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
-// +kubebuilder:storageversion
+// +kubebuilder:resource:path=containerjfrs,scope=Namespaced
 
 // ContainerJFR is the Schema for the containerjfrs API
 type ContainerJFR struct {
@@ -64,6 +62,7 @@ type ContainerJFR struct {
 	Status ContainerJFRStatus `json:"status,omitempty"`
 }
 
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 // +kubebuilder:object:root=true
 
 // ContainerJFRList contains a list of ContainerJFR

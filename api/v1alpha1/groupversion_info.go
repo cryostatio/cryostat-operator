@@ -34,45 +34,23 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-package v1beta1
+// Package v1alpha1 contains API Schema definitions for the rhjmc v1alpha1 API group
+// +kubebuilder:object:generate=true
+// +groupName=rhjmc.redhat.com
+package v1alpha1
 
 import (
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"sigs.k8s.io/controller-runtime/pkg/scheme"
 )
 
-// ContainerJFRSpec defines the desired state of ContainerJFR
-type ContainerJFRSpec struct {
-	Minimal bool `json:"minimal"`
-}
+var (
+	// GroupVersion is group version used to register these objects
+	GroupVersion = schema.GroupVersion{Group: "rhjmc.redhat.com", Version: "v1alpha1"}
 
-// ContainerJFRStatus defines the observed state of ContainerJFR
-type ContainerJFRStatus struct {
-	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
-	// Important: Run "make" to regenerate code after modifying this file
-}
+	// SchemeBuilder is used to add go types to the GroupVersionKind scheme
+	SchemeBuilder = &scheme.Builder{GroupVersion: GroupVersion}
 
-// +kubebuilder:object:root=true
-// +kubebuilder:subresource:status
-// +kubebuilder:storageversion
-
-// ContainerJFR is the Schema for the containerjfrs API
-type ContainerJFR struct {
-	metav1.TypeMeta   `json:",inline"`
-	metav1.ObjectMeta `json:"metadata,omitempty"`
-
-	Spec   ContainerJFRSpec   `json:"spec,omitempty"`
-	Status ContainerJFRStatus `json:"status,omitempty"`
-}
-
-// +kubebuilder:object:root=true
-
-// ContainerJFRList contains a list of ContainerJFR
-type ContainerJFRList struct {
-	metav1.TypeMeta `json:",inline"`
-	metav1.ListMeta `json:"metadata,omitempty"`
-	Items           []ContainerJFR `json:"items"`
-}
-
-func init() {
-	SchemeBuilder.Register(&ContainerJFR{}, &ContainerJFRList{})
-}
+	// AddToScheme adds the types in this group-version to the given scheme.
+	AddToScheme = SchemeBuilder.AddToScheme
+)
