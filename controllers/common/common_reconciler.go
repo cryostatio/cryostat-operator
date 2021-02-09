@@ -42,7 +42,6 @@ import (
 	"fmt"
 	"net/url"
 
-	"github.com/go-logr/logr"
 	rhjmcv1beta1 "github.com/rh-jmc-team/container-jfr-operator/api/v1beta1"
 	jfrclient "github.com/rh-jmc-team/container-jfr-operator/controllers/client"
 	corev1 "k8s.io/api/core/v1"

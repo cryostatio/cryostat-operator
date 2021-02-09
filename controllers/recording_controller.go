@@ -59,7 +59,6 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
-	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
@@ -486,7 +485,7 @@ func watchFlightRecorders(builder *builder.Builder, cl client.Client) *builder.B
 		// Look up all recordings that reference the changed FlightRecorder
 		recordings := &rhjmcv1beta1.RecordingList{}
 		selector := labels.SelectorFromSet(labels.Set{
-			rhjmcv1beta1.RecordingLabel: obj.Meta.GetName(),
+			rhjmcv1beta1.RecordingLabel: obj.GetName(),
 		})
 		err := cl.List(ctx, recordings, &client.ListOptions{
 			Namespace:     obj.GetNamespace(),
@@ -512,8 +511,9 @@ func watchFlightRecorders(builder *builder.Builder, cl client.Client) *builder.B
 	}
 
 	return builder.Watches(
-		&source.Kind{Type: &rhjmcv1beta1.FlightRecordder{}},
-		&handler.EnqueueRequestsFromMapFunc{ToRequests: mapFunc},
+		&source.Kind{Type: &rhjmcv1beta1.FlightRecorder{}},
+		handler.EnqueueRequestsFromMapFunc(mapFunc),
+	).WithEventFilter(
 		jfrPredicate,
 	)
 }
