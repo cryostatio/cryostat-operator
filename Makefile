@@ -17,6 +17,10 @@ IMG ?= controller:latest
 # Produce CRDs that work back to Kubernetes 1.11 (no version conversion)
 CRD_OPTIONS ?= "crd:trivialVersions=true,preserveUnknownFields=false"
 
+CERT_MANAGER_VERSION ?= 1.1.0
+CERT_MANAGER_MANIFEST ?= \
+	https://github.com/jetstack/cert-manager/releases/download/v$(CERT_MANAGER_VERSION)/cert-manager.yaml
+
 # Get the currently used golang install path (in GOPATH/bin, unless GOBIN is set)
 ifeq (,$(shell go env GOBIN))
 GOBIN=$(shell go env GOPATH)/bin
@@ -81,6 +85,12 @@ oci-build: test
 # Push the OCI image
 oci-push:
 	$(IMAGE_BUILDER) push ${IMG}
+
+cert_manager:
+	kubectl apply --validate=false -f $(CERT_MANAGER_MANIFEST)
+
+remove_cert_manager:
+	- kubectl delete -f $(CERT_MANAGER_MANIFEST)
 
 # Download controller-gen locally if necessary
 CONTROLLER_GEN = $(shell pwd)/bin/controller-gen
