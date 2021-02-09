@@ -71,13 +71,15 @@ var _ = Describe("ContainerjfrController", func() {
 	)
 
 	JustBeforeEach(func() {
-		logf.SetLogger(zap.New())
+		logger := zap.New()
+		logf.SetLogger(logger)
 		s := test.NewTestScheme()
 
 		client = fake.NewFakeClientWithScheme(s, objs...)
 		controller = &controllers.ContainerJFRReconciler{
 			Client:        client,
 			Scheme:        s,
+			Log:           logger,
 			ReconcilerTLS: test.NewTestReconcilerTLS(client),
 		}
 	})
@@ -189,7 +191,7 @@ var _ = Describe("ContainerjfrController", func() {
 		Context("ContainerJFR does not exist", func() {
 			It("Should do nothing", func() {
 				req := reconcile.Request{NamespacedName: types.NamespacedName{Name: "does-not-exist", Namespace: "default"}}
-				result, err := controller.Reconcile(context.TODO(), req)
+				result, err := controller.Reconcile(context.Background(), req)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(result).To(Equal(reconcile.Result{}))
 			})
@@ -212,10 +214,10 @@ var _ = Describe("ContainerjfrController", func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				req := reconcile.Request{NamespacedName: types.NamespacedName{Name: "containerjfr", Namespace: "default"}}
-				_, err = controller.Reconcile(context.TODO(), req)
+				_, err = controller.Reconcile(context.Background(), req)
 				Expect(err).To(HaveOccurred())
 				ingressConfig(client, controller, req, false)
-				_, err = controller.Reconcile(context.TODO(), req)
+				_, err = controller.Reconcile(context.Background(), req)
 				Expect(err).ToNot(HaveOccurred())
 			})
 			It("should create grafana resources", func() {
@@ -243,7 +245,7 @@ var _ = Describe("ContainerjfrController", func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				req := reconcile.Request{NamespacedName: types.NamespacedName{Name: "containerjfr", Namespace: "default"}}
-				_, err = controller.Reconcile(context.TODO(), req)
+				_, err = controller.Reconcile(context.Background(), req)
 				Expect(err).ToNot(HaveOccurred())
 			})
 			It("should delete grafana resources", func() {
@@ -294,7 +296,7 @@ var _ = Describe("ContainerjfrController", func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				req := reconcile.Request{NamespacedName: types.NamespacedName{Name: "containerjfr", Namespace: "default"}}
-				result, err := controller.Reconcile(context.TODO(), req)
+				result, err := controller.Reconcile(context.Background(), req)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(result).To(Equal(reconcile.Result{}))
 
@@ -385,13 +387,13 @@ func ingressConfig(client client.Client, controller *controllers.ContainerJFRRec
 		})
 		err = client.Status().Update(context.Background(), route)
 		Expect(err).ToNot(HaveOccurred())
-		_, err = controller.Reconcile(context.TODO(), req)
+		_, err = controller.Reconcile(context.Background(), req)
 	}
 }
 
 func reconcileFully(client client.Client, controller *controllers.ContainerJFRReconciler, minimal bool) {
 	req := reconcile.Request{NamespacedName: types.NamespacedName{Name: "containerjfr", Namespace: "default"}}
-	result, err := controller.Reconcile(context.TODO(), req)
+	result, err := controller.Reconcile(context.Background(), req)
 	Expect(err).ToNot(HaveOccurred())
 	Expect(result).To(Equal(reconcile.Result{RequeueAfter: 5 * time.Second}))
 
@@ -400,10 +402,10 @@ func reconcileFully(client client.Client, controller *controllers.ContainerJFRRe
 	initializeSecrets(client)
 
 	// Add ingress config to routes
-	result, err = controller.Reconcile(context.TODO(), req)
+	result, err = controller.Reconcile(context.Background(), req)
 	ingressConfig(client, controller, req, minimal)
 
-	result, err = controller.Reconcile(context.TODO(), req)
+	result, err = controller.Reconcile(context.Background(), req)
 	Expect(err).ToNot(HaveOccurred())
 	Expect(result).To(Equal(reconcile.Result{}))
 }
@@ -420,7 +422,7 @@ func checkMetadata(object metav1.Object, expected metav1.Object) {
 
 func expectCertificates(client client.Client, controller *controllers.ContainerJFRReconciler) {
 	req := reconcile.Request{NamespacedName: types.NamespacedName{Name: "containerjfr", Namespace: "default"}}
-	result, err := controller.Reconcile(context.TODO(), req)
+	result, err := controller.Reconcile(context.Background(), req)
 	Expect(err).ToNot(HaveOccurred())
 	Expect(result).To(Equal(reconcile.Result{RequeueAfter: 5 * time.Second}))
 	certNames := []string{"containerjfr", "containerjfr-ca", "containerjfr-grafana"}
@@ -433,7 +435,7 @@ func expectCertificates(client client.Client, controller *controllers.ContainerJ
 
 func expectRoutes(client client.Client, controller *controllers.ContainerJFRReconciler, minimal bool) {
 	req := reconcile.Request{NamespacedName: types.NamespacedName{Name: "containerjfr", Namespace: "default"}}
-	result, err := controller.Reconcile(context.TODO(), req)
+	result, err := controller.Reconcile(context.Background(), req)
 	Expect(err).ToNot(HaveOccurred())
 	Expect(result).To(Equal(reconcile.Result{RequeueAfter: 5 * time.Second}))
 
@@ -443,7 +445,7 @@ func expectRoutes(client client.Client, controller *controllers.ContainerJFRReco
 
 	// Check for routes, ingress configuration needs to be added as each
 	// one is created so that they all reconcile successfully
-	result, err = controller.Reconcile(context.TODO(), req)
+	result, err = controller.Reconcile(context.Background(), req)
 	ingressConfig(client, controller, req, minimal)
 }
 
@@ -535,7 +537,7 @@ func expectIdempotence(client client.Client, controller *controllers.ContainerJF
 	Expect(err).ToNot(HaveOccurred())
 
 	// Reconcile again
-	result, err := controller.Reconcile(context.TODO(), req)
+	result, err := controller.Reconcile(context.Background(), req)
 	Expect(err).ToNot(HaveOccurred())
 	Expect(result).To(Equal(reconcile.Result{}))
 
