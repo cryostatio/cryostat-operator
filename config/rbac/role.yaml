@@ -1,0 +1,60 @@
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  creationTimestamp: null
+  name: manager-role
+rules:
+- apiGroups:
+  - rhjmc.redhat.com
+  resources:
+  - flightrecorders
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - rhjmc.redhat.com
+  resources:
+  - flightrecorders/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - rhjmc.redhat.com
+  resources:
+  - flightrecorders/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - rhjmc.redhat.com
+  resources:
+  - recordings
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - rhjmc.redhat.com
+  resources:
+  - recordings/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - rhjmc.redhat.com
+  resources:
+  - recordings/status
+  verbs:
+  - get
+  - patch
+  - update
