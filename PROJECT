@@ -7,6 +7,18 @@ resources:
   group: rhjmc
   kind: ContainerJFR
   version: v1beta1
+- crdVersion: v1
+  group: rhjmc
+  kind: FlightRecorder
+  version: v1alpha2
+- crdVersion: v1
+  group: rhjmc
+  kind: Recording
+  version: v1alpha2
+- crdVersion: v1
+  group: rhjmc
+  kind: ContainerJFR
+  version: v1alpha1
 version: 3-alpha
 plugins:
   manifests.sdk.operatorframework.io/v2: {}
