@@ -57,11 +57,15 @@ uninstall: manifests kustomize
 deploy: manifests kustomize
 	cd config/manager && $(KUSTOMIZE) edit set image controller=${IMG}
 	$(KUSTOMIZE) build config/default | kubectl apply -f -
+	kubectl apply -f config/rbac/role.yaml
+	kubectl apply -f config/rbac/role_binding.yaml
 	kubectl apply -f config/rbac/service_account.yaml
 
 # UnDeploy controller from the configured Kubernetes cluster in ~/.kube/config
 undeploy:
 	- $(KUSTOMIZE) build config/default | kubectl delete -f -
+	- kubectl delete -f config/rbac/role.yaml
+	- kubectl delete -f config/rbac/role_binding.yaml
 	- kubectl delete -f config/rbac/service_account.yaml
 
 # Generate manifests e.g. CRD, RBAC etc.
