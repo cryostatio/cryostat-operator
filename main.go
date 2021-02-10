@@ -37,6 +37,7 @@ import (
 	rhjmcv1alpha2 "github.com/rh-jmc-team/container-jfr-operator/api/v1alpha2"
 	rhjmcv1beta1 "github.com/rh-jmc-team/container-jfr-operator/api/v1beta1"
 	"github.com/rh-jmc-team/container-jfr-operator/controllers"
+	"github.com/rh-jmc-team/container-jfr-operator/controllers/common"
 	// +kubebuilder:scaffold:imports
 )
 
@@ -100,6 +101,9 @@ func main() {
 		Client: mgr.GetClient(),
 		Log:    ctrl.Log.WithName("controllers").WithName("ContainerJFR"),
 		Scheme: mgr.GetScheme(),
+		ReconcilerTLS: common.NewReconcilerTLS(&common.ReconcilerTLSConfig{
+			Client: mgr.GetClient(),
+		}),
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "ContainerJFR")
 		os.Exit(1)
