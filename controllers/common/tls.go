@@ -92,8 +92,11 @@ func NewReconcilerTLS(config *ReconcilerTLSConfig) ReconcilerTLS {
 // IsCertManagerEnabled returns whether TLS using cert-manager is enabled
 // for this operator
 func (r *reconcilerTLS) IsCertManagerEnabled() bool {
+	// FIXME hardcoded off - new operator-sdk has cert-manager already set up
+	// somehow, with "CA injection"?
+
 	// Check if the user has explicitly requested cert-manager to be disabled
-	return strings.ToLower(r.OS.GetEnv(disableServiceTLS)) != "true"
+	return false && strings.ToLower(r.OS.GetEnv(disableServiceTLS)) != "true"
 }
 
 // ErrCertNotReady is returned when cert-manager has not marked the certificate
