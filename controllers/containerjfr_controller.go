@@ -73,14 +73,14 @@ type ContainerJFRReconciler struct {
 	common.ReconcilerTLS
 }
 
-// +kubebuilder:rbac:groups="",resources=pods;services;services/finalizers;routes;endpoints;persistentvolumeclaims;events;configmaps;secrets,verbs=get;list;watch;create;update;patch;delete
-// +kubebuilder:rbac:groups=route.openshift.io,resources=routes;routes/custom-host,verbs=get;list;watch;create;update;patch;delete
-// +kubebuilder:rbac:groups=apps,resources=deployments;daemonsets;replicasets;statefulsets,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups="",resources=pods;services;services/finalizers;routes;endpoints;persistentvolumeclaims;events;configmaps;secrets,verbs=*
+// +kubebuilder:rbac:groups=route.openshift.io,resources=routes;routes/custom-host,verbs=*
+// +kubebuilder:rbac:groups=apps,resources=deployments;daemonsets;replicasets;statefulsets,verbs=*
 // +kubebuilder:rbac:groups=monitoring.coreos.com,resources=servicemonitors,verbs=get;create
 // +kubebuilder:rbac:groups=apps,resources=deployments/finalizers,resourceNames=container-jfr-operator,verbs=update
 // +kubebuilder:rbac:groups="",resources=pods,verbs=get
 // +kubebuilder:rbac:groups=apps,resources=replicasets,verbs=get
-// +kubebuilder:rbac:groups=rhjmc.redhat.com,resources=*;flightrecorders;recordings;containerjfrs,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=rhjmc.redhat.com,resources=*;flightrecorders;recordings;containerjfrs,verbs*
 // +kubebuilder:rbac:groups=cert-manager.io,resources=issuers;certificates,verbs=create;get;list;update;watch
 // +kubebuilder:rbac:groups=rhjmc.redhat.com,resources=containerjfrs,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=rhjmc.redhat.com,resources=containerjfrs/status,verbs=get;update;patch
