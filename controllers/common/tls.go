@@ -96,7 +96,7 @@ func (r *reconcilerTLS) IsCertManagerEnabled() bool {
 	// somehow, with "CA injection"?
 
 	// Check if the user has explicitly requested cert-manager to be disabled
-	return false && strings.ToLower(r.OS.GetEnv(disableServiceTLS)) != "true"
+	return strings.ToLower(r.OS.GetEnv(disableServiceTLS)) != "true"
 }
 
 // ErrCertNotReady is returned when cert-manager has not marked the certificate

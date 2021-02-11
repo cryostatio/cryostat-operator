@@ -25,7 +25,7 @@ import (
 	// to ensure that exec-entrypoint and run can make use of them.
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 
-	// certv1 "github.com/jetstack/cert-manager/pkg/apis/certmanager/v1"
+	certv1 "github.com/jetstack/cert-manager/pkg/apis/certmanager/v1"
 	routev1 "github.com/openshift/api/route/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
@@ -59,7 +59,7 @@ func init() {
 	// https://github.com/jaegertracing/jaeger-operator/issues/136
 	// https://github.com/operator-framework/operator-sdk/issues/477
 	utilruntime.Must(routev1.AddToScheme(scheme))
-	// utilruntime.Must(certv1.AddToScheme(scheme))
+	utilruntime.Must(certv1.AddToScheme(scheme))
 
 	// +kubebuilder:scaffold:scheme
 }

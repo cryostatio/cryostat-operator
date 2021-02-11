@@ -92,7 +92,7 @@ oci-build: test
 oci-push:
 	$(IMAGE_BUILDER) push ${IMG}
 
-cert_manager:
+cert_manager: remove_cert_manager
 	kubectl apply --validate=false -f $(CERT_MANAGER_MANIFEST)
 
 remove_cert_manager:
