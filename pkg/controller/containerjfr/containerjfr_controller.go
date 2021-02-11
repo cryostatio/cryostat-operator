@@ -153,7 +153,7 @@ func (r *ReconcileContainerJFR) Reconcile(request reconcile.Request) (reconcile.
 	// OpenShift-specific
 	// Check if this Recording is being deleted
 	if instance.GetDeletionTimestamp() != nil {
-		if common.HasFinalizer(instance, cjfrFinalizer) {
+		if controllerutil.ContainsFinalizer(instance, cjfrFinalizer) {
 			return r.deleteConsoleLinks(context.Background(), instance)
 		}
 		// Ready for deletion
@@ -161,7 +161,7 @@ func (r *ReconcileContainerJFR) Reconcile(request reconcile.Request) (reconcile.
 	}
 
 	// Add our finalizer, so we can clean up Container JFR resources upon deletion
-	if !common.HasFinalizer(instance, cjfrFinalizer) {
+	if !controllerutil.ContainsFinalizer(instance, cjfrFinalizer) {
 		err := common.AddFinalizer(context.Background(), r.Client, instance, cjfrFinalizer)
 		if err != nil {
 			return reconcile.Result{}, err
@@ -460,6 +460,7 @@ func (r *ReconcileContainerJFR) deleteConsoleLinks(ctx context.Context, cr *rhjm
 			reqLogger.Error(err, "failed to delete ConsoleLink", "linkName", link.Name)
 			return reconcile.Result{}, err
 		}
+		reqLogger.Info("deleted ConsoleLink", "linkName", link.Name)
 	}
 
 	// Remove finalizer upon success

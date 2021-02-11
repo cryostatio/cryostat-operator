@@ -54,6 +54,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
@@ -150,7 +151,7 @@ func (r *ReconcileRecording) Reconcile(request reconcile.Request) (reconcile.Res
 	}
 	if jfr == nil {
 		// Check if this Recording is being deleted
-		if instance.GetDeletionTimestamp() != nil && common.HasFinalizer(instance, recordingFinalizer) {
+		if instance.GetDeletionTimestamp() != nil && controllerutil.ContainsFinalizer(instance, recordingFinalizer) {
 			return r.deleteWithoutLiveTarget(ctx, instance)
 		}
 		// No matching FlightRecorder, its corresponding Pod might have been deleted
@@ -183,7 +184,7 @@ func (r *ReconcileRecording) Reconcile(request reconcile.Request) (reconcile.Res
 
 	// Check if this Recording is being deleted
 	if instance.GetDeletionTimestamp() != nil {
-		if common.HasFinalizer(instance, recordingFinalizer) {
+		if controllerutil.ContainsFinalizer(instance, recordingFinalizer) {
 			return r.deleteWithLiveTarget(ctx, cjfr, instance, targetAddr)
 		}
 		// Ready for deletion
@@ -191,7 +192,7 @@ func (r *ReconcileRecording) Reconcile(request reconcile.Request) (reconcile.Res
 	}
 
 	// Add our finalizer, so we can clean up Container JFR resources upon deletion
-	if !common.HasFinalizer(instance, recordingFinalizer) {
+	if !controllerutil.ContainsFinalizer(instance, recordingFinalizer) {
 		err := common.AddFinalizer(ctx, r.Client, instance, recordingFinalizer)
 		if err != nil {
 			return reconcile.Result{}, err

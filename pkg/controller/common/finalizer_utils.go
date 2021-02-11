@@ -39,54 +39,33 @@ package common
 import (
 	"context"
 
-	"k8s.io/apimachinery/pkg/api/meta"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
-func AddFinalizer(ctx context.Context, client client.Client, obj runtime.Object, finalizer string) error {
-	metaObj, err := meta.Accessor(obj)
+// AddFinalizer adds the provided finalizer to the object and updates it in the cluster
+func AddFinalizer(ctx context.Context, client client.Client, obj controllerutil.Object, finalizer string) error {
+	log.Info("adding finalizer to object", "namespace", obj.GetNamespace(), "name", obj.GetName())
+	controllerutil.AddFinalizer(obj, finalizer)
+	err := client.Update(ctx, obj)
 	if err != nil {
-		return err
-	}
-
-	log.Info("adding finalizer to object", "namespace", metaObj.GetNamespace(), "name", metaObj.GetName())
-	controllerutil.AddFinalizer(metaObj, finalizer)
-	err = client.Update(ctx, obj)
-	if err != nil {
-		log.Error(err, "failed to add finalizer to object", "namespace", metaObj.GetNamespace(),
-			"name", metaObj.GetName())
+		log.Error(err, "failed to add finalizer to object", "namespace", obj.GetNamespace(),
+			"name", obj.GetName())
 		return err
 	}
 	return nil
 }
 
-func RemoveFinalizer(ctx context.Context, client client.Client, obj runtime.Object, finalizer string) error {
-	metaObj, err := meta.Accessor(obj)
+// RemoveFinalizer removes the provided finalizer from the object and updates it in the cluster
+func RemoveFinalizer(ctx context.Context, client client.Client, obj controllerutil.Object, finalizer string) error {
+	log.Info("removing finalizer from object", "namespace", obj.GetNamespace(), "name", obj.GetName())
+	controllerutil.RemoveFinalizer(obj, finalizer)
+	err := client.Update(ctx, obj)
 	if err != nil {
-		return err
-	}
-
-	log.Info("removing finalizer from object", "namespace", metaObj.GetNamespace(), "name", metaObj.GetName())
-	controllerutil.RemoveFinalizer(metaObj, finalizer)
-	err = client.Update(ctx, obj)
-	if err != nil {
-		log.Error(err, "failed to remove finalizer from object", "namespace", metaObj.GetNamespace(),
-			"name", metaObj.GetName())
+		log.Error(err, "failed to remove finalizer from object", "namespace", obj.GetNamespace(),
+			"name", obj.GetName())
 		return err
 	}
 
 	return nil
-}
-
-// TODO Consider replacing with controllerutil.ContainsFinalizer when upgrading controller-runtime
-func HasFinalizer(obj metav1.Object, finalizer string) bool {
-	for _, finalizer := range obj.GetFinalizers() {
-		if finalizer == finalizer {
-			return true
-		}
-	}
-	return false
 }

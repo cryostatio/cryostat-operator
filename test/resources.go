@@ -41,6 +41,7 @@ import (
 
 	certv1 "github.com/jetstack/cert-manager/pkg/apis/certmanager/v1"
 	"github.com/onsi/gomega"
+	consolev1 "github.com/openshift/api/console/v1"
 	routev1 "github.com/openshift/api/route/v1"
 	"github.com/rh-jmc-team/container-jfr-operator/pkg/apis"
 	rhjmcv1beta1 "github.com/rh-jmc-team/container-jfr-operator/pkg/apis/rhjmc/v1beta1"
@@ -54,11 +55,13 @@ func NewTestScheme() *runtime.Scheme {
 	s := scheme.Scheme
 
 	// Add all APIs used by the operator to the scheme
-	err := apis.AddToScheme(s)
-	gomega.Expect(err).ToNot(gomega.HaveOccurred())
-	err = certv1.AddToScheme(s)
-	gomega.Expect(err).ToNot(gomega.HaveOccurred())
-	err = routev1.AddToScheme(s)
+	sb := runtime.NewSchemeBuilder(
+		apis.AddToScheme,
+		certv1.AddToScheme,
+		routev1.AddToScheme,
+		consolev1.AddToScheme,
+	)
+	err := sb.AddToScheme(s)
 	gomega.Expect(err).ToNot(gomega.HaveOccurred())
 
 	return s
