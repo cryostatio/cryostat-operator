@@ -427,7 +427,7 @@ func NewGrafanaContainer(cr *rhjmcv1beta1.ContainerJFR, tls *TLSConfig) corev1.C
 	}
 	return corev1.Container{
 		Name:         cr.Name + "-grafana",
-		Image:        "quay.io/rh-jmc-team/container-jfr-grafana-dashboard:1.0.0-BETA1",
+		Image:        "quay.io/rh-jmc-team/container-jfr-grafana-dashboard:1.0.0-BETA2",
 		VolumeMounts: mounts,
 		Ports: []corev1.ContainerPort{
 			{
