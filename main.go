@@ -26,6 +26,7 @@ import (
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 
 	certv1 "github.com/jetstack/cert-manager/pkg/apis/certmanager/v1"
+	consolev1 "github.com/openshift/api/console/v1"
 	routev1 "github.com/openshift/api/route/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
@@ -56,6 +57,7 @@ func init() {
 	// https://github.com/operator-framework/operator-sdk/issues/477
 	utilruntime.Must(routev1.AddToScheme(scheme))
 	utilruntime.Must(certv1.AddToScheme(scheme))
+	utilruntime.Must(consolev1.AddToScheme(scheme))
 
 	// +kubebuilder:scaffold:scheme
 }
@@ -112,6 +114,9 @@ func main() {
 		Client: mgr.GetClient(),
 		Log:    ctrl.Log.WithName("controllers").WithName("Recording"),
 		Scheme: mgr.GetScheme(),
+		Reconciler: common.NewReconciler(&common.ReconcilerConfig{
+			Client: mgr.GetClient(),
+		}),
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "Recording")
 		os.Exit(1)
@@ -120,6 +125,9 @@ func main() {
 		Client: mgr.GetClient(),
 		Log:    ctrl.Log.WithName("controllers").WithName("FlightRecorder"),
 		Scheme: mgr.GetScheme(),
+		Reconciler: common.NewReconciler(&common.ReconcilerConfig{
+			Client: mgr.GetClient(),
+		}),
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "FlightRecorder")
 		os.Exit(1)
@@ -128,6 +136,9 @@ func main() {
 		Client: mgr.GetClient(),
 		Log:    ctrl.Log.WithName("controllers").WithName("Endpoints"),
 		Scheme: mgr.GetScheme(),
+		Reconciler: common.NewReconciler(&common.ReconcilerConfig{
+			Client: mgr.GetClient(),
+		}),
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "Endpoints")
 		os.Exit(1)

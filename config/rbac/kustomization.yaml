@@ -1,5 +1,7 @@
 resources:
+- cluster_role.yaml
 - role.yaml
+- cluster_role_binding.yaml
 - role_binding.yaml
 - service_account.yaml
 - leader_election_role.yaml

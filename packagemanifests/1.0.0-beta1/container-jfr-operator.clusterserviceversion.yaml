@@ -99,7 +99,7 @@ spec:
                   valueFrom:
                     fieldRef:
                       fieldPath: metadata.annotations['olm.targetNamespaces']
-                image: quay.io/andrewazores/container-jfr-operator:1.0.0-beta1
+                image: quay.io/rh-jmc-team/container-jfr-operator:1.0.0-beta1
                 livenessProbe:
                   httpGet:
                     path: /healthz

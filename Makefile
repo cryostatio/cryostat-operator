@@ -106,10 +106,11 @@ oci-build: generate manifests manager test
 	BUILDAH_FORMAT=docker $(IMAGE_BUILDER) build -t ${IMG} .
 
 
-
+.PHONY: cert_manager
 cert_manager: remove_cert_manager
 	$(CLUSTER_CLIENT) apply --validate=false -f $(CERT_MANAGER_MANIFEST)
 
+.PHONY: remove_cert_manager
 remove_cert_manager:
 	- $(CLUSTER_CLIENT) delete -f $(CERT_MANAGER_MANIFEST)
 

@@ -41,6 +41,7 @@ import (
 	"math/rand"
 	"time"
 
+	consolev1 "github.com/openshift/api/console/v1"
 	rhjmcv1beta1 "github.com/rh-jmc-team/container-jfr-operator/api/v1beta1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -602,6 +603,32 @@ func NewKeystoreSecretForCR(cr *rhjmcv1beta1.ContainerJFR) *corev1.Secret {
 		},
 		StringData: map[string]string{
 			"KEYSTORE_PASS": GenPasswd(20),
+		},
+	}
+}
+
+const ConsoleLinkNSLabel = "rhjmc.redhat.com/containerjfr-consolelink-namespace"
+const ConsoleLinkNameLabel = "rhjmc.redhat.com/containerjfr-consolelink-name"
+
+func NewConsoleLink(cr *rhjmcv1beta1.ContainerJFR, url string) *consolev1.ConsoleLink {
+	// Cluster scoped, so use generated name to avoid conflicts. Look up using labels.
+	return &consolev1.ConsoleLink{
+		ObjectMeta: metav1.ObjectMeta{
+			GenerateName: "containerjfr-",
+			Labels: map[string]string{
+				ConsoleLinkNSLabel:   cr.Namespace,
+				ConsoleLinkNameLabel: cr.Name,
+			},
+		},
+		Spec: consolev1.ConsoleLinkSpec{
+			Link: consolev1.Link{
+				Text: "Container JDK Flight Recorder",
+				Href: url,
+			},
+			Location: consolev1.NamespaceDashboard,
+			NamespaceDashboard: &consolev1.NamespaceDashboardSpec{
+				Namespaces: []string{cr.Namespace},
+			},
 		},
 	}
 }

@@ -13,4 +13,4 @@ kind: Kustomization
 images:
 - name: controller
   newName: quay.io/rh-jmc-team/container-jfr-operator
-  newTag: 1.0.0-BETA1
+  newTag: 1.0.0-beta5

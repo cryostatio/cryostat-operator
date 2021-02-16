@@ -35,7 +35,7 @@ metadata:
     capabilities: Basic Install
     operators.operatorframework.io/builder: operator-sdk-v1.3.0
     operators.operatorframework.io/project_layout: go.kubebuilder.io/v3
-  name: container-jfr-operator.v1.0.0-beta1
+  name: container-jfr-operator.v1.0.0-beta5
   namespace: placeholder
 spec:
   apiservicedefinitions: {}
@@ -63,6 +63,19 @@ spec:
     mediatype: ""
   install:
     spec:
+      clusterPermissions:
+      - rules:
+        - apiGroups:
+          - console.openshift.io
+          resources:
+          - consolelinks
+          verbs:
+          - get
+          - create
+          - list
+          - update
+          - delete
+        serviceAccountName: container-jfr-operator-service-account
       deployments:
       - name: container-jfr-operator-controller-manager
         spec:
@@ -99,7 +112,7 @@ spec:
                   valueFrom:
                     fieldRef:
                       fieldPath: metadata.annotations['olm.targetNamespaces']
-                image: quay.io/andrewazores/container-jfr-operator:1.0.0-beta1
+                image: quay.io/rh-jmc-team/container-jfr-operator:1.0.0-beta5
                 livenessProbe:
                   httpGet:
                     path: /healthz
@@ -237,4 +250,4 @@ spec:
   maturity: alpha
   provider:
     name: Red Hat, Inc.
-  version: 1.0.0-beta1
+  version: 1.0.0-beta5
