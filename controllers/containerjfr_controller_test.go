@@ -109,7 +109,7 @@ var _ = Describe("ContainerjfrController", func() {
 				err := client.Get(context.Background(), types.NamespacedName{Name: "containerjfr-grafana-basic", Namespace: "default"}, secret)
 				Expect(kerrors.IsNotFound(err)).To(BeTrue())
 
-				reconcileFully(client, controller, false)
+				reconcileContainerJFRFully(client, controller, false)
 
 				err = client.Get(context.Background(), types.NamespacedName{Name: "containerjfr-grafana-basic", Namespace: "default"}, secret)
 				Expect(err).ToNot(HaveOccurred())
@@ -127,7 +127,7 @@ var _ = Describe("ContainerjfrController", func() {
 				err := client.Get(context.Background(), types.NamespacedName{Name: "containerjfr-grafana", Namespace: "default"}, service)
 				Expect(kerrors.IsNotFound(err)).To(BeTrue())
 
-				reconcileFully(client, controller, false)
+				reconcileContainerJFRFully(client, controller, false)
 				checkGrafanaService(client)
 			})
 			It("should create exporter service and set owner", func() {
@@ -203,7 +203,7 @@ var _ = Describe("ContainerjfrController", func() {
 				}
 			})
 			JustBeforeEach(func() {
-				reconcileFully(client, controller, true)
+				reconcileContainerJFRFully(client, controller, true)
 
 				cjfr := &rhjmcv1beta1.ContainerJFR{}
 				err := client.Get(context.Background(), types.NamespacedName{Name: "containerjfr", Namespace: "default"}, cjfr)
@@ -234,7 +234,7 @@ var _ = Describe("ContainerjfrController", func() {
 				}
 			})
 			JustBeforeEach(func() {
-				reconcileFully(client, controller, false)
+				reconcileContainerJFRFully(client, controller, false)
 
 				cjfr := &rhjmcv1beta1.ContainerJFR{}
 				err := client.Get(context.Background(), types.NamespacedName{Name: "containerjfr", Namespace: "default"}, cjfr)
@@ -268,7 +268,7 @@ var _ = Describe("ContainerjfrController", func() {
 				}
 			})
 			It("Should add volumes and volumeMounts to deployment", func() {
-				reconcileFully(client, controller, false)
+				reconcileContainerJFRFully(client, controller, false)
 				deployment := &appsv1.Deployment{}
 				err := client.Get(context.Background(), types.NamespacedName{Name: "containerjfr", Namespace: "default"}, deployment)
 				Expect(err).ToNot(HaveOccurred())
@@ -289,7 +289,7 @@ var _ = Describe("ContainerjfrController", func() {
 				}
 			})
 			JustBeforeEach(func() {
-				reconcileFully(client, controller, false)
+				reconcileContainerJFRFully(client, controller, false)
 			})
 			It("Should update the corresponding deployment", func() {
 				err := client.Update(context.Background(), test.NewContainerJFRWithSecrets())
@@ -391,7 +391,7 @@ func ingressConfig(client client.Client, controller *controllers.ContainerJFRRec
 	}
 }
 
-func reconcileFully(client client.Client, controller *controllers.ContainerJFRReconciler, minimal bool) {
+func reconcileContainerJFRFully(client client.Client, controller *controllers.ContainerJFRReconciler, minimal bool) {
 	req := reconcile.Request{NamespacedName: types.NamespacedName{Name: "containerjfr", Namespace: "default"}}
 	result, err := controller.Reconcile(context.Background(), req)
 	Expect(err).ToNot(HaveOccurred())
@@ -454,7 +454,7 @@ func expectPVC(client client.Client, controller *controllers.ContainerJFRReconci
 	err := client.Get(context.Background(), types.NamespacedName{Name: "containerjfr", Namespace: "default"}, pvc)
 	Expect(kerrors.IsNotFound(err)).To(BeTrue())
 
-	reconcileFully(client, controller, minimal)
+	reconcileContainerJFRFully(client, controller, minimal)
 
 	err = client.Get(context.Background(), types.NamespacedName{Name: "containerjfr", Namespace: "default"}, pvc)
 	Expect(err).ToNot(HaveOccurred())
@@ -475,7 +475,7 @@ func expectJMXSecret(client client.Client, controller *controllers.ContainerJFRR
 	err := client.Get(context.Background(), types.NamespacedName{Name: "containerjfr-jmx-auth", Namespace: "default"}, secret)
 	Expect(kerrors.IsNotFound(err)).To(BeTrue())
 
-	reconcileFully(client, controller, minimal)
+	reconcileContainerJFRFully(client, controller, minimal)
 
 	err = client.Get(context.Background(), types.NamespacedName{Name: "containerjfr-jmx-auth", Namespace: "default"}, secret)
 	Expect(err).ToNot(HaveOccurred())
@@ -490,7 +490,7 @@ func expectExporterService(client client.Client, controller *controllers.Contain
 	err := client.Get(context.Background(), types.NamespacedName{Name: "containerjfr", Namespace: "default"}, service)
 	Expect(kerrors.IsNotFound(err)).To(BeTrue())
 
-	reconcileFully(client, controller, minimal)
+	reconcileContainerJFRFully(client, controller, minimal)
 
 	err = client.Get(context.Background(), types.NamespacedName{Name: "containerjfr", Namespace: "default"}, service)
 	Expect(err).ToNot(HaveOccurred())
@@ -507,7 +507,7 @@ func expectCommandChannel(client client.Client, controller *controllers.Containe
 	err := client.Get(context.Background(), types.NamespacedName{Name: "containerjfr-command", Namespace: "default"}, service)
 	Expect(kerrors.IsNotFound(err)).To(BeTrue())
 
-	reconcileFully(client, controller, minimal)
+	reconcileContainerJFRFully(client, controller, minimal)
 
 	err = client.Get(context.Background(), types.NamespacedName{Name: "containerjfr-command", Namespace: "default"}, service)
 	Expect(err).ToNot(HaveOccurred())
@@ -524,13 +524,13 @@ func expectDeployment(client client.Client, controller *controllers.ContainerJFR
 	err := client.Get(context.Background(), types.NamespacedName{Name: "containerjfr", Namespace: "default"}, deployment)
 	Expect(kerrors.IsNotFound(err)).To(BeTrue())
 
-	reconcileFully(client, controller, minimal)
+	reconcileContainerJFRFully(client, controller, minimal)
 	checkDeployment(client, minimal)
 }
 
 func expectIdempotence(client client.Client, controller *controllers.ContainerJFRReconciler, minimal bool) {
 	req := reconcile.Request{NamespacedName: types.NamespacedName{Name: "containerjfr", Namespace: "default"}}
-	reconcileFully(client, controller, minimal)
+	reconcileContainerJFRFully(client, controller, minimal)
 
 	obj := &rhjmcv1beta1.ContainerJFR{}
 	err := client.Get(context.Background(), req.NamespacedName, obj)

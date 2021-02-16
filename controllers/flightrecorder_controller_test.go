@@ -108,7 +108,7 @@ var _ = Describe("FlightRecorderController", func() {
 				}
 			})
 			It("should update event type list", func() {
-				expectReconcileSuccess(controller, client)
+				expectFlightRecorderReconcileSuccess(controller, client)
 			})
 		})
 		Context("after FlightRecorder already reconciled successfully", func() {
@@ -173,7 +173,7 @@ var _ = Describe("FlightRecorderController", func() {
 				}
 			})
 			It("should requeue with error", func() {
-				expectReconcileError(controller)
+				expectFlightRecorderReconcileError(controller)
 			})
 		})
 		Context("list-templates command fails", func() {
@@ -184,7 +184,7 @@ var _ = Describe("FlightRecorderController", func() {
 				}
 			})
 			It("should requeue with error", func() {
-				expectReconcileError(controller)
+				expectFlightRecorderReconcileError(controller)
 			})
 		})
 		Context("Container JFR CR is missing", func() {
@@ -195,7 +195,7 @@ var _ = Describe("FlightRecorderController", func() {
 				}
 			})
 			It("should requeue with error", func() {
-				expectReconcileError(controller)
+				expectFlightRecorderReconcileError(controller)
 			})
 		})
 		Context("Container JFR service is missing", func() {
@@ -206,7 +206,7 @@ var _ = Describe("FlightRecorderController", func() {
 				}
 			})
 			It("should requeue with error", func() {
-				expectReconcileError(controller)
+				expectFlightRecorderReconcileError(controller)
 			})
 		})
 		Context("Target pod is missing", func() {
@@ -217,7 +217,7 @@ var _ = Describe("FlightRecorderController", func() {
 				}
 			})
 			It("should requeue with error", func() {
-				expectReconcileError(controller)
+				expectFlightRecorderReconcileError(controller)
 			})
 		})
 		Context("Target pod has no IP", func() {
@@ -230,7 +230,7 @@ var _ = Describe("FlightRecorderController", func() {
 				}
 			})
 			It("should requeue with error", func() {
-				expectReconcileError(controller)
+				expectFlightRecorderReconcileError(controller)
 			})
 		})
 		Context("successfully updates FlightRecorder CR without JMX auth", func() {
@@ -245,7 +245,7 @@ var _ = Describe("FlightRecorderController", func() {
 				}
 			})
 			It("should update event type list and template list", func() {
-				expectReconcileSuccess(controller, client)
+				expectFlightRecorderReconcileSuccess(controller, client)
 			})
 		})
 		Context("incorrect key name for JMX auth secret", func() {
@@ -256,7 +256,7 @@ var _ = Describe("FlightRecorderController", func() {
 				}
 			})
 			It("should requeue with error", func() {
-				expectReconcileError(controller)
+				expectFlightRecorderReconcileError(controller)
 			})
 		})
 		Context("incorrect password key name for JMX auth secret", func() {
@@ -267,7 +267,7 @@ var _ = Describe("FlightRecorderController", func() {
 				}
 			})
 			It("should requeue with error", func() {
-				expectReconcileError(controller)
+				expectFlightRecorderReconcileError(controller)
 			})
 		})
 		Context("missing JMX auth secret", func() {
@@ -278,13 +278,13 @@ var _ = Describe("FlightRecorderController", func() {
 				}
 			})
 			It("should requeue with error", func() {
-				expectReconcileError(controller)
+				expectFlightRecorderReconcileError(controller)
 			})
 		})
 	})
 })
 
-func expectReconcileSuccess(controller *controllers.FlightRecorderReconciler, client client.Client) {
+func expectFlightRecorderReconcileSuccess(controller *controllers.FlightRecorderReconciler, client client.Client) {
 	req := reconcile.Request{NamespacedName: types.NamespacedName{Name: "test-pod", Namespace: "default"}}
 	result, err := controller.Reconcile(context.Background(), req)
 	Expect(err).ToNot(HaveOccurred())
@@ -297,7 +297,7 @@ func expectReconcileSuccess(controller *controllers.FlightRecorderReconciler, cl
 	Expect(obj.Status.Templates).To(Equal(test.NewTemplates()))
 }
 
-func expectReconcileError(controller *controllers.FlightRecorderReconciler) {
+func expectFlightRecorderReconcileError(controller *controllers.FlightRecorderReconciler) {
 	req := reconcile.Request{NamespacedName: types.NamespacedName{Name: "test-pod", Namespace: "default"}}
 	result, err := controller.Reconcile(context.Background(), req)
 	Expect(err).To(HaveOccurred())
