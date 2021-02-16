@@ -18,6 +18,8 @@ CERT_MANAGER_VERSION ?= 1.1.0
 CERT_MANAGER_MANIFEST ?= \
 	https://github.com/jetstack/cert-manager/releases/download/v$(CERT_MANAGER_VERSION)/cert-manager.yaml
 
+NAMESPACE = $(shell oc config view --minify -o 'jsonpath={..namespace}')
+
 .DEFAULT_GOAL := bundle
 
 .PHONY: generate
@@ -141,6 +143,8 @@ endif
 	oc create -f deploy/service_account.yaml
 	oc create -f deploy/role.yaml
 	oc create -f deploy/role_binding.yaml
+	oc create -f deploy/cluster_role.yaml
+	sed -e 's|REPLACE_NAMESPACE|$(NAMESPACE)|g' deploy/cluster_role_binding.yaml | oc create -f -
 	oc create -f deploy/crds/rhjmc.redhat.com_flightrecorders_crd.yaml
 	oc create -f deploy/crds/rhjmc.redhat.com_recordings_crd.yaml
 	oc create -f deploy/crds/rhjmc.redhat.com_containerjfrs_crd.yaml
@@ -159,7 +163,9 @@ undeploy: undeploy_sample_app undeploy_sample_app2
 	- oc delete persistentvolumes -l app=containerjfr
 	- oc delete configmaps -l app=containerjfr
 	- oc delete role container-jfr-operator
+	- oc delete clusterrole container-jfr-operator
 	- oc delete rolebinding container-jfr-operator
+	- oc delete clusterrolebinding -l app=containerjfr
 	- oc delete serviceaccount container-jfr-operator
 	- oc delete crd flightrecorders.rhjmc.redhat.com
 	- oc delete crd recordings.rhjmc.redhat.com
