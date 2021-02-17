@@ -31,7 +31,7 @@ oc get secret ${CJFR_NAME}-jmx-auth -o jsonpath='{$.data.CONTAINER_JFR_RJMX_PASS
 ## Requirements
 - `go` v1.13
 - [`operator-sdk`](https://github.com/operator-framework/operator-sdk) v0.19.4
-- [`opm`](https://github.com/operator-framework/operator-registry)
+- [`opm`](https://github.com/operator-framework/operator-registry) v1.16.1
 - [`cert-manager`](https://github.com/jetstack/cert-manager) v1.1.0 (Recommended)
 - `podman`
 - `ginkgo` (Optional)
