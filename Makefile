@@ -89,7 +89,7 @@ generate: controller-gen
 
 # Build the OCI image
 oci-build: test
-	$(IMAGE_BUILDER) build -t ${IMG} .
+	BUILDAH_FORMAT=docker $(IMAGE_BUILDER) build -t ${IMG} .
 
 # Push the OCI image
 oci-push:
