@@ -3,6 +3,7 @@ VERSION ?= 1.0.0-beta1
 BUNDLE_VERSION ?= $(VERSION)
 IMAGE_NAMESPACE ?= quay.io/rh-jmc-team
 OPERATOR_NAME ?= container-jfr-operator
+
 # Default bundle image tag
 BUNDLE_IMG ?= $(IMAGE_NAMESPACE)/$(OPERATOR_NAME)-bundle:$(BUNDLE_VERSION)
 # Options for 'bundle-build'
@@ -13,6 +14,18 @@ ifneq ($(origin DEFAULT_CHANNEL), undefined)
 BUNDLE_DEFAULT_CHANNEL := --default-channel=$(DEFAULT_CHANNEL)
 endif
 BUNDLE_METADATA_OPTS ?= $(BUNDLE_CHANNELS) $(BUNDLE_DEFAULT_CHANNEL)
+
+# Options for "packagemanifests".
+ifneq ($(origin FROM_VERSION), undefined)
+PKG_FROM_VERSION := --from-version=$(FROM_VERSION)
+endif
+ifneq ($(origin CHANNEL), undefined)
+PKG_CHANNELS := --channel=$(CHANNEL)
+endif
+ifeq ($(IS_CHANNEL_DEFAULT), 1)
+PKG_IS_DEFAULT_CHANNEL := --default-channel
+endif
+PKG_MAN_OPTS ?= $(PKG_FROM_VERSION) $(PKG_CHANNELS) $(PKG_IS_DEFAULT_CHANNEL)
 
 IMAGE_BUILDER ?= podman
 # Image URL to use all building/pushing image targets
@@ -137,6 +150,12 @@ bundle: manifests kustomize
 .PHONY: bundle-build
 bundle-build:
 	$(IMAGE_BUILDER) build -f bundle.Dockerfile -t $(BUNDLE_IMG) .
+
+# Generate package manifests.
+packagemanifests: kustomize manifests
+	operator-sdk generate kustomize manifests -q
+	cd config/manager && $(KUSTOMIZE) edit set image controller=$(IMG)
+	$(KUSTOMIZE) build config/manifests | operator-sdk generate packagemanifests -q --version $(VERSION) $(PKG_MAN_OPTS)
 
 
 
