@@ -3,5 +3,3 @@ kind: Recording
 metadata:
   name: recording-sample
 spec:
-  # Add fields here
-  foo: bar

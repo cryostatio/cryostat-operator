@@ -3,5 +3,3 @@ kind: FlightRecorder
 metadata:
   name: flightrecorder-sample
 spec:
-  # Add fields here
-  foo: bar
