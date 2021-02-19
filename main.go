@@ -34,8 +34,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
-	rhjmcv1alpha1 "github.com/rh-jmc-team/container-jfr-operator/api/v1alpha1"
-	rhjmcv1alpha2 "github.com/rh-jmc-team/container-jfr-operator/api/v1alpha2"
 	rhjmcv1beta1 "github.com/rh-jmc-team/container-jfr-operator/api/v1beta1"
 	"github.com/rh-jmc-team/container-jfr-operator/controllers"
 	"github.com/rh-jmc-team/container-jfr-operator/controllers/common"
@@ -51,8 +49,6 @@ func init() {
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
 
 	utilruntime.Must(rhjmcv1beta1.AddToScheme(scheme))
-	utilruntime.Must(rhjmcv1alpha2.AddToScheme(scheme))
-	utilruntime.Must(rhjmcv1alpha1.AddToScheme(scheme))
 
 	// Register third-party types
 	// FIXME is this the right thing to do?
