@@ -1,7 +1,0 @@
-apiVersion: rhjmc.redhat.com/v1alpha1
-kind: ContainerJFR
-metadata:
-  name: containerjfr-sample
-spec:
-  minimal: false
-  trustedCertSecrets: []
