@@ -361,6 +361,16 @@ func NewCoreContainer(cr *rhjmcv1beta1.ContainerJFR, specs *ServiceSpecs, tls *T
 				},
 			},
 		},
+		Resources: corev1.ResourceRequirements{
+			Limits: corev1.ResourceList{
+				corev1.ResourceCPU:    resource.MustParse("1500m"),
+				corev1.ResourceMemory: resource.MustParse("1Gi"),
+			},
+			Requests: corev1.ResourceList{
+				corev1.ResourceCPU:    resource.MustParse("500m"),
+				corev1.ResourceMemory: resource.MustParse("0.5Gi"),
+			},
+		},
 	}
 }
 
@@ -453,6 +463,16 @@ func NewGrafanaContainer(cr *rhjmcv1beta1.ContainerJFR, tls *TLSConfig) corev1.C
 				},
 			},
 		},
+		Resources: corev1.ResourceRequirements{
+			Limits: corev1.ResourceList{
+				corev1.ResourceCPU:    resource.MustParse("250m"),
+				corev1.ResourceMemory: resource.MustParse("250Mi"),
+			},
+			Requests: corev1.ResourceList{
+				corev1.ResourceCPU:    resource.MustParse("250m"),
+				corev1.ResourceMemory: resource.MustParse("250Mi"),
+			},
+		},
 	}
 }
 
@@ -483,6 +503,16 @@ func NewJfrDatasourceContainer(cr *rhjmcv1beta1.ContainerJFR) corev1.Container {
 				Exec: &corev1.ExecAction{
 					Command: []string{"curl", "--fail", DatasourceURL},
 				},
+			},
+		},
+		Resources: corev1.ResourceRequirements{
+			Limits: corev1.ResourceList{
+				corev1.ResourceCPU:    resource.MustParse("250m"),
+				corev1.ResourceMemory: resource.MustParse("250Mi"),
+			},
+			Requests: corev1.ResourceList{
+				corev1.ResourceCPU:    resource.MustParse("250m"),
+				corev1.ResourceMemory: resource.MustParse("250Mi"),
 			},
 		},
 	}
