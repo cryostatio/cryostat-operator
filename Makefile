@@ -1,5 +1,5 @@
 # Current Operator version
-VERSION ?= 1.0.0-beta1
+VERSION ?= 1.0.0-beta5
 BUNDLE_VERSION ?= $(VERSION)
 IMAGE_NAMESPACE ?= quay.io/rh-jmc-team
 OPERATOR_NAME ?= container-jfr-operator

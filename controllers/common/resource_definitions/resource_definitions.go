@@ -327,7 +327,7 @@ func NewCoreContainer(cr *rhjmcv1beta1.ContainerJFR, specs *ServiceSpecs, tls *T
 		// Use HTTPS for liveness probe
 		livenessProbeScheme = corev1.URISchemeHTTPS
 	}
-	imageTag := "quay.io/rh-jmc-team/container-jfr:1.0.0-BETA4"
+	imageTag := "quay.io/rh-jmc-team/container-jfr:1.0.0-BETA5"
 	if cr.Spec.Minimal {
 		imageTag += "-minimal"
 		envs = append(envs, corev1.EnvVar{
