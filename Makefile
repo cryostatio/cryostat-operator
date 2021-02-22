@@ -1,5 +1,5 @@
 IMAGE_STREAM ?= quay.io/rh-jmc-team/container-jfr-operator
-IMAGE_VERSION ?= 0.5.0
+IMAGE_VERSION ?= 1.0.0-BETA5
 IMAGE_TAG ?= $(IMAGE_STREAM):$(IMAGE_VERSION)
 
 BUNDLE_STREAM ?= $(IMAGE_STREAM)-bundle
