@@ -139,17 +139,19 @@ rm -rf $$TMP_DIR ;\
 endef
 
 # Generate bundle manifests and metadata, then validate generated files.
-.PHONY: bundle
-bundle: manifests kustomize
-	operator-sdk generate kustomize manifests -q
-	cd config/manager && $(KUSTOMIZE) edit set image controller=$(IMG)
-	$(KUSTOMIZE) build config/manifests | operator-sdk generate bundle -q --overwrite --version $(BUNDLE_VERSION) $(BUNDLE_METADATA_OPTS)
-	operator-sdk bundle validate ./bundle
+# TODO temporarily removed until migration from packagemanifests performed
+# .PHONY: bundle
+# bundle: manifests kustomize
+# 	operator-sdk generate kustomize manifests -q
+# 	cd config/manager && $(KUSTOMIZE) edit set image controller=$(IMG)
+# 	$(KUSTOMIZE) build config/manifests | operator-sdk generate bundle -q --overwrite --version $(BUNDLE_VERSION) $(BUNDLE_METADATA_OPTS)
+# 	operator-sdk bundle validate ./bundle
 
 # Build the bundle image.
-.PHONY: bundle-build
-bundle-build:
-	$(IMAGE_BUILDER) build -f bundle.Dockerfile -t $(BUNDLE_IMG) .
+# TODO temporarily removed until migration from packagemanifests performed
+# .PHONY: bundle-build
+# bundle-build:
+# 	$(IMAGE_BUILDER) build -f bundle.Dockerfile -t $(BUNDLE_IMG) .
 
 # Generate package manifests.
 packagemanifests: kustomize manifests
