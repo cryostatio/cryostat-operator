@@ -101,18 +101,18 @@ generate: controller-gen
 	$(CONTROLLER_GEN) object:headerFile="hack/boilerplate.go.txt" paths="./..."
 
 # Build the OCI image
-oci-build: test
+oci-build: generate manifests manager test
 	BUILDAH_FORMAT=docker $(IMAGE_BUILDER) build -t ${IMG} .
 
-# Push the OCI image
-oci-push:
-	$(IMAGE_BUILDER) push ${IMG}
+
 
 cert_manager: remove_cert_manager
 	kubectl apply --validate=false -f $(CERT_MANAGER_MANIFEST)
 
 remove_cert_manager:
 	- kubectl delete -f $(CERT_MANAGER_MANIFEST)
+
+
 
 # Download controller-gen locally if necessary
 CONTROLLER_GEN = $(shell pwd)/bin/controller-gen
