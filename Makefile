@@ -3,6 +3,7 @@ VERSION ?= 1.0.0-beta1
 BUNDLE_VERSION ?= $(VERSION)
 IMAGE_NAMESPACE ?= quay.io/rh-jmc-team
 OPERATOR_NAME ?= container-jfr-operator
+CLUSTER_CLIENT ?= kubectl
 
 # Default bundle image tag
 BUNDLE_IMG ?= $(IMAGE_NAMESPACE)/$(OPERATOR_NAME)-bundle:$(BUNDLE_VERSION)
@@ -63,26 +64,26 @@ run: generate fmt vet manifests
 
 # Install CRDs into a cluster
 install: manifests kustomize
-	$(KUSTOMIZE) build config/crd | kubectl apply -f -
+	$(KUSTOMIZE) build config/crd | $(CLUSTER_CLIENT) apply -f -
 
 # Uninstall CRDs from a cluster
 uninstall: manifests kustomize
-	$(KUSTOMIZE) build config/crd | kubectl delete -f -
+	$(KUSTOMIZE) build config/crd | $(CLUSTER_CLIENT) delete -f -
 
 # Deploy controller in the configured Kubernetes cluster in ~/.kube/config
 deploy: manifests kustomize
 	cd config/manager && $(KUSTOMIZE) edit set image controller=${IMG}
-	$(KUSTOMIZE) build config/default | kubectl apply -f -
-	kubectl apply -f config/rbac/role.yaml
-	kubectl apply -f config/rbac/role_binding.yaml
-	kubectl apply -f config/rbac/service_account.yaml
+	$(KUSTOMIZE) build config/default | $(CLUSTER_CLIENT) apply -f -
+	$(CLUSTER_CLIENT) apply -f config/rbac/role.yaml
+	$(CLUSTER_CLIENT) apply -f config/rbac/role_binding.yaml
+	$(CLUSTER_CLIENT) apply -f config/rbac/service_account.yaml
 
 # UnDeploy controller from the configured Kubernetes cluster in ~/.kube/config
 undeploy:
-	- $(KUSTOMIZE) build config/default | kubectl delete -f -
-	- kubectl delete -f config/rbac/role.yaml
-	- kubectl delete -f config/rbac/role_binding.yaml
-	- kubectl delete -f config/rbac/service_account.yaml
+	- $(KUSTOMIZE) build config/default | $(CLUSTER_CLIENT) delete -f -
+	- $(CLUSTER_CLIENT) delete -f config/rbac/role.yaml
+	- $(CLUSTER_CLIENT) delete -f config/rbac/role_binding.yaml
+	- $(CLUSTER_CLIENT) delete -f config/rbac/service_account.yaml
 
 # Generate manifests e.g. CRD, RBAC etc.
 manifests: controller-gen
@@ -107,10 +108,10 @@ oci-build: generate manifests manager test
 
 
 cert_manager: remove_cert_manager
-	kubectl apply --validate=false -f $(CERT_MANAGER_MANIFEST)
+	$(CLUSTER_CLIENT) apply --validate=false -f $(CERT_MANAGER_MANIFEST)
 
 remove_cert_manager:
-	- kubectl delete -f $(CERT_MANAGER_MANIFEST)
+	- $(CLUSTER_CLIENT) delete -f $(CERT_MANAGER_MANIFEST)
 
 
 
@@ -139,26 +140,47 @@ rm -rf $$TMP_DIR ;\
 endef
 
 # Generate bundle manifests and metadata, then validate generated files.
-# TODO temporarily removed until migration from packagemanifests performed
-# .PHONY: bundle
-# bundle: manifests kustomize
-# 	operator-sdk generate kustomize manifests -q
-# 	cd config/manager && $(KUSTOMIZE) edit set image controller=$(IMG)
-# 	$(KUSTOMIZE) build config/manifests | operator-sdk generate bundle -q --overwrite --version $(BUNDLE_VERSION) $(BUNDLE_METADATA_OPTS)
-# 	operator-sdk bundle validate ./bundle
+.PHONY: bundle
+bundle: manifests kustomize
+	operator-sdk generate kustomize manifests -q
+	cd config/manager && $(KUSTOMIZE) edit set image controller=$(IMG)
+	$(KUSTOMIZE) build config/manifests | operator-sdk generate bundle -q --overwrite --version $(BUNDLE_VERSION) $(BUNDLE_METADATA_OPTS)
+	operator-sdk bundle validate ./bundle
 
 # Build the bundle image.
-# TODO temporarily removed until migration from packagemanifests performed
-# .PHONY: bundle-build
-# bundle-build:
-# 	$(IMAGE_BUILDER) build -f bundle.Dockerfile -t $(BUNDLE_IMG) .
+.PHONY: bundle-build
+bundle-build:
+	$(IMAGE_BUILDER) build -f bundle.Dockerfile -t $(BUNDLE_IMG) .
+
+.PHONY: deploy_bundle
+deploy_bundle: undeploy_bundle
+	operator-sdk run bundle $(IMAGE_NAMESPACE)/$(OPERATOR_NAME)-bundle:$(VERSION)
+
+.PHONY: undeploy_bundle
+undeploy_bundle:
+	- operator-sdk cleanup $(OPERATOR_NAME)
 
 # Generate package manifests.
+.PHONY: packagemanifests
 packagemanifests: kustomize manifests
 	operator-sdk generate kustomize manifests -q
 	cd config/manager && $(KUSTOMIZE) edit set image controller=$(IMG)
 	$(KUSTOMIZE) build config/manifests | operator-sdk generate packagemanifests -q --version $(VERSION) $(PKG_MAN_OPTS)
 
+.PHONY: deploy_packagemanifests
+deploy_packagemanifests: undeploy_packagemanifests cert_manager
+	operator-sdk run packagemanifests --version $(VERSION)
+
+.PHONY: undeploy_packagemanifests
+undeploy_packagemanifests: undeploy_bundle
+
+.PHONY: create_containerjfr_cr
+create_containerjfr_cr: destroy_containerjfr_cr
+	$(CLUSTER_CLIENT) create -f config/samples/rhjmc_v1beta1_containerjfr.yaml
+
+.PHONY: destroy_containerjfr_cr
+destroy_containerjfr_cr:
+	- $(CLUSTER_CLIENT) delete -f config/samples/rhjmc_v1beta1_containerjfr.yaml
 
 
 
@@ -166,17 +188,17 @@ packagemanifests: kustomize manifests
 
 .PHONY: sample_app
 sample_app:
-	oc new-app quay.io/andrewazores/vertx-fib-demo:0.1.0
+	$(CLUSTER_CLIENT) new-app quay.io/andrewazores/vertx-fib-demo:0.1.0
 
 .PHONY: undeploy_sample_app
 undeploy_sample_app:
-	- oc delete all -l app=vertx-fib-demo
+	- $(CLUSTER_CLIENT) delete all -l app=vertx-fib-demo
 
 .PHONY: sample_app2
 sample_app2:
-	oc new-app quay.io/andrewazores/container-jmx-docker-listener:0.1.0 --name=jmx-listener
-	oc patch svc/jmx-listener -p '{"spec":{"$setElementOrder/ports":[{"port":7095},{"port":9092},{"port":9093}],"ports":[{"name":"jfr-jmx","port":9093}]}}'
+	$(CLUSTER_CLIENT) new-app quay.io/andrewazores/container-jmx-docker-listener:0.1.0 --name=jmx-listener
+	$(CLUSTER_CLIENT) patch svc/jmx-listener -p '{"spec":{"$setElementOrder/ports":[{"port":7095},{"port":9092},{"port":9093}],"ports":[{"name":"jfr-jmx","port":9093}]}}'
 
 .PHONY: undeploy_sample_app2
 undeploy_sample_app2:
-	- oc delete all -l app=jmx-listener
+	- $(CLUSTER_CLIENT) delete all -l app=jmx-listener
