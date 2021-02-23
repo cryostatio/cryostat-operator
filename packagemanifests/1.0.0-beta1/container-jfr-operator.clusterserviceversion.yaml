@@ -63,21 +63,6 @@ spec:
     mediatype: ""
   install:
     spec:
-      clusterPermissions:
-      - rules:
-        - apiGroups:
-          - authentication.k8s.io
-          resources:
-          - tokenreviews
-          verbs:
-          - create
-        - apiGroups:
-          - authorization.k8s.io
-          resources:
-          - subjectaccessreviews
-          verbs:
-          - create
-        serviceAccountName: default
       deployments:
       - name: container-jfr-operator-controller-manager
         spec:
@@ -139,23 +124,10 @@ spec:
                   allowPrivilegeEscalation: false
               securityContext:
                 runAsUser: 65532
+              serviceAccountName: container-jfr-operator-service-account
               terminationGracePeriodSeconds: 10
       permissions:
       - rules:
-        - apiGroups:
-          - ""
-          - coordination.k8s.io
-          resources:
-          - configmaps
-          - leases
-          verbs:
-          - get
-          - list
-          - watch
-          - create
-          - update
-          - patch
-          - delete
         - apiGroups:
           - ""
           resources:
@@ -163,12 +135,91 @@ spec:
           verbs:
           - create
           - patch
-        serviceAccountName: default
+        - apiGroups:
+          - ""
+          - coordination.k8s.io
+          resources:
+          - pods
+          - services
+          - services/finalizers
+          - routes
+          - endpoints
+          - persistentvolumeclaims
+          - events
+          - configmaps
+          - secrets
+          - leases
+          verbs:
+          - '*'
+        - apiGroups:
+          - route.openshift.io
+          resources:
+          - routes
+          - routes/custom-host
+          verbs:
+          - '*'
+        - apiGroups:
+          - apps
+          resources:
+          - deployments
+          - daemonsets
+          - replicasets
+          - statefulsets
+          verbs:
+          - '*'
+        - apiGroups:
+          - monitoring.coreos.com
+          resources:
+          - servicemonitors
+          verbs:
+          - get
+          - create
+        - apiGroups:
+          - apps
+          resourceNames:
+          - container-jfr-operator
+          resources:
+          - deployments/finalizers
+          verbs:
+          - update
+        - apiGroups:
+          - ""
+          resources:
+          - pods
+          verbs:
+          - get
+        - apiGroups:
+          - apps
+          resources:
+          - replicasets
+          verbs:
+          - get
+        - apiGroups:
+          - rhjmc.redhat.com
+          resources:
+          - '*'
+          - flightrecorders
+          - recordings
+          - containerjfrs
+          verbs:
+          - '*'
+        - apiGroups:
+          - cert-manager.io
+          resources:
+          - issuers
+          - certificates
+          verbs:
+          - create
+          - get
+          - list
+          - update
+          - watch
+        serviceAccountName: container-jfr-operator-service-account
     strategy: deployment
   installModes:
   - supported: true
     type: OwnNamespace
-  - supported: true
+  - supported: false
     type: SingleNamespace
   - supported: false
     type: MultiNamespace
