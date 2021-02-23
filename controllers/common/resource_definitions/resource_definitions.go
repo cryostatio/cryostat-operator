@@ -185,7 +185,7 @@ func NewPodForCR(cr *rhjmcv1beta1.ContainerJFR, specs *ServiceSpecs, tls *TLSCon
 		volumes = append(volumes, customVolumes...)
 	}
 	return &corev1.PodSpec{
-		ServiceAccountName: "container-jfr-operator",
+		ServiceAccountName: "container-jfr-operator-service-account",
 		Volumes:            volumes,
 		Containers:         containers,
 	}

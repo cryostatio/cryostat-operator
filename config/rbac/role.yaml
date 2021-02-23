@@ -2,11 +2,18 @@
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
-  creationTimestamp: null
-  name: container-jfr-operator
+  name: container-jfr-operator-role
 rules:
 - apiGroups:
   - ""
+  resources:
+  - events
+  verbs:
+  - create
+  - patch
+- apiGroups:
+  - ""
+  - coordination.k8s.io
   resources:
   - pods
   - services
@@ -17,6 +24,7 @@ rules:
   - events
   - configmaps
   - secrets
+  - leases
   verbs:
   - '*'
 - apiGroups:
