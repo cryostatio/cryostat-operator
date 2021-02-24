@@ -181,7 +181,7 @@ remove_cert_manager:
 	- oc delete -f $(CERT_MANAGER_MANIFEST)
 
 .PHONY: sample_app
-sample_app:
+sample_app: undeploy_sample_app
 	oc new-app quay.io/andrewazores/vertx-fib-demo:0.1.0
 
 .PHONY: undeploy_sample_app
@@ -189,10 +189,19 @@ undeploy_sample_app:
 	- oc delete all -l app=vertx-fib-demo
 
 .PHONY: sample_app2
-sample_app2:
+sample_app2: undeploy_sample_app2
 	oc new-app quay.io/andrewazores/container-jmx-docker-listener:0.1.0 --name=jmx-listener
 	oc patch svc/jmx-listener -p '{"spec":{"$setElementOrder/ports":[{"port":7095},{"port":9092},{"port":9093}],"ports":[{"name":"jfr-jmx","port":9093}]}}'
 
 .PHONY: undeploy_sample_app2
 undeploy_sample_app2:
 	- oc delete all -l app=jmx-listener
+
+.PHONY: sample_app_quarkus
+sample_app_quarkus: undeploy_sample_app_quarkus
+	oc new-app quay.io/andrewazores/quarkus-test:0.0.2
+	oc patch svc/quarkus-test -p '{"spec":{"$setElementOrder/ports":[{"port":9096},{"port":9999}],"ports":[{"name":"jfr-jmx","port":9096}]}}'
+
+.PHONY: undeploy_sample_app_quarkus
+undeploy_sample_app_quarkus:
+	- oc delete all -l app=quarkus-test
