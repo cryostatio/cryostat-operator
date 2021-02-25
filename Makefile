@@ -133,6 +133,20 @@ catalog: remove_catalog
 remove_catalog:
 	- oc delete -f deploy/olm-catalog/catalog-source.yaml
 
+.PHONY: install
+install:
+	oc create -f deploy/cluster_role.yaml
+	oc create -f deploy/crds/rhjmc.redhat.com_containerjfrs_crd.yaml
+	oc create -f deploy/crds/rhjmc.redhat.com_recordings_crd.yaml
+	oc create -f deploy/crds/rhjmc.redhat.com_flightrecorders_crd.yaml
+
+.PHONY: uninstall
+uninstall:
+	- oc delete -f deploy/crds/rhjmc.redhat.com_flightrecorders_crd.yaml
+	- oc delete -f deploy/crds/rhjmc.redhat.com_recordings_crd.yaml
+	- oc delete -f deploy/crds/rhjmc.redhat.com_containerjfrs_crd.yaml
+	- oc delete -f deploy/cluster_role.yaml
+
 .PHONY: deploy
 deploy: undeploy
 ifeq ($(shell oc api-versions | grep -c '^cert-manager.io/v1$$'), 0)
@@ -143,16 +157,12 @@ endif
 	oc create -f deploy/service_account.yaml
 	oc create -f deploy/role.yaml
 	oc create -f deploy/role_binding.yaml
-	oc create -f deploy/cluster_role.yaml
 	sed -e 's|REPLACE_NAMESPACE|$(NAMESPACE)|g' deploy/cluster_role_binding.yaml | oc create -f -
-	oc create -f deploy/crds/rhjmc.redhat.com_flightrecorders_crd.yaml
-	oc create -f deploy/crds/rhjmc.redhat.com_recordings_crd.yaml
-	oc create -f deploy/crds/rhjmc.redhat.com_containerjfrs_crd.yaml
 	sed -e 's|REPLACE_IMAGE|$(IMAGE_TAG)|g' deploy/dev_operator.yaml | oc create -f -
 	oc create -f deploy/crds/rhjmc.redhat.com_v1beta1_containerjfr_cr.yaml
 
 .PHONY: undeploy
-undeploy: undeploy_sample_app undeploy_sample_app2
+undeploy: undeploy_sample_app undeploy_sample_app2 undeploy_sample_app_quarkus
 	- oc delete recording --all
 	- oc delete flightrecorder --all
 	- oc delete containerjfr --all
@@ -160,17 +170,11 @@ undeploy: undeploy_sample_app undeploy_sample_app2
 	- oc delete all -l name=container-jfr-operator
 	- oc delete all -l app=containerjfr
 	- oc delete persistentvolumeclaims -l app=containerjfr
-	- oc delete persistentvolumes -l app=containerjfr
 	- oc delete configmaps -l app=containerjfr
-	- oc delete role container-jfr-operator
-	- oc delete clusterrole container-jfr-operator
-	- oc delete rolebinding container-jfr-operator
+	- oc delete -f deploy/service_account.yaml
+	- oc delete -f deploy/role.yaml
+	- oc delete -f deploy/role_binding.yaml
 	- oc delete clusterrolebinding -l app=containerjfr
-	- oc delete serviceaccount container-jfr-operator
-	- oc delete crd flightrecorders.rhjmc.redhat.com
-	- oc delete crd recordings.rhjmc.redhat.com
-	- oc delete crd containerjfrs.rhjmc.redhat.com
-	- oc delete -f deploy/olm-catalog/catalog-source.yaml
 
 .PHONY: cert_manager
 cert_manager:
