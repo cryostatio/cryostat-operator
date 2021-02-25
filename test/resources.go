@@ -46,6 +46,7 @@ import (
 	"github.com/rh-jmc-team/container-jfr-operator/pkg/apis"
 	rhjmcv1beta1 "github.com/rh-jmc-team/container-jfr-operator/pkg/apis/rhjmc/v1beta1"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes/scheme"
@@ -97,6 +98,49 @@ func NewContainerJFRWithSecrets() *rhjmcv1beta1.ContainerJFR {
 				{
 					SecretName: "testCert2",
 				},
+			},
+		},
+	}
+}
+
+func NewContainerJFRWithPVCSpec() *rhjmcv1beta1.ContainerJFR {
+	return &rhjmcv1beta1.ContainerJFR{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "containerjfr",
+			Namespace: "default",
+		},
+		Spec: rhjmcv1beta1.ContainerJFRSpec{
+			Minimal: false,
+			StorageOptions: &rhjmcv1beta1.StorageConfiguration{
+				PVCSpec: newPVCSpec("cool-storage", "10Gi", corev1.ReadWriteMany),
+			},
+		},
+	}
+}
+
+func NewContainerJFRWithPVCSpecSomeDefault() *rhjmcv1beta1.ContainerJFR {
+	return &rhjmcv1beta1.ContainerJFR{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "containerjfr",
+			Namespace: "default",
+		},
+		Spec: rhjmcv1beta1.ContainerJFRSpec{
+			Minimal: false,
+			StorageOptions: &rhjmcv1beta1.StorageConfiguration{
+				PVCSpec: newPVCSpec("", "1Gi"),
+			},
+		},
+	}
+}
+
+func newPVCSpec(storageClass string, storageRequest string,
+	accessModes ...corev1.PersistentVolumeAccessMode) *corev1.PersistentVolumeClaimSpec {
+	return &corev1.PersistentVolumeClaimSpec{
+		StorageClassName: &storageClass,
+		AccessModes:      accessModes,
+		Resources: corev1.ResourceRequirements{
+			Requests: corev1.ResourceList{
+				corev1.ResourceStorage: resource.MustParse(storageRequest),
 			},
 		},
 	}
@@ -515,6 +559,56 @@ func NewJMXAuthSecretForCJFR() *corev1.Secret {
 		Data: map[string][]byte{
 			rhjmcv1beta1.DefaultUsernameKey: []byte("hello"),
 			rhjmcv1beta1.DefaultPasswordKey: []byte("world"),
+		},
+	}
+}
+
+func NewPVCForContainerJFR(spec *corev1.PersistentVolumeClaimSpec) *corev1.PersistentVolumeClaim {
+	return &corev1.PersistentVolumeClaim{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "containerjfr",
+			Namespace: "default",
+			Labels: map[string]string{
+				"app": "containerjfr",
+			},
+		},
+		Spec: *spec,
+	}
+}
+
+func NewDefaultPVCSpec() *corev1.PersistentVolumeClaimSpec {
+	return &corev1.PersistentVolumeClaimSpec{
+		AccessModes: []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce},
+		Resources: corev1.ResourceRequirements{
+			Requests: corev1.ResourceList{
+				corev1.ResourceStorage: resource.MustParse("500Mi"),
+			},
+		},
+	}
+}
+
+func NewCustomPVCSpec() *corev1.PersistentVolumeClaimSpec {
+	storageClass := "cool-storage"
+	return &corev1.PersistentVolumeClaimSpec{
+		StorageClassName: &storageClass,
+		AccessModes:      []corev1.PersistentVolumeAccessMode{corev1.ReadWriteMany},
+		Resources: corev1.ResourceRequirements{
+			Requests: corev1.ResourceList{
+				corev1.ResourceStorage: resource.MustParse("10Gi"),
+			},
+		},
+	}
+}
+
+func NewCustomPVCSpecSomeDefault() *corev1.PersistentVolumeClaimSpec {
+	storageClass := ""
+	return &corev1.PersistentVolumeClaimSpec{
+		StorageClassName: &storageClass,
+		AccessModes:      []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce},
+		Resources: corev1.ResourceRequirements{
+			Requests: corev1.ResourceList{
+				corev1.ResourceStorage: resource.MustParse("1Gi"),
+			},
 		},
 	}
 }

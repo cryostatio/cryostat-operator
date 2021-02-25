@@ -46,8 +46,10 @@ import (
 type ContainerJFRSpec struct {
 	Minimal bool `json:"minimal"`
 	// List of certificates to enable tls when connecting to targets
-	TrustedCertSecrets []CertificateSecret `json:"trustedCertSecrets"`
+	// +optional
+	TrustedCertSecrets []CertificateSecret `json:"trustedCertSecrets,omitempty"`
 	// Options to customize the storage for Flight Recordings and Templates
+	// +optional
 	StorageOptions *StorageConfiguration `json:"storageOptions,omitempty"`
 }
 
