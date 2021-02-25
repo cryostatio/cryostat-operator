@@ -174,7 +174,7 @@ undeploy: undeploy_sample_app undeploy_sample_app2 undeploy_sample_app_quarkus
 	- oc delete -f deploy/service_account.yaml
 	- oc delete -f deploy/role.yaml
 	- oc delete -f deploy/role_binding.yaml
-	- oc delete clusterrolebinding -l app=containerjfr
+	- oc delete clusterrolebinding -l operator-name=container-jfr-operator,operator-namespace=$(NAMESPACE)
 
 .PHONY: cert_manager
 cert_manager:
