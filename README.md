@@ -140,10 +140,15 @@ eyJhbGciOiJSUzI1NiIsImtpZCI6IiJ9.eyJpc3MiOiJrdWJlcm5ldGVzL3NlcnZpY2VhY2NvdW50Iiw
 
 ## Manual Deployment
 
-`make deploy` will deploy the operator using `oc` to whichever OpenShift
-cluster is configured with the local client. This also respects the
-`IMAGE_TAG` environment variable, so that different versions of the operator
-can be easily deployed.
+`make install` will create CustomResourceDefinitions and do other setup
+required to prepare the cluster for deploying the operator, using `oc` on
+whichever OpenShift cluster is configured with the local client.
+`make uninstall` destroys the CRDs and undoes the setup.
+
+`make deploy` will deploy the operator in the current namespace.
+This also respects the `IMAGE_TAG` environment variable, so that different
+versions of the operator can be easily deployed.
+`make undeploy` will likewise remove the operator from the current namespace.
 
 # Development
 An invocation like
