@@ -21,7 +21,7 @@ CERT_MANAGER_MANIFEST ?= \
 NAMESPACE = $(shell oc config view --minify -o 'jsonpath={..namespace}')
 
 # Whether the created PVC should be statically provisioned
-PVC_STATIC ?= true
+PVC_STATIC ?= false
 
 .DEFAULT_GOAL := bundle
 
