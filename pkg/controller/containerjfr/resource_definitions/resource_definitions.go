@@ -67,7 +67,22 @@ type TLSConfig struct {
 }
 
 func NewPersistentVolumeClaimForCR(cr *rhjmcv1beta1.ContainerJFR) *corev1.PersistentVolumeClaim {
-	storageClassName := ""
+	// Check for PVC spec within CR
+	var pvcSpec corev1.PersistentVolumeClaimSpec
+	if cr.Spec.StorageOptions != nil && cr.Spec.StorageOptions.PVCSpec != nil {
+		pvcSpec = *cr.Spec.StorageOptions.PVCSpec
+	}
+	// Apply any applicable defaults. Don't apply a default storage class name, since nil
+	// may be intentionally specified.
+	if pvcSpec.Resources.Requests == nil {
+		pvcSpec.Resources.Requests = corev1.ResourceList{
+			corev1.ResourceStorage: *resource.NewQuantity(500*1024*1024, resource.BinarySI),
+		}
+	}
+	if pvcSpec.AccessModes == nil {
+		pvcSpec.AccessModes = []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce}
+	}
+
 	return &corev1.PersistentVolumeClaim{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      cr.Name,
@@ -76,15 +91,7 @@ func NewPersistentVolumeClaimForCR(cr *rhjmcv1beta1.ContainerJFR) *corev1.Persis
 				"app": cr.Name,
 			},
 		},
-		Spec: corev1.PersistentVolumeClaimSpec{
-			StorageClassName: &storageClassName,
-			AccessModes:      []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce},
-			Resources: corev1.ResourceRequirements{
-				Requests: map[corev1.ResourceName]resource.Quantity{
-					"storage": *resource.NewQuantity(500*1024*1024, resource.BinarySI),
-				},
-			},
-		},
+		Spec: pvcSpec,
 	}
 }
 

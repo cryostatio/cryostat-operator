@@ -47,6 +47,8 @@ type ContainerJFRSpec struct {
 	Minimal bool `json:"minimal"`
 	// List of certificates to enable tls when connecting to targets
 	TrustedCertSecrets []CertificateSecret `json:"trustedCertSecrets"`
+	// Options to customize the storage for Flight Recordings and Templates
+	StorageOptions *StorageConfiguration `json:"storageOptions,omitempty"`
 }
 
 // ContainerJFRStatus defines the observed state of ContainerJFR
@@ -55,6 +57,17 @@ type ContainerJFRStatus struct {
 	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
 	// Important: Run "operator-sdk generate k8s" to regenerate code after modifying this file
 	// Add custom validation using kubebuilder tags: https://book-v1.book.kubebuilder.io/beyond_basics/generating_crd.html
+}
+
+// StorageConfiguration provides customization to the storage created by
+// the operator to hold Flight Recordings and Recording Templates.
+type StorageConfiguration struct {
+	// Spec for a Persistent Volume Claim, whose options will override the
+	// defaults used by the operator. Unless overriden, the PVC will be
+	// created with the default Storage Class and 500MiB of storage.
+	// Once the operator has created the PVC, changes to this field have
+	// no effect.
+	PVCSpec *corev1.PersistentVolumeClaimSpec `json:"pvcSpec,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
