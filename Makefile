@@ -20,6 +20,9 @@ CERT_MANAGER_MANIFEST ?= \
 
 NAMESPACE = $(shell oc config view --minify -o 'jsonpath={..namespace}')
 
+# Whether the created PVC should be statically provisioned
+PVC_STATIC ?= true
+
 .DEFAULT_GOAL := bundle
 
 .PHONY: generate
@@ -159,7 +162,13 @@ endif
 	oc create -f deploy/role_binding.yaml
 	sed -e 's|REPLACE_NAMESPACE|$(NAMESPACE)|g' deploy/cluster_role_binding.yaml | oc create -f -
 	sed -e 's|REPLACE_IMAGE|$(IMAGE_TAG)|g' deploy/dev_operator.yaml | oc create -f -
+ifeq ($(PVC_STATIC), true)
+	oc create -f deploy/crds/rhjmc.redhat.com_v1beta1_containerjfr_cr.yaml --dry-run=client -o json | \
+		kubectl patch --dry-run=client --type=merge -f - -p '{"spec":{"storageOptions":{"pvcSpec":{"storageClassName":""}}}}' -o yaml | \
+	oc create -f -
+else
 	oc create -f deploy/crds/rhjmc.redhat.com_v1beta1_containerjfr_cr.yaml
+endif
 
 .PHONY: undeploy
 undeploy: undeploy_sample_app undeploy_sample_app2 undeploy_sample_app_quarkus
