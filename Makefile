@@ -162,7 +162,7 @@ endif
 	oc create -f deploy/crds/rhjmc.redhat.com_v1beta1_containerjfr_cr.yaml
 
 .PHONY: undeploy
-undeploy: undeploy_sample_app undeploy_sample_app2
+undeploy: undeploy_sample_app undeploy_sample_app2 undeploy_sample_app_quarkus
 	- oc delete recording --all
 	- oc delete flightrecorder --all
 	- oc delete containerjfr --all
