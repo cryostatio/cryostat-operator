@@ -45,13 +45,46 @@ import (
 type ContainerJFRSpec struct {
 	Minimal bool `json:"minimal"`
 	// List of certificates to enable tls when connecting to targets
-	TrustedCertSecrets []CertificateSecret `json:"trustedCertSecrets"`
+	// +optional
+	TrustedCertSecrets []CertificateSecret `json:"trustedCertSecrets,omitempty"`
+	// Options to customize the storage for Flight Recordings and Templates
+	// +optional
+	StorageOptions *StorageConfiguration `json:"storageOptions,omitempty"`
 }
 
 // ContainerJFRStatus defines the observed state of ContainerJFR
 type ContainerJFRStatus struct {
 	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
+}
+
+// StorageConfiguration provides customization to the storage created by
+// the operator to hold Flight Recordings and Recording Templates.
+type StorageConfiguration struct {
+	// Configuration for the Persistent Volume Claim to be created
+	// by the operator.
+	// +optional
+	PVC *PersistentVolumeClaimConfig `json:"pvc,omitempty"`
+}
+
+// PersistentVolumeClaimConfig holds all customization options to
+// configure a Persistent Volume Claim to be created and managed
+// by the operator.
+type PersistentVolumeClaimConfig struct {
+	// Annotations to add to the Persistent Volume Claim during its creation.
+	// +optional
+	Annotations map[string]string `json:"annotations,omitempty"`
+	// Labels to add to the Persistent Volume Claim during its creation.
+	// The label with key "app" is reserved for use by the operator.
+	// +optional
+	Labels map[string]string `json:"labels,omitempty"`
+	// Spec for a Persistent Volume Claim, whose options will override the
+	// defaults used by the operator. Unless overriden, the PVC will be
+	// created with the default Storage Class and 500MiB of storage.
+	// Once the operator has created the PVC, changes to this field have
+	// no effect.
+	// +optional
+	Spec *corev1.PersistentVolumeClaimSpec `json:"spec,omitempty"`
 }
 
 // +kubebuilder:object:root=true

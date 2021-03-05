@@ -5,3 +5,8 @@ metadata:
 spec:
   minimal: false
   trustedCertSecrets: []
+  storageOptions:
+    pvc:
+      labels: {}
+      annotations: {}
+      spec: {}
