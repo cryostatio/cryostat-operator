@@ -154,7 +154,7 @@ bundle-build:
 	$(IMAGE_BUILDER) build -f bundle.Dockerfile -t $(BUNDLE_IMG) .
 
 .PHONY: deploy_bundle
-deploy_bundle: undeploy_bundle
+deploy_bundle: undeploy_bundle cert_manager
 	operator-sdk run bundle $(IMAGE_NAMESPACE)/$(OPERATOR_NAME)-bundle:$(VERSION)
 
 .PHONY: undeploy_bundle
