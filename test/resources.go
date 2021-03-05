@@ -112,7 +112,16 @@ func NewContainerJFRWithPVCSpec() *rhjmcv1beta1.ContainerJFR {
 		Spec: rhjmcv1beta1.ContainerJFRSpec{
 			Minimal: false,
 			StorageOptions: &rhjmcv1beta1.StorageConfiguration{
-				PVCSpec: newPVCSpec("cool-storage", "10Gi", corev1.ReadWriteMany),
+				PVC: &rhjmcv1beta1.PersistentVolumeClaimConfig{
+					Annotations: map[string]string{
+						"my/custom": "annotation",
+					},
+					Labels: map[string]string{
+						"my":  "label",
+						"app": "somethingelse",
+					},
+					Spec: newPVCSpec("cool-storage", "10Gi", corev1.ReadWriteMany),
+				},
 			},
 		},
 	}
@@ -127,7 +136,28 @@ func NewContainerJFRWithPVCSpecSomeDefault() *rhjmcv1beta1.ContainerJFR {
 		Spec: rhjmcv1beta1.ContainerJFRSpec{
 			Minimal: false,
 			StorageOptions: &rhjmcv1beta1.StorageConfiguration{
-				PVCSpec: newPVCSpec("", "1Gi"),
+				PVC: &rhjmcv1beta1.PersistentVolumeClaimConfig{
+					Spec: newPVCSpec("", "1Gi"),
+				},
+			},
+		},
+	}
+}
+
+func NewContainerJFRWithPVCLabelsOnly() *rhjmcv1beta1.ContainerJFR {
+	return &rhjmcv1beta1.ContainerJFR{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "containerjfr",
+			Namespace: "default",
+		},
+		Spec: rhjmcv1beta1.ContainerJFRSpec{
+			Minimal: false,
+			StorageOptions: &rhjmcv1beta1.StorageConfiguration{
+				PVC: &rhjmcv1beta1.PersistentVolumeClaimConfig{
+					Labels: map[string]string{
+						"my": "label",
+					},
+				},
 			},
 		},
 	}
@@ -563,33 +593,35 @@ func NewJMXAuthSecretForCJFR() *corev1.Secret {
 	}
 }
 
-func NewPVCForContainerJFR(spec *corev1.PersistentVolumeClaimSpec) *corev1.PersistentVolumeClaim {
+func newPVC(spec *corev1.PersistentVolumeClaimSpec, labels map[string]string,
+	annotations map[string]string) *corev1.PersistentVolumeClaim {
 	return &corev1.PersistentVolumeClaim{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "containerjfr",
-			Namespace: "default",
-			Labels: map[string]string{
-				"app": "containerjfr",
-			},
+			Name:        "containerjfr",
+			Namespace:   "default",
+			Annotations: annotations,
+			Labels:      labels,
 		},
 		Spec: *spec,
 	}
 }
 
-func NewDefaultPVCSpec() *corev1.PersistentVolumeClaimSpec {
-	return &corev1.PersistentVolumeClaimSpec{
+func NewDefaultPVC() *corev1.PersistentVolumeClaim {
+	return newPVC(&corev1.PersistentVolumeClaimSpec{
 		AccessModes: []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce},
 		Resources: corev1.ResourceRequirements{
 			Requests: corev1.ResourceList{
 				corev1.ResourceStorage: resource.MustParse("500Mi"),
 			},
 		},
-	}
+	}, map[string]string{
+		"app": "containerjfr",
+	}, nil)
 }
 
-func NewCustomPVCSpec() *corev1.PersistentVolumeClaimSpec {
+func NewCustomPVC() *corev1.PersistentVolumeClaim {
 	storageClass := "cool-storage"
-	return &corev1.PersistentVolumeClaimSpec{
+	return newPVC(&corev1.PersistentVolumeClaimSpec{
 		StorageClassName: &storageClass,
 		AccessModes:      []corev1.PersistentVolumeAccessMode{corev1.ReadWriteMany},
 		Resources: corev1.ResourceRequirements{
@@ -597,12 +629,17 @@ func NewCustomPVCSpec() *corev1.PersistentVolumeClaimSpec {
 				corev1.ResourceStorage: resource.MustParse("10Gi"),
 			},
 		},
-	}
+	}, map[string]string{
+		"my":  "label",
+		"app": "containerjfr",
+	}, map[string]string{
+		"my/custom": "annotation",
+	})
 }
 
-func NewCustomPVCSpecSomeDefault() *corev1.PersistentVolumeClaimSpec {
+func NewCustomPVCSomeDefault() *corev1.PersistentVolumeClaim {
 	storageClass := ""
-	return &corev1.PersistentVolumeClaimSpec{
+	return newPVC(&corev1.PersistentVolumeClaimSpec{
 		StorageClassName: &storageClass,
 		AccessModes:      []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce},
 		Resources: corev1.ResourceRequirements{
@@ -610,7 +647,23 @@ func NewCustomPVCSpecSomeDefault() *corev1.PersistentVolumeClaimSpec {
 				corev1.ResourceStorage: resource.MustParse("1Gi"),
 			},
 		},
-	}
+	}, map[string]string{
+		"app": "containerjfr",
+	}, nil)
+}
+
+func NewDefaultPVCWithLabel() *corev1.PersistentVolumeClaim {
+	return newPVC(&corev1.PersistentVolumeClaimSpec{
+		AccessModes: []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce},
+		Resources: corev1.ResourceRequirements{
+			Requests: corev1.ResourceList{
+				corev1.ResourceStorage: resource.MustParse("500Mi"),
+			},
+		},
+	}, map[string]string{
+		"app": "containerjfr",
+		"my":  "label",
+	}, nil)
 }
 
 func NewVolumeMountsWithSecrets() *[]corev1.VolumeMount {

@@ -64,12 +64,30 @@ type ContainerJFRStatus struct {
 // StorageConfiguration provides customization to the storage created by
 // the operator to hold Flight Recordings and Recording Templates.
 type StorageConfiguration struct {
+	// Configuration for the Persistent Volume Claim to be created
+	// by the operator.
+	// +optional
+	PVC *PersistentVolumeClaimConfig `json:"pvc,omitempty"`
+}
+
+// PersistentVolumeClaimConfig holds all customization options to
+// configure a Persistent Volume Claim to be created and managed
+// by the operator.
+type PersistentVolumeClaimConfig struct {
+	// Annotations to add to the Persistent Volume Claim during its creation.
+	// +optional
+	Annotations map[string]string `json:"annotations,omitempty"`
+	// Labels to add to the Persistent Volume Claim during its creation.
+	// The label with key "app" is reserved for use by the operator.
+	// +optional
+	Labels map[string]string `json:"labels,omitempty"`
 	// Spec for a Persistent Volume Claim, whose options will override the
 	// defaults used by the operator. Unless overriden, the PVC will be
 	// created with the default Storage Class and 500MiB of storage.
 	// Once the operator has created the PVC, changes to this field have
 	// no effect.
-	PVCSpec *corev1.PersistentVolumeClaimSpec `json:"pvcSpec,omitempty"`
+	// +optional
+	Spec *corev1.PersistentVolumeClaimSpec `json:"spec,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

@@ -67,12 +67,30 @@ type TLSConfig struct {
 }
 
 func NewPersistentVolumeClaimForCR(cr *rhjmcv1beta1.ContainerJFR) *corev1.PersistentVolumeClaim {
-	// Check for PVC spec within CR
-	var pvcSpec corev1.PersistentVolumeClaimSpec
-	if cr.Spec.StorageOptions != nil && cr.Spec.StorageOptions.PVCSpec != nil {
-		pvcSpec = *cr.Spec.StorageOptions.PVCSpec
+	objMeta := metav1.ObjectMeta{
+		Name:      cr.Name,
+		Namespace: cr.Namespace,
 	}
-	// Apply any applicable defaults. Don't apply a default storage class name, since nil
+	// Check for PVC config within CR
+	var pvcSpec corev1.PersistentVolumeClaimSpec
+	if cr.Spec.StorageOptions != nil && cr.Spec.StorageOptions.PVC != nil {
+		config := cr.Spec.StorageOptions.PVC
+		// Import any annotations and labels from the PVC config
+		objMeta.Annotations = config.Annotations
+		objMeta.Labels = config.Labels
+		// Use provided spec if specified
+		if config.Spec != nil {
+			pvcSpec = *config.Spec
+		}
+	}
+
+	// Add "app" label. This will override any user-specified "app" label.
+	if objMeta.Labels == nil {
+		objMeta.Labels = map[string]string{}
+	}
+	objMeta.Labels["app"] = cr.Name
+
+	// Apply any applicable spec defaults. Don't apply a default storage class name, since nil
 	// may be intentionally specified.
 	if pvcSpec.Resources.Requests == nil {
 		pvcSpec.Resources.Requests = corev1.ResourceList{
@@ -84,14 +102,8 @@ func NewPersistentVolumeClaimForCR(cr *rhjmcv1beta1.ContainerJFR) *corev1.Persis
 	}
 
 	return &corev1.PersistentVolumeClaim{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      cr.Name,
-			Namespace: cr.Namespace,
-			Labels: map[string]string{
-				"app": cr.Name,
-			},
-		},
-		Spec: pvcSpec,
+		ObjectMeta: objMeta,
+		Spec:       pvcSpec,
 	}
 }
 
