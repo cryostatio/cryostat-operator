@@ -102,7 +102,7 @@ var _ = Describe("ContainerjfrController", func() {
 				expectRoutes(client, controller, false)
 			})
 			It("should create persistent volume claim and set owner", func() {
-				expectPVC(client, controller, false)
+				expectPVC(client, controller, test.NewDefaultPVC(), false)
 			})
 			It("should create Grafana secret and set owner", func() {
 				secret := &corev1.Secret{}
@@ -153,7 +153,7 @@ var _ = Describe("ContainerjfrController", func() {
 				expectRoutes(client, controller, true)
 			})
 			It("should create persistent volume claim and set owner", func() {
-				expectPVC(client, controller, true)
+				expectPVC(client, controller, test.NewDefaultPVC(), true)
 			})
 			It("should create JMX secret and set owner", func() {
 				expectJMXSecret(client, controller, true)
@@ -318,6 +318,36 @@ var _ = Describe("ContainerjfrController", func() {
 				volumeMounts := deployment.Spec.Template.Spec.Containers[0].VolumeMounts
 				expectedVolumeMounts := test.NewVolumeMountsWithSecrets()
 				Expect(&volumeMounts).To(Equal(expectedVolumeMounts))
+			})
+		})
+		Context("with custom PVC spec overriding all defaults", func() {
+			BeforeEach(func() {
+				objs = []runtime.Object{
+					test.NewContainerJFRWithPVCSpec(),
+				}
+			})
+			It("should create the PVC with requested spec", func() {
+				expectPVC(client, controller, test.NewCustomPVC(), false)
+			})
+		})
+		Context("with custom PVC spec overriding some defaults", func() {
+			BeforeEach(func() {
+				objs = []runtime.Object{
+					test.NewContainerJFRWithPVCSpecSomeDefault(),
+				}
+			})
+			It("should create the PVC with requested spec", func() {
+				expectPVC(client, controller, test.NewCustomPVCSomeDefault(), false)
+			})
+		})
+		Context("with custom PVC config with no spec", func() {
+			BeforeEach(func() {
+				objs = []runtime.Object{
+					test.NewContainerJFRWithPVCLabelsOnly(),
+				}
+			})
+			It("should create the PVC with requested label", func() {
+				expectPVC(client, controller, test.NewDefaultPVCWithLabel(), false)
 			})
 		})
 		Context("on OpenShift", func() {
@@ -525,7 +555,8 @@ func expectRoutes(client ctrlclient.Client, controller *containerjfr.ReconcileCo
 	ingressConfig(client, controller, req, minimal)
 }
 
-func expectPVC(client ctrlclient.Client, controller *containerjfr.ReconcileContainerJFR, minimal bool) {
+func expectPVC(client ctrlclient.Client, controller *containerjfr.ReconcileContainerJFR,
+	expectedPvc *corev1.PersistentVolumeClaim, minimal bool) {
 	pvc := &corev1.PersistentVolumeClaim{}
 	err := client.Get(context.Background(), types.NamespacedName{Name: "containerjfr", Namespace: "default"}, pvc)
 	Expect(kerrors.IsNotFound(err)).To(BeTrue())
@@ -536,7 +567,6 @@ func expectPVC(client ctrlclient.Client, controller *containerjfr.ReconcileConta
 	Expect(err).ToNot(HaveOccurred())
 
 	// Compare to desired spec
-	expectedPvc := resource_definitions.NewPersistentVolumeClaimForCR(test.NewContainerJFR())
 	checkMetadata(pvc, expectedPvc)
 	Expect(pvc.Spec.AccessModes).To(Equal(expectedPvc.Spec.AccessModes))
 	Expect(pvc.Spec.StorageClassName).To(Equal(expectedPvc.Spec.StorageClassName))
