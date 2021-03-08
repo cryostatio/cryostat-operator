@@ -16,8 +16,5 @@ COPY --chown=grafana:root \
 # Listen address of jfr-datasource
 ENV JFR_DATASOURCE_URL "http://0.0.0.0:8080"
 
-USER root
-COPY cjfr-run.sh /
-
 USER grafana
-ENTRYPOINT [ "/cjfr-run.sh" ]
+ENTRYPOINT [ "/run.sh" ]

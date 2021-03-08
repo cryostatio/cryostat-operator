@@ -5,7 +5,7 @@ if [ -z "$GRAFANA_IMAGE" ]; then
 fi
 
 if [ -z "$GRAFANA_TAG" ]; then
-    GRAFANA_TAG="1.0.0-BETA2"
+    GRAFANA_TAG="1.0.0-BETA3"
 fi
 
 if [ -z "$BUILDER" ]; then
