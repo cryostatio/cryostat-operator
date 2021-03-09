@@ -9,8 +9,8 @@ namespace: container-jfr-operator-system
 namePrefix: container-jfr-operator-
 
 # Labels to add to all resources and selectors.
-commonLabels:
-  app: containerjfr
+#commonLabels:
+#  someName: someValue
 
 bases:
 - ../crd
