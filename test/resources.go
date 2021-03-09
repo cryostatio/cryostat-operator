@@ -55,13 +55,13 @@ func NewTestScheme() *runtime.Scheme {
 	s := scheme.Scheme
 
 	// Add all APIs used by the operator to the scheme
-	err := rhjmcv1beta1.AddToScheme(s)
-	gomega.Expect(err).ToNot(gomega.HaveOccurred())
-	err = certv1.AddToScheme(s)
-	gomega.Expect(err).ToNot(gomega.HaveOccurred())
-	err = routev1.AddToScheme(s)
-	gomega.Expect(err).ToNot(gomega.HaveOccurred())
-	err = consolev1.AddToScheme(s)
+	sb := runtime.NewSchemeBuilder(
+		rhjmcv1beta1.AddToScheme,
+		certv1.AddToScheme,
+		routev1.AddToScheme,
+		consolev1.AddToScheme,
+	)
+	err := sb.AddToScheme(s)
 	gomega.Expect(err).ToNot(gomega.HaveOccurred())
 
 	return s
