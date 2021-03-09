@@ -57,6 +57,7 @@ type ContainerJFRStatus struct {
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
 // +kubebuilder:storageversion
+// +kubebuilder:resource:path=containerjfrs,scope=Namespaced
 
 // ContainerJFR is the Schema for the containerjfrs API
 type ContainerJFR struct {

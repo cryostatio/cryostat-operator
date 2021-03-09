@@ -109,6 +109,7 @@ type RecordingStatus struct {
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
 // +kubebuilder:storageversion
+// +kubebuilder:resource:path=recordings,scope=Namespaced
 
 // Recording is the Schema for the recordings API
 type Recording struct {
