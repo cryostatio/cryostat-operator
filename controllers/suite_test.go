@@ -31,6 +31,10 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
 	rhjmcv1beta1 "github.com/rh-jmc-team/container-jfr-operator/api/v1beta1"
+
+	certv1 "github.com/jetstack/cert-manager/pkg/apis/certmanager/v1"
+	consolev1 "github.com/openshift/api/console/v1"
+	routev1 "github.com/openshift/api/route/v1"
 	// +kubebuilder:scaffold:imports
 )
 
@@ -64,10 +68,13 @@ var _ = BeforeSuite(func() {
 	err = rhjmcv1beta1.AddToScheme(scheme.Scheme)
 	Expect(err).NotTo(HaveOccurred())
 
-	err = rhjmcv1beta1.AddToScheme(scheme.Scheme)
+	err = certv1.AddToScheme(scheme.Scheme)
 	Expect(err).NotTo(HaveOccurred())
 
-	err = rhjmcv1beta1.AddToScheme(scheme.Scheme)
+	err = consolev1.AddToScheme(scheme.Scheme)
+	Expect(err).NotTo(HaveOccurred())
+
+	err = routev1.AddToScheme(scheme.Scheme)
 	Expect(err).NotTo(HaveOccurred())
 
 	// +kubebuilder:scaffold:scheme
