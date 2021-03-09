@@ -14,4 +14,6 @@ data:
       resourceName: d696d7ab.redhat.com
 kind: ConfigMap
 metadata:
+  labels:
+    app: containerjfr
   name: container-jfr-operator-manager-config

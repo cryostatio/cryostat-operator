@@ -4,6 +4,8 @@ metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.4.1
   creationTimestamp: null
+  labels:
+    app: containerjfr
   name: flightrecorders.rhjmc.redhat.com
 spec:
   group: rhjmc.redhat.com
