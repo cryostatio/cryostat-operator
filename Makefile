@@ -16,18 +16,6 @@ BUNDLE_DEFAULT_CHANNEL := --default-channel=$(DEFAULT_CHANNEL)
 endif
 BUNDLE_METADATA_OPTS ?= $(BUNDLE_CHANNELS) $(BUNDLE_DEFAULT_CHANNEL)
 
-# Options for "packagemanifests".
-ifneq ($(origin FROM_VERSION), undefined)
-PKG_FROM_VERSION := --from-version=$(FROM_VERSION)
-endif
-ifneq ($(origin CHANNEL), undefined)
-PKG_CHANNELS := --channel=$(CHANNEL)
-endif
-ifeq ($(IS_CHANNEL_DEFAULT), 1)
-PKG_IS_DEFAULT_CHANNEL := --default-channel
-endif
-PKG_MAN_OPTS ?= $(PKG_FROM_VERSION) $(PKG_CHANNELS) $(PKG_IS_DEFAULT_CHANNEL)
-
 IMAGE_BUILDER ?= podman
 # Image URL to use all building/pushing image targets
 IMG ?= $(IMAGE_NAMESPACE)/$(OPERATOR_NAME):$(VERSION)
@@ -164,20 +152,6 @@ deploy_bundle: undeploy_bundle cert_manager
 .PHONY: undeploy_bundle
 undeploy_bundle:
 	- operator-sdk cleanup $(OPERATOR_NAME)
-
-# Generate package manifests.
-.PHONY: packagemanifests
-packagemanifests: kustomize manifests
-	operator-sdk generate kustomize manifests -q
-	cd config/manager && $(KUSTOMIZE) edit set image controller=$(IMG)
-	$(KUSTOMIZE) build config/manifests | operator-sdk generate packagemanifests -q --version $(VERSION) $(PKG_MAN_OPTS)
-
-.PHONY: deploy_packagemanifests
-deploy_packagemanifests: undeploy_packagemanifests cert_manager
-	operator-sdk run packagemanifests --version $(VERSION)
-
-.PHONY: undeploy_packagemanifests
-undeploy_packagemanifests: undeploy_bundle
 
 .PHONY: create_containerjfr_cr
 create_containerjfr_cr: destroy_containerjfr_cr
