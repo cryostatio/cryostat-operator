@@ -22,7 +22,7 @@ spec:
       labels:
         control-plane: controller-manager
     spec:
-      serviceAccountName: container-jfr-operator-service-account
+      serviceAccountName: service-account
       securityContext:
         runAsUser: 65532
       containers:

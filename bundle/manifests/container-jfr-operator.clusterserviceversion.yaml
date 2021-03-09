@@ -63,6 +63,19 @@ spec:
     mediatype: ""
   install:
     spec:
+      clusterPermissions:
+      - rules:
+        - apiGroups:
+          - console.openshift.io
+          resources:
+          - consolelinks
+          verbs:
+          - get
+          - create
+          - list
+          - update
+          - delete
+        serviceAccountName: container-jfr-operator-service-account
       deployments:
       - name: container-jfr-operator-controller-manager
         spec:

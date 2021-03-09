@@ -7,8 +7,8 @@ metadata:
     app: containerjfr
 subjects:
 - kind: ServiceAccount
-  name: service-account
-  namespace: system
+  name: container-jfr-operator-service-account
+  namespace: container-jfr-operator-system
 roleRef:
   kind: ClusterRole
   name: cluster-role
