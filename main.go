@@ -52,9 +52,6 @@ func init() {
 	utilruntime.Must(rhjmcv1beta1.AddToScheme(scheme))
 
 	// Register third-party types
-	// FIXME is this the right thing to do?
-	// https://github.com/jaegertracing/jaeger-operator/issues/136
-	// https://github.com/operator-framework/operator-sdk/issues/477
 	utilruntime.Must(routev1.AddToScheme(scheme))
 	utilruntime.Must(certv1.AddToScheme(scheme))
 	utilruntime.Must(consolev1.AddToScheme(scheme))
