@@ -33,8 +33,15 @@ metadata:
         }
       ]
     capabilities: Basic Install
+    categories: Monitoring, Developer Tools
+    certified: "false"
+    containerImage: quay.io/rh-jmc-team/container-jfr-operator:1.0.0-beta5
+    createdAt: "2020-07-03 00:00:00"
+    description: JVM monitoring and profiling tool
     operators.operatorframework.io/builder: operator-sdk-v1.3.0
     operators.operatorframework.io/project_layout: go.kubebuilder.io/v3
+    repository: github.com/rh-jmc-team/container-jfr-operator
+    support: Red Hat
   name: container-jfr-operator.v1.0.0-beta5
   namespace: placeholder
 spec:
@@ -56,11 +63,12 @@ spec:
       kind: Recording
       name: recordings.rhjmc.redhat.com
       version: v1beta1
-  description: Some description text
-  displayName: ContainerJFR Operator
+  description: |
+    ContainerJFR provides a cloud-based solution for interacting with the JDK Flight Recorder already present in OpenJDK 11+ JVMs. With ContainerJFR, users can remotely start, stop, retrieve, and even analyze JFR event data, providing the capbility to easily take advantage of Flight Recorder''s extremely low runtime cost and overhead and the flexibility to monitor applications and analyze recording data without transferring data outside of the cluster the application runs within.
+  displayName: ContainerJFR
   icon:
   - base64data: ""
-    mediatype: ""
+    mediatype: image/png
   install:
     spec:
       clusterPermissions:
@@ -232,21 +240,29 @@ spec:
   installModes:
   - supported: true
     type: OwnNamespace
-  - supported: false
+  - supported: true
     type: SingleNamespace
   - supported: false
     type: MultiNamespace
   - supported: false
     type: AllNamespaces
   keywords:
-  - jfr
+  - flightrecorder
+  - java
   - jdk
+  - jfr
+  - jmc
+  - missioncontrol
+  - monitoring
+  - profiling
   links:
-  - name: Container Jfr Operator
-    url: https://container-jfr-operator.domain
+  - name: Upstream Project
+    url: https://github.com/rh-jmc-team/container-jfr
   maintainers:
   - email: aazores@redhat.com
     name: Andrew Azores
+  - email: ebaron@redhat.com
+    name: Elliott Baron
   maturity: alpha
   provider:
     name: Red Hat, Inc.
