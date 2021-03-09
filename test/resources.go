@@ -431,7 +431,7 @@ func NewContainerJFRService() *corev1.Service {
 			Namespace: "default",
 			OwnerReferences: []metav1.OwnerReference{
 				{
-					APIVersion: schema.GroupVersion{Group: "rhjmc.redhat.com", Version: "v1beta1"}.String(),
+					APIVersion: rhjmcv1beta1.GroupVersion.String(),
 					Kind:       "ContainerJFR",
 					Name:       "containerjfr",
 					UID:        "",
