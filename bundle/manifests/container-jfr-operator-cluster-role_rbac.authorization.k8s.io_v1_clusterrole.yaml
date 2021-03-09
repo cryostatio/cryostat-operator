@@ -1,7 +1,8 @@
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: cluster-role
+  creationTimestamp: null
+  name: container-jfr-operator-cluster-role
 rules:
 - apiGroups:
   - console.openshift.io
