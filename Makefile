@@ -183,7 +183,7 @@ destroy_containerjfr_cr:
 
 .PHONY: sample_app
 sample_app: undeploy_sample_app
-	$(CLUSTER_CLIENT) new-app quay.io/andrewazores/vertx-fib-demo:0.1.0
+	$(call new-sample-app,quay.io/andrewazores/vertx-fib-demo:0.1.0)
 
 .PHONY: undeploy_sample_app
 undeploy_sample_app:
@@ -191,7 +191,7 @@ undeploy_sample_app:
 
 .PHONY: sample_app2
 sample_app2: undeploy_sample_app2
-	$(CLUSTER_CLIENT) new-app quay.io/andrewazores/container-jmx-docker-listener:0.1.0 --name=jmx-listener
+	$(call new-sample-app,quay.io/andrewazores/container-jmx-docker-listener:0.1.0 --name=jmx-listener)
 	$(CLUSTER_CLIENT) patch svc/jmx-listener -p '{"spec":{"$setElementOrder/ports":[{"port":7095},{"port":9092},{"port":9093}],"ports":[{"name":"jfr-jmx","port":9093}]}}'
 
 .PHONY: undeploy_sample_app2
@@ -200,9 +200,14 @@ undeploy_sample_app2:
 
 .PHONY: sample_app_quarkus
 sample_app_quarkus: undeploy_sample_app_quarkus
-	oc new-app quay.io/andrewazores/quarkus-test:0.0.2
-	oc patch svc/quarkus-test -p '{"spec":{"$setElementOrder/ports":[{"port":9096},{"port":9999}],"ports":[{"name":"jfr-jmx","port":9096}]}}'
+	$(call new-sample-app,quay.io/andrewazores/quarkus-test:0.0.2)
+	$(CLUSTER_CLIENT) patch svc/quarkus-test -p '{"spec":{"$setElementOrder/ports":[{"port":9096},{"port":9999}],"ports":[{"name":"jfr-jmx","port":9096}]}}'
 
 .PHONY: undeploy_sample_app_quarkus
 undeploy_sample_app_quarkus:
-	- oc delete all -l app=quarkus-test
+	- $(CLUSTER_CLIENT) delete all -l app=quarkus-test
+
+define new-sample-app
+@if [ ! "$(CLUSTER_CLIENT)" = "oc" ]; then echo "CLUSTER_CLIENT must be 'oc' for sample app deployments" && exit 1; fi
+$(CLUSTER_CLIENT) new-app $(1)
+endef
