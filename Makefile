@@ -36,6 +36,7 @@ endif
 all: manager
 
 # Run tests
+.PHONY: test
 ENVTEST_ASSETS_DIR=$(shell pwd)/testbin
 test: generate fmt vet manifests
 	mkdir -p ${ENVTEST_ASSETS_DIR}
@@ -47,22 +48,27 @@ scorecard:
 	operator-sdk scorecard bundle
 
 # Build manager binary
+.PHONY: manager
 manager: generate fmt vet
 	go build -o bin/manager main.go
 
 # Run against the configured Kubernetes cluster in ~/.kube/config
+.PHONY: run
 run: generate fmt vet manifests
 	go run ./main.go
 
 # Install CRDs into a cluster
+.PHONY: install
 install: manifests kustomize
 	$(KUSTOMIZE) build config/crd | $(CLUSTER_CLIENT) apply -f -
 
 # Uninstall CRDs from a cluster
+.PHONY: uninstall
 uninstall: manifests kustomize
 	$(KUSTOMIZE) build config/crd | $(CLUSTER_CLIENT) delete -f -
 
 # Deploy controller in the configured Kubernetes cluster in ~/.kube/config
+.PHONY: deploy
 deploy: manifests kustomize
 	cd config/manager && $(KUSTOMIZE) edit set image controller=${IMG}
 	$(KUSTOMIZE) build config/default | $(CLUSTER_CLIENT) apply -f -
@@ -73,6 +79,7 @@ deploy: manifests kustomize
 	$(CLUSTER_CLIENT) apply -f config/rbac/cluster_role_binding.yaml
 
 # UnDeploy controller from the configured Kubernetes cluster in ~/.kube/config
+.PHONY: undeploy
 undeploy:
 	- $(KUSTOMIZE) build config/default | $(CLUSTER_CLIENT) delete -f -
 	- $(CLUSTER_CLIENT) delete -f config/rbac/role.yaml
@@ -82,22 +89,27 @@ undeploy:
 	- $(CLUSTER_CLIENT) apply -f config/rbac/cluster_role_binding.yaml
 
 # Generate manifests e.g. CRD, RBAC etc.
+.PHONY: manifests
 manifests: controller-gen
 	$(CONTROLLER_GEN) $(CRD_OPTIONS) rbac:roleName=container-jfr-operator webhook paths="./..." output:crd:artifacts:config=config/crd/bases
 
 # Run go fmt against code
+.PHONY: fmt
 fmt:
 	go fmt ./...
 
 # Run go vet against code
+.PHONY: vet
 vet:
 	go vet ./...
 
 # Generate code
+.PHONY: generate
 generate: controller-gen
 	$(CONTROLLER_GEN) object:headerFile="hack/boilerplate.go.txt" paths="./..."
 
 # Build the OCI image
+.PHONY: oci-build
 oci-build: generate manifests manager test
 	BUILDAH_FORMAT=docker $(IMAGE_BUILDER) build -t ${IMG} .
 
