@@ -12,6 +12,13 @@ metadata:
           },
           "spec": {
             "minimal": false,
+            "storageOptions": {
+              "pvc": {
+                "annotations": {},
+                "labels": {},
+                "spec": {}
+              }
+            },
             "trustedCertSecrets": []
           }
         },
