@@ -56,7 +56,7 @@ import (
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 )
 
-var log = logf.Log.WithName("controller_containerjfr")
+var log = logf.Log.WithName("containerjfr_client")
 
 const ioTimeout = 30 * time.Second
 

@@ -50,7 +50,7 @@ import (
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 )
 
-var log = logf.Log.WithName("controller_containerjfr")
+var log = logf.Log.WithName("common_reconciler")
 
 // ReconcilerConfig contains configuration used to customize a Reconciler
 // built with NewReconciler
