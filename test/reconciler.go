@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Red Hat, Inc.
+// Copyright (c) 2021 Red Hat, Inc.
 //
 // The Universal Permissive License (UPL), Version 1.0
 //
@@ -42,8 +42,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/onsi/gomega"
-	jfrclient "github.com/rh-jmc-team/container-jfr-operator/pkg/client"
-	"github.com/rh-jmc-team/container-jfr-operator/pkg/controller/common"
+	jfrclient "github.com/rh-jmc-team/container-jfr-operator/controllers/client"
+	"github.com/rh-jmc-team/container-jfr-operator/controllers/common"
 )
 
 // NewTestReconciler returns a common.Reconciler for use by unit tests

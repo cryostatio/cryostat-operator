@@ -1,0 +1,12 @@
+apiVersion: rhjmc.redhat.com/v1beta1
+kind: Recording
+metadata:
+  name: example-recording
+spec:
+  name: example-recording
+  flightRecorder:
+    name: example-flightrecorder
+  archive: true,
+  duration: 30s,
+  eventOptions:
+    - "template=ALL"

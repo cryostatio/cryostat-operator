@@ -1,0 +1,20 @@
+# permissions for end users to view containerjfrs.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: containerjfr-viewer-role
+rules:
+- apiGroups:
+  - rhjmc.redhat.com
+  resources:
+  - containerjfrs
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - rhjmc.redhat.com
+  resources:
+  - containerjfrs/status
+  verbs:
+  - get

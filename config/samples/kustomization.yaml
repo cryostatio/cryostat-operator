@@ -1,0 +1,6 @@
+## Append samples you want in your CSV to this file as resources ##
+resources:
+- rhjmc_v1beta1_containerjfr.yaml
+- rhjmc_v1beta1_flightrecorder.yaml
+- rhjmc_v1beta1_recording.yaml
+# +kubebuilder:scaffold:manifestskustomizesamples

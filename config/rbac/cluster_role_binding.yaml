@@ -1,0 +1,15 @@
+---
+kind: ClusterRoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: cluster-role-binding
+  labels:
+    app: containerjfr
+subjects:
+- kind: ServiceAccount
+  name: container-jfr-operator-service-account
+  namespace: container-jfr-operator-system
+roleRef:
+  kind: ClusterRole
+  name: cluster-role
+  apiGroup: rbac.authorization.k8s.io

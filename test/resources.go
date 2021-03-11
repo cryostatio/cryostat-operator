@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Red Hat, Inc.
+// Copyright (c) 2021 Red Hat, Inc.
 //
 // The Universal Permissive License (UPL), Version 1.0
 //
@@ -43,8 +43,7 @@ import (
 	"github.com/onsi/gomega"
 	consolev1 "github.com/openshift/api/console/v1"
 	routev1 "github.com/openshift/api/route/v1"
-	"github.com/rh-jmc-team/container-jfr-operator/pkg/apis"
-	rhjmcv1beta1 "github.com/rh-jmc-team/container-jfr-operator/pkg/apis/rhjmc/v1beta1"
+	rhjmcv1beta1 "github.com/rh-jmc-team/container-jfr-operator/api/v1beta1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -57,7 +56,7 @@ func NewTestScheme() *runtime.Scheme {
 
 	// Add all APIs used by the operator to the scheme
 	sb := runtime.NewSchemeBuilder(
-		apis.AddToScheme,
+		rhjmcv1beta1.AddToScheme,
 		certv1.AddToScheme,
 		routev1.AddToScheme,
 		consolev1.AddToScheme,
@@ -505,7 +504,7 @@ func NewContainerJFRService() *corev1.Service {
 			Namespace: "default",
 			OwnerReferences: []metav1.OwnerReference{
 				{
-					APIVersion: rhjmcv1beta1.SchemeGroupVersion.String(),
+					APIVersion: rhjmcv1beta1.GroupVersion.String(),
 					Kind:       "ContainerJFR",
 					Name:       "containerjfr",
 					UID:        "",

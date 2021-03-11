@@ -1,0 +1,20 @@
+# permissions for end users to view flightrecorders.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: flightrecorder-viewer-role
+rules:
+- apiGroups:
+  - rhjmc.redhat.com
+  resources:
+  - flightrecorders
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - rhjmc.redhat.com
+  resources:
+  - flightrecorders/status
+  verbs:
+  - get

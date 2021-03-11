@@ -1,0 +1,12 @@
+apiVersion: rhjmc.redhat.com/v1beta1
+kind: ContainerJFR
+metadata:
+  name: containerjfr-sample
+spec:
+  minimal: false
+  trustedCertSecrets: []
+  storageOptions:
+    pvc:
+      labels: {}
+      annotations: {}
+      spec: {}

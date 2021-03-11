@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Red Hat, Inc.
+// Copyright (c) 2021 Red Hat, Inc.
 //
 // The Universal Permissive License (UPL), Version 1.0
 //
@@ -41,8 +41,8 @@ import (
 	"strconv"
 
 	"github.com/onsi/gomega/ghttp"
-	rhjmcv1beta1 "github.com/rh-jmc-team/container-jfr-operator/pkg/apis/rhjmc/v1beta1"
-	jfrclient "github.com/rh-jmc-team/container-jfr-operator/pkg/client"
+	rhjmcv1beta1 "github.com/rh-jmc-team/container-jfr-operator/api/v1beta1"
+	jfrclient "github.com/rh-jmc-team/container-jfr-operator/controllers/client"
 )
 
 func NewDumpHandler() http.HandlerFunc {

@@ -1,0 +1,21 @@
+domain: redhat.com
+layout: go.kubebuilder.io/v3
+projectName: container-jfr-operator
+repo: github.com/rh-jmc-team/container-jfr-operator
+resources:
+- crdVersion: v1
+  group: rhjmc
+  kind: ContainerJFR
+  version: v1beta1
+- crdVersion: v1
+  group: rhjmc
+  kind: FlightRecorder
+  version: v1beta1
+- crdVersion: v1
+  group: rhjmc
+  kind: Recording
+  version: v1beta1
+version: 3-alpha
+plugins:
+  manifests.sdk.operatorframework.io/v2: {}
+  scorecard.sdk.operatorframework.io/v2: {}
