@@ -1,5 +1,8 @@
 apiVersion: rhjmc.redhat.com/v1beta1
 kind: FlightRecorder
 metadata:
-  name: flightrecorder-sample
+  name: example-flightrecorder
 spec:
+  recordingSelector:
+    matchLabels:
+      "rhjmc.redhat.com/flightrecorder": "example-flightrecorder"

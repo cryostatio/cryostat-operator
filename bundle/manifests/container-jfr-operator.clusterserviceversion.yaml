@@ -26,17 +26,33 @@ metadata:
           "apiVersion": "rhjmc.redhat.com/v1beta1",
           "kind": "FlightRecorder",
           "metadata": {
-            "name": "flightrecorder-sample"
+            "name": "example-flightrecorder"
           },
-          "spec": null
+          "spec": {
+            "recordingSelector": {
+              "matchLabels": {
+                "rhjmc.redhat.com/flightrecorder": "example-flightrecorder"
+              }
+            }
+          }
         },
         {
           "apiVersion": "rhjmc.redhat.com/v1beta1",
           "kind": "Recording",
           "metadata": {
-            "name": "recording-sample"
+            "name": "example-recording"
           },
-          "spec": null
+          "spec": {
+            "archive": "true,",
+            "duration": "30s,",
+            "eventOptions": [
+              "template=ALL"
+            ],
+            "flightRecorder": {
+              "name": "example-flightrecorder"
+            },
+            "name": "example-recording"
+          }
         }
       ]
     capabilities: Basic Install
