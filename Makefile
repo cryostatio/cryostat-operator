@@ -85,8 +85,8 @@ undeploy:
 	- $(CLUSTER_CLIENT) delete -f config/rbac/role.yaml
 	- $(CLUSTER_CLIENT) delete -f config/rbac/role_binding.yaml
 	- $(CLUSTER_CLIENT) delete -f config/rbac/service_account.yaml
-	- $(CLUSTER_CLIENT) apply -f config/rbac/cluster_role.yaml
-	- $(CLUSTER_CLIENT) apply -f config/rbac/cluster_role_binding.yaml
+	- $(CLUSTER_CLIENT) delete -f config/rbac/cluster_role.yaml
+	- $(CLUSTER_CLIENT) delete -f config/rbac/cluster_role_binding.yaml
 
 # Generate manifests e.g. CRD, RBAC etc.
 .PHONY: manifests
