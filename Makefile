@@ -1,6 +1,6 @@
 # Current Operator version
-VERSION ?= 1.0.0-beta5
-BUNDLE_VERSION ?= $(VERSION)
+IMAGE_VERSION ?= 1.0.0-beta5
+BUNDLE_VERSION ?= $(IMAGE_VERSION)
 IMAGE_NAMESPACE ?= quay.io/rh-jmc-team
 OPERATOR_NAME ?= container-jfr-operator
 CLUSTER_CLIENT ?= kubectl
@@ -18,7 +18,7 @@ BUNDLE_METADATA_OPTS ?= $(BUNDLE_CHANNELS) $(BUNDLE_DEFAULT_CHANNEL)
 
 IMAGE_BUILDER ?= podman
 # Image URL to use all building/pushing image targets
-IMG ?= $(IMAGE_NAMESPACE)/$(OPERATOR_NAME):$(VERSION)
+IMG ?= $(IMAGE_NAMESPACE)/$(OPERATOR_NAME):$(IMAGE_VERSION)
 # Produce CRDs that work back to Kubernetes 1.11 (no version conversion)
 CRD_OPTIONS ?= "crd:trivialVersions=true,preserveUnknownFields=false"
 
@@ -37,15 +37,23 @@ all: manager
 
 # Run tests
 .PHONY: test
+test: test-unit test-integration
+
+.PHONY: test-unit
 ENVTEST_ASSETS_DIR=$(shell pwd)/testbin
-test: generate fmt vet manifests
+test-unit: generate fmt vet manifests
 	mkdir -p $(ENVTEST_ASSETS_DIR)
 	test -f $(ENVTEST_ASSETS_DIR)/setup-envtest.sh || curl -sSLo $(ENVTEST_ASSETS_DIR)/setup-envtest.sh https://raw.githubusercontent.com/kubernetes-sigs/controller-runtime/v0.7.0/hack/setup-envtest.sh
 	source $(ENVTEST_ASSETS_DIR)/setup-envtest.sh; fetch_envtest_tools $(ENVTEST_ASSETS_DIR); setup_envtest_env $(ENVTEST_ASSETS_DIR); go test ./... -coverprofile cover.out
 
-.PHONY: scorecard
-scorecard:
+.PHONY: test-integration
+test-integration: test-scorecard
+
+.PHONY: test-scorecard
+test-scorecard: destroy_containerjfr_cr undeploy uninstall
 	operator-sdk scorecard bundle
+
+
 
 # Build manager binary
 .PHONY: manager
@@ -65,18 +73,18 @@ install: manifests kustomize
 # Uninstall CRDs from a cluster
 .PHONY: uninstall
 uninstall: manifests kustomize
-	$(KUSTOMIZE) build config/crd | $(CLUSTER_CLIENT) delete -f -
+	- $(KUSTOMIZE) build config/crd | $(CLUSTER_CLIENT) delete -f -
 
 # Deploy controller in the configured Kubernetes cluster in ~/.kube/config
 .PHONY: deploy
 deploy: manifests kustomize
-	cd config/manager && $(KUSTOMIZE) edit set image controller=$(IMG)
+	$(CLUSTER_CLIENT) create -f config/rbac/role.yaml
+	$(CLUSTER_CLIENT) create -f config/rbac/role_binding.yaml
+	$(CLUSTER_CLIENT) create -f config/rbac/service_account.yaml
+	$(CLUSTER_CLIENT) create -f config/rbac/cluster_role.yaml
+	$(CLUSTER_CLIENT) create -f config/rbac/cluster_role_binding.yaml
+	pushd config/manager && $(KUSTOMIZE) edit set image controller=$(IMG) && popd
 	$(KUSTOMIZE) build config/default | $(CLUSTER_CLIENT) apply -f -
-	$(CLUSTER_CLIENT) apply -f config/rbac/role.yaml
-	$(CLUSTER_CLIENT) apply -f config/rbac/role_binding.yaml
-	$(CLUSTER_CLIENT) apply -f config/rbac/service_account.yaml
-	$(CLUSTER_CLIENT) apply -f config/rbac/cluster_role.yaml
-	$(CLUSTER_CLIENT) apply -f config/rbac/cluster_role_binding.yaml
 
 # UnDeploy controller from the configured Kubernetes cluster in ~/.kube/config
 .PHONY: undeploy
@@ -116,7 +124,7 @@ oci-build: generate manifests manager test
 
 .PHONY: cert_manager
 cert_manager: remove_cert_manager
-	$(CLUSTER_CLIENT) apply --validate=false -f $(CERT_MANAGER_MANIFEST)
+	$(CLUSTER_CLIENT) create --validate=false -f $(CERT_MANAGER_MANIFEST)
 
 .PHONY: remove_cert_manager
 remove_cert_manager:
@@ -163,7 +171,7 @@ bundle-build:
 
 .PHONY: deploy_bundle
 deploy_bundle: undeploy_bundle
-	operator-sdk run bundle $(IMAGE_NAMESPACE)/$(OPERATOR_NAME)-bundle:$(VERSION)
+	operator-sdk run bundle $(IMAGE_NAMESPACE)/$(OPERATOR_NAME)-bundle:$(IMAGE_VERSION)
 
 .PHONY: undeploy_bundle
 undeploy_bundle:
