@@ -164,14 +164,17 @@ OperatorHub will eventually receive.
 ## Requirements
 - (optional) [oc](https://www.okd.io/download.html)
 - (optional) [crc](https://github.com/code-ready/crc)
+- (optional) [crc](https://github.com/code-ready/crc)
 
 ## Instructions
-`make test-unit` will run unit tests, requiring no cluster connection.
+`make test-unit` will run unit tests using ginkgo if installed, or go test if
+not, requiring no cluster connection.
 
-`make test-integration` will run integration tests, including the Operator
-SDK's scorecard test suite. This requires an OpenShift 4 cluster to be
+`make test-integration` will run integration tests, including `envtest` and the
+Operator SDK's scorecard test suite. This requires an OpenShift 4 cluster to be
 available and logged in with your `oc` OpenShift Client. The recommended setup
-for development testing is CodeReady Containers (`crc`).
+for development testing is CodeReady Containers (`crc`). `make test-envtest`
+and `make test-scorecard` can be used to run these separately.
 
 Before the scorecard tests are run, all container-jfr and container-jfr-operator
 resources will be deleted to ensure a clean slate.

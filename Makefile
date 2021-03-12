@@ -40,14 +40,23 @@ all: manager
 test: test-unit test-integration
 
 .PHONY: test-unit
-ENVTEST_ASSETS_DIR=$(shell pwd)/testbin
 test-unit: generate fmt vet manifests
+# Run tests with Ginkgo CLI if available
+ifneq ("$(wildcard $(GINKGO))","")
+	"$(GINKGO)" -v ./...
+else
+	go test -v ./...
+endif
+
+.PHONY: test-integration
+test-integration: test-envtest test-scorecard
+
+.PHONY: test-envtest
+ENVTEST_ASSETS_DIR=$(shell pwd)/testbin
+test-envtest:
 	mkdir -p $(ENVTEST_ASSETS_DIR)
 	test -f $(ENVTEST_ASSETS_DIR)/setup-envtest.sh || curl -sSLo $(ENVTEST_ASSETS_DIR)/setup-envtest.sh https://raw.githubusercontent.com/kubernetes-sigs/controller-runtime/v0.7.0/hack/setup-envtest.sh
 	source $(ENVTEST_ASSETS_DIR)/setup-envtest.sh; fetch_envtest_tools $(ENVTEST_ASSETS_DIR); setup_envtest_env $(ENVTEST_ASSETS_DIR); go test ./... -coverprofile cover.out
-
-.PHONY: test-integration
-test-integration: test-scorecard
 
 .PHONY: test-scorecard
 test-scorecard: destroy_containerjfr_cr undeploy uninstall
