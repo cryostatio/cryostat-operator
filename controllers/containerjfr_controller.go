@@ -78,18 +78,17 @@ type ContainerJFRReconciler struct {
 // Name used for Finalizer that handles ContainerJFR deletion
 const cjfrFinalizer = "containerjfr.finalizer.rhjmc.redhat.com"
 
-// +kubebuilder:rbac:groups="",resources=pods;services;services/finalizers;routes;endpoints;persistentvolumeclaims;events;configmaps;secrets,verbs=*
-// +kubebuilder:rbac:groups=route.openshift.io,resources=routes;routes/custom-host,verbs=*
-// +kubebuilder:rbac:groups=apps,resources=deployments;daemonsets;replicasets;statefulsets,verbs=*
-// +kubebuilder:rbac:groups=monitoring.coreos.com,resources=servicemonitors,verbs=get;create
-// +kubebuilder:rbac:groups=apps,resources=deployments/finalizers,resourceNames=container-jfr-operator,verbs=update
-// +kubebuilder:rbac:groups="",resources=pods,verbs=get
-// +kubebuilder:rbac:groups=apps,resources=replicasets,verbs=get
-// +kubebuilder:rbac:groups=rhjmc.redhat.com,resources=*;flightrecorders;recordings;containerjfrs,verbs*
-// +kubebuilder:rbac:groups=cert-manager.io,resources=issuers;certificates,verbs=create;get;list;update;watch
-// +kubebuilder:rbac:groups=rhjmc.redhat.com,resources=containerjfrs,verbs=get;list;watch;create;update;patch;delete
-// +kubebuilder:rbac:groups=rhjmc.redhat.com,resources=containerjfrs/status,verbs=get;update;patch
-// +kubebuilder:rbac:groups=rhjmc.redhat.com,resources=containerjfrs/finalizers,verbs=update
+// +kubebuilder:rbac:namespace=system,groups="",resources=pods;services;services/finalizers;endpoints;persistentvolumeclaims;events;configmaps;secrets,verbs=*
+// +kubebuilder:rbac:namespace=system,groups=route.openshift.io,resources=routes;routes/custom-host,verbs=*
+// +kubebuilder:rbac:namespace=system,groups=apps,resources=deployments;daemonsets;replicasets;statefulsets,verbs=*
+// +kubebuilder:rbac:namespace=system,groups=monitoring.coreos.com,resources=servicemonitors,verbs=get;create
+// +kubebuilder:rbac:namespace=system,groups=cert-manager.io,resources=issuers;certificates,verbs=create;get;list;update;watch
+// +kubebuilder:rbac:namespace=system,groups=rhjmc.redhat.com,resources=containerjfrs,verbs=*
+// +kubebuilder:rbac:namespace=system,groups=rhjmc.redhat.com,resources=containerjfrs/status,verbs=get;update;patch
+// +kubebuilder:rbac:namespace=system,groups=rhjmc.redhat.com,resources=containerjfrs/finalizers,verbs=update
+// +kubebuilder:rbac:groups=console.openshift.io,resources=consolelinks,verbs=get;create;list;update;delete
+
+// Reconcile processes a ContainerJFR CR and manages a Container JFR installation accordingly
 func (r *ContainerJFRReconciler) Reconcile(ctx context.Context, request ctrl.Request) (ctrl.Result, error) {
 	reqLogger := r.Log.WithValues("Request.Namespace", request.Namespace, "Request.Name", request.Name)
 

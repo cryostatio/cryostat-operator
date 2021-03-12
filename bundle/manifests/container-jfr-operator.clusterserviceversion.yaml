@@ -101,11 +101,11 @@ spec:
           resources:
           - consolelinks
           verbs:
-          - get
           - create
+          - delete
+          - get
           - list
           - update
-          - delete
         serviceAccountName: container-jfr-operator-service-account
       deployments:
       - name: container-jfr-operator-controller-manager
@@ -157,21 +157,29 @@ spec:
                     port: 8081
                   initialDelaySeconds: 5
                   periodSeconds: 10
-                resources:
-                  limits:
-                    cpu: 100m
-                    memory: 30Mi
-                  requests:
-                    cpu: 100m
-                    memory: 20Mi
+                resources: {}
                 securityContext:
                   allowPrivilegeEscalation: false
               securityContext:
-                runAsUser: 65532
+                runAsNonRoot: true
               serviceAccountName: container-jfr-operator-service-account
               terminationGracePeriodSeconds: 10
       permissions:
       - rules:
+        - apiGroups:
+          - ""
+          - coordination.k8s.io
+          resources:
+          - configmaps
+          - leases
+          verbs:
+          - get
+          - list
+          - watch
+          - create
+          - update
+          - patch
+          - delete
         - apiGroups:
           - ""
           resources:
@@ -181,20 +189,138 @@ spec:
           - patch
         - apiGroups:
           - ""
-          - coordination.k8s.io
           resources:
+          - configmaps
+          - endpoints
+          - events
+          - persistentvolumeclaims
           - pods
+          - secrets
           - services
           - services/finalizers
-          - routes
-          - endpoints
-          - persistentvolumeclaims
-          - events
-          - configmaps
-          - secrets
-          - leases
           verbs:
           - '*'
+        - apiGroups:
+          - ""
+          resources:
+          - endpoints
+          - pods
+          - secrets
+          - services
+          verbs:
+          - get
+          - list
+          - watch
+        - apiGroups:
+          - ""
+          resources:
+          - pods
+          - secrets
+          - services
+          verbs:
+          - create
+          - delete
+          - get
+          - list
+          - patch
+          - update
+          - watch
+        - apiGroups:
+          - apps
+          resources:
+          - daemonsets
+          - deployments
+          - replicasets
+          - statefulsets
+          verbs:
+          - '*'
+        - apiGroups:
+          - cert-manager.io
+          resources:
+          - certificates
+          - issuers
+          verbs:
+          - create
+          - get
+          - list
+          - update
+          - watch
+        - apiGroups:
+          - monitoring.coreos.com
+          resources:
+          - servicemonitors
+          verbs:
+          - create
+          - get
+        - apiGroups:
+          - rhjmc.redhat.com
+          resources:
+          - containerjfrs
+          verbs:
+          - '*'
+        - apiGroups:
+          - rhjmc.redhat.com
+          resources:
+          - containerjfrs
+          - flightrecorders
+          verbs:
+          - '*'
+        - apiGroups:
+          - rhjmc.redhat.com
+          resources:
+          - containerjfrs
+          - flightrecorders
+          - recordings
+          verbs:
+          - '*'
+        - apiGroups:
+          - rhjmc.redhat.com
+          resources:
+          - containerjfrs/finalizers
+          verbs:
+          - update
+        - apiGroups:
+          - rhjmc.redhat.com
+          resources:
+          - containerjfrs/status
+          verbs:
+          - get
+          - patch
+          - update
+        - apiGroups:
+          - rhjmc.redhat.com
+          resources:
+          - flightrecorders
+          verbs:
+          - create
+          - delete
+          - get
+          - list
+          - patch
+          - update
+          - watch
+        - apiGroups:
+          - rhjmc.redhat.com
+          resources:
+          - flightrecorders/status
+          verbs:
+          - get
+          - patch
+          - update
+        - apiGroups:
+          - rhjmc.redhat.com
+          resources:
+          - recordings/finalizers
+          verbs:
+          - update
+        - apiGroups:
+          - rhjmc.redhat.com
+          resources:
+          - recordings/status
+          verbs:
+          - get
+          - patch
+          - update
         - apiGroups:
           - route.openshift.io
           resources:
@@ -202,62 +328,6 @@ spec:
           - routes/custom-host
           verbs:
           - '*'
-        - apiGroups:
-          - apps
-          resources:
-          - deployments
-          - daemonsets
-          - replicasets
-          - statefulsets
-          verbs:
-          - '*'
-        - apiGroups:
-          - monitoring.coreos.com
-          resources:
-          - servicemonitors
-          verbs:
-          - get
-          - create
-        - apiGroups:
-          - apps
-          resourceNames:
-          - container-jfr-operator
-          resources:
-          - deployments/finalizers
-          verbs:
-          - update
-        - apiGroups:
-          - ""
-          resources:
-          - pods
-          verbs:
-          - get
-        - apiGroups:
-          - apps
-          resources:
-          - replicasets
-          verbs:
-          - get
-        - apiGroups:
-          - rhjmc.redhat.com
-          resources:
-          - '*'
-          - flightrecorders
-          - recordings
-          - containerjfrs
-          verbs:
-          - '*'
-        - apiGroups:
-          - cert-manager.io
-          resources:
-          - issuers
-          - certificates
-          verbs:
-          - create
-          - get
-          - list
-          - update
-          - watch
         serviceAccountName: container-jfr-operator-service-account
     strategy: deployment
   installModes:

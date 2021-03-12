@@ -1,32 +1,164 @@
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  creationTimestamp: null
+  name: role
+rules:
+- apiGroups:
+  - console.openshift.io
+  resources:
+  - consolelinks
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - update
+
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
+  creationTimestamp: null
   name: role
+  namespace: system
 rules:
 - apiGroups:
   - ""
   resources:
+  - configmaps
+  - endpoints
   - events
-  verbs:
-  - create
-  - patch
-- apiGroups:
-  - ""
-  - coordination.k8s.io
-  resources:
+  - persistentvolumeclaims
   - pods
+  - secrets
   - services
   - services/finalizers
-  - routes
-  - endpoints
-  - persistentvolumeclaims
-  - events
-  - configmaps
-  - secrets
-  - leases
   verbs:
   - '*'
+- apiGroups:
+  - ""
+  resources:
+  - endpoints
+  - pods
+  - secrets
+  - services
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - ""
+  resources:
+  - pods
+  - secrets
+  - services
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - apps
+  resources:
+  - daemonsets
+  - deployments
+  - replicasets
+  - statefulsets
+  verbs:
+  - '*'
+- apiGroups:
+  - cert-manager.io
+  resources:
+  - certificates
+  - issuers
+  verbs:
+  - create
+  - get
+  - list
+  - update
+  - watch
+- apiGroups:
+  - monitoring.coreos.com
+  resources:
+  - servicemonitors
+  verbs:
+  - create
+  - get
+- apiGroups:
+  - rhjmc.redhat.com
+  resources:
+  - containerjfrs
+  verbs:
+  - '*'
+- apiGroups:
+  - rhjmc.redhat.com
+  resources:
+  - containerjfrs
+  - flightrecorders
+  verbs:
+  - '*'
+- apiGroups:
+  - rhjmc.redhat.com
+  resources:
+  - containerjfrs
+  - flightrecorders
+  - recordings
+  verbs:
+  - '*'
+- apiGroups:
+  - rhjmc.redhat.com
+  resources:
+  - containerjfrs/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - rhjmc.redhat.com
+  resources:
+  - containerjfrs/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - rhjmc.redhat.com
+  resources:
+  - flightrecorders
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - rhjmc.redhat.com
+  resources:
+  - flightrecorders/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - rhjmc.redhat.com
+  resources:
+  - recordings/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - rhjmc.redhat.com
+  resources:
+  - recordings/status
+  verbs:
+  - get
+  - patch
+  - update
 - apiGroups:
   - route.openshift.io
   resources:
@@ -34,59 +166,3 @@ rules:
   - routes/custom-host
   verbs:
   - '*'
-- apiGroups:
-  - apps
-  resources:
-  - deployments
-  - daemonsets
-  - replicasets
-  - statefulsets
-  verbs:
-  - '*'
-- apiGroups:
-  - monitoring.coreos.com
-  resources:
-  - servicemonitors
-  verbs:
-  - get
-  - create
-- apiGroups:
-  - apps
-  resourceNames:
-  - container-jfr-operator
-  resources:
-  - deployments/finalizers
-  verbs:
-  - update
-- apiGroups:
-  - ""
-  resources:
-  - pods
-  verbs:
-  - get
-- apiGroups:
-  - apps
-  resources:
-  - replicasets
-  verbs:
-  - get
-- apiGroups:
-  - rhjmc.redhat.com
-  resources:
-  - '*'
-  - flightrecorders
-  - recordings
-  - containerjfrs
-  verbs:
-  - '*'
-- apiGroups:
-  - cert-manager.io
-  resources:
-  - issuers
-  - certificates
-  verbs:
-  - create
-  - get
-  - list
-  - update
-  - watch
