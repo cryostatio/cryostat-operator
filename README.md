@@ -56,10 +56,10 @@ repository such as `quay.io`.
 
 The operator can be deployed using OLM using `make deploy_bundle`. This will
 deploy `quay.io/rh-jmc-team/container-jfr-operator-bundle:$IMAGE_VERSION` to
-your configured cluster using `oc`. You can set the variables `IMAGE_NAMESPACE`
-or `IMAGE_VERSION` to deploy different builds of the bundle. Once this is
-complete, the ContainerJFR Operator will be deployed and running in your
-cluster.
+your configured cluster using `oc` or `kubectl` (`kubeconfig`). You can set the
+variables `IMAGE_NAMESPACE` or `IMAGE_VERSION` to deploy different builds of
+the bundle. Once this is complete, the ContainerJFR Operator will be deployed
+and running in your cluster.
 
 ### Configuration
 
