@@ -33,30 +33,25 @@ else
 GOBIN=$(shell go env GOBIN)
 endif
 
+# Run tests with Ginkgo CLI if available
+GINKGO ?= $(shell go env GOPATH)/bin/ginkgo
+GO_TEST ?= go test
+ifneq ("$(wildcard $(GINKGO))","")
+GO_TEST="$(GINKGO)"
+endif
+
 all: manager
 
 # Run tests
 .PHONY: test
-test: test-unit test-integration
-
-.PHONY: test-unit
-test-unit: fmt vet
-# Run tests with Ginkgo CLI if available
-ifneq ("$(wildcard $(GINKGO))","")
-	"$(GINKGO)" -v ./...
-else
-	go test -v ./...
-endif
-
-.PHONY: test-integration
-test-integration: test-envtest test-scorecard
+test: test-envtest test-scorecard
 
 .PHONY: test-envtest
 ENVTEST_ASSETS_DIR=$(shell pwd)/testbin
 test-envtest: generate fmt vet manifests
 	mkdir -p $(ENVTEST_ASSETS_DIR)
 	test -f $(ENVTEST_ASSETS_DIR)/setup-envtest.sh || curl -sSLo $(ENVTEST_ASSETS_DIR)/setup-envtest.sh https://raw.githubusercontent.com/kubernetes-sigs/controller-runtime/v0.7.0/hack/setup-envtest.sh
-	source $(ENVTEST_ASSETS_DIR)/setup-envtest.sh; fetch_envtest_tools $(ENVTEST_ASSETS_DIR); setup_envtest_env $(ENVTEST_ASSETS_DIR); go test ./... -coverprofile cover.out
+	source $(ENVTEST_ASSETS_DIR)/setup-envtest.sh; fetch_envtest_tools $(ENVTEST_ASSETS_DIR); setup_envtest_env $(ENVTEST_ASSETS_DIR); $(GO_TEST) -v ./... -coverprofile cover.out
 
 .PHONY: test-scorecard
 test-scorecard: destroy_containerjfr_cr undeploy uninstall
@@ -119,7 +114,7 @@ generate: controller-gen
 
 # Build the OCI image
 .PHONY: oci-build
-oci-build: generate manifests manager test
+oci-build: generate manifests manager test-envtest
 	BUILDAH_FORMAT=docker $(IMAGE_BUILDER) build -t $(IMG) .
 
 
