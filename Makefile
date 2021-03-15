@@ -26,6 +26,8 @@ CERT_MANAGER_VERSION ?= 1.1.0
 CERT_MANAGER_MANIFEST ?= \
 	https://github.com/jetstack/cert-manager/releases/download/v$(CERT_MANAGER_VERSION)/cert-manager.yaml
 
+DEPLOY_NAMESPACE ?= container-jfr-operator-system
+
 # Get the currently used golang install path (in GOPATH/bin, unless GOBIN is set)
 ifeq (,$(shell go env GOBIN))
 GOBIN=$(shell go env GOPATH)/bin
@@ -83,14 +85,14 @@ uninstall: manifests kustomize
 .PHONY: deploy
 deploy: manifests kustomize
 	pushd config/manager && $(KUSTOMIZE) edit set image controller=$(IMG) && popd
-	$(KUSTOMIZE) build config/default | $(CLUSTER_CLIENT) apply -f -
+	$(KUSTOMIZE) build config/default | sed 's/container-jfr-operator-system/$(DEPLOY_NAMESPACE)/' | $(CLUSTER_CLIENT) apply -f -
 
 # UnDeploy controller from the configured Kubernetes cluster in ~/.kube/config
 .PHONY: undeploy
 undeploy:
 	- $(CLUSTER_CLIENT) delete recording --all
 	- $(CLUSTER_CLIENT) delete -f config/samples/rhjmc_v1beta1_containerjfr.yaml
-	- $(KUSTOMIZE) build config/default | $(CLUSTER_CLIENT) delete -f -
+	- $(KUSTOMIZE) build config/default | sed 's/container-jfr-operator-system/$(DEPLOY_NAMESPACE)/' | $(CLUSTER_CLIENT) delete -f -
 
 # Generate manifests e.g. CRD, RBAC etc.
 .PHONY: manifests
