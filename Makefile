@@ -87,28 +87,20 @@ uninstall: manifests kustomize
 # Deploy controller in the configured Kubernetes cluster in ~/.kube/config
 .PHONY: deploy
 deploy: manifests kustomize
-	$(CLUSTER_CLIENT) create -f config/rbac/role.yaml
-	$(CLUSTER_CLIENT) create -f config/rbac/role_binding.yaml
-	$(CLUSTER_CLIENT) create -f config/rbac/service_account.yaml
-	$(CLUSTER_CLIENT) create -f config/rbac/cluster_role.yaml
-	$(CLUSTER_CLIENT) create -f config/rbac/cluster_role_binding.yaml
 	pushd config/manager && $(KUSTOMIZE) edit set image controller=$(IMG) && popd
 	$(KUSTOMIZE) build config/default | $(CLUSTER_CLIENT) apply -f -
 
 # UnDeploy controller from the configured Kubernetes cluster in ~/.kube/config
 .PHONY: undeploy
 undeploy:
+	- $(CLUSTER_CLIENT) delete recording --all
+	- $(CLUSTER_CLIENT) delete -f config/samples/rhjmc_v1beta1_containerjfr.yaml
 	- $(KUSTOMIZE) build config/default | $(CLUSTER_CLIENT) delete -f -
-	- $(CLUSTER_CLIENT) delete -f config/rbac/role.yaml
-	- $(CLUSTER_CLIENT) delete -f config/rbac/role_binding.yaml
-	- $(CLUSTER_CLIENT) delete -f config/rbac/service_account.yaml
-	- $(CLUSTER_CLIENT) delete -f config/rbac/cluster_role.yaml
-	- $(CLUSTER_CLIENT) delete -f config/rbac/cluster_role_binding.yaml
 
 # Generate manifests e.g. CRD, RBAC etc.
 .PHONY: manifests
 manifests: controller-gen
-	$(CONTROLLER_GEN) $(CRD_OPTIONS) rbac:roleName=container-jfr-operator webhook paths="./..." output:crd:artifacts:config=config/crd/bases
+	$(CONTROLLER_GEN) $(CRD_OPTIONS) rbac:roleName=role webhook paths="./..." output:crd:artifacts:config=config/crd/bases
 
 # Run go fmt against code
 .PHONY: fmt

@@ -24,7 +24,7 @@ spec:
     spec:
       serviceAccountName: service-account
       securityContext:
-        runAsUser: 65532
+        runAsNonRoot: true
       containers:
       - command:
         - /manager
@@ -46,13 +46,6 @@ spec:
             port: 8081
           initialDelaySeconds: 5
           periodSeconds: 10
-        resources:
-          limits:
-            cpu: 100m
-            memory: 30Mi
-          requests:
-            cpu: 100m
-            memory: 20Mi
         env:
         - name: WATCH_NAMESPACE
           valueFrom:

@@ -1,5 +1,4 @@
 resources:
-- cluster_role.yaml
 - role.yaml
 - cluster_role_binding.yaml
 - role_binding.yaml

@@ -62,9 +62,11 @@ type EndpointsReconciler struct {
 	common.Reconciler
 }
 
-// +kubebuilder:rbac:groups=rhjmc.redhat.com,resources=endpoints,verbs=get;list;watch;create;update;patch;delete
-// +kubebuilder:rbac:groups=rhjmc.redhat.com,resources=endpoints/status,verbs=get;update;patch
-// +kubebuilder:rbac:groups=rhjmc.redhat.com,resources=endpoints/finalizers,verbs=update
+// +kubebuilder:rbac:namespace=system,groups="",resources=endpoints;services;pods;secrets,verbs=get;list;watch
+// +kubebuilder:rbac:namespace=system,groups=rhjmc.redhat.com,resources=flightrecorders,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:namespace=system,groups=rhjmc.redhat.com,resources=flightrecorders/status,verbs=get;update;patch
+
+// Reconcile processes an Endpoints and creates FlightRecorders when compatible
 func (r *EndpointsReconciler) Reconcile(ctx context.Context, request ctrl.Request) (ctrl.Result, error) {
 	reqLogger := r.Log.WithValues("Request.Namespace", request.Namespace, "Request.Name", request.Name)
 	reqLogger.Info("Reconciling Endpoints")
