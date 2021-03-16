@@ -139,10 +139,15 @@ required to prepare the cluster for deploying the operator, using `oc` or
 `kubectl` on whichever OpenShift cluster is configured with the local client.
 `make uninstall` destroys the CRDs and undoes the setup.
 
-`make deploy` will deploy the operator in the current namespace.
+`make deploy` will deploy the operator in the default namespace
+(`container-jfr-operator-system`). `make DEPLOY_NAMESPACE=foo-namespace deploy`
+can be used to deploy to an arbitrary namespace named `foo-namespace`. For
+a convenient shorthand, use `make DEPLOY_NAMESPACE=$(oc project -q) deploy` to
+deploy to the currently active OpenShift project namespace.
+`make undeploy` will likewise remove the operator, and also uses the
+`DEPLOY_NAMESPACE` variable.
 This also respects the `IMAGE_TAG` environment variable, so that different
 versions of the operator can be easily deployed.
-`make undeploy` will likewise remove the operator from the current namespace.
 
 `make run` can be used to run the operator controller manager as a process on
 your local development machine and observing/interacting with your cluster.
