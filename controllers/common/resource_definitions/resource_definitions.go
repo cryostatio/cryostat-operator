@@ -348,13 +348,6 @@ func NewCoreContainer(cr *rhjmcv1beta1.ContainerJFR, specs *ServiceSpecs, tls *T
 		livenessProbeScheme = corev1.URISchemeHTTPS
 	}
 	imageTag := "quay.io/rh-jmc-team/container-jfr:1.0.0-BETA5"
-	if cr.Spec.Minimal {
-		imageTag += "-minimal"
-		envs = append(envs, corev1.EnvVar{
-			Name:  "USE_LOW_MEM_PRESSURE_STREAMING",
-			Value: "true",
-		})
-	}
 	return corev1.Container{
 		Name:         cr.Name,
 		Image:        imageTag,
