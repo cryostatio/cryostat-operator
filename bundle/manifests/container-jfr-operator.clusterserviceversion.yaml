@@ -43,8 +43,8 @@ metadata:
             "name": "example-recording"
           },
           "spec": {
-            "archive": "true,",
-            "duration": "30s,",
+            "archive": true,
+            "duration": "30s",
             "eventOptions": [
               "template=ALL"
             ],

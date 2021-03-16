@@ -6,7 +6,7 @@ spec:
   name: example-recording
   flightRecorder:
     name: example-flightrecorder
-  archive: true,
-  duration: 30s,
+  archive: true
+  duration: 30s
   eventOptions:
     - "template=ALL"
