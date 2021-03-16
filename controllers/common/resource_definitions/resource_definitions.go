@@ -347,7 +347,7 @@ func NewCoreContainer(cr *rhjmcv1beta1.ContainerJFR, specs *ServiceSpecs, tls *T
 		// Use HTTPS for liveness probe
 		livenessProbeScheme = corev1.URISchemeHTTPS
 	}
-	imageTag := "quay.io/rh-jmc-team/container-jfr:1.0.0-BETA5"
+	imageTag := "quay.io/rh-jmc-team/container-jfr:1.0.0-BETA6"
 	if cr.Spec.Minimal {
 		imageTag += "-minimal"
 		envs = append(envs, corev1.EnvVar{
@@ -447,7 +447,7 @@ func NewGrafanaContainer(cr *rhjmcv1beta1.ContainerJFR, tls *TLSConfig) corev1.C
 	}
 	return corev1.Container{
 		Name:         cr.Name + "-grafana",
-		Image:        "quay.io/rh-jmc-team/container-jfr-grafana-dashboard:1.0.0-BETA2",
+		Image:        "quay.io/rh-jmc-team/container-jfr-grafana-dashboard:1.0.0-BETA3",
 		VolumeMounts: mounts,
 		Ports: []corev1.ContainerPort{
 			{
