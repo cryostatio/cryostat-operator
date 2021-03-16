@@ -581,13 +581,13 @@ func expectRecordingStatusUnchaged(controller *controllers.RecordingReconciler, 
 func expectRecordingFinalizerPresent(controller *controllers.RecordingReconciler, client client.Client) {
 	obj := reconcileRecordingAndGet(controller, client)
 	finalizers := obj.GetFinalizers()
-	Expect(finalizers).To(ContainElement("recording.finalizer.rhjmc.redhat.com"))
+	Expect(finalizers).To(ContainElement("rhjmc.redhat.com/recording.finalizer"))
 }
 
 func expectRecordingFinalizerAbsent(controller *controllers.RecordingReconciler, client client.Client) {
 	obj := reconcileRecordingAndGet(controller, client)
 	finalizers := obj.GetFinalizers()
-	Expect(finalizers).ToNot(ContainElement("recording.finalizer.rhjmc.redhat.com"))
+	Expect(finalizers).ToNot(ContainElement("rhjmc.redhat.com/recording.finalizer"))
 }
 
 func expectRecordingReconcileError(controller *controllers.RecordingReconciler) {

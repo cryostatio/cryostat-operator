@@ -76,7 +76,7 @@ type ContainerJFRReconciler struct {
 }
 
 // Name used for Finalizer that handles ContainerJFR deletion
-const cjfrFinalizer = "containerjfr.finalizer.rhjmc.redhat.com"
+const cjfrFinalizer = "rhjmc.redhat.com/containerjfr.finalizer"
 
 // +kubebuilder:rbac:namespace=system,groups="",resources=pods;services;services/finalizers;endpoints;persistentvolumeclaims;events;configmaps;secrets,verbs=*
 // +kubebuilder:rbac:namespace=system,groups=route.openshift.io,resources=routes;routes/custom-host,verbs=*

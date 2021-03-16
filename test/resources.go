@@ -324,7 +324,7 @@ func newRecording(duration time.Duration, currentState *rhjmcv1beta1.RecordingSt
 	if currentState != nil {
 		downloadUrl := "http://path/to/test-recording.jfr"
 		reportUrl := "http://path/to/test-recording.html"
-		finalizers = append(finalizers, "recording.finalizer.rhjmc.redhat.com")
+		finalizers = append(finalizers, "rhjmc.redhat.com/recording.finalizer")
 		status = rhjmcv1beta1.RecordingStatus{
 			State:       currentState,
 			StartTime:   metav1.Unix(0, 1597090030341*int64(time.Millisecond)),
