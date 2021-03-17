@@ -30,7 +30,7 @@ kubectl get secret ${CJFR_NAME}-jmx-auth -o jsonpath='{$.data.CONTAINER_JFR_RJMX
 # Building
 ## Requirements
 - `go` v1.15
-- [`operator-sdk`](https://github.com/operator-framework/operator-sdk) v1.4.2
+- [`operator-sdk`](https://github.com/operator-framework/operator-sdk) v1.5.0
 - [`cert-manager`](https://github.com/jetstack/cert-manager) v1.1.0 (Recommended)
 - `podman` or `docker`
 - `ginkgo` (Optional)
