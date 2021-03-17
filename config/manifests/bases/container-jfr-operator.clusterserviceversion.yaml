@@ -54,7 +54,7 @@ metadata:
     containerImage: quay.io/rh-jmc-team/container-jfr-operator:1.0.0-beta5
     createdAt: "2020-07-03 00:00:00"
     description: JVM monitoring and profiling tool
-    operators.operatorframework.io/builder: operator-sdk-v1.4.2
+    operators.operatorframework.io/builder: operator-sdk-v1.5.0
     operators.operatorframework.io/project_layout: go.kubebuilder.io/v3
     repository: github.com/rh-jmc-team/container-jfr-operator
     support: Red Hat
