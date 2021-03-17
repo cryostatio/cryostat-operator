@@ -382,7 +382,7 @@ var _ = Describe("ContainerjfrController", func() {
 				cr := &rhjmcv1beta1.ContainerJFR{}
 				err := client.Get(context.Background(), types.NamespacedName{Name: "containerjfr", Namespace: "default"}, cr)
 				Expect(err).ToNot(HaveOccurred())
-				Expect(cr.GetFinalizers()).To(ContainElement("containerjfr.finalizer.rhjmc.redhat.com"))
+				Expect(cr.GetFinalizers()).To(ContainElement("rhjmc.redhat.com/containerjfr.finalizer"))
 			})
 			Context("when deleted", func() {
 				JustBeforeEach(func() {
@@ -417,7 +417,7 @@ var _ = Describe("ContainerjfrController", func() {
 					cr := &rhjmcv1beta1.ContainerJFR{}
 					err := client.Get(context.Background(), types.NamespacedName{Name: "containerjfr", Namespace: "default"}, cr)
 					Expect(err).ToNot(HaveOccurred())
-					Expect(cr.GetFinalizers()).ToNot(ContainElement("containerjfr.finalizer.rhjmc.redhat.com"))
+					Expect(cr.GetFinalizers()).ToNot(ContainElement("rhjmc.redhat.com/containerjfr.finalizer"))
 				})
 			})
 		})

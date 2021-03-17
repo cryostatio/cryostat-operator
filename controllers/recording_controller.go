@@ -79,7 +79,7 @@ type RecordingReconciler struct {
 }
 
 // Name used for Finalizer that handles Container JFR recording deletion
-const recordingFinalizer = "recording.finalizer.rhjmc.redhat.com"
+const recordingFinalizer = "rhjmc.redhat.com/recording.finalizer"
 
 // +kubebuilder:rbac:namespace=system,groups="",resources=pods;services;secrets,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:namespace=system,groups=cert-manager.io,resources=issuers;certificates,verbs=create;get;list;update;watch
