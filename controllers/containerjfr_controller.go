@@ -300,17 +300,19 @@ func (r *ContainerJFRReconciler) Reconcile(ctx context.Context, request ctrl.Req
 		}
 	}
 	// OpenShift-specific
-	links, err := r.getConsoleLinks(instance)
-	if err != nil {
-		return reconcile.Result{}, err
-	}
-	if len(links) == 0 {
-		link := resources.NewConsoleLink(instance, serviceSpecs.CoreURL.String())
-		if err = r.Client.Create(context.Background(), link); err != nil {
-			reqLogger.Error(err, "Could not create ConsoleLink")
+	if r.IsOpenShift {
+		links, err := r.getConsoleLinks(instance)
+		if err != nil {
 			return reconcile.Result{}, err
 		}
-		reqLogger.Info("Created ConsoleLink", "linkName", link.Name)
+		if len(links) == 0 {
+			link := resources.NewConsoleLink(instance, serviceSpecs.CoreURL.String())
+			if err = r.Client.Create(context.Background(), link); err != nil {
+				reqLogger.Error(err, "Could not create ConsoleLink")
+				return reconcile.Result{}, err
+			}
+			reqLogger.Info("Created ConsoleLink", "linkName", link.Name)
+		}
 	}
 
 	reqLogger.Info("Skip reconcile: Deployment already exists", "Deployment.Namespace", deployment.Namespace, "Deployment.Name", deployment.Name)
@@ -367,6 +369,9 @@ func (r *ContainerJFRReconciler) createService(ctx context.Context, controller *
 				return "", err
 			}
 			if ingressConfig == nil {
+				return "", nil
+			}
+			if ingressConfig.IngressSpec == nil {
 				return "", nil
 			}
 			return r.createIngressForService(controller, svc, *exposePort, tlsConfig, ingressConfig)
