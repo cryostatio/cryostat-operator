@@ -82,6 +82,7 @@ var _ = Describe("ContainerjfrController", func() {
 		controller = &controllers.ContainerJFRReconciler{
 			Client:        client,
 			Scheme:        s,
+			IsOpenShift:   true,
 			Log:           logger,
 			ReconcilerTLS: test.NewTestReconcilerTLS(client, tls),
 		}
@@ -96,7 +97,7 @@ var _ = Describe("ContainerjfrController", func() {
 		tls = false
 	})
 
-	Describe("reconciling a request", func() {
+	Describe("reconciling a request in OpenShift", func() {
 		Context("succesfully creates required resources", func() {
 			BeforeEach(func() {
 				objs = []runtime.Object{

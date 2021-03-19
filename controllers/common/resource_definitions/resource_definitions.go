@@ -215,10 +215,6 @@ func NewPodForCR(cr *rhjmcv1beta1.ContainerJFR, specs *ServiceSpecs, tls *TLSCon
 func NewCoreContainer(cr *rhjmcv1beta1.ContainerJFR, specs *ServiceSpecs, tls *TLSConfig) corev1.Container {
 	envs := []corev1.EnvVar{
 		{
-			Name:  "CONTAINER_JFR_PLATFORM",
-			Value: "com.redhat.rhjmc.containerjfr.platform.internal.OpenShiftPlatformStrategy",
-		},
-		{
 			Name:  "CONTAINER_JFR_SSL_PROXIED",
 			Value: "true",
 		},

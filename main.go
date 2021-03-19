@@ -28,13 +28,16 @@ import (
 	certv1 "github.com/jetstack/cert-manager/pkg/apis/certmanager/v1"
 	consolev1 "github.com/openshift/api/console/v1"
 	routev1 "github.com/openshift/api/route/v1"
+	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
+	openshiftv1 "github.com/openshift/api/route/v1"
 	rhjmcv1beta1 "github.com/rh-jmc-team/container-jfr-operator/api/v1beta1"
 	"github.com/rh-jmc-team/container-jfr-operator/controllers"
 	"github.com/rh-jmc-team/container-jfr-operator/controllers/common"
@@ -96,10 +99,16 @@ func main() {
 		os.Exit(1)
 	}
 
+	openShift, err := isOpenShift(mgr)
+	if err != nil {
+		setupLog.Error(err, "unable to detect if environment is OpenShift")
+	}
+
 	if err = (&controllers.ContainerJFRReconciler{
-		Client: mgr.GetClient(),
-		Log:    ctrl.Log.WithName("controllers").WithName("ContainerJFR"),
-		Scheme: mgr.GetScheme(),
+		Client:      mgr.GetClient(),
+		Log:         ctrl.Log.WithName("controllers").WithName("ContainerJFR"),
+		Scheme:      mgr.GetScheme(),
+		IsOpenShift: openShift,
 		ReconcilerTLS: common.NewReconcilerTLS(&common.ReconcilerTLSConfig{
 			Client: mgr.GetClient(),
 		}),
@@ -170,4 +179,22 @@ func getWatchNamespace() (string, error) {
 		return "", fmt.Errorf("%s must be set", watchNamespaceEnvVar)
 	}
 	return ns, nil
+}
+
+func isOpenShift(mgr ctrl.Manager) (bool, error) {
+	// Look up RESTMapping for Route to check if the cluster is running OpenShift
+	mapper := mgr.GetRESTMapper()
+	_, err := mapper.RESTMapping(schema.GroupKind{
+		Group: openshiftv1.GroupVersion.Group,
+		Kind:  "Route",
+	}, openshiftv1.GroupVersion.Version)
+	if err != nil {
+		// No matches for Route GVK
+		if meta.IsNoMatchError(err) {
+			return false, nil
+		}
+		// Unexpected error occurred
+		return false, err
+	}
+	return true, nil
 }

@@ -43,6 +43,7 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
+	netv1 "k8s.io/api/networking/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -71,8 +72,9 @@ import (
 // ContainerJFRReconciler reconciles a ContainerJFR object
 type ContainerJFRReconciler struct {
 	client.Client
-	Log    logr.Logger
-	Scheme *runtime.Scheme
+	Log         logr.Logger
+	Scheme      *runtime.Scheme
+	IsOpenShift bool
 	common.ReconcilerTLS
 }
 
@@ -200,17 +202,33 @@ func (r *ContainerJFRReconciler) Reconcile(ctx context.Context, request ctrl.Req
 	} else {
 		// check for existing non-minimal resources and delete if found
 		svc := resources.NewGrafanaService(instance)
-		reqLogger.Info("Deleting existing non-minimal route", "route.Name", svc.Name)
-		route := &openshiftv1.Route{}
-		err = r.Client.Get(context.Background(), types.NamespacedName{Name: svc.Name, Namespace: svc.Namespace}, route)
-		if err != nil && !errors.IsNotFound(err) {
-			reqLogger.Info("Non-minimal route could not be retrieved", "route.Name", svc.Name)
-			return reconcile.Result{}, err
-		} else if err == nil {
-			err = r.Client.Delete(context.Background(), route)
+		if r.IsOpenShift {
+			reqLogger.Info("Deleting existing non-minimal route", "route.Name", svc.Name)
+			route := &openshiftv1.Route{}
+			err = r.Client.Get(context.Background(), types.NamespacedName{Name: svc.Name, Namespace: svc.Namespace}, route)
 			if err != nil && !errors.IsNotFound(err) {
-				reqLogger.Info("Could not delete non-minimal route", "route.Name", svc.Name)
+				reqLogger.Info("Non-minimal route could not be retrieved", "route.Name", svc.Name)
 				return reconcile.Result{}, err
+			} else if err == nil {
+				err = r.Client.Delete(context.Background(), route)
+				if err != nil && !errors.IsNotFound(err) {
+					reqLogger.Info("Could not delete non-minimal route", "route.Name", svc.Name)
+					return reconcile.Result{}, err
+				}
+			}
+		} else {
+			reqLogger.Info("Deleting existing non-minimal ingress", "ingress.Name", svc.Name)
+			ingress := &netv1.Ingress{}
+			err = r.Client.Get(context.Background(), types.NamespacedName{Name: svc.Name, Namespace: svc.Namespace}, ingress)
+			if err != nil && !errors.IsNotFound(err) {
+				reqLogger.Info("Non-minimal ingress could not be retrieved", "ingress.Name", svc.Name)
+				return reconcile.Result{}, err
+			} else if err == nil {
+				err = r.Client.Delete(context.Background(), ingress)
+				if err != nil && !errors.IsNotFound(err) {
+					reqLogger.Info("Could not delete non-minimal ingress", "ingress.Name", svc.Name)
+					return reconcile.Result{}, err
+				}
 			}
 		}
 
@@ -305,7 +323,10 @@ func (r *ContainerJFRReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		For(&rhjmcv1beta1.ContainerJFR{})
 
 	// Watch for changes to secondary resources and requeue the owner ContainerJFR
-	resources := []client.Object{&appsv1.Deployment{}, &corev1.Service{}, &corev1.Secret{}, &openshiftv1.Route{}, &corev1.PersistentVolumeClaim{}}
+	resources := []client.Object{&appsv1.Deployment{}, &corev1.Service{}, &corev1.Secret{}, &corev1.PersistentVolumeClaim{}}
+	if r.IsOpenShift {
+		resources = append(resources, &openshiftv1.Route{})
+	}
 	// TODO watch certificates and redeploy when renewed
 
 	for _, resource := range resources {
@@ -334,7 +355,34 @@ func (r *ContainerJFRReconciler) createService(ctx context.Context, controller *
 			InsecureEdgeTerminationPolicy: openshiftv1.InsecureEdgeTerminationPolicyRedirect,
 		}
 	}
-	return r.createRouteForService(controller, svc, *exposePort, tlsConfig)
+	if exposePort != nil {
+		if r.IsOpenShift {
+			return r.createRouteForService(controller, svc, *exposePort, tlsConfig)
+		} else {
+			if controller.Spec.IngressOptions == nil {
+				return "", nil
+			}
+			ingressConfig, err := getIngressCofig(controller, svc)
+			if err != nil {
+				return "", err
+			}
+			if ingressConfig == nil {
+				return "", nil
+			}
+			return r.createIngressForService(controller, svc, *exposePort, tlsConfig, ingressConfig)
+		}
+	}
+
+	if err := r.Client.Get(context.Background(), types.NamespacedName{Name: svc.Name, Namespace: svc.Namespace}, svc); err != nil {
+		return "", err
+	}
+	if svc.Spec.ClusterIP == "" {
+		return "", errors.NewInternalError(goerrors.New(fmt.Sprintf("Expected service %s to have ClusterIP, but got empty string", svc.Name)))
+	}
+	if len(svc.Spec.Ports) != 1 {
+		return "", errors.NewInternalError(goerrors.New(fmt.Sprintf("Expected service %s to have one Port, but got %d", svc.Name, len(svc.Spec.Ports))))
+	}
+	return fmt.Sprintf("%s:%d", svc.Spec.ClusterIP, svc.Spec.Ports[0].Port), nil
 }
 
 // ErrIngressNotReady is returned when Kubernetes has not yet exposed our services
@@ -386,6 +434,52 @@ func (r *ContainerJFRReconciler) createRouteForService(controller *rhjmcv1beta1.
 		Scheme: getProtocol(tlsConfig),
 		Host:   found.Status.Ingress[0].Host,
 	}, nil
+}
+
+func (r *ContainerJFRReconciler) createIngressForService(controller *rhjmcv1beta1.ContainerJFR, svc *corev1.Service, exposePort corev1.ServicePort,
+	tlsConfig *openshiftv1.TLSConfig, ingressConfig *rhjmcv1beta1.IngressConfiguration) (string, error) {
+	logger := log.WithValues("Request.Namespace", svc.Namespace, "Name", svc.Name, "Kind", fmt.Sprintf("%T", &netv1.Ingress{}))
+	/*
+		tls := netv1.IngressTLS{}
+		if tlsConfig.DestinationCACertificate != "" {
+			tls.SecretName = tlsConfig.CACertificate
+		}
+	*/
+	ingress := &netv1.Ingress{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:        svc.Name,
+			Namespace:   svc.Namespace,
+			Annotations: ingressConfig.Annotations,
+			Labels:      ingressConfig.Labels,
+		},
+		Spec: *ingressConfig.IngressSpec,
+	}
+	if err := controllerutil.SetControllerReference(controller, ingress, r.Scheme); err != nil {
+		return "", err
+	}
+
+	found := &netv1.Ingress{}
+	err := r.Client.Get(context.Background(), types.NamespacedName{Name: svc.Name, Namespace: svc.Namespace}, found)
+	if err != nil && errors.IsNotFound(err) {
+		logger.Info("Not found")
+		if err := r.Client.Create(context.Background(), ingress); err != nil {
+			logger.Error(err, "Could not be created")
+			return "", err
+		}
+		logger.Info("Created")
+		found = ingress
+	} else if err != nil {
+		logger.Error(err, "Could not be read")
+		return "", err
+	}
+
+	logger.Info("Ingress created", "Service.Status", fmt.Sprintf("%#v", found.Status))
+	host := ""
+	if ingressConfig.IngressSpec.Rules != nil && ingressConfig.IngressSpec.Rules[0].Host != "" {
+		host = ingressConfig.IngressSpec.Rules[0].Host
+	}
+
+	return host, nil
 }
 
 func (r *ContainerJFRReconciler) createObjectIfNotExists(ctx context.Context, ns types.NamespacedName, found client.Object, toCreate client.Object) error {
@@ -461,4 +555,16 @@ func requeueIfIngressNotReady(log logr.Logger, err error) (reconcile.Result, err
 		return reconcile.Result{RequeueAfter: 5 * time.Second}, nil
 	}
 	return reconcile.Result{}, err
+}
+
+func getIngressCofig(controller *rhjmcv1beta1.ContainerJFR, svc *corev1.Service) (*rhjmcv1beta1.IngressConfiguration, error) {
+	if svc.Name == controller.Name {
+		return controller.Spec.IngressOptions.ExporterConfig, nil
+	} else if svc.Name == controller.Name+"-command" {
+		return controller.Spec.IngressOptions.CommandConfig, nil
+	} else if svc.Name == controller.Name+"-grafana" {
+		return controller.Spec.IngressOptions.GrafanaConfig, nil
+	} else {
+		return nil, goerrors.New("Service name not recognized")
+	}
 }
