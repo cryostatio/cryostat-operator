@@ -181,6 +181,11 @@ bundle-build:
 
 .PHONY: deploy_bundle
 deploy_bundle: undeploy_bundle
+ifeq ($(shell kubectl api-versions | grep -c '^cert-manager.io/v1$$'), 0)
+ifneq ($(DISABLE_SERVICE_TLS), true)
+	$(error cert-manager is not installed, install using "make cert-manager" or disable TLS for services by setting DISABLE_SERVICE_TLS to true)
+endif
+endif
 	operator-sdk run bundle $(IMAGE_NAMESPACE)/$(OPERATOR_NAME)-bundle:$(IMAGE_VERSION)
 ifeq ($(DISABLE_SERVICE_TLS), true)
 	@echo "Disabling TLS for in-cluster communication between Services"
