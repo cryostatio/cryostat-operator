@@ -125,7 +125,7 @@ func (r *RecordingReconciler) Reconcile(ctx context.Context, request ctrl.Reques
 	// Obtain a client configured to communicate with Container JFR
 	cjfr, err := r.GetContainerJFRClient(ctx, request.Namespace, jfr.Spec.JMXCredentials)
 	if err != nil {
-		return requeueIfNotReady(err)
+		return requeueIfIngressNotReady(err)
 	}
 
 	// Look up pod corresponding to this FlightRecorder object
@@ -400,7 +400,7 @@ func (r *RecordingReconciler) deleteWithoutLiveTarget(ctx context.Context, recor
 	// Obtain a client configured to communicate with Container JFR without JMX credentials
 	cjfr, err := r.GetContainerJFRClient(ctx, recording.Namespace, nil)
 	if err != nil {
-		return requeueIfNotReady(err)
+		return requeueIfIngressNotReady(err)
 	}
 
 	// Delete any persisted JFR file for this recording

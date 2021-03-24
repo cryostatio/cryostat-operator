@@ -39,7 +39,7 @@ endif
 GINKGO ?= $(shell go env GOPATH)/bin/ginkgo
 GO_TEST ?= go test
 ifneq ("$(wildcard $(GINKGO))","")
-GO_TEST="$(GINKGO)"
+GO_TEST="$(GINKGO)" -cover -outputdir=.
 endif
 
 all: manager
