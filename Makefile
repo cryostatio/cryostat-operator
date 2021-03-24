@@ -81,18 +81,25 @@ install: manifests kustomize
 uninstall: manifests kustomize
 	- $(KUSTOMIZE) build config/crd | $(CLUSTER_CLIENT) delete -f -
 
+.PHONY: predeploy
+predeploy:
+	cd config/manager && $(KUSTOMIZE) edit set image controller=$(IMG)
+	cd config/default && $(KUSTOMIZE) edit set namespace $(DEPLOY_NAMESPACE)
+
+.PHONY: print_deploy_config
+print_deploy_config: predeploy
+	$(KUSTOMIZE) build config/default
+
 # Deploy controller in the configured Kubernetes cluster in ~/.kube/config
 .PHONY: deploy
-deploy: manifests kustomize
-	pushd config/manager && $(KUSTOMIZE) edit set image controller=$(IMG) && popd
-	$(KUSTOMIZE) build config/default | sed 's/container-jfr-operator-system/$(DEPLOY_NAMESPACE)/' | $(CLUSTER_CLIENT) apply -f -
+deploy: manifests kustomize predeploy
+	$(KUSTOMIZE) build config/default | $(CLUSTER_CLIENT) apply -f -
 
 # UnDeploy controller from the configured Kubernetes cluster in ~/.kube/config
 .PHONY: undeploy
-undeploy:
+undeploy: destroy_containerjfr_cr
 	- $(CLUSTER_CLIENT) delete recording --all
-	- $(CLUSTER_CLIENT) delete -f config/samples/rhjmc_v1beta1_containerjfr.yaml
-	- $(KUSTOMIZE) build config/default | sed 's/container-jfr-operator-system/$(DEPLOY_NAMESPACE)/' | $(CLUSTER_CLIENT) delete -f -
+	- $(KUSTOMIZE) build config/default | $(CLUSTER_CLIENT) delete -f -
 
 # Generate manifests e.g. CRD, RBAC etc.
 .PHONY: manifests
