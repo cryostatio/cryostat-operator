@@ -38,7 +38,6 @@ package controllers_test
 
 import (
 	"context"
-	"net/url"
 	"time"
 
 	certv1 "github.com/jetstack/cert-manager/pkg/apis/certmanager/v1"
@@ -466,27 +465,6 @@ func newFakeSecret(name string) *corev1.Secret {
 	}
 }
 
-func newFakeServiceSpecs(minimal bool) resource_definitions.ServiceSpecs {
-	protocol := "https"
-	var grafanaUrl *url.URL
-	if !minimal {
-		grafanaUrl = &url.URL{Scheme: protocol, Host: "containerjfr-grafana.example.com"}
-	}
-	return resource_definitions.ServiceSpecs{
-		CoreURL:    &url.URL{Scheme: protocol, Host: "containerjfr.example.com"},
-		CommandURL: &url.URL{Scheme: protocol, Host: "containerjfr-command.example.com"},
-		GrafanaURL: grafanaUrl,
-	}
-}
-
-func newFakeTLSConfig() *resource_definitions.TLSConfig {
-	return &resource_definitions.TLSConfig{
-		ContainerJFRSecret: "containerjfr-tls",
-		GrafanaSecret:      "containerjfr-grafana-tls",
-		KeystorePassSecret: "containerjfr-keystore",
-	}
-}
-
 func makeCertificatesReady(client ctrlclient.Client) {
 	certNames := []string{"containerjfr", "containerjfr-ca", "containerjfr-grafana"}
 	for _, certName := range certNames {
@@ -720,40 +698,50 @@ func checkDeployment(client ctrlclient.Client, minimal bool, tls bool) {
 	err := client.Get(context.Background(), types.NamespacedName{Name: "containerjfr", Namespace: "default"}, deployment)
 	Expect(err).ToNot(HaveOccurred())
 
-	testSpecs := newFakeServiceSpecs(minimal)
-	var testTLSConfig *resource_definitions.TLSConfig
-	if tls {
-		testTLSConfig = newFakeTLSConfig()
-	}
 	cr := &rhjmcv1beta1.ContainerJFR{}
-	if minimal {
-		cr = test.NewMinimalContainerJFR()
-	} else {
-		cr = test.NewContainerJFR()
-	}
-	expectedDeployment := resource_definitions.NewDeploymentForCR(cr, &testSpecs, testTLSConfig)
-	checkMetadata(deployment, expectedDeployment)
-	Expect(deployment.Spec.Selector).To(Equal(expectedDeployment.Spec.Selector))
+	err = client.Get(context.Background(), types.NamespacedName{Name: "containerjfr", Namespace: "default"}, cr)
+	Expect(err).ToNot(HaveOccurred())
+
+	Expect(deployment.Name).To(Equal("containerjfr"))
+	Expect(deployment.Namespace).To(Equal("default"))
+	Expect(deployment.Annotations).To(Equal(map[string]string{
+		"redhat.com/containerJfrUrl":   "https://containerjfr.example.com",
+		"app.openshift.io/connects-to": "container-jfr-operator",
+	}))
+	Expect(deployment.Labels).To(Equal(map[string]string{
+		"app":                    "containerjfr",
+		"kind":                   "containerjfr",
+		"app.kubernetes.io/name": "container-jfr",
+	}))
+	Expect(metav1.IsControlledBy(deployment, cr)).To(BeTrue())
+	Expect(deployment.Spec.Selector).To(Equal(test.NewDeploymentSelector()))
+
+	// compare Pod template
+	template := deployment.Spec.Template
+	Expect(template.Name).To(Equal("containerjfr"))
+	Expect(template.Namespace).To(Equal("default"))
+	Expect(template.Annotations).To(Equal(map[string]string{
+		"redhat.com/containerJfrUrl": "https://containerjfr.example.com",
+	}))
+	Expect(template.Labels).To(Equal(map[string]string{
+		"app":  "containerjfr",
+		"kind": "containerjfr",
+	}))
+	Expect(template.Spec.Volumes).To(Equal(test.NewVolumes(minimal, tls)))
 
 	// Check that the networking environment variables are set correctly
-	coreContainer := deployment.Spec.Template.Spec.Containers[0]
+	coreContainer := template.Spec.Containers[0]
 	checkCoreContainer(&coreContainer, minimal, tls)
 
 	if !minimal {
 		// Check that Grafana is configured properly, depending on the environment
-		grafanaContainer := deployment.Spec.Template.Spec.Containers[1]
+		grafanaContainer := template.Spec.Containers[1]
 		checkGrafanaContainer(&grafanaContainer, tls)
 
 		// Check that JFR Datasource is configured properly
-		datasourceContainer := deployment.Spec.Template.Spec.Containers[2]
+		datasourceContainer := template.Spec.Containers[2]
 		checkDatasourceContainer(&datasourceContainer)
 	}
-
-	// compare Pod template
-	template := deployment.Spec.Template
-	expectedTemplate := expectedDeployment.Spec.Template
-	Expect(template.ObjectMeta).To(Equal(expectedTemplate.ObjectMeta))
-	Expect(template.Spec.Volumes).To(Equal(test.NewVolumes(minimal, tls)))
 }
 
 func checkCoreContainer(container *corev1.Container, minimal bool, tls bool) {

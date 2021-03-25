@@ -94,6 +94,9 @@ print_deploy_config: predeploy
 .PHONY: deploy
 deploy: manifests kustomize predeploy
 	$(KUSTOMIZE) build config/default | $(CLUSTER_CLIENT) apply -f -
+ifeq ($(DISABLE_SERVICE_TLS), true)
+	$(CLUSTER_CLIENT) -n $(DEPLOY_NAMESPACE) set env deployment/container-jfr-operator-controller-manager DISABLE_SERVICE_TLS=true
+endif
 
 # UnDeploy controller from the configured Kubernetes cluster in ~/.kube/config
 .PHONY: undeploy
@@ -178,6 +181,9 @@ bundle-build:
 .PHONY: deploy_bundle
 deploy_bundle: undeploy_bundle
 	operator-sdk run bundle $(IMAGE_NAMESPACE)/$(OPERATOR_NAME)-bundle:$(IMAGE_VERSION)
+ifeq ($(DISABLE_SERVICE_TLS), true)
+	$(CLUSTER_CLIENT) set env deployment/container-jfr-operator-controller-manager DISABLE_SERVICE_TLS=true
+endif
 
 .PHONY: undeploy_bundle
 undeploy_bundle:

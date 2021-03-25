@@ -39,9 +39,7 @@ package controllers
 import (
 	"context"
 	"fmt"
-	"net"
 	"net/url"
-	"strconv"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -185,7 +183,7 @@ func (r *ContainerJFRReconciler) Reconcile(ctx context.Context, request ctrl.Req
 		grafanaSvc := resources.NewGrafanaService(instance)
 		url, err := r.createService(context.Background(), instance, grafanaSvc, &grafanaSvc.Spec.Ports[0], routeTLS)
 		if err != nil {
-			return requeueIfIngressNotReady(err)
+			return requeueIfIngressNotReady(reqLogger, err)
 		}
 		serviceSpecs.GrafanaURL = url
 
@@ -241,14 +239,14 @@ func (r *ContainerJFRReconciler) Reconcile(ctx context.Context, request ctrl.Req
 	exporterSvc := resources.NewExporterService(instance)
 	url, err := r.createService(context.Background(), instance, exporterSvc, &exporterSvc.Spec.Ports[0], routeTLS)
 	if err != nil {
-		return requeueIfIngressNotReady(err)
+		return requeueIfIngressNotReady(reqLogger, err)
 	}
 	serviceSpecs.CoreURL = url
 
 	cmdChanSvc := resources.NewCommandChannelService(instance)
 	url, err = r.createService(context.Background(), instance, cmdChanSvc, &cmdChanSvc.Spec.Ports[0], routeTLS)
 	if err != nil {
-		return requeueIfIngressNotReady(err)
+		return requeueIfIngressNotReady(reqLogger, err)
 	}
 	serviceSpecs.CommandURL = url
 
@@ -330,25 +328,7 @@ func (r *ContainerJFRReconciler) createService(ctx context.Context, controller *
 			InsecureEdgeTerminationPolicy: openshiftv1.InsecureEdgeTerminationPolicyRedirect,
 		}
 	}
-	if exposePort != nil {
-		return r.createRouteForService(controller, svc, *exposePort, tlsConfig)
-	}
-
-	if err := r.Client.Get(context.Background(), types.NamespacedName{Name: svc.Name, Namespace: svc.Namespace}, svc); err != nil {
-		return nil, err
-	}
-	if svc.Spec.ClusterIP == "" {
-		return nil, errors.NewInternalError(goerrors.New(fmt.Sprintf("Expected service %s to have ClusterIP, but got empty string", svc.Name)))
-	}
-	if len(svc.Spec.Ports) != 1 {
-		return nil, errors.NewInternalError(goerrors.New(fmt.Sprintf("Expected service %s to have one Port, but got %d", svc.Name, len(svc.Spec.Ports))))
-	}
-	// TODO can we repurpose this for exposing services on k8s where Status.LoadBalancer.IP is filled in?
-	// https://kubernetes.io/docs/concepts/services-networking/service/#loadbalancer
-	return &url.URL{
-		Scheme: getProtocol(tlsConfig),
-		Host:   net.JoinHostPort(svc.Spec.ClusterIP, strconv.Itoa(int(svc.Spec.Ports[0].Port))),
-	}, nil
+	return r.createRouteForService(controller, svc, *exposePort, tlsConfig)
 }
 
 // ErrIngressNotReady is returned when Kubernetes has not yet exposed our services
@@ -476,7 +456,7 @@ func getPort(tlsConfig *openshiftv1.TLSConfig) string {
 	return "443"
 }
 
-func requeueIfIngressNotReady(err error) (reconcile.Result, error) {
+func requeueIfIngressNotReady(log logr.Logger, err error) (reconcile.Result, error) {
 	if err == ErrIngressNotReady {
 		log.Info(err.Error())
 		return reconcile.Result{RequeueAfter: 5 * time.Second}, nil

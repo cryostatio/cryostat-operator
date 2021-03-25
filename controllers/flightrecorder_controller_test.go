@@ -284,6 +284,18 @@ var _ = Describe("FlightRecorderController", func() {
 				expectFlightRecorderReconcileError(controller)
 			})
 		})
+		Context("successfully updates FlightRecorder CR with TLS disabled", func() {
+			BeforeEach(func() {
+				handlers = []http.HandlerFunc{
+					test.NewListEventTypesHandler(),
+					test.NewListTemplatesHandler(),
+				}
+				tls = false
+			})
+			It("should update event type list", func() {
+				expectFlightRecorderReconcileSuccess(controller, client)
+			})
+		})
 	})
 })
 

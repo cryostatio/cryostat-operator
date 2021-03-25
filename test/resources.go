@@ -934,6 +934,15 @@ func NewDatasourceLivenessProbe() *corev1.Probe {
 	}
 }
 
+func NewDeploymentSelector() *metav1.LabelSelector {
+	return &metav1.LabelSelector{
+		MatchLabels: map[string]string{
+			"app":  "containerjfr",
+			"kind": "containerjfr",
+		},
+	}
+}
+
 func NewVolumes(minimal bool, tls bool) []corev1.Volume {
 	volumes := []corev1.Volume{
 		{

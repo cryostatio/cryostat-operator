@@ -8,7 +8,7 @@ API to manage [JDK Flight Recordings](https://openjdk.java.net/jeps/328).
 Once deployed, the `containerjfr` instance can be accessed via web browser
 at the URL provided by:
 ```
-kubectl get pod -l kind=containerjfr -o jsonpath='https://{$.items[0].metadata.annotations.redhat\.com/containerJfrUrl} '
+kubectl get pod -l kind=containerjfr -o jsonpath='{$.items[0].metadata.annotations.redhat\.com/containerJfrUrl}'
 ```
 The Grafana credentials can be obtained with:
 ```shell
