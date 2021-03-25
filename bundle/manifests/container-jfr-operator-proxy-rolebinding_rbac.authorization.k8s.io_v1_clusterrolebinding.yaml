@@ -9,5 +9,5 @@ roleRef:
   name: container-jfr-operator-proxy-role
 subjects:
 - kind: ServiceAccount
-  name: default
-  namespace: container-jfr-operator-system
+  name: service-account
+  namespace: system
