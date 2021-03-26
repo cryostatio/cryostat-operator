@@ -449,13 +449,6 @@ func getProtocol(tlsConfig *openshiftv1.TLSConfig) string {
 	return "https"
 }
 
-func getPort(tlsConfig *openshiftv1.TLSConfig) string {
-	if tlsConfig == nil {
-		return "80"
-	}
-	return "443"
-}
-
 func requeueIfIngressNotReady(log logr.Logger, err error) (reconcile.Result, error) {
 	if err == ErrIngressNotReady {
 		log.Info(err.Error())
