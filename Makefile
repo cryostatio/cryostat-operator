@@ -97,8 +97,9 @@ deploy: manifests kustomize predeploy
 
 # UnDeploy controller from the configured Kubernetes cluster in ~/.kube/config
 .PHONY: undeploy
-undeploy: destroy_containerjfr_cr
+undeploy:
 	- $(CLUSTER_CLIENT) delete recording --all
+	- $(CLUSTER_CLIENT) delete -f config/samples/rhjmc_v1beta1_containerjfr.yaml
 	- $(KUSTOMIZE) build config/default | $(CLUSTER_CLIENT) delete -f -
 
 # Generate manifests e.g. CRD, RBAC etc.
