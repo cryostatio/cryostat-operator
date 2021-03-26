@@ -52,7 +52,7 @@ test: test-envtest test-scorecard
 ENVTEST_ASSETS_DIR=$(shell pwd)/testbin
 test-envtest: generate fmt vet manifests
 	mkdir -p $(ENVTEST_ASSETS_DIR)
-	test -f $(ENVTEST_ASSETS_DIR)/setup-envtest.sh || curl -sSLo $(ENVTEST_ASSETS_DIR)/setup-envtest.sh https://raw.githubusercontent.com/kubernetes-sigs/controller-runtime/v0.7.0/hack/setup-envtest.sh
+	test -f $(ENVTEST_ASSETS_DIR)/setup-envtest.sh || curl -sSLo $(ENVTEST_ASSETS_DIR)/setup-envtest.sh https://raw.githubusercontent.com/kubernetes-sigs/controller-runtime/v0.7.2/hack/setup-envtest.sh
 	source $(ENVTEST_ASSETS_DIR)/setup-envtest.sh; fetch_envtest_tools $(ENVTEST_ASSETS_DIR); setup_envtest_env $(ENVTEST_ASSETS_DIR); $(GO_TEST) -v ./... -coverprofile cover.out
 
 .PHONY: test-scorecard
@@ -81,18 +81,26 @@ install: manifests kustomize
 uninstall: manifests kustomize
 	- $(KUSTOMIZE) build config/crd | $(CLUSTER_CLIENT) delete -f -
 
+.PHONY: predeploy
+predeploy:
+	cd config/manager && $(KUSTOMIZE) edit set image controller=$(IMG)
+	cd config/default && $(KUSTOMIZE) edit set namespace $(DEPLOY_NAMESPACE)
+
+.PHONY: print_deploy_config
+print_deploy_config: predeploy
+	$(KUSTOMIZE) build config/default
+
 # Deploy controller in the configured Kubernetes cluster in ~/.kube/config
 .PHONY: deploy
-deploy: manifests kustomize
-	pushd config/manager && $(KUSTOMIZE) edit set image controller=$(IMG) && popd
-	$(KUSTOMIZE) build config/default | sed 's/container-jfr-operator-system/$(DEPLOY_NAMESPACE)/' | $(CLUSTER_CLIENT) apply -f -
+deploy: manifests kustomize predeploy
+	$(KUSTOMIZE) build config/default | $(CLUSTER_CLIENT) apply -f -
 
 # UnDeploy controller from the configured Kubernetes cluster in ~/.kube/config
 .PHONY: undeploy
 undeploy:
 	- $(CLUSTER_CLIENT) delete recording --all
 	- $(CLUSTER_CLIENT) delete -f config/samples/rhjmc_v1beta1_containerjfr.yaml
-	- $(KUSTOMIZE) build config/default | sed 's/container-jfr-operator-system/$(DEPLOY_NAMESPACE)/' | $(CLUSTER_CLIENT) delete -f -
+	- $(KUSTOMIZE) build config/default | $(CLUSTER_CLIENT) delete -f -
 
 # Generate manifests e.g. CRD, RBAC etc.
 .PHONY: manifests

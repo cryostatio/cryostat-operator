@@ -3,19 +3,34 @@ layout: go.kubebuilder.io/v3
 projectName: container-jfr-operator
 repo: github.com/rh-jmc-team/container-jfr-operator
 resources:
-- crdVersion: v1
+- api:
+    crdVersion: v1
+    namespaced: true
+  controller: true
+  domain: redhat.com
   group: rhjmc
   kind: ContainerJFR
+  path: github.com/rh-jmc-team/container-jfr-operator/api/v1beta1
   version: v1beta1
-- crdVersion: v1
+- api:
+    crdVersion: v1
+    namespaced: true
+  controller: true
+  domain: redhat.com
   group: rhjmc
   kind: FlightRecorder
+  path: github.com/rh-jmc-team/container-jfr-operator/api/v1beta1
   version: v1beta1
-- crdVersion: v1
+- api:
+    crdVersion: v1
+    namespaced: true
+  controller: true
+  domain: redhat.com
   group: rhjmc
   kind: Recording
+  path: github.com/rh-jmc-team/container-jfr-operator/api/v1beta1
   version: v1beta1
-version: 3-alpha
+version: "3"
 plugins:
   manifests.sdk.operatorframework.io/v2: {}
   scorecard.sdk.operatorframework.io/v2: {}

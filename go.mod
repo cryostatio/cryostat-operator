@@ -12,7 +12,7 @@ require (
 	k8s.io/api v0.19.2
 	k8s.io/apimachinery v0.19.2
 	k8s.io/client-go v0.19.2
-	sigs.k8s.io/controller-runtime v0.7.0
+	sigs.k8s.io/controller-runtime v0.7.2
 )
 
 replace github.com/openshift/api => github.com/openshift/api v0.0.0-20200618202633-7192180f496a
