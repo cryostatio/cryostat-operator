@@ -142,11 +142,12 @@ remove_cert_manager:
 
 .PHONY: check_cert_manager
 check_cert_manager:
-ifeq ($(shell kubectl api-versions | grep -c '^cert-manager.io/v1$$'), 0)
-ifneq ($(DISABLE_SERVICE_TLS), true)
-	$(error cert-manager is not installed, install using "make cert_manager" or disable TLS for services by setting DISABLE_SERVICE_TLS to true)
-endif
-endif
+       @api_versions=$$(kubectl api-versions) &&\
+       if [ $$(echo "$${api_versions}" | grep -c '^cert-manager.io/v1$$') -eq 0 ]; then if [ "$${DISABLE_SERVICE_TLS}" != "true" ]; then\
+                       echo 'cert-manager is not installed, install using "make cert_manager" or disable TLS for services by setting DISABLE_SERVICE_TLS to true' >&2\
+                       && exit 1;\
+               fi;\
+       fi
 
 # Download controller-gen locally if necessary
 CONTROLLER_GEN = $(shell pwd)/bin/controller-gen
