@@ -95,7 +95,8 @@ print_deploy_config: predeploy
 deploy: manifests kustomize predeploy
 	$(KUSTOMIZE) build config/default | $(CLUSTER_CLIENT) apply -f -
 ifeq ($(DISABLE_SERVICE_TLS), true)
-	$(CLUSTER_CLIENT) -n $(DEPLOY_NAMESPACE) set env deployment/container-jfr-operator-controller-manager DISABLE_SERVICE_TLS=true
+	@echo "Disabling TLS for in-cluster communication between Services"
+	@$(CLUSTER_CLIENT) -n $(DEPLOY_NAMESPACE) set env deployment/container-jfr-operator-controller-manager DISABLE_SERVICE_TLS=true
 endif
 
 # UnDeploy controller from the configured Kubernetes cluster in ~/.kube/config
@@ -182,7 +183,18 @@ bundle-build:
 deploy_bundle: undeploy_bundle
 	operator-sdk run bundle $(IMAGE_NAMESPACE)/$(OPERATOR_NAME)-bundle:$(IMAGE_VERSION)
 ifeq ($(DISABLE_SERVICE_TLS), true)
-	$(CLUSTER_CLIENT) set env deployment/container-jfr-operator-controller-manager DISABLE_SERVICE_TLS=true
+	@echo "Disabling TLS for in-cluster communication between Services"
+	@current_ns=`$(CLUSTER_CLIENT) config view --minify -o 'jsonpath={.contexts[0].context.namespace}'` && \
+	if [ -z "$${current_ns}" ]; then \
+		echo "Failed to determine Namespace in current context" >&2; \
+		exit 1; \
+	fi; \
+	set -f -- `$(CLUSTER_CLIENT) get sub -l "operators.coreos.com/$(OPERATOR_NAME).$${current_ns}" -o name` && \
+	if [ "$${#}" -ne 1 ]; then \
+		echo -e "Expected 1 Subscription, found $${#}:\n$${@}" >&2; \
+		exit 1; \
+	fi; \
+	$(CLUSTER_CLIENT) -n $(DEPLOY_NAMESPACE) patch --type=merge -p '{"spec":{"config":{"env":[{"name":"DISABLE_SERVICE_TLS","value":"true"}]}}}' "$${1}"
 endif
 
 .PHONY: undeploy_bundle
