@@ -91,6 +91,12 @@ rules:
   - create
   - get
 - apiGroups:
+  - networking.k8s.io
+  resources:
+  - ingresses
+  verbs:
+  - '*'
+- apiGroups:
   - rhjmc.redhat.com
   resources:
   - containerjfrs

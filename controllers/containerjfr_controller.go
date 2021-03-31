@@ -90,6 +90,7 @@ const cjfrFinalizer = "rhjmc.redhat.com/containerjfr.finalizer"
 // +kubebuilder:rbac:namespace=system,groups=rhjmc.redhat.com,resources=containerjfrs/status,verbs=get;update;patch
 // +kubebuilder:rbac:namespace=system,groups=rhjmc.redhat.com,resources=containerjfrs/finalizers,verbs=update
 // +kubebuilder:rbac:groups=console.openshift.io,resources=consolelinks,verbs=get;create;list;update;delete
+// +kubebuilder:rbac:namespace=system,groups=networking.k8s.io,resources=ingresses,verbs=*
 
 // Reconcile processes a ContainerJFR CR and manages a Container JFR installation accordingly
 func (r *ContainerJFRReconciler) Reconcile(ctx context.Context, request ctrl.Request) (ctrl.Result, error) {
@@ -116,7 +117,13 @@ func (r *ContainerJFRReconciler) Reconcile(ctx context.Context, request ctrl.Req
 	// Check if this Recording is being deleted
 	if instance.GetDeletionTimestamp() != nil {
 		if controllerutil.ContainsFinalizer(instance, cjfrFinalizer) {
-			return r.deleteConsoleLinks(context.Background(), instance)
+			if r.IsOpenShift {
+				r.deleteConsoleLinks(context.Background(), instance)
+			}
+			err = common.RemoveFinalizer(ctx, r.Client, instance, cjfrFinalizer)
+			if err != nil {
+				return reconcile.Result{}, err
+			}
 		}
 		// Ready for deletion
 		return reconcile.Result{}, nil
@@ -522,11 +529,11 @@ func (r *ContainerJFRReconciler) getConsoleLinks(cr *rhjmcv1beta1.ContainerJFR) 
 	return links.Items, nil
 }
 
-func (r *ContainerJFRReconciler) deleteConsoleLinks(ctx context.Context, cr *rhjmcv1beta1.ContainerJFR) (reconcile.Result, error) {
+func (r *ContainerJFRReconciler) deleteConsoleLinks(ctx context.Context, cr *rhjmcv1beta1.ContainerJFR) error {
 	reqLogger := r.Log.WithValues("Request.Namespace", cr.Namespace, "Request.Name", cr.Name)
 	links, err := r.getConsoleLinks(cr)
 	if err != nil {
-		return reconcile.Result{}, err
+		return err
 	}
 
 	// Should just be one, but use loop just in case
@@ -534,17 +541,11 @@ func (r *ContainerJFRReconciler) deleteConsoleLinks(ctx context.Context, cr *rhj
 		err := r.Client.Delete(ctx, &link)
 		if err != nil {
 			reqLogger.Error(err, "failed to delete ConsoleLink", "linkName", link.Name)
-			return reconcile.Result{}, err
+			return err
 		}
 		reqLogger.Info("deleted ConsoleLink", "linkName", link.Name)
 	}
-
-	// Remove finalizer upon success
-	err = common.RemoveFinalizer(ctx, r.Client, cr, cjfrFinalizer)
-	if err != nil {
-		return reconcile.Result{}, err
-	}
-	return reconcile.Result{}, nil
+	return nil
 }
 
 func getProtocol(tlsConfig *openshiftv1.TLSConfig) string {
