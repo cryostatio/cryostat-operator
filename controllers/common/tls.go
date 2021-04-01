@@ -56,6 +56,7 @@ type ReconcilerTLS interface {
 	IsCertManagerEnabled() bool
 	GetContainerJFRCABytes(ctx context.Context, cjfr *rhjmcv1beta1.ContainerJFR) ([]byte, error)
 	GetCertificateSecret(ctx context.Context, name string, namespace string) (*corev1.Secret, error)
+	OSUtils
 }
 
 // ReconcilerTLSConfig contains parameters used to create a ReconcilerTLS
@@ -65,7 +66,7 @@ type ReconcilerTLSConfig struct {
 	Client client.Client
 	// Optional field to override the default behaviour when interacting
 	// with the operating system
-	OS OSUtils
+	OSUtils
 }
 
 type reconcilerTLS struct {
@@ -81,8 +82,8 @@ const disableServiceTLS = "DISABLE_SERVICE_TLS"
 // NewReconcilerTLS creates a new ReconcilerTLS using the provided configuration
 func NewReconcilerTLS(config *ReconcilerTLSConfig) ReconcilerTLS {
 	configCopy := *config
-	if config.OS == nil {
-		configCopy.OS = &defaultOSUtils{}
+	if config.OSUtils == nil {
+		configCopy.OSUtils = &defaultOSUtils{}
 	}
 	return &reconcilerTLS{
 		ReconcilerTLSConfig: &configCopy,
@@ -96,7 +97,7 @@ func (r *reconcilerTLS) IsCertManagerEnabled() bool {
 	// somehow, with "CA injection"?
 
 	// Check if the user has explicitly requested cert-manager to be disabled
-	return strings.ToLower(r.OS.GetEnv(disableServiceTLS)) != "true"
+	return strings.ToLower(r.GetEnv(disableServiceTLS)) != "true"
 }
 
 // ErrCertNotReady is returned when cert-manager has not marked the certificate

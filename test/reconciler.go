@@ -47,18 +47,27 @@ import (
 	"github.com/rh-jmc-team/container-jfr-operator/controllers/common"
 )
 
+// TestReconcilerConfig groups parameters used to create a test Reconciler
+type TestReconcilerConfig struct {
+	Server             *ContainerJFRServer
+	Client             client.Client
+	DisableTLS         *bool
+	CoreImageTag       *string
+	DatasourceImageTag *string
+	GrafanaImageTag    *string
+}
+
 // NewTestReconciler returns a common.Reconciler for use by unit tests
-func NewTestReconciler(server *ContainerJFRServer, client client.Client, tls bool) common.Reconciler {
+func NewTestReconciler(config *TestReconcilerConfig) common.Reconciler {
 	return common.NewReconciler(&common.ReconcilerConfig{
-		Client:        client,
-		ClientFactory: &testClientFactory{serverURL: server.impl.URL(), tls: tls},
-		OS:            &testOSUtils{disableTLS: !tls},
+		Client:        config.Client,
+		ClientFactory: &testClientFactory{config},
+		OS:            newTestOSUtils(config),
 	})
 }
 
 type testClientFactory struct {
-	serverURL string
-	tls       bool
+	*TestReconcilerConfig
 }
 
 func NewTestReconcilerNoServer(client client.Client) common.Reconciler {
@@ -69,23 +78,23 @@ func NewTestReconcilerNoServer(client client.Client) common.Reconciler {
 	})
 }
 
-func NewTestReconcilerTLS(client client.Client, tls bool) common.ReconcilerTLS {
+func NewTestReconcilerTLS(config *TestReconcilerConfig) common.ReconcilerTLS {
 	return common.NewReconcilerTLS(&common.ReconcilerTLSConfig{
-		Client: client,
-		OS:     &testOSUtils{disableTLS: !tls},
+		Client:  config.Client,
+		OSUtils: newTestOSUtils(config),
 	})
 }
 
 func (c *testClientFactory) CreateClient(config *jfrclient.Config) (jfrclient.ContainerJfrClient, error) {
 	protocol := "https"
-	if !c.tls {
+	if c.DisableTLS != nil && *c.DisableTLS {
 		protocol = "http"
 	}
 	// Verify the provided server URL before substituting it
 	gomega.Expect(config.ServerURL.String()).To(gomega.Equal(protocol + "://containerjfr.default.svc:8181/"))
 
 	// Replace server URL with one to httptest server
-	url, err := url.Parse(c.serverURL)
+	url, err := url.Parse(c.Server.impl.URL())
 	gomega.Expect(err).ToNot(gomega.HaveOccurred())
 	config.ServerURL = url
 
@@ -93,7 +102,24 @@ func (c *testClientFactory) CreateClient(config *jfrclient.Config) (jfrclient.Co
 }
 
 type testOSUtils struct {
-	disableTLS bool
+	envs map[string]string
+}
+
+func newTestOSUtils(config *TestReconcilerConfig) *testOSUtils {
+	envs := map[string]string{}
+	if config.DisableTLS != nil {
+		envs["DISABLE_SERVICE_TLS"] = strconv.FormatBool(*config.DisableTLS)
+	}
+	if config.CoreImageTag != nil {
+		envs["CORE_IMG"] = *config.CoreImageTag
+	}
+	if config.DatasourceImageTag != nil {
+		envs["DATASOURCE_IMG"] = *config.DatasourceImageTag
+	}
+	if config.GrafanaImageTag != nil {
+		envs["GRAFANA_IMG"] = *config.GrafanaImageTag
+	}
+	return &testOSUtils{envs}
 }
 
 func (o *testOSUtils) GetFileContents(path string) ([]byte, error) {
@@ -102,6 +128,5 @@ func (o *testOSUtils) GetFileContents(path string) ([]byte, error) {
 }
 
 func (o *testOSUtils) GetEnv(name string) string {
-	gomega.Expect(name).To(gomega.Equal("DISABLE_SERVICE_TLS"))
-	return strconv.FormatBool(o.disableTLS)
+	return o.envs[name]
 }

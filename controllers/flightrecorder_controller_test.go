@@ -45,7 +45,6 @@ import (
 	. "github.com/onsi/gomega"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -56,67 +55,65 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 )
 
+type flightRecorderTestInput struct {
+	controller *controllers.FlightRecorderReconciler
+	objs       []runtime.Object
+	handlers   []http.HandlerFunc
+	test.TestReconcilerConfig
+}
+
 var _ = Describe("FlightRecorderController", func() {
-	var (
-		objs       []runtime.Object
-		handlers   []http.HandlerFunc
-		server     *test.ContainerJFRServer
-		client     client.Client
-		controller *controllers.FlightRecorderReconciler
-		tls        bool
-	)
+	var t *flightRecorderTestInput
 
 	JustBeforeEach(func() {
 		logger := zap.New()
 		logf.SetLogger(logger)
 		s := test.NewTestScheme()
 
-		client = fake.NewFakeClientWithScheme(s, objs...)
-		server = test.NewServer(client, handlers, tls)
-		controller = &controllers.FlightRecorderReconciler{
-			Client:     client,
+		t.Client = fake.NewFakeClientWithScheme(s, t.objs...)
+		t.Server = test.NewServer(t.Client, t.handlers, t.DisableTLS)
+		t.controller = &controllers.FlightRecorderReconciler{
+			Client:     t.Client,
 			Scheme:     s,
 			Log:        logger,
-			Reconciler: test.NewTestReconciler(server, client, tls),
+			Reconciler: test.NewTestReconciler(&t.TestReconcilerConfig),
 		}
 	})
 
 	JustAfterEach(func() {
-		server.VerifyRequestsReceived(handlers)
-		server.Close()
+		t.Server.VerifyRequestsReceived(t.handlers)
+		t.Server.Close()
 	})
 
 	BeforeEach(func() {
-		objs = []runtime.Object{
-			test.NewContainerJFR(), test.NewCACert(), test.NewFlightRecorder(), test.NewTargetPod(),
-			test.NewContainerJFRService(), test.NewJMXAuthSecret(),
+		t = &flightRecorderTestInput{
+			objs: []runtime.Object{
+				test.NewContainerJFR(), test.NewCACert(), test.NewFlightRecorder(), test.NewTargetPod(),
+				test.NewContainerJFRService(), test.NewJMXAuthSecret(),
+			},
 		}
-		handlers = []http.HandlerFunc{}
-		tls = true
 	})
 
 	AfterEach(func() {
 		// Reset test inputs
-		objs = nil
-		handlers = nil
-		tls = false
+		t = nil
 	})
 
 	Describe("reconciling a request", func() {
 		Context("successfully updates FlightRecorder CR", func() {
 			BeforeEach(func() {
-				handlers = []http.HandlerFunc{
+				t.handlers = []http.HandlerFunc{
 					test.NewListEventTypesHandler(),
 					test.NewListTemplatesHandler(),
 				}
 			})
 			It("should update event type list", func() {
-				expectFlightRecorderReconcileSuccess(controller, client)
+				t.expectFlightRecorderReconcileSuccess()
 			})
 		})
 		Context("after FlightRecorder already reconciled successfully", func() {
 			BeforeEach(func() {
-				handlers = []http.HandlerFunc{
+				t.handlers = []http.HandlerFunc{
 					test.NewListEventTypesHandler(),
 					test.NewListTemplatesHandler(),
 					test.NewListEventTypesHandler(),
@@ -125,21 +122,21 @@ var _ = Describe("FlightRecorderController", func() {
 			})
 			It("should be idempotent", func() {
 				req := reconcile.Request{NamespacedName: types.NamespacedName{Name: "test-pod", Namespace: "default"}}
-				result, err := controller.Reconcile(context.Background(), req)
+				result, err := t.controller.Reconcile(context.Background(), req)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(result).To(Equal(reconcile.Result{}))
 
 				obj := &rhjmcv1beta1.FlightRecorder{}
-				err = client.Get(context.Background(), req.NamespacedName, obj)
+				err = t.Client.Get(context.Background(), req.NamespacedName, obj)
 				Expect(err).ToNot(HaveOccurred())
 
 				// Reconcile same FlightRecorder again
-				result, err = controller.Reconcile(context.Background(), req)
+				result, err = t.controller.Reconcile(context.Background(), req)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(result).To(Equal(reconcile.Result{}))
 
 				obj2 := &rhjmcv1beta1.FlightRecorder{}
-				err = client.Get(context.Background(), req.NamespacedName, obj2)
+				err = t.Client.Get(context.Background(), req.NamespacedName, obj2)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(obj2.Status).To(Equal(obj.Status))
 				Expect(obj2.Spec).To(Equal(obj.Spec))
@@ -148,7 +145,7 @@ var _ = Describe("FlightRecorderController", func() {
 		Context("FlightRecorder does not exist", func() {
 			It("should do nothing", func() {
 				req := reconcile.Request{NamespacedName: types.NamespacedName{Name: "does-not-exist", Namespace: "default"}}
-				result, err := controller.Reconcile(context.Background(), req)
+				result, err := t.controller.Reconcile(context.Background(), req)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(result).To(Equal(reconcile.Result{}))
 			})
@@ -157,164 +154,165 @@ var _ = Describe("FlightRecorderController", func() {
 			BeforeEach(func() {
 				otherFr := test.NewFlightRecorder()
 				otherFr.Status = rhjmcv1beta1.FlightRecorderStatus{}
-				objs = []runtime.Object{
+				t.objs = []runtime.Object{
 					test.NewContainerJFR(), test.NewCACert(), otherFr, test.NewTargetPod(), test.NewContainerJFRService(),
 					test.NewJMXAuthSecret(),
 				}
 			})
 			It("should requeue", func() {
 				req := reconcile.Request{NamespacedName: types.NamespacedName{Name: "test-pod", Namespace: "default"}}
-				result, err := controller.Reconcile(context.Background(), req)
+				result, err := t.controller.Reconcile(context.Background(), req)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(result).To(Equal(reconcile.Result{RequeueAfter: time.Second}))
 			})
 		})
 		Context("list-event-types command fails", func() {
 			BeforeEach(func() {
-				handlers = []http.HandlerFunc{
+				t.handlers = []http.HandlerFunc{
 					test.NewListEventTypesFailHandler(),
 				}
 			})
 			It("should requeue with error", func() {
-				expectFlightRecorderReconcileError(controller)
+				t.expectFlightRecorderReconcileError()
 			})
 		})
 		Context("list-templates command fails", func() {
 			BeforeEach(func() {
-				handlers = []http.HandlerFunc{
+				t.handlers = []http.HandlerFunc{
 					test.NewListEventTypesHandler(),
 					test.NewListTemplatesFailHandler(),
 				}
 			})
 			It("should requeue with error", func() {
-				expectFlightRecorderReconcileError(controller)
+				t.expectFlightRecorderReconcileError()
 			})
 		})
 		Context("Container JFR CR is missing", func() {
 			BeforeEach(func() {
-				objs = []runtime.Object{
+				t.objs = []runtime.Object{
 					test.NewFlightRecorder(), test.NewCACert(), test.NewTargetPod(), test.NewContainerJFRService(),
 					test.NewJMXAuthSecret(),
 				}
 			})
 			It("should requeue with error", func() {
-				expectFlightRecorderReconcileError(controller)
+				t.expectFlightRecorderReconcileError()
 			})
 		})
 		Context("Container JFR service is missing", func() {
 			BeforeEach(func() {
-				objs = []runtime.Object{
+				t.objs = []runtime.Object{
 					test.NewContainerJFR(), test.NewCACert(), test.NewFlightRecorder(), test.NewTargetPod(),
 					test.NewJMXAuthSecret(),
 				}
 			})
 			It("should requeue with error", func() {
-				expectFlightRecorderReconcileError(controller)
+				t.expectFlightRecorderReconcileError()
 			})
 		})
 		Context("Target pod is missing", func() {
 			BeforeEach(func() {
-				objs = []runtime.Object{
+				t.objs = []runtime.Object{
 					test.NewContainerJFR(), test.NewCACert(), test.NewFlightRecorder(), test.NewContainerJFRService(),
 					test.NewJMXAuthSecret(),
 				}
 			})
 			It("should requeue with error", func() {
-				expectFlightRecorderReconcileError(controller)
+				t.expectFlightRecorderReconcileError()
 			})
 		})
 		Context("Target pod has no IP", func() {
 			BeforeEach(func() {
 				otherPod := test.NewTargetPod()
 				otherPod.Status.PodIP = ""
-				objs = []runtime.Object{
+				t.objs = []runtime.Object{
 					test.NewContainerJFR(), test.NewCACert(), test.NewFlightRecorder(), otherPod, test.NewContainerJFRService(),
 					test.NewJMXAuthSecret(),
 				}
 			})
 			It("should requeue with error", func() {
-				expectFlightRecorderReconcileError(controller)
+				t.expectFlightRecorderReconcileError()
 			})
 		})
 		Context("successfully updates FlightRecorder CR without JMX auth", func() {
 			BeforeEach(func() {
-				objs = []runtime.Object{
+				t.objs = []runtime.Object{
 					test.NewContainerJFR(), test.NewCACert(), test.NewFlightRecorderNoJMXAuth(),
 					test.NewTargetPod(), test.NewContainerJFRService(),
 				}
-				handlers = []http.HandlerFunc{
+				t.handlers = []http.HandlerFunc{
 					test.NewListEventTypesNoJMXAuthHandler(),
 					test.NewListTemplatesNoJMXAuthHandler(),
 				}
 			})
 			It("should update event type list and template list", func() {
-				expectFlightRecorderReconcileSuccess(controller, client)
+				t.expectFlightRecorderReconcileSuccess()
 			})
 		})
 		Context("incorrect key name for JMX auth secret", func() {
 			BeforeEach(func() {
-				objs = []runtime.Object{
+				t.objs = []runtime.Object{
 					test.NewContainerJFR(), test.NewCACert(), test.NewFlightRecorderBadJMXUserKey(),
 					test.NewTargetPod(), test.NewContainerJFRService(), test.NewJMXAuthSecret(),
 				}
 			})
 			It("should requeue with error", func() {
-				expectFlightRecorderReconcileError(controller)
+				t.expectFlightRecorderReconcileError()
 			})
 		})
 		Context("incorrect password key name for JMX auth secret", func() {
 			BeforeEach(func() {
-				objs = []runtime.Object{
+				t.objs = []runtime.Object{
 					test.NewContainerJFR(), test.NewCACert(), test.NewFlightRecorderBadJMXPassKey(),
 					test.NewTargetPod(), test.NewContainerJFRService(), test.NewJMXAuthSecret(),
 				}
 			})
 			It("should requeue with error", func() {
-				expectFlightRecorderReconcileError(controller)
+				t.expectFlightRecorderReconcileError()
 			})
 		})
 		Context("missing JMX auth secret", func() {
 			BeforeEach(func() {
-				objs = []runtime.Object{
+				t.objs = []runtime.Object{
 					test.NewContainerJFR(), test.NewCACert(), test.NewFlightRecorder(),
 					test.NewTargetPod(), test.NewContainerJFRService(),
 				}
 			})
 			It("should requeue with error", func() {
-				expectFlightRecorderReconcileError(controller)
+				t.expectFlightRecorderReconcileError()
 			})
 		})
 		Context("successfully updates FlightRecorder CR with TLS disabled", func() {
 			BeforeEach(func() {
-				handlers = []http.HandlerFunc{
+				t.handlers = []http.HandlerFunc{
 					test.NewListEventTypesHandler(),
 					test.NewListTemplatesHandler(),
 				}
-				tls = false
+				disableTLS := true
+				t.DisableTLS = &disableTLS
 			})
 			It("should update event type list", func() {
-				expectFlightRecorderReconcileSuccess(controller, client)
+				t.expectFlightRecorderReconcileSuccess()
 			})
 		})
 	})
 })
 
-func expectFlightRecorderReconcileSuccess(controller *controllers.FlightRecorderReconciler, client client.Client) {
+func (t *flightRecorderTestInput) expectFlightRecorderReconcileSuccess() {
 	req := reconcile.Request{NamespacedName: types.NamespacedName{Name: "test-pod", Namespace: "default"}}
-	result, err := controller.Reconcile(context.Background(), req)
+	result, err := t.controller.Reconcile(context.Background(), req)
 	Expect(err).ToNot(HaveOccurred())
 	Expect(result).To(Equal(reconcile.Result{}))
 
 	obj := &rhjmcv1beta1.FlightRecorder{}
-	err = client.Get(context.Background(), req.NamespacedName, obj)
+	err = t.Client.Get(context.Background(), req.NamespacedName, obj)
 	Expect(err).ToNot(HaveOccurred())
 	Expect(obj.Status.Events).To(Equal(test.NewEventTypes()))
 	Expect(obj.Status.Templates).To(Equal(test.NewTemplates()))
 }
 
-func expectFlightRecorderReconcileError(controller *controllers.FlightRecorderReconciler) {
+func (t *flightRecorderTestInput) expectFlightRecorderReconcileError() {
 	req := reconcile.Request{NamespacedName: types.NamespacedName{Name: "test-pod", Namespace: "default"}}
-	result, err := controller.Reconcile(context.Background(), req)
+	result, err := t.controller.Reconcile(context.Background(), req)
 	Expect(err).To(HaveOccurred())
 	Expect(result).To(Equal(reconcile.Result{}))
 }

@@ -56,9 +56,9 @@ type ContainerJFRServer struct {
 }
 
 // NewServer creates a ContainerJFRServer for use by unit tests
-func NewServer(client client.Client, handlers []http.HandlerFunc, tls bool) *ContainerJFRServer {
+func NewServer(client client.Client, handlers []http.HandlerFunc, disableTLS *bool) *ContainerJFRServer {
 	var server *ghttp.Server
-	if !tls {
+	if disableTLS != nil && *disableTLS {
 		server = ghttp.NewServer()
 	} else {
 		server = ghttp.NewTLSServer()

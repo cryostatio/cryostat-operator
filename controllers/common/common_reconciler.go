@@ -95,8 +95,8 @@ func NewReconciler(config *ReconcilerConfig) Reconciler {
 	return &commonReconciler{
 		ReconcilerConfig: &configCopy,
 		ReconcilerTLS: NewReconcilerTLS(&ReconcilerTLSConfig{
-			Client: configCopy.Client,
-			OS:     configCopy.OS,
+			Client:  configCopy.Client,
+			OSUtils: configCopy.OS,
 		}),
 	}
 }
