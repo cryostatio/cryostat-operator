@@ -38,6 +38,7 @@ package test
 
 import (
 	"net/url"
+	"strconv"
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -47,16 +48,17 @@ import (
 )
 
 // NewTestReconciler returns a common.Reconciler for use by unit tests
-func NewTestReconciler(server *ContainerJFRServer, client client.Client) common.Reconciler {
+func NewTestReconciler(server *ContainerJFRServer, client client.Client, tls bool) common.Reconciler {
 	return common.NewReconciler(&common.ReconcilerConfig{
 		Client:        client,
-		ClientFactory: &testClientFactory{serverURL: server.impl.URL()},
-		OS:            &testOSUtils{},
+		ClientFactory: &testClientFactory{serverURL: server.impl.URL(), tls: tls},
+		OS:            &testOSUtils{disableTLS: !tls},
 	})
 }
 
 type testClientFactory struct {
 	serverURL string
+	tls       bool
 }
 
 func NewTestReconcilerNoServer(client client.Client) common.Reconciler {
@@ -67,16 +69,20 @@ func NewTestReconcilerNoServer(client client.Client) common.Reconciler {
 	})
 }
 
-func NewTestReconcilerTLS(client client.Client) common.ReconcilerTLS {
+func NewTestReconcilerTLS(client client.Client, tls bool) common.ReconcilerTLS {
 	return common.NewReconcilerTLS(&common.ReconcilerTLSConfig{
 		Client: client,
-		OS:     &testOSUtils{},
+		OS:     &testOSUtils{disableTLS: !tls},
 	})
 }
 
 func (c *testClientFactory) CreateClient(config *jfrclient.Config) (jfrclient.ContainerJfrClient, error) {
+	protocol := "https"
+	if !c.tls {
+		protocol = "http"
+	}
 	// Verify the provided server URL before substituting it
-	gomega.Expect(config.ServerURL.String()).To(gomega.Equal("https://containerjfr.default.svc:8181/"))
+	gomega.Expect(config.ServerURL.String()).To(gomega.Equal(protocol + "://containerjfr.default.svc:8181/"))
 
 	// Replace server URL with one to httptest server
 	url, err := url.Parse(c.serverURL)
@@ -86,7 +92,9 @@ func (c *testClientFactory) CreateClient(config *jfrclient.Config) (jfrclient.Co
 	return jfrclient.NewHTTPClient(config)
 }
 
-type testOSUtils struct{}
+type testOSUtils struct {
+	disableTLS bool
+}
 
 func (o *testOSUtils) GetFileContents(path string) ([]byte, error) {
 	gomega.Expect(path).To(gomega.Equal("/var/run/secrets/kubernetes.io/serviceaccount/token"))
@@ -95,5 +103,5 @@ func (o *testOSUtils) GetFileContents(path string) ([]byte, error) {
 
 func (o *testOSUtils) GetEnv(name string) string {
 	gomega.Expect(name).To(gomega.Equal("DISABLE_SERVICE_TLS"))
-	return ""
+	return strconv.FormatBool(o.disableTLS)
 }

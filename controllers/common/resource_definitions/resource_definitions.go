@@ -39,6 +39,7 @@ package resource_definitions
 import (
 	"fmt"
 	"math/rand"
+	"net/url"
 	"time"
 
 	consolev1 "github.com/openshift/api/console/v1"
@@ -51,9 +52,9 @@ import (
 )
 
 type ServiceSpecs struct {
-	CoreHostname    string
-	CommandHostname string
-	GrafanaURL      string
+	CoreURL    *url.URL
+	CommandURL *url.URL
+	GrafanaURL *url.URL
 }
 
 // TLSConfig contains TLS-related information useful when creating other objects
@@ -118,7 +119,7 @@ func NewDeploymentForCR(cr *rhjmcv1beta1.ContainerJFR, specs *ServiceSpecs, tls 
 				"app.kubernetes.io/name": "container-jfr",
 			},
 			Annotations: map[string]string{
-				"redhat.com/containerJfrUrl":   specs.CoreHostname,
+				"redhat.com/containerJfrUrl":   specs.CoreURL.String(),
 				"app.openshift.io/connects-to": "container-jfr-operator",
 			},
 		},
@@ -138,7 +139,7 @@ func NewDeploymentForCR(cr *rhjmcv1beta1.ContainerJFR, specs *ServiceSpecs, tls 
 						"kind": "containerjfr",
 					},
 					Annotations: map[string]string{
-						"redhat.com/containerJfrUrl": specs.CoreHostname,
+						"redhat.com/containerJfrUrl": specs.CoreURL.String(),
 					},
 				},
 				Spec: *NewPodForCR(cr, specs, tls),
@@ -180,15 +181,19 @@ func NewPodForCR(cr *rhjmcv1beta1.ContainerJFR, specs *ServiceSpecs, tls *TLSCon
 				},
 			},
 		}
-		grafanaSecretVolume := corev1.Volume{
-			Name: "grafana-tls-secret",
-			VolumeSource: corev1.VolumeSource{
-				Secret: &corev1.SecretVolumeSource{
-					SecretName: tls.GrafanaSecret,
+		volumes = append(volumes, secretVolume)
+
+		if !cr.Spec.Minimal {
+			grafanaSecretVolume := corev1.Volume{
+				Name: "grafana-tls-secret",
+				VolumeSource: corev1.VolumeSource{
+					Secret: &corev1.SecretVolumeSource{
+						SecretName: tls.GrafanaSecret,
+					},
 				},
-			},
+			}
+			volumes = append(volumes, grafanaSecretVolume)
 		}
-		volumes = append(volumes, secretVolume, grafanaSecretVolume)
 
 		customVolumes := []corev1.Volume{}
 		for _, secret := range cr.Spec.TrustedCertSecrets {
@@ -231,11 +236,11 @@ func NewCoreContainer(cr *rhjmcv1beta1.ContainerJFR, specs *ServiceSpecs, tls *T
 		},
 		{
 			Name:  "CONTAINER_JFR_EXT_WEB_PORT",
-			Value: "443",
+			Value: getPort(specs.CoreURL),
 		},
 		{
 			Name:  "CONTAINER_JFR_WEB_HOST",
-			Value: specs.CoreHostname,
+			Value: specs.CoreURL.Hostname(),
 		},
 		{
 			Name:  "CONTAINER_JFR_LISTEN_PORT",
@@ -243,19 +248,11 @@ func NewCoreContainer(cr *rhjmcv1beta1.ContainerJFR, specs *ServiceSpecs, tls *T
 		},
 		{
 			Name:  "CONTAINER_JFR_EXT_LISTEN_PORT",
-			Value: "443",
+			Value: getPort(specs.CommandURL),
 		},
 		{
 			Name:  "CONTAINER_JFR_LISTEN_HOST",
-			Value: specs.CommandHostname,
-		},
-		{
-			Name:  "GRAFANA_DASHBOARD_URL",
-			Value: specs.GrafanaURL,
-		},
-		{
-			Name:  "GRAFANA_DATASOURCE_URL",
-			Value: DatasourceURL,
+			Value: specs.CommandURL.Hostname(),
 		},
 		{
 			Name:  "CONTAINER_JFR_TEMPLATE_PATH",
@@ -283,6 +280,20 @@ func NewCoreContainer(cr *rhjmcv1beta1.ContainerJFR, specs *ServiceSpecs, tls *T
 			MountPath: "templates",
 			SubPath:   "templates",
 		},
+	}
+
+	if !cr.Spec.Minimal {
+		grafanaVars := []corev1.EnvVar{
+			{
+				Name:  "GRAFANA_DASHBOARD_URL",
+				Value: specs.GrafanaURL.String(),
+			},
+			{
+				Name:  "GRAFANA_DATASOURCE_URL",
+				Value: DatasourceURL,
+			},
+		}
+		envs = append(envs, grafanaVars...)
 	}
 
 	livenessProbeScheme := corev1.URISchemeHTTP
@@ -401,7 +412,12 @@ func GenPasswd(length int) string {
 }
 
 func NewGrafanaContainer(cr *rhjmcv1beta1.ContainerJFR, tls *TLSConfig) corev1.Container {
-	envs := []corev1.EnvVar{}
+	envs := []corev1.EnvVar{
+		{
+			Name:  "JFR_DATASOURCE_URL",
+			Value: DatasourceURL,
+		},
+	}
 	mounts := []corev1.VolumeMount{}
 
 	// Configure TLS key/cert if enabled
@@ -419,10 +435,6 @@ func NewGrafanaContainer(cr *rhjmcv1beta1.ContainerJFR, tls *TLSConfig) corev1.C
 			{
 				Name:  "GF_SERVER_CERT_FILE",
 				Value: fmt.Sprintf("/var/run/secrets/rhjmc.redhat.com/%s/%s", tls.GrafanaSecret, corev1.TLSCertKey),
-			},
-			{
-				Name:  "JFR_DATASOURCE_URL",
-				Value: DatasourceURL,
 			},
 		}
 
@@ -643,4 +655,17 @@ func NewConsoleLink(cr *rhjmcv1beta1.ContainerJFR, url string) *consolev1.Consol
 			},
 		},
 	}
+}
+
+func getPort(url *url.URL) string {
+	// Return port if already defined in URL
+	port := url.Port()
+	if len(port) > 0 {
+		return port
+	}
+	// Otherwise use default HTTP(S) ports
+	if url.Scheme == "https" {
+		return "443"
+	}
+	return "80"
 }

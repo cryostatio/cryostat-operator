@@ -8,7 +8,7 @@ API to manage [JDK Flight Recordings](https://openjdk.java.net/jeps/328).
 Once deployed, the `containerjfr` instance can be accessed via web browser
 at the URL provided by:
 ```
-kubectl get pod -l kind=containerjfr -o jsonpath='https://{$.items[0].metadata.annotations.redhat\.com/containerJfrUrl} '
+kubectl get pod -l kind=containerjfr -o jsonpath='{$.items[0].metadata.annotations.redhat\.com/containerJfrUrl}'
 ```
 The Grafana credentials can be obtained with:
 ```shell
@@ -142,8 +142,9 @@ required to prepare the cluster for deploying the operator, using `oc` or
 `make deploy` will deploy the operator in the default namespace
 (`container-jfr-operator-system`). `make DEPLOY_NAMESPACE=foo-namespace deploy`
 can be used to deploy to an arbitrary namespace named `foo-namespace`. For
-a convenient shorthand, use `make DEPLOY_NAMESPACE=$(oc project -q) deploy` to
-deploy to the currently active OpenShift project namespace.
+a convenient shorthand, use
+`make DEPLOY_NAMESPACE=$(kubectl config view --minify -o 'jsonpath={.contexts[0].context.namespace}') deploy`
+to deploy to the currently active OpenShift project namespace.
 `make undeploy` will likewise remove the operator, and also uses the
 `DEPLOY_NAMESPACE` variable.
 This also respects the `IMAGE_TAG` environment variable, so that different

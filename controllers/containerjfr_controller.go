@@ -39,6 +39,7 @@ package controllers
 import (
 	"context"
 	"fmt"
+	"net/url"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -154,7 +155,6 @@ func (r *ContainerJFRReconciler) Reconcile(ctx context.Context, request ctrl.Req
 	}
 
 	// Set up TLS using cert-manager, if available
-	protocol := "http"
 	var tlsConfig *resources.TLSConfig
 	var routeTLS *openshiftv1.TLSConfig
 	if r.IsCertManagerEnabled() {
@@ -176,7 +176,6 @@ func (r *ContainerJFRReconciler) Reconcile(ctx context.Context, request ctrl.Req
 			Termination:              openshiftv1.TLSTerminationReencrypt,
 			DestinationCACertificate: string(caCert),
 		}
-		protocol = "https"
 	}
 
 	serviceSpecs := &resources.ServiceSpecs{}
@@ -184,13 +183,13 @@ func (r *ContainerJFRReconciler) Reconcile(ctx context.Context, request ctrl.Req
 		grafanaSvc := resources.NewGrafanaService(instance)
 		url, err := r.createService(context.Background(), instance, grafanaSvc, &grafanaSvc.Spec.Ports[0], routeTLS)
 		if err != nil {
-			return reconcile.Result{}, err
+			return requeueIfIngressNotReady(reqLogger, err)
 		}
-		serviceSpecs.GrafanaURL = fmt.Sprintf("%s://%s", protocol, url)
+		serviceSpecs.GrafanaURL = url
 
 		// check for existing minimal deployment and delete if found
-		deployment := resources.NewDeploymentForCR(instance, serviceSpecs, nil)
-		err = r.Client.Get(context.Background(), types.NamespacedName{Name: deployment.Name, Namespace: deployment.Namespace}, deployment)
+		deployment := &appsv1.Deployment{}
+		err = r.Client.Get(context.Background(), types.NamespacedName{Name: instance.Name, Namespace: instance.Namespace}, deployment)
 		if err == nil && len(deployment.Spec.Template.Spec.Containers) == 1 {
 			reqLogger.Info("Deleting existing minimal deployment")
 			err = r.Client.Delete(context.Background(), deployment)
@@ -225,8 +224,8 @@ func (r *ContainerJFRReconciler) Reconcile(ctx context.Context, request ctrl.Req
 			}
 		}
 
-		deployment := resources.NewDeploymentForCR(instance, serviceSpecs, nil)
-		err = r.Client.Get(context.Background(), types.NamespacedName{Name: deployment.Name, Namespace: deployment.Namespace}, deployment)
+		deployment := &appsv1.Deployment{}
+		err = r.Client.Get(context.Background(), types.NamespacedName{Name: instance.Name, Namespace: instance.Namespace}, deployment)
 		if err == nil && len(deployment.Spec.Template.Spec.Containers) > 1 {
 			reqLogger.Info("Deleting existing non-minimal deployment")
 			err = r.Client.Delete(context.Background(), deployment)
@@ -240,16 +239,16 @@ func (r *ContainerJFRReconciler) Reconcile(ctx context.Context, request ctrl.Req
 	exporterSvc := resources.NewExporterService(instance)
 	url, err := r.createService(context.Background(), instance, exporterSvc, &exporterSvc.Spec.Ports[0], routeTLS)
 	if err != nil {
-		return reconcile.Result{}, err
+		return requeueIfIngressNotReady(reqLogger, err)
 	}
-	serviceSpecs.CoreHostname = url
+	serviceSpecs.CoreURL = url
 
 	cmdChanSvc := resources.NewCommandChannelService(instance)
 	url, err = r.createService(context.Background(), instance, cmdChanSvc, &cmdChanSvc.Spec.Ports[0], routeTLS)
 	if err != nil {
-		return reconcile.Result{}, err
+		return requeueIfIngressNotReady(reqLogger, err)
 	}
-	serviceSpecs.CommandHostname = url
+	serviceSpecs.CommandURL = url
 
 	deployment := resources.NewDeploymentForCR(instance, serviceSpecs, tlsConfig)
 	if err := controllerutil.SetControllerReference(instance, deployment, r.Scheme); err != nil {
@@ -282,7 +281,7 @@ func (r *ContainerJFRReconciler) Reconcile(ctx context.Context, request ctrl.Req
 		return reconcile.Result{}, err
 	}
 	if len(links) == 0 {
-		link := resources.NewConsoleLink(instance, "https://"+serviceSpecs.CoreHostname)
+		link := resources.NewConsoleLink(instance, serviceSpecs.CoreURL.String())
 		if err = r.Client.Create(context.Background(), link); err != nil {
 			reqLogger.Error(err, "Could not create ConsoleLink")
 			return reconcile.Result{}, err
@@ -314,12 +313,12 @@ func (r *ContainerJFRReconciler) SetupWithManager(mgr ctrl.Manager) error {
 }
 
 func (r *ContainerJFRReconciler) createService(ctx context.Context, controller *rhjmcv1beta1.ContainerJFR, svc *corev1.Service, exposePort *corev1.ServicePort,
-	tlsConfig *openshiftv1.TLSConfig) (string, error) {
+	tlsConfig *openshiftv1.TLSConfig) (*url.URL, error) {
 	if err := controllerutil.SetControllerReference(controller, svc, r.Scheme); err != nil {
-		return "", err
+		return nil, err
 	}
 	if err := r.createObjectIfNotExists(context.Background(), types.NamespacedName{Name: svc.Name, Namespace: svc.Namespace}, &corev1.Service{}, svc); err != nil {
-		return "", err
+		return nil, err
 	}
 
 	// Use edge termination by default
@@ -329,24 +328,15 @@ func (r *ContainerJFRReconciler) createService(ctx context.Context, controller *
 			InsecureEdgeTerminationPolicy: openshiftv1.InsecureEdgeTerminationPolicyRedirect,
 		}
 	}
-	if exposePort != nil {
-		return r.createRouteForService(controller, svc, *exposePort, tlsConfig)
-	}
-
-	if err := r.Client.Get(context.Background(), types.NamespacedName{Name: svc.Name, Namespace: svc.Namespace}, svc); err != nil {
-		return "", err
-	}
-	if svc.Spec.ClusterIP == "" {
-		return "", errors.NewInternalError(goerrors.New(fmt.Sprintf("Expected service %s to have ClusterIP, but got empty string", svc.Name)))
-	}
-	if len(svc.Spec.Ports) != 1 {
-		return "", errors.NewInternalError(goerrors.New(fmt.Sprintf("Expected service %s to have one Port, but got %d", svc.Name, len(svc.Spec.Ports))))
-	}
-	return fmt.Sprintf("%s:%d", svc.Spec.ClusterIP, svc.Spec.Ports[0].Port), nil
+	return r.createRouteForService(controller, svc, *exposePort, tlsConfig)
 }
 
+// ErrIngressNotReady is returned when Kubernetes has not yet exposed our services
+// so that they may be accessed outside of the cluster
+var ErrIngressNotReady = goerrors.New("Ingress configuration not yet available")
+
 func (r *ContainerJFRReconciler) createRouteForService(controller *rhjmcv1beta1.ContainerJFR, svc *corev1.Service, exposePort corev1.ServicePort,
-	tlsConfig *openshiftv1.TLSConfig) (string, error) {
+	tlsConfig *openshiftv1.TLSConfig) (*url.URL, error) {
 	logger := r.Log.WithValues("Request.Namespace", svc.Namespace, "Name", svc.Name, "Kind", fmt.Sprintf("%T", &openshiftv1.Route{}))
 	route := &openshiftv1.Route{
 		ObjectMeta: metav1.ObjectMeta{
@@ -363,7 +353,7 @@ func (r *ContainerJFRReconciler) createRouteForService(controller *rhjmcv1beta1.
 		},
 	}
 	if err := controllerutil.SetControllerReference(controller, route, r.Scheme); err != nil {
-		return "", err
+		return nil, err
 	}
 
 	found := &openshiftv1.Route{}
@@ -372,21 +362,24 @@ func (r *ContainerJFRReconciler) createRouteForService(controller *rhjmcv1beta1.
 		logger.Info("Not found")
 		if err := r.Client.Create(context.Background(), route); err != nil {
 			logger.Error(err, "Could not be created")
-			return "", err
+			return nil, err
 		}
 		logger.Info("Created")
 		found = route
 	} else if err != nil {
 		logger.Error(err, "Could not be read")
-		return "", err
+		return nil, err
 	}
 
 	logger.Info("Route created", "Service.Status", fmt.Sprintf("%#v", found.Status))
 	if len(found.Status.Ingress) < 1 {
-		return "", errors.NewTooManyRequestsError("Ingress configuration not yet available")
+		return nil, ErrIngressNotReady
 	}
 
-	return found.Status.Ingress[0].Host, nil
+	return &url.URL{
+		Scheme: getProtocol(tlsConfig),
+		Host:   found.Status.Ingress[0].Host,
+	}, nil
 }
 
 func (r *ContainerJFRReconciler) createObjectIfNotExists(ctx context.Context, ns types.NamespacedName, found client.Object, toCreate client.Object) error {
@@ -447,4 +440,19 @@ func (r *ContainerJFRReconciler) deleteConsoleLinks(ctx context.Context, cr *rhj
 		return reconcile.Result{}, err
 	}
 	return reconcile.Result{}, nil
+}
+
+func getProtocol(tlsConfig *openshiftv1.TLSConfig) string {
+	if tlsConfig == nil {
+		return "http"
+	}
+	return "https"
+}
+
+func requeueIfIngressNotReady(log logr.Logger, err error) (reconcile.Result, error) {
+	if err == ErrIngressNotReady {
+		log.Info(err.Error())
+		return reconcile.Result{RequeueAfter: 5 * time.Second}, nil
+	}
+	return reconcile.Result{}, err
 }

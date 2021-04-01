@@ -39,7 +39,7 @@ endif
 GINKGO ?= $(shell go env GOPATH)/bin/ginkgo
 GO_TEST ?= go test
 ifneq ("$(wildcard $(GINKGO))","")
-GO_TEST="$(GINKGO)"
+GO_TEST="$(GINKGO)" -cover -outputdir=.
 endif
 
 all: manager
@@ -53,7 +53,7 @@ ENVTEST_ASSETS_DIR=$(shell pwd)/testbin
 test-envtest: generate fmt vet manifests
 	mkdir -p $(ENVTEST_ASSETS_DIR)
 	test -f $(ENVTEST_ASSETS_DIR)/setup-envtest.sh || curl -sSLo $(ENVTEST_ASSETS_DIR)/setup-envtest.sh https://raw.githubusercontent.com/kubernetes-sigs/controller-runtime/v0.7.2/hack/setup-envtest.sh
-	source $(ENVTEST_ASSETS_DIR)/setup-envtest.sh; fetch_envtest_tools $(ENVTEST_ASSETS_DIR); setup_envtest_env $(ENVTEST_ASSETS_DIR); $(GO_TEST) -v ./... -coverprofile cover.out
+	source $(ENVTEST_ASSETS_DIR)/setup-envtest.sh; fetch_envtest_tools $(ENVTEST_ASSETS_DIR); setup_envtest_env $(ENVTEST_ASSETS_DIR); $(GO_TEST) -v -coverprofile cover.out ./...
 
 .PHONY: test-scorecard
 test-scorecard: destroy_containerjfr_cr undeploy uninstall
@@ -94,6 +94,10 @@ print_deploy_config: predeploy
 .PHONY: deploy
 deploy: manifests kustomize predeploy
 	$(KUSTOMIZE) build config/default | $(CLUSTER_CLIENT) apply -f -
+ifeq ($(DISABLE_SERVICE_TLS), true)
+	@echo "Disabling TLS for in-cluster communication between Services"
+	@$(CLUSTER_CLIENT) -n $(DEPLOY_NAMESPACE) set env deployment/container-jfr-operator-controller-manager DISABLE_SERVICE_TLS=true
+endif
 
 # UnDeploy controller from the configured Kubernetes cluster in ~/.kube/config
 .PHONY: undeploy
@@ -178,6 +182,20 @@ bundle-build:
 .PHONY: deploy_bundle
 deploy_bundle: undeploy_bundle
 	operator-sdk run bundle $(IMAGE_NAMESPACE)/$(OPERATOR_NAME)-bundle:$(IMAGE_VERSION)
+ifeq ($(DISABLE_SERVICE_TLS), true)
+	@echo "Disabling TLS for in-cluster communication between Services"
+	@current_ns=`$(CLUSTER_CLIENT) config view --minify -o 'jsonpath={.contexts[0].context.namespace}'` && \
+	if [ -z "$${current_ns}" ]; then \
+		echo "Failed to determine Namespace in current context" >&2; \
+		exit 1; \
+	fi; \
+	set -f -- `$(CLUSTER_CLIENT) get sub -l "operators.coreos.com/$(OPERATOR_NAME).$${current_ns}" -o name` && \
+	if [ "$${#}" -ne 1 ]; then \
+		echo -e "Expected 1 Subscription, found $${#}:\n$${@}" >&2; \
+		exit 1; \
+	fi; \
+	$(CLUSTER_CLIENT) patch --type=merge -p '{"spec":{"config":{"env":[{"name":"DISABLE_SERVICE_TLS","value":"true"}]}}}' "$${1}"
+endif
 
 .PHONY: undeploy_bundle
 undeploy_bundle:

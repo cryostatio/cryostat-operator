@@ -63,6 +63,7 @@ var _ = Describe("FlightRecorderController", func() {
 		server     *test.ContainerJFRServer
 		client     client.Client
 		controller *controllers.FlightRecorderReconciler
+		tls        bool
 	)
 
 	JustBeforeEach(func() {
@@ -71,12 +72,12 @@ var _ = Describe("FlightRecorderController", func() {
 		s := test.NewTestScheme()
 
 		client = fake.NewFakeClientWithScheme(s, objs...)
-		server = test.NewServer(client, handlers)
+		server = test.NewServer(client, handlers, tls)
 		controller = &controllers.FlightRecorderReconciler{
 			Client:     client,
 			Scheme:     s,
 			Log:        logger,
-			Reconciler: test.NewTestReconciler(server, client),
+			Reconciler: test.NewTestReconciler(server, client, tls),
 		}
 	})
 
@@ -91,12 +92,14 @@ var _ = Describe("FlightRecorderController", func() {
 			test.NewContainerJFRService(), test.NewJMXAuthSecret(),
 		}
 		handlers = []http.HandlerFunc{}
+		tls = true
 	})
 
 	AfterEach(func() {
 		// Reset test inputs
 		objs = nil
 		handlers = nil
+		tls = false
 	})
 
 	Describe("reconciling a request", func() {
@@ -279,6 +282,18 @@ var _ = Describe("FlightRecorderController", func() {
 			})
 			It("should requeue with error", func() {
 				expectFlightRecorderReconcileError(controller)
+			})
+		})
+		Context("successfully updates FlightRecorder CR with TLS disabled", func() {
+			BeforeEach(func() {
+				handlers = []http.HandlerFunc{
+					test.NewListEventTypesHandler(),
+					test.NewListTemplatesHandler(),
+				}
+				tls = false
+			})
+			It("should update event type list", func() {
+				expectFlightRecorderReconcileSuccess(controller, client)
 			})
 		})
 	})

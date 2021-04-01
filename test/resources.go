@@ -48,6 +48,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/client-go/kubernetes/scheme"
 )
 
@@ -665,8 +666,172 @@ func NewDefaultPVCWithLabel() *corev1.PersistentVolumeClaim {
 	}, nil)
 }
 
-func NewVolumeMountsWithSecrets() *[]corev1.VolumeMount {
-	return &[]corev1.VolumeMount{
+func NewCorePorts() []corev1.ContainerPort {
+	return []corev1.ContainerPort{
+		{
+			ContainerPort: 8181,
+		},
+		{
+			ContainerPort: 9090,
+		},
+		{
+			ContainerPort: 9091,
+		},
+	}
+}
+
+func NewGrafanaPorts() []corev1.ContainerPort {
+	return []corev1.ContainerPort{
+		{
+			ContainerPort: 3000,
+		},
+	}
+}
+
+func NewDatasourcePorts() []corev1.ContainerPort {
+	return []corev1.ContainerPort{
+		{
+			ContainerPort: 8080,
+		},
+	}
+}
+
+func NewCoreEnvironmentVariables(minimal bool, tls bool) []corev1.EnvVar {
+	envs := []corev1.EnvVar{
+		{
+			Name:  "CONTAINER_JFR_PLATFORM",
+			Value: "com.redhat.rhjmc.containerjfr.platform.internal.OpenShiftPlatformStrategy",
+		},
+		{
+			Name:  "CONTAINER_JFR_SSL_PROXIED",
+			Value: "true",
+		},
+		{
+			Name:  "CONTAINER_JFR_ALLOW_UNTRUSTED_SSL",
+			Value: "true",
+		},
+		{
+			Name:  "CONTAINER_JFR_WEB_PORT",
+			Value: "8181",
+		},
+		{
+			Name:  "CONTAINER_JFR_EXT_WEB_PORT",
+			Value: "443",
+		},
+		{
+			Name:  "CONTAINER_JFR_WEB_HOST",
+			Value: "containerjfr.example.com",
+		},
+		{
+			Name:  "CONTAINER_JFR_LISTEN_PORT",
+			Value: "9090",
+		},
+		{
+			Name:  "CONTAINER_JFR_EXT_LISTEN_PORT",
+			Value: "443",
+		},
+		{
+			Name:  "CONTAINER_JFR_LISTEN_HOST",
+			Value: "containerjfr-command.example.com",
+		},
+		{
+			Name:  "CONTAINER_JFR_TEMPLATE_PATH",
+			Value: "/templates",
+		},
+	}
+	if !minimal {
+		envs = append(envs,
+			corev1.EnvVar{
+				Name:  "GRAFANA_DASHBOARD_URL",
+				Value: "https://containerjfr-grafana.example.com",
+			},
+			corev1.EnvVar{
+				Name:  "GRAFANA_DATASOURCE_URL",
+				Value: "http://127.0.0.1:8080",
+			})
+	}
+	if !tls {
+		envs = append(envs,
+			corev1.EnvVar{
+				Name:  "CONTAINER_JFR_DISABLE_SSL",
+				Value: "true",
+			})
+	} else {
+		envs = append(envs, corev1.EnvVar{
+			Name:  "KEYSTORE_PATH",
+			Value: "/var/run/secrets/rhjmc.redhat.com/containerjfr-tls/keystore.p12",
+		})
+	}
+	return envs
+}
+
+func NewGrafanaEnvironmentVariables(tls bool) []corev1.EnvVar {
+	envs := []corev1.EnvVar{
+		{
+			Name:  "JFR_DATASOURCE_URL",
+			Value: "http://127.0.0.1:8080",
+		},
+	}
+	if tls {
+		envs = append(envs, corev1.EnvVar{
+			Name:  "GF_SERVER_PROTOCOL",
+			Value: "https",
+		}, corev1.EnvVar{
+			Name:  "GF_SERVER_CERT_KEY",
+			Value: "/var/run/secrets/rhjmc.redhat.com/containerjfr-grafana-tls/tls.key",
+		}, corev1.EnvVar{
+			Name:  "GF_SERVER_CERT_FILE",
+			Value: "/var/run/secrets/rhjmc.redhat.com/containerjfr-grafana-tls/tls.crt",
+		})
+	}
+	return envs
+}
+
+func NewDatasourceEnvironmentVariables() []corev1.EnvVar {
+	return []corev1.EnvVar{
+		{
+			Name:  "LISTEN_HOST",
+			Value: "127.0.0.1",
+		},
+	}
+}
+
+func NewCoreEnvFromSource(tls bool) []corev1.EnvFromSource {
+	envsFrom := []corev1.EnvFromSource{
+		{
+			SecretRef: &corev1.SecretEnvSource{
+				LocalObjectReference: corev1.LocalObjectReference{
+					Name: "containerjfr-jmx-auth",
+				},
+			},
+		},
+	}
+	if tls {
+		envsFrom = append(envsFrom, corev1.EnvFromSource{
+			SecretRef: &corev1.SecretEnvSource{
+				LocalObjectReference: corev1.LocalObjectReference{
+					Name: "containerjfr-keystore",
+				},
+			},
+		})
+	}
+	return envsFrom
+}
+
+func NewGrafanaEnvFromSource() []corev1.EnvFromSource {
+	return []corev1.EnvFromSource{
+		{
+			SecretRef: &corev1.SecretEnvSource{
+				LocalObjectReference: corev1.LocalObjectReference{
+					Name: "containerjfr-grafana-basic",
+				},
+			},
+		},
+	}
+}
+
+func NewCoreVolumeMounts(tls bool) []corev1.VolumeMount {
+	mounts := []corev1.VolumeMount{
 		{
 			Name:      "containerjfr",
 			ReadOnly:  false,
@@ -679,35 +844,107 @@ func NewVolumeMountsWithSecrets() *[]corev1.VolumeMount {
 			MountPath: "templates",
 			SubPath:   "templates",
 		},
-		{
-			Name:      "tls-secret",
-			ReadOnly:  true,
-			MountPath: "/var/run/secrets/rhjmc.redhat.com/containerjfr-tls/keystore.p12",
-			SubPath:   "keystore.p12",
-		},
-		{
-			Name:      "tls-secret",
-			ReadOnly:  true,
-			MountPath: "/truststore/containerjfr-ca.crt",
-			SubPath:   "ca.crt",
-		},
-		{
+	}
+	if tls {
+		mounts = append(mounts,
+			corev1.VolumeMount{
+				Name:      "tls-secret",
+				ReadOnly:  true,
+				MountPath: "/var/run/secrets/rhjmc.redhat.com/containerjfr-tls/keystore.p12",
+				SubPath:   "keystore.p12",
+			},
+			corev1.VolumeMount{
+				Name:      "tls-secret",
+				ReadOnly:  true,
+				MountPath: "/truststore/containerjfr-ca.crt",
+				SubPath:   "ca.crt",
+			})
+	}
+	return mounts
+}
+
+func NewGrafanaVolumeMounts(tls bool) []corev1.VolumeMount {
+	mounts := []corev1.VolumeMount{}
+	if tls {
+		mounts = append(mounts,
+			corev1.VolumeMount{
+				Name:      "grafana-tls-secret",
+				MountPath: "/var/run/secrets/rhjmc.redhat.com/containerjfr-grafana-tls",
+				ReadOnly:  true,
+			})
+	}
+	return mounts
+}
+
+func NewVolumeMountsWithSecrets() []corev1.VolumeMount {
+	return append(NewCoreVolumeMounts(true),
+		corev1.VolumeMount{
 			Name:      "testCert1",
 			ReadOnly:  true,
 			MountPath: "/truststore/testCert1_test.crt",
 			SubPath:   "test.crt",
 		},
-		{
+		corev1.VolumeMount{
 			Name:      "testCert2",
 			ReadOnly:  true,
 			MountPath: "/truststore/testCert2_tls.crt",
 			SubPath:   "tls.crt",
+		})
+}
+
+func NewCoreLivenessProbe(tls bool) *corev1.Probe {
+	protocol := corev1.URISchemeHTTPS
+	if !tls {
+		protocol = corev1.URISchemeHTTP
+	}
+	return &corev1.Probe{
+		Handler: corev1.Handler{
+			HTTPGet: &corev1.HTTPGetAction{
+				Port:   intstr.IntOrString{IntVal: 8181},
+				Path:   "/api/v1/clienturl",
+				Scheme: protocol,
+			},
 		},
 	}
 }
 
-func NewVolumesWithSecrets() *[]corev1.Volume {
-	return &[]corev1.Volume{
+func NewGrafanaLivenessProbe(tls bool) *corev1.Probe {
+	protocol := corev1.URISchemeHTTPS
+	if !tls {
+		protocol = corev1.URISchemeHTTP
+	}
+	return &corev1.Probe{
+		Handler: corev1.Handler{
+			HTTPGet: &corev1.HTTPGetAction{
+				Port:   intstr.IntOrString{IntVal: 3000},
+				Path:   "/api/health",
+				Scheme: protocol,
+			},
+		},
+	}
+}
+
+func NewDatasourceLivenessProbe() *corev1.Probe {
+	return &corev1.Probe{
+		Handler: corev1.Handler{
+			Exec: &corev1.ExecAction{
+				Command: []string{"curl", "--fail", "http://127.0.0.1:8080"},
+			},
+		},
+	}
+}
+
+func NewDeploymentSelector() *metav1.LabelSelector {
+	return &metav1.LabelSelector{
+		MatchLabels: map[string]string{
+			"app":  "containerjfr",
+			"kind": "containerjfr",
+		},
+	}
+}
+
+func NewVolumes(minimal bool, tls bool) []corev1.Volume {
+	volumes := []corev1.Volume{
 		{
 			Name: "containerjfr",
 			VolumeSource: corev1.VolumeSource{
@@ -717,23 +954,35 @@ func NewVolumesWithSecrets() *[]corev1.Volume {
 				},
 			},
 		},
-		{
-			Name: "tls-secret",
-			VolumeSource: corev1.VolumeSource{
-				Secret: &corev1.SecretVolumeSource{
-					SecretName: "containerjfr-tls",
+	}
+	if tls {
+		volumes = append(volumes,
+			corev1.Volume{
+				Name: "tls-secret",
+				VolumeSource: corev1.VolumeSource{
+					Secret: &corev1.SecretVolumeSource{
+						SecretName: "containerjfr-tls",
+					},
 				},
-			},
-		},
-		{
-			Name: "grafana-tls-secret",
-			VolumeSource: corev1.VolumeSource{
-				Secret: &corev1.SecretVolumeSource{
-					SecretName: "containerjfr-grafana-tls",
-				},
-			},
-		},
-		{
+			})
+		if !minimal {
+			volumes = append(volumes,
+				corev1.Volume{
+					Name: "grafana-tls-secret",
+					VolumeSource: corev1.VolumeSource{
+						Secret: &corev1.SecretVolumeSource{
+							SecretName: "containerjfr-grafana-tls",
+						},
+					},
+				})
+		}
+	}
+	return volumes
+}
+
+func NewVolumesWithSecrets() []corev1.Volume {
+	return append(NewVolumes(false, true),
+		corev1.Volume{
 			Name: "testCert1",
 			VolumeSource: corev1.VolumeSource{
 				Secret: &corev1.SecretVolumeSource{
@@ -741,13 +990,12 @@ func NewVolumesWithSecrets() *[]corev1.Volume {
 				},
 			},
 		},
-		{
+		corev1.Volume{
 			Name: "testCert2",
 			VolumeSource: corev1.VolumeSource{
 				Secret: &corev1.SecretVolumeSource{
 					SecretName: "testCert2",
 				},
 			},
-		},
-	}
+		})
 }

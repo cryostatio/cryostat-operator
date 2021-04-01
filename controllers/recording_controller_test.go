@@ -74,12 +74,12 @@ var _ = Describe("RecordingController", func() {
 		s := test.NewTestScheme()
 
 		client = fake.NewFakeClientWithScheme(s, objs...)
-		server = test.NewServer(client, handlers)
+		server = test.NewServer(client, handlers, true)
 		controller = &controllers.RecordingReconciler{
 			Client:     client,
 			Scheme:     s,
 			Log:        logger,
-			Reconciler: test.NewTestReconciler(server, client),
+			Reconciler: test.NewTestReconciler(server, client, true),
 		}
 	})
 

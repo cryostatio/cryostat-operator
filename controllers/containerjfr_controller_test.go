@@ -70,6 +70,7 @@ var _ = Describe("ContainerjfrController", func() {
 		objs       []runtime.Object
 		client     ctrlclient.Client
 		controller *controllers.ContainerJFRReconciler
+		tls        bool
 	)
 
 	JustBeforeEach(func() {
@@ -82,12 +83,17 @@ var _ = Describe("ContainerjfrController", func() {
 			Client:        client,
 			Scheme:        s,
 			Log:           logger,
-			ReconcilerTLS: test.NewTestReconcilerTLS(client),
+			ReconcilerTLS: test.NewTestReconcilerTLS(client, tls),
 		}
+	})
+
+	BeforeEach(func() {
+		tls = true
 	})
 
 	AfterEach(func() {
 		objs = nil
+		tls = false
 	})
 
 	Describe("reconciling a request", func() {
@@ -101,17 +107,17 @@ var _ = Describe("ContainerjfrController", func() {
 				expectCertificates(client, controller)
 			})
 			It("should create routes", func() {
-				expectRoutes(client, controller, false)
+				expectRoutes(client, controller, false, tls)
 			})
 			It("should create persistent volume claim and set owner", func() {
-				expectPVC(client, controller, test.NewDefaultPVC(), false)
+				expectPVC(client, controller, test.NewDefaultPVC(), false, tls)
 			})
 			It("should create Grafana secret and set owner", func() {
 				secret := &corev1.Secret{}
 				err := client.Get(context.Background(), types.NamespacedName{Name: "containerjfr-grafana-basic", Namespace: "default"}, secret)
 				Expect(kerrors.IsNotFound(err)).To(BeTrue())
 
-				reconcileContainerJFRFully(client, controller, false)
+				reconcileContainerJFRFully(client, controller, false, tls)
 
 				err = client.Get(context.Background(), types.NamespacedName{Name: "containerjfr-grafana-basic", Namespace: "default"}, secret)
 				Expect(err).ToNot(HaveOccurred())
@@ -122,24 +128,24 @@ var _ = Describe("ContainerjfrController", func() {
 				Expect(secret.StringData["GF_SECURITY_ADMIN_USER"]).To(Equal(expectedSecret.StringData["GF_SECURITY_ADMIN_USER"]))
 			})
 			It("should create JMX secret and set owner", func() {
-				expectJMXSecret(client, controller, false)
+				expectJMXSecret(client, controller, false, tls)
 			})
 			It("should create Grafana service and set owner", func() {
 				service := &corev1.Service{}
 				err := client.Get(context.Background(), types.NamespacedName{Name: "containerjfr-grafana", Namespace: "default"}, service)
 				Expect(kerrors.IsNotFound(err)).To(BeTrue())
 
-				reconcileContainerJFRFully(client, controller, false)
+				reconcileContainerJFRFully(client, controller, false, tls)
 				checkGrafanaService(client)
 			})
 			It("should create exporter service and set owner", func() {
-				expectExporterService(client, controller, false)
+				expectExporterService(client, controller, false, tls)
 			})
 			It("should create command channel service and set owner", func() {
-				expectCommandChannel(client, controller, false)
+				expectCommandChannel(client, controller, false, tls)
 			})
 			It("should create deployment and set owner", func() {
-				expectDeployment(client, controller, false)
+				expectDeployment(client, controller, false, tls)
 			})
 		})
 		Context("succesfully creates required resources for minimal deployment", func() {
@@ -152,22 +158,22 @@ var _ = Describe("ContainerjfrController", func() {
 				expectCertificates(client, controller)
 			})
 			It("should create routes", func() {
-				expectRoutes(client, controller, true)
+				expectRoutes(client, controller, true, tls)
 			})
 			It("should create persistent volume claim and set owner", func() {
-				expectPVC(client, controller, test.NewDefaultPVC(), true)
+				expectPVC(client, controller, test.NewDefaultPVC(), true, tls)
 			})
 			It("should create JMX secret and set owner", func() {
-				expectJMXSecret(client, controller, true)
+				expectJMXSecret(client, controller, true, tls)
 			})
 			It("should create exporter service and set owner", func() {
-				expectExporterService(client, controller, true)
+				expectExporterService(client, controller, true, tls)
 			})
 			It("should create command channel service and set owner", func() {
-				expectCommandChannel(client, controller, true)
+				expectCommandChannel(client, controller, true, tls)
 			})
 			It("should create deployment and set owner", func() {
-				expectDeployment(client, controller, true)
+				expectDeployment(client, controller, true, tls)
 			})
 		})
 		Context("after containerjfr reconciled successfully", func() {
@@ -177,7 +183,7 @@ var _ = Describe("ContainerjfrController", func() {
 				}
 			})
 			It("should be idempotent", func() {
-				expectIdempotence(client, controller, false)
+				expectIdempotence(client, controller, false, tls)
 			})
 		})
 		Context("After a minimal containerjfr reconciled successfully", func() {
@@ -187,7 +193,7 @@ var _ = Describe("ContainerjfrController", func() {
 				}
 			})
 			It("should be idempotent", func() {
-				expectIdempotence(client, controller, true)
+				expectIdempotence(client, controller, true, tls)
 			})
 		})
 		Context("ContainerJFR does not exist", func() {
@@ -205,7 +211,7 @@ var _ = Describe("ContainerjfrController", func() {
 				}
 			})
 			JustBeforeEach(func() {
-				reconcileContainerJFRFully(client, controller, true)
+				reconcileContainerJFRFully(client, controller, true, tls)
 
 				cjfr := &rhjmcv1beta1.ContainerJFR{}
 				err := client.Get(context.Background(), types.NamespacedName{Name: "containerjfr", Namespace: "default"}, cjfr)
@@ -216,17 +222,19 @@ var _ = Describe("ContainerjfrController", func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				req := reconcile.Request{NamespacedName: types.NamespacedName{Name: "containerjfr", Namespace: "default"}}
-				_, err = controller.Reconcile(context.Background(), req)
-				Expect(err).To(HaveOccurred())
-				ingressConfig(client, controller, req, false)
-				_, err = controller.Reconcile(context.Background(), req)
+				result, err := controller.Reconcile(context.Background(), req)
+				Expect(result).To(Equal(reconcile.Result{RequeueAfter: 5 * time.Second}))
 				Expect(err).ToNot(HaveOccurred())
+				ingressConfig(client, controller, req, false, tls)
+				result, err = controller.Reconcile(context.Background(), req)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(result).To(Equal(reconcile.Result{}))
 			})
 			It("should create grafana resources", func() {
 				checkGrafanaService(client)
 			})
 			It("should configure deployment appropriately", func() {
-				checkDeployment(client, false)
+				checkDeployment(client, false, tls)
 			})
 		})
 		Context("Switching from a non-minimal to a minimal deployment", func() {
@@ -236,7 +244,7 @@ var _ = Describe("ContainerjfrController", func() {
 				}
 			})
 			JustBeforeEach(func() {
-				reconcileContainerJFRFully(client, controller, false)
+				reconcileContainerJFRFully(client, controller, false, tls)
 
 				cjfr := &rhjmcv1beta1.ContainerJFR{}
 				err := client.Get(context.Background(), types.NamespacedName{Name: "containerjfr", Namespace: "default"}, cjfr)
@@ -260,7 +268,7 @@ var _ = Describe("ContainerjfrController", func() {
 				Expect(kerrors.IsNotFound(err)).To(BeTrue())
 			})
 			It("should configure deployment appropriately", func() {
-				checkDeployment(client, true)
+				checkDeployment(client, true, tls)
 			})
 		})
 		Context("Container jfr has list of certificate secrets", func() {
@@ -270,18 +278,18 @@ var _ = Describe("ContainerjfrController", func() {
 				}
 			})
 			It("Should add volumes and volumeMounts to deployment", func() {
-				reconcileContainerJFRFully(client, controller, false)
+				reconcileContainerJFRFully(client, controller, false, tls)
 				deployment := &appsv1.Deployment{}
 				err := client.Get(context.Background(), types.NamespacedName{Name: "containerjfr", Namespace: "default"}, deployment)
 				Expect(err).ToNot(HaveOccurred())
 
 				volumes := deployment.Spec.Template.Spec.Volumes
 				expectedVolumes := test.NewVolumesWithSecrets()
-				Expect(&volumes).To(Equal(expectedVolumes))
+				Expect(volumes).To(Equal(expectedVolumes))
 
 				volumeMounts := deployment.Spec.Template.Spec.Containers[0].VolumeMounts
 				expectedVolumeMounts := test.NewVolumeMountsWithSecrets()
-				Expect(&volumeMounts).To(Equal(expectedVolumeMounts))
+				Expect(volumeMounts).To(Equal(expectedVolumeMounts))
 			})
 		})
 		Context("Adding a certificate to the TrustedCertSecrets list", func() {
@@ -291,7 +299,7 @@ var _ = Describe("ContainerjfrController", func() {
 				}
 			})
 			JustBeforeEach(func() {
-				reconcileContainerJFRFully(client, controller, false)
+				reconcileContainerJFRFully(client, controller, false, tls)
 			})
 			It("Should update the corresponding deployment", func() {
 				// Get ContainerJFR CR after reconciling
@@ -315,11 +323,11 @@ var _ = Describe("ContainerjfrController", func() {
 
 				volumes := deployment.Spec.Template.Spec.Volumes
 				expectedVolumes := test.NewVolumesWithSecrets()
-				Expect(&volumes).To(Equal(expectedVolumes))
+				Expect(volumes).To(Equal(expectedVolumes))
 
 				volumeMounts := deployment.Spec.Template.Spec.Containers[0].VolumeMounts
 				expectedVolumeMounts := test.NewVolumeMountsWithSecrets()
-				Expect(&volumeMounts).To(Equal(expectedVolumeMounts))
+				Expect(volumeMounts).To(Equal(expectedVolumeMounts))
 			})
 		})
 		Context("with custom PVC spec overriding all defaults", func() {
@@ -329,7 +337,7 @@ var _ = Describe("ContainerjfrController", func() {
 				}
 			})
 			It("should create the PVC with requested spec", func() {
-				expectPVC(client, controller, test.NewCustomPVC(), false)
+				expectPVC(client, controller, test.NewCustomPVC(), false, tls)
 			})
 		})
 		Context("with custom PVC spec overriding some defaults", func() {
@@ -339,7 +347,7 @@ var _ = Describe("ContainerjfrController", func() {
 				}
 			})
 			It("should create the PVC with requested spec", func() {
-				expectPVC(client, controller, test.NewCustomPVCSomeDefault(), false)
+				expectPVC(client, controller, test.NewCustomPVCSomeDefault(), false, tls)
 			})
 		})
 		Context("with custom PVC config with no spec", func() {
@@ -349,7 +357,7 @@ var _ = Describe("ContainerjfrController", func() {
 				}
 			})
 			It("should create the PVC with requested label", func() {
-				expectPVC(client, controller, test.NewDefaultPVCWithLabel(), false)
+				expectPVC(client, controller, test.NewDefaultPVCWithLabel(), false, tls)
 			})
 		})
 		Context("on OpenShift", func() {
@@ -359,7 +367,7 @@ var _ = Describe("ContainerjfrController", func() {
 				}
 			})
 			JustBeforeEach(func() {
-				reconcileContainerJFRFully(client, controller, false)
+				reconcileContainerJFRFully(client, controller, false, tls)
 			})
 			It("should create ConsoleLink", func() {
 				links := &consolev1.ConsoleLinkList{}
@@ -373,7 +381,7 @@ var _ = Describe("ContainerjfrController", func() {
 				Expect(links.Items).To(HaveLen(1))
 				link := links.Items[0]
 				Expect(link.Spec.Text).To(Equal("Container JDK Flight Recorder"))
-				Expect(link.Spec.Href).To(Equal("https://test"))
+				Expect(link.Spec.Href).To(Equal("https://containerjfr.example.com"))
 				// Should be added to the NamespaceDashboard for only the current namespace
 				Expect(link.Spec.Location).To(Equal(consolev1.NamespaceDashboard))
 				Expect(link.Spec.NamespaceDashboard.Namespaces).To(Equal([]string{"default"}))
@@ -421,6 +429,27 @@ var _ = Describe("ContainerjfrController", func() {
 				})
 			})
 		})
+		Context("with service TLS disabled", func() {
+			BeforeEach(func() {
+				objs = []runtime.Object{
+					test.NewContainerJFR(),
+				}
+				tls = false
+			})
+			It("should create deployment and set owner", func() {
+				expectDeployment(client, controller, false, tls)
+			})
+			It("should not create certificates", func() {
+				certs := &certv1.CertificateList{}
+				client.List(context.Background(), certs, &ctrlclient.ListOptions{
+					Namespace: "default",
+				})
+				Expect(certs.Items).To(BeEmpty())
+			})
+			It("should create routes with edge TLS termination", func() {
+				expectRoutes(client, controller, false, tls)
+			})
+		})
 	})
 })
 
@@ -431,28 +460,8 @@ func newFakeSecret(name string) *corev1.Secret {
 			Namespace: "default",
 		},
 		Data: map[string][]byte{
-			corev1.TLSCertKey: nil,
+			corev1.TLSCertKey: []byte(name + "-bytes"),
 		},
-	}
-}
-
-func newFakeServiceSpecs(minimal bool) resource_definitions.ServiceSpecs {
-	grafanaUrl := "https://test"
-	if minimal {
-		grafanaUrl = ""
-	}
-	return resource_definitions.ServiceSpecs{
-		CoreHostname:    "test",
-		CommandHostname: "test",
-		GrafanaURL:      grafanaUrl,
-	}
-}
-
-func newFakeTLSConfig() resource_definitions.TLSConfig {
-	return resource_definitions.TLSConfig{
-		ContainerJFRSecret: "containerjfr-tls",
-		GrafanaSecret:      "containerjfr-grafana-tls",
-		KeystorePassSecret: "containerjfr-keystore",
 	}
 }
 
@@ -481,7 +490,7 @@ func initializeSecrets(client ctrlclient.Client) {
 	}
 }
 
-func ingressConfig(client ctrlclient.Client, controller *controllers.ContainerJFRReconciler, req reconcile.Request, minimal bool) {
+func ingressConfig(client ctrlclient.Client, controller *controllers.ContainerJFRReconciler, req reconcile.Request, minimal bool, tls bool) {
 	routes := []string{"containerjfr", "containerjfr-command"}
 	if !minimal {
 		routes = append([]string{"containerjfr-grafana"}, routes...)
@@ -490,8 +499,18 @@ func ingressConfig(client ctrlclient.Client, controller *controllers.ContainerJF
 		route := &openshiftv1.Route{}
 		err := client.Get(context.Background(), types.NamespacedName{Name: routeName, Namespace: "default"}, route)
 		Expect(err).ToNot(HaveOccurred())
+
+		// Verify the TLS termination policy
+		Expect(route.Spec.TLS).ToNot(BeNil())
+		if tls {
+			Expect(route.Spec.TLS.Termination).To(Equal(openshiftv1.TLSTerminationReencrypt))
+			Expect(route.Spec.TLS.DestinationCACertificate).To(Equal("containerjfr-ca-bytes"))
+		} else {
+			Expect(route.Spec.TLS.Termination).To(Equal(openshiftv1.TLSTerminationEdge))
+			Expect(route.Spec.TLS.InsecureEdgeTerminationPolicy).To(Equal(openshiftv1.InsecureEdgeTerminationPolicyRedirect))
+		}
 		route.Status.Ingress = append(route.Status.Ingress, openshiftv1.RouteIngress{
-			Host: "test",
+			Host: routeName + ".example.com",
 		})
 		err = client.Status().Update(context.Background(), route)
 		Expect(err).ToNot(HaveOccurred())
@@ -499,19 +518,23 @@ func ingressConfig(client ctrlclient.Client, controller *controllers.ContainerJF
 	}
 }
 
-func reconcileContainerJFRFully(client ctrlclient.Client, controller *controllers.ContainerJFRReconciler, minimal bool) {
+func reconcileContainerJFRFully(client ctrlclient.Client, controller *controllers.ContainerJFRReconciler, minimal bool, tls bool) {
 	req := reconcile.Request{NamespacedName: types.NamespacedName{Name: "containerjfr", Namespace: "default"}}
 	result, err := controller.Reconcile(context.Background(), req)
 	Expect(err).ToNot(HaveOccurred())
 	Expect(result).To(Equal(reconcile.Result{RequeueAfter: 5 * time.Second}))
 
 	// Update certificate status
-	makeCertificatesReady(client)
-	initializeSecrets(client)
+	if tls {
+		makeCertificatesReady(client)
+		initializeSecrets(client)
+	}
 
 	// Add ingress config to routes
 	result, err = controller.Reconcile(context.Background(), req)
-	ingressConfig(client, controller, req, minimal)
+	Expect(err).ToNot(HaveOccurred())
+	Expect(result).To(Equal(reconcile.Result{RequeueAfter: 5 * time.Second}))
+	ingressConfig(client, controller, req, minimal, tls)
 
 	result, err = controller.Reconcile(context.Background(), req)
 	Expect(err).ToNot(HaveOccurred())
@@ -541,29 +564,31 @@ func expectCertificates(client ctrlclient.Client, controller *controllers.Contai
 	}
 }
 
-func expectRoutes(client ctrlclient.Client, controller *controllers.ContainerJFRReconciler, minimal bool) {
+func expectRoutes(client ctrlclient.Client, controller *controllers.ContainerJFRReconciler, minimal bool, tls bool) {
 	req := reconcile.Request{NamespacedName: types.NamespacedName{Name: "containerjfr", Namespace: "default"}}
 	result, err := controller.Reconcile(context.Background(), req)
 	Expect(err).ToNot(HaveOccurred())
 	Expect(result).To(Equal(reconcile.Result{RequeueAfter: 5 * time.Second}))
 
 	// Update certificate status
-	makeCertificatesReady(client)
-	initializeSecrets(client)
+	if tls {
+		makeCertificatesReady(client)
+		initializeSecrets(client)
+	}
 
 	// Check for routes, ingress configuration needs to be added as each
 	// one is created so that they all reconcile successfully
 	result, err = controller.Reconcile(context.Background(), req)
-	ingressConfig(client, controller, req, minimal)
+	ingressConfig(client, controller, req, minimal, tls)
 }
 
 func expectPVC(client ctrlclient.Client, controller *controllers.ContainerJFRReconciler,
-	expectedPvc *corev1.PersistentVolumeClaim, minimal bool) {
+	expectedPvc *corev1.PersistentVolumeClaim, minimal bool, tls bool) {
 	pvc := &corev1.PersistentVolumeClaim{}
 	err := client.Get(context.Background(), types.NamespacedName{Name: "containerjfr", Namespace: "default"}, pvc)
 	Expect(kerrors.IsNotFound(err)).To(BeTrue())
 
-	reconcileContainerJFRFully(client, controller, minimal)
+	reconcileContainerJFRFully(client, controller, minimal, tls)
 
 	err = client.Get(context.Background(), types.NamespacedName{Name: "containerjfr", Namespace: "default"}, pvc)
 	Expect(err).ToNot(HaveOccurred())
@@ -578,12 +603,12 @@ func expectPVC(client ctrlclient.Client, controller *controllers.ContainerJFRRec
 	Expect(pvcStorage.Equal(expectedPvcStorage)).To(BeTrue())
 }
 
-func expectJMXSecret(client ctrlclient.Client, controller *controllers.ContainerJFRReconciler, minimal bool) {
+func expectJMXSecret(client ctrlclient.Client, controller *controllers.ContainerJFRReconciler, minimal bool, tls bool) {
 	secret := &corev1.Secret{}
 	err := client.Get(context.Background(), types.NamespacedName{Name: "containerjfr-jmx-auth", Namespace: "default"}, secret)
 	Expect(kerrors.IsNotFound(err)).To(BeTrue())
 
-	reconcileContainerJFRFully(client, controller, minimal)
+	reconcileContainerJFRFully(client, controller, minimal, tls)
 
 	err = client.Get(context.Background(), types.NamespacedName{Name: "containerjfr-jmx-auth", Namespace: "default"}, secret)
 	Expect(err).ToNot(HaveOccurred())
@@ -593,12 +618,12 @@ func expectJMXSecret(client ctrlclient.Client, controller *controllers.Container
 	Expect(secret.StringData["CONTAINER_JFR_RJMX_USER"]).To(Equal(expectedSecret.StringData["CONTAINER_JFR_RJMX_USER"]))
 }
 
-func expectExporterService(client ctrlclient.Client, controller *controllers.ContainerJFRReconciler, minimal bool) {
+func expectExporterService(client ctrlclient.Client, controller *controllers.ContainerJFRReconciler, minimal bool, tls bool) {
 	service := &corev1.Service{}
 	err := client.Get(context.Background(), types.NamespacedName{Name: "containerjfr", Namespace: "default"}, service)
 	Expect(kerrors.IsNotFound(err)).To(BeTrue())
 
-	reconcileContainerJFRFully(client, controller, minimal)
+	reconcileContainerJFRFully(client, controller, minimal, tls)
 
 	err = client.Get(context.Background(), types.NamespacedName{Name: "containerjfr", Namespace: "default"}, service)
 	Expect(err).ToNot(HaveOccurred())
@@ -610,12 +635,12 @@ func expectExporterService(client ctrlclient.Client, controller *controllers.Con
 	Expect(service.Spec.Ports).To(Equal(expectedService.Spec.Ports))
 }
 
-func expectCommandChannel(client ctrlclient.Client, controller *controllers.ContainerJFRReconciler, minimal bool) {
+func expectCommandChannel(client ctrlclient.Client, controller *controllers.ContainerJFRReconciler, minimal bool, tls bool) {
 	service := &corev1.Service{}
 	err := client.Get(context.Background(), types.NamespacedName{Name: "containerjfr-command", Namespace: "default"}, service)
 	Expect(kerrors.IsNotFound(err)).To(BeTrue())
 
-	reconcileContainerJFRFully(client, controller, minimal)
+	reconcileContainerJFRFully(client, controller, minimal, tls)
 
 	err = client.Get(context.Background(), types.NamespacedName{Name: "containerjfr-command", Namespace: "default"}, service)
 	Expect(err).ToNot(HaveOccurred())
@@ -627,18 +652,18 @@ func expectCommandChannel(client ctrlclient.Client, controller *controllers.Cont
 	Expect(service.Spec.Ports).To(Equal(expectedService.Spec.Ports))
 }
 
-func expectDeployment(client ctrlclient.Client, controller *controllers.ContainerJFRReconciler, minimal bool) {
+func expectDeployment(client ctrlclient.Client, controller *controllers.ContainerJFRReconciler, minimal bool, tls bool) {
 	deployment := &appsv1.Deployment{}
 	err := client.Get(context.Background(), types.NamespacedName{Name: "containerjfr", Namespace: "default"}, deployment)
 	Expect(kerrors.IsNotFound(err)).To(BeTrue())
 
-	reconcileContainerJFRFully(client, controller, minimal)
-	checkDeployment(client, minimal)
+	reconcileContainerJFRFully(client, controller, minimal, tls)
+	checkDeployment(client, minimal, tls)
 }
 
-func expectIdempotence(client ctrlclient.Client, controller *controllers.ContainerJFRReconciler, minimal bool) {
+func expectIdempotence(client ctrlclient.Client, controller *controllers.ContainerJFRReconciler, minimal bool, tls bool) {
 	req := reconcile.Request{NamespacedName: types.NamespacedName{Name: "containerjfr", Namespace: "default"}}
-	reconcileContainerJFRFully(client, controller, minimal)
+	reconcileContainerJFRFully(client, controller, minimal, tls)
 
 	obj := &rhjmcv1beta1.ContainerJFR{}
 	err := client.Get(context.Background(), req.NamespacedName, obj)
@@ -668,27 +693,83 @@ func checkGrafanaService(client ctrlclient.Client) {
 	Expect(service.Spec.Ports).To(Equal(expectedService.Spec.Ports))
 }
 
-func checkDeployment(client ctrlclient.Client, minimal bool) {
+func checkDeployment(client ctrlclient.Client, minimal bool, tls bool) {
 	deployment := &appsv1.Deployment{}
 	err := client.Get(context.Background(), types.NamespacedName{Name: "containerjfr", Namespace: "default"}, deployment)
 	Expect(err).ToNot(HaveOccurred())
 
-	testSpecs := newFakeServiceSpecs(minimal)
-	testTLSConfig := newFakeTLSConfig()
-	testContainer := &rhjmcv1beta1.ContainerJFR{}
-	if minimal {
-		testContainer = test.NewMinimalContainerJFR()
-	} else {
-		testContainer = test.NewContainerJFR()
-	}
-	expectedDeployment := resource_definitions.NewDeploymentForCR(testContainer, &testSpecs, &testTLSConfig)
-	checkMetadata(deployment, expectedDeployment)
-	Expect(deployment.Spec.Selector).To(Equal(expectedDeployment.Spec.Selector))
+	cr := &rhjmcv1beta1.ContainerJFR{}
+	err = client.Get(context.Background(), types.NamespacedName{Name: "containerjfr", Namespace: "default"}, cr)
+	Expect(err).ToNot(HaveOccurred())
+
+	Expect(deployment.Name).To(Equal("containerjfr"))
+	Expect(deployment.Namespace).To(Equal("default"))
+	Expect(deployment.Annotations).To(Equal(map[string]string{
+		"redhat.com/containerJfrUrl":   "https://containerjfr.example.com",
+		"app.openshift.io/connects-to": "container-jfr-operator",
+	}))
+	Expect(deployment.Labels).To(Equal(map[string]string{
+		"app":                    "containerjfr",
+		"kind":                   "containerjfr",
+		"app.kubernetes.io/name": "container-jfr",
+	}))
+	Expect(metav1.IsControlledBy(deployment, cr)).To(BeTrue())
+	Expect(deployment.Spec.Selector).To(Equal(test.NewDeploymentSelector()))
 
 	// compare Pod template
 	template := deployment.Spec.Template
-	expectedTemplate := expectedDeployment.Spec.Template
-	Expect(template.ObjectMeta).To(Equal(expectedTemplate.ObjectMeta))
-	Expect(template.Spec.Containers).To(Equal(expectedTemplate.Spec.Containers))
-	Expect(template.Spec.Volumes).To(Equal(expectedTemplate.Spec.Volumes))
+	Expect(template.Name).To(Equal("containerjfr"))
+	Expect(template.Namespace).To(Equal("default"))
+	Expect(template.Annotations).To(Equal(map[string]string{
+		"redhat.com/containerJfrUrl": "https://containerjfr.example.com",
+	}))
+	Expect(template.Labels).To(Equal(map[string]string{
+		"app":  "containerjfr",
+		"kind": "containerjfr",
+	}))
+	Expect(template.Spec.Volumes).To(Equal(test.NewVolumes(minimal, tls)))
+
+	// Check that the networking environment variables are set correctly
+	coreContainer := template.Spec.Containers[0]
+	checkCoreContainer(&coreContainer, minimal, tls)
+
+	if !minimal {
+		// Check that Grafana is configured properly, depending on the environment
+		grafanaContainer := template.Spec.Containers[1]
+		checkGrafanaContainer(&grafanaContainer, tls)
+
+		// Check that JFR Datasource is configured properly
+		datasourceContainer := template.Spec.Containers[2]
+		checkDatasourceContainer(&datasourceContainer)
+	}
+}
+
+func checkCoreContainer(container *corev1.Container, minimal bool, tls bool) {
+	Expect(container.Name).To(Equal("containerjfr"))
+	Expect(container.Image).To(Equal("quay.io/rh-jmc-team/container-jfr:1.0.0-BETA6"))
+	Expect(container.Ports).To(ConsistOf(test.NewCorePorts()))
+	Expect(container.Env).To(ConsistOf(test.NewCoreEnvironmentVariables(minimal, tls)))
+	Expect(container.EnvFrom).To(ConsistOf(test.NewCoreEnvFromSource(tls)))
+	Expect(container.VolumeMounts).To(ConsistOf(test.NewCoreVolumeMounts(tls)))
+	Expect(container.LivenessProbe).To(Equal(test.NewCoreLivenessProbe(tls)))
+}
+
+func checkGrafanaContainer(container *corev1.Container, tls bool) {
+	Expect(container.Name).To(Equal("containerjfr-grafana"))
+	Expect(container.Image).To(Equal("quay.io/rh-jmc-team/container-jfr-grafana-dashboard:1.0.0-BETA3"))
+	Expect(container.Ports).To(ConsistOf(test.NewGrafanaPorts()))
+	Expect(container.Env).To(ConsistOf(test.NewGrafanaEnvironmentVariables(tls)))
+	Expect(container.EnvFrom).To(ConsistOf(test.NewGrafanaEnvFromSource()))
+	Expect(container.VolumeMounts).To(ConsistOf(test.NewGrafanaVolumeMounts(tls)))
+	Expect(container.LivenessProbe).To(Equal(test.NewGrafanaLivenessProbe(tls)))
+}
+
+func checkDatasourceContainer(container *corev1.Container) {
+	Expect(container.Name).To(Equal("containerjfr-jfr-datasource"))
+	Expect(container.Image).To(Equal("quay.io/rh-jmc-team/jfr-datasource:0.0.2"))
+	Expect(container.Ports).To(ConsistOf(test.NewDatasourcePorts()))
+	Expect(container.Env).To(ConsistOf(test.NewDatasourceEnvironmentVariables()))
+	Expect(container.EnvFrom).To(BeEmpty())
+	Expect(container.VolumeMounts).To(BeEmpty())
+	Expect(container.LivenessProbe).To(Equal(test.NewDatasourceLivenessProbe()))
 }

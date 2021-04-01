@@ -98,7 +98,7 @@ func (r *FlightRecorderReconciler) Reconcile(ctx context.Context, request ctrl.R
 	cjfr, err := r.GetContainerJFRClient(ctx, request.Namespace, instance.Spec.JMXCredentials)
 	if err != nil {
 		if err == common.ErrCertNotReady {
-			log.Info("Waiting for CA certificate")
+			reqLogger.Info("Waiting for CA certificate")
 			return reconcile.Result{RequeueAfter: 5 * time.Second}, nil
 		}
 		return reconcile.Result{}, err
@@ -118,10 +118,10 @@ func (r *FlightRecorderReconciler) Reconcile(ctx context.Context, request ctrl.R
 	}
 
 	// Retrieve list of available events
-	log.Info("Listing event types for pod", "name", targetPod.Name, "namespace", targetPod.Namespace)
+	reqLogger.Info("Listing event types for pod", "name", targetPod.Name, "namespace", targetPod.Namespace)
 	events, err := cjfr.ListEventTypes(targetAddr)
 	if err != nil {
-		log.Error(err, "failed to list event types")
+		reqLogger.Error(err, "failed to list event types")
 		return reconcile.Result{}, err
 	}
 
@@ -129,10 +129,10 @@ func (r *FlightRecorderReconciler) Reconcile(ctx context.Context, request ctrl.R
 	instance.Status.Events = events
 
 	// Retrieve list of available templates
-	log.Info("Listing templates for pod", "name", targetPod.Name, "namespace", targetPod.Namespace)
+	reqLogger.Info("Listing templates for pod", "name", targetPod.Name, "namespace", targetPod.Namespace)
 	templates, err := cjfr.ListTemplates(targetAddr)
 	if err != nil {
-		log.Error(err, "failed to list templates")
+		reqLogger.Error(err, "failed to list templates")
 		return reconcile.Result{}, err
 	}
 
