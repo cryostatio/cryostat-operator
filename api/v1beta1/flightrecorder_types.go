@@ -44,24 +44,30 @@ import (
 // FlightRecorderSpec defines the desired state of FlightRecorder
 type FlightRecorderSpec struct {
 	// Recordings that match this selector belong to this FlightRecorder
+	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	RecordingSelector *metav1.LabelSelector `json:"recordingSelector"`
 	// If JMX authentication is enabled for this FlightRecorder's JVM, specify the credentials in a secret
 	// and reference it here
 	// +optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	JMXCredentials *JMXAuthSecret `json:"jmxCredentials,omitempty"`
 }
 
 // FlightRecorderStatus defines the observed state of FlightRecorder
 type FlightRecorderStatus struct {
 	// Listing of events available in the target JVM
+	// +operator-sdk:csv:customresourcedefinitions:type=status
 	// +listType=atomic
 	Events []EventInfo `json:"events"`
 	// Listing of templates available in the target JVM
+	// +operator-sdk:csv:customresourcedefinitions:type=status
 	// +listType=atomic
 	Templates []TemplateInfo `json:"templates"`
 	// Reference to the pod/service that this object controls JFR for
+	// +operator-sdk:csv:customresourcedefinitions:type=status
 	Target *corev1.ObjectReference `json:"target"`
 	// JMX port for target JVM
+	// +operator-sdk:csv:customresourcedefinitions:type=status,xDescriptors={"urn:alm:descriptor:text"}
 	// +kubebuilder:validation:Minimum=0
 	Port int32 `json:"port"`
 }
