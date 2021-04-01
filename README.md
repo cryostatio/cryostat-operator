@@ -142,8 +142,9 @@ required to prepare the cluster for deploying the operator, using `oc` or
 `make deploy` will deploy the operator in the default namespace
 (`container-jfr-operator-system`). `make DEPLOY_NAMESPACE=foo-namespace deploy`
 can be used to deploy to an arbitrary namespace named `foo-namespace`. For
-a convenient shorthand, use `make DEPLOY_NAMESPACE=$(oc project -q) deploy` to
-deploy to the currently active OpenShift project namespace.
+a convenient shorthand, use
+`make DEPLOY_NAMESPACE=$(kubectl config view --minify -o 'jsonpath={.contexts[0].context.namespace}') deploy`
+to deploy to the currently active OpenShift project namespace.
 `make undeploy` will likewise remove the operator, and also uses the
 `DEPLOY_NAMESPACE` variable.
 This also respects the `IMAGE_TAG` environment variable, so that different

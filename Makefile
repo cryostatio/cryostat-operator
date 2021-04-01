@@ -194,7 +194,7 @@ ifeq ($(DISABLE_SERVICE_TLS), true)
 		echo -e "Expected 1 Subscription, found $${#}:\n$${@}" >&2; \
 		exit 1; \
 	fi; \
-	$(CLUSTER_CLIENT) -n $(DEPLOY_NAMESPACE) patch --type=merge -p '{"spec":{"config":{"env":[{"name":"DISABLE_SERVICE_TLS","value":"true"}]}}}' "$${1}"
+	$(CLUSTER_CLIENT) patch --type=merge -p '{"spec":{"config":{"env":[{"name":"DISABLE_SERVICE_TLS","value":"true"}]}}}' "$${1}"
 endif
 
 .PHONY: undeploy_bundle
