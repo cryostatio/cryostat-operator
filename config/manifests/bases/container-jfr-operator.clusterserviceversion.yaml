@@ -75,9 +75,9 @@ spec:
       - kind: Deployment
         name: ""
         version: v1
-      - kind: FlightRecorder
+      - kind: Ingress
         name: ""
-        version: v1beta1
+        version: v1
       - kind: PersistentVolumeClaim
         name: ""
         version: v1
