@@ -154,6 +154,7 @@ type JMXAuthSecret struct {
 // +kubebuilder:subresource:status
 
 // FlightRecorder is the Schema for the flightrecorders API
+//+operator-sdk:csv:customresourcedefinitions:resources={{Pod,v1},{Secret,v1},{Service,v1}}
 type FlightRecorder struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`

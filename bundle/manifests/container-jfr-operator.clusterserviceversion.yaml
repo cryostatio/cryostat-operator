@@ -75,6 +75,28 @@ spec:
       displayName: Container JFR
       kind: ContainerJFR
       name: containerjfrs.rhjmc.redhat.com
+      resources:
+      - kind: ConsoleLink
+        name: ""
+        version: v1
+      - kind: Deployment
+        name: ""
+        version: v1
+      - kind: FlightRecorder
+        name: ""
+        version: v1beta1
+      - kind: PersistentVolumeClaim
+        name: ""
+        version: v1
+      - kind: Route
+        name: ""
+        version: v1
+      - kind: Secret
+        name: ""
+        version: v1
+      - kind: Service
+        name: ""
+        version: v1
       specDescriptors:
       - description: Deploy a pared-down ContainerJFR instance with no Grafana dashboard or jfr-datasource and no web-client UI.
         displayName: Minimal Deployment
@@ -103,6 +125,16 @@ spec:
       displayName: Flight Recorder
       kind: FlightRecorder
       name: flightrecorders.rhjmc.redhat.com
+      resources:
+      - kind: Pod
+        name: ""
+        version: v1
+      - kind: Secret
+        name: ""
+        version: v1
+      - kind: Service
+        name: ""
+        version: v1
       specDescriptors:
       - description: If JMX authentication is enabled for this FlightRecorder's JVM, specify the credentials in a secret and reference it here
         displayName: JMXCredentials
@@ -130,6 +162,16 @@ spec:
       displayName: Recording
       kind: Recording
       name: recordings.rhjmc.redhat.com
+      resources:
+      - kind: Pod
+        name: ""
+        version: v1
+      - kind: Secret
+        name: ""
+        version: v1
+      - kind: Service
+        name: ""
+        version: v1
       specDescriptors:
       - description: Whether this recording should be saved to persistent storage. If true, the JFR file will be retained until this object is deleted. If false, the JFR file will be deleted when its corresponding JVM exits.
         displayName: Archive

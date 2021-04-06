@@ -100,6 +100,7 @@ type PersistentVolumeClaimConfig struct {
 // +kubebuilder:resource:path=containerjfrs,scope=Namespaced
 
 // ContainerJFR is the Schema for the containerjfrs API
+//+operator-sdk:csv:customresourcedefinitions:resources={{Deployment,v1},{PersistentVolumeClaim,v1},{Secret,v1},{Service,v1},{Route,v1},{FlightRecorder,v1beta1},{ConsoleLink,v1}}
 type ContainerJFR struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
