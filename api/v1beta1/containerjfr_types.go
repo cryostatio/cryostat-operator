@@ -127,6 +127,7 @@ const DefaultCertificateKey = corev1.TLSCertKey
 
 type CertificateSecret struct {
 	// Name of secret in the local namespace
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:io.kubernetes:Secret"}
 	SecretName string `json:"secretName"`
 	// Key within secret containing the certificate
 	// +optional

@@ -86,6 +86,11 @@ spec:
       - description: List of TLS certificates to trust when connecting to targets
         displayName: Trusted TLS Certificates
         path: trustedCertSecrets
+      - description: Name of secret in the local namespace
+        displayName: Secret Name
+        path: trustedCertSecrets[0].secretName
+        x-descriptors:
+        - urn:alm:descriptor:io.kubernetes:Secret
       version: v1beta1
     - description: FlightRecorder is the Schema for the flightrecorders API
       displayName: Flight Recorder
