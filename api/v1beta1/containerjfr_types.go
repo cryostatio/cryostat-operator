@@ -43,12 +43,17 @@ import (
 
 // ContainerJFRSpec defines the desired state of ContainerJFR
 type ContainerJFRSpec struct {
+	// Deploy a pared-down ContainerJFR instance with no Grafana dashboard or jfr-datasource
+	// and no web-client UI.
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Minimal Deployment",xDescriptors={"urn:alm:descriptor:com.tectonic.ui:booleanSwitch"}
 	Minimal bool `json:"minimal"`
-	// List of certificates to enable tls when connecting to targets
+	// List of TLS certificates to trust when connecting to targets
 	// +optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Trusted TLS Certificates"
 	TrustedCertSecrets []CertificateSecret `json:"trustedCertSecrets,omitempty"`
 	// Options to customize the storage for Flight Recordings and Templates
 	// +optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	StorageOptions *StorageConfiguration `json:"storageOptions,omitempty"`
 }
 
@@ -64,6 +69,7 @@ type StorageConfiguration struct {
 	// Configuration for the Persistent Volume Claim to be created
 	// by the operator.
 	// +optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	PVC *PersistentVolumeClaimConfig `json:"pvc,omitempty"`
 }
 
@@ -84,6 +90,7 @@ type PersistentVolumeClaimConfig struct {
 	// Once the operator has created the PVC, changes to this field have
 	// no effect.
 	// +optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	Spec *corev1.PersistentVolumeClaimSpec `json:"spec,omitempty"`
 }
 
@@ -120,6 +127,7 @@ const DefaultCertificateKey = corev1.TLSCertKey
 
 type CertificateSecret struct {
 	// Name of secret in the local namespace
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:io.kubernetes:Secret"}
 	SecretName string `json:"secretName"`
 	// Key within secret containing the certificate
 	// +optional

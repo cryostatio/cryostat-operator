@@ -67,8 +67,8 @@ spec:
                 description: Name of the recording to be created.
                 type: string
               state:
-                description: Desired state of the recording. If omitted, RUNNING will
-                  be assumed.
+                description: RecordingState describes the current state of the recording
+                  according to JFR
                 enum:
                 - RUNNING
                 - STOPPED

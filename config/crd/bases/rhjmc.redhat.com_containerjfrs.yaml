@@ -37,6 +37,8 @@ spec:
             description: ContainerJFRSpec defines the desired state of ContainerJFR
             properties:
               minimal:
+                description: Deploy a pared-down ContainerJFR instance with no Grafana
+                  dashboard or jfr-datasource and no web-client UI.
                 type: boolean
               storageOptions:
                 description: Options to customize the storage for Flight Recordings
@@ -196,7 +198,7 @@ spec:
                     type: object
                 type: object
               trustedCertSecrets:
-                description: List of certificates to enable tls when connecting to
+                description: List of TLS certificates to trust when connecting to
                   targets
                 items:
                   properties:
