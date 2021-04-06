@@ -56,7 +56,7 @@ type ContainerJFRSpec struct {
 	// +optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	StorageOptions *StorageConfiguration `json:"storageOptions,omitempty"`
-	// Ingress specifications when running outside of OpenShift environment
+	// Options to control how the operator exposes the application over a network
 	// +optional
 	NetworkOptions *NetworkConfigurationList `json:"networkOptions,omitempty"`
 }
