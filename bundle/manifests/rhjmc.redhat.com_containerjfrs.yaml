@@ -30,8 +30,10 @@ spec:
           spec:
             description: ContainerJFRSpec defines the desired state of ContainerJFR
             properties:
-              ingressOptions:
-                description: Ingress specifications when running outside of OpenShift environment
+              minimal:
+                type: boolean
+              networkOptions:
+                description: Options to control how the operator exposes the application over a network
                 properties:
                   commandConfig:
                     description: Specifications for ingress that exposes the containerjfr-command service (which serves the websocket command channel)
