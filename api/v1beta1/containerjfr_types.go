@@ -60,7 +60,7 @@ type ContainerJFRSpec struct {
 // ContainerJFRStatus defines the observed state of ContainerJFR
 type ContainerJFRStatus struct {
 	// +operator-sdk:csv:customresourcedefinitions:type=status,xDescriptors={"urn:alm:descriptor:org.w3:link"}
-	DashboardURL string `json:"dashboardUrl"`
+	ApplicationURL string `json:"applicationUrl"`
 }
 
 // StorageConfiguration provides customization to the storage created by

@@ -141,8 +141,8 @@ var _ = Describe("ContainerjfrController", func() {
 			It("should create exporter service and set owner", func() {
 				expectExporterService(client, controller, false, tls)
 			})
-			It("should set DashboardURL in CR Status", func() {
-				expectStatusDashboardURL(client, controller, false, tls)
+			It("should set ApplicationURL in CR Status", func() {
+				expectStatusApplicationURL(client, controller, false, tls)
 			})
 			It("should create command channel service and set owner", func() {
 				expectCommandChannel(client, controller, false, tls)
@@ -172,8 +172,8 @@ var _ = Describe("ContainerjfrController", func() {
 			It("should create exporter service and set owner", func() {
 				expectExporterService(client, controller, true, tls)
 			})
-			It("should set DashboardURL in CR Status", func() {
-				expectStatusDashboardURL(client, controller, true, tls)
+			It("should set ApplicationURL in CR Status", func() {
+				expectStatusApplicationURL(client, controller, true, tls)
 			})
 			It("should create command channel service and set owner", func() {
 				expectCommandChannel(client, controller, true, tls)
@@ -641,7 +641,7 @@ func expectExporterService(client ctrlclient.Client, controller *controllers.Con
 	Expect(service.Spec.Ports).To(Equal(expectedService.Spec.Ports))
 }
 
-func expectStatusDashboardURL(client ctrlclient.Client, controller *controllers.ContainerJFRReconciler, minimal bool, tls bool) {
+func expectStatusApplicationURL(client ctrlclient.Client, controller *controllers.ContainerJFRReconciler, minimal bool, tls bool) {
 	instance := &rhjmcv1beta1.ContainerJFR{}
 	err := client.Get(context.Background(), types.NamespacedName{Name: "containerjfr", Namespace: "default"}, instance)
 
@@ -650,7 +650,7 @@ func expectStatusDashboardURL(client ctrlclient.Client, controller *controllers.
 	err = client.Get(context.Background(), types.NamespacedName{Name: "containerjfr", Namespace: "default"}, instance)
 	Expect(err).ToNot(HaveOccurred())
 
-	Expect(instance.Status.DashboardURL).To(Equal("https://containerjfr.example.com"))
+	Expect(instance.Status.ApplicationURL).To(Equal("https://containerjfr.example.com"))
 }
 
 func expectCommandChannel(client ctrlclient.Client, controller *controllers.ContainerJFRReconciler, minimal bool, tls bool) {

@@ -259,7 +259,7 @@ func (r *ContainerJFRReconciler) Reconcile(ctx context.Context, request ctrl.Req
 		return reconcile.Result{}, err
 	}
 
-	instance.Status.DashboardURL = serviceSpecs.CoreURL.String()
+	instance.Status.ApplicationURL = serviceSpecs.CoreURL.String()
 	r.Client.Status().Update(context.Background(), instance)
 
 	// Check that secrets mounted in /truststore coincide with CRD

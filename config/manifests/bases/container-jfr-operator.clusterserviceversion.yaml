@@ -114,8 +114,8 @@ spec:
         x-descriptors:
         - urn:alm:descriptor:io.kubernetes:Secret
       statusDescriptors:
-      - displayName: Dashboard URL
-        path: dashboardUrl
+      - displayName: Application URL
+        path: applicationUrl
         x-descriptors:
         - urn:alm:descriptor:org.w3:link
       version: v1beta1
