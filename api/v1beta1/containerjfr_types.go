@@ -59,8 +59,8 @@ type ContainerJFRSpec struct {
 
 // ContainerJFRStatus defines the observed state of ContainerJFR
 type ContainerJFRStatus struct {
-	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
-	// Important: Run "make" to regenerate code after modifying this file
+	// +operator-sdk:csv:customresourcedefinitions:type=status,xDescriptors={"urn:alm:descriptor:org.w3:link"}
+	DashboardURL string `json:"dashboardUrl"`
 }
 
 // StorageConfiguration provides customization to the storage created by

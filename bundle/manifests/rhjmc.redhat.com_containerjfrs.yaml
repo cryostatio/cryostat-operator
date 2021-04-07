@@ -156,6 +156,11 @@ spec:
             type: object
           status:
             description: ContainerJFRStatus defines the observed state of ContainerJFR
+            properties:
+              dashboardUrl:
+                type: string
+            required:
+            - dashboardUrl
             type: object
         type: object
     served: true

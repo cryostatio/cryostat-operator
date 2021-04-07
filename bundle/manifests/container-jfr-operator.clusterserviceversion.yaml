@@ -120,6 +120,11 @@ spec:
         path: trustedCertSecrets[0].secretName
         x-descriptors:
         - urn:alm:descriptor:io.kubernetes:Secret
+      statusDescriptors:
+      - displayName: Dashboard URL
+        path: dashboardUrl
+        x-descriptors:
+        - urn:alm:descriptor:org.w3:link
       version: v1beta1
     - description: FlightRecorder is the Schema for the flightrecorders API
       displayName: Flight Recorder
