@@ -371,14 +371,14 @@ func (r *ContainerJFRReconciler) createService(ctx context.Context, controller *
 		return r.createRouteForService(controller, svc, *exposePort, tlsConfig)
 	} else {
 		if controller.Spec.NetworkOptions == nil {
-			return nil, nil
+			return &url.URL{Host: ""}, nil
 		}
 		networkConfig, err := getNetworkConfig(controller, svc)
 		if err != nil {
 			return nil, err
 		}
 		if networkConfig == nil || networkConfig.IngressSpec == nil {
-			return nil, nil
+			return &url.URL{Host: ""}, nil
 		}
 		return r.createIngressForService(controller, svc, *exposePort, tlsConfig, networkConfig)
 	}

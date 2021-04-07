@@ -41,8 +41,8 @@ spec:
                   dashboard or jfr-datasource and no web-client UI.
                 type: boolean
               networkOptions:
-                description: Ingress specifications when running outside of OpenShift
-                  environment
+                description: Options to control how the operator exposes the application
+                  over a network
                 properties:
                   commandConfig:
                     description: Specifications for ingress that exposes the containerjfr-command
