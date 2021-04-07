@@ -141,6 +141,9 @@ var _ = Describe("ContainerjfrController", func() {
 			It("should create exporter service and set owner", func() {
 				expectExporterService(client, controller, false, tls)
 			})
+			It("should set ApplicationURL in CR Status", func() {
+				expectStatusApplicationURL(client, controller, false, tls)
+			})
 			It("should create command channel service and set owner", func() {
 				expectCommandChannel(client, controller, false, tls)
 			})
@@ -168,6 +171,9 @@ var _ = Describe("ContainerjfrController", func() {
 			})
 			It("should create exporter service and set owner", func() {
 				expectExporterService(client, controller, true, tls)
+			})
+			It("should set ApplicationURL in CR Status", func() {
+				expectStatusApplicationURL(client, controller, true, tls)
 			})
 			It("should create command channel service and set owner", func() {
 				expectCommandChannel(client, controller, true, tls)
@@ -635,6 +641,18 @@ func expectExporterService(client ctrlclient.Client, controller *controllers.Con
 	Expect(service.Spec.Ports).To(Equal(expectedService.Spec.Ports))
 }
 
+func expectStatusApplicationURL(client ctrlclient.Client, controller *controllers.ContainerJFRReconciler, minimal bool, tls bool) {
+	instance := &rhjmcv1beta1.ContainerJFR{}
+	err := client.Get(context.Background(), types.NamespacedName{Name: "containerjfr", Namespace: "default"}, instance)
+
+	reconcileContainerJFRFully(client, controller, minimal, tls)
+
+	err = client.Get(context.Background(), types.NamespacedName{Name: "containerjfr", Namespace: "default"}, instance)
+	Expect(err).ToNot(HaveOccurred())
+
+	Expect(instance.Status.ApplicationURL).To(Equal("https://containerjfr.example.com"))
+}
+
 func expectCommandChannel(client ctrlclient.Client, controller *controllers.ContainerJFRReconciler, minimal bool, tls bool) {
 	service := &corev1.Service{}
 	err := client.Get(context.Background(), types.NamespacedName{Name: "containerjfr-command", Namespace: "default"}, service)
@@ -705,7 +723,6 @@ func checkDeployment(client ctrlclient.Client, minimal bool, tls bool) {
 	Expect(deployment.Name).To(Equal("containerjfr"))
 	Expect(deployment.Namespace).To(Equal("default"))
 	Expect(deployment.Annotations).To(Equal(map[string]string{
-		"redhat.com/containerJfrUrl":   "https://containerjfr.example.com",
 		"app.openshift.io/connects-to": "container-jfr-operator",
 	}))
 	Expect(deployment.Labels).To(Equal(map[string]string{
@@ -720,9 +737,6 @@ func checkDeployment(client ctrlclient.Client, minimal bool, tls bool) {
 	template := deployment.Spec.Template
 	Expect(template.Name).To(Equal("containerjfr"))
 	Expect(template.Namespace).To(Equal("default"))
-	Expect(template.Annotations).To(Equal(map[string]string{
-		"redhat.com/containerJfrUrl": "https://containerjfr.example.com",
-	}))
 	Expect(template.Labels).To(Equal(map[string]string{
 		"app":  "containerjfr",
 		"kind": "containerjfr",

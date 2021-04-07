@@ -119,7 +119,6 @@ func NewDeploymentForCR(cr *rhjmcv1beta1.ContainerJFR, specs *ServiceSpecs, tls 
 				"app.kubernetes.io/name": "container-jfr",
 			},
 			Annotations: map[string]string{
-				"redhat.com/containerJfrUrl":   specs.CoreURL.String(),
 				"app.openshift.io/connects-to": "container-jfr-operator",
 			},
 		},
@@ -137,9 +136,6 @@ func NewDeploymentForCR(cr *rhjmcv1beta1.ContainerJFR, specs *ServiceSpecs, tls 
 					Labels: map[string]string{
 						"app":  cr.Name,
 						"kind": "containerjfr",
-					},
-					Annotations: map[string]string{
-						"redhat.com/containerJfrUrl": specs.CoreURL.String(),
 					},
 				},
 				Spec: *NewPodForCR(cr, specs, tls),
