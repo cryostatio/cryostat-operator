@@ -92,7 +92,7 @@ print_deploy_config: predeploy
 
 # Deploy controller in the configured Kubernetes cluster in ~/.kube/config
 .PHONY: deploy
-deploy: manifests kustomize predeploy
+deploy: check_cert_manager manifests kustomize predeploy
 	$(KUSTOMIZE) build config/default | $(CLUSTER_CLIENT) apply -f -
 ifeq ($(DISABLE_SERVICE_TLS), true)
 	@echo "Disabling TLS for in-cluster communication between Services"
@@ -140,7 +140,14 @@ cert_manager: remove_cert_manager
 remove_cert_manager:
 	- $(CLUSTER_CLIENT) delete -f $(CERT_MANAGER_MANIFEST)
 
-
+.PHONY: check_cert_manager
+check_cert_manager:
+	@api_versions=$$(kubectl api-versions) &&\
+       if [ $$(echo "$${api_versions}" | grep -c '^cert-manager.io/v1$$') -eq 0 ]; then if [ "$${DISABLE_SERVICE_TLS}" != "true" ]; then\
+                       echo 'cert-manager is not installed, install using "make cert_manager" or disable TLS for services by setting DISABLE_SERVICE_TLS to true' >&2\
+                       && exit 1;\
+               fi;\
+       fi
 
 # Download controller-gen locally if necessary
 CONTROLLER_GEN = $(shell pwd)/bin/controller-gen
@@ -180,7 +187,7 @@ bundle-build:
 	$(IMAGE_BUILDER) build -f bundle.Dockerfile -t $(BUNDLE_IMG) .
 
 .PHONY: deploy_bundle
-deploy_bundle: undeploy_bundle
+deploy_bundle: check_cert_manager undeploy_bundle
 	operator-sdk run bundle $(IMAGE_NAMESPACE)/$(OPERATOR_NAME)-bundle:$(IMAGE_VERSION)
 ifeq ($(DISABLE_SERVICE_TLS), true)
 	@echo "Disabling TLS for in-cluster communication between Services"
