@@ -73,7 +73,7 @@ type FlightRecorderStatus struct {
 }
 
 // RecordingLabel is the label name to be used with FlightRecorderSpec.RecordingSelector
-const RecordingLabel = "rhjmc.redhat.com/flightrecorder"
+const RecordingLabel = "operator.cryostat.io/flightrecorder"
 
 // EventInfo contains metadata for a JFR event type
 type EventInfo struct {

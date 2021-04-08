@@ -1,4 +1,4 @@
-module github.com/rh-jmc-team/container-jfr-operator
+module github.com/cryostatio/cryostat-operator
 
 go 1.15
 

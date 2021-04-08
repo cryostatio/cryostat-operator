@@ -5,7 +5,7 @@ metadata:
   name: recording-editor-role
 rules:
 - apiGroups:
-  - rhjmc.redhat.com
+  - operator.cryostat.io
   resources:
   - recordings
   verbs:
@@ -17,7 +17,7 @@ rules:
   - update
   - watch
 - apiGroups:
-  - rhjmc.redhat.com
+  - operator.cryostat.io
   resources:
   - recordings/status
   verbs:

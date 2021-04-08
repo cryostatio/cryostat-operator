@@ -46,8 +46,8 @@ import (
 
 	"time"
 
-	rhjmcv1beta1 "github.com/rh-jmc-team/container-jfr-operator/api/v1beta1"
-	common "github.com/rh-jmc-team/container-jfr-operator/controllers/common"
+	operatorv1beta1 "github.com/cryostatio/cryostat-operator/api/v1beta1"
+	common "github.com/cryostatio/cryostat-operator/controllers/common"
 	corev1 "k8s.io/api/core/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
@@ -64,16 +64,16 @@ type FlightRecorderReconciler struct {
 
 // +kubebuilder:rbac:namespace=system,groups="",resources=pods;services;secrets,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:namespace=system,groups=cert-manager.io,resources=issuers;certificates,verbs=create;get;list;update;watch
-// +kubebuilder:rbac:namespace=system,groups=rhjmc.redhat.com,resources=containerjfrs;flightrecorders,verbs=*
-// +kubebuilder:rbac:namespace=system,groups=rhjmc.redhat.com,resources=flightrecorders/status,verbs=get;update;patch
+// +kubebuilder:rbac:namespace=system,groups=operator.cryostat.io,resources=cryostats;flightrecorders,verbs=*
+// +kubebuilder:rbac:namespace=system,groups=operator.cryostat.io,resources=flightrecorders/status,verbs=get;update;patch
 
-// Reconcile processes a FlightRecorder CR and retrieves event/template information from Container JFR
+// Reconcile processes a FlightRecorder CR and retrieves event/template information from Cryostat
 func (r *FlightRecorderReconciler) Reconcile(ctx context.Context, request ctrl.Request) (ctrl.Result, error) {
 	reqLogger := r.Log.WithValues("Request.Namespace", request.Namespace, "Request.Name", request.Name)
 	reqLogger.Info("Reconciling FlightRecorder")
 
 	// Fetch the FlightRecorder instance
-	instance := &rhjmcv1beta1.FlightRecorder{}
+	instance := &operatorv1beta1.FlightRecorder{}
 	err := r.Client.Get(ctx, request.NamespacedName, instance)
 	if err != nil {
 		if kerrors.IsNotFound(err) {
@@ -94,8 +94,8 @@ func (r *FlightRecorderReconciler) Reconcile(ctx context.Context, request ctrl.R
 		return reconcile.Result{RequeueAfter: time.Second}, nil
 	}
 
-	// Obtain a client configured to communicate with Container JFR
-	cjfr, err := r.GetContainerJFRClient(ctx, request.Namespace, instance.Spec.JMXCredentials)
+	// Obtain a client configured to communicate with Cryostat
+	cryostat, err := r.GetCryostatClient(ctx, request.Namespace, instance.Spec.JMXCredentials)
 	if err != nil {
 		if err == common.ErrCertNotReady {
 			reqLogger.Info("Waiting for CA certificate")
@@ -119,7 +119,7 @@ func (r *FlightRecorderReconciler) Reconcile(ctx context.Context, request ctrl.R
 
 	// Retrieve list of available events
 	reqLogger.Info("Listing event types for pod", "name", targetPod.Name, "namespace", targetPod.Namespace)
-	events, err := cjfr.ListEventTypes(targetAddr)
+	events, err := cryostat.ListEventTypes(targetAddr)
 	if err != nil {
 		reqLogger.Error(err, "failed to list event types")
 		return reconcile.Result{}, err
@@ -130,7 +130,7 @@ func (r *FlightRecorderReconciler) Reconcile(ctx context.Context, request ctrl.R
 
 	// Retrieve list of available templates
 	reqLogger.Info("Listing templates for pod", "name", targetPod.Name, "namespace", targetPod.Namespace)
-	templates, err := cjfr.ListTemplates(targetAddr)
+	templates, err := cryostat.ListTemplates(targetAddr)
 	if err != nil {
 		reqLogger.Error(err, "failed to list templates")
 		return reconcile.Result{}, err
@@ -151,6 +151,6 @@ func (r *FlightRecorderReconciler) Reconcile(ctx context.Context, request ctrl.R
 // SetupWithManager sets up the controller with the Manager.
 func (r *FlightRecorderReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&rhjmcv1beta1.FlightRecorder{}).
+		For(&operatorv1beta1.FlightRecorder{}).
 		Complete(r)
 }

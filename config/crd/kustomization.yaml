@@ -2,22 +2,22 @@
 # since it depends on service name and namespace that are out of this kustomize package.
 # It should be run by config/default
 resources:
-- bases/rhjmc.redhat.com_containerjfrs.yaml
-- bases/rhjmc.redhat.com_recordings.yaml
-- bases/rhjmc.redhat.com_flightrecorders.yaml
+- bases/operator.cryostat.io_cryostats.yaml
+- bases/operator.cryostat.io_recordings.yaml
+- bases/operator.cryostat.io_flightrecorders.yaml
 # +kubebuilder:scaffold:crdkustomizeresource
 
 patchesStrategicMerge:
 # [WEBHOOK] To enable webhook, uncomment all the sections with [WEBHOOK] prefix.
 # patches here are for enabling the conversion webhook for each CRD
-#- patches/webhook_in_containerjfrs.yaml
+#- patches/webhook_in_cryostats.yaml
 #- patches/webhook_in_recordings.yaml
 #- patches/webhook_in_flightrecorders.yaml
 # +kubebuilder:scaffold:crdkustomizewebhookpatch
 
 # [CERTMANAGER] To enable webhook, uncomment all the sections with [CERTMANAGER] prefix.
 # patches here are for enabling the CA injection for each CRD
-#- patches/cainjection_in_containerjfrs.yaml
+#- patches/cainjection_in_cryostats.yaml
 #- patches/cainjection_in_recordings.yaml
 #- patches/cainjection_in_flightrecorders.yaml
 # +kubebuilder:scaffold:crdkustomizecainjectionpatch

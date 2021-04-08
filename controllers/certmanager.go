@@ -39,17 +39,17 @@ package controllers
 import (
 	"context"
 
+	operatorv1beta1 "github.com/cryostatio/cryostat-operator/api/v1beta1"
+	"github.com/cryostatio/cryostat-operator/controllers/common"
+	resources "github.com/cryostatio/cryostat-operator/controllers/common/resource_definitions"
 	certv1 "github.com/jetstack/cert-manager/pkg/apis/certmanager/v1"
-	rhjmcv1beta1 "github.com/rh-jmc-team/container-jfr-operator/api/v1beta1"
-	"github.com/rh-jmc-team/container-jfr-operator/controllers/common"
-	resources "github.com/rh-jmc-team/container-jfr-operator/controllers/common/resource_definitions"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
-func (r *ContainerJFRReconciler) setupTLS(ctx context.Context, cr *rhjmcv1beta1.ContainerJFR) (*resources.TLSConfig, error) {
+func (r *CryostatReconciler) setupTLS(ctx context.Context, cr *operatorv1beta1.Cryostat) (*resources.TLSConfig, error) {
 	// Create self-signed issuer used to bootstrap CA
 	selfSignedIssuer := resources.NewSelfSignedIssuer(cr)
 	if err := controllerutil.SetControllerReference(cr, selfSignedIssuer, r.Scheme); err != nil {
@@ -60,8 +60,8 @@ func (r *ContainerJFRReconciler) setupTLS(ctx context.Context, cr *rhjmcv1beta1.
 		return nil, err
 	}
 
-	// Create CA certificate for Container JFR using the self-signed issuer
-	caCert := resources.NewContainerJFRCACert(cr)
+	// Create CA certificate for Cryostat using the self-signed issuer
+	caCert := resources.NewCryostatCACert(cr)
 	if err := controllerutil.SetControllerReference(cr, caCert, r.Scheme); err != nil {
 		return nil, err
 	}
@@ -71,7 +71,7 @@ func (r *ContainerJFRReconciler) setupTLS(ctx context.Context, cr *rhjmcv1beta1.
 	}
 
 	// Create CA issuer using the CA cert just created
-	caIssuer := resources.NewContainerJFRCAIssuer(cr)
+	caIssuer := resources.NewCryostatCAIssuer(cr)
 	if err := controllerutil.SetControllerReference(cr, caIssuer, r.Scheme); err != nil {
 		return nil, err
 	}
@@ -90,17 +90,17 @@ func (r *ContainerJFRReconciler) setupTLS(ctx context.Context, cr *rhjmcv1beta1.
 		return nil, err
 	}
 
-	// Create a certificate for Container JFR signed by the CA just created
-	cjfrCert := resources.NewContainerJFRCert(cr)
-	if err := controllerutil.SetControllerReference(cr, cjfrCert, r.Scheme); err != nil {
+	// Create a certificate for Cryostat signed by the CA just created
+	cryostatCert := resources.NewCryostatCert(cr)
+	if err := controllerutil.SetControllerReference(cr, cryostatCert, r.Scheme); err != nil {
 		return nil, err
 	}
-	if err := r.createObjectIfNotExists(ctx, types.NamespacedName{Name: cjfrCert.Name, Namespace: cjfrCert.Namespace},
-		&certv1.Certificate{}, cjfrCert); err != nil {
+	if err := r.createObjectIfNotExists(ctx, types.NamespacedName{Name: cryostatCert.Name, Namespace: cryostatCert.Namespace},
+		&certv1.Certificate{}, cryostatCert); err != nil {
 		return nil, err
 	}
 
-	// Create a certificate for Grafana signed by the Container JFR CA
+	// Create a certificate for Grafana signed by the Cryostat CA
 	grafanaCert := resources.NewGrafanaCert(cr)
 	if err := controllerutil.SetControllerReference(cr, grafanaCert, r.Scheme); err != nil {
 		return nil, err
@@ -111,20 +111,20 @@ func (r *ContainerJFRReconciler) setupTLS(ctx context.Context, cr *rhjmcv1beta1.
 	}
 
 	// Update owner references of TLS secrets created by cert-manager to ensure proper cleanup
-	err := r.setCertSecretOwner(context.Background(), cr, caCert, cjfrCert, grafanaCert)
+	err := r.setCertSecretOwner(context.Background(), cr, caCert, cryostatCert, grafanaCert)
 	if err != nil {
 		return nil, err
 	}
 
 	return &resources.TLSConfig{
-		ContainerJFRSecret: cjfrCert.Spec.SecretName,
+		CryostatSecret:     cryostatCert.Spec.SecretName,
 		GrafanaSecret:      grafanaCert.Spec.SecretName,
-		KeystorePassSecret: cjfrCert.Spec.Keystores.PKCS12.PasswordSecretRef.Name,
+		KeystorePassSecret: cryostatCert.Spec.Keystores.PKCS12.PasswordSecretRef.Name,
 	}, nil
 }
 
-func (r *ContainerJFRReconciler) setCertSecretOwner(ctx context.Context, cr *rhjmcv1beta1.ContainerJFR, certs ...*certv1.Certificate) error {
-	// Make ContainerJFR CR controller of secrets created by cert-manager
+func (r *CryostatReconciler) setCertSecretOwner(ctx context.Context, cr *operatorv1beta1.Cryostat, certs ...*certv1.Certificate) error {
+	// Make Cryostat CR controller of secrets created by cert-manager
 	for _, cert := range certs {
 		secret, err := r.GetCertificateSecret(ctx, cert.Name, cert.Namespace)
 		if err != nil {
@@ -142,7 +142,7 @@ func (r *ContainerJFRReconciler) setCertSecretOwner(ctx context.Context, cr *rhj
 			if err != nil {
 				return err
 			}
-			r.Log.Info("Set ContainerJFR CR as owner reference of secret", "name", secret.Name, "namespace", secret.Namespace)
+			r.Log.Info("Set Cryostat CR as owner reference of secret", "name", secret.Name, "namespace", secret.Namespace)
 		}
 	}
 	return nil

@@ -1,20 +1,20 @@
-# permissions for end users to view containerjfrs.
+# permissions for end users to view cryostats.
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: containerjfr-viewer-role
+  name: cryostat-viewer-role
 rules:
 - apiGroups:
-  - rhjmc.redhat.com
+  - operator.cryostat.io
   resources:
-  - containerjfrs
+  - cryostats
   verbs:
   - get
   - list
   - watch
 - apiGroups:
-  - rhjmc.redhat.com
+  - operator.cryostat.io
   resources:
-  - containerjfrs/status
+  - cryostats/status
   verbs:
   - get

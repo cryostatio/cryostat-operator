@@ -1,7 +1,7 @@
-apiVersion: rhjmc.redhat.com/v1beta1
-kind: ContainerJFR
+apiVersion: operator.cryostat.io/v1beta1
+kind: Cryostat
 metadata:
-  name: containerjfr-sample
+  name: cryostat-sample
 spec:
   minimal: false
   trustedCertSecrets: []

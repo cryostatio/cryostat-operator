@@ -14,4 +14,4 @@ data:
       resourceName: d696d7ab.redhat.com
 kind: ConfigMap
 metadata:
-  name: container-jfr-operator-manager-config
+  name: cryostat-operator-manager-config

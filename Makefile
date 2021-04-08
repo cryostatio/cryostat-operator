@@ -3,9 +3,9 @@ SHELL := /bin/bash
 # Current Operator version
 IMAGE_VERSION ?= 1.0.0-beta5
 BUNDLE_VERSION ?= $(IMAGE_VERSION)
-DEFAULT_NAMESPACE ?= quay.io/rh-jmc-team
+DEFAULT_NAMESPACE ?= quay.io/cryostatio
 IMAGE_NAMESPACE ?= $(DEFAULT_NAMESPACE)
-OPERATOR_NAME ?= container-jfr-operator
+OPERATOR_NAME ?= cryostat-operator
 CLUSTER_CLIENT ?= kubectl
 
 # Default bundle image tag
@@ -27,7 +27,7 @@ CRD_OPTIONS ?= "crd:trivialVersions=true,preserveUnknownFields=false"
 
 # Images used by the operator
 CORE_NAMESPACE ?= $(DEFAULT_NAMESPACE)
-CORE_NAME ?= container-jfr
+CORE_NAME ?= cryostat
 CORE_VERSION ?= 1.0.0-BETA6
 export CORE_IMG ?= $(CORE_NAMESPACE)/$(CORE_NAME):$(CORE_VERSION)
 DATASOURCE_NAMESPACE ?= $(DEFAULT_NAMESPACE)
@@ -35,7 +35,7 @@ DATASOURCE_NAME ?= jfr-datasource
 DATASOURCE_VERSION ?= 1.0.0-BETA6
 export DATASOURCE_IMG ?= $(DATASOURCE_NAMESPACE)/$(DATASOURCE_NAME):$(DATASOURCE_VERSION)
 GRAFANA_NAMESPACE ?= $(DEFAULT_NAMESPACE)
-GRAFANA_NAME ?= container-jfr-grafana-dashboard
+GRAFANA_NAME ?= cryostat-grafana-dashboard
 GRAFANA_VERSION ?= 1.0.0-BETA3
 export GRAFANA_IMG ?= $(GRAFANA_NAMESPACE)/$(GRAFANA_NAME):$(GRAFANA_VERSION)
 
@@ -43,7 +43,7 @@ CERT_MANAGER_VERSION ?= 1.1.0
 CERT_MANAGER_MANIFEST ?= \
 	https://github.com/jetstack/cert-manager/releases/download/v$(CERT_MANAGER_VERSION)/cert-manager.yaml
 
-DEPLOY_NAMESPACE ?= container-jfr-operator-system
+DEPLOY_NAMESPACE ?= cryostat-operator-system
 
 # Get the currently used golang install path (in GOPATH/bin, unless GOBIN is set)
 ifeq (,$(shell go env GOBIN))
@@ -73,7 +73,7 @@ test-envtest: generate fmt vet manifests
 	source $(ENVTEST_ASSETS_DIR)/setup-envtest.sh; fetch_envtest_tools $(ENVTEST_ASSETS_DIR); setup_envtest_env $(ENVTEST_ASSETS_DIR); $(GO_TEST) -v -coverprofile cover.out ./...
 
 .PHONY: test-scorecard
-test-scorecard: destroy_containerjfr_cr undeploy uninstall
+test-scorecard: destroy_cryostat_cr undeploy uninstall
 	operator-sdk scorecard bundle
 
 
@@ -113,14 +113,14 @@ deploy: check_cert_manager manifests kustomize predeploy
 	$(KUSTOMIZE) build config/default | $(CLUSTER_CLIENT) apply -f -
 ifeq ($(DISABLE_SERVICE_TLS), true)
 	@echo "Disabling TLS for in-cluster communication between Services"
-	@$(CLUSTER_CLIENT) -n $(DEPLOY_NAMESPACE) set env deployment/container-jfr-operator-controller-manager DISABLE_SERVICE_TLS=true
+	@$(CLUSTER_CLIENT) -n $(DEPLOY_NAMESPACE) set env deployment/cryostat-operator-controller-manager DISABLE_SERVICE_TLS=true
 endif
 
 # UnDeploy controller from the configured Kubernetes cluster in ~/.kube/config
 .PHONY: undeploy
 undeploy:
 	- $(CLUSTER_CLIENT) delete recording --all
-	- $(CLUSTER_CLIENT) delete -f config/samples/rhjmc_v1beta1_containerjfr.yaml
+	- $(CLUSTER_CLIENT) delete -f config/samples/operator_v1beta1_cryostat.yaml
 	- $(KUSTOMIZE) build config/default | $(CLUSTER_CLIENT) delete -f -
 
 # Generate manifests e.g. CRD, RBAC etc.
@@ -227,13 +227,13 @@ endif
 undeploy_bundle:
 	- operator-sdk cleanup $(OPERATOR_NAME)
 
-.PHONY: create_containerjfr_cr
-create_containerjfr_cr: destroy_containerjfr_cr
-	$(CLUSTER_CLIENT) create -f config/samples/rhjmc_v1beta1_containerjfr.yaml
+.PHONY: create_cryostat_cr
+create_cryostat_cr: destroy_cryostat_cr
+	$(CLUSTER_CLIENT) create -f config/samples/operator_v1beta1_cryostat.yaml
 
-.PHONY: destroy_containerjfr_cr
-destroy_containerjfr_cr:
-	- $(CLUSTER_CLIENT) delete -f config/samples/rhjmc_v1beta1_containerjfr.yaml
+.PHONY: destroy_cryostat_cr
+destroy_cryostat_cr:
+	- $(CLUSTER_CLIENT) delete -f config/samples/operator_v1beta1_cryostat.yaml
 
 
 

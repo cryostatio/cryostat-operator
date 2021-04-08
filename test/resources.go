@@ -39,12 +39,12 @@ package test
 import (
 	"time"
 
+	operatorv1beta1 "github.com/cryostatio/cryostat-operator/api/v1beta1"
+	"github.com/cryostatio/cryostat-operator/controllers/common/resource_definitions"
 	certv1 "github.com/jetstack/cert-manager/pkg/apis/certmanager/v1"
 	"github.com/onsi/gomega"
 	consolev1 "github.com/openshift/api/console/v1"
 	routev1 "github.com/openshift/api/route/v1"
-	rhjmcv1beta1 "github.com/rh-jmc-team/container-jfr-operator/api/v1beta1"
-	"github.com/rh-jmc-team/container-jfr-operator/controllers/common/resource_definitions"
 	corev1 "k8s.io/api/core/v1"
 	netv1 "k8s.io/api/networking/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -59,7 +59,7 @@ func NewTestScheme() *runtime.Scheme {
 
 	// Add all APIs used by the operator to the scheme
 	sb := runtime.NewSchemeBuilder(
-		rhjmcv1beta1.AddToScheme,
+		operatorv1beta1.AddToScheme,
 		certv1.AddToScheme,
 		routev1.AddToScheme,
 		consolev1.AddToScheme,
@@ -70,29 +70,29 @@ func NewTestScheme() *runtime.Scheme {
 	return s
 }
 
-func NewContainerJFR() *rhjmcv1beta1.ContainerJFR {
-	return &rhjmcv1beta1.ContainerJFR{
+func NewCryostat() *operatorv1beta1.Cryostat {
+	return &operatorv1beta1.Cryostat{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "containerjfr",
+			Name:      "cryostat",
 			Namespace: "default",
 		},
-		Spec: rhjmcv1beta1.ContainerJFRSpec{
+		Spec: operatorv1beta1.CryostatSpec{
 			Minimal:            false,
-			TrustedCertSecrets: []rhjmcv1beta1.CertificateSecret{},
+			TrustedCertSecrets: []operatorv1beta1.CertificateSecret{},
 		},
 	}
 }
 
-func NewContainerJFRWithSecrets() *rhjmcv1beta1.ContainerJFR {
+func NewCryostatWithSecrets() *operatorv1beta1.Cryostat {
 	key := "test.crt"
-	return &rhjmcv1beta1.ContainerJFR{
+	return &operatorv1beta1.Cryostat{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "containerjfr",
+			Name:      "cryostat",
 			Namespace: "default",
 		},
-		Spec: rhjmcv1beta1.ContainerJFRSpec{
+		Spec: operatorv1beta1.CryostatSpec{
 			Minimal: false,
-			TrustedCertSecrets: []rhjmcv1beta1.CertificateSecret{
+			TrustedCertSecrets: []operatorv1beta1.CertificateSecret{
 				{
 					SecretName:     "testCert1",
 					CertificateKey: &key,
@@ -105,31 +105,31 @@ func NewContainerJFRWithSecrets() *rhjmcv1beta1.ContainerJFR {
 	}
 }
 
-func NewContainerJFRWithIngress() *rhjmcv1beta1.ContainerJFR {
+func NewCryostatWithIngress() *operatorv1beta1.Cryostat {
 	networkConfig := NewNetworkConfigurationList()
-	return &rhjmcv1beta1.ContainerJFR{
+	return &operatorv1beta1.Cryostat{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "containerjfr",
+			Name:      "cryostat",
 			Namespace: "default",
 		},
-		Spec: rhjmcv1beta1.ContainerJFRSpec{
+		Spec: operatorv1beta1.CryostatSpec{
 			Minimal:            false,
-			TrustedCertSecrets: []rhjmcv1beta1.CertificateSecret{},
+			TrustedCertSecrets: []operatorv1beta1.CertificateSecret{},
 			NetworkOptions:     &networkConfig,
 		},
 	}
 }
 
-func NewContainerJFRWithPVCSpec() *rhjmcv1beta1.ContainerJFR {
-	return &rhjmcv1beta1.ContainerJFR{
+func NewCryostatWithPVCSpec() *operatorv1beta1.Cryostat {
+	return &operatorv1beta1.Cryostat{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "containerjfr",
+			Name:      "cryostat",
 			Namespace: "default",
 		},
-		Spec: rhjmcv1beta1.ContainerJFRSpec{
+		Spec: operatorv1beta1.CryostatSpec{
 			Minimal: false,
-			StorageOptions: &rhjmcv1beta1.StorageConfiguration{
-				PVC: &rhjmcv1beta1.PersistentVolumeClaimConfig{
+			StorageOptions: &operatorv1beta1.StorageConfiguration{
+				PVC: &operatorv1beta1.PersistentVolumeClaimConfig{
 					Annotations: map[string]string{
 						"my/custom": "annotation",
 					},
@@ -144,16 +144,16 @@ func NewContainerJFRWithPVCSpec() *rhjmcv1beta1.ContainerJFR {
 	}
 }
 
-func NewContainerJFRWithPVCSpecSomeDefault() *rhjmcv1beta1.ContainerJFR {
-	return &rhjmcv1beta1.ContainerJFR{
+func NewCryostatWithPVCSpecSomeDefault() *operatorv1beta1.Cryostat {
+	return &operatorv1beta1.Cryostat{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "containerjfr",
+			Name:      "cryostat",
 			Namespace: "default",
 		},
-		Spec: rhjmcv1beta1.ContainerJFRSpec{
+		Spec: operatorv1beta1.CryostatSpec{
 			Minimal: false,
-			StorageOptions: &rhjmcv1beta1.StorageConfiguration{
-				PVC: &rhjmcv1beta1.PersistentVolumeClaimConfig{
+			StorageOptions: &operatorv1beta1.StorageConfiguration{
+				PVC: &operatorv1beta1.PersistentVolumeClaimConfig{
 					Spec: newPVCSpec("", "1Gi"),
 				},
 			},
@@ -161,16 +161,16 @@ func NewContainerJFRWithPVCSpecSomeDefault() *rhjmcv1beta1.ContainerJFR {
 	}
 }
 
-func NewContainerJFRWithPVCLabelsOnly() *rhjmcv1beta1.ContainerJFR {
-	return &rhjmcv1beta1.ContainerJFR{
+func NewCryostatWithPVCLabelsOnly() *operatorv1beta1.Cryostat {
+	return &operatorv1beta1.Cryostat{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "containerjfr",
+			Name:      "cryostat",
 			Namespace: "default",
 		},
-		Spec: rhjmcv1beta1.ContainerJFRSpec{
+		Spec: operatorv1beta1.CryostatSpec{
 			Minimal: false,
-			StorageOptions: &rhjmcv1beta1.StorageConfiguration{
-				PVC: &rhjmcv1beta1.PersistentVolumeClaimConfig{
+			StorageOptions: &operatorv1beta1.StorageConfiguration{
+				PVC: &operatorv1beta1.PersistentVolumeClaimConfig{
 					Labels: map[string]string{
 						"my": "label",
 					},
@@ -193,64 +193,64 @@ func newPVCSpec(storageClass string, storageRequest string,
 	}
 }
 
-func NewMinimalContainerJFR() *rhjmcv1beta1.ContainerJFR {
-	return &rhjmcv1beta1.ContainerJFR{
+func NewMinimalCryostat() *operatorv1beta1.Cryostat {
+	return &operatorv1beta1.Cryostat{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "containerjfr",
+			Name:      "cryostat",
 			Namespace: "default",
 		},
-		Spec: rhjmcv1beta1.ContainerJFRSpec{
+		Spec: operatorv1beta1.CryostatSpec{
 			Minimal: true,
 		},
 	}
 }
 
-func NewFlightRecorder() *rhjmcv1beta1.FlightRecorder {
-	return newFlightRecorder(&rhjmcv1beta1.JMXAuthSecret{
+func NewFlightRecorder() *operatorv1beta1.FlightRecorder {
+	return newFlightRecorder(&operatorv1beta1.JMXAuthSecret{
 		SecretName: "test-jmx-auth",
 	})
 }
 
-func NewFlightRecorderNoJMXAuth() *rhjmcv1beta1.FlightRecorder {
+func NewFlightRecorderNoJMXAuth() *operatorv1beta1.FlightRecorder {
 	return newFlightRecorder(nil)
 }
 
-func NewFlightRecorderBadJMXUserKey() *rhjmcv1beta1.FlightRecorder {
+func NewFlightRecorderBadJMXUserKey() *operatorv1beta1.FlightRecorder {
 	key := "not-username"
-	return newFlightRecorder(&rhjmcv1beta1.JMXAuthSecret{
+	return newFlightRecorder(&operatorv1beta1.JMXAuthSecret{
 		SecretName:  "test-jmx-auth",
 		UsernameKey: &key,
 	})
 }
 
-func NewFlightRecorderBadJMXPassKey() *rhjmcv1beta1.FlightRecorder {
+func NewFlightRecorderBadJMXPassKey() *operatorv1beta1.FlightRecorder {
 	key := "not-password"
-	return newFlightRecorder(&rhjmcv1beta1.JMXAuthSecret{
+	return newFlightRecorder(&operatorv1beta1.JMXAuthSecret{
 		SecretName:  "test-jmx-auth",
 		PasswordKey: &key,
 	})
 }
 
-func NewFlightRecorderForCJFR() *rhjmcv1beta1.FlightRecorder {
-	userKey := "CONTAINER_JFR_RJMX_USER"
-	passKey := "CONTAINER_JFR_RJMX_PASS"
-	recorder := newFlightRecorder(&rhjmcv1beta1.JMXAuthSecret{
-		SecretName:  "containerjfr-jmx-auth",
+func NewFlightRecorderForCryostat() *operatorv1beta1.FlightRecorder {
+	userKey := "CRYOSTAT_RJMX_USER"
+	passKey := "CRYOSTAT_RJMX_PASS"
+	recorder := newFlightRecorder(&operatorv1beta1.JMXAuthSecret{
+		SecretName:  "cryostat-jmx-auth",
 		UsernameKey: &userKey,
 		PasswordKey: &passKey,
 	})
-	recorder.Name = "containerjfr-pod"
-	recorder.Labels = map[string]string{"app": "containerjfr-pod"}
-	recorder.OwnerReferences[0].Name = "containerjfr-pod"
-	recorder.Spec.RecordingSelector.MatchLabels = map[string]string{"rhjmc.redhat.com/flightrecorder": "containerjfr-pod"}
+	recorder.Name = "cryostat-pod"
+	recorder.Labels = map[string]string{"app": "cryostat-pod"}
+	recorder.OwnerReferences[0].Name = "cryostat-pod"
+	recorder.Spec.RecordingSelector.MatchLabels = map[string]string{"operator.cryostat.io/flightrecorder": "cryostat-pod"}
 	return recorder
 }
 
-func newFlightRecorder(jmxAuth *rhjmcv1beta1.JMXAuthSecret) *rhjmcv1beta1.FlightRecorder {
-	return &rhjmcv1beta1.FlightRecorder{
+func newFlightRecorder(jmxAuth *operatorv1beta1.JMXAuthSecret) *operatorv1beta1.FlightRecorder {
+	return &operatorv1beta1.FlightRecorder{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "FlightRecorder",
-			APIVersion: "rhjmc.redhat.com/v1beta1",
+			APIVersion: "operator.cryostat.io/v1beta1",
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "test-pod",
@@ -267,11 +267,11 @@ func newFlightRecorder(jmxAuth *rhjmcv1beta1.JMXAuthSecret) *rhjmcv1beta1.Flight
 				},
 			},
 		},
-		Spec: rhjmcv1beta1.FlightRecorderSpec{
+		Spec: operatorv1beta1.FlightRecorderSpec{
 			JMXCredentials:    jmxAuth,
-			RecordingSelector: metav1.AddLabelToSelector(&metav1.LabelSelector{}, rhjmcv1beta1.RecordingLabel, "test-pod"),
+			RecordingSelector: metav1.AddLabelToSelector(&metav1.LabelSelector{}, operatorv1beta1.RecordingLabel, "test-pod"),
 		},
-		Status: rhjmcv1beta1.FlightRecorderStatus{
+		Status: operatorv1beta1.FlightRecorderStatus{
 			Target: &corev1.ObjectReference{
 				APIVersion: "v1",
 				Kind:       "Pod",
@@ -283,43 +283,43 @@ func newFlightRecorder(jmxAuth *rhjmcv1beta1.JMXAuthSecret) *rhjmcv1beta1.Flight
 	}
 }
 
-func NewRecording() *rhjmcv1beta1.Recording {
+func NewRecording() *operatorv1beta1.Recording {
 	return newRecording(getDuration(false), nil, nil, false)
 }
 
-func NewContinuousRecording() *rhjmcv1beta1.Recording {
+func NewContinuousRecording() *operatorv1beta1.Recording {
 	return newRecording(getDuration(true), nil, nil, false)
 }
 
-func NewRunningRecording() *rhjmcv1beta1.Recording {
-	running := rhjmcv1beta1.RecordingStateRunning
+func NewRunningRecording() *operatorv1beta1.Recording {
+	running := operatorv1beta1.RecordingStateRunning
 	return newRecording(getDuration(false), &running, nil, false)
 }
 
-func NewRunningContinuousRecording() *rhjmcv1beta1.Recording {
-	running := rhjmcv1beta1.RecordingStateRunning
+func NewRunningContinuousRecording() *operatorv1beta1.Recording {
+	running := operatorv1beta1.RecordingStateRunning
 	return newRecording(getDuration(true), &running, nil, false)
 }
 
-func NewRecordingToStop() *rhjmcv1beta1.Recording {
-	running := rhjmcv1beta1.RecordingStateRunning
-	stopped := rhjmcv1beta1.RecordingStateStopped
+func NewRecordingToStop() *operatorv1beta1.Recording {
+	running := operatorv1beta1.RecordingStateRunning
+	stopped := operatorv1beta1.RecordingStateStopped
 	return newRecording(getDuration(true), &running, &stopped, false)
 }
 
-func NewStoppedRecordingToArchive() *rhjmcv1beta1.Recording {
-	stopped := rhjmcv1beta1.RecordingStateStopped
+func NewStoppedRecordingToArchive() *operatorv1beta1.Recording {
+	stopped := operatorv1beta1.RecordingStateStopped
 	return newRecording(getDuration(false), &stopped, nil, true)
 }
 
-func NewRecordingToStopAndArchive() *rhjmcv1beta1.Recording {
-	running := rhjmcv1beta1.RecordingStateRunning
-	stopped := rhjmcv1beta1.RecordingStateStopped
+func NewRecordingToStopAndArchive() *operatorv1beta1.Recording {
+	running := operatorv1beta1.RecordingStateRunning
+	stopped := operatorv1beta1.RecordingStateStopped
 	return newRecording(getDuration(true), &running, &stopped, true)
 }
 
-func NewArchivedRecording() *rhjmcv1beta1.Recording {
-	stopped := rhjmcv1beta1.RecordingStateStopped
+func NewArchivedRecording() *operatorv1beta1.Recording {
+	stopped := operatorv1beta1.RecordingStateStopped
 	rec := newRecording(getDuration(false), &stopped, nil, true)
 	savedDownloadURL := "http://path/to/saved-test-recording.jfr"
 	savedReportURL := "http://path/to/saved-test-recording.html"
@@ -328,22 +328,22 @@ func NewArchivedRecording() *rhjmcv1beta1.Recording {
 	return rec
 }
 
-func NewDeletedArchivedRecording() *rhjmcv1beta1.Recording {
+func NewDeletedArchivedRecording() *operatorv1beta1.Recording {
 	rec := NewArchivedRecording()
 	delTime := metav1.Unix(0, 1598045501618*int64(time.Millisecond))
 	rec.DeletionTimestamp = &delTime
 	return rec
 }
 
-func newRecording(duration time.Duration, currentState *rhjmcv1beta1.RecordingState,
-	requestedState *rhjmcv1beta1.RecordingState, archive bool) *rhjmcv1beta1.Recording {
+func newRecording(duration time.Duration, currentState *operatorv1beta1.RecordingState,
+	requestedState *operatorv1beta1.RecordingState, archive bool) *operatorv1beta1.Recording {
 	finalizers := []string{}
-	status := rhjmcv1beta1.RecordingStatus{}
+	status := operatorv1beta1.RecordingStatus{}
 	if currentState != nil {
 		downloadUrl := "http://path/to/test-recording.jfr"
 		reportUrl := "http://path/to/test-recording.html"
-		finalizers = append(finalizers, "rhjmc.redhat.com/recording.finalizer")
-		status = rhjmcv1beta1.RecordingStatus{
+		finalizers = append(finalizers, "operator.cryostat.io/recording.finalizer")
+		status = operatorv1beta1.RecordingStatus{
 			State:       currentState,
 			StartTime:   metav1.Unix(0, 1597090030341*int64(time.Millisecond)),
 			Duration:    metav1.Duration{Duration: duration},
@@ -351,13 +351,13 @@ func newRecording(duration time.Duration, currentState *rhjmcv1beta1.RecordingSt
 			ReportURL:   &reportUrl,
 		}
 	}
-	return &rhjmcv1beta1.Recording{
+	return &operatorv1beta1.Recording{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:       "my-recording",
 			Namespace:  "default",
 			Finalizers: finalizers,
 		},
-		Spec: rhjmcv1beta1.RecordingSpec{
+		Spec: operatorv1beta1.RecordingSpec{
 			Name: "test-recording",
 			EventOptions: []string{
 				"jdk.socketRead:enabled=true",
@@ -394,10 +394,10 @@ func NewTargetPod() *corev1.Pod {
 	}
 }
 
-func NewContainerJFRPod() *corev1.Pod {
+func NewCryostatPod() *corev1.Pod {
 	return &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "containerjfr-pod",
+			Name:      "cryostat-pod",
 			Namespace: "default",
 		},
 		Status: corev1.PodStatus{
@@ -484,10 +484,10 @@ func newTestEndpoints(targetRef *corev1.ObjectReference, ports []corev1.Endpoint
 	}
 }
 
-func NewContainerJFREndpoints() *corev1.Endpoints {
+func NewCryostatEndpoints() *corev1.Endpoints {
 	return &corev1.Endpoints{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "containerjfr",
+			Name:      "cryostat",
 			Namespace: "default",
 		},
 		Subsets: []corev1.EndpointSubset{
@@ -495,10 +495,10 @@ func NewContainerJFREndpoints() *corev1.Endpoints {
 				Addresses: []corev1.EndpointAddress{
 					{
 						IP:       "1.2.3.4",
-						Hostname: "containerjfr-pod",
+						Hostname: "cryostat-pod",
 						TargetRef: &corev1.ObjectReference{
 							Kind:      "Pod",
-							Name:      "containerjfr-pod",
+							Name:      "cryostat-pod",
 							Namespace: "default",
 						},
 					},
@@ -514,17 +514,17 @@ func NewContainerJFREndpoints() *corev1.Endpoints {
 	}
 }
 
-func NewContainerJFRService() *corev1.Service {
+func NewCryostatService() *corev1.Service {
 	c := true
 	return &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "containerjfr",
+			Name:      "cryostat",
 			Namespace: "default",
 			OwnerReferences: []metav1.OwnerReference{
 				{
-					APIVersion: rhjmcv1beta1.GroupVersion.String(),
-					Kind:       "ContainerJFR",
-					Name:       "containerjfr",
+					APIVersion: operatorv1beta1.GroupVersion.String(),
+					Kind:       "Cryostat",
+					Name:       "cryostat",
 					UID:        "",
 					Controller: &c,
 				},
@@ -563,11 +563,11 @@ func NewTestService() *corev1.Service {
 func NewCACert() *certv1.Certificate {
 	return &certv1.Certificate{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "containerjfr-ca",
+			Name:      "cryostat-ca",
 			Namespace: "default",
 		},
 		Spec: certv1.CertificateSpec{
-			SecretName: "containerjfr-ca",
+			SecretName: "cryostat-ca",
 		},
 	}
 }
@@ -575,7 +575,7 @@ func NewCACert() *certv1.Certificate {
 func newCASecret(certData []byte) *corev1.Secret {
 	return &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "containerjfr-ca",
+			Name:      "cryostat-ca",
 			Namespace: "default",
 		},
 		Data: map[string][]byte{
@@ -591,21 +591,21 @@ func NewJMXAuthSecret() *corev1.Secret {
 			Namespace: "default",
 		},
 		Data: map[string][]byte{
-			rhjmcv1beta1.DefaultUsernameKey: []byte("hello"),
-			rhjmcv1beta1.DefaultPasswordKey: []byte("world"),
+			operatorv1beta1.DefaultUsernameKey: []byte("hello"),
+			operatorv1beta1.DefaultPasswordKey: []byte("world"),
 		},
 	}
 }
 
-func NewJMXAuthSecretForCJFR() *corev1.Secret {
+func NewJMXAuthSecretForCryostat() *corev1.Secret {
 	return &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "containerjfr-jmx-auth",
+			Name:      "cryostat-jmx-auth",
 			Namespace: "default",
 		},
 		Data: map[string][]byte{
-			rhjmcv1beta1.DefaultUsernameKey: []byte("hello"),
-			rhjmcv1beta1.DefaultPasswordKey: []byte("world"),
+			operatorv1beta1.DefaultUsernameKey: []byte("hello"),
+			operatorv1beta1.DefaultPasswordKey: []byte("world"),
 		},
 	}
 }
@@ -614,7 +614,7 @@ func newPVC(spec *corev1.PersistentVolumeClaimSpec, labels map[string]string,
 	annotations map[string]string) *corev1.PersistentVolumeClaim {
 	return &corev1.PersistentVolumeClaim{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:        "containerjfr",
+			Name:        "cryostat",
 			Namespace:   "default",
 			Annotations: annotations,
 			Labels:      labels,
@@ -632,7 +632,7 @@ func NewDefaultPVC() *corev1.PersistentVolumeClaim {
 			},
 		},
 	}, map[string]string{
-		"app": "containerjfr",
+		"app": "cryostat",
 	}, nil)
 }
 
@@ -648,7 +648,7 @@ func NewCustomPVC() *corev1.PersistentVolumeClaim {
 		},
 	}, map[string]string{
 		"my":  "label",
-		"app": "containerjfr",
+		"app": "cryostat",
 	}, map[string]string{
 		"my/custom": "annotation",
 	})
@@ -665,7 +665,7 @@ func NewCustomPVCSomeDefault() *corev1.PersistentVolumeClaim {
 			},
 		},
 	}, map[string]string{
-		"app": "containerjfr",
+		"app": "cryostat",
 	}, nil)
 }
 
@@ -678,7 +678,7 @@ func NewDefaultPVCWithLabel() *corev1.PersistentVolumeClaim {
 			},
 		},
 	}, map[string]string{
-		"app": "containerjfr",
+		"app": "cryostat",
 		"my":  "label",
 	}, nil)
 }
@@ -716,39 +716,43 @@ func NewDatasourcePorts() []corev1.ContainerPort {
 func NewCoreEnvironmentVariables(minimal bool, tls bool) []corev1.EnvVar {
 	envs := []corev1.EnvVar{
 		{
-			Name:  "CONTAINER_JFR_SSL_PROXIED",
+			Name:  "CRYOSTAT_PLATFORM",
+			Value: "io.cryostat.platform.internal.OpenShiftPlatformStrategy",
+		},
+		{
+			Name:  "CRYOSTAT_SSL_PROXIED",
 			Value: "true",
 		},
 		{
-			Name:  "CONTAINER_JFR_ALLOW_UNTRUSTED_SSL",
+			Name:  "CRYOSTAT_ALLOW_UNTRUSTED_SSL",
 			Value: "true",
 		},
 		{
-			Name:  "CONTAINER_JFR_WEB_PORT",
+			Name:  "CRYOSTAT_WEB_PORT",
 			Value: "8181",
 		},
 		{
-			Name:  "CONTAINER_JFR_EXT_WEB_PORT",
+			Name:  "CRYOSTAT_EXT_WEB_PORT",
 			Value: "443",
 		},
 		{
-			Name:  "CONTAINER_JFR_WEB_HOST",
-			Value: "containerjfr.example.com",
+			Name:  "CRYOSTAT_WEB_HOST",
+			Value: "cryostat.example.com",
 		},
 		{
-			Name:  "CONTAINER_JFR_LISTEN_PORT",
+			Name:  "CRYOSTAT_LISTEN_PORT",
 			Value: "9090",
 		},
 		{
-			Name:  "CONTAINER_JFR_EXT_LISTEN_PORT",
+			Name:  "CRYOSTAT_EXT_LISTEN_PORT",
 			Value: "443",
 		},
 		{
-			Name:  "CONTAINER_JFR_LISTEN_HOST",
-			Value: "containerjfr-command.example.com",
+			Name:  "CRYOSTAT_LISTEN_HOST",
+			Value: "cryostat-command.example.com",
 		},
 		{
-			Name:  "CONTAINER_JFR_TEMPLATE_PATH",
+			Name:  "CRYOSTAT_TEMPLATE_PATH",
 			Value: "/templates",
 		},
 	}
@@ -756,7 +760,7 @@ func NewCoreEnvironmentVariables(minimal bool, tls bool) []corev1.EnvVar {
 		envs = append(envs,
 			corev1.EnvVar{
 				Name:  "GRAFANA_DASHBOARD_URL",
-				Value: "https://containerjfr-grafana.example.com",
+				Value: "https://cryostat-grafana.example.com",
 			},
 			corev1.EnvVar{
 				Name:  "GRAFANA_DATASOURCE_URL",
@@ -766,13 +770,13 @@ func NewCoreEnvironmentVariables(minimal bool, tls bool) []corev1.EnvVar {
 	if !tls {
 		envs = append(envs,
 			corev1.EnvVar{
-				Name:  "CONTAINER_JFR_DISABLE_SSL",
+				Name:  "CRYOSTAT_DISABLE_SSL",
 				Value: "true",
 			})
 	} else {
 		envs = append(envs, corev1.EnvVar{
 			Name:  "KEYSTORE_PATH",
-			Value: "/var/run/secrets/rhjmc.redhat.com/containerjfr-tls/keystore.p12",
+			Value: "/var/run/secrets/operator.cryostat.io/cryostat-tls/keystore.p12",
 		})
 	}
 	return envs
@@ -791,10 +795,10 @@ func NewGrafanaEnvironmentVariables(tls bool) []corev1.EnvVar {
 			Value: "https",
 		}, corev1.EnvVar{
 			Name:  "GF_SERVER_CERT_KEY",
-			Value: "/var/run/secrets/rhjmc.redhat.com/containerjfr-grafana-tls/tls.key",
+			Value: "/var/run/secrets/operator.cryostat.io/cryostat-grafana-tls/tls.key",
 		}, corev1.EnvVar{
 			Name:  "GF_SERVER_CERT_FILE",
-			Value: "/var/run/secrets/rhjmc.redhat.com/containerjfr-grafana-tls/tls.crt",
+			Value: "/var/run/secrets/operator.cryostat.io/cryostat-grafana-tls/tls.crt",
 		})
 	}
 	return envs
@@ -814,7 +818,7 @@ func NewCoreEnvFromSource(tls bool) []corev1.EnvFromSource {
 		{
 			SecretRef: &corev1.SecretEnvSource{
 				LocalObjectReference: corev1.LocalObjectReference{
-					Name: "containerjfr-jmx-auth",
+					Name: "cryostat-jmx-auth",
 				},
 			},
 		},
@@ -823,7 +827,7 @@ func NewCoreEnvFromSource(tls bool) []corev1.EnvFromSource {
 		envsFrom = append(envsFrom, corev1.EnvFromSource{
 			SecretRef: &corev1.SecretEnvSource{
 				LocalObjectReference: corev1.LocalObjectReference{
-					Name: "containerjfr-keystore",
+					Name: "cryostat-keystore",
 				},
 			},
 		})
@@ -836,7 +840,7 @@ func NewGrafanaEnvFromSource() []corev1.EnvFromSource {
 		{
 			SecretRef: &corev1.SecretEnvSource{
 				LocalObjectReference: corev1.LocalObjectReference{
-					Name: "containerjfr-grafana-basic",
+					Name: "cryostat-grafana-basic",
 				},
 			},
 		},
@@ -846,13 +850,13 @@ func NewGrafanaEnvFromSource() []corev1.EnvFromSource {
 func NewCoreVolumeMounts(tls bool) []corev1.VolumeMount {
 	mounts := []corev1.VolumeMount{
 		{
-			Name:      "containerjfr",
+			Name:      "cryostat",
 			ReadOnly:  false,
 			MountPath: "flightrecordings",
 			SubPath:   "flightrecordings",
 		},
 		{
-			Name:      "containerjfr",
+			Name:      "cryostat",
 			ReadOnly:  false,
 			MountPath: "templates",
 			SubPath:   "templates",
@@ -863,13 +867,13 @@ func NewCoreVolumeMounts(tls bool) []corev1.VolumeMount {
 			corev1.VolumeMount{
 				Name:      "tls-secret",
 				ReadOnly:  true,
-				MountPath: "/var/run/secrets/rhjmc.redhat.com/containerjfr-tls/keystore.p12",
+				MountPath: "/var/run/secrets/operator.cryostat.io/cryostat-tls/keystore.p12",
 				SubPath:   "keystore.p12",
 			},
 			corev1.VolumeMount{
 				Name:      "tls-secret",
 				ReadOnly:  true,
-				MountPath: "/truststore/containerjfr-ca.crt",
+				MountPath: "/truststore/cryostat-ca.crt",
 				SubPath:   "ca.crt",
 			})
 	}
@@ -882,7 +886,7 @@ func NewGrafanaVolumeMounts(tls bool) []corev1.VolumeMount {
 		mounts = append(mounts,
 			corev1.VolumeMount{
 				Name:      "grafana-tls-secret",
-				MountPath: "/var/run/secrets/rhjmc.redhat.com/containerjfr-grafana-tls",
+				MountPath: "/var/run/secrets/operator.cryostat.io/cryostat-grafana-tls",
 				ReadOnly:  true,
 			})
 	}
@@ -961,8 +965,8 @@ func NewDatasourceLivenessProbe() *corev1.Probe {
 func NewDeploymentSelector() *metav1.LabelSelector {
 	return &metav1.LabelSelector{
 		MatchLabels: map[string]string{
-			"app":  "containerjfr",
-			"kind": "containerjfr",
+			"app":  "cryostat",
+			"kind": "cryostat",
 		},
 	}
 }
@@ -970,10 +974,10 @@ func NewDeploymentSelector() *metav1.LabelSelector {
 func NewVolumes(minimal bool, tls bool) []corev1.Volume {
 	volumes := []corev1.Volume{
 		{
-			Name: "containerjfr",
+			Name: "cryostat",
 			VolumeSource: corev1.VolumeSource{
 				PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
-					ClaimName: "containerjfr",
+					ClaimName: "cryostat",
 					ReadOnly:  false,
 				},
 			},
@@ -985,7 +989,7 @@ func NewVolumes(minimal bool, tls bool) []corev1.Volume {
 				Name: "tls-secret",
 				VolumeSource: corev1.VolumeSource{
 					Secret: &corev1.SecretVolumeSource{
-						SecretName: "containerjfr-tls",
+						SecretName: "cryostat-tls",
 					},
 				},
 			})
@@ -995,7 +999,7 @@ func NewVolumes(minimal bool, tls bool) []corev1.Volume {
 					Name: "grafana-tls-secret",
 					VolumeSource: corev1.VolumeSource{
 						Secret: &corev1.SecretVolumeSource{
-							SecretName: "containerjfr-grafana-tls",
+							SecretName: "cryostat-grafana-tls",
 						},
 					},
 				})
@@ -1024,27 +1028,27 @@ func NewVolumesWithSecrets() []corev1.Volume {
 		})
 }
 
-func NewNetworkConfigurationList() rhjmcv1beta1.NetworkConfigurationList {
-	exporterSVC := resource_definitions.NewExporterService(NewContainerJFR())
+func NewNetworkConfigurationList() operatorv1beta1.NetworkConfigurationList {
+	exporterSVC := resource_definitions.NewExporterService(NewCryostat())
 	exporterIng := NewNetworkConfiguration(exporterSVC.Name, exporterSVC.Spec.Ports[0].Port)
 
-	commandSVC := resource_definitions.NewCommandChannelService(NewContainerJFR())
+	commandSVC := resource_definitions.NewCommandChannelService(NewCryostat())
 	commandIng := NewNetworkConfiguration(commandSVC.Name, commandSVC.Spec.Ports[0].Port)
 
-	grafanaSVC := resource_definitions.NewGrafanaService(NewContainerJFR())
+	grafanaSVC := resource_definitions.NewGrafanaService(NewCryostat())
 	grafanaIng := NewNetworkConfiguration(grafanaSVC.Name, grafanaSVC.Spec.Ports[0].Port)
 
-	return rhjmcv1beta1.NetworkConfigurationList{
+	return operatorv1beta1.NetworkConfigurationList{
 		ExporterConfig: &exporterIng,
 		CommandConfig:  &commandIng,
 		GrafanaConfig:  &grafanaIng,
 	}
 }
 
-func NewNetworkConfiguration(svcName string, svcPort int32) rhjmcv1beta1.NetworkConfiguration {
+func NewNetworkConfiguration(svcName string, svcPort int32) operatorv1beta1.NetworkConfiguration {
 	pathtype := netv1.PathTypePrefix
 	host := "testing." + svcName
-	return rhjmcv1beta1.NetworkConfiguration{
+	return operatorv1beta1.NetworkConfiguration{
 		Annotations: map[string]string{"nginx.ingress.kubernetes.io/backend-protocol": "HTTPS"},
 		IngressSpec: &netv1.IngressSpec{
 			Rules: []netv1.IngressRule{

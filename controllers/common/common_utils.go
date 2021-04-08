@@ -40,12 +40,12 @@ import (
 	"io/ioutil"
 	"os"
 
-	jfrclient "github.com/rh-jmc-team/container-jfr-operator/controllers/client"
+	cryostatClient "github.com/cryostatio/cryostat-operator/controllers/client"
 )
 
-// ContainerJFRClientFactory provides a method for creating Container JFR clients
-type ContainerJFRClientFactory interface {
-	CreateClient(config *jfrclient.Config) (jfrclient.ContainerJfrClient, error)
+// CryostatClientFactory provides a method for creating Cryostat clients
+type CryostatClientFactory interface {
+	CreateClient(config *cryostatClient.Config) (cryostatClient.CryostatClient, error)
 }
 
 // OSUtils is an abstraction on functionality that interacts with the operating system
@@ -56,8 +56,8 @@ type OSUtils interface {
 
 type defaultClientFactory struct{}
 
-func (c *defaultClientFactory) CreateClient(config *jfrclient.Config) (jfrclient.ContainerJfrClient, error) {
-	return jfrclient.NewHTTPClient(config)
+func (c *defaultClientFactory) CreateClient(config *cryostatClient.Config) (cryostatClient.CryostatClient, error) {
+	return cryostatClient.NewHTTPClient(config)
 }
 
 type defaultOSUtils struct{}

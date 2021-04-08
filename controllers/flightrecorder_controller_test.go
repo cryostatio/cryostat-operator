@@ -49,9 +49,9 @@ import (
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
-	rhjmcv1beta1 "github.com/rh-jmc-team/container-jfr-operator/api/v1beta1"
-	"github.com/rh-jmc-team/container-jfr-operator/controllers"
-	"github.com/rh-jmc-team/container-jfr-operator/test"
+	operatorv1beta1 "github.com/cryostatio/cryostat-operator/api/v1beta1"
+	"github.com/cryostatio/cryostat-operator/controllers"
+	"github.com/cryostatio/cryostat-operator/test"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 )
 
@@ -88,8 +88,8 @@ var _ = Describe("FlightRecorderController", func() {
 	BeforeEach(func() {
 		t = &flightRecorderTestInput{
 			objs: []runtime.Object{
-				test.NewContainerJFR(), test.NewCACert(), test.NewFlightRecorder(), test.NewTargetPod(),
-				test.NewContainerJFRService(), test.NewJMXAuthSecret(),
+				test.NewCryostat(), test.NewCACert(), test.NewFlightRecorder(), test.NewTargetPod(),
+				test.NewCryostatService(), test.NewJMXAuthSecret(),
 			},
 		}
 	})
@@ -126,7 +126,7 @@ var _ = Describe("FlightRecorderController", func() {
 				Expect(err).ToNot(HaveOccurred())
 				Expect(result).To(Equal(reconcile.Result{}))
 
-				obj := &rhjmcv1beta1.FlightRecorder{}
+				obj := &operatorv1beta1.FlightRecorder{}
 				err = t.Client.Get(context.Background(), req.NamespacedName, obj)
 				Expect(err).ToNot(HaveOccurred())
 
@@ -135,7 +135,7 @@ var _ = Describe("FlightRecorderController", func() {
 				Expect(err).ToNot(HaveOccurred())
 				Expect(result).To(Equal(reconcile.Result{}))
 
-				obj2 := &rhjmcv1beta1.FlightRecorder{}
+				obj2 := &operatorv1beta1.FlightRecorder{}
 				err = t.Client.Get(context.Background(), req.NamespacedName, obj2)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(obj2.Status).To(Equal(obj.Status))
@@ -153,9 +153,9 @@ var _ = Describe("FlightRecorderController", func() {
 		Context("FlightRecorder Status not updated yet", func() {
 			BeforeEach(func() {
 				otherFr := test.NewFlightRecorder()
-				otherFr.Status = rhjmcv1beta1.FlightRecorderStatus{}
+				otherFr.Status = operatorv1beta1.FlightRecorderStatus{}
 				t.objs = []runtime.Object{
-					test.NewContainerJFR(), test.NewCACert(), otherFr, test.NewTargetPod(), test.NewContainerJFRService(),
+					test.NewCryostat(), test.NewCACert(), otherFr, test.NewTargetPod(), test.NewCryostatService(),
 					test.NewJMXAuthSecret(),
 				}
 			})
@@ -187,10 +187,10 @@ var _ = Describe("FlightRecorderController", func() {
 				t.expectFlightRecorderReconcileError()
 			})
 		})
-		Context("Container JFR CR is missing", func() {
+		Context("Cryostat CR is missing", func() {
 			BeforeEach(func() {
 				t.objs = []runtime.Object{
-					test.NewFlightRecorder(), test.NewCACert(), test.NewTargetPod(), test.NewContainerJFRService(),
+					test.NewFlightRecorder(), test.NewCACert(), test.NewTargetPod(), test.NewCryostatService(),
 					test.NewJMXAuthSecret(),
 				}
 			})
@@ -198,10 +198,10 @@ var _ = Describe("FlightRecorderController", func() {
 				t.expectFlightRecorderReconcileError()
 			})
 		})
-		Context("Container JFR service is missing", func() {
+		Context("Cryostat service is missing", func() {
 			BeforeEach(func() {
 				t.objs = []runtime.Object{
-					test.NewContainerJFR(), test.NewCACert(), test.NewFlightRecorder(), test.NewTargetPod(),
+					test.NewCryostat(), test.NewCACert(), test.NewFlightRecorder(), test.NewTargetPod(),
 					test.NewJMXAuthSecret(),
 				}
 			})
@@ -212,7 +212,7 @@ var _ = Describe("FlightRecorderController", func() {
 		Context("Target pod is missing", func() {
 			BeforeEach(func() {
 				t.objs = []runtime.Object{
-					test.NewContainerJFR(), test.NewCACert(), test.NewFlightRecorder(), test.NewContainerJFRService(),
+					test.NewCryostat(), test.NewCACert(), test.NewFlightRecorder(), test.NewCryostatService(),
 					test.NewJMXAuthSecret(),
 				}
 			})
@@ -225,7 +225,7 @@ var _ = Describe("FlightRecorderController", func() {
 				otherPod := test.NewTargetPod()
 				otherPod.Status.PodIP = ""
 				t.objs = []runtime.Object{
-					test.NewContainerJFR(), test.NewCACert(), test.NewFlightRecorder(), otherPod, test.NewContainerJFRService(),
+					test.NewCryostat(), test.NewCACert(), test.NewFlightRecorder(), otherPod, test.NewCryostatService(),
 					test.NewJMXAuthSecret(),
 				}
 			})
@@ -236,8 +236,8 @@ var _ = Describe("FlightRecorderController", func() {
 		Context("successfully updates FlightRecorder CR without JMX auth", func() {
 			BeforeEach(func() {
 				t.objs = []runtime.Object{
-					test.NewContainerJFR(), test.NewCACert(), test.NewFlightRecorderNoJMXAuth(),
-					test.NewTargetPod(), test.NewContainerJFRService(),
+					test.NewCryostat(), test.NewCACert(), test.NewFlightRecorderNoJMXAuth(),
+					test.NewTargetPod(), test.NewCryostatService(),
 				}
 				t.handlers = []http.HandlerFunc{
 					test.NewListEventTypesNoJMXAuthHandler(),
@@ -251,8 +251,8 @@ var _ = Describe("FlightRecorderController", func() {
 		Context("incorrect key name for JMX auth secret", func() {
 			BeforeEach(func() {
 				t.objs = []runtime.Object{
-					test.NewContainerJFR(), test.NewCACert(), test.NewFlightRecorderBadJMXUserKey(),
-					test.NewTargetPod(), test.NewContainerJFRService(), test.NewJMXAuthSecret(),
+					test.NewCryostat(), test.NewCACert(), test.NewFlightRecorderBadJMXUserKey(),
+					test.NewTargetPod(), test.NewCryostatService(), test.NewJMXAuthSecret(),
 				}
 			})
 			It("should requeue with error", func() {
@@ -262,8 +262,8 @@ var _ = Describe("FlightRecorderController", func() {
 		Context("incorrect password key name for JMX auth secret", func() {
 			BeforeEach(func() {
 				t.objs = []runtime.Object{
-					test.NewContainerJFR(), test.NewCACert(), test.NewFlightRecorderBadJMXPassKey(),
-					test.NewTargetPod(), test.NewContainerJFRService(), test.NewJMXAuthSecret(),
+					test.NewCryostat(), test.NewCACert(), test.NewFlightRecorderBadJMXPassKey(),
+					test.NewTargetPod(), test.NewCryostatService(), test.NewJMXAuthSecret(),
 				}
 			})
 			It("should requeue with error", func() {
@@ -273,8 +273,8 @@ var _ = Describe("FlightRecorderController", func() {
 		Context("missing JMX auth secret", func() {
 			BeforeEach(func() {
 				t.objs = []runtime.Object{
-					test.NewContainerJFR(), test.NewCACert(), test.NewFlightRecorder(),
-					test.NewTargetPod(), test.NewContainerJFRService(),
+					test.NewCryostat(), test.NewCACert(), test.NewFlightRecorder(),
+					test.NewTargetPod(), test.NewCryostatService(),
 				}
 			})
 			It("should requeue with error", func() {
@@ -303,7 +303,7 @@ func (t *flightRecorderTestInput) expectFlightRecorderReconcileSuccess() {
 	Expect(err).ToNot(HaveOccurred())
 	Expect(result).To(Equal(reconcile.Result{}))
 
-	obj := &rhjmcv1beta1.FlightRecorder{}
+	obj := &operatorv1beta1.FlightRecorder{}
 	err = t.Client.Get(context.Background(), req.NamespacedName, obj)
 	Expect(err).ToNot(HaveOccurred())
 	Expect(obj.Status.Events).To(Equal(test.NewEventTypes()))

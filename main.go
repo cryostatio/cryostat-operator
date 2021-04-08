@@ -37,10 +37,10 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
+	operatorv1beta1 "github.com/cryostatio/cryostat-operator/api/v1beta1"
+	"github.com/cryostatio/cryostat-operator/controllers"
+	"github.com/cryostatio/cryostat-operator/controllers/common"
 	openshiftv1 "github.com/openshift/api/route/v1"
-	rhjmcv1beta1 "github.com/rh-jmc-team/container-jfr-operator/api/v1beta1"
-	"github.com/rh-jmc-team/container-jfr-operator/controllers"
-	"github.com/rh-jmc-team/container-jfr-operator/controllers/common"
 	// +kubebuilder:scaffold:imports
 )
 
@@ -52,7 +52,7 @@ var (
 func init() {
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
 
-	utilruntime.Must(rhjmcv1beta1.AddToScheme(scheme))
+	utilruntime.Must(operatorv1beta1.AddToScheme(scheme))
 
 	// Register third-party types
 	utilruntime.Must(routev1.AddToScheme(scheme))
@@ -107,16 +107,16 @@ func main() {
 		setupLog.Error(err, "unable to detect if environment is OpenShift")
 	}
 
-	if err = (&controllers.ContainerJFRReconciler{
+	if err = (&controllers.CryostatReconciler{
 		Client:      mgr.GetClient(),
-		Log:         ctrl.Log.WithName("controllers").WithName("ContainerJFR"),
+		Log:         ctrl.Log.WithName("controllers").WithName("Cryostat"),
 		Scheme:      mgr.GetScheme(),
 		IsOpenShift: openShift,
 		ReconcilerTLS: common.NewReconcilerTLS(&common.ReconcilerTLSConfig{
 			Client: mgr.GetClient(),
 		}),
 	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "ContainerJFR")
+		setupLog.Error(err, "unable to create controller", "controller", "Cryostat")
 		os.Exit(1)
 	}
 	if err = (&controllers.RecordingReconciler{

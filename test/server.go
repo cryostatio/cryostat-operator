@@ -49,14 +49,14 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-// ContainerJFRServer is a test HTTP server used to simulate the Container JFR
+// CryostatServer is a test HTTP server used to simulate the Cryostat
 // backend in unit tests
-type ContainerJFRServer struct {
+type CryostatServer struct {
 	impl *ghttp.Server
 }
 
-// NewServer creates a ContainerJFRServer for use by unit tests
-func NewServer(client client.Client, handlers []http.HandlerFunc, disableTLS *bool) *ContainerJFRServer {
+// NewServer creates a CryostatServer for use by unit tests
+func NewServer(client client.Client, handlers []http.HandlerFunc, disableTLS *bool) *CryostatServer {
 	var server *ghttp.Server
 	if disableTLS != nil && *disableTLS {
 		server = ghttp.NewServer()
@@ -65,19 +65,19 @@ func NewServer(client client.Client, handlers []http.HandlerFunc, disableTLS *bo
 		updateCACert(client, server)
 	}
 	server.AppendHandlers(handlers...)
-	return &ContainerJFRServer{
+	return &CryostatServer{
 		impl: server,
 	}
 }
 
 // VerifyRequestsReceived checks that the number of requests received by the server
 // match the length of the handlers argument
-func (s *ContainerJFRServer) VerifyRequestsReceived(handlers []http.HandlerFunc) {
+func (s *CryostatServer) VerifyRequestsReceived(handlers []http.HandlerFunc) {
 	gomega.Expect(s.impl.ReceivedRequests()).To(gomega.HaveLen(len(handlers)))
 }
 
 // Close shuts down this test server
-func (s *ContainerJFRServer) Close() {
+func (s *CryostatServer) Close() {
 	s.impl.Close()
 }
 
@@ -86,7 +86,7 @@ func updateCACert(client client.Client, server *ghttp.Server) {
 
 	// Fetch CA Certificate
 	caCert := &certv1.Certificate{}
-	err := client.Get(ctx, types.NamespacedName{Name: "containerjfr-ca", Namespace: "default"}, caCert)
+	err := client.Get(ctx, types.NamespacedName{Name: "cryostat-ca", Namespace: "default"}, caCert)
 	gomega.Expect(err).ToNot(gomega.HaveOccurred())
 
 	// Get the test server's certificate

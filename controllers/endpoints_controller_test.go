@@ -49,9 +49,9 @@ import (
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
-	rhjmcv1beta1 "github.com/rh-jmc-team/container-jfr-operator/api/v1beta1"
-	"github.com/rh-jmc-team/container-jfr-operator/controllers"
-	"github.com/rh-jmc-team/container-jfr-operator/test"
+	operatorv1beta1 "github.com/cryostatio/cryostat-operator/api/v1beta1"
+	"github.com/cryostatio/cryostat-operator/controllers"
+	"github.com/cryostatio/cryostat-operator/test"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 )
 
@@ -84,7 +84,7 @@ var _ = Describe("EndpointsController", func() {
 		Context("successfully reconcile", func() {
 			BeforeEach(func() {
 				objs = []runtime.Object{
-					test.NewContainerJFR(), test.NewTestService(),
+					test.NewCryostat(), test.NewTestService(),
 					test.NewTargetPod(), test.NewTestEndpoints(),
 				}
 			})
@@ -94,7 +94,7 @@ var _ = Describe("EndpointsController", func() {
 				Expect(err).ToNot(HaveOccurred())
 				Expect(result).To(Equal(reconcile.Result{}))
 
-				found := &rhjmcv1beta1.FlightRecorder{}
+				found := &operatorv1beta1.FlightRecorder{}
 				err = client.Get(context.Background(), types.NamespacedName{Name: "test-pod", Namespace: "default"}, found)
 				Expect(err).ToNot(HaveOccurred())
 				// compare found to desired spec
@@ -107,25 +107,25 @@ var _ = Describe("EndpointsController", func() {
 				Expect(found.Spec).To(Equal(expected.Spec))
 			})
 		})
-		Context("successfully reconcile container JFR", func() {
+		Context("successfully reconcile Cryostat", func() {
 			BeforeEach(func() {
 				objs = []runtime.Object{
-					test.NewContainerJFR(), test.NewContainerJFRService(),
-					test.NewContainerJFREndpoints(), test.NewContainerJFRPod(),
-					test.NewJMXAuthSecretForCJFR(),
+					test.NewCryostat(), test.NewCryostatService(),
+					test.NewCryostatEndpoints(), test.NewCryostatPod(),
+					test.NewJMXAuthSecretForCryostat(),
 				}
 			})
 			It("should create new flightrecorder", func() {
-				req := reconcile.Request{NamespacedName: types.NamespacedName{Name: "containerjfr", Namespace: "default"}}
+				req := reconcile.Request{NamespacedName: types.NamespacedName{Name: "cryostat", Namespace: "default"}}
 				result, err := controller.Reconcile(context.Background(), req)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(result).To(Equal(reconcile.Result{}))
 
-				found := &rhjmcv1beta1.FlightRecorder{}
-				err = client.Get(context.Background(), types.NamespacedName{Name: "containerjfr-pod", Namespace: "default"}, found)
+				found := &operatorv1beta1.FlightRecorder{}
+				err = client.Get(context.Background(), types.NamespacedName{Name: "cryostat-pod", Namespace: "default"}, found)
 				Expect(err).ToNot(HaveOccurred())
 				// compare found to desired spec
-				expected := test.NewFlightRecorderForCJFR()
+				expected := test.NewFlightRecorderForCryostat()
 
 				compareFlightRecorders(found, expected)
 			})
@@ -133,7 +133,7 @@ var _ = Describe("EndpointsController", func() {
 		Context("endpoints does not exist", func() {
 			BeforeEach(func() {
 				objs = []runtime.Object{
-					test.NewContainerJFR(),
+					test.NewCryostat(),
 				}
 			})
 			It("should return without error", func() {
@@ -146,7 +146,7 @@ var _ = Describe("EndpointsController", func() {
 		Context("endpoints has no targetRef", func() {
 			BeforeEach(func() {
 				objs = []runtime.Object{
-					test.NewContainerJFR(), test.NewTestService(),
+					test.NewCryostat(), test.NewTestService(),
 					test.NewTargetPod(), test.NewTestEndpointsNoTargetRef(),
 				}
 			})
@@ -159,7 +159,7 @@ var _ = Describe("EndpointsController", func() {
 			It("should not create flightrecorder", func() {
 				req := reconcile.Request{NamespacedName: types.NamespacedName{Name: "test-svc", Namespace: "default"}}
 				controller.Reconcile(context.Background(), req)
-				recorder := &rhjmcv1beta1.FlightRecorder{}
+				recorder := &operatorv1beta1.FlightRecorder{}
 				err := client.Get(context.Background(), types.NamespacedName{Name: "test-pod", Namespace: "default"}, recorder)
 				Expect(kerrors.IsNotFound(err)).To(BeTrue())
 			})
@@ -167,7 +167,7 @@ var _ = Describe("EndpointsController", func() {
 		Context("endpoints has no ports", func() {
 			BeforeEach(func() {
 				objs = []runtime.Object{
-					test.NewContainerJFR(), test.NewTestService(),
+					test.NewCryostat(), test.NewTestService(),
 					test.NewTargetPod(), test.NewTestEndpointsNoPorts(),
 				}
 			})
@@ -180,7 +180,7 @@ var _ = Describe("EndpointsController", func() {
 			It("should not create flightrecorder", func() {
 				req := reconcile.Request{NamespacedName: types.NamespacedName{Name: "test-svc", Namespace: "default"}}
 				controller.Reconcile(context.Background(), req)
-				recorder := &rhjmcv1beta1.FlightRecorder{}
+				recorder := &operatorv1beta1.FlightRecorder{}
 				err := client.Get(context.Background(), types.NamespacedName{Name: "test-pod", Namespace: "default"}, recorder)
 				Expect(kerrors.IsNotFound(err)).To(BeTrue())
 			})
@@ -188,7 +188,7 @@ var _ = Describe("EndpointsController", func() {
 		Context("endpoints only has default port", func() {
 			BeforeEach(func() {
 				objs = []runtime.Object{
-					test.NewContainerJFR(), test.NewTestService(),
+					test.NewCryostat(), test.NewTestService(),
 					test.NewTargetPod(), test.NewTestEndpointsNoJMXPort(),
 				}
 			})
@@ -201,7 +201,7 @@ var _ = Describe("EndpointsController", func() {
 			It("should create flightrecorder", func() {
 				req := reconcile.Request{NamespacedName: types.NamespacedName{Name: "test-svc", Namespace: "default"}}
 				controller.Reconcile(context.Background(), req)
-				recorder := &rhjmcv1beta1.FlightRecorder{}
+				recorder := &operatorv1beta1.FlightRecorder{}
 				err := client.Get(context.Background(), types.NamespacedName{Name: "test-pod", Namespace: "default"}, recorder)
 				Expect(err).ToNot(HaveOccurred())
 				expected := test.NewFlightRecorderNoJMXAuth()
@@ -212,7 +212,7 @@ var _ = Describe("EndpointsController", func() {
 	})
 })
 
-func compareFlightRecorders(found *rhjmcv1beta1.FlightRecorder, expected *rhjmcv1beta1.FlightRecorder) {
+func compareFlightRecorders(found *operatorv1beta1.FlightRecorder, expected *operatorv1beta1.FlightRecorder) {
 	Expect(found.TypeMeta).To(Equal(expected.TypeMeta))
 	Expect(found.ObjectMeta.Name).To(Equal(expected.ObjectMeta.Name))
 	Expect(found.ObjectMeta.Namespace).To(Equal(expected.ObjectMeta.Namespace))

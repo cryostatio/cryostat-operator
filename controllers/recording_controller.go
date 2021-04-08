@@ -44,15 +44,15 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	rhjmcv1beta1 "github.com/rh-jmc-team/container-jfr-operator/api/v1beta1"
+	operatorv1beta1 "github.com/cryostatio/cryostat-operator/api/v1beta1"
 
 	"fmt"
 	"net/url"
 	"path"
 	"time"
 
-	jfrclient "github.com/rh-jmc-team/container-jfr-operator/controllers/client"
-	common "github.com/rh-jmc-team/container-jfr-operator/controllers/common"
+	cryostatClient "github.com/cryostatio/cryostat-operator/controllers/client"
+	common "github.com/cryostatio/cryostat-operator/controllers/common"
 	corev1 "k8s.io/api/core/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -75,23 +75,23 @@ type RecordingReconciler struct {
 	common.Reconciler
 }
 
-// Name used for Finalizer that handles Container JFR recording deletion
-const recordingFinalizer = "rhjmc.redhat.com/recording.finalizer"
+// Name used for Finalizer that handles Cryostat recording deletion
+const recordingFinalizer = "operator.cryostat.io/recording.finalizer"
 
 // +kubebuilder:rbac:namespace=system,groups="",resources=pods;services;secrets,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:namespace=system,groups=cert-manager.io,resources=issuers;certificates,verbs=create;get;list;update;watch
-// +kubebuilder:rbac:namespace=system,groups=rhjmc.redhat.com,resources=recordings;flightrecorders;containerjfrs,verbs=*
-// +kubebuilder:rbac:namespace=system,groups=rhjmc.redhat.com,resources=recordings/status,verbs=get;update;patch
-// +kubebuilder:rbac:namespace=system,groups=rhjmc.redhat.com,resources=recordings/finalizers,verbs=update
+// +kubebuilder:rbac:namespace=system,groups=operator.cryostat.io,resources=recordings;flightrecorders;cryostats,verbs=*
+// +kubebuilder:rbac:namespace=system,groups=operator.cryostat.io,resources=recordings/status,verbs=get;update;patch
+// +kubebuilder:rbac:namespace=system,groups=operator.cryostat.io,resources=recordings/finalizers,verbs=update
 
-// Reconcile processes a Recording and communicates with Container JFR to create and manage
+// Reconcile processes a Recording and communicates with Cryostat to create and manage
 // a corresponding JDK Flight Recording
 func (r *RecordingReconciler) Reconcile(ctx context.Context, request ctrl.Request) (ctrl.Result, error) {
 	reqLogger := r.Log.WithValues("Request.Namespace", request.Namespace, "Request.Name", request.Name)
 	reqLogger.Info("Reconciling Recording")
 
 	// Fetch the Recording instance
-	instance := &rhjmcv1beta1.Recording{}
+	instance := &operatorv1beta1.Recording{}
 	err := r.Client.Get(ctx, request.NamespacedName, instance)
 	if err != nil {
 		if kerrors.IsNotFound(err) {
@@ -119,8 +119,8 @@ func (r *RecordingReconciler) Reconcile(ctx context.Context, request ctrl.Reques
 		return reconcile.Result{}, nil
 	}
 
-	// Obtain a client configured to communicate with Container JFR
-	cjfr, err := r.GetContainerJFRClient(ctx, request.Namespace, jfr.Spec.JMXCredentials)
+	// Obtain a client configured to communicate with Cryostat
+	cryostat, err := r.GetCryostatClient(ctx, request.Namespace, jfr.Spec.JMXCredentials)
 	if err != nil {
 		return r.requeueIfNotReady(err)
 	}
@@ -146,13 +146,13 @@ func (r *RecordingReconciler) Reconcile(ctx context.Context, request ctrl.Reques
 	// Check if this Recording is being deleted
 	if instance.GetDeletionTimestamp() != nil {
 		if controllerutil.ContainsFinalizer(instance, recordingFinalizer) {
-			return r.deleteWithLiveTarget(ctx, cjfr, instance, targetAddr)
+			return r.deleteWithLiveTarget(ctx, cryostat, instance, targetAddr)
 		}
 		// Ready for deletion
 		return reconcile.Result{}, nil
 	}
 
-	// Add our finalizer, so we can clean up Container JFR resources upon deletion
+	// Add our finalizer, so we can clean up Cryostat resources upon deletion
 	if !controllerutil.ContainsFinalizer(instance, recordingFinalizer) {
 		err := common.AddFinalizer(ctx, r.Client, instance, recordingFinalizer)
 		if err != nil {
@@ -160,14 +160,14 @@ func (r *RecordingReconciler) Reconcile(ctx context.Context, request ctrl.Reques
 		}
 	}
 
-	// Tell Container JFR to create the recording if not already done
+	// Tell Cryostat to create the recording if not already done
 	if instance.Status.State == nil { // Recording hasn't been created yet
 		if instance.Spec.Duration.Duration == time.Duration(0) {
 			r.Log.Info("creating new continuous recording", "name", instance.Spec.Name, "eventOptions", instance.Spec.EventOptions)
-			err = cjfr.StartRecording(targetAddr, instance.Spec.Name, instance.Spec.EventOptions)
+			err = cryostat.StartRecording(targetAddr, instance.Spec.Name, instance.Spec.EventOptions)
 		} else {
 			r.Log.Info("creating new recording", "name", instance.Spec.Name, "duration", instance.Spec.Duration, "eventOptions", instance.Spec.EventOptions)
-			err = cjfr.DumpRecording(targetAddr, instance.Spec.Name, int(instance.Spec.Duration.Seconds()), instance.Spec.EventOptions)
+			err = cryostat.DumpRecording(targetAddr, instance.Spec.Name, int(instance.Spec.Duration.Seconds()), instance.Spec.EventOptions)
 		}
 		if err != nil {
 			r.Log.Error(err, "failed to create new recording")
@@ -175,19 +175,19 @@ func (r *RecordingReconciler) Reconcile(ctx context.Context, request ctrl.Reques
 		}
 	} else if shouldStopRecording(instance) {
 		r.Log.Info("stopping recording", "name", instance.Spec.Name)
-		err = cjfr.StopRecording(targetAddr, instance.Spec.Name)
+		err = cryostat.StopRecording(targetAddr, instance.Spec.Name)
 		if err != nil {
 			r.Log.Error(err, "failed to stop recording")
 			return reconcile.Result{}, err
 		}
 	}
 
-	// If the recording is found in Container JFR's list, update Recording.Status with the newest info
+	// If the recording is found in Cryostat's list, update Recording.Status with the newest info
 	r.Log.Info("Looking for recordings for pod", "pod", targetPod.Name, "namespace", targetPod.Namespace)
 	// Updated Download URL, use existing URL as default
 	downloadURL := instance.Status.DownloadURL
 	reportURL := instance.Status.ReportURL
-	descriptor, err := r.findRecordingByName(cjfr, targetAddr, instance.Spec.Name)
+	descriptor, err := r.findRecordingByName(cryostat, targetAddr, instance.Spec.Name)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
@@ -195,7 +195,7 @@ func (r *RecordingReconciler) Reconcile(ctx context.Context, request ctrl.Reques
 		state, err := validateRecordingState(descriptor.State)
 		if err != nil {
 			// TODO Likely an internal error, requeuing may not help. Status.Condition may be useful.
-			r.Log.Error(err, "unknown recording state observed from Container JFR")
+			r.Log.Error(err, "unknown recording state observed from Cryostat")
 			return reconcile.Result{}, err
 		}
 		instance.Status.State = state
@@ -208,9 +208,9 @@ func (r *RecordingReconciler) Reconcile(ctx context.Context, request ctrl.Reques
 	}
 
 	// Archive completed recording if requested and not already done
-	isStopped := instance.Status.State != nil && *instance.Status.State == rhjmcv1beta1.RecordingStateStopped
+	isStopped := instance.Status.State != nil && *instance.Status.State == operatorv1beta1.RecordingStateStopped
 	if instance.Spec.Archive && isStopped {
-		recording, err := r.archiveStoppedRecording(cjfr, instance, targetAddr)
+		recording, err := r.archiveStoppedRecording(cryostat, instance, targetAddr)
 		if err != nil {
 			return reconcile.Result{}, err
 		} else if recording == nil {
@@ -246,13 +246,13 @@ func (r *RecordingReconciler) Reconcile(ctx context.Context, request ctrl.Reques
 // SetupWithManager sets up the controller with the Manager.
 func (r *RecordingReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	c := ctrl.NewControllerManagedBy(mgr)
-	c = c.For(&rhjmcv1beta1.Recording{})
+	c = c.For(&operatorv1beta1.Recording{})
 	c = r.watchFlightRecorders(c, mgr.GetClient())
 
 	return c.Complete(r)
 }
 
-func (r *RecordingReconciler) getFlightRecorder(ctx context.Context, recording *rhjmcv1beta1.Recording) (*rhjmcv1beta1.FlightRecorder, error) {
+func (r *RecordingReconciler) getFlightRecorder(ctx context.Context, recording *operatorv1beta1.Recording) (*operatorv1beta1.FlightRecorder, error) {
 	jfrRef := recording.Spec.FlightRecorder
 	if jfrRef == nil || len(jfrRef.Name) == 0 {
 		// TODO set Condition for user/log error
@@ -267,7 +267,7 @@ func (r *RecordingReconciler) getFlightRecorder(ctx context.Context, recording *
 		return nil, err
 	}
 
-	jfr := &rhjmcv1beta1.FlightRecorder{}
+	jfr := &operatorv1beta1.FlightRecorder{}
 	err = r.Client.Get(ctx, types.NamespacedName{Namespace: recording.Namespace, Name: jfrRef.Name}, jfr)
 	if err != nil {
 		if kerrors.IsNotFound(err) {
@@ -281,9 +281,9 @@ func (r *RecordingReconciler) getFlightRecorder(ctx context.Context, recording *
 	return jfr, nil
 }
 
-func (r *RecordingReconciler) findSavedRecording(cjfr jfrclient.ContainerJfrClient, filename string) (*jfrclient.SavedRecording, error) {
-	// Look for our saved recording in list from Container JFR
-	savedRecordings, err := cjfr.ListSavedRecordings()
+func (r *RecordingReconciler) findSavedRecording(cryostat cryostatClient.CryostatClient, filename string) (*cryostatClient.SavedRecording, error) {
+	// Look for our saved recording in list from Cryostat
+	savedRecordings, err := cryostat.ListSavedRecordings()
 	if err != nil {
 		r.Log.Error(err, "failed to list saved flight recordings")
 		return nil, err
@@ -296,15 +296,15 @@ func (r *RecordingReconciler) findSavedRecording(cjfr jfrclient.ContainerJfrClie
 	return nil, nil
 }
 
-func (r *RecordingReconciler) archiveStoppedRecording(cjfr jfrclient.ContainerJfrClient, recording *rhjmcv1beta1.Recording,
-	target *jfrclient.TargetAddress) (*jfrclient.SavedRecording, error) {
+func (r *RecordingReconciler) archiveStoppedRecording(cryostat cryostatClient.CryostatClient, recording *operatorv1beta1.Recording,
+	target *cryostatClient.TargetAddress) (*cryostatClient.SavedRecording, error) {
 	// Check if existing download URL points to an archived recording
 	jfrFile, err := recordingFilename(*recording.Status.DownloadURL)
 	if err != nil {
 		return nil, err
 	}
 
-	savedRecording, err := r.findSavedRecording(cjfr, *jfrFile)
+	savedRecording, err := r.findSavedRecording(cryostat, *jfrFile)
 	if err != nil {
 		return nil, err
 	}
@@ -315,27 +315,27 @@ func (r *RecordingReconciler) archiveStoppedRecording(cjfr jfrclient.ContainerJf
 
 	// Recording hasn't been archived yet, do so now
 	r.Log.Info("saving recording", "name", recording.Spec.Name)
-	filename, err := cjfr.SaveRecording(target, recording.Spec.Name)
+	filename, err := cryostat.SaveRecording(target, recording.Spec.Name)
 	if err != nil {
 		r.Log.Error(err, "failed to save recording", "name", recording.Spec.Name)
 		return nil, err
 	}
 
 	// Look up full URL for filename returned by SaveRecording
-	return r.findSavedRecording(cjfr, *filename)
+	return r.findSavedRecording(cryostat, *filename)
 }
 
-func (r *RecordingReconciler) removeRecording(cjfr jfrclient.ContainerJfrClient, target *jfrclient.TargetAddress,
-	recording *rhjmcv1beta1.Recording) error {
-	// Check if recording exists in Container JFR's in-memory list
+func (r *RecordingReconciler) removeRecording(cryostat cryostatClient.CryostatClient, target *cryostatClient.TargetAddress,
+	recording *operatorv1beta1.Recording) error {
+	// Check if recording exists in Cryostat's in-memory list
 	recName := recording.Spec.Name
-	found, err := r.findRecordingByName(cjfr, target, recName)
+	found, err := r.findRecordingByName(cryostat, target, recName)
 	if err != nil {
 		return err
 	}
 	if found != nil {
 		// Found matching recording, delete it
-		err = cjfr.DeleteRecording(target, recName)
+		err = cryostat.DeleteRecording(target, recName)
 		if err != nil {
 			return err
 		}
@@ -344,22 +344,22 @@ func (r *RecordingReconciler) removeRecording(cjfr jfrclient.ContainerJfrClient,
 	return nil
 }
 
-func (r *RecordingReconciler) removeSavedRecording(cjfr jfrclient.ContainerJfrClient,
-	recording *rhjmcv1beta1.Recording) error {
+func (r *RecordingReconciler) removeSavedRecording(cryostat cryostatClient.CryostatClient,
+	recording *operatorv1beta1.Recording) error {
 	if recording.Status.DownloadURL != nil {
 		jfrFile, err := recordingFilename(*recording.Status.DownloadURL)
 		if err != nil {
 			return err
 		}
-		// Look for this JFR file within Container JFR's list of saved recordings
-		found, err := r.findSavedRecording(cjfr, *jfrFile)
+		// Look for this JFR file within Cryostat's list of saved recordings
+		found, err := r.findSavedRecording(cryostat, *jfrFile)
 		if err != nil {
 			return err
 		}
 
 		if found != nil {
 			// JFR file exists, so delete it
-			err = cjfr.DeleteSavedRecording(*jfrFile)
+			err = cryostat.DeleteSavedRecording(*jfrFile)
 			if err != nil {
 				return err
 			}
@@ -369,16 +369,16 @@ func (r *RecordingReconciler) removeSavedRecording(cjfr jfrclient.ContainerJfrCl
 	return nil
 }
 
-func (r *RecordingReconciler) applyFlightRecorderLabel(ctx context.Context, recording *rhjmcv1beta1.Recording,
+func (r *RecordingReconciler) applyFlightRecorderLabel(ctx context.Context, recording *operatorv1beta1.Recording,
 	jfrName string) error {
 	// Set label if not present or contains the wrong FlightRecorder name
 	labels := recording.GetLabels()
-	if labels[rhjmcv1beta1.RecordingLabel] != jfrName {
+	if labels[operatorv1beta1.RecordingLabel] != jfrName {
 		// Initialize labels map if recording has no labels
 		if labels == nil {
 			labels = map[string]string{}
 		}
-		labels[rhjmcv1beta1.RecordingLabel] = jfrName
+		labels[operatorv1beta1.RecordingLabel] = jfrName
 		recording.SetLabels(labels)
 
 		err := r.Client.Update(ctx, recording)
@@ -390,20 +390,20 @@ func (r *RecordingReconciler) applyFlightRecorderLabel(ctx context.Context, reco
 	return nil
 }
 
-func (r *RecordingReconciler) deleteWithoutLiveTarget(ctx context.Context, recording *rhjmcv1beta1.Recording) (reconcile.Result, error) {
+func (r *RecordingReconciler) deleteWithoutLiveTarget(ctx context.Context, recording *operatorv1beta1.Recording) (reconcile.Result, error) {
 	reqLogger := r.Log.WithValues("Request.Namespace", recording.Namespace, "Request.Name", recording.Name)
 	reqLogger.Info("no matching FlightRecorder, proceeding with recording deletion")
 
-	// Obtain a client configured to communicate with Container JFR without JMX credentials
-	cjfr, err := r.GetContainerJFRClient(ctx, recording.Namespace, nil)
+	// Obtain a client configured to communicate with Cryostat without JMX credentials
+	cryostat, err := r.GetCryostatClient(ctx, recording.Namespace, nil)
 	if err != nil {
 		return r.requeueIfNotReady(err)
 	}
 
 	// Delete any persisted JFR file for this recording
-	err = r.removeSavedRecording(cjfr, recording)
+	err = r.removeSavedRecording(cryostat, recording)
 	if err != nil {
-		reqLogger.Error(err, "failed to delete saved recording in Container JFR")
+		reqLogger.Error(err, "failed to delete saved recording in Cryostat")
 		return reconcile.Result{}, err
 	}
 
@@ -412,20 +412,20 @@ func (r *RecordingReconciler) deleteWithoutLiveTarget(ctx context.Context, recor
 	return reconcile.Result{}, err
 }
 
-func (r *RecordingReconciler) deleteWithLiveTarget(ctx context.Context, cjfr jfrclient.ContainerJfrClient,
-	recording *rhjmcv1beta1.Recording, target *jfrclient.TargetAddress) (reconcile.Result, error) {
+func (r *RecordingReconciler) deleteWithLiveTarget(ctx context.Context, cryostat cryostatClient.CryostatClient,
+	recording *operatorv1beta1.Recording, target *cryostatClient.TargetAddress) (reconcile.Result, error) {
 	reqLogger := r.Log.WithValues("Request.Namespace", recording.Namespace, "Request.Name", recording.Name)
 	// Delete any persisted JFR file for this recording
-	err := r.removeSavedRecording(cjfr, recording)
+	err := r.removeSavedRecording(cryostat, recording)
 	if err != nil {
-		reqLogger.Error(err, "failed to delete saved recording in Container JFR")
+		reqLogger.Error(err, "failed to delete saved recording in Cryostat")
 		return reconcile.Result{}, err
 	}
 
-	// Delete in-memory recording in Container JFR
-	err = r.removeRecording(cjfr, target, recording)
+	// Delete in-memory recording in Cryostat
+	err = r.removeRecording(cryostat, target, recording)
 	if err != nil {
-		reqLogger.Error(err, "failed to delete recording in Container JFR")
+		reqLogger.Error(err, "failed to delete recording in Cryostat")
 		return reconcile.Result{}, err
 	}
 
@@ -447,9 +447,9 @@ func (r *RecordingReconciler) watchFlightRecorders(builder *builder.Builder, cl 
 
 	mapFunc := func(obj client.Object) []reconcile.Request {
 		// Look up all recordings that reference the changed FlightRecorder
-		recordings := &rhjmcv1beta1.RecordingList{}
+		recordings := &operatorv1beta1.RecordingList{}
 		selector := labels.SelectorFromSet(labels.Set{
-			rhjmcv1beta1.RecordingLabel: obj.GetName(),
+			operatorv1beta1.RecordingLabel: obj.GetName(),
 		})
 		err := cl.List(ctx, recordings, &client.ListOptions{
 			Namespace:     obj.GetNamespace(),
@@ -475,17 +475,17 @@ func (r *RecordingReconciler) watchFlightRecorders(builder *builder.Builder, cl 
 	}
 
 	return builder.Watches(
-		&source.Kind{Type: &rhjmcv1beta1.FlightRecorder{}},
+		&source.Kind{Type: &operatorv1beta1.FlightRecorder{}},
 		handler.EnqueueRequestsFromMapFunc(mapFunc),
 	).WithEventFilter(
 		jfrPredicate,
 	)
 }
 
-func (r *RecordingReconciler) findRecordingByName(cjfr jfrclient.ContainerJfrClient, target *jfrclient.TargetAddress,
-	name string) (*jfrclient.RecordingDescriptor, error) {
+func (r *RecordingReconciler) findRecordingByName(cryostat cryostatClient.CryostatClient, target *cryostatClient.TargetAddress,
+	name string) (*cryostatClient.RecordingDescriptor, error) {
 	// Get an updated list of in-memory flight recordings
-	descriptors, err := cjfr.ListRecordings(target)
+	descriptors, err := cryostat.ListRecordings(target)
 	if err != nil {
 		r.Log.Error(err, "failed to list flight recordings", "name", name)
 		return nil, err
@@ -499,13 +499,13 @@ func (r *RecordingReconciler) findRecordingByName(cjfr jfrclient.ContainerJfrCli
 	return nil, nil
 }
 
-func validateRecordingState(state string) (*rhjmcv1beta1.RecordingState, error) {
-	convState := rhjmcv1beta1.RecordingState(state)
+func validateRecordingState(state string) (*operatorv1beta1.RecordingState, error) {
+	convState := operatorv1beta1.RecordingState(state)
 	switch convState {
-	case rhjmcv1beta1.RecordingStateCreated,
-		rhjmcv1beta1.RecordingStateRunning,
-		rhjmcv1beta1.RecordingStateStopping,
-		rhjmcv1beta1.RecordingStateStopped:
+	case operatorv1beta1.RecordingStateCreated,
+		operatorv1beta1.RecordingStateRunning,
+		operatorv1beta1.RecordingStateStopping,
+		operatorv1beta1.RecordingStateStopped:
 		return &convState, nil
 	}
 	return nil, fmt.Errorf("unknown recording state %s", state)
@@ -521,7 +521,7 @@ func recordingFilename(recordingURL string) (*string, error) {
 	return &jfrFile, nil
 }
 
-func shouldStopRecording(recording *rhjmcv1beta1.Recording) bool {
+func shouldStopRecording(recording *operatorv1beta1.Recording) bool {
 	// Need to know user's request, and current state of recording
 	requested := recording.Spec.State
 	current := recording.Status.State
@@ -530,8 +530,8 @@ func shouldStopRecording(recording *rhjmcv1beta1.Recording) bool {
 	}
 
 	// Should stop if user wants recording stopped and we're not already doing/done so
-	return *requested == rhjmcv1beta1.RecordingStateStopped && *current != rhjmcv1beta1.RecordingStateStopped &&
-		*current != rhjmcv1beta1.RecordingStateStopping
+	return *requested == operatorv1beta1.RecordingStateStopped && *current != operatorv1beta1.RecordingStateStopped &&
+		*current != operatorv1beta1.RecordingStateStopping
 }
 
 func (r *RecordingReconciler) requeueIfNotReady(err error) (reconcile.Result, error) {

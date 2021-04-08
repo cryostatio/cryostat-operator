@@ -5,7 +5,7 @@ metadata:
   name: flightrecorder-viewer-role
 rules:
 - apiGroups:
-  - rhjmc.redhat.com
+  - operator.cryostat.io
   resources:
   - flightrecorders
   verbs:
@@ -13,7 +13,7 @@ rules:
   - list
   - watch
 - apiGroups:
-  - rhjmc.redhat.com
+  - operator.cryostat.io
   resources:
   - flightrecorders/status
   verbs:

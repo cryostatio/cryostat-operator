@@ -59,22 +59,22 @@ import (
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
-	rhjmcv1beta1 "github.com/rh-jmc-team/container-jfr-operator/api/v1beta1"
-	"github.com/rh-jmc-team/container-jfr-operator/controllers"
-	"github.com/rh-jmc-team/container-jfr-operator/controllers/common/resource_definitions"
-	"github.com/rh-jmc-team/container-jfr-operator/test"
+	operatorv1beta1 "github.com/cryostatio/cryostat-operator/api/v1beta1"
+	"github.com/cryostatio/cryostat-operator/controllers"
+	"github.com/cryostatio/cryostat-operator/controllers/common/resource_definitions"
+	"github.com/cryostatio/cryostat-operator/test"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 )
 
-type containerJFRTestInput struct {
-	controller *controllers.ContainerJFRReconciler
+type cryostatTestInput struct {
+	controller *controllers.CryostatReconciler
 	objs       []runtime.Object
 	minimal    bool
 	test.TestReconcilerConfig
 }
 
-var _ = Describe("ContainerjfrController", func() {
-	var t *containerJFRTestInput
+var _ = Describe("CryostatController", func() {
+	var t *cryostatTestInput
 
 	JustBeforeEach(func() {
 		logger := zap.New()
@@ -82,7 +82,7 @@ var _ = Describe("ContainerjfrController", func() {
 		s := test.NewTestScheme()
 
 		t.Client = fake.NewFakeClientWithScheme(s, t.objs...)
-		t.controller = &controllers.ContainerJFRReconciler{
+		t.controller = &controllers.CryostatReconciler{
 			Client:        t.Client,
 			Scheme:        s,
 			IsOpenShift:   true,
@@ -92,7 +92,7 @@ var _ = Describe("ContainerjfrController", func() {
 	})
 
 	BeforeEach(func() {
-		t = &containerJFRTestInput{}
+		t = &cryostatTestInput{}
 	})
 
 	AfterEach(func() {
@@ -103,7 +103,7 @@ var _ = Describe("ContainerjfrController", func() {
 		Context("succesfully creates required resources", func() {
 			BeforeEach(func() {
 				t.objs = []runtime.Object{
-					test.NewContainerJFR(),
+					test.NewCryostat(),
 				}
 			})
 			It("should create certificates", func() {
@@ -117,16 +117,16 @@ var _ = Describe("ContainerjfrController", func() {
 			})
 			It("should create Grafana secret and set owner", func() {
 				secret := &corev1.Secret{}
-				err := t.Client.Get(context.Background(), types.NamespacedName{Name: "containerjfr-grafana-basic", Namespace: "default"}, secret)
+				err := t.Client.Get(context.Background(), types.NamespacedName{Name: "cryostat-grafana-basic", Namespace: "default"}, secret)
 				Expect(kerrors.IsNotFound(err)).To(BeTrue())
 
-				t.reconcileContainerJFRFully()
+				t.reconcileCryostatFully()
 
-				err = t.Client.Get(context.Background(), types.NamespacedName{Name: "containerjfr-grafana-basic", Namespace: "default"}, secret)
+				err = t.Client.Get(context.Background(), types.NamespacedName{Name: "cryostat-grafana-basic", Namespace: "default"}, secret)
 				Expect(err).ToNot(HaveOccurred())
 
 				// Compare to desired spec
-				expectedSecret := resource_definitions.NewGrafanaSecretForCR(test.NewContainerJFR())
+				expectedSecret := resource_definitions.NewGrafanaSecretForCR(test.NewCryostat())
 				checkMetadata(secret, expectedSecret)
 				Expect(secret.StringData["GF_SECURITY_ADMIN_USER"]).To(Equal(expectedSecret.StringData["GF_SECURITY_ADMIN_USER"]))
 			})
@@ -135,10 +135,10 @@ var _ = Describe("ContainerjfrController", func() {
 			})
 			It("should create Grafana service and set owner", func() {
 				service := &corev1.Service{}
-				err := t.Client.Get(context.Background(), types.NamespacedName{Name: "containerjfr-grafana", Namespace: "default"}, service)
+				err := t.Client.Get(context.Background(), types.NamespacedName{Name: "cryostat-grafana", Namespace: "default"}, service)
 				Expect(kerrors.IsNotFound(err)).To(BeTrue())
 
-				t.reconcileContainerJFRFully()
+				t.reconcileCryostatFully()
 				t.checkGrafanaService()
 			})
 			It("should create exporter service and set owner", func() {
@@ -157,7 +157,7 @@ var _ = Describe("ContainerjfrController", func() {
 		Context("succesfully creates required resources for minimal deployment", func() {
 			BeforeEach(func() {
 				t.objs = []runtime.Object{
-					test.NewMinimalContainerJFR(),
+					test.NewMinimalCryostat(),
 				}
 				t.minimal = true
 			})
@@ -186,20 +186,20 @@ var _ = Describe("ContainerjfrController", func() {
 				t.expectDeployment()
 			})
 		})
-		Context("after containerjfr reconciled successfully", func() {
+		Context("after cryostat reconciled successfully", func() {
 			BeforeEach(func() {
 				t.objs = []runtime.Object{
-					test.NewContainerJFR(),
+					test.NewCryostat(),
 				}
 			})
 			It("should be idempotent", func() {
 				t.expectIdempotence()
 			})
 		})
-		Context("After a minimal containerjfr reconciled successfully", func() {
+		Context("After a minimal cryostat reconciled successfully", func() {
 			BeforeEach(func() {
 				t.objs = []runtime.Object{
-					test.NewMinimalContainerJFR(),
+					test.NewMinimalCryostat(),
 				}
 				t.minimal = true
 			})
@@ -207,7 +207,7 @@ var _ = Describe("ContainerjfrController", func() {
 				t.expectIdempotence()
 			})
 		})
-		Context("ContainerJFR does not exist", func() {
+		Context("Cryostat does not exist", func() {
 			It("Should do nothing", func() {
 				req := reconcile.Request{NamespacedName: types.NamespacedName{Name: "does-not-exist", Namespace: "default"}}
 				result, err := t.controller.Reconcile(context.Background(), req)
@@ -218,23 +218,23 @@ var _ = Describe("ContainerjfrController", func() {
 		Context("Switching from a minimal to a non-minimal deployment", func() {
 			BeforeEach(func() {
 				t.objs = []runtime.Object{
-					test.NewMinimalContainerJFR(),
+					test.NewMinimalCryostat(),
 				}
 				t.minimal = true
 			})
 			JustBeforeEach(func() {
-				t.reconcileContainerJFRFully()
+				t.reconcileCryostatFully()
 
-				cjfr := &rhjmcv1beta1.ContainerJFR{}
-				err := t.Client.Get(context.Background(), types.NamespacedName{Name: "containerjfr", Namespace: "default"}, cjfr)
+				cryostat := &operatorv1beta1.Cryostat{}
+				err := t.Client.Get(context.Background(), types.NamespacedName{Name: "cryostat", Namespace: "default"}, cryostat)
 				Expect(err).ToNot(HaveOccurred())
 
 				t.minimal = false
-				cjfr.Spec.Minimal = false
-				err = t.Client.Status().Update(context.Background(), cjfr)
+				cryostat.Spec.Minimal = false
+				err = t.Client.Status().Update(context.Background(), cryostat)
 				Expect(err).ToNot(HaveOccurred())
 
-				req := reconcile.Request{NamespacedName: types.NamespacedName{Name: "containerjfr", Namespace: "default"}}
+				req := reconcile.Request{NamespacedName: types.NamespacedName{Name: "cryostat", Namespace: "default"}}
 				result, err := t.controller.Reconcile(context.Background(), req)
 				Expect(result).To(Equal(reconcile.Result{RequeueAfter: 5 * time.Second}))
 				Expect(err).ToNot(HaveOccurred())
@@ -253,32 +253,32 @@ var _ = Describe("ContainerjfrController", func() {
 		Context("Switching from a non-minimal to a minimal deployment", func() {
 			BeforeEach(func() {
 				t.objs = []runtime.Object{
-					test.NewContainerJFR(),
+					test.NewCryostat(),
 				}
 			})
 			JustBeforeEach(func() {
-				t.reconcileContainerJFRFully()
+				t.reconcileCryostatFully()
 
-				cjfr := &rhjmcv1beta1.ContainerJFR{}
-				err := t.Client.Get(context.Background(), types.NamespacedName{Name: "containerjfr", Namespace: "default"}, cjfr)
+				cryostat := &operatorv1beta1.Cryostat{}
+				err := t.Client.Get(context.Background(), types.NamespacedName{Name: "cryostat", Namespace: "default"}, cryostat)
 				Expect(err).ToNot(HaveOccurred())
 
 				t.minimal = true
-				cjfr.Spec.Minimal = true
-				err = t.Client.Status().Update(context.Background(), cjfr)
+				cryostat.Spec.Minimal = true
+				err = t.Client.Status().Update(context.Background(), cryostat)
 				Expect(err).ToNot(HaveOccurred())
 
-				req := reconcile.Request{NamespacedName: types.NamespacedName{Name: "containerjfr", Namespace: "default"}}
+				req := reconcile.Request{NamespacedName: types.NamespacedName{Name: "cryostat", Namespace: "default"}}
 				_, err = t.controller.Reconcile(context.Background(), req)
 				Expect(err).ToNot(HaveOccurred())
 			})
 			It("should delete grafana resources", func() {
 				service := &corev1.Service{}
-				err := t.Client.Get(context.Background(), types.NamespacedName{Name: "containerjfr-grafana", Namespace: "default"}, service)
+				err := t.Client.Get(context.Background(), types.NamespacedName{Name: "cryostat-grafana", Namespace: "default"}, service)
 				Expect(kerrors.IsNotFound(err)).To(BeTrue())
 
 				route := &openshiftv1.Route{}
-				err = t.Client.Get(context.Background(), types.NamespacedName{Name: "containerjfr-grafana", Namespace: "default"}, route)
+				err = t.Client.Get(context.Background(), types.NamespacedName{Name: "cryostat-grafana", Namespace: "default"}, route)
 				Expect(kerrors.IsNotFound(err)).To(BeTrue())
 			})
 			It("should configure deployment appropriately", func() {
@@ -288,13 +288,13 @@ var _ = Describe("ContainerjfrController", func() {
 		Context("Container jfr has list of certificate secrets", func() {
 			BeforeEach(func() {
 				t.objs = []runtime.Object{
-					test.NewContainerJFRWithSecrets(), newFakeSecret("testCert1"), newFakeSecret("testCert2"),
+					test.NewCryostatWithSecrets(), newFakeSecret("testCert1"), newFakeSecret("testCert2"),
 				}
 			})
 			It("Should add volumes and volumeMounts to deployment", func() {
-				t.reconcileContainerJFRFully()
+				t.reconcileCryostatFully()
 				deployment := &appsv1.Deployment{}
-				err := t.Client.Get(context.Background(), types.NamespacedName{Name: "containerjfr", Namespace: "default"}, deployment)
+				err := t.Client.Get(context.Background(), types.NamespacedName{Name: "cryostat", Namespace: "default"}, deployment)
 				Expect(err).ToNot(HaveOccurred())
 
 				volumes := deployment.Spec.Template.Spec.Volumes
@@ -309,30 +309,30 @@ var _ = Describe("ContainerjfrController", func() {
 		Context("Adding a certificate to the TrustedCertSecrets list", func() {
 			BeforeEach(func() {
 				t.objs = []runtime.Object{
-					test.NewContainerJFR(), newFakeSecret("testCert1"), newFakeSecret("testCert2"),
+					test.NewCryostat(), newFakeSecret("testCert1"), newFakeSecret("testCert2"),
 				}
 			})
 			JustBeforeEach(func() {
-				t.reconcileContainerJFRFully()
+				t.reconcileCryostatFully()
 			})
 			It("Should update the corresponding deployment", func() {
-				// Get ContainerJFR CR after reconciling
-				cr := &rhjmcv1beta1.ContainerJFR{}
-				err := t.Client.Get(context.Background(), types.NamespacedName{Name: "containerjfr", Namespace: "default"}, cr)
+				// Get Cryostat CR after reconciling
+				cr := &operatorv1beta1.Cryostat{}
+				err := t.Client.Get(context.Background(), types.NamespacedName{Name: "cryostat", Namespace: "default"}, cr)
 				Expect(err).ToNot(HaveOccurred())
 
 				// Update it with new TrustedCertSecrets
-				cr.Spec.TrustedCertSecrets = test.NewContainerJFRWithSecrets().Spec.TrustedCertSecrets
+				cr.Spec.TrustedCertSecrets = test.NewCryostatWithSecrets().Spec.TrustedCertSecrets
 				err = t.Client.Update(context.Background(), cr)
 				Expect(err).ToNot(HaveOccurred())
 
-				req := reconcile.Request{NamespacedName: types.NamespacedName{Name: "containerjfr", Namespace: "default"}}
+				req := reconcile.Request{NamespacedName: types.NamespacedName{Name: "cryostat", Namespace: "default"}}
 				result, err := t.controller.Reconcile(context.Background(), req)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(result).To(Equal(reconcile.Result{}))
 
 				deployment := &appsv1.Deployment{}
-				err = t.Client.Get(context.Background(), types.NamespacedName{Name: "containerjfr", Namespace: "default"}, deployment)
+				err = t.Client.Get(context.Background(), types.NamespacedName{Name: "cryostat", Namespace: "default"}, deployment)
 				Expect(err).ToNot(HaveOccurred())
 
 				volumes := deployment.Spec.Template.Spec.Volumes
@@ -347,7 +347,7 @@ var _ = Describe("ContainerjfrController", func() {
 		Context("with custom PVC spec overriding all defaults", func() {
 			BeforeEach(func() {
 				t.objs = []runtime.Object{
-					test.NewContainerJFRWithPVCSpec(),
+					test.NewCryostatWithPVCSpec(),
 				}
 			})
 			It("should create the PVC with requested spec", func() {
@@ -357,7 +357,7 @@ var _ = Describe("ContainerjfrController", func() {
 		Context("with custom PVC spec overriding some defaults", func() {
 			BeforeEach(func() {
 				t.objs = []runtime.Object{
-					test.NewContainerJFRWithPVCSpecSomeDefault(),
+					test.NewCryostatWithPVCSpecSomeDefault(),
 				}
 			})
 			It("should create the PVC with requested spec", func() {
@@ -367,7 +367,7 @@ var _ = Describe("ContainerjfrController", func() {
 		Context("with custom PVC config with no spec", func() {
 			BeforeEach(func() {
 				t.objs = []runtime.Object{
-					test.NewContainerJFRWithPVCLabelsOnly(),
+					test.NewCryostatWithPVCLabelsOnly(),
 				}
 			})
 			It("should create the PVC with requested label", func() {
@@ -377,7 +377,7 @@ var _ = Describe("ContainerjfrController", func() {
 		Context("with overriden image tags", func() {
 			BeforeEach(func() {
 				t.objs = []runtime.Object{
-					test.NewContainerJFR(),
+					test.NewCryostat(),
 				}
 				coreImg := "my/core-image:1.0"
 				datasourceImg := "my/datasource-image:1.0"
@@ -393,40 +393,40 @@ var _ = Describe("ContainerjfrController", func() {
 		Context("on OpenShift", func() {
 			BeforeEach(func() {
 				t.objs = []runtime.Object{
-					test.NewContainerJFR(),
+					test.NewCryostat(),
 				}
 			})
 			JustBeforeEach(func() {
-				t.reconcileContainerJFRFully()
+				t.reconcileCryostatFully()
 			})
 			It("should create ConsoleLink", func() {
 				links := &consolev1.ConsoleLinkList{}
 				err := t.Client.List(context.Background(), links, &ctrlclient.ListOptions{
 					LabelSelector: labels.SelectorFromSet(labels.Set{
-						"rhjmc.redhat.com/containerjfr-consolelink-namespace": "default",
-						"rhjmc.redhat.com/containerjfr-consolelink-name":      "containerjfr",
+						"operator.cryostat.io/cryostat-consolelink-namespace": "default",
+						"operator.cryostat.io/cryostat-consolelink-name":      "cryostat",
 					}),
 				})
 				Expect(err).ToNot(HaveOccurred())
 				Expect(links.Items).To(HaveLen(1))
 				link := links.Items[0]
-				Expect(link.Spec.Text).To(Equal("Container JDK Flight Recorder"))
-				Expect(link.Spec.Href).To(Equal("https://containerjfr.example.com"))
+				Expect(link.Spec.Text).To(Equal("Cryostat"))
+				Expect(link.Spec.Href).To(Equal("https://cryostat.example.com"))
 				// Should be added to the NamespaceDashboard for only the current namespace
 				Expect(link.Spec.Location).To(Equal(consolev1.NamespaceDashboard))
 				Expect(link.Spec.NamespaceDashboard.Namespaces).To(Equal([]string{"default"}))
 			})
 			It("should add the finalizer", func() {
-				cr := &rhjmcv1beta1.ContainerJFR{}
-				err := t.Client.Get(context.Background(), types.NamespacedName{Name: "containerjfr", Namespace: "default"}, cr)
+				cr := &operatorv1beta1.Cryostat{}
+				err := t.Client.Get(context.Background(), types.NamespacedName{Name: "cryostat", Namespace: "default"}, cr)
 				Expect(err).ToNot(HaveOccurred())
-				Expect(cr.GetFinalizers()).To(ContainElement("rhjmc.redhat.com/containerjfr.finalizer"))
+				Expect(cr.GetFinalizers()).To(ContainElement("operator.cryostat.io/cryostat.finalizer"))
 			})
 			Context("when deleted", func() {
 				JustBeforeEach(func() {
 					// Simulate deletion by setting DeletionTimestamp
-					cr := &rhjmcv1beta1.ContainerJFR{}
-					err := t.Client.Get(context.Background(), types.NamespacedName{Name: "containerjfr", Namespace: "default"}, cr)
+					cr := &operatorv1beta1.Cryostat{}
+					err := t.Client.Get(context.Background(), types.NamespacedName{Name: "cryostat", Namespace: "default"}, cr)
 					Expect(err).ToNot(HaveOccurred())
 
 					delTime := metav1.Unix(0, 1598045501618*int64(time.Millisecond))
@@ -435,7 +435,7 @@ var _ = Describe("ContainerjfrController", func() {
 					Expect(err).ToNot(HaveOccurred())
 
 					// Reconcile again
-					req := reconcile.Request{NamespacedName: types.NamespacedName{Name: "containerjfr", Namespace: "default"}}
+					req := reconcile.Request{NamespacedName: types.NamespacedName{Name: "cryostat", Namespace: "default"}}
 					result, err := t.controller.Reconcile(context.Background(), req)
 					Expect(err).ToNot(HaveOccurred())
 					Expect(result).To(Equal(reconcile.Result{}))
@@ -444,25 +444,25 @@ var _ = Describe("ContainerjfrController", func() {
 					links := &consolev1.ConsoleLinkList{}
 					err := t.Client.List(context.Background(), links, &ctrlclient.ListOptions{
 						LabelSelector: labels.SelectorFromSet(labels.Set{
-							"rhjmc.redhat.com/containerjfr-consolelink-namespace": "default",
-							"rhjmc.redhat.com/containerjfr-consolelink-name":      "containerjfr",
+							"operator.cryostat.io/cryostat-consolelink-namespace": "default",
+							"operator.cryostat.io/cryostat-consolelink-name":      "cryostat",
 						}),
 					})
 					Expect(err).ToNot(HaveOccurred())
 					Expect(links.Items).To(BeEmpty())
 				})
 				It("should remove the finalizer", func() {
-					cr := &rhjmcv1beta1.ContainerJFR{}
-					err := t.Client.Get(context.Background(), types.NamespacedName{Name: "containerjfr", Namespace: "default"}, cr)
+					cr := &operatorv1beta1.Cryostat{}
+					err := t.Client.Get(context.Background(), types.NamespacedName{Name: "cryostat", Namespace: "default"}, cr)
 					Expect(err).ToNot(HaveOccurred())
-					Expect(cr.GetFinalizers()).ToNot(ContainElement("rhjmc.redhat.com/containerjfr.finalizer"))
+					Expect(cr.GetFinalizers()).ToNot(ContainElement("operator.cryostat.io/cryostat.finalizer"))
 				})
 			})
 		})
 		Context("with service TLS disabled", func() {
 			BeforeEach(func() {
 				t.objs = []runtime.Object{
-					test.NewContainerJFR(),
+					test.NewCryostat(),
 				}
 				disableTLS := true
 				t.DisableTLS = &disableTLS
@@ -489,25 +489,25 @@ var _ = Describe("ContainerjfrController", func() {
 		Context("succesfully creates required resources", func() {
 			BeforeEach(func() {
 				t.objs = []runtime.Object{
-					test.NewContainerJFRWithIngress(),
+					test.NewCryostatWithIngress(),
 				}
 			})
 			It("should create ingresses", func() {
 				t.expectIngresses()
 			})
 			It("should not create routes", func() {
-				t.reconcileContainerJFRFully()
+				t.reconcileCryostatFully()
 				t.expectNoRoutes()
 			})
 		})
 		Context("no ingress configuration is provided", func() {
 			BeforeEach(func() {
 				t.objs = []runtime.Object{
-					test.NewContainerJFR(),
+					test.NewCryostat(),
 				}
 			})
 			It("should not create ingresses or routes", func() {
-				t.reconcileContainerJFRFully()
+				t.reconcileCryostatFully()
 				t.expectNoIngresses()
 				t.expectNoRoutes()
 			})
@@ -515,34 +515,34 @@ var _ = Describe("ContainerjfrController", func() {
 		Context("networkConfig for one of the services is nil", func() {
 			BeforeEach(func() {
 				t.objs = []runtime.Object{
-					test.NewContainerJFRWithIngress(),
+					test.NewCryostatWithIngress(),
 				}
 			})
 			It("should only create specified ingresses", func() {
-				c := &rhjmcv1beta1.ContainerJFR{}
-				err := t.Client.Get(context.Background(), types.NamespacedName{Name: "containerjfr", Namespace: "default"}, c)
+				c := &operatorv1beta1.Cryostat{}
+				err := t.Client.Get(context.Background(), types.NamespacedName{Name: "cryostat", Namespace: "default"}, c)
 				Expect(err).ToNot(HaveOccurred())
 				c.Spec.NetworkOptions.CommandConfig = nil
 				err = t.Client.Update(context.Background(), c)
 				Expect(err).ToNot(HaveOccurred())
 
-				t.reconcileContainerJFRFully()
+				t.reconcileCryostatFully()
 				expectedConfig := test.NewNetworkConfigurationList()
 
 				ingress := &netv1.Ingress{}
-				err = t.Client.Get(context.Background(), types.NamespacedName{Name: "containerjfr", Namespace: "default"}, ingress)
+				err = t.Client.Get(context.Background(), types.NamespacedName{Name: "cryostat", Namespace: "default"}, ingress)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(ingress.Annotations).To(Equal(expectedConfig.ExporterConfig.Annotations))
 				Expect(ingress.Labels).To(Equal(expectedConfig.ExporterConfig.Labels))
 				Expect(ingress.Spec).To(Equal(*expectedConfig.ExporterConfig.IngressSpec))
 
-				err = t.Client.Get(context.Background(), types.NamespacedName{Name: "containerjfr-grafana", Namespace: "default"}, ingress)
+				err = t.Client.Get(context.Background(), types.NamespacedName{Name: "cryostat-grafana", Namespace: "default"}, ingress)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(ingress.Annotations).To(Equal(expectedConfig.GrafanaConfig.Annotations))
 				Expect(ingress.Labels).To(Equal(expectedConfig.GrafanaConfig.Labels))
 				Expect(ingress.Spec).To(Equal(*expectedConfig.GrafanaConfig.IngressSpec))
 
-				err = t.Client.Get(context.Background(), types.NamespacedName{Name: "containerjfr-command", Namespace: "default"}, ingress)
+				err = t.Client.Get(context.Background(), types.NamespacedName{Name: "cryostat-command", Namespace: "default"}, ingress)
 				Expect(kerrors.IsNotFound(err)).To(BeTrue())
 			})
 		})
@@ -550,34 +550,34 @@ var _ = Describe("ContainerjfrController", func() {
 		Context("ingressSpec for one of the services is nil", func() {
 			BeforeEach(func() {
 				t.objs = []runtime.Object{
-					test.NewContainerJFRWithIngress(),
+					test.NewCryostatWithIngress(),
 				}
 			})
 			It("should only create specified ingresses", func() {
-				c := &rhjmcv1beta1.ContainerJFR{}
-				err := t.Client.Get(context.Background(), types.NamespacedName{Name: "containerjfr", Namespace: "default"}, c)
+				c := &operatorv1beta1.Cryostat{}
+				err := t.Client.Get(context.Background(), types.NamespacedName{Name: "cryostat", Namespace: "default"}, c)
 				Expect(err).ToNot(HaveOccurred())
 				c.Spec.NetworkOptions.ExporterConfig.IngressSpec = nil
 				err = t.Client.Update(context.Background(), c)
 				Expect(err).ToNot(HaveOccurred())
 
-				t.reconcileContainerJFRFully()
+				t.reconcileCryostatFully()
 				expectedConfig := test.NewNetworkConfigurationList()
 
 				ingress := &netv1.Ingress{}
-				err = t.Client.Get(context.Background(), types.NamespacedName{Name: "containerjfr-command", Namespace: "default"}, ingress)
+				err = t.Client.Get(context.Background(), types.NamespacedName{Name: "cryostat-command", Namespace: "default"}, ingress)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(ingress.Annotations).To(Equal(expectedConfig.CommandConfig.Annotations))
 				Expect(ingress.Labels).To(Equal(expectedConfig.CommandConfig.Labels))
 				Expect(ingress.Spec).To(Equal(*expectedConfig.CommandConfig.IngressSpec))
 
-				err = t.Client.Get(context.Background(), types.NamespacedName{Name: "containerjfr-grafana", Namespace: "default"}, ingress)
+				err = t.Client.Get(context.Background(), types.NamespacedName{Name: "cryostat-grafana", Namespace: "default"}, ingress)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(ingress.Annotations).To(Equal(expectedConfig.GrafanaConfig.Annotations))
 				Expect(ingress.Labels).To(Equal(expectedConfig.GrafanaConfig.Labels))
 				Expect(ingress.Spec).To(Equal(*expectedConfig.GrafanaConfig.IngressSpec))
 
-				err = t.Client.Get(context.Background(), types.NamespacedName{Name: "containerjfr", Namespace: "default"}, ingress)
+				err = t.Client.Get(context.Background(), types.NamespacedName{Name: "cryostat", Namespace: "default"}, ingress)
 				Expect(kerrors.IsNotFound(err)).To(BeTrue())
 			})
 		})
@@ -596,8 +596,8 @@ func newFakeSecret(name string) *corev1.Secret {
 	}
 }
 
-func (t *containerJFRTestInput) makeCertificatesReady() {
-	certNames := []string{"containerjfr", "containerjfr-ca", "containerjfr-grafana"}
+func (t *cryostatTestInput) makeCertificatesReady() {
+	certNames := []string{"cryostat", "cryostat-ca", "cryostat-grafana"}
 	for _, certName := range certNames {
 		cert := &certv1.Certificate{}
 		err := t.Client.Get(context.Background(), types.NamespacedName{Name: certName, Namespace: "default"}, cert)
@@ -611,9 +611,9 @@ func (t *containerJFRTestInput) makeCertificatesReady() {
 	}
 }
 
-func (t *containerJFRTestInput) initializeSecrets() {
+func (t *cryostatTestInput) initializeSecrets() {
 	// Create secrets
-	secretNames := []string{"containerjfr-ca", "containerjfr-tls", "containerjfr-grafana-tls"}
+	secretNames := []string{"cryostat-ca", "cryostat-tls", "cryostat-grafana-tls"}
 	for _, secretName := range secretNames {
 		secret := newFakeSecret(secretName)
 		err := t.Client.Create(context.Background(), secret)
@@ -621,10 +621,10 @@ func (t *containerJFRTestInput) initializeSecrets() {
 	}
 }
 
-func (t *containerJFRTestInput) ingressConfig(req reconcile.Request) {
-	routes := []string{"containerjfr", "containerjfr-command"}
+func (t *cryostatTestInput) ingressConfig(req reconcile.Request) {
+	routes := []string{"cryostat", "cryostat-command"}
 	if !t.minimal {
-		routes = append([]string{"containerjfr-grafana"}, routes...)
+		routes = append([]string{"cryostat-grafana"}, routes...)
 	}
 	for _, routeName := range routes {
 		route := &openshiftv1.Route{}
@@ -638,7 +638,7 @@ func (t *containerJFRTestInput) ingressConfig(req reconcile.Request) {
 			Expect(route.Spec.TLS.InsecureEdgeTerminationPolicy).To(Equal(openshiftv1.InsecureEdgeTerminationPolicyRedirect))
 		} else {
 			Expect(route.Spec.TLS.Termination).To(Equal(openshiftv1.TLSTerminationReencrypt))
-			Expect(route.Spec.TLS.DestinationCACertificate).To(Equal("containerjfr-ca-bytes"))
+			Expect(route.Spec.TLS.DestinationCACertificate).To(Equal("cryostat-ca-bytes"))
 		}
 		route.Status.Ingress = append(route.Status.Ingress, openshiftv1.RouteIngress{
 			Host: routeName + ".example.com",
@@ -649,8 +649,8 @@ func (t *containerJFRTestInput) ingressConfig(req reconcile.Request) {
 	}
 }
 
-func (t *containerJFRTestInput) reconcileContainerJFRFully() {
-	req := reconcile.Request{NamespacedName: types.NamespacedName{Name: "containerjfr", Namespace: "default"}}
+func (t *cryostatTestInput) reconcileCryostatFully() {
+	req := reconcile.Request{NamespacedName: types.NamespacedName{Name: "cryostat", Namespace: "default"}}
 	result, err := t.controller.Reconcile(context.Background(), req)
 	Expect(err).ToNot(HaveOccurred())
 	Expect(result).To(Equal(reconcile.Result{RequeueAfter: 5 * time.Second}))
@@ -680,16 +680,16 @@ func checkMetadata(object metav1.Object, expected metav1.Object) {
 	Expect(object.GetLabels()).To(Equal(expected.GetLabels()))
 	Expect(object.GetAnnotations()).To(Equal(expected.GetAnnotations()))
 	ownerReferences := object.GetOwnerReferences()
-	Expect(ownerReferences[0].Kind).To(Equal("ContainerJFR"))
-	Expect(ownerReferences[0].Name).To(Equal("containerjfr"))
+	Expect(ownerReferences[0].Kind).To(Equal("Cryostat"))
+	Expect(ownerReferences[0].Name).To(Equal("cryostat"))
 }
 
-func (t *containerJFRTestInput) expectCertificates() {
-	req := reconcile.Request{NamespacedName: types.NamespacedName{Name: "containerjfr", Namespace: "default"}}
+func (t *cryostatTestInput) expectCertificates() {
+	req := reconcile.Request{NamespacedName: types.NamespacedName{Name: "cryostat", Namespace: "default"}}
 	result, err := t.controller.Reconcile(context.Background(), req)
 	Expect(err).ToNot(HaveOccurred())
 	Expect(result).To(Equal(reconcile.Result{RequeueAfter: 5 * time.Second}))
-	certNames := []string{"containerjfr", "containerjfr-ca", "containerjfr-grafana"}
+	certNames := []string{"cryostat", "cryostat-ca", "cryostat-grafana"}
 	for _, certName := range certNames {
 		cert := &certv1.Certificate{}
 		err := t.Client.Get(context.Background(), types.NamespacedName{Name: certName, Namespace: "default"}, cert)
@@ -697,8 +697,8 @@ func (t *containerJFRTestInput) expectCertificates() {
 	}
 }
 
-func (t *containerJFRTestInput) expectRoutes() {
-	req := reconcile.Request{NamespacedName: types.NamespacedName{Name: "containerjfr", Namespace: "default"}}
+func (t *cryostatTestInput) expectRoutes() {
+	req := reconcile.Request{NamespacedName: types.NamespacedName{Name: "cryostat", Namespace: "default"}}
 	result, err := t.controller.Reconcile(context.Background(), req)
 	Expect(err).ToNot(HaveOccurred())
 	Expect(result).To(Equal(reconcile.Result{RequeueAfter: 5 * time.Second}))
@@ -715,18 +715,18 @@ func (t *containerJFRTestInput) expectRoutes() {
 	t.ingressConfig(req)
 }
 
-func (t *containerJFRTestInput) expectNoRoutes() {
+func (t *cryostatTestInput) expectNoRoutes() {
 	svc := &openshiftv1.Route{}
-	err := t.Client.Get(context.Background(), types.NamespacedName{Name: "containerjfr", Namespace: "default"}, svc)
+	err := t.Client.Get(context.Background(), types.NamespacedName{Name: "cryostat", Namespace: "default"}, svc)
 	Expect(kerrors.IsNotFound(err)).To(BeTrue())
-	err = t.Client.Get(context.Background(), types.NamespacedName{Name: "containerjfr-command", Namespace: "default"}, svc)
+	err = t.Client.Get(context.Background(), types.NamespacedName{Name: "cryostat-command", Namespace: "default"}, svc)
 	Expect(kerrors.IsNotFound(err)).To(BeTrue())
-	err = t.Client.Get(context.Background(), types.NamespacedName{Name: "containerjfr-grafana", Namespace: "default"}, svc)
+	err = t.Client.Get(context.Background(), types.NamespacedName{Name: "cryostat-grafana", Namespace: "default"}, svc)
 	Expect(kerrors.IsNotFound(err)).To(BeTrue())
 }
 
-func (t *containerJFRTestInput) expectIngresses() {
-	req := reconcile.Request{NamespacedName: types.NamespacedName{Name: "containerjfr", Namespace: "default"}}
+func (t *cryostatTestInput) expectIngresses() {
+	req := reconcile.Request{NamespacedName: types.NamespacedName{Name: "cryostat", Namespace: "default"}}
 	result, err := t.controller.Reconcile(context.Background(), req)
 	Expect(err).ToNot(HaveOccurred())
 	Expect(result).To(Equal(reconcile.Result{RequeueAfter: 5 * time.Second}))
@@ -739,43 +739,43 @@ func (t *containerJFRTestInput) expectIngresses() {
 	expectedConfig := test.NewNetworkConfigurationList()
 
 	ingress := &netv1.Ingress{}
-	err = t.Client.Get(context.Background(), types.NamespacedName{Name: "containerjfr", Namespace: "default"}, ingress)
+	err = t.Client.Get(context.Background(), types.NamespacedName{Name: "cryostat", Namespace: "default"}, ingress)
 	Expect(err).ToNot(HaveOccurred())
 	Expect(ingress.Annotations).To(Equal(expectedConfig.ExporterConfig.Annotations))
 	Expect(ingress.Labels).To(Equal(expectedConfig.ExporterConfig.Labels))
 	Expect(ingress.Spec).To(Equal(*expectedConfig.ExporterConfig.IngressSpec))
 
-	err = t.Client.Get(context.Background(), types.NamespacedName{Name: "containerjfr-command", Namespace: "default"}, ingress)
+	err = t.Client.Get(context.Background(), types.NamespacedName{Name: "cryostat-command", Namespace: "default"}, ingress)
 	Expect(err).ToNot(HaveOccurred())
 	Expect(ingress.Annotations).To(Equal(expectedConfig.CommandConfig.Annotations))
 	Expect(ingress.Labels).To(Equal(expectedConfig.CommandConfig.Labels))
 	Expect(ingress.Spec).To(Equal(*expectedConfig.CommandConfig.IngressSpec))
 
-	err = t.Client.Get(context.Background(), types.NamespacedName{Name: "containerjfr-grafana", Namespace: "default"}, ingress)
+	err = t.Client.Get(context.Background(), types.NamespacedName{Name: "cryostat-grafana", Namespace: "default"}, ingress)
 	Expect(err).ToNot(HaveOccurred())
 	Expect(ingress.Annotations).To(Equal(expectedConfig.GrafanaConfig.Annotations))
 	Expect(ingress.Labels).To(Equal(expectedConfig.GrafanaConfig.Labels))
 	Expect(ingress.Spec).To(Equal(*expectedConfig.GrafanaConfig.IngressSpec))
 }
 
-func (t *containerJFRTestInput) expectNoIngresses() {
+func (t *cryostatTestInput) expectNoIngresses() {
 	ing := &netv1.Ingress{}
-	err := t.Client.Get(context.Background(), types.NamespacedName{Name: "containerjfr", Namespace: "default"}, ing)
+	err := t.Client.Get(context.Background(), types.NamespacedName{Name: "cryostat", Namespace: "default"}, ing)
 	Expect(kerrors.IsNotFound(err)).To(BeTrue())
-	err = t.Client.Get(context.Background(), types.NamespacedName{Name: "containerjfr-command", Namespace: "default"}, ing)
+	err = t.Client.Get(context.Background(), types.NamespacedName{Name: "cryostat-command", Namespace: "default"}, ing)
 	Expect(kerrors.IsNotFound(err)).To(BeTrue())
-	err = t.Client.Get(context.Background(), types.NamespacedName{Name: "containerjfr-grafana", Namespace: "default"}, ing)
+	err = t.Client.Get(context.Background(), types.NamespacedName{Name: "cryostat-grafana", Namespace: "default"}, ing)
 	Expect(kerrors.IsNotFound(err)).To(BeTrue())
 }
 
-func (t *containerJFRTestInput) expectPVC(expectedPvc *corev1.PersistentVolumeClaim) {
+func (t *cryostatTestInput) expectPVC(expectedPvc *corev1.PersistentVolumeClaim) {
 	pvc := &corev1.PersistentVolumeClaim{}
-	err := t.Client.Get(context.Background(), types.NamespacedName{Name: "containerjfr", Namespace: "default"}, pvc)
+	err := t.Client.Get(context.Background(), types.NamespacedName{Name: "cryostat", Namespace: "default"}, pvc)
 	Expect(kerrors.IsNotFound(err)).To(BeTrue())
 
-	t.reconcileContainerJFRFully()
+	t.reconcileCryostatFully()
 
-	err = t.Client.Get(context.Background(), types.NamespacedName{Name: "containerjfr", Namespace: "default"}, pvc)
+	err = t.Client.Get(context.Background(), types.NamespacedName{Name: "cryostat", Namespace: "default"}, pvc)
 	Expect(err).ToNot(HaveOccurred())
 
 	// Compare to desired spec
@@ -788,81 +788,81 @@ func (t *containerJFRTestInput) expectPVC(expectedPvc *corev1.PersistentVolumeCl
 	Expect(pvcStorage.Equal(expectedPvcStorage)).To(BeTrue())
 }
 
-func (t *containerJFRTestInput) expectJMXSecret() {
+func (t *cryostatTestInput) expectJMXSecret() {
 	secret := &corev1.Secret{}
-	err := t.Client.Get(context.Background(), types.NamespacedName{Name: "containerjfr-jmx-auth", Namespace: "default"}, secret)
+	err := t.Client.Get(context.Background(), types.NamespacedName{Name: "cryostat-jmx-auth", Namespace: "default"}, secret)
 	Expect(kerrors.IsNotFound(err)).To(BeTrue())
 
-	t.reconcileContainerJFRFully()
+	t.reconcileCryostatFully()
 
-	err = t.Client.Get(context.Background(), types.NamespacedName{Name: "containerjfr-jmx-auth", Namespace: "default"}, secret)
+	err = t.Client.Get(context.Background(), types.NamespacedName{Name: "cryostat-jmx-auth", Namespace: "default"}, secret)
 	Expect(err).ToNot(HaveOccurred())
 
-	expectedSecret := resource_definitions.NewJmxSecretForCR(test.NewContainerJFR())
+	expectedSecret := resource_definitions.NewJmxSecretForCR(test.NewCryostat())
 	checkMetadata(secret, expectedSecret)
-	Expect(secret.StringData["CONTAINER_JFR_RJMX_USER"]).To(Equal(expectedSecret.StringData["CONTAINER_JFR_RJMX_USER"]))
+	Expect(secret.StringData["CRYOSTAT_RJMX_USER"]).To(Equal(expectedSecret.StringData["CRYOSTAT_RJMX_USER"]))
 }
 
-func (t *containerJFRTestInput) expectExporterService() {
+func (t *cryostatTestInput) expectExporterService() {
 	service := &corev1.Service{}
-	err := t.Client.Get(context.Background(), types.NamespacedName{Name: "containerjfr", Namespace: "default"}, service)
+	err := t.Client.Get(context.Background(), types.NamespacedName{Name: "cryostat", Namespace: "default"}, service)
 	Expect(kerrors.IsNotFound(err)).To(BeTrue())
 
-	t.reconcileContainerJFRFully()
+	t.reconcileCryostatFully()
 
-	err = t.Client.Get(context.Background(), types.NamespacedName{Name: "containerjfr", Namespace: "default"}, service)
+	err = t.Client.Get(context.Background(), types.NamespacedName{Name: "cryostat", Namespace: "default"}, service)
 	Expect(err).ToNot(HaveOccurred())
 
-	expectedService := resource_definitions.NewExporterService(test.NewContainerJFR())
+	expectedService := resource_definitions.NewExporterService(test.NewCryostat())
 	checkMetadata(service, expectedService)
 	Expect(service.Spec.Type).To(Equal(expectedService.Spec.Type))
 	Expect(service.Spec.Selector).To(Equal(expectedService.Spec.Selector))
 	Expect(service.Spec.Ports).To(Equal(expectedService.Spec.Ports))
 }
 
-func (t *containerJFRTestInput) expectStatusApplicationURL() {
-	instance := &rhjmcv1beta1.ContainerJFR{}
-	err := t.Client.Get(context.Background(), types.NamespacedName{Name: "containerjfr", Namespace: "default"}, instance)
+func (t *cryostatTestInput) expectStatusApplicationURL() {
+	instance := &operatorv1beta1.Cryostat{}
+	err := t.Client.Get(context.Background(), types.NamespacedName{Name: "cryostat", Namespace: "default"}, instance)
 
-	t.reconcileContainerJFRFully()
+	t.reconcileCryostatFully()
 
-	err = t.Client.Get(context.Background(), types.NamespacedName{Name: "containerjfr", Namespace: "default"}, instance)
+	err = t.Client.Get(context.Background(), types.NamespacedName{Name: "cryostat", Namespace: "default"}, instance)
 	Expect(err).ToNot(HaveOccurred())
 
-	Expect(instance.Status.ApplicationURL).To(Equal("https://containerjfr.example.com"))
+	Expect(instance.Status.ApplicationURL).To(Equal("https://cryostat.example.com"))
 }
 
-func (t *containerJFRTestInput) expectCommandChannel() {
+func (t *cryostatTestInput) expectCommandChannel() {
 	service := &corev1.Service{}
-	err := t.Client.Get(context.Background(), types.NamespacedName{Name: "containerjfr-command", Namespace: "default"}, service)
+	err := t.Client.Get(context.Background(), types.NamespacedName{Name: "cryostat-command", Namespace: "default"}, service)
 	Expect(kerrors.IsNotFound(err)).To(BeTrue())
 
-	t.reconcileContainerJFRFully()
+	t.reconcileCryostatFully()
 
-	err = t.Client.Get(context.Background(), types.NamespacedName{Name: "containerjfr-command", Namespace: "default"}, service)
+	err = t.Client.Get(context.Background(), types.NamespacedName{Name: "cryostat-command", Namespace: "default"}, service)
 	Expect(err).ToNot(HaveOccurred())
 
-	expectedService := resource_definitions.NewCommandChannelService(test.NewContainerJFR())
+	expectedService := resource_definitions.NewCommandChannelService(test.NewCryostat())
 	checkMetadata(service, expectedService)
 	Expect(service.Spec.Type).To(Equal(expectedService.Spec.Type))
 	Expect(service.Spec.Selector).To(Equal(expectedService.Spec.Selector))
 	Expect(service.Spec.Ports).To(Equal(expectedService.Spec.Ports))
 }
 
-func (t *containerJFRTestInput) expectDeployment() {
+func (t *cryostatTestInput) expectDeployment() {
 	deployment := &appsv1.Deployment{}
-	err := t.Client.Get(context.Background(), types.NamespacedName{Name: "containerjfr", Namespace: "default"}, deployment)
+	err := t.Client.Get(context.Background(), types.NamespacedName{Name: "cryostat", Namespace: "default"}, deployment)
 	Expect(kerrors.IsNotFound(err)).To(BeTrue())
 
-	t.reconcileContainerJFRFully()
+	t.reconcileCryostatFully()
 	t.checkDeployment()
 }
 
-func (t *containerJFRTestInput) expectIdempotence() {
-	req := reconcile.Request{NamespacedName: types.NamespacedName{Name: "containerjfr", Namespace: "default"}}
-	t.reconcileContainerJFRFully()
+func (t *cryostatTestInput) expectIdempotence() {
+	req := reconcile.Request{NamespacedName: types.NamespacedName{Name: "cryostat", Namespace: "default"}}
+	t.reconcileCryostatFully()
 
-	obj := &rhjmcv1beta1.ContainerJFR{}
+	obj := &operatorv1beta1.Cryostat{}
 	err := t.Client.Get(context.Background(), req.NamespacedName, obj)
 	Expect(err).ToNot(HaveOccurred())
 
@@ -871,43 +871,43 @@ func (t *containerJFRTestInput) expectIdempotence() {
 	Expect(err).ToNot(HaveOccurred())
 	Expect(result).To(Equal(reconcile.Result{}))
 
-	obj2 := &rhjmcv1beta1.ContainerJFR{}
+	obj2 := &operatorv1beta1.Cryostat{}
 	err = t.Client.Get(context.Background(), req.NamespacedName, obj2)
 	Expect(err).ToNot(HaveOccurred())
 	Expect(obj2.Status).To(Equal(obj.Status))
 	Expect(obj2.Spec).To(Equal(obj.Spec))
 }
 
-func (t *containerJFRTestInput) checkGrafanaService() {
+func (t *cryostatTestInput) checkGrafanaService() {
 	service := &corev1.Service{}
-	err := t.Client.Get(context.Background(), types.NamespacedName{Name: "containerjfr-grafana", Namespace: "default"}, service)
+	err := t.Client.Get(context.Background(), types.NamespacedName{Name: "cryostat-grafana", Namespace: "default"}, service)
 	Expect(err).ToNot(HaveOccurred())
 
-	expectedService := resource_definitions.NewGrafanaService(test.NewContainerJFR())
+	expectedService := resource_definitions.NewGrafanaService(test.NewCryostat())
 	checkMetadata(service, expectedService)
 	Expect(service.Spec.Type).To(Equal(expectedService.Spec.Type))
 	Expect(service.Spec.Selector).To(Equal(expectedService.Spec.Selector))
 	Expect(service.Spec.Ports).To(Equal(expectedService.Spec.Ports))
 }
 
-func (t *containerJFRTestInput) checkDeployment() {
+func (t *cryostatTestInput) checkDeployment() {
 	deployment := &appsv1.Deployment{}
-	err := t.Client.Get(context.Background(), types.NamespacedName{Name: "containerjfr", Namespace: "default"}, deployment)
+	err := t.Client.Get(context.Background(), types.NamespacedName{Name: "cryostat", Namespace: "default"}, deployment)
 	Expect(err).ToNot(HaveOccurred())
 
-	cr := &rhjmcv1beta1.ContainerJFR{}
-	err = t.Client.Get(context.Background(), types.NamespacedName{Name: "containerjfr", Namespace: "default"}, cr)
+	cr := &operatorv1beta1.Cryostat{}
+	err = t.Client.Get(context.Background(), types.NamespacedName{Name: "cryostat", Namespace: "default"}, cr)
 	Expect(err).ToNot(HaveOccurred())
 
-	Expect(deployment.Name).To(Equal("containerjfr"))
+	Expect(deployment.Name).To(Equal("cryostat"))
 	Expect(deployment.Namespace).To(Equal("default"))
 	Expect(deployment.Annotations).To(Equal(map[string]string{
-		"app.openshift.io/connects-to": "container-jfr-operator",
+		"app.openshift.io/connects-to": "cryostat-operator",
 	}))
 	Expect(deployment.Labels).To(Equal(map[string]string{
-		"app":                    "containerjfr",
-		"kind":                   "containerjfr",
-		"app.kubernetes.io/name": "container-jfr",
+		"app":                    "cryostat",
+		"kind":                   "cryostat",
+		"app.kubernetes.io/name": "cryostat",
 	}))
 	Expect(metav1.IsControlledBy(deployment, cr)).To(BeTrue())
 	Expect(deployment.Spec.Selector).To(Equal(test.NewDeploymentSelector()))
@@ -915,11 +915,11 @@ func (t *containerJFRTestInput) checkDeployment() {
 	// compare Pod template
 	tls := t.DisableTLS == nil || !*t.DisableTLS
 	template := deployment.Spec.Template
-	Expect(template.Name).To(Equal("containerjfr"))
+	Expect(template.Name).To(Equal("cryostat"))
 	Expect(template.Namespace).To(Equal("default"))
 	Expect(template.Labels).To(Equal(map[string]string{
-		"app":  "containerjfr",
-		"kind": "containerjfr",
+		"app":  "cryostat",
+		"kind": "cryostat",
 	}))
 	Expect(template.Spec.Volumes).To(Equal(test.NewVolumes(t.minimal, tls)))
 
@@ -939,9 +939,9 @@ func (t *containerJFRTestInput) checkDeployment() {
 }
 
 func checkCoreContainer(container *corev1.Container, minimal bool, tls bool, tag *string) {
-	Expect(container.Name).To(Equal("containerjfr"))
+	Expect(container.Name).To(Equal("cryostat"))
 	if tag == nil {
-		Expect(container.Image).To(HavePrefix("quay.io/rh-jmc-team/container-jfr:"))
+		Expect(container.Image).To(HavePrefix("quay.io/cryostatio/cryostat:"))
 	} else {
 		Expect(container.Image).To(Equal(*tag))
 	}
@@ -954,9 +954,9 @@ func checkCoreContainer(container *corev1.Container, minimal bool, tls bool, tag
 }
 
 func checkGrafanaContainer(container *corev1.Container, tls bool, tag *string) {
-	Expect(container.Name).To(Equal("containerjfr-grafana"))
+	Expect(container.Name).To(Equal("cryostat-grafana"))
 	if tag == nil {
-		Expect(container.Image).To(HavePrefix("quay.io/rh-jmc-team/container-jfr-grafana-dashboard:"))
+		Expect(container.Image).To(HavePrefix("quay.io/cryostatio/cryostat-grafana-dashboard:"))
 	} else {
 		Expect(container.Image).To(Equal(*tag))
 	}
@@ -968,9 +968,9 @@ func checkGrafanaContainer(container *corev1.Container, tls bool, tag *string) {
 }
 
 func checkDatasourceContainer(container *corev1.Container, tag *string) {
-	Expect(container.Name).To(Equal("containerjfr-jfr-datasource"))
+	Expect(container.Name).To(Equal("cryostat-jfr-datasource"))
 	if tag == nil {
-		Expect(container.Image).To(HavePrefix("quay.io/rh-jmc-team/jfr-datasource:"))
+		Expect(container.Image).To(HavePrefix("quay.io/cryostatio/jfr-datasource:"))
 	} else {
 		Expect(container.Image).To(Equal(*tag))
 	}

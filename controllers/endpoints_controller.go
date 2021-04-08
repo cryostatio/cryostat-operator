@@ -39,10 +39,10 @@ package controllers
 import (
 	"context"
 
+	operatorv1beta1 "github.com/cryostatio/cryostat-operator/api/v1beta1"
+	"github.com/cryostatio/cryostat-operator/controllers/common"
+	resources "github.com/cryostatio/cryostat-operator/controllers/common/resource_definitions"
 	"github.com/go-logr/logr"
-	rhjmcv1beta1 "github.com/rh-jmc-team/container-jfr-operator/api/v1beta1"
-	"github.com/rh-jmc-team/container-jfr-operator/controllers/common"
-	resources "github.com/rh-jmc-team/container-jfr-operator/controllers/common/resource_definitions"
 	corev1 "k8s.io/api/core/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -63,8 +63,8 @@ type EndpointsReconciler struct {
 }
 
 // +kubebuilder:rbac:namespace=system,groups="",resources=endpoints;services;pods;secrets,verbs=get;list;watch
-// +kubebuilder:rbac:namespace=system,groups=rhjmc.redhat.com,resources=flightrecorders,verbs=get;list;watch;create;update;patch;delete
-// +kubebuilder:rbac:namespace=system,groups=rhjmc.redhat.com,resources=flightrecorders/status,verbs=get;update;patch
+// +kubebuilder:rbac:namespace=system,groups=operator.cryostat.io,resources=flightrecorders,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:namespace=system,groups=operator.cryostat.io,resources=flightrecorders/status,verbs=get;update;patch
 
 // Reconcile processes an Endpoints and creates FlightRecorders when compatible
 func (r *EndpointsReconciler) Reconcile(ctx context.Context, request ctrl.Request) (ctrl.Result, error) {
@@ -86,7 +86,7 @@ func (r *EndpointsReconciler) Reconcile(ctx context.Context, request ctrl.Reques
 	}
 
 	for _, subset := range ep.Subsets {
-		// Check if this subset appears to be compatible with Container JFR
+		// Check if this subset appears to be compatible with Cryostat
 		jmxPort := getServiceJMXPort(subset)
 
 		if jmxPort != nil {
@@ -109,7 +109,7 @@ func (r *EndpointsReconciler) Reconcile(ctx context.Context, request ctrl.Reques
 func (r *EndpointsReconciler) handlePodAddress(ctx context.Context, target *corev1.ObjectReference,
 	ep *corev1.Endpoints, jmxPort *int32, reqLogger logr.Logger) error {
 	// Check if this FlightRecorder already exists
-	found := &rhjmcv1beta1.FlightRecorder{}
+	found := &operatorv1beta1.FlightRecorder{}
 	jfrName := target.Name
 
 	err := r.Client.Get(ctx, types.NamespacedName{Name: jfrName, Namespace: target.Namespace}, found)
@@ -118,7 +118,7 @@ func (r *EndpointsReconciler) handlePodAddress(ctx context.Context, target *core
 			return err
 		}
 
-		// If this Endpoints is for Container JFR itself, fill in the JMX authentication credentials
+		// If this Endpoints is for Cryostat itself, fill in the JMX authentication credentials
 		// that the operator generated
 		jmxAuth, err := r.getJMXCredentials(ctx, ep)
 		if err != nil {
@@ -134,7 +134,7 @@ func (r *EndpointsReconciler) handlePodAddress(ctx context.Context, target *core
 	return nil
 }
 
-const defaultContainerJFRPort int32 = 9091
+const defaultJmxPort int32 = 9091
 const jmxServicePortName = "jfr-jmx"
 
 func getServiceJMXPort(subset corev1.EndpointSubset) *int32 {
@@ -142,7 +142,7 @@ func getServiceJMXPort(subset corev1.EndpointSubset) *int32 {
 	for idx, port := range subset.Ports {
 		if port.Name == jmxServicePortName {
 			portNum = &subset.Ports[idx].Port
-		} else if port.Port == defaultContainerJFRPort {
+		} else if port.Port == defaultJmxPort {
 			fallbackPortNum = &subset.Ports[idx].Port
 		}
 	}
@@ -153,7 +153,7 @@ func getServiceJMXPort(subset corev1.EndpointSubset) *int32 {
 }
 
 func (r *EndpointsReconciler) createNewFlightRecorder(ctx context.Context, target *corev1.ObjectReference, jmxPort *int32,
-	jmxAuth *rhjmcv1beta1.JMXAuthSecret) error {
+	jmxAuth *operatorv1beta1.JMXAuthSecret) error {
 	pod := &corev1.Pod{}
 	err := r.Client.Get(ctx, types.NamespacedName{Name: target.Name, Namespace: target.Namespace}, pod)
 	if err != nil {
@@ -190,7 +190,7 @@ func (r *EndpointsReconciler) createNewFlightRecorder(ctx context.Context, targe
 
 // newFlightRecorderForPod returns a FlightRecorder with the same name/namespace as the target
 func (r *EndpointsReconciler) newFlightRecorderForPod(target *corev1.ObjectReference, pod *corev1.Pod,
-	jmxPort int32, jmxAuth *rhjmcv1beta1.JMXAuthSecret) (*rhjmcv1beta1.FlightRecorder, error) {
+	jmxPort int32, jmxAuth *operatorv1beta1.JMXAuthSecret) (*operatorv1beta1.FlightRecorder, error) {
 	// Inherit "app" label from endpoints
 	appLabel := pod.Name // Use endpoints name as fallback
 	if label, pres := pod.Labels["app"]; pres {
@@ -202,30 +202,30 @@ func (r *EndpointsReconciler) newFlightRecorderForPod(target *corev1.ObjectRefer
 
 	// Use label selector matching the name of this FlightRecorder
 	selector := &metav1.LabelSelector{}
-	selector = metav1.AddLabelToSelector(selector, rhjmcv1beta1.RecordingLabel, target.Name)
+	selector = metav1.AddLabelToSelector(selector, operatorv1beta1.RecordingLabel, target.Name)
 
-	return &rhjmcv1beta1.FlightRecorder{
+	return &operatorv1beta1.FlightRecorder{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      target.Name,
 			Namespace: target.Namespace,
 			Labels:    labels,
 		},
-		Spec: rhjmcv1beta1.FlightRecorderSpec{
+		Spec: operatorv1beta1.FlightRecorderSpec{
 			RecordingSelector: selector,
 			JMXCredentials:    jmxAuth,
 		},
-		Status: rhjmcv1beta1.FlightRecorderStatus{
-			Events:    []rhjmcv1beta1.EventInfo{},
-			Templates: []rhjmcv1beta1.TemplateInfo{},
+		Status: operatorv1beta1.FlightRecorderStatus{
+			Events:    []operatorv1beta1.EventInfo{},
+			Templates: []operatorv1beta1.TemplateInfo{},
 			Target:    target,
 			Port:      jmxPort,
 		},
 	}, nil
 }
 
-func (r *EndpointsReconciler) getJMXCredentials(ctx context.Context, ep *corev1.Endpoints) (*rhjmcv1beta1.JMXAuthSecret, error) {
-	// Look up the ContainerJFR CR in this namespace
-	cjfr, err := r.FindContainerJFR(ctx, ep.Namespace)
+func (r *EndpointsReconciler) getJMXCredentials(ctx context.Context, ep *corev1.Endpoints) (*operatorv1beta1.JMXAuthSecret, error) {
+	// Look up the Cryostat CR in this namespace
+	cryostat, err := r.FindCryostat(ctx, ep.Namespace)
 	if err != nil {
 		return nil, err
 	}
@@ -237,13 +237,13 @@ func (r *EndpointsReconciler) getJMXCredentials(ctx context.Context, ep *corev1.
 		return nil, err
 	}
 
-	// Is the service owned by the ContainerJFR CR
-	var result *rhjmcv1beta1.JMXAuthSecret
-	if metav1.IsControlledBy(svc, cjfr) {
-		// Look up JMX auth secret created for this ContainerJFR
+	// Is the service owned by the Cryostat CR
+	var result *operatorv1beta1.JMXAuthSecret
+	if metav1.IsControlledBy(svc, cryostat) {
+		// Look up JMX auth secret created for this Cryostat
 		secret := &corev1.Secret{}
-		err := r.Client.Get(ctx, types.NamespacedName{Name: cjfr.Name + resources.JMXSecretNameSuffix,
-			Namespace: cjfr.Namespace}, secret)
+		err := r.Client.Get(ctx, types.NamespacedName{Name: cryostat.Name + resources.JMXSecretNameSuffix,
+			Namespace: cryostat.Namespace}, secret)
 		if err != nil {
 			return nil, err
 		}
@@ -251,7 +251,7 @@ func (r *EndpointsReconciler) getJMXCredentials(ctx context.Context, ep *corev1.
 		// Found the JMX auth secret, fill in corresponding values for FlightRecorder
 		userKey := resources.JMXSecretUserKey
 		passKey := resources.JMXSecretPassKey
-		result = &rhjmcv1beta1.JMXAuthSecret{
+		result = &operatorv1beta1.JMXAuthSecret{
 			SecretName:  secret.Name,
 			UsernameKey: &userKey,
 			PasswordKey: &passKey,

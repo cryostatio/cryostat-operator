@@ -1,14 +1,12 @@
-
----
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.4.1
   creationTimestamp: null
-  name: recordings.rhjmc.redhat.com
+  name: recordings.operator.cryostat.io
 spec:
-  group: rhjmc.redhat.com
+  group: operator.cryostat.io
   names:
     kind: Recording
     listKind: RecordingList
@@ -22,14 +20,10 @@ spec:
         description: Recording is the Schema for the recordings API
         properties:
           apiVersion:
-            description: 'APIVersion defines the versioned schema of this representation
-              of an object. Servers should convert recognized schemas to the latest
-              internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+            description: 'APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
             type: string
           kind:
-            description: 'Kind is a string value representing the REST resource this
-              object represents. Servers may infer this from the endpoint the client
-              submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+            description: 'Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
             type: string
           metadata:
             type: object
@@ -37,38 +31,29 @@ spec:
             description: RecordingSpec defines the desired state of Recording
             properties:
               archive:
-                description: Whether this recording should be saved to persistent
-                  storage. If true, the JFR file will be retained until this object
-                  is deleted. If false, the JFR file will be deleted when its corresponding
-                  JVM exits.
+                description: Whether this recording should be saved to persistent storage. If true, the JFR file will be retained until this object is deleted. If false, the JFR file will be deleted when its corresponding JVM exits.
                 type: boolean
               duration:
-                description: The requested total duration of the recording, a zero
-                  value will record indefinitely.
+                description: The requested total duration of the recording, a zero value will record indefinitely.
                 type: string
               eventOptions:
-                description: 'A list of event options to use when creating the recording.
-                  These are used to enable and fine-tune individual events. Examples:
-                  "jdk.ExecutionSample:enabled=true", "jdk.ExecutionSample:period=200ms"'
+                description: 'A list of event options to use when creating the recording. These are used to enable and fine-tune individual events. Examples: "jdk.ExecutionSample:enabled=true", "jdk.ExecutionSample:period=200ms"'
                 items:
                   type: string
                 type: array
                 x-kubernetes-list-type: atomic
               flightRecorder:
-                description: Reference to the FlightRecorder object that corresponds
-                  to this Recording
+                description: Reference to the FlightRecorder object that corresponds to this Recording
                 properties:
                   name:
-                    description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-                      TODO: Add other useful fields. apiVersion, kind, uid?'
+                    description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names TODO: Add other useful fields. apiVersion, kind, uid?'
                     type: string
                 type: object
               name:
                 description: Name of the recording to be created.
                 type: string
               state:
-                description: RecordingState describes the current state of the recording
-                  according to JFR
+                description: RecordingState describes the current state of the recording according to JFR
                 enum:
                 - RUNNING
                 - STOPPED
@@ -90,8 +75,7 @@ spec:
                 description: The duration of the recording specified during creation.
                 type: string
               reportURL:
-                description: A URL to download the autogenerated HTML report for the
-                  recording
+                description: A URL to download the autogenerated HTML report for the recording
                 type: string
               startTime:
                 description: The date/time when the recording started.
