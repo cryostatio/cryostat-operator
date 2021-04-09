@@ -371,16 +371,16 @@ func (r *ContainerJFRReconciler) createService(ctx context.Context, controller *
 		return r.createRouteForService(controller, svc, *exposePort, tlsConfig)
 	} else {
 		if controller.Spec.NetworkOptions == nil {
-			return &url.URL{Host: ""}, nil
+			return nil, nil
 		}
 		networkConfig, err := getNetworkConfig(controller, svc)
 		if err != nil {
 			return nil, err
 		}
 		if networkConfig == nil || networkConfig.IngressSpec == nil {
-			return &url.URL{Host: ""}, nil
+			return nil, nil
 		}
-		return r.createIngressForService(controller, svc, *exposePort, tlsConfig, networkConfig)
+		return r.createIngressForService(controller, svc, networkConfig)
 	}
 }
 
@@ -435,8 +435,8 @@ func (r *ContainerJFRReconciler) createRouteForService(controller *rhjmcv1beta1.
 	}, nil
 }
 
-func (r *ContainerJFRReconciler) createIngressForService(controller *rhjmcv1beta1.ContainerJFR, svc *corev1.Service, exposePort corev1.ServicePort,
-	tlsConfig *openshiftv1.TLSConfig, networkConfig *rhjmcv1beta1.NetworkConfiguration) (*url.URL, error) {
+func (r *ContainerJFRReconciler) createIngressForService(controller *rhjmcv1beta1.ContainerJFR, svc *corev1.Service,
+	networkConfig *rhjmcv1beta1.NetworkConfiguration) (*url.URL, error) {
 	logger := r.Log.WithValues("Request.Namespace", svc.Namespace, "Name", svc.Name, "Kind", fmt.Sprintf("%T", &netv1.Ingress{}))
 
 	ingress := &netv1.Ingress{
@@ -473,8 +473,12 @@ func (r *ContainerJFRReconciler) createIngressForService(controller *rhjmcv1beta
 		host = networkConfig.IngressSpec.Rules[0].Host
 	}
 
+	scheme := "http"
+	if networkConfig.IngressSpec.TLS != nil {
+		scheme = "https"
+	}
 	return &url.URL{
-		Scheme: getProtocol(tlsConfig),
+		Scheme: scheme,
 		Host:   host,
 	}, nil
 }
