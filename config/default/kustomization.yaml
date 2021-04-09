@@ -28,7 +28,10 @@ patchesStrategicMerge:
 # Protect the /metrics endpoint by putting it behind auth.
 # If you want your controller-manager to expose the /metrics
 # endpoint w/o any authn/z, please comment the following line.
-- manager_auth_proxy_patch.yaml
+#
+# FIXME uncomment when this issue is resolved:
+# https://github.com/operator-framework/operator-sdk/issues/4684
+#- manager_auth_proxy_patch.yaml
 
 # Mount the controller config file for loading manager configurations
 # through a ComponentConfig type
