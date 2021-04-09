@@ -355,6 +355,13 @@ func NewCoreContainer(cr *rhjmcv1beta1.ContainerJFR, specs *ServiceSpecs, tls *T
 		livenessProbeScheme = corev1.URISchemeHTTPS
 	}
 	imageTag := "quay.io/rh-jmc-team/container-jfr:1.0.0-BETA6"
+	probeHandler := corev1.Handler{
+		HTTPGet: &corev1.HTTPGetAction{
+			Port:   intstr.IntOrString{IntVal: 8181},
+			Path:   "/api/v1/clienturl",
+			Scheme: livenessProbeScheme,
+		},
+	}
 	return corev1.Container{
 		Name:         cr.Name,
 		Image:        imageTag,
@@ -373,13 +380,12 @@ func NewCoreContainer(cr *rhjmcv1beta1.ContainerJFR, specs *ServiceSpecs, tls *T
 		Env:     envs,
 		EnvFrom: envsFrom,
 		LivenessProbe: &corev1.Probe{
-			Handler: corev1.Handler{
-				HTTPGet: &corev1.HTTPGetAction{
-					Port:   intstr.IntOrString{IntVal: 8181},
-					Path:   "/api/v1/clienturl",
-					Scheme: livenessProbeScheme,
-				},
-			},
+			Handler: probeHandler,
+		},
+		// Expect probe to succeed within 3 minutes
+		StartupProbe: &corev1.Probe{
+			Handler:          probeHandler,
+			FailureThreshold: 18,
 		},
 	}
 }
