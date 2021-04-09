@@ -106,7 +106,7 @@ func NewContainerJFRWithSecrets() *rhjmcv1beta1.ContainerJFR {
 }
 
 func NewContainerJFRWithIngress() *rhjmcv1beta1.ContainerJFR {
-	ingressConfig := NewIngressConfigurationList()
+	networkConfig := NewNetworkConfigurationList()
 	return &rhjmcv1beta1.ContainerJFR{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "containerjfr",
@@ -115,7 +115,7 @@ func NewContainerJFRWithIngress() *rhjmcv1beta1.ContainerJFR {
 		Spec: rhjmcv1beta1.ContainerJFRSpec{
 			Minimal:            false,
 			TrustedCertSecrets: []rhjmcv1beta1.CertificateSecret{},
-			IngressOptions:     &ingressConfig,
+			NetworkOptions:     &networkConfig,
 		},
 	}
 }
@@ -1017,27 +1017,27 @@ func NewVolumesWithSecrets() []corev1.Volume {
 		})
 }
 
-func NewIngressConfigurationList() rhjmcv1beta1.IngressConfigurationList {
+func NewNetworkConfigurationList() rhjmcv1beta1.NetworkConfigurationList {
 	exporterSVC := resource_definitions.NewExporterService(NewContainerJFR())
-	exporterIng := NewIngressConfiguration(exporterSVC.Name, exporterSVC.Spec.Ports[0].Port)
+	exporterIng := NewNetworkConfiguration(exporterSVC.Name, exporterSVC.Spec.Ports[0].Port)
 
 	commandSVC := resource_definitions.NewCommandChannelService(NewContainerJFR())
-	commandIng := NewIngressConfiguration(commandSVC.Name, commandSVC.Spec.Ports[0].Port)
+	commandIng := NewNetworkConfiguration(commandSVC.Name, commandSVC.Spec.Ports[0].Port)
 
 	grafanaSVC := resource_definitions.NewGrafanaService(NewContainerJFR())
-	grafanaIng := NewIngressConfiguration(grafanaSVC.Name, grafanaSVC.Spec.Ports[0].Port)
+	grafanaIng := NewNetworkConfiguration(grafanaSVC.Name, grafanaSVC.Spec.Ports[0].Port)
 
-	return rhjmcv1beta1.IngressConfigurationList{
+	return rhjmcv1beta1.NetworkConfigurationList{
 		ExporterConfig: &exporterIng,
 		CommandConfig:  &commandIng,
 		GrafanaConfig:  &grafanaIng,
 	}
 }
 
-func NewIngressConfiguration(svcName string, svcPort int32) rhjmcv1beta1.IngressConfiguration {
+func NewNetworkConfiguration(svcName string, svcPort int32) rhjmcv1beta1.NetworkConfiguration {
 	pathtype := netv1.PathTypePrefix
 	host := "testing." + svcName
-	return rhjmcv1beta1.IngressConfiguration{
+	return rhjmcv1beta1.NetworkConfiguration{
 		Annotations: map[string]string{"nginx.ingress.kubernetes.io/backend-protocol": "HTTPS"},
 		IngressSpec: &netv1.IngressSpec{
 			Rules: []netv1.IngressRule{

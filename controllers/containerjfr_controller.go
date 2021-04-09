@@ -118,7 +118,10 @@ func (r *ContainerJFRReconciler) Reconcile(ctx context.Context, request ctrl.Req
 	if instance.GetDeletionTimestamp() != nil {
 		if controllerutil.ContainsFinalizer(instance, cjfrFinalizer) {
 			if r.IsOpenShift {
-				r.deleteConsoleLinks(context.Background(), instance)
+				err = r.deleteConsoleLinks(context.Background(), instance)
+				if err != nil {
+					return reconcile.Result{}, err
+				}
 			}
 			err = common.RemoveFinalizer(ctx, r.Client, instance, cjfrFinalizer)
 			if err != nil {
@@ -364,37 +367,21 @@ func (r *ContainerJFRReconciler) createService(ctx context.Context, controller *
 			InsecureEdgeTerminationPolicy: openshiftv1.InsecureEdgeTerminationPolicyRedirect,
 		}
 	}
-	if exposePort != nil {
-		if r.IsOpenShift {
-			return r.createRouteForService(controller, svc, *exposePort, tlsConfig)
-		} else {
-			if controller.Spec.IngressOptions == nil {
-				return "", nil
-			}
-			ingressConfig, err := getIngressCofig(controller, svc)
-			if err != nil {
-				return "", err
-			}
-			if ingressConfig == nil {
-				return "", nil
-			}
-			if ingressConfig.IngressSpec == nil {
-				return "", nil
-			}
-			return r.createIngressForService(controller, svc, *exposePort, tlsConfig, ingressConfig)
+	if r.IsOpenShift {
+		return r.createRouteForService(controller, svc, *exposePort, tlsConfig)
+	} else {
+		if controller.Spec.NetworkOptions == nil {
+			return nil, nil
 		}
+		networkConfig, err := getNetworkConfig(controller, svc)
+		if err != nil {
+			return nil, err
+		}
+		if networkConfig == nil || networkConfig.IngressSpec == nil {
+			return nil, nil
+		}
+		return r.createIngressForService(controller, svc, *exposePort, tlsConfig, networkConfig)
 	}
-
-	if err := r.Client.Get(context.Background(), types.NamespacedName{Name: svc.Name, Namespace: svc.Namespace}, svc); err != nil {
-		return "", err
-	}
-	if svc.Spec.ClusterIP == "" {
-		return "", errors.NewInternalError(goerrors.New(fmt.Sprintf("Expected service %s to have ClusterIP, but got empty string", svc.Name)))
-	}
-	if len(svc.Spec.Ports) != 1 {
-		return "", errors.NewInternalError(goerrors.New(fmt.Sprintf("Expected service %s to have one Port, but got %d", svc.Name, len(svc.Spec.Ports))))
-	}
-	return fmt.Sprintf("%s:%d", svc.Spec.ClusterIP, svc.Spec.Ports[0].Port), nil
 }
 
 // ErrIngressNotReady is returned when Kubernetes has not yet exposed our services
@@ -449,25 +436,20 @@ func (r *ContainerJFRReconciler) createRouteForService(controller *rhjmcv1beta1.
 }
 
 func (r *ContainerJFRReconciler) createIngressForService(controller *rhjmcv1beta1.ContainerJFR, svc *corev1.Service, exposePort corev1.ServicePort,
-	tlsConfig *openshiftv1.TLSConfig, ingressConfig *rhjmcv1beta1.IngressConfiguration) (string, error) {
-	logger := log.WithValues("Request.Namespace", svc.Namespace, "Name", svc.Name, "Kind", fmt.Sprintf("%T", &netv1.Ingress{}))
-	/*
-		tls := netv1.IngressTLS{}
-		if tlsConfig.DestinationCACertificate != "" {
-			tls.SecretName = tlsConfig.CACertificate
-		}
-	*/
+	tlsConfig *openshiftv1.TLSConfig, networkConfig *rhjmcv1beta1.NetworkConfiguration) (*url.URL, error) {
+	logger := r.Log.WithValues("Request.Namespace", svc.Namespace, "Name", svc.Name, "Kind", fmt.Sprintf("%T", &netv1.Ingress{}))
+
 	ingress := &netv1.Ingress{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        svc.Name,
 			Namespace:   svc.Namespace,
-			Annotations: ingressConfig.Annotations,
-			Labels:      ingressConfig.Labels,
+			Annotations: networkConfig.Annotations,
+			Labels:      networkConfig.Labels,
 		},
-		Spec: *ingressConfig.IngressSpec,
+		Spec: *networkConfig.IngressSpec,
 	}
 	if err := controllerutil.SetControllerReference(controller, ingress, r.Scheme); err != nil {
-		return "", err
+		return nil, err
 	}
 
 	found := &netv1.Ingress{}
@@ -476,22 +458,25 @@ func (r *ContainerJFRReconciler) createIngressForService(controller *rhjmcv1beta
 		logger.Info("Not found")
 		if err := r.Client.Create(context.Background(), ingress); err != nil {
 			logger.Error(err, "Could not be created")
-			return "", err
+			return nil, err
 		}
 		logger.Info("Created")
 		found = ingress
 	} else if err != nil {
 		logger.Error(err, "Could not be read")
-		return "", err
+		return nil, err
 	}
 
 	logger.Info("Ingress created", "Service.Status", fmt.Sprintf("%#v", found.Status))
 	host := ""
-	if ingressConfig.IngressSpec.Rules != nil && ingressConfig.IngressSpec.Rules[0].Host != "" {
-		host = ingressConfig.IngressSpec.Rules[0].Host
+	if networkConfig.IngressSpec.Rules != nil && networkConfig.IngressSpec.Rules[0].Host != "" {
+		host = networkConfig.IngressSpec.Rules[0].Host
 	}
 
-	return host, nil
+	return &url.URL{
+		Scheme: getProtocol(tlsConfig),
+		Host:   host,
+	}, nil
 }
 
 func (r *ContainerJFRReconciler) createObjectIfNotExists(ctx context.Context, ns types.NamespacedName, found client.Object, toCreate client.Object) error {
@@ -563,13 +548,13 @@ func requeueIfIngressNotReady(log logr.Logger, err error) (reconcile.Result, err
 	return reconcile.Result{}, err
 }
 
-func getIngressCofig(controller *rhjmcv1beta1.ContainerJFR, svc *corev1.Service) (*rhjmcv1beta1.IngressConfiguration, error) {
+func getNetworkConfig(controller *rhjmcv1beta1.ContainerJFR, svc *corev1.Service) (*rhjmcv1beta1.NetworkConfiguration, error) {
 	if svc.Name == controller.Name {
-		return controller.Spec.IngressOptions.ExporterConfig, nil
+		return controller.Spec.NetworkOptions.ExporterConfig, nil
 	} else if svc.Name == controller.Name+"-command" {
-		return controller.Spec.IngressOptions.CommandConfig, nil
+		return controller.Spec.NetworkOptions.CommandConfig, nil
 	} else if svc.Name == controller.Name+"-grafana" {
-		return controller.Spec.IngressOptions.GrafanaConfig, nil
+		return controller.Spec.NetworkOptions.GrafanaConfig, nil
 	} else {
 		return nil, goerrors.New("Service name not recognized")
 	}

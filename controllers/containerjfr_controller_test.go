@@ -473,7 +473,7 @@ var _ = Describe("ContainerjfrController", func() {
 				expectIngresses(client, controller, false)
 			})
 			It("should not create routes", func() {
-				reconcileContainerJFRFully(client, controller, false)
+				reconcileContainerJFRFully(client, controller, false, tls)
 				expectNoRoutes(client)
 			})
 		})
@@ -484,12 +484,12 @@ var _ = Describe("ContainerjfrController", func() {
 				}
 			})
 			It("should not create ingresses or routes", func() {
-				reconcileContainerJFRFully(client, controller, false)
+				reconcileContainerJFRFully(client, controller, false, tls)
 				expectNoIngresses(client)
 				expectNoRoutes(client)
 			})
 		})
-		Context("ingressConfig for one of the services is nil", func() {
+		Context("networkConfig for one of the services is nil", func() {
 			BeforeEach(func() {
 				objs = []runtime.Object{
 					test.NewContainerJFRWithIngress(),
@@ -499,12 +499,12 @@ var _ = Describe("ContainerjfrController", func() {
 				c := &rhjmcv1beta1.ContainerJFR{}
 				err := client.Get(context.Background(), types.NamespacedName{Name: "containerjfr", Namespace: "default"}, c)
 				Expect(err).ToNot(HaveOccurred())
-				c.Spec.IngressOptions.CommandConfig = nil
+				c.Spec.NetworkOptions.CommandConfig = nil
 				err = client.Update(context.Background(), c)
 				Expect(err).ToNot(HaveOccurred())
 
-				reconcileContainerJFRFully(client, controller, false)
-				expectedConfig := test.NewIngressConfigurationList()
+				reconcileContainerJFRFully(client, controller, false, tls)
+				expectedConfig := test.NewNetworkConfigurationList()
 
 				ingress := &netv1.Ingress{}
 				err = client.Get(context.Background(), types.NamespacedName{Name: "containerjfr", Namespace: "default"}, ingress)
@@ -534,12 +534,12 @@ var _ = Describe("ContainerjfrController", func() {
 				c := &rhjmcv1beta1.ContainerJFR{}
 				err := client.Get(context.Background(), types.NamespacedName{Name: "containerjfr", Namespace: "default"}, c)
 				Expect(err).ToNot(HaveOccurred())
-				c.Spec.IngressOptions.ExporterConfig.IngressSpec = nil
+				c.Spec.NetworkOptions.ExporterConfig.IngressSpec = nil
 				err = client.Update(context.Background(), c)
 				Expect(err).ToNot(HaveOccurred())
 
-				reconcileContainerJFRFully(client, controller, false)
-				expectedConfig := test.NewIngressConfigurationList()
+				reconcileContainerJFRFully(client, controller, false, tls)
+				expectedConfig := test.NewNetworkConfigurationList()
 
 				ingress := &netv1.Ingress{}
 				err = client.Get(context.Background(), types.NamespacedName{Name: "containerjfr-command", Namespace: "default"}, ingress)
@@ -713,7 +713,7 @@ func expectIngresses(client ctrlclient.Client, controller *controllers.Container
 	initializeSecrets(client)
 
 	result, err = controller.Reconcile(context.Background(), req)
-	expectedConfig := test.NewIngressConfigurationList()
+	expectedConfig := test.NewNetworkConfigurationList()
 
 	ingress := &netv1.Ingress{}
 	err = client.Get(context.Background(), types.NamespacedName{Name: "containerjfr", Namespace: "default"}, ingress)

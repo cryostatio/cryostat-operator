@@ -58,7 +58,7 @@ type ContainerJFRSpec struct {
 	StorageOptions *StorageConfiguration `json:"storageOptions,omitempty"`
 	// Ingress specifications when running outside of OpenShift environment
 	// +optional
-	IngressOptions *IngressConfigurationList `json:"ingressOptions,omitempty"`
+	NetworkOptions *NetworkConfigurationList `json:"networkOptions,omitempty"`
 }
 
 // ContainerJFRStatus defines the observed state of ContainerJFR
@@ -77,9 +77,9 @@ type StorageConfiguration struct {
 	PVC *PersistentVolumeClaimConfig `json:"pvc,omitempty"`
 }
 
-// IngressConfiguration provides customization for the corresponding ingress,
+// NetworkConfiguration provides customization for the corresponding ingress,
 // which allows a service to be exposed when running in a Kubernetes environment
-type IngressConfiguration struct {
+type NetworkConfiguration struct {
 	// Configuration for an ingress object.
 	// Currently subpaths are not supported, so unique hosts must be specified
 	// (if a single external IP is being used) to differentiate between ingresses/services
@@ -94,21 +94,21 @@ type IngressConfiguration struct {
 	Labels map[string]string `json:"labels,omitempty"`
 }
 
-// IngressConfigurationList holds all three IngressConfiguration objects that specify
+// NetworkConfigurationList holds all three NetworkConfiguration objects that specify
 // the ingress configurations for the three services created by the operator
-type IngressConfigurationList struct {
+type NetworkConfigurationList struct {
 	// Specifications for ingress that exposes the containerjfr service
 	// (which serves the containerjfr web-client)
 	// +optional
-	ExporterConfig *IngressConfiguration `json:"exporterConfig,omitempty"`
+	ExporterConfig *NetworkConfiguration `json:"exporterConfig,omitempty"`
 	// Specifications for ingress that exposes the containerjfr-command service
 	// (which serves the websocket command channel)
 	// +optional
-	CommandConfig *IngressConfiguration `json:"commandConfig,omitempty"`
+	CommandConfig *NetworkConfiguration `json:"commandConfig,omitempty"`
 	// Specifications for ingress that exposes the containerjfr-grafana service
 	// (which serves the grafana dashboard)
 	// +optional
-	GrafanaConfig *IngressConfiguration `json:"grafanaConfig,omitempty"`
+	GrafanaConfig *NetworkConfiguration `json:"grafanaConfig,omitempty"`
 }
 
 // PersistentVolumeClaimConfig holds all customization options to

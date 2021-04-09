@@ -36,7 +36,11 @@ spec:
           spec:
             description: ContainerJFRSpec defines the desired state of ContainerJFR
             properties:
-              ingressOptions:
+              minimal:
+                description: Deploy a pared-down ContainerJFR instance with no Grafana
+                  dashboard or jfr-datasource and no web-client UI.
+                type: boolean
+              networkOptions:
                 description: Ingress specifications when running outside of OpenShift
                   environment
                 properties:
@@ -971,10 +975,6 @@ spec:
                         type: object
                     type: object
                 type: object
-              minimal:
-                description: Deploy a pared-down ContainerJFR instance with no Grafana
-                  dashboard or jfr-datasource and no web-client UI.
-                type: boolean
               storageOptions:
                 description: Options to customize the storage for Flight Recordings
                   and Templates
