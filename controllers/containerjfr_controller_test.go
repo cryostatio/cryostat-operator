@@ -48,6 +48,7 @@ import (
 	openshiftv1 "github.com/openshift/api/route/v1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	netv1 "k8s.io/api/networking/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
@@ -82,6 +83,7 @@ var _ = Describe("ContainerjfrController", func() {
 		controller = &controllers.ContainerJFRReconciler{
 			Client:        client,
 			Scheme:        s,
+			IsOpenShift:   true,
 			Log:           logger,
 			ReconcilerTLS: test.NewTestReconcilerTLS(client, tls),
 		}
@@ -96,7 +98,7 @@ var _ = Describe("ContainerjfrController", func() {
 		tls = false
 	})
 
-	Describe("reconciling a request", func() {
+	Describe("reconciling a request in OpenShift", func() {
 		Context("succesfully creates required resources", func() {
 			BeforeEach(func() {
 				objs = []runtime.Object{
@@ -457,6 +459,106 @@ var _ = Describe("ContainerjfrController", func() {
 			})
 		})
 	})
+	Describe("reconciling a request in Kubernetes", func() {
+		JustBeforeEach(func() {
+			controller.IsOpenShift = false
+		})
+		Context("succesfully creates required resources", func() {
+			BeforeEach(func() {
+				objs = []runtime.Object{
+					test.NewContainerJFRWithIngress(),
+				}
+			})
+			It("should create ingresses", func() {
+				expectIngresses(client, controller, false)
+			})
+			It("should not create routes", func() {
+				reconcileContainerJFRFully(client, controller, false, tls)
+				expectNoRoutes(client)
+			})
+		})
+		Context("no ingress configuration is provided", func() {
+			BeforeEach(func() {
+				objs = []runtime.Object{
+					test.NewContainerJFR(),
+				}
+			})
+			It("should not create ingresses or routes", func() {
+				reconcileContainerJFRFully(client, controller, false, tls)
+				expectNoIngresses(client)
+				expectNoRoutes(client)
+			})
+		})
+		Context("networkConfig for one of the services is nil", func() {
+			BeforeEach(func() {
+				objs = []runtime.Object{
+					test.NewContainerJFRWithIngress(),
+				}
+			})
+			It("should only create specified ingresses", func() {
+				c := &rhjmcv1beta1.ContainerJFR{}
+				err := client.Get(context.Background(), types.NamespacedName{Name: "containerjfr", Namespace: "default"}, c)
+				Expect(err).ToNot(HaveOccurred())
+				c.Spec.NetworkOptions.CommandConfig = nil
+				err = client.Update(context.Background(), c)
+				Expect(err).ToNot(HaveOccurred())
+
+				reconcileContainerJFRFully(client, controller, false, tls)
+				expectedConfig := test.NewNetworkConfigurationList()
+
+				ingress := &netv1.Ingress{}
+				err = client.Get(context.Background(), types.NamespacedName{Name: "containerjfr", Namespace: "default"}, ingress)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(ingress.Annotations).To(Equal(expectedConfig.ExporterConfig.Annotations))
+				Expect(ingress.Labels).To(Equal(expectedConfig.ExporterConfig.Labels))
+				Expect(ingress.Spec).To(Equal(*expectedConfig.ExporterConfig.IngressSpec))
+
+				err = client.Get(context.Background(), types.NamespacedName{Name: "containerjfr-grafana", Namespace: "default"}, ingress)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(ingress.Annotations).To(Equal(expectedConfig.GrafanaConfig.Annotations))
+				Expect(ingress.Labels).To(Equal(expectedConfig.GrafanaConfig.Labels))
+				Expect(ingress.Spec).To(Equal(*expectedConfig.GrafanaConfig.IngressSpec))
+
+				err = client.Get(context.Background(), types.NamespacedName{Name: "containerjfr-command", Namespace: "default"}, ingress)
+				Expect(kerrors.IsNotFound(err)).To(BeTrue())
+			})
+		})
+
+		Context("ingressSpec for one of the services is nil", func() {
+			BeforeEach(func() {
+				objs = []runtime.Object{
+					test.NewContainerJFRWithIngress(),
+				}
+			})
+			It("should only create specified ingresses", func() {
+				c := &rhjmcv1beta1.ContainerJFR{}
+				err := client.Get(context.Background(), types.NamespacedName{Name: "containerjfr", Namespace: "default"}, c)
+				Expect(err).ToNot(HaveOccurred())
+				c.Spec.NetworkOptions.ExporterConfig.IngressSpec = nil
+				err = client.Update(context.Background(), c)
+				Expect(err).ToNot(HaveOccurred())
+
+				reconcileContainerJFRFully(client, controller, false, tls)
+				expectedConfig := test.NewNetworkConfigurationList()
+
+				ingress := &netv1.Ingress{}
+				err = client.Get(context.Background(), types.NamespacedName{Name: "containerjfr-command", Namespace: "default"}, ingress)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(ingress.Annotations).To(Equal(expectedConfig.CommandConfig.Annotations))
+				Expect(ingress.Labels).To(Equal(expectedConfig.CommandConfig.Labels))
+				Expect(ingress.Spec).To(Equal(*expectedConfig.CommandConfig.IngressSpec))
+
+				err = client.Get(context.Background(), types.NamespacedName{Name: "containerjfr-grafana", Namespace: "default"}, ingress)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(ingress.Annotations).To(Equal(expectedConfig.GrafanaConfig.Annotations))
+				Expect(ingress.Labels).To(Equal(expectedConfig.GrafanaConfig.Labels))
+				Expect(ingress.Spec).To(Equal(*expectedConfig.GrafanaConfig.IngressSpec))
+
+				err = client.Get(context.Background(), types.NamespacedName{Name: "containerjfr", Namespace: "default"}, ingress)
+				Expect(kerrors.IsNotFound(err)).To(BeTrue())
+			})
+		})
+	})
 })
 
 func newFakeSecret(name string) *corev1.Secret {
@@ -537,10 +639,12 @@ func reconcileContainerJFRFully(client ctrlclient.Client, controller *controller
 	}
 
 	// Add ingress config to routes
-	result, err = controller.Reconcile(context.Background(), req)
-	Expect(err).ToNot(HaveOccurred())
-	Expect(result).To(Equal(reconcile.Result{RequeueAfter: 5 * time.Second}))
-	ingressConfig(client, controller, req, minimal, tls)
+	if controller.IsOpenShift {
+		result, err = controller.Reconcile(context.Background(), req)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(result).To(Equal(reconcile.Result{RequeueAfter: 5 * time.Second}))
+		ingressConfig(client, controller, req, minimal, tls)
+	}
 
 	result, err = controller.Reconcile(context.Background(), req)
 	Expect(err).ToNot(HaveOccurred())
@@ -586,6 +690,59 @@ func expectRoutes(client ctrlclient.Client, controller *controllers.ContainerJFR
 	// one is created so that they all reconcile successfully
 	result, err = controller.Reconcile(context.Background(), req)
 	ingressConfig(client, controller, req, minimal, tls)
+}
+
+func expectNoRoutes(client ctrlclient.Client) {
+	svc := &openshiftv1.Route{}
+	err := client.Get(context.Background(), types.NamespacedName{Name: "containerjfr", Namespace: "default"}, svc)
+	Expect(kerrors.IsNotFound(err)).To(BeTrue())
+	err = client.Get(context.Background(), types.NamespacedName{Name: "containerjfr-command", Namespace: "default"}, svc)
+	Expect(kerrors.IsNotFound(err)).To(BeTrue())
+	err = client.Get(context.Background(), types.NamespacedName{Name: "containerjfr-grafana", Namespace: "default"}, svc)
+	Expect(kerrors.IsNotFound(err)).To(BeTrue())
+}
+
+func expectIngresses(client ctrlclient.Client, controller *controllers.ContainerJFRReconciler, minimal bool) {
+	req := reconcile.Request{NamespacedName: types.NamespacedName{Name: "containerjfr", Namespace: "default"}}
+	result, err := controller.Reconcile(context.Background(), req)
+	Expect(err).ToNot(HaveOccurred())
+	Expect(result).To(Equal(reconcile.Result{RequeueAfter: 5 * time.Second}))
+
+	// Update certificate status
+	makeCertificatesReady(client)
+	initializeSecrets(client)
+
+	result, err = controller.Reconcile(context.Background(), req)
+	expectedConfig := test.NewNetworkConfigurationList()
+
+	ingress := &netv1.Ingress{}
+	err = client.Get(context.Background(), types.NamespacedName{Name: "containerjfr", Namespace: "default"}, ingress)
+	Expect(err).ToNot(HaveOccurred())
+	Expect(ingress.Annotations).To(Equal(expectedConfig.ExporterConfig.Annotations))
+	Expect(ingress.Labels).To(Equal(expectedConfig.ExporterConfig.Labels))
+	Expect(ingress.Spec).To(Equal(*expectedConfig.ExporterConfig.IngressSpec))
+
+	err = client.Get(context.Background(), types.NamespacedName{Name: "containerjfr-command", Namespace: "default"}, ingress)
+	Expect(err).ToNot(HaveOccurred())
+	Expect(ingress.Annotations).To(Equal(expectedConfig.CommandConfig.Annotations))
+	Expect(ingress.Labels).To(Equal(expectedConfig.CommandConfig.Labels))
+	Expect(ingress.Spec).To(Equal(*expectedConfig.CommandConfig.IngressSpec))
+
+	err = client.Get(context.Background(), types.NamespacedName{Name: "containerjfr-grafana", Namespace: "default"}, ingress)
+	Expect(err).ToNot(HaveOccurred())
+	Expect(ingress.Annotations).To(Equal(expectedConfig.GrafanaConfig.Annotations))
+	Expect(ingress.Labels).To(Equal(expectedConfig.GrafanaConfig.Labels))
+	Expect(ingress.Spec).To(Equal(*expectedConfig.GrafanaConfig.IngressSpec))
+}
+
+func expectNoIngresses(client ctrlclient.Client) {
+	ing := &netv1.Ingress{}
+	err := client.Get(context.Background(), types.NamespacedName{Name: "containerjfr", Namespace: "default"}, ing)
+	Expect(kerrors.IsNotFound(err)).To(BeTrue())
+	err = client.Get(context.Background(), types.NamespacedName{Name: "containerjfr-command", Namespace: "default"}, ing)
+	Expect(kerrors.IsNotFound(err)).To(BeTrue())
+	err = client.Get(context.Background(), types.NamespacedName{Name: "containerjfr-grafana", Namespace: "default"}, ing)
+	Expect(kerrors.IsNotFound(err)).To(BeTrue())
 }
 
 func expectPVC(client ctrlclient.Client, controller *controllers.ContainerJFRReconciler,

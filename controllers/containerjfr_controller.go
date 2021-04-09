@@ -43,6 +43,7 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
+	netv1 "k8s.io/api/networking/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -71,8 +72,9 @@ import (
 // ContainerJFRReconciler reconciles a ContainerJFR object
 type ContainerJFRReconciler struct {
 	client.Client
-	Log    logr.Logger
-	Scheme *runtime.Scheme
+	Log         logr.Logger
+	Scheme      *runtime.Scheme
+	IsOpenShift bool
 	common.ReconcilerTLS
 }
 
@@ -88,6 +90,7 @@ const cjfrFinalizer = "rhjmc.redhat.com/containerjfr.finalizer"
 // +kubebuilder:rbac:namespace=system,groups=rhjmc.redhat.com,resources=containerjfrs/status,verbs=get;update;patch
 // +kubebuilder:rbac:namespace=system,groups=rhjmc.redhat.com,resources=containerjfrs/finalizers,verbs=update
 // +kubebuilder:rbac:groups=console.openshift.io,resources=consolelinks,verbs=get;create;list;update;delete
+// +kubebuilder:rbac:namespace=system,groups=networking.k8s.io,resources=ingresses,verbs=*
 
 // Reconcile processes a ContainerJFR CR and manages a Container JFR installation accordingly
 func (r *ContainerJFRReconciler) Reconcile(ctx context.Context, request ctrl.Request) (ctrl.Result, error) {
@@ -114,7 +117,16 @@ func (r *ContainerJFRReconciler) Reconcile(ctx context.Context, request ctrl.Req
 	// Check if this Recording is being deleted
 	if instance.GetDeletionTimestamp() != nil {
 		if controllerutil.ContainsFinalizer(instance, cjfrFinalizer) {
-			return r.deleteConsoleLinks(context.Background(), instance)
+			if r.IsOpenShift {
+				err = r.deleteConsoleLinks(context.Background(), instance)
+				if err != nil {
+					return reconcile.Result{}, err
+				}
+			}
+			err = common.RemoveFinalizer(ctx, r.Client, instance, cjfrFinalizer)
+			if err != nil {
+				return reconcile.Result{}, err
+			}
 		}
 		// Ready for deletion
 		return reconcile.Result{}, nil
@@ -200,17 +212,33 @@ func (r *ContainerJFRReconciler) Reconcile(ctx context.Context, request ctrl.Req
 	} else {
 		// check for existing non-minimal resources and delete if found
 		svc := resources.NewGrafanaService(instance)
-		reqLogger.Info("Deleting existing non-minimal route", "route.Name", svc.Name)
-		route := &openshiftv1.Route{}
-		err = r.Client.Get(context.Background(), types.NamespacedName{Name: svc.Name, Namespace: svc.Namespace}, route)
-		if err != nil && !errors.IsNotFound(err) {
-			reqLogger.Info("Non-minimal route could not be retrieved", "route.Name", svc.Name)
-			return reconcile.Result{}, err
-		} else if err == nil {
-			err = r.Client.Delete(context.Background(), route)
+		if r.IsOpenShift {
+			reqLogger.Info("Deleting existing non-minimal route", "route.Name", svc.Name)
+			route := &openshiftv1.Route{}
+			err = r.Client.Get(context.Background(), types.NamespacedName{Name: svc.Name, Namespace: svc.Namespace}, route)
 			if err != nil && !errors.IsNotFound(err) {
-				reqLogger.Info("Could not delete non-minimal route", "route.Name", svc.Name)
+				reqLogger.Info("Non-minimal route could not be retrieved", "route.Name", svc.Name)
 				return reconcile.Result{}, err
+			} else if err == nil {
+				err = r.Client.Delete(context.Background(), route)
+				if err != nil && !errors.IsNotFound(err) {
+					reqLogger.Info("Could not delete non-minimal route", "route.Name", svc.Name)
+					return reconcile.Result{}, err
+				}
+			}
+		} else {
+			reqLogger.Info("Deleting existing non-minimal ingress", "ingress.Name", svc.Name)
+			ingress := &netv1.Ingress{}
+			err = r.Client.Get(context.Background(), types.NamespacedName{Name: svc.Name, Namespace: svc.Namespace}, ingress)
+			if err != nil && !errors.IsNotFound(err) {
+				reqLogger.Info("Non-minimal ingress could not be retrieved", "ingress.Name", svc.Name)
+				return reconcile.Result{}, err
+			} else if err == nil {
+				err = r.Client.Delete(context.Background(), ingress)
+				if err != nil && !errors.IsNotFound(err) {
+					reqLogger.Info("Could not delete non-minimal ingress", "ingress.Name", svc.Name)
+					return reconcile.Result{}, err
+				}
 			}
 		}
 
@@ -259,10 +287,12 @@ func (r *ContainerJFRReconciler) Reconcile(ctx context.Context, request ctrl.Req
 		return reconcile.Result{}, err
 	}
 
-	instance.Status.ApplicationURL = serviceSpecs.CoreURL.String()
-	err = r.Client.Status().Update(context.Background(), instance)
-	if err != nil {
-		return reconcile.Result{}, err
+	if serviceSpecs.CoreURL != nil {
+		instance.Status.ApplicationURL = serviceSpecs.CoreURL.String()
+		err = r.Client.Status().Update(context.Background(), instance)
+		if err != nil {
+			return reconcile.Result{}, err
+		}
 	}
 
 	// Check that secrets mounted in /truststore coincide with CRD
@@ -282,17 +312,19 @@ func (r *ContainerJFRReconciler) Reconcile(ctx context.Context, request ctrl.Req
 		}
 	}
 	// OpenShift-specific
-	links, err := r.getConsoleLinks(instance)
-	if err != nil {
-		return reconcile.Result{}, err
-	}
-	if len(links) == 0 {
-		link := resources.NewConsoleLink(instance, serviceSpecs.CoreURL.String())
-		if err = r.Client.Create(context.Background(), link); err != nil {
-			reqLogger.Error(err, "Could not create ConsoleLink")
+	if r.IsOpenShift {
+		links, err := r.getConsoleLinks(instance)
+		if err != nil {
 			return reconcile.Result{}, err
 		}
-		reqLogger.Info("Created ConsoleLink", "linkName", link.Name)
+		if len(links) == 0 {
+			link := resources.NewConsoleLink(instance, serviceSpecs.CoreURL.String())
+			if err = r.Client.Create(context.Background(), link); err != nil {
+				reqLogger.Error(err, "Could not create ConsoleLink")
+				return reconcile.Result{}, err
+			}
+			reqLogger.Info("Created ConsoleLink", "linkName", link.Name)
+		}
 	}
 
 	reqLogger.Info("Skip reconcile: Deployment already exists", "Deployment.Namespace", deployment.Namespace, "Deployment.Name", deployment.Name)
@@ -305,7 +337,10 @@ func (r *ContainerJFRReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		For(&rhjmcv1beta1.ContainerJFR{})
 
 	// Watch for changes to secondary resources and requeue the owner ContainerJFR
-	resources := []client.Object{&appsv1.Deployment{}, &corev1.Service{}, &corev1.Secret{}, &openshiftv1.Route{}, &corev1.PersistentVolumeClaim{}}
+	resources := []client.Object{&appsv1.Deployment{}, &corev1.Service{}, &corev1.Secret{}, &corev1.PersistentVolumeClaim{}}
+	if r.IsOpenShift {
+		resources = append(resources, &openshiftv1.Route{})
+	}
 	// TODO watch certificates and redeploy when renewed
 
 	for _, resource := range resources {
@@ -334,7 +369,21 @@ func (r *ContainerJFRReconciler) createService(ctx context.Context, controller *
 			InsecureEdgeTerminationPolicy: openshiftv1.InsecureEdgeTerminationPolicyRedirect,
 		}
 	}
-	return r.createRouteForService(controller, svc, *exposePort, tlsConfig)
+	if r.IsOpenShift {
+		return r.createRouteForService(controller, svc, *exposePort, tlsConfig)
+	} else {
+		if controller.Spec.NetworkOptions == nil {
+			return nil, nil
+		}
+		networkConfig, err := getNetworkConfig(controller, svc)
+		if err != nil {
+			return nil, err
+		}
+		if networkConfig == nil || networkConfig.IngressSpec == nil {
+			return nil, nil
+		}
+		return r.createIngressForService(controller, svc, networkConfig)
+	}
 }
 
 // ErrIngressNotReady is returned when Kubernetes has not yet exposed our services
@@ -388,6 +437,54 @@ func (r *ContainerJFRReconciler) createRouteForService(controller *rhjmcv1beta1.
 	}, nil
 }
 
+func (r *ContainerJFRReconciler) createIngressForService(controller *rhjmcv1beta1.ContainerJFR, svc *corev1.Service,
+	networkConfig *rhjmcv1beta1.NetworkConfiguration) (*url.URL, error) {
+	logger := r.Log.WithValues("Request.Namespace", svc.Namespace, "Name", svc.Name, "Kind", fmt.Sprintf("%T", &netv1.Ingress{}))
+
+	ingress := &netv1.Ingress{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:        svc.Name,
+			Namespace:   svc.Namespace,
+			Annotations: networkConfig.Annotations,
+			Labels:      networkConfig.Labels,
+		},
+		Spec: *networkConfig.IngressSpec,
+	}
+	if err := controllerutil.SetControllerReference(controller, ingress, r.Scheme); err != nil {
+		return nil, err
+	}
+
+	found := &netv1.Ingress{}
+	err := r.Client.Get(context.Background(), types.NamespacedName{Name: svc.Name, Namespace: svc.Namespace}, found)
+	if err != nil && errors.IsNotFound(err) {
+		logger.Info("Not found")
+		if err := r.Client.Create(context.Background(), ingress); err != nil {
+			logger.Error(err, "Could not be created")
+			return nil, err
+		}
+		logger.Info("Created")
+		found = ingress
+	} else if err != nil {
+		logger.Error(err, "Could not be read")
+		return nil, err
+	}
+
+	logger.Info("Ingress created", "Service.Status", fmt.Sprintf("%#v", found.Status))
+	host := ""
+	if networkConfig.IngressSpec.Rules != nil && networkConfig.IngressSpec.Rules[0].Host != "" {
+		host = networkConfig.IngressSpec.Rules[0].Host
+	}
+
+	scheme := "http"
+	if networkConfig.IngressSpec.TLS != nil {
+		scheme = "https"
+	}
+	return &url.URL{
+		Scheme: scheme,
+		Host:   host,
+	}, nil
+}
+
 func (r *ContainerJFRReconciler) createObjectIfNotExists(ctx context.Context, ns types.NamespacedName, found client.Object, toCreate client.Object) error {
 	logger := r.Log.WithValues("Request.Namespace", ns.Namespace, "Name", ns.Name, "Kind", fmt.Sprintf("%T", toCreate))
 	err := r.Client.Get(ctx, ns, found)
@@ -423,11 +520,11 @@ func (r *ContainerJFRReconciler) getConsoleLinks(cr *rhjmcv1beta1.ContainerJFR) 
 	return links.Items, nil
 }
 
-func (r *ContainerJFRReconciler) deleteConsoleLinks(ctx context.Context, cr *rhjmcv1beta1.ContainerJFR) (reconcile.Result, error) {
+func (r *ContainerJFRReconciler) deleteConsoleLinks(ctx context.Context, cr *rhjmcv1beta1.ContainerJFR) error {
 	reqLogger := r.Log.WithValues("Request.Namespace", cr.Namespace, "Request.Name", cr.Name)
 	links, err := r.getConsoleLinks(cr)
 	if err != nil {
-		return reconcile.Result{}, err
+		return err
 	}
 
 	// Should just be one, but use loop just in case
@@ -435,17 +532,11 @@ func (r *ContainerJFRReconciler) deleteConsoleLinks(ctx context.Context, cr *rhj
 		err := r.Client.Delete(ctx, &link)
 		if err != nil {
 			reqLogger.Error(err, "failed to delete ConsoleLink", "linkName", link.Name)
-			return reconcile.Result{}, err
+			return err
 		}
 		reqLogger.Info("deleted ConsoleLink", "linkName", link.Name)
 	}
-
-	// Remove finalizer upon success
-	err = common.RemoveFinalizer(ctx, r.Client, cr, cjfrFinalizer)
-	if err != nil {
-		return reconcile.Result{}, err
-	}
-	return reconcile.Result{}, nil
+	return nil
 }
 
 func getProtocol(tlsConfig *openshiftv1.TLSConfig) string {
@@ -461,4 +552,16 @@ func requeueIfIngressNotReady(log logr.Logger, err error) (reconcile.Result, err
 		return reconcile.Result{RequeueAfter: 5 * time.Second}, nil
 	}
 	return reconcile.Result{}, err
+}
+
+func getNetworkConfig(controller *rhjmcv1beta1.ContainerJFR, svc *corev1.Service) (*rhjmcv1beta1.NetworkConfiguration, error) {
+	if svc.Name == controller.Name {
+		return controller.Spec.NetworkOptions.ExporterConfig, nil
+	} else if svc.Name == controller.Name+"-command" {
+		return controller.Spec.NetworkOptions.CommandConfig, nil
+	} else if svc.Name == controller.Name+"-grafana" {
+		return controller.Spec.NetworkOptions.GrafanaConfig, nil
+	} else {
+		return nil, goerrors.New("Service name not recognized")
+	}
 }

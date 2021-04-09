@@ -215,10 +215,6 @@ func NewPodForCR(cr *rhjmcv1beta1.ContainerJFR, specs *ServiceSpecs, tls *TLSCon
 func NewCoreContainer(cr *rhjmcv1beta1.ContainerJFR, specs *ServiceSpecs, tls *TLSConfig) corev1.Container {
 	envs := []corev1.EnvVar{
 		{
-			Name:  "CONTAINER_JFR_PLATFORM",
-			Value: "com.redhat.rhjmc.containerjfr.platform.internal.OpenShiftPlatformStrategy",
-		},
-		{
 			Name:  "CONTAINER_JFR_SSL_PROXIED",
 			Value: "true",
 		},
@@ -231,29 +227,39 @@ func NewCoreContainer(cr *rhjmcv1beta1.ContainerJFR, specs *ServiceSpecs, tls *T
 			Value: "8181",
 		},
 		{
-			Name:  "CONTAINER_JFR_EXT_WEB_PORT",
-			Value: getPort(specs.CoreURL),
-		},
-		{
-			Name:  "CONTAINER_JFR_WEB_HOST",
-			Value: specs.CoreURL.Hostname(),
-		},
-		{
 			Name:  "CONTAINER_JFR_LISTEN_PORT",
 			Value: "9090",
-		},
-		{
-			Name:  "CONTAINER_JFR_EXT_LISTEN_PORT",
-			Value: getPort(specs.CommandURL),
-		},
-		{
-			Name:  "CONTAINER_JFR_LISTEN_HOST",
-			Value: specs.CommandURL.Hostname(),
 		},
 		{
 			Name:  "CONTAINER_JFR_TEMPLATE_PATH",
 			Value: "/templates",
 		},
+	}
+	if specs.CoreURL != nil {
+		coreEnvs := []corev1.EnvVar{
+			{
+				Name:  "CONTAINER_JFR_EXT_WEB_PORT",
+				Value: getPort(specs.CoreURL),
+			},
+			{
+				Name:  "CONTAINER_JFR_WEB_HOST",
+				Value: specs.CoreURL.Hostname(),
+			},
+		}
+		envs = append(envs, coreEnvs...)
+	}
+	if specs.CommandURL != nil {
+		commandEnvs := []corev1.EnvVar{
+			{
+				Name:  "CONTAINER_JFR_EXT_LISTEN_PORT",
+				Value: getPort(specs.CommandURL),
+			},
+			{
+				Name:  "CONTAINER_JFR_LISTEN_HOST",
+				Value: specs.CommandURL.Hostname(),
+			},
+		}
+		envs = append(envs, commandEnvs...)
 	}
 	envsFrom := []corev1.EnvFromSource{
 		{
@@ -281,13 +287,15 @@ func NewCoreContainer(cr *rhjmcv1beta1.ContainerJFR, specs *ServiceSpecs, tls *T
 	if !cr.Spec.Minimal {
 		grafanaVars := []corev1.EnvVar{
 			{
-				Name:  "GRAFANA_DASHBOARD_URL",
-				Value: specs.GrafanaURL.String(),
-			},
-			{
 				Name:  "GRAFANA_DATASOURCE_URL",
 				Value: DatasourceURL,
 			},
+		}
+		if specs.GrafanaURL != nil {
+			grafanaVars = append(grafanaVars, corev1.EnvVar{
+				Name:  "GRAFANA_DASHBOARD_URL",
+				Value: specs.GrafanaURL.String(),
+			})
 		}
 		envs = append(envs, grafanaVars...)
 	}

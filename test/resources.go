@@ -44,7 +44,9 @@ import (
 	consolev1 "github.com/openshift/api/console/v1"
 	routev1 "github.com/openshift/api/route/v1"
 	rhjmcv1beta1 "github.com/rh-jmc-team/container-jfr-operator/api/v1beta1"
+	"github.com/rh-jmc-team/container-jfr-operator/controllers/common/resource_definitions"
 	corev1 "k8s.io/api/core/v1"
+	netv1 "k8s.io/api/networking/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -99,6 +101,21 @@ func NewContainerJFRWithSecrets() *rhjmcv1beta1.ContainerJFR {
 					SecretName: "testCert2",
 				},
 			},
+		},
+	}
+}
+
+func NewContainerJFRWithIngress() *rhjmcv1beta1.ContainerJFR {
+	networkConfig := NewNetworkConfigurationList()
+	return &rhjmcv1beta1.ContainerJFR{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "containerjfr",
+			Namespace: "default",
+		},
+		Spec: rhjmcv1beta1.ContainerJFRSpec{
+			Minimal:            false,
+			TrustedCertSecrets: []rhjmcv1beta1.CertificateSecret{},
+			NetworkOptions:     &networkConfig,
 		},
 	}
 }
@@ -699,10 +716,6 @@ func NewDatasourcePorts() []corev1.ContainerPort {
 func NewCoreEnvironmentVariables(minimal bool, tls bool) []corev1.EnvVar {
 	envs := []corev1.EnvVar{
 		{
-			Name:  "CONTAINER_JFR_PLATFORM",
-			Value: "com.redhat.rhjmc.containerjfr.platform.internal.OpenShiftPlatformStrategy",
-		},
-		{
 			Name:  "CONTAINER_JFR_SSL_PROXIED",
 			Value: "true",
 		},
@@ -1009,4 +1022,54 @@ func NewVolumesWithSecrets() []corev1.Volume {
 				},
 			},
 		})
+}
+
+func NewNetworkConfigurationList() rhjmcv1beta1.NetworkConfigurationList {
+	exporterSVC := resource_definitions.NewExporterService(NewContainerJFR())
+	exporterIng := NewNetworkConfiguration(exporterSVC.Name, exporterSVC.Spec.Ports[0].Port)
+
+	commandSVC := resource_definitions.NewCommandChannelService(NewContainerJFR())
+	commandIng := NewNetworkConfiguration(commandSVC.Name, commandSVC.Spec.Ports[0].Port)
+
+	grafanaSVC := resource_definitions.NewGrafanaService(NewContainerJFR())
+	grafanaIng := NewNetworkConfiguration(grafanaSVC.Name, grafanaSVC.Spec.Ports[0].Port)
+
+	return rhjmcv1beta1.NetworkConfigurationList{
+		ExporterConfig: &exporterIng,
+		CommandConfig:  &commandIng,
+		GrafanaConfig:  &grafanaIng,
+	}
+}
+
+func NewNetworkConfiguration(svcName string, svcPort int32) rhjmcv1beta1.NetworkConfiguration {
+	pathtype := netv1.PathTypePrefix
+	host := "testing." + svcName
+	return rhjmcv1beta1.NetworkConfiguration{
+		Annotations: map[string]string{"nginx.ingress.kubernetes.io/backend-protocol": "HTTPS"},
+		IngressSpec: &netv1.IngressSpec{
+			Rules: []netv1.IngressRule{
+				{
+					Host: host,
+					IngressRuleValue: netv1.IngressRuleValue{
+						HTTP: &netv1.HTTPIngressRuleValue{
+							Paths: []netv1.HTTPIngressPath{
+								{
+									Path:     "/",
+									PathType: &pathtype,
+									Backend: netv1.IngressBackend{
+										Service: &netv1.IngressServiceBackend{
+											Name: svcName,
+											Port: netv1.ServiceBackendPort{
+												Number: svcPort,
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
 }

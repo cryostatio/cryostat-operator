@@ -38,6 +38,7 @@ package v1beta1
 
 import (
 	corev1 "k8s.io/api/core/v1"
+	netv1 "k8s.io/api/networking/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -55,6 +56,9 @@ type ContainerJFRSpec struct {
 	// +optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	StorageOptions *StorageConfiguration `json:"storageOptions,omitempty"`
+	// Options to control how the operator exposes the application over a network
+	// +optional
+	NetworkOptions *NetworkConfigurationList `json:"networkOptions,omitempty"`
 }
 
 // ContainerJFRStatus defines the observed state of ContainerJFR
@@ -71,6 +75,40 @@ type StorageConfiguration struct {
 	// +optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	PVC *PersistentVolumeClaimConfig `json:"pvc,omitempty"`
+}
+
+// NetworkConfiguration provides customization for the corresponding ingress,
+// which allows a service to be exposed when running in a Kubernetes environment
+type NetworkConfiguration struct {
+	// Configuration for an ingress object.
+	// Currently subpaths are not supported, so unique hosts must be specified
+	// (if a single external IP is being used) to differentiate between ingresses/services
+	// +optional
+	IngressSpec *netv1.IngressSpec `json:"spec,omitempty"`
+	// Annotations to add to the ingress during its creation.
+	// +optional
+	Annotations map[string]string `json:"annotations,omitempty"`
+	// Labels to add to the ingress during its creation.
+	// The label with key "app" is reserved for use by the operator.
+	// +optional
+	Labels map[string]string `json:"labels,omitempty"`
+}
+
+// NetworkConfigurationList holds all three NetworkConfiguration objects that specify
+// the ingress configurations for the three services created by the operator
+type NetworkConfigurationList struct {
+	// Specifications for ingress that exposes the containerjfr service
+	// (which serves the containerjfr web-client)
+	// +optional
+	ExporterConfig *NetworkConfiguration `json:"exporterConfig,omitempty"`
+	// Specifications for ingress that exposes the containerjfr-command service
+	// (which serves the websocket command channel)
+	// +optional
+	CommandConfig *NetworkConfiguration `json:"commandConfig,omitempty"`
+	// Specifications for ingress that exposes the containerjfr-grafana service
+	// (which serves the grafana dashboard)
+	// +optional
+	GrafanaConfig *NetworkConfiguration `json:"grafanaConfig,omitempty"`
 }
 
 // PersistentVolumeClaimConfig holds all customization options to
