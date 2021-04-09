@@ -893,17 +893,28 @@ func NewVolumeMountsWithSecrets() []corev1.VolumeMount {
 }
 
 func NewCoreLivenessProbe(tls bool) *corev1.Probe {
+	return &corev1.Probe{
+		Handler: newCoreProbeHandler(tls),
+	}
+}
+
+func NewCoreStartupProbe(tls bool) *corev1.Probe {
+	return &corev1.Probe{
+		Handler:          newCoreProbeHandler(tls),
+		FailureThreshold: 18,
+	}
+}
+
+func newCoreProbeHandler(tls bool) corev1.Handler {
 	protocol := corev1.URISchemeHTTPS
 	if !tls {
 		protocol = corev1.URISchemeHTTP
 	}
-	return &corev1.Probe{
-		Handler: corev1.Handler{
-			HTTPGet: &corev1.HTTPGetAction{
-				Port:   intstr.IntOrString{IntVal: 8181},
-				Path:   "/api/v1/clienturl",
-				Scheme: protocol,
-			},
+	return corev1.Handler{
+		HTTPGet: &corev1.HTTPGetAction{
+			Port:   intstr.IntOrString{IntVal: 8181},
+			Path:   "/api/v1/clienturl",
+			Scheme: protocol,
 		},
 	}
 }
