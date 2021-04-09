@@ -780,7 +780,7 @@ func checkGrafanaContainer(container *corev1.Container, tls bool) {
 
 func checkDatasourceContainer(container *corev1.Container) {
 	Expect(container.Name).To(Equal("containerjfr-jfr-datasource"))
-	Expect(container.Image).To(Equal("quay.io/rh-jmc-team/jfr-datasource:0.0.2"))
+	Expect(container.Image).To(Equal("quay.io/rh-jmc-team/jfr-datasource:1.0.0-BETA6"))
 	Expect(container.Ports).To(ConsistOf(test.NewDatasourcePorts()))
 	Expect(container.Env).To(ConsistOf(test.NewDatasourceEnvironmentVariables()))
 	Expect(container.EnvFrom).To(BeEmpty())
