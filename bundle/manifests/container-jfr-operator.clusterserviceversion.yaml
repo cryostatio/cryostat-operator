@@ -275,6 +275,9 @@ spec:
                   valueFrom:
                     fieldRef:
                       fieldPath: metadata.annotations['olm.targetNamespaces']
+                envFrom:
+                - configMapRef:
+                    name: container-jfr-operator-manager-env
                 image: quay.io/rh-jmc-team/container-jfr-operator:1.0.0-beta5
                 livenessProbe:
                   httpGet:
