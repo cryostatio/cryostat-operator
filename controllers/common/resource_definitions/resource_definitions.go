@@ -51,6 +51,16 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
+// Generates image tag constants
+//go:generate go run ../../../tools/imagetag_generator.go
+
+// ImageTags contains container image tags for each of the images to deploy
+type ImageTags struct {
+	CoreImageTag       string
+	DatasourceImageTag string
+	GrafanaImageTag    string
+}
+
 type ServiceSpecs struct {
 	CoreURL    *url.URL
 	CommandURL *url.URL
@@ -108,7 +118,8 @@ func NewPersistentVolumeClaimForCR(cr *rhjmcv1beta1.ContainerJFR) *corev1.Persis
 	}
 }
 
-func NewDeploymentForCR(cr *rhjmcv1beta1.ContainerJFR, specs *ServiceSpecs, tls *TLSConfig) *appsv1.Deployment {
+func NewDeploymentForCR(cr *rhjmcv1beta1.ContainerJFR, specs *ServiceSpecs, imageTags *ImageTags,
+	tls *TLSConfig) *appsv1.Deployment {
 	return &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      cr.Name,
@@ -138,23 +149,24 @@ func NewDeploymentForCR(cr *rhjmcv1beta1.ContainerJFR, specs *ServiceSpecs, tls 
 						"kind": "containerjfr",
 					},
 				},
-				Spec: *NewPodForCR(cr, specs, tls),
+				Spec: *NewPodForCR(cr, specs, imageTags, tls),
 			},
 		},
 	}
 }
 
-func NewPodForCR(cr *rhjmcv1beta1.ContainerJFR, specs *ServiceSpecs, tls *TLSConfig) *corev1.PodSpec {
+func NewPodForCR(cr *rhjmcv1beta1.ContainerJFR, specs *ServiceSpecs, imageTags *ImageTags,
+	tls *TLSConfig) *corev1.PodSpec {
 	var containers []corev1.Container
 	if cr.Spec.Minimal {
 		containers = []corev1.Container{
-			NewCoreContainer(cr, specs, tls),
+			NewCoreContainer(cr, specs, imageTags.CoreImageTag, tls),
 		}
 	} else {
 		containers = []corev1.Container{
-			NewCoreContainer(cr, specs, tls),
-			NewGrafanaContainer(cr, tls),
-			NewJfrDatasourceContainer(cr),
+			NewCoreContainer(cr, specs, imageTags.CoreImageTag, tls),
+			NewGrafanaContainer(cr, imageTags.GrafanaImageTag, tls),
+			NewJfrDatasourceContainer(cr, imageTags.DatasourceImageTag),
 		}
 	}
 	volumes := []corev1.Volume{
@@ -212,7 +224,7 @@ func NewPodForCR(cr *rhjmcv1beta1.ContainerJFR, specs *ServiceSpecs, tls *TLSCon
 	}
 }
 
-func NewCoreContainer(cr *rhjmcv1beta1.ContainerJFR, specs *ServiceSpecs, tls *TLSConfig) corev1.Container {
+func NewCoreContainer(cr *rhjmcv1beta1.ContainerJFR, specs *ServiceSpecs, imageTag string, tls *TLSConfig) corev1.Container {
 	envs := []corev1.EnvVar{
 		{
 			Name:  "CONTAINER_JFR_SSL_PROXIED",
@@ -362,7 +374,6 @@ func NewCoreContainer(cr *rhjmcv1beta1.ContainerJFR, specs *ServiceSpecs, tls *T
 		// Use HTTPS for liveness probe
 		livenessProbeScheme = corev1.URISchemeHTTPS
 	}
-	imageTag := "quay.io/rh-jmc-team/container-jfr:1.0.0-BETA6"
 	probeHandler := corev1.Handler{
 		HTTPGet: &corev1.HTTPGetAction{
 			Port:   intstr.IntOrString{IntVal: 8181},
@@ -421,7 +432,7 @@ func GenPasswd(length int) string {
 	return string(b)
 }
 
-func NewGrafanaContainer(cr *rhjmcv1beta1.ContainerJFR, tls *TLSConfig) corev1.Container {
+func NewGrafanaContainer(cr *rhjmcv1beta1.ContainerJFR, imageTag string, tls *TLSConfig) corev1.Container {
 	envs := []corev1.EnvVar{
 		{
 			Name:  "JFR_DATASOURCE_URL",
@@ -462,7 +473,7 @@ func NewGrafanaContainer(cr *rhjmcv1beta1.ContainerJFR, tls *TLSConfig) corev1.C
 	}
 	return corev1.Container{
 		Name:         cr.Name + "-grafana",
-		Image:        "quay.io/rh-jmc-team/container-jfr-grafana-dashboard:1.0.0-BETA3",
+		Image:        imageTag,
 		VolumeMounts: mounts,
 		Ports: []corev1.ContainerPort{
 			{
@@ -497,10 +508,10 @@ const datasourcePort = "8080"
 // DatasourceURL contains the fixed URL to jfr-datasource's web server
 const DatasourceURL = "http://" + datasourceHost + ":" + datasourcePort
 
-func NewJfrDatasourceContainer(cr *rhjmcv1beta1.ContainerJFR) corev1.Container {
+func NewJfrDatasourceContainer(cr *rhjmcv1beta1.ContainerJFR, imageTag string) corev1.Container {
 	return corev1.Container{
 		Name:  cr.Name + "-jfr-datasource",
-		Image: "quay.io/rh-jmc-team/jfr-datasource:0.0.2",
+		Image: imageTag,
 		Ports: []corev1.ContainerPort{
 			{
 				ContainerPort: 8080,

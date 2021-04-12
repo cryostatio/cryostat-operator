@@ -81,6 +81,15 @@ type ContainerJFRReconciler struct {
 // Name used for Finalizer that handles ContainerJFR deletion
 const cjfrFinalizer = "rhjmc.redhat.com/containerjfr.finalizer"
 
+// Environment variable to override the core application image
+const coreImageTagEnv = "CORE_IMG"
+
+// Environment variable to override the JFR datasource image
+const datasourceImageTagEnv = "DATASOURCE_IMG"
+
+// Environment variable to override the Grafana dashboard image
+const grafanaImageTagEnv = "GRAFANA_IMG"
+
 // +kubebuilder:rbac:namespace=system,groups="",resources=pods;services;services/finalizers;endpoints;persistentvolumeclaims;events;configmaps;secrets,verbs=*
 // +kubebuilder:rbac:namespace=system,groups=route.openshift.io,resources=routes;routes/custom-host,verbs=*
 // +kubebuilder:rbac:namespace=system,groups=apps,resources=deployments;daemonsets;replicasets;statefulsets,verbs=*
@@ -278,7 +287,8 @@ func (r *ContainerJFRReconciler) Reconcile(ctx context.Context, request ctrl.Req
 	}
 	serviceSpecs.CommandURL = url
 
-	deployment := resources.NewDeploymentForCR(instance, serviceSpecs, tlsConfig)
+	imageTags := r.getImageTags()
+	deployment := resources.NewDeploymentForCR(instance, serviceSpecs, imageTags, tlsConfig)
 	if err := controllerutil.SetControllerReference(instance, deployment, r.Scheme); err != nil {
 		return reconcile.Result{}, err
 	}
@@ -299,7 +309,7 @@ func (r *ContainerJFRReconciler) Reconcile(ctx context.Context, request ctrl.Req
 	err = r.Client.Get(context.Background(), types.NamespacedName{Name: deployment.Name, Namespace: deployment.Namespace}, deployment)
 	if err == nil {
 		deploymentMounts := deployment.Spec.Template.Spec.Containers[0].VolumeMounts
-		expectedDeploymentSpec := resources.NewDeploymentForCR(instance, serviceSpecs, tlsConfig).Spec.Template.Spec
+		expectedDeploymentSpec := resources.NewDeploymentForCR(instance, serviceSpecs, imageTags, tlsConfig).Spec.Template.Spec
 		if !cmp.Equal(deploymentMounts, expectedDeploymentSpec.Containers[0].VolumeMounts) {
 			reqLogger.Info("cert secrets mounted do not coincide with those specified in CRD, modifying deployment")
 			// Modify deployment
@@ -503,6 +513,22 @@ func (r *ContainerJFRReconciler) createObjectIfNotExists(ctx context.Context, ns
 	}
 	logger.Info("Already exists")
 	return nil
+}
+
+func (r *ContainerJFRReconciler) getImageTags() *resources.ImageTags {
+	return &resources.ImageTags{
+		CoreImageTag:       r.getEnvOrDefault(coreImageTagEnv, resources.DefaultCoreImageTag),
+		DatasourceImageTag: r.getEnvOrDefault(datasourceImageTagEnv, resources.DefaultDatasourceImageTag),
+		GrafanaImageTag:    r.getEnvOrDefault(grafanaImageTagEnv, resources.DefaultGrafanaImageTag),
+	}
+}
+
+func (r *ContainerJFRReconciler) getEnvOrDefault(name string, defaultVal string) string {
+	val := r.GetEnv(name)
+	if len(val) > 0 {
+		return val
+	}
+	return defaultVal
 }
 
 func (r *ContainerJFRReconciler) getConsoleLinks(cr *rhjmcv1beta1.ContainerJFR) ([]consolev1.ConsoleLink, error) {

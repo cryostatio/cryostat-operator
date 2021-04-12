@@ -1,7 +1,8 @@
 # Current Operator version
 IMAGE_VERSION ?= 1.0.0-beta5
 BUNDLE_VERSION ?= $(IMAGE_VERSION)
-IMAGE_NAMESPACE ?= quay.io/rh-jmc-team
+DEFAULT_NAMESPACE ?= quay.io/rh-jmc-team
+IMAGE_NAMESPACE ?= $(DEFAULT_NAMESPACE)
 OPERATOR_NAME ?= container-jfr-operator
 CLUSTER_CLIENT ?= kubectl
 
@@ -21,6 +22,20 @@ IMAGE_BUILDER ?= podman
 IMG ?= $(IMAGE_NAMESPACE)/$(OPERATOR_NAME):$(IMAGE_VERSION)
 # Produce CRDs that work back to Kubernetes 1.11 (no version conversion)
 CRD_OPTIONS ?= "crd:trivialVersions=true,preserveUnknownFields=false"
+
+# Images used by the operator
+CORE_NAMESPACE ?= $(DEFAULT_NAMESPACE)
+CORE_NAME ?= container-jfr
+CORE_VERSION ?= 1.0.0-BETA6
+export CORE_IMG ?= $(CORE_NAMESPACE)/$(CORE_NAME):$(CORE_VERSION)
+DATASOURCE_NAMESPACE ?= $(DEFAULT_NAMESPACE)
+DATASOURCE_NAME ?= jfr-datasource
+DATASOURCE_VERSION ?= 1.0.0-BETA6
+export DATASOURCE_IMG ?= $(DATASOURCE_NAMESPACE)/$(DATASOURCE_NAME):$(DATASOURCE_VERSION)
+GRAFANA_NAMESPACE ?= $(DEFAULT_NAMESPACE)
+GRAFANA_NAME ?= container-jfr-grafana-dashboard
+GRAFANA_VERSION ?= 1.0.0-BETA3
+export GRAFANA_IMG ?= $(GRAFANA_NAMESPACE)/$(GRAFANA_NAME):$(GRAFANA_VERSION)
 
 CERT_MANAGER_VERSION ?= 1.1.0
 CERT_MANAGER_MANIFEST ?= \
@@ -110,6 +125,7 @@ undeploy:
 .PHONY: manifests
 manifests: controller-gen
 	$(CONTROLLER_GEN) $(CRD_OPTIONS) rbac:roleName=role webhook paths="./..." output:crd:artifacts:config=config/crd/bases
+	printf "CORE_IMG=%s\nDATASOURCE_IMG=%s\nGRAFANA_IMG=%s\n" "$(CORE_IMG)" "$(DATASOURCE_IMG)" "$(GRAFANA_IMG)" > config/manager/imagetags.env
 
 # Run go fmt against code
 .PHONY: fmt
@@ -124,6 +140,7 @@ vet:
 # Generate code
 .PHONY: generate
 generate: controller-gen
+	go generate ./...
 	$(CONTROLLER_GEN) object:headerFile="hack/boilerplate.go.txt" paths="./..."
 
 # Build the OCI image
