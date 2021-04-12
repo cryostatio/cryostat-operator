@@ -85,6 +85,9 @@ func main() {
 
 	ctrl.SetLogger(zap.New(zap.UseFlagOptions(&opts)))
 
+	// FIXME Disable metrics until this issue is resolved:
+	// https://github.com/operator-framework/operator-sdk/issues/4684
+	metricsAddr = "0"
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
 		Scheme:                 scheme,
 		MetricsBindAddress:     metricsAddr,
