@@ -560,7 +560,9 @@ func (t *recordingTestInput) expectRecordingUpdated(desc *jfrclient.RecordingDes
 	Expect(obj.Status.State).ToNot(BeNil())
 	Expect(*obj.Status.State).To(Equal(rhjmcv1beta1.RecordingState(desc.State)))
 	// Converted to RFC3339 during serialization (sub-second precision lost)
-	Expect(obj.Status.StartTime).To(Equal(metav1.Unix(0, desc.StartTime*int64(time.Millisecond)).Rfc3339Copy()))
+	expectedTime := metav1.Unix(0, desc.StartTime*int64(time.Millisecond)).Rfc3339Copy()
+	Expect(obj.Status.State).ToNot(BeNil())
+	Expect(obj.Status.StartTime.Equal(&expectedTime)).To(BeTrue())
 	Expect(obj.Status.Duration).To(Equal(metav1.Duration{
 		Duration: time.Duration(desc.Duration) * time.Millisecond,
 	}))
