@@ -1,3 +1,5 @@
+SHELL := /bin/bash
+
 # Current Operator version
 IMAGE_VERSION ?= 1.0.0-beta5
 BUNDLE_VERSION ?= $(IMAGE_VERSION)
