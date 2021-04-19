@@ -1,5 +1,7 @@
 # container-jfr-operator
 
+[![CI build](https://github.com/rh-jmc-team/container-jfr-operator/actions/workflows/ci.yaml/badge.svg)](https://github.com/rh-jmc-team/container-jfr-operator/actions/workflows/ci.yaml)
+
 A Kubernetes Operator to automate deployment of
 [Container-JFR](https://github.com/rh-jmc-team/container-jfr) and provide an
 API to manage [JDK Flight Recordings](https://openjdk.java.net/jeps/328).
