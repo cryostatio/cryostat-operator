@@ -3,7 +3,7 @@ SHELL := /bin/bash
 # Current Operator version
 IMAGE_VERSION ?= 1.0.0-beta5
 BUNDLE_VERSION ?= $(IMAGE_VERSION)
-DEFAULT_NAMESPACE ?= quay.io/cryostatio
+DEFAULT_NAMESPACE ?= quay.io/cryostat
 IMAGE_NAMESPACE ?= $(DEFAULT_NAMESPACE)
 OPERATOR_NAME ?= cryostat-operator
 CLUSTER_CLIENT ?= kubectl

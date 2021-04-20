@@ -58,7 +58,7 @@ repository such as `quay.io`.
 ## Bundle Deployment
 
 The operator can be deployed using OLM using `make deploy_bundle`. This will
-deploy `quay.io/cryostatio/cryostat-operator-bundle:$IMAGE_VERSION` to
+deploy `quay.io/cryostat/cryostat-operator-bundle:$IMAGE_VERSION` to
 your configured cluster using `oc` or `kubectl` (`kubeconfig`). You can set the
 variables `IMAGE_NAMESPACE` or `IMAGE_VERSION` to deploy different builds of
 the bundle. Once this is complete, the Cryostat Operator will be deployed

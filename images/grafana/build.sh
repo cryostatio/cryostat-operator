@@ -1,7 +1,7 @@
 #!/bin/sh
 
 if [ -z "$GRAFANA_IMAGE" ]; then
-    GRAFANA_IMAGE="quay.io/cryostatio/cryostat-grafana-dashboard"
+    GRAFANA_IMAGE="quay.io/cryostat/cryostat-grafana-dashboard"
 fi
 
 if [ -z "$GRAFANA_TAG" ]; then

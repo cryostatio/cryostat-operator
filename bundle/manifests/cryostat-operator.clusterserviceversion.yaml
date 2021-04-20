@@ -58,7 +58,7 @@ metadata:
     capabilities: Basic Install
     categories: Monitoring, Developer Tools
     certified: "false"
-    containerImage: quay.io/cryostatio/cryostat-operator:1.0.0-beta5
+    containerImage: quay.io/cryostat/cryostat-operator:1.0.0-beta5
     createdAt: "2020-07-03 00:00:00"
     description: JVM monitoring and profiling tool
     operators.operatorframework.io/builder: operator-sdk-v1.4.0+git
@@ -278,7 +278,7 @@ spec:
                 envFrom:
                 - configMapRef:
                     name: cryostat-operator-manager-env
-                image: quay.io/cryostatio/cryostat-operator:1.0.0-beta5
+                image: quay.io/andrewazores/cryostat-operator:1.0.0-beta5
                 livenessProbe:
                   httpGet:
                     path: /healthz

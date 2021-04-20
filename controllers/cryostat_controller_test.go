@@ -941,7 +941,7 @@ func (t *cryostatTestInput) checkDeployment() {
 func checkCoreContainer(container *corev1.Container, minimal bool, tls bool, tag *string) {
 	Expect(container.Name).To(Equal("cryostat"))
 	if tag == nil {
-		Expect(container.Image).To(HavePrefix("quay.io/cryostatio/cryostat:"))
+		Expect(container.Image).To(HavePrefix("quay.io/cryostat/cryostat:"))
 	} else {
 		Expect(container.Image).To(Equal(*tag))
 	}
@@ -956,7 +956,7 @@ func checkCoreContainer(container *corev1.Container, minimal bool, tls bool, tag
 func checkGrafanaContainer(container *corev1.Container, tls bool, tag *string) {
 	Expect(container.Name).To(Equal("cryostat-grafana"))
 	if tag == nil {
-		Expect(container.Image).To(HavePrefix("quay.io/cryostatio/cryostat-grafana-dashboard:"))
+		Expect(container.Image).To(HavePrefix("quay.io/cryostat/cryostat-grafana-dashboard:"))
 	} else {
 		Expect(container.Image).To(Equal(*tag))
 	}
@@ -970,7 +970,7 @@ func checkGrafanaContainer(container *corev1.Container, tls bool, tag *string) {
 func checkDatasourceContainer(container *corev1.Container, tag *string) {
 	Expect(container.Name).To(Equal("cryostat-jfr-datasource"))
 	if tag == nil {
-		Expect(container.Image).To(HavePrefix("quay.io/cryostatio/jfr-datasource:"))
+		Expect(container.Image).To(HavePrefix("quay.io/cryostat/jfr-datasource:"))
 	} else {
 		Expect(container.Image).To(Equal(*tag))
 	}
