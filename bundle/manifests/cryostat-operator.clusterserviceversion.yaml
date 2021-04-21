@@ -271,13 +271,16 @@ spec:
                 command:
                 - /manager
                 env:
+                - name: RELATED_IMAGE_CORE
+                  value: quay.io/cryostat/cryostat:1.0.0-BETA6
+                - name: RELATED_IMAGE_DATASOURCE
+                  value: quay.io/cryostat/jfr-datasource:1.0.0-BETA6
+                - name: RELATED_IMAGE_GRAFANA
+                  value: quay.io/cryostat/cryostat-grafana-dashboard:1.0.0-BETA3
                 - name: WATCH_NAMESPACE
                   valueFrom:
                     fieldRef:
                       fieldPath: metadata.annotations['olm.targetNamespaces']
-                envFrom:
-                - configMapRef:
-                    name: cryostat-operator-manager-env
                 image: quay.io/cryostat/cryostat-operator:1.0.0-beta5
                 livenessProbe:
                   httpGet:
