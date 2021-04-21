@@ -278,7 +278,7 @@ spec:
                 envFrom:
                 - configMapRef:
                     name: cryostat-operator-manager-env
-                image: quay.io/andrewazores/cryostat-operator:1.0.0-beta5
+                image: quay.io/cryostat/cryostat-operator:1.0.0-beta5
                 livenessProbe:
                   httpGet:
                     path: /healthz
