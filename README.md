@@ -83,8 +83,8 @@ simply, `make create_cryostat_cr`.
 
 The container images used by the operator for the core application,
 jfr-datasource, and the Grafana dashboard can be overridden by setting the
-`CORE_IMG`, `DATASOURCE_IMG`, and `GRAFANA_IMG` environment variables,
-respectively, in the operator deployment.
+`RELATED_IMAGE_CORE`, `RELATED_IMAGE_DATASOURCE`, and `RELATED_IMAGE_GRAFANA`
+environment variables, respectively, in the operator deployment.
 
 ## Security
 
