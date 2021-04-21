@@ -716,10 +716,6 @@ func NewDatasourcePorts() []corev1.ContainerPort {
 func NewCoreEnvironmentVariables(minimal bool, tls bool) []corev1.EnvVar {
 	envs := []corev1.EnvVar{
 		{
-			Name:  "CRYOSTAT_PLATFORM",
-			Value: "io.cryostat.platform.internal.OpenShiftPlatformStrategy",
-		},
-		{
 			Name:  "CRYOSTAT_SSL_PROXIED",
 			Value: "true",
 		},
