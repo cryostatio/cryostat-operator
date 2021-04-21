@@ -227,11 +227,6 @@ func NewPodForCR(cr *operatorv1beta1.Cryostat, specs *ServiceSpecs, imageTags *I
 func NewCoreContainer(cr *operatorv1beta1.Cryostat, specs *ServiceSpecs, imageTag string, tls *TLSConfig) corev1.Container {
 	envs := []corev1.EnvVar{
 		{
-			Name:      "CRYOSTAT_PLATFORM",
-			Value:     "io.cryostat.platform.internal.OpenShiftPlatformStrategy",
-			ValueFrom: nil,
-		},
-		{
 			Name:  "CRYOSTAT_SSL_PROXIED",
 			Value: "true",
 		},
