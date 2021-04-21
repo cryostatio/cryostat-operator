@@ -1,0 +1,17 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: controller-manager
+  namespace: system
+spec:
+  template:
+    spec:
+      containers:
+      - name: manager
+        env:
+        - name: RELATED_IMAGE_CORE
+          value: "quay.io/cryostat/cryostat:1.0.0-BETA6"
+        - name: RELATED_IMAGE_DATASOURCE
+          value: "quay.io/cryostat/jfr-datasource:1.0.0-BETA6"
+        - name: RELATED_IMAGE_GRAFANA
+          value: "quay.io/cryostat/cryostat-grafana-dashboard:1.0.0-BETA3"
