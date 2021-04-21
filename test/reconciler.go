@@ -111,13 +111,13 @@ func newTestOSUtils(config *TestReconcilerConfig) *testOSUtils {
 		envs["DISABLE_SERVICE_TLS"] = strconv.FormatBool(*config.DisableTLS)
 	}
 	if config.CoreImageTag != nil {
-		envs["CORE_IMG"] = *config.CoreImageTag
+		envs["RELATED_IMAGE_CORE"] = *config.CoreImageTag
 	}
 	if config.DatasourceImageTag != nil {
-		envs["DATASOURCE_IMG"] = *config.DatasourceImageTag
+		envs["RELATED_IMAGE_DATASOURCE"] = *config.DatasourceImageTag
 	}
 	if config.GrafanaImageTag != nil {
-		envs["GRAFANA_IMG"] = *config.GrafanaImageTag
+		envs["RELATED_IMAGE_GRAFANA"] = *config.GrafanaImageTag
 	}
 	return &testOSUtils{envs}
 }
