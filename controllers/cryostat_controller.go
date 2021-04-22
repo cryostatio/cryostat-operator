@@ -82,13 +82,13 @@ type CryostatReconciler struct {
 const cryostatFinalizer = "operator.cryostat.io/cryostat.finalizer"
 
 // Environment variable to override the core application image
-const coreImageTagEnv = "CORE_IMG"
+const coreImageTagEnv = "RELATED_IMAGE_CORE"
 
 // Environment variable to override the JFR datasource image
-const datasourceImageTagEnv = "DATASOURCE_IMG"
+const datasourceImageTagEnv = "RELATED_IMAGE_DATASOURCE"
 
 // Environment variable to override the Grafana dashboard image
-const grafanaImageTagEnv = "GRAFANA_IMG"
+const grafanaImageTagEnv = "RELATED_IMAGE_GRAFANA"
 
 // +kubebuilder:rbac:namespace=system,groups="",resources=pods;services;services/finalizers;endpoints;persistentvolumeclaims;events;configmaps;secrets,verbs=*
 // +kubebuilder:rbac:namespace=system,groups=route.openshift.io,resources=routes;routes/custom-host,verbs=*

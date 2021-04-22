@@ -127,7 +127,7 @@ undeploy:
 .PHONY: manifests
 manifests: controller-gen
 	$(CONTROLLER_GEN) $(CRD_OPTIONS) rbac:roleName=role webhook paths="./..." output:crd:artifacts:config=config/crd/bases
-	printf "CORE_IMG=%s\nDATASOURCE_IMG=%s\nGRAFANA_IMG=%s\n" "$(CORE_IMG)" "$(DATASOURCE_IMG)" "$(GRAFANA_IMG)" > config/manager/imagetags.env
+	envsubst < hack/image_tag_patch.yaml.in > config/default/image_tag_patch.yaml
 
 # Run go fmt against code
 .PHONY: fmt
