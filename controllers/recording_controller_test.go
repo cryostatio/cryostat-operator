@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Red Hat, Inc.
+// Copyright The Cryostat Authors
 //
 // The Universal Permissive License (UPL), Version 1.0
 //
@@ -51,10 +51,10 @@ import (
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
-	rhjmcv1beta1 "github.com/rh-jmc-team/container-jfr-operator/api/v1beta1"
-	"github.com/rh-jmc-team/container-jfr-operator/controllers"
-	jfrclient "github.com/rh-jmc-team/container-jfr-operator/controllers/client"
-	"github.com/rh-jmc-team/container-jfr-operator/test"
+	operatorv1beta1 "github.com/cryostatio/cryostat-operator/api/v1beta1"
+	"github.com/cryostatio/cryostat-operator/controllers"
+	cryostatClient "github.com/cryostatio/cryostat-operator/controllers/client"
+	"github.com/cryostatio/cryostat-operator/test"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 )
 
@@ -91,8 +91,8 @@ var _ = Describe("RecordingController", func() {
 	BeforeEach(func() {
 		t = &recordingTestInput{
 			objs: []runtime.Object{
-				test.NewContainerJFR(), test.NewCACert(), test.NewFlightRecorder(),
-				test.NewTargetPod(), test.NewContainerJFRService(), test.NewJMXAuthSecret(),
+				test.NewCryostat(), test.NewCACert(), test.NewFlightRecorder(),
+				test.NewTargetPod(), test.NewCryostatService(), test.NewJMXAuthSecret(),
 			},
 		}
 	})
@@ -174,11 +174,11 @@ var _ = Describe("RecordingController", func() {
 				t.expectRecordingResult(reconcile.Result{RequeueAfter: 10 * time.Second})
 			})
 		})
-		Context("with a running recording not found in Container JFR", func() {
+		Context("with a running recording not found in Cryostat", func() {
 			BeforeEach(func() {
 				t.objs = append(t.objs, test.NewRunningRecording())
 				t.handlers = []http.HandlerFunc{
-					test.NewListHandler([]jfrclient.RecordingDescriptor{}),
+					test.NewListHandler([]cryostatClient.RecordingDescriptor{}),
 				}
 			})
 			It("should not change status", func() {
@@ -242,7 +242,7 @@ var _ = Describe("RecordingController", func() {
 				t.objs = append(t.objs, test.NewStoppedRecordingToArchive())
 				t.handlers = []http.HandlerFunc{
 					test.NewListHandler(test.NewRecordingDescriptors("STOPPED", 30000)),
-					test.NewListSavedHandler([]jfrclient.SavedRecording{}),
+					test.NewListSavedHandler([]cryostatClient.SavedRecording{}),
 					test.NewSaveHandler(),
 					test.NewListSavedHandler(test.NewSavedRecordings()),
 				}
@@ -250,14 +250,14 @@ var _ = Describe("RecordingController", func() {
 			It("should update download URL", func() {
 				req := reconcile.Request{NamespacedName: types.NamespacedName{Name: "my-recording", Namespace: "default"}}
 
-				before := &rhjmcv1beta1.Recording{}
+				before := &operatorv1beta1.Recording{}
 				err := t.Client.Get(context.Background(), req.NamespacedName, before)
 				Expect(err).ToNot(HaveOccurred())
 
 				_, err = t.controller.Reconcile(context.Background(), req)
 				Expect(err).ToNot(HaveOccurred())
 
-				after := &rhjmcv1beta1.Recording{}
+				after := &operatorv1beta1.Recording{}
 				err = t.Client.Get(context.Background(), req.NamespacedName, after)
 				Expect(err).ToNot(HaveOccurred())
 
@@ -306,7 +306,7 @@ var _ = Describe("RecordingController", func() {
 				t.handlers = []http.HandlerFunc{
 					test.NewStopHandler(),
 					test.NewListHandler(test.NewRecordingDescriptors("STOPPED", 30000)),
-					test.NewListSavedHandler([]jfrclient.SavedRecording{}),
+					test.NewListSavedHandler([]cryostatClient.SavedRecording{}),
 					test.NewSaveHandler(),
 					test.NewListSavedHandler(test.NewSavedRecordings()),
 				}
@@ -316,19 +316,19 @@ var _ = Describe("RecordingController", func() {
 				_, err := t.controller.Reconcile(context.Background(), req)
 				Expect(err).ToNot(HaveOccurred())
 
-				obj := &rhjmcv1beta1.Recording{}
+				obj := &operatorv1beta1.Recording{}
 				err = t.Client.Get(context.Background(), req.NamespacedName, obj)
 				Expect(err).ToNot(HaveOccurred())
 
 				Expect(obj.Status.State).ToNot(BeNil())
-				Expect(*obj.Status.State).To(Equal(rhjmcv1beta1.RecordingStateStopped))
+				Expect(*obj.Status.State).To(Equal(operatorv1beta1.RecordingStateStopped))
 			})
 			It("should update download URL", func() {
 				req := reconcile.Request{NamespacedName: types.NamespacedName{Name: "my-recording", Namespace: "default"}}
 				_, err := t.controller.Reconcile(context.Background(), req)
 				Expect(err).ToNot(HaveOccurred())
 
-				obj := &rhjmcv1beta1.Recording{}
+				obj := &operatorv1beta1.Recording{}
 				err = t.Client.Get(context.Background(), req.NamespacedName, obj)
 				Expect(err).ToNot(HaveOccurred())
 
@@ -340,7 +340,7 @@ var _ = Describe("RecordingController", func() {
 				_, err := t.controller.Reconcile(context.Background(), req)
 				Expect(err).ToNot(HaveOccurred())
 
-				obj := &rhjmcv1beta1.Recording{}
+				obj := &operatorv1beta1.Recording{}
 				err = t.Client.Get(context.Background(), req.NamespacedName, obj)
 				Expect(err).ToNot(HaveOccurred())
 
@@ -386,8 +386,8 @@ var _ = Describe("RecordingController", func() {
 		Context("with a deleted recording with missing FlightRecorder", func() {
 			BeforeEach(func() {
 				t.objs = []runtime.Object{
-					test.NewContainerJFR(), test.NewCACert(), test.NewTargetPod(),
-					test.NewContainerJFRService(), test.NewDeletedArchivedRecording(),
+					test.NewCryostat(), test.NewCACert(), test.NewTargetPod(),
+					test.NewCryostatService(), test.NewDeletedArchivedRecording(),
 					test.NewJMXAuthSecret(),
 				}
 				t.handlers = []http.HandlerFunc{
@@ -448,10 +448,10 @@ var _ = Describe("RecordingController", func() {
 		Context("FlightRecorder Status not updated yet", func() {
 			BeforeEach(func() {
 				otherFr := test.NewFlightRecorder()
-				otherFr.Status = rhjmcv1beta1.FlightRecorderStatus{}
+				otherFr.Status = operatorv1beta1.FlightRecorderStatus{}
 				t.objs = []runtime.Object{
-					test.NewContainerJFR(), test.NewCACert(), otherFr, test.NewTargetPod(),
-					test.NewContainerJFRService(), test.NewRecording(), test.NewJMXAuthSecret(),
+					test.NewCryostat(), test.NewCACert(), otherFr, test.NewTargetPod(),
+					test.NewCryostatService(), test.NewRecording(), test.NewJMXAuthSecret(),
 				}
 				t.handlers = []http.HandlerFunc{}
 			})
@@ -459,11 +459,11 @@ var _ = Describe("RecordingController", func() {
 				t.expectRecordingResult(reconcile.Result{RequeueAfter: time.Second})
 			})
 		})
-		Context("Container JFR CR is missing", func() {
+		Context("Cryostat CR is missing", func() {
 			BeforeEach(func() {
 				t.objs = []runtime.Object{
 					test.NewFlightRecorder(), test.NewCACert(), test.NewTargetPod(),
-					test.NewContainerJFRService(), test.NewRecording(), test.NewJMXAuthSecret(),
+					test.NewCryostatService(), test.NewRecording(), test.NewJMXAuthSecret(),
 				}
 				t.handlers = []http.HandlerFunc{}
 			})
@@ -471,10 +471,10 @@ var _ = Describe("RecordingController", func() {
 				t.expectRecordingReconcileError()
 			})
 		})
-		Context("Container JFR service is missing", func() {
+		Context("Cryostat service is missing", func() {
 			BeforeEach(func() {
 				t.objs = []runtime.Object{
-					test.NewContainerJFR(), test.NewCACert(), test.NewFlightRecorder(),
+					test.NewCryostat(), test.NewCACert(), test.NewFlightRecorder(),
 					test.NewTargetPod(), test.NewRecording(), test.NewJMXAuthSecret(),
 				}
 				t.handlers = []http.HandlerFunc{}
@@ -486,8 +486,8 @@ var _ = Describe("RecordingController", func() {
 		Context("FlightRecorder is missing", func() {
 			BeforeEach(func() {
 				t.objs = []runtime.Object{
-					test.NewContainerJFR(), test.NewCACert(), test.NewTargetPod(),
-					test.NewContainerJFRService(), test.NewRecording(), test.NewJMXAuthSecret(),
+					test.NewCryostat(), test.NewCACert(), test.NewTargetPod(),
+					test.NewCryostatService(), test.NewRecording(), test.NewJMXAuthSecret(),
 				}
 				t.handlers = []http.HandlerFunc{}
 			})
@@ -499,7 +499,7 @@ var _ = Describe("RecordingController", func() {
 			})
 			It("should set FlightRecorder label", func() {
 				obj := t.reconcileRecordingAndGet()
-				Expect(obj.Labels).To(HaveKeyWithValue(rhjmcv1beta1.RecordingLabel, "test-pod"))
+				Expect(obj.Labels).To(HaveKeyWithValue(operatorv1beta1.RecordingLabel, "test-pod"))
 			})
 		})
 		Context("FlightRecorder is not defined in Recording", func() {
@@ -507,8 +507,8 @@ var _ = Describe("RecordingController", func() {
 				recording := test.NewRecording()
 				recording.Spec.FlightRecorder = nil
 				t.objs = []runtime.Object{
-					test.NewContainerJFR(), test.NewCACert(), test.NewFlightRecorder(), test.NewTargetPod(),
-					test.NewContainerJFRService(), recording, test.NewJMXAuthSecret(),
+					test.NewCryostat(), test.NewCACert(), test.NewFlightRecorder(), test.NewTargetPod(),
+					test.NewCryostatService(), recording, test.NewJMXAuthSecret(),
 				}
 				t.handlers = []http.HandlerFunc{}
 			})
@@ -526,8 +526,8 @@ var _ = Describe("RecordingController", func() {
 		Context("Target pod is missing", func() {
 			BeforeEach(func() {
 				t.objs = []runtime.Object{
-					test.NewContainerJFR(), test.NewCACert(), test.NewFlightRecorder(),
-					test.NewContainerJFRService(), test.NewRecording(), test.NewJMXAuthSecret(),
+					test.NewCryostat(), test.NewCACert(), test.NewFlightRecorder(),
+					test.NewCryostatService(), test.NewRecording(), test.NewJMXAuthSecret(),
 				}
 				t.handlers = []http.HandlerFunc{}
 			})
@@ -540,8 +540,8 @@ var _ = Describe("RecordingController", func() {
 				otherPod := test.NewTargetPod()
 				otherPod.Status.PodIP = ""
 				t.objs = []runtime.Object{
-					test.NewContainerJFR(), test.NewCACert(), test.NewFlightRecorder(), otherPod,
-					test.NewContainerJFRService(), test.NewRecording(), test.NewJMXAuthSecret(),
+					test.NewCryostat(), test.NewCACert(), test.NewFlightRecorder(), otherPod,
+					test.NewCryostatService(), test.NewRecording(), test.NewJMXAuthSecret(),
 				}
 				t.handlers = []http.HandlerFunc{}
 			})
@@ -552,13 +552,13 @@ var _ = Describe("RecordingController", func() {
 	})
 })
 
-func (t *recordingTestInput) expectRecordingUpdated(desc *jfrclient.RecordingDescriptor) {
+func (t *recordingTestInput) expectRecordingUpdated(desc *cryostatClient.RecordingDescriptor) {
 	obj := t.reconcileRecordingAndGet()
 
-	Expect(obj.Labels).To(HaveKeyWithValue(rhjmcv1beta1.RecordingLabel, "test-pod"))
+	Expect(obj.Labels).To(HaveKeyWithValue(operatorv1beta1.RecordingLabel, "test-pod"))
 
 	Expect(obj.Status.State).ToNot(BeNil())
-	Expect(*obj.Status.State).To(Equal(rhjmcv1beta1.RecordingState(desc.State)))
+	Expect(*obj.Status.State).To(Equal(operatorv1beta1.RecordingState(desc.State)))
 	// Converted to RFC3339 during serialization (sub-second precision lost)
 	expectedTime := metav1.Unix(0, desc.StartTime*int64(time.Millisecond)).Rfc3339Copy()
 	Expect(obj.Status.State).ToNot(BeNil())
@@ -573,7 +573,7 @@ func (t *recordingTestInput) expectRecordingUpdated(desc *jfrclient.RecordingDes
 }
 
 func (t *recordingTestInput) expectRecordingStatusUnchaged() {
-	before := &rhjmcv1beta1.Recording{}
+	before := &operatorv1beta1.Recording{}
 	err := t.Client.Get(context.Background(), types.NamespacedName{Name: "my-recording", Namespace: "default"}, before)
 	Expect(err).ToNot(HaveOccurred())
 
@@ -584,13 +584,13 @@ func (t *recordingTestInput) expectRecordingStatusUnchaged() {
 func (t *recordingTestInput) expectRecordingFinalizerPresent() {
 	obj := t.reconcileRecordingAndGet()
 	finalizers := obj.GetFinalizers()
-	Expect(finalizers).To(ContainElement("rhjmc.redhat.com/recording.finalizer"))
+	Expect(finalizers).To(ContainElement("operator.cryostat.io/recording.finalizer"))
 }
 
 func (t *recordingTestInput) expectRecordingFinalizerAbsent() {
 	obj := t.reconcileRecordingAndGet()
 	finalizers := obj.GetFinalizers()
-	Expect(finalizers).ToNot(ContainElement("rhjmc.redhat.com/recording.finalizer"))
+	Expect(finalizers).ToNot(ContainElement("operator.cryostat.io/recording.finalizer"))
 }
 
 func (t *recordingTestInput) expectRecordingReconcileError() {
@@ -607,11 +607,11 @@ func (t *recordingTestInput) expectRecordingResult(result reconcile.Result) {
 	Expect(result).To(Equal(result))
 }
 
-func (t *recordingTestInput) reconcileRecordingAndGet() *rhjmcv1beta1.Recording {
+func (t *recordingTestInput) reconcileRecordingAndGet() *operatorv1beta1.Recording {
 	req := reconcile.Request{NamespacedName: types.NamespacedName{Name: "my-recording", Namespace: "default"}}
 	t.controller.Reconcile(context.Background(), req)
 
-	obj := &rhjmcv1beta1.Recording{}
+	obj := &operatorv1beta1.Recording{}
 	err := t.Client.Get(context.Background(), req.NamespacedName, obj)
 	Expect(err).ToNot(HaveOccurred())
 	return obj

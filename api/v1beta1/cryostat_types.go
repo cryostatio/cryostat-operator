@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Red Hat, Inc.
+// Copyright The Cryostat Authors
 //
 // The Universal Permissive License (UPL), Version 1.0
 //
@@ -42,9 +42,9 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// ContainerJFRSpec defines the desired state of ContainerJFR
-type ContainerJFRSpec struct {
-	// Deploy a pared-down ContainerJFR instance with no Grafana dashboard or jfr-datasource
+// CryostatSpec defines the desired state of Cryostat
+type CryostatSpec struct {
+	// Deploy a pared-down Cryostat instance with no Grafana dashboard or jfr-datasource
 	// and no web-client UI.
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Minimal Deployment",xDescriptors={"urn:alm:descriptor:com.tectonic.ui:booleanSwitch"}
 	Minimal bool `json:"minimal"`
@@ -61,8 +61,8 @@ type ContainerJFRSpec struct {
 	NetworkOptions *NetworkConfigurationList `json:"networkOptions,omitempty"`
 }
 
-// ContainerJFRStatus defines the observed state of ContainerJFR
-type ContainerJFRStatus struct {
+// CryostatStatus defines the observed state of Cryostat
+type CryostatStatus struct {
 	// +operator-sdk:csv:customresourcedefinitions:type=status,xDescriptors={"urn:alm:descriptor:org.w3:link"}
 	ApplicationURL string `json:"applicationUrl"`
 }
@@ -97,15 +97,15 @@ type NetworkConfiguration struct {
 // NetworkConfigurationList holds all three NetworkConfiguration objects that specify
 // the ingress configurations for the three services created by the operator
 type NetworkConfigurationList struct {
-	// Specifications for ingress that exposes the containerjfr service
-	// (which serves the containerjfr web-client)
+	// Specifications for ingress that exposes the cryostat service
+	// (which serves the cryostat web-client)
 	// +optional
 	ExporterConfig *NetworkConfiguration `json:"exporterConfig,omitempty"`
-	// Specifications for ingress that exposes the containerjfr-command service
+	// Specifications for ingress that exposes the cryostat-command service
 	// (which serves the websocket command channel)
 	// +optional
 	CommandConfig *NetworkConfiguration `json:"commandConfig,omitempty"`
-	// Specifications for ingress that exposes the containerjfr-grafana service
+	// Specifications for ingress that exposes the cryostat-grafana service
 	// (which serves the grafana dashboard)
 	// +optional
 	GrafanaConfig *NetworkConfiguration `json:"grafanaConfig,omitempty"`
@@ -135,29 +135,29 @@ type PersistentVolumeClaimConfig struct {
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
 // +kubebuilder:storageversion
-// +kubebuilder:resource:path=containerjfrs,scope=Namespaced
+// +kubebuilder:resource:path=cryostats,scope=Namespaced
 
-// ContainerJFR is the Schema for the containerjfrs API
+// Cryostat is the Schema for the cryostats API
 //+operator-sdk:csv:customresourcedefinitions:resources={{Deployment,v1},{Ingress,v1},{PersistentVolumeClaim,v1},{Secret,v1},{Service,v1},{Route,v1},{ConsoleLink,v1}}
-type ContainerJFR struct {
+type Cryostat struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	Spec   ContainerJFRSpec   `json:"spec,omitempty"`
-	Status ContainerJFRStatus `json:"status,omitempty"`
+	Spec   CryostatSpec   `json:"spec,omitempty"`
+	Status CryostatStatus `json:"status,omitempty"`
 }
 
 // +kubebuilder:object:root=true
 
-// ContainerJFRList contains a list of ContainerJFR
-type ContainerJFRList struct {
+// CryostatList contains a list of Cryostat
+type CryostatList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
-	Items           []ContainerJFR `json:"items"`
+	Items           []Cryostat `json:"items"`
 }
 
 func init() {
-	SchemeBuilder.Register(&ContainerJFR{}, &ContainerJFRList{})
+	SchemeBuilder.Register(&Cryostat{}, &CryostatList{})
 }
 
 // DefaultCertificateKey will be used when looking up the certificate within a secret,

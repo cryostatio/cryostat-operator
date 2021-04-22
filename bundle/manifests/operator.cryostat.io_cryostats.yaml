@@ -4,20 +4,20 @@ metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.4.1
   creationTimestamp: null
-  name: containerjfrs.rhjmc.redhat.com
+  name: cryostats.operator.cryostat.io
 spec:
-  group: rhjmc.redhat.com
+  group: operator.cryostat.io
   names:
-    kind: ContainerJFR
-    listKind: ContainerJFRList
-    plural: containerjfrs
-    singular: containerjfr
+    kind: Cryostat
+    listKind: CryostatList
+    plural: cryostats
+    singular: cryostat
   scope: Namespaced
   versions:
   - name: v1beta1
     schema:
       openAPIV3Schema:
-        description: ContainerJFR is the Schema for the containerjfrs API
+        description: Cryostat is the Schema for the cryostats API
         properties:
           apiVersion:
             description: 'APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
@@ -28,16 +28,16 @@ spec:
           metadata:
             type: object
           spec:
-            description: ContainerJFRSpec defines the desired state of ContainerJFR
+            description: CryostatSpec defines the desired state of Cryostat
             properties:
               minimal:
-                description: Deploy a pared-down ContainerJFR instance with no Grafana dashboard or jfr-datasource and no web-client UI.
+                description: Deploy a pared-down Cryostat instance with no Grafana dashboard or jfr-datasource and no web-client UI.
                 type: boolean
               networkOptions:
                 description: Options to control how the operator exposes the application over a network
                 properties:
                   commandConfig:
-                    description: Specifications for ingress that exposes the containerjfr-command service (which serves the websocket command channel)
+                    description: Specifications for ingress that exposes the cryostat-command service (which serves the websocket command channel)
                     properties:
                       annotations:
                         additionalProperties:
@@ -188,7 +188,7 @@ spec:
                         type: object
                     type: object
                   exporterConfig:
-                    description: Specifications for ingress that exposes the containerjfr service (which serves the containerjfr web-client)
+                    description: Specifications for ingress that exposes the cryostat service (which serves the cryostat web-client)
                     properties:
                       annotations:
                         additionalProperties:
@@ -339,7 +339,7 @@ spec:
                         type: object
                     type: object
                   grafanaConfig:
-                    description: Specifications for ingress that exposes the containerjfr-grafana service (which serves the grafana dashboard)
+                    description: Specifications for ingress that exposes the cryostat-grafana service (which serves the grafana dashboard)
                     properties:
                       annotations:
                         additionalProperties:
@@ -612,7 +612,7 @@ spec:
             - minimal
             type: object
           status:
-            description: ContainerJFRStatus defines the observed state of ContainerJFR
+            description: CryostatStatus defines the observed state of Cryostat
             properties:
               applicationUrl:
                 type: string

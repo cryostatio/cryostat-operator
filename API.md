@@ -1,6 +1,6 @@
 # `FlightRecorder` API overview
 
-This operator provides a Kubernetes API to interact with [Container JFR](https://github.com/rh-jmc-team/container-jfr).
+This operator provides a Kubernetes API to interact with [Cryostat](https://github.com/cryostatio/cryostat).
 This API comes in the form of the `FlightRecorders` and `Recordings` Custom Resource Definitions, and allows you to create, list, delete, and download recordings from a Kubernetes cluster.
 
 ## Retrieving `FlightRecorder` objects
@@ -9,19 +9,19 @@ You can use `FlightRecorders` like any other built-in resource on the command li
 ```shell
 $ oc get flightrecorders
 NAME           AGE
-containerjfr   75s
+cryostat   75s
 jmx-listener   77s
 ```
 
-`FlightRecorder` objects are created by the operator whenever a new Container JFR-compatible service is detected.
-Services that expose a port named `jfr-jmx` are considered compatible. The number of this port is stored in the `status.port` property for use by the operator. Each `FlightRecorder` object maps one-to-one with a Kubernetes service. This service is stored in the `status.target` property of the `FlightRecorder` object. When the operator learns of a new `FlightRecorder` object, it queries Container JFR for a list of all available JFR events for the JVM behind the `FlightRecorder's` service. The details of these event types are stored in the `status.events` property of the `FlightRecorder`. The `spec.recordingSelector` property provides an association of `Recordings` (outlined below) with this `FlightRecorder` object.
+`FlightRecorder` objects are created by the operator whenever a new Cryostat-compatible service is detected.
+Services that expose a port named `jfr-jmx` are considered compatible. The number of this port is stored in the `status.port` property for use by the operator. Each `FlightRecorder` object maps one-to-one with a Kubernetes service. This service is stored in the `status.target` property of the `FlightRecorder` object. When the operator learns of a new `FlightRecorder` object, it queries Cryostat for a list of all available JFR events for the JVM behind the `FlightRecorder's` service. The details of these event types are stored in the `status.events` property of the `FlightRecorder`. The `spec.recordingSelector` property provides an association of `Recordings` (outlined below) with this `FlightRecorder` object.
 
 ```shell
 $ oc get -o json flightrecorders/jmx-listener
 ```
 ```json
 {
-    "apiVersion": "rhjmc.redhat.com/v1beta1",
+    "apiVersion": "operator.cryostat.io/v1beta1",
     "kind": "FlightRecorder",
     "metadata": {
         "creationTimestamp": "2020-03-26T21:54:29Z",
@@ -42,13 +42,13 @@ $ oc get -o json flightrecorders/jmx-listener
             }
         ],
         "resourceVersion": "393024",
-        "selfLink": "/apis/rhjmc.redhat.com/v1beta1/namespaces/default/flightrecorders/jmx-listener",
+        "selfLink": "/apis/operator.cryostat.io/v1beta1/namespaces/default/flightrecorders/jmx-listener",
         "uid": "5e53b4ee-6fac-11ea-ae0c-52fdfc072182"
     },
     "spec": {
         "recordingSelector": {
             "matchLabels": {
-                "rhjmc.redhat.com/flightrecorder": "jmx-listener"
+                "operator.cryostat.io/flightrecorder": "jmx-listener"
             }
         }
     },
@@ -124,7 +124,7 @@ $ oc get -o json flightrecorders/jmx-listener
 To start a new recording, you will need to create a new `Recording` custom resource. The `Recording` must include the following:
 
 1. `name`: a string uniquely identifying the recording within that service.
-2. `eventOptions`: an array of string options passed to Container JFR. The `"template=ALL"` special string can be used to enable all available events.
+2. `eventOptions`: an array of string options passed to Cryostat. The `"template=ALL"` special string can be used to enable all available events.
 3. `duration`: length of the requested recording as a [duration string](https://golang.org/pkg/time/#ParseDuration).
 4. `archive`: whether to save the completed recording to persistent storage.
 5. `flightRecorder`: a [`LocalObjectReference`](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.18/#localobjectreference-v1-core) pointing to the `FlightRecorder` that should perform the recording.
@@ -135,12 +135,12 @@ $ cat my-recording.json
 ```
 ```json
 {
-    "apiVersion": "rhjmc.redhat.com/v1beta1",
+    "apiVersion": "operator.cryostat.io/v1beta1",
     "kind": "Recording",
     "metadata": {
         "labels": {
             "app": "jmx-listener",
-            "rhjmc.redhat.com/flightrecorder": "jmx-listener"
+            "operator.cryostat.io/flightrecorder": "jmx-listener"
         },
         "name": "my-recording",
         "namespace": "default"
@@ -164,7 +164,7 @@ $ cat my-recording.json
 $ oc create -f my-recording.json
 ```
 
-Once the operator has processed the new `Recording`, it will communicate with Container JFR via the referenced `FlightRecorder` to remotely create the JFR recording. Once this occurs, details of the recording are populated in the `status` of the `Recording` object. The `status.duration` property corresponds to the duration the recording was created with, `status.startTime` is when the recording actually started in the target JVM, and `status.state` is the current state of the recording from the following:
+Once the operator has processed the new `Recording`, it will communicate with Cryostat via the referenced `FlightRecorder` to remotely create the JFR recording. Once this occurs, details of the recording are populated in the `status` of the `Recording` object. The `status.duration` property corresponds to the duration the recording was created with, `status.startTime` is when the recording actually started in the target JVM, and `status.state` is the current state of the recording from the following:
 * `CREATED`: the recording has been accepted, but has not started yet.
 * `RUNNING`: the recording has started and is currently running.
 * `STOPPING`: the recording is in the process of finishing.
@@ -175,19 +175,19 @@ $ oc get -o json recording/my-recording
 ```
 ```json
 {
-    "apiVersion": "rhjmc.redhat.com/v1beta1",
+    "apiVersion": "operator.cryostat.io/v1beta1",
     "kind": "Recording",
     "metadata": {
         "creationTimestamp": "2020-03-26T22:11:04Z",
         "generation": 1,
         "labels": {
             "app": "jmx-listener",
-            "rhjmc.redhat.com/flightrecorder": "jmx-listener"
+            "operator.cryostat.io/flightrecorder": "jmx-listener"
         },
         "name": "my-recording",
         "namespace": "default",
         "resourceVersion": "395738",
-        "selfLink": "/apis/rhjmc.redhat.com/v1beta1/namespaces/default/recordings/my-recording",
+        "selfLink": "/apis/operator.cryostat.io/v1beta1/namespaces/default/recordings/my-recording",
         "uid": "af1631e2-6fae-11ea-ae0c-52fdfc072182"
     },
     "spec": {
@@ -219,12 +219,12 @@ $ cat my-cont-recording.json
 ```
 ```json
 {
-    "apiVersion": "rhjmc.redhat.com/v1beta1",
+    "apiVersion": "operator.cryostat.io/v1beta1",
     "kind": "Recording",
     "metadata": {
         "labels": {
             "app": "jmx-listener",
-            "rhjmc.redhat.com/flightrecorder": "jmx-listener"
+            "operator.cryostat.io/flightrecorder": "jmx-listener"
         },
         "name": "cont-recording",
         "namespace": "default"
@@ -254,19 +254,19 @@ $ oc edit -o json recording/my-cont-recording
 ```
 ```json
 {
-    "apiVersion": "rhjmc.redhat.com/v1beta1",
+    "apiVersion": "operator.cryostat.io/v1beta1",
     "kind": "Recording",
     "metadata": {
         "creationTimestamp": "2020-03-26T22:12:30Z",
         "generation": 1,
         "labels": {
             "app": "jmx-listener",
-            "rhjmc.redhat.com/flightrecorder": "jmx-listener"
+            "operator.cryostat.io/flightrecorder": "jmx-listener"
         },
         "name": "cont-recording",
         "namespace": "default",
         "resourceVersion": "395986",
-        "selfLink": "/apis/rhjmc.redhat.com/v1beta1/namespaces/default/recordings/cont-recording",
+        "selfLink": "/apis/operator.cryostat.io/v1beta1/namespaces/default/recordings/cont-recording",
         "uid": "e2b7f375-6fae-11ea-ae0c-52fdfc072182"
     },
     "spec": {
@@ -299,19 +299,19 @@ $ oc get -o json recording/my-recording
 ```
 ```json
 {
-    "apiVersion": "rhjmc.redhat.com/v1beta1",
+    "apiVersion": "operator.cryostat.io/v1beta1",
     "kind": "Recording",
     "metadata": {
         "creationTimestamp": "2020-03-26T22:11:04Z",
         "generation": 1,
         "labels": {
             "app": "jmx-listener",
-            "rhjmc.redhat.com/flightrecorder": "jmx-listener"
+            "operator.cryostat.io/flightrecorder": "jmx-listener"
         },
         "name": "my-recording",
         "namespace": "default",
         "resourceVersion": "395834",
-        "selfLink": "/apis/rhjmc.redhat.com/v1beta1/namespaces/default/recordings/my-recording",
+        "selfLink": "/apis/operator.cryostat.io/v1beta1/namespaces/default/recordings/my-recording",
         "uid": "af1631e2-6fae-11ea-ae0c-52fdfc072182"
     },
     "spec": {
@@ -327,7 +327,7 @@ $ oc get -o json recording/my-recording
         "name": "my-recording"
     },
     "status": {
-        "downloadURL": "https://containerjfr-default.apps-crc.testing:443/recordings/172-30-177-37_my-recording_20200326T221136Z.jfr",
+        "downloadURL": "https://cryostat.apps-crc.testing:443/recordings/172-30-177-37_my-recording_20200326T221136Z.jfr",
         "duration": "30s",
         "startTime": "2020-03-26T22:11:04Z",
         "state": "STOPPED"
@@ -338,7 +338,7 @@ $ oc get -o json recording/my-recording
 You'll need to pass your bearer token with the curl request. (You may also need -k if your test cluster uses a self-signed certificate)
 ```shell
 $ curl -k -H "Authorization: Bearer $(oc whoami -t)" \
-https://containerjfr-default.apps-crc.testing:443/recordings/172-30-177-37_my-recording_20200326T221136Z.jfr \
+https://cryostat.apps-crc.testing:443/recordings/172-30-177-37_my-recording_20200326T221136Z.jfr \
 my-recording.jfr
 ```
 

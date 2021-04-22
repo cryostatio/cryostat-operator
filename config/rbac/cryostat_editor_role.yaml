@@ -1,13 +1,13 @@
-# permissions for end users to edit containerjfrs.
+# permissions for end users to edit cryostats.
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: containerjfr-editor-role
+  name: cryostat-editor-role
 rules:
 - apiGroups:
-  - rhjmc.redhat.com
+  - operator.cryostat.io
   resources:
-  - containerjfrs
+  - cryostats
   verbs:
   - create
   - delete
@@ -17,8 +17,8 @@ rules:
   - update
   - watch
 - apiGroups:
-  - rhjmc.redhat.com
+  - operator.cryostat.io
   resources:
-  - containerjfrs/status
+  - cryostats/status
   verbs:
   - get

@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Red Hat, Inc.
+// Copyright The Cryostat Authors
 //
 // The Universal Permissive License (UPL), Version 1.0
 //
@@ -39,16 +39,16 @@ package resource_definitions
 import (
 	"fmt"
 
+	operatorv1beta1 "github.com/cryostatio/cryostat-operator/api/v1beta1"
 	certv1 "github.com/jetstack/cert-manager/pkg/apis/certmanager/v1"
 	certMeta "github.com/jetstack/cert-manager/pkg/apis/meta/v1"
-	rhjmcv1beta1 "github.com/rh-jmc-team/container-jfr-operator/api/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 // CAKey is the key for a CA certificate within a TLS secret
 const CAKey = certMeta.TLSCAKey
 
-func NewSelfSignedIssuer(cr *rhjmcv1beta1.ContainerJFR) *certv1.Issuer {
+func NewSelfSignedIssuer(cr *operatorv1beta1.Cryostat) *certv1.Issuer {
 	return &certv1.Issuer{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      cr.Name + "-self-signed",
@@ -62,7 +62,7 @@ func NewSelfSignedIssuer(cr *rhjmcv1beta1.ContainerJFR) *certv1.Issuer {
 	}
 }
 
-func NewContainerJFRCAIssuer(cr *rhjmcv1beta1.ContainerJFR) *certv1.Issuer {
+func NewCryostatCAIssuer(cr *operatorv1beta1.Cryostat) *certv1.Issuer {
 	return &certv1.Issuer{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      cr.Name + "-ca",
@@ -78,7 +78,7 @@ func NewContainerJFRCAIssuer(cr *rhjmcv1beta1.ContainerJFR) *certv1.Issuer {
 	}
 }
 
-func NewContainerJFRCACert(cr *rhjmcv1beta1.ContainerJFR) *certv1.Certificate {
+func NewCryostatCACert(cr *operatorv1beta1.Cryostat) *certv1.Certificate {
 	return &certv1.Certificate{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      cr.Name + "-ca",
@@ -95,7 +95,7 @@ func NewContainerJFRCACert(cr *rhjmcv1beta1.ContainerJFR) *certv1.Certificate {
 	}
 }
 
-func NewContainerJFRCert(cr *rhjmcv1beta1.ContainerJFR) *certv1.Certificate {
+func NewCryostatCert(cr *operatorv1beta1.Cryostat) *certv1.Certificate {
 	return &certv1.Certificate{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      cr.Name,
@@ -131,7 +131,7 @@ func NewContainerJFRCert(cr *rhjmcv1beta1.ContainerJFR) *certv1.Certificate {
 	}
 }
 
-func NewGrafanaCert(cr *rhjmcv1beta1.ContainerJFR) *certv1.Certificate {
+func NewGrafanaCert(cr *operatorv1beta1.Cryostat) *certv1.Certificate {
 	return &certv1.Certificate{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      cr.Name + "-grafana",

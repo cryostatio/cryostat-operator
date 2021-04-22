@@ -1,4 +1,4 @@
-apiVersion: rhjmc.redhat.com/v1beta1
+apiVersion: operator.cryostat.io/v1beta1
 kind: Recording
 metadata:
   name: example-recording

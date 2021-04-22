@@ -97,42 +97,42 @@ rules:
   verbs:
   - '*'
 - apiGroups:
-  - rhjmc.redhat.com
+  - operator.cryostat.io
   resources:
-  - containerjfrs
+  - cryostats
   verbs:
   - '*'
 - apiGroups:
-  - rhjmc.redhat.com
+  - operator.cryostat.io
   resources:
-  - containerjfrs
+  - cryostats
   - flightrecorders
   verbs:
   - '*'
 - apiGroups:
-  - rhjmc.redhat.com
+  - operator.cryostat.io
   resources:
-  - containerjfrs
+  - cryostats
   - flightrecorders
   - recordings
   verbs:
   - '*'
 - apiGroups:
-  - rhjmc.redhat.com
+  - operator.cryostat.io
   resources:
-  - containerjfrs/finalizers
+  - cryostats/finalizers
   verbs:
   - update
 - apiGroups:
-  - rhjmc.redhat.com
+  - operator.cryostat.io
   resources:
-  - containerjfrs/status
+  - cryostats/status
   verbs:
   - get
   - patch
   - update
 - apiGroups:
-  - rhjmc.redhat.com
+  - operator.cryostat.io
   resources:
   - flightrecorders
   verbs:
@@ -144,7 +144,7 @@ rules:
   - update
   - watch
 - apiGroups:
-  - rhjmc.redhat.com
+  - operator.cryostat.io
   resources:
   - flightrecorders/status
   verbs:
@@ -152,13 +152,13 @@ rules:
   - patch
   - update
 - apiGroups:
-  - rhjmc.redhat.com
+  - operator.cryostat.io
   resources:
   - recordings/finalizers
   verbs:
   - update
 - apiGroups:
-  - rhjmc.redhat.com
+  - operator.cryostat.io
   resources:
   - recordings/status
   verbs:

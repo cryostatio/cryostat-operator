@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Red Hat, Inc.
+// Copyright The Cryostat Authors
 //
 // The Universal Permissive License (UPL), Version 1.0
 //
@@ -42,14 +42,14 @@ import (
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
+	cryostatClient "github.com/cryostatio/cryostat-operator/controllers/client"
+	"github.com/cryostatio/cryostat-operator/controllers/common"
 	"github.com/onsi/gomega"
-	jfrclient "github.com/rh-jmc-team/container-jfr-operator/controllers/client"
-	"github.com/rh-jmc-team/container-jfr-operator/controllers/common"
 )
 
 // TestReconcilerConfig groups parameters used to create a test Reconciler
 type TestReconcilerConfig struct {
-	Server             *ContainerJFRServer
+	Server             *CryostatServer
 	Client             client.Client
 	DisableTLS         *bool
 	CoreImageTag       *string
@@ -85,20 +85,20 @@ func NewTestReconcilerTLS(config *TestReconcilerConfig) common.ReconcilerTLS {
 	})
 }
 
-func (c *testClientFactory) CreateClient(config *jfrclient.Config) (jfrclient.ContainerJfrClient, error) {
+func (c *testClientFactory) CreateClient(config *cryostatClient.Config) (cryostatClient.CryostatClient, error) {
 	protocol := "https"
 	if c.DisableTLS != nil && *c.DisableTLS {
 		protocol = "http"
 	}
 	// Verify the provided server URL before substituting it
-	gomega.Expect(config.ServerURL.String()).To(gomega.Equal(protocol + "://containerjfr.default.svc:8181/"))
+	gomega.Expect(config.ServerURL.String()).To(gomega.Equal(protocol + "://cryostat.default.svc:8181/"))
 
 	// Replace server URL with one to httptest server
 	url, err := url.Parse(c.Server.impl.URL())
 	gomega.Expect(err).ToNot(gomega.HaveOccurred())
 	config.ServerURL = url
 
-	return jfrclient.NewHTTPClient(config)
+	return cryostatClient.NewHTTPClient(config)
 }
 
 type testOSUtils struct {

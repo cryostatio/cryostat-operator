@@ -5,7 +5,7 @@ metadata:
   name: recording-viewer-role
 rules:
 - apiGroups:
-  - rhjmc.redhat.com
+  - operator.cryostat.io
   resources:
   - recordings
   verbs:
@@ -13,7 +13,7 @@ rules:
   - list
   - watch
 - apiGroups:
-  - rhjmc.redhat.com
+  - operator.cryostat.io
   resources:
   - recordings/status
   verbs:

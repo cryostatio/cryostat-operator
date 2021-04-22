@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Red Hat, Inc.
+// Copyright The Cryostat Authors
 //
 // The Universal Permissive License (UPL), Version 1.0
 //
@@ -51,21 +51,21 @@ import (
 	"strings"
 	"time"
 
+	operatorv1beta1 "github.com/cryostatio/cryostat-operator/api/v1beta1"
 	"github.com/go-logr/logr"
-	rhjmcv1beta1 "github.com/rh-jmc-team/container-jfr-operator/api/v1beta1"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 )
 
-var log = logf.Log.WithName("containerjfr_client")
+var log = logf.Log.WithName("cryostat_client")
 
 const ioTimeout = 30 * time.Second
 
-// Config stores configuration options to connect to Container JFR's
+// Config stores configuration options to connect to Cryostat's
 // web server
 type Config struct {
-	// URL to Container JFR's web server
+	// URL to Cryostat's web server
 	ServerURL *url.URL
-	// Bearer token to authenticate with Container JFR
+	// Bearer token to authenticate with Cryostat
 	AccessToken *string
 	// Certificate of CA to trust, in PEM format
 	CACertificate []byte
@@ -81,9 +81,9 @@ type JMXAuthCredentials struct {
 	Password string
 }
 
-// ContainerJfrClient contains methods for interacting with Container JFR's
+// CryostatClient contains methods for interacting with Cryostats
 // REST API
-type ContainerJfrClient interface {
+type CryostatClient interface {
 	ListRecordings(target *TargetAddress) ([]RecordingDescriptor, error)
 	DumpRecording(target *TargetAddress, name string, seconds int, events []string) error
 	StartRecording(target *TargetAddress, name string, events []string) error
@@ -92,8 +92,8 @@ type ContainerJfrClient interface {
 	SaveRecording(target *TargetAddress, name string) (*string, error)
 	ListSavedRecordings() ([]SavedRecording, error)
 	DeleteSavedRecording(jfrFile string) error
-	ListEventTypes(target *TargetAddress) ([]rhjmcv1beta1.EventInfo, error)
-	ListTemplates(target *TargetAddress) ([]rhjmcv1beta1.TemplateInfo, error)
+	ListEventTypes(target *TargetAddress) ([]operatorv1beta1.EventInfo, error)
+	ListTemplates(target *TargetAddress) ([]operatorv1beta1.TemplateInfo, error)
 }
 
 type httpClient struct {
@@ -118,8 +118,8 @@ const (
 	cmdSave           = "save"
 )
 
-// NewHTTPClient creates a client to communicate with Container JFR over HTTP(S)
-func NewHTTPClient(config *Config) (ContainerJfrClient, error) {
+// NewHTTPClient creates a client to communicate with Cryostat over HTTP(S)
+func NewHTTPClient(config *Config) (CryostatClient, error) {
 	configCopy := *config
 	if config.ServerURL == nil {
 		return nil, errors.New("ServerURL in config must not be nil")
@@ -147,7 +147,7 @@ func NewHTTPClient(config *Config) (ContainerJfrClient, error) {
 		Transport: transport,
 		Timeout:   ioTimeout,
 	}
-	log.Info("creating new Container JFR client", "server", config.ServerURL)
+	log.Info("creating new Cryostat client", "server", config.ServerURL)
 	return &httpClient{
 		config: &configCopy,
 		client: client,
@@ -165,12 +165,12 @@ func (c *httpClient) ListRecordings(target *TargetAddress) ([]RecordingDescripto
 	return result, err
 }
 
-// DumpRecording instructs Container JFR to create a new recording of fixed duration
+// DumpRecording instructs Cryostat to create a new recording of fixed duration
 func (c *httpClient) DumpRecording(target *TargetAddress, name string, seconds int, events []string) error {
 	return c.postRecording(target, name, seconds, events)
 }
 
-// StartRecording instructs Container JFR to create a new continuous recording
+// StartRecording instructs Cryostat to create a new continuous recording
 func (c *httpClient) StartRecording(target *TargetAddress, name string, events []string) error {
 	return c.postRecording(target, name, 0, events)
 }
@@ -191,7 +191,7 @@ func (c *httpClient) postRecording(target *TargetAddress, name string, seconds i
 	return err
 }
 
-// StopRecording instructs Container JFR to stop a recording
+// StopRecording instructs Cryostat to stop a recording
 func (c *httpClient) StopRecording(target *TargetAddress, name string) error {
 	path := &apiPath{
 		resource: resRecordings,
@@ -201,7 +201,7 @@ func (c *httpClient) StopRecording(target *TargetAddress, name string) error {
 	return c.httpPatch(path, cmdStop, nil)
 }
 
-// DeleteRecording deletes a recording from Container JFR
+// DeleteRecording deletes a recording from Cryostat
 func (c *httpClient) DeleteRecording(target *TargetAddress, name string) error {
 	path := &apiPath{
 		resource: resRecordings,
@@ -234,7 +234,7 @@ func (c *httpClient) ListSavedRecordings() ([]SavedRecording, error) {
 }
 
 // DeleteSavedRecording deletes a recording from the persistent storage managed
-// by Container JFR
+// by Cryostat
 func (c *httpClient) DeleteSavedRecording(jfrFile string) error {
 	path := &apiPath{
 		resource: resRecordings,
@@ -244,23 +244,23 @@ func (c *httpClient) DeleteSavedRecording(jfrFile string) error {
 }
 
 // ListEventTypes returns a list of events available in the target JVM
-func (c *httpClient) ListEventTypes(target *TargetAddress) ([]rhjmcv1beta1.EventInfo, error) {
+func (c *httpClient) ListEventTypes(target *TargetAddress) ([]operatorv1beta1.EventInfo, error) {
 	path := &apiPath{
 		resource: resEvents,
 		target:   target,
 	}
-	result := []rhjmcv1beta1.EventInfo{}
+	result := []operatorv1beta1.EventInfo{}
 	err := c.httpGet(path, &result)
 	return result, err
 }
 
 // ListTemplates returns a list of templates available in the target JVM
-func (c *httpClient) ListTemplates(target *TargetAddress) ([]rhjmcv1beta1.TemplateInfo, error) {
+func (c *httpClient) ListTemplates(target *TargetAddress) ([]operatorv1beta1.TemplateInfo, error) {
 	path := &apiPath{
 		resource: resTemplates,
 		target:   target,
 	}
-	result := []rhjmcv1beta1.TemplateInfo{}
+	result := []operatorv1beta1.TemplateInfo{}
 	err := c.httpGet(path, &result)
 	return result, err
 }

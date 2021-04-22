@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Red Hat, Inc.
+// Copyright The Cryostat Authors
 //
 // The Universal Permissive License (UPL), Version 1.0
 //
@@ -40,9 +40,9 @@ import (
 	"net/http"
 	"strconv"
 
+	operatorv1beta1 "github.com/cryostatio/cryostat-operator/api/v1beta1"
+	cryostatClient "github.com/cryostatio/cryostat-operator/controllers/client"
 	"github.com/onsi/gomega/ghttp"
-	rhjmcv1beta1 "github.com/rh-jmc-team/container-jfr-operator/api/v1beta1"
-	jfrclient "github.com/rh-jmc-team/container-jfr-operator/controllers/client"
 )
 
 func NewDumpHandler() http.HandlerFunc {
@@ -133,7 +133,7 @@ func saveHandler(succeed bool) http.HandlerFunc {
 	return ghttp.CombineHandlers(handlers...)
 }
 
-func NewListHandler(descriptors []jfrclient.RecordingDescriptor) http.HandlerFunc {
+func NewListHandler(descriptors []cryostatClient.RecordingDescriptor) http.HandlerFunc {
 	return ghttp.CombineHandlers(
 		ghttp.VerifyRequest(http.MethodGet, "/api/v1/targets/1.2.3.4:8001/recordings"),
 		verifyToken(),
@@ -142,7 +142,7 @@ func NewListHandler(descriptors []jfrclient.RecordingDescriptor) http.HandlerFun
 	)
 }
 
-func NewListFailHandler(descriptors []jfrclient.RecordingDescriptor) http.HandlerFunc {
+func NewListFailHandler(descriptors []cryostatClient.RecordingDescriptor) http.HandlerFunc {
 	return ghttp.CombineHandlers(
 		ghttp.VerifyRequest(http.MethodGet, "/api/v1/targets/1.2.3.4:8001/recordings"),
 		verifyToken(),
@@ -151,8 +151,8 @@ func NewListFailHandler(descriptors []jfrclient.RecordingDescriptor) http.Handle
 	)
 }
 
-func NewRecordingDescriptors(state string, duration int64) []jfrclient.RecordingDescriptor {
-	return []jfrclient.RecordingDescriptor{
+func NewRecordingDescriptors(state string, duration int64) []cryostatClient.RecordingDescriptor {
+	return []cryostatClient.RecordingDescriptor{
 		{
 			Name:        "test-recording",
 			State:       state,
@@ -164,19 +164,19 @@ func NewRecordingDescriptors(state string, duration int64) []jfrclient.Recording
 	}
 }
 
-func NewListSavedHandler(saved []jfrclient.SavedRecording) http.HandlerFunc {
+func NewListSavedHandler(saved []cryostatClient.SavedRecording) http.HandlerFunc {
 	return newListSavedHandler(saved, true, true)
 }
 
-func NewListSavedNoJMXAuthHandler(saved []jfrclient.SavedRecording) http.HandlerFunc {
+func NewListSavedNoJMXAuthHandler(saved []cryostatClient.SavedRecording) http.HandlerFunc {
 	return newListSavedHandler(saved, false, true)
 }
 
-func NewListSavedFailHandler(saved []jfrclient.SavedRecording) http.HandlerFunc {
+func NewListSavedFailHandler(saved []cryostatClient.SavedRecording) http.HandlerFunc {
 	return newListSavedHandler(saved, true, false)
 }
 
-func newListSavedHandler(saved []jfrclient.SavedRecording, jmxAuth bool, succeed bool) http.HandlerFunc {
+func newListSavedHandler(saved []cryostatClient.SavedRecording, jmxAuth bool, succeed bool) http.HandlerFunc {
 	handlers := []http.HandlerFunc{
 		ghttp.VerifyRequest(http.MethodGet, "/api/v1/recordings"),
 		verifyToken(),
@@ -192,8 +192,8 @@ func newListSavedHandler(saved []jfrclient.SavedRecording, jmxAuth bool, succeed
 	return ghttp.CombineHandlers(handlers...)
 }
 
-func NewSavedRecordings() []jfrclient.SavedRecording {
-	return []jfrclient.SavedRecording{
+func NewSavedRecordings() []cryostatClient.SavedRecording {
+	return []cryostatClient.SavedRecording{
 		{
 			Name:        "saved-test-recording.jfr",
 			DownloadURL: "http://path/to/saved-test-recording.jfr",
@@ -275,14 +275,14 @@ func NewListEventTypesFailHandler() http.HandlerFunc {
 	)
 }
 
-func NewEventTypes() []rhjmcv1beta1.EventInfo {
-	return []rhjmcv1beta1.EventInfo{
+func NewEventTypes() []operatorv1beta1.EventInfo {
+	return []operatorv1beta1.EventInfo{
 		{
 			TypeID:      "jdk.socketRead",
 			Name:        "Socket Read",
 			Description: "Reading data from a socket",
 			Category:    []string{"Java Application"},
-			Options: map[string]rhjmcv1beta1.OptionDescriptor{
+			Options: map[string]operatorv1beta1.OptionDescriptor{
 				"enabled": {
 					Name:         "Enabled",
 					Description:  "Record event",
@@ -329,8 +329,8 @@ func NewListTemplatesFailHandler() http.HandlerFunc {
 	)
 }
 
-func NewTemplates() []rhjmcv1beta1.TemplateInfo {
-	return []rhjmcv1beta1.TemplateInfo{
+func NewTemplates() []operatorv1beta1.TemplateInfo {
+	return []operatorv1beta1.TemplateInfo{
 		{
 			Name:        "Profiling",
 			Description: "Low overhead configuration for profiling, typically around 2 % overhead.",

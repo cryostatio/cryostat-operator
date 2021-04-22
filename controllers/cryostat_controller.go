@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Red Hat, Inc.
+// Copyright The Cryostat Authors
 //
 // The Universal Permissive License (UPL), Version 1.0
 //
@@ -48,15 +48,15 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	rhjmcv1beta1 "github.com/rh-jmc-team/container-jfr-operator/api/v1beta1"
+	operatorv1beta1 "github.com/cryostatio/cryostat-operator/api/v1beta1"
 
 	goerrors "errors"
 
+	"github.com/cryostatio/cryostat-operator/controllers/common"
+	resources "github.com/cryostatio/cryostat-operator/controllers/common/resource_definitions"
 	"github.com/google/go-cmp/cmp"
 	consolev1 "github.com/openshift/api/console/v1"
 	openshiftv1 "github.com/openshift/api/route/v1"
-	"github.com/rh-jmc-team/container-jfr-operator/controllers/common"
-	resources "github.com/rh-jmc-team/container-jfr-operator/controllers/common/resource_definitions"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -69,8 +69,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/source"
 )
 
-// ContainerJFRReconciler reconciles a ContainerJFR object
-type ContainerJFRReconciler struct {
+// CryostatReconciler reconciles a Cryostat object
+type CryostatReconciler struct {
 	client.Client
 	Log         logr.Logger
 	Scheme      *runtime.Scheme
@@ -78,8 +78,8 @@ type ContainerJFRReconciler struct {
 	common.ReconcilerTLS
 }
 
-// Name used for Finalizer that handles ContainerJFR deletion
-const cjfrFinalizer = "rhjmc.redhat.com/containerjfr.finalizer"
+// Name used for Finalizer that handles Cryostat deletion
+const cryostatFinalizer = "operator.cryostat.io/cryostat.finalizer"
 
 // Environment variable to override the core application image
 const coreImageTagEnv = "CORE_IMG"
@@ -95,44 +95,44 @@ const grafanaImageTagEnv = "GRAFANA_IMG"
 // +kubebuilder:rbac:namespace=system,groups=apps,resources=deployments;daemonsets;replicasets;statefulsets,verbs=*
 // +kubebuilder:rbac:namespace=system,groups=monitoring.coreos.com,resources=servicemonitors,verbs=get;create
 // +kubebuilder:rbac:namespace=system,groups=cert-manager.io,resources=issuers;certificates,verbs=create;get;list;update;watch
-// +kubebuilder:rbac:namespace=system,groups=rhjmc.redhat.com,resources=containerjfrs,verbs=*
-// +kubebuilder:rbac:namespace=system,groups=rhjmc.redhat.com,resources=containerjfrs/status,verbs=get;update;patch
-// +kubebuilder:rbac:namespace=system,groups=rhjmc.redhat.com,resources=containerjfrs/finalizers,verbs=update
+// +kubebuilder:rbac:namespace=system,groups=operator.cryostat.io,resources=cryostats,verbs=*
+// +kubebuilder:rbac:namespace=system,groups=operator.cryostat.io,resources=cryostats/status,verbs=get;update;patch
+// +kubebuilder:rbac:namespace=system,groups=operator.cryostat.io,resources=cryostats/finalizers,verbs=update
 // +kubebuilder:rbac:groups=console.openshift.io,resources=consolelinks,verbs=get;create;list;update;delete
 // +kubebuilder:rbac:namespace=system,groups=networking.k8s.io,resources=ingresses,verbs=*
 
-// Reconcile processes a ContainerJFR CR and manages a Container JFR installation accordingly
-func (r *ContainerJFRReconciler) Reconcile(ctx context.Context, request ctrl.Request) (ctrl.Result, error) {
+// Reconcile processes a Cryostat CR and manages a Cryostat installation accordingly
+func (r *CryostatReconciler) Reconcile(ctx context.Context, request ctrl.Request) (ctrl.Result, error) {
 	reqLogger := r.Log.WithValues("Request.Namespace", request.Namespace, "Request.Name", request.Name)
 
-	reqLogger.Info("Reconciling ContainerJFR")
+	reqLogger.Info("Reconciling Cryostat")
 
-	// Fetch the ContainerJFR instance
-	instance := &rhjmcv1beta1.ContainerJFR{}
+	// Fetch the Cryostat instance
+	instance := &operatorv1beta1.Cryostat{}
 	err := r.Client.Get(context.Background(), request.NamespacedName, instance)
 	if err != nil {
 		if errors.IsNotFound(err) {
 			// Request object not found, could have been deleted after reconcile request.
 			// Owned objects are automatically garbage collected. For additional cleanup logic use finalizers.
 			// Return and don't requeue
-			reqLogger.Info("ContainerJFR instance not found")
+			reqLogger.Info("Cryostat instance not found")
 			return reconcile.Result{}, nil
 		}
-		reqLogger.Error(err, "Error reading ContainerJFR instance")
+		reqLogger.Error(err, "Error reading Cryostat instance")
 		return reconcile.Result{}, err
 	}
 
 	// OpenShift-specific
 	// Check if this Recording is being deleted
 	if instance.GetDeletionTimestamp() != nil {
-		if controllerutil.ContainsFinalizer(instance, cjfrFinalizer) {
+		if controllerutil.ContainsFinalizer(instance, cryostatFinalizer) {
 			if r.IsOpenShift {
 				err = r.deleteConsoleLinks(context.Background(), instance)
 				if err != nil {
 					return reconcile.Result{}, err
 				}
 			}
-			err = common.RemoveFinalizer(ctx, r.Client, instance, cjfrFinalizer)
+			err = common.RemoveFinalizer(ctx, r.Client, instance, cryostatFinalizer)
 			if err != nil {
 				return reconcile.Result{}, err
 			}
@@ -141,9 +141,9 @@ func (r *ContainerJFRReconciler) Reconcile(ctx context.Context, request ctrl.Req
 		return reconcile.Result{}, nil
 	}
 
-	// Add our finalizer, so we can clean up Container JFR resources upon deletion
-	if !controllerutil.ContainsFinalizer(instance, cjfrFinalizer) {
-		err := common.AddFinalizer(context.Background(), r.Client, instance, cjfrFinalizer)
+	// Add our finalizer, so we can clean up Cryostat resources upon deletion
+	if !controllerutil.ContainsFinalizer(instance, cryostatFinalizer) {
+		err := common.AddFinalizer(context.Background(), r.Client, instance, cryostatFinalizer)
 		if err != nil {
 			return reconcile.Result{}, err
 		}
@@ -184,12 +184,12 @@ func (r *ContainerJFRReconciler) Reconcile(ctx context.Context, request ctrl.Req
 			if err == common.ErrCertNotReady {
 				return reconcile.Result{RequeueAfter: 5 * time.Second}, nil
 			}
-			reqLogger.Error(err, "Failed to set up TLS for Container JFR")
+			reqLogger.Error(err, "Failed to set up TLS for Cryostat")
 			return reconcile.Result{}, err
 		}
 
 		// Get CA certificate from secret and set as destination CA in route
-		caCert, err := r.GetContainerJFRCABytes(context.Background(), instance)
+		caCert, err := r.GetCryostatCABytes(context.Background(), instance)
 		if err != nil {
 			return reconcile.Result{}, err
 		}
@@ -342,11 +342,11 @@ func (r *ContainerJFRReconciler) Reconcile(ctx context.Context, request ctrl.Req
 }
 
 // SetupWithManager sets up the controller with the Manager.
-func (r *ContainerJFRReconciler) SetupWithManager(mgr ctrl.Manager) error {
+func (r *CryostatReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	c := ctrl.NewControllerManagedBy(mgr).
-		For(&rhjmcv1beta1.ContainerJFR{})
+		For(&operatorv1beta1.Cryostat{})
 
-	// Watch for changes to secondary resources and requeue the owner ContainerJFR
+	// Watch for changes to secondary resources and requeue the owner Cryostat
 	resources := []client.Object{&appsv1.Deployment{}, &corev1.Service{}, &corev1.Secret{}, &corev1.PersistentVolumeClaim{}}
 	if r.IsOpenShift {
 		resources = append(resources, &openshiftv1.Route{})
@@ -356,14 +356,14 @@ func (r *ContainerJFRReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	for _, resource := range resources {
 		c = c.Watches(&source.Kind{Type: resource}, &handler.EnqueueRequestForOwner{
 			IsController: true,
-			OwnerType:    &rhjmcv1beta1.ContainerJFR{},
+			OwnerType:    &operatorv1beta1.Cryostat{},
 		})
 	}
 
 	return c.Complete(r)
 }
 
-func (r *ContainerJFRReconciler) createService(ctx context.Context, controller *rhjmcv1beta1.ContainerJFR, svc *corev1.Service, exposePort *corev1.ServicePort,
+func (r *CryostatReconciler) createService(ctx context.Context, controller *operatorv1beta1.Cryostat, svc *corev1.Service, exposePort *corev1.ServicePort,
 	tlsConfig *openshiftv1.TLSConfig) (*url.URL, error) {
 	if err := controllerutil.SetControllerReference(controller, svc, r.Scheme); err != nil {
 		return nil, err
@@ -400,7 +400,7 @@ func (r *ContainerJFRReconciler) createService(ctx context.Context, controller *
 // so that they may be accessed outside of the cluster
 var ErrIngressNotReady = goerrors.New("Ingress configuration not yet available")
 
-func (r *ContainerJFRReconciler) createRouteForService(controller *rhjmcv1beta1.ContainerJFR, svc *corev1.Service, exposePort corev1.ServicePort,
+func (r *CryostatReconciler) createRouteForService(controller *operatorv1beta1.Cryostat, svc *corev1.Service, exposePort corev1.ServicePort,
 	tlsConfig *openshiftv1.TLSConfig) (*url.URL, error) {
 	logger := r.Log.WithValues("Request.Namespace", svc.Namespace, "Name", svc.Name, "Kind", fmt.Sprintf("%T", &openshiftv1.Route{}))
 	route := &openshiftv1.Route{
@@ -447,8 +447,8 @@ func (r *ContainerJFRReconciler) createRouteForService(controller *rhjmcv1beta1.
 	}, nil
 }
 
-func (r *ContainerJFRReconciler) createIngressForService(controller *rhjmcv1beta1.ContainerJFR, svc *corev1.Service,
-	networkConfig *rhjmcv1beta1.NetworkConfiguration) (*url.URL, error) {
+func (r *CryostatReconciler) createIngressForService(controller *operatorv1beta1.Cryostat, svc *corev1.Service,
+	networkConfig *operatorv1beta1.NetworkConfiguration) (*url.URL, error) {
 	logger := r.Log.WithValues("Request.Namespace", svc.Namespace, "Name", svc.Name, "Kind", fmt.Sprintf("%T", &netv1.Ingress{}))
 
 	ingress := &netv1.Ingress{
@@ -495,7 +495,7 @@ func (r *ContainerJFRReconciler) createIngressForService(controller *rhjmcv1beta
 	}, nil
 }
 
-func (r *ContainerJFRReconciler) createObjectIfNotExists(ctx context.Context, ns types.NamespacedName, found client.Object, toCreate client.Object) error {
+func (r *CryostatReconciler) createObjectIfNotExists(ctx context.Context, ns types.NamespacedName, found client.Object, toCreate client.Object) error {
 	logger := r.Log.WithValues("Request.Namespace", ns.Namespace, "Name", ns.Name, "Kind", fmt.Sprintf("%T", toCreate))
 	err := r.Client.Get(ctx, ns, found)
 	if err != nil && errors.IsNotFound(err) {
@@ -515,7 +515,7 @@ func (r *ContainerJFRReconciler) createObjectIfNotExists(ctx context.Context, ns
 	return nil
 }
 
-func (r *ContainerJFRReconciler) getImageTags() *resources.ImageTags {
+func (r *CryostatReconciler) getImageTags() *resources.ImageTags {
 	return &resources.ImageTags{
 		CoreImageTag:       r.getEnvOrDefault(coreImageTagEnv, resources.DefaultCoreImageTag),
 		DatasourceImageTag: r.getEnvOrDefault(datasourceImageTagEnv, resources.DefaultDatasourceImageTag),
@@ -523,7 +523,7 @@ func (r *ContainerJFRReconciler) getImageTags() *resources.ImageTags {
 	}
 }
 
-func (r *ContainerJFRReconciler) getEnvOrDefault(name string, defaultVal string) string {
+func (r *CryostatReconciler) getEnvOrDefault(name string, defaultVal string) string {
 	val := r.GetEnv(name)
 	if len(val) > 0 {
 		return val
@@ -531,7 +531,7 @@ func (r *ContainerJFRReconciler) getEnvOrDefault(name string, defaultVal string)
 	return defaultVal
 }
 
-func (r *ContainerJFRReconciler) getConsoleLinks(cr *rhjmcv1beta1.ContainerJFR) ([]consolev1.ConsoleLink, error) {
+func (r *CryostatReconciler) getConsoleLinks(cr *operatorv1beta1.Cryostat) ([]consolev1.ConsoleLink, error) {
 	links := &consolev1.ConsoleLinkList{}
 	linkLabels := labels.Set{
 		resources.ConsoleLinkNSLabel:   cr.Namespace,
@@ -546,7 +546,7 @@ func (r *ContainerJFRReconciler) getConsoleLinks(cr *rhjmcv1beta1.ContainerJFR) 
 	return links.Items, nil
 }
 
-func (r *ContainerJFRReconciler) deleteConsoleLinks(ctx context.Context, cr *rhjmcv1beta1.ContainerJFR) error {
+func (r *CryostatReconciler) deleteConsoleLinks(ctx context.Context, cr *operatorv1beta1.Cryostat) error {
 	reqLogger := r.Log.WithValues("Request.Namespace", cr.Namespace, "Request.Name", cr.Name)
 	links, err := r.getConsoleLinks(cr)
 	if err != nil {
@@ -580,7 +580,7 @@ func requeueIfIngressNotReady(log logr.Logger, err error) (reconcile.Result, err
 	return reconcile.Result{}, err
 }
 
-func getNetworkConfig(controller *rhjmcv1beta1.ContainerJFR, svc *corev1.Service) (*rhjmcv1beta1.NetworkConfiguration, error) {
+func getNetworkConfig(controller *operatorv1beta1.Cryostat, svc *corev1.Service) (*operatorv1beta1.NetworkConfiguration, error) {
 	if svc.Name == controller.Name {
 		return controller.Spec.NetworkOptions.ExporterConfig, nil
 	} else if svc.Name == controller.Name+"-command" {

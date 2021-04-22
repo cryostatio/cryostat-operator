@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Red Hat, Inc.
+// Copyright The Cryostat Authors
 //
 // The Universal Permissive License (UPL), Version 1.0
 //
@@ -42,8 +42,8 @@ import (
 	"net/url"
 	"time"
 
+	operatorv1beta1 "github.com/cryostatio/cryostat-operator/api/v1beta1"
 	consolev1 "github.com/openshift/api/console/v1"
-	rhjmcv1beta1 "github.com/rh-jmc-team/container-jfr-operator/api/v1beta1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -69,15 +69,15 @@ type ServiceSpecs struct {
 
 // TLSConfig contains TLS-related information useful when creating other objects
 type TLSConfig struct {
-	// Name of the TLS secret for Container JFR
-	ContainerJFRSecret string
+	// Name of the TLS secret for Cryostat
+	CryostatSecret string
 	// Name of the TLS secret for Grafana
 	GrafanaSecret string
-	// Name of the secret containing the password for the keystore in ContainerJFRSecret
+	// Name of the secret containing the password for the keystore in CryostatSecret
 	KeystorePassSecret string
 }
 
-func NewPersistentVolumeClaimForCR(cr *rhjmcv1beta1.ContainerJFR) *corev1.PersistentVolumeClaim {
+func NewPersistentVolumeClaimForCR(cr *operatorv1beta1.Cryostat) *corev1.PersistentVolumeClaim {
 	objMeta := metav1.ObjectMeta{
 		Name:      cr.Name,
 		Namespace: cr.Namespace,
@@ -118,7 +118,7 @@ func NewPersistentVolumeClaimForCR(cr *rhjmcv1beta1.ContainerJFR) *corev1.Persis
 	}
 }
 
-func NewDeploymentForCR(cr *rhjmcv1beta1.ContainerJFR, specs *ServiceSpecs, imageTags *ImageTags,
+func NewDeploymentForCR(cr *operatorv1beta1.Cryostat, specs *ServiceSpecs, imageTags *ImageTags,
 	tls *TLSConfig) *appsv1.Deployment {
 	return &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
@@ -126,18 +126,18 @@ func NewDeploymentForCR(cr *rhjmcv1beta1.ContainerJFR, specs *ServiceSpecs, imag
 			Namespace: cr.Namespace,
 			Labels: map[string]string{
 				"app":                    cr.Name,
-				"kind":                   "containerjfr",
-				"app.kubernetes.io/name": "container-jfr",
+				"kind":                   "cryostat",
+				"app.kubernetes.io/name": "cryostat",
 			},
 			Annotations: map[string]string{
-				"app.openshift.io/connects-to": "container-jfr-operator",
+				"app.openshift.io/connects-to": "cryostat-operator",
 			},
 		},
 		Spec: appsv1.DeploymentSpec{
 			Selector: &metav1.LabelSelector{
 				MatchLabels: map[string]string{
 					"app":  cr.Name,
-					"kind": "containerjfr",
+					"kind": "cryostat",
 				},
 			},
 			Template: corev1.PodTemplateSpec{
@@ -146,7 +146,7 @@ func NewDeploymentForCR(cr *rhjmcv1beta1.ContainerJFR, specs *ServiceSpecs, imag
 					Namespace: cr.Namespace,
 					Labels: map[string]string{
 						"app":  cr.Name,
-						"kind": "containerjfr",
+						"kind": "cryostat",
 					},
 				},
 				Spec: *NewPodForCR(cr, specs, imageTags, tls),
@@ -155,7 +155,7 @@ func NewDeploymentForCR(cr *rhjmcv1beta1.ContainerJFR, specs *ServiceSpecs, imag
 	}
 }
 
-func NewPodForCR(cr *rhjmcv1beta1.ContainerJFR, specs *ServiceSpecs, imageTags *ImageTags,
+func NewPodForCR(cr *operatorv1beta1.Cryostat, specs *ServiceSpecs, imageTags *ImageTags,
 	tls *TLSConfig) *corev1.PodSpec {
 	var containers []corev1.Container
 	if cr.Spec.Minimal {
@@ -185,7 +185,7 @@ func NewPodForCR(cr *rhjmcv1beta1.ContainerJFR, specs *ServiceSpecs, imageTags *
 			Name: "tls-secret",
 			VolumeSource: corev1.VolumeSource{
 				Secret: &corev1.SecretVolumeSource{
-					SecretName: tls.ContainerJFRSecret,
+					SecretName: tls.CryostatSecret,
 				},
 			},
 		}
@@ -218,43 +218,43 @@ func NewPodForCR(cr *rhjmcv1beta1.ContainerJFR, specs *ServiceSpecs, imageTags *
 		volumes = append(volumes, customVolumes...)
 	}
 	return &corev1.PodSpec{
-		ServiceAccountName: "container-jfr-operator-service-account",
+		ServiceAccountName: "cryostat-operator-service-account",
 		Volumes:            volumes,
 		Containers:         containers,
 	}
 }
 
-func NewCoreContainer(cr *rhjmcv1beta1.ContainerJFR, specs *ServiceSpecs, imageTag string, tls *TLSConfig) corev1.Container {
+func NewCoreContainer(cr *operatorv1beta1.Cryostat, specs *ServiceSpecs, imageTag string, tls *TLSConfig) corev1.Container {
 	envs := []corev1.EnvVar{
 		{
-			Name:  "CONTAINER_JFR_SSL_PROXIED",
+			Name:  "CRYOSTAT_SSL_PROXIED",
 			Value: "true",
 		},
 		{
-			Name:  "CONTAINER_JFR_ALLOW_UNTRUSTED_SSL",
+			Name:  "CRYOSTAT_ALLOW_UNTRUSTED_SSL",
 			Value: "true",
 		},
 		{
-			Name:  "CONTAINER_JFR_WEB_PORT",
+			Name:  "CRYOSTAT_WEB_PORT",
 			Value: "8181",
 		},
 		{
-			Name:  "CONTAINER_JFR_LISTEN_PORT",
+			Name:  "CRYOSTAT_LISTEN_PORT",
 			Value: "9090",
 		},
 		{
-			Name:  "CONTAINER_JFR_TEMPLATE_PATH",
+			Name:  "CRYOSTAT_TEMPLATE_PATH",
 			Value: "/templates",
 		},
 	}
 	if specs.CoreURL != nil {
 		coreEnvs := []corev1.EnvVar{
 			{
-				Name:  "CONTAINER_JFR_EXT_WEB_PORT",
+				Name:  "CRYOSTAT_EXT_WEB_PORT",
 				Value: getPort(specs.CoreURL),
 			},
 			{
-				Name:  "CONTAINER_JFR_WEB_HOST",
+				Name:  "CRYOSTAT_WEB_HOST",
 				Value: specs.CoreURL.Hostname(),
 			},
 		}
@@ -263,11 +263,11 @@ func NewCoreContainer(cr *rhjmcv1beta1.ContainerJFR, specs *ServiceSpecs, imageT
 	if specs.CommandURL != nil {
 		commandEnvs := []corev1.EnvVar{
 			{
-				Name:  "CONTAINER_JFR_EXT_LISTEN_PORT",
+				Name:  "CRYOSTAT_EXT_LISTEN_PORT",
 				Value: getPort(specs.CommandURL),
 			},
 			{
-				Name:  "CONTAINER_JFR_LISTEN_HOST",
+				Name:  "CRYOSTAT_LISTEN_HOST",
 				Value: specs.CommandURL.Hostname(),
 			},
 		}
@@ -314,16 +314,16 @@ func NewCoreContainer(cr *rhjmcv1beta1.ContainerJFR, specs *ServiceSpecs, imageT
 
 	livenessProbeScheme := corev1.URISchemeHTTP
 	if tls == nil {
-		// If TLS isn't set up, tell Container JFR to not use it
+		// If TLS isn't set up, tell Cryostat to not use it
 		envs = append(envs, corev1.EnvVar{
-			Name:  "CONTAINER_JFR_DISABLE_SSL",
+			Name:  "CRYOSTAT_DISABLE_SSL",
 			Value: "true",
 		})
 	} else {
 		// Configure keystore location and password in expected environment variables
 		envs = append(envs, corev1.EnvVar{
 			Name:  "KEYSTORE_PATH",
-			Value: fmt.Sprintf("/var/run/secrets/rhjmc.redhat.com/%s/keystore.p12", tls.ContainerJFRSecret),
+			Value: fmt.Sprintf("/var/run/secrets/operator.cryostat.io/%s/keystore.p12", tls.CryostatSecret),
 		})
 		envsFrom = append(envsFrom, corev1.EnvFromSource{
 			SecretRef: &corev1.SecretEnvSource{
@@ -336,7 +336,7 @@ func NewCoreContainer(cr *rhjmcv1beta1.ContainerJFR, specs *ServiceSpecs, imageT
 		// Mount the TLS secret's keystore
 		keystoreMount := corev1.VolumeMount{
 			Name:      "tls-secret",
-			MountPath: fmt.Sprintf("/var/run/secrets/rhjmc.redhat.com/%s/keystore.p12", tls.ContainerJFRSecret),
+			MountPath: fmt.Sprintf("/var/run/secrets/operator.cryostat.io/%s/keystore.p12", tls.CryostatSecret),
 			SubPath:   "keystore.p12",
 			ReadOnly:  true,
 		}
@@ -351,14 +351,14 @@ func NewCoreContainer(cr *rhjmcv1beta1.ContainerJFR, specs *ServiceSpecs, imageT
 
 		mounts = append(mounts, keystoreMount, caCertMount)
 
-		// Mount the certificates specified in containerjfr CRD in /truststore location
+		// Mount the certificates specified in cryostat CRD in /truststore location
 		secretMounts := []corev1.VolumeMount{}
 		for _, secret := range cr.Spec.TrustedCertSecrets {
 			var key string
 			if secret.CertificateKey != nil {
 				key = *secret.CertificateKey
 			} else {
-				key = rhjmcv1beta1.DefaultCertificateKey
+				key = operatorv1beta1.DefaultCertificateKey
 			}
 			mount := corev1.VolumeMount{
 				Name:      secret.SecretName,
@@ -409,7 +409,7 @@ func NewCoreContainer(cr *rhjmcv1beta1.ContainerJFR, specs *ServiceSpecs, imageT
 	}
 }
 
-func NewGrafanaSecretForCR(cr *rhjmcv1beta1.ContainerJFR) *corev1.Secret {
+func NewGrafanaSecretForCR(cr *operatorv1beta1.Cryostat) *corev1.Secret {
 	return &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      cr.Name + "-grafana-basic",
@@ -432,7 +432,7 @@ func GenPasswd(length int) string {
 	return string(b)
 }
 
-func NewGrafanaContainer(cr *rhjmcv1beta1.ContainerJFR, imageTag string, tls *TLSConfig) corev1.Container {
+func NewGrafanaContainer(cr *operatorv1beta1.Cryostat, imageTag string, tls *TLSConfig) corev1.Container {
 	envs := []corev1.EnvVar{
 		{
 			Name:  "JFR_DATASOURCE_URL",
@@ -451,17 +451,17 @@ func NewGrafanaContainer(cr *rhjmcv1beta1.ContainerJFR, imageTag string, tls *TL
 			},
 			{
 				Name:  "GF_SERVER_CERT_KEY",
-				Value: fmt.Sprintf("/var/run/secrets/rhjmc.redhat.com/%s/%s", tls.GrafanaSecret, corev1.TLSPrivateKeyKey),
+				Value: fmt.Sprintf("/var/run/secrets/operator.cryostat.io/%s/%s", tls.GrafanaSecret, corev1.TLSPrivateKeyKey),
 			},
 			{
 				Name:  "GF_SERVER_CERT_FILE",
-				Value: fmt.Sprintf("/var/run/secrets/rhjmc.redhat.com/%s/%s", tls.GrafanaSecret, corev1.TLSCertKey),
+				Value: fmt.Sprintf("/var/run/secrets/operator.cryostat.io/%s/%s", tls.GrafanaSecret, corev1.TLSCertKey),
 			},
 		}
 
 		tlsSecretMount := corev1.VolumeMount{
 			Name:      "grafana-tls-secret",
-			MountPath: "/var/run/secrets/rhjmc.redhat.com/" + tls.GrafanaSecret,
+			MountPath: "/var/run/secrets/operator.cryostat.io/" + tls.GrafanaSecret,
 			ReadOnly:  true,
 		}
 
@@ -508,7 +508,7 @@ const datasourcePort = "8080"
 // DatasourceURL contains the fixed URL to jfr-datasource's web server
 const DatasourceURL = "http://" + datasourceHost + ":" + datasourcePort
 
-func NewJfrDatasourceContainer(cr *rhjmcv1beta1.ContainerJFR, imageTag string) corev1.Container {
+func NewJfrDatasourceContainer(cr *operatorv1beta1.Cryostat, imageTag string) corev1.Container {
 	return corev1.Container{
 		Name:  cr.Name + "-jfr-datasource",
 		Image: imageTag,
@@ -534,14 +534,14 @@ func NewJfrDatasourceContainer(cr *rhjmcv1beta1.ContainerJFR, imageTag string) c
 	}
 }
 
-func NewExporterService(cr *rhjmcv1beta1.ContainerJFR) *corev1.Service {
+func NewExporterService(cr *operatorv1beta1.Cryostat) *corev1.Service {
 	return &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      cr.Name,
 			Namespace: cr.Namespace,
 			Labels: map[string]string{
 				"app":       cr.Name,
-				"component": "container-jfr",
+				"component": "cryostat",
 			},
 		},
 		Spec: corev1.ServiceSpec{
@@ -565,7 +565,7 @@ func NewExporterService(cr *rhjmcv1beta1.ContainerJFR) *corev1.Service {
 	}
 }
 
-func NewCommandChannelService(cr *rhjmcv1beta1.ContainerJFR) *corev1.Service {
+func NewCommandChannelService(cr *operatorv1beta1.Cryostat) *corev1.Service {
 	return &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      cr.Name + "-command",
@@ -591,7 +591,7 @@ func NewCommandChannelService(cr *rhjmcv1beta1.ContainerJFR) *corev1.Service {
 	}
 }
 
-func NewGrafanaService(cr *rhjmcv1beta1.ContainerJFR) *corev1.Service {
+func NewGrafanaService(cr *operatorv1beta1.Cryostat) *corev1.Service {
 	return &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      cr.Name + "-grafana",
@@ -618,29 +618,29 @@ func NewGrafanaService(cr *rhjmcv1beta1.ContainerJFR) *corev1.Service {
 }
 
 // JMXSecretNameSuffix is the suffix to be appended to the name of a
-// ContainerJFR CR to name its JMX credentials secret
+// Cryostat CR to name its JMX credentials secret
 const JMXSecretNameSuffix = "-jmx-auth"
 
-// JMXSecretUserKey indexes the username within the Container JFR JMX auth secret
-const JMXSecretUserKey = "CONTAINER_JFR_RJMX_USER"
+// JMXSecretUserKey indexes the username within the Cryostat JMX auth secret
+const JMXSecretUserKey = "CRYOSTAT_RJMX_USER"
 
-// JMXSecretPassKey indexes the password within the Container JFR JMX auth secret
-const JMXSecretPassKey = "CONTAINER_JFR_RJMX_PASS"
+// JMXSecretPassKey indexes the password within the Cryostat JMX auth secret
+const JMXSecretPassKey = "CRYOSTAT_RJMX_PASS"
 
-func NewJmxSecretForCR(cr *rhjmcv1beta1.ContainerJFR) *corev1.Secret {
+func NewJmxSecretForCR(cr *operatorv1beta1.Cryostat) *corev1.Secret {
 	return &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      cr.Name + JMXSecretNameSuffix,
 			Namespace: cr.Namespace,
 		},
 		StringData: map[string]string{
-			"CONTAINER_JFR_RJMX_USER": "containerjfr",
-			"CONTAINER_JFR_RJMX_PASS": GenPasswd(20),
+			"CRYOSTAT_RJMX_USER": "cryostat",
+			"CRYOSTAT_RJMX_PASS": GenPasswd(20),
 		},
 	}
 }
 
-func NewKeystoreSecretForCR(cr *rhjmcv1beta1.ContainerJFR) *corev1.Secret {
+func NewKeystoreSecretForCR(cr *operatorv1beta1.Cryostat) *corev1.Secret {
 	return &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      cr.Name + "-keystore",
@@ -652,14 +652,14 @@ func NewKeystoreSecretForCR(cr *rhjmcv1beta1.ContainerJFR) *corev1.Secret {
 	}
 }
 
-const ConsoleLinkNSLabel = "rhjmc.redhat.com/containerjfr-consolelink-namespace"
-const ConsoleLinkNameLabel = "rhjmc.redhat.com/containerjfr-consolelink-name"
+const ConsoleLinkNSLabel = "operator.cryostat.io/cryostat-consolelink-namespace"
+const ConsoleLinkNameLabel = "operator.cryostat.io/cryostat-consolelink-name"
 
-func NewConsoleLink(cr *rhjmcv1beta1.ContainerJFR, url string) *consolev1.ConsoleLink {
+func NewConsoleLink(cr *operatorv1beta1.Cryostat, url string) *consolev1.ConsoleLink {
 	// Cluster scoped, so use generated name to avoid conflicts. Look up using labels.
 	return &consolev1.ConsoleLink{
 		ObjectMeta: metav1.ObjectMeta{
-			GenerateName: "containerjfr-",
+			GenerateName: "cryostat-",
 			Labels: map[string]string{
 				ConsoleLinkNSLabel:   cr.Namespace,
 				ConsoleLinkNameLabel: cr.Name,
@@ -667,7 +667,7 @@ func NewConsoleLink(cr *rhjmcv1beta1.ContainerJFR, url string) *consolev1.Consol
 		},
 		Spec: consolev1.ConsoleLinkSpec{
 			Link: consolev1.Link{
-				Text: "Container JDK Flight Recorder",
+				Text: "Cryostat",
 				Href: url,
 			},
 			Location: consolev1.NamespaceDashboard,

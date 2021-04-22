@@ -5,10 +5,10 @@ metadata:
     alm-examples: |-
       [
         {
-          "apiVersion": "rhjmc.redhat.com/v1beta1",
-          "kind": "ContainerJFR",
+          "apiVersion": "operator.cryostat.io/v1beta1",
+          "kind": "Cryostat",
           "metadata": {
-            "name": "containerjfr-sample"
+            "name": "cryostat-sample"
           },
           "spec": {
             "minimal": false,
@@ -23,7 +23,7 @@ metadata:
           }
         },
         {
-          "apiVersion": "rhjmc.redhat.com/v1beta1",
+          "apiVersion": "operator.cryostat.io/v1beta1",
           "kind": "FlightRecorder",
           "metadata": {
             "name": "example-flightrecorder"
@@ -31,13 +31,13 @@ metadata:
           "spec": {
             "recordingSelector": {
               "matchLabels": {
-                "rhjmc.redhat.com/flightrecorder": "example-flightrecorder"
+                "operator.cryostat.io/flightrecorder": "example-flightrecorder"
               }
             }
           }
         },
         {
-          "apiVersion": "rhjmc.redhat.com/v1beta1",
+          "apiVersion": "operator.cryostat.io/v1beta1",
           "kind": "Recording",
           "metadata": {
             "name": "example-recording"
@@ -58,23 +58,23 @@ metadata:
     capabilities: Basic Install
     categories: Monitoring, Developer Tools
     certified: "false"
-    containerImage: quay.io/rh-jmc-team/container-jfr-operator:1.0.0-beta5
+    containerImage: quay.io/cryostat/cryostat-operator:1.0.0-beta5
     createdAt: "2020-07-03 00:00:00"
     description: JVM monitoring and profiling tool
     operators.operatorframework.io/builder: operator-sdk-v1.4.0+git
     operators.operatorframework.io/project_layout: go.kubebuilder.io/v3
-    repository: github.com/rh-jmc-team/container-jfr-operator
+    repository: github.com/cryostatio/cryostat-operator
     support: Red Hat
-  name: container-jfr-operator.v1.0.0-beta5
+  name: cryostat-operator.v1.0.0-beta5
   namespace: placeholder
 spec:
   apiservicedefinitions: {}
   customresourcedefinitions:
     owned:
-    - description: ContainerJFR is the Schema for the containerjfrs API
-      displayName: Container JFR
-      kind: ContainerJFR
-      name: containerjfrs.rhjmc.redhat.com
+    - description: Cryostat is the Schema for the cryostats API
+      displayName: Cryostat
+      kind: Cryostat
+      name: cryostats.operator.cryostat.io
       resources:
       - kind: ConsoleLink
         name: ""
@@ -98,7 +98,7 @@ spec:
         name: ""
         version: v1
       specDescriptors:
-      - description: Deploy a pared-down ContainerJFR instance with no Grafana dashboard or jfr-datasource and no web-client UI.
+      - description: Deploy a pared-down Cryostat instance with no Grafana dashboard or jfr-datasource and no web-client UI.
         displayName: Minimal Deployment
         path: minimal
         x-descriptors:
@@ -129,7 +129,7 @@ spec:
     - description: FlightRecorder is the Schema for the flightrecorders API
       displayName: Flight Recorder
       kind: FlightRecorder
-      name: flightrecorders.rhjmc.redhat.com
+      name: flightrecorders.operator.cryostat.io
       resources:
       - kind: Pod
         name: ""
@@ -166,7 +166,7 @@ spec:
     - description: Recording is the Schema for the recordings API
       displayName: Recording
       kind: Recording
-      name: recordings.rhjmc.redhat.com
+      name: recordings.operator.cryostat.io
       resources:
       - kind: Pod
         name: ""
@@ -232,8 +232,8 @@ spec:
         - urn:alm:descriptor:text
       version: v1beta1
   description: |
-    ContainerJFR provides a cloud-based solution for interacting with the JDK Flight Recorder already present in OpenJDK 11+ JVMs. With ContainerJFR, users can remotely start, stop, retrieve, and even analyze JFR event data, providing the capbility to easily take advantage of Flight Recorder''s extremely low runtime cost and overhead and the flexibility to monitor applications and analyze recording data without transferring data outside of the cluster the application runs within.
-  displayName: ContainerJFR
+    Cryostat provides a cloud-based solution for interacting with the JDK Flight Recorder already present in OpenJDK 11+ JVMs. With Cryostat, users can remotely start, stop, retrieve, and even analyze JFR event data, providing the capbility to easily take advantage of Flight Recorder''s extremely low runtime cost and overhead and the flexibility to monitor applications and analyze recording data without transferring data outside of the cluster the application runs within.
+  displayName: Cryostat
   icon:
   - base64data: ""
     mediatype: image/png
@@ -251,9 +251,9 @@ spec:
           - get
           - list
           - update
-        serviceAccountName: container-jfr-operator-service-account
+        serviceAccountName: cryostat-operator-service-account
       deployments:
-      - name: container-jfr-operator-controller-manager
+      - name: cryostat-operator-controller-manager
         spec:
           replicas: 1
           selector:
@@ -277,8 +277,8 @@ spec:
                       fieldPath: metadata.annotations['olm.targetNamespaces']
                 envFrom:
                 - configMapRef:
-                    name: container-jfr-operator-manager-env
-                image: quay.io/rh-jmc-team/container-jfr-operator:1.0.0-beta5
+                    name: cryostat-operator-manager-env
+                image: quay.io/cryostat/cryostat-operator:1.0.0-beta5
                 livenessProbe:
                   httpGet:
                     path: /healthz
@@ -297,7 +297,7 @@ spec:
                   allowPrivilegeEscalation: false
               securityContext:
                 runAsNonRoot: true
-              serviceAccountName: container-jfr-operator-service-account
+              serviceAccountName: cryostat-operator-service-account
               terminationGracePeriodSeconds: 10
       permissions:
       - rules:
@@ -394,42 +394,42 @@ spec:
           verbs:
           - '*'
         - apiGroups:
-          - rhjmc.redhat.com
+          - operator.cryostat.io
           resources:
-          - containerjfrs
+          - cryostats
           verbs:
           - '*'
         - apiGroups:
-          - rhjmc.redhat.com
+          - operator.cryostat.io
           resources:
-          - containerjfrs
+          - cryostats
           - flightrecorders
           verbs:
           - '*'
         - apiGroups:
-          - rhjmc.redhat.com
+          - operator.cryostat.io
           resources:
-          - containerjfrs
+          - cryostats
           - flightrecorders
           - recordings
           verbs:
           - '*'
         - apiGroups:
-          - rhjmc.redhat.com
+          - operator.cryostat.io
           resources:
-          - containerjfrs/finalizers
+          - cryostats/finalizers
           verbs:
           - update
         - apiGroups:
-          - rhjmc.redhat.com
+          - operator.cryostat.io
           resources:
-          - containerjfrs/status
+          - cryostats/status
           verbs:
           - get
           - patch
           - update
         - apiGroups:
-          - rhjmc.redhat.com
+          - operator.cryostat.io
           resources:
           - flightrecorders
           verbs:
@@ -441,7 +441,7 @@ spec:
           - update
           - watch
         - apiGroups:
-          - rhjmc.redhat.com
+          - operator.cryostat.io
           resources:
           - flightrecorders/status
           verbs:
@@ -449,13 +449,13 @@ spec:
           - patch
           - update
         - apiGroups:
-          - rhjmc.redhat.com
+          - operator.cryostat.io
           resources:
           - recordings/finalizers
           verbs:
           - update
         - apiGroups:
-          - rhjmc.redhat.com
+          - operator.cryostat.io
           resources:
           - recordings/status
           verbs:
@@ -469,7 +469,7 @@ spec:
           - routes/custom-host
           verbs:
           - '*'
-        serviceAccountName: container-jfr-operator-service-account
+        serviceAccountName: cryostat-operator-service-account
     strategy: deployment
   installModes:
   - supported: true
@@ -491,7 +491,7 @@ spec:
   - profiling
   links:
   - name: Upstream Project
-    url: https://github.com/rh-jmc-team/container-jfr
+    url: https://github.com/cryostatio/cryostat
   maintainers:
   - email: aazores@redhat.com
     name: Andrew Azores

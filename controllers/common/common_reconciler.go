@@ -1,4 +1,4 @@
-// Copyright (c) 2021 Red Hat, Inc.
+// Copyright The Cryostat Authors
 //
 // The Universal Permissive License (UPL), Version 1.0
 //
@@ -42,8 +42,8 @@ import (
 	"fmt"
 	"net/url"
 
-	rhjmcv1beta1 "github.com/rh-jmc-team/container-jfr-operator/api/v1beta1"
-	jfrclient "github.com/rh-jmc-team/container-jfr-operator/controllers/client"
+	operatorv1beta1 "github.com/cryostatio/cryostat-operator/api/v1beta1"
+	cryostatClient "github.com/cryostatio/cryostat-operator/controllers/client"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -59,19 +59,19 @@ type ReconcilerConfig struct {
 	// that reads objects from the cache and writes to the apiserver
 	Client client.Client
 	// Optional field to specify an alternate ClientFactory used by
-	// Reconciler to create ContainerJFRClients
-	ClientFactory ContainerJFRClientFactory
+	// Reconciler to create CryostatClients
+	ClientFactory CryostatClientFactory
 	// Optional field to override the default behaviour when interacting
 	// with the operating system
 	OS OSUtils
 }
 
-// Reconciler contains helpful methods to communicate with Container JFR.
+// Reconciler contains helpful methods to communicate with Cryostat
 // It is meant to be embedded within other Reconcilers.
 type Reconciler interface {
-	FindContainerJFR(ctx context.Context, namespace string) (*rhjmcv1beta1.ContainerJFR, error)
-	GetContainerJFRClient(ctx context.Context, namespace string, jmxAuth *rhjmcv1beta1.JMXAuthSecret) (jfrclient.ContainerJfrClient, error)
-	GetPodTarget(targetPod *corev1.Pod, jmxPort int32) (*jfrclient.TargetAddress, error)
+	FindCryostat(ctx context.Context, namespace string) (*operatorv1beta1.Cryostat, error)
+	GetCryostatClient(ctx context.Context, namespace string, jmxAuth *operatorv1beta1.JMXAuthSecret) (cryostatClient.CryostatClient, error)
+	GetPodTarget(targetPod *corev1.Pod, jmxPort int32) (*cryostatClient.TargetAddress, error)
 	ReconcilerTLS
 }
 
@@ -101,12 +101,12 @@ func NewReconciler(config *ReconcilerConfig) Reconciler {
 	}
 }
 
-// GetContainerJFRClient creates a client to communicate with the Container JFR
+// GetCryostatClient creates a client to communicate with the Cryostat
 // instance deployed by this operator in the given namespace
-func (r *commonReconciler) GetContainerJFRClient(ctx context.Context, namespace string,
-	jmxAuth *rhjmcv1beta1.JMXAuthSecret) (jfrclient.ContainerJfrClient, error) {
-	// Look up ContainerJFR instance within the given namespace
-	cjfr, err := r.FindContainerJFR(ctx, namespace)
+func (r *commonReconciler) GetCryostatClient(ctx context.Context, namespace string,
+	jmxAuth *operatorv1beta1.JMXAuthSecret) (cryostatClient.CryostatClient, error) {
+	// Look up Cryostat instance within the given namespace
+	cryostat, err := r.FindCryostat(ctx, namespace)
 	if err != nil {
 		return nil, err
 	}
@@ -114,14 +114,14 @@ func (r *commonReconciler) GetContainerJFRClient(ctx context.Context, namespace 
 	var caCert []byte
 	protocol := "http"
 	if r.IsCertManagerEnabled() {
-		caCert, err = r.GetContainerJFRCABytes(ctx, cjfr)
+		caCert, err = r.GetCryostatCABytes(ctx, cryostat)
 		if err != nil {
 			return nil, err
 		}
 		protocol = "https"
 	}
-	// Get the URL to the Container JFR web service
-	serverURL, err := r.getServerURL(ctx, cjfr.Namespace, cjfr.Name, protocol)
+	// Get the URL to the Cryostat web service
+	serverURL, err := r.getServerURL(ctx, cryostat.Namespace, cryostat.Name, protocol)
 	if err != nil {
 		return nil, err
 	}
@@ -133,7 +133,7 @@ func (r *commonReconciler) GetContainerJFRClient(ctx context.Context, namespace 
 	strTok := string(tok)
 
 	// Get JMX authentication credentials, if present
-	var jmxCreds *jfrclient.JMXAuthCredentials
+	var jmxCreds *cryostatClient.JMXAuthCredentials
 	if jmxAuth != nil {
 		jmxCreds, err = r.getJMXCredentialsFromSecret(ctx, namespace, jmxAuth)
 		if err != nil {
@@ -141,59 +141,59 @@ func (r *commonReconciler) GetContainerJFRClient(ctx context.Context, namespace 
 		}
 	}
 
-	// Create Container JFR HTTP(S) client
-	config := &jfrclient.Config{
+	// Create Cryostat HTTP(S) client
+	config := &cryostatClient.Config{
 		ServerURL:      serverURL,
 		AccessToken:    &strTok,
 		CACertificate:  caCert,
 		JMXCredentials: jmxCreds,
 	}
-	jfrClient, err := r.ClientFactory.CreateClient(config)
+	cryostatClient, err := r.ClientFactory.CreateClient(config)
 	if err != nil {
 		return nil, err
 	}
-	return jfrClient, nil
+	return cryostatClient, nil
 }
 
 // GetPodTarget returns a TargetAddress for a particular pod and port number
-func (r *commonReconciler) GetPodTarget(targetPod *corev1.Pod, jmxPort int32) (*jfrclient.TargetAddress, error) {
+func (r *commonReconciler) GetPodTarget(targetPod *corev1.Pod, jmxPort int32) (*cryostatClient.TargetAddress, error) {
 	// Create TargetAddress using pod's IP address and provided port
 	podIP, err := getPodIP(targetPod)
 	if err != nil {
 		return nil, err
 	}
-	return &jfrclient.TargetAddress{
+	return &cryostatClient.TargetAddress{
 		Host: *podIP,
 		Port: jmxPort,
 	}, nil
 }
 
-func (r *commonReconciler) FindContainerJFR(ctx context.Context, namespace string) (*rhjmcv1beta1.ContainerJFR, error) {
-	// TODO Consider how to find ContainerJFR object if this operator becomes cluster-scoped
-	// Look up the ContainerJFR object for this operator, which will help us find its services
-	cjfrList := &rhjmcv1beta1.ContainerJFRList{}
-	err := r.Client.List(ctx, cjfrList)
+func (r *commonReconciler) FindCryostat(ctx context.Context, namespace string) (*operatorv1beta1.Cryostat, error) {
+	// TODO Consider how to find Cryostat object if this operator becomes cluster-scoped
+	// Look up the Cryostat object for this operator, which will help us find its services
+	cryostatList := &operatorv1beta1.CryostatList{}
+	err := r.Client.List(ctx, cryostatList)
 	if err != nil {
 		return nil, err
 	}
-	if len(cjfrList.Items) == 0 {
-		return nil, errors.New("No ContainerJFR objects found")
-	} else if len(cjfrList.Items) > 1 {
+	if len(cryostatList.Items) == 0 {
+		return nil, errors.New("No Cryostat objects found")
+	} else if len(cryostatList.Items) > 1 {
 		// Does not seem like a proper use-case
-		log.Info("More than one ContainerJFR object found in namespace, using only the first one listed",
+		log.Info("More than one Cryostat object found in namespace, using only the first one listed",
 			"namespace", namespace)
 	}
-	return &cjfrList.Items[0], nil
+	return &cryostatList.Items[0], nil
 }
 
 func (r *commonReconciler) getServerURL(ctx context.Context, namespace string, svcName string, protocol string) (*url.URL, error) {
-	// Look up Container JFR service, and build URL to web service
-	cjfrSvc := &corev1.Service{}
-	err := r.Client.Get(ctx, types.NamespacedName{Namespace: namespace, Name: svcName}, cjfrSvc)
+	// Look up Cryostat service, and build URL to web service
+	cryostatSvc := &corev1.Service{}
+	err := r.Client.Get(ctx, types.NamespacedName{Namespace: namespace, Name: svcName}, cryostatSvc)
 	if err != nil {
 		return nil, err
 	}
-	webServerPort, err := getWebServerPort(cjfrSvc)
+	webServerPort, err := getWebServerPort(cryostatSvc)
 	if err != nil {
 		return nil, err
 	}
@@ -201,7 +201,7 @@ func (r *commonReconciler) getServerURL(ctx context.Context, namespace string, s
 }
 
 func (r *commonReconciler) getJMXCredentialsFromSecret(ctx context.Context, namespace string,
-	jmxSecret *rhjmcv1beta1.JMXAuthSecret) (*jfrclient.JMXAuthCredentials, error) {
+	jmxSecret *operatorv1beta1.JMXAuthSecret) (*cryostatClient.JMXAuthCredentials, error) {
 	// Look up referenced secret
 	secret := &corev1.Secret{}
 	err := r.Client.Get(ctx, types.NamespacedName{Name: jmxSecret.SecretName, Namespace: namespace}, secret)
@@ -210,16 +210,16 @@ func (r *commonReconciler) getJMXCredentialsFromSecret(ctx context.Context, name
 	}
 
 	// Get credentials from secret
-	username, err := getValueFromSecret(secret, jmxSecret.UsernameKey, rhjmcv1beta1.DefaultUsernameKey)
+	username, err := getValueFromSecret(secret, jmxSecret.UsernameKey, operatorv1beta1.DefaultUsernameKey)
 	if err != nil {
 		return nil, err
 	}
-	password, err := getValueFromSecret(secret, jmxSecret.PasswordKey, rhjmcv1beta1.DefaultPasswordKey)
+	password, err := getValueFromSecret(secret, jmxSecret.PasswordKey, operatorv1beta1.DefaultPasswordKey)
 	if err != nil {
 		return nil, err
 	}
 
-	return &jfrclient.JMXAuthCredentials{
+	return &cryostatClient.JMXAuthCredentials{
 		Username: *username,
 		Password: *password,
 	}, nil
@@ -239,7 +239,7 @@ func getWebServerPort(svc *corev1.Service) (int32, error) {
 			return port.Port, nil
 		}
 	}
-	return 0, errors.New("ContainerJFR service had no port named \"export\"")
+	return 0, errors.New("Cryostat service had no port named \"export\"")
 }
 
 func getValueFromSecret(secret *corev1.Secret, key *string, defaultKey string) (*string, error) {

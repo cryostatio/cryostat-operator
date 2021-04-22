@@ -1,7 +1,7 @@
 apiVersion: 1
 
 providers:
-    - name: ContainerJFR
+    - name: Cryostat
       disableDeletion: true
       options:
           path: /etc/grafana/provisioning/dashboards
