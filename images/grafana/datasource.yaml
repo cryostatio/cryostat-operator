@@ -1,9 +1,0 @@
-apiVersion: 1
-
-datasources:
-  - name: jfr-datasource
-    type: grafana-simple-json-datasource
-    access: proxy
-    url: ${JFR_DATASOURCE_URL}
-    basicAuth: false
-    isDefault: true
