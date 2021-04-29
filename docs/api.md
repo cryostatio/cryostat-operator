@@ -28,14 +28,14 @@ metadata:
   labels:
     app: jmx-listener-55d48f7cfc-8nkln
   name: jmx-listener-55d48f7cfc-8nkln
-  namespace: container-jfr-operator-system
+  namespace: cryostat-operator-system
   ownerReferences:
   - apiVersion: v1
     kind: Pod
     name: jmx-listener-55d48f7cfc-8nkln
     uid: 65f29fe5-d8cd-415a-9f59-1eda8115313e
   resourceVersion: "252203"
-  selfLink: /apis/operator.cryostat.io/v1beta1/namespaces/container-jfr-operator-system/flightrecorders/jmx-listener-55d48f7cfc-8nkln
+  selfLink: /apis/operator.cryostat.io/v1beta1/namespaces/cryostat-operator-system/flightrecorders/jmx-listener-55d48f7cfc-8nkln
   uid: a7de6db1-e81d-4f42-9816-ca905b0894d5
 spec:
   recordingSelector:
