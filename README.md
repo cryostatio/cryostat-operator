@@ -73,7 +73,9 @@ Once deployed, the operator deployment will be active in the cluster, but no
 Cryostat instance will be created. To trigger its creation, add a
 Cryostat CR using the UI for operator "provided APIs". Full details on the
 configuration options in the Cryostat CRD can be found in
-[Configuring Cryostat](docs/config.md).
+[Configuring Cryostat](docs/config.md). When running on Kubernetes, see
+[Network Options](docs/config.md#network-options) for additional
+mandatory configuration in order to access Cryostat outside of the cluster.
 
 For convenience, a full deployment can be created using
 `kubectl create -f config/samples/operator_v1beta1_cryostat.yaml`, or more
