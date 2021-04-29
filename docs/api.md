@@ -1,4 +1,4 @@
-# Kubernetes API overview
+# Kubernetes API Overview
 
 This operator provides a Kubernetes API to interact with [Cryostat](https://github.com/cryostatio/cryostat).
 This API comes in the form of the `FlightRecorders` and `Recordings` Custom Resource Definitions, and allows you to create, list, delete, and download recordings from a Kubernetes cluster.
