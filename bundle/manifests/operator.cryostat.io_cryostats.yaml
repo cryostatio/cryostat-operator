@@ -44,12 +44,7 @@ spec:
                           type: string
                         description: Annotations to add to the ingress during its creation.
                         type: object
-                      labels:
-                        additionalProperties:
-                          type: string
-                        description: Labels to add to the ingress during its creation. The label with key "app" is reserved for use by the operator.
-                        type: object
-                      spec:
+                      ingressSpec:
                         description: Configuration for an ingress object. Currently subpaths are not supported, so unique hosts must be specified (if a single external IP is being used) to differentiate between ingresses/services
                         properties:
                           defaultBackend:
@@ -186,8 +181,13 @@ spec:
                             type: array
                             x-kubernetes-list-type: atomic
                         type: object
+                      labels:
+                        additionalProperties:
+                          type: string
+                        description: Labels to add to the ingress during its creation. The label with key "app" is reserved for use by the operator.
+                        type: object
                     type: object
-                  exporterConfig:
+                  coreConfig:
                     description: Specifications for ingress that exposes the cryostat service (which serves the cryostat web-client)
                     properties:
                       annotations:
@@ -195,12 +195,7 @@ spec:
                           type: string
                         description: Annotations to add to the ingress during its creation.
                         type: object
-                      labels:
-                        additionalProperties:
-                          type: string
-                        description: Labels to add to the ingress during its creation. The label with key "app" is reserved for use by the operator.
-                        type: object
-                      spec:
+                      ingressSpec:
                         description: Configuration for an ingress object. Currently subpaths are not supported, so unique hosts must be specified (if a single external IP is being used) to differentiate between ingresses/services
                         properties:
                           defaultBackend:
@@ -336,6 +331,11 @@ spec:
                               type: object
                             type: array
                             x-kubernetes-list-type: atomic
+                        type: object
+                      labels:
+                        additionalProperties:
+                          type: string
+                        description: Labels to add to the ingress during its creation. The label with key "app" is reserved for use by the operator.
                         type: object
                     type: object
                   grafanaConfig:
@@ -346,12 +346,7 @@ spec:
                           type: string
                         description: Annotations to add to the ingress during its creation.
                         type: object
-                      labels:
-                        additionalProperties:
-                          type: string
-                        description: Labels to add to the ingress during its creation. The label with key "app" is reserved for use by the operator.
-                        type: object
-                      spec:
+                      ingressSpec:
                         description: Configuration for an ingress object. Currently subpaths are not supported, so unique hosts must be specified (if a single external IP is being used) to differentiate between ingresses/services
                         properties:
                           defaultBackend:
@@ -487,6 +482,11 @@ spec:
                               type: object
                             type: array
                             x-kubernetes-list-type: atomic
+                        type: object
+                      labels:
+                        additionalProperties:
+                          type: string
+                        description: Labels to add to the ingress during its creation. The label with key "app" is reserved for use by the operator.
                         type: object
                     type: object
                 type: object

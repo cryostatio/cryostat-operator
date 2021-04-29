@@ -1025,8 +1025,8 @@ func NewVolumesWithSecrets() []corev1.Volume {
 }
 
 func NewNetworkConfigurationList() operatorv1beta1.NetworkConfigurationList {
-	exporterSVC := resource_definitions.NewExporterService(NewCryostat())
-	exporterIng := NewNetworkConfiguration(exporterSVC.Name, exporterSVC.Spec.Ports[0].Port)
+	coreSVC := resource_definitions.NewExporterService(NewCryostat())
+	coreIng := NewNetworkConfiguration(coreSVC.Name, coreSVC.Spec.Ports[0].Port)
 
 	commandSVC := resource_definitions.NewCommandChannelService(NewCryostat())
 	commandIng := NewNetworkConfiguration(commandSVC.Name, commandSVC.Spec.Ports[0].Port)
@@ -1035,9 +1035,9 @@ func NewNetworkConfigurationList() operatorv1beta1.NetworkConfigurationList {
 	grafanaIng := NewNetworkConfiguration(grafanaSVC.Name, grafanaSVC.Spec.Ports[0].Port)
 
 	return operatorv1beta1.NetworkConfigurationList{
-		ExporterConfig: &exporterIng,
-		CommandConfig:  &commandIng,
-		GrafanaConfig:  &grafanaIng,
+		CoreConfig:    &coreIng,
+		CommandConfig: &commandIng,
+		GrafanaConfig: &grafanaIng,
 	}
 }
 

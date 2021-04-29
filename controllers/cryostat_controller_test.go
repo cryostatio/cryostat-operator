@@ -532,9 +532,9 @@ var _ = Describe("CryostatController", func() {
 				ingress := &netv1.Ingress{}
 				err = t.Client.Get(context.Background(), types.NamespacedName{Name: "cryostat", Namespace: "default"}, ingress)
 				Expect(err).ToNot(HaveOccurred())
-				Expect(ingress.Annotations).To(Equal(expectedConfig.ExporterConfig.Annotations))
-				Expect(ingress.Labels).To(Equal(expectedConfig.ExporterConfig.Labels))
-				Expect(ingress.Spec).To(Equal(*expectedConfig.ExporterConfig.IngressSpec))
+				Expect(ingress.Annotations).To(Equal(expectedConfig.CoreConfig.Annotations))
+				Expect(ingress.Labels).To(Equal(expectedConfig.CoreConfig.Labels))
+				Expect(ingress.Spec).To(Equal(*expectedConfig.CoreConfig.IngressSpec))
 
 				err = t.Client.Get(context.Background(), types.NamespacedName{Name: "cryostat-grafana", Namespace: "default"}, ingress)
 				Expect(err).ToNot(HaveOccurred())
@@ -557,7 +557,7 @@ var _ = Describe("CryostatController", func() {
 				c := &operatorv1beta1.Cryostat{}
 				err := t.Client.Get(context.Background(), types.NamespacedName{Name: "cryostat", Namespace: "default"}, c)
 				Expect(err).ToNot(HaveOccurred())
-				c.Spec.NetworkOptions.ExporterConfig.IngressSpec = nil
+				c.Spec.NetworkOptions.CoreConfig.IngressSpec = nil
 				err = t.Client.Update(context.Background(), c)
 				Expect(err).ToNot(HaveOccurred())
 
@@ -741,9 +741,9 @@ func (t *cryostatTestInput) expectIngresses() {
 	ingress := &netv1.Ingress{}
 	err = t.Client.Get(context.Background(), types.NamespacedName{Name: "cryostat", Namespace: "default"}, ingress)
 	Expect(err).ToNot(HaveOccurred())
-	Expect(ingress.Annotations).To(Equal(expectedConfig.ExporterConfig.Annotations))
-	Expect(ingress.Labels).To(Equal(expectedConfig.ExporterConfig.Labels))
-	Expect(ingress.Spec).To(Equal(*expectedConfig.ExporterConfig.IngressSpec))
+	Expect(ingress.Annotations).To(Equal(expectedConfig.CoreConfig.Annotations))
+	Expect(ingress.Labels).To(Equal(expectedConfig.CoreConfig.Labels))
+	Expect(ingress.Spec).To(Equal(*expectedConfig.CoreConfig.IngressSpec))
 
 	err = t.Client.Get(context.Background(), types.NamespacedName{Name: "cryostat-command", Namespace: "default"}, ingress)
 	Expect(err).ToNot(HaveOccurred())
