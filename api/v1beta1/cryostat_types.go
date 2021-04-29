@@ -84,7 +84,7 @@ type NetworkConfiguration struct {
 	// Currently subpaths are not supported, so unique hosts must be specified
 	// (if a single external IP is being used) to differentiate between ingresses/services
 	// +optional
-	IngressSpec *netv1.IngressSpec `json:"spec,omitempty"`
+	IngressSpec *netv1.IngressSpec `json:"ingressSpec,omitempty"`
 	// Annotations to add to the ingress during its creation.
 	// +optional
 	Annotations map[string]string `json:"annotations,omitempty"`
@@ -100,7 +100,7 @@ type NetworkConfigurationList struct {
 	// Specifications for ingress that exposes the cryostat service
 	// (which serves the cryostat web-client)
 	// +optional
-	ExporterConfig *NetworkConfiguration `json:"exporterConfig,omitempty"`
+	CoreConfig *NetworkConfiguration `json:"coreConfig,omitempty"`
 	// Specifications for ingress that exposes the cryostat-command service
 	// (which serves the websocket command channel)
 	// +optional
