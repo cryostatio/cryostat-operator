@@ -49,7 +49,7 @@ spec:
 
 ### Network Options
 When running on Kubernetes, the operator requires Ingress configurations for each of its services to make them available outside of the cluster. For a `Cryostat` object named `x`, the following Ingress configurations must be specified within the `spec.networkOptions` property:
-- `exporterConfig` exposing the service `x` on port `8181`.
+- `coreConfig` exposing the service `x` on port `8181`.
 - `commandConfig` exposing the service `x-command` on port `9090`.
 - `grafanaConfig` exposing the service `x-grafana` on port `3000`.
 
@@ -63,10 +63,10 @@ metadata:
   name: cryostat-sample
 spec:
   networkOptions:
-    exporterConfig:
+    coreConfig:
       annotations:
         nginx.ingress.kubernetes.io/backend-protocol : HTTPS
-      spec:
+      ingressSpec:
         tls:
         - {}
         rules:
@@ -83,7 +83,7 @@ spec:
     commandConfig:
       annotations:
         nginx.ingress.kubernetes.io/backend-protocol : HTTPS
-      spec:
+      ingressSpec:
         tls:
         - {}
         rules:
@@ -100,7 +100,7 @@ spec:
     grafanaConfig:
       annotations:
         nginx.ingress.kubernetes.io/backend-protocol : HTTPS
-      spec:
+      ingressSpec:
         tls:
         - {}
         rules:
