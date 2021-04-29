@@ -121,44 +121,32 @@ spec:
 To start a new recording, you will need to create a new `Recording` custom resource. The `Recording` must include the following:
 
 1. `name`: a string uniquely identifying the recording within that service.
-2. `eventOptions`: an array of string options passed to Cryostat. The `"template=ALL"` special string can be used to enable all available events.
+2. `eventOptions`: an array of string options passed to Cryostat. Templates can be specified with the option `"template=<template_name>"`, such as `"template=Profiling"` for the Profiling template.
 3. `duration`: length of the requested recording as a [duration string](https://golang.org/pkg/time/#ParseDuration).
 4. `archive`: whether to save the completed recording to persistent storage.
 5. `flightRecorder`: a [`LocalObjectReference`](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.18/#localobjectreference-v1-core) pointing to the `FlightRecorder` that should perform the recording.
 
 The following example can serve as a template when creating your own `Recording` object:
 ```shell
-$ cat my-recording.json
+$ cat my-recording.yaml
 ```
-```json
-{
-    "apiVersion": "operator.cryostat.io/v1beta1",
-    "kind": "Recording",
-    "metadata": {
-        "labels": {
-            "app": "jmx-listener",
-            "operator.cryostat.io/flightrecorder": "jmx-listener"
-        },
-        "name": "my-recording",
-        "namespace": "default"
-    },
-    "spec": {
-        "name": "my-recording",
-        "eventOptions": [
-            "jdk.SocketRead:enabled=true",
-            "jdk.SocketWrite:enabled=true"
-        ],
-        "duration": "30s",
-        "archive": true,
-        "flightRecorder": {
-            "name": "jmx-listener"
-        }
-    },
-    "status": {}
-}
+```yaml
+apiVersion: rhjmc.redhat.com/v1beta1
+kind: Recording
+metadata:
+  name: my-recording
+spec:
+  name: my-recording
+  eventOptions:
+  - "jdk.SocketRead:enabled=true"
+  - "jdk.SocketWrite:enabled=true"
+  duration: 30s
+  archive: true
+  flightRecorder:
+    name: jmx-listener-55d48f7cfc-8nkln
 ```
 ```shell
-$ oc create -f my-recording.json
+$ kubectl create -f my-recording.yaml
 ```
 
 Once the operator has processed the new `Recording`, it will communicate with Cryostat via the referenced `FlightRecorder` to remotely create the JFR recording. Once this occurs, details of the recording are populated in the `status` of the `Recording` object. The `status.duration` property corresponds to the duration the recording was created with, `status.startTime` is when the recording actually started in the target JVM, and `status.state` is the current state of the recording from the following:
@@ -168,43 +156,33 @@ Once the operator has processed the new `Recording`, it will communicate with Cr
 * `STOPPED`: the recording has completed and the JFR file is fully written.
 
 ```shell
-$ oc get -o json recording/my-recording
+$ kubectl get -o yaml recording/my-recording
 ```
-```json
-{
-    "apiVersion": "operator.cryostat.io/v1beta1",
-    "kind": "Recording",
-    "metadata": {
-        "creationTimestamp": "2020-03-26T22:11:04Z",
-        "generation": 1,
-        "labels": {
-            "app": "jmx-listener",
-            "operator.cryostat.io/flightrecorder": "jmx-listener"
-        },
-        "name": "my-recording",
-        "namespace": "default",
-        "resourceVersion": "395738",
-        "selfLink": "/apis/operator.cryostat.io/v1beta1/namespaces/default/recordings/my-recording",
-        "uid": "af1631e2-6fae-11ea-ae0c-52fdfc072182"
-    },
-    "spec": {
-        "archive": true,
-        "duration": "30s",
-        "eventOptions": [
-            "jdk.SocketRead:enabled=true",
-            "jdk.SocketWrite:enabled=true"
-        ],
-        "flightRecorder": {
-            "name": "jmx-listener"
-        },
-        "name": "my-recording"
-    },
-    "status": {
-        "duration": "30s",
-        "startTime": "2020-03-26T22:11:04Z",
-        "state": "RUNNING"
-    }
-}
+```yaml
+apiVersion: operator.cryostat.io/v1beta1
+kind: Recording
+metadata:
+  finalizers:
+  - operator.cryostat.io/recording.finalizer
+  labels:
+    operator.cryostat.io/flightrecorder: jmx-listener-55d48f7cfc-8nkln
+  name: my-recording
+  namespace: cryostat-operator-system
+spec:
+  archive: true
+  duration: 30s
+  eventOptions:
+  - jdk.SocketRead:enabled=true
+  - jdk.SocketWrite:enabled=true
+  flightRecorder:
+    name: jmx-listener-55d48f7cfc-8nkln
+  name: my-recording
+status:
+  downloadURL: https://cryostat-sample-cryostat-operator-system.apps-crc.testing:443/api/v1/targets/service:jmx:rmi:%2F%2F%2Fjndi%2Frmi:%2F%2F10.217.0.29:9093%2Fjmxrmi/recordings/my-recording
+  duration: 30s
+  reportURL: https://cryostat-sample-cryostat-operator-system.apps-crc.testing:443/api/v1/targets/service:jmx:rmi:%2F%2F%2Fjndi%2Frmi:%2F%2F10.217.0.29:9093%2Fjmxrmi/reports/my-recording
+  startTime: "2021-04-29T22:03:28Z"
+  state: RUNNING
 ```
 
 ### Creating a continuous Flight Recording
@@ -212,130 +190,99 @@ $ oc get -o json recording/my-recording
 You may not necessarily want your recording to be a fixed duration, in this case you can specify that you want your `Recording` to be continuous. This is done by setting the `spec.duration` to a zero-value.
 
 ```shell
-$ cat my-cont-recording.json
+$ cat my-cont-recording.yaml
 ```
-```json
-{
-    "apiVersion": "operator.cryostat.io/v1beta1",
-    "kind": "Recording",
-    "metadata": {
-        "labels": {
-            "app": "jmx-listener",
-            "operator.cryostat.io/flightrecorder": "jmx-listener"
-        },
-        "name": "cont-recording",
-        "namespace": "default"
-    },
-    "spec": {
-        "name": "cont-recording",
-        "eventOptions": [
-            "jdk.SocketRead:enabled=true",
-            "jdk.SocketWrite:enabled=true"
-        ],
-        "duration": "0s",
-        "archive": true,
-        "flightRecorder": {
-            "name": "jmx-listener"
-        }
-    },
-    "status": {}
-}
+```yaml
+apiVersion: rhjmc.redhat.com/v1beta1
+kind: Recording
+metadata:
+  name: cont-recording
+spec:
+  name: cont-recording
+  eventOptions:
+  - "jdk.SocketRead:enabled=true"
+  - "jdk.SocketWrite:enabled=true"
+  duration: 0s
+  archive: true
+  flightRecorder:
+    name: jmx-listener-55d48f7cfc-8nkln
 ```
 ```shell
-$ oc create -f my-cont-recording.json
+$ kubectl create -f my-cont-recording.yaml
 ```
 
 In order to stop this recording, you'll need to set `spec.state` to `"STOPPED"`, like the following:
 ```shell
-$ oc edit -o json recording/my-cont-recording
+$ kubectl edit recording/cont-recording
 ```
-```json
-{
-    "apiVersion": "operator.cryostat.io/v1beta1",
-    "kind": "Recording",
-    "metadata": {
-        "creationTimestamp": "2020-03-26T22:12:30Z",
-        "generation": 1,
-        "labels": {
-            "app": "jmx-listener",
-            "operator.cryostat.io/flightrecorder": "jmx-listener"
-        },
-        "name": "cont-recording",
-        "namespace": "default",
-        "resourceVersion": "395986",
-        "selfLink": "/apis/operator.cryostat.io/v1beta1/namespaces/default/recordings/cont-recording",
-        "uid": "e2b7f375-6fae-11ea-ae0c-52fdfc072182"
-    },
-    "spec": {
-        "archive": true,
-        "duration": "0s",
-        "eventOptions": [
-            "jdk.SocketRead:enabled=true",
-            "jdk.SocketWrite:enabled=true"
-        ],
-        "flightRecorder": {
-            "name": "jmx-listener"
-        },
-        "name": "cont-recording",
-        "state": "STOPPED"
-    },
-    "status": {
-        "duration": "0s",
-        "startTime": "2020-03-26T22:12:31Z",
-        "state": "RUNNING"
-    }
-}
+```yaml
+apiVersion: operator.cryostat.io/v1beta1
+kind: Recording
+metadata:
+  finalizers:
+  - operator.cryostat.io/recording.finalizer
+  labels:
+    operator.cryostat.io/flightrecorder: jmx-listener-55d48f7cfc-8nkln
+  name: cont-recording
+  namespace: cryostat-operator-system
+spec:
+  archive: true
+  duration: 0s
+  eventOptions:
+  - jdk.SocketRead:enabled=true
+  - jdk.SocketWrite:enabled=true
+  flightRecorder:
+    name: jmx-listener-55d48f7cfc-8nkln
+  name: cont-recording
+  state: STOPPED
+status:
+  downloadURL: https://cryostat-sample-cryostat-operator-system.apps-crc.testing:443/api/v1/targets/service:jmx:rmi:%2F%2F%2Fjndi%2Frmi:%2F%2F10.217.0.29:9093%2Fjmxrmi/recordings/cont-recording
+  duration: 0s
+  reportURL: https://cryostat-sample-cryostat-operator-system.apps-crc.testing:443/api/v1/targets/service:jmx:rmi:%2F%2F%2Fjndi%2Frmi:%2F%2F10.217.0.29:9093%2Fjmxrmi/reports/cont-recording
+  startTime: "2021-04-29T22:12:59Z"
+  state: RUNNING
 ```
 
 ## Downloading a Flight Recording
 
-Once the recording completes and `spec.archive` is `true`, the operator archives the recording and places a download link in the `status.downloadUrl` of the `Recording` that you can then download with curl.
+When Cryostat starts the recording, URLs to the JFR file and automated analysis HTML report are added to `status.downloadURL` and `status.reportURL`, respectively. If `spec.archive` is `true`, the operator archives the recording once completed. The operator then replaces the download and report URLs with persisted versions that do not depend on the lifecycle of the target JVM.
+
+The JFR file and HTML report can be downloaded from the URLs contained in `downloadURL` and `reportURL` using cURL, or similar tools.
 
 ```shell
-$ oc get -o json recording/my-recording
+$ kubectl get -o yaml recording/my-recording
 ```
-```json
-{
-    "apiVersion": "operator.cryostat.io/v1beta1",
-    "kind": "Recording",
-    "metadata": {
-        "creationTimestamp": "2020-03-26T22:11:04Z",
-        "generation": 1,
-        "labels": {
-            "app": "jmx-listener",
-            "operator.cryostat.io/flightrecorder": "jmx-listener"
-        },
-        "name": "my-recording",
-        "namespace": "default",
-        "resourceVersion": "395834",
-        "selfLink": "/apis/operator.cryostat.io/v1beta1/namespaces/default/recordings/my-recording",
-        "uid": "af1631e2-6fae-11ea-ae0c-52fdfc072182"
-    },
-    "spec": {
-        "archive": true,
-        "duration": "30s",
-        "eventOptions": [
-            "jdk.SocketRead:enabled=true",
-            "jdk.SocketWrite:enabled=true"
-        ],
-        "flightRecorder": {
-            "name": "jmx-listener"
-        },
-        "name": "my-recording"
-    },
-    "status": {
-        "downloadURL": "https://cryostat.apps-crc.testing:443/recordings/172-30-177-37_my-recording_20200326T221136Z.jfr",
-        "duration": "30s",
-        "startTime": "2020-03-26T22:11:04Z",
-        "state": "STOPPED"
-    }
-}
+```yaml
+apiVersion: operator.cryostat.io/v1beta1
+kind: Recording
+metadata:
+  finalizers:
+  - operator.cryostat.io/recording.finalizer
+  labels:
+    operator.cryostat.io/flightrecorder: jmx-listener-55d48f7cfc-8nkln
+  name: my-recording
+  namespace: cryostat-operator-system
+spec:
+  archive: true
+  duration: 30s
+  eventOptions:
+  - jdk.SocketRead:enabled=true
+  - jdk.SocketWrite:enabled=true
+  flightRecorder:
+    name: jmx-listener-55d48f7cfc-8nkln
+  name: my-recording
+status:
+  downloadURL: https://cryostat-sample-cryostat-operator-system.apps-crc.testing:443/api/v1/recordings/10-217-0-29_my-recording_20210429T220400Z.jfr
+  duration: 30s
+  reportURL: https://cryostat-sample-cryostat-operator-system.apps-crc.testing:443/api/v1/reports/10-217-0-29_my-recording_20210429T220400Z.jfr
+  startTime: "2021-04-29T22:03:28Z"
+  state: STOPPED
 ```
 
-You'll need to pass your bearer token with the curl request. (You may also need -k if your test cluster uses a self-signed certificate)
+If running on OpenShift, you will need to pass your bearer token with the `curl` request. (You may also need -k if your test cluster uses a self-signed certificate)
 ```shell
 $ curl -k -H "Authorization: Bearer $(oc whoami -t)" \
-https://cryostat.apps-crc.testing:443/recordings/172-30-177-37_my-recording_20200326T221136Z.jfr \
+https://cryostat-sample-cryostat-operator-system.apps-crc.testing:443/api/v1/recordings/10-217-0-29_my-recording_20210429T220400Z.jfr \
 my-recording.jfr
 ```
 
