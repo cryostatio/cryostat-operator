@@ -1,121 +1,104 @@
-# `FlightRecorder` API overview
+# Kubernetes API overview
 
 This operator provides a Kubernetes API to interact with [Cryostat](https://github.com/cryostatio/cryostat).
 This API comes in the form of the `FlightRecorders` and `Recordings` Custom Resource Definitions, and allows you to create, list, delete, and download recordings from a Kubernetes cluster.
 
 ## Retrieving `FlightRecorder` objects
-You can use `FlightRecorders` like any other built-in resource on the command line with oc/kubectl.
+You can use `FlightRecorders` like any other built-in resource on the command line with kubectl/oc.
 
 ```shell
-$ oc get flightrecorders
-NAME           AGE
-cryostat   75s
-jmx-listener   77s
+$ kubectl get flightrecorders
+NAME                               AGE
+cryostat-sample-6d8dcf5c9f-w5lgq   2m
+jmx-listener-55d48f7cfc-8nkln      110s
 ```
 
 `FlightRecorder` objects are created by the operator whenever a new Cryostat-compatible service is detected.
-Services that expose a port named `jfr-jmx` are considered compatible. The number of this port is stored in the `status.port` property for use by the operator. Each `FlightRecorder` object maps one-to-one with a Kubernetes service. This service is stored in the `status.target` property of the `FlightRecorder` object. When the operator learns of a new `FlightRecorder` object, it queries Cryostat for a list of all available JFR events for the JVM behind the `FlightRecorder's` service. The details of these event types are stored in the `status.events` property of the `FlightRecorder`. The `spec.recordingSelector` property provides an association of `Recordings` (outlined below) with this `FlightRecorder` object.
+Services that expose a port named `jfr-jmx` are considered compatible. The number of this port is stored in the `status.port` property for use by the operator. Each `FlightRecorder` object maps one-to-one with a Kubernetes service. This service is stored in the `status.target` property of the `FlightRecorder` object. When the operator learns of a new `FlightRecorder` object, it queries Cryostat for a list of all available JFR events for the JVM behind the `FlightRecorder's` service. The details of these event types are stored in the `status.events` property of the `FlightRecorder`. The `spec.recordingSelector` property provides an association of `Recordings` (outlined below) with this `FlightRecorder` object. The operator also queries Cryostat for a list of known Recording Templates provided by the JVM, and any built-in or user-specified templates registered with Cryostat. These are listed in `status.templates` property.
 
 ```shell
-$ oc get -o json flightrecorders/jmx-listener
+$ kubectl get flightrecorder -o yaml jmx-listener-55d48f7cfc-8nkln
 ```
-```json
-{
-    "apiVersion": "operator.cryostat.io/v1beta1",
-    "kind": "FlightRecorder",
-    "metadata": {
-        "creationTimestamp": "2020-03-26T21:54:29Z",
-        "generation": 1,
-        "labels": {
-            "app": "jmx-listener"
-        },
-        "name": "jmx-listener",
-        "namespace": "default",
-        "ownerReferences": [
-            {
-                "apiVersion": "v1",
-                "blockOwnerDeletion": true,
-                "controller": true,
-                "kind": "Service",
-                "name": "jmx-listener",
-                "uid": "4f5b0695-6fac-11ea-ae0c-52fdfc072182"
-            }
-        ],
-        "resourceVersion": "393024",
-        "selfLink": "/apis/operator.cryostat.io/v1beta1/namespaces/default/flightrecorders/jmx-listener",
-        "uid": "5e53b4ee-6fac-11ea-ae0c-52fdfc072182"
-    },
-    "spec": {
-        "recordingSelector": {
-            "matchLabels": {
-                "operator.cryostat.io/flightrecorder": "jmx-listener"
-            }
-        }
-    },
-    "status": {
-        "events": [
-            {
-                "category": [
-                    "Java Application"
-                ],
-                "description": "Writing data to a socket",
-                "name": "Socket Write",
-                "options": {
-                    "enabled": {
-                        "defaultValue": "false",
-                        "description": "Record event",
-                        "name": "Enabled"
-                    },
-                    "stackTrace": {
-                        "defaultValue": "false",
-                        "description": "Record stack traces",
-                        "name": "Stack Trace"
-                    },
-                    "threshold": {
-                        "defaultValue": "0ns[ns]",
-                        "description": "Record event with duration above or equal to threshold",
-                        "name": "Threshold"
-                    }
-                },
-                "typeId": "jdk.SocketWrite"
-            },
-            {
-                "category": [
-                    "Java Application"
-                ],
-                "description": "Reading data from a socket",
-                "name": "Socket Read",
-                "options": {
-                    "enabled": {
-                        "defaultValue": "false",
-                        "description": "Record event",
-                        "name": "Enabled"
-                    },
-                    "stackTrace": {
-                        "defaultValue": "false",
-                        "description": "Record stack traces",
-                        "name": "Stack Trace"
-                    },
-                    "threshold": {
-                        "defaultValue": "0ns[ns]",
-                        "description": "Record event with duration above or equal to threshold",
-                        "name": "Threshold"
-                    }
-                },
-                "typeId": "jdk.SocketRead"
-            }
-        ],
-        "port": 9093,
-        "target": {
-            "apiVersion": "v1",
-            "kind": "Service",
-            "name": "jmx-listener",
-            "namespace": "default",
-            "resourceVersion": "392780",
-            "uid": "4f5b0695-6fac-11ea-ae0c-52fdfc072182"
-        }
-    }
-}
+```yaml
+apiVersion: operator.cryostat.io/v1beta1
+kind: FlightRecorder
+metadata:
+  creationTimestamp: "2021-04-29T21:16:48Z"
+  generation: 1
+  labels:
+    app: jmx-listener-55d48f7cfc-8nkln
+  name: jmx-listener-55d48f7cfc-8nkln
+  namespace: container-jfr-operator-system
+  ownerReferences:
+  - apiVersion: v1
+    kind: Pod
+    name: jmx-listener-55d48f7cfc-8nkln
+    uid: 65f29fe5-d8cd-415a-9f59-1eda8115313e
+  resourceVersion: "252203"
+  selfLink: /apis/operator.cryostat.io/v1beta1/namespaces/container-jfr-operator-system/flightrecorders/jmx-listener-55d48f7cfc-8nkln
+  uid: a7de6db1-e81d-4f42-9816-ca905b0894d5
+spec:
+  recordingSelector:
+    matchLabels:
+      operator.cryostat.io/flightrecorder: jmx-listener-55d48f7cfc-8nkln
+status:
+  events:
+  - category:
+    - Java Application
+    description: Writing data to a socket
+    name: Socket Write
+    options:
+      enabled:
+        defaultValue: "false"
+        description: Record event
+        name: Enabled
+      stackTrace:
+        defaultValue: "false"
+        description: Record stack traces
+        name: Stack Trace
+      threshold:
+        defaultValue: 0ns[ns]
+        description: Record event with duration above or equal to threshold
+        name: Threshold
+    typeId: jdk.SocketWrite
+  - category:
+    - Java Application
+    description: Reading data from a socket
+    name: Socket Read
+    options:
+      enabled:
+        defaultValue: "false"
+        description: Record event
+        name: Enabled
+      stackTrace:
+        defaultValue: "false"
+        description: Record stack traces
+        name: Stack Trace
+      threshold:
+        defaultValue: 0ns[ns]
+        description: Record event with duration above or equal to threshold
+        name: Threshold
+    typeId: jdk.SocketRead
+  port: 9093
+  target:
+    kind: Pod
+    name: jmx-listener-55d48f7cfc-8nkln
+    namespace: cryostat-operator-system
+    resourceVersion: "244362"
+    uid: 65f29fe5-d8cd-415a-9f59-1eda8115313e
+  templates:
+  - description: Low overhead configuration safe for continuous use in production environments, typically less than 1 % overhead.
+    name: Continuous
+    provider: Oracle
+    type: TARGET
+  - description: Low overhead configuration for profiling, typically around 2 % overhead.
+    name: Profiling
+    provider: Oracle
+    type: TARGET
+  - description: Enable all available events in the target JVM, with default option values. This will be very expensive and is intended primarily for testing Cryostat's own capabilities.
+    name: ALL
+    provider: Cryostat
+    type: TARGET
 ```
 (Event listing abbreviated for readability)
 
