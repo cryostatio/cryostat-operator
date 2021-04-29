@@ -46,3 +46,72 @@ spec:
           requests:
             storage: 1Gi
 ```
+
+### Network Options
+When running on Kubernetes, the operator requires Ingress configurations for each of its services to make them available outside of the cluster. For a `Cryostat` object named `x`, the following Ingress configurations must be specified within the `spec.networkOptions` property:
+- `exporterConfig` exposing the service `x` on port `8181`.
+- `commandConfig` exposing the service `x-command` on port `9090`.
+- `grafanaConfig` exposing the service `x-grafana` on port `3000`.
+
+The user is responsible for providing the hostnames for each Ingress. In Minikube, this can be done by adding entries to the host machine's `/etc/hosts` for each hostname, pointing to Minikube's IP address. See: https://kubernetes.io/docs/tasks/access-application-cluster/ingress-minikube/
+
+Since Cryostat only accept HTTPS traffic by default, the Ingresses should be configured to forward traffic to the backend services over HTTPS. For the NGINX Ingress Controller, this can be done with the `nginx.ingress.kubernetes.io/backend-protocol` annotation. The operator considers TLS to be enabled for the Ingress if the Ingress's `spec.tls` array is non-empty. The example below uses the cluster's default wildcard certificate.
+```yaml
+apiVersion: operator.cryostat.io/v1beta1
+kind: Cryostat
+metadata:
+  name: cryostat-sample
+spec:
+  networkOptions:
+    exporterConfig:
+      annotations:
+        nginx.ingress.kubernetes.io/backend-protocol : HTTPS
+      spec:
+        tls:
+        - {}
+        rules:
+        - host: testing.cryostat
+          http:
+            paths:
+            - path: /
+              pathType: Prefix
+              backend:
+                service:
+                  name: cryostat-sample
+                  port:
+                    number: 8181
+    commandConfig:
+      annotations:
+        nginx.ingress.kubernetes.io/backend-protocol : HTTPS
+      spec:
+        tls:
+        - {}
+        rules:
+        - host: testing.cryostat-command
+          http:
+            paths:
+            - path: /
+              pathType: Prefix
+              backend:
+                service:
+                  name: cryostat-sample-command
+                  port:
+                    number: 9090
+    grafanaConfig:
+      annotations:
+        nginx.ingress.kubernetes.io/backend-protocol : HTTPS
+      spec:
+        tls:
+        - {}
+        rules:
+        - host: testing.cryostat-grafana
+          http:
+            paths:
+            - path: /
+              pathType: Prefix
+              backend:
+                service:
+                  name: cryostat-sample-grafana
+                  port:
+                    number: 3000
+```
