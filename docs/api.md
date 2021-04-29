@@ -23,8 +23,6 @@ $ kubectl get flightrecorder -o yaml jmx-listener-55d48f7cfc-8nkln
 apiVersion: operator.cryostat.io/v1beta1
 kind: FlightRecorder
 metadata:
-  creationTimestamp: "2021-04-29T21:16:48Z"
-  generation: 1
   labels:
     app: jmx-listener-55d48f7cfc-8nkln
   name: jmx-listener-55d48f7cfc-8nkln
@@ -33,10 +31,6 @@ metadata:
   - apiVersion: v1
     kind: Pod
     name: jmx-listener-55d48f7cfc-8nkln
-    uid: 65f29fe5-d8cd-415a-9f59-1eda8115313e
-  resourceVersion: "252203"
-  selfLink: /apis/operator.cryostat.io/v1beta1/namespaces/cryostat-operator-system/flightrecorders/jmx-listener-55d48f7cfc-8nkln
-  uid: a7de6db1-e81d-4f42-9816-ca905b0894d5
 spec:
   recordingSelector:
     matchLabels:
@@ -84,8 +78,6 @@ status:
     kind: Pod
     name: jmx-listener-55d48f7cfc-8nkln
     namespace: cryostat-operator-system
-    resourceVersion: "244362"
-    uid: 65f29fe5-d8cd-415a-9f59-1eda8115313e
   templates:
   - description: Low overhead configuration safe for continuous use in production environments, typically less than 1 % overhead.
     name: Continuous
@@ -100,7 +92,29 @@ status:
     provider: Cryostat
     type: TARGET
 ```
-(Event listing abbreviated for readability)
+(Some fields are removed or abbreviated for readability)
+
+### Configuring JMX Authentication
+
+If the target Pod for a `FlightRecorder` object is using password JMX authentication, the `FlightRecorder` must be configured with these credentials in order for Cryostat to connect to the Pod. The `spec.jmxCredentials` property tells the operator where to find the JMX authentication credentials for the target of the `FlightRecorder`. The `secretName` property must refer to the name of a Secret within the same namespace as the `FlightRecorder`. The `usernameKey` and `passwordKey` are the names of the keys used to index the username and password within the named Secret. If the `usernameKey` or `passwordKey` properties are omitted, the operator will use the default key names of `username` and `password`.
+```yaml
+apiVersion: operator.cryostat.io/v1beta1
+kind: FlightRecorder
+metadata:
+  labels:
+    app: jmx-listener-55d48f7cfc-8nkln
+  name: jmx-listener-55d48f7cfc-8nkln
+  namespace: cryostat-operator-system
+  ownerReferences:
+  - apiVersion: v1
+    kind: Pod
+    name: jmx-listener-55d48f7cfc-8nkln
+spec:
+  jmxCredentials:
+    secretName: my-jmx-auth-secret
+    usernameKey: my-user-key
+    passwordKey: my-pass-key
+```
 
 ## Creating a new Flight Recording
 
