@@ -30,7 +30,8 @@ kubectl get secret ${CRYOSTAT_NAME}-jmx-auth -o jsonpath='{$.data.CRYOSTAT_RJMX_
 ```
 
 ## Kubernetes API
-The operator provides a Kubernetes API to directly create and manage Flight Recordings. See [Kubernetes API Overview](docs/api.md) for more details.
+The operator provides a Kubernetes API to directly create and manage Flight Recordings.
+See [Kubernetes API Overview](docs/api.md) for more details.
 
 # Building
 ## Requirements
