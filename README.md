@@ -9,9 +9,8 @@ API to manage [JDK Flight Recordings](https://openjdk.java.net/jeps/328).
 # Using
 Once deployed, the `cryostat` instance can be accessed via web browser
 at the URL provided by:
-FIXME this annotation no longer exists
 ```
-kubectl get pod -l kind=cryostat -o jsonpath='{$.items[0].metadata.annotations.redhat\.com/cryostatUrl}'
+kubectl get cryostat -o jsonpath='{$.items[0].status.applicationUrl}'
 ```
 The Grafana credentials can be obtained with:
 ```shell
@@ -29,6 +28,10 @@ kubectl get secret ${CRYOSTAT_NAME}-jmx-auth -o jsonpath='{$.data.CRYOSTAT_RJMX_
 # Password
 kubectl get secret ${CRYOSTAT_NAME}-jmx-auth -o jsonpath='{$.data.CRYOSTAT_RJMX_PASS}' | base64 -d
 ```
+
+## Kubernetes API
+The operator provides a Kubernetes API to directly create and manage Flight Recordings.
+See [Kubernetes API Overview](docs/api.md) for more details.
 
 # Building
 ## Requirements
@@ -68,14 +71,11 @@ and running in your cluster.
 
 Once deployed, the operator deployment will be active in the cluster, but no
 Cryostat instance will be created. To trigger its creation, add a
-Cryostat CR using the UI for operator "provided APIs". The `spec` field
-of the CR must contain the boolean property `minimal: true|false`. A full
-deployment includes Cryostat itself and its web client assets, as well as
-jfr-datasource and Grafana containers within the pod. A minimal deployment
-uses a Cryostat image with the web client assets removed and excludes the
-jfr-datasource and Grafana containers, resulting in a Cryostat deployment
-that can only be used headlessly and which consumes as few cluster resources as
-possible.
+Cryostat CR using the UI for operator "provided APIs". Full details on the
+configuration options in the Cryostat CRD can be found in
+[Configuring Cryostat](docs/config.md). When running on Kubernetes, see
+[Network Options](docs/config.md#network-options) for additional
+mandatory configuration in order to access Cryostat outside of the cluster.
 
 For convenience, a full deployment can be created using
 `kubectl create -f config/samples/operator_v1beta1_cryostat.yaml`, or more
@@ -177,7 +177,6 @@ OperatorHub will eventually receive.
 # Testing
 ## Requirements
 - (optional) [oc](https://www.okd.io/download.html)
-- (optional) [crc](https://github.com/code-ready/crc)
 - (optional) [crc](https://github.com/code-ready/crc)
 
 ## Instructions
