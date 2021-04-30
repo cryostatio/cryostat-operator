@@ -47,7 +47,7 @@ import (
 	"time"
 
 	operatorv1beta1 "github.com/cryostatio/cryostat-operator/api/v1beta1"
-	common "github.com/cryostatio/cryostat-operator/controllers/common"
+	common "github.com/cryostatio/cryostat-operator/internal/controllers/common"
 	corev1 "k8s.io/api/core/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"

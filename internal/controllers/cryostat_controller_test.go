@@ -60,9 +60,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	operatorv1beta1 "github.com/cryostatio/cryostat-operator/api/v1beta1"
-	"github.com/cryostatio/cryostat-operator/controllers"
-	"github.com/cryostatio/cryostat-operator/controllers/common/resource_definitions"
-	"github.com/cryostatio/cryostat-operator/test"
+	"github.com/cryostatio/cryostat-operator/internal/controllers"
+	"github.com/cryostatio/cryostat-operator/internal/controllers/common/resource_definitions"
+	"github.com/cryostatio/cryostat-operator/internal/test"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 )
 

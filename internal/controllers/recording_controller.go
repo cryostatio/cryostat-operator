@@ -51,8 +51,8 @@ import (
 	"path"
 	"time"
 
-	cryostatClient "github.com/cryostatio/cryostat-operator/controllers/client"
-	common "github.com/cryostatio/cryostat-operator/controllers/common"
+	cryostatClient "github.com/cryostatio/cryostat-operator/internal/controllers/client"
+	common "github.com/cryostatio/cryostat-operator/internal/controllers/common"
 	corev1 "k8s.io/api/core/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"

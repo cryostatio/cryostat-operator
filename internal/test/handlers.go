@@ -41,7 +41,7 @@ import (
 	"strconv"
 
 	operatorv1beta1 "github.com/cryostatio/cryostat-operator/api/v1beta1"
-	cryostatClient "github.com/cryostatio/cryostat-operator/controllers/client"
+	cryostatClient "github.com/cryostatio/cryostat-operator/internal/controllers/client"
 	"github.com/onsi/gomega/ghttp"
 )
 

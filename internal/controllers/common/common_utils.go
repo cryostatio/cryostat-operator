@@ -40,7 +40,7 @@ import (
 	"io/ioutil"
 	"os"
 
-	cryostatClient "github.com/cryostatio/cryostat-operator/controllers/client"
+	cryostatClient "github.com/cryostatio/cryostat-operator/internal/controllers/client"
 )
 
 // CryostatClientFactory provides a method for creating Cryostat clients

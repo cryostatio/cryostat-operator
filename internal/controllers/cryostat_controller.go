@@ -52,8 +52,8 @@ import (
 
 	goerrors "errors"
 
-	"github.com/cryostatio/cryostat-operator/controllers/common"
-	resources "github.com/cryostatio/cryostat-operator/controllers/common/resource_definitions"
+	"github.com/cryostatio/cryostat-operator/internal/controllers/common"
+	resources "github.com/cryostatio/cryostat-operator/internal/controllers/common/resource_definitions"
 	"github.com/google/go-cmp/cmp"
 	consolev1 "github.com/openshift/api/console/v1"
 	openshiftv1 "github.com/openshift/api/route/v1"
