@@ -42,8 +42,8 @@ import (
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	cryostatClient "github.com/cryostatio/cryostat-operator/controllers/client"
-	"github.com/cryostatio/cryostat-operator/controllers/common"
+	cryostatClient "github.com/cryostatio/cryostat-operator/internal/controllers/client"
+	"github.com/cryostatio/cryostat-operator/internal/controllers/common"
 	"github.com/onsi/gomega"
 )
 

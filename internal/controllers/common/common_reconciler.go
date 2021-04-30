@@ -43,7 +43,7 @@ import (
 	"net/url"
 
 	operatorv1beta1 "github.com/cryostatio/cryostat-operator/api/v1beta1"
-	cryostatClient "github.com/cryostatio/cryostat-operator/controllers/client"
+	cryostatClient "github.com/cryostatio/cryostat-operator/internal/controllers/client"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"

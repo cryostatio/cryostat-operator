@@ -81,12 +81,12 @@ test-scorecard: destroy_cryostat_cr undeploy uninstall
 # Build manager binary
 .PHONY: manager
 manager: generate fmt vet
-	go build -o bin/manager main.go
+	go build -o bin/manager internal/main.go
 
 # Run against the configured Kubernetes cluster in ~/.kube/config
 .PHONY: run
 run: generate fmt vet manifests
-	go run ./main.go
+	go run ./internal/main.go
 
 # Install CRDs into a cluster
 .PHONY: install

@@ -38,8 +38,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
 	operatorv1beta1 "github.com/cryostatio/cryostat-operator/api/v1beta1"
-	"github.com/cryostatio/cryostat-operator/controllers"
-	"github.com/cryostatio/cryostat-operator/controllers/common"
+	"github.com/cryostatio/cryostat-operator/internal/controllers"
+	"github.com/cryostatio/cryostat-operator/internal/controllers/common"
 	openshiftv1 "github.com/openshift/api/route/v1"
 	// +kubebuilder:scaffold:imports
 )
