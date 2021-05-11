@@ -40,8 +40,8 @@ import (
 	"context"
 
 	operatorv1beta1 "github.com/cryostatio/cryostat-operator/api/v1beta1"
-	"github.com/cryostatio/cryostat-operator/controllers/common"
-	resources "github.com/cryostatio/cryostat-operator/controllers/common/resource_definitions"
+	"github.com/cryostatio/cryostat-operator/internal/controllers/common"
+	resources "github.com/cryostatio/cryostat-operator/internal/controllers/common/resource_definitions"
 	certv1 "github.com/jetstack/cert-manager/pkg/apis/certmanager/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"

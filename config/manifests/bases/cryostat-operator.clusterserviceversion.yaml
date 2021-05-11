@@ -50,14 +50,13 @@ metadata:
       ]
     capabilities: Basic Install
     categories: Monitoring, Developer Tools
-    certified: "false"
-    containerImage: quay.io/cryostat/cryostat-operator:1.0.0-beta5
-    createdAt: "2020-07-03 00:00:00"
+    containerImage: quay.io/cryostat/cryostat-operator:1.0.0
+    createdAt: "2021-04-30 00:00:00"
     description: JVM monitoring and profiling tool
     operators.operatorframework.io/builder: operator-sdk-v1.5.0
     operators.operatorframework.io/project_layout: go.kubebuilder.io/v3
     repository: github.com/cryostatio/cryostat-operator
-    support: Red Hat
+    support: Cryostat Community
   name: cryostat-operator.v0.0.0
   namespace: placeholder
 spec:
@@ -227,9 +226,6 @@ spec:
   description: |
     Cryostat provides a cloud-based solution for interacting with the JDK Flight Recorder already present in OpenJDK 11+ JVMs. With Cryostat, users can remotely start, stop, retrieve, and even analyze JFR event data, providing the capbility to easily take advantage of Flight Recorder''s extremely low runtime cost and overhead and the flexibility to monitor applications and analyze recording data without transferring data outside of the cluster the application runs within.
   displayName: Cryostat
-  icon:
-  - base64data: ""
-    mediatype: image/png
   install:
     spec:
       deployments: null
@@ -252,15 +248,14 @@ spec:
   - missioncontrol
   - monitoring
   - profiling
+  - diagnostic
   links:
   - name: Upstream Project
     url: https://github.com/cryostatio/cryostat
   maintainers:
-  - email: aazores@redhat.com
-    name: Andrew Azores
-  - email: ebaron@redhat.com
-    name: Elliott Baron
-  maturity: alpha
+  - email: cryostat-development@googlegroups.com
+    name: The Cryostat Authors
+  maturity: stable
   provider:
-    name: Red Hat, Inc.
-  version: 1.0.0-beta5
+    name: The Cryostat Community
+  version: 1.0.0

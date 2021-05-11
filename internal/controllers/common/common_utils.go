@@ -34,8 +34,41 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-package version
+package common
 
-var (
-	Version = "0.0.1"
+import (
+	"io/ioutil"
+	"os"
+
+	cryostatClient "github.com/cryostatio/cryostat-operator/internal/controllers/client"
 )
+
+// CryostatClientFactory provides a method for creating Cryostat clients
+type CryostatClientFactory interface {
+	CreateClient(config *cryostatClient.Config) (cryostatClient.CryostatClient, error)
+}
+
+// OSUtils is an abstraction on functionality that interacts with the operating system
+type OSUtils interface {
+	GetEnv(name string) string
+	GetFileContents(path string) ([]byte, error)
+}
+
+type defaultClientFactory struct{}
+
+func (c *defaultClientFactory) CreateClient(config *cryostatClient.Config) (cryostatClient.CryostatClient, error) {
+	return cryostatClient.NewHTTPClient(config)
+}
+
+type defaultOSUtils struct{}
+
+// GetEnv returns the value of the environment variable with the provided name. If no such
+// variable exists, the empty string is returned.
+func (o *defaultOSUtils) GetEnv(name string) string {
+	return os.Getenv(name)
+}
+
+// GetFileContents reads and returns the entire file contents specified by the path
+func (o *defaultOSUtils) GetFileContents(path string) ([]byte, error) {
+	return ioutil.ReadFile(path)
+}
