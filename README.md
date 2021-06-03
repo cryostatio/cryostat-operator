@@ -1,6 +1,7 @@
 # cryostat-operator
 
 [![CI build](https://github.com/cryostatio/cryostat-operator/actions/workflows/ci.yaml/badge.svg)](https://github.com/cryostatio/cryostat-operator/actions/workflows/ci.yaml)
+[![Google Group : Cryostat Development](https://img.shields.io/badge/Google%20Group-Cryostat%20Development-blue.svg)](https://groups.google.com/g/cryostat-development)
 
 A Kubernetes Operator to automate deployment of
 [Cryostat](https://github.com/cryostatio/cryostat) and provide an
