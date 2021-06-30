@@ -748,8 +748,20 @@ func NewCoreEnvironmentVariables(minimal bool, tls bool) []corev1.EnvVar {
 			Value: "cryostat-command.example.com",
 		},
 		{
+			Name:  "CRYOSTAT_CONFIG_PATH",
+			Value: "/opt/cryostat.d/conf.d",
+		},
+		{
+			Name:  "CRYOSTAT_ARCHIVE_PATH",
+			Value: "/opt/cryostat.d/recordings.d",
+		},
+		{
 			Name:  "CRYOSTAT_TEMPLATE_PATH",
-			Value: "/templates",
+			Value: "/opt/cryostat.d/templates.d",
+		},
+		{
+			Name:  "CRYOSTAT_CLIENTLIB_PATH",
+			Value: "/opt/cryostat.d/clientlib.d",
 		},
 	}
 	if !minimal {
@@ -848,14 +860,32 @@ func NewCoreVolumeMounts(tls bool) []corev1.VolumeMount {
 		{
 			Name:      "cryostat",
 			ReadOnly:  false,
-			MountPath: "flightrecordings",
+			MountPath: "/opt/cryostat.d/conf.d",
+			SubPath:   "config",
+		},
+		{
+			Name:      "cryostat",
+			ReadOnly:  false,
+			MountPath: "/opt/cryostat.d/recordings.d",
 			SubPath:   "flightrecordings",
 		},
 		{
 			Name:      "cryostat",
 			ReadOnly:  false,
-			MountPath: "templates",
+			MountPath: "/opt/cryostat.d/templates.d",
 			SubPath:   "templates",
+		},
+		{
+			Name:      "cryostat",
+			ReadOnly:  false,
+			MountPath: "/opt/cryostat.d/clientlib.d",
+			SubPath:   "clientlib",
+		},
+		{
+			Name:      "cryostat",
+			ReadOnly:  false,
+			MountPath: "truststore",
+			SubPath:   "truststore",
 		},
 	}
 	if tls {

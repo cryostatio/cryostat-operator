@@ -225,6 +225,10 @@ func NewPodForCR(cr *operatorv1beta1.Cryostat, specs *ServiceSpecs, imageTags *I
 }
 
 func NewCoreContainer(cr *operatorv1beta1.Cryostat, specs *ServiceSpecs, imageTag string, tls *TLSConfig) corev1.Container {
+	configPath := "/opt/cryostat.d/conf.d"
+	archivePath := "/opt/cryostat.d/recordings.d"
+	templatesPath := "/opt/cryostat.d/templates.d"
+	clientlibPath := "/opt/cryostat.d/clientlib.d"
 	envs := []corev1.EnvVar{
 		{
 			Name:  "CRYOSTAT_SSL_PROXIED",
@@ -243,8 +247,20 @@ func NewCoreContainer(cr *operatorv1beta1.Cryostat, specs *ServiceSpecs, imageTa
 			Value: "9090",
 		},
 		{
+			Name:  "CRYOSTAT_CONFIG_PATH",
+			Value: configPath,
+		},
+		{
+			Name:  "CRYOSTAT_ARCHIVE_PATH",
+			Value: archivePath,
+		},
+		{
 			Name:  "CRYOSTAT_TEMPLATE_PATH",
-			Value: "/templates",
+			Value: templatesPath,
+		},
+		{
+			Name:  "CRYOSTAT_CLIENTLIB_PATH",
+			Value: clientlibPath,
 		},
 	}
 	if specs.CoreURL != nil {
@@ -286,13 +302,28 @@ func NewCoreContainer(cr *operatorv1beta1.Cryostat, specs *ServiceSpecs, imageTa
 	mounts := []corev1.VolumeMount{
 		{
 			Name:      cr.Name,
-			MountPath: "flightrecordings",
+			MountPath: configPath,
+			SubPath:   "config",
+		},
+		{
+			Name:      cr.Name,
+			MountPath: archivePath,
 			SubPath:   "flightrecordings",
 		},
 		{
 			Name:      cr.Name,
-			MountPath: "templates",
+			MountPath: templatesPath,
 			SubPath:   "templates",
+		},
+		{
+			Name:      cr.Name,
+			MountPath: clientlibPath,
+			SubPath:   "clientlib",
+		},
+		{
+			Name:      cr.Name,
+			MountPath: "truststore",
+			SubPath:   "truststore",
 		},
 	}
 
