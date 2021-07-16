@@ -1,7 +1,7 @@
 SHELL := /bin/bash
 
 # Current Operator version
-IMAGE_VERSION ?= 1.0.0
+IMAGE_VERSION ?= 2.0.0-dev
 BUNDLE_VERSION ?= $(IMAGE_VERSION)
 DEFAULT_NAMESPACE ?= quay.io/cryostat
 IMAGE_NAMESPACE ?= $(DEFAULT_NAMESPACE)
@@ -28,7 +28,7 @@ CRD_OPTIONS ?= "crd:trivialVersions=true,preserveUnknownFields=false"
 # Images used by the operator
 CORE_NAMESPACE ?= $(DEFAULT_NAMESPACE)
 CORE_NAME ?= cryostat
-CORE_VERSION ?= 1.0.0
+CORE_VERSION ?= 2.0.0-SNAPSHOT
 export CORE_IMG ?= $(CORE_NAMESPACE)/$(CORE_NAME):$(CORE_VERSION)
 DATASOURCE_NAMESPACE ?= $(DEFAULT_NAMESPACE)
 DATASOURCE_NAME ?= jfr-datasource
