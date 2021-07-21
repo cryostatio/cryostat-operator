@@ -9,6 +9,8 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    env:
+      OPERATOR_IMG: quay.io/cryostat/cryostat-operator
     steps:
     - uses: actions/checkout@v2
     - uses: actions/setup-go@v2
@@ -26,11 +28,12 @@ jobs:
       with:
         operator-sdk-version: v1.5.0
     - run: make oci-build
-    - name: Get image tag
-      id: image-tag
+    - name: Tag image
+      id: tag-image
       run: |
         IMG_TAG="$(make --eval='print-img-ver: ; @echo $(IMAGE_VERSION)' print-img-ver)"
         echo "::set-output name=tag::$IMG_TAG"
+        podman tag ${{ env.OPERATOR_IMG }}:$IMG_TAG ${{ env.OPERATOR_IMG }}:latest
       if: ${{ github.event_name == 'push' && github.repository_owner == 'cryostatio' }}
     - name: Push to quay.io
       id: push-to-quay
@@ -38,7 +41,7 @@ jobs:
       with:
         image: cryostat-operator
         tags: >
-          ${{ steps.image-tag.outputs.tag }}
+          ${{ steps.tag-image.outputs.tag }}
           latest
         registry: quay.io/cryostat
         username: cryostat+bot
