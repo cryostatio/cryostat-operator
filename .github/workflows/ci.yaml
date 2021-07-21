@@ -29,8 +29,8 @@ jobs:
     - name: Get image tag
       id: image-tag
       run: |
-        IMG="$(make --eval='print-img: ; @echo $(IMG)' print-img)"
-        echo "::set-output name=img-tag::$IMG"
+        IMG_TAG="$(make --eval='print-img-ver: ; @echo $(IMAGE_VERSION)' print-img-ver)"
+        echo "::set-output name=tag::$IMG_TAG"
       if: ${{ github.event_name == 'push' && github.repository_owner == 'cryostatio' }}
     - name: Push to quay.io
       id: push-to-quay
@@ -38,7 +38,7 @@ jobs:
       with:
         image: cryostat-operator
         tags: >
-          ${{ steps.image-tag.outputs.image-tag }}
+          ${{ steps.image-tag.outputs.tag }}
           latest
         registry: quay.io/cryostat
         username: cryostat+bot
