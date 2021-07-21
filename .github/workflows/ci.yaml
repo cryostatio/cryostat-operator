@@ -36,7 +36,7 @@ jobs:
       id: push-to-quay
       uses: redhat-actions/push-to-registry@v2
       with:
-        image: cryostat
+        image: cryostat-operator
         tags: >
           ${{ steps.image-tag.outputs.image-tag }}
           latest
