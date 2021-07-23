@@ -64,7 +64,7 @@ metadata:
     operators.operatorframework.io/project_layout: go.kubebuilder.io/v3
     repository: github.com/cryostatio/cryostat-operator
     support: Cryostat Community
-  name: cryostat-operator.v1.0.0
+  name: cryostat-operator.v1.1.0-dev
   namespace: placeholder
 spec:
   apiservicedefinitions: {}
@@ -268,7 +268,7 @@ spec:
                 - /manager
                 env:
                 - name: RELATED_IMAGE_CORE
-                  value: quay.io/cryostat/cryostat:1.0.0
+                  value: quay.io/cryostat/cryostat:1.1.0-SNAPSHOT
                 - name: RELATED_IMAGE_DATASOURCE
                   value: quay.io/cryostat/jfr-datasource:1.0.0
                 - name: RELATED_IMAGE_GRAFANA
@@ -277,7 +277,7 @@ spec:
                   valueFrom:
                     fieldRef:
                       fieldPath: metadata.annotations['olm.targetNamespaces']
-                image: quay.io/cryostat/cryostat-operator:1.0.0
+                image: quay.io/cryostat/cryostat-operator:1.1.0-dev
                 livenessProbe:
                   httpGet:
                     path: /healthz
@@ -498,4 +498,4 @@ spec:
   maturity: stable
   provider:
     name: The Cryostat Community
-  version: 1.0.0
+  version: 1.1.0-dev
