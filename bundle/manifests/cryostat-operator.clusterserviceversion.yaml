@@ -238,6 +238,18 @@ spec:
       clusterPermissions:
       - rules:
         - apiGroups:
+          - authentication.k8s.io
+          resources:
+          - tokenreviews
+          verbs:
+          - create
+        - apiGroups:
+          - authorization.k8s.io
+          resources:
+          - selfsubjectaccessreviews
+          verbs:
+          - create
+        - apiGroups:
           - console.openshift.io
           resources:
           - consolelinks
@@ -247,6 +259,17 @@ spec:
           - get
           - list
           - update
+        - apiGroups:
+          - rbac.authorization.k8s.io
+          resources:
+          - clusterrolebindings
+          verbs:
+          - create
+          - delete
+          - get
+          - list
+          - update
+          - watch
         serviceAccountName: cryostat-operator-service-account
       deployments:
       - name: cryostat-operator-controller-manager
@@ -330,6 +353,7 @@ spec:
           - persistentvolumeclaims
           - pods
           - secrets
+          - serviceaccounts
           - services
           - services/finalizers
           verbs:
@@ -461,6 +485,18 @@ spec:
           - get
           - patch
           - update
+        - apiGroups:
+          - rbac.authorization.k8s.io
+          resources:
+          - rolebindings
+          - roles
+          verbs:
+          - create
+          - delete
+          - get
+          - list
+          - update
+          - watch
         - apiGroups:
           - route.openshift.io
           resources:

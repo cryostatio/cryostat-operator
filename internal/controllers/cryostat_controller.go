@@ -59,6 +59,7 @@ import (
 	openshiftv1 "github.com/openshift/api/route/v1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
@@ -90,7 +91,11 @@ const datasourceImageTagEnv = "RELATED_IMAGE_DATASOURCE"
 // Environment variable to override the Grafana dashboard image
 const grafanaImageTagEnv = "RELATED_IMAGE_GRAFANA"
 
-// +kubebuilder:rbac:namespace=system,groups="",resources=pods;services;services/finalizers;endpoints;persistentvolumeclaims;events;configmaps;secrets,verbs=*
+// +kubebuilder:rbac:namespace=system,groups="",resources=pods;services;services/finalizers;endpoints;persistentvolumeclaims;events;configmaps;secrets;serviceaccounts,verbs=*
+// +kubebuilder:rbac:namespace=system,groups=rbac.authorization.k8s.io,resources=roles;rolebindings,verbs=create;get;list;update;watch;delete
+// +kubebuilder:rbac:groups=rbac.authorization.k8s.io,resources=clusterrolebindings,verbs=create;get;list;update;watch;delete
+// +kubebuilder:rbac:groups=authentication.k8s.io,resources=tokenreviews,verbs=create
+// +kubebuilder:rbac:groups=authorization.k8s.io,resources=selfsubjectaccessreviews,verbs=create
 // +kubebuilder:rbac:namespace=system,groups=route.openshift.io,resources=routes;routes/custom-host,verbs=*
 // +kubebuilder:rbac:namespace=system,groups=apps,resources=deployments;daemonsets;replicasets;statefulsets,verbs=*
 // +kubebuilder:rbac:namespace=system,groups=monitoring.coreos.com,resources=servicemonitors,verbs=get;create
@@ -122,16 +127,22 @@ func (r *CryostatReconciler) Reconcile(ctx context.Context, request ctrl.Request
 		return reconcile.Result{}, err
 	}
 
-	// OpenShift-specific
-	// Check if this Recording is being deleted
+	// Check if this Cryostat is being deleted
 	if instance.GetDeletionTimestamp() != nil {
 		if controllerutil.ContainsFinalizer(instance, cryostatFinalizer) {
+			err = r.deleteClusterRoleBinding(ctx, instance)
+			if err != nil {
+				return reconcile.Result{}, err
+			}
+
+			// OpenShift-specific
 			if r.IsOpenShift {
 				err = r.deleteConsoleLinks(context.Background(), instance)
 				if err != nil {
 					return reconcile.Result{}, err
 				}
 			}
+
 			err = common.RemoveFinalizer(ctx, r.Client, instance, cryostatFinalizer)
 			if err != nil {
 				return reconcile.Result{}, err
@@ -197,6 +208,12 @@ func (r *CryostatReconciler) Reconcile(ctx context.Context, request ctrl.Request
 			Termination:              openshiftv1.TLSTerminationReencrypt,
 			DestinationCACertificate: string(caCert),
 		}
+	}
+
+	// Create RBAC resources for Cryostat
+	err = r.createRBAC(ctx, instance)
+	if err != nil {
+		return reconcile.Result{}, err
 	}
 
 	serviceSpecs := &resources.ServiceSpecs{}
@@ -512,6 +529,61 @@ func (r *CryostatReconciler) createObjectIfNotExists(ctx context.Context, ns typ
 		return err
 	}
 	logger.Info("Already exists")
+	return nil
+}
+
+func (r *CryostatReconciler) createRBAC(ctx context.Context, cr *operatorv1beta1.Cryostat) error {
+	// Create ServiceAccount
+	sa := resources.NewServiceAccountForCR(cr)
+	if err := controllerutil.SetControllerReference(cr, sa, r.Scheme); err != nil {
+		return err
+	}
+	if err := r.createObjectIfNotExists(ctx, types.NamespacedName{Name: sa.Name, Namespace: sa.Namespace},
+		&corev1.ServiceAccount{}, sa); err != nil {
+		return err
+	}
+
+	// Create Role
+	role := resources.NewRoleForCR(cr)
+	if err := controllerutil.SetControllerReference(cr, role, r.Scheme); err != nil {
+		return err
+	}
+	if err := r.createObjectIfNotExists(ctx, types.NamespacedName{Name: role.Name, Namespace: role.Namespace},
+		&rbacv1.Role{}, role); err != nil {
+		return err
+	}
+
+	// Create RoleBinding
+	binding := resources.NewRoleBindingForCR(cr)
+	if err := controllerutil.SetControllerReference(cr, binding, r.Scheme); err != nil {
+		return err
+	}
+	if err := r.createObjectIfNotExists(ctx, types.NamespacedName{Name: binding.Name, Namespace: binding.Namespace},
+		&rbacv1.RoleBinding{}, binding); err != nil {
+		return err
+	}
+
+	// Create ClusterRoleBinding
+	clusterBinding := resources.NewClusterRoleBindingForCR(cr)
+	if err := r.createObjectIfNotExists(ctx, types.NamespacedName{Name: clusterBinding.Name},
+		&rbacv1.ClusterRoleBinding{}, clusterBinding); err != nil {
+		return err
+	}
+	// ClusterRoleBinding can't be owned by namespaced CR, clean up using finalizer
+
+	return nil
+}
+
+func (r *CryostatReconciler) deleteClusterRoleBinding(ctx context.Context, cr *operatorv1beta1.Cryostat) error {
+	reqLogger := r.Log.WithValues("Request.Namespace", cr.Namespace, "Request.Name", cr.Name)
+
+	clusterBinding := resources.NewClusterRoleBindingForCR(cr)
+	err := r.Delete(ctx, clusterBinding)
+	if err != nil {
+		reqLogger.Error(err, "failed to delete ClusterRoleBinding", "bindingName", clusterBinding.Name)
+		return err
+	}
+	reqLogger.Info("deleted ClusterRoleBinding", "bindingName", clusterBinding.Name)
 	return nil
 }
 
