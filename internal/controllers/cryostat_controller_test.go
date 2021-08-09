@@ -49,6 +49,7 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	netv1 "k8s.io/api/networking/v1"
+	rbacv1 "k8s.io/api/rbac/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
@@ -109,6 +110,9 @@ var _ = Describe("CryostatController", func() {
 			It("should create certificates", func() {
 				t.expectCertificates()
 			})
+			It("should create RBAC", func() {
+				t.expectRBAC()
+			})
 			It("should create routes", func() {
 				t.expectRoutes()
 			})
@@ -163,6 +167,9 @@ var _ = Describe("CryostatController", func() {
 			})
 			It("should create certificates", func() {
 				t.expectCertificates()
+			})
+			It("should create RBAC", func() {
+				t.expectRBAC()
 			})
 			It("should create routes", func() {
 				t.expectRoutes()
@@ -390,6 +397,25 @@ var _ = Describe("CryostatController", func() {
 				t.expectDeployment()
 			})
 		})
+		Context("when deleted", func() {
+			BeforeEach(func() {
+				t.objs = []runtime.Object{
+					test.NewCryostat(),
+				}
+			})
+			JustBeforeEach(func() {
+				t.reconcileDeletedCryostat()
+			})
+			It("should delete the ClusterRoleBinding", func() {
+				t.checkClusterRoleBindingDeleted()
+			})
+			It("should remove the finalizer", func() {
+				cr := &operatorv1beta1.Cryostat{}
+				err := t.Client.Get(context.Background(), types.NamespacedName{Name: "cryostat", Namespace: "default"}, cr)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(cr.GetFinalizers()).ToNot(ContainElement("operator.cryostat.io/cryostat.finalizer"))
+			})
+		})
 		Context("on OpenShift", func() {
 			BeforeEach(func() {
 				t.objs = []runtime.Object{
@@ -424,21 +450,7 @@ var _ = Describe("CryostatController", func() {
 			})
 			Context("when deleted", func() {
 				JustBeforeEach(func() {
-					// Simulate deletion by setting DeletionTimestamp
-					cr := &operatorv1beta1.Cryostat{}
-					err := t.Client.Get(context.Background(), types.NamespacedName{Name: "cryostat", Namespace: "default"}, cr)
-					Expect(err).ToNot(HaveOccurred())
-
-					delTime := metav1.Unix(0, 1598045501618*int64(time.Millisecond))
-					cr.DeletionTimestamp = &delTime
-					err = t.Client.Update(context.Background(), cr)
-					Expect(err).ToNot(HaveOccurred())
-
-					// Reconcile again
-					req := reconcile.Request{NamespacedName: types.NamespacedName{Name: "cryostat", Namespace: "default"}}
-					result, err := t.controller.Reconcile(context.Background(), req)
-					Expect(err).ToNot(HaveOccurred())
-					Expect(result).To(Equal(reconcile.Result{}))
+					t.reconcileDeletedCryostat()
 				})
 				It("should delete the ConsoleLink", func() {
 					links := &consolev1.ConsoleLinkList{}
@@ -450,12 +462,6 @@ var _ = Describe("CryostatController", func() {
 					})
 					Expect(err).ToNot(HaveOccurred())
 					Expect(links.Items).To(BeEmpty())
-				})
-				It("should remove the finalizer", func() {
-					cr := &operatorv1beta1.Cryostat{}
-					err := t.Client.Get(context.Background(), types.NamespacedName{Name: "cryostat", Namespace: "default"}, cr)
-					Expect(err).ToNot(HaveOccurred())
-					Expect(cr.GetFinalizers()).ToNot(ContainElement("operator.cryostat.io/cryostat.finalizer"))
 				})
 			})
 		})
@@ -674,6 +680,24 @@ func (t *cryostatTestInput) reconcileCryostatFully() {
 	Expect(result).To(Equal(reconcile.Result{}))
 }
 
+func (t *cryostatTestInput) reconcileDeletedCryostat() {
+	// Simulate deletion by setting DeletionTimestamp
+	cr := &operatorv1beta1.Cryostat{}
+	err := t.Client.Get(context.Background(), types.NamespacedName{Name: "cryostat", Namespace: "default"}, cr)
+	Expect(err).ToNot(HaveOccurred())
+
+	delTime := metav1.Unix(0, 1598045501618*int64(time.Millisecond))
+	cr.DeletionTimestamp = &delTime
+	err = t.Client.Update(context.Background(), cr)
+	Expect(err).ToNot(HaveOccurred())
+
+	// Reconcile again
+	req := reconcile.Request{NamespacedName: types.NamespacedName{Name: "cryostat", Namespace: "default"}}
+	result, err := t.controller.Reconcile(context.Background(), req)
+	Expect(err).ToNot(HaveOccurred())
+	Expect(result).To(Equal(reconcile.Result{}))
+}
+
 func checkMetadata(object metav1.Object, expected metav1.Object) {
 	Expect(object.GetName()).To(Equal(expected.GetName()))
 	Expect(object.GetNamespace()).To(Equal(expected.GetNamespace()))
@@ -697,6 +721,46 @@ func (t *cryostatTestInput) expectCertificates() {
 	}
 }
 
+func (t *cryostatTestInput) expectRBAC() {
+	t.reconcileCryostatFully()
+
+	sa := &corev1.ServiceAccount{}
+	err := t.Client.Get(context.Background(), types.NamespacedName{Name: "cryostat", Namespace: "default"}, sa)
+	Expect(err).ToNot(HaveOccurred())
+	expectedSA := test.NewServiceAccount()
+	Expect(sa.Secrets).To(Equal(expectedSA.Secrets))
+	Expect(sa.ImagePullSecrets).To(Equal(expectedSA.ImagePullSecrets))
+	Expect(sa.AutomountServiceAccountToken).To(Equal(expectedSA.AutomountServiceAccountToken))
+
+	role := &rbacv1.Role{}
+	err = t.Client.Get(context.Background(), types.NamespacedName{Name: "cryostat", Namespace: "default"}, role)
+	Expect(err).ToNot(HaveOccurred())
+	expectedRole := test.NewRole()
+	Expect(role.Rules).To(Equal(expectedRole.Rules))
+
+	binding := &rbacv1.RoleBinding{}
+	err = t.Client.Get(context.Background(), types.NamespacedName{Name: "cryostat", Namespace: "default"}, binding)
+	Expect(err).ToNot(HaveOccurred())
+	expectedBinding := test.NewRoleBinding()
+	Expect(binding.Subjects).To(Equal(expectedBinding.Subjects))
+	Expect(binding.RoleRef).To(Equal(expectedBinding.RoleRef))
+
+	clusterBinding := &rbacv1.ClusterRoleBinding{}
+	err = t.Client.Get(context.Background(), types.NamespacedName{
+		Name: "cryostat-9ecd5050500c2566765bc593edfcce12434283e5da32a27476bc4a1569304a02"}, clusterBinding)
+	Expect(err).ToNot(HaveOccurred())
+	expectedClusterBinding := test.NewClusterRoleBinding()
+	Expect(clusterBinding.Subjects).To(Equal(expectedClusterBinding.Subjects))
+	Expect(clusterBinding.RoleRef).To(Equal(expectedClusterBinding.RoleRef))
+}
+
+func (t *cryostatTestInput) checkClusterRoleBindingDeleted() {
+	clusterBinding := &rbacv1.ClusterRoleBinding{}
+	err := t.Client.Get(context.Background(), types.NamespacedName{
+		Name: "cryostat-9ecd5050500c2566765bc593edfcce12434283e5da32a27476bc4a1569304a02"}, clusterBinding)
+	Expect(kerrors.IsNotFound(err)).To(BeTrue())
+}
+
 func (t *cryostatTestInput) expectRoutes() {
 	req := reconcile.Request{NamespacedName: types.NamespacedName{Name: "cryostat", Namespace: "default"}}
 	result, err := t.controller.Reconcile(context.Background(), req)
@@ -712,6 +776,8 @@ func (t *cryostatTestInput) expectRoutes() {
 	// Check for routes, ingress configuration needs to be added as each
 	// one is created so that they all reconcile successfully
 	result, err = t.controller.Reconcile(context.Background(), req)
+	Expect(err).ToNot(HaveOccurred())
+	Expect(result).To(Equal(reconcile.Result{RequeueAfter: 5 * time.Second}))
 	t.ingressConfig(req)
 }
 
@@ -936,6 +1002,9 @@ func (t *cryostatTestInput) checkDeployment() {
 		datasourceContainer := template.Spec.Containers[2]
 		checkDatasourceContainer(&datasourceContainer, t.DatasourceImageTag)
 	}
+
+	// Check that the proper Service Account is set
+	Expect(template.Spec.ServiceAccountName).To(Equal("cryostat"))
 }
 
 func checkCoreContainer(container *corev1.Container, minimal bool, tls bool, tag *string) {

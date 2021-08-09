@@ -37,6 +37,7 @@
 package resource_definitions
 
 import (
+	"crypto/sha256"
 	"fmt"
 	"math/rand"
 	"net/url"
@@ -46,8 +47,10 @@ import (
 	consolev1 "github.com/openshift/api/console/v1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
@@ -218,7 +221,7 @@ func NewPodForCR(cr *operatorv1beta1.Cryostat, specs *ServiceSpecs, imageTags *I
 		volumes = append(volumes, customVolumes...)
 	}
 	return &corev1.PodSpec{
-		ServiceAccountName: "cryostat-operator-service-account",
+		ServiceAccountName: cr.Name,
 		Volumes:            volumes,
 		Containers:         containers,
 	}
@@ -683,6 +686,77 @@ func NewKeystoreSecretForCR(cr *operatorv1beta1.Cryostat) *corev1.Secret {
 	}
 }
 
+func NewServiceAccountForCR(cr *operatorv1beta1.Cryostat) *corev1.ServiceAccount {
+	return &corev1.ServiceAccount{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      cr.Name,
+			Namespace: cr.Namespace,
+		},
+	}
+}
+
+func NewRoleForCR(cr *operatorv1beta1.Cryostat) *rbacv1.Role {
+	return &rbacv1.Role{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      cr.Name,
+			Namespace: cr.Namespace,
+		},
+		Rules: []rbacv1.PolicyRule{
+			{
+				Verbs:     []string{"get", "list", "watch"},
+				APIGroups: []string{""},
+				Resources: []string{"endpoints"},
+			},
+			{
+				Verbs:     []string{"get", "list"},
+				APIGroups: []string{"route.openshift.io"},
+				Resources: []string{"routes"},
+			},
+		},
+	}
+}
+
+func NewRoleBindingForCR(cr *operatorv1beta1.Cryostat) *rbacv1.RoleBinding {
+	return &rbacv1.RoleBinding{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      cr.Name,
+			Namespace: cr.Namespace,
+		},
+		Subjects: []rbacv1.Subject{
+			{
+				Kind:      rbacv1.ServiceAccountKind,
+				Name:      cr.Name,
+				Namespace: cr.Namespace,
+			},
+		},
+		RoleRef: rbacv1.RoleRef{
+			APIGroup: "rbac.authorization.k8s.io",
+			Kind:     "Role",
+			Name:     cr.Name,
+		},
+	}
+}
+
+func NewClusterRoleBindingForCR(cr *operatorv1beta1.Cryostat) *rbacv1.ClusterRoleBinding {
+	return &rbacv1.ClusterRoleBinding{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: clusterUniqueName(cr),
+		},
+		Subjects: []rbacv1.Subject{
+			{
+				Kind:      rbacv1.ServiceAccountKind,
+				Name:      cr.Name,
+				Namespace: cr.Namespace,
+			},
+		},
+		RoleRef: rbacv1.RoleRef{
+			APIGroup: "rbac.authorization.k8s.io",
+			Kind:     "ClusterRole",
+			Name:     "cryostat-operator-cryostat",
+		},
+	}
+}
+
 const ConsoleLinkNSLabel = "operator.cryostat.io/cryostat-consolelink-namespace"
 const ConsoleLinkNameLabel = "operator.cryostat.io/cryostat-consolelink-name"
 
@@ -720,4 +794,11 @@ func getPort(url *url.URL) string {
 		return "443"
 	}
 	return "80"
+}
+
+func clusterUniqueName(cr *operatorv1beta1.Cryostat) string {
+	// Use the SHA256 checksum of the namespaced name as a suffix
+	nn := types.NamespacedName{Namespace: cr.Namespace, Name: cr.Name}
+	suffix := fmt.Sprintf("%x", sha256.Sum256([]byte(nn.String())))
+	return "cryostat-" + suffix
 }
