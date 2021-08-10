@@ -52,7 +52,6 @@ import (
 	rbacv1 "k8s.io/api/rbac/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	ctrlclient "sigs.k8s.io/controller-runtime/pkg/client"
@@ -426,21 +425,11 @@ var _ = Describe("CryostatController", func() {
 				t.reconcileCryostatFully()
 			})
 			It("should create ConsoleLink", func() {
-				links := &consolev1.ConsoleLinkList{}
-				err := t.Client.List(context.Background(), links, &ctrlclient.ListOptions{
-					LabelSelector: labels.SelectorFromSet(labels.Set{
-						"operator.cryostat.io/cryostat-consolelink-namespace": "default",
-						"operator.cryostat.io/cryostat-consolelink-name":      "cryostat",
-					}),
-				})
+				link := &consolev1.ConsoleLink{}
+				expectedLink := test.NewConsoleLink()
+				err := t.Client.Get(context.Background(), types.NamespacedName{Name: expectedLink.Name}, link)
 				Expect(err).ToNot(HaveOccurred())
-				Expect(links.Items).To(HaveLen(1))
-				link := links.Items[0]
-				Expect(link.Spec.Text).To(Equal("Cryostat"))
-				Expect(link.Spec.Href).To(Equal("https://cryostat.example.com"))
-				// Should be added to the NamespaceDashboard for only the current namespace
-				Expect(link.Spec.Location).To(Equal(consolev1.NamespaceDashboard))
-				Expect(link.Spec.NamespaceDashboard.Namespaces).To(Equal([]string{"default"}))
+				Expect(link.Spec).To(Equal(expectedLink.Spec))
 			})
 			It("should add the finalizer", func() {
 				cr := &operatorv1beta1.Cryostat{}
@@ -453,15 +442,10 @@ var _ = Describe("CryostatController", func() {
 					t.reconcileDeletedCryostat()
 				})
 				It("should delete the ConsoleLink", func() {
-					links := &consolev1.ConsoleLinkList{}
-					err := t.Client.List(context.Background(), links, &ctrlclient.ListOptions{
-						LabelSelector: labels.SelectorFromSet(labels.Set{
-							"operator.cryostat.io/cryostat-consolelink-namespace": "default",
-							"operator.cryostat.io/cryostat-consolelink-name":      "cryostat",
-						}),
-					})
-					Expect(err).ToNot(HaveOccurred())
-					Expect(links.Items).To(BeEmpty())
+					link := &consolev1.ConsoleLink{}
+					expectedLink := test.NewConsoleLink()
+					err := t.Client.Get(context.Background(), types.NamespacedName{Name: expectedLink.Name}, link)
+					Expect(kerrors.IsNotFound(err)).To(BeTrue())
 				})
 			})
 		})

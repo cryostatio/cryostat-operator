@@ -757,18 +757,11 @@ func NewClusterRoleBindingForCR(cr *operatorv1beta1.Cryostat) *rbacv1.ClusterRol
 	}
 }
 
-const ConsoleLinkNSLabel = "operator.cryostat.io/cryostat-consolelink-namespace"
-const ConsoleLinkNameLabel = "operator.cryostat.io/cryostat-consolelink-name"
-
 func NewConsoleLink(cr *operatorv1beta1.Cryostat, url string) *consolev1.ConsoleLink {
-	// Cluster scoped, so use generated name to avoid conflicts. Look up using labels.
+	// Cluster scoped, so use a unique name to avoid conflicts
 	return &consolev1.ConsoleLink{
 		ObjectMeta: metav1.ObjectMeta{
-			GenerateName: "cryostat-",
-			Labels: map[string]string{
-				ConsoleLinkNSLabel:   cr.Namespace,
-				ConsoleLinkNameLabel: cr.Name,
-			},
+			Name: clusterUniqueName(cr),
 		},
 		Spec: consolev1.ConsoleLinkSpec{
 			Link: consolev1.Link{

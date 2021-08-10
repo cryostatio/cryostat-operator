@@ -62,7 +62,6 @@ import (
 	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
@@ -137,7 +136,7 @@ func (r *CryostatReconciler) Reconcile(ctx context.Context, request ctrl.Request
 
 			// OpenShift-specific
 			if r.IsOpenShift {
-				err = r.deleteConsoleLinks(context.Background(), instance)
+				err = r.deleteConsoleLink(ctx, instance)
 				if err != nil {
 					return reconcile.Result{}, err
 				}
@@ -340,17 +339,9 @@ func (r *CryostatReconciler) Reconcile(ctx context.Context, request ctrl.Request
 	}
 	// OpenShift-specific
 	if r.IsOpenShift {
-		links, err := r.getConsoleLinks(instance)
+		err := r.createConsoleLink(ctx, instance, serviceSpecs.CoreURL.String())
 		if err != nil {
 			return reconcile.Result{}, err
-		}
-		if len(links) == 0 {
-			link := resources.NewConsoleLink(instance, serviceSpecs.CoreURL.String())
-			if err = r.Client.Create(context.Background(), link); err != nil {
-				reqLogger.Error(err, "Could not create ConsoleLink")
-				return reconcile.Result{}, err
-			}
-			reqLogger.Info("Created ConsoleLink", "linkName", link.Name)
 		}
 	}
 
@@ -603,37 +594,20 @@ func (r *CryostatReconciler) getEnvOrDefault(name string, defaultVal string) str
 	return defaultVal
 }
 
-func (r *CryostatReconciler) getConsoleLinks(cr *operatorv1beta1.Cryostat) ([]consolev1.ConsoleLink, error) {
-	links := &consolev1.ConsoleLinkList{}
-	linkLabels := labels.Set{
-		resources.ConsoleLinkNSLabel:   cr.Namespace,
-		resources.ConsoleLinkNameLabel: cr.Name,
-	}
-	err := r.Client.List(context.Background(), links, &client.ListOptions{
-		LabelSelector: linkLabels.AsSelectorPreValidated(),
-	})
-	if err != nil {
-		return nil, err
-	}
-	return links.Items, nil
+func (r *CryostatReconciler) createConsoleLink(ctx context.Context, cr *operatorv1beta1.Cryostat, url string) error {
+	link := resources.NewConsoleLink(cr, url)
+	return r.createObjectIfNotExists(ctx, types.NamespacedName{Name: link.Name}, &consolev1.ConsoleLink{}, link)
 }
 
-func (r *CryostatReconciler) deleteConsoleLinks(ctx context.Context, cr *operatorv1beta1.Cryostat) error {
+func (r *CryostatReconciler) deleteConsoleLink(ctx context.Context, cr *operatorv1beta1.Cryostat) error {
 	reqLogger := r.Log.WithValues("Request.Namespace", cr.Namespace, "Request.Name", cr.Name)
-	links, err := r.getConsoleLinks(cr)
+	link := resources.NewConsoleLink(cr, "")
+	err := r.Client.Delete(ctx, link)
 	if err != nil {
+		reqLogger.Error(err, "failed to delete ConsoleLink", "linkName", link.Name)
 		return err
 	}
-
-	// Should just be one, but use loop just in case
-	for _, link := range links {
-		err := r.Client.Delete(ctx, &link)
-		if err != nil {
-			reqLogger.Error(err, "failed to delete ConsoleLink", "linkName", link.Name)
-			return err
-		}
-		reqLogger.Info("deleted ConsoleLink", "linkName", link.Name)
-	}
+	reqLogger.Info("deleted ConsoleLink", "linkName", link.Name)
 	return nil
 }
 
