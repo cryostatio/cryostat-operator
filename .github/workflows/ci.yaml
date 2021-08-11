@@ -2,9 +2,16 @@ name: CI build
 
 on:
   push:
-    branches: [ main ]
+    branches:
+      - main
+      - v[0-9]+
+      - v[0-9]+.[0-9]+
+
   pull_request:
-    branches: [ main ]
+    branches:
+      - main
+      - v[0-9]+
+      - v[0-9]+.[0-9]+
 
 jobs:
   build:
@@ -35,17 +42,21 @@ jobs:
       id: tag-image
       run: |
         IMG_TAG="$(make --eval='print-img-ver: ; @echo $(IMAGE_VERSION)' print-img-ver)"
-        echo "::set-output name=tag::$IMG_TAG"
-        podman tag ${{ env.OPERATOR_IMG }}:$IMG_TAG ${{ env.OPERATOR_IMG }}:latest
+        if [ "$GITHUB_REF" == "refs/heads/main" ]; then
+          podman tag \
+          ${{ env.OPERATOR_IMG }}:$IMG_TAG \
+          ${{ env.OPERATOR_IMG }}:latest
+          echo "::set-output name=tags::$IMG_TAG latest"
+        else
+          echo "::set-output name=tags::$IMG_TAG"
+        fi
       if: ${{ github.event_name == 'push' && github.repository_owner == 'cryostatio' }}
     - name: Push to quay.io
       id: push-to-quay
       uses: redhat-actions/push-to-registry@v2
       with:
         image: cryostat-operator
-        tags: >
-          ${{ steps.tag-image.outputs.tag }}
-          latest
+        tags: ${{ steps.tag-image.outputs.tags }}
         registry: quay.io/cryostat
         username: cryostat+bot
         password: ${{ secrets.REGISTRY_PASSWORD }}
