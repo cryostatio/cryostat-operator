@@ -2,9 +2,16 @@ name: CI build
 
 on:
   push:
-    branches: [ main ]
+    branches:
+      - main
+      - v[0-9]+
+      - v[0-9]+.[0-9]+
+
   pull_request:
-    branches: [ main ]
+    branches:
+      - main
+      - v[0-9]+
+      - v[0-9]+.[0-9]+
 
 jobs:
   build:
