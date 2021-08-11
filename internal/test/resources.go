@@ -1175,3 +1175,21 @@ func NewClusterRoleBinding() *rbacv1.ClusterRoleBinding {
 		},
 	}
 }
+
+func NewConsoleLink() *consolev1.ConsoleLink {
+	return &consolev1.ConsoleLink{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "cryostat-9ecd5050500c2566765bc593edfcce12434283e5da32a27476bc4a1569304a02",
+		},
+		Spec: consolev1.ConsoleLinkSpec{
+			Link: consolev1.Link{
+				Text: "Cryostat",
+				Href: "https://cryostat.example.com",
+			},
+			Location: consolev1.NamespaceDashboard,
+			NamespaceDashboard: &consolev1.NamespaceDashboardSpec{
+				Namespaces: []string{"default"},
+			},
+		},
+	}
+}
