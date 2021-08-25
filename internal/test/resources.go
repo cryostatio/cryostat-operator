@@ -1127,6 +1127,21 @@ func NewRole() *rbacv1.Role {
 				Resources: []string{"endpoints"},
 			},
 			{
+				Verbs:     []string{"get"},
+				APIGroups: []string{""},
+				Resources: []string{"pods", "replicationcontrollers"},
+			},
+			{
+				Verbs:     []string{"get"},
+				APIGroups: []string{"apps"},
+				Resources: []string{"replicasets", "deployments", "daemonsets", "statefulsets"},
+			},
+			{
+				Verbs:     []string{"get"},
+				APIGroups: []string{"apps.openshift.io"},
+				Resources: []string{"deploymentconfigs"},
+			},
+			{
 				Verbs:     []string{"get", "list"},
 				APIGroups: []string{"route.openshift.io"},
 				Resources: []string{"routes"},

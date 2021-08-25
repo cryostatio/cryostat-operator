@@ -384,6 +384,12 @@ spec:
           - update
           - watch
         - apiGroups:
+          - ""
+          resources:
+          - replicationcontrollers
+          verbs:
+          - get
+        - apiGroups:
           - apps
           resources:
           - daemonsets
@@ -392,6 +398,12 @@ spec:
           - statefulsets
           verbs:
           - '*'
+        - apiGroups:
+          - apps.openshift.io
+          resources:
+          - deploymentconfigs
+          verbs:
+          - get
         - apiGroups:
           - cert-manager.io
           resources:
