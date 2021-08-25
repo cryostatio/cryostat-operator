@@ -5,6 +5,7 @@ metadata:
 spec:
   minimal: false
   trustedCertSecrets: []
+  eventTemplates: []
   storageOptions:
     pvc:
       labels: {}

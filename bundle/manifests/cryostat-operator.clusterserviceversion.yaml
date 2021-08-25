@@ -11,6 +11,7 @@ metadata:
             "name": "cryostat-sample"
           },
           "spec": {
+            "eventTemplates": [],
             "minimal": false,
             "storageOptions": {
               "pvc": {
@@ -97,6 +98,14 @@ spec:
         name: ""
         version: v1
       specDescriptors:
+      - description: List of Flight Recorder Event Templates to preconfigure in Cryostat
+        displayName: Event Templates
+        path: eventTemplates
+      - description: Name of config map in the local namespace
+        displayName: Config Map Name
+        path: eventTemplates[0].configMapName
+        x-descriptors:
+        - urn:alm:descriptor:io.kubernetes:ConfigMap
       - description: Deploy a pared-down Cryostat instance with no Grafana dashboard or jfr-datasource and no web-client UI.
         displayName: Minimal Deployment
         path: minimal

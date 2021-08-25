@@ -30,6 +30,22 @@ spec:
           spec:
             description: CryostatSpec defines the desired state of Cryostat
             properties:
+              eventTemplates:
+                description: List of Flight Recorder Event Templates to preconfigure in Cryostat
+                items:
+                  description: A ConfigMap containing a .jfc template file
+                  properties:
+                    configMapName:
+                      description: Name of config map in the local namespace
+                      type: string
+                    filename:
+                      description: Filename within config map containing the template file
+                      type: string
+                  required:
+                  - configMapName
+                  - filename
+                  type: object
+                type: array
               minimal:
                 description: Deploy a pared-down Cryostat instance with no Grafana dashboard or jfr-datasource and no web-client UI.
                 type: boolean

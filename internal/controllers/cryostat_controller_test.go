@@ -291,7 +291,7 @@ var _ = Describe("CryostatController", func() {
 				t.checkDeployment()
 			})
 		})
-		Context("Container jfr has list of certificate secrets", func() {
+		Context("Cryostat CR has list of certificate secrets", func() {
 			BeforeEach(func() {
 				t.objs = []runtime.Object{
 					test.NewCryostatWithSecrets(), newFakeSecret("testCert1"), newFakeSecret("testCert2"),
@@ -347,6 +347,67 @@ var _ = Describe("CryostatController", func() {
 
 				volumeMounts := deployment.Spec.Template.Spec.Containers[0].VolumeMounts
 				expectedVolumeMounts := test.NewVolumeMountsWithSecrets()
+				Expect(volumeMounts).To(Equal(expectedVolumeMounts))
+			})
+		})
+		Context("Cryostat CR has list of event templates", func() {
+			BeforeEach(func() {
+				t.objs = []runtime.Object{
+					test.NewCryostatWithTemplates(), test.NewTemplateConfigMap(),
+					test.NewOtherTemplateConfigMap(),
+				}
+			})
+			It("Should add volumes and volumeMounts to deployment", func() {
+				t.reconcileCryostatFully()
+				deployment := &appsv1.Deployment{}
+				err := t.Client.Get(context.Background(), types.NamespacedName{Name: "cryostat", Namespace: "default"}, deployment)
+				Expect(err).ToNot(HaveOccurred())
+
+				volumes := deployment.Spec.Template.Spec.Volumes
+				expectedVolumes := test.NewVolumesWithTemplates()
+				Expect(volumes).To(Equal(expectedVolumes))
+
+				volumeMounts := deployment.Spec.Template.Spec.Containers[0].VolumeMounts
+				expectedVolumeMounts := test.NewVolumeMountsWithTemplates()
+				Expect(volumeMounts).To(Equal(expectedVolumeMounts))
+			})
+		})
+		Context("Adding a template to the EventTemplates list", func() {
+			BeforeEach(func() {
+				t.objs = []runtime.Object{
+					test.NewCryostat(), test.NewTemplateConfigMap(),
+					test.NewOtherTemplateConfigMap(),
+				}
+			})
+			JustBeforeEach(func() {
+				t.reconcileCryostatFully()
+			})
+			It("Should update the corresponding deployment", func() {
+				// Get Cryostat CR after reconciling
+				cr := &operatorv1beta1.Cryostat{}
+				err := t.Client.Get(context.Background(), types.NamespacedName{Name: "cryostat", Namespace: "default"}, cr)
+				Expect(err).ToNot(HaveOccurred())
+
+				// Update it with new EventTemplates
+				cr.Spec.EventTemplates = test.NewCryostatWithTemplates().Spec.EventTemplates
+				err = t.Client.Update(context.Background(), cr)
+				Expect(err).ToNot(HaveOccurred())
+
+				req := reconcile.Request{NamespacedName: types.NamespacedName{Name: "cryostat", Namespace: "default"}}
+				result, err := t.controller.Reconcile(context.Background(), req)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(result).To(Equal(reconcile.Result{}))
+
+				deployment := &appsv1.Deployment{}
+				err = t.Client.Get(context.Background(), types.NamespacedName{Name: "cryostat", Namespace: "default"}, deployment)
+				Expect(err).ToNot(HaveOccurred())
+
+				volumes := deployment.Spec.Template.Spec.Volumes
+				expectedVolumes := test.NewVolumesWithTemplates()
+				Expect(volumes).To(Equal(expectedVolumes))
+
+				volumeMounts := deployment.Spec.Template.Spec.Containers[0].VolumeMounts
+				expectedVolumeMounts := test.NewVolumeMountsWithTemplates()
 				Expect(volumeMounts).To(Equal(expectedVolumeMounts))
 			})
 		})

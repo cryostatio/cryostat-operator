@@ -321,22 +321,12 @@ func (r *CryostatReconciler) Reconcile(ctx context.Context, request ctrl.Request
 		}
 	}
 
-	// Check that secrets mounted in /truststore coincide with CRD
-	err = r.Client.Get(context.Background(), types.NamespacedName{Name: deployment.Name, Namespace: deployment.Namespace}, deployment)
-	if err == nil {
-		deploymentMounts := deployment.Spec.Template.Spec.Containers[0].VolumeMounts
-		expectedDeploymentSpec := resources.NewDeploymentForCR(instance, serviceSpecs, imageTags, tlsConfig).Spec.Template.Spec
-		if !cmp.Equal(deploymentMounts, expectedDeploymentSpec.Containers[0].VolumeMounts) {
-			reqLogger.Info("cert secrets mounted do not coincide with those specified in CRD, modifying deployment")
-			// Modify deployment
-			deployment.Spec.Template.Spec.Containers[0].VolumeMounts = expectedDeploymentSpec.Containers[0].VolumeMounts
-			deployment.Spec.Template.Spec.Volumes = expectedDeploymentSpec.Volumes
-			err = r.Client.Update(context.Background(), deployment)
-			if err != nil {
-				return reconcile.Result{}, err
-			}
-		}
+	// Check if the Deployment's volume mounts need to be updated
+	err = r.updateVolumeMounts(ctx, instance, resources.NewDeploymentForCR(instance, serviceSpecs, imageTags, tlsConfig))
+	if err != nil {
+		return reconcile.Result{}, err
 	}
+
 	// OpenShift-specific
 	if r.IsOpenShift {
 		err := r.createConsoleLink(ctx, instance, serviceSpecs.CoreURL.String())
@@ -592,6 +582,30 @@ func (r *CryostatReconciler) getEnvOrDefault(name string, defaultVal string) str
 		return val
 	}
 	return defaultVal
+}
+
+func (r *CryostatReconciler) updateVolumeMounts(ctx context.Context, cr *operatorv1beta1.Cryostat, expectedDeployment *appsv1.Deployment) error {
+	reqLogger := r.Log.WithValues("Request.Namespace", cr.Namespace, "Request.Name", cr.Name)
+
+	// Get existing Deployment
+	deployment := &appsv1.Deployment{}
+	err := r.Client.Get(ctx, types.NamespacedName{Name: expectedDeployment.Name, Namespace: expectedDeployment.Namespace}, deployment)
+	if err != nil {
+		return err
+	}
+	templateSpec := &deployment.Spec.Template.Spec
+	expectedTemplateSpec := expectedDeployment.Spec.Template.Spec
+	if !cmp.Equal(templateSpec.Containers[0].VolumeMounts, expectedTemplateSpec.Containers[0].VolumeMounts) {
+		reqLogger.Info("updating deployment volumes/mounts to satisfy Cryostat spec")
+		// Modify Deployment
+		templateSpec.Containers[0].VolumeMounts = expectedTemplateSpec.Containers[0].VolumeMounts
+		templateSpec.Volumes = expectedTemplateSpec.Volumes
+		err = r.Client.Update(ctx, deployment)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (r *CryostatReconciler) createConsoleLink(ctx context.Context, cr *operatorv1beta1.Cryostat, url string) error {
