@@ -52,6 +52,10 @@ type CryostatSpec struct {
 	// +optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Trusted TLS Certificates"
 	TrustedCertSecrets []CertificateSecret `json:"trustedCertSecrets,omitempty"`
+	// List of Flight Recorder Event Templates to preconfigure in Cryostat
+	// +optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Event Templates"
+	EventTemplates []TemplateConfigMap `json:"eventTemplates,omitempty"`
 	// Options to customize the storage for Flight Recordings and Templates
 	// +optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
@@ -171,4 +175,13 @@ type CertificateSecret struct {
 	// Key within secret containing the certificate
 	// +optional
 	CertificateKey *string `json:"certificateKey,omitempty"`
+}
+
+// A ConfigMap containing a .jfc template file
+type TemplateConfigMap struct {
+	// Name of config map in the local namespace
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:io.kubernetes:ConfigMap"}
+	ConfigMapName string `json:"configMapName"`
+	// Filename within config map containing the template file
+	Filename string `json:"filename"`
 }

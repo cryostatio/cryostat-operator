@@ -106,6 +106,28 @@ func NewCryostatWithSecrets() *operatorv1beta1.Cryostat {
 	}
 }
 
+func NewCryostatWithTemplates() *operatorv1beta1.Cryostat {
+	return &operatorv1beta1.Cryostat{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "cryostat",
+			Namespace: "default",
+		},
+		Spec: operatorv1beta1.CryostatSpec{
+			Minimal: false,
+			EventTemplates: []operatorv1beta1.TemplateConfigMap{
+				{
+					ConfigMapName: "templateCM1",
+					Filename:      "template.jfc",
+				},
+				{
+					ConfigMapName: "templateCM2",
+					Filename:      "other-template.jfc",
+				},
+			},
+		},
+	}
+}
+
 func NewCryostatWithIngress() *operatorv1beta1.Cryostat {
 	networkConfig := NewNetworkConfigurationList()
 	return &operatorv1beta1.Cryostat{
@@ -923,16 +945,32 @@ func NewGrafanaVolumeMounts(tls bool) []corev1.VolumeMount {
 func NewVolumeMountsWithSecrets() []corev1.VolumeMount {
 	return append(NewCoreVolumeMounts(true),
 		corev1.VolumeMount{
-			Name:      "testCert1",
+			Name:      "cert-testCert1",
 			ReadOnly:  true,
 			MountPath: "/truststore/testCert1_test.crt",
 			SubPath:   "test.crt",
 		},
 		corev1.VolumeMount{
-			Name:      "testCert2",
+			Name:      "cert-testCert2",
 			ReadOnly:  true,
 			MountPath: "/truststore/testCert2_tls.crt",
 			SubPath:   "tls.crt",
+		})
+}
+
+func NewVolumeMountsWithTemplates() []corev1.VolumeMount {
+	return append(NewCoreVolumeMounts(true),
+		corev1.VolumeMount{
+			Name:      "template-templateCM1",
+			ReadOnly:  true,
+			MountPath: "/opt/cryostat.d/templates.d/templateCM1_template.jfc",
+			SubPath:   "template.jfc",
+		},
+		corev1.VolumeMount{
+			Name:      "template-templateCM2",
+			ReadOnly:  true,
+			MountPath: "/opt/cryostat.d/templates.d/templateCM2_other-template.jfc",
+			SubPath:   "other-template.jfc",
 		})
 }
 
@@ -1038,7 +1076,7 @@ func NewVolumes(minimal bool, tls bool) []corev1.Volume {
 func NewVolumesWithSecrets() []corev1.Volume {
 	return append(NewVolumes(false, true),
 		corev1.Volume{
-			Name: "testCert1",
+			Name: "cert-testCert1",
 			VolumeSource: corev1.VolumeSource{
 				Secret: &corev1.SecretVolumeSource{
 					SecretName: "testCert1",
@@ -1046,10 +1084,49 @@ func NewVolumesWithSecrets() []corev1.Volume {
 			},
 		},
 		corev1.Volume{
-			Name: "testCert2",
+			Name: "cert-testCert2",
 			VolumeSource: corev1.VolumeSource{
 				Secret: &corev1.SecretVolumeSource{
 					SecretName: "testCert2",
+				},
+			},
+		})
+}
+
+func NewVolumesWithTemplates() []corev1.Volume {
+	mode := int32(0440)
+	return append(NewVolumes(false, true),
+		corev1.Volume{
+			Name: "template-templateCM1",
+			VolumeSource: corev1.VolumeSource{
+				ConfigMap: &corev1.ConfigMapVolumeSource{
+					LocalObjectReference: corev1.LocalObjectReference{
+						Name: "templateCM1",
+					},
+					Items: []corev1.KeyToPath{
+						{
+							Key:  "template.jfc",
+							Path: "template.jfc",
+							Mode: &mode,
+						},
+					},
+				},
+			},
+		},
+		corev1.Volume{
+			Name: "template-templateCM2",
+			VolumeSource: corev1.VolumeSource{
+				ConfigMap: &corev1.ConfigMapVolumeSource{
+					LocalObjectReference: corev1.LocalObjectReference{
+						Name: "templateCM2",
+					},
+					Items: []corev1.KeyToPath{
+						{
+							Key:  "other-template.jfc",
+							Path: "other-template.jfc",
+							Mode: &mode,
+						},
+					},
 				},
 			},
 		})
@@ -1187,6 +1264,30 @@ func NewClusterRoleBinding() *rbacv1.ClusterRoleBinding {
 			APIGroup: "rbac.authorization.k8s.io",
 			Kind:     "ClusterRole",
 			Name:     "cryostat-operator-cryostat",
+		},
+	}
+}
+
+func NewTemplateConfigMap() *corev1.ConfigMap {
+	return &corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "templateCM1",
+			Namespace: "default",
+		},
+		Data: map[string]string{
+			"template.jfc": "XML template data",
+		},
+	}
+}
+
+func NewOtherTemplateConfigMap() *corev1.ConfigMap {
+	return &corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "templateCM2",
+			Namespace: "default",
+		},
+		Data: map[string]string{
+			"other-template.jfc": "more XML template data",
 		},
 	}
 }

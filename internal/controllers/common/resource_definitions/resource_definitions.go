@@ -206,19 +206,41 @@ func NewPodForCR(cr *operatorv1beta1.Cryostat, specs *ServiceSpecs, imageTags *I
 			volumes = append(volumes, grafanaSecretVolume)
 		}
 
-		customVolumes := []corev1.Volume{}
+		// Add any TrustedCertSecrets as volumes
 		for _, secret := range cr.Spec.TrustedCertSecrets {
-			volume := corev1.Volume{
-				Name: secret.SecretName,
+			trustedCertVolume := corev1.Volume{
+				Name: "cert-" + secret.SecretName,
 				VolumeSource: corev1.VolumeSource{
 					Secret: &corev1.SecretVolumeSource{
 						SecretName: secret.SecretName,
 					},
 				},
 			}
-			customVolumes = append(customVolumes, volume)
+			volumes = append(volumes, trustedCertVolume)
 		}
-		volumes = append(volumes, customVolumes...)
+
+		// Add any EventTemplates as volumes
+		readOnlyMode := int32(0440)
+		for _, template := range cr.Spec.EventTemplates {
+			eventTemplateVolume := corev1.Volume{
+				Name: "template-" + template.ConfigMapName,
+				VolumeSource: corev1.VolumeSource{
+					ConfigMap: &corev1.ConfigMapVolumeSource{
+						LocalObjectReference: corev1.LocalObjectReference{
+							Name: template.ConfigMapName,
+						},
+						Items: []corev1.KeyToPath{
+							{
+								Key:  template.Filename,
+								Path: template.Filename,
+								Mode: &readOnlyMode,
+							},
+						},
+					},
+				},
+			}
+			volumes = append(volumes, eventTemplateVolume)
+		}
 	}
 	return &corev1.PodSpec{
 		ServiceAccountName: cr.Name,
@@ -385,8 +407,7 @@ func NewCoreContainer(cr *operatorv1beta1.Cryostat, specs *ServiceSpecs, imageTa
 
 		mounts = append(mounts, keystoreMount, caCertMount)
 
-		// Mount the certificates specified in cryostat CRD in /truststore location
-		secretMounts := []corev1.VolumeMount{}
+		// Mount the certificates specified in Cryostat CR under /truststore
 		for _, secret := range cr.Spec.TrustedCertSecrets {
 			var key string
 			if secret.CertificateKey != nil {
@@ -395,15 +416,24 @@ func NewCoreContainer(cr *operatorv1beta1.Cryostat, specs *ServiceSpecs, imageTa
 				key = operatorv1beta1.DefaultCertificateKey
 			}
 			mount := corev1.VolumeMount{
-				Name:      secret.SecretName,
+				Name:      "cert-" + secret.SecretName,
 				MountPath: fmt.Sprintf("/truststore/%s_%s", secret.SecretName, key),
 				SubPath:   key,
 				ReadOnly:  true,
 			}
-			secretMounts = append(secretMounts, mount)
+			mounts = append(mounts, mount)
 		}
 
-		mounts = append(mounts, secretMounts...)
+		// Mount the templates specified in Cryostat CR under /opt/cryostat.d/templates.d
+		for _, template := range cr.Spec.EventTemplates {
+			mount := corev1.VolumeMount{
+				Name:      "template-" + template.ConfigMapName,
+				MountPath: fmt.Sprintf("%s/%s_%s", templatesPath, template.ConfigMapName, template.Filename),
+				SubPath:   template.Filename,
+				ReadOnly:  true,
+			}
+			mounts = append(mounts, mount)
+		}
 
 		// Use HTTPS for liveness probe
 		livenessProbeScheme = corev1.URISchemeHTTPS
