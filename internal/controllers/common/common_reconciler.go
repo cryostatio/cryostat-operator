@@ -113,7 +113,7 @@ func (r *commonReconciler) GetCryostatClient(ctx context.Context, namespace stri
 	// Get CA certificate if TLS is enabled
 	var caCert []byte
 	protocol := "http"
-	if r.IsCertManagerEnabled() {
+	if r.IsCertManagerEnabled(cryostat) {
 		caCert, err = r.GetCryostatCABytes(ctx, cryostat)
 		if err != nil {
 			return nil, err

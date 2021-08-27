@@ -71,7 +71,7 @@ var _ = Describe("FlightRecorderController", func() {
 		s := test.NewTestScheme()
 
 		t.Client = fake.NewFakeClientWithScheme(s, t.objs...)
-		t.Server = test.NewServer(t.Client, t.handlers, t.DisableTLS)
+		t.Server = test.NewServer(t.Client, t.handlers, t.TLS)
 		t.controller = &controllers.FlightRecorderReconciler{
 			Client:     t.Client,
 			Scheme:     s,
@@ -90,6 +90,9 @@ var _ = Describe("FlightRecorderController", func() {
 			objs: []runtime.Object{
 				test.NewCryostat(), test.NewCACert(), test.NewFlightRecorder(), test.NewTargetPod(),
 				test.NewCryostatService(), test.NewJMXAuthSecret(),
+			},
+			TestReconcilerConfig: test.TestReconcilerConfig{
+				TLS: true,
 			},
 		}
 	})
@@ -288,7 +291,7 @@ var _ = Describe("FlightRecorderController", func() {
 					test.NewListTemplatesHandler(),
 				}
 				disableTLS := true
-				t.DisableTLS = &disableTLS
+				t.EnvDisableTLS = &disableTLS
 			})
 			It("should update event type list", func() {
 				t.expectFlightRecorderReconcileSuccess()

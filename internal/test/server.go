@@ -56,9 +56,9 @@ type CryostatServer struct {
 }
 
 // NewServer creates a CryostatServer for use by unit tests
-func NewServer(client client.Client, handlers []http.HandlerFunc, disableTLS *bool) *CryostatServer {
+func NewServer(client client.Client, handlers []http.HandlerFunc, tls bool) *CryostatServer {
 	var server *ghttp.Server
-	if disableTLS != nil && *disableTLS {
+	if !tls {
 		server = ghttp.NewServer()
 	} else {
 		server = ghttp.NewTLSServer()

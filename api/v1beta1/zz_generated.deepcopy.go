@@ -141,6 +141,11 @@ func (in *CryostatSpec) DeepCopyInto(out *CryostatSpec) {
 		*out = make([]TemplateConfigMap, len(*in))
 		copy(*out, *in)
 	}
+	if in.EnableCertManager != nil {
+		in, out := &in.EnableCertManager, &out.EnableCertManager
+		*out = new(bool)
+		**out = **in
+	}
 	if in.StorageOptions != nil {
 		in, out := &in.StorageOptions, &out.StorageOptions
 		*out = new(StorageConfiguration)

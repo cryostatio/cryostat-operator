@@ -56,6 +56,11 @@ type CryostatSpec struct {
 	// +optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Event Templates"
 	EventTemplates []TemplateConfigMap `json:"eventTemplates,omitempty"`
+	// Use cert-manager to secure in-cluster communication between Cryostat components.
+	// Requires cert-manager to be installed.
+	// +optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Enable cert-manager integration",xDescriptors={"urn:alm:descriptor:com.tectonic.ui:booleanSwitch"}
+	EnableCertManager *bool `json:"enableCertManager"`
 	// Options to customize the storage for Flight Recordings and Templates
 	// +optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec

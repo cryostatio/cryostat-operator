@@ -30,6 +30,9 @@ spec:
           spec:
             description: CryostatSpec defines the desired state of Cryostat
             properties:
+              enableCertManager:
+                description: Use cert-manager to secure in-cluster communication between Cryostat components. Requires cert-manager to be installed.
+                type: boolean
               eventTemplates:
                 description: List of Flight Recorder Event Templates to preconfigure in Cryostat
                 items:
