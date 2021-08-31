@@ -12,6 +12,17 @@ spec:
   minimal: true
 ```
 
+### Disabling cert-manager Integration
+By default, the operator expects [cert-manager](https://cert-manager.io/) to be available in the cluster. The operator uses cert-manager to generate a self-signed CA to allow traffic between Cryostat components within the cluster to use HTTPS. If cert-manager is not available in the cluster, this integration can be disabled with the `spec.enableCertManager` property.
+```yaml
+apiVersion: operator.cryostat.io/v1beta1
+kind: Cryostat
+metadata:
+  name: cryostat-sample
+spec:
+  enableCertManager: false
+```
+
 ### Custom Event Templates
 All JDK Flight Recordings created by Cryostat are configured using an event template. These templates specify which events to record, and Cryostat includes some templates automatically, including those provided by the target's JVM. Cryostat also provides the ability to [upload customized templates](https://cryostat.io/getting-started/#download-edit-and-upload-a-customized-event-template), which can then be used to create recordings.
 
