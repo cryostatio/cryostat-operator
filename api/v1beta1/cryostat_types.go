@@ -59,7 +59,7 @@ type CryostatSpec struct {
 	// Use cert-manager to secure in-cluster communication between Cryostat components.
 	// Requires cert-manager to be installed.
 	// +optional
-	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Enable cert-manager integration",xDescriptors={"urn:alm:descriptor:com.tectonic.ui:booleanSwitch"}
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Enable cert-manager Integration",xDescriptors={"urn:alm:descriptor:com.tectonic.ui:booleanSwitch"}
 	EnableCertManager *bool `json:"enableCertManager"`
 	// Options to customize the storage for Flight Recordings and Templates
 	// +optional
