@@ -1132,6 +1132,13 @@ func NewVolumesWithTemplates() []corev1.Volume {
 		})
 }
 
+func NewPodSecurityContext() *corev1.PodSecurityContext {
+	fsGroup := int64(0)
+	return &corev1.PodSecurityContext{
+		FSGroup: &fsGroup,
+	}
+}
+
 func NewNetworkConfigurationList() operatorv1beta1.NetworkConfigurationList {
 	coreSVC := resource_definitions.NewExporterService(NewCryostat())
 	coreIng := NewNetworkConfiguration(coreSVC.Name, coreSVC.Spec.Ports[0].Port)

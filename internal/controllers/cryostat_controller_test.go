@@ -1033,6 +1033,7 @@ func (t *cryostatTestInput) checkDeployment() {
 		"kind": "cryostat",
 	}))
 	Expect(template.Spec.Volumes).To(Equal(test.NewVolumes(t.minimal, tls)))
+	Expect(template.Spec.SecurityContext).To(Equal(test.NewPodSecurityContext()))
 
 	// Check that the networking environment variables are set correctly
 	coreContainer := template.Spec.Containers[0]
