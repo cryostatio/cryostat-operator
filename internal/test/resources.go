@@ -48,9 +48,11 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	netv1 "k8s.io/api/networking/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
+	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/client-go/kubernetes/scheme"
 )
@@ -69,6 +71,19 @@ func NewTestScheme() *runtime.Scheme {
 	gomega.Expect(err).ToNot(gomega.HaveOccurred())
 
 	return s
+}
+
+func NewTESTRESTMapper() meta.RESTMapper {
+	mapper := meta.NewDefaultRESTMapper([]schema.GroupVersion{
+		certv1.SchemeGroupVersion,
+	})
+	// Add cert-manager Issuer GVK
+	mapper.Add(schema.GroupVersionKind{
+		Group:   certv1.SchemeGroupVersion.Group,
+		Version: certv1.SchemeGroupVersion.Version,
+		Kind:    certv1.IssuerKind,
+	}, meta.RESTScopeNamespace)
+	return mapper
 }
 
 func NewCryostat() *operatorv1beta1.Cryostat {
