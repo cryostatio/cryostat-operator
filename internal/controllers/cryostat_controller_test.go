@@ -51,9 +51,12 @@ import (
 	netv1 "k8s.io/api/networking/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/tools/record"
 	ctrlclient "sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
@@ -86,6 +89,8 @@ var _ = Describe("CryostatController", func() {
 			Client:        t.Client,
 			Scheme:        s,
 			IsOpenShift:   true,
+			EventRecorder: record.NewFakeRecorder(1024),
+			RESTMapper:    test.NewTESTRESTMapper(),
 			Log:           logger,
 			ReconcilerTLS: test.NewTestReconcilerTLS(&t.TestReconcilerConfig),
 		}
@@ -644,6 +649,46 @@ var _ = Describe("CryostatController", func() {
 				t.checkRoutes()
 			})
 		})
+		Context("cert-manager missing", func() {
+			JustBeforeEach(func() {
+				// Replace with an empty RESTMapper
+				t.controller.RESTMapper = meta.NewDefaultRESTMapper([]schema.GroupVersion{})
+			})
+			Context("and enabled", func() {
+				BeforeEach(func() {
+					t.objs = []runtime.Object{
+						test.NewCryostat(),
+					}
+				})
+				It("should emit a CertManagerUnavailable Event", func() {
+					req := reconcile.Request{NamespacedName: types.NamespacedName{Name: "cryostat", Namespace: "default"}}
+					_, err := t.controller.Reconcile(context.Background(), req)
+					Expect(err).To(HaveOccurred())
+
+					recorder := t.controller.EventRecorder.(*record.FakeRecorder)
+					var eventMsg string
+					Expect(recorder.Events).To(Receive(&eventMsg))
+					Expect(eventMsg).To(ContainSubstring("CertManagerUnavailable"))
+				})
+			})
+			Context("and disabled", func() {
+				BeforeEach(func() {
+					t.objs = []runtime.Object{
+						test.NewCryostatCertManagerDisabled(),
+					}
+					t.TLS = false
+				})
+				It("should not emit a CertManagerUnavailable Event", func() {
+					req := reconcile.Request{NamespacedName: types.NamespacedName{Name: "cryostat", Namespace: "default"}}
+					_, err := t.controller.Reconcile(context.Background(), req)
+					Expect(err).ToNot(HaveOccurred())
+
+					recorder := t.controller.EventRecorder.(*record.FakeRecorder)
+					Expect(recorder.Events).ToNot(Receive())
+				})
+			})
+		})
+
 	})
 	Describe("reconciling a request in Kubernetes", func() {
 		JustBeforeEach(func() {
