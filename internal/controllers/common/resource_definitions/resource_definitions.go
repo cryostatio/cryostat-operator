@@ -449,7 +449,7 @@ func NewCoreContainer(cr *operatorv1beta1.Cryostat, specs *ServiceSpecs, imageTa
 		}
 
 		// Mount the CA cert and user certificates in the expected /truststore location
-		caCertMount := corev1.VolumeMount{ // FIXME this is persisting after redeployment with 0 byte file. Try projected volume instead of subpath?
+		caCertMount := corev1.VolumeMount{
 			Name:      "cert-secrets",
 			MountPath: "/truststore/operator",
 			ReadOnly:  true,
