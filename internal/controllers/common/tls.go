@@ -53,7 +53,7 @@ import (
 // ReconcilerTLS contains methods a reconciler may wish to use when configuring
 // TLS-related functionality
 type ReconcilerTLS interface {
-	IsCertManagerEnabled() bool
+	IsCertManagerEnabled(cryostat *operatorv1beta1.Cryostat) bool
 	GetCryostatCABytes(ctx context.Context, cryostat *operatorv1beta1.Cryostat) ([]byte, error)
 	GetCertificateSecret(ctx context.Context, name string, namespace string) (*corev1.Secret, error)
 	OSUtils
@@ -92,11 +92,13 @@ func NewReconcilerTLS(config *ReconcilerTLSConfig) ReconcilerTLS {
 
 // IsCertManagerEnabled returns whether TLS using cert-manager is enabled
 // for this operator
-func (r *reconcilerTLS) IsCertManagerEnabled() bool {
-	// FIXME hardcoded off - new operator-sdk has cert-manager already set up
-	// somehow, with "CA injection"?
+func (r *reconcilerTLS) IsCertManagerEnabled(cr *operatorv1beta1.Cryostat) bool {
+	// First check if cert-manager is explicitly enabled or disabled in CR
+	if cr.Spec.EnableCertManager != nil {
+		return *cr.Spec.EnableCertManager
+	}
 
-	// Check if the user has explicitly requested cert-manager to be disabled
+	// Otherwise, fall back to DISABLE_SERVICE_TLS environment variable
 	return strings.ToLower(r.GetEnv(disableServiceTLS)) != "true"
 }
 

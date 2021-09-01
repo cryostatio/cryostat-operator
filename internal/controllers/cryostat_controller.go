@@ -54,7 +54,6 @@ import (
 
 	"github.com/cryostatio/cryostat-operator/internal/controllers/common"
 	resources "github.com/cryostatio/cryostat-operator/internal/controllers/common/resource_definitions"
-	"github.com/google/go-cmp/cmp"
 	consolev1 "github.com/openshift/api/console/v1"
 	openshiftv1 "github.com/openshift/api/route/v1"
 	appsv1 "k8s.io/api/apps/v1"
@@ -190,7 +189,7 @@ func (r *CryostatReconciler) Reconcile(ctx context.Context, request ctrl.Request
 	// Set up TLS using cert-manager, if available
 	var tlsConfig *resources.TLSConfig
 	var routeTLS *openshiftv1.TLSConfig
-	if r.IsCertManagerEnabled() {
+	if r.IsCertManagerEnabled(instance) {
 		tlsConfig, err = r.setupTLS(context.Background(), instance)
 		if err != nil {
 			if err == common.ErrCertNotReady {
@@ -307,13 +306,19 @@ func (r *CryostatReconciler) Reconcile(ctx context.Context, request ctrl.Request
 
 	imageTags := r.getImageTags()
 	deployment := resources.NewDeploymentForCR(instance, serviceSpecs, imageTags, tlsConfig)
+	podTemplate := deployment.Spec.Template.DeepCopy()
 	if err := controllerutil.SetControllerReference(instance, deployment, r.Scheme); err != nil {
 		return reconcile.Result{}, err
 	}
-	if err = r.createObjectIfNotExists(context.Background(), types.NamespacedName{Name: deployment.Name, Namespace: deployment.Namespace}, &appsv1.Deployment{}, deployment); err != nil {
-		reqLogger.Error(err, "Could not create deployment")
+	op, err := controllerutil.CreateOrUpdate(ctx, r.Client, deployment, func() error {
+		// Update pod template spec to propagate any changes from Cryostat CR
+		deployment.Spec.Template.Spec = podTemplate.Spec
+		return nil
+	})
+	if err != nil {
 		return reconcile.Result{}, err
 	}
+	reqLogger.Info(fmt.Sprintf("Deployment %s", op))
 
 	if serviceSpecs.CoreURL != nil {
 		instance.Status.ApplicationURL = serviceSpecs.CoreURL.String()
@@ -321,12 +326,6 @@ func (r *CryostatReconciler) Reconcile(ctx context.Context, request ctrl.Request
 		if err != nil {
 			return reconcile.Result{}, err
 		}
-	}
-
-	// Check if the Deployment's volume mounts need to be updated
-	err = r.updateVolumeMounts(ctx, instance, resources.NewDeploymentForCR(instance, serviceSpecs, imageTags, tlsConfig))
-	if err != nil {
-		return reconcile.Result{}, err
 	}
 
 	// OpenShift-specific
@@ -337,7 +336,7 @@ func (r *CryostatReconciler) Reconcile(ctx context.Context, request ctrl.Request
 		}
 	}
 
-	reqLogger.Info("Skip reconcile: Deployment already exists", "Deployment.Namespace", deployment.Namespace, "Deployment.Name", deployment.Name)
+	reqLogger.Info("Successfully reconciled deployment", "Deployment.Namespace", deployment.Namespace, "Deployment.Name", deployment.Name)
 	return reconcile.Result{}, nil
 }
 
@@ -380,7 +379,7 @@ func (r *CryostatReconciler) createService(ctx context.Context, controller *oper
 		}
 	}
 	if r.IsOpenShift {
-		return r.createRouteForService(controller, svc, *exposePort, tlsConfig)
+		return r.createRouteForService(ctx, controller, svc, *exposePort, tlsConfig)
 	} else {
 		if controller.Spec.NetworkOptions == nil {
 			return nil, nil
@@ -400,50 +399,43 @@ func (r *CryostatReconciler) createService(ctx context.Context, controller *oper
 // so that they may be accessed outside of the cluster
 var ErrIngressNotReady = goerrors.New("Ingress configuration not yet available")
 
-func (r *CryostatReconciler) createRouteForService(controller *operatorv1beta1.Cryostat, svc *corev1.Service, exposePort corev1.ServicePort,
-	tlsConfig *openshiftv1.TLSConfig) (*url.URL, error) {
+func (r *CryostatReconciler) createRouteForService(ctx context.Context, cr *operatorv1beta1.Cryostat,
+	svc *corev1.Service, exposePort corev1.ServicePort, tlsConfig *openshiftv1.TLSConfig) (*url.URL, error) {
 	logger := r.Log.WithValues("Request.Namespace", svc.Namespace, "Name", svc.Name, "Kind", fmt.Sprintf("%T", &openshiftv1.Route{}))
 	route := &openshiftv1.Route{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      svc.Name,
 			Namespace: svc.Namespace,
 		},
-		Spec: openshiftv1.RouteSpec{
+	}
+	if err := controllerutil.SetControllerReference(cr, route, r.Scheme); err != nil {
+		return nil, err
+	}
+
+	op, err := controllerutil.CreateOrUpdate(ctx, r.Client, route, func() error {
+		// Update Route spec
+		route.Spec = openshiftv1.RouteSpec{
 			To: openshiftv1.RouteTargetReference{
 				Kind: "Service",
 				Name: svc.Name,
 			},
 			Port: &openshiftv1.RoutePort{TargetPort: exposePort.TargetPort},
 			TLS:  tlsConfig,
-		},
-	}
-	if err := controllerutil.SetControllerReference(controller, route, r.Scheme); err != nil {
-		return nil, err
-	}
-
-	found := &openshiftv1.Route{}
-	err := r.Client.Get(context.Background(), types.NamespacedName{Name: svc.Name, Namespace: svc.Namespace}, found)
-	if err != nil && errors.IsNotFound(err) {
-		logger.Info("Not found")
-		if err := r.Client.Create(context.Background(), route); err != nil {
-			logger.Error(err, "Could not be created")
-			return nil, err
 		}
-		logger.Info("Created")
-		found = route
-	} else if err != nil {
-		logger.Error(err, "Could not be read")
+		return nil
+	})
+	if err != nil {
 		return nil, err
 	}
 
-	logger.Info("Route created", "Service.Status", fmt.Sprintf("%#v", found.Status))
-	if len(found.Status.Ingress) < 1 {
+	logger.Info(fmt.Sprintf("Route %s", op), "Service.Status", fmt.Sprintf("%#v", route.Status))
+	if len(route.Status.Ingress) < 1 {
 		return nil, ErrIngressNotReady
 	}
 
 	return &url.URL{
 		Scheme: getProtocol(tlsConfig),
-		Host:   found.Status.Ingress[0].Host,
+		Host:   route.Status.Ingress[0].Host,
 	}, nil
 }
 
@@ -584,30 +576,6 @@ func (r *CryostatReconciler) getEnvOrDefault(name string, defaultVal string) str
 		return val
 	}
 	return defaultVal
-}
-
-func (r *CryostatReconciler) updateVolumeMounts(ctx context.Context, cr *operatorv1beta1.Cryostat, expectedDeployment *appsv1.Deployment) error {
-	reqLogger := r.Log.WithValues("Request.Namespace", cr.Namespace, "Request.Name", cr.Name)
-
-	// Get existing Deployment
-	deployment := &appsv1.Deployment{}
-	err := r.Client.Get(ctx, types.NamespacedName{Name: expectedDeployment.Name, Namespace: expectedDeployment.Namespace}, deployment)
-	if err != nil {
-		return err
-	}
-	templateSpec := &deployment.Spec.Template.Spec
-	expectedTemplateSpec := expectedDeployment.Spec.Template.Spec
-	if !cmp.Equal(templateSpec.Containers[0].VolumeMounts, expectedTemplateSpec.Containers[0].VolumeMounts) {
-		reqLogger.Info("updating deployment volumes/mounts to satisfy Cryostat spec")
-		// Modify Deployment
-		templateSpec.Containers[0].VolumeMounts = expectedTemplateSpec.Containers[0].VolumeMounts
-		templateSpec.Volumes = expectedTemplateSpec.Volumes
-		err = r.Client.Update(ctx, deployment)
-		if err != nil {
-			return err
-		}
-	}
-	return nil
 }
 
 func (r *CryostatReconciler) createConsoleLink(ctx context.Context, cr *operatorv1beta1.Cryostat, url string) error {

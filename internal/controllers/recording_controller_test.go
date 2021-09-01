@@ -74,7 +74,7 @@ var _ = Describe("RecordingController", func() {
 		s := test.NewTestScheme()
 
 		t.Client = fake.NewFakeClientWithScheme(s, t.objs...)
-		t.Server = test.NewServer(t.Client, t.handlers, t.DisableTLS)
+		t.Server = test.NewServer(t.Client, t.handlers, t.TLS)
 		t.controller = &controllers.RecordingReconciler{
 			Client:     t.Client,
 			Scheme:     s,
@@ -93,6 +93,9 @@ var _ = Describe("RecordingController", func() {
 			objs: []runtime.Object{
 				test.NewCryostat(), test.NewCACert(), test.NewFlightRecorder(),
 				test.NewTargetPod(), test.NewCryostatService(), test.NewJMXAuthSecret(),
+			},
+			TestReconcilerConfig: test.TestReconcilerConfig{
+				TLS: true,
 			},
 		}
 	})

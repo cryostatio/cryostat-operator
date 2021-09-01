@@ -92,7 +92,11 @@ var _ = Describe("CryostatController", func() {
 	})
 
 	BeforeEach(func() {
-		t = &cryostatTestInput{}
+		t = &cryostatTestInput{
+			TestReconcilerConfig: test.TestReconcilerConfig{
+				TLS: true,
+			},
+		}
 	})
 
 	AfterEach(func() {
@@ -308,7 +312,7 @@ var _ = Describe("CryostatController", func() {
 				Expect(volumes).To(Equal(expectedVolumes))
 
 				volumeMounts := deployment.Spec.Template.Spec.Containers[0].VolumeMounts
-				expectedVolumeMounts := test.NewVolumeMountsWithSecrets()
+				expectedVolumeMounts := test.NewCoreVolumeMounts(t.TLS)
 				Expect(volumeMounts).To(Equal(expectedVolumeMounts))
 			})
 		})
@@ -346,7 +350,7 @@ var _ = Describe("CryostatController", func() {
 				Expect(volumes).To(Equal(expectedVolumes))
 
 				volumeMounts := deployment.Spec.Template.Spec.Containers[0].VolumeMounts
-				expectedVolumeMounts := test.NewVolumeMountsWithSecrets()
+				expectedVolumeMounts := test.NewCoreVolumeMounts(t.TLS)
 				Expect(volumeMounts).To(Equal(expectedVolumeMounts))
 			})
 		})
@@ -449,9 +453,9 @@ var _ = Describe("CryostatController", func() {
 				coreImg := "my/core-image:1.0"
 				datasourceImg := "my/datasource-image:1.0"
 				grafanaImg := "my/grafana-image:1.0"
-				t.CoreImageTag = &coreImg
-				t.DatasourceImageTag = &datasourceImg
-				t.GrafanaImageTag = &grafanaImg
+				t.EnvCoreImageTag = &coreImg
+				t.EnvDatasourceImageTag = &datasourceImg
+				t.EnvGrafanaImageTag = &grafanaImg
 			})
 			It("should create deployment with the expected tags", func() {
 				t.expectDeployment()
@@ -510,13 +514,12 @@ var _ = Describe("CryostatController", func() {
 				})
 			})
 		})
-		Context("with service TLS disabled", func() {
+		Context("with cert-manager disabled in CR", func() {
 			BeforeEach(func() {
 				t.objs = []runtime.Object{
-					test.NewCryostat(),
+					test.NewCryostatCertManagerDisabled(),
 				}
-				disableTLS := true
-				t.DisableTLS = &disableTLS
+				t.TLS = false
 			})
 			It("should create deployment and set owner", func() {
 				t.expectDeployment()
@@ -530,6 +533,115 @@ var _ = Describe("CryostatController", func() {
 			})
 			It("should create routes with edge TLS termination", func() {
 				t.expectRoutes()
+			})
+		})
+		Context("with cert-manager not configured in CR", func() {
+			BeforeEach(func() {
+				t.objs = []runtime.Object{
+					test.NewCryostatCertManagerUndefined(),
+				}
+			})
+			It("should create deployment and set owner", func() {
+				t.expectDeployment()
+			})
+			It("should create certificates", func() {
+				t.expectCertificates()
+			})
+			It("should create routes with re-encrypt TLS termination", func() {
+				t.expectRoutes()
+			})
+		})
+		Context("with DISABLE_SERVICE_TLS=true", func() {
+			BeforeEach(func() {
+				t.objs = []runtime.Object{
+					test.NewCryostatCertManagerUndefined(),
+				}
+				disableTLS := true
+				t.EnvDisableTLS = &disableTLS
+				t.TLS = false
+			})
+			It("should create deployment and set owner", func() {
+				t.expectDeployment()
+			})
+			It("should not create certificates", func() {
+				certs := &certv1.CertificateList{}
+				t.Client.List(context.Background(), certs, &ctrlclient.ListOptions{
+					Namespace: "default",
+				})
+				Expect(certs.Items).To(BeEmpty())
+			})
+			It("should create routes with edge TLS termination", func() {
+				t.expectRoutes()
+			})
+		})
+		Context("Disable cert-manager after being enabled", func() {
+			BeforeEach(func() {
+				t.objs = []runtime.Object{
+					test.NewCryostat(),
+				}
+			})
+			JustBeforeEach(func() {
+				t.reconcileCryostatFully()
+
+				cryostat := &operatorv1beta1.Cryostat{}
+				err := t.Client.Get(context.Background(), types.NamespacedName{Name: "cryostat", Namespace: "default"}, cryostat)
+				Expect(err).ToNot(HaveOccurred())
+
+				t.TLS = false
+				certManager := false
+				cryostat.Spec.EnableCertManager = &certManager
+				err = t.Client.Status().Update(context.Background(), cryostat)
+				Expect(err).ToNot(HaveOccurred())
+
+				req := reconcile.Request{NamespacedName: types.NamespacedName{Name: "cryostat", Namespace: "default"}}
+				_, err = t.controller.Reconcile(context.Background(), req)
+				Expect(err).ToNot(HaveOccurred())
+			})
+			It("should update the deployment", func() {
+				t.checkDeployment()
+			})
+			It("should create routes with edge TLS termination", func() {
+				t.checkRoutes()
+			})
+		})
+		Context("Enable cert-manager after being disabled", func() {
+			BeforeEach(func() {
+				t.objs = []runtime.Object{
+					test.NewCryostatCertManagerDisabled(),
+				}
+				t.TLS = false
+			})
+			JustBeforeEach(func() {
+				t.reconcileCryostatFully()
+
+				cryostat := &operatorv1beta1.Cryostat{}
+				err := t.Client.Get(context.Background(), types.NamespacedName{Name: "cryostat", Namespace: "default"}, cryostat)
+				Expect(err).ToNot(HaveOccurred())
+
+				t.TLS = true
+				certManager := true
+				cryostat.Spec.EnableCertManager = &certManager
+				err = t.Client.Status().Update(context.Background(), cryostat)
+				Expect(err).ToNot(HaveOccurred())
+
+				req := reconcile.Request{NamespacedName: types.NamespacedName{Name: "cryostat", Namespace: "default"}}
+				_, err = t.controller.Reconcile(context.Background(), req)
+				Expect(err).ToNot(HaveOccurred())
+
+				t.makeCertificatesReady()
+				t.initializeSecrets()
+
+				_, err = t.controller.Reconcile(context.Background(), req)
+				Expect(err).ToNot(HaveOccurred())
+			})
+			It("should update the deployment", func() {
+				t.checkDeployment()
+			})
+			It("should create certificates", func() {
+				t.checkCertificates()
+			})
+			It("should create routes with re-encrypt TLS termination", func() {
+				t.checkRoutes()
 			})
 		})
 	})
@@ -678,26 +790,41 @@ func (t *cryostatTestInput) ingressConfig(req reconcile.Request) {
 		routes = append([]string{"cryostat-grafana"}, routes...)
 	}
 	for _, routeName := range routes {
-		route := &openshiftv1.Route{}
-		err := t.Client.Get(context.Background(), types.NamespacedName{Name: routeName, Namespace: "default"}, route)
-		Expect(err).ToNot(HaveOccurred())
-
-		// Verify the TLS termination policy
-		Expect(route.Spec.TLS).ToNot(BeNil())
-		if t.DisableTLS != nil && *t.DisableTLS {
-			Expect(route.Spec.TLS.Termination).To(Equal(openshiftv1.TLSTerminationEdge))
-			Expect(route.Spec.TLS.InsecureEdgeTerminationPolicy).To(Equal(openshiftv1.InsecureEdgeTerminationPolicyRedirect))
-		} else {
-			Expect(route.Spec.TLS.Termination).To(Equal(openshiftv1.TLSTerminationReencrypt))
-			Expect(route.Spec.TLS.DestinationCACertificate).To(Equal("cryostat-ca-bytes"))
-		}
+		route := t.checkRoute(routeName)
 		route.Status.Ingress = append(route.Status.Ingress, openshiftv1.RouteIngress{
 			Host: routeName + ".example.com",
 		})
-		err = t.Client.Status().Update(context.Background(), route)
+		err := t.Client.Status().Update(context.Background(), route)
 		Expect(err).ToNot(HaveOccurred())
 		_, err = t.controller.Reconcile(context.Background(), req)
 	}
+}
+
+func (t *cryostatTestInput) checkRoutes() {
+	routes := []string{"cryostat", "cryostat-command"}
+	if !t.minimal {
+		routes = append([]string{"cryostat-grafana"}, routes...)
+	}
+	for _, routeName := range routes {
+		t.checkRoute(routeName)
+	}
+}
+
+func (t *cryostatTestInput) checkRoute(name string) *openshiftv1.Route {
+	route := &openshiftv1.Route{}
+	err := t.Client.Get(context.Background(), types.NamespacedName{Name: name, Namespace: "default"}, route)
+	Expect(err).ToNot(HaveOccurred())
+
+	// Verify the TLS termination policy
+	Expect(route.Spec.TLS).ToNot(BeNil())
+	if !t.TLS {
+		Expect(route.Spec.TLS.Termination).To(Equal(openshiftv1.TLSTerminationEdge))
+		Expect(route.Spec.TLS.InsecureEdgeTerminationPolicy).To(Equal(openshiftv1.InsecureEdgeTerminationPolicyRedirect))
+	} else {
+		Expect(route.Spec.TLS.Termination).To(Equal(openshiftv1.TLSTerminationReencrypt))
+		Expect(route.Spec.TLS.DestinationCACertificate).To(Equal("cryostat-ca-bytes"))
+	}
+	return route
 }
 
 func (t *cryostatTestInput) reconcileCryostatFully() {
@@ -707,7 +834,7 @@ func (t *cryostatTestInput) reconcileCryostatFully() {
 	Expect(result).To(Equal(reconcile.Result{RequeueAfter: 5 * time.Second}))
 
 	// Update certificate status
-	if t.DisableTLS == nil || !*t.DisableTLS {
+	if t.TLS {
 		t.makeCertificatesReady()
 		t.initializeSecrets()
 	}
@@ -758,6 +885,10 @@ func (t *cryostatTestInput) expectCertificates() {
 	result, err := t.controller.Reconcile(context.Background(), req)
 	Expect(err).ToNot(HaveOccurred())
 	Expect(result).To(Equal(reconcile.Result{RequeueAfter: 5 * time.Second}))
+	t.checkCertificates()
+}
+
+func (t *cryostatTestInput) checkCertificates() {
 	certNames := []string{"cryostat", "cryostat-ca", "cryostat-grafana"}
 	for _, certName := range certNames {
 		cert := &certv1.Certificate{}
@@ -813,7 +944,7 @@ func (t *cryostatTestInput) expectRoutes() {
 	Expect(result).To(Equal(reconcile.Result{RequeueAfter: 5 * time.Second}))
 
 	// Update certificate status
-	if t.DisableTLS == nil || !*t.DisableTLS {
+	if t.TLS {
 		t.makeCertificatesReady()
 		t.initializeSecrets()
 	}
@@ -1024,7 +1155,6 @@ func (t *cryostatTestInput) checkDeployment() {
 	Expect(deployment.Spec.Selector).To(Equal(test.NewDeploymentSelector()))
 
 	// compare Pod template
-	tls := t.DisableTLS == nil || !*t.DisableTLS
 	template := deployment.Spec.Template
 	Expect(template.Name).To(Equal("cryostat"))
 	Expect(template.Namespace).To(Equal("default"))
@@ -1032,21 +1162,21 @@ func (t *cryostatTestInput) checkDeployment() {
 		"app":  "cryostat",
 		"kind": "cryostat",
 	}))
-	Expect(template.Spec.Volumes).To(Equal(test.NewVolumes(t.minimal, tls)))
+	Expect(template.Spec.Volumes).To(Equal(test.NewVolumes(t.minimal, t.TLS)))
 	Expect(template.Spec.SecurityContext).To(Equal(test.NewPodSecurityContext()))
 
 	// Check that the networking environment variables are set correctly
 	coreContainer := template.Spec.Containers[0]
-	checkCoreContainer(&coreContainer, t.minimal, tls, t.CoreImageTag)
+	checkCoreContainer(&coreContainer, t.minimal, t.TLS, t.EnvCoreImageTag)
 
 	if !t.minimal {
 		// Check that Grafana is configured properly, depending on the environment
 		grafanaContainer := template.Spec.Containers[1]
-		checkGrafanaContainer(&grafanaContainer, tls, t.GrafanaImageTag)
+		checkGrafanaContainer(&grafanaContainer, t.TLS, t.EnvGrafanaImageTag)
 
 		// Check that JFR Datasource is configured properly
 		datasourceContainer := template.Spec.Containers[2]
-		checkDatasourceContainer(&datasourceContainer, t.DatasourceImageTag)
+		checkDatasourceContainer(&datasourceContainer, t.EnvDatasourceImageTag)
 	}
 
 	// Check that the proper Service Account is set

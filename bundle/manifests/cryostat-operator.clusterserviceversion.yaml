@@ -11,6 +11,7 @@ metadata:
             "name": "cryostat-sample"
           },
           "spec": {
+            "enableCertManager": true,
             "eventTemplates": [],
             "minimal": false,
             "storageOptions": {
@@ -98,6 +99,11 @@ spec:
         name: ""
         version: v1
       specDescriptors:
+      - description: Use cert-manager to secure in-cluster communication between Cryostat components. Requires cert-manager to be installed.
+        displayName: Enable cert-manager Integration
+        path: enableCertManager
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:booleanSwitch
       - description: List of Flight Recorder Event Templates to preconfigure in Cryostat
         displayName: Event Templates
         path: eventTemplates
@@ -240,7 +246,7 @@ spec:
         - urn:alm:descriptor:text
       version: v1beta1
   description: |
-    Cryostat provides a cloud-based solution for interacting with the JDK Flight Recorder already present in OpenJDK 11+ JVMs. With Cryostat, users can remotely start, stop, retrieve, and even analyze JFR event data, providing the capbility to easily take advantage of Flight Recorder''s extremely low runtime cost and overhead and the flexibility to monitor applications and analyze recording data without transferring data outside of the cluster the application runs within.
+    Cryostat provides a cloud-based solution for interacting with the JDK Flight Recorder already present in OpenJDK 11+ JVMs. With Cryostat, users can remotely start, stop, retrieve, and even analyze JFR event data, providing the capbility to easily take advantage of Flight Recorder's extremely low runtime cost and overhead and the flexibility to monitor applications and analyze recording data without transferring data outside of the cluster the application runs within.
   displayName: Cryostat
   install:
     spec:

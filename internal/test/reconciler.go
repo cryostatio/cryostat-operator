@@ -49,12 +49,13 @@ import (
 
 // TestReconcilerConfig groups parameters used to create a test Reconciler
 type TestReconcilerConfig struct {
-	Server             *CryostatServer
-	Client             client.Client
-	DisableTLS         *bool
-	CoreImageTag       *string
-	DatasourceImageTag *string
-	GrafanaImageTag    *string
+	Server                *CryostatServer
+	Client                client.Client
+	TLS                   bool
+	EnvDisableTLS         *bool
+	EnvCoreImageTag       *string
+	EnvDatasourceImageTag *string
+	EnvGrafanaImageTag    *string
 }
 
 // NewTestReconciler returns a common.Reconciler for use by unit tests
@@ -87,7 +88,7 @@ func NewTestReconcilerTLS(config *TestReconcilerConfig) common.ReconcilerTLS {
 
 func (c *testClientFactory) CreateClient(config *cryostatClient.Config) (cryostatClient.CryostatClient, error) {
 	protocol := "https"
-	if c.DisableTLS != nil && *c.DisableTLS {
+	if !c.TLS {
 		protocol = "http"
 	}
 	// Verify the provided server URL before substituting it
@@ -107,17 +108,17 @@ type testOSUtils struct {
 
 func newTestOSUtils(config *TestReconcilerConfig) *testOSUtils {
 	envs := map[string]string{}
-	if config.DisableTLS != nil {
-		envs["DISABLE_SERVICE_TLS"] = strconv.FormatBool(*config.DisableTLS)
+	if config.EnvDisableTLS != nil {
+		envs["DISABLE_SERVICE_TLS"] = strconv.FormatBool(*config.EnvDisableTLS)
 	}
-	if config.CoreImageTag != nil {
-		envs["RELATED_IMAGE_CORE"] = *config.CoreImageTag
+	if config.EnvCoreImageTag != nil {
+		envs["RELATED_IMAGE_CORE"] = *config.EnvCoreImageTag
 	}
-	if config.DatasourceImageTag != nil {
-		envs["RELATED_IMAGE_DATASOURCE"] = *config.DatasourceImageTag
+	if config.EnvDatasourceImageTag != nil {
+		envs["RELATED_IMAGE_DATASOURCE"] = *config.EnvDatasourceImageTag
 	}
-	if config.GrafanaImageTag != nil {
-		envs["RELATED_IMAGE_GRAFANA"] = *config.GrafanaImageTag
+	if config.EnvGrafanaImageTag != nil {
+		envs["RELATED_IMAGE_GRAFANA"] = *config.EnvGrafanaImageTag
 	}
 	return &testOSUtils{envs}
 }

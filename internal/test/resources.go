@@ -72,6 +72,7 @@ func NewTestScheme() *runtime.Scheme {
 }
 
 func NewCryostat() *operatorv1beta1.Cryostat {
+	certManager := true
 	return &operatorv1beta1.Cryostat{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "cryostat",
@@ -79,128 +80,99 @@ func NewCryostat() *operatorv1beta1.Cryostat {
 		},
 		Spec: operatorv1beta1.CryostatSpec{
 			Minimal:            false,
+			EnableCertManager:  &certManager,
 			TrustedCertSecrets: []operatorv1beta1.CertificateSecret{},
 		},
 	}
 }
 
 func NewCryostatWithSecrets() *operatorv1beta1.Cryostat {
+	cr := NewCryostat()
 	key := "test.crt"
-	return &operatorv1beta1.Cryostat{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "cryostat",
-			Namespace: "default",
+	cr.Spec.TrustedCertSecrets = []operatorv1beta1.CertificateSecret{
+		{
+			SecretName:     "testCert1",
+			CertificateKey: &key,
 		},
-		Spec: operatorv1beta1.CryostatSpec{
-			Minimal: false,
-			TrustedCertSecrets: []operatorv1beta1.CertificateSecret{
-				{
-					SecretName:     "testCert1",
-					CertificateKey: &key,
-				},
-				{
-					SecretName: "testCert2",
-				},
-			},
+		{
+			SecretName: "testCert2",
 		},
 	}
+	return cr
 }
 
 func NewCryostatWithTemplates() *operatorv1beta1.Cryostat {
-	return &operatorv1beta1.Cryostat{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "cryostat",
-			Namespace: "default",
+	cr := NewCryostat()
+	cr.Spec.EventTemplates = []operatorv1beta1.TemplateConfigMap{
+		{
+			ConfigMapName: "templateCM1",
+			Filename:      "template.jfc",
 		},
-		Spec: operatorv1beta1.CryostatSpec{
-			Minimal: false,
-			EventTemplates: []operatorv1beta1.TemplateConfigMap{
-				{
-					ConfigMapName: "templateCM1",
-					Filename:      "template.jfc",
-				},
-				{
-					ConfigMapName: "templateCM2",
-					Filename:      "other-template.jfc",
-				},
-			},
+		{
+			ConfigMapName: "templateCM2",
+			Filename:      "other-template.jfc",
 		},
 	}
+	return cr
 }
 
 func NewCryostatWithIngress() *operatorv1beta1.Cryostat {
+	cr := NewCryostat()
 	networkConfig := NewNetworkConfigurationList()
-	return &operatorv1beta1.Cryostat{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "cryostat",
-			Namespace: "default",
-		},
-		Spec: operatorv1beta1.CryostatSpec{
-			Minimal:            false,
-			TrustedCertSecrets: []operatorv1beta1.CertificateSecret{},
-			NetworkOptions:     &networkConfig,
-		},
-	}
+	cr.Spec.NetworkOptions = &networkConfig
+	return cr
 }
 
 func NewCryostatWithPVCSpec() *operatorv1beta1.Cryostat {
-	return &operatorv1beta1.Cryostat{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "cryostat",
-			Namespace: "default",
-		},
-		Spec: operatorv1beta1.CryostatSpec{
-			Minimal: false,
-			StorageOptions: &operatorv1beta1.StorageConfiguration{
-				PVC: &operatorv1beta1.PersistentVolumeClaimConfig{
-					Annotations: map[string]string{
-						"my/custom": "annotation",
-					},
-					Labels: map[string]string{
-						"my":  "label",
-						"app": "somethingelse",
-					},
-					Spec: newPVCSpec("cool-storage", "10Gi", corev1.ReadWriteMany),
-				},
+	cr := NewCryostat()
+	cr.Spec.StorageOptions = &operatorv1beta1.StorageConfiguration{
+		PVC: &operatorv1beta1.PersistentVolumeClaimConfig{
+			Annotations: map[string]string{
+				"my/custom": "annotation",
 			},
+			Labels: map[string]string{
+				"my":  "label",
+				"app": "somethingelse",
+			},
+			Spec: newPVCSpec("cool-storage", "10Gi", corev1.ReadWriteMany),
 		},
 	}
+	return cr
 }
 
 func NewCryostatWithPVCSpecSomeDefault() *operatorv1beta1.Cryostat {
-	return &operatorv1beta1.Cryostat{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "cryostat",
-			Namespace: "default",
-		},
-		Spec: operatorv1beta1.CryostatSpec{
-			Minimal: false,
-			StorageOptions: &operatorv1beta1.StorageConfiguration{
-				PVC: &operatorv1beta1.PersistentVolumeClaimConfig{
-					Spec: newPVCSpec("", "1Gi"),
-				},
-			},
+	cr := NewCryostat()
+	cr.Spec.StorageOptions = &operatorv1beta1.StorageConfiguration{
+		PVC: &operatorv1beta1.PersistentVolumeClaimConfig{
+			Spec: newPVCSpec("", "1Gi"),
 		},
 	}
+	return cr
 }
 
 func NewCryostatWithPVCLabelsOnly() *operatorv1beta1.Cryostat {
-	return &operatorv1beta1.Cryostat{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "cryostat",
-			Namespace: "default",
-		},
-		Spec: operatorv1beta1.CryostatSpec{
-			Minimal: false,
-			StorageOptions: &operatorv1beta1.StorageConfiguration{
-				PVC: &operatorv1beta1.PersistentVolumeClaimConfig{
-					Labels: map[string]string{
-						"my": "label",
-					},
-				},
+	cr := NewCryostat()
+	cr.Spec.StorageOptions = &operatorv1beta1.StorageConfiguration{
+		PVC: &operatorv1beta1.PersistentVolumeClaimConfig{
+			Labels: map[string]string{
+				"my": "label",
 			},
 		},
 	}
+	return cr
+}
+
+func NewCryostatCertManagerDisabled() *operatorv1beta1.Cryostat {
+	cr := NewCryostat()
+	certManager := false
+	cr.Spec.EnableCertManager = &certManager
+	return cr
+}
+
+func NewCryostatCertManagerUndefined() *operatorv1beta1.Cryostat {
+	cr := NewCryostat()
+	cr.Spec.EnableCertManager = nil
+	return cr
 }
 
 func newPVCSpec(storageClass string, storageRequest string,
@@ -217,15 +189,9 @@ func newPVCSpec(storageClass string, storageRequest string,
 }
 
 func NewMinimalCryostat() *operatorv1beta1.Cryostat {
-	return &operatorv1beta1.Cryostat{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "cryostat",
-			Namespace: "default",
-		},
-		Spec: operatorv1beta1.CryostatSpec{
-			Minimal: true,
-		},
-	}
+	cr := NewCryostat()
+	cr.Spec.Minimal = true
+	return cr
 }
 
 func NewFlightRecorder() *operatorv1beta1.FlightRecorder {
@@ -914,16 +880,14 @@ func NewCoreVolumeMounts(tls bool) []corev1.VolumeMount {
 	if tls {
 		mounts = append(mounts,
 			corev1.VolumeMount{
-				Name:      "tls-secret",
+				Name:      "keystore",
 				ReadOnly:  true,
-				MountPath: "/var/run/secrets/operator.cryostat.io/cryostat-tls/keystore.p12",
-				SubPath:   "keystore.p12",
+				MountPath: "/var/run/secrets/operator.cryostat.io/cryostat-tls",
 			},
 			corev1.VolumeMount{
-				Name:      "tls-secret",
+				Name:      "cert-secrets",
 				ReadOnly:  true,
-				MountPath: "/truststore/cryostat-ca.crt",
-				SubPath:   "ca.crt",
+				MountPath: "/truststore/operator",
 			})
 	}
 	return mounts
@@ -940,22 +904,6 @@ func NewGrafanaVolumeMounts(tls bool) []corev1.VolumeMount {
 			})
 	}
 	return mounts
-}
-
-func NewVolumeMountsWithSecrets() []corev1.VolumeMount {
-	return append(NewCoreVolumeMounts(true),
-		corev1.VolumeMount{
-			Name:      "cert-testCert1",
-			ReadOnly:  true,
-			MountPath: "/truststore/testCert1_test.crt",
-			SubPath:   "test.crt",
-		},
-		corev1.VolumeMount{
-			Name:      "cert-testCert2",
-			ReadOnly:  true,
-			MountPath: "/truststore/testCert2_tls.crt",
-			SubPath:   "tls.crt",
-		})
 }
 
 func NewVolumeMountsWithTemplates() []corev1.VolumeMount {
@@ -1037,60 +985,41 @@ func NewDeploymentSelector() *metav1.LabelSelector {
 }
 
 func NewVolumes(minimal bool, tls bool) []corev1.Volume {
-	volumes := []corev1.Volume{
-		{
-			Name: "cryostat",
-			VolumeSource: corev1.VolumeSource{
-				PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
-					ClaimName: "cryostat",
-					ReadOnly:  false,
-				},
-			},
-		},
-	}
-	if tls {
-		volumes = append(volumes,
-			corev1.Volume{
-				Name: "tls-secret",
-				VolumeSource: corev1.VolumeSource{
-					Secret: &corev1.SecretVolumeSource{
-						SecretName: "cryostat-tls",
-					},
-				},
-			})
-		if !minimal {
-			volumes = append(volumes,
-				corev1.Volume{
-					Name: "grafana-tls-secret",
-					VolumeSource: corev1.VolumeSource{
-						Secret: &corev1.SecretVolumeSource{
-							SecretName: "cryostat-grafana-tls",
-						},
-					},
-				})
-		}
-	}
-	return volumes
+	return newVolumes(minimal, tls, nil)
 }
 
 func NewVolumesWithSecrets() []corev1.Volume {
-	return append(NewVolumes(false, true),
-		corev1.Volume{
-			Name: "cert-testCert1",
-			VolumeSource: corev1.VolumeSource{
-				Secret: &corev1.SecretVolumeSource{
-					SecretName: "testCert1",
+	mode := int32(0440)
+	return newVolumes(false, true, []corev1.VolumeProjection{
+		{
+			Secret: &corev1.SecretProjection{
+				LocalObjectReference: corev1.LocalObjectReference{
+					Name: "testCert1",
+				},
+				Items: []corev1.KeyToPath{
+					{
+						Key:  "test.crt",
+						Path: "testCert1_test.crt",
+						Mode: &mode,
+					},
 				},
 			},
 		},
-		corev1.Volume{
-			Name: "cert-testCert2",
-			VolumeSource: corev1.VolumeSource{
-				Secret: &corev1.SecretVolumeSource{
-					SecretName: "testCert2",
+		{
+			Secret: &corev1.SecretProjection{
+				LocalObjectReference: corev1.LocalObjectReference{
+					Name: "testCert2",
+				},
+				Items: []corev1.KeyToPath{
+					{
+						Key:  "tls.crt",
+						Path: "testCert2_tls.crt",
+						Mode: &mode,
+					},
 				},
 			},
-		})
+		},
+	})
 }
 
 func NewVolumesWithTemplates() []corev1.Volume {
@@ -1130,6 +1059,78 @@ func NewVolumesWithTemplates() []corev1.Volume {
 				},
 			},
 		})
+}
+
+func newVolumes(minimal bool, tls bool, certProjections []corev1.VolumeProjection) []corev1.Volume {
+	readOnlymode := int32(0440)
+	volumes := []corev1.Volume{
+		{
+			Name: "cryostat",
+			VolumeSource: corev1.VolumeSource{
+				PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
+					ClaimName: "cryostat",
+					ReadOnly:  false,
+				},
+			},
+		},
+	}
+	if tls {
+		projs := []corev1.VolumeProjection{
+			{
+				Secret: &corev1.SecretProjection{
+					LocalObjectReference: corev1.LocalObjectReference{
+						Name: "cryostat-tls",
+					},
+					Items: []corev1.KeyToPath{
+						{
+							Key:  "ca.crt",
+							Path: "cryostat-ca.crt",
+							Mode: &readOnlymode,
+						},
+					},
+				},
+			},
+		}
+		projs = append(projs, certProjections...)
+		volumes = append(volumes,
+			corev1.Volume{
+				Name: "cert-secrets",
+				VolumeSource: corev1.VolumeSource{
+					Projected: &corev1.ProjectedVolumeSource{
+						Sources: projs,
+					},
+				},
+			})
+
+		volumes = append(volumes,
+			corev1.Volume{
+				Name: "keystore",
+				VolumeSource: corev1.VolumeSource{
+					Secret: &corev1.SecretVolumeSource{
+						SecretName: "cryostat-tls",
+						Items: []corev1.KeyToPath{
+							{
+								Key:  "keystore.p12",
+								Path: "keystore.p12",
+								Mode: &readOnlymode,
+							},
+						},
+					},
+				},
+			})
+		if !minimal {
+			volumes = append(volumes,
+				corev1.Volume{
+					Name: "grafana-tls-secret",
+					VolumeSource: corev1.VolumeSource{
+						Secret: &corev1.SecretVolumeSource{
+							SecretName: "cryostat-grafana-tls",
+						},
+					},
+				})
+		}
+	}
+	return volumes
 }
 
 func NewPodSecurityContext() *corev1.PodSecurityContext {
