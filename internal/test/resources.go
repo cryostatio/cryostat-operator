@@ -1133,7 +1133,7 @@ func NewVolumesWithTemplates() []corev1.Volume {
 }
 
 func NewPodSecurityContext() *corev1.PodSecurityContext {
-	fsGroup := int64(0)
+	fsGroup := int64(18500)
 	return &corev1.PodSecurityContext{
 		FSGroup: &fsGroup,
 	}
