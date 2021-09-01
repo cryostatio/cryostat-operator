@@ -242,10 +242,17 @@ func NewPodForCR(cr *operatorv1beta1.Cryostat, specs *ServiceSpecs, imageTags *I
 			volumes = append(volumes, eventTemplateVolume)
 		}
 	}
+
+	// Ensure PV mounts are writable
+	fsGroup := int64(18500)
+	sc := &corev1.PodSecurityContext{
+		FSGroup: &fsGroup,
+	}
 	return &corev1.PodSpec{
 		ServiceAccountName: cr.Name,
 		Volumes:            volumes,
 		Containers:         containers,
+		SecurityContext:    sc,
 	}
 }
 
