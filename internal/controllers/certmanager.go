@@ -38,18 +38,35 @@ package controllers
 
 import (
 	"context"
+	"errors"
 
 	operatorv1beta1 "github.com/cryostatio/cryostat-operator/api/v1beta1"
 	"github.com/cryostatio/cryostat-operator/internal/controllers/common"
 	resources "github.com/cryostatio/cryostat-operator/internal/controllers/common/resource_definitions"
 	certv1 "github.com/jetstack/cert-manager/pkg/apis/certmanager/v1"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
+const eventCertManagerUnavailable = "CertManagerUnavailable"
+
 func (r *CryostatReconciler) setupTLS(ctx context.Context, cr *operatorv1beta1.Cryostat) (*resources.TLSConfig, error) {
+	// If cert-manager is not available, emit an Event to inform the user
+	available, err := r.certManagerAvailable()
+	if err != nil {
+		return nil, err
+	}
+	if !available {
+		r.EventRecorder.Event(cr, corev1.EventTypeWarning, eventCertManagerUnavailable,
+			"cert-manager is not detected in the cluster, please install cert-manager or disable it by setting "+
+				"\"enableCertManager\" in this Cryostat custom resource to false")
+		return nil, errors.New("cert-manager integration is enabled, but cert-manager is unavailable")
+	}
+
 	// Create self-signed issuer used to bootstrap CA
 	selfSignedIssuer := resources.NewSelfSignedIssuer(cr)
 	if err := controllerutil.SetControllerReference(cr, selfSignedIssuer, r.Scheme); err != nil {
@@ -111,7 +128,7 @@ func (r *CryostatReconciler) setupTLS(ctx context.Context, cr *operatorv1beta1.C
 	}
 
 	// Update owner references of TLS secrets created by cert-manager to ensure proper cleanup
-	err := r.setCertSecretOwner(context.Background(), cr, caCert, cryostatCert, grafanaCert)
+	err = r.setCertSecretOwner(context.Background(), cr, caCert, cryostatCert, grafanaCert)
 	if err != nil {
 		return nil, err
 	}
@@ -146,4 +163,21 @@ func (r *CryostatReconciler) setCertSecretOwner(ctx context.Context, cr *operato
 		}
 	}
 	return nil
+}
+
+func (r *CryostatReconciler) certManagerAvailable() (bool, error) {
+	// Check if cert-manager API is available. Checking just one should be enough.
+	_, err := r.RESTMapper.RESTMapping(schema.GroupKind{
+		Group: certv1.SchemeGroupVersion.Group,
+		Kind:  certv1.IssuerKind,
+	}, certv1.SchemeGroupVersion.Version)
+	if err != nil {
+		// No matches for Issuer GVK
+		if meta.IsNoMatchError(err) {
+			return false, nil
+		}
+		// Unexpected error occurred
+		return false, err
+	}
+	return true, nil
 }

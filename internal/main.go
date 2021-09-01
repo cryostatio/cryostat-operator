@@ -108,10 +108,12 @@ func main() {
 	}
 
 	if err = (&controllers.CryostatReconciler{
-		Client:      mgr.GetClient(),
-		Log:         ctrl.Log.WithName("controllers").WithName("Cryostat"),
-		Scheme:      mgr.GetScheme(),
-		IsOpenShift: openShift,
+		Client:        mgr.GetClient(),
+		Log:           ctrl.Log.WithName("controllers").WithName("Cryostat"),
+		Scheme:        mgr.GetScheme(),
+		IsOpenShift:   openShift,
+		EventRecorder: mgr.GetEventRecorderFor("cryostat-controller"),
+		RESTMapper:    mgr.GetRESTMapper(),
 		ReconcilerTLS: common.NewReconcilerTLS(&common.ReconcilerTLSConfig{
 			Client: mgr.GetClient(),
 		}),

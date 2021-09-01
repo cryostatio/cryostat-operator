@@ -45,6 +45,7 @@ import (
 	"github.com/go-logr/logr"
 	netv1 "k8s.io/api/networking/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -60,6 +61,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -71,9 +73,11 @@ import (
 // CryostatReconciler reconciles a Cryostat object
 type CryostatReconciler struct {
 	client.Client
-	Log         logr.Logger
-	Scheme      *runtime.Scheme
-	IsOpenShift bool
+	Log           logr.Logger
+	Scheme        *runtime.Scheme
+	IsOpenShift   bool
+	EventRecorder record.EventRecorder
+	RESTMapper    meta.RESTMapper
 	common.ReconcilerTLS
 }
 
