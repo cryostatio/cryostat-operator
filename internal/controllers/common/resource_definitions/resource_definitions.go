@@ -122,7 +122,7 @@ func NewPersistentVolumeClaimForCR(cr *operatorv1beta1.Cryostat) *corev1.Persist
 }
 
 func NewDeploymentForCR(cr *operatorv1beta1.Cryostat, specs *ServiceSpecs, imageTags *ImageTags,
-	tls *TLSConfig) *appsv1.Deployment {
+	tls *TLSConfig, fsGroup int64) *appsv1.Deployment {
 	return &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      cr.Name,
@@ -152,14 +152,14 @@ func NewDeploymentForCR(cr *operatorv1beta1.Cryostat, specs *ServiceSpecs, image
 						"kind": "cryostat",
 					},
 				},
-				Spec: *NewPodForCR(cr, specs, imageTags, tls),
+				Spec: *NewPodForCR(cr, specs, imageTags, tls, fsGroup),
 			},
 		},
 	}
 }
 
 func NewPodForCR(cr *operatorv1beta1.Cryostat, specs *ServiceSpecs, imageTags *ImageTags,
-	tls *TLSConfig) *corev1.PodSpec {
+	tls *TLSConfig, fsGroup int64) *corev1.PodSpec {
 	var containers []corev1.Container
 	if cr.Spec.Minimal {
 		containers = []corev1.Container{
@@ -289,7 +289,6 @@ func NewPodForCR(cr *operatorv1beta1.Cryostat, specs *ServiceSpecs, imageTags *I
 	}
 
 	// Ensure PV mounts are writable
-	fsGroup := int64(18500)
 	sc := &corev1.PodSecurityContext{
 		FSGroup: &fsGroup,
 	}
