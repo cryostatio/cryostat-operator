@@ -45,6 +45,7 @@ import (
 	"github.com/onsi/gomega"
 	consolev1 "github.com/openshift/api/console/v1"
 	routev1 "github.com/openshift/api/route/v1"
+	securityv1 "github.com/openshift/api/security/v1"
 	corev1 "k8s.io/api/core/v1"
 	netv1 "k8s.io/api/networking/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
@@ -1313,6 +1314,22 @@ func NewOtherTemplateConfigMap() *corev1.ConfigMap {
 			"other-template.jfc": "more XML template data",
 		},
 	}
+}
+
+func NewNamespace() *corev1.Namespace {
+	return &corev1.Namespace{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "default",
+		},
+	}
+}
+
+func NewNamespaceWithSCCSupGroups() *corev1.Namespace {
+	ns := NewNamespace()
+	ns.Annotations = map[string]string{
+		securityv1.SupplementalGroupsAnnotation: "1000130000/10000",
+	}
+	return ns
 }
 
 func NewConsoleLink() *consolev1.ConsoleLink {
