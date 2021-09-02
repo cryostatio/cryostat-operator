@@ -40,6 +40,8 @@ import (
 	"context"
 	"fmt"
 	"net/url"
+	"regexp"
+	"strconv"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -57,6 +59,7 @@ import (
 	resources "github.com/cryostatio/cryostat-operator/internal/controllers/common/resource_definitions"
 	consolev1 "github.com/openshift/api/console/v1"
 	openshiftv1 "github.com/openshift/api/route/v1"
+	securityv1 "github.com/openshift/api/security/v1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
@@ -93,12 +96,17 @@ const datasourceImageTagEnv = "RELATED_IMAGE_DATASOURCE"
 // Environment variable to override the Grafana dashboard image
 const grafanaImageTagEnv = "RELATED_IMAGE_GRAFANA"
 
+// Regular expression for the start of a GID range in the OpenShift
+// supplemental groups SCC annotation
+var supGroupRegexp = regexp.MustCompile(`^\d+`)
+
 // +kubebuilder:rbac:namespace=system,groups="",resources=pods;services;services/finalizers;endpoints;persistentvolumeclaims;events;configmaps;secrets;serviceaccounts,verbs=*
 // +kubebuilder:rbac:namespace=system,groups="",resources=replicationcontrollers,verbs=get
 // +kubebuilder:rbac:namespace=system,groups=rbac.authorization.k8s.io,resources=roles;rolebindings,verbs=create;get;list;update;watch;delete
 // +kubebuilder:rbac:groups=rbac.authorization.k8s.io,resources=clusterrolebindings,verbs=create;get;list;update;watch;delete
 // +kubebuilder:rbac:groups=authentication.k8s.io,resources=tokenreviews,verbs=create
 // +kubebuilder:rbac:groups=authorization.k8s.io,resources=selfsubjectaccessreviews,verbs=create
+// +kubebuilder:rbac:groups="",resources=namespaces,verbs=get;list;watch
 // +kubebuilder:rbac:namespace=system,groups=route.openshift.io,resources=routes;routes/custom-host,verbs=*
 // +kubebuilder:rbac:namespace=system,groups=apps.openshift.io,resources=deploymentconfigs,verbs=get
 // +kubebuilder:rbac:namespace=system,groups=apps,resources=deployments;daemonsets;replicasets;statefulsets,verbs=*
@@ -309,7 +317,11 @@ func (r *CryostatReconciler) Reconcile(ctx context.Context, request ctrl.Request
 	serviceSpecs.CommandURL = url
 
 	imageTags := r.getImageTags()
-	deployment := resources.NewDeploymentForCR(instance, serviceSpecs, imageTags, tlsConfig)
+	fsGroup, err := r.getFSGroup(ctx, instance.Namespace)
+	if err != nil {
+		return reconcile.Result{}, err
+	}
+	deployment := resources.NewDeploymentForCR(instance, serviceSpecs, imageTags, tlsConfig, *fsGroup)
 	podTemplate := deployment.Spec.Template.DeepCopy()
 	if err := controllerutil.SetControllerReference(instance, deployment, r.Scheme); err != nil {
 		return reconcile.Result{}, err
@@ -580,6 +592,41 @@ func (r *CryostatReconciler) getEnvOrDefault(name string, defaultVal string) str
 		return val
 	}
 	return defaultVal
+}
+
+// fsGroup to use when not constrained
+const defaultFSGroup int64 = 18500
+
+func (r *CryostatReconciler) getFSGroup(ctx context.Context, namespace string) (*int64, error) {
+	if r.IsOpenShift {
+		// Check namespace for supplemental groups annotation
+		ns := &corev1.Namespace{}
+		err := r.Client.Get(ctx, types.NamespacedName{Name: namespace}, ns)
+		if err != nil {
+			return nil, err
+		}
+
+		supGroups, found := ns.Annotations[securityv1.SupplementalGroupsAnnotation]
+		if found {
+			return parseSupGroups(supGroups)
+		}
+	}
+	fsGroup := defaultFSGroup
+	return &fsGroup, nil
+}
+
+func parseSupGroups(supGroups string) (*int64, error) {
+	// Extract the start value from the annotation
+	match := supGroupRegexp.FindString(supGroups)
+	if len(match) == 0 {
+		return nil, fmt.Errorf("no group ID found in %s annotation",
+			securityv1.SupplementalGroupsAnnotation)
+	}
+	gid, err := strconv.ParseInt(match, 10, 64)
+	if err != nil {
+		return nil, err
+	}
+	return &gid, nil
 }
 
 func (r *CryostatReconciler) createConsoleLink(ctx context.Context, cr *operatorv1beta1.Cryostat, url string) error {

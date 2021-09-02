@@ -102,6 +102,9 @@ var _ = Describe("CryostatController", func() {
 				TLS: true,
 			},
 		}
+		t.objs = []runtime.Object{
+			test.NewNamespace(),
+		}
 	})
 
 	AfterEach(func() {
@@ -111,9 +114,7 @@ var _ = Describe("CryostatController", func() {
 	Describe("reconciling a request in OpenShift", func() {
 		Context("succesfully creates required resources", func() {
 			BeforeEach(func() {
-				t.objs = []runtime.Object{
-					test.NewCryostat(),
-				}
+				t.objs = append(t.objs, test.NewCryostat())
 			})
 			It("should create certificates", func() {
 				t.expectCertificates()
@@ -168,9 +169,7 @@ var _ = Describe("CryostatController", func() {
 		})
 		Context("succesfully creates required resources for minimal deployment", func() {
 			BeforeEach(func() {
-				t.objs = []runtime.Object{
-					test.NewMinimalCryostat(),
-				}
+				t.objs = append(t.objs, test.NewMinimalCryostat())
 				t.minimal = true
 			})
 			It("should create certificates", func() {
@@ -203,9 +202,7 @@ var _ = Describe("CryostatController", func() {
 		})
 		Context("after cryostat reconciled successfully", func() {
 			BeforeEach(func() {
-				t.objs = []runtime.Object{
-					test.NewCryostat(),
-				}
+				t.objs = append(t.objs, test.NewCryostat())
 			})
 			It("should be idempotent", func() {
 				t.expectIdempotence()
@@ -213,9 +210,7 @@ var _ = Describe("CryostatController", func() {
 		})
 		Context("After a minimal cryostat reconciled successfully", func() {
 			BeforeEach(func() {
-				t.objs = []runtime.Object{
-					test.NewMinimalCryostat(),
-				}
+				t.objs = append(t.objs, test.NewMinimalCryostat())
 				t.minimal = true
 			})
 			It("should be idempotent", func() {
@@ -232,9 +227,7 @@ var _ = Describe("CryostatController", func() {
 		})
 		Context("Switching from a minimal to a non-minimal deployment", func() {
 			BeforeEach(func() {
-				t.objs = []runtime.Object{
-					test.NewMinimalCryostat(),
-				}
+				t.objs = append(t.objs, test.NewMinimalCryostat())
 				t.minimal = true
 			})
 			JustBeforeEach(func() {
@@ -267,9 +260,7 @@ var _ = Describe("CryostatController", func() {
 		})
 		Context("Switching from a non-minimal to a minimal deployment", func() {
 			BeforeEach(func() {
-				t.objs = []runtime.Object{
-					test.NewCryostat(),
-				}
+				t.objs = append(t.objs, test.NewCryostat())
 			})
 			JustBeforeEach(func() {
 				t.reconcileCryostatFully()
@@ -302,9 +293,8 @@ var _ = Describe("CryostatController", func() {
 		})
 		Context("Cryostat CR has list of certificate secrets", func() {
 			BeforeEach(func() {
-				t.objs = []runtime.Object{
-					test.NewCryostatWithSecrets(), newFakeSecret("testCert1"), newFakeSecret("testCert2"),
-				}
+				t.objs = append(t.objs, test.NewCryostatWithSecrets(),
+					newFakeSecret("testCert1"), newFakeSecret("testCert2"))
 			})
 			It("Should add volumes and volumeMounts to deployment", func() {
 				t.reconcileCryostatFully()
@@ -323,9 +313,8 @@ var _ = Describe("CryostatController", func() {
 		})
 		Context("Adding a certificate to the TrustedCertSecrets list", func() {
 			BeforeEach(func() {
-				t.objs = []runtime.Object{
-					test.NewCryostat(), newFakeSecret("testCert1"), newFakeSecret("testCert2"),
-				}
+				t.objs = append(t.objs, test.NewCryostat(), newFakeSecret("testCert1"),
+					newFakeSecret("testCert2"))
 			})
 			JustBeforeEach(func() {
 				t.reconcileCryostatFully()
@@ -361,10 +350,8 @@ var _ = Describe("CryostatController", func() {
 		})
 		Context("Cryostat CR has list of event templates", func() {
 			BeforeEach(func() {
-				t.objs = []runtime.Object{
-					test.NewCryostatWithTemplates(), test.NewTemplateConfigMap(),
-					test.NewOtherTemplateConfigMap(),
-				}
+				t.objs = append(t.objs, test.NewCryostatWithTemplates(), test.NewTemplateConfigMap(),
+					test.NewOtherTemplateConfigMap())
 			})
 			It("Should add volumes and volumeMounts to deployment", func() {
 				t.reconcileCryostatFully()
@@ -383,10 +370,8 @@ var _ = Describe("CryostatController", func() {
 		})
 		Context("Adding a template to the EventTemplates list", func() {
 			BeforeEach(func() {
-				t.objs = []runtime.Object{
-					test.NewCryostat(), test.NewTemplateConfigMap(),
-					test.NewOtherTemplateConfigMap(),
-				}
+				t.objs = append(t.objs, test.NewCryostat(), test.NewTemplateConfigMap(),
+					test.NewOtherTemplateConfigMap())
 			})
 			JustBeforeEach(func() {
 				t.reconcileCryostatFully()
@@ -422,9 +407,7 @@ var _ = Describe("CryostatController", func() {
 		})
 		Context("with custom PVC spec overriding all defaults", func() {
 			BeforeEach(func() {
-				t.objs = []runtime.Object{
-					test.NewCryostatWithPVCSpec(),
-				}
+				t.objs = append(t.objs, test.NewCryostatWithPVCSpec())
 			})
 			It("should create the PVC with requested spec", func() {
 				t.expectPVC(test.NewCustomPVC())
@@ -432,9 +415,7 @@ var _ = Describe("CryostatController", func() {
 		})
 		Context("with custom PVC spec overriding some defaults", func() {
 			BeforeEach(func() {
-				t.objs = []runtime.Object{
-					test.NewCryostatWithPVCSpecSomeDefault(),
-				}
+				t.objs = append(t.objs, test.NewCryostatWithPVCSpecSomeDefault())
 			})
 			It("should create the PVC with requested spec", func() {
 				t.expectPVC(test.NewCustomPVCSomeDefault())
@@ -442,9 +423,7 @@ var _ = Describe("CryostatController", func() {
 		})
 		Context("with custom PVC config with no spec", func() {
 			BeforeEach(func() {
-				t.objs = []runtime.Object{
-					test.NewCryostatWithPVCLabelsOnly(),
-				}
+				t.objs = append(t.objs, test.NewCryostatWithPVCLabelsOnly())
 			})
 			It("should create the PVC with requested label", func() {
 				t.expectPVC(test.NewDefaultPVCWithLabel())
@@ -452,9 +431,7 @@ var _ = Describe("CryostatController", func() {
 		})
 		Context("with overriden image tags", func() {
 			BeforeEach(func() {
-				t.objs = []runtime.Object{
-					test.NewCryostat(),
-				}
+				t.objs = append(t.objs, test.NewCryostat())
 				coreImg := "my/core-image:1.0"
 				datasourceImg := "my/datasource-image:1.0"
 				grafanaImg := "my/grafana-image:1.0"
@@ -468,9 +445,7 @@ var _ = Describe("CryostatController", func() {
 		})
 		Context("when deleted", func() {
 			BeforeEach(func() {
-				t.objs = []runtime.Object{
-					test.NewCryostat(),
-				}
+				t.objs = append(t.objs, test.NewCryostat())
 			})
 			JustBeforeEach(func() {
 				t.reconcileDeletedCryostat()
@@ -487,9 +462,7 @@ var _ = Describe("CryostatController", func() {
 		})
 		Context("on OpenShift", func() {
 			BeforeEach(func() {
-				t.objs = []runtime.Object{
-					test.NewCryostat(),
-				}
+				t.objs = append(t.objs, test.NewCryostat())
 			})
 			JustBeforeEach(func() {
 				t.reconcileCryostatFully()
@@ -507,6 +480,22 @@ var _ = Describe("CryostatController", func() {
 				Expect(err).ToNot(HaveOccurred())
 				Expect(cr.GetFinalizers()).To(ContainElement("operator.cryostat.io/cryostat.finalizer"))
 			})
+			Context("with restricted SCC", func() {
+				BeforeEach(func() {
+					t.objs = []runtime.Object{
+						test.NewCryostat(), test.NewNamespaceWithSCCSupGroups(),
+					}
+				})
+				It("should set fsGroup to value derived from namespace", func() {
+					deploy := &appsv1.Deployment{}
+					err := t.Client.Get(context.Background(), types.NamespacedName{Name: "cryostat", Namespace: "default"}, deploy)
+					Expect(err).ToNot(HaveOccurred())
+					sc := deploy.Spec.Template.Spec.SecurityContext
+					Expect(sc).ToNot(BeNil())
+					Expect(sc.FSGroup).ToNot(BeNil())
+					Expect(*sc.FSGroup).To(Equal(int64(1000130000)))
+				})
+			})
 			Context("when deleted", func() {
 				JustBeforeEach(func() {
 					t.reconcileDeletedCryostat()
@@ -521,9 +510,7 @@ var _ = Describe("CryostatController", func() {
 		})
 		Context("with cert-manager disabled in CR", func() {
 			BeforeEach(func() {
-				t.objs = []runtime.Object{
-					test.NewCryostatCertManagerDisabled(),
-				}
+				t.objs = append(t.objs, test.NewCryostatCertManagerDisabled())
 				t.TLS = false
 			})
 			It("should create deployment and set owner", func() {
@@ -542,9 +529,7 @@ var _ = Describe("CryostatController", func() {
 		})
 		Context("with cert-manager not configured in CR", func() {
 			BeforeEach(func() {
-				t.objs = []runtime.Object{
-					test.NewCryostatCertManagerUndefined(),
-				}
+				t.objs = append(t.objs, test.NewCryostatCertManagerUndefined())
 			})
 			It("should create deployment and set owner", func() {
 				t.expectDeployment()
@@ -558,9 +543,7 @@ var _ = Describe("CryostatController", func() {
 		})
 		Context("with DISABLE_SERVICE_TLS=true", func() {
 			BeforeEach(func() {
-				t.objs = []runtime.Object{
-					test.NewCryostatCertManagerUndefined(),
-				}
+				t.objs = append(t.objs, test.NewCryostatCertManagerUndefined())
 				disableTLS := true
 				t.EnvDisableTLS = &disableTLS
 				t.TLS = false
@@ -581,9 +564,7 @@ var _ = Describe("CryostatController", func() {
 		})
 		Context("Disable cert-manager after being enabled", func() {
 			BeforeEach(func() {
-				t.objs = []runtime.Object{
-					test.NewCryostat(),
-				}
+				t.objs = append(t.objs, test.NewCryostat())
 			})
 			JustBeforeEach(func() {
 				t.reconcileCryostatFully()
@@ -611,9 +592,7 @@ var _ = Describe("CryostatController", func() {
 		})
 		Context("Enable cert-manager after being disabled", func() {
 			BeforeEach(func() {
-				t.objs = []runtime.Object{
-					test.NewCryostatCertManagerDisabled(),
-				}
+				t.objs = append(t.objs, test.NewCryostatCertManagerDisabled())
 				t.TLS = false
 			})
 			JustBeforeEach(func() {
@@ -656,9 +635,7 @@ var _ = Describe("CryostatController", func() {
 			})
 			Context("and enabled", func() {
 				BeforeEach(func() {
-					t.objs = []runtime.Object{
-						test.NewCryostat(),
-					}
+					t.objs = append(t.objs, test.NewCryostat())
 				})
 				It("should emit a CertManagerUnavailable Event", func() {
 					req := reconcile.Request{NamespacedName: types.NamespacedName{Name: "cryostat", Namespace: "default"}}
@@ -673,9 +650,7 @@ var _ = Describe("CryostatController", func() {
 			})
 			Context("and disabled", func() {
 				BeforeEach(func() {
-					t.objs = []runtime.Object{
-						test.NewCryostatCertManagerDisabled(),
-					}
+					t.objs = append(t.objs, test.NewCryostatCertManagerDisabled())
 					t.TLS = false
 				})
 				It("should not emit a CertManagerUnavailable Event", func() {
@@ -696,9 +671,7 @@ var _ = Describe("CryostatController", func() {
 		})
 		Context("succesfully creates required resources", func() {
 			BeforeEach(func() {
-				t.objs = []runtime.Object{
-					test.NewCryostatWithIngress(),
-				}
+				t.objs = append(t.objs, test.NewCryostatWithIngress())
 			})
 			It("should create ingresses", func() {
 				t.expectIngresses()
@@ -710,9 +683,7 @@ var _ = Describe("CryostatController", func() {
 		})
 		Context("no ingress configuration is provided", func() {
 			BeforeEach(func() {
-				t.objs = []runtime.Object{
-					test.NewCryostat(),
-				}
+				t.objs = append(t.objs, test.NewCryostat())
 			})
 			It("should not create ingresses or routes", func() {
 				t.reconcileCryostatFully()
@@ -722,9 +693,7 @@ var _ = Describe("CryostatController", func() {
 		})
 		Context("networkConfig for one of the services is nil", func() {
 			BeforeEach(func() {
-				t.objs = []runtime.Object{
-					test.NewCryostatWithIngress(),
-				}
+				t.objs = append(t.objs, test.NewCryostatWithIngress())
 			})
 			It("should only create specified ingresses", func() {
 				c := &operatorv1beta1.Cryostat{}
@@ -754,12 +723,9 @@ var _ = Describe("CryostatController", func() {
 				Expect(kerrors.IsNotFound(err)).To(BeTrue())
 			})
 		})
-
 		Context("ingressSpec for one of the services is nil", func() {
 			BeforeEach(func() {
-				t.objs = []runtime.Object{
-					test.NewCryostatWithIngress(),
-				}
+				t.objs = append(t.objs, test.NewCryostatWithIngress())
 			})
 			It("should only create specified ingresses", func() {
 				c := &operatorv1beta1.Cryostat{}
