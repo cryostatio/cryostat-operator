@@ -64,6 +64,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
+	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -571,6 +572,10 @@ func (r *CryostatReconciler) deleteClusterRoleBinding(ctx context.Context, cr *o
 	clusterBinding := resources.NewClusterRoleBindingForCR(cr)
 	err := r.Delete(ctx, clusterBinding)
 	if err != nil {
+		if kerrors.IsNotFound(err) {
+			reqLogger.Info("ClusterRoleBinding not found, proceeding with deletion", "bindingName", clusterBinding.Name)
+			return nil
+		}
 		reqLogger.Error(err, "failed to delete ClusterRoleBinding", "bindingName", clusterBinding.Name)
 		return err
 	}
@@ -639,6 +644,10 @@ func (r *CryostatReconciler) deleteConsoleLink(ctx context.Context, cr *operator
 	link := resources.NewConsoleLink(cr, "")
 	err := r.Client.Delete(ctx, link)
 	if err != nil {
+		if kerrors.IsNotFound(err) {
+			reqLogger.Info("ConsoleLink not found, proceeding with deletion", "linkName", link.Name)
+			return nil
+		}
 		reqLogger.Error(err, "failed to delete ConsoleLink", "linkName", link.Name)
 		return err
 	}
