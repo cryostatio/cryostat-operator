@@ -48,7 +48,7 @@ type RecordingSpec struct {
 	Name string `json:"name"`
 	// Name of the event template to use when creating the recording. Must be prefixed with "template=".
 	// e.g. template=Profiling
-	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:com.tectonic.ui:text"}
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Event Template",xDescriptors={"urn:alm:descriptor:com.tectonic.ui:text"}
 	// +listType=atomic
 	EventOptions []string `json:"eventOptions"`
 	// The requested total duration of the recording, a zero value will record indefinitely.

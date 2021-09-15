@@ -203,7 +203,7 @@ spec:
         x-descriptors:
         - urn:alm:descriptor:com.tectonic.ui:text
       - description: Name of the event template to use when creating the recording. Must be prefixed with "template=". e.g. template=Profiling
-        displayName: Event Options
+        displayName: Event Template
         path: eventOptions
         x-descriptors:
         - urn:alm:descriptor:com.tectonic.ui:text
