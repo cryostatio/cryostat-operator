@@ -448,16 +448,28 @@ var _ = Describe("CryostatController", func() {
 				t.objs = append(t.objs, test.NewCryostat())
 			})
 			JustBeforeEach(func() {
-				t.reconcileDeletedCryostat()
+				t.reconcileCryostatFully()
 			})
-			It("should delete the ClusterRoleBinding", func() {
-				t.checkClusterRoleBindingDeleted()
+			Context("ClusterRoleBinding exists", func() {
+				JustBeforeEach(func() {
+					t.reconcileDeletedCryostat()
+				})
+				It("should delete the ClusterRoleBinding", func() {
+					t.checkClusterRoleBindingDeleted()
+				})
+				It("should remove the finalizer", func() {
+					t.expectCryostatFinalizerAbsent()
+				})
 			})
-			It("should remove the finalizer", func() {
-				cr := &operatorv1beta1.Cryostat{}
-				err := t.Client.Get(context.Background(), types.NamespacedName{Name: "cryostat", Namespace: "default"}, cr)
-				Expect(err).ToNot(HaveOccurred())
-				Expect(cr.GetFinalizers()).ToNot(ContainElement("operator.cryostat.io/cryostat.finalizer"))
+			Context("ClusterRoleBinding does not exist", func() {
+				JustBeforeEach(func() {
+					err := t.Client.Delete(context.Background(), test.NewClusterRoleBinding())
+					Expect(err).ToNot(HaveOccurred())
+					t.reconcileDeletedCryostat()
+				})
+				It("should remove the finalizer", func() {
+					t.expectCryostatFinalizerAbsent()
+				})
 			})
 		})
 		Context("on OpenShift", func() {
@@ -475,10 +487,7 @@ var _ = Describe("CryostatController", func() {
 				Expect(link.Spec).To(Equal(expectedLink.Spec))
 			})
 			It("should add the finalizer", func() {
-				cr := &operatorv1beta1.Cryostat{}
-				err := t.Client.Get(context.Background(), types.NamespacedName{Name: "cryostat", Namespace: "default"}, cr)
-				Expect(err).ToNot(HaveOccurred())
-				Expect(cr.GetFinalizers()).To(ContainElement("operator.cryostat.io/cryostat.finalizer"))
+				t.expectCryostatFinalizerPresent()
 			})
 			Context("with restricted SCC", func() {
 				BeforeEach(func() {
@@ -497,14 +506,29 @@ var _ = Describe("CryostatController", func() {
 				})
 			})
 			Context("when deleted", func() {
-				JustBeforeEach(func() {
-					t.reconcileDeletedCryostat()
+				Context("ConsoleLink exists", func() {
+					JustBeforeEach(func() {
+						t.reconcileDeletedCryostat()
+					})
+					It("should delete the ConsoleLink", func() {
+						link := &consolev1.ConsoleLink{}
+						expectedLink := test.NewConsoleLink()
+						err := t.Client.Get(context.Background(), types.NamespacedName{Name: expectedLink.Name}, link)
+						Expect(kerrors.IsNotFound(err)).To(BeTrue())
+					})
+					It("should remove the finalizer", func() {
+						t.expectCryostatFinalizerAbsent()
+					})
 				})
-				It("should delete the ConsoleLink", func() {
-					link := &consolev1.ConsoleLink{}
-					expectedLink := test.NewConsoleLink()
-					err := t.Client.Get(context.Background(), types.NamespacedName{Name: expectedLink.Name}, link)
-					Expect(kerrors.IsNotFound(err)).To(BeTrue())
+				Context("ConsoleLink does not exist", func() {
+					JustBeforeEach(func() {
+						err := t.Client.Delete(context.Background(), test.NewConsoleLink())
+						Expect(err).ToNot(HaveOccurred())
+						t.reconcileDeletedCryostat()
+					})
+					It("should remove the finalizer", func() {
+						t.expectCryostatFinalizerAbsent()
+					})
 				})
 			})
 		})
@@ -1129,6 +1153,20 @@ func (t *cryostatTestInput) expectIdempotence() {
 	Expect(err).ToNot(HaveOccurred())
 	Expect(obj2.Status).To(Equal(obj.Status))
 	Expect(obj2.Spec).To(Equal(obj.Spec))
+}
+
+func (t *cryostatTestInput) expectCryostatFinalizerPresent() {
+	cr := &operatorv1beta1.Cryostat{}
+	err := t.Client.Get(context.Background(), types.NamespacedName{Name: "cryostat", Namespace: "default"}, cr)
+	Expect(err).ToNot(HaveOccurred())
+	Expect(cr.GetFinalizers()).To(ContainElement("operator.cryostat.io/cryostat.finalizer"))
+}
+
+func (t *cryostatTestInput) expectCryostatFinalizerAbsent() {
+	cr := &operatorv1beta1.Cryostat{}
+	err := t.Client.Get(context.Background(), types.NamespacedName{Name: "cryostat", Namespace: "default"}, cr)
+	Expect(err).ToNot(HaveOccurred())
+	Expect(cr.GetFinalizers()).ToNot(ContainElement("operator.cryostat.io/cryostat.finalizer"))
 }
 
 func (t *cryostatTestInput) checkGrafanaService() {
