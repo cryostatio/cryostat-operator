@@ -46,28 +46,26 @@ type RecordingSpec struct {
 	// Name of the recording to be created.
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	Name string `json:"name"`
-	// TODO Maybe replace with more specific type (e.g. "typeID, option, value" tuples)
-
-	// A list of event options to use when creating the recording.
-	// These are used to enable and fine-tune individual events.
-	// Examples: "jdk.ExecutionSample:enabled=true", "jdk.ExecutionSample:period=200ms"
+	// Name of the event template to use when creating the recording. Must be prefixed with "template=".
+	// e.g. template=Profiling
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:com.tectonic.ui:text"}
 	// +listType=atomic
 	EventOptions []string `json:"eventOptions"`
 	// The requested total duration of the recording, a zero value will record indefinitely.
-	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:com.tectonic.ui:number"}
+	// The duration format is a combination of hours (h), minutes (m) and seconds (s). e.g. 30s, 0s, 1h30m
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:com.tectonic.ui:text"}
 	Duration metav1.Duration `json:"duration"`
 	// Desired state of the recording. If omitted, RUNNING will be assumed.
 	// +kubebuilder:validation:Enum=RUNNING;STOPPED
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:com.tectonic.ui:select:RUNNING","urn:alm:descriptor:com.tectonic.ui:select:STOPPED"}
-
 	// +optional
 	State *RecordingState `json:"state,omitempty"`
 	// Whether this recording should be saved to persistent storage. If true, the JFR file will be retained until
 	// this object is deleted. If false, the JFR file will be deleted when its corresponding JVM exits.
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:com.tectonic.ui:checkbox"}
 	Archive bool `json:"archive"`
-	// Reference to the FlightRecorder object that corresponds to this Recording
+	// Reference to the FlightRecorder object that corresponds to this Recording. Select the FlightRecorder
+	// with the name of the target Pod for this Recording.
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	FlightRecorder *corev1.LocalObjectReference `json:"flightRecorder"`
 }
@@ -123,7 +121,8 @@ type RecordingStatus struct {
 // +kubebuilder:storageversion
 // +kubebuilder:resource:path=recordings,scope=Namespaced
 
-// Recording is the Schema for the recordings API
+// Recording represents a JDK Flight Recording. Create a Recording object to instruct Cryostat to start a new
+// recording for a Pod. An alternative to managing recordings with the Cryostat web application.
 //+operator-sdk:csv:customresourcedefinitions:resources={{Pod,v1},{Secret,v1},{Service,v1}}
 type Recording struct {
 	metav1.TypeMeta   `json:",inline"`
