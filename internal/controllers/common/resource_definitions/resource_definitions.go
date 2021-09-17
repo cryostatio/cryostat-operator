@@ -133,7 +133,7 @@ func NewDeploymentForCR(cr *operatorv1beta1.Cryostat, specs *ServiceSpecs, image
 				"app.kubernetes.io/name": "cryostat",
 			},
 			Annotations: map[string]string{
-				"app.openshift.io/connects-to": "cryostat-operator",
+				"app.openshift.io/connects-to": "cryostat-operator-controller-manager",
 			},
 		},
 		Spec: appsv1.DeploymentSpec{
