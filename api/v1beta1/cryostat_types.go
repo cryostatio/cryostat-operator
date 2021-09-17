@@ -146,7 +146,9 @@ type PersistentVolumeClaimConfig struct {
 // +kubebuilder:storageversion
 // +kubebuilder:resource:path=cryostats,scope=Namespaced
 
-// Cryostat is the Schema for the cryostats API
+// Cryostat contains configuration options for controlling the Deployment of
+// the Cryostat application and its related components. A Cryostat instance
+// must be created to instruct the operator to deploy the Cryostat application.
 //+operator-sdk:csv:customresourcedefinitions:resources={{Deployment,v1},{Ingress,v1},{PersistentVolumeClaim,v1},{Secret,v1},{Service,v1},{Route,v1},{ConsoleLink,v1}}
 type Cryostat struct {
 	metav1.TypeMeta   `json:",inline"`
