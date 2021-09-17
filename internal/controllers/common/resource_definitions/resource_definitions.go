@@ -264,28 +264,28 @@ func NewPodForCR(cr *operatorv1beta1.Cryostat, specs *ServiceSpecs, imageTags *I
 			}
 			volumes = append(volumes, grafanaSecretVolume)
 		}
+	}
 
-		// Add any EventTemplates as volumes
-		for _, template := range cr.Spec.EventTemplates {
-			eventTemplateVolume := corev1.Volume{
-				Name: "template-" + template.ConfigMapName,
-				VolumeSource: corev1.VolumeSource{
-					ConfigMap: &corev1.ConfigMapVolumeSource{
-						LocalObjectReference: corev1.LocalObjectReference{
-							Name: template.ConfigMapName,
-						},
-						Items: []corev1.KeyToPath{
-							{
-								Key:  template.Filename,
-								Path: template.Filename,
-								Mode: &readOnlyMode,
-							},
+	// Add any EventTemplates as volumes
+	for _, template := range cr.Spec.EventTemplates {
+		eventTemplateVolume := corev1.Volume{
+			Name: "template-" + template.ConfigMapName,
+			VolumeSource: corev1.VolumeSource{
+				ConfigMap: &corev1.ConfigMapVolumeSource{
+					LocalObjectReference: corev1.LocalObjectReference{
+						Name: template.ConfigMapName,
+					},
+					Items: []corev1.KeyToPath{
+						{
+							Key:  template.Filename,
+							Path: template.Filename,
+							Mode: &readOnlyMode,
 						},
 					},
 				},
-			}
-			volumes = append(volumes, eventTemplateVolume)
+			},
 		}
+		volumes = append(volumes, eventTemplateVolume)
 	}
 
 	// Ensure PV mounts are writable
@@ -456,20 +456,21 @@ func NewCoreContainer(cr *operatorv1beta1.Cryostat, specs *ServiceSpecs, imageTa
 
 		mounts = append(mounts, keystoreMount, caCertMount)
 
-		// Mount the templates specified in Cryostat CR under /opt/cryostat.d/templates.d
-		for _, template := range cr.Spec.EventTemplates {
-			mount := corev1.VolumeMount{
-				Name:      "template-" + template.ConfigMapName,
-				MountPath: fmt.Sprintf("%s/%s_%s", templatesPath, template.ConfigMapName, template.Filename),
-				SubPath:   template.Filename,
-				ReadOnly:  true,
-			}
-			mounts = append(mounts, mount)
-		}
-
 		// Use HTTPS for liveness probe
 		livenessProbeScheme = corev1.URISchemeHTTPS
 	}
+
+	// Mount the templates specified in Cryostat CR under /opt/cryostat.d/templates.d
+	for _, template := range cr.Spec.EventTemplates {
+		mount := corev1.VolumeMount{
+			Name:      "template-" + template.ConfigMapName,
+			MountPath: fmt.Sprintf("%s/%s_%s", templatesPath, template.ConfigMapName, template.Filename),
+			SubPath:   template.Filename,
+			ReadOnly:  true,
+		}
+		mounts = append(mounts, mount)
+	}
+
 	probeHandler := corev1.Handler{
 		HTTPGet: &corev1.HTTPGetAction{
 			Port:   intstr.IntOrString{IntVal: 8181},
