@@ -53,6 +53,18 @@ metadata:
     containerImage: quay.io/cryostat/cryostat-operator:2.0.0-dev
     createdAt: "2021-04-30 00:00:00"
     description: JVM monitoring and profiling tool
+    operatorframework.io/initialization-resource: |-
+      {
+        "apiVersion": "operator.cryostat.io/v1beta1",
+        "kind": "Cryostat",
+        "metadata": {
+          "name": "cryostat-sample"
+        },
+        "spec": {
+          "enableCertManager": true,
+          "minimal": false
+        }
+      }
     operators.operatorframework.io/builder: operator-sdk-v1.5.0
     operators.operatorframework.io/project_layout: go.kubebuilder.io/v3
     repository: github.com/cryostatio/cryostat-operator
