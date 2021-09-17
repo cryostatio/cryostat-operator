@@ -63,7 +63,7 @@ spec:
   apiservicedefinitions: {}
   customresourcedefinitions:
     owned:
-    - description: Cryostat is the Schema for the cryostats API
+    - description: Cryostat contains configuration options for controlling the Deployment of the Cryostat application and its related components. A Cryostat instance must be created to instruct the operator to deploy the Cryostat application.
       displayName: Cryostat
       kind: Cryostat
       name: cryostats.operator.cryostat.io
@@ -131,7 +131,7 @@ spec:
         x-descriptors:
         - urn:alm:descriptor:org.w3:link
       version: v1beta1
-    - description: FlightRecorder is the Schema for the flightrecorders API
+    - description: FlightRecorder represents a target Pod that is capable of creating JDK Flight Recordings using Cryostat. The Cryostat operator creates FlightRecorder objects when it finds compatible Pods.
       displayName: Flight Recorder
       kind: FlightRecorder
       name: flightrecorders.operator.cryostat.io
@@ -168,7 +168,7 @@ spec:
         displayName: Templates
         path: templates
       version: v1beta1
-    - description: Recording is the Schema for the recordings API
+    - description: Recording represents a JDK Flight Recording. Create a Recording object to instruct Cryostat to start a new recording for a Pod. An alternative to managing recordings with the Cryostat web application.
       displayName: Recording
       kind: Recording
       name: recordings.operator.cryostat.io
@@ -188,23 +188,24 @@ spec:
         path: archive
         x-descriptors:
         - urn:alm:descriptor:com.tectonic.ui:checkbox
-      - description: The requested total duration of the recording, a zero value will record indefinitely.
+      - description: The requested total duration of the recording, a zero value will record indefinitely. The duration format is a combination of hours (h), minutes (m) and seconds (s). e.g. 30s, 0s, 1h30m
         displayName: Duration
         path: duration
         x-descriptors:
-        - urn:alm:descriptor:com.tectonic.ui:number
-      - description: 'A list of event options to use when creating the recording. These are used to enable and fine-tune individual events. Examples: "jdk.ExecutionSample:enabled=true", "jdk.ExecutionSample:period=200ms"'
-        displayName: Event Options
+        - urn:alm:descriptor:com.tectonic.ui:text
+      - description: Name of the event template to use when creating the recording. Must be prefixed with "template=". e.g. template=Profiling
+        displayName: Event Template
         path: eventOptions
         x-descriptors:
         - urn:alm:descriptor:com.tectonic.ui:text
-      - description: Reference to the FlightRecorder object that corresponds to this Recording
+      - description: Reference to the FlightRecorder object that corresponds to this Recording. Select the FlightRecorder with the name of the target Pod for this Recording.
         displayName: Flight Recorder
         path: flightRecorder
       - description: Name of the recording to be created.
         displayName: Name
         path: name
-      - displayName: State
+      - description: Desired state of the recording. If omitted, RUNNING will be assumed.
+        displayName: State
         path: state
         x-descriptors:
         - urn:alm:descriptor:com.tectonic.ui:select:RUNNING

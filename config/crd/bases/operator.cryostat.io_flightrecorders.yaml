@@ -19,7 +19,9 @@ spec:
   - name: v1beta1
     schema:
       openAPIV3Schema:
-        description: FlightRecorder is the Schema for the flightrecorders API
+        description: FlightRecorder represents a target Pod that is capable of creating
+          JDK Flight Recordings using Cryostat. The Cryostat operator creates FlightRecorder
+          objects when it finds compatible Pods.
         properties:
           apiVersion:
             description: 'APIVersion defines the versioned schema of this representation

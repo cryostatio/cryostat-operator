@@ -19,7 +19,9 @@ spec:
   - name: v1beta1
     schema:
       openAPIV3Schema:
-        description: Recording is the Schema for the recordings API
+        description: Recording represents a JDK Flight Recording. Create a Recording
+          object to instruct Cryostat to start a new recording for a Pod. An alternative
+          to managing recordings with the Cryostat web application.
         properties:
           apiVersion:
             description: 'APIVersion defines the versioned schema of this representation
@@ -44,19 +46,20 @@ spec:
                 type: boolean
               duration:
                 description: The requested total duration of the recording, a zero
-                  value will record indefinitely.
+                  value will record indefinitely. The duration format is a combination
+                  of hours (h), minutes (m) and seconds (s). e.g. 30s, 0s, 1h30m
                 type: string
               eventOptions:
-                description: 'A list of event options to use when creating the recording.
-                  These are used to enable and fine-tune individual events. Examples:
-                  "jdk.ExecutionSample:enabled=true", "jdk.ExecutionSample:period=200ms"'
+                description: Name of the event template to use when creating the recording.
+                  Must be prefixed with "template=". e.g. template=Profiling
                 items:
                   type: string
                 type: array
                 x-kubernetes-list-type: atomic
               flightRecorder:
                 description: Reference to the FlightRecorder object that corresponds
-                  to this Recording
+                  to this Recording. Select the FlightRecorder with the name of the
+                  target Pod for this Recording.
                 properties:
                   name:
                     description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
@@ -67,8 +70,8 @@ spec:
                 description: Name of the recording to be created.
                 type: string
               state:
-                description: RecordingState describes the current state of the recording
-                  according to JFR
+                description: Desired state of the recording. If omitted, RUNNING will
+                  be assumed.
                 enum:
                 - RUNNING
                 - STOPPED
