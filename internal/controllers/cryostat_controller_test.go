@@ -1187,7 +1187,7 @@ func (t *cryostatTestInput) checkDeployment() {
 	Expect(deployment.Name).To(Equal("cryostat"))
 	Expect(deployment.Namespace).To(Equal("default"))
 	Expect(deployment.Annotations).To(Equal(map[string]string{
-		"app.openshift.io/connects-to": "cryostat-operator",
+		"app.openshift.io/connects-to": "cryostat-operator-controller-manager",
 	}))
 	Expect(deployment.Labels).To(Equal(map[string]string{
 		"app":                    "cryostat",
