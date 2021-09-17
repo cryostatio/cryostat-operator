@@ -355,17 +355,21 @@ var _ = Describe("CryostatController", func() {
 			})
 			It("Should add volumes and volumeMounts to deployment", func() {
 				t.reconcileCryostatFully()
-				deployment := &appsv1.Deployment{}
-				err := t.Client.Get(context.Background(), types.NamespacedName{Name: "cryostat", Namespace: "default"}, deployment)
-				Expect(err).ToNot(HaveOccurred())
-
-				volumes := deployment.Spec.Template.Spec.Volumes
-				expectedVolumes := test.NewVolumesWithTemplates()
-				Expect(volumes).To(Equal(expectedVolumes))
-
-				volumeMounts := deployment.Spec.Template.Spec.Containers[0].VolumeMounts
-				expectedVolumeMounts := test.NewVolumeMountsWithTemplates()
-				Expect(volumeMounts).To(Equal(expectedVolumeMounts))
+				t.checkDeploymentHasTemplates()
+			})
+		})
+		Context("Cryostat CR has list of event templates with TLS disabled", func() {
+			BeforeEach(func() {
+				certManager := false
+				cr := test.NewCryostatWithTemplates()
+				cr.Spec.EnableCertManager = &certManager
+				t.objs = append(t.objs, cr, test.NewTemplateConfigMap(),
+					test.NewOtherTemplateConfigMap())
+				t.TLS = false
+			})
+			It("Should add volumes and volumeMounts to deployment", func() {
+				t.reconcileCryostatFully()
+				t.checkDeploymentHasTemplates()
 			})
 		})
 		Context("Adding a template to the EventTemplates list", func() {
@@ -392,17 +396,7 @@ var _ = Describe("CryostatController", func() {
 				Expect(err).ToNot(HaveOccurred())
 				Expect(result).To(Equal(reconcile.Result{}))
 
-				deployment := &appsv1.Deployment{}
-				err = t.Client.Get(context.Background(), types.NamespacedName{Name: "cryostat", Namespace: "default"}, deployment)
-				Expect(err).ToNot(HaveOccurred())
-
-				volumes := deployment.Spec.Template.Spec.Volumes
-				expectedVolumes := test.NewVolumesWithTemplates()
-				Expect(volumes).To(Equal(expectedVolumes))
-
-				volumeMounts := deployment.Spec.Template.Spec.Containers[0].VolumeMounts
-				expectedVolumeMounts := test.NewVolumeMountsWithTemplates()
-				Expect(volumeMounts).To(Equal(expectedVolumeMounts))
+				t.checkDeploymentHasTemplates()
 			})
 		})
 		Context("with custom PVC spec overriding all defaults", func() {
@@ -1230,6 +1224,20 @@ func (t *cryostatTestInput) checkDeployment() {
 
 	// Check that the proper Service Account is set
 	Expect(template.Spec.ServiceAccountName).To(Equal("cryostat"))
+}
+
+func (t *cryostatTestInput) checkDeploymentHasTemplates() {
+	deployment := &appsv1.Deployment{}
+	err := t.Client.Get(context.Background(), types.NamespacedName{Name: "cryostat", Namespace: "default"}, deployment)
+	Expect(err).ToNot(HaveOccurred())
+
+	volumes := deployment.Spec.Template.Spec.Volumes
+	expectedVolumes := test.NewVolumesWithTemplates(t.TLS)
+	Expect(volumes).To(Equal(expectedVolumes))
+
+	volumeMounts := deployment.Spec.Template.Spec.Containers[0].VolumeMounts
+	expectedVolumeMounts := test.NewVolumeMountsWithTemplates(t.TLS)
+	Expect(volumeMounts).To(Equal(expectedVolumeMounts))
 }
 
 func checkCoreContainer(container *corev1.Container, minimal bool, tls bool, tag *string) {

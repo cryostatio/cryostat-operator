@@ -922,8 +922,8 @@ func NewGrafanaVolumeMounts(tls bool) []corev1.VolumeMount {
 	return mounts
 }
 
-func NewVolumeMountsWithTemplates() []corev1.VolumeMount {
-	return append(NewCoreVolumeMounts(true),
+func NewVolumeMountsWithTemplates(tls bool) []corev1.VolumeMount {
+	return append(NewCoreVolumeMounts(tls),
 		corev1.VolumeMount{
 			Name:      "template-templateCM1",
 			ReadOnly:  true,
@@ -1038,9 +1038,9 @@ func NewVolumesWithSecrets() []corev1.Volume {
 	})
 }
 
-func NewVolumesWithTemplates() []corev1.Volume {
+func NewVolumesWithTemplates(tls bool) []corev1.Volume {
 	mode := int32(0440)
-	return append(NewVolumes(false, true),
+	return append(NewVolumes(false, tls),
 		corev1.Volume{
 			Name: "template-templateCM1",
 			VolumeSource: corev1.VolumeSource{
