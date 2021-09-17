@@ -153,7 +153,9 @@ type JMXAuthSecret struct {
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
 
-// FlightRecorder is the Schema for the flightrecorders API
+// FlightRecorder represents a target Pod that is capable of creating JDK Flight Recordings
+// using Cryostat. The Cryostat operator creates FlightRecorder objects when it finds
+// compatible Pods.
 //+operator-sdk:csv:customresourcedefinitions:resources={{Pod,v1},{Secret,v1},{Service,v1}}
 type FlightRecorder struct {
 	metav1.TypeMeta   `json:",inline"`
