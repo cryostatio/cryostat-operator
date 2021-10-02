@@ -718,7 +718,7 @@ func NewDatasourcePorts() []corev1.ContainerPort {
 	}
 }
 
-func NewCoreEnvironmentVariables(minimal bool, tls bool) []corev1.EnvVar {
+func NewCoreEnvironmentVariables(minimal bool, tls bool, openshift bool) []corev1.EnvVar {
 	envs := []corev1.EnvVar{
 		{
 			Name:  "CRYOSTAT_SSL_PROXIED",
@@ -791,6 +791,17 @@ func NewCoreEnvironmentVariables(minimal bool, tls bool) []corev1.EnvVar {
 			Name:  "KEYSTORE_PATH",
 			Value: "/var/run/secrets/operator.cryostat.io/cryostat-tls/keystore.p12",
 		})
+	}
+	if openshift {
+		envs = append(envs,
+			corev1.EnvVar{
+				Name:  "CRYOSTAT_PLATFORM",
+				Value: "io.cryostat.platform.internal.OpenShiftPlatformStrategy",
+			},
+			corev1.EnvVar{
+				Name:  "CRYOSTAT_AUTH_MANAGER",
+				Value: "io.cryostat.net.OpenShiftAuthManager",
+			})
 	}
 	return envs
 }

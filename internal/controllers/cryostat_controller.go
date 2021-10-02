@@ -322,7 +322,7 @@ func (r *CryostatReconciler) Reconcile(ctx context.Context, request ctrl.Request
 	if err != nil {
 		return reconcile.Result{}, err
 	}
-	deployment := resources.NewDeploymentForCR(instance, serviceSpecs, imageTags, tlsConfig, *fsGroup)
+	deployment := resources.NewDeploymentForCR(instance, serviceSpecs, imageTags, tlsConfig, *fsGroup, r.IsOpenShift)
 	podTemplate := deployment.Spec.Template.DeepCopy()
 	if err := controllerutil.SetControllerReference(instance, deployment, r.Scheme); err != nil {
 		return reconcile.Result{}, err
