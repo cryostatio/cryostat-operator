@@ -1210,7 +1210,7 @@ func (t *cryostatTestInput) checkDeployment() {
 
 	// Check that the networking environment variables are set correctly
 	coreContainer := template.Spec.Containers[0]
-	checkCoreContainer(&coreContainer, t.minimal, t.TLS, t.EnvCoreImageTag)
+	checkCoreContainer(&coreContainer, t.minimal, t.TLS, t.EnvCoreImageTag, t.controller.IsOpenShift)
 
 	if !t.minimal {
 		// Check that Grafana is configured properly, depending on the environment
@@ -1240,7 +1240,7 @@ func (t *cryostatTestInput) checkDeploymentHasTemplates() {
 	Expect(volumeMounts).To(Equal(expectedVolumeMounts))
 }
 
-func checkCoreContainer(container *corev1.Container, minimal bool, tls bool, tag *string) {
+func checkCoreContainer(container *corev1.Container, minimal bool, tls bool, tag *string, openshift bool) {
 	Expect(container.Name).To(Equal("cryostat"))
 	if tag == nil {
 		Expect(container.Image).To(HavePrefix("quay.io/cryostat/cryostat:"))
@@ -1248,7 +1248,7 @@ func checkCoreContainer(container *corev1.Container, minimal bool, tls bool, tag
 		Expect(container.Image).To(Equal(*tag))
 	}
 	Expect(container.Ports).To(ConsistOf(test.NewCorePorts()))
-	Expect(container.Env).To(ConsistOf(test.NewCoreEnvironmentVariables(minimal, tls)))
+	Expect(container.Env).To(ConsistOf(test.NewCoreEnvironmentVariables(minimal, tls, openshift)))
 	Expect(container.EnvFrom).To(ConsistOf(test.NewCoreEnvFromSource(tls)))
 	Expect(container.VolumeMounts).To(ConsistOf(test.NewCoreVolumeMounts(tls)))
 	Expect(container.LivenessProbe).To(Equal(test.NewCoreLivenessProbe(tls)))

@@ -122,7 +122,7 @@ func NewPersistentVolumeClaimForCR(cr *operatorv1beta1.Cryostat) *corev1.Persist
 }
 
 func NewDeploymentForCR(cr *operatorv1beta1.Cryostat, specs *ServiceSpecs, imageTags *ImageTags,
-	tls *TLSConfig, fsGroup int64) *appsv1.Deployment {
+	tls *TLSConfig, fsGroup int64, openshift bool) *appsv1.Deployment {
 	return &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      cr.Name,
@@ -152,22 +152,22 @@ func NewDeploymentForCR(cr *operatorv1beta1.Cryostat, specs *ServiceSpecs, image
 						"kind": "cryostat",
 					},
 				},
-				Spec: *NewPodForCR(cr, specs, imageTags, tls, fsGroup),
+				Spec: *NewPodForCR(cr, specs, imageTags, tls, fsGroup, openshift),
 			},
 		},
 	}
 }
 
 func NewPodForCR(cr *operatorv1beta1.Cryostat, specs *ServiceSpecs, imageTags *ImageTags,
-	tls *TLSConfig, fsGroup int64) *corev1.PodSpec {
+	tls *TLSConfig, fsGroup int64, openshift bool) *corev1.PodSpec {
 	var containers []corev1.Container
 	if cr.Spec.Minimal {
 		containers = []corev1.Container{
-			NewCoreContainer(cr, specs, imageTags.CoreImageTag, tls),
+			NewCoreContainer(cr, specs, imageTags.CoreImageTag, tls, openshift),
 		}
 	} else {
 		containers = []corev1.Container{
-			NewCoreContainer(cr, specs, imageTags.CoreImageTag, tls),
+			NewCoreContainer(cr, specs, imageTags.CoreImageTag, tls, openshift),
 			NewGrafanaContainer(cr, imageTags.GrafanaImageTag, tls),
 			NewJfrDatasourceContainer(cr, imageTags.DatasourceImageTag),
 		}
@@ -300,7 +300,8 @@ func NewPodForCR(cr *operatorv1beta1.Cryostat, specs *ServiceSpecs, imageTags *I
 	}
 }
 
-func NewCoreContainer(cr *operatorv1beta1.Cryostat, specs *ServiceSpecs, imageTag string, tls *TLSConfig) corev1.Container {
+func NewCoreContainer(cr *operatorv1beta1.Cryostat, specs *ServiceSpecs, imageTag string,
+	tls *TLSConfig, openshift bool) corev1.Container {
 	configPath := "/opt/cryostat.d/conf.d"
 	archivePath := "/opt/cryostat.d/recordings.d"
 	templatesPath := "/opt/cryostat.d/templates.d"
@@ -364,6 +365,20 @@ func NewCoreContainer(cr *operatorv1beta1.Cryostat, specs *ServiceSpecs, imageTa
 			},
 		}
 		envs = append(envs, commandEnvs...)
+	}
+	if openshift {
+		// Force OpenShift platform strategy
+		openshiftEnvs := []corev1.EnvVar{
+			{
+				Name:  "CRYOSTAT_PLATFORM",
+				Value: "io.cryostat.platform.internal.OpenShiftPlatformStrategy",
+			},
+			{
+				Name:  "CRYOSTAT_AUTH_MANAGER",
+				Value: "io.cryostat.net.OpenShiftAuthManager",
+			},
+		}
+		envs = append(envs, openshiftEnvs...)
 	}
 	envsFrom := []corev1.EnvFromSource{
 		{
