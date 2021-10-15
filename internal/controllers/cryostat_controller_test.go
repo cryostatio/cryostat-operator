@@ -355,17 +355,21 @@ var _ = Describe("CryostatController", func() {
 			})
 			It("Should add volumes and volumeMounts to deployment", func() {
 				t.reconcileCryostatFully()
-				deployment := &appsv1.Deployment{}
-				err := t.Client.Get(context.Background(), types.NamespacedName{Name: "cryostat", Namespace: "default"}, deployment)
-				Expect(err).ToNot(HaveOccurred())
-
-				volumes := deployment.Spec.Template.Spec.Volumes
-				expectedVolumes := test.NewVolumesWithTemplates()
-				Expect(volumes).To(Equal(expectedVolumes))
-
-				volumeMounts := deployment.Spec.Template.Spec.Containers[0].VolumeMounts
-				expectedVolumeMounts := test.NewVolumeMountsWithTemplates()
-				Expect(volumeMounts).To(Equal(expectedVolumeMounts))
+				t.checkDeploymentHasTemplates()
+			})
+		})
+		Context("Cryostat CR has list of event templates with TLS disabled", func() {
+			BeforeEach(func() {
+				certManager := false
+				cr := test.NewCryostatWithTemplates()
+				cr.Spec.EnableCertManager = &certManager
+				t.objs = append(t.objs, cr, test.NewTemplateConfigMap(),
+					test.NewOtherTemplateConfigMap())
+				t.TLS = false
+			})
+			It("Should add volumes and volumeMounts to deployment", func() {
+				t.reconcileCryostatFully()
+				t.checkDeploymentHasTemplates()
 			})
 		})
 		Context("Adding a template to the EventTemplates list", func() {
@@ -392,17 +396,7 @@ var _ = Describe("CryostatController", func() {
 				Expect(err).ToNot(HaveOccurred())
 				Expect(result).To(Equal(reconcile.Result{}))
 
-				deployment := &appsv1.Deployment{}
-				err = t.Client.Get(context.Background(), types.NamespacedName{Name: "cryostat", Namespace: "default"}, deployment)
-				Expect(err).ToNot(HaveOccurred())
-
-				volumes := deployment.Spec.Template.Spec.Volumes
-				expectedVolumes := test.NewVolumesWithTemplates()
-				Expect(volumes).To(Equal(expectedVolumes))
-
-				volumeMounts := deployment.Spec.Template.Spec.Containers[0].VolumeMounts
-				expectedVolumeMounts := test.NewVolumeMountsWithTemplates()
-				Expect(volumeMounts).To(Equal(expectedVolumeMounts))
+				t.checkDeploymentHasTemplates()
 			})
 		})
 		Context("with custom PVC spec overriding all defaults", func() {
@@ -448,16 +442,28 @@ var _ = Describe("CryostatController", func() {
 				t.objs = append(t.objs, test.NewCryostat())
 			})
 			JustBeforeEach(func() {
-				t.reconcileDeletedCryostat()
+				t.reconcileCryostatFully()
 			})
-			It("should delete the ClusterRoleBinding", func() {
-				t.checkClusterRoleBindingDeleted()
+			Context("ClusterRoleBinding exists", func() {
+				JustBeforeEach(func() {
+					t.reconcileDeletedCryostat()
+				})
+				It("should delete the ClusterRoleBinding", func() {
+					t.checkClusterRoleBindingDeleted()
+				})
+				It("should remove the finalizer", func() {
+					t.expectCryostatFinalizerAbsent()
+				})
 			})
-			It("should remove the finalizer", func() {
-				cr := &operatorv1beta1.Cryostat{}
-				err := t.Client.Get(context.Background(), types.NamespacedName{Name: "cryostat", Namespace: "default"}, cr)
-				Expect(err).ToNot(HaveOccurred())
-				Expect(cr.GetFinalizers()).ToNot(ContainElement("operator.cryostat.io/cryostat.finalizer"))
+			Context("ClusterRoleBinding does not exist", func() {
+				JustBeforeEach(func() {
+					err := t.Client.Delete(context.Background(), test.NewClusterRoleBinding())
+					Expect(err).ToNot(HaveOccurred())
+					t.reconcileDeletedCryostat()
+				})
+				It("should remove the finalizer", func() {
+					t.expectCryostatFinalizerAbsent()
+				})
 			})
 		})
 		Context("on OpenShift", func() {
@@ -475,10 +481,7 @@ var _ = Describe("CryostatController", func() {
 				Expect(link.Spec).To(Equal(expectedLink.Spec))
 			})
 			It("should add the finalizer", func() {
-				cr := &operatorv1beta1.Cryostat{}
-				err := t.Client.Get(context.Background(), types.NamespacedName{Name: "cryostat", Namespace: "default"}, cr)
-				Expect(err).ToNot(HaveOccurred())
-				Expect(cr.GetFinalizers()).To(ContainElement("operator.cryostat.io/cryostat.finalizer"))
+				t.expectCryostatFinalizerPresent()
 			})
 			Context("with restricted SCC", func() {
 				BeforeEach(func() {
@@ -497,14 +500,29 @@ var _ = Describe("CryostatController", func() {
 				})
 			})
 			Context("when deleted", func() {
-				JustBeforeEach(func() {
-					t.reconcileDeletedCryostat()
+				Context("ConsoleLink exists", func() {
+					JustBeforeEach(func() {
+						t.reconcileDeletedCryostat()
+					})
+					It("should delete the ConsoleLink", func() {
+						link := &consolev1.ConsoleLink{}
+						expectedLink := test.NewConsoleLink()
+						err := t.Client.Get(context.Background(), types.NamespacedName{Name: expectedLink.Name}, link)
+						Expect(kerrors.IsNotFound(err)).To(BeTrue())
+					})
+					It("should remove the finalizer", func() {
+						t.expectCryostatFinalizerAbsent()
+					})
 				})
-				It("should delete the ConsoleLink", func() {
-					link := &consolev1.ConsoleLink{}
-					expectedLink := test.NewConsoleLink()
-					err := t.Client.Get(context.Background(), types.NamespacedName{Name: expectedLink.Name}, link)
-					Expect(kerrors.IsNotFound(err)).To(BeTrue())
+				Context("ConsoleLink does not exist", func() {
+					JustBeforeEach(func() {
+						err := t.Client.Delete(context.Background(), test.NewConsoleLink())
+						Expect(err).ToNot(HaveOccurred())
+						t.reconcileDeletedCryostat()
+					})
+					It("should remove the finalizer", func() {
+						t.expectCryostatFinalizerAbsent()
+					})
 				})
 			})
 		})
@@ -1131,6 +1149,20 @@ func (t *cryostatTestInput) expectIdempotence() {
 	Expect(obj2.Spec).To(Equal(obj.Spec))
 }
 
+func (t *cryostatTestInput) expectCryostatFinalizerPresent() {
+	cr := &operatorv1beta1.Cryostat{}
+	err := t.Client.Get(context.Background(), types.NamespacedName{Name: "cryostat", Namespace: "default"}, cr)
+	Expect(err).ToNot(HaveOccurred())
+	Expect(cr.GetFinalizers()).To(ContainElement("operator.cryostat.io/cryostat.finalizer"))
+}
+
+func (t *cryostatTestInput) expectCryostatFinalizerAbsent() {
+	cr := &operatorv1beta1.Cryostat{}
+	err := t.Client.Get(context.Background(), types.NamespacedName{Name: "cryostat", Namespace: "default"}, cr)
+	Expect(err).ToNot(HaveOccurred())
+	Expect(cr.GetFinalizers()).ToNot(ContainElement("operator.cryostat.io/cryostat.finalizer"))
+}
+
 func (t *cryostatTestInput) checkGrafanaService() {
 	service := &corev1.Service{}
 	err := t.Client.Get(context.Background(), types.NamespacedName{Name: "cryostat-grafana", Namespace: "default"}, service)
@@ -1155,7 +1187,7 @@ func (t *cryostatTestInput) checkDeployment() {
 	Expect(deployment.Name).To(Equal("cryostat"))
 	Expect(deployment.Namespace).To(Equal("default"))
 	Expect(deployment.Annotations).To(Equal(map[string]string{
-		"app.openshift.io/connects-to": "cryostat-operator",
+		"app.openshift.io/connects-to": "cryostat-operator-controller-manager",
 	}))
 	Expect(deployment.Labels).To(Equal(map[string]string{
 		"app":                    "cryostat",
@@ -1178,7 +1210,7 @@ func (t *cryostatTestInput) checkDeployment() {
 
 	// Check that the networking environment variables are set correctly
 	coreContainer := template.Spec.Containers[0]
-	checkCoreContainer(&coreContainer, t.minimal, t.TLS, t.EnvCoreImageTag)
+	checkCoreContainer(&coreContainer, t.minimal, t.TLS, t.EnvCoreImageTag, t.controller.IsOpenShift)
 
 	if !t.minimal {
 		// Check that Grafana is configured properly, depending on the environment
@@ -1194,7 +1226,21 @@ func (t *cryostatTestInput) checkDeployment() {
 	Expect(template.Spec.ServiceAccountName).To(Equal("cryostat"))
 }
 
-func checkCoreContainer(container *corev1.Container, minimal bool, tls bool, tag *string) {
+func (t *cryostatTestInput) checkDeploymentHasTemplates() {
+	deployment := &appsv1.Deployment{}
+	err := t.Client.Get(context.Background(), types.NamespacedName{Name: "cryostat", Namespace: "default"}, deployment)
+	Expect(err).ToNot(HaveOccurred())
+
+	volumes := deployment.Spec.Template.Spec.Volumes
+	expectedVolumes := test.NewVolumesWithTemplates(t.TLS)
+	Expect(volumes).To(Equal(expectedVolumes))
+
+	volumeMounts := deployment.Spec.Template.Spec.Containers[0].VolumeMounts
+	expectedVolumeMounts := test.NewVolumeMountsWithTemplates(t.TLS)
+	Expect(volumeMounts).To(Equal(expectedVolumeMounts))
+}
+
+func checkCoreContainer(container *corev1.Container, minimal bool, tls bool, tag *string, openshift bool) {
 	Expect(container.Name).To(Equal("cryostat"))
 	if tag == nil {
 		Expect(container.Image).To(HavePrefix("quay.io/cryostat/cryostat:"))
@@ -1202,7 +1248,7 @@ func checkCoreContainer(container *corev1.Container, minimal bool, tls bool, tag
 		Expect(container.Image).To(Equal(*tag))
 	}
 	Expect(container.Ports).To(ConsistOf(test.NewCorePorts()))
-	Expect(container.Env).To(ConsistOf(test.NewCoreEnvironmentVariables(minimal, tls)))
+	Expect(container.Env).To(ConsistOf(test.NewCoreEnvironmentVariables(minimal, tls, openshift)))
 	Expect(container.EnvFrom).To(ConsistOf(test.NewCoreEnvFromSource(tls)))
 	Expect(container.VolumeMounts).To(ConsistOf(test.NewCoreVolumeMounts(tls)))
 	Expect(container.LivenessProbe).To(Equal(test.NewCoreLivenessProbe(tls)))

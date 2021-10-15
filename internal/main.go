@@ -23,14 +23,13 @@ import (
 
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	// to ensure that exec-entrypoint and run can make use of them.
+	"k8s.io/client-go/discovery"
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 
 	certv1 "github.com/jetstack/cert-manager/pkg/apis/certmanager/v1"
 	consolev1 "github.com/openshift/api/console/v1"
 	routev1 "github.com/openshift/api/route/v1"
-	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -105,13 +104,19 @@ func main() {
 	openShift, err := isOpenShift(mgr)
 	if err != nil {
 		setupLog.Error(err, "unable to detect if environment is OpenShift")
+		os.Exit(1)
 	}
+	environment := "Kubernetes"
+	if *openShift {
+		environment = "OpenShift"
+	}
+	setupLog.Info(fmt.Sprintf("detected %s environment", environment))
 
 	if err = (&controllers.CryostatReconciler{
 		Client:        mgr.GetClient(),
 		Log:           ctrl.Log.WithName("controllers").WithName("Cryostat"),
 		Scheme:        mgr.GetScheme(),
-		IsOpenShift:   openShift,
+		IsOpenShift:   *openShift,
 		EventRecorder: mgr.GetEventRecorderFor("cryostat-controller"),
 		RESTMapper:    mgr.GetRESTMapper(),
 		ReconcilerTLS: common.NewReconcilerTLS(&common.ReconcilerTLSConfig{
@@ -186,20 +191,28 @@ func getWatchNamespace() (string, error) {
 	return ns, nil
 }
 
-func isOpenShift(mgr ctrl.Manager) (bool, error) {
-	// Look up RESTMapping for Route to check if the cluster is running OpenShift
-	mapper := mgr.GetRESTMapper()
-	_, err := mapper.RESTMapping(schema.GroupKind{
-		Group: openshiftv1.GroupVersion.Group,
-		Kind:  "Route",
-	}, openshiftv1.GroupVersion.Version)
+func isOpenShift(mgr ctrl.Manager) (*bool, error) {
+	found := false
+	// Retrieve list of groups and resources from the API server
+	dc, err := discovery.NewDiscoveryClientForConfig(mgr.GetConfig())
 	if err != nil {
-		// No matches for Route GVK
-		if meta.IsNoMatchError(err) {
-			return false, nil
-		}
-		// Unexpected error occurred
-		return false, err
+		return nil, err
 	}
-	return true, nil
+	_, resources, err := dc.ServerGroupsAndResources()
+	if err != nil {
+		return nil, err
+	}
+	for _, list := range resources {
+		// Look up Route GV
+		if list.GroupVersion == openshiftv1.GroupVersion.String() {
+			for _, apiRes := range list.APIResources {
+				// Look up Route Kind
+				if apiRes.Kind == "Route" {
+					found = true
+					return &found, nil
+				}
+			}
+		}
+	}
+	return &found, nil
 }

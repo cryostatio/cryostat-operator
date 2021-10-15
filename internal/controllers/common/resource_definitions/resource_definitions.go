@@ -122,7 +122,7 @@ func NewPersistentVolumeClaimForCR(cr *operatorv1beta1.Cryostat) *corev1.Persist
 }
 
 func NewDeploymentForCR(cr *operatorv1beta1.Cryostat, specs *ServiceSpecs, imageTags *ImageTags,
-	tls *TLSConfig, fsGroup int64) *appsv1.Deployment {
+	tls *TLSConfig, fsGroup int64, openshift bool) *appsv1.Deployment {
 	return &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      cr.Name,
@@ -133,7 +133,7 @@ func NewDeploymentForCR(cr *operatorv1beta1.Cryostat, specs *ServiceSpecs, image
 				"app.kubernetes.io/name": "cryostat",
 			},
 			Annotations: map[string]string{
-				"app.openshift.io/connects-to": "cryostat-operator",
+				"app.openshift.io/connects-to": "cryostat-operator-controller-manager",
 			},
 		},
 		Spec: appsv1.DeploymentSpec{
@@ -152,22 +152,22 @@ func NewDeploymentForCR(cr *operatorv1beta1.Cryostat, specs *ServiceSpecs, image
 						"kind": "cryostat",
 					},
 				},
-				Spec: *NewPodForCR(cr, specs, imageTags, tls, fsGroup),
+				Spec: *NewPodForCR(cr, specs, imageTags, tls, fsGroup, openshift),
 			},
 		},
 	}
 }
 
 func NewPodForCR(cr *operatorv1beta1.Cryostat, specs *ServiceSpecs, imageTags *ImageTags,
-	tls *TLSConfig, fsGroup int64) *corev1.PodSpec {
+	tls *TLSConfig, fsGroup int64, openshift bool) *corev1.PodSpec {
 	var containers []corev1.Container
 	if cr.Spec.Minimal {
 		containers = []corev1.Container{
-			NewCoreContainer(cr, specs, imageTags.CoreImageTag, tls),
+			NewCoreContainer(cr, specs, imageTags.CoreImageTag, tls, openshift),
 		}
 	} else {
 		containers = []corev1.Container{
-			NewCoreContainer(cr, specs, imageTags.CoreImageTag, tls),
+			NewCoreContainer(cr, specs, imageTags.CoreImageTag, tls, openshift),
 			NewGrafanaContainer(cr, imageTags.GrafanaImageTag, tls),
 			NewJfrDatasourceContainer(cr, imageTags.DatasourceImageTag),
 		}
@@ -264,28 +264,28 @@ func NewPodForCR(cr *operatorv1beta1.Cryostat, specs *ServiceSpecs, imageTags *I
 			}
 			volumes = append(volumes, grafanaSecretVolume)
 		}
+	}
 
-		// Add any EventTemplates as volumes
-		for _, template := range cr.Spec.EventTemplates {
-			eventTemplateVolume := corev1.Volume{
-				Name: "template-" + template.ConfigMapName,
-				VolumeSource: corev1.VolumeSource{
-					ConfigMap: &corev1.ConfigMapVolumeSource{
-						LocalObjectReference: corev1.LocalObjectReference{
-							Name: template.ConfigMapName,
-						},
-						Items: []corev1.KeyToPath{
-							{
-								Key:  template.Filename,
-								Path: template.Filename,
-								Mode: &readOnlyMode,
-							},
+	// Add any EventTemplates as volumes
+	for _, template := range cr.Spec.EventTemplates {
+		eventTemplateVolume := corev1.Volume{
+			Name: "template-" + template.ConfigMapName,
+			VolumeSource: corev1.VolumeSource{
+				ConfigMap: &corev1.ConfigMapVolumeSource{
+					LocalObjectReference: corev1.LocalObjectReference{
+						Name: template.ConfigMapName,
+					},
+					Items: []corev1.KeyToPath{
+						{
+							Key:  template.Filename,
+							Path: template.Filename,
+							Mode: &readOnlyMode,
 						},
 					},
 				},
-			}
-			volumes = append(volumes, eventTemplateVolume)
+			},
 		}
+		volumes = append(volumes, eventTemplateVolume)
 	}
 
 	// Ensure PV mounts are writable
@@ -300,7 +300,8 @@ func NewPodForCR(cr *operatorv1beta1.Cryostat, specs *ServiceSpecs, imageTags *I
 	}
 }
 
-func NewCoreContainer(cr *operatorv1beta1.Cryostat, specs *ServiceSpecs, imageTag string, tls *TLSConfig) corev1.Container {
+func NewCoreContainer(cr *operatorv1beta1.Cryostat, specs *ServiceSpecs, imageTag string,
+	tls *TLSConfig, openshift bool) corev1.Container {
 	configPath := "/opt/cryostat.d/conf.d"
 	archivePath := "/opt/cryostat.d/recordings.d"
 	templatesPath := "/opt/cryostat.d/templates.d"
@@ -364,6 +365,20 @@ func NewCoreContainer(cr *operatorv1beta1.Cryostat, specs *ServiceSpecs, imageTa
 			},
 		}
 		envs = append(envs, commandEnvs...)
+	}
+	if openshift {
+		// Force OpenShift platform strategy
+		openshiftEnvs := []corev1.EnvVar{
+			{
+				Name:  "CRYOSTAT_PLATFORM",
+				Value: "io.cryostat.platform.internal.OpenShiftPlatformStrategy",
+			},
+			{
+				Name:  "CRYOSTAT_AUTH_MANAGER",
+				Value: "io.cryostat.net.OpenShiftAuthManager",
+			},
+		}
+		envs = append(envs, openshiftEnvs...)
 	}
 	envsFrom := []corev1.EnvFromSource{
 		{
@@ -456,24 +471,25 @@ func NewCoreContainer(cr *operatorv1beta1.Cryostat, specs *ServiceSpecs, imageTa
 
 		mounts = append(mounts, keystoreMount, caCertMount)
 
-		// Mount the templates specified in Cryostat CR under /opt/cryostat.d/templates.d
-		for _, template := range cr.Spec.EventTemplates {
-			mount := corev1.VolumeMount{
-				Name:      "template-" + template.ConfigMapName,
-				MountPath: fmt.Sprintf("%s/%s_%s", templatesPath, template.ConfigMapName, template.Filename),
-				SubPath:   template.Filename,
-				ReadOnly:  true,
-			}
-			mounts = append(mounts, mount)
-		}
-
 		// Use HTTPS for liveness probe
 		livenessProbeScheme = corev1.URISchemeHTTPS
 	}
+
+	// Mount the templates specified in Cryostat CR under /opt/cryostat.d/templates.d
+	for _, template := range cr.Spec.EventTemplates {
+		mount := corev1.VolumeMount{
+			Name:      "template-" + template.ConfigMapName,
+			MountPath: fmt.Sprintf("%s/%s_%s", templatesPath, template.ConfigMapName, template.Filename),
+			SubPath:   template.Filename,
+			ReadOnly:  true,
+		}
+		mounts = append(mounts, mount)
+	}
+
 	probeHandler := corev1.Handler{
 		HTTPGet: &corev1.HTTPGetAction{
 			Port:   intstr.IntOrString{IntVal: 8181},
-			Path:   "/api/v1/clienturl",
+			Path:   "/health",
 			Scheme: livenessProbeScheme,
 		},
 	}

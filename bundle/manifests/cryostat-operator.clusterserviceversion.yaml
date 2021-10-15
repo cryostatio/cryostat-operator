@@ -62,6 +62,18 @@ metadata:
     containerImage: quay.io/cryostat/cryostat-operator:2.1.0-dev
     createdAt: "2021-04-30 00:00:00"
     description: JVM monitoring and profiling tool
+    operatorframework.io/initialization-resource: |-
+      {
+        "apiVersion": "operator.cryostat.io/v1beta1",
+        "kind": "Cryostat",
+        "metadata": {
+          "name": "cryostat-sample"
+        },
+        "spec": {
+          "enableCertManager": true,
+          "minimal": false
+        }
+      }
     operators.operatorframework.io/builder: operator-sdk-v1.4.0+git
     operators.operatorframework.io/project_layout: go.kubebuilder.io/v3
     repository: github.com/cryostatio/cryostat-operator
@@ -72,7 +84,7 @@ spec:
   apiservicedefinitions: {}
   customresourcedefinitions:
     owned:
-    - description: Cryostat is the Schema for the cryostats API
+    - description: Cryostat contains configuration options for controlling the Deployment of the Cryostat application and its related components. A Cryostat instance must be created to instruct the operator to deploy the Cryostat application.
       displayName: Cryostat
       kind: Cryostat
       name: cryostats.operator.cryostat.io
@@ -140,7 +152,7 @@ spec:
         x-descriptors:
         - urn:alm:descriptor:org.w3:link
       version: v1beta1
-    - description: FlightRecorder is the Schema for the flightrecorders API
+    - description: FlightRecorder represents a target Pod that is capable of creating JDK Flight Recordings using Cryostat. The Cryostat operator creates FlightRecorder objects when it finds compatible Pods.
       displayName: Flight Recorder
       kind: FlightRecorder
       name: flightrecorders.operator.cryostat.io
@@ -177,7 +189,7 @@ spec:
         displayName: Templates
         path: templates
       version: v1beta1
-    - description: Recording is the Schema for the recordings API
+    - description: Recording represents a JDK Flight Recording. Create a Recording object to instruct Cryostat to start a new recording for a Pod. An alternative to managing recordings with the Cryostat web application.
       displayName: Recording
       kind: Recording
       name: recordings.operator.cryostat.io
@@ -197,23 +209,26 @@ spec:
         path: archive
         x-descriptors:
         - urn:alm:descriptor:com.tectonic.ui:checkbox
-      - description: The requested total duration of the recording, a zero value will record indefinitely.
+      - description: The requested total duration of the recording, a zero value will record indefinitely. The duration format is a combination of hours (h), minutes (m) and seconds (s). e.g. 30s, 0s, 1h30m
         displayName: Duration
         path: duration
         x-descriptors:
-        - urn:alm:descriptor:com.tectonic.ui:number
-      - description: 'A list of event options to use when creating the recording. These are used to enable and fine-tune individual events. Examples: "jdk.ExecutionSample:enabled=true", "jdk.ExecutionSample:period=200ms"'
-        displayName: Event Options
+        - urn:alm:descriptor:com.tectonic.ui:text
+      - description: Name of the event template to use when creating the recording. Must be prefixed with "template=". e.g. template=Profiling
+        displayName: Event Template
         path: eventOptions
         x-descriptors:
         - urn:alm:descriptor:com.tectonic.ui:text
-      - description: Reference to the FlightRecorder object that corresponds to this Recording
+      - description: Reference to the FlightRecorder object that corresponds to this Recording. Select the FlightRecorder with the name of the target Pod for this Recording.
         displayName: Flight Recorder
-        path: flightRecorder
+        path: flightRecorder.name
+        x-descriptors:
+        - urn:alm:descriptor:io.kubernetes:operator.cryostat.io:v1beta1:FlightRecorder
       - description: Name of the recording to be created.
         displayName: Name
         path: name
-      - displayName: State
+      - description: Desired state of the recording. If omitted, RUNNING will be assumed.
+        displayName: State
         path: state
         x-descriptors:
         - urn:alm:descriptor:com.tectonic.ui:select:RUNNING
@@ -248,6 +263,9 @@ spec:
   description: |
     Cryostat provides a cloud-based solution for interacting with the JDK Flight Recorder already present in OpenJDK 11+ JVMs. With Cryostat, users can remotely start, stop, retrieve, and even analyze JFR event data, providing the capbility to easily take advantage of Flight Recorder's extremely low runtime cost and overhead and the flexibility to monitor applications and analyze recording data without transferring data outside of the cluster the application runs within.
   displayName: Cryostat
+  icon:
+  - base64data: PD94bWwgdmVyc2lvbj0iMS4wIiBlbmNvZGluZz0iVVRGLTgiIHN0YW5kYWxvbmU9Im5vIj8+PCFET0NUWVBFIHN2ZyBQVUJMSUMgIi0vL1czQy8vRFREIFNWRyAxLjEvL0VOIiAiaHR0cDovL3d3dy53My5vcmcvR3JhcGhpY3MvU1ZHLzEuMS9EVEQvc3ZnMTEuZHRkIj48c3ZnIHdpZHRoPSIxMDAlIiBoZWlnaHQ9IjEwMCUiIHZpZXdCb3g9IjAgMCA1MDAgNTAwIiB2ZXJzaW9uPSIxLjEiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyIgeG1sbnM6eGxpbms9Imh0dHA6Ly93d3cudzMub3JnLzE5OTkveGxpbmsiIHhtbDpzcGFjZT0icHJlc2VydmUiIHhtbG5zOnNlcmlmPSJodHRwOi8vd3d3LnNlcmlmLmNvbS8iIHN0eWxlPSJmaWxsLXJ1bGU6ZXZlbm9kZDtjbGlwLXJ1bGU6ZXZlbm9kZDtzdHJva2UtbGluZWpvaW46cm91bmQ7c3Ryb2tlLW1pdGVybGltaXQ6MjsiPjxnPjxwYXRoIGQ9Ik0yNjAuNDY0LDQ4Ni45MDJjODQuMjQ0LC0wIDE1Ni4zMTksLTQwLjE3MyAxOTYuNTY5LC0xMDMuNzk4bC01NS4yMjcsLTM0LjY0NmMtMjkuMDE3LDQ3Ljc1NSAtODAuNDk5LDc3LjcxOCAtMTQxLjM0Miw3Ny43MThjLTkzLjYwNSwwIC0xNjEuOTM2LC03My45NzIgLTE2MS45MzYsLTE3Ni4wMzVjMCwtMTAyLjA2MyA2OC4zMzEsLTE3Ni4wMzUgMTYxLjkzNiwtMTc2LjAzNWM2MC44NDMsMCAxMTIuMzI1LDI5Ljk2MyAxNDEuMzQyLDc3LjcxN2w1NS4yMjcsLTM0LjY0NWMtNDAuMjUsLTYzLjYyNSAtMTEyLjMyNSwtMTAzLjc5NyAtMTk2LjU2OSwtMTAzLjc5N2MtMTI5LjE3NCwtMCAtMjI5LjIxNCwxMDEuOTI0IC0yMjkuMjE0LDIzNi43NmMwLDEzNC44MzUgMTAwLjA0LDIzNi43NjEgMjI5LjIxNCwyMzYuNzYxWiIgc3R5bGU9ImZpbGw6IzA0OTljNTtmaWxsLXJ1bGU6bm9uemVybzsiLz48cGF0aCBkPSJNNzYuNTA0LDIzNC41MTZjLTQuMzEyLDAgLTcuODEyLDMuNTAxIC03LjgxMiw3LjgxM2wtMCwxNS42MjVjLTAsNC4zMTIgMy41LDcuODEyIDcuODEyLDcuODEybDEzNC4xNDIsMGM0LjMxMiwwIDcuODEzLC0zLjUgNy44MTMsLTcuODEybC0wLC0xNS42MjVjLTAsLTQuMzEyIC0zLjUwMSwtNy44MTMgLTcuODEzLC03LjgxM2wtMTM0LjE0MiwwWiIgc3R5bGU9ImZpbGw6IzA0OTljNTsiLz48cGF0aCBkPSJNMTUyLjY3MSwzOTcuNjljLTIuMTU2LDMuNzM1IC0wLjg3NSw4LjUxNyAyLjg1OSwxMC42NzNsMTMuNTMyLDcuODEyYzMuNzM0LDIuMTU2IDguNTE2LDAuODc1IDEwLjY3MiwtMi44Nmw2Ny4wNzEsLTExNi4xN2MyLjE1NiwtMy43MzQgMC44NzUsLTguNTE2IC0yLjg2LC0xMC42NzJsLTEzLjUzMSwtNy44MTJjLTMuNzM0LC0yLjE1NiAtOC41MTYsLTAuODc1IC0xMC42NzIsMi44NTlsLTY3LjA3MSwxMTYuMTdaIiBzdHlsZT0iZmlsbDojMDQ5OWM1OyIvPjxwYXRoIGQ9Ik0zMzIuMDY3LDQxMy4zMTVjMi4xNTYsMy43MzUgNi45MzgsNS4wMTYgMTAuNjcyLDIuODZsMTMuNTMyLC03LjgxMmMzLjczNCwtMi4xNTYgNS4wMTUsLTYuOTM4IDIuODU5LC0xMC42NzNsLTY3LjA3MSwtMTE2LjE3Yy0yLjE1NiwtMy43MzQgLTYuOTM4LC01LjAxNSAtMTAuNjcyLC0yLjg1OWwtMTMuNTMxLDcuODEyYy0zLjczNSwyLjE1NiAtNS4wMTYsNi45MzggLTIuODYsMTAuNjcybDY3LjA3MSwxMTYuMTdaIiBzdHlsZT0iZmlsbDojMDQ5OWM1OyIvPjxwYXRoIGQ9Ik00MzUuMjk3LDI2NS43NjZjNC4zMTIsMCA3LjgxMiwtMy41IDcuODEyLC03LjgxMmwwLC0xNS42MjVjMCwtNC4zMTIgLTMuNSwtNy44MTMgLTcuODEyLC03LjgxM2wtMTM0LjE0MiwwYy00LjMxMiwwIC03LjgxMywzLjUwMSAtNy44MTMsNy44MTNsMCwxNS42MjVjMCw0LjMxMiAzLjUwMSw3LjgxMiA3LjgxMyw3LjgxMmwxMzQuMTQyLDBaIiBzdHlsZT0iZmlsbDojMDQ5OWM1OyIvPjxwYXRoIGQ9Ik0zNTkuMTMsMTAyLjU5MmMyLjE1NiwtMy43MzQgMC44NzUsLTguNTE2IC0yLjg1OSwtMTAuNjcybC0xMy41MzIsLTcuODEzYy0zLjczNCwtMi4xNTYgLTguNTE2LC0wLjg3NCAtMTAuNjcyLDIuODZsLTY3LjA3MSwxMTYuMTdjLTIuMTU2LDMuNzM1IC0wLjg3NSw4LjUxNyAyLjg2LDEwLjY3MmwxMy41MzEsNy44MTNjMy43MzQsMi4xNTYgOC41MTYsMC44NzUgMTAuNjcyLC0yLjg2bDY3LjA3MSwtMTE2LjE3WiIgc3R5bGU9ImZpbGw6IzA0OTljNTsiLz48cGF0aCBkPSJNMTc5LjczNCw4Ni45NjdjLTIuMTU2LC0zLjczNCAtNi45MzgsLTUuMDE2IC0xMC42NzIsLTIuODZsLTEzLjUzMiw3LjgxM2MtMy43MzQsMi4xNTYgLTUuMDE1LDYuOTM4IC0yLjg1OSwxMC42NzJsNjcuMDcxLDExNi4xN2MyLjE1NiwzLjczNSA2LjkzOCw1LjAxNiAxMC42NzIsMi44NmwxMy41MzEsLTcuODEzYzMuNzM1LC0yLjE1NSA1LjAxNiwtNi45MzcgMi44NiwtMTAuNjcybC02Ny4wNzEsLTExNi4xN1oiIHN0eWxlPSJmaWxsOiMwNDk5YzU7Ii8+PC9nPjwvc3ZnPg==
+    mediatype: image/svg+xml
   install:
     spec:
       clusterPermissions:

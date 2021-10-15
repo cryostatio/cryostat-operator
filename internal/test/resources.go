@@ -718,7 +718,7 @@ func NewDatasourcePorts() []corev1.ContainerPort {
 	}
 }
 
-func NewCoreEnvironmentVariables(minimal bool, tls bool) []corev1.EnvVar {
+func NewCoreEnvironmentVariables(minimal bool, tls bool, openshift bool) []corev1.EnvVar {
 	envs := []corev1.EnvVar{
 		{
 			Name:  "CRYOSTAT_SSL_PROXIED",
@@ -791,6 +791,17 @@ func NewCoreEnvironmentVariables(minimal bool, tls bool) []corev1.EnvVar {
 			Name:  "KEYSTORE_PATH",
 			Value: "/var/run/secrets/operator.cryostat.io/cryostat-tls/keystore.p12",
 		})
+	}
+	if openshift {
+		envs = append(envs,
+			corev1.EnvVar{
+				Name:  "CRYOSTAT_PLATFORM",
+				Value: "io.cryostat.platform.internal.OpenShiftPlatformStrategy",
+			},
+			corev1.EnvVar{
+				Name:  "CRYOSTAT_AUTH_MANAGER",
+				Value: "io.cryostat.net.OpenShiftAuthManager",
+			})
 	}
 	return envs
 }
@@ -922,8 +933,8 @@ func NewGrafanaVolumeMounts(tls bool) []corev1.VolumeMount {
 	return mounts
 }
 
-func NewVolumeMountsWithTemplates() []corev1.VolumeMount {
-	return append(NewCoreVolumeMounts(true),
+func NewVolumeMountsWithTemplates(tls bool) []corev1.VolumeMount {
+	return append(NewCoreVolumeMounts(tls),
 		corev1.VolumeMount{
 			Name:      "template-templateCM1",
 			ReadOnly:  true,
@@ -959,7 +970,7 @@ func newCoreProbeHandler(tls bool) corev1.Handler {
 	return corev1.Handler{
 		HTTPGet: &corev1.HTTPGetAction{
 			Port:   intstr.IntOrString{IntVal: 8181},
-			Path:   "/api/v1/clienturl",
+			Path:   "/health",
 			Scheme: protocol,
 		},
 	}
@@ -1038,9 +1049,9 @@ func NewVolumesWithSecrets() []corev1.Volume {
 	})
 }
 
-func NewVolumesWithTemplates() []corev1.Volume {
+func NewVolumesWithTemplates(tls bool) []corev1.Volume {
 	mode := int32(0440)
-	return append(NewVolumes(false, true),
+	return append(NewVolumes(false, tls),
 		corev1.Volume{
 			Name: "template-templateCM1",
 			VolumeSource: corev1.VolumeSource{
