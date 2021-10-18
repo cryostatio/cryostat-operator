@@ -2,7 +2,7 @@
 package resource_definitions
 
 // Default image tag for the core application image
-const DefaultCoreImageTag = "quay.io/cryostat/cryostat:2.0.0-SNAPSHOT"
+const DefaultCoreImageTag = "quay.io/cryostat/cryostat:2.0.0"
 
 // Default image tag for the JFR datasource image
 const DefaultDatasourceImageTag = "quay.io/cryostat/jfr-datasource:2.0.0"
