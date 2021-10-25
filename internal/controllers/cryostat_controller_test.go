@@ -436,8 +436,8 @@ var _ = Describe("CryostatController", func() {
 			})
 			Context("for development", func() {
 				BeforeEach(func() {
-					coreImg := "my/core-image:1.0.0-dev"
-					datasourceImg := "my/datasource-image:1.0.0-dev"
+					coreImg := "my/core-image:1.0.0-SNAPSHOT"
+					datasourceImg := "my/datasource-image:1.0.0-BETA25"
 					grafanaImg := "my/grafana-image:1.0.0-dev"
 					t.EnvCoreImageTag = &coreImg
 					t.EnvDatasourceImageTag = &datasourceImg
@@ -471,6 +471,46 @@ var _ = Describe("CryostatController", func() {
 					Expect(containers).To(HaveLen(3))
 					for _, container := range containers {
 						Expect(container.ImagePullPolicy).To(Equal(corev1.PullIfNotPresent))
+					}
+				})
+			})
+			Context("by digest", func() {
+				BeforeEach(func() {
+					coreImg := "my/core-image@sha256:99b57e9b8880bc5d4d799b508603628c37c3e6a0d4bdd0988e9dc3ad8e04c495"
+					datasourceImg := "my/datasource-image@sha256:59ded87392077c2371b26e021aade0409855b597383fa78e549eefafab8fc90c"
+					grafanaImg := "my/grafana-image@sha256:e5bc16c2c5b69cd6fd8fdf1381d0a8b6cc9e01d92b9e1bb0a61ed89196563c72"
+					t.EnvCoreImageTag = &coreImg
+					t.EnvDatasourceImageTag = &datasourceImg
+					t.EnvGrafanaImageTag = &grafanaImg
+				})
+				It("should create deployment with the expected tags", func() {
+					t.checkDeployment()
+				})
+				It("should set ImagePullPolicy to IfNotPresent", func() {
+					containers := deploy.Spec.Template.Spec.Containers
+					Expect(containers).To(HaveLen(3))
+					for _, container := range containers {
+						Expect(container.ImagePullPolicy).To(Equal(corev1.PullIfNotPresent))
+					}
+				})
+			})
+			Context("with latest", func() {
+				BeforeEach(func() {
+					coreImg := "my/core-image:latest"
+					datasourceImg := "my/datasource-image:latest"
+					grafanaImg := "my/grafana-image:latest"
+					t.EnvCoreImageTag = &coreImg
+					t.EnvDatasourceImageTag = &datasourceImg
+					t.EnvGrafanaImageTag = &grafanaImg
+				})
+				It("should create deployment with the expected tags", func() {
+					t.checkDeployment()
+				})
+				It("should set ImagePullPolicy to Always", func() {
+					containers := deploy.Spec.Template.Spec.Containers
+					Expect(containers).To(HaveLen(3))
+					for _, container := range containers {
+						Expect(container.ImagePullPolicy).To(Equal(corev1.PullAlways))
 					}
 				})
 			})

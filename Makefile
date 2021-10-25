@@ -55,10 +55,10 @@ GOBIN=$(shell go env GOBIN)
 endif
 
 # Check whether this is a development or release version
-ifeq (,$(shell echo $(IMAGE_VERSION) | grep -E '^[0-9]+\.[0-9]+\.[0-9]*$$'))
-PULL_POLICY ?= Always
-else
+ifeq (,$(shell echo $(IMAGE_VERSION) | grep -iE '(:latest|SNAPSHOT|dev|BETA[[:digit:]]+)$$'))
 PULL_POLICY ?= IfNotPresent
+else
+PULL_POLICY ?= Always
 endif
 export PULL_POLICY
 

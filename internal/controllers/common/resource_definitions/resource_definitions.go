@@ -894,11 +894,13 @@ func clusterUniqueName(cr *operatorv1beta1.Cryostat) string {
 }
 
 // Matches image tags of the form "major.minor.patch"
-var releaseVerRegexp = regexp.MustCompile(`:\d+\.\d+\.\d+$`)
+var develVerRegexp = regexp.MustCompile(`(?i)(:latest|SNAPSHOT|dev|BETA\d+)$`)
 
 func getPullPolicy(imageTag string) corev1.PullPolicy {
-	if releaseVerRegexp.MatchString(imageTag) {
-		return corev1.PullIfNotPresent
+	// Use Always for tags that have a known development suffix
+	if develVerRegexp.MatchString(imageTag) {
+		return corev1.PullAlways
 	}
-	return corev1.PullAlways
+	// Likely a release, use IfNotPresent
+	return corev1.PullIfNotPresent
 }
