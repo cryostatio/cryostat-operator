@@ -424,17 +424,55 @@ var _ = Describe("CryostatController", func() {
 			})
 		})
 		Context("with overriden image tags", func() {
+			var deploy *appsv1.Deployment
 			BeforeEach(func() {
 				t.objs = append(t.objs, test.NewCryostat())
-				coreImg := "my/core-image:1.0"
-				datasourceImg := "my/datasource-image:1.0"
-				grafanaImg := "my/grafana-image:1.0"
-				t.EnvCoreImageTag = &coreImg
-				t.EnvDatasourceImageTag = &datasourceImg
-				t.EnvGrafanaImageTag = &grafanaImg
+				deploy = &appsv1.Deployment{}
 			})
-			It("should create deployment with the expected tags", func() {
-				t.expectDeployment()
+			JustBeforeEach(func() {
+				t.reconcileCryostatFully()
+				err := t.Client.Get(context.Background(), types.NamespacedName{Name: "cryostat", Namespace: "default"}, deploy)
+				Expect(err).ToNot(HaveOccurred())
+			})
+			Context("for development", func() {
+				BeforeEach(func() {
+					coreImg := "my/core-image:1.0.0-dev"
+					datasourceImg := "my/datasource-image:1.0.0-dev"
+					grafanaImg := "my/grafana-image:1.0.0-dev"
+					t.EnvCoreImageTag = &coreImg
+					t.EnvDatasourceImageTag = &datasourceImg
+					t.EnvGrafanaImageTag = &grafanaImg
+				})
+				It("should create deployment with the expected tags", func() {
+					t.checkDeployment()
+				})
+				It("should set ImagePullPolicy to Always", func() {
+					containers := deploy.Spec.Template.Spec.Containers
+					Expect(containers).To(HaveLen(3))
+					for _, container := range containers {
+						Expect(container.ImagePullPolicy).To(Equal(corev1.PullAlways))
+					}
+				})
+			})
+			Context("for release", func() {
+				BeforeEach(func() {
+					coreImg := "my/core-image:1.0.0"
+					datasourceImg := "my/datasource-image:1.0.0"
+					grafanaImg := "my/grafana-image:1.0.0"
+					t.EnvCoreImageTag = &coreImg
+					t.EnvDatasourceImageTag = &datasourceImg
+					t.EnvGrafanaImageTag = &grafanaImg
+				})
+				It("should create deployment with the expected tags", func() {
+					t.checkDeployment()
+				})
+				It("should set ImagePullPolicy to IfNotPresent", func() {
+					containers := deploy.Spec.Template.Spec.Containers
+					Expect(containers).To(HaveLen(3))
+					for _, container := range containers {
+						Expect(container.ImagePullPolicy).To(Equal(corev1.PullIfNotPresent))
+					}
+				})
 			})
 		})
 		Context("when deleted", func() {

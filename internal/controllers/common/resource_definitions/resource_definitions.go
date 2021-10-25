@@ -41,6 +41,7 @@ import (
 	"fmt"
 	"math/rand"
 	"net/url"
+	"regexp"
 	"time"
 
 	operatorv1beta1 "github.com/cryostatio/cryostat-operator/api/v1beta1"
@@ -494,9 +495,10 @@ func NewCoreContainer(cr *operatorv1beta1.Cryostat, specs *ServiceSpecs, imageTa
 		},
 	}
 	return corev1.Container{
-		Name:         cr.Name,
-		Image:        imageTag,
-		VolumeMounts: mounts,
+		Name:            cr.Name,
+		Image:           imageTag,
+		ImagePullPolicy: getPullPolicy(imageTag),
+		VolumeMounts:    mounts,
 		Ports: []corev1.ContainerPort{
 			{
 				ContainerPort: 8181,
@@ -584,9 +586,10 @@ func NewGrafanaContainer(cr *operatorv1beta1.Cryostat, imageTag string, tls *TLS
 		livenessProbeScheme = corev1.URISchemeHTTPS
 	}
 	return corev1.Container{
-		Name:         cr.Name + "-grafana",
-		Image:        imageTag,
-		VolumeMounts: mounts,
+		Name:            cr.Name + "-grafana",
+		Image:           imageTag,
+		ImagePullPolicy: getPullPolicy(imageTag),
+		VolumeMounts:    mounts,
 		Ports: []corev1.ContainerPort{
 			{
 				ContainerPort: 3000,
@@ -622,8 +625,9 @@ const DatasourceURL = "http://" + datasourceHost + ":" + datasourcePort
 
 func NewJfrDatasourceContainer(cr *operatorv1beta1.Cryostat, imageTag string) corev1.Container {
 	return corev1.Container{
-		Name:  cr.Name + "-jfr-datasource",
-		Image: imageTag,
+		Name:            cr.Name + "-jfr-datasource",
+		Image:           imageTag,
+		ImagePullPolicy: getPullPolicy(imageTag),
 		Ports: []corev1.ContainerPort{
 			{
 				ContainerPort: 8080,
@@ -887,4 +891,14 @@ func clusterUniqueName(cr *operatorv1beta1.Cryostat) string {
 	nn := types.NamespacedName{Namespace: cr.Namespace, Name: cr.Name}
 	suffix := fmt.Sprintf("%x", sha256.Sum256([]byte(nn.String())))
 	return "cryostat-" + suffix
+}
+
+// Matches image tags of the form "major.minor.patch"
+var releaseVerRegexp = regexp.MustCompile(`:\d+\.\d+\.\d+$`)
+
+func getPullPolicy(imageTag string) corev1.PullPolicy {
+	if releaseVerRegexp.MatchString(imageTag) {
+		return corev1.PullIfNotPresent
+	}
+	return corev1.PullAlways
 }
