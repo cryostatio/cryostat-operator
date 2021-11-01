@@ -38,7 +38,7 @@ See [Kubernetes API Overview](docs/api.md) for more details.
 ## Requirements
 - `go` v1.15
 - [`operator-sdk`](https://github.com/operator-framework/operator-sdk) v1.5.0
-- [`cert-manager`](https://github.com/jetstack/cert-manager) v1.5.3 (Recommended)
+- [`cert-manager`](https://github.com/jetstack/cert-manager) v1.3.0+ (Recommended)
 - `podman` or `docker`
 - `ginkgo` (Optional)
 
