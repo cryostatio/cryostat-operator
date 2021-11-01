@@ -342,6 +342,7 @@ spec:
                     fieldRef:
                       fieldPath: metadata.annotations['olm.targetNamespaces']
                 image: quay.io/cryostat/cryostat-operator:2.1.0-dev
+                imagePullPolicy: Always
                 livenessProbe:
                   httpGet:
                     path: /healthz
