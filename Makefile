@@ -54,6 +54,14 @@ else
 GOBIN=$(shell go env GOBIN)
 endif
 
+# Check whether this is a development or release version
+ifneq (,$(shell echo $(IMAGE_VERSION) | grep -iE '(:latest|SNAPSHOT|dev|BETA[[:digit:]]+)$$'))
+PULL_POLICY ?= Always
+else
+PULL_POLICY ?= IfNotPresent
+endif
+export PULL_POLICY
+
 # Run tests with Ginkgo CLI if available
 GINKGO ?= $(shell go env GOPATH)/bin/ginkgo
 GO_TEST ?= go test
@@ -130,6 +138,7 @@ undeploy:
 manifests: controller-gen
 	$(CONTROLLER_GEN) $(CRD_OPTIONS) rbac:roleName=role webhook paths="./..." output:crd:artifacts:config=config/crd/bases
 	envsubst < hack/image_tag_patch.yaml.in > config/default/image_tag_patch.yaml
+	envsubst < hack/image_pull_patch.yaml.in > config/default/image_pull_patch.yaml
 
 # Run go fmt against code
 .PHONY: fmt
