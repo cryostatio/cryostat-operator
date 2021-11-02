@@ -39,7 +39,7 @@ GRAFANA_NAME ?= cryostat-grafana-dashboard
 GRAFANA_VERSION ?= 2.0.0
 export GRAFANA_IMG ?= $(GRAFANA_NAMESPACE)/$(GRAFANA_NAME):$(GRAFANA_VERSION)
 
-CERT_MANAGER_VERSION ?= 1.1.0
+CERT_MANAGER_VERSION ?= 1.5.3
 CERT_MANAGER_MANIFEST ?= \
 	https://github.com/jetstack/cert-manager/releases/download/v$(CERT_MANAGER_VERSION)/cert-manager.yaml
 
