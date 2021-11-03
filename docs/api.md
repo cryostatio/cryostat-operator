@@ -281,7 +281,7 @@ status:
 
 If running on OpenShift, you will need to pass your bearer token with the `curl` request. (You may also need -k if your test cluster uses a self-signed certificate)
 ```shell
-$ curl -k -H "Authorization: Bearer $(oc whoami -t)" \
+$ curl -k -H "Authorization: Bearer $(oc whoami -t | base64)" \
 https://cryostat-sample-cryostat-operator-system.apps-crc.testing:443/api/v1/recordings/10-217-0-29_my-recording_20210429T220400Z.jfr \
 my-recording.jfr
 ```

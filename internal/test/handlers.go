@@ -341,7 +341,7 @@ func NewTemplates() []operatorv1beta1.TemplateInfo {
 }
 
 func verifyToken() http.HandlerFunc {
-	return ghttp.VerifyHeaderKV("Authorization", "Bearer myToken")
+	return ghttp.VerifyHeaderKV("Authorization", "Bearer bXlUb2tlbg==")
 }
 
 func verifyJMXAuth() http.HandlerFunc {
