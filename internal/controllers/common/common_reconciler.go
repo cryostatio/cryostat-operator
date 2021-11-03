@@ -38,6 +38,7 @@ package common
 
 import (
 	"context"
+	b64 "encoding/base64"
 	"errors"
 	"fmt"
 	"net/url"
@@ -130,7 +131,7 @@ func (r *commonReconciler) GetCryostatClient(ctx context.Context, namespace stri
 	if err != nil {
 		return nil, err
 	}
-	strTok := string(tok)
+	strTok := b64.StdEncoding.EncodeToString(tok)
 
 	// Get JMX authentication credentials, if present
 	var jmxCreds *cryostatClient.JMXAuthCredentials
