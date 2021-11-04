@@ -997,6 +997,15 @@ func NewDatasourceEnvironmentVariables() []corev1.EnvVar {
 	}
 }
 
+func NewOAuthClientEnvironmentVariables() []corev1.EnvVar {
+	return []corev1.EnvVar{
+		{
+			Name:  "CRYOSTAT_OAUTH_CLIENT_ID",
+			Value: "cryostat",
+		},
+	}
+}
+
 func NewCoreEnvFromSource(tls bool) []corev1.EnvFromSource {
 	envsFrom := []corev1.EnvFromSource{
 		{

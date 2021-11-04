@@ -828,12 +828,19 @@ func NewKeystoreSecretForCR(cr *operatorv1beta1.Cryostat) *corev1.Secret {
 }
 
 func NewServiceAccountForCR(cr *operatorv1beta1.Cryostat) *corev1.ServiceAccount {
-	return &corev1.ServiceAccount{
+	sa := &corev1.ServiceAccount{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      cr.Name,
 			Namespace: cr.Namespace,
+			Labels: map[string]string{
+				"app": "cryostat",
+			},
+			Annotations: map[string]string{
+				"serviceaccounts.openshift.io/oauth-redirecturi.route": cr.Status.ApplicationURL,
+			},
 		},
 	}
+	return sa
 }
 
 func NewRoleForCR(cr *operatorv1beta1.Cryostat) *rbacv1.Role {
