@@ -134,7 +134,14 @@ func NewCryostatWithTemplates() *operatorv1beta1.Cryostat {
 
 func NewCryostatWithIngress() *operatorv1beta1.Cryostat {
 	cr := NewCryostat()
-	networkConfig := NewNetworkConfigurationList()
+	networkConfig := NewNetworkConfigurationList(true)
+	cr.Spec.NetworkOptions = &networkConfig
+	return cr
+}
+
+func NewCryostatWithIngressNoTLS() *operatorv1beta1.Cryostat {
+	cr := NewCryostat()
+	networkConfig := NewNetworkConfigurationList(false)
 	cr.Spec.NetworkOptions = &networkConfig
 	return cr
 }
@@ -718,12 +725,8 @@ func NewDatasourcePorts() []corev1.ContainerPort {
 	}
 }
 
-func NewCoreEnvironmentVariables(minimal bool, tls bool, openshift bool) []corev1.EnvVar {
+func NewCoreEnvironmentVariables(minimal bool, tls bool, externalTLS bool, openshift bool) []corev1.EnvVar {
 	envs := []corev1.EnvVar{
-		{
-			Name:  "CRYOSTAT_SSL_PROXIED",
-			Value: "true",
-		},
 		{
 			Name:  "CRYOSTAT_ALLOW_UNTRUSTED_SSL",
 			Value: "true",
@@ -733,20 +736,12 @@ func NewCoreEnvironmentVariables(minimal bool, tls bool, openshift bool) []corev
 			Value: "8181",
 		},
 		{
-			Name:  "CRYOSTAT_EXT_WEB_PORT",
-			Value: "443",
-		},
-		{
 			Name:  "CRYOSTAT_WEB_HOST",
 			Value: "cryostat.example.com",
 		},
 		{
 			Name:  "CRYOSTAT_LISTEN_PORT",
 			Value: "9090",
-		},
-		{
-			Name:  "CRYOSTAT_EXT_LISTEN_PORT",
-			Value: "443",
 		},
 		{
 			Name:  "CRYOSTAT_LISTEN_HOST",
@@ -769,16 +764,48 @@ func NewCoreEnvironmentVariables(minimal bool, tls bool, openshift bool) []corev
 			Value: "/opt/cryostat.d/clientlib.d",
 		},
 	}
-	if !minimal {
+
+	if externalTLS {
 		envs = append(envs,
 			corev1.EnvVar{
-				Name:  "GRAFANA_DASHBOARD_URL",
-				Value: "https://cryostat-grafana.example.com",
+				Name:  "CRYOSTAT_EXT_WEB_PORT",
+				Value: "443",
 			},
+			corev1.EnvVar{
+				Name:  "CRYOSTAT_EXT_LISTEN_PORT",
+				Value: "443",
+			})
+	} else {
+		envs = append(envs,
+			corev1.EnvVar{
+				Name:  "CRYOSTAT_EXT_WEB_PORT",
+				Value: "80",
+			},
+			corev1.EnvVar{
+				Name:  "CRYOSTAT_EXT_LISTEN_PORT",
+				Value: "80",
+			})
+	}
+
+	if !minimal {
+		envs = append(envs,
 			corev1.EnvVar{
 				Name:  "GRAFANA_DATASOURCE_URL",
 				Value: "http://127.0.0.1:8080",
 			})
+		if externalTLS {
+			envs = append(envs,
+				corev1.EnvVar{
+					Name:  "GRAFANA_DASHBOARD_URL",
+					Value: "https://cryostat-grafana.example.com",
+				})
+		} else {
+			envs = append(envs,
+				corev1.EnvVar{
+					Name:  "GRAFANA_DASHBOARD_URL",
+					Value: "http://cryostat-grafana.example.com",
+				})
+		}
 	}
 	if !tls {
 		envs = append(envs,
@@ -786,6 +813,13 @@ func NewCoreEnvironmentVariables(minimal bool, tls bool, openshift bool) []corev
 				Name:  "CRYOSTAT_DISABLE_SSL",
 				Value: "true",
 			})
+		if externalTLS {
+			envs = append(envs,
+				corev1.EnvVar{
+					Name:  "CRYOSTAT_SSL_PROXIED",
+					Value: "true",
+				})
+		}
 	} else {
 		envs = append(envs, corev1.EnvVar{
 			Name:  "KEYSTORE_PATH",
@@ -1167,15 +1201,15 @@ func NewPodSecurityContext() *corev1.PodSecurityContext {
 	}
 }
 
-func NewNetworkConfigurationList() operatorv1beta1.NetworkConfigurationList {
+func NewNetworkConfigurationList(tls bool) operatorv1beta1.NetworkConfigurationList {
 	coreSVC := resource_definitions.NewExporterService(NewCryostat())
-	coreIng := NewNetworkConfiguration(coreSVC.Name, coreSVC.Spec.Ports[0].Port)
+	coreIng := NewNetworkConfiguration(coreSVC.Name, coreSVC.Spec.Ports[0].Port, tls)
 
 	commandSVC := resource_definitions.NewCommandChannelService(NewCryostat())
-	commandIng := NewNetworkConfiguration(commandSVC.Name, commandSVC.Spec.Ports[0].Port)
+	commandIng := NewNetworkConfiguration(commandSVC.Name, commandSVC.Spec.Ports[0].Port, tls)
 
 	grafanaSVC := resource_definitions.NewGrafanaService(NewCryostat())
-	grafanaIng := NewNetworkConfiguration(grafanaSVC.Name, grafanaSVC.Spec.Ports[0].Port)
+	grafanaIng := NewNetworkConfiguration(grafanaSVC.Name, grafanaSVC.Spec.Ports[0].Port, tls)
 
 	return operatorv1beta1.NetworkConfigurationList{
 		CoreConfig:    &coreIng,
@@ -1184,11 +1218,17 @@ func NewNetworkConfigurationList() operatorv1beta1.NetworkConfigurationList {
 	}
 }
 
-func NewNetworkConfiguration(svcName string, svcPort int32) operatorv1beta1.NetworkConfiguration {
+func NewNetworkConfiguration(svcName string, svcPort int32, tls bool) operatorv1beta1.NetworkConfiguration {
 	pathtype := netv1.PathTypePrefix
-	host := "testing." + svcName
+	host := svcName + ".example.com"
+
+	var ingressTLS []netv1.IngressTLS
+	if tls {
+		ingressTLS = []netv1.IngressTLS{{}}
+	}
 	return operatorv1beta1.NetworkConfiguration{
 		Annotations: map[string]string{"nginx.ingress.kubernetes.io/backend-protocol": "HTTPS"},
+		Labels:      map[string]string{"my": "label"},
 		IngressSpec: &netv1.IngressSpec{
 			Rules: []netv1.IngressRule{
 				{
@@ -1213,6 +1253,7 @@ func NewNetworkConfiguration(svcName string, svcPort int32) operatorv1beta1.Netw
 					},
 				},
 			},
+			TLS: ingressTLS,
 		},
 	}
 }
