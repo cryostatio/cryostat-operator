@@ -70,9 +70,10 @@ import (
 )
 
 type cryostatTestInput struct {
-	controller *controllers.CryostatReconciler
-	objs       []runtime.Object
-	minimal    bool
+	controller  *controllers.CryostatReconciler
+	objs        []runtime.Object
+	minimal     bool
+	externalTLS bool
 	test.TestReconcilerConfig
 }
 
@@ -101,6 +102,7 @@ var _ = Describe("CryostatController", func() {
 			TestReconcilerConfig: test.TestReconcilerConfig{
 				TLS: true,
 			},
+			externalTLS: true,
 		}
 		t.objs = []runtime.Object{
 			test.NewNamespace(),
@@ -112,7 +114,7 @@ var _ = Describe("CryostatController", func() {
 	})
 
 	Describe("reconciling a request in OpenShift", func() {
-		Context("succesfully creates required resources", func() {
+		Context("successfully creates required resources", func() {
 			BeforeEach(func() {
 				t.objs = append(t.objs, test.NewCryostat())
 			})
@@ -765,7 +767,7 @@ var _ = Describe("CryostatController", func() {
 		JustBeforeEach(func() {
 			t.controller.IsOpenShift = false
 		})
-		Context("succesfully creates required resources", func() {
+		Context("with TLS ingress", func() {
 			BeforeEach(func() {
 				t.objs = append(t.objs, test.NewCryostatWithIngress())
 			})
@@ -775,6 +777,25 @@ var _ = Describe("CryostatController", func() {
 			It("should not create routes", func() {
 				t.reconcileCryostatFully()
 				t.expectNoRoutes()
+			})
+			It("should create deployment and set owner", func() {
+				t.expectDeployment()
+			})
+		})
+		Context("with non-TLS ingress", func() {
+			BeforeEach(func() {
+				t.objs = append(t.objs, test.NewCryostatWithIngressNoTLS())
+				t.externalTLS = false
+			})
+			It("should create ingresses", func() {
+				t.expectIngresses()
+			})
+			It("should not create routes", func() {
+				t.reconcileCryostatFully()
+				t.expectNoRoutes()
+			})
+			It("should create deployment and set owner", func() {
+				t.expectDeployment()
 			})
 		})
 		Context("no ingress configuration is provided", func() {
@@ -800,7 +821,7 @@ var _ = Describe("CryostatController", func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				t.reconcileCryostatFully()
-				expectedConfig := test.NewNetworkConfigurationList()
+				expectedConfig := test.NewNetworkConfigurationList(t.externalTLS)
 
 				ingress := &netv1.Ingress{}
 				err = t.Client.Get(context.Background(), types.NamespacedName{Name: "cryostat", Namespace: "default"}, ingress)
@@ -832,7 +853,7 @@ var _ = Describe("CryostatController", func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				t.reconcileCryostatFully()
-				expectedConfig := test.NewNetworkConfigurationList()
+				expectedConfig := test.NewNetworkConfigurationList(t.externalTLS)
 
 				ingress := &netv1.Ingress{}
 				err = t.Client.Get(context.Background(), types.NamespacedName{Name: "cryostat-command", Namespace: "default"}, ingress)
@@ -1085,7 +1106,7 @@ func (t *cryostatTestInput) expectIngresses() {
 	t.initializeSecrets()
 
 	result, err = t.controller.Reconcile(context.Background(), req)
-	expectedConfig := test.NewNetworkConfigurationList()
+	expectedConfig := test.NewNetworkConfigurationList(t.externalTLS)
 
 	ingress := &netv1.Ingress{}
 	err = t.Client.Get(context.Background(), types.NamespacedName{Name: "cryostat", Namespace: "default"}, ingress)
@@ -1288,7 +1309,7 @@ func (t *cryostatTestInput) checkDeployment() {
 
 	// Check that the networking environment variables are set correctly
 	coreContainer := template.Spec.Containers[0]
-	checkCoreContainer(&coreContainer, t.minimal, t.TLS, t.EnvCoreImageTag, t.controller.IsOpenShift)
+	checkCoreContainer(&coreContainer, t.minimal, t.TLS, t.externalTLS, t.EnvCoreImageTag, t.controller.IsOpenShift)
 
 	if !t.minimal {
 		// Check that Grafana is configured properly, depending on the environment
@@ -1318,7 +1339,8 @@ func (t *cryostatTestInput) checkDeploymentHasTemplates() {
 	Expect(volumeMounts).To(Equal(expectedVolumeMounts))
 }
 
-func checkCoreContainer(container *corev1.Container, minimal bool, tls bool, tag *string, openshift bool) {
+func checkCoreContainer(container *corev1.Container, minimal bool, tls bool, externalTLS bool,
+	tag *string, openshift bool) {
 	Expect(container.Name).To(Equal("cryostat"))
 	if tag == nil {
 		Expect(container.Image).To(HavePrefix("quay.io/cryostat/cryostat:"))
@@ -1326,7 +1348,7 @@ func checkCoreContainer(container *corev1.Container, minimal bool, tls bool, tag
 		Expect(container.Image).To(Equal(*tag))
 	}
 	Expect(container.Ports).To(ConsistOf(test.NewCorePorts()))
-	Expect(container.Env).To(ConsistOf(test.NewCoreEnvironmentVariables(minimal, tls, openshift)))
+	Expect(container.Env).To(ConsistOf(test.NewCoreEnvironmentVariables(minimal, tls, externalTLS, openshift)))
 	Expect(container.EnvFrom).To(ConsistOf(test.NewCoreEnvFromSource(tls)))
 	Expect(container.VolumeMounts).To(ConsistOf(test.NewCoreVolumeMounts(tls)))
 	Expect(container.LivenessProbe).To(Equal(test.NewCoreLivenessProbe(tls)))
