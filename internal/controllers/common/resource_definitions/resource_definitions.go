@@ -308,10 +308,6 @@ func NewCoreContainer(cr *operatorv1beta1.Cryostat, specs *ServiceSpecs, imageTa
 	clientlibPath := "/opt/cryostat.d/clientlib.d"
 	envs := []corev1.EnvVar{
 		{
-			Name:  "CRYOSTAT_SSL_PROXIED",
-			Value: "true",
-		},
-		{
 			Name:  "CRYOSTAT_ALLOW_UNTRUSTED_SSL",
 			Value: "true",
 		},
@@ -441,6 +437,13 @@ func NewCoreContainer(cr *operatorv1beta1.Cryostat, specs *ServiceSpecs, imageTa
 			Name:  "CRYOSTAT_DISABLE_SSL",
 			Value: "true",
 		})
+		// Set CRYOSTAT_SSL_PROXIED if Ingress/Route use HTTPS
+		if specs.CoreURL != nil && specs.CoreURL.Scheme == "https" {
+			envs = append(envs, corev1.EnvVar{
+				Name:  "CRYOSTAT_SSL_PROXIED",
+				Value: "true",
+			})
+		}
 	} else {
 		// Configure keystore location and password in expected environment variables
 		envs = append(envs, corev1.EnvVar{
