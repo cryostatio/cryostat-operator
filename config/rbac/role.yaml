@@ -37,6 +37,29 @@ rules:
   - list
   - update
 - apiGroups:
+  - operator.cryostat.io
+  resources:
+  - cryostats
+  verbs:
+  - create
+  - get
+- apiGroups:
+  - operator.cryostat.io
+  resources:
+  - flightrecorders
+  verbs:
+  - get
+  - patch
+- apiGroups:
+  - operator.cryostat.io
+  resources:
+  - recordings
+  verbs:
+  - create
+  - delete
+  - get
+  - patch
+- apiGroups:
   - rbac.authorization.k8s.io
   resources:
   - clusterrolebindings
