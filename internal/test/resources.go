@@ -889,6 +889,14 @@ func NewCoreEnvironmentVariables(minimal bool, tls bool, externalTLS bool, opens
 			Name:  "CRYOSTAT_CLIENTLIB_PATH",
 			Value: "/opt/cryostat.d/clientlib.d",
 		},
+		{
+			Name:  "CRYOSTAT_OAUTH_CLIENT_ID",
+			Value: "cryostat-serviceaccount-name",
+		},
+		{
+			Name:  "CRYOSTAT_OAUTH_ROLE",
+			Value: "cryostat-cluster-role",
+		},
 	}
 
 	if externalTLS {
@@ -993,15 +1001,6 @@ func NewDatasourceEnvironmentVariables() []corev1.EnvVar {
 		{
 			Name:  "LISTEN_HOST",
 			Value: "127.0.0.1",
-		},
-	}
-}
-
-func NewOAuthClientEnvironmentVariables() []corev1.EnvVar {
-	return []corev1.EnvVar{
-		{
-			Name:  "CRYOSTAT_OAUTH_CLIENT_ID",
-			Value: "cryostat",
 		},
 	}
 }

@@ -376,6 +376,14 @@ func NewCoreContainer(cr *operatorv1beta1.Cryostat, specs *ServiceSpecs, imageTa
 				Name:  "CRYOSTAT_AUTH_MANAGER",
 				Value: "io.cryostat.net.OpenShiftAuthManager",
 			},
+			{
+				Name:  "CRYOSTAT_OAUTH_CLIENT_ID",
+				Value: cr.Name,
+			},
+			{
+				Name:  "CRYOSTAT_OAUTH_ROLE",
+				Value: "cryostat-operator-cryostat",
+			},
 		}
 		envs = append(envs, openshiftEnvs...)
 	}
