@@ -66,7 +66,7 @@ spec:
                 type: boolean
               networkOptions:
                 description: Options to control how the operator exposes the application
-                  over a network
+                  outside of the cluster using an Ingress or Route.
                 properties:
                   commandConfig:
                     description: Specifications for ingress that exposes the cryostat-command
@@ -997,6 +997,66 @@ spec:
                         description: Labels to add to the ingress during its creation.
                           The label with key "app" is reserved for use by the operator.
                         type: object
+                    type: object
+                type: object
+              serviceOptions:
+                description: Options to customize the services created for the Cryostat
+                  application and Grafana dashboard.
+                properties:
+                  coreConfig:
+                    description: Specification for the service responsible for the
+                      Cryostat application.
+                    properties:
+                      annotations:
+                        additionalProperties:
+                          type: string
+                        description: Annotations to add to the service during its
+                          creation.
+                        type: object
+                      httpPort:
+                        description: HTTP port number for the Cryostat application
+                          service. Defaults to 8181.
+                        format: int32
+                        type: integer
+                      jmxPort:
+                        description: Remote JMX port number for the Cryostat application
+                          service. Defaults to 9191.
+                        format: int32
+                        type: integer
+                      labels:
+                        additionalProperties:
+                          type: string
+                        description: Labels to add to the service during its creation.
+                          The label with key "app" is reserved for use by the operator.
+                        type: object
+                      serviceType:
+                        description: Type of service to create. Defaults to "ClusterIP".
+                        type: string
+                    type: object
+                  grafanaConfig:
+                    description: Specification for the service responsible for the
+                      Cryostat Grafana dashboard.
+                    properties:
+                      annotations:
+                        additionalProperties:
+                          type: string
+                        description: Annotations to add to the service during its
+                          creation.
+                        type: object
+                      httpPort:
+                        description: HTTP port number for the Grafana dashboard service.
+                          Defaults to 3000.
+                        format: int32
+                        type: integer
+                      labels:
+                        additionalProperties:
+                          type: string
+                        description: Labels to add to the service during its creation.
+                          The label with key "app" is reserved for use by the operator.
+                        type: object
+                      serviceType:
+                        description: Type of service to create. Defaults to "ClusterIP".
+                        type: string
                     type: object
                 type: object
               storageOptions:

@@ -129,6 +129,12 @@ spec:
         path: minimal
         x-descriptors:
         - urn:alm:descriptor:com.tectonic.ui:booleanSwitch
+      - description: Options to control how the operator exposes the application outside of the cluster using an Ingress or Route.
+        displayName: Network Options
+        path: networkOptions
+      - description: Options to customize the services created for the Cryostat application and Grafana dashboard.
+        displayName: Service Options
+        path: serviceOptions
       - description: Options to customize the storage for Flight Recordings and Templates
         displayName: Storage Options
         path: storageOptions
