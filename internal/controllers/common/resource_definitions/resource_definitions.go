@@ -67,7 +67,6 @@ type ImageTags struct {
 
 type ServiceSpecs struct {
 	CoreURL    *url.URL
-	CommandURL *url.URL
 	GrafanaURL *url.URL
 }
 
@@ -350,19 +349,7 @@ func NewCoreContainer(cr *operatorv1beta1.Cryostat, specs *ServiceSpecs, imageTa
 		}
 		envs = append(envs, coreEnvs...)
 	}
-	if specs.CommandURL != nil {
-		commandEnvs := []corev1.EnvVar{
-			{
-				Name:  "CRYOSTAT_EXT_LISTEN_PORT",
-				Value: getPort(specs.CommandURL),
-			},
-			{
-				Name:  "CRYOSTAT_LISTEN_HOST",
-				Value: specs.CommandURL.Hostname(),
-			},
-		}
-		envs = append(envs, commandEnvs...)
-	}
+	
 	if openshift {
 		// Force OpenShift platform strategy
 		openshiftEnvs := []corev1.EnvVar{
