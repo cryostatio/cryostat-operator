@@ -889,14 +889,6 @@ func NewCoreEnvironmentVariables(minimal bool, tls bool, externalTLS bool, opens
 			Name:  "CRYOSTAT_CLIENTLIB_PATH",
 			Value: "/opt/cryostat.d/clientlib.d",
 		},
-		{
-			Name:  "CRYOSTAT_OAUTH_CLIENT_ID",
-			Value: "cryostat-serviceaccount-name",
-		},
-		{
-			Name:  "CRYOSTAT_OAUTH_ROLE",
-			Value: "cryostat-cluster-role",
-		},
 	}
 
 	if externalTLS {
@@ -969,6 +961,14 @@ func NewCoreEnvironmentVariables(minimal bool, tls bool, externalTLS bool, opens
 			corev1.EnvVar{
 				Name:  "CRYOSTAT_AUTH_MANAGER",
 				Value: "io.cryostat.net.OpenShiftAuthManager",
+			},
+			corev1.EnvVar{
+				Name:  "CRYOSTAT_OAUTH_CLIENT_ID",
+				Value: "cryostat",
+			},
+			corev1.EnvVar{
+				Name:  "CRYOSTAT_OAUTH_ROLE",
+				Value: "cryostat-operator-cryostat",
 			})
 	}
 	return envs
@@ -1393,10 +1393,20 @@ func NewNetworkConfiguration(svcName string, svcPort int32, tls bool) operatorv1
 }
 
 func NewServiceAccount() *corev1.ServiceAccount {
+
+	ref := []byte(`{"metadata":{"creationTimestamp":null},"reference":{"group":"","kind":"Route","name":"cryostat"}}`)
+
 	return &corev1.ServiceAccount{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "cryostat",
 			Namespace: "default",
+			Labels: map[string]string{
+				"app": "cryostat",
+			},
+			Annotations: map[string]string{
+				"serviceaccounts.openshift.io/oauth-redirecturi.route":       "https://",
+				"serviceaccounts.openshift.io/oauth-redirectreference.route": string(ref),
+			},
 		},
 	}
 }
