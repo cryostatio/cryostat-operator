@@ -1027,7 +1027,8 @@ spec:
                         additionalProperties:
                           type: string
                         description: Labels to add to the service during its creation.
-                          The label with key "app" is reserved for use by the operator.
+                          The labels with keys "app" and "component" are reserved
+                          for use by the operator.
                         type: object
                       serviceType:
                         description: Type of service to create. Defaults to "ClusterIP".
@@ -1052,7 +1053,8 @@ spec:
                         additionalProperties:
                           type: string
                         description: Labels to add to the service during its creation.
-                          The label with key "app" is reserved for use by the operator.
+                          The labels with keys "app" and "component" are reserved
+                          for use by the operator.
                         type: object
                       serviceType:
                         description: Type of service to create. Defaults to "ClusterIP".

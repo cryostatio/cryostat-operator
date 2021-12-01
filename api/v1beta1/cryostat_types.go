@@ -102,7 +102,8 @@ type ServiceConfig struct {
 	// +optional
 	Annotations map[string]string `json:"annotations,omitempty"`
 	// Labels to add to the service during its creation.
-	// The label with key "app" is reserved for use by the operator.
+	// The labels with keys "app" and "component" are reserved
+	// for use by the operator.
 	// +optional
 	Labels map[string]string `json:"labels,omitempty"`
 }
@@ -127,7 +128,7 @@ type GrafanaServiceConfig struct {
 	// HTTP port number for the Grafana dashboard service.
 	// Defaults to 3000.
 	// +optional
-	HTTPPort      int32 `json:"httpPort,omitempty"`
+	HTTPPort      *int32 `json:"httpPort,omitempty"`
 	ServiceConfig `json:",inline"`
 }
 
