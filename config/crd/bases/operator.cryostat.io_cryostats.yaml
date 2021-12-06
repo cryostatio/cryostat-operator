@@ -1020,7 +1020,7 @@ spec:
                         type: integer
                       jmxPort:
                         description: Remote JMX port number for the Cryostat application
-                          service. Defaults to 9191.
+                          service. Defaults to 9091.
                         format: int32
                         type: integer
                       labels:
