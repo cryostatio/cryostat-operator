@@ -13,45 +13,42 @@ rules:
   verbs:
   - create
 - apiGroups:
-  - authorization.k8s.io
-  resources:
-  - selfsubjectaccessreviews
-  verbs:
-  - create
-- apiGroups:
   - ""
   resources:
   - pods
   verbs:
-  - get
   - create
+  - get
 - apiGroups:
   - operator.cryostat.io
   resources:
   - cryostats
   verbs:
-  - get 
   - create
+  - delete
+  - get
 - apiGroups:
   - operator.cryostat.io
   resources:
   - flightrecorders
   verbs:
-  - get  
+  - create
+  - delete
+  - get
   - patch
 - apiGroups:
   - operator.cryostat.io
   resources:
   - recordings
   verbs:
-  - create 
-  - delete 
-  - get 
-  - patch 
+  - create
+  - delete
+  - get
+  - patch
 - apiGroups:
   - apps
   resources:
   - deployments
   verbs:
-  - get
   - create
+  - get

@@ -35,12 +35,6 @@ rules:
   verbs:
   - create
 - apiGroups:
-  - authorization.k8s.io
-  resources:
-  - selfsubjectaccessreviews
-  verbs:
-  - create
-- apiGroups:
   - console.openshift.io
   resources:
   - consolelinks
@@ -56,12 +50,15 @@ rules:
   - cryostats
   verbs:
   - create
+  - delete
   - get
 - apiGroups:
   - operator.cryostat.io
   resources:
   - flightrecorders
   verbs:
+  - create
+  - delete
   - get
   - patch
 - apiGroups:
