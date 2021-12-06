@@ -664,22 +664,20 @@ func NewCoreService(cr *operatorv1beta1.Cryostat) *corev1.Service {
 	// Override with any user-specified properties
 	if cr.Spec.ServiceOptions != nil && cr.Spec.ServiceOptions.CoreConfig != nil {
 		config := cr.Spec.ServiceOptions.CoreConfig
-		if config != nil {
-			if config.ServiceType != nil {
-				svcType = *config.ServiceType
-			}
-			if config.HTTPPort != nil {
-				httpPort = *config.HTTPPort
-			}
-			if config.JMXPort != nil {
-				jmxPort = *config.JMXPort
-			}
-			if config.Labels != nil {
-				labels = config.Labels
-			}
-			if config.Annotations != nil {
-				annotations = config.Annotations
-			}
+		if config.ServiceType != nil {
+			svcType = *config.ServiceType
+		}
+		if config.HTTPPort != nil {
+			httpPort = *config.HTTPPort
+		}
+		if config.JMXPort != nil {
+			jmxPort = *config.JMXPort
+		}
+		if config.Labels != nil {
+			labels = config.Labels
+		}
+		if config.Annotations != nil {
+			annotations = config.Annotations
 		}
 	}
 
@@ -751,19 +749,17 @@ func NewGrafanaService(cr *operatorv1beta1.Cryostat) *corev1.Service {
 	// Override with any user-specified properties
 	if cr.Spec.ServiceOptions != nil && cr.Spec.ServiceOptions.GrafanaConfig != nil {
 		config := cr.Spec.ServiceOptions.GrafanaConfig
-		if config != nil {
-			if config.ServiceType != nil {
-				svcType = *config.ServiceType
-			}
-			if config.HTTPPort != nil {
-				httpPort = *config.HTTPPort
-			}
-			if config.Labels != nil {
-				labels = config.Labels
-			}
-			if config.Annotations != nil {
-				annotations = config.Annotations
-			}
+		if config.ServiceType != nil {
+			svcType = *config.ServiceType
+		}
+		if config.HTTPPort != nil {
+			httpPort = *config.HTTPPort
+		}
+		if config.Labels != nil {
+			labels = config.Labels
+		}
+		if config.Annotations != nil {
+			annotations = config.Annotations
 		}
 	}
 

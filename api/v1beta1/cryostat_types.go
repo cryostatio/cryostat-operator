@@ -116,7 +116,7 @@ type CoreServiceConfig struct {
 	// +optional
 	HTTPPort *int32 `json:"httpPort,omitempty"`
 	// Remote JMX port number for the Cryostat application service.
-	// Defaults to 9191.
+	// Defaults to 9091.
 	// +optional
 	JMXPort       *int32 `json:"jmxPort,omitempty"`
 	ServiceConfig `json:",inline"`
