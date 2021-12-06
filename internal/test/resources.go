@@ -1328,7 +1328,7 @@ func NewPodSecurityContext() *corev1.PodSecurityContext {
 }
 
 func NewNetworkConfigurationList(tls bool) operatorv1beta1.NetworkConfigurationList {
-	coreSVC := resource_definitions.NewExporterService(NewCryostat())
+	coreSVC := resource_definitions.NewCoreService(NewCryostat())
 	coreIng := NewNetworkConfiguration(coreSVC.Name, coreSVC.Spec.Ports[0].Port, tls)
 
 	commandSVC := resource_definitions.NewCommandChannelService(NewCryostat())

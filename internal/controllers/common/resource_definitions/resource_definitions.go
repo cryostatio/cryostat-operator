@@ -653,7 +653,7 @@ func NewJfrDatasourceContainer(cr *operatorv1beta1.Cryostat, imageTag string) co
 	}
 }
 
-func NewExporterService(cr *operatorv1beta1.Cryostat) *corev1.Service {
+func NewCoreService(cr *operatorv1beta1.Cryostat) *corev1.Service {
 	// Initialize with defaults
 	svcType := corev1.ServiceTypeClusterIP
 	httpPort := int32(8181)

@@ -303,8 +303,8 @@ func (r *CryostatReconciler) Reconcile(ctx context.Context, request ctrl.Request
 		}
 	}
 
-	exporterSvc := resources.NewExporterService(instance)
-	url, err := r.createService(context.Background(), instance, exporterSvc, &exporterSvc.Spec.Ports[0], routeTLS)
+	coreSvc := resources.NewCoreService(instance)
+	url, err := r.createService(context.Background(), instance, coreSvc, &coreSvc.Spec.Ports[0], routeTLS)
 	if err != nil {
 		return requeueIfIngressNotReady(reqLogger, err)
 	}
