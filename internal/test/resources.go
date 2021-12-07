@@ -185,6 +185,52 @@ func NewCryostatWithPVCLabelsOnly() *operatorv1beta1.Cryostat {
 	return cr
 }
 
+func NewCryostatWithCoreSvc() *operatorv1beta1.Cryostat {
+	svcType := corev1.ServiceTypeNodePort
+	httpPort := int32(8080)
+	jmxPort := int32(9095)
+	cr := NewCryostat()
+	cr.Spec.ServiceOptions = &operatorv1beta1.ServiceConfigList{
+		CoreConfig: &operatorv1beta1.CoreServiceConfig{
+			HTTPPort: &httpPort,
+			JMXPort:  &jmxPort,
+			ServiceConfig: operatorv1beta1.ServiceConfig{
+				ServiceType: &svcType,
+				Annotations: map[string]string{
+					"my/custom": "annotation",
+				},
+				Labels: map[string]string{
+					"my":  "label",
+					"app": "somethingelse",
+				},
+			},
+		},
+	}
+	return cr
+}
+
+func NewCryostatWithGrafanaSvc() *operatorv1beta1.Cryostat {
+	svcType := corev1.ServiceTypeNodePort
+	httpPort := int32(8080)
+	cr := NewCryostat()
+	cr.Spec.ServiceOptions = &operatorv1beta1.ServiceConfigList{
+		GrafanaConfig: &operatorv1beta1.GrafanaServiceConfig{
+			HTTPPort: &httpPort,
+			ServiceConfig: operatorv1beta1.ServiceConfig{
+				ServiceType: &svcType,
+				Annotations: map[string]string{
+					"my/custom": "annotation",
+				},
+				Labels: map[string]string{
+					"my":  "label",
+					"app": "somethingelse",
+				},
+			},
+		},
+	}
+	return cr
+}
+
 func NewCryostatCertManagerDisabled() *operatorv1beta1.Cryostat {
 	cr := NewCryostat()
 	certManager := false
@@ -541,17 +587,97 @@ func NewCryostatService() *corev1.Service {
 					Controller: &c,
 				},
 			},
+			Labels: map[string]string{
+				"app":       "cryostat",
+				"component": "cryostat",
+			},
 		},
 		Spec: corev1.ServiceSpec{
-			ClusterIP: "1.2.3.4",
+			Type: corev1.ServiceTypeClusterIP,
+			Selector: map[string]string{
+				"app": "cryostat",
+			},
 			Ports: []corev1.ServicePort{
 				{
-					Name: "export",
-					Port: 8181,
+					Name:       "http",
+					Port:       8181,
+					TargetPort: intstr.FromInt(8181),
+				},
+				{
+					Name:       "jfr-jmx",
+					Port:       9091,
+					TargetPort: intstr.FromInt(9091),
 				},
 			},
 		},
 	}
+}
+
+func NewGrafanaService() *corev1.Service {
+	c := true
+	return &corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "cryostat-grafana",
+			Namespace: "default",
+			OwnerReferences: []metav1.OwnerReference{
+				{
+					APIVersion: operatorv1beta1.GroupVersion.String(),
+					Kind:       "Cryostat",
+					Name:       "cryostat",
+					UID:        "",
+					Controller: &c,
+				},
+			},
+			Labels: map[string]string{
+				"app":       "cryostat",
+				"component": "grafana",
+			},
+		},
+		Spec: corev1.ServiceSpec{
+			Type: corev1.ServiceTypeClusterIP,
+			Selector: map[string]string{
+				"app": "cryostat",
+			},
+			Ports: []corev1.ServicePort{
+				{
+					Name:       "http",
+					Port:       3000,
+					TargetPort: intstr.FromInt(3000),
+				},
+			},
+		},
+	}
+}
+
+func NewCustomizedCoreService() *corev1.Service {
+	svc := NewCryostatService()
+	svc.Spec.Type = corev1.ServiceTypeNodePort
+	svc.Spec.Ports[0].Port = 8080
+	svc.Spec.Ports[1].Port = 9095
+	svc.Annotations = map[string]string{
+		"my/custom": "annotation",
+	}
+	svc.Labels = map[string]string{
+		"app":       "cryostat",
+		"component": "cryostat",
+		"my":        "label",
+	}
+	return svc
+}
+
+func NewCustomizedGrafanaService() *corev1.Service {
+	svc := NewGrafanaService()
+	svc.Spec.Type = corev1.ServiceTypeNodePort
+	svc.Spec.Ports[0].Port = 8080
+	svc.Annotations = map[string]string{
+		"my/custom": "annotation",
+	}
+	svc.Labels = map[string]string{
+		"app":       "cryostat",
+		"component": "grafana",
+		"my":        "label",
+	}
+	return svc
 }
 
 func NewTestService() *corev1.Service {
@@ -1202,7 +1328,7 @@ func NewPodSecurityContext() *corev1.PodSecurityContext {
 }
 
 func NewNetworkConfigurationList(tls bool) operatorv1beta1.NetworkConfigurationList {
-	coreSVC := resource_definitions.NewExporterService(NewCryostat())
+	coreSVC := resource_definitions.NewCoreService(NewCryostat())
 	coreIng := NewNetworkConfiguration(coreSVC.Name, coreSVC.Spec.Ports[0].Port, tls)
 
 	commandSVC := resource_definitions.NewCommandChannelService(NewCryostat())

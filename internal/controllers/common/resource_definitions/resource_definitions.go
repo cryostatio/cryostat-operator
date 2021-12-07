@@ -653,30 +653,49 @@ func NewJfrDatasourceContainer(cr *operatorv1beta1.Cryostat, imageTag string) co
 	}
 }
 
-func NewExporterService(cr *operatorv1beta1.Cryostat) *corev1.Service {
+func NewCoreService(cr *operatorv1beta1.Cryostat) *corev1.Service {
+	// Check CR for config
+	var config *operatorv1beta1.CoreServiceConfig
+	if cr.Spec.ServiceOptions == nil || cr.Spec.ServiceOptions.CoreConfig == nil {
+		config = &operatorv1beta1.CoreServiceConfig{}
+	} else {
+		config = cr.Spec.ServiceOptions.CoreConfig
+	}
+
+	// Apply common service defaults
+	configureService(&config.ServiceConfig, cr.Name, "cryostat")
+
+	// Apply default HTTP and JMX port if not provided
+	if config.HTTPPort == nil {
+		httpPort := int32(8181)
+		config.HTTPPort = &httpPort
+	}
+	if config.JMXPort == nil {
+		jmxPort := int32(9091)
+		config.JMXPort = &jmxPort
+	}
+
 	return &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      cr.Name,
-			Namespace: cr.Namespace,
-			Labels: map[string]string{
-				"app":       cr.Name,
-				"component": "cryostat",
-			},
+			Name:        cr.Name,
+			Namespace:   cr.Namespace,
+			Labels:      config.Labels,
+			Annotations: config.Annotations,
 		},
 		Spec: corev1.ServiceSpec{
-			Type: corev1.ServiceTypeLoadBalancer,
+			Type: *config.ServiceType,
 			Selector: map[string]string{
 				"app": cr.Name,
 			},
 			Ports: []corev1.ServicePort{
 				{
-					Name:       "export",
-					Port:       8181,
+					Name:       "http",
+					Port:       *config.HTTPPort,
 					TargetPort: intstr.IntOrString{IntVal: 8181},
 				},
 				{
 					Name:       "jfr-jmx",
-					Port:       9091,
+					Port:       *config.JMXPort,
 					TargetPort: intstr.IntOrString{IntVal: 9091},
 				},
 			},
@@ -711,29 +730,66 @@ func NewCommandChannelService(cr *operatorv1beta1.Cryostat) *corev1.Service {
 }
 
 func NewGrafanaService(cr *operatorv1beta1.Cryostat) *corev1.Service {
+	config := getGrafanaServiceConfig(cr)
 	return &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      cr.Name + "-grafana",
-			Namespace: cr.Namespace,
-			Labels: map[string]string{
-				"app":       cr.Name,
-				"component": "grafana",
-			},
+			Name:        cr.Name + "-grafana",
+			Namespace:   cr.Namespace,
+			Labels:      config.Labels,
+			Annotations: config.Annotations,
 		},
 		Spec: corev1.ServiceSpec{
-			Type: corev1.ServiceTypeLoadBalancer,
+			Type: *config.ServiceType,
 			Selector: map[string]string{
 				"app": cr.Name,
 			},
 			Ports: []corev1.ServicePort{
 				{
-					Name:       "3000-tcp",
-					Port:       3000,
+					Name:       "http",
+					Port:       *config.HTTPPort,
 					TargetPort: intstr.IntOrString{IntVal: 3000},
 				},
 			},
 		},
 	}
+}
+
+func getGrafanaServiceConfig(cr *operatorv1beta1.Cryostat) *operatorv1beta1.GrafanaServiceConfig {
+	// Check CR for config
+	var config *operatorv1beta1.GrafanaServiceConfig
+	if cr.Spec.ServiceOptions == nil || cr.Spec.ServiceOptions.GrafanaConfig == nil {
+		config = &operatorv1beta1.GrafanaServiceConfig{}
+	} else {
+		config = cr.Spec.ServiceOptions.GrafanaConfig
+	}
+
+	// Apply common service defaults
+	configureService(&config.ServiceConfig, cr.Name, "grafana")
+
+	// Apply default HTTP port if not provided
+	if config.HTTPPort == nil {
+		httpPort := int32(3000)
+		config.HTTPPort = &httpPort
+	}
+
+	return config
+}
+
+func configureService(config *operatorv1beta1.ServiceConfig, appLabel string, componentLabel string) {
+	if config.ServiceType == nil {
+		svcType := corev1.ServiceTypeClusterIP
+		config.ServiceType = &svcType
+	}
+	if config.Labels == nil {
+		config.Labels = map[string]string{}
+	}
+	if config.Annotations == nil {
+		config.Annotations = map[string]string{}
+	}
+
+	// Add required labels, overriding any user-specified labels with the same keys
+	config.Labels["app"] = appLabel
+	config.Labels["component"] = componentLabel
 }
 
 // JMXSecretNameSuffix is the suffix to be appended to the name of a

@@ -236,11 +236,11 @@ func getPodIP(pod *corev1.Pod) (*string, error) {
 
 func getWebServerPort(svc *corev1.Service) (int32, error) {
 	for _, port := range svc.Spec.Ports {
-		if port.Name == "export" {
+		if port.Name == "http" {
 			return port.Port, nil
 		}
 	}
-	return 0, errors.New("Cryostat service had no port named \"export\"")
+	return 0, errors.New("Cryostat service had no port named \"http\"")
 }
 
 func getValueFromSecret(secret *corev1.Secret, key *string, defaultKey string) (*string, error) {
