@@ -20,6 +20,13 @@ rules:
   - create
   - get
 - apiGroups:
+  - ""
+  resources:
+  - replicationcontrollers
+  - endpoints
+  verbs:
+  - get
+- apiGroups:
   - operator.cryostat.io
   resources:
   - cryostats
@@ -31,14 +38,6 @@ rules:
   - operator.cryostat.io
   resources:
   - flightrecorders
-  verbs:
-  - create
-  - delete
-  - get
-  - patch
-- apiGroups:
-  - operator.cryostat.io
-  resources:
   - recordings
   verbs:
   - create
@@ -51,4 +50,12 @@ rules:
   - deployments
   verbs:
   - create
+  - get
+- apiGroups:
+  - apps
+  resources:
+  - daemonsets
+  - replicasets
+  - statefulsets
+  verbs:
   - get
