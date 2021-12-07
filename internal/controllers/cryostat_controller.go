@@ -108,7 +108,7 @@ var supGroupRegexp = regexp.MustCompile(`^\d+`)
 // +kubebuilder:rbac:groups=authentication.k8s.io,resources=tokenreviews,verbs=create
 // +kubebuilder:rbac:groups="",resources=namespaces,verbs=get;list;watch
 // +kubebuilder:rbac:groups="",resources=pods,verbs=create;get
-// +kubebuilder:rbac:groups="",resources=replicationcontrollers,endpoints,verbs=get
+// +kubebuilder:rbac:groups="",resources=replicationcontrollers;endpoints,verbs=get
 // +kubebuilder:rbac:groups=apps,resources=deployments,verbs=create;get
 // +kubebuilder:rbac:groups=apps,resources=daemonsets;replicasets;statefulsets,verbs=get
 // +kubebuilder:rbac:groups=operator.cryostat.io,resources=flightrecorders,verbs=create;delete;get;patch

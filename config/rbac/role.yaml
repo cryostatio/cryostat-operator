@@ -9,6 +9,13 @@ rules:
 - apiGroups:
   - ""
   resources:
+  - endpoints
+  - replicationcontrollers
+  verbs:
+  - get
+- apiGroups:
+  - ""
+  resources:
   - namespaces
   verbs:
   - get
@@ -20,6 +27,14 @@ rules:
   - pods
   verbs:
   - create
+  - get
+- apiGroups:
+  - apps
+  resources:
+  - daemonsets
+  - replicasets
+  - statefulsets
+  verbs:
   - get
 - apiGroups:
   - apps
