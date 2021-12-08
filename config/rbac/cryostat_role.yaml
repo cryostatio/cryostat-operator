@@ -1,5 +1,4 @@
-# Permissions for Cryostat to validate tokens, check permissions, and perform
-# actions with the web-ui
+# Permissions for Cryostat to validate tokens and check permissions
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
@@ -13,49 +12,8 @@ rules:
   verbs:
   - create
 - apiGroups:
-  - ""
+  - authorization.k8s.io
   resources:
-  - pods
+  - selfsubjectaccessreviews
   verbs:
   - create
-  - get
-- apiGroups:
-  - ""
-  resources:
-  - replicationcontrollers
-  - endpoints
-  verbs:
-  - get
-- apiGroups:
-  - operator.cryostat.io
-  resources:
-  - cryostats
-  verbs:
-  - create
-  - delete
-  - get
-- apiGroups:
-  - operator.cryostat.io
-  resources:
-  - flightrecorders
-  - recordings
-  verbs:
-  - create
-  - delete
-  - get
-  - patch
-- apiGroups:
-  - apps
-  resources:
-  - deployments
-  verbs:
-  - create
-  - get
-- apiGroups:
-  - apps
-  resources:
-  - daemonsets
-  - replicasets
-  - statefulsets
-  verbs:
-  - get

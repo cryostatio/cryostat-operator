@@ -968,7 +968,7 @@ func NewCoreEnvironmentVariables(minimal bool, tls bool, externalTLS bool, opens
 			},
 			corev1.EnvVar{
 				Name:  "CRYOSTAT_OAUTH_ROLE",
-				Value: "cryostat-operator-cryostat",
+				Value: "cryostat-operator-oauth-client",
 			})
 	}
 	return envs

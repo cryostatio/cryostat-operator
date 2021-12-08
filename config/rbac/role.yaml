@@ -9,44 +9,21 @@ rules:
 - apiGroups:
   - ""
   resources:
-  - endpoints
-  - replicationcontrollers
-  verbs:
-  - get
-- apiGroups:
-  - ""
-  resources:
   - namespaces
   verbs:
   - get
   - list
   - watch
 - apiGroups:
-  - ""
-  resources:
-  - pods
-  verbs:
-  - create
-  - get
-- apiGroups:
-  - apps
-  resources:
-  - daemonsets
-  - replicasets
-  - statefulsets
-  verbs:
-  - get
-- apiGroups:
-  - apps
-  resources:
-  - deployments
-  verbs:
-  - create
-  - get
-- apiGroups:
   - authentication.k8s.io
   resources:
   - tokenreviews
+  verbs:
+  - create
+- apiGroups:
+  - authorization.k8s.io
+  resources:
+  - selfsubjectaccessreviews
   verbs:
   - create
 - apiGroups:
@@ -59,32 +36,6 @@ rules:
   - get
   - list
   - update
-- apiGroups:
-  - operator.cryostat.io
-  resources:
-  - cryostats
-  verbs:
-  - create
-  - delete
-  - get
-- apiGroups:
-  - operator.cryostat.io
-  resources:
-  - flightrecorders
-  verbs:
-  - create
-  - delete
-  - get
-  - patch
-- apiGroups:
-  - operator.cryostat.io
-  resources:
-  - recordings
-  verbs:
-  - create
-  - delete
-  - get
-  - patch
 - apiGroups:
   - rbac.authorization.k8s.io
   resources:
