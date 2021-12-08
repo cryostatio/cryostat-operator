@@ -838,6 +838,8 @@ func NewKeystoreSecretForCR(cr *operatorv1beta1.Cryostat) *corev1.Secret {
 }
 
 func NewServiceAccountForCR(cr *operatorv1beta1.Cryostat, isOpenShift bool) (*corev1.ServiceAccount, error) {
+	annotations := make(map[string]string)
+
 	if isOpenShift {
 		OAuthRedirectReference := &oauthv1.OAuthRedirectReference{
 			Reference: oauthv1.RedirectReference{
@@ -851,29 +853,22 @@ func NewServiceAccountForCR(cr *operatorv1beta1.Cryostat, isOpenShift bool) (*co
 			return nil, err
 		}
 
-		sa := &corev1.ServiceAccount{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      cr.Name,
-				Namespace: cr.Namespace,
-				Labels: map[string]string{
-					"app": "cryostat",
-				},
-				Annotations: map[string]string{
-					"serviceaccounts.openshift.io/oauth-redirecturi.route":       "https://",
-					"serviceaccounts.openshift.io/oauth-redirectreference.route": string(ref),
-				},
-			},
+		annotations = map[string]string{
+			"serviceaccounts.openshift.io/oauth-redirecturi.route":       "https://",
+			"serviceaccounts.openshift.io/oauth-redirectreference.route": string(ref),
 		}
-		return sa, nil
 	}
 
 	return &corev1.ServiceAccount{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      cr.Name,
 			Namespace: cr.Namespace,
+			Labels: map[string]string{
+				"app": "cryostat",
+			},
+			Annotations: annotations,
 		},
 	}, nil
-
 }
 
 func NewRoleForCR(cr *operatorv1beta1.Cryostat) *rbacv1.Role {
