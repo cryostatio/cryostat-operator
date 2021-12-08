@@ -837,33 +837,43 @@ func NewKeystoreSecretForCR(cr *operatorv1beta1.Cryostat) *corev1.Secret {
 	}
 }
 
-func NewServiceAccountForCR(cr *operatorv1beta1.Cryostat) (*corev1.ServiceAccount, error) {
-	OAuthRedirectReference := &oauthv1.OAuthRedirectReference{
-		Reference: oauthv1.RedirectReference{
-			Kind: "Route",
-			Name: cr.Name,
-		},
+func NewServiceAccountForCR(cr *operatorv1beta1.Cryostat, isOpenShift bool) (*corev1.ServiceAccount, error) {
+	if isOpenShift {
+		OAuthRedirectReference := &oauthv1.OAuthRedirectReference{
+			Reference: oauthv1.RedirectReference{
+				Kind: "Route",
+				Name: cr.Name,
+			},
+		}
+
+		ref, err := json.Marshal(OAuthRedirectReference)
+		if err != nil {
+			return nil, err
+		}
+
+		sa := &corev1.ServiceAccount{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      cr.Name,
+				Namespace: cr.Namespace,
+				Labels: map[string]string{
+					"app": "cryostat",
+				},
+				Annotations: map[string]string{
+					"serviceaccounts.openshift.io/oauth-redirecturi.route":       "https://",
+					"serviceaccounts.openshift.io/oauth-redirectreference.route": string(ref),
+				},
+			},
+		}
+		return sa, nil
 	}
 
-	ref, err := json.Marshal(OAuthRedirectReference)
-	if err != nil {
-		return nil, err
-	}
-
-	sa := &corev1.ServiceAccount{
+	return &corev1.ServiceAccount{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      cr.Name,
 			Namespace: cr.Namespace,
-			Labels: map[string]string{
-				"app": "cryostat",
-			},
-			Annotations: map[string]string{
-				"serviceaccounts.openshift.io/oauth-redirecturi.route":       "https://",
-				"serviceaccounts.openshift.io/oauth-redirectreference.route": string(ref),
-			},
 		},
-	}
-	return sa, nil
+	}, nil
+
 }
 
 func NewRoleForCR(cr *operatorv1beta1.Cryostat) *rbacv1.Role {
