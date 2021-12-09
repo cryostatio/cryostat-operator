@@ -526,7 +526,10 @@ func (r *CryostatReconciler) createObjectIfNotExists(ctx context.Context, ns typ
 
 func (r *CryostatReconciler) createRBAC(ctx context.Context, cr *operatorv1beta1.Cryostat) error {
 	// Create ServiceAccount
-	sa := resources.NewServiceAccountForCR(cr)
+	sa, err := resources.NewServiceAccountForCR(cr, r.IsOpenShift)
+	if err != nil {
+		return err
+	}
 	if err := controllerutil.SetControllerReference(cr, sa, r.Scheme); err != nil {
 		return err
 	}

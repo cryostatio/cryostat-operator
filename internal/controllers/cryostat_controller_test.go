@@ -1052,6 +1052,8 @@ func (t *cryostatTestInput) expectRBAC() {
 	err := t.Client.Get(context.Background(), types.NamespacedName{Name: "cryostat", Namespace: "default"}, sa)
 	Expect(err).ToNot(HaveOccurred())
 	expectedSA := test.NewServiceAccount()
+	Expect(sa.Labels).To(Equal(expectedSA.Labels))
+	Expect(sa.Annotations).To(Equal(expectedSA.Annotations))
 	Expect(sa.Secrets).To(Equal(expectedSA.Secrets))
 	Expect(sa.ImagePullSecrets).To(Equal(expectedSA.ImagePullSecrets))
 	Expect(sa.AutomountServiceAccountToken).To(Equal(expectedSA.AutomountServiceAccountToken))

@@ -38,6 +38,7 @@ package resource_definitions
 
 import (
 	"crypto/sha256"
+	"encoding/json"
 	"fmt"
 	"math/rand"
 	"net/url"
@@ -46,6 +47,7 @@ import (
 
 	operatorv1beta1 "github.com/cryostatio/cryostat-operator/api/v1beta1"
 	consolev1 "github.com/openshift/api/console/v1"
+	oauthv1 "github.com/openshift/api/oauth/v1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
@@ -373,6 +375,14 @@ func NewCoreContainer(cr *operatorv1beta1.Cryostat, specs *ServiceSpecs, imageTa
 			{
 				Name:  "CRYOSTAT_AUTH_MANAGER",
 				Value: "io.cryostat.net.OpenShiftAuthManager",
+			},
+			{
+				Name:  "CRYOSTAT_OAUTH_CLIENT_ID",
+				Value: cr.Name,
+			},
+			{
+				Name:  "CRYOSTAT_OAUTH_ROLE",
+				Value: "cryostat-operator-oauth-client",
 			},
 		}
 		envs = append(envs, openshiftEnvs...)
@@ -827,13 +837,37 @@ func NewKeystoreSecretForCR(cr *operatorv1beta1.Cryostat) *corev1.Secret {
 	}
 }
 
-func NewServiceAccountForCR(cr *operatorv1beta1.Cryostat) *corev1.ServiceAccount {
+func NewServiceAccountForCR(cr *operatorv1beta1.Cryostat, isOpenShift bool) (*corev1.ServiceAccount, error) {
+	annotations := make(map[string]string)
+
+	if isOpenShift {
+		OAuthRedirectReference := &oauthv1.OAuthRedirectReference{
+			Reference: oauthv1.RedirectReference{
+				Kind: "Route",
+				Name: cr.Name,
+			},
+		}
+
+		ref, err := json.Marshal(OAuthRedirectReference)
+		if err != nil {
+			return nil, err
+		}
+
+		annotations = map[string]string{
+			"serviceaccounts.openshift.io/oauth-redirectreference.route": string(ref),
+		}
+	}
+
 	return &corev1.ServiceAccount{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      cr.Name,
 			Namespace: cr.Namespace,
+			Labels: map[string]string{
+				"app": "cryostat",
+			},
+			Annotations: annotations,
 		},
-	}
+	}, nil
 }
 
 func NewRoleForCR(cr *operatorv1beta1.Cryostat) *rbacv1.Role {
