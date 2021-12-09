@@ -854,7 +854,6 @@ func NewServiceAccountForCR(cr *operatorv1beta1.Cryostat, isOpenShift bool) (*co
 		}
 
 		annotations = map[string]string{
-			"serviceaccounts.openshift.io/oauth-redirecturi.route":       "https://",
 			"serviceaccounts.openshift.io/oauth-redirectreference.route": string(ref),
 		}
 	}
