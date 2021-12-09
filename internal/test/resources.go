@@ -1404,7 +1404,6 @@ func NewServiceAccount() *corev1.ServiceAccount {
 				"app": "cryostat",
 			},
 			Annotations: map[string]string{
-				"serviceaccounts.openshift.io/oauth-redirecturi.route":       "https://",
 				"serviceaccounts.openshift.io/oauth-redirectreference.route": string(ref),
 			},
 		},
