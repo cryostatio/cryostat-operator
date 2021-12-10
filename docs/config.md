@@ -33,7 +33,7 @@ kind: Cryostat
 metadata:
   name: cryostat-sample
 spec:
-  eventTemplates: 
+  eventTemplates:
   - configMapName: custom-template
     filename: my-template.jfc
 ```
@@ -47,7 +47,7 @@ kind: Cryostat
 metadata:
   name: cryostat-sample
 spec:
-  trustedCertSecrets: 
+  trustedCertSecrets:
   - secretName: my-tls-secret
     certificateKey: ca.crt
 ```
@@ -63,11 +63,11 @@ metadata:
 spec:
   storageOptions:
     pvc:
-      labels: 
+      labels:
         my-custom-label: some-value
-      annotations: 
+      annotations:
         my-custom-annotation: some-value
-      spec: 
+      spec:
         storageClassName: faster
         resources:
           requests:
@@ -98,19 +98,13 @@ spec:
         my-custom-annotation: some-value
       serviceType: NodePort
       httpPort: 8080
-
 ```
 
 ### Network Options
 When running on Kubernetes, the operator requires Ingress configurations for each of its services to make them available outside of the cluster. For a `Cryostat` object named `x`, the following Ingress configurations must be specified within the `spec.networkOptions` property:
-<<<<<<< HEAD
-- `coreConfig` exposing the service `x` on port `8181`.
-- `grafanaConfig` exposing the service `x-grafana` on port `3000`.
-=======
 - `coreConfig` exposing the service `x` on port `8181` (or alternate specified in [Service Options](#service-options)).
 - `commandConfig` exposing the service `x-command` on port `9090`.
 - `grafanaConfig` exposing the service `x-grafana` on port `3000` (or alternate specified in [Service Options](#service-options)).
->>>>>>> 30d2044bf4f2fbe944a0d7a48d85d89d56786466
 
 The user is responsible for providing the hostnames for each Ingress. In Minikube, this can be done by adding entries to the host machine's `/etc/hosts` for each hostname, pointing to Minikube's IP address. See: https://kubernetes.io/docs/tasks/access-application-cluster/ingress-minikube/
 
@@ -124,7 +118,7 @@ spec:
   networkOptions:
     coreConfig:
       annotations:
-        nginx.ingress.kubernetes.io/backend-protocol : HTTPS
+        nginx.ingress.kubernetes.io/backend-protocol: HTTPS
         nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
         nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
       ingressSpec:
@@ -141,31 +135,9 @@ spec:
                   name: cryostat-sample
                   port:
                     number: 8181
-<<<<<<< HEAD
-=======
-    commandConfig:
-      annotations:
-        nginx.ingress.kubernetes.io/backend-protocol : HTTPS
-        nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
-        nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
-      ingressSpec:
-        tls:
-        - {}
-        rules:
-        - host: testing.cryostat-command
-          http:
-            paths:
-            - path: /
-              pathType: Prefix
-              backend:
-                service:
-                  name: cryostat-sample-command
-                  port:
-                    number: 9090
->>>>>>> 30d2044bf4f2fbe944a0d7a48d85d89d56786466
     grafanaConfig:
       annotations:
-        nginx.ingress.kubernetes.io/backend-protocol : HTTPS
+        nginx.ingress.kubernetes.io/backend-protocol: HTTPS
         nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
         nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
       ingressSpec:
