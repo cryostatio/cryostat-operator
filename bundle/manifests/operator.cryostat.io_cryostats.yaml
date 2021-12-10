@@ -56,7 +56,7 @@ spec:
                 description: Options to control how the operator exposes the application over a network
                 properties:
                   commandConfig:
-                    description: Specifications for ingress that exposes the cryostat-command service (which serves the websocket command channel)
+                    description: "Specifications for ingress that exposes the cryostat-command service (which serves the websocket command channel) \n Deprecated: CommandConfig is no longer used."
                     properties:
                       annotations:
                         additionalProperties:

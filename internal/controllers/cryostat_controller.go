@@ -310,7 +310,6 @@ func (r *CryostatReconciler) Reconcile(ctx context.Context, request ctrl.Request
 	}
 	serviceSpecs.CoreURL = url
 
-
 	imageTags := r.getImageTags()
 	fsGroup, err := r.getFSGroup(ctx, instance.Namespace)
 	if err != nil {

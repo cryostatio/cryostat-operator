@@ -740,14 +740,6 @@ func NewCoreEnvironmentVariables(minimal bool, tls bool, externalTLS bool, opens
 			Value: "cryostat.example.com",
 		},
 		{
-			Name:  "CRYOSTAT_LISTEN_PORT",
-			Value: "9090",
-		},
-		{
-			Name:  "CRYOSTAT_LISTEN_HOST",
-			Value: "cryostat-command.example.com",
-		},
-		{
 			Name:  "CRYOSTAT_CONFIG_PATH",
 			Value: "/opt/cryostat.d/conf.d",
 		},
@@ -770,19 +762,11 @@ func NewCoreEnvironmentVariables(minimal bool, tls bool, externalTLS bool, opens
 			corev1.EnvVar{
 				Name:  "CRYOSTAT_EXT_WEB_PORT",
 				Value: "443",
-			},
-			corev1.EnvVar{
-				Name:  "CRYOSTAT_EXT_LISTEN_PORT",
-				Value: "443",
 			})
 	} else {
 		envs = append(envs,
 			corev1.EnvVar{
 				Name:  "CRYOSTAT_EXT_WEB_PORT",
-				Value: "80",
-			},
-			corev1.EnvVar{
-				Name:  "CRYOSTAT_EXT_LISTEN_PORT",
 				Value: "80",
 			})
 	}

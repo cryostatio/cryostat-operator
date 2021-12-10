@@ -316,10 +316,6 @@ func NewCoreContainer(cr *operatorv1beta1.Cryostat, specs *ServiceSpecs, imageTa
 			Value: "8181",
 		},
 		{
-			Name:  "CRYOSTAT_LISTEN_PORT",
-			Value: "9090",
-		},
-		{
 			Name:  "CRYOSTAT_CONFIG_PATH",
 			Value: configPath,
 		},
@@ -349,7 +345,7 @@ func NewCoreContainer(cr *operatorv1beta1.Cryostat, specs *ServiceSpecs, imageTa
 		}
 		envs = append(envs, coreEnvs...)
 	}
-	
+
 	if openshift {
 		// Force OpenShift platform strategy
 		openshiftEnvs := []corev1.EnvVar{
