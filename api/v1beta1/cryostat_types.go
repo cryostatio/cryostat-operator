@@ -65,8 +65,14 @@ type CryostatSpec struct {
 	// +optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	StorageOptions *StorageConfiguration `json:"storageOptions,omitempty"`
-	// Options to control how the operator exposes the application over a network
+	// Options to customize the services created for the Cryostat application and Grafana dashboard.
 	// +optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec
+	ServiceOptions *ServiceConfigList `json:"serviceOptions,omitempty"`
+	// Options to control how the operator exposes the application outside of the cluster
+	// using an Ingress or Route.
+	// +optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	NetworkOptions *NetworkConfigurationList `json:"networkOptions,omitempty"`
 }
 
@@ -84,6 +90,57 @@ type StorageConfiguration struct {
 	// +optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	PVC *PersistentVolumeClaimConfig `json:"pvc,omitempty"`
+}
+
+// ServiceConfig provides customization for a service created
+// by the operator.
+type ServiceConfig struct {
+	// Type of service to create. Defaults to "ClusterIP".
+	// +optional
+	ServiceType *corev1.ServiceType `json:"serviceType,omitempty"`
+	// Annotations to add to the service during its creation.
+	// +optional
+	Annotations map[string]string `json:"annotations,omitempty"`
+	// Labels to add to the service during its creation.
+	// The labels with keys "app" and "component" are reserved
+	// for use by the operator.
+	// +optional
+	Labels map[string]string `json:"labels,omitempty"`
+}
+
+// CoreServiceConfig provides customization for the service handling
+// traffic for the Cryostat application
+type CoreServiceConfig struct {
+	// HTTP port number for the Cryostat application service.
+	// Defaults to 8181.
+	// +optional
+	HTTPPort *int32 `json:"httpPort,omitempty"`
+	// Remote JMX port number for the Cryostat application service.
+	// Defaults to 9091.
+	// +optional
+	JMXPort       *int32 `json:"jmxPort,omitempty"`
+	ServiceConfig `json:",inline"`
+}
+
+// GrafanaServiceConfig provides customization for the service handling
+// traffic for the Grafana dashboard
+type GrafanaServiceConfig struct {
+	// HTTP port number for the Grafana dashboard service.
+	// Defaults to 3000.
+	// +optional
+	HTTPPort      *int32 `json:"httpPort,omitempty"`
+	ServiceConfig `json:",inline"`
+}
+
+// ServiceConfigList holds the service configuration for each
+// service created by the operator.
+type ServiceConfigList struct {
+	// Specification for the service responsible for the Cryostat application.
+	// +optional
+	CoreConfig *CoreServiceConfig `json:"coreConfig,omitempty"`
+	// Specification for the service responsible for the Cryostat Grafana dashboard.
+	// +optional
+	GrafanaConfig *GrafanaServiceConfig `json:"grafanaConfig,omitempty"`
 }
 
 // NetworkConfiguration provides customization for the corresponding ingress,

@@ -74,10 +74,43 @@ spec:
             storage: 1Gi
 ```
 
+### Service Options
+The Cryostat operator creates two services, one for the core Cryostat application and one for Grafana. These services are created by default as Cluster IP services. The core service exposes two ports: `8181` for HTTP and `9091` for JMX. The Grafana service exposes port `3000` for HTTP traffic. The service type, port numbers, labels and annotations can all be customized using the `spec.serviceOptions` property.
+```yaml
+apiVersion: operator.cryostat.io/v1beta1
+kind: Cryostat
+metadata:
+  name: cryostat-sample
+spec:
+  serviceOptions:
+    coreConfig:
+      labels:
+        my-custom-label: some-value
+      annotations:
+        my-custom-annotation: some-value
+      serviceType: NodePort
+      httpPort: 8080
+      jmxPort: 9095
+    grafanaConfig:
+      labels:
+        my-custom-label: some-value
+      annotations:
+        my-custom-annotation: some-value
+      serviceType: NodePort
+      httpPort: 8080
+
+```
+
 ### Network Options
 When running on Kubernetes, the operator requires Ingress configurations for each of its services to make them available outside of the cluster. For a `Cryostat` object named `x`, the following Ingress configurations must be specified within the `spec.networkOptions` property:
+<<<<<<< HEAD
 - `coreConfig` exposing the service `x` on port `8181`.
 - `grafanaConfig` exposing the service `x-grafana` on port `3000`.
+=======
+- `coreConfig` exposing the service `x` on port `8181` (or alternate specified in [Service Options](#service-options)).
+- `commandConfig` exposing the service `x-command` on port `9090`.
+- `grafanaConfig` exposing the service `x-grafana` on port `3000` (or alternate specified in [Service Options](#service-options)).
+>>>>>>> 30d2044bf4f2fbe944a0d7a48d85d89d56786466
 
 The user is responsible for providing the hostnames for each Ingress. In Minikube, this can be done by adding entries to the host machine's `/etc/hosts` for each hostname, pointing to Minikube's IP address. See: https://kubernetes.io/docs/tasks/access-application-cluster/ingress-minikube/
 
@@ -92,6 +125,8 @@ spec:
     coreConfig:
       annotations:
         nginx.ingress.kubernetes.io/backend-protocol : HTTPS
+        nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
+        nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
       ingressSpec:
         tls:
         - {}
@@ -106,9 +141,33 @@ spec:
                   name: cryostat-sample
                   port:
                     number: 8181
+<<<<<<< HEAD
+=======
+    commandConfig:
+      annotations:
+        nginx.ingress.kubernetes.io/backend-protocol : HTTPS
+        nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
+        nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
+      ingressSpec:
+        tls:
+        - {}
+        rules:
+        - host: testing.cryostat-command
+          http:
+            paths:
+            - path: /
+              pathType: Prefix
+              backend:
+                service:
+                  name: cryostat-sample-command
+                  port:
+                    number: 9090
+>>>>>>> 30d2044bf4f2fbe944a0d7a48d85d89d56786466
     grafanaConfig:
       annotations:
         nginx.ingress.kubernetes.io/backend-protocol : HTTPS
+        nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
+        nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
       ingressSpec:
         tls:
         - {}

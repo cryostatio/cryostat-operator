@@ -156,8 +156,8 @@ var _ = Describe("CryostatController", func() {
 				t.reconcileCryostatFully()
 				t.checkGrafanaService()
 			})
-			It("should create exporter service and set owner", func() {
-				t.expectExporterService()
+			It("should create core service and set owner", func() {
+				t.expectCoreService()
 			})
 			It("should set ApplicationURL in CR Status", func() {
 				t.expectStatusApplicationURL()
@@ -186,8 +186,8 @@ var _ = Describe("CryostatController", func() {
 			It("should create JMX secret and set owner", func() {
 				t.expectJMXSecret()
 			})
-			It("should create exporter service and set owner", func() {
-				t.expectExporterService()
+			It("should create core service and set owner", func() {
+				t.expectCoreService()
 			})
 			It("should set ApplicationURL in CR Status", func() {
 				t.expectStatusApplicationURL()
@@ -755,7 +755,27 @@ var _ = Describe("CryostatController", func() {
 				})
 			})
 		})
-
+		Context("with service options", func() {
+			JustBeforeEach(func() {
+				t.reconcileCryostatFully()
+			})
+			Context("containing core config", func() {
+				BeforeEach(func() {
+					t.objs = append(t.objs, test.NewCryostatWithCoreSvc())
+				})
+				It("should created the service as described", func() {
+					t.checkService("cryostat", test.NewCustomizedCoreService())
+				})
+			})
+			Context("containing grafana config", func() {
+				BeforeEach(func() {
+					t.objs = append(t.objs, test.NewCryostatWithGrafanaSvc())
+				})
+				It("should created the service as described", func() {
+					t.checkService("cryostat-grafana", test.NewCustomizedGrafanaService())
+				})
+			})
+		})
 	})
 	Describe("reconciling a request in Kubernetes", func() {
 		JustBeforeEach(func() {
@@ -1017,6 +1037,8 @@ func (t *cryostatTestInput) expectRBAC() {
 	err := t.Client.Get(context.Background(), types.NamespacedName{Name: "cryostat", Namespace: "default"}, sa)
 	Expect(err).ToNot(HaveOccurred())
 	expectedSA := test.NewServiceAccount()
+	Expect(sa.Labels).To(Equal(expectedSA.Labels))
+	Expect(sa.Annotations).To(Equal(expectedSA.Annotations))
 	Expect(sa.Secrets).To(Equal(expectedSA.Secrets))
 	Expect(sa.ImagePullSecrets).To(Equal(expectedSA.ImagePullSecrets))
 	Expect(sa.AutomountServiceAccountToken).To(Equal(expectedSA.AutomountServiceAccountToken))
@@ -1148,21 +1170,14 @@ func (t *cryostatTestInput) expectJMXSecret() {
 	Expect(secret.StringData["CRYOSTAT_RJMX_USER"]).To(Equal(expectedSecret.StringData["CRYOSTAT_RJMX_USER"]))
 }
 
-func (t *cryostatTestInput) expectExporterService() {
+func (t *cryostatTestInput) expectCoreService() {
 	service := &corev1.Service{}
 	err := t.Client.Get(context.Background(), types.NamespacedName{Name: "cryostat", Namespace: "default"}, service)
 	Expect(kerrors.IsNotFound(err)).To(BeTrue())
 
 	t.reconcileCryostatFully()
 
-	err = t.Client.Get(context.Background(), types.NamespacedName{Name: "cryostat", Namespace: "default"}, service)
-	Expect(err).ToNot(HaveOccurred())
-
-	expectedService := resource_definitions.NewExporterService(test.NewCryostat())
-	checkMetadata(service, expectedService)
-	Expect(service.Spec.Type).To(Equal(expectedService.Spec.Type))
-	Expect(service.Spec.Selector).To(Equal(expectedService.Spec.Selector))
-	Expect(service.Spec.Ports).To(Equal(expectedService.Spec.Ports))
+	t.checkService("cryostat", test.NewCryostatService())
 }
 
 func (t *cryostatTestInput) expectStatusApplicationURL() {
@@ -1221,15 +1236,18 @@ func (t *cryostatTestInput) expectCryostatFinalizerAbsent() {
 }
 
 func (t *cryostatTestInput) checkGrafanaService() {
+	t.checkService("cryostat-grafana", test.NewGrafanaService())
+}
+
+func (t *cryostatTestInput) checkService(svcName string, expected *corev1.Service) {
 	service := &corev1.Service{}
-	err := t.Client.Get(context.Background(), types.NamespacedName{Name: "cryostat-grafana", Namespace: "default"}, service)
+	err := t.Client.Get(context.Background(), types.NamespacedName{Name: svcName, Namespace: "default"}, service)
 	Expect(err).ToNot(HaveOccurred())
 
-	expectedService := resource_definitions.NewGrafanaService(test.NewCryostat())
-	checkMetadata(service, expectedService)
-	Expect(service.Spec.Type).To(Equal(expectedService.Spec.Type))
-	Expect(service.Spec.Selector).To(Equal(expectedService.Spec.Selector))
-	Expect(service.Spec.Ports).To(Equal(expectedService.Spec.Ports))
+	checkMetadata(service, expected)
+	Expect(service.Spec.Type).To(Equal(expected.Spec.Type))
+	Expect(service.Spec.Selector).To(Equal(expected.Spec.Selector))
+	Expect(service.Spec.Ports).To(Equal(expected.Spec.Ports))
 }
 
 func (t *cryostatTestInput) checkDeployment() {
