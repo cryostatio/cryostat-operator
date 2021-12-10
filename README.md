@@ -7,6 +7,18 @@ A Kubernetes Operator to automate deployment of
 [Cryostat](https://github.com/cryostatio/cryostat) and provide an
 API to manage [JDK Flight Recordings](https://openjdk.java.net/jeps/328).
 
+## SEE ALSO
+
+* [cryostat-core](https://github.com/cryostatio/cryostat-core) for
+the core library providing a convenience wrapper and headless stubs for use of
+JFR using JDK Mission Control internals.
+
+* [cryostat-operator](https://github.com/cryostatio/cryostat-operator)
+for an OpenShift Operator facilitating easy setup of Cryostat in your OpenShift
+cluster as well as exposing the Cryostat API as Kubernetes Custom Resources.
+
+* [cryostat](https://github.com/cryostatio/cryostat-web) for the JFR management service
+
 # Using
 Once deployed, the `cryostat` instance can be accessed via web browser
 at the URL provided by:
