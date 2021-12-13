@@ -13,15 +13,18 @@ API to manage [JDK Flight Recordings](https://openjdk.java.net/jeps/328).
 the core library providing a convenience wrapper and headless stubs for use of
 JFR using JDK Mission Control internals.
 
-* [cryostat](https://github.com/cryostatio/cryostat)
-for an OpenShift Operator facilitating easy setup of Cryostat in your OpenShift
-cluster as well as exposing the Cryostat API as Kubernetes Custom Resources.
+* [cryostat](https://github.com/cryostatio/cryostat) for the main API
+backend to detect JVMs and manage JFR
 
-* [cryostat-web](https://github.com/cryostatio/cryostat-web) for the JFR management service
+* [cryostat-web](https://github.com/cryostatio/cryostat-web) for the React
+graphical frontend included as a submodule in Cryostat and built into
+Cryostat's (non-minimal mode) OCI images.
 
-* [jfr-datasource](https://github.com/cryostatio/jfr-datasource) for the JFR datasource for Grafana
+* [jfr-datasource](https://github.com/cryostatio/jfr-datasource) for
+the JFR datasource for Grafana
 
-* [cryostat-grafana-dashboard](https://github.com/cryostatio/cryostat-grafana-dashboard) for the Grafana dashboard
+* [cryostat-grafana-dashboard](https://github.com/cryostatio/cryostat-grafana-dashboard)
+for the Grafana dashboard
 
 # Using
 Once deployed, the `cryostat` instance can be accessed via web browser
