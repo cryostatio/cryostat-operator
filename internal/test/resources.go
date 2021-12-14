@@ -889,6 +889,10 @@ func NewCoreEnvironmentVariables(minimal bool, tls bool, externalTLS bool, opens
 			Name:  "CRYOSTAT_CLIENTLIB_PATH",
 			Value: "/opt/cryostat.d/clientlib.d",
 		},
+		{
+			Name:  "CRYOSTAT_PROBE_TEMPLATE_PATH",
+			Value: "/opt/cryostat.d/probes.d",
+		},
 	}
 
 	if externalTLS {
@@ -1064,6 +1068,12 @@ func NewCoreVolumeMounts(tls bool) []corev1.VolumeMount {
 			ReadOnly:  false,
 			MountPath: "/opt/cryostat.d/clientlib.d",
 			SubPath:   "clientlib",
+		},
+		{
+			Name:      "cryostat",
+			ReadOnly:  false,
+			MountPath: "/opt/cryostat.d/probes.d",
+			SubPath:   "probes",
 		},
 		{
 			Name:      "cryostat",
