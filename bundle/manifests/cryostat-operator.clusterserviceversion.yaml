@@ -310,6 +310,13 @@ spec:
           - list
           - update
         - apiGroups:
+          - oauth.openshift.io
+          resources:
+          - oauthaccesstokens
+          verbs:
+          - delete
+          - list
+        - apiGroups:
           - rbac.authorization.k8s.io
           resources:
           - clusterrolebindings
