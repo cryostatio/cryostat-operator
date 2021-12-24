@@ -37,17 +37,21 @@
 package resource_definitions
 
 import (
+	"context"
 	"crypto/sha256"
 	"encoding/json"
 	"fmt"
 	"math/rand"
 	"net/url"
+	"os"
 	"regexp"
 	"time"
 
 	operatorv1beta1 "github.com/cryostatio/cryostat-operator/api/v1beta1"
+	configv1 "github.com/openshift/api/config/v1"
 	consolev1 "github.com/openshift/api/console/v1"
 	oauthv1 "github.com/openshift/api/oauth/v1"
+	configv1client "github.com/openshift/client-go/config/clientset/versioned/typed/config/v1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
@@ -55,6 +59,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
+	"k8s.io/client-go/tools/clientcmd"
 )
 
 // Generates image tag constants
@@ -974,6 +979,27 @@ func NewConsoleLink(cr *operatorv1beta1.Cryostat, url string) *consolev1.Console
 			},
 		},
 	}
+}
+
+func SetAdditionalCorsAllowedOrigins(specs *ServiceSpecs) (*configv1.APIServer, error) {
+	kubeconfig := os.Getenv(("KUBECONFIG"))
+	config, err := clientcmd.BuildConfigFromFlags("", kubeconfig)
+	if err != nil {
+		return nil, err
+	}
+
+	configClient := configv1client.NewForConfigOrDie(config)
+
+	apiServer, err := configClient.APIServers().Get(context.Background(), "cluster", metav1.GetOptions{})
+	if err != nil {
+		return nil, err
+	}
+	apiServer.Spec.AdditionalCORSAllowedOrigins = append(
+		apiServer.Spec.AdditionalCORSAllowedOrigins,
+		specs.CoreURL.Hostname(),
+	)
+
+	return configClient.APIServers().Update(context.Background(), apiServer, metav1.UpdateOptions{})
 }
 
 func getPort(url *url.URL) string {

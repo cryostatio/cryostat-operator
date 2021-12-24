@@ -323,6 +323,7 @@ func (r *CryostatReconciler) Reconcile(ctx context.Context, request ctrl.Request
 	if err != nil {
 		return reconcile.Result{}, err
 	}
+
 	deployment := resources.NewDeploymentForCR(instance, serviceSpecs, imageTags, tlsConfig, *fsGroup, r.IsOpenShift)
 	podTemplate := deployment.Spec.Template.DeepCopy()
 	if err := controllerutil.SetControllerReference(instance, deployment, r.Scheme); err != nil {
@@ -336,6 +337,7 @@ func (r *CryostatReconciler) Reconcile(ctx context.Context, request ctrl.Request
 	if err != nil {
 		return reconcile.Result{}, err
 	}
+
 	reqLogger.Info(fmt.Sprintf("Deployment %s", op))
 
 	if serviceSpecs.CoreURL != nil {
@@ -349,6 +351,11 @@ func (r *CryostatReconciler) Reconcile(ctx context.Context, request ctrl.Request
 	// OpenShift-specific
 	if r.IsOpenShift {
 		err := r.createConsoleLink(ctx, instance, serviceSpecs.CoreURL.String())
+		if err != nil {
+			return reconcile.Result{}, err
+		}
+
+		_, err = resources.SetAdditionalCorsAllowedOrigins(serviceSpecs)
 		if err != nil {
 			return reconcile.Result{}, err
 		}
