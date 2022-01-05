@@ -57,6 +57,8 @@ import (
 
 	"github.com/cryostatio/cryostat-operator/internal/controllers/common"
 	resources "github.com/cryostatio/cryostat-operator/internal/controllers/common/resource_definitions"
+
+	configv1 "github.com/openshift/api/config/v1"
 	consolev1 "github.com/openshift/api/console/v1"
 	openshiftv1 "github.com/openshift/api/route/v1"
 	securityv1 "github.com/openshift/api/security/v1"
@@ -355,7 +357,7 @@ func (r *CryostatReconciler) Reconcile(ctx context.Context, request ctrl.Request
 			return reconcile.Result{}, err
 		}
 
-		_, err = resources.SetAdditionalCorsAllowedOrigins(serviceSpecs)
+		err = r.updateCorsAllowedOrigins(serviceSpecs.CoreURL.Hostname(), instance)
 		if err != nil {
 			return reconcile.Result{}, err
 		}
@@ -663,6 +665,28 @@ func (r *CryostatReconciler) deleteConsoleLink(ctx context.Context, cr *operator
 		return err
 	}
 	reqLogger.Info("deleted ConsoleLink", "linkName", link.Name)
+	return nil
+}
+
+func (r *CryostatReconciler) updateCorsAllowedOrigins(allowedOrigin string, cr *operatorv1beta1.Cryostat) error {
+	reqLogger := r.Log.WithValues("Request.Namespace", cr.Namespace, "Request.Name", cr.Name)
+	apiServer := &configv1.APIServer{}
+	err := r.Client.Get(context.Background(), types.NamespacedName{Name: "cluster"}, apiServer)
+	if err != nil {
+		reqLogger.Error(err, "Failed to get APIServer config")
+		return err
+	}
+	apiServer.Spec.AdditionalCORSAllowedOrigins = append(
+		apiServer.Spec.AdditionalCORSAllowedOrigins,
+		allowedOrigin,
+	)
+
+	err = r.Client.Update(context.Background(), apiServer)
+	if err != nil {
+		reqLogger.Error(err, "Failed to update APIServer CORS allowed origins")
+		return err
+	}
+
 	return nil
 }
 
