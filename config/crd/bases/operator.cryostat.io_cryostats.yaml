@@ -999,6 +999,13 @@ spec:
                         type: object
                     type: object
                 type: object
+              reportOptions:
+                description: Options to configure Cryostat Automated Report Analysis
+                properties:
+                  replicas:
+                    format: int32
+                    type: integer
+                type: object
               serviceOptions:
                 description: Options to customize the services created for the Cryostat
                   application and Grafana dashboard.

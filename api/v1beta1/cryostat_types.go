@@ -74,6 +74,8 @@ type CryostatSpec struct {
 	// +optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	NetworkOptions *NetworkConfigurationList `json:"networkOptions,omitempty"`
+	// Options to configure Cryostat Automated Report Analysis
+	ReportOptions *ReportConfiguration `json:"reportOptions,omitempty"`
 }
 
 // CryostatStatus defines the observed state of Cryostat
@@ -90,6 +92,17 @@ type StorageConfiguration struct {
 	// +optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	PVC *PersistentVolumeClaimConfig `json:"pvc,omitempty"`
+}
+
+// ReportConfiguration is used to determine how many replicas of cryostat-reports
+// the operator should create and what the resource limits of those containers
+// should be. If no replicas are created then Cryostat is configured to use basic
+// subprocess report generation. If at least one replica is created then Cryostat
+// is configured to use remote report generation, pointed at a load balancer service
+// in front of the cryostat-reports replicas.
+type ReportConfiguration struct {
+	Replicas int32 `json:"replicas,omitempty"`
+	// FIXME add config parameters for CPU and Memory limits
 }
 
 // ServiceConfig provides customization for a service created

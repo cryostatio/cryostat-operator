@@ -43,6 +43,7 @@ import (
 	"math/rand"
 	"net/url"
 	"regexp"
+	"strconv"
 	"time"
 
 	operatorv1beta1 "github.com/cryostatio/cryostat-operator/api/v1beta1"
@@ -65,12 +66,14 @@ type ImageTags struct {
 	CoreImageTag       string
 	DatasourceImageTag string
 	GrafanaImageTag    string
+	ReportsImageTag    string
 }
 
 type ServiceSpecs struct {
 	CoreURL    *url.URL
 	CommandURL *url.URL
 	GrafanaURL *url.URL
+	ReportsURL *url.URL
 }
 
 // TLSConfig contains TLS-related information useful when creating other objects
@@ -157,6 +160,47 @@ func NewDeploymentForCR(cr *operatorv1beta1.Cryostat, specs *ServiceSpecs, image
 				},
 				Spec: *NewPodForCR(cr, specs, imageTags, tls, fsGroup, openshift),
 			},
+		},
+	}
+}
+
+func NewDeploymentForReports(cr *operatorv1beta1.Cryostat, imageTags *ImageTags) *appsv1.Deployment {
+	if cr.Spec.ReportOptions == nil {
+		cr.Spec.ReportOptions = &operatorv1beta1.ReportConfiguration{Replicas: 0}
+	}
+	replicas := cr.Spec.ReportOptions.Replicas
+	return &appsv1.Deployment{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      cr.Name + "-reports",
+			Namespace: cr.Namespace,
+			Labels: map[string]string{
+				"app":                    cr.Name,
+				"kind":                   "cryostat",
+				"app.kubernetes.io/name": "cryostat-reports",
+			},
+			Annotations: map[string]string{
+				"app.openshift.io/connects-to": cr.Name,
+			},
+		},
+		Spec: appsv1.DeploymentSpec{
+			Selector: &metav1.LabelSelector{
+				MatchLabels: map[string]string{
+					"app":  cr.Name,
+					"kind": "cryostat",
+				},
+			},
+			Template: corev1.PodTemplateSpec{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      cr.Name + "-reports",
+					Namespace: cr.Namespace,
+					Labels: map[string]string{
+						"app":  cr.Name,
+						"kind": "cryostat",
+					},
+				},
+				Spec: *NewPodForReports(cr, imageTags),
+			},
+			Replicas: &replicas,
 		},
 	}
 }
@@ -303,6 +347,44 @@ func NewPodForCR(cr *operatorv1beta1.Cryostat, specs *ServiceSpecs, imageTags *I
 	}
 }
 
+const reportsPort = 10000
+
+func NewPodForReports(cr *operatorv1beta1.Cryostat, imageTags *ImageTags) *corev1.PodSpec {
+	return &corev1.PodSpec{
+		ServiceAccountName: cr.Name,
+		Containers: []corev1.Container{
+			{
+				Name:            cr.Name + "-reports",
+				Image:           imageTags.ReportsImageTag,
+				ImagePullPolicy: getPullPolicy(imageTags.ReportsImageTag),
+				Ports: []corev1.ContainerPort{
+					{
+						ContainerPort: int32(reportsPort),
+					},
+				},
+				Env: []corev1.EnvVar{
+					{
+						Name:  "QUARKUS_HTTP_HOST",
+						Value: "0.0.0.0",
+					},
+					{
+						Name:  "QUARKUS_HTTP_PORT",
+						Value: strconv.Itoa(reportsPort),
+					},
+				},
+				// Can't use HTTP probe since the port is not exposed over the network
+				LivenessProbe: &corev1.Probe{
+					Handler: corev1.Handler{
+						Exec: &corev1.ExecAction{
+							Command: []string{"curl", "--fail", "http://127.0.0.1:" + strconv.Itoa(reportsPort) + "/health"},
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
 func NewCoreContainer(cr *operatorv1beta1.Cryostat, specs *ServiceSpecs, imageTag string,
 	tls *TLSConfig, openshift bool) corev1.Container {
 	configPath := "/opt/cryostat.d/conf.d"
@@ -369,6 +451,15 @@ func NewCoreContainer(cr *operatorv1beta1.Cryostat, specs *ServiceSpecs, imageTa
 			},
 		}
 		envs = append(envs, commandEnvs...)
+	}
+	if specs.ReportsURL != nil {
+		reportsEnvs := []corev1.EnvVar{
+			{
+				Name:  "CRYOSTAT_REPORT_GENERATOR",
+				Value: specs.ReportsURL.String(),
+			},
+		}
+		envs = append(envs, reportsEnvs...)
 	}
 	if openshift {
 		// Force OpenShift platform strategy
@@ -768,6 +859,35 @@ func NewGrafanaService(cr *operatorv1beta1.Cryostat) *corev1.Service {
 					Name:       "http",
 					Port:       *config.HTTPPort,
 					TargetPort: intstr.IntOrString{IntVal: 3000},
+				},
+			},
+		},
+	}
+}
+
+func NewReportService(cr *operatorv1beta1.Cryostat) *corev1.Service {
+	serviceType := corev1.ServiceTypeLoadBalancer
+	config := &operatorv1beta1.ServiceConfig{
+		ServiceType: &serviceType,
+	}
+	configureService(config, cr.Name, "reports")
+	return &corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:        cr.Name + "-reports",
+			Namespace:   cr.Namespace,
+			Labels:      config.Labels,
+			Annotations: config.Annotations,
+		},
+		Spec: corev1.ServiceSpec{
+			Type: *config.ServiceType,
+			Selector: map[string]string{
+				"app": cr.Name,
+			},
+			Ports: []corev1.ServicePort{
+				{
+					Name:       "http",
+					Port:       reportsPort,
+					TargetPort: intstr.IntOrString{IntVal: reportsPort},
 				},
 			},
 		},
