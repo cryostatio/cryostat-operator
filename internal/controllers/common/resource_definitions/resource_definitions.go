@@ -350,6 +350,10 @@ func NewPodForCR(cr *operatorv1beta1.Cryostat, specs *ServiceSpecs, imageTags *I
 const reportsPort = 10000
 
 func NewPodForReports(cr *operatorv1beta1.Cryostat, imageTags *ImageTags) *corev1.PodSpec {
+	resources := corev1.ResourceRequirements{}
+	if cr.Spec.ReportOptions != nil {
+		resources = cr.Spec.ReportOptions.ResourceRequirements
+	}
 	return &corev1.PodSpec{
 		ServiceAccountName: cr.Name,
 		Containers: []corev1.Container{
@@ -372,6 +376,7 @@ func NewPodForReports(cr *operatorv1beta1.Cryostat, imageTags *ImageTags) *corev
 						Value: strconv.Itoa(reportsPort),
 					},
 				},
+				Resources: resources,
 				// Can't use HTTP probe since the port is not exposed over the network
 				LivenessProbe: &corev1.Probe{
 					Handler: corev1.Handler{

@@ -101,8 +101,8 @@ type StorageConfiguration struct {
 // is configured to use remote report generation, pointed at a load balancer service
 // in front of the cryostat-reports replicas.
 type ReportConfiguration struct {
-	Replicas int32 `json:"replicas,omitempty"`
-	// FIXME add config parameters for CPU and Memory limits
+	Replicas                    int32 `json:"replicas,omitempty"`
+	corev1.ResourceRequirements `json:",inline"`
 }
 
 // ServiceConfig provides customization for a service created

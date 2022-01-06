@@ -14,3 +14,6 @@ spec:
       spec: {}
   reportOptions:
     replicas: 1
+    requests:
+      cpu: 1000m
+      memory: 512Mi
