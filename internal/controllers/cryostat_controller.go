@@ -158,6 +158,11 @@ func (r *CryostatReconciler) Reconcile(ctx context.Context, request ctrl.Request
 				if err != nil {
 					return reconcile.Result{}, err
 				}
+
+				err = r.deleteCorsAllowedOrigins(instance.Status.ApplicationURL, instance)
+				if err != nil {
+					return reconcile.Result{}, err
+				}
 			}
 
 			err = common.RemoveFinalizer(ctx, r.Client, instance, cryostatFinalizer)
@@ -696,6 +701,35 @@ func (r *CryostatReconciler) addCorsAllowedOriginIfNotPresent(allowedOrigin stri
 	err = r.Client.Update(context.Background(), apiServer)
 	if err != nil {
 		reqLogger.Error(err, "Failed to update APIServer CORS allowed origins")
+		return err
+	}
+
+	return nil
+}
+
+func (r *CryostatReconciler) deleteCorsAllowedOrigins(allowedOrigin string, cr *operatorv1beta1.Cryostat) error {
+	reqLogger := r.Log.WithValues("Request.Namespace", cr.Namespace, "Request.Name", cr.Name)
+	apiServer := &configv1.APIServer{}
+	err := r.Client.Get(context.Background(), types.NamespacedName{Name: "cluster"}, apiServer)
+	if err != nil {
+		reqLogger.Error(err, "Failed to get APIServer config")
+		return err
+	}
+
+	allowedOriginAsRegex := regexp.QuoteMeta(allowedOrigin)
+
+	for i, origin := range apiServer.Spec.AdditionalCORSAllowedOrigins {
+		if origin == allowedOriginAsRegex {
+			apiServer.Spec.AdditionalCORSAllowedOrigins = append(
+				apiServer.Spec.AdditionalCORSAllowedOrigins[:i],
+				apiServer.Spec.AdditionalCORSAllowedOrigins[i+1:]...)
+			break
+		}
+	}
+
+	err = r.Client.Update(context.Background(), apiServer)
+	if err != nil {
+		reqLogger.Error(err, "Failed to remove Cryostat origin from APIServer CORS allowed origins")
 		return err
 	}
 
