@@ -44,6 +44,7 @@ import (
 	certMeta "github.com/jetstack/cert-manager/pkg/apis/meta/v1"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	configv1 "github.com/openshift/api/config/v1"
 	consolev1 "github.com/openshift/api/console/v1"
 	openshiftv1 "github.com/openshift/api/route/v1"
 	appsv1 "k8s.io/api/apps/v1"
@@ -106,6 +107,7 @@ var _ = Describe("CryostatController", func() {
 		}
 		t.objs = []runtime.Object{
 			test.NewNamespace(),
+			test.NewApiServer(),
 		}
 	})
 
@@ -560,13 +562,20 @@ var _ = Describe("CryostatController", func() {
 				Expect(err).ToNot(HaveOccurred())
 				Expect(link.Spec).To(Equal(expectedLink.Spec))
 			})
+			It("should add application url to APIServer AdditionalCORSAllowedOrigins", func() {
+				apiServer := &configv1.APIServer{}
+				expectedApiServerCORSAllowedOrigins := []string{"https://cryostat\\.example\\.com"}
+				err := t.Client.Get(context.Background(), types.NamespacedName{Name: "cluster"}, apiServer)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(apiServer.Spec.AdditionalCORSAllowedOrigins).To(Equal(expectedApiServerCORSAllowedOrigins))
+			})
 			It("should add the finalizer", func() {
 				t.expectCryostatFinalizerPresent()
 			})
 			Context("with restricted SCC", func() {
 				BeforeEach(func() {
 					t.objs = []runtime.Object{
-						test.NewCryostat(), test.NewNamespaceWithSCCSupGroups(),
+						test.NewCryostat(), test.NewNamespaceWithSCCSupGroups(), test.NewApiServer(),
 					}
 				})
 				It("should set fsGroup to value derived from namespace", func() {
@@ -589,6 +598,12 @@ var _ = Describe("CryostatController", func() {
 						expectedLink := test.NewConsoleLink()
 						err := t.Client.Get(context.Background(), types.NamespacedName{Name: expectedLink.Name}, link)
 						Expect(kerrors.IsNotFound(err)).To(BeTrue())
+					})
+					It("should remove the application url from APIServer AdditionalCORSAllowedOrigins", func() {
+						apiServer := &configv1.APIServer{}
+						err := t.Client.Get(context.Background(), types.NamespacedName{Name: "cluster"}, apiServer)
+						Expect(kerrors.IsNotFound(err)).To(BeFalse())
+						Expect(len(apiServer.Spec.AdditionalCORSAllowedOrigins)).To(Equal(int(0)))
 					})
 					It("should remove the finalizer", func() {
 						t.expectCryostatFinalizerAbsent()
