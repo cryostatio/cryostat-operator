@@ -358,9 +358,11 @@ func (r *CryostatReconciler) Reconcile(ctx context.Context, request ctrl.Request
 			return reconcile.Result{}, err
 		}
 
-		err = r.updateCorsAllowedOrigins(serviceSpecs.CoreURL.Hostname(), instance)
-		if err != nil {
-			return reconcile.Result{}, err
+		if instance.Status.ApplicationURL != "" {
+			err = r.addCorsAllowedOriginIfNotPresent(instance.Status.ApplicationURL, instance)
+			if err != nil {
+				return reconcile.Result{}, err
+			}
 		}
 	}
 
@@ -669,7 +671,7 @@ func (r *CryostatReconciler) deleteConsoleLink(ctx context.Context, cr *operator
 	return nil
 }
 
-func (r *CryostatReconciler) updateCorsAllowedOrigins(allowedOrigin string, cr *operatorv1beta1.Cryostat) error {
+func (r *CryostatReconciler) addCorsAllowedOriginIfNotPresent(allowedOrigin string, cr *operatorv1beta1.Cryostat) error {
 	reqLogger := r.Log.WithValues("Request.Namespace", cr.Namespace, "Request.Name", cr.Name)
 	apiServer := &configv1.APIServer{}
 	err := r.Client.Get(context.Background(), types.NamespacedName{Name: "cluster"}, apiServer)
@@ -677,9 +679,18 @@ func (r *CryostatReconciler) updateCorsAllowedOrigins(allowedOrigin string, cr *
 		reqLogger.Error(err, "Failed to get APIServer config")
 		return err
 	}
+
+	allowedOriginAsRegex := regexp.QuoteMeta(allowedOrigin)
+
+	for _, origin := range apiServer.Spec.AdditionalCORSAllowedOrigins {
+		if origin == allowedOriginAsRegex {
+			return nil
+		}
+	}
+
 	apiServer.Spec.AdditionalCORSAllowedOrigins = append(
 		apiServer.Spec.AdditionalCORSAllowedOrigins,
-		allowedOrigin,
+		allowedOriginAsRegex,
 	)
 
 	err = r.Client.Update(context.Background(), apiServer)
