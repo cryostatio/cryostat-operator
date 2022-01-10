@@ -564,10 +564,9 @@ var _ = Describe("CryostatController", func() {
 			})
 			It("should add application url to APIServer AdditionalCORSAllowedOrigins", func() {
 				apiServer := &configv1.APIServer{}
-				expectedApiServerCORSAllowedOrigins := []string{"https://cryostat\\.example\\.com"}
 				err := t.Client.Get(context.Background(), types.NamespacedName{Name: "cluster"}, apiServer)
 				Expect(err).ToNot(HaveOccurred())
-				Expect(apiServer.Spec.AdditionalCORSAllowedOrigins).To(Equal(expectedApiServerCORSAllowedOrigins))
+				Expect(apiServer.Spec.AdditionalCORSAllowedOrigins).To(ContainElement("https://cryostat\\.example\\.com"))
 			})
 			It("should add the finalizer", func() {
 				t.expectCryostatFinalizerPresent()
@@ -602,8 +601,9 @@ var _ = Describe("CryostatController", func() {
 					It("should remove the application url from APIServer AdditionalCORSAllowedOrigins", func() {
 						apiServer := &configv1.APIServer{}
 						err := t.Client.Get(context.Background(), types.NamespacedName{Name: "cluster"}, apiServer)
-						Expect(kerrors.IsNotFound(err)).To(BeFalse())
-						Expect(len(apiServer.Spec.AdditionalCORSAllowedOrigins)).To(Equal(int(0)))
+						Expect(err).ToNot(HaveOccurred())
+						Expect(apiServer.Spec.AdditionalCORSAllowedOrigins).ToNot(ContainElement("https://cryostat\\.example\\.com"))
+						Expect(apiServer.Spec.AdditionalCORSAllowedOrigins).To(ContainElement("https://an-existing-user-specified\\.allowed\\.origin\\.com"))
 					})
 					It("should remove the finalizer", func() {
 						t.expectCryostatFinalizerAbsent()

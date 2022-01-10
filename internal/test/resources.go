@@ -1562,7 +1562,7 @@ func NewApiServer() *configv1.APIServer {
 			Name: "cluster",
 		},
 		Spec: configv1.APIServerSpec{
-			AdditionalCORSAllowedOrigins: []string{},
+			AdditionalCORSAllowedOrigins: []string{"https://an-existing-user-specified\\.allowed\\.origin\\.com"},
 		},
 	}
 }

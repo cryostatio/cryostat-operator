@@ -679,7 +679,7 @@ func (r *CryostatReconciler) deleteConsoleLink(ctx context.Context, cr *operator
 func (r *CryostatReconciler) addCorsAllowedOriginIfNotPresent(allowedOrigin string, cr *operatorv1beta1.Cryostat) error {
 	reqLogger := r.Log.WithValues("Request.Namespace", cr.Namespace, "Request.Name", cr.Name)
 	apiServer := &configv1.APIServer{}
-	err := r.Client.Get(context.Background(), types.NamespacedName{Name: "cluster"}, apiServer)
+	err := r.Client.Get(context.Background(), types.NamespacedName{Name: resources.ApiServerName}, apiServer)
 	if err != nil {
 		reqLogger.Error(err, "Failed to get APIServer config")
 		return err
@@ -710,7 +710,7 @@ func (r *CryostatReconciler) addCorsAllowedOriginIfNotPresent(allowedOrigin stri
 func (r *CryostatReconciler) deleteCorsAllowedOrigins(allowedOrigin string, cr *operatorv1beta1.Cryostat) error {
 	reqLogger := r.Log.WithValues("Request.Namespace", cr.Namespace, "Request.Name", cr.Name)
 	apiServer := &configv1.APIServer{}
-	err := r.Client.Get(context.Background(), types.NamespacedName{Name: "cluster"}, apiServer)
+	err := r.Client.Get(context.Background(), types.NamespacedName{Name: resources.ApiServerName}, apiServer)
 	if err != nil {
 		reqLogger.Error(err, "Failed to get APIServer config")
 		return err
