@@ -11,4 +11,4 @@ const DefaultDatasourceImageTag = "quay.io/cryostat/jfr-datasource:2.0.0"
 const DefaultGrafanaImageTag = "quay.io/cryostat/cryostat-grafana-dashboard:2.0.0"
 
 // Default image tag for the Grafana dashboard image
-const DefaultReportsImageTag = "quay.io/cryostat/cryostat-reports:1.0.0"
+const DefaultReportsImageTag = "quay.io/cryostat/cryostat-reports:1.0.0-SNAPSHOT"
