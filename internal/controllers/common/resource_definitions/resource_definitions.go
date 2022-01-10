@@ -365,7 +365,7 @@ func NewPodForReports(cr *operatorv1beta1.Cryostat, imageTags *ImageTags) *corev
 			cpus = limits.Cpu().Value()
 		}
 	}
-	javaOpts := fmt.Sprintf("-XX:ActiveProcessorCount=%d -Dorg.openjdk.jmc.flightrecorder.parser.singlethreaded=%t", cpus, cpus < 2)
+	javaOpts := fmt.Sprintf("-XX:+PrintCommandLineFlags -XX:ActiveProcessorCount=%d -Dorg.openjdk.jmc.flightrecorder.parser.singlethreaded=%t", cpus, cpus < 2)
 	return &corev1.PodSpec{
 		ServiceAccountName: cr.Name,
 		Containers: []corev1.Container{
