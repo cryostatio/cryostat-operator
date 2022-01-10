@@ -356,13 +356,13 @@ func NewPodForReports(cr *operatorv1beta1.Cryostat, imageTags *ImageTags) *corev
 	}
 	cpus := int64(1)
 	if requests := resources.Requests; requests != nil {
-		if requests.Cpu() != nil {
-			cpus = requests.Cpu().Value()
+		if cpu := requests.Cpu(); cpu != nil {
+			cpus = cpu.Value()
 		}
 	}
 	if limits := resources.Limits; limits != nil {
-		if limits.Cpu() != nil {
-			cpus = limits.Cpu().Value()
+		if cpu := limits.Cpu(); cpu != nil {
+			cpus = cpu.Value()
 		}
 	}
 	javaOpts := fmt.Sprintf("-XX:+PrintCommandLineFlags -XX:ActiveProcessorCount=%d -Dorg.openjdk.jmc.flightrecorder.parser.singlethreaded=%t", cpus, cpus < 2)
