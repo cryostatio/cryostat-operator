@@ -354,6 +354,18 @@ func NewPodForReports(cr *operatorv1beta1.Cryostat, imageTags *ImageTags) *corev
 	if cr.Spec.ReportOptions != nil {
 		resources = cr.Spec.ReportOptions.ResourceRequirements
 	}
+	cpus := int64(1)
+	if requests := resources.Requests; requests != nil {
+		if requests.Cpu() != nil {
+			cpus = requests.Cpu().Value()
+		}
+	}
+	if limits := resources.Limits; limits != nil {
+		if limits.Cpu() != nil {
+			cpus = limits.Cpu().Value()
+		}
+	}
+	javaOpts := fmt.Sprintf("-XX:ActiveProcessorCount=%d -Dorg.openjdk.jmc.flightrecorder.parser.singlethreaded=%t", cpus, cpus < 2)
 	return &corev1.PodSpec{
 		ServiceAccountName: cr.Name,
 		Containers: []corev1.Container{
@@ -374,6 +386,10 @@ func NewPodForReports(cr *operatorv1beta1.Cryostat, imageTags *ImageTags) *corev
 					{
 						Name:  "QUARKUS_HTTP_PORT",
 						Value: strconv.Itoa(reportsPort),
+					},
+					{
+						Name:  "JAVA_OPTIONS",
+						Value: javaOpts,
 					},
 				},
 				Resources: resources,
