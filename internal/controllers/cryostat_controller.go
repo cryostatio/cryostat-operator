@@ -440,8 +440,13 @@ func (r *CryostatReconciler) reconcileReports(ctx context.Context, reqLogger log
 	}
 
 	if desired > 0 {
-		// FIXME this service should not be exposed with Route/Ingress
-		_, err := r.createService(context.Background(), instance, svc, &svc.Spec.Ports[0], routeTLS)
+		svc = resources.NewReportService(instance)
+		if err := controllerutil.SetControllerReference(instance, svc, r.Scheme); err != nil {
+			return reconcile.Result{}, err
+		}
+		if err := r.createObjectIfNotExists(context.Background(), types.NamespacedName{Name: svc.Name, Namespace: svc.Namespace}, &corev1.Service{}, svc); err != nil {
+			return reconcile.Result{}, err
+		}
 		if err != nil {
 			return requeueIfIngressNotReady(reqLogger, err)
 		}
