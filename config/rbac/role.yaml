@@ -27,6 +27,15 @@ rules:
   verbs:
   - create
 - apiGroups:
+  - config.openshift.io
+  resources:
+  - apiservers
+  verbs:
+  - get
+  - list
+  - update
+  - watch
+- apiGroups:
   - console.openshift.io
   resources:
   - consolelinks
