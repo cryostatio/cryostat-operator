@@ -366,6 +366,13 @@ func NewPodForReports(cr *operatorv1beta1.Cryostat, imageTags *ImageTags) *corev
 		}
 	}
 	javaOpts := fmt.Sprintf("-XX:+PrintCommandLineFlags -XX:ActiveProcessorCount=%d -Dorg.openjdk.jmc.flightrecorder.parser.singlethreaded=%t", cpus, cpus < 2)
+
+	probeHandler := corev1.Handler{
+		HTTPGet: &corev1.HTTPGetAction{
+			Port: intstr.IntOrString{IntVal: reportsPort},
+			Path: "/health",
+		},
+	}
 	return &corev1.PodSpec{
 		ServiceAccountName: cr.Name,
 		Containers: []corev1.Container{
@@ -393,13 +400,11 @@ func NewPodForReports(cr *operatorv1beta1.Cryostat, imageTags *ImageTags) *corev
 					},
 				},
 				Resources: resources,
-				// Can't use HTTP probe since the port is not exposed over the network
 				LivenessProbe: &corev1.Probe{
-					Handler: corev1.Handler{
-						Exec: &corev1.ExecAction{
-							Command: []string{"curl", "--fail", "http://127.0.0.1:" + strconv.Itoa(reportsPort) + "/health"},
-						},
-					},
+					Handler: probeHandler,
+				},
+				StartupProbe: &corev1.Probe{
+					Handler: probeHandler,
 				},
 			},
 		},
