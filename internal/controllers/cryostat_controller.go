@@ -102,6 +102,9 @@ const grafanaImageTagEnv = "RELATED_IMAGE_GRAFANA"
 // supplemental groups SCC annotation
 var supGroupRegexp = regexp.MustCompile(`^\d+`)
 
+// The canonical name of an APIServer instance
+const apiServerName = "cluster"
+
 // +kubebuilder:rbac:namespace=system,groups="",resources=pods;services;services/finalizers;endpoints;persistentvolumeclaims;events;configmaps;secrets;serviceaccounts,verbs=*
 // +kubebuilder:rbac:namespace=system,groups="",resources=replicationcontrollers,verbs=get
 // +kubebuilder:rbac:namespace=system,groups=rbac.authorization.k8s.io,resources=roles;rolebindings,verbs=create;get;list;update;watch;delete
@@ -676,7 +679,7 @@ func (r *CryostatReconciler) deleteConsoleLink(ctx context.Context, cr *operator
 func (r *CryostatReconciler) addCorsAllowedOriginIfNotPresent(ctx context.Context, allowedOrigin string, cr *operatorv1beta1.Cryostat) error {
 	reqLogger := r.Log.WithValues("Request.Namespace", cr.Namespace, "Request.Name", cr.Name)
 	apiServer := &configv1.APIServer{}
-	err := r.Client.Get(context.Background(), types.NamespacedName{Name: resources.ApiServerName}, apiServer)
+	err := r.Client.Get(context.Background(), types.NamespacedName{Name: apiServerName}, apiServer)
 	if err != nil {
 		reqLogger.Error(err, "Failed to get APIServer config")
 		return err
@@ -707,7 +710,7 @@ func (r *CryostatReconciler) addCorsAllowedOriginIfNotPresent(ctx context.Contex
 func (r *CryostatReconciler) deleteCorsAllowedOrigins(ctx context.Context, allowedOrigin string, cr *operatorv1beta1.Cryostat) error {
 	reqLogger := r.Log.WithValues("Request.Namespace", cr.Namespace, "Request.Name", cr.Name)
 	apiServer := &configv1.APIServer{}
-	err := r.Client.Get(context.Background(), types.NamespacedName{Name: resources.ApiServerName}, apiServer)
+	err := r.Client.Get(context.Background(), types.NamespacedName{Name: apiServerName}, apiServer)
 	if err != nil {
 		reqLogger.Error(err, "Failed to get APIServer config")
 		return err

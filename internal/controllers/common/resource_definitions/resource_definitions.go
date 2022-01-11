@@ -976,9 +976,6 @@ func NewConsoleLink(cr *operatorv1beta1.Cryostat, url string) *consolev1.Console
 	}
 }
 
-// The canonical name of an APIServer instance
-const ApiServerName = "cluster"
-
 func getPort(url *url.URL) string {
 	// Return port if already defined in URL
 	port := url.Port()
