@@ -82,13 +82,17 @@ test: test-envtest test-scorecard
 .PHONY: test-envtest
 ENVTEST_ASSETS_DIR=$(shell pwd)/testbin
 test-envtest: generate fmt vet manifests
+ifneq ($(SKIP_TESTS), true)
 	mkdir -p $(ENVTEST_ASSETS_DIR)
 	test -f $(ENVTEST_ASSETS_DIR)/setup-envtest.sh || curl -sSLo $(ENVTEST_ASSETS_DIR)/setup-envtest.sh https://raw.githubusercontent.com/kubernetes-sigs/controller-runtime/v0.7.2/hack/setup-envtest.sh
 	source $(ENVTEST_ASSETS_DIR)/setup-envtest.sh; fetch_envtest_tools $(ENVTEST_ASSETS_DIR); setup_envtest_env $(ENVTEST_ASSETS_DIR); $(GO_TEST) -v -coverprofile cover.out ./...
+endif
 
 .PHONY: test-scorecard
 test-scorecard: destroy_cryostat_cr undeploy uninstall
+ifneq ($(SKIP_TESTS), true)
 	operator-sdk scorecard bundle
+endif
 
 
 
