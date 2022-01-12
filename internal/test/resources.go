@@ -596,7 +596,8 @@ func NewCryostatService() *corev1.Service {
 		Spec: corev1.ServiceSpec{
 			Type: corev1.ServiceTypeClusterIP,
 			Selector: map[string]string{
-				"app": "cryostat",
+				"app":       "cryostat",
+				"component": "cryostat",
 			},
 			Ports: []corev1.ServicePort{
 				{
@@ -637,7 +638,8 @@ func NewGrafanaService() *corev1.Service {
 		Spec: corev1.ServiceSpec{
 			Type: corev1.ServiceTypeClusterIP,
 			Selector: map[string]string{
-				"app": "cryostat",
+				"app":       "cryostat",
+				"component": "grafana",
 			},
 			Ports: []corev1.ServicePort{
 				{
@@ -1184,8 +1186,9 @@ func NewDatasourceLivenessProbe() *corev1.Probe {
 func NewDeploymentSelector() *metav1.LabelSelector {
 	return &metav1.LabelSelector{
 		MatchLabels: map[string]string{
-			"app":  "cryostat",
-			"kind": "cryostat",
+			"app":       "cryostat",
+			"kind":      "cryostat",
+			"component": "cryostat",
 		},
 	}
 }

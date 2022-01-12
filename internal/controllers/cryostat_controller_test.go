@@ -1324,6 +1324,7 @@ func (t *cryostatTestInput) checkDeployment() {
 	Expect(deployment.Labels).To(Equal(map[string]string{
 		"app":                    "cryostat",
 		"kind":                   "cryostat",
+		"component":              "cryostat",
 		"app.kubernetes.io/name": "cryostat",
 	}))
 	Expect(metav1.IsControlledBy(deployment, cr)).To(BeTrue())
@@ -1334,8 +1335,9 @@ func (t *cryostatTestInput) checkDeployment() {
 	Expect(template.Name).To(Equal("cryostat"))
 	Expect(template.Namespace).To(Equal("default"))
 	Expect(template.Labels).To(Equal(map[string]string{
-		"app":  "cryostat",
-		"kind": "cryostat",
+		"app":       "cryostat",
+		"kind":      "cryostat",
+		"component": "cryostat",
 	}))
 	Expect(template.Spec.Volumes).To(Equal(test.NewVolumes(t.minimal, t.TLS)))
 	Expect(template.Spec.SecurityContext).To(Equal(test.NewPodSecurityContext()))
