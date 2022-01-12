@@ -136,6 +136,7 @@ func NewDeploymentForCR(cr *operatorv1beta1.Cryostat, specs *ServiceSpecs, image
 			Labels: map[string]string{
 				"app":                    cr.Name,
 				"kind":                   "cryostat",
+				"component":              "cryostat",
 				"app.kubernetes.io/name": "cryostat",
 			},
 			Annotations: map[string]string{
@@ -145,8 +146,9 @@ func NewDeploymentForCR(cr *operatorv1beta1.Cryostat, specs *ServiceSpecs, image
 		Spec: appsv1.DeploymentSpec{
 			Selector: &metav1.LabelSelector{
 				MatchLabels: map[string]string{
-					"app":  cr.Name,
-					"kind": "cryostat",
+					"app":       cr.Name,
+					"kind":      "cryostat",
+					"component": "cryostat",
 				},
 			},
 			Template: corev1.PodTemplateSpec{
@@ -154,8 +156,9 @@ func NewDeploymentForCR(cr *operatorv1beta1.Cryostat, specs *ServiceSpecs, image
 					Name:      cr.Name,
 					Namespace: cr.Namespace,
 					Labels: map[string]string{
-						"app":  cr.Name,
-						"kind": "cryostat",
+						"app":       cr.Name,
+						"kind":      "cryostat",
+						"component": "cryostat",
 					},
 				},
 				Spec: *NewPodForCR(cr, specs, imageTags, tls, fsGroup, openshift),
@@ -176,6 +179,7 @@ func NewDeploymentForReports(cr *operatorv1beta1.Cryostat, imageTags *ImageTags)
 			Labels: map[string]string{
 				"app":                    cr.Name,
 				"kind":                   "cryostat",
+				"component":              "reports",
 				"app.kubernetes.io/name": "cryostat-reports",
 			},
 			Annotations: map[string]string{
@@ -185,8 +189,9 @@ func NewDeploymentForReports(cr *operatorv1beta1.Cryostat, imageTags *ImageTags)
 		Spec: appsv1.DeploymentSpec{
 			Selector: &metav1.LabelSelector{
 				MatchLabels: map[string]string{
-					"app":  cr.Name,
-					"kind": "cryostat",
+					"app":       cr.Name,
+					"kind":      "cryostat",
+					"component": "reports",
 				},
 			},
 			Template: corev1.PodTemplateSpec{
@@ -194,8 +199,9 @@ func NewDeploymentForReports(cr *operatorv1beta1.Cryostat, imageTags *ImageTags)
 					Name:      cr.Name + "-reports",
 					Namespace: cr.Namespace,
 					Labels: map[string]string{
-						"app":  cr.Name,
-						"kind": "cryostat",
+						"app":       cr.Name,
+						"kind":      "cryostat",
+						"component": "reports",
 					},
 				},
 				Spec: *NewPodForReports(cr, imageTags),
@@ -822,7 +828,8 @@ func NewCoreService(cr *operatorv1beta1.Cryostat) *corev1.Service {
 		Spec: corev1.ServiceSpec{
 			Type: *config.ServiceType,
 			Selector: map[string]string{
-				"app": cr.Name,
+				"app":       cr.Name,
+				"component": "cryostat",
 			},
 			Ports: []corev1.ServicePort{
 				{
@@ -853,7 +860,8 @@ func NewCommandChannelService(cr *operatorv1beta1.Cryostat) *corev1.Service {
 		Spec: corev1.ServiceSpec{
 			Type: corev1.ServiceTypeLoadBalancer,
 			Selector: map[string]string{
-				"app": cr.Name,
+				"app":       cr.Name,
+				"component": "command-channel",
 			},
 			Ports: []corev1.ServicePort{
 				{
@@ -878,7 +886,8 @@ func NewGrafanaService(cr *operatorv1beta1.Cryostat) *corev1.Service {
 		Spec: corev1.ServiceSpec{
 			Type: *config.ServiceType,
 			Selector: map[string]string{
-				"app": cr.Name,
+				"app":       cr.Name,
+				"component": "grafana",
 			},
 			Ports: []corev1.ServicePort{
 				{
@@ -907,7 +916,8 @@ func NewReportService(cr *operatorv1beta1.Cryostat) *corev1.Service {
 		Spec: corev1.ServiceSpec{
 			Type: *config.ServiceType,
 			Selector: map[string]string{
-				"app": cr.Name,
+				"app":       cr.Name,
+				"component": "reports",
 			},
 			Ports: []corev1.ServicePort{
 				{
