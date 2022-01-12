@@ -921,7 +921,6 @@ func NewReportService(cr *operatorv1beta1.Cryostat) *corev1.Service {
 			},
 			Ports: []corev1.ServicePort{
 				{
-					Name:       "http",
 					Port:       reportsPort,
 					TargetPort: intstr.IntOrString{IntVal: reportsPort},
 				},
