@@ -652,6 +652,42 @@ func NewGrafanaService() *corev1.Service {
 	}
 }
 
+func NewReportsService() *corev1.Service {
+	c := true
+	return &corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "cryostat-reports",
+			Namespace: "default",
+			OwnerReferences: []metav1.OwnerReference{
+				{
+					APIVersion: operatorv1beta1.GroupVersion.String(),
+					Kind:       "Cryostat",
+					Name:       "cryostat-reports",
+					UID:        "",
+					Controller: &c,
+				},
+			},
+			Labels: map[string]string{
+				"app":       "cryostat",
+				"component": "reports",
+			},
+		},
+		Spec: corev1.ServiceSpec{
+			Type: corev1.ServiceTypeLoadBalancer,
+			Selector: map[string]string{
+				"app":       "cryostat",
+				"component": "reports",
+			},
+			Ports: []corev1.ServicePort{
+				{
+					Port:       10000,
+					TargetPort: intstr.FromInt(10000),
+				},
+			},
+		},
+	}
+}
+
 func NewCustomizedCoreService() *corev1.Service {
 	svc := NewCryostatService()
 	svc.Spec.Type = corev1.ServiceTypeNodePort
@@ -854,7 +890,7 @@ func NewDatasourcePorts() []corev1.ContainerPort {
 	}
 }
 
-func NewCoreEnvironmentVariables(minimal bool, tls bool, externalTLS bool, openshift bool) []corev1.EnvVar {
+func NewCoreEnvironmentVariables(minimal bool, tls bool, externalTLS bool, openshift bool, reportsUrl string) []corev1.EnvVar {
 	envs := []corev1.EnvVar{
 		{
 			Name:  "CRYOSTAT_ALLOW_UNTRUSTED_SSL",
@@ -976,6 +1012,13 @@ func NewCoreEnvironmentVariables(minimal bool, tls bool, externalTLS bool, opens
 			corev1.EnvVar{
 				Name:  "CRYOSTAT_OAUTH_ROLE",
 				Value: "cryostat-operator-oauth-client",
+			})
+	}
+	if reportsUrl != "" {
+		envs = append(envs,
+			corev1.EnvVar{
+				Name:  "CRYOSTAT_REPORT_GENERATOR",
+				Value: reportsUrl,
 			})
 	}
 	return envs
@@ -1183,12 +1226,22 @@ func NewDatasourceLivenessProbe() *corev1.Probe {
 	}
 }
 
-func NewDeploymentSelector() *metav1.LabelSelector {
+func NewMainDeploymentSelector() *metav1.LabelSelector {
 	return &metav1.LabelSelector{
 		MatchLabels: map[string]string{
 			"app":       "cryostat",
 			"kind":      "cryostat",
 			"component": "cryostat",
+		},
+	}
+}
+
+func NewReportsDeploymentSelector() *metav1.LabelSelector {
+	return &metav1.LabelSelector{
+		MatchLabels: map[string]string{
+			"app":       "cryostat",
+			"kind":      "cryostat",
+			"component": "reports",
 		},
 	}
 }
