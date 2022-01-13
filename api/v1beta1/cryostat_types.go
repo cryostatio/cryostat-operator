@@ -101,7 +101,13 @@ type StorageConfiguration struct {
 // is configured to use remote report generation, pointed at a load balancer service
 // in front of the cryostat-reports replicas.
 type ReportConfiguration struct {
-	Replicas                    int32 `json:"replicas,omitempty"`
+	// The number of report sidecar replica containers to deploy.
+	// Each replica can service one report generation request at a time.
+	// +operator-sdk:csv:customresourcedefinitions:type=status,xDescriptors={"urn:alm:descriptor:com.tectonic.ui:podCount"}
+	Replicas int32 `json:"replicas,omitempty"`
+	// The resources allocated to each sidecar replica.
+	// A replica with more resources can handle larger input recordings and will process them faster.
+	// +operator-sdk:csv:customresourcedefinitions:type=status,xDescriptors={"urn:alm:descriptor:com.tectonic.ui:resourceRequirements"}
 	corev1.ResourceRequirements `json:",inline"`
 }
 

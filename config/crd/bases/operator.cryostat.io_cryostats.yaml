@@ -1013,6 +1013,9 @@ spec:
                       allowed. More info: https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/'
                     type: object
                   replicas:
+                    description: The number of report sidecar replica containers to
+                      deploy. Each replica can service one report generation request
+                      at a time.
                     format: int32
                     type: integer
                   requests:
