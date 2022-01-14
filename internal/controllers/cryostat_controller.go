@@ -149,6 +149,15 @@ func (r *CryostatReconciler) Reconcile(ctx context.Context, request ctrl.Request
 		return reconcile.Result{}, err
 	}
 
+	// Initialize Conditions if not present
+	if len(instance.Status.Conditions) == 0 {
+		err := r.updateAvailableCondition(ctx, instance, metav1.ConditionTrue, "NotYetCreated", "")
+		if err != nil {
+			reqLogger.Error(err, "failed to initialize conditions")
+			return reconcile.Result{}, err
+		}
+	}
+
 	// Check if this Cryostat is being deleted
 	if instance.GetDeletionTimestamp() != nil {
 		if controllerutil.ContainsFinalizer(instance, cryostatFinalizer) {
@@ -223,6 +232,7 @@ func (r *CryostatReconciler) Reconcile(ctx context.Context, request ctrl.Request
 				return reconcile.Result{RequeueAfter: 5 * time.Second}, nil
 			}
 			reqLogger.Error(err, "Failed to set up TLS for Cryostat")
+			r.updateAvailableCondition(ctx, instance, metav1.ConditionFalse, "CertManagerMissing", err.Error())
 			return reconcile.Result{}, err
 		}
 
@@ -374,6 +384,21 @@ func (r *CryostatReconciler) Reconcile(ctx context.Context, request ctrl.Request
 
 		if instance.Status.ApplicationURL != "" {
 			err = r.addCorsAllowedOriginIfNotPresent(ctx, instance.Status.ApplicationURL, instance)
+			if err != nil {
+				return reconcile.Result{}, err
+			}
+		}
+	}
+
+	// Check deployment status and update condition
+	err = r.Client.Get(ctx, types.NamespacedName{Name: instance.Name, Namespace: instance.Namespace}, deployment)
+	if err != nil {
+		return reconcile.Result{}, err
+	}
+	for _, cond := range deployment.Status.Conditions {
+		if cond.Type == appsv1.DeploymentAvailable && cond.Status == corev1.ConditionTrue {
+			err := r.updateAvailableCondition(ctx, instance, metav1.ConditionTrue, cond.Reason,
+				fmt.Sprintf("Deployment %s ready", deployment.Name))
 			if err != nil {
 				return reconcile.Result{}, err
 			}
@@ -797,6 +822,22 @@ func (r *CryostatReconciler) deleteCorsAllowedOrigins(ctx context.Context, allow
 	}
 
 	return nil
+}
+
+func (r *CryostatReconciler) updateAvailableCondition(ctx context.Context, cr *operatorv1beta1.Cryostat,
+	status metav1.ConditionStatus, reason string, message string) error {
+	reqLogger := r.Log.WithValues("Request.Namespace", cr.Namespace, "Request.Name", cr.Name)
+	meta.SetStatusCondition(&cr.Status.Conditions, metav1.Condition{
+		Type:    operatorv1beta1.ConditionTypeAvailable,
+		Status:  status,
+		Reason:  reason,
+		Message: message,
+	})
+	err := r.Client.Status().Update(ctx, cr)
+	if err != nil {
+		reqLogger.Error(err, "failed to update conditions")
+	}
+	return err
 }
 
 func getProtocol(tlsConfig *openshiftv1.TLSConfig) string {

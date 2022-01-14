@@ -147,10 +147,16 @@ spec:
         x-descriptors:
         - urn:alm:descriptor:io.kubernetes:Secret
       statusDescriptors:
-      - displayName: Application URL
+      - description: Address of the deployed Cryostat web application
+        displayName: Application URL
         path: applicationUrl
         x-descriptors:
         - urn:alm:descriptor:org.w3:link
+      - description: Conditions of the components managed by the Cryostat Operator
+        displayName: Cryostat Conditions
+        path: conditions
+        x-descriptors:
+        - urn:alm:descriptor:io.kubernetes.conditions
       version: v1beta1
     - description: FlightRecorder represents a target Pod that is capable of creating JDK Flight Recordings using Cryostat. The Cryostat operator creates FlightRecorder objects when it finds compatible Pods.
       displayName: Flight Recorder

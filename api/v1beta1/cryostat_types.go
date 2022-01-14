@@ -80,9 +80,18 @@ type CryostatSpec struct {
 
 // CryostatStatus defines the observed state of Cryostat
 type CryostatStatus struct {
+	// Conditions of the components managed by the Cryostat Operator
+	// +operator-sdk:csv:customresourcedefinitions:type=status,displayName="Cryostat Conditions",xDescriptors={"urn:alm:descriptor:io.kubernetes.conditions"}
+	Conditions []metav1.Condition `json:"conditions"`
+	// Address of the deployed Cryostat web application
 	// +operator-sdk:csv:customresourcedefinitions:type=status,xDescriptors={"urn:alm:descriptor:org.w3:link"}
 	ApplicationURL string `json:"applicationUrl"`
 }
+
+const (
+	// Whether all expected components are available
+	ConditionTypeAvailable = "Available"
+)
 
 // StorageConfiguration provides customization to the storage created by
 // the operator to hold Flight Recordings and Recording Templates.
