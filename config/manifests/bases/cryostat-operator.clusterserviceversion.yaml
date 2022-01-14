@@ -62,7 +62,10 @@ metadata:
         },
         "spec": {
           "enableCertManager": true,
-          "minimal": false
+          "minimal": false,
+          "reportOptions": {
+            "replicas": 0
+          }
         }
       }
     operators.operatorframework.io/builder: operator-sdk-v1.5.0
