@@ -232,6 +232,31 @@ func NewCryostatWithGrafanaSvc() *operatorv1beta1.Cryostat {
 	return cr
 }
 
+func NewCryostatWithReportsSvc() *operatorv1beta1.Cryostat {
+	svcType := corev1.ServiceTypeNodePort
+	httpPort := int32(13161)
+	cr := NewCryostat()
+	cr.Spec.ReportOptions = &operatorv1beta1.ReportConfiguration{
+		Replicas: 1,
+	}
+	cr.Spec.ServiceOptions = &operatorv1beta1.ServiceConfigList{
+		ReportsConfig: &operatorv1beta1.ReportsServiceConfig{
+			HTTPPort: &httpPort,
+			ServiceConfig: operatorv1beta1.ServiceConfig{
+				ServiceType: &svcType,
+				Annotations: map[string]string{
+					"my/custom": "annotation",
+				},
+				Labels: map[string]string{
+					"my":  "label",
+					"app": "somethingelse",
+				},
+			},
+		},
+	}
+	return cr
+}
+
 func NewCryostatCertManagerDisabled() *operatorv1beta1.Cryostat {
 	cr := NewCryostat()
 	certManager := false
@@ -673,13 +698,14 @@ func NewReportsService() *corev1.Service {
 			},
 		},
 		Spec: corev1.ServiceSpec{
-			Type: corev1.ServiceTypeLoadBalancer,
+			Type: corev1.ServiceTypeClusterIP,
 			Selector: map[string]string{
 				"app":       "cryostat",
 				"component": "reports",
 			},
 			Ports: []corev1.ServicePort{
 				{
+					Name:       "http",
 					Port:       10000,
 					TargetPort: intstr.FromInt(10000),
 				},
@@ -714,6 +740,21 @@ func NewCustomizedGrafanaService() *corev1.Service {
 	svc.Labels = map[string]string{
 		"app":       "cryostat",
 		"component": "grafana",
+		"my":        "label",
+	}
+	return svc
+}
+
+func NewCustomizedReportsService() *corev1.Service {
+	svc := NewReportsService()
+	svc.Spec.Type = corev1.ServiceTypeNodePort
+	svc.Spec.Ports[0].Port = 13161
+	svc.Annotations = map[string]string{
+		"my/custom": "annotation",
+	}
+	svc.Labels = map[string]string{
+		"app":       "cryostat",
+		"component": "reports",
 		"my":        "label",
 	}
 	return svc

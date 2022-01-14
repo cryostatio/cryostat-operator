@@ -924,6 +924,15 @@ var _ = Describe("CryostatController", func() {
 					t.checkService("cryostat-grafana", test.NewCustomizedGrafanaService())
 				})
 			})
+			Context("containing reports config", func() {
+				BeforeEach(func() {
+					t.objs = append(t.objs, test.NewCryostatWithReportsSvc())
+					t.reportReplicas = 1
+				})
+				It("should created the service as described", func() {
+					t.checkService("cryostat-reports", test.NewCustomizedReportsService())
+				})
+			})
 		})
 	})
 	Describe("reconciling a request in Kubernetes", func() {

@@ -901,11 +901,23 @@ func NewGrafanaService(cr *operatorv1beta1.Cryostat) *corev1.Service {
 }
 
 func NewReportService(cr *operatorv1beta1.Cryostat) *corev1.Service {
-	serviceType := corev1.ServiceTypeLoadBalancer
-	config := &operatorv1beta1.ServiceConfig{
-		ServiceType: &serviceType,
+	// Check CR for config
+	var config *operatorv1beta1.ReportsServiceConfig
+	if cr.Spec.ServiceOptions == nil || cr.Spec.ServiceOptions.ReportsConfig == nil {
+		config = &operatorv1beta1.ReportsServiceConfig{}
+	} else {
+		config = cr.Spec.ServiceOptions.ReportsConfig
 	}
-	configureService(config, cr.Name, "reports")
+
+	// Apply common service defaults
+	configureService(&config.ServiceConfig, cr.Name, "reports")
+
+	// Apply default HTTP port if not provided
+	if config.HTTPPort == nil {
+		httpPort := int32(reportsPort)
+		config.HTTPPort = &httpPort
+	}
+
 	return &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        cr.Name + "-reports",
@@ -921,7 +933,8 @@ func NewReportService(cr *operatorv1beta1.Cryostat) *corev1.Service {
 			},
 			Ports: []corev1.ServicePort{
 				{
-					Port:       reportsPort,
+					Name:       "http",
+					Port:       *config.HTTPPort,
 					TargetPort: intstr.IntOrString{IntVal: reportsPort},
 				},
 			},

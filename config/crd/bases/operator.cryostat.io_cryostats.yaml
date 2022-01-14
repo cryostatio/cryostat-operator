@@ -1092,6 +1092,32 @@ spec:
                         description: Type of service to create. Defaults to "ClusterIP".
                         type: string
                     type: object
+                  reportsConfig:
+                    description: Specification for the service responsible for the
+                      cryostat-reports sidecars.
+                    properties:
+                      annotations:
+                        additionalProperties:
+                          type: string
+                        description: Annotations to add to the service during its
+                          creation.
+                        type: object
+                      httpPort:
+                        description: HTTP port number for the cryostat-reports service.
+                          Defaults to 10000.
+                        format: int32
+                        type: integer
+                      labels:
+                        additionalProperties:
+                          type: string
+                        description: Labels to add to the service during its creation.
+                          The labels with keys "app" and "component" are reserved
+                          for use by the operator.
+                        type: object
+                      serviceType:
+                        description: Type of service to create. Defaults to "ClusterIP".
+                        type: string
+                    type: object
                 type: object
               storageOptions:
                 description: Options to customize the storage for Flight Recordings

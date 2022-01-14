@@ -151,6 +151,16 @@ type GrafanaServiceConfig struct {
 	ServiceConfig `json:",inline"`
 }
 
+// ReportsServiceConfig provides customization for the service handling
+// traffic for the cryostat-reports sidecars
+type ReportsServiceConfig struct {
+	// HTTP port number for the cryostat-reports service.
+	// Defaults to 10000.
+	// +optional
+	HTTPPort      *int32 `json:"httpPort,omitempty"`
+	ServiceConfig `json:",inline"`
+}
+
 // ServiceConfigList holds the service configuration for each
 // service created by the operator.
 type ServiceConfigList struct {
@@ -160,6 +170,9 @@ type ServiceConfigList struct {
 	// Specification for the service responsible for the Cryostat Grafana dashboard.
 	// +optional
 	GrafanaConfig *GrafanaServiceConfig `json:"grafanaConfig,omitempty"`
+	// Specification for the service responsible for the cryostat-reports sidecars.
+	// +optional
+	ReportsConfig *ReportsServiceConfig `json:"reportsConfig,omitEmpty"`
 }
 
 // NetworkConfiguration provides customization for the corresponding ingress,
