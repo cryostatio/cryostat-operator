@@ -189,22 +189,4 @@ spec:
                   name: cryostat-sample-grafana
                   port:
                     number: 3000
-    reportsConfig:
-      annotations:
-        nginx.ingress.kubernetes.io/backend-protocol : HTTPS
-      ingressSpec:
-        tls:
-        - {}
-        rules:
-        - host: testing.cryostat-reports
-          http:
-            paths:
-            - path: /
-              pathType: Prefix
-              backend:
-                service:
-                  name: cryostat-sample-reports
-                  port:
-                    number: 10000
-```
 ```
