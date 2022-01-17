@@ -57,6 +57,7 @@ import (
 
 	"github.com/cryostatio/cryostat-operator/internal/controllers/common"
 	resources "github.com/cryostatio/cryostat-operator/internal/controllers/common/resource_definitions"
+	configv1 "github.com/openshift/api/config/v1"
 	consolev1 "github.com/openshift/api/console/v1"
 	openshiftv1 "github.com/openshift/api/route/v1"
 	securityv1 "github.com/openshift/api/security/v1"
@@ -101,6 +102,9 @@ const grafanaImageTagEnv = "RELATED_IMAGE_GRAFANA"
 // supplemental groups SCC annotation
 var supGroupRegexp = regexp.MustCompile(`^\d+`)
 
+// The canonical name of an APIServer instance
+const apiServerName = "cluster"
+
 // +kubebuilder:rbac:namespace=system,groups="",resources=pods;services;services/finalizers;endpoints;persistentvolumeclaims;events;configmaps;secrets;serviceaccounts,verbs=*
 // +kubebuilder:rbac:namespace=system,groups="",resources=replicationcontrollers,verbs=get
 // +kubebuilder:rbac:namespace=system,groups=rbac.authorization.k8s.io,resources=roles;rolebindings,verbs=create;get;list;update;watch;delete
@@ -108,6 +112,8 @@ var supGroupRegexp = regexp.MustCompile(`^\d+`)
 // +kubebuilder:rbac:groups=authentication.k8s.io,resources=tokenreviews,verbs=create
 // +kubebuilder:rbac:groups=authorization.k8s.io,resources=selfsubjectaccessreviews,verbs=create
 // +kubebuilder:rbac:groups="",resources=namespaces,verbs=get;list;watch
+// +kubebuilder:rbac:groups=oauth.openshift.io,resources=oauthaccesstokens,verbs=list;delete
+// +kubebuilder:rbac:groups=config.openshift.io,resources=apiservers,verbs=get;list;update;watch
 // +kubebuilder:rbac:namespace=system,groups=route.openshift.io,resources=routes;routes/custom-host,verbs=*
 // +kubebuilder:rbac:namespace=system,groups=apps.openshift.io,resources=deploymentconfigs,verbs=get
 // +kubebuilder:rbac:namespace=system,groups=apps,resources=deployments;daemonsets;replicasets;statefulsets,verbs=*
@@ -151,6 +157,11 @@ func (r *CryostatReconciler) Reconcile(ctx context.Context, request ctrl.Request
 			// OpenShift-specific
 			if r.IsOpenShift {
 				err = r.deleteConsoleLink(ctx, instance)
+				if err != nil {
+					return reconcile.Result{}, err
+				}
+
+				err = r.deleteCorsAllowedOrigins(ctx, instance.Status.ApplicationURL, instance)
 				if err != nil {
 					return reconcile.Result{}, err
 				}
@@ -350,6 +361,13 @@ func (r *CryostatReconciler) Reconcile(ctx context.Context, request ctrl.Request
 		err := r.createConsoleLink(ctx, instance, serviceSpecs.CoreURL.String())
 		if err != nil {
 			return reconcile.Result{}, err
+		}
+
+		if instance.Status.ApplicationURL != "" {
+			err = r.addCorsAllowedOriginIfNotPresent(ctx, instance.Status.ApplicationURL, instance)
+			if err != nil {
+				return reconcile.Result{}, err
+			}
 		}
 	}
 
@@ -655,6 +673,66 @@ func (r *CryostatReconciler) deleteConsoleLink(ctx context.Context, cr *operator
 		return err
 	}
 	reqLogger.Info("deleted ConsoleLink", "linkName", link.Name)
+	return nil
+}
+
+func (r *CryostatReconciler) addCorsAllowedOriginIfNotPresent(ctx context.Context, allowedOrigin string, cr *operatorv1beta1.Cryostat) error {
+	reqLogger := r.Log.WithValues("Request.Namespace", cr.Namespace, "Request.Name", cr.Name)
+	apiServer := &configv1.APIServer{}
+	err := r.Client.Get(context.Background(), types.NamespacedName{Name: apiServerName}, apiServer)
+	if err != nil {
+		reqLogger.Error(err, "Failed to get APIServer config")
+		return err
+	}
+
+	allowedOriginAsRegex := regexp.QuoteMeta(allowedOrigin)
+
+	for _, origin := range apiServer.Spec.AdditionalCORSAllowedOrigins {
+		if origin == allowedOriginAsRegex {
+			return nil
+		}
+	}
+
+	apiServer.Spec.AdditionalCORSAllowedOrigins = append(
+		apiServer.Spec.AdditionalCORSAllowedOrigins,
+		allowedOriginAsRegex,
+	)
+
+	err = r.Client.Update(ctx, apiServer)
+	if err != nil {
+		reqLogger.Error(err, "Failed to update APIServer CORS allowed origins")
+		return err
+	}
+
+	return nil
+}
+
+func (r *CryostatReconciler) deleteCorsAllowedOrigins(ctx context.Context, allowedOrigin string, cr *operatorv1beta1.Cryostat) error {
+	reqLogger := r.Log.WithValues("Request.Namespace", cr.Namespace, "Request.Name", cr.Name)
+	apiServer := &configv1.APIServer{}
+	err := r.Client.Get(context.Background(), types.NamespacedName{Name: apiServerName}, apiServer)
+	if err != nil {
+		reqLogger.Error(err, "Failed to get APIServer config")
+		return err
+	}
+
+	allowedOriginAsRegex := regexp.QuoteMeta(allowedOrigin)
+
+	for i, origin := range apiServer.Spec.AdditionalCORSAllowedOrigins {
+		if origin == allowedOriginAsRegex {
+			apiServer.Spec.AdditionalCORSAllowedOrigins = append(
+				apiServer.Spec.AdditionalCORSAllowedOrigins[:i],
+				apiServer.Spec.AdditionalCORSAllowedOrigins[i+1:]...)
+			break
+		}
+	}
+
+	err = r.Client.Update(ctx, apiServer)
+	if err != nil {
+		reqLogger.Error(err, "Failed to remove Cryostat origin from APIServer CORS allowed origins")
+		return err
+	}
+
 	return nil
 }
 

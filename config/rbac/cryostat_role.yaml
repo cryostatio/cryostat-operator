@@ -17,3 +17,10 @@ rules:
   - selfsubjectaccessreviews
   verbs:
   - create
+- apiGroups:
+  - oauth.openshift.io
+  resources:
+  - oauthaccesstokens
+  verbs:
+  - list
+  - delete

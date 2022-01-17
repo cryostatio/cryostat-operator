@@ -120,8 +120,6 @@ spec:
     coreConfig:
       annotations:
         nginx.ingress.kubernetes.io/backend-protocol : HTTPS
-        nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
-        nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
       ingressSpec:
         tls:
         - {}
@@ -139,8 +137,6 @@ spec:
     commandConfig:
       annotations:
         nginx.ingress.kubernetes.io/backend-protocol : HTTPS
-        nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
-        nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
       ingressSpec:
         tls:
         - {}
@@ -158,8 +154,6 @@ spec:
     grafanaConfig:
       annotations:
         nginx.ingress.kubernetes.io/backend-protocol : HTTPS
-        nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
-        nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
       ingressSpec:
         tls:
         - {}

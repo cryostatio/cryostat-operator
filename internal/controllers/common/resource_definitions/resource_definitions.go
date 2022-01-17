@@ -309,6 +309,7 @@ func NewCoreContainer(cr *operatorv1beta1.Cryostat, specs *ServiceSpecs, imageTa
 	archivePath := "/opt/cryostat.d/recordings.d"
 	templatesPath := "/opt/cryostat.d/templates.d"
 	clientlibPath := "/opt/cryostat.d/clientlib.d"
+	probesPath := "/opt/cryostat.d/probes.d"
 	envs := []corev1.EnvVar{
 		{
 			Name:  "CRYOSTAT_ALLOW_UNTRUSTED_SSL",
@@ -337,6 +338,10 @@ func NewCoreContainer(cr *operatorv1beta1.Cryostat, specs *ServiceSpecs, imageTa
 		{
 			Name:  "CRYOSTAT_CLIENTLIB_PATH",
 			Value: clientlibPath,
+		},
+		{
+			Name:  "CRYOSTAT_PROBE_TEMPLATE_PATH",
+			Value: probesPath,
 		},
 	}
 	if specs.CoreURL != nil {
@@ -417,6 +422,11 @@ func NewCoreContainer(cr *operatorv1beta1.Cryostat, specs *ServiceSpecs, imageTa
 			Name:      cr.Name,
 			MountPath: clientlibPath,
 			SubPath:   "clientlib",
+		},
+		{
+			Name:      cr.Name,
+			MountPath: probesPath,
+			SubPath:   "probes",
 		},
 		{
 			Name:      cr.Name,

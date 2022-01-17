@@ -218,7 +218,7 @@ bundle-build:
 
 .PHONY: deploy_bundle
 deploy_bundle: check_cert_manager undeploy_bundle
-	operator-sdk run bundle $(IMAGE_NAMESPACE)/$(OPERATOR_NAME)-bundle:$(IMAGE_VERSION)
+	operator-sdk run bundle $(BUNDLE_IMG)
 ifeq ($(DISABLE_SERVICE_TLS), true)
 	@echo "Disabling TLS for in-cluster communication between Services"
 	@current_ns=`$(CLUSTER_CLIENT) config view --minify -o 'jsonpath={.contexts[0].context.namespace}'` && \

@@ -43,6 +43,7 @@ import (
 	"github.com/cryostatio/cryostat-operator/internal/controllers/common/resource_definitions"
 	certv1 "github.com/jetstack/cert-manager/pkg/apis/certmanager/v1"
 	"github.com/onsi/gomega"
+	configv1 "github.com/openshift/api/config/v1"
 	consolev1 "github.com/openshift/api/console/v1"
 	routev1 "github.com/openshift/api/route/v1"
 	securityv1 "github.com/openshift/api/security/v1"
@@ -889,6 +890,10 @@ func NewCoreEnvironmentVariables(minimal bool, tls bool, externalTLS bool, opens
 			Name:  "CRYOSTAT_CLIENTLIB_PATH",
 			Value: "/opt/cryostat.d/clientlib.d",
 		},
+		{
+			Name:  "CRYOSTAT_PROBE_TEMPLATE_PATH",
+			Value: "/opt/cryostat.d/probes.d",
+		},
 	}
 
 	if externalTLS {
@@ -1064,6 +1069,12 @@ func NewCoreVolumeMounts(tls bool) []corev1.VolumeMount {
 			ReadOnly:  false,
 			MountPath: "/opt/cryostat.d/clientlib.d",
 			SubPath:   "clientlib",
+		},
+		{
+			Name:      "cryostat",
+			ReadOnly:  false,
+			MountPath: "/opt/cryostat.d/probes.d",
+			SubPath:   "probes",
 		},
 		{
 			Name:      "cryostat",
@@ -1541,6 +1552,17 @@ func NewConsoleLink() *consolev1.ConsoleLink {
 			NamespaceDashboard: &consolev1.NamespaceDashboardSpec{
 				Namespaces: []string{"default"},
 			},
+		},
+	}
+}
+
+func NewApiServer() *configv1.APIServer {
+	return &configv1.APIServer{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "cluster",
+		},
+		Spec: configv1.APIServerSpec{
+			AdditionalCORSAllowedOrigins: []string{"https://an-existing-user-specified\\.allowed\\.origin\\.com"},
 		},
 	}
 }
