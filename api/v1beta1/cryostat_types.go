@@ -207,6 +207,7 @@ type PersistentVolumeClaimConfig struct {
 // the Cryostat application and its related components. A Cryostat instance
 // must be created to instruct the operator to deploy the Cryostat application.
 //+operator-sdk:csv:customresourcedefinitions:resources={{Deployment,v1},{Ingress,v1},{PersistentVolumeClaim,v1},{Secret,v1},{Service,v1},{Route,v1},{ConsoleLink,v1}}
+// +kubebuilder:printcolumn:name="Application URL",type=string,JSONPath=`.status.applicationUrl`
 type Cryostat struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
