@@ -38,6 +38,10 @@ GRAFANA_NAMESPACE ?= $(DEFAULT_NAMESPACE)
 GRAFANA_NAME ?= cryostat-grafana-dashboard
 GRAFANA_VERSION ?= 2.0.0
 export GRAFANA_IMG ?= $(GRAFANA_NAMESPACE)/$(GRAFANA_NAME):$(GRAFANA_VERSION)
+REPORTS_NAMESPACE ?= $(DEFAULT_NAMESPACE)
+REPORTS_NAME ?= cryostat-reports
+REPORTS_VERSION ?= 1.0.0-SNAPSHOT
+export REPORTS_IMG ?= $(REPORTS_NAMESPACE)/$(REPORTS_NAME):$(REPORTS_VERSION)
 
 CERT_MANAGER_VERSION ?= 1.5.3
 CERT_MANAGER_MANIFEST ?= \
@@ -78,13 +82,17 @@ test: test-envtest test-scorecard
 .PHONY: test-envtest
 ENVTEST_ASSETS_DIR=$(shell pwd)/testbin
 test-envtest: generate fmt vet manifests
+ifneq ($(SKIP_TESTS), true)
 	mkdir -p $(ENVTEST_ASSETS_DIR)
 	test -f $(ENVTEST_ASSETS_DIR)/setup-envtest.sh || curl -sSLo $(ENVTEST_ASSETS_DIR)/setup-envtest.sh https://raw.githubusercontent.com/kubernetes-sigs/controller-runtime/v0.7.2/hack/setup-envtest.sh
 	source $(ENVTEST_ASSETS_DIR)/setup-envtest.sh; fetch_envtest_tools $(ENVTEST_ASSETS_DIR); setup_envtest_env $(ENVTEST_ASSETS_DIR); $(GO_TEST) -v -coverprofile cover.out ./...
+endif
 
 .PHONY: test-scorecard
 test-scorecard: destroy_cryostat_cr undeploy uninstall
+ifneq ($(SKIP_TESTS), true)
 	operator-sdk scorecard bundle
+endif
 
 
 

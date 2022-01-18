@@ -98,6 +98,9 @@ const datasourceImageTagEnv = "RELATED_IMAGE_DATASOURCE"
 // Environment variable to override the Grafana dashboard image
 const grafanaImageTagEnv = "RELATED_IMAGE_GRAFANA"
 
+// Environment variable to override the cryostat-reports image
+const reportsImageTagEnv = "RELATED_IMAGE_REPORTS"
+
 // Regular expression for the start of a GID range in the OpenShift
 // supplemental groups SCC annotation
 var supGroupRegexp = regexp.MustCompile(`^\d+`)
@@ -243,11 +246,11 @@ func (r *CryostatReconciler) Reconcile(ctx context.Context, request ctrl.Request
 	serviceSpecs := &resources.ServiceSpecs{}
 	if !instance.Spec.Minimal {
 		grafanaSvc := resources.NewGrafanaService(instance)
-		url, err := r.createService(context.Background(), instance, grafanaSvc, &grafanaSvc.Spec.Ports[0], routeTLS)
+		svcUrl, err := r.createService(context.Background(), instance, grafanaSvc, &grafanaSvc.Spec.Ports[0], routeTLS)
 		if err != nil {
 			return requeueIfIngressNotReady(reqLogger, err)
 		}
-		serviceSpecs.GrafanaURL = url
+		serviceSpecs.GrafanaURL = svcUrl
 
 		// check for existing minimal deployment and delete if found
 		deployment := &appsv1.Deployment{}
@@ -315,24 +318,30 @@ func (r *CryostatReconciler) Reconcile(ctx context.Context, request ctrl.Request
 	}
 
 	coreSvc := resources.NewCoreService(instance)
-	url, err := r.createService(context.Background(), instance, coreSvc, &coreSvc.Spec.Ports[0], routeTLS)
+	svcUrl, err := r.createService(context.Background(), instance, coreSvc, &coreSvc.Spec.Ports[0], routeTLS)
 	if err != nil {
 		return requeueIfIngressNotReady(reqLogger, err)
 	}
-	serviceSpecs.CoreURL = url
+	serviceSpecs.CoreURL = svcUrl
 
 	cmdChanSvc := resources.NewCommandChannelService(instance)
-	url, err = r.createService(context.Background(), instance, cmdChanSvc, &cmdChanSvc.Spec.Ports[0], routeTLS)
+	svcUrl, err = r.createService(context.Background(), instance, cmdChanSvc, &cmdChanSvc.Spec.Ports[0], routeTLS)
 	if err != nil {
 		return requeueIfIngressNotReady(reqLogger, err)
 	}
-	serviceSpecs.CommandURL = url
+	serviceSpecs.CommandURL = svcUrl
 
 	imageTags := r.getImageTags()
 	fsGroup, err := r.getFSGroup(ctx, instance.Namespace)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
+
+	reportsResult, err := r.reconcileReports(ctx, reqLogger, instance, routeTLS, imageTags, serviceSpecs)
+	if err != nil {
+		return reportsResult, err
+	}
+
 	deployment := resources.NewDeploymentForCR(instance, serviceSpecs, imageTags, tlsConfig, *fsGroup, r.IsOpenShift)
 	podTemplate := deployment.Spec.Template.DeepCopy()
 	if err := controllerutil.SetControllerReference(instance, deployment, r.Scheme); err != nil {
@@ -395,6 +404,59 @@ func (r *CryostatReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	}
 
 	return c.Complete(r)
+}
+
+func (r *CryostatReconciler) reconcileReports(ctx context.Context, reqLogger logr.Logger, instance *operatorv1beta1.Cryostat,
+	routeTLS *openshiftv1.TLSConfig, imageTags *resources.ImageTags, serviceSpecs *resources.ServiceSpecs) (reconcile.Result, error) {
+	reqLogger.Info("Spec", "Reports", instance.Spec.ReportOptions)
+
+	if instance.Spec.ReportOptions == nil {
+		instance.Spec.ReportOptions = &operatorv1beta1.ReportConfiguration{Replicas: 0}
+	}
+	desired := instance.Spec.ReportOptions.Replicas
+
+	if desired == 0 {
+		svc := resources.NewReportService(instance)
+		if err := r.Client.Delete(ctx, svc); err != nil && !errors.IsNotFound(err) {
+			return reconcile.Result{}, err
+		}
+		deployment := resources.NewDeploymentForReports(instance, imageTags)
+		if err := r.Client.Delete(ctx, deployment); err != nil && !errors.IsNotFound(err) {
+			return reconcile.Result{}, err
+		}
+		return reconcile.Result{}, nil
+	}
+
+	if desired > 0 {
+		svc := resources.NewReportService(instance)
+		if err := controllerutil.SetControllerReference(instance, svc, r.Scheme); err != nil {
+			return reconcile.Result{}, err
+		}
+		if err := r.createObjectIfNotExists(ctx, types.NamespacedName{Name: svc.Name, Namespace: svc.Namespace}, &corev1.Service{}, svc); err != nil {
+			return reconcile.Result{}, err
+		}
+
+		deployment := resources.NewDeploymentForReports(instance, imageTags)
+		if err := controllerutil.SetControllerReference(instance, deployment, r.Scheme); err != nil {
+			return reconcile.Result{}, err
+		}
+
+		podTemplate := deployment.Spec.Template.DeepCopy()
+		op, err := controllerutil.CreateOrUpdate(ctx, r.Client, deployment, func() error {
+			deployment.Spec.Template.Spec = podTemplate.Spec
+			deployment.Spec.Replicas = &desired
+			return nil
+		})
+		if err != nil {
+			return reconcile.Result{}, err
+		}
+		serviceSpecs.ReportsURL = &url.URL{
+			Scheme: "http",
+			Host:   deployment.ObjectMeta.Name + ":" + strconv.Itoa(int(svc.Spec.Ports[0].Port)),
+		}
+		reqLogger.Info(fmt.Sprintf("Reports Deployment %s", op))
+	}
+	return reconcile.Result{}, nil
 }
 
 func (r *CryostatReconciler) createService(ctx context.Context, controller *operatorv1beta1.Cryostat, svc *corev1.Service, exposePort *corev1.ServicePort,
@@ -609,6 +671,7 @@ func (r *CryostatReconciler) getImageTags() *resources.ImageTags {
 		CoreImageTag:       r.getEnvOrDefault(coreImageTagEnv, resources.DefaultCoreImageTag),
 		DatasourceImageTag: r.getEnvOrDefault(datasourceImageTagEnv, resources.DefaultDatasourceImageTag),
 		GrafanaImageTag:    r.getEnvOrDefault(grafanaImageTagEnv, resources.DefaultGrafanaImageTag),
+		ReportsImageTag:    r.getEnvOrDefault(reportsImageTagEnv, resources.DefaultReportsImageTag),
 	}
 }
 

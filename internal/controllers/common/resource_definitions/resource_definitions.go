@@ -43,6 +43,7 @@ import (
 	"math/rand"
 	"net/url"
 	"regexp"
+	"strconv"
 	"time"
 
 	operatorv1beta1 "github.com/cryostatio/cryostat-operator/api/v1beta1"
@@ -65,12 +66,14 @@ type ImageTags struct {
 	CoreImageTag       string
 	DatasourceImageTag string
 	GrafanaImageTag    string
+	ReportsImageTag    string
 }
 
 type ServiceSpecs struct {
 	CoreURL    *url.URL
 	CommandURL *url.URL
 	GrafanaURL *url.URL
+	ReportsURL *url.URL
 }
 
 // TLSConfig contains TLS-related information useful when creating other objects
@@ -133,6 +136,7 @@ func NewDeploymentForCR(cr *operatorv1beta1.Cryostat, specs *ServiceSpecs, image
 			Labels: map[string]string{
 				"app":                    cr.Name,
 				"kind":                   "cryostat",
+				"component":              "cryostat",
 				"app.kubernetes.io/name": "cryostat",
 			},
 			Annotations: map[string]string{
@@ -142,8 +146,9 @@ func NewDeploymentForCR(cr *operatorv1beta1.Cryostat, specs *ServiceSpecs, image
 		Spec: appsv1.DeploymentSpec{
 			Selector: &metav1.LabelSelector{
 				MatchLabels: map[string]string{
-					"app":  cr.Name,
-					"kind": "cryostat",
+					"app":       cr.Name,
+					"kind":      "cryostat",
+					"component": "cryostat",
 				},
 			},
 			Template: corev1.PodTemplateSpec{
@@ -151,12 +156,57 @@ func NewDeploymentForCR(cr *operatorv1beta1.Cryostat, specs *ServiceSpecs, image
 					Name:      cr.Name,
 					Namespace: cr.Namespace,
 					Labels: map[string]string{
-						"app":  cr.Name,
-						"kind": "cryostat",
+						"app":       cr.Name,
+						"kind":      "cryostat",
+						"component": "cryostat",
 					},
 				},
 				Spec: *NewPodForCR(cr, specs, imageTags, tls, fsGroup, openshift),
 			},
+		},
+	}
+}
+
+func NewDeploymentForReports(cr *operatorv1beta1.Cryostat, imageTags *ImageTags) *appsv1.Deployment {
+	if cr.Spec.ReportOptions == nil {
+		cr.Spec.ReportOptions = &operatorv1beta1.ReportConfiguration{Replicas: 0}
+	}
+	replicas := cr.Spec.ReportOptions.Replicas
+	return &appsv1.Deployment{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      cr.Name + "-reports",
+			Namespace: cr.Namespace,
+			Labels: map[string]string{
+				"app":                    cr.Name,
+				"kind":                   "cryostat",
+				"component":              "reports",
+				"app.kubernetes.io/name": "cryostat-reports",
+			},
+			Annotations: map[string]string{
+				"app.openshift.io/connects-to": cr.Name,
+			},
+		},
+		Spec: appsv1.DeploymentSpec{
+			Selector: &metav1.LabelSelector{
+				MatchLabels: map[string]string{
+					"app":       cr.Name,
+					"kind":      "cryostat",
+					"component": "reports",
+				},
+			},
+			Template: corev1.PodTemplateSpec{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      cr.Name + "-reports",
+					Namespace: cr.Namespace,
+					Labels: map[string]string{
+						"app":       cr.Name,
+						"kind":      "cryostat",
+						"component": "reports",
+					},
+				},
+				Spec: *NewPodForReports(cr, imageTags),
+			},
+			Replicas: &replicas,
 		},
 	}
 }
@@ -303,6 +353,70 @@ func NewPodForCR(cr *operatorv1beta1.Cryostat, specs *ServiceSpecs, imageTags *I
 	}
 }
 
+const reportsPort = 10000
+
+func NewPodForReports(cr *operatorv1beta1.Cryostat, imageTags *ImageTags) *corev1.PodSpec {
+	resources := corev1.ResourceRequirements{}
+	if cr.Spec.ReportOptions != nil {
+		resources = cr.Spec.ReportOptions.ResourceRequirements
+	}
+	cpus := int64(1)
+	if requests := resources.Requests; requests != nil {
+		if cpu := requests.Cpu(); cpu != nil {
+			cpus = cpu.Value()
+		}
+	}
+	if limits := resources.Limits; limits != nil {
+		if cpu := limits.Cpu(); cpu != nil {
+			cpus = cpu.Value()
+		}
+	}
+	javaOpts := fmt.Sprintf("-XX:+PrintCommandLineFlags -XX:ActiveProcessorCount=%d -Dorg.openjdk.jmc.flightrecorder.parser.singlethreaded=%t", cpus, cpus < 2)
+
+	probeHandler := corev1.Handler{
+		HTTPGet: &corev1.HTTPGetAction{
+			Port: intstr.IntOrString{IntVal: reportsPort},
+			Path: "/health",
+		},
+	}
+	return &corev1.PodSpec{
+		ServiceAccountName: cr.Name,
+		Containers: []corev1.Container{
+			{
+				Name:            cr.Name + "-reports",
+				Image:           imageTags.ReportsImageTag,
+				ImagePullPolicy: getPullPolicy(imageTags.ReportsImageTag),
+				Ports: []corev1.ContainerPort{
+					{
+						ContainerPort: int32(reportsPort),
+					},
+				},
+				Env: []corev1.EnvVar{
+					{
+						Name:  "QUARKUS_HTTP_HOST",
+						Value: "0.0.0.0",
+					},
+					{
+						Name:  "QUARKUS_HTTP_PORT",
+						Value: strconv.Itoa(reportsPort),
+					},
+					{
+						Name:  "JAVA_OPTIONS",
+						Value: javaOpts,
+					},
+				},
+				Resources: resources,
+				LivenessProbe: &corev1.Probe{
+					Handler: probeHandler,
+				},
+				StartupProbe: &corev1.Probe{
+					Handler: probeHandler,
+				},
+			},
+		},
+	}
+}
+
 func NewCoreContainer(cr *operatorv1beta1.Cryostat, specs *ServiceSpecs, imageTag string,
 	tls *TLSConfig, openshift bool) corev1.Container {
 	configPath := "/opt/cryostat.d/conf.d"
@@ -369,6 +483,15 @@ func NewCoreContainer(cr *operatorv1beta1.Cryostat, specs *ServiceSpecs, imageTa
 			},
 		}
 		envs = append(envs, commandEnvs...)
+	}
+	if specs.ReportsURL != nil {
+		reportsEnvs := []corev1.EnvVar{
+			{
+				Name:  "CRYOSTAT_REPORT_GENERATOR",
+				Value: specs.ReportsURL.String(),
+			},
+		}
+		envs = append(envs, reportsEnvs...)
 	}
 	if openshift {
 		// Force OpenShift platform strategy
@@ -705,7 +828,8 @@ func NewCoreService(cr *operatorv1beta1.Cryostat) *corev1.Service {
 		Spec: corev1.ServiceSpec{
 			Type: *config.ServiceType,
 			Selector: map[string]string{
-				"app": cr.Name,
+				"app":       cr.Name,
+				"component": "cryostat",
 			},
 			Ports: []corev1.ServicePort{
 				{
@@ -736,7 +860,8 @@ func NewCommandChannelService(cr *operatorv1beta1.Cryostat) *corev1.Service {
 		Spec: corev1.ServiceSpec{
 			Type: corev1.ServiceTypeLoadBalancer,
 			Selector: map[string]string{
-				"app": cr.Name,
+				"app":       cr.Name,
+				"component": "command-channel",
 			},
 			Ports: []corev1.ServicePort{
 				{
@@ -761,13 +886,56 @@ func NewGrafanaService(cr *operatorv1beta1.Cryostat) *corev1.Service {
 		Spec: corev1.ServiceSpec{
 			Type: *config.ServiceType,
 			Selector: map[string]string{
-				"app": cr.Name,
+				"app":       cr.Name,
+				"component": "cryostat",
 			},
 			Ports: []corev1.ServicePort{
 				{
 					Name:       "http",
 					Port:       *config.HTTPPort,
 					TargetPort: intstr.IntOrString{IntVal: 3000},
+				},
+			},
+		},
+	}
+}
+
+func NewReportService(cr *operatorv1beta1.Cryostat) *corev1.Service {
+	// Check CR for config
+	var config *operatorv1beta1.ReportsServiceConfig
+	if cr.Spec.ServiceOptions == nil || cr.Spec.ServiceOptions.ReportsConfig == nil {
+		config = &operatorv1beta1.ReportsServiceConfig{}
+	} else {
+		config = cr.Spec.ServiceOptions.ReportsConfig
+	}
+
+	// Apply common service defaults
+	configureService(&config.ServiceConfig, cr.Name, "reports")
+
+	// Apply default HTTP port if not provided
+	if config.HTTPPort == nil {
+		httpPort := int32(reportsPort)
+		config.HTTPPort = &httpPort
+	}
+
+	return &corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:        cr.Name + "-reports",
+			Namespace:   cr.Namespace,
+			Labels:      config.Labels,
+			Annotations: config.Annotations,
+		},
+		Spec: corev1.ServiceSpec{
+			Type: *config.ServiceType,
+			Selector: map[string]string{
+				"app":       cr.Name,
+				"component": "reports",
+			},
+			Ports: []corev1.ServicePort{
+				{
+					Name:       "http",
+					Port:       *config.HTTPPort,
+					TargetPort: intstr.IntOrString{IntVal: reportsPort},
 				},
 			},
 		},
@@ -784,7 +952,7 @@ func getGrafanaServiceConfig(cr *operatorv1beta1.Cryostat) *operatorv1beta1.Graf
 	}
 
 	// Apply common service defaults
-	configureService(&config.ServiceConfig, cr.Name, "grafana")
+	configureService(&config.ServiceConfig, cr.Name, "cryostat")
 
 	// Apply default HTTP port if not provided
 	if config.HTTPPort == nil {

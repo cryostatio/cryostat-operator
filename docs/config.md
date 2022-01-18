@@ -75,7 +75,7 @@ spec:
 ```
 
 ### Service Options
-The Cryostat operator creates two services, one for the core Cryostat application and one for Grafana. These services are created by default as Cluster IP services. The core service exposes two ports: `8181` for HTTP and `9091` for JMX. The Grafana service exposes port `3000` for HTTP traffic. The service type, port numbers, labels and annotations can all be customized using the `spec.serviceOptions` property.
+The Cryostat operator creates three services: one for the core Cryostat application, one for Grafana, and one for the cryostat-reports sidecars. These services are created by default as Cluster IP services. The core service exposes two ports: `8181` for HTTP and `9091` for JMX. The Grafana service exposes port `3000` for HTTP traffic. The Reports service exposts port `10000` for HTTP traffic. The service type, port numbers, labels and annotations can all be customized using the `spec.serviceOptions` property.
 ```yaml
 apiVersion: operator.cryostat.io/v1beta1
 kind: Cryostat
@@ -98,7 +98,28 @@ spec:
         my-custom-annotation: some-value
       serviceType: NodePort
       httpPort: 8080
+    reportsConfig:
+      labels:
+        my-custom-label: some-value
+      annotations:
+        my-custom-annotation: some-value
+      serviceType: NodePort
+      httpPort: 13161
+```
 
+### Reports Options
+The Cryostat operator can optionally configure Cryostat to use `cryostat-reports` as a sidecar microservice for generating Automated Rules Analysis Reports. If this is not configured then the main Cryostast container will perform this task itself, however, this is a relatively heavyweight and resource-intensive task. It is recommended to configure `cryostat-reports` sidecars if the Automated Analysis feature will be used or relied upon. The number of sidecar containers to deploy and the amount of CPU and memory resources to allocate for each container can be customized using the `spec.reportOptions` property.
+```yaml
+apiVersion: operator.cryostat.io/v1beta1
+kind: Cryostat
+metadata:
+  name: cryostat-sample
+spec:
+  reportOptions:
+    replicas: 1
+    requests:
+      cpu: 1000m
+      memory: 512Mi
 ```
 
 ### Network Options
