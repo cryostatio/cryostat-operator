@@ -887,7 +887,7 @@ func NewGrafanaService(cr *operatorv1beta1.Cryostat) *corev1.Service {
 			Type: *config.ServiceType,
 			Selector: map[string]string{
 				"app":       cr.Name,
-				"component": "grafana",
+				"component": "cryostat",
 			},
 			Ports: []corev1.ServicePort{
 				{
@@ -952,7 +952,7 @@ func getGrafanaServiceConfig(cr *operatorv1beta1.Cryostat) *operatorv1beta1.Graf
 	}
 
 	// Apply common service defaults
-	configureService(&config.ServiceConfig, cr.Name, "grafana")
+	configureService(&config.ServiceConfig, cr.Name, "cryostat")
 
 	// Apply default HTTP port if not provided
 	if config.HTTPPort == nil {

@@ -657,14 +657,14 @@ func NewGrafanaService() *corev1.Service {
 			},
 			Labels: map[string]string{
 				"app":       "cryostat",
-				"component": "grafana",
+				"component": "cryostat",
 			},
 		},
 		Spec: corev1.ServiceSpec{
 			Type: corev1.ServiceTypeClusterIP,
 			Selector: map[string]string{
 				"app":       "cryostat",
-				"component": "grafana",
+				"component": "cryostat",
 			},
 			Ports: []corev1.ServicePort{
 				{
@@ -739,7 +739,7 @@ func NewCustomizedGrafanaService() *corev1.Service {
 	}
 	svc.Labels = map[string]string{
 		"app":       "cryostat",
-		"component": "grafana",
+		"component": "cryostat",
 		"my":        "label",
 	}
 	return svc
