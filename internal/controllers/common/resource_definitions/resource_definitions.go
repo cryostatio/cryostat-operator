@@ -475,6 +475,43 @@ func NewCoreContainer(cr *operatorv1beta1.Cryostat, specs *ServiceSpecs, imageTa
 		}
 		envs = append(envs, reportsEnvs...)
 	}
+
+	maxWsConnections := "2"
+	if cr.Spec.MaxWsConnections >= 1 && cr.Spec.MaxWsConnections <= 64 {
+		maxWsConnections = strconv.Itoa(int(cr.Spec.MaxWsConnections))
+	}
+	maxWsConnectionsEnv := []corev1.EnvVar{
+		{
+			Name:  "CRYOSTAT_MAX_WS_CONNECTIONS",
+			Value: maxWsConnections,
+		},
+	}
+	envs = append(envs, maxWsConnectionsEnv...)
+
+	targetCacheSize := "-1"
+	targetCacheTTL := "10"
+	if cr.Spec.JmxCacheOptions != nil {
+
+		if cr.Spec.JmxCacheOptions.TargetCacheSize > 0 || cr.Spec.JmxCacheOptions.TargetCacheSize == -1 {
+			targetCacheSize = strconv.Itoa(int(cr.Spec.JmxCacheOptions.TargetCacheSize))
+		}
+
+		if cr.Spec.JmxCacheOptions.TargetCacheTTL > 0 {
+			targetCacheTTL = strconv.Itoa(int(cr.Spec.JmxCacheOptions.TargetCacheTTL))
+		}
+	}
+	jmxCacheEnvs := []corev1.EnvVar{
+		{
+			Name:  "CRYOSTAT_TARGET_CACHE_SIZE",
+			Value: targetCacheSize,
+		},
+		{
+			Name:  "CRYOSTAT_TARGET_CACHE_TTL",
+			Value: targetCacheTTL,
+		},
+	}
+	envs = append(envs, jmxCacheEnvs...)
+
 	if openshift {
 		// Force OpenShift platform strategy
 		openshiftEnvs := []corev1.EnvVar{

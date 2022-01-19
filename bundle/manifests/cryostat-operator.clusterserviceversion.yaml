@@ -130,6 +130,12 @@ spec:
         path: eventTemplates[0].configMapName
         x-descriptors:
         - urn:alm:descriptor:io.kubernetes:ConfigMap
+      - description: Options to customize the JMX target connections cache for the Cryostat application
+        displayName: JMX Connections Cache Options
+        path: jmxCacheOptions
+      - description: The maximum number of WebSocket client connections allowed (minimum 1, maximum 64, default 2)
+        displayName: Max WebSocket Connections
+        path: maxWsConnections
       - description: Deploy a pared-down Cryostat instance with no Grafana dashboard or jfr-datasource and no web-client UI.
         displayName: Minimal Deployment
         path: minimal

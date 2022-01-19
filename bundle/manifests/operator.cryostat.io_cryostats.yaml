@@ -53,6 +53,22 @@ spec:
                   - filename
                   type: object
                 type: array
+              jmxCacheOptions:
+                description: Options to customize the JMX target connections cache for the Cryostat application
+                properties:
+                  targetCacheSize:
+                    description: The maximum number of JMX connections to cache. Use `-1` for an unlimited cache size (TTL expiration only). Defaults to `-1`.
+                    format: int32
+                    type: integer
+                  targetCacheTTL:
+                    description: The time to live (in seconds) for cached JMX connections. Defaults to `10`.
+                    format: int32
+                    type: integer
+                type: object
+              maxWsConnections:
+                description: The maximum number of WebSocket client connections allowed (minimum 1, maximum 64, default 2)
+                format: int32
+                type: integer
               minimal:
                 description: Deploy a pared-down Cryostat instance with no Grafana dashboard or jfr-datasource and no web-client UI.
                 type: boolean
