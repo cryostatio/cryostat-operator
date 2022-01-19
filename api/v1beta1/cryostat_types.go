@@ -89,8 +89,12 @@ type CryostatStatus struct {
 }
 
 const (
-	// Whether all expected components are available
-	ConditionTypeAvailable = "Available"
+	// Whether the main Cryostat deployment is available
+	ConditionTypeMainDeploymentAvailable = "MainDeploymentAvailable"
+	// If enabled, whether the reports deployment is available
+	ConditionTypeReportsDeploymentAvailable = "ReportsDeploymentAvailable"
+	// If enabled, whether TLS setup is complete for the Cryostat components
+	ConditionTypeTLSSetupComplete = "TLSSetupComplete"
 )
 
 // StorageConfiguration provides customization to the storage created by
