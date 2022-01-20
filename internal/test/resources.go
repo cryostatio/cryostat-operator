@@ -934,10 +934,6 @@ func NewDatasourcePorts() []corev1.ContainerPort {
 func NewCoreEnvironmentVariables(minimal bool, tls bool, externalTLS bool, openshift bool, reportsUrl string) []corev1.EnvVar {
 	envs := []corev1.EnvVar{
 		{
-			Name:  "CRYOSTAT_ALLOW_UNTRUSTED_SSL",
-			Value: "true",
-		},
-		{
 			Name:  "CRYOSTAT_WEB_PORT",
 			Value: "8181",
 		},

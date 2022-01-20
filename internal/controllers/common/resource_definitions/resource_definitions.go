@@ -425,10 +425,6 @@ func NewCoreContainer(cr *operatorv1beta1.Cryostat, specs *ServiceSpecs, imageTa
 	probesPath := "/opt/cryostat.d/probes.d"
 	envs := []corev1.EnvVar{
 		{
-			Name:  "CRYOSTAT_ALLOW_UNTRUSTED_SSL",
-			Value: "true",
-		},
-		{
 			Name:  "CRYOSTAT_WEB_PORT",
 			Value: "8181",
 		},
