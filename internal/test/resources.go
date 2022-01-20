@@ -965,6 +965,18 @@ func NewCoreEnvironmentVariables(minimal bool, tls bool, externalTLS bool, opens
 			Name:  "CRYOSTAT_PROBE_TEMPLATE_PATH",
 			Value: "/opt/cryostat.d/probes.d",
 		},
+		{
+			Name:  "CRYOSTAT_MAX_WS_CONNECTIONS",
+			Value: "2",
+		},
+		{
+			Name:  "CRYOSTAT_TARGET_CACHE_SIZE",
+			Value: "-1",
+		},
+		{
+			Name:  "CRYOSTAT_TARGET_CACHE_TTL",
+			Value: "10",
+		},
 	}
 
 	if externalTLS {
@@ -1044,6 +1056,12 @@ func NewCoreEnvironmentVariables(minimal bool, tls bool, externalTLS bool, opens
 			corev1.EnvVar{
 				Name:  "CRYOSTAT_REPORT_GENERATOR",
 				Value: reportsUrl,
+			})
+	} else {
+		envs = append(envs,
+			corev1.EnvVar{
+				Name:  "CRYOSTAT_REPORT_GENERATION_MAX_HEAP",
+				Value: "200",
 			})
 	}
 	return envs
