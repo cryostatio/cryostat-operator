@@ -1056,6 +1056,13 @@ spec:
                       it defaults to Limits if that is explicitly specified, otherwise
                       to an implementation-defined value. More info: https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/'
                     type: object
+                  subProcessMaxHeapSize:
+                    description: When zero report sidecar replicas are requested,
+                      SubProcessMaxHeapSize configures the maximum heap size of the
+                      basic subprocess report generator in MiB. The default heap size
+                      is `200` (MiB).
+                    format: int32
+                    type: integer
                 type: object
               serviceOptions:
                 description: Options to customize the services created for the Cryostat

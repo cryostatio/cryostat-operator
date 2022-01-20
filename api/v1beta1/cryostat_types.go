@@ -117,6 +117,11 @@ type ReportConfiguration struct {
 	// A replica with more resources can handle larger input recordings and will process them faster.
 	// +operator-sdk:csv:customresourcedefinitions:type=status,xDescriptors={"urn:alm:descriptor:com.tectonic.ui:resourceRequirements"}
 	corev1.ResourceRequirements `json:",inline"`
+	// When zero report sidecar replicas are requested, SubProcessMaxHeapSize configures
+	// the maximum heap size of the basic subprocess report generator in MiB.
+	// The default heap size is `200` (MiB).
+	// +optional
+	SubProcessMaxHeapSize int32 `json:"subProcessMaxHeapSize,omitempty"`
 }
 
 // ServiceConfig provides customization for a service created

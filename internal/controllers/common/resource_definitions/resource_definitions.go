@@ -474,6 +474,18 @@ func NewCoreContainer(cr *operatorv1beta1.Cryostat, specs *ServiceSpecs, imageTa
 			},
 		}
 		envs = append(envs, reportsEnvs...)
+	} else {
+		subProcessMaxHeapSize := "200"
+		if cr.Spec.ReportOptions.SubProcessMaxHeapSize > 0 {
+			subProcessMaxHeapSize = strconv.Itoa(int(cr.Spec.ReportOptions.SubProcessMaxHeapSize))
+		}
+		subprocessReportHeapEnv := []corev1.EnvVar{
+			{
+				Name:  "CRYOSTAT_REPORT_GENERATION_MAX_HEAP",
+				Value: subProcessMaxHeapSize,
+			},
+		}
+		envs = append(envs, subprocessReportHeapEnv...)
 	}
 
 	maxWsConnections := "2"
