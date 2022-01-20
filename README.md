@@ -121,8 +121,9 @@ install/remove cert-manager from your cluster.
 
 Users can use `oc whoami --show-token | base64` to retrieve their encoded OpenShift OAuth token
 for the currently logged in user account. This encoded token can be used when directly
-interacting with the deployed Cryostat instance(s), for example on the
-web-client login page.
+interacting with the deployed Cryostat instance(s).
+
+When using the web-client, users can login with their username and password associated with their OpenShift account. User credentials will be remembered for the duration of the session.
 
 If the current user account does not have sufficient permissions to list
 routes, list endpoints, or perform other actions that Cryostat requires,
