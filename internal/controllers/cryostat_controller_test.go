@@ -171,6 +171,17 @@ var _ = Describe("CryostatController", func() {
 			It("should create deployment and set owner", func() {
 				t.expectDeployment()
 			})
+			It("should set MainDeploymentAvailable condition", func() {
+				t.reconcileCryostatFully()
+				t.makeDeploymentAvailable("cryostat")
+				t.checkCondition(operatorv1beta1.ConditionTypeMainDeploymentAvailable, metav1.ConditionTrue,
+					"Test")
+			})
+			It("should set TLSSetupComplete condition", func() {
+				t.reconcileCryostatFully()
+				t.checkCondition(operatorv1beta1.ConditionTypeTLSSetupComplete, metav1.ConditionTrue,
+					"AllCertificatesReady")
+			})
 		})
 		Context("succesfully creates required resources for minimal deployment", func() {
 			BeforeEach(func() {
@@ -244,7 +255,7 @@ var _ = Describe("CryostatController", func() {
 
 				t.minimal = false
 				cryostat.Spec.Minimal = false
-				err = t.Client.Status().Update(context.Background(), cryostat)
+				err = t.Client.Update(context.Background(), cryostat)
 				Expect(err).ToNot(HaveOccurred())
 
 				req := reconcile.Request{NamespacedName: types.NamespacedName{Name: "cryostat", Namespace: "default"}}
@@ -325,6 +336,11 @@ var _ = Describe("CryostatController", func() {
 				t.checkMainDeployment()
 				t.checkReportsDeployment()
 				t.checkService("cryostat-reports", test.NewReportsService())
+			})
+			It("should set ReportsDeploymentCondition", func() {
+				t.makeDeploymentAvailable("cryostat-reports")
+				t.checkCondition(operatorv1beta1.ConditionTypeReportsDeploymentAvailable, metav1.ConditionTrue,
+					"Test")
 			})
 		})
 		Context("Switching from 1 report sidecar to 2", func() {
@@ -421,6 +437,10 @@ var _ = Describe("CryostatController", func() {
 				t.checkMainDeployment()
 				t.expectNoService("cryostat-reports")
 				t.expectNoReportsDeployment()
+			})
+			It("should set ReportsDeploymentCondition", func() {
+				t.checkCondition(operatorv1beta1.ConditionTypeReportsDeploymentAvailable, metav1.ConditionTrue,
+					"ReportsDeploymentDisabled")
 			})
 		})
 		Context("Cryostat CR has list of certificate secrets", func() {
@@ -781,6 +801,11 @@ var _ = Describe("CryostatController", func() {
 			It("should create routes with re-encrypt TLS termination", func() {
 				t.expectRoutes()
 			})
+			It("should set TLSSetupComplete condition", func() {
+				t.reconcileCryostatFully()
+				t.checkCondition(operatorv1beta1.ConditionTypeTLSSetupComplete, metav1.ConditionTrue,
+					"AllCertificatesReady")
+			})
 		})
 		Context("with DISABLE_SERVICE_TLS=true", func() {
 			BeforeEach(func() {
@@ -801,6 +826,11 @@ var _ = Describe("CryostatController", func() {
 			})
 			It("should create routes with edge TLS termination", func() {
 				t.expectRoutes()
+			})
+			It("should set TLSSetupComplete Condition", func() {
+				t.reconcileCryostatFully()
+				t.checkCondition(operatorv1beta1.ConditionTypeTLSSetupComplete, metav1.ConditionTrue,
+					"CertManagerDisabled")
 			})
 		})
 		Context("Disable cert-manager after being enabled", func() {
@@ -829,6 +859,10 @@ var _ = Describe("CryostatController", func() {
 			})
 			It("should create routes with edge TLS termination", func() {
 				t.checkRoutes()
+			})
+			It("should set TLSSetupComplete Condition", func() {
+				t.checkCondition(operatorv1beta1.ConditionTypeTLSSetupComplete, metav1.ConditionTrue,
+					"CertManagerDisabled")
 			})
 		})
 		Context("Enable cert-manager after being disabled", func() {
@@ -868,6 +902,10 @@ var _ = Describe("CryostatController", func() {
 			It("should create routes with re-encrypt TLS termination", func() {
 				t.checkRoutes()
 			})
+			It("should set TLSSetupComplete condition", func() {
+				t.checkCondition(operatorv1beta1.ConditionTypeTLSSetupComplete, metav1.ConditionTrue,
+					"AllCertificatesReady")
+			})
 		})
 		Context("cert-manager missing", func() {
 			JustBeforeEach(func() {
@@ -878,15 +916,20 @@ var _ = Describe("CryostatController", func() {
 				BeforeEach(func() {
 					t.objs = append(t.objs, test.NewCryostat())
 				})
-				It("should emit a CertManagerUnavailable Event", func() {
+				JustBeforeEach(func() {
 					req := reconcile.Request{NamespacedName: types.NamespacedName{Name: "cryostat", Namespace: "default"}}
 					_, err := t.controller.Reconcile(context.Background(), req)
 					Expect(err).To(HaveOccurred())
-
+				})
+				It("should emit a CertManagerUnavailable Event", func() {
 					recorder := t.controller.EventRecorder.(*record.FakeRecorder)
 					var eventMsg string
 					Expect(recorder.Events).To(Receive(&eventMsg))
 					Expect(eventMsg).To(ContainSubstring("CertManagerUnavailable"))
+				})
+				It("should set TLSSetupComplete Condition", func() {
+					t.checkCondition(operatorv1beta1.ConditionTypeTLSSetupComplete, metav1.ConditionFalse,
+						"CertManagerUnavailable")
 				})
 			})
 			Context("and disabled", func() {
@@ -894,13 +937,18 @@ var _ = Describe("CryostatController", func() {
 					t.objs = append(t.objs, test.NewCryostatCertManagerDisabled())
 					t.TLS = false
 				})
-				It("should not emit a CertManagerUnavailable Event", func() {
+				JustBeforeEach(func() {
 					req := reconcile.Request{NamespacedName: types.NamespacedName{Name: "cryostat", Namespace: "default"}}
 					_, err := t.controller.Reconcile(context.Background(), req)
 					Expect(err).ToNot(HaveOccurred())
-
+				})
+				It("should not emit a CertManagerUnavailable Event", func() {
 					recorder := t.controller.EventRecorder.(*record.FakeRecorder)
 					Expect(recorder.Events).ToNot(Receive())
+				})
+				It("should set TLSSetupComplete Condition", func() {
+					t.checkCondition(operatorv1beta1.ConditionTypeTLSSetupComplete, metav1.ConditionTrue,
+						"CertManagerDisabled")
 				})
 			})
 		})
@@ -1127,6 +1175,17 @@ func (t *cryostatTestInput) checkRoute(name string) *openshiftv1.Route {
 	return route
 }
 
+func (t *cryostatTestInput) checkCondition(condType string, status metav1.ConditionStatus, reason string) {
+	cr := &operatorv1beta1.Cryostat{}
+	err := t.Client.Get(context.Background(), types.NamespacedName{Name: "cryostat", Namespace: "default"}, cr)
+	Expect(err).ToNot(HaveOccurred())
+
+	condition := meta.FindStatusCondition(cr.Status.Conditions, condType)
+	Expect(condition).ToNot(BeNil())
+	Expect(condition.Status).To(Equal(status))
+	Expect(condition.Reason).To(Equal(reason))
+}
+
 func (t *cryostatTestInput) reconcileCryostatFully() {
 	req := reconcile.Request{NamespacedName: types.NamespacedName{Name: "cryostat", Namespace: "default"}}
 	result, err := t.controller.Reconcile(context.Background(), req)
@@ -1186,6 +1245,10 @@ func (t *cryostatTestInput) expectCertificates() {
 	Expect(err).ToNot(HaveOccurred())
 	Expect(result).To(Equal(reconcile.Result{RequeueAfter: 5 * time.Second}))
 	t.checkCertificates()
+
+	// Check TLSSetupComplete condition
+	t.checkCondition(operatorv1beta1.ConditionTypeTLSSetupComplete, metav1.ConditionFalse,
+		"WaitingForCertificate")
 }
 
 func (t *cryostatTestInput) checkCertificates() {
@@ -1454,6 +1517,29 @@ func (t *cryostatTestInput) expectNoReportsDeployment() {
 	deployment := &appsv1.Deployment{}
 	err := t.Client.Get(context.Background(), types.NamespacedName{Name: "cryostat-reports", Namespace: "default"}, deployment)
 	Expect(kerrors.IsNotFound(err)).To(BeTrue())
+}
+
+func (t *cryostatTestInput) makeDeploymentAvailable(name string) {
+	// Update Deployment's "Available" Condition
+	deploy := &appsv1.Deployment{}
+	err := t.Client.Get(context.Background(), types.NamespacedName{Name: name, Namespace: "default"}, deploy)
+	Expect(err).ToNot(HaveOccurred())
+
+	deploy.Status.Conditions = append(deploy.Status.Conditions, appsv1.DeploymentCondition{
+		Type:    appsv1.DeploymentAvailable,
+		Status:  corev1.ConditionTrue,
+		Reason:  "Test",
+		Message: "Test made deployment available.",
+	})
+
+	err = t.Client.Status().Update(context.Background(), deploy)
+	Expect(err).ToNot(HaveOccurred())
+
+	// Reconcile again
+	req := reconcile.Request{NamespacedName: types.NamespacedName{Name: "cryostat", Namespace: "default"}}
+	res, err := t.controller.Reconcile(context.Background(), req)
+	Expect(err).ToNot(HaveOccurred())
+	Expect(res).To(Equal(reconcile.Result{}))
 }
 
 func (t *cryostatTestInput) checkMainDeployment() {
