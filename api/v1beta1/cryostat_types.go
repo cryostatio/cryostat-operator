@@ -74,6 +74,8 @@ type CryostatSpec struct {
 	// +optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	NetworkOptions *NetworkConfigurationList `json:"networkOptions,omitempty"`
+	// Options to configure Cryostat Automated Report Analysis
+	ReportOptions *ReportConfiguration `json:"reportOptions,omitempty"`
 }
 
 // CryostatStatus defines the observed state of Cryostat
@@ -90,6 +92,23 @@ type StorageConfiguration struct {
 	// +optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	PVC *PersistentVolumeClaimConfig `json:"pvc,omitempty"`
+}
+
+// ReportConfiguration is used to determine how many replicas of cryostat-reports
+// the operator should create and what the resource limits of those containers
+// should be. If no replicas are created then Cryostat is configured to use basic
+// subprocess report generation. If at least one replica is created then Cryostat
+// is configured to use remote report generation, pointed at a load balancer service
+// in front of the cryostat-reports replicas.
+type ReportConfiguration struct {
+	// The number of report sidecar replica containers to deploy.
+	// Each replica can service one report generation request at a time.
+	// +operator-sdk:csv:customresourcedefinitions:type=status,xDescriptors={"urn:alm:descriptor:com.tectonic.ui:podCount"}
+	Replicas int32 `json:"replicas,omitempty"`
+	// The resources allocated to each sidecar replica.
+	// A replica with more resources can handle larger input recordings and will process them faster.
+	// +operator-sdk:csv:customresourcedefinitions:type=status,xDescriptors={"urn:alm:descriptor:com.tectonic.ui:resourceRequirements"}
+	corev1.ResourceRequirements `json:",inline"`
 }
 
 // ServiceConfig provides customization for a service created
@@ -132,6 +151,16 @@ type GrafanaServiceConfig struct {
 	ServiceConfig `json:",inline"`
 }
 
+// ReportsServiceConfig provides customization for the service handling
+// traffic for the cryostat-reports sidecars
+type ReportsServiceConfig struct {
+	// HTTP port number for the cryostat-reports service.
+	// Defaults to 10000.
+	// +optional
+	HTTPPort      *int32 `json:"httpPort,omitempty"`
+	ServiceConfig `json:",inline"`
+}
+
 // ServiceConfigList holds the service configuration for each
 // service created by the operator.
 type ServiceConfigList struct {
@@ -141,6 +170,9 @@ type ServiceConfigList struct {
 	// Specification for the service responsible for the Cryostat Grafana dashboard.
 	// +optional
 	GrafanaConfig *GrafanaServiceConfig `json:"grafanaConfig,omitempty"`
+	// Specification for the service responsible for the cryostat-reports sidecars.
+	// +optional
+	ReportsConfig *ReportsServiceConfig `json:"reportsConfig,omitEmpty"`
 }
 
 // NetworkConfiguration provides customization for the corresponding ingress,
@@ -209,6 +241,7 @@ type PersistentVolumeClaimConfig struct {
 // the Cryostat application and its related components. A Cryostat instance
 // must be created to instruct the operator to deploy the Cryostat application.
 //+operator-sdk:csv:customresourcedefinitions:resources={{Deployment,v1},{Ingress,v1},{PersistentVolumeClaim,v1},{Secret,v1},{Service,v1},{Route,v1},{ConsoleLink,v1}}
+// +kubebuilder:printcolumn:name="Application URL",type=string,JSONPath=`.status.applicationUrl`
 type Cryostat struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`

@@ -7,6 +7,25 @@ A Kubernetes Operator to automate deployment of
 [Cryostat](https://github.com/cryostatio/cryostat) and provide an
 API to manage [JDK Flight Recordings](https://openjdk.java.net/jeps/328).
 
+## SEE ALSO
+
+* [cryostat-core](https://github.com/cryostatio/cryostat-core) for
+the core library providing a convenience wrapper and headless stubs for use of
+JFR using JDK Mission Control internals.
+
+* [cryostat](https://github.com/cryostatio/cryostat) for the main API
+backend to detect JVMs and manage JFR
+
+* [cryostat-web](https://github.com/cryostatio/cryostat-web) for the React
+graphical frontend included as a submodule in Cryostat and built into
+Cryostat's (non-minimal mode) OCI images.
+
+* [jfr-datasource](https://github.com/cryostatio/jfr-datasource) for
+the JFR datasource for Grafana
+
+* [cryostat-grafana-dashboard](https://github.com/cryostatio/cryostat-grafana-dashboard)
+for the Grafana dashboard
+
 # Using
 Once deployed, the `cryostat` instance can be accessed via web browser
 at the URL provided by:
@@ -102,8 +121,9 @@ install/remove cert-manager from your cluster.
 
 Users can use `oc whoami --show-token | base64` to retrieve their encoded OpenShift OAuth token
 for the currently logged in user account. This encoded token can be used when directly
-interacting with the deployed Cryostat instance(s), for example on the
-web-client login page.
+interacting with the deployed Cryostat instance(s).
+
+When using the web-client, users can login with their username and password associated with their OpenShift account. User credentials will be remembered for the duration of the session.
 
 If the current user account does not have sufficient permissions to list
 routes, list endpoints, or perform other actions that Cryostat requires,

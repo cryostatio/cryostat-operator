@@ -15,3 +15,5 @@ spec:
           value: "${DATASOURCE_IMG}"
         - name: RELATED_IMAGE_GRAFANA
           value: "${GRAFANA_IMG}"
+        - name: RELATED_IMAGE_REPORTS
+          value: "${REPORTS_IMG}"

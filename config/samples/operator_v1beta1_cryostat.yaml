@@ -12,3 +12,5 @@ spec:
       labels: {}
       annotations: {}
       spec: {}
+  reportOptions:
+    replicas: 0

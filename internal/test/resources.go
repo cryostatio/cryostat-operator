@@ -43,6 +43,7 @@ import (
 	"github.com/cryostatio/cryostat-operator/internal/controllers/common/resource_definitions"
 	certv1 "github.com/jetstack/cert-manager/pkg/apis/certmanager/v1"
 	"github.com/onsi/gomega"
+	configv1 "github.com/openshift/api/config/v1"
 	consolev1 "github.com/openshift/api/console/v1"
 	routev1 "github.com/openshift/api/route/v1"
 	securityv1 "github.com/openshift/api/security/v1"
@@ -215,6 +216,31 @@ func NewCryostatWithGrafanaSvc() *operatorv1beta1.Cryostat {
 	cr := NewCryostat()
 	cr.Spec.ServiceOptions = &operatorv1beta1.ServiceConfigList{
 		GrafanaConfig: &operatorv1beta1.GrafanaServiceConfig{
+			HTTPPort: &httpPort,
+			ServiceConfig: operatorv1beta1.ServiceConfig{
+				ServiceType: &svcType,
+				Annotations: map[string]string{
+					"my/custom": "annotation",
+				},
+				Labels: map[string]string{
+					"my":  "label",
+					"app": "somethingelse",
+				},
+			},
+		},
+	}
+	return cr
+}
+
+func NewCryostatWithReportsSvc() *operatorv1beta1.Cryostat {
+	svcType := corev1.ServiceTypeNodePort
+	httpPort := int32(13161)
+	cr := NewCryostat()
+	cr.Spec.ReportOptions = &operatorv1beta1.ReportConfiguration{
+		Replicas: 1,
+	}
+	cr.Spec.ServiceOptions = &operatorv1beta1.ServiceConfigList{
+		ReportsConfig: &operatorv1beta1.ReportsServiceConfig{
 			HTTPPort: &httpPort,
 			ServiceConfig: operatorv1beta1.ServiceConfig{
 				ServiceType: &svcType,
@@ -595,7 +621,8 @@ func NewCryostatService() *corev1.Service {
 		Spec: corev1.ServiceSpec{
 			Type: corev1.ServiceTypeClusterIP,
 			Selector: map[string]string{
-				"app": "cryostat",
+				"app":       "cryostat",
+				"component": "cryostat",
 			},
 			Ports: []corev1.ServicePort{
 				{
@@ -630,19 +657,57 @@ func NewGrafanaService() *corev1.Service {
 			},
 			Labels: map[string]string{
 				"app":       "cryostat",
-				"component": "grafana",
+				"component": "cryostat",
 			},
 		},
 		Spec: corev1.ServiceSpec{
 			Type: corev1.ServiceTypeClusterIP,
 			Selector: map[string]string{
-				"app": "cryostat",
+				"app":       "cryostat",
+				"component": "cryostat",
 			},
 			Ports: []corev1.ServicePort{
 				{
 					Name:       "http",
 					Port:       3000,
 					TargetPort: intstr.FromInt(3000),
+				},
+			},
+		},
+	}
+}
+
+func NewReportsService() *corev1.Service {
+	c := true
+	return &corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "cryostat-reports",
+			Namespace: "default",
+			OwnerReferences: []metav1.OwnerReference{
+				{
+					APIVersion: operatorv1beta1.GroupVersion.String(),
+					Kind:       "Cryostat",
+					Name:       "cryostat-reports",
+					UID:        "",
+					Controller: &c,
+				},
+			},
+			Labels: map[string]string{
+				"app":       "cryostat",
+				"component": "reports",
+			},
+		},
+		Spec: corev1.ServiceSpec{
+			Type: corev1.ServiceTypeClusterIP,
+			Selector: map[string]string{
+				"app":       "cryostat",
+				"component": "reports",
+			},
+			Ports: []corev1.ServicePort{
+				{
+					Name:       "http",
+					Port:       10000,
+					TargetPort: intstr.FromInt(10000),
 				},
 			},
 		},
@@ -674,7 +739,22 @@ func NewCustomizedGrafanaService() *corev1.Service {
 	}
 	svc.Labels = map[string]string{
 		"app":       "cryostat",
-		"component": "grafana",
+		"component": "cryostat",
+		"my":        "label",
+	}
+	return svc
+}
+
+func NewCustomizedReportsService() *corev1.Service {
+	svc := NewReportsService()
+	svc.Spec.Type = corev1.ServiceTypeNodePort
+	svc.Spec.Ports[0].Port = 13161
+	svc.Annotations = map[string]string{
+		"my/custom": "annotation",
+	}
+	svc.Labels = map[string]string{
+		"app":       "cryostat",
+		"component": "reports",
 		"my":        "label",
 	}
 	return svc
@@ -851,7 +931,7 @@ func NewDatasourcePorts() []corev1.ContainerPort {
 	}
 }
 
-func NewCoreEnvironmentVariables(minimal bool, tls bool, externalTLS bool, openshift bool) []corev1.EnvVar {
+func NewCoreEnvironmentVariables(minimal bool, tls bool, externalTLS bool, openshift bool, reportsUrl string) []corev1.EnvVar {
 	envs := []corev1.EnvVar{
 		{
 			Name:  "CRYOSTAT_ALLOW_UNTRUSTED_SSL",
@@ -880,6 +960,10 @@ func NewCoreEnvironmentVariables(minimal bool, tls bool, externalTLS bool, opens
 		{
 			Name:  "CRYOSTAT_CLIENTLIB_PATH",
 			Value: "/opt/cryostat.d/clientlib.d",
+		},
+		{
+			Name:  "CRYOSTAT_PROBE_TEMPLATE_PATH",
+			Value: "/opt/cryostat.d/probes.d",
 		},
 	}
 
@@ -953,6 +1037,13 @@ func NewCoreEnvironmentVariables(minimal bool, tls bool, externalTLS bool, opens
 			corev1.EnvVar{
 				Name:  "CRYOSTAT_OAUTH_ROLE",
 				Value: "cryostat-operator-oauth-client",
+			})
+	}
+	if reportsUrl != "" {
+		envs = append(envs,
+			corev1.EnvVar{
+				Name:  "CRYOSTAT_REPORT_GENERATOR",
+				Value: reportsUrl,
 			})
 	}
 	return envs
@@ -1048,6 +1139,12 @@ func NewCoreVolumeMounts(tls bool) []corev1.VolumeMount {
 			ReadOnly:  false,
 			MountPath: "/opt/cryostat.d/clientlib.d",
 			SubPath:   "clientlib",
+		},
+		{
+			Name:      "cryostat",
+			ReadOnly:  false,
+			MountPath: "/opt/cryostat.d/probes.d",
+			SubPath:   "probes",
 		},
 		{
 			Name:      "cryostat",
@@ -1154,11 +1251,22 @@ func NewDatasourceLivenessProbe() *corev1.Probe {
 	}
 }
 
-func NewDeploymentSelector() *metav1.LabelSelector {
+func NewMainDeploymentSelector() *metav1.LabelSelector {
 	return &metav1.LabelSelector{
 		MatchLabels: map[string]string{
-			"app":  "cryostat",
-			"kind": "cryostat",
+			"app":       "cryostat",
+			"kind":      "cryostat",
+			"component": "cryostat",
+		},
+	}
+}
+
+func NewReportsDeploymentSelector() *metav1.LabelSelector {
+	return &metav1.LabelSelector{
+		MatchLabels: map[string]string{
+			"app":       "cryostat",
+			"kind":      "cryostat",
+			"component": "reports",
 		},
 	}
 }
@@ -1525,6 +1633,17 @@ func NewConsoleLink() *consolev1.ConsoleLink {
 			NamespaceDashboard: &consolev1.NamespaceDashboardSpec{
 				Namespaces: []string{"default"},
 			},
+		},
+	}
+}
+
+func NewApiServer() *configv1.APIServer {
+	return &configv1.APIServer{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "cluster",
+		},
+		Spec: configv1.APIServerSpec{
+			AdditionalCORSAllowedOrigins: []string{"https://an-existing-user-specified\\.allowed\\.origin\\.com"},
 		},
 	}
 }

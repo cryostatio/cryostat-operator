@@ -27,6 +27,7 @@ import (
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 
 	certv1 "github.com/jetstack/cert-manager/pkg/apis/certmanager/v1"
+	configv1 "github.com/openshift/api/config/v1"
 	consolev1 "github.com/openshift/api/console/v1"
 	routev1 "github.com/openshift/api/route/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -57,6 +58,7 @@ func init() {
 	utilruntime.Must(routev1.AddToScheme(scheme))
 	utilruntime.Must(certv1.AddToScheme(scheme))
 	utilruntime.Must(consolev1.AddToScheme(scheme))
+	utilruntime.Must(configv1.AddToScheme(scheme))
 
 	// +kubebuilder:scaffold:scheme
 }
