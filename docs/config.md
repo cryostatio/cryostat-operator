@@ -33,7 +33,7 @@ kind: Cryostat
 metadata:
   name: cryostat-sample
 spec:
-  eventTemplates: 
+  eventTemplates:
   - configMapName: custom-template
     filename: my-template.jfc
 ```
@@ -47,7 +47,7 @@ kind: Cryostat
 metadata:
   name: cryostat-sample
 spec:
-  trustedCertSecrets: 
+  trustedCertSecrets:
   - secretName: my-tls-secret
     certificateKey: ca.crt
 ```
@@ -63,11 +63,11 @@ metadata:
 spec:
   storageOptions:
     pvc:
-      labels: 
+      labels:
         my-custom-label: some-value
-      annotations: 
+      annotations:
         my-custom-annotation: some-value
-      spec: 
+      spec:
         storageClassName: faster
         resources:
           requests:
@@ -155,26 +155,9 @@ spec:
                   name: cryostat-sample
                   port:
                     number: 8181
-    commandConfig:
-      annotations:
-        nginx.ingress.kubernetes.io/backend-protocol : HTTPS
-      ingressSpec:
-        tls:
-        - {}
-        rules:
-        - host: testing.cryostat-command
-          http:
-            paths:
-            - path: /
-              pathType: Prefix
-              backend:
-                service:
-                  name: cryostat-sample-command
-                  port:
-                    number: 9090
     grafanaConfig:
       annotations:
-        nginx.ingress.kubernetes.io/backend-protocol : HTTPS
+        nginx.ingress.kubernetes.io/backend-protocol: HTTPS
       ingressSpec:
         tls:
         - {}

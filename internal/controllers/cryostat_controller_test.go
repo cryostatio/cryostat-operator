@@ -165,9 +165,6 @@ var _ = Describe("CryostatController", func() {
 			It("should set ApplicationURL in CR Status", func() {
 				t.expectStatusApplicationURL()
 			})
-			It("should create command channel service and set owner", func() {
-				t.expectCommandChannel()
-			})
 			It("should create deployment and set owner", func() {
 				t.expectDeployment()
 			})
@@ -197,9 +194,6 @@ var _ = Describe("CryostatController", func() {
 			})
 			It("should set ApplicationURL in CR Status", func() {
 				t.expectStatusApplicationURL()
-			})
-			It("should create command channel service and set owner", func() {
-				t.expectCommandChannel()
 			})
 			It("should create deployment and set owner", func() {
 				t.expectDeployment()
@@ -988,7 +982,6 @@ var _ = Describe("CryostatController", func() {
 				c := &operatorv1beta1.Cryostat{}
 				err := t.Client.Get(context.Background(), types.NamespacedName{Name: "cryostat", Namespace: "default"}, c)
 				Expect(err).ToNot(HaveOccurred())
-				c.Spec.NetworkOptions.CommandConfig = nil
 				err = t.Client.Update(context.Background(), c)
 				Expect(err).ToNot(HaveOccurred())
 
@@ -1008,8 +1001,6 @@ var _ = Describe("CryostatController", func() {
 				Expect(ingress.Labels).To(Equal(expectedConfig.GrafanaConfig.Labels))
 				Expect(ingress.Spec).To(Equal(*expectedConfig.GrafanaConfig.IngressSpec))
 
-				err = t.Client.Get(context.Background(), types.NamespacedName{Name: "cryostat-command", Namespace: "default"}, ingress)
-				Expect(kerrors.IsNotFound(err)).To(BeTrue())
 			})
 		})
 		Context("ingressSpec for one of the services is nil", func() {
@@ -1028,12 +1019,6 @@ var _ = Describe("CryostatController", func() {
 				expectedConfig := test.NewNetworkConfigurationList(t.externalTLS)
 
 				ingress := &netv1.Ingress{}
-				err = t.Client.Get(context.Background(), types.NamespacedName{Name: "cryostat-command", Namespace: "default"}, ingress)
-				Expect(err).ToNot(HaveOccurred())
-				Expect(ingress.Annotations).To(Equal(expectedConfig.CommandConfig.Annotations))
-				Expect(ingress.Labels).To(Equal(expectedConfig.CommandConfig.Labels))
-				Expect(ingress.Spec).To(Equal(*expectedConfig.CommandConfig.IngressSpec))
-
 				err = t.Client.Get(context.Background(), types.NamespacedName{Name: "cryostat-grafana", Namespace: "default"}, ingress)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(ingress.Annotations).To(Equal(expectedConfig.GrafanaConfig.Annotations))
@@ -1085,7 +1070,7 @@ func (t *cryostatTestInput) initializeSecrets() {
 }
 
 func (t *cryostatTestInput) ingressConfig(req reconcile.Request) {
-	routes := []string{"cryostat", "cryostat-command"}
+	routes := []string{"cryostat"}
 	if !t.minimal {
 		routes = append([]string{"cryostat-grafana"}, routes...)
 	}
@@ -1101,7 +1086,7 @@ func (t *cryostatTestInput) ingressConfig(req reconcile.Request) {
 }
 
 func (t *cryostatTestInput) checkRoutes() {
-	routes := []string{"cryostat", "cryostat-command"}
+	routes := []string{"cryostat"}
 	if !t.minimal {
 		routes = append([]string{"cryostat-grafana"}, routes...)
 	}
@@ -1263,8 +1248,6 @@ func (t *cryostatTestInput) expectNoRoutes() {
 	svc := &openshiftv1.Route{}
 	err := t.Client.Get(context.Background(), types.NamespacedName{Name: "cryostat", Namespace: "default"}, svc)
 	Expect(kerrors.IsNotFound(err)).To(BeTrue())
-	err = t.Client.Get(context.Background(), types.NamespacedName{Name: "cryostat-command", Namespace: "default"}, svc)
-	Expect(kerrors.IsNotFound(err)).To(BeTrue())
 	err = t.Client.Get(context.Background(), types.NamespacedName{Name: "cryostat-grafana", Namespace: "default"}, svc)
 	Expect(kerrors.IsNotFound(err)).To(BeTrue())
 }
@@ -1289,12 +1272,6 @@ func (t *cryostatTestInput) expectIngresses() {
 	Expect(ingress.Labels).To(Equal(expectedConfig.CoreConfig.Labels))
 	Expect(ingress.Spec).To(Equal(*expectedConfig.CoreConfig.IngressSpec))
 
-	err = t.Client.Get(context.Background(), types.NamespacedName{Name: "cryostat-command", Namespace: "default"}, ingress)
-	Expect(err).ToNot(HaveOccurred())
-	Expect(ingress.Annotations).To(Equal(expectedConfig.CommandConfig.Annotations))
-	Expect(ingress.Labels).To(Equal(expectedConfig.CommandConfig.Labels))
-	Expect(ingress.Spec).To(Equal(*expectedConfig.CommandConfig.IngressSpec))
-
 	err = t.Client.Get(context.Background(), types.NamespacedName{Name: "cryostat-grafana", Namespace: "default"}, ingress)
 	Expect(err).ToNot(HaveOccurred())
 	Expect(ingress.Annotations).To(Equal(expectedConfig.GrafanaConfig.Annotations))
@@ -1305,8 +1282,6 @@ func (t *cryostatTestInput) expectIngresses() {
 func (t *cryostatTestInput) expectNoIngresses() {
 	ing := &netv1.Ingress{}
 	err := t.Client.Get(context.Background(), types.NamespacedName{Name: "cryostat", Namespace: "default"}, ing)
-	Expect(kerrors.IsNotFound(err)).To(BeTrue())
-	err = t.Client.Get(context.Background(), types.NamespacedName{Name: "cryostat-command", Namespace: "default"}, ing)
 	Expect(kerrors.IsNotFound(err)).To(BeTrue())
 	err = t.Client.Get(context.Background(), types.NamespacedName{Name: "cryostat-grafana", Namespace: "default"}, ing)
 	Expect(kerrors.IsNotFound(err)).To(BeTrue())
@@ -1367,23 +1342,6 @@ func (t *cryostatTestInput) expectStatusApplicationURL() {
 	Expect(err).ToNot(HaveOccurred())
 
 	Expect(instance.Status.ApplicationURL).To(Equal("https://cryostat.example.com"))
-}
-
-func (t *cryostatTestInput) expectCommandChannel() {
-	service := &corev1.Service{}
-	err := t.Client.Get(context.Background(), types.NamespacedName{Name: "cryostat-command", Namespace: "default"}, service)
-	Expect(kerrors.IsNotFound(err)).To(BeTrue())
-
-	t.reconcileCryostatFully()
-
-	err = t.Client.Get(context.Background(), types.NamespacedName{Name: "cryostat-command", Namespace: "default"}, service)
-	Expect(err).ToNot(HaveOccurred())
-
-	expectedService := resource_definitions.NewCommandChannelService(test.NewCryostat())
-	checkMetadata(service, expectedService)
-	Expect(service.Spec.Type).To(Equal(expectedService.Spec.Type))
-	Expect(service.Spec.Selector).To(Equal(expectedService.Spec.Selector))
-	Expect(service.Spec.Ports).To(Equal(expectedService.Spec.Ports))
 }
 
 func (t *cryostatTestInput) expectDeployment() {

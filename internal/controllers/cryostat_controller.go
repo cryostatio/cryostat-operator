@@ -324,13 +324,6 @@ func (r *CryostatReconciler) Reconcile(ctx context.Context, request ctrl.Request
 	}
 	serviceSpecs.CoreURL = svcUrl
 
-	cmdChanSvc := resources.NewCommandChannelService(instance)
-	svcUrl, err = r.createService(context.Background(), instance, cmdChanSvc, &cmdChanSvc.Spec.Ports[0], routeTLS)
-	if err != nil {
-		return requeueIfIngressNotReady(reqLogger, err)
-	}
-	serviceSpecs.CommandURL = svcUrl
-
 	imageTags := r.getImageTags()
 	fsGroup, err := r.getFSGroup(ctx, instance.Namespace)
 	if err != nil {

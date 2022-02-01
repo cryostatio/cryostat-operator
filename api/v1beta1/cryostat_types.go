@@ -202,6 +202,8 @@ type NetworkConfigurationList struct {
 	// Specifications for ingress that exposes the cryostat-command service
 	// (which serves the websocket command channel)
 	// +optional
+	//
+	// Deprecated: CommandConfig is no longer used.
 	CommandConfig *NetworkConfiguration `json:"commandConfig,omitempty"`
 	// Specifications for ingress that exposes the cryostat-grafana service
 	// (which serves the grafana dashboard)
