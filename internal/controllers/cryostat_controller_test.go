@@ -928,6 +928,35 @@ var _ = Describe("CryostatController", func() {
 				})
 			})
 		})
+		Context("configuring environment variables with non-default spec values", func() {
+			JustBeforeEach(func() {
+				t.reconcileCryostatFully()
+			})
+			Context("containing MaxWsConnections", func() {
+				BeforeEach(func() {
+					t.objs = append(t.objs, test.NewCryostatWithWsConnectionsSpec())
+				})
+				It("should set max WebSocket connections", func() {
+					t.checkEnvironmentVariables(test.NewWsConnectionsEnv())
+				})
+			})
+			Context("containing SubProcessMaxHeapSize", func() {
+				BeforeEach(func() {
+					t.objs = append(t.objs, test.NewCryostatWithReportSubprocessHeapSpec())
+				})
+				It("should set report subprocess max heap size", func() {
+					t.checkEnvironmentVariables(test.NewReportSubprocessHeapEnv())
+				})
+			})
+			Context("containing JmxCacheOptions", func() {
+				BeforeEach(func() {
+					t.objs = append(t.objs, test.NewCryostatWithJmxCacheOptionsSpec())
+				})
+				It("should set JMX cache options", func() {
+					t.checkEnvironmentVariables(test.NewJmxCacheOptionsEnv())
+				})
+			})
+		})
 	})
 	Describe("reconciling a request in Kubernetes", func() {
 		JustBeforeEach(func() {
@@ -1566,4 +1595,19 @@ func checkDatasourceContainer(container *corev1.Container, tag *string) {
 	Expect(container.EnvFrom).To(BeEmpty())
 	Expect(container.VolumeMounts).To(BeEmpty())
 	Expect(container.LivenessProbe).To(Equal(test.NewDatasourceLivenessProbe()))
+}
+
+func (t *cryostatTestInput) checkEnvironmentVariables(expectedEnvVars []corev1.EnvVar) {
+	c := &operatorv1beta1.Cryostat{}
+	err := t.Client.Get(context.Background(), types.NamespacedName{Name: "cryostat", Namespace: "default"}, c)
+	Expect(err).ToNot(HaveOccurred())
+
+	deployment := &appsv1.Deployment{}
+	err = t.Client.Get(context.Background(), types.NamespacedName{Name: "cryostat", Namespace: "default"}, deployment)
+	Expect(err).ToNot(HaveOccurred())
+
+	template := deployment.Spec.Template
+	coreContainer := template.Spec.Containers[0]
+
+	Expect(coreContainer.Env).To(ContainElements(expectedEnvVars))
 }

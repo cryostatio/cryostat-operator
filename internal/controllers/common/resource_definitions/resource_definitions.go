@@ -425,10 +425,6 @@ func NewCoreContainer(cr *operatorv1beta1.Cryostat, specs *ServiceSpecs, imageTa
 	probesPath := "/opt/cryostat.d/probes.d"
 	envs := []corev1.EnvVar{
 		{
-			Name:  "CRYOSTAT_ALLOW_UNTRUSTED_SSL",
-			Value: "true",
-		},
-		{
 			Name:  "CRYOSTAT_WEB_PORT",
 			Value: "8181",
 		},
@@ -474,7 +470,56 @@ func NewCoreContainer(cr *operatorv1beta1.Cryostat, specs *ServiceSpecs, imageTa
 			},
 		}
 		envs = append(envs, reportsEnvs...)
+	} else {
+		subProcessMaxHeapSize := "200"
+		if cr.Spec.ReportOptions.SubProcessMaxHeapSize != 0 {
+			subProcessMaxHeapSize = strconv.Itoa(int(cr.Spec.ReportOptions.SubProcessMaxHeapSize))
+		}
+		subprocessReportHeapEnv := []corev1.EnvVar{
+			{
+				Name:  "CRYOSTAT_REPORT_GENERATION_MAX_HEAP",
+				Value: subProcessMaxHeapSize,
+			},
+		}
+		envs = append(envs, subprocessReportHeapEnv...)
 	}
+
+	maxWsConnections := "2"
+	if cr.Spec.MaxWsConnections != 0 {
+		maxWsConnections = strconv.Itoa(int(cr.Spec.MaxWsConnections))
+	}
+	maxWsConnectionsEnv := []corev1.EnvVar{
+		{
+			Name:  "CRYOSTAT_MAX_WS_CONNECTIONS",
+			Value: maxWsConnections,
+		},
+	}
+	envs = append(envs, maxWsConnectionsEnv...)
+
+	targetCacheSize := "-1"
+	targetCacheTTL := "10"
+	if cr.Spec.JmxCacheOptions != nil {
+
+		if cr.Spec.JmxCacheOptions.TargetCacheSize != 0 {
+			targetCacheSize = strconv.Itoa(int(cr.Spec.JmxCacheOptions.TargetCacheSize))
+		}
+
+		if cr.Spec.JmxCacheOptions.TargetCacheTTL != 0 {
+			targetCacheTTL = strconv.Itoa(int(cr.Spec.JmxCacheOptions.TargetCacheTTL))
+		}
+	}
+	jmxCacheEnvs := []corev1.EnvVar{
+		{
+			Name:  "CRYOSTAT_TARGET_CACHE_SIZE",
+			Value: targetCacheSize,
+		},
+		{
+			Name:  "CRYOSTAT_TARGET_CACHE_TTL",
+			Value: targetCacheTTL,
+		},
+	}
+	envs = append(envs, jmxCacheEnvs...)
+
 	if openshift {
 		// Force OpenShift platform strategy
 		openshiftEnvs := []corev1.EnvVar{
