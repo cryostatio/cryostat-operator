@@ -289,6 +289,29 @@ func NewMinimalCryostat() *operatorv1beta1.Cryostat {
 	return cr
 }
 
+func NewCryostatWithJmxCacheOptionsSpec() *operatorv1beta1.Cryostat {
+	cr := NewCryostat()
+	cr.Spec.JmxCacheOptions = &operatorv1beta1.JmxCacheOptions{
+		TargetCacheSize: 10,
+		TargetCacheTTL:  20,
+	}
+	return cr
+}
+
+func NewCryostatWithWsConnectionsSpec() *operatorv1beta1.Cryostat {
+	cr := NewCryostat()
+	cr.Spec.MaxWsConnections = 10
+	return cr
+}
+
+func NewCryostatWithReportSubprocessHeapSpec() *operatorv1beta1.Cryostat {
+	cr := NewCryostat()
+	cr.Spec.ReportOptions = &operatorv1beta1.ReportConfiguration{
+		SubProcessMaxHeapSize: 500,
+	}
+	return cr
+}
+
 func NewFlightRecorder() *operatorv1beta1.FlightRecorder {
 	return newFlightRecorder(&operatorv1beta1.JMXAuthSecret{
 		SecretName: "test-jmx-auth",
@@ -1124,6 +1147,37 @@ func NewGrafanaEnvFromSource() []corev1.EnvFromSource {
 					Name: "cryostat-grafana-basic",
 				},
 			},
+		},
+	}
+}
+
+func NewWsConnectionsEnv() []corev1.EnvVar {
+	return []corev1.EnvVar{
+		{
+			Name:  "CRYOSTAT_MAX_WS_CONNECTIONS",
+			Value: "10",
+		},
+	}
+}
+
+func NewReportSubprocessHeapEnv() []corev1.EnvVar {
+	return []corev1.EnvVar{
+		{
+			Name:  "CRYOSTAT_REPORT_GENERATION_MAX_HEAP",
+			Value: "500",
+		},
+	}
+}
+
+func NewJmxCacheOptionsEnv() []corev1.EnvVar {
+	return []corev1.EnvVar{
+		{
+			Name:  "CRYOSTAT_TARGET_CACHE_SIZE",
+			Value: "10",
+		},
+		{
+			Name:  "CRYOSTAT_TARGET_CACHE_TTL",
+			Value: "20",
 		},
 	}
 }
