@@ -78,7 +78,9 @@ type CryostatSpec struct {
 	ReportOptions *ReportConfiguration `json:"reportOptions,omitempty"`
 	// The maximum number of WebSocket client connections allowed (minimum 1, maximum 64, default 2)
 	// +optional
-	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Max WebSocket Connections"
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Max WebSocket Connections",xDescriptors={"urn:alm:descriptor:com.tectonic.ui:number"}
+	// +kubebuilder:validation:Minimum=1
+	// +kubebuilder:validation:Maximum=64
 	MaxWsConnections int32 `json:"maxWsConnections,omitempty"`
 	// Options to customize the JMX target connections cache for the Cryostat application
 	// +optional
@@ -121,6 +123,7 @@ type ReportConfiguration struct {
 	// the maximum heap size of the basic subprocess report generator in MiB.
 	// The default heap size is `200` (MiB).
 	// +optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:com.tectonic.ui:number"}
 	SubProcessMaxHeapSize int32 `json:"subProcessMaxHeapSize,omitempty"`
 }
 
@@ -250,9 +253,13 @@ type PersistentVolumeClaimConfig struct {
 type JmxCacheOptions struct {
 	// The maximum number of JMX connections to cache. Use `-1` for an unlimited cache size (TTL expiration only). Defaults to `-1`.
 	// +optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:com.tectonic.ui:number"}
+	// +kubebuilder:validation:Minimum=-1
 	TargetCacheSize int32 `json:"targetCacheSize,omitempty"`
 	// The time to live (in seconds) for cached JMX connections. Defaults to `10`.
 	// +optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:com.tectonic.ui:number"}
+	// +kubebuilder:validation:Minimum=1
 	TargetCacheTTL int32 `json:"targetCacheTTL,omitempty"`
 }
 

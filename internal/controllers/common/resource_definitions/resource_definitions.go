@@ -472,7 +472,7 @@ func NewCoreContainer(cr *operatorv1beta1.Cryostat, specs *ServiceSpecs, imageTa
 		envs = append(envs, reportsEnvs...)
 	} else {
 		subProcessMaxHeapSize := "200"
-		if cr.Spec.ReportOptions.SubProcessMaxHeapSize > 0 {
+		if cr.Spec.ReportOptions.SubProcessMaxHeapSize != 0 {
 			subProcessMaxHeapSize = strconv.Itoa(int(cr.Spec.ReportOptions.SubProcessMaxHeapSize))
 		}
 		subprocessReportHeapEnv := []corev1.EnvVar{
@@ -485,7 +485,7 @@ func NewCoreContainer(cr *operatorv1beta1.Cryostat, specs *ServiceSpecs, imageTa
 	}
 
 	maxWsConnections := "2"
-	if cr.Spec.MaxWsConnections >= 1 && cr.Spec.MaxWsConnections <= 64 {
+	if cr.Spec.MaxWsConnections != 0 {
 		maxWsConnections = strconv.Itoa(int(cr.Spec.MaxWsConnections))
 	}
 	maxWsConnectionsEnv := []corev1.EnvVar{
@@ -500,11 +500,11 @@ func NewCoreContainer(cr *operatorv1beta1.Cryostat, specs *ServiceSpecs, imageTa
 	targetCacheTTL := "10"
 	if cr.Spec.JmxCacheOptions != nil {
 
-		if cr.Spec.JmxCacheOptions.TargetCacheSize > 0 || cr.Spec.JmxCacheOptions.TargetCacheSize == -1 {
+		if cr.Spec.JmxCacheOptions.TargetCacheSize != 0 {
 			targetCacheSize = strconv.Itoa(int(cr.Spec.JmxCacheOptions.TargetCacheSize))
 		}
 
-		if cr.Spec.JmxCacheOptions.TargetCacheTTL > 0 {
+		if cr.Spec.JmxCacheOptions.TargetCacheTTL != 0 {
 			targetCacheTTL = strconv.Itoa(int(cr.Spec.JmxCacheOptions.TargetCacheTTL))
 		}
 	}

@@ -73,17 +73,21 @@ spec:
                       `-1` for an unlimited cache size (TTL expiration only). Defaults
                       to `-1`.
                     format: int32
+                    minimum: -1
                     type: integer
                   targetCacheTTL:
                     description: The time to live (in seconds) for cached JMX connections.
                       Defaults to `10`.
                     format: int32
+                    minimum: 1
                     type: integer
                 type: object
               maxWsConnections:
                 description: The maximum number of WebSocket client connections allowed
                   (minimum 1, maximum 64, default 2)
                 format: int32
+                maximum: 64
+                minimum: 1
                 type: integer
               minimal:
                 description: Deploy a pared-down Cryostat instance with no Grafana
