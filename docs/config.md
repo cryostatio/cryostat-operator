@@ -33,7 +33,7 @@ kind: Cryostat
 metadata:
   name: cryostat-sample
 spec:
-  eventTemplates: 
+  eventTemplates:
   - configMapName: custom-template
     filename: my-template.jfc
 ```
@@ -47,7 +47,7 @@ kind: Cryostat
 metadata:
   name: cryostat-sample
 spec:
-  trustedCertSecrets: 
+  trustedCertSecrets:
   - secretName: my-tls-secret
     certificateKey: ca.crt
 ```
@@ -63,11 +63,11 @@ metadata:
 spec:
   storageOptions:
     pvc:
-      labels: 
+      labels:
         my-custom-label: some-value
-      annotations: 
+      annotations:
         my-custom-annotation: some-value
-      spec: 
+      spec:
         storageClassName: faster
         resources:
           requests:
@@ -108,7 +108,7 @@ spec:
 ```
 
 ### Reports Options
-The Cryostat operator can optionally configure Cryostat to use `cryostat-reports` as a sidecar microservice for generating Automated Rules Analysis Reports. If this is not configured then the main Cryostast container will perform this task itself, however, this is a relatively heavyweight and resource-intensive task. It is recommended to configure `cryostat-reports` sidecars if the Automated Analysis feature will be used or relied upon. The number of sidecar containers to deploy and the amount of CPU and memory resources to allocate for each container can be customized using the `spec.reportOptions` property.
+The Cryostat operator can optionally configure Cryostat to use `cryostat-reports` as a sidecar microservice for generating Automated Rules Analysis Reports. If this is not configured then the main Cryostat container will perform this task itself, however, this is a relatively heavyweight and resource-intensive task. It is recommended to configure `cryostat-reports` sidecars if the Automated Analysis feature will be used or relied upon. The number of sidecar containers to deploy and the amount of CPU and memory resources to allocate for each container can be customized using the `spec.reportOptions` property.
 ```yaml
 apiVersion: operator.cryostat.io/v1beta1
 kind: Cryostat
@@ -120,6 +120,19 @@ spec:
     requests:
       cpu: 1000m
       memory: 512Mi
+```
+If zero sidecar replicas are configured, SubProcessMaxHeapSize configures
+the maximum heap size of the main Cryostat container's subprocess report generator in MiB.
+The default heap size is `200` MiB.
+```yaml
+apiVersion: operator.cryostat.io/v1beta1
+kind: Cryostat
+metadata:
+  name: cryostat-sample
+spec:
+  reportOptions:
+    replicas: 0
+    subProcessMaxHeapSize: 200
 ```
 
 ### Network Options
@@ -155,26 +168,9 @@ spec:
                   name: cryostat-sample
                   port:
                     number: 8181
-    commandConfig:
-      annotations:
-        nginx.ingress.kubernetes.io/backend-protocol : HTTPS
-      ingressSpec:
-        tls:
-        - {}
-        rules:
-        - host: testing.cryostat-command
-          http:
-            paths:
-            - path: /
-              pathType: Prefix
-              backend:
-                service:
-                  name: cryostat-sample-command
-                  port:
-                    number: 9090
     grafanaConfig:
       annotations:
-        nginx.ingress.kubernetes.io/backend-protocol : HTTPS
+        nginx.ingress.kubernetes.io/backend-protocol: HTTPS
       ingressSpec:
         tls:
         - {}
@@ -189,4 +185,32 @@ spec:
                   name: cryostat-sample-grafana
                   port:
                     number: 3000
+```
+
+### Cryostat Client Options
+The `maxWsConnections` property optionally specifies the maximum number of WebSocket client connections allowed.
+The default value of `maxWsConnections` is 2, with minimum 1 and maximum 64. 
+```yaml
+apiVersion: operator.cryostat.io/v1beta1
+kind: Cryostat
+metadata:
+  name: cryostat-sample
+spec:
+  maxWsConnections: 2
+```
+
+### JMX Cache Configuration Options
+Cryostat's target JMX connection cache can be optionally configured with `targetCacheSize` and `targetCacheTTL`.
+`targetCacheSize` sets the maximum number of JMX connections cached by Cryostat.
+Use `-1` for an unlimited cache size. The default cache size is unlimited (`-1`).
+`targetCacheTTL` sets the time to live (in seconds) for cached JMX connections. The default TTL is `10` seconds.
+```yaml
+apiVersion: operator.cryostat.io/v1beta1
+kind: Cryostat
+metadata:
+  name: cryostat-sample
+spec:
+  jmxCacheOptions:
+    targetCacheSize: -1
+    targetCacheTTL: 10
 ```

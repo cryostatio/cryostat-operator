@@ -289,6 +289,29 @@ func NewMinimalCryostat() *operatorv1beta1.Cryostat {
 	return cr
 }
 
+func NewCryostatWithJmxCacheOptionsSpec() *operatorv1beta1.Cryostat {
+	cr := NewCryostat()
+	cr.Spec.JmxCacheOptions = &operatorv1beta1.JmxCacheOptions{
+		TargetCacheSize: 10,
+		TargetCacheTTL:  20,
+	}
+	return cr
+}
+
+func NewCryostatWithWsConnectionsSpec() *operatorv1beta1.Cryostat {
+	cr := NewCryostat()
+	cr.Spec.MaxWsConnections = 10
+	return cr
+}
+
+func NewCryostatWithReportSubprocessHeapSpec() *operatorv1beta1.Cryostat {
+	cr := NewCryostat()
+	cr.Spec.ReportOptions = &operatorv1beta1.ReportConfiguration{
+		SubProcessMaxHeapSize: 500,
+	}
+	return cr
+}
+
 func NewFlightRecorder() *operatorv1beta1.FlightRecorder {
 	return newFlightRecorder(&operatorv1beta1.JMXAuthSecret{
 		SecretName: "test-jmx-auth",
@@ -934,24 +957,12 @@ func NewDatasourcePorts() []corev1.ContainerPort {
 func NewCoreEnvironmentVariables(minimal bool, tls bool, externalTLS bool, openshift bool, reportsUrl string) []corev1.EnvVar {
 	envs := []corev1.EnvVar{
 		{
-			Name:  "CRYOSTAT_ALLOW_UNTRUSTED_SSL",
-			Value: "true",
-		},
-		{
 			Name:  "CRYOSTAT_WEB_PORT",
 			Value: "8181",
 		},
 		{
 			Name:  "CRYOSTAT_WEB_HOST",
 			Value: "cryostat.example.com",
-		},
-		{
-			Name:  "CRYOSTAT_LISTEN_PORT",
-			Value: "9090",
-		},
-		{
-			Name:  "CRYOSTAT_LISTEN_HOST",
-			Value: "cryostat-command.example.com",
 		},
 		{
 			Name:  "CRYOSTAT_CONFIG_PATH",
@@ -973,6 +984,18 @@ func NewCoreEnvironmentVariables(minimal bool, tls bool, externalTLS bool, opens
 			Name:  "CRYOSTAT_PROBE_TEMPLATE_PATH",
 			Value: "/opt/cryostat.d/probes.d",
 		},
+		{
+			Name:  "CRYOSTAT_MAX_WS_CONNECTIONS",
+			Value: "2",
+		},
+		{
+			Name:  "CRYOSTAT_TARGET_CACHE_SIZE",
+			Value: "-1",
+		},
+		{
+			Name:  "CRYOSTAT_TARGET_CACHE_TTL",
+			Value: "10",
+		},
 	}
 
 	if externalTLS {
@@ -980,19 +1003,11 @@ func NewCoreEnvironmentVariables(minimal bool, tls bool, externalTLS bool, opens
 			corev1.EnvVar{
 				Name:  "CRYOSTAT_EXT_WEB_PORT",
 				Value: "443",
-			},
-			corev1.EnvVar{
-				Name:  "CRYOSTAT_EXT_LISTEN_PORT",
-				Value: "443",
 			})
 	} else {
 		envs = append(envs,
 			corev1.EnvVar{
 				Name:  "CRYOSTAT_EXT_WEB_PORT",
-				Value: "80",
-			},
-			corev1.EnvVar{
-				Name:  "CRYOSTAT_EXT_LISTEN_PORT",
 				Value: "80",
 			})
 	}
@@ -1061,6 +1076,12 @@ func NewCoreEnvironmentVariables(minimal bool, tls bool, externalTLS bool, opens
 				Name:  "CRYOSTAT_REPORT_GENERATOR",
 				Value: reportsUrl,
 			})
+	} else {
+		envs = append(envs,
+			corev1.EnvVar{
+				Name:  "CRYOSTAT_REPORT_GENERATION_MAX_HEAP",
+				Value: "200",
+			})
 	}
 	return envs
 }
@@ -1126,6 +1147,37 @@ func NewGrafanaEnvFromSource() []corev1.EnvFromSource {
 					Name: "cryostat-grafana-basic",
 				},
 			},
+		},
+	}
+}
+
+func NewWsConnectionsEnv() []corev1.EnvVar {
+	return []corev1.EnvVar{
+		{
+			Name:  "CRYOSTAT_MAX_WS_CONNECTIONS",
+			Value: "10",
+		},
+	}
+}
+
+func NewReportSubprocessHeapEnv() []corev1.EnvVar {
+	return []corev1.EnvVar{
+		{
+			Name:  "CRYOSTAT_REPORT_GENERATION_MAX_HEAP",
+			Value: "500",
+		},
+	}
+}
+
+func NewJmxCacheOptionsEnv() []corev1.EnvVar {
+	return []corev1.EnvVar{
+		{
+			Name:  "CRYOSTAT_TARGET_CACHE_SIZE",
+			Value: "10",
+		},
+		{
+			Name:  "CRYOSTAT_TARGET_CACHE_TTL",
+			Value: "20",
 		},
 	}
 }
