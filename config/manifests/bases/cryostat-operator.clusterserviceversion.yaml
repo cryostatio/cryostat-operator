@@ -170,10 +170,12 @@ spec:
         x-descriptors:
         - urn:alm:descriptor:io.kubernetes:Secret
       statusDescriptors:
-      - description: Address of the deployed Cryostat web application
-        displayName: Application URL
+      - description: TODO Conditions of the components managed by the Cryostat Operator MainDeploymentConditions []appsv1.DeploymentCondition `json:"mainDeploymentConditions,omitempty"` TODO Conditions of the components managed by the Cryostat Operator ReportsDeploymentConditions []appsv1.DeploymentCondition `json:"reportsDeploymentConditions,omitempty"` Address of the deployed Cryostat web application
+        displayName: Main Deployment Conditions
         path: applicationUrl
         x-descriptors:
+        - urn:alm:descriptor:io.kubernetes.conditions
+        - urn:alm:descriptor:io.kubernetes.conditions
         - urn:alm:descriptor:org.w3:link
       - description: Conditions of the components managed by the Cryostat Operator
         displayName: Cryostat Conditions

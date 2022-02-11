@@ -1189,12 +1189,12 @@ func (t *cryostatTestInput) checkRoute(name string) *openshiftv1.Route {
 	return route
 }
 
-func (t *cryostatTestInput) checkCondition(condType string, status metav1.ConditionStatus, reason string) {
+func (t *cryostatTestInput) checkCondition(condType operatorv1beta1.CryostatConditionType, status metav1.ConditionStatus, reason string) {
 	cr := &operatorv1beta1.Cryostat{}
 	err := t.Client.Get(context.Background(), types.NamespacedName{Name: "cryostat", Namespace: "default"}, cr)
 	Expect(err).ToNot(HaveOccurred())
 
-	condition := meta.FindStatusCondition(cr.Status.Conditions, condType)
+	condition := meta.FindStatusCondition(cr.Status.Conditions, string(condType))
 	Expect(condition).ToNot(BeNil())
 	Expect(condition.Status).To(Equal(status))
 	Expect(condition.Reason).To(Equal(reason))
