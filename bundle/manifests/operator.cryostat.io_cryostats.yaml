@@ -759,7 +759,7 @@ spec:
             description: CryostatStatus defines the observed state of Cryostat
             properties:
               applicationUrl:
-                description: TODO Conditions of the components managed by the Cryostat Operator MainDeploymentConditions []appsv1.DeploymentCondition `json:"mainDeploymentConditions,omitempty"` TODO Conditions of the components managed by the Cryostat Operator ReportsDeploymentConditions []appsv1.DeploymentCondition `json:"reportsDeploymentConditions,omitempty"` Address of the deployed Cryostat web application
+                description: Address of the deployed Cryostat web application
                 type: string
               conditions:
                 description: Conditions of the components managed by the Cryostat Operator
@@ -805,6 +805,8 @@ spec:
                   - type
                   type: object
                 type: array
+            required:
+            - applicationUrl
             type: object
         type: object
     served: true

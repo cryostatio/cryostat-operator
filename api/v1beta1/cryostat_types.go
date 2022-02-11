@@ -94,14 +94,6 @@ type CryostatStatus struct {
 	// +optional
 	// +operator-sdk:csv:customresourcedefinitions:type=status,displayName="Cryostat Conditions",xDescriptors={"urn:alm:descriptor:io.kubernetes.conditions"}
 	Conditions []metav1.Condition `json:"conditions,omitempty"`
-	// TODO Conditions of the components managed by the Cryostat Operator
-	// +optional
-	// +operator-sdk:csv:customresourcedefinitions:type=status,displayName="Main Deployment Conditions",xDescriptors={"urn:alm:descriptor:io.kubernetes.conditions"}
-	//MainDeploymentConditions []appsv1.DeploymentCondition `json:"mainDeploymentConditions,omitempty"`
-	// TODO Conditions of the components managed by the Cryostat Operator
-	// +optional
-	// +operator-sdk:csv:customresourcedefinitions:type=status,displayName="Reports Deployment Conditions",xDescriptors={"urn:alm:descriptor:io.kubernetes.conditions"}
-	//ReportsDeploymentConditions []appsv1.DeploymentCondition `json:"reportsDeploymentConditions,omitempty"`
 	// Address of the deployed Cryostat web application
 	// +operator-sdk:csv:customresourcedefinitions:type=status,xDescriptors={"urn:alm:descriptor:org.w3:link"}
 	ApplicationURL string `json:"applicationUrl"`

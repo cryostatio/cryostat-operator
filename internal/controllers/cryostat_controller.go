@@ -114,8 +114,21 @@ const (
 	reasonAllCertsReady          = "AllCertificatesReady"
 	reasonCertManagerUnavailable = "CertManagerUnavailable"
 	reasonCertManagerDisabled    = "CertManagerDisabled"
-	reasonReportsDisabled        = "ReportsDeploymentDisabled"
 )
+
+// Map Cryostat conditions to deployment conditions
+type deploymentConditionTypeMap map[operatorv1beta1.CryostatConditionType]appsv1.DeploymentConditionType
+
+var mainDeploymentConditions = map[operatorv1beta1.CryostatConditionType]appsv1.DeploymentConditionType{
+	operatorv1beta1.ConditionTypeMainDeploymentAvailable:      appsv1.DeploymentAvailable,
+	operatorv1beta1.ConditionTypeMainDeploymentProgressing:    appsv1.DeploymentProgressing,
+	operatorv1beta1.ConditionTypeMainDeploymentReplicaFailure: appsv1.DeploymentReplicaFailure,
+}
+var reportsDeploymentConditions = map[operatorv1beta1.CryostatConditionType]appsv1.DeploymentConditionType{
+	operatorv1beta1.ConditionTypeReportsDeploymentAvailable:      appsv1.DeploymentAvailable,
+	operatorv1beta1.ConditionTypeReportsDeploymentProgressing:    appsv1.DeploymentProgressing,
+	operatorv1beta1.ConditionTypeReportsDeploymentReplicaFailure: appsv1.DeploymentReplicaFailure,
+}
 
 // +kubebuilder:rbac:namespace=system,groups="",resources=pods;services;services/finalizers;endpoints;persistentvolumeclaims;events;configmaps;secrets;serviceaccounts,verbs=*
 // +kubebuilder:rbac:namespace=system,groups="",resources=replicationcontrollers,verbs=get
@@ -403,24 +416,12 @@ func (r *CryostatReconciler) Reconcile(ctx context.Context, request ctrl.Request
 		}
 	}
 
-	// Check deployment status and update condition
-	err = r.Client.Get(ctx, types.NamespacedName{Name: instance.Name, Namespace: instance.Namespace}, deployment)
+	// Check deployment status and update conditions
+	err = r.updateConditionsFromDeployment(ctx, instance, types.NamespacedName{Name: instance.Name, Namespace: instance.Namespace},
+		mainDeploymentConditions)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
-	// TODO make more efficient
-	setConditionFromDeploy(instance, operatorv1beta1.ConditionTypeMainDeploymentAvailable, deployment.Status.Conditions, appsv1.DeploymentAvailable)
-	setConditionFromDeploy(instance, operatorv1beta1.ConditionTypeMainDeploymentProgressing, deployment.Status.Conditions, appsv1.DeploymentProgressing)
-	setConditionFromDeploy(instance, operatorv1beta1.ConditionTypeMainDeploymentReplicaFailure, deployment.Status.Conditions, appsv1.DeploymentReplicaFailure)
-	err = r.Client.Status().Update(ctx, instance)
-	if err != nil {
-		return reconcile.Result{}, err
-	}
-	//instance.Status.MainDeploymentConditions = deployment.Status.Conditions
-	//err = r.Client.Status().Update(ctx, instance)
-	//if err != nil {
-	//	return reconcile.Result{}, err
-	//}
 
 	reqLogger.Info("Successfully reconciled deployment", "Deployment.Namespace", deployment.Namespace, "Deployment.Name", deployment.Name)
 	return reconcile.Result{}, nil
@@ -467,10 +468,9 @@ func (r *CryostatReconciler) reconcileReports(ctx context.Context, reqLogger log
 			return reconcile.Result{}, err
 		}
 
-		// TODO make more efficient
-		removeConditionIfPresent(instance, operatorv1beta1.ConditionTypeReportsDeploymentAvailable)
-		removeConditionIfPresent(instance, operatorv1beta1.ConditionTypeReportsDeploymentProgressing)
-		removeConditionIfPresent(instance, operatorv1beta1.ConditionTypeReportsDeploymentReplicaFailure)
+		removeConditionIfPresent(instance, operatorv1beta1.ConditionTypeReportsDeploymentAvailable,
+			operatorv1beta1.ConditionTypeReportsDeploymentProgressing,
+			operatorv1beta1.ConditionTypeReportsDeploymentReplicaFailure)
 		err := r.Client.Status().Update(ctx, instance)
 		if err != nil {
 			return reconcile.Result{}, err
@@ -506,25 +506,12 @@ func (r *CryostatReconciler) reconcileReports(ctx context.Context, reqLogger log
 		}
 		reqLogger.Info(fmt.Sprintf("Reports Deployment %s", op))
 
-		// Check deployment status and update condition
-		err = r.Client.Get(ctx, types.NamespacedName{Name: deployment.Name, Namespace: deployment.Namespace}, deployment)
+		// Check deployment status and update conditions
+		err = r.updateConditionsFromDeployment(ctx, instance, types.NamespacedName{Name: deployment.Name, Namespace: deployment.Namespace},
+			reportsDeploymentConditions)
 		if err != nil {
 			return reconcile.Result{}, err
 		}
-
-		setConditionFromDeploy(instance, operatorv1beta1.ConditionTypeReportsDeploymentAvailable, deployment.Status.Conditions, appsv1.DeploymentAvailable)
-		setConditionFromDeploy(instance, operatorv1beta1.ConditionTypeReportsDeploymentProgressing, deployment.Status.Conditions, appsv1.DeploymentProgressing)
-		setConditionFromDeploy(instance, operatorv1beta1.ConditionTypeReportsDeploymentReplicaFailure, deployment.Status.Conditions, appsv1.DeploymentReplicaFailure)
-
-		err = r.Client.Status().Update(ctx, instance)
-		if err != nil {
-			return reconcile.Result{}, err
-		}
-		// instance.Status.ReportsDeploymentConditions = deployment.Status.Conditions
-		// err = r.Client.Status().Update(ctx, instance)
-		// if err != nil {
-		// 	return reconcile.Result{}, err
-		// }
 	}
 	return reconcile.Result{}, nil
 }
@@ -885,6 +872,38 @@ func (r *CryostatReconciler) updateCondition(ctx context.Context, cr *operatorv1
 	return err
 }
 
+func (r *CryostatReconciler) updateConditionsFromDeployment(ctx context.Context, cr *operatorv1beta1.Cryostat,
+	deployKey types.NamespacedName, mapping deploymentConditionTypeMap) error {
+	reqLogger := r.Log.WithValues("Request.Namespace", cr.Namespace, "Request.Name", cr.Name)
+
+	// Get deployment's latest conditions
+	deploy := &appsv1.Deployment{}
+	err := r.Client.Get(ctx, types.NamespacedName{Name: deployKey.Name, Namespace: deployKey.Namespace}, deploy)
+	if err != nil {
+		return err
+	}
+
+	// Associate deployment conditions with Cryostat conditions
+	for condType, deployCondType := range mapping {
+		condition := findDeployCondition(deploy.Status.Conditions, deployCondType)
+		if condition == nil {
+			removeConditionIfPresent(cr, condType)
+		} else {
+			meta.SetStatusCondition(&cr.Status.Conditions, metav1.Condition{
+				Type:    string(condType),
+				Status:  metav1.ConditionStatus(condition.Status),
+				Reason:  condition.Reason,
+				Message: condition.Message,
+			})
+		}
+	}
+	err = r.Client.Status().Update(ctx, cr)
+	if err != nil {
+		reqLogger.Error(err, "failed to update conditions for deployment", "deployment", deploy.Name)
+	}
+	return err
+}
+
 func getProtocol(tlsConfig *openshiftv1.TLSConfig) string {
 	if tlsConfig == nil {
 		return "http"
@@ -912,6 +931,15 @@ func getNetworkConfig(controller *operatorv1beta1.Cryostat, svc *corev1.Service)
 	}
 }
 
+func removeConditionIfPresent(cr *operatorv1beta1.Cryostat, condType ...operatorv1beta1.CryostatConditionType) {
+	for _, ct := range condType {
+		found := meta.FindStatusCondition(cr.Status.Conditions, string(ct))
+		if found != nil {
+			meta.RemoveStatusCondition(&cr.Status.Conditions, string(ct))
+		}
+	}
+}
+
 func findDeployCondition(conditions []appsv1.DeploymentCondition, condType appsv1.DeploymentConditionType) *appsv1.DeploymentCondition {
 	for _, condition := range conditions {
 		if condition.Type == condType {
@@ -919,62 +947,4 @@ func findDeployCondition(conditions []appsv1.DeploymentCondition, condType appsv
 		}
 	}
 	return nil
-}
-
-func removeConditionIfPresent(cr *operatorv1beta1.Cryostat, condType operatorv1beta1.CryostatConditionType) {
-	found := meta.FindStatusCondition(cr.Status.Conditions, string(condType))
-	if found != nil {
-		meta.RemoveStatusCondition(&cr.Status.Conditions, string(condType))
-	}
-}
-
-func setConditionFromDeploy(cr *operatorv1beta1.Cryostat, condType operatorv1beta1.CryostatConditionType,
-	conditions []appsv1.DeploymentCondition, deployCondType appsv1.DeploymentConditionType) {
-	condition := findDeployCondition(conditions, deployCondType)
-	if condition == nil {
-		removeConditionIfPresent(cr, condType)
-	} else {
-		meta.SetStatusCondition(&cr.Status.Conditions, metav1.Condition{
-			Type:    string(condType),
-			Status:  metav1.ConditionStatus(condition.Status),
-			Reason:  condition.Reason,
-			Message: condition.Message,
-		})
-	}
-}
-func translateDeployConditions(conditions []appsv1.DeploymentCondition, reports bool, log logr.Logger) []metav1.Condition {
-	result := make([]metav1.Condition, len(conditions))
-	for _, condition := range conditions {
-		var conditionType operatorv1beta1.CryostatConditionType
-		switch condition.Type {
-		case appsv1.DeploymentAvailable:
-			if reports {
-				conditionType = operatorv1beta1.ConditionTypeReportsDeploymentAvailable
-			} else {
-				conditionType = operatorv1beta1.ConditionTypeMainDeploymentAvailable
-			}
-		case appsv1.DeploymentProgressing:
-			if reports {
-				conditionType = operatorv1beta1.ConditionTypeReportsDeploymentProgressing
-			} else {
-				conditionType = operatorv1beta1.ConditionTypeMainDeploymentProgressing
-			}
-		case appsv1.DeploymentReplicaFailure:
-			if reports {
-				conditionType = operatorv1beta1.ConditionTypeReportsDeploymentReplicaFailure
-			} else {
-				conditionType = operatorv1beta1.ConditionTypeMainDeploymentReplicaFailure
-			}
-		default:
-			log.Info(fmt.Sprintf("unknown deployment condition type :%s", condition.Type))
-			continue
-		}
-		result = append(result, metav1.Condition{
-			Type:    string(conditionType),
-			Status:  metav1.ConditionStatus(condition.Status),
-			Reason:  condition.Reason,
-			Message: condition.Message,
-		})
-	}
-	return result
 }

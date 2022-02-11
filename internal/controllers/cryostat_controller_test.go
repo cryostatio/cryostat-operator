@@ -168,16 +168,48 @@ var _ = Describe("CryostatController", func() {
 			It("should create deployment and set owner", func() {
 				t.expectDeployment()
 			})
-			It("should set MainDeploymentAvailable condition", func() {
-				t.reconcileCryostatFully()
-				t.makeDeploymentAvailable("cryostat")
-				t.checkCondition(operatorv1beta1.ConditionTypeMainDeploymentAvailable, metav1.ConditionTrue,
-					"Test")
-			})
 			It("should set TLSSetupComplete condition", func() {
 				t.reconcileCryostatFully()
-				t.checkCondition(operatorv1beta1.ConditionTypeTLSSetupComplete, metav1.ConditionTrue,
+				t.checkConditionPresent(operatorv1beta1.ConditionTypeTLSSetupComplete, metav1.ConditionTrue,
 					"AllCertificatesReady")
+			})
+			Context("deployment is progressing", func() {
+				JustBeforeEach(func() {
+					t.reconcileCryostatFully()
+					t.makeDeploymentProgress("cryostat")
+				})
+				It("should update conditions", func() {
+					t.checkConditionPresent(operatorv1beta1.ConditionTypeMainDeploymentAvailable, metav1.ConditionFalse,
+						"TestAvailable")
+					t.checkConditionPresent(operatorv1beta1.ConditionTypeMainDeploymentProgressing, metav1.ConditionTrue,
+						"TestProgressing")
+					t.checkConditionAbsent(operatorv1beta1.ConditionTypeMainDeploymentReplicaFailure)
+				})
+				Context("then becomes available", func() {
+					JustBeforeEach(func() {
+						t.makeDeploymentAvailable("cryostat")
+					})
+					It("should update conditions", func() {
+						t.checkConditionPresent(operatorv1beta1.ConditionTypeMainDeploymentAvailable, metav1.ConditionTrue,
+							"TestAvailable")
+						t.checkConditionPresent(operatorv1beta1.ConditionTypeMainDeploymentProgressing, metav1.ConditionTrue,
+							"TestProgressing")
+						t.checkConditionAbsent(operatorv1beta1.ConditionTypeMainDeploymentReplicaFailure)
+					})
+				})
+				Context("then fails to roll out", func() {
+					JustBeforeEach(func() {
+						t.makeDeploymentFail("cryostat")
+					})
+					It("should update conditions", func() {
+						t.checkConditionPresent(operatorv1beta1.ConditionTypeMainDeploymentAvailable, metav1.ConditionFalse,
+							"TestAvailable")
+						t.checkConditionPresent(operatorv1beta1.ConditionTypeMainDeploymentProgressing, metav1.ConditionFalse,
+							"TestProgressing")
+						t.checkConditionPresent(operatorv1beta1.ConditionTypeMainDeploymentReplicaFailure, metav1.ConditionTrue,
+							"TestReplicaFailure")
+					})
+				})
 			})
 		})
 		Context("succesfully creates required resources for minimal deployment", func() {
@@ -331,16 +363,52 @@ var _ = Describe("CryostatController", func() {
 				t.checkReportsDeployment()
 				t.checkService("cryostat-reports", test.NewReportsService())
 			})
-			It("should set ReportsDeploymentCondition", func() {
-				t.makeDeploymentAvailable("cryostat-reports")
-				t.checkCondition(operatorv1beta1.ConditionTypeReportsDeploymentAvailable, metav1.ConditionTrue,
-					"Test")
+			Context("deployment is progressing", func() {
+				JustBeforeEach(func() {
+					t.makeDeploymentProgress("cryostat-reports")
+				})
+				It("should update conditions", func() {
+					t.checkConditionPresent(operatorv1beta1.ConditionTypeReportsDeploymentAvailable, metav1.ConditionFalse,
+						"TestAvailable")
+					t.checkConditionPresent(operatorv1beta1.ConditionTypeReportsDeploymentProgressing, metav1.ConditionTrue,
+						"TestProgressing")
+					t.checkConditionAbsent(operatorv1beta1.ConditionTypeReportsDeploymentReplicaFailure)
+				})
+				Context("then becomes available", func() {
+					JustBeforeEach(func() {
+						t.makeDeploymentAvailable("cryostat-reports")
+					})
+					It("should update conditions", func() {
+						t.checkConditionPresent(operatorv1beta1.ConditionTypeReportsDeploymentAvailable, metav1.ConditionTrue,
+							"TestAvailable")
+						t.checkConditionPresent(operatorv1beta1.ConditionTypeReportsDeploymentProgressing, metav1.ConditionTrue,
+							"TestProgressing")
+						t.checkConditionAbsent(operatorv1beta1.ConditionTypeReportsDeploymentReplicaFailure)
+					})
+				})
+				Context("then fails to roll out", func() {
+					JustBeforeEach(func() {
+						t.makeDeploymentFail("cryostat-reports")
+					})
+					It("should update conditions", func() {
+						t.checkConditionPresent(operatorv1beta1.ConditionTypeReportsDeploymentAvailable, metav1.ConditionFalse,
+							"TestAvailable")
+						t.checkConditionPresent(operatorv1beta1.ConditionTypeReportsDeploymentProgressing, metav1.ConditionFalse,
+							"TestProgressing")
+						t.checkConditionPresent(operatorv1beta1.ConditionTypeReportsDeploymentReplicaFailure, metav1.ConditionTrue,
+							"TestReplicaFailure")
+					})
+				})
 			})
 		})
 		Context("Switching from 1 report sidecar to 2", func() {
 			BeforeEach(func() {
-				t.objs = append(t.objs, test.NewCryostat())
 				t.reportReplicas = 1
+				cr := test.NewCryostat()
+				cr.Spec.ReportOptions = &operatorv1beta1.ReportConfiguration{
+					Replicas: t.reportReplicas,
+				}
+				t.objs = append(t.objs, cr)
 			})
 			JustBeforeEach(func() {
 				t.reconcileCryostatFully()
@@ -371,8 +439,12 @@ var _ = Describe("CryostatController", func() {
 		})
 		Context("Switching from 2 report sidecars to 1", func() {
 			BeforeEach(func() {
-				t.objs = append(t.objs, test.NewCryostat())
 				t.reportReplicas = 2
+				cr := test.NewCryostat()
+				cr.Spec.ReportOptions = &operatorv1beta1.ReportConfiguration{
+					Replicas: t.reportReplicas,
+				}
+				t.objs = append(t.objs, cr)
 			})
 			JustBeforeEach(func() {
 				t.reconcileCryostatFully()
@@ -403,11 +475,16 @@ var _ = Describe("CryostatController", func() {
 		})
 		Context("Switching from 1 report sidecar to 0", func() {
 			BeforeEach(func() {
-				t.objs = append(t.objs, test.NewCryostat())
 				t.reportReplicas = 1
+				cr := test.NewCryostat()
+				cr.Spec.ReportOptions = &operatorv1beta1.ReportConfiguration{
+					Replicas: t.reportReplicas,
+				}
+				t.objs = append(t.objs, cr)
 			})
 			JustBeforeEach(func() {
 				t.reconcileCryostatFully()
+				t.makeDeploymentAvailable("cryostat-reports")
 
 				cryostat := &operatorv1beta1.Cryostat{}
 				err := t.Client.Get(context.Background(), types.NamespacedName{Name: "cryostat", Namespace: "default"}, cryostat)
@@ -432,9 +509,10 @@ var _ = Describe("CryostatController", func() {
 				t.expectNoService("cryostat-reports")
 				t.expectNoReportsDeployment()
 			})
-			It("should set ReportsDeploymentCondition", func() {
-				t.checkCondition(operatorv1beta1.ConditionTypeReportsDeploymentAvailable, metav1.ConditionTrue,
-					"ReportsDeploymentDisabled")
+			It("should remove conditions", func() {
+				t.checkConditionAbsent(operatorv1beta1.ConditionTypeReportsDeploymentAvailable)
+				t.checkConditionAbsent(operatorv1beta1.ConditionTypeReportsDeploymentProgressing)
+				t.checkConditionAbsent(operatorv1beta1.ConditionTypeReportsDeploymentReplicaFailure)
 			})
 		})
 		Context("Cryostat CR has list of certificate secrets", func() {
@@ -797,7 +875,7 @@ var _ = Describe("CryostatController", func() {
 			})
 			It("should set TLSSetupComplete condition", func() {
 				t.reconcileCryostatFully()
-				t.checkCondition(operatorv1beta1.ConditionTypeTLSSetupComplete, metav1.ConditionTrue,
+				t.checkConditionPresent(operatorv1beta1.ConditionTypeTLSSetupComplete, metav1.ConditionTrue,
 					"AllCertificatesReady")
 			})
 		})
@@ -823,7 +901,7 @@ var _ = Describe("CryostatController", func() {
 			})
 			It("should set TLSSetupComplete Condition", func() {
 				t.reconcileCryostatFully()
-				t.checkCondition(operatorv1beta1.ConditionTypeTLSSetupComplete, metav1.ConditionTrue,
+				t.checkConditionPresent(operatorv1beta1.ConditionTypeTLSSetupComplete, metav1.ConditionTrue,
 					"CertManagerDisabled")
 			})
 		})
@@ -855,7 +933,7 @@ var _ = Describe("CryostatController", func() {
 				t.checkRoutes()
 			})
 			It("should set TLSSetupComplete Condition", func() {
-				t.checkCondition(operatorv1beta1.ConditionTypeTLSSetupComplete, metav1.ConditionTrue,
+				t.checkConditionPresent(operatorv1beta1.ConditionTypeTLSSetupComplete, metav1.ConditionTrue,
 					"CertManagerDisabled")
 			})
 		})
@@ -897,7 +975,7 @@ var _ = Describe("CryostatController", func() {
 				t.checkRoutes()
 			})
 			It("should set TLSSetupComplete condition", func() {
-				t.checkCondition(operatorv1beta1.ConditionTypeTLSSetupComplete, metav1.ConditionTrue,
+				t.checkConditionPresent(operatorv1beta1.ConditionTypeTLSSetupComplete, metav1.ConditionTrue,
 					"AllCertificatesReady")
 			})
 		})
@@ -922,7 +1000,7 @@ var _ = Describe("CryostatController", func() {
 					Expect(eventMsg).To(ContainSubstring("CertManagerUnavailable"))
 				})
 				It("should set TLSSetupComplete Condition", func() {
-					t.checkCondition(operatorv1beta1.ConditionTypeTLSSetupComplete, metav1.ConditionFalse,
+					t.checkConditionPresent(operatorv1beta1.ConditionTypeTLSSetupComplete, metav1.ConditionFalse,
 						"CertManagerUnavailable")
 				})
 			})
@@ -941,7 +1019,7 @@ var _ = Describe("CryostatController", func() {
 					Expect(recorder.Events).ToNot(Receive())
 				})
 				It("should set TLSSetupComplete Condition", func() {
-					t.checkCondition(operatorv1beta1.ConditionTypeTLSSetupComplete, metav1.ConditionTrue,
+					t.checkConditionPresent(operatorv1beta1.ConditionTypeTLSSetupComplete, metav1.ConditionTrue,
 						"CertManagerDisabled")
 				})
 			})
@@ -1189,7 +1267,7 @@ func (t *cryostatTestInput) checkRoute(name string) *openshiftv1.Route {
 	return route
 }
 
-func (t *cryostatTestInput) checkCondition(condType operatorv1beta1.CryostatConditionType, status metav1.ConditionStatus, reason string) {
+func (t *cryostatTestInput) checkConditionPresent(condType operatorv1beta1.CryostatConditionType, status metav1.ConditionStatus, reason string) {
 	cr := &operatorv1beta1.Cryostat{}
 	err := t.Client.Get(context.Background(), types.NamespacedName{Name: "cryostat", Namespace: "default"}, cr)
 	Expect(err).ToNot(HaveOccurred())
@@ -1198,6 +1276,15 @@ func (t *cryostatTestInput) checkCondition(condType operatorv1beta1.CryostatCond
 	Expect(condition).ToNot(BeNil())
 	Expect(condition.Status).To(Equal(status))
 	Expect(condition.Reason).To(Equal(reason))
+}
+
+func (t *cryostatTestInput) checkConditionAbsent(condType operatorv1beta1.CryostatConditionType) {
+	cr := &operatorv1beta1.Cryostat{}
+	err := t.Client.Get(context.Background(), types.NamespacedName{Name: "cryostat", Namespace: "default"}, cr)
+	Expect(err).ToNot(HaveOccurred())
+
+	condition := meta.FindStatusCondition(cr.Status.Conditions, string(condType))
+	Expect(condition).To(BeNil())
 }
 
 func (t *cryostatTestInput) reconcileCryostatFully() {
@@ -1261,7 +1348,7 @@ func (t *cryostatTestInput) expectCertificates() {
 	t.checkCertificates()
 
 	// Check TLSSetupComplete condition
-	t.checkCondition(operatorv1beta1.ConditionTypeTLSSetupComplete, metav1.ConditionFalse,
+	t.checkConditionPresent(operatorv1beta1.ConditionTypeTLSSetupComplete, metav1.ConditionFalse,
 		"WaitingForCertificate")
 }
 
@@ -1506,18 +1593,56 @@ func (t *cryostatTestInput) expectNoReportsDeployment() {
 	Expect(kerrors.IsNotFound(err)).To(BeTrue())
 }
 
-func (t *cryostatTestInput) makeDeploymentAvailable(name string) {
+func (t *cryostatTestInput) makeDeploymentProgress(deployName string) {
+	statusTrue := corev1.ConditionTrue
+	statusFalse := corev1.ConditionFalse
+	t.setDeploymentConditions(deployName, &statusFalse, &statusTrue, nil)
+}
+
+func (t *cryostatTestInput) makeDeploymentAvailable(deployName string) {
+	statusTrue := corev1.ConditionTrue
+	t.setDeploymentConditions(deployName, &statusTrue, &statusTrue, nil)
+}
+
+func (t *cryostatTestInput) makeDeploymentFail(deployName string) {
+	statusTrue := corev1.ConditionTrue
+	statusFalse := corev1.ConditionFalse
+	t.setDeploymentConditions(deployName, &statusFalse, &statusFalse, &statusTrue)
+}
+
+func (t *cryostatTestInput) setDeploymentConditions(deployName string, available *corev1.ConditionStatus,
+	progressing *corev1.ConditionStatus, replicaFailure *corev1.ConditionStatus) {
 	// Update Deployment's "Available" Condition
 	deploy := &appsv1.Deployment{}
-	err := t.Client.Get(context.Background(), types.NamespacedName{Name: name, Namespace: "default"}, deploy)
+	err := t.Client.Get(context.Background(), types.NamespacedName{Name: deployName, Namespace: "default"}, deploy)
 	Expect(err).ToNot(HaveOccurred())
 
-	deploy.Status.Conditions = append(deploy.Status.Conditions, appsv1.DeploymentCondition{
-		Type:    appsv1.DeploymentAvailable,
-		Status:  corev1.ConditionTrue,
-		Reason:  "Test",
-		Message: "Test made deployment available.",
-	})
+	conditions := []appsv1.DeploymentCondition{}
+	if available != nil {
+		conditions = append(conditions, appsv1.DeploymentCondition{
+			Type:    appsv1.DeploymentAvailable,
+			Status:  *available,
+			Reason:  "TestAvailable",
+			Message: "Test made deployment available.",
+		})
+	}
+	if progressing != nil {
+		conditions = append(conditions, appsv1.DeploymentCondition{
+			Type:    appsv1.DeploymentProgressing,
+			Status:  *progressing,
+			Reason:  "TestProgressing",
+			Message: "Test made deployment progressing.",
+		})
+	}
+	if replicaFailure != nil {
+		conditions = append(conditions, appsv1.DeploymentCondition{
+			Type:    appsv1.DeploymentReplicaFailure,
+			Status:  *replicaFailure,
+			Reason:  "TestReplicaFailure",
+			Message: "Test made deployment fail to replicate.",
+		})
+	}
+	deploy.Status.Conditions = conditions
 
 	err = t.Client.Status().Update(context.Background(), deploy)
 	Expect(err).ToNot(HaveOccurred())
