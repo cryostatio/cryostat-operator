@@ -119,12 +119,12 @@ const (
 // Map Cryostat conditions to deployment conditions
 type deploymentConditionTypeMap map[operatorv1beta1.CryostatConditionType]appsv1.DeploymentConditionType
 
-var mainDeploymentConditions = map[operatorv1beta1.CryostatConditionType]appsv1.DeploymentConditionType{
+var mainDeploymentConditions = deploymentConditionTypeMap{
 	operatorv1beta1.ConditionTypeMainDeploymentAvailable:      appsv1.DeploymentAvailable,
 	operatorv1beta1.ConditionTypeMainDeploymentProgressing:    appsv1.DeploymentProgressing,
 	operatorv1beta1.ConditionTypeMainDeploymentReplicaFailure: appsv1.DeploymentReplicaFailure,
 }
-var reportsDeploymentConditions = map[operatorv1beta1.CryostatConditionType]appsv1.DeploymentConditionType{
+var reportsDeploymentConditions = deploymentConditionTypeMap{
 	operatorv1beta1.ConditionTypeReportsDeploymentAvailable:      appsv1.DeploymentAvailable,
 	operatorv1beta1.ConditionTypeReportsDeploymentProgressing:    appsv1.DeploymentProgressing,
 	operatorv1beta1.ConditionTypeReportsDeploymentReplicaFailure: appsv1.DeploymentReplicaFailure,
