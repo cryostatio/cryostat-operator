@@ -90,9 +90,34 @@ type CryostatSpec struct {
 
 // CryostatStatus defines the observed state of Cryostat
 type CryostatStatus struct {
+	// Conditions of the components managed by the Cryostat Operator
+	// +optional
+	// +operator-sdk:csv:customresourcedefinitions:type=status,displayName="Cryostat Conditions",xDescriptors={"urn:alm:descriptor:io.kubernetes.conditions"}
+	Conditions []metav1.Condition `json:"conditions,omitempty"`
+	// Address of the deployed Cryostat web application
 	// +operator-sdk:csv:customresourcedefinitions:type=status,xDescriptors={"urn:alm:descriptor:org.w3:link"}
 	ApplicationURL string `json:"applicationUrl"`
 }
+
+// CryostatConditionType refers to a Condition type that may be used in status.conditions
+type CryostatConditionType string
+
+const (
+	// Whether the main Cryostat deployment is available
+	ConditionTypeMainDeploymentAvailable CryostatConditionType = "MainDeploymentAvailable"
+	// Whether the main Cryostat deployment is progressing
+	ConditionTypeMainDeploymentProgressing CryostatConditionType = "MainDeploymentProgressing"
+	// If pods within the main Cryostat deployment failed to be created or destroyed
+	ConditionTypeMainDeploymentReplicaFailure CryostatConditionType = "MainDeploymentReplicaFailure"
+	// If enabled, whether the reports deployment is available
+	ConditionTypeReportsDeploymentAvailable CryostatConditionType = "ReportsDeploymentAvailable"
+	// If enabled, whether the reports deployment is progressing
+	ConditionTypeReportsDeploymentProgressing CryostatConditionType = "ReportsDeploymentProgressing"
+	// If enabled, whether pods in the reports deployment failed to be created or destroyed
+	ConditionTypeReportsDeploymentReplicaFailure CryostatConditionType = "ReportsDeploymentReplicaFailure"
+	// If enabled, whether TLS setup is complete for the Cryostat components
+	ConditionTypeTLSSetupComplete CryostatConditionType = "TLSSetupComplete"
+)
 
 // StorageConfiguration provides customization to the storage created by
 // the operator to hold Flight Recordings and Recording Templates.
