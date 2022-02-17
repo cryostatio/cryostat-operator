@@ -75,6 +75,8 @@ type CryostatSpec struct {
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	NetworkOptions *NetworkConfigurationList `json:"networkOptions,omitempty"`
 	// Options to configure Cryostat Automated Report Analysis
+	// +optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	ReportOptions *ReportConfiguration `json:"reportOptions,omitempty"`
 	// The maximum number of WebSocket client connections allowed (minimum 1, maximum 64, default 2)
 	// +optional
@@ -138,12 +140,14 @@ type StorageConfiguration struct {
 type ReportConfiguration struct {
 	// The number of report sidecar replica containers to deploy.
 	// Each replica can service one report generation request at a time.
-	// +operator-sdk:csv:customresourcedefinitions:type=status,xDescriptors={"urn:alm:descriptor:com.tectonic.ui:podCount"}
+	// +optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:com.tectonic.ui:podCount"}
 	Replicas int32 `json:"replicas,omitempty"`
 	// The resources allocated to each sidecar replica.
 	// A replica with more resources can handle larger input recordings and will process them faster.
-	// +operator-sdk:csv:customresourcedefinitions:type=status,xDescriptors={"urn:alm:descriptor:com.tectonic.ui:resourceRequirements"}
-	corev1.ResourceRequirements `json:",inline"`
+	// +optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:com.tectonic.ui:resourceRequirements"}
+	Resources corev1.ResourceRequirements `json:"resources,omitempty"`
 	// When zero report sidecar replicas are requested, SubProcessMaxHeapSize configures
 	// the maximum heap size of the basic subprocess report generator in MiB.
 	// The default heap size is `200` (MiB).

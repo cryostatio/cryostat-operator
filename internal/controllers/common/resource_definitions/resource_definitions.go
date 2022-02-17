@@ -357,7 +357,7 @@ const reportsPort = 10000
 func NewPodForReports(cr *operatorv1beta1.Cryostat, imageTags *ImageTags) *corev1.PodSpec {
 	resources := corev1.ResourceRequirements{}
 	if cr.Spec.ReportOptions != nil {
-		resources = cr.Spec.ReportOptions.ResourceRequirements
+		resources = cr.Spec.ReportOptions.Resources
 	}
 	cpus := int64(1)
 	if requests := resources.Requests; requests != nil {

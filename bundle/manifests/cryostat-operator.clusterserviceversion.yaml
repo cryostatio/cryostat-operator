@@ -156,6 +156,19 @@ spec:
       - description: Options to control how the operator exposes the application outside of the cluster using an Ingress or Route.
         displayName: Network Options
         path: networkOptions
+      - description: Options to configure Cryostat Automated Report Analysis
+        displayName: Report Options
+        path: reportOptions
+      - description: The number of report sidecar replica containers to deploy. Each replica can service one report generation request at a time.
+        displayName: Replicas
+        path: reportOptions.replicas
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:podCount
+      - description: The resources allocated to each sidecar replica. A replica with more resources can handle larger input recordings and will process them faster.
+        displayName: Resources
+        path: reportOptions.resources
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:resourceRequirements
       - description: When zero report sidecar replicas are requested, SubProcessMaxHeapSize configures the maximum heap size of the basic subprocess report generator in MiB. The default heap size is `200` (MiB).
         displayName: Sub Process Max Heap Size
         path: reportOptions.subProcessMaxHeapSize
