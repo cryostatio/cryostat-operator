@@ -80,7 +80,7 @@ metadata:
           }
         }
       }
-    operators.operatorframework.io/builder: operator-sdk-v1.4.0+git
+    operators.operatorframework.io/builder: operator-sdk-v1.5.0
     operators.operatorframework.io/project_layout: go.kubebuilder.io/v3
     repository: github.com/cryostatio/cryostat-operator
     support: Cryostat Community
@@ -161,6 +161,26 @@ spec:
         path: reportOptions.subProcessMaxHeapSize
         x-descriptors:
         - urn:alm:descriptor:com.tectonic.ui:number
+      - description: Resource requirements for the Cryostat deployment
+        displayName: Resources
+        path: resources
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:resourceRequirements
+      - description: Resource requirements for the Cryostat application
+        displayName: Core Resources
+        path: resources.coreResources
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:resourceRequirements
+      - description: Resource requirements for the JFR Data Source container
+        displayName: Data Source Resources
+        path: resources.dataSourceResources
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:resourceRequirements
+      - description: Resource requirements for the Grafana container
+        displayName: Grafana Resources
+        path: resources.grafanaResources
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:resourceRequirements
       - description: Options to customize the services created for the Cryostat application and Grafana dashboard.
         displayName: Service Options
         path: serviceOptions

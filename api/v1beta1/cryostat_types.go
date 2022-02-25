@@ -86,6 +86,25 @@ type CryostatSpec struct {
 	// +optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="JMX Connections Cache Options"
 	JmxCacheOptions *JmxCacheOptions `json:"jmxCacheOptions,omitempty"`
+	// Resource requirements for the Cryostat deployment
+	// +optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:com.tectonic.ui:resourceRequirements"}
+	Resources ResourceConfigList `json:"resources,omitempty"`
+}
+
+type ResourceConfigList struct {
+	// Resource requirements for the Cryostat application
+	// +optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:com.tectonic.ui:resourceRequirements"}
+	CoreResources corev1.ResourceRequirements `json:"coreResources,omitempty"`
+	// Resource requirements for the JFR Data Source container
+	// +optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:com.tectonic.ui:resourceRequirements"}
+	DataSourceResources corev1.ResourceRequirements `json:"dataSourceResources,omitempty"`
+	// Resource requirements for the Grafana container
+	// +optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:com.tectonic.ui:resourceRequirements"}
+	GrafanaResources corev1.ResourceRequirements `json:"grafanaResources,omitempty"`
 }
 
 // CryostatStatus defines the observed state of Cryostat

@@ -1567,6 +1567,7 @@ func checkCoreContainer(container *corev1.Container, minimal bool, tls bool, ext
 	Expect(container.VolumeMounts).To(ConsistOf(test.NewCoreVolumeMounts(tls)))
 	Expect(container.LivenessProbe).To(Equal(test.NewCoreLivenessProbe(tls)))
 	Expect(container.StartupProbe).To(Equal(test.NewCoreStartupProbe(tls)))
+	Expect(container.Resources).To(Equal(test.NewCoreResources()))
 }
 
 func checkGrafanaContainer(container *corev1.Container, tls bool, tag *string) {

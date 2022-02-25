@@ -683,8 +683,9 @@ func NewCoreContainer(cr *operatorv1beta1.Cryostat, specs *ServiceSpecs, imageTa
 				ContainerPort: 9091,
 			},
 		},
-		Env:     envs,
-		EnvFrom: envsFrom,
+		Env:       envs,
+		EnvFrom:   envsFrom,
+		Resources: cr.Spec.Resources.CoreResources,
 		LivenessProbe: &corev1.Probe{
 			Handler: probeHandler,
 		},
@@ -787,6 +788,7 @@ func NewGrafanaContainer(cr *operatorv1beta1.Cryostat, imageTag string, tls *TLS
 				},
 			},
 		},
+		Resources: cr.Spec.Resources.GrafanaResources,
 	}
 }
 
@@ -820,6 +822,7 @@ func NewJfrDatasourceContainer(cr *operatorv1beta1.Cryostat, imageTag string) co
 				},
 			},
 		},
+		Resources: cr.Spec.Resources.DataSourceResources,
 	}
 }
 

@@ -99,6 +99,7 @@ func NewCryostat() *operatorv1beta1.Cryostat {
 			Minimal:            false,
 			EnableCertManager:  &certManager,
 			TrustedCertSecrets: []operatorv1beta1.CertificateSecret{},
+			Resources:          operatorv1beta1.ResourceConfigList{CoreResources: NewCoreResources()},
 		},
 	}
 }
@@ -1305,6 +1306,20 @@ func NewGrafanaLivenessProbe(tls bool) *corev1.Probe {
 				Path:   "/api/health",
 				Scheme: protocol,
 			},
+		},
+	}
+}
+
+func NewCoreResources() corev1.ResourceRequirements {
+
+	return corev1.ResourceRequirements{
+		Limits: corev1.ResourceList{
+			corev1.ResourceCPU:    resource.MustParse("500m"),
+			corev1.ResourceMemory: resource.MustParse("256Mi"),
+		},
+		Requests: corev1.ResourceList{
+			corev1.ResourceCPU:    resource.MustParse("250m"),
+			corev1.ResourceMemory: resource.MustParse("128Mi"),
 		},
 	}
 }
