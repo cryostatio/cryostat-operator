@@ -98,6 +98,10 @@ type CryostatSpec struct {
 	// +optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:com.tectonic.ui:advanced"}
 	SecurityOptions *SecurityOptions `json:"securityOptions,omitempty"`
+	// Options to configure scheduling for the Cryostat deployment
+	// +optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec
+	SchedulingOptions *SchedulingConfiguration `json:"schedulingOptions,omitempty"`
 }
 
 type ResourceConfigList struct {
@@ -193,6 +197,43 @@ type ReportConfiguration struct {
 	// +optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:com.tectonic.ui:advanced"}
 	SecurityOptions *ReportsSecurityOptions `json:"securityOptions,omitempty"`
+	// Options to configure scheduling for the reports deployment
+	// +optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec
+	SchedulingOptions *SchedulingConfiguration `json:"schedulingOptions,omitempty"`
+}
+
+// SchedulingConfiguration contains multiple choices to control scheduling of Cryostat pods
+type SchedulingConfiguration struct {
+	// Label selector used to schedule a Cryostat pod to a node. See: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/
+	// +optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:com.tectonic.ui:selector:core:v1:Node"}
+	NodeSelector map[string]string `json:"nodeSelector,omitempty"`
+	// Affinity rules for scheduling Cryostat pods.
+	// +optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec
+	Affinity *Affinity `json:"affinity,omitempty"`
+	// Tolerations to allow scheduling of Cryostat pods to tainted nodes. See: https://kubernetes.io/docs/concepts/scheduling-eviction/taint-and-toleration/
+	// +optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec
+	Tolerations []corev1.Toleration `json:"tolerations,omitempty"`
+}
+
+// Affinity groups different kinds of affinity configurations for Cryostat pods
+type Affinity struct {
+	// Node affinity scheduling rules for a Cryostat pod. See: https://kubernetes.io/docs/reference/kubernetes-api/workload-resources/pod-v1/#NodeAffinity
+	// +optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:com.tectonic.ui:nodeAffinity"}
+	NodeAffinity *corev1.NodeAffinity `json:"nodeAffinity,omitempty"`
+
+	// Pod affinity scheduling rules for a Cryostat pod. See: https://kubernetes.io/docs/reference/kubernetes-api/workload-resources/pod-v1/#PodAffinity
+	// +optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:com.tectonic.ui:podAffinity"}
+	PodAffinity *corev1.PodAffinity `json:"podAffinity,omitempty"`
+	// Pod anti-affinity scheduling rules for a Cryostat pod. See: https://kubernetes.io/docs/reference/kubernetes-api/workload-resources/pod-v1/#PodAntiAffinity
+	// +optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:com.tectonic.ui:podAntiAffinity"}
+	PodAntiAffinity *corev1.PodAntiAffinity `json:"podAntiAffinity,omitempty"`
 }
 
 // ServiceConfig provides customization for a service created

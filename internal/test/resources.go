@@ -317,6 +317,89 @@ func NewCryostatWithReportsResources() *operatorv1beta1.Cryostat {
 	return cr
 }
 
+func NewCryostatWithReportsScheduling() *operatorv1beta1.Cryostat {
+	cr := NewCryostat()
+	cr.Spec.ReportOptions = &operatorv1beta1.ReportConfiguration{
+		SchedulingOptions: &operatorv1beta1.SchedulingConfiguration{
+			NodeSelector: map[string]string{"node": "good"},
+			Affinity: &operatorv1beta1.Affinity{
+				NodeAffinity: &corev1.NodeAffinity{
+					RequiredDuringSchedulingIgnoredDuringExecution: &corev1.NodeSelector{
+						NodeSelectorTerms: []corev1.NodeSelectorTerm{
+							{
+								MatchExpressions: []corev1.NodeSelectorRequirement{
+									{
+										Key:      "node",
+										Operator: corev1.NodeSelectorOpIn,
+										Values: []string{
+
+											"good",
+											"better",
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+
+					PodAffinity: &corev1.PodAffinity{
+						RequiredDuringSchedulingIgnoredDuringExecution: &corev1.NodeSelector{
+							NodeSelectorTerms: []corev1.NodeSelectorTerm{
+								{
+									MatchExpressions: []corev1.NodeSelectorRequirement{
+										{
+											Key:      "pod",
+											Operator: corev1.NodeSelectorOpIn,
+											Values: []string{
+
+												"good",
+												"better",
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+					PodAntiAffinity: &corev1.PodAntiAffinity{
+						RequiredDuringSchedulingIgnoredDuringExecution: &corev1.NodeSelector{
+							NodeSelectorTerms: []corev1.NodeSelectorTerm{
+								{
+									MatchExpressions: []corev1.NodeSelectorRequirement{
+										{
+											Key:      "pod",
+											Operator: corev1.NodeSelectorOpIn,
+											Values: []string{
+
+												"bad",
+												"worse",
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+
+			Tolerations: []corev1.Toleration{
+				{
+					Key:      "node",
+					Operator: corev1.NodeSelectorOpIn,
+					Values: []string{
+
+						"good",
+						"better",
+					},
+				},
+			},
+		},
+			},
+		
+	return cr
+}
+
 func NewCryostatCertManagerDisabled() *operatorv1beta1.Cryostat {
 	cr := NewCryostat()
 	certManager := false

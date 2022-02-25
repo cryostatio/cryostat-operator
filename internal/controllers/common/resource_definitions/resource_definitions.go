@@ -398,12 +398,31 @@ func NewPodForCR(cr *operatorv1beta1.Cryostat, specs *ServiceSpecs, imageTags *I
 			},
 		},
 	}
+	var nodeSelector map[string]string
+	var affinity *corev1.Affinity
+	var tolerations []corev1.Toleration
+
+	if cr.Spec.SchedulingOptions != nil {
+		nodeSelector = cr.Spec.SchedulingOptions.NodeSelector
+
+		if cr.Spec.SchedulingOptions.Affinity != nil {
+			affinity = &corev1.Affinity{
+				NodeAffinity:    cr.Spec.SchedulingOptions.Affinity.NodeAffinity,
+				PodAffinity:     cr.Spec.SchedulingOptions.Affinity.PodAffinity,
+				PodAntiAffinity: cr.Spec.SchedulingOptions.Affinity.PodAntiAffinity,
+			}
+		}
+		tolerations = cr.Spec.SchedulingOptions.Tolerations
+	}
 	return &corev1.PodSpec{
 		ServiceAccountName: cr.Name,
 		Volumes:            volumes,
 		Containers:         containers,
 		SecurityContext:    podSc,
 		HostAliases:        hostAliases,
+		NodeSelector:       nodeSelector,
+		Affinity:           affinity,
+		Tolerations:        tolerations,
 	}
 }
 
@@ -526,6 +545,24 @@ func NewPodForReports(cr *operatorv1beta1.Cryostat, imageTags *ImageTags, tls *T
 		}
 	}
 
+
+	var nodeSelector map[string]string
+	var affinity *corev1.Affinity
+	var tolerations []corev1.Toleration
+
+	if cr.Spec.ReportOptions.SchedulingOptions != nil {
+		nodeSelector = cr.Spec.ReportOptions.SchedulingOptions.NodeSelector
+		if cr.Spec.SchedulingOptions.Affinity != nil {
+			affinity = &corev1.Affinity{
+				NodeAffinity:    cr.Spec.ReportOptions.SchedulingOptions.Affinity.NodeAffinity,
+				PodAffinity:     cr.Spec.ReportOptions.SchedulingOptions.Affinity.PodAffinity,
+				PodAntiAffinity: cr.Spec.ReportOptions.SchedulingOptions.Affinity.PodAntiAffinity,
+			}
+		}
+		tolerations = cr.Spec.ReportOptions.SchedulingOptions.Tolerations
+
+	}
+
 	return &corev1.PodSpec{
 		ServiceAccountName: cr.Name,
 		Containers: []corev1.Container{
@@ -550,7 +587,10 @@ func NewPodForReports(cr *operatorv1beta1.Cryostat, imageTags *ImageTags, tls *T
 				SecurityContext: containerSc,
 			},
 		},
-		Volumes:         volumes,
+		Volumes:              volumes,
+		NodeSelector: nodeSelector,
+		Affinity:     affinity,
+		Tolerations:  tolerations,
 		SecurityContext: podSc,
 	}
 }
