@@ -985,6 +985,10 @@ func NewCoreEnvironmentVariables(minimal bool, tls bool, externalTLS bool, opens
 			Value: "/opt/cryostat.d/probes.d",
 		},
 		{
+			Name:  "CRYOSTAT_ENABLE_JDP_BROADCAST",
+			Value: "false",
+		},
+		{
 			Name:  "CRYOSTAT_MAX_WS_CONNECTIONS",
 			Value: "2",
 		},

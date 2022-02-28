@@ -448,6 +448,10 @@ func NewCoreContainer(cr *operatorv1beta1.Cryostat, specs *ServiceSpecs, imageTa
 			Name:  "CRYOSTAT_PROBE_TEMPLATE_PATH",
 			Value: probesPath,
 		},
+		{
+			Name:  "CRYOSTAT_ENABLE_JDP_BROADCAST",
+			Value: "false",
+		},
 	}
 	if specs.CoreURL != nil {
 		coreEnvs := []corev1.EnvVar{
