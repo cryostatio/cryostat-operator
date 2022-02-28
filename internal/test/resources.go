@@ -763,6 +763,29 @@ func NewCoreEnvironmentVariables(minimal bool, tls bool, externalTLS bool, opens
 			Name:  "CRYOSTAT_CLIENTLIB_PATH",
 			Value: "/opt/cryostat.d/clientlib.d",
 		},
+<<<<<<< HEAD
+=======
+		{
+			Name:  "CRYOSTAT_PROBE_TEMPLATE_PATH",
+			Value: "/opt/cryostat.d/probes.d",
+		},
+		{
+			Name:  "CRYOSTAT_ENABLE_JDP_BROADCAST",
+			Value: "false",
+		},
+		{
+			Name:  "CRYOSTAT_MAX_WS_CONNECTIONS",
+			Value: "2",
+		},
+		{
+			Name:  "CRYOSTAT_TARGET_CACHE_SIZE",
+			Value: "-1",
+		},
+		{
+			Name:  "CRYOSTAT_TARGET_CACHE_TTL",
+			Value: "10",
+		},
+>>>>>>> d2d9464 (fix(jdp): disable JDP autodiscovery (#345))
 	}
 
 	if externalTLS {

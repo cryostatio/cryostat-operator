@@ -335,6 +335,17 @@ func NewCoreContainer(cr *operatorv1beta1.Cryostat, specs *ServiceSpecs, imageTa
 			Name:  "CRYOSTAT_CLIENTLIB_PATH",
 			Value: clientlibPath,
 		},
+<<<<<<< HEAD
+=======
+		{
+			Name:  "CRYOSTAT_PROBE_TEMPLATE_PATH",
+			Value: probesPath,
+		},
+		{
+			Name:  "CRYOSTAT_ENABLE_JDP_BROADCAST",
+			Value: "false",
+		},
+>>>>>>> d2d9464 (fix(jdp): disable JDP autodiscovery (#345))
 	}
 	if specs.CoreURL != nil {
 		coreEnvs := []corev1.EnvVar{
