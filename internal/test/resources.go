@@ -763,6 +763,10 @@ func NewCoreEnvironmentVariables(minimal bool, tls bool, externalTLS bool, opens
 			Name:  "CRYOSTAT_CLIENTLIB_PATH",
 			Value: "/opt/cryostat.d/clientlib.d",
 		},
+		{
+			Name:  "CRYOSTAT_ENABLE_JDP_BROADCAST",
+			Value: "false",
+		},
 	}
 
 	if externalTLS {
