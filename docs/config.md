@@ -189,7 +189,7 @@ spec:
 
 ### Cryostat Client Options
 The `maxWsConnections` property optionally specifies the maximum number of WebSocket client connections allowed.
-The default value of `maxWsConnections` is 2, with minimum 1 and maximum 64. 
+The default number of `maxWsConnections` is `Integer.MAX_VALUE` (minimum 1 connection).
 ```yaml
 apiVersion: operator.cryostat.io/v1beta1
 kind: Cryostat
