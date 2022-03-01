@@ -78,7 +78,7 @@ type CryostatSpec struct {
 	// +optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	ReportOptions *ReportConfiguration `json:"reportOptions,omitempty"`
-	// The maximum number of WebSocket client connections allowed (minimum 1, maximum Integer.MAX_VALUE, default Integer.MAX_VALUE)
+	// The maximum number of WebSocket client connections allowed (minimum 1, default unlimited)
 	// +optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Max WebSocket Connections",xDescriptors={"urn:alm:descriptor:com.tectonic.ui:number"}
 	// +kubebuilder:validation:Minimum=1

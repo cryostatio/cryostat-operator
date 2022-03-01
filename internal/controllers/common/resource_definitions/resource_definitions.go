@@ -488,17 +488,16 @@ func NewCoreContainer(cr *operatorv1beta1.Cryostat, specs *ServiceSpecs, imageTa
 		envs = append(envs, subprocessReportHeapEnv...)
 	}
 
-	maxWsConnections := "2"
 	if cr.Spec.MaxWsConnections != 0 {
-		maxWsConnections = strconv.Itoa(int(cr.Spec.MaxWsConnections))
+		maxWsConnections := strconv.Itoa(int(cr.Spec.MaxWsConnections))
+		maxWsConnectionsEnv := []corev1.EnvVar{
+			{
+				Name:  "CRYOSTAT_MAX_WS_CONNECTIONS",
+				Value: maxWsConnections,
+			},
+		}
+		envs = append(envs, maxWsConnectionsEnv...)
 	}
-	maxWsConnectionsEnv := []corev1.EnvVar{
-		{
-			Name:  "CRYOSTAT_MAX_WS_CONNECTIONS",
-			Value: maxWsConnections,
-		},
-	}
-	envs = append(envs, maxWsConnectionsEnv...)
 
 	targetCacheSize := "-1"
 	targetCacheTTL := "10"
