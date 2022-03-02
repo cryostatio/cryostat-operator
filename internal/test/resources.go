@@ -989,10 +989,6 @@ func NewCoreEnvironmentVariables(minimal bool, tls bool, externalTLS bool, opens
 			Value: "false",
 		},
 		{
-			Name:  "CRYOSTAT_MAX_WS_CONNECTIONS",
-			Value: "2",
-		},
-		{
 			Name:  "CRYOSTAT_TARGET_CACHE_SIZE",
 			Value: "-1",
 		},

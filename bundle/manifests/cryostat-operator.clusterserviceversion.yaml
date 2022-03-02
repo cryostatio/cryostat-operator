@@ -143,7 +143,7 @@ spec:
         path: jmxCacheOptions.targetCacheTTL
         x-descriptors:
         - urn:alm:descriptor:com.tectonic.ui:number
-      - description: The maximum number of WebSocket client connections allowed (minimum 1, maximum 64, default 2)
+      - description: The maximum number of WebSocket client connections allowed (minimum 1, default unlimited)
         displayName: Max WebSocket Connections
         path: maxWsConnections
         x-descriptors:
