@@ -967,9 +967,6 @@ func NewCorePorts() []corev1.ContainerPort {
 			ContainerPort: 8181,
 		},
 		{
-			ContainerPort: 9090,
-		},
-		{
 			ContainerPort: 9091,
 		},
 	}
@@ -1058,14 +1055,27 @@ func NewCoreEnvironmentVariables(minimal bool, tls bool, externalTLS bool, opens
 		if externalTLS {
 			envs = append(envs,
 				corev1.EnvVar{
-					Name:  "GRAFANA_DASHBOARD_URL",
+					Name:  "GRAFANA_DASHBOARD_EXT_URL",
 					Value: "https://cryostat-grafana.example.com",
 				})
 		} else {
 			envs = append(envs,
 				corev1.EnvVar{
-					Name:  "GRAFANA_DASHBOARD_URL",
+					Name:  "GRAFANA_DASHBOARD_EXT_URL",
 					Value: "http://cryostat-grafana.example.com",
+				})
+		}
+		if tls {
+			envs = append(envs,
+				corev1.EnvVar{
+					Name:  "GRAFANA_DASHBOARD_URL",
+					Value: "https://127.0.0.1:3000",
+				})
+		} else {
+			envs = append(envs,
+				corev1.EnvVar{
+					Name:  "GRAFANA_DASHBOARD_URL",
+					Value: "http://127.0.0.1:3000",
 				})
 		}
 	}
@@ -1536,15 +1546,11 @@ func NewNetworkConfigurationList(tls bool) operatorv1beta1.NetworkConfigurationL
 	coreSVC := resource_definitions.NewCoreService(NewCryostat())
 	coreIng := NewNetworkConfiguration(coreSVC.Name, coreSVC.Spec.Ports[0].Port, tls)
 
-	commandSVC := resource_definitions.NewCommandChannelService(NewCryostat())
-	commandIng := NewNetworkConfiguration(commandSVC.Name, commandSVC.Spec.Ports[0].Port, tls)
-
 	grafanaSVC := resource_definitions.NewGrafanaService(NewCryostat())
 	grafanaIng := NewNetworkConfiguration(grafanaSVC.Name, grafanaSVC.Spec.Ports[0].Port, tls)
 
 	return operatorv1beta1.NetworkConfigurationList{
 		CoreConfig:    &coreIng,
-		CommandConfig: &commandIng,
 		GrafanaConfig: &grafanaIng,
 	}
 }
