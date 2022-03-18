@@ -1072,7 +1072,8 @@ spec:
                 description: Resource requirements for the Cryostat deployment
                 properties:
                   coreResources:
-                    description: Resource requirements for the Cryostat application
+                    description: Resource requirements for the Cryostat application.
+                      If specifying a memory limit, at least 768MiB is recommended.
                     properties:
                       limits:
                         additionalProperties:
