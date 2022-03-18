@@ -93,7 +93,7 @@ type CryostatSpec struct {
 }
 
 type ResourceConfigList struct {
-	// Resource requirements for the Cryostat application
+	// Resource requirements for the Cryostat application. If specifying a memory limit, at least 768MiB is recommended.
 	// +optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:com.tectonic.ui:resourceRequirements"}
 	CoreResources corev1.ResourceRequirements `json:"coreResources,omitempty"`
