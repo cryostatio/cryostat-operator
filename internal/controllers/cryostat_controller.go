@@ -211,7 +211,7 @@ func (r *CryostatReconciler) Reconcile(ctx context.Context, request ctrl.Request
 
 	reqLogger.Info("Spec", "Minimal", instance.Spec.Minimal)
 
-	shouldCreatePvc := instance.Spec.StorageOptions == nil || (instance.Spec.StorageOptions != nil && instance.Spec.StorageOptions.EmptyDir == nil)
+	shouldCreatePvc := !(instance.Spec.StorageOptions != nil && instance.Spec.StorageOptions.EmptyDir != nil && instance.Spec.StorageOptions.EmptyDir.Enabled)
 	if shouldCreatePvc {
 		pvc := resources.NewPersistentVolumeClaimForCR(instance)
 		if err := controllerutil.SetControllerReference(instance, pvc, r.Scheme); err != nil {

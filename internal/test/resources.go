@@ -189,7 +189,9 @@ func NewCryostatWithPVCLabelsOnly() *operatorv1beta1.Cryostat {
 func NewCryostatWithDefaultEmptyDir() *operatorv1beta1.Cryostat {
 	cr := NewCryostat()
 	cr.Spec.StorageOptions = &operatorv1beta1.StorageConfiguration{
-		EmptyDir: &operatorv1beta1.EmptyDirConfig{},
+		EmptyDir: &operatorv1beta1.EmptyDirConfig{
+			Enabled: true,
+		},
 	}
 	return cr
 }
@@ -198,6 +200,7 @@ func NewCryostatWithEmptyDirSpec() *operatorv1beta1.Cryostat {
 	cr := NewCryostat()
 	cr.Spec.StorageOptions = &operatorv1beta1.StorageConfiguration{
 		EmptyDir: &operatorv1beta1.EmptyDirConfig{
+			Enabled:   true,
 			Medium:    "Memory",
 			SizeLimit: resource.MustParse("200Mi"),
 		},
@@ -944,7 +947,7 @@ func NewDefaultPVCWithLabel() *corev1.PersistentVolumeClaim {
 }
 
 func NewDefaultEmptyDir() *corev1.EmptyDirVolumeSource {
-	sizeLimit := resource.MustParse("500Mi")
+	sizeLimit := resource.MustParse("0")
 	return &corev1.EmptyDirVolumeSource{
 		SizeLimit: &sizeLimit,
 	}

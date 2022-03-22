@@ -76,7 +76,7 @@ spec:
             storage: 1Gi
 ```
 The `emptyDir.medium` and `emptyDir.sizeLimit` fields are optional. If an `emptyDir` is
-specified without additional configurations, Cryostat will mount the EmptyDir volume with a 500MiB size limit on the same storage medium backing the node.
+specified without additional configurations, Cryostat will mount an EmptyDir volume with the same default values as Kubernetes.
 ```yaml
 apiVersion: operator.cryostat.io/v1beta1
 kind: Cryostat

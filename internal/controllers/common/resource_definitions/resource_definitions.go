@@ -1201,15 +1201,11 @@ func getPullPolicy(imageTag string) corev1.PullPolicy {
 
 func newVolumeForCR(cr *operatorv1beta1.Cryostat) []corev1.Volume {
 	var volumeSource corev1.VolumeSource
-	deployEmptyDir := cr.Spec.StorageOptions != nil && cr.Spec.StorageOptions.EmptyDir != nil
+	deployEmptyDir := cr.Spec.StorageOptions != nil && cr.Spec.StorageOptions.EmptyDir != nil && cr.Spec.StorageOptions.EmptyDir.Enabled
 
 	if deployEmptyDir {
 		emptyDir := cr.Spec.StorageOptions.EmptyDir
 		sizeLimit := emptyDir.SizeLimit
-
-		if sizeLimit == resource.MustParse("0") {
-			sizeLimit = resource.MustParse("500Mi")
-		}
 
 		volumeSource = corev1.VolumeSource{
 			EmptyDir: &corev1.EmptyDirVolumeSource{

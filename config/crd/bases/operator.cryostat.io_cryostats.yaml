@@ -1167,9 +1167,13 @@ spec:
                 properties:
                   emptyDir:
                     description: Configuration for an EmptyDir to be created by the
-                      operator instead of a PVC. If an EmptyDir configuration is specified,
+                      operator instead of a PVC. If an EmptyDir configuration is enabled,
                       any PVC configurations will be ignored.
                     properties:
+                      enabled:
+                        description: When enabled, Cryostat will use EmptyDir volumes
+                          instead of a Persistent Volume Claim.
+                        type: boolean
                       medium:
                         description: Unless specified, the emptyDir volume will be
                           mounted on the same storage medium backing the node. Setting
@@ -1181,7 +1185,7 @@ spec:
                         - type: integer
                         - type: string
                         description: The maximum memory limit for the emptyDir. Default
-                          is 500MiB.
+                          is unbounded.
                         pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                         x-kubernetes-int-or-string: true
                     type: object

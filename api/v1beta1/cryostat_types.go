@@ -133,7 +133,7 @@ type StorageConfiguration struct {
 
 	// Configuration for an EmptyDir to be created
 	// by the operator instead of a PVC. If an EmptyDir configuration
-	// is specified, any PVC configurations will be ignored.
+	// is enabled, any PVC configurations will be ignored.
 	// +optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	EmptyDir *EmptyDirConfig `json:"emptyDir,omitempty"`
@@ -289,16 +289,18 @@ type PersistentVolumeClaimConfig struct {
 // configure an EmptyDir to be created and managed
 // by the operator.
 type EmptyDirConfig struct {
+	// When enabled, Cryostat will use EmptyDir volumes instead of a Persistent Volume Claim.
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:com.tectonic.ui:booleanSwitch"}
+	Enabled bool `json:"enabled,omitempty"`
 	// Unless specified, the emptyDir volume will be mounted on
 	// the same storage medium backing the node. Setting this field to
 	// "Memory" will mount the emptyDir on a tmpfs (RAM-backed filesystem).
 	// +optional
-	// +operator-sdk:csv:customresourcedefinitions:type=spec
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:com.tectonic.ui:fieldDependency:spec.storageOptions.emptyDir.enabled:true"}
 	Medium corev1.StorageMedium `json:"medium,omitempty"`
-
-	// The maximum memory limit for the emptyDir. Default is 500MiB.
+	// The maximum memory limit for the emptyDir. Default is unbounded.
 	// +optional
-	// +operator-sdk:csv:customresourcedefinitions:type=spec
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:com.tectonic.ui:fieldDependency:spec.storageOptions.emptyDir.enabled:true"}
 	SizeLimit resource.Quantity `json:"sizeLimit,omitempty"`
 }
 
