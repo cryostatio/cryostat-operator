@@ -647,6 +647,22 @@ var _ = Describe("CryostatController", func() {
 				t.expectPVC(test.NewDefaultPVCWithLabel())
 			})
 		})
+		Context("with custom EmptyDir config", func() {
+			BeforeEach(func() {
+				t.objs = append(t.objs, test.NewCryostatWithDefaultEmptyDir())
+			})
+			It("should create the EmptyDir with default specs", func() {
+				t.expectEmptyDir(test.NewDefaultEmptyDir())
+			})
+		})
+		Context("with custom EmptyDir config with requested spec", func() {
+			BeforeEach(func() {
+				t.objs = append(t.objs, test.NewCryostatWithEmptyDirSpec())
+			})
+			It("should create the EmptyDir with requested specs", func() {
+				t.expectEmptyDir(test.NewEmptyDirWithSpec())
+			})
+		})
 		Context("with overriden image tags", func() {
 			var deploy *appsv1.Deployment
 			BeforeEach(func() {
@@ -1484,6 +1500,21 @@ func (t *cryostatTestInput) expectPVC(expectedPvc *corev1.PersistentVolumeClaim)
 	pvcStorage := pvc.Spec.Resources.Requests["storage"]
 	expectedPvcStorage := expectedPvc.Spec.Resources.Requests["storage"]
 	Expect(pvcStorage.Equal(expectedPvcStorage)).To(BeTrue())
+}
+
+func (t *cryostatTestInput) expectEmptyDir(expectedEmptyDir *corev1.EmptyDirVolumeSource) {
+	t.reconcileCryostatFully()
+
+	deployment := &appsv1.Deployment{}
+	err := t.Client.Get(context.Background(), types.NamespacedName{Name: "cryostat", Namespace: "default"}, deployment)
+	Expect(err).ToNot(HaveOccurred())
+
+	volume := deployment.Spec.Template.Spec.Volumes[0]
+	emptyDir := volume.EmptyDir
+
+	// Compare to desired spec
+	Expect(emptyDir.Medium).To(Equal(expectedEmptyDir.Medium))
+	Expect(emptyDir.SizeLimit).To(Equal(expectedEmptyDir.SizeLimit))
 }
 
 func (t *cryostatTestInput) expectJMXSecret() {

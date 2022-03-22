@@ -224,16 +224,9 @@ func NewPodForCR(cr *operatorv1beta1.Cryostat, specs *ServiceSpecs, imageTags *I
 			NewJfrDatasourceContainer(cr, imageTags.DatasourceImageTag),
 		}
 	}
-	volumes := []corev1.Volume{
-		{
-			Name: cr.Name,
-			VolumeSource: corev1.VolumeSource{
-				PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
-					ClaimName: cr.Name,
-				},
-			},
-		},
-	}
+
+	volumes := newVolumeForCR(cr)
+
 	readOnlyMode := int32(0440)
 	if tls != nil {
 		// Create certificate secret volumes in deployment
@@ -1204,4 +1197,38 @@ func getPullPolicy(imageTag string) corev1.PullPolicy {
 	}
 	// Likely a release, use IfNotPresent
 	return corev1.PullIfNotPresent
+}
+
+func newVolumeForCR(cr *operatorv1beta1.Cryostat) []corev1.Volume {
+	var volumeSource corev1.VolumeSource
+	deployEmptyDir := cr.Spec.StorageOptions != nil && cr.Spec.StorageOptions.EmptyDir != nil
+
+	if deployEmptyDir {
+		emptyDir := cr.Spec.StorageOptions.EmptyDir
+		sizeLimit := emptyDir.SizeLimit
+
+		if sizeLimit == resource.MustParse("0") {
+			sizeLimit = resource.MustParse("500Mi")
+		}
+
+		volumeSource = corev1.VolumeSource{
+			EmptyDir: &corev1.EmptyDirVolumeSource{
+				Medium:    emptyDir.Medium,
+				SizeLimit: &sizeLimit,
+			},
+		}
+	} else {
+		volumeSource = corev1.VolumeSource{
+			PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
+				ClaimName: cr.Name,
+			},
+		}
+	}
+
+	return []corev1.Volume{
+		{
+			Name:         cr.Name,
+			VolumeSource: volumeSource,
+		},
+	}
 }

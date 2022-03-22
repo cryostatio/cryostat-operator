@@ -39,6 +39,7 @@ package v1beta1
 import (
 	corev1 "k8s.io/api/core/v1"
 	netv1 "k8s.io/api/networking/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -121,13 +122,21 @@ const (
 )
 
 // StorageConfiguration provides customization to the storage created by
-// the operator to hold Flight Recordings and Recording Templates.
+// the operator to hold Flight Recordings and Recording Templates. If no
+// configurations are specified, a PVC will be created by default.
 type StorageConfiguration struct {
 	// Configuration for the Persistent Volume Claim to be created
 	// by the operator.
 	// +optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	PVC *PersistentVolumeClaimConfig `json:"pvc,omitempty"`
+
+	// Configuration for an EmptyDir to be created
+	// by the operator instead of a PVC. If an EmptyDir configuration
+	// is specified, any PVC configurations will be ignored.
+	// +optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec
+	EmptyDir *EmptyDirConfig `json:"emptyDir,omitempty"`
 }
 
 // ReportConfiguration is used to determine how many replicas of cryostat-reports
@@ -274,6 +283,23 @@ type PersistentVolumeClaimConfig struct {
 	// +optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	Spec *corev1.PersistentVolumeClaimSpec `json:"spec,omitempty"`
+}
+
+// EmptyDirConfig holds all customization options to
+// configure an EmptyDir to be created and managed
+// by the operator.
+type EmptyDirConfig struct {
+	// Unless specified, the emptyDir volume will be mounted on
+	// the same storage medium backing the node. Setting this field to
+	// "Memory" will mount the emptyDir on a tmpfs (RAM-backed filesystem).
+	// +optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec
+	Medium corev1.StorageMedium `json:"medium,omitempty"`
+
+	// The maximum memory limit for the emptyDir. Default is 500MiB.
+	// +optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec
+	SizeLimit resource.Quantity `json:"sizeLimit,omitempty"`
 }
 
 // JmxCacheConfig provides customization for the JMX target connections

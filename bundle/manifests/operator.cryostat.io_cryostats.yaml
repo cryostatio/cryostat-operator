@@ -640,6 +640,20 @@ spec:
               storageOptions:
                 description: Options to customize the storage for Flight Recordings and Templates
                 properties:
+                  emptyDir:
+                    description: Configuration for an EmptyDir to be created by the operator instead of a PVC. If an EmptyDir configuration is specified, any PVC configurations will be ignored.
+                    properties:
+                      medium:
+                        description: Unless specified, the emptyDir volume will be mounted on the same storage medium backing the node. Setting this field to "Memory" will mount the emptyDir on a tmpfs (RAM-backed filesystem).
+                        type: string
+                      sizeLimit:
+                        anyOf:
+                        - type: integer
+                        - type: string
+                        description: The maximum memory limit for the emptyDir. Default is 500MiB.
+                        pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                        x-kubernetes-int-or-string: true
+                    type: object
                   pvc:
                     description: Configuration for the Persistent Volume Claim to be created by the operator.
                     properties:

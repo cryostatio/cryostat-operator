@@ -54,7 +54,9 @@ spec:
 Multiple TLS secrets may be specified in the `trustedCertSecrets` array. The `secretName` property is mandatory, and must refer to the name of a Secret within the same namespace as the `Cryostat` object. The `certificateKey` must point to the X.509 certificate file to be trusted. If `certificateKey` is omitted, the default key name of `tls.crt` will be used.
 
 ### Storage Options
-Cryostat uses storage volumes to hold Flight Recording files and user-configured Recording Templates. In the interest of persisting these files across redeployments, Cryostat uses a Persistent Volume Claim. By default, the operator will create a Persistent Volume Claim with the default Storage Class and 500MiB of storage capacity. Through the `spec.storageOptions` property, users can provide a custom Persistent Volume Claim `spec`, which will override any defaults when the operator creates the Persistent Volume Claim. Additional labels and annotations for the Persistent Volume Claim may also be specified.
+Cryostat uses storage volumes to hold Flight Recording files and user-configured Recording Templates. In the interest of persisting these files across redeployments, Cryostat uses a Persistent Volume Claim by default. Unless overidden, the operator will create a Persistent Volume Claim with the default Storage Class and 500MiB of storage capacity. 
+
+Through the `spec.storageOptions` property, users can choose to provide either a custom Persistent Volume Claim `pvc.spec` or an `emptyDir` configuration. Either of these configurations will override any defaults when the operator creates the storage volume. If an `emptyDir` configuration is specified, Cryostat will use an EmptyDir volume instead of a Persistent Volume Claim. Additional labels and annotations for the Persistent Volume Claim may also be specified.
 ```yaml
 apiVersion: operator.cryostat.io/v1beta1
 kind: Cryostat
@@ -72,6 +74,19 @@ spec:
         resources:
           requests:
             storage: 1Gi
+```
+The `emptyDir.medium` and `emptyDir.sizeLimit` fields are optional. If an `emptyDir` is
+specified without additional configurations, Cryostat will mount the EmptyDir volume with a 500MiB size limit on the same storage medium backing the node.
+```yaml
+apiVersion: operator.cryostat.io/v1beta1
+kind: Cryostat
+metadata:
+  name: cryostat-sample
+spec:
+  storageOptions:
+    emptyDir:
+      medium: "Memory"
+      sizeLimit: 1Gi
 ```
 
 ### Service Options

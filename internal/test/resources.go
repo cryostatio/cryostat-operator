@@ -186,6 +186,25 @@ func NewCryostatWithPVCLabelsOnly() *operatorv1beta1.Cryostat {
 	return cr
 }
 
+func NewCryostatWithDefaultEmptyDir() *operatorv1beta1.Cryostat {
+	cr := NewCryostat()
+	cr.Spec.StorageOptions = &operatorv1beta1.StorageConfiguration{
+		EmptyDir: &operatorv1beta1.EmptyDirConfig{},
+	}
+	return cr
+}
+
+func NewCryostatWithEmptyDirSpec() *operatorv1beta1.Cryostat {
+	cr := NewCryostat()
+	cr.Spec.StorageOptions = &operatorv1beta1.StorageConfiguration{
+		EmptyDir: &operatorv1beta1.EmptyDirConfig{
+			Medium:    "Memory",
+			SizeLimit: resource.MustParse("200Mi"),
+		},
+	}
+	return cr
+}
+
 func NewCryostatWithCoreSvc() *operatorv1beta1.Cryostat {
 	svcType := corev1.ServiceTypeNodePort
 	httpPort := int32(8080)
@@ -922,6 +941,21 @@ func NewDefaultPVCWithLabel() *corev1.PersistentVolumeClaim {
 		"app": "cryostat",
 		"my":  "label",
 	}, nil)
+}
+
+func NewDefaultEmptyDir() *corev1.EmptyDirVolumeSource {
+	sizeLimit := resource.MustParse("500Mi")
+	return &corev1.EmptyDirVolumeSource{
+		SizeLimit: &sizeLimit,
+	}
+}
+
+func NewEmptyDirWithSpec() *corev1.EmptyDirVolumeSource {
+	sizeLimit := resource.MustParse("200Mi")
+	return &corev1.EmptyDirVolumeSource{
+		Medium:    "Memory",
+		SizeLimit: &sizeLimit,
+	}
 }
 
 func NewCorePorts() []corev1.ContainerPort {
