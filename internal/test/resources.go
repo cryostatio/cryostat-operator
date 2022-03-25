@@ -202,7 +202,7 @@ func NewCryostatWithEmptyDirSpec() *operatorv1beta1.Cryostat {
 		EmptyDir: &operatorv1beta1.EmptyDirConfig{
 			Enabled:   true,
 			Medium:    "Memory",
-			SizeLimit: resource.MustParse("200Mi"),
+			SizeLimit: "200Mi",
 		},
 	}
 	return cr

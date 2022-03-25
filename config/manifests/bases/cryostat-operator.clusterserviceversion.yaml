@@ -169,10 +169,10 @@ spec:
       - description: Options to customize the storage for Flight Recordings and Templates
         displayName: Storage Options
         path: storageOptions
-      - description: Configuration for an EmptyDir to be created by the operator instead of a PVC. If an EmptyDir configuration is enabled, any PVC configurations will be ignored.
+      - description: Configuration for an EmptyDir to be created by the operator instead of a PVC.
         displayName: Empty Dir
         path: storageOptions.emptyDir
-      - description: When enabled, Cryostat will use EmptyDir volumes instead of a Persistent Volume Claim.
+      - description: When enabled, Cryostat will use EmptyDir volumes instead of a Persistent Volume Claim. Any PVC configurations will be ignored.
         displayName: Enabled
         path: storageOptions.emptyDir.enabled
         x-descriptors:
@@ -181,12 +181,12 @@ spec:
         displayName: Medium
         path: storageOptions.emptyDir.medium
         x-descriptors:
-        - urn:alm:descriptor:com.tectonic.ui:fieldDependency:spec.storageOptions.emptyDir.enabled:true
+        - urn:alm:descriptor:com.tectonic.ui:fieldDependency:storageOptions.emptyDir.enabled:true
       - description: The maximum memory limit for the emptyDir. Default is unbounded.
         displayName: Size Limit
         path: storageOptions.emptyDir.sizeLimit
         x-descriptors:
-        - urn:alm:descriptor:com.tectonic.ui:fieldDependency:spec.storageOptions.emptyDir.enabled:true
+        - urn:alm:descriptor:com.tectonic.ui:fieldDependency:storageOptions.emptyDir.enabled:true
       - description: Configuration for the Persistent Volume Claim to be created by the operator.
         displayName: PVC
         path: storageOptions.pvc

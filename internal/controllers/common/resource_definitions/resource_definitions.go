@@ -1205,7 +1205,11 @@ func newVolumeForCR(cr *operatorv1beta1.Cryostat) []corev1.Volume {
 
 	if deployEmptyDir {
 		emptyDir := cr.Spec.StorageOptions.EmptyDir
-		sizeLimit := emptyDir.SizeLimit
+
+		sizeLimit, err := resource.ParseQuantity(emptyDir.SizeLimit)
+		if err != nil {
+			sizeLimit = *resource.NewQuantity(0, resource.BinarySI)
+		}
 
 		volumeSource = corev1.VolumeSource{
 			EmptyDir: &corev1.EmptyDirVolumeSource{

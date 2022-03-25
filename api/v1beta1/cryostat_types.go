@@ -39,7 +39,6 @@ package v1beta1
 import (
 	corev1 "k8s.io/api/core/v1"
 	netv1 "k8s.io/api/networking/v1"
-	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -132,8 +131,7 @@ type StorageConfiguration struct {
 	PVC *PersistentVolumeClaimConfig `json:"pvc,omitempty"`
 
 	// Configuration for an EmptyDir to be created
-	// by the operator instead of a PVC. If an EmptyDir configuration
-	// is enabled, any PVC configurations will be ignored.
+	// by the operator instead of a PVC.
 	// +optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	EmptyDir *EmptyDirConfig `json:"emptyDir,omitempty"`
@@ -289,19 +287,20 @@ type PersistentVolumeClaimConfig struct {
 // configure an EmptyDir to be created and managed
 // by the operator.
 type EmptyDirConfig struct {
-	// When enabled, Cryostat will use EmptyDir volumes instead of a Persistent Volume Claim.
+	// When enabled, Cryostat will use EmptyDir volumes instead of a Persistent Volume Claim. Any PVC configurations will be ignored.
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:com.tectonic.ui:booleanSwitch"}
 	Enabled bool `json:"enabled,omitempty"`
 	// Unless specified, the emptyDir volume will be mounted on
 	// the same storage medium backing the node. Setting this field to
 	// "Memory" will mount the emptyDir on a tmpfs (RAM-backed filesystem).
 	// +optional
-	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:com.tectonic.ui:fieldDependency:spec.storageOptions.emptyDir.enabled:true"}
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:com.tectonic.ui:fieldDependency:storageOptions.emptyDir.enabled:true"}
 	Medium corev1.StorageMedium `json:"medium,omitempty"`
 	// The maximum memory limit for the emptyDir. Default is unbounded.
 	// +optional
-	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:com.tectonic.ui:fieldDependency:spec.storageOptions.emptyDir.enabled:true"}
-	SizeLimit resource.Quantity `json:"sizeLimit,omitempty"`
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:com.tectonic.ui:fieldDependency:storageOptions.emptyDir.enabled:true"}
+	// +kubebuilder:validation:Pattern=^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+	SizeLimit string `json:"sizeLimit,omitempty"`
 }
 
 // JmxCacheConfig provides customization for the JMX target connections
