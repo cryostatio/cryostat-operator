@@ -1,0 +1,8 @@
+# FIXME this can be done using kubebuilder markers
+# after upgrading Operator SDK to 1.10+
+- op: add
+  path: /spec/versions/0/deprecated
+  value: true
+- op: add
+  path: /spec/versions/0/deprecationWarning
+  value: "operator.cryostat.io/v1beta1 Recording is deprecated; please use the Cryostat web application or the Cryostat HTTP API to manage recordings"

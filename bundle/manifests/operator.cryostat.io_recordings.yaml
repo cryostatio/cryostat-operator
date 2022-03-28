@@ -14,7 +14,9 @@ spec:
     singular: recording
   scope: Namespaced
   versions:
-  - name: v1beta1
+  - deprecated: true
+    deprecationWarning: operator.cryostat.io/v1beta1 Recording is deprecated; please use the Cryostat web application or the Cryostat HTTP API to manage recordings
+    name: v1beta1
     schema:
       openAPIV3Schema:
         description: Recording represents a JDK Flight Recording. Create a Recording object to instruct Cryostat to start a new recording for a Pod. An alternative to managing recordings with the Cryostat web application.
