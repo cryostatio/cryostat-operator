@@ -1069,13 +1069,13 @@ func NewCoreEnvironmentVariables(minimal bool, tls bool, externalTLS bool, opens
 			envs = append(envs,
 				corev1.EnvVar{
 					Name:  "GRAFANA_DASHBOARD_URL",
-					Value: "https://127.0.0.1:3000",
+					Value: "https://cryostat-health.local:3000",
 				})
 		} else {
 			envs = append(envs,
 				corev1.EnvVar{
 					Name:  "GRAFANA_DASHBOARD_URL",
-					Value: "http://127.0.0.1:3000",
+					Value: "http://cryostat-health.local:3000",
 				})
 		}
 	}

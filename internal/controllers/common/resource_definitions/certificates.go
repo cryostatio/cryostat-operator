@@ -143,6 +143,7 @@ func NewGrafanaCert(cr *operatorv1beta1.Cryostat) *certv1.Certificate {
 				cr.Name,
 				fmt.Sprintf("%s-grafana.%s.svc", cr.Name, cr.Namespace),
 				fmt.Sprintf("%s-grafana.%s.svc.cluster.local", cr.Name, cr.Namespace),
+				healthCheckHostname,
 			},
 			SecretName: cr.Name + "-grafana-tls",
 			IssuerRef: certMeta.ObjectReference{

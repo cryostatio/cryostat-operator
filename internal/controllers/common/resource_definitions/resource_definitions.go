@@ -219,6 +219,9 @@ func NewDeploymentForReports(cr *operatorv1beta1.Cryostat, imageTags *ImageTags)
 	}
 }
 
+// Hostname alias for loopback address, to be used for health checks
+const healthCheckHostname = "cryostat-health.local"
+
 func NewPodForCR(cr *operatorv1beta1.Cryostat, specs *ServiceSpecs, imageTags *ImageTags,
 	tls *TLSConfig, fsGroup int64, openshift bool) *corev1.PodSpec {
 	var containers []corev1.Container
@@ -346,11 +349,23 @@ func NewPodForCR(cr *operatorv1beta1.Cryostat, specs *ServiceSpecs, imageTags *I
 	sc := &corev1.PodSecurityContext{
 		FSGroup: &fsGroup,
 	}
+
+	// Use HostAlias for loopback address to allow health checks to
+	// work over HTTPS with hostname added as a SubjectAltName
+	hostAliases := []corev1.HostAlias{
+		{
+			IP: loopbackAddress,
+			Hostnames: []string{
+				healthCheckHostname,
+			},
+		},
+	}
 	return &corev1.PodSpec{
 		ServiceAccountName: cr.Name,
 		Volumes:            volumes,
 		Containers:         containers,
 		SecurityContext:    sc,
+		HostAliases:        hostAliases,
 	}
 }
 
@@ -1164,7 +1179,7 @@ func getInternalDashboardURL(tls *TLSConfig) string {
 	if tls == nil {
 		scheme = "http"
 	}
-	return fmt.Sprintf("%s://%s:%d", scheme, loopbackAddress, grafanaContainerPort)
+	return fmt.Sprintf("%s://%s:%d", scheme, healthCheckHostname, grafanaContainerPort)
 }
 
 func clusterUniqueName(cr *operatorv1beta1.Cryostat) string {
