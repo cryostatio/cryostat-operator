@@ -56,7 +56,7 @@ Multiple TLS secrets may be specified in the `trustedCertSecrets` array. The `se
 ### Storage Options
 Cryostat uses storage volumes to hold Flight Recording files and user-configured Recording Templates. In the interest of persisting these files across redeployments, Cryostat uses a Persistent Volume Claim by default. Unless overidden, the operator will create a Persistent Volume Claim with the default Storage Class and 500MiB of storage capacity. 
 
-Through the `spec.storageOptions` property, users can choose to provide either a custom Persistent Volume Claim `pvc.spec` or an `emptyDir` configuration. Either of these configurations will override any defaults when the operator creates the storage volume. If an `emptyDir` configuration is specified, Cryostat will use an EmptyDir volume instead of a Persistent Volume Claim. Additional labels and annotations for the Persistent Volume Claim may also be specified.
+Through the `spec.storageOptions` property, users can choose to provide either a custom Persistent Volume Claim `pvc.spec` or an `emptyDir` configuration. Either of these configurations will override any defaults when the operator creates the storage volume. If an `emptyDir` configuration is enabled, Cryostat will use an EmptyDir volume instead of a Persistent Volume Claim. Additional labels and annotations for the Persistent Volume Claim may also be specified.
 ```yaml
 apiVersion: operator.cryostat.io/v1beta1
 kind: Cryostat
@@ -85,6 +85,7 @@ metadata:
 spec:
   storageOptions:
     emptyDir:
+      enabled: true
       medium: "Memory"
       sizeLimit: 1Gi
 ```
