@@ -925,8 +925,6 @@ func requeueIfIngressNotReady(log logr.Logger, err error) (reconcile.Result, err
 func getNetworkConfig(controller *operatorv1beta1.Cryostat, svc *corev1.Service) (*operatorv1beta1.NetworkConfiguration, error) {
 	if svc.Name == controller.Name {
 		return controller.Spec.NetworkOptions.CoreConfig, nil
-	} else if svc.Name == controller.Name+"-command" {
-		return controller.Spec.NetworkOptions.CommandConfig, nil
 	} else if svc.Name == controller.Name+"-grafana" {
 		return controller.Spec.NetworkOptions.GrafanaConfig, nil
 	} else {
