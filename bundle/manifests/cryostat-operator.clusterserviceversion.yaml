@@ -164,8 +164,6 @@ spec:
       - description: Resource requirements for the Cryostat deployment
         displayName: Resources
         path: resources
-        x-descriptors:
-        - urn:alm:descriptor:com.tectonic.ui:resourceRequirements
       - description: Resource requirements for the Cryostat application. If specifying a memory limit, at least 768MiB is recommended.
         displayName: Core Resources
         path: resources.coreResources

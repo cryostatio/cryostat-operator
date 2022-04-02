@@ -88,7 +88,7 @@ type CryostatSpec struct {
 	JmxCacheOptions *JmxCacheOptions `json:"jmxCacheOptions,omitempty"`
 	// Resource requirements for the Cryostat deployment
 	// +optional
-	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:com.tectonic.ui:resourceRequirements"}
+	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	Resources ResourceConfigList `json:"resources,omitempty"`
 }
 
