@@ -186,6 +186,28 @@ func NewCryostatWithPVCLabelsOnly() *operatorv1beta1.Cryostat {
 	return cr
 }
 
+func NewCryostatWithDefaultEmptyDir() *operatorv1beta1.Cryostat {
+	cr := NewCryostat()
+	cr.Spec.StorageOptions = &operatorv1beta1.StorageConfiguration{
+		EmptyDir: &operatorv1beta1.EmptyDirConfig{
+			Enabled: true,
+		},
+	}
+	return cr
+}
+
+func NewCryostatWithEmptyDirSpec() *operatorv1beta1.Cryostat {
+	cr := NewCryostat()
+	cr.Spec.StorageOptions = &operatorv1beta1.StorageConfiguration{
+		EmptyDir: &operatorv1beta1.EmptyDirConfig{
+			Enabled:   true,
+			Medium:    "Memory",
+			SizeLimit: "200Mi",
+		},
+	}
+	return cr
+}
+
 func NewCryostatWithCoreSvc() *operatorv1beta1.Cryostat {
 	svcType := corev1.ServiceTypeNodePort
 	httpPort := int32(8080)
@@ -961,13 +983,25 @@ func NewDefaultPVCWithLabel() *corev1.PersistentVolumeClaim {
 	}, nil)
 }
 
+func NewDefaultEmptyDir() *corev1.EmptyDirVolumeSource {
+	sizeLimit := resource.MustParse("0")
+	return &corev1.EmptyDirVolumeSource{
+		SizeLimit: &sizeLimit,
+	}
+}
+
+func NewEmptyDirWithSpec() *corev1.EmptyDirVolumeSource {
+	sizeLimit := resource.MustParse("200Mi")
+	return &corev1.EmptyDirVolumeSource{
+		Medium:    "Memory",
+		SizeLimit: &sizeLimit,
+	}
+}
+
 func NewCorePorts() []corev1.ContainerPort {
 	return []corev1.ContainerPort{
 		{
 			ContainerPort: 8181,
-		},
-		{
-			ContainerPort: 9090,
 		},
 		{
 			ContainerPort: 9091,
@@ -1022,8 +1056,8 @@ func NewCoreEnvironmentVariables(minimal bool, tls bool, externalTLS bool, opens
 			Value: "/opt/cryostat.d/probes.d",
 		},
 		{
-			Name:  "CRYOSTAT_MAX_WS_CONNECTIONS",
-			Value: "2",
+			Name:  "CRYOSTAT_ENABLE_JDP_BROADCAST",
+			Value: "false",
 		},
 		{
 			Name:  "CRYOSTAT_TARGET_CACHE_SIZE",
@@ -1058,14 +1092,27 @@ func NewCoreEnvironmentVariables(minimal bool, tls bool, externalTLS bool, opens
 		if externalTLS {
 			envs = append(envs,
 				corev1.EnvVar{
-					Name:  "GRAFANA_DASHBOARD_URL",
+					Name:  "GRAFANA_DASHBOARD_EXT_URL",
 					Value: "https://cryostat-grafana.example.com",
 				})
 		} else {
 			envs = append(envs,
 				corev1.EnvVar{
-					Name:  "GRAFANA_DASHBOARD_URL",
+					Name:  "GRAFANA_DASHBOARD_EXT_URL",
 					Value: "http://cryostat-grafana.example.com",
+				})
+		}
+		if tls {
+			envs = append(envs,
+				corev1.EnvVar{
+					Name:  "GRAFANA_DASHBOARD_URL",
+					Value: "https://cryostat-health.local:3000",
+				})
+		} else {
+			envs = append(envs,
+				corev1.EnvVar{
+					Name:  "GRAFANA_DASHBOARD_URL",
+					Value: "http://cryostat-health.local:3000",
 				})
 		}
 	}
@@ -1536,15 +1583,11 @@ func NewNetworkConfigurationList(tls bool) operatorv1beta1.NetworkConfigurationL
 	coreSVC := resource_definitions.NewCoreService(NewCryostat())
 	coreIng := NewNetworkConfiguration(coreSVC.Name, coreSVC.Spec.Ports[0].Port, tls)
 
-	commandSVC := resource_definitions.NewCommandChannelService(NewCryostat())
-	commandIng := NewNetworkConfiguration(commandSVC.Name, commandSVC.Spec.Ports[0].Port, tls)
-
 	grafanaSVC := resource_definitions.NewGrafanaService(NewCryostat())
 	grafanaIng := NewNetworkConfiguration(grafanaSVC.Name, grafanaSVC.Spec.Ports[0].Port, tls)
 
 	return operatorv1beta1.NetworkConfigurationList{
 		CoreConfig:    &coreIng,
-		CommandConfig: &commandIng,
 		GrafanaConfig: &grafanaIng,
 	}
 }

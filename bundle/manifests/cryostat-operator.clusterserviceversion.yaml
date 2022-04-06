@@ -144,7 +144,7 @@ spec:
         path: jmxCacheOptions.targetCacheTTL
         x-descriptors:
         - urn:alm:descriptor:com.tectonic.ui:number
-      - description: The maximum number of WebSocket client connections allowed (minimum 1, maximum 64, default 2)
+      - description: The maximum number of WebSocket client connections allowed (minimum 1, default unlimited)
         displayName: Max WebSocket Connections
         path: maxWsConnections
         x-descriptors:
@@ -157,6 +157,19 @@ spec:
       - description: Options to control how the operator exposes the application outside of the cluster using an Ingress or Route.
         displayName: Network Options
         path: networkOptions
+      - description: Options to configure Cryostat Automated Report Analysis
+        displayName: Report Options
+        path: reportOptions
+      - description: The number of report sidecar replica containers to deploy. Each replica can service one report generation request at a time.
+        displayName: Replicas
+        path: reportOptions.replicas
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:podCount
+      - description: The resources allocated to each sidecar replica. A replica with more resources can handle larger input recordings and will process them faster.
+        displayName: Resources
+        path: reportOptions.resources
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:resourceRequirements
       - description: When zero report sidecar replicas are requested, SubProcessMaxHeapSize configures the maximum heap size of the basic subprocess report generator in MiB. The default heap size is `200` (MiB).
         displayName: Sub Process Max Heap Size
         path: reportOptions.subProcessMaxHeapSize
@@ -186,6 +199,24 @@ spec:
       - description: Options to customize the storage for Flight Recordings and Templates
         displayName: Storage Options
         path: storageOptions
+      - description: Configuration for an EmptyDir to be created by the operator instead of a PVC.
+        displayName: Empty Dir
+        path: storageOptions.emptyDir
+      - description: When enabled, Cryostat will use EmptyDir volumes instead of a Persistent Volume Claim. Any PVC configurations will be ignored.
+        displayName: Enabled
+        path: storageOptions.emptyDir.enabled
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:booleanSwitch
+      - description: Unless specified, the emptyDir volume will be mounted on the same storage medium backing the node. Setting this field to "Memory" will mount the emptyDir on a tmpfs (RAM-backed filesystem).
+        displayName: Medium
+        path: storageOptions.emptyDir.medium
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:fieldDependency:storageOptions.emptyDir.enabled:true
+      - description: The maximum memory limit for the emptyDir. Default is unbounded.
+        displayName: Size Limit
+        path: storageOptions.emptyDir.sizeLimit
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:fieldDependency:storageOptions.emptyDir.enabled:true
       - description: Configuration for the Persistent Volume Claim to be created by the operator.
         displayName: PVC
         path: storageOptions.pvc
@@ -201,10 +232,16 @@ spec:
         x-descriptors:
         - urn:alm:descriptor:io.kubernetes:Secret
       statusDescriptors:
-      - displayName: Application URL
+      - description: Address of the deployed Cryostat web application
+        displayName: Application URL
         path: applicationUrl
         x-descriptors:
         - urn:alm:descriptor:org.w3:link
+      - description: Conditions of the components managed by the Cryostat Operator
+        displayName: Cryostat Conditions
+        path: conditions
+        x-descriptors:
+        - urn:alm:descriptor:io.kubernetes.conditions
       version: v1beta1
     - description: FlightRecorder represents a target Pod that is capable of creating JDK Flight Recordings using Cryostat. The Cryostat operator creates FlightRecorder objects when it finds compatible Pods.
       displayName: Flight Recorder

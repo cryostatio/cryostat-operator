@@ -85,6 +85,15 @@ type TLSConfig struct {
 	KeystorePassSecret string
 }
 
+const (
+	cryostatHTTPContainerPort int32  = 8181
+	cryostatJMXContainerPort  int32  = 9091
+	grafanaContainerPort      int32  = 3000
+	datasourceContainerPort   int32  = 8080
+	reportsContainerPort      int32  = 10000
+	loopbackAddress           string = "127.0.0.1"
+)
+
 func NewPersistentVolumeClaimForCR(cr *operatorv1beta1.Cryostat) *corev1.PersistentVolumeClaim {
 	objMeta := metav1.ObjectMeta{
 		Name:      cr.Name,
@@ -210,6 +219,9 @@ func NewDeploymentForReports(cr *operatorv1beta1.Cryostat, imageTags *ImageTags)
 	}
 }
 
+// Hostname alias for loopback address, to be used for health checks
+const healthCheckHostname = "cryostat-health.local"
+
 func NewPodForCR(cr *operatorv1beta1.Cryostat, specs *ServiceSpecs, imageTags *ImageTags,
 	tls *TLSConfig, fsGroup int64, openshift bool) *corev1.PodSpec {
 	var containers []corev1.Container
@@ -224,16 +236,9 @@ func NewPodForCR(cr *operatorv1beta1.Cryostat, specs *ServiceSpecs, imageTags *I
 			NewJfrDatasourceContainer(cr, imageTags.DatasourceImageTag),
 		}
 	}
-	volumes := []corev1.Volume{
-		{
-			Name: cr.Name,
-			VolumeSource: corev1.VolumeSource{
-				PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
-					ClaimName: cr.Name,
-				},
-			},
-		},
-	}
+
+	volumes := newVolumeForCR(cr)
+
 	readOnlyMode := int32(0440)
 	if tls != nil {
 		// Create certificate secret volumes in deployment
@@ -344,20 +349,30 @@ func NewPodForCR(cr *operatorv1beta1.Cryostat, specs *ServiceSpecs, imageTags *I
 	sc := &corev1.PodSecurityContext{
 		FSGroup: &fsGroup,
 	}
+
+	// Use HostAlias for loopback address to allow health checks to
+	// work over HTTPS with hostname added as a SubjectAltName
+	hostAliases := []corev1.HostAlias{
+		{
+			IP: loopbackAddress,
+			Hostnames: []string{
+				healthCheckHostname,
+			},
+		},
+	}
 	return &corev1.PodSpec{
 		ServiceAccountName: cr.Name,
 		Volumes:            volumes,
 		Containers:         containers,
 		SecurityContext:    sc,
+		HostAliases:        hostAliases,
 	}
 }
-
-const reportsPort = 10000
 
 func NewPodForReports(cr *operatorv1beta1.Cryostat, imageTags *ImageTags) *corev1.PodSpec {
 	resources := corev1.ResourceRequirements{}
 	if cr.Spec.ReportOptions != nil {
-		resources = cr.Spec.ReportOptions.ResourceRequirements
+		resources = cr.Spec.ReportOptions.Resources
 	}
 	cpus := int64(1)
 	if requests := resources.Requests; requests != nil {
@@ -374,7 +389,7 @@ func NewPodForReports(cr *operatorv1beta1.Cryostat, imageTags *ImageTags) *corev
 
 	probeHandler := corev1.Handler{
 		HTTPGet: &corev1.HTTPGetAction{
-			Port: intstr.IntOrString{IntVal: reportsPort},
+			Port: intstr.IntOrString{IntVal: reportsContainerPort},
 			Path: "/health",
 		},
 	}
@@ -387,7 +402,7 @@ func NewPodForReports(cr *operatorv1beta1.Cryostat, imageTags *ImageTags) *corev
 				ImagePullPolicy: getPullPolicy(imageTags.ReportsImageTag),
 				Ports: []corev1.ContainerPort{
 					{
-						ContainerPort: int32(reportsPort),
+						ContainerPort: reportsContainerPort,
 					},
 				},
 				Env: []corev1.EnvVar{
@@ -397,7 +412,7 @@ func NewPodForReports(cr *operatorv1beta1.Cryostat, imageTags *ImageTags) *corev
 					},
 					{
 						Name:  "QUARKUS_HTTP_PORT",
-						Value: strconv.Itoa(reportsPort),
+						Value: strconv.Itoa(int(reportsContainerPort)),
 					},
 					{
 						Name:  "JAVA_OPTIONS",
@@ -426,7 +441,7 @@ func NewCoreContainer(cr *operatorv1beta1.Cryostat, specs *ServiceSpecs, imageTa
 	envs := []corev1.EnvVar{
 		{
 			Name:  "CRYOSTAT_WEB_PORT",
-			Value: "8181",
+			Value: strconv.Itoa(int(cryostatHTTPContainerPort)),
 		},
 		{
 			Name:  "CRYOSTAT_CONFIG_PATH",
@@ -447,6 +462,10 @@ func NewCoreContainer(cr *operatorv1beta1.Cryostat, specs *ServiceSpecs, imageTa
 		{
 			Name:  "CRYOSTAT_PROBE_TEMPLATE_PATH",
 			Value: probesPath,
+		},
+		{
+			Name:  "CRYOSTAT_ENABLE_JDP_BROADCAST",
+			Value: "false",
 		},
 	}
 	if specs.CoreURL != nil {
@@ -484,17 +503,16 @@ func NewCoreContainer(cr *operatorv1beta1.Cryostat, specs *ServiceSpecs, imageTa
 		envs = append(envs, subprocessReportHeapEnv...)
 	}
 
-	maxWsConnections := "2"
 	if cr.Spec.MaxWsConnections != 0 {
-		maxWsConnections = strconv.Itoa(int(cr.Spec.MaxWsConnections))
+		maxWsConnections := strconv.Itoa(int(cr.Spec.MaxWsConnections))
+		maxWsConnectionsEnv := []corev1.EnvVar{
+			{
+				Name:  "CRYOSTAT_MAX_WS_CONNECTIONS",
+				Value: maxWsConnections,
+			},
+		}
+		envs = append(envs, maxWsConnectionsEnv...)
 	}
-	maxWsConnectionsEnv := []corev1.EnvVar{
-		{
-			Name:  "CRYOSTAT_MAX_WS_CONNECTIONS",
-			Value: maxWsConnections,
-		},
-	}
-	envs = append(envs, maxWsConnectionsEnv...)
 
 	targetCacheSize := "-1"
 	targetCacheTTL := "10"
@@ -589,14 +607,19 @@ func NewCoreContainer(cr *operatorv1beta1.Cryostat, specs *ServiceSpecs, imageTa
 		grafanaVars := []corev1.EnvVar{
 			{
 				Name:  "GRAFANA_DATASOURCE_URL",
-				Value: DatasourceURL,
+				Value: datasourceURL,
 			},
 		}
 		if specs.GrafanaURL != nil {
-			grafanaVars = append(grafanaVars, corev1.EnvVar{
-				Name:  "GRAFANA_DASHBOARD_URL",
-				Value: specs.GrafanaURL.String(),
-			})
+			grafanaVars = append(grafanaVars,
+				corev1.EnvVar{
+					Name:  "GRAFANA_DASHBOARD_EXT_URL",
+					Value: specs.GrafanaURL.String(),
+				},
+				corev1.EnvVar{
+					Name:  "GRAFANA_DASHBOARD_URL",
+					Value: getInternalDashboardURL(tls),
+				})
 		}
 		envs = append(envs, grafanaVars...)
 	}
@@ -662,7 +685,7 @@ func NewCoreContainer(cr *operatorv1beta1.Cryostat, specs *ServiceSpecs, imageTa
 
 	probeHandler := corev1.Handler{
 		HTTPGet: &corev1.HTTPGetAction{
-			Port:   intstr.IntOrString{IntVal: 8181},
+			Port:   intstr.IntOrString{IntVal: cryostatHTTPContainerPort},
 			Path:   "/health",
 			Scheme: livenessProbeScheme,
 		},
@@ -674,13 +697,10 @@ func NewCoreContainer(cr *operatorv1beta1.Cryostat, specs *ServiceSpecs, imageTa
 		VolumeMounts:    mounts,
 		Ports: []corev1.ContainerPort{
 			{
-				ContainerPort: 8181,
+				ContainerPort: cryostatHTTPContainerPort,
 			},
 			{
-				ContainerPort: 9090,
-			},
-			{
-				ContainerPort: 9091,
+				ContainerPort: cryostatJMXContainerPort,
 			},
 		},
 		Env:       envs,
@@ -724,7 +744,7 @@ func NewGrafanaContainer(cr *operatorv1beta1.Cryostat, imageTag string, tls *TLS
 	envs := []corev1.EnvVar{
 		{
 			Name:  "JFR_DATASOURCE_URL",
-			Value: DatasourceURL,
+			Value: datasourceURL,
 		},
 	}
 	mounts := []corev1.VolumeMount{}
@@ -766,7 +786,7 @@ func NewGrafanaContainer(cr *operatorv1beta1.Cryostat, imageTag string, tls *TLS
 		VolumeMounts:    mounts,
 		Ports: []corev1.ContainerPort{
 			{
-				ContainerPort: 3000,
+				ContainerPort: grafanaContainerPort,
 			},
 		},
 		Env: envs,
@@ -792,11 +812,8 @@ func NewGrafanaContainer(cr *operatorv1beta1.Cryostat, imageTag string, tls *TLS
 	}
 }
 
-const datasourceHost = "127.0.0.1"
-const datasourcePort = "8080"
-
-// DatasourceURL contains the fixed URL to jfr-datasource's web server
-const DatasourceURL = "http://" + datasourceHost + ":" + datasourcePort
+// datasourceURL contains the fixed URL to jfr-datasource's web server
+var datasourceURL = "http://" + loopbackAddress + ":" + strconv.Itoa(int(datasourceContainerPort))
 
 func NewJfrDatasourceContainer(cr *operatorv1beta1.Cryostat, imageTag string) corev1.Container {
 	return corev1.Container{
@@ -805,20 +822,20 @@ func NewJfrDatasourceContainer(cr *operatorv1beta1.Cryostat, imageTag string) co
 		ImagePullPolicy: getPullPolicy(imageTag),
 		Ports: []corev1.ContainerPort{
 			{
-				ContainerPort: 8080,
+				ContainerPort: datasourceContainerPort,
 			},
 		},
 		Env: []corev1.EnvVar{
 			{
 				Name:  "LISTEN_HOST",
-				Value: datasourceHost,
+				Value: loopbackAddress,
 			},
 		},
 		// Can't use HTTP probe since the port is not exposed over the network
 		LivenessProbe: &corev1.Probe{
 			Handler: corev1.Handler{
 				Exec: &corev1.ExecAction{
-					Command: []string{"curl", "--fail", DatasourceURL},
+					Command: []string{"curl", "--fail", datasourceURL},
 				},
 			},
 		},
@@ -840,11 +857,11 @@ func NewCoreService(cr *operatorv1beta1.Cryostat) *corev1.Service {
 
 	// Apply default HTTP and JMX port if not provided
 	if config.HTTPPort == nil {
-		httpPort := int32(8181)
+		httpPort := cryostatHTTPContainerPort
 		config.HTTPPort = &httpPort
 	}
 	if config.JMXPort == nil {
-		jmxPort := int32(9091)
+		jmxPort := cryostatJMXContainerPort
 		config.JMXPort = &jmxPort
 	}
 
@@ -865,39 +882,12 @@ func NewCoreService(cr *operatorv1beta1.Cryostat) *corev1.Service {
 				{
 					Name:       "http",
 					Port:       *config.HTTPPort,
-					TargetPort: intstr.IntOrString{IntVal: 8181},
+					TargetPort: intstr.IntOrString{IntVal: cryostatHTTPContainerPort},
 				},
 				{
 					Name:       "jfr-jmx",
 					Port:       *config.JMXPort,
-					TargetPort: intstr.IntOrString{IntVal: 9091},
-				},
-			},
-		},
-	}
-}
-
-func NewCommandChannelService(cr *operatorv1beta1.Cryostat) *corev1.Service {
-	return &corev1.Service{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      cr.Name + "-command",
-			Namespace: cr.Namespace,
-			Labels: map[string]string{
-				"app":       cr.Name,
-				"component": "command-channel",
-			},
-		},
-		Spec: corev1.ServiceSpec{
-			Type: corev1.ServiceTypeLoadBalancer,
-			Selector: map[string]string{
-				"app":       cr.Name,
-				"component": "command-channel",
-			},
-			Ports: []corev1.ServicePort{
-				{
-					Name:       "cmdchan",
-					Port:       9090,
-					TargetPort: intstr.IntOrString{IntVal: 9090},
+					TargetPort: intstr.IntOrString{IntVal: cryostatJMXContainerPort},
 				},
 			},
 		},
@@ -944,7 +934,7 @@ func NewReportService(cr *operatorv1beta1.Cryostat) *corev1.Service {
 
 	// Apply default HTTP port if not provided
 	if config.HTTPPort == nil {
-		httpPort := int32(reportsPort)
+		httpPort := reportsContainerPort
 		config.HTTPPort = &httpPort
 	}
 
@@ -965,7 +955,7 @@ func NewReportService(cr *operatorv1beta1.Cryostat) *corev1.Service {
 				{
 					Name:       "http",
 					Port:       *config.HTTPPort,
-					TargetPort: intstr.IntOrString{IntVal: reportsPort},
+					TargetPort: intstr.IntOrString{IntVal: reportsContainerPort},
 				},
 			},
 		},
@@ -986,7 +976,7 @@ func getGrafanaServiceConfig(cr *operatorv1beta1.Cryostat) *operatorv1beta1.Graf
 
 	// Apply default HTTP port if not provided
 	if config.HTTPPort == nil {
-		httpPort := int32(3000)
+		httpPort := grafanaContainerPort
 		config.HTTPPort = &httpPort
 	}
 
@@ -1187,6 +1177,14 @@ func getPort(url *url.URL) string {
 	return "80"
 }
 
+func getInternalDashboardURL(tls *TLSConfig) string {
+	scheme := "https"
+	if tls == nil {
+		scheme = "http"
+	}
+	return fmt.Sprintf("%s://%s:%d", scheme, healthCheckHostname, grafanaContainerPort)
+}
+
 func clusterUniqueName(cr *operatorv1beta1.Cryostat) string {
 	// Use the SHA256 checksum of the namespaced name as a suffix
 	nn := types.NamespacedName{Namespace: cr.Namespace, Name: cr.Name}
@@ -1204,4 +1202,38 @@ func getPullPolicy(imageTag string) corev1.PullPolicy {
 	}
 	// Likely a release, use IfNotPresent
 	return corev1.PullIfNotPresent
+}
+
+func newVolumeForCR(cr *operatorv1beta1.Cryostat) []corev1.Volume {
+	var volumeSource corev1.VolumeSource
+	deployEmptyDir := cr.Spec.StorageOptions != nil && cr.Spec.StorageOptions.EmptyDir != nil && cr.Spec.StorageOptions.EmptyDir.Enabled
+
+	if deployEmptyDir {
+		emptyDir := cr.Spec.StorageOptions.EmptyDir
+
+		sizeLimit, err := resource.ParseQuantity(emptyDir.SizeLimit)
+		if err != nil {
+			sizeLimit = *resource.NewQuantity(0, resource.BinarySI)
+		}
+
+		volumeSource = corev1.VolumeSource{
+			EmptyDir: &corev1.EmptyDirVolumeSource{
+				Medium:    emptyDir.Medium,
+				SizeLimit: &sizeLimit,
+			},
+		}
+	} else {
+		volumeSource = corev1.VolumeSource{
+			PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
+				ClaimName: cr.Name,
+			},
+		}
+	}
+
+	return []corev1.Volume{
+		{
+			Name:         cr.Name,
+			VolumeSource: volumeSource,
+		},
+	}
 }

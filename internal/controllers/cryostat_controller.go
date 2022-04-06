@@ -108,6 +108,28 @@ var supGroupRegexp = regexp.MustCompile(`^\d+`)
 // The canonical name of an APIServer instance
 const apiServerName = "cluster"
 
+// Reasons for Cryostat Conditions
+const (
+	reasonWaitingForCert         = "WaitingForCertificate"
+	reasonAllCertsReady          = "AllCertificatesReady"
+	reasonCertManagerUnavailable = "CertManagerUnavailable"
+	reasonCertManagerDisabled    = "CertManagerDisabled"
+)
+
+// Map Cryostat conditions to deployment conditions
+type deploymentConditionTypeMap map[operatorv1beta1.CryostatConditionType]appsv1.DeploymentConditionType
+
+var mainDeploymentConditions = deploymentConditionTypeMap{
+	operatorv1beta1.ConditionTypeMainDeploymentAvailable:      appsv1.DeploymentAvailable,
+	operatorv1beta1.ConditionTypeMainDeploymentProgressing:    appsv1.DeploymentProgressing,
+	operatorv1beta1.ConditionTypeMainDeploymentReplicaFailure: appsv1.DeploymentReplicaFailure,
+}
+var reportsDeploymentConditions = deploymentConditionTypeMap{
+	operatorv1beta1.ConditionTypeReportsDeploymentAvailable:      appsv1.DeploymentAvailable,
+	operatorv1beta1.ConditionTypeReportsDeploymentProgressing:    appsv1.DeploymentProgressing,
+	operatorv1beta1.ConditionTypeReportsDeploymentReplicaFailure: appsv1.DeploymentReplicaFailure,
+}
+
 // +kubebuilder:rbac:namespace=system,groups="",resources=pods;services;services/finalizers;endpoints;persistentvolumeclaims;events;configmaps;secrets;serviceaccounts,verbs=*
 // +kubebuilder:rbac:namespace=system,groups="",resources=replicationcontrollers,verbs=get
 // +kubebuilder:rbac:namespace=system,groups=rbac.authorization.k8s.io,resources=roles;rolebindings,verbs=create;get;list;update;watch;delete
@@ -189,12 +211,15 @@ func (r *CryostatReconciler) Reconcile(ctx context.Context, request ctrl.Request
 
 	reqLogger.Info("Spec", "Minimal", instance.Spec.Minimal)
 
-	pvc := resources.NewPersistentVolumeClaimForCR(instance)
-	if err := controllerutil.SetControllerReference(instance, pvc, r.Scheme); err != nil {
-		return reconcile.Result{}, err
-	}
-	if err = r.createObjectIfNotExists(context.Background(), types.NamespacedName{Name: pvc.Name, Namespace: pvc.Namespace}, &corev1.PersistentVolumeClaim{}, pvc); err != nil {
-		return reconcile.Result{}, err
+	shouldCreatePvc := !(instance.Spec.StorageOptions != nil && instance.Spec.StorageOptions.EmptyDir != nil && instance.Spec.StorageOptions.EmptyDir.Enabled)
+	if shouldCreatePvc {
+		pvc := resources.NewPersistentVolumeClaimForCR(instance)
+		if err := controllerutil.SetControllerReference(instance, pvc, r.Scheme); err != nil {
+			return reconcile.Result{}, err
+		}
+		if err = r.createObjectIfNotExists(context.Background(), types.NamespacedName{Name: pvc.Name, Namespace: pvc.Namespace}, &corev1.PersistentVolumeClaim{}, pvc); err != nil {
+			return reconcile.Result{}, err
+		}
 	}
 
 	grafanaSecret := resources.NewGrafanaSecretForCR(instance)
@@ -220,7 +245,16 @@ func (r *CryostatReconciler) Reconcile(ctx context.Context, request ctrl.Request
 		tlsConfig, err = r.setupTLS(context.Background(), instance)
 		if err != nil {
 			if err == common.ErrCertNotReady {
+				condErr := r.updateCondition(ctx, instance, operatorv1beta1.ConditionTypeTLSSetupComplete, metav1.ConditionFalse,
+					reasonWaitingForCert, "Waiting for certificates to become ready.")
+				if condErr != nil {
+					return reconcile.Result{}, err
+				}
 				return reconcile.Result{RequeueAfter: 5 * time.Second}, nil
+			}
+			if err == errCertManagerMissing {
+				r.updateCondition(ctx, instance, operatorv1beta1.ConditionTypeTLSSetupComplete, metav1.ConditionFalse,
+					reasonCertManagerUnavailable, eventCertManagerUnavailableMsg)
 			}
 			reqLogger.Error(err, "Failed to set up TLS for Cryostat")
 			return reconcile.Result{}, err
@@ -234,6 +268,18 @@ func (r *CryostatReconciler) Reconcile(ctx context.Context, request ctrl.Request
 		routeTLS = &openshiftv1.TLSConfig{
 			Termination:              openshiftv1.TLSTerminationReencrypt,
 			DestinationCACertificate: string(caCert),
+		}
+
+		err = r.updateCondition(ctx, instance, operatorv1beta1.ConditionTypeTLSSetupComplete, metav1.ConditionTrue,
+			reasonAllCertsReady, "All certificates for Cryostat components are ready.")
+		if err != nil {
+			return reconcile.Result{}, err
+		}
+	} else {
+		err = r.updateCondition(ctx, instance, operatorv1beta1.ConditionTypeTLSSetupComplete, metav1.ConditionTrue,
+			reasonCertManagerDisabled, "TLS setup has been disabled.")
+		if err != nil {
+			return reconcile.Result{}, err
 		}
 	}
 
@@ -373,6 +419,13 @@ func (r *CryostatReconciler) Reconcile(ctx context.Context, request ctrl.Request
 		}
 	}
 
+	// Check deployment status and update conditions
+	err = r.updateConditionsFromDeployment(ctx, instance, types.NamespacedName{Name: instance.Name, Namespace: instance.Namespace},
+		mainDeploymentConditions)
+	if err != nil {
+		return reconcile.Result{}, err
+	}
+
 	reqLogger.Info("Successfully reconciled deployment", "Deployment.Namespace", deployment.Namespace, "Deployment.Name", deployment.Name)
 	return reconcile.Result{}, nil
 }
@@ -408,13 +461,21 @@ func (r *CryostatReconciler) reconcileReports(ctx context.Context, reqLogger log
 	}
 	desired := instance.Spec.ReportOptions.Replicas
 
+	deployment := resources.NewDeploymentForReports(instance, imageTags)
 	if desired == 0 {
 		svc := resources.NewReportService(instance)
 		if err := r.Client.Delete(ctx, svc); err != nil && !errors.IsNotFound(err) {
 			return reconcile.Result{}, err
 		}
-		deployment := resources.NewDeploymentForReports(instance, imageTags)
 		if err := r.Client.Delete(ctx, deployment); err != nil && !errors.IsNotFound(err) {
+			return reconcile.Result{}, err
+		}
+
+		removeConditionIfPresent(instance, operatorv1beta1.ConditionTypeReportsDeploymentAvailable,
+			operatorv1beta1.ConditionTypeReportsDeploymentProgressing,
+			operatorv1beta1.ConditionTypeReportsDeploymentReplicaFailure)
+		err := r.Client.Status().Update(ctx, instance)
+		if err != nil {
 			return reconcile.Result{}, err
 		}
 		return reconcile.Result{}, nil
@@ -429,7 +490,6 @@ func (r *CryostatReconciler) reconcileReports(ctx context.Context, reqLogger log
 			return reconcile.Result{}, err
 		}
 
-		deployment := resources.NewDeploymentForReports(instance, imageTags)
 		if err := controllerutil.SetControllerReference(instance, deployment, r.Scheme); err != nil {
 			return reconcile.Result{}, err
 		}
@@ -448,6 +508,13 @@ func (r *CryostatReconciler) reconcileReports(ctx context.Context, reqLogger log
 			Host:   deployment.ObjectMeta.Name + ":" + strconv.Itoa(int(svc.Spec.Ports[0].Port)),
 		}
 		reqLogger.Info(fmt.Sprintf("Reports Deployment %s", op))
+
+		// Check deployment status and update conditions
+		err = r.updateConditionsFromDeployment(ctx, instance, types.NamespacedName{Name: deployment.Name, Namespace: deployment.Namespace},
+			reportsDeploymentConditions)
+		if err != nil {
+			return reconcile.Result{}, err
+		}
 	}
 	return reconcile.Result{}, nil
 }
@@ -792,6 +859,54 @@ func (r *CryostatReconciler) deleteCorsAllowedOrigins(ctx context.Context, allow
 	return nil
 }
 
+func (r *CryostatReconciler) updateCondition(ctx context.Context, cr *operatorv1beta1.Cryostat,
+	condType operatorv1beta1.CryostatConditionType, status metav1.ConditionStatus, reason string, message string) error {
+	reqLogger := r.Log.WithValues("Request.Namespace", cr.Namespace, "Request.Name", cr.Name)
+	meta.SetStatusCondition(&cr.Status.Conditions, metav1.Condition{
+		Type:    string(condType),
+		Status:  status,
+		Reason:  reason,
+		Message: message,
+	})
+	err := r.Client.Status().Update(ctx, cr)
+	if err != nil {
+		reqLogger.Error(err, "failed to update condition", "type", condType)
+	}
+	return err
+}
+
+func (r *CryostatReconciler) updateConditionsFromDeployment(ctx context.Context, cr *operatorv1beta1.Cryostat,
+	deployKey types.NamespacedName, mapping deploymentConditionTypeMap) error {
+	reqLogger := r.Log.WithValues("Request.Namespace", cr.Namespace, "Request.Name", cr.Name)
+
+	// Get deployment's latest conditions
+	deploy := &appsv1.Deployment{}
+	err := r.Client.Get(ctx, types.NamespacedName{Name: deployKey.Name, Namespace: deployKey.Namespace}, deploy)
+	if err != nil {
+		return err
+	}
+
+	// Associate deployment conditions with Cryostat conditions
+	for condType, deployCondType := range mapping {
+		condition := findDeployCondition(deploy.Status.Conditions, deployCondType)
+		if condition == nil {
+			removeConditionIfPresent(cr, condType)
+		} else {
+			meta.SetStatusCondition(&cr.Status.Conditions, metav1.Condition{
+				Type:    string(condType),
+				Status:  metav1.ConditionStatus(condition.Status),
+				Reason:  condition.Reason,
+				Message: condition.Message,
+			})
+		}
+	}
+	err = r.Client.Status().Update(ctx, cr)
+	if err != nil {
+		reqLogger.Error(err, "failed to update conditions for deployment", "deployment", deploy.Name)
+	}
+	return err
+}
+
 func getProtocol(tlsConfig *openshiftv1.TLSConfig) string {
 	if tlsConfig == nil {
 		return "http"
@@ -810,11 +925,27 @@ func requeueIfIngressNotReady(log logr.Logger, err error) (reconcile.Result, err
 func getNetworkConfig(controller *operatorv1beta1.Cryostat, svc *corev1.Service) (*operatorv1beta1.NetworkConfiguration, error) {
 	if svc.Name == controller.Name {
 		return controller.Spec.NetworkOptions.CoreConfig, nil
-	} else if svc.Name == controller.Name+"-command" {
-		return controller.Spec.NetworkOptions.CommandConfig, nil
 	} else if svc.Name == controller.Name+"-grafana" {
 		return controller.Spec.NetworkOptions.GrafanaConfig, nil
 	} else {
 		return nil, goerrors.New("Service name not recognized")
 	}
+}
+
+func removeConditionIfPresent(cr *operatorv1beta1.Cryostat, condType ...operatorv1beta1.CryostatConditionType) {
+	for _, ct := range condType {
+		found := meta.FindStatusCondition(cr.Status.Conditions, string(ct))
+		if found != nil {
+			meta.RemoveStatusCondition(&cr.Status.Conditions, string(ct))
+		}
+	}
+}
+
+func findDeployCondition(conditions []appsv1.DeploymentCondition, condType appsv1.DeploymentConditionType) *appsv1.DeploymentCondition {
+	for _, condition := range conditions {
+		if condition.Type == condType {
+			return &condition
+		}
+	}
+	return nil
 }

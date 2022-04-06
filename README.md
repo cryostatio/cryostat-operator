@@ -49,13 +49,9 @@ kubectl get secret ${CRYOSTAT_NAME}-jmx-auth -o jsonpath='{$.data.CRYOSTAT_RJMX_
 kubectl get secret ${CRYOSTAT_NAME}-jmx-auth -o jsonpath='{$.data.CRYOSTAT_RJMX_PASS}' | base64 -d
 ```
 
-## Kubernetes API
-The operator provides a Kubernetes API to directly create and manage Flight Recordings.
-See [Kubernetes API Overview](docs/api.md) for more details.
-
 # Building
 ## Requirements
-- `go` v1.15
+- `go` v1.16 or v1.17
 - [`operator-sdk`](https://github.com/operator-framework/operator-sdk) v1.5.0
 - [`cert-manager`](https://github.com/jetstack/cert-manager) v1.3.0+ (Recommended)
 - `podman` or `docker`

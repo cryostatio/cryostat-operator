@@ -52,7 +52,12 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
-const eventCertManagerUnavailable = "CertManagerUnavailable"
+const eventCertManagerUnavailableType = reasonCertManagerUnavailable
+
+var errCertManagerMissing = errors.New("cert-manager integration is enabled, but cert-manager is unavailable")
+
+const eventCertManagerUnavailableMsg = "cert-manager is not detected in the cluster, please install cert-manager or disable it by setting " +
+	"\"enableCertManager\" in this Cryostat custom resource to false."
 
 func (r *CryostatReconciler) setupTLS(ctx context.Context, cr *operatorv1beta1.Cryostat) (*resources.TLSConfig, error) {
 	// If cert-manager is not available, emit an Event to inform the user
@@ -61,10 +66,8 @@ func (r *CryostatReconciler) setupTLS(ctx context.Context, cr *operatorv1beta1.C
 		return nil, err
 	}
 	if !available {
-		r.EventRecorder.Event(cr, corev1.EventTypeWarning, eventCertManagerUnavailable,
-			"cert-manager is not detected in the cluster, please install cert-manager or disable it by setting "+
-				"\"enableCertManager\" in this Cryostat custom resource to false")
-		return nil, errors.New("cert-manager integration is enabled, but cert-manager is unavailable")
+		r.EventRecorder.Event(cr, corev1.EventTypeWarning, eventCertManagerUnavailableType, eventCertManagerUnavailableMsg)
+		return nil, errCertManagerMissing
 	}
 
 	// Create self-signed issuer used to bootstrap CA

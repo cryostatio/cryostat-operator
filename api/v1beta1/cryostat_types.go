@@ -75,12 +75,13 @@ type CryostatSpec struct {
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	NetworkOptions *NetworkConfigurationList `json:"networkOptions,omitempty"`
 	// Options to configure Cryostat Automated Report Analysis
+	// +optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	ReportOptions *ReportConfiguration `json:"reportOptions,omitempty"`
-	// The maximum number of WebSocket client connections allowed (minimum 1, maximum 64, default 2)
+	// The maximum number of WebSocket client connections allowed (minimum 1, default unlimited)
 	// +optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Max WebSocket Connections",xDescriptors={"urn:alm:descriptor:com.tectonic.ui:number"}
 	// +kubebuilder:validation:Minimum=1
-	// +kubebuilder:validation:Maximum=64
 	MaxWsConnections int32 `json:"maxWsConnections,omitempty"`
 	// Options to customize the JMX target connections cache for the Cryostat application
 	// +optional
@@ -109,18 +110,50 @@ type ResourceConfigList struct {
 
 // CryostatStatus defines the observed state of Cryostat
 type CryostatStatus struct {
+	// Conditions of the components managed by the Cryostat Operator
+	// +optional
+	// +operator-sdk:csv:customresourcedefinitions:type=status,displayName="Cryostat Conditions",xDescriptors={"urn:alm:descriptor:io.kubernetes.conditions"}
+	Conditions []metav1.Condition `json:"conditions,omitempty"`
+	// Address of the deployed Cryostat web application
 	// +operator-sdk:csv:customresourcedefinitions:type=status,xDescriptors={"urn:alm:descriptor:org.w3:link"}
 	ApplicationURL string `json:"applicationUrl"`
 }
 
+// CryostatConditionType refers to a Condition type that may be used in status.conditions
+type CryostatConditionType string
+
+const (
+	// Whether the main Cryostat deployment is available
+	ConditionTypeMainDeploymentAvailable CryostatConditionType = "MainDeploymentAvailable"
+	// Whether the main Cryostat deployment is progressing
+	ConditionTypeMainDeploymentProgressing CryostatConditionType = "MainDeploymentProgressing"
+	// If pods within the main Cryostat deployment failed to be created or destroyed
+	ConditionTypeMainDeploymentReplicaFailure CryostatConditionType = "MainDeploymentReplicaFailure"
+	// If enabled, whether the reports deployment is available
+	ConditionTypeReportsDeploymentAvailable CryostatConditionType = "ReportsDeploymentAvailable"
+	// If enabled, whether the reports deployment is progressing
+	ConditionTypeReportsDeploymentProgressing CryostatConditionType = "ReportsDeploymentProgressing"
+	// If enabled, whether pods in the reports deployment failed to be created or destroyed
+	ConditionTypeReportsDeploymentReplicaFailure CryostatConditionType = "ReportsDeploymentReplicaFailure"
+	// If enabled, whether TLS setup is complete for the Cryostat components
+	ConditionTypeTLSSetupComplete CryostatConditionType = "TLSSetupComplete"
+)
+
 // StorageConfiguration provides customization to the storage created by
-// the operator to hold Flight Recordings and Recording Templates.
+// the operator to hold Flight Recordings and Recording Templates. If no
+// configurations are specified, a PVC will be created by default.
 type StorageConfiguration struct {
 	// Configuration for the Persistent Volume Claim to be created
 	// by the operator.
 	// +optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	PVC *PersistentVolumeClaimConfig `json:"pvc,omitempty"`
+
+	// Configuration for an EmptyDir to be created
+	// by the operator instead of a PVC.
+	// +optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec
+	EmptyDir *EmptyDirConfig `json:"emptyDir,omitempty"`
 }
 
 // ReportConfiguration is used to determine how many replicas of cryostat-reports
@@ -132,12 +165,14 @@ type StorageConfiguration struct {
 type ReportConfiguration struct {
 	// The number of report sidecar replica containers to deploy.
 	// Each replica can service one report generation request at a time.
-	// +operator-sdk:csv:customresourcedefinitions:type=status,xDescriptors={"urn:alm:descriptor:com.tectonic.ui:podCount"}
+	// +optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:com.tectonic.ui:podCount"}
 	Replicas int32 `json:"replicas,omitempty"`
 	// The resources allocated to each sidecar replica.
 	// A replica with more resources can handle larger input recordings and will process them faster.
-	// +operator-sdk:csv:customresourcedefinitions:type=status,xDescriptors={"urn:alm:descriptor:com.tectonic.ui:resourceRequirements"}
-	corev1.ResourceRequirements `json:",inline"`
+	// +optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:com.tectonic.ui:resourceRequirements"}
+	Resources corev1.ResourceRequirements `json:"resources,omitempty"`
 	// When zero report sidecar replicas are requested, SubProcessMaxHeapSize configures
 	// the maximum heap size of the basic subprocess report generator in MiB.
 	// The default heap size is `200` (MiB).
@@ -265,6 +300,26 @@ type PersistentVolumeClaimConfig struct {
 	// +optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	Spec *corev1.PersistentVolumeClaimSpec `json:"spec,omitempty"`
+}
+
+// EmptyDirConfig holds all customization options to
+// configure an EmptyDir to be created and managed
+// by the operator.
+type EmptyDirConfig struct {
+	// When enabled, Cryostat will use EmptyDir volumes instead of a Persistent Volume Claim. Any PVC configurations will be ignored.
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:com.tectonic.ui:booleanSwitch"}
+	Enabled bool `json:"enabled,omitempty"`
+	// Unless specified, the emptyDir volume will be mounted on
+	// the same storage medium backing the node. Setting this field to
+	// "Memory" will mount the emptyDir on a tmpfs (RAM-backed filesystem).
+	// +optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:com.tectonic.ui:fieldDependency:storageOptions.emptyDir.enabled:true"}
+	Medium corev1.StorageMedium `json:"medium,omitempty"`
+	// The maximum memory limit for the emptyDir. Default is unbounded.
+	// +optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:com.tectonic.ui:fieldDependency:storageOptions.emptyDir.enabled:true"}
+	// +kubebuilder:validation:Pattern=^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+	SizeLimit string `json:"sizeLimit,omitempty"`
 }
 
 // JmxCacheConfig provides customization for the JMX target connections

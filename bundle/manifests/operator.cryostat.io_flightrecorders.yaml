@@ -14,7 +14,9 @@ spec:
     singular: flightrecorder
   scope: Namespaced
   versions:
-  - name: v1beta1
+  - deprecated: true
+    deprecationWarning: operator.cryostat.io/v1beta1 FlightRecorder is deprecated; please use the Cryostat web application or the Cryostat HTTP API to manage recordings
+    name: v1beta1
     schema:
       openAPIV3Schema:
         description: FlightRecorder represents a target Pod that is capable of creating JDK Flight Recordings using Cryostat. The Cryostat operator creates FlightRecorder objects when it finds compatible Pods.
