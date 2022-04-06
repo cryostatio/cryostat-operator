@@ -292,6 +292,43 @@ func NewCryostatCertManagerUndefined() *operatorv1beta1.Cryostat {
 	return cr
 }
 
+func NewCryostatWithResources() *operatorv1beta1.Cryostat {
+	cr := NewCryostat()
+	cr.Spec.Resources = operatorv1beta1.ResourceConfigList{
+		CoreResources: corev1.ResourceRequirements{
+			Limits: corev1.ResourceList{
+				corev1.ResourceCPU:    resource.MustParse("500m"),
+				corev1.ResourceMemory: resource.MustParse("256Mi"),
+			},
+			Requests: corev1.ResourceList{
+				corev1.ResourceCPU:    resource.MustParse("250m"),
+				corev1.ResourceMemory: resource.MustParse("128Mi"),
+			},
+		},
+		GrafanaResources: corev1.ResourceRequirements{
+			Limits: corev1.ResourceList{
+				corev1.ResourceCPU:    resource.MustParse("550m"),
+				corev1.ResourceMemory: resource.MustParse("512Mi"),
+			},
+			Requests: corev1.ResourceList{
+				corev1.ResourceCPU:    resource.MustParse("128m"),
+				corev1.ResourceMemory: resource.MustParse("256Mi"),
+			},
+		},
+		DataSourceResources: corev1.ResourceRequirements{
+			Limits: corev1.ResourceList{
+				corev1.ResourceCPU:    resource.MustParse("600m"),
+				corev1.ResourceMemory: resource.MustParse("128Mi"),
+			},
+			Requests: corev1.ResourceList{
+				corev1.ResourceCPU:    resource.MustParse("300m"),
+				corev1.ResourceMemory: resource.MustParse("64Mi"),
+			},
+		},
+	}
+	return cr
+}
+
 func newPVCSpec(storageClass string, storageRequest string,
 	accessModes ...corev1.PersistentVolumeAccessMode) *corev1.PersistentVolumeClaimSpec {
 	return &corev1.PersistentVolumeClaimSpec{
