@@ -175,6 +175,24 @@ spec:
         path: reportOptions.subProcessMaxHeapSize
         x-descriptors:
         - urn:alm:descriptor:com.tectonic.ui:number
+      - description: Resource requirements for the Cryostat deployment
+        displayName: Resources
+        path: resources
+      - description: Resource requirements for the Cryostat application. If specifying a memory limit, at least 768MiB is recommended.
+        displayName: Core Resources
+        path: resources.coreResources
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:resourceRequirements
+      - description: Resource requirements for the JFR Data Source container
+        displayName: Data Source Resources
+        path: resources.dataSourceResources
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:resourceRequirements
+      - description: Resource requirements for the Grafana container
+        displayName: Grafana Resources
+        path: resources.grafanaResources
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:resourceRequirements
       - description: Options to customize the services created for the Cryostat application and Grafana dashboard.
         displayName: Service Options
         path: serviceOptions

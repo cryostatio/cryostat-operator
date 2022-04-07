@@ -1099,6 +1099,14 @@ var _ = Describe("CryostatController", func() {
 				})
 			})
 		})
+		Context("with resource requirements", func() {
+			BeforeEach(func() {
+				t.objs = append(t.objs, test.NewCryostatWithResources())
+			})
+			It("should create expected deployment", func() {
+				t.expectDeployment()
+			})
+		})
 	})
 	Describe("reconciling a request in Kubernetes", func() {
 		JustBeforeEach(func() {
@@ -1740,16 +1748,17 @@ func (t *cryostatTestInput) checkMainDeployment() {
 	} else {
 		reportsUrl = "http://cryostat-reports:10000"
 	}
-	checkCoreContainer(&coreContainer, t.minimal, t.TLS, t.externalTLS, t.EnvCoreImageTag, t.controller.IsOpenShift, reportsUrl)
+
+	checkCoreContainer(&coreContainer, t.minimal, t.TLS, t.externalTLS, t.EnvCoreImageTag, t.controller.IsOpenShift, reportsUrl, cr.Spec.Resources.CoreResources)
 
 	if !t.minimal {
 		// Check that Grafana is configured properly, depending on the environment
 		grafanaContainer := template.Spec.Containers[1]
-		checkGrafanaContainer(&grafanaContainer, t.TLS, t.EnvGrafanaImageTag)
+		checkGrafanaContainer(&grafanaContainer, t.TLS, t.EnvGrafanaImageTag, cr.Spec.Resources.GrafanaResources)
 
 		// Check that JFR Datasource is configured properly
 		datasourceContainer := template.Spec.Containers[2]
-		checkDatasourceContainer(&datasourceContainer, t.EnvDatasourceImageTag)
+		checkDatasourceContainer(&datasourceContainer, t.EnvDatasourceImageTag, cr.Spec.Resources.DataSourceResources)
 	}
 
 	// Check that the proper Service Account is set
@@ -1808,7 +1817,7 @@ func (t *cryostatTestInput) checkDeploymentHasTemplates() {
 }
 
 func checkCoreContainer(container *corev1.Container, minimal bool, tls bool, externalTLS bool,
-	tag *string, openshift bool, reportsUrl string) {
+	tag *string, openshift bool, reportsUrl string, resources corev1.ResourceRequirements) {
 	Expect(container.Name).To(Equal("cryostat"))
 	if tag == nil {
 		Expect(container.Image).To(HavePrefix("quay.io/cryostat/cryostat:"))
@@ -1821,9 +1830,10 @@ func checkCoreContainer(container *corev1.Container, minimal bool, tls bool, ext
 	Expect(container.VolumeMounts).To(ConsistOf(test.NewCoreVolumeMounts(tls)))
 	Expect(container.LivenessProbe).To(Equal(test.NewCoreLivenessProbe(tls)))
 	Expect(container.StartupProbe).To(Equal(test.NewCoreStartupProbe(tls)))
+	Expect(container.Resources).To(Equal(resources))
 }
 
-func checkGrafanaContainer(container *corev1.Container, tls bool, tag *string) {
+func checkGrafanaContainer(container *corev1.Container, tls bool, tag *string, resources corev1.ResourceRequirements) {
 	Expect(container.Name).To(Equal("cryostat-grafana"))
 	if tag == nil {
 		Expect(container.Image).To(HavePrefix("quay.io/cryostat/cryostat-grafana-dashboard:"))
@@ -1835,9 +1845,10 @@ func checkGrafanaContainer(container *corev1.Container, tls bool, tag *string) {
 	Expect(container.EnvFrom).To(ConsistOf(test.NewGrafanaEnvFromSource()))
 	Expect(container.VolumeMounts).To(ConsistOf(test.NewGrafanaVolumeMounts(tls)))
 	Expect(container.LivenessProbe).To(Equal(test.NewGrafanaLivenessProbe(tls)))
+	Expect(container.Resources).To(Equal(resources))
 }
 
-func checkDatasourceContainer(container *corev1.Container, tag *string) {
+func checkDatasourceContainer(container *corev1.Container, tag *string, resources corev1.ResourceRequirements) {
 	Expect(container.Name).To(Equal("cryostat-jfr-datasource"))
 	if tag == nil {
 		Expect(container.Image).To(HavePrefix("quay.io/cryostat/jfr-datasource:"))
@@ -1849,6 +1860,7 @@ func checkDatasourceContainer(container *corev1.Container, tag *string) {
 	Expect(container.EnvFrom).To(BeEmpty())
 	Expect(container.VolumeMounts).To(BeEmpty())
 	Expect(container.LivenessProbe).To(Equal(test.NewDatasourceLivenessProbe()))
+	Expect(container.Resources).To(Equal(resources))
 }
 
 func (t *cryostatTestInput) checkEnvironmentVariables(expectedEnvVars []corev1.EnvVar) {
