@@ -140,7 +140,7 @@ func NewGrafanaCert(cr *operatorv1beta1.Cryostat) *certv1.Certificate {
 		Spec: certv1.CertificateSpec{
 			CommonName: fmt.Sprintf("%s-grafana.%s.svc", cr.Name, cr.Namespace),
 			DNSNames: []string{
-				cr.Name,
+				cr.Name + "-grafana",
 				fmt.Sprintf("%s-grafana.%s.svc", cr.Name, cr.Namespace),
 				fmt.Sprintf("%s-grafana.%s.svc.cluster.local", cr.Name, cr.Namespace),
 				healthCheckHostname,

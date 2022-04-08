@@ -42,6 +42,7 @@ import (
 	operatorv1beta1 "github.com/cryostatio/cryostat-operator/api/v1beta1"
 	"github.com/cryostatio/cryostat-operator/internal/controllers/common/resource_definitions"
 	certv1 "github.com/jetstack/cert-manager/pkg/apis/certmanager/v1"
+	certMeta "github.com/jetstack/cert-manager/pkg/apis/meta/v1"
 	"github.com/onsi/gomega"
 	configv1 "github.com/openshift/api/config/v1"
 	consolev1 "github.com/openshift/api/console/v1"
@@ -860,6 +861,71 @@ func NewTestService() *corev1.Service {
 	}
 }
 
+func NewCryostatCert() *certv1.Certificate {
+	return &certv1.Certificate{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "cryostat",
+			Namespace: "default",
+		},
+		Spec: certv1.CertificateSpec{
+			CommonName: "cryostat.default.svc",
+			DNSNames: []string{
+				"cryostat",
+				"cryostat.default.svc",
+				"cryostat.default.svc.cluster.local",
+			},
+			SecretName: "cryostat-tls",
+			Keystores: &certv1.CertificateKeystores{
+				PKCS12: &certv1.PKCS12Keystore{
+					Create: true,
+					PasswordSecretRef: certMeta.SecretKeySelector{
+						LocalObjectReference: certMeta.LocalObjectReference{
+							Name: "cryostat-keystore",
+						},
+						Key: "KEYSTORE_PASS",
+					},
+				},
+			},
+			IssuerRef: certMeta.ObjectReference{
+				Name: "cryostat-ca",
+			},
+			Usages: []certv1.KeyUsage{
+				certv1.UsageDigitalSignature,
+				certv1.UsageKeyEncipherment,
+				certv1.UsageServerAuth,
+				certv1.UsageClientAuth,
+			},
+		},
+	}
+}
+
+func NewGrafanaCert() *certv1.Certificate {
+	return &certv1.Certificate{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "cryostat-grafana",
+			Namespace: "default",
+		},
+		Spec: certv1.CertificateSpec{
+			CommonName: "cryostat-grafana.default.svc",
+			DNSNames: []string{
+				"cryostat-grafana",
+				"cryostat-grafana.default.svc",
+				"cryostat-grafana.default.svc.cluster.local",
+				"cryostat-health.local",
+			},
+			SecretName: "cryostat-grafana-tls",
+			IssuerRef: certMeta.ObjectReference{
+				Name: "cryostat-ca",
+			},
+			Usages: []certv1.KeyUsage{
+				certv1.UsageDigitalSignature,
+				certv1.UsageKeyEncipherment,
+				certv1.UsageServerAuth,
+			},
+		},
+	}
+}
+
 func NewCACert() *certv1.Certificate {
 	return &certv1.Certificate{
 		ObjectMeta: metav1.ObjectMeta{
@@ -867,7 +933,12 @@ func NewCACert() *certv1.Certificate {
 			Namespace: "default",
 		},
 		Spec: certv1.CertificateSpec{
+			CommonName: "ca.cryostat.cert-manager",
 			SecretName: "cryostat-ca",
+			IssuerRef: certMeta.ObjectReference{
+				Name: "cryostat-self-signed",
+			},
+			IsCA: true,
 		},
 	}
 }
@@ -880,6 +951,36 @@ func newCASecret(certData []byte) *corev1.Secret {
 		},
 		Data: map[string][]byte{
 			corev1.TLSCertKey: certData,
+		},
+	}
+}
+
+func NewSelfSignedIssuer() *certv1.Issuer {
+	return &certv1.Issuer{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "cryostat-self-signed",
+			Namespace: "default",
+		},
+		Spec: certv1.IssuerSpec{
+			IssuerConfig: certv1.IssuerConfig{
+				SelfSigned: &certv1.SelfSignedIssuer{},
+			},
+		},
+	}
+}
+
+func NewCryostatCAIssuer() *certv1.Issuer {
+	return &certv1.Issuer{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "cryostat-ca",
+			Namespace: "default",
+		},
+		Spec: certv1.IssuerSpec{
+			IssuerConfig: certv1.IssuerConfig{
+				CA: &certv1.CAIssuer{
+					SecretName: "cryostat-ca",
+				},
+			},
 		},
 	}
 }

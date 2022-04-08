@@ -1377,11 +1377,23 @@ func (t *cryostatTestInput) expectCertificates() {
 }
 
 func (t *cryostatTestInput) checkCertificates() {
-	certNames := []string{"cryostat", "cryostat-ca", "cryostat-grafana"}
-	for _, certName := range certNames {
-		cert := &certv1.Certificate{}
-		err := t.Client.Get(context.Background(), types.NamespacedName{Name: certName, Namespace: "default"}, cert)
+	// Check certificates
+	certs := []*certv1.Certificate{test.NewCryostatCert(), test.NewCACert(), test.NewGrafanaCert()}
+	for _, expected := range certs {
+		actual := &certv1.Certificate{}
+		err := t.Client.Get(context.Background(), types.NamespacedName{Name: expected.Name, Namespace: expected.Namespace}, actual)
 		Expect(err).ToNot(HaveOccurred())
+		checkMetadata(actual, expected)
+		Expect(actual.Spec).To(Equal(expected.Spec))
+	}
+	// Check issuers as well
+	issuers := []*certv1.Issuer{test.NewSelfSignedIssuer(), test.NewCryostatCAIssuer()}
+	for _, expected := range issuers {
+		actual := &certv1.Issuer{}
+		err := t.Client.Get(context.Background(), types.NamespacedName{Name: expected.Name, Namespace: expected.Namespace}, actual)
+		Expect(err).ToNot(HaveOccurred())
+		checkMetadata(actual, expected)
+		Expect(actual.Spec).To(Equal(expected.Spec))
 	}
 }
 
