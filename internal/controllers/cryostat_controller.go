@@ -376,7 +376,7 @@ func (r *CryostatReconciler) Reconcile(ctx context.Context, request ctrl.Request
 		return reconcile.Result{}, err
 	}
 
-	reportsResult, err := r.reconcileReports(ctx, reqLogger, instance, routeTLS, imageTags, serviceSpecs)
+	reportsResult, err := r.reconcileReports(ctx, reqLogger, instance, tlsConfig, imageTags, serviceSpecs)
 	if err != nil {
 		return reportsResult, err
 	}
@@ -453,7 +453,7 @@ func (r *CryostatReconciler) SetupWithManager(mgr ctrl.Manager) error {
 }
 
 func (r *CryostatReconciler) reconcileReports(ctx context.Context, reqLogger logr.Logger, instance *operatorv1beta1.Cryostat,
-	routeTLS *openshiftv1.TLSConfig, imageTags *resources.ImageTags, serviceSpecs *resources.ServiceSpecs) (reconcile.Result, error) {
+	tls *resources.TLSConfig, imageTags *resources.ImageTags, serviceSpecs *resources.ServiceSpecs) (reconcile.Result, error) {
 	reqLogger.Info("Spec", "Reports", instance.Spec.ReportOptions)
 
 	if instance.Spec.ReportOptions == nil {
@@ -461,7 +461,7 @@ func (r *CryostatReconciler) reconcileReports(ctx context.Context, reqLogger log
 	}
 	desired := instance.Spec.ReportOptions.Replicas
 
-	deployment := resources.NewDeploymentForReports(instance, imageTags)
+	deployment := resources.NewDeploymentForReports(instance, imageTags, tls)
 	if desired == 0 {
 		svc := resources.NewReportService(instance)
 		if err := r.Client.Delete(ctx, svc); err != nil && !errors.IsNotFound(err) {
@@ -503,9 +503,14 @@ func (r *CryostatReconciler) reconcileReports(ctx context.Context, reqLogger log
 		if err != nil {
 			return reconcile.Result{}, err
 		}
+
+		scheme := "https"
+		if tls == nil {
+			scheme = "http"
+		}
 		serviceSpecs.ReportsURL = &url.URL{
-			Scheme: "http",
-			Host:   deployment.ObjectMeta.Name + ":" + strconv.Itoa(int(svc.Spec.Ports[0].Port)),
+			Scheme: scheme,
+			Host:   svc.Name + ":" + strconv.Itoa(int(svc.Spec.Ports[0].Port)),
 		}
 		reqLogger.Info(fmt.Sprintf("Reports Deployment %s", op))
 
