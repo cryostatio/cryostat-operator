@@ -603,7 +603,7 @@ func NewCoreContainer(cr *operatorv1beta1.Cryostat, specs *ServiceSpecs, imageTa
 			},
 			{
 				Name:  "CRYOSTAT_AUTH_MANAGER",
-				Value: "io.cryostat.net.OpenShiftAuthManager",
+				Value: "io.cryostat.net.openshift.OpenShiftAuthManager",
 			},
 			{
 				Name:  "CRYOSTAT_OAUTH_CLIENT_ID",

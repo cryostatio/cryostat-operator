@@ -1295,7 +1295,7 @@ func NewCoreEnvironmentVariables(minimal bool, tls bool, externalTLS bool, opens
 			},
 			corev1.EnvVar{
 				Name:  "CRYOSTAT_AUTH_MANAGER",
-				Value: "io.cryostat.net.OpenShiftAuthManager",
+				Value: "io.cryostat.net.openshift.OpenShiftAuthManager",
 			},
 			corev1.EnvVar{
 				Name:  "CRYOSTAT_OAUTH_CLIENT_ID",
