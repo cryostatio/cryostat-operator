@@ -109,8 +109,15 @@ func (r *CryostatReconciler) setupTLS(ctx context.Context, cr *operatorv1beta1.C
 		return nil, err
 	}
 
+	// Create a certificate for the reports generator signed by the Cryostat CA
+	reportsCert := resources.NewReportsCert(cr)
+	err = r.createOrUpdateCertificate(ctx, reportsCert, cr)
+	if err != nil {
+		return nil, err
+	}
+
 	// Update owner references of TLS secrets created by cert-manager to ensure proper cleanup
-	err = r.setCertSecretOwner(ctx, cr, caCert, cryostatCert, grafanaCert)
+	err = r.setCertSecretOwner(ctx, cr, caCert, cryostatCert, grafanaCert, reportsCert)
 	if err != nil {
 		return nil, err
 	}
@@ -118,6 +125,7 @@ func (r *CryostatReconciler) setupTLS(ctx context.Context, cr *operatorv1beta1.C
 	return &resources.TLSConfig{
 		CryostatSecret:     cryostatCert.Spec.SecretName,
 		GrafanaSecret:      grafanaCert.Spec.SecretName,
+		ReportsSecret:      reportsCert.Spec.SecretName,
 		KeystorePassSecret: cryostatCert.Spec.Keystores.PKCS12.PasswordSecretRef.Name,
 	}, nil
 }

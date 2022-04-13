@@ -38,6 +38,7 @@ package controllers_test
 
 import (
 	"context"
+	"strconv"
 	"time"
 
 	certv1 "github.com/jetstack/cert-manager/pkg/apis/certmanager/v1"
@@ -334,8 +335,10 @@ var _ = Describe("CryostatController", func() {
 			})
 		})
 		Context("Switching from 0 report sidecars to 1", func() {
+			var cr *operatorv1beta1.Cryostat
 			BeforeEach(func() {
-				t.objs = append(t.objs, test.NewCryostat())
+				cr = test.NewCryostat()
+				t.objs = append(t.objs, cr)
 				t.reportReplicas = 1
 			})
 			JustBeforeEach(func() {
@@ -362,6 +365,28 @@ var _ = Describe("CryostatController", func() {
 				t.checkMainDeployment()
 				t.checkReportsDeployment()
 				t.checkService("cryostat-reports", test.NewReportsService())
+			})
+			Context("with cert-manager disabled", func() {
+				BeforeEach(func() {
+					disable := false
+					cr.Spec.EnableCertManager = &disable
+					t.TLS = false
+				})
+				It("should configure deployment appropriately", func() {
+					t.checkMainDeployment()
+					t.checkReportsDeployment()
+					t.checkService("cryostat-reports", test.NewReportsService())
+				})
+			})
+			Context("with resource requirements", func() {
+				BeforeEach(func() {
+					*cr = *test.NewCryostatWithReportsResources()
+				})
+				It("should configure deployment appropriately", func() {
+					t.checkMainDeployment()
+					t.checkReportsDeployment()
+					t.checkService("cryostat-reports", test.NewReportsService())
+				})
 			})
 			Context("deployment is progressing", func() {
 				JustBeforeEach(func() {
@@ -664,14 +689,18 @@ var _ = Describe("CryostatController", func() {
 			})
 		})
 		Context("with overriden image tags", func() {
-			var deploy *appsv1.Deployment
+			var mainDeploy, reportsDeploy *appsv1.Deployment
 			BeforeEach(func() {
-				t.objs = append(t.objs, test.NewCryostat())
-				deploy = &appsv1.Deployment{}
+				t.objs = append(t.objs, test.NewCryostatWithReportsSvc())
+				t.reportReplicas = 1
+				mainDeploy = &appsv1.Deployment{}
+				reportsDeploy = &appsv1.Deployment{}
 			})
 			JustBeforeEach(func() {
 				t.reconcileCryostatFully()
-				err := t.Client.Get(context.Background(), types.NamespacedName{Name: "cryostat", Namespace: "default"}, deploy)
+				err := t.Client.Get(context.Background(), types.NamespacedName{Name: "cryostat", Namespace: "default"}, mainDeploy)
+				Expect(err).ToNot(HaveOccurred())
+				err = t.Client.Get(context.Background(), types.NamespacedName{Name: "cryostat-reports", Namespace: "default"}, reportsDeploy)
 				Expect(err).ToNot(HaveOccurred())
 			})
 			Context("for development", func() {
@@ -679,19 +708,25 @@ var _ = Describe("CryostatController", func() {
 					coreImg := "my/core-image:1.0.0-SNAPSHOT"
 					datasourceImg := "my/datasource-image:1.0.0-BETA25"
 					grafanaImg := "my/grafana-image:1.0.0-dev"
+					reportsImg := "my/reports-image:1.0.0-SNAPSHOT"
 					t.EnvCoreImageTag = &coreImg
 					t.EnvDatasourceImageTag = &datasourceImg
 					t.EnvGrafanaImageTag = &grafanaImg
+					t.EnvReportsImageTag = &reportsImg
 				})
 				It("should create deployment with the expected tags", func() {
 					t.checkMainDeployment()
+					t.checkReportsDeployment()
 				})
 				It("should set ImagePullPolicy to Always", func() {
-					containers := deploy.Spec.Template.Spec.Containers
+					containers := mainDeploy.Spec.Template.Spec.Containers
 					Expect(containers).To(HaveLen(3))
 					for _, container := range containers {
 						Expect(container.ImagePullPolicy).To(Equal(corev1.PullAlways))
 					}
+					reportContainers := reportsDeploy.Spec.Template.Spec.Containers
+					Expect(reportContainers).To(HaveLen(1))
+					Expect(reportContainers[0].ImagePullPolicy).To(Equal(corev1.PullAlways))
 				})
 			})
 			Context("for release", func() {
@@ -699,19 +734,25 @@ var _ = Describe("CryostatController", func() {
 					coreImg := "my/core-image:1.0.0"
 					datasourceImg := "my/datasource-image:1.0.0"
 					grafanaImg := "my/grafana-image:1.0.0"
+					reportsImg := "my/reports-image:1.0.0"
 					t.EnvCoreImageTag = &coreImg
 					t.EnvDatasourceImageTag = &datasourceImg
 					t.EnvGrafanaImageTag = &grafanaImg
+					t.EnvReportsImageTag = &reportsImg
 				})
 				It("should create deployment with the expected tags", func() {
 					t.checkMainDeployment()
+					t.checkReportsDeployment()
 				})
 				It("should set ImagePullPolicy to IfNotPresent", func() {
-					containers := deploy.Spec.Template.Spec.Containers
+					containers := mainDeploy.Spec.Template.Spec.Containers
 					Expect(containers).To(HaveLen(3))
 					for _, container := range containers {
 						Expect(container.ImagePullPolicy).To(Equal(corev1.PullIfNotPresent))
 					}
+					reportContainers := reportsDeploy.Spec.Template.Spec.Containers
+					Expect(reportContainers).To(HaveLen(1))
+					Expect(reportContainers[0].ImagePullPolicy).To(Equal(corev1.PullIfNotPresent))
 				})
 			})
 			Context("by digest", func() {
@@ -719,19 +760,25 @@ var _ = Describe("CryostatController", func() {
 					coreImg := "my/core-image@sha256:99b57e9b8880bc5d4d799b508603628c37c3e6a0d4bdd0988e9dc3ad8e04c495"
 					datasourceImg := "my/datasource-image@sha256:59ded87392077c2371b26e021aade0409855b597383fa78e549eefafab8fc90c"
 					grafanaImg := "my/grafana-image@sha256:e5bc16c2c5b69cd6fd8fdf1381d0a8b6cc9e01d92b9e1bb0a61ed89196563c72"
+					reportsImg := "my/reports-image@sha256:8a23ca5e8c8a343789b8c14558a44a49d35ecd130c18e62edf0d1ad9ce88d37d"
 					t.EnvCoreImageTag = &coreImg
 					t.EnvDatasourceImageTag = &datasourceImg
 					t.EnvGrafanaImageTag = &grafanaImg
+					t.EnvReportsImageTag = &reportsImg
 				})
 				It("should create deployment with the expected tags", func() {
 					t.checkMainDeployment()
+					t.checkReportsDeployment()
 				})
 				It("should set ImagePullPolicy to IfNotPresent", func() {
-					containers := deploy.Spec.Template.Spec.Containers
+					containers := mainDeploy.Spec.Template.Spec.Containers
 					Expect(containers).To(HaveLen(3))
 					for _, container := range containers {
 						Expect(container.ImagePullPolicy).To(Equal(corev1.PullIfNotPresent))
 					}
+					reportContainers := reportsDeploy.Spec.Template.Spec.Containers
+					Expect(reportContainers).To(HaveLen(1))
+					Expect(reportContainers[0].ImagePullPolicy).To(Equal(corev1.PullIfNotPresent))
 				})
 			})
 			Context("with latest", func() {
@@ -739,19 +786,25 @@ var _ = Describe("CryostatController", func() {
 					coreImg := "my/core-image:latest"
 					datasourceImg := "my/datasource-image:latest"
 					grafanaImg := "my/grafana-image:latest"
+					reportsImg := "my/reports-image:latest"
 					t.EnvCoreImageTag = &coreImg
 					t.EnvDatasourceImageTag = &datasourceImg
 					t.EnvGrafanaImageTag = &grafanaImg
+					t.EnvReportsImageTag = &reportsImg
 				})
 				It("should create deployment with the expected tags", func() {
 					t.checkMainDeployment()
+					t.checkReportsDeployment()
 				})
 				It("should set ImagePullPolicy to Always", func() {
-					containers := deploy.Spec.Template.Spec.Containers
+					containers := mainDeploy.Spec.Template.Spec.Containers
 					Expect(containers).To(HaveLen(3))
 					for _, container := range containers {
 						Expect(container.ImagePullPolicy).To(Equal(corev1.PullAlways))
 					}
+					reportContainers := reportsDeploy.Spec.Template.Spec.Containers
+					Expect(reportContainers).To(HaveLen(1))
+					Expect(reportContainers[0].ImagePullPolicy).To(Equal(corev1.PullAlways))
 				})
 			})
 		})
@@ -1224,7 +1277,7 @@ func newFakeSecret(name string) *corev1.Secret {
 }
 
 func (t *cryostatTestInput) makeCertificatesReady() {
-	certNames := []string{"cryostat", "cryostat-ca", "cryostat-grafana"}
+	certNames := []string{"cryostat", "cryostat-ca", "cryostat-grafana", "cryostat-reports"}
 	for _, certName := range certNames {
 		cert := &certv1.Certificate{}
 		err := t.Client.Get(context.Background(), types.NamespacedName{Name: certName, Namespace: "default"}, cert)
@@ -1240,7 +1293,7 @@ func (t *cryostatTestInput) makeCertificatesReady() {
 
 func (t *cryostatTestInput) initializeSecrets() {
 	// Create secrets
-	secretNames := []string{"cryostat-ca", "cryostat-tls", "cryostat-grafana-tls"}
+	secretNames := []string{"cryostat-ca", "cryostat-tls", "cryostat-grafana-tls", "cryostat-reports-tls"}
 	for _, secretName := range secretNames {
 		secret := newFakeSecret(secretName)
 		err := t.Client.Create(context.Background(), secret)
@@ -1378,7 +1431,7 @@ func (t *cryostatTestInput) expectCertificates() {
 
 func (t *cryostatTestInput) checkCertificates() {
 	// Check certificates
-	certs := []*certv1.Certificate{test.NewCryostatCert(), test.NewCACert(), test.NewGrafanaCert()}
+	certs := []*certv1.Certificate{test.NewCryostatCert(), test.NewCACert(), test.NewGrafanaCert(), test.NewReportsCert()}
 	for _, expected := range certs {
 		actual := &certv1.Certificate{}
 		err := t.Client.Get(context.Background(), types.NamespacedName{Name: expected.Name, Namespace: expected.Namespace}, actual)
@@ -1742,11 +1795,18 @@ func (t *cryostatTestInput) checkMainDeployment() {
 
 	// Check that the networking environment variables are set correctly
 	coreContainer := template.Spec.Containers[0]
+	port := "10000"
+	if cr.Spec.ServiceOptions != nil && cr.Spec.ServiceOptions.ReportsConfig != nil &&
+		cr.Spec.ServiceOptions.ReportsConfig.HTTPPort != nil {
+		port = strconv.Itoa(int(*cr.Spec.ServiceOptions.ReportsConfig.HTTPPort))
+	}
 	var reportsUrl string
 	if t.reportReplicas == 0 {
 		reportsUrl = ""
+	} else if t.TLS {
+		reportsUrl = "https://cryostat-reports:" + port
 	} else {
-		reportsUrl = "http://cryostat-reports:10000"
+		reportsUrl = "http://cryostat-reports:" + port
 	}
 
 	checkCoreContainer(&coreContainer, t.minimal, t.TLS, t.externalTLS, t.EnvCoreImageTag, t.controller.IsOpenShift, reportsUrl, cr.Spec.Resources.CoreResources)
@@ -1798,6 +1858,13 @@ func (t *cryostatTestInput) checkReportsDeployment() {
 		"kind":      "cryostat",
 		"component": "reports",
 	}))
+	Expect(template.Spec.Volumes).To(Equal(test.NewReportsVolumes(t.TLS)))
+
+	var resources corev1.ResourceRequirements
+	if cr.Spec.ReportOptions != nil {
+		resources = cr.Spec.ReportOptions.Resources
+	}
+	checkReportsContainer(&template.Spec.Containers[0], t.TLS, t.EnvReportsImageTag, resources)
 	// Check that the proper Service Account is set
 	Expect(template.Spec.ServiceAccountName).To(Equal("cryostat"))
 }
@@ -1860,6 +1927,20 @@ func checkDatasourceContainer(container *corev1.Container, tag *string, resource
 	Expect(container.EnvFrom).To(BeEmpty())
 	Expect(container.VolumeMounts).To(BeEmpty())
 	Expect(container.LivenessProbe).To(Equal(test.NewDatasourceLivenessProbe()))
+	Expect(container.Resources).To(Equal(resources))
+}
+
+func checkReportsContainer(container *corev1.Container, tls bool, tag *string, resources corev1.ResourceRequirements) {
+	Expect(container.Name).To(Equal("cryostat-reports"))
+	if tag == nil {
+		Expect(container.Image).To(HavePrefix("quay.io/cryostat/cryostat-reports:"))
+	} else {
+		Expect(container.Image).To(Equal(*tag))
+	}
+	Expect(container.Ports).To(ConsistOf(test.NewReportsPorts()))
+	Expect(container.Env).To(ConsistOf(test.NewReportsEnvironmentVariables(tls, resources)))
+	Expect(container.VolumeMounts).To(ConsistOf(test.NewReportsVolumeMounts(tls)))
+	Expect(container.LivenessProbe).To(Equal(test.NewReportsLivenessProbe(tls)))
 	Expect(container.Resources).To(Equal(resources))
 }
 
