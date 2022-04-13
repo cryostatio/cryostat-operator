@@ -81,6 +81,8 @@ type TLSConfig struct {
 	CryostatSecret string
 	// Name of the TLS secret for Grafana
 	GrafanaSecret string
+	// Name of the TLS secret for Reports Generator
+	ReportsSecret string
 	// Name of the secret containing the password for the keystore in CryostatSecret
 	KeystorePassSecret string
 }
@@ -175,7 +177,7 @@ func NewDeploymentForCR(cr *operatorv1beta1.Cryostat, specs *ServiceSpecs, image
 	}
 }
 
-func NewDeploymentForReports(cr *operatorv1beta1.Cryostat, imageTags *ImageTags) *appsv1.Deployment {
+func NewDeploymentForReports(cr *operatorv1beta1.Cryostat, imageTags *ImageTags, tls *TLSConfig) *appsv1.Deployment {
 	if cr.Spec.ReportOptions == nil {
 		cr.Spec.ReportOptions = &operatorv1beta1.ReportConfiguration{Replicas: 0}
 	}
@@ -212,7 +214,7 @@ func NewDeploymentForReports(cr *operatorv1beta1.Cryostat, imageTags *ImageTags)
 						"component": "reports",
 					},
 				},
-				Spec: *NewPodForReports(cr, imageTags),
+				Spec: *NewPodForReports(cr, imageTags, tls),
 			},
 			Replicas: &replicas,
 		},
@@ -369,7 +371,7 @@ func NewPodForCR(cr *operatorv1beta1.Cryostat, specs *ServiceSpecs, imageTags *I
 	}
 }
 
-func NewPodForReports(cr *operatorv1beta1.Cryostat, imageTags *ImageTags) *corev1.PodSpec {
+func NewPodForReports(cr *operatorv1beta1.Cryostat, imageTags *ImageTags, tls *TLSConfig) *corev1.PodSpec {
 	resources := corev1.ResourceRequirements{}
 	if cr.Spec.ReportOptions != nil {
 		resources = cr.Spec.ReportOptions.Resources
@@ -387,10 +389,75 @@ func NewPodForReports(cr *operatorv1beta1.Cryostat, imageTags *ImageTags) *corev
 	}
 	javaOpts := fmt.Sprintf("-XX:+PrintCommandLineFlags -XX:ActiveProcessorCount=%d -Dorg.openjdk.jmc.flightrecorder.parser.singlethreaded=%t", cpus, cpus < 2)
 
+	envs := []corev1.EnvVar{
+		{
+			Name:  "QUARKUS_HTTP_HOST",
+			Value: "0.0.0.0",
+		},
+		{
+			Name:  "JAVA_OPTIONS",
+			Value: javaOpts,
+		},
+	}
+	mounts := []corev1.VolumeMount{}
+	volumes := []corev1.Volume{}
+
+	// Configure TLS key/cert if enabled
+	livenessProbeScheme := corev1.URISchemeHTTP
+	if tls != nil {
+		tlsEnvs := []corev1.EnvVar{
+			{
+				Name:  "QUARKUS_HTTP_SSL_PORT",
+				Value: strconv.Itoa(int(reportsContainerPort)),
+			},
+			{
+				Name:  "QUARKUS_HTTP_SSL_CERTIFICATE_KEY_FILE",
+				Value: fmt.Sprintf("/var/run/secrets/operator.cryostat.io/%s/%s", tls.ReportsSecret, corev1.TLSPrivateKeyKey),
+			},
+			{
+				Name:  "QUARKUS_HTTP_SSL_CERTIFICATE_FILE",
+				Value: fmt.Sprintf("/var/run/secrets/operator.cryostat.io/%s/%s", tls.ReportsSecret, corev1.TLSCertKey),
+			},
+			{
+				Name:  "QUARKUS_HTTP_INSECURE_REQUESTS",
+				Value: "disabled",
+			},
+		}
+
+		tlsSecretMount := corev1.VolumeMount{
+			Name:      "reports-tls-secret",
+			MountPath: "/var/run/secrets/operator.cryostat.io/" + tls.ReportsSecret,
+			ReadOnly:  true,
+		}
+
+		secretVolume := corev1.Volume{
+			Name: "reports-tls-secret",
+			VolumeSource: corev1.VolumeSource{
+				Secret: &corev1.SecretVolumeSource{
+					SecretName: tls.ReportsSecret,
+				},
+			},
+		}
+
+		envs = append(envs, tlsEnvs...)
+		mounts = append(mounts, tlsSecretMount)
+		volumes = append(volumes, secretVolume)
+
+		// Use HTTPS for liveness probe
+		livenessProbeScheme = corev1.URISchemeHTTPS
+
+	} else {
+		envs = append(envs, corev1.EnvVar{
+			Name:  "QUARKUS_HTTP_PORT",
+			Value: strconv.Itoa(int(reportsContainerPort)),
+		})
+	}
+
 	probeHandler := corev1.Handler{
 		HTTPGet: &corev1.HTTPGetAction{
-			Port: intstr.IntOrString{IntVal: reportsContainerPort},
-			Path: "/health",
+			Scheme: livenessProbeScheme,
+			Port:   intstr.IntOrString{IntVal: reportsContainerPort},
+			Path:   "/health",
 		},
 	}
 	return &corev1.PodSpec{
@@ -405,21 +472,9 @@ func NewPodForReports(cr *operatorv1beta1.Cryostat, imageTags *ImageTags) *corev
 						ContainerPort: reportsContainerPort,
 					},
 				},
-				Env: []corev1.EnvVar{
-					{
-						Name:  "QUARKUS_HTTP_HOST",
-						Value: "0.0.0.0",
-					},
-					{
-						Name:  "QUARKUS_HTTP_PORT",
-						Value: strconv.Itoa(int(reportsContainerPort)),
-					},
-					{
-						Name:  "JAVA_OPTIONS",
-						Value: javaOpts,
-					},
-				},
-				Resources: resources,
+				Env:          envs,
+				VolumeMounts: mounts,
+				Resources:    resources,
 				LivenessProbe: &corev1.Probe{
 					Handler: probeHandler,
 				},
@@ -428,6 +483,7 @@ func NewPodForReports(cr *operatorv1beta1.Cryostat, imageTags *ImageTags) *corev
 				},
 			},
 		},
+		Volumes: volumes,
 	}
 }
 
