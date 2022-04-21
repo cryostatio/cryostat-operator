@@ -252,32 +252,39 @@ type NetworkConfiguration struct {
 	// Currently subpaths are not supported, so unique hosts must be specified
 	// (if a single external IP is being used) to differentiate between ingresses/services
 	// +optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	IngressSpec *netv1.IngressSpec `json:"ingressSpec,omitempty"`
 	// Annotations to add to the ingress during its creation.
 	// +optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	Annotations map[string]string `json:"annotations,omitempty"`
 	// Labels to add to the ingress during its creation.
 	// The label with key "app" is reserved for use by the operator.
 	// +optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	Labels map[string]string `json:"labels,omitempty"`
 }
 
 // NetworkConfigurationList holds all three NetworkConfiguration objects that specify
-// the ingress configurations for the three services created by the operator
+// the Ingress configurations for the services created by the operator for
+// the main Cryostat deployment
 type NetworkConfigurationList struct {
 	// Specifications for ingress that exposes the cryostat service
 	// (which serves the cryostat web-client)
 	// +optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	CoreConfig *NetworkConfiguration `json:"coreConfig,omitempty"`
 	// Specifications for ingress that exposes the cryostat-command service
 	// (which serves the websocket command channel)
 	// +optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:com.tectonic.ui:hidden"}
 	//
 	// Deprecated: CommandConfig is no longer used.
 	CommandConfig *NetworkConfiguration `json:"commandConfig,omitempty"`
 	// Specifications for ingress that exposes the cryostat-grafana service
 	// (which serves the grafana dashboard)
 	// +optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	GrafanaConfig *NetworkConfiguration `json:"grafanaConfig,omitempty"`
 }
 
