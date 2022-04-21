@@ -280,6 +280,23 @@ func NewCryostatWithReportsSvc() *operatorv1beta1.Cryostat {
 	return cr
 }
 
+func NewCryostatWithReportsResources() *operatorv1beta1.Cryostat {
+	cr := NewCryostat()
+	cr.Spec.ReportOptions = &operatorv1beta1.ReportConfiguration{
+		Resources: corev1.ResourceRequirements{
+			Limits: corev1.ResourceList{
+				corev1.ResourceCPU:    resource.MustParse("1600m"),
+				corev1.ResourceMemory: resource.MustParse("1Gi"),
+			},
+			Requests: corev1.ResourceList{
+				corev1.ResourceCPU:    resource.MustParse("800m"),
+				corev1.ResourceMemory: resource.MustParse("512Mi"),
+			},
+		},
+	}
+	return cr
+}
+
 func NewCryostatCertManagerDisabled() *operatorv1beta1.Cryostat {
 	cr := NewCryostat()
 	certManager := false
@@ -926,6 +943,32 @@ func NewGrafanaCert() *certv1.Certificate {
 	}
 }
 
+func NewReportsCert() *certv1.Certificate {
+	return &certv1.Certificate{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "cryostat-reports",
+			Namespace: "default",
+		},
+		Spec: certv1.CertificateSpec{
+			CommonName: "cryostat-reports.default.svc",
+			DNSNames: []string{
+				"cryostat-reports",
+				"cryostat-reports.default.svc",
+				"cryostat-reports.default.svc.cluster.local",
+			},
+			SecretName: "cryostat-reports-tls",
+			IssuerRef: certMeta.ObjectReference{
+				Name: "cryostat-ca",
+			},
+			Usages: []certv1.KeyUsage{
+				certv1.UsageDigitalSignature,
+				certv1.UsageKeyEncipherment,
+				certv1.UsageServerAuth,
+			},
+		},
+	}
+}
+
 func NewCACert() *certv1.Certificate {
 	return &certv1.Certificate{
 		ObjectMeta: metav1.ObjectMeta{
@@ -1126,6 +1169,14 @@ func NewDatasourcePorts() []corev1.ContainerPort {
 	}
 }
 
+func NewReportsPorts() []corev1.ContainerPort {
+	return []corev1.ContainerPort{
+		{
+			ContainerPort: 10000,
+		},
+	}
+}
+
 func NewCoreEnvironmentVariables(minimal bool, tls bool, externalTLS bool, openshift bool, reportsUrl string) []corev1.EnvVar {
 	envs := []corev1.EnvVar{
 		{
@@ -1244,7 +1295,7 @@ func NewCoreEnvironmentVariables(minimal bool, tls bool, externalTLS bool, opens
 			},
 			corev1.EnvVar{
 				Name:  "CRYOSTAT_AUTH_MANAGER",
-				Value: "io.cryostat.net.OpenShiftAuthManager",
+				Value: "io.cryostat.net.openshift.OpenShiftAuthManager",
 			},
 			corev1.EnvVar{
 				Name:  "CRYOSTAT_OAUTH_CLIENT_ID",
@@ -1300,6 +1351,45 @@ func NewDatasourceEnvironmentVariables() []corev1.EnvVar {
 			Value: "127.0.0.1",
 		},
 	}
+}
+
+func NewReportsEnvironmentVariables(tls bool, resources corev1.ResourceRequirements) []corev1.EnvVar {
+	opts := "-XX:+PrintCommandLineFlags -XX:ActiveProcessorCount=1 -Dorg.openjdk.jmc.flightrecorder.parser.singlethreaded=true"
+	if !resources.Limits.Cpu().IsZero() {
+		// Assume 2 CPU limit
+		opts = "-XX:+PrintCommandLineFlags -XX:ActiveProcessorCount=2 -Dorg.openjdk.jmc.flightrecorder.parser.singlethreaded=false"
+	}
+	envs := []corev1.EnvVar{
+		{
+			Name:  "QUARKUS_HTTP_HOST",
+			Value: "0.0.0.0",
+		},
+		{
+			Name:  "JAVA_OPTIONS",
+			Value: opts,
+		},
+	}
+	if tls {
+		envs = append(envs, corev1.EnvVar{
+			Name:  "QUARKUS_HTTP_SSL_PORT",
+			Value: "10000",
+		}, corev1.EnvVar{
+			Name:  "QUARKUS_HTTP_SSL_CERTIFICATE_KEY_FILE",
+			Value: "/var/run/secrets/operator.cryostat.io/cryostat-reports-tls/tls.key",
+		}, corev1.EnvVar{
+			Name:  "QUARKUS_HTTP_SSL_CERTIFICATE_FILE",
+			Value: "/var/run/secrets/operator.cryostat.io/cryostat-reports-tls/tls.crt",
+		}, corev1.EnvVar{
+			Name:  "QUARKUS_HTTP_INSECURE_REQUESTS",
+			Value: "disabled",
+		})
+	} else {
+		envs = append(envs, corev1.EnvVar{
+			Name:  "QUARKUS_HTTP_PORT",
+			Value: "10000",
+		})
+	}
+	return envs
 }
 
 func NewCoreEnvFromSource(tls bool) []corev1.EnvFromSource {
@@ -1435,6 +1525,19 @@ func NewGrafanaVolumeMounts(tls bool) []corev1.VolumeMount {
 	return mounts
 }
 
+func NewReportsVolumeMounts(tls bool) []corev1.VolumeMount {
+	mounts := []corev1.VolumeMount{}
+	if tls {
+		mounts = append(mounts,
+			corev1.VolumeMount{
+				Name:      "reports-tls-secret",
+				MountPath: "/var/run/secrets/operator.cryostat.io/cryostat-reports-tls",
+				ReadOnly:  true,
+			})
+	}
+	return mounts
+}
+
 func NewVolumeMountsWithTemplates(tls bool) []corev1.VolumeMount {
 	return append(NewCoreVolumeMounts(tls),
 		corev1.VolumeMount{
@@ -1499,6 +1602,22 @@ func NewDatasourceLivenessProbe() *corev1.Probe {
 		Handler: corev1.Handler{
 			Exec: &corev1.ExecAction{
 				Command: []string{"curl", "--fail", "http://127.0.0.1:8080"},
+			},
+		},
+	}
+}
+
+func NewReportsLivenessProbe(tls bool) *corev1.Probe {
+	protocol := corev1.URISchemeHTTPS
+	if !tls {
+		protocol = corev1.URISchemeHTTP
+	}
+	return &corev1.Probe{
+		Handler: corev1.Handler{
+			HTTPGet: &corev1.HTTPGetAction{
+				Port:   intstr.IntOrString{IntVal: 10000},
+				Path:   "/health",
+				Scheme: protocol,
 			},
 		},
 	}
@@ -1671,6 +1790,22 @@ func newVolumes(minimal bool, tls bool, certProjections []corev1.VolumeProjectio
 		}
 	}
 	return volumes
+}
+
+func NewReportsVolumes(tls bool) []corev1.Volume {
+	if !tls {
+		return nil
+	}
+	return []corev1.Volume{
+		{
+			Name: "reports-tls-secret",
+			VolumeSource: corev1.VolumeSource{
+				Secret: &corev1.SecretVolumeSource{
+					SecretName: "cryostat-reports-tls",
+				},
+			},
+		},
+	}
 }
 
 func NewPodSecurityContext() *corev1.PodSecurityContext {

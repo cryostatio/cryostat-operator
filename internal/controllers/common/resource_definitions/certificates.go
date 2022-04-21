@@ -155,3 +155,27 @@ func NewGrafanaCert(cr *operatorv1beta1.Cryostat) *certv1.Certificate {
 		},
 	}
 }
+
+func NewReportsCert(cr *operatorv1beta1.Cryostat) *certv1.Certificate {
+	return &certv1.Certificate{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      cr.Name + "-reports",
+			Namespace: cr.Namespace,
+		},
+		Spec: certv1.CertificateSpec{
+			CommonName: fmt.Sprintf("%s-reports.%s.svc", cr.Name, cr.Namespace),
+			DNSNames: []string{
+				cr.Name + "-reports",
+				fmt.Sprintf("%s-reports.%s.svc", cr.Name, cr.Namespace),
+				fmt.Sprintf("%s-reports.%s.svc.cluster.local", cr.Name, cr.Namespace),
+			},
+			SecretName: cr.Name + "-reports-tls",
+			IssuerRef: certMeta.ObjectReference{
+				Name: cr.Name + "-ca",
+			},
+			Usages: append(certv1.DefaultKeyUsages(),
+				certv1.UsageServerAuth,
+			),
+		},
+	}
+}
