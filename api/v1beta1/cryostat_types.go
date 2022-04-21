@@ -242,7 +242,7 @@ type ServiceConfigList struct {
 	GrafanaConfig *GrafanaServiceConfig `json:"grafanaConfig,omitempty"`
 	// Specification for the service responsible for the cryostat-reports sidecars.
 	// +optional
-	ReportsConfig *ReportsServiceConfig `json:"reportsConfig,omitEmpty"`
+	ReportsConfig *ReportsServiceConfig `json:"reportsConfig,omitempty"`
 }
 
 // NetworkConfiguration provides customization for the corresponding ingress,
