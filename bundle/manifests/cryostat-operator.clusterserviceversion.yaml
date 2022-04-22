@@ -157,6 +157,44 @@ spec:
       - description: Options to control how the operator exposes the application outside of the cluster using an Ingress or Route.
         displayName: Network Options
         path: networkOptions
+      - description: "Specifications for ingress that exposes the cryostat-command service (which serves the websocket command channel) \n Deprecated: CommandConfig is no longer used."
+        displayName: Command Config
+        path: networkOptions.commandConfig
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:hidden
+      - description: Annotations to add to the ingress during its creation.
+        displayName: Annotations
+        path: networkOptions.commandConfig.annotations
+      - description: Configuration for an ingress object. Currently subpaths are not supported, so unique hosts must be specified (if a single external IP is being used) to differentiate between ingresses/services
+        displayName: Ingress Spec
+        path: networkOptions.commandConfig.ingressSpec
+      - description: Labels to add to the ingress during its creation. The label with key "app" is reserved for use by the operator.
+        displayName: Labels
+        path: networkOptions.commandConfig.labels
+      - description: Specifications for ingress that exposes the cryostat service (which serves the cryostat web-client)
+        displayName: Core Config
+        path: networkOptions.coreConfig
+      - description: Annotations to add to the ingress during its creation.
+        displayName: Annotations
+        path: networkOptions.coreConfig.annotations
+      - description: Configuration for an ingress object. Currently subpaths are not supported, so unique hosts must be specified (if a single external IP is being used) to differentiate between ingresses/services
+        displayName: Ingress Spec
+        path: networkOptions.coreConfig.ingressSpec
+      - description: Labels to add to the ingress during its creation. The label with key "app" is reserved for use by the operator.
+        displayName: Labels
+        path: networkOptions.coreConfig.labels
+      - description: Specifications for ingress that exposes the cryostat-grafana service (which serves the grafana dashboard)
+        displayName: Grafana Config
+        path: networkOptions.grafanaConfig
+      - description: Annotations to add to the ingress during its creation.
+        displayName: Annotations
+        path: networkOptions.grafanaConfig.annotations
+      - description: Configuration for an ingress object. Currently subpaths are not supported, so unique hosts must be specified (if a single external IP is being used) to differentiate between ingresses/services
+        displayName: Ingress Spec
+        path: networkOptions.grafanaConfig.ingressSpec
+      - description: Labels to add to the ingress during its creation. The label with key "app" is reserved for use by the operator.
+        displayName: Labels
+        path: networkOptions.grafanaConfig.labels
       - description: Options to configure Cryostat Automated Report Analysis
         displayName: Report Options
         path: reportOptions
