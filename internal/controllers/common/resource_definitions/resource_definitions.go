@@ -240,60 +240,51 @@ func NewPodForCR(cr *operatorv1beta1.Cryostat, specs *ServiceSpecs, imageTags *I
 	}
 
 	volumes := newVolumeForCR(cr)
-
+	volSources := []corev1.VolumeProjection{}
 	readOnlyMode := int32(0440)
-	if tls != nil {
-		// Create certificate secret volumes in deployment
-		volSources := []corev1.VolumeProjection{
-			{
-				// Add Cryostat self-signed CA
-				Secret: &corev1.SecretProjection{
-					LocalObjectReference: corev1.LocalObjectReference{
-						Name: tls.CryostatSecret,
-					},
-					Items: []corev1.KeyToPath{
-						{
-							Key:  CAKey,
-							Path: cr.Name + "-ca.crt",
-							Mode: &readOnlyMode,
-						},
-					},
-				},
-			},
-		}
 
-		// Add any TrustedCertSecrets as volumes
-		for _, secret := range cr.Spec.TrustedCertSecrets {
-			var key string
-			if secret.CertificateKey != nil {
-				key = *secret.CertificateKey
-			} else {
-				key = operatorv1beta1.DefaultCertificateKey
-			}
-			source := corev1.VolumeProjection{
-				Secret: &corev1.SecretProjection{
-					LocalObjectReference: corev1.LocalObjectReference{
-						Name: secret.SecretName,
-					},
-					Items: []corev1.KeyToPath{
-						{
-							Key:  key,
-							Path: fmt.Sprintf("%s_%s", secret.SecretName, key),
-							Mode: &readOnlyMode,
-						},
-					},
-				},
-			}
-			volSources = append(volSources, source)
+	// Add any TrustedCertSecrets as volumes
+	for _, secret := range cr.Spec.TrustedCertSecrets {
+		var key string
+		if secret.CertificateKey != nil {
+			key = *secret.CertificateKey
+		} else {
+			key = operatorv1beta1.DefaultCertificateKey
 		}
-		certVolume := corev1.Volume{
-			Name: "cert-secrets",
-			VolumeSource: corev1.VolumeSource{
-				Projected: &corev1.ProjectedVolumeSource{
-					Sources: volSources,
+		source := corev1.VolumeProjection{
+			Secret: &corev1.SecretProjection{
+				LocalObjectReference: corev1.LocalObjectReference{
+					Name: secret.SecretName,
+				},
+				Items: []corev1.KeyToPath{
+					{
+						Key:  key,
+						Path: fmt.Sprintf("%s_%s", secret.SecretName, key),
+						Mode: &readOnlyMode,
+					},
 				},
 			},
 		}
+		volSources = append(volSources, source)
+	}
+
+	if tls != nil {
+		volSources = append(volSources, corev1.VolumeProjection{
+			// Add Cryostat self-signed CA
+			Secret: &corev1.SecretProjection{
+				LocalObjectReference: corev1.LocalObjectReference{
+					Name: tls.CryostatSecret,
+				},
+				Items: []corev1.KeyToPath{
+					{
+						Key:  CAKey,
+						Path: cr.Name + "-ca.crt",
+						Mode: &readOnlyMode,
+					},
+				},
+			},
+		})
+
 		keyVolume := corev1.Volume{
 			Name: "keystore",
 			VolumeSource: corev1.VolumeSource{
@@ -310,7 +301,7 @@ func NewPodForCR(cr *operatorv1beta1.Cryostat, specs *ServiceSpecs, imageTags *I
 			},
 		}
 
-		volumes = append(volumes, certVolume, keyVolume)
+		volumes = append(volumes, keyVolume)
 
 		if !cr.Spec.Minimal {
 			grafanaSecretVolume := corev1.Volume{
@@ -324,6 +315,17 @@ func NewPodForCR(cr *operatorv1beta1.Cryostat, specs *ServiceSpecs, imageTags *I
 			volumes = append(volumes, grafanaSecretVolume)
 		}
 	}
+
+	// Project certificate secrets into deployment
+	certVolume := corev1.Volume{
+		Name: "cert-secrets",
+		VolumeSource: corev1.VolumeSource{
+			Projected: &corev1.ProjectedVolumeSource{
+				Sources: volSources,
+			},
+		},
+	}
+	volumes = append(volumes, certVolume)
 
 	// Add any EventTemplates as volumes
 	for _, template := range cr.Spec.EventTemplates {
@@ -657,6 +659,12 @@ func NewCoreContainer(cr *operatorv1beta1.Cryostat, specs *ServiceSpecs, imageTa
 			MountPath: "truststore",
 			SubPath:   "truststore",
 		},
+		{
+			// Mount the CA cert and user certificates in the expected /truststore location
+			Name:      "cert-secrets",
+			MountPath: "/truststore/operator",
+			ReadOnly:  true,
+		},
 	}
 
 	if !cr.Spec.Minimal {
@@ -715,14 +723,7 @@ func NewCoreContainer(cr *operatorv1beta1.Cryostat, specs *ServiceSpecs, imageTa
 			ReadOnly:  true,
 		}
 
-		// Mount the CA cert and user certificates in the expected /truststore location
-		caCertMount := corev1.VolumeMount{
-			Name:      "cert-secrets",
-			MountPath: "/truststore/operator",
-			ReadOnly:  true,
-		}
-
-		mounts = append(mounts, keystoreMount, caCertMount)
+		mounts = append(mounts, keystoreMount)
 
 		// Use HTTPS for liveness probe
 		livenessProbeScheme = corev1.URISchemeHTTPS
