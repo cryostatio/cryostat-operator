@@ -154,7 +154,6 @@ spec:
 ### Network Options
 When running on Kubernetes, the operator requires Ingress configurations for each of its services to make them available outside of the cluster. For a `Cryostat` object named `x`, the following Ingress configurations must be specified within the `spec.networkOptions` property:
 - `coreConfig` exposing the service `x` on port `8181` (or alternate specified in [Service Options](#service-options)).
-- `commandConfig` exposing the service `x-command` on port `9090`.
 - `grafanaConfig` exposing the service `x-grafana` on port `3000` (or alternate specified in [Service Options](#service-options)).
 
 The user is responsible for providing the hostnames for each Ingress. In Minikube, this can be done by adding entries to the host machine's `/etc/hosts` for each hostname, pointing to Minikube's IP address. See: https://kubernetes.io/docs/tasks/access-application-cluster/ingress-minikube/
