@@ -18,7 +18,7 @@ backend to detect JVMs and manage JFR
 
 * [cryostat-web](https://github.com/cryostatio/cryostat-web) for the React
 graphical frontend included as a submodule in Cryostat and built into
-Cryostat's (non-minimal mode) OCI images.
+Cryostat's OCI images.
 
 * [jfr-datasource](https://github.com/cryostatio/jfr-datasource) for
 the JFR datasource for Grafana
