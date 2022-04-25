@@ -73,7 +73,7 @@ spec:
                 minimum: 1
                 type: integer
               minimal:
-                description: Deploy a pared-down Cryostat instance with no Grafana dashboard or jfr-datasource and no web-client UI.
+                description: Deploy a pared-down Cryostat instance with no Grafana Dashboard or JFR Data Source.
                 type: boolean
               networkOptions:
                 description: Options to control how the operator exposes the application outside of the cluster using an Ingress or Route.

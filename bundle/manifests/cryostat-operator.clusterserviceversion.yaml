@@ -149,7 +149,7 @@ spec:
         path: maxWsConnections
         x-descriptors:
         - urn:alm:descriptor:com.tectonic.ui:number
-      - description: Deploy a pared-down Cryostat instance with no Grafana dashboard or jfr-datasource and no web-client UI.
+      - description: Deploy a pared-down Cryostat instance with no Grafana Dashboard or JFR Data Source.
         displayName: Minimal Deployment
         path: minimal
         x-descriptors:
