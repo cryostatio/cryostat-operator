@@ -44,8 +44,7 @@ import (
 
 // CryostatSpec defines the desired state of Cryostat
 type CryostatSpec struct {
-	// Deploy a pared-down Cryostat instance with no Grafana dashboard or jfr-datasource
-	// and no web-client UI.
+	// Deploy a pared-down Cryostat instance with no Grafana Dashboard or JFR Data Source.
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Minimal Deployment",xDescriptors={"urn:alm:descriptor:com.tectonic.ui:booleanSwitch"}
 	Minimal bool `json:"minimal"`
 	// List of TLS certificates to trust when connecting to targets
