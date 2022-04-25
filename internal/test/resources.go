@@ -1495,6 +1495,11 @@ func NewCoreVolumeMounts(tls bool) []corev1.VolumeMount {
 			MountPath: "truststore",
 			SubPath:   "truststore",
 		},
+		{
+			Name:      "cert-secrets",
+			ReadOnly:  true,
+			MountPath: "/truststore/operator",
+		},
 	}
 	if tls {
 		mounts = append(mounts,
@@ -1502,11 +1507,6 @@ func NewCoreVolumeMounts(tls bool) []corev1.VolumeMount {
 				Name:      "keystore",
 				ReadOnly:  true,
 				MountPath: "/var/run/secrets/operator.cryostat.io/cryostat-tls",
-			},
-			corev1.VolumeMount{
-				Name:      "cert-secrets",
-				ReadOnly:  true,
-				MountPath: "/truststore/operator",
 			})
 	}
 	return mounts
@@ -1647,9 +1647,9 @@ func NewVolumes(minimal bool, tls bool) []corev1.Volume {
 	return newVolumes(minimal, tls, nil)
 }
 
-func NewVolumesWithSecrets() []corev1.Volume {
+func NewVolumesWithSecrets(tls bool) []corev1.Volume {
 	mode := int32(0440)
-	return newVolumes(false, true, []corev1.VolumeProjection{
+	return newVolumes(false, tls, []corev1.VolumeProjection{
 		{
 			Secret: &corev1.SecretProjection{
 				LocalObjectReference: corev1.LocalObjectReference{
@@ -1733,33 +1733,22 @@ func newVolumes(minimal bool, tls bool, certProjections []corev1.VolumeProjectio
 			},
 		},
 	}
+	projs := append([]corev1.VolumeProjection{}, certProjections...)
 	if tls {
-		projs := []corev1.VolumeProjection{
-			{
-				Secret: &corev1.SecretProjection{
-					LocalObjectReference: corev1.LocalObjectReference{
-						Name: "cryostat-tls",
-					},
-					Items: []corev1.KeyToPath{
-						{
-							Key:  "ca.crt",
-							Path: "cryostat-ca.crt",
-							Mode: &readOnlymode,
-						},
+		projs = append(projs, corev1.VolumeProjection{
+			Secret: &corev1.SecretProjection{
+				LocalObjectReference: corev1.LocalObjectReference{
+					Name: "cryostat-tls",
+				},
+				Items: []corev1.KeyToPath{
+					{
+						Key:  "ca.crt",
+						Path: "cryostat-ca.crt",
+						Mode: &readOnlymode,
 					},
 				},
 			},
-		}
-		projs = append(projs, certProjections...)
-		volumes = append(volumes,
-			corev1.Volume{
-				Name: "cert-secrets",
-				VolumeSource: corev1.VolumeSource{
-					Projected: &corev1.ProjectedVolumeSource{
-						Sources: projs,
-					},
-				},
-			})
+		})
 
 		volumes = append(volumes,
 			corev1.Volume{
@@ -1789,6 +1778,17 @@ func newVolumes(minimal bool, tls bool, certProjections []corev1.VolumeProjectio
 				})
 		}
 	}
+
+	volumes = append(volumes,
+		corev1.Volume{
+			Name: "cert-secrets",
+			VolumeSource: corev1.VolumeSource{
+				Projected: &corev1.ProjectedVolumeSource{
+					Sources: projs,
+				},
+			},
+		})
+
 	return volumes
 }
 
