@@ -151,6 +151,42 @@ spec:
     subProcessMaxHeapSize: 200
 ```
 
+### Resource Requirements
+By default, the operator deploys Cryostat without any [resource requests or limits](https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/) set. Using the Cryostat custom resource, you can define resources requests and/or limits for each of the three containers in Cryostat's main pod:
+- the `core` container running the Cryostat backend and web application. If setting a memory limit for this container, we recommend at least 768MiB.
+- the `datasource` container running JFR Data Source, which converts recordings into a Grafana-compatible format.
+- the `grafana` container running the Grafana instance customized for Cryostat.
+```yaml
+apiVersion: operator.cryostat.io/v1beta1
+kind: Cryostat
+metadata:
+  name: cryostat-sample
+spec:
+  resources:
+    coreResources:
+      requests:
+        cpu: 1200m
+        memory: 768Mi
+      limits:
+        cpu: 2000m
+        memory: 2Gi
+    dataSourceResources:
+      requests:
+        cpu: 500m
+        memory: 256Mi
+      limits:
+        cpu: 800m
+        memory: 512Mi
+    grafanaResources:
+      requests:
+        cpu: 800m
+        memory: 256Mi
+      limits:
+        cpu: 1000m
+        memory: 512Mi
+```
+This example sets CPU and memory requests and limits for each container, but you may choose to define any combination of requests and limits that suits your use case.
+
 ### Network Options
 When running on Kubernetes, the operator requires Ingress configurations for each of its services to make them available outside of the cluster. For a `Cryostat` object named `x`, the following Ingress configurations must be specified within the `spec.networkOptions` property:
 - `coreConfig` exposing the service `x` on port `8181` (or alternate specified in [Service Options](#service-options)).
