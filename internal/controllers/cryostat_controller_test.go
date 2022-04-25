@@ -541,23 +541,24 @@ var _ = Describe("CryostatController", func() {
 			})
 		})
 		Context("Cryostat CR has list of certificate secrets", func() {
+			var cr *operatorv1beta1.Cryostat
 			BeforeEach(func() {
-				t.objs = append(t.objs, test.NewCryostatWithSecrets(),
+				cr = test.NewCryostatWithSecrets()
+				t.objs = append(t.objs, cr,
 					newFakeSecret("testCert1"), newFakeSecret("testCert2"))
 			})
 			It("Should add volumes and volumeMounts to deployment", func() {
-				t.reconcileCryostatFully()
-				deployment := &appsv1.Deployment{}
-				err := t.Client.Get(context.Background(), types.NamespacedName{Name: "cryostat", Namespace: "default"}, deployment)
-				Expect(err).ToNot(HaveOccurred())
-
-				volumes := deployment.Spec.Template.Spec.Volumes
-				expectedVolumes := test.NewVolumesWithSecrets()
-				Expect(volumes).To(Equal(expectedVolumes))
-
-				volumeMounts := deployment.Spec.Template.Spec.Containers[0].VolumeMounts
-				expectedVolumeMounts := test.NewCoreVolumeMounts(t.TLS)
-				Expect(volumeMounts).To(Equal(expectedVolumeMounts))
+				t.expectDeploymentHasCertSecrets()
+			})
+			Context("with cert-manager disabled", func() {
+				BeforeEach(func() {
+					disable := false
+					cr.Spec.EnableCertManager = &disable
+					t.TLS = false
+				})
+			})
+			It("Should add volumes and volumeMounts to deployment", func() {
+				t.expectDeploymentHasCertSecrets()
 			})
 		})
 		Context("Adding a certificate to the TrustedCertSecrets list", func() {
@@ -589,7 +590,7 @@ var _ = Describe("CryostatController", func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				volumes := deployment.Spec.Template.Spec.Volumes
-				expectedVolumes := test.NewVolumesWithSecrets()
+				expectedVolumes := test.NewVolumesWithSecrets(t.TLS)
 				Expect(volumes).To(Equal(expectedVolumes))
 
 				volumeMounts := deployment.Spec.Template.Spec.Containers[0].VolumeMounts
@@ -1634,6 +1635,21 @@ func (t *cryostatTestInput) expectDeployment() {
 
 	t.reconcileCryostatFully()
 	t.checkMainDeployment()
+}
+
+func (t *cryostatTestInput) expectDeploymentHasCertSecrets() {
+	t.reconcileCryostatFully()
+	deployment := &appsv1.Deployment{}
+	err := t.Client.Get(context.Background(), types.NamespacedName{Name: "cryostat", Namespace: "default"}, deployment)
+	Expect(err).ToNot(HaveOccurred())
+
+	volumes := deployment.Spec.Template.Spec.Volumes
+	expectedVolumes := test.NewVolumesWithSecrets(t.TLS)
+	Expect(volumes).To(Equal(expectedVolumes))
+
+	volumeMounts := deployment.Spec.Template.Spec.Containers[0].VolumeMounts
+	expectedVolumeMounts := test.NewCoreVolumeMounts(t.TLS)
+	Expect(volumeMounts).To(Equal(expectedVolumeMounts))
 }
 
 func (t *cryostatTestInput) expectIdempotence() {
