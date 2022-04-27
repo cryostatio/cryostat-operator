@@ -1868,9 +1868,13 @@ func NewNetworkConfiguration(svcName string, svcPort int32, tls bool) operatorv1
 	}
 }
 
-func NewServiceAccount() *corev1.ServiceAccount {
-
-	ref := []byte(`{"metadata":{"creationTimestamp":null},"reference":{"group":"","kind":"Route","name":"cryostat"}}`)
+func NewServiceAccount(isOpenShift bool) *corev1.ServiceAccount {
+	var annotations map[string]string
+	if isOpenShift {
+		annotations = map[string]string{
+			"serviceaccounts.openshift.io/oauth-redirectreference.route": `{"metadata":{"creationTimestamp":null},"reference":{"group":"","kind":"Route","name":"cryostat"}}`,
+		}
+	}
 
 	return &corev1.ServiceAccount{
 		ObjectMeta: metav1.ObjectMeta{
@@ -1879,10 +1883,39 @@ func NewServiceAccount() *corev1.ServiceAccount {
 			Labels: map[string]string{
 				"app": "cryostat",
 			},
+			Annotations: annotations,
+		},
+	}
+}
+
+func OtherServiceAccount() *corev1.ServiceAccount {
+	disable := false
+	return &corev1.ServiceAccount{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "cryostat",
+			Namespace: "default",
+			Labels: map[string]string{
+				"app":   "not-cryostat",
+				"other": "label",
+			},
 			Annotations: map[string]string{
-				"serviceaccounts.openshift.io/oauth-redirectreference.route": string(ref),
+				"hello": "world",
 			},
 		},
+		ImagePullSecrets: []corev1.LocalObjectReference{
+			{
+				Name: "cryostat-dockercfg-abcde",
+			},
+		},
+		Secrets: []corev1.ObjectReference{
+			{
+				Name: "cryostat-dockercfg-abcde",
+			},
+			{
+				Name: "cryostat-token-abcde",
+			},
+		},
+		AutomountServiceAccountToken: &disable,
 	}
 }
 
