@@ -268,6 +268,36 @@ var _ = Describe("CryostatController", func() {
 				Expect(result).To(Equal(reconcile.Result{}))
 			})
 		})
+		Context("with an existing Service Account", func() {
+			var cr *operatorv1beta1.Cryostat
+			var oldSA *corev1.ServiceAccount
+			BeforeEach(func() {
+				cr = test.NewCryostat()
+				oldSA = test.OtherServiceAccount()
+				t.objs = append(t.objs, cr, oldSA)
+			})
+			It("should update the Service Account", func() {
+				t.reconcileCryostatFully()
+
+				sa := &corev1.ServiceAccount{}
+				err := t.Client.Get(context.Background(), types.NamespacedName{Name: "cryostat", Namespace: "default"}, sa)
+				Expect(err).ToNot(HaveOccurred())
+
+				Expect(sa.Annotations).To(HaveLen(2))
+				Expect(sa.Annotations).To(HaveKeyWithValue("hello", "world"))
+				Expect(sa.Annotations).To(HaveKeyWithValue("serviceaccounts.openshift.io/oauth-redirectreference.route",
+					`{"metadata":{"creationTimestamp":null},"reference":{"group":"","kind":"Route","name":"cryostat"}}`))
+
+				Expect(sa.Labels).To(HaveKeyWithValue("app", "cryostat"))
+				Expect(sa.Labels).To(HaveKeyWithValue("other", "label"))
+
+				Expect(metav1.IsControlledBy(sa, cr)).To(BeTrue())
+
+				Expect(sa.ImagePullSecrets).To(Equal(oldSA.ImagePullSecrets))
+				Expect(sa.Secrets).To(Equal(oldSA.Secrets))
+				Expect(sa.AutomountServiceAccountToken).To(BeNil())
+			})
+		})
 		Context("Switching from a minimal to a non-minimal deployment", func() {
 			BeforeEach(func() {
 				t.objs = append(t.objs, test.NewMinimalCryostat())
@@ -1180,6 +1210,9 @@ var _ = Describe("CryostatController", func() {
 			It("should create deployment and set owner", func() {
 				t.expectDeployment()
 			})
+			It("should create RBAC", func() {
+				t.expectRBAC()
+			})
 		})
 		Context("with non-TLS ingress", func() {
 			BeforeEach(func() {
@@ -1195,6 +1228,9 @@ var _ = Describe("CryostatController", func() {
 			})
 			It("should create deployment and set owner", func() {
 				t.expectDeployment()
+			})
+			It("should create RBAC", func() {
+				t.expectRBAC()
 			})
 		})
 		Context("no ingress configuration is provided", func() {
@@ -1414,6 +1450,7 @@ func checkMetadata(object metav1.Object, expected metav1.Object) {
 	Expect(object.GetLabels()).To(Equal(expected.GetLabels()))
 	Expect(object.GetAnnotations()).To(Equal(expected.GetAnnotations()))
 	ownerReferences := object.GetOwnerReferences()
+	Expect(ownerReferences).To(HaveLen(1))
 	Expect(ownerReferences[0].Kind).To(Equal("Cryostat"))
 	Expect(ownerReferences[0].Name).To(Equal("cryostat"))
 }
@@ -1457,9 +1494,8 @@ func (t *cryostatTestInput) expectRBAC() {
 	sa := &corev1.ServiceAccount{}
 	err := t.Client.Get(context.Background(), types.NamespacedName{Name: "cryostat", Namespace: "default"}, sa)
 	Expect(err).ToNot(HaveOccurred())
-	expectedSA := test.NewServiceAccount()
-	Expect(sa.Labels).To(Equal(expectedSA.Labels))
-	Expect(sa.Annotations).To(Equal(expectedSA.Annotations))
+	expectedSA := test.NewServiceAccount(t.controller.IsOpenShift)
+	checkMetadata(sa, expectedSA)
 	Expect(sa.Secrets).To(Equal(expectedSA.Secrets))
 	Expect(sa.ImagePullSecrets).To(Equal(expectedSA.ImagePullSecrets))
 	Expect(sa.AutomountServiceAccountToken).To(Equal(expectedSA.AutomountServiceAccountToken))
@@ -1468,12 +1504,14 @@ func (t *cryostatTestInput) expectRBAC() {
 	err = t.Client.Get(context.Background(), types.NamespacedName{Name: "cryostat", Namespace: "default"}, role)
 	Expect(err).ToNot(HaveOccurred())
 	expectedRole := test.NewRole()
+	checkMetadata(role, expectedRole)
 	Expect(role.Rules).To(Equal(expectedRole.Rules))
 
 	binding := &rbacv1.RoleBinding{}
 	err = t.Client.Get(context.Background(), types.NamespacedName{Name: "cryostat", Namespace: "default"}, binding)
 	Expect(err).ToNot(HaveOccurred())
 	expectedBinding := test.NewRoleBinding()
+	checkMetadata(binding, expectedBinding)
 	Expect(binding.Subjects).To(Equal(expectedBinding.Subjects))
 	Expect(binding.RoleRef).To(Equal(expectedBinding.RoleRef))
 
@@ -1482,6 +1520,10 @@ func (t *cryostatTestInput) expectRBAC() {
 		Name: "cryostat-9ecd5050500c2566765bc593edfcce12434283e5da32a27476bc4a1569304a02"}, clusterBinding)
 	Expect(err).ToNot(HaveOccurred())
 	expectedClusterBinding := test.NewClusterRoleBinding()
+	Expect(clusterBinding.GetName()).To(Equal(expectedClusterBinding.GetName()))
+	Expect(clusterBinding.GetNamespace()).To(Equal(expectedClusterBinding.GetNamespace()))
+	Expect(clusterBinding.GetLabels()).To(Equal(expectedClusterBinding.GetLabels()))
+	Expect(clusterBinding.GetAnnotations()).To(Equal(expectedClusterBinding.GetAnnotations()))
 	Expect(clusterBinding.Subjects).To(Equal(expectedClusterBinding.Subjects))
 	Expect(clusterBinding.RoleRef).To(Equal(expectedClusterBinding.RoleRef))
 }
