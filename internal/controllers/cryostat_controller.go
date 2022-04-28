@@ -675,13 +675,32 @@ func (r *CryostatReconciler) createRBAC(ctx context.Context, cr *operatorv1beta1
 	if err != nil {
 		return err
 	}
-	if err := controllerutil.SetControllerReference(cr, sa, r.Scheme); err != nil {
+	newSA := sa.DeepCopy()
+	op, err := controllerutil.CreateOrUpdate(ctx, r.Client, sa, func() error {
+		if err := controllerutil.SetControllerReference(cr, sa, r.Scheme); err != nil {
+			return err
+		}
+		// TODO just replace the labels and annotations we manage, once we allow the user to configure
+		// ServiceAccount annotations/labels in the CR, we can simply overwrite them all
+		for key, val := range newSA.GetAnnotations() {
+			metav1.SetMetaDataAnnotation(&sa.ObjectMeta, key, val)
+		}
+		if sa.Labels == nil {
+			sa.Labels = map[string]string{}
+		}
+		for key, val := range newSA.GetLabels() {
+			// TODO use metav1.SetMetaDataLabel when updating client-go, replace above initialization
+			sa.Labels[key] = val
+		}
+		// Pod needs SA token, do not allow to be disabled
+		sa.AutomountServiceAccountToken = newSA.AutomountServiceAccountToken
+		// Secrets, ImagePullSecrets are modified by Kubernetes/OpenShift
+		return nil
+	})
+	if err != nil {
 		return err
 	}
-	if err := r.createObjectIfNotExists(ctx, types.NamespacedName{Name: sa.Name, Namespace: sa.Namespace},
-		&corev1.ServiceAccount{}, sa); err != nil {
-		return err
-	}
+	r.Log.Info(fmt.Sprintf("ServiceAccount %s", op), "name", sa.Name, "namespace", sa.Namespace)
 
 	// Create Role
 	role := resources.NewRoleForCR(cr)
