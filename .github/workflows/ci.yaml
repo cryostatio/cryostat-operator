@@ -19,7 +19,7 @@ jobs:
   build:
     runs-on: ubuntu-latest
     env:
-      OPERATOR_IMG: quay.io/cryostat/cryostat-operator
+      CI_OPERATOR_IMG: quay.io/cryostat/cryostat-operator
     steps:
     - uses: actions/checkout@v2
     - uses: actions/setup-go@v2
@@ -46,8 +46,8 @@ jobs:
         IMG_TAG="$(make --eval='print-img-ver: ; @echo $(IMAGE_VERSION)' print-img-ver)"
         if [ "$GITHUB_REF" == "refs/heads/main" ]; then
           podman tag \
-          ${{ env.OPERATOR_IMG }}:$IMG_TAG \
-          ${{ env.OPERATOR_IMG }}:latest
+          ${{ env.CI_OPERATOR_IMG }}:$IMG_TAG \
+          ${{ env.CI_OPERATOR_IMG }}:latest
           echo "::set-output name=tags::$IMG_TAG latest"
         else
           echo "::set-output name=tags::$IMG_TAG"
