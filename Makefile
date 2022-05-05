@@ -21,7 +21,7 @@ BUNDLE_METADATA_OPTS ?= $(BUNDLE_CHANNELS) $(BUNDLE_DEFAULT_CHANNEL)
 
 IMAGE_BUILDER ?= podman
 # Image URL to use all building/pushing image targets
-IMG ?= $(IMAGE_NAMESPACE)/$(OPERATOR_NAME):$(IMAGE_VERSION)
+OPERATOR_IMG ?= $(IMAGE_NAMESPACE)/$(OPERATOR_NAME):$(IMAGE_VERSION)
 # Produce CRDs that work back to Kubernetes 1.11 (no version conversion)
 CRD_OPTIONS ?= "crd:trivialVersions=true,preserveUnknownFields=false"
 
@@ -118,7 +118,7 @@ uninstall: manifests kustomize
 
 .PHONY: predeploy
 predeploy:
-	cd config/manager && $(KUSTOMIZE) edit set image controller=$(IMG)
+	cd config/manager && $(KUSTOMIZE) edit set image controller=$(OPERATOR_IMG)
 	cd config/default && $(KUSTOMIZE) edit set namespace $(DEPLOY_NAMESPACE)
 
 .PHONY: print_deploy_config
@@ -167,7 +167,7 @@ generate: controller-gen
 # Build the OCI image
 .PHONY: oci-build
 oci-build: generate manifests manager test-envtest
-	BUILDAH_FORMAT=docker $(IMAGE_BUILDER) build -t $(IMG) .
+	BUILDAH_FORMAT=docker $(IMAGE_BUILDER) build -t $(OPERATOR_IMG) .
 
 
 .PHONY: cert_manager
@@ -215,7 +215,7 @@ endef
 .PHONY: bundle
 bundle: manifests kustomize
 	operator-sdk generate kustomize manifests -q
-	cd config/manager && $(KUSTOMIZE) edit set image controller=$(IMG)
+	cd config/manager && $(KUSTOMIZE) edit set image controller=$(OPERATOR_IMG)
 	$(KUSTOMIZE) build config/manifests | operator-sdk generate bundle -q --overwrite --version $(BUNDLE_VERSION) $(BUNDLE_METADATA_OPTS)
 	operator-sdk bundle validate ./bundle
 
