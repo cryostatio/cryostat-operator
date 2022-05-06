@@ -62,7 +62,7 @@ metadata:
       ]
     capabilities: Basic Install
     categories: Monitoring, Developer Tools
-    containerImage: quay.io/cryostat/cryostat-operator:2.1.0-dev
+    containerImage: quay.io/cryostat/cryostat-operator:2.2.0-dev
     createdAt: "2021-04-30 00:00:00"
     description: JVM monitoring and profiling tool
     operatorframework.io/initialization-resource: |-
@@ -85,7 +85,7 @@ metadata:
     operators.operatorframework.io/project_layout: go.kubebuilder.io/v3
     repository: github.com/cryostatio/cryostat-operator
     support: Cryostat Community
-  name: cryostat-operator.v2.1.0-dev
+  name: cryostat-operator.v2.2.0-dev
   namespace: placeholder
 spec:
   apiservicedefinitions: {}
@@ -480,18 +480,18 @@ spec:
                 - /manager
                 env:
                 - name: RELATED_IMAGE_CORE
-                  value: quay.io/cryostat/cryostat:2.1.0-SNAPSHOT
+                  value: quay.io/cryostat/cryostat:latest
                 - name: RELATED_IMAGE_DATASOURCE
-                  value: quay.io/cryostat/jfr-datasource:2.0.0
+                  value: quay.io/cryostat/jfr-datasource:latest
                 - name: RELATED_IMAGE_GRAFANA
-                  value: quay.io/cryostat/cryostat-grafana-dashboard:2.0.0
+                  value: quay.io/cryostat/cryostat-grafana-dashboard:latest
                 - name: RELATED_IMAGE_REPORTS
-                  value: quay.io/cryostat/cryostat-reports:1.0.0-SNAPSHOT
+                  value: quay.io/cryostat/cryostat-reports:latest
                 - name: WATCH_NAMESPACE
                   valueFrom:
                     fieldRef:
                       fieldPath: metadata.annotations['olm.targetNamespaces']
-                image: quay.io/cryostat/cryostat-operator:2.1.0-dev
+                image: quay.io/cryostat/cryostat-operator:2.2.0-dev
                 imagePullPolicy: Always
                 livenessProbe:
                   httpGet:
@@ -740,4 +740,4 @@ spec:
   maturity: stable
   provider:
     name: The Cryostat Community
-  version: 2.1.0-dev
+  version: 2.2.0-dev
