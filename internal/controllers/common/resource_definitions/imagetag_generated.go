@@ -2,13 +2,13 @@
 package resource_definitions
 
 // Default image tag for the core application image
-const DefaultCoreImageTag = "quay.io/cryostat/cryostat:2.1.0-SNAPSHOT"
+const DefaultCoreImageTag = "quay.io/cryostat/cryostat:latest"
 
 // Default image tag for the JFR datasource image
-const DefaultDatasourceImageTag = "quay.io/cryostat/jfr-datasource:2.0.0"
+const DefaultDatasourceImageTag = "quay.io/cryostat/jfr-datasource:latest"
 
 // Default image tag for the Grafana dashboard image
-const DefaultGrafanaImageTag = "quay.io/cryostat/cryostat-grafana-dashboard:2.0.0"
+const DefaultGrafanaImageTag = "quay.io/cryostat/cryostat-grafana-dashboard:latest"
 
 // Default image tag for the Grafana dashboard image
-const DefaultReportsImageTag = "quay.io/cryostat/cryostat-reports:1.0.0-SNAPSHOT"
+const DefaultReportsImageTag = "quay.io/cryostat/cryostat-reports:latest"
