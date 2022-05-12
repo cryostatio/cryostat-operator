@@ -50,8 +50,8 @@ metadata:
       ]
     capabilities: Basic Install
     categories: Monitoring, Developer Tools
-    containerImage: quay.io/cryostat/cryostat-operator:2.1.0-dev
-    createdAt: "2021-04-30 00:00:00"
+    containerImage: quay.io/cryostat/cryostat-operator:2.1.0
+    createdAt: "2022-05-12 00:00:00"
     description: JVM monitoring and profiling tool
     operatorframework.io/initialization-resource: |-
       {
@@ -418,4 +418,4 @@ spec:
   maturity: stable
   provider:
     name: The Cryostat Community
-  version: 2.1.0-dev
+  version: 2.1.0
