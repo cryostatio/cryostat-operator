@@ -1575,7 +1575,7 @@ func newCoreProbeHandler(tls bool) corev1.Handler {
 	return corev1.Handler{
 		HTTPGet: &corev1.HTTPGetAction{
 			Port:   intstr.IntOrString{IntVal: 8181},
-			Path:   "/health",
+			Path:   "/health/liveness",
 			Scheme: protocol,
 		},
 	}
