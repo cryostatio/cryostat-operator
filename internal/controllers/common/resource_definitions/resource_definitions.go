@@ -743,7 +743,7 @@ func NewCoreContainer(cr *operatorv1beta1.Cryostat, specs *ServiceSpecs, imageTa
 	probeHandler := corev1.Handler{
 		HTTPGet: &corev1.HTTPGetAction{
 			Port:   intstr.IntOrString{IntVal: cryostatHTTPContainerPort},
-			Path:   "/health",
+			Path:   "/health/liveness",
 			Scheme: livenessProbeScheme,
 		},
 	}
