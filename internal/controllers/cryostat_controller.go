@@ -297,17 +297,6 @@ func (r *CryostatReconciler) Reconcile(ctx context.Context, request ctrl.Request
 			return requeueIfIngressNotReady(reqLogger, err)
 		}
 		serviceSpecs.GrafanaURL = svcUrl
-
-		// check for existing minimal deployment and delete if found
-		deployment := &appsv1.Deployment{}
-		err = r.Client.Get(context.Background(), types.NamespacedName{Name: instance.Name, Namespace: instance.Namespace}, deployment)
-		if err == nil && len(deployment.Spec.Template.Spec.Containers) == 1 {
-			reqLogger.Info("Deleting existing minimal deployment")
-			err = r.Client.Delete(context.Background(), deployment)
-			if err != nil && !errors.IsNotFound(err) {
-				return reconcile.Result{Requeue: true, RequeueAfter: time.Second * 10}, err
-			}
-		}
 	} else {
 		// check for existing non-minimal resources and delete if found
 		svc := resources.NewGrafanaService(instance)
@@ -350,17 +339,6 @@ func (r *CryostatReconciler) Reconcile(ctx context.Context, request ctrl.Request
 				return reconcile.Result{}, err
 			}
 		}
-
-		deployment := &appsv1.Deployment{}
-		err = r.Client.Get(context.Background(), types.NamespacedName{Name: instance.Name, Namespace: instance.Namespace}, deployment)
-		if err == nil && len(deployment.Spec.Template.Spec.Containers) > 1 {
-			reqLogger.Info("Deleting existing non-minimal deployment")
-			err = r.Client.Delete(context.Background(), deployment)
-			if err != nil && !errors.IsNotFound(err) {
-				reqLogger.Info("Could not delete non-minimal deployment")
-				return reconcile.Result{Requeue: true, RequeueAfter: time.Second * 10}, err
-			}
-		}
 	}
 
 	coreSvc := resources.NewCoreService(instance)
@@ -382,19 +360,10 @@ func (r *CryostatReconciler) Reconcile(ctx context.Context, request ctrl.Request
 	}
 
 	deployment := resources.NewDeploymentForCR(instance, serviceSpecs, imageTags, tlsConfig, *fsGroup, r.IsOpenShift)
-	podTemplate := deployment.Spec.Template.DeepCopy()
-	if err := controllerutil.SetControllerReference(instance, deployment, r.Scheme); err != nil {
-		return reconcile.Result{}, err
-	}
-	op, err := controllerutil.CreateOrUpdate(ctx, r.Client, deployment, func() error {
-		// Update pod template spec to propagate any changes from Cryostat CR
-		deployment.Spec.Template.Spec = podTemplate.Spec
-		return nil
-	})
+	err = r.createOrUpdateDeployment(ctx, deployment, instance)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
-	reqLogger.Info(fmt.Sprintf("Deployment %s", op))
 
 	if serviceSpecs.CoreURL != nil {
 		instance.Status.ApplicationURL = serviceSpecs.CoreURL.String()
@@ -490,16 +459,7 @@ func (r *CryostatReconciler) reconcileReports(ctx context.Context, reqLogger log
 			return reconcile.Result{}, err
 		}
 
-		if err := controllerutil.SetControllerReference(instance, deployment, r.Scheme); err != nil {
-			return reconcile.Result{}, err
-		}
-
-		podTemplate := deployment.Spec.Template.DeepCopy()
-		op, err := controllerutil.CreateOrUpdate(ctx, r.Client, deployment, func() error {
-			deployment.Spec.Template.Spec = podTemplate.Spec
-			deployment.Spec.Replicas = &desired
-			return nil
-		})
+		err := r.createOrUpdateDeployment(ctx, deployment, instance)
 		if err != nil {
 			return reconcile.Result{}, err
 		}
@@ -512,7 +472,6 @@ func (r *CryostatReconciler) reconcileReports(ctx context.Context, reqLogger log
 			Scheme: scheme,
 			Host:   svc.Name + ":" + strconv.Itoa(int(svc.Spec.Ports[0].Port)),
 		}
-		reqLogger.Info(fmt.Sprintf("Reports Deployment %s", op))
 
 		// Check deployment status and update conditions
 		err = r.updateConditionsFromDeployment(ctx, instance, types.NamespacedName{Name: deployment.Name, Namespace: deployment.Namespace},
@@ -931,6 +890,33 @@ func (r *CryostatReconciler) updateConditionsFromDeployment(ctx context.Context,
 	return err
 }
 
+func (r *CryostatReconciler) createOrUpdateDeployment(ctx context.Context, deploy *appsv1.Deployment, owner metav1.Object) error {
+	metaCopy := deploy.ObjectMeta.DeepCopy()
+	specCopy := deploy.Spec.DeepCopy()
+	op, err := controllerutil.CreateOrUpdate(ctx, r.Client, deploy, func() error {
+		// TODO consider managing labels and annotations using CRD
+		// Merge any required labels and annotations
+		mergeLabelsAndAnnotations(&deploy.ObjectMeta, metaCopy)
+		// Set the Cryostat CR as controller
+		if err := controllerutil.SetControllerReference(owner, deploy, r.Scheme); err != nil {
+			return err
+		}
+		// Update pod template spec and selector to propagate any changes from Cryostat CR
+		deploy.Spec.Template.Spec = specCopy.Template.Spec
+		deploy.Spec.Selector = specCopy.Selector
+		// Set the replica count, if managed by the operator
+		if specCopy.Replicas != nil {
+			deploy.Spec.Replicas = specCopy.Replicas
+		}
+		return nil
+	})
+	if err != nil {
+		return err
+	}
+	r.Log.Info(fmt.Sprintf("Deployment %s", op), "name", deploy.Name, "namespace", deploy.Namespace)
+	return nil
+}
+
 func getProtocol(tlsConfig *openshiftv1.TLSConfig) string {
 	if tlsConfig == nil {
 		return "http"
@@ -972,4 +958,16 @@ func findDeployCondition(conditions []appsv1.DeploymentCondition, condType appsv
 		}
 	}
 	return nil
+}
+
+func mergeLabelsAndAnnotations(dest *metav1.ObjectMeta, src *metav1.ObjectMeta) {
+	// Merge labels and annotations, preferring those specified by the operator
+	labels := dest.GetLabels()
+	for k, v := range src.GetLabels() {
+		labels[k] = v
+	}
+	annotations := dest.GetAnnotations()
+	for k, v := range src.GetAnnotations() {
+		annotations[k] = v
+	}
 }

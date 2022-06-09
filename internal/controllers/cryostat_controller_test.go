@@ -268,6 +268,40 @@ var _ = Describe("CryostatController", func() {
 				Expect(result).To(Equal(reconcile.Result{}))
 			})
 		})
+		Context("with an existing main Deployment", func() {
+			var cr *operatorv1beta1.Cryostat
+			var oldDeploy *appsv1.Deployment
+			BeforeEach(func() {
+				cr = test.NewCryostat()
+				oldDeploy = test.OtherDeployment()
+				t.objs = append(t.objs, cr, oldDeploy)
+			})
+			It("should update the Deployment", func() {
+				t.reconcileCryostatFully()
+
+				deploy := &appsv1.Deployment{}
+				err := t.Client.Get(context.Background(), types.NamespacedName{Name: "cryostat", Namespace: "default"}, deploy)
+				Expect(err).ToNot(HaveOccurred())
+
+				Expect(deploy.Annotations).To(Equal(map[string]string{
+					"app.openshift.io/connects-to": "cryostat-operator-controller-manager",
+					"other":                        "annotation",
+				}))
+				Expect(deploy.Labels).To(Equal(map[string]string{
+					"app":                    "cryostat",
+					"kind":                   "cryostat",
+					"component":              "cryostat",
+					"app.kubernetes.io/name": "cryostat",
+					"other":                  "label",
+				}))
+				Expect(metav1.IsControlledBy(deploy, cr)).To(BeTrue())
+
+				t.checkMainPodTemplate(deploy, cr)
+
+				Expect(deploy.Spec.Selector).To(Equal(test.NewMainDeploymentSelector()))
+				Expect(deploy.Spec.Replicas).To(Equal(oldDeploy.Spec.Replicas))
+			})
+		})
 		Context("with an existing Service Account", func() {
 			var cr *operatorv1beta1.Cryostat
 			var oldSA *corev1.ServiceAccount
@@ -283,13 +317,15 @@ var _ = Describe("CryostatController", func() {
 				err := t.Client.Get(context.Background(), types.NamespacedName{Name: "cryostat", Namespace: "default"}, sa)
 				Expect(err).ToNot(HaveOccurred())
 
-				Expect(sa.Annotations).To(HaveLen(2))
-				Expect(sa.Annotations).To(HaveKeyWithValue("hello", "world"))
-				Expect(sa.Annotations).To(HaveKeyWithValue("serviceaccounts.openshift.io/oauth-redirectreference.route",
-					`{"metadata":{"creationTimestamp":null},"reference":{"group":"","kind":"Route","name":"cryostat"}}`))
+				Expect(sa.Annotations).To(Equal(map[string]string{
+					"hello": "world",
+					"serviceaccounts.openshift.io/oauth-redirectreference.route": `{"metadata":{"creationTimestamp":null},"reference":{"group":"","kind":"Route","name":"cryostat"}}`,
+				}))
 
-				Expect(sa.Labels).To(HaveKeyWithValue("app", "cryostat"))
-				Expect(sa.Labels).To(HaveKeyWithValue("other", "label"))
+				Expect(sa.Labels).To(Equal(map[string]string{
+					"app":   "cryostat",
+					"other": "label",
+				}))
 
 				Expect(metav1.IsControlledBy(sa, cr)).To(BeTrue())
 
@@ -1840,6 +1876,10 @@ func (t *cryostatTestInput) checkMainDeployment() {
 	Expect(deployment.Spec.Selector).To(Equal(test.NewMainDeploymentSelector()))
 
 	// compare Pod template
+	t.checkMainPodTemplate(deployment, cr)
+}
+
+func (t *cryostatTestInput) checkMainPodTemplate(deployment *appsv1.Deployment, cr *operatorv1beta1.Cryostat) {
 	template := deployment.Spec.Template
 	Expect(template.Name).To(Equal("cryostat"))
 	Expect(template.Namespace).To(Equal("default"))
