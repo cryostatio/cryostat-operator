@@ -48,6 +48,7 @@ import (
 	consolev1 "github.com/openshift/api/console/v1"
 	routev1 "github.com/openshift/api/route/v1"
 	securityv1 "github.com/openshift/api/security/v1"
+	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	netv1 "k8s.io/api/networking/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
@@ -1639,6 +1640,38 @@ func NewReportsDeploymentSelector() *metav1.LabelSelector {
 			"app":       "cryostat",
 			"kind":      "cryostat",
 			"component": "reports",
+		},
+	}
+}
+
+func OtherDeployment() *appsv1.Deployment {
+	replicas := int32(2)
+	return &appsv1.Deployment{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "cryostat",
+			Namespace: "default",
+			Labels: map[string]string{
+				"app":   "something-else",
+				"other": "label",
+			},
+			Annotations: map[string]string{
+				"app.openshift.io/connects-to": "something-else",
+				"other":                        "annotation",
+			},
+		},
+		Spec: appsv1.DeploymentSpec{
+			Template: corev1.PodTemplateSpec{
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{
+						{
+							Name:  "other-container",
+							Image: "incorrect/image:latest",
+						},
+					},
+				},
+			},
+			Selector: metav1.AddLabelToSelector(&metav1.LabelSelector{}, "other", "label"),
+			Replicas: &replicas,
 		},
 	}
 }
