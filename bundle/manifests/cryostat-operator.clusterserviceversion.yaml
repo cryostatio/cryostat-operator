@@ -62,8 +62,8 @@ metadata:
       ]
     capabilities: Basic Install
     categories: Monitoring, Developer Tools
-    containerImage: quay.io/cryostat/cryostat-operator:2.1.0
-    createdAt: "2022-05-12 00:00:00"
+    containerImage: quay.io/cryostat/cryostat-operator:2.1.1
+    createdAt: "2022-06-14 00:00:00"
     description: JVM monitoring and profiling tool
     operatorframework.io/initialization-resource: |-
       {
@@ -85,7 +85,7 @@ metadata:
     operators.operatorframework.io/project_layout: go.kubebuilder.io/v3
     repository: github.com/cryostatio/cryostat-operator
     support: Cryostat Community
-  name: cryostat-operator.v2.1.0
+  name: cryostat-operator.v2.1.1
   namespace: placeholder
 spec:
   apiservicedefinitions: {}
@@ -480,7 +480,7 @@ spec:
                 - /manager
                 env:
                 - name: RELATED_IMAGE_CORE
-                  value: quay.io/cryostat/cryostat:2.1.0
+                  value: quay.io/cryostat/cryostat:2.1.1
                 - name: RELATED_IMAGE_DATASOURCE
                   value: quay.io/cryostat/jfr-datasource:2.1.0
                 - name: RELATED_IMAGE_GRAFANA
@@ -491,7 +491,7 @@ spec:
                   valueFrom:
                     fieldRef:
                       fieldPath: metadata.annotations['olm.targetNamespaces']
-                image: quay.io/cryostat/cryostat-operator:2.1.0
+                image: quay.io/cryostat/cryostat-operator:2.1.1
                 imagePullPolicy: IfNotPresent
                 livenessProbe:
                   httpGet:
@@ -740,4 +740,4 @@ spec:
   maturity: stable
   provider:
     name: The Cryostat Community
-  version: 2.1.0
+  version: 2.1.1
