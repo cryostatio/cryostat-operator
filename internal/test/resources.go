@@ -40,7 +40,6 @@ import (
 	"time"
 
 	operatorv1beta1 "github.com/cryostatio/cryostat-operator/api/v1beta1"
-	"github.com/cryostatio/cryostat-operator/internal/controllers/common/resource_definitions"
 	certv1 "github.com/jetstack/cert-manager/pkg/apis/certmanager/v1"
 	certMeta "github.com/jetstack/cert-manager/pkg/apis/meta/v1"
 	"github.com/onsi/gomega"
@@ -1849,10 +1848,10 @@ func NewPodSecurityContext() *corev1.PodSecurityContext {
 }
 
 func NewNetworkConfigurationList(tls bool) operatorv1beta1.NetworkConfigurationList {
-	coreSVC := resource_definitions.NewCoreService(NewCryostat())
+	coreSVC := NewCryostatService()
 	coreIng := NewNetworkConfiguration(coreSVC.Name, coreSVC.Spec.Ports[0].Port, tls)
 
-	grafanaSVC := resource_definitions.NewGrafanaService(NewCryostat())
+	grafanaSVC := NewGrafanaService()
 	grafanaIng := NewNetworkConfiguration(grafanaSVC.Name, grafanaSVC.Spec.Ports[0].Port, tls)
 
 	return operatorv1beta1.NetworkConfigurationList{
