@@ -348,11 +348,14 @@ spec:
         path: eventOptions
         x-descriptors:
         - urn:alm:descriptor:com.tectonic.ui:text
-      - description: Reference to the FlightRecorder object that corresponds to this Recording. Select the FlightRecorder with the name of the target Pod for this Recording.
-        displayName: Flight Recorder
+      - description: Select the FlightRecorder with the name of the target Pod for this Recording.
+        displayName: Name
         path: flightRecorder.name
         x-descriptors:
         - urn:alm:descriptor:io.kubernetes:operator.cryostat.io:v1beta1:FlightRecorder
+      - description: Reference to the FlightRecorder object that corresponds to this Recording.
+        displayName: Flight Recorder
+        path: flightRecorder
       - description: Name of the recording to be created.
         displayName: Name
         path: name
