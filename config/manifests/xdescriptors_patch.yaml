@@ -1,6 +1,9 @@
-- op: replace
-  path: /spec/customresourcedefinitions/owned/2/specDescriptors/3/path
-  value: flightRecorder.name
+- op: add
+  path: /spec/customresourcedefinitions/owned/2/specDescriptors/3
+  value:
+    description: Flight Recorder Name
+    displayName: Name
+    path: flightRecorder.name
 - op: add
   path: /spec/customresourcedefinitions/owned/2/specDescriptors/3/x-descriptors
   value: [ "urn:alm:descriptor:io.kubernetes:operator.cryostat.io:v1beta1:FlightRecorder" ]
