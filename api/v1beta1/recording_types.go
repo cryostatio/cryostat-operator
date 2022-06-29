@@ -64,8 +64,7 @@ type RecordingSpec struct {
 	// this object is deleted. If false, the JFR file will be deleted when its corresponding JVM exits.
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:com.tectonic.ui:checkbox"}
 	Archive bool `json:"archive"`
-	// Reference to the FlightRecorder object that corresponds to this Recording. Select the FlightRecorder
-	// with the name of the target Pod for this Recording.
+	// Reference to the FlightRecorder object that corresponds to this Recording.
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	FlightRecorder *corev1.LocalObjectReference `json:"flightRecorder"`
 }
