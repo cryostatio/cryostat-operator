@@ -49,6 +49,8 @@ CERT_MANAGER_MANIFEST ?= \
 
 KUSTOMIZE_VERSION ?= 3.8.7
 
+ADDLICENSE_VERSION ?= 1.0.0
+
 DEPLOY_NAMESPACE ?= cryostat-operator-system
 
 # Get the currently used golang install path (in GOPATH/bin, unless GOBIN is set)
@@ -164,6 +166,18 @@ generate: controller-gen
 	go generate ./...
 	$(CONTROLLER_GEN) object:headerFile="hack/boilerplate.go.txt" paths="./..."
 
+# Check and add (if missing) license header
+LICENSE_FILE=$(shell pwd)/LICENSE
+.PHONY: add-license 
+add-license: addlicense
+	@echo "Checking/Adding license..."
+	@for f in $$(find . -path "./vendor" -prune -o \( -iname '*.go' ! -iname '*.deepcopy.go' \) -type f -print); \
+	do \
+		$(ADDLICENSE) -check -f $(LICENSE_FILE) $${f} &>/dev/null && echo "[OK] $${f}" && continue; \
+		$(ADDLICENSE) -f $(LICENSE_FILE) $${f} &>/dev/null && echo "[Modified] $${f}"; \
+	done
+	@echo "All good"
+
 # Build the OCI image
 .PHONY: oci-build
 oci-build: generate manifests manager test-envtest
@@ -196,6 +210,11 @@ controller-gen:
 KUSTOMIZE = $(shell pwd)/bin/kustomize
 kustomize:
 	$(call go-get-tool,$(KUSTOMIZE),sigs.k8s.io/kustomize/kustomize/v3@v$(KUSTOMIZE_VERSION))
+
+# Download addlicense locally if necessary
+ADDLICENSE = $(shell pwd)/bin/addlicense
+addlicense:
+	$(call go-get-tool,$(ADDLICENSE),github.com/google/addlicense@v$(ADDLICENSE_VERSION))
 
 # go-get-tool will 'go get' any package $2 and install it to $1.
 PROJECT_DIR := $(shell dirname $(abspath $(lastword $(MAKEFILE_LIST))))
