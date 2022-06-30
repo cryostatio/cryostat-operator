@@ -170,13 +170,9 @@ generate: controller-gen
 LICENSE_FILE=$(shell pwd)/LICENSE
 .PHONY: add-license 
 add-license: addlicense
-	@echo "Checking/Adding license..."
-	@for f in $$(find . -path "./vendor" -prune -o \( -iname '*.go' ! -iname '*.deepcopy.go' \) -type f -print); \
-	do \
-		$(ADDLICENSE) -check -f $(LICENSE_FILE) $${f} &>/dev/null && echo "[OK] $${f}" && continue; \
-		$(ADDLICENSE) -f $(LICENSE_FILE) $${f} &>/dev/null && echo "[Modified] $${f}"; \
-	done
-	@echo "All good"
+	@echo "[RUNNING] Checking/Adding license..."
+	@$(ADDLICENSE) -v -f $(LICENSE_FILE) api internal 2>&1
+	@echo "[DONE] All good"
 
 # Build the OCI image
 .PHONY: oci-build
