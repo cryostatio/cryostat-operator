@@ -171,8 +171,7 @@ LICENSE_FILE=$(shell pwd)/LICENSE
 .PHONY: add-license 
 add-license: addlicense
 	@echo "Checking/Adding license..."
-	@go list -f '{{.Dir}}' ./... | sed -e "s|^$$(pwd)||" | cut -d/ -f2 | uniq | xargs $(ADDLICENSE) -v -f $(LICENSE_FILE) 2>&1
-	@echo "All good"
+	@go list -f '{{.Dir}}' ./... | sed -e "s|^$$(pwd)||" | cut -d/ -f2 | uniq | xargs $(ADDLICENSE) -v -f $(LICENSE_FILE)
 
 # Build the OCI image
 .PHONY: oci-build
