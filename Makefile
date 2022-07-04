@@ -170,8 +170,9 @@ generate: controller-gen
 LICENSE_FILE=$(shell pwd)/LICENSE
 .PHONY: add-license 
 add-license: addlicense
-	@echo "Checking/Adding license..."
-	@go list -f '{{.Dir}}' ./... | sed -e "s|^$$(pwd)||" | cut -d/ -f2 | uniq | xargs $(ADDLICENSE) -v -f $(LICENSE_FILE)
+	echo "Checking/Adding license..."
+	$(eval GO_PACKAGES  := $(shell go list -f '{{.Dir}}' ./... | sed -e "s|^$$(pwd)||" | cut -d/ -f2 | uniq))
+	$(ADDLICENSE) -v -f $(LICENSE_FILE) ${GO_PACKAGES}
 
 # Build the OCI image
 .PHONY: oci-build
