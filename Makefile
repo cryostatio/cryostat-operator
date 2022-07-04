@@ -167,11 +167,11 @@ generate: controller-gen
 	$(CONTROLLER_GEN) object:headerFile="hack/boilerplate.go.txt" paths="./..."
 
 # Check and add (if missing) license header
-LICENSE_FILE=$(shell pwd)/LICENSE
+LICENSE_FILE = $(shell pwd)/LICENSE
+GO_PACKAGES := $(shell go list -f '{{.Dir}}' ./... | sed -e "s|^$$(pwd)||" | cut -d/ -f2 | sort -u)
 .PHONY: add-license 
 add-license: addlicense
-	echo "Checking/Adding license..."
-	$(eval GO_PACKAGES  := $(shell go list -f '{{.Dir}}' ./... | sed -e "s|^$$(pwd)||" | cut -d/ -f2 | uniq))
+	@echo "Checking/Adding license..."
 	$(ADDLICENSE) -v -f $(LICENSE_FILE) ${GO_PACKAGES}
 
 # Build the OCI image
