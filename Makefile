@@ -168,7 +168,7 @@ generate: controller-gen
 
 # Check and add (if missing) license header
 LICENSE_FILE = $(shell pwd)/LICENSE
-GO_PACKAGES := $(shell go list -f '{{.Dir}}' ./... | sed -e "s|^$$(pwd)||" | cut -d/ -f2 | sort -u)
+GO_PACKAGES := $(shell go list -test -f '{{.Dir}}' ./... | sed -e "s|^$$(pwd)||" | cut -d/ -f2 | sort -u)
 .PHONY: add-license 
 add-license: addlicense
 	@echo "Checking/Adding license..."
