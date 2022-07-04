@@ -172,7 +172,7 @@ LICENSE_FILE=$(shell pwd)/LICENSE
 add-license: addlicense
 	@echo "Checking/Adding license..."
 	@$(ADDLICENSE) -v -f $(LICENSE_FILE) api internal 2>&1
-	@go list -f '{{.Dir}}' ./... | sed -e "s|^$$(pwd)||" | cut -d/ -f2 | sort | uniq | xargs $(ADDLICENSE) -v -f LICENSE
+	@go list -f '{{.Dir}}' ./... | sed -e "s|^$$(pwd)||" | cut -d/ -f2 | sort | uniq | xargs $(ADDLICENSE) -v -f $(LICENSE_FILE)
 	@echo "All good"
 
 # Build the OCI image
