@@ -152,7 +152,7 @@ manifests: controller-gen
 
 # Run go fmt against code
 .PHONY: fmt
-fmt:
+fmt: add-license
 	go fmt ./...
 
 # Run go vet against code
@@ -170,9 +170,9 @@ generate: controller-gen
 LICENSE_FILE=$(shell pwd)/LICENSE
 .PHONY: add-license 
 add-license: addlicense
-	@echo "[RUNNING] Checking/Adding license..."
+	@echo "Checking/Adding license..."
 	@$(ADDLICENSE) -v -f $(LICENSE_FILE) api internal 2>&1
-	@echo "[DONE] All good"
+	@echo "All good"
 
 # Build the OCI image
 .PHONY: oci-build
