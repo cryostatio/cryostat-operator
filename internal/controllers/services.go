@@ -39,8 +39,11 @@ package controllers
 import (
 	"context"
 	"fmt"
+	"net/url"
+	"strconv"
 
 	operatorv1beta1 "github.com/cryostatio/cryostat-operator/api/v1beta1"
+	"github.com/cryostatio/cryostat-operator/internal/controllers/common/resource_definitions"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -56,21 +59,20 @@ const (
 	datasourceContainerPort   int32  = 8080
 	reportsContainerPort      int32  = 10000
 	loopbackAddress           string = "127.0.0.1"
+	httpPortName              string = "http"
 )
 
-func coreService(cr *operatorv1beta1.Cryostat) *corev1.Service {
-	return &corev1.Service{
+func (r *CryostatReconciler) reconcileCoreService(ctx context.Context, cr *operatorv1beta1.Cryostat,
+	tls *resource_definitions.TLSConfig, specs *resource_definitions.ServiceSpecs) error {
+	svc := &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      cr.Name,
 			Namespace: cr.Namespace,
 		},
 	}
-}
-
-func (r *CryostatReconciler) reconcileCoreService(ctx context.Context, cr *operatorv1beta1.Cryostat) (*corev1.Service, error) {
 	config := configureCoreService(cr)
-	svc := coreService(cr)
-	return r.createOrUpdateService(ctx, svc, cr, &config.ServiceConfig, func() error {
+
+	err := r.createOrUpdateService(ctx, svc, cr, &config.ServiceConfig, func() error {
 		svc.Spec.Selector = map[string]string{
 			"app":       cr.Name,
 			"component": "cryostat",
@@ -89,58 +91,75 @@ func (r *CryostatReconciler) reconcileCoreService(ctx context.Context, cr *opera
 		}
 		return nil
 	})
+	if err != nil {
+		return err
+	}
+
+	if r.IsOpenShift {
+		return r.reconcileCoreRoute(ctx, svc, cr, tls, specs)
+	} else {
+		return r.reconcileCoreIngress(ctx, cr, specs)
+	}
 }
 
-func grafanaService(cr *operatorv1beta1.Cryostat) *corev1.Service {
-	return &corev1.Service{
+func (r *CryostatReconciler) reconcileGrafanaService(ctx context.Context, cr *operatorv1beta1.Cryostat,
+	tls *resource_definitions.TLSConfig, specs *resource_definitions.ServiceSpecs) error {
+	svc := &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      cr.Name + "-grafana",
 			Namespace: cr.Namespace,
 		},
 	}
-}
-
-func (r *CryostatReconciler) reconcileGrafanaService(ctx context.Context, cr *operatorv1beta1.Cryostat) (*corev1.Service, error) {
-	config := configureGrafanaService(cr)
-	svc := grafanaService(cr)
 
 	if cr.Spec.Minimal {
 		// Delete service if it exists
-		return r.deleteService(ctx, svc)
+		err := r.deleteService(ctx, svc)
+		if err != nil {
+			return err
+		}
+	} else {
+		config := configureGrafanaService(cr)
+		err := r.createOrUpdateService(ctx, svc, cr, &config.ServiceConfig, func() error {
+			svc.Spec.Selector = map[string]string{
+				"app":       cr.Name,
+				"component": "cryostat",
+			}
+			svc.Spec.Ports = []corev1.ServicePort{
+				{
+					Name:       "http",
+					Port:       *config.HTTPPort,
+					TargetPort: intstr.IntOrString{IntVal: 3000},
+				},
+			}
+			return nil
+		})
+		if err != nil {
+			return err
+		}
 	}
-	return r.createOrUpdateService(ctx, svc, cr, &config.ServiceConfig, func() error {
-		svc.Spec.Selector = map[string]string{
-			"app":       cr.Name,
-			"component": "cryostat",
-		}
-		svc.Spec.Ports = []corev1.ServicePort{
-			{
-				Name:       "http",
-				Port:       *config.HTTPPort,
-				TargetPort: intstr.IntOrString{IntVal: 3000},
-			},
-		}
-		return nil
-	})
+
+	if r.IsOpenShift {
+		return r.reconcileGrafanaRoute(ctx, svc, cr, tls, specs)
+	} else {
+		return r.reconcileGrafanaIngress(ctx, cr, specs)
+	}
 }
 
-func reportsService(cr *operatorv1beta1.Cryostat) *corev1.Service {
-	return &corev1.Service{
+func (r *CryostatReconciler) reconcileReportsService(ctx context.Context, cr *operatorv1beta1.Cryostat,
+	tls *resource_definitions.TLSConfig, specs *resource_definitions.ServiceSpecs) error {
+	config := configureReportsService(cr)
+	svc := &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      cr.Name + "-reports",
 			Namespace: cr.Namespace,
 		},
 	}
-}
 
-func (r *CryostatReconciler) reconcileReportsService(ctx context.Context, cr *operatorv1beta1.Cryostat) (*corev1.Service, error) {
-	config := configureReportsService(cr)
-	svc := reportsService(cr)
 	if cr.Spec.ReportOptions.Replicas == 0 {
 		// Delete service if it exists
 		return r.deleteService(ctx, svc)
 	}
-	return r.createOrUpdateService(ctx, svc, cr, &config.ServiceConfig, func() error {
+	err := r.createOrUpdateService(ctx, svc, cr, &config.ServiceConfig, func() error {
 		svc.Spec.Selector = map[string]string{
 			"app":       cr.Name,
 			"component": "reports",
@@ -154,6 +173,20 @@ func (r *CryostatReconciler) reconcileReportsService(ctx context.Context, cr *op
 		}
 		return nil
 	})
+	if err != nil {
+		return err
+	}
+
+	// Set reports URL for deployment to use
+	scheme := "https"
+	if tls == nil {
+		scheme = "http"
+	}
+	specs.ReportsURL = &url.URL{
+		Scheme: scheme,
+		Host:   svc.Name + ":" + strconv.Itoa(int(svc.Spec.Ports[0].Port)), // TODO use getHTTPPort?
+	}
+	return nil
 }
 
 func configureCoreService(cr *operatorv1beta1.Cryostat) *operatorv1beta1.CoreServiceConfig {
@@ -241,7 +274,7 @@ func configureService(config *operatorv1beta1.ServiceConfig, appLabel string, co
 }
 
 func (r *CryostatReconciler) createOrUpdateService(ctx context.Context, svc *corev1.Service, owner metav1.Object,
-	config *operatorv1beta1.ServiceConfig, delegate controllerutil.MutateFn) (*corev1.Service, error) {
+	config *operatorv1beta1.ServiceConfig, delegate controllerutil.MutateFn) error {
 	op, err := controllerutil.CreateOrUpdate(ctx, r.Client, svc, func() error {
 		// Update labels and annotations
 		svc.Labels = config.Labels
@@ -256,18 +289,18 @@ func (r *CryostatReconciler) createOrUpdateService(ctx context.Context, svc *cor
 		return delegate()
 	})
 	if err != nil {
-		return nil, err
+		return err
 	}
 	r.Log.Info(fmt.Sprintf("Service %s", op), "name", svc.Name, "namespace", svc.Namespace)
-	return svc, nil
+	return nil
 }
 
-func (r *CryostatReconciler) deleteService(ctx context.Context, svc *corev1.Service) (*corev1.Service, error) {
-	err := r.Client.Delete(context.Background(), svc)
+func (r *CryostatReconciler) deleteService(ctx context.Context, svc *corev1.Service) error {
+	err := r.Client.Delete(ctx, svc)
 	if err != nil && !errors.IsNotFound(err) {
 		r.Log.Error(err, "Could not delete service", "name", svc.Name, "namespace", svc.Namespace)
-		return nil, err
+		return err
 	}
 	r.Log.Info("Service deleted", "name", svc.Name, "namespace", svc.Namespace)
-	return svc, nil
+	return nil
 }

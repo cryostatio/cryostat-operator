@@ -1189,6 +1189,54 @@ var _ = Describe("CryostatController", func() {
 					t.checkService("cryostat-reports", test.NewCustomizedReportsService())
 				})
 			})
+			Context("and existing services", func() {
+				var cr *operatorv1beta1.Cryostat
+				BeforeEach(func() {
+					t.objs = append(t.objs, test.NewCryostat())
+				})
+				JustBeforeEach(func() {
+					// Fetch the current Cryostat CR
+					namespacedName := types.NamespacedName{Name: cr.Name, Namespace: cr.Namespace}
+					current := &operatorv1beta1.Cryostat{}
+					err := t.Client.Get(context.Background(), namespacedName, current)
+					Expect(err).ToNot(HaveOccurred())
+
+					// Customize it with service options from the test specs
+					current.Spec = cr.Spec
+					err = t.Client.Update(context.Background(), current)
+					Expect(err).ToNot(HaveOccurred())
+
+					// Reconcile again
+					result, err := t.controller.Reconcile(context.Background(), reconcile.Request{NamespacedName: namespacedName})
+					Expect(err).ToNot(HaveOccurred())
+					Expect(result).To(Equal(reconcile.Result{}))
+				})
+				Context("containing core config", func() {
+					BeforeEach(func() {
+						cr = test.NewCryostatWithCoreSvc()
+					})
+					It("should created the service as described", func() {
+						t.checkService("cryostat", test.NewCustomizedCoreService())
+					})
+				})
+				Context("containing grafana config", func() {
+					BeforeEach(func() {
+						cr = test.NewCryostatWithGrafanaSvc()
+					})
+					It("should created the service as described", func() {
+						t.checkService("cryostat-grafana", test.NewCustomizedGrafanaService())
+					})
+				})
+				Context("containing reports config", func() {
+					BeforeEach(func() {
+						cr = test.NewCryostatWithReportsSvc()
+						t.reportReplicas = 1
+					})
+					It("should created the service as described", func() {
+						t.checkService("cryostat-reports", test.NewCustomizedReportsService())
+					})
+				})
+			})
 		})
 		Context("configuring environment variables with non-default spec values", func() {
 			JustBeforeEach(func() {
