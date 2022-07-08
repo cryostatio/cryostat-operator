@@ -1847,6 +1847,91 @@ func NewPodSecurityContext() *corev1.PodSecurityContext {
 	}
 }
 
+func NewCoreRoute(tls bool) *routev1.Route {
+	return newRoute("cryostat", 8181, tls)
+}
+
+func NewGrafanaRoute(tls bool) *routev1.Route {
+	return newRoute("cryostat-grafana", 3000, tls)
+}
+
+func newRoute(name string, port int, tls bool) *routev1.Route {
+	var routeTLS *routev1.TLSConfig
+	if !tls {
+		routeTLS = &routev1.TLSConfig{
+			Termination:                   routev1.TLSTerminationEdge,
+			InsecureEdgeTerminationPolicy: routev1.InsecureEdgeTerminationPolicyRedirect,
+		}
+	} else {
+		routeTLS = &routev1.TLSConfig{
+			Termination:              routev1.TLSTerminationReencrypt,
+			DestinationCACertificate: "cryostat-ca-bytes",
+		}
+	}
+	return &routev1.Route{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: "default",
+		},
+		Spec: routev1.RouteSpec{
+			To: routev1.RouteTargetReference{
+				Kind: "Service",
+				Name: name,
+			},
+			Port: &routev1.RoutePort{
+				TargetPort: intstr.FromInt(port),
+			},
+			TLS: routeTLS,
+		},
+	}
+}
+
+func OtherCoreRoute() *routev1.Route {
+	return &routev1.Route{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:        "cryostat",
+			Namespace:   "default",
+			Annotations: map[string]string{"custom": "annotation"},
+			Labels:      map[string]string{"custom": "label"},
+		},
+		Spec: routev1.RouteSpec{
+			To: routev1.RouteTargetReference{
+				Kind: "Service",
+				Name: "some-other-service",
+			},
+			Port: &routev1.RoutePort{
+				TargetPort: intstr.FromInt(1234),
+			},
+			TLS: &routev1.TLSConfig{
+				Termination:              routev1.TLSTerminationEdge,
+				Certificate:              "foo",
+				Key:                      "bar",
+				DestinationCACertificate: "baz",
+			},
+		},
+	}
+}
+
+func OtherGrafanaRoute() *routev1.Route {
+	return &routev1.Route{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:        "cryostat-grafana",
+			Namespace:   "default",
+			Annotations: map[string]string{"grafana": "annotation"},
+			Labels:      map[string]string{"grafana": "label"},
+		},
+		Spec: routev1.RouteSpec{
+			To: routev1.RouteTargetReference{
+				Kind: "Service",
+				Name: "not-grafana",
+			},
+			Port: &routev1.RoutePort{
+				TargetPort: intstr.FromInt(5678),
+			},
+		},
+	}
+}
+
 func NewNetworkConfigurationList(tls bool) operatorv1beta1.NetworkConfigurationList {
 	coreSVC := NewCryostatService()
 	coreIng := NewNetworkConfiguration(coreSVC.Name, coreSVC.Spec.Ports[0].Port, tls)

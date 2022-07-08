@@ -334,6 +334,31 @@ var _ = Describe("CryostatController", func() {
 				Expect(sa.AutomountServiceAccountToken).To(BeNil())
 			})
 		})
+		Context("with existing Routes", func() {
+			var cr *operatorv1beta1.Cryostat
+			var oldCoreRoute *openshiftv1.Route
+			var oldGrafanaRoute *openshiftv1.Route
+			BeforeEach(func() {
+				cr = test.NewCryostat()
+				oldCoreRoute = test.OtherCoreRoute()
+				oldGrafanaRoute = test.OtherGrafanaRoute()
+				t.objs = append(t.objs, cr, oldCoreRoute, oldGrafanaRoute)
+			})
+			It("should update the Routes", func() {
+				t.reconcileCryostatFully()
+
+				// Routes should be replaced except for labels/annotations
+				expectedCoreRoute := test.NewCoreRoute(t.TLS)
+				expectedCoreRoute.Annotations = oldCoreRoute.Annotations
+				expectedCoreRoute.Labels = oldCoreRoute.Labels
+				t.checkRoute(expectedCoreRoute)
+
+				expectedGrafanaRoute := test.NewGrafanaRoute(t.TLS)
+				expectedGrafanaRoute.Annotations = oldGrafanaRoute.Annotations
+				expectedGrafanaRoute.Labels = oldGrafanaRoute.Labels
+				t.checkRoute(expectedGrafanaRoute)
+			})
+		})
 		Context("Switching from a minimal to a non-minimal deployment", func() {
 			BeforeEach(func() {
 				t.objs = append(t.objs, test.NewMinimalCryostat())
@@ -352,13 +377,7 @@ var _ = Describe("CryostatController", func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				req := reconcile.Request{NamespacedName: types.NamespacedName{Name: "cryostat", Namespace: "default"}}
-				result, err := t.controller.Reconcile(context.Background(), req)
-				Expect(result).To(Equal(reconcile.Result{RequeueAfter: 5 * time.Second}))
-				Expect(err).ToNot(HaveOccurred())
-				t.ingressConfig(req)
-				result, err = t.controller.Reconcile(context.Background(), req)
-				Expect(err).ToNot(HaveOccurred())
-				Expect(result).To(Equal(reconcile.Result{}))
+				t.updateRouteStatus(req, test.NewGrafanaRoute(t.TLS))
 			})
 			It("should create grafana resources", func() {
 				t.checkGrafanaService()
@@ -420,10 +439,6 @@ var _ = Describe("CryostatController", func() {
 
 				req := reconcile.Request{NamespacedName: types.NamespacedName{Name: "cryostat", Namespace: "default"}}
 				result, err := t.controller.Reconcile(context.Background(), req)
-				Expect(result).To(Equal(reconcile.Result{}))
-				Expect(err).ToNot(HaveOccurred())
-				t.ingressConfig(req)
-				result, err = t.controller.Reconcile(context.Background(), req)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(result).To(Equal(reconcile.Result{}))
 			})
@@ -515,10 +530,6 @@ var _ = Describe("CryostatController", func() {
 
 				req := reconcile.Request{NamespacedName: types.NamespacedName{Name: "cryostat", Namespace: "default"}}
 				result, err := t.controller.Reconcile(context.Background(), req)
-				Expect(result).To(Equal(reconcile.Result{}))
-				Expect(err).ToNot(HaveOccurred())
-				t.ingressConfig(req)
-				result, err = t.controller.Reconcile(context.Background(), req)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(result).To(Equal(reconcile.Result{}))
 			})
@@ -551,10 +562,6 @@ var _ = Describe("CryostatController", func() {
 
 				req := reconcile.Request{NamespacedName: types.NamespacedName{Name: "cryostat", Namespace: "default"}}
 				result, err := t.controller.Reconcile(context.Background(), req)
-				Expect(result).To(Equal(reconcile.Result{}))
-				Expect(err).ToNot(HaveOccurred())
-				t.ingressConfig(req)
-				result, err = t.controller.Reconcile(context.Background(), req)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(result).To(Equal(reconcile.Result{}))
 			})
@@ -588,10 +595,6 @@ var _ = Describe("CryostatController", func() {
 
 				req := reconcile.Request{NamespacedName: types.NamespacedName{Name: "cryostat", Namespace: "default"}}
 				result, err := t.controller.Reconcile(context.Background(), req)
-				Expect(result).To(Equal(reconcile.Result{}))
-				Expect(err).ToNot(HaveOccurred())
-				t.ingressConfig(req)
-				result, err = t.controller.Reconcile(context.Background(), req)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(result).To(Equal(reconcile.Result{}))
 			})
@@ -1422,46 +1425,42 @@ func (t *cryostatTestInput) initializeSecrets() {
 	}
 }
 
-func (t *cryostatTestInput) ingressConfig(req reconcile.Request) {
-	routes := []string{"cryostat"}
-	if !t.minimal {
-		routes = append([]string{"cryostat-grafana"}, routes...)
-	}
-	for _, routeName := range routes {
-		route := t.checkRoute(routeName)
-		route.Status.Ingress = append(route.Status.Ingress, openshiftv1.RouteIngress{
-			Host: routeName + ".example.com",
-		})
-		err := t.Client.Status().Update(context.Background(), route)
+func (t *cryostatTestInput) updateRouteStatus(req reconcile.Request,
+	routes ...*openshiftv1.Route) {
+	for _, route := range routes {
+		result, err := t.controller.Reconcile(context.Background(), req)
 		Expect(err).ToNot(HaveOccurred())
-		_, err = t.controller.Reconcile(context.Background(), req)
+		Expect(result).To(Equal(reconcile.Result{RequeueAfter: 5 * time.Second}))
+
+		err = t.Client.Get(context.Background(), types.NamespacedName{Name: route.Name, Namespace: route.Namespace}, route)
+		Expect(err).ToNot(HaveOccurred())
+		route.Status.Ingress = append(route.Status.Ingress, openshiftv1.RouteIngress{
+			Host: route.Name + ".example.com",
+		})
+		err = t.Client.Status().Update(context.Background(), route)
+		Expect(err).ToNot(HaveOccurred())
 	}
+	result, err := t.controller.Reconcile(context.Background(), req)
+	Expect(err).ToNot(HaveOccurred())
+	Expect(result).To(Equal(reconcile.Result{}))
 }
 
 func (t *cryostatTestInput) checkRoutes() {
-	routes := []string{"cryostat"}
 	if !t.minimal {
-		routes = append([]string{"cryostat-grafana"}, routes...)
+		t.checkRoute(test.NewGrafanaRoute(t.TLS))
 	}
-	for _, routeName := range routes {
-		t.checkRoute(routeName)
-	}
+	t.checkRoute(test.NewCoreRoute(t.TLS))
 }
 
-func (t *cryostatTestInput) checkRoute(name string) *openshiftv1.Route {
+func (t *cryostatTestInput) checkRoute(expected *openshiftv1.Route) *openshiftv1.Route {
 	route := &openshiftv1.Route{}
-	err := t.Client.Get(context.Background(), types.NamespacedName{Name: name, Namespace: "default"}, route)
+	err := t.Client.Get(context.Background(), types.NamespacedName{Name: expected.Name, Namespace: expected.Namespace}, route)
 	Expect(err).ToNot(HaveOccurred())
 
-	// Verify the TLS termination policy
-	Expect(route.Spec.TLS).ToNot(BeNil())
-	if !t.TLS {
-		Expect(route.Spec.TLS.Termination).To(Equal(openshiftv1.TLSTerminationEdge))
-		Expect(route.Spec.TLS.InsecureEdgeTerminationPolicy).To(Equal(openshiftv1.InsecureEdgeTerminationPolicyRedirect))
-	} else {
-		Expect(route.Spec.TLS.Termination).To(Equal(openshiftv1.TLSTerminationReencrypt))
-		Expect(route.Spec.TLS.DestinationCACertificate).To(Equal("cryostat-ca-bytes"))
-	}
+	checkMetadata(route, expected)
+	Expect(route.Spec.To).To(Equal(expected.Spec.To))
+	Expect(route.Spec.Port).To(Equal(expected.Spec.Port))
+	Expect(route.Spec.TLS).To(Equal(expected.Spec.TLS))
 	return route
 }
 
@@ -1499,10 +1498,11 @@ func (t *cryostatTestInput) reconcileCryostatFully() {
 
 	// Add ingress config to routes
 	if t.controller.IsOpenShift {
-		result, err = t.controller.Reconcile(context.Background(), req)
-		Expect(err).ToNot(HaveOccurred())
-		Expect(result).To(Equal(reconcile.Result{RequeueAfter: 5 * time.Second}))
-		t.ingressConfig(req)
+		if t.minimal {
+			t.updateRouteStatus(req, test.NewCoreRoute(t.TLS))
+		} else {
+			t.updateRouteStatus(req, test.NewGrafanaRoute(t.TLS), test.NewCoreRoute(t.TLS))
+		}
 	}
 
 	result, err = t.controller.Reconcile(context.Background(), req)
@@ -1620,23 +1620,8 @@ func (t *cryostatTestInput) checkClusterRoleBindingDeleted() {
 }
 
 func (t *cryostatTestInput) expectRoutes() {
-	req := reconcile.Request{NamespacedName: types.NamespacedName{Name: "cryostat", Namespace: "default"}}
-	result, err := t.controller.Reconcile(context.Background(), req)
-	Expect(err).ToNot(HaveOccurred())
-	Expect(result).To(Equal(reconcile.Result{RequeueAfter: 5 * time.Second}))
-
-	// Update certificate status
-	if t.TLS {
-		t.makeCertificatesReady()
-		t.initializeSecrets()
-	}
-
-	// Check for routes, ingress configuration needs to be added as each
-	// one is created so that they all reconcile successfully
-	result, err = t.controller.Reconcile(context.Background(), req)
-	Expect(err).ToNot(HaveOccurred())
-	Expect(result).To(Equal(reconcile.Result{RequeueAfter: 5 * time.Second}))
-	t.ingressConfig(req)
+	t.reconcileCryostatFully()
+	t.checkRoutes()
 }
 
 func (t *cryostatTestInput) expectNoRoutes() {
