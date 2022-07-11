@@ -1330,6 +1330,20 @@ var _ = Describe("CryostatController", func() {
 				t.expectNoRoutes()
 			})
 		})
+		Context("with existing Ingresses", func() {
+			var cr *operatorv1beta1.Cryostat
+			var oldCoreIngress *netv1.Ingress
+			var oldGrafanaIngress *netv1.Ingress
+			BeforeEach(func() {
+				cr = test.NewCryostatWithIngress()
+				oldCoreIngress = test.OtherCoreIngress()
+				oldGrafanaIngress = test.OtherGrafanaIngress()
+				t.objs = append(t.objs, cr, oldCoreIngress, oldGrafanaIngress)
+			})
+			It("should update the Ingresses", func() {
+				t.expectIngresses()
+			})
+		})
 		Context("networkConfig for one of the services is nil", func() {
 			BeforeEach(func() {
 				t.objs = append(t.objs, test.NewCryostatWithIngress())
@@ -1632,21 +1646,11 @@ func (t *cryostatTestInput) expectNoRoutes() {
 	Expect(kerrors.IsNotFound(err)).To(BeTrue())
 }
 
-func (t *cryostatTestInput) expectIngresses() {
-	req := reconcile.Request{NamespacedName: types.NamespacedName{Name: "cryostat", Namespace: "default"}}
-	result, err := t.controller.Reconcile(context.Background(), req)
-	Expect(err).ToNot(HaveOccurred())
-	Expect(result).To(Equal(reconcile.Result{RequeueAfter: 5 * time.Second}))
-
-	// Update certificate status
-	t.makeCertificatesReady()
-	t.initializeSecrets()
-
-	result, err = t.controller.Reconcile(context.Background(), req)
+func (t *cryostatTestInput) checkIngresses() {
 	expectedConfig := test.NewNetworkConfigurationList(t.externalTLS)
 
 	ingress := &netv1.Ingress{}
-	err = t.Client.Get(context.Background(), types.NamespacedName{Name: "cryostat", Namespace: "default"}, ingress)
+	err := t.Client.Get(context.Background(), types.NamespacedName{Name: "cryostat", Namespace: "default"}, ingress)
 	Expect(err).ToNot(HaveOccurred())
 	Expect(ingress.Annotations).To(Equal(expectedConfig.CoreConfig.Annotations))
 	Expect(ingress.Labels).To(Equal(expectedConfig.CoreConfig.Labels))
@@ -1657,6 +1661,11 @@ func (t *cryostatTestInput) expectIngresses() {
 	Expect(ingress.Annotations).To(Equal(expectedConfig.GrafanaConfig.Annotations))
 	Expect(ingress.Labels).To(Equal(expectedConfig.GrafanaConfig.Labels))
 	Expect(ingress.Spec).To(Equal(*expectedConfig.GrafanaConfig.IngressSpec))
+}
+
+func (t *cryostatTestInput) expectIngresses() {
+	t.reconcileCryostatFully()
+	t.checkIngresses()
 }
 
 func (t *cryostatTestInput) expectNoIngresses() {

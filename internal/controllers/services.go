@@ -51,7 +51,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
-// FIXME dedup
+// FIXME duplicated from resource_definitions.go
 const (
 	cryostatHTTPContainerPort int32  = 8181
 	cryostatJMXContainerPort  int32  = 9091

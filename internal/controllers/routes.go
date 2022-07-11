@@ -104,6 +104,7 @@ func (r *CryostatReconciler) reconcileRoute(ctx context.Context, route *routev1.
 	}
 
 	if len(route.Status.Ingress) < 1 {
+		r.Log.Info("Waiting for route to become available", "name", route.Name, "namespace", route.Namespace)
 		return nil, ErrIngressNotReady
 	}
 

@@ -51,8 +51,6 @@ import (
 
 	operatorv1beta1 "github.com/cryostatio/cryostat-operator/api/v1beta1"
 
-	goerrors "errors"
-
 	"github.com/cryostatio/cryostat-operator/internal/controllers/common"
 	resources "github.com/cryostatio/cryostat-operator/internal/controllers/common/resource_definitions"
 	configv1 "github.com/openshift/api/config/v1"
@@ -723,20 +721,9 @@ func (r *CryostatReconciler) createOrUpdateDeployment(ctx context.Context, deplo
 
 func requeueIfIngressNotReady(log logr.Logger, err error) (reconcile.Result, error) {
 	if err == ErrIngressNotReady {
-		log.Info(err.Error())
 		return reconcile.Result{RequeueAfter: 5 * time.Second}, nil
 	}
 	return reconcile.Result{}, err
-}
-
-func getNetworkConfig(controller *operatorv1beta1.Cryostat, svc *corev1.Service) (*operatorv1beta1.NetworkConfiguration, error) {
-	if svc.Name == controller.Name {
-		return controller.Spec.NetworkOptions.CoreConfig, nil
-	} else if svc.Name == controller.Name+"-grafana" {
-		return controller.Spec.NetworkOptions.GrafanaConfig, nil
-	} else {
-		return nil, goerrors.New("Service name not recognized")
-	}
 }
 
 func removeConditionIfPresent(cr *operatorv1beta1.Cryostat, condType ...operatorv1beta1.CryostatConditionType) {

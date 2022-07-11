@@ -1932,6 +1932,80 @@ func OtherGrafanaRoute() *routev1.Route {
 	}
 }
 
+func OtherCoreIngress() *netv1.Ingress {
+	pathtype := netv1.PathTypePrefix
+	return &netv1.Ingress{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:        "cryostat",
+			Namespace:   "default",
+			Annotations: map[string]string{"custom": "annotation"},
+			Labels:      map[string]string{"custom": "label"},
+		},
+		Spec: netv1.IngressSpec{
+			Rules: []netv1.IngressRule{
+				{
+					Host: "some-other-host.example.com",
+					IngressRuleValue: netv1.IngressRuleValue{
+						HTTP: &netv1.HTTPIngressRuleValue{
+							Paths: []netv1.HTTPIngressPath{
+								{
+									Path:     "/",
+									PathType: &pathtype,
+									Backend: netv1.IngressBackend{
+										Service: &netv1.IngressServiceBackend{
+											Name: "some-other-service",
+											Port: netv1.ServiceBackendPort{
+												Number: 2000,
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
+func OtherGrafanaIngress() *netv1.Ingress {
+	pathtype := netv1.PathTypePrefix
+	return &netv1.Ingress{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:        "cryostat-grafana",
+			Namespace:   "default",
+			Annotations: map[string]string{"grafana": "annotation"},
+			Labels:      map[string]string{"grafana": "label"},
+		},
+		Spec: netv1.IngressSpec{
+			Rules: []netv1.IngressRule{
+				{
+					Host: "some-other-grafana.example.com",
+					IngressRuleValue: netv1.IngressRuleValue{
+						HTTP: &netv1.HTTPIngressRuleValue{
+							Paths: []netv1.HTTPIngressPath{
+								{
+									Path:     "/",
+									PathType: &pathtype,
+									Backend: netv1.IngressBackend{
+										Service: &netv1.IngressServiceBackend{
+											Name: "some-other-grafana",
+											Port: netv1.ServiceBackendPort{
+												Number: 5000,
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
 func NewNetworkConfigurationList(tls bool) operatorv1beta1.NetworkConfigurationList {
 	coreSVC := NewCryostatService()
 	coreIng := NewNetworkConfiguration(coreSVC.Name, coreSVC.Spec.Ports[0].Port, tls)
