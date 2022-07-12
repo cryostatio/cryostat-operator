@@ -39,21 +39,17 @@ package controllers
 import (
 	"context"
 	"fmt"
-	"net/url"
 	"regexp"
 	"strconv"
 	"time"
 
 	"github.com/go-logr/logr"
-	netv1 "k8s.io/api/networking/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	operatorv1beta1 "github.com/cryostatio/cryostat-operator/api/v1beta1"
-
-	goerrors "errors"
 
 	"github.com/cryostatio/cryostat-operator/internal/controllers/common"
 	resources "github.com/cryostatio/cryostat-operator/internal/controllers/common/resource_definitions"
@@ -240,7 +236,6 @@ func (r *CryostatReconciler) Reconcile(ctx context.Context, request ctrl.Request
 
 	// Set up TLS using cert-manager, if available
 	var tlsConfig *resources.TLSConfig
-	var routeTLS *openshiftv1.TLSConfig
 	if r.IsCertManagerEnabled(instance) {
 		tlsConfig, err = r.setupTLS(context.Background(), instance)
 		if err != nil {
@@ -265,10 +260,7 @@ func (r *CryostatReconciler) Reconcile(ctx context.Context, request ctrl.Request
 		if err != nil {
 			return reconcile.Result{}, err
 		}
-		routeTLS = &openshiftv1.TLSConfig{
-			Termination:              openshiftv1.TLSTerminationReencrypt,
-			DestinationCACertificate: string(caCert),
-		}
+		tlsConfig.CACert = caCert
 
 		err = r.updateCondition(ctx, instance, operatorv1beta1.ConditionTypeTLSSetupComplete, metav1.ConditionTrue,
 			reasonAllCertsReady, "All certificates for Cryostat components are ready.")
@@ -290,63 +282,14 @@ func (r *CryostatReconciler) Reconcile(ctx context.Context, request ctrl.Request
 	}
 
 	serviceSpecs := &resources.ServiceSpecs{}
-	if !instance.Spec.Minimal {
-		grafanaSvc := resources.NewGrafanaService(instance)
-		svcUrl, err := r.createService(context.Background(), instance, grafanaSvc, &grafanaSvc.Spec.Ports[0], routeTLS)
-		if err != nil {
-			return requeueIfIngressNotReady(reqLogger, err)
-		}
-		serviceSpecs.GrafanaURL = svcUrl
-	} else {
-		// check for existing non-minimal resources and delete if found
-		svc := resources.NewGrafanaService(instance)
-		if r.IsOpenShift {
-			reqLogger.Info("Deleting existing non-minimal route", "route.Name", svc.Name)
-			route := &openshiftv1.Route{}
-			err = r.Client.Get(context.Background(), types.NamespacedName{Name: svc.Name, Namespace: svc.Namespace}, route)
-			if err != nil && !errors.IsNotFound(err) {
-				reqLogger.Info("Non-minimal route could not be retrieved", "route.Name", svc.Name)
-				return reconcile.Result{}, err
-			} else if err == nil {
-				err = r.Client.Delete(context.Background(), route)
-				if err != nil && !errors.IsNotFound(err) {
-					reqLogger.Info("Could not delete non-minimal route", "route.Name", svc.Name)
-					return reconcile.Result{}, err
-				}
-			}
-		} else {
-			reqLogger.Info("Deleting existing non-minimal ingress", "ingress.Name", svc.Name)
-			ingress := &netv1.Ingress{}
-			err = r.Client.Get(context.Background(), types.NamespacedName{Name: svc.Name, Namespace: svc.Namespace}, ingress)
-			if err != nil && !errors.IsNotFound(err) {
-				reqLogger.Info("Non-minimal ingress could not be retrieved", "ingress.Name", svc.Name)
-				return reconcile.Result{}, err
-			} else if err == nil {
-				err = r.Client.Delete(context.Background(), ingress)
-				if err != nil && !errors.IsNotFound(err) {
-					reqLogger.Info("Could not delete non-minimal ingress", "ingress.Name", svc.Name)
-					return reconcile.Result{}, err
-				}
-			}
-		}
-
-		err = r.Client.Get(context.Background(), types.NamespacedName{Name: svc.Name, Namespace: svc.Namespace}, svc)
-		if err == nil {
-			reqLogger.Info("Deleting existing non-minimal service", "svc.Name", svc.Name)
-			err = r.Client.Delete(context.Background(), svc)
-			if err != nil && !errors.IsNotFound(err) {
-				reqLogger.Info("Could not delete non-minimal service")
-				return reconcile.Result{}, err
-			}
-		}
-	}
-
-	coreSvc := resources.NewCoreService(instance)
-	svcUrl, err := r.createService(context.Background(), instance, coreSvc, &coreSvc.Spec.Ports[0], routeTLS)
+	err = r.reconcileGrafanaService(ctx, instance, tlsConfig, serviceSpecs)
 	if err != nil {
 		return requeueIfIngressNotReady(reqLogger, err)
 	}
-	serviceSpecs.CoreURL = svcUrl
+	err = r.reconcileCoreService(ctx, instance, tlsConfig, serviceSpecs)
+	if err != nil {
+		return requeueIfIngressNotReady(reqLogger, err)
+	}
 
 	imageTags := r.getImageTags()
 	fsGroup, err := r.getFSGroup(ctx, instance.Namespace)
@@ -430,12 +373,12 @@ func (r *CryostatReconciler) reconcileReports(ctx context.Context, reqLogger log
 	}
 	desired := instance.Spec.ReportOptions.Replicas
 
+	err := r.reconcileReportsService(ctx, instance, tls, serviceSpecs)
+	if err != nil {
+		return reconcile.Result{}, err
+	}
 	deployment := resources.NewDeploymentForReports(instance, imageTags, tls)
 	if desired == 0 {
-		svc := resources.NewReportService(instance)
-		if err := r.Client.Delete(ctx, svc); err != nil && !errors.IsNotFound(err) {
-			return reconcile.Result{}, err
-		}
 		if err := r.Client.Delete(ctx, deployment); err != nil && !errors.IsNotFound(err) {
 			return reconcile.Result{}, err
 		}
@@ -451,26 +394,9 @@ func (r *CryostatReconciler) reconcileReports(ctx context.Context, reqLogger log
 	}
 
 	if desired > 0 {
-		svc := resources.NewReportService(instance)
-		if err := controllerutil.SetControllerReference(instance, svc, r.Scheme); err != nil {
-			return reconcile.Result{}, err
-		}
-		if err := r.createObjectIfNotExists(ctx, types.NamespacedName{Name: svc.Name, Namespace: svc.Namespace}, &corev1.Service{}, svc); err != nil {
-			return reconcile.Result{}, err
-		}
-
-		err := r.createOrUpdateDeployment(ctx, deployment, instance)
+		err = r.createOrUpdateDeployment(ctx, deployment, instance)
 		if err != nil {
 			return reconcile.Result{}, err
-		}
-
-		scheme := "https"
-		if tls == nil {
-			scheme = "http"
-		}
-		serviceSpecs.ReportsURL = &url.URL{
-			Scheme: scheme,
-			Host:   svc.Name + ":" + strconv.Itoa(int(svc.Spec.Ports[0].Port)),
 		}
 
 		// Check deployment status and update conditions
@@ -481,131 +407,6 @@ func (r *CryostatReconciler) reconcileReports(ctx context.Context, reqLogger log
 		}
 	}
 	return reconcile.Result{}, nil
-}
-
-func (r *CryostatReconciler) createService(ctx context.Context, controller *operatorv1beta1.Cryostat, svc *corev1.Service, exposePort *corev1.ServicePort,
-	tlsConfig *openshiftv1.TLSConfig) (*url.URL, error) {
-	if err := controllerutil.SetControllerReference(controller, svc, r.Scheme); err != nil {
-		return nil, err
-	}
-	if err := r.createObjectIfNotExists(context.Background(), types.NamespacedName{Name: svc.Name, Namespace: svc.Namespace}, &corev1.Service{}, svc); err != nil {
-		return nil, err
-	}
-
-	// Use edge termination by default
-	if tlsConfig == nil {
-		tlsConfig = &openshiftv1.TLSConfig{
-			Termination:                   openshiftv1.TLSTerminationEdge,
-			InsecureEdgeTerminationPolicy: openshiftv1.InsecureEdgeTerminationPolicyRedirect,
-		}
-	}
-	if r.IsOpenShift {
-		return r.createRouteForService(ctx, controller, svc, *exposePort, tlsConfig)
-	} else {
-		if controller.Spec.NetworkOptions == nil {
-			return nil, nil
-		}
-		networkConfig, err := getNetworkConfig(controller, svc)
-		if err != nil {
-			return nil, err
-		}
-		if networkConfig == nil || networkConfig.IngressSpec == nil {
-			return nil, nil
-		}
-		return r.createIngressForService(controller, svc, networkConfig)
-	}
-}
-
-// ErrIngressNotReady is returned when Kubernetes has not yet exposed our services
-// so that they may be accessed outside of the cluster
-var ErrIngressNotReady = goerrors.New("Ingress configuration not yet available")
-
-func (r *CryostatReconciler) createRouteForService(ctx context.Context, cr *operatorv1beta1.Cryostat,
-	svc *corev1.Service, exposePort corev1.ServicePort, tlsConfig *openshiftv1.TLSConfig) (*url.URL, error) {
-	logger := r.Log.WithValues("Request.Namespace", svc.Namespace, "Name", svc.Name, "Kind", fmt.Sprintf("%T", &openshiftv1.Route{}))
-	route := &openshiftv1.Route{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      svc.Name,
-			Namespace: svc.Namespace,
-		},
-	}
-	if err := controllerutil.SetControllerReference(cr, route, r.Scheme); err != nil {
-		return nil, err
-	}
-
-	op, err := controllerutil.CreateOrUpdate(ctx, r.Client, route, func() error {
-		// Update Route spec
-		route.Spec = openshiftv1.RouteSpec{
-			To: openshiftv1.RouteTargetReference{
-				Kind: "Service",
-				Name: svc.Name,
-			},
-			Port: &openshiftv1.RoutePort{TargetPort: exposePort.TargetPort},
-			TLS:  tlsConfig,
-		}
-		return nil
-	})
-	if err != nil {
-		return nil, err
-	}
-
-	logger.Info(fmt.Sprintf("Route %s", op), "Service.Status", fmt.Sprintf("%#v", route.Status))
-	if len(route.Status.Ingress) < 1 {
-		return nil, ErrIngressNotReady
-	}
-
-	return &url.URL{
-		Scheme: getProtocol(tlsConfig),
-		Host:   route.Status.Ingress[0].Host,
-	}, nil
-}
-
-func (r *CryostatReconciler) createIngressForService(controller *operatorv1beta1.Cryostat, svc *corev1.Service,
-	networkConfig *operatorv1beta1.NetworkConfiguration) (*url.URL, error) {
-	logger := r.Log.WithValues("Request.Namespace", svc.Namespace, "Name", svc.Name, "Kind", fmt.Sprintf("%T", &netv1.Ingress{}))
-
-	ingress := &netv1.Ingress{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:        svc.Name,
-			Namespace:   svc.Namespace,
-			Annotations: networkConfig.Annotations,
-			Labels:      networkConfig.Labels,
-		},
-		Spec: *networkConfig.IngressSpec,
-	}
-	if err := controllerutil.SetControllerReference(controller, ingress, r.Scheme); err != nil {
-		return nil, err
-	}
-
-	found := &netv1.Ingress{}
-	err := r.Client.Get(context.Background(), types.NamespacedName{Name: svc.Name, Namespace: svc.Namespace}, found)
-	if err != nil && errors.IsNotFound(err) {
-		logger.Info("Not found")
-		if err := r.Client.Create(context.Background(), ingress); err != nil {
-			logger.Error(err, "Could not be created")
-			return nil, err
-		}
-		logger.Info("Created")
-		found = ingress
-	} else if err != nil {
-		logger.Error(err, "Could not be read")
-		return nil, err
-	}
-
-	logger.Info("Ingress created", "Service.Status", fmt.Sprintf("%#v", found.Status))
-	host := ""
-	if networkConfig.IngressSpec.Rules != nil && networkConfig.IngressSpec.Rules[0].Host != "" {
-		host = networkConfig.IngressSpec.Rules[0].Host
-	}
-
-	scheme := "http"
-	if networkConfig.IngressSpec.TLS != nil {
-		scheme = "https"
-	}
-	return &url.URL{
-		Scheme: scheme,
-		Host:   host,
-	}, nil
 }
 
 func (r *CryostatReconciler) createObjectIfNotExists(ctx context.Context, ns types.NamespacedName, found client.Object, toCreate client.Object) error {
@@ -903,6 +704,7 @@ func (r *CryostatReconciler) createOrUpdateDeployment(ctx context.Context, deplo
 		}
 		// Update pod template spec and selector to propagate any changes from Cryostat CR
 		deploy.Spec.Template.Spec = specCopy.Template.Spec
+		// FIXME Immutable
 		deploy.Spec.Selector = specCopy.Selector
 		// Set the replica count, if managed by the operator
 		if specCopy.Replicas != nil {
@@ -917,29 +719,11 @@ func (r *CryostatReconciler) createOrUpdateDeployment(ctx context.Context, deplo
 	return nil
 }
 
-func getProtocol(tlsConfig *openshiftv1.TLSConfig) string {
-	if tlsConfig == nil {
-		return "http"
-	}
-	return "https"
-}
-
 func requeueIfIngressNotReady(log logr.Logger, err error) (reconcile.Result, error) {
 	if err == ErrIngressNotReady {
-		log.Info(err.Error())
 		return reconcile.Result{RequeueAfter: 5 * time.Second}, nil
 	}
 	return reconcile.Result{}, err
-}
-
-func getNetworkConfig(controller *operatorv1beta1.Cryostat, svc *corev1.Service) (*operatorv1beta1.NetworkConfiguration, error) {
-	if svc.Name == controller.Name {
-		return controller.Spec.NetworkOptions.CoreConfig, nil
-	} else if svc.Name == controller.Name+"-grafana" {
-		return controller.Spec.NetworkOptions.GrafanaConfig, nil
-	} else {
-		return nil, goerrors.New("Service name not recognized")
-	}
 }
 
 func removeConditionIfPresent(cr *operatorv1beta1.Cryostat, condType ...operatorv1beta1.CryostatConditionType) {

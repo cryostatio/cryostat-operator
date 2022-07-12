@@ -40,7 +40,6 @@ import (
 	"time"
 
 	operatorv1beta1 "github.com/cryostatio/cryostat-operator/api/v1beta1"
-	"github.com/cryostatio/cryostat-operator/internal/controllers/common/resource_definitions"
 	certv1 "github.com/jetstack/cert-manager/pkg/apis/certmanager/v1"
 	certMeta "github.com/jetstack/cert-manager/pkg/apis/meta/v1"
 	"github.com/onsi/gomega"
@@ -1848,11 +1847,170 @@ func NewPodSecurityContext() *corev1.PodSecurityContext {
 	}
 }
 
+func NewCoreRoute(tls bool) *routev1.Route {
+	return newRoute("cryostat", 8181, tls)
+}
+
+func NewGrafanaRoute(tls bool) *routev1.Route {
+	return newRoute("cryostat-grafana", 3000, tls)
+}
+
+func newRoute(name string, port int, tls bool) *routev1.Route {
+	var routeTLS *routev1.TLSConfig
+	if !tls {
+		routeTLS = &routev1.TLSConfig{
+			Termination:                   routev1.TLSTerminationEdge,
+			InsecureEdgeTerminationPolicy: routev1.InsecureEdgeTerminationPolicyRedirect,
+		}
+	} else {
+		routeTLS = &routev1.TLSConfig{
+			Termination:              routev1.TLSTerminationReencrypt,
+			DestinationCACertificate: "cryostat-ca-bytes",
+		}
+	}
+	return &routev1.Route{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: "default",
+		},
+		Spec: routev1.RouteSpec{
+			To: routev1.RouteTargetReference{
+				Kind: "Service",
+				Name: name,
+			},
+			Port: &routev1.RoutePort{
+				TargetPort: intstr.FromInt(port),
+			},
+			TLS: routeTLS,
+		},
+	}
+}
+
+func OtherCoreRoute() *routev1.Route {
+	return &routev1.Route{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:        "cryostat",
+			Namespace:   "default",
+			Annotations: map[string]string{"custom": "annotation"},
+			Labels:      map[string]string{"custom": "label"},
+		},
+		Spec: routev1.RouteSpec{
+			To: routev1.RouteTargetReference{
+				Kind: "Service",
+				Name: "some-other-service",
+			},
+			Port: &routev1.RoutePort{
+				TargetPort: intstr.FromInt(1234),
+			},
+			TLS: &routev1.TLSConfig{
+				Termination:              routev1.TLSTerminationEdge,
+				Certificate:              "foo",
+				Key:                      "bar",
+				DestinationCACertificate: "baz",
+			},
+		},
+	}
+}
+
+func OtherGrafanaRoute() *routev1.Route {
+	return &routev1.Route{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:        "cryostat-grafana",
+			Namespace:   "default",
+			Annotations: map[string]string{"grafana": "annotation"},
+			Labels:      map[string]string{"grafana": "label"},
+		},
+		Spec: routev1.RouteSpec{
+			To: routev1.RouteTargetReference{
+				Kind: "Service",
+				Name: "not-grafana",
+			},
+			Port: &routev1.RoutePort{
+				TargetPort: intstr.FromInt(5678),
+			},
+		},
+	}
+}
+
+func OtherCoreIngress() *netv1.Ingress {
+	pathtype := netv1.PathTypePrefix
+	return &netv1.Ingress{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:        "cryostat",
+			Namespace:   "default",
+			Annotations: map[string]string{"custom": "annotation"},
+			Labels:      map[string]string{"custom": "label"},
+		},
+		Spec: netv1.IngressSpec{
+			Rules: []netv1.IngressRule{
+				{
+					Host: "some-other-host.example.com",
+					IngressRuleValue: netv1.IngressRuleValue{
+						HTTP: &netv1.HTTPIngressRuleValue{
+							Paths: []netv1.HTTPIngressPath{
+								{
+									Path:     "/",
+									PathType: &pathtype,
+									Backend: netv1.IngressBackend{
+										Service: &netv1.IngressServiceBackend{
+											Name: "some-other-service",
+											Port: netv1.ServiceBackendPort{
+												Number: 2000,
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
+func OtherGrafanaIngress() *netv1.Ingress {
+	pathtype := netv1.PathTypePrefix
+	return &netv1.Ingress{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:        "cryostat-grafana",
+			Namespace:   "default",
+			Annotations: map[string]string{"grafana": "annotation"},
+			Labels:      map[string]string{"grafana": "label"},
+		},
+		Spec: netv1.IngressSpec{
+			Rules: []netv1.IngressRule{
+				{
+					Host: "some-other-grafana.example.com",
+					IngressRuleValue: netv1.IngressRuleValue{
+						HTTP: &netv1.HTTPIngressRuleValue{
+							Paths: []netv1.HTTPIngressPath{
+								{
+									Path:     "/",
+									PathType: &pathtype,
+									Backend: netv1.IngressBackend{
+										Service: &netv1.IngressServiceBackend{
+											Name: "some-other-grafana",
+											Port: netv1.ServiceBackendPort{
+												Number: 5000,
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
 func NewNetworkConfigurationList(tls bool) operatorv1beta1.NetworkConfigurationList {
-	coreSVC := resource_definitions.NewCoreService(NewCryostat())
+	coreSVC := NewCryostatService()
 	coreIng := NewNetworkConfiguration(coreSVC.Name, coreSVC.Spec.Ports[0].Port, tls)
 
-	grafanaSVC := resource_definitions.NewGrafanaService(NewCryostat())
+	grafanaSVC := NewGrafanaService()
 	grafanaIng := NewNetworkConfiguration(grafanaSVC.Name, grafanaSVC.Spec.Ports[0].Port, tls)
 
 	return operatorv1beta1.NetworkConfigurationList{
