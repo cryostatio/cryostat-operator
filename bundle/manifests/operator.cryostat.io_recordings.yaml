@@ -45,7 +45,7 @@ spec:
                 type: array
                 x-kubernetes-list-type: atomic
               flightRecorder:
-                description: Reference to the FlightRecorder object that corresponds to this Recording. Select the FlightRecorder with the name of the target Pod for this Recording.
+                description: Reference to the FlightRecorder object that corresponds to this Recording.
                 properties:
                   name:
                     description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names TODO: Add other useful fields. apiVersion, kind, uid?'
