@@ -59,6 +59,9 @@ func (r *CryostatReconciler) reconcileCoreRoute(ctx context.Context, svc *corev1
 			Namespace: cr.Namespace,
 		},
 	}
+	coreConfig := configureCoreRoute(cr)
+	route.Labels = coreConfig.Labels
+
 	url, err := r.reconcileRoute(ctx, route, svc, cr, tls)
 	if err != nil {
 		return err
@@ -75,6 +78,9 @@ func (r *CryostatReconciler) reconcileGrafanaRoute(ctx context.Context, svc *cor
 			Namespace: cr.Namespace,
 		},
 	}
+
+	grafanaConfig := configureGrafanaRoute(cr)
+	route.Labels = grafanaConfig.Labels
 
 	if cr.Spec.Minimal {
 		// Delete route if it exists
@@ -174,4 +180,37 @@ func getHTTPPort(svc *corev1.Service) (*corev1.ServicePort, error) {
 	}
 	// Shouldn't happen
 	return nil, fmt.Errorf("no \"%s\"port in %s service in %s namespace", httpPortName, svc.Name, svc.Namespace)
+}
+
+func configureCoreRoute(cr *operatorv1beta1.Cryostat) *operatorv1beta1.NetworkConfiguration {
+	var config *operatorv1beta1.NetworkConfiguration
+	if cr.Spec.NetworkOptions == nil || cr.Spec.NetworkOptions.CoreConfig == nil {
+		config = &operatorv1beta1.NetworkConfiguration{}
+	} else {
+		config = cr.Spec.NetworkOptions.CoreConfig
+	}
+
+	configureRoute(config)
+	return config
+}
+
+func configureGrafanaRoute(cr *operatorv1beta1.Cryostat) *operatorv1beta1.NetworkConfiguration {
+	var config *operatorv1beta1.NetworkConfiguration
+	if cr.Spec.NetworkOptions == nil || cr.Spec.NetworkOptions.GrafanaConfig == nil {
+		config = &operatorv1beta1.NetworkConfiguration{}
+	} else {
+		config = cr.Spec.NetworkOptions.GrafanaConfig
+	}
+
+	configureRoute(config)
+	return config
+}
+
+func configureRoute(config *operatorv1beta1.NetworkConfiguration) {
+	if config.Labels == nil {
+		config.Labels = map[string]string{}
+	}
+	if config.Annotations == nil {
+		config.Annotations = map[string]string{}
+	}
 }
