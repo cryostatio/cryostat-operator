@@ -344,18 +344,14 @@ var _ = Describe("CryostatController", func() {
 				oldGrafanaRoute = test.OtherGrafanaRoute()
 				t.objs = append(t.objs, cr, oldCoreRoute, oldGrafanaRoute)
 			})
-			It("should update the Routes", func() {
+			It("should update Routes", func() {
 				t.reconcileCryostatFully()
 
-				// Routes should be replaced except for labels/annotations
+				// Routes should be replaced
 				expectedCoreRoute := test.NewCoreRoute(t.TLS)
-				expectedCoreRoute.Annotations = oldCoreRoute.Annotations
-				expectedCoreRoute.Labels = oldCoreRoute.Labels
 				t.checkRoute(expectedCoreRoute)
 
 				expectedGrafanaRoute := test.NewGrafanaRoute(t.TLS)
-				expectedGrafanaRoute.Annotations = oldGrafanaRoute.Annotations
-				expectedGrafanaRoute.Labels = oldGrafanaRoute.Labels
 				t.checkRoute(expectedGrafanaRoute)
 			})
 		})
