@@ -347,16 +347,8 @@ var _ = Describe("CryostatController", func() {
 			It("should update the Routes", func() {
 				t.reconcileCryostatFully()
 
-				// Routes should be replaced except for labels/annotations
-				expectedCoreRoute := test.NewCoreRoute(t.TLS)
-				expectedCoreRoute.Annotations = oldCoreRoute.Annotations
-				expectedCoreRoute.Labels = oldCoreRoute.Labels
-				t.checkRoute(expectedCoreRoute)
-
-				expectedGrafanaRoute := test.NewGrafanaRoute(t.TLS)
-				expectedGrafanaRoute.Annotations = oldGrafanaRoute.Annotations
-				expectedGrafanaRoute.Labels = oldGrafanaRoute.Labels
-				t.checkRoute(expectedGrafanaRoute)
+				// Routes should be replaced
+				t.checkRoutes()
 			})
 		})
 		Context("Switching from a minimal to a non-minimal deployment", func() {
@@ -1276,6 +1268,27 @@ var _ = Describe("CryostatController", func() {
 			})
 			It("should create expected deployment", func() {
 				t.expectDeployment()
+			})
+		})
+		Context("with network options", func() {
+			JustBeforeEach(func() {
+				t.reconcileCryostatFully()
+			})
+			Context("containing core config", func() {
+				BeforeEach(func() {
+					t.objs = append(t.objs, test.NewCryostatWithCoreNetworkOptions())
+				})
+				It("should create the route as described", func() {
+					t.checkRoute(test.NewCustomCoreRoute(t.TLS))
+				})
+			})
+			Context("containing grafana config", func() {
+				BeforeEach(func() {
+					t.objs = append(t.objs, test.NewCryostatWithGrafanaNetworkOptions())
+				})
+				It("should create the route as described", func() {
+					t.checkRoute(test.NewCustomGrafanaRoute(t.TLS))
+				})
 			})
 		})
 	})
