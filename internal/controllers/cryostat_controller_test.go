@@ -344,15 +344,12 @@ var _ = Describe("CryostatController", func() {
 				oldGrafanaRoute = test.OtherGrafanaRoute()
 				t.objs = append(t.objs, cr, oldCoreRoute, oldGrafanaRoute)
 			})
-			It("should update Routes", func() {
+			It("should update the Routes", func() {
 				t.reconcileCryostatFully()
 
 				// Routes should be replaced
-				expectedCoreRoute := test.NewCoreRoute(t.TLS)
-				t.checkRoute(expectedCoreRoute)
-
-				expectedGrafanaRoute := test.NewGrafanaRoute(t.TLS)
-				t.checkRoute(expectedGrafanaRoute)
+				t.checkRoute(test.NewCoreRoute(t.TLS))
+				t.checkRoute(test.NewGrafanaRoute(t.TLS))
 			})
 		})
 		Context("Switching from a minimal to a non-minimal deployment", func() {
