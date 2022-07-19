@@ -238,6 +238,8 @@ spec:
                     number: 3000
 ```
 
+When running on OpenShift, labels and annotations specified in `coreConfig` and `grafanaConfig` will be applied to the coresponding Routes created by the operator.
+
 ### Cryostat Client Options
 The `maxWsConnections` property optionally specifies the maximum number of WebSocket client connections allowed.
 The default number of `maxWsConnections` is unlimited.

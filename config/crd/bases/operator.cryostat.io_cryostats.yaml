@@ -94,21 +94,21 @@ spec:
                 type: boolean
               networkOptions:
                 description: Options to control how the operator exposes the application
-                  outside of the cluster using an Ingress or Route.
+                  outside of the cluster, such as using an Ingress or Route.
                 properties:
                   commandConfig:
-                    description: "Specifications for ingress that exposes the cryostat-command
-                      service (which serves the websocket command channel) \n Deprecated:
+                    description: "Specifications for how to expose the Cryostat command
+                      service, which serves the WebSocket command channel \n Deprecated:
                       CommandConfig is no longer used."
                     properties:
                       annotations:
                         additionalProperties:
                           type: string
-                        description: Annotations to add to the ingress during its
-                          creation.
+                        description: Annotations to add to the Ingress or Route during
+                          its creation.
                         type: object
                       ingressSpec:
-                        description: Configuration for an ingress object. Currently
+                        description: Configuration for an Ingress object. Currently
                           subpaths are not supported, so unique hosts must be specified
                           (if a single external IP is being used) to differentiate
                           between ingresses/services
@@ -403,22 +403,23 @@ spec:
                       labels:
                         additionalProperties:
                           type: string
-                        description: Labels to add to the ingress during its creation.
-                          The label with key "app" is reserved for use by the operator.
+                        description: Labels to add to the Ingress or Route during
+                          its creation. The label with key "app" is reserved for use
+                          by the operator.
                         type: object
                     type: object
                   coreConfig:
-                    description: Specifications for ingress that exposes the cryostat
-                      service (which serves the cryostat web-client)
+                    description: Specifications for how to expose the Cryostat service,
+                      which serves the Cryostat application
                     properties:
                       annotations:
                         additionalProperties:
                           type: string
-                        description: Annotations to add to the ingress during its
-                          creation.
+                        description: Annotations to add to the Ingress or Route during
+                          its creation.
                         type: object
                       ingressSpec:
-                        description: Configuration for an ingress object. Currently
+                        description: Configuration for an Ingress object. Currently
                           subpaths are not supported, so unique hosts must be specified
                           (if a single external IP is being used) to differentiate
                           between ingresses/services
@@ -713,22 +714,23 @@ spec:
                       labels:
                         additionalProperties:
                           type: string
-                        description: Labels to add to the ingress during its creation.
-                          The label with key "app" is reserved for use by the operator.
+                        description: Labels to add to the Ingress or Route during
+                          its creation. The label with key "app" is reserved for use
+                          by the operator.
                         type: object
                     type: object
                   grafanaConfig:
-                    description: Specifications for ingress that exposes the cryostat-grafana
-                      service (which serves the grafana dashboard)
+                    description: Specifications for how to expose Cryostat's Grafana
+                      service, which serves the Grafana dashboard
                     properties:
                       annotations:
                         additionalProperties:
                           type: string
-                        description: Annotations to add to the ingress during its
-                          creation.
+                        description: Annotations to add to the Ingress or Route during
+                          its creation.
                         type: object
                       ingressSpec:
-                        description: Configuration for an ingress object. Currently
+                        description: Configuration for an Ingress object. Currently
                           subpaths are not supported, so unique hosts must be specified
                           (if a single external IP is being used) to differentiate
                           between ingresses/services
@@ -1023,8 +1025,9 @@ spec:
                       labels:
                         additionalProperties:
                           type: string
-                        description: Labels to add to the ingress during its creation.
-                          The label with key "app" is reserved for use by the operator.
+                        description: Labels to add to the Ingress or Route during
+                          its creation. The label with key "app" is reserved for use
+                          by the operator.
                         type: object
                     type: object
                 type: object
