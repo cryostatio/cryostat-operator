@@ -1874,7 +1874,7 @@ func NewCoreRoute(tls bool) *routev1.Route {
 }
 
 func NewCustomCoreRoute(tls bool) *routev1.Route {
-	route := newRoute("cryostat", 8181, tls)
+	route := NewCoreRoute(tls)
 	route.Annotations = map[string]string{"custom": "annotation"}
 	route.Labels = map[string]string{"custom": "label"}
 	return route
@@ -1885,7 +1885,7 @@ func NewGrafanaRoute(tls bool) *routev1.Route {
 }
 
 func NewCustomGrafanaRoute(tls bool) *routev1.Route {
-	route := newRoute("cryostat-grafana", 3000, tls)
+	route := NewGrafanaRoute(tls)
 	route.Annotations = map[string]string{"grafana": "annotation"}
 	route.Labels = map[string]string{"grafana": "label"}
 	return route

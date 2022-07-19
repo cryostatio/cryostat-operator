@@ -348,8 +348,7 @@ var _ = Describe("CryostatController", func() {
 				t.reconcileCryostatFully()
 
 				// Routes should be replaced
-				t.checkRoute(test.NewCoreRoute(t.TLS))
-				t.checkRoute(test.NewGrafanaRoute(t.TLS))
+				t.checkRoutes()
 			})
 		})
 		Context("Switching from a minimal to a non-minimal deployment", func() {
