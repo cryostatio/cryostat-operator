@@ -1278,7 +1278,7 @@ var _ = Describe("CryostatController", func() {
 				BeforeEach(func() {
 					t.objs = append(t.objs, test.NewCryostatWithCoreNetworkOptions())
 				})
-				It("should create the route as describe", func() {
+				It("should create the route as described", func() {
 					t.checkRoute(test.NewCustomCoreRoute(t.TLS))
 				})
 			})
@@ -1286,7 +1286,7 @@ var _ = Describe("CryostatController", func() {
 				BeforeEach(func() {
 					t.objs = append(t.objs, test.NewCryostatWithGrafanaNetworkOptions())
 				})
-				It("should create the route as describe", func() {
+				It("should create the route as described", func() {
 					t.checkRoute(test.NewCustomGrafanaRoute(t.TLS))
 				})
 			})
