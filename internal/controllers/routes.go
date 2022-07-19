@@ -59,7 +59,8 @@ func (r *CryostatReconciler) reconcileCoreRoute(ctx context.Context, svc *corev1
 			Namespace: cr.Namespace,
 		},
 	}
-	url, err := r.reconcileRoute(ctx, route, svc, cr, tls)
+	coreConfig := configureCoreRoute(cr)
+	url, err := r.reconcileRoute(ctx, route, svc, cr, tls, coreConfig)
 	if err != nil {
 		return err
 	}
@@ -75,12 +76,12 @@ func (r *CryostatReconciler) reconcileGrafanaRoute(ctx context.Context, svc *cor
 			Namespace: cr.Namespace,
 		},
 	}
-
 	if cr.Spec.Minimal {
 		// Delete route if it exists
 		return r.deleteRoute(ctx, route)
 	}
-	url, err := r.reconcileRoute(ctx, route, svc, cr, tls)
+	grafanaConfig := configureGrafanaRoute(cr)
+	url, err := r.reconcileRoute(ctx, route, svc, cr, tls, grafanaConfig)
 	if err != nil {
 		return err
 	}
@@ -93,12 +94,12 @@ func (r *CryostatReconciler) reconcileGrafanaRoute(ctx context.Context, svc *cor
 var ErrIngressNotReady = goerrors.New("ingress configuration not yet available")
 
 func (r *CryostatReconciler) reconcileRoute(ctx context.Context, route *routev1.Route, svc *corev1.Service,
-	cr *operatorv1beta1.Cryostat, tls *resource_definitions.TLSConfig) (*url.URL, error) {
+	cr *operatorv1beta1.Cryostat, tls *resource_definitions.TLSConfig, config *operatorv1beta1.NetworkConfiguration) (*url.URL, error) {
 	port, err := getHTTPPort(svc)
 	if err != nil {
 		return nil, err
 	}
-	route, err = r.createOrUpdateRoute(ctx, route, cr, svc, port, tls)
+	route, err = r.createOrUpdateRoute(ctx, route, cr, svc, port, tls, config)
 	if err != nil {
 		return nil, err
 	}
@@ -115,7 +116,7 @@ func (r *CryostatReconciler) reconcileRoute(ctx context.Context, route *routev1.
 }
 
 func (r *CryostatReconciler) createOrUpdateRoute(ctx context.Context, route *routev1.Route, owner metav1.Object,
-	svc *corev1.Service, exposePort *corev1.ServicePort, tlsConfig *resource_definitions.TLSConfig) (*routev1.Route, error) {
+	svc *corev1.Service, exposePort *corev1.ServicePort, tlsConfig *resource_definitions.TLSConfig, config *operatorv1beta1.NetworkConfiguration) (*routev1.Route, error) {
 	// Use edge termination by default
 	var routeTLS *routev1.TLSConfig
 	if tlsConfig == nil {
@@ -131,6 +132,9 @@ func (r *CryostatReconciler) createOrUpdateRoute(ctx context.Context, route *rou
 	}
 
 	op, err := controllerutil.CreateOrUpdate(ctx, r.Client, route, func() error {
+		// Set labels and annotations from CR
+		route.Labels = config.Labels
+		route.Annotations = config.Annotations
 		// Set the Cryostat CR as controller
 		if err := controllerutil.SetControllerReference(owner, route, r.Scheme); err != nil {
 			return err
@@ -174,4 +178,37 @@ func getHTTPPort(svc *corev1.Service) (*corev1.ServicePort, error) {
 	}
 	// Shouldn't happen
 	return nil, fmt.Errorf("no \"%s\"port in %s service in %s namespace", httpPortName, svc.Name, svc.Namespace)
+}
+
+func configureCoreRoute(cr *operatorv1beta1.Cryostat) *operatorv1beta1.NetworkConfiguration {
+	var config *operatorv1beta1.NetworkConfiguration
+	if cr.Spec.NetworkOptions == nil || cr.Spec.NetworkOptions.CoreConfig == nil {
+		config = &operatorv1beta1.NetworkConfiguration{}
+	} else {
+		config = cr.Spec.NetworkOptions.CoreConfig
+	}
+
+	configureRoute(config)
+	return config
+}
+
+func configureGrafanaRoute(cr *operatorv1beta1.Cryostat) *operatorv1beta1.NetworkConfiguration {
+	var config *operatorv1beta1.NetworkConfiguration
+	if cr.Spec.NetworkOptions == nil || cr.Spec.NetworkOptions.GrafanaConfig == nil {
+		config = &operatorv1beta1.NetworkConfiguration{}
+	} else {
+		config = cr.Spec.NetworkOptions.GrafanaConfig
+	}
+
+	configureRoute(config)
+	return config
+}
+
+func configureRoute(config *operatorv1beta1.NetworkConfiguration) {
+	if config.Labels == nil {
+		config.Labels = map[string]string{}
+	}
+	if config.Annotations == nil {
+		config.Annotations = map[string]string{}
+	}
 }

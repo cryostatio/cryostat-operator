@@ -280,6 +280,28 @@ func NewCryostatWithReportsSvc() *operatorv1beta1.Cryostat {
 	return cr
 }
 
+func NewCryostatWithCoreNetworkOptions() *operatorv1beta1.Cryostat {
+	cr := NewCryostat()
+	cr.Spec.NetworkOptions = &operatorv1beta1.NetworkConfigurationList{
+		CoreConfig: &operatorv1beta1.NetworkConfiguration{
+			Annotations: map[string]string{"custom": "annotation"},
+			Labels:      map[string]string{"custom": "label"},
+		},
+	}
+	return cr
+}
+
+func NewCryostatWithGrafanaNetworkOptions() *operatorv1beta1.Cryostat {
+	cr := NewCryostat()
+	cr.Spec.NetworkOptions = &operatorv1beta1.NetworkConfigurationList{
+		GrafanaConfig: &operatorv1beta1.NetworkConfiguration{
+			Annotations: map[string]string{"grafana": "annotation"},
+			Labels:      map[string]string{"grafana": "label"},
+		},
+	}
+	return cr
+}
+
 func NewCryostatWithReportsResources() *operatorv1beta1.Cryostat {
 	cr := NewCryostat()
 	cr.Spec.ReportOptions = &operatorv1beta1.ReportConfiguration{
@@ -1851,8 +1873,22 @@ func NewCoreRoute(tls bool) *routev1.Route {
 	return newRoute("cryostat", 8181, tls)
 }
 
+func NewCustomCoreRoute(tls bool) *routev1.Route {
+	route := NewCoreRoute(tls)
+	route.Annotations = map[string]string{"custom": "annotation"}
+	route.Labels = map[string]string{"custom": "label"}
+	return route
+}
+
 func NewGrafanaRoute(tls bool) *routev1.Route {
 	return newRoute("cryostat-grafana", 3000, tls)
+}
+
+func NewCustomGrafanaRoute(tls bool) *routev1.Route {
+	route := NewGrafanaRoute(tls)
+	route.Annotations = map[string]string{"grafana": "annotation"}
+	route.Labels = map[string]string{"grafana": "label"}
+	return route
 }
 
 func newRoute(name string, port int, tls bool) *routev1.Route {
