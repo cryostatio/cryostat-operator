@@ -76,11 +76,11 @@ func (r *CryostatReconciler) reconcileGrafanaRoute(ctx context.Context, svc *cor
 			Namespace: cr.Namespace,
 		},
 	}
-	grafanaConfig := configureGrafanaRoute(cr)
 	if cr.Spec.Minimal {
 		// Delete route if it exists
 		return r.deleteRoute(ctx, route)
 	}
+	grafanaConfig := configureGrafanaRoute(cr)
 	url, err := r.reconcileRoute(ctx, route, svc, cr, tls, grafanaConfig)
 	if err != nil {
 		return err
