@@ -68,8 +68,8 @@ type CryostatSpec struct {
 	// +optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	ServiceOptions *ServiceConfigList `json:"serviceOptions,omitempty"`
-	// Options to control how the operator exposes the application outside of the cluster
-	// using an Ingress or Route.
+	// Options to control how the operator exposes the application outside of the cluster,
+	// such as using an Ingress or Route.
 	// +optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	NetworkOptions *NetworkConfigurationList `json:"networkOptions,omitempty"`
@@ -244,44 +244,46 @@ type ServiceConfigList struct {
 	ReportsConfig *ReportsServiceConfig `json:"reportsConfig,omitempty"`
 }
 
-// NetworkConfiguration provides customization for the corresponding ingress,
-// which allows a service to be exposed when running in a Kubernetes environment
+// NetworkConfiguration provides customization for how to expose a Cryostat
+// service, so that it can be reached from outside the cluster.
+// On OpenShift, a Route is created by default. On Kubernetes, an Ingress will
+// be created if the IngressSpec is defined within this NetworkConfiguration.
 type NetworkConfiguration struct {
-	// Configuration for an ingress object.
+	// Configuration for an Ingress object.
 	// Currently subpaths are not supported, so unique hosts must be specified
 	// (if a single external IP is being used) to differentiate between ingresses/services
 	// +optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	IngressSpec *netv1.IngressSpec `json:"ingressSpec,omitempty"`
-	// Annotations to add to the ingress during its creation.
+	// Annotations to add to the Ingress or Route during its creation.
 	// +optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	Annotations map[string]string `json:"annotations,omitempty"`
-	// Labels to add to the ingress during its creation.
+	// Labels to add to the Ingress or Route during its creation.
 	// The label with key "app" is reserved for use by the operator.
 	// +optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	Labels map[string]string `json:"labels,omitempty"`
 }
 
-// NetworkConfigurationList holds all three NetworkConfiguration objects that specify
-// the Ingress configurations for the services created by the operator for
-// the main Cryostat deployment
+// NetworkConfigurationList holds NetworkConfiguration objects that specify
+// how to expose the services created by the operator for the main Cryostat
+// deployment
 type NetworkConfigurationList struct {
-	// Specifications for ingress that exposes the cryostat service
-	// (which serves the cryostat web-client)
+	// Specifications for how to expose the Cryostat service,
+	// which serves the Cryostat application
 	// +optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	CoreConfig *NetworkConfiguration `json:"coreConfig,omitempty"`
-	// Specifications for ingress that exposes the cryostat-command service
-	// (which serves the websocket command channel)
+	// Specifications for how to expose the Cryostat command service,
+	// which serves the WebSocket command channel
 	// +optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:com.tectonic.ui:hidden"}
 	//
 	// Deprecated: CommandConfig is no longer used.
 	CommandConfig *NetworkConfiguration `json:"commandConfig,omitempty"`
-	// Specifications for ingress that exposes the cryostat-grafana service
-	// (which serves the grafana dashboard)
+	// Specifications for how to expose Cryostat's Grafana service,
+	// which serves the Grafana dashboard
 	// +optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	GrafanaConfig *NetworkConfiguration `json:"grafanaConfig,omitempty"`
