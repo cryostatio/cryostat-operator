@@ -1,4 +1,5 @@
-SHELL := /bin/bash
+SHELL := /bin/bash -o pipefail
+.SHELLFLAGS = -ec
 
 # Current Operator version
 IMAGE_VERSION ?= 2.2.0-dev
