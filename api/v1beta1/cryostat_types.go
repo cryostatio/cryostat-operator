@@ -116,6 +116,9 @@ type CryostatStatus struct {
 	// Address of the deployed Cryostat web application
 	// +operator-sdk:csv:customresourcedefinitions:type=status,xDescriptors={"urn:alm:descriptor:org.w3:link"}
 	ApplicationURL string `json:"applicationUrl"`
+	// Grafana secret
+	// +operator-sdk:csv:customresourcedefinitions:type=status
+	GrafanaSecret *corev1.Secret `json:"grafanaSecret"`
 }
 
 // CryostatConditionType refers to a Condition type that may be used in status.conditions
