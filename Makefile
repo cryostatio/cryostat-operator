@@ -47,10 +47,9 @@ CERT_MANAGER_MANIFEST ?= \
 	https://github.com/jetstack/cert-manager/releases/download/v$(CERT_MANAGER_VERSION)/cert-manager.yaml
 
 KUSTOMIZE_VERSION ?= 3.8.7
-
 CONTROLLER_GEN_VERSION ?= 0.7.0
-
 ADDLICENSE_VERSION ?= 1.0.0
+ENVTEST_K8S_VERSION ?= 1.19.2
 
 DEPLOY_NAMESPACE ?= cryostat-operator-system
 
@@ -83,12 +82,9 @@ all: manager
 test: test-envtest test-scorecard
 
 .PHONY: test-envtest
-ENVTEST_ASSETS_DIR=$(shell pwd)/testbin
-test-envtest: generate fmt vet manifests
+test-envtest: generate manifests fmt vet setup-envtest 
 ifneq ($(SKIP_TESTS), true)
-	mkdir -p $(ENVTEST_ASSETS_DIR)
-	test -f $(ENVTEST_ASSETS_DIR)/setup-envtest.sh || curl -sSLo $(ENVTEST_ASSETS_DIR)/setup-envtest.sh https://raw.githubusercontent.com/kubernetes-sigs/controller-runtime/v0.7.2/hack/setup-envtest.sh
-	source $(ENVTEST_ASSETS_DIR)/setup-envtest.sh; fetch_envtest_tools $(ENVTEST_ASSETS_DIR); setup_envtest_env $(ENVTEST_ASSETS_DIR); $(GO_TEST) -v -coverprofile cover.out ./...
+	KUBEBUILDER_ASSETS="$(shell $(SETUP_ENVTEST) use $(ENVTEST_K8S_VERSION) -p path)" $(GO_TEST) -v -coverprofile cover.out ./...
 endif
 
 .PHONY: test-scorecard
@@ -198,34 +194,40 @@ check_cert_manager:
                fi;\
        fi
 
+# Location to install dependencies
+LOCALBIN ?= $(shell pwd)/bin
+.PHONY: local-bin
+local-bin:
+	mkdir -p $(LOCALBIN)
+
+# Location to install test dependencies
+TESTBIN ?= $(shell pwd)/testbin
+.PHONY: test-bin
+test-bin:
+	mkdir -p $(TESTBIN)
+
 # Download controller-gen locally if necessary
-CONTROLLER_GEN = $(shell pwd)/bin/controller-gen
-controller-gen:
-	$(call go-get-tool,$(CONTROLLER_GEN),sigs.k8s.io/controller-tools/cmd/controller-gen@v$(CONTROLLER_GEN_VERSION))
+CONTROLLER_GEN = $(LOCALBIN)/controller-gen
+.PHONY: controller-gen
+controller-gen: local-bin
+	GOBIN=$(LOCALBIN) go install sigs.k8s.io/controller-tools/cmd/controller-gen@v$(CONTROLLER_GEN_VERSION)
 
 # Download kustomize locally if necessary
-KUSTOMIZE = $(shell pwd)/bin/kustomize
-kustomize:
-	$(call go-get-tool,$(KUSTOMIZE),sigs.k8s.io/kustomize/kustomize/v3@v$(KUSTOMIZE_VERSION))
+KUSTOMIZE = $(LOCALBIN)/kustomize
+.PHONY: kustomize
+kustomize: local-bin
+	GOBIN=$(LOCALBIN) go install sigs.k8s.io/kustomize/kustomize/v3@v$(KUSTOMIZE_VERSION)
 
 # Download addlicense locally if necessary
-ADDLICENSE = $(shell pwd)/bin/addlicense
-addlicense:
-	$(call go-get-tool,$(ADDLICENSE),github.com/google/addlicense@v$(ADDLICENSE_VERSION))
+ADDLICENSE = $(LOCALBIN)/addlicense
+.PHONY: addlicense
+addlicense: local-bin
+	GOBIN=$(LOCALBIN) go install github.com/google/addlicense@v$(ADDLICENSE_VERSION)
 
-# go-get-tool will 'go get' any package $2 and install it to $1.
-PROJECT_DIR := $(shell dirname $(abspath $(lastword $(MAKEFILE_LIST))))
-define go-get-tool
-@[ -f $(1) ] || { \
-set -e ;\
-TMP_DIR=$$(mktemp -d) ;\
-cd $$TMP_DIR ;\
-go mod init tmp ;\
-echo "Downloading $(2)" ;\
-GOBIN=$(PROJECT_DIR)/bin go get $(2) ;\
-rm -rf $$TMP_DIR ;\
-}
-endef
+SETUP_ENVTEST = $(TESTBIN)/setup-envtest
+.PHONY: setup-envtest
+setup-envtest: test-bin
+	GOBIN=$(TESTBIN) go install sigs.k8s.io/controller-runtime/tools/setup-envtest@latest
 
 # Generate bundle manifests and metadata, then validate generated files.
 .PHONY: bundle
