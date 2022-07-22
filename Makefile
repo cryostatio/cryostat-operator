@@ -50,6 +50,8 @@ CERT_MANAGER_MANIFEST ?= \
 
 KUSTOMIZE_VERSION ?= 3.8.7
 
+CONTROLLER_GEN_VERSION ?= 0.7.0
+
 ADDLICENSE_VERSION ?= 1.0.0
 
 DEPLOY_NAMESPACE ?= cryostat-operator-system
@@ -201,7 +203,7 @@ check_cert_manager:
 # Download controller-gen locally if necessary
 CONTROLLER_GEN = $(shell pwd)/bin/controller-gen
 controller-gen:
-	$(call go-get-tool,$(CONTROLLER_GEN),sigs.k8s.io/controller-tools/cmd/controller-gen@v0.4.1)
+	$(call go-get-tool,$(CONTROLLER_GEN),sigs.k8s.io/controller-tools/cmd/controller-gen@v$(CONTROLLER_GEN_VERSION))
 
 # Download kustomize locally if necessary
 KUSTOMIZE = $(shell pwd)/bin/kustomize
