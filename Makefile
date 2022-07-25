@@ -94,8 +94,6 @@ ifneq ($(SKIP_TESTS), true)
 	operator-sdk scorecard bundle
 endif
 
-
-
 # Build manager binary
 .PHONY: manager
 manager: generate fmt vet
@@ -106,6 +104,10 @@ manager: generate fmt vet
 run: generate fmt vet manifests
 	go run ./internal/main.go
 
+ifndef ignore-not-found
+  ignore-not-found = false
+endif
+
 # Install CRDs into a cluster
 .PHONY: install
 install: manifests kustomize
@@ -114,7 +116,7 @@ install: manifests kustomize
 # Uninstall CRDs from a cluster
 .PHONY: uninstall
 uninstall: manifests kustomize
-	- $(KUSTOMIZE) build config/crd | $(CLUSTER_CLIENT) delete -f -
+	- $(KUSTOMIZE) build config/crd | $(CLUSTER_CLIENT) delete --ignore-not-found=$(ignore-not-found) -f -
 
 .PHONY: predeploy
 predeploy:
@@ -137,9 +139,9 @@ endif
 # UnDeploy controller from the configured Kubernetes cluster in ~/.kube/config
 .PHONY: undeploy
 undeploy:
-	- $(CLUSTER_CLIENT) delete recording --all
-	- $(CLUSTER_CLIENT) delete -f config/samples/operator_v1beta1_cryostat.yaml
-	- $(KUSTOMIZE) build config/default | $(CLUSTER_CLIENT) delete -f -
+	- $(CLUSTER_CLIENT) delete --ignore-not-found=$(ignore-not-found) recording --all
+	- $(CLUSTER_CLIENT) delete --ignore-not-found=$(ignore-not-found) -f config/samples/operator_v1beta1_cryostat.yaml
+	- $(KUSTOMIZE) build config/default | $(CLUSTER_CLIENT) delete --ignore-not-found=$(ignore-not-found) -f -
 
 # Generate manifests e.g. CRD, RBAC etc.
 .PHONY: manifests
