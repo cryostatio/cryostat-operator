@@ -119,6 +119,7 @@ type RecordingStatus struct {
 // +kubebuilder:subresource:status
 // +kubebuilder:storageversion
 // +kubebuilder:resource:path=recordings,scope=Namespaced
+// +kubebuilder:deprecatedversion:warning="operator.cryostat.io/v1beta1 Recording is deprecated; please use the Cryostat web application or the Cryostat HTTP API to manage recordings"
 
 // Recording represents a JDK Flight Recording. Create a Recording object to instruct Cryostat to start a new
 // recording for a Pod. An alternative to managing recordings with the Cryostat web application.

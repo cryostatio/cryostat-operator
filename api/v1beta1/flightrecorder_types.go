@@ -152,6 +152,7 @@ type JMXAuthSecret struct {
 // +kubebuilder:storageversion
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
+// +kubebuilder:deprecatedversion:warning="operator.cryostat.io/v1beta1 FlightRecorder is deprecated; please use the Cryostat web application or the Cryostat HTTP API to manage recordings"
 
 // FlightRecorder represents a target Pod that is capable of creating JDK Flight Recordings
 // using Cryostat. The Cryostat operator creates FlightRecorder objects when it finds
