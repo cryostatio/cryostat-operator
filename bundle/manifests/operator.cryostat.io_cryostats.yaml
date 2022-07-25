@@ -2,7 +2,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.4.1
+    controller-gen.kubebuilder.io/version: v0.7.0
   creationTimestamp: null
   name: cryostats.operator.cryostat.io
 spec:
@@ -327,9 +327,9 @@ spec:
                                               it can contain characters disallowed
                                               from the conventional "path" part of
                                               a URL as defined by RFC 3986. Paths
-                                              must begin with a '/'. When unspecified,
-                                              all paths from incoming requests are
-                                              matched.
+                                              must begin with a '/' and must be present
+                                              when using PathType with value "Exact"
+                                              or "Prefix".
                                             type: string
                                           pathType:
                                             description: 'PathType determines the
@@ -358,6 +358,7 @@ spec:
                                             type: string
                                         required:
                                         - backend
+                                        - pathType
                                         type: object
                                       type: array
                                       x-kubernetes-list-type: atomic
@@ -638,9 +639,9 @@ spec:
                                               it can contain characters disallowed
                                               from the conventional "path" part of
                                               a URL as defined by RFC 3986. Paths
-                                              must begin with a '/'. When unspecified,
-                                              all paths from incoming requests are
-                                              matched.
+                                              must begin with a '/' and must be present
+                                              when using PathType with value "Exact"
+                                              or "Prefix".
                                             type: string
                                           pathType:
                                             description: 'PathType determines the
@@ -669,6 +670,7 @@ spec:
                                             type: string
                                         required:
                                         - backend
+                                        - pathType
                                         type: object
                                       type: array
                                       x-kubernetes-list-type: atomic
@@ -949,9 +951,9 @@ spec:
                                               it can contain characters disallowed
                                               from the conventional "path" part of
                                               a URL as defined by RFC 3986. Paths
-                                              must begin with a '/'. When unspecified,
-                                              all paths from incoming requests are
-                                              matched.
+                                              must begin with a '/' and must be present
+                                              when using PathType with value "Exact"
+                                              or "Prefix".
                                             type: string
                                           pathType:
                                             description: 'PathType determines the
@@ -980,6 +982,7 @@ spec:
                                             type: string
                                         required:
                                         - backend
+                                        - pathType
                                         type: object
                                       type: array
                                       x-kubernetes-list-type: atomic
@@ -1054,7 +1057,7 @@ spec:
                           pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                           x-kubernetes-int-or-string: true
                         description: 'Limits describes the maximum amount of compute
-                          resources allowed. More info: https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/'
+                          resources allowed. More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/'
                         type: object
                       requests:
                         additionalProperties:
@@ -1066,7 +1069,7 @@ spec:
                         description: 'Requests describes the minimum amount of compute
                           resources required. If Requests is omitted for a container,
                           it defaults to Limits if that is explicitly specified, otherwise
-                          to an implementation-defined value. More info: https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/'
+                          to an implementation-defined value. More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/'
                         type: object
                     type: object
                   subProcessMaxHeapSize:
@@ -1092,7 +1095,7 @@ spec:
                           pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                           x-kubernetes-int-or-string: true
                         description: 'Limits describes the maximum amount of compute
-                          resources allowed. More info: https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/'
+                          resources allowed. More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/'
                         type: object
                       requests:
                         additionalProperties:
@@ -1104,7 +1107,7 @@ spec:
                         description: 'Requests describes the minimum amount of compute
                           resources required. If Requests is omitted for a container,
                           it defaults to Limits if that is explicitly specified, otherwise
-                          to an implementation-defined value. More info: https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/'
+                          to an implementation-defined value. More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/'
                         type: object
                     type: object
                   dataSourceResources:
@@ -1118,7 +1121,7 @@ spec:
                           pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                           x-kubernetes-int-or-string: true
                         description: 'Limits describes the maximum amount of compute
-                          resources allowed. More info: https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/'
+                          resources allowed. More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/'
                         type: object
                       requests:
                         additionalProperties:
@@ -1130,7 +1133,7 @@ spec:
                         description: 'Requests describes the minimum amount of compute
                           resources required. If Requests is omitted for a container,
                           it defaults to Limits if that is explicitly specified, otherwise
-                          to an implementation-defined value. More info: https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/'
+                          to an implementation-defined value. More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/'
                         type: object
                     type: object
                   grafanaResources:
@@ -1144,7 +1147,7 @@ spec:
                           pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                           x-kubernetes-int-or-string: true
                         description: 'Limits describes the maximum amount of compute
-                          resources allowed. More info: https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/'
+                          resources allowed. More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/'
                         type: object
                       requests:
                         additionalProperties:
@@ -1156,7 +1159,7 @@ spec:
                         description: 'Requests describes the minimum amount of compute
                           resources required. If Requests is omitted for a container,
                           it defaults to Limits if that is explicitly specified, otherwise
-                          to an implementation-defined value. More info: https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/'
+                          to an implementation-defined value. More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/'
                         type: object
                     type: object
                 type: object
@@ -1306,14 +1309,51 @@ spec:
                           dataSource:
                             description: 'This field can be used to specify either:
                               * An existing VolumeSnapshot object (snapshot.storage.k8s.io/VolumeSnapshot)
-                              * An existing PVC (PersistentVolumeClaim) * An existing
-                              custom resource that implements data population (Alpha)
-                              In order to use custom resource types that implement
-                              data population, the AnyVolumeDataSource feature gate
-                              must be enabled. If the provisioner or an external controller
-                              can support the specified data source, it will create
-                              a new volume based on the contents of the specified
-                              data source.'
+                              * An existing PVC (PersistentVolumeClaim) If the provisioner
+                              or an external controller can support the specified
+                              data source, it will create a new volume based on the
+                              contents of the specified data source. If the AnyVolumeDataSource
+                              feature gate is enabled, this field will always have
+                              the same contents as the DataSourceRef field.'
+                            properties:
+                              apiGroup:
+                                description: APIGroup is the group for the resource
+                                  being referenced. If APIGroup is not specified,
+                                  the specified Kind must be in the core API group.
+                                  For any other third-party types, APIGroup is required.
+                                type: string
+                              kind:
+                                description: Kind is the type of resource being referenced
+                                type: string
+                              name:
+                                description: Name is the name of resource being referenced
+                                type: string
+                            required:
+                            - kind
+                            - name
+                            type: object
+                          dataSourceRef:
+                            description: 'Specifies the object from which to populate
+                              the volume with data, if a non-empty volume is desired.
+                              This may be any local object from a non-empty API group
+                              (non core object) or a PersistentVolumeClaim object.
+                              When this field is specified, volume binding will only
+                              succeed if the type of the specified object matches
+                              some installed volume populator or dynamic provisioner.
+                              This field will replace the functionality of the DataSource
+                              field and as such if both fields are non-empty, they
+                              must have the same value. For backwards compatibility,
+                              both fields (DataSource and DataSourceRef) will be set
+                              to the same value automatically if one of them is empty
+                              and the other is non-empty. There are two important
+                              differences between DataSource and DataSourceRef: *
+                              While DataSource only allows two specific types of objects,
+                              DataSourceRef   allows any non-core object, as well
+                              as PersistentVolumeClaim objects. * While DataSource
+                              ignores disallowed values (dropping them), DataSourceRef   preserves
+                              all values, and generates an error if a disallowed value
+                              is   specified. (Alpha) Using this field requires the
+                              AnyVolumeDataSource feature gate to be enabled.'
                             properties:
                               apiGroup:
                                 description: APIGroup is the group for the resource
@@ -1343,7 +1383,7 @@ spec:
                                   pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                   x-kubernetes-int-or-string: true
                                 description: 'Limits describes the maximum amount
-                                  of compute resources allowed. More info: https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/'
+                                  of compute resources allowed. More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/'
                                 type: object
                               requests:
                                 additionalProperties:
@@ -1356,7 +1396,7 @@ spec:
                                   of compute resources required. If Requests is omitted
                                   for a container, it defaults to Limits if that is
                                   explicitly specified, otherwise to an implementation-defined
-                                  value. More info: https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/'
+                                  value. More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/'
                                 type: object
                             type: object
                           selector:

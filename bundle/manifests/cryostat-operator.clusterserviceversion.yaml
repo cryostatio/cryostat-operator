@@ -80,7 +80,7 @@ metadata:
           }
         }
       }
-    operators.operatorframework.io/builder: operator-sdk-v1.12.0+git
+    operators.operatorframework.io/builder: operator-sdk-v1.13.0+git
     operators.operatorframework.io/internal-objects: '["flightrecorders.operator.cryostat.io","recordings.operator.cryostat.io"]'
     operators.operatorframework.io/project_layout: go.kubebuilder.io/v3
     repository: github.com/cryostatio/cryostat-operator
