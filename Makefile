@@ -210,24 +210,25 @@ test-bin:
 CONTROLLER_GEN = $(LOCALBIN)/controller-gen
 .PHONY: controller-gen
 controller-gen: local-bin
-	GOBIN=$(LOCALBIN) go install sigs.k8s.io/controller-tools/cmd/controller-gen@v$(CONTROLLER_GEN_VERSION)
+	[ -f $(CONTROLLER_GEN) ] || GOBIN=$(LOCALBIN) go install sigs.k8s.io/controller-tools/cmd/controller-gen@v$(CONTROLLER_GEN_VERSION)
 
 # Download kustomize locally if necessary
+KUSTOMIZE_INSTALL_SCRIPT ?= "https://raw.githubusercontent.com/kubernetes-sigs/kustomize/master/hack/install_kustomize.sh"
 KUSTOMIZE = $(LOCALBIN)/kustomize
 .PHONY: kustomize
 kustomize: local-bin
-	GOBIN=$(LOCALBIN) go install sigs.k8s.io/kustomize/kustomize/v3@v$(KUSTOMIZE_VERSION)
+	[ -f $(KUSTOMIZE) ] || { curl -s $(KUSTOMIZE_INSTALL_SCRIPT) | bash -s -- $(subst v,,$(KUSTOMIZE_VERSION)) $(LOCALBIN); }
 
 # Download addlicense locally if necessary
 ADDLICENSE = $(LOCALBIN)/addlicense
 .PHONY: addlicense
 addlicense: local-bin
-	GOBIN=$(LOCALBIN) go install github.com/google/addlicense@v$(ADDLICENSE_VERSION)
+	[ -f $(ADDLICENSE) ] || GOBIN=$(LOCALBIN) go install github.com/google/addlicense@v$(ADDLICENSE_VERSION)
 
 SETUP_ENVTEST = $(TESTBIN)/setup-envtest
 .PHONY: setup-envtest
 setup-envtest: test-bin
-	GOBIN=$(TESTBIN) go install sigs.k8s.io/controller-runtime/tools/setup-envtest@latest
+	[ -f $(SETUP_ENVTEST) ] || GOBIN=$(TESTBIN) go install sigs.k8s.io/controller-runtime/tools/setup-envtest@latest
 
 # Generate bundle manifests and metadata, then validate generated files.
 .PHONY: bundle
