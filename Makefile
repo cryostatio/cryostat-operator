@@ -75,6 +75,7 @@ ifneq ("$(wildcard $(GINKGO))","")
 GO_TEST="$(GINKGO)" -cover -outputdir=.
 endif
 
+.PHONY: all
 all: manager
 
 # Run tests
