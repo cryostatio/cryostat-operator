@@ -226,19 +226,6 @@ func (r *CryostatReconciler) Reconcile(ctx context.Context, request ctrl.Request
 		return reconcile.Result{}, err
 	}
 
-	// Update Grafana credentials in status
-	nameSpace := types.NamespacedName{Namespace: grafanaSecret.Namespace, Name: grafanaSecret.Name}
-	grafanaSecret = &corev1.Secret{}
-	if err = r.Client.Get(ctx, nameSpace, grafanaSecret); err != nil {
-		return reconcile.Result{}, err
-	}
-	instance.Status.GrafanaSecret = grafanaSecret
-	fmt.Println("AVC1243dsfg", instance.Status.GrafanaSecret)
-	err = r.Client.Status().Update(context.Background(), instance)
-	if err != nil {
-		return reconcile.Result{}, err
-	}
-
 	jmxAuthSecret := resources.NewJmxSecretForCR(instance)
 	if err := controllerutil.SetControllerReference(instance, jmxAuthSecret, r.Scheme); err != nil {
 		return reconcile.Result{}, err
@@ -327,6 +314,12 @@ func (r *CryostatReconciler) Reconcile(ctx context.Context, request ctrl.Request
 		if err != nil {
 			return reconcile.Result{}, err
 		}
+	}
+
+	instance.Status.GrafanaSecret = instance.Name + "-grafana-basic"
+	err = r.Client.Status().Update(context.Background(), instance)
+	if err != nil {
+		return reconcile.Result{}, err
 	}
 
 	// OpenShift-specific

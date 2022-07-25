@@ -167,7 +167,7 @@ var _ = Describe("CryostatController", func() {
 				t.expectStatusApplicationURL()
 			})
 			It("should set GrafanaSecret in CR Status", func() {
-				t.expectStatusGrafanaCredentials()
+				t.expectStatusGrafanaSecretName()
 			})
 			It("should create deployment and set owner", func() {
 				t.expectDeployment()
@@ -243,7 +243,7 @@ var _ = Describe("CryostatController", func() {
 				t.expectStatusApplicationURL()
 			})
 			It("should set GrafanaSecret in CR Status", func() {
-				t.expectStatusGrafanaCredentials()
+				t.expectStatusGrafanaSecretName()
 			})
 			It("should create deployment and set owner", func() {
 				t.expectDeployment()
@@ -1767,7 +1767,7 @@ func (t *cryostatTestInput) expectStatusApplicationURL() {
 	Expect(instance.Status.ApplicationURL).To(Equal("https://cryostat.example.com"))
 }
 
-func (t *cryostatTestInput) expectStatusGrafanaCredentials() {
+func (t *cryostatTestInput) expectStatusGrafanaSecretName() {
 	instance := &operatorv1beta1.Cryostat{}
 	err := t.Client.Get(context.Background(), types.NamespacedName{Name: "cryostat", Namespace: "default"}, instance)
 
@@ -1776,9 +1776,7 @@ func (t *cryostatTestInput) expectStatusGrafanaCredentials() {
 	err = t.Client.Get(context.Background(), types.NamespacedName{Name: "cryostat", Namespace: "default"}, instance)
 	Expect(err).ToNot(HaveOccurred())
 
-	Expect(instance.Status.GrafanaSecret.StringData["GF_SECURITY_ADMIN_USER"]).To(Equal("admin"))
-	Expect(instance.Status.GrafanaSecret.StringData["GF_SECURITY_ADMIN_PASSWORD"]).To(BeAssignableToTypeOf(""))
-	Expect(instance.Status.GrafanaSecret.StringData["GF_SECURITY_ADMIN_PASSWORD"]).NotTo(Equal(""))
+	Expect(instance.Status.GrafanaSecret).To(Equal("cryostat-grafana-basic"))
 }
 
 func (t *cryostatTestInput) expectDeployment() {

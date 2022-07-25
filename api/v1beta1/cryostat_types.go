@@ -118,7 +118,7 @@ type CryostatStatus struct {
 	ApplicationURL string `json:"applicationUrl"`
 	// Grafana secret
 	// +operator-sdk:csv:customresourcedefinitions:type=status
-	GrafanaSecret *corev1.Secret `json:"grafanaSecret"`
+	GrafanaSecret string `json:"grafanaSecret"`
 }
 
 // CryostatConditionType refers to a Condition type that may be used in status.conditions
@@ -358,6 +358,7 @@ type JmxCacheOptions struct {
 // must be created to instruct the operator to deploy the Cryostat application.
 //+operator-sdk:csv:customresourcedefinitions:resources={{Deployment,v1},{Ingress,v1},{PersistentVolumeClaim,v1},{Secret,v1},{Service,v1},{Route,v1},{ConsoleLink,v1}}
 // +kubebuilder:printcolumn:name="Application URL",type=string,JSONPath=`.status.applicationUrl`
+// +kubebuilder:printcolumn:name="Grafana Secret",type=string,JSONPath=`.status.grafanaSecret`
 type Cryostat struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
