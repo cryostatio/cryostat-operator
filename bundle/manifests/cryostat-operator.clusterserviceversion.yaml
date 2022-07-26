@@ -499,7 +499,7 @@ spec:
                   valueFrom:
                     fieldRef:
                       fieldPath: metadata.annotations['olm.targetNamespaces']
-                image: quay.io/macao/cryostat-operator:2.2.0-dev
+                image: quay.io/cryostat/cryostat-operator:2.2.0-dev
                 imagePullPolicy: Always
                 livenessProbe:
                   httpGet:
