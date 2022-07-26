@@ -82,9 +82,11 @@ all: manager
 .PHONY: test
 test: test-envtest test-scorecard
 
+# FIXME remove ACK_GINKGO_DEPRECATIONS when upgrading to ginkgo 2.0
 .PHONY: test-envtest
-test-envtest: generate manifests fmt vet setup-envtest 
+test-envtest: generate manifests fmt vet setup-envtest
 ifneq ($(SKIP_TESTS), true)
+	export ACK_GINKGO_DEPRECATIONS=1.16.5 
 	KUBEBUILDER_ASSETS="$(shell $(SETUP_ENVTEST) use $(ENVTEST_K8S_VERSION) -p path)" $(GO_TEST) -v -coverprofile cover.out ./...
 endif
 
