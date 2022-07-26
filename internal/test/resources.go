@@ -1578,23 +1578,23 @@ func NewVolumeMountsWithTemplates(tls bool) []corev1.VolumeMount {
 
 func NewCoreLivenessProbe(tls bool) *corev1.Probe {
 	return &corev1.Probe{
-		Handler: newCoreProbeHandler(tls),
+		ProbeHandler: newCoreProbeHandler(tls),
 	}
 }
 
 func NewCoreStartupProbe(tls bool) *corev1.Probe {
 	return &corev1.Probe{
-		Handler:          newCoreProbeHandler(tls),
+		ProbeHandler:     newCoreProbeHandler(tls),
 		FailureThreshold: 18,
 	}
 }
 
-func newCoreProbeHandler(tls bool) corev1.Handler {
+func newCoreProbeHandler(tls bool) corev1.ProbeHandler {
 	protocol := corev1.URISchemeHTTPS
 	if !tls {
 		protocol = corev1.URISchemeHTTP
 	}
-	return corev1.Handler{
+	return corev1.ProbeHandler{
 		HTTPGet: &corev1.HTTPGetAction{
 			Port:   intstr.IntOrString{IntVal: 8181},
 			Path:   "/health/liveness",
@@ -1609,7 +1609,7 @@ func NewGrafanaLivenessProbe(tls bool) *corev1.Probe {
 		protocol = corev1.URISchemeHTTP
 	}
 	return &corev1.Probe{
-		Handler: corev1.Handler{
+		ProbeHandler: corev1.ProbeHandler{
 			HTTPGet: &corev1.HTTPGetAction{
 				Port:   intstr.IntOrString{IntVal: 3000},
 				Path:   "/api/health",
@@ -1621,7 +1621,7 @@ func NewGrafanaLivenessProbe(tls bool) *corev1.Probe {
 
 func NewDatasourceLivenessProbe() *corev1.Probe {
 	return &corev1.Probe{
-		Handler: corev1.Handler{
+		ProbeHandler: corev1.ProbeHandler{
 			Exec: &corev1.ExecAction{
 				Command: []string{"curl", "--fail", "http://127.0.0.1:8080"},
 			},
@@ -1635,7 +1635,7 @@ func NewReportsLivenessProbe(tls bool) *corev1.Probe {
 		protocol = corev1.URISchemeHTTP
 	}
 	return &corev1.Probe{
-		Handler: corev1.Handler{
+		ProbeHandler: corev1.ProbeHandler{
 			HTTPGet: &corev1.HTTPGetAction{
 				Port:   intstr.IntOrString{IntVal: 10000},
 				Path:   "/health",
