@@ -316,10 +316,12 @@ func (r *CryostatReconciler) Reconcile(ctx context.Context, request ctrl.Request
 		}
 	}
 
-	instance.Status.GrafanaSecret = instance.Name + "-grafana-basic"
-	err = r.Client.Status().Update(context.Background(), instance)
-	if err != nil {
-		return reconcile.Result{}, err
+	if grafanaSecret != nil {
+		instance.Status.GrafanaSecret = grafanaSecret.Name
+		err = r.Client.Status().Update(ctx, instance)
+		if err != nil {
+			return reconcile.Result{}, err
+		}
 	}
 
 	// OpenShift-specific
