@@ -88,7 +88,7 @@ var _ = Describe("CryostatController", func() {
 		logf.SetLogger(logger)
 		s := test.NewTestScheme()
 
-		t.Client = fake.NewFakeClientWithScheme(s, t.objs...)
+		t.Client = fake.NewClientBuilder().WithScheme(s).WithRuntimeObjects(t.objs...).Build()
 		t.controller = &controllers.CryostatReconciler{
 			Client:        t.Client,
 			Scheme:        s,
