@@ -4,6 +4,10 @@
 SHELL := /bin/bash -o pipefail
 .SHELLFLAGS = -ec
 
+# OS information
+OS = $(shell go env GOOS)
+ARCH = $(shell go env GOARCH)
+
 # Current Operator version
 IMAGE_VERSION ?= 2.2.0-dev
 BUNDLE_VERSION ?= $(IMAGE_VERSION)
@@ -11,9 +15,17 @@ DEFAULT_NAMESPACE ?= quay.io/cryostat
 IMAGE_NAMESPACE ?= $(DEFAULT_NAMESPACE)
 OPERATOR_NAME ?= cryostat-operator
 CLUSTER_CLIENT ?= kubectl
+IMAGE_TAG_BASE ?= $(IMAGE_NAMESPACE)/$(OPERATOR_NAME)
 
 # Default bundle image tag
-BUNDLE_IMG ?= $(IMAGE_NAMESPACE)/$(OPERATOR_NAME)-bundle:$(BUNDLE_VERSION)
+BUNDLE_IMG ?= $(IMAGE_TAG_BASE)-bundle:$(BUNDLE_VERSION)
+BUNDLE_IMGS ?= $(BUNDLE_IMG) 
+
+# Default catalog image tag
+CATALOG_IMG ?= $(IMAGE_TAG_BASE)-catalog:$(BUNDLE_VERSION) 
+ifneq ($(origin CATALOG_BASE_IMG), undefined)
+FROM_INDEX_OPT := --from-index $(CATALOG_BASE_IMG) 
+endif 
 
 # Options for 'bundle-build'
 ifneq ($(origin CHANNELS), undefined)
@@ -35,7 +47,8 @@ endif
 
 IMAGE_BUILDER ?= podman
 # Image URL to use all building/pushing image targets
-OPERATOR_IMG ?= $(IMAGE_NAMESPACE)/$(OPERATOR_NAME):$(IMAGE_VERSION)
+OPERATOR_IMG ?= $(IMAGE_TAG_BASE):$(IMAGE_VERSION)
+
 
 # Images used by the operator
 CORE_NAMESPACE ?= $(DEFAULT_NAMESPACE)
@@ -62,6 +75,7 @@ CERT_MANAGER_MANIFEST ?= \
 KUSTOMIZE_VERSION ?= 3.8.7
 CONTROLLER_GEN_VERSION ?= 0.9.0
 ADDLICENSE_VERSION ?= 1.0.0
+OPM_VERSION ?= 1.23.0
 ENVTEST_K8S_VERSION ?= 1.24
 
 DEPLOY_NAMESPACE ?= cryostat-operator-system
@@ -242,10 +256,25 @@ ADDLICENSE = $(LOCALBIN)/addlicense
 addlicense: local-bin
 	[ -f $(ADDLICENSE) ] || GOBIN=$(LOCALBIN) go install github.com/google/addlicense@v$(ADDLICENSE_VERSION)
 
+# Download setup-envtest locally if necessary
 SETUP_ENVTEST = $(TESTBIN)/setup-envtest
 .PHONY: setup-envtest
 setup-envtest: test-bin
 	[ -f $(SETUP_ENVTEST) ] || GOBIN=$(TESTBIN) go install sigs.k8s.io/controller-runtime/tools/setup-envtest@latest
+
+# Download opm locally if necessary
+OPM = $(LOCALBIN)/opm
+.PHONY: opm
+opm: local-bin
+	[ -f $(OPM) ] || { \
+	set -e ;\
+	curl -sSLo $(OPM) https://github.com/operator-framework/operator-registry/releases/download/v$(OPM_VERSION)/$(OS)-$(ARCH)-opm ;\
+	chmod +x $(OPM) ;\
+	}
+
+.PHONY: catalog-build
+catalog-build: opm
+	$(OPM) index add --container-tool $(IMAGE_BUILDER) --mode semver --tag $(CATALOG_IMG) --bundles $(BUNDLE_IMGS) $(FROM_INDEX_OPT)
 
 # Generate bundle manifests and metadata, then validate generated files.
 .PHONY: bundle
@@ -282,15 +311,15 @@ endif
 undeploy_bundle:
 	- operator-sdk cleanup $(OPERATOR_NAME)
 
+# Deploy a Cryostat instance
 .PHONY: create_cryostat_cr
 create_cryostat_cr: destroy_cryostat_cr
 	$(CLUSTER_CLIENT) create -f config/samples/operator_v1beta1_cryostat.yaml
 
+# Undeploy a Cryostat instance
 .PHONY: destroy_cryostat_cr
 destroy_cryostat_cr:
 	- $(CLUSTER_CLIENT) delete -f config/samples/operator_v1beta1_cryostat.yaml
-
-
 
 # Local development/testing helpers
 
