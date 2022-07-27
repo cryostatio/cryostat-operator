@@ -102,3 +102,6 @@ testbin/*
 *.swp
 *.swo
 *~
+
+# Cache directory
+cache/
