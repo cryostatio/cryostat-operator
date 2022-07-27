@@ -18,6 +18,9 @@ spec:
     - jsonPath: .status.applicationUrl
       name: Application URL
       type: string
+    - jsonPath: .status.grafanaSecret
+      name: Grafana Secret
+      type: string
     name: v1beta1
     schema:
       openAPIV3Schema:
@@ -892,6 +895,9 @@ spec:
                   - type
                   type: object
                 type: array
+              grafanaSecret:
+                description: Name of the Secret containing the generated Grafana credentials
+                type: string
             required:
             - applicationUrl
             type: object

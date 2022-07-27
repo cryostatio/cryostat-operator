@@ -268,6 +268,11 @@ spec:
         path: conditions
         x-descriptors:
         - urn:alm:descriptor:io.kubernetes.conditions
+      - description: Name of the Secret containing the generated Grafana credentials
+        displayName: Grafana Secret
+        path: grafanaSecret
+        x-descriptors:
+        - urn:alm:descriptor:io.kubernetes:Secret
       version: v1beta1
     - description: FlightRecorder represents a target Pod that is capable of creating JDK Flight Recordings using Cryostat. The Cryostat operator creates FlightRecorder objects when it finds compatible Pods.
       displayName: Flight Recorder
