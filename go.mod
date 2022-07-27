@@ -18,8 +18,5 @@ replace github.com/openshift/api => github.com/openshift/api v0.0.0-202006182026
 
 replace github.com/dgrijalva/jwt-go => github.com/golang-jwt/jwt v3.2.1+incompatible
 
-// Fix for CVE-2021-3121, revisit when upgrading client-go
-replace github.com/gogo/protobuf => github.com/gogo/protobuf v1.3.2
-
 // Fix for CVE-2022-28948
 replace gopkg.in/yaml.v3 => gopkg.in/yaml.v3 v3.0.1
