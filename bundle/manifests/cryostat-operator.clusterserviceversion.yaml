@@ -80,7 +80,7 @@ metadata:
           }
         }
       }
-    operators.operatorframework.io/builder: operator-sdk-v1.16.0+git
+    operators.operatorframework.io/builder: operator-sdk-v1.17.0+git
     operators.operatorframework.io/internal-objects: '["flightrecorders.operator.cryostat.io","recordings.operator.cryostat.io"]'
     operators.operatorframework.io/project_layout: go.kubebuilder.io/v3
     repository: github.com/cryostatio/cryostat-operator
@@ -815,4 +815,13 @@ spec:
   maturity: stable
   provider:
     name: The Cryostat Community
+  relatedImages:
+  - image: quay.io/cryostat/cryostat-reports:latest
+    name: reports
+  - image: quay.io/cryostat/cryostat-grafana-dashboard:latest
+    name: grafana
+  - image: quay.io/cryostat/jfr-datasource:latest
+    name: datasource
+  - image: quay.io/cryostat/cryostat:latest
+    name: core
   version: 2.2.0-dev
