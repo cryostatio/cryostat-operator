@@ -57,7 +57,7 @@ CERT_MANAGER_MANIFEST ?= \
 	https://github.com/jetstack/cert-manager/releases/download/v$(CERT_MANAGER_VERSION)/cert-manager.yaml
 
 KUSTOMIZE_VERSION ?= 3.8.7
-CONTROLLER_GEN_VERSION ?= 0.8.0
+CONTROLLER_GEN_VERSION ?= 0.9.0
 ADDLICENSE_VERSION ?= 1.0.0
 ENVTEST_K8S_VERSION ?= 1.24
 
