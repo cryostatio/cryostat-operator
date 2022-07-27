@@ -710,10 +710,14 @@ func (r *CryostatReconciler) createOrUpdateDeployment(ctx context.Context, deplo
 		if err := controllerutil.SetControllerReference(owner, deploy, r.Scheme); err != nil {
 			return err
 		}
+		// Immutable, only updated when the deployment is created
+		if deploy.ObjectMeta.CreationTimestamp.IsZero() {
+			deploy.Spec.Selector = specCopy.Selector
+		}
+
 		// Update pod template spec and selector to propagate any changes from Cryostat CR
 		deploy.Spec.Template.Spec = specCopy.Template.Spec
-		// FIXME Immutable
-		deploy.Spec.Selector = specCopy.Selector
+
 		// Set the replica count, if managed by the operator
 		if specCopy.Replicas != nil {
 			deploy.Spec.Replicas = specCopy.Replicas
