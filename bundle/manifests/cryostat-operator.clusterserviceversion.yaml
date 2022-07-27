@@ -80,7 +80,7 @@ metadata:
           }
         }
       }
-    operators.operatorframework.io/builder: operator-sdk-v1.17.0+git
+    operators.operatorframework.io/builder: operator-sdk-v1.18.0+git
     operators.operatorframework.io/internal-objects: '["flightrecorders.operator.cryostat.io","recordings.operator.cryostat.io"]'
     operators.operatorframework.io/project_layout: go.kubebuilder.io/v3
     repository: github.com/cryostatio/cryostat-operator
@@ -518,7 +518,9 @@ spec:
           - watch
         serviceAccountName: cryostat-operator-service-account
       deployments:
-      - name: cryostat-operator-controller-manager
+      - label:
+          control-plane: controller-manager
+        name: cryostat-operator-controller-manager
         spec:
           replicas: 1
           selector:
