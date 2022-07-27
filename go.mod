@@ -8,10 +8,10 @@ require (
 	github.com/onsi/ginkgo v1.16.5
 	github.com/onsi/gomega v1.17.0
 	github.com/openshift/api v3.9.0+incompatible
-	k8s.io/api v0.23.0
-	k8s.io/apimachinery v0.23.0
-	k8s.io/client-go v0.23.0
-	sigs.k8s.io/controller-runtime v0.11.0
+	k8s.io/api v0.23.5
+	k8s.io/apimachinery v0.23.5
+	k8s.io/client-go v0.23.5
+	sigs.k8s.io/controller-runtime v0.11.2
 )
 
 replace github.com/openshift/api => github.com/openshift/api v0.0.0-20200618202633-7192180f496a
