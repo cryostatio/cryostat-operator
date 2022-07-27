@@ -1682,6 +1682,15 @@ func OtherDeployment() *appsv1.Deployment {
 		},
 		Spec: appsv1.DeploymentSpec{
 			Template: corev1.PodTemplateSpec{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "cryostat",
+					Namespace: "default",
+					Labels: map[string]string{
+						"app":       "cryostat",
+						"kind":      "cryostat",
+						"component": "cryostat",
+					},
+				},
 				Spec: corev1.PodSpec{
 					Containers: []corev1.Container{
 						{
