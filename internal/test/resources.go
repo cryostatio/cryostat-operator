@@ -1686,9 +1686,7 @@ func OtherDeployment() *appsv1.Deployment {
 					Name:      "cryostat",
 					Namespace: "default",
 					Labels: map[string]string{
-						"app":       "cryostat",
-						"kind":      "cryostat",
-						"component": "cryostat",
+						"app": "something-app",
 					},
 				},
 				Spec: corev1.PodSpec{

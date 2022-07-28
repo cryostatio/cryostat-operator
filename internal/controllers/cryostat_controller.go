@@ -714,14 +714,14 @@ func (r *CryostatReconciler) createOrUpdateDeployment(ctx context.Context, deplo
 		if deploy.ObjectMeta.CreationTimestamp.IsZero() {
 			deploy.Spec.Selector = specCopy.Selector
 		}
-
-		// Update pod template spec and selector to propagate any changes from Cryostat CR
-		deploy.Spec.Template.Spec = specCopy.Template.Spec
-
 		// Set the replica count, if managed by the operator
 		if specCopy.Replicas != nil {
 			deploy.Spec.Replicas = specCopy.Replicas
 		}
+		// Update pod template spec to propagate any changes from Cryostat CR
+		deploy.Spec.Template.Spec = specCopy.Template.Spec
+		// Update pod template metadata
+		mergeLabelsAndAnnotations(&deploy.Spec.Template.ObjectMeta, &specCopy.Template.ObjectMeta)
 		return nil
 	})
 	if err != nil {
