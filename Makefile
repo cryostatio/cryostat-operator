@@ -76,7 +76,8 @@ KUSTOMIZE_VERSION ?= 3.8.7
 CONTROLLER_GEN_VERSION ?= 0.9.0
 ADDLICENSE_VERSION ?= 1.0.0
 OPM_VERSION ?= 1.23.0
-ENVTEST_K8S_VERSION ?= 1.24
+# ENVTEST_K8S_VERSION refers to the version of kubebuilder assets to be downloaded by envtest binary.
+ENVTEST_K8S_VERSION ?= 1.24 
 
 DEPLOY_NAMESPACE ?= cryostat-operator-system
 
