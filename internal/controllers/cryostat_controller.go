@@ -757,6 +757,8 @@ func findDeployCondition(conditions []appsv1.DeploymentCondition, condType appsv
 }
 
 func mergeLabelsAndAnnotations(dest *metav1.ObjectMeta, src *metav1.ObjectMeta) {
+	// Check and create labels/annotations map if absent
+	createLabelsAnnotationIfAbsent(dest)
 	// Merge labels and annotations, preferring those specified by the operator
 	labels := dest.GetLabels()
 	for k, v := range src.GetLabels() {
@@ -765,5 +767,14 @@ func mergeLabelsAndAnnotations(dest *metav1.ObjectMeta, src *metav1.ObjectMeta) 
 	annotations := dest.GetAnnotations()
 	for k, v := range src.GetAnnotations() {
 		annotations[k] = v
+	}
+}
+
+func createLabelsAnnotationIfAbsent(metadata *metav1.ObjectMeta) {
+	if metadata.Labels == nil {
+		metadata.Labels = map[string]string{}
+	}
+	if metadata.Annotations == nil {
+		metadata.Annotations = map[string]string{}
 	}
 }
