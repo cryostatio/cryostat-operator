@@ -114,7 +114,7 @@ test: test-envtest test-scorecard
 .PHONY: test-envtest
 test-envtest: generate manifests fmt vet setup-envtest
 ifneq ($(SKIP_TESTS), true)
-	ACK_GINKGO_DEPRECATIONS=1.16.5  KUBEBUILDER_ASSETS="$(shell $(SETUP_ENVTEST) use $(ENVTEST_K8S_VERSION) -p path)" $(GO_TEST) -v -coverprofile cover.out ./...
+	ACK_GINKGO_DEPRECATIONS=1.16.5  KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) -p path)" $(GO_TEST) -v -coverprofile cover.out ./...
 endif
 
 .PHONY: test-scorecard
@@ -241,32 +241,37 @@ test-bin:
 # Download controller-gen locally if necessary
 CONTROLLER_GEN = $(LOCALBIN)/controller-gen
 .PHONY: controller-gen
-controller-gen: local-bin
+controller-gen: $(CONTROLLER_GEN)
+$(CONTROLLER_GEN): local-bin
 	[ -f $(CONTROLLER_GEN) ] || GOBIN=$(LOCALBIN) go install sigs.k8s.io/controller-tools/cmd/controller-gen@v$(CONTROLLER_GEN_VERSION)
 
 # Download kustomize locally if necessary
 KUSTOMIZE_INSTALL_SCRIPT ?= "https://raw.githubusercontent.com/kubernetes-sigs/kustomize/master/hack/install_kustomize.sh"
 KUSTOMIZE = $(LOCALBIN)/kustomize
 .PHONY: kustomize
-kustomize: local-bin
+kustomize: $(KUSTOMIZE)
+$(KUSTOMIZE): local-bin
 	[ -f $(KUSTOMIZE) ] || { curl -s $(KUSTOMIZE_INSTALL_SCRIPT) | bash -s -- $(subst v,,$(KUSTOMIZE_VERSION)) $(LOCALBIN); }
 
 # Download addlicense locally if necessary
 ADDLICENSE = $(LOCALBIN)/addlicense
 .PHONY: addlicense
-addlicense: local-bin
+addlicense: $(ADDLICENSE)
+$(ADDLICENSE): local-bin
 	[ -f $(ADDLICENSE) ] || GOBIN=$(LOCALBIN) go install github.com/google/addlicense@v$(ADDLICENSE_VERSION)
 
 # Download setup-envtest locally if necessary
-SETUP_ENVTEST = $(TESTBIN)/setup-envtest
+ENVTEST = $(TESTBIN)/setup-envtest
 .PHONY: setup-envtest
-setup-envtest: test-bin
-	[ -f $(SETUP_ENVTEST) ] || GOBIN=$(TESTBIN) go install sigs.k8s.io/controller-runtime/tools/setup-envtest@latest
+setup-envtest: $(ENVTEST)
+$(ENVTEST): test-bin
+	[ -f $(ENVTEST) ] || GOBIN=$(TESTBIN) go install sigs.k8s.io/controller-runtime/tools/setup-envtest@latest
 
 # Download opm locally if necessary
 OPM = $(LOCALBIN)/opm
 .PHONY: opm
-opm: local-bin
+opm: $(OPM)
+$(OPM): local-bin
 	[ -f $(OPM) ] || { \
 	set -e ;\
 	curl -sSLo $(OPM) https://github.com/operator-framework/operator-registry/releases/download/v$(OPM_VERSION)/$(OS)-$(ARCH)-opm ;\
