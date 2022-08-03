@@ -11,12 +11,6 @@ patches:
     version: v1alpha1
     kind: ClusterServiceVersion
     name: cryostat-operator.v0.0.0
-- path: add_minkubeversion_patch.yaml
-  target:
-    group: operators.coreos.com
-    version: v1alpha1
-    kind: ClusterServiceVersion
-    name: cryostat-operator.v0.0.0
 # - path: remove_cert_manager_volume_patch.yaml
 #   target:
 #     group: apps

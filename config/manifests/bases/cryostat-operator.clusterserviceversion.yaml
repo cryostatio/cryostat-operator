@@ -469,6 +469,7 @@ spec:
   - email: cryostat-development@googlegroups.com
     name: The Cryostat Authors
   maturity: stable
+  minKubeVersion: 1.19.0
   provider:
     name: The Cryostat Community
   version: 2.2.0-dev
