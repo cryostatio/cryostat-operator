@@ -227,50 +227,48 @@ check_cert_manager:
 
 # Location to install dependencies
 LOCALBIN ?= $(shell pwd)/bin
-.PHONY: local-bin
-local-bin:
+$(LOCALBIN):
 	mkdir -p $(LOCALBIN)
 
 # Location to install test dependencies
 TESTBIN ?= $(shell pwd)/testbin
-.PHONY: test-bin
-test-bin:
+$(TESTBIN):
 	mkdir -p $(TESTBIN)
 
 # Download controller-gen locally if necessary
 CONTROLLER_GEN = $(LOCALBIN)/controller-gen
 .PHONY: controller-gen
 controller-gen: $(CONTROLLER_GEN)
-$(CONTROLLER_GEN): local-bin
-	[ -f $(CONTROLLER_GEN) ] || GOBIN=$(LOCALBIN) go install sigs.k8s.io/controller-tools/cmd/controller-gen@v$(CONTROLLER_GEN_VERSION)
+$(CONTROLLER_GEN): $(LOCALBIN)
+	GOBIN=$(LOCALBIN) go install sigs.k8s.io/controller-tools/cmd/controller-gen@v$(CONTROLLER_GEN_VERSION)
 
 # Download kustomize locally if necessary
 KUSTOMIZE_INSTALL_SCRIPT ?= "https://raw.githubusercontent.com/kubernetes-sigs/kustomize/master/hack/install_kustomize.sh"
 KUSTOMIZE = $(LOCALBIN)/kustomize
 .PHONY: kustomize
 kustomize: $(KUSTOMIZE)
-$(KUSTOMIZE): local-bin
-	[ -f $(KUSTOMIZE) ] || { curl -s $(KUSTOMIZE_INSTALL_SCRIPT) | bash -s -- $(subst v,,$(KUSTOMIZE_VERSION)) $(LOCALBIN); }
+$(KUSTOMIZE): $(LOCALBIN)
+	curl -s $(KUSTOMIZE_INSTALL_SCRIPT) | bash -s -- $(subst v,,$(KUSTOMIZE_VERSION)) $(LOCALBIN)
 
 # Download addlicense locally if necessary
 ADDLICENSE = $(LOCALBIN)/addlicense
 .PHONY: addlicense
 addlicense: $(ADDLICENSE)
-$(ADDLICENSE): local-bin
-	[ -f $(ADDLICENSE) ] || GOBIN=$(LOCALBIN) go install github.com/google/addlicense@v$(ADDLICENSE_VERSION)
+$(ADDLICENSE): $(LOCALBIN)
+	GOBIN=$(LOCALBIN) go install github.com/google/addlicense@v$(ADDLICENSE_VERSION)
 
 # Download setup-envtest locally if necessary
 ENVTEST = $(TESTBIN)/setup-envtest
 .PHONY: setup-envtest
 setup-envtest: $(ENVTEST)
-$(ENVTEST): test-bin
-	[ -f $(ENVTEST) ] || GOBIN=$(TESTBIN) go install sigs.k8s.io/controller-runtime/tools/setup-envtest@latest
+$(ENVTEST): $(TESTBIN)
+	GOBIN=$(TESTBIN) go install sigs.k8s.io/controller-runtime/tools/setup-envtest@latest
 
 # Download opm locally if necessary
 OPM = $(LOCALBIN)/opm
 .PHONY: opm
 opm: $(OPM)
-$(OPM): local-bin
+$(OPM): $(LOCALBIN)
 	[ -f $(OPM) ] || { \
 	set -e ;\
 	curl -sSLo $(OPM) https://github.com/operator-framework/operator-registry/releases/download/v$(OPM_VERSION)/$(OS)-$(ARCH)-opm ;\
