@@ -230,11 +230,6 @@ LOCALBIN ?= $(shell pwd)/bin
 $(LOCALBIN):
 	mkdir -p $(LOCALBIN)
 
-# Location to install test dependencies
-TESTBIN ?= $(shell pwd)/testbin
-$(TESTBIN):
-	mkdir -p $(TESTBIN)
-
 # Download controller-gen locally if necessary
 CONTROLLER_GEN = $(LOCALBIN)/controller-gen
 .PHONY: controller-gen
@@ -258,11 +253,11 @@ $(ADDLICENSE): $(LOCALBIN)
 	GOBIN=$(LOCALBIN) go install github.com/google/addlicense@v$(ADDLICENSE_VERSION)
 
 # Download setup-envtest locally if necessary
-ENVTEST = $(TESTBIN)/setup-envtest
+ENVTEST = $(LOCALBIN)/setup-envtest
 .PHONY: setup-envtest
 setup-envtest: $(ENVTEST)
-$(ENVTEST): $(TESTBIN)
-	GOBIN=$(TESTBIN) go install sigs.k8s.io/controller-runtime/tools/setup-envtest@latest
+$(ENVTEST): $(LOCALBIN)
+	GOBIN=$(LOCALBIN) go install sigs.k8s.io/controller-runtime/tools/setup-envtest@latest
 
 # Download opm locally if necessary
 OPM = $(LOCALBIN)/opm
