@@ -79,6 +79,17 @@ type TLSConfig struct {
 }
 
 const (
+	defaultCoreCpuRequest             string = "100m"
+	defaultCoreMemoryRequest          string = "384Mi"
+	defaultJfrDatasourceCpuRequest    string = "100m"
+	defaultJfrDatasourceMemoryRequest string = "512Mi"
+	defaultGrafanaCpuRequest          string = "1000m"
+	defaultGrafanaMemoryRequest       string = "256Mi"
+	defaultReportCpuRequest           string = "128m"
+	defaultReportMemoryRequest        string = "256Mi"
+)
+
+const (
 	cryostatHTTPContainerPort int32  = 8181
 	cryostatJMXContainerPort  int32  = 9091
 	grafanaContainerPort      int32  = 3000
@@ -379,22 +390,33 @@ func NewPodForCR(cr *operatorv1beta1.Cryostat, specs *ServiceSpecs, imageTags *I
 	}
 }
 
+func NewReportContainerResource(cr *operatorv1beta1.Cryostat) corev1.ResourceRequirements {
+	var resources corev1.ResourceRequirements
+	if cr.Spec.ReportOptions != nil {
+		resources = cr.Spec.ReportOptions.Resources
+	}
+	// Only check requests
+	if resources.Requests == nil {
+		resources.Requests = corev1.ResourceList{}
+	}
+	requests := resources.Requests
+	if _, found := requests[corev1.ResourceCPU]; !found {
+		requests[corev1.ResourceCPU] = resource.MustParse(defaultReportCpuRequest)
+	}
+	if _, found := requests[corev1.ResourceMemory]; !found {
+		requests[corev1.ResourceMemory] = resource.MustParse(defaultReportMemoryRequest)
+	}
+	checkResourceRequestWithLimit(requests, resources.Limits)
+	return resources
+}
+
 // ALL capability to drop for restricted pod security. See:
 // https://kubernetes.io/docs/concepts/security/pod-security-standards/#restricted
 const capabilityAll corev1.Capability = "ALL"
 
-func NewPodForReports(cr *operatorv1beta1.Cryostat, imageTags *ImageTags, tls *TLSConfig,
-	openshift bool) *corev1.PodSpec {
-	resources := corev1.ResourceRequirements{}
-	if cr.Spec.ReportOptions != nil {
-		resources = cr.Spec.ReportOptions.Resources
-	}
-	cpus := int64(1)
-	if requests := resources.Requests; requests != nil {
-		if cpu := requests.Cpu(); cpu != nil {
-			cpus = cpu.Value()
-		}
-	}
+func NewPodForReports(cr *operatorv1beta1.Cryostat, imageTags *ImageTags, tls *TLSConfig, openshift bool) *corev1.PodSpec {
+	resources := NewReportContainerResource(cr)
+	cpus := resources.Requests.Cpu().Value() // Round to 1 if cpu request < 1000m
 	if limits := resources.Limits; limits != nil {
 		if cpu := limits.Cpu(); cpu != nil {
 			cpus = cpu.Value()
@@ -544,6 +566,26 @@ func NewPodForReports(cr *operatorv1beta1.Cryostat, imageTags *ImageTags, tls *T
 		Tolerations:     tolerations,
 		SecurityContext: podSc,
 	}
+}
+
+func NewCoreContainerResource(cr *operatorv1beta1.Cryostat) corev1.ResourceRequirements {
+	resources := corev1.ResourceRequirements{}
+	if cr.Spec.Resources != nil {
+		resources = cr.Spec.Resources.CoreResources
+	}
+	if resources.Requests == nil {
+		resources.Requests = corev1.ResourceList{}
+	}
+	// Add defaults to requests
+	requests := resources.Requests
+	if _, found := requests[corev1.ResourceCPU]; !found {
+		requests[corev1.ResourceCPU] = resource.MustParse(defaultCoreCpuRequest)
+	}
+	if _, found := requests[corev1.ResourceMemory]; !found {
+		requests[corev1.ResourceMemory] = resource.MustParse(defaultCoreMemoryRequest)
+	}
+	checkResourceRequestWithLimit(requests, resources.Limits)
+	return resources
 }
 
 func NewCoreContainer(cr *operatorv1beta1.Cryostat, specs *ServiceSpecs, imageTag string,
@@ -898,7 +940,7 @@ func NewCoreContainer(cr *operatorv1beta1.Cryostat, specs *ServiceSpecs, imageTa
 		},
 		Env:       envs,
 		EnvFrom:   envsFrom,
-		Resources: cr.Spec.Resources.CoreResources,
+		Resources: NewCoreContainerResource(cr),
 		LivenessProbe: &corev1.Probe{
 			ProbeHandler: probeHandler,
 		},
@@ -909,6 +951,25 @@ func NewCoreContainer(cr *operatorv1beta1.Cryostat, specs *ServiceSpecs, imageTa
 		},
 		SecurityContext: containerSc,
 	}
+}
+
+func NewGrafanaContainerResource(cr *operatorv1beta1.Cryostat) corev1.ResourceRequirements {
+	resources := corev1.ResourceRequirements{}
+	if cr.Spec.Resources != nil {
+		resources = cr.Spec.Resources.GrafanaResources
+	}
+	if resources.Requests == nil {
+		resources.Requests = corev1.ResourceList{}
+	}
+	requests := resources.Requests
+	if _, found := requests[corev1.ResourceCPU]; !found {
+		requests[corev1.ResourceCPU] = resource.MustParse(defaultGrafanaCpuRequest)
+	}
+	if _, found := requests[corev1.ResourceMemory]; !found {
+		requests[corev1.ResourceMemory] = resource.MustParse(defaultGrafanaMemoryRequest)
+	}
+	checkResourceRequestWithLimit(requests, resources.Limits)
+	return resources
 }
 
 func NewGrafanaContainer(cr *operatorv1beta1.Cryostat, imageTag string, tls *TLSConfig) corev1.Container {
@@ -993,13 +1054,32 @@ func NewGrafanaContainer(cr *operatorv1beta1.Cryostat, imageTag string, tls *TLS
 				},
 			},
 		},
-		Resources:       cr.Spec.Resources.GrafanaResources,
 		SecurityContext: containerSc,
+		Resources:       NewGrafanaContainerResource(cr),
 	}
 }
 
 // datasourceURL contains the fixed URL to jfr-datasource's web server
 var datasourceURL = "http://" + loopbackAddress + ":" + strconv.Itoa(int(datasourceContainerPort))
+
+func NewJfrDatasourceContainerResource(cr *operatorv1beta1.Cryostat) corev1.ResourceRequirements {
+	resources := corev1.ResourceRequirements{}
+	if cr.Spec.Resources != nil {
+		resources = cr.Spec.Resources.DataSourceResources
+	}
+	if resources.Requests == nil {
+		resources.Requests = corev1.ResourceList{}
+	}
+	requests := resources.Requests
+	if _, found := requests[corev1.ResourceCPU]; !found {
+		requests[corev1.ResourceCPU] = resource.MustParse(defaultJfrDatasourceCpuRequest)
+	}
+	if _, found := requests[corev1.ResourceMemory]; !found {
+		requests[corev1.ResourceMemory] = resource.MustParse(defaultJfrDatasourceMemoryRequest)
+	}
+	checkResourceRequestWithLimit(requests, resources.Limits)
+	return resources
+}
 
 func NewJfrDatasourceContainer(cr *operatorv1beta1.Cryostat, imageTag string) corev1.Container {
 	var containerSc *corev1.SecurityContext
@@ -1038,8 +1118,8 @@ func NewJfrDatasourceContainer(cr *operatorv1beta1.Cryostat, imageTag string) co
 				},
 			},
 		},
-		Resources:       cr.Spec.Resources.DataSourceResources,
 		SecurityContext: containerSc,
+		Resources:       NewJfrDatasourceContainerResource(cr),
 	}
 }
 
@@ -1122,4 +1202,18 @@ func seccompProfile(openshift bool) *corev1.SeccompProfile {
 
 func useEmptyDir(cr *operatorv1beta1.Cryostat) bool {
 	return cr.Spec.StorageOptions != nil && cr.Spec.StorageOptions.EmptyDir != nil && cr.Spec.StorageOptions.EmptyDir.Enabled
+
+}
+
+func checkResourceRequestWithLimit(request, limit corev1.ResourceList) {
+	if limit != nil {
+		// CPU in cores, converted to milivalue (0.5 cores = 500m).
+		if limitCpu, found := limit[corev1.ResourceCPU]; found && limitCpu.MilliValue() < request.Cpu().MilliValue() {
+			request[corev1.ResourceCPU] = limitCpu.DeepCopy()
+		}
+		// Memory in bytes.
+		if limitMemory, found := limit[corev1.ResourceMemory]; found && limitMemory.Value() < request.Memory().Value() {
+			request[corev1.ResourceMemory] = limitMemory.DeepCopy()
+		}
+	}
 }

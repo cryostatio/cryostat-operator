@@ -37,6 +37,8 @@
 package test
 
 import (
+	"fmt"
+
 	operatorv1beta1 "github.com/cryostatio/cryostat-operator/api/v1beta1"
 	certv1 "github.com/jetstack/cert-manager/pkg/apis/certmanager/v1"
 	certMeta "github.com/jetstack/cert-manager/pkg/apis/meta/v1"
@@ -326,6 +328,20 @@ func NewCryostatWithReportsResources() *operatorv1beta1.Cryostat {
 	return cr
 }
 
+func NewCryostatWithReportSmallResourceLimit() *operatorv1beta1.Cryostat {
+	cr := NewCryostat()
+	cr.Spec.ReportOptions = &operatorv1beta1.ReportConfiguration{
+		Replicas: 1,
+		Resources: corev1.ResourceRequirements{
+			Limits: corev1.ResourceList{
+				corev1.ResourceCPU:    resource.MustParse("20m"),
+				corev1.ResourceMemory: resource.MustParse("32Mi"),
+			},
+		},
+	}
+	return cr
+}
+
 func populateCryostatWithScheduling() *operatorv1beta1.SchedulingConfiguration {
 	return &operatorv1beta1.SchedulingConfiguration{
 		NodeSelector: map[string]string{"node": "good"},
@@ -409,7 +425,7 @@ func NewCryostatCertManagerUndefined() *operatorv1beta1.Cryostat {
 
 func NewCryostatWithResources() *operatorv1beta1.Cryostat {
 	cr := NewCryostat()
-	cr.Spec.Resources = operatorv1beta1.ResourceConfigList{
+	cr.Spec.Resources = &operatorv1beta1.ResourceConfigList{
 		CoreResources: corev1.ResourceRequirements{
 			Limits: corev1.ResourceList{
 				corev1.ResourceCPU:    resource.MustParse("500m"),
@@ -577,6 +593,32 @@ func NewCryostatWithDatabaseSecretProvided() *operatorv1beta1.Cryostat {
 	}
 	return cr
 }
+
+func NewCryostatWithSmallResourceLimit() *operatorv1beta1.Cryostat {
+	cr := NewCryostat()
+	cr.Spec.Resources = &operatorv1beta1.ResourceConfigList{
+		CoreResources: corev1.ResourceRequirements{
+			Limits: corev1.ResourceList{
+				corev1.ResourceCPU:    resource.MustParse("10m"),
+				corev1.ResourceMemory: resource.MustParse("32Mi"),
+			},
+		},
+		GrafanaResources: corev1.ResourceRequirements{
+			Limits: corev1.ResourceList{
+				corev1.ResourceCPU:    resource.MustParse("10m"),
+				corev1.ResourceMemory: resource.MustParse("32Mi"),
+			},
+		},
+		DataSourceResources: corev1.ResourceRequirements{
+			Limits: corev1.ResourceList{
+				corev1.ResourceCPU:    resource.MustParse("10m"),
+				corev1.ResourceMemory: resource.MustParse("32Mi"),
+			},
+		},
+	}
+	return cr
+}
+
 func NewCryostatService() *corev1.Service {
 	c := true
 	return &corev1.Service{
@@ -1374,11 +1416,13 @@ func NewDatasourceEnvironmentVariables() []corev1.EnvVar {
 }
 
 func NewReportsEnvironmentVariables(tls bool, resources corev1.ResourceRequirements) []corev1.EnvVar {
-	opts := "-XX:+PrintCommandLineFlags -XX:ActiveProcessorCount=1 -Dorg.openjdk.jmc.flightrecorder.parser.singlethreaded=true"
-	if !resources.Limits.Cpu().IsZero() {
-		// Assume 2 CPU limit
-		opts = "-XX:+PrintCommandLineFlags -XX:ActiveProcessorCount=2 -Dorg.openjdk.jmc.flightrecorder.parser.singlethreaded=false"
+	cpus := resources.Requests.Cpu().Value()
+	if limit := resources.Limits; limit != nil {
+		if cpu := limit.Cpu(); limit != nil {
+			cpus = cpu.Value()
+		}
 	}
+	opts := fmt.Sprintf("-XX:+PrintCommandLineFlags -XX:ActiveProcessorCount=%d -Dorg.openjdk.jmc.flightrecorder.parser.singlethreaded=%t", cpus, cpus < 2)
 	envs := []corev1.EnvVar{
 		{
 			Name:  "QUARKUS_HTTP_HOST",
@@ -2527,4 +2571,105 @@ func NewApiServer() *configv1.APIServer {
 			AdditionalCORSAllowedOrigins: []string{"https://an-existing-user-specified\\.allowed\\.origin\\.com"},
 		},
 	}
+}
+
+// Specify how the resource specs are filled in Cryostat CR
+type ResourceSpecCase string
+
+const (
+	None       ResourceSpecCase = "none"
+	Fully      ResourceSpecCase = "fully"
+	SmallLimit ResourceSpecCase = "smallLimit"
+)
+
+func NewCoreContainerDefaultResource() *corev1.ResourceRequirements {
+	return &corev1.ResourceRequirements{
+		Requests: corev1.ResourceList{
+			corev1.ResourceCPU:    resource.MustParse("100m"),
+			corev1.ResourceMemory: resource.MustParse("384Mi"),
+		},
+	}
+}
+
+func NewCoreContainerResource(cr *operatorv1beta1.Cryostat, resourceSpecCase ResourceSpecCase) *corev1.ResourceRequirements {
+	if resourceSpecCase == None {
+		return NewCoreContainerDefaultResource()
+	} else if resourceSpecCase == Fully && cr.Spec.Resources != nil {
+		return &cr.Spec.Resources.CoreResources
+	} else if resourceSpecCase == SmallLimit && cr.Spec.Resources != nil {
+		return &corev1.ResourceRequirements{
+			Requests: cr.Spec.Resources.CoreResources.Limits.DeepCopy(),
+			Limits:   cr.Spec.Resources.CoreResources.Limits.DeepCopy(),
+		}
+	}
+	return nil // Unknown case
+}
+
+func NewDatasourceContainerDefaultResource() *corev1.ResourceRequirements {
+	return &corev1.ResourceRequirements{
+		Requests: corev1.ResourceList{
+			corev1.ResourceCPU:    resource.MustParse("100m"),
+			corev1.ResourceMemory: resource.MustParse("512Mi"),
+		},
+	}
+}
+
+func NewDatasourceContainerResource(cr *operatorv1beta1.Cryostat, resourceSpecCase ResourceSpecCase) *corev1.ResourceRequirements {
+	if resourceSpecCase == None {
+		return NewDatasourceContainerDefaultResource()
+	} else if resourceSpecCase == Fully && cr.Spec.Resources != nil {
+		return &cr.Spec.Resources.DataSourceResources
+	} else if resourceSpecCase == SmallLimit && cr.Spec.Resources != nil {
+		return &corev1.ResourceRequirements{
+			Requests: cr.Spec.Resources.DataSourceResources.Limits.DeepCopy(),
+			Limits:   cr.Spec.Resources.DataSourceResources.Limits.DeepCopy(),
+		}
+	}
+	return nil // Unknown case
+}
+
+func NewGrafanaContainerDefaultResource() *corev1.ResourceRequirements {
+	return &corev1.ResourceRequirements{
+		Requests: corev1.ResourceList{
+			corev1.ResourceCPU:    resource.MustParse("1000m"),
+			corev1.ResourceMemory: resource.MustParse("256Mi"),
+		},
+	}
+}
+
+func NewGrafanaContainerResource(cr *operatorv1beta1.Cryostat, resourceSpecCase ResourceSpecCase) *corev1.ResourceRequirements {
+	if resourceSpecCase == None {
+		return NewGrafanaContainerDefaultResource()
+	} else if resourceSpecCase == Fully && cr.Spec.Resources != nil {
+		return &cr.Spec.Resources.GrafanaResources
+	} else if resourceSpecCase == SmallLimit && cr.Spec.Resources != nil {
+		return &corev1.ResourceRequirements{
+			Requests: cr.Spec.Resources.GrafanaResources.Limits.DeepCopy(),
+			Limits:   cr.Spec.Resources.GrafanaResources.Limits.DeepCopy(),
+		}
+	}
+	return nil // Unknown case
+}
+
+func NewReportContainerDefaultResource() *corev1.ResourceRequirements {
+	return &corev1.ResourceRequirements{
+		Requests: corev1.ResourceList{
+			corev1.ResourceCPU:    resource.MustParse("128m"),
+			corev1.ResourceMemory: resource.MustParse("256Mi"),
+		},
+	}
+}
+
+func NewReportContainerResource(cr *operatorv1beta1.Cryostat, resourceSpecCase ResourceSpecCase) *corev1.ResourceRequirements {
+	if resourceSpecCase == None {
+		return NewReportContainerDefaultResource()
+	} else if resourceSpecCase == Fully && cr.Spec.ReportOptions != nil {
+		return &cr.Spec.ReportOptions.Resources
+	} else if resourceSpecCase == SmallLimit && cr.Spec.ReportOptions != nil {
+		return &corev1.ResourceRequirements{
+			Requests: cr.Spec.ReportOptions.Resources.Limits.DeepCopy(),
+			Limits:   cr.Spec.ReportOptions.Resources.Limits.DeepCopy(),
+		}
+	}
+	return nil // Unknown case
 }

@@ -72,12 +72,18 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 )
 
+type ReportConfig struct {
+	reportReplicas   int32
+	resourceSpecCase test.ResourceSpecCase
+}
+
 type cryostatTestInput struct {
-	controller     *controllers.CryostatReconciler
-	objs           []runtime.Object
-	minimal        bool
-	reportReplicas int32
-	externalTLS    bool
+	controller       *controllers.CryostatReconciler
+	objs             []runtime.Object
+	minimal          bool
+	reportConfig     *ReportConfig
+	resourceSpecCase test.ResourceSpecCase
+	externalTLS      bool
 	test.TestReconcilerConfig
 }
 
@@ -111,7 +117,12 @@ var _ = Describe("CryostatController", func() {
 				TLS:                true,
 				GeneratedPasswords: []string{"grafana", "credentials_database", "jmx", "keystore"},
 			},
-			externalTLS: true,
+			externalTLS:      true,
+			resourceSpecCase: test.None,
+			reportConfig: &ReportConfig{
+				reportReplicas:   0,
+				resourceSpecCase: test.None,
+			},
 		}
 		t.objs = []runtime.Object{
 			test.NewNamespace(),
@@ -592,7 +603,7 @@ var _ = Describe("CryostatController", func() {
 			BeforeEach(func() {
 				cr = test.NewCryostatWithReports()
 				t.objs = append(t.objs, cr)
-				t.reportReplicas = 1
+				t.reportConfig.reportReplicas = 1
 			})
 			JustBeforeEach(func() {
 				t.reconcileCryostatFully()
@@ -620,6 +631,7 @@ var _ = Describe("CryostatController", func() {
 			Context("with resource requirements", func() {
 				BeforeEach(func() {
 					*cr = *test.NewCryostatWithReportsResources()
+					t.reportConfig.resourceSpecCase = test.Fully
 				})
 				It("should configure deployment appropriately", func() {
 					t.checkMainDeployment()
@@ -669,7 +681,7 @@ var _ = Describe("CryostatController", func() {
 			BeforeEach(func() {
 				cr := test.NewCryostat()
 				t.objs = append(t.objs, cr)
-				t.reportReplicas = 1
+				t.reportConfig.reportReplicas = 1
 			})
 			JustBeforeEach(func() {
 				t.reconcileCryostatFully()
@@ -679,7 +691,7 @@ var _ = Describe("CryostatController", func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				cryostat.Spec.ReportOptions = &operatorv1beta1.ReportConfiguration{
-					Replicas: t.reportReplicas,
+					Replicas: t.reportConfig.reportReplicas,
 				}
 				err = t.Client.Status().Update(context.Background(), cryostat)
 				Expect(err).ToNot(HaveOccurred())
@@ -697,10 +709,10 @@ var _ = Describe("CryostatController", func() {
 		})
 		Context("Switching from 1 report sidecar to 2", func() {
 			BeforeEach(func() {
-				t.reportReplicas = 1
+				t.reportConfig.reportReplicas = 1
 				cr := test.NewCryostat()
 				cr.Spec.ReportOptions = &operatorv1beta1.ReportConfiguration{
-					Replicas: t.reportReplicas,
+					Replicas: t.reportConfig.reportReplicas,
 				}
 				t.objs = append(t.objs, cr)
 			})
@@ -711,8 +723,8 @@ var _ = Describe("CryostatController", func() {
 				err := t.Client.Get(context.Background(), types.NamespacedName{Name: "cryostat", Namespace: "default"}, cryostat)
 				Expect(err).ToNot(HaveOccurred())
 
-				t.reportReplicas = 2
-				cryostat.Spec.ReportOptions.Replicas = t.reportReplicas
+				t.reportConfig.reportReplicas = 2
+				cryostat.Spec.ReportOptions.Replicas = t.reportConfig.reportReplicas
 				err = t.Client.Status().Update(context.Background(), cryostat)
 				Expect(err).ToNot(HaveOccurred())
 
@@ -729,10 +741,10 @@ var _ = Describe("CryostatController", func() {
 		})
 		Context("Switching from 2 report sidecars to 1", func() {
 			BeforeEach(func() {
-				t.reportReplicas = 2
+				t.reportConfig.reportReplicas = 2
 				cr := test.NewCryostat()
 				cr.Spec.ReportOptions = &operatorv1beta1.ReportConfiguration{
-					Replicas: t.reportReplicas,
+					Replicas: t.reportConfig.reportReplicas,
 				}
 				t.objs = append(t.objs, cr)
 			})
@@ -743,8 +755,8 @@ var _ = Describe("CryostatController", func() {
 				err := t.Client.Get(context.Background(), types.NamespacedName{Name: "cryostat", Namespace: "default"}, cryostat)
 				Expect(err).ToNot(HaveOccurred())
 
-				t.reportReplicas = 1
-				cryostat.Spec.ReportOptions.Replicas = t.reportReplicas
+				t.reportConfig.reportReplicas = 1
+				cryostat.Spec.ReportOptions.Replicas = t.reportConfig.reportReplicas
 				err = t.Client.Status().Update(context.Background(), cryostat)
 				Expect(err).ToNot(HaveOccurred())
 
@@ -761,10 +773,10 @@ var _ = Describe("CryostatController", func() {
 		})
 		Context("Switching from 1 report sidecar to 0", func() {
 			BeforeEach(func() {
-				t.reportReplicas = 1
+				t.reportConfig.reportReplicas = 1
 				cr := test.NewCryostat()
 				cr.Spec.ReportOptions = &operatorv1beta1.ReportConfiguration{
-					Replicas: t.reportReplicas,
+					Replicas: t.reportConfig.reportReplicas,
 				}
 				t.objs = append(t.objs, cr)
 			})
@@ -776,8 +788,8 @@ var _ = Describe("CryostatController", func() {
 				err := t.Client.Get(context.Background(), types.NamespacedName{Name: "cryostat", Namespace: "default"}, cryostat)
 				Expect(err).ToNot(HaveOccurred())
 
-				t.reportReplicas = 0
-				cryostat.Spec.ReportOptions.Replicas = t.reportReplicas
+				t.reportConfig.reportReplicas = 0
+				cryostat.Spec.ReportOptions.Replicas = t.reportConfig.reportReplicas
 				err = t.Client.Status().Update(context.Background(), cryostat)
 				Expect(err).ToNot(HaveOccurred())
 
@@ -1007,7 +1019,7 @@ var _ = Describe("CryostatController", func() {
 			var mainDeploy, reportsDeploy *appsv1.Deployment
 			BeforeEach(func() {
 				t.objs = append(t.objs, test.NewCryostatWithReportsSvc())
-				t.reportReplicas = 1
+				t.reportConfig.reportReplicas = 1
 				mainDeploy = &appsv1.Deployment{}
 				reportsDeploy = &appsv1.Deployment{}
 			})
@@ -1452,7 +1464,7 @@ var _ = Describe("CryostatController", func() {
 			Context("containing reports config", func() {
 				BeforeEach(func() {
 					t.objs = append(t.objs, test.NewCryostatWithReportsSvc())
-					t.reportReplicas = 1
+					t.reportConfig.reportReplicas = 1
 				})
 				It("should created the service as described", func() {
 					t.checkService("cryostat-reports", test.NewCustomizedReportsService())
@@ -1499,7 +1511,7 @@ var _ = Describe("CryostatController", func() {
 				Context("containing reports config", func() {
 					BeforeEach(func() {
 						cr = test.NewCryostatWithReportsSvc()
-						t.reportReplicas = 1
+						t.reportConfig.reportReplicas = 1
 					})
 					It("should created the service as described", func() {
 						t.checkService("cryostat-reports", test.NewCustomizedReportsService())
@@ -1516,7 +1528,7 @@ var _ = Describe("CryostatController", func() {
 					t.objs = append(t.objs, test.NewCryostatWithWsConnectionsSpec())
 				})
 				It("should set max WebSocket connections", func() {
-					t.checkEnvironmentVariables(test.NewWsConnectionsEnv())
+					t.checkCoreHasEnvironmentVariables(test.NewWsConnectionsEnv())
 				})
 			})
 			Context("containing SubProcessMaxHeapSize", func() {
@@ -1524,7 +1536,7 @@ var _ = Describe("CryostatController", func() {
 					t.objs = append(t.objs, test.NewCryostatWithReportSubprocessHeapSpec())
 				})
 				It("should set report subprocess max heap size", func() {
-					t.checkEnvironmentVariables(test.NewReportSubprocessHeapEnv())
+					t.checkCoreHasEnvironmentVariables(test.NewReportSubprocessHeapEnv())
 				})
 			})
 			Context("containing JmxCacheOptions", func() {
@@ -1532,13 +1544,14 @@ var _ = Describe("CryostatController", func() {
 					t.objs = append(t.objs, test.NewCryostatWithJmxCacheOptionsSpec())
 				})
 				It("should set JMX cache options", func() {
-					t.checkEnvironmentVariables(test.NewJmxCacheOptionsEnv())
+					t.checkCoreHasEnvironmentVariables(test.NewJmxCacheOptionsEnv())
 				})
 			})
 		})
 		Context("with resource requirements", func() {
 			BeforeEach(func() {
 				t.objs = append(t.objs, test.NewCryostatWithResources())
+				t.resourceSpecCase = test.Fully
 			})
 			It("should create expected deployment", func() {
 				t.expectDeployment()
@@ -1599,9 +1612,9 @@ var _ = Describe("CryostatController", func() {
 				})
 				Context("with 1 report replicas", func() {
 					BeforeEach(func() {
-						t.reportReplicas = 1
+						t.reportConfig.reportReplicas = 1
 						cr := test.NewCryostatWithReportSecurityOptions()
-						cr.Spec.ReportOptions.Replicas = t.reportReplicas
+						cr.Spec.ReportOptions.Replicas = t.reportConfig.reportReplicas
 						t.objs = append(t.objs, cr)
 					})
 					It("should add security context as described", func() {
@@ -1795,7 +1808,7 @@ var _ = Describe("CryostatController", func() {
 					Replicas: 1,
 				}
 				t.objs = append(t.objs, cr)
-				t.reportReplicas = 1
+				t.reportConfig.reportReplicas = 1
 			})
 			JustBeforeEach(func() {
 				t.reconcileCryostatFully()
@@ -1831,9 +1844,9 @@ var _ = Describe("CryostatController", func() {
 				})
 				Context("with 1 report replicas", func() {
 					BeforeEach(func() {
-						t.reportReplicas = 1
+						t.reportConfig.reportReplicas = 1
 						cr := test.NewCryostatWithReportSecurityOptions()
-						cr.Spec.ReportOptions.Replicas = t.reportReplicas
+						cr.Spec.ReportOptions.Replicas = t.reportConfig.reportReplicas
 						t.objs = append(t.objs, cr)
 					})
 					It("should add security context as described", func() {
@@ -2581,7 +2594,7 @@ func (t *cryostatTestInput) checkMainPodTemplate(deployment *appsv1.Deployment, 
 		port = strconv.Itoa(int(*cr.Spec.ServiceOptions.ReportsConfig.HTTPPort))
 	}
 	var reportsUrl string
-	if t.reportReplicas == 0 {
+	if t.reportConfig.reportReplicas == 0 {
 		reportsUrl = ""
 	} else if t.TLS {
 		reportsUrl = "https://cryostat-reports:" + port
@@ -2593,20 +2606,21 @@ func (t *cryostatTestInput) checkMainPodTemplate(deployment *appsv1.Deployment, 
 	emptyDir := cr.Spec.StorageOptions != nil && cr.Spec.StorageOptions.EmptyDir != nil && cr.Spec.StorageOptions.EmptyDir.Enabled
 	builtInDiscoveryDisabled := cr.Spec.TargetDiscoveryOptions != nil && cr.Spec.TargetDiscoveryOptions.BuiltInDiscoveryDisabled
 	dbSecretProvided := cr.Spec.JmxCredentialsDatabaseOptions != nil && cr.Spec.JmxCredentialsDatabaseOptions.DatabaseSecretName != nil
+
 	checkCoreContainer(&coreContainer,
 		t.minimal, t.TLS, t.externalTLS, t.EnvCoreImageTag,
 		t.controller.IsOpenShift, ingress, reportsUrl,
 		cr.Spec.AuthProperties != nil, emptyDir, builtInDiscoveryDisabled, dbSecretProvided,
-		cr.Spec.Resources.CoreResources, test.NewCoreSecurityContext(cr))
+		*test.NewCoreContainerResource(cr, t.resourceSpecCase), test.NewCoreSecurityContext(cr))
 
 	if !t.minimal {
 		// Check that Grafana is configured properly, depending on the environment
 		grafanaContainer := template.Spec.Containers[1]
-		checkGrafanaContainer(&grafanaContainer, t.TLS, t.EnvGrafanaImageTag, cr.Spec.Resources.GrafanaResources, test.NewGrafanaSecurityContext(cr))
+		checkGrafanaContainer(&grafanaContainer, t.TLS, t.EnvGrafanaImageTag, *test.NewGrafanaContainerResource(cr, t.resourceSpecCase), test.NewGrafanaSecurityContext(cr))
 
 		// Check that JFR Datasource is configured properly
 		datasourceContainer := template.Spec.Containers[2]
-		checkDatasourceContainer(&datasourceContainer, t.EnvDatasourceImageTag, cr.Spec.Resources.DataSourceResources, test.NewDatasourceSecurityContext(cr))
+		checkDatasourceContainer(&datasourceContainer, t.EnvDatasourceImageTag, *test.NewDatasourceContainerResource(cr, t.resourceSpecCase), test.NewDatasourceSecurityContext(cr))
 	}
 
 	// Check that the proper Service Account is set
@@ -2646,7 +2660,7 @@ func (t *cryostatTestInput) checkReportsDeployment() {
 	}))
 	Expect(metav1.IsControlledBy(deployment, cr)).To(BeTrue())
 	Expect(deployment.Spec.Selector).To(Equal(test.NewReportsDeploymentSelector()))
-	Expect(*deployment.Spec.Replicas).To(Equal(t.reportReplicas))
+	Expect(*deployment.Spec.Replicas).To(Equal(t.reportConfig.reportReplicas))
 
 	// compare Pod template
 	template := deployment.Spec.Template
@@ -2660,12 +2674,7 @@ func (t *cryostatTestInput) checkReportsDeployment() {
 	Expect(template.Spec.Volumes).To(ConsistOf(test.NewReportsVolumes(t.TLS)))
 	Expect(template.Spec.SecurityContext).To(Equal(test.NewReportPodSecurityContext(cr, t.controller.IsOpenShift)))
 
-	var resources corev1.ResourceRequirements
-	if cr.Spec.ReportOptions != nil {
-		resources = cr.Spec.ReportOptions.Resources
-	}
-
-	checkReportsContainer(&template.Spec.Containers[0], t.TLS, t.EnvReportsImageTag, resources, test.NewReportSecurityContext(cr))
+	checkReportsContainer(&template.Spec.Containers[0], t.TLS, t.EnvReportsImageTag, *test.NewReportContainerResource(cr, t.reportConfig.resourceSpecCase), test.NewReportSecurityContext(cr))
 
 	// Check that the default Service Account is used
 	Expect(template.Spec.ServiceAccountName).To(BeEmpty())
@@ -2750,8 +2759,9 @@ func checkCoreContainer(container *corev1.Container, minimal bool, tls bool, ext
 	Expect(container.VolumeMounts).To(ConsistOf(test.NewCoreVolumeMounts(tls)))
 	Expect(container.LivenessProbe).To(Equal(test.NewCoreLivenessProbe(tls)))
 	Expect(container.StartupProbe).To(Equal(test.NewCoreStartupProbe(tls)))
-	Expect(container.Resources).To(Equal(resources))
 	Expect(container.SecurityContext).To(Equal(securityContext))
+
+	checkResourceRequirements(&container.Resources, &resources)
 }
 
 func checkGrafanaContainer(container *corev1.Container, tls bool, tag *string, resources corev1.ResourceRequirements, securityContext *corev1.SecurityContext) {
@@ -2766,8 +2776,9 @@ func checkGrafanaContainer(container *corev1.Container, tls bool, tag *string, r
 	Expect(container.EnvFrom).To(ConsistOf(test.NewGrafanaEnvFromSource()))
 	Expect(container.VolumeMounts).To(ConsistOf(test.NewGrafanaVolumeMounts(tls)))
 	Expect(container.LivenessProbe).To(Equal(test.NewGrafanaLivenessProbe(tls)))
-	Expect(container.Resources).To(Equal(resources))
 	Expect(container.SecurityContext).To(Equal(securityContext))
+
+	checkResourceRequirements(&container.Resources, &resources)
 }
 
 func checkDatasourceContainer(container *corev1.Container, tag *string, resources corev1.ResourceRequirements, securityContext *corev1.SecurityContext) {
@@ -2782,8 +2793,9 @@ func checkDatasourceContainer(container *corev1.Container, tag *string, resource
 	Expect(container.EnvFrom).To(BeEmpty())
 	Expect(container.VolumeMounts).To(BeEmpty())
 	Expect(container.LivenessProbe).To(Equal(test.NewDatasourceLivenessProbe()))
-	Expect(container.Resources).To(Equal(resources))
 	Expect(container.SecurityContext).To(Equal(securityContext))
+
+	checkResourceRequirements(&container.Resources, &resources)
 }
 
 func checkReportsContainer(container *corev1.Container, tls bool, tag *string, resources corev1.ResourceRequirements, securityContext *corev1.SecurityContext) {
@@ -2797,21 +2809,55 @@ func checkReportsContainer(container *corev1.Container, tls bool, tag *string, r
 	Expect(container.Env).To(ConsistOf(test.NewReportsEnvironmentVariables(tls, resources)))
 	Expect(container.VolumeMounts).To(ConsistOf(test.NewReportsVolumeMounts(tls)))
 	Expect(container.LivenessProbe).To(Equal(test.NewReportsLivenessProbe(tls)))
-	Expect(container.Resources).To(Equal(resources))
 	Expect(container.SecurityContext).To(Equal(securityContext))
+
+	checkResourceRequirements(&container.Resources, &resources)
 }
 
-func (t *cryostatTestInput) checkEnvironmentVariables(expectedEnvVars []corev1.EnvVar) {
-	c := &operatorv1beta1.Cryostat{}
-	err := t.Client.Get(context.Background(), types.NamespacedName{Name: "cryostat", Namespace: "default"}, c)
-	Expect(err).ToNot(HaveOccurred())
-
+func (t *cryostatTestInput) checkCoreHasEnvironmentVariables(expectedEnvVars []corev1.EnvVar) {
 	deployment := &appsv1.Deployment{}
-	err = t.Client.Get(context.Background(), types.NamespacedName{Name: "cryostat", Namespace: "default"}, deployment)
+	err := t.Client.Get(context.Background(), types.NamespacedName{Name: "cryostat", Namespace: "default"}, deployment)
 	Expect(err).ToNot(HaveOccurred())
 
 	template := deployment.Spec.Template
 	coreContainer := template.Spec.Containers[0]
 
 	Expect(coreContainer.Env).To(ContainElements(expectedEnvVars))
+}
+
+func checkResourceRequirements(containerResource, expectedResource *corev1.ResourceRequirements) {
+	// Containers must have resource requests
+	Expect(containerResource.Requests).ToNot(BeNil())
+
+	requestCpu, requestCpuFound := containerResource.Requests[corev1.ResourceCPU]
+	expectedRequestCpu := expectedResource.Requests[corev1.ResourceCPU]
+	Expect(requestCpuFound).To(BeTrue())
+	Expect(requestCpu.MilliValue()).To(Equal(expectedRequestCpu.MilliValue()))
+
+	requestMemory, requestMemoryFound := containerResource.Requests[corev1.ResourceMemory]
+	expectedRequestMemory := expectedResource.Requests[corev1.ResourceMemory]
+	Expect(requestMemoryFound).To(BeTrue())
+	Expect(requestMemory.Value()).To(Equal(expectedRequestMemory.Value()))
+
+	if expectedResource.Limits == nil {
+		Expect(containerResource.Limits).To(BeNil())
+	} else {
+		Expect(containerResource.Limits).ToNot(BeNil())
+
+		limitCpu, limitCpuFound := containerResource.Limits[corev1.ResourceCPU]
+		expectedLimitCpu, expectedLimitCpuFound := expectedResource.Limits[corev1.ResourceCPU]
+
+		Expect(limitCpuFound).To(Equal(expectedLimitCpuFound))
+		if expectedLimitCpuFound {
+			Expect(limitCpu.MilliValue()).To(Equal(expectedLimitCpu.MilliValue()))
+		}
+
+		limitMemory, limitMemoryFound := containerResource.Limits[corev1.ResourceCPU]
+		expectedlimitMemory, expectedLimitMemoryFound := expectedResource.Limits[corev1.ResourceCPU]
+
+		Expect(limitMemoryFound).To(Equal(expectedLimitMemoryFound))
+		if expectedLimitCpuFound {
+			Expect(limitMemory.Value()).To(Equal(expectedlimitMemory.Value()))
+		}
+	}
 }
