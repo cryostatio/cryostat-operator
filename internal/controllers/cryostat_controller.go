@@ -711,7 +711,7 @@ func (r *CryostatReconciler) createOrUpdateDeployment(ctx context.Context, deplo
 			return err
 		}
 		// Immutable, only updated when the deployment is created
-		if deploy.ObjectMeta.CreationTimestamp.IsZero() {
+		if deploy.CreationTimestamp.IsZero() {
 			deploy.Spec.Selector = specCopy.Selector
 		}
 		// Set the replica count, if managed by the operator
