@@ -264,7 +264,7 @@ OPM = $(LOCALBIN)/opm
 .PHONY: opm
 opm: $(OPM)
 $(OPM): $(LOCALBIN)
-	[ -f $(OPM) ] || { \
+	{ \
 	set -e ;\
 	curl -sSLo $(OPM) https://github.com/operator-framework/operator-registry/releases/download/v$(OPM_VERSION)/$(OS)-$(ARCH)-opm ;\
 	chmod +x $(OPM) ;\
