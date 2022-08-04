@@ -90,3 +90,6 @@ replace github.com/dgrijalva/jwt-go => github.com/golang-jwt/jwt v3.2.1+incompat
 
 // Fix for CVE-2022-28948
 replace gopkg.in/yaml.v3 => gopkg.in/yaml.v3 v3.0.1
+
+// Fix for CVE-2021-3121, revisit when upgrading client-go
+// replace github.com/gogo/protobuf => github.com/gogo/protobuf v1.3.2
