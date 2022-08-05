@@ -86,6 +86,7 @@ require (
 
 replace github.com/openshift/api => github.com/openshift/api v0.0.0-20200618202633-7192180f496a
 
+// Fix for CVE-2020-26160
 replace github.com/dgrijalva/jwt-go => github.com/golang-jwt/jwt v3.2.1+incompatible
 
 // Fix for CVE-2022-28948
