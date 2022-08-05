@@ -7,7 +7,7 @@ require (
 	github.com/jetstack/cert-manager v1.1.0
 	github.com/onsi/ginkgo v1.16.5
 	github.com/onsi/gomega v1.18.1
-	github.com/openshift/api v3.9.0+incompatible
+	github.com/openshift/api v0.0.0-20220712151050-2647eb31dee7
 	k8s.io/api v0.24.0
 	k8s.io/apimachinery v0.24.0
 	k8s.io/client-go v0.24.0
@@ -83,8 +83,6 @@ require (
 	sigs.k8s.io/structured-merge-diff/v4 v4.2.1 // indirect
 	sigs.k8s.io/yaml v1.3.0 // indirect
 )
-
-replace github.com/openshift/api => github.com/openshift/api v0.0.0-20200618202633-7192180f496a
 
 // Fix for CVE-2020-26160
 replace github.com/dgrijalva/jwt-go => github.com/golang-jwt/jwt v3.2.1+incompatible
