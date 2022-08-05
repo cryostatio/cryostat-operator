@@ -1,4 +1,11 @@
-SHELL := /bin/bash
+# Setting SHELL to bash allows bash commands to be executed by recipes.
+# Options are set to exit when a recipe line exits non-zero or a piped command fails.
+SHELL := /usr/bin/env bash -o pipefail
+.SHELLFLAGS = -ec
+
+# OS information
+OS = $(shell go env GOOS)
+ARCH = $(shell go env GOARCH)
 
 # Current Operator version
 IMAGE_VERSION ?= 2.2.0-dev
@@ -7,9 +14,18 @@ DEFAULT_NAMESPACE ?= quay.io/cryostat
 IMAGE_NAMESPACE ?= $(DEFAULT_NAMESPACE)
 OPERATOR_NAME ?= cryostat-operator
 CLUSTER_CLIENT ?= kubectl
+IMAGE_TAG_BASE ?= $(IMAGE_NAMESPACE)/$(OPERATOR_NAME)
 
 # Default bundle image tag
-BUNDLE_IMG ?= $(IMAGE_NAMESPACE)/$(OPERATOR_NAME)-bundle:$(BUNDLE_VERSION)
+BUNDLE_IMG ?= $(IMAGE_TAG_BASE)-bundle:$(BUNDLE_VERSION)
+BUNDLE_IMGS ?= $(BUNDLE_IMG) 
+
+# Default catalog image tag
+CATALOG_IMG ?= $(IMAGE_TAG_BASE)-catalog:$(BUNDLE_VERSION) 
+ifneq ($(origin CATALOG_BASE_IMG), undefined)
+FROM_INDEX_OPT := --from-index $(CATALOG_BASE_IMG) 
+endif 
+
 # Options for 'bundle-build'
 ifneq ($(origin CHANNELS), undefined)
 BUNDLE_CHANNELS := --channels=$(CHANNELS)
@@ -18,12 +34,20 @@ ifneq ($(origin DEFAULT_CHANNEL), undefined)
 BUNDLE_DEFAULT_CHANNEL := --default-channel=$(DEFAULT_CHANNEL)
 endif
 BUNDLE_METADATA_OPTS ?= $(BUNDLE_CHANNELS) $(BUNDLE_DEFAULT_CHANNEL)
+# BUNDLE_GEN_FLAGS are the flags passed to the operator-sdk generate bundle command
+BUNDLE_GEN_FLAGS ?= -q --overwrite --version $(BUNDLE_VERSION) $(BUNDLE_METADATA_OPTS)
+# USE_IMAGE_DIGESTS defines if images are resolved via tags or digests
+# You can enable this value if you would like to use SHA Based Digests
+# To enable set flag to true
+USE_IMAGE_DIGESTS ?= false
+ifeq ($(USE_IMAGE_DIGESTS), true)
+	BUNDLE_GEN_FLAGS += --use-image-digests
+endif
 
 IMAGE_BUILDER ?= podman
 # Image URL to use all building/pushing image targets
-OPERATOR_IMG ?= $(IMAGE_NAMESPACE)/$(OPERATOR_NAME):$(IMAGE_VERSION)
-# Produce CRDs that work back to Kubernetes 1.11 (no version conversion)
-CRD_OPTIONS ?= "crd:trivialVersions=true,preserveUnknownFields=false"
+OPERATOR_IMG ?= $(IMAGE_TAG_BASE):$(IMAGE_VERSION)
+
 
 # Images used by the operator
 CORE_NAMESPACE ?= $(DEFAULT_NAMESPACE)
@@ -48,8 +72,11 @@ CERT_MANAGER_MANIFEST ?= \
 	https://github.com/jetstack/cert-manager/releases/download/v$(CERT_MANAGER_VERSION)/cert-manager.yaml
 
 KUSTOMIZE_VERSION ?= 3.8.7
-
+CONTROLLER_GEN_VERSION ?= 0.9.0
 ADDLICENSE_VERSION ?= 1.0.0
+OPM_VERSION ?= 1.23.0
+# ENVTEST_K8S_VERSION refers to the version of kubebuilder assets to be downloaded by envtest binary.
+ENVTEST_K8S_VERSION ?= 1.24 
 
 DEPLOY_NAMESPACE ?= cryostat-operator-system
 
@@ -75,19 +102,18 @@ ifneq ("$(wildcard $(GINKGO))","")
 GO_TEST="$(GINKGO)" -cover -outputdir=.
 endif
 
+.PHONY: all
 all: manager
 
 # Run tests
 .PHONY: test
 test: test-envtest test-scorecard
 
+# FIXME remove ACK_GINKGO_DEPRECATIONS when upgrading to ginkgo 2.0
 .PHONY: test-envtest
-ENVTEST_ASSETS_DIR=$(shell pwd)/testbin
-test-envtest: generate fmt vet manifests
+test-envtest: generate manifests fmt vet setup-envtest
 ifneq ($(SKIP_TESTS), true)
-	mkdir -p $(ENVTEST_ASSETS_DIR)
-	test -f $(ENVTEST_ASSETS_DIR)/setup-envtest.sh || curl -sSLo $(ENVTEST_ASSETS_DIR)/setup-envtest.sh https://raw.githubusercontent.com/kubernetes-sigs/controller-runtime/v0.7.2/hack/setup-envtest.sh
-	source $(ENVTEST_ASSETS_DIR)/setup-envtest.sh; fetch_envtest_tools $(ENVTEST_ASSETS_DIR); setup_envtest_env $(ENVTEST_ASSETS_DIR); $(GO_TEST) -v -coverprofile cover.out ./...
+	ACK_GINKGO_DEPRECATIONS=1.16.5  KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) -p path)" $(GO_TEST) -v -coverprofile cover.out ./...
 endif
 
 .PHONY: test-scorecard
@@ -95,8 +121,6 @@ test-scorecard: destroy_cryostat_cr undeploy uninstall
 ifneq ($(SKIP_TESTS), true)
 	operator-sdk scorecard bundle
 endif
-
-
 
 # Build manager binary
 .PHONY: manager
@@ -108,6 +132,10 @@ manager: generate fmt vet
 run: generate fmt vet manifests
 	go run ./internal/main.go
 
+ifndef ignore-not-found
+  ignore-not-found = false
+endif
+
 # Install CRDs into a cluster
 .PHONY: install
 install: manifests kustomize
@@ -116,7 +144,7 @@ install: manifests kustomize
 # Uninstall CRDs from a cluster
 .PHONY: uninstall
 uninstall: manifests kustomize
-	- $(KUSTOMIZE) build config/crd | $(CLUSTER_CLIENT) delete -f -
+	- $(KUSTOMIZE) build config/crd | $(CLUSTER_CLIENT) delete --ignore-not-found=$(ignore-not-found) -f -
 
 .PHONY: predeploy
 predeploy:
@@ -139,14 +167,14 @@ endif
 # UnDeploy controller from the configured Kubernetes cluster in ~/.kube/config
 .PHONY: undeploy
 undeploy:
-	- $(CLUSTER_CLIENT) delete recording --all
-	- $(CLUSTER_CLIENT) delete -f config/samples/operator_v1beta1_cryostat.yaml
-	- $(KUSTOMIZE) build config/default | $(CLUSTER_CLIENT) delete -f -
+	- $(CLUSTER_CLIENT) delete --ignore-not-found=$(ignore-not-found) recording --all
+	- $(CLUSTER_CLIENT) delete --ignore-not-found=$(ignore-not-found) -f config/samples/operator_v1beta1_cryostat.yaml
+	- $(KUSTOMIZE) build config/default | $(CLUSTER_CLIENT) delete --ignore-not-found=$(ignore-not-found) -f -
 
 # Generate manifests e.g. CRD, RBAC etc.
 .PHONY: manifests
 manifests: controller-gen
-	$(CONTROLLER_GEN) $(CRD_OPTIONS) rbac:roleName=role webhook paths="./..." output:crd:artifacts:config=config/crd/bases
+	$(CONTROLLER_GEN) rbac:roleName=role crd webhook paths="./..." output:crd:artifacts:config=config/crd/bases
 	envsubst < hack/image_tag_patch.yaml.in > config/default/image_tag_patch.yaml
 	envsubst < hack/image_pull_patch.yaml.in > config/default/image_pull_patch.yaml
 
@@ -197,41 +225,62 @@ check_cert_manager:
                fi;\
        fi
 
+# Location to install dependencies
+LOCALBIN ?= $(shell pwd)/bin
+$(LOCALBIN):
+	mkdir -p $(LOCALBIN)
+
 # Download controller-gen locally if necessary
-CONTROLLER_GEN = $(shell pwd)/bin/controller-gen
-controller-gen:
-	$(call go-get-tool,$(CONTROLLER_GEN),sigs.k8s.io/controller-tools/cmd/controller-gen@v0.4.1)
+CONTROLLER_GEN = $(LOCALBIN)/controller-gen
+.PHONY: controller-gen
+controller-gen: $(CONTROLLER_GEN)
+$(CONTROLLER_GEN): $(LOCALBIN)
+	test -s $(CONTROLLER_GEN) || GOBIN=$(LOCALBIN) go install sigs.k8s.io/controller-tools/cmd/controller-gen@v$(CONTROLLER_GEN_VERSION)
 
 # Download kustomize locally if necessary
-KUSTOMIZE = $(shell pwd)/bin/kustomize
-kustomize:
-	$(call go-get-tool,$(KUSTOMIZE),sigs.k8s.io/kustomize/kustomize/v3@v$(KUSTOMIZE_VERSION))
+KUSTOMIZE_INSTALL_SCRIPT ?= "https://raw.githubusercontent.com/kubernetes-sigs/kustomize/master/hack/install_kustomize.sh"
+KUSTOMIZE = $(LOCALBIN)/kustomize
+.PHONY: kustomize
+kustomize: $(KUSTOMIZE)
+$(KUSTOMIZE): $(LOCALBIN)
+	test -s $(KUSTOMIZE) || curl -s $(KUSTOMIZE_INSTALL_SCRIPT) | bash -s -- $(subst v,,$(KUSTOMIZE_VERSION)) $(LOCALBIN)
 
 # Download addlicense locally if necessary
-ADDLICENSE = $(shell pwd)/bin/addlicense
-addlicense:
-	$(call go-get-tool,$(ADDLICENSE),github.com/google/addlicense@v$(ADDLICENSE_VERSION))
+ADDLICENSE = $(LOCALBIN)/addlicense
+.PHONY: addlicense
+addlicense: $(ADDLICENSE)
+$(ADDLICENSE): $(LOCALBIN)
+	test -s $(ADDLICENSE) || GOBIN=$(LOCALBIN) go install github.com/google/addlicense@v$(ADDLICENSE_VERSION)
 
-# go-get-tool will 'go get' any package $2 and install it to $1.
-PROJECT_DIR := $(shell dirname $(abspath $(lastword $(MAKEFILE_LIST))))
-define go-get-tool
-@[ -f $(1) ] || { \
-set -e ;\
-TMP_DIR=$$(mktemp -d) ;\
-cd $$TMP_DIR ;\
-go mod init tmp ;\
-echo "Downloading $(2)" ;\
-GOBIN=$(PROJECT_DIR)/bin go get $(2) ;\
-rm -rf $$TMP_DIR ;\
-}
-endef
+# Download setup-envtest locally if necessary
+ENVTEST = $(LOCALBIN)/setup-envtest
+.PHONY: setup-envtest
+setup-envtest: $(ENVTEST)
+$(ENVTEST): $(LOCALBIN)
+	test -s $(ENVTEST) || GOBIN=$(LOCALBIN) go install sigs.k8s.io/controller-runtime/tools/setup-envtest@latest
+
+# Download opm locally if necessary
+OPM = $(LOCALBIN)/opm
+.PHONY: opm
+opm: $(OPM)
+$(OPM): $(LOCALBIN)
+	test -s $(OPM) || \
+	{ \
+	set -e ;\
+	curl -sSLo $(OPM) https://github.com/operator-framework/operator-registry/releases/download/v$(OPM_VERSION)/$(OS)-$(ARCH)-opm ;\
+	chmod +x $(OPM) ;\
+	}
+
+.PHONY: catalog-build
+catalog-build: opm
+	$(OPM) index add --container-tool $(IMAGE_BUILDER) --mode semver --tag $(CATALOG_IMG) --bundles $(BUNDLE_IMGS) $(FROM_INDEX_OPT)
 
 # Generate bundle manifests and metadata, then validate generated files.
 .PHONY: bundle
 bundle: manifests kustomize
 	operator-sdk generate kustomize manifests -q
 	cd config/manager && $(KUSTOMIZE) edit set image controller=$(OPERATOR_IMG)
-	$(KUSTOMIZE) build config/manifests | operator-sdk generate bundle -q --overwrite --version $(BUNDLE_VERSION) $(BUNDLE_METADATA_OPTS)
+	$(KUSTOMIZE) build config/manifests | operator-sdk generate bundle $(BUNDLE_GEN_FLAGS)
 	operator-sdk bundle validate ./bundle
 
 # Build the bundle image.
@@ -261,15 +310,15 @@ endif
 undeploy_bundle:
 	- operator-sdk cleanup $(OPERATOR_NAME)
 
+# Deploy a Cryostat instance
 .PHONY: create_cryostat_cr
 create_cryostat_cr: destroy_cryostat_cr
 	$(CLUSTER_CLIENT) create -f config/samples/operator_v1beta1_cryostat.yaml
 
+# Undeploy a Cryostat instance
 .PHONY: destroy_cryostat_cr
 destroy_cryostat_cr:
 	- $(CLUSTER_CLIENT) delete -f config/samples/operator_v1beta1_cryostat.yaml
-
-
 
 # Local development/testing helpers
 

@@ -457,7 +457,7 @@ func NewPodForReports(cr *operatorv1beta1.Cryostat, imageTags *ImageTags, tls *T
 		})
 	}
 
-	probeHandler := corev1.Handler{
+	probeHandler := corev1.ProbeHandler{
 		HTTPGet: &corev1.HTTPGetAction{
 			Scheme: livenessProbeScheme,
 			Port:   intstr.IntOrString{IntVal: reportsContainerPort},
@@ -480,10 +480,10 @@ func NewPodForReports(cr *operatorv1beta1.Cryostat, imageTags *ImageTags, tls *T
 				VolumeMounts: mounts,
 				Resources:    resources,
 				LivenessProbe: &corev1.Probe{
-					Handler: probeHandler,
+					ProbeHandler: probeHandler,
 				},
 				StartupProbe: &corev1.Probe{
-					Handler: probeHandler,
+					ProbeHandler: probeHandler,
 				},
 			},
 		},
@@ -742,7 +742,7 @@ func NewCoreContainer(cr *operatorv1beta1.Cryostat, specs *ServiceSpecs, imageTa
 		mounts = append(mounts, mount)
 	}
 
-	probeHandler := corev1.Handler{
+	probeHandler := corev1.ProbeHandler{
 		HTTPGet: &corev1.HTTPGetAction{
 			Port:   intstr.IntOrString{IntVal: cryostatHTTPContainerPort},
 			Path:   "/health/liveness",
@@ -766,11 +766,11 @@ func NewCoreContainer(cr *operatorv1beta1.Cryostat, specs *ServiceSpecs, imageTa
 		EnvFrom:   envsFrom,
 		Resources: cr.Spec.Resources.CoreResources,
 		LivenessProbe: &corev1.Probe{
-			Handler: probeHandler,
+			ProbeHandler: probeHandler,
 		},
 		// Expect probe to succeed within 3 minutes
 		StartupProbe: &corev1.Probe{
-			Handler:          probeHandler,
+			ProbeHandler:     probeHandler,
 			FailureThreshold: 18,
 		},
 	}
@@ -859,7 +859,7 @@ func NewGrafanaContainer(cr *operatorv1beta1.Cryostat, imageTag string, tls *TLS
 			},
 		},
 		LivenessProbe: &corev1.Probe{
-			Handler: corev1.Handler{
+			ProbeHandler: corev1.ProbeHandler{
 				HTTPGet: &corev1.HTTPGetAction{
 					Port:   intstr.IntOrString{IntVal: 3000},
 					Path:   "/api/health",
@@ -892,7 +892,7 @@ func NewJfrDatasourceContainer(cr *operatorv1beta1.Cryostat, imageTag string) co
 		},
 		// Can't use HTTP probe since the port is not exposed over the network
 		LivenessProbe: &corev1.Probe{
-			Handler: corev1.Handler{
+			ProbeHandler: corev1.ProbeHandler{
 				Exec: &corev1.ExecAction{
 					Command: []string{"curl", "--fail", datasourceURL},
 				},

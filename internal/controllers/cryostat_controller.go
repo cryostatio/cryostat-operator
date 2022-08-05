@@ -710,14 +710,18 @@ func (r *CryostatReconciler) createOrUpdateDeployment(ctx context.Context, deplo
 		if err := controllerutil.SetControllerReference(owner, deploy, r.Scheme); err != nil {
 			return err
 		}
-		// Update pod template spec and selector to propagate any changes from Cryostat CR
-		deploy.Spec.Template.Spec = specCopy.Template.Spec
-		// FIXME Immutable
-		deploy.Spec.Selector = specCopy.Selector
+		// Immutable, only updated when the deployment is created
+		if deploy.CreationTimestamp.IsZero() {
+			deploy.Spec.Selector = specCopy.Selector
+		}
 		// Set the replica count, if managed by the operator
 		if specCopy.Replicas != nil {
 			deploy.Spec.Replicas = specCopy.Replicas
 		}
+		// Update pod template spec to propagate any changes from Cryostat CR
+		deploy.Spec.Template.Spec = specCopy.Template.Spec
+		// Update pod template metadata
+		mergeLabelsAndAnnotations(&deploy.Spec.Template.ObjectMeta, &specCopy.Template.ObjectMeta)
 		return nil
 	})
 	if err != nil {
@@ -753,6 +757,8 @@ func findDeployCondition(conditions []appsv1.DeploymentCondition, condType appsv
 }
 
 func mergeLabelsAndAnnotations(dest *metav1.ObjectMeta, src *metav1.ObjectMeta) {
+	// Check and create labels/annotations map if absent
+	createLabelsAndAnnotationsIfAbsent(dest)
 	// Merge labels and annotations, preferring those specified by the operator
 	labels := dest.GetLabels()
 	for k, v := range src.GetLabels() {
@@ -761,5 +767,14 @@ func mergeLabelsAndAnnotations(dest *metav1.ObjectMeta, src *metav1.ObjectMeta) 
 	annotations := dest.GetAnnotations()
 	for k, v := range src.GetAnnotations() {
 		annotations[k] = v
+	}
+}
+
+func createLabelsAndAnnotationsIfAbsent(metadata *metav1.ObjectMeta) {
+	if metadata.Labels == nil {
+		metadata.Labels = map[string]string{}
+	}
+	if metadata.Annotations == nil {
+		metadata.Annotations = map[string]string{}
 	}
 }

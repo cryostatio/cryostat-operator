@@ -80,7 +80,7 @@ metadata:
           }
         }
       }
-    operators.operatorframework.io/builder: operator-sdk-v1.4.0+git
+    operators.operatorframework.io/builder: operator-sdk-v1.22.2
     operators.operatorframework.io/internal-objects: '["flightrecorders.operator.cryostat.io","recordings.operator.cryostat.io"]'
     operators.operatorframework.io/project_layout: go.kubebuilder.io/v3
     repository: github.com/cryostatio/cryostat-operator
@@ -91,7 +91,9 @@ spec:
   apiservicedefinitions: {}
   customresourcedefinitions:
     owned:
-    - description: Cryostat contains configuration options for controlling the Deployment of the Cryostat application and its related components. A Cryostat instance must be created to instruct the operator to deploy the Cryostat application.
+    - description: Cryostat contains configuration options for controlling the Deployment
+        of the Cryostat application and its related components. A Cryostat instance
+        must be created to instruct the operator to deploy the Cryostat application.
       displayName: Cryostat
       kind: Cryostat
       name: cryostats.operator.cryostat.io
@@ -118,7 +120,8 @@ spec:
         name: ""
         version: v1
       specDescriptors:
-      - description: Use cert-manager to secure in-cluster communication between Cryostat components. Requires cert-manager to be installed.
+      - description: Use cert-manager to secure in-cluster communication between Cryostat
+          components. Requires cert-manager to be installed.
         displayName: Enable cert-manager Integration
         path: enableCertManager
         x-descriptors:
@@ -131,33 +134,41 @@ spec:
         path: eventTemplates[0].configMapName
         x-descriptors:
         - urn:alm:descriptor:io.kubernetes:ConfigMap
-      - description: Options to customize the JMX target connections cache for the Cryostat application
+      - description: Options to customize the JMX target connections cache for the
+          Cryostat application
         displayName: JMX Connections Cache Options
         path: jmxCacheOptions
-      - description: The maximum number of JMX connections to cache. Use `-1` for an unlimited cache size (TTL expiration only). Defaults to `-1`.
+      - description: The maximum number of JMX connections to cache. Use `-1` for
+          an unlimited cache size (TTL expiration only). Defaults to `-1`.
         displayName: Target Cache Size
         path: jmxCacheOptions.targetCacheSize
         x-descriptors:
         - urn:alm:descriptor:com.tectonic.ui:number
-      - description: The time to live (in seconds) for cached JMX connections. Defaults to `10`.
+      - description: The time to live (in seconds) for cached JMX connections. Defaults
+          to `10`.
         displayName: Target Cache TTL
         path: jmxCacheOptions.targetCacheTTL
         x-descriptors:
         - urn:alm:descriptor:com.tectonic.ui:number
-      - description: The maximum number of WebSocket client connections allowed (minimum 1, default unlimited)
+      - description: The maximum number of WebSocket client connections allowed (minimum
+          1, default unlimited)
         displayName: Max WebSocket Connections
         path: maxWsConnections
         x-descriptors:
         - urn:alm:descriptor:com.tectonic.ui:number
-      - description: Deploy a pared-down Cryostat instance with no Grafana Dashboard or JFR Data Source.
+      - description: Deploy a pared-down Cryostat instance with no Grafana Dashboard
+          or JFR Data Source.
         displayName: Minimal Deployment
         path: minimal
         x-descriptors:
         - urn:alm:descriptor:com.tectonic.ui:booleanSwitch
-      - description: Options to control how the operator exposes the application outside of the cluster, such as using an Ingress or Route.
+      - description: Options to control how the operator exposes the application outside
+          of the cluster, such as using an Ingress or Route.
         displayName: Network Options
         path: networkOptions
-      - description: "Specifications for how to expose the Cryostat command service, which serves the WebSocket command channel \n Deprecated: CommandConfig is no longer used."
+      - description: "Specifications for how to expose the Cryostat command service,
+          which serves the WebSocket command channel \n Deprecated: CommandConfig
+          is no longer used."
         displayName: Command Config
         path: networkOptions.commandConfig
         x-descriptors:
@@ -165,50 +176,66 @@ spec:
       - description: Annotations to add to the Ingress or Route during its creation.
         displayName: Annotations
         path: networkOptions.commandConfig.annotations
-      - description: Configuration for an Ingress object. Currently subpaths are not supported, so unique hosts must be specified (if a single external IP is being used) to differentiate between ingresses/services
+      - description: Configuration for an Ingress object. Currently subpaths are not
+          supported, so unique hosts must be specified (if a single external IP is
+          being used) to differentiate between ingresses/services
         displayName: Ingress Spec
         path: networkOptions.commandConfig.ingressSpec
-      - description: Labels to add to the Ingress or Route during its creation. The label with key "app" is reserved for use by the operator.
+      - description: Labels to add to the Ingress or Route during its creation. The
+          label with key "app" is reserved for use by the operator.
         displayName: Labels
         path: networkOptions.commandConfig.labels
-      - description: Specifications for how to expose the Cryostat service, which serves the Cryostat application
+      - description: Specifications for how to expose the Cryostat service, which
+          serves the Cryostat application
         displayName: Core Config
         path: networkOptions.coreConfig
       - description: Annotations to add to the Ingress or Route during its creation.
         displayName: Annotations
         path: networkOptions.coreConfig.annotations
-      - description: Configuration for an Ingress object. Currently subpaths are not supported, so unique hosts must be specified (if a single external IP is being used) to differentiate between ingresses/services
+      - description: Configuration for an Ingress object. Currently subpaths are not
+          supported, so unique hosts must be specified (if a single external IP is
+          being used) to differentiate between ingresses/services
         displayName: Ingress Spec
         path: networkOptions.coreConfig.ingressSpec
-      - description: Labels to add to the Ingress or Route during its creation. The label with key "app" is reserved for use by the operator.
+      - description: Labels to add to the Ingress or Route during its creation. The
+          label with key "app" is reserved for use by the operator.
         displayName: Labels
         path: networkOptions.coreConfig.labels
-      - description: Specifications for how to expose Cryostat's Grafana service, which serves the Grafana dashboard
+      - description: Specifications for how to expose Cryostat's Grafana service,
+          which serves the Grafana dashboard
         displayName: Grafana Config
         path: networkOptions.grafanaConfig
       - description: Annotations to add to the Ingress or Route during its creation.
         displayName: Annotations
         path: networkOptions.grafanaConfig.annotations
-      - description: Configuration for an Ingress object. Currently subpaths are not supported, so unique hosts must be specified (if a single external IP is being used) to differentiate between ingresses/services
+      - description: Configuration for an Ingress object. Currently subpaths are not
+          supported, so unique hosts must be specified (if a single external IP is
+          being used) to differentiate between ingresses/services
         displayName: Ingress Spec
         path: networkOptions.grafanaConfig.ingressSpec
-      - description: Labels to add to the Ingress or Route during its creation. The label with key "app" is reserved for use by the operator.
+      - description: Labels to add to the Ingress or Route during its creation. The
+          label with key "app" is reserved for use by the operator.
         displayName: Labels
         path: networkOptions.grafanaConfig.labels
       - description: Options to configure Cryostat Automated Report Analysis
         displayName: Report Options
         path: reportOptions
-      - description: The number of report sidecar replica containers to deploy. Each replica can service one report generation request at a time.
+      - description: The number of report sidecar replica containers to deploy. Each
+          replica can service one report generation request at a time.
         displayName: Replicas
         path: reportOptions.replicas
         x-descriptors:
         - urn:alm:descriptor:com.tectonic.ui:podCount
-      - description: The resources allocated to each sidecar replica. A replica with more resources can handle larger input recordings and will process them faster.
+      - description: The resources allocated to each sidecar replica. A replica with
+          more resources can handle larger input recordings and will process them
+          faster.
         displayName: Resources
         path: reportOptions.resources
         x-descriptors:
         - urn:alm:descriptor:com.tectonic.ui:resourceRequirements
-      - description: When zero report sidecar replicas are requested, SubProcessMaxHeapSize configures the maximum heap size of the basic subprocess report generator in MiB. The default heap size is `200` (MiB).
+      - description: When zero report sidecar replicas are requested, SubProcessMaxHeapSize
+          configures the maximum heap size of the basic subprocess report generator
+          in MiB. The default heap size is `200` (MiB).
         displayName: Sub Process Max Heap Size
         path: reportOptions.subProcessMaxHeapSize
         x-descriptors:
@@ -216,7 +243,8 @@ spec:
       - description: Resource requirements for the Cryostat deployment
         displayName: Resources
         path: resources
-      - description: Resource requirements for the Cryostat application. If specifying a memory limit, at least 768MiB is recommended.
+      - description: Resource requirements for the Cryostat application. If specifying
+          a memory limit, at least 768MiB is recommended.
         displayName: Core Resources
         path: resources.coreResources
         x-descriptors:
@@ -231,21 +259,26 @@ spec:
         path: resources.grafanaResources
         x-descriptors:
         - urn:alm:descriptor:com.tectonic.ui:resourceRequirements
-      - description: Options to customize the services created for the Cryostat application and Grafana dashboard.
+      - description: Options to customize the services created for the Cryostat application
+          and Grafana dashboard.
         displayName: Service Options
         path: serviceOptions
       - description: Options to customize the storage for Flight Recordings and Templates
         displayName: Storage Options
         path: storageOptions
-      - description: Configuration for an EmptyDir to be created by the operator instead of a PVC.
+      - description: Configuration for an EmptyDir to be created by the operator instead
+          of a PVC.
         displayName: Empty Dir
         path: storageOptions.emptyDir
-      - description: When enabled, Cryostat will use EmptyDir volumes instead of a Persistent Volume Claim. Any PVC configurations will be ignored.
+      - description: When enabled, Cryostat will use EmptyDir volumes instead of a
+          Persistent Volume Claim. Any PVC configurations will be ignored.
         displayName: Enabled
         path: storageOptions.emptyDir.enabled
         x-descriptors:
         - urn:alm:descriptor:com.tectonic.ui:booleanSwitch
-      - description: Unless specified, the emptyDir volume will be mounted on the same storage medium backing the node. Setting this field to "Memory" will mount the emptyDir on a tmpfs (RAM-backed filesystem).
+      - description: Unless specified, the emptyDir volume will be mounted on the
+          same storage medium backing the node. Setting this field to "Memory" will
+          mount the emptyDir on a tmpfs (RAM-backed filesystem).
         displayName: Medium
         path: storageOptions.emptyDir.medium
         x-descriptors:
@@ -255,10 +288,14 @@ spec:
         path: storageOptions.emptyDir.sizeLimit
         x-descriptors:
         - urn:alm:descriptor:com.tectonic.ui:fieldDependency:storageOptions.emptyDir.enabled:true
-      - description: Configuration for the Persistent Volume Claim to be created by the operator.
+      - description: Configuration for the Persistent Volume Claim to be created by
+          the operator.
         displayName: PVC
         path: storageOptions.pvc
-      - description: Spec for a Persistent Volume Claim, whose options will override the defaults used by the operator. Unless overriden, the PVC will be created with the default Storage Class and 500MiB of storage. Once the operator has created the PVC, changes to this field have no effect.
+      - description: Spec for a Persistent Volume Claim, whose options will override
+          the defaults used by the operator. Unless overriden, the PVC will be created
+          with the default Storage Class and 500MiB of storage. Once the operator
+          has created the PVC, changes to this field have no effect.
         displayName: Spec
         path: storageOptions.pvc.spec
       - description: List of TLS certificates to trust when connecting to targets
@@ -286,7 +323,9 @@ spec:
         x-descriptors:
         - urn:alm:descriptor:io.kubernetes:Secret
       version: v1beta1
-    - description: FlightRecorder represents a target Pod that is capable of creating JDK Flight Recordings using Cryostat. The Cryostat operator creates FlightRecorder objects when it finds compatible Pods.
+    - description: FlightRecorder represents a target Pod that is capable of creating
+        JDK Flight Recordings using Cryostat. The Cryostat operator creates FlightRecorder
+        objects when it finds compatible Pods.
       displayName: Flight Recorder
       kind: FlightRecorder
       name: flightrecorders.operator.cryostat.io
@@ -301,7 +340,8 @@ spec:
         name: ""
         version: v1
       specDescriptors:
-      - description: If JMX authentication is enabled for this FlightRecorder's JVM, specify the credentials in a secret and reference it here
+      - description: If JMX authentication is enabled for this FlightRecorder's JVM,
+          specify the credentials in a secret and reference it here
         displayName: JMXCredentials
         path: jmxCredentials
       - description: Recordings that match this selector belong to this FlightRecorder
@@ -323,7 +363,9 @@ spec:
         displayName: Templates
         path: templates
       version: v1beta1
-    - description: Recording represents a JDK Flight Recording. Create a Recording object to instruct Cryostat to start a new recording for a Pod. An alternative to managing recordings with the Cryostat web application.
+    - description: Recording represents a JDK Flight Recording. Create a Recording
+        object to instruct Cryostat to start a new recording for a Pod. An alternative
+        to managing recordings with the Cryostat web application.
       displayName: Recording
       kind: Recording
       name: recordings.operator.cryostat.io
@@ -338,27 +380,34 @@ spec:
         name: ""
         version: v1
       specDescriptors:
-      - description: Whether this recording should be saved to persistent storage. If true, the JFR file will be retained until this object is deleted. If false, the JFR file will be deleted when its corresponding JVM exits.
+      - description: Whether this recording should be saved to persistent storage.
+          If true, the JFR file will be retained until this object is deleted. If
+          false, the JFR file will be deleted when its corresponding JVM exits.
         displayName: Archive
         path: archive
         x-descriptors:
         - urn:alm:descriptor:com.tectonic.ui:checkbox
-      - description: The requested total duration of the recording, a zero value will record indefinitely. The duration format is a combination of hours (h), minutes (m) and seconds (s). e.g. 30s, 0s, 1h30m
+      - description: The requested total duration of the recording, a zero value will
+          record indefinitely. The duration format is a combination of hours (h),
+          minutes (m) and seconds (s). e.g. 30s, 0s, 1h30m
         displayName: Duration
         path: duration
         x-descriptors:
         - urn:alm:descriptor:com.tectonic.ui:text
-      - description: Name of the event template to use when creating the recording. Must be prefixed with "template=". e.g. template=Profiling
+      - description: Name of the event template to use when creating the recording.
+          Must be prefixed with "template=". e.g. template=Profiling
         displayName: Event Template
         path: eventOptions
         x-descriptors:
         - urn:alm:descriptor:com.tectonic.ui:text
-      - description: Select the FlightRecorder with the name of the target Pod for this Recording.
+      - description: Select the FlightRecorder with the name of the target Pod for
+          this Recording.
         displayName: Name
         path: flightRecorder.name
         x-descriptors:
         - urn:alm:descriptor:io.kubernetes:operator.cryostat.io:v1beta1:FlightRecorder
-      - description: Reference to the FlightRecorder object that corresponds to this Recording.
+      - description: Reference to the FlightRecorder object that corresponds to this
+          Recording.
         displayName: Flight Recorder
         path: flightRecorder
       - description: Name of the recording to be created.
@@ -469,7 +518,9 @@ spec:
           - watch
         serviceAccountName: cryostat-operator-service-account
       deployments:
-      - name: cryostat-operator-controller-manager
+      - label:
+          control-plane: controller-manager
+        name: cryostat-operator-controller-manager
         spec:
           replicas: 1
           selector:
@@ -478,6 +529,8 @@ spec:
           strategy: {}
           template:
             metadata:
+              annotations:
+                kubectl.kubernetes.io/default-container: manager
               labels:
                 control-plane: controller-manager
             spec:
@@ -531,9 +584,19 @@ spec:
       - rules:
         - apiGroups:
           - ""
-          - coordination.k8s.io
           resources:
           - configmaps
+          verbs:
+          - get
+          - list
+          - watch
+          - create
+          - update
+          - patch
+          - delete
+        - apiGroups:
+          - coordination.k8s.io
+          resources:
           - leases
           verbs:
           - get
@@ -752,6 +815,16 @@ spec:
   - email: cryostat-development@googlegroups.com
     name: The Cryostat Authors
   maturity: stable
+  minKubeVersion: 1.19.0
   provider:
     name: The Cryostat Community
+  relatedImages:
+  - image: quay.io/cryostat/cryostat:latest
+    name: core
+  - image: quay.io/cryostat/jfr-datasource:latest
+    name: datasource
+  - image: quay.io/cryostat/cryostat-grafana-dashboard:latest
+    name: grafana
+  - image: quay.io/cryostat/cryostat-reports:latest
+    name: reports
   version: 2.2.0-dev

@@ -44,6 +44,7 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
+	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -379,8 +380,8 @@ var _ = Describe("RecordingController", func() {
 					test.NewDeleteHandler(),
 				}
 			})
-			It("should remove the finalizer", func() {
-				t.expectRecordingFinalizerAbsent()
+			It("should delete the recording", func() {
+				t.expectNoRecording()
 			})
 			It("should not requeue", func() {
 				t.expectRecordingResult(reconcile.Result{})
@@ -398,8 +399,8 @@ var _ = Describe("RecordingController", func() {
 					test.NewDeleteSavedNoJMXAuthHandler(),
 				}
 			})
-			It("should remove the finalizer", func() {
-				t.expectRecordingFinalizerAbsent()
+			It("should delete the recording", func() {
+				t.expectNoRecording()
 			})
 			It("should not requeue", func() {
 				t.expectRecordingResult(reconcile.Result{})
@@ -590,10 +591,17 @@ func (t *recordingTestInput) expectRecordingFinalizerPresent() {
 	Expect(finalizers).To(ContainElement("operator.cryostat.io/recording.finalizer"))
 }
 
-func (t *recordingTestInput) expectRecordingFinalizerAbsent() {
-	obj := t.reconcileRecordingAndGet()
-	finalizers := obj.GetFinalizers()
-	Expect(finalizers).ToNot(ContainElement("operator.cryostat.io/recording.finalizer"))
+func (t *recordingTestInput) expectNoRecording() {
+	// Reconcile
+	req := reconcile.Request{NamespacedName: types.NamespacedName{Name: "my-recording", Namespace: "default"}}
+	result, err := t.controller.Reconcile(context.Background(), req)
+	Expect(err).ToNot(HaveOccurred())
+	Expect(result).To(Equal(reconcile.Result{}))
+
+	// Check for deleted recording
+	obj := &operatorv1beta1.Recording{}
+	err = t.Client.Get(context.Background(), types.NamespacedName{Name: "my-recording", Namespace: "default"}, obj)
+	Expect(kerrors.IsNotFound(err)).To(BeTrue())
 }
 
 func (t *recordingTestInput) expectRecordingReconcileError() {

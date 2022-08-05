@@ -1,10 +1,9 @@
-
 ---
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.4.1
+    controller-gen.kubebuilder.io/version: v0.9.0
   creationTimestamp: null
   name: cryostats.operator.cryostat.io
 spec:
@@ -210,30 +209,29 @@ spec:
                                     Note the following deviations from the \"host\"
                                     part of the URI as defined in RFC 3986: 1. IPs
                                     are not allowed. Currently an IngressRuleValue
-                                    can only apply to    the IP in the Spec of the
-                                    parent Ingress. 2. The `:` delimiter is not respected
-                                    because ports are not allowed. \t  Currently the
-                                    port of an Ingress is implicitly :80 for http
-                                    and \t  :443 for https. Both these may change
-                                    in the future. Incoming requests are matched against
-                                    the host before the IngressRuleValue. If the host
-                                    is unspecified, the Ingress routes all traffic
-                                    based on the specified IngressRuleValue. \n Host
-                                    can be \"precise\" which is a domain name without
-                                    the terminating dot of a network host (e.g. \"foo.bar.com\")
-                                    or \"wildcard\", which is a domain name prefixed
-                                    with a single wildcard label (e.g. \"*.foo.com\").
-                                    The wildcard character '*' must appear by itself
-                                    as the first DNS label and matches only a single
-                                    label. You cannot have a wildcard label by itself
-                                    (e.g. Host == \"*\"). Requests will be matched
-                                    against the Host field in the following way: 1.
-                                    If Host is precise, the request matches this rule
-                                    if the http host header is equal to Host. 2. If
-                                    Host is a wildcard, then the request matches this
-                                    rule if the http host header is to equal to the
-                                    suffix (removing the first label) of the wildcard
-                                    rule."
+                                    can only apply to the IP in the Spec of the parent
+                                    Ingress. 2. The `:` delimiter is not respected
+                                    because ports are not allowed. Currently the port
+                                    of an Ingress is implicitly :80 for http and :443
+                                    for https. Both these may change in the future.
+                                    Incoming requests are matched against the host
+                                    before the IngressRuleValue. If the host is unspecified,
+                                    the Ingress routes all traffic based on the specified
+                                    IngressRuleValue. \n Host can be \"precise\" which
+                                    is a domain name without the terminating dot of
+                                    a network host (e.g. \"foo.bar.com\") or \"wildcard\",
+                                    which is a domain name prefixed with a single
+                                    wildcard label (e.g. \"*.foo.com\"). The wildcard
+                                    character '*' must appear by itself as the first
+                                    DNS label and matches only a single label. You
+                                    cannot have a wildcard label by itself (e.g. Host
+                                    == \"*\"). Requests will be matched against the
+                                    Host field in the following way: 1. If Host is
+                                    precise, the request matches this rule if the
+                                    http host header is equal to Host. 2. If Host
+                                    is a wildcard, then the request matches this rule
+                                    if the http host header is to equal to the suffix
+                                    (removing the first label) of the wildcard rule."
                                   type: string
                                 http:
                                   description: 'HTTPIngressRuleValue is a list of
@@ -329,9 +327,9 @@ spec:
                                               it can contain characters disallowed
                                               from the conventional "path" part of
                                               a URL as defined by RFC 3986. Paths
-                                              must begin with a '/'. When unspecified,
-                                              all paths from incoming requests are
-                                              matched.
+                                              must begin with a '/' and must be present
+                                              when using PathType with value "Exact"
+                                              or "Prefix".
                                             type: string
                                           pathType:
                                             description: 'PathType determines the
@@ -340,26 +338,27 @@ spec:
                                               values: * Exact: Matches the URL path
                                               exactly. * Prefix: Matches based on
                                               a URL path prefix split by ''/''. Matching
-                                              is   done on a path element by element
-                                              basis. A path element refers is the   list
-                                              of labels in the path split by the ''/''
-                                              separator. A request is a   match for
-                                              path p if every p is an element-wise
-                                              prefix of p of the   request path. Note
+                                              is done on a path element by element
+                                              basis. A path element refers is the
+                                              list of labels in the path split by
+                                              the ''/'' separator. A request is a
+                                              match for path p if every p is an element-wise
+                                              prefix of p of the request path. Note
                                               that if the last element of the path
-                                              is a substring   of the last element
-                                              in request path, it is not a match (e.g.
-                                              /foo/bar   matches /foo/bar/baz, but
-                                              does not match /foo/barbaz). * ImplementationSpecific:
+                                              is a substring of the last element in
+                                              request path, it is not a match (e.g.
+                                              /foo/bar matches /foo/bar/baz, but does
+                                              not match /foo/barbaz). * ImplementationSpecific:
                                               Interpretation of the Path matching
-                                              is up to   the IngressClass. Implementations
-                                              can treat this as a separate PathType   or
-                                              treat it identically to Prefix or Exact
-                                              path types. Implementations are required
-                                              to support all path types.'
+                                              is up to the IngressClass. Implementations
+                                              can treat this as a separate PathType
+                                              or treat it identically to Prefix or
+                                              Exact path types. Implementations are
+                                              required to support all path types.'
                                             type: string
                                         required:
                                         - backend
+                                        - pathType
                                         type: object
                                       type: array
                                       x-kubernetes-list-type: atomic
@@ -521,30 +520,29 @@ spec:
                                     Note the following deviations from the \"host\"
                                     part of the URI as defined in RFC 3986: 1. IPs
                                     are not allowed. Currently an IngressRuleValue
-                                    can only apply to    the IP in the Spec of the
-                                    parent Ingress. 2. The `:` delimiter is not respected
-                                    because ports are not allowed. \t  Currently the
-                                    port of an Ingress is implicitly :80 for http
-                                    and \t  :443 for https. Both these may change
-                                    in the future. Incoming requests are matched against
-                                    the host before the IngressRuleValue. If the host
-                                    is unspecified, the Ingress routes all traffic
-                                    based on the specified IngressRuleValue. \n Host
-                                    can be \"precise\" which is a domain name without
-                                    the terminating dot of a network host (e.g. \"foo.bar.com\")
-                                    or \"wildcard\", which is a domain name prefixed
-                                    with a single wildcard label (e.g. \"*.foo.com\").
-                                    The wildcard character '*' must appear by itself
-                                    as the first DNS label and matches only a single
-                                    label. You cannot have a wildcard label by itself
-                                    (e.g. Host == \"*\"). Requests will be matched
-                                    against the Host field in the following way: 1.
-                                    If Host is precise, the request matches this rule
-                                    if the http host header is equal to Host. 2. If
-                                    Host is a wildcard, then the request matches this
-                                    rule if the http host header is to equal to the
-                                    suffix (removing the first label) of the wildcard
-                                    rule."
+                                    can only apply to the IP in the Spec of the parent
+                                    Ingress. 2. The `:` delimiter is not respected
+                                    because ports are not allowed. Currently the port
+                                    of an Ingress is implicitly :80 for http and :443
+                                    for https. Both these may change in the future.
+                                    Incoming requests are matched against the host
+                                    before the IngressRuleValue. If the host is unspecified,
+                                    the Ingress routes all traffic based on the specified
+                                    IngressRuleValue. \n Host can be \"precise\" which
+                                    is a domain name without the terminating dot of
+                                    a network host (e.g. \"foo.bar.com\") or \"wildcard\",
+                                    which is a domain name prefixed with a single
+                                    wildcard label (e.g. \"*.foo.com\"). The wildcard
+                                    character '*' must appear by itself as the first
+                                    DNS label and matches only a single label. You
+                                    cannot have a wildcard label by itself (e.g. Host
+                                    == \"*\"). Requests will be matched against the
+                                    Host field in the following way: 1. If Host is
+                                    precise, the request matches this rule if the
+                                    http host header is equal to Host. 2. If Host
+                                    is a wildcard, then the request matches this rule
+                                    if the http host header is to equal to the suffix
+                                    (removing the first label) of the wildcard rule."
                                   type: string
                                 http:
                                   description: 'HTTPIngressRuleValue is a list of
@@ -640,9 +638,9 @@ spec:
                                               it can contain characters disallowed
                                               from the conventional "path" part of
                                               a URL as defined by RFC 3986. Paths
-                                              must begin with a '/'. When unspecified,
-                                              all paths from incoming requests are
-                                              matched.
+                                              must begin with a '/' and must be present
+                                              when using PathType with value "Exact"
+                                              or "Prefix".
                                             type: string
                                           pathType:
                                             description: 'PathType determines the
@@ -651,26 +649,27 @@ spec:
                                               values: * Exact: Matches the URL path
                                               exactly. * Prefix: Matches based on
                                               a URL path prefix split by ''/''. Matching
-                                              is   done on a path element by element
-                                              basis. A path element refers is the   list
-                                              of labels in the path split by the ''/''
-                                              separator. A request is a   match for
-                                              path p if every p is an element-wise
-                                              prefix of p of the   request path. Note
+                                              is done on a path element by element
+                                              basis. A path element refers is the
+                                              list of labels in the path split by
+                                              the ''/'' separator. A request is a
+                                              match for path p if every p is an element-wise
+                                              prefix of p of the request path. Note
                                               that if the last element of the path
-                                              is a substring   of the last element
-                                              in request path, it is not a match (e.g.
-                                              /foo/bar   matches /foo/bar/baz, but
-                                              does not match /foo/barbaz). * ImplementationSpecific:
+                                              is a substring of the last element in
+                                              request path, it is not a match (e.g.
+                                              /foo/bar matches /foo/bar/baz, but does
+                                              not match /foo/barbaz). * ImplementationSpecific:
                                               Interpretation of the Path matching
-                                              is up to   the IngressClass. Implementations
-                                              can treat this as a separate PathType   or
-                                              treat it identically to Prefix or Exact
-                                              path types. Implementations are required
-                                              to support all path types.'
+                                              is up to the IngressClass. Implementations
+                                              can treat this as a separate PathType
+                                              or treat it identically to Prefix or
+                                              Exact path types. Implementations are
+                                              required to support all path types.'
                                             type: string
                                         required:
                                         - backend
+                                        - pathType
                                         type: object
                                       type: array
                                       x-kubernetes-list-type: atomic
@@ -832,30 +831,29 @@ spec:
                                     Note the following deviations from the \"host\"
                                     part of the URI as defined in RFC 3986: 1. IPs
                                     are not allowed. Currently an IngressRuleValue
-                                    can only apply to    the IP in the Spec of the
-                                    parent Ingress. 2. The `:` delimiter is not respected
-                                    because ports are not allowed. \t  Currently the
-                                    port of an Ingress is implicitly :80 for http
-                                    and \t  :443 for https. Both these may change
-                                    in the future. Incoming requests are matched against
-                                    the host before the IngressRuleValue. If the host
-                                    is unspecified, the Ingress routes all traffic
-                                    based on the specified IngressRuleValue. \n Host
-                                    can be \"precise\" which is a domain name without
-                                    the terminating dot of a network host (e.g. \"foo.bar.com\")
-                                    or \"wildcard\", which is a domain name prefixed
-                                    with a single wildcard label (e.g. \"*.foo.com\").
-                                    The wildcard character '*' must appear by itself
-                                    as the first DNS label and matches only a single
-                                    label. You cannot have a wildcard label by itself
-                                    (e.g. Host == \"*\"). Requests will be matched
-                                    against the Host field in the following way: 1.
-                                    If Host is precise, the request matches this rule
-                                    if the http host header is equal to Host. 2. If
-                                    Host is a wildcard, then the request matches this
-                                    rule if the http host header is to equal to the
-                                    suffix (removing the first label) of the wildcard
-                                    rule."
+                                    can only apply to the IP in the Spec of the parent
+                                    Ingress. 2. The `:` delimiter is not respected
+                                    because ports are not allowed. Currently the port
+                                    of an Ingress is implicitly :80 for http and :443
+                                    for https. Both these may change in the future.
+                                    Incoming requests are matched against the host
+                                    before the IngressRuleValue. If the host is unspecified,
+                                    the Ingress routes all traffic based on the specified
+                                    IngressRuleValue. \n Host can be \"precise\" which
+                                    is a domain name without the terminating dot of
+                                    a network host (e.g. \"foo.bar.com\") or \"wildcard\",
+                                    which is a domain name prefixed with a single
+                                    wildcard label (e.g. \"*.foo.com\"). The wildcard
+                                    character '*' must appear by itself as the first
+                                    DNS label and matches only a single label. You
+                                    cannot have a wildcard label by itself (e.g. Host
+                                    == \"*\"). Requests will be matched against the
+                                    Host field in the following way: 1. If Host is
+                                    precise, the request matches this rule if the
+                                    http host header is equal to Host. 2. If Host
+                                    is a wildcard, then the request matches this rule
+                                    if the http host header is to equal to the suffix
+                                    (removing the first label) of the wildcard rule."
                                   type: string
                                 http:
                                   description: 'HTTPIngressRuleValue is a list of
@@ -951,9 +949,9 @@ spec:
                                               it can contain characters disallowed
                                               from the conventional "path" part of
                                               a URL as defined by RFC 3986. Paths
-                                              must begin with a '/'. When unspecified,
-                                              all paths from incoming requests are
-                                              matched.
+                                              must begin with a '/' and must be present
+                                              when using PathType with value "Exact"
+                                              or "Prefix".
                                             type: string
                                           pathType:
                                             description: 'PathType determines the
@@ -962,26 +960,27 @@ spec:
                                               values: * Exact: Matches the URL path
                                               exactly. * Prefix: Matches based on
                                               a URL path prefix split by ''/''. Matching
-                                              is   done on a path element by element
-                                              basis. A path element refers is the   list
-                                              of labels in the path split by the ''/''
-                                              separator. A request is a   match for
-                                              path p if every p is an element-wise
-                                              prefix of p of the   request path. Note
+                                              is done on a path element by element
+                                              basis. A path element refers is the
+                                              list of labels in the path split by
+                                              the ''/'' separator. A request is a
+                                              match for path p if every p is an element-wise
+                                              prefix of p of the request path. Note
                                               that if the last element of the path
-                                              is a substring   of the last element
-                                              in request path, it is not a match (e.g.
-                                              /foo/bar   matches /foo/bar/baz, but
-                                              does not match /foo/barbaz). * ImplementationSpecific:
+                                              is a substring of the last element in
+                                              request path, it is not a match (e.g.
+                                              /foo/bar matches /foo/bar/baz, but does
+                                              not match /foo/barbaz). * ImplementationSpecific:
                                               Interpretation of the Path matching
-                                              is up to   the IngressClass. Implementations
-                                              can treat this as a separate PathType   or
-                                              treat it identically to Prefix or Exact
-                                              path types. Implementations are required
-                                              to support all path types.'
+                                              is up to the IngressClass. Implementations
+                                              can treat this as a separate PathType
+                                              or treat it identically to Prefix or
+                                              Exact path types. Implementations are
+                                              required to support all path types.'
                                             type: string
                                         required:
                                         - backend
+                                        - pathType
                                         type: object
                                       type: array
                                       x-kubernetes-list-type: atomic
@@ -1056,7 +1055,7 @@ spec:
                           pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                           x-kubernetes-int-or-string: true
                         description: 'Limits describes the maximum amount of compute
-                          resources allowed. More info: https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/'
+                          resources allowed. More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/'
                         type: object
                       requests:
                         additionalProperties:
@@ -1068,7 +1067,7 @@ spec:
                         description: 'Requests describes the minimum amount of compute
                           resources required. If Requests is omitted for a container,
                           it defaults to Limits if that is explicitly specified, otherwise
-                          to an implementation-defined value. More info: https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/'
+                          to an implementation-defined value. More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/'
                         type: object
                     type: object
                   subProcessMaxHeapSize:
@@ -1094,7 +1093,7 @@ spec:
                           pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                           x-kubernetes-int-or-string: true
                         description: 'Limits describes the maximum amount of compute
-                          resources allowed. More info: https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/'
+                          resources allowed. More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/'
                         type: object
                       requests:
                         additionalProperties:
@@ -1106,7 +1105,7 @@ spec:
                         description: 'Requests describes the minimum amount of compute
                           resources required. If Requests is omitted for a container,
                           it defaults to Limits if that is explicitly specified, otherwise
-                          to an implementation-defined value. More info: https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/'
+                          to an implementation-defined value. More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/'
                         type: object
                     type: object
                   dataSourceResources:
@@ -1120,7 +1119,7 @@ spec:
                           pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                           x-kubernetes-int-or-string: true
                         description: 'Limits describes the maximum amount of compute
-                          resources allowed. More info: https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/'
+                          resources allowed. More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/'
                         type: object
                       requests:
                         additionalProperties:
@@ -1132,7 +1131,7 @@ spec:
                         description: 'Requests describes the minimum amount of compute
                           resources required. If Requests is omitted for a container,
                           it defaults to Limits if that is explicitly specified, otherwise
-                          to an implementation-defined value. More info: https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/'
+                          to an implementation-defined value. More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/'
                         type: object
                     type: object
                   grafanaResources:
@@ -1146,7 +1145,7 @@ spec:
                           pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                           x-kubernetes-int-or-string: true
                         description: 'Limits describes the maximum amount of compute
-                          resources allowed. More info: https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/'
+                          resources allowed. More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/'
                         type: object
                       requests:
                         additionalProperties:
@@ -1158,7 +1157,7 @@ spec:
                         description: 'Requests describes the minimum amount of compute
                           resources required. If Requests is omitted for a container,
                           it defaults to Limits if that is explicitly specified, otherwise
-                          to an implementation-defined value. More info: https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/'
+                          to an implementation-defined value. More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/'
                         type: object
                     type: object
                 type: object
@@ -1300,27 +1299,59 @@ spec:
                           the PVC, changes to this field have no effect.
                         properties:
                           accessModes:
-                            description: 'AccessModes contains the desired access
+                            description: 'accessModes contains the desired access
                               modes the volume should have. More info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#access-modes-1'
                             items:
                               type: string
                             type: array
                           dataSource:
-                            description: 'This field can be used to specify either:
-                              * An existing VolumeSnapshot object (snapshot.storage.k8s.io/VolumeSnapshot
-                              - Beta) * An existing PVC (PersistentVolumeClaim) *
-                              An existing custom resource/object that implements data
-                              population (Alpha) In order to use VolumeSnapshot object
-                              types, the appropriate feature gate must be enabled
-                              (VolumeSnapshotDataSource or AnyVolumeDataSource) If
-                              the provisioner or an external controller can support
-                              the specified data source, it will create a new volume
-                              based on the contents of the specified data source.
-                              If the specified data source is not supported, the volume
-                              will not be created and the failure will be reported
-                              as an event. In the future, we plan to support more
-                              data source types and the behavior of the provisioner
-                              may change.'
+                            description: 'dataSource field can be used to specify
+                              either: * An existing VolumeSnapshot object (snapshot.storage.k8s.io/VolumeSnapshot)
+                              * An existing PVC (PersistentVolumeClaim) If the provisioner
+                              or an external controller can support the specified
+                              data source, it will create a new volume based on the
+                              contents of the specified data source. If the AnyVolumeDataSource
+                              feature gate is enabled, this field will always have
+                              the same contents as the DataSourceRef field.'
+                            properties:
+                              apiGroup:
+                                description: APIGroup is the group for the resource
+                                  being referenced. If APIGroup is not specified,
+                                  the specified Kind must be in the core API group.
+                                  For any other third-party types, APIGroup is required.
+                                type: string
+                              kind:
+                                description: Kind is the type of resource being referenced
+                                type: string
+                              name:
+                                description: Name is the name of resource being referenced
+                                type: string
+                            required:
+                            - kind
+                            - name
+                            type: object
+                          dataSourceRef:
+                            description: 'dataSourceRef specifies the object from
+                              which to populate the volume with data, if a non-empty
+                              volume is desired. This may be any local object from
+                              a non-empty API group (non core object) or a PersistentVolumeClaim
+                              object. When this field is specified, volume binding
+                              will only succeed if the type of the specified object
+                              matches some installed volume populator or dynamic provisioner.
+                              This field will replace the functionality of the DataSource
+                              field and as such if both fields are non-empty, they
+                              must have the same value. For backwards compatibility,
+                              both fields (DataSource and DataSourceRef) will be set
+                              to the same value automatically if one of them is empty
+                              and the other is non-empty. There are two important
+                              differences between DataSource and DataSourceRef: *
+                              While DataSource only allows two specific types of objects,
+                              DataSourceRef allows any non-core object, as well as
+                              PersistentVolumeClaim objects. * While DataSource ignores
+                              disallowed values (dropping them), DataSourceRef preserves
+                              all values, and generates an error if a disallowed value
+                              is specified. (Beta) Using this field requires the AnyVolumeDataSource
+                              feature gate to be enabled.'
                             properties:
                               apiGroup:
                                 description: APIGroup is the group for the resource
@@ -1339,8 +1370,12 @@ spec:
                             - name
                             type: object
                           resources:
-                            description: 'Resources represents the minimum resources
-                              the volume should have. More info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#resources'
+                            description: 'resources represents the minimum resources
+                              the volume should have. If RecoverVolumeExpansionFailure
+                              feature is enabled users are allowed to specify resource
+                              requirements that are lower than previous value but
+                              must still be higher than capacity recorded in the status
+                              field of the claim. More info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#resources'
                             properties:
                               limits:
                                 additionalProperties:
@@ -1350,7 +1385,7 @@ spec:
                                   pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                   x-kubernetes-int-or-string: true
                                 description: 'Limits describes the maximum amount
-                                  of compute resources allowed. More info: https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/'
+                                  of compute resources allowed. More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/'
                                 type: object
                               requests:
                                 additionalProperties:
@@ -1363,12 +1398,12 @@ spec:
                                   of compute resources required. If Requests is omitted
                                   for a container, it defaults to Limits if that is
                                   explicitly specified, otherwise to an implementation-defined
-                                  value. More info: https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/'
+                                  value. More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/'
                                 type: object
                             type: object
                           selector:
-                            description: A label query over volumes to consider for
-                              binding.
+                            description: selector is a label query over volumes to
+                              consider for binding.
                             properties:
                               matchExpressions:
                                 description: matchExpressions is a list of label selector
@@ -1413,8 +1448,8 @@ spec:
                                 type: object
                             type: object
                           storageClassName:
-                            description: 'Name of the StorageClass required by the
-                              claim. More info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#class-1'
+                            description: 'storageClassName is the name of the StorageClass
+                              required by the claim. More info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#class-1'
                             type: string
                           volumeMode:
                             description: volumeMode defines what type of volume is
@@ -1422,7 +1457,7 @@ spec:
                               when not included in claim spec.
                             type: string
                           volumeName:
-                            description: VolumeName is the binding reference to the
+                            description: volumeName is the binding reference to the
                               PersistentVolume backing this claim.
                             type: string
                         type: object
@@ -1459,13 +1494,12 @@ spec:
                   description: "Condition contains details for one aspect of the current
                     state of this API Resource. --- This struct is intended for direct
                     use as an array at the field path .status.conditions.  For example,
-                    type FooStatus struct{     // Represents the observations of a
-                    foo's current state.     // Known .status.conditions.type are:
-                    \"Available\", \"Progressing\", and \"Degraded\"     // +patchMergeKey=type
-                    \    // +patchStrategy=merge     // +listType=map     // +listMapKey=type
-                    \    Conditions []metav1.Condition `json:\"conditions,omitempty\"
-                    patchStrategy:\"merge\" patchMergeKey:\"type\" protobuf:\"bytes,1,rep,name=conditions\"`
-                    \n     // other fields }"
+                    type FooStatus struct{ // Represents the observations of a foo's
+                    current state. // Known .status.conditions.type are: \"Available\",
+                    \"Progressing\", and \"Degraded\" // +patchMergeKey=type // +patchStrategy=merge
+                    // +listType=map // +listMapKey=type Conditions []metav1.Condition
+                    `json:\"conditions,omitempty\" patchStrategy:\"merge\" patchMergeKey:\"type\"
+                    protobuf:\"bytes,1,rep,name=conditions\"` \n // other fields }"
                   properties:
                     lastTransitionTime:
                       description: lastTransitionTime is the last time the condition
@@ -1534,9 +1568,3 @@ spec:
     storage: true
     subresources:
       status: {}
-status:
-  acceptedNames:
-    kind: ""
-    plural: ""
-  conditions: []
-  storedVersions: []

@@ -88,7 +88,7 @@ var _ = Describe("CryostatController", func() {
 		logf.SetLogger(logger)
 		s := test.NewTestScheme()
 
-		t.Client = fake.NewFakeClientWithScheme(s, t.objs...)
+		t.Client = fake.NewClientBuilder().WithScheme(s).WithRuntimeObjects(t.objs...).Build()
 		t.controller = &controllers.CryostatReconciler{
 			Client:        t.Client,
 			Scheme:        s,
@@ -890,8 +890,8 @@ var _ = Describe("CryostatController", func() {
 				It("should delete the ClusterRoleBinding", func() {
 					t.checkClusterRoleBindingDeleted()
 				})
-				It("should remove the finalizer", func() {
-					t.expectCryostatFinalizerAbsent()
+				It("should delete Cryostat", func() {
+					t.expectNoCryostat()
 				})
 			})
 			Context("ClusterRoleBinding does not exist", func() {
@@ -900,8 +900,8 @@ var _ = Describe("CryostatController", func() {
 					Expect(err).ToNot(HaveOccurred())
 					t.reconcileDeletedCryostat()
 				})
-				It("should remove the finalizer", func() {
-					t.expectCryostatFinalizerAbsent()
+				It("should delete Cryostat", func() {
+					t.expectNoCryostat()
 				})
 			})
 		})
@@ -962,8 +962,8 @@ var _ = Describe("CryostatController", func() {
 						Expect(apiServer.Spec.AdditionalCORSAllowedOrigins).ToNot(ContainElement("https://cryostat\\.example\\.com"))
 						Expect(apiServer.Spec.AdditionalCORSAllowedOrigins).To(ContainElement("https://an-existing-user-specified\\.allowed\\.origin\\.com"))
 					})
-					It("should remove the finalizer", func() {
-						t.expectCryostatFinalizerAbsent()
+					It("should delete Cryostat", func() {
+						t.expectNoCryostat()
 					})
 				})
 				Context("ConsoleLink does not exist", func() {
@@ -972,8 +972,8 @@ var _ = Describe("CryostatController", func() {
 						Expect(err).ToNot(HaveOccurred())
 						t.reconcileDeletedCryostat()
 					})
-					It("should remove the finalizer", func() {
-						t.expectCryostatFinalizerAbsent()
+					It("should delete Cryostat", func() {
+						t.expectNoCryostat()
 					})
 				})
 			})
@@ -1572,6 +1572,12 @@ func checkMetadata(object metav1.Object, expected metav1.Object) {
 	Expect(ownerReferences[0].Name).To(Equal("cryostat"))
 }
 
+func (t *cryostatTestInput) expectNoCryostat() {
+	instance := &operatorv1beta1.Cryostat{}
+	err := t.Client.Get(context.Background(), types.NamespacedName{Name: "cryostat", Namespace: "default"}, instance)
+	Expect(kerrors.IsNotFound(err)).To(BeTrue())
+}
+
 func (t *cryostatTestInput) expectCertificates() {
 	req := reconcile.Request{NamespacedName: types.NamespacedName{Name: "cryostat", Namespace: "default"}}
 	result, err := t.controller.Reconcile(context.Background(), req)
@@ -1828,13 +1834,6 @@ func (t *cryostatTestInput) expectCryostatFinalizerPresent() {
 	err := t.Client.Get(context.Background(), types.NamespacedName{Name: "cryostat", Namespace: "default"}, cr)
 	Expect(err).ToNot(HaveOccurred())
 	Expect(cr.GetFinalizers()).To(ContainElement("operator.cryostat.io/cryostat.finalizer"))
-}
-
-func (t *cryostatTestInput) expectCryostatFinalizerAbsent() {
-	cr := &operatorv1beta1.Cryostat{}
-	err := t.Client.Get(context.Background(), types.NamespacedName{Name: "cryostat", Namespace: "default"}, cr)
-	Expect(err).ToNot(HaveOccurred())
-	Expect(cr.GetFinalizers()).ToNot(ContainElement("operator.cryostat.io/cryostat.finalizer"))
 }
 
 func (t *cryostatTestInput) checkGrafanaService() {

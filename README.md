@@ -14,17 +14,17 @@ the core library providing a convenience wrapper and headless stubs for use of
 JFR using JDK Mission Control internals.
 
 * [cryostat](https://github.com/cryostatio/cryostat) for the main API
-backend to detect JVMs and manage JFR
+backend to detect JVMs and manage JFR.
 
 * [cryostat-web](https://github.com/cryostatio/cryostat-web) for the React
 graphical frontend included as a submodule in Cryostat and built into
 Cryostat's OCI images.
 
 * [jfr-datasource](https://github.com/cryostatio/jfr-datasource) for
-the JFR datasource for Grafana
+the JFR datasource for Grafana.
 
 * [cryostat-grafana-dashboard](https://github.com/cryostatio/cryostat-grafana-dashboard)
-for the Grafana dashboard
+for the Grafana dashboard.
 
 # Using
 Once deployed, the `cryostat` instance can be accessed via web browser
@@ -51,8 +51,8 @@ kubectl get secret ${CRYOSTAT_NAME}-jmx-auth -o jsonpath='{$.data.CRYOSTAT_RJMX_
 
 # Building
 ## Requirements
-- `go` v1.16 or v1.17
-- [`operator-sdk`](https://github.com/operator-framework/operator-sdk) v1.5.0
+- `go` v1.18
+- [`operator-sdk`](https://github.com/operator-framework/operator-sdk) v1.22.2
 - [`cert-manager`](https://github.com/jetstack/cert-manager) v1.3.0+ (Recommended)
 - `podman` or `docker`
 - `ginkgo` (Optional)
@@ -67,11 +67,14 @@ binary to the local registry, tagged as
 setting the environment variables `IMAGE_NAMESPACE` and `OPERATOR_NAME`.
 `IMAGE_VERSION` can also be set to override the tagged version.
 
-To create an OLM bundle, use `make bundle`. This will generate a CSV, CRDs and
+`make bundle` will create an OLM bundle. This will generate a CSV, CRDs and
 other manifests, and other required configurations for an OLM bundle versioned
 with version `$IMAGE_VERSION` in the `bundle/` directory. `make bundle-build`
 will create an OCI image of this bundle, which can then be pushed to an image
 repository such as `quay.io`.
+
+`make catalog-build` will build an OCI image of the operator catalog (i.e. index)
+with version `$IMAGE_VERSION` that includes the bundle image of the same version.
 
 # Setup / Deployment
 ## Bundle Deployment
