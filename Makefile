@@ -67,7 +67,7 @@ REPORTS_NAME ?= cryostat-reports
 REPORTS_VERSION ?= latest
 export REPORTS_IMG ?= $(REPORTS_NAMESPACE)/$(REPORTS_NAME):$(REPORTS_VERSION)
 
-CERT_MANAGER_VERSION ?= 1.5.3
+CERT_MANAGER_VERSION ?= 1.7.1
 CERT_MANAGER_MANIFEST ?= \
 	https://github.com/jetstack/cert-manager/releases/download/v$(CERT_MANAGER_VERSION)/cert-manager.yaml
 
