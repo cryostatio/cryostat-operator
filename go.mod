@@ -7,7 +7,7 @@ require (
 	github.com/jetstack/cert-manager v1.7.1
 	github.com/onsi/ginkgo v1.16.5
 	github.com/onsi/gomega v1.18.1
-	github.com/openshift/api v0.0.0-20220712151050-2647eb31dee7
+	github.com/openshift/api v0.0.0-20220712151050-2647eb31dee7 // release-4.11
 	k8s.io/api v0.24.0
 	k8s.io/apimachinery v0.24.0
 	k8s.io/client-go v0.24.0
