@@ -1,8 +1,0 @@
-apiVersion: operator.cryostat.io/v1beta1
-kind: FlightRecorder
-metadata:
-  name: example-flightrecorder
-spec:
-  recordingSelector:
-    matchLabels:
-      "operator.cryostat.io/flightrecorder": "example-flightrecorder"
