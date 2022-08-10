@@ -4,9 +4,7 @@
 [![Google Group : Cryostat Development](https://img.shields.io/badge/Google%20Group-Cryostat%20Development-blue.svg)](https://groups.google.com/g/cryostat-development)
 
 A Kubernetes Operator to automate deployment of
-[Cryostat](https://github.com/cryostatio/cryostat) and provide an
-API to manage [JDK Flight Recordings](https://openjdk.java.net/jeps/328).
-
+[Cryostat](https://github.com/cryostatio/cryostat).
 ## SEE ALSO
 
 * [cryostat-core](https://github.com/cryostatio/cryostat-core) for
