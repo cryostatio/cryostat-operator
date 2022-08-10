@@ -4,13 +4,6 @@ resources:
 - ../samples
 - ../scorecard
 
-patches:
-- path: xdescriptors_patch.yaml
-  target:
-    group: operators.coreos.com
-    version: v1alpha1
-    kind: ClusterServiceVersion
-    name: cryostat-operator.v0.0.0
 #patchesJson6902:
 #- target:
 #    group: apps
