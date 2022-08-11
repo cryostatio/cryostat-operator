@@ -1018,11 +1018,6 @@ func NewRoleForCR(cr *operatorv1beta1.Cryostat) *rbacv1.Role {
 		},
 		Rules: []rbacv1.PolicyRule{
 			{
-				Verbs:     []string{"get", "list", "watch"},
-				APIGroups: []string{""},
-				Resources: []string{"endpoints"},
-			},
-			{
 				Verbs:     []string{"get"},
 				APIGroups: []string{""},
 				Resources: []string{"pods", "replicationcontrollers"},
