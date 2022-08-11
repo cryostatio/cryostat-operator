@@ -26,38 +26,6 @@ metadata:
             },
             "trustedCertSecrets": []
           }
-        },
-        {
-          "apiVersion": "operator.cryostat.io/v1beta1",
-          "kind": "FlightRecorder",
-          "metadata": {
-            "name": "example-flightrecorder"
-          },
-          "spec": {
-            "recordingSelector": {
-              "matchLabels": {
-                "operator.cryostat.io/flightrecorder": "example-flightrecorder"
-              }
-            }
-          }
-        },
-        {
-          "apiVersion": "operator.cryostat.io/v1beta1",
-          "kind": "Recording",
-          "metadata": {
-            "name": "example-recording"
-          },
-          "spec": {
-            "archive": true,
-            "duration": "30s",
-            "eventOptions": [
-              "template=ALL"
-            ],
-            "flightRecorder": {
-              "name": "example-flightrecorder"
-            },
-            "name": "example-recording"
-          }
         }
       ]
     capabilities: Basic Install
@@ -81,7 +49,6 @@ metadata:
         }
       }
     operators.operatorframework.io/builder: operator-sdk-v1.22.2
-    operators.operatorframework.io/internal-objects: '["flightrecorders.operator.cryostat.io","recordings.operator.cryostat.io"]'
     operators.operatorframework.io/project_layout: go.kubebuilder.io/v3
     repository: github.com/cryostatio/cryostat-operator
     support: Cryostat Community
@@ -345,129 +312,6 @@ spec:
         x-descriptors:
         - urn:alm:descriptor:io.kubernetes:Secret
       version: v1beta1
-    - description: FlightRecorder represents a target Pod that is capable of creating
-        JDK Flight Recordings using Cryostat. The Cryostat operator creates FlightRecorder
-        objects when it finds compatible Pods.
-      displayName: Flight Recorder
-      kind: FlightRecorder
-      name: flightrecorders.operator.cryostat.io
-      resources:
-      - kind: Pod
-        name: ""
-        version: v1
-      - kind: Secret
-        name: ""
-        version: v1
-      - kind: Service
-        name: ""
-        version: v1
-      specDescriptors:
-      - description: If JMX authentication is enabled for this FlightRecorder's JVM,
-          specify the credentials in a secret and reference it here
-        displayName: JMXCredentials
-        path: jmxCredentials
-      - description: Recordings that match this selector belong to this FlightRecorder
-        displayName: Recording Selector
-        path: recordingSelector
-      statusDescriptors:
-      - description: Listing of events available in the target JVM
-        displayName: Events
-        path: events
-      - description: JMX port for target JVM
-        displayName: Port
-        path: port
-        x-descriptors:
-        - urn:alm:descriptor:text
-      - description: Reference to the pod/service that this object controls JFR for
-        displayName: Target
-        path: target
-      - description: Listing of templates available in the target JVM
-        displayName: Templates
-        path: templates
-      version: v1beta1
-    - description: Recording represents a JDK Flight Recording. Create a Recording
-        object to instruct Cryostat to start a new recording for a Pod. An alternative
-        to managing recordings with the Cryostat web application.
-      displayName: Recording
-      kind: Recording
-      name: recordings.operator.cryostat.io
-      resources:
-      - kind: Pod
-        name: ""
-        version: v1
-      - kind: Secret
-        name: ""
-        version: v1
-      - kind: Service
-        name: ""
-        version: v1
-      specDescriptors:
-      - description: Whether this recording should be saved to persistent storage.
-          If true, the JFR file will be retained until this object is deleted. If
-          false, the JFR file will be deleted when its corresponding JVM exits.
-        displayName: Archive
-        path: archive
-        x-descriptors:
-        - urn:alm:descriptor:com.tectonic.ui:checkbox
-      - description: The requested total duration of the recording, a zero value will
-          record indefinitely. The duration format is a combination of hours (h),
-          minutes (m) and seconds (s). e.g. 30s, 0s, 1h30m
-        displayName: Duration
-        path: duration
-        x-descriptors:
-        - urn:alm:descriptor:com.tectonic.ui:text
-      - description: Name of the event template to use when creating the recording.
-          Must be prefixed with "template=". e.g. template=Profiling
-        displayName: Event Template
-        path: eventOptions
-        x-descriptors:
-        - urn:alm:descriptor:com.tectonic.ui:text
-      - description: Select the FlightRecorder with the name of the target Pod for
-          this Recording.
-        displayName: Name
-        path: flightRecorder.name
-        x-descriptors:
-        - urn:alm:descriptor:io.kubernetes:operator.cryostat.io:v1beta1:FlightRecorder
-      - description: Reference to the FlightRecorder object that corresponds to this
-          Recording.
-        displayName: Flight Recorder
-        path: flightRecorder
-      - description: Name of the recording to be created.
-        displayName: Name
-        path: name
-      - description: Desired state of the recording. If omitted, RUNNING will be assumed.
-        displayName: State
-        path: state
-        x-descriptors:
-        - urn:alm:descriptor:com.tectonic.ui:select:RUNNING
-        - urn:alm:descriptor:com.tectonic.ui:select:STOPPED
-      statusDescriptors:
-      - description: A URL to download the JFR file for the recording.
-        displayName: Download URL
-        path: downloadURL
-        x-descriptors:
-        - urn:alm:descriptor:org.w3:link
-      - description: The duration of the recording specified during creation.
-        displayName: Duration
-        path: duration
-        x-descriptors:
-        - urn:alm:descriptor:text
-      - description: A URL to download the autogenerated HTML report for the recording
-        displayName: Report URL
-        path: reportURL
-        x-descriptors:
-        - urn:alm:descriptor:org.w3:link
-      - description: The date/time when the recording started.
-        displayName: Start Time
-        path: startTime
-        x-descriptors:
-        - urn:alm:descriptor:text
-      - description: Current state of the recording.
-        displayName: State
-        path: state
-        x-descriptors:
-        - urn:alm:descriptor:text
-      version: v1beta1
   description: |
     Cryostat provides a cloud-based solution for interacting with the JDK Flight Recorder already present in OpenJDK 11+ JVMs. With Cryostat, users can remotely start, stop, retrieve, and even analyze JFR event data, providing the capability to easily take advantage of Flight Recorder's extremely low runtime cost and overhead and the flexibility to monitor applications and analyze recording data without transferring data outside of the cluster the application runs within.
     ##Prerequisites
@@ -639,7 +483,6 @@ spec:
           - ""
           resources:
           - configmaps
-          - endpoints
           - events
           - persistentvolumeclaims
           - pods
@@ -649,31 +492,6 @@ spec:
           - services/finalizers
           verbs:
           - '*'
-        - apiGroups:
-          - ""
-          resources:
-          - endpoints
-          - pods
-          - secrets
-          - services
-          verbs:
-          - get
-          - list
-          - watch
-        - apiGroups:
-          - ""
-          resources:
-          - pods
-          - secrets
-          - services
-          verbs:
-          - create
-          - delete
-          - get
-          - list
-          - patch
-          - update
-          - watch
         - apiGroups:
           - ""
           resources:
@@ -728,21 +546,6 @@ spec:
         - apiGroups:
           - operator.cryostat.io
           resources:
-          - cryostats
-          - flightrecorders
-          verbs:
-          - '*'
-        - apiGroups:
-          - operator.cryostat.io
-          resources:
-          - cryostats
-          - flightrecorders
-          - recordings
-          verbs:
-          - '*'
-        - apiGroups:
-          - operator.cryostat.io
-          resources:
           - cryostats/finalizers
           verbs:
           - update
@@ -750,40 +553,6 @@ spec:
           - operator.cryostat.io
           resources:
           - cryostats/status
-          verbs:
-          - get
-          - patch
-          - update
-        - apiGroups:
-          - operator.cryostat.io
-          resources:
-          - flightrecorders
-          verbs:
-          - create
-          - delete
-          - get
-          - list
-          - patch
-          - update
-          - watch
-        - apiGroups:
-          - operator.cryostat.io
-          resources:
-          - flightrecorders/status
-          verbs:
-          - get
-          - patch
-          - update
-        - apiGroups:
-          - operator.cryostat.io
-          resources:
-          - recordings/finalizers
-          verbs:
-          - update
-        - apiGroups:
-          - operator.cryostat.io
-          resources:
-          - recordings/status
           verbs:
           - get
           - patch
