@@ -351,6 +351,28 @@ func NewPodForCR(cr *operatorv1beta1.Cryostat, specs *ServiceSpecs, imageTags *I
 		volumes = append(volumes, eventTemplateVolume)
 	}
 
+	// Add OAuth properties as a volume if specified
+	if cr.Spec.OAuthProperties != (operatorv1beta1.OAuthPropertiesConfigMap{}) {
+		OAuthResourceVolume := corev1.Volume{
+			Name: "oauth-properties-" + cr.Spec.OAuthProperties.ConfigMapName,
+			VolumeSource: corev1.VolumeSource{
+				ConfigMap: &corev1.ConfigMapVolumeSource{
+					LocalObjectReference: corev1.LocalObjectReference{
+						Name: cr.Spec.OAuthProperties.ConfigMapName,
+					},
+					Items: []corev1.KeyToPath{
+						{
+							Key:  cr.Spec.OAuthProperties.Filename,
+							Path: "OpenShiftAuthManager.properties",
+							Mode: &readOnlyMode,
+						},
+					},
+				},
+			},
+		}
+		volumes = append(volumes, OAuthResourceVolume)
+	}
+
 	// Ensure PV mounts are writable
 	sc := &corev1.PodSecurityContext{
 		FSGroup: &fsGroup,
@@ -498,6 +520,7 @@ func NewCoreContainer(cr *operatorv1beta1.Cryostat, specs *ServiceSpecs, imageTa
 	templatesPath := "/opt/cryostat.d/templates.d"
 	clientlibPath := "/opt/cryostat.d/clientlib.d"
 	probesPath := "/opt/cryostat.d/probes.d"
+	OAuthPropertiesPath := "/app/resources/io/cryostat/net/openshift/OpenShiftAuthManager.properties"
 	envs := []corev1.EnvVar{
 		{
 			Name:  "CRYOSTAT_WEB_PORT",
@@ -667,6 +690,16 @@ func NewCoreContainer(cr *operatorv1beta1.Cryostat, specs *ServiceSpecs, imageTa
 			MountPath: "/truststore/operator",
 			ReadOnly:  true,
 		},
+	}
+
+	// Mount OAuth properties if specified
+	if cr.Spec.OAuthProperties != (operatorv1beta1.OAuthPropertiesConfigMap{}) {
+		mounts = append(mounts, corev1.VolumeMount{
+			Name:      "oauth-properties-" + cr.Spec.OAuthProperties.ConfigMapName,
+			MountPath: OAuthPropertiesPath,
+			SubPath:   "OpenShiftAuthManager.properties",
+			ReadOnly:  true,
+		})
 	}
 
 	if !cr.Spec.Minimal {
