@@ -74,6 +74,7 @@ rules:
   - ""
   resources:
   - configmaps
+  - endpoints
   - events
   - persistentvolumeclaims
   - pods
