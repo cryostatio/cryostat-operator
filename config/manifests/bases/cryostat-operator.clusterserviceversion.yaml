@@ -111,7 +111,7 @@ spec:
       - description: A permission mapping from Cryostat resources to Kubernetes resources
           used for authorization. If the mapping is updated, Cryostat must be manually
           restarted.
-        displayName: Auth Properties
+        displayName: Authorization Properties
         path: authProperties
       - description: Name of config map in the local namespace.
         displayName: Config Map Name

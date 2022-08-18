@@ -93,7 +93,7 @@ type CryostatSpec struct {
 	// A permission mapping from Cryostat resources to Kubernetes resources used for authorization.
 	// If the mapping is updated, Cryostat must be manually restarted.
 	// +optional
-	// +operator-sdk:csv:customresourcedefinitions:type=spec
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Authorization Properties"
 	AuthProperties AuthPropertiesConfigMap `json:"authProperties,omitempty"`
 }
 
