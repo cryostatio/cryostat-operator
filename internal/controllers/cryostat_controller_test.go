@@ -658,11 +658,11 @@ var _ = Describe("CryostatController", func() {
 
 				volumes := deployment.Spec.Template.Spec.Volumes
 				expectedVolumes := test.NewVolumesWithSecrets(t.TLS)
-				Expect(volumes).To(Equal(expectedVolumes))
+				Expect(volumes).To(ConsistOf(expectedVolumes))
 
 				volumeMounts := deployment.Spec.Template.Spec.Containers[0].VolumeMounts
 				expectedVolumeMounts := test.NewCoreVolumeMounts(t.TLS)
-				Expect(volumeMounts).To(Equal(expectedVolumeMounts))
+				Expect(volumeMounts).To(ConsistOf(expectedVolumeMounts))
 			})
 		})
 		Context("Cryostat CR has list of event templates", func() {
@@ -1824,11 +1824,11 @@ func (t *cryostatTestInput) expectDeploymentHasCertSecrets() {
 
 	volumes := deployment.Spec.Template.Spec.Volumes
 	expectedVolumes := test.NewVolumesWithSecrets(t.TLS)
-	Expect(volumes).To(Equal(expectedVolumes))
+	Expect(volumes).To(ConsistOf(expectedVolumes))
 
 	volumeMounts := deployment.Spec.Template.Spec.Containers[0].VolumeMounts
 	expectedVolumeMounts := test.NewCoreVolumeMounts(t.TLS)
-	Expect(volumeMounts).To(Equal(expectedVolumeMounts))
+	Expect(volumeMounts).To(ConsistOf(expectedVolumeMounts))
 }
 
 func (t *cryostatTestInput) expectIdempotence() {
@@ -1982,7 +1982,7 @@ func (t *cryostatTestInput) checkMainPodTemplate(deployment *appsv1.Deployment, 
 		"kind":      "cryostat",
 		"component": "cryostat",
 	}))
-	Expect(template.Spec.Volumes).To(Equal(test.NewVolumes(t.minimal, t.TLS)))
+	Expect(template.Spec.Volumes).To(ConsistOf(test.NewVolumes(t.minimal, t.TLS)))
 	Expect(template.Spec.SecurityContext).To(Equal(test.NewPodSecurityContext()))
 
 	// Check that the networking environment variables are set correctly
@@ -2050,7 +2050,7 @@ func (t *cryostatTestInput) checkReportsDeployment() {
 		"kind":      "cryostat",
 		"component": "reports",
 	}))
-	Expect(template.Spec.Volumes).To(Equal(test.NewReportsVolumes(t.TLS)))
+	Expect(template.Spec.Volumes).To(ConsistOf(test.NewReportsVolumes(t.TLS)))
 
 	var resources corev1.ResourceRequirements
 	if cr.Spec.ReportOptions != nil {
@@ -2068,11 +2068,11 @@ func (t *cryostatTestInput) checkDeploymentHasTemplates() {
 
 	volumes := deployment.Spec.Template.Spec.Volumes
 	expectedVolumes := test.NewVolumesWithTemplates(t.TLS)
-	Expect(volumes).To(Equal(expectedVolumes))
+	Expect(volumes).To(ConsistOf(expectedVolumes))
 
 	volumeMounts := deployment.Spec.Template.Spec.Containers[0].VolumeMounts
 	expectedVolumeMounts := test.NewVolumeMountsWithTemplates(t.TLS)
-	Expect(volumeMounts).To(Equal(expectedVolumeMounts))
+	Expect(volumeMounts).To(ConsistOf(expectedVolumeMounts))
 }
 
 func (t *cryostatTestInput) checkDeploymentHasAuthProperties() {
