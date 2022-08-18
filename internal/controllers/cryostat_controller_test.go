@@ -2082,11 +2082,11 @@ func (t *cryostatTestInput) checkDeploymentHasOAuthProperties() {
 
 	volumes := deployment.Spec.Template.Spec.Volumes
 	expectedVolumes := test.NewVolumeWithOAuthProperties(t.TLS)
-	Expect(volumes).To(Equal(expectedVolumes))
+	Expect(volumes).To(ConsistOf(expectedVolumes))
 
 	volumeMounts := deployment.Spec.Template.Spec.Containers[0].VolumeMounts
 	expectedVolumeMounts := test.NewVolumeMountsWithOAuthProperties(t.TLS)
-	Expect(volumeMounts).To(Equal(expectedVolumeMounts))
+	Expect(volumeMounts).To(ConsistOf(expectedVolumeMounts))
 }
 
 func checkCoreContainer(container *corev1.Container, minimal bool, tls bool, externalTLS bool,
