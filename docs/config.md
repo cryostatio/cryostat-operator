@@ -146,7 +146,7 @@ kind: Cryostat
 metadata:
   name: cryostat-sample
 spec:
-  reportOptions:resource
+  reportOptions:
     replicas: 0
     subProcessMaxHeapSize: 200
 ```
