@@ -301,4 +301,4 @@ spec:
     filename: auth.properties
 ```
 
-Each `configMapName` must refer to the name of a Config Map in the same namespace as Cryostat. The corresponding `filename` must be a key within that Config Map containting resource mappings.
+Each `configMapName` must refer to the name of a Config Map in the same namespace as Cryostat. The corresponding `filename` must be a key within that Config Map containting resource mappings. If the mapping is updated, Cryostat must be manually restarted.
