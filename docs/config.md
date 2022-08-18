@@ -133,9 +133,10 @@ metadata:
 spec:
   reportOptions:
     replicas: 1
-    requests:
-      cpu: 1000m
-      memory: 512Mi
+    resources:
+      requests:
+        cpu: 1000m
+        memory: 512Mi
 ```
 If zero sidecar replicas are configured, SubProcessMaxHeapSize configures
 the maximum heap size of the main Cryostat container's subprocess report generator in MiB.
