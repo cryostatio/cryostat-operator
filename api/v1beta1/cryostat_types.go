@@ -91,6 +91,7 @@ type CryostatSpec struct {
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	Resources ResourceConfigList `json:"resources,omitempty"`
 	// A permission mapping from Cryostat resources to Kubernetes resources used for authorization.
+	// If the mapping is updated, Cryostat must be manually restarted.
 	// +optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	AuthProperties AuthPropertiesConfigMap `json:"authProperties,omitempty"`
@@ -155,7 +156,6 @@ type StorageConfiguration struct {
 	// +optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	PVC *PersistentVolumeClaimConfig `json:"pvc,omitempty"`
-
 	// Configuration for an EmptyDir to be created
 	// by the operator instead of a PVC.
 	// +optional
