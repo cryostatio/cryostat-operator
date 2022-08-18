@@ -351,18 +351,18 @@ func NewPodForCR(cr *operatorv1beta1.Cryostat, specs *ServiceSpecs, imageTags *I
 		volumes = append(volumes, eventTemplateVolume)
 	}
 
-	// Add OAuth properties as a volume if specified
-	if cr.Spec.OAuthProperties != (operatorv1beta1.OAuthPropertiesConfigMap{}) {
-		OAuthResourceVolume := corev1.Volume{
-			Name: "oauth-properties-" + cr.Spec.OAuthProperties.ConfigMapName,
+	// Add Auth properties as a volume if specified
+	if cr.Spec.AuthProperties != (operatorv1beta1.AuthPropertiesConfigMap{}) {
+		authResourceVolume := corev1.Volume{
+			Name: "auth-properties-" + cr.Spec.AuthProperties.ConfigMapName,
 			VolumeSource: corev1.VolumeSource{
 				ConfigMap: &corev1.ConfigMapVolumeSource{
 					LocalObjectReference: corev1.LocalObjectReference{
-						Name: cr.Spec.OAuthProperties.ConfigMapName,
+						Name: cr.Spec.AuthProperties.ConfigMapName,
 					},
 					Items: []corev1.KeyToPath{
 						{
-							Key:  cr.Spec.OAuthProperties.Filename,
+							Key:  cr.Spec.AuthProperties.Filename,
 							Path: "OpenShiftAuthManager.properties",
 							Mode: &readOnlyMode,
 						},
@@ -370,7 +370,7 @@ func NewPodForCR(cr *operatorv1beta1.Cryostat, specs *ServiceSpecs, imageTags *I
 				},
 			},
 		}
-		volumes = append(volumes, OAuthResourceVolume)
+		volumes = append(volumes, authResourceVolume)
 	}
 
 	// Ensure PV mounts are writable
@@ -520,7 +520,7 @@ func NewCoreContainer(cr *operatorv1beta1.Cryostat, specs *ServiceSpecs, imageTa
 	templatesPath := "/opt/cryostat.d/templates.d"
 	clientlibPath := "/opt/cryostat.d/clientlib.d"
 	probesPath := "/opt/cryostat.d/probes.d"
-	OAuthPropertiesPath := "/app/resources/io/cryostat/net/openshift/OpenShiftAuthManager.properties"
+	authPropertiesPath := "/app/resources/io/cryostat/net/openshift/OpenShiftAuthManager.properties"
 	envs := []corev1.EnvVar{
 		{
 			Name:  "CRYOSTAT_WEB_PORT",
@@ -692,11 +692,11 @@ func NewCoreContainer(cr *operatorv1beta1.Cryostat, specs *ServiceSpecs, imageTa
 		},
 	}
 
-	// Mount OAuth properties if specified
-	if cr.Spec.OAuthProperties != (operatorv1beta1.OAuthPropertiesConfigMap{}) {
+	// Mount Auth properties if specified
+	if cr.Spec.AuthProperties != (operatorv1beta1.AuthPropertiesConfigMap{}) {
 		mounts = append(mounts, corev1.VolumeMount{
-			Name:      "oauth-properties-" + cr.Spec.OAuthProperties.ConfigMapName,
-			MountPath: OAuthPropertiesPath,
+			Name:      "auth-properties-" + cr.Spec.AuthProperties.ConfigMapName,
+			MountPath: authPropertiesPath,
 			SubPath:   "OpenShiftAuthManager.properties",
 			ReadOnly:  true,
 		})

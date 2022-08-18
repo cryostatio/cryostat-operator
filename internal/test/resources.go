@@ -369,11 +369,11 @@ func NewCryostatWithResources() *operatorv1beta1.Cryostat {
 	return cr
 }
 
-func NewCryostatWithOAuthProperties() *operatorv1beta1.Cryostat {
+func NewCryostatWithAuthProperties() *operatorv1beta1.Cryostat {
 	cr := NewCryostat()
-	cr.Spec.OAuthProperties = operatorv1beta1.OAuthPropertiesConfigMap{
-		ConfigMapName: "oauthConfigMapName",
-		Filename:      "oauth.properties",
+	cr.Spec.AuthProperties = operatorv1beta1.AuthPropertiesConfigMap{
+		ConfigMapName: "authConfigMapName",
+		Filename:      "auth.properties",
 	}
 	return cr
 }
@@ -1585,10 +1585,10 @@ func NewVolumeMountsWithTemplates(tls bool) []corev1.VolumeMount {
 		})
 }
 
-func NewVolumeMountsWithOAuthProperties(tls bool) []corev1.VolumeMount {
+func NewVolumeMountsWithAuthProperties(tls bool) []corev1.VolumeMount {
 	return append(NewCoreVolumeMounts(tls),
 		corev1.VolumeMount{
-			Name:      "oauth-properties-oauthConfigMapName",
+			Name:      "auth-properties-authConfigMapName",
 			ReadOnly:  true,
 			MountPath: "/app/resources/io/cryostat/net/openshift/OpenShiftAuthManager.properties",
 			SubPath:   "OpenShiftAuthManager.properties",
@@ -1800,19 +1800,19 @@ func NewVolumesWithTemplates(tls bool) []corev1.Volume {
 		})
 }
 
-func NewVolumeWithOAuthProperties(tls bool) []corev1.Volume {
+func NewVolumeWithAuthProperties(tls bool) []corev1.Volume {
 	readOnlyMode := int32(0440)
 	return append(NewVolumes(false, tls),
 		corev1.Volume{
-			Name: "oauth-properties-oauthConfigMapName",
+			Name: "auth-properties-authConfigMapName",
 			VolumeSource: corev1.VolumeSource{
 				ConfigMap: &corev1.ConfigMapVolumeSource{
 					LocalObjectReference: corev1.LocalObjectReference{
-						Name: "oauthConfigMapName",
+						Name: "authConfigMapName",
 					},
 					Items: []corev1.KeyToPath{
 						{
-							Key:  "oauth.properties",
+							Key:  "auth.properties",
 							Path: "OpenShiftAuthManager.properties",
 							Mode: &readOnlyMode,
 						},
@@ -2296,14 +2296,14 @@ func NewOtherTemplateConfigMap() *corev1.ConfigMap {
 	}
 }
 
-func NewOAuthPropertiesConfigMap() *corev1.ConfigMap {
+func NewAuthPropertiesConfigMap() *corev1.ConfigMap {
 	return &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "oauthConfigMapName",
+			Name:      "authConfigMapName",
 			Namespace: "default",
 		},
 		Data: map[string]string{
-			"oauth.properties": "CRYOSTAT_RESOURCE=K8S_RESOURCE\nANOTHER_CRYOSTAT_RESOURCE=ANOTHER_K8S_RESOURCE",
+			"auth.properties": "CRYOSTAT_RESOURCE=K8S_RESOURCE\nANOTHER_CRYOSTAT_RESOURCE=ANOTHER_K8S_RESOURCE",
 		},
 	}
 }

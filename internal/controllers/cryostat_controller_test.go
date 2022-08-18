@@ -1299,7 +1299,7 @@ var _ = Describe("CryostatController", func() {
 		})
 		Context("Cryostat CR has OAuth properties", func() {
 			BeforeEach(func() {
-				t.objs = append(t.objs, test.NewCryostatWithOAuthProperties(), test.NewOAuthPropertiesConfigMap())
+				t.objs = append(t.objs, test.NewCryostatWithAuthProperties(), test.NewAuthPropertiesConfigMap())
 			})
 			JustBeforeEach(func() {
 				t.reconcileCryostatFully()
@@ -1431,7 +1431,7 @@ var _ = Describe("CryostatController", func() {
 		})
 		Context("Cryostat CR has OAuth properties", func() {
 			BeforeEach(func() {
-				t.objs = append(t.objs, test.NewCryostatWithOAuthProperties(), test.NewOAuthPropertiesConfigMap())
+				t.objs = append(t.objs, test.NewCryostatWithAuthProperties(), test.NewAuthPropertiesConfigMap())
 			})
 			JustBeforeEach(func() {
 				t.reconcileCryostatFully()
@@ -2081,11 +2081,11 @@ func (t *cryostatTestInput) checkDeploymentHasOAuthProperties() {
 	Expect(err).ToNot(HaveOccurred())
 
 	volumes := deployment.Spec.Template.Spec.Volumes
-	expectedVolumes := test.NewVolumeWithOAuthProperties(t.TLS)
+	expectedVolumes := test.NewVolumeWithAuthProperties(t.TLS)
 	Expect(volumes).To(ConsistOf(expectedVolumes))
 
 	volumeMounts := deployment.Spec.Template.Spec.Containers[0].VolumeMounts
-	expectedVolumeMounts := test.NewVolumeMountsWithOAuthProperties(t.TLS)
+	expectedVolumeMounts := test.NewVolumeMountsWithAuthProperties(t.TLS)
 	Expect(volumeMounts).To(ConsistOf(expectedVolumeMounts))
 }
 
