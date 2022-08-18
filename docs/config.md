@@ -272,10 +272,9 @@ spec:
 
 ### Authorization Properties
 
-When running on Openshift, the user is required to have sufficient permissions to certain resources that
-are mapped into Cryostat-managed resources for authorization.
+When running on OpenShift, the user is required to have sufficient permissions for certain Kubernetes resources that are mapped into Cryostat-managed resources for authorization.
 
-The mappings can be specified using a ConfigMap that is compatible with [`OpenShiftAuthManager.properties`](https://github.com/cryostatio/cryostat/blob/main/src/main/resources/io/cryostat/net/openshift/OpenShiftAuthManager.properties). For example:
+The mappings can be specified using a ConfigMap that is compatible with [`OpenShiftAuthManager.properties`](https://github.com/cryostatio/cryostat/blob/bd95e1a11e9e29cc39559f4a5fdeaae77e81b4c6/src/main/resources/io/cryostat/net/openshift/OpenShiftAuthManager.properties). For example:
 ```yaml
 apiVersion: v1
 kind: ConfigMap
@@ -301,4 +300,4 @@ spec:
     filename: auth.properties
 ```
 
-Each `configMapName` must refer to the name of a Config Map in the same namespace as Cryostat. The corresponding `filename` must be a key within that Config Map containting resource mappings. If the mapping is updated, Cryostat must be manually restarted.
+Each `configMapName` must refer to the name of a Config Map in the same namespace as Cryostat. The corresponding `filename` must be a key within that Config Map containing resource mappings. If the mapping is updated, Cryostat must be manually restarted.
