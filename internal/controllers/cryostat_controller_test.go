@@ -1297,7 +1297,7 @@ var _ = Describe("CryostatController", func() {
 				})
 			})
 		})
-		Context("Cryostat CR has OAuth properties", func() {
+		Context("Cryostat CR has authorization properties", func() {
 			BeforeEach(func() {
 				t.objs = append(t.objs, test.NewCryostatWithAuthProperties(), test.NewAuthPropertiesConfigMap())
 			})
@@ -1305,7 +1305,7 @@ var _ = Describe("CryostatController", func() {
 				t.reconcileCryostatFully()
 			})
 			It("Should add volumes and volumeMounts to deployment", func() {
-				t.checkDeploymentHasOAuthProperties()
+				t.checkDeploymentHasAuthProperties()
 			})
 		})
 	})
@@ -1429,7 +1429,7 @@ var _ = Describe("CryostatController", func() {
 				Expect(kerrors.IsNotFound(err)).To(BeTrue())
 			})
 		})
-		Context("Cryostat CR has OAuth properties", func() {
+		Context("Cryostat CR has authorization properties", func() {
 			BeforeEach(func() {
 				t.objs = append(t.objs, test.NewCryostatWithAuthProperties(), test.NewAuthPropertiesConfigMap())
 			})
@@ -1437,7 +1437,7 @@ var _ = Describe("CryostatController", func() {
 				t.reconcileCryostatFully()
 			})
 			It("Should add volumes and volumeMounts to deployment", func() {
-				t.checkDeploymentHasOAuthProperties()
+				t.checkDeploymentHasAuthProperties()
 			})
 		})
 	})
@@ -2075,7 +2075,7 @@ func (t *cryostatTestInput) checkDeploymentHasTemplates() {
 	Expect(volumeMounts).To(Equal(expectedVolumeMounts))
 }
 
-func (t *cryostatTestInput) checkDeploymentHasOAuthProperties() {
+func (t *cryostatTestInput) checkDeploymentHasAuthProperties() {
 	deployment := &appsv1.Deployment{}
 	err := t.Client.Get(context.Background(), types.NamespacedName{Name: "cryostat", Namespace: "default"}, deployment)
 	Expect(err).ToNot(HaveOccurred())
