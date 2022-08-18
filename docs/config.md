@@ -146,7 +146,7 @@ kind: Cryostat
 metadata:
   name: cryostat-sample
 spec:
-  reportOptions:
+  reportOptions:resource
     replicas: 0
     subProcessMaxHeapSize: 200
 ```
@@ -267,3 +267,37 @@ spec:
     targetCacheSize: -1
     targetCacheTTL: 10
 ```
+
+
+### OAuth Properties
+
+When running on Kubernetes or Openshift, the user is required to have sufficient permissions to certain resources that
+are mapped into Cryostat-managed resources to authenticate via Openshift OAuth.
+
+The mappings can be specified using a ConfigMap that is compatible with [`OpenShiftAuthManager.properties`](https://github.com/cryostatio/cryostat/blob/main/src/main/resources/io/cryostat/net/openshift/OpenShiftAuthManager.properties). For example:
+```yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: oauth-properties
+data:  
+  oauth.properties: |
+    TARGET=pods,deployments.apps
+    RECORDING=pods,pods/exec
+    CERTIFICATE=deployments.apps,pods,cryostats.operator.cryostat.io
+    CREDENTIALS=cryostats.operator.cryostat.io
+```
+
+The property `.spec.OAuthProperties` can then be set to this ConfigMap to configure Cryostat to use this mapping instead of the default ones.
+```yaml
+apiVersion: operator.cryostat.io/v1beta1
+kind: Cryostat
+metadata:
+  name: cryostat-sample
+spec:
+  OAuthProperties:
+    configMapName: oauth-properties
+    filename: oauth.properties
+```
+
+Each `configMapName` must refer to the name of a Config Map in the same namespace as Cryostat. The corresponding `filename` must be a key within that Config Map containting resource mappings.
