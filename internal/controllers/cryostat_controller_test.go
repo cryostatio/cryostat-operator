@@ -1297,6 +1297,17 @@ var _ = Describe("CryostatController", func() {
 				})
 			})
 		})
+		Context("Cryostat CR has OAuth properties", func() {
+			BeforeEach(func() {
+				t.objs = append(t.objs, test.NewCryostatWithOAuthProperties(), test.NewOAuthPropertiesConfigMap())
+			})
+			JustBeforeEach(func() {
+				t.reconcileCryostatFully()
+			})
+			It("Should add volumes and volumeMounts to deployment", func() {
+				t.checkDeploymentHasOAuthProperties()
+			})
+		})
 	})
 	Describe("reconciling a request in Kubernetes", func() {
 		JustBeforeEach(func() {
@@ -1416,6 +1427,17 @@ var _ = Describe("CryostatController", func() {
 
 				err = t.Client.Get(context.Background(), types.NamespacedName{Name: "cryostat", Namespace: "default"}, ingress)
 				Expect(kerrors.IsNotFound(err)).To(BeTrue())
+			})
+		})
+		Context("Cryostat CR has OAuth properties", func() {
+			BeforeEach(func() {
+				t.objs = append(t.objs, test.NewCryostatWithOAuthProperties(), test.NewOAuthPropertiesConfigMap())
+			})
+			JustBeforeEach(func() {
+				t.reconcileCryostatFully()
+			})
+			It("Should add volumes and volumeMounts to deployment", func() {
+				t.checkDeploymentHasOAuthProperties()
 			})
 		})
 	})
@@ -2050,6 +2072,20 @@ func (t *cryostatTestInput) checkDeploymentHasTemplates() {
 
 	volumeMounts := deployment.Spec.Template.Spec.Containers[0].VolumeMounts
 	expectedVolumeMounts := test.NewVolumeMountsWithTemplates(t.TLS)
+	Expect(volumeMounts).To(Equal(expectedVolumeMounts))
+}
+
+func (t *cryostatTestInput) checkDeploymentHasOAuthProperties() {
+	deployment := &appsv1.Deployment{}
+	err := t.Client.Get(context.Background(), types.NamespacedName{Name: "cryostat", Namespace: "default"}, deployment)
+	Expect(err).ToNot(HaveOccurred())
+
+	volumes := deployment.Spec.Template.Spec.Volumes
+	expectedVolumes := test.NewVolumeWithOAuthProperties(t.TLS)
+	Expect(volumes).To(Equal(expectedVolumes))
+
+	volumeMounts := deployment.Spec.Template.Spec.Containers[0].VolumeMounts
+	expectedVolumeMounts := test.NewVolumeMountsWithOAuthProperties(t.TLS)
 	Expect(volumeMounts).To(Equal(expectedVolumeMounts))
 }
 
