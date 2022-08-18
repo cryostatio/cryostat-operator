@@ -371,7 +371,7 @@ func NewCryostatWithResources() *operatorv1beta1.Cryostat {
 
 func NewCryostatWithAuthProperties() *operatorv1beta1.Cryostat {
 	cr := NewCryostat()
-	cr.Spec.AuthProperties = operatorv1beta1.AuthPropertiesConfigMap{
+	cr.Spec.AuthProperties = &operatorv1beta1.AuthPropertiesConfigMap{
 		ConfigMapName: "authConfigMapName",
 		Filename:      "auth.properties",
 	}

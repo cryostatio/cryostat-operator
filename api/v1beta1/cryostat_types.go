@@ -94,7 +94,7 @@ type CryostatSpec struct {
 	// If the mapping is updated, Cryostat must be manually restarted.
 	// +optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Authorization Properties"
-	AuthProperties AuthPropertiesConfigMap `json:"authProperties,omitempty"`
+	AuthProperties *AuthPropertiesConfigMap `json:"authProperties,omitempty"`
 }
 
 type ResourceConfigList struct {

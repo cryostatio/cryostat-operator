@@ -352,7 +352,7 @@ func NewPodForCR(cr *operatorv1beta1.Cryostat, specs *ServiceSpecs, imageTags *I
 	}
 
 	// Add Auth properties as a volume if specified
-	if cr.Spec.AuthProperties != (operatorv1beta1.AuthPropertiesConfigMap{}) {
+	if cr.Spec.AuthProperties != nil {
 		authResourceVolume := corev1.Volume{
 			Name: "auth-properties-" + cr.Spec.AuthProperties.ConfigMapName,
 			VolumeSource: corev1.VolumeSource{
@@ -693,7 +693,7 @@ func NewCoreContainer(cr *operatorv1beta1.Cryostat, specs *ServiceSpecs, imageTa
 	}
 
 	// Mount Auth properties if specified
-	if cr.Spec.AuthProperties != (operatorv1beta1.AuthPropertiesConfigMap{}) {
+	if cr.Spec.AuthProperties != nil {
 		mounts = append(mounts, corev1.VolumeMount{
 			Name:      "auth-properties-" + cr.Spec.AuthProperties.ConfigMapName,
 			MountPath: authPropertiesPath,
