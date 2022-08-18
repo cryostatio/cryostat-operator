@@ -217,6 +217,15 @@ spec:
           label with key "app" is reserved for use by the operator.
         displayName: Labels
         path: networkOptions.grafanaConfig.labels
+      - description: A permission mapping from Cryostat resources to Kubernetes resources
+          used in OAuth.
+        displayName: OAuth Properties
+        path: oAuthProperties
+      - description: Name of config map in the local namespace.
+        displayName: Config Map Name
+        path: oAuthProperties.configMapName
+        x-descriptors:
+        - urn:alm:descriptor:io.kubernetes:ConfigMap
       - description: Options to configure Cryostat Automated Report Analysis
         displayName: Report Options
         path: reportOptions

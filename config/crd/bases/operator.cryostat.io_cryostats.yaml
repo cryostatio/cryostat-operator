@@ -1034,8 +1034,8 @@ spec:
                     type: object
                 type: object
               oAuthProperties:
-                description: A mapping from Cryostat resources to Kubernetes resources
-                  used in OAuth.
+                description: A permission mapping from Cryostat resources to Kubernetes
+                  resources used in OAuth.
                 properties:
                   configMapName:
                     description: Name of config map in the local namespace.

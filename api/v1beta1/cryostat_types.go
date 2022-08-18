@@ -90,7 +90,7 @@ type CryostatSpec struct {
 	// +optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	Resources ResourceConfigList `json:"resources,omitempty"`
-	// A mapping from Cryostat resources to Kubernetes resources used in OAuth.
+	// A permission mapping from Cryostat resources to Kubernetes resources used in OAuth.
 	// +optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	OAuthProperties OAuthPropertiesConfigMap `json:"oAuthProperties,omitempty"`
@@ -407,7 +407,7 @@ type TemplateConfigMap struct {
 	Filename string `json:"filename"`
 }
 
-// A ConfigMap containing a mapping between Cryostat resources to Kubernetes resources.
+// A ConfigMap containing a permission mapping between Cryostat resources to Kubernetes resources.
 type OAuthPropertiesConfigMap struct {
 	// Name of config map in the local namespace.
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:io.kubernetes:ConfigMap"}
