@@ -90,11 +90,10 @@ type CryostatSpec struct {
 	// +optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	Resources ResourceConfigList `json:"resources,omitempty"`
-	// A permission mapping from Cryostat resources to Kubernetes resources used for authorization.
-	// If the mapping is updated, Cryostat must be manually restarted.
+	// Authorization properties tp preconfigure for Cryostat.
 	// +optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Authorization Properties"
-	AuthProperties *AuthPropertiesConfigMap `json:"authProperties,omitempty"`
+	AuthProperties *AuthorizationProperties `json:"authProperties,omitempty"`
 }
 
 type ResourceConfigList struct {
@@ -407,8 +406,12 @@ type TemplateConfigMap struct {
 	Filename string `json:"filename"`
 }
 
-// A ConfigMap containing a permission mapping between Cryostat resources to Kubernetes resources.
-type AuthPropertiesConfigMap struct {
+// Authorization properties provide custom permission mapping between Cryostat resources to Kubernetes resources.
+// If the mapping is updated, Cryostat must be manually restarted.
+type AuthorizationProperties struct {
+	// Name of cluster role defining access rules for mapped Kubernetes resources.
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:io.kubernetes:ClusterRole"}
+	CluserRoleName string `json:"clusterRoleName"`
 	// Name of config map in the local namespace.
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:io.kubernetes:ConfigMap"}
 	ConfigMapName string `json:"configMapName"`

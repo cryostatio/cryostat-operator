@@ -108,11 +108,15 @@ spec:
         name: ""
         version: v1
       specDescriptors:
-      - description: A permission mapping from Cryostat resources to Kubernetes resources
-          used for authorization. If the mapping is updated, Cryostat must be manually
-          restarted.
+      - description: Authorization properties tp preconfigure for Cryostat.
         displayName: Authorization Properties
         path: authProperties
+      - description: Name of cluster role defining access rules for mapped Kubernetes
+          resources.
+        displayName: Cluser Role Name
+        path: authProperties.clusterRoleName
+        x-descriptors:
+        - urn:alm:descriptor:io.kubernetes:ClusterRole
       - description: Name of config map in the local namespace.
         displayName: Config Map Name
         path: authProperties.configMapName

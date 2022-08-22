@@ -622,6 +622,11 @@ func NewCoreContainer(cr *operatorv1beta1.Cryostat, specs *ServiceSpecs, imageTa
 	envs = append(envs, jmxCacheEnvs...)
 
 	if openshift {
+		OAuthClusterRoleName := "cryostat-operator-oauth-client"
+		if cr.Spec.AuthProperties != nil {
+			OAuthClusterRoleName = cr.Spec.AuthProperties.CluserRoleName
+		}
+
 		// Force OpenShift platform strategy
 		openshiftEnvs := []corev1.EnvVar{
 			{
@@ -638,9 +643,10 @@ func NewCoreContainer(cr *operatorv1beta1.Cryostat, specs *ServiceSpecs, imageTa
 			},
 			{
 				Name:  "CRYOSTAT_OAUTH_ROLE",
-				Value: "cryostat-operator-oauth-client",
+				Value: OAuthClusterRoleName,
 			},
 		}
+
 		envs = append(envs, openshiftEnvs...)
 	}
 	envsFrom := []corev1.EnvFromSource{

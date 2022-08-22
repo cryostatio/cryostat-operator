@@ -44,10 +44,12 @@ spec:
             description: CryostatSpec defines the desired state of Cryostat
             properties:
               authProperties:
-                description: A permission mapping from Cryostat resources to Kubernetes
-                  resources used for authorization. If the mapping is updated, Cryostat
-                  must be manually restarted.
+                description: Authorization properties tp preconfigure for Cryostat.
                 properties:
+                  clusterRoleName:
+                    description: Name of cluster role defining access rules for mapped
+                      Kubernetes resources.
+                    type: string
                   configMapName:
                     description: Name of config map in the local namespace.
                     type: string
@@ -56,6 +58,7 @@ spec:
                       mapping.
                     type: string
                 required:
+                - clusterRoleName
                 - configMapName
                 - filename
                 type: object
