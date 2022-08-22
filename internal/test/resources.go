@@ -342,50 +342,30 @@ func NewCryostatWithReportsScheduling() *operatorv1beta1.Cryostat {
 					},
 				},
 				PodAffinity: &corev1.PodAffinity{
-					RequiredDuringSchedulingIgnoredDuringExecution: &corev1.NodeSelector{
-						NodeSelectorTerms: []corev1.NodeSelectorTerm{
-							{
-								MatchExpressions: []corev1.NodeSelectorRequirement{
-									{
-										Key:      "pod",
-										Operator: corev1.NodeSelectorOpIn,
-										Values: []string{
-											"good",
-											"better",
-										},
-									},
-								},
-							},
+					RequiredDuringSchedulingIgnoredDuringExecution: []corev1.PodAffinityTerm{
+						{
+							LabelSelector: metav1.AddLabelToSelector(&metav1.LabelSelector{},
+							"pod", "good"),
+							TopologyKey: "topology.kubernetes.io/zone",
 						},
 					},
 				},
 				PodAntiAffinity: &corev1.PodAntiAffinity{
-					RequiredDuringSchedulingIgnoredDuringExecution: &corev1.NodeSelector{
-						NodeSelectorTerms: []corev1.NodeSelectorTerm{
-							{
-								MatchExpressions: []corev1.NodeSelectorRequirement{
-									{
-										Key:      "pod",
-										Operator: corev1.NodeSelectorOpIn,
-										Values: []string{
-											"bad",
-											"worse",
-										},
-									},
-								},
-							},
+					RequiredDuringSchedulingIgnoredDuringExecution: []corev1.PodAffinityTerm{
+						{LabelSelector: metav1.AddLabelToSelector(&metav1.LabelSelector{},
+							"pod", "bad"),
+							TopologyKey: "topology.kubernetes.io/zone",
 						},
+						
 					},
 				},
 			},
 			Tolerations: []corev1.Toleration{
 				{
 					Key:      "node",
-					Operator: corev1.NodeSelectorOpIn,
-					Values: []string{
-						"good",
-						"better",
-					},
+					Operator: corev1.TolerationOpEqual,
+					Value: "ok",
+					Effect: corev1.TaintEffectNoExecute,
 				},
 			},
 		},
