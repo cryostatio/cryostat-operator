@@ -44,10 +44,10 @@ spec:
             description: CryostatSpec defines the desired state of Cryostat
             properties:
               authProperties:
-                description: Authorization properties tp preconfigure for Cryostat.
+                description: Authorization properties to preconfigure in Cryostat.
                 properties:
                   clusterRoleName:
-                    description: Name of cluster role defining access rules for mapped
+                    description: Name of ClusterRole defining access rules for mapped
                       Kubernetes resources.
                     type: string
                   configMapName:

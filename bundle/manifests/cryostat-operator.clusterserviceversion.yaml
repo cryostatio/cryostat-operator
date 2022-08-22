@@ -120,10 +120,10 @@ spec:
         name: ""
         version: v1
       specDescriptors:
-      - description: Authorization properties tp preconfigure for Cryostat.
+      - description: Authorization properties to preconfigure in Cryostat.
         displayName: Authorization Properties
         path: authProperties
-      - description: Name of cluster role defining access rules for mapped Kubernetes
+      - description: Name of ClusterRole defining access rules for mapped Kubernetes
           resources.
         displayName: Cluser Role Name
         path: authProperties.clusterRoleName
