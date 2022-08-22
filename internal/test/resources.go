@@ -345,7 +345,7 @@ func NewCryostatWithReportsScheduling() *operatorv1beta1.Cryostat {
 					RequiredDuringSchedulingIgnoredDuringExecution: []corev1.PodAffinityTerm{
 						{
 							LabelSelector: metav1.AddLabelToSelector(&metav1.LabelSelector{},
-							"pod", "good"),
+								"pod", "good"),
 							TopologyKey: "topology.kubernetes.io/zone",
 						},
 					},
@@ -356,7 +356,6 @@ func NewCryostatWithReportsScheduling() *operatorv1beta1.Cryostat {
 							"pod", "bad"),
 							TopologyKey: "topology.kubernetes.io/zone",
 						},
-						
 					},
 				},
 			},
@@ -364,8 +363,8 @@ func NewCryostatWithReportsScheduling() *operatorv1beta1.Cryostat {
 				{
 					Key:      "node",
 					Operator: corev1.TolerationOpEqual,
-					Value: "ok",
-					Effect: corev1.TaintEffectNoExecute,
+					Value:    "ok",
+					Effect:   corev1.TaintEffectNoExecute,
 				},
 			},
 		},
