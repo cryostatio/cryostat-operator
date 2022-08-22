@@ -371,9 +371,10 @@ func NewCryostatWithResources() *operatorv1beta1.Cryostat {
 
 func NewCryostatWithAuthProperties() *operatorv1beta1.Cryostat {
 	cr := NewCryostat()
-	cr.Spec.AuthProperties = &operatorv1beta1.AuthPropertiesConfigMap{
-		ConfigMapName: "authConfigMapName",
-		Filename:      "auth.properties",
+	cr.Spec.AuthProperties = &operatorv1beta1.AuthorizationProperties{
+		ConfigMapName:  "authConfigMapName",
+		Filename:       "auth.properties",
+		CluserRoleName: "oauth-cluster-role",
 	}
 	return cr
 }
