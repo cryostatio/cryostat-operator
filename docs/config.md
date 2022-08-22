@@ -288,7 +288,9 @@ data:
     CREDENTIALS=cryostats.operator.cryostat.io
 ```
 
-The property `.spec.authProperties` can then be set to this ConfigMap to configure Cryostat to use this mapping instead of the default ones.
+If custom mapping is specified, the user is also required to create a ClusterRole that defines access rules for mapped Kubernetes resources.
+
+The property `.spec.authProperties` can then be set to configure Cryostat to use this mapping instead of the default ones.
 ```yaml
 apiVersion: operator.cryostat.io/v1beta1
 kind: Cryostat
@@ -298,6 +300,9 @@ spec:
   authProperties:
     configMapName: auth-properties
     filename: auth.properties
+    clusterRoleName: oauth-cluster-role
 ```
 
-Each `configMapName` must refer to the name of a Config Map in the same namespace as Cryostat. The corresponding `filename` must be a key within that Config Map containing resource mappings. If the mapping is updated, Cryostat must be manually restarted.
+Each `configMapName` must refer to the name of a Config Map in the same namespace as Cryostat. The corresponding `filename` must be a key within that Config Map containing resource mappings. The `clusterRoleName` must be a valid name of an existing Cluster Role.
+
+**Note:** If the mapping is updated, Cryostat must be manually restarted.
