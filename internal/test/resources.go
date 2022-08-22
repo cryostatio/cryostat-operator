@@ -1209,7 +1209,7 @@ func NewReportsPorts() []corev1.ContainerPort {
 	}
 }
 
-func NewCoreEnvironmentVariables(minimal bool, tls bool, externalTLS bool, openshift bool, reportsUrl string) []corev1.EnvVar {
+func NewCoreEnvironmentVariables(minimal bool, tls bool, externalTLS bool, openshift bool, reportsUrl string, authProps bool) []corev1.EnvVar {
 	envs := []corev1.EnvVar{
 		{
 			Name:  "CRYOSTAT_WEB_PORT",
@@ -1320,6 +1320,10 @@ func NewCoreEnvironmentVariables(minimal bool, tls bool, externalTLS bool, opens
 		})
 	}
 	if openshift {
+		OAuthClusterRoleName := "cryostat-operator-oauth-client"
+		if authProps {
+			OAuthClusterRoleName = "oauth-cluster-role"
+		}
 		envs = append(envs,
 			corev1.EnvVar{
 				Name:  "CRYOSTAT_PLATFORM",
@@ -1335,7 +1339,7 @@ func NewCoreEnvironmentVariables(minimal bool, tls bool, externalTLS bool, opens
 			},
 			corev1.EnvVar{
 				Name:  "CRYOSTAT_OAUTH_ROLE",
-				Value: "cryostat-operator-oauth-client",
+				Value: OAuthClusterRoleName,
 			})
 	}
 	if reportsUrl != "" {

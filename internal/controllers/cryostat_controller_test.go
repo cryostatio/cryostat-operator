@@ -2001,7 +2001,7 @@ func (t *cryostatTestInput) checkMainPodTemplate(deployment *appsv1.Deployment, 
 		reportsUrl = "http://cryostat-reports:" + port
 	}
 
-	checkCoreContainer(&coreContainer, t.minimal, t.TLS, t.externalTLS, t.EnvCoreImageTag, t.controller.IsOpenShift, reportsUrl, cr.Spec.Resources.CoreResources)
+	checkCoreContainer(&coreContainer, t.minimal, t.TLS, t.externalTLS, t.EnvCoreImageTag, t.controller.IsOpenShift, reportsUrl, cr.Spec.AuthProperties != nil, cr.Spec.Resources.CoreResources)
 
 	if !t.minimal {
 		// Check that Grafana is configured properly, depending on the environment
@@ -2084,13 +2084,19 @@ func (t *cryostatTestInput) checkDeploymentHasAuthProperties() {
 	expectedVolumes := test.NewVolumeWithAuthProperties(t.TLS)
 	Expect(volumes).To(ConsistOf(expectedVolumes))
 
-	volumeMounts := deployment.Spec.Template.Spec.Containers[0].VolumeMounts
+	coreContainer := deployment.Spec.Template.Spec.Containers[0]
+
+	volumeMounts := coreContainer.VolumeMounts
 	expectedVolumeMounts := test.NewVolumeMountsWithAuthProperties(t.TLS)
 	Expect(volumeMounts).To(ConsistOf(expectedVolumeMounts))
+
+	if t.controller.IsOpenShift { // Only check env vars if running on Openshift
+		Expect(coreContainer.Env).To(ConsistOf(test.NewCoreEnvironmentVariables(t.minimal, t.TLS, t.externalTLS, t.controller.IsOpenShift, "", true)))
+	}
 }
 
 func checkCoreContainer(container *corev1.Container, minimal bool, tls bool, externalTLS bool,
-	tag *string, openshift bool, reportsUrl string, resources corev1.ResourceRequirements) {
+	tag *string, openshift bool, reportsUrl string, authProps bool, resources corev1.ResourceRequirements) {
 	Expect(container.Name).To(Equal("cryostat"))
 	if tag == nil {
 		Expect(container.Image).To(HavePrefix("quay.io/cryostat/cryostat:"))
@@ -2098,7 +2104,7 @@ func checkCoreContainer(container *corev1.Container, minimal bool, tls bool, ext
 		Expect(container.Image).To(Equal(*tag))
 	}
 	Expect(container.Ports).To(ConsistOf(test.NewCorePorts()))
-	Expect(container.Env).To(ConsistOf(test.NewCoreEnvironmentVariables(minimal, tls, externalTLS, openshift, reportsUrl)))
+	Expect(container.Env).To(ConsistOf(test.NewCoreEnvironmentVariables(minimal, tls, externalTLS, openshift, reportsUrl, authProps)))
 	Expect(container.EnvFrom).To(ConsistOf(test.NewCoreEnvFromSource(tls)))
 	Expect(container.VolumeMounts).To(ConsistOf(test.NewCoreVolumeMounts(tls)))
 	Expect(container.LivenessProbe).To(Equal(test.NewCoreLivenessProbe(tls)))
