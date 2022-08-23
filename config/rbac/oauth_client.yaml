@@ -7,20 +7,6 @@ metadata:
   name: oauth-client
 rules:
 - apiGroups:
-  - ""
-  resources:
-  - pods
-  verbs:
-  - create
-  - get
-- apiGroups:
-  - ""
-  resources:
-  - replicationcontrollers
-  - endpoints
-  verbs:
-  - get
-- apiGroups:
   - operator.cryostat.io
   resources:
   - cryostats
@@ -29,27 +15,35 @@ rules:
   - delete
   - get
 - apiGroups:
-  - operator.cryostat.io
+  - ""
   resources:
-  - flightrecorders
-  - recordings
+  - pods
+  - pods/exec
+  - services
+  - secrets
   verbs:
   - create
+  - get
   - delete
-  - get
-  - patch
-- apiGroups:
-  - apps
-  resources:
-  - deployments
-  verbs:
-  - create
-  - get
-- apiGroups:
-  - apps
-  resources:
-  - daemonsets
-  - replicasets
-  - statefulsets
-  verbs:
-  - get
+# - apiGroups:
+#   - ""
+#   resources:
+#   - replicationcontrollers
+#   - endpoints
+#   verbs:
+#   - get
+# - apiGroups:
+#   - apps
+#   resources:
+#   - deployments
+#   verbs:
+#   - create
+#   - get
+# - apiGroups:
+#   - apps
+#   resources:
+#   - daemonsets
+#   - replicasets
+#   - statefulsets
+#   verbs:
+#   - get
