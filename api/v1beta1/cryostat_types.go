@@ -90,9 +90,9 @@ type CryostatSpec struct {
 	// +optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	Resources ResourceConfigList `json:"resources,omitempty"`
-	// Authorization properties to preconfigure in Cryostat.
+	// Override default authorization properties for Cryostat on OpenShift.
 	// +optional
-	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Authorization Properties"
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Authorization Properties",xDescriptors={"urn:alm:descriptor:com.tectonic.ui:advanced"}
 	AuthProperties *AuthorizationProperties `json:"authProperties,omitempty"`
 }
 
@@ -409,7 +409,9 @@ type TemplateConfigMap struct {
 // Authorization properties provide custom permission mapping between Cryostat resources to Kubernetes resources.
 // If the mapping is updated, Cryostat must be manually restarted.
 type AuthorizationProperties struct {
-	// Name of ClusterRole defining access rules for mapped Kubernetes resources.
+	// Name of the ClusterRole to use when Cryostat requests a role-scoped OAuth token.
+	// This ClusterRole should contain permissions for all Kubernetes objects listed in custom permission mapping.
+	// More details: https://docs.openshift.com/container-platform/4.11/authentication/tokens-scoping.html#scoping-tokens-role-scope_configuring-internal-oauth
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:io.kubernetes:ClusterRole"}
 	CluserRoleName string `json:"clusterRoleName"`
 	// Name of config map in the local namespace.
