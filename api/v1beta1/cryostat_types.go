@@ -412,11 +412,12 @@ type AuthorizationProperties struct {
 	// Name of the ClusterRole to use when Cryostat requests a role-scoped OAuth token.
 	// This ClusterRole should contain permissions for all Kubernetes objects listed in custom permission mapping.
 	// More details: https://docs.openshift.com/container-platform/4.11/authentication/tokens-scoping.html#scoping-tokens-role-scope_configuring-internal-oauth
-	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:io.kubernetes:ClusterRole"}
-	CluserRoleName string `json:"clusterRoleName"`
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="ClusterRole Name",xDescriptors={"urn:alm:descriptor:io.kubernetes:ClusterRole"}
+	ClusterRoleName string `json:"clusterRoleName"`
 	// Name of config map in the local namespace.
-	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:io.kubernetes:ConfigMap"}
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="ConfigMap Name",xDescriptors={"urn:alm:descriptor:io.kubernetes:ConfigMap"}
 	ConfigMapName string `json:"configMapName"`
 	// Filename within config map containing the resource mapping.
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:com.tectonic.ui:text"}
 	Filename string `json:"filename"`
 }

@@ -681,7 +681,7 @@ func NewCoreContainer(cr *operatorv1beta1.Cryostat, specs *ServiceSpecs, imageTa
 				SubPath:   "OpenShiftAuthManager.properties",
 				ReadOnly:  true,
 			})
-			OAuthClusterRoleName = cr.Spec.AuthProperties.CluserRoleName
+			OAuthClusterRoleName = cr.Spec.AuthProperties.ClusterRoleName
 		}
 
 		// Force OpenShift platform strategy

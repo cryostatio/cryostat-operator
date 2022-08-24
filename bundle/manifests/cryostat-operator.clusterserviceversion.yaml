@@ -128,15 +128,20 @@ spec:
       - description: 'Name of the ClusterRole to use when Cryostat requests a role-scoped
           OAuth token. This ClusterRole should contain permissions for all Kubernetes
           objects listed in custom permission mapping. More details: https://docs.openshift.com/container-platform/4.11/authentication/tokens-scoping.html#scoping-tokens-role-scope_configuring-internal-oauth'
-        displayName: Cluser Role Name
+        displayName: ClusterRole Name
         path: authProperties.clusterRoleName
         x-descriptors:
         - urn:alm:descriptor:io.kubernetes:ClusterRole
       - description: Name of config map in the local namespace.
-        displayName: Config Map Name
+        displayName: ConfigMap Name
         path: authProperties.configMapName
         x-descriptors:
         - urn:alm:descriptor:io.kubernetes:ConfigMap
+      - description: Filename within config map containing the resource mapping.
+        displayName: Filename
+        path: authProperties.filename
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:text
       - description: Use cert-manager to secure in-cluster communication between Cryostat
           components. Requires cert-manager to be installed.
         displayName: Enable cert-manager Integration
