@@ -351,8 +351,8 @@ func NewPodForCR(cr *operatorv1beta1.Cryostat, specs *ServiceSpecs, imageTags *I
 		volumes = append(volumes, eventTemplateVolume)
 	}
 
-	// Add Auth properties as a volume if specified
-	if cr.Spec.AuthProperties != nil {
+	// Add Auth properties as a volume if specified (on Openshift)
+	if openshift && cr.Spec.AuthProperties != nil {
 		authResourceVolume := corev1.Volume{
 			Name: "auth-properties-" + cr.Spec.AuthProperties.ConfigMapName,
 			VolumeSource: corev1.VolumeSource{
@@ -521,6 +521,7 @@ func NewCoreContainer(cr *operatorv1beta1.Cryostat, specs *ServiceSpecs, imageTa
 	clientlibPath := "/opt/cryostat.d/clientlib.d"
 	probesPath := "/opt/cryostat.d/probes.d"
 	authPropertiesPath := "/app/resources/io/cryostat/net/openshift/OpenShiftAuthManager.properties"
+
 	envs := []corev1.EnvVar{
 		{
 			Name:  "CRYOSTAT_WEB_PORT",
@@ -551,6 +552,46 @@ func NewCoreContainer(cr *operatorv1beta1.Cryostat, specs *ServiceSpecs, imageTa
 			Value: "false",
 		},
 	}
+
+	mounts := []corev1.VolumeMount{
+		{
+			Name:      cr.Name,
+			MountPath: configPath,
+			SubPath:   "config",
+		},
+		{
+			Name:      cr.Name,
+			MountPath: archivePath,
+			SubPath:   "flightrecordings",
+		},
+		{
+			Name:      cr.Name,
+			MountPath: templatesPath,
+			SubPath:   "templates",
+		},
+		{
+			Name:      cr.Name,
+			MountPath: clientlibPath,
+			SubPath:   "clientlib",
+		},
+		{
+			Name:      cr.Name,
+			MountPath: probesPath,
+			SubPath:   "probes",
+		},
+		{
+			Name:      cr.Name,
+			MountPath: "truststore",
+			SubPath:   "truststore",
+		},
+		{
+			// Mount the CA cert and user certificates in the expected /truststore location
+			Name:      "cert-secrets",
+			MountPath: "/truststore/operator",
+			ReadOnly:  true,
+		},
+	}
+
 	if specs.CoreURL != nil {
 		coreEnvs := []corev1.EnvVar{
 			{
@@ -620,10 +661,26 @@ func NewCoreContainer(cr *operatorv1beta1.Cryostat, specs *ServiceSpecs, imageTa
 		},
 	}
 	envs = append(envs, jmxCacheEnvs...)
+	envsFrom := []corev1.EnvFromSource{
+		{
+			SecretRef: &corev1.SecretEnvSource{
+				LocalObjectReference: corev1.LocalObjectReference{
+					Name: cr.Name + "-jmx-auth",
+				},
+			},
+		},
+	}
 
 	if openshift {
 		OAuthClusterRoleName := "cryostat-operator-oauth-client"
 		if cr.Spec.AuthProperties != nil {
+			// Mount Auth properties if specified (on Openshift)
+			mounts = append(mounts, corev1.VolumeMount{
+				Name:      "auth-properties-" + cr.Spec.AuthProperties.ConfigMapName,
+				MountPath: authPropertiesPath,
+				SubPath:   "OpenShiftAuthManager.properties",
+				ReadOnly:  true,
+			})
 			OAuthClusterRoleName = cr.Spec.AuthProperties.CluserRoleName
 		}
 
@@ -646,66 +703,7 @@ func NewCoreContainer(cr *operatorv1beta1.Cryostat, specs *ServiceSpecs, imageTa
 				Value: OAuthClusterRoleName,
 			},
 		}
-
 		envs = append(envs, openshiftEnvs...)
-	}
-	envsFrom := []corev1.EnvFromSource{
-		{
-			SecretRef: &corev1.SecretEnvSource{
-				LocalObjectReference: corev1.LocalObjectReference{
-					Name: cr.Name + "-jmx-auth",
-				},
-			},
-		},
-	}
-
-	mounts := []corev1.VolumeMount{
-		{
-			Name:      cr.Name,
-			MountPath: configPath,
-			SubPath:   "config",
-		},
-		{
-			Name:      cr.Name,
-			MountPath: archivePath,
-			SubPath:   "flightrecordings",
-		},
-		{
-			Name:      cr.Name,
-			MountPath: templatesPath,
-			SubPath:   "templates",
-		},
-		{
-			Name:      cr.Name,
-			MountPath: clientlibPath,
-			SubPath:   "clientlib",
-		},
-		{
-			Name:      cr.Name,
-			MountPath: probesPath,
-			SubPath:   "probes",
-		},
-		{
-			Name:      cr.Name,
-			MountPath: "truststore",
-			SubPath:   "truststore",
-		},
-		{
-			// Mount the CA cert and user certificates in the expected /truststore location
-			Name:      "cert-secrets",
-			MountPath: "/truststore/operator",
-			ReadOnly:  true,
-		},
-	}
-
-	// Mount Auth properties if specified
-	if cr.Spec.AuthProperties != nil {
-		mounts = append(mounts, corev1.VolumeMount{
-			Name:      "auth-properties-" + cr.Spec.AuthProperties.ConfigMapName,
-			MountPath: authPropertiesPath,
-			SubPath:   "OpenShiftAuthManager.properties",
-			ReadOnly:  true,
-		})
 	}
 
 	if !cr.Spec.Minimal {

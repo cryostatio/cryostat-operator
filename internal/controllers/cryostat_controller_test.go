@@ -1436,8 +1436,8 @@ var _ = Describe("CryostatController", func() {
 			JustBeforeEach(func() {
 				t.reconcileCryostatFully()
 			})
-			It("Should add volumes and volumeMounts to deployment", func() {
-				t.checkDeploymentHasAuthProperties()
+			It("Should not add volumes and volumeMounts to deployment", func() {
+				t.checkDeploymentHasNoAuthProperties()
 			})
 		})
 	})
@@ -2089,10 +2089,25 @@ func (t *cryostatTestInput) checkDeploymentHasAuthProperties() {
 	volumeMounts := coreContainer.VolumeMounts
 	expectedVolumeMounts := test.NewVolumeMountsWithAuthProperties(t.TLS)
 	Expect(volumeMounts).To(ConsistOf(expectedVolumeMounts))
+	Expect(coreContainer.Env).To(ConsistOf(test.NewCoreEnvironmentVariables(t.minimal, t.TLS, t.externalTLS, t.controller.IsOpenShift, "", true)))
+}
 
-	if t.controller.IsOpenShift { // Only check env vars if running on Openshift
-		Expect(coreContainer.Env).To(ConsistOf(test.NewCoreEnvironmentVariables(t.minimal, t.TLS, t.externalTLS, t.controller.IsOpenShift, "", true)))
-	}
+func (t *cryostatTestInput) checkDeploymentHasNoAuthProperties() {
+	deployment := &appsv1.Deployment{}
+	err := t.Client.Get(context.Background(), types.NamespacedName{Name: "cryostat", Namespace: "default"}, deployment)
+	Expect(err).ToNot(HaveOccurred())
+
+	volumes := deployment.Spec.Template.Spec.Volumes
+	expectedVolumes := test.NewVolumes(t.minimal, t.TLS)
+	Expect(volumes).ToNot(ContainElements(test.NewAuthPropertiesVolume()))
+	Expect(volumes).To(ConsistOf(expectedVolumes))
+
+	coreContainer := deployment.Spec.Template.Spec.Containers[0]
+
+	volumeMounts := coreContainer.VolumeMounts
+	expectedVolumeMounts := test.NewCoreVolumeMounts(t.TLS)
+	Expect(volumeMounts).ToNot(ContainElement(test.NewAuthPropertiesVolumeMount()))
+	Expect(volumeMounts).To(ConsistOf(expectedVolumeMounts))
 }
 
 func checkCoreContainer(container *corev1.Container, minimal bool, tls bool, externalTLS bool,

@@ -1591,13 +1591,16 @@ func NewVolumeMountsWithTemplates(tls bool) []corev1.VolumeMount {
 }
 
 func NewVolumeMountsWithAuthProperties(tls bool) []corev1.VolumeMount {
-	return append(NewCoreVolumeMounts(tls),
-		corev1.VolumeMount{
-			Name:      "auth-properties-authConfigMapName",
-			ReadOnly:  true,
-			MountPath: "/app/resources/io/cryostat/net/openshift/OpenShiftAuthManager.properties",
-			SubPath:   "OpenShiftAuthManager.properties",
-		})
+	return append(NewCoreVolumeMounts(tls), NewAuthPropertiesVolumeMount())
+}
+
+func NewAuthPropertiesVolumeMount() corev1.VolumeMount {
+	return corev1.VolumeMount{
+		Name:      "auth-properties-authConfigMapName",
+		ReadOnly:  true,
+		MountPath: "/app/resources/io/cryostat/net/openshift/OpenShiftAuthManager.properties",
+		SubPath:   "OpenShiftAuthManager.properties",
+	}
 }
 
 func NewCoreLivenessProbe(tls bool) *corev1.Probe {
@@ -1806,26 +1809,28 @@ func NewVolumesWithTemplates(tls bool) []corev1.Volume {
 }
 
 func NewVolumeWithAuthProperties(tls bool) []corev1.Volume {
+	return append(NewVolumes(false, tls), NewAuthPropertiesVolume())
+}
+
+func NewAuthPropertiesVolume() corev1.Volume {
 	readOnlyMode := int32(0440)
-	return append(NewVolumes(false, tls),
-		corev1.Volume{
-			Name: "auth-properties-authConfigMapName",
-			VolumeSource: corev1.VolumeSource{
-				ConfigMap: &corev1.ConfigMapVolumeSource{
-					LocalObjectReference: corev1.LocalObjectReference{
-						Name: "authConfigMapName",
-					},
-					Items: []corev1.KeyToPath{
-						{
-							Key:  "auth.properties",
-							Path: "OpenShiftAuthManager.properties",
-							Mode: &readOnlyMode,
-						},
+	return corev1.Volume{
+		Name: "auth-properties-authConfigMapName",
+		VolumeSource: corev1.VolumeSource{
+			ConfigMap: &corev1.ConfigMapVolumeSource{
+				LocalObjectReference: corev1.LocalObjectReference{
+					Name: "authConfigMapName",
+				},
+				Items: []corev1.KeyToPath{
+					{
+						Key:  "auth.properties",
+						Path: "OpenShiftAuthManager.properties",
+						Mode: &readOnlyMode,
 					},
 				},
 			},
 		},
-	)
+	}
 }
 
 func newVolumes(minimal bool, tls bool, certProjections []corev1.VolumeProjection) []corev1.Volume {
