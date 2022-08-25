@@ -96,6 +96,7 @@ const (
 	datasourceContainerPort   int32  = 8080
 	reportsContainerPort      int32  = 10000
 	loopbackAddress           string = "127.0.0.1"
+	operatorNamePrefix        string = "cryostat-operator-"
 )
 
 func NewPersistentVolumeClaimForCR(cr *operatorv1beta1.Cryostat) *corev1.PersistentVolumeClaim {
@@ -672,18 +673,6 @@ func NewCoreContainer(cr *operatorv1beta1.Cryostat, specs *ServiceSpecs, imageTa
 	}
 
 	if openshift {
-		OAuthClusterRoleName := "cryostat-operator-oauth-client"
-		if cr.Spec.AuthProperties != nil {
-			// Mount Auth properties if specified (on Openshift)
-			mounts = append(mounts, corev1.VolumeMount{
-				Name:      "auth-properties-" + cr.Spec.AuthProperties.ConfigMapName,
-				MountPath: authPropertiesPath,
-				SubPath:   "OpenShiftAuthManager.properties",
-				ReadOnly:  true,
-			})
-			OAuthClusterRoleName = cr.Spec.AuthProperties.ClusterRoleName
-		}
-
 		// Force OpenShift platform strategy
 		openshiftEnvs := []corev1.EnvVar{
 			{
@@ -699,11 +688,25 @@ func NewCoreContainer(cr *operatorv1beta1.Cryostat, specs *ServiceSpecs, imageTa
 				Value: cr.Name,
 			},
 			{
-				Name:  "CRYOSTAT_OAUTH_ROLE",
-				Value: OAuthClusterRoleName,
+				Name:  "CRYOSTAT_BASE_OAUTH_ROLE",
+				Value: operatorNamePrefix + "oauth-client",
 			},
 		}
 		envs = append(envs, openshiftEnvs...)
+
+		if cr.Spec.AuthProperties != nil {
+			// Mount Auth properties if specified (on Openshift)
+			mounts = append(mounts, corev1.VolumeMount{
+				Name:      "auth-properties-" + cr.Spec.AuthProperties.ConfigMapName,
+				MountPath: authPropertiesPath,
+				SubPath:   "OpenShiftAuthManager.properties",
+				ReadOnly:  true,
+			})
+			envs = append(envs, corev1.EnvVar{
+				Name:  "CRYOSTAT_CUSTOM_OAUTH_ROLE",
+				Value: cr.Spec.AuthProperties.ClusterRoleName,
+			})
+		}
 	}
 
 	if !cr.Spec.Minimal {

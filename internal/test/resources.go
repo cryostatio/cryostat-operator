@@ -1320,10 +1320,6 @@ func NewCoreEnvironmentVariables(minimal bool, tls bool, externalTLS bool, opens
 		})
 	}
 	if openshift {
-		OAuthClusterRoleName := "cryostat-operator-oauth-client"
-		if authProps {
-			OAuthClusterRoleName = "oauth-cluster-role"
-		}
 		envs = append(envs,
 			corev1.EnvVar{
 				Name:  "CRYOSTAT_PLATFORM",
@@ -1338,9 +1334,16 @@ func NewCoreEnvironmentVariables(minimal bool, tls bool, externalTLS bool, opens
 				Value: "cryostat",
 			},
 			corev1.EnvVar{
-				Name:  "CRYOSTAT_OAUTH_ROLE",
-				Value: OAuthClusterRoleName,
+				Name:  "CRYOSTAT_BASE_OAUTH_ROLE",
+				Value: "cryostat-operator-oauth-client",
 			})
+
+		if authProps {
+			envs = append(envs, corev1.EnvVar{
+				Name:  "CRYOSTAT_CUSTOM_OAUTH_ROLE",
+				Value: "oauth-cluster-role",
+			})
+		}
 	}
 	if reportsUrl != "" {
 		envs = append(envs,
