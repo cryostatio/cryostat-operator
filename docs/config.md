@@ -288,7 +288,10 @@ data:
     CREDENTIALS=cryostats.operator.cryostat.io
 ```
 
-If custom mapping is specified, a ClusterRole must be defined and should contain permissions for all Kubernetes objects listed in custom permission mapping. More details: https://docs.openshift.com/container-platform/4.11/authentication/tokens-scoping.html#scoping-tokens-role-scope_configuring-internal-oauth
+If custom mapping is specified, a ClusterRole must be defined and should contain permissions for all Kubernetes objects listed in custom permission mapping. This ClusterRole will give additional rules on top of [default rules](placeholder). <!-- FIXME add link after merging -->
+
+
+**Note**: Using [`Secret`](https://kubernetes.io/docs/concepts/configuration/secret/) in mapping can fail with access denied under [security protection](https://kubernetes.io/docs/concepts/configuration/secret/#information-security-for-secrets) against escalations. Find more details about this issue [here](https://docs.openshift.com/container-platform/4.11/authentication/tokens-scoping.html#scoping-tokens-role-scope_configuring-internal-oauth).
 
 The property `.spec.authProperties` can then be set to configure Cryostat to use this mapping instead of the default ones.
 ```yaml
