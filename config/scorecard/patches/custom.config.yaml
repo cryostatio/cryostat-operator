@@ -1,0 +1,13 @@
+- op: add
+  path: /serviceaccount
+  value: cryostat-scorecard
+- op: add
+  path: /stages/0/tests/-
+  value:
+    entrypoint:
+    - cryostat-scorecard-tests
+    - operator-install
+    image: quay.io/ebaron/cryostat-operator-scorecard:2.2.0-dev00005
+    labels:
+      suite: cryostat
+      test: operator-install
