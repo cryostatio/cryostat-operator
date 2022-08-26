@@ -369,6 +369,16 @@ func NewCryostatWithResources() *operatorv1beta1.Cryostat {
 	return cr
 }
 
+func NewCryostatWithAuthProperties() *operatorv1beta1.Cryostat {
+	cr := NewCryostat()
+	cr.Spec.AuthProperties = &operatorv1beta1.AuthorizationProperties{
+		ConfigMapName:   "authConfigMapName",
+		Filename:        "auth.properties",
+		ClusterRoleName: "oauth-cluster-role",
+	}
+	return cr
+}
+
 func newPVCSpec(storageClass string, storageRequest string,
 	accessModes ...corev1.PersistentVolumeAccessMode) *corev1.PersistentVolumeClaimSpec {
 	return &corev1.PersistentVolumeClaimSpec{
@@ -1199,7 +1209,7 @@ func NewReportsPorts() []corev1.ContainerPort {
 	}
 }
 
-func NewCoreEnvironmentVariables(minimal bool, tls bool, externalTLS bool, openshift bool, reportsUrl string) []corev1.EnvVar {
+func NewCoreEnvironmentVariables(minimal bool, tls bool, externalTLS bool, openshift bool, reportsUrl string, authProps bool) []corev1.EnvVar {
 	envs := []corev1.EnvVar{
 		{
 			Name:  "CRYOSTAT_WEB_PORT",
@@ -1324,9 +1334,16 @@ func NewCoreEnvironmentVariables(minimal bool, tls bool, externalTLS bool, opens
 				Value: "cryostat",
 			},
 			corev1.EnvVar{
-				Name:  "CRYOSTAT_OAUTH_ROLE",
+				Name:  "CRYOSTAT_BASE_OAUTH_ROLE",
 				Value: "cryostat-operator-oauth-client",
 			})
+
+		if authProps {
+			envs = append(envs, corev1.EnvVar{
+				Name:  "CRYOSTAT_CUSTOM_OAUTH_ROLE",
+				Value: "oauth-cluster-role",
+			})
+		}
 	}
 	if reportsUrl != "" {
 		envs = append(envs,
@@ -1576,6 +1593,19 @@ func NewVolumeMountsWithTemplates(tls bool) []corev1.VolumeMount {
 		})
 }
 
+func NewVolumeMountsWithAuthProperties(tls bool) []corev1.VolumeMount {
+	return append(NewCoreVolumeMounts(tls), NewAuthPropertiesVolumeMount())
+}
+
+func NewAuthPropertiesVolumeMount() corev1.VolumeMount {
+	return corev1.VolumeMount{
+		Name:      "auth-properties-authConfigMapName",
+		ReadOnly:  true,
+		MountPath: "/app/resources/io/cryostat/net/openshift/OpenShiftAuthManager.properties",
+		SubPath:   "OpenShiftAuthManager.properties",
+	}
+}
+
 func NewCoreLivenessProbe(tls bool) *corev1.Probe {
 	return &corev1.Probe{
 		ProbeHandler: newCoreProbeHandler(tls),
@@ -1779,6 +1809,31 @@ func NewVolumesWithTemplates(tls bool) []corev1.Volume {
 				},
 			},
 		})
+}
+
+func NewVolumeWithAuthProperties(tls bool) []corev1.Volume {
+	return append(NewVolumes(false, tls), NewAuthPropertiesVolume())
+}
+
+func NewAuthPropertiesVolume() corev1.Volume {
+	readOnlyMode := int32(0440)
+	return corev1.Volume{
+		Name: "auth-properties-authConfigMapName",
+		VolumeSource: corev1.VolumeSource{
+			ConfigMap: &corev1.ConfigMapVolumeSource{
+				LocalObjectReference: corev1.LocalObjectReference{
+					Name: "authConfigMapName",
+				},
+				Items: []corev1.KeyToPath{
+					{
+						Key:  "auth.properties",
+						Path: "OpenShiftAuthManager.properties",
+						Mode: &readOnlyMode,
+					},
+				},
+			},
+		},
+	}
 }
 
 func newVolumes(minimal bool, tls bool, certProjections []corev1.VolumeProjection) []corev1.Volume {
@@ -2250,6 +2305,18 @@ func NewOtherTemplateConfigMap() *corev1.ConfigMap {
 		},
 		Data: map[string]string{
 			"other-template.jfc": "more XML template data",
+		},
+	}
+}
+
+func NewAuthPropertiesConfigMap() *corev1.ConfigMap {
+	return &corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "authConfigMapName",
+			Namespace: "default",
+		},
+		Data: map[string]string{
+			"auth.properties": "CRYOSTAT_RESOURCE=K8S_RESOURCE\nANOTHER_CRYOSTAT_RESOURCE=ANOTHER_K8S_RESOURCE",
 		},
 	}
 }

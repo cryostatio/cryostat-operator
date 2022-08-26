@@ -133,9 +133,10 @@ metadata:
 spec:
   reportOptions:
     replicas: 1
-    requests:
-      cpu: 1000m
-      memory: 512Mi
+    resources:
+      requests:
+        cpu: 1000m
+        memory: 512Mi
 ```
 If zero sidecar replicas are configured, SubProcessMaxHeapSize configures
 the maximum heap size of the main Cryostat container's subprocess report generator in MiB.
@@ -267,3 +268,44 @@ spec:
     targetCacheSize: -1
     targetCacheTTL: 10
 ```
+
+
+### Authorization Properties
+
+When running on OpenShift, the user is required to have sufficient permissions for certain Kubernetes resources that are mapped into Cryostat-managed resources for authorization.
+
+The mappings can be specified using a ConfigMap that is compatible with [`OpenShiftAuthManager.properties`](https://github.com/cryostatio/cryostat/blob/bd95e1a11e9e29cc39559f4a5fdeaae77e81b4c6/src/main/resources/io/cryostat/net/openshift/OpenShiftAuthManager.properties). For example:
+```yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: auth-properties
+data:  
+  auth.properties: |
+    TARGET=pods,deployments.apps
+    RECORDING=pods,pods/exec
+    CERTIFICATE=deployments.apps,pods,cryostats.operator.cryostat.io
+    CREDENTIALS=cryostats.operator.cryostat.io
+```
+
+If custom mapping is specified, a ClusterRole must be defined and should contain permissions for all Kubernetes objects listed in custom permission mapping. This ClusterRole will give additional rules on top of [default rules](placeholder). <!-- FIXME add link after merging -->
+
+
+**Note**: Using [`Secret`](https://kubernetes.io/docs/concepts/configuration/secret/) in mapping can fail with access denied under [security protection](https://kubernetes.io/docs/concepts/configuration/secret/#information-security-for-secrets) against escalations. Find more details about this issue [here](https://docs.openshift.com/container-platform/4.11/authentication/tokens-scoping.html#scoping-tokens-role-scope_configuring-internal-oauth).
+
+The property `.spec.authProperties` can then be set to configure Cryostat to use this mapping instead of the default ones.
+```yaml
+apiVersion: operator.cryostat.io/v1beta1
+kind: Cryostat
+metadata:
+  name: cryostat-sample
+spec:
+  authProperties:
+    configMapName: auth-properties
+    filename: auth.properties
+    clusterRoleName: oauth-cluster-role
+```
+
+Each `configMapName` must refer to the name of a Config Map in the same namespace as Cryostat. The corresponding `filename` must be a key within that Config Map containing resource mappings. The `clusterRoleName` must be a valid name of an existing Cluster Role.
+
+**Note:** If the mapping is updated, Cryostat must be manually restarted.

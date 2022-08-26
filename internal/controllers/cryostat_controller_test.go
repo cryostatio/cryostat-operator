@@ -658,11 +658,11 @@ var _ = Describe("CryostatController", func() {
 
 				volumes := deployment.Spec.Template.Spec.Volumes
 				expectedVolumes := test.NewVolumesWithSecrets(t.TLS)
-				Expect(volumes).To(Equal(expectedVolumes))
+				Expect(volumes).To(ConsistOf(expectedVolumes))
 
 				volumeMounts := deployment.Spec.Template.Spec.Containers[0].VolumeMounts
 				expectedVolumeMounts := test.NewCoreVolumeMounts(t.TLS)
-				Expect(volumeMounts).To(Equal(expectedVolumeMounts))
+				Expect(volumeMounts).To(ConsistOf(expectedVolumeMounts))
 			})
 		})
 		Context("Cryostat CR has list of event templates", func() {
@@ -1297,6 +1297,17 @@ var _ = Describe("CryostatController", func() {
 				})
 			})
 		})
+		Context("Cryostat CR has authorization properties", func() {
+			BeforeEach(func() {
+				t.objs = append(t.objs, test.NewCryostatWithAuthProperties(), test.NewAuthPropertiesConfigMap())
+			})
+			JustBeforeEach(func() {
+				t.reconcileCryostatFully()
+			})
+			It("Should add volumes and volumeMounts to deployment", func() {
+				t.checkDeploymentHasAuthProperties()
+			})
+		})
 	})
 	Describe("reconciling a request in Kubernetes", func() {
 		JustBeforeEach(func() {
@@ -1416,6 +1427,17 @@ var _ = Describe("CryostatController", func() {
 
 				err = t.Client.Get(context.Background(), types.NamespacedName{Name: "cryostat", Namespace: "default"}, ingress)
 				Expect(kerrors.IsNotFound(err)).To(BeTrue())
+			})
+		})
+		Context("Cryostat CR has authorization properties", func() {
+			BeforeEach(func() {
+				t.objs = append(t.objs, test.NewCryostatWithAuthProperties(), test.NewAuthPropertiesConfigMap())
+			})
+			JustBeforeEach(func() {
+				t.reconcileCryostatFully()
+			})
+			It("Should not add volumes and volumeMounts to deployment", func() {
+				t.checkDeploymentHasNoAuthProperties()
 			})
 		})
 	})
@@ -1802,11 +1824,11 @@ func (t *cryostatTestInput) expectDeploymentHasCertSecrets() {
 
 	volumes := deployment.Spec.Template.Spec.Volumes
 	expectedVolumes := test.NewVolumesWithSecrets(t.TLS)
-	Expect(volumes).To(Equal(expectedVolumes))
+	Expect(volumes).To(ConsistOf(expectedVolumes))
 
 	volumeMounts := deployment.Spec.Template.Spec.Containers[0].VolumeMounts
 	expectedVolumeMounts := test.NewCoreVolumeMounts(t.TLS)
-	Expect(volumeMounts).To(Equal(expectedVolumeMounts))
+	Expect(volumeMounts).To(ConsistOf(expectedVolumeMounts))
 }
 
 func (t *cryostatTestInput) expectIdempotence() {
@@ -1960,7 +1982,7 @@ func (t *cryostatTestInput) checkMainPodTemplate(deployment *appsv1.Deployment, 
 		"kind":      "cryostat",
 		"component": "cryostat",
 	}))
-	Expect(template.Spec.Volumes).To(Equal(test.NewVolumes(t.minimal, t.TLS)))
+	Expect(template.Spec.Volumes).To(ConsistOf(test.NewVolumes(t.minimal, t.TLS)))
 	Expect(template.Spec.SecurityContext).To(Equal(test.NewPodSecurityContext()))
 
 	// Check that the networking environment variables are set correctly
@@ -1979,7 +2001,7 @@ func (t *cryostatTestInput) checkMainPodTemplate(deployment *appsv1.Deployment, 
 		reportsUrl = "http://cryostat-reports:" + port
 	}
 
-	checkCoreContainer(&coreContainer, t.minimal, t.TLS, t.externalTLS, t.EnvCoreImageTag, t.controller.IsOpenShift, reportsUrl, cr.Spec.Resources.CoreResources)
+	checkCoreContainer(&coreContainer, t.minimal, t.TLS, t.externalTLS, t.EnvCoreImageTag, t.controller.IsOpenShift, reportsUrl, cr.Spec.AuthProperties != nil, cr.Spec.Resources.CoreResources)
 
 	if !t.minimal {
 		// Check that Grafana is configured properly, depending on the environment
@@ -2028,7 +2050,7 @@ func (t *cryostatTestInput) checkReportsDeployment() {
 		"kind":      "cryostat",
 		"component": "reports",
 	}))
-	Expect(template.Spec.Volumes).To(Equal(test.NewReportsVolumes(t.TLS)))
+	Expect(template.Spec.Volumes).To(ConsistOf(test.NewReportsVolumes(t.TLS)))
 
 	var resources corev1.ResourceRequirements
 	if cr.Spec.ReportOptions != nil {
@@ -2046,15 +2068,50 @@ func (t *cryostatTestInput) checkDeploymentHasTemplates() {
 
 	volumes := deployment.Spec.Template.Spec.Volumes
 	expectedVolumes := test.NewVolumesWithTemplates(t.TLS)
-	Expect(volumes).To(Equal(expectedVolumes))
+	Expect(volumes).To(ConsistOf(expectedVolumes))
 
 	volumeMounts := deployment.Spec.Template.Spec.Containers[0].VolumeMounts
 	expectedVolumeMounts := test.NewVolumeMountsWithTemplates(t.TLS)
-	Expect(volumeMounts).To(Equal(expectedVolumeMounts))
+	Expect(volumeMounts).To(ConsistOf(expectedVolumeMounts))
+}
+
+func (t *cryostatTestInput) checkDeploymentHasAuthProperties() {
+	deployment := &appsv1.Deployment{}
+	err := t.Client.Get(context.Background(), types.NamespacedName{Name: "cryostat", Namespace: "default"}, deployment)
+	Expect(err).ToNot(HaveOccurred())
+
+	volumes := deployment.Spec.Template.Spec.Volumes
+	expectedVolumes := test.NewVolumeWithAuthProperties(t.TLS)
+	Expect(volumes).To(ConsistOf(expectedVolumes))
+
+	coreContainer := deployment.Spec.Template.Spec.Containers[0]
+
+	volumeMounts := coreContainer.VolumeMounts
+	expectedVolumeMounts := test.NewVolumeMountsWithAuthProperties(t.TLS)
+	Expect(volumeMounts).To(ConsistOf(expectedVolumeMounts))
+	Expect(coreContainer.Env).To(ConsistOf(test.NewCoreEnvironmentVariables(t.minimal, t.TLS, t.externalTLS, t.controller.IsOpenShift, "", true)))
+}
+
+func (t *cryostatTestInput) checkDeploymentHasNoAuthProperties() {
+	deployment := &appsv1.Deployment{}
+	err := t.Client.Get(context.Background(), types.NamespacedName{Name: "cryostat", Namespace: "default"}, deployment)
+	Expect(err).ToNot(HaveOccurred())
+
+	volumes := deployment.Spec.Template.Spec.Volumes
+	expectedVolumes := test.NewVolumes(t.minimal, t.TLS)
+	Expect(volumes).ToNot(ContainElements(test.NewAuthPropertiesVolume()))
+	Expect(volumes).To(ConsistOf(expectedVolumes))
+
+	coreContainer := deployment.Spec.Template.Spec.Containers[0]
+
+	volumeMounts := coreContainer.VolumeMounts
+	expectedVolumeMounts := test.NewCoreVolumeMounts(t.TLS)
+	Expect(volumeMounts).ToNot(ContainElement(test.NewAuthPropertiesVolumeMount()))
+	Expect(volumeMounts).To(ConsistOf(expectedVolumeMounts))
 }
 
 func checkCoreContainer(container *corev1.Container, minimal bool, tls bool, externalTLS bool,
-	tag *string, openshift bool, reportsUrl string, resources corev1.ResourceRequirements) {
+	tag *string, openshift bool, reportsUrl string, authProps bool, resources corev1.ResourceRequirements) {
 	Expect(container.Name).To(Equal("cryostat"))
 	if tag == nil {
 		Expect(container.Image).To(HavePrefix("quay.io/cryostat/cryostat:"))
@@ -2062,7 +2119,7 @@ func checkCoreContainer(container *corev1.Container, minimal bool, tls bool, ext
 		Expect(container.Image).To(Equal(*tag))
 	}
 	Expect(container.Ports).To(ConsistOf(test.NewCorePorts()))
-	Expect(container.Env).To(ConsistOf(test.NewCoreEnvironmentVariables(minimal, tls, externalTLS, openshift, reportsUrl)))
+	Expect(container.Env).To(ConsistOf(test.NewCoreEnvironmentVariables(minimal, tls, externalTLS, openshift, reportsUrl, authProps)))
 	Expect(container.EnvFrom).To(ConsistOf(test.NewCoreEnvFromSource(tls)))
 	Expect(container.VolumeMounts).To(ConsistOf(test.NewCoreVolumeMounts(tls)))
 	Expect(container.LivenessProbe).To(Equal(test.NewCoreLivenessProbe(tls)))

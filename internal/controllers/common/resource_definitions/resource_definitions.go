@@ -96,6 +96,7 @@ const (
 	datasourceContainerPort   int32  = 8080
 	reportsContainerPort      int32  = 10000
 	loopbackAddress           string = "127.0.0.1"
+	operatorNamePrefix        string = "cryostat-operator-"
 )
 
 func NewPersistentVolumeClaimForCR(cr *operatorv1beta1.Cryostat) *corev1.PersistentVolumeClaim {
@@ -351,6 +352,28 @@ func NewPodForCR(cr *operatorv1beta1.Cryostat, specs *ServiceSpecs, imageTags *I
 		volumes = append(volumes, eventTemplateVolume)
 	}
 
+	// Add Auth properties as a volume if specified (on Openshift)
+	if openshift && cr.Spec.AuthProperties != nil {
+		authResourceVolume := corev1.Volume{
+			Name: "auth-properties-" + cr.Spec.AuthProperties.ConfigMapName,
+			VolumeSource: corev1.VolumeSource{
+				ConfigMap: &corev1.ConfigMapVolumeSource{
+					LocalObjectReference: corev1.LocalObjectReference{
+						Name: cr.Spec.AuthProperties.ConfigMapName,
+					},
+					Items: []corev1.KeyToPath{
+						{
+							Key:  cr.Spec.AuthProperties.Filename,
+							Path: "OpenShiftAuthManager.properties",
+							Mode: &readOnlyMode,
+						},
+					},
+				},
+			},
+		}
+		volumes = append(volumes, authResourceVolume)
+	}
+
 	// Ensure PV mounts are writable
 	sc := &corev1.PodSecurityContext{
 		FSGroup: &fsGroup,
@@ -498,6 +521,8 @@ func NewCoreContainer(cr *operatorv1beta1.Cryostat, specs *ServiceSpecs, imageTa
 	templatesPath := "/opt/cryostat.d/templates.d"
 	clientlibPath := "/opt/cryostat.d/clientlib.d"
 	probesPath := "/opt/cryostat.d/probes.d"
+	authPropertiesPath := "/app/resources/io/cryostat/net/openshift/OpenShiftAuthManager.properties"
+
 	envs := []corev1.EnvVar{
 		{
 			Name:  "CRYOSTAT_WEB_PORT",
@@ -528,6 +553,46 @@ func NewCoreContainer(cr *operatorv1beta1.Cryostat, specs *ServiceSpecs, imageTa
 			Value: "false",
 		},
 	}
+
+	mounts := []corev1.VolumeMount{
+		{
+			Name:      cr.Name,
+			MountPath: configPath,
+			SubPath:   "config",
+		},
+		{
+			Name:      cr.Name,
+			MountPath: archivePath,
+			SubPath:   "flightrecordings",
+		},
+		{
+			Name:      cr.Name,
+			MountPath: templatesPath,
+			SubPath:   "templates",
+		},
+		{
+			Name:      cr.Name,
+			MountPath: clientlibPath,
+			SubPath:   "clientlib",
+		},
+		{
+			Name:      cr.Name,
+			MountPath: probesPath,
+			SubPath:   "probes",
+		},
+		{
+			Name:      cr.Name,
+			MountPath: "truststore",
+			SubPath:   "truststore",
+		},
+		{
+			// Mount the CA cert and user certificates in the expected /truststore location
+			Name:      "cert-secrets",
+			MountPath: "/truststore/operator",
+			ReadOnly:  true,
+		},
+	}
+
 	if specs.CoreURL != nil {
 		coreEnvs := []corev1.EnvVar{
 			{
@@ -597,6 +662,15 @@ func NewCoreContainer(cr *operatorv1beta1.Cryostat, specs *ServiceSpecs, imageTa
 		},
 	}
 	envs = append(envs, jmxCacheEnvs...)
+	envsFrom := []corev1.EnvFromSource{
+		{
+			SecretRef: &corev1.SecretEnvSource{
+				LocalObjectReference: corev1.LocalObjectReference{
+					Name: cr.Name + "-jmx-auth",
+				},
+			},
+		},
+	}
 
 	if openshift {
 		// Force OpenShift platform strategy
@@ -614,59 +688,25 @@ func NewCoreContainer(cr *operatorv1beta1.Cryostat, specs *ServiceSpecs, imageTa
 				Value: cr.Name,
 			},
 			{
-				Name:  "CRYOSTAT_OAUTH_ROLE",
-				Value: "cryostat-operator-oauth-client",
+				Name:  "CRYOSTAT_BASE_OAUTH_ROLE",
+				Value: operatorNamePrefix + "oauth-client",
 			},
 		}
 		envs = append(envs, openshiftEnvs...)
-	}
-	envsFrom := []corev1.EnvFromSource{
-		{
-			SecretRef: &corev1.SecretEnvSource{
-				LocalObjectReference: corev1.LocalObjectReference{
-					Name: cr.Name + "-jmx-auth",
-				},
-			},
-		},
-	}
 
-	mounts := []corev1.VolumeMount{
-		{
-			Name:      cr.Name,
-			MountPath: configPath,
-			SubPath:   "config",
-		},
-		{
-			Name:      cr.Name,
-			MountPath: archivePath,
-			SubPath:   "flightrecordings",
-		},
-		{
-			Name:      cr.Name,
-			MountPath: templatesPath,
-			SubPath:   "templates",
-		},
-		{
-			Name:      cr.Name,
-			MountPath: clientlibPath,
-			SubPath:   "clientlib",
-		},
-		{
-			Name:      cr.Name,
-			MountPath: probesPath,
-			SubPath:   "probes",
-		},
-		{
-			Name:      cr.Name,
-			MountPath: "truststore",
-			SubPath:   "truststore",
-		},
-		{
-			// Mount the CA cert and user certificates in the expected /truststore location
-			Name:      "cert-secrets",
-			MountPath: "/truststore/operator",
-			ReadOnly:  true,
-		},
+		if cr.Spec.AuthProperties != nil {
+			// Mount Auth properties if specified (on Openshift)
+			mounts = append(mounts, corev1.VolumeMount{
+				Name:      "auth-properties-" + cr.Spec.AuthProperties.ConfigMapName,
+				MountPath: authPropertiesPath,
+				SubPath:   "OpenShiftAuthManager.properties",
+				ReadOnly:  true,
+			})
+			envs = append(envs, corev1.EnvVar{
+				Name:  "CRYOSTAT_CUSTOM_OAUTH_ROLE",
+				Value: cr.Spec.AuthProperties.ClusterRoleName,
+			})
+		}
 	}
 
 	if !cr.Spec.Minimal {
