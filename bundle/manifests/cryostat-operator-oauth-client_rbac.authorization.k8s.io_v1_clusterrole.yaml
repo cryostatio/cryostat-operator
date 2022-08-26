@@ -10,6 +10,7 @@ rules:
   - cryostats
   verbs:
   - create
+  - patch
   - delete
   - get
 - apiGroups:
@@ -18,8 +19,30 @@ rules:
   - pods
   - pods/exec
   - services
-  - secrets
+  verbs:
+  - create
+  - patch
+  - delete
+  - get
+- apiGroups:
+  - ""
+  resources:
+  - replicationcontrollers
+  - endpoints
+  verbs:
+  - get
+- apiGroups:
+  - apps
+  resources:
+  - deployments
   verbs:
   - create
   - get
-  - delete
+- apiGroups:
+  - apps
+  resources:
+  - daemonsets
+  - replicasets
+  - statefulsets
+  verbs:
+  - get

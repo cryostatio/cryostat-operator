@@ -12,6 +12,7 @@ rules:
   - cryostats
   verbs:
   - create
+  - patch
   - delete
   - get
 - apiGroups:
@@ -22,8 +23,9 @@ rules:
   - services
   verbs:
   - create
-  - get
+  - patch
   - delete
+  - get
 - apiGroups:
   - ""
   resources:
