@@ -78,6 +78,9 @@ OPM_VERSION ?= 1.23.0
 # ENVTEST_K8S_VERSION refers to the version of kubebuilder assets to be downloaded by envtest binary.
 ENVTEST_K8S_VERSION ?= 1.24 
 
+CUSTOM_SCORECARD_VERSION = $(IMAGE_VERSION)
+CUSTOM_SCORECARD_IMG ?= $(IMAGE_TAG_BASE)-scorecard:$(CUSTOM_SCORECARD_VERSION)
+
 DEPLOY_NAMESPACE ?= cryostat-operator-system
 
 # Get the currently used golang install path (in GOPATH/bin, unless GOBIN is set)
@@ -318,6 +321,18 @@ create_cryostat_cr: destroy_cryostat_cr
 .PHONY: destroy_cryostat_cr
 destroy_cryostat_cr:
 	- $(CLUSTER_CLIENT) delete -f config/samples/operator_v1beta1_cryostat.yaml
+
+# Build custom scorecard tests
+.PHONY: custom-scorecard-tests
+custom-scorecard-tests: fmt vet
+	cd internal/images/custom-scorecard-tests/ && \
+	go build -o bin/cryostat-scorecard-tests main.go
+
+# Build the custom scorecard OCI image
+.PHONY: scorecard-build
+scorecard-build: custom-scorecard-tests
+	cd internal/images/custom-scorecard-tests/ && \
+	BUILDAH_FORMAT=docker $(IMAGE_BUILDER) build -t $(CUSTOM_SCORECARD_IMG) .
 
 # Local development/testing helpers
 
