@@ -1299,7 +1299,7 @@ var _ = Describe("CryostatController", func() {
 		})
 		Context("Cryostat CR has authorization properties", func() {
 			BeforeEach(func() {
-				t.objs = append(t.objs, test.NewCryostatWithAuthProperties(), test.NewAuthPropertiesConfigMap())
+				t.objs = append(t.objs, test.NewCryostatWithAuthProperties(), test.NewAuthPropertiesConfigMap(), test.NewAuthClusterRole())
 			})
 			JustBeforeEach(func() {
 				t.reconcileCryostatFully()
@@ -1431,7 +1431,7 @@ var _ = Describe("CryostatController", func() {
 		})
 		Context("Cryostat CR has authorization properties", func() {
 			BeforeEach(func() {
-				t.objs = append(t.objs, test.NewCryostatWithAuthProperties(), test.NewAuthPropertiesConfigMap())
+				t.objs = append(t.objs, test.NewCryostatWithAuthProperties(), test.NewAuthPropertiesConfigMap(), test.NewAuthClusterRole())
 			})
 			JustBeforeEach(func() {
 				t.reconcileCryostatFully()
