@@ -42,16 +42,16 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// CryostatSpec defines the desired state of Cryostat
+// CryostatSpec defines the desired state of Cryostat.
 type CryostatSpec struct {
 	// Deploy a pared-down Cryostat instance with no Grafana Dashboard or JFR Data Source.
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Minimal Deployment",xDescriptors={"urn:alm:descriptor:com.tectonic.ui:booleanSwitch"}
 	Minimal bool `json:"minimal"`
-	// List of TLS certificates to trust when connecting to targets
+	// List of TLS certificates to trust when connecting to targets.
 	// +optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Trusted TLS Certificates"
 	TrustedCertSecrets []CertificateSecret `json:"trustedCertSecrets,omitempty"`
-	// List of Flight Recorder Event Templates to preconfigure in Cryostat
+	// List of Flight Recorder Event Templates to preconfigure in Cryostat.
 	// +optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Event Templates"
 	EventTemplates []TemplateConfigMap `json:"eventTemplates,omitempty"`
@@ -60,7 +60,7 @@ type CryostatSpec struct {
 	// +optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Enable cert-manager Integration",xDescriptors={"urn:alm:descriptor:com.tectonic.ui:booleanSwitch"}
 	EnableCertManager *bool `json:"enableCertManager"`
-	// Options to customize the storage for Flight Recordings and Templates
+	// Options to customize the storage for Flight Recordings and Templates.
 	// +optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	StorageOptions *StorageConfiguration `json:"storageOptions,omitempty"`
@@ -73,20 +73,20 @@ type CryostatSpec struct {
 	// +optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	NetworkOptions *NetworkConfigurationList `json:"networkOptions,omitempty"`
-	// Options to configure Cryostat Automated Report Analysis
+	// Options to configure Cryostat Automated Report Analysis.
 	// +optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	ReportOptions *ReportConfiguration `json:"reportOptions,omitempty"`
-	// The maximum number of WebSocket client connections allowed (minimum 1, default unlimited)
+	// The maximum number of WebSocket client connections allowed (minimum 1, default unlimited).
 	// +optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Max WebSocket Connections",xDescriptors={"urn:alm:descriptor:com.tectonic.ui:number"}
 	// +kubebuilder:validation:Minimum=1
 	MaxWsConnections int32 `json:"maxWsConnections,omitempty"`
-	// Options to customize the JMX target connections cache for the Cryostat application
+	// Options to customize the JMX target connections cache for the Cryostat application.
 	// +optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="JMX Connections Cache Options"
 	JmxCacheOptions *JmxCacheOptions `json:"jmxCacheOptions,omitempty"`
-	// Resource requirements for the Cryostat deployment
+	// Resource requirements for the Cryostat deployment.
 	// +optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	Resources ResourceConfigList `json:"resources,omitempty"`
@@ -101,27 +101,27 @@ type ResourceConfigList struct {
 	// +optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:com.tectonic.ui:resourceRequirements"}
 	CoreResources corev1.ResourceRequirements `json:"coreResources,omitempty"`
-	// Resource requirements for the JFR Data Source container
+	// Resource requirements for the JFR Data Source container.
 	// +optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:com.tectonic.ui:resourceRequirements"}
 	DataSourceResources corev1.ResourceRequirements `json:"dataSourceResources,omitempty"`
-	// Resource requirements for the Grafana container
+	// Resource requirements for the Grafana container.
 	// +optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:com.tectonic.ui:resourceRequirements"}
 	GrafanaResources corev1.ResourceRequirements `json:"grafanaResources,omitempty"`
 }
 
-// CryostatStatus defines the observed state of Cryostat
+// CryostatStatus defines the observed state of Cryostat.
 type CryostatStatus struct {
-	// Conditions of the components managed by the Cryostat Operator
+	// Conditions of the components managed by the Cryostat Operator.
 	// +optional
 	// +operator-sdk:csv:customresourcedefinitions:type=status,displayName="Cryostat Conditions",xDescriptors={"urn:alm:descriptor:io.kubernetes.conditions"}
 	Conditions []metav1.Condition `json:"conditions,omitempty"`
-	// Name of the Secret containing the generated Grafana credentials
+	// Name of the Secret containing the generated Grafana credentials.
 	// +optional
 	// +operator-sdk:csv:customresourcedefinitions:type=status,xDescriptors={"urn:alm:descriptor:io.kubernetes:Secret"}
 	GrafanaSecret string `json:"grafanaSecret,omitempty"`
-	// Address of the deployed Cryostat web application
+	// Address of the deployed Cryostat web application.
 	// +operator-sdk:csv:customresourcedefinitions:type=status,xDescriptors={"urn:alm:descriptor:org.w3:link"}
 	ApplicationURL string `json:"applicationUrl"`
 }
@@ -130,19 +130,19 @@ type CryostatStatus struct {
 type CryostatConditionType string
 
 const (
-	// Whether the main Cryostat deployment is available
+	// Whether the main Cryostat deployment is available.
 	ConditionTypeMainDeploymentAvailable CryostatConditionType = "MainDeploymentAvailable"
-	// Whether the main Cryostat deployment is progressing
+	// Whether the main Cryostat deployment is progressing.
 	ConditionTypeMainDeploymentProgressing CryostatConditionType = "MainDeploymentProgressing"
-	// If pods within the main Cryostat deployment failed to be created or destroyed
+	// If pods within the main Cryostat deployment failed to be created or destroyed.
 	ConditionTypeMainDeploymentReplicaFailure CryostatConditionType = "MainDeploymentReplicaFailure"
-	// If enabled, whether the reports deployment is available
+	// If enabled, whether the reports deployment is available.
 	ConditionTypeReportsDeploymentAvailable CryostatConditionType = "ReportsDeploymentAvailable"
-	// If enabled, whether the reports deployment is progressing
+	// If enabled, whether the reports deployment is progressing.
 	ConditionTypeReportsDeploymentProgressing CryostatConditionType = "ReportsDeploymentProgressing"
-	// If enabled, whether pods in the reports deployment failed to be created or destroyed
+	// If enabled, whether pods in the reports deployment failed to be created or destroyed.
 	ConditionTypeReportsDeploymentReplicaFailure CryostatConditionType = "ReportsDeploymentReplicaFailure"
-	// If enabled, whether TLS setup is complete for the Cryostat components
+	// If enabled, whether TLS setup is complete for the Cryostat components.
 	ConditionTypeTLSSetupComplete CryostatConditionType = "TLSSetupComplete"
 )
 
@@ -204,7 +204,7 @@ type ServiceConfig struct {
 }
 
 // CoreServiceConfig provides customization for the service handling
-// traffic for the Cryostat application
+// traffic for the Cryostat application.
 type CoreServiceConfig struct {
 	// HTTP port number for the Cryostat application service.
 	// Defaults to 8181.
@@ -218,7 +218,7 @@ type CoreServiceConfig struct {
 }
 
 // GrafanaServiceConfig provides customization for the service handling
-// traffic for the Grafana dashboard
+// traffic for the Grafana dashboard.
 type GrafanaServiceConfig struct {
 	// HTTP port number for the Grafana dashboard service.
 	// Defaults to 3000.
@@ -228,7 +228,7 @@ type GrafanaServiceConfig struct {
 }
 
 // ReportsServiceConfig provides customization for the service handling
-// traffic for the cryostat-reports sidecars
+// traffic for the cryostat-reports sidecars.
 type ReportsServiceConfig struct {
 	// HTTP port number for the cryostat-reports service.
 	// Defaults to 10000.
@@ -258,7 +258,7 @@ type ServiceConfigList struct {
 type NetworkConfiguration struct {
 	// Configuration for an Ingress object.
 	// Currently subpaths are not supported, so unique hosts must be specified
-	// (if a single external IP is being used) to differentiate between ingresses/services
+	// (if a single external IP is being used) to differentiate between ingresses/services.
 	// +optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	IngressSpec *netv1.IngressSpec `json:"ingressSpec,omitempty"`
@@ -275,22 +275,22 @@ type NetworkConfiguration struct {
 
 // NetworkConfigurationList holds NetworkConfiguration objects that specify
 // how to expose the services created by the operator for the main Cryostat
-// deployment
+// deployment.
 type NetworkConfigurationList struct {
 	// Specifications for how to expose the Cryostat service,
-	// which serves the Cryostat application
+	// which serves the Cryostat application.
 	// +optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	CoreConfig *NetworkConfiguration `json:"coreConfig,omitempty"`
 	// Specifications for how to expose the Cryostat command service,
-	// which serves the WebSocket command channel
+	// which serves the WebSocket command channel.
 	// +optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:com.tectonic.ui:hidden"}
 	//
 	// Deprecated: CommandConfig is no longer used.
 	CommandConfig *NetworkConfiguration `json:"commandConfig,omitempty"`
 	// Specifications for how to expose Cryostat's Grafana service,
-	// which serves the Grafana dashboard
+	// which serves the Grafana dashboard.
 	// +optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	GrafanaConfig *NetworkConfiguration `json:"grafanaConfig,omitempty"`
@@ -338,7 +338,7 @@ type EmptyDirConfig struct {
 }
 
 // JmxCacheConfig provides customization for the JMX target connections
-// cache for the Cryostat application
+// cache for the Cryostat application.
 type JmxCacheOptions struct {
 	// The maximum number of JMX connections to cache. Use `-1` for an unlimited cache size (TTL expiration only). Defaults to `-1`.
 	// +optional
@@ -360,7 +360,7 @@ type JmxCacheOptions struct {
 // Cryostat contains configuration options for controlling the Deployment of
 // the Cryostat application and its related components. A Cryostat instance
 // must be created to instruct the operator to deploy the Cryostat application.
-//+operator-sdk:csv:customresourcedefinitions:resources={{Deployment,v1},{Ingress,v1},{PersistentVolumeClaim,v1},{Secret,v1},{Service,v1},{Route,v1},{ConsoleLink,v1}}
+// +operator-sdk:csv:customresourcedefinitions:resources={{Deployment,v1},{Ingress,v1},{PersistentVolumeClaim,v1},{Secret,v1},{Service,v1},{Route,v1},{ConsoleLink,v1}}
 // +kubebuilder:printcolumn:name="Application URL",type=string,JSONPath=`.status.applicationUrl`
 // +kubebuilder:printcolumn:name="Grafana Secret",type=string,JSONPath=`.status.grafanaSecret`
 type Cryostat struct {
@@ -385,24 +385,24 @@ func init() {
 }
 
 // DefaultCertificateKey will be used when looking up the certificate within a secret,
-// if a key is not manually specified
+// if a key is not manually specified.
 const DefaultCertificateKey = corev1.TLSCertKey
 
 type CertificateSecret struct {
-	// Name of secret in the local namespace
+	// Name of secret in the local namespace.
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:io.kubernetes:Secret"}
 	SecretName string `json:"secretName"`
-	// Key within secret containing the certificate
+	// Key within secret containing the certificate.
 	// +optional
 	CertificateKey *string `json:"certificateKey,omitempty"`
 }
 
-// A ConfigMap containing a .jfc template file
+// A ConfigMap containing a .jfc template file.
 type TemplateConfigMap struct {
-	// Name of config map in the local namespace
+	// Name of config map in the local namespace.
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:io.kubernetes:ConfigMap"}
 	ConfigMapName string `json:"configMapName"`
-	// Filename within config map containing the template file
+	// Filename within config map containing the template file.
 	Filename string `json:"filename"`
 }
 
