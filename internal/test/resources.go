@@ -374,7 +374,7 @@ func NewCryostatWithAuthProperties() *operatorv1beta1.Cryostat {
 	cr.Spec.AuthProperties = &operatorv1beta1.AuthorizationProperties{
 		ConfigMapName:   "authConfigMapName",
 		Filename:        "auth.properties",
-		ClusterRoleName: "oauth-cluster-role",
+		ClusterRoleName: "custom-auth-cluster-role",
 	}
 	return cr
 }
@@ -1341,7 +1341,7 @@ func NewCoreEnvironmentVariables(minimal bool, tls bool, externalTLS bool, opens
 		if authProps {
 			envs = append(envs, corev1.EnvVar{
 				Name:  "CRYOSTAT_CUSTOM_OAUTH_ROLE",
-				Value: "oauth-cluster-role",
+				Value: "custom-auth-cluster-role",
 			})
 		}
 	}
@@ -2244,6 +2244,26 @@ func NewRole() *rbacv1.Role {
 	}
 }
 
+func NewAuthClusterRole() *rbacv1.ClusterRole {
+	return &rbacv1.ClusterRole{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "custom-auth-cluster-role",
+		},
+		Rules: []rbacv1.PolicyRule{
+			{
+				Verbs:     []string{"get", "update", "patch", "delete"},
+				APIGroups: []string{"group"},
+				Resources: []string{"resources"},
+			},
+			{
+				Verbs:     []string{"get", "update", "patch", "delete"},
+				APIGroups: []string{"another_group"},
+				Resources: []string{"another_resources"},
+			},
+		},
+	}
+}
+
 func NewRoleBinding() *rbacv1.RoleBinding {
 	return &rbacv1.RoleBinding{
 		ObjectMeta: metav1.ObjectMeta{
@@ -2316,7 +2336,7 @@ func NewAuthPropertiesConfigMap() *corev1.ConfigMap {
 			Namespace: "default",
 		},
 		Data: map[string]string{
-			"auth.properties": "CRYOSTAT_RESOURCE=K8S_RESOURCE\nANOTHER_CRYOSTAT_RESOURCE=ANOTHER_K8S_RESOURCE",
+			"auth.properties": "CRYOSTAT_RESOURCE=resources.group\nANOTHER_CRYOSTAT_RESOURCE=another_resources.another_group",
 		},
 	}
 }

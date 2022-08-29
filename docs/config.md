@@ -274,7 +274,7 @@ spec:
 
 When running on OpenShift, the user is required to have sufficient permissions for certain Kubernetes resources that are mapped into Cryostat-managed resources for authorization.
 
-The mappings can be specified using a ConfigMap that is compatible with [`OpenShiftAuthManager.properties`](https://github.com/cryostatio/cryostat/blob/bd95e1a11e9e29cc39559f4a5fdeaae77e81b4c6/src/main/resources/io/cryostat/net/openshift/OpenShiftAuthManager.properties). For example:
+The mappings can be specified using a ConfigMap that is compatible with [`OpenShiftAuthManager.properties`](https://github.com/cryostatio/cryostat/blob/6db048682b2b0048c1f6ea9215de626b5a5be284/src/main/resources/io/cryostat/net/openshift/OpenShiftAuthManager.properties). For example:
 ```yaml
 apiVersion: v1
 kind: ConfigMap
@@ -288,7 +288,7 @@ data:
     CREDENTIALS=cryostats.operator.cryostat.io
 ```
 
-If custom mapping is specified, a ClusterRole must be defined and should contain permissions for all Kubernetes objects listed in custom permission mapping. This ClusterRole will give additional rules on top of [default rules](placeholder). <!-- FIXME add link after merging -->
+If custom mapping is specified, a ClusterRole must be defined and should contain permissions for all Kubernetes objects listed in custom permission mapping. This ClusterRole will give additional rules on top of [default rules](https://github.com/cryostatio/cryostat-operator/blob/1b5d1ab97fca925e14b6c2baf2585f5e04426440/config/rbac/oauth_client.yaml).
 
 
 **Note**: Using [`Secret`](https://kubernetes.io/docs/concepts/configuration/secret/) in mapping can fail with access denied under [security protection](https://kubernetes.io/docs/concepts/configuration/secret/#information-security-for-secrets) against escalations. Find more details about this issue [here](https://docs.openshift.com/container-platform/4.11/authentication/tokens-scoping.html#scoping-tokens-role-scope_configuring-internal-oauth).
