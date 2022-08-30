@@ -167,7 +167,6 @@ endif
 # UnDeploy controller from the configured Kubernetes cluster in ~/.kube/config
 .PHONY: undeploy
 undeploy:
-	- $(CLUSTER_CLIENT) delete --ignore-not-found=$(ignore-not-found) recording --all
 	- $(CLUSTER_CLIENT) delete --ignore-not-found=$(ignore-not-found) -f config/samples/operator_v1beta1_cryostat.yaml
 	- $(KUSTOMIZE) build config/default | $(CLUSTER_CLIENT) delete --ignore-not-found=$(ignore-not-found) -f -
 
