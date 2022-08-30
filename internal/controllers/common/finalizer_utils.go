@@ -41,10 +41,7 @@ import (
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
-	logf "sigs.k8s.io/controller-runtime/pkg/log"
 )
-
-var log = logf.Log.WithName("cryostat_finalizer")
 
 // AddFinalizer adds the provided finalizer to the object and updates it in the cluster
 func AddFinalizer(ctx context.Context, client client.Client, obj controllerutil.Object, finalizer string) error {

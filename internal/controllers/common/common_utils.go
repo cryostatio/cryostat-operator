@@ -39,7 +39,11 @@ package common
 import (
 	"io/ioutil"
 	"os"
+
+	logf "sigs.k8s.io/controller-runtime/pkg/log"
 )
+
+var log = logf.Log.WithName("common")
 
 // OSUtils is an abstraction on functionality that interacts with the operating system
 type OSUtils interface {
