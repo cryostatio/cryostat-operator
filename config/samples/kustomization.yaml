@@ -1,6 +1,4 @@
 ## Append samples you want in your CSV to this file as resources ##
 resources:
 - operator_v1beta1_cryostat.yaml
-- operator_v1beta1_flightrecorder.yaml
-- operator_v1beta1_recording.yaml
 # +kubebuilder:scaffold:manifestskustomizesamples

@@ -148,39 +148,6 @@ func main() {
 		setupLog.Error(err, "unable to create controller", "controller", "Cryostat")
 		os.Exit(1)
 	}
-	if err = (&controllers.RecordingReconciler{
-		Client: mgr.GetClient(),
-		Log:    ctrl.Log.WithName("controllers").WithName("Recording"),
-		Scheme: mgr.GetScheme(),
-		Reconciler: common.NewReconciler(&common.ReconcilerConfig{
-			Client: mgr.GetClient(),
-		}),
-	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "Recording")
-		os.Exit(1)
-	}
-	if err = (&controllers.FlightRecorderReconciler{
-		Client: mgr.GetClient(),
-		Log:    ctrl.Log.WithName("controllers").WithName("FlightRecorder"),
-		Scheme: mgr.GetScheme(),
-		Reconciler: common.NewReconciler(&common.ReconcilerConfig{
-			Client: mgr.GetClient(),
-		}),
-	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "FlightRecorder")
-		os.Exit(1)
-	}
-	if err = (&controllers.EndpointsReconciler{
-		Client: mgr.GetClient(),
-		Log:    ctrl.Log.WithName("controllers").WithName("Endpoints"),
-		Scheme: mgr.GetScheme(),
-		Reconciler: common.NewReconciler(&common.ReconcilerConfig{
-			Client: mgr.GetClient(),
-		}),
-	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "Endpoints")
-		os.Exit(1)
-	}
 	// +kubebuilder:scaffold:builder
 
 	if err := mgr.AddHealthzCheck("healthz", healthz.Ping); err != nil {

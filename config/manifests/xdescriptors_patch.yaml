@@ -1,7 +1,0 @@
-- op: add
-  path: /spec/customresourcedefinitions/owned/2/specDescriptors/3
-  value:
-    description: Select the FlightRecorder with the name of the target Pod for this Recording.
-    displayName: Name
-    path: flightRecorder.name
-    x-descriptors: [ "urn:alm:descriptor:io.kubernetes:operator.cryostat.io:v1beta1:FlightRecorder" ]

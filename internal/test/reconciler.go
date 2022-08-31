@@ -37,19 +37,16 @@
 package test
 
 import (
-	"net/url"
 	"strconv"
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	cryostatClient "github.com/cryostatio/cryostat-operator/internal/controllers/client"
 	"github.com/cryostatio/cryostat-operator/internal/controllers/common"
 	"github.com/onsi/gomega"
 )
 
 // TestReconcilerConfig groups parameters used to create a test Reconciler
 type TestReconcilerConfig struct {
-	Server                *CryostatServer
 	Client                client.Client
 	TLS                   bool
 	EnvDisableTLS         *bool
@@ -59,48 +56,11 @@ type TestReconcilerConfig struct {
 	EnvReportsImageTag    *string
 }
 
-// NewTestReconciler returns a common.Reconciler for use by unit tests
-func NewTestReconciler(config *TestReconcilerConfig) common.Reconciler {
-	return common.NewReconciler(&common.ReconcilerConfig{
-		Client:        config.Client,
-		ClientFactory: &testClientFactory{config},
-		OS:            newTestOSUtils(config),
-	})
-}
-
-type testClientFactory struct {
-	*TestReconcilerConfig
-}
-
-func NewTestReconcilerNoServer(client client.Client) common.Reconciler {
-	return common.NewReconciler(&common.ReconcilerConfig{
-		Client:        client,
-		ClientFactory: &testClientFactory{},
-		OS:            &testOSUtils{},
-	})
-}
-
 func NewTestReconcilerTLS(config *TestReconcilerConfig) common.ReconcilerTLS {
 	return common.NewReconcilerTLS(&common.ReconcilerTLSConfig{
 		Client:  config.Client,
 		OSUtils: newTestOSUtils(config),
 	})
-}
-
-func (c *testClientFactory) CreateClient(config *cryostatClient.Config) (cryostatClient.CryostatClient, error) {
-	protocol := "https"
-	if !c.TLS {
-		protocol = "http"
-	}
-	// Verify the provided server URL before substituting it
-	gomega.Expect(config.ServerURL.String()).To(gomega.Equal(protocol + "://cryostat.default.svc:8181/"))
-
-	// Replace server URL with one to httptest server
-	url, err := url.Parse(c.Server.impl.URL())
-	gomega.Expect(err).ToNot(gomega.HaveOccurred())
-	config.ServerURL = url
-
-	return cryostatClient.NewHTTPClient(config)
 }
 
 type testOSUtils struct {

@@ -40,24 +40,15 @@ import (
 	"io/ioutil"
 	"os"
 
-	cryostatClient "github.com/cryostatio/cryostat-operator/internal/controllers/client"
+	logf "sigs.k8s.io/controller-runtime/pkg/log"
 )
 
-// CryostatClientFactory provides a method for creating Cryostat clients
-type CryostatClientFactory interface {
-	CreateClient(config *cryostatClient.Config) (cryostatClient.CryostatClient, error)
-}
+var log = logf.Log.WithName("common")
 
 // OSUtils is an abstraction on functionality that interacts with the operating system
 type OSUtils interface {
 	GetEnv(name string) string
 	GetFileContents(path string) ([]byte, error)
-}
-
-type defaultClientFactory struct{}
-
-func (c *defaultClientFactory) CreateClient(config *cryostatClient.Config) (cryostatClient.CryostatClient, error) {
-	return cryostatClient.NewHTTPClient(config)
 }
 
 type defaultOSUtils struct{}
