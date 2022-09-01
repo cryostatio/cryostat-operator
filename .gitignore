@@ -104,3 +104,6 @@ bin
 
 # Cache directory
 cache/
+
+# OPM tmp directory
+bundle_tmp*/
