@@ -54,11 +54,12 @@ import (
 )
 
 const (
-	OperatorInstallTestName = "operator-install"
-	operatorDeploymentName  = "cryostat-operator-controller-manager"
+	OperatorInstallTestName string        = "operator-install"
+	operatorDeploymentName  string        = "cryostat-operator-controller-manager"
+	testTimeout             time.Duration = time.Second * 60
 )
 
-// OperatorInstallTest
+// OperatorInstallTest checks that the operator installed correctly
 func OperatorInstallTest(bundle *apimanifests.Bundle, namespace string) scapiv1alpha3.TestStatus {
 	r := scapiv1alpha3.TestResult{}
 	r.Name = OperatorInstallTestName
@@ -66,14 +67,14 @@ func OperatorInstallTest(bundle *apimanifests.Bundle, namespace string) scapiv1a
 	r.Errors = make([]string, 0)
 	r.Suggestions = make([]string, 0)
 
-	// Implement relevant custom test logic here
-
+	// Create a new Kubernetes REST client for this test
 	client, err := newKubeClient()
 	if err != nil {
 		return fail(r, fmt.Sprintf("failed to create client: %s", err.Error()))
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second*60)
+	// Poll the deployment until it becomes available or we timeout
+	ctx, cancel := context.WithTimeout(context.Background(), testTimeout)
 	defer cancel()
 	err = wait.PollImmediateUntilWithContext(ctx, time.Second, func(ctx context.Context) (done bool, err error) {
 		deploy, err := client.AppsV1().Deployments(namespace).Get(ctx, operatorDeploymentName, metav1.GetOptions{})

@@ -78,10 +78,13 @@ OPM_VERSION ?= 1.23.0
 # ENVTEST_K8S_VERSION refers to the version of kubebuilder assets to be downloaded by envtest binary.
 ENVTEST_K8S_VERSION ?= 1.24 
 
-CUSTOM_SCORECARD_VERSION = $(IMAGE_VERSION)
-CUSTOM_SCORECARD_IMG ?= $(IMAGE_TAG_BASE)-scorecard:$(CUSTOM_SCORECARD_VERSION)
+# Scorecard ImagePullPolicy is hardcoded to IfNotPresent
+# See: https://github.com/operator-framework/operator-sdk/pull/4762
+CUSTOM_SCORECARD_VERSION = $(IMAGE_VERSION)00001
+export CUSTOM_SCORECARD_IMG ?= $(IMAGE_TAG_BASE)-scorecard:$(CUSTOM_SCORECARD_VERSION)
 
 DEPLOY_NAMESPACE ?= cryostat-operator-system
+SCORECARD_NAMESPACE ?= cryostat-operator-scorecard
 
 # Get the currently used golang install path (in GOPATH/bin, unless GOBIN is set)
 ifeq (,$(shell go env GOBIN))
@@ -120,10 +123,21 @@ ifneq ($(SKIP_TESTS), true)
 endif
 
 .PHONY: test-scorecard
-test-scorecard: destroy_cryostat_cr undeploy uninstall
+test-scorecard: clean-scorecard custom-scorecard-patch
 ifneq ($(SKIP_TESTS), true)
-	operator-sdk scorecard bundle
+	$(CLUSTER_CLIENT) create namespace $(SCORECARD_NAMESPACE)
+	$(CLUSTER_CLIENT) -n $(SCORECARD_NAMESPACE) create -f internal/images/custom-scorecard-tests/rbac/
+	operator-sdk run bundle -n $(SCORECARD_NAMESPACE) $(BUNDLE_IMG)
+	operator-sdk scorecard -n $(SCORECARD_NAMESPACE) -s cryostat-scorecard -w 5m $(BUNDLE_IMG)
 endif
+
+.PHONY: custom-scorecard-patch
+custom-scorecard-patch:
+	envsubst < hack/custom.config.yaml.in > config/scorecard/patches/custom.config.yaml
+
+.PHONY: clean-scorecard
+clean-scorecard:
+	- $(CLUSTER_CLIENT) delete namespace $(SCORECARD_NAMESPACE)
 
 # Build manager binary
 .PHONY: manager
