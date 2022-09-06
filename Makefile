@@ -123,17 +123,13 @@ ifneq ($(SKIP_TESTS), true)
 endif
 
 .PHONY: test-scorecard
-test-scorecard: clean-scorecard custom-scorecard-patch
+test-scorecard: clean-scorecard
 ifneq ($(SKIP_TESTS), true)
 	$(CLUSTER_CLIENT) create namespace $(SCORECARD_NAMESPACE)
 	$(CLUSTER_CLIENT) -n $(SCORECARD_NAMESPACE) create -f internal/images/custom-scorecard-tests/rbac/
 	operator-sdk run bundle -n $(SCORECARD_NAMESPACE) $(BUNDLE_IMG)
 	operator-sdk scorecard -n $(SCORECARD_NAMESPACE) -s cryostat-scorecard -w 5m $(BUNDLE_IMG)
 endif
-
-.PHONY: custom-scorecard-patch
-custom-scorecard-patch:
-	envsubst < hack/custom.config.yaml.in > config/scorecard/patches/custom.config.yaml
 
 .PHONY: clean-scorecard
 clean-scorecard:
@@ -193,6 +189,7 @@ manifests: controller-gen
 	$(CONTROLLER_GEN) rbac:roleName=role crd webhook paths="./..." output:crd:artifacts:config=config/crd/bases
 	envsubst < hack/image_tag_patch.yaml.in > config/default/image_tag_patch.yaml
 	envsubst < hack/image_pull_patch.yaml.in > config/default/image_pull_patch.yaml
+	envsubst < hack/custom.config.yaml.in > config/scorecard/patches/custom.config.yaml
 
 # Run go fmt against code
 .PHONY: fmt
