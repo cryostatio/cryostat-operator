@@ -374,9 +374,11 @@ func NewPodForCR(cr *operatorv1beta1.Cryostat, specs *ServiceSpecs, imageTags *I
 		volumes = append(volumes, authResourceVolume)
 	}
 
-	// Ensure PV mounts are writable
+	nonRoot := true
 	sc := &corev1.PodSecurityContext{
-		FSGroup: &fsGroup,
+		// Ensure PV mounts are writable
+		FSGroup:      &fsGroup,
+		RunAsNonRoot: &nonRoot,
 	}
 
 	// Use HostAlias for loopback address to allow health checks to
@@ -397,6 +399,10 @@ func NewPodForCR(cr *operatorv1beta1.Cryostat, specs *ServiceSpecs, imageTags *I
 		HostAliases:        hostAliases,
 	}
 }
+
+// ALL capability to drop for restricted pod security. See:
+// https://kubernetes.io/docs/concepts/security/pod-security-standards/#restricted
+const capabilityAll corev1.Capability = "ALL"
 
 func NewPodForReports(cr *operatorv1beta1.Cryostat, imageTags *ImageTags, tls *TLSConfig) *corev1.PodSpec {
 	resources := corev1.ResourceRequirements{}
@@ -487,6 +493,8 @@ func NewPodForReports(cr *operatorv1beta1.Cryostat, imageTags *ImageTags, tls *T
 			Path:   "/health",
 		},
 	}
+	privEscalation := false
+	nonRoot := true
 	return &corev1.PodSpec{
 		ServiceAccountName: cr.Name,
 		Containers: []corev1.Container{
@@ -508,9 +516,18 @@ func NewPodForReports(cr *operatorv1beta1.Cryostat, imageTags *ImageTags, tls *T
 				StartupProbe: &corev1.Probe{
 					ProbeHandler: probeHandler,
 				},
+				SecurityContext: &corev1.SecurityContext{
+					AllowPrivilegeEscalation: &privEscalation,
+					Capabilities: &corev1.Capabilities{
+						Drop: []corev1.Capability{capabilityAll},
+					},
+				},
 			},
 		},
 		Volumes: volumes,
+		SecurityContext: &corev1.PodSecurityContext{
+			RunAsNonRoot: &nonRoot,
+		},
 	}
 }
 
@@ -789,6 +806,7 @@ func NewCoreContainer(cr *operatorv1beta1.Cryostat, specs *ServiceSpecs, imageTa
 			Scheme: livenessProbeScheme,
 		},
 	}
+	privEscalation := false
 	return corev1.Container{
 		Name:            cr.Name,
 		Image:           imageTag,
@@ -812,6 +830,12 @@ func NewCoreContainer(cr *operatorv1beta1.Cryostat, specs *ServiceSpecs, imageTa
 		StartupProbe: &corev1.Probe{
 			ProbeHandler:     probeHandler,
 			FailureThreshold: 18,
+		},
+		SecurityContext: &corev1.SecurityContext{
+			AllowPrivilegeEscalation: &privEscalation,
+			Capabilities: &corev1.Capabilities{
+				Drop: []corev1.Capability{capabilityAll},
+			},
 		},
 	}
 }
@@ -878,6 +902,7 @@ func NewGrafanaContainer(cr *operatorv1beta1.Cryostat, imageTag string, tls *TLS
 		// Use HTTPS for liveness probe
 		livenessProbeScheme = corev1.URISchemeHTTPS
 	}
+	privEscalation := false
 	return corev1.Container{
 		Name:            cr.Name + "-grafana",
 		Image:           imageTag,
@@ -908,6 +933,12 @@ func NewGrafanaContainer(cr *operatorv1beta1.Cryostat, imageTag string, tls *TLS
 			},
 		},
 		Resources: cr.Spec.Resources.GrafanaResources,
+		SecurityContext: &corev1.SecurityContext{
+			AllowPrivilegeEscalation: &privEscalation,
+			Capabilities: &corev1.Capabilities{
+				Drop: []corev1.Capability{capabilityAll},
+			},
+		},
 	}
 }
 
@@ -915,6 +946,7 @@ func NewGrafanaContainer(cr *operatorv1beta1.Cryostat, imageTag string, tls *TLS
 var datasourceURL = "http://" + loopbackAddress + ":" + strconv.Itoa(int(datasourceContainerPort))
 
 func NewJfrDatasourceContainer(cr *operatorv1beta1.Cryostat, imageTag string) corev1.Container {
+	privEscalation := false
 	return corev1.Container{
 		Name:            cr.Name + "-jfr-datasource",
 		Image:           imageTag,
@@ -939,6 +971,12 @@ func NewJfrDatasourceContainer(cr *operatorv1beta1.Cryostat, imageTag string) co
 			},
 		},
 		Resources: cr.Spec.Resources.DataSourceResources,
+		SecurityContext: &corev1.SecurityContext{
+			AllowPrivilegeEscalation: &privEscalation,
+			Capabilities: &corev1.Capabilities{
+				Drop: []corev1.Capability{capabilityAll},
+			},
+		},
 	}
 }
 
