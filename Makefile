@@ -129,11 +129,12 @@ ifneq ($(SKIP_TESTS), true)
 	$(CLUSTER_CLIENT) -n $(SCORECARD_NAMESPACE) create -f internal/images/custom-scorecard-tests/rbac/
 	operator-sdk run bundle -n $(SCORECARD_NAMESPACE) $(BUNDLE_IMG)
 	operator-sdk scorecard -n $(SCORECARD_NAMESPACE) -s cryostat-scorecard -w 5m $(BUNDLE_IMG)
+	- $(CLUSTER_CLIENT) delete --ignore-not-found=$(ignore-not-found) namespace $(SCORECARD_NAMESPACE)
 endif
 
 .PHONY: clean-scorecard
 clean-scorecard:
-	- $(CLUSTER_CLIENT) delete namespace $(SCORECARD_NAMESPACE)
+	- $(CLUSTER_CLIENT) delete --ignore-not-found=$(ignore-not-found) namespace $(SCORECARD_NAMESPACE)
 
 # Build manager binary
 .PHONY: manager
