@@ -34,13 +34,34 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
+# Build the manager binary
+FROM docker.io/library/golang:1.18 as builder
+
+WORKDIR /workspace
+# Copy the Go Modules manifests
+COPY go.mod go.mod
+COPY go.sum go.sum
+# cache deps before building and copying source so that we don't need to re-download as much
+# and so that source changes don't invalidate our downloaded layer
+RUN go mod download
+
+# Copy the go source
+COPY internal/images/custom-scorecard-tests/main.go internal/images/custom-scorecard-tests/main.go
+COPY internal/test/scorecard/ internal/test/scorecard/
+
+# Build
+RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 GO111MODULE=on go build -a -o cryostat-scorecard-tests \
+    internal/images/custom-scorecard-tests/main.go
+
 FROM registry.access.redhat.com/ubi8/ubi-minimal:latest
 
 ENV TEST=/usr/local/bin/cryostat-scorecard-tests \
     USER_UID=1001 \
     USER_NAME=test
 
-COPY bin /usr/local/bin
+COPY internal/images/custom-scorecard-tests/bin/user_setup /usr/local/bin/
+COPY internal/images/custom-scorecard-tests/bin/entrypoint /usr/local/bin/
+COPY --from=builder /workspace/cryostat-scorecard-tests /usr/local/bin/
 RUN  /usr/local/bin/user_setup
 
 ENTRYPOINT ["/usr/local/bin/entrypoint"]

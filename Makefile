@@ -342,8 +342,8 @@ custom-scorecard-tests: fmt vet
 # Build the custom scorecard OCI image
 .PHONY: scorecard-build
 scorecard-build: custom-scorecard-tests
-	cd internal/images/custom-scorecard-tests/ && \
-	BUILDAH_FORMAT=docker $(IMAGE_BUILDER) build -t $(CUSTOM_SCORECARD_IMG) .
+	BUILDAH_FORMAT=docker $(IMAGE_BUILDER) build -t $(CUSTOM_SCORECARD_IMG) \
+	-f internal/images/custom-scorecard-tests/Dockerfile .
 
 # Local development/testing helpers
 
