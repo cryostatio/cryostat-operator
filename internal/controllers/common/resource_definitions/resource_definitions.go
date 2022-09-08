@@ -180,7 +180,8 @@ func NewDeploymentForCR(cr *operatorv1beta1.Cryostat, specs *ServiceSpecs, image
 	}
 }
 
-func NewDeploymentForReports(cr *operatorv1beta1.Cryostat, imageTags *ImageTags, tls *TLSConfig) *appsv1.Deployment {
+func NewDeploymentForReports(cr *operatorv1beta1.Cryostat, imageTags *ImageTags, tls *TLSConfig,
+	openshift bool) *appsv1.Deployment {
 	replicas := int32(0)
 	if cr.Spec.ReportOptions != nil {
 		replicas = cr.Spec.ReportOptions.Replicas
@@ -217,7 +218,7 @@ func NewDeploymentForReports(cr *operatorv1beta1.Cryostat, imageTags *ImageTags,
 						"component": "reports",
 					},
 				},
-				Spec: *NewPodForReports(cr, imageTags, tls),
+				Spec: *NewPodForReports(cr, imageTags, tls, openshift),
 			},
 			Replicas: &replicas,
 		},
@@ -377,8 +378,9 @@ func NewPodForCR(cr *operatorv1beta1.Cryostat, specs *ServiceSpecs, imageTags *I
 	nonRoot := true
 	sc := &corev1.PodSecurityContext{
 		// Ensure PV mounts are writable
-		FSGroup:      &fsGroup,
-		RunAsNonRoot: &nonRoot,
+		FSGroup:        &fsGroup,
+		RunAsNonRoot:   &nonRoot,
+		SeccompProfile: seccompProfile(openshift),
 	}
 
 	// Use HostAlias for loopback address to allow health checks to
@@ -404,7 +406,8 @@ func NewPodForCR(cr *operatorv1beta1.Cryostat, specs *ServiceSpecs, imageTags *I
 // https://kubernetes.io/docs/concepts/security/pod-security-standards/#restricted
 const capabilityAll corev1.Capability = "ALL"
 
-func NewPodForReports(cr *operatorv1beta1.Cryostat, imageTags *ImageTags, tls *TLSConfig) *corev1.PodSpec {
+func NewPodForReports(cr *operatorv1beta1.Cryostat, imageTags *ImageTags, tls *TLSConfig,
+	openshift bool) *corev1.PodSpec {
 	resources := corev1.ResourceRequirements{}
 	if cr.Spec.ReportOptions != nil {
 		resources = cr.Spec.ReportOptions.Resources
@@ -526,7 +529,8 @@ func NewPodForReports(cr *operatorv1beta1.Cryostat, imageTags *ImageTags, tls *T
 		},
 		Volumes: volumes,
 		SecurityContext: &corev1.PodSecurityContext{
-			RunAsNonRoot: &nonRoot,
+			RunAsNonRoot:   &nonRoot,
+			SeccompProfile: seccompProfile(openshift),
 		},
 	}
 }
@@ -1215,5 +1219,17 @@ func newVolumeForCR(cr *operatorv1beta1.Cryostat) []corev1.Volume {
 			Name:         cr.Name,
 			VolumeSource: volumeSource,
 		},
+	}
+}
+
+func seccompProfile(openshift bool) *corev1.SeccompProfile {
+	// For backward-compatibility with OpenShift < 4.11,
+	// leave the seccompProfile empty. In OpenShift >= 4.11,
+	// the restricted-v2 SCC will populate it for us.
+	if openshift {
+		return nil
+	}
+	return &corev1.SeccompProfile{
+		Type: corev1.SeccompProfileTypeRuntimeDefault,
 	}
 }

@@ -385,7 +385,7 @@ func (r *CryostatReconciler) reconcileReports(ctx context.Context, reqLogger log
 	if err != nil {
 		return reconcile.Result{}, err
 	}
-	deployment := resources.NewDeploymentForReports(instance, imageTags, tls)
+	deployment := resources.NewDeploymentForReports(instance, imageTags, tls, r.IsOpenShift)
 	if desired == 0 {
 		if err := r.Client.Delete(ctx, deployment); err != nil && !errors.IsNotFound(err) {
 			return reconcile.Result{}, err
