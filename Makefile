@@ -123,8 +123,10 @@ ifneq ($(SKIP_TESTS), true)
 endif
 
 .PHONY: test-scorecard
-test-scorecard: clean-scorecard
+test-scorecard:
 ifneq ($(SKIP_TESTS), true)
+	@$(CLUSTER_CLIENT) get namespace $(SCORECARD_NAMESPACE) >/dev/null 2>&1 &&\
+		echo "$(SCORECARD_NAMESPACE) namespace already exists, please remove it with \"make clean-scorecard\"" >&2 && exit 1 || true
 	$(CLUSTER_CLIENT) create namespace $(SCORECARD_NAMESPACE)
 	$(CLUSTER_CLIENT) -n $(SCORECARD_NAMESPACE) create -f internal/images/custom-scorecard-tests/rbac/
 	operator-sdk run bundle -n $(SCORECARD_NAMESPACE) $(BUNDLE_IMG)
