@@ -60,7 +60,7 @@ const (
 )
 
 // OperatorInstallTest checks that the operator installed correctly
-func OperatorInstallTest(bundle *apimanifests.Bundle, namespace string) scapiv1alpha3.TestStatus {
+func OperatorInstallTest(bundle *apimanifests.Bundle, namespace string) scapiv1alpha3.TestResult {
 	r := scapiv1alpha3.TestResult{}
 	r.Name = OperatorInstallTestName
 	r.State = scapiv1alpha3.PassState
@@ -100,13 +100,7 @@ func OperatorInstallTest(bundle *apimanifests.Bundle, namespace string) scapiv1a
 		return fail(r, fmt.Sprintf("operator deployment did not become available: %s", err.Error()))
 	}
 
-	return wrapResult(r)
-}
-
-func wrapResult(r scapiv1alpha3.TestResult) scapiv1alpha3.TestStatus {
-	return scapiv1alpha3.TestStatus{
-		Results: []scapiv1alpha3.TestResult{r},
-	}
+	return r
 }
 
 func newKubeClient() (*kubernetes.Clientset, error) {
@@ -120,8 +114,8 @@ func newKubeClient() (*kubernetes.Clientset, error) {
 	return kubernetes.NewForConfig(config)
 }
 
-func fail(r scapiv1alpha3.TestResult, message string) scapiv1alpha3.TestStatus {
+func fail(r scapiv1alpha3.TestResult, message string) scapiv1alpha3.TestResult {
 	r.State = scapiv1alpha3.FailState
 	r.Errors = append(r.Errors, message)
-	return wrapResult(r)
+	return r
 }

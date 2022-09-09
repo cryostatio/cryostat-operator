@@ -69,23 +69,20 @@ func main() {
 		log.Fatalf("failed to read bundle manifest: %s", err.Error())
 	}
 
-	var result scapiv1alpha3.TestStatus
+	var results []scapiv1alpha3.TestResult
 
-	switch entrypoint[0] {
-	case tests.OperatorInstallTestName:
-		result = tests.OperatorInstallTest(bundle, namespace)
-	default:
-		result = printValidTests()
+	// Check that test arguments are valid
+	if !validateTests(entrypoint) {
+		results = printValidTests()
+	} else {
+		results = runTests(entrypoint, bundle, namespace)
 	}
 
-	prettyJSON, err := json.MarshalIndent(result, "", "    ")
-	if err != nil {
-		log.Fatal("failed to generate json", err)
-	}
-	fmt.Printf("%s\n", string(prettyJSON))
+	// Print results in expected JSON form
+	printJSONResults(results)
 }
 
-func printValidTests() scapiv1alpha3.TestStatus {
+func printValidTests() []scapiv1alpha3.TestResult {
 	result := scapiv1alpha3.TestResult{}
 	result.State = scapiv1alpha3.FailState
 	result.Errors = make([]string, 0)
@@ -96,7 +93,42 @@ func printValidTests() scapiv1alpha3.TestStatus {
 	}, ","))
 	result.Errors = append(result.Errors, str)
 
-	return scapiv1alpha3.TestStatus{
-		Results: []scapiv1alpha3.TestResult{result},
+	return []scapiv1alpha3.TestResult{result}
+}
+
+func validateTests(testNames []string) bool {
+	for _, testName := range testNames {
+		switch testName {
+		case tests.OperatorInstallTestName:
+		default:
+			return false
+		}
 	}
+	return true
+}
+
+func runTests(testNames []string, bundle *apimanifests.Bundle, namespace string) []scapiv1alpha3.TestResult {
+	results := []scapiv1alpha3.TestResult{}
+
+	// Run tests
+	for _, testName := range testNames {
+		switch testName {
+		case tests.OperatorInstallTestName:
+			results = append(results, tests.OperatorInstallTest(bundle, namespace))
+		default:
+			log.Fatalf("unknown test found: %s", testName)
+		}
+	}
+	return results
+}
+
+func printJSONResults(results []scapiv1alpha3.TestResult) {
+	status := scapiv1alpha3.TestStatus{
+		Results: results,
+	}
+	prettyJSON, err := json.MarshalIndent(status, "", "    ")
+	if err != nil {
+		log.Fatal("failed to generate json", err)
+	}
+	fmt.Printf("%s\n", string(prettyJSON))
 }
