@@ -80,7 +80,7 @@ func OperatorInstallTest(bundle *apimanifests.Bundle, namespace string) scapiv1a
 		deploy, err := client.AppsV1().Deployments(namespace).Get(ctx, operatorDeploymentName, metav1.GetOptions{})
 		if err != nil {
 			if kerrors.IsNotFound(err) {
-				r.Log += fmt.Sprintf("deployment %s is not yet found\n", deploy.Name)
+				r.Log += fmt.Sprintf("deployment %s is not yet found\n", operatorDeploymentName)
 				return false, nil // Retry
 			}
 			return false, fmt.Errorf("failed to get operator deployment: %s", err.Error())
