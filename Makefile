@@ -78,7 +78,13 @@ OPM_VERSION ?= 1.23.0
 # ENVTEST_K8S_VERSION refers to the version of kubebuilder assets to be downloaded by envtest binary.
 ENVTEST_K8S_VERSION ?= 1.24 
 
+# Scorecard ImagePullPolicy is hardcoded to IfNotPresent
+# See: https://github.com/operator-framework/operator-sdk/pull/4762
+CUSTOM_SCORECARD_VERSION = $(IMAGE_VERSION)00001
+export CUSTOM_SCORECARD_IMG ?= $(IMAGE_TAG_BASE)-scorecard:$(CUSTOM_SCORECARD_VERSION)
+
 DEPLOY_NAMESPACE ?= cryostat-operator-system
+SCORECARD_NAMESPACE ?= cryostat-operator-scorecard
 
 # Get the currently used golang install path (in GOPATH/bin, unless GOBIN is set)
 ifeq (,$(shell go env GOBIN))
@@ -117,10 +123,20 @@ ifneq ($(SKIP_TESTS), true)
 endif
 
 .PHONY: test-scorecard
-test-scorecard: destroy_cryostat_cr undeploy uninstall
+test-scorecard:
 ifneq ($(SKIP_TESTS), true)
-	operator-sdk scorecard bundle
+	@$(CLUSTER_CLIENT) get namespace $(SCORECARD_NAMESPACE) >/dev/null 2>&1 &&\
+		echo "$(SCORECARD_NAMESPACE) namespace already exists, please remove it with \"make clean-scorecard\"" >&2 && exit 1 || true
+	$(CLUSTER_CLIENT) create namespace $(SCORECARD_NAMESPACE)
+	$(CLUSTER_CLIENT) -n $(SCORECARD_NAMESPACE) create -f internal/images/custom-scorecard-tests/rbac/
+	operator-sdk run bundle -n $(SCORECARD_NAMESPACE) $(BUNDLE_IMG)
+	operator-sdk scorecard -n $(SCORECARD_NAMESPACE) -s cryostat-scorecard -w 5m $(BUNDLE_IMG)
+	- $(CLUSTER_CLIENT) delete --ignore-not-found=$(ignore-not-found) namespace $(SCORECARD_NAMESPACE)
 endif
+
+.PHONY: clean-scorecard
+clean-scorecard:
+	- $(CLUSTER_CLIENT) delete --ignore-not-found=$(ignore-not-found) namespace $(SCORECARD_NAMESPACE)
 
 # Build manager binary
 .PHONY: manager
@@ -176,6 +192,7 @@ manifests: controller-gen
 	$(CONTROLLER_GEN) rbac:roleName=role crd webhook paths="./..." output:crd:artifacts:config=config/crd/bases
 	envsubst < hack/image_tag_patch.yaml.in > config/default/image_tag_patch.yaml
 	envsubst < hack/image_pull_patch.yaml.in > config/default/image_pull_patch.yaml
+	envsubst < hack/custom.config.yaml.in > config/scorecard/patches/custom.config.yaml
 
 # Run go fmt against code
 .PHONY: fmt
@@ -318,6 +335,18 @@ create_cryostat_cr: destroy_cryostat_cr
 .PHONY: destroy_cryostat_cr
 destroy_cryostat_cr:
 	- $(CLUSTER_CLIENT) delete -f config/samples/operator_v1beta1_cryostat.yaml
+
+# Build custom scorecard tests
+.PHONY: custom-scorecard-tests
+custom-scorecard-tests: fmt vet
+	cd internal/images/custom-scorecard-tests/ && \
+	go build -o bin/cryostat-scorecard-tests main.go
+
+# Build the custom scorecard OCI image
+.PHONY: scorecard-build
+scorecard-build: custom-scorecard-tests
+	BUILDAH_FORMAT=docker $(IMAGE_BUILDER) build -t $(CUSTOM_SCORECARD_IMG) \
+	-f internal/images/custom-scorecard-tests/Dockerfile .
 
 # Local development/testing helpers
 

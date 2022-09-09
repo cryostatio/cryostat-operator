@@ -1,0 +1,13 @@
+- op: add
+  path: /serviceaccount
+  value: cryostat-scorecard
+- op: add
+  path: /stages/0/tests/-
+  value:
+    entrypoint:
+    - cryostat-scorecard-tests
+    - operator-install
+    image: "quay.io/cryostat/cryostat-operator-scorecard:2.2.0-dev00001"
+    labels:
+      suite: cryostat
+      test: operator-install

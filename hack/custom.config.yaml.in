@@ -1,0 +1,13 @@
+- op: add
+  path: /serviceaccount
+  value: cryostat-scorecard
+- op: add
+  path: /stages/0/tests/-
+  value:
+    entrypoint:
+    - cryostat-scorecard-tests
+    - operator-install
+    image: "${CUSTOM_SCORECARD_IMG}"
+    labels:
+      suite: cryostat
+      test: operator-install

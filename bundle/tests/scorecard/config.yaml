@@ -2,13 +2,14 @@ apiVersion: scorecard.operatorframework.io/v1alpha3
 kind: Configuration
 metadata:
   name: config
+serviceaccount: cryostat-scorecard
 stages:
 - parallel: true
   tests:
   - entrypoint:
     - scorecard-test
     - basic-check-spec
-    image: quay.io/operator-framework/scorecard-test:v1.5.0
+    image: quay.io/operator-framework/scorecard-test:v1.22.2
     labels:
       suite: basic
       test: basic-check-spec-test
@@ -18,7 +19,7 @@ stages:
   - entrypoint:
     - scorecard-test
     - olm-bundle-validation
-    image: quay.io/operator-framework/scorecard-test:v1.5.0
+    image: quay.io/operator-framework/scorecard-test:v1.22.2
     labels:
       suite: olm
       test: olm-bundle-validation-test
@@ -28,7 +29,7 @@ stages:
   - entrypoint:
     - scorecard-test
     - olm-crds-have-validation
-    image: quay.io/operator-framework/scorecard-test:v1.5.0
+    image: quay.io/operator-framework/scorecard-test:v1.22.2
     labels:
       suite: olm
       test: olm-crds-have-validation-test
@@ -38,7 +39,7 @@ stages:
   - entrypoint:
     - scorecard-test
     - olm-crds-have-resources
-    image: quay.io/operator-framework/scorecard-test:v1.5.0
+    image: quay.io/operator-framework/scorecard-test:v1.22.2
     labels:
       suite: olm
       test: olm-crds-have-resources-test
@@ -48,7 +49,7 @@ stages:
   - entrypoint:
     - scorecard-test
     - olm-spec-descriptors
-    image: quay.io/operator-framework/scorecard-test:v1.5.0
+    image: quay.io/operator-framework/scorecard-test:v1.22.2
     labels:
       suite: olm
       test: olm-spec-descriptors-test
@@ -58,10 +59,20 @@ stages:
   - entrypoint:
     - scorecard-test
     - olm-status-descriptors
-    image: quay.io/operator-framework/scorecard-test:v1.5.0
+    image: quay.io/operator-framework/scorecard-test:v1.22.2
     labels:
       suite: olm
       test: olm-status-descriptors-test
+    storage:
+      spec:
+        mountPath: {}
+  - entrypoint:
+    - cryostat-scorecard-tests
+    - operator-install
+    image: quay.io/cryostat/cryostat-operator-scorecard:2.2.0-dev00001
+    labels:
+      suite: cryostat
+      test: operator-install
     storage:
       spec:
         mountPath: {}

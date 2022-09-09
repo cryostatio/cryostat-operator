@@ -1,0 +1,3 @@
+# Include Dockerfile and entrypoint but not tests binary
+!bin/
+bin/cryostat-scorecard-tests
