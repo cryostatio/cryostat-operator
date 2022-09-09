@@ -181,10 +181,10 @@ func NewDeploymentForCR(cr *operatorv1beta1.Cryostat, specs *ServiceSpecs, image
 }
 
 func NewDeploymentForReports(cr *operatorv1beta1.Cryostat, imageTags *ImageTags, tls *TLSConfig) *appsv1.Deployment {
-	if cr.Spec.ReportOptions == nil {
-		cr.Spec.ReportOptions = &operatorv1beta1.ReportConfiguration{Replicas: 0}
+	replicas := int32(0)
+	if cr.Spec.ReportOptions != nil {
+		replicas = cr.Spec.ReportOptions.Replicas
 	}
-	replicas := cr.Spec.ReportOptions.Replicas
 	return &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      cr.Name + "-reports",
@@ -616,7 +616,7 @@ func NewCoreContainer(cr *operatorv1beta1.Cryostat, specs *ServiceSpecs, imageTa
 		envs = append(envs, reportsEnvs...)
 	} else {
 		subProcessMaxHeapSize := "200"
-		if cr.Spec.ReportOptions.SubProcessMaxHeapSize != 0 {
+		if cr.Spec.ReportOptions != nil && cr.Spec.ReportOptions.SubProcessMaxHeapSize != 0 {
 			subProcessMaxHeapSize = strconv.Itoa(int(cr.Spec.ReportOptions.SubProcessMaxHeapSize))
 		}
 		subprocessReportHeapEnv := []corev1.EnvVar{
