@@ -1587,10 +1587,39 @@ func NewReportsVolumes(tls bool) []corev1.Volume {
 	}
 }
 
-func NewPodSecurityContext() *corev1.PodSecurityContext {
+func NewPodSecurityContext(openshift bool) *corev1.PodSecurityContext {
 	fsGroup := int64(18500)
+	return commonPodSecurityContext(openshift, &fsGroup)
+}
+
+func NewReportsPodSecurityContext(openshift bool) *corev1.PodSecurityContext {
+	return commonPodSecurityContext(openshift, nil)
+}
+
+func commonPodSecurityContext(openshift bool, fsGroup *int64) *corev1.PodSecurityContext {
+	nonRoot := true
+	var seccompProfile *corev1.SeccompProfile
+	if !openshift {
+		seccompProfile = &corev1.SeccompProfile{
+			Type: corev1.SeccompProfileTypeRuntimeDefault,
+		}
+	}
 	return &corev1.PodSecurityContext{
-		FSGroup: &fsGroup,
+		FSGroup:        fsGroup,
+		RunAsNonRoot:   &nonRoot,
+		SeccompProfile: seccompProfile,
+	}
+}
+
+func NewSecurityContext() *corev1.SecurityContext {
+	privEscalation := false
+	return &corev1.SecurityContext{
+		Capabilities: &corev1.Capabilities{
+			Drop: []corev1.Capability{
+				"ALL",
+			},
+		},
+		AllowPrivilegeEscalation: &privEscalation,
 	}
 }
 
