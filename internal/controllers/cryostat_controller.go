@@ -376,10 +376,10 @@ func (r *CryostatReconciler) reconcileReports(ctx context.Context, reqLogger log
 	tls *resources.TLSConfig, imageTags *resources.ImageTags, serviceSpecs *resources.ServiceSpecs) (reconcile.Result, error) {
 	reqLogger.Info("Spec", "Reports", instance.Spec.ReportOptions)
 
-	if instance.Spec.ReportOptions == nil {
-		instance.Spec.ReportOptions = &operatorv1beta1.ReportConfiguration{Replicas: 0}
+	desired := int32(0)
+	if instance.Spec.ReportOptions != nil {
+		desired = instance.Spec.ReportOptions.Replicas
 	}
-	desired := instance.Spec.ReportOptions.Replicas
 
 	err := r.reconcileReportsService(ctx, instance, tls, serviceSpecs)
 	if err != nil {

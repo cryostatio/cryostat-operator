@@ -431,7 +431,9 @@ var _ = Describe("CryostatController", func() {
 				err := t.Client.Get(context.Background(), types.NamespacedName{Name: "cryostat", Namespace: "default"}, cryostat)
 				Expect(err).ToNot(HaveOccurred())
 
-				cryostat.Spec.ReportOptions.Replicas = t.reportReplicas
+				cryostat.Spec.ReportOptions = &operatorv1beta1.ReportConfiguration{
+					Replicas: t.reportReplicas,
+				}
 				err = t.Client.Status().Update(context.Background(), cryostat)
 				Expect(err).ToNot(HaveOccurred())
 

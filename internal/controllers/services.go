@@ -155,7 +155,7 @@ func (r *CryostatReconciler) reconcileReportsService(ctx context.Context, cr *op
 		},
 	}
 
-	if cr.Spec.ReportOptions.Replicas == 0 {
+	if cr.Spec.ReportOptions == nil || cr.Spec.ReportOptions.Replicas == 0 {
 		// Delete service if it exists
 		return r.deleteService(ctx, svc)
 	}
