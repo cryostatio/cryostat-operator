@@ -230,7 +230,7 @@ cert_manager: remove_cert_manager
 
 .PHONY: remove_cert_manager
 remove_cert_manager:
-	- $(CLUSTER_CLIENT) delete -f $(CERT_MANAGER_MANIFEST)
+	- $(CLUSTER_CLIENT) delete --ignore-not-found=$(ignore-not-found) -f $(CERT_MANAGER_MANIFEST)
 
 .PHONY: check_cert_manager
 check_cert_manager:
@@ -334,7 +334,7 @@ create_cryostat_cr: destroy_cryostat_cr
 # Undeploy a Cryostat instance
 .PHONY: destroy_cryostat_cr
 destroy_cryostat_cr:
-	- $(CLUSTER_CLIENT) delete -f config/samples/operator_v1beta1_cryostat.yaml
+	- $(CLUSTER_CLIENT) delete --ignore-not-found=$(ignore-not-found) -f config/samples/operator_v1beta1_cryostat.yaml
 
 # Build custom scorecard tests
 .PHONY: custom-scorecard-tests
