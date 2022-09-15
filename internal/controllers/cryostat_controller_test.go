@@ -1442,6 +1442,26 @@ var _ = Describe("CryostatController", func() {
 				t.checkDeploymentHasNoAuthProperties()
 			})
 		})
+		Context("with report generator service", func() {
+			BeforeEach(func() {
+				cr := test.NewCryostatWithIngress()
+				cr.Spec.ReportOptions = &operatorv1beta1.ReportConfiguration{
+					Replicas: 1,
+				}
+				t.objs = append(t.objs, cr)
+				t.reportReplicas = 1
+			})
+			JustBeforeEach(func() {
+				t.reconcileCryostatFully()
+			})
+			It("should configure deployment appropriately", func() {
+				t.checkMainDeployment()
+				t.checkReportsDeployment()
+			})
+			It("should create the reports service", func() {
+				t.checkService("cryostat-reports", test.NewReportsService())
+			})
+		})
 	})
 })
 
@@ -1985,7 +2005,7 @@ func (t *cryostatTestInput) checkMainPodTemplate(deployment *appsv1.Deployment, 
 		"component": "cryostat",
 	}))
 	Expect(template.Spec.Volumes).To(ConsistOf(test.NewVolumes(t.minimal, t.TLS)))
-	Expect(template.Spec.SecurityContext).To(Equal(test.NewPodSecurityContext()))
+	Expect(template.Spec.SecurityContext).To(Equal(test.NewPodSecurityContext(t.controller.IsOpenShift)))
 
 	// Check that the networking environment variables are set correctly
 	coreContainer := template.Spec.Containers[0]
@@ -2053,6 +2073,7 @@ func (t *cryostatTestInput) checkReportsDeployment() {
 		"component": "reports",
 	}))
 	Expect(template.Spec.Volumes).To(ConsistOf(test.NewReportsVolumes(t.TLS)))
+	Expect(template.Spec.SecurityContext).To(Equal(test.NewReportsPodSecurityContext(t.controller.IsOpenShift)))
 
 	var resources corev1.ResourceRequirements
 	if cr.Spec.ReportOptions != nil {
@@ -2127,6 +2148,7 @@ func checkCoreContainer(container *corev1.Container, minimal bool, tls bool, ext
 	Expect(container.LivenessProbe).To(Equal(test.NewCoreLivenessProbe(tls)))
 	Expect(container.StartupProbe).To(Equal(test.NewCoreStartupProbe(tls)))
 	Expect(container.Resources).To(Equal(resources))
+	Expect(container.SecurityContext).To(Equal(test.NewSecurityContext()))
 }
 
 func checkGrafanaContainer(container *corev1.Container, tls bool, tag *string, resources corev1.ResourceRequirements) {
@@ -2142,6 +2164,7 @@ func checkGrafanaContainer(container *corev1.Container, tls bool, tag *string, r
 	Expect(container.VolumeMounts).To(ConsistOf(test.NewGrafanaVolumeMounts(tls)))
 	Expect(container.LivenessProbe).To(Equal(test.NewGrafanaLivenessProbe(tls)))
 	Expect(container.Resources).To(Equal(resources))
+	Expect(container.SecurityContext).To(Equal(test.NewSecurityContext()))
 }
 
 func checkDatasourceContainer(container *corev1.Container, tag *string, resources corev1.ResourceRequirements) {
@@ -2157,6 +2180,7 @@ func checkDatasourceContainer(container *corev1.Container, tag *string, resource
 	Expect(container.VolumeMounts).To(BeEmpty())
 	Expect(container.LivenessProbe).To(Equal(test.NewDatasourceLivenessProbe()))
 	Expect(container.Resources).To(Equal(resources))
+	Expect(container.SecurityContext).To(Equal(test.NewSecurityContext()))
 }
 
 func checkReportsContainer(container *corev1.Container, tls bool, tag *string, resources corev1.ResourceRequirements) {
@@ -2171,6 +2195,7 @@ func checkReportsContainer(container *corev1.Container, tls bool, tag *string, r
 	Expect(container.VolumeMounts).To(ConsistOf(test.NewReportsVolumeMounts(tls)))
 	Expect(container.LivenessProbe).To(Equal(test.NewReportsLivenessProbe(tls)))
 	Expect(container.Resources).To(Equal(resources))
+	Expect(container.SecurityContext).To(Equal(test.NewSecurityContext()))
 }
 
 func (t *cryostatTestInput) checkEnvironmentVariables(expectedEnvVars []corev1.EnvVar) {
