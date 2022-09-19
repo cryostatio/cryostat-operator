@@ -311,7 +311,7 @@ Each `configMapName` must refer to the name of a Config Map in the same namespac
 **Note:** If the mapping is updated, Cryostat must be manually restarted.
 
 
-## Security Context
+### Security Context
 
 With [Pod Security Admission](https://kubernetes.io/docs/concepts/security/pod-security-admission/), pods that are not properly configured under the enforced security standards defined globally or on namspace level will be admitted to launch.
 
