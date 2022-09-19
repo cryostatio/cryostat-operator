@@ -309,3 +309,53 @@ spec:
 Each `configMapName` must refer to the name of a Config Map in the same namespace as Cryostat. The corresponding `filename` must be a key within that Config Map containing resource mappings. The `clusterRoleName` must be a valid name of an existing Cluster Role.
 
 **Note:** If the mapping is updated, Cryostat must be manually restarted.
+
+
+## Security Context
+
+With [Pod Security Admission](https://kubernetes.io/docs/concepts/security/pod-security-admission/), pods that are not properly configured under the enforced security standards defined globally or on namspace level will be admitted to launch.
+
+The user is responsible for ensuring the security contexts of their workloads to meet these standards. The property `spec.securityOptions` can be set to define security contexts for Cryostat application and its report sidecar.
+
+```yaml
+apiVersion: operator.cryostat.io/v1beta1
+kind: Cryostat
+metadata:
+  name: cryostat-sample
+spec:
+  securityOptions:
+    podSecurityContext:
+      runAsNonRoot: true
+      seccompProfile:
+        type: RuntimeDefault
+    coreSecurityContext:
+      allowPrivilegeEscalation: false
+      capabilities:
+        drop:
+        - ALL
+      runAsUser: 1001
+    dataSourceSecurityContext:
+      allowPrivilegeEscalation: false
+      capabilities:
+        drop:
+        - ALL
+    grafanaSecurityContext:
+      allowPrivilegeEscalation: false
+      capabilities:
+        drop:
+        - ALL
+  reportOptions:
+    replicas: 1
+    podSecurityContext:
+      runAsNonRoot: true
+      seccompProfile:
+        type: RuntimeDefault
+    reportsSecurityContext:
+      allowPrivilegeEscalation: false
+      capabilities:
+        drop:
+        - ALL
+      runAsUser: 1001
+```
+
+If not specified, the security contexts are default to `Restricted` or `restricted-v2` on OpenShift.
