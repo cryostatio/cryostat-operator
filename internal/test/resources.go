@@ -419,6 +419,70 @@ func NewCryostatWithReportSubprocessHeapSpec() *operatorv1beta1.Cryostat {
 	return cr
 }
 
+func NewCryostatWithSecurityOptions() *operatorv1beta1.Cryostat {
+	cr := NewCryostat()
+	privEscalation := true
+	nonRoot := false
+	runAsUser := int64(0)
+	fsGroup := int64(20000)
+	cr.Spec.SecurityOptions = &operatorv1beta1.SecurityOptions{
+		PodSecurityContext: &corev1.PodSecurityContext{
+			RunAsNonRoot: &nonRoot,
+			FSGroup:      &fsGroup,
+			SeccompProfile: &corev1.SeccompProfile{
+				Type: corev1.SeccompProfileTypeRuntimeDefault,
+			},
+		},
+		CoreSecurityContext: &corev1.SecurityContext{
+			AllowPrivilegeEscalation: &privEscalation,
+			Capabilities: &corev1.Capabilities{
+				Drop: []corev1.Capability{},
+			},
+			RunAsUser: &runAsUser,
+		},
+		GrafanaSecurityContext: &corev1.SecurityContext{
+			AllowPrivilegeEscalation: &privEscalation,
+			Capabilities: &corev1.Capabilities{
+				Drop: []corev1.Capability{},
+			},
+			RunAsUser: &runAsUser,
+		},
+		DataSourceSecurityContext: &corev1.SecurityContext{
+			AllowPrivilegeEscalation: &privEscalation,
+			Capabilities: &corev1.Capabilities{
+				Drop: []corev1.Capability{},
+			},
+			RunAsUser: &runAsUser,
+		},
+	}
+	return cr
+}
+
+func NewCryostatWithReportSecurityOptions() *operatorv1beta1.Cryostat {
+	cr := NewCryostat()
+	nonRoot := true
+	privEscalation := false
+	runAsUser := int64(1002)
+	cr.Spec.ReportOptions = &operatorv1beta1.ReportConfiguration{
+		SecurityOptions: &operatorv1beta1.ReportsSecurityOptions{
+			PodSecurityContext: &corev1.PodSecurityContext{
+				RunAsNonRoot: &nonRoot,
+				SeccompProfile: &corev1.SeccompProfile{
+					Type: corev1.SeccompProfileTypeRuntimeDefault,
+				},
+			},
+			ReportsSecurityContext: &corev1.SecurityContext{
+				AllowPrivilegeEscalation: &privEscalation,
+				RunAsUser:                &runAsUser,
+				Capabilities: &corev1.Capabilities{
+					Drop: []corev1.Capability{"ALL"},
+				},
+			},
+		},
+	}
+	return cr
+}
+
 func NewCryostatService() *corev1.Service {
 	c := true
 	return &corev1.Service{
@@ -872,15 +936,11 @@ func NewReportsPorts() []corev1.ContainerPort {
 	}
 }
 
-func NewCoreEnvironmentVariables(minimal bool, tls bool, externalTLS bool, openshift bool, reportsUrl string, authProps bool) []corev1.EnvVar {
+func NewCoreEnvironmentVariables(minimal bool, tls bool, externalTLS bool, openshift bool, reportsUrl string, authProps bool, ingress bool) []corev1.EnvVar {
 	envs := []corev1.EnvVar{
 		{
 			Name:  "CRYOSTAT_WEB_PORT",
 			Value: "8181",
-		},
-		{
-			Name:  "CRYOSTAT_WEB_HOST",
-			Value: "cryostat.example.com",
 		},
 		{
 			Name:  "CRYOSTAT_CONFIG_PATH",
@@ -915,7 +975,86 @@ func NewCoreEnvironmentVariables(minimal bool, tls bool, externalTLS bool, opens
 			Value: "10",
 		},
 	}
+	if !minimal {
+		envs = append(envs,
+			corev1.EnvVar{
+				Name:  "GRAFANA_DATASOURCE_URL",
+				Value: "http://127.0.0.1:8080",
+			})
+	}
+	if !tls {
+		envs = append(envs,
+			corev1.EnvVar{
+				Name:  "CRYOSTAT_DISABLE_SSL",
+				Value: "true",
+			})
+		if externalTLS {
+			envs = append(envs,
+				corev1.EnvVar{
+					Name:  "CRYOSTAT_SSL_PROXIED",
+					Value: "true",
+				})
+		}
+	} else {
+		envs = append(envs, corev1.EnvVar{
+			Name:  "KEYSTORE_PATH",
+			Value: "/var/run/secrets/operator.cryostat.io/cryostat-tls/keystore.p12",
+		})
+	}
 
+	if openshift {
+		envs = append(envs,
+			corev1.EnvVar{
+				Name:  "CRYOSTAT_PLATFORM",
+				Value: "io.cryostat.platform.internal.OpenShiftPlatformStrategy",
+			},
+			corev1.EnvVar{
+				Name:  "CRYOSTAT_AUTH_MANAGER",
+				Value: "io.cryostat.net.openshift.OpenShiftAuthManager",
+			},
+			corev1.EnvVar{
+				Name:  "CRYOSTAT_OAUTH_CLIENT_ID",
+				Value: "cryostat",
+			},
+			corev1.EnvVar{
+				Name:  "CRYOSTAT_BASE_OAUTH_ROLE",
+				Value: "cryostat-operator-oauth-client",
+			})
+
+		if authProps {
+			envs = append(envs, corev1.EnvVar{
+				Name:  "CRYOSTAT_CUSTOM_OAUTH_ROLE",
+				Value: "custom-auth-cluster-role",
+			})
+		}
+		envs = append(envs, NewCoreAndGrafanaURLEnvironementVariables(minimal, tls, externalTLS)...)
+	} else if ingress { // On Kubernetes
+		envs = append(envs, NewCoreAndGrafanaURLEnvironementVariables(minimal, tls, externalTLS)...)
+	}
+
+	if reportsUrl != "" {
+		envs = append(envs,
+			corev1.EnvVar{
+				Name:  "CRYOSTAT_REPORT_GENERATOR",
+				Value: reportsUrl,
+			})
+	} else {
+		envs = append(envs,
+			corev1.EnvVar{
+				Name:  "CRYOSTAT_REPORT_GENERATION_MAX_HEAP",
+				Value: "200",
+			})
+	}
+	return envs
+}
+
+func NewCoreAndGrafanaURLEnvironementVariables(minimal, tls, externalTLS bool) []corev1.EnvVar {
+	envs := []corev1.EnvVar{
+		{
+			Name:  "CRYOSTAT_WEB_HOST",
+			Value: "cryostat.example.com",
+		},
+	}
 	if externalTLS {
 		envs = append(envs,
 			corev1.EnvVar{
@@ -929,13 +1068,7 @@ func NewCoreEnvironmentVariables(minimal bool, tls bool, externalTLS bool, opens
 				Value: "80",
 			})
 	}
-
 	if !minimal {
-		envs = append(envs,
-			corev1.EnvVar{
-				Name:  "GRAFANA_DATASOURCE_URL",
-				Value: "http://127.0.0.1:8080",
-			})
 		if externalTLS {
 			envs = append(envs,
 				corev1.EnvVar{
@@ -963,67 +1096,8 @@ func NewCoreEnvironmentVariables(minimal bool, tls bool, externalTLS bool, opens
 				})
 		}
 	}
-	if !tls {
-		envs = append(envs,
-			corev1.EnvVar{
-				Name:  "CRYOSTAT_DISABLE_SSL",
-				Value: "true",
-			})
-		if externalTLS {
-			envs = append(envs,
-				corev1.EnvVar{
-					Name:  "CRYOSTAT_SSL_PROXIED",
-					Value: "true",
-				})
-		}
-	} else {
-		envs = append(envs, corev1.EnvVar{
-			Name:  "KEYSTORE_PATH",
-			Value: "/var/run/secrets/operator.cryostat.io/cryostat-tls/keystore.p12",
-		})
-	}
-	if openshift {
-		envs = append(envs,
-			corev1.EnvVar{
-				Name:  "CRYOSTAT_PLATFORM",
-				Value: "io.cryostat.platform.internal.OpenShiftPlatformStrategy",
-			},
-			corev1.EnvVar{
-				Name:  "CRYOSTAT_AUTH_MANAGER",
-				Value: "io.cryostat.net.openshift.OpenShiftAuthManager",
-			},
-			corev1.EnvVar{
-				Name:  "CRYOSTAT_OAUTH_CLIENT_ID",
-				Value: "cryostat",
-			},
-			corev1.EnvVar{
-				Name:  "CRYOSTAT_BASE_OAUTH_ROLE",
-				Value: "cryostat-operator-oauth-client",
-			})
-
-		if authProps {
-			envs = append(envs, corev1.EnvVar{
-				Name:  "CRYOSTAT_CUSTOM_OAUTH_ROLE",
-				Value: "custom-auth-cluster-role",
-			})
-		}
-	}
-	if reportsUrl != "" {
-		envs = append(envs,
-			corev1.EnvVar{
-				Name:  "CRYOSTAT_REPORT_GENERATOR",
-				Value: reportsUrl,
-			})
-	} else {
-		envs = append(envs,
-			corev1.EnvVar{
-				Name:  "CRYOSTAT_REPORT_GENERATION_MAX_HEAP",
-				Value: "200",
-			})
-	}
 	return envs
 }
-
 func NewGrafanaEnvironmentVariables(tls bool) []corev1.EnvVar {
 	envs := []corev1.EnvVar{
 		{
@@ -1587,16 +1661,7 @@ func NewReportsVolumes(tls bool) []corev1.Volume {
 	}
 }
 
-func NewPodSecurityContext(openshift bool) *corev1.PodSecurityContext {
-	fsGroup := int64(18500)
-	return commonPodSecurityContext(openshift, &fsGroup)
-}
-
-func NewReportsPodSecurityContext(openshift bool) *corev1.PodSecurityContext {
-	return commonPodSecurityContext(openshift, nil)
-}
-
-func commonPodSecurityContext(openshift bool, fsGroup *int64) *corev1.PodSecurityContext {
+func commonDefaultPodSecurityContext(openshift bool, fsGroup *int64) *corev1.PodSecurityContext {
 	nonRoot := true
 	var seccompProfile *corev1.SeccompProfile
 	if !openshift {
@@ -1611,7 +1676,7 @@ func commonPodSecurityContext(openshift bool, fsGroup *int64) *corev1.PodSecurit
 	}
 }
 
-func NewSecurityContext() *corev1.SecurityContext {
+func commonDefaultSecurityContext() *corev1.SecurityContext {
 	privEscalation := false
 	return &corev1.SecurityContext{
 		Capabilities: &corev1.Capabilities{
@@ -1621,6 +1686,49 @@ func NewSecurityContext() *corev1.SecurityContext {
 		},
 		AllowPrivilegeEscalation: &privEscalation,
 	}
+}
+
+func NewPodSecurityContext(cr *operatorv1beta1.Cryostat, openshift bool) *corev1.PodSecurityContext {
+	if cr.Spec.SecurityOptions != nil {
+		return cr.Spec.SecurityOptions.PodSecurityContext
+	}
+	fsGroup := int64(18500)
+	return commonDefaultPodSecurityContext(openshift, &fsGroup)
+}
+
+func NewReportPodSecurityContext(cr *operatorv1beta1.Cryostat, openshift bool) *corev1.PodSecurityContext {
+	if cr.Spec.ReportOptions != nil && cr.Spec.ReportOptions.SecurityOptions != nil {
+		return cr.Spec.ReportOptions.SecurityOptions.PodSecurityContext
+	}
+	return commonDefaultPodSecurityContext(openshift, nil)
+}
+
+func NewCoreSecurityContext(cr *operatorv1beta1.Cryostat) *corev1.SecurityContext {
+	if cr.Spec.SecurityOptions != nil {
+		return cr.Spec.SecurityOptions.CoreSecurityContext
+	}
+	return commonDefaultSecurityContext()
+}
+
+func NewGrafanaSecurityContext(cr *operatorv1beta1.Cryostat) *corev1.SecurityContext {
+	if cr.Spec.SecurityOptions != nil {
+		return cr.Spec.SecurityOptions.GrafanaSecurityContext
+	}
+	return commonDefaultSecurityContext()
+}
+
+func NewDatasourceSecurityContext(cr *operatorv1beta1.Cryostat) *corev1.SecurityContext {
+	if cr.Spec.SecurityOptions != nil {
+		return cr.Spec.SecurityOptions.DataSourceSecurityContext
+	}
+	return commonDefaultSecurityContext()
+}
+
+func NewReportSecurityContext(cr *operatorv1beta1.Cryostat) *corev1.SecurityContext {
+	if cr.Spec.ReportOptions != nil && cr.Spec.ReportOptions.SecurityOptions != nil {
+		return cr.Spec.ReportOptions.SecurityOptions.ReportsSecurityContext
+	}
+	return commonDefaultSecurityContext()
 }
 
 func NewCoreRoute(tls bool) *routev1.Route {
