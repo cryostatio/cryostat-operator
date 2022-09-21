@@ -1027,9 +1027,9 @@ func NewCoreEnvironmentVariables(minimal bool, tls bool, externalTLS bool, opens
 				Value: "custom-auth-cluster-role",
 			})
 		}
-		envs = append(envs, NewCoreAndGrafanaURLEnvironementVariables(minimal, tls, externalTLS)...)
+		envs = append(envs, newNetworkEnvironmentVariables(minimal, tls, externalTLS)...)
 	} else if ingress { // On Kubernetes
-		envs = append(envs, NewCoreAndGrafanaURLEnvironementVariables(minimal, tls, externalTLS)...)
+		envs = append(envs, newNetworkEnvironmentVariables(minimal, tls, externalTLS)...)
 	}
 
 	if reportsUrl != "" {
@@ -1048,7 +1048,7 @@ func NewCoreEnvironmentVariables(minimal bool, tls bool, externalTLS bool, opens
 	return envs
 }
 
-func NewCoreAndGrafanaURLEnvironementVariables(minimal, tls, externalTLS bool) []corev1.EnvVar {
+func newNetworkEnvironmentVariables(minimal, tls, externalTLS bool) []corev1.EnvVar {
 	envs := []corev1.EnvVar{
 		{
 			Name:  "CRYOSTAT_WEB_HOST",
