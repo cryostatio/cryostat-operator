@@ -375,12 +375,17 @@ func NewPodForCR(cr *operatorv1beta1.Cryostat, specs *ServiceSpecs, imageTags *I
 		volumes = append(volumes, authResourceVolume)
 	}
 
-	nonRoot := true
-	sc := &corev1.PodSecurityContext{
-		// Ensure PV mounts are writable
-		FSGroup:        &fsGroup,
-		RunAsNonRoot:   &nonRoot,
-		SeccompProfile: seccompProfile(openshift),
+	var podSc *corev1.PodSecurityContext
+	if cr.Spec.SecurityOptions != nil && cr.Spec.SecurityOptions.PodSecurityContext != nil {
+		podSc = cr.Spec.SecurityOptions.PodSecurityContext
+	} else {
+		nonRoot := true
+		podSc = &corev1.PodSecurityContext{
+			// Ensure PV mounts are writable
+			FSGroup:        &fsGroup,
+			RunAsNonRoot:   &nonRoot,
+			SeccompProfile: seccompProfile(openshift),
+		}
 	}
 
 	// Use HostAlias for loopback address to allow health checks to
@@ -397,7 +402,7 @@ func NewPodForCR(cr *operatorv1beta1.Cryostat, specs *ServiceSpecs, imageTags *I
 		ServiceAccountName: cr.Name,
 		Volumes:            volumes,
 		Containers:         containers,
-		SecurityContext:    sc,
+		SecurityContext:    podSc,
 		HostAliases:        hostAliases,
 	}
 }
@@ -496,8 +501,31 @@ func NewPodForReports(cr *operatorv1beta1.Cryostat, imageTags *ImageTags, tls *T
 			Path:   "/health",
 		},
 	}
-	privEscalation := false
-	nonRoot := true
+
+	var podSc *corev1.PodSecurityContext
+	if cr.Spec.ReportOptions != nil && cr.Spec.ReportOptions.SecurityOptions != nil && cr.Spec.ReportOptions.SecurityOptions.PodSecurityContext != nil {
+		podSc = cr.Spec.ReportOptions.SecurityOptions.PodSecurityContext
+	} else {
+		nonRoot := true
+		podSc = &corev1.PodSecurityContext{
+			RunAsNonRoot:   &nonRoot,
+			SeccompProfile: seccompProfile(openshift),
+		}
+	}
+
+	var containerSc *corev1.SecurityContext
+	if cr.Spec.ReportOptions != nil && cr.Spec.ReportOptions.SecurityOptions != nil && cr.Spec.ReportOptions.SecurityOptions.ReportsSecurityContext != nil {
+		containerSc = cr.Spec.ReportOptions.SecurityOptions.ReportsSecurityContext
+	} else {
+		privEscalation := false
+		containerSc = &corev1.SecurityContext{
+			AllowPrivilegeEscalation: &privEscalation,
+			Capabilities: &corev1.Capabilities{
+				Drop: []corev1.Capability{capabilityAll},
+			},
+		}
+	}
+
 	return &corev1.PodSpec{
 		ServiceAccountName: cr.Name,
 		Containers: []corev1.Container{
@@ -519,19 +547,11 @@ func NewPodForReports(cr *operatorv1beta1.Cryostat, imageTags *ImageTags, tls *T
 				StartupProbe: &corev1.Probe{
 					ProbeHandler: probeHandler,
 				},
-				SecurityContext: &corev1.SecurityContext{
-					AllowPrivilegeEscalation: &privEscalation,
-					Capabilities: &corev1.Capabilities{
-						Drop: []corev1.Capability{capabilityAll},
-					},
-				},
+				SecurityContext: containerSc,
 			},
 		},
-		Volumes: volumes,
-		SecurityContext: &corev1.PodSecurityContext{
-			RunAsNonRoot:   &nonRoot,
-			SeccompProfile: seccompProfile(openshift),
-		},
+		Volumes:         volumes,
+		SecurityContext: podSc,
 	}
 }
 
@@ -810,7 +830,20 @@ func NewCoreContainer(cr *operatorv1beta1.Cryostat, specs *ServiceSpecs, imageTa
 			Scheme: livenessProbeScheme,
 		},
 	}
-	privEscalation := false
+
+	var containerSc *corev1.SecurityContext
+	if cr.Spec.SecurityOptions != nil && cr.Spec.SecurityOptions.CoreSecurityContext != nil {
+		containerSc = cr.Spec.SecurityOptions.CoreSecurityContext
+	} else {
+		privEscalation := false
+		containerSc = &corev1.SecurityContext{
+			AllowPrivilegeEscalation: &privEscalation,
+			Capabilities: &corev1.Capabilities{
+				Drop: []corev1.Capability{capabilityAll},
+			},
+		}
+	}
+
 	return corev1.Container{
 		Name:            cr.Name,
 		Image:           imageTag,
@@ -835,12 +868,7 @@ func NewCoreContainer(cr *operatorv1beta1.Cryostat, specs *ServiceSpecs, imageTa
 			ProbeHandler:     probeHandler,
 			FailureThreshold: 18,
 		},
-		SecurityContext: &corev1.SecurityContext{
-			AllowPrivilegeEscalation: &privEscalation,
-			Capabilities: &corev1.Capabilities{
-				Drop: []corev1.Capability{capabilityAll},
-			},
-		},
+		SecurityContext: containerSc,
 	}
 }
 
@@ -906,7 +934,20 @@ func NewGrafanaContainer(cr *operatorv1beta1.Cryostat, imageTag string, tls *TLS
 		// Use HTTPS for liveness probe
 		livenessProbeScheme = corev1.URISchemeHTTPS
 	}
-	privEscalation := false
+
+	var containerSc *corev1.SecurityContext
+	if cr.Spec.SecurityOptions != nil && cr.Spec.SecurityOptions.GrafanaSecurityContext != nil {
+		containerSc = cr.Spec.SecurityOptions.GrafanaSecurityContext
+	} else {
+		privEscalation := false
+		containerSc = &corev1.SecurityContext{
+			AllowPrivilegeEscalation: &privEscalation,
+			Capabilities: &corev1.Capabilities{
+				Drop: []corev1.Capability{capabilityAll},
+			},
+		}
+	}
+
 	return corev1.Container{
 		Name:            cr.Name + "-grafana",
 		Image:           imageTag,
@@ -936,13 +977,8 @@ func NewGrafanaContainer(cr *operatorv1beta1.Cryostat, imageTag string, tls *TLS
 				},
 			},
 		},
-		Resources: cr.Spec.Resources.GrafanaResources,
-		SecurityContext: &corev1.SecurityContext{
-			AllowPrivilegeEscalation: &privEscalation,
-			Capabilities: &corev1.Capabilities{
-				Drop: []corev1.Capability{capabilityAll},
-			},
-		},
+		Resources:       cr.Spec.Resources.GrafanaResources,
+		SecurityContext: containerSc,
 	}
 }
 
@@ -950,7 +986,19 @@ func NewGrafanaContainer(cr *operatorv1beta1.Cryostat, imageTag string, tls *TLS
 var datasourceURL = "http://" + loopbackAddress + ":" + strconv.Itoa(int(datasourceContainerPort))
 
 func NewJfrDatasourceContainer(cr *operatorv1beta1.Cryostat, imageTag string) corev1.Container {
-	privEscalation := false
+	var containerSc *corev1.SecurityContext
+	if cr.Spec.SecurityOptions != nil && cr.Spec.SecurityOptions.DataSourceSecurityContext != nil {
+		containerSc = cr.Spec.SecurityOptions.DataSourceSecurityContext
+	} else {
+		privEscalation := false
+		containerSc = &corev1.SecurityContext{
+			AllowPrivilegeEscalation: &privEscalation,
+			Capabilities: &corev1.Capabilities{
+				Drop: []corev1.Capability{capabilityAll},
+			},
+		}
+	}
+
 	return corev1.Container{
 		Name:            cr.Name + "-jfr-datasource",
 		Image:           imageTag,
@@ -974,13 +1022,8 @@ func NewJfrDatasourceContainer(cr *operatorv1beta1.Cryostat, imageTag string) co
 				},
 			},
 		},
-		Resources: cr.Spec.Resources.DataSourceResources,
-		SecurityContext: &corev1.SecurityContext{
-			AllowPrivilegeEscalation: &privEscalation,
-			Capabilities: &corev1.Capabilities{
-				Drop: []corev1.Capability{capabilityAll},
-			},
-		},
+		Resources:       cr.Spec.Resources.DataSourceResources,
+		SecurityContext: containerSc,
 	}
 }
 

@@ -210,6 +210,18 @@ spec:
         path: reportOptions.resources
         x-descriptors:
         - urn:alm:descriptor:com.tectonic.ui:resourceRequirements
+      - description: Options to configure the Security Contexts for the Cryostat report
+          generator.
+        displayName: Security Options
+        path: reportOptions.securityOptions
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:advanced
+      - description: Security Context to apply to the Cryostat report generator pod.
+        displayName: Pod Security Context
+        path: reportOptions.securityOptions.podSecurityContext
+      - description: Security Context to apply to the Cryostat report generator container.
+        displayName: Reports Security Context
+        path: reportOptions.securityOptions.reportsSecurityContext
       - description: When zero report sidecar replicas are requested, SubProcessMaxHeapSize
           configures the maximum heap size of the basic subprocess report generator
           in MiB. The default heap size is `200` (MiB).
@@ -236,6 +248,23 @@ spec:
         path: resources.grafanaResources
         x-descriptors:
         - urn:alm:descriptor:com.tectonic.ui:resourceRequirements
+      - description: Options to configure the Security Contexts for the Cryostat application.
+        displayName: Security Options
+        path: securityOptions
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:advanced
+      - description: Security Context to apply to the Cryostat application container.
+        displayName: Core Security Context
+        path: securityOptions.coreSecurityContext
+      - description: Security Context to apply to the JFR Data Source container.
+        displayName: Data Source Security Context
+        path: securityOptions.dataSourceSecurityContext
+      - description: Security Context to apply to the Grafana container.
+        displayName: Grafana Security Context
+        path: securityOptions.grafanaSecurityContext
+      - description: Security Context to apply to the Cryostat pod.
+        displayName: Pod Security Context
+        path: securityOptions.podSecurityContext
       - description: Options to customize the services created for the Cryostat application
           and Grafana dashboard.
         displayName: Service Options

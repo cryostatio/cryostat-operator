@@ -1310,6 +1310,41 @@ var _ = Describe("CryostatController", func() {
 				t.checkDeploymentHasAuthProperties()
 			})
 		})
+		Context("with security options", func() {
+			JustBeforeEach(func() {
+				t.reconcileCryostatFully()
+			})
+			Context("containing Cryostat security options", func() {
+				BeforeEach(func() {
+					t.objs = append(t.objs, test.NewCryostatWithSecurityOptions())
+				})
+				It("should add security context as described", func() {
+					t.checkMainDeployment()
+				})
+			})
+			Context("containing Report security options", func() {
+				Context("with 0 report replica", func() {
+					BeforeEach(func() {
+						t.objs = append(t.objs, test.NewCryostatWithReportSecurityOptions())
+					})
+					It("should add security context as described", func() {
+						t.expectNoReportsDeployment()
+					})
+				})
+				Context("with 1 report replicas", func() {
+					BeforeEach(func() {
+						t.reportReplicas = 1
+						cr := test.NewCryostatWithReportSecurityOptions()
+						cr.Spec.ReportOptions.Replicas = t.reportReplicas
+						t.objs = append(t.objs, cr)
+					})
+					It("should add security context as described", func() {
+						t.checkReportsDeployment()
+					})
+				})
+
+			})
+		})
 	})
 	Describe("reconciling a request in Kubernetes", func() {
 		JustBeforeEach(func() {
@@ -1460,6 +1495,41 @@ var _ = Describe("CryostatController", func() {
 			})
 			It("should create the reports service", func() {
 				t.checkService("cryostat-reports", test.NewReportsService())
+			})
+		})
+		Context("with security options", func() {
+			JustBeforeEach(func() {
+				t.reconcileCryostatFully()
+			})
+			Context("containing Cryostat security options", func() {
+				BeforeEach(func() {
+					t.objs = append(t.objs, test.NewCryostatWithSecurityOptions())
+				})
+				It("should add security context as described", func() {
+					t.checkMainDeployment()
+				})
+			})
+			Context("containing Report security options", func() {
+				Context("with 0 report replica", func() {
+					BeforeEach(func() {
+						t.objs = append(t.objs, test.NewCryostatWithReportSecurityOptions())
+					})
+					It("should add security context as described", func() {
+						t.expectNoReportsDeployment()
+					})
+				})
+				Context("with 1 report replicas", func() {
+					BeforeEach(func() {
+						t.reportReplicas = 1
+						cr := test.NewCryostatWithReportSecurityOptions()
+						cr.Spec.ReportOptions.Replicas = t.reportReplicas
+						t.objs = append(t.objs, cr)
+					})
+					It("should add security context as described", func() {
+						t.checkReportsDeployment()
+					})
+				})
+
 			})
 		})
 	})
@@ -2005,7 +2075,7 @@ func (t *cryostatTestInput) checkMainPodTemplate(deployment *appsv1.Deployment, 
 		"component": "cryostat",
 	}))
 	Expect(template.Spec.Volumes).To(ConsistOf(test.NewVolumes(t.minimal, t.TLS)))
-	Expect(template.Spec.SecurityContext).To(Equal(test.NewPodSecurityContext(t.controller.IsOpenShift)))
+	Expect(template.Spec.SecurityContext).To(Equal(test.NewPodSecurityContext(cr, t.controller.IsOpenShift)))
 
 	// Check that the networking environment variables are set correctly
 	coreContainer := template.Spec.Containers[0]
@@ -2022,17 +2092,18 @@ func (t *cryostatTestInput) checkMainPodTemplate(deployment *appsv1.Deployment, 
 	} else {
 		reportsUrl = "http://cryostat-reports:" + port
 	}
-
-	checkCoreContainer(&coreContainer, t.minimal, t.TLS, t.externalTLS, t.EnvCoreImageTag, t.controller.IsOpenShift, reportsUrl, cr.Spec.AuthProperties != nil, cr.Spec.Resources.CoreResources)
+	ingress := !t.controller.IsOpenShift &&
+		cr.Spec.NetworkOptions != nil && cr.Spec.NetworkOptions.CoreConfig != nil && cr.Spec.NetworkOptions.CoreConfig.IngressSpec != nil
+	checkCoreContainer(&coreContainer, t.minimal, t.TLS, t.externalTLS, t.EnvCoreImageTag, t.controller.IsOpenShift, ingress, reportsUrl, cr.Spec.AuthProperties != nil, cr.Spec.Resources.CoreResources, test.NewCoreSecurityContext(cr))
 
 	if !t.minimal {
 		// Check that Grafana is configured properly, depending on the environment
 		grafanaContainer := template.Spec.Containers[1]
-		checkGrafanaContainer(&grafanaContainer, t.TLS, t.EnvGrafanaImageTag, cr.Spec.Resources.GrafanaResources)
+		checkGrafanaContainer(&grafanaContainer, t.TLS, t.EnvGrafanaImageTag, cr.Spec.Resources.GrafanaResources, test.NewGrafanaSecurityContext(cr))
 
 		// Check that JFR Datasource is configured properly
 		datasourceContainer := template.Spec.Containers[2]
-		checkDatasourceContainer(&datasourceContainer, t.EnvDatasourceImageTag, cr.Spec.Resources.DataSourceResources)
+		checkDatasourceContainer(&datasourceContainer, t.EnvDatasourceImageTag, cr.Spec.Resources.DataSourceResources, test.NewDatasourceSecurityContext(cr))
 	}
 
 	// Check that the proper Service Account is set
@@ -2073,13 +2144,14 @@ func (t *cryostatTestInput) checkReportsDeployment() {
 		"component": "reports",
 	}))
 	Expect(template.Spec.Volumes).To(ConsistOf(test.NewReportsVolumes(t.TLS)))
-	Expect(template.Spec.SecurityContext).To(Equal(test.NewReportsPodSecurityContext(t.controller.IsOpenShift)))
+	Expect(template.Spec.SecurityContext).To(Equal(test.NewReportPodSecurityContext(cr, t.controller.IsOpenShift)))
 
 	var resources corev1.ResourceRequirements
 	if cr.Spec.ReportOptions != nil {
 		resources = cr.Spec.ReportOptions.Resources
 	}
-	checkReportsContainer(&template.Spec.Containers[0], t.TLS, t.EnvReportsImageTag, resources)
+
+	checkReportsContainer(&template.Spec.Containers[0], t.TLS, t.EnvReportsImageTag, resources, test.NewReportSecurityContext(cr))
 	// Check that the proper Service Account is set
 	Expect(template.Spec.ServiceAccountName).To(Equal("cryostat"))
 }
@@ -2112,7 +2184,7 @@ func (t *cryostatTestInput) checkDeploymentHasAuthProperties() {
 	volumeMounts := coreContainer.VolumeMounts
 	expectedVolumeMounts := test.NewVolumeMountsWithAuthProperties(t.TLS)
 	Expect(volumeMounts).To(ConsistOf(expectedVolumeMounts))
-	Expect(coreContainer.Env).To(ConsistOf(test.NewCoreEnvironmentVariables(t.minimal, t.TLS, t.externalTLS, t.controller.IsOpenShift, "", true)))
+	Expect(coreContainer.Env).To(ConsistOf(test.NewCoreEnvironmentVariables(t.minimal, t.TLS, t.externalTLS, t.controller.IsOpenShift, "", true, false)))
 }
 
 func (t *cryostatTestInput) checkDeploymentHasNoAuthProperties() {
@@ -2134,7 +2206,7 @@ func (t *cryostatTestInput) checkDeploymentHasNoAuthProperties() {
 }
 
 func checkCoreContainer(container *corev1.Container, minimal bool, tls bool, externalTLS bool,
-	tag *string, openshift bool, reportsUrl string, authProps bool, resources corev1.ResourceRequirements) {
+	tag *string, openshift bool, ingress bool, reportsUrl string, authProps bool, resources corev1.ResourceRequirements, securityContext *corev1.SecurityContext) {
 	Expect(container.Name).To(Equal("cryostat"))
 	if tag == nil {
 		Expect(container.Image).To(HavePrefix("quay.io/cryostat/cryostat:"))
@@ -2142,16 +2214,16 @@ func checkCoreContainer(container *corev1.Container, minimal bool, tls bool, ext
 		Expect(container.Image).To(Equal(*tag))
 	}
 	Expect(container.Ports).To(ConsistOf(test.NewCorePorts()))
-	Expect(container.Env).To(ConsistOf(test.NewCoreEnvironmentVariables(minimal, tls, externalTLS, openshift, reportsUrl, authProps)))
+	Expect(container.Env).To(ConsistOf(test.NewCoreEnvironmentVariables(minimal, tls, externalTLS, openshift, reportsUrl, authProps, ingress)))
 	Expect(container.EnvFrom).To(ConsistOf(test.NewCoreEnvFromSource(tls)))
 	Expect(container.VolumeMounts).To(ConsistOf(test.NewCoreVolumeMounts(tls)))
 	Expect(container.LivenessProbe).To(Equal(test.NewCoreLivenessProbe(tls)))
 	Expect(container.StartupProbe).To(Equal(test.NewCoreStartupProbe(tls)))
 	Expect(container.Resources).To(Equal(resources))
-	Expect(container.SecurityContext).To(Equal(test.NewSecurityContext()))
+	Expect(container.SecurityContext).To(Equal(securityContext))
 }
 
-func checkGrafanaContainer(container *corev1.Container, tls bool, tag *string, resources corev1.ResourceRequirements) {
+func checkGrafanaContainer(container *corev1.Container, tls bool, tag *string, resources corev1.ResourceRequirements, securityContext *corev1.SecurityContext) {
 	Expect(container.Name).To(Equal("cryostat-grafana"))
 	if tag == nil {
 		Expect(container.Image).To(HavePrefix("quay.io/cryostat/cryostat-grafana-dashboard:"))
@@ -2164,10 +2236,10 @@ func checkGrafanaContainer(container *corev1.Container, tls bool, tag *string, r
 	Expect(container.VolumeMounts).To(ConsistOf(test.NewGrafanaVolumeMounts(tls)))
 	Expect(container.LivenessProbe).To(Equal(test.NewGrafanaLivenessProbe(tls)))
 	Expect(container.Resources).To(Equal(resources))
-	Expect(container.SecurityContext).To(Equal(test.NewSecurityContext()))
+	Expect(container.SecurityContext).To(Equal(securityContext))
 }
 
-func checkDatasourceContainer(container *corev1.Container, tag *string, resources corev1.ResourceRequirements) {
+func checkDatasourceContainer(container *corev1.Container, tag *string, resources corev1.ResourceRequirements, securityContext *corev1.SecurityContext) {
 	Expect(container.Name).To(Equal("cryostat-jfr-datasource"))
 	if tag == nil {
 		Expect(container.Image).To(HavePrefix("quay.io/cryostat/jfr-datasource:"))
@@ -2180,10 +2252,10 @@ func checkDatasourceContainer(container *corev1.Container, tag *string, resource
 	Expect(container.VolumeMounts).To(BeEmpty())
 	Expect(container.LivenessProbe).To(Equal(test.NewDatasourceLivenessProbe()))
 	Expect(container.Resources).To(Equal(resources))
-	Expect(container.SecurityContext).To(Equal(test.NewSecurityContext()))
+	Expect(container.SecurityContext).To(Equal(securityContext))
 }
 
-func checkReportsContainer(container *corev1.Container, tls bool, tag *string, resources corev1.ResourceRequirements) {
+func checkReportsContainer(container *corev1.Container, tls bool, tag *string, resources corev1.ResourceRequirements, securityContext *corev1.SecurityContext) {
 	Expect(container.Name).To(Equal("cryostat-reports"))
 	if tag == nil {
 		Expect(container.Image).To(HavePrefix("quay.io/cryostat/cryostat-reports:"))
@@ -2195,7 +2267,7 @@ func checkReportsContainer(container *corev1.Container, tls bool, tag *string, r
 	Expect(container.VolumeMounts).To(ConsistOf(test.NewReportsVolumeMounts(tls)))
 	Expect(container.LivenessProbe).To(Equal(test.NewReportsLivenessProbe(tls)))
 	Expect(container.Resources).To(Equal(resources))
-	Expect(container.SecurityContext).To(Equal(test.NewSecurityContext()))
+	Expect(container.SecurityContext).To(Equal(securityContext))
 }
 
 func (t *cryostatTestInput) checkEnvironmentVariables(expectedEnvVars []corev1.EnvVar) {

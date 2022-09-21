@@ -309,3 +309,56 @@ spec:
 Each `configMapName` must refer to the name of a Config Map in the same namespace as Cryostat. The corresponding `filename` must be a key within that Config Map containing resource mappings. The `clusterRoleName` must be a valid name of an existing Cluster Role.
 
 **Note:** If the mapping is updated, Cryostat must be manually restarted.
+
+
+### Security Context
+
+With [Pod Security Admission](https://kubernetes.io/docs/concepts/security/pod-security-admission/), pods must be properly configured under the enforced security standards defined globally or on namspace level to be admitted to launch.
+
+The user is responsible for ensuring the security contexts of their workloads to meet these standards. The property `spec.securityOptions` can be set to define security contexts for Cryostat application and `spec.reportOptions.securityOptions` is for its report sidecar.
+
+```yaml
+apiVersion: operator.cryostat.io/v1beta1
+kind: Cryostat
+metadata:
+  name: cryostat-sample
+spec:
+  securityOptions:
+    podSecurityContext:
+      runAsNonRoot: true
+      seccompProfile:
+        type: RuntimeDefault
+    coreSecurityContext:
+      allowPrivilegeEscalation: false
+      capabilities:
+        drop:
+        - ALL
+      runAsUser: 1001
+    dataSourceSecurityContext:
+      allowPrivilegeEscalation: false
+      capabilities:
+        drop:
+        - ALL
+    grafanaSecurityContext:
+      allowPrivilegeEscalation: false
+      capabilities:
+        drop:
+        - ALL
+  reportOptions:
+    replicas: 1
+    podSecurityContext:
+      runAsNonRoot: true
+      seccompProfile:
+        type: RuntimeDefault
+    reportsSecurityContext:
+      allowPrivilegeEscalation: false
+      capabilities:
+        drop:
+        - ALL
+      runAsUser: 1001
+```
+
+If not specified, the security contexts are defaulted to conform to the [restricted](https://kubernetes.io/docs/concepts/security/pod-security-standards/#restricted) Pod Security Standard. 
+For the Cryostat application pod, the operator selects an fsGroup to ensure that Cryostat can read and write files in its Persistent Volume.
+
+On OpenShift, Cryostat application pod's `spec.securityContext.seccompProfile` is left unset for backward compatibility. On versions of OpenShift supporting Pod Security Admission, the `restricted-v2` Security Context Constraint sets `seccompProfile` to `runtime/default` as required for the restricted Pod Security Standard. For more details, see [Security Context Constraints](https://docs.openshift.com/container-platform/4.11/authentication/managing-security-context-constraints.html#default-sccs_configuring-internal-oauth).

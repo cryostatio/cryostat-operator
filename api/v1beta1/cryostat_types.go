@@ -94,6 +94,10 @@ type CryostatSpec struct {
 	// +optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Authorization Properties",xDescriptors={"urn:alm:descriptor:com.tectonic.ui:advanced"}
 	AuthProperties *AuthorizationProperties `json:"authProperties,omitempty"`
+	// Options to configure the Security Contexts for the Cryostat application.
+	// +optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:com.tectonic.ui:advanced"}
+	SecurityOptions *SecurityOptions `json:"securityOptions,omitempty"`
 }
 
 type ResourceConfigList struct {
@@ -185,6 +189,10 @@ type ReportConfiguration struct {
 	// +optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:com.tectonic.ui:number"}
 	SubProcessMaxHeapSize int32 `json:"subProcessMaxHeapSize,omitempty"`
+	// Options to configure the Security Contexts for the Cryostat report generator.
+	// +optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:com.tectonic.ui:advanced"}
+	SecurityOptions *ReportsSecurityOptions `json:"securityOptions,omitempty"`
 }
 
 // ServiceConfig provides customization for a service created
@@ -420,4 +428,38 @@ type AuthorizationProperties struct {
 	// Filename within config map containing the resource mapping.
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:com.tectonic.ui:text"}
 	Filename string `json:"filename"`
+}
+
+// SecurityOptions contains Security Context customizations for the
+// main Cryostat application at both the pod and container level.
+type SecurityOptions struct {
+	// Security Context to apply to the Cryostat pod.
+	// +optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec
+	PodSecurityContext *corev1.PodSecurityContext `json:"podSecurityContext,omitempty"`
+	// Security Context to apply to the Cryostat application container.
+	// +optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec
+	CoreSecurityContext *corev1.SecurityContext `json:"coreSecurityContext,omitempty"`
+	// Security Context to apply to the JFR Data Source container.
+	// +optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec
+	DataSourceSecurityContext *corev1.SecurityContext `json:"dataSourceSecurityContext,omitempty"`
+	// Security Context to apply to the Grafana container.
+	// +optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec
+	GrafanaSecurityContext *corev1.SecurityContext `json:"grafanaSecurityContext,omitempty"`
+}
+
+// ReportsSecurityOptions contains Security Context customizations for the
+// Cryostat report generator at both the pod and container level.
+type ReportsSecurityOptions struct {
+	// Security Context to apply to the Cryostat report generator pod.
+	// +optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec
+	PodSecurityContext *corev1.PodSecurityContext `json:"podSecurityContext,omitempty"`
+	// Security Context to apply to the Cryostat report generator container.
+	// +optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec
+	ReportsSecurityContext *corev1.SecurityContext `json:"reportsSecurityContext,omitempty"`
 }
