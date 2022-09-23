@@ -549,18 +549,18 @@ func NewPodForReports(cr *operatorv1beta1.Cryostat, imageTags *ImageTags, tls *T
 	var nodeSelector map[string]string
 	var affinity *corev1.Affinity
 	var tolerations []corev1.Toleration
+	var schedulingOptions = cr.Spec.ReportOptions.SchedulingOptions
 
-	if cr.Spec.ReportOptions.SchedulingOptions != nil {
-		nodeSelector = cr.Spec.ReportOptions.SchedulingOptions.NodeSelector
+	if schedulingOptions != nil {
+		nodeSelector = schedulingOptions.NodeSelector
 		if cr.Spec.SchedulingOptions.Affinity != nil {
 			affinity = &corev1.Affinity{
-				NodeAffinity:    cr.Spec.ReportOptions.SchedulingOptions.Affinity.NodeAffinity,
-				PodAffinity:     cr.Spec.ReportOptions.SchedulingOptions.Affinity.PodAffinity,
-				PodAntiAffinity: cr.Spec.ReportOptions.SchedulingOptions.Affinity.PodAntiAffinity,
+				NodeAffinity:    schedulingOptions.Affinity.NodeAffinity,
+				PodAffinity:     schedulingOptions.Affinity.PodAffinity,
+				PodAntiAffinity: schedulingOptions.Affinity.PodAntiAffinity,
 			}
 		}
-		tolerations = cr.Spec.ReportOptions.SchedulingOptions.Tolerations
-
+		tolerations = schedulingOptions.Tolerations
 	}
 
 	return &corev1.PodSpec{

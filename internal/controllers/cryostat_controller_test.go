@@ -467,7 +467,6 @@ var _ = Describe("CryostatController", func() {
 				It("should configure deployment appropriately", func() {
 					t.checkReportsDeployment()
 				})
-
 			})
 
 			Context("with resource requirements", func() {
@@ -1359,7 +1358,7 @@ var _ = Describe("CryostatController", func() {
 		})
 		Context("with Scheduling options", func() {
 			BeforeEach(func() {
-				t.objs = append(t.objs, test.NewCryoStateWithScheduling())
+				t.objs = append(t.objs, test.NewCryostatWithScheduling())
 			})
 			It("should configure deployment appropriately", func() {
 				t.expectDeployment()
