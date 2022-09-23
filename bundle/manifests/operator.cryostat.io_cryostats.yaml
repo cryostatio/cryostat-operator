@@ -4372,6 +4372,15 @@ spec:
                         type: object
                     type: object
                 type: object
+              targetDiscoveryOptions:
+                description: Options to configure Cryostat application's target discovery
+                  mechanisms.
+                properties:
+                  builtInDiscoveryDisabled:
+                    description: When true, the Cryostat application will disable
+                      the built-in discovery mechanisms. Default to false.
+                    type: boolean
+                type: object
               trustedCertSecrets:
                 description: List of TLS certificates to trust when connecting to
                   targets.

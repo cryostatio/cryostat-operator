@@ -102,6 +102,10 @@ type CryostatSpec struct {
 	// +optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	SchedulingOptions *SchedulingConfiguration `json:"schedulingOptions,omitempty"`
+	// Options to configure Cryostat application's target discovery mechanisms.
+	// +optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec
+	TargetDiscoveryOptions *TargetDiscoveryOptions `json:"targetDiscoveryOptions,omitempty"`
 }
 
 type ResourceConfigList struct {
@@ -502,4 +506,12 @@ type ReportsSecurityOptions struct {
 	// +optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	ReportsSecurityContext *corev1.SecurityContext `json:"reportsSecurityContext,omitempty"`
+}
+
+// TargetDiscoveryOptions provides configuration options to Cryostat application's target discovery mechanisms.
+type TargetDiscoveryOptions struct {
+	// When true, the Cryostat application will disable the built-in discovery mechanisms. Default to false.
+	// +optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Disable Built-in Discovery",xDescriptors={"urn:alm:descriptor:com.tectonic.ui:booleanSwitch"}
+	BuiltInDiscoveryDisabled bool `json:"builtInDiscoveryDisabled,omitempty"`
 }
