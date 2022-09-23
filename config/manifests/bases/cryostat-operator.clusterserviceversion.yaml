@@ -210,6 +210,38 @@ spec:
         path: reportOptions.resources
         x-descriptors:
         - urn:alm:descriptor:com.tectonic.ui:resourceRequirements
+      - description: Options to configure scheduling for the reports deployment
+        displayName: Scheduling Options
+        path: reportOptions.schedulingOptions
+      - description: Affinity rules for scheduling Cryostat pods.
+        displayName: Affinity
+        path: reportOptions.schedulingOptions.affinity
+      - description: 'Node affinity scheduling rules for a Cryostat pod. See: https://kubernetes.io/docs/reference/kubernetes-api/workload-resources/pod-v1/#NodeAffinity'
+        displayName: Node Affinity
+        path: reportOptions.schedulingOptions.affinity.nodeAffinity
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:nodeAffinity
+      - description: 'Pod affinity scheduling rules for a Cryostat pod. See: https://kubernetes.io/docs/reference/kubernetes-api/workload-resources/pod-v1/#PodAffinity'
+        displayName: Pod Affinity
+        path: reportOptions.schedulingOptions.affinity.podAffinity
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:podAffinity
+      - description: 'Pod anti-affinity scheduling rules for a Cryostat pod. See:
+          https://kubernetes.io/docs/reference/kubernetes-api/workload-resources/pod-v1/#PodAntiAffinity'
+        displayName: Pod Anti Affinity
+        path: reportOptions.schedulingOptions.affinity.podAntiAffinity
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:podAntiAffinity
+      - description: 'Label selector used to schedule a Cryostat pod to a node. See:
+          https://kubernetes.io/docs/concepts/configuration/assign-pod-node/'
+        displayName: Node Selector
+        path: reportOptions.schedulingOptions.nodeSelector
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:selector:core:v1:Node
+      - description: 'Tolerations to allow scheduling of Cryostat pods to tainted
+          nodes. See: https://kubernetes.io/docs/concepts/scheduling-eviction/taint-and-toleration/'
+        displayName: Tolerations
+        path: reportOptions.schedulingOptions.tolerations
       - description: Options to configure the Security Contexts for the Cryostat report
           generator.
         displayName: Security Options
@@ -248,6 +280,38 @@ spec:
         path: resources.grafanaResources
         x-descriptors:
         - urn:alm:descriptor:com.tectonic.ui:resourceRequirements
+      - description: Options to configure scheduling for the Cryostat deployment
+        displayName: Scheduling Options
+        path: schedulingOptions
+      - description: Affinity rules for scheduling Cryostat pods.
+        displayName: Affinity
+        path: schedulingOptions.affinity
+      - description: 'Node affinity scheduling rules for a Cryostat pod. See: https://kubernetes.io/docs/reference/kubernetes-api/workload-resources/pod-v1/#NodeAffinity'
+        displayName: Node Affinity
+        path: schedulingOptions.affinity.nodeAffinity
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:nodeAffinity
+      - description: 'Pod affinity scheduling rules for a Cryostat pod. See: https://kubernetes.io/docs/reference/kubernetes-api/workload-resources/pod-v1/#PodAffinity'
+        displayName: Pod Affinity
+        path: schedulingOptions.affinity.podAffinity
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:podAffinity
+      - description: 'Pod anti-affinity scheduling rules for a Cryostat pod. See:
+          https://kubernetes.io/docs/reference/kubernetes-api/workload-resources/pod-v1/#PodAntiAffinity'
+        displayName: Pod Anti Affinity
+        path: schedulingOptions.affinity.podAntiAffinity
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:podAntiAffinity
+      - description: 'Label selector used to schedule a Cryostat pod to a node. See:
+          https://kubernetes.io/docs/concepts/configuration/assign-pod-node/'
+        displayName: Node Selector
+        path: schedulingOptions.nodeSelector
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:selector:core:v1:Node
+      - description: 'Tolerations to allow scheduling of Cryostat pods to tainted
+          nodes. See: https://kubernetes.io/docs/concepts/scheduling-eviction/taint-and-toleration/'
+        displayName: Tolerations
+        path: schedulingOptions.tolerations
       - description: Options to configure the Security Contexts for the Cryostat application.
         displayName: Security Options
         path: securityOptions
