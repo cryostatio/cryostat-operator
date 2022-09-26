@@ -353,6 +353,7 @@ scorecard-build: custom-scorecard-tests
 .PHONY: sample_app
 sample_app: undeploy_sample_app
 	$(call new-sample-app,quay.io/andrewazores/vertx-fib-demo:0.8.0)
+	$(CLUSTER_CLIENT) patch svc/vertx-fib-demo -p '{"spec":{"$setElementOrder/ports":[{"port":8080},{"port":8443},{"port":9093}],"ports":[{"name":"jfr-jmx","port":9093}]}}'
 
 .PHONY: undeploy_sample_app
 undeploy_sample_app:
