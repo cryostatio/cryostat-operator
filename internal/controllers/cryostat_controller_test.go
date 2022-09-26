@@ -337,7 +337,86 @@ var _ = Describe("CryostatController", func() {
 
 				Expect(sa.ImagePullSecrets).To(Equal(oldSA.ImagePullSecrets))
 				Expect(sa.Secrets).To(Equal(oldSA.Secrets))
-				Expect(sa.AutomountServiceAccountToken).To(BeNil())
+				Expect(sa.AutomountServiceAccountToken).To(Equal(oldSA.AutomountServiceAccountToken))
+			})
+		})
+		Context("with an existing Role", func() {
+			var cr *operatorv1beta1.Cryostat
+			var oldRole *rbacv1.Role
+			BeforeEach(func() {
+				cr = test.NewCryostat()
+				oldRole = test.OtherRole()
+				t.objs = append(t.objs, cr, oldRole)
+			})
+			It("should update the Role", func() {
+				t.reconcileCryostatFully()
+
+				role := &rbacv1.Role{}
+				err := t.Client.Get(context.Background(), types.NamespacedName{Name: "cryostat", Namespace: "default"}, role)
+				Expect(err).ToNot(HaveOccurred())
+
+				Expect(metav1.IsControlledBy(role, cr)).To(BeTrue())
+
+				// Labels are unaffected
+				Expect(role.Labels).To(Equal(oldRole.Labels))
+				Expect(role.Annotations).To(Equal(oldRole.Annotations))
+
+				// Rules should be fully replaced
+				Expect(role.Rules).To(Equal(test.NewRole().Rules))
+			})
+		})
+		Context("with an existing Role Binding", func() {
+			var cr *operatorv1beta1.Cryostat
+			var oldBinding *rbacv1.RoleBinding
+			BeforeEach(func() {
+				cr = test.NewCryostat()
+				oldBinding = test.OtherRoleBinding()
+				t.objs = append(t.objs, cr, oldBinding)
+			})
+			It("should update the Role Binding", func() {
+				t.reconcileCryostatFully()
+
+				binding := &rbacv1.RoleBinding{}
+				err := t.Client.Get(context.Background(), types.NamespacedName{Name: "cryostat", Namespace: "default"}, binding)
+				Expect(err).ToNot(HaveOccurred())
+
+				Expect(metav1.IsControlledBy(binding, cr)).To(BeTrue())
+
+				// Labels are unaffected
+				Expect(binding.Labels).To(Equal(oldBinding.Labels))
+				Expect(binding.Annotations).To(Equal(oldBinding.Annotations))
+
+				// Subjects and RoleRef should be fully replaced
+				expected := test.NewRoleBinding()
+				Expect(binding.Subjects).To(Equal(expected.Subjects))
+				Expect(binding.RoleRef).To(Equal(expected.RoleRef))
+			})
+		})
+		Context("with an existing Cluster Role Binding", func() {
+			var cr *operatorv1beta1.Cryostat
+			var oldBinding *rbacv1.ClusterRoleBinding
+			BeforeEach(func() {
+				cr = test.NewCryostat()
+				oldBinding = test.OtherClusterRoleBinding()
+				t.objs = append(t.objs, cr, oldBinding)
+			})
+			It("should update the Cluster Role Binding", func() {
+				t.reconcileCryostatFully()
+
+				binding := &rbacv1.ClusterRoleBinding{}
+				err := t.Client.Get(context.Background(), types.NamespacedName{
+					Name: "cryostat-9ecd5050500c2566765bc593edfcce12434283e5da32a27476bc4a1569304a02",
+				}, binding)
+				Expect(err).ToNot(HaveOccurred())
+
+				// Labels and annotations are unaffected
+				Expect(binding.Labels).To(Equal(oldBinding.Labels))
+				Expect(binding.Annotations).To(Equal(oldBinding.Annotations))
+
+				// Subjects and RoleRef should be fully replaced
+				expected := test.NewClusterRoleBinding()
+				Expect(binding.Subjects).To(Equal(expected.Subjects))
+				Expect(binding.RoleRef).To(Equal(expected.RoleRef))
 			})
 		})
 		Context("with existing Routes", func() {
@@ -1532,6 +1611,116 @@ var _ = Describe("CryostatController", func() {
 
 			})
 		})
+		Context("with an existing Service Account", func() {
+			var cr *operatorv1beta1.Cryostat
+			var oldSA *corev1.ServiceAccount
+			BeforeEach(func() {
+				cr = test.NewCryostat()
+				oldSA = test.OtherServiceAccount()
+				t.objs = append(t.objs, cr, oldSA)
+			})
+			It("should update the Service Account", func() {
+				t.reconcileCryostatFully()
+
+				sa := &corev1.ServiceAccount{}
+				err := t.Client.Get(context.Background(), types.NamespacedName{Name: "cryostat", Namespace: "default"}, sa)
+				Expect(err).ToNot(HaveOccurred())
+
+				Expect(sa.Annotations).To(Equal(map[string]string{
+					"hello": "world",
+				}))
+
+				Expect(sa.Labels).To(Equal(map[string]string{
+					"app":   "cryostat",
+					"other": "label",
+				}))
+
+				Expect(metav1.IsControlledBy(sa, cr)).To(BeTrue())
+
+				Expect(sa.ImagePullSecrets).To(Equal(oldSA.ImagePullSecrets))
+				Expect(sa.Secrets).To(Equal(oldSA.Secrets))
+				Expect(sa.AutomountServiceAccountToken).To(Equal(oldSA.AutomountServiceAccountToken))
+			})
+		})
+		Context("with an existing Role", func() {
+			var cr *operatorv1beta1.Cryostat
+			var oldRole *rbacv1.Role
+			BeforeEach(func() {
+				cr = test.NewCryostat()
+				oldRole = test.OtherRole()
+				t.objs = append(t.objs, cr, oldRole)
+			})
+			It("should update the Role", func() {
+				t.reconcileCryostatFully()
+
+				role := &rbacv1.Role{}
+				err := t.Client.Get(context.Background(), types.NamespacedName{Name: "cryostat", Namespace: "default"}, role)
+				Expect(err).ToNot(HaveOccurred())
+
+				Expect(metav1.IsControlledBy(role, cr)).To(BeTrue())
+
+				// Labels are unaffected
+				Expect(role.Labels).To(Equal(oldRole.Labels))
+				Expect(role.Annotations).To(Equal(oldRole.Annotations))
+
+				// Rules should be fully replaced
+				Expect(role.Rules).To(Equal(test.NewRole().Rules))
+			})
+		})
+		Context("with an existing Role Binding", func() {
+			var cr *operatorv1beta1.Cryostat
+			var oldBinding *rbacv1.RoleBinding
+			BeforeEach(func() {
+				cr = test.NewCryostat()
+				oldBinding = test.OtherRoleBinding()
+				t.objs = append(t.objs, cr, oldBinding)
+			})
+			It("should update the Role Binding", func() {
+				t.reconcileCryostatFully()
+
+				binding := &rbacv1.RoleBinding{}
+				err := t.Client.Get(context.Background(), types.NamespacedName{Name: "cryostat", Namespace: "default"}, binding)
+				Expect(err).ToNot(HaveOccurred())
+
+				Expect(metav1.IsControlledBy(binding, cr)).To(BeTrue())
+
+				// Labels are unaffected
+				Expect(binding.Labels).To(Equal(oldBinding.Labels))
+				Expect(binding.Annotations).To(Equal(oldBinding.Annotations))
+
+				// Subjects and RoleRef should be fully replaced
+				expected := test.NewRoleBinding()
+				Expect(binding.Subjects).To(Equal(expected.Subjects))
+				Expect(binding.RoleRef).To(Equal(expected.RoleRef))
+			})
+		})
+		Context("with an existing Cluster Role Binding", func() {
+			var cr *operatorv1beta1.Cryostat
+			var oldBinding *rbacv1.ClusterRoleBinding
+			BeforeEach(func() {
+				cr = test.NewCryostat()
+				oldBinding = test.OtherClusterRoleBinding()
+				t.objs = append(t.objs, cr, oldBinding)
+			})
+			It("should update the Cluster Role Binding", func() {
+				t.reconcileCryostatFully()
+
+				binding := &rbacv1.ClusterRoleBinding{}
+				err := t.Client.Get(context.Background(), types.NamespacedName{
+					Name: "cryostat-9ecd5050500c2566765bc593edfcce12434283e5da32a27476bc4a1569304a02",
+				}, binding)
+				Expect(err).ToNot(HaveOccurred())
+
+				// Labels and annotations are unaffected
+				Expect(binding.Labels).To(Equal(oldBinding.Labels))
+				Expect(binding.Annotations).To(Equal(oldBinding.Annotations))
+
+				// Subjects and RoleRef should be fully replaced
+				expected := test.NewClusterRoleBinding()
+				Expect(binding.Subjects).To(Equal(expected.Subjects))
+				Expect(binding.RoleRef).To(Equal(expected.RoleRef))
+			})
+		})
 	})
 })
 
@@ -2152,8 +2341,9 @@ func (t *cryostatTestInput) checkReportsDeployment() {
 	}
 
 	checkReportsContainer(&template.Spec.Containers[0], t.TLS, t.EnvReportsImageTag, resources, test.NewReportSecurityContext(cr))
-	// Check that the proper Service Account is set
-	Expect(template.Spec.ServiceAccountName).To(Equal("cryostat"))
+	// Check that the default Service Account is used
+	Expect(template.Spec.ServiceAccountName).To(BeEmpty())
+	Expect(template.Spec.AutomountServiceAccountToken).To(BeNil())
 }
 
 func (t *cryostatTestInput) checkDeploymentHasTemplates() {

@@ -51,14 +51,18 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
-func (r *CryostatReconciler) reconcileCoreRoute(ctx context.Context, svc *corev1.Service, cr *operatorv1beta1.Cryostat,
-	tls *resource_definitions.TLSConfig, specs *resource_definitions.ServiceSpecs) error {
-	route := &routev1.Route{
+func newCoreRoute(cr *operatorv1beta1.Cryostat) *routev1.Route {
+	return &routev1.Route{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      cr.Name,
 			Namespace: cr.Namespace,
 		},
 	}
+}
+
+func (r *CryostatReconciler) reconcileCoreRoute(ctx context.Context, svc *corev1.Service, cr *operatorv1beta1.Cryostat,
+	tls *resource_definitions.TLSConfig, specs *resource_definitions.ServiceSpecs) error {
+	route := newCoreRoute(cr)
 	coreConfig := configureCoreRoute(cr)
 	url, err := r.reconcileRoute(ctx, route, svc, cr, tls, coreConfig)
 	if err != nil {

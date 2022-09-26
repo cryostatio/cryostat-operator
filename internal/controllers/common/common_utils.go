@@ -37,9 +37,13 @@
 package common
 
 import (
+	"crypto/sha256"
+	"fmt"
 	"io/ioutil"
 	"os"
 
+	operatorv1beta1 "github.com/cryostatio/cryostat-operator/api/v1beta1"
+	"k8s.io/apimachinery/pkg/types"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 )
 
@@ -62,4 +66,13 @@ func (o *defaultOSUtils) GetEnv(name string) string {
 // GetFileContents reads and returns the entire file contents specified by the path
 func (o *defaultOSUtils) GetFileContents(path string) ([]byte, error) {
 	return ioutil.ReadFile(path)
+}
+
+// ClusterUniqueName returns a name for cluster-scoped objects that is
+// uniquely identified by the namespace and name of the provided Cryostat CR.
+func ClusterUniqueName(cr *operatorv1beta1.Cryostat) string {
+	// Use the SHA256 checksum of the namespaced name as a suffix
+	nn := types.NamespacedName{Namespace: cr.Namespace, Name: cr.Name}
+	suffix := fmt.Sprintf("%x", sha256.Sum256([]byte(nn.String())))
+	return "cryostat-" + suffix
 }
