@@ -352,7 +352,7 @@ scorecard-build: custom-scorecard-tests
 
 .PHONY: sample_app
 sample_app: undeploy_sample_app
-	$(call new-sample-app,quay.io/andrewazores/vertx-fib-demo:0.1.0)
+	$(call new-sample-app,quay.io/andrewazores/vertx-fib-demo:0.8.0)
 
 .PHONY: undeploy_sample_app
 undeploy_sample_app:
