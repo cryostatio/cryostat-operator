@@ -297,7 +297,7 @@ func (r *CryostatReconciler) createOrUpdateClusterRoleBinding(ctx context.Contex
 }
 
 func (r *CryostatReconciler) deleteClusterRoleBinding(ctx context.Context, cr *operatorv1beta1.Cryostat) error {
-	clusterBinding := newClusterRoleBinding(cr) // TODO move to finalizeRBAC, add tests
+	clusterBinding := newClusterRoleBinding(cr)
 	err := r.Delete(ctx, clusterBinding)
 	if err != nil {
 		if kerrors.IsNotFound(err) {
