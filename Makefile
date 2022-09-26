@@ -358,15 +358,6 @@ sample_app: undeploy_sample_app
 undeploy_sample_app:
 	- $(CLUSTER_CLIENT) delete all -l app=vertx-fib-demo
 
-.PHONY: sample_app2
-sample_app2: undeploy_sample_app2
-	$(call new-sample-app,quay.io/andrewazores/container-jmx-docker-listener:0.1.0 --name=jmx-listener)
-	$(CLUSTER_CLIENT) patch svc/jmx-listener -p '{"spec":{"$setElementOrder/ports":[{"port":7095},{"port":9092},{"port":9093}],"ports":[{"name":"jfr-jmx","port":9093}]}}'
-
-.PHONY: undeploy_sample_app2
-undeploy_sample_app2:
-	- $(CLUSTER_CLIENT) delete all -l app=jmx-listener
-
 .PHONY: sample_app_quarkus
 sample_app_quarkus: undeploy_sample_app_quarkus
 	$(call new-sample-app,quay.io/andrewazores/quarkus-test:0.0.2)
