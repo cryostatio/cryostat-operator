@@ -352,20 +352,13 @@ scorecard-build: custom-scorecard-tests
 
 .PHONY: sample_app
 sample_app: undeploy_sample_app
-	$(call new-sample-app,quay.io/andrewazores/vertx-fib-demo:0.1.0)
+	$(call new-sample-app,quay.io/andrewazores/vertx-fib-demo:0.8.0)
+	$(CLUSTER_CLIENT) patch svc/vertx-fib-demo -p '{"spec":{"$setElementOrder/ports":[{"port":8080},{"port":8443},{"port":9093}],"ports":[{"name":"jfr-jmx","port":9093}]}}'
+	$(CLUSTER_CLIENT) patch deployment/vertx-fib-demo -p '{"spec":{"template":{"spec":{"$setElementOrder/containers":[{"name":"vertx-fib-demo"}],"containers":[{"name":"vertx-fib-demo","resources":{"limits":{"cpu":"200m","memory":"256Mi"}}}]}}}}'
 
 .PHONY: undeploy_sample_app
 undeploy_sample_app:
 	- $(CLUSTER_CLIENT) delete all -l app=vertx-fib-demo
-
-.PHONY: sample_app2
-sample_app2: undeploy_sample_app2
-	$(call new-sample-app,quay.io/andrewazores/container-jmx-docker-listener:0.1.0 --name=jmx-listener)
-	$(CLUSTER_CLIENT) patch svc/jmx-listener -p '{"spec":{"$setElementOrder/ports":[{"port":7095},{"port":9092},{"port":9093}],"ports":[{"name":"jfr-jmx","port":9093}]}}'
-
-.PHONY: undeploy_sample_app2
-undeploy_sample_app2:
-	- $(CLUSTER_CLIENT) delete all -l app=jmx-listener
 
 .PHONY: sample_app_quarkus
 sample_app_quarkus: undeploy_sample_app_quarkus
