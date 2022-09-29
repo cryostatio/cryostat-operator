@@ -195,7 +195,7 @@ func configureCoreService(cr *operatorv1beta1.Cryostat) *operatorv1beta1.CoreSer
 	if cr.Spec.ServiceOptions == nil || cr.Spec.ServiceOptions.CoreConfig == nil {
 		config = &operatorv1beta1.CoreServiceConfig{}
 	} else {
-		config = cr.Spec.ServiceOptions.CoreConfig
+		config = cr.Spec.ServiceOptions.CoreConfig.DeepCopy()
 	}
 
 	// Apply common service defaults
@@ -220,7 +220,7 @@ func configureGrafanaService(cr *operatorv1beta1.Cryostat) *operatorv1beta1.Graf
 	if cr.Spec.ServiceOptions == nil || cr.Spec.ServiceOptions.GrafanaConfig == nil {
 		config = &operatorv1beta1.GrafanaServiceConfig{}
 	} else {
-		config = cr.Spec.ServiceOptions.GrafanaConfig
+		config = cr.Spec.ServiceOptions.GrafanaConfig.DeepCopy()
 	}
 
 	// Apply common service defaults
@@ -241,7 +241,7 @@ func configureReportsService(cr *operatorv1beta1.Cryostat) *operatorv1beta1.Repo
 	if cr.Spec.ServiceOptions == nil || cr.Spec.ServiceOptions.ReportsConfig == nil {
 		config = &operatorv1beta1.ReportsServiceConfig{}
 	} else {
-		config = cr.Spec.ServiceOptions.ReportsConfig
+		config = cr.Spec.ServiceOptions.ReportsConfig.DeepCopy()
 	}
 
 	// Apply common service defaults

@@ -207,15 +207,9 @@ func (r *CryostatReconciler) Reconcile(ctx context.Context, request ctrl.Request
 
 	reqLogger.Info("Spec", "Minimal", instance.Spec.Minimal)
 
-	shouldCreatePvc := !(instance.Spec.StorageOptions != nil && instance.Spec.StorageOptions.EmptyDir != nil && instance.Spec.StorageOptions.EmptyDir.Enabled)
-	if shouldCreatePvc {
-		pvc := resources.NewPersistentVolumeClaimForCR(instance)
-		if err := controllerutil.SetControllerReference(instance, pvc, r.Scheme); err != nil {
-			return reconcile.Result{}, err
-		}
-		if err = r.createObjectIfNotExists(context.Background(), types.NamespacedName{Name: pvc.Name, Namespace: pvc.Namespace}, &corev1.PersistentVolumeClaim{}, pvc); err != nil {
-			return reconcile.Result{}, err
-		}
+	err = r.reconcilePVC(ctx, instance)
+	if err != nil {
+		return reconcile.Result{}, err
 	}
 
 	grafanaSecret := resources.NewGrafanaSecretForCR(instance)

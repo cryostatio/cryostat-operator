@@ -38,6 +38,7 @@ package controllers_test
 
 import (
 	"context"
+	"fmt"
 	"strconv"
 	"time"
 
@@ -54,6 +55,7 @@ import (
 	rbacv1 "k8s.io/api/rbac/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -829,6 +831,53 @@ var _ = Describe("CryostatController", func() {
 			})
 			It("should create the PVC with requested label", func() {
 				t.expectPVC(test.NewDefaultPVCWithLabel())
+			})
+		})
+		Context("with an existing PVC", func() {
+			var cr *operatorv1beta1.Cryostat
+			var pvc *corev1.PersistentVolumeClaim
+			BeforeEach(func() {
+				cr = test.NewCryostatWithPVCSpec()
+				pvc = test.NewDefaultPVC()
+				t.objs = append(t.objs, cr, pvc)
+			})
+			JustBeforeEach(func() {
+				t.reconcileCryostatFully()
+			})
+			Context("that is unbound", func() {
+				BeforeEach(func() {
+					pvc.Status.Phase = corev1.ClaimPending
+				})
+				It("should update metadata and spec", func() {
+					t.checkPVC(test.NewCustomPVC())
+				})
+			})
+			Context("that is bound", func() {
+				BeforeEach(func() {
+					pvc.Status.Phase = corev1.ClaimBound
+				})
+				Context("with less storage", func() {
+					// Exisiting storage request (500MiB) is less than new request (10GiB)
+					It("should update metadata and spec", func() {
+						// Only the resource requests may be increased
+						expected := test.NewCustomPVC()
+						expected.Spec = test.NewDefaultPVC().Spec
+						expected.Spec.Resources.Requests[corev1.ResourceStorage] = resource.MustParse("10Gi")
+						t.checkPVC(expected)
+					})
+				})
+				Context("with more storage", func() {
+					BeforeEach(func() {
+						// Exisiting storage request (500MiB) is greater than new request (256MiB)
+						cr.Spec.StorageOptions.PVC.Spec.Resources.Requests[corev1.ResourceStorage] = resource.MustParse("256Mi")
+					})
+					It("should update metadata and spec", func() {
+						// Nothing in spec can be changed
+						expected := test.NewCustomPVC()
+						expected.Spec = test.NewDefaultPVC().Spec
+						t.checkPVC(expected)
+					})
+				})
 			})
 		})
 		Context("with custom EmptyDir config", func() {
@@ -2032,17 +2081,23 @@ func (t *cryostatTestInput) expectPVC(expectedPvc *corev1.PersistentVolumeClaim)
 
 	t.reconcileCryostatFully()
 
-	err = t.Client.Get(context.Background(), types.NamespacedName{Name: "cryostat", Namespace: "default"}, pvc)
+	t.checkPVC(expectedPvc)
+}
+
+func (t *cryostatTestInput) checkPVC(expectedPVC *corev1.PersistentVolumeClaim) {
+	pvc := &corev1.PersistentVolumeClaim{}
+	err := t.Client.Get(context.Background(), types.NamespacedName{Name: "cryostat", Namespace: "default"}, pvc)
 	Expect(err).ToNot(HaveOccurred())
 
 	// Compare to desired spec
-	checkMetadata(pvc, expectedPvc)
-	Expect(pvc.Spec.AccessModes).To(Equal(expectedPvc.Spec.AccessModes))
-	Expect(pvc.Spec.StorageClassName).To(Equal(expectedPvc.Spec.StorageClassName))
+	checkMetadata(pvc, expectedPVC)
+	Expect(pvc.Spec.AccessModes).To(Equal(expectedPVC.Spec.AccessModes))
+	Expect(pvc.Spec.StorageClassName).To(Equal(expectedPVC.Spec.StorageClassName))
 
 	pvcStorage := pvc.Spec.Resources.Requests["storage"]
-	expectedPvcStorage := expectedPvc.Spec.Resources.Requests["storage"]
-	Expect(pvcStorage.Equal(expectedPvcStorage)).To(BeTrue())
+	expectedPVCStorage := expectedPVC.Spec.Resources.Requests["storage"]
+	fmt.Printf("Expected %s, Actual %s", expectedPVCStorage.String(), pvcStorage.String())
+	Expect(pvcStorage.Equal(expectedPVCStorage)).To(BeTrue())
 }
 
 func (t *cryostatTestInput) expectEmptyDir(expectedEmptyDir *corev1.EmptyDirVolumeSource) {
