@@ -38,7 +38,6 @@ package controllers_test
 
 import (
 	"context"
-	"fmt"
 	"strconv"
 	"time"
 
@@ -55,11 +54,11 @@ import (
 	rbacv1 "k8s.io/api/rbac/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
-	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/validation/field"
 	"k8s.io/client-go/tools/record"
 	ctrlclient "sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
@@ -834,49 +833,50 @@ var _ = Describe("CryostatController", func() {
 			})
 		})
 		Context("with an existing PVC", func() {
-			var cr *operatorv1beta1.Cryostat
-			var pvc *corev1.PersistentVolumeClaim
-			BeforeEach(func() {
-				cr = test.NewCryostatWithPVCSpec()
-				pvc = test.NewDefaultPVC()
-				t.objs = append(t.objs, cr, pvc)
-			})
 			JustBeforeEach(func() {
 				t.reconcileCryostatFully()
 			})
-			Context("that is unbound", func() {
+			Context("that is successfully updates", func() {
 				BeforeEach(func() {
-					pvc.Status.Phase = corev1.ClaimPending
+					t.objs = append(t.objs, test.NewCryostatWithPVCSpec(), test.NewDefaultPVC())
 				})
 				It("should update metadata and spec", func() {
 					t.checkPVC(test.NewCustomPVC())
 				})
 			})
-			Context("that is bound", func() {
+			Context("that fails to update", func() {
+				var cr *operatorv1beta1.Cryostat
 				BeforeEach(func() {
-					pvc.Status.Phase = corev1.ClaimBound
+					cr = test.NewCryostat()
+					t.objs = append(t.objs, cr)
 				})
-				Context("with less storage", func() {
-					// Exisiting storage request (500MiB) is less than new request (10GiB)
-					It("should update metadata and spec", func() {
-						// Only the resource requests may be increased
-						expected := test.NewCustomPVC()
-						expected.Spec = test.NewDefaultPVC().Spec
-						expected.Spec.Resources.Requests[corev1.ResourceStorage] = resource.MustParse("10Gi")
-						t.checkPVC(expected)
+				JustBeforeEach(func() {
+					// Replace client with one that fails to update the PVC
+					pvc := test.NewDefaultPVC()
+					invalidErr := kerrors.NewInvalid(schema.ParseGroupKind("PersistentVolumeClaim"), pvc.Name, field.ErrorList{
+						field.Forbidden(field.NewPath("spec"), "test error"),
 					})
+					t.Client = test.NewClientWithUpdateError(t.Client, pvc, invalidErr)
+					t.controller.Client = t.Client
+
+					// Update PVC spec in CR
+					err := t.Client.Get(context.Background(), types.NamespacedName{Name: "cryostat", Namespace: "default"}, cr)
+					Expect(err).ToNot(HaveOccurred())
+					cr.Spec.StorageOptions = test.NewCryostatWithPVCSpec().Spec.StorageOptions
+					err = t.Client.Update(context.Background(), cr)
+					Expect(err).ToNot(HaveOccurred())
+
+					// Expect an Invalid status error after reconciling
+					req := reconcile.Request{NamespacedName: types.NamespacedName{Name: "cryostat", Namespace: "default"}}
+					_, err = t.controller.Reconcile(context.Background(), req)
+					Expect(err).To(HaveOccurred())
+					Expect(kerrors.IsInvalid(err)).To(BeTrue())
 				})
-				Context("with more storage", func() {
-					BeforeEach(func() {
-						// Exisiting storage request (500MiB) is greater than new request (256MiB)
-						cr.Spec.StorageOptions.PVC.Spec.Resources.Requests[corev1.ResourceStorage] = resource.MustParse("256Mi")
-					})
-					It("should update metadata and spec", func() {
-						// Nothing in spec can be changed
-						expected := test.NewCustomPVC()
-						expected.Spec = test.NewDefaultPVC().Spec
-						t.checkPVC(expected)
-					})
+				It("should emit a PersistentVolumeClaimInvalid event", func() {
+					recorder := t.controller.EventRecorder.(*record.FakeRecorder)
+					var eventMsg string
+					Expect(recorder.Events).To(Receive(&eventMsg))
+					Expect(eventMsg).To(ContainSubstring("PersistentVolumeClaimInvalid"))
 				})
 			})
 		})
@@ -2096,7 +2096,6 @@ func (t *cryostatTestInput) checkPVC(expectedPVC *corev1.PersistentVolumeClaim) 
 
 	pvcStorage := pvc.Spec.Resources.Requests["storage"]
 	expectedPVCStorage := expectedPVC.Spec.Resources.Requests["storage"]
-	fmt.Printf("Expected %s, Actual %s", expectedPVCStorage.String(), pvcStorage.String())
 	Expect(pvcStorage.Equal(expectedPVCStorage)).To(BeTrue())
 }
 

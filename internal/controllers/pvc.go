@@ -42,16 +42,20 @@ import (
 
 	operatorv1beta1 "github.com/cryostatio/cryostat-operator/api/v1beta1"
 	corev1 "k8s.io/api/core/v1"
+	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
+// Event type to inform users of invalid PVC specs
+const eventPersistentVolumeClaimInvalidType = "PersistentVolumeClaimInvalid"
+
 func (r *CryostatReconciler) reconcilePVC(ctx context.Context, cr *operatorv1beta1.Cryostat) error {
 	emptyDir := cr.Spec.StorageOptions != nil && cr.Spec.StorageOptions.EmptyDir != nil && cr.Spec.StorageOptions.EmptyDir.Enabled
 	if emptyDir {
 		// If user requested an emptyDir volume, then do nothing.
-		// Don't delete the PVC to accidental prevent data loss
+		// Don't delete the PVC to prevent accidental data loss
 		// depending on the reclaim policy.
 		return nil
 	}
@@ -65,7 +69,16 @@ func (r *CryostatReconciler) reconcilePVC(ctx context.Context, cr *operatorv1bet
 	// Look up PVC configuration, applying defaults where needed
 	config := configurePVC(cr)
 
-	return r.createOrUpdatePVC(ctx, pvc, cr, config)
+	err := r.createOrUpdatePVC(ctx, pvc, cr, config)
+	if err != nil {
+		// If the API server says the PVC is invalid, emit a warning event
+		// to inform the user.
+		if kerrors.IsInvalid(err) {
+			r.EventRecorder.Event(cr, corev1.EventTypeWarning, eventPersistentVolumeClaimInvalidType, err.Error())
+		}
+		return err
+	}
+	return nil
 }
 
 func (r *CryostatReconciler) createOrUpdatePVC(ctx context.Context, pvc *corev1.PersistentVolumeClaim,
@@ -78,18 +91,10 @@ func (r *CryostatReconciler) createOrUpdatePVC(ctx context.Context, pvc *corev1.
 		if err := controllerutil.SetControllerReference(owner, pvc, r.Scheme); err != nil {
 			return err
 		}
-		// Only the requests can be altered for bound claims
-		if pvc.Status.Phase == corev1.ClaimBound {
-			// Only the requests may be expanded
-			existingStorage := pvc.Spec.Resources.Requests.Storage()
-			requestedStorage := config.Spec.Resources.Requests.Storage()
-			if existingStorage != nil && existingStorage.Cmp(*requestedStorage) < 0 {
-				pvc.Spec.Resources.Requests[corev1.ResourceStorage] = *requestedStorage
-			}
-		} else {
-			// The entire spec can be modified
-			pvc.Spec = *config.Spec
-		}
+		// PVC admission control is complex and can depend on StorageClass implementation, see:
+		// https://kubernetes.io/docs/reference/access-authn-authz/admission-controllers/#persistentvolumeclaimresize
+		// Apply the PVC spec as requested, and send an Event if the creation/update fails.
+		pvc.Spec = *config.Spec
 		return nil
 	})
 	if err != nil {
