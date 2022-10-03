@@ -419,7 +419,7 @@ func NewPodForCR(cr *operatorv1beta1.Cryostat, specs *ServiceSpecs, imageTags *I
 		SecurityContext:              podSc,
 		HostAliases:                  hostAliases,
 		AutomountServiceAccountToken: &automountSAToken,
-    NodeSelector:                 nodeSelector,
+		NodeSelector:                 nodeSelector,
 		Affinity:                     affinity,
 		Tolerations:                  tolerations,
 	}

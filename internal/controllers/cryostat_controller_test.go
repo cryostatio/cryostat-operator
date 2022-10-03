@@ -2373,14 +2373,12 @@ func (t *cryostatTestInput) checkReportsDeployment() {
 	}
 
 	checkReportsContainer(&template.Spec.Containers[0], t.TLS, t.EnvReportsImageTag, resources, test.NewReportSecurityContext(cr))
-	// Check that the proper Service Account is set
-	Expect(template.Spec.ServiceAccountName).To(Equal("cryostat"))
 
 	// Check that the default Service Account is used
 	Expect(template.Spec.ServiceAccountName).To(BeEmpty())
 	Expect(template.Spec.AutomountServiceAccountToken).To(BeNil())
-  
-  if cr.Spec.ReportOptions != nil && cr.Spec.ReportOptions.SchedulingOptions != nil {
+
+	if cr.Spec.ReportOptions != nil && cr.Spec.ReportOptions.SchedulingOptions != nil {
 		scheduling := cr.Spec.ReportOptions.SchedulingOptions
 		Expect(template.Spec.NodeSelector).To(Equal(scheduling.NodeSelector))
 		if scheduling.Affinity != nil {
