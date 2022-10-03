@@ -89,6 +89,8 @@ var _ = Describe("CryostatController", func() {
 		logf.SetLogger(logger)
 		s := test.NewTestScheme()
 
+		// Set a CreationTimestamp for created objects to match a real API server
+		t.setCreationTimestamp()
 		t.Client = fake.NewClientBuilder().WithScheme(s).WithRuntimeObjects(t.objs...).Build()
 		t.controller = &controllers.CryostatReconciler{
 			Client:        t.Client,
@@ -305,7 +307,8 @@ var _ = Describe("CryostatController", func() {
 
 				t.checkMainPodTemplate(deploy, cr)
 
-				Expect(deploy.Spec.Selector).To(Equal(test.NewMainDeploymentSelector()))
+				// Deployment Selector is immutable
+				Expect(deploy.Spec.Selector).To(Equal(oldDeploy.Spec.Selector))
 				Expect(deploy.Spec.Replicas).To(Equal(oldDeploy.Spec.Replicas))
 			})
 		})
@@ -824,6 +827,18 @@ var _ = Describe("CryostatController", func() {
 				t.expectPVC(test.NewCustomPVCSomeDefault())
 			})
 		})
+		Context("with custom PVC spec containing a volumeName", func() {
+			BeforeEach(func() {
+				cr := test.NewCryostatWithPVCSpec()
+				cr.Spec.StorageOptions.PVC.Spec.VolumeName = "my-pv"
+				t.objs = append(t.objs, cr)
+			})
+			It("should create the PVC with requested spec", func() {
+				pvc := test.NewCustomPVC()
+				pvc.Spec.VolumeName = "my-pv"
+				t.expectPVC(pvc)
+			})
+		})
 		Context("with custom PVC config with no spec", func() {
 			BeforeEach(func() {
 				t.objs = append(t.objs, test.NewCryostatWithPVCLabelsOnly())
@@ -836,12 +851,26 @@ var _ = Describe("CryostatController", func() {
 			JustBeforeEach(func() {
 				t.reconcileCryostatFully()
 			})
-			Context("that is successfully updates", func() {
+			Context("that successfully updates", func() {
 				BeforeEach(func() {
 					t.objs = append(t.objs, test.NewCryostatWithPVCSpec(), test.NewDefaultPVC())
 				})
 				It("should update metadata and spec", func() {
 					t.checkPVC(test.NewCustomPVC())
+				})
+			})
+			Context("that is successfully updates with volumeName set", func() {
+				BeforeEach(func() {
+					pvc := test.NewDefaultPVC()
+					// Simulate volumeName being set by PV controller
+					pvc.Spec.VolumeName = "my-pv"
+					t.objs = append(t.objs, test.NewCryostatWithPVCSpec(), pvc)
+				})
+				It("should update metadata and spec", func() {
+					// volumeName should remain unmodified
+					expected := test.NewCustomPVC()
+					expected.Spec.VolumeName = "my-pv"
+					t.checkPVC(expected)
 				})
 			})
 			Context("that fails to update", func() {
@@ -2093,6 +2122,11 @@ func (t *cryostatTestInput) checkPVC(expectedPVC *corev1.PersistentVolumeClaim) 
 	checkMetadata(pvc, expectedPVC)
 	Expect(pvc.Spec.AccessModes).To(Equal(expectedPVC.Spec.AccessModes))
 	Expect(pvc.Spec.StorageClassName).To(Equal(expectedPVC.Spec.StorageClassName))
+	Expect(pvc.Spec.VolumeName).To(Equal(expectedPVC.Spec.VolumeName))
+	Expect(pvc.Spec.VolumeMode).To(Equal(expectedPVC.Spec.VolumeMode))
+	Expect(pvc.Spec.Selector).To(Equal(expectedPVC.Spec.Selector))
+	Expect(pvc.Spec.DataSource).To(Equal(expectedPVC.Spec.DataSource))
+	Expect(pvc.Spec.DataSourceRef).To(Equal(expectedPVC.Spec.DataSourceRef))
 
 	pvcStorage := pvc.Spec.Resources.Requests["storage"]
 	expectedPVCStorage := expectedPVC.Spec.Resources.Requests["storage"]
@@ -2571,4 +2605,14 @@ func (t *cryostatTestInput) checkEnvironmentVariables(expectedEnvVars []corev1.E
 	coreContainer := template.Spec.Containers[0]
 
 	Expect(coreContainer.Env).To(ContainElements(expectedEnvVars))
+}
+
+var creationTimestamp = metav1.NewTime(time.Unix(1664573254, 0))
+
+func (t *cryostatTestInput) setCreationTimestamp() {
+	for _, obj := range t.objs {
+		metaObj, err := meta.Accessor(obj)
+		Expect(err).ToNot(HaveOccurred())
+		metaObj.SetCreationTimestamp(creationTimestamp)
+	}
 }

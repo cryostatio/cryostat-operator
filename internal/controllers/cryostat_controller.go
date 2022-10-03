@@ -44,6 +44,7 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
+	"github.com/google/go-cmp/cmp"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -615,10 +616,12 @@ func (r *CryostatReconciler) updateConditionsFromDeployment(ctx context.Context,
 func (r *CryostatReconciler) createOrUpdateDeployment(ctx context.Context, deploy *appsv1.Deployment, owner metav1.Object) error {
 	metaCopy := deploy.ObjectMeta.DeepCopy()
 	specCopy := deploy.Spec.DeepCopy()
+	var oldDeploy *appsv1.Deployment
 	op, err := controllerutil.CreateOrUpdate(ctx, r.Client, deploy, func() error {
+		oldDeploy = deploy.DeepCopy()
 		// TODO consider managing labels and annotations using CRD
 		// Merge any required labels and annotations
-		mergeLabelsAndAnnotations(&deploy.ObjectMeta, metaCopy)
+		mergeLabelsAndAnnotations(&deploy.ObjectMeta, metaCopy.Labels, metaCopy.Annotations)
 		// Set the Cryostat CR as controller
 		if err := controllerutil.SetControllerReference(owner, deploy, r.Scheme); err != nil {
 			return err
@@ -634,11 +637,16 @@ func (r *CryostatReconciler) createOrUpdateDeployment(ctx context.Context, deplo
 		// Update pod template spec to propagate any changes from Cryostat CR
 		deploy.Spec.Template.Spec = specCopy.Template.Spec
 		// Update pod template metadata
-		mergeLabelsAndAnnotations(&deploy.Spec.Template.ObjectMeta, &specCopy.Template.ObjectMeta)
+		mergeLabelsAndAnnotations(&deploy.Spec.Template.ObjectMeta, specCopy.Template.Labels,
+			specCopy.Template.Annotations)
 		return nil
 	})
 	if err != nil {
 		return err
+	}
+	// XXX
+	if op == controllerutil.OperationResultUpdated {
+		r.Log.Info(cmp.Diff(oldDeploy, deploy))
 	}
 	r.Log.Info(fmt.Sprintf("Deployment %s", op), "name", deploy.Name, "namespace", deploy.Namespace)
 	return nil
@@ -669,25 +677,20 @@ func findDeployCondition(conditions []appsv1.DeploymentCondition, condType appsv
 	return nil
 }
 
-func mergeLabelsAndAnnotations(dest *metav1.ObjectMeta, src *metav1.ObjectMeta) {
+func mergeLabelsAndAnnotations(dest *metav1.ObjectMeta, srcLabels, srcAnnotations map[string]string) {
 	// Check and create labels/annotations map if absent
-	createLabelsAndAnnotationsIfAbsent(dest)
-	// Merge labels and annotations, preferring those specified by the operator
-	labels := dest.GetLabels()
-	for k, v := range src.GetLabels() {
-		labels[k] = v
+	if dest.Labels == nil {
+		dest.Labels = map[string]string{}
 	}
-	annotations := dest.GetAnnotations()
-	for k, v := range src.GetAnnotations() {
-		annotations[k] = v
+	if dest.Annotations == nil {
+		dest.Annotations = map[string]string{}
 	}
-}
 
-func createLabelsAndAnnotationsIfAbsent(metadata *metav1.ObjectMeta) {
-	if metadata.Labels == nil {
-		metadata.Labels = map[string]string{}
+	// Merge labels and annotations, preferring those in the source
+	for k, v := range srcLabels {
+		dest.Labels[k] = v
 	}
-	if metadata.Annotations == nil {
-		metadata.Annotations = map[string]string{}
+	for k, v := range srcAnnotations {
+		dest.Annotations[k] = v
 	}
 }
