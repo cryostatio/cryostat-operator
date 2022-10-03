@@ -2111,6 +2111,25 @@ func NewRole() *rbacv1.Role {
 	}
 }
 
+func OtherRole() *rbacv1.Role {
+	return &rbacv1.Role{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "cryostat",
+			Namespace: "default",
+			Labels: map[string]string{
+				"test": "label",
+			},
+		},
+		Rules: []rbacv1.PolicyRule{
+			{
+				Verbs:     []string{"*"},
+				APIGroups: []string{"*"},
+				Resources: []string{"*"},
+			},
+		},
+	}
+}
+
 func NewAuthClusterRole() *rbacv1.ClusterRole {
 	return &rbacv1.ClusterRole{
 		ObjectMeta: metav1.ObjectMeta{
@@ -2152,6 +2171,34 @@ func NewRoleBinding() *rbacv1.RoleBinding {
 	}
 }
 
+func OtherRoleBinding() *rbacv1.RoleBinding {
+	return &rbacv1.RoleBinding{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "cryostat",
+			Namespace: "default",
+			Labels: map[string]string{
+				"test": "label",
+			},
+		},
+		Subjects: []rbacv1.Subject{
+			{
+				Kind:      rbacv1.ServiceAccountKind,
+				Name:      "not-cryostat",
+				Namespace: "default",
+			},
+			{
+				Kind: rbacv1.UserKind,
+				Name: "also-not-cryostat",
+			},
+		},
+		RoleRef: rbacv1.RoleRef{
+			APIGroup: "rbac.authorization.k8s.io",
+			Kind:     "ClusterRole",
+			Name:     "not-cryostat",
+		},
+	}
+}
+
 func NewClusterRoleBinding() *rbacv1.ClusterRoleBinding {
 	return &rbacv1.ClusterRoleBinding{
 		ObjectMeta: metav1.ObjectMeta{
@@ -2168,6 +2215,33 @@ func NewClusterRoleBinding() *rbacv1.ClusterRoleBinding {
 			APIGroup: "rbac.authorization.k8s.io",
 			Kind:     "ClusterRole",
 			Name:     "cryostat-operator-cryostat",
+		},
+	}
+}
+
+func OtherClusterRoleBinding() *rbacv1.ClusterRoleBinding {
+	return &rbacv1.ClusterRoleBinding{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "cryostat-9ecd5050500c2566765bc593edfcce12434283e5da32a27476bc4a1569304a02",
+			Labels: map[string]string{
+				"test": "label",
+			},
+		},
+		Subjects: []rbacv1.Subject{
+			{
+				Kind:      rbacv1.ServiceAccountKind,
+				Name:      "not-cryostat",
+				Namespace: "default",
+			},
+			{
+				Kind: rbacv1.UserKind,
+				Name: "also-not-cryostat",
+			},
+		},
+		RoleRef: rbacv1.RoleRef{
+			APIGroup: "rbac.authorization.k8s.io",
+			Kind:     "ClusterRole",
+			Name:     "not-cryostat",
 		},
 	}
 }
