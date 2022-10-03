@@ -549,9 +549,9 @@ func NewPodForReports(cr *operatorv1beta1.Cryostat, imageTags *ImageTags, tls *T
 	var nodeSelector map[string]string
 	var affinity *corev1.Affinity
 	var tolerations []corev1.Toleration
-	var schedulingOptions = cr.Spec.ReportOptions.SchedulingOptions
 
-	if schedulingOptions != nil {
+	if cr.Spec.ReportOptions != nil && cr.Spec.ReportOptions.SchedulingOptions != nil {
+		schedulingOptions := cr.Spec.ReportOptions.SchedulingOptions
 		nodeSelector = schedulingOptions.NodeSelector
 		if cr.Spec.SchedulingOptions.Affinity != nil {
 			affinity = &corev1.Affinity{
