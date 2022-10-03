@@ -54,6 +54,7 @@ import (
 	rbacv1 "k8s.io/api/rbac/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -827,18 +828,6 @@ var _ = Describe("CryostatController", func() {
 				t.expectPVC(test.NewCustomPVCSomeDefault())
 			})
 		})
-		Context("with custom PVC spec containing a volumeName", func() {
-			BeforeEach(func() {
-				cr := test.NewCryostatWithPVCSpec()
-				cr.Spec.StorageOptions.PVC.Spec.VolumeName = "my-pv"
-				t.objs = append(t.objs, cr)
-			})
-			It("should create the PVC with requested spec", func() {
-				pvc := test.NewCustomPVC()
-				pvc.Spec.VolumeName = "my-pv"
-				t.expectPVC(pvc)
-			})
-		})
 		Context("with custom PVC config with no spec", func() {
 			BeforeEach(func() {
 				t.objs = append(t.objs, test.NewCryostatWithPVCLabelsOnly())
@@ -853,23 +842,22 @@ var _ = Describe("CryostatController", func() {
 			})
 			Context("that successfully updates", func() {
 				BeforeEach(func() {
-					t.objs = append(t.objs, test.NewCryostatWithPVCSpec(), test.NewDefaultPVC())
+					existing := test.NewDefaultPVC()
+					// Add some labels and annotations to test merging
+					metav1.SetMetaDataLabel(&existing.ObjectMeta, "my", "other-label")
+					metav1.SetMetaDataLabel(&existing.ObjectMeta, "another", "label")
+					metav1.SetMetaDataAnnotation(&existing.ObjectMeta, "my/custom", "other-annotation")
+					metav1.SetMetaDataAnnotation(&existing.ObjectMeta, "another/custom", "annotation")
+					t.objs = append(t.objs, test.NewCryostatWithPVCSpec(), existing)
 				})
-				It("should update metadata and spec", func() {
-					t.checkPVC(test.NewCustomPVC())
-				})
-			})
-			Context("that is successfully updates with volumeName set", func() {
-				BeforeEach(func() {
-					pvc := test.NewDefaultPVC()
-					// Simulate volumeName being set by PV controller
-					pvc.Spec.VolumeName = "my-pv"
-					t.objs = append(t.objs, test.NewCryostatWithPVCSpec(), pvc)
-				})
-				It("should update metadata and spec", func() {
-					// volumeName should remain unmodified
-					expected := test.NewCustomPVC()
-					expected.Spec.VolumeName = "my-pv"
+				It("should update metadata and resource requests", func() {
+					expected := test.NewDefaultPVC()
+					metav1.SetMetaDataLabel(&expected.ObjectMeta, "my", "label")
+					metav1.SetMetaDataLabel(&expected.ObjectMeta, "another", "label")
+					metav1.SetMetaDataLabel(&expected.ObjectMeta, "app", "cryostat")
+					metav1.SetMetaDataAnnotation(&expected.ObjectMeta, "my/custom", "annotation")
+					metav1.SetMetaDataAnnotation(&expected.ObjectMeta, "another/custom", "annotation")
+					expected.Spec.Resources.Requests[corev1.ResourceStorage] = resource.MustParse("10Gi")
 					t.checkPVC(expected)
 				})
 			})

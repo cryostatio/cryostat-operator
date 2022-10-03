@@ -41,7 +41,6 @@ import (
 	"fmt"
 
 	operatorv1beta1 "github.com/cryostatio/cryostat-operator/api/v1beta1"
-	"github.com/google/go-cmp/cmp"
 	corev1 "k8s.io/api/core/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -84,37 +83,32 @@ func (r *CryostatReconciler) reconcilePVC(ctx context.Context, cr *operatorv1bet
 
 func (r *CryostatReconciler) createOrUpdatePVC(ctx context.Context, pvc *corev1.PersistentVolumeClaim,
 	owner metav1.Object, config *operatorv1beta1.PersistentVolumeClaimConfig) error {
-	var oldPVC *corev1.PersistentVolumeClaim
 	op, err := controllerutil.CreateOrUpdate(ctx, r.Client, pvc, func() error {
-		oldPVC = pvc.DeepCopy()
 		// Merge labels and annotations to prevent overriding any set by Kubernetes
 		mergeLabelsAndAnnotations(&pvc.ObjectMeta, config.Labels, config.Annotations)
-		fmt.Println(config.Labels) // TODO add test for merging label/annotation
 
 		// Set the Cryostat CR as controller
 		if err := controllerutil.SetControllerReference(owner, pvc, r.Scheme); err != nil {
 			return err
 		}
 
-		// PVC admission control is complex and can depend on StorageClass implementation, see:
-		// https://kubernetes.io/docs/reference/access-authn-authz/admission-controllers/#persistentvolumeclaimresize
-		// Apply the PVC spec as requested, and send an Event if the creation/update fails.
-		volumeName := pvc.Spec.VolumeName
-		pvc.Spec = *config.Spec
-
-		// Spec.VolumeName is set by the Persistent Volume Controller, and can only be set once.
-		// Avoid setting this field for already created PVCs.
-		if !pvc.CreationTimestamp.IsZero() {
-			pvc.Spec.VolumeName = volumeName
+		// Several PVC spec fields are modified by Kubernetes controllers (e.g. VolumeName, StorageClassName).
+		// Resetting those modifications to the values from our CR results in an infinite loop of
+		// modifications between our controller and the Kubernetes controllers.
+		// To avoid this, only set the PVC spec fields (except resources) during creation.
+		// In most cases, updates to these fields are invalid anyways.
+		if pvc.CreationTimestamp.IsZero() {
+			pvc.Spec = *config.Spec
+		} else {
+			// Resource requests can be expanded, and in rare cases shrunken. Let the modification proceed,
+			// and if not admitted, let the user know with a warning Event.
+			requestedStorage := config.Spec.Resources.Requests.Storage()
+			pvc.Spec.Resources.Requests[corev1.ResourceStorage] = *requestedStorage
 		}
 		return nil
 	})
 	if err != nil {
 		return err
-	}
-	// XXX
-	if op == controllerutil.OperationResultUpdated {
-		r.Log.Info(cmp.Diff(oldPVC, pvc))
 	}
 	r.Log.Info(fmt.Sprintf("Persistent Volume Claim %s", op), "name", pvc.Name, "namespace", pvc.Namespace)
 	return nil

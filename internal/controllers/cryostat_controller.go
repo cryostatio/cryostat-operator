@@ -44,7 +44,6 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
-	"github.com/google/go-cmp/cmp"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -616,9 +615,7 @@ func (r *CryostatReconciler) updateConditionsFromDeployment(ctx context.Context,
 func (r *CryostatReconciler) createOrUpdateDeployment(ctx context.Context, deploy *appsv1.Deployment, owner metav1.Object) error {
 	metaCopy := deploy.ObjectMeta.DeepCopy()
 	specCopy := deploy.Spec.DeepCopy()
-	var oldDeploy *appsv1.Deployment
 	op, err := controllerutil.CreateOrUpdate(ctx, r.Client, deploy, func() error {
-		oldDeploy = deploy.DeepCopy()
 		// TODO consider managing labels and annotations using CRD
 		// Merge any required labels and annotations
 		mergeLabelsAndAnnotations(&deploy.ObjectMeta, metaCopy.Labels, metaCopy.Annotations)
@@ -643,10 +640,6 @@ func (r *CryostatReconciler) createOrUpdateDeployment(ctx context.Context, deplo
 	})
 	if err != nil {
 		return err
-	}
-	// XXX
-	if op == controllerutil.OperationResultUpdated {
-		r.Log.Info(cmp.Diff(oldDeploy, deploy))
 	}
 	r.Log.Info(fmt.Sprintf("Deployment %s", op), "name", deploy.Name, "namespace", deploy.Namespace)
 	return nil
