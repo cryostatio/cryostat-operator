@@ -394,6 +394,23 @@ func NewPodForCR(cr *operatorv1beta1.Cryostat, specs *ServiceSpecs, imageTags *I
 			},
 		},
 	}
+	var nodeSelector map[string]string
+	var affinity *corev1.Affinity
+	var tolerations []corev1.Toleration
+
+	if cr.Spec.SchedulingOptions != nil {
+		nodeSelector = cr.Spec.SchedulingOptions.NodeSelector
+
+		if cr.Spec.SchedulingOptions.Affinity != nil {
+			affinity = &corev1.Affinity{
+				NodeAffinity:    cr.Spec.SchedulingOptions.Affinity.NodeAffinity,
+				PodAffinity:     cr.Spec.SchedulingOptions.Affinity.PodAffinity,
+				PodAntiAffinity: cr.Spec.SchedulingOptions.Affinity.PodAntiAffinity,
+			}
+		}
+		tolerations = cr.Spec.SchedulingOptions.Tolerations
+	}
+
 	automountSAToken := true
 	return &corev1.PodSpec{
 		ServiceAccountName:           cr.Name,
@@ -402,6 +419,9 @@ func NewPodForCR(cr *operatorv1beta1.Cryostat, specs *ServiceSpecs, imageTags *I
 		SecurityContext:              podSc,
 		HostAliases:                  hostAliases,
 		AutomountServiceAccountToken: &automountSAToken,
+		NodeSelector:                 nodeSelector,
+		Affinity:                     affinity,
+		Tolerations:                  tolerations,
 	}
 }
 
@@ -524,6 +544,23 @@ func NewPodForReports(cr *operatorv1beta1.Cryostat, imageTags *ImageTags, tls *T
 		}
 	}
 
+	var nodeSelector map[string]string
+	var affinity *corev1.Affinity
+	var tolerations []corev1.Toleration
+
+	if cr.Spec.ReportOptions != nil && cr.Spec.ReportOptions.SchedulingOptions != nil {
+		schedulingOptions := cr.Spec.ReportOptions.SchedulingOptions
+		nodeSelector = schedulingOptions.NodeSelector
+		if cr.Spec.SchedulingOptions.Affinity != nil {
+			affinity = &corev1.Affinity{
+				NodeAffinity:    schedulingOptions.Affinity.NodeAffinity,
+				PodAffinity:     schedulingOptions.Affinity.PodAffinity,
+				PodAntiAffinity: schedulingOptions.Affinity.PodAntiAffinity,
+			}
+		}
+		tolerations = schedulingOptions.Tolerations
+	}
+
 	return &corev1.PodSpec{
 		Containers: []corev1.Container{
 			{
@@ -548,6 +585,9 @@ func NewPodForReports(cr *operatorv1beta1.Cryostat, imageTags *ImageTags, tls *T
 			},
 		},
 		Volumes:         volumes,
+		NodeSelector:    nodeSelector,
+		Affinity:        affinity,
+		Tolerations:     tolerations,
 		SecurityContext: podSc,
 	}
 }
