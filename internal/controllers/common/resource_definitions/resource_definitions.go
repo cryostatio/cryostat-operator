@@ -586,10 +586,10 @@ func NewPodForReports(cr *operatorv1beta1.Cryostat, imageTags *ImageTags, tls *T
 				SecurityContext: containerSc,
 			},
 		},
-		Volumes:              volumes,
-		NodeSelector: nodeSelector,
-		Affinity:     affinity,
-		Tolerations:  tolerations,
+		Volumes:         volumes,
+		NodeSelector:    nodeSelector,
+		Affinity:        affinity,
+		Tolerations:     tolerations,
 		SecurityContext: podSc,
 	}
 }
