@@ -545,7 +545,6 @@ func NewPodForReports(cr *operatorv1beta1.Cryostat, imageTags *ImageTags, tls *T
 		}
 	}
 
-
 	var nodeSelector map[string]string
 	var affinity *corev1.Affinity
 	var tolerations []corev1.Toleration
