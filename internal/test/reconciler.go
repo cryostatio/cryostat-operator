@@ -37,6 +37,7 @@
 package test
 
 import (
+	"fmt"
 	"strconv"
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -64,7 +65,8 @@ func NewTestReconcilerTLS(config *TestReconcilerConfig) common.ReconcilerTLS {
 }
 
 type testOSUtils struct {
-	envs map[string]string
+	envs       map[string]string
+	numPassGen int
 }
 
 func newTestOSUtils(config *TestReconcilerConfig) *testOSUtils {
@@ -84,7 +86,7 @@ func newTestOSUtils(config *TestReconcilerConfig) *testOSUtils {
 	if config.EnvReportsImageTag != nil {
 		envs["RELATED_IMAGE_REPORTS"] = *config.EnvReportsImageTag
 	}
-	return &testOSUtils{envs}
+	return &testOSUtils{envs: envs}
 }
 
 func (o *testOSUtils) GetFileContents(path string) ([]byte, error) {
@@ -94,4 +96,9 @@ func (o *testOSUtils) GetFileContents(path string) ([]byte, error) {
 
 func (o *testOSUtils) GetEnv(name string) string {
 	return o.envs[name]
+}
+
+func (o *testOSUtils) GenPasswd(length int) string {
+	o.numPassGen++
+	return fmt.Sprintf("pass%d", o.numPassGen)
 }

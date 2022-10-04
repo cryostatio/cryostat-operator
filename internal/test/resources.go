@@ -730,6 +730,58 @@ func NewTestService() *corev1.Service {
 	}
 }
 
+func NewGrafanaSecret() *corev1.Secret {
+	return &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "cryostat-grafana-basic",
+			Namespace: "default",
+		},
+		StringData: map[string]string{
+			"GF_SECURITY_ADMIN_USER":     "admin",
+			"GF_SECURITY_ADMIN_PASSWORD": "pass1",
+		},
+	}
+}
+
+func OtherGrafanaSecret() *corev1.Secret {
+	return &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "cryostat-grafana-basic",
+			Namespace: "default",
+		},
+		StringData: map[string]string{
+			"GF_SECURITY_ADMIN_USER":     "user",
+			"GF_SECURITY_ADMIN_PASSWORD": "goodpassword",
+		},
+	}
+}
+
+func NewJMXSecret() *corev1.Secret {
+	return &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "cryostat-jmx-auth",
+			Namespace: "default",
+		},
+		StringData: map[string]string{
+			"CRYOSTAT_RJMX_USER": "cryostat",
+			"CRYOSTAT_RJMX_PASS": "pass2",
+		},
+	}
+}
+
+func OtherJMXSecret() *corev1.Secret {
+	return &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "cryostat-jmx-auth",
+			Namespace: "default",
+		},
+		StringData: map[string]string{
+			"CRYOSTAT_RJMX_USER": "not-cryostat",
+			"CRYOSTAT_RJMX_PASS": "other-pass",
+		},
+	}
+}
+
 func NewCryostatCert() *certv1.Certificate {
 	return &certv1.Certificate{
 		ObjectMeta: metav1.ObjectMeta{

@@ -68,7 +68,6 @@ import (
 
 	operatorv1beta1 "github.com/cryostatio/cryostat-operator/api/v1beta1"
 	"github.com/cryostatio/cryostat-operator/internal/controllers"
-	"github.com/cryostatio/cryostat-operator/internal/controllers/common/resource_definitions"
 	"github.com/cryostatio/cryostat-operator/internal/test"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 )
@@ -91,8 +90,10 @@ var _ = Describe("CryostatController", func() {
 		s := test.NewTestScheme()
 
 		// Set a CreationTimestamp for created objects to match a real API server
-		t.setCreationTimestamp()
-		t.Client = fake.NewClientBuilder().WithScheme(s).WithRuntimeObjects(t.objs...).Build()
+		// TODO When using envtest instead of fake client, this is probably no longer needed
+		err := test.SetCreationTimestamp(t.objs...)
+		Expect(err).ToNot(HaveOccurred())
+		t.Client = test.NewClientWithTimestamp(fake.NewClientBuilder().WithScheme(s).WithRuntimeObjects(t.objs...).Build())
 		t.controller = &controllers.CryostatReconciler{
 			Client:        t.Client,
 			Scheme:        s,
@@ -149,9 +150,9 @@ var _ = Describe("CryostatController", func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				// Compare to desired spec
-				expectedSecret := resource_definitions.NewGrafanaSecretForCR(test.NewCryostat())
+				expectedSecret := test.NewGrafanaSecret()
 				checkMetadata(secret, expectedSecret)
-				Expect(secret.StringData["GF_SECURITY_ADMIN_USER"]).To(Equal(expectedSecret.StringData["GF_SECURITY_ADMIN_USER"]))
+				Expect(secret.StringData).To(Equal(expectedSecret.StringData))
 			})
 			It("should create JMX secret and set owner", func() {
 				t.expectJMXSecret()
@@ -422,6 +423,52 @@ var _ = Describe("CryostatController", func() {
 				expected := test.NewClusterRoleBinding()
 				Expect(binding.Subjects).To(Equal(expected.Subjects))
 				Expect(binding.RoleRef).To(Equal(expected.RoleRef))
+			})
+		})
+		Context("with an existing Grafana Secret", func() {
+			var cr *operatorv1beta1.Cryostat
+			var oldSecret *corev1.Secret
+			BeforeEach(func() {
+				cr = test.NewCryostat()
+				oldSecret = test.OtherGrafanaSecret()
+				t.objs = append(t.objs, cr, oldSecret)
+			})
+			It("should update the username but not password", func() {
+				t.reconcileCryostatFully()
+
+				secret := &corev1.Secret{}
+				err := t.Client.Get(context.Background(), types.NamespacedName{Name: oldSecret.Name, Namespace: "default"}, secret)
+				Expect(err).ToNot(HaveOccurred())
+
+				Expect(metav1.IsControlledBy(secret, cr)).To(BeTrue())
+
+				// Username should be replaced, but not password
+				expected := test.NewGrafanaSecret()
+				Expect(secret.StringData["GF_SECURITY_ADMIN_USER"]).To(Equal(expected.StringData["GF_SECURITY_ADMIN_USER"]))
+				Expect(secret.StringData["GF_SECURITY_ADMIN_PASSWORD"]).To(Equal(oldSecret.StringData["GF_SECURITY_ADMIN_PASSWORD"]))
+			})
+		})
+		Context("with an existing JMX Secret", func() {
+			var cr *operatorv1beta1.Cryostat
+			var oldSecret *corev1.Secret
+			BeforeEach(func() {
+				cr = test.NewCryostat()
+				oldSecret = test.OtherJMXSecret()
+				t.objs = append(t.objs, cr, oldSecret)
+			})
+			It("should update the username but not password", func() {
+				t.reconcileCryostatFully()
+
+				secret := &corev1.Secret{}
+				err := t.Client.Get(context.Background(), types.NamespacedName{Name: oldSecret.Name, Namespace: "default"}, secret)
+				Expect(err).ToNot(HaveOccurred())
+
+				Expect(metav1.IsControlledBy(secret, cr)).To(BeTrue())
+
+				// Username should be replaced, but not password
+				expected := test.NewJMXSecret()
+				Expect(secret.StringData["CRYOSTAT_RJMX_USER"]).To(Equal(expected.StringData["CRYOSTAT_RJMX_USER"]))
+				Expect(secret.StringData["CRYOSTAT_RJMX_PASS"]).To(Equal(oldSecret.StringData["CRYOSTAT_RJMX_PASS"]))
 			})
 		})
 		Context("with existing Routes", func() {
@@ -2136,9 +2183,9 @@ func (t *cryostatTestInput) expectJMXSecret() {
 	err = t.Client.Get(context.Background(), types.NamespacedName{Name: "cryostat-jmx-auth", Namespace: "default"}, secret)
 	Expect(err).ToNot(HaveOccurred())
 
-	expectedSecret := resource_definitions.NewJmxSecretForCR(test.NewCryostat())
+	expectedSecret := test.NewJMXSecret()
 	checkMetadata(secret, expectedSecret)
-	Expect(secret.StringData["CRYOSTAT_RJMX_USER"]).To(Equal(expectedSecret.StringData["CRYOSTAT_RJMX_USER"]))
+	Expect(secret.StringData).To(Equal(expectedSecret.StringData))
 }
 
 func (t *cryostatTestInput) expectCoreService() {
@@ -2154,6 +2201,7 @@ func (t *cryostatTestInput) expectCoreService() {
 func (t *cryostatTestInput) expectStatusApplicationURL() {
 	instance := &operatorv1beta1.Cryostat{}
 	err := t.Client.Get(context.Background(), types.NamespacedName{Name: "cryostat", Namespace: "default"}, instance)
+	Expect(err).ToNot(HaveOccurred())
 
 	t.reconcileCryostatFully()
 
@@ -2166,6 +2214,7 @@ func (t *cryostatTestInput) expectStatusApplicationURL() {
 func (t *cryostatTestInput) expectStatusGrafanaSecretName() {
 	instance := &operatorv1beta1.Cryostat{}
 	err := t.Client.Get(context.Background(), types.NamespacedName{Name: "cryostat", Namespace: "default"}, instance)
+	Expect(err).ToNot(HaveOccurred())
 
 	t.reconcileCryostatFully()
 
@@ -2583,14 +2632,4 @@ func (t *cryostatTestInput) checkEnvironmentVariables(expectedEnvVars []corev1.E
 	coreContainer := template.Spec.Containers[0]
 
 	Expect(coreContainer.Env).To(ContainElements(expectedEnvVars))
-}
-
-var creationTimestamp = metav1.NewTime(time.Unix(1664573254, 0))
-
-func (t *cryostatTestInput) setCreationTimestamp() {
-	for _, obj := range t.objs {
-		metaObj, err := meta.Accessor(obj)
-		Expect(err).ToNot(HaveOccurred())
-		metaObj.SetCreationTimestamp(creationTimestamp)
-	}
 }

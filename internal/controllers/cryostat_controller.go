@@ -153,7 +153,7 @@ func (r *CryostatReconciler) Reconcile(ctx context.Context, request ctrl.Request
 
 	// Fetch the Cryostat instance
 	instance := &operatorv1beta1.Cryostat{}
-	err := r.Client.Get(context.Background(), request.NamespacedName, instance)
+	err := r.Client.Get(ctx, request.NamespacedName, instance)
 	if err != nil {
 		if errors.IsNotFound(err) {
 			// Request object not found, could have been deleted after reconcile request.
@@ -199,7 +199,7 @@ func (r *CryostatReconciler) Reconcile(ctx context.Context, request ctrl.Request
 
 	// Add our finalizer, so we can clean up Cryostat resources upon deletion
 	if !controllerutil.ContainsFinalizer(instance, cryostatFinalizer) {
-		err := common.AddFinalizer(context.Background(), r.Client, instance, cryostatFinalizer)
+		err := common.AddFinalizer(ctx, r.Client, instance, cryostatFinalizer)
 		if err != nil {
 			return reconcile.Result{}, err
 		}
@@ -212,26 +212,15 @@ func (r *CryostatReconciler) Reconcile(ctx context.Context, request ctrl.Request
 		return reconcile.Result{}, err
 	}
 
-	grafanaSecret := resources.NewGrafanaSecretForCR(instance)
-	if err := controllerutil.SetControllerReference(instance, grafanaSecret, r.Scheme); err != nil {
-		return reconcile.Result{}, err
-	}
-	if err = r.createObjectIfNotExists(context.Background(), types.NamespacedName{Name: grafanaSecret.Name, Namespace: grafanaSecret.Namespace}, &corev1.Secret{}, grafanaSecret); err != nil {
-		return reconcile.Result{}, err
-	}
-
-	jmxAuthSecret := resources.NewJmxSecretForCR(instance)
-	if err := controllerutil.SetControllerReference(instance, jmxAuthSecret, r.Scheme); err != nil {
-		return reconcile.Result{}, err
-	}
-	if err = r.createObjectIfNotExists(context.Background(), types.NamespacedName{Name: jmxAuthSecret.Name, Namespace: jmxAuthSecret.Namespace}, &corev1.Secret{}, jmxAuthSecret); err != nil {
+	err = r.reconcileSecrets(ctx, instance)
+	if err != nil {
 		return reconcile.Result{}, err
 	}
 
 	// Set up TLS using cert-manager, if available
 	var tlsConfig *resources.TLSConfig
 	if r.IsCertManagerEnabled(instance) {
-		tlsConfig, err = r.setupTLS(context.Background(), instance)
+		tlsConfig, err = r.setupTLS(ctx, instance)
 		if err != nil {
 			if err == common.ErrCertNotReady {
 				condErr := r.updateCondition(ctx, instance, operatorv1beta1.ConditionTypeTLSSetupComplete, metav1.ConditionFalse,
@@ -250,7 +239,7 @@ func (r *CryostatReconciler) Reconcile(ctx context.Context, request ctrl.Request
 		}
 
 		// Get CA certificate from secret and set as destination CA in route
-		caCert, err := r.GetCryostatCABytes(context.Background(), instance)
+		caCert, err := r.GetCryostatCABytes(ctx, instance)
 		if err != nil {
 			return reconcile.Result{}, err
 		}
@@ -304,14 +293,6 @@ func (r *CryostatReconciler) Reconcile(ctx context.Context, request ctrl.Request
 
 	if serviceSpecs.CoreURL != nil {
 		instance.Status.ApplicationURL = serviceSpecs.CoreURL.String()
-		err = r.Client.Status().Update(context.Background(), instance)
-		if err != nil {
-			return reconcile.Result{}, err
-		}
-	}
-
-	if grafanaSecret != nil {
-		instance.Status.GrafanaSecret = grafanaSecret.Name
 		err = r.Client.Status().Update(ctx, instance)
 		if err != nil {
 			return reconcile.Result{}, err
@@ -507,7 +488,7 @@ func (r *CryostatReconciler) deleteConsoleLink(ctx context.Context, cr *operator
 func (r *CryostatReconciler) addCorsAllowedOriginIfNotPresent(ctx context.Context, allowedOrigin string, cr *operatorv1beta1.Cryostat) error {
 	reqLogger := r.Log.WithValues("Request.Namespace", cr.Namespace, "Request.Name", cr.Name)
 	apiServer := &configv1.APIServer{}
-	err := r.Client.Get(context.Background(), types.NamespacedName{Name: apiServerName}, apiServer)
+	err := r.Client.Get(ctx, types.NamespacedName{Name: apiServerName}, apiServer)
 	if err != nil {
 		reqLogger.Error(err, "Failed to get APIServer config")
 		return err
@@ -538,7 +519,7 @@ func (r *CryostatReconciler) addCorsAllowedOriginIfNotPresent(ctx context.Contex
 func (r *CryostatReconciler) deleteCorsAllowedOrigins(ctx context.Context, allowedOrigin string, cr *operatorv1beta1.Cryostat) error {
 	reqLogger := r.Log.WithValues("Request.Namespace", cr.Namespace, "Request.Name", cr.Name)
 	apiServer := &configv1.APIServer{}
-	err := r.Client.Get(context.Background(), types.NamespacedName{Name: apiServerName}, apiServer)
+	err := r.Client.Get(ctx, types.NamespacedName{Name: apiServerName}, apiServer)
 	if err != nil {
 		reqLogger.Error(err, "Failed to get APIServer config")
 		return err

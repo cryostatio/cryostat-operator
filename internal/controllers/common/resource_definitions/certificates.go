@@ -95,7 +95,7 @@ func NewCryostatCACert(cr *operatorv1beta1.Cryostat) *certv1.Certificate {
 	}
 }
 
-func NewCryostatCert(cr *operatorv1beta1.Cryostat) *certv1.Certificate {
+func NewCryostatCert(cr *operatorv1beta1.Cryostat, keystoreSecretName string) *certv1.Certificate {
 	return &certv1.Certificate{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      cr.Name,
@@ -114,7 +114,7 @@ func NewCryostatCert(cr *operatorv1beta1.Cryostat) *certv1.Certificate {
 					Create: true,
 					PasswordSecretRef: certMeta.SecretKeySelector{
 						LocalObjectReference: certMeta.LocalObjectReference{
-							Name: cr.Name + "-keystore",
+							Name: keystoreSecretName,
 						},
 						Key: "KEYSTORE_PASS",
 					},

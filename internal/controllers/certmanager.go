@@ -90,13 +90,14 @@ func (r *CryostatReconciler) setupTLS(ctx context.Context, cr *operatorv1beta1.C
 	}
 
 	// Create secret to hold keystore password
-	err = r.createOrUpdateKeystoreSecret(ctx, resources.NewKeystoreSecretForCR(cr), cr)
+	keystoreSecret := newKeystoreSecret(cr)
+	err = r.createOrUpdateKeystoreSecret(ctx, keystoreSecret, cr)
 	if err != nil {
 		return nil, err
 	}
 
 	// Create a certificate for Cryostat signed by the CA just created
-	cryostatCert := resources.NewCryostatCert(cr)
+	cryostatCert := resources.NewCryostatCert(cr, keystoreSecret.Name)
 	err = r.createOrUpdateCertificate(ctx, cryostatCert, cr)
 	if err != nil {
 		return nil, err
@@ -206,11 +207,26 @@ func (r *CryostatReconciler) createOrUpdateCertificate(ctx context.Context, cert
 	return nil
 }
 
+func newKeystoreSecret(cr *operatorv1beta1.Cryostat) *corev1.Secret {
+	return &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      cr.Name + "-keystore",
+			Namespace: cr.Namespace,
+		},
+	}
+}
+
 func (r *CryostatReconciler) createOrUpdateKeystoreSecret(ctx context.Context, secret *corev1.Secret, owner metav1.Object) error {
-	// Don't modify secret data, since the password is psuedorandomly generated
 	op, err := controllerutil.CreateOrUpdate(ctx, r.Client, secret, func() error {
 		if err := controllerutil.SetControllerReference(owner, secret, r.Scheme); err != nil {
 			return err
+		}
+
+		// Don't modify secret data, since the password is psuedorandomly generated
+		if secret.CreationTimestamp.IsZero() {
+			secret.StringData = map[string]string{
+				"KEYSTORE_PASS": r.GenPasswd(20),
+			}
 		}
 		return nil
 	})

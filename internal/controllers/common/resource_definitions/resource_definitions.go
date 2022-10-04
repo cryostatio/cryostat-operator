@@ -38,11 +38,9 @@ package resource_definitions
 
 import (
 	"fmt"
-	"math/rand"
 	"net/url"
 	"regexp"
 	"strconv"
-	"time"
 
 	operatorv1beta1 "github.com/cryostatio/cryostat-operator/api/v1beta1"
 	"github.com/cryostatio/cryostat-operator/internal/controllers/common"
@@ -868,29 +866,6 @@ func NewCoreContainer(cr *operatorv1beta1.Cryostat, specs *ServiceSpecs, imageTa
 	}
 }
 
-func NewGrafanaSecretForCR(cr *operatorv1beta1.Cryostat) *corev1.Secret {
-	return &corev1.Secret{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      cr.Name + "-grafana-basic",
-			Namespace: cr.Namespace,
-		},
-		StringData: map[string]string{
-			"GF_SECURITY_ADMIN_USER":     "admin",
-			"GF_SECURITY_ADMIN_PASSWORD": GenPasswd(20),
-		},
-	}
-}
-
-func GenPasswd(length int) string {
-	rand.Seed(time.Now().UnixNano())
-	chars := "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_"
-	b := make([]byte, length)
-	for i := range b {
-		b[i] = chars[rand.Intn(len(chars))]
-	}
-	return string(b)
-}
-
 func NewGrafanaContainer(cr *operatorv1beta1.Cryostat, imageTag string, tls *TLSConfig) corev1.Container {
 	envs := []corev1.EnvVar{
 		{
@@ -1020,41 +995,6 @@ func NewJfrDatasourceContainer(cr *operatorv1beta1.Cryostat, imageTag string) co
 		},
 		Resources:       cr.Spec.Resources.DataSourceResources,
 		SecurityContext: containerSc,
-	}
-}
-
-// JMXSecretNameSuffix is the suffix to be appended to the name of a
-// Cryostat CR to name its JMX credentials secret
-const JMXSecretNameSuffix = "-jmx-auth"
-
-// JMXSecretUserKey indexes the username within the Cryostat JMX auth secret
-const JMXSecretUserKey = "CRYOSTAT_RJMX_USER"
-
-// JMXSecretPassKey indexes the password within the Cryostat JMX auth secret
-const JMXSecretPassKey = "CRYOSTAT_RJMX_PASS"
-
-func NewJmxSecretForCR(cr *operatorv1beta1.Cryostat) *corev1.Secret {
-	return &corev1.Secret{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      cr.Name + JMXSecretNameSuffix,
-			Namespace: cr.Namespace,
-		},
-		StringData: map[string]string{
-			"CRYOSTAT_RJMX_USER": "cryostat",
-			"CRYOSTAT_RJMX_PASS": GenPasswd(20),
-		},
-	}
-}
-
-func NewKeystoreSecretForCR(cr *operatorv1beta1.Cryostat) *corev1.Secret {
-	return &corev1.Secret{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      cr.Name + "-keystore",
-			Namespace: cr.Namespace,
-		},
-		StringData: map[string]string{
-			"KEYSTORE_PASS": GenPasswd(20),
-		},
 	}
 }
 
