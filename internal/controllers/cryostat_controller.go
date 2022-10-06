@@ -53,18 +53,19 @@ import (
 
 	"github.com/cryostatio/cryostat-operator/internal/controllers/common"
 	resources "github.com/cryostatio/cryostat-operator/internal/controllers/common/resource_definitions"
+	certv1 "github.com/jetstack/cert-manager/pkg/apis/certmanager/v1"
 	openshiftv1 "github.com/openshift/api/route/v1"
 	securityv1 "github.com/openshift/api/security/v1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	netv1 "k8s.io/api/networking/v1"
+	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
-	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-	"sigs.k8s.io/controller-runtime/pkg/source"
 )
 
 // Generates constants from environment variables at build time
@@ -73,11 +74,12 @@ import (
 // CryostatReconciler reconciles a Cryostat object
 type CryostatReconciler struct {
 	client.Client
-	Log           logr.Logger
-	Scheme        *runtime.Scheme
-	IsOpenShift   bool
-	EventRecorder record.EventRecorder
-	RESTMapper    meta.RESTMapper
+	Log                    logr.Logger
+	Scheme                 *runtime.Scheme
+	IsOpenShift            bool
+	IsCertManagerInstalled bool
+	EventRecorder          record.EventRecorder
+	RESTMapper             meta.RESTMapper
 	common.ReconcilerTLS
 }
 
@@ -315,17 +317,18 @@ func (r *CryostatReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		For(&operatorv1beta1.Cryostat{})
 
 	// Watch for changes to secondary resources and requeue the owner Cryostat
-	resources := []client.Object{&appsv1.Deployment{}, &corev1.Service{}, &corev1.Secret{}, &corev1.PersistentVolumeClaim{}}
+	resources := []client.Object{&appsv1.Deployment{}, &corev1.Service{}, &corev1.Secret{}, &corev1.PersistentVolumeClaim{},
+		&corev1.ServiceAccount{}, &rbacv1.Role{}, &rbacv1.RoleBinding{}, &netv1.Ingress{}}
 	if r.IsOpenShift {
 		resources = append(resources, &openshiftv1.Route{})
 	}
-	// TODO watch certificates and redeploy when renewed
+	// Can only check this at startup
+	if r.IsCertManagerInstalled {
+		resources = append(resources, &certv1.Issuer{}, &certv1.Certificate{})
+	}
 
 	for _, resource := range resources {
-		c = c.Watches(&source.Kind{Type: resource}, &handler.EnqueueRequestForOwner{
-			IsController: true,
-			OwnerType:    &operatorv1beta1.Cryostat{},
-		})
+		c = c.Owns(resource)
 	}
 
 	return c.Complete(r)
