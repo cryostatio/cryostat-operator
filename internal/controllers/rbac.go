@@ -292,7 +292,7 @@ func (r *CryostatReconciler) createOrUpdateClusterRoleBinding(ctx context.Contex
 	if err != nil {
 		return err
 	}
-	r.Log.Info(fmt.Sprintf("Cluster Role Binding %s", op), "name", binding.Name, "namespace", binding.Namespace)
+	r.Log.Info(fmt.Sprintf("Cluster Role Binding %s", op), "name", binding.Name)
 	return nil
 }
 

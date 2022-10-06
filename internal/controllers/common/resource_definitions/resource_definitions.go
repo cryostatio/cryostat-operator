@@ -43,8 +43,6 @@ import (
 	"strconv"
 
 	operatorv1beta1 "github.com/cryostatio/cryostat-operator/api/v1beta1"
-	"github.com/cryostatio/cryostat-operator/internal/controllers/common"
-	consolev1 "github.com/openshift/api/console/v1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -995,25 +993,6 @@ func NewJfrDatasourceContainer(cr *operatorv1beta1.Cryostat, imageTag string) co
 		},
 		Resources:       cr.Spec.Resources.DataSourceResources,
 		SecurityContext: containerSc,
-	}
-}
-
-func NewConsoleLink(cr *operatorv1beta1.Cryostat, url string) *consolev1.ConsoleLink {
-	// Cluster scoped, so use a unique name to avoid conflicts
-	return &consolev1.ConsoleLink{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: common.ClusterUniqueName(cr),
-		},
-		Spec: consolev1.ConsoleLinkSpec{
-			Link: consolev1.Link{
-				Text: "Cryostat",
-				Href: url,
-			},
-			Location: consolev1.NamespaceDashboard,
-			NamespaceDashboard: &consolev1.NamespaceDashboardSpec{
-				Namespaces: []string{cr.Namespace},
-			},
-		},
 	}
 }
 

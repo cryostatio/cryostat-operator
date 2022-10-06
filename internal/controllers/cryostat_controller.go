@@ -53,14 +53,11 @@ import (
 
 	"github.com/cryostatio/cryostat-operator/internal/controllers/common"
 	resources "github.com/cryostatio/cryostat-operator/internal/controllers/common/resource_definitions"
-	configv1 "github.com/openshift/api/config/v1"
-	consolev1 "github.com/openshift/api/console/v1"
 	openshiftv1 "github.com/openshift/api/route/v1"
 	securityv1 "github.com/openshift/api/security/v1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
-	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -176,16 +173,9 @@ func (r *CryostatReconciler) Reconcile(ctx context.Context, request ctrl.Request
 			}
 
 			// OpenShift-specific
-			if r.IsOpenShift {
-				err = r.deleteConsoleLink(ctx, instance)
-				if err != nil {
-					return reconcile.Result{}, err
-				}
-
-				err = r.deleteCorsAllowedOrigins(ctx, instance.Status.ApplicationURL, instance)
-				if err != nil {
-					return reconcile.Result{}, err
-				}
+			err = r.finalizeOpenShift(ctx, instance)
+			if err != nil {
+				return reconcile.Result{}, err
 			}
 
 			err = common.RemoveFinalizer(ctx, r.Client, instance, cryostatFinalizer)
@@ -300,18 +290,9 @@ func (r *CryostatReconciler) Reconcile(ctx context.Context, request ctrl.Request
 	}
 
 	// OpenShift-specific
-	if r.IsOpenShift {
-		err := r.createConsoleLink(ctx, instance, serviceSpecs.CoreURL.String())
-		if err != nil {
-			return reconcile.Result{}, err
-		}
-
-		if instance.Status.ApplicationURL != "" {
-			err = r.addCorsAllowedOriginIfNotPresent(ctx, instance.Status.ApplicationURL, instance)
-			if err != nil {
-				return reconcile.Result{}, err
-			}
-		}
+	err = r.reconcileOpenShift(ctx, instance)
+	if err != nil {
+		return reconcile.Result{}, err
 	}
 
 	// Check deployment status and update conditions
@@ -392,26 +373,6 @@ func (r *CryostatReconciler) reconcileReports(ctx context.Context, reqLogger log
 	return reconcile.Result{}, nil
 }
 
-func (r *CryostatReconciler) createObjectIfNotExists(ctx context.Context, ns types.NamespacedName, found client.Object, toCreate client.Object) error {
-	logger := r.Log.WithValues("Request.Namespace", ns.Namespace, "Name", ns.Name, "Kind", fmt.Sprintf("%T", toCreate))
-	err := r.Client.Get(ctx, ns, found)
-	if err != nil && errors.IsNotFound(err) {
-		logger.Info("Not found")
-		if err := r.Client.Create(ctx, toCreate); err != nil {
-			logger.Error(err, "Could not be created")
-			return err
-		} else {
-			logger.Info("Created")
-			found = toCreate
-		}
-	} else if err != nil {
-		logger.Error(err, "Could not be read")
-		return err
-	}
-	logger.Info("Already exists")
-	return nil
-}
-
 func (r *CryostatReconciler) getImageTags() *resources.ImageTags {
 	return &resources.ImageTags{
 		CoreImageTag:       r.getEnvOrDefault(coreImageTagEnv, resources.DefaultCoreImageTag),
@@ -462,87 +423,6 @@ func parseSupGroups(supGroups string) (*int64, error) {
 		return nil, err
 	}
 	return &gid, nil
-}
-
-func (r *CryostatReconciler) createConsoleLink(ctx context.Context, cr *operatorv1beta1.Cryostat, url string) error {
-	link := resources.NewConsoleLink(cr, url)
-	return r.createObjectIfNotExists(ctx, types.NamespacedName{Name: link.Name}, &consolev1.ConsoleLink{}, link)
-}
-
-func (r *CryostatReconciler) deleteConsoleLink(ctx context.Context, cr *operatorv1beta1.Cryostat) error {
-	reqLogger := r.Log.WithValues("Request.Namespace", cr.Namespace, "Request.Name", cr.Name)
-	link := resources.NewConsoleLink(cr, "")
-	err := r.Client.Delete(ctx, link)
-	if err != nil {
-		if kerrors.IsNotFound(err) {
-			reqLogger.Info("ConsoleLink not found, proceeding with deletion", "linkName", link.Name)
-			return nil
-		}
-		reqLogger.Error(err, "failed to delete ConsoleLink", "linkName", link.Name)
-		return err
-	}
-	reqLogger.Info("deleted ConsoleLink", "linkName", link.Name)
-	return nil
-}
-
-func (r *CryostatReconciler) addCorsAllowedOriginIfNotPresent(ctx context.Context, allowedOrigin string, cr *operatorv1beta1.Cryostat) error {
-	reqLogger := r.Log.WithValues("Request.Namespace", cr.Namespace, "Request.Name", cr.Name)
-	apiServer := &configv1.APIServer{}
-	err := r.Client.Get(ctx, types.NamespacedName{Name: apiServerName}, apiServer)
-	if err != nil {
-		reqLogger.Error(err, "Failed to get APIServer config")
-		return err
-	}
-
-	allowedOriginAsRegex := regexp.QuoteMeta(allowedOrigin)
-
-	for _, origin := range apiServer.Spec.AdditionalCORSAllowedOrigins {
-		if origin == allowedOriginAsRegex {
-			return nil
-		}
-	}
-
-	apiServer.Spec.AdditionalCORSAllowedOrigins = append(
-		apiServer.Spec.AdditionalCORSAllowedOrigins,
-		allowedOriginAsRegex,
-	)
-
-	err = r.Client.Update(ctx, apiServer)
-	if err != nil {
-		reqLogger.Error(err, "Failed to update APIServer CORS allowed origins")
-		return err
-	}
-
-	return nil
-}
-
-func (r *CryostatReconciler) deleteCorsAllowedOrigins(ctx context.Context, allowedOrigin string, cr *operatorv1beta1.Cryostat) error {
-	reqLogger := r.Log.WithValues("Request.Namespace", cr.Namespace, "Request.Name", cr.Name)
-	apiServer := &configv1.APIServer{}
-	err := r.Client.Get(ctx, types.NamespacedName{Name: apiServerName}, apiServer)
-	if err != nil {
-		reqLogger.Error(err, "Failed to get APIServer config")
-		return err
-	}
-
-	allowedOriginAsRegex := regexp.QuoteMeta(allowedOrigin)
-
-	for i, origin := range apiServer.Spec.AdditionalCORSAllowedOrigins {
-		if origin == allowedOriginAsRegex {
-			apiServer.Spec.AdditionalCORSAllowedOrigins = append(
-				apiServer.Spec.AdditionalCORSAllowedOrigins[:i],
-				apiServer.Spec.AdditionalCORSAllowedOrigins[i+1:]...)
-			break
-		}
-	}
-
-	err = r.Client.Update(ctx, apiServer)
-	if err != nil {
-		reqLogger.Error(err, "Failed to remove Cryostat origin from APIServer CORS allowed origins")
-		return err
-	}
-
-	return nil
 }
 
 func (r *CryostatReconciler) updateCondition(ctx context.Context, cr *operatorv1beta1.Cryostat,
