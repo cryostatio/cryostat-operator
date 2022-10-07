@@ -738,7 +738,7 @@ func NewGrafanaSecret() *corev1.Secret {
 		},
 		StringData: map[string]string{
 			"GF_SECURITY_ADMIN_USER":     "admin",
-			"GF_SECURITY_ADMIN_PASSWORD": "pass1",
+			"GF_SECURITY_ADMIN_PASSWORD": "grafana",
 		},
 	}
 }
@@ -764,7 +764,19 @@ func NewJMXSecret() *corev1.Secret {
 		},
 		StringData: map[string]string{
 			"CRYOSTAT_RJMX_USER": "cryostat",
-			"CRYOSTAT_RJMX_PASS": "pass2",
+			"CRYOSTAT_RJMX_PASS": "jmx",
+		},
+	}
+}
+
+func NewKeystoreSecret() *corev1.Secret {
+	return &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "cryostat-keystore",
+			Namespace: "default",
+		},
+		StringData: map[string]string{
+			"KEYSTORE_PASS": "keystore",
 		},
 	}
 }

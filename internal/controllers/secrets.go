@@ -43,6 +43,7 @@ import (
 	operatorv1beta1 "github.com/cryostatio/cryostat-operator/api/v1beta1"
 
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
@@ -63,24 +64,34 @@ func (r *CryostatReconciler) reconcileGrafanaSecret(ctx context.Context, cr *ope
 		},
 	}
 
-	err := r.createOrUpdateSecret(ctx, secret, cr, func() error {
-		if secret.StringData == nil {
-			secret.StringData = map[string]string{}
+	var secretName string
+	if cr.Spec.Minimal {
+		err := r.deleteSecret(ctx, secret)
+		if err != nil {
+			return err
 		}
-		secret.StringData["GF_SECURITY_ADMIN_USER"] = "admin"
+		secretName = ""
+	} else {
+		err := r.createOrUpdateSecret(ctx, secret, cr, func() error {
+			if secret.StringData == nil {
+				secret.StringData = map[string]string{}
+			}
+			secret.StringData["GF_SECURITY_ADMIN_USER"] = "admin"
 
-		// Password is generated, so don't regenerate it when updating
-		if secret.CreationTimestamp.IsZero() {
-			secret.StringData["GF_SECURITY_ADMIN_PASSWORD"] = r.GenPasswd(20)
+			// Password is generated, so don't regenerate it when updating
+			if secret.CreationTimestamp.IsZero() {
+				secret.StringData["GF_SECURITY_ADMIN_PASSWORD"] = r.GenPasswd(20)
+			}
+			return nil
+		})
+		if err != nil {
+			return err
 		}
-		return nil
-	})
-	if err != nil {
-		return err
+		secretName = secret.Name
 	}
 
 	// Set the Grafana secret in the CR status
-	cr.Status.GrafanaSecret = secret.Name
+	cr.Status.GrafanaSecret = secretName
 	return r.Client.Status().Update(ctx, cr)
 }
 
@@ -130,5 +141,15 @@ func (r *CryostatReconciler) createOrUpdateSecret(ctx context.Context, secret *c
 		return err
 	}
 	r.Log.Info(fmt.Sprintf("Secret %s", op), "name", secret.Name, "namespace", secret.Namespace)
+	return nil
+}
+
+func (r *CryostatReconciler) deleteSecret(ctx context.Context, secret *corev1.Secret) error {
+	err := r.Client.Delete(ctx, secret)
+	if err != nil && !errors.IsNotFound(err) {
+		r.Log.Error(err, "Could not delete secret", "name", secret.Name, "namespace", secret.Namespace)
+		return err
+	}
+	r.Log.Info("Secret deleted", "name", secret.Name, "namespace", secret.Namespace)
 	return nil
 }

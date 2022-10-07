@@ -108,7 +108,8 @@ var _ = Describe("CryostatController", func() {
 	BeforeEach(func() {
 		t = &cryostatTestInput{
 			TestReconcilerConfig: test.TestReconcilerConfig{
-				TLS: true,
+				TLS:                true,
+				GeneratedPasswords: []string{"grafana", "jmx", "keystore"},
 			},
 			externalTLS: true,
 		}
@@ -140,19 +141,7 @@ var _ = Describe("CryostatController", func() {
 				t.expectPVC(test.NewDefaultPVC())
 			})
 			It("should create Grafana secret and set owner", func() {
-				secret := &corev1.Secret{}
-				err := t.Client.Get(context.Background(), types.NamespacedName{Name: "cryostat-grafana-basic", Namespace: "default"}, secret)
-				Expect(kerrors.IsNotFound(err)).To(BeTrue())
-
-				t.reconcileCryostatFully()
-
-				err = t.Client.Get(context.Background(), types.NamespacedName{Name: "cryostat-grafana-basic", Namespace: "default"}, secret)
-				Expect(err).ToNot(HaveOccurred())
-
-				// Compare to desired spec
-				expectedSecret := test.NewGrafanaSecret()
-				checkMetadata(secret, expectedSecret)
-				Expect(secret.StringData).To(Equal(expectedSecret.StringData))
+				t.expectGrafanaSecret()
 			})
 			It("should create JMX secret and set owner", func() {
 				t.expectJMXSecret()
@@ -172,7 +161,7 @@ var _ = Describe("CryostatController", func() {
 				t.expectStatusApplicationURL()
 			})
 			It("should set GrafanaSecret in CR Status", func() {
-				t.expectStatusGrafanaSecretName()
+				t.expectStatusGrafanaSecretName(test.NewGrafanaSecret().Name)
 			})
 			It("should create deployment and set owner", func() {
 				t.expectDeployment()
@@ -225,6 +214,7 @@ var _ = Describe("CryostatController", func() {
 			BeforeEach(func() {
 				t.objs = append(t.objs, test.NewMinimalCryostat())
 				t.minimal = true
+				t.GeneratedPasswords = []string{"jmx", "keystore"}
 			})
 			It("should create certificates", func() {
 				t.expectCertificates()
@@ -247,8 +237,8 @@ var _ = Describe("CryostatController", func() {
 			It("should set ApplicationURL in CR Status", func() {
 				t.expectStatusApplicationURL()
 			})
-			It("should set GrafanaSecret in CR Status", func() {
-				t.expectStatusGrafanaSecretName()
+			It("should not set GrafanaSecret in CR Status", func() {
+				t.expectStatusGrafanaSecretName("")
 			})
 			It("should create deployment and set owner", func() {
 				t.expectDeployment()
@@ -492,6 +482,7 @@ var _ = Describe("CryostatController", func() {
 			BeforeEach(func() {
 				t.objs = append(t.objs, test.NewMinimalCryostat())
 				t.minimal = true
+				t.GeneratedPasswords = []string{"jmx", "keystore", "grafana"}
 			})
 			JustBeforeEach(func() {
 				t.reconcileCryostatFully()
@@ -508,8 +499,12 @@ var _ = Describe("CryostatController", func() {
 				req := reconcile.Request{NamespacedName: types.NamespacedName{Name: "cryostat", Namespace: "default"}}
 				t.updateRouteStatus(req, test.NewGrafanaRoute(t.TLS))
 			})
-			It("should create grafana resources", func() {
+			It("should create Grafana network resources", func() {
 				t.checkGrafanaService()
+			})
+			It("should create the Grafana secret", func() {
+				t.checkGrafanaSecret()
+				t.checkStatusGrafanaSecretName(test.NewGrafanaSecret().Name)
 			})
 			It("should configure deployment appropriately", func() {
 				t.checkMainDeployment()
@@ -535,7 +530,7 @@ var _ = Describe("CryostatController", func() {
 				_, err = t.controller.Reconcile(context.Background(), req)
 				Expect(err).ToNot(HaveOccurred())
 			})
-			It("should delete grafana resources", func() {
+			It("should delete Grafana network resources", func() {
 				service := &corev1.Service{}
 				err := t.Client.Get(context.Background(), types.NamespacedName{Name: "cryostat-grafana", Namespace: "default"}, service)
 				Expect(kerrors.IsNotFound(err)).To(BeTrue())
@@ -543,6 +538,14 @@ var _ = Describe("CryostatController", func() {
 				route := &openshiftv1.Route{}
 				err = t.Client.Get(context.Background(), types.NamespacedName{Name: "cryostat-grafana", Namespace: "default"}, route)
 				Expect(kerrors.IsNotFound(err)).To(BeTrue())
+			})
+			It("should delete the Grafana secret", func() {
+				secret := &corev1.Secret{}
+				notExpected := test.NewGrafanaSecret()
+				err := t.Client.Get(context.Background(), types.NamespacedName{Name: notExpected.Name, Namespace: notExpected.Namespace}, secret)
+				Expect(kerrors.IsNotFound(err)).To(BeTrue())
+
+				t.checkStatusGrafanaSecretName("")
 			})
 			It("should configure deployment appropriately", func() {
 				t.checkMainDeployment()
@@ -2036,6 +2039,13 @@ func (t *cryostatTestInput) checkCertificates() {
 		checkMetadata(actual, expected)
 		Expect(actual.Spec).To(Equal(expected.Spec))
 	}
+	// Check keystore secret
+	expectedSecret := test.NewKeystoreSecret()
+	secret := &corev1.Secret{}
+	err := t.Client.Get(context.Background(), types.NamespacedName{Name: expectedSecret.Name, Namespace: expectedSecret.Namespace}, secret)
+	Expect(err).ToNot(HaveOccurred())
+	checkMetadata(secret, expectedSecret)
+	Expect(secret.StringData).To(Equal(secret.StringData))
 }
 
 func (t *cryostatTestInput) expectRBAC() {
@@ -2173,6 +2183,26 @@ func (t *cryostatTestInput) expectEmptyDir(expectedEmptyDir *corev1.EmptyDirVolu
 	Expect(emptyDir.SizeLimit).To(Equal(expectedEmptyDir.SizeLimit))
 }
 
+func (t *cryostatTestInput) expectGrafanaSecret() {
+	secret := &corev1.Secret{}
+	err := t.Client.Get(context.Background(), types.NamespacedName{Name: "cryostat-grafana-basic", Namespace: "default"}, secret)
+	Expect(kerrors.IsNotFound(err)).To(BeTrue())
+
+	t.reconcileCryostatFully()
+	t.checkGrafanaSecret()
+}
+
+func (t *cryostatTestInput) checkGrafanaSecret() {
+	secret := &corev1.Secret{}
+	err := t.Client.Get(context.Background(), types.NamespacedName{Name: "cryostat-grafana-basic", Namespace: "default"}, secret)
+	Expect(err).ToNot(HaveOccurred())
+
+	// Compare to desired spec
+	expectedSecret := test.NewGrafanaSecret()
+	checkMetadata(secret, expectedSecret)
+	Expect(secret.StringData).To(Equal(expectedSecret.StringData))
+}
+
 func (t *cryostatTestInput) expectJMXSecret() {
 	secret := &corev1.Secret{}
 	err := t.Client.Get(context.Background(), types.NamespacedName{Name: "cryostat-jmx-auth", Namespace: "default"}, secret)
@@ -2211,17 +2241,21 @@ func (t *cryostatTestInput) expectStatusApplicationURL() {
 	Expect(instance.Status.ApplicationURL).To(Equal("https://cryostat.example.com"))
 }
 
-func (t *cryostatTestInput) expectStatusGrafanaSecretName() {
+func (t *cryostatTestInput) expectStatusGrafanaSecretName(secretName string) {
 	instance := &operatorv1beta1.Cryostat{}
 	err := t.Client.Get(context.Background(), types.NamespacedName{Name: "cryostat", Namespace: "default"}, instance)
 	Expect(err).ToNot(HaveOccurred())
 
 	t.reconcileCryostatFully()
+	t.checkStatusGrafanaSecretName(secretName)
+}
 
-	err = t.Client.Get(context.Background(), types.NamespacedName{Name: "cryostat", Namespace: "default"}, instance)
+func (t *cryostatTestInput) checkStatusGrafanaSecretName(secretName string) {
+	instance := &operatorv1beta1.Cryostat{}
+	err := t.Client.Get(context.Background(), types.NamespacedName{Name: "cryostat", Namespace: "default"}, instance)
 	Expect(err).ToNot(HaveOccurred())
 
-	Expect(instance.Status.GrafanaSecret).To(Equal("cryostat-grafana-basic"))
+	Expect(instance.Status.GrafanaSecret).To(Equal(secretName))
 }
 
 func (t *cryostatTestInput) expectDeployment() {

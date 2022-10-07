@@ -37,7 +37,6 @@
 package test
 
 import (
-	"fmt"
 	"strconv"
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -55,6 +54,7 @@ type TestReconcilerConfig struct {
 	EnvDatasourceImageTag *string
 	EnvGrafanaImageTag    *string
 	EnvReportsImageTag    *string
+	GeneratedPasswords    []string
 }
 
 func NewTestReconcilerTLS(config *TestReconcilerConfig) common.ReconcilerTLS {
@@ -66,6 +66,7 @@ func NewTestReconcilerTLS(config *TestReconcilerConfig) common.ReconcilerTLS {
 
 type testOSUtils struct {
 	envs       map[string]string
+	passwords  []string
 	numPassGen int
 }
 
@@ -86,7 +87,7 @@ func newTestOSUtils(config *TestReconcilerConfig) *testOSUtils {
 	if config.EnvReportsImageTag != nil {
 		envs["RELATED_IMAGE_REPORTS"] = *config.EnvReportsImageTag
 	}
-	return &testOSUtils{envs: envs}
+	return &testOSUtils{envs: envs, passwords: config.GeneratedPasswords}
 }
 
 func (o *testOSUtils) GetFileContents(path string) ([]byte, error) {
@@ -99,6 +100,8 @@ func (o *testOSUtils) GetEnv(name string) string {
 }
 
 func (o *testOSUtils) GenPasswd(length int) string {
+	gomega.Expect(o.numPassGen < len(o.passwords)).To(gomega.BeTrue())
+	password := o.passwords[o.numPassGen]
 	o.numPassGen++
-	return fmt.Sprintf("pass%d", o.numPassGen)
+	return password
 }
