@@ -837,18 +837,21 @@ var _ = Describe("CryostatController", func() {
 			})
 		})
 		Context("with an existing PVC", func() {
-			JustBeforeEach(func() {
-				t.reconcileCryostatFully()
+			var oldPVC *corev1.PersistentVolumeClaim
+			BeforeEach(func() {
+				oldPVC = test.NewDefaultPVC()
+				t.objs = append(t.objs, test.NewCryostatWithPVCSpec(), oldPVC)
 			})
 			Context("that successfully updates", func() {
 				BeforeEach(func() {
-					existing := test.NewDefaultPVC()
 					// Add some labels and annotations to test merging
-					metav1.SetMetaDataLabel(&existing.ObjectMeta, "my", "other-label")
-					metav1.SetMetaDataLabel(&existing.ObjectMeta, "another", "label")
-					metav1.SetMetaDataAnnotation(&existing.ObjectMeta, "my/custom", "other-annotation")
-					metav1.SetMetaDataAnnotation(&existing.ObjectMeta, "another/custom", "annotation")
-					t.objs = append(t.objs, test.NewCryostatWithPVCSpec(), existing)
+					metav1.SetMetaDataLabel(&oldPVC.ObjectMeta, "my", "other-label")
+					metav1.SetMetaDataLabel(&oldPVC.ObjectMeta, "another", "label")
+					metav1.SetMetaDataAnnotation(&oldPVC.ObjectMeta, "my/custom", "other-annotation")
+					metav1.SetMetaDataAnnotation(&oldPVC.ObjectMeta, "another/custom", "annotation")
+				})
+				JustBeforeEach(func() {
+					t.reconcileCryostatFully()
 				})
 				It("should update metadata and resource requests", func() {
 					expected := test.NewDefaultPVC()
@@ -862,30 +865,17 @@ var _ = Describe("CryostatController", func() {
 				})
 			})
 			Context("that fails to update", func() {
-				var cr *operatorv1beta1.Cryostat
-				BeforeEach(func() {
-					cr = test.NewCryostat()
-					t.objs = append(t.objs, cr)
-				})
 				JustBeforeEach(func() {
 					// Replace client with one that fails to update the PVC
-					pvc := test.NewDefaultPVC()
-					invalidErr := kerrors.NewInvalid(schema.ParseGroupKind("PersistentVolumeClaim"), pvc.Name, field.ErrorList{
+					invalidErr := kerrors.NewInvalid(schema.ParseGroupKind("PersistentVolumeClaim"), oldPVC.Name, field.ErrorList{
 						field.Forbidden(field.NewPath("spec"), "test error"),
 					})
-					t.Client = test.NewClientWithUpdateError(t.Client, pvc, invalidErr)
+					t.Client = test.NewClientWithUpdateError(t.Client, oldPVC, invalidErr)
 					t.controller.Client = t.Client
-
-					// Update PVC spec in CR
-					err := t.Client.Get(context.Background(), types.NamespacedName{Name: "cryostat", Namespace: "default"}, cr)
-					Expect(err).ToNot(HaveOccurred())
-					cr.Spec.StorageOptions = test.NewCryostatWithPVCSpec().Spec.StorageOptions
-					err = t.Client.Update(context.Background(), cr)
-					Expect(err).ToNot(HaveOccurred())
 
 					// Expect an Invalid status error after reconciling
 					req := reconcile.Request{NamespacedName: types.NamespacedName{Name: "cryostat", Namespace: "default"}}
-					_, err = t.controller.Reconcile(context.Background(), req)
+					_, err := t.controller.Reconcile(context.Background(), req)
 					Expect(err).To(HaveOccurred())
 					Expect(kerrors.IsInvalid(err)).To(BeTrue())
 				})
