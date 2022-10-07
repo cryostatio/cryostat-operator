@@ -54,10 +54,12 @@ import (
 	rbacv1 "k8s.io/api/rbac/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/validation/field"
 	"k8s.io/client-go/tools/record"
 	ctrlclient "sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
@@ -88,6 +90,8 @@ var _ = Describe("CryostatController", func() {
 		logf.SetLogger(logger)
 		s := test.NewTestScheme()
 
+		// Set a CreationTimestamp for created objects to match a real API server
+		t.setCreationTimestamp()
 		t.Client = fake.NewClientBuilder().WithScheme(s).WithRuntimeObjects(t.objs...).Build()
 		t.controller = &controllers.CryostatReconciler{
 			Client:        t.Client,
@@ -304,7 +308,8 @@ var _ = Describe("CryostatController", func() {
 
 				t.checkMainPodTemplate(deploy, cr)
 
-				Expect(deploy.Spec.Selector).To(Equal(test.NewMainDeploymentSelector()))
+				// Deployment Selector is immutable
+				Expect(deploy.Spec.Selector).To(Equal(oldDeploy.Spec.Selector))
 				Expect(deploy.Spec.Replicas).To(Equal(oldDeploy.Spec.Replicas))
 			})
 		})
@@ -829,6 +834,57 @@ var _ = Describe("CryostatController", func() {
 			})
 			It("should create the PVC with requested label", func() {
 				t.expectPVC(test.NewDefaultPVCWithLabel())
+			})
+		})
+		Context("with an existing PVC", func() {
+			var oldPVC *corev1.PersistentVolumeClaim
+			BeforeEach(func() {
+				oldPVC = test.NewDefaultPVC()
+				t.objs = append(t.objs, test.NewCryostatWithPVCSpec(), oldPVC)
+			})
+			Context("that successfully updates", func() {
+				BeforeEach(func() {
+					// Add some labels and annotations to test merging
+					metav1.SetMetaDataLabel(&oldPVC.ObjectMeta, "my", "other-label")
+					metav1.SetMetaDataLabel(&oldPVC.ObjectMeta, "another", "label")
+					metav1.SetMetaDataAnnotation(&oldPVC.ObjectMeta, "my/custom", "other-annotation")
+					metav1.SetMetaDataAnnotation(&oldPVC.ObjectMeta, "another/custom", "annotation")
+				})
+				JustBeforeEach(func() {
+					t.reconcileCryostatFully()
+				})
+				It("should update metadata and resource requests", func() {
+					expected := test.NewDefaultPVC()
+					metav1.SetMetaDataLabel(&expected.ObjectMeta, "my", "label")
+					metav1.SetMetaDataLabel(&expected.ObjectMeta, "another", "label")
+					metav1.SetMetaDataLabel(&expected.ObjectMeta, "app", "cryostat")
+					metav1.SetMetaDataAnnotation(&expected.ObjectMeta, "my/custom", "annotation")
+					metav1.SetMetaDataAnnotation(&expected.ObjectMeta, "another/custom", "annotation")
+					expected.Spec.Resources.Requests[corev1.ResourceStorage] = resource.MustParse("10Gi")
+					t.checkPVC(expected)
+				})
+			})
+			Context("that fails to update", func() {
+				JustBeforeEach(func() {
+					// Replace client with one that fails to update the PVC
+					invalidErr := kerrors.NewInvalid(schema.ParseGroupKind("PersistentVolumeClaim"), oldPVC.Name, field.ErrorList{
+						field.Forbidden(field.NewPath("spec"), "test error"),
+					})
+					t.Client = test.NewClientWithUpdateError(t.Client, oldPVC, invalidErr)
+					t.controller.Client = t.Client
+
+					// Expect an Invalid status error after reconciling
+					req := reconcile.Request{NamespacedName: types.NamespacedName{Name: "cryostat", Namespace: "default"}}
+					_, err := t.controller.Reconcile(context.Background(), req)
+					Expect(err).To(HaveOccurred())
+					Expect(kerrors.IsInvalid(err)).To(BeTrue())
+				})
+				It("should emit a PersistentVolumeClaimInvalid event", func() {
+					recorder := t.controller.EventRecorder.(*record.FakeRecorder)
+					var eventMsg string
+					Expect(recorder.Events).To(Receive(&eventMsg))
+					Expect(eventMsg).To(ContainSubstring("PersistentVolumeClaimInvalid"))
+				})
 			})
 		})
 		Context("with custom EmptyDir config", func() {
@@ -2032,17 +2088,27 @@ func (t *cryostatTestInput) expectPVC(expectedPvc *corev1.PersistentVolumeClaim)
 
 	t.reconcileCryostatFully()
 
-	err = t.Client.Get(context.Background(), types.NamespacedName{Name: "cryostat", Namespace: "default"}, pvc)
+	t.checkPVC(expectedPvc)
+}
+
+func (t *cryostatTestInput) checkPVC(expectedPVC *corev1.PersistentVolumeClaim) {
+	pvc := &corev1.PersistentVolumeClaim{}
+	err := t.Client.Get(context.Background(), types.NamespacedName{Name: "cryostat", Namespace: "default"}, pvc)
 	Expect(err).ToNot(HaveOccurred())
 
 	// Compare to desired spec
-	checkMetadata(pvc, expectedPvc)
-	Expect(pvc.Spec.AccessModes).To(Equal(expectedPvc.Spec.AccessModes))
-	Expect(pvc.Spec.StorageClassName).To(Equal(expectedPvc.Spec.StorageClassName))
+	checkMetadata(pvc, expectedPVC)
+	Expect(pvc.Spec.AccessModes).To(Equal(expectedPVC.Spec.AccessModes))
+	Expect(pvc.Spec.StorageClassName).To(Equal(expectedPVC.Spec.StorageClassName))
+	Expect(pvc.Spec.VolumeName).To(Equal(expectedPVC.Spec.VolumeName))
+	Expect(pvc.Spec.VolumeMode).To(Equal(expectedPVC.Spec.VolumeMode))
+	Expect(pvc.Spec.Selector).To(Equal(expectedPVC.Spec.Selector))
+	Expect(pvc.Spec.DataSource).To(Equal(expectedPVC.Spec.DataSource))
+	Expect(pvc.Spec.DataSourceRef).To(Equal(expectedPVC.Spec.DataSourceRef))
 
 	pvcStorage := pvc.Spec.Resources.Requests["storage"]
-	expectedPvcStorage := expectedPvc.Spec.Resources.Requests["storage"]
-	Expect(pvcStorage.Equal(expectedPvcStorage)).To(BeTrue())
+	expectedPVCStorage := expectedPVC.Spec.Resources.Requests["storage"]
+	Expect(pvcStorage.Equal(expectedPVCStorage)).To(BeTrue())
 }
 
 func (t *cryostatTestInput) expectEmptyDir(expectedEmptyDir *corev1.EmptyDirVolumeSource) {
@@ -2517,4 +2583,14 @@ func (t *cryostatTestInput) checkEnvironmentVariables(expectedEnvVars []corev1.E
 	coreContainer := template.Spec.Containers[0]
 
 	Expect(coreContainer.Env).To(ContainElements(expectedEnvVars))
+}
+
+var creationTimestamp = metav1.NewTime(time.Unix(1664573254, 0))
+
+func (t *cryostatTestInput) setCreationTimestamp() {
+	for _, obj := range t.objs {
+		metaObj, err := meta.Accessor(obj)
+		Expect(err).ToNot(HaveOccurred())
+		metaObj.SetCreationTimestamp(creationTimestamp)
+	}
 }

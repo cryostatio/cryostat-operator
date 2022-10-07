@@ -95,47 +95,6 @@ const (
 	operatorNamePrefix        string = "cryostat-operator-"
 )
 
-func NewPersistentVolumeClaimForCR(cr *operatorv1beta1.Cryostat) *corev1.PersistentVolumeClaim {
-	objMeta := metav1.ObjectMeta{
-		Name:      cr.Name,
-		Namespace: cr.Namespace,
-	}
-	// Check for PVC config within CR
-	var pvcSpec corev1.PersistentVolumeClaimSpec
-	if cr.Spec.StorageOptions != nil && cr.Spec.StorageOptions.PVC != nil {
-		config := cr.Spec.StorageOptions.PVC
-		// Import any annotations and labels from the PVC config
-		objMeta.Annotations = config.Annotations
-		objMeta.Labels = config.Labels
-		// Use provided spec if specified
-		if config.Spec != nil {
-			pvcSpec = *config.Spec
-		}
-	}
-
-	// Add "app" label. This will override any user-specified "app" label.
-	if objMeta.Labels == nil {
-		objMeta.Labels = map[string]string{}
-	}
-	objMeta.Labels["app"] = cr.Name
-
-	// Apply any applicable spec defaults. Don't apply a default storage class name, since nil
-	// may be intentionally specified.
-	if pvcSpec.Resources.Requests == nil {
-		pvcSpec.Resources.Requests = corev1.ResourceList{
-			corev1.ResourceStorage: *resource.NewQuantity(500*1024*1024, resource.BinarySI),
-		}
-	}
-	if pvcSpec.AccessModes == nil {
-		pvcSpec.AccessModes = []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce}
-	}
-
-	return &corev1.PersistentVolumeClaim{
-		ObjectMeta: objMeta,
-		Spec:       pvcSpec,
-	}
-}
-
 func NewDeploymentForCR(cr *operatorv1beta1.Cryostat, specs *ServiceSpecs, imageTags *ImageTags,
 	tls *TLSConfig, fsGroup int64, openshift bool) *appsv1.Deployment {
 	return &appsv1.Deployment{
