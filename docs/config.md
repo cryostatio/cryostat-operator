@@ -365,7 +365,7 @@ On OpenShift, Cryostat application pod's `spec.securityContext.seccompProfile` i
 
 ### Scheduling Options
 
-If you wish to control which nodes Cryostat and its reports microservice are scheduled on, you may do so when configuring your Cryostat instance. You can specify a Node Selector, Affinities and Tolerations. For the main Cryostat application, use the `spec.SchedulingOptions` property. For the report generator, use `spec.ReportOptions.SchedulingOptions`.
+If you wish to control which nodes Cryostat and its reports microservice are scheduled on, you may do so when configuring your Cryostat instance. You can specify a [Node Selector](https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#nodeselector), [Affinities](https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#affinity-and-anti-affinity) and [Tolerations](https://kubernetes.io/docs/concepts/scheduling-eviction/taint-and-toleration/). For the main Cryostat application, use the `spec.SchedulingOptions` property. For the report generator, use `spec.ReportOptions.SchedulingOptions`.
 
 ```yaml
 kind: Cryostat
