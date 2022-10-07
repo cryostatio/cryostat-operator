@@ -362,3 +362,78 @@ If not specified, the security contexts are defaulted to conform to the [restric
 For the Cryostat application pod, the operator selects an fsGroup to ensure that Cryostat can read and write files in its Persistent Volume.
 
 On OpenShift, Cryostat application pod's `spec.securityContext.seccompProfile` is left unset for backward compatibility. On versions of OpenShift supporting Pod Security Admission, the `restricted-v2` Security Context Constraint sets `seccompProfile` to `runtime/default` as required for the restricted Pod Security Standard. For more details, see [Security Context Constraints](https://docs.openshift.com/container-platform/4.11/authentication/managing-security-context-constraints.html#default-sccs_configuring-internal-oauth).
+
+### Scheduling Options
+
+If you wish to control which nodes Cryostat and its reports microservice are scheduled on, you may do so when configuring your Cryostat instance. You can specify a Node Selector, Affinities and Tolerations. For the main Cryostat application, use the `spec.SchedulingOptions` property. For the report generator, use `spec.ReportOptions.SchedulingOptions`.
+
+```yaml
+kind: Cryostat
+apiVersion: operator.cryostat.io/v1beta1
+metadata:
+  name: cryostat
+spec:
+  schedulingOptions:
+    nodeSelector:
+      node: good
+    affinity:
+      nodeAffinity:
+        requiredDuringSchedulingIgnoredDuringExecution:
+          nodeSelectorTerms:
+          - matchExpressions:
+            - key: node
+              operator: In
+              values:
+              - good
+              - better
+      podAffinity:
+        requiredDuringSchedulingIgnoredDuringExecution:
+        - labelSelector:
+            matchLabels:
+              pod: good
+          topologyKey: topology.kubernetes.io/zone
+      podAntiAffinity:
+        requiredDuringSchedulingIgnoredDuringExecution:
+        - labelSelector:
+            matchLabels:
+              pod: bad
+          topologyKey: topology.kubernetes.io/zone
+    tolerations:
+    - key: node
+      operator: Equal
+      value: ok
+      effect: NoExecute
+  reportOptions:
+    replicas: 1
+    resources: {}
+    schedulingOptions:
+      nodeSelector:
+        node: good
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+            - matchExpressions:
+              - key: node
+                operator: In
+                values:
+                - good
+                - better
+        podAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+          - labelSelector:
+              matchLabels:
+                pod: good
+            topologyKey: topology.kubernetes.io/zone
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+          - labelSelector:
+              matchLabels:
+                pod: bad
+            topologyKey: topology.kubernetes.io/zone
+      tolerations:
+      - key: node
+        operator: Equal
+        value: ok
+        effect: NoExecute
+```
