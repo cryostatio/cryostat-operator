@@ -405,7 +405,6 @@ spec:
       effect: NoExecute
   reportOptions:
     replicas: 1
-    resources: {}
     schedulingOptions:
       nodeSelector:
         node: good
