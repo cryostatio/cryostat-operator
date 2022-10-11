@@ -43,6 +43,7 @@ import (
 
 	operatorv1beta1 "github.com/cryostatio/cryostat-operator/api/v1beta1"
 	"github.com/cryostatio/cryostat-operator/internal/controllers/common"
+	"github.com/go-logr/logr"
 	configv1 "github.com/openshift/api/config/v1"
 	consolev1 "github.com/openshift/api/console/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
@@ -66,7 +67,8 @@ func (r *CryostatReconciler) finalizeOpenShift(ctx context.Context, cr *operator
 	if !r.IsOpenShift {
 		return nil
 	}
-	err := r.deleteConsoleLink(ctx, newConsoleLink(cr))
+	reqLogger := r.Log.WithValues("Request.Namespace", cr.Namespace, "Request.Name", cr.Name)
+	err := r.deleteConsoleLink(ctx, newConsoleLink(cr), reqLogger)
 	if err != nil {
 		return err
 	}
@@ -83,12 +85,13 @@ func newConsoleLink(cr *operatorv1beta1.Cryostat) *consolev1.ConsoleLink {
 }
 
 func (r *CryostatReconciler) reconcileConsoleLink(ctx context.Context, cr *operatorv1beta1.Cryostat) error {
+	reqLogger := r.Log.WithValues("Request.Namespace", cr.Namespace, "Request.Name", cr.Name)
 	link := newConsoleLink(cr)
 
 	url := cr.Status.ApplicationURL
 	if len(url) == 0 {
 		// Nothing to link to, so remove the link if it exists
-		err := r.deleteConsoleLink(ctx, link)
+		err := r.deleteConsoleLink(ctx, link, reqLogger)
 		if err != nil {
 			return err
 		}
@@ -108,21 +111,21 @@ func (r *CryostatReconciler) reconcileConsoleLink(ctx context.Context, cr *opera
 	if err != nil {
 		return err
 	}
-	r.Log.Info(fmt.Sprintf("Console Link %s", op), "name", link.Name)
+	reqLogger.Info(fmt.Sprintf("Console Link %s", op), "name", link.Name)
 	return nil
 }
 
-func (r *CryostatReconciler) deleteConsoleLink(ctx context.Context, link *consolev1.ConsoleLink) error {
+func (r *CryostatReconciler) deleteConsoleLink(ctx context.Context, link *consolev1.ConsoleLink, logger logr.Logger) error {
 	err := r.Client.Delete(ctx, link)
 	if err != nil {
 		if kerrors.IsNotFound(err) {
-			r.Log.Info("ConsoleLink not found, proceeding with deletion", "name", link.Name)
+			logger.Info("ConsoleLink not found, proceeding with deletion", "name", link.Name)
 			return nil
 		}
-		r.Log.Error(err, "failed to delete ConsoleLink", "name", link.Name)
+		logger.Error(err, "failed to delete ConsoleLink", "name", link.Name)
 		return err
 	}
-	r.Log.Info("deleted ConsoleLink", "name", link.Name)
+	logger.Info("deleted ConsoleLink", "name", link.Name)
 	return nil
 }
 
@@ -160,6 +163,7 @@ func (r *CryostatReconciler) addCorsAllowedOriginIfNotPresent(ctx context.Contex
 		return err
 	}
 
+	reqLogger.Info("Added to APIServer CORS allowed origins")
 	return nil
 }
 
@@ -195,5 +199,6 @@ func (r *CryostatReconciler) deleteCorsAllowedOrigins(ctx context.Context, cr *o
 		return err
 	}
 
+	reqLogger.Info("Removed from APIServer CORS allowed origins")
 	return nil
 }
