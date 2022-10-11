@@ -37,8 +37,6 @@
 package resource_definitions
 
 import (
-	"crypto/sha256"
-	"encoding/json"
 	"fmt"
 	"math/rand"
 	"net/url"
@@ -47,14 +45,12 @@ import (
 	"time"
 
 	operatorv1beta1 "github.com/cryostatio/cryostat-operator/api/v1beta1"
+	"github.com/cryostatio/cryostat-operator/internal/controllers/common"
 	consolev1 "github.com/openshift/api/console/v1"
-	oauthv1 "github.com/openshift/api/oauth/v1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
-	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
@@ -98,47 +94,6 @@ const (
 	loopbackAddress           string = "127.0.0.1"
 	operatorNamePrefix        string = "cryostat-operator-"
 )
-
-func NewPersistentVolumeClaimForCR(cr *operatorv1beta1.Cryostat) *corev1.PersistentVolumeClaim {
-	objMeta := metav1.ObjectMeta{
-		Name:      cr.Name,
-		Namespace: cr.Namespace,
-	}
-	// Check for PVC config within CR
-	var pvcSpec corev1.PersistentVolumeClaimSpec
-	if cr.Spec.StorageOptions != nil && cr.Spec.StorageOptions.PVC != nil {
-		config := cr.Spec.StorageOptions.PVC
-		// Import any annotations and labels from the PVC config
-		objMeta.Annotations = config.Annotations
-		objMeta.Labels = config.Labels
-		// Use provided spec if specified
-		if config.Spec != nil {
-			pvcSpec = *config.Spec
-		}
-	}
-
-	// Add "app" label. This will override any user-specified "app" label.
-	if objMeta.Labels == nil {
-		objMeta.Labels = map[string]string{}
-	}
-	objMeta.Labels["app"] = cr.Name
-
-	// Apply any applicable spec defaults. Don't apply a default storage class name, since nil
-	// may be intentionally specified.
-	if pvcSpec.Resources.Requests == nil {
-		pvcSpec.Resources.Requests = corev1.ResourceList{
-			corev1.ResourceStorage: *resource.NewQuantity(500*1024*1024, resource.BinarySI),
-		}
-	}
-	if pvcSpec.AccessModes == nil {
-		pvcSpec.AccessModes = []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce}
-	}
-
-	return &corev1.PersistentVolumeClaim{
-		ObjectMeta: objMeta,
-		Spec:       pvcSpec,
-	}
-}
 
 func NewDeploymentForCR(cr *operatorv1beta1.Cryostat, specs *ServiceSpecs, imageTags *ImageTags,
 	tls *TLSConfig, fsGroup int64, openshift bool) *appsv1.Deployment {
@@ -398,12 +353,34 @@ func NewPodForCR(cr *operatorv1beta1.Cryostat, specs *ServiceSpecs, imageTags *I
 			},
 		},
 	}
+	var nodeSelector map[string]string
+	var affinity *corev1.Affinity
+	var tolerations []corev1.Toleration
+
+	if cr.Spec.SchedulingOptions != nil {
+		nodeSelector = cr.Spec.SchedulingOptions.NodeSelector
+
+		if cr.Spec.SchedulingOptions.Affinity != nil {
+			affinity = &corev1.Affinity{
+				NodeAffinity:    cr.Spec.SchedulingOptions.Affinity.NodeAffinity,
+				PodAffinity:     cr.Spec.SchedulingOptions.Affinity.PodAffinity,
+				PodAntiAffinity: cr.Spec.SchedulingOptions.Affinity.PodAntiAffinity,
+			}
+		}
+		tolerations = cr.Spec.SchedulingOptions.Tolerations
+	}
+
+	automountSAToken := true
 	return &corev1.PodSpec{
-		ServiceAccountName: cr.Name,
-		Volumes:            volumes,
-		Containers:         containers,
-		SecurityContext:    podSc,
-		HostAliases:        hostAliases,
+		ServiceAccountName:           cr.Name,
+		Volumes:                      volumes,
+		Containers:                   containers,
+		SecurityContext:              podSc,
+		HostAliases:                  hostAliases,
+		AutomountServiceAccountToken: &automountSAToken,
+		NodeSelector:                 nodeSelector,
+		Affinity:                     affinity,
+		Tolerations:                  tolerations,
 	}
 }
 
@@ -526,8 +503,24 @@ func NewPodForReports(cr *operatorv1beta1.Cryostat, imageTags *ImageTags, tls *T
 		}
 	}
 
+	var nodeSelector map[string]string
+	var affinity *corev1.Affinity
+	var tolerations []corev1.Toleration
+
+	if cr.Spec.ReportOptions != nil && cr.Spec.ReportOptions.SchedulingOptions != nil {
+		schedulingOptions := cr.Spec.ReportOptions.SchedulingOptions
+		nodeSelector = schedulingOptions.NodeSelector
+		if schedulingOptions.Affinity != nil {
+			affinity = &corev1.Affinity{
+				NodeAffinity:    schedulingOptions.Affinity.NodeAffinity,
+				PodAffinity:     schedulingOptions.Affinity.PodAffinity,
+				PodAntiAffinity: schedulingOptions.Affinity.PodAntiAffinity,
+			}
+		}
+		tolerations = schedulingOptions.Tolerations
+	}
+
 	return &corev1.PodSpec{
-		ServiceAccountName: cr.Name,
 		Containers: []corev1.Container{
 			{
 				Name:            cr.Name + "-reports",
@@ -551,6 +544,9 @@ func NewPodForReports(cr *operatorv1beta1.Cryostat, imageTags *ImageTags, tls *T
 			},
 		},
 		Volumes:         volumes,
+		NodeSelector:    nodeSelector,
+		Affinity:        affinity,
+		Tolerations:     tolerations,
 		SecurityContext: podSc,
 	}
 }
@@ -1062,121 +1058,11 @@ func NewKeystoreSecretForCR(cr *operatorv1beta1.Cryostat) *corev1.Secret {
 	}
 }
 
-func NewServiceAccountForCR(cr *operatorv1beta1.Cryostat, isOpenShift bool) (*corev1.ServiceAccount, error) {
-	annotations := make(map[string]string)
-
-	if isOpenShift {
-		OAuthRedirectReference := &oauthv1.OAuthRedirectReference{
-			Reference: oauthv1.RedirectReference{
-				Kind: "Route",
-				Name: cr.Name,
-			},
-		}
-
-		ref, err := json.Marshal(OAuthRedirectReference)
-		if err != nil {
-			return nil, err
-		}
-
-		annotations = map[string]string{
-			"serviceaccounts.openshift.io/oauth-redirectreference.route": string(ref),
-		}
-	}
-
-	return &corev1.ServiceAccount{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      cr.Name,
-			Namespace: cr.Namespace,
-			Labels: map[string]string{
-				"app": "cryostat",
-			},
-			Annotations: annotations,
-		},
-	}, nil
-}
-
-func NewRoleForCR(cr *operatorv1beta1.Cryostat) *rbacv1.Role {
-	return &rbacv1.Role{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      cr.Name,
-			Namespace: cr.Namespace,
-		},
-		Rules: []rbacv1.PolicyRule{
-			{
-				Verbs:     []string{"get", "list", "watch"},
-				APIGroups: []string{""},
-				Resources: []string{"endpoints"},
-			},
-			{
-				Verbs:     []string{"get"},
-				APIGroups: []string{""},
-				Resources: []string{"pods", "replicationcontrollers"},
-			},
-			{
-				Verbs:     []string{"get"},
-				APIGroups: []string{"apps"},
-				Resources: []string{"replicasets", "deployments", "daemonsets", "statefulsets"},
-			},
-			{
-				Verbs:     []string{"get"},
-				APIGroups: []string{"apps.openshift.io"},
-				Resources: []string{"deploymentconfigs"},
-			},
-			{
-				Verbs:     []string{"get", "list"},
-				APIGroups: []string{"route.openshift.io"},
-				Resources: []string{"routes"},
-			},
-		},
-	}
-}
-
-func NewRoleBindingForCR(cr *operatorv1beta1.Cryostat) *rbacv1.RoleBinding {
-	return &rbacv1.RoleBinding{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      cr.Name,
-			Namespace: cr.Namespace,
-		},
-		Subjects: []rbacv1.Subject{
-			{
-				Kind:      rbacv1.ServiceAccountKind,
-				Name:      cr.Name,
-				Namespace: cr.Namespace,
-			},
-		},
-		RoleRef: rbacv1.RoleRef{
-			APIGroup: "rbac.authorization.k8s.io",
-			Kind:     "Role",
-			Name:     cr.Name,
-		},
-	}
-}
-
-func NewClusterRoleBindingForCR(cr *operatorv1beta1.Cryostat) *rbacv1.ClusterRoleBinding {
-	return &rbacv1.ClusterRoleBinding{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: clusterUniqueName(cr),
-		},
-		Subjects: []rbacv1.Subject{
-			{
-				Kind:      rbacv1.ServiceAccountKind,
-				Name:      cr.Name,
-				Namespace: cr.Namespace,
-			},
-		},
-		RoleRef: rbacv1.RoleRef{
-			APIGroup: "rbac.authorization.k8s.io",
-			Kind:     "ClusterRole",
-			Name:     "cryostat-operator-cryostat",
-		},
-	}
-}
-
 func NewConsoleLink(cr *operatorv1beta1.Cryostat, url string) *consolev1.ConsoleLink {
 	// Cluster scoped, so use a unique name to avoid conflicts
 	return &consolev1.ConsoleLink{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: clusterUniqueName(cr),
+			Name: common.ClusterUniqueName(cr),
 		},
 		Spec: consolev1.ConsoleLinkSpec{
 			Link: consolev1.Link{
@@ -1210,13 +1096,6 @@ func getInternalDashboardURL(tls *TLSConfig) string {
 		scheme = "http"
 	}
 	return fmt.Sprintf("%s://%s:%d", scheme, healthCheckHostname, grafanaContainerPort)
-}
-
-func clusterUniqueName(cr *operatorv1beta1.Cryostat) string {
-	// Use the SHA256 checksum of the namespaced name as a suffix
-	nn := types.NamespacedName{Namespace: cr.Namespace, Name: cr.Name}
-	suffix := fmt.Sprintf("%x", sha256.Sum256([]byte(nn.String())))
-	return "cryostat-" + suffix
 }
 
 // Matches image tags of the form "major.minor.patch"

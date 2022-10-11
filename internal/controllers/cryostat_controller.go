@@ -59,7 +59,6 @@ import (
 	securityv1 "github.com/openshift/api/security/v1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
-	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -170,7 +169,8 @@ func (r *CryostatReconciler) Reconcile(ctx context.Context, request ctrl.Request
 	// Check if this Cryostat is being deleted
 	if instance.GetDeletionTimestamp() != nil {
 		if controllerutil.ContainsFinalizer(instance, cryostatFinalizer) {
-			err = r.deleteClusterRoleBinding(ctx, instance)
+			// Perform finalizer logic related to RBAC objects
+			err = r.finalizeRBAC(ctx, instance)
 			if err != nil {
 				return reconcile.Result{}, err
 			}
@@ -207,15 +207,9 @@ func (r *CryostatReconciler) Reconcile(ctx context.Context, request ctrl.Request
 
 	reqLogger.Info("Spec", "Minimal", instance.Spec.Minimal)
 
-	shouldCreatePvc := !(instance.Spec.StorageOptions != nil && instance.Spec.StorageOptions.EmptyDir != nil && instance.Spec.StorageOptions.EmptyDir.Enabled)
-	if shouldCreatePvc {
-		pvc := resources.NewPersistentVolumeClaimForCR(instance)
-		if err := controllerutil.SetControllerReference(instance, pvc, r.Scheme); err != nil {
-			return reconcile.Result{}, err
-		}
-		if err = r.createObjectIfNotExists(context.Background(), types.NamespacedName{Name: pvc.Name, Namespace: pvc.Namespace}, &corev1.PersistentVolumeClaim{}, pvc); err != nil {
-			return reconcile.Result{}, err
-		}
+	err = r.reconcilePVC(ctx, instance)
+	if err != nil {
+		return reconcile.Result{}, err
 	}
 
 	grafanaSecret := resources.NewGrafanaSecretForCR(instance)
@@ -275,8 +269,8 @@ func (r *CryostatReconciler) Reconcile(ctx context.Context, request ctrl.Request
 		}
 	}
 
-	// Create RBAC resources for Cryostat
-	err = r.createRBAC(ctx, instance)
+	// Reconcile RBAC resources for Cryostat
+	err = r.reconcileRBAC(ctx, instance)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
@@ -434,87 +428,6 @@ func (r *CryostatReconciler) createObjectIfNotExists(ctx context.Context, ns typ
 		return err
 	}
 	logger.Info("Already exists")
-	return nil
-}
-
-func (r *CryostatReconciler) createRBAC(ctx context.Context, cr *operatorv1beta1.Cryostat) error {
-	// Create ServiceAccount
-	sa, err := resources.NewServiceAccountForCR(cr, r.IsOpenShift)
-	if err != nil {
-		return err
-	}
-	newSA := sa.DeepCopy()
-	op, err := controllerutil.CreateOrUpdate(ctx, r.Client, sa, func() error {
-		if err := controllerutil.SetControllerReference(cr, sa, r.Scheme); err != nil {
-			return err
-		}
-		// TODO just replace the labels and annotations we manage, once we allow the user to configure
-		// ServiceAccount annotations/labels in the CR, we can simply overwrite them all
-		for key, val := range newSA.GetAnnotations() {
-			metav1.SetMetaDataAnnotation(&sa.ObjectMeta, key, val)
-		}
-		if sa.Labels == nil {
-			sa.Labels = map[string]string{}
-		}
-		for key, val := range newSA.GetLabels() {
-			// TODO use metav1.SetMetaDataLabel when updating client-go, replace above initialization
-			sa.Labels[key] = val
-		}
-		// Pod needs SA token, do not allow to be disabled
-		sa.AutomountServiceAccountToken = newSA.AutomountServiceAccountToken
-		// Secrets, ImagePullSecrets are modified by Kubernetes/OpenShift
-		return nil
-	})
-	if err != nil {
-		return err
-	}
-	r.Log.Info(fmt.Sprintf("ServiceAccount %s", op), "name", sa.Name, "namespace", sa.Namespace)
-
-	// Create Role
-	role := resources.NewRoleForCR(cr)
-	if err := controllerutil.SetControllerReference(cr, role, r.Scheme); err != nil {
-		return err
-	}
-	if err := r.createObjectIfNotExists(ctx, types.NamespacedName{Name: role.Name, Namespace: role.Namespace},
-		&rbacv1.Role{}, role); err != nil {
-		return err
-	}
-
-	// Create RoleBinding
-	binding := resources.NewRoleBindingForCR(cr)
-	if err := controllerutil.SetControllerReference(cr, binding, r.Scheme); err != nil {
-		return err
-	}
-	if err := r.createObjectIfNotExists(ctx, types.NamespacedName{Name: binding.Name, Namespace: binding.Namespace},
-		&rbacv1.RoleBinding{}, binding); err != nil {
-		return err
-	}
-
-	// Create ClusterRoleBinding
-	clusterBinding := resources.NewClusterRoleBindingForCR(cr)
-	if err := r.createObjectIfNotExists(ctx, types.NamespacedName{Name: clusterBinding.Name},
-		&rbacv1.ClusterRoleBinding{}, clusterBinding); err != nil {
-		return err
-	}
-	// ClusterRoleBinding can't be owned by namespaced CR, clean up using finalizer
-
-	return nil
-}
-
-func (r *CryostatReconciler) deleteClusterRoleBinding(ctx context.Context, cr *operatorv1beta1.Cryostat) error {
-	reqLogger := r.Log.WithValues("Request.Namespace", cr.Namespace, "Request.Name", cr.Name)
-
-	clusterBinding := resources.NewClusterRoleBindingForCR(cr)
-	err := r.Delete(ctx, clusterBinding)
-	if err != nil {
-		if kerrors.IsNotFound(err) {
-			reqLogger.Info("ClusterRoleBinding not found, proceeding with deletion", "bindingName", clusterBinding.Name)
-			return nil
-		}
-		reqLogger.Error(err, "failed to delete ClusterRoleBinding", "bindingName", clusterBinding.Name)
-		return err
-	}
-	reqLogger.Info("deleted ClusterRoleBinding", "bindingName", clusterBinding.Name)
 	return nil
 }
 
@@ -705,7 +618,7 @@ func (r *CryostatReconciler) createOrUpdateDeployment(ctx context.Context, deplo
 	op, err := controllerutil.CreateOrUpdate(ctx, r.Client, deploy, func() error {
 		// TODO consider managing labels and annotations using CRD
 		// Merge any required labels and annotations
-		mergeLabelsAndAnnotations(&deploy.ObjectMeta, metaCopy)
+		mergeLabelsAndAnnotations(&deploy.ObjectMeta, metaCopy.Labels, metaCopy.Annotations)
 		// Set the Cryostat CR as controller
 		if err := controllerutil.SetControllerReference(owner, deploy, r.Scheme); err != nil {
 			return err
@@ -721,7 +634,8 @@ func (r *CryostatReconciler) createOrUpdateDeployment(ctx context.Context, deplo
 		// Update pod template spec to propagate any changes from Cryostat CR
 		deploy.Spec.Template.Spec = specCopy.Template.Spec
 		// Update pod template metadata
-		mergeLabelsAndAnnotations(&deploy.Spec.Template.ObjectMeta, &specCopy.Template.ObjectMeta)
+		mergeLabelsAndAnnotations(&deploy.Spec.Template.ObjectMeta, specCopy.Template.Labels,
+			specCopy.Template.Annotations)
 		return nil
 	})
 	if err != nil {
@@ -756,25 +670,20 @@ func findDeployCondition(conditions []appsv1.DeploymentCondition, condType appsv
 	return nil
 }
 
-func mergeLabelsAndAnnotations(dest *metav1.ObjectMeta, src *metav1.ObjectMeta) {
+func mergeLabelsAndAnnotations(dest *metav1.ObjectMeta, srcLabels, srcAnnotations map[string]string) {
 	// Check and create labels/annotations map if absent
-	createLabelsAndAnnotationsIfAbsent(dest)
-	// Merge labels and annotations, preferring those specified by the operator
-	labels := dest.GetLabels()
-	for k, v := range src.GetLabels() {
-		labels[k] = v
+	if dest.Labels == nil {
+		dest.Labels = map[string]string{}
 	}
-	annotations := dest.GetAnnotations()
-	for k, v := range src.GetAnnotations() {
-		annotations[k] = v
+	if dest.Annotations == nil {
+		dest.Annotations = map[string]string{}
 	}
-}
 
-func createLabelsAndAnnotationsIfAbsent(metadata *metav1.ObjectMeta) {
-	if metadata.Labels == nil {
-		metadata.Labels = map[string]string{}
+	// Merge labels and annotations, preferring those in the source
+	for k, v := range srcLabels {
+		dest.Labels[k] = v
 	}
-	if metadata.Annotations == nil {
-		metadata.Annotations = map[string]string{}
+	for k, v := range srcAnnotations {
+		dest.Annotations[k] = v
 	}
 }

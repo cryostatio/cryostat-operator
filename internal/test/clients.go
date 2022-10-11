@@ -34,45 +34,65 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-package common
+package test
 
 import (
-	"crypto/sha256"
-	"fmt"
-	"io/ioutil"
-	"os"
+	"context"
 
-	operatorv1beta1 "github.com/cryostatio/cryostat-operator/api/v1beta1"
-	"k8s.io/apimachinery/pkg/types"
-	logf "sigs.k8s.io/controller-runtime/pkg/log"
+	kerrors "k8s.io/apimachinery/pkg/api/errors"
+	ctrlclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-var log = logf.Log.WithName("common")
-
-// OSUtils is an abstraction on functionality that interacts with the operating system
-type OSUtils interface {
-	GetEnv(name string) string
-	GetFileContents(path string) ([]byte, error)
+type clientUpdateError struct {
+	ctrlclient.Client
+	failObj ctrlclient.Object
+	err     *kerrors.StatusError
 }
 
-type defaultOSUtils struct{}
-
-// GetEnv returns the value of the environment variable with the provided name. If no such
-// variable exists, the empty string is returned.
-func (o *defaultOSUtils) GetEnv(name string) string {
-	return os.Getenv(name)
+// NewClientWithUpdateError wraps a Client by returning an error when updating
+// a specified object
+func NewClientWithUpdateError(client ctrlclient.Client, failObj ctrlclient.Object,
+	err *kerrors.StatusError) ctrlclient.Client {
+	return &clientUpdateError{
+		Client:  client,
+		failObj: failObj,
+		err:     err,
+	}
 }
 
-// GetFileContents reads and returns the entire file contents specified by the path
-func (o *defaultOSUtils) GetFileContents(path string) ([]byte, error) {
-	return ioutil.ReadFile(path)
+func (c *clientUpdateError) Update(ctx context.Context, obj ctrlclient.Object,
+	opts ...ctrlclient.UpdateOption) error {
+	if obj.GetName() == c.failObj.GetName() && obj.GetNamespace() == c.failObj.GetNamespace() {
+		// Look up Kind and compare against object to fail on
+		match, err := c.matchesKind(obj)
+		if err != nil {
+			return err
+		}
+		if *match {
+			return c.err
+		}
+	}
+	return c.Client.Update(ctx, obj, opts...)
 }
 
-// ClusterUniqueName returns a name for cluster-scoped objects that is
-// uniquely identified by the namespace and name of the provided Cryostat CR.
-func ClusterUniqueName(cr *operatorv1beta1.Cryostat) string {
-	// Use the SHA256 checksum of the namespaced name as a suffix
-	nn := types.NamespacedName{Namespace: cr.Namespace, Name: cr.Name}
-	suffix := fmt.Sprintf("%x", sha256.Sum256([]byte(nn.String())))
-	return "cryostat-" + suffix
+func (c *clientUpdateError) matchesKind(obj ctrlclient.Object) (*bool, error) {
+	match := false
+	failKinds, _, err := c.Scheme().ObjectKinds(c.failObj)
+	if err != nil {
+		return nil, err
+	}
+	kinds, _, err := c.Scheme().ObjectKinds(obj)
+	if err != nil {
+		return nil, err
+	}
+
+	for _, failKind := range failKinds {
+		for _, kind := range kinds {
+			if failKind == kind {
+				match = true
+				return &match, nil
+			}
+		}
+	}
+	return &match, nil
 }

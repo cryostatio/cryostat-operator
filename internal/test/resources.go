@@ -102,6 +102,14 @@ func NewCryostat() *operatorv1beta1.Cryostat {
 	}
 }
 
+func NewCryostatWithReports() *operatorv1beta1.Cryostat {
+	cr := NewCryostat()
+	cr.Spec.ReportOptions = &operatorv1beta1.ReportConfiguration{
+		Replicas: 1,
+	}
+	return cr
+}
+
 func NewCryostatWithSecrets() *operatorv1beta1.Cryostat {
 	cr := NewCryostat()
 	key := "test.crt"
@@ -303,6 +311,7 @@ func NewCryostatWithGrafanaNetworkOptions() *operatorv1beta1.Cryostat {
 func NewCryostatWithReportsResources() *operatorv1beta1.Cryostat {
 	cr := NewCryostat()
 	cr.Spec.ReportOptions = &operatorv1beta1.ReportConfiguration{
+		Replicas: 1,
 		Resources: corev1.ResourceRequirements{
 			Limits: corev1.ResourceList{
 				corev1.ResourceCPU:    resource.MustParse("1600m"),
@@ -314,6 +323,74 @@ func NewCryostatWithReportsResources() *operatorv1beta1.Cryostat {
 			},
 		},
 	}
+	return cr
+}
+
+func populateCryostatWithScheduling() *operatorv1beta1.SchedulingConfiguration {
+	return &operatorv1beta1.SchedulingConfiguration{
+		NodeSelector: map[string]string{"node": "good"},
+		Affinity: &operatorv1beta1.Affinity{
+			NodeAffinity: &corev1.NodeAffinity{
+				RequiredDuringSchedulingIgnoredDuringExecution: &corev1.NodeSelector{
+					NodeSelectorTerms: []corev1.NodeSelectorTerm{
+						{
+							MatchExpressions: []corev1.NodeSelectorRequirement{
+								{
+									Key:      "node",
+									Operator: corev1.NodeSelectorOpIn,
+									Values: []string{
+										"good",
+										"better",
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			PodAffinity: &corev1.PodAffinity{
+				RequiredDuringSchedulingIgnoredDuringExecution: []corev1.PodAffinityTerm{
+					{
+						LabelSelector: metav1.AddLabelToSelector(&metav1.LabelSelector{},
+							"pod", "good"),
+						TopologyKey: "topology.kubernetes.io/zone",
+					},
+				},
+			},
+			PodAntiAffinity: &corev1.PodAntiAffinity{
+				RequiredDuringSchedulingIgnoredDuringExecution: []corev1.PodAffinityTerm{
+					{LabelSelector: metav1.AddLabelToSelector(&metav1.LabelSelector{},
+						"pod", "bad"),
+						TopologyKey: "topology.kubernetes.io/zone",
+					},
+				},
+			},
+		},
+		Tolerations: []corev1.Toleration{
+			{
+				Key:      "node",
+				Operator: corev1.TolerationOpEqual,
+				Value:    "ok",
+				Effect:   corev1.TaintEffectNoExecute,
+			},
+		},
+	}
+
+}
+
+func NewCryostatWithScheduling() *operatorv1beta1.Cryostat {
+	cr := NewCryostat()
+	cr.Spec.SchedulingOptions = populateCryostatWithScheduling()
+	return cr
+}
+
+func NewCryostatWithReportsScheduling() *operatorv1beta1.Cryostat {
+	cr := NewCryostat()
+	cr.Spec.ReportOptions = &operatorv1beta1.ReportConfiguration{
+		Replicas:          1,
+		SchedulingOptions: populateCryostatWithScheduling(),
+	}
+
 	return cr
 }
 
@@ -2044,6 +2121,25 @@ func NewRole() *rbacv1.Role {
 	}
 }
 
+func OtherRole() *rbacv1.Role {
+	return &rbacv1.Role{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "cryostat",
+			Namespace: "default",
+			Labels: map[string]string{
+				"test": "label",
+			},
+		},
+		Rules: []rbacv1.PolicyRule{
+			{
+				Verbs:     []string{"*"},
+				APIGroups: []string{"*"},
+				Resources: []string{"*"},
+			},
+		},
+	}
+}
+
 func NewAuthClusterRole() *rbacv1.ClusterRole {
 	return &rbacv1.ClusterRole{
 		ObjectMeta: metav1.ObjectMeta{
@@ -2085,6 +2181,34 @@ func NewRoleBinding() *rbacv1.RoleBinding {
 	}
 }
 
+func OtherRoleBinding() *rbacv1.RoleBinding {
+	return &rbacv1.RoleBinding{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "cryostat",
+			Namespace: "default",
+			Labels: map[string]string{
+				"test": "label",
+			},
+		},
+		Subjects: []rbacv1.Subject{
+			{
+				Kind:      rbacv1.ServiceAccountKind,
+				Name:      "not-cryostat",
+				Namespace: "default",
+			},
+			{
+				Kind: rbacv1.UserKind,
+				Name: "also-not-cryostat",
+			},
+		},
+		RoleRef: rbacv1.RoleRef{
+			APIGroup: "rbac.authorization.k8s.io",
+			Kind:     "ClusterRole",
+			Name:     "not-cryostat",
+		},
+	}
+}
+
 func NewClusterRoleBinding() *rbacv1.ClusterRoleBinding {
 	return &rbacv1.ClusterRoleBinding{
 		ObjectMeta: metav1.ObjectMeta{
@@ -2101,6 +2225,33 @@ func NewClusterRoleBinding() *rbacv1.ClusterRoleBinding {
 			APIGroup: "rbac.authorization.k8s.io",
 			Kind:     "ClusterRole",
 			Name:     "cryostat-operator-cryostat",
+		},
+	}
+}
+
+func OtherClusterRoleBinding() *rbacv1.ClusterRoleBinding {
+	return &rbacv1.ClusterRoleBinding{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "cryostat-9ecd5050500c2566765bc593edfcce12434283e5da32a27476bc4a1569304a02",
+			Labels: map[string]string{
+				"test": "label",
+			},
+		},
+		Subjects: []rbacv1.Subject{
+			{
+				Kind:      rbacv1.ServiceAccountKind,
+				Name:      "not-cryostat",
+				Namespace: "default",
+			},
+			{
+				Kind: rbacv1.UserKind,
+				Name: "also-not-cryostat",
+			},
+		},
+		RoleRef: rbacv1.RoleRef{
+			APIGroup: "rbac.authorization.k8s.io",
+			Kind:     "ClusterRole",
+			Name:     "not-cryostat",
 		},
 	}
 }
