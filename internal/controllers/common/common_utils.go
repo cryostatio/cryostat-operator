@@ -40,7 +40,9 @@ import (
 	"crypto/sha256"
 	"fmt"
 	"io/ioutil"
+	"math/rand"
 	"os"
+	"time"
 
 	operatorv1beta1 "github.com/cryostatio/cryostat-operator/api/v1beta1"
 	"k8s.io/apimachinery/pkg/types"
@@ -53,6 +55,7 @@ var log = logf.Log.WithName("common")
 type OSUtils interface {
 	GetEnv(name string) string
 	GetFileContents(path string) ([]byte, error)
+	GenPasswd(length int) string
 }
 
 type defaultOSUtils struct{}
@@ -66,6 +69,17 @@ func (o *defaultOSUtils) GetEnv(name string) string {
 // GetFileContents reads and returns the entire file contents specified by the path
 func (o *defaultOSUtils) GetFileContents(path string) ([]byte, error) {
 	return ioutil.ReadFile(path)
+}
+
+// GenPasswd generates a psuedorandom password of a given length.
+func (o *defaultOSUtils) GenPasswd(length int) string {
+	rand.Seed(time.Now().UnixNano())
+	chars := "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_"
+	b := make([]byte, length)
+	for i := range b {
+		b[i] = chars[rand.Intn(len(chars))]
+	}
+	return string(b)
 }
 
 // ClusterUniqueName returns a name for cluster-scoped objects that is
