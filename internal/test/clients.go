@@ -38,10 +38,46 @@ package test
 
 import (
 	"context"
+	"time"
 
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/meta"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	ctrlclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
+
+// TODO When using envtest instead of fake client, this is probably no longer needed
+type timestampClient struct {
+	ctrlclient.Client
+}
+
+func NewClientWithTimestamp(client ctrlclient.Client) ctrlclient.Client {
+	return &timestampClient{
+		Client: client,
+	}
+}
+
+func (c *timestampClient) Create(ctx context.Context, obj ctrlclient.Object, opts ...ctrlclient.CreateOption) error {
+	err := SetCreationTimestamp(obj)
+	if err != nil {
+		return err
+	}
+	return c.Client.Create(ctx, obj, opts...)
+}
+
+var creationTimestamp = metav1.NewTime(time.Unix(1664573254, 0))
+
+func SetCreationTimestamp(objs ...runtime.Object) error {
+	for _, obj := range objs {
+		metaObj, err := meta.Accessor(obj)
+		if err != nil {
+			return err
+		}
+		metaObj.SetCreationTimestamp(creationTimestamp)
+	}
+	return nil
+}
 
 type clientUpdateError struct {
 	ctrlclient.Client
