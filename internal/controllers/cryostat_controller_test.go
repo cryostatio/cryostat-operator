@@ -1124,6 +1124,27 @@ var _ = Describe("CryostatController", func() {
 				Expect(err).ToNot(HaveOccurred())
 				Expect(link.Spec).To(Equal(expectedLink.Spec))
 			})
+			Context("with an existing ConsoleLink", func() {
+				var oldLink *consolev1.ConsoleLink
+				BeforeEach(func() {
+					oldLink = test.OtherConsoleLink()
+					t.objs = append(t.objs, oldLink)
+				})
+				It("should update the ConsoleLink", func() {
+					link := &consolev1.ConsoleLink{}
+					expectedLink := test.NewConsoleLink()
+					err := t.Client.Get(context.Background(), types.NamespacedName{Name: expectedLink.Name}, link)
+					Expect(err).ToNot(HaveOccurred())
+					// Existing labels and annotations should remain
+					Expect(link.Labels).To(Equal(oldLink.Labels))
+					Expect(link.Annotations).To(Equal(oldLink.Annotations))
+
+					// Check managed spec fields
+					Expect(link.Spec.Link).To(Equal(expectedLink.Spec.Link))
+					Expect(link.Spec.Location).To(Equal(expectedLink.Spec.Location))
+					Expect(link.Spec.NamespaceDashboard).To(Equal(expectedLink.Spec.NamespaceDashboard))
+				})
+			})
 			It("should add application url to APIServer AdditionalCORSAllowedOrigins", func() {
 				apiServer := &configv1.APIServer{}
 				err := t.Client.Get(context.Background(), types.NamespacedName{Name: "cluster"}, apiServer)

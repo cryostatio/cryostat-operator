@@ -2390,6 +2390,30 @@ func NewConsoleLink() *consolev1.ConsoleLink {
 	}
 }
 
+func OtherConsoleLink() *consolev1.ConsoleLink {
+	return &consolev1.ConsoleLink{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "cryostat-9ecd5050500c2566765bc593edfcce12434283e5da32a27476bc4a1569304a02",
+			Labels: map[string]string{
+				"my": "label",
+			},
+			Annotations: map[string]string{
+				"my": "annotation",
+			},
+		},
+		Spec: consolev1.ConsoleLinkSpec{
+			Link: consolev1.Link{
+				Text: "Not Cryostat",
+				Href: "https://not-cryostat.example.com",
+			},
+			Location: consolev1.HelpMenu,
+			NamespaceDashboard: &consolev1.NamespaceDashboardSpec{
+				Namespaces: []string{"other"},
+			},
+		},
+	}
+}
+
 func NewApiServer() *configv1.APIServer {
 	return &configv1.APIServer{
 		ObjectMeta: metav1.ObjectMeta{

@@ -48,6 +48,8 @@ IMAGE_BUILDER ?= podman
 # Image URL to use all building/pushing image targets
 OPERATOR_IMG ?= $(IMAGE_TAG_BASE):$(IMAGE_VERSION)
 
+# Name of the application deployed by the operator
+export APP_NAME ?= Cryostat
 
 # Images used by the operator
 CORE_NAMESPACE ?= $(DEFAULT_NAMESPACE)
