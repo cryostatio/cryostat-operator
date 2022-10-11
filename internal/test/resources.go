@@ -102,6 +102,14 @@ func NewCryostat() *operatorv1beta1.Cryostat {
 	}
 }
 
+func NewCryostatWithReports() *operatorv1beta1.Cryostat {
+	cr := NewCryostat()
+	cr.Spec.ReportOptions = &operatorv1beta1.ReportConfiguration{
+		Replicas: 1,
+	}
+	return cr
+}
+
 func NewCryostatWithSecrets() *operatorv1beta1.Cryostat {
 	cr := NewCryostat()
 	key := "test.crt"
@@ -303,6 +311,7 @@ func NewCryostatWithGrafanaNetworkOptions() *operatorv1beta1.Cryostat {
 func NewCryostatWithReportsResources() *operatorv1beta1.Cryostat {
 	cr := NewCryostat()
 	cr.Spec.ReportOptions = &operatorv1beta1.ReportConfiguration{
+		Replicas: 1,
 		Resources: corev1.ResourceRequirements{
 			Limits: corev1.ResourceList{
 				corev1.ResourceCPU:    resource.MustParse("1600m"),
@@ -378,6 +387,7 @@ func NewCryostatWithScheduling() *operatorv1beta1.Cryostat {
 func NewCryostatWithReportsScheduling() *operatorv1beta1.Cryostat {
 	cr := NewCryostat()
 	cr.Spec.ReportOptions = &operatorv1beta1.ReportConfiguration{
+		Replicas:          1,
 		SchedulingOptions: populateCryostatWithScheduling(),
 	}
 

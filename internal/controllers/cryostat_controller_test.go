@@ -551,35 +551,15 @@ var _ = Describe("CryostatController", func() {
 				t.checkMainDeployment()
 			})
 		})
-		Context("Switching from 0 report sidecars to 1", func() {
+		Context("with report generator service", func() {
 			var cr *operatorv1beta1.Cryostat
 			BeforeEach(func() {
-				cr = test.NewCryostat()
+				cr = test.NewCryostatWithReports()
 				t.objs = append(t.objs, cr)
 				t.reportReplicas = 1
 			})
 			JustBeforeEach(func() {
 				t.reconcileCryostatFully()
-
-				cryostat := &operatorv1beta1.Cryostat{}
-				err := t.Client.Get(context.Background(), types.NamespacedName{Name: "cryostat", Namespace: "default"}, cryostat)
-				Expect(err).ToNot(HaveOccurred())
-
-				cryostat.Spec.ReportOptions = &operatorv1beta1.ReportConfiguration{
-					Replicas: t.reportReplicas,
-				}
-				err = t.Client.Status().Update(context.Background(), cryostat)
-				Expect(err).ToNot(HaveOccurred())
-
-				req := reconcile.Request{NamespacedName: types.NamespacedName{Name: "cryostat", Namespace: "default"}}
-				result, err := t.controller.Reconcile(context.Background(), req)
-				Expect(err).ToNot(HaveOccurred())
-				Expect(result).To(Equal(reconcile.Result{}))
-			})
-			It("should configure deployment appropriately", func() {
-				t.checkMainDeployment()
-				t.checkReportsDeployment()
-				t.checkService("cryostat-reports", test.NewReportsService())
 			})
 			Context("with cert-manager disabled", func() {
 				BeforeEach(func() {
@@ -593,16 +573,14 @@ var _ = Describe("CryostatController", func() {
 					t.checkService("cryostat-reports", test.NewReportsService())
 				})
 			})
-
 			Context("with Scheduling options", func() {
 				BeforeEach(func() {
-					*cr = *test.NewCryostatWithReportsResources()
+					*cr = *test.NewCryostatWithReportsScheduling()
 				})
 				It("should configure deployment appropriately", func() {
 					t.checkReportsDeployment()
 				})
 			})
-
 			Context("with resource requirements", func() {
 				BeforeEach(func() {
 					*cr = *test.NewCryostatWithReportsResources()
@@ -649,6 +627,36 @@ var _ = Describe("CryostatController", func() {
 							"TestReplicaFailure")
 					})
 				})
+			})
+		})
+		Context("Switching from 0 report sidecars to 1", func() {
+			BeforeEach(func() {
+				cr := test.NewCryostat()
+				t.objs = append(t.objs, cr)
+				t.reportReplicas = 1
+			})
+			JustBeforeEach(func() {
+				t.reconcileCryostatFully()
+
+				cryostat := &operatorv1beta1.Cryostat{}
+				err := t.Client.Get(context.Background(), types.NamespacedName{Name: "cryostat", Namespace: "default"}, cryostat)
+				Expect(err).ToNot(HaveOccurred())
+
+				cryostat.Spec.ReportOptions = &operatorv1beta1.ReportConfiguration{
+					Replicas: t.reportReplicas,
+				}
+				err = t.Client.Status().Update(context.Background(), cryostat)
+				Expect(err).ToNot(HaveOccurred())
+
+				req := reconcile.Request{NamespacedName: types.NamespacedName{Name: "cryostat", Namespace: "default"}}
+				result, err := t.controller.Reconcile(context.Background(), req)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(result).To(Equal(reconcile.Result{}))
+			})
+			It("should configure deployment appropriately", func() {
+				t.checkMainDeployment()
+				t.checkReportsDeployment()
+				t.checkService("cryostat-reports", test.NewReportsService())
 			})
 		})
 		Context("Switching from 1 report sidecar to 2", func() {
