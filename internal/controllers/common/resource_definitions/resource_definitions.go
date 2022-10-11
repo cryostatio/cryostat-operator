@@ -50,9 +50,6 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
-// Generates image tag constants
-//go:generate go run ../../../tools/imagetag_generator.go
-
 // ImageTags contains container image tags for each of the images to deploy
 type ImageTags struct {
 	CoreImageTag       string

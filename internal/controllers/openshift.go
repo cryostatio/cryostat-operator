@@ -96,7 +96,7 @@ func (r *CryostatReconciler) reconcileConsoleLink(ctx context.Context, cr *opera
 	}
 	op, err := controllerutil.CreateOrUpdate(ctx, r.Client, link, func() error {
 		link.Spec.Link = consolev1.Link{
-			Text: "Cryostat",
+			Text: AppName,
 			Href: url,
 		}
 		link.Spec.Location = consolev1.NamespaceDashboard

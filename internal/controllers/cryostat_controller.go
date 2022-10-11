@@ -67,6 +67,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/source"
 )
 
+// Generates constants from environment variables at build time
+//go:generate go run ../tools/const_generator.go
+
 // CryostatReconciler reconciles a Cryostat object
 type CryostatReconciler struct {
 	client.Client
@@ -375,10 +378,10 @@ func (r *CryostatReconciler) reconcileReports(ctx context.Context, reqLogger log
 
 func (r *CryostatReconciler) getImageTags() *resources.ImageTags {
 	return &resources.ImageTags{
-		CoreImageTag:       r.getEnvOrDefault(coreImageTagEnv, resources.DefaultCoreImageTag),
-		DatasourceImageTag: r.getEnvOrDefault(datasourceImageTagEnv, resources.DefaultDatasourceImageTag),
-		GrafanaImageTag:    r.getEnvOrDefault(grafanaImageTagEnv, resources.DefaultGrafanaImageTag),
-		ReportsImageTag:    r.getEnvOrDefault(reportsImageTagEnv, resources.DefaultReportsImageTag),
+		CoreImageTag:       r.getEnvOrDefault(coreImageTagEnv, DefaultCoreImageTag),
+		DatasourceImageTag: r.getEnvOrDefault(datasourceImageTagEnv, DefaultDatasourceImageTag),
+		GrafanaImageTag:    r.getEnvOrDefault(grafanaImageTagEnv, DefaultGrafanaImageTag),
+		ReportsImageTag:    r.getEnvOrDefault(reportsImageTagEnv, DefaultReportsImageTag),
 	}
 }
 
