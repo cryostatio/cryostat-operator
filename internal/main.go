@@ -50,6 +50,7 @@ import (
 	configv1 "github.com/openshift/api/config/v1"
 	consolev1 "github.com/openshift/api/console/v1"
 	routev1 "github.com/openshift/api/route/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
@@ -123,24 +124,28 @@ func main() {
 		os.Exit(1)
 	}
 
-	openShift, err := isOpenShift(mgr)
+	apiResources, err := getAPIResources(mgr)
 	if err != nil {
-		setupLog.Error(err, "unable to detect if environment is OpenShift")
+		setupLog.Error(err, "failed to look up API resources from server")
 		os.Exit(1)
 	}
+	openShift := isOpenShift(apiResources)
 	environment := "Kubernetes"
-	if *openShift {
+	if openShift {
 		environment = "OpenShift"
 	}
 	setupLog.Info(fmt.Sprintf("detected %s environment", environment))
 
+	certManager := isCertManagerInstalled(apiResources)
+
 	if err = (&controllers.CryostatReconciler{
-		Client:        mgr.GetClient(),
-		Log:           ctrl.Log.WithName("controllers").WithName("Cryostat"),
-		Scheme:        mgr.GetScheme(),
-		IsOpenShift:   *openShift,
-		EventRecorder: mgr.GetEventRecorderFor("cryostat-controller"),
-		RESTMapper:    mgr.GetRESTMapper(),
+		Client:                 mgr.GetClient(),
+		Log:                    ctrl.Log.WithName("controllers").WithName("Cryostat"),
+		Scheme:                 mgr.GetScheme(),
+		IsOpenShift:            openShift,
+		IsCertManagerInstalled: certManager,
+		EventRecorder:          mgr.GetEventRecorderFor("cryostat-controller"),
+		RESTMapper:             mgr.GetRESTMapper(),
 		ReconcilerTLS: common.NewReconcilerTLS(&common.ReconcilerTLSConfig{
 			Client: mgr.GetClient(),
 		}),
@@ -180,8 +185,15 @@ func getWatchNamespace() (string, error) {
 	return ns, nil
 }
 
-func isOpenShift(mgr ctrl.Manager) (*bool, error) {
-	found := false
+func isOpenShift(apiResources []*metav1.APIResourceList) bool {
+	return lookupGVK(apiResources, openshiftv1.GroupVersion.String(), "Route")
+}
+
+func isCertManagerInstalled(apiResources []*metav1.APIResourceList) bool {
+	return lookupGVK(apiResources, certv1.SchemeGroupVersion.String(), certv1.IssuerKind)
+}
+
+func getAPIResources(mgr ctrl.Manager) ([]*metav1.APIResourceList, error) {
 	// Retrieve list of groups and resources from the API server
 	dc, err := discovery.NewDiscoveryClientForConfig(mgr.GetConfig())
 	if err != nil {
@@ -191,17 +203,20 @@ func isOpenShift(mgr ctrl.Manager) (*bool, error) {
 	if err != nil {
 		return nil, err
 	}
+	return resources, nil
+}
+
+func lookupGVK(resources []*metav1.APIResourceList, groupVersion string, kind string) bool {
 	for _, list := range resources {
-		// Look up Route GV
-		if list.GroupVersion == openshiftv1.GroupVersion.String() {
+		// Look up GroupVersion
+		if list.GroupVersion == groupVersion {
 			for _, apiRes := range list.APIResources {
-				// Look up Route Kind
-				if apiRes.Kind == "Route" {
-					found = true
-					return &found, nil
+				// Look up Kind
+				if apiRes.Kind == kind {
+					return true
 				}
 			}
 		}
 	}
-	return &found, nil
+	return false
 }
