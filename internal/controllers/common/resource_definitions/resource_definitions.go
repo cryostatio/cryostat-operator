@@ -758,6 +758,16 @@ func NewCoreContainer(cr *operatorv1beta1.Cryostat, specs *ServiceSpecs, imageTa
 		})
 	}
 
+	secretOptional := false
+	envsFrom = append(envsFrom, corev1.EnvFromSource{
+		SecretRef: &corev1.SecretEnvSource{
+			LocalObjectReference: corev1.LocalObjectReference{
+				Name: cr.Name + "-jmx-credentials-db",
+			},
+			Optional: &secretOptional,
+		},
+	})
+
 	if !cr.Spec.Minimal {
 		grafanaVars := []corev1.EnvVar{
 			{
