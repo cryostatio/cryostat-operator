@@ -436,3 +436,17 @@ spec:
         value: ok
         effect: NoExecute
 ```
+
+### Target Discovery Options
+
+If you wish to use only Cryostat's Discovery Plugin API, the property `spec.targetDiscoveryOptions.builtInDiscoveryDisabled` to `true` to disable Cryostat's built-in discovery mechanisms.
+
+```yaml
+apiVersion: operator.cryostat.io/v1beta1
+kind: Cryostat
+metadata:
+  name: cryostat-sample
+spec:
+  targetDiscoveryOptions:
+    builtInDiscoveryDisabled: true
+```
