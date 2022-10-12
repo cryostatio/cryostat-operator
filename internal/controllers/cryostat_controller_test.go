@@ -109,7 +109,7 @@ var _ = Describe("CryostatController", func() {
 		t = &cryostatTestInput{
 			TestReconcilerConfig: test.TestReconcilerConfig{
 				TLS:                true,
-				GeneratedPasswords: []string{"grafana", "jmx", "keystore"},
+				GeneratedPasswords: []string{"grafana", "credentials_database", "jmx", "keystore"},
 			},
 			externalTLS: true,
 		}
@@ -142,6 +142,9 @@ var _ = Describe("CryostatController", func() {
 			})
 			It("should create Grafana secret and set owner", func() {
 				t.expectGrafanaSecret()
+			})
+			It("should create Credentials Database secret and set owner", func() {
+				t.expectCredentialsDatabaseSecret()
 			})
 			It("should create JMX secret and set owner", func() {
 				t.expectJMXSecret()
@@ -214,7 +217,7 @@ var _ = Describe("CryostatController", func() {
 			BeforeEach(func() {
 				t.objs = append(t.objs, test.NewMinimalCryostat())
 				t.minimal = true
-				t.GeneratedPasswords = []string{"jmx", "keystore"}
+				t.GeneratedPasswords = []string{"credentials_database", "jmx", "keystore"}
 			})
 			It("should create certificates", func() {
 				t.expectCertificates()
@@ -227,6 +230,9 @@ var _ = Describe("CryostatController", func() {
 			})
 			It("should create persistent volume claim and set owner", func() {
 				t.expectPVC(test.NewDefaultPVC())
+			})
+			It("should create Credentials Database secret and set owner", func() {
+				t.expectCredentialsDatabaseSecret()
 			})
 			It("should create JMX secret and set owner", func() {
 				t.expectJMXSecret()
@@ -262,7 +268,7 @@ var _ = Describe("CryostatController", func() {
 			})
 		})
 		Context("Cryostat does not exist", func() {
-			It("Should do nothing", func() {
+			It("should do nothing", func() {
 				req := reconcile.Request{NamespacedName: types.NamespacedName{Name: "does-not-exist", Namespace: "default"}}
 				result, err := t.controller.Reconcile(context.Background(), req)
 				Expect(err).ToNot(HaveOccurred())
@@ -461,6 +467,25 @@ var _ = Describe("CryostatController", func() {
 				Expect(secret.StringData["CRYOSTAT_RJMX_PASS"]).To(Equal(oldSecret.StringData["CRYOSTAT_RJMX_PASS"]))
 			})
 		})
+		Context("with an existing Credentials Database Secret", func() {
+			var cr *operatorv1beta1.Cryostat
+			var oldSecret *corev1.Secret
+			BeforeEach(func() {
+				cr = test.NewCryostat()
+				oldSecret = test.OtherCredentialsDatabaseSecret()
+				t.objs = append(t.objs, cr, oldSecret)
+			})
+			It("should not update password", func() {
+				t.reconcileCryostatFully()
+
+				secret := &corev1.Secret{}
+				err := t.Client.Get(context.Background(), types.NamespacedName{Name: oldSecret.Name, Namespace: "default"}, secret)
+				Expect(err).ToNot(HaveOccurred())
+
+				Expect(metav1.IsControlledBy(secret, cr)).To(BeTrue())
+				Expect(secret.StringData["CRYOSTAT_JMX_CREDENTIALS_DB_PASSWORD"]).To(Equal(oldSecret.StringData["CRYOSTAT_JMX_CREDENTIALS_DB_PASSWORD"]))
+			})
+		})
 		Context("with existing Routes", func() {
 			var cr *operatorv1beta1.Cryostat
 			var oldCoreRoute *openshiftv1.Route
@@ -482,7 +507,7 @@ var _ = Describe("CryostatController", func() {
 			BeforeEach(func() {
 				t.objs = append(t.objs, test.NewMinimalCryostat())
 				t.minimal = true
-				t.GeneratedPasswords = []string{"jmx", "keystore", "grafana"}
+				t.GeneratedPasswords = []string{"credentials_database", "jmx", "keystore", "grafana"}
 			})
 			JustBeforeEach(func() {
 				t.reconcileCryostatFully()
@@ -952,6 +977,9 @@ var _ = Describe("CryostatController", func() {
 			It("should create the EmptyDir with default specs", func() {
 				t.expectEmptyDir(test.NewDefaultEmptyDir())
 			})
+			It("should set Cryostat database to h2:mem", func() {
+				t.expectInMemoryDatabase()
+			})
 		})
 		Context("with custom EmptyDir config with requested spec", func() {
 			BeforeEach(func() {
@@ -959,6 +987,9 @@ var _ = Describe("CryostatController", func() {
 			})
 			It("should create the EmptyDir with requested specs", func() {
 				t.expectEmptyDir(test.NewEmptyDirWithSpec())
+			})
+			It("should set Cryostat database to h2:file", func() {
+				t.expectInMemoryDatabase()
 			})
 		})
 		Context("with overriden image tags", func() {
@@ -1494,7 +1525,6 @@ var _ = Describe("CryostatController", func() {
 				})
 			})
 		})
-
 		Context("with resource requirements", func() {
 			BeforeEach(func() {
 				t.objs = append(t.objs, test.NewCryostatWithResources())
@@ -1578,6 +1608,14 @@ var _ = Describe("CryostatController", func() {
 				t.expectDeployment()
 			})
 
+		})
+		Context("with built-in target discovery mechanism disabled", func() {
+			BeforeEach(func() {
+				t.objs = append(t.objs, test.NewCryostatWithBuiltInDiscoveryDisabled())
+			})
+			It("should configure deployment appropriately", func() {
+				t.expectDeployment()
+			})
 		})
 	})
 
@@ -2212,6 +2250,18 @@ func (t *cryostatTestInput) expectEmptyDir(expectedEmptyDir *corev1.EmptyDirVolu
 	Expect(emptyDir.SizeLimit).To(Equal(expectedEmptyDir.SizeLimit))
 }
 
+func (t *cryostatTestInput) expectInMemoryDatabase() {
+	t.reconcileCryostatFully()
+
+	deployment := &appsv1.Deployment{}
+	err := t.Client.Get(context.Background(), types.NamespacedName{Name: "cryostat", Namespace: "default"}, deployment)
+	Expect(err).ToNot(HaveOccurred())
+
+	containers := deployment.Spec.Template.Spec.Containers
+	coreContainer := containers[0]
+	Expect(coreContainer.Env).ToNot(ContainElements(test.DatabaseConfigEnvironmentVariables()))
+}
+
 func (t *cryostatTestInput) expectGrafanaSecret() {
 	secret := &corev1.Secret{}
 	err := t.Client.Get(context.Background(), types.NamespacedName{Name: "cryostat-grafana-basic", Namespace: "default"}, secret)
@@ -2228,6 +2278,26 @@ func (t *cryostatTestInput) checkGrafanaSecret() {
 
 	// Compare to desired spec
 	expectedSecret := test.NewGrafanaSecret()
+	checkMetadata(secret, expectedSecret)
+	Expect(secret.StringData).To(Equal(expectedSecret.StringData))
+}
+
+func (t *cryostatTestInput) expectCredentialsDatabaseSecret() {
+	secret := &corev1.Secret{}
+	err := t.Client.Get(context.Background(), types.NamespacedName{Name: "cryostat-jmx-credentials-db", Namespace: "default"}, secret)
+	Expect(kerrors.IsNotFound(err)).To(BeTrue())
+
+	t.reconcileCryostatFully()
+	t.checkCredentialsDatabaseSecret()
+}
+
+func (t *cryostatTestInput) checkCredentialsDatabaseSecret() {
+	secret := &corev1.Secret{}
+	err := t.Client.Get(context.Background(), types.NamespacedName{Name: "cryostat-jmx-credentials-db", Namespace: "default"}, secret)
+	Expect(err).ToNot(HaveOccurred())
+
+	// Compare to desired spec
+	expectedSecret := test.NewCredentialsDatabaseSecret()
 	checkMetadata(secret, expectedSecret)
 	Expect(secret.StringData).To(Equal(expectedSecret.StringData))
 }
@@ -2482,7 +2552,13 @@ func (t *cryostatTestInput) checkMainPodTemplate(deployment *appsv1.Deployment, 
 	}
 	ingress := !t.controller.IsOpenShift &&
 		cr.Spec.NetworkOptions != nil && cr.Spec.NetworkOptions.CoreConfig != nil && cr.Spec.NetworkOptions.CoreConfig.IngressSpec != nil
-	checkCoreContainer(&coreContainer, t.minimal, t.TLS, t.externalTLS, t.EnvCoreImageTag, t.controller.IsOpenShift, ingress, reportsUrl, cr.Spec.AuthProperties != nil, cr.Spec.Resources.CoreResources, test.NewCoreSecurityContext(cr))
+	emptyDir := cr.Spec.StorageOptions != nil && cr.Spec.StorageOptions.EmptyDir != nil && cr.Spec.StorageOptions.EmptyDir.Enabled
+	builtInDiscoveryDisabled := cr.Spec.TargetDiscoveryOptions != nil && cr.Spec.TargetDiscoveryOptions.BuiltInDiscoveryDisabled
+	checkCoreContainer(&coreContainer,
+		t.minimal, t.TLS, t.externalTLS, t.EnvCoreImageTag,
+		t.controller.IsOpenShift, ingress, reportsUrl,
+		cr.Spec.AuthProperties != nil, emptyDir, builtInDiscoveryDisabled,
+		cr.Spec.Resources.CoreResources, test.NewCoreSecurityContext(cr))
 
 	if !t.minimal {
 		// Check that Grafana is configured properly, depending on the environment
@@ -2596,7 +2672,7 @@ func (t *cryostatTestInput) checkDeploymentHasAuthProperties() {
 	volumeMounts := coreContainer.VolumeMounts
 	expectedVolumeMounts := test.NewVolumeMountsWithAuthProperties(t.TLS)
 	Expect(volumeMounts).To(ConsistOf(expectedVolumeMounts))
-	Expect(coreContainer.Env).To(ConsistOf(test.NewCoreEnvironmentVariables(t.minimal, t.TLS, t.externalTLS, t.controller.IsOpenShift, "", true, false)))
+	Expect(coreContainer.Env).To(ConsistOf(test.NewCoreEnvironmentVariables(t.minimal, t.TLS, t.externalTLS, t.controller.IsOpenShift, "", true, false, false, false)))
 }
 
 func (t *cryostatTestInput) checkDeploymentHasNoAuthProperties() {
@@ -2618,7 +2694,11 @@ func (t *cryostatTestInput) checkDeploymentHasNoAuthProperties() {
 }
 
 func checkCoreContainer(container *corev1.Container, minimal bool, tls bool, externalTLS bool,
-	tag *string, openshift bool, ingress bool, reportsUrl string, authProps bool, resources corev1.ResourceRequirements, securityContext *corev1.SecurityContext) {
+	tag *string, openshift bool, ingress bool,
+	reportsUrl string, authProps bool,
+	emptyDir bool, builtInDiscoveryDisabled bool,
+	resources corev1.ResourceRequirements,
+	securityContext *corev1.SecurityContext) {
 	Expect(container.Name).To(Equal("cryostat"))
 	if tag == nil {
 		Expect(container.Image).To(HavePrefix("quay.io/cryostat/cryostat:"))
@@ -2626,7 +2706,7 @@ func checkCoreContainer(container *corev1.Container, minimal bool, tls bool, ext
 		Expect(container.Image).To(Equal(*tag))
 	}
 	Expect(container.Ports).To(ConsistOf(test.NewCorePorts()))
-	Expect(container.Env).To(ConsistOf(test.NewCoreEnvironmentVariables(minimal, tls, externalTLS, openshift, reportsUrl, authProps, ingress)))
+	Expect(container.Env).To(ConsistOf(test.NewCoreEnvironmentVariables(minimal, tls, externalTLS, openshift, reportsUrl, authProps, ingress, emptyDir, builtInDiscoveryDisabled)))
 	Expect(container.EnvFrom).To(ConsistOf(test.NewCoreEnvFromSource(tls)))
 	Expect(container.VolumeMounts).To(ConsistOf(test.NewCoreVolumeMounts(tls)))
 	Expect(container.LivenessProbe).To(Equal(test.NewCoreLivenessProbe(tls)))
