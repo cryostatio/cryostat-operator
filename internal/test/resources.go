@@ -99,7 +99,7 @@ func NewCryostat() *operatorv1beta1.Cryostat {
 			EnableCertManager:  &certManager,
 			TrustedCertSecrets: []operatorv1beta1.CertificateSecret{},
 			JmxCredentialsDatabaseOptions: &operatorv1beta1.JmxCredentialsDatabaseOptions{
-				DatabaseSecretName: "cryostat-jmx-credentials-db",
+				DatabaseSecretName: NewCredentialsDatabaseSecret().Name,
 			},
 		},
 	}
@@ -1151,6 +1151,20 @@ func NewCoreEnvironmentVariables(minimal bool, tls bool, externalTLS bool, opens
 		envs = append(envs, DatabaseConfigEnvironmentVariables()...)
 	}
 
+	optional := false
+	envs = append(envs, corev1.EnvVar{
+		Name: "CRYOSTAT_JMX_CREDENTIALS_DB_PASSWORD",
+		ValueFrom: &corev1.EnvVarSource{
+			SecretKeyRef: &corev1.SecretKeySelector{
+				LocalObjectReference: corev1.LocalObjectReference{
+					Name: NewCredentialsDatabaseSecret().Name,
+				},
+				Key:      "CRYOSTAT_JMX_CREDENTIALS_DB_PASSWORD",
+				Optional: &optional,
+			},
+		},
+	})
+
 	if !minimal {
 		envs = append(envs,
 			corev1.EnvVar{
@@ -1374,21 +1388,12 @@ func NewReportsEnvironmentVariables(tls bool, resources corev1.ResourceRequireme
 }
 
 func NewCoreEnvFromSource(tls bool) []corev1.EnvFromSource {
-	optional := false
 	envsFrom := []corev1.EnvFromSource{
 		{
 			SecretRef: &corev1.SecretEnvSource{
 				LocalObjectReference: corev1.LocalObjectReference{
 					Name: "cryostat-jmx-auth",
 				},
-			},
-		},
-		{
-			SecretRef: &corev1.SecretEnvSource{
-				LocalObjectReference: corev1.LocalObjectReference{
-					Name: "cryostat-jmx-credentials-db",
-				},
-				Optional: &optional,
 			},
 		},
 	}
