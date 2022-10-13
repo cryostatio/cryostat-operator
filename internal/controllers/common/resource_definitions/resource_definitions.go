@@ -105,6 +105,7 @@ func NewDeploymentForCR(cr *operatorv1beta1.Cryostat, specs *ServiceSpecs, image
 			},
 		},
 		Spec: appsv1.DeploymentSpec{
+			// Selector is immutable, avoid modifying if possible
 			Selector: &metav1.LabelSelector{
 				MatchLabels: map[string]string{
 					"app":       cr.Name,
@@ -149,6 +150,7 @@ func NewDeploymentForReports(cr *operatorv1beta1.Cryostat, imageTags *ImageTags,
 			},
 		},
 		Spec: appsv1.DeploymentSpec{
+			// Selector is immutable, avoid modifying if possible
 			Selector: &metav1.LabelSelector{
 				MatchLabels: map[string]string{
 					"app":       cr.Name,

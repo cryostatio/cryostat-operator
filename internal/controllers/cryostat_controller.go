@@ -38,12 +38,14 @@ package controllers
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"regexp"
 	"strconv"
 	"time"
 
 	"github.com/go-logr/logr"
+	"github.com/google/go-cmp/cmp"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -60,7 +62,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	netv1 "k8s.io/api/networking/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
+	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -157,7 +159,7 @@ func (r *CryostatReconciler) Reconcile(ctx context.Context, request ctrl.Request
 	instance := &operatorv1beta1.Cryostat{}
 	err := r.Client.Get(ctx, request.NamespacedName, instance)
 	if err != nil {
-		if errors.IsNotFound(err) {
+		if kerrors.IsNotFound(err) {
 			// Request object not found, could have been deleted after reconcile request.
 			// Owned objects are automatically garbage collected. For additional cleanup logic use finalizers.
 			// Return and don't requeue
@@ -349,7 +351,7 @@ func (r *CryostatReconciler) reconcileReports(ctx context.Context, reqLogger log
 	}
 	deployment := resources.NewDeploymentForReports(instance, imageTags, tls, r.IsOpenShift)
 	if desired == 0 {
-		if err := r.Client.Delete(ctx, deployment); err != nil && !errors.IsNotFound(err) {
+		if err := r.Client.Delete(ctx, deployment); err != nil && !kerrors.IsNotFound(err) {
 			return reconcile.Result{}, err
 		}
 
@@ -479,36 +481,62 @@ func (r *CryostatReconciler) updateConditionsFromDeployment(ctx context.Context,
 	return err
 }
 
+var errSelectorModified error = errors.New("deployment selector has been modified")
+
 func (r *CryostatReconciler) createOrUpdateDeployment(ctx context.Context, deploy *appsv1.Deployment, owner metav1.Object) error {
-	metaCopy := deploy.ObjectMeta.DeepCopy()
-	specCopy := deploy.Spec.DeepCopy()
+	deployCopy := deploy.DeepCopy()
 	op, err := controllerutil.CreateOrUpdate(ctx, r.Client, deploy, func() error {
 		// TODO consider managing labels and annotations using CRD
 		// Merge any required labels and annotations
-		mergeLabelsAndAnnotations(&deploy.ObjectMeta, metaCopy.Labels, metaCopy.Annotations)
+		mergeLabelsAndAnnotations(&deploy.ObjectMeta, deployCopy.Labels, deployCopy.Annotations)
 		// Set the Cryostat CR as controller
 		if err := controllerutil.SetControllerReference(owner, deploy, r.Scheme); err != nil {
 			return err
 		}
 		// Immutable, only updated when the deployment is created
 		if deploy.CreationTimestamp.IsZero() {
-			deploy.Spec.Selector = specCopy.Selector
+			deploy.Spec.Selector = deployCopy.Spec.Selector
+		} else if !cmp.Equal(deploy.Spec.Selector, deployCopy.Spec.Selector) {
+			// Return error so deployment can be recreated
+			return errSelectorModified
 		}
 		// Set the replica count, if managed by the operator
-		if specCopy.Replicas != nil {
-			deploy.Spec.Replicas = specCopy.Replicas
+		if deployCopy.Spec.Replicas != nil {
+			deploy.Spec.Replicas = deployCopy.Spec.Replicas
 		}
 		// Update pod template spec to propagate any changes from Cryostat CR
-		deploy.Spec.Template.Spec = specCopy.Template.Spec
+		deploy.Spec.Template.Spec = deployCopy.Spec.Template.Spec
 		// Update pod template metadata
-		mergeLabelsAndAnnotations(&deploy.Spec.Template.ObjectMeta, specCopy.Template.Labels,
-			specCopy.Template.Annotations)
+		mergeLabelsAndAnnotations(&deploy.Spec.Template.ObjectMeta, deployCopy.Spec.Template.Labels,
+			deployCopy.Spec.Template.Annotations)
 		return nil
 	})
 	if err != nil {
+		if err == errSelectorModified {
+			return r.recreateDeployment(ctx, deployCopy, owner)
+		}
 		return err
 	}
 	r.Log.Info(fmt.Sprintf("Deployment %s", op), "name", deploy.Name, "namespace", deploy.Namespace)
+	return nil
+}
+
+func (r *CryostatReconciler) recreateDeployment(ctx context.Context, deploy *appsv1.Deployment, owner metav1.Object) error {
+	// Delete and recreate deployment
+	err := r.deleteDeployment(ctx, deploy)
+	if err != nil {
+		return err
+	}
+	return r.createOrUpdateDeployment(ctx, deploy, owner)
+}
+
+func (r *CryostatReconciler) deleteDeployment(ctx context.Context, deploy *appsv1.Deployment) error {
+	err := r.Client.Delete(ctx, deploy)
+	if err != nil && !kerrors.IsNotFound(err) {
+		r.Log.Error(err, "Could not delete deployment", "name", deploy.Name, "namespace", deploy.Namespace)
+		return err
+	}
+	r.Log.Info("Deployment deleted", "name", deploy.Name, "namespace", deploy.Namespace)
 	return nil
 }
 
