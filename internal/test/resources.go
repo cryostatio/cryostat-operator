@@ -1236,12 +1236,20 @@ func NewCoreEnvironmentVariables(minimal bool, tls bool, externalTLS bool, opens
 func DatabaseConfigEnvironmentVariables() []corev1.EnvVar {
 	return []corev1.EnvVar{
 		{
-			Name:  "JDBC_URL",
-			Value: "jdbc:h2:file:/opt/cryostat.d/conf.d/h2;INIT=create domain if not exists jsonb as other",
+			Name:  "CRYOSTAT_JDBC_URL",
+			Value: "jdbc:h2:file:/opt/cryostat.d/conf.d/h2;INIT=create domain if not exists jsonb as varchar",
 		},
 		{
-			Name:  "HBM2DDL",
+			Name:  "CRYOSTAT_HBM2DDL",
 			Value: "update",
+		},
+		{
+			Name:  "CRYOSTAT_JDBC_DRIVER",
+			Value: "org.h2.Driver",
+		},
+		{
+			Name:  "CRYOSTAT_HIBERNATE_DIALECT",
+			Value: "org.hibernate.dialect.H2Dialect",
 		},
 	}
 }
