@@ -380,12 +380,12 @@ spec:
           has created the PVC, changes to this field have no effect.
         displayName: Spec
         path: storageOptions.pvc.spec
-      - description: Options to configure Cryostat application's target discovery
+      - description: Options to configure the Cryostat application's target discovery
           mechanisms.
         displayName: Target Discovery Options
         path: targetDiscoveryOptions
       - description: When true, the Cryostat application will disable the built-in
-          discovery mechanisms. Default to false.
+          discovery mechanisms. Defaults to false
         displayName: Disable Built-in Discovery
         path: targetDiscoveryOptions.builtInDiscoveryDisabled
         x-descriptors:
