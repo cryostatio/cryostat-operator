@@ -271,7 +271,7 @@ spec:
 
 ### JMX Credentials Database
 
-The Cryostat application must be provided with a password to encrypt saved JMX credentials in database. The user can specify the a secret containing the password entry with key `CRYOSTAT_JMX_CREDENTIALS_DB_PASSWORD`. The Cryostat application will use this password to encrypt saved JMX credentials in database.
+The Cryostat application must be provided with a password to encrypt saved JMX credentials in database. The user can specify a secret containing the password entry with key `CRYOSTAT_JMX_CREDENTIALS_DB_PASSWORD`. The Cryostat application will use this password to encrypt saved JMX credentials in database.
 
 For example:
 ```yaml
@@ -296,7 +296,7 @@ spec:
     databaseSecretName: credentials-database-secret
 ```
 
-**Note**: If the secret is not provided, a default one is generated for this purpose. However, switching between using provided and generated secret is not allowed to avoid password mismatch that causes the Cryostat application's failure to operator the credentials database.
+**Note**: If the secret is not provided, a default one is generated for this purpose. However, switching between using provided and generated secret is not allowed to avoid password mismatch that causes the Cryostat application's failure to access the credentials database.
 
 ### Authorization Properties
 
