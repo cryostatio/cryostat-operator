@@ -98,9 +98,6 @@ func NewCryostat() *operatorv1beta1.Cryostat {
 			Minimal:            false,
 			EnableCertManager:  &certManager,
 			TrustedCertSecrets: []operatorv1beta1.CertificateSecret{},
-			JmxCredentialsDatabaseOptions: &operatorv1beta1.JmxCredentialsDatabaseOptions{
-				DatabaseSecretName: NewCredentialsDatabaseSecret().Name,
-			},
 		},
 	}
 }
@@ -571,6 +568,15 @@ func NewCryostatWithReportSecurityOptions() *operatorv1beta1.Cryostat {
 	return cr
 }
 
+var providedDatabaseSecretName string = "credentials-database-secret"
+
+func NewCryostatWithDatabaseSecretProvided() *operatorv1beta1.Cryostat {
+	cr := NewCryostat()
+	cr.Spec.JmxCredentialsDatabaseOptions = &operatorv1beta1.JmxCredentialsDatabaseOptions{
+		DatabaseSecretName: &providedDatabaseSecretName,
+	}
+	return cr
+}
 func NewCryostatService() *corev1.Service {
 	c := true
 	return &corev1.Service{
@@ -785,6 +791,18 @@ func NewCredentialsDatabaseSecret() *corev1.Secret {
 		},
 		StringData: map[string]string{
 			"CRYOSTAT_JMX_CREDENTIALS_DB_PASSWORD": "credentials_database",
+		},
+	}
+}
+
+func OtherCredentialsDatabaseSecret() *corev1.Secret {
+	return &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "cryostat-jmx-credentials-db",
+			Namespace: "default",
+		},
+		StringData: map[string]string{
+			"CRYOSTAT_JMX_CREDENTIALS_DB_PASSWORD": "other-pass",
 		},
 	}
 }
@@ -1100,7 +1118,10 @@ func NewReportsPorts() []corev1.ContainerPort {
 	}
 }
 
-func NewCoreEnvironmentVariables(minimal bool, tls bool, externalTLS bool, openshift bool, reportsUrl string, authProps bool, ingress bool, emptyDir bool, builtInDiscoveryDisabled bool) []corev1.EnvVar {
+func NewCoreEnvironmentVariables(
+	minimal bool, tls bool, externalTLS bool, openshift bool,
+	reportsUrl string, authProps bool, ingress bool,
+	emptyDir bool, builtInDiscoveryDisabled bool, dbSecretProvided bool) []corev1.EnvVar {
 	envs := []corev1.EnvVar{
 		{
 			Name:  "CRYOSTAT_WEB_PORT",
@@ -1152,12 +1173,16 @@ func NewCoreEnvironmentVariables(minimal bool, tls bool, externalTLS bool, opens
 	}
 
 	optional := false
+	secretName := NewCredentialsDatabaseSecret().Name
+	if dbSecretProvided {
+		secretName = providedDatabaseSecretName
+	}
 	envs = append(envs, corev1.EnvVar{
 		Name: "CRYOSTAT_JMX_CREDENTIALS_DB_PASSWORD",
 		ValueFrom: &corev1.EnvVarSource{
 			SecretKeyRef: &corev1.SecretKeySelector{
 				LocalObjectReference: corev1.LocalObjectReference{
-					Name: NewCredentialsDatabaseSecret().Name,
+					Name: secretName,
 				},
 				Key:      "CRYOSTAT_JMX_CREDENTIALS_DB_PASSWORD",
 				Optional: &optional,

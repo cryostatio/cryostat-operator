@@ -770,12 +770,16 @@ func NewCoreContainer(cr *operatorv1beta1.Cryostat, specs *ServiceSpecs, imageTa
 	}
 
 	secretOptional := false
+	secretName := cr.Name + "-jmx-credentials-db"
+	if cr.Spec.JmxCredentialsDatabaseOptions != nil && cr.Spec.JmxCredentialsDatabaseOptions.DatabaseSecretName != nil {
+		secretName = *cr.Spec.JmxCredentialsDatabaseOptions.DatabaseSecretName
+	}
 	envs = append(envs, corev1.EnvVar{
 		Name: "CRYOSTAT_JMX_CREDENTIALS_DB_PASSWORD",
 		ValueFrom: &corev1.EnvVarSource{
 			SecretKeyRef: &corev1.SecretKeySelector{
 				LocalObjectReference: corev1.LocalObjectReference{
-					Name: cr.Spec.JmxCredentialsDatabaseOptions.DatabaseSecretName,
+					Name: secretName,
 				},
 				Key:      "CRYOSTAT_JMX_CREDENTIALS_DB_PASSWORD",
 				Optional: &secretOptional,

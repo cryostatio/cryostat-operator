@@ -114,8 +114,6 @@ spec:
                     description: Name of the secret containing the password to encrypt
                       JMX credentials database.
                     type: string
-                required:
-                - databaseSecretName
                 type: object
               maxWsConnections:
                 description: The maximum number of WebSocket client connections allowed
@@ -4409,7 +4407,6 @@ spec:
                   type: object
                 type: array
             required:
-            - jmxCredentialsDatabaseOptions
             - minimal
             type: object
           status:
