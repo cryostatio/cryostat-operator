@@ -762,10 +762,10 @@ func NewCoreContainer(cr *operatorv1beta1.Cryostat, specs *ServiceSpecs, imageTa
 			Value: "org.hibernate.dialect.H2Dialect",
 		}, corev1.EnvVar{
 			Name:  "CRYOSTAT_JDBC_USERNAME",
-			Value: cr.Name + "_sa",
+			Value: cr.Name,
 		}, corev1.EnvVar{
 			Name:  "CRYOSTAT_JDBC_PASSWORD",
-			Value: cr.Name + "_sa_password",
+			Value: cr.Name,
 		})
 	}
 

@@ -1283,11 +1283,11 @@ func DatabaseConfigEnvironmentVariables() []corev1.EnvVar {
 		},
 		{
 			Name:  "CRYOSTAT_JDBC_USERNAME",
-			Value: "cryostat_sa",
+			Value: "cryostat",
 		},
 		{
 			Name:  "CRYOSTAT_JDBC_PASSWORD",
-			Value: "cryostat_sa_password",
+			Value: "cryostat",
 		},
 	}
 }
