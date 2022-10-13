@@ -1251,6 +1251,14 @@ func DatabaseConfigEnvironmentVariables() []corev1.EnvVar {
 			Name:  "CRYOSTAT_HIBERNATE_DIALECT",
 			Value: "org.hibernate.dialect.H2Dialect",
 		},
+		{
+			Name:  "CRYOSTAT_JDBC_USERNAME",
+			Value: "cryostat_sa",
+		},
+		{
+			Name:  "CRYOSTAT_JDBC_PASSWORD",
+			Value: "cryostat_sa_password",
+		},
 	}
 }
 
