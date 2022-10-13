@@ -743,12 +743,11 @@ func NewCoreContainer(cr *operatorv1beta1.Cryostat, specs *ServiceSpecs, imageTa
 	if disableBuiltInDiscovery {
 		envs = append(envs, corev1.EnvVar{
 			Name:  "CRYOSTAT_DISABLE_BUILTIN_DISCOVERY",
-			Value: fmt.Sprintf("%v", disableBuiltInDiscovery),
+			Value: fmt.Sprintf("%v", strconv.FormatBool(true)),
 		})
 	}
 
-	useEmptyDir := cr.Spec.StorageOptions != nil && cr.Spec.StorageOptions.EmptyDir != nil && cr.Spec.StorageOptions.EmptyDir.Enabled
-	if !useEmptyDir {
+	if !useEmptyDir(cr) {
 		envs = append(envs, corev1.EnvVar{
 			Name:  "CRYOSTAT_JDBC_URL",
 			Value: "jdbc:h2:file:/opt/cryostat.d/conf.d/h2;INIT=create domain if not exists jsonb as varchar",
@@ -1063,9 +1062,7 @@ func getPullPolicy(imageTag string) corev1.PullPolicy {
 
 func newVolumeForCR(cr *operatorv1beta1.Cryostat) []corev1.Volume {
 	var volumeSource corev1.VolumeSource
-	deployEmptyDir := cr.Spec.StorageOptions != nil && cr.Spec.StorageOptions.EmptyDir != nil && cr.Spec.StorageOptions.EmptyDir.Enabled
-
-	if deployEmptyDir {
+	if useEmptyDir(cr) {
 		emptyDir := cr.Spec.StorageOptions.EmptyDir
 
 		sizeLimit, err := resource.ParseQuantity(emptyDir.SizeLimit)
@@ -1105,4 +1102,8 @@ func seccompProfile(openshift bool) *corev1.SeccompProfile {
 	return &corev1.SeccompProfile{
 		Type: corev1.SeccompProfileTypeRuntimeDefault,
 	}
+}
+
+func useEmptyDir(cr *operatorv1beta1.Cryostat) bool {
+	return cr.Spec.StorageOptions != nil && cr.Spec.StorageOptions.EmptyDir != nil && cr.Spec.StorageOptions.EmptyDir.Enabled
 }

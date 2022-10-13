@@ -130,10 +130,10 @@ func (r *CryostatReconciler) reconcileJMXSecret(ctx context.Context, cr *operato
 }
 
 // databaseSecretNameSuffix is the suffix to be appended to the name of a
-// Cryostat CR to name its JMX credentials Database secret
+// Cryostat CR to name its JMX credentials database secret
 const databaseSecretNameSuffix = "-jmx-credentials-db"
 
-// dbSecretUserKey indexes the password within the Cryostat JMX credentials Database Secret
+// dbSecretUserKey indexes the password within the Cryostat JMX credentials database Secret
 const databaseSecretPassKey = "CRYOSTAT_JMX_CREDENTIALS_DB_PASSWORD"
 
 func (r *CryostatReconciler) reconcileDatabaseSecret(ctx context.Context, cr *operatorv1beta1.Cryostat) error {
