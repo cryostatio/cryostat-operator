@@ -439,7 +439,7 @@ spec:
 
 ### Target Discovery Options
 
-If you wish to use only Cryostat's Discovery Plugin API, the property `spec.targetDiscoveryOptions.builtInDiscoveryDisabled` to `true` to disable Cryostat's built-in discovery mechanisms.
+If you wish to use only Cryostat's [Discovery Plugin API](https://github.com/cryostatio/cryostat/blob/801779d5ddf7fa30f7b230f649220a852b06f27d/docs/DISCOVERY_PLUGINS.md), the property `spec.targetDiscoveryOptions.builtInDiscoveryDisabled` to `true` to disable Cryostat's built-in discovery mechanisms.
 
 ```yaml
 apiVersion: operator.cryostat.io/v1beta1
