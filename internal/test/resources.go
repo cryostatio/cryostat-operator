@@ -98,6 +98,9 @@ func NewCryostat() *operatorv1beta1.Cryostat {
 			Minimal:            false,
 			EnableCertManager:  &certManager,
 			TrustedCertSecrets: []operatorv1beta1.CertificateSecret{},
+			JmxCredentialsDatabaseOptions: &operatorv1beta1.JmxCredentialsDatabaseOptions{
+				DatabaseSecretName: "cryostat-jmx-credentials-db",
+			},
 		},
 	}
 }
@@ -782,18 +785,6 @@ func NewCredentialsDatabaseSecret() *corev1.Secret {
 		},
 		StringData: map[string]string{
 			"CRYOSTAT_JMX_CREDENTIALS_DB_PASSWORD": "credentials_database",
-		},
-	}
-}
-
-func OtherCredentialsDatabaseSecret() *corev1.Secret {
-	return &corev1.Secret{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "cryostat-jmx-credentials-db",
-			Namespace: "default",
-		},
-		StringData: map[string]string{
-			"CRYOSTAT_JMX_CREDENTIALS_DB_PASSWORD": "other-pass",
 		},
 	}
 }

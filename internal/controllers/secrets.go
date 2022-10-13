@@ -52,9 +52,6 @@ func (r *CryostatReconciler) reconcileSecrets(ctx context.Context, cr *operatorv
 	if err := r.reconcileGrafanaSecret(ctx, cr); err != nil {
 		return err
 	}
-	if err := r.reconcileDatabaseSecret(ctx, cr); err != nil {
-		return err
-	}
 	return r.reconcileJMXSecret(ctx, cr)
 }
 
@@ -124,33 +121,6 @@ func (r *CryostatReconciler) reconcileJMXSecret(ctx context.Context, cr *operato
 		// Password is generated, so don't regenerate it when updating
 		if secret.CreationTimestamp.IsZero() {
 			secret.StringData[jmxSecretPassKey] = r.GenPasswd(20)
-		}
-		return nil
-	})
-}
-
-// databaseSecretNameSuffix is the suffix to be appended to the name of a
-// Cryostat CR to name its JMX credentials database secret
-const databaseSecretNameSuffix = "-jmx-credentials-db"
-
-// dbSecretUserKey indexes the password within the Cryostat JMX credentials database Secret
-const databaseSecretPassKey = "CRYOSTAT_JMX_CREDENTIALS_DB_PASSWORD"
-
-func (r *CryostatReconciler) reconcileDatabaseSecret(ctx context.Context, cr *operatorv1beta1.Cryostat) error {
-	secret := &corev1.Secret{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      cr.Name + databaseSecretNameSuffix,
-			Namespace: cr.Namespace,
-		},
-	}
-	return r.createOrUpdateSecret(ctx, secret, cr, func() error {
-		if secret.StringData == nil {
-			secret.StringData = map[string]string{}
-		}
-
-		// Password is generated, so don't regenerate it when updating
-		if secret.CreationTimestamp.IsZero() {
-			secret.StringData[databaseSecretPassKey] = r.GenPasswd(32)
 		}
 		return nil
 	})

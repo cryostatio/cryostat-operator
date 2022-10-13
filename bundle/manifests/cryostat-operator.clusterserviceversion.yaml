@@ -139,6 +139,16 @@ spec:
         path: jmxCacheOptions.targetCacheTTL
         x-descriptors:
         - urn:alm:descriptor:com.tectonic.ui:number
+      - description: Options to configure the Cryostat application's JMX credentials
+          database.
+        displayName: Jmx Credentials Database Options
+        path: jmxCredentialsDatabaseOptions
+      - description: Name of the secret containing the password to encrypt JMX credentials
+          database.
+        displayName: Database Secret Name
+        path: jmxCredentialsDatabaseOptions.databaseSecretName
+        x-descriptors:
+        - urn:alm:descriptor:io.kubernetes:Secret
       - description: The maximum number of WebSocket client connections allowed (minimum
           1, default unlimited).
         displayName: Max WebSocket Connections
