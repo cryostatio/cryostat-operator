@@ -269,6 +269,34 @@ spec:
     targetCacheTTL: 10
 ```
 
+### JMX Credentials Database
+
+The Cryostat application must be provided with a password to encrypt saved JMX credentials in database. The user can specify a secret containing the password entry with key `CRYOSTAT_JMX_CREDENTIALS_DB_PASSWORD`. The Cryostat application will use this password to encrypt saved JMX credentials in database.
+
+For example:
+```yaml
+apiVersion: v1
+kind: Secret
+metadata:
+  name: credentials-database-secret
+type: Opaque
+stringData:
+  CRYOSTAT_JMX_CREDENTIALS_DB_PASSWORD: a-very-good-password
+```
+
+Then, the property `.spec.jmxCredentialsDatabaseOptions.databaseSecretName` must be set to use this secret for password.
+
+```yaml
+apiVersion: operator.cryostat.io/v1beta1
+kind: Cryostat
+metadata:
+  name: cryostat-sample
+spec:
+  jmxCredentialsDatabaseOptions:
+    databaseSecretName: credentials-database-secret
+```
+
+**Note**: If the secret is not provided, a default one is generated for this purpose. However, switching between using provided and generated secret is not allowed to avoid password mismatch that causes the Cryostat application's failure to access the credentials database.
 
 ### Authorization Properties
 
@@ -293,7 +321,7 @@ If custom mapping is specified, a ClusterRole must be defined and should contain
 
 **Note**: Using [`Secret`](https://kubernetes.io/docs/concepts/configuration/secret/) in mapping can fail with access denied under [security protection](https://kubernetes.io/docs/concepts/configuration/secret/#information-security-for-secrets) against escalations. Find more details about this issue [here](https://docs.openshift.com/container-platform/4.11/authentication/tokens-scoping.html#scoping-tokens-role-scope_configuring-internal-oauth).
 
-The property `.spec.authProperties` can then be set to configure Cryostat to use this mapping instead of the default ones.
+The property `spec.authProperties` can then be set to configure Cryostat to use this mapping instead of the default ones.
 ```yaml
 apiVersion: operator.cryostat.io/v1beta1
 kind: Cryostat
@@ -435,4 +463,18 @@ spec:
         operator: Equal
         value: ok
         effect: NoExecute
+```
+
+### Target Discovery Options
+
+If you wish to use only Cryostat's [Discovery Plugin API](https://github.com/cryostatio/cryostat/blob/801779d5ddf7fa30f7b230f649220a852b06f27d/docs/DISCOVERY_PLUGINS.md), set the property `spec.targetDiscoveryOptions.builtInDiscoveryDisabled` to `true` to disable Cryostat's built-in discovery mechanisms.
+
+```yaml
+apiVersion: operator.cryostat.io/v1beta1
+kind: Cryostat
+metadata:
+  name: cryostat-sample
+spec:
+  targetDiscoveryOptions:
+    builtInDiscoveryDisabled: true
 ```

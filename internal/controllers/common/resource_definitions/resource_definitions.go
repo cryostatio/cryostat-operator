@@ -741,6 +741,54 @@ func NewCoreContainer(cr *operatorv1beta1.Cryostat, specs *ServiceSpecs, imageTa
 		}
 	}
 
+	disableBuiltInDiscovery := cr.Spec.TargetDiscoveryOptions != nil && cr.Spec.TargetDiscoveryOptions.BuiltInDiscoveryDisabled
+	if disableBuiltInDiscovery {
+		envs = append(envs, corev1.EnvVar{
+			Name:  "CRYOSTAT_DISABLE_BUILTIN_DISCOVERY",
+			Value: "true",
+		})
+	}
+
+	if !useEmptyDir(cr) {
+		envs = append(envs, corev1.EnvVar{
+			Name:  "CRYOSTAT_JDBC_URL",
+			Value: "jdbc:h2:file:/opt/cryostat.d/conf.d/h2;INIT=create domain if not exists jsonb as varchar",
+		}, corev1.EnvVar{
+			Name:  "CRYOSTAT_HBM2DDL",
+			Value: "update",
+		}, corev1.EnvVar{
+			Name:  "CRYOSTAT_JDBC_DRIVER",
+			Value: "org.h2.Driver",
+		}, corev1.EnvVar{
+			Name:  "CRYOSTAT_HIBERNATE_DIALECT",
+			Value: "org.hibernate.dialect.H2Dialect",
+		}, corev1.EnvVar{
+			Name:  "CRYOSTAT_JDBC_USERNAME",
+			Value: cr.Name,
+		}, corev1.EnvVar{
+			Name:  "CRYOSTAT_JDBC_PASSWORD",
+			Value: cr.Name,
+		})
+	}
+
+	secretOptional := false
+	secretName := cr.Name + "-jmx-credentials-db"
+	if cr.Spec.JmxCredentialsDatabaseOptions != nil && cr.Spec.JmxCredentialsDatabaseOptions.DatabaseSecretName != nil {
+		secretName = *cr.Spec.JmxCredentialsDatabaseOptions.DatabaseSecretName
+	}
+	envs = append(envs, corev1.EnvVar{
+		Name: "CRYOSTAT_JMX_CREDENTIALS_DB_PASSWORD",
+		ValueFrom: &corev1.EnvVarSource{
+			SecretKeyRef: &corev1.SecretKeySelector{
+				LocalObjectReference: corev1.LocalObjectReference{
+					Name: secretName,
+				},
+				Key:      "CRYOSTAT_JMX_CREDENTIALS_DB_PASSWORD",
+				Optional: &secretOptional,
+			},
+		},
+	})
+
 	if !cr.Spec.Minimal {
 		grafanaVars := []corev1.EnvVar{
 			{
@@ -1030,9 +1078,7 @@ func getPullPolicy(imageTag string) corev1.PullPolicy {
 
 func newVolumeForCR(cr *operatorv1beta1.Cryostat) []corev1.Volume {
 	var volumeSource corev1.VolumeSource
-	deployEmptyDir := cr.Spec.StorageOptions != nil && cr.Spec.StorageOptions.EmptyDir != nil && cr.Spec.StorageOptions.EmptyDir.Enabled
-
-	if deployEmptyDir {
+	if useEmptyDir(cr) {
 		emptyDir := cr.Spec.StorageOptions.EmptyDir
 
 		sizeLimit, err := resource.ParseQuantity(emptyDir.SizeLimit)
@@ -1072,4 +1118,8 @@ func seccompProfile(openshift bool) *corev1.SeccompProfile {
 	return &corev1.SeccompProfile{
 		Type: corev1.SeccompProfileTypeRuntimeDefault,
 	}
+}
+
+func useEmptyDir(cr *operatorv1beta1.Cryostat) bool {
+	return cr.Spec.StorageOptions != nil && cr.Spec.StorageOptions.EmptyDir != nil && cr.Spec.StorageOptions.EmptyDir.Enabled
 }

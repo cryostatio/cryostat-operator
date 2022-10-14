@@ -106,6 +106,15 @@ spec:
                     minimum: 1
                     type: integer
                 type: object
+              jmxCredentialsDatabaseOptions:
+                description: Options to configure the Cryostat application's JMX credentials
+                  database.
+                properties:
+                  databaseSecretName:
+                    description: Name of the secret containing the password to encrypt
+                      JMX credentials database.
+                    type: string
+                type: object
               maxWsConnections:
                 description: The maximum number of WebSocket client connections allowed
                   (minimum 1, default unlimited).
@@ -4372,6 +4381,15 @@ spec:
                             type: string
                         type: object
                     type: object
+                type: object
+              targetDiscoveryOptions:
+                description: Options to configure the Cryostat application's target
+                  discovery mechanisms.
+                properties:
+                  builtInDiscoveryDisabled:
+                    description: When true, the Cryostat application will disable
+                      the built-in discovery mechanisms. Defaults to false
+                    type: boolean
                 type: object
               trustedCertSecrets:
                 description: List of TLS certificates to trust when connecting to

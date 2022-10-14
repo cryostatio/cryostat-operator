@@ -102,6 +102,14 @@ type CryostatSpec struct {
 	// +optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	SchedulingOptions *SchedulingConfiguration `json:"schedulingOptions,omitempty"`
+	// Options to configure the Cryostat application's target discovery mechanisms.
+	// +optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec
+	TargetDiscoveryOptions *TargetDiscoveryOptions `json:"targetDiscoveryOptions,omitempty"`
+	// Options to configure the Cryostat application's JMX credentials database.
+	// +optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec
+	JmxCredentialsDatabaseOptions *JmxCredentialsDatabaseOptions `json:"jmxCredentialsDatabaseOptions,omitempty"`
 }
 
 type ResourceConfigList struct {
@@ -502,4 +510,20 @@ type ReportsSecurityOptions struct {
 	// +optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	ReportsSecurityContext *corev1.SecurityContext `json:"reportsSecurityContext,omitempty"`
+}
+
+// TargetDiscoveryOptions provides configuration options to the Cryostat application's target discovery mechanisms.
+type TargetDiscoveryOptions struct {
+	// When true, the Cryostat application will disable the built-in discovery mechanisms. Defaults to false
+	// +optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Disable Built-in Discovery",xDescriptors={"urn:alm:descriptor:com.tectonic.ui:booleanSwitch"}
+	BuiltInDiscoveryDisabled bool `json:"builtInDiscoveryDisabled,omitempty"`
+}
+
+// JmxCredentialsDatabaseOptions provides configuration options to the Cryostat application's JMX credentials database.
+type JmxCredentialsDatabaseOptions struct {
+	// Name of the secret containing the password to encrypt JMX credentials database.
+	// +optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:io.kubernetes:Secret"}
+	DatabaseSecretName *string `json:"databaseSecretName,omitempty"`
 }
