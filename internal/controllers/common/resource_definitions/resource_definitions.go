@@ -745,7 +745,7 @@ func NewCoreContainer(cr *operatorv1beta1.Cryostat, specs *ServiceSpecs, imageTa
 	if disableBuiltInDiscovery {
 		envs = append(envs, corev1.EnvVar{
 			Name:  "CRYOSTAT_DISABLE_BUILTIN_DISCOVERY",
-			Value: fmt.Sprintf("%v", strconv.FormatBool(true)),
+			Value: "true",
 		})
 	}
 
