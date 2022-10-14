@@ -454,6 +454,14 @@ func NewCryostatWithAuthProperties() *operatorv1beta1.Cryostat {
 	return cr
 }
 
+func NewCryostatWithBuiltInDiscoveryDisabled() *operatorv1beta1.Cryostat {
+	cr := NewCryostat()
+	cr.Spec.TargetDiscoveryOptions = &operatorv1beta1.TargetDiscoveryOptions{
+		BuiltInDiscoveryDisabled: true,
+	}
+	return cr
+}
+
 func newPVCSpec(storageClass string, storageRequest string,
 	accessModes ...corev1.PersistentVolumeAccessMode) *corev1.PersistentVolumeClaimSpec {
 	return &corev1.PersistentVolumeClaimSpec{
@@ -560,6 +568,15 @@ func NewCryostatWithReportSecurityOptions() *operatorv1beta1.Cryostat {
 	return cr
 }
 
+var providedDatabaseSecretName string = "credentials-database-secret"
+
+func NewCryostatWithDatabaseSecretProvided() *operatorv1beta1.Cryostat {
+	cr := NewCryostat()
+	cr.Spec.JmxCredentialsDatabaseOptions = &operatorv1beta1.JmxCredentialsDatabaseOptions{
+		DatabaseSecretName: &providedDatabaseSecretName,
+	}
+	return cr
+}
 func NewCryostatService() *corev1.Service {
 	c := true
 	return &corev1.Service{
@@ -762,6 +779,30 @@ func OtherGrafanaSecret() *corev1.Secret {
 		StringData: map[string]string{
 			"GF_SECURITY_ADMIN_USER":     "user",
 			"GF_SECURITY_ADMIN_PASSWORD": "goodpassword",
+		},
+	}
+}
+
+func NewCredentialsDatabaseSecret() *corev1.Secret {
+	return &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "cryostat-jmx-credentials-db",
+			Namespace: "default",
+		},
+		StringData: map[string]string{
+			"CRYOSTAT_JMX_CREDENTIALS_DB_PASSWORD": "credentials_database",
+		},
+	}
+}
+
+func OtherCredentialsDatabaseSecret() *corev1.Secret {
+	return &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "cryostat-jmx-credentials-db",
+			Namespace: "default",
+		},
+		StringData: map[string]string{
+			"CRYOSTAT_JMX_CREDENTIALS_DB_PASSWORD": "other-pass",
 		},
 	}
 }
@@ -1077,7 +1118,10 @@ func NewReportsPorts() []corev1.ContainerPort {
 	}
 }
 
-func NewCoreEnvironmentVariables(minimal bool, tls bool, externalTLS bool, openshift bool, reportsUrl string, authProps bool, ingress bool) []corev1.EnvVar {
+func NewCoreEnvironmentVariables(
+	minimal bool, tls bool, externalTLS bool, openshift bool,
+	reportsUrl string, authProps bool, ingress bool,
+	emptyDir bool, builtInDiscoveryDisabled bool, dbSecretProvided bool) []corev1.EnvVar {
 	envs := []corev1.EnvVar{
 		{
 			Name:  "CRYOSTAT_WEB_PORT",
@@ -1116,6 +1160,36 @@ func NewCoreEnvironmentVariables(minimal bool, tls bool, externalTLS bool, opens
 			Value: "10",
 		},
 	}
+
+	if builtInDiscoveryDisabled {
+		envs = append(envs, corev1.EnvVar{
+			Name:  "CRYOSTAT_DISABLE_BUILTIN_DISCOVERY",
+			Value: "true",
+		})
+	}
+
+	if !emptyDir {
+		envs = append(envs, DatabaseConfigEnvironmentVariables()...)
+	}
+
+	optional := false
+	secretName := NewCredentialsDatabaseSecret().Name
+	if dbSecretProvided {
+		secretName = providedDatabaseSecretName
+	}
+	envs = append(envs, corev1.EnvVar{
+		Name: "CRYOSTAT_JMX_CREDENTIALS_DB_PASSWORD",
+		ValueFrom: &corev1.EnvVarSource{
+			SecretKeyRef: &corev1.SecretKeySelector{
+				LocalObjectReference: corev1.LocalObjectReference{
+					Name: secretName,
+				},
+				Key:      "CRYOSTAT_JMX_CREDENTIALS_DB_PASSWORD",
+				Optional: &optional,
+			},
+		},
+	})
+
 	if !minimal {
 		envs = append(envs,
 			corev1.EnvVar{
@@ -1187,6 +1261,35 @@ func NewCoreEnvironmentVariables(minimal bool, tls bool, externalTLS bool, opens
 			})
 	}
 	return envs
+}
+
+func DatabaseConfigEnvironmentVariables() []corev1.EnvVar {
+	return []corev1.EnvVar{
+		{
+			Name:  "CRYOSTAT_JDBC_URL",
+			Value: "jdbc:h2:file:/opt/cryostat.d/conf.d/h2;INIT=create domain if not exists jsonb as varchar",
+		},
+		{
+			Name:  "CRYOSTAT_HBM2DDL",
+			Value: "update",
+		},
+		{
+			Name:  "CRYOSTAT_JDBC_DRIVER",
+			Value: "org.h2.Driver",
+		},
+		{
+			Name:  "CRYOSTAT_HIBERNATE_DIALECT",
+			Value: "org.hibernate.dialect.H2Dialect",
+		},
+		{
+			Name:  "CRYOSTAT_JDBC_USERNAME",
+			Value: "cryostat",
+		},
+		{
+			Name:  "CRYOSTAT_JDBC_PASSWORD",
+			Value: "cryostat",
+		},
+	}
 }
 
 func newNetworkEnvironmentVariables(minimal, tls, externalTLS bool) []corev1.EnvVar {
@@ -1830,7 +1933,7 @@ func commonDefaultSecurityContext() *corev1.SecurityContext {
 }
 
 func NewPodSecurityContext(cr *operatorv1beta1.Cryostat, openshift bool) *corev1.PodSecurityContext {
-	if cr.Spec.SecurityOptions != nil {
+	if cr.Spec.SecurityOptions != nil && cr.Spec.SecurityOptions.PodSecurityContext != nil {
 		return cr.Spec.SecurityOptions.PodSecurityContext
 	}
 	fsGroup := int64(18500)
@@ -1838,35 +1941,35 @@ func NewPodSecurityContext(cr *operatorv1beta1.Cryostat, openshift bool) *corev1
 }
 
 func NewReportPodSecurityContext(cr *operatorv1beta1.Cryostat, openshift bool) *corev1.PodSecurityContext {
-	if cr.Spec.ReportOptions != nil && cr.Spec.ReportOptions.SecurityOptions != nil {
+	if cr.Spec.ReportOptions != nil && cr.Spec.ReportOptions.SecurityOptions != nil && cr.Spec.ReportOptions.SecurityOptions.PodSecurityContext != nil {
 		return cr.Spec.ReportOptions.SecurityOptions.PodSecurityContext
 	}
 	return commonDefaultPodSecurityContext(openshift, nil)
 }
 
 func NewCoreSecurityContext(cr *operatorv1beta1.Cryostat) *corev1.SecurityContext {
-	if cr.Spec.SecurityOptions != nil {
+	if cr.Spec.SecurityOptions != nil && cr.Spec.SecurityOptions.CoreSecurityContext != nil {
 		return cr.Spec.SecurityOptions.CoreSecurityContext
 	}
 	return commonDefaultSecurityContext()
 }
 
 func NewGrafanaSecurityContext(cr *operatorv1beta1.Cryostat) *corev1.SecurityContext {
-	if cr.Spec.SecurityOptions != nil {
+	if cr.Spec.SecurityOptions != nil && cr.Spec.SecurityOptions.GrafanaSecurityContext != nil {
 		return cr.Spec.SecurityOptions.GrafanaSecurityContext
 	}
 	return commonDefaultSecurityContext()
 }
 
 func NewDatasourceSecurityContext(cr *operatorv1beta1.Cryostat) *corev1.SecurityContext {
-	if cr.Spec.SecurityOptions != nil {
+	if cr.Spec.SecurityOptions != nil && cr.Spec.SecurityOptions.DataSourceSecurityContext != nil {
 		return cr.Spec.SecurityOptions.DataSourceSecurityContext
 	}
 	return commonDefaultSecurityContext()
 }
 
 func NewReportSecurityContext(cr *operatorv1beta1.Cryostat) *corev1.SecurityContext {
-	if cr.Spec.ReportOptions != nil && cr.Spec.ReportOptions.SecurityOptions != nil {
+	if cr.Spec.ReportOptions != nil && cr.Spec.ReportOptions.SecurityOptions != nil && cr.Spec.ReportOptions.SecurityOptions.ReportsSecurityContext != nil {
 		return cr.Spec.ReportOptions.SecurityOptions.ReportsSecurityContext
 	}
 	return commonDefaultSecurityContext()
@@ -2150,38 +2253,39 @@ func OtherServiceAccount() *corev1.ServiceAccount {
 }
 
 func NewRole() *rbacv1.Role {
+	rules := []rbacv1.PolicyRule{
+		{
+			Verbs:     []string{"get", "list", "watch"},
+			APIGroups: []string{""},
+			Resources: []string{"endpoints"},
+		},
+		{
+			Verbs:     []string{"get"},
+			APIGroups: []string{""},
+			Resources: []string{"pods", "replicationcontrollers"},
+		},
+		{
+			Verbs:     []string{"get"},
+			APIGroups: []string{"apps"},
+			Resources: []string{"replicasets", "deployments", "daemonsets", "statefulsets"},
+		},
+		{
+			Verbs:     []string{"get"},
+			APIGroups: []string{"apps.openshift.io"},
+			Resources: []string{"deploymentconfigs"},
+		},
+		{
+			Verbs:     []string{"get", "list"},
+			APIGroups: []string{"route.openshift.io"},
+			Resources: []string{"routes"},
+		},
+	}
 	return &rbacv1.Role{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "cryostat",
 			Namespace: "default",
 		},
-		Rules: []rbacv1.PolicyRule{
-			{
-				Verbs:     []string{"get", "list", "watch"},
-				APIGroups: []string{""},
-				Resources: []string{"endpoints"},
-			},
-			{
-				Verbs:     []string{"get"},
-				APIGroups: []string{""},
-				Resources: []string{"pods", "replicationcontrollers"},
-			},
-			{
-				Verbs:     []string{"get"},
-				APIGroups: []string{"apps"},
-				Resources: []string{"replicasets", "deployments", "daemonsets", "statefulsets"},
-			},
-			{
-				Verbs:     []string{"get"},
-				APIGroups: []string{"apps.openshift.io"},
-				Resources: []string{"deploymentconfigs"},
-			},
-			{
-				Verbs:     []string{"get", "list"},
-				APIGroups: []string{"route.openshift.io"},
-				Resources: []string{"routes"},
-			},
-		},
+		Rules: rules,
 	}
 }
 

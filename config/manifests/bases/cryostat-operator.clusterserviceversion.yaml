@@ -127,6 +127,16 @@ spec:
         path: jmxCacheOptions.targetCacheTTL
         x-descriptors:
         - urn:alm:descriptor:com.tectonic.ui:number
+      - description: Options to configure the Cryostat application's JMX credentials
+          database.
+        displayName: Jmx Credentials Database Options
+        path: jmxCredentialsDatabaseOptions
+      - description: Name of the secret containing the password to encrypt JMX credentials
+          database.
+        displayName: Database Secret Name
+        path: jmxCredentialsDatabaseOptions.databaseSecretName
+        x-descriptors:
+        - urn:alm:descriptor:io.kubernetes:Secret
       - description: The maximum number of WebSocket client connections allowed (minimum
           1, default unlimited).
         displayName: Max WebSocket Connections
@@ -368,6 +378,16 @@ spec:
           has created the PVC, changes to this field have no effect.
         displayName: Spec
         path: storageOptions.pvc.spec
+      - description: Options to configure the Cryostat application's target discovery
+          mechanisms.
+        displayName: Target Discovery Options
+        path: targetDiscoveryOptions
+      - description: When true, the Cryostat application will disable the built-in
+          discovery mechanisms. Defaults to false
+        displayName: Disable Built-in Discovery
+        path: targetDiscoveryOptions.builtInDiscoveryDisabled
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:booleanSwitch
       - description: List of TLS certificates to trust when connecting to targets.
         displayName: Trusted TLS Certificates
         path: trustedCertSecrets
