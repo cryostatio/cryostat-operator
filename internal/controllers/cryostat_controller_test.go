@@ -283,9 +283,11 @@ var _ = Describe("CryostatController", func() {
 				oldDeploy = test.OtherDeployment()
 				t.objs = append(t.objs, cr, oldDeploy)
 			})
-			It("should update the Deployment", func() {
+			JustBeforeEach(func() {
 				t.reconcileCryostatFully()
 
+			})
+			It("should update the Deployment", func() {
 				deploy := &appsv1.Deployment{}
 				err := t.Client.Get(context.Background(), types.NamespacedName{Name: "cryostat", Namespace: "default"}, deploy)
 				Expect(err).ToNot(HaveOccurred())
@@ -308,6 +310,15 @@ var _ = Describe("CryostatController", func() {
 				// Deployment Selector is immutable
 				Expect(deploy.Spec.Selector).To(Equal(oldDeploy.Spec.Selector))
 				Expect(deploy.Spec.Replicas).To(Equal(oldDeploy.Spec.Replicas))
+			})
+			Context("with a different selector", func() {
+				BeforeEach(func() {
+					selector := metav1.AddLabelToSelector(&metav1.LabelSelector{}, "other", "label")
+					oldDeploy.Spec.Selector = selector
+				})
+				It("should delete and recreate the deployment", func() {
+					t.checkMainDeployment()
+				})
 			})
 		})
 		Context("with an existing Service Account", func() {

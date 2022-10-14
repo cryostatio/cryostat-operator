@@ -1709,7 +1709,7 @@ func OtherDeployment() *appsv1.Deployment {
 					},
 				},
 			},
-			Selector: metav1.AddLabelToSelector(&metav1.LabelSelector{}, "other", "label"),
+			Selector: NewMainDeploymentSelector(),
 			Replicas: &replicas,
 		},
 	}
