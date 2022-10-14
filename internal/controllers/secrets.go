@@ -146,7 +146,7 @@ func (r *CryostatReconciler) reconcileDatabaseSecret(ctx context.Context, cr *op
 
 	secretProvided := cr.Spec.JmxCredentialsDatabaseOptions != nil && cr.Spec.JmxCredentialsDatabaseOptions.DatabaseSecretName != nil
 	if secretProvided {
-		return r.deleteSecret(ctx, secret)
+		return nil // Do not delete default secret to allow reverting to use default if needed
 	}
 
 	return r.createOrUpdateSecret(ctx, secret, cr, func() error {
