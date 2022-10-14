@@ -1646,12 +1646,12 @@ var _ = Describe("CryostatController", func() {
 				BeforeEach(func() {
 					t.objs = append(t.objs, test.NewCredentialsDatabaseSecret())
 				})
-				It("should delete the existing Credentials Database Secret", func() {
+				It("should not delete the existing Credentials Database Secret", func() {
 					t.reconcileCryostatFully()
 
 					secret := &corev1.Secret{}
 					err := t.Client.Get(context.Background(), types.NamespacedName{Name: "cryostat-jmx-credentials-db", Namespace: "default"}, secret)
-					Expect(kerrors.IsNotFound(err)).To(BeTrue())
+					Expect(err).ToNot(HaveOccurred())
 				})
 			})
 		})
