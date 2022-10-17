@@ -390,23 +390,12 @@ func NewPodForCR(cr *operatorv1beta1.Cryostat, specs *ServiceSpecs, imageTags *I
 	}
 }
 
-func NewReportContainerResource(cr *operatorv1beta1.Cryostat) corev1.ResourceRequirements {
-	var resources corev1.ResourceRequirements
+func NewReportContainerResource(cr *operatorv1beta1.Cryostat) *corev1.ResourceRequirements {
+	resources := &corev1.ResourceRequirements{}
 	if cr.Spec.ReportOptions != nil {
-		resources = cr.Spec.ReportOptions.Resources
+		resources = cr.Spec.ReportOptions.Resources.DeepCopy()
 	}
-	// Only check requests
-	if resources.Requests == nil {
-		resources.Requests = corev1.ResourceList{}
-	}
-	requests := resources.Requests
-	if _, found := requests[corev1.ResourceCPU]; !found {
-		requests[corev1.ResourceCPU] = resource.MustParse(defaultReportCpuRequest)
-	}
-	if _, found := requests[corev1.ResourceMemory]; !found {
-		requests[corev1.ResourceMemory] = resource.MustParse(defaultReportMemoryRequest)
-	}
-	checkResourceRequestWithLimit(requests, resources.Limits)
+	populateResourceRequest(resources, defaultReportCpuRequest, defaultReportMemoryRequest)
 	return resources
 }
 
@@ -550,7 +539,7 @@ func NewPodForReports(cr *operatorv1beta1.Cryostat, imageTags *ImageTags, tls *T
 				},
 				Env:          envs,
 				VolumeMounts: mounts,
-				Resources:    resources,
+				Resources:    *resources,
 				LivenessProbe: &corev1.Probe{
 					ProbeHandler: probeHandler,
 				},
@@ -568,23 +557,12 @@ func NewPodForReports(cr *operatorv1beta1.Cryostat, imageTags *ImageTags, tls *T
 	}
 }
 
-func NewCoreContainerResource(cr *operatorv1beta1.Cryostat) corev1.ResourceRequirements {
-	resources := corev1.ResourceRequirements{}
+func NewCoreContainerResource(cr *operatorv1beta1.Cryostat) *corev1.ResourceRequirements {
+	resources := &corev1.ResourceRequirements{}
 	if cr.Spec.Resources != nil {
-		resources = cr.Spec.Resources.CoreResources
+		resources = cr.Spec.Resources.CoreResources.DeepCopy()
 	}
-	if resources.Requests == nil {
-		resources.Requests = corev1.ResourceList{}
-	}
-	// Add defaults to requests
-	requests := resources.Requests
-	if _, found := requests[corev1.ResourceCPU]; !found {
-		requests[corev1.ResourceCPU] = resource.MustParse(defaultCoreCpuRequest)
-	}
-	if _, found := requests[corev1.ResourceMemory]; !found {
-		requests[corev1.ResourceMemory] = resource.MustParse(defaultCoreMemoryRequest)
-	}
-	checkResourceRequestWithLimit(requests, resources.Limits)
+	populateResourceRequest(resources, defaultCoreCpuRequest, defaultCoreMemoryRequest)
 	return resources
 }
 
@@ -940,7 +918,7 @@ func NewCoreContainer(cr *operatorv1beta1.Cryostat, specs *ServiceSpecs, imageTa
 		},
 		Env:       envs,
 		EnvFrom:   envsFrom,
-		Resources: NewCoreContainerResource(cr),
+		Resources: *NewCoreContainerResource(cr),
 		LivenessProbe: &corev1.Probe{
 			ProbeHandler: probeHandler,
 		},
@@ -953,22 +931,12 @@ func NewCoreContainer(cr *operatorv1beta1.Cryostat, specs *ServiceSpecs, imageTa
 	}
 }
 
-func NewGrafanaContainerResource(cr *operatorv1beta1.Cryostat) corev1.ResourceRequirements {
-	resources := corev1.ResourceRequirements{}
+func NewGrafanaContainerResource(cr *operatorv1beta1.Cryostat) *corev1.ResourceRequirements {
+	resources := &corev1.ResourceRequirements{}
 	if cr.Spec.Resources != nil {
-		resources = cr.Spec.Resources.GrafanaResources
+		resources = cr.Spec.Resources.GrafanaResources.DeepCopy()
 	}
-	if resources.Requests == nil {
-		resources.Requests = corev1.ResourceList{}
-	}
-	requests := resources.Requests
-	if _, found := requests[corev1.ResourceCPU]; !found {
-		requests[corev1.ResourceCPU] = resource.MustParse(defaultGrafanaCpuRequest)
-	}
-	if _, found := requests[corev1.ResourceMemory]; !found {
-		requests[corev1.ResourceMemory] = resource.MustParse(defaultGrafanaMemoryRequest)
-	}
-	checkResourceRequestWithLimit(requests, resources.Limits)
+	populateResourceRequest(resources, defaultGrafanaCpuRequest, defaultGrafanaMemoryRequest)
 	return resources
 }
 
@@ -1055,29 +1023,19 @@ func NewGrafanaContainer(cr *operatorv1beta1.Cryostat, imageTag string, tls *TLS
 			},
 		},
 		SecurityContext: containerSc,
-		Resources:       NewGrafanaContainerResource(cr),
+		Resources:       *NewGrafanaContainerResource(cr),
 	}
 }
 
 // datasourceURL contains the fixed URL to jfr-datasource's web server
 var datasourceURL = "http://" + loopbackAddress + ":" + strconv.Itoa(int(datasourceContainerPort))
 
-func NewJfrDatasourceContainerResource(cr *operatorv1beta1.Cryostat) corev1.ResourceRequirements {
-	resources := corev1.ResourceRequirements{}
+func NewJfrDatasourceContainerResource(cr *operatorv1beta1.Cryostat) *corev1.ResourceRequirements {
+	resources := &corev1.ResourceRequirements{}
 	if cr.Spec.Resources != nil {
-		resources = cr.Spec.Resources.DataSourceResources
+		resources = cr.Spec.Resources.DataSourceResources.DeepCopy()
 	}
-	if resources.Requests == nil {
-		resources.Requests = corev1.ResourceList{}
-	}
-	requests := resources.Requests
-	if _, found := requests[corev1.ResourceCPU]; !found {
-		requests[corev1.ResourceCPU] = resource.MustParse(defaultJfrDatasourceCpuRequest)
-	}
-	if _, found := requests[corev1.ResourceMemory]; !found {
-		requests[corev1.ResourceMemory] = resource.MustParse(defaultJfrDatasourceMemoryRequest)
-	}
-	checkResourceRequestWithLimit(requests, resources.Limits)
+	populateResourceRequest(resources, defaultJfrDatasourceCpuRequest, defaultJfrDatasourceMemoryRequest)
 	return resources
 }
 
@@ -1119,7 +1077,7 @@ func NewJfrDatasourceContainer(cr *operatorv1beta1.Cryostat, imageTag string) co
 			},
 		},
 		SecurityContext: containerSc,
-		Resources:       NewJfrDatasourceContainerResource(cr),
+		Resources:       *NewJfrDatasourceContainerResource(cr),
 	}
 }
 
@@ -1214,4 +1172,18 @@ func checkResourceRequestWithLimit(requests, limits corev1.ResourceList) {
 			requests[corev1.ResourceMemory] = limitMemory.DeepCopy()
 		}
 	}
+}
+
+func populateResourceRequest(resources *corev1.ResourceRequirements, defaultCpu, defaultMemory string) {
+	if resources.Requests == nil {
+		resources.Requests = corev1.ResourceList{}
+	}
+	requests := resources.Requests
+	if _, found := requests[corev1.ResourceCPU]; !found {
+		requests[corev1.ResourceCPU] = resource.MustParse(defaultCpu)
+	}
+	if _, found := requests[corev1.ResourceMemory]; !found {
+		requests[corev1.ResourceMemory] = resource.MustParse(defaultMemory)
+	}
+	checkResourceRequestWithLimit(requests, resources.Limits)
 }
