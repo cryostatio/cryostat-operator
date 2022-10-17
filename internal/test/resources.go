@@ -328,20 +328,6 @@ func NewCryostatWithReportsResources() *operatorv1beta1.Cryostat {
 	return cr
 }
 
-func NewCryostatWithReportSmallResourceLimit() *operatorv1beta1.Cryostat {
-	cr := NewCryostat()
-	cr.Spec.ReportOptions = &operatorv1beta1.ReportConfiguration{
-		Replicas: 1,
-		Resources: corev1.ResourceRequirements{
-			Limits: corev1.ResourceList{
-				corev1.ResourceCPU:    resource.MustParse("20m"),
-				corev1.ResourceMemory: resource.MustParse("32Mi"),
-			},
-		},
-	}
-	return cr
-}
-
 func populateCryostatWithScheduling() *operatorv1beta1.SchedulingConfiguration {
 	return &operatorv1beta1.SchedulingConfiguration{
 		NodeSelector: map[string]string{"node": "good"},
@@ -590,31 +576,6 @@ func NewCryostatWithDatabaseSecretProvided() *operatorv1beta1.Cryostat {
 	cr := NewCryostat()
 	cr.Spec.JmxCredentialsDatabaseOptions = &operatorv1beta1.JmxCredentialsDatabaseOptions{
 		DatabaseSecretName: &providedDatabaseSecretName,
-	}
-	return cr
-}
-
-func NewCryostatWithSmallResourceLimit() *operatorv1beta1.Cryostat {
-	cr := NewCryostat()
-	cr.Spec.Resources = &operatorv1beta1.ResourceConfigList{
-		CoreResources: corev1.ResourceRequirements{
-			Limits: corev1.ResourceList{
-				corev1.ResourceCPU:    resource.MustParse("10m"),
-				corev1.ResourceMemory: resource.MustParse("32Mi"),
-			},
-		},
-		GrafanaResources: corev1.ResourceRequirements{
-			Limits: corev1.ResourceList{
-				corev1.ResourceCPU:    resource.MustParse("10m"),
-				corev1.ResourceMemory: resource.MustParse("32Mi"),
-			},
-		},
-		DataSourceResources: corev1.ResourceRequirements{
-			Limits: corev1.ResourceList{
-				corev1.ResourceCPU:    resource.MustParse("10m"),
-				corev1.ResourceMemory: resource.MustParse("32Mi"),
-			},
-		},
 	}
 	return cr
 }
@@ -2573,15 +2534,6 @@ func NewApiServer() *configv1.APIServer {
 	}
 }
 
-// Specify how the resource specs are filled in Cryostat CR
-type ResourceSpecCase string
-
-const (
-	None       ResourceSpecCase = "none"
-	Fully      ResourceSpecCase = "fully"
-	SmallLimit ResourceSpecCase = "smallLimit"
-)
-
 func NewCoreContainerDefaultResource() *corev1.ResourceRequirements {
 	return &corev1.ResourceRequirements{
 		Requests: corev1.ResourceList{
@@ -2591,18 +2543,11 @@ func NewCoreContainerDefaultResource() *corev1.ResourceRequirements {
 	}
 }
 
-func NewCoreContainerResource(cr *operatorv1beta1.Cryostat, resourceSpecCase ResourceSpecCase) *corev1.ResourceRequirements {
-	if resourceSpecCase == None {
-		return NewCoreContainerDefaultResource()
-	} else if resourceSpecCase == Fully && cr.Spec.Resources != nil {
-		return &cr.Spec.Resources.CoreResources
-	} else if resourceSpecCase == SmallLimit && cr.Spec.Resources != nil {
-		return &corev1.ResourceRequirements{
-			Requests: cr.Spec.Resources.CoreResources.Limits.DeepCopy(),
-			Limits:   cr.Spec.Resources.CoreResources.Limits.DeepCopy(),
-		}
+func NewCoreContainerResource(cr *operatorv1beta1.Cryostat) *corev1.ResourceRequirements {
+	if cr.Spec.Resources != nil {
+		return cr.Spec.Resources.CoreResources.DeepCopy()
 	}
-	return nil // Unknown case
+	return NewCoreContainerDefaultResource()
 }
 
 func NewDatasourceContainerDefaultResource() *corev1.ResourceRequirements {
@@ -2614,18 +2559,11 @@ func NewDatasourceContainerDefaultResource() *corev1.ResourceRequirements {
 	}
 }
 
-func NewDatasourceContainerResource(cr *operatorv1beta1.Cryostat, resourceSpecCase ResourceSpecCase) *corev1.ResourceRequirements {
-	if resourceSpecCase == None {
-		return NewDatasourceContainerDefaultResource()
-	} else if resourceSpecCase == Fully && cr.Spec.Resources != nil {
-		return &cr.Spec.Resources.DataSourceResources
-	} else if resourceSpecCase == SmallLimit && cr.Spec.Resources != nil {
-		return &corev1.ResourceRequirements{
-			Requests: cr.Spec.Resources.DataSourceResources.Limits.DeepCopy(),
-			Limits:   cr.Spec.Resources.DataSourceResources.Limits.DeepCopy(),
-		}
+func NewDatasourceContainerResource(cr *operatorv1beta1.Cryostat) *corev1.ResourceRequirements {
+	if cr.Spec.Resources != nil {
+		return cr.Spec.Resources.DataSourceResources.DeepCopy()
 	}
-	return nil // Unknown case
+	return NewDatasourceContainerDefaultResource()
 }
 
 func NewGrafanaContainerDefaultResource() *corev1.ResourceRequirements {
@@ -2637,18 +2575,11 @@ func NewGrafanaContainerDefaultResource() *corev1.ResourceRequirements {
 	}
 }
 
-func NewGrafanaContainerResource(cr *operatorv1beta1.Cryostat, resourceSpecCase ResourceSpecCase) *corev1.ResourceRequirements {
-	if resourceSpecCase == None {
-		return NewGrafanaContainerDefaultResource()
-	} else if resourceSpecCase == Fully && cr.Spec.Resources != nil {
-		return &cr.Spec.Resources.GrafanaResources
-	} else if resourceSpecCase == SmallLimit && cr.Spec.Resources != nil {
-		return &corev1.ResourceRequirements{
-			Requests: cr.Spec.Resources.GrafanaResources.Limits.DeepCopy(),
-			Limits:   cr.Spec.Resources.GrafanaResources.Limits.DeepCopy(),
-		}
+func NewGrafanaContainerResource(cr *operatorv1beta1.Cryostat) *corev1.ResourceRequirements {
+	if cr.Spec.Resources != nil {
+		return cr.Spec.Resources.GrafanaResources.DeepCopy()
 	}
-	return nil // Unknown case
+	return NewGrafanaContainerDefaultResource()
 }
 
 func NewReportContainerDefaultResource() *corev1.ResourceRequirements {
@@ -2660,16 +2591,9 @@ func NewReportContainerDefaultResource() *corev1.ResourceRequirements {
 	}
 }
 
-func NewReportContainerResource(cr *operatorv1beta1.Cryostat, resourceSpecCase ResourceSpecCase) *corev1.ResourceRequirements {
-	if resourceSpecCase == None {
-		return NewReportContainerDefaultResource()
-	} else if resourceSpecCase == Fully && cr.Spec.ReportOptions != nil {
-		return &cr.Spec.ReportOptions.Resources
-	} else if resourceSpecCase == SmallLimit && cr.Spec.ReportOptions != nil {
-		return &corev1.ResourceRequirements{
-			Requests: cr.Spec.ReportOptions.Resources.Limits.DeepCopy(),
-			Limits:   cr.Spec.ReportOptions.Resources.Limits.DeepCopy(),
-		}
+func NewReportContainerResource(cr *operatorv1beta1.Cryostat) *corev1.ResourceRequirements {
+	if cr.Spec.ReportOptions != nil && cr.Spec.ReportOptions.Resources.Requests != nil {
+		return cr.Spec.ReportOptions.Resources.DeepCopy()
 	}
-	return nil // Unknown case
+	return NewReportContainerDefaultResource()
 }
