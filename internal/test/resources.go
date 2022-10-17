@@ -328,6 +328,20 @@ func NewCryostatWithReportsResources() *operatorv1beta1.Cryostat {
 	return cr
 }
 
+func NewCryostatWithReportLowResourceLimit() *operatorv1beta1.Cryostat {
+	cr := NewCryostat()
+	cr.Spec.ReportOptions = &operatorv1beta1.ReportConfiguration{
+		Replicas: 1,
+		Resources: corev1.ResourceRequirements{
+			Limits: corev1.ResourceList{
+				corev1.ResourceCPU:    resource.MustParse("20m"),
+				corev1.ResourceMemory: resource.MustParse("32Mi"),
+			},
+		},
+	}
+	return cr
+}
+
 func populateCryostatWithScheduling() *operatorv1beta1.SchedulingConfiguration {
 	return &operatorv1beta1.SchedulingConfiguration{
 		NodeSelector: map[string]string{"node": "good"},
@@ -440,6 +454,31 @@ func NewCryostatWithResources() *operatorv1beta1.Cryostat {
 			Requests: corev1.ResourceList{
 				corev1.ResourceCPU:    resource.MustParse("300m"),
 				corev1.ResourceMemory: resource.MustParse("64Mi"),
+			},
+		},
+	}
+	return cr
+}
+
+func NewCryostatWithLowResourceLimit() *operatorv1beta1.Cryostat {
+	cr := NewCryostat()
+	cr.Spec.Resources = &operatorv1beta1.ResourceConfigList{
+		CoreResources: corev1.ResourceRequirements{
+			Limits: corev1.ResourceList{
+				corev1.ResourceCPU:    resource.MustParse("10m"),
+				corev1.ResourceMemory: resource.MustParse("32Mi"),
+			},
+		},
+		GrafanaResources: corev1.ResourceRequirements{
+			Limits: corev1.ResourceList{
+				corev1.ResourceCPU:    resource.MustParse("10m"),
+				corev1.ResourceMemory: resource.MustParse("32Mi"),
+			},
+		},
+		DataSourceResources: corev1.ResourceRequirements{
+			Limits: corev1.ResourceList{
+				corev1.ResourceCPU:    resource.MustParse("10m"),
+				corev1.ResourceMemory: resource.MustParse("32Mi"),
 			},
 		},
 	}
@@ -2544,10 +2583,22 @@ func NewCoreContainerDefaultResource() *corev1.ResourceRequirements {
 }
 
 func NewCoreContainerResource(cr *operatorv1beta1.Cryostat) *corev1.ResourceRequirements {
-	if cr.Spec.Resources != nil {
-		return cr.Spec.Resources.CoreResources.DeepCopy()
+	requests := NewCoreContainerDefaultResource().Requests
+	var limits corev1.ResourceList
+	if cr.Spec.Resources != nil && cr.Spec.Resources.CoreResources.Requests != nil {
+		requests = cr.Spec.Resources.CoreResources.Requests
+	} else if cr.Spec.Resources != nil && cr.Spec.Resources.CoreResources.Limits != nil {
+		checkWithLimit(requests, cr.Spec.Resources.CoreResources.Limits)
 	}
-	return NewCoreContainerDefaultResource()
+
+	if cr.Spec.Resources != nil {
+		limits = cr.Spec.Resources.CoreResources.Limits
+	}
+
+	return &corev1.ResourceRequirements{
+		Requests: requests,
+		Limits:   limits,
+	}
 }
 
 func NewDatasourceContainerDefaultResource() *corev1.ResourceRequirements {
@@ -2560,10 +2611,22 @@ func NewDatasourceContainerDefaultResource() *corev1.ResourceRequirements {
 }
 
 func NewDatasourceContainerResource(cr *operatorv1beta1.Cryostat) *corev1.ResourceRequirements {
-	if cr.Spec.Resources != nil {
-		return cr.Spec.Resources.DataSourceResources.DeepCopy()
+	requests := NewDatasourceContainerDefaultResource().Requests
+	var limits corev1.ResourceList
+	if cr.Spec.Resources != nil && cr.Spec.Resources.DataSourceResources.Requests != nil {
+		requests = cr.Spec.Resources.DataSourceResources.Requests
+	} else if cr.Spec.Resources != nil && cr.Spec.Resources.DataSourceResources.Limits != nil {
+		checkWithLimit(requests, cr.Spec.Resources.DataSourceResources.Limits)
 	}
-	return NewDatasourceContainerDefaultResource()
+
+	if cr.Spec.Resources != nil {
+		limits = cr.Spec.Resources.DataSourceResources.Limits
+	}
+
+	return &corev1.ResourceRequirements{
+		Requests: requests,
+		Limits:   limits,
+	}
 }
 
 func NewGrafanaContainerDefaultResource() *corev1.ResourceRequirements {
@@ -2576,10 +2639,22 @@ func NewGrafanaContainerDefaultResource() *corev1.ResourceRequirements {
 }
 
 func NewGrafanaContainerResource(cr *operatorv1beta1.Cryostat) *corev1.ResourceRequirements {
-	if cr.Spec.Resources != nil {
-		return cr.Spec.Resources.GrafanaResources.DeepCopy()
+	requests := NewGrafanaContainerDefaultResource().Requests
+	var limits corev1.ResourceList
+	if cr.Spec.Resources != nil && cr.Spec.Resources.GrafanaResources.Requests != nil {
+		requests = cr.Spec.Resources.GrafanaResources.Requests
+	} else if cr.Spec.Resources != nil && cr.Spec.Resources.GrafanaResources.Limits != nil {
+		checkWithLimit(requests, cr.Spec.Resources.GrafanaResources.Limits)
 	}
-	return NewGrafanaContainerDefaultResource()
+
+	if cr.Spec.Resources != nil {
+		limits = cr.Spec.Resources.GrafanaResources.Limits
+	}
+
+	return &corev1.ResourceRequirements{
+		Requests: requests,
+		Limits:   limits,
+	}
 }
 
 func NewReportContainerDefaultResource() *corev1.ResourceRequirements {
@@ -2592,8 +2667,32 @@ func NewReportContainerDefaultResource() *corev1.ResourceRequirements {
 }
 
 func NewReportContainerResource(cr *operatorv1beta1.Cryostat) *corev1.ResourceRequirements {
-	if cr.Spec.ReportOptions != nil && cr.Spec.ReportOptions.Resources.Requests != nil {
-		return cr.Spec.ReportOptions.Resources.DeepCopy()
+	requests := NewReportContainerDefaultResource().Requests
+	var limits corev1.ResourceList
+
+	if cr.Spec.ReportOptions != nil {
+		reportOptions := cr.Spec.ReportOptions
+		if reportOptions.Resources.Requests != nil {
+			requests = reportOptions.Resources.Requests
+		} else if reportOptions.Resources.Limits != nil {
+			checkWithLimit(requests, reportOptions.Resources.Limits)
+		}
+
+		limits = reportOptions.Resources.Limits
 	}
-	return NewReportContainerDefaultResource()
+	return &corev1.ResourceRequirements{
+		Requests: requests,
+		Limits:   limits,
+	}
+}
+
+func checkWithLimit(requests, limits corev1.ResourceList) {
+	if limits != nil {
+		if limitCpu, found := limits[corev1.ResourceCPU]; found && limitCpu.Cmp(*requests.Cpu()) < 0 {
+			requests[corev1.ResourceCPU] = limitCpu.DeepCopy()
+		}
+		if limitMemory, found := limits[corev1.ResourceMemory]; found && limitMemory.Cmp(*requests.Memory()) < 0 {
+			requests[corev1.ResourceMemory] = limitMemory.DeepCopy()
+		}
+	}
 }

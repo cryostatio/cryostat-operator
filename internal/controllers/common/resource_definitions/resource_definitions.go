@@ -1205,13 +1205,13 @@ func useEmptyDir(cr *operatorv1beta1.Cryostat) bool {
 
 }
 
-func checkResourceRequestWithLimit(request, limit corev1.ResourceList) {
-	if limit != nil {
-		if limitCpu, found := limit[corev1.ResourceCPU]; found && limitCpu.Cmp(*request.Cpu()) < 0 {
-			request[corev1.ResourceCPU] = limitCpu.DeepCopy()
+func checkResourceRequestWithLimit(requests, limits corev1.ResourceList) {
+	if limits != nil {
+		if limitCpu, found := limits[corev1.ResourceCPU]; found && limitCpu.Cmp(*requests.Cpu()) < 0 {
+			requests[corev1.ResourceCPU] = limitCpu.DeepCopy()
 		}
-		if limitMemory, found := limit[corev1.ResourceMemory]; found && limitMemory.Cmp(*request.Memory()) < 0 {
-			request[corev1.ResourceMemory] = limitMemory.DeepCopy()
+		if limitMemory, found := limits[corev1.ResourceMemory]; found && limitMemory.Cmp(*requests.Memory()) < 0 {
+			requests[corev1.ResourceMemory] = limitMemory.DeepCopy()
 		}
 	}
 }

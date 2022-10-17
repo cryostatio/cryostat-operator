@@ -618,13 +618,25 @@ var _ = Describe("CryostatController", func() {
 				})
 			})
 			Context("with resource requirements", func() {
-				BeforeEach(func() {
-					*cr = *test.NewCryostatWithReportsResources()
+				Context("fully specified", func() {
+					BeforeEach(func() {
+						*cr = *test.NewCryostatWithReportsResources()
+					})
+					It("should configure deployment appropriately", func() {
+						t.checkMainDeployment()
+						t.checkReportsDeployment()
+						t.checkService("cryostat-reports", test.NewReportsService())
+					})
 				})
-				It("should configure deployment appropriately", func() {
-					t.checkMainDeployment()
-					t.checkReportsDeployment()
-					t.checkService("cryostat-reports", test.NewReportsService())
+				Context("with low limits", func() {
+					BeforeEach(func() {
+						*cr = *test.NewCryostatWithReportLowResourceLimit()
+					})
+					It("should configure deployment appropriately", func() {
+						t.checkMainDeployment()
+						t.checkReportsDeployment()
+						t.checkService("cryostat-reports", test.NewReportsService())
+					})
 				})
 			})
 			Context("deployment is progressing", func() {
@@ -1537,11 +1549,21 @@ var _ = Describe("CryostatController", func() {
 			})
 		})
 		Context("with resource requirements", func() {
-			BeforeEach(func() {
-				t.objs = append(t.objs, test.NewCryostatWithResources())
+			Context("fully specified", func() {
+				BeforeEach(func() {
+					t.objs = append(t.objs, test.NewCryostatWithResources())
+				})
+				It("should create expected deployment", func() {
+					t.expectDeployment()
+				})
 			})
-			It("should create expected deployment", func() {
-				t.expectDeployment()
+			Context("with low limits", func() {
+				BeforeEach(func() {
+					t.objs = append(t.objs, test.NewCryostatWithLowResourceLimit())
+				})
+				It("should create expected deployment", func() {
+					t.expectDeployment()
+				})
 			})
 		})
 		Context("with network options", func() {
