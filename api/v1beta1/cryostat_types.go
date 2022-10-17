@@ -89,7 +89,7 @@ type CryostatSpec struct {
 	// Resource requirements for the Cryostat deployment.
 	// +optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
-	Resources ResourceConfigList `json:"resources,omitempty"`
+	Resources *ResourceConfigList `json:"resources,omitempty"`
 	// Override default authorization properties for Cryostat on OpenShift.
 	// +optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Authorization Properties",xDescriptors={"urn:alm:descriptor:com.tectonic.ui:advanced"}

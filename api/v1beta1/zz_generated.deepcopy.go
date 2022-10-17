@@ -243,7 +243,11 @@ func (in *CryostatSpec) DeepCopyInto(out *CryostatSpec) {
 		*out = new(JmxCacheOptions)
 		**out = **in
 	}
-	in.Resources.DeepCopyInto(&out.Resources)
+	if in.Resources != nil {
+		in, out := &in.Resources, &out.Resources
+		*out = new(ResourceConfigList)
+		(*in).DeepCopyInto(*out)
+	}
 	if in.AuthProperties != nil {
 		in, out := &in.AuthProperties, &out.AuthProperties
 		*out = new(AuthorizationProperties)
