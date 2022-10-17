@@ -629,14 +629,27 @@ var _ = Describe("CryostatController", func() {
 				})
 			})
 			Context("with resource requirements", func() {
-				BeforeEach(func() {
-					*cr = *test.NewCryostatWithReportsResources()
-					t.reportConfig.resourceSpecCase = test.Fully
+				Context("fully specified", func() {
+					BeforeEach(func() {
+						*cr = *test.NewCryostatWithReportsResources()
+						t.reportConfig.resourceSpecCase = test.Fully
+					})
+					It("should configure deployment appropriately", func() {
+						t.checkMainDeployment()
+						t.checkReportsDeployment()
+						t.checkService("cryostat-reports", test.NewReportsService())
+					})
 				})
-				It("should configure deployment appropriately", func() {
-					t.checkMainDeployment()
-					t.checkReportsDeployment()
-					t.checkService("cryostat-reports", test.NewReportsService())
+				Context("with small limits", func() {
+					BeforeEach(func() {
+						*cr = *test.NewCryostatWithReportSmallResourceLimit()
+						t.reportConfig.resourceSpecCase = test.SmallLimit
+					})
+					It("should configure deployment appropriately", func() {
+						t.checkMainDeployment()
+						t.checkReportsDeployment()
+						t.checkService("cryostat-reports", test.NewReportsService())
+					})
 				})
 			})
 			Context("deployment is progressing", func() {
@@ -1549,12 +1562,23 @@ var _ = Describe("CryostatController", func() {
 			})
 		})
 		Context("with resource requirements", func() {
-			BeforeEach(func() {
-				t.objs = append(t.objs, test.NewCryostatWithResources())
-				t.resourceSpecCase = test.Fully
+			Context("fully specified", func() {
+				BeforeEach(func() {
+					t.objs = append(t.objs, test.NewCryostatWithResources())
+					t.resourceSpecCase = test.Fully
+				})
+				It("should create expected deployment", func() {
+					t.expectDeployment()
+				})
 			})
-			It("should create expected deployment", func() {
-				t.expectDeployment()
+			Context("with small limits", func() {
+				BeforeEach(func() {
+					t.objs = append(t.objs, test.NewCryostatWithSmallResourceLimit())
+					t.resourceSpecCase = test.SmallLimit
+				})
+				It("should create expected deployment", func() {
+					t.expectDeployment()
+				})
 			})
 		})
 		Context("with network options", func() {
