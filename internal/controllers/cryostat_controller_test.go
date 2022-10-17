@@ -2620,16 +2620,16 @@ func (t *cryostatTestInput) checkMainPodTemplate(deployment *appsv1.Deployment, 
 		t.minimal, t.TLS, t.externalTLS, t.EnvCoreImageTag,
 		t.controller.IsOpenShift, ingress, reportsUrl,
 		cr.Spec.AuthProperties != nil, emptyDir, builtInDiscoveryDisabled, dbSecretProvided,
-		*test.NewCoreContainerResource(cr), test.NewCoreSecurityContext(cr))
+		test.NewCoreContainerResource(cr), test.NewCoreSecurityContext(cr))
 
 	if !t.minimal {
 		// Check that Grafana is configured properly, depending on the environment
 		grafanaContainer := template.Spec.Containers[1]
-		checkGrafanaContainer(&grafanaContainer, t.TLS, t.EnvGrafanaImageTag, *test.NewGrafanaContainerResource(cr), test.NewGrafanaSecurityContext(cr))
+		checkGrafanaContainer(&grafanaContainer, t.TLS, t.EnvGrafanaImageTag, test.NewGrafanaContainerResource(cr), test.NewGrafanaSecurityContext(cr))
 
 		// Check that JFR Datasource is configured properly
 		datasourceContainer := template.Spec.Containers[2]
-		checkDatasourceContainer(&datasourceContainer, t.EnvDatasourceImageTag, *test.NewDatasourceContainerResource(cr), test.NewDatasourceSecurityContext(cr))
+		checkDatasourceContainer(&datasourceContainer, t.EnvDatasourceImageTag, test.NewDatasourceContainerResource(cr), test.NewDatasourceSecurityContext(cr))
 	}
 
 	// Check that the proper Service Account is set
@@ -2683,7 +2683,7 @@ func (t *cryostatTestInput) checkReportsDeployment() {
 	Expect(template.Spec.Volumes).To(ConsistOf(test.NewReportsVolumes(t.TLS)))
 	Expect(template.Spec.SecurityContext).To(Equal(test.NewReportPodSecurityContext(cr, t.controller.IsOpenShift)))
 
-	checkReportsContainer(&template.Spec.Containers[0], t.TLS, t.EnvReportsImageTag, *test.NewReportContainerResource(cr), test.NewReportSecurityContext(cr))
+	checkReportsContainer(&template.Spec.Containers[0], t.TLS, t.EnvReportsImageTag, test.NewReportContainerResource(cr), test.NewReportSecurityContext(cr))
 
 	// Check that the default Service Account is used
 	Expect(template.Spec.ServiceAccountName).To(BeEmpty())
@@ -2754,7 +2754,7 @@ func checkCoreContainer(container *corev1.Container, minimal bool, tls bool, ext
 	tag *string, openshift bool, ingress bool,
 	reportsUrl string, authProps bool,
 	emptyDir bool, builtInDiscoveryDisabled bool, dbSecretProvided bool,
-	resources corev1.ResourceRequirements,
+	resources *corev1.ResourceRequirements,
 	securityContext *corev1.SecurityContext) {
 	Expect(container.Name).To(Equal("cryostat"))
 	if tag == nil {
@@ -2770,10 +2770,10 @@ func checkCoreContainer(container *corev1.Container, minimal bool, tls bool, ext
 	Expect(container.StartupProbe).To(Equal(test.NewCoreStartupProbe(tls)))
 	Expect(container.SecurityContext).To(Equal(securityContext))
 
-	checkResourceRequirements(&container.Resources, &resources)
+	checkResourceRequirements(&container.Resources, resources)
 }
 
-func checkGrafanaContainer(container *corev1.Container, tls bool, tag *string, resources corev1.ResourceRequirements, securityContext *corev1.SecurityContext) {
+func checkGrafanaContainer(container *corev1.Container, tls bool, tag *string, resources *corev1.ResourceRequirements, securityContext *corev1.SecurityContext) {
 	Expect(container.Name).To(Equal("cryostat-grafana"))
 	if tag == nil {
 		Expect(container.Image).To(HavePrefix("quay.io/cryostat/cryostat-grafana-dashboard:"))
@@ -2787,10 +2787,10 @@ func checkGrafanaContainer(container *corev1.Container, tls bool, tag *string, r
 	Expect(container.LivenessProbe).To(Equal(test.NewGrafanaLivenessProbe(tls)))
 	Expect(container.SecurityContext).To(Equal(securityContext))
 
-	checkResourceRequirements(&container.Resources, &resources)
+	checkResourceRequirements(&container.Resources, resources)
 }
 
-func checkDatasourceContainer(container *corev1.Container, tag *string, resources corev1.ResourceRequirements, securityContext *corev1.SecurityContext) {
+func checkDatasourceContainer(container *corev1.Container, tag *string, resources *corev1.ResourceRequirements, securityContext *corev1.SecurityContext) {
 	Expect(container.Name).To(Equal("cryostat-jfr-datasource"))
 	if tag == nil {
 		Expect(container.Image).To(HavePrefix("quay.io/cryostat/jfr-datasource:"))
@@ -2804,10 +2804,10 @@ func checkDatasourceContainer(container *corev1.Container, tag *string, resource
 	Expect(container.LivenessProbe).To(Equal(test.NewDatasourceLivenessProbe()))
 	Expect(container.SecurityContext).To(Equal(securityContext))
 
-	checkResourceRequirements(&container.Resources, &resources)
+	checkResourceRequirements(&container.Resources, resources)
 }
 
-func checkReportsContainer(container *corev1.Container, tls bool, tag *string, resources corev1.ResourceRequirements, securityContext *corev1.SecurityContext) {
+func checkReportsContainer(container *corev1.Container, tls bool, tag *string, resources *corev1.ResourceRequirements, securityContext *corev1.SecurityContext) {
 	Expect(container.Name).To(Equal("cryostat-reports"))
 	if tag == nil {
 		Expect(container.Image).To(HavePrefix("quay.io/cryostat/cryostat-reports:"))
@@ -2820,7 +2820,7 @@ func checkReportsContainer(container *corev1.Container, tls bool, tag *string, r
 	Expect(container.LivenessProbe).To(Equal(test.NewReportsLivenessProbe(tls)))
 	Expect(container.SecurityContext).To(Equal(securityContext))
 
-	checkResourceRequirements(&container.Resources, &resources)
+	checkResourceRequirements(&container.Resources, resources)
 }
 
 func (t *cryostatTestInput) checkCoreHasEnvironmentVariables(expectedEnvVars []corev1.EnvVar) {
@@ -2861,8 +2861,8 @@ func checkResourceRequirements(containerResource, expectedResource *corev1.Resou
 			Expect(limitCpu.Equal(expectedLimitCpu)).To(BeTrue())
 		}
 
-		limitMemory, limitMemoryFound := containerResource.Limits[corev1.ResourceCPU]
-		expectedlimitMemory, expectedLimitMemoryFound := expectedResource.Limits[corev1.ResourceCPU]
+		limitMemory, limitMemoryFound := containerResource.Limits[corev1.ResourceMemory]
+		expectedlimitMemory, expectedLimitMemoryFound := expectedResource.Limits[corev1.ResourceMemory]
 
 		Expect(limitMemoryFound).To(Equal(expectedLimitMemoryFound))
 		if expectedLimitCpuFound {

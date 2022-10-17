@@ -1415,7 +1415,7 @@ func NewDatasourceEnvironmentVariables() []corev1.EnvVar {
 	}
 }
 
-func NewReportsEnvironmentVariables(tls bool, resources corev1.ResourceRequirements) []corev1.EnvVar {
+func NewReportsEnvironmentVariables(tls bool, resources *corev1.ResourceRequirements) []corev1.EnvVar {
 	cpus := resources.Requests.Cpu().Value()
 	if limit := resources.Limits; limit != nil {
 		if cpu := limit.Cpu(); limit != nil {
@@ -2573,7 +2573,7 @@ func NewApiServer() *configv1.APIServer {
 	}
 }
 
-func NewCoreContainerDefaultResource() *corev1.ResourceRequirements {
+func newCoreContainerDefaultResource() *corev1.ResourceRequirements {
 	return &corev1.ResourceRequirements{
 		Requests: corev1.ResourceList{
 			corev1.ResourceCPU:    resource.MustParse("100m"),
@@ -2583,7 +2583,7 @@ func NewCoreContainerDefaultResource() *corev1.ResourceRequirements {
 }
 
 func NewCoreContainerResource(cr *operatorv1beta1.Cryostat) *corev1.ResourceRequirements {
-	requests := NewCoreContainerDefaultResource().Requests
+	requests := newCoreContainerDefaultResource().Requests
 	var limits corev1.ResourceList
 	if cr.Spec.Resources != nil && cr.Spec.Resources.CoreResources.Requests != nil {
 		requests = cr.Spec.Resources.CoreResources.Requests
@@ -2601,7 +2601,7 @@ func NewCoreContainerResource(cr *operatorv1beta1.Cryostat) *corev1.ResourceRequ
 	}
 }
 
-func NewDatasourceContainerDefaultResource() *corev1.ResourceRequirements {
+func newDatasourceContainerDefaultResource() *corev1.ResourceRequirements {
 	return &corev1.ResourceRequirements{
 		Requests: corev1.ResourceList{
 			corev1.ResourceCPU:    resource.MustParse("100m"),
@@ -2611,7 +2611,7 @@ func NewDatasourceContainerDefaultResource() *corev1.ResourceRequirements {
 }
 
 func NewDatasourceContainerResource(cr *operatorv1beta1.Cryostat) *corev1.ResourceRequirements {
-	requests := NewDatasourceContainerDefaultResource().Requests
+	requests := newDatasourceContainerDefaultResource().Requests
 	var limits corev1.ResourceList
 	if cr.Spec.Resources != nil && cr.Spec.Resources.DataSourceResources.Requests != nil {
 		requests = cr.Spec.Resources.DataSourceResources.Requests
@@ -2629,7 +2629,7 @@ func NewDatasourceContainerResource(cr *operatorv1beta1.Cryostat) *corev1.Resour
 	}
 }
 
-func NewGrafanaContainerDefaultResource() *corev1.ResourceRequirements {
+func newGrafanaContainerDefaultResource() *corev1.ResourceRequirements {
 	return &corev1.ResourceRequirements{
 		Requests: corev1.ResourceList{
 			corev1.ResourceCPU:    resource.MustParse("1000m"),
@@ -2639,7 +2639,7 @@ func NewGrafanaContainerDefaultResource() *corev1.ResourceRequirements {
 }
 
 func NewGrafanaContainerResource(cr *operatorv1beta1.Cryostat) *corev1.ResourceRequirements {
-	requests := NewGrafanaContainerDefaultResource().Requests
+	requests := newGrafanaContainerDefaultResource().Requests
 	var limits corev1.ResourceList
 	if cr.Spec.Resources != nil && cr.Spec.Resources.GrafanaResources.Requests != nil {
 		requests = cr.Spec.Resources.GrafanaResources.Requests
@@ -2657,7 +2657,7 @@ func NewGrafanaContainerResource(cr *operatorv1beta1.Cryostat) *corev1.ResourceR
 	}
 }
 
-func NewReportContainerDefaultResource() *corev1.ResourceRequirements {
+func newReportContainerDefaultResource() *corev1.ResourceRequirements {
 	return &corev1.ResourceRequirements{
 		Requests: corev1.ResourceList{
 			corev1.ResourceCPU:    resource.MustParse("128m"),
@@ -2667,7 +2667,7 @@ func NewReportContainerDefaultResource() *corev1.ResourceRequirements {
 }
 
 func NewReportContainerResource(cr *operatorv1beta1.Cryostat) *corev1.ResourceRequirements {
-	requests := NewReportContainerDefaultResource().Requests
+	requests := newReportContainerDefaultResource().Requests
 	var limits corev1.ResourceList
 
 	if cr.Spec.ReportOptions != nil {
