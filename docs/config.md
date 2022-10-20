@@ -152,8 +152,27 @@ spec:
     subProcessMaxHeapSize: 200
 ```
 
+If the sidecar's resource requests are not specified, they are set with the following defaults:
+
+| Request | Quantity |
+|---------|----------|
+| Reports Container CPU | 128m |
+| Reports Container Memory | 256Mi |
+
+
 ### Resource Requirements
-By default, the operator deploys Cryostat without any [resource requests or limits](https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/) set. Using the Cryostat custom resource, you can define resources requests and/or limits for each of the three containers in Cryostat's main pod:
+By default, the operator deploys Cryostat with pre-configured resource requests:
+
+| Request | Quantity |
+|---------|----------|
+| Cryostat container CPU | 100m |
+| Cryostat container Memory | 384Mi |
+| JFR Data Source container CPU | 100m |
+|	JFR Data Source container Memory | 512Mi |
+|	Grafana container CPU | 1000m |
+|	Grafana container Memory | 256Mi |
+
+Using the Cryostat custom resource, you can define resources requests and/or limits for each of the three containers in Cryostat's main pod:
 - the `core` container running the Cryostat backend and web application. If setting a memory limit for this container, we recommend at least 768MiB.
 - the `datasource` container running JFR Data Source, which converts recordings into a Grafana-compatible format.
 - the `grafana` container running the Grafana instance customized for Cryostat.
@@ -187,6 +206,8 @@ spec:
         memory: 512Mi
 ```
 This example sets CPU and memory requests and limits for each container, but you may choose to define any combination of requests and limits that suits your use case.
+
+Note that if you define limits lower than the default requests, the resource requests will be set to the value of your provided limits.
 
 ### Network Options
 When running on Kubernetes, the operator requires Ingress configurations for each of its services to make them available outside of the cluster. For a `Cryostat` object named `x`, the following Ingress configurations must be specified within the `spec.networkOptions` property:
@@ -341,7 +362,7 @@ Each `configMapName` must refer to the name of a Config Map in the same namespac
 
 ### Security Context
 
-With [Pod Security Admission](https://kubernetes.io/docs/concepts/security/pod-security-admission/), pods must be properly configured under the enforced security standards defined globally or on namspace level to be admitted to launch.
+With [Pod Security Admission](https://kubernetes.io/docs/concepts/security/pod-security-admission/), pods must be properly configured under the enforced security standards defined globally or on namespace level to be admitted to launch.
 
 The user is responsible for ensuring the security contexts of their workloads to meet these standards. The property `spec.securityOptions` can be set to define security contexts for Cryostat application and `spec.reportOptions.securityOptions` is for its report sidecar.
 
