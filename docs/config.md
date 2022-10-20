@@ -152,8 +152,27 @@ spec:
     subProcessMaxHeapSize: 200
 ```
 
+If the sidecar's resource requests are not specified, they are set with the following defaults:
+
+| Request | Quantity |
+|---------|----------|
+| defaultReportCpuRequest | 128m |
+| defaultReportMemoryRequest | 256Mi |
+
+
 ### Resource Requirements
-By default, the operator deploys Cryostat with pre-configured [resource requests](https://github.com/cryostatio/cryostat-operator/blob/e0a14e4d4d9b7f3fe78f4fc5900b434d9c0e9f9b/internal/controllers/common/resource_definitions/resource_definitions.go#L82). Using the Cryostat custom resource, you can define resources requests and/or limits for each of the three containers in Cryostat's main pod:
+By default, the operator deploys Cryostat with pre-configured resource requests:
+
+| Request | Quantity |
+|---------|----------|
+| defaultCoreCpuRequest | 100m |
+| defaultCoreMemoryRequest | 384Mi |
+| defaultJfrDatasourceCpuRequest | 100m |
+|	defaultJfrDatasourceMemoryRequest | 512Mi |
+|	defaultGrafanaCpuRequest | 1000m |
+|	defaultGrafanaMemoryRequest | 256Mi |
+
+Using the Cryostat custom resource, you can define resources requests and/or limits for each of the three containers in Cryostat's main pod:
 - the `core` container running the Cryostat backend and web application. If setting a memory limit for this container, we recommend at least 768MiB.
 - the `datasource` container running JFR Data Source, which converts recordings into a Grafana-compatible format.
 - the `grafana` container running the Grafana instance customized for Cryostat.
@@ -188,7 +207,7 @@ spec:
 ```
 This example sets CPU and memory requests and limits for each container, but you may choose to define any combination of requests and limits that suits your use case.
 
-Note that if you define limits lower than default requests, the limits will be used in place of requests instead.
+Note that if you define limits lower than the default requests, the resource requests will be set to the value of your provided limits.
 
 ### Network Options
 When running on Kubernetes, the operator requires Ingress configurations for each of its services to make them available outside of the cluster. For a `Cryostat` object named `x`, the following Ingress configurations must be specified within the `spec.networkOptions` property:
