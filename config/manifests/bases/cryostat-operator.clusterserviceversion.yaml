@@ -18,7 +18,7 @@ metadata:
       ]
     capabilities: Seamless Upgrades
     categories: Monitoring, Developer Tools
-    containerImage: quay.io/cryostat/cryostat-operator:2.2.0-dev
+    containerImage: quay.io/cryostat/cryostat-operator:2.2.0
     createdAt: "2021-04-30 00:00:00"
     description: JVM monitoring and profiling tool
     operatorframework.io/initialization-resource: |-
@@ -457,4 +457,4 @@ spec:
   minKubeVersion: 1.19.0
   provider:
     name: The Cryostat Community
-  version: 2.2.0-dev
+  version: 2.2.0
