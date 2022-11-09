@@ -364,8 +364,8 @@ undeploy_sample_app:
 
 .PHONY: sample_app_quarkus
 sample_app_quarkus: undeploy_sample_app_quarkus
-	$(call new-sample-app,quay.io/andrewazores/quarkus-test:0.0.2)
-	$(CLUSTER_CLIENT) patch svc/quarkus-test -p '{"spec":{"$setElementOrder/ports":[{"port":9096},{"port":9999}],"ports":[{"name":"jfr-jmx","port":9096}]}}'
+	$(call new-sample-app,quay.io/andrewazores/quarkus-test:0.0.10)
+	$(CLUSTER_CLIENT) patch svc/quarkus-test -p '{"spec":{"$setElementOrder/ports":[{"port":9097},{"port":8080}],"ports":[{"name":"jfr-jmx","port":9097}]}}'
 
 .PHONY: undeploy_sample_app_quarkus
 undeploy_sample_app_quarkus:
