@@ -354,9 +354,9 @@ scorecard-build: custom-scorecard-tests
 
 .PHONY: sample_app
 sample_app: undeploy_sample_app
-	$(call new-sample-app,quay.io/andrewazores/vertx-fib-demo:0.8.0)
+	$(call new-sample-app,quay.io/andrewazores/vertx-fib-demo:0.9.1)
 	$(CLUSTER_CLIENT) patch svc/vertx-fib-demo -p '{"spec":{"$setElementOrder/ports":[{"port":8080},{"port":8443},{"port":9093}],"ports":[{"name":"jfr-jmx","port":9093}]}}'
-	$(CLUSTER_CLIENT) patch deployment/vertx-fib-demo -p '{"spec":{"template":{"spec":{"$setElementOrder/containers":[{"name":"vertx-fib-demo"}],"containers":[{"name":"vertx-fib-demo","resources":{"limits":{"cpu":"200m","memory":"256Mi"}}}]}}}}'
+	$(CLUSTER_CLIENT) patch deployment/vertx-fib-demo -p '{"spec":{"template":{"spec":{"$setElementOrder/containers":[{"name":"vertx-fib-demo"}],"containers":[{"name":"vertx-fib-demo","env":[{"name":"USE_AUTH","value":"true"}],"resources":{"limits":{"cpu":"200m","memory":"256Mi"}}}]}}}}'
 
 .PHONY: undeploy_sample_app
 undeploy_sample_app:
@@ -364,8 +364,8 @@ undeploy_sample_app:
 
 .PHONY: sample_app_quarkus
 sample_app_quarkus: undeploy_sample_app_quarkus
-	$(call new-sample-app,quay.io/andrewazores/quarkus-test:0.0.2)
-	$(CLUSTER_CLIENT) patch svc/quarkus-test -p '{"spec":{"$setElementOrder/ports":[{"port":9096},{"port":9999}],"ports":[{"name":"jfr-jmx","port":9096}]}}'
+	$(call new-sample-app,quay.io/andrewazores/quarkus-test:0.0.10)
+	$(CLUSTER_CLIENT) patch svc/quarkus-test -p '{"spec":{"$setElementOrder/ports":[{"port":9097},{"port":8080}],"ports":[{"name":"jfr-jmx","port":9097}]}}'
 
 .PHONY: undeploy_sample_app_quarkus
 undeploy_sample_app_quarkus:
