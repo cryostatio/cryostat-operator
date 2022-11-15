@@ -82,7 +82,9 @@ ENVTEST_K8S_VERSION ?= 1.24
 
 # Scorecard ImagePullPolicy is hardcoded to IfNotPresent
 # See: https://github.com/operator-framework/operator-sdk/pull/4762
-CUSTOM_SCORECARD_VERSION = $(IMAGE_VERSION)00001
+#
+# Suffix is the timestamp of the image build, compute with: date -u '+%Y%m%d%H%M%S'
+CUSTOM_SCORECARD_VERSION ?= 2.2.0-$(shell date -u '+%Y%m%d%H%M%S')
 export CUSTOM_SCORECARD_IMG ?= $(IMAGE_TAG_BASE)-scorecard:$(CUSTOM_SCORECARD_VERSION)
 
 DEPLOY_NAMESPACE ?= cryostat-operator-system
@@ -194,7 +196,6 @@ manifests: controller-gen
 	$(CONTROLLER_GEN) rbac:roleName=role crd webhook paths="./..." output:crd:artifacts:config=config/crd/bases
 	envsubst < hack/image_tag_patch.yaml.in > config/default/image_tag_patch.yaml
 	envsubst < hack/image_pull_patch.yaml.in > config/default/image_pull_patch.yaml
-	envsubst < hack/custom.config.yaml.in > config/scorecard/patches/custom.config.yaml
 
 # Run go fmt against code
 .PHONY: fmt
@@ -347,6 +348,7 @@ custom-scorecard-tests: fmt vet
 # Build the custom scorecard OCI image
 .PHONY: scorecard-build
 scorecard-build: custom-scorecard-tests
+	envsubst < hack/custom.config.yaml.in > config/scorecard/patches/custom.config.yaml
 	BUILDAH_FORMAT=docker $(IMAGE_BUILDER) build -t $(CUSTOM_SCORECARD_IMG) \
 	-f internal/images/custom-scorecard-tests/Dockerfile .
 
