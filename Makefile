@@ -82,7 +82,9 @@ ENVTEST_K8S_VERSION ?= 1.24
 
 # Scorecard ImagePullPolicy is hardcoded to IfNotPresent
 # See: https://github.com/operator-framework/operator-sdk/pull/4762
-CUSTOM_SCORECARD_VERSION = $(IMAGE_VERSION)00001
+#
+# Suffix is the timestamp of the image build, compute with: date -u '+%Y%m%d%H%M%S'
+CUSTOM_SCORECARD_VERSION ?= 2.2.0-20220829183117
 export CUSTOM_SCORECARD_IMG ?= $(IMAGE_TAG_BASE)-scorecard:$(CUSTOM_SCORECARD_VERSION)
 
 DEPLOY_NAMESPACE ?= cryostat-operator-system
