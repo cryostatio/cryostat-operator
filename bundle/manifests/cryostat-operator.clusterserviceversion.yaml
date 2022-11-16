@@ -30,8 +30,8 @@ metadata:
       ]
     capabilities: Seamless Upgrades
     categories: Monitoring, Developer Tools
-    containerImage: quay.io/cryostat/cryostat-operator:2.2.0-dev
-    createdAt: "2022-10-31 00:00:00"
+    containerImage: quay.io/cryostat/cryostat-operator:2.2.0
+    createdAt: "2022-11-15 00:00:00"
     description: JVM monitoring and profiling tool
     operatorframework.io/initialization-resource: |-
       {
@@ -52,7 +52,7 @@ metadata:
     operators.operatorframework.io/project_layout: go.kubebuilder.io/v3
     repository: github.com/cryostatio/cryostat-operator
     support: Cryostat Community
-  name: cryostat-operator.v2.2.0-dev
+  name: cryostat-operator.v2.2.0
   namespace: placeholder
 spec:
   apiservicedefinitions: {}
@@ -520,19 +520,19 @@ spec:
                 - /manager
                 env:
                 - name: RELATED_IMAGE_CORE
-                  value: quay.io/cryostat/cryostat:latest
+                  value: quay.io/cryostat/cryostat:2.2.0
                 - name: RELATED_IMAGE_DATASOURCE
-                  value: quay.io/cryostat/jfr-datasource:latest
+                  value: quay.io/cryostat/jfr-datasource:2.2.0
                 - name: RELATED_IMAGE_GRAFANA
-                  value: quay.io/cryostat/cryostat-grafana-dashboard:latest
+                  value: quay.io/cryostat/cryostat-grafana-dashboard:2.2.0
                 - name: RELATED_IMAGE_REPORTS
-                  value: quay.io/cryostat/cryostat-reports:latest
+                  value: quay.io/cryostat/cryostat-reports:1.1.0
                 - name: WATCH_NAMESPACE
                   valueFrom:
                     fieldRef:
                       fieldPath: metadata.annotations['olm.targetNamespaces']
-                image: quay.io/cryostat/cryostat-operator:2.2.0-dev
-                imagePullPolicy: Always
+                image: quay.io/cryostat/cryostat-operator:2.2.0
+                imagePullPolicy: IfNotPresent
                 livenessProbe:
                   httpGet:
                     path: /healthz
@@ -729,12 +729,12 @@ spec:
   provider:
     name: The Cryostat Community
   relatedImages:
-  - image: quay.io/cryostat/cryostat:latest
+  - image: quay.io/cryostat/cryostat:2.2.0
     name: core
-  - image: quay.io/cryostat/jfr-datasource:latest
+  - image: quay.io/cryostat/jfr-datasource:2.2.0
     name: datasource
-  - image: quay.io/cryostat/cryostat-grafana-dashboard:latest
+  - image: quay.io/cryostat/cryostat-grafana-dashboard:2.2.0
     name: grafana
-  - image: quay.io/cryostat/cryostat-reports:latest
+  - image: quay.io/cryostat/cryostat-reports:1.1.0
     name: reports
-  version: 2.2.0-dev
+  version: 2.2.0
