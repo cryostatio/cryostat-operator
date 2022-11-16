@@ -457,4 +457,4 @@ spec:
   minKubeVersion: 1.19.0
   provider:
     name: The Cryostat Community
-  version: 2.2.0-dev
+  version: 0.0.0
