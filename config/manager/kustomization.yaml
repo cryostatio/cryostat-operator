@@ -13,4 +13,4 @@ kind: Kustomization
 images:
 - name: controller
   newName: quay.io/cryostat/cryostat-operator
-  newTag: 2.2.0
+  newTag: 2.2.1-dev
