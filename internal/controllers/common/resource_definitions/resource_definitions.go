@@ -101,6 +101,8 @@ const (
 
 func NewDeploymentForCR(cr *operatorv1beta1.Cryostat, specs *ServiceSpecs, imageTags *ImageTags,
 	tls *TLSConfig, fsGroup int64, openshift bool) *appsv1.Deployment {
+	// Force one replica to avoid lock file and PVC contention
+	replicas := int32(1)
 	return &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      cr.Name,
@@ -135,6 +137,10 @@ func NewDeploymentForCR(cr *operatorv1beta1.Cryostat, specs *ServiceSpecs, image
 					},
 				},
 				Spec: *NewPodForCR(cr, specs, imageTags, tls, fsGroup, openshift),
+			},
+			Replicas: &replicas,
+			Strategy: appsv1.DeploymentStrategy{
+				Type: appsv1.RecreateDeploymentStrategyType,
 			},
 		},
 	}
