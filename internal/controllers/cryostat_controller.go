@@ -500,10 +500,10 @@ func (r *CryostatReconciler) createOrUpdateDeployment(ctx context.Context, deplo
 			// Return error so deployment can be recreated
 			return errSelectorModified
 		}
-		// Set the replica count, if managed by the operator
-		if deployCopy.Spec.Replicas != nil {
-			deploy.Spec.Replicas = deployCopy.Spec.Replicas
-		}
+		// Set the replica count and update strategy
+		deploy.Spec.Replicas = deployCopy.Spec.Replicas
+		deploy.Spec.Strategy = deployCopy.Spec.Strategy
+
 		// Update pod template spec to propagate any changes from Cryostat CR
 		deploy.Spec.Template.Spec = deployCopy.Spec.Template.Spec
 		// Update pod template metadata

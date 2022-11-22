@@ -1720,6 +1720,12 @@ func NewReportsDeploymentSelector() *metav1.LabelSelector {
 	}
 }
 
+func NewMainDeploymentStrategy() appsv1.DeploymentStrategy {
+	return appsv1.DeploymentStrategy{
+		Type: appsv1.RecreateDeploymentStrategyType,
+	}
+}
+
 func OtherDeployment() *appsv1.Deployment {
 	replicas := int32(2)
 	return &appsv1.Deployment{

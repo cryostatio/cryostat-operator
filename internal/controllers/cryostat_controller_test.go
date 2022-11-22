@@ -309,7 +309,8 @@ var _ = Describe("CryostatController", func() {
 
 				// Deployment Selector is immutable
 				Expect(deploy.Spec.Selector).To(Equal(oldDeploy.Spec.Selector))
-				Expect(deploy.Spec.Replicas).To(Equal(oldDeploy.Spec.Replicas))
+				Expect(deploy.Spec.Replicas).To(Equal(&[]int32{1}[0]))
+				Expect(deploy.Spec.Strategy).To(Equal(test.NewMainDeploymentStrategy()))
 			})
 			Context("with a different selector", func() {
 				BeforeEach(func() {
@@ -2578,6 +2579,9 @@ func (t *cryostatTestInput) checkMainDeployment() {
 	}))
 	Expect(metav1.IsControlledBy(deployment, cr)).To(BeTrue())
 	Expect(deployment.Spec.Selector).To(Equal(test.NewMainDeploymentSelector()))
+	Expect(deployment.Spec.Replicas).ToNot(BeNil())
+	Expect(*deployment.Spec.Replicas).To(Equal(int32(1)))
+	Expect(deployment.Spec.Strategy).To(Equal(test.NewMainDeploymentStrategy()))
 
 	// compare Pod template
 	t.checkMainPodTemplate(deployment, cr)
@@ -2669,7 +2673,9 @@ func (t *cryostatTestInput) checkReportsDeployment() {
 	}))
 	Expect(metav1.IsControlledBy(deployment, cr)).To(BeTrue())
 	Expect(deployment.Spec.Selector).To(Equal(test.NewReportsDeploymentSelector()))
+	Expect(deployment.Spec.Replicas).ToNot(BeNil())
 	Expect(*deployment.Spec.Replicas).To(Equal(t.reportReplicas))
+	Expect(deployment.Spec.Strategy).To(BeZero())
 
 	// compare Pod template
 	template := deployment.Spec.Template
