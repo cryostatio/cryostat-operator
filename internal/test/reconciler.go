@@ -48,7 +48,6 @@ import (
 // TestReconcilerConfig groups parameters used to create a test Reconciler
 type TestReconcilerConfig struct {
 	Client                client.Client
-	TLS                   bool
 	EnvDisableTLS         *bool
 	EnvCoreImageTag       *string
 	EnvDatasourceImageTag *string
