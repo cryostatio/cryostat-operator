@@ -37,6 +37,7 @@
 package test
 
 import (
+	"crypto/sha256"
 	"fmt"
 
 	operatorv1beta1 "github.com/cryostatio/cryostat-operator/api/v1beta1"
@@ -59,6 +60,15 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/client-go/kubernetes/scheme"
 )
+
+type TestResources struct {
+	Namespace      string
+	Minimal        bool
+	TLS            bool
+	ExternalTLS    bool
+	OpenShift      bool
+	ReportReplicas int32
+}
 
 func NewTestScheme() *runtime.Scheme {
 	s := scheme.Scheme
@@ -89,31 +99,29 @@ func NewTESTRESTMapper() meta.RESTMapper {
 	return mapper
 }
 
-func NewCryostat() *operatorv1beta1.Cryostat {
+func (r *TestResources) NewCryostat() *operatorv1beta1.Cryostat {
 	certManager := true
+	var reportOptions *operatorv1beta1.ReportConfiguration
+	if r.ReportReplicas > 0 {
+		reportOptions = &operatorv1beta1.ReportConfiguration{
+			Replicas: r.ReportReplicas,
+		}
+	}
 	return &operatorv1beta1.Cryostat{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "cryostat",
-			Namespace: "default",
+			Namespace: r.Namespace,
 		},
 		Spec: operatorv1beta1.CryostatSpec{
-			Minimal:            false,
-			EnableCertManager:  &certManager,
-			TrustedCertSecrets: []operatorv1beta1.CertificateSecret{},
+			Minimal:           r.Minimal,
+			EnableCertManager: &certManager,
+			ReportOptions:     reportOptions,
 		},
 	}
 }
 
-func NewCryostatWithReports() *operatorv1beta1.Cryostat {
-	cr := NewCryostat()
-	cr.Spec.ReportOptions = &operatorv1beta1.ReportConfiguration{
-		Replicas: 1,
-	}
-	return cr
-}
-
-func NewCryostatWithSecrets() *operatorv1beta1.Cryostat {
-	cr := NewCryostat()
+func (r *TestResources) NewCryostatWithSecrets() *operatorv1beta1.Cryostat {
+	cr := r.NewCryostat()
 	key := "test.crt"
 	cr.Spec.TrustedCertSecrets = []operatorv1beta1.CertificateSecret{
 		{
@@ -127,8 +135,8 @@ func NewCryostatWithSecrets() *operatorv1beta1.Cryostat {
 	return cr
 }
 
-func NewCryostatWithTemplates() *operatorv1beta1.Cryostat {
-	cr := NewCryostat()
+func (r *TestResources) NewCryostatWithTemplates() *operatorv1beta1.Cryostat {
+	cr := r.NewCryostat()
 	cr.Spec.EventTemplates = []operatorv1beta1.TemplateConfigMap{
 		{
 			ConfigMapName: "templateCM1",
@@ -142,22 +150,15 @@ func NewCryostatWithTemplates() *operatorv1beta1.Cryostat {
 	return cr
 }
 
-func NewCryostatWithIngress() *operatorv1beta1.Cryostat {
-	cr := NewCryostat()
-	networkConfig := NewNetworkConfigurationList(true)
+func (r *TestResources) NewCryostatWithIngress() *operatorv1beta1.Cryostat {
+	cr := r.NewCryostat()
+	networkConfig := r.newNetworkConfigurationList()
 	cr.Spec.NetworkOptions = &networkConfig
 	return cr
 }
 
-func NewCryostatWithIngressNoTLS() *operatorv1beta1.Cryostat {
-	cr := NewCryostat()
-	networkConfig := NewNetworkConfigurationList(false)
-	cr.Spec.NetworkOptions = &networkConfig
-	return cr
-}
-
-func NewCryostatWithPVCSpec() *operatorv1beta1.Cryostat {
-	cr := NewCryostat()
+func (r *TestResources) NewCryostatWithPVCSpec() *operatorv1beta1.Cryostat {
+	cr := r.NewCryostat()
 	cr.Spec.StorageOptions = &operatorv1beta1.StorageConfiguration{
 		PVC: &operatorv1beta1.PersistentVolumeClaimConfig{
 			Annotations: map[string]string{
@@ -173,8 +174,8 @@ func NewCryostatWithPVCSpec() *operatorv1beta1.Cryostat {
 	return cr
 }
 
-func NewCryostatWithPVCSpecSomeDefault() *operatorv1beta1.Cryostat {
-	cr := NewCryostat()
+func (r *TestResources) NewCryostatWithPVCSpecSomeDefault() *operatorv1beta1.Cryostat {
+	cr := r.NewCryostat()
 	cr.Spec.StorageOptions = &operatorv1beta1.StorageConfiguration{
 		PVC: &operatorv1beta1.PersistentVolumeClaimConfig{
 			Spec: newPVCSpec("", "1Gi"),
@@ -183,8 +184,8 @@ func NewCryostatWithPVCSpecSomeDefault() *operatorv1beta1.Cryostat {
 	return cr
 }
 
-func NewCryostatWithPVCLabelsOnly() *operatorv1beta1.Cryostat {
-	cr := NewCryostat()
+func (r *TestResources) NewCryostatWithPVCLabelsOnly() *operatorv1beta1.Cryostat {
+	cr := r.NewCryostat()
 	cr.Spec.StorageOptions = &operatorv1beta1.StorageConfiguration{
 		PVC: &operatorv1beta1.PersistentVolumeClaimConfig{
 			Labels: map[string]string{
@@ -195,8 +196,8 @@ func NewCryostatWithPVCLabelsOnly() *operatorv1beta1.Cryostat {
 	return cr
 }
 
-func NewCryostatWithDefaultEmptyDir() *operatorv1beta1.Cryostat {
-	cr := NewCryostat()
+func (r *TestResources) NewCryostatWithDefaultEmptyDir() *operatorv1beta1.Cryostat {
+	cr := r.NewCryostat()
 	cr.Spec.StorageOptions = &operatorv1beta1.StorageConfiguration{
 		EmptyDir: &operatorv1beta1.EmptyDirConfig{
 			Enabled: true,
@@ -205,8 +206,8 @@ func NewCryostatWithDefaultEmptyDir() *operatorv1beta1.Cryostat {
 	return cr
 }
 
-func NewCryostatWithEmptyDirSpec() *operatorv1beta1.Cryostat {
-	cr := NewCryostat()
+func (r *TestResources) NewCryostatWithEmptyDirSpec() *operatorv1beta1.Cryostat {
+	cr := r.NewCryostat()
 	cr.Spec.StorageOptions = &operatorv1beta1.StorageConfiguration{
 		EmptyDir: &operatorv1beta1.EmptyDirConfig{
 			Enabled:   true,
@@ -217,11 +218,11 @@ func NewCryostatWithEmptyDirSpec() *operatorv1beta1.Cryostat {
 	return cr
 }
 
-func NewCryostatWithCoreSvc() *operatorv1beta1.Cryostat {
+func (r *TestResources) NewCryostatWithCoreSvc() *operatorv1beta1.Cryostat {
 	svcType := corev1.ServiceTypeNodePort
 	httpPort := int32(8080)
 	jmxPort := int32(9095)
-	cr := NewCryostat()
+	cr := r.NewCryostat()
 	cr.Spec.ServiceOptions = &operatorv1beta1.ServiceConfigList{
 		CoreConfig: &operatorv1beta1.CoreServiceConfig{
 			HTTPPort: &httpPort,
@@ -241,10 +242,10 @@ func NewCryostatWithCoreSvc() *operatorv1beta1.Cryostat {
 	return cr
 }
 
-func NewCryostatWithGrafanaSvc() *operatorv1beta1.Cryostat {
+func (r *TestResources) NewCryostatWithGrafanaSvc() *operatorv1beta1.Cryostat {
 	svcType := corev1.ServiceTypeNodePort
 	httpPort := int32(8080)
-	cr := NewCryostat()
+	cr := r.NewCryostat()
 	cr.Spec.ServiceOptions = &operatorv1beta1.ServiceConfigList{
 		GrafanaConfig: &operatorv1beta1.GrafanaServiceConfig{
 			HTTPPort: &httpPort,
@@ -263,13 +264,10 @@ func NewCryostatWithGrafanaSvc() *operatorv1beta1.Cryostat {
 	return cr
 }
 
-func NewCryostatWithReportsSvc() *operatorv1beta1.Cryostat {
+func (r *TestResources) NewCryostatWithReportsSvc() *operatorv1beta1.Cryostat {
 	svcType := corev1.ServiceTypeNodePort
 	httpPort := int32(13161)
-	cr := NewCryostat()
-	cr.Spec.ReportOptions = &operatorv1beta1.ReportConfiguration{
-		Replicas: 1,
-	}
+	cr := r.NewCryostat()
 	cr.Spec.ServiceOptions = &operatorv1beta1.ServiceConfigList{
 		ReportsConfig: &operatorv1beta1.ReportsServiceConfig{
 			HTTPPort: &httpPort,
@@ -288,8 +286,8 @@ func NewCryostatWithReportsSvc() *operatorv1beta1.Cryostat {
 	return cr
 }
 
-func NewCryostatWithCoreNetworkOptions() *operatorv1beta1.Cryostat {
-	cr := NewCryostat()
+func (r *TestResources) NewCryostatWithCoreNetworkOptions() *operatorv1beta1.Cryostat {
+	cr := r.NewCryostat()
 	cr.Spec.NetworkOptions = &operatorv1beta1.NetworkConfigurationList{
 		CoreConfig: &operatorv1beta1.NetworkConfiguration{
 			Annotations: map[string]string{"custom": "annotation"},
@@ -299,8 +297,8 @@ func NewCryostatWithCoreNetworkOptions() *operatorv1beta1.Cryostat {
 	return cr
 }
 
-func NewCryostatWithGrafanaNetworkOptions() *operatorv1beta1.Cryostat {
-	cr := NewCryostat()
+func (r *TestResources) NewCryostatWithGrafanaNetworkOptions() *operatorv1beta1.Cryostat {
+	cr := r.NewCryostat()
 	cr.Spec.NetworkOptions = &operatorv1beta1.NetworkConfigurationList{
 		GrafanaConfig: &operatorv1beta1.NetworkConfiguration{
 			Annotations: map[string]string{"grafana": "annotation"},
@@ -310,8 +308,8 @@ func NewCryostatWithGrafanaNetworkOptions() *operatorv1beta1.Cryostat {
 	return cr
 }
 
-func NewCryostatWithReportsResources() *operatorv1beta1.Cryostat {
-	cr := NewCryostat()
+func (r *TestResources) NewCryostatWithReportsResources() *operatorv1beta1.Cryostat {
+	cr := r.NewCryostat()
 	cr.Spec.ReportOptions = &operatorv1beta1.ReportConfiguration{
 		Replicas: 1,
 		Resources: corev1.ResourceRequirements{
@@ -328,8 +326,8 @@ func NewCryostatWithReportsResources() *operatorv1beta1.Cryostat {
 	return cr
 }
 
-func NewCryostatWithReportLowResourceLimit() *operatorv1beta1.Cryostat {
-	cr := NewCryostat()
+func (r *TestResources) NewCryostatWithReportLowResourceLimit() *operatorv1beta1.Cryostat {
+	cr := r.NewCryostat()
 	cr.Spec.ReportOptions = &operatorv1beta1.ReportConfiguration{
 		Replicas: 1,
 		Resources: corev1.ResourceRequirements{
@@ -394,14 +392,14 @@ func populateCryostatWithScheduling() *operatorv1beta1.SchedulingConfiguration {
 
 }
 
-func NewCryostatWithScheduling() *operatorv1beta1.Cryostat {
-	cr := NewCryostat()
+func (r *TestResources) NewCryostatWithScheduling() *operatorv1beta1.Cryostat {
+	cr := r.NewCryostat()
 	cr.Spec.SchedulingOptions = populateCryostatWithScheduling()
 	return cr
 }
 
-func NewCryostatWithReportsScheduling() *operatorv1beta1.Cryostat {
-	cr := NewCryostat()
+func (r *TestResources) NewCryostatWithReportsScheduling() *operatorv1beta1.Cryostat {
+	cr := r.NewCryostat()
 	cr.Spec.ReportOptions = &operatorv1beta1.ReportConfiguration{
 		Replicas:          1,
 		SchedulingOptions: populateCryostatWithScheduling(),
@@ -410,21 +408,21 @@ func NewCryostatWithReportsScheduling() *operatorv1beta1.Cryostat {
 	return cr
 }
 
-func NewCryostatCertManagerDisabled() *operatorv1beta1.Cryostat {
-	cr := NewCryostat()
+func (r *TestResources) NewCryostatCertManagerDisabled() *operatorv1beta1.Cryostat {
+	cr := r.NewCryostat()
 	certManager := false
 	cr.Spec.EnableCertManager = &certManager
 	return cr
 }
 
-func NewCryostatCertManagerUndefined() *operatorv1beta1.Cryostat {
-	cr := NewCryostat()
+func (r *TestResources) NewCryostatCertManagerUndefined() *operatorv1beta1.Cryostat {
+	cr := r.NewCryostat()
 	cr.Spec.EnableCertManager = nil
 	return cr
 }
 
-func NewCryostatWithResources() *operatorv1beta1.Cryostat {
-	cr := NewCryostat()
+func (r *TestResources) NewCryostatWithResources() *operatorv1beta1.Cryostat {
+	cr := r.NewCryostat()
 	cr.Spec.Resources = &operatorv1beta1.ResourceConfigList{
 		CoreResources: corev1.ResourceRequirements{
 			Limits: corev1.ResourceList{
@@ -460,8 +458,8 @@ func NewCryostatWithResources() *operatorv1beta1.Cryostat {
 	return cr
 }
 
-func NewCryostatWithLowResourceLimit() *operatorv1beta1.Cryostat {
-	cr := NewCryostat()
+func (r *TestResources) NewCryostatWithLowResourceLimit() *operatorv1beta1.Cryostat {
+	cr := r.NewCryostat()
 	cr.Spec.Resources = &operatorv1beta1.ResourceConfigList{
 		CoreResources: corev1.ResourceRequirements{
 			Limits: corev1.ResourceList{
@@ -485,8 +483,8 @@ func NewCryostatWithLowResourceLimit() *operatorv1beta1.Cryostat {
 	return cr
 }
 
-func NewCryostatWithAuthProperties() *operatorv1beta1.Cryostat {
-	cr := NewCryostat()
+func (r *TestResources) NewCryostatWithAuthProperties() *operatorv1beta1.Cryostat {
+	cr := r.NewCryostat()
 	cr.Spec.AuthProperties = &operatorv1beta1.AuthorizationProperties{
 		ConfigMapName:   "authConfigMapName",
 		Filename:        "auth.properties",
@@ -495,8 +493,8 @@ func NewCryostatWithAuthProperties() *operatorv1beta1.Cryostat {
 	return cr
 }
 
-func NewCryostatWithBuiltInDiscoveryDisabled() *operatorv1beta1.Cryostat {
-	cr := NewCryostat()
+func (r *TestResources) NewCryostatWithBuiltInDiscoveryDisabled() *operatorv1beta1.Cryostat {
+	cr := r.NewCryostat()
 	cr.Spec.TargetDiscoveryOptions = &operatorv1beta1.TargetDiscoveryOptions{
 		BuiltInDiscoveryDisabled: true,
 	}
@@ -516,14 +514,8 @@ func newPVCSpec(storageClass string, storageRequest string,
 	}
 }
 
-func NewMinimalCryostat() *operatorv1beta1.Cryostat {
-	cr := NewCryostat()
-	cr.Spec.Minimal = true
-	return cr
-}
-
-func NewCryostatWithJmxCacheOptionsSpec() *operatorv1beta1.Cryostat {
-	cr := NewCryostat()
+func (r *TestResources) NewCryostatWithJmxCacheOptionsSpec() *operatorv1beta1.Cryostat {
+	cr := r.NewCryostat()
 	cr.Spec.JmxCacheOptions = &operatorv1beta1.JmxCacheOptions{
 		TargetCacheSize: 10,
 		TargetCacheTTL:  20,
@@ -531,22 +523,23 @@ func NewCryostatWithJmxCacheOptionsSpec() *operatorv1beta1.Cryostat {
 	return cr
 }
 
-func NewCryostatWithWsConnectionsSpec() *operatorv1beta1.Cryostat {
-	cr := NewCryostat()
+func (r *TestResources) NewCryostatWithWsConnectionsSpec() *operatorv1beta1.Cryostat {
+	cr := r.NewCryostat()
 	cr.Spec.MaxWsConnections = 10
 	return cr
 }
 
-func NewCryostatWithReportSubprocessHeapSpec() *operatorv1beta1.Cryostat {
-	cr := NewCryostat()
-	cr.Spec.ReportOptions = &operatorv1beta1.ReportConfiguration{
-		SubProcessMaxHeapSize: 500,
+func (r *TestResources) NewCryostatWithReportSubprocessHeapSpec() *operatorv1beta1.Cryostat {
+	cr := r.NewCryostat()
+	if cr.Spec.ReportOptions == nil {
+		cr.Spec.ReportOptions = &operatorv1beta1.ReportConfiguration{}
 	}
+	cr.Spec.ReportOptions.SubProcessMaxHeapSize = 500
 	return cr
 }
 
-func NewCryostatWithSecurityOptions() *operatorv1beta1.Cryostat {
-	cr := NewCryostat()
+func (r *TestResources) NewCryostatWithSecurityOptions() *operatorv1beta1.Cryostat {
+	cr := r.NewCryostat()
 	privEscalation := true
 	nonRoot := false
 	runAsUser := int64(0)
@@ -584,25 +577,26 @@ func NewCryostatWithSecurityOptions() *operatorv1beta1.Cryostat {
 	return cr
 }
 
-func NewCryostatWithReportSecurityOptions() *operatorv1beta1.Cryostat {
-	cr := NewCryostat()
+func (r *TestResources) NewCryostatWithReportSecurityOptions() *operatorv1beta1.Cryostat {
+	cr := r.NewCryostat()
 	nonRoot := true
 	privEscalation := false
 	runAsUser := int64(1002)
-	cr.Spec.ReportOptions = &operatorv1beta1.ReportConfiguration{
-		SecurityOptions: &operatorv1beta1.ReportsSecurityOptions{
-			PodSecurityContext: &corev1.PodSecurityContext{
-				RunAsNonRoot: &nonRoot,
-				SeccompProfile: &corev1.SeccompProfile{
-					Type: corev1.SeccompProfileTypeRuntimeDefault,
-				},
+	if cr.Spec.ReportOptions == nil {
+		cr.Spec.ReportOptions = &operatorv1beta1.ReportConfiguration{}
+	}
+	cr.Spec.ReportOptions.SecurityOptions = &operatorv1beta1.ReportsSecurityOptions{
+		PodSecurityContext: &corev1.PodSecurityContext{
+			RunAsNonRoot: &nonRoot,
+			SeccompProfile: &corev1.SeccompProfile{
+				Type: corev1.SeccompProfileTypeRuntimeDefault,
 			},
-			ReportsSecurityContext: &corev1.SecurityContext{
-				AllowPrivilegeEscalation: &privEscalation,
-				RunAsUser:                &runAsUser,
-				Capabilities: &corev1.Capabilities{
-					Drop: []corev1.Capability{"ALL"},
-				},
+		},
+		ReportsSecurityContext: &corev1.SecurityContext{
+			AllowPrivilegeEscalation: &privEscalation,
+			RunAsUser:                &runAsUser,
+			Capabilities: &corev1.Capabilities{
+				Drop: []corev1.Capability{"ALL"},
 			},
 		},
 	}
@@ -611,20 +605,20 @@ func NewCryostatWithReportSecurityOptions() *operatorv1beta1.Cryostat {
 
 var providedDatabaseSecretName string = "credentials-database-secret"
 
-func NewCryostatWithDatabaseSecretProvided() *operatorv1beta1.Cryostat {
-	cr := NewCryostat()
+func (r *TestResources) NewCryostatWithDatabaseSecretProvided() *operatorv1beta1.Cryostat {
+	cr := r.NewCryostat()
 	cr.Spec.JmxCredentialsDatabaseOptions = &operatorv1beta1.JmxCredentialsDatabaseOptions{
 		DatabaseSecretName: &providedDatabaseSecretName,
 	}
 	return cr
 }
 
-func NewCryostatService() *corev1.Service {
+func (r *TestResources) NewCryostatService() *corev1.Service {
 	c := true
 	return &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "cryostat",
-			Namespace: "default",
+			Namespace: r.Namespace,
 			OwnerReferences: []metav1.OwnerReference{
 				{
 					APIVersion: operatorv1beta1.GroupVersion.String(),
@@ -661,12 +655,12 @@ func NewCryostatService() *corev1.Service {
 	}
 }
 
-func NewGrafanaService() *corev1.Service {
+func (r *TestResources) NewGrafanaService() *corev1.Service {
 	c := true
 	return &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "cryostat-grafana",
-			Namespace: "default",
+			Namespace: r.Namespace,
 			OwnerReferences: []metav1.OwnerReference{
 				{
 					APIVersion: operatorv1beta1.GroupVersion.String(),
@@ -698,12 +692,12 @@ func NewGrafanaService() *corev1.Service {
 	}
 }
 
-func NewReportsService() *corev1.Service {
+func (r *TestResources) NewReportsService() *corev1.Service {
 	c := true
 	return &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "cryostat-reports",
-			Namespace: "default",
+			Namespace: r.Namespace,
 			OwnerReferences: []metav1.OwnerReference{
 				{
 					APIVersion: operatorv1beta1.GroupVersion.String(),
@@ -735,8 +729,8 @@ func NewReportsService() *corev1.Service {
 	}
 }
 
-func NewCustomizedCoreService() *corev1.Service {
-	svc := NewCryostatService()
+func (r *TestResources) NewCustomizedCoreService() *corev1.Service {
+	svc := r.NewCryostatService()
 	svc.Spec.Type = corev1.ServiceTypeNodePort
 	svc.Spec.Ports[0].Port = 8080
 	svc.Spec.Ports[1].Port = 9095
@@ -751,8 +745,8 @@ func NewCustomizedCoreService() *corev1.Service {
 	return svc
 }
 
-func NewCustomizedGrafanaService() *corev1.Service {
-	svc := NewGrafanaService()
+func (r *TestResources) NewCustomizedGrafanaService() *corev1.Service {
+	svc := r.NewGrafanaService()
 	svc.Spec.Type = corev1.ServiceTypeNodePort
 	svc.Spec.Ports[0].Port = 8080
 	svc.Annotations = map[string]string{
@@ -766,8 +760,8 @@ func NewCustomizedGrafanaService() *corev1.Service {
 	return svc
 }
 
-func NewCustomizedReportsService() *corev1.Service {
-	svc := NewReportsService()
+func (r *TestResources) NewCustomizedReportsService() *corev1.Service {
+	svc := r.NewReportsService()
 	svc.Spec.Type = corev1.ServiceTypeNodePort
 	svc.Spec.Ports[0].Port = 13161
 	svc.Annotations = map[string]string{
@@ -781,11 +775,11 @@ func NewCustomizedReportsService() *corev1.Service {
 	return svc
 }
 
-func NewTestService() *corev1.Service {
+func (r *TestResources) NewTestService() *corev1.Service {
 	return &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "test-svc",
-			Namespace: "default",
+			Namespace: r.Namespace,
 		},
 		Spec: corev1.ServiceSpec{
 			ClusterIP: "1.2.3.4",
@@ -799,11 +793,11 @@ func NewTestService() *corev1.Service {
 	}
 }
 
-func NewGrafanaSecret() *corev1.Secret {
+func (r *TestResources) NewGrafanaSecret() *corev1.Secret {
 	return &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "cryostat-grafana-basic",
-			Namespace: "default",
+			Namespace: r.Namespace,
 		},
 		StringData: map[string]string{
 			"GF_SECURITY_ADMIN_USER":     "admin",
@@ -812,11 +806,11 @@ func NewGrafanaSecret() *corev1.Secret {
 	}
 }
 
-func OtherGrafanaSecret() *corev1.Secret {
+func (r *TestResources) OtherGrafanaSecret() *corev1.Secret {
 	return &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "cryostat-grafana-basic",
-			Namespace: "default",
+			Namespace: r.Namespace,
 		},
 		StringData: map[string]string{
 			"GF_SECURITY_ADMIN_USER":     "user",
@@ -825,11 +819,11 @@ func OtherGrafanaSecret() *corev1.Secret {
 	}
 }
 
-func NewCredentialsDatabaseSecret() *corev1.Secret {
+func (r *TestResources) NewCredentialsDatabaseSecret() *corev1.Secret {
 	return &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "cryostat-jmx-credentials-db",
-			Namespace: "default",
+			Namespace: r.Namespace,
 		},
 		StringData: map[string]string{
 			"CRYOSTAT_JMX_CREDENTIALS_DB_PASSWORD": "credentials_database",
@@ -837,11 +831,11 @@ func NewCredentialsDatabaseSecret() *corev1.Secret {
 	}
 }
 
-func OtherCredentialsDatabaseSecret() *corev1.Secret {
+func (r *TestResources) OtherCredentialsDatabaseSecret() *corev1.Secret {
 	return &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "cryostat-jmx-credentials-db",
-			Namespace: "default",
+			Namespace: r.Namespace,
 		},
 		StringData: map[string]string{
 			"CRYOSTAT_JMX_CREDENTIALS_DB_PASSWORD": "other-pass",
@@ -849,11 +843,11 @@ func OtherCredentialsDatabaseSecret() *corev1.Secret {
 	}
 }
 
-func NewJMXSecret() *corev1.Secret {
+func (r *TestResources) NewJMXSecret() *corev1.Secret {
 	return &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "cryostat-jmx-auth",
-			Namespace: "default",
+			Namespace: r.Namespace,
 		},
 		StringData: map[string]string{
 			"CRYOSTAT_RJMX_USER": "cryostat",
@@ -862,11 +856,11 @@ func NewJMXSecret() *corev1.Secret {
 	}
 }
 
-func NewKeystoreSecret() *corev1.Secret {
+func (r *TestResources) NewKeystoreSecret() *corev1.Secret {
 	return &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "cryostat-keystore",
-			Namespace: "default",
+			Namespace: r.Namespace,
 		},
 		StringData: map[string]string{
 			"KEYSTORE_PASS": "keystore",
@@ -874,11 +868,11 @@ func NewKeystoreSecret() *corev1.Secret {
 	}
 }
 
-func OtherJMXSecret() *corev1.Secret {
+func (r *TestResources) OtherJMXSecret() *corev1.Secret {
 	return &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "cryostat-jmx-auth",
-			Namespace: "default",
+			Namespace: r.Namespace,
 		},
 		StringData: map[string]string{
 			"CRYOSTAT_RJMX_USER": "not-cryostat",
@@ -887,18 +881,18 @@ func OtherJMXSecret() *corev1.Secret {
 	}
 }
 
-func NewCryostatCert() *certv1.Certificate {
+func (r *TestResources) NewCryostatCert() *certv1.Certificate {
 	return &certv1.Certificate{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "cryostat",
-			Namespace: "default",
+			Namespace: r.Namespace,
 		},
 		Spec: certv1.CertificateSpec{
-			CommonName: "cryostat.default.svc",
+			CommonName: fmt.Sprintf("cryostat.%s.svc", r.Namespace),
 			DNSNames: []string{
 				"cryostat",
-				"cryostat.default.svc",
-				"cryostat.default.svc.cluster.local",
+				fmt.Sprintf("cryostat.%s.svc", r.Namespace),
+				fmt.Sprintf("cryostat.%s.svc.cluster.local", r.Namespace),
 			},
 			SecretName: "cryostat-tls",
 			Keystores: &certv1.CertificateKeystores{
@@ -925,18 +919,18 @@ func NewCryostatCert() *certv1.Certificate {
 	}
 }
 
-func NewGrafanaCert() *certv1.Certificate {
+func (r *TestResources) NewGrafanaCert() *certv1.Certificate {
 	return &certv1.Certificate{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "cryostat-grafana",
-			Namespace: "default",
+			Namespace: r.Namespace,
 		},
 		Spec: certv1.CertificateSpec{
-			CommonName: "cryostat-grafana.default.svc",
+			CommonName: fmt.Sprintf("cryostat-grafana.%s.svc", r.Namespace),
 			DNSNames: []string{
 				"cryostat-grafana",
-				"cryostat-grafana.default.svc",
-				"cryostat-grafana.default.svc.cluster.local",
+				fmt.Sprintf("cryostat-grafana.%s.svc", r.Namespace),
+				fmt.Sprintf("cryostat-grafana.%s.svc.cluster.local", r.Namespace),
 				"cryostat-health.local",
 			},
 			SecretName: "cryostat-grafana-tls",
@@ -952,18 +946,18 @@ func NewGrafanaCert() *certv1.Certificate {
 	}
 }
 
-func NewReportsCert() *certv1.Certificate {
+func (r *TestResources) NewReportsCert() *certv1.Certificate {
 	return &certv1.Certificate{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "cryostat-reports",
-			Namespace: "default",
+			Namespace: r.Namespace,
 		},
 		Spec: certv1.CertificateSpec{
-			CommonName: "cryostat-reports.default.svc",
+			CommonName: fmt.Sprintf("cryostat-reports.%s.svc", r.Namespace),
 			DNSNames: []string{
 				"cryostat-reports",
-				"cryostat-reports.default.svc",
-				"cryostat-reports.default.svc.cluster.local",
+				fmt.Sprintf("cryostat-reports.%s.svc", r.Namespace),
+				fmt.Sprintf("cryostat-reports.%s.svc.cluster.local", r.Namespace),
 			},
 			SecretName: "cryostat-reports-tls",
 			IssuerRef: certMeta.ObjectReference{
@@ -978,11 +972,11 @@ func NewReportsCert() *certv1.Certificate {
 	}
 }
 
-func NewCACert() *certv1.Certificate {
+func (r *TestResources) NewCACert() *certv1.Certificate {
 	return &certv1.Certificate{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "cryostat-ca",
-			Namespace: "default",
+			Namespace: r.Namespace,
 		},
 		Spec: certv1.CertificateSpec{
 			CommonName: "ca.cryostat.cert-manager",
@@ -995,23 +989,11 @@ func NewCACert() *certv1.Certificate {
 	}
 }
 
-func newCASecret(certData []byte) *corev1.Secret {
-	return &corev1.Secret{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "cryostat-ca",
-			Namespace: "default",
-		},
-		Data: map[string][]byte{
-			corev1.TLSCertKey: certData,
-		},
-	}
-}
-
-func NewSelfSignedIssuer() *certv1.Issuer {
+func (r *TestResources) NewSelfSignedIssuer() *certv1.Issuer {
 	return &certv1.Issuer{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "cryostat-self-signed",
-			Namespace: "default",
+			Namespace: r.Namespace,
 		},
 		Spec: certv1.IssuerSpec{
 			IssuerConfig: certv1.IssuerConfig{
@@ -1021,11 +1003,11 @@ func NewSelfSignedIssuer() *certv1.Issuer {
 	}
 }
 
-func NewCryostatCAIssuer() *certv1.Issuer {
+func (r *TestResources) NewCryostatCAIssuer() *certv1.Issuer {
 	return &certv1.Issuer{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "cryostat-ca",
-			Namespace: "default",
+			Namespace: r.Namespace,
 		},
 		Spec: certv1.IssuerSpec{
 			IssuerConfig: certv1.IssuerConfig{
@@ -1037,12 +1019,12 @@ func NewCryostatCAIssuer() *certv1.Issuer {
 	}
 }
 
-func newPVC(spec *corev1.PersistentVolumeClaimSpec, labels map[string]string,
+func (r *TestResources) newPVC(spec *corev1.PersistentVolumeClaimSpec, labels map[string]string,
 	annotations map[string]string) *corev1.PersistentVolumeClaim {
 	return &corev1.PersistentVolumeClaim{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        "cryostat",
-			Namespace:   "default",
+			Namespace:   r.Namespace,
 			Annotations: annotations,
 			Labels:      labels,
 		},
@@ -1050,8 +1032,8 @@ func newPVC(spec *corev1.PersistentVolumeClaimSpec, labels map[string]string,
 	}
 }
 
-func NewDefaultPVC() *corev1.PersistentVolumeClaim {
-	return newPVC(&corev1.PersistentVolumeClaimSpec{
+func (r *TestResources) NewDefaultPVC() *corev1.PersistentVolumeClaim {
+	return r.newPVC(&corev1.PersistentVolumeClaimSpec{
 		AccessModes: []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce},
 		Resources: corev1.ResourceRequirements{
 			Requests: corev1.ResourceList{
@@ -1063,9 +1045,9 @@ func NewDefaultPVC() *corev1.PersistentVolumeClaim {
 	}, nil)
 }
 
-func NewCustomPVC() *corev1.PersistentVolumeClaim {
+func (r *TestResources) NewCustomPVC() *corev1.PersistentVolumeClaim {
 	storageClass := "cool-storage"
-	return newPVC(&corev1.PersistentVolumeClaimSpec{
+	return r.newPVC(&corev1.PersistentVolumeClaimSpec{
 		StorageClassName: &storageClass,
 		AccessModes:      []corev1.PersistentVolumeAccessMode{corev1.ReadWriteMany},
 		Resources: corev1.ResourceRequirements{
@@ -1081,9 +1063,9 @@ func NewCustomPVC() *corev1.PersistentVolumeClaim {
 	})
 }
 
-func NewCustomPVCSomeDefault() *corev1.PersistentVolumeClaim {
+func (r *TestResources) NewCustomPVCSomeDefault() *corev1.PersistentVolumeClaim {
 	storageClass := ""
-	return newPVC(&corev1.PersistentVolumeClaimSpec{
+	return r.newPVC(&corev1.PersistentVolumeClaimSpec{
 		StorageClassName: &storageClass,
 		AccessModes:      []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce},
 		Resources: corev1.ResourceRequirements{
@@ -1096,8 +1078,8 @@ func NewCustomPVCSomeDefault() *corev1.PersistentVolumeClaim {
 	}, nil)
 }
 
-func NewDefaultPVCWithLabel() *corev1.PersistentVolumeClaim {
-	return newPVC(&corev1.PersistentVolumeClaimSpec{
+func (r *TestResources) NewDefaultPVCWithLabel() *corev1.PersistentVolumeClaim {
+	return r.newPVC(&corev1.PersistentVolumeClaimSpec{
 		AccessModes: []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce},
 		Resources: corev1.ResourceRequirements{
 			Requests: corev1.ResourceList{
@@ -1110,14 +1092,14 @@ func NewDefaultPVCWithLabel() *corev1.PersistentVolumeClaim {
 	}, nil)
 }
 
-func NewDefaultEmptyDir() *corev1.EmptyDirVolumeSource {
+func (r *TestResources) NewDefaultEmptyDir() *corev1.EmptyDirVolumeSource {
 	sizeLimit := resource.MustParse("0")
 	return &corev1.EmptyDirVolumeSource{
 		SizeLimit: &sizeLimit,
 	}
 }
 
-func NewEmptyDirWithSpec() *corev1.EmptyDirVolumeSource {
+func (r *TestResources) NewEmptyDirWithSpec() *corev1.EmptyDirVolumeSource {
 	sizeLimit := resource.MustParse("200Mi")
 	return &corev1.EmptyDirVolumeSource{
 		Medium:    "Memory",
@@ -1125,7 +1107,7 @@ func NewEmptyDirWithSpec() *corev1.EmptyDirVolumeSource {
 	}
 }
 
-func NewCorePorts() []corev1.ContainerPort {
+func (r *TestResources) NewCorePorts() []corev1.ContainerPort {
 	return []corev1.ContainerPort{
 		{
 			ContainerPort: 8181,
@@ -1136,7 +1118,7 @@ func NewCorePorts() []corev1.ContainerPort {
 	}
 }
 
-func NewGrafanaPorts() []corev1.ContainerPort {
+func (r *TestResources) NewGrafanaPorts() []corev1.ContainerPort {
 	return []corev1.ContainerPort{
 		{
 			ContainerPort: 3000,
@@ -1144,7 +1126,7 @@ func NewGrafanaPorts() []corev1.ContainerPort {
 	}
 }
 
-func NewDatasourcePorts() []corev1.ContainerPort {
+func (r *TestResources) NewDatasourcePorts() []corev1.ContainerPort {
 	return []corev1.ContainerPort{
 		{
 			ContainerPort: 8080,
@@ -1152,7 +1134,7 @@ func NewDatasourcePorts() []corev1.ContainerPort {
 	}
 }
 
-func NewReportsPorts() []corev1.ContainerPort {
+func (r *TestResources) NewReportsPorts() []corev1.ContainerPort {
 	return []corev1.ContainerPort{
 		{
 			ContainerPort: 10000,
@@ -1160,9 +1142,7 @@ func NewReportsPorts() []corev1.ContainerPort {
 	}
 }
 
-func NewCoreEnvironmentVariables(
-	minimal bool, tls bool, externalTLS bool, openshift bool,
-	reportsUrl string, authProps bool, ingress bool,
+func (r *TestResources) NewCoreEnvironmentVariables(reportsUrl string, authProps bool, ingress bool,
 	emptyDir bool, builtInDiscoveryDisabled bool, dbSecretProvided bool) []corev1.EnvVar {
 	envs := []corev1.EnvVar{
 		{
@@ -1211,11 +1191,11 @@ func NewCoreEnvironmentVariables(
 	}
 
 	if !emptyDir {
-		envs = append(envs, DatabaseConfigEnvironmentVariables()...)
+		envs = append(envs, r.DatabaseConfigEnvironmentVariables()...)
 	}
 
 	optional := false
-	secretName := NewCredentialsDatabaseSecret().Name
+	secretName := r.NewCredentialsDatabaseSecret().Name
 	if dbSecretProvided {
 		secretName = providedDatabaseSecretName
 	}
@@ -1232,20 +1212,20 @@ func NewCoreEnvironmentVariables(
 		},
 	})
 
-	if !minimal {
+	if !r.Minimal {
 		envs = append(envs,
 			corev1.EnvVar{
 				Name:  "GRAFANA_DATASOURCE_URL",
 				Value: "http://127.0.0.1:8080",
 			})
 	}
-	if !tls {
+	if !r.TLS {
 		envs = append(envs,
 			corev1.EnvVar{
 				Name:  "CRYOSTAT_DISABLE_SSL",
 				Value: "true",
 			})
-		if externalTLS {
+		if r.ExternalTLS {
 			envs = append(envs,
 				corev1.EnvVar{
 					Name:  "CRYOSTAT_SSL_PROXIED",
@@ -1259,7 +1239,7 @@ func NewCoreEnvironmentVariables(
 		})
 	}
 
-	if openshift {
+	if r.OpenShift {
 		envs = append(envs,
 			corev1.EnvVar{
 				Name:  "CRYOSTAT_PLATFORM",
@@ -1284,9 +1264,9 @@ func NewCoreEnvironmentVariables(
 				Value: "custom-auth-cluster-role",
 			})
 		}
-		envs = append(envs, newNetworkEnvironmentVariables(minimal, tls, externalTLS)...)
+		envs = append(envs, r.newNetworkEnvironmentVariables()...)
 	} else if ingress { // On Kubernetes
-		envs = append(envs, newNetworkEnvironmentVariables(minimal, tls, externalTLS)...)
+		envs = append(envs, r.newNetworkEnvironmentVariables()...)
 	}
 
 	if reportsUrl != "" {
@@ -1305,7 +1285,7 @@ func NewCoreEnvironmentVariables(
 	return envs
 }
 
-func DatabaseConfigEnvironmentVariables() []corev1.EnvVar {
+func (r *TestResources) DatabaseConfigEnvironmentVariables() []corev1.EnvVar {
 	return []corev1.EnvVar{
 		{
 			Name:  "CRYOSTAT_JDBC_URL",
@@ -1334,14 +1314,14 @@ func DatabaseConfigEnvironmentVariables() []corev1.EnvVar {
 	}
 }
 
-func newNetworkEnvironmentVariables(minimal, tls, externalTLS bool) []corev1.EnvVar {
+func (r *TestResources) newNetworkEnvironmentVariables() []corev1.EnvVar {
 	envs := []corev1.EnvVar{
 		{
 			Name:  "CRYOSTAT_WEB_HOST",
 			Value: "cryostat.example.com",
 		},
 	}
-	if externalTLS {
+	if r.ExternalTLS {
 		envs = append(envs,
 			corev1.EnvVar{
 				Name:  "CRYOSTAT_EXT_WEB_PORT",
@@ -1354,8 +1334,8 @@ func newNetworkEnvironmentVariables(minimal, tls, externalTLS bool) []corev1.Env
 				Value: "80",
 			})
 	}
-	if !minimal {
-		if externalTLS {
+	if !r.Minimal {
+		if r.ExternalTLS {
 			envs = append(envs,
 				corev1.EnvVar{
 					Name:  "GRAFANA_DASHBOARD_EXT_URL",
@@ -1368,7 +1348,7 @@ func newNetworkEnvironmentVariables(minimal, tls, externalTLS bool) []corev1.Env
 					Value: "http://cryostat-grafana.example.com",
 				})
 		}
-		if tls {
+		if r.TLS {
 			envs = append(envs,
 				corev1.EnvVar{
 					Name:  "GRAFANA_DASHBOARD_URL",
@@ -1384,14 +1364,15 @@ func newNetworkEnvironmentVariables(minimal, tls, externalTLS bool) []corev1.Env
 	}
 	return envs
 }
-func NewGrafanaEnvironmentVariables(tls bool) []corev1.EnvVar {
+
+func (r *TestResources) NewGrafanaEnvironmentVariables() []corev1.EnvVar {
 	envs := []corev1.EnvVar{
 		{
 			Name:  "JFR_DATASOURCE_URL",
 			Value: "http://127.0.0.1:8080",
 		},
 	}
-	if tls {
+	if r.TLS {
 		envs = append(envs, corev1.EnvVar{
 			Name:  "GF_SERVER_PROTOCOL",
 			Value: "https",
@@ -1406,7 +1387,7 @@ func NewGrafanaEnvironmentVariables(tls bool) []corev1.EnvVar {
 	return envs
 }
 
-func NewDatasourceEnvironmentVariables() []corev1.EnvVar {
+func (r *TestResources) NewDatasourceEnvironmentVariables() []corev1.EnvVar {
 	return []corev1.EnvVar{
 		{
 			Name:  "LISTEN_HOST",
@@ -1415,7 +1396,7 @@ func NewDatasourceEnvironmentVariables() []corev1.EnvVar {
 	}
 }
 
-func NewReportsEnvironmentVariables(tls bool, resources *corev1.ResourceRequirements) []corev1.EnvVar {
+func (r *TestResources) NewReportsEnvironmentVariables(resources *corev1.ResourceRequirements) []corev1.EnvVar {
 	cpus := resources.Requests.Cpu().Value()
 	if limit := resources.Limits; limit != nil {
 		if cpu := limit.Cpu(); limit != nil {
@@ -1433,7 +1414,7 @@ func NewReportsEnvironmentVariables(tls bool, resources *corev1.ResourceRequirem
 			Value: opts,
 		},
 	}
-	if tls {
+	if r.TLS {
 		envs = append(envs, corev1.EnvVar{
 			Name:  "QUARKUS_HTTP_SSL_PORT",
 			Value: "10000",
@@ -1456,7 +1437,7 @@ func NewReportsEnvironmentVariables(tls bool, resources *corev1.ResourceRequirem
 	return envs
 }
 
-func NewCoreEnvFromSource(tls bool) []corev1.EnvFromSource {
+func (r *TestResources) NewCoreEnvFromSource() []corev1.EnvFromSource {
 	envsFrom := []corev1.EnvFromSource{
 		{
 			SecretRef: &corev1.SecretEnvSource{
@@ -1466,7 +1447,7 @@ func NewCoreEnvFromSource(tls bool) []corev1.EnvFromSource {
 			},
 		},
 	}
-	if tls {
+	if r.TLS {
 		envsFrom = append(envsFrom, corev1.EnvFromSource{
 			SecretRef: &corev1.SecretEnvSource{
 				LocalObjectReference: corev1.LocalObjectReference{
@@ -1478,7 +1459,7 @@ func NewCoreEnvFromSource(tls bool) []corev1.EnvFromSource {
 	return envsFrom
 }
 
-func NewGrafanaEnvFromSource() []corev1.EnvFromSource {
+func (r *TestResources) NewGrafanaEnvFromSource() []corev1.EnvFromSource {
 	return []corev1.EnvFromSource{
 		{
 			SecretRef: &corev1.SecretEnvSource{
@@ -1490,7 +1471,7 @@ func NewGrafanaEnvFromSource() []corev1.EnvFromSource {
 	}
 }
 
-func NewWsConnectionsEnv() []corev1.EnvVar {
+func (r *TestResources) NewWsConnectionsEnv() []corev1.EnvVar {
 	return []corev1.EnvVar{
 		{
 			Name:  "CRYOSTAT_MAX_WS_CONNECTIONS",
@@ -1499,7 +1480,7 @@ func NewWsConnectionsEnv() []corev1.EnvVar {
 	}
 }
 
-func NewReportSubprocessHeapEnv() []corev1.EnvVar {
+func (r *TestResources) NewReportSubprocessHeapEnv() []corev1.EnvVar {
 	return []corev1.EnvVar{
 		{
 			Name:  "CRYOSTAT_REPORT_GENERATION_MAX_HEAP",
@@ -1508,7 +1489,7 @@ func NewReportSubprocessHeapEnv() []corev1.EnvVar {
 	}
 }
 
-func NewJmxCacheOptionsEnv() []corev1.EnvVar {
+func (r *TestResources) NewJmxCacheOptionsEnv() []corev1.EnvVar {
 	return []corev1.EnvVar{
 		{
 			Name:  "CRYOSTAT_TARGET_CACHE_SIZE",
@@ -1521,7 +1502,7 @@ func NewJmxCacheOptionsEnv() []corev1.EnvVar {
 	}
 }
 
-func NewCoreVolumeMounts(tls bool) []corev1.VolumeMount {
+func (r *TestResources) NewCoreVolumeMounts() []corev1.VolumeMount {
 	mounts := []corev1.VolumeMount{
 		{
 			Name:      "cryostat",
@@ -1565,7 +1546,7 @@ func NewCoreVolumeMounts(tls bool) []corev1.VolumeMount {
 			MountPath: "/truststore/operator",
 		},
 	}
-	if tls {
+	if r.TLS {
 		mounts = append(mounts,
 			corev1.VolumeMount{
 				Name:      "keystore",
@@ -1576,9 +1557,9 @@ func NewCoreVolumeMounts(tls bool) []corev1.VolumeMount {
 	return mounts
 }
 
-func NewGrafanaVolumeMounts(tls bool) []corev1.VolumeMount {
+func (r *TestResources) NewGrafanaVolumeMounts() []corev1.VolumeMount {
 	mounts := []corev1.VolumeMount{}
-	if tls {
+	if r.TLS {
 		mounts = append(mounts,
 			corev1.VolumeMount{
 				Name:      "grafana-tls-secret",
@@ -1589,9 +1570,9 @@ func NewGrafanaVolumeMounts(tls bool) []corev1.VolumeMount {
 	return mounts
 }
 
-func NewReportsVolumeMounts(tls bool) []corev1.VolumeMount {
+func (r *TestResources) NewReportsVolumeMounts() []corev1.VolumeMount {
 	mounts := []corev1.VolumeMount{}
-	if tls {
+	if r.TLS {
 		mounts = append(mounts,
 			corev1.VolumeMount{
 				Name:      "reports-tls-secret",
@@ -1602,8 +1583,8 @@ func NewReportsVolumeMounts(tls bool) []corev1.VolumeMount {
 	return mounts
 }
 
-func NewVolumeMountsWithTemplates(tls bool) []corev1.VolumeMount {
-	return append(NewCoreVolumeMounts(tls),
+func (r *TestResources) NewVolumeMountsWithTemplates() []corev1.VolumeMount {
+	return append(r.NewCoreVolumeMounts(),
 		corev1.VolumeMount{
 			Name:      "template-templateCM1",
 			ReadOnly:  true,
@@ -1618,11 +1599,11 @@ func NewVolumeMountsWithTemplates(tls bool) []corev1.VolumeMount {
 		})
 }
 
-func NewVolumeMountsWithAuthProperties(tls bool) []corev1.VolumeMount {
-	return append(NewCoreVolumeMounts(tls), NewAuthPropertiesVolumeMount())
+func (r *TestResources) NewVolumeMountsWithAuthProperties() []corev1.VolumeMount {
+	return append(r.NewCoreVolumeMounts(), r.NewAuthPropertiesVolumeMount())
 }
 
-func NewAuthPropertiesVolumeMount() corev1.VolumeMount {
+func (r *TestResources) NewAuthPropertiesVolumeMount() corev1.VolumeMount {
 	return corev1.VolumeMount{
 		Name:      "auth-properties-authConfigMapName",
 		ReadOnly:  true,
@@ -1631,22 +1612,22 @@ func NewAuthPropertiesVolumeMount() corev1.VolumeMount {
 	}
 }
 
-func NewCoreLivenessProbe(tls bool) *corev1.Probe {
+func (r *TestResources) NewCoreLivenessProbe() *corev1.Probe {
 	return &corev1.Probe{
-		ProbeHandler: newCoreProbeHandler(tls),
+		ProbeHandler: r.newCoreProbeHandler(),
 	}
 }
 
-func NewCoreStartupProbe(tls bool) *corev1.Probe {
+func (r *TestResources) NewCoreStartupProbe() *corev1.Probe {
 	return &corev1.Probe{
-		ProbeHandler:     newCoreProbeHandler(tls),
+		ProbeHandler:     r.newCoreProbeHandler(),
 		FailureThreshold: 18,
 	}
 }
 
-func newCoreProbeHandler(tls bool) corev1.ProbeHandler {
+func (r *TestResources) newCoreProbeHandler() corev1.ProbeHandler {
 	protocol := corev1.URISchemeHTTPS
-	if !tls {
+	if !r.TLS {
 		protocol = corev1.URISchemeHTTP
 	}
 	return corev1.ProbeHandler{
@@ -1658,9 +1639,9 @@ func newCoreProbeHandler(tls bool) corev1.ProbeHandler {
 	}
 }
 
-func NewGrafanaLivenessProbe(tls bool) *corev1.Probe {
+func (r *TestResources) NewGrafanaLivenessProbe() *corev1.Probe {
 	protocol := corev1.URISchemeHTTPS
-	if !tls {
+	if !r.TLS {
 		protocol = corev1.URISchemeHTTP
 	}
 	return &corev1.Probe{
@@ -1674,7 +1655,7 @@ func NewGrafanaLivenessProbe(tls bool) *corev1.Probe {
 	}
 }
 
-func NewDatasourceLivenessProbe() *corev1.Probe {
+func (r *TestResources) NewDatasourceLivenessProbe() *corev1.Probe {
 	return &corev1.Probe{
 		ProbeHandler: corev1.ProbeHandler{
 			Exec: &corev1.ExecAction{
@@ -1684,9 +1665,9 @@ func NewDatasourceLivenessProbe() *corev1.Probe {
 	}
 }
 
-func NewReportsLivenessProbe(tls bool) *corev1.Probe {
+func (r *TestResources) NewReportsLivenessProbe() *corev1.Probe {
 	protocol := corev1.URISchemeHTTPS
-	if !tls {
+	if !r.TLS {
 		protocol = corev1.URISchemeHTTP
 	}
 	return &corev1.Probe{
@@ -1700,7 +1681,7 @@ func NewReportsLivenessProbe(tls bool) *corev1.Probe {
 	}
 }
 
-func NewMainDeploymentSelector() *metav1.LabelSelector {
+func (r *TestResources) NewMainDeploymentSelector() *metav1.LabelSelector {
 	return &metav1.LabelSelector{
 		MatchLabels: map[string]string{
 			"app":       "cryostat",
@@ -1710,7 +1691,7 @@ func NewMainDeploymentSelector() *metav1.LabelSelector {
 	}
 }
 
-func NewReportsDeploymentSelector() *metav1.LabelSelector {
+func (r *TestResources) NewReportsDeploymentSelector() *metav1.LabelSelector {
 	return &metav1.LabelSelector{
 		MatchLabels: map[string]string{
 			"app":       "cryostat",
@@ -1720,18 +1701,18 @@ func NewReportsDeploymentSelector() *metav1.LabelSelector {
 	}
 }
 
-func NewMainDeploymentStrategy() appsv1.DeploymentStrategy {
+func (r *TestResources) NewMainDeploymentStrategy() appsv1.DeploymentStrategy {
 	return appsv1.DeploymentStrategy{
 		Type: appsv1.RecreateDeploymentStrategyType,
 	}
 }
 
-func OtherDeployment() *appsv1.Deployment {
+func (r *TestResources) OtherDeployment() *appsv1.Deployment {
 	replicas := int32(2)
 	return &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "cryostat",
-			Namespace: "default",
+			Namespace: r.Namespace,
 			Labels: map[string]string{
 				"app":   "something-else",
 				"other": "label",
@@ -1745,7 +1726,7 @@ func OtherDeployment() *appsv1.Deployment {
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "cryostat",
-					Namespace: "default",
+					Namespace: r.Namespace,
 					Labels: map[string]string{
 						"app": "something-app",
 					},
@@ -1759,19 +1740,19 @@ func OtherDeployment() *appsv1.Deployment {
 					},
 				},
 			},
-			Selector: NewMainDeploymentSelector(),
+			Selector: r.NewMainDeploymentSelector(),
 			Replicas: &replicas,
 		},
 	}
 }
 
-func NewVolumes(minimal bool, tls bool) []corev1.Volume {
-	return newVolumes(minimal, tls, nil)
+func (r *TestResources) NewVolumes() []corev1.Volume {
+	return r.newVolumes(nil)
 }
 
-func NewVolumesWithSecrets(tls bool) []corev1.Volume {
+func (r *TestResources) NewVolumesWithSecrets() []corev1.Volume {
 	mode := int32(0440)
-	return newVolumes(false, tls, []corev1.VolumeProjection{
+	return r.newVolumes([]corev1.VolumeProjection{
 		{
 			Secret: &corev1.SecretProjection{
 				LocalObjectReference: corev1.LocalObjectReference{
@@ -1803,9 +1784,9 @@ func NewVolumesWithSecrets(tls bool) []corev1.Volume {
 	})
 }
 
-func NewVolumesWithTemplates(tls bool) []corev1.Volume {
+func (r *TestResources) NewVolumesWithTemplates() []corev1.Volume {
 	mode := int32(0440)
-	return append(NewVolumes(false, tls),
+	return append(r.NewVolumes(),
 		corev1.Volume{
 			Name: "template-templateCM1",
 			VolumeSource: corev1.VolumeSource{
@@ -1842,11 +1823,11 @@ func NewVolumesWithTemplates(tls bool) []corev1.Volume {
 		})
 }
 
-func NewVolumeWithAuthProperties(tls bool) []corev1.Volume {
-	return append(NewVolumes(false, tls), NewAuthPropertiesVolume())
+func (r *TestResources) NewVolumeWithAuthProperties() []corev1.Volume {
+	return append(r.NewVolumes(), r.NewAuthPropertiesVolume())
 }
 
-func NewAuthPropertiesVolume() corev1.Volume {
+func (r *TestResources) NewAuthPropertiesVolume() corev1.Volume {
 	readOnlyMode := int32(0440)
 	return corev1.Volume{
 		Name: "auth-properties-authConfigMapName",
@@ -1867,7 +1848,7 @@ func NewAuthPropertiesVolume() corev1.Volume {
 	}
 }
 
-func newVolumes(minimal bool, tls bool, certProjections []corev1.VolumeProjection) []corev1.Volume {
+func (r *TestResources) newVolumes(certProjections []corev1.VolumeProjection) []corev1.Volume {
 	readOnlymode := int32(0440)
 	volumes := []corev1.Volume{
 		{
@@ -1881,7 +1862,7 @@ func newVolumes(minimal bool, tls bool, certProjections []corev1.VolumeProjectio
 		},
 	}
 	projs := append([]corev1.VolumeProjection{}, certProjections...)
-	if tls {
+	if r.TLS {
 		projs = append(projs, corev1.VolumeProjection{
 			Secret: &corev1.SecretProjection{
 				LocalObjectReference: corev1.LocalObjectReference{
@@ -1913,7 +1894,7 @@ func newVolumes(minimal bool, tls bool, certProjections []corev1.VolumeProjectio
 					},
 				},
 			})
-		if !minimal {
+		if !r.Minimal {
 			volumes = append(volumes,
 				corev1.Volume{
 					Name: "grafana-tls-secret",
@@ -1939,8 +1920,8 @@ func newVolumes(minimal bool, tls bool, certProjections []corev1.VolumeProjectio
 	return volumes
 }
 
-func NewReportsVolumes(tls bool) []corev1.Volume {
-	if !tls {
+func (r *TestResources) NewReportsVolumes() []corev1.Volume {
+	if !r.TLS {
 		return nil
 	}
 	return []corev1.Volume{
@@ -1955,10 +1936,10 @@ func NewReportsVolumes(tls bool) []corev1.Volume {
 	}
 }
 
-func commonDefaultPodSecurityContext(openshift bool, fsGroup *int64) *corev1.PodSecurityContext {
+func (r *TestResources) commonDefaultPodSecurityContext(fsGroup *int64) *corev1.PodSecurityContext {
 	nonRoot := true
 	var seccompProfile *corev1.SeccompProfile
-	if !openshift {
+	if !r.OpenShift {
 		seccompProfile = &corev1.SeccompProfile{
 			Type: corev1.SeccompProfileTypeRuntimeDefault,
 		}
@@ -1970,7 +1951,7 @@ func commonDefaultPodSecurityContext(openshift bool, fsGroup *int64) *corev1.Pod
 	}
 }
 
-func commonDefaultSecurityContext() *corev1.SecurityContext {
+func (r *TestResources) commonDefaultSecurityContext() *corev1.SecurityContext {
 	privEscalation := false
 	return &corev1.SecurityContext{
 		Capabilities: &corev1.Capabilities{
@@ -1982,74 +1963,74 @@ func commonDefaultSecurityContext() *corev1.SecurityContext {
 	}
 }
 
-func NewPodSecurityContext(cr *operatorv1beta1.Cryostat, openshift bool) *corev1.PodSecurityContext {
+func (r *TestResources) NewPodSecurityContext(cr *operatorv1beta1.Cryostat) *corev1.PodSecurityContext {
 	if cr.Spec.SecurityOptions != nil && cr.Spec.SecurityOptions.PodSecurityContext != nil {
 		return cr.Spec.SecurityOptions.PodSecurityContext
 	}
 	fsGroup := int64(18500)
-	return commonDefaultPodSecurityContext(openshift, &fsGroup)
+	return r.commonDefaultPodSecurityContext(&fsGroup)
 }
 
-func NewReportPodSecurityContext(cr *operatorv1beta1.Cryostat, openshift bool) *corev1.PodSecurityContext {
+func (r *TestResources) NewReportPodSecurityContext(cr *operatorv1beta1.Cryostat) *corev1.PodSecurityContext {
 	if cr.Spec.ReportOptions != nil && cr.Spec.ReportOptions.SecurityOptions != nil && cr.Spec.ReportOptions.SecurityOptions.PodSecurityContext != nil {
 		return cr.Spec.ReportOptions.SecurityOptions.PodSecurityContext
 	}
-	return commonDefaultPodSecurityContext(openshift, nil)
+	return r.commonDefaultPodSecurityContext(nil)
 }
 
-func NewCoreSecurityContext(cr *operatorv1beta1.Cryostat) *corev1.SecurityContext {
+func (r *TestResources) NewCoreSecurityContext(cr *operatorv1beta1.Cryostat) *corev1.SecurityContext {
 	if cr.Spec.SecurityOptions != nil && cr.Spec.SecurityOptions.CoreSecurityContext != nil {
 		return cr.Spec.SecurityOptions.CoreSecurityContext
 	}
-	return commonDefaultSecurityContext()
+	return r.commonDefaultSecurityContext()
 }
 
-func NewGrafanaSecurityContext(cr *operatorv1beta1.Cryostat) *corev1.SecurityContext {
+func (r *TestResources) NewGrafanaSecurityContext(cr *operatorv1beta1.Cryostat) *corev1.SecurityContext {
 	if cr.Spec.SecurityOptions != nil && cr.Spec.SecurityOptions.GrafanaSecurityContext != nil {
 		return cr.Spec.SecurityOptions.GrafanaSecurityContext
 	}
-	return commonDefaultSecurityContext()
+	return r.commonDefaultSecurityContext()
 }
 
-func NewDatasourceSecurityContext(cr *operatorv1beta1.Cryostat) *corev1.SecurityContext {
+func (r *TestResources) NewDatasourceSecurityContext(cr *operatorv1beta1.Cryostat) *corev1.SecurityContext {
 	if cr.Spec.SecurityOptions != nil && cr.Spec.SecurityOptions.DataSourceSecurityContext != nil {
 		return cr.Spec.SecurityOptions.DataSourceSecurityContext
 	}
-	return commonDefaultSecurityContext()
+	return r.commonDefaultSecurityContext()
 }
 
-func NewReportSecurityContext(cr *operatorv1beta1.Cryostat) *corev1.SecurityContext {
+func (r *TestResources) NewReportSecurityContext(cr *operatorv1beta1.Cryostat) *corev1.SecurityContext {
 	if cr.Spec.ReportOptions != nil && cr.Spec.ReportOptions.SecurityOptions != nil && cr.Spec.ReportOptions.SecurityOptions.ReportsSecurityContext != nil {
 		return cr.Spec.ReportOptions.SecurityOptions.ReportsSecurityContext
 	}
-	return commonDefaultSecurityContext()
+	return r.commonDefaultSecurityContext()
 }
 
-func NewCoreRoute(tls bool) *routev1.Route {
-	return newRoute("cryostat", 8181, tls)
+func (r *TestResources) NewCoreRoute() *routev1.Route {
+	return r.newRoute("cryostat", 8181)
 }
 
-func NewCustomCoreRoute(tls bool) *routev1.Route {
-	route := NewCoreRoute(tls)
+func (r *TestResources) NewCustomCoreRoute() *routev1.Route {
+	route := r.NewCoreRoute()
 	route.Annotations = map[string]string{"custom": "annotation"}
 	route.Labels = map[string]string{"custom": "label"}
 	return route
 }
 
-func NewGrafanaRoute(tls bool) *routev1.Route {
-	return newRoute("cryostat-grafana", 3000, tls)
+func (r *TestResources) NewGrafanaRoute() *routev1.Route {
+	return r.newRoute("cryostat-grafana", 3000)
 }
 
-func NewCustomGrafanaRoute(tls bool) *routev1.Route {
-	route := NewGrafanaRoute(tls)
+func (r *TestResources) NewCustomGrafanaRoute() *routev1.Route {
+	route := r.NewGrafanaRoute()
 	route.Annotations = map[string]string{"grafana": "annotation"}
 	route.Labels = map[string]string{"grafana": "label"}
 	return route
 }
 
-func newRoute(name string, port int, tls bool) *routev1.Route {
+func (r *TestResources) newRoute(name string, port int) *routev1.Route {
 	var routeTLS *routev1.TLSConfig
-	if !tls {
+	if !r.TLS {
 		routeTLS = &routev1.TLSConfig{
 			Termination:                   routev1.TLSTerminationEdge,
 			InsecureEdgeTerminationPolicy: routev1.InsecureEdgeTerminationPolicyRedirect,
@@ -2063,7 +2044,7 @@ func newRoute(name string, port int, tls bool) *routev1.Route {
 	return &routev1.Route{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
-			Namespace: "default",
+			Namespace: r.Namespace,
 		},
 		Spec: routev1.RouteSpec{
 			To: routev1.RouteTargetReference{
@@ -2078,11 +2059,11 @@ func newRoute(name string, port int, tls bool) *routev1.Route {
 	}
 }
 
-func OtherCoreRoute() *routev1.Route {
+func (r *TestResources) OtherCoreRoute() *routev1.Route {
 	return &routev1.Route{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        "cryostat",
-			Namespace:   "default",
+			Namespace:   r.Namespace,
 			Annotations: map[string]string{"custom": "annotation"},
 			Labels:      map[string]string{"custom": "label"},
 		},
@@ -2104,11 +2085,11 @@ func OtherCoreRoute() *routev1.Route {
 	}
 }
 
-func OtherGrafanaRoute() *routev1.Route {
+func (r *TestResources) OtherGrafanaRoute() *routev1.Route {
 	return &routev1.Route{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        "cryostat-grafana",
-			Namespace:   "default",
+			Namespace:   r.Namespace,
 			Annotations: map[string]string{"grafana": "annotation"},
 			Labels:      map[string]string{"grafana": "label"},
 		},
@@ -2124,12 +2105,12 @@ func OtherGrafanaRoute() *routev1.Route {
 	}
 }
 
-func OtherCoreIngress() *netv1.Ingress {
+func (r *TestResources) OtherCoreIngress() *netv1.Ingress {
 	pathtype := netv1.PathTypePrefix
 	return &netv1.Ingress{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        "cryostat",
-			Namespace:   "default",
+			Namespace:   r.Namespace,
 			Annotations: map[string]string{"custom": "annotation"},
 			Labels:      map[string]string{"custom": "label"},
 		},
@@ -2161,12 +2142,12 @@ func OtherCoreIngress() *netv1.Ingress {
 	}
 }
 
-func OtherGrafanaIngress() *netv1.Ingress {
+func (r *TestResources) OtherGrafanaIngress() *netv1.Ingress {
 	pathtype := netv1.PathTypePrefix
 	return &netv1.Ingress{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        "cryostat-grafana",
-			Namespace:   "default",
+			Namespace:   r.Namespace,
 			Annotations: map[string]string{"grafana": "annotation"},
 			Labels:      map[string]string{"grafana": "label"},
 		},
@@ -2198,12 +2179,12 @@ func OtherGrafanaIngress() *netv1.Ingress {
 	}
 }
 
-func NewNetworkConfigurationList(tls bool) operatorv1beta1.NetworkConfigurationList {
-	coreSVC := NewCryostatService()
-	coreIng := NewNetworkConfiguration(coreSVC.Name, coreSVC.Spec.Ports[0].Port, tls)
+func (r *TestResources) newNetworkConfigurationList() operatorv1beta1.NetworkConfigurationList {
+	coreSVC := r.NewCryostatService()
+	coreIng := r.newNetworkConfiguration(coreSVC.Name, coreSVC.Spec.Ports[0].Port)
 
-	grafanaSVC := NewGrafanaService()
-	grafanaIng := NewNetworkConfiguration(grafanaSVC.Name, grafanaSVC.Spec.Ports[0].Port, tls)
+	grafanaSVC := r.NewGrafanaService()
+	grafanaIng := r.newNetworkConfiguration(grafanaSVC.Name, grafanaSVC.Spec.Ports[0].Port)
 
 	return operatorv1beta1.NetworkConfigurationList{
 		CoreConfig:    &coreIng,
@@ -2211,12 +2192,12 @@ func NewNetworkConfigurationList(tls bool) operatorv1beta1.NetworkConfigurationL
 	}
 }
 
-func NewNetworkConfiguration(svcName string, svcPort int32, tls bool) operatorv1beta1.NetworkConfiguration {
+func (r *TestResources) newNetworkConfiguration(svcName string, svcPort int32) operatorv1beta1.NetworkConfiguration {
 	pathtype := netv1.PathTypePrefix
 	host := svcName + ".example.com"
 
 	var ingressTLS []netv1.IngressTLS
-	if tls {
+	if r.ExternalTLS {
 		ingressTLS = []netv1.IngressTLS{{}}
 	}
 	return operatorv1beta1.NetworkConfiguration{
@@ -2251,9 +2232,9 @@ func NewNetworkConfiguration(svcName string, svcPort int32, tls bool) operatorv1
 	}
 }
 
-func NewServiceAccount(isOpenShift bool) *corev1.ServiceAccount {
+func (r *TestResources) NewServiceAccount() *corev1.ServiceAccount {
 	var annotations map[string]string
-	if isOpenShift {
+	if r.OpenShift {
 		annotations = map[string]string{
 			"serviceaccounts.openshift.io/oauth-redirectreference.route": `{"metadata":{"creationTimestamp":null},"reference":{"group":"","kind":"Route","name":"cryostat"}}`,
 		}
@@ -2262,7 +2243,7 @@ func NewServiceAccount(isOpenShift bool) *corev1.ServiceAccount {
 	return &corev1.ServiceAccount{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "cryostat",
-			Namespace: "default",
+			Namespace: r.Namespace,
 			Labels: map[string]string{
 				"app": "cryostat",
 			},
@@ -2271,12 +2252,12 @@ func NewServiceAccount(isOpenShift bool) *corev1.ServiceAccount {
 	}
 }
 
-func OtherServiceAccount() *corev1.ServiceAccount {
+func (r *TestResources) OtherServiceAccount() *corev1.ServiceAccount {
 	disable := false
 	return &corev1.ServiceAccount{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "cryostat",
-			Namespace: "default",
+			Namespace: r.Namespace,
 			Labels: map[string]string{
 				"app":   "not-cryostat",
 				"other": "label",
@@ -2302,7 +2283,7 @@ func OtherServiceAccount() *corev1.ServiceAccount {
 	}
 }
 
-func NewRole() *rbacv1.Role {
+func (r *TestResources) NewRole() *rbacv1.Role {
 	rules := []rbacv1.PolicyRule{
 		{
 			Verbs:     []string{"get", "list", "watch"},
@@ -2333,17 +2314,17 @@ func NewRole() *rbacv1.Role {
 	return &rbacv1.Role{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "cryostat",
-			Namespace: "default",
+			Namespace: r.Namespace,
 		},
 		Rules: rules,
 	}
 }
 
-func OtherRole() *rbacv1.Role {
+func (r *TestResources) OtherRole() *rbacv1.Role {
 	return &rbacv1.Role{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "cryostat",
-			Namespace: "default",
+			Namespace: r.Namespace,
 			Labels: map[string]string{
 				"test": "label",
 			},
@@ -2358,7 +2339,7 @@ func OtherRole() *rbacv1.Role {
 	}
 }
 
-func NewAuthClusterRole() *rbacv1.ClusterRole {
+func (r *TestResources) NewAuthClusterRole() *rbacv1.ClusterRole {
 	return &rbacv1.ClusterRole{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "custom-auth-cluster-role",
@@ -2378,17 +2359,17 @@ func NewAuthClusterRole() *rbacv1.ClusterRole {
 	}
 }
 
-func NewRoleBinding() *rbacv1.RoleBinding {
+func (r *TestResources) NewRoleBinding() *rbacv1.RoleBinding {
 	return &rbacv1.RoleBinding{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "cryostat",
-			Namespace: "default",
+			Namespace: r.Namespace,
 		},
 		Subjects: []rbacv1.Subject{
 			{
 				Kind:      rbacv1.ServiceAccountKind,
 				Name:      "cryostat",
-				Namespace: "default",
+				Namespace: r.Namespace,
 			},
 		},
 		RoleRef: rbacv1.RoleRef{
@@ -2399,11 +2380,11 @@ func NewRoleBinding() *rbacv1.RoleBinding {
 	}
 }
 
-func OtherRoleBinding() *rbacv1.RoleBinding {
+func (r *TestResources) OtherRoleBinding() *rbacv1.RoleBinding {
 	return &rbacv1.RoleBinding{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "cryostat",
-			Namespace: "default",
+			Namespace: r.Namespace,
 			Labels: map[string]string{
 				"test": "label",
 			},
@@ -2412,7 +2393,7 @@ func OtherRoleBinding() *rbacv1.RoleBinding {
 			{
 				Kind:      rbacv1.ServiceAccountKind,
 				Name:      "not-cryostat",
-				Namespace: "default",
+				Namespace: r.Namespace,
 			},
 			{
 				Kind: rbacv1.UserKind,
@@ -2427,16 +2408,21 @@ func OtherRoleBinding() *rbacv1.RoleBinding {
 	}
 }
 
-func NewClusterRoleBinding() *rbacv1.ClusterRoleBinding {
+func (r *TestResources) clusterUniqueSuffix() string {
+	toEncode := r.Namespace + "/cryostat"
+	return fmt.Sprintf("%x", sha256.Sum256([]byte(toEncode)))
+}
+
+func (r *TestResources) NewClusterRoleBinding() *rbacv1.ClusterRoleBinding {
 	return &rbacv1.ClusterRoleBinding{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: "cryostat-9ecd5050500c2566765bc593edfcce12434283e5da32a27476bc4a1569304a02",
+			Name: "cryostat-" + r.clusterUniqueSuffix(),
 		},
 		Subjects: []rbacv1.Subject{
 			{
 				Kind:      rbacv1.ServiceAccountKind,
 				Name:      "cryostat",
-				Namespace: "default",
+				Namespace: r.Namespace,
 			},
 		},
 		RoleRef: rbacv1.RoleRef{
@@ -2447,10 +2433,10 @@ func NewClusterRoleBinding() *rbacv1.ClusterRoleBinding {
 	}
 }
 
-func OtherClusterRoleBinding() *rbacv1.ClusterRoleBinding {
+func (r *TestResources) OtherClusterRoleBinding() *rbacv1.ClusterRoleBinding {
 	return &rbacv1.ClusterRoleBinding{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: "cryostat-9ecd5050500c2566765bc593edfcce12434283e5da32a27476bc4a1569304a02",
+			Name: "cryostat-" + r.clusterUniqueSuffix(),
 			Labels: map[string]string{
 				"test": "label",
 			},
@@ -2459,7 +2445,7 @@ func OtherClusterRoleBinding() *rbacv1.ClusterRoleBinding {
 			{
 				Kind:      rbacv1.ServiceAccountKind,
 				Name:      "not-cryostat",
-				Namespace: "default",
+				Namespace: r.Namespace,
 			},
 			{
 				Kind: rbacv1.UserKind,
@@ -2474,11 +2460,11 @@ func OtherClusterRoleBinding() *rbacv1.ClusterRoleBinding {
 	}
 }
 
-func NewTemplateConfigMap() *corev1.ConfigMap {
+func (r *TestResources) NewTemplateConfigMap() *corev1.ConfigMap {
 	return &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "templateCM1",
-			Namespace: "default",
+			Namespace: r.Namespace,
 		},
 		Data: map[string]string{
 			"template.jfc": "XML template data",
@@ -2486,11 +2472,11 @@ func NewTemplateConfigMap() *corev1.ConfigMap {
 	}
 }
 
-func NewOtherTemplateConfigMap() *corev1.ConfigMap {
+func (r *TestResources) NewOtherTemplateConfigMap() *corev1.ConfigMap {
 	return &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "templateCM2",
-			Namespace: "default",
+			Namespace: r.Namespace,
 		},
 		Data: map[string]string{
 			"other-template.jfc": "more XML template data",
@@ -2498,11 +2484,11 @@ func NewOtherTemplateConfigMap() *corev1.ConfigMap {
 	}
 }
 
-func NewAuthPropertiesConfigMap() *corev1.ConfigMap {
+func (r *TestResources) NewAuthPropertiesConfigMap() *corev1.ConfigMap {
 	return &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "authConfigMapName",
-			Namespace: "default",
+			Namespace: r.Namespace,
 		},
 		Data: map[string]string{
 			"auth.properties": "CRYOSTAT_RESOURCE=resources.group\nANOTHER_CRYOSTAT_RESOURCE=another_resources.another_group",
@@ -2510,26 +2496,26 @@ func NewAuthPropertiesConfigMap() *corev1.ConfigMap {
 	}
 }
 
-func NewNamespace() *corev1.Namespace {
+func (r *TestResources) NewNamespace() *corev1.Namespace {
 	return &corev1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: "default",
+			Name: r.Namespace,
 		},
 	}
 }
 
-func NewNamespaceWithSCCSupGroups() *corev1.Namespace {
-	ns := NewNamespace()
+func (r *TestResources) NewNamespaceWithSCCSupGroups() *corev1.Namespace {
+	ns := r.NewNamespace()
 	ns.Annotations = map[string]string{
 		securityv1.SupplementalGroupsAnnotation: "1000130000/10000",
 	}
 	return ns
 }
 
-func NewConsoleLink() *consolev1.ConsoleLink {
+func (r *TestResources) NewConsoleLink() *consolev1.ConsoleLink {
 	return &consolev1.ConsoleLink{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: "cryostat-9ecd5050500c2566765bc593edfcce12434283e5da32a27476bc4a1569304a02",
+			Name: "cryostat-" + r.clusterUniqueSuffix(),
 		},
 		Spec: consolev1.ConsoleLinkSpec{
 			Link: consolev1.Link{
@@ -2538,16 +2524,16 @@ func NewConsoleLink() *consolev1.ConsoleLink {
 			},
 			Location: consolev1.NamespaceDashboard,
 			NamespaceDashboard: &consolev1.NamespaceDashboardSpec{
-				Namespaces: []string{"default"},
+				Namespaces: []string{r.Namespace},
 			},
 		},
 	}
 }
 
-func OtherConsoleLink() *consolev1.ConsoleLink {
+func (r *TestResources) OtherConsoleLink() *consolev1.ConsoleLink {
 	return &consolev1.ConsoleLink{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: "cryostat-9ecd5050500c2566765bc593edfcce12434283e5da32a27476bc4a1569304a02",
+			Name: "cryostat-" + r.clusterUniqueSuffix(),
 			Labels: map[string]string{
 				"my": "label",
 			},
@@ -2568,7 +2554,7 @@ func OtherConsoleLink() *consolev1.ConsoleLink {
 	}
 }
 
-func NewApiServer() *configv1.APIServer {
+func (r *TestResources) NewApiServer() *configv1.APIServer {
 	return &configv1.APIServer{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "cluster",
@@ -2588,7 +2574,7 @@ func newCoreContainerDefaultResource() *corev1.ResourceRequirements {
 	}
 }
 
-func NewCoreContainerResource(cr *operatorv1beta1.Cryostat) *corev1.ResourceRequirements {
+func (r *TestResources) NewCoreContainerResource(cr *operatorv1beta1.Cryostat) *corev1.ResourceRequirements {
 	requests := newCoreContainerDefaultResource().Requests
 	var limits corev1.ResourceList
 	if cr.Spec.Resources != nil && cr.Spec.Resources.CoreResources.Requests != nil {
@@ -2616,7 +2602,7 @@ func newDatasourceContainerDefaultResource() *corev1.ResourceRequirements {
 	}
 }
 
-func NewDatasourceContainerResource(cr *operatorv1beta1.Cryostat) *corev1.ResourceRequirements {
+func (r *TestResources) NewDatasourceContainerResource(cr *operatorv1beta1.Cryostat) *corev1.ResourceRequirements {
 	requests := newDatasourceContainerDefaultResource().Requests
 	var limits corev1.ResourceList
 	if cr.Spec.Resources != nil && cr.Spec.Resources.DataSourceResources.Requests != nil {
@@ -2644,7 +2630,7 @@ func newGrafanaContainerDefaultResource() *corev1.ResourceRequirements {
 	}
 }
 
-func NewGrafanaContainerResource(cr *operatorv1beta1.Cryostat) *corev1.ResourceRequirements {
+func (r *TestResources) NewGrafanaContainerResource(cr *operatorv1beta1.Cryostat) *corev1.ResourceRequirements {
 	requests := newGrafanaContainerDefaultResource().Requests
 	var limits corev1.ResourceList
 	if cr.Spec.Resources != nil && cr.Spec.Resources.GrafanaResources.Requests != nil {
@@ -2672,7 +2658,7 @@ func newReportContainerDefaultResource() *corev1.ResourceRequirements {
 	}
 }
 
-func NewReportContainerResource(cr *operatorv1beta1.Cryostat) *corev1.ResourceRequirements {
+func (r *TestResources) NewReportContainerResource(cr *operatorv1beta1.Cryostat) *corev1.ResourceRequirements {
 	requests := newReportContainerDefaultResource().Requests
 	var limits corev1.ResourceList
 
