@@ -37,6 +37,7 @@
 package test
 
 import (
+	"crypto/sha256"
 	"fmt"
 
 	operatorv1beta1 "github.com/cryostatio/cryostat-operator/api/v1beta1"
@@ -2407,10 +2408,15 @@ func (r *TestResources) OtherRoleBinding() *rbacv1.RoleBinding {
 	}
 }
 
+func (r *TestResources) clusterUniqueSuffix() string {
+	toEncode := r.Namespace + "/cryostat"
+	return fmt.Sprintf("%x", sha256.Sum256([]byte(toEncode)))
+}
+
 func (r *TestResources) NewClusterRoleBinding() *rbacv1.ClusterRoleBinding {
 	return &rbacv1.ClusterRoleBinding{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: "cryostat-ffc3f6d167f69f78c5882a8f67be7efcc7f2f9062145a98f99f7863922c52b10",
+			Name: "cryostat-" + r.clusterUniqueSuffix(),
 		},
 		Subjects: []rbacv1.Subject{
 			{
@@ -2430,7 +2436,7 @@ func (r *TestResources) NewClusterRoleBinding() *rbacv1.ClusterRoleBinding {
 func (r *TestResources) OtherClusterRoleBinding() *rbacv1.ClusterRoleBinding {
 	return &rbacv1.ClusterRoleBinding{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: "cryostat-ffc3f6d167f69f78c5882a8f67be7efcc7f2f9062145a98f99f7863922c52b10",
+			Name: "cryostat-" + r.clusterUniqueSuffix(),
 			Labels: map[string]string{
 				"test": "label",
 			},
@@ -2509,7 +2515,7 @@ func (r *TestResources) NewNamespaceWithSCCSupGroups() *corev1.Namespace {
 func (r *TestResources) NewConsoleLink() *consolev1.ConsoleLink {
 	return &consolev1.ConsoleLink{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: "cryostat-ffc3f6d167f69f78c5882a8f67be7efcc7f2f9062145a98f99f7863922c52b10",
+			Name: "cryostat-" + r.clusterUniqueSuffix(),
 		},
 		Spec: consolev1.ConsoleLinkSpec{
 			Link: consolev1.Link{
@@ -2527,7 +2533,7 @@ func (r *TestResources) NewConsoleLink() *consolev1.ConsoleLink {
 func (r *TestResources) OtherConsoleLink() *consolev1.ConsoleLink {
 	return &consolev1.ConsoleLink{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: "cryostat-ffc3f6d167f69f78c5882a8f67be7efcc7f2f9062145a98f99f7863922c52b10",
+			Name: "cryostat-" + r.clusterUniqueSuffix(),
 			Labels: map[string]string{
 				"my": "label",
 			},

@@ -419,9 +419,10 @@ var _ = Describe("CryostatController", func() {
 			It("should update the Cluster Role Binding", func() {
 				t.reconcileCryostatFully()
 
+				expected := t.NewClusterRoleBinding()
 				binding := &rbacv1.ClusterRoleBinding{}
 				err := t.Client.Get(context.Background(), types.NamespacedName{
-					Name: "cryostat-ffc3f6d167f69f78c5882a8f67be7efcc7f2f9062145a98f99f7863922c52b10",
+					Name: expected.Name,
 				}, binding)
 				Expect(err).ToNot(HaveOccurred())
 
@@ -430,7 +431,6 @@ var _ = Describe("CryostatController", func() {
 				Expect(binding.Annotations).To(Equal(oldBinding.Annotations))
 
 				// Subjects and RoleRef should be fully replaced
-				expected := t.NewClusterRoleBinding()
 				Expect(binding.Subjects).To(Equal(expected.Subjects))
 				Expect(binding.RoleRef).To(Equal(expected.RoleRef))
 			})
@@ -1947,9 +1947,10 @@ var _ = Describe("CryostatController", func() {
 			It("should update the Cluster Role Binding", func() {
 				t.reconcileCryostatFully()
 
+				expected := t.NewClusterRoleBinding()
 				binding := &rbacv1.ClusterRoleBinding{}
 				err := t.Client.Get(context.Background(), types.NamespacedName{
-					Name: "cryostat-ffc3f6d167f69f78c5882a8f67be7efcc7f2f9062145a98f99f7863922c52b10",
+					Name: expected.Name,
 				}, binding)
 				Expect(err).ToNot(HaveOccurred())
 
@@ -1958,7 +1959,6 @@ var _ = Describe("CryostatController", func() {
 				Expect(binding.Annotations).To(Equal(oldBinding.Annotations))
 
 				// Subjects and RoleRef should be fully replaced
-				expected := t.NewClusterRoleBinding()
 				Expect(binding.Subjects).To(Equal(expected.Subjects))
 				Expect(binding.RoleRef).To(Equal(expected.RoleRef))
 			})
@@ -2190,11 +2190,10 @@ func (t *cryostatTestInput) expectRBAC() {
 	Expect(binding.Subjects).To(Equal(expectedBinding.Subjects))
 	Expect(binding.RoleRef).To(Equal(expectedBinding.RoleRef))
 
-	clusterBinding := &rbacv1.ClusterRoleBinding{}
-	err = t.Client.Get(context.Background(), types.NamespacedName{
-		Name: "cryostat-ffc3f6d167f69f78c5882a8f67be7efcc7f2f9062145a98f99f7863922c52b10"}, clusterBinding)
-	Expect(err).ToNot(HaveOccurred())
 	expectedClusterBinding := t.NewClusterRoleBinding()
+	clusterBinding := &rbacv1.ClusterRoleBinding{}
+	err = t.Client.Get(context.Background(), types.NamespacedName{Name: expectedClusterBinding.Name}, clusterBinding)
+	Expect(err).ToNot(HaveOccurred())
 	Expect(clusterBinding.GetName()).To(Equal(expectedClusterBinding.GetName()))
 	Expect(clusterBinding.GetNamespace()).To(Equal(expectedClusterBinding.GetNamespace()))
 	Expect(clusterBinding.GetLabels()).To(Equal(expectedClusterBinding.GetLabels()))
@@ -2205,8 +2204,7 @@ func (t *cryostatTestInput) expectRBAC() {
 
 func (t *cryostatTestInput) checkClusterRoleBindingDeleted() {
 	clusterBinding := &rbacv1.ClusterRoleBinding{}
-	err := t.Client.Get(context.Background(), types.NamespacedName{
-		Name: "cryostat-ffc3f6d167f69f78c5882a8f67be7efcc7f2f9062145a98f99f7863922c52b10"}, clusterBinding)
+	err := t.Client.Get(context.Background(), types.NamespacedName{Name: t.NewClusterRoleBinding().Name}, clusterBinding)
 	Expect(kerrors.IsNotFound(err)).To(BeTrue())
 }
 
