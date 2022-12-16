@@ -46,6 +46,7 @@ import (
 	resources "github.com/cryostatio/cryostat-operator/internal/controllers/common/resource_definitions"
 	certv1 "github.com/jetstack/cert-manager/pkg/apis/certmanager/v1"
 	corev1 "k8s.io/api/core/v1"
+	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -103,32 +104,48 @@ func (r *CryostatReconciler) setupTLS(ctx context.Context, cr *operatorv1beta1.C
 		return nil, err
 	}
 
-	// Create a certificate for Grafana signed by the Cryostat CA
-	grafanaCert := resources.NewGrafanaCert(cr)
-	err = r.createOrUpdateCertificate(ctx, grafanaCert, cr)
-	if err != nil {
-		return nil, err
-	}
-
+	
 	// Create a certificate for the reports generator signed by the Cryostat CA
 	reportsCert := resources.NewReportsCert(cr)
 	err = r.createOrUpdateCertificate(ctx, reportsCert, cr)
 	if err != nil {
 		return nil, err
 	}
+	tlsConfig := &resources.TLSConfig{
+		CryostatSecret:     cryostatCert.Spec.SecretName,
+		ReportsSecret:      reportsCert.Spec.SecretName,
+		KeystorePassSecret: cryostatCert.Spec.Keystores.PKCS12.PasswordSecretRef.Name,
+	}
+	certificates := []*certv1.Certificate{caCert, cryostatCert, reportsCert}
+	// Create a certificate for Grafana signed by the Cryostat CA
+	if (!cr.Spec.Minimal) {
+		grafanaCert := resources.NewGrafanaCert(cr)
+		err = r.createOrUpdateCertificate(ctx, grafanaCert, cr)
+	if err != nil {
+		return nil, err
+	}
+	certificates = append(certificates, grafanaCert)
+	tlsConfig.GrafanaSecret = grafanaCert.Spec.SecretName
+	} else if (cr.Spec.Minimal) {
+		grafanaCert := resources.NewGrafanaCert(cr)
+		secret, err := r.GetCertificateSecret(ctx, grafanaCert.Name, grafanaCert.Namespace)
+		if secret != nil {
+			r.deleteSecret(ctx, secret)
+		}
+		err = r.deleteCert(ctx, grafanaCert)
+		if err != nil {
+			return nil, err
+		}
+		return nil, err
+	}
 
 	// Update owner references of TLS secrets created by cert-manager to ensure proper cleanup
-	err = r.setCertSecretOwner(ctx, cr, caCert, cryostatCert, grafanaCert, reportsCert)
+	err = r.setCertSecretOwner(ctx, cr, certificates...)
 	if err != nil {
 		return nil, err
 	}
 
-	return &resources.TLSConfig{
-		CryostatSecret:     cryostatCert.Spec.SecretName,
-		GrafanaSecret:      grafanaCert.Spec.SecretName,
-		ReportsSecret:      reportsCert.Spec.SecretName,
-		KeystorePassSecret: cryostatCert.Spec.Keystores.PKCS12.PasswordSecretRef.Name,
-	}, nil
+	return tlsConfig, nil
 }
 
 func (r *CryostatReconciler) setCertSecretOwner(ctx context.Context, cr *operatorv1beta1.Cryostat, certs ...*certv1.Certificate) error {
@@ -234,5 +251,15 @@ func (r *CryostatReconciler) createOrUpdateKeystoreSecret(ctx context.Context, s
 		return err
 	}
 	r.Log.Info(fmt.Sprintf("Secret %s", op), "name", secret.Name, "namespace", secret.Namespace)
+	return nil
+}
+
+func (r *CryostatReconciler) deleteCert(ctx context.Context, cert *certv1.Certificate) error {
+	err := r.Client.Delete(ctx, cert)
+	if err != nil && !kerrors.IsNotFound(err) {
+		r.Log.Error(err, "Could not delete certificate", "name", cert.Name, "namespace", cert.Namespace)
+		return err
+	}
+	r.Log.Info("Cert deleted", "name", cert.Name, "namespace", cert.Namespace)
 	return nil
 }
