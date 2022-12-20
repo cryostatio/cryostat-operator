@@ -40,6 +40,11 @@ import (
 	"context"
 	"time"
 
+	certv1 "github.com/jetstack/cert-manager/pkg/apis/certmanager/v1"
+	certMeta "github.com/jetstack/cert-manager/pkg/apis/meta/v1"
+	"github.com/onsi/gomega"
+	routev1 "github.com/openshift/api/route/v1"
+	corev1 "k8s.io/api/core/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -47,14 +52,108 @@ import (
 	ctrlclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
+type commonTestClient struct {
+	ctrlclient.Client
+}
+
+func newCommonTestClient(client ctrlclient.Client) *commonTestClient {
+	return &commonTestClient{
+		Client: client,
+	}
+}
+
+type testClient struct {
+	*commonTestClient
+	*TestResources
+}
+
+func NewTestClient(client ctrlclient.Client, resources *TestResources) ctrlclient.Client {
+	return &testClient{
+		commonTestClient: newCommonTestClient(client),
+		TestResources:    resources,
+	}
+}
+
+func (c *testClient) Create(ctx context.Context, obj ctrlclient.Object, opts ...ctrlclient.CreateOption) error {
+	err := c.Client.Create(ctx, obj, opts...)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (c *testClient) Update(ctx context.Context, obj ctrlclient.Object, opts ...ctrlclient.UpdateOption) error {
+	err := c.Client.Update(ctx, obj, opts...)
+	if err != nil {
+		return err
+	}
+	//copy := obj.DeepCopyObject()
+	//c.makeCertificatesReady(ctx, copy)
+	//c.updateRouteStatus(ctx, copy)
+	return nil
+}
+
+func (c *testClient) Get(ctx context.Context, key ctrlclient.ObjectKey, obj ctrlclient.Object) error {
+	err := c.Client.Get(ctx, key, obj)
+	if err != nil {
+		return err
+	}
+	//copy := obj.DeepCopyObject()
+	c.makeCertificatesReady(ctx, obj)
+	c.updateRouteStatus(ctx, obj)
+	return nil
+}
+
+func (c *testClient) makeCertificatesReady(ctx context.Context, obj runtime.Object) {
+	cert, ok := obj.(*certv1.Certificate)
+	if ok && c.matchesName(cert, c.NewCryostatCert(), c.NewCACert(), c.NewGrafanaCert(), c.NewReportsCert()) &&
+		len(cert.Status.Conditions) == 0 {
+		// Create certificate secret
+		c.createCertSecret(ctx, cert)
+		// Mark certificate as ready
+		cert.Status.Conditions = append(cert.Status.Conditions, certv1.CertificateCondition{
+			Type:   certv1.CertificateConditionReady,
+			Status: certMeta.ConditionTrue,
+		})
+		err := c.Status().Update(context.Background(), cert)
+		gomega.Expect(err).ToNot(gomega.HaveOccurred())
+	}
+}
+
+func (c *testClient) createCertSecret(ctx context.Context, cert *certv1.Certificate) {
+	secret := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      cert.Spec.SecretName,
+			Namespace: cert.Namespace,
+		},
+		Data: map[string][]byte{
+			corev1.TLSCertKey: []byte(cert.Name + "-bytes"),
+		},
+	}
+	err := c.Create(ctx, secret)
+	gomega.Expect(err).ToNot(gomega.HaveOccurred())
+}
+
+func (c *testClient) updateRouteStatus(ctx context.Context, obj runtime.Object) {
+	route, ok := obj.(*routev1.Route)
+	if ok && c.matchesName(route, c.NewGrafanaRoute(), c.NewCoreRoute()) &&
+		len(route.Status.Ingress) == 0 {
+		route.Status.Ingress = append(route.Status.Ingress, routev1.RouteIngress{
+			Host: route.Name + ".example.com",
+		})
+		err := c.Status().Update(context.Background(), route)
+		gomega.Expect(err).ToNot(gomega.HaveOccurred())
+	}
+}
+
 // TODO When using envtest instead of fake client, this is probably no longer needed
 type timestampClient struct {
-	ctrlclient.Client
+	*commonTestClient
 }
 
 func NewClientWithTimestamp(client ctrlclient.Client) ctrlclient.Client {
 	return &timestampClient{
-		Client: client,
+		commonTestClient: newCommonTestClient(client),
 	}
 }
 
@@ -80,7 +179,7 @@ func SetCreationTimestamp(objs ...runtime.Object) error {
 }
 
 type clientUpdateError struct {
-	ctrlclient.Client
+	*commonTestClient
 	failObj ctrlclient.Object
 	err     *kerrors.StatusError
 }
@@ -90,9 +189,9 @@ type clientUpdateError struct {
 func NewClientWithUpdateError(client ctrlclient.Client, failObj ctrlclient.Object,
 	err *kerrors.StatusError) ctrlclient.Client {
 	return &clientUpdateError{
-		Client:  client,
-		failObj: failObj,
-		err:     err,
+		commonTestClient: newCommonTestClient(client),
+		failObj:          failObj,
+		err:              err,
 	}
 }
 
@@ -100,7 +199,7 @@ func (c *clientUpdateError) Update(ctx context.Context, obj ctrlclient.Object,
 	opts ...ctrlclient.UpdateOption) error {
 	if obj.GetName() == c.failObj.GetName() && obj.GetNamespace() == c.failObj.GetNamespace() {
 		// Look up Kind and compare against object to fail on
-		match, err := c.matchesKind(obj)
+		match, err := c.matchesKind(obj, c.failObj)
 		if err != nil {
 			return err
 		}
@@ -111,9 +210,9 @@ func (c *clientUpdateError) Update(ctx context.Context, obj ctrlclient.Object,
 	return c.Client.Update(ctx, obj, opts...)
 }
 
-func (c *clientUpdateError) matchesKind(obj ctrlclient.Object) (*bool, error) {
+func (c *commonTestClient) matchesKind(obj, expected ctrlclient.Object) (*bool, error) {
 	match := false
-	failKinds, _, err := c.Scheme().ObjectKinds(c.failObj)
+	expectKinds, _, err := c.Scheme().ObjectKinds(expected)
 	if err != nil {
 		return nil, err
 	}
@@ -122,13 +221,22 @@ func (c *clientUpdateError) matchesKind(obj ctrlclient.Object) (*bool, error) {
 		return nil, err
 	}
 
-	for _, failKind := range failKinds {
+	for _, expectKind := range expectKinds {
 		for _, kind := range kinds {
-			if failKind == kind {
+			if expectKind == kind {
 				match = true
 				return &match, nil
 			}
 		}
 	}
 	return &match, nil
+}
+
+func (c *commonTestClient) matchesName(obj ctrlclient.Object, expectedObjs ...ctrlclient.Object) bool {
+	for _, expected := range expectedObjs {
+		if obj.GetName() == expected.GetName() {
+			return true
+		}
+	}
+	return false
 }
