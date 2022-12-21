@@ -881,6 +881,18 @@ func (r *TestResources) OtherJMXSecret() *corev1.Secret {
 	}
 }
 
+func (r *TestResources) NewTestCertSecret(name string) *corev1.Secret {
+	return &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: r.Namespace,
+		},
+		Data: map[string][]byte{
+			corev1.TLSCertKey: []byte(name + "-bytes"),
+		},
+	}
+}
+
 func (r *TestResources) NewCryostatCert() *certv1.Certificate {
 	return &certv1.Certificate{
 		ObjectMeta: metav1.ObjectMeta{

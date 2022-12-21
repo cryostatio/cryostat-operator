@@ -786,8 +786,8 @@ var _ = Describe("CryostatController", func() {
 			var cr *operatorv1beta1.Cryostat
 			BeforeEach(func() {
 				cr = t.NewCryostatWithSecrets()
-				t.objs = append(t.objs, cr,
-					t.newFakeSecret("testCert1"), t.newFakeSecret("testCert2"))
+				t.objs = append(t.objs, cr, t.NewTestCertSecret("testCert1"),
+					t.NewTestCertSecret("testCert2"))
 			})
 			It("Should add volumes and volumeMounts to deployment", func() {
 				t.expectDeploymentHasCertSecrets()
@@ -805,8 +805,8 @@ var _ = Describe("CryostatController", func() {
 		})
 		Context("Adding a certificate to the TrustedCertSecrets list", func() {
 			BeforeEach(func() {
-				t.objs = append(t.objs, t.NewCryostat(), t.newFakeSecret("testCert1"),
-					t.newFakeSecret("testCert2"))
+				t.objs = append(t.objs, t.NewCryostat(), t.NewTestCertSecret("testCert1"),
+					t.NewTestCertSecret("testCert2"))
 			})
 			JustBeforeEach(func() {
 				t.reconcileCryostatFully()
@@ -1928,19 +1928,6 @@ var _ = Describe("CryostatController", func() {
 		})
 	})
 })
-
-// TODO Refactor
-func (t *cryostatTestInput) newFakeSecret(name string) *corev1.Secret {
-	return &corev1.Secret{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      name,
-			Namespace: t.Namespace,
-		},
-		Data: map[string][]byte{
-			corev1.TLSCertKey: []byte(name + "-bytes"),
-		},
-	}
-}
 
 func (t *cryostatTestInput) checkRoutes() {
 	if !t.Minimal {
