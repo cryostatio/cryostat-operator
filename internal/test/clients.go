@@ -67,6 +67,9 @@ type testClient struct {
 	*TestResources
 }
 
+// NewTestClient returns a client to be used by the Cryostat controller under test.
+// This client wraps an existing client and mocks the behaviour of external Kubernetes
+// controllers that are not present in the test environment.
 func NewTestClient(client ctrlclient.Client, resources *TestResources) ctrlclient.Client {
 	return &testClient{
 		commonTestClient: newCommonTestClient(client),
@@ -74,37 +77,20 @@ func NewTestClient(client ctrlclient.Client, resources *TestResources) ctrlclien
 	}
 }
 
-func (c *testClient) Create(ctx context.Context, obj ctrlclient.Object, opts ...ctrlclient.CreateOption) error {
-	err := c.Client.Create(ctx, obj, opts...)
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
-func (c *testClient) Update(ctx context.Context, obj ctrlclient.Object, opts ...ctrlclient.UpdateOption) error {
-	err := c.Client.Update(ctx, obj, opts...)
-	if err != nil {
-		return err
-	}
-	//copy := obj.DeepCopyObject()
-	//c.makeCertificatesReady(ctx, copy)
-	//c.updateRouteStatus(ctx, copy)
-	return nil
-}
-
 func (c *testClient) Get(ctx context.Context, key ctrlclient.ObjectKey, obj ctrlclient.Object) error {
 	err := c.Client.Get(ctx, key, obj)
 	if err != nil {
 		return err
 	}
-	//copy := obj.DeepCopyObject()
+	// If this is a certificate or route, update the status after the first successful Get operation
 	c.makeCertificatesReady(ctx, obj)
 	c.updateRouteStatus(ctx, obj)
 	return nil
 }
 
 func (c *testClient) makeCertificatesReady(ctx context.Context, obj runtime.Object) {
+	// If this object is one of the operator-managed certificates, mock the behaviour
+	// of cert-manager processing those certificates
 	cert, ok := obj.(*certv1.Certificate)
 	if ok && c.matchesName(cert, c.NewCryostatCert(), c.NewCACert(), c.NewGrafanaCert(), c.NewReportsCert()) &&
 		len(cert.Status.Conditions) == 0 {
@@ -121,6 +107,7 @@ func (c *testClient) makeCertificatesReady(ctx context.Context, obj runtime.Obje
 }
 
 func (c *testClient) createCertSecret(ctx context.Context, cert *certv1.Certificate) {
+	// The secret's data isn't important, we simply need it to exist
 	secret := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      cert.Spec.SecretName,
@@ -135,6 +122,8 @@ func (c *testClient) createCertSecret(ctx context.Context, cert *certv1.Certific
 }
 
 func (c *testClient) updateRouteStatus(ctx context.Context, obj runtime.Object) {
+	// If this object is an operator-managed route, mock the behaviour
+	// of OpenShift's router by setting a dummy hostname in its Status
 	route, ok := obj.(*routev1.Route)
 	if ok && c.matchesName(route, c.NewGrafanaRoute(), c.NewCoreRoute()) &&
 		len(route.Status.Ingress) == 0 {
