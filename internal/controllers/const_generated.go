@@ -5,13 +5,13 @@ package controllers
 const AppName = "Cryostat"
 
 // Default image tag for the core application image
-const DefaultCoreImageTag = "quay.io/cryostat/cryostat:2.2.1"
+const DefaultCoreImageTag = "quay.io/cryostat/cryostat:2.2.2-snapshot"
 
 // Default image tag for the JFR datasource image
-const DefaultDatasourceImageTag = "quay.io/cryostat/jfr-datasource:2.2.0"
+const DefaultDatasourceImageTag = "quay.io/cryostat/jfr-datasource:2.2.1-snapshot"
 
 // Default image tag for the Grafana dashboard image
-const DefaultGrafanaImageTag = "quay.io/cryostat/cryostat-grafana-dashboard:2.2.0"
+const DefaultGrafanaImageTag = "quay.io/cryostat/cryostat-grafana-dashboard:cryostat-v2.2"
 
 // Default image tag for the Grafana dashboard image
-const DefaultReportsImageTag = "quay.io/cryostat/cryostat-reports:1.1.1"
+const DefaultReportsImageTag = "quay.io/cryostat/cryostat-reports:1.1.2-snapshot"

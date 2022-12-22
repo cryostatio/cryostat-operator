@@ -69,7 +69,7 @@ stages:
   - entrypoint:
     - cryostat-scorecard-tests
     - operator-install
-    image: quay.io/cryostat/cryostat-operator-scorecard:2.2.1-20221117202305
+    image: quay.io/cryostat/cryostat-operator-scorecard:2.2.2-20221222182509
     labels:
       suite: cryostat
       test: operator-install
