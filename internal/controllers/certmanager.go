@@ -123,18 +123,25 @@ func (r *CryostatReconciler) setupTLS(ctx context.Context, cr *operatorv1beta1.C
 		return nil, err
 	}
 
+	// Get the Cryostat CA certificate bytes from certificate secret
+	caBytes, err := r.getCertficateBytes(ctx, caCert)
+	if err != nil {
+		return nil, err
+	}
+
 	return &resources.TLSConfig{
 		CryostatSecret:     cryostatCert.Spec.SecretName,
 		GrafanaSecret:      grafanaCert.Spec.SecretName,
 		ReportsSecret:      reportsCert.Spec.SecretName,
 		KeystorePassSecret: cryostatCert.Spec.Keystores.PKCS12.PasswordSecretRef.Name,
+		CACert:             caBytes,
 	}, nil
 }
 
 func (r *CryostatReconciler) setCertSecretOwner(ctx context.Context, cr *operatorv1beta1.Cryostat, certs ...*certv1.Certificate) error {
 	// Make Cryostat CR controller of secrets created by cert-manager
 	for _, cert := range certs {
-		secret, err := r.GetCertificateSecret(ctx, cert.Name, cert.Namespace)
+		secret, err := r.GetCertificateSecret(ctx, cert)
 		if err != nil {
 			if err == common.ErrCertNotReady {
 				r.Log.Info("Certificate not yet ready", "name", cert.Name, "namespace", cert.Namespace)
@@ -235,4 +242,12 @@ func (r *CryostatReconciler) createOrUpdateKeystoreSecret(ctx context.Context, s
 	}
 	r.Log.Info(fmt.Sprintf("Secret %s", op), "name", secret.Name, "namespace", secret.Namespace)
 	return nil
+}
+
+func (r *CryostatReconciler) getCertficateBytes(ctx context.Context, cert *certv1.Certificate) ([]byte, error) {
+	secret, err := r.GetCertificateSecret(ctx, cert)
+	if err != nil {
+		return nil, err
+	}
+	return secret.Data[corev1.TLSCertKey], nil
 }

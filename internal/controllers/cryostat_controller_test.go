@@ -42,7 +42,6 @@ import (
 	"time"
 
 	certv1 "github.com/jetstack/cert-manager/pkg/apis/certmanager/v1"
-	certMeta "github.com/jetstack/cert-manager/pkg/apis/meta/v1"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	configv1 "github.com/openshift/api/config/v1"
@@ -91,9 +90,9 @@ var _ = Describe("CryostatController", func() {
 		// TODO When using envtest instead of fake client, this is probably no longer needed
 		err := test.SetCreationTimestamp(t.objs...)
 		Expect(err).ToNot(HaveOccurred())
-		t.Client = test.NewClientWithTimestamp(fake.NewClientBuilder().WithScheme(s).WithRuntimeObjects(t.objs...).Build())
+		t.Client = fake.NewClientBuilder().WithScheme(s).WithRuntimeObjects(t.objs...).Build()
 		t.controller = &controllers.CryostatReconciler{
-			Client:        t.Client,
+			Client:        test.NewClientWithTimestamp(test.NewTestClient(t.Client, t.TestResources)),
 			Scheme:        s,
 			IsOpenShift:   t.OpenShift,
 			EventRecorder: record.NewFakeRecorder(1024),
@@ -287,7 +286,6 @@ var _ = Describe("CryostatController", func() {
 			})
 			JustBeforeEach(func() {
 				t.reconcileCryostatFully()
-
 			})
 			It("should update the Deployment", func() {
 				deploy := &appsv1.Deployment{}
@@ -535,8 +533,7 @@ var _ = Describe("CryostatController", func() {
 				err = t.Client.Update(context.Background(), cryostat)
 				Expect(err).ToNot(HaveOccurred())
 
-				req := reconcile.Request{NamespacedName: types.NamespacedName{Name: "cryostat", Namespace: t.Namespace}}
-				t.updateRouteStatus(req, t.NewGrafanaRoute())
+				t.reconcileCryostatFully()
 			})
 			It("should create Grafana network resources", func() {
 				t.checkGrafanaService()
@@ -565,9 +562,7 @@ var _ = Describe("CryostatController", func() {
 				err = t.Client.Status().Update(context.Background(), cryostat)
 				Expect(err).ToNot(HaveOccurred())
 
-				req := reconcile.Request{NamespacedName: types.NamespacedName{Name: "cryostat", Namespace: t.Namespace}}
-				_, err = t.controller.Reconcile(context.Background(), req)
-				Expect(err).ToNot(HaveOccurred())
+				t.reconcileCryostatFully()
 			})
 			It("should delete Grafana network resources", func() {
 				service := &corev1.Service{}
@@ -698,10 +693,7 @@ var _ = Describe("CryostatController", func() {
 				err = t.Client.Status().Update(context.Background(), cryostat)
 				Expect(err).ToNot(HaveOccurred())
 
-				req := reconcile.Request{NamespacedName: types.NamespacedName{Name: "cryostat", Namespace: t.Namespace}}
-				result, err := t.controller.Reconcile(context.Background(), req)
-				Expect(err).ToNot(HaveOccurred())
-				Expect(result).To(Equal(reconcile.Result{}))
+				t.reconcileCryostatFully()
 			})
 			It("should configure deployment appropriately", func() {
 				t.checkMainDeployment()
@@ -726,10 +718,7 @@ var _ = Describe("CryostatController", func() {
 				err = t.Client.Status().Update(context.Background(), cryostat)
 				Expect(err).ToNot(HaveOccurred())
 
-				req := reconcile.Request{NamespacedName: types.NamespacedName{Name: "cryostat", Namespace: t.Namespace}}
-				result, err := t.controller.Reconcile(context.Background(), req)
-				Expect(err).ToNot(HaveOccurred())
-				Expect(result).To(Equal(reconcile.Result{}))
+				t.reconcileCryostatFully()
 			})
 			It("should configure deployment appropriately", func() {
 				t.checkMainDeployment()
@@ -754,10 +743,7 @@ var _ = Describe("CryostatController", func() {
 				err = t.Client.Status().Update(context.Background(), cryostat)
 				Expect(err).ToNot(HaveOccurred())
 
-				req := reconcile.Request{NamespacedName: types.NamespacedName{Name: "cryostat", Namespace: t.Namespace}}
-				result, err := t.controller.Reconcile(context.Background(), req)
-				Expect(err).ToNot(HaveOccurred())
-				Expect(result).To(Equal(reconcile.Result{}))
+				t.reconcileCryostatFully()
 			})
 			It("should configure deployment appropriately", func() {
 				t.checkMainDeployment()
@@ -783,10 +769,7 @@ var _ = Describe("CryostatController", func() {
 				err = t.Client.Status().Update(context.Background(), cryostat)
 				Expect(err).ToNot(HaveOccurred())
 
-				req := reconcile.Request{NamespacedName: types.NamespacedName{Name: "cryostat", Namespace: t.Namespace}}
-				result, err := t.controller.Reconcile(context.Background(), req)
-				Expect(err).ToNot(HaveOccurred())
-				Expect(result).To(Equal(reconcile.Result{}))
+				t.reconcileCryostatFully()
 			})
 			It("should configure deployment appropriately", func() {
 				t.checkMainDeployment()
@@ -803,8 +786,8 @@ var _ = Describe("CryostatController", func() {
 			var cr *operatorv1beta1.Cryostat
 			BeforeEach(func() {
 				cr = t.NewCryostatWithSecrets()
-				t.objs = append(t.objs, cr,
-					t.newFakeSecret("testCert1"), t.newFakeSecret("testCert2"))
+				t.objs = append(t.objs, cr, t.NewTestCertSecret("testCert1"),
+					t.NewTestCertSecret("testCert2"))
 			})
 			It("Should add volumes and volumeMounts to deployment", func() {
 				t.expectDeploymentHasCertSecrets()
@@ -822,8 +805,8 @@ var _ = Describe("CryostatController", func() {
 		})
 		Context("Adding a certificate to the TrustedCertSecrets list", func() {
 			BeforeEach(func() {
-				t.objs = append(t.objs, t.NewCryostat(), t.newFakeSecret("testCert1"),
-					t.newFakeSecret("testCert2"))
+				t.objs = append(t.objs, t.NewCryostat(), t.NewTestCertSecret("testCert1"),
+					t.NewTestCertSecret("testCert2"))
 			})
 			JustBeforeEach(func() {
 				t.reconcileCryostatFully()
@@ -839,10 +822,7 @@ var _ = Describe("CryostatController", func() {
 				err = t.Client.Update(context.Background(), cr)
 				Expect(err).ToNot(HaveOccurred())
 
-				req := reconcile.Request{NamespacedName: types.NamespacedName{Name: "cryostat", Namespace: t.Namespace}}
-				result, err := t.controller.Reconcile(context.Background(), req)
-				Expect(err).ToNot(HaveOccurred())
-				Expect(result).To(Equal(reconcile.Result{}))
+				t.reconcileCryostatFully()
 
 				deployment := &appsv1.Deployment{}
 				err = t.Client.Get(context.Background(), types.NamespacedName{Name: "cryostat", Namespace: t.Namespace}, deployment)
@@ -900,11 +880,7 @@ var _ = Describe("CryostatController", func() {
 				err = t.Client.Update(context.Background(), cr)
 				Expect(err).ToNot(HaveOccurred())
 
-				req := reconcile.Request{NamespacedName: types.NamespacedName{Name: "cryostat", Namespace: t.Namespace}}
-				result, err := t.controller.Reconcile(context.Background(), req)
-				Expect(err).ToNot(HaveOccurred())
-				Expect(result).To(Equal(reconcile.Result{}))
-
+				t.reconcileCryostatFully()
 				t.checkDeploymentHasTemplates()
 			})
 		})
@@ -1329,9 +1305,7 @@ var _ = Describe("CryostatController", func() {
 				err = t.Client.Status().Update(context.Background(), cryostat)
 				Expect(err).ToNot(HaveOccurred())
 
-				req := reconcile.Request{NamespacedName: types.NamespacedName{Name: "cryostat", Namespace: t.Namespace}}
-				_, err = t.controller.Reconcile(context.Background(), req)
-				Expect(err).ToNot(HaveOccurred())
+				t.reconcileCryostatFully()
 			})
 			It("should update the deployment", func() {
 				t.checkMainDeployment()
@@ -1362,15 +1336,7 @@ var _ = Describe("CryostatController", func() {
 				err = t.Client.Status().Update(context.Background(), cryostat)
 				Expect(err).ToNot(HaveOccurred())
 
-				req := reconcile.Request{NamespacedName: types.NamespacedName{Name: "cryostat", Namespace: t.Namespace}}
-				_, err = t.controller.Reconcile(context.Background(), req)
-				Expect(err).ToNot(HaveOccurred())
-
-				t.makeCertificatesReady()
-				t.initializeSecrets()
-
-				_, err = t.controller.Reconcile(context.Background(), req)
-				Expect(err).ToNot(HaveOccurred())
+				t.reconcileCryostatFully()
 			})
 			It("should update the deployment", func() {
 				t.checkMainDeployment()
@@ -1477,10 +1443,7 @@ var _ = Describe("CryostatController", func() {
 					err = t.Client.Update(context.Background(), current)
 					Expect(err).ToNot(HaveOccurred())
 
-					// Reconcile again
-					result, err := t.controller.Reconcile(context.Background(), reconcile.Request{NamespacedName: namespacedName})
-					Expect(err).ToNot(HaveOccurred())
-					Expect(result).To(Equal(reconcile.Result{}))
+					t.reconcileCryostatFully()
 				})
 				Context("containing core config", func() {
 					BeforeEach(func() {
@@ -1966,63 +1929,6 @@ var _ = Describe("CryostatController", func() {
 	})
 })
 
-func (t *cryostatTestInput) newFakeSecret(name string) *corev1.Secret {
-	return &corev1.Secret{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      name,
-			Namespace: t.Namespace,
-		},
-		Data: map[string][]byte{
-			corev1.TLSCertKey: []byte(name + "-bytes"),
-		},
-	}
-}
-
-func (t *cryostatTestInput) makeCertificatesReady() {
-	certNames := []string{"cryostat", "cryostat-ca", "cryostat-grafana", "cryostat-reports"}
-	for _, certName := range certNames {
-		cert := &certv1.Certificate{}
-		err := t.Client.Get(context.Background(), types.NamespacedName{Name: certName, Namespace: t.Namespace}, cert)
-		Expect(err).ToNot(HaveOccurred())
-		cert.Status.Conditions = append(cert.Status.Conditions, certv1.CertificateCondition{
-			Type:   certv1.CertificateConditionReady,
-			Status: certMeta.ConditionTrue,
-		})
-		err = t.Client.Status().Update(context.Background(), cert)
-		Expect(err).ToNot(HaveOccurred())
-	}
-}
-
-func (t *cryostatTestInput) initializeSecrets() {
-	// Create secrets
-	secretNames := []string{"cryostat-ca", "cryostat-tls", "cryostat-grafana-tls", "cryostat-reports-tls"}
-	for _, secretName := range secretNames {
-		secret := t.newFakeSecret(secretName)
-		err := t.Client.Create(context.Background(), secret)
-		Expect(err).ToNot(HaveOccurred())
-	}
-}
-
-func (t *cryostatTestInput) updateRouteStatus(req reconcile.Request,
-	routes ...*openshiftv1.Route) {
-	for _, route := range routes {
-		result, err := t.controller.Reconcile(context.Background(), req)
-		Expect(err).ToNot(HaveOccurred())
-		Expect(result).To(Equal(reconcile.Result{RequeueAfter: 5 * time.Second}))
-
-		err = t.Client.Get(context.Background(), types.NamespacedName{Name: route.Name, Namespace: route.Namespace}, route)
-		Expect(err).ToNot(HaveOccurred())
-		route.Status.Ingress = append(route.Status.Ingress, openshiftv1.RouteIngress{
-			Host: route.Name + ".example.com",
-		})
-		err = t.Client.Status().Update(context.Background(), route)
-		Expect(err).ToNot(HaveOccurred())
-	}
-	result, err := t.controller.Reconcile(context.Background(), req)
-	Expect(err).ToNot(HaveOccurred())
-	Expect(result).To(Equal(reconcile.Result{}))
-}
-
 func (t *cryostatTestInput) checkRoutes() {
 	if !t.Minimal {
 		t.checkRoute(t.NewGrafanaRoute())
@@ -2064,28 +1970,11 @@ func (t *cryostatTestInput) checkConditionAbsent(condType operatorv1beta1.Cryost
 
 func (t *cryostatTestInput) reconcileCryostatFully() {
 	req := reconcile.Request{NamespacedName: types.NamespacedName{Name: "cryostat", Namespace: t.Namespace}}
-	result, err := t.controller.Reconcile(context.Background(), req)
-	Expect(err).ToNot(HaveOccurred())
-	Expect(result).To(Equal(reconcile.Result{RequeueAfter: 5 * time.Second}))
-
-	// Update certificate status
-	if t.TLS {
-		t.makeCertificatesReady()
-		t.initializeSecrets()
-	}
-
-	// Add ingress config to routes
-	if t.OpenShift {
-		if t.Minimal {
-			t.updateRouteStatus(req, t.NewCoreRoute())
-		} else {
-			t.updateRouteStatus(req, t.NewGrafanaRoute(), t.NewCoreRoute())
-		}
-	}
-
-	result, err = t.controller.Reconcile(context.Background(), req)
-	Expect(err).ToNot(HaveOccurred())
-	Expect(result).To(Equal(reconcile.Result{}))
+	Eventually(func() reconcile.Result {
+		result, err := t.controller.Reconcile(context.Background(), req)
+		Expect(err).ToNot(HaveOccurred())
+		return result
+	}).WithTimeout(time.Minute).WithPolling(time.Millisecond).Should(Equal(reconcile.Result{}))
 }
 
 func (t *cryostatTestInput) reconcileDeletedCryostat() {
@@ -2100,10 +1989,7 @@ func (t *cryostatTestInput) reconcileDeletedCryostat() {
 	Expect(err).ToNot(HaveOccurred())
 
 	// Reconcile again
-	req := reconcile.Request{NamespacedName: types.NamespacedName{Name: "cryostat", Namespace: t.Namespace}}
-	result, err := t.controller.Reconcile(context.Background(), req)
-	Expect(err).ToNot(HaveOccurred())
-	Expect(result).To(Equal(reconcile.Result{}))
+	t.reconcileCryostatFully()
 }
 
 func checkMetadata(object metav1.Object, expected metav1.Object) {
@@ -2439,9 +2325,7 @@ func (t *cryostatTestInput) expectIdempotence() {
 	Expect(err).ToNot(HaveOccurred())
 
 	// Reconcile again
-	result, err := t.controller.Reconcile(context.Background(), req)
-	Expect(err).ToNot(HaveOccurred())
-	Expect(result).To(Equal(reconcile.Result{}))
+	t.reconcileCryostatFully()
 
 	obj2 := &operatorv1beta1.Cryostat{}
 	err = t.Client.Get(context.Background(), req.NamespacedName, obj2)
@@ -2539,10 +2423,7 @@ func (t *cryostatTestInput) setDeploymentConditions(deployName string, available
 	Expect(err).ToNot(HaveOccurred())
 
 	// Reconcile again
-	req := reconcile.Request{NamespacedName: types.NamespacedName{Name: "cryostat", Namespace: t.Namespace}}
-	res, err := t.controller.Reconcile(context.Background(), req)
-	Expect(err).ToNot(HaveOccurred())
-	Expect(res).To(Equal(reconcile.Result{}))
+	t.reconcileCryostatFully()
 }
 
 func (t *cryostatTestInput) checkMainDeployment() {
