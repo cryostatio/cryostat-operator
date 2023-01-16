@@ -38,6 +38,7 @@ package controllers_test
 
 import (
 	"context"
+	"fmt"
 	"strconv"
 	"time"
 
@@ -125,10 +126,7 @@ var _ = Describe("CryostatController", func() {
 	})
 
 	Describe("reconciling a request in OpenShift", func() {
-		Context("successfully creates required resources", func() {
-			BeforeEach(func() {
-				t.objs = append(t.objs, t.NewCryostat())
-			})
+		expectSuccessful := func() {
 			It("should create certificates", func() {
 				t.expectCertificates()
 			})
@@ -213,6 +211,33 @@ var _ = Describe("CryostatController", func() {
 					})
 				})
 			})
+		}
+		Context("successfully creates required resources", func() {
+			BeforeEach(func() {
+				t.objs = append(t.objs, t.NewCryostat())
+			})
+
+			expectSuccessful()
+		})
+		Context("with multiple namespaces", func() {
+			namespaces := []string{"test-one", "test-two"}
+			BeforeEach(func() {
+				for _, ns := range namespaces {
+					t.Namespace = ns
+					t.objs = append(t.objs, t.NewNamespace(), t.NewCryostat())
+				}
+			})
+
+			for _, ns := range namespaces {
+				ns := ns // capture value
+				Context(fmt.Sprintf("successfully creates required resources in namespace %s", ns), func() {
+					BeforeEach(func() {
+						t.Namespace = ns
+					})
+
+					expectSuccessful()
+				})
+			}
 		})
 		Context("succesfully creates required resources for minimal deployment", func() {
 			BeforeEach(func() {
