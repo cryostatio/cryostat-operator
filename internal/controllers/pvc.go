@@ -41,6 +41,7 @@ import (
 	"fmt"
 
 	operatorv1beta1 "github.com/cryostatio/cryostat-operator/api/v1beta1"
+	"github.com/cryostatio/cryostat-operator/internal/controllers/model"
 	corev1 "k8s.io/api/core/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -51,7 +52,7 @@ import (
 // Event type to inform users of invalid PVC specs
 const eventPersistentVolumeClaimInvalidType = "PersistentVolumeClaimInvalid"
 
-func (r *CryostatReconciler) reconcilePVC(ctx context.Context, cr *operatorv1beta1.Cryostat) error {
+func (r *Reconciler) reconcilePVC(ctx context.Context, cr *model.CryostatInstance) error {
 	emptyDir := cr.Spec.StorageOptions != nil && cr.Spec.StorageOptions.EmptyDir != nil && cr.Spec.StorageOptions.EmptyDir.Enabled
 	if emptyDir {
 		// If user requested an emptyDir volume, then do nothing.
@@ -62,26 +63,26 @@ func (r *CryostatReconciler) reconcilePVC(ctx context.Context, cr *operatorv1bet
 	pvc := &corev1.PersistentVolumeClaim{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      cr.Name,
-			Namespace: cr.Namespace,
+			Namespace: cr.InstallNamespace,
 		},
 	}
 
 	// Look up PVC configuration, applying defaults where needed
 	config := configurePVC(cr)
 
-	err := r.createOrUpdatePVC(ctx, pvc, cr, config)
+	err := r.createOrUpdatePVC(ctx, pvc, cr.Instance, config)
 	if err != nil {
 		// If the API server says the PVC is invalid, emit a warning event
 		// to inform the user.
 		if kerrors.IsInvalid(err) {
-			r.EventRecorder.Event(cr, corev1.EventTypeWarning, eventPersistentVolumeClaimInvalidType, err.Error())
+			r.EventRecorder.Event(cr.Instance, corev1.EventTypeWarning, eventPersistentVolumeClaimInvalidType, err.Error())
 		}
 		return err
 	}
 	return nil
 }
 
-func (r *CryostatReconciler) createOrUpdatePVC(ctx context.Context, pvc *corev1.PersistentVolumeClaim,
+func (r *Reconciler) createOrUpdatePVC(ctx context.Context, pvc *corev1.PersistentVolumeClaim,
 	owner metav1.Object, config *operatorv1beta1.PersistentVolumeClaimConfig) error {
 	op, err := controllerutil.CreateOrUpdate(ctx, r.Client, pvc, func() error {
 		// Merge labels and annotations to prevent overriding any set by Kubernetes
@@ -114,7 +115,7 @@ func (r *CryostatReconciler) createOrUpdatePVC(ctx context.Context, pvc *corev1.
 	return nil
 }
 
-func configurePVC(cr *operatorv1beta1.Cryostat) *operatorv1beta1.PersistentVolumeClaimConfig {
+func configurePVC(cr *model.CryostatInstance) *operatorv1beta1.PersistentVolumeClaimConfig {
 	// Check for PVC config within CR
 	var config *operatorv1beta1.PersistentVolumeClaimConfig
 	if cr.Spec.StorageOptions == nil || cr.Spec.StorageOptions.PVC == nil {

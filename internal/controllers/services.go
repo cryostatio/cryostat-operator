@@ -43,7 +43,9 @@ import (
 	"strconv"
 
 	operatorv1beta1 "github.com/cryostatio/cryostat-operator/api/v1beta1"
+	"github.com/cryostatio/cryostat-operator/internal/constants"
 	"github.com/cryostatio/cryostat-operator/internal/controllers/common/resource_definitions"
+	"github.com/cryostatio/cryostat-operator/internal/controllers/model"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -51,28 +53,17 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
-// FIXME duplicated from resource_definitions.go
-const (
-	cryostatHTTPContainerPort int32  = 8181
-	cryostatJMXContainerPort  int32  = 9091
-	grafanaContainerPort      int32  = 3000
-	datasourceContainerPort   int32  = 8080
-	reportsContainerPort      int32  = 10000
-	loopbackAddress           string = "127.0.0.1"
-	httpPortName              string = "http"
-)
-
-func (r *CryostatReconciler) reconcileCoreService(ctx context.Context, cr *operatorv1beta1.Cryostat,
+func (r *Reconciler) reconcileCoreService(ctx context.Context, cr *model.CryostatInstance,
 	tls *resource_definitions.TLSConfig, specs *resource_definitions.ServiceSpecs) error {
 	svc := &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      cr.Name,
-			Namespace: cr.Namespace,
+			Namespace: cr.InstallNamespace,
 		},
 	}
 	config := configureCoreService(cr)
 
-	err := r.createOrUpdateService(ctx, svc, cr, &config.ServiceConfig, func() error {
+	err := r.createOrUpdateService(ctx, svc, cr.Instance, &config.ServiceConfig, func() error {
 		svc.Spec.Selector = map[string]string{
 			"app":       cr.Name,
 			"component": "cryostat",
@@ -81,12 +72,12 @@ func (r *CryostatReconciler) reconcileCoreService(ctx context.Context, cr *opera
 			{
 				Name:       "http",
 				Port:       *config.HTTPPort,
-				TargetPort: intstr.IntOrString{IntVal: cryostatHTTPContainerPort},
+				TargetPort: intstr.IntOrString{IntVal: constants.CryostatHTTPContainerPort},
 			},
 			{
 				Name:       "jfr-jmx",
 				Port:       *config.JMXPort,
-				TargetPort: intstr.IntOrString{IntVal: cryostatJMXContainerPort},
+				TargetPort: intstr.IntOrString{IntVal: constants.CryostatJMXContainerPort},
 			},
 		}
 		return nil
@@ -102,12 +93,12 @@ func (r *CryostatReconciler) reconcileCoreService(ctx context.Context, cr *opera
 	}
 }
 
-func (r *CryostatReconciler) reconcileGrafanaService(ctx context.Context, cr *operatorv1beta1.Cryostat,
+func (r *Reconciler) reconcileGrafanaService(ctx context.Context, cr *model.CryostatInstance,
 	tls *resource_definitions.TLSConfig, specs *resource_definitions.ServiceSpecs) error {
 	svc := &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      cr.Name + "-grafana",
-			Namespace: cr.Namespace,
+			Namespace: cr.InstallNamespace,
 		},
 	}
 
@@ -119,7 +110,7 @@ func (r *CryostatReconciler) reconcileGrafanaService(ctx context.Context, cr *op
 		}
 	} else {
 		config := configureGrafanaService(cr)
-		err := r.createOrUpdateService(ctx, svc, cr, &config.ServiceConfig, func() error {
+		err := r.createOrUpdateService(ctx, svc, cr.Instance, &config.ServiceConfig, func() error {
 			svc.Spec.Selector = map[string]string{
 				"app":       cr.Name,
 				"component": "cryostat",
@@ -145,13 +136,13 @@ func (r *CryostatReconciler) reconcileGrafanaService(ctx context.Context, cr *op
 	}
 }
 
-func (r *CryostatReconciler) reconcileReportsService(ctx context.Context, cr *operatorv1beta1.Cryostat,
+func (r *Reconciler) reconcileReportsService(ctx context.Context, cr *model.CryostatInstance,
 	tls *resource_definitions.TLSConfig, specs *resource_definitions.ServiceSpecs) error {
 	config := configureReportsService(cr)
 	svc := &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      cr.Name + "-reports",
-			Namespace: cr.Namespace,
+			Namespace: cr.InstallNamespace,
 		},
 	}
 
@@ -159,7 +150,7 @@ func (r *CryostatReconciler) reconcileReportsService(ctx context.Context, cr *op
 		// Delete service if it exists
 		return r.deleteService(ctx, svc)
 	}
-	err := r.createOrUpdateService(ctx, svc, cr, &config.ServiceConfig, func() error {
+	err := r.createOrUpdateService(ctx, svc, cr.Instance, &config.ServiceConfig, func() error {
 		svc.Spec.Selector = map[string]string{
 			"app":       cr.Name,
 			"component": "reports",
@@ -168,7 +159,7 @@ func (r *CryostatReconciler) reconcileReportsService(ctx context.Context, cr *op
 			{
 				Name:       "http",
 				Port:       *config.HTTPPort,
-				TargetPort: intstr.IntOrString{IntVal: reportsContainerPort},
+				TargetPort: intstr.IntOrString{IntVal: constants.ReportsContainerPort},
 			},
 		}
 		return nil
@@ -189,7 +180,7 @@ func (r *CryostatReconciler) reconcileReportsService(ctx context.Context, cr *op
 	return nil
 }
 
-func configureCoreService(cr *operatorv1beta1.Cryostat) *operatorv1beta1.CoreServiceConfig {
+func configureCoreService(cr *model.CryostatInstance) *operatorv1beta1.CoreServiceConfig {
 	// Check CR for config
 	var config *operatorv1beta1.CoreServiceConfig
 	if cr.Spec.ServiceOptions == nil || cr.Spec.ServiceOptions.CoreConfig == nil {
@@ -203,18 +194,18 @@ func configureCoreService(cr *operatorv1beta1.Cryostat) *operatorv1beta1.CoreSer
 
 	// Apply default HTTP and JMX port if not provided
 	if config.HTTPPort == nil {
-		httpPort := cryostatHTTPContainerPort
+		httpPort := constants.CryostatHTTPContainerPort
 		config.HTTPPort = &httpPort
 	}
 	if config.JMXPort == nil {
-		jmxPort := cryostatJMXContainerPort
+		jmxPort := constants.CryostatJMXContainerPort
 		config.JMXPort = &jmxPort
 	}
 
 	return config
 }
 
-func configureGrafanaService(cr *operatorv1beta1.Cryostat) *operatorv1beta1.GrafanaServiceConfig {
+func configureGrafanaService(cr *model.CryostatInstance) *operatorv1beta1.GrafanaServiceConfig {
 	// Check CR for config
 	var config *operatorv1beta1.GrafanaServiceConfig
 	if cr.Spec.ServiceOptions == nil || cr.Spec.ServiceOptions.GrafanaConfig == nil {
@@ -228,14 +219,14 @@ func configureGrafanaService(cr *operatorv1beta1.Cryostat) *operatorv1beta1.Graf
 
 	// Apply default HTTP port if not provided
 	if config.HTTPPort == nil {
-		httpPort := grafanaContainerPort
+		httpPort := constants.GrafanaContainerPort
 		config.HTTPPort = &httpPort
 	}
 
 	return config
 }
 
-func configureReportsService(cr *operatorv1beta1.Cryostat) *operatorv1beta1.ReportsServiceConfig {
+func configureReportsService(cr *model.CryostatInstance) *operatorv1beta1.ReportsServiceConfig {
 	// Check CR for config
 	var config *operatorv1beta1.ReportsServiceConfig
 	if cr.Spec.ServiceOptions == nil || cr.Spec.ServiceOptions.ReportsConfig == nil {
@@ -249,7 +240,7 @@ func configureReportsService(cr *operatorv1beta1.Cryostat) *operatorv1beta1.Repo
 
 	// Apply default HTTP port if not provided
 	if config.HTTPPort == nil {
-		httpPort := reportsContainerPort
+		httpPort := constants.ReportsContainerPort
 		config.HTTPPort = &httpPort
 	}
 
@@ -273,7 +264,7 @@ func configureService(config *operatorv1beta1.ServiceConfig, appLabel string, co
 	config.Labels["component"] = componentLabel
 }
 
-func (r *CryostatReconciler) createOrUpdateService(ctx context.Context, svc *corev1.Service, owner metav1.Object,
+func (r *Reconciler) createOrUpdateService(ctx context.Context, svc *corev1.Service, owner metav1.Object,
 	config *operatorv1beta1.ServiceConfig, delegate controllerutil.MutateFn) error {
 	op, err := controllerutil.CreateOrUpdate(ctx, r.Client, svc, func() error {
 		// Update labels and annotations
@@ -295,7 +286,7 @@ func (r *CryostatReconciler) createOrUpdateService(ctx context.Context, svc *cor
 	return nil
 }
 
-func (r *CryostatReconciler) deleteService(ctx context.Context, svc *corev1.Service) error {
+func (r *Reconciler) deleteService(ctx context.Context, svc *corev1.Service) error {
 	err := r.Client.Delete(ctx, svc)
 	if err != nil && !errors.IsNotFound(err) {
 		r.Log.Error(err, "Could not delete service", "name", svc.Name, "namespace", svc.Namespace)

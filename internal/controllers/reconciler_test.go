@@ -79,6 +79,7 @@ type cryostatTestInput struct {
 	*test.TestResources
 }
 
+// TODO Can we move the specs to a separate common file and execute them with each type of CRD?
 var _ = Describe("CryostatController", func() {
 	var t *cryostatTestInput
 
@@ -92,7 +93,7 @@ var _ = Describe("CryostatController", func() {
 		err := test.SetCreationTimestamp(t.objs...)
 		Expect(err).ToNot(HaveOccurred())
 		t.Client = fake.NewClientBuilder().WithScheme(s).WithRuntimeObjects(t.objs...).Build()
-		t.controller = &controllers.CryostatReconciler{
+		t.controller = controllers.NewCryostatReconciler(&controllers.ReconcilerConfig{
 			Client:        test.NewClientWithTimestamp(test.NewTestClient(t.Client, t.TestResources)),
 			Scheme:        s,
 			IsOpenShift:   t.OpenShift,
@@ -100,7 +101,7 @@ var _ = Describe("CryostatController", func() {
 			RESTMapper:    test.NewTESTRESTMapper(),
 			Log:           logger,
 			ReconcilerTLS: test.NewTestReconcilerTLS(&t.TestReconcilerConfig),
-		}
+		})
 	})
 
 	BeforeEach(func() {

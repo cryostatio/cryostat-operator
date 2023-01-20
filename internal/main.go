@@ -138,7 +138,7 @@ func main() {
 
 	certManager := isCertManagerInstalled(apiResources)
 
-	if err = (&controllers.CryostatReconciler{
+	if err = (controllers.NewCryostatReconciler(&controllers.ReconcilerConfig{
 		Client:                 mgr.GetClient(),
 		Log:                    ctrl.Log.WithName("controllers").WithName("Cryostat"),
 		Scheme:                 mgr.GetScheme(),
@@ -149,7 +149,7 @@ func main() {
 		ReconcilerTLS: common.NewReconcilerTLS(&common.ReconcilerTLSConfig{
 			Client: mgr.GetClient(),
 		}),
-	}).SetupWithManager(mgr); err != nil {
+	})).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "Cryostat")
 		os.Exit(1)
 	}

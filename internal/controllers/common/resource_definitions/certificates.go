@@ -39,20 +39,18 @@ package resource_definitions
 import (
 	"fmt"
 
-	operatorv1beta1 "github.com/cryostatio/cryostat-operator/api/v1beta1"
+	"github.com/cryostatio/cryostat-operator/internal/constants"
+	"github.com/cryostatio/cryostat-operator/internal/controllers/model"
 	certv1 "github.com/jetstack/cert-manager/pkg/apis/certmanager/v1"
 	certMeta "github.com/jetstack/cert-manager/pkg/apis/meta/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// CAKey is the key for a CA certificate within a TLS secret
-const CAKey = certMeta.TLSCAKey
-
-func NewSelfSignedIssuer(cr *operatorv1beta1.Cryostat) *certv1.Issuer {
+func NewSelfSignedIssuer(cr *model.CryostatInstance) *certv1.Issuer {
 	return &certv1.Issuer{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      cr.Name + "-self-signed",
-			Namespace: cr.Namespace,
+			Namespace: cr.InstallNamespace,
 		},
 		Spec: certv1.IssuerSpec{
 			IssuerConfig: certv1.IssuerConfig{
@@ -62,11 +60,11 @@ func NewSelfSignedIssuer(cr *operatorv1beta1.Cryostat) *certv1.Issuer {
 	}
 }
 
-func NewCryostatCAIssuer(cr *operatorv1beta1.Cryostat) *certv1.Issuer {
+func NewCryostatCAIssuer(cr *model.CryostatInstance) *certv1.Issuer {
 	return &certv1.Issuer{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      cr.Name + "-ca",
-			Namespace: cr.Namespace,
+			Namespace: cr.InstallNamespace,
 		},
 		Spec: certv1.IssuerSpec{
 			IssuerConfig: certv1.IssuerConfig{
@@ -78,11 +76,11 @@ func NewCryostatCAIssuer(cr *operatorv1beta1.Cryostat) *certv1.Issuer {
 	}
 }
 
-func NewCryostatCACert(cr *operatorv1beta1.Cryostat) *certv1.Certificate {
+func NewCryostatCACert(cr *model.CryostatInstance) *certv1.Certificate {
 	return &certv1.Certificate{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      cr.Name + "-ca",
-			Namespace: cr.Namespace,
+			Namespace: cr.InstallNamespace,
 		},
 		Spec: certv1.CertificateSpec{
 			CommonName: fmt.Sprintf("ca.%s.cert-manager", cr.Name),
@@ -95,18 +93,18 @@ func NewCryostatCACert(cr *operatorv1beta1.Cryostat) *certv1.Certificate {
 	}
 }
 
-func NewCryostatCert(cr *operatorv1beta1.Cryostat, keystoreSecretName string) *certv1.Certificate {
+func NewCryostatCert(cr *model.CryostatInstance, keystoreSecretName string) *certv1.Certificate {
 	return &certv1.Certificate{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      cr.Name,
-			Namespace: cr.Namespace,
+			Namespace: cr.InstallNamespace,
 		},
 		Spec: certv1.CertificateSpec{
-			CommonName: fmt.Sprintf("%s.%s.svc", cr.Name, cr.Namespace),
+			CommonName: fmt.Sprintf("%s.%s.svc", cr.Name, cr.InstallNamespace),
 			DNSNames: []string{
 				cr.Name,
-				fmt.Sprintf("%s.%s.svc", cr.Name, cr.Namespace),
-				fmt.Sprintf("%s.%s.svc.cluster.local", cr.Name, cr.Namespace),
+				fmt.Sprintf("%s.%s.svc", cr.Name, cr.InstallNamespace),
+				fmt.Sprintf("%s.%s.svc.cluster.local", cr.Name, cr.InstallNamespace),
 			},
 			SecretName: cr.Name + "-tls",
 			Keystores: &certv1.CertificateKeystores{
@@ -131,19 +129,19 @@ func NewCryostatCert(cr *operatorv1beta1.Cryostat, keystoreSecretName string) *c
 	}
 }
 
-func NewGrafanaCert(cr *operatorv1beta1.Cryostat) *certv1.Certificate {
+func NewGrafanaCert(cr *model.CryostatInstance) *certv1.Certificate {
 	return &certv1.Certificate{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      cr.Name + "-grafana",
-			Namespace: cr.Namespace,
+			Namespace: cr.InstallNamespace,
 		},
 		Spec: certv1.CertificateSpec{
-			CommonName: fmt.Sprintf("%s-grafana.%s.svc", cr.Name, cr.Namespace),
+			CommonName: fmt.Sprintf("%s-grafana.%s.svc", cr.Name, cr.InstallNamespace),
 			DNSNames: []string{
 				cr.Name + "-grafana",
-				fmt.Sprintf("%s-grafana.%s.svc", cr.Name, cr.Namespace),
-				fmt.Sprintf("%s-grafana.%s.svc.cluster.local", cr.Name, cr.Namespace),
-				healthCheckHostname,
+				fmt.Sprintf("%s-grafana.%s.svc", cr.Name, cr.InstallNamespace),
+				fmt.Sprintf("%s-grafana.%s.svc.cluster.local", cr.Name, cr.InstallNamespace),
+				constants.HealthCheckHostname,
 			},
 			SecretName: cr.Name + "-grafana-tls",
 			IssuerRef: certMeta.ObjectReference{
@@ -156,18 +154,18 @@ func NewGrafanaCert(cr *operatorv1beta1.Cryostat) *certv1.Certificate {
 	}
 }
 
-func NewReportsCert(cr *operatorv1beta1.Cryostat) *certv1.Certificate {
+func NewReportsCert(cr *model.CryostatInstance) *certv1.Certificate {
 	return &certv1.Certificate{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      cr.Name + "-reports",
-			Namespace: cr.Namespace,
+			Namespace: cr.InstallNamespace,
 		},
 		Spec: certv1.CertificateSpec{
-			CommonName: fmt.Sprintf("%s-reports.%s.svc", cr.Name, cr.Namespace),
+			CommonName: fmt.Sprintf("%s-reports.%s.svc", cr.Name, cr.InstallNamespace),
 			DNSNames: []string{
 				cr.Name + "-reports",
-				fmt.Sprintf("%s-reports.%s.svc", cr.Name, cr.Namespace),
-				fmt.Sprintf("%s-reports.%s.svc.cluster.local", cr.Name, cr.Namespace),
+				fmt.Sprintf("%s-reports.%s.svc", cr.Name, cr.InstallNamespace),
+				fmt.Sprintf("%s-reports.%s.svc.cluster.local", cr.Name, cr.InstallNamespace),
 			},
 			SecretName: cr.Name + "-reports-tls",
 			IssuerRef: certMeta.ObjectReference{

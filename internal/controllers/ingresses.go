@@ -41,20 +41,22 @@ import (
 	"fmt"
 	"net/url"
 
+	//operatorv1beta1 "github.com/cryostatio/cryostat-operator/api/v1beta1"
 	operatorv1beta1 "github.com/cryostatio/cryostat-operator/api/v1beta1"
 	"github.com/cryostatio/cryostat-operator/internal/controllers/common/resource_definitions"
+	"github.com/cryostatio/cryostat-operator/internal/controllers/model"
 	netv1 "k8s.io/api/networking/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
-func (r *CryostatReconciler) reconcileCoreIngress(ctx context.Context, cr *operatorv1beta1.Cryostat,
+func (r *Reconciler) reconcileCoreIngress(ctx context.Context, cr *model.CryostatInstance,
 	specs *resource_definitions.ServiceSpecs) error {
 	ingress := &netv1.Ingress{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      cr.Name,
-			Namespace: cr.Namespace,
+			Namespace: cr.InstallNamespace,
 		},
 	}
 
@@ -72,12 +74,12 @@ func (r *CryostatReconciler) reconcileCoreIngress(ctx context.Context, cr *opera
 	return nil
 }
 
-func (r *CryostatReconciler) reconcileGrafanaIngress(ctx context.Context, cr *operatorv1beta1.Cryostat,
+func (r *Reconciler) reconcileGrafanaIngress(ctx context.Context, cr *model.CryostatInstance,
 	specs *resource_definitions.ServiceSpecs) error {
 	ingress := &netv1.Ingress{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      cr.Name + "-grafana",
-			Namespace: cr.Namespace,
+			Namespace: cr.InstallNamespace,
 		},
 	}
 
@@ -95,9 +97,9 @@ func (r *CryostatReconciler) reconcileGrafanaIngress(ctx context.Context, cr *op
 	return nil
 }
 
-func (r *CryostatReconciler) reconcileIngress(ctx context.Context, ingress *netv1.Ingress, cr *operatorv1beta1.Cryostat,
+func (r *Reconciler) reconcileIngress(ctx context.Context, ingress *netv1.Ingress, cr *model.CryostatInstance,
 	config *operatorv1beta1.NetworkConfiguration) (*url.URL, error) {
-	ingress, err := r.createOrUpdateIngress(ctx, ingress, cr, config)
+	ingress, err := r.createOrUpdateIngress(ctx, ingress, cr.Instance, config)
 	if err != nil {
 		return nil, err
 	}
@@ -117,7 +119,7 @@ func (r *CryostatReconciler) reconcileIngress(ctx context.Context, ingress *netv
 	}, nil
 }
 
-func (r *CryostatReconciler) createOrUpdateIngress(ctx context.Context, ingress *netv1.Ingress, owner metav1.Object,
+func (r *Reconciler) createOrUpdateIngress(ctx context.Context, ingress *netv1.Ingress, owner metav1.Object,
 	config *operatorv1beta1.NetworkConfiguration) (*netv1.Ingress, error) {
 	op, err := controllerutil.CreateOrUpdate(ctx, r.Client, ingress, func() error {
 		// Set labels and annotations from CR
@@ -138,7 +140,7 @@ func (r *CryostatReconciler) createOrUpdateIngress(ctx context.Context, ingress 
 	return ingress, nil
 }
 
-func (r *CryostatReconciler) deleteIngress(ctx context.Context, ingress *netv1.Ingress) error {
+func (r *Reconciler) deleteIngress(ctx context.Context, ingress *netv1.Ingress) error {
 	err := r.Client.Delete(ctx, ingress)
 	if err != nil && !errors.IsNotFound(err) {
 		r.Log.Error(err, "Could not delete ingress", "name", ingress.Name, "namespace", ingress.Namespace)
