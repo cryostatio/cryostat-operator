@@ -63,6 +63,7 @@ import (
 )
 
 type TestResources struct {
+	Name             string
 	Namespace        string
 	Minimal          bool
 	TLS              bool
@@ -114,7 +115,7 @@ func (r *TestResources) NewCryostat() *model.CryostatInstance {
 	if r.ClusterScoped {
 		cr := &operatorv1beta1.ClusterCryostat{
 			ObjectMeta: metav1.ObjectMeta{
-				Name: "cryostat", // FIXME name conflicts
+				Name: r.Name,
 			},
 			Spec: operatorv1beta1.ClusterCryostatSpec{
 				InstallNamespace: r.Namespace,
@@ -129,7 +130,7 @@ func (r *TestResources) NewCryostat() *model.CryostatInstance {
 	} else {
 		cr := &operatorv1beta1.Cryostat{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      "cryostat",
+				Name:      r.Name,
 				Namespace: r.Namespace,
 			},
 			Spec: operatorv1beta1.CryostatSpec{
@@ -661,26 +662,26 @@ func (r *TestResources) NewCryostatService() *corev1.Service {
 	c := true
 	return &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "cryostat",
+			Name:      r.Name,
 			Namespace: r.Namespace,
 			OwnerReferences: []metav1.OwnerReference{
 				{
 					APIVersion: operatorv1beta1.GroupVersion.String(),
 					Kind:       "Cryostat",
-					Name:       "cryostat",
+					Name:       r.Name,
 					UID:        "",
 					Controller: &c,
 				},
 			},
 			Labels: map[string]string{
-				"app":       "cryostat",
+				"app":       r.Name,
 				"component": "cryostat",
 			},
 		},
 		Spec: corev1.ServiceSpec{
 			Type: corev1.ServiceTypeClusterIP,
 			Selector: map[string]string{
-				"app":       "cryostat",
+				"app":       r.Name,
 				"component": "cryostat",
 			},
 			Ports: []corev1.ServicePort{
@@ -703,26 +704,26 @@ func (r *TestResources) NewGrafanaService() *corev1.Service {
 	c := true
 	return &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "cryostat-grafana",
+			Name:      r.Name + "-grafana",
 			Namespace: r.Namespace,
 			OwnerReferences: []metav1.OwnerReference{
 				{
 					APIVersion: operatorv1beta1.GroupVersion.String(),
 					Kind:       "Cryostat",
-					Name:       "cryostat",
+					Name:       r.Name,
 					UID:        "",
 					Controller: &c,
 				},
 			},
 			Labels: map[string]string{
-				"app":       "cryostat",
+				"app":       r.Name,
 				"component": "cryostat",
 			},
 		},
 		Spec: corev1.ServiceSpec{
 			Type: corev1.ServiceTypeClusterIP,
 			Selector: map[string]string{
-				"app":       "cryostat",
+				"app":       r.Name,
 				"component": "cryostat",
 			},
 			Ports: []corev1.ServicePort{
@@ -740,26 +741,26 @@ func (r *TestResources) NewReportsService() *corev1.Service {
 	c := true
 	return &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "cryostat-reports",
+			Name:      r.Name + "-reports",
 			Namespace: r.Namespace,
 			OwnerReferences: []metav1.OwnerReference{
 				{
 					APIVersion: operatorv1beta1.GroupVersion.String(),
 					Kind:       "Cryostat",
-					Name:       "cryostat-reports",
+					Name:       r.Name + "-reports",
 					UID:        "",
 					Controller: &c,
 				},
 			},
 			Labels: map[string]string{
-				"app":       "cryostat",
+				"app":       r.Name,
 				"component": "reports",
 			},
 		},
 		Spec: corev1.ServiceSpec{
 			Type: corev1.ServiceTypeClusterIP,
 			Selector: map[string]string{
-				"app":       "cryostat",
+				"app":       r.Name,
 				"component": "reports",
 			},
 			Ports: []corev1.ServicePort{
@@ -782,7 +783,7 @@ func (r *TestResources) NewCustomizedCoreService() *corev1.Service {
 		"my/custom": "annotation",
 	}
 	svc.Labels = map[string]string{
-		"app":       "cryostat",
+		"app":       r.Name,
 		"component": "cryostat",
 		"my":        "label",
 	}
@@ -797,7 +798,7 @@ func (r *TestResources) NewCustomizedGrafanaService() *corev1.Service {
 		"my/custom": "annotation",
 	}
 	svc.Labels = map[string]string{
-		"app":       "cryostat",
+		"app":       r.Name,
 		"component": "cryostat",
 		"my":        "label",
 	}
@@ -812,7 +813,7 @@ func (r *TestResources) NewCustomizedReportsService() *corev1.Service {
 		"my/custom": "annotation",
 	}
 	svc.Labels = map[string]string{
-		"app":       "cryostat",
+		"app":       r.Name,
 		"component": "reports",
 		"my":        "label",
 	}
@@ -840,7 +841,7 @@ func (r *TestResources) NewTestService() *corev1.Service {
 func (r *TestResources) NewGrafanaSecret() *corev1.Secret {
 	return &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "cryostat-grafana-basic",
+			Name:      r.Name + "-grafana-basic",
 			Namespace: r.Namespace,
 		},
 		StringData: map[string]string{
@@ -853,7 +854,7 @@ func (r *TestResources) NewGrafanaSecret() *corev1.Secret {
 func (r *TestResources) OtherGrafanaSecret() *corev1.Secret {
 	return &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "cryostat-grafana-basic",
+			Name:      r.Name + "-grafana-basic",
 			Namespace: r.Namespace,
 		},
 		StringData: map[string]string{
@@ -866,7 +867,7 @@ func (r *TestResources) OtherGrafanaSecret() *corev1.Secret {
 func (r *TestResources) NewCredentialsDatabaseSecret() *corev1.Secret {
 	return &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "cryostat-jmx-credentials-db",
+			Name:      r.Name + "-jmx-credentials-db",
 			Namespace: r.Namespace,
 		},
 		StringData: map[string]string{
@@ -878,7 +879,7 @@ func (r *TestResources) NewCredentialsDatabaseSecret() *corev1.Secret {
 func (r *TestResources) OtherCredentialsDatabaseSecret() *corev1.Secret {
 	return &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "cryostat-jmx-credentials-db",
+			Name:      r.Name + "-jmx-credentials-db",
 			Namespace: r.Namespace,
 		},
 		StringData: map[string]string{
@@ -890,7 +891,7 @@ func (r *TestResources) OtherCredentialsDatabaseSecret() *corev1.Secret {
 func (r *TestResources) NewJMXSecret() *corev1.Secret {
 	return &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "cryostat-jmx-auth",
+			Name:      r.Name + "-jmx-auth",
 			Namespace: r.Namespace,
 		},
 		StringData: map[string]string{
@@ -903,7 +904,7 @@ func (r *TestResources) NewJMXSecret() *corev1.Secret {
 func (r *TestResources) NewKeystoreSecret() *corev1.Secret {
 	return &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "cryostat-keystore",
+			Name:      r.Name + "-keystore",
 			Namespace: r.Namespace,
 		},
 		StringData: map[string]string{
@@ -915,7 +916,7 @@ func (r *TestResources) NewKeystoreSecret() *corev1.Secret {
 func (r *TestResources) OtherJMXSecret() *corev1.Secret {
 	return &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "cryostat-jmx-auth",
+			Name:      r.Name + "-jmx-auth",
 			Namespace: r.Namespace,
 		},
 		StringData: map[string]string{
@@ -940,30 +941,30 @@ func (r *TestResources) NewTestCertSecret(name string) *corev1.Secret {
 func (r *TestResources) NewCryostatCert() *certv1.Certificate {
 	return &certv1.Certificate{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "cryostat",
+			Name:      r.Name,
 			Namespace: r.Namespace,
 		},
 		Spec: certv1.CertificateSpec{
-			CommonName: fmt.Sprintf("cryostat.%s.svc", r.Namespace),
+			CommonName: fmt.Sprintf(r.Name+".%s.svc", r.Namespace),
 			DNSNames: []string{
-				"cryostat",
-				fmt.Sprintf("cryostat.%s.svc", r.Namespace),
-				fmt.Sprintf("cryostat.%s.svc.cluster.local", r.Namespace),
+				r.Name,
+				fmt.Sprintf(r.Name+".%s.svc", r.Namespace),
+				fmt.Sprintf(r.Name+".%s.svc.cluster.local", r.Namespace),
 			},
-			SecretName: "cryostat-tls",
+			SecretName: r.Name + "-tls",
 			Keystores: &certv1.CertificateKeystores{
 				PKCS12: &certv1.PKCS12Keystore{
 					Create: true,
 					PasswordSecretRef: certMeta.SecretKeySelector{
 						LocalObjectReference: certMeta.LocalObjectReference{
-							Name: "cryostat-keystore",
+							Name: r.Name + "-keystore",
 						},
 						Key: "KEYSTORE_PASS",
 					},
 				},
 			},
 			IssuerRef: certMeta.ObjectReference{
-				Name: "cryostat-ca",
+				Name: r.Name + "-ca",
 			},
 			Usages: []certv1.KeyUsage{
 				certv1.UsageDigitalSignature,
@@ -978,20 +979,20 @@ func (r *TestResources) NewCryostatCert() *certv1.Certificate {
 func (r *TestResources) NewGrafanaCert() *certv1.Certificate {
 	return &certv1.Certificate{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "cryostat-grafana",
+			Name:      r.Name + "-grafana",
 			Namespace: r.Namespace,
 		},
 		Spec: certv1.CertificateSpec{
-			CommonName: fmt.Sprintf("cryostat-grafana.%s.svc", r.Namespace),
+			CommonName: fmt.Sprintf(r.Name+"-grafana.%s.svc", r.Namespace),
 			DNSNames: []string{
-				"cryostat-grafana",
-				fmt.Sprintf("cryostat-grafana.%s.svc", r.Namespace),
-				fmt.Sprintf("cryostat-grafana.%s.svc.cluster.local", r.Namespace),
+				r.Name + "-grafana",
+				fmt.Sprintf(r.Name+"-grafana.%s.svc", r.Namespace),
+				fmt.Sprintf(r.Name+"-grafana.%s.svc.cluster.local", r.Namespace),
 				"cryostat-health.local",
 			},
-			SecretName: "cryostat-grafana-tls",
+			SecretName: r.Name + "-grafana-tls",
 			IssuerRef: certMeta.ObjectReference{
-				Name: "cryostat-ca",
+				Name: r.Name + "-ca",
 			},
 			Usages: []certv1.KeyUsage{
 				certv1.UsageDigitalSignature,
@@ -1005,19 +1006,19 @@ func (r *TestResources) NewGrafanaCert() *certv1.Certificate {
 func (r *TestResources) NewReportsCert() *certv1.Certificate {
 	return &certv1.Certificate{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "cryostat-reports",
+			Name:      r.Name + "-reports",
 			Namespace: r.Namespace,
 		},
 		Spec: certv1.CertificateSpec{
-			CommonName: fmt.Sprintf("cryostat-reports.%s.svc", r.Namespace),
+			CommonName: fmt.Sprintf(r.Name+"-reports.%s.svc", r.Namespace),
 			DNSNames: []string{
-				"cryostat-reports",
-				fmt.Sprintf("cryostat-reports.%s.svc", r.Namespace),
-				fmt.Sprintf("cryostat-reports.%s.svc.cluster.local", r.Namespace),
+				r.Name + "-reports",
+				fmt.Sprintf(r.Name+"-reports.%s.svc", r.Namespace),
+				fmt.Sprintf(r.Name+"-reports.%s.svc.cluster.local", r.Namespace),
 			},
-			SecretName: "cryostat-reports-tls",
+			SecretName: r.Name + "-reports-tls",
 			IssuerRef: certMeta.ObjectReference{
-				Name: "cryostat-ca",
+				Name: r.Name + "-ca",
 			},
 			Usages: []certv1.KeyUsage{
 				certv1.UsageDigitalSignature,
@@ -1031,14 +1032,14 @@ func (r *TestResources) NewReportsCert() *certv1.Certificate {
 func (r *TestResources) NewCACert() *certv1.Certificate {
 	return &certv1.Certificate{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "cryostat-ca",
+			Name:      r.Name + "-ca",
 			Namespace: r.Namespace,
 		},
 		Spec: certv1.CertificateSpec{
-			CommonName: "ca.cryostat.cert-manager",
-			SecretName: "cryostat-ca",
+			CommonName: fmt.Sprintf("ca.%s.cert-manager", r.Name),
+			SecretName: r.Name + "-ca",
 			IssuerRef: certMeta.ObjectReference{
-				Name: "cryostat-self-signed",
+				Name: r.Name + "-self-signed",
 			},
 			IsCA: true,
 		},
@@ -1048,7 +1049,7 @@ func (r *TestResources) NewCACert() *certv1.Certificate {
 func (r *TestResources) NewSelfSignedIssuer() *certv1.Issuer {
 	return &certv1.Issuer{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "cryostat-self-signed",
+			Name:      r.Name + "-self-signed",
 			Namespace: r.Namespace,
 		},
 		Spec: certv1.IssuerSpec{
@@ -1062,13 +1063,13 @@ func (r *TestResources) NewSelfSignedIssuer() *certv1.Issuer {
 func (r *TestResources) NewCryostatCAIssuer() *certv1.Issuer {
 	return &certv1.Issuer{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "cryostat-ca",
+			Name:      r.Name + "-ca",
 			Namespace: r.Namespace,
 		},
 		Spec: certv1.IssuerSpec{
 			IssuerConfig: certv1.IssuerConfig{
 				CA: &certv1.CAIssuer{
-					SecretName: "cryostat-ca",
+					SecretName: r.Name + "-ca",
 				},
 			},
 		},
@@ -1079,7 +1080,7 @@ func (r *TestResources) newPVC(spec *corev1.PersistentVolumeClaimSpec, labels ma
 	annotations map[string]string) *corev1.PersistentVolumeClaim {
 	return &corev1.PersistentVolumeClaim{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:        "cryostat",
+			Name:        r.Name,
 			Namespace:   r.Namespace,
 			Annotations: annotations,
 			Labels:      labels,
@@ -1097,7 +1098,7 @@ func (r *TestResources) NewDefaultPVC() *corev1.PersistentVolumeClaim {
 			},
 		},
 	}, map[string]string{
-		"app": "cryostat",
+		"app": r.Name,
 	}, nil)
 }
 
@@ -1113,7 +1114,7 @@ func (r *TestResources) NewCustomPVC() *corev1.PersistentVolumeClaim {
 		},
 	}, map[string]string{
 		"my":  "label",
-		"app": "cryostat",
+		"app": r.Name,
 	}, map[string]string{
 		"my/custom": "annotation",
 	})
@@ -1130,7 +1131,7 @@ func (r *TestResources) NewCustomPVCSomeDefault() *corev1.PersistentVolumeClaim 
 			},
 		},
 	}, map[string]string{
-		"app": "cryostat",
+		"app": r.Name,
 	}, nil)
 }
 
@@ -1143,7 +1144,7 @@ func (r *TestResources) NewDefaultPVCWithLabel() *corev1.PersistentVolumeClaim {
 			},
 		},
 	}, map[string]string{
-		"app": "cryostat",
+		"app": r.Name,
 		"my":  "label",
 	}, nil)
 }
@@ -1291,7 +1292,7 @@ func (r *TestResources) NewCoreEnvironmentVariables(reportsUrl string, authProps
 	} else {
 		envs = append(envs, corev1.EnvVar{
 			Name:  "KEYSTORE_PATH",
-			Value: "/var/run/secrets/operator.cryostat.io/cryostat-tls/keystore.p12",
+			Value: fmt.Sprintf("/var/run/secrets/operator.cryostat.io/%s-tls/keystore.p12", r.Name),
 		})
 	}
 
@@ -1307,7 +1308,7 @@ func (r *TestResources) NewCoreEnvironmentVariables(reportsUrl string, authProps
 			},
 			corev1.EnvVar{
 				Name:  "CRYOSTAT_OAUTH_CLIENT_ID",
-				Value: "cryostat",
+				Value: r.Name,
 			},
 			corev1.EnvVar{
 				Name:  "CRYOSTAT_BASE_OAUTH_ROLE",
@@ -1361,11 +1362,11 @@ func (r *TestResources) DatabaseConfigEnvironmentVariables() []corev1.EnvVar {
 		},
 		{
 			Name:  "CRYOSTAT_JDBC_USERNAME",
-			Value: "cryostat",
+			Value: r.Name,
 		},
 		{
 			Name:  "CRYOSTAT_JDBC_PASSWORD",
-			Value: "cryostat",
+			Value: r.Name,
 		},
 	}
 }
@@ -1374,7 +1375,7 @@ func (r *TestResources) newNetworkEnvironmentVariables() []corev1.EnvVar {
 	envs := []corev1.EnvVar{
 		{
 			Name:  "CRYOSTAT_WEB_HOST",
-			Value: "cryostat.example.com",
+			Value: r.Name + ".example.com",
 		},
 	}
 	if r.ExternalTLS {
@@ -1395,13 +1396,13 @@ func (r *TestResources) newNetworkEnvironmentVariables() []corev1.EnvVar {
 			envs = append(envs,
 				corev1.EnvVar{
 					Name:  "GRAFANA_DASHBOARD_EXT_URL",
-					Value: "https://cryostat-grafana.example.com",
+					Value: fmt.Sprintf("https://%s-grafana.example.com", r.Name),
 				})
 		} else {
 			envs = append(envs,
 				corev1.EnvVar{
 					Name:  "GRAFANA_DASHBOARD_EXT_URL",
-					Value: "http://cryostat-grafana.example.com",
+					Value: fmt.Sprintf("http://%s-grafana.example.com", r.Name),
 				})
 		}
 		if r.TLS {
@@ -1434,10 +1435,10 @@ func (r *TestResources) NewGrafanaEnvironmentVariables() []corev1.EnvVar {
 			Value: "https",
 		}, corev1.EnvVar{
 			Name:  "GF_SERVER_CERT_KEY",
-			Value: "/var/run/secrets/operator.cryostat.io/cryostat-grafana-tls/tls.key",
+			Value: fmt.Sprintf("/var/run/secrets/operator.cryostat.io/%s-grafana-tls/tls.key", r.Name),
 		}, corev1.EnvVar{
 			Name:  "GF_SERVER_CERT_FILE",
-			Value: "/var/run/secrets/operator.cryostat.io/cryostat-grafana-tls/tls.crt",
+			Value: fmt.Sprintf("/var/run/secrets/operator.cryostat.io/%s-grafana-tls/tls.crt", r.Name),
 		})
 	}
 	return envs
@@ -1476,10 +1477,10 @@ func (r *TestResources) NewReportsEnvironmentVariables(resources *corev1.Resourc
 			Value: "10000",
 		}, corev1.EnvVar{
 			Name:  "QUARKUS_HTTP_SSL_CERTIFICATE_KEY_FILE",
-			Value: "/var/run/secrets/operator.cryostat.io/cryostat-reports-tls/tls.key",
+			Value: fmt.Sprintf("/var/run/secrets/operator.cryostat.io/%s-reports-tls/tls.key", r.Name),
 		}, corev1.EnvVar{
 			Name:  "QUARKUS_HTTP_SSL_CERTIFICATE_FILE",
-			Value: "/var/run/secrets/operator.cryostat.io/cryostat-reports-tls/tls.crt",
+			Value: fmt.Sprintf("/var/run/secrets/operator.cryostat.io/%s-reports-tls/tls.crt", r.Name),
 		}, corev1.EnvVar{
 			Name:  "QUARKUS_HTTP_INSECURE_REQUESTS",
 			Value: "disabled",
@@ -1498,7 +1499,7 @@ func (r *TestResources) NewCoreEnvFromSource() []corev1.EnvFromSource {
 		{
 			SecretRef: &corev1.SecretEnvSource{
 				LocalObjectReference: corev1.LocalObjectReference{
-					Name: "cryostat-jmx-auth",
+					Name: r.Name + "-jmx-auth",
 				},
 			},
 		},
@@ -1507,7 +1508,7 @@ func (r *TestResources) NewCoreEnvFromSource() []corev1.EnvFromSource {
 		envsFrom = append(envsFrom, corev1.EnvFromSource{
 			SecretRef: &corev1.SecretEnvSource{
 				LocalObjectReference: corev1.LocalObjectReference{
-					Name: "cryostat-keystore",
+					Name: r.Name + "-keystore",
 				},
 			},
 		})
@@ -1520,7 +1521,7 @@ func (r *TestResources) NewGrafanaEnvFromSource() []corev1.EnvFromSource {
 		{
 			SecretRef: &corev1.SecretEnvSource{
 				LocalObjectReference: corev1.LocalObjectReference{
-					Name: "cryostat-grafana-basic",
+					Name: r.Name + "-grafana-basic",
 				},
 			},
 		},
@@ -1561,37 +1562,37 @@ func (r *TestResources) NewJmxCacheOptionsEnv() []corev1.EnvVar {
 func (r *TestResources) NewCoreVolumeMounts() []corev1.VolumeMount {
 	mounts := []corev1.VolumeMount{
 		{
-			Name:      "cryostat",
+			Name:      r.Name,
 			ReadOnly:  false,
 			MountPath: "/opt/cryostat.d/conf.d",
 			SubPath:   "config",
 		},
 		{
-			Name:      "cryostat",
+			Name:      r.Name,
 			ReadOnly:  false,
 			MountPath: "/opt/cryostat.d/recordings.d",
 			SubPath:   "flightrecordings",
 		},
 		{
-			Name:      "cryostat",
+			Name:      r.Name,
 			ReadOnly:  false,
 			MountPath: "/opt/cryostat.d/templates.d",
 			SubPath:   "templates",
 		},
 		{
-			Name:      "cryostat",
+			Name:      r.Name,
 			ReadOnly:  false,
 			MountPath: "/opt/cryostat.d/clientlib.d",
 			SubPath:   "clientlib",
 		},
 		{
-			Name:      "cryostat",
+			Name:      r.Name,
 			ReadOnly:  false,
 			MountPath: "/opt/cryostat.d/probes.d",
 			SubPath:   "probes",
 		},
 		{
-			Name:      "cryostat",
+			Name:      r.Name,
 			ReadOnly:  false,
 			MountPath: "truststore",
 			SubPath:   "truststore",
@@ -1607,7 +1608,7 @@ func (r *TestResources) NewCoreVolumeMounts() []corev1.VolumeMount {
 			corev1.VolumeMount{
 				Name:      "keystore",
 				ReadOnly:  true,
-				MountPath: "/var/run/secrets/operator.cryostat.io/cryostat-tls",
+				MountPath: fmt.Sprintf("/var/run/secrets/operator.cryostat.io/%s-tls", r.Name),
 			})
 	}
 	return mounts
@@ -1619,7 +1620,7 @@ func (r *TestResources) NewGrafanaVolumeMounts() []corev1.VolumeMount {
 		mounts = append(mounts,
 			corev1.VolumeMount{
 				Name:      "grafana-tls-secret",
-				MountPath: "/var/run/secrets/operator.cryostat.io/cryostat-grafana-tls",
+				MountPath: fmt.Sprintf("/var/run/secrets/operator.cryostat.io/%s-grafana-tls", r.Name),
 				ReadOnly:  true,
 			})
 	}
@@ -1632,7 +1633,7 @@ func (r *TestResources) NewReportsVolumeMounts() []corev1.VolumeMount {
 		mounts = append(mounts,
 			corev1.VolumeMount{
 				Name:      "reports-tls-secret",
-				MountPath: "/var/run/secrets/operator.cryostat.io/cryostat-reports-tls",
+				MountPath: fmt.Sprintf("/var/run/secrets/operator.cryostat.io/%s-reports-tls", r.Name),
 				ReadOnly:  true,
 			})
 	}
@@ -1740,7 +1741,7 @@ func (r *TestResources) NewReportsLivenessProbe() *corev1.Probe {
 func (r *TestResources) NewMainDeploymentSelector() *metav1.LabelSelector {
 	return &metav1.LabelSelector{
 		MatchLabels: map[string]string{
-			"app":       "cryostat",
+			"app":       r.Name,
 			"kind":      "cryostat",
 			"component": "cryostat",
 		},
@@ -1750,7 +1751,7 @@ func (r *TestResources) NewMainDeploymentSelector() *metav1.LabelSelector {
 func (r *TestResources) NewReportsDeploymentSelector() *metav1.LabelSelector {
 	return &metav1.LabelSelector{
 		MatchLabels: map[string]string{
-			"app":       "cryostat",
+			"app":       r.Name,
 			"kind":      "cryostat",
 			"component": "reports",
 		},
@@ -1767,7 +1768,7 @@ func (r *TestResources) OtherDeployment() *appsv1.Deployment {
 	replicas := int32(2)
 	return &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "cryostat",
+			Name:      r.Name,
 			Namespace: r.Namespace,
 			Labels: map[string]string{
 				"app":   "something-else",
@@ -1781,7 +1782,7 @@ func (r *TestResources) OtherDeployment() *appsv1.Deployment {
 		Spec: appsv1.DeploymentSpec{
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      "cryostat",
+					Name:      r.Name,
 					Namespace: r.Namespace,
 					Labels: map[string]string{
 						"app": "something-app",
@@ -1908,10 +1909,10 @@ func (r *TestResources) newVolumes(certProjections []corev1.VolumeProjection) []
 	readOnlymode := int32(0440)
 	volumes := []corev1.Volume{
 		{
-			Name: "cryostat",
+			Name: r.Name,
 			VolumeSource: corev1.VolumeSource{
 				PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
-					ClaimName: "cryostat",
+					ClaimName: r.Name,
 					ReadOnly:  false,
 				},
 			},
@@ -1922,12 +1923,12 @@ func (r *TestResources) newVolumes(certProjections []corev1.VolumeProjection) []
 		projs = append(projs, corev1.VolumeProjection{
 			Secret: &corev1.SecretProjection{
 				LocalObjectReference: corev1.LocalObjectReference{
-					Name: "cryostat-tls",
+					Name: r.Name + "-tls",
 				},
 				Items: []corev1.KeyToPath{
 					{
 						Key:  "ca.crt",
-						Path: "cryostat-ca.crt",
+						Path: r.Name + "-ca.crt",
 						Mode: &readOnlymode,
 					},
 				},
@@ -1939,7 +1940,7 @@ func (r *TestResources) newVolumes(certProjections []corev1.VolumeProjection) []
 				Name: "keystore",
 				VolumeSource: corev1.VolumeSource{
 					Secret: &corev1.SecretVolumeSource{
-						SecretName: "cryostat-tls",
+						SecretName: r.Name + "-tls",
 						Items: []corev1.KeyToPath{
 							{
 								Key:  "keystore.p12",
@@ -1956,7 +1957,7 @@ func (r *TestResources) newVolumes(certProjections []corev1.VolumeProjection) []
 					Name: "grafana-tls-secret",
 					VolumeSource: corev1.VolumeSource{
 						Secret: &corev1.SecretVolumeSource{
-							SecretName: "cryostat-grafana-tls",
+							SecretName: r.Name + "-grafana-tls",
 						},
 					},
 				})
@@ -1985,7 +1986,7 @@ func (r *TestResources) NewReportsVolumes() []corev1.Volume {
 			Name: "reports-tls-secret",
 			VolumeSource: corev1.VolumeSource{
 				Secret: &corev1.SecretVolumeSource{
-					SecretName: "cryostat-reports-tls",
+					SecretName: r.Name + "-reports-tls",
 				},
 			},
 		},
@@ -2063,7 +2064,7 @@ func (r *TestResources) NewReportSecurityContext(cr *model.CryostatInstance) *co
 }
 
 func (r *TestResources) NewCoreRoute() *routev1.Route {
-	return r.newRoute("cryostat", 8181)
+	return r.newRoute(r.Name, 8181)
 }
 
 func (r *TestResources) NewCustomCoreRoute() *routev1.Route {
@@ -2074,7 +2075,7 @@ func (r *TestResources) NewCustomCoreRoute() *routev1.Route {
 }
 
 func (r *TestResources) NewGrafanaRoute() *routev1.Route {
-	return r.newRoute("cryostat-grafana", 3000)
+	return r.newRoute(r.Name+"-grafana", 3000)
 }
 
 func (r *TestResources) NewCustomGrafanaRoute() *routev1.Route {
@@ -2094,7 +2095,7 @@ func (r *TestResources) newRoute(name string, port int) *routev1.Route {
 	} else {
 		routeTLS = &routev1.TLSConfig{
 			Termination:              routev1.TLSTerminationReencrypt,
-			DestinationCACertificate: "cryostat-ca-bytes",
+			DestinationCACertificate: r.Name + "-ca-bytes",
 		}
 	}
 	return &routev1.Route{
@@ -2118,7 +2119,7 @@ func (r *TestResources) newRoute(name string, port int) *routev1.Route {
 func (r *TestResources) OtherCoreRoute() *routev1.Route {
 	return &routev1.Route{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:        "cryostat",
+			Name:        r.Name,
 			Namespace:   r.Namespace,
 			Annotations: map[string]string{"custom": "annotation"},
 			Labels:      map[string]string{"custom": "label"},
@@ -2144,7 +2145,7 @@ func (r *TestResources) OtherCoreRoute() *routev1.Route {
 func (r *TestResources) OtherGrafanaRoute() *routev1.Route {
 	return &routev1.Route{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:        "cryostat-grafana",
+			Name:        r.Name + "-grafana",
 			Namespace:   r.Namespace,
 			Annotations: map[string]string{"grafana": "annotation"},
 			Labels:      map[string]string{"grafana": "label"},
@@ -2165,7 +2166,7 @@ func (r *TestResources) OtherCoreIngress() *netv1.Ingress {
 	pathtype := netv1.PathTypePrefix
 	return &netv1.Ingress{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:        "cryostat",
+			Name:        r.Name,
 			Namespace:   r.Namespace,
 			Annotations: map[string]string{"custom": "annotation"},
 			Labels:      map[string]string{"custom": "label"},
@@ -2202,7 +2203,7 @@ func (r *TestResources) OtherGrafanaIngress() *netv1.Ingress {
 	pathtype := netv1.PathTypePrefix
 	return &netv1.Ingress{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:        "cryostat-grafana",
+			Name:        r.Name + "-grafana",
 			Namespace:   r.Namespace,
 			Annotations: map[string]string{"grafana": "annotation"},
 			Labels:      map[string]string{"grafana": "label"},
@@ -2292,16 +2293,16 @@ func (r *TestResources) NewServiceAccount() *corev1.ServiceAccount {
 	var annotations map[string]string
 	if r.OpenShift {
 		annotations = map[string]string{
-			"serviceaccounts.openshift.io/oauth-redirectreference.route": `{"metadata":{"creationTimestamp":null},"reference":{"group":"","kind":"Route","name":"cryostat"}}`,
+			"serviceaccounts.openshift.io/oauth-redirectreference.route": fmt.Sprintf(`{"metadata":{"creationTimestamp":null},"reference":{"group":"","kind":"Route","name":"%s"}}`, r.Name),
 		}
 	}
 
 	return &corev1.ServiceAccount{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "cryostat",
+			Name:      r.Name,
 			Namespace: r.Namespace,
 			Labels: map[string]string{
-				"app": "cryostat",
+				"app": r.Name,
 			},
 			Annotations: annotations,
 		},
@@ -2312,7 +2313,7 @@ func (r *TestResources) OtherServiceAccount() *corev1.ServiceAccount {
 	disable := false
 	return &corev1.ServiceAccount{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "cryostat",
+			Name:      r.Name,
 			Namespace: r.Namespace,
 			Labels: map[string]string{
 				"app":   "not-cryostat",
@@ -2324,15 +2325,15 @@ func (r *TestResources) OtherServiceAccount() *corev1.ServiceAccount {
 		},
 		ImagePullSecrets: []corev1.LocalObjectReference{
 			{
-				Name: "cryostat-dockercfg-abcde",
+				Name: r.Name + "-dockercfg-abcde",
 			},
 		},
 		Secrets: []corev1.ObjectReference{
 			{
-				Name: "cryostat-dockercfg-abcde",
+				Name: r.Name + "-dockercfg-abcde",
 			},
 			{
-				Name: "cryostat-token-abcde",
+				Name: r.Name + "-token-abcde",
 			},
 		},
 		AutomountServiceAccountToken: &disable,
@@ -2369,7 +2370,7 @@ func (r *TestResources) NewRole() *rbacv1.Role {
 	}
 	return &rbacv1.Role{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "cryostat",
+			Name:      r.Name,
 			Namespace: r.Namespace,
 		},
 		Rules: rules,
@@ -2379,7 +2380,7 @@ func (r *TestResources) NewRole() *rbacv1.Role {
 func (r *TestResources) OtherRole() *rbacv1.Role {
 	return &rbacv1.Role{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "cryostat",
+			Name:      r.Name,
 			Namespace: r.Namespace,
 			Labels: map[string]string{
 				"test": "label",
@@ -2418,20 +2419,20 @@ func (r *TestResources) NewAuthClusterRole() *rbacv1.ClusterRole {
 func (r *TestResources) NewRoleBinding() *rbacv1.RoleBinding {
 	return &rbacv1.RoleBinding{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "cryostat",
+			Name:      r.Name,
 			Namespace: r.Namespace,
 		},
 		Subjects: []rbacv1.Subject{
 			{
 				Kind:      rbacv1.ServiceAccountKind,
-				Name:      "cryostat",
+				Name:      r.Name,
 				Namespace: r.Namespace,
 			},
 		},
 		RoleRef: rbacv1.RoleRef{
 			APIGroup: "rbac.authorization.k8s.io",
 			Kind:     "Role",
-			Name:     "cryostat",
+			Name:     r.Name,
 		},
 	}
 }
@@ -2439,7 +2440,7 @@ func (r *TestResources) NewRoleBinding() *rbacv1.RoleBinding {
 func (r *TestResources) OtherRoleBinding() *rbacv1.RoleBinding {
 	return &rbacv1.RoleBinding{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "cryostat",
+			Name:      r.Name,
 			Namespace: r.Namespace,
 			Labels: map[string]string{
 				"test": "label",
@@ -2465,7 +2466,7 @@ func (r *TestResources) OtherRoleBinding() *rbacv1.RoleBinding {
 }
 
 func (r *TestResources) clusterUniqueSuffix() string {
-	toEncode := r.Namespace + "/cryostat"
+	toEncode := r.Namespace + "/" + r.Name
 	return fmt.Sprintf("%x", sha256.Sum256([]byte(toEncode)))
 }
 
@@ -2477,7 +2478,7 @@ func (r *TestResources) NewClusterRoleBinding() *rbacv1.ClusterRoleBinding {
 		Subjects: []rbacv1.Subject{
 			{
 				Kind:      rbacv1.ServiceAccountKind,
-				Name:      "cryostat",
+				Name:      r.Name,
 				Namespace: r.Namespace,
 			},
 		},
@@ -2576,7 +2577,7 @@ func (r *TestResources) NewConsoleLink() *consolev1.ConsoleLink {
 		Spec: consolev1.ConsoleLinkSpec{
 			Link: consolev1.Link{
 				Text: "Cryostat",
-				Href: "https://cryostat.example.com",
+				Href: fmt.Sprintf("https://%s.example.com", r.Name),
 			},
 			Location: consolev1.NamespaceDashboard,
 			NamespaceDashboard: &consolev1.NamespaceDashboardSpec{

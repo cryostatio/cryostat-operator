@@ -79,7 +79,6 @@ type ReconcilerConfig struct {
 
 type Reconciler struct {
 	*ReconcilerConfig
-	updateStatus func(context.Context, runtime.Object) // FIXME
 }
 
 // Name used for Finalizer that handles Cryostat deletion

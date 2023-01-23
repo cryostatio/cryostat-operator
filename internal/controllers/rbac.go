@@ -89,7 +89,7 @@ func newServiceAccount(cr *model.CryostatInstance) *corev1.ServiceAccount {
 func (r *Reconciler) reconcileServiceAccount(ctx context.Context, cr *model.CryostatInstance) error {
 	sa := newServiceAccount(cr)
 	labels := map[string]string{
-		"app": "cryostat",
+		"app": cr.Name,
 	}
 	annotations := map[string]string{}
 	// If running on OpenShift, set the route reference as an annotation.
