@@ -66,10 +66,15 @@ func FromCryostat(cr *operatorv1beta1.Cryostat) *CryostatInstance {
 }
 
 func FromClusterCryostat(cr *operatorv1beta1.ClusterCryostat) *CryostatInstance {
+	// If target namespaces aren't explicitly listed, use the install namespace
+	targetNamespaces := cr.Spec.TargetNamespaces
+	if len(targetNamespaces) == 0 {
+		targetNamespaces = []string{cr.Spec.InstallNamespace}
+	}
 	return &CryostatInstance{
 		Name:             cr.Name,
 		InstallNamespace: cr.Spec.InstallNamespace,
-		TargetNamespaces: cr.Spec.TargetNamespaces,
+		TargetNamespaces: targetNamespaces,
 
 		Spec:   &cr.Spec.CryostatSpec,
 		Status: &cr.Status.CryostatStatus,

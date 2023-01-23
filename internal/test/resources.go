@@ -41,6 +41,7 @@ import (
 	"fmt"
 
 	operatorv1beta1 "github.com/cryostatio/cryostat-operator/api/v1beta1"
+	"github.com/cryostatio/cryostat-operator/internal/controllers/model"
 	certv1 "github.com/jetstack/cert-manager/pkg/apis/certmanager/v1"
 	certMeta "github.com/jetstack/cert-manager/pkg/apis/meta/v1"
 	"github.com/onsi/gomega"
@@ -62,12 +63,14 @@ import (
 )
 
 type TestResources struct {
-	Namespace      string
-	Minimal        bool
-	TLS            bool
-	ExternalTLS    bool
-	OpenShift      bool
-	ReportReplicas int32
+	Namespace        string
+	Minimal          bool
+	TLS              bool
+	ExternalTLS      bool
+	OpenShift        bool
+	ReportReplicas   int32
+	ClusterScoped    bool
+	TargetNamespaces []string
 }
 
 func NewTestScheme() *runtime.Scheme {
@@ -99,7 +102,8 @@ func NewTESTRESTMapper() meta.RESTMapper {
 	return mapper
 }
 
-func (r *TestResources) NewCryostat() *operatorv1beta1.Cryostat {
+// FIXME need to split this up, make private newCryostat that returns API and use either a copy or actual model.FromCryostat throughout
+func (r *TestResources) NewCryostat() *model.CryostatInstance {
 	certManager := true
 	var reportOptions *operatorv1beta1.ReportConfiguration
 	if r.ReportReplicas > 0 {
@@ -107,20 +111,60 @@ func (r *TestResources) NewCryostat() *operatorv1beta1.Cryostat {
 			Replicas: r.ReportReplicas,
 		}
 	}
-	return &operatorv1beta1.Cryostat{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "cryostat",
-			Namespace: r.Namespace,
-		},
-		Spec: operatorv1beta1.CryostatSpec{
-			Minimal:           r.Minimal,
-			EnableCertManager: &certManager,
-			ReportOptions:     reportOptions,
-		},
+	if r.ClusterScoped {
+		cr := &operatorv1beta1.ClusterCryostat{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "cryostat", // FIXME name conflicts
+			},
+			Spec: operatorv1beta1.ClusterCryostatSpec{
+				InstallNamespace: r.Namespace,
+				CryostatSpec: operatorv1beta1.CryostatSpec{
+					Minimal:           r.Minimal,
+					EnableCertManager: &certManager,
+					ReportOptions:     reportOptions,
+				},
+			},
+		}
+		return r.ConvertClusterToModel(cr)
+	} else {
+		cr := &operatorv1beta1.Cryostat{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "cryostat",
+				Namespace: r.Namespace,
+			},
+			Spec: operatorv1beta1.CryostatSpec{
+				Minimal:           r.Minimal,
+				EnableCertManager: &certManager,
+				ReportOptions:     reportOptions,
+			},
+		}
+		return r.ConvertNamespacedToModel(cr)
 	}
 }
 
-func (r *TestResources) NewCryostatWithSecrets() *operatorv1beta1.Cryostat {
+func (r *TestResources) ConvertNamespacedToModel(cr *operatorv1beta1.Cryostat) *model.CryostatInstance {
+	return &model.CryostatInstance{
+		Name:             cr.Name,
+		InstallNamespace: cr.Namespace,
+		TargetNamespaces: []string{cr.Namespace},
+		Spec:             &cr.Spec,
+		Status:           &cr.Status,
+		Instance:         cr,
+	}
+}
+
+func (r *TestResources) ConvertClusterToModel(cr *operatorv1beta1.ClusterCryostat) *model.CryostatInstance {
+	return &model.CryostatInstance{
+		Name:             cr.Name,
+		InstallNamespace: cr.Spec.InstallNamespace,
+		TargetNamespaces: cr.Spec.TargetNamespaces,
+		Spec:             &cr.Spec.CryostatSpec,
+		Status:           &cr.Status.CryostatStatus,
+		Instance:         cr,
+	}
+}
+
+func (r *TestResources) NewCryostatWithSecrets() *model.CryostatInstance {
 	cr := r.NewCryostat()
 	key := "test.crt"
 	cr.Spec.TrustedCertSecrets = []operatorv1beta1.CertificateSecret{
@@ -135,7 +179,7 @@ func (r *TestResources) NewCryostatWithSecrets() *operatorv1beta1.Cryostat {
 	return cr
 }
 
-func (r *TestResources) NewCryostatWithTemplates() *operatorv1beta1.Cryostat {
+func (r *TestResources) NewCryostatWithTemplates() *model.CryostatInstance {
 	cr := r.NewCryostat()
 	cr.Spec.EventTemplates = []operatorv1beta1.TemplateConfigMap{
 		{
@@ -150,14 +194,14 @@ func (r *TestResources) NewCryostatWithTemplates() *operatorv1beta1.Cryostat {
 	return cr
 }
 
-func (r *TestResources) NewCryostatWithIngress() *operatorv1beta1.Cryostat {
+func (r *TestResources) NewCryostatWithIngress() *model.CryostatInstance {
 	cr := r.NewCryostat()
 	networkConfig := r.newNetworkConfigurationList()
 	cr.Spec.NetworkOptions = &networkConfig
 	return cr
 }
 
-func (r *TestResources) NewCryostatWithPVCSpec() *operatorv1beta1.Cryostat {
+func (r *TestResources) NewCryostatWithPVCSpec() *model.CryostatInstance {
 	cr := r.NewCryostat()
 	cr.Spec.StorageOptions = &operatorv1beta1.StorageConfiguration{
 		PVC: &operatorv1beta1.PersistentVolumeClaimConfig{
@@ -174,7 +218,7 @@ func (r *TestResources) NewCryostatWithPVCSpec() *operatorv1beta1.Cryostat {
 	return cr
 }
 
-func (r *TestResources) NewCryostatWithPVCSpecSomeDefault() *operatorv1beta1.Cryostat {
+func (r *TestResources) NewCryostatWithPVCSpecSomeDefault() *model.CryostatInstance {
 	cr := r.NewCryostat()
 	cr.Spec.StorageOptions = &operatorv1beta1.StorageConfiguration{
 		PVC: &operatorv1beta1.PersistentVolumeClaimConfig{
@@ -184,7 +228,7 @@ func (r *TestResources) NewCryostatWithPVCSpecSomeDefault() *operatorv1beta1.Cry
 	return cr
 }
 
-func (r *TestResources) NewCryostatWithPVCLabelsOnly() *operatorv1beta1.Cryostat {
+func (r *TestResources) NewCryostatWithPVCLabelsOnly() *model.CryostatInstance {
 	cr := r.NewCryostat()
 	cr.Spec.StorageOptions = &operatorv1beta1.StorageConfiguration{
 		PVC: &operatorv1beta1.PersistentVolumeClaimConfig{
@@ -196,7 +240,7 @@ func (r *TestResources) NewCryostatWithPVCLabelsOnly() *operatorv1beta1.Cryostat
 	return cr
 }
 
-func (r *TestResources) NewCryostatWithDefaultEmptyDir() *operatorv1beta1.Cryostat {
+func (r *TestResources) NewCryostatWithDefaultEmptyDir() *model.CryostatInstance {
 	cr := r.NewCryostat()
 	cr.Spec.StorageOptions = &operatorv1beta1.StorageConfiguration{
 		EmptyDir: &operatorv1beta1.EmptyDirConfig{
@@ -206,7 +250,7 @@ func (r *TestResources) NewCryostatWithDefaultEmptyDir() *operatorv1beta1.Cryost
 	return cr
 }
 
-func (r *TestResources) NewCryostatWithEmptyDirSpec() *operatorv1beta1.Cryostat {
+func (r *TestResources) NewCryostatWithEmptyDirSpec() *model.CryostatInstance {
 	cr := r.NewCryostat()
 	cr.Spec.StorageOptions = &operatorv1beta1.StorageConfiguration{
 		EmptyDir: &operatorv1beta1.EmptyDirConfig{
@@ -218,7 +262,7 @@ func (r *TestResources) NewCryostatWithEmptyDirSpec() *operatorv1beta1.Cryostat 
 	return cr
 }
 
-func (r *TestResources) NewCryostatWithCoreSvc() *operatorv1beta1.Cryostat {
+func (r *TestResources) NewCryostatWithCoreSvc() *model.CryostatInstance {
 	svcType := corev1.ServiceTypeNodePort
 	httpPort := int32(8080)
 	jmxPort := int32(9095)
@@ -242,7 +286,7 @@ func (r *TestResources) NewCryostatWithCoreSvc() *operatorv1beta1.Cryostat {
 	return cr
 }
 
-func (r *TestResources) NewCryostatWithGrafanaSvc() *operatorv1beta1.Cryostat {
+func (r *TestResources) NewCryostatWithGrafanaSvc() *model.CryostatInstance {
 	svcType := corev1.ServiceTypeNodePort
 	httpPort := int32(8080)
 	cr := r.NewCryostat()
@@ -264,7 +308,7 @@ func (r *TestResources) NewCryostatWithGrafanaSvc() *operatorv1beta1.Cryostat {
 	return cr
 }
 
-func (r *TestResources) NewCryostatWithReportsSvc() *operatorv1beta1.Cryostat {
+func (r *TestResources) NewCryostatWithReportsSvc() *model.CryostatInstance {
 	svcType := corev1.ServiceTypeNodePort
 	httpPort := int32(13161)
 	cr := r.NewCryostat()
@@ -286,7 +330,7 @@ func (r *TestResources) NewCryostatWithReportsSvc() *operatorv1beta1.Cryostat {
 	return cr
 }
 
-func (r *TestResources) NewCryostatWithCoreNetworkOptions() *operatorv1beta1.Cryostat {
+func (r *TestResources) NewCryostatWithCoreNetworkOptions() *model.CryostatInstance {
 	cr := r.NewCryostat()
 	cr.Spec.NetworkOptions = &operatorv1beta1.NetworkConfigurationList{
 		CoreConfig: &operatorv1beta1.NetworkConfiguration{
@@ -297,7 +341,7 @@ func (r *TestResources) NewCryostatWithCoreNetworkOptions() *operatorv1beta1.Cry
 	return cr
 }
 
-func (r *TestResources) NewCryostatWithGrafanaNetworkOptions() *operatorv1beta1.Cryostat {
+func (r *TestResources) NewCryostatWithGrafanaNetworkOptions() *model.CryostatInstance {
 	cr := r.NewCryostat()
 	cr.Spec.NetworkOptions = &operatorv1beta1.NetworkConfigurationList{
 		GrafanaConfig: &operatorv1beta1.NetworkConfiguration{
@@ -308,7 +352,7 @@ func (r *TestResources) NewCryostatWithGrafanaNetworkOptions() *operatorv1beta1.
 	return cr
 }
 
-func (r *TestResources) NewCryostatWithReportsResources() *operatorv1beta1.Cryostat {
+func (r *TestResources) NewCryostatWithReportsResources() *model.CryostatInstance {
 	cr := r.NewCryostat()
 	cr.Spec.ReportOptions = &operatorv1beta1.ReportConfiguration{
 		Replicas: 1,
@@ -326,7 +370,7 @@ func (r *TestResources) NewCryostatWithReportsResources() *operatorv1beta1.Cryos
 	return cr
 }
 
-func (r *TestResources) NewCryostatWithReportLowResourceLimit() *operatorv1beta1.Cryostat {
+func (r *TestResources) NewCryostatWithReportLowResourceLimit() *model.CryostatInstance {
 	cr := r.NewCryostat()
 	cr.Spec.ReportOptions = &operatorv1beta1.ReportConfiguration{
 		Replicas: 1,
@@ -392,13 +436,13 @@ func populateCryostatWithScheduling() *operatorv1beta1.SchedulingConfiguration {
 
 }
 
-func (r *TestResources) NewCryostatWithScheduling() *operatorv1beta1.Cryostat {
+func (r *TestResources) NewCryostatWithScheduling() *model.CryostatInstance {
 	cr := r.NewCryostat()
 	cr.Spec.SchedulingOptions = populateCryostatWithScheduling()
 	return cr
 }
 
-func (r *TestResources) NewCryostatWithReportsScheduling() *operatorv1beta1.Cryostat {
+func (r *TestResources) NewCryostatWithReportsScheduling() *model.CryostatInstance {
 	cr := r.NewCryostat()
 	cr.Spec.ReportOptions = &operatorv1beta1.ReportConfiguration{
 		Replicas:          1,
@@ -408,20 +452,20 @@ func (r *TestResources) NewCryostatWithReportsScheduling() *operatorv1beta1.Cryo
 	return cr
 }
 
-func (r *TestResources) NewCryostatCertManagerDisabled() *operatorv1beta1.Cryostat {
+func (r *TestResources) NewCryostatCertManagerDisabled() *model.CryostatInstance {
 	cr := r.NewCryostat()
 	certManager := false
 	cr.Spec.EnableCertManager = &certManager
 	return cr
 }
 
-func (r *TestResources) NewCryostatCertManagerUndefined() *operatorv1beta1.Cryostat {
+func (r *TestResources) NewCryostatCertManagerUndefined() *model.CryostatInstance {
 	cr := r.NewCryostat()
 	cr.Spec.EnableCertManager = nil
 	return cr
 }
 
-func (r *TestResources) NewCryostatWithResources() *operatorv1beta1.Cryostat {
+func (r *TestResources) NewCryostatWithResources() *model.CryostatInstance {
 	cr := r.NewCryostat()
 	cr.Spec.Resources = &operatorv1beta1.ResourceConfigList{
 		CoreResources: corev1.ResourceRequirements{
@@ -458,7 +502,7 @@ func (r *TestResources) NewCryostatWithResources() *operatorv1beta1.Cryostat {
 	return cr
 }
 
-func (r *TestResources) NewCryostatWithLowResourceLimit() *operatorv1beta1.Cryostat {
+func (r *TestResources) NewCryostatWithLowResourceLimit() *model.CryostatInstance {
 	cr := r.NewCryostat()
 	cr.Spec.Resources = &operatorv1beta1.ResourceConfigList{
 		CoreResources: corev1.ResourceRequirements{
@@ -483,7 +527,7 @@ func (r *TestResources) NewCryostatWithLowResourceLimit() *operatorv1beta1.Cryos
 	return cr
 }
 
-func (r *TestResources) NewCryostatWithAuthProperties() *operatorv1beta1.Cryostat {
+func (r *TestResources) NewCryostatWithAuthProperties() *model.CryostatInstance {
 	cr := r.NewCryostat()
 	cr.Spec.AuthProperties = &operatorv1beta1.AuthorizationProperties{
 		ConfigMapName:   "authConfigMapName",
@@ -493,7 +537,7 @@ func (r *TestResources) NewCryostatWithAuthProperties() *operatorv1beta1.Cryosta
 	return cr
 }
 
-func (r *TestResources) NewCryostatWithBuiltInDiscoveryDisabled() *operatorv1beta1.Cryostat {
+func (r *TestResources) NewCryostatWithBuiltInDiscoveryDisabled() *model.CryostatInstance {
 	cr := r.NewCryostat()
 	cr.Spec.TargetDiscoveryOptions = &operatorv1beta1.TargetDiscoveryOptions{
 		BuiltInDiscoveryDisabled: true,
@@ -514,7 +558,7 @@ func newPVCSpec(storageClass string, storageRequest string,
 	}
 }
 
-func (r *TestResources) NewCryostatWithJmxCacheOptionsSpec() *operatorv1beta1.Cryostat {
+func (r *TestResources) NewCryostatWithJmxCacheOptionsSpec() *model.CryostatInstance {
 	cr := r.NewCryostat()
 	cr.Spec.JmxCacheOptions = &operatorv1beta1.JmxCacheOptions{
 		TargetCacheSize: 10,
@@ -523,13 +567,13 @@ func (r *TestResources) NewCryostatWithJmxCacheOptionsSpec() *operatorv1beta1.Cr
 	return cr
 }
 
-func (r *TestResources) NewCryostatWithWsConnectionsSpec() *operatorv1beta1.Cryostat {
+func (r *TestResources) NewCryostatWithWsConnectionsSpec() *model.CryostatInstance {
 	cr := r.NewCryostat()
 	cr.Spec.MaxWsConnections = 10
 	return cr
 }
 
-func (r *TestResources) NewCryostatWithReportSubprocessHeapSpec() *operatorv1beta1.Cryostat {
+func (r *TestResources) NewCryostatWithReportSubprocessHeapSpec() *model.CryostatInstance {
 	cr := r.NewCryostat()
 	if cr.Spec.ReportOptions == nil {
 		cr.Spec.ReportOptions = &operatorv1beta1.ReportConfiguration{}
@@ -538,7 +582,7 @@ func (r *TestResources) NewCryostatWithReportSubprocessHeapSpec() *operatorv1bet
 	return cr
 }
 
-func (r *TestResources) NewCryostatWithSecurityOptions() *operatorv1beta1.Cryostat {
+func (r *TestResources) NewCryostatWithSecurityOptions() *model.CryostatInstance {
 	cr := r.NewCryostat()
 	privEscalation := true
 	nonRoot := false
@@ -577,7 +621,7 @@ func (r *TestResources) NewCryostatWithSecurityOptions() *operatorv1beta1.Cryost
 	return cr
 }
 
-func (r *TestResources) NewCryostatWithReportSecurityOptions() *operatorv1beta1.Cryostat {
+func (r *TestResources) NewCryostatWithReportSecurityOptions() *model.CryostatInstance {
 	cr := r.NewCryostat()
 	nonRoot := true
 	privEscalation := false
@@ -605,7 +649,7 @@ func (r *TestResources) NewCryostatWithReportSecurityOptions() *operatorv1beta1.
 
 var providedDatabaseSecretName string = "credentials-database-secret"
 
-func (r *TestResources) NewCryostatWithDatabaseSecretProvided() *operatorv1beta1.Cryostat {
+func (r *TestResources) NewCryostatWithDatabaseSecretProvided() *model.CryostatInstance {
 	cr := r.NewCryostat()
 	cr.Spec.JmxCredentialsDatabaseOptions = &operatorv1beta1.JmxCredentialsDatabaseOptions{
 		DatabaseSecretName: &providedDatabaseSecretName,
@@ -1975,7 +2019,7 @@ func (r *TestResources) commonDefaultSecurityContext() *corev1.SecurityContext {
 	}
 }
 
-func (r *TestResources) NewPodSecurityContext(cr *operatorv1beta1.Cryostat) *corev1.PodSecurityContext {
+func (r *TestResources) NewPodSecurityContext(cr *model.CryostatInstance) *corev1.PodSecurityContext {
 	if cr.Spec.SecurityOptions != nil && cr.Spec.SecurityOptions.PodSecurityContext != nil {
 		return cr.Spec.SecurityOptions.PodSecurityContext
 	}
@@ -1983,35 +2027,35 @@ func (r *TestResources) NewPodSecurityContext(cr *operatorv1beta1.Cryostat) *cor
 	return r.commonDefaultPodSecurityContext(&fsGroup)
 }
 
-func (r *TestResources) NewReportPodSecurityContext(cr *operatorv1beta1.Cryostat) *corev1.PodSecurityContext {
+func (r *TestResources) NewReportPodSecurityContext(cr *model.CryostatInstance) *corev1.PodSecurityContext {
 	if cr.Spec.ReportOptions != nil && cr.Spec.ReportOptions.SecurityOptions != nil && cr.Spec.ReportOptions.SecurityOptions.PodSecurityContext != nil {
 		return cr.Spec.ReportOptions.SecurityOptions.PodSecurityContext
 	}
 	return r.commonDefaultPodSecurityContext(nil)
 }
 
-func (r *TestResources) NewCoreSecurityContext(cr *operatorv1beta1.Cryostat) *corev1.SecurityContext {
+func (r *TestResources) NewCoreSecurityContext(cr *model.CryostatInstance) *corev1.SecurityContext {
 	if cr.Spec.SecurityOptions != nil && cr.Spec.SecurityOptions.CoreSecurityContext != nil {
 		return cr.Spec.SecurityOptions.CoreSecurityContext
 	}
 	return r.commonDefaultSecurityContext()
 }
 
-func (r *TestResources) NewGrafanaSecurityContext(cr *operatorv1beta1.Cryostat) *corev1.SecurityContext {
+func (r *TestResources) NewGrafanaSecurityContext(cr *model.CryostatInstance) *corev1.SecurityContext {
 	if cr.Spec.SecurityOptions != nil && cr.Spec.SecurityOptions.GrafanaSecurityContext != nil {
 		return cr.Spec.SecurityOptions.GrafanaSecurityContext
 	}
 	return r.commonDefaultSecurityContext()
 }
 
-func (r *TestResources) NewDatasourceSecurityContext(cr *operatorv1beta1.Cryostat) *corev1.SecurityContext {
+func (r *TestResources) NewDatasourceSecurityContext(cr *model.CryostatInstance) *corev1.SecurityContext {
 	if cr.Spec.SecurityOptions != nil && cr.Spec.SecurityOptions.DataSourceSecurityContext != nil {
 		return cr.Spec.SecurityOptions.DataSourceSecurityContext
 	}
 	return r.commonDefaultSecurityContext()
 }
 
-func (r *TestResources) NewReportSecurityContext(cr *operatorv1beta1.Cryostat) *corev1.SecurityContext {
+func (r *TestResources) NewReportSecurityContext(cr *model.CryostatInstance) *corev1.SecurityContext {
 	if cr.Spec.ReportOptions != nil && cr.Spec.ReportOptions.SecurityOptions != nil && cr.Spec.ReportOptions.SecurityOptions.ReportsSecurityContext != nil {
 		return cr.Spec.ReportOptions.SecurityOptions.ReportsSecurityContext
 	}
@@ -2586,7 +2630,7 @@ func newCoreContainerDefaultResource() *corev1.ResourceRequirements {
 	}
 }
 
-func (r *TestResources) NewCoreContainerResource(cr *operatorv1beta1.Cryostat) *corev1.ResourceRequirements {
+func (r *TestResources) NewCoreContainerResource(cr *model.CryostatInstance) *corev1.ResourceRequirements {
 	requests := newCoreContainerDefaultResource().Requests
 	var limits corev1.ResourceList
 	if cr.Spec.Resources != nil && cr.Spec.Resources.CoreResources.Requests != nil {
@@ -2614,7 +2658,7 @@ func newDatasourceContainerDefaultResource() *corev1.ResourceRequirements {
 	}
 }
 
-func (r *TestResources) NewDatasourceContainerResource(cr *operatorv1beta1.Cryostat) *corev1.ResourceRequirements {
+func (r *TestResources) NewDatasourceContainerResource(cr *model.CryostatInstance) *corev1.ResourceRequirements {
 	requests := newDatasourceContainerDefaultResource().Requests
 	var limits corev1.ResourceList
 	if cr.Spec.Resources != nil && cr.Spec.Resources.DataSourceResources.Requests != nil {
@@ -2642,7 +2686,7 @@ func newGrafanaContainerDefaultResource() *corev1.ResourceRequirements {
 	}
 }
 
-func (r *TestResources) NewGrafanaContainerResource(cr *operatorv1beta1.Cryostat) *corev1.ResourceRequirements {
+func (r *TestResources) NewGrafanaContainerResource(cr *model.CryostatInstance) *corev1.ResourceRequirements {
 	requests := newGrafanaContainerDefaultResource().Requests
 	var limits corev1.ResourceList
 	if cr.Spec.Resources != nil && cr.Spec.Resources.GrafanaResources.Requests != nil {
@@ -2670,7 +2714,7 @@ func newReportContainerDefaultResource() *corev1.ResourceRequirements {
 	}
 }
 
-func (r *TestResources) NewReportContainerResource(cr *operatorv1beta1.Cryostat) *corev1.ResourceRequirements {
+func (r *TestResources) NewReportContainerResource(cr *model.CryostatInstance) *corev1.ResourceRequirements {
 	requests := newReportContainerDefaultResource().Requests
 	var limits corev1.ResourceList
 
