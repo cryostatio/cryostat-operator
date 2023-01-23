@@ -79,10 +79,7 @@ type cryostatTestInput struct {
 	*test.TestResources
 }
 
-// TODO Can we move the specs to a separate common file and execute them with each type of CRD?
-var _ = Describe("CryostatController", func() {
-	var t *cryostatTestInput
-
+var CommonJustBeforeEach = func(t *cryostatTestInput) {
 	JustBeforeEach(func() {
 		logger := zap.New()
 		logf.SetLogger(logger)
@@ -103,9 +100,11 @@ var _ = Describe("CryostatController", func() {
 			ReconcilerTLS: test.NewTestReconcilerTLS(&t.TestReconcilerConfig),
 		})
 	})
+}
 
+var CommonBeforeEach = func(t *cryostatTestInput) {
 	BeforeEach(func() {
-		t = &cryostatTestInput{
+		input := cryostatTestInput{
 			TestReconcilerConfig: test.TestReconcilerConfig{
 				GeneratedPasswords: []string{"grafana", "credentials_database", "jmx", "keystore"},
 			},
@@ -117,16 +116,15 @@ var _ = Describe("CryostatController", func() {
 				OpenShift:   true,
 			},
 		}
-		t.objs = []runtime.Object{
-			t.NewNamespace(),
-			t.NewApiServer(),
+		input.objs = []runtime.Object{
+			input.NewNamespace(),
+			input.NewApiServer(),
 		}
+		*t = input
 	})
+}
 
-	AfterEach(func() {
-		t = nil
-	})
-
+var CommonSpecs = func(t *cryostatTestInput) {
 	Describe("reconciling a request in OpenShift", func() {
 		expectSuccessful := func() {
 			It("should create certificates", func() {
@@ -1918,7 +1916,7 @@ var _ = Describe("CryostatController", func() {
 			})
 		})
 	})
-})
+}
 
 func (t *cryostatTestInput) checkRoutes() {
 	if !t.Minimal {
