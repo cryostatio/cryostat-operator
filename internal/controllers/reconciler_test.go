@@ -72,14 +72,21 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 )
 
+type controllerTest struct {
+	clusterScoped   bool
+	constructorFunc func(*controllers.ReconcilerConfig) controllers.ReconcilerInterface
+}
+
 type cryostatTestInput struct {
-	controller *controllers.CryostatReconciler
+	controller controllers.ReconcilerInterface
 	objs       []runtime.Object
 	test.TestReconcilerConfig
 	*test.TestResources
 }
 
-var CommonJustBeforeEach = func(t *cryostatTestInput) {
+func (c *controllerTest) commonTests() {
+	var t *cryostatTestInput
+
 	JustBeforeEach(func() {
 		logger := zap.New()
 		logf.SetLogger(logger)
@@ -90,7 +97,7 @@ var CommonJustBeforeEach = func(t *cryostatTestInput) {
 		err := test.SetCreationTimestamp(t.objs...)
 		Expect(err).ToNot(HaveOccurred())
 		t.Client = fake.NewClientBuilder().WithScheme(s).WithRuntimeObjects(t.objs...).Build()
-		t.controller = controllers.NewCryostatReconciler(&controllers.ReconcilerConfig{
+		t.controller = c.constructorFunc(&controllers.ReconcilerConfig{
 			Client:        test.NewClientWithTimestamp(test.NewTestClient(t.Client, t.TestResources)),
 			Scheme:        s,
 			IsOpenShift:   t.OpenShift,
@@ -100,31 +107,27 @@ var CommonJustBeforeEach = func(t *cryostatTestInput) {
 			ReconcilerTLS: test.NewTestReconcilerTLS(&t.TestReconcilerConfig),
 		})
 	})
-}
 
-var CommonBeforeEach = func(t *cryostatTestInput) {
 	BeforeEach(func() {
-		input := cryostatTestInput{
+		t = &cryostatTestInput{
 			TestReconcilerConfig: test.TestReconcilerConfig{
 				GeneratedPasswords: []string{"grafana", "credentials_database", "jmx", "keystore"},
 			},
 			TestResources: &test.TestResources{
-				Name:        "cryostat",
-				Namespace:   "test",
-				TLS:         true,
-				ExternalTLS: true,
-				OpenShift:   true,
+				Name:          "cryostat",
+				Namespace:     "test",
+				TLS:           true,
+				ExternalTLS:   true,
+				OpenShift:     true,
+				ClusterScoped: c.clusterScoped,
 			},
 		}
-		input.objs = []runtime.Object{
-			input.NewNamespace(),
-			input.NewApiServer(),
+		t.objs = []runtime.Object{
+			t.NewNamespace(),
+			t.NewApiServer(),
 		}
-		*t = input
 	})
-}
 
-var CommonSpecs = func(t *cryostatTestInput) {
 	Describe("reconciling a request in OpenShift", func() {
 		expectSuccessful := func() {
 			It("should create certificates", func() {
@@ -220,18 +223,26 @@ var CommonSpecs = func(t *cryostatTestInput) {
 			expectSuccessful()
 		})
 		Context("with multiple namespaces", func() {
+			// Use different names as well for cluster-scoped case
+			names := []string{"cryostat-one", "cryostat-two"}
 			namespaces := []string{"test-one", "test-two"}
 			BeforeEach(func() {
-				for _, ns := range namespaces {
-					t.Namespace = ns
+				// Sanity check for test
+				Expect(names).To(HaveLen(len(namespaces)))
+				for i := range namespaces {
+					t.Name = names[i]
+					t.Namespace = namespaces[i]
 					t.objs = append(t.objs, t.NewNamespace(), t.NewCryostat().Instance)
 				}
 			})
 
-			for _, ns := range namespaces {
-				ns := ns // capture value
+			for i := range namespaces {
+				// capture values for closure
+				name := names[i]
+				ns := namespaces[i]
 				Context(fmt.Sprintf("successfully creates required resources in namespace %s", ns), func() {
 					BeforeEach(func() {
+						t.Name = name
 						t.Namespace = ns
 					})
 
@@ -295,8 +306,7 @@ var CommonSpecs = func(t *cryostatTestInput) {
 		})
 		Context("Cryostat does not exist", func() {
 			It("should do nothing", func() {
-				req := reconcile.Request{NamespacedName: types.NamespacedName{Name: "does-not-exist", Namespace: t.Namespace}}
-				result, err := t.controller.Reconcile(context.Background(), req)
+				result, err := t.reconcileWithName("does-not-exist")
 				Expect(err).ToNot(HaveOccurred())
 				Expect(result).To(Equal(reconcile.Result{}))
 			})
@@ -950,16 +960,15 @@ var CommonSpecs = func(t *cryostatTestInput) {
 						field.Forbidden(field.NewPath("spec"), "test error"),
 					})
 					t.Client = test.NewClientWithUpdateError(t.Client, oldPVC, invalidErr)
-					t.controller.Client = t.Client
+					t.controller.GetConfig().Client = t.Client
 
 					// Expect an Invalid status error after reconciling
-					req := reconcile.Request{NamespacedName: types.NamespacedName{Name: t.Name, Namespace: t.Namespace}}
-					_, err := t.controller.Reconcile(context.Background(), req)
+					_, err := t.reconcile()
 					Expect(err).To(HaveOccurred())
 					Expect(kerrors.IsInvalid(err)).To(BeTrue())
 				})
 				It("should emit a PersistentVolumeClaimInvalid event", func() {
-					recorder := t.controller.EventRecorder.(*record.FakeRecorder)
+					recorder := t.controller.GetConfig().EventRecorder.(*record.FakeRecorder)
 					var eventMsg string
 					Expect(recorder.Events).To(Receive(&eventMsg))
 					Expect(eventMsg).To(ContainSubstring("PersistentVolumeClaimInvalid"))
@@ -1356,19 +1365,18 @@ var CommonSpecs = func(t *cryostatTestInput) {
 		Context("cert-manager missing", func() {
 			JustBeforeEach(func() {
 				// Replace with an empty RESTMapper
-				t.controller.RESTMapper = meta.NewDefaultRESTMapper([]schema.GroupVersion{})
+				t.controller.GetConfig().RESTMapper = meta.NewDefaultRESTMapper([]schema.GroupVersion{})
 			})
 			Context("and enabled", func() {
 				BeforeEach(func() {
 					t.objs = append(t.objs, t.NewCryostat().Instance)
 				})
 				JustBeforeEach(func() {
-					req := reconcile.Request{NamespacedName: types.NamespacedName{Name: t.Name, Namespace: t.Namespace}}
-					_, err := t.controller.Reconcile(context.Background(), req)
+					_, err := t.reconcile()
 					Expect(err).To(HaveOccurred())
 				})
 				It("should emit a CertManagerUnavailable Event", func() {
-					recorder := t.controller.EventRecorder.(*record.FakeRecorder)
+					recorder := t.controller.GetConfig().EventRecorder.(*record.FakeRecorder)
 					var eventMsg string
 					Expect(recorder.Events).To(Receive(&eventMsg))
 					Expect(eventMsg).To(ContainSubstring("CertManagerUnavailable"))
@@ -1384,12 +1392,11 @@ var CommonSpecs = func(t *cryostatTestInput) {
 					t.objs = append(t.objs, t.NewCryostatCertManagerDisabled().Instance)
 				})
 				JustBeforeEach(func() {
-					req := reconcile.Request{NamespacedName: types.NamespacedName{Name: t.Name, Namespace: t.Namespace}}
-					_, err := t.controller.Reconcile(context.Background(), req)
+					_, err := t.reconcile()
 					Expect(err).ToNot(HaveOccurred())
 				})
 				It("should not emit a CertManagerUnavailable Event", func() {
-					recorder := t.controller.EventRecorder.(*record.FakeRecorder)
+					recorder := t.controller.GetConfig().EventRecorder.(*record.FakeRecorder)
 					Expect(recorder.Events).ToNot(Receive())
 				})
 				It("should set TLSSetupComplete Condition", func() {
@@ -1954,9 +1961,8 @@ func (t *cryostatTestInput) checkConditionAbsent(condType operatorv1beta1.Cryost
 }
 
 func (t *cryostatTestInput) reconcileCryostatFully() {
-	req := reconcile.Request{NamespacedName: types.NamespacedName{Name: t.Name, Namespace: t.Namespace}}
 	Eventually(func() reconcile.Result {
-		result, err := t.controller.Reconcile(context.Background(), req)
+		result, err := t.reconcile()
 		Expect(err).ToNot(HaveOccurred())
 		return result
 	}).WithTimeout(time.Minute).WithPolling(time.Millisecond).Should(Equal(reconcile.Result{}))
@@ -1989,8 +1995,7 @@ func (t *cryostatTestInput) expectNoCryostat() {
 }
 
 func (t *cryostatTestInput) expectCertificates() {
-	req := reconcile.Request{NamespacedName: types.NamespacedName{Name: t.Name, Namespace: t.Namespace}}
-	result, err := t.controller.Reconcile(context.Background(), req)
+	result, err := t.reconcile()
 	Expect(err).ToNot(HaveOccurred())
 	Expect(result).To(Equal(reconcile.Result{RequeueAfter: 5 * time.Second}))
 	t.checkCertificates()
@@ -2732,4 +2737,17 @@ func (t *cryostatTestInput) lookupCryostatInstance() (*model.CryostatInstance, e
 func (t *cryostatTestInput) updateCryostatInstance(cr *model.CryostatInstance) {
 	err := t.Client.Update(context.Background(), cr.Instance)
 	Expect(err).ToNot(HaveOccurred())
+}
+
+func (t *cryostatTestInput) reconcile() (reconcile.Result, error) {
+	return t.reconcileWithName(t.Name)
+}
+
+func (t *cryostatTestInput) reconcileWithName(name string) (reconcile.Result, error) {
+	nsName := types.NamespacedName{Name: name}
+	if !t.ClusterScoped {
+		nsName.Namespace = t.Namespace
+	}
+	req := reconcile.Request{NamespacedName: nsName}
+	return t.controller.Reconcile(context.Background(), req)
 }

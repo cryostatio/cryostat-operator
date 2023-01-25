@@ -114,6 +114,9 @@ func (r *TestResources) NewCryostat() *model.CryostatInstance {
 	}
 	if r.ClusterScoped {
 		cr := &operatorv1beta1.ClusterCryostat{
+			TypeMeta: metav1.TypeMeta{
+				Kind: "ClusterCryostat",
+			},
 			ObjectMeta: metav1.ObjectMeta{
 				Name: r.Name,
 			},
@@ -129,6 +132,9 @@ func (r *TestResources) NewCryostat() *model.CryostatInstance {
 		return r.ConvertClusterToModel(cr)
 	} else {
 		cr := &operatorv1beta1.Cryostat{
+			TypeMeta: metav1.TypeMeta{
+				Kind: "Cryostat",
+			},
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      r.Name,
 				Namespace: r.Namespace,

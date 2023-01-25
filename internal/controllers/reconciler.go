@@ -77,6 +77,11 @@ type ReconcilerConfig struct {
 	common.ReconcilerTLS
 }
 
+type ReconcilerInterface interface { // TODO rename
+	reconcile.Reconciler
+	GetConfig() *ReconcilerConfig
+}
+
 type Reconciler struct {
 	*ReconcilerConfig
 }
