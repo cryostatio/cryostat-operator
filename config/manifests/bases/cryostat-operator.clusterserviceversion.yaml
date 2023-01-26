@@ -2,20 +2,6 @@ apiVersion: operators.coreos.com/v1alpha1
 kind: ClusterServiceVersion
 metadata:
   annotations:
-    alm-examples: |-
-      [
-        {
-          "apiVersion": "operator.cryostat.io/v1beta1",
-          "kind": "Cryostat",
-          "metadata": {
-            "name": "cryostat"
-          },
-          "spec": {
-            "minimal": false,
-            "trustedCertSecrets": []
-          }
-        }
-      ]
     capabilities: Seamless Upgrades
     categories: Monitoring, Developer Tools
     containerImage: quay.io/cryostat/cryostat-operator:2.3.0-dev
@@ -24,9 +10,9 @@ metadata:
     operatorframework.io/initialization-resource: |-
       {
         "apiVersion": "operator.cryostat.io/v1beta1",
-        "kind": "Cryostat",
+        "kind": "ClusterCryostat",
         "metadata": {
-          "name": "cryostat-sample"
+          "name": "clustercryostat-sample"
         },
         "spec": {
           "enableCertManager": true,

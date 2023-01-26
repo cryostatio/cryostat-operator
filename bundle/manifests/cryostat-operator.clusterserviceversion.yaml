@@ -59,9 +59,9 @@ metadata:
     operatorframework.io/initialization-resource: |-
       {
         "apiVersion": "operator.cryostat.io/v1beta1",
-        "kind": "Cryostat",
+        "kind": "ClusterCryostat",
         "metadata": {
-          "name": "cryostat-sample"
+          "name": "clustercryostat-sample"
         },
         "spec": {
           "enableCertManager": true,
