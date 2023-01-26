@@ -66,14 +66,15 @@ type ClusterCryostatStatus struct {
 // +kubebuilder:storageversion
 // +kubebuilder:resource:path=clustercryostats,scope=Cluster
 
-// ClusterCryostat allows for the installation of a multi-namespace or cluster-wide
-// Cryostat. It contains configuration options for controlling the Deployment of
-// the Cryostat application and its related components. A Cryostat instance
-// must be created to instruct the operator to deploy the Cryostat application.
+// ClusterCryostat allows you to install Cryostat for multiple namespaces or cluster-wide.
+// It contains configuration options for controlling the Deployment of the Cryostat
+// application and its related components.
+// A ClusterCryostat or Cryostat instance must be created to instruct the operator
+// to deploy the Cryostat application.
 // +operator-sdk:csv:customresourcedefinitions:resources={{Deployment,v1},{Ingress,v1},{PersistentVolumeClaim,v1},{Secret,v1},{Service,v1},{Route,v1},{ConsoleLink,v1}}
 // +kubebuilder:printcolumn:name="Application URL",type=string,JSONPath=`.status.applicationUrl`
 // +kubebuilder:printcolumn:name="Grafana Secret",type=string,JSONPath=`.status.grafanaSecret`
-type ClusterCryostat struct {
+type ClusterCryostat struct { // TODO add cluster-wide API support
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 

@@ -25,11 +25,11 @@ spec:
     name: v1beta1
     schema:
       openAPIV3Schema:
-        description: ClusterCryostat allows for the installation of a multi-namespace
-          or cluster-wide Cryostat. It contains configuration options for controlling
-          the Deployment of the Cryostat application and its related components. A
-          Cryostat instance must be created to instruct the operator to deploy the
-          Cryostat application.
+        description: ClusterCryostat allows you to install Cryostat for multiple namespaces
+          or cluster-wide. It contains configuration options for controlling the Deployment
+          of the Cryostat application and its related components. A ClusterCryostat
+          or Cryostat instance must be created to instruct the operator to deploy
+          the Cryostat application.
         properties:
           apiVersion:
             description: 'APIVersion defines the versioned schema of this representation

@@ -75,6 +75,10 @@ var _ = Describe("ClusterCryostatController", func() {
 			c.commonJustBeforeEach(t)
 		})
 
+		It("should create the expected main deployment", func() {
+			t.expectDeployment()
+		})
+
 		It("should create RBAC in each namespace", func() {
 			t.expectRBAC()
 		})
@@ -94,6 +98,10 @@ var _ = Describe("ClusterCryostatController", func() {
 				t.objs = append(t.objs, cr.Instance,
 					t.NewRole(targetNamespaces[0]), t.NewRoleBinding(targetNamespaces[0]),
 					t.NewRole(targetNamespaces[1]), t.NewRoleBinding(targetNamespaces[1]))
+			})
+
+			It("should create the expected main deployment", func() {
+				t.expectDeployment()
 			})
 
 			It("leave RBAC for the first namespace", func() {

@@ -51,8 +51,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
-// TODO Use Spec.TargetNamespaces to set up RBAC
-
 func (r *Reconciler) reconcileRBAC(ctx context.Context, cr *model.CryostatInstance) error {
 	err := r.reconcileServiceAccount(ctx, cr)
 	if err != nil {

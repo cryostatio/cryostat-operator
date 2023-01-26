@@ -41,6 +41,7 @@ import (
 	"net/url"
 	"regexp"
 	"strconv"
+	"strings"
 
 	operatorv1beta1 "github.com/cryostatio/cryostat-operator/api/v1beta1"
 	"github.com/cryostatio/cryostat-operator/internal/constants"
@@ -598,6 +599,10 @@ func NewCoreContainer(cr *model.CryostatInstance, specs *ServiceSpecs, imageTag 
 		{
 			Name:  "CRYOSTAT_ENABLE_JDP_BROADCAST",
 			Value: "false",
+		},
+		{
+			Name:  "CRYOSTAT_K8S_NAMESPACES",
+			Value: strings.Join(cr.TargetNamespaces, ","),
 		},
 	}
 

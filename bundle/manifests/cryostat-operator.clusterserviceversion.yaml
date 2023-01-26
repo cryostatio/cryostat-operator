@@ -58,8 +58,9 @@ spec:
   apiservicedefinitions: {}
   customresourcedefinitions:
     owned:
-    - description: Cryostat contains configuration options for controlling the Deployment
-        of the Cryostat application and its related components. A Cryostat instance
+    - description: Cryostat allows you to install Cryostat for a single namespace.
+        It contains configuration options for controlling the Deployment of the Cryostat
+        application and its related components. A ClusterCryostat or Cryostat instance
         must be created to instruct the operator to deploy the Cryostat application.
       displayName: Cryostat
       kind: Cryostat
@@ -484,6 +485,26 @@ spec:
           verbs:
           - delete
           - list
+        - apiGroups:
+          - operator.cryostat.io
+          resources:
+          - clustercryostats
+          verbs:
+          - '*'
+        - apiGroups:
+          - operator.cryostat.io
+          resources:
+          - clustercryostats/finalizers
+          verbs:
+          - update
+        - apiGroups:
+          - operator.cryostat.io
+          resources:
+          - clustercryostats/status
+          verbs:
+          - get
+          - patch
+          - update
         - apiGroups:
           - rbac.authorization.k8s.io
           resources:

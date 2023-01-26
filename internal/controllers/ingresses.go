@@ -41,7 +41,6 @@ import (
 	"fmt"
 	"net/url"
 
-	//operatorv1beta1 "github.com/cryostatio/cryostat-operator/api/v1beta1"
 	operatorv1beta1 "github.com/cryostatio/cryostat-operator/api/v1beta1"
 	"github.com/cryostatio/cryostat-operator/internal/controllers/common/resource_definitions"
 	"github.com/cryostatio/cryostat-operator/internal/controllers/model"

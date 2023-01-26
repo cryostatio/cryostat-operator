@@ -39,6 +39,7 @@ package test
 import (
 	"crypto/sha256"
 	"fmt"
+	"strings"
 
 	operatorv1beta1 "github.com/cryostatio/cryostat-operator/api/v1beta1"
 	"github.com/cryostatio/cryostat-operator/internal/controllers/model"
@@ -103,9 +104,7 @@ func NewTESTRESTMapper() meta.RESTMapper {
 	return mapper
 }
 
-// FIXME need to split this up, make private newCryostat that returns API and use either a copy or actual model.FromCryostat throughout
 func (r *TestResources) NewCryostat() *model.CryostatInstance {
-
 	if r.ClusterScoped {
 		return r.ConvertClusterToModel(r.newClusterCryostat())
 	} else {
@@ -1248,6 +1247,10 @@ func (r *TestResources) NewCoreEnvironmentVariables(reportsUrl string, authProps
 		{
 			Name:  "CRYOSTAT_TARGET_CACHE_TTL",
 			Value: "10",
+		},
+		{
+			Name:  "CRYOSTAT_K8S_NAMESPACES",
+			Value: strings.Join(r.TargetNamespaces, ","),
 		},
 	}
 

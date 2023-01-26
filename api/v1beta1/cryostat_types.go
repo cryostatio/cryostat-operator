@@ -413,9 +413,11 @@ type JmxCacheOptions struct {
 // +kubebuilder:storageversion
 // +kubebuilder:resource:path=cryostats,scope=Namespaced
 
-// Cryostat contains configuration options for controlling the Deployment of
-// the Cryostat application and its related components. A Cryostat instance
-// must be created to instruct the operator to deploy the Cryostat application.
+// Cryostat allows you to install Cryostat for a single namespace.
+// It contains configuration options for controlling the Deployment of the Cryostat
+// application and its related components.
+// A ClusterCryostat or Cryostat instance must be created to instruct the operator
+// to deploy the Cryostat application.
 // +operator-sdk:csv:customresourcedefinitions:resources={{Deployment,v1},{Ingress,v1},{PersistentVolumeClaim,v1},{Secret,v1},{Service,v1},{Route,v1},{ConsoleLink,v1}}
 // +kubebuilder:printcolumn:name="Application URL",type=string,JSONPath=`.status.applicationUrl`
 // +kubebuilder:printcolumn:name="Grafana Secret",type=string,JSONPath=`.status.grafanaSecret`
