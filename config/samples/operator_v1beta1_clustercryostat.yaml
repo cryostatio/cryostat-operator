@@ -1,0 +1,16 @@
+apiVersion: operator.cryostat.io/v1beta1
+kind: ClusterCryostat
+metadata:
+  name: clustercryostat-sample
+spec:
+  minimal: false
+  enableCertManager: true
+  trustedCertSecrets: []
+  eventTemplates: []
+  storageOptions:
+    pvc:
+      labels: {}
+      annotations: {}
+      spec: {}
+  reportOptions:
+    replicas: 0
