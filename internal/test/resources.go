@@ -105,6 +105,38 @@ func NewTESTRESTMapper() meta.RESTMapper {
 
 // FIXME need to split this up, make private newCryostat that returns API and use either a copy or actual model.FromCryostat throughout
 func (r *TestResources) NewCryostat() *model.CryostatInstance {
+
+	if r.ClusterScoped {
+		return r.ConvertClusterToModel(r.newClusterCryostat())
+	} else {
+		return r.ConvertNamespacedToModel(r.newCryostat())
+	}
+}
+
+func (r *TestResources) newClusterCryostat() *operatorv1beta1.ClusterCryostat {
+	return &operatorv1beta1.ClusterCryostat{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: r.Name,
+		},
+		Spec: operatorv1beta1.ClusterCryostatSpec{
+			InstallNamespace: r.Namespace,
+			TargetNamespaces: r.TargetNamespaces,
+			CryostatSpec:     r.newCryostatSpec(),
+		},
+	}
+}
+
+func (r *TestResources) newCryostat() *operatorv1beta1.Cryostat {
+	return &operatorv1beta1.Cryostat{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      r.Name,
+			Namespace: r.Namespace,
+		},
+		Spec: r.newCryostatSpec(),
+	}
+}
+
+func (r *TestResources) newCryostatSpec() operatorv1beta1.CryostatSpec {
 	certManager := true
 	var reportOptions *operatorv1beta1.ReportConfiguration
 	if r.ReportReplicas > 0 {
@@ -112,62 +144,35 @@ func (r *TestResources) NewCryostat() *model.CryostatInstance {
 			Replicas: r.ReportReplicas,
 		}
 	}
-	if r.ClusterScoped {
-		cr := &operatorv1beta1.ClusterCryostat{
-			TypeMeta: metav1.TypeMeta{
-				Kind: "ClusterCryostat",
-			},
-			ObjectMeta: metav1.ObjectMeta{
-				Name: r.Name,
-			},
-			Spec: operatorv1beta1.ClusterCryostatSpec{
-				InstallNamespace: r.Namespace,
-				CryostatSpec: operatorv1beta1.CryostatSpec{
-					Minimal:           r.Minimal,
-					EnableCertManager: &certManager,
-					ReportOptions:     reportOptions,
-				},
-			},
-		}
-		return r.ConvertClusterToModel(cr)
-	} else {
-		cr := &operatorv1beta1.Cryostat{
-			TypeMeta: metav1.TypeMeta{
-				Kind: "Cryostat",
-			},
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      r.Name,
-				Namespace: r.Namespace,
-			},
-			Spec: operatorv1beta1.CryostatSpec{
-				Minimal:           r.Minimal,
-				EnableCertManager: &certManager,
-				ReportOptions:     reportOptions,
-			},
-		}
-		return r.ConvertNamespacedToModel(cr)
+	return operatorv1beta1.CryostatSpec{
+		Minimal:           r.Minimal,
+		EnableCertManager: &certManager,
+		ReportOptions:     reportOptions,
 	}
 }
 
 func (r *TestResources) ConvertNamespacedToModel(cr *operatorv1beta1.Cryostat) *model.CryostatInstance {
+	targetNS := []string{cr.Namespace}
 	return &model.CryostatInstance{
-		Name:             cr.Name,
-		InstallNamespace: cr.Namespace,
-		TargetNamespaces: []string{cr.Namespace},
-		Spec:             &cr.Spec,
-		Status:           &cr.Status,
-		Instance:         cr,
+		Name:                  cr.Name,
+		InstallNamespace:      cr.Namespace,
+		TargetNamespaces:      targetNS,
+		TargetNamespaceStatus: &targetNS,
+		Spec:                  &cr.Spec,
+		Status:                &cr.Status,
+		Instance:              cr,
 	}
 }
 
 func (r *TestResources) ConvertClusterToModel(cr *operatorv1beta1.ClusterCryostat) *model.CryostatInstance {
 	return &model.CryostatInstance{
-		Name:             cr.Name,
-		InstallNamespace: cr.Spec.InstallNamespace,
-		TargetNamespaces: cr.Spec.TargetNamespaces,
-		Spec:             &cr.Spec.CryostatSpec,
-		Status:           &cr.Status.CryostatStatus,
-		Instance:         cr,
+		Name:                  cr.Name,
+		InstallNamespace:      cr.Spec.InstallNamespace,
+		TargetNamespaces:      cr.Spec.TargetNamespaces,
+		TargetNamespaceStatus: &cr.Status.TargetNamespaces,
+		Spec:                  &cr.Spec.CryostatSpec,
+		Status:                &cr.Status.CryostatStatus,
+		Instance:              cr,
 	}
 }
 
@@ -2346,7 +2351,7 @@ func (r *TestResources) OtherServiceAccount() *corev1.ServiceAccount {
 	}
 }
 
-func (r *TestResources) NewRole() *rbacv1.Role {
+func (r *TestResources) NewRole(ns string) *rbacv1.Role {
 	rules := []rbacv1.PolicyRule{
 		{
 			Verbs:     []string{"get", "list", "watch"},
@@ -2377,17 +2382,17 @@ func (r *TestResources) NewRole() *rbacv1.Role {
 	return &rbacv1.Role{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      r.Name,
-			Namespace: r.Namespace,
+			Namespace: ns,
 		},
 		Rules: rules,
 	}
 }
 
-func (r *TestResources) OtherRole() *rbacv1.Role {
+func (r *TestResources) OtherRole(ns string) *rbacv1.Role {
 	return &rbacv1.Role{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      r.Name,
-			Namespace: r.Namespace,
+			Namespace: ns,
 			Labels: map[string]string{
 				"test": "label",
 			},
@@ -2422,11 +2427,11 @@ func (r *TestResources) NewAuthClusterRole() *rbacv1.ClusterRole {
 	}
 }
 
-func (r *TestResources) NewRoleBinding() *rbacv1.RoleBinding {
+func (r *TestResources) NewRoleBinding(ns string) *rbacv1.RoleBinding {
 	return &rbacv1.RoleBinding{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      r.Name,
-			Namespace: r.Namespace,
+			Namespace: ns,
 		},
 		Subjects: []rbacv1.Subject{
 			{
@@ -2443,11 +2448,11 @@ func (r *TestResources) NewRoleBinding() *rbacv1.RoleBinding {
 	}
 }
 
-func (r *TestResources) OtherRoleBinding() *rbacv1.RoleBinding {
+func (r *TestResources) OtherRoleBinding(ns string) *rbacv1.RoleBinding {
 	return &rbacv1.RoleBinding{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      r.Name,
-			Namespace: r.Namespace,
+			Namespace: ns,
 			Labels: map[string]string{
 				"test": "label",
 			},

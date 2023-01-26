@@ -244,12 +244,14 @@ func (r *Reconciler) ReconcileCryostat(ctx context.Context, cr *model.CryostatIn
 		return reconcile.Result{}, err
 	}
 
+	// Update CR Status
 	if serviceSpecs.CoreURL != nil {
 		cr.Status.ApplicationURL = serviceSpecs.CoreURL.String()
-		err = r.Client.Status().Update(ctx, cr.Instance)
-		if err != nil {
-			return reconcile.Result{}, err
-		}
+	}
+	*cr.TargetNamespaceStatus = cr.TargetNamespaces
+	err = r.Client.Status().Update(ctx, cr.Instance)
+	if err != nil {
+		return reconcile.Result{}, err
 	}
 
 	// OpenShift-specific

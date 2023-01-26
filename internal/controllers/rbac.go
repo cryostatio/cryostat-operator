@@ -113,17 +113,18 @@ func (r *Reconciler) reconcileServiceAccount(ctx context.Context, cr *model.Cryo
 	return r.createOrUpdateServiceAccount(ctx, sa, cr.Instance, labels, annotations)
 }
 
-func newRole(cr *model.CryostatInstance) *rbacv1.Role {
+func newRole(cr *model.CryostatInstance, namespace string) *rbacv1.Role {
 	return &rbacv1.Role{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      cr.Name,
-			Namespace: cr.InstallNamespace,
+			Namespace: namespace,
 		},
 	}
 }
 
 func (r *Reconciler) reconcileRole(ctx context.Context, cr *model.CryostatInstance) error {
-	role := newRole(cr)
+	// TODO convert to ClusterRole? Needs to be separate from existing one used by ClusterRoleBinding.
+	// If we do, we should delete existing Roles (check for ownership before deleting).
 	rules := []rbacv1.PolicyRule{
 		{
 			Verbs:     []string{"get", "list", "watch"},
@@ -151,17 +152,36 @@ func (r *Reconciler) reconcileRole(ctx context.Context, cr *model.CryostatInstan
 			Resources: []string{"routes"},
 		},
 	}
-	return r.createOrUpdateRole(ctx, role, cr.Instance, rules)
+
+	// Create a Role in each target namespace
+	for _, ns := range cr.TargetNamespaces {
+		role := newRole(cr, ns)
+		err := r.createOrUpdateRole(ctx, role, cr.Instance, rules)
+		if err != nil {
+			return err
+		}
+	}
+	// Delete any Roles in target namespaces that are no longer requested
+	for _, ns := range toDelete(cr) {
+		role := newRole(cr, ns)
+		err := r.deleteRole(ctx, role)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func newRoleBinding(cr *model.CryostatInstance, namespace string) *rbacv1.RoleBinding {
+	return &rbacv1.RoleBinding{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      cr.Name,
+			Namespace: namespace,
+		},
+	}
 }
 
 func (r *Reconciler) reconcileRoleBinding(ctx context.Context, cr *model.CryostatInstance) error {
-	binding := &rbacv1.RoleBinding{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      cr.Name,
-			Namespace: cr.InstallNamespace,
-		},
-	}
-
 	sa := newServiceAccount(cr)
 	subjects := []rbacv1.Subject{
 		{
@@ -171,13 +191,29 @@ func (r *Reconciler) reconcileRoleBinding(ctx context.Context, cr *model.Cryosta
 		},
 	}
 
-	roleRef := &rbacv1.RoleRef{
-		APIGroup: "rbac.authorization.k8s.io",
-		Kind:     "Role",
-		Name:     newRole(cr).Name,
+	// Create a RoleBinding in each target namespace
+	for _, ns := range cr.TargetNamespaces {
+		binding := newRoleBinding(cr, ns)
+		roleRef := &rbacv1.RoleRef{
+			APIGroup: "rbac.authorization.k8s.io",
+			Kind:     "Role",
+			Name:     newRole(cr, ns).Name,
+		}
+		err := r.createOrUpdateRoleBinding(ctx, binding, cr.Instance, subjects, roleRef)
+		if err != nil {
+			return err
+		}
+	}
+	// Delete any RoleBindings in target namespaces that are no longer requested
+	for _, ns := range toDelete(cr) {
+		binding := newRoleBinding(cr, ns)
+		err := r.deleteRoleBinding(ctx, binding)
+		if err != nil {
+			return err
+		}
 	}
 
-	return r.createOrUpdateRoleBinding(ctx, binding, cr.Instance, subjects, roleRef)
+	return nil
 }
 
 func newClusterRoleBinding(cr *model.CryostatInstance) *rbacv1.ClusterRoleBinding {
@@ -259,6 +295,20 @@ func (r *Reconciler) createOrUpdateRole(ctx context.Context, role *rbacv1.Role,
 	return nil
 }
 
+func (r *Reconciler) deleteRole(ctx context.Context, role *rbacv1.Role) error { // TODO refactor to reduce duplication
+	err := r.Client.Delete(ctx, role)
+	if err != nil {
+		if kerrors.IsNotFound(err) {
+			r.Log.Info("No role to delete", "name", role.Name, "namespace", role.Namespace)
+			return nil
+		}
+		r.Log.Error(err, "Could not delete role", "name", role.Name, "namespace", role.Namespace)
+		return err
+	}
+	r.Log.Info("Role deleted", "name", role.Name, "namespace", role.Namespace)
+	return nil
+}
+
 func (r *Reconciler) createOrUpdateRoleBinding(ctx context.Context, binding *rbacv1.RoleBinding,
 	owner metav1.Object, subjects []rbacv1.Subject, roleRef *rbacv1.RoleRef) error {
 	op, err := controllerutil.CreateOrUpdate(ctx, r.Client, binding, func() error {
@@ -277,6 +327,20 @@ func (r *Reconciler) createOrUpdateRoleBinding(ctx context.Context, binding *rba
 		return err
 	}
 	r.Log.Info(fmt.Sprintf("Role Binding %s", op), "name", binding.Name, "namespace", binding.Namespace)
+	return nil
+}
+
+func (r *Reconciler) deleteRoleBinding(ctx context.Context, binding *rbacv1.RoleBinding) error {
+	err := r.Client.Delete(ctx, binding)
+	if err != nil {
+		if kerrors.IsNotFound(err) {
+			r.Log.Info("No role binding to delete", "name", binding.Name, "namespace", binding.Namespace)
+			return nil
+		}
+		r.Log.Error(err, "Could not delete role binding", "name", binding.Name, "namespace", binding.Namespace)
+		return err
+	}
+	r.Log.Info("Role Binding deleted", "name", binding.Name, "namespace", binding.Namespace)
 	return nil
 }
 
@@ -311,4 +375,23 @@ func (r *Reconciler) deleteClusterRoleBinding(ctx context.Context, cr *model.Cry
 	}
 	r.Log.Info("deleted ClusterRoleBinding", "bindingName", clusterBinding.Name)
 	return nil
+}
+
+func toDelete(cr *model.CryostatInstance) []string {
+	toDelete := []string{}
+	for _, ns := range *cr.TargetNamespaceStatus {
+		if !containsNamespace(cr.TargetNamespaces, ns) {
+			toDelete = append(toDelete, ns)
+		}
+	}
+	return toDelete
+}
+
+func containsNamespace(namespaces []string, namespace string) bool {
+	for _, ns := range namespaces {
+		if ns == namespace {
+			return true
+		}
+	}
+	return false
 }

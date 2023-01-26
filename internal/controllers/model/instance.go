@@ -41,22 +41,37 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
+// CryostatInstance is an abstraction to work with both cluster-scoped
+// and namespace-scoped Cryostat CRDs.
 type CryostatInstance struct {
-	Name             string
+	// Name of the Cryostat CR.
+	Name string
+	// Namespace to install Cryostat into. For Cryostat, this comes from the
+	// CR's namespace. For ClusterCryostat, this comes from spec.InstallNamespace.
 	InstallNamespace string
+	// Namespaces that Cryostat should look for targets. For Cryostat, this is
+	// always the CR's namespace. For ClusterCryostat, this comes from spec.TargetNamespaces.
 	TargetNamespaces []string
-
-	Spec   *operatorv1beta1.CryostatSpec
+	// Namespaces that the operator has successfully set up RBAC for Cryostat to monitor targets
+	// in that namespace. For Cryostat, this is always the CR's namespace.
+	// For ClusterCryostat, this is a reference to status.TargetNamespaces.
+	TargetNamespaceStatus *[]string
+	// Reference to the common Spec properties to both CRD types.
+	Spec *operatorv1beta1.CryostatSpec
+	// Reference to the common Status properties to both CRD types.
 	Status *operatorv1beta1.CryostatStatus
-
+	// The actual CR instance as a generic Kubernetes object.
 	Instance client.Object
 }
 
+// FromCryostat creates a CryostatInstance from a Cryostat CR
 func FromCryostat(cr *operatorv1beta1.Cryostat) *CryostatInstance {
+	targetNS := []string{cr.Namespace}
 	return &CryostatInstance{
-		Name:             cr.Name,
-		InstallNamespace: cr.Namespace,
-		TargetNamespaces: []string{cr.Namespace},
+		Name:                  cr.Name,
+		InstallNamespace:      cr.Namespace,
+		TargetNamespaces:      targetNS,
+		TargetNamespaceStatus: &targetNS,
 
 		Spec:   &cr.Spec,
 		Status: &cr.Status,
@@ -65,6 +80,7 @@ func FromCryostat(cr *operatorv1beta1.Cryostat) *CryostatInstance {
 	}
 }
 
+// FromClusterCryostat creates a CryostatInstance from a ClusterCryostat CR
 func FromClusterCryostat(cr *operatorv1beta1.ClusterCryostat) *CryostatInstance {
 	// If target namespaces aren't explicitly listed, use the install namespace
 	targetNamespaces := cr.Spec.TargetNamespaces
@@ -72,9 +88,10 @@ func FromClusterCryostat(cr *operatorv1beta1.ClusterCryostat) *CryostatInstance 
 		targetNamespaces = []string{cr.Spec.InstallNamespace}
 	}
 	return &CryostatInstance{
-		Name:             cr.Name,
-		InstallNamespace: cr.Spec.InstallNamespace,
-		TargetNamespaces: targetNamespaces,
+		Name:                  cr.Name,
+		InstallNamespace:      cr.Spec.InstallNamespace,
+		TargetNamespaces:      targetNamespaces,
+		TargetNamespaceStatus: &cr.Status.TargetNamespaces,
 
 		Spec:   &cr.Spec.CryostatSpec,
 		Status: &cr.Status.CryostatStatus,

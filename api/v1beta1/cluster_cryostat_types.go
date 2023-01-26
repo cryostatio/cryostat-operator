@@ -54,7 +54,11 @@ type ClusterCryostatSpec struct {
 
 // ClusterCryostatStatus defines the observed state of ClusterCryostat.
 type ClusterCryostatStatus struct {
-	CryostatStatus `json:",inline"`
+	// List of namespaces that Cryostat has been configured
+	// and authorized to access and profile.
+	// +operator-sdk:csv:customresourcedefinitions:type=status,xDescriptors={"urn:alm:descriptor:io.kubernetes:Namespace"}
+	TargetNamespaces []string `json:"targetNamespaces,omitempty"`
+	CryostatStatus   `json:",inline"`
 }
 
 // +kubebuilder:object:root=true

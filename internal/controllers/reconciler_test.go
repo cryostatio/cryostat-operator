@@ -84,48 +84,58 @@ type cryostatTestInput struct {
 	*test.TestResources
 }
 
+func (c *controllerTest) commonBeforeEach() *cryostatTestInput {
+	t := &cryostatTestInput{
+		TestReconcilerConfig: test.TestReconcilerConfig{
+			GeneratedPasswords: []string{"grafana", "credentials_database", "jmx", "keystore"},
+		},
+		TestResources: &test.TestResources{
+			Name:          "cryostat",
+			Namespace:     "test",
+			TLS:           true,
+			ExternalTLS:   true,
+			OpenShift:     true,
+			ClusterScoped: c.clusterScoped,
+		},
+	}
+	t.objs = []runtime.Object{
+		t.NewNamespace(),
+		t.NewApiServer(),
+	}
+	return t
+}
+
+func (c *controllerTest) commonJustBeforeEach(t *cryostatTestInput) {
+	logger := zap.New()
+	logf.SetLogger(logger)
+	s := test.NewTestScheme()
+
+	// Set a CreationTimestamp for created objects to match a real API server
+	// TODO When using envtest instead of fake client, this is probably no longer needed
+	err := test.SetCreationTimestamp(t.objs...)
+	Expect(err).ToNot(HaveOccurred())
+	t.Client = fake.NewClientBuilder().WithScheme(s).WithRuntimeObjects(t.objs...).Build()
+	t.controller = c.constructorFunc(&controllers.ReconcilerConfig{
+		Client:        test.NewClientWithTimestamp(test.NewTestClient(t.Client, t.TestResources)),
+		Scheme:        s,
+		IsOpenShift:   t.OpenShift,
+		EventRecorder: record.NewFakeRecorder(1024),
+		RESTMapper:    test.NewTESTRESTMapper(),
+		Log:           logger,
+		ReconcilerTLS: test.NewTestReconcilerTLS(&t.TestReconcilerConfig),
+	})
+}
+
 func (c *controllerTest) commonTests() {
 	var t *cryostatTestInput
 
 	JustBeforeEach(func() {
-		logger := zap.New()
-		logf.SetLogger(logger)
-		s := test.NewTestScheme()
-
-		// Set a CreationTimestamp for created objects to match a real API server
-		// TODO When using envtest instead of fake client, this is probably no longer needed
-		err := test.SetCreationTimestamp(t.objs...)
-		Expect(err).ToNot(HaveOccurred())
-		t.Client = fake.NewClientBuilder().WithScheme(s).WithRuntimeObjects(t.objs...).Build()
-		t.controller = c.constructorFunc(&controllers.ReconcilerConfig{
-			Client:        test.NewClientWithTimestamp(test.NewTestClient(t.Client, t.TestResources)),
-			Scheme:        s,
-			IsOpenShift:   t.OpenShift,
-			EventRecorder: record.NewFakeRecorder(1024),
-			RESTMapper:    test.NewTESTRESTMapper(),
-			Log:           logger,
-			ReconcilerTLS: test.NewTestReconcilerTLS(&t.TestReconcilerConfig),
-		})
+		c.commonJustBeforeEach(t)
 	})
 
 	BeforeEach(func() {
-		t = &cryostatTestInput{
-			TestReconcilerConfig: test.TestReconcilerConfig{
-				GeneratedPasswords: []string{"grafana", "credentials_database", "jmx", "keystore"},
-			},
-			TestResources: &test.TestResources{
-				Name:          "cryostat",
-				Namespace:     "test",
-				TLS:           true,
-				ExternalTLS:   true,
-				OpenShift:     true,
-				ClusterScoped: c.clusterScoped,
-			},
-		}
-		t.objs = []runtime.Object{
-			t.NewNamespace(),
-			t.NewApiServer(),
-		}
+		t = c.commonBeforeEach()
+		t.TargetNamespaces = []string{t.Namespace}
 	})
 
 	Describe("reconciling a request in OpenShift", func() {
@@ -232,6 +242,7 @@ func (c *controllerTest) commonTests() {
 				for i := range namespaces {
 					t.Name = names[i]
 					t.Namespace = namespaces[i]
+					t.TargetNamespaces = []string{t.Namespace}
 					t.objs = append(t.objs, t.NewNamespace(), t.NewCryostat().Instance)
 				}
 			})
@@ -244,6 +255,7 @@ func (c *controllerTest) commonTests() {
 					BeforeEach(func() {
 						t.Name = name
 						t.Namespace = ns
+						t.TargetNamespaces = []string{t.Namespace}
 					})
 
 					expectSuccessful()
@@ -394,7 +406,7 @@ func (c *controllerTest) commonTests() {
 			var oldRole *rbacv1.Role
 			BeforeEach(func() {
 				cr = t.NewCryostat()
-				oldRole = t.OtherRole()
+				oldRole = t.OtherRole(t.Namespace)
 				t.objs = append(t.objs, cr.Instance, oldRole)
 			})
 			It("should update the Role", func() {
@@ -411,7 +423,7 @@ func (c *controllerTest) commonTests() {
 				Expect(role.Annotations).To(Equal(oldRole.Annotations))
 
 				// Rules should be fully replaced
-				Expect(role.Rules).To(Equal(t.NewRole().Rules))
+				Expect(role.Rules).To(Equal(t.NewRole(t.Namespace).Rules))
 			})
 		})
 		Context("with an existing Role Binding", func() {
@@ -419,7 +431,7 @@ func (c *controllerTest) commonTests() {
 			var oldBinding *rbacv1.RoleBinding
 			BeforeEach(func() {
 				cr = t.NewCryostat()
-				oldBinding = t.OtherRoleBinding()
+				oldBinding = t.OtherRoleBinding(t.Namespace)
 				t.objs = append(t.objs, cr.Instance, oldBinding)
 			})
 			It("should update the Role Binding", func() {
@@ -436,7 +448,7 @@ func (c *controllerTest) commonTests() {
 				Expect(binding.Annotations).To(Equal(oldBinding.Annotations))
 
 				// Subjects and RoleRef should be fully replaced
-				expected := t.NewRoleBinding()
+				expected := t.NewRoleBinding(t.Namespace)
 				Expect(binding.Subjects).To(Equal(expected.Subjects))
 				Expect(binding.RoleRef).To(Equal(expected.RoleRef))
 			})
@@ -1848,7 +1860,7 @@ func (c *controllerTest) commonTests() {
 			var oldRole *rbacv1.Role
 			BeforeEach(func() {
 				cr = t.NewCryostat()
-				oldRole = t.OtherRole()
+				oldRole = t.OtherRole(t.Namespace)
 				t.objs = append(t.objs, cr.Instance, oldRole)
 			})
 			It("should update the Role", func() {
@@ -1865,7 +1877,7 @@ func (c *controllerTest) commonTests() {
 				Expect(role.Annotations).To(Equal(oldRole.Annotations))
 
 				// Rules should be fully replaced
-				Expect(role.Rules).To(Equal(t.NewRole().Rules))
+				Expect(role.Rules).To(Equal(t.NewRole(t.Namespace).Rules))
 			})
 		})
 		Context("with an existing Role Binding", func() {
@@ -1873,7 +1885,7 @@ func (c *controllerTest) commonTests() {
 			var oldBinding *rbacv1.RoleBinding
 			BeforeEach(func() {
 				cr = t.NewCryostat()
-				oldBinding = t.OtherRoleBinding()
+				oldBinding = t.OtherRoleBinding(t.Namespace)
 				t.objs = append(t.objs, cr.Instance, oldBinding)
 			})
 			It("should update the Role Binding", func() {
@@ -1890,7 +1902,7 @@ func (c *controllerTest) commonTests() {
 				Expect(binding.Annotations).To(Equal(oldBinding.Annotations))
 
 				// Subjects and RoleRef should be fully replaced
-				expected := t.NewRoleBinding()
+				expected := t.NewRoleBinding(t.Namespace)
 				Expect(binding.Subjects).To(Equal(expected.Subjects))
 				Expect(binding.RoleRef).To(Equal(expected.RoleRef))
 			})
@@ -2054,20 +2066,24 @@ func (t *cryostatTestInput) expectRBAC() {
 	Expect(sa.ImagePullSecrets).To(Equal(expectedSA.ImagePullSecrets))
 	Expect(sa.AutomountServiceAccountToken).To(Equal(expectedSA.AutomountServiceAccountToken))
 
-	role := &rbacv1.Role{}
-	err = t.Client.Get(context.Background(), types.NamespacedName{Name: t.Name, Namespace: t.Namespace}, role)
-	Expect(err).ToNot(HaveOccurred())
-	expectedRole := t.NewRole()
-	t.checkMetadata(role, expectedRole)
-	Expect(role.Rules).To(Equal(expectedRole.Rules))
+	// Check for Role and RoleBinding in each target namespace
+	Expect(t.TargetNamespaces).ToNot(BeEmpty()) // Sanity check for tests
+	for _, ns := range t.TargetNamespaces {
+		role := &rbacv1.Role{}
+		err = t.Client.Get(context.Background(), types.NamespacedName{Name: t.Name, Namespace: ns}, role)
+		Expect(err).ToNot(HaveOccurred())
+		expectedRole := t.NewRole(ns)
+		t.checkMetadata(role, expectedRole)
+		Expect(role.Rules).To(Equal(expectedRole.Rules))
 
-	binding := &rbacv1.RoleBinding{}
-	err = t.Client.Get(context.Background(), types.NamespacedName{Name: t.Name, Namespace: t.Namespace}, binding)
-	Expect(err).ToNot(HaveOccurred())
-	expectedBinding := t.NewRoleBinding()
-	t.checkMetadata(binding, expectedBinding)
-	Expect(binding.Subjects).To(Equal(expectedBinding.Subjects))
-	Expect(binding.RoleRef).To(Equal(expectedBinding.RoleRef))
+		binding := &rbacv1.RoleBinding{}
+		err = t.Client.Get(context.Background(), types.NamespacedName{Name: t.Name, Namespace: ns}, binding)
+		Expect(err).ToNot(HaveOccurred())
+		expectedBinding := t.NewRoleBinding(ns)
+		t.checkMetadata(binding, expectedBinding)
+		Expect(binding.Subjects).To(Equal(expectedBinding.Subjects))
+		Expect(binding.RoleRef).To(Equal(expectedBinding.RoleRef))
+	}
 
 	expectedClusterBinding := t.NewClusterRoleBinding()
 	clusterBinding := &rbacv1.ClusterRoleBinding{}

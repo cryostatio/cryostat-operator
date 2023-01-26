@@ -98,6 +98,9 @@ func (r *CryostatReconciler) Reconcile(ctx context.Context, request ctrl.Request
 		return reconcile.Result{}, err
 	}
 
+	// TODO Consider potential name conflicts.
+	// For namespaced, look up cluster-scoped with same name. If it exists, check the list of target namespaces.
+	// If there's a match, don't process the CR. Emit an event warning the user of the conflict.
 	instance := model.FromCryostat(cr)
 	return r.delegate.ReconcileCryostat(ctx, instance)
 }
@@ -107,6 +110,7 @@ func (r *CryostatReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	c := ctrl.NewControllerManagedBy(mgr).
 		For(&operatorv1beta1.Cryostat{})
 
+	// TODO refactor to share between controllers
 	// Watch for changes to secondary resources and requeue the owner Cryostat
 	resources := []client.Object{&appsv1.Deployment{}, &corev1.Service{}, &corev1.Secret{}, &corev1.PersistentVolumeClaim{},
 		&corev1.ServiceAccount{}, &rbacv1.Role{}, &rbacv1.RoleBinding{}, &netv1.Ingress{}}

@@ -4500,6 +4500,12 @@ spec:
               grafanaSecret:
                 description: Name of the Secret containing the generated Grafana credentials.
                 type: string
+              targetNamespaces:
+                description: List of namespaces that Cryostat has been configured
+                  and authorized to access and profile.
+                items:
+                  type: string
+                type: array
             required:
             - applicationUrl
             type: object
