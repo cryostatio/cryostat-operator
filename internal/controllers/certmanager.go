@@ -127,7 +127,7 @@ func (r *CryostatReconciler) setupTLS(ctx context.Context, cr *operatorv1beta1.C
 		tlsConfig.GrafanaSecret = grafanaCert.Spec.SecretName
 	} else if cr.Spec.Minimal {
 		grafanaCert := resources.NewGrafanaCert(cr)
-		secret, err := r.GetCertificateSecret(ctx, grafanaCert.Name, grafanaCert.Namespace)
+		secret, err := r.GetCertificateSecret(ctx, grafanaCert)
 		if secret != nil {
 			r.deleteSecret(ctx, secret)
 		}

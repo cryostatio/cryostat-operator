@@ -570,6 +570,9 @@ var _ = Describe("CryostatController", func() {
 			It("should configure deployment appropriately", func() {
 				t.checkMainDeployment()
 			})
+			It("should create certificates", func() {
+				t.checkCertificates()
+			})
 		})
 		Context("Switching from a non-minimal to a minimal deployment", func() {
 			BeforeEach(func() {
@@ -608,6 +611,9 @@ var _ = Describe("CryostatController", func() {
 			})
 			It("should configure deployment appropriately", func() {
 				t.checkMainDeployment()
+			})
+			It("should create certificates", func() {
+				t.checkCertificates()
 			})
 		})
 		Context("with report generator service", func() {
@@ -2048,7 +2054,16 @@ func (t *cryostatTestInput) expectCertificates() {
 
 func (t *cryostatTestInput) checkCertificates() {
 	// Check certificates
-	certs := []*certv1.Certificate{t.NewCryostatCert(), t.NewCACert(), t.NewGrafanaCert(), t.NewReportsCert()}
+	certs := []*certv1.Certificate{t.NewCryostatCert(), t.NewCACert(), t.NewReportsCert()}
+	if !t.Minimal {
+		certs = append(certs, t.NewGrafanaCert())
+	} else {
+		actual := &certv1.Certificate{}
+		expected := t.NewGrafanaCert()
+		err := t.Client.Get(context.Background(), types.NamespacedName{Name: expected.Name, Namespace: expected.Namespace}, actual)
+		Expect(err).To(HaveOccurred())
+		Expect(kerrors.IsNotFound(err))
+	}
 	for _, expected := range certs {
 		actual := &certv1.Certificate{}
 		err := t.Client.Get(context.Background(), types.NamespacedName{Name: expected.Name, Namespace: expected.Namespace}, actual)
