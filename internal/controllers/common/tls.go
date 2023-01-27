@@ -45,7 +45,6 @@ import (
 	certv1 "github.com/jetstack/cert-manager/pkg/apis/certmanager/v1"
 	certMeta "github.com/jetstack/cert-manager/pkg/apis/meta/v1"
 	corev1 "k8s.io/api/core/v1"
-	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -54,8 +53,7 @@ import (
 // TLS-related functionality
 type ReconcilerTLS interface {
 	IsCertManagerEnabled(cryostat *operatorv1beta1.Cryostat) bool
-	GetCryostatCABytes(ctx context.Context, cryostat *operatorv1beta1.Cryostat) ([]byte, error)
-	GetCertificateSecret(ctx context.Context, name string, namespace string) (*corev1.Secret, error)
+	GetCertificateSecret(ctx context.Context, cert *certv1.Certificate) (*corev1.Secret, error)
 	OSUtils
 }
 
@@ -109,38 +107,17 @@ var ErrCertNotReady error = errors.New("Certificate secret not yet ready")
 // GetCertificateSecret returns the Secret corresponding to the named
 // cert-manager Certificate. This can return ErrCertNotReady if the
 // certificate secret is not available yet.
-func (r *reconcilerTLS) GetCertificateSecret(ctx context.Context, name string, namespace string) (*corev1.Secret, error) {
-	// Look up named certificate
-	cert := &certv1.Certificate{}
-	err := r.Client.Get(ctx, types.NamespacedName{Name: name, Namespace: namespace}, cert)
-	if err != nil {
-		if kerrors.IsNotFound(err) {
-			return nil, ErrCertNotReady
-		}
-		return nil, err
-	}
-
+func (r *reconcilerTLS) GetCertificateSecret(ctx context.Context, cert *certv1.Certificate) (*corev1.Secret, error) {
 	if !isCertificateReady(cert) {
 		return nil, ErrCertNotReady
 	}
 
 	secret := &corev1.Secret{}
-	err = r.Client.Get(ctx, types.NamespacedName{Name: cert.Spec.SecretName, Namespace: namespace}, secret)
+	err := r.Client.Get(ctx, types.NamespacedName{Name: cert.Spec.SecretName, Namespace: cert.Namespace}, secret)
 	if err != nil {
 		return nil, err
 	}
 	return secret, nil
-}
-
-// GetCryostatCABytes returns the CA certificate created for the provided
-// Cryostat CR, as a byte slice.
-func (r *reconcilerTLS) GetCryostatCABytes(ctx context.Context, cryostat *operatorv1beta1.Cryostat) ([]byte, error) {
-	caName := cryostat.Name + "-ca"
-	secret, err := r.GetCertificateSecret(ctx, caName, cryostat.Namespace)
-	if err != nil {
-		return nil, err
-	}
-	return secret.Data[corev1.TLSCertKey], nil
 }
 
 func isCertificateReady(cert *certv1.Certificate) bool {

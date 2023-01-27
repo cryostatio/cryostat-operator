@@ -235,13 +235,6 @@ func (r *CryostatReconciler) Reconcile(ctx context.Context, request ctrl.Request
 			return reconcile.Result{}, err
 		}
 
-		// Get CA certificate from secret and set as destination CA in route
-		caCert, err := r.GetCryostatCABytes(ctx, instance)
-		if err != nil {
-			return reconcile.Result{}, err
-		}
-		tlsConfig.CACert = caCert
-
 		err = r.updateCondition(ctx, instance, operatorv1beta1.ConditionTypeTLSSetupComplete, metav1.ConditionTrue,
 			reasonAllCertsReady, "All certificates for Cryostat components are ready.")
 		if err != nil {
