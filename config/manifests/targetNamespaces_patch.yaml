@@ -1,0 +1,6 @@
+- op: replace
+  path: /spec/customresourcedefinitions/owned/0/specDescriptors/1/path
+  value: targetNamespaces[0]
+- op: replace
+  path: /spec/customresourcedefinitions/owned/0/statusDescriptors/2/path
+  value: targetNamespaces[0]

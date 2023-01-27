@@ -43,22 +43,24 @@ import (
 // ClusterCryostatSpec defines the desired state of ClusterCryostat.
 type ClusterCryostatSpec struct {
 	// Namespace where Cryostat should be installed.
-	// +operator-sdk:csv:customresourcedefinitions:type=status,xDescriptors={"urn:alm:descriptor:io.kubernetes:Namespace"}
-	InstallNamespace string `json:"installNamespace"`
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,order=1,xDescriptors={"urn:alm:descriptor:io.kubernetes:Namespace"}
+	InstallNamespace string `json:"installNamespace"` // TODO use order to bring to top
 	// List of namespaces whose workloads Cryostat should be
 	// permitted to access and profile. Defaults to `spec.installNamespace`.
-	// +operator-sdk:csv:customresourcedefinitions:type=status,xDescriptors={"urn:alm:descriptor:io.kubernetes:Namespace"}
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,order=2,xDescriptors={"urn:alm:descriptor:io.kubernetes:Namespace"}
 	TargetNamespaces []string `json:"targetNamespaces,omitempty"`
-	CryostatSpec     `json:",inline"`
+	// +operator-sdk:csv:customresourcedefinitions:type=spec
+	CryostatSpec `json:",inline"`
 }
 
 // ClusterCryostatStatus defines the observed state of ClusterCryostat.
 type ClusterCryostatStatus struct {
 	// List of namespaces that Cryostat has been configured
 	// and authorized to access and profile.
-	// +operator-sdk:csv:customresourcedefinitions:type=status,xDescriptors={"urn:alm:descriptor:io.kubernetes:Namespace"}
+	// +operator-sdk:csv:customresourcedefinitions:type=status,order=3,xDescriptors={"urn:alm:descriptor:io.kubernetes:Namespace"}
 	TargetNamespaces []string `json:"targetNamespaces,omitempty"`
-	CryostatStatus   `json:",inline"`
+	// +operator-sdk:csv:customresourcedefinitions:type=status
+	CryostatStatus `json:",inline"`
 }
 
 // +kubebuilder:object:root=true

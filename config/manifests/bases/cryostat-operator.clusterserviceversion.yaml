@@ -63,6 +63,29 @@ spec:
         name: ""
         version: v1
       specDescriptors:
+      - description: Namespace where Cryostat should be installed.
+        displayName: Install Namespace
+        path: installNamespace
+        x-descriptors:
+        - urn:alm:descriptor:io.kubernetes:Namespace
+      - description: List of namespaces whose workloads Cryostat should be permitted
+          to access and profile. Defaults to `spec.installNamespace`.
+        displayName: Target Namespaces
+        path: targetNamespaces
+        x-descriptors:
+        - urn:alm:descriptor:io.kubernetes:Namespace
+      - description: Use cert-manager to secure in-cluster communication between Cryostat
+          components. Requires cert-manager to be installed.
+        displayName: Enable cert-manager Integration
+        path: enableCertManager
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:booleanSwitch
+      - description: Deploy a pared-down Cryostat instance with no Grafana Dashboard
+          or JFR Data Source.
+        displayName: Minimal Deployment
+        path: minimal
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:booleanSwitch
       - description: Override default authorization properties for Cryostat on OpenShift.
         displayName: Authorization Properties
         path: authProperties
@@ -85,12 +108,6 @@ spec:
         path: authProperties.filename
         x-descriptors:
         - urn:alm:descriptor:com.tectonic.ui:text
-      - description: Use cert-manager to secure in-cluster communication between Cryostat
-          components. Requires cert-manager to be installed.
-        displayName: Enable cert-manager Integration
-        path: enableCertManager
-        x-descriptors:
-        - urn:alm:descriptor:com.tectonic.ui:booleanSwitch
       - description: List of Flight Recorder Event Templates to preconfigure in Cryostat.
         displayName: Event Templates
         path: eventTemplates
@@ -131,12 +148,6 @@ spec:
         path: maxWsConnections
         x-descriptors:
         - urn:alm:descriptor:com.tectonic.ui:number
-      - description: Deploy a pared-down Cryostat instance with no Grafana Dashboard
-          or JFR Data Source.
-        displayName: Minimal Deployment
-        path: minimal
-        x-descriptors:
-        - urn:alm:descriptor:com.tectonic.ui:booleanSwitch
       - description: Options to control how the operator exposes the application outside
           of the cluster, such as using an Ingress or Route.
         displayName: Network Options
@@ -390,11 +401,6 @@ spec:
         path: applicationUrl
         x-descriptors:
         - urn:alm:descriptor:org.w3:link
-      - description: Conditions of the components managed by the Cryostat Operator.
-        displayName: Cryostat Conditions
-        path: conditions
-        x-descriptors:
-        - urn:alm:descriptor:io.kubernetes.conditions
       - description: Name of the Secret containing the generated Grafana credentials.
         displayName: Grafana Secret
         path: grafanaSecret
@@ -406,6 +412,11 @@ spec:
         path: targetNamespaces
         x-descriptors:
         - urn:alm:descriptor:io.kubernetes:Namespace
+      - description: Conditions of the components managed by the Cryostat Operator.
+        displayName: Cryostat Conditions
+        path: conditions
+        x-descriptors:
+        - urn:alm:descriptor:io.kubernetes.conditions
       version: v1beta1
     - description: Cryostat allows you to install Cryostat for a single namespace.
         It contains configuration options for controlling the Deployment of the Cryostat
@@ -437,6 +448,18 @@ spec:
         name: ""
         version: v1
       specDescriptors:
+      - description: Use cert-manager to secure in-cluster communication between Cryostat
+          components. Requires cert-manager to be installed.
+        displayName: Enable cert-manager Integration
+        path: enableCertManager
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:booleanSwitch
+      - description: Deploy a pared-down Cryostat instance with no Grafana Dashboard
+          or JFR Data Source.
+        displayName: Minimal Deployment
+        path: minimal
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:booleanSwitch
       - description: Override default authorization properties for Cryostat on OpenShift.
         displayName: Authorization Properties
         path: authProperties
@@ -459,12 +482,6 @@ spec:
         path: authProperties.filename
         x-descriptors:
         - urn:alm:descriptor:com.tectonic.ui:text
-      - description: Use cert-manager to secure in-cluster communication between Cryostat
-          components. Requires cert-manager to be installed.
-        displayName: Enable cert-manager Integration
-        path: enableCertManager
-        x-descriptors:
-        - urn:alm:descriptor:com.tectonic.ui:booleanSwitch
       - description: List of Flight Recorder Event Templates to preconfigure in Cryostat.
         displayName: Event Templates
         path: eventTemplates
@@ -505,12 +522,6 @@ spec:
         path: maxWsConnections
         x-descriptors:
         - urn:alm:descriptor:com.tectonic.ui:number
-      - description: Deploy a pared-down Cryostat instance with no Grafana Dashboard
-          or JFR Data Source.
-        displayName: Minimal Deployment
-        path: minimal
-        x-descriptors:
-        - urn:alm:descriptor:com.tectonic.ui:booleanSwitch
       - description: Options to control how the operator exposes the application outside
           of the cluster, such as using an Ingress or Route.
         displayName: Network Options
@@ -764,16 +775,16 @@ spec:
         path: applicationUrl
         x-descriptors:
         - urn:alm:descriptor:org.w3:link
-      - description: Conditions of the components managed by the Cryostat Operator.
-        displayName: Cryostat Conditions
-        path: conditions
-        x-descriptors:
-        - urn:alm:descriptor:io.kubernetes.conditions
       - description: Name of the Secret containing the generated Grafana credentials.
         displayName: Grafana Secret
         path: grafanaSecret
         x-descriptors:
         - urn:alm:descriptor:io.kubernetes:Secret
+      - description: Conditions of the components managed by the Cryostat Operator.
+        displayName: Cryostat Conditions
+        path: conditions
+        x-descriptors:
+        - urn:alm:descriptor:io.kubernetes.conditions
       version: v1beta1
   description: |
     Cryostat provides a cloud-based solution for interacting with the JDK Flight Recorder already present in OpenJDK 11+ JVMs. With Cryostat, users can remotely start, stop, retrieve, and even analyze JFR event data, providing the capability to easily take advantage of Flight Recorder's extremely low runtime cost and overhead and the flexibility to monitor applications and analyze recording data without transferring data outside of the cluster the application runs within.
