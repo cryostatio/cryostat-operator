@@ -104,7 +104,6 @@ func (r *CryostatReconciler) setupTLS(ctx context.Context, cr *operatorv1beta1.C
 		return nil, err
 	}
 
-	
 	// Create a certificate for the reports generator signed by the Cryostat CA
 	reportsCert := resources.NewReportsCert(cr)
 	err = r.createOrUpdateCertificate(ctx, reportsCert, cr)
@@ -118,15 +117,15 @@ func (r *CryostatReconciler) setupTLS(ctx context.Context, cr *operatorv1beta1.C
 	}
 	certificates := []*certv1.Certificate{caCert, cryostatCert, reportsCert}
 	// Create a certificate for Grafana signed by the Cryostat CA
-	if (!cr.Spec.Minimal) {
+	if !cr.Spec.Minimal {
 		grafanaCert := resources.NewGrafanaCert(cr)
 		err = r.createOrUpdateCertificate(ctx, grafanaCert, cr)
-	if err != nil {
-		return nil, err
-	}
-	certificates = append(certificates, grafanaCert)
-	tlsConfig.GrafanaSecret = grafanaCert.Spec.SecretName
-	} else if (cr.Spec.Minimal) {
+		if err != nil {
+			return nil, err
+		}
+		certificates = append(certificates, grafanaCert)
+		tlsConfig.GrafanaSecret = grafanaCert.Spec.SecretName
+	} else if cr.Spec.Minimal {
 		grafanaCert := resources.NewGrafanaCert(cr)
 		secret, err := r.GetCertificateSecret(ctx, grafanaCert.Name, grafanaCert.Namespace)
 		if secret != nil {
@@ -151,7 +150,7 @@ func (r *CryostatReconciler) setupTLS(ctx context.Context, cr *operatorv1beta1.C
 		return nil, err
 	}
 	tlsConfig.CACert = caBytes
-		return tlsConfig, nil
+	return tlsConfig, nil
 
 }
 
@@ -266,11 +265,11 @@ func (r *CryostatReconciler) deleteCert(ctx context.Context, cert *certv1.Certif
 	if err != nil && !kerrors.IsNotFound(err) {
 		r.Log.Error(err, "Could not delete certificate", "name", cert.Name, "namespace", cert.Namespace)
 		return err
-	} 
+	}
 	r.Log.Info("Cert deleted", "name", cert.Name, "namespace", cert.Namespace)
 	return nil
-	}
-	
+}
+
 func (r *CryostatReconciler) getCertficateBytes(ctx context.Context, cert *certv1.Certificate) ([]byte, error) {
 	secret, err := r.GetCertificateSecret(ctx, cert)
 	if err != nil {
