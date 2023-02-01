@@ -72,8 +72,6 @@ spec:
           to access and profile. Defaults to `spec.installNamespace`.
         displayName: Target Namespaces
         path: targetNamespaces
-        x-descriptors:
-        - urn:alm:descriptor:io.kubernetes:Namespace
       - description: Use cert-manager to secure in-cluster communication between Cryostat
           components. Requires cert-manager to be installed.
         displayName: Enable cert-manager Integration
@@ -410,8 +408,6 @@ spec:
           to access and profile.
         displayName: Target Namespaces
         path: targetNamespaces
-        x-descriptors:
-        - urn:alm:descriptor:io.kubernetes:Namespace
       - description: Conditions of the components managed by the Cryostat Operator.
         displayName: Cryostat Conditions
         path: conditions

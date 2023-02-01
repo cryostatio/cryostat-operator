@@ -120,9 +120,7 @@ spec:
       - description: List of namespaces whose workloads Cryostat should be permitted
           to access and profile. Defaults to `spec.installNamespace`.
         displayName: Target Namespaces
-        path: targetNamespaces[0]
-        x-descriptors:
-        - urn:alm:descriptor:io.kubernetes:Namespace
+        path: targetNamespaces
       - description: Use cert-manager to secure in-cluster communication between Cryostat
           components. Requires cert-manager to be installed.
         displayName: Enable cert-manager Integration
@@ -444,6 +442,12 @@ spec:
         path: trustedCertSecrets[0].secretName
         x-descriptors:
         - urn:alm:descriptor:io.kubernetes:Secret
+      - description: A namespace whose workloads Cryostat should be able to connect
+          and record
+        displayName: Target Namespace
+        path: targetNamespaces[0]
+        x-descriptors:
+        - urn:alm:descriptor:io.kubernetes:Namespace
       statusDescriptors:
       - description: Address of the deployed Cryostat web application.
         displayName: Application URL
@@ -458,14 +462,18 @@ spec:
       - description: List of namespaces that Cryostat has been configured and authorized
           to access and profile.
         displayName: Target Namespaces
-        path: targetNamespaces[0]
-        x-descriptors:
-        - urn:alm:descriptor:io.kubernetes:Namespace
+        path: targetNamespaces
       - description: Conditions of the components managed by the Cryostat Operator.
         displayName: Cryostat Conditions
         path: conditions
         x-descriptors:
         - urn:alm:descriptor:io.kubernetes.conditions
+      - description: A namespace whose workloads Cryostat should be able to connect
+          and record
+        displayName: Target Namespace
+        path: targetNamespaces[0]
+        x-descriptors:
+        - urn:alm:descriptor:io.kubernetes:Namespace
       version: v1beta1
     - description: Cryostat allows you to install Cryostat for a single namespace.
         It contains configuration options for controlling the Deployment of the Cryostat
