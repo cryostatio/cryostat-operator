@@ -127,15 +127,15 @@ func (r *CryostatReconciler) setupTLS(ctx context.Context, cr *operatorv1beta1.C
 		tlsConfig.GrafanaSecret = grafanaCert.Spec.SecretName
 	} else if cr.Spec.Minimal {
 		grafanaCert := resources.NewGrafanaCert(cr)
-		secret, err := r.GetCertificateSecret(ctx, grafanaCert)
-		if secret != nil {
-			r.deleteSecret(ctx, secret)
+		secret := secretForCertificate(grafanaCert)
+		err = r.deleteSecret(ctx, secret)
+		if err != nil {
+			return nil, err
 		}
 		err = r.deleteCert(ctx, grafanaCert)
 		if err != nil {
 			return nil, err
 		}
-		return nil, err
 	}
 
 	// Update owner references of TLS secrets created by cert-manager to ensure proper cleanup
@@ -151,7 +151,6 @@ func (r *CryostatReconciler) setupTLS(ctx context.Context, cr *operatorv1beta1.C
 	}
 	tlsConfig.CACert = caBytes
 	return tlsConfig, nil
-
 }
 
 func (r *CryostatReconciler) setCertSecretOwner(ctx context.Context, cr *operatorv1beta1.Cryostat, certs ...*certv1.Certificate) error {
@@ -177,6 +176,15 @@ func (r *CryostatReconciler) setCertSecretOwner(ctx context.Context, cr *operato
 		}
 	}
 	return nil
+}
+
+func secretForCertificate(cert *certv1.Certificate) *corev1.Secret {
+	return &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      cert.Spec.SecretName,
+			Namespace: cert.Namespace,
+		},
+	}
 }
 
 func (r *CryostatReconciler) certManagerAvailable() (bool, error) {
@@ -275,6 +283,5 @@ func (r *CryostatReconciler) getCertficateBytes(ctx context.Context, cert *certv
 	if err != nil {
 		return nil, err
 	}
-
 	return secret.Data[corev1.TLSCertKey], nil
 }
