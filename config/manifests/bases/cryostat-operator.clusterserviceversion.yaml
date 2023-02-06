@@ -132,7 +132,7 @@ spec:
         - urn:alm:descriptor:com.tectonic.ui:number
       - description: Options to configure the Cryostat application's JMX credentials
           database.
-        displayName: Jmx Credentials Database Options
+        displayName: JMX Credentials Database Options
         path: jmxCredentialsDatabaseOptions
       - description: Name of the secret containing the password to encrypt JMX credentials
           database.
