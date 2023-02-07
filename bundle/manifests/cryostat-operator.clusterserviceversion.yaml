@@ -112,7 +112,8 @@ spec:
         name: ""
         version: v1
       specDescriptors:
-      - description: Namespace where Cryostat should be installed.
+      - description: Namespace where Cryostat should be installed. On multi-tenant
+          clusters, we strongly suggest installing Cryostat into its own namespace.
         displayName: Install Namespace
         path: installNamespace
         x-descriptors:

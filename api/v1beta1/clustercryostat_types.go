@@ -43,6 +43,8 @@ import (
 // ClusterCryostatSpec defines the desired state of ClusterCryostat.
 type ClusterCryostatSpec struct {
 	// Namespace where Cryostat should be installed.
+	// On multi-tenant clusters, we strongly suggest installing Cryostat into
+	// its own namespace.
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,order=1,xDescriptors={"urn:alm:descriptor:io.kubernetes:Namespace"}
 	InstallNamespace string `json:"installNamespace"` // TODO use order to bring to top
 	// List of namespaces whose workloads Cryostat should be

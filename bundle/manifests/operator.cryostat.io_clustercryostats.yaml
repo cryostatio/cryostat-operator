@@ -90,7 +90,8 @@ spec:
                   type: object
                 type: array
               installNamespace:
-                description: Namespace where Cryostat should be installed.
+                description: Namespace where Cryostat should be installed. On multi-tenant
+                  clusters, we strongly suggest installing Cryostat into its own namespace.
                 type: string
               jmxCacheOptions:
                 description: Options to customize the JMX target connections cache
