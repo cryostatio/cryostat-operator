@@ -56,7 +56,7 @@ type ClusterCryostatSpec struct {
 }
 
 // ClusterCryostatStatus defines the observed state of ClusterCryostat.
-type ClusterCryostatStatus struct { // FIXME only conditions are showing in console
+type ClusterCryostatStatus struct {
 	// List of namespaces that Cryostat has been configured
 	// and authorized to access and profile.
 	// +operator-sdk:csv:customresourcedefinitions:type=status,order=3
@@ -78,7 +78,7 @@ type ClusterCryostatStatus struct { // FIXME only conditions are showing in cons
 // +operator-sdk:csv:customresourcedefinitions:resources={{Deployment,v1},{Ingress,v1},{PersistentVolumeClaim,v1},{Secret,v1},{Service,v1},{Route,v1},{ConsoleLink,v1}}
 // +kubebuilder:printcolumn:name="Application URL",type=string,JSONPath=`.status.applicationUrl`
 // +kubebuilder:printcolumn:name="Grafana Secret",type=string,JSONPath=`.status.grafanaSecret`
-type ClusterCryostat struct { // TODO add cluster-wide API support
+type ClusterCryostat struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 

@@ -48,6 +48,7 @@ import (
 	rbacv1 "k8s.io/api/rbac/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
@@ -111,63 +112,18 @@ func (r *Reconciler) reconcileServiceAccount(ctx context.Context, cr *model.Cryo
 	return r.createOrUpdateServiceAccount(ctx, sa, cr.Instance, labels, annotations)
 }
 
-func newRole(cr *model.CryostatInstance, namespace string) *rbacv1.Role {
+func newRole(cr *model.CryostatInstance) *rbacv1.Role {
 	return &rbacv1.Role{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      cr.Name,
-			Namespace: namespace,
+			Namespace: cr.InstallNamespace,
 		},
 	}
 }
 
 func (r *Reconciler) reconcileRole(ctx context.Context, cr *model.CryostatInstance) error {
-	// TODO convert to ClusterRole? Needs to be separate from existing one used by ClusterRoleBinding.
-	// If we do, we should delete existing Roles (check for ownership before deleting).
-	rules := []rbacv1.PolicyRule{
-		{
-			Verbs:     []string{"get", "list", "watch"},
-			APIGroups: []string{""},
-			Resources: []string{"endpoints"},
-		},
-		{
-			Verbs:     []string{"get"},
-			APIGroups: []string{""},
-			Resources: []string{"pods", "replicationcontrollers"},
-		},
-		{
-			Verbs:     []string{"get"},
-			APIGroups: []string{"apps"},
-			Resources: []string{"replicasets", "deployments", "daemonsets", "statefulsets"},
-		},
-		{
-			Verbs:     []string{"get"},
-			APIGroups: []string{"apps.openshift.io"},
-			Resources: []string{"deploymentconfigs"},
-		},
-		{
-			Verbs:     []string{"get", "list"},
-			APIGroups: []string{"route.openshift.io"},
-			Resources: []string{"routes"},
-		},
-	}
-
-	// Create a Role in each target namespace
-	for _, ns := range cr.TargetNamespaces {
-		role := newRole(cr, ns)
-		err := r.createOrUpdateRole(ctx, role, cr.Instance, rules)
-		if err != nil {
-			return err
-		}
-	}
-	// Delete any Roles in target namespaces that are no longer requested
-	for _, ns := range toDelete(cr) {
-		role := newRole(cr, ns)
-		err := r.deleteRole(ctx, role)
-		if err != nil {
-			return err
-		}
-	}
-	return nil
+	// Replaced by a cluster role, clean up any legacy role
+	return r.cleanUpRole(ctx, cr, newRole(cr))
 }
 
 func newRoleBinding(cr *model.CryostatInstance, namespace string) *rbacv1.RoleBinding {
@@ -194,8 +150,8 @@ func (r *Reconciler) reconcileRoleBinding(ctx context.Context, cr *model.Cryosta
 		binding := newRoleBinding(cr, ns)
 		roleRef := &rbacv1.RoleRef{
 			APIGroup: "rbac.authorization.k8s.io",
-			Kind:     "Role",
-			Name:     newRole(cr, ns).Name,
+			Kind:     "ClusterRole",
+			Name:     "cryostat-operator-cryostat-namespaced",
 		}
 		err := r.createOrUpdateRoleBinding(ctx, binding, cr.Instance, subjects, roleRef)
 		if err != nil {
@@ -274,36 +230,18 @@ func (r *Reconciler) createOrUpdateServiceAccount(ctx context.Context, sa *corev
 	return nil
 }
 
-func (r *Reconciler) createOrUpdateRole(ctx context.Context, role *rbacv1.Role,
-	owner metav1.Object, rules []rbacv1.PolicyRule) error {
-	op, err := controllerutil.CreateOrUpdate(ctx, r.Client, role, func() error {
-		// Update the list of PolicyRules
-		role.Rules = rules
-
-		// Set the Cryostat CR as controller
-		if err := controllerutil.SetControllerReference(owner, role, r.Scheme); err != nil {
-			return err
-		}
-		return nil
-	})
-	if err != nil {
+func (r *Reconciler) cleanUpRole(ctx context.Context, cr *model.CryostatInstance, role *rbacv1.Role) error {
+	err := r.Client.Get(ctx, types.NamespacedName{Name: role.Name, Namespace: role.Namespace}, role)
+	if err != nil && !kerrors.IsNotFound(err) {
+		r.Log.Error(err, "Could not look up role", "name", role.Name, "namespace", role.Namespace)
 		return err
-	}
-	r.Log.Info(fmt.Sprintf("Role %s", op), "name", role.Name, "namespace", role.Namespace)
-	return nil
-}
-
-func (r *Reconciler) deleteRole(ctx context.Context, role *rbacv1.Role) error { // TODO refactor to reduce duplication
-	err := r.Client.Delete(ctx, role)
-	if err != nil {
-		if kerrors.IsNotFound(err) {
-			r.Log.Info("No role to delete", "name", role.Name, "namespace", role.Namespace)
-			return nil
+	} else if metav1.IsControlledBy(role, cr.Instance) {
+		err := r.Client.Delete(ctx, role)
+		if err != nil {
+			r.Log.Info("Failed to delete role", "name", role.Name, "namespace", role.Namespace)
 		}
-		r.Log.Error(err, "Could not delete role", "name", role.Name, "namespace", role.Namespace)
-		return err
+		r.Log.Info("Role deleted", "name", role.Name, "namespace", role.Namespace)
 	}
-	r.Log.Info("Role deleted", "name", role.Name, "namespace", role.Namespace)
 	return nil
 }
 

@@ -96,8 +96,8 @@ var _ = Describe("ClusterCryostatController", func() {
 				cr := t.NewCryostat()
 				*cr.TargetNamespaceStatus = targetNamespaces
 				t.objs = append(t.objs, cr.Instance,
-					t.NewRole(targetNamespaces[0]), t.NewRoleBinding(targetNamespaces[0]),
-					t.NewRole(targetNamespaces[1]), t.NewRoleBinding(targetNamespaces[1]))
+					t.NewRoleBinding(targetNamespaces[0]),
+					t.NewRoleBinding(targetNamespaces[1]))
 			})
 
 			It("should create the expected main deployment", func() {
@@ -111,13 +111,8 @@ var _ = Describe("ClusterCryostatController", func() {
 			It("should remove RBAC from the second namespace", func() {
 				t.reconcileCryostatFully()
 
-				role := t.NewRole(targetNamespaces[1])
-				err := t.Client.Get(context.Background(), types.NamespacedName{Name: role.Name, Namespace: role.Namespace}, role)
-				Expect(err).ToNot(BeNil())
-				Expect(errors.IsNotFound(err)).To(BeTrue())
-
 				binding := t.NewRoleBinding(targetNamespaces[1])
-				err = t.Client.Get(context.Background(), types.NamespacedName{Name: binding.Name, Namespace: binding.Namespace}, binding)
+				err := t.Client.Get(context.Background(), types.NamespacedName{Name: binding.Name, Namespace: binding.Namespace}, binding)
 				Expect(err).ToNot(BeNil())
 				Expect(errors.IsNotFound(err)).To(BeTrue())
 			})

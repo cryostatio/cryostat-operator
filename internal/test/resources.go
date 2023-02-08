@@ -2354,7 +2354,7 @@ func (r *TestResources) OtherServiceAccount() *corev1.ServiceAccount {
 	}
 }
 
-func (r *TestResources) NewRole(ns string) *rbacv1.Role {
+func (r *TestResources) NewRole() *rbacv1.Role {
 	rules := []rbacv1.PolicyRule{
 		{
 			Verbs:     []string{"get", "list", "watch"},
@@ -2385,17 +2385,17 @@ func (r *TestResources) NewRole(ns string) *rbacv1.Role {
 	return &rbacv1.Role{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      r.Name,
-			Namespace: ns,
+			Namespace: r.Namespace,
 		},
 		Rules: rules,
 	}
 }
 
-func (r *TestResources) OtherRole(ns string) *rbacv1.Role {
+func (r *TestResources) OtherRole() *rbacv1.Role {
 	return &rbacv1.Role{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      r.Name,
-			Namespace: ns,
+			Namespace: r.Namespace,
 			Labels: map[string]string{
 				"test": "label",
 			},
@@ -2445,8 +2445,8 @@ func (r *TestResources) NewRoleBinding(ns string) *rbacv1.RoleBinding {
 		},
 		RoleRef: rbacv1.RoleRef{
 			APIGroup: "rbac.authorization.k8s.io",
-			Kind:     "Role",
-			Name:     r.Name,
+			Kind:     "ClusterRole",
+			Name:     "cryostat-operator-cryostat-namespaced",
 		},
 	}
 }

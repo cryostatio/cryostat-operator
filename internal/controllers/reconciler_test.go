@@ -62,6 +62,7 @@ import (
 	"k8s.io/client-go/tools/record"
 	ctrlclient "sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
@@ -402,28 +403,34 @@ func (c *controllerTest) commonTests() {
 			})
 		})
 		Context("with an existing Role", func() {
-			var cr *model.CryostatInstance
-			var oldRole *rbacv1.Role
-			BeforeEach(func() {
-				cr = t.NewCryostat()
-				oldRole = t.OtherRole(t.Namespace)
-				t.objs = append(t.objs, cr.Instance, oldRole)
+			var role *rbacv1.Role
+			Context("created by the operator", func() {
+				BeforeEach(func() {
+					cr := t.NewCryostat()
+					role = t.NewRole()
+					err := controllerutil.SetControllerReference(cr.Instance, role, test.NewTestScheme())
+					Expect(err).ToNot(HaveOccurred())
+					t.objs = append(t.objs, cr.Instance, role)
+				})
+				It("should delete the Role", func() {
+					t.reconcileCryostatFully()
+
+					err := t.Client.Get(context.Background(), types.NamespacedName{Name: role.Name, Namespace: role.Namespace}, role)
+					Expect(err).To(HaveOccurred())
+					Expect(kerrors.IsNotFound(err)).To(BeTrue())
+				})
 			})
-			It("should update the Role", func() {
-				t.reconcileCryostatFully()
+			Context("not created by the operator", func() {
+				BeforeEach(func() {
+					role = t.OtherRole()
+					t.objs = append(t.objs, t.NewCryostat().Instance, role)
+				})
+				It("should not delete the Role", func() {
+					t.reconcileCryostatFully()
 
-				role := &rbacv1.Role{}
-				err := t.Client.Get(context.Background(), types.NamespacedName{Name: t.Name, Namespace: t.Namespace}, role)
-				Expect(err).ToNot(HaveOccurred())
-
-				Expect(metav1.IsControlledBy(role, cr.Instance)).To(BeTrue())
-
-				// Labels are unaffected
-				Expect(role.Labels).To(Equal(oldRole.Labels))
-				Expect(role.Annotations).To(Equal(oldRole.Annotations))
-
-				// Rules should be fully replaced
-				Expect(role.Rules).To(Equal(t.NewRole(t.Namespace).Rules))
+					err := t.Client.Get(context.Background(), types.NamespacedName{Name: role.Name, Namespace: role.Namespace}, role)
+					Expect(err).ToNot(HaveOccurred())
+				})
 			})
 		})
 		Context("with an existing Role Binding", func() {
@@ -1856,28 +1863,34 @@ func (c *controllerTest) commonTests() {
 			})
 		})
 		Context("with an existing Role", func() {
-			var cr *model.CryostatInstance
-			var oldRole *rbacv1.Role
-			BeforeEach(func() {
-				cr = t.NewCryostat()
-				oldRole = t.OtherRole(t.Namespace)
-				t.objs = append(t.objs, cr.Instance, oldRole)
+			var role *rbacv1.Role
+			Context("created by the operator", func() {
+				BeforeEach(func() {
+					cr := t.NewCryostat()
+					role = t.NewRole()
+					err := controllerutil.SetControllerReference(cr.Instance, role, test.NewTestScheme())
+					Expect(err).ToNot(HaveOccurred())
+					t.objs = append(t.objs, cr.Instance, role)
+				})
+				It("should delete the Role", func() {
+					t.reconcileCryostatFully()
+
+					err := t.Client.Get(context.Background(), types.NamespacedName{Name: role.Name, Namespace: role.Namespace}, role)
+					Expect(err).To(HaveOccurred())
+					Expect(kerrors.IsNotFound(err)).To(BeTrue())
+				})
 			})
-			It("should update the Role", func() {
-				t.reconcileCryostatFully()
+			Context("not created by the operator", func() {
+				BeforeEach(func() {
+					role = t.OtherRole()
+					t.objs = append(t.objs, t.NewCryostat().Instance, role)
+				})
+				It("should not delete the Role", func() {
+					t.reconcileCryostatFully()
 
-				role := &rbacv1.Role{}
-				err := t.Client.Get(context.Background(), types.NamespacedName{Name: t.Name, Namespace: t.Namespace}, role)
-				Expect(err).ToNot(HaveOccurred())
-
-				Expect(metav1.IsControlledBy(role, cr.Instance)).To(BeTrue())
-
-				// Labels are unaffected
-				Expect(role.Labels).To(Equal(oldRole.Labels))
-				Expect(role.Annotations).To(Equal(oldRole.Annotations))
-
-				// Rules should be fully replaced
-				Expect(role.Rules).To(Equal(t.NewRole(t.Namespace).Rules))
+					err := t.Client.Get(context.Background(), types.NamespacedName{Name: role.Name, Namespace: role.Namespace}, role)
+					Expect(err).ToNot(HaveOccurred())
+				})
 			})
 		})
 		Context("with an existing Role Binding", func() {
@@ -2069,13 +2082,6 @@ func (t *cryostatTestInput) expectRBAC() {
 	// Check for Role and RoleBinding in each target namespace
 	Expect(t.TargetNamespaces).ToNot(BeEmpty()) // Sanity check for tests
 	for _, ns := range t.TargetNamespaces {
-		role := &rbacv1.Role{}
-		err = t.Client.Get(context.Background(), types.NamespacedName{Name: t.Name, Namespace: ns}, role)
-		Expect(err).ToNot(HaveOccurred())
-		expectedRole := t.NewRole(ns)
-		t.checkMetadata(role, expectedRole)
-		Expect(role.Rules).To(Equal(expectedRole.Rules))
-
 		binding := &rbacv1.RoleBinding{}
 		err = t.Client.Get(context.Background(), types.NamespacedName{Name: t.Name, Namespace: ns}, binding)
 		Expect(err).ToNot(HaveOccurred())
