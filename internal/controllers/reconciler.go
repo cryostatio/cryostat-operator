@@ -50,6 +50,13 @@ import (
 	"github.com/cryostatio/cryostat-operator/internal/controllers/model"
 	"github.com/go-logr/logr"
 	"github.com/google/go-cmp/cmp"
+	certv1 "github.com/jetstack/cert-manager/pkg/apis/certmanager/v1"
+	openshiftv1 "github.com/openshift/api/route/v1"
+	securityv1 "github.com/openshift/api/security/v1"
+	appsv1 "k8s.io/api/apps/v1"
+	corev1 "k8s.io/api/core/v1"
+	netv1 "k8s.io/api/networking/v1"
+	rbacv1 "k8s.io/api/rbac/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -60,10 +67,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-
-	securityv1 "github.com/openshift/api/security/v1"
-	appsv1 "k8s.io/api/apps/v1"
-	corev1 "k8s.io/api/core/v1"
 )
 
 type ReconcilerConfig struct {
@@ -130,7 +133,7 @@ var reportsDeploymentConditions = deploymentConditionTypeMap{
 	operatorv1beta1.ConditionTypeReportsDeploymentReplicaFailure: appsv1.DeploymentReplicaFailure,
 }
 
-func (r *Reconciler) ReconcileCryostat(ctx context.Context, cr *model.CryostatInstance) (ctrl.Result, error) {
+func (r *Reconciler) reconcileCryostat(ctx context.Context, cr *model.CryostatInstance) (ctrl.Result, error) {
 	reqLogger := r.Log.WithValues("Request.Namespace", cr.InstallNamespace, "Request.Name", cr.Name)
 
 	// Check if this Cryostat is being deleted
@@ -269,6 +272,29 @@ func (r *Reconciler) ReconcileCryostat(ctx context.Context, cr *model.CryostatIn
 
 	reqLogger.Info("Successfully reconciled Cryostat")
 	return reconcile.Result{}, nil
+}
+
+func (r *Reconciler) setupWithManager(mgr ctrl.Manager, obj client.Object,
+	impl reconcile.Reconciler) error {
+	c := ctrl.NewControllerManagedBy(mgr).
+		For(obj)
+
+	// Watch for changes to secondary resources and requeue the owner Cryostat
+	resources := []client.Object{&appsv1.Deployment{}, &corev1.Service{}, &corev1.Secret{}, &corev1.PersistentVolumeClaim{},
+		&corev1.ServiceAccount{}, &rbacv1.Role{}, &rbacv1.RoleBinding{}, &netv1.Ingress{}}
+	if r.IsOpenShift {
+		resources = append(resources, &openshiftv1.Route{})
+	}
+	// Can only check this at startup
+	if r.IsCertManagerInstalled {
+		resources = append(resources, &certv1.Issuer{}, &certv1.Certificate{})
+	}
+
+	for _, resource := range resources {
+		c = c.Owns(resource)
+	}
+
+	return c.Complete(impl)
 }
 
 func (r *Reconciler) reconcileReports(ctx context.Context, reqLogger logr.Logger, cr *model.CryostatInstance,

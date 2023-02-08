@@ -40,17 +40,10 @@ import (
 	"context"
 
 	ctrl "sigs.k8s.io/controller-runtime"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	operatorv1beta1 "github.com/cryostatio/cryostat-operator/api/v1beta1"
 	"github.com/cryostatio/cryostat-operator/internal/controllers/model"
 
-	certv1 "github.com/jetstack/cert-manager/pkg/apis/certmanager/v1"
-	openshiftv1 "github.com/openshift/api/route/v1"
-	appsv1 "k8s.io/api/apps/v1"
-	corev1 "k8s.io/api/core/v1"
-	netv1 "k8s.io/api/networking/v1"
-	rbacv1 "k8s.io/api/rbac/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
@@ -102,31 +95,12 @@ func (r *CryostatReconciler) Reconcile(ctx context.Context, request ctrl.Request
 	// For namespaced, look up cluster-scoped with same name. If it exists, check the list of target namespaces.
 	// If there's a match, don't process the CR. Emit an event warning the user of the conflict.
 	instance := model.FromCryostat(cr)
-	return r.delegate.ReconcileCryostat(ctx, instance)
+	return r.delegate.reconcileCryostat(ctx, instance)
 }
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *CryostatReconciler) SetupWithManager(mgr ctrl.Manager) error {
-	c := ctrl.NewControllerManagedBy(mgr).
-		For(&operatorv1beta1.Cryostat{})
-
-	// TODO refactor to share between controllers
-	// Watch for changes to secondary resources and requeue the owner Cryostat
-	resources := []client.Object{&appsv1.Deployment{}, &corev1.Service{}, &corev1.Secret{}, &corev1.PersistentVolumeClaim{},
-		&corev1.ServiceAccount{}, &rbacv1.Role{}, &rbacv1.RoleBinding{}, &netv1.Ingress{}}
-	if r.IsOpenShift {
-		resources = append(resources, &openshiftv1.Route{})
-	}
-	// Can only check this at startup
-	if r.IsCertManagerInstalled {
-		resources = append(resources, &certv1.Issuer{}, &certv1.Certificate{})
-	}
-
-	for _, resource := range resources {
-		c = c.Owns(resource)
-	}
-
-	return c.Complete(r)
+	return r.delegate.setupWithManager(mgr, &operatorv1beta1.Cryostat{}, r)
 }
 
 func (r *CryostatReconciler) GetConfig() *ReconcilerConfig {
