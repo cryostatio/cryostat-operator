@@ -69,6 +69,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
+// ReconcilerConfig contains common configuration parameters for
+// CommonReconciler implementations
 type ReconcilerConfig struct {
 	client.Client
 	Log                    logr.Logger
@@ -80,7 +82,9 @@ type ReconcilerConfig struct {
 	common.ReconcilerTLS
 }
 
-type ReconcilerInterface interface { // TODO rename
+// CommonReconciler is an interface for shared behaviour
+// between the ClusterCryostat and Cryostat reconcilers
+type CommonReconciler interface {
 	reconcile.Reconciler
 	GetConfig() *ReconcilerConfig
 }

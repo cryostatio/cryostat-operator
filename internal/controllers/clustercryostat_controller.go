@@ -51,8 +51,8 @@ import (
 // Generates constants from environment variables at build time
 //go:generate go run ../tools/const_generator.go
 
-// Verify that *ClusterCryostatReconciler implements ReconcilerInterface.
-var _ ReconcilerInterface = (*ClusterCryostatReconciler)(nil)
+// Verify that *ClusterCryostatReconciler implements CommonReconciler.
+var _ CommonReconciler = (*ClusterCryostatReconciler)(nil)
 
 // CryostatReconciler reconciles a Cryostat object
 type ClusterCryostatReconciler struct {

@@ -1,3 +1,4 @@
+# Add descriptors for target namespace elements
 - op: add
   path: /spec/customresourcedefinitions/owned/0/specDescriptors/-
   value:

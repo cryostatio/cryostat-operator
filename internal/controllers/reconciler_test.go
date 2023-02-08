@@ -74,11 +74,11 @@ import (
 
 type controllerTest struct {
 	clusterScoped   bool
-	constructorFunc func(*controllers.ReconcilerConfig) controllers.ReconcilerInterface
+	constructorFunc func(*controllers.ReconcilerConfig) controllers.CommonReconciler
 }
 
 type cryostatTestInput struct {
-	controller controllers.ReconcilerInterface
+	controller controllers.CommonReconciler
 	objs       []runtime.Object
 	test.TestReconcilerConfig
 	*test.TestResources

@@ -50,6 +50,6 @@ var _ = Describe("CryostatController", func() {
 	c.commonTests()
 })
 
-func newCryostatController(config *controllers.ReconcilerConfig) controllers.ReconcilerInterface {
+func newCryostatController(config *controllers.ReconcilerConfig) controllers.CommonReconciler {
 	return controllers.NewCryostatReconciler(config)
 }
