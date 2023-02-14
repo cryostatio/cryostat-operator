@@ -67,46 +67,46 @@ func (r *Reconciler) setupTLS(ctx context.Context, cr *model.CryostatInstance) (
 		return nil, err
 	}
 	if !available {
-		r.EventRecorder.Event(cr.Instance, corev1.EventTypeWarning, eventCertManagerUnavailableType, eventCertManagerUnavailableMsg)
+		r.EventRecorder.Event(cr.Object, corev1.EventTypeWarning, eventCertManagerUnavailableType, eventCertManagerUnavailableMsg)
 		return nil, errCertManagerMissing
 	}
 
 	// Create self-signed issuer used to bootstrap CA
-	err = r.createOrUpdateIssuer(ctx, resources.NewSelfSignedIssuer(cr), cr.Instance)
+	err = r.createOrUpdateIssuer(ctx, resources.NewSelfSignedIssuer(cr), cr.Object)
 	if err != nil {
 		return nil, err
 	}
 
 	// Create CA certificate for Cryostat using the self-signed issuer
 	caCert := resources.NewCryostatCACert(cr)
-	err = r.createOrUpdateCertificate(ctx, caCert, cr.Instance)
+	err = r.createOrUpdateCertificate(ctx, caCert, cr.Object)
 	if err != nil {
 		return nil, err
 	}
 
 	// Create CA issuer using the CA cert just created
-	err = r.createOrUpdateIssuer(ctx, resources.NewCryostatCAIssuer(cr), cr.Instance)
+	err = r.createOrUpdateIssuer(ctx, resources.NewCryostatCAIssuer(cr), cr.Object)
 	if err != nil {
 		return nil, err
 	}
 
 	// Create secret to hold keystore password
 	keystoreSecret := newKeystoreSecret(cr)
-	err = r.createOrUpdateKeystoreSecret(ctx, keystoreSecret, cr.Instance)
+	err = r.createOrUpdateKeystoreSecret(ctx, keystoreSecret, cr.Object)
 	if err != nil {
 		return nil, err
 	}
 
 	// Create a certificate for Cryostat signed by the CA just created
 	cryostatCert := resources.NewCryostatCert(cr, keystoreSecret.Name)
-	err = r.createOrUpdateCertificate(ctx, cryostatCert, cr.Instance)
+	err = r.createOrUpdateCertificate(ctx, cryostatCert, cr.Object)
 	if err != nil {
 		return nil, err
 	}
 
 	// Create a certificate for the reports generator signed by the Cryostat CA
 	reportsCert := resources.NewReportsCert(cr)
-	err = r.createOrUpdateCertificate(ctx, reportsCert, cr.Instance)
+	err = r.createOrUpdateCertificate(ctx, reportsCert, cr.Object)
 	if err != nil {
 		return nil, err
 	}
@@ -119,7 +119,7 @@ func (r *Reconciler) setupTLS(ctx context.Context, cr *model.CryostatInstance) (
 	// Create a certificate for Grafana signed by the Cryostat CA
 	if !cr.Spec.Minimal {
 		grafanaCert := resources.NewGrafanaCert(cr)
-		err = r.createOrUpdateCertificate(ctx, grafanaCert, cr.Instance)
+		err = r.createOrUpdateCertificate(ctx, grafanaCert, cr.Object)
 		if err != nil {
 			return nil, err
 		}
@@ -139,7 +139,7 @@ func (r *Reconciler) setupTLS(ctx context.Context, cr *model.CryostatInstance) (
 	}
 
 	// Update owner references of TLS secrets created by cert-manager to ensure proper cleanup
-	err = r.setCertSecretOwner(ctx, cr.Instance, certificates...)
+	err = r.setCertSecretOwner(ctx, cr.Object, certificates...)
 	if err != nil {
 		return nil, err
 	}

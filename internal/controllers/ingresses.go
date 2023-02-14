@@ -98,7 +98,7 @@ func (r *Reconciler) reconcileGrafanaIngress(ctx context.Context, cr *model.Cryo
 
 func (r *Reconciler) reconcileIngress(ctx context.Context, ingress *netv1.Ingress, cr *model.CryostatInstance,
 	config *operatorv1beta1.NetworkConfiguration) (*url.URL, error) {
-	ingress, err := r.createOrUpdateIngress(ctx, ingress, cr.Instance, config)
+	ingress, err := r.createOrUpdateIngress(ctx, ingress, cr.Object, config)
 	if err != nil {
 		return nil, err
 	}

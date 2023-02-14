@@ -159,7 +159,7 @@ func (r *TestResources) ConvertNamespacedToModel(cr *operatorv1beta1.Cryostat) *
 		TargetNamespaceStatus: &targetNS,
 		Spec:                  &cr.Spec,
 		Status:                &cr.Status,
-		Instance:              cr,
+		Object:                cr,
 	}
 }
 
@@ -171,7 +171,7 @@ func (r *TestResources) ConvertClusterToModel(cr *operatorv1beta1.ClusterCryosta
 		TargetNamespaceStatus: &cr.Status.TargetNamespaces,
 		Spec:                  &cr.Spec.CryostatSpec,
 		Status:                &cr.Status.CryostatStatus,
-		Instance:              cr,
+		Object:                cr,
 	}
 }
 

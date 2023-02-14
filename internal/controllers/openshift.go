@@ -104,7 +104,7 @@ func (r *Reconciler) reconcileConsoleLink(ctx context.Context, cr *model.Cryosta
 		}
 		link.Spec.Location = consolev1.NamespaceDashboard
 		link.Spec.NamespaceDashboard = &consolev1.NamespaceDashboardSpec{
-			Namespaces: []string{cr.InstallNamespace}, // TODO should this be on targetNamespaces too?
+			Namespaces: []string{cr.InstallNamespace},
 		}
 		return nil
 	})

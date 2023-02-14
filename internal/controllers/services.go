@@ -63,7 +63,7 @@ func (r *Reconciler) reconcileCoreService(ctx context.Context, cr *model.Cryosta
 	}
 	config := configureCoreService(cr)
 
-	err := r.createOrUpdateService(ctx, svc, cr.Instance, &config.ServiceConfig, func() error {
+	err := r.createOrUpdateService(ctx, svc, cr.Object, &config.ServiceConfig, func() error {
 		svc.Spec.Selector = map[string]string{
 			"app":       cr.Name,
 			"component": "cryostat",
@@ -110,7 +110,7 @@ func (r *Reconciler) reconcileGrafanaService(ctx context.Context, cr *model.Cryo
 		}
 	} else {
 		config := configureGrafanaService(cr)
-		err := r.createOrUpdateService(ctx, svc, cr.Instance, &config.ServiceConfig, func() error {
+		err := r.createOrUpdateService(ctx, svc, cr.Object, &config.ServiceConfig, func() error {
 			svc.Spec.Selector = map[string]string{
 				"app":       cr.Name,
 				"component": "cryostat",
@@ -150,7 +150,7 @@ func (r *Reconciler) reconcileReportsService(ctx context.Context, cr *model.Cryo
 		// Delete service if it exists
 		return r.deleteService(ctx, svc)
 	}
-	err := r.createOrUpdateService(ctx, svc, cr.Instance, &config.ServiceConfig, func() error {
+	err := r.createOrUpdateService(ctx, svc, cr.Object, &config.ServiceConfig, func() error {
 		svc.Spec.Selector = map[string]string{
 			"app":       cr.Name,
 			"component": "reports",

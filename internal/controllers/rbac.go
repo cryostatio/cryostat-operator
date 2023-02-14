@@ -109,7 +109,7 @@ func (r *Reconciler) reconcileServiceAccount(ctx context.Context, cr *model.Cryo
 
 		annotations["serviceaccounts.openshift.io/oauth-redirectreference.route"] = string(ref)
 	}
-	return r.createOrUpdateServiceAccount(ctx, sa, cr.Instance, labels, annotations)
+	return r.createOrUpdateServiceAccount(ctx, sa, cr.Object, labels, annotations)
 }
 
 func newRole(cr *model.CryostatInstance) *rbacv1.Role {
@@ -153,7 +153,7 @@ func (r *Reconciler) reconcileRoleBinding(ctx context.Context, cr *model.Cryosta
 			Kind:     "ClusterRole",
 			Name:     "cryostat-operator-cryostat-namespaced",
 		}
-		err := r.createOrUpdateRoleBinding(ctx, binding, cr.Instance, subjects, roleRef)
+		err := r.createOrUpdateRoleBinding(ctx, binding, cr.Object, subjects, roleRef)
 		if err != nil {
 			return err
 		}
@@ -198,7 +198,7 @@ func (r *Reconciler) reconcileClusterRoleBinding(ctx context.Context, cr *model.
 		Name:     clusterRoleName,
 	}
 
-	return r.createOrUpdateClusterRoleBinding(ctx, binding, cr.Instance, subjects, roleRef)
+	return r.createOrUpdateClusterRoleBinding(ctx, binding, cr.Object, subjects, roleRef)
 }
 
 func (r *Reconciler) createOrUpdateServiceAccount(ctx context.Context, sa *corev1.ServiceAccount,
@@ -235,7 +235,7 @@ func (r *Reconciler) cleanUpRole(ctx context.Context, cr *model.CryostatInstance
 	if err != nil && !kerrors.IsNotFound(err) {
 		r.Log.Error(err, "Could not look up role", "name", role.Name, "namespace", role.Namespace)
 		return err
-	} else if metav1.IsControlledBy(role, cr.Instance) {
+	} else if metav1.IsControlledBy(role, cr.Object) {
 		err := r.Client.Delete(ctx, role)
 		if err != nil {
 			r.Log.Info("Failed to delete role", "name", role.Name, "namespace", role.Namespace)

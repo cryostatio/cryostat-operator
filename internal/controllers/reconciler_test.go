@@ -228,7 +228,7 @@ func (c *controllerTest) commonTests() {
 		}
 		Context("successfully creates required resources", func() {
 			BeforeEach(func() {
-				t.objs = append(t.objs, t.NewCryostat().Instance)
+				t.objs = append(t.objs, t.NewCryostat().Object)
 			})
 
 			expectSuccessful()
@@ -244,7 +244,7 @@ func (c *controllerTest) commonTests() {
 					t.Name = names[i]
 					t.Namespace = namespaces[i]
 					t.TargetNamespaces = []string{t.Namespace}
-					t.objs = append(t.objs, t.NewNamespace(), t.NewCryostat().Instance)
+					t.objs = append(t.objs, t.NewNamespace(), t.NewCryostat().Object)
 				}
 			})
 
@@ -267,7 +267,7 @@ func (c *controllerTest) commonTests() {
 			BeforeEach(func() {
 				t.Minimal = true
 				t.GeneratedPasswords = []string{"credentials_database", "jmx", "keystore"}
-				t.objs = append(t.objs, t.NewCryostat().Instance)
+				t.objs = append(t.objs, t.NewCryostat().Object)
 			})
 			It("should create certificates", func() {
 				t.expectCertificates()
@@ -302,7 +302,7 @@ func (c *controllerTest) commonTests() {
 		})
 		Context("after cryostat reconciled successfully", func() {
 			BeforeEach(func() {
-				t.objs = append(t.objs, t.NewCryostat().Instance)
+				t.objs = append(t.objs, t.NewCryostat().Object)
 			})
 			It("should be idempotent", func() {
 				t.expectIdempotence()
@@ -311,7 +311,7 @@ func (c *controllerTest) commonTests() {
 		Context("After a minimal cryostat reconciled successfully", func() {
 			BeforeEach(func() {
 				t.Minimal = true
-				t.objs = append(t.objs, t.NewCryostat().Instance)
+				t.objs = append(t.objs, t.NewCryostat().Object)
 			})
 			It("should be idempotent", func() {
 				t.expectIdempotence()
@@ -330,7 +330,7 @@ func (c *controllerTest) commonTests() {
 			BeforeEach(func() {
 				cr = t.NewCryostat()
 				oldDeploy = t.OtherDeployment()
-				t.objs = append(t.objs, cr.Instance, oldDeploy)
+				t.objs = append(t.objs, cr.Object, oldDeploy)
 			})
 			JustBeforeEach(func() {
 				t.reconcileCryostatFully()
@@ -351,7 +351,7 @@ func (c *controllerTest) commonTests() {
 					"app.kubernetes.io/name": "cryostat",
 					"other":                  "label",
 				}))
-				Expect(metav1.IsControlledBy(deploy, cr.Instance)).To(BeTrue())
+				Expect(metav1.IsControlledBy(deploy, cr.Object)).To(BeTrue())
 
 				t.checkMainPodTemplate(deploy, cr)
 
@@ -376,7 +376,7 @@ func (c *controllerTest) commonTests() {
 			BeforeEach(func() {
 				cr = t.NewCryostat()
 				oldSA = t.OtherServiceAccount()
-				t.objs = append(t.objs, cr.Instance, oldSA)
+				t.objs = append(t.objs, cr.Object, oldSA)
 			})
 			It("should update the Service Account", func() {
 				t.reconcileCryostatFully()
@@ -395,7 +395,7 @@ func (c *controllerTest) commonTests() {
 					"other": "label",
 				}))
 
-				Expect(metav1.IsControlledBy(sa, cr.Instance)).To(BeTrue())
+				Expect(metav1.IsControlledBy(sa, cr.Object)).To(BeTrue())
 
 				Expect(sa.ImagePullSecrets).To(Equal(oldSA.ImagePullSecrets))
 				Expect(sa.Secrets).To(Equal(oldSA.Secrets))
@@ -408,9 +408,9 @@ func (c *controllerTest) commonTests() {
 				BeforeEach(func() {
 					cr := t.NewCryostat()
 					role = t.NewRole()
-					err := controllerutil.SetControllerReference(cr.Instance, role, test.NewTestScheme())
+					err := controllerutil.SetControllerReference(cr.Object, role, test.NewTestScheme())
 					Expect(err).ToNot(HaveOccurred())
-					t.objs = append(t.objs, cr.Instance, role)
+					t.objs = append(t.objs, cr.Object, role)
 				})
 				It("should delete the Role", func() {
 					t.reconcileCryostatFully()
@@ -423,7 +423,7 @@ func (c *controllerTest) commonTests() {
 			Context("not created by the operator", func() {
 				BeforeEach(func() {
 					role = t.OtherRole()
-					t.objs = append(t.objs, t.NewCryostat().Instance, role)
+					t.objs = append(t.objs, t.NewCryostat().Object, role)
 				})
 				It("should not delete the Role", func() {
 					t.reconcileCryostatFully()
@@ -439,7 +439,7 @@ func (c *controllerTest) commonTests() {
 			BeforeEach(func() {
 				cr = t.NewCryostat()
 				oldBinding = t.OtherRoleBinding(t.Namespace)
-				t.objs = append(t.objs, cr.Instance, oldBinding)
+				t.objs = append(t.objs, cr.Object, oldBinding)
 			})
 			It("should update the Role Binding", func() {
 				t.reconcileCryostatFully()
@@ -448,7 +448,7 @@ func (c *controllerTest) commonTests() {
 				err := t.Client.Get(context.Background(), types.NamespacedName{Name: t.Name, Namespace: t.Namespace}, binding)
 				Expect(err).ToNot(HaveOccurred())
 
-				Expect(metav1.IsControlledBy(binding, cr.Instance)).To(BeTrue())
+				Expect(metav1.IsControlledBy(binding, cr.Object)).To(BeTrue())
 
 				// Labels are unaffected
 				Expect(binding.Labels).To(Equal(oldBinding.Labels))
@@ -466,7 +466,7 @@ func (c *controllerTest) commonTests() {
 			BeforeEach(func() {
 				cr = t.NewCryostat()
 				oldBinding = t.OtherClusterRoleBinding()
-				t.objs = append(t.objs, cr.Instance, oldBinding)
+				t.objs = append(t.objs, cr.Object, oldBinding)
 			})
 			It("should update the Cluster Role Binding", func() {
 				t.reconcileCryostatFully()
@@ -493,7 +493,7 @@ func (c *controllerTest) commonTests() {
 			BeforeEach(func() {
 				cr = t.NewCryostat()
 				oldSecret = t.OtherGrafanaSecret()
-				t.objs = append(t.objs, cr.Instance, oldSecret)
+				t.objs = append(t.objs, cr.Object, oldSecret)
 			})
 			It("should update the username but not password", func() {
 				t.reconcileCryostatFully()
@@ -502,7 +502,7 @@ func (c *controllerTest) commonTests() {
 				err := t.Client.Get(context.Background(), types.NamespacedName{Name: oldSecret.Name, Namespace: t.Namespace}, secret)
 				Expect(err).ToNot(HaveOccurred())
 
-				Expect(metav1.IsControlledBy(secret, cr.Instance)).To(BeTrue())
+				Expect(metav1.IsControlledBy(secret, cr.Object)).To(BeTrue())
 
 				// Username should be replaced, but not password
 				expected := t.NewGrafanaSecret()
@@ -516,7 +516,7 @@ func (c *controllerTest) commonTests() {
 			BeforeEach(func() {
 				cr = t.NewCryostat()
 				oldSecret = t.OtherJMXSecret()
-				t.objs = append(t.objs, cr.Instance, oldSecret)
+				t.objs = append(t.objs, cr.Object, oldSecret)
 			})
 			It("should update the username but not password", func() {
 				t.reconcileCryostatFully()
@@ -525,7 +525,7 @@ func (c *controllerTest) commonTests() {
 				err := t.Client.Get(context.Background(), types.NamespacedName{Name: oldSecret.Name, Namespace: t.Namespace}, secret)
 				Expect(err).ToNot(HaveOccurred())
 
-				Expect(metav1.IsControlledBy(secret, cr.Instance)).To(BeTrue())
+				Expect(metav1.IsControlledBy(secret, cr.Object)).To(BeTrue())
 
 				// Username should be replaced, but not password
 				expected := t.NewJMXSecret()
@@ -539,7 +539,7 @@ func (c *controllerTest) commonTests() {
 			BeforeEach(func() {
 				cr = t.NewCryostat()
 				oldSecret = t.OtherCredentialsDatabaseSecret()
-				t.objs = append(t.objs, cr.Instance, oldSecret)
+				t.objs = append(t.objs, cr.Object, oldSecret)
 			})
 			It("should not update password", func() {
 				t.reconcileCryostatFully()
@@ -548,7 +548,7 @@ func (c *controllerTest) commonTests() {
 				err := t.Client.Get(context.Background(), types.NamespacedName{Name: oldSecret.Name, Namespace: t.Namespace}, secret)
 				Expect(err).ToNot(HaveOccurred())
 
-				Expect(metav1.IsControlledBy(secret, cr.Instance)).To(BeTrue())
+				Expect(metav1.IsControlledBy(secret, cr.Object)).To(BeTrue())
 				Expect(secret.StringData["CRYOSTAT_JMX_CREDENTIALS_DB_PASSWORD"]).To(Equal(oldSecret.StringData["CRYOSTAT_JMX_CREDENTIALS_DB_PASSWORD"]))
 			})
 		})
@@ -560,7 +560,7 @@ func (c *controllerTest) commonTests() {
 				cr = t.NewCryostat()
 				oldCoreRoute = t.OtherCoreRoute()
 				oldGrafanaRoute = t.OtherGrafanaRoute()
-				t.objs = append(t.objs, cr.Instance, oldCoreRoute, oldGrafanaRoute)
+				t.objs = append(t.objs, cr.Object, oldCoreRoute, oldGrafanaRoute)
 			})
 			It("should update the Routes", func() {
 				t.reconcileCryostatFully()
@@ -573,7 +573,7 @@ func (c *controllerTest) commonTests() {
 			BeforeEach(func() {
 				t.Minimal = true
 				t.GeneratedPasswords = []string{"credentials_database", "jmx", "keystore", "grafana"}
-				t.objs = append(t.objs, t.NewCryostat().Instance)
+				t.objs = append(t.objs, t.NewCryostat().Object)
 			})
 			JustBeforeEach(func() {
 				t.reconcileCryostatFully()
@@ -602,7 +602,7 @@ func (c *controllerTest) commonTests() {
 		})
 		Context("Switching from a non-minimal to a minimal deployment", func() {
 			BeforeEach(func() {
-				t.objs = append(t.objs, t.NewCryostat().Instance)
+				t.objs = append(t.objs, t.NewCryostat().Object)
 			})
 			JustBeforeEach(func() {
 				t.reconcileCryostatFully()
@@ -644,7 +644,7 @@ func (c *controllerTest) commonTests() {
 			BeforeEach(func() {
 				t.ReportReplicas = 1
 				cr = t.NewCryostat()
-				t.objs = append(t.objs, cr.Instance)
+				t.objs = append(t.objs, cr.Object)
 			})
 			JustBeforeEach(func() {
 				t.reconcileCryostatFully()
@@ -731,7 +731,7 @@ func (c *controllerTest) commonTests() {
 		})
 		Context("Switching from 0 report sidecars to 1", func() {
 			BeforeEach(func() {
-				t.objs = append(t.objs, t.NewCryostat().Instance)
+				t.objs = append(t.objs, t.NewCryostat().Object)
 			})
 			JustBeforeEach(func() {
 				t.reconcileCryostatFully()
@@ -755,7 +755,7 @@ func (c *controllerTest) commonTests() {
 		Context("Switching from 1 report sidecar to 2", func() {
 			BeforeEach(func() {
 				t.ReportReplicas = 1
-				t.objs = append(t.objs, t.NewCryostat().Instance)
+				t.objs = append(t.objs, t.NewCryostat().Object)
 			})
 			JustBeforeEach(func() {
 				t.reconcileCryostatFully()
@@ -777,7 +777,7 @@ func (c *controllerTest) commonTests() {
 		Context("Switching from 2 report sidecars to 1", func() {
 			BeforeEach(func() {
 				t.ReportReplicas = 2
-				t.objs = append(t.objs, t.NewCryostat().Instance)
+				t.objs = append(t.objs, t.NewCryostat().Object)
 			})
 			JustBeforeEach(func() {
 				t.reconcileCryostatFully()
@@ -799,7 +799,7 @@ func (c *controllerTest) commonTests() {
 		Context("Switching from 1 report sidecar to 0", func() {
 			BeforeEach(func() {
 				t.ReportReplicas = 1
-				t.objs = append(t.objs, t.NewCryostat().Instance)
+				t.objs = append(t.objs, t.NewCryostat().Object)
 			})
 			JustBeforeEach(func() {
 				t.reconcileCryostatFully()
@@ -828,7 +828,7 @@ func (c *controllerTest) commonTests() {
 			var cr *model.CryostatInstance
 			BeforeEach(func() {
 				cr = t.NewCryostatWithSecrets()
-				t.objs = append(t.objs, cr.Instance, t.NewTestCertSecret("testCert1"),
+				t.objs = append(t.objs, cr.Object, t.NewTestCertSecret("testCert1"),
 					t.NewTestCertSecret("testCert2"))
 			})
 			It("Should add volumes and volumeMounts to deployment", func() {
@@ -847,7 +847,7 @@ func (c *controllerTest) commonTests() {
 		})
 		Context("Adding a certificate to the TrustedCertSecrets list", func() {
 			BeforeEach(func() {
-				t.objs = append(t.objs, t.NewCryostat().Instance, t.NewTestCertSecret("testCert1"),
+				t.objs = append(t.objs, t.NewCryostat().Object, t.NewTestCertSecret("testCert1"),
 					t.NewTestCertSecret("testCert2"))
 			})
 			JustBeforeEach(func() {
@@ -878,7 +878,7 @@ func (c *controllerTest) commonTests() {
 		})
 		Context("Cryostat CR has list of event templates", func() {
 			BeforeEach(func() {
-				t.objs = append(t.objs, t.NewCryostatWithTemplates().Instance, t.NewTemplateConfigMap(),
+				t.objs = append(t.objs, t.NewCryostatWithTemplates().Object, t.NewTemplateConfigMap(),
 					t.NewOtherTemplateConfigMap())
 			})
 			It("Should add volumes and volumeMounts to deployment", func() {
@@ -892,7 +892,7 @@ func (c *controllerTest) commonTests() {
 				cr := t.NewCryostatWithTemplates()
 				certManager := false
 				cr.Spec.EnableCertManager = &certManager
-				t.objs = append(t.objs, cr.Instance, t.NewTemplateConfigMap(),
+				t.objs = append(t.objs, cr.Object, t.NewTemplateConfigMap(),
 					t.NewOtherTemplateConfigMap())
 			})
 			It("Should add volumes and volumeMounts to deployment", func() {
@@ -902,7 +902,7 @@ func (c *controllerTest) commonTests() {
 		})
 		Context("Adding a template to the EventTemplates list", func() {
 			BeforeEach(func() {
-				t.objs = append(t.objs, t.NewCryostat().Instance, t.NewTemplateConfigMap(),
+				t.objs = append(t.objs, t.NewCryostat().Object, t.NewTemplateConfigMap(),
 					t.NewOtherTemplateConfigMap())
 			})
 			JustBeforeEach(func() {
@@ -922,7 +922,7 @@ func (c *controllerTest) commonTests() {
 		})
 		Context("with custom PVC spec overriding all defaults", func() {
 			BeforeEach(func() {
-				t.objs = append(t.objs, t.NewCryostatWithPVCSpec().Instance)
+				t.objs = append(t.objs, t.NewCryostatWithPVCSpec().Object)
 			})
 			It("should create the PVC with requested spec", func() {
 				t.expectPVC(t.NewCustomPVC())
@@ -930,7 +930,7 @@ func (c *controllerTest) commonTests() {
 		})
 		Context("with custom PVC spec overriding some defaults", func() {
 			BeforeEach(func() {
-				t.objs = append(t.objs, t.NewCryostatWithPVCSpecSomeDefault().Instance)
+				t.objs = append(t.objs, t.NewCryostatWithPVCSpecSomeDefault().Object)
 			})
 			It("should create the PVC with requested spec", func() {
 				t.expectPVC(t.NewCustomPVCSomeDefault())
@@ -938,7 +938,7 @@ func (c *controllerTest) commonTests() {
 		})
 		Context("with custom PVC config with no spec", func() {
 			BeforeEach(func() {
-				t.objs = append(t.objs, t.NewCryostatWithPVCLabelsOnly().Instance)
+				t.objs = append(t.objs, t.NewCryostatWithPVCLabelsOnly().Object)
 			})
 			It("should create the PVC with requested label", func() {
 				t.expectPVC(t.NewDefaultPVCWithLabel())
@@ -948,7 +948,7 @@ func (c *controllerTest) commonTests() {
 			var oldPVC *corev1.PersistentVolumeClaim
 			BeforeEach(func() {
 				oldPVC = t.NewDefaultPVC()
-				t.objs = append(t.objs, t.NewCryostatWithPVCSpec().Instance, oldPVC)
+				t.objs = append(t.objs, t.NewCryostatWithPVCSpec().Object, oldPVC)
 			})
 			Context("that successfully updates", func() {
 				BeforeEach(func() {
@@ -996,7 +996,7 @@ func (c *controllerTest) commonTests() {
 		})
 		Context("with custom EmptyDir config", func() {
 			BeforeEach(func() {
-				t.objs = append(t.objs, t.NewCryostatWithDefaultEmptyDir().Instance)
+				t.objs = append(t.objs, t.NewCryostatWithDefaultEmptyDir().Object)
 			})
 			It("should create the EmptyDir with default specs", func() {
 				t.expectEmptyDir(t.NewDefaultEmptyDir())
@@ -1007,7 +1007,7 @@ func (c *controllerTest) commonTests() {
 		})
 		Context("with custom EmptyDir config with requested spec", func() {
 			BeforeEach(func() {
-				t.objs = append(t.objs, t.NewCryostatWithEmptyDirSpec().Instance)
+				t.objs = append(t.objs, t.NewCryostatWithEmptyDirSpec().Object)
 			})
 			It("should create the EmptyDir with requested specs", func() {
 				t.expectEmptyDir(t.NewEmptyDirWithSpec())
@@ -1020,7 +1020,7 @@ func (c *controllerTest) commonTests() {
 			var mainDeploy, reportsDeploy *appsv1.Deployment
 			BeforeEach(func() {
 				t.ReportReplicas = 1
-				t.objs = append(t.objs, t.NewCryostatWithReportsSvc().Instance)
+				t.objs = append(t.objs, t.NewCryostatWithReportsSvc().Object)
 			})
 			JustBeforeEach(func() {
 				t.reconcileCryostatFully()
@@ -1138,7 +1138,7 @@ func (c *controllerTest) commonTests() {
 		})
 		Context("when deleted", func() {
 			BeforeEach(func() {
-				t.objs = append(t.objs, t.NewCryostat().Instance)
+				t.objs = append(t.objs, t.NewCryostat().Object)
 			})
 			JustBeforeEach(func() {
 				t.reconcileCryostatFully()
@@ -1167,7 +1167,7 @@ func (c *controllerTest) commonTests() {
 		})
 		Context("on OpenShift", func() {
 			BeforeEach(func() {
-				t.objs = append(t.objs, t.NewCryostat().Instance)
+				t.objs = append(t.objs, t.NewCryostat().Object)
 			})
 			JustBeforeEach(func() {
 				t.reconcileCryostatFully()
@@ -1212,7 +1212,7 @@ func (c *controllerTest) commonTests() {
 			Context("with restricted SCC", func() {
 				BeforeEach(func() {
 					t.objs = []runtime.Object{
-						t.NewCryostat().Instance, t.NewNamespaceWithSCCSupGroups(), t.NewApiServer(),
+						t.NewCryostat().Object, t.NewNamespaceWithSCCSupGroups(), t.NewApiServer(),
 					}
 				})
 				It("should set fsGroup to value derived from namespace", func() {
@@ -1262,7 +1262,7 @@ func (c *controllerTest) commonTests() {
 		Context("with cert-manager disabled in CR", func() {
 			BeforeEach(func() {
 				t.TLS = false
-				t.objs = append(t.objs, t.NewCryostatCertManagerDisabled().Instance)
+				t.objs = append(t.objs, t.NewCryostatCertManagerDisabled().Object)
 			})
 			It("should create deployment and set owner", func() {
 				t.expectDeployment()
@@ -1280,7 +1280,7 @@ func (c *controllerTest) commonTests() {
 		})
 		Context("with cert-manager not configured in CR", func() {
 			BeforeEach(func() {
-				t.objs = append(t.objs, t.NewCryostatCertManagerUndefined().Instance)
+				t.objs = append(t.objs, t.NewCryostatCertManagerUndefined().Object)
 			})
 			It("should create deployment and set owner", func() {
 				t.expectDeployment()
@@ -1302,7 +1302,7 @@ func (c *controllerTest) commonTests() {
 				disableTLS := true
 				t.EnvDisableTLS = &disableTLS
 				t.TLS = false
-				t.objs = append(t.objs, t.NewCryostatCertManagerUndefined().Instance)
+				t.objs = append(t.objs, t.NewCryostatCertManagerUndefined().Object)
 			})
 			It("should create deployment and set owner", func() {
 				t.expectDeployment()
@@ -1325,7 +1325,7 @@ func (c *controllerTest) commonTests() {
 		})
 		Context("Disable cert-manager after being enabled", func() {
 			BeforeEach(func() {
-				t.objs = append(t.objs, t.NewCryostat().Instance)
+				t.objs = append(t.objs, t.NewCryostat().Object)
 			})
 			JustBeforeEach(func() {
 				t.reconcileCryostatFully()
@@ -1353,7 +1353,7 @@ func (c *controllerTest) commonTests() {
 		Context("Enable cert-manager after being disabled", func() {
 			BeforeEach(func() {
 				t.TLS = false
-				t.objs = append(t.objs, t.NewCryostatCertManagerDisabled().Instance)
+				t.objs = append(t.objs, t.NewCryostatCertManagerDisabled().Object)
 			})
 			JustBeforeEach(func() {
 				t.reconcileCryostatFully()
@@ -1388,7 +1388,7 @@ func (c *controllerTest) commonTests() {
 			})
 			Context("and enabled", func() {
 				BeforeEach(func() {
-					t.objs = append(t.objs, t.NewCryostat().Instance)
+					t.objs = append(t.objs, t.NewCryostat().Object)
 				})
 				JustBeforeEach(func() {
 					_, err := t.reconcile()
@@ -1408,7 +1408,7 @@ func (c *controllerTest) commonTests() {
 			Context("and disabled", func() {
 				BeforeEach(func() {
 					t.TLS = false
-					t.objs = append(t.objs, t.NewCryostatCertManagerDisabled().Instance)
+					t.objs = append(t.objs, t.NewCryostatCertManagerDisabled().Object)
 				})
 				JustBeforeEach(func() {
 					_, err := t.reconcile()
@@ -1430,7 +1430,7 @@ func (c *controllerTest) commonTests() {
 			})
 			Context("containing core config", func() {
 				BeforeEach(func() {
-					t.objs = append(t.objs, t.NewCryostatWithCoreSvc().Instance)
+					t.objs = append(t.objs, t.NewCryostatWithCoreSvc().Object)
 				})
 				It("should create the service as described", func() {
 					t.checkService(t.Name, t.NewCustomizedCoreService())
@@ -1438,7 +1438,7 @@ func (c *controllerTest) commonTests() {
 			})
 			Context("containing grafana config", func() {
 				BeforeEach(func() {
-					t.objs = append(t.objs, t.NewCryostatWithGrafanaSvc().Instance)
+					t.objs = append(t.objs, t.NewCryostatWithGrafanaSvc().Object)
 				})
 				It("should create the service as described", func() {
 					t.checkService(t.Name+"-grafana", t.NewCustomizedGrafanaService())
@@ -1447,7 +1447,7 @@ func (c *controllerTest) commonTests() {
 			Context("containing reports config", func() {
 				BeforeEach(func() {
 					t.ReportReplicas = 1
-					t.objs = append(t.objs, t.NewCryostatWithReportsSvc().Instance)
+					t.objs = append(t.objs, t.NewCryostatWithReportsSvc().Object)
 				})
 				It("should create the service as described", func() {
 					t.checkService(t.Name+"-reports", t.NewCustomizedReportsService())
@@ -1456,7 +1456,7 @@ func (c *controllerTest) commonTests() {
 			Context("and existing services", func() {
 				var cr *model.CryostatInstance
 				BeforeEach(func() {
-					t.objs = append(t.objs, t.NewCryostat().Instance)
+					t.objs = append(t.objs, t.NewCryostat().Object)
 				})
 				JustBeforeEach(func() {
 					// Fetch the current Cryostat CR
@@ -1501,7 +1501,7 @@ func (c *controllerTest) commonTests() {
 			})
 			Context("containing MaxWsConnections", func() {
 				BeforeEach(func() {
-					t.objs = append(t.objs, t.NewCryostatWithWsConnectionsSpec().Instance)
+					t.objs = append(t.objs, t.NewCryostatWithWsConnectionsSpec().Object)
 				})
 				It("should set max WebSocket connections", func() {
 					t.checkCoreHasEnvironmentVariables(t.NewWsConnectionsEnv())
@@ -1509,7 +1509,7 @@ func (c *controllerTest) commonTests() {
 			})
 			Context("containing SubProcessMaxHeapSize", func() {
 				BeforeEach(func() {
-					t.objs = append(t.objs, t.NewCryostatWithReportSubprocessHeapSpec().Instance)
+					t.objs = append(t.objs, t.NewCryostatWithReportSubprocessHeapSpec().Object)
 				})
 				It("should set report subprocess max heap size", func() {
 					t.checkCoreHasEnvironmentVariables(t.NewReportSubprocessHeapEnv())
@@ -1517,7 +1517,7 @@ func (c *controllerTest) commonTests() {
 			})
 			Context("containing JmxCacheOptions", func() {
 				BeforeEach(func() {
-					t.objs = append(t.objs, t.NewCryostatWithJmxCacheOptionsSpec().Instance)
+					t.objs = append(t.objs, t.NewCryostatWithJmxCacheOptionsSpec().Object)
 				})
 				It("should set JMX cache options", func() {
 					t.checkCoreHasEnvironmentVariables(t.NewJmxCacheOptionsEnv())
@@ -1527,7 +1527,7 @@ func (c *controllerTest) commonTests() {
 		Context("with resource requirements", func() {
 			Context("fully specified", func() {
 				BeforeEach(func() {
-					t.objs = append(t.objs, t.NewCryostatWithResources().Instance)
+					t.objs = append(t.objs, t.NewCryostatWithResources().Object)
 				})
 				It("should create expected deployment", func() {
 					t.expectDeployment()
@@ -1535,7 +1535,7 @@ func (c *controllerTest) commonTests() {
 			})
 			Context("with low limits", func() {
 				BeforeEach(func() {
-					t.objs = append(t.objs, t.NewCryostatWithLowResourceLimit().Instance)
+					t.objs = append(t.objs, t.NewCryostatWithLowResourceLimit().Object)
 				})
 				It("should create expected deployment", func() {
 					t.expectDeployment()
@@ -1548,7 +1548,7 @@ func (c *controllerTest) commonTests() {
 			})
 			Context("containing core config", func() {
 				BeforeEach(func() {
-					t.objs = append(t.objs, t.NewCryostatWithCoreNetworkOptions().Instance)
+					t.objs = append(t.objs, t.NewCryostatWithCoreNetworkOptions().Object)
 				})
 				It("should create the route as described", func() {
 					t.checkRoute(t.NewCustomCoreRoute())
@@ -1556,7 +1556,7 @@ func (c *controllerTest) commonTests() {
 			})
 			Context("containing grafana config", func() {
 				BeforeEach(func() {
-					t.objs = append(t.objs, t.NewCryostatWithGrafanaNetworkOptions().Instance)
+					t.objs = append(t.objs, t.NewCryostatWithGrafanaNetworkOptions().Object)
 				})
 				It("should create the route as described", func() {
 					t.checkRoute(t.NewCustomGrafanaRoute())
@@ -1565,7 +1565,7 @@ func (c *controllerTest) commonTests() {
 		})
 		Context("Cryostat CR has authorization properties", func() {
 			BeforeEach(func() {
-				t.objs = append(t.objs, t.NewCryostatWithAuthProperties().Instance, t.NewAuthPropertiesConfigMap(), t.NewAuthClusterRole())
+				t.objs = append(t.objs, t.NewCryostatWithAuthProperties().Object, t.NewAuthPropertiesConfigMap(), t.NewAuthClusterRole())
 			})
 			JustBeforeEach(func() {
 				t.reconcileCryostatFully()
@@ -1580,7 +1580,7 @@ func (c *controllerTest) commonTests() {
 			})
 			Context("containing Cryostat security options", func() {
 				BeforeEach(func() {
-					t.objs = append(t.objs, t.NewCryostatWithSecurityOptions().Instance)
+					t.objs = append(t.objs, t.NewCryostatWithSecurityOptions().Object)
 				})
 				It("should add security context as described", func() {
 					t.checkMainDeployment()
@@ -1589,7 +1589,7 @@ func (c *controllerTest) commonTests() {
 			Context("containing Report security options", func() {
 				Context("with 0 report replica", func() {
 					BeforeEach(func() {
-						t.objs = append(t.objs, t.NewCryostatWithReportSecurityOptions().Instance)
+						t.objs = append(t.objs, t.NewCryostatWithReportSecurityOptions().Object)
 					})
 					It("should add security context as described", func() {
 						t.expectNoReportsDeployment()
@@ -1599,7 +1599,7 @@ func (c *controllerTest) commonTests() {
 					BeforeEach(func() {
 						t.ReportReplicas = 1
 						cr := t.NewCryostatWithReportSecurityOptions()
-						t.objs = append(t.objs, cr.Instance)
+						t.objs = append(t.objs, cr.Object)
 					})
 					It("should add security context as described", func() {
 						t.checkReportsDeployment()
@@ -1610,7 +1610,7 @@ func (c *controllerTest) commonTests() {
 		})
 		Context("with Scheduling options", func() {
 			BeforeEach(func() {
-				t.objs = append(t.objs, t.NewCryostatWithScheduling().Instance)
+				t.objs = append(t.objs, t.NewCryostatWithScheduling().Object)
 			})
 			It("should configure deployment appropriately", func() {
 				t.expectDeployment()
@@ -1619,7 +1619,7 @@ func (c *controllerTest) commonTests() {
 		})
 		Context("with built-in target discovery mechanism disabled", func() {
 			BeforeEach(func() {
-				t.objs = append(t.objs, t.NewCryostatWithBuiltInDiscoveryDisabled().Instance)
+				t.objs = append(t.objs, t.NewCryostatWithBuiltInDiscoveryDisabled().Object)
 			})
 			It("should configure deployment appropriately", func() {
 				t.expectDeployment()
@@ -1627,7 +1627,7 @@ func (c *controllerTest) commonTests() {
 		})
 		Context("with secret provided for database password", func() {
 			BeforeEach(func() {
-				t.objs = append(t.objs, t.NewCryostatWithDatabaseSecretProvided().Instance)
+				t.objs = append(t.objs, t.NewCryostatWithDatabaseSecretProvided().Object)
 			})
 			It("should configure deployment appropriately", func() {
 				t.expectDeployment()
@@ -1660,7 +1660,7 @@ func (c *controllerTest) commonTests() {
 		})
 		Context("with TLS ingress", func() {
 			BeforeEach(func() {
-				t.objs = append(t.objs, t.NewCryostatWithIngress().Instance)
+				t.objs = append(t.objs, t.NewCryostatWithIngress().Object)
 			})
 			It("should create ingresses", func() {
 				t.expectIngresses()
@@ -1679,7 +1679,7 @@ func (c *controllerTest) commonTests() {
 		Context("with non-TLS ingress", func() {
 			BeforeEach(func() {
 				t.ExternalTLS = false
-				t.objs = append(t.objs, t.NewCryostatWithIngress().Instance)
+				t.objs = append(t.objs, t.NewCryostatWithIngress().Object)
 			})
 			It("should create ingresses", func() {
 				t.expectIngresses()
@@ -1697,7 +1697,7 @@ func (c *controllerTest) commonTests() {
 		})
 		Context("no ingress configuration is provided", func() {
 			BeforeEach(func() {
-				t.objs = append(t.objs, t.NewCryostat().Instance)
+				t.objs = append(t.objs, t.NewCryostat().Object)
 			})
 			It("should not create ingresses or routes", func() {
 				t.reconcileCryostatFully()
@@ -1713,7 +1713,7 @@ func (c *controllerTest) commonTests() {
 				cr = t.NewCryostatWithIngress()
 				oldCoreIngress = t.OtherCoreIngress()
 				oldGrafanaIngress = t.OtherGrafanaIngress()
-				t.objs = append(t.objs, cr.Instance, oldCoreIngress, oldGrafanaIngress)
+				t.objs = append(t.objs, cr.Object, oldCoreIngress, oldGrafanaIngress)
 			})
 			It("should update the Ingresses", func() {
 				t.expectIngresses()
@@ -1723,7 +1723,7 @@ func (c *controllerTest) commonTests() {
 			var cr *model.CryostatInstance
 			BeforeEach(func() {
 				cr = t.NewCryostatWithIngress()
-				t.objs = append(t.objs, cr.Instance)
+				t.objs = append(t.objs, cr.Object)
 			})
 			It("should only create specified ingresses", func() {
 				c := t.getCryostatInstance()
@@ -1749,7 +1749,7 @@ func (c *controllerTest) commonTests() {
 			var cr *model.CryostatInstance
 			BeforeEach(func() {
 				cr = t.NewCryostatWithIngress()
-				t.objs = append(t.objs, cr.Instance)
+				t.objs = append(t.objs, cr.Object)
 			})
 			It("should only create specified ingresses", func() {
 				c := t.getCryostatInstance()
@@ -1772,7 +1772,7 @@ func (c *controllerTest) commonTests() {
 		})
 		Context("Cryostat CR has authorization properties", func() {
 			BeforeEach(func() {
-				t.objs = append(t.objs, t.NewCryostatWithAuthProperties().Instance, t.NewAuthPropertiesConfigMap(), t.NewAuthClusterRole())
+				t.objs = append(t.objs, t.NewCryostatWithAuthProperties().Object, t.NewAuthPropertiesConfigMap(), t.NewAuthClusterRole())
 			})
 			JustBeforeEach(func() {
 				t.reconcileCryostatFully()
@@ -1785,7 +1785,7 @@ func (c *controllerTest) commonTests() {
 			BeforeEach(func() {
 				t.ReportReplicas = 1
 				cr := t.NewCryostatWithIngress()
-				t.objs = append(t.objs, cr.Instance)
+				t.objs = append(t.objs, cr.Object)
 			})
 			JustBeforeEach(func() {
 				t.reconcileCryostatFully()
@@ -1804,7 +1804,7 @@ func (c *controllerTest) commonTests() {
 			})
 			Context("containing Cryostat security options", func() {
 				BeforeEach(func() {
-					t.objs = append(t.objs, t.NewCryostatWithSecurityOptions().Instance)
+					t.objs = append(t.objs, t.NewCryostatWithSecurityOptions().Object)
 				})
 				It("should add security context as described", func() {
 					t.checkMainDeployment()
@@ -1813,7 +1813,7 @@ func (c *controllerTest) commonTests() {
 			Context("containing Report security options", func() {
 				Context("with 0 report replica", func() {
 					BeforeEach(func() {
-						t.objs = append(t.objs, t.NewCryostatWithReportSecurityOptions().Instance)
+						t.objs = append(t.objs, t.NewCryostatWithReportSecurityOptions().Object)
 					})
 					It("should add security context as described", func() {
 						t.expectNoReportsDeployment()
@@ -1822,7 +1822,7 @@ func (c *controllerTest) commonTests() {
 				Context("with 1 report replicas", func() {
 					BeforeEach(func() {
 						t.ReportReplicas = 1
-						t.objs = append(t.objs, t.NewCryostatWithReportSecurityOptions().Instance)
+						t.objs = append(t.objs, t.NewCryostatWithReportSecurityOptions().Object)
 					})
 					It("should add security context as described", func() {
 						t.checkReportsDeployment()
@@ -1837,7 +1837,7 @@ func (c *controllerTest) commonTests() {
 			BeforeEach(func() {
 				cr = t.NewCryostat()
 				oldSA = t.OtherServiceAccount()
-				t.objs = append(t.objs, cr.Instance, oldSA)
+				t.objs = append(t.objs, cr.Object, oldSA)
 			})
 			It("should update the Service Account", func() {
 				t.reconcileCryostatFully()
@@ -1855,7 +1855,7 @@ func (c *controllerTest) commonTests() {
 					"other": "label",
 				}))
 
-				Expect(metav1.IsControlledBy(sa, cr.Instance)).To(BeTrue())
+				Expect(metav1.IsControlledBy(sa, cr.Object)).To(BeTrue())
 
 				Expect(sa.ImagePullSecrets).To(Equal(oldSA.ImagePullSecrets))
 				Expect(sa.Secrets).To(Equal(oldSA.Secrets))
@@ -1868,9 +1868,9 @@ func (c *controllerTest) commonTests() {
 				BeforeEach(func() {
 					cr := t.NewCryostat()
 					role = t.NewRole()
-					err := controllerutil.SetControllerReference(cr.Instance, role, test.NewTestScheme())
+					err := controllerutil.SetControllerReference(cr.Object, role, test.NewTestScheme())
 					Expect(err).ToNot(HaveOccurred())
-					t.objs = append(t.objs, cr.Instance, role)
+					t.objs = append(t.objs, cr.Object, role)
 				})
 				It("should delete the Role", func() {
 					t.reconcileCryostatFully()
@@ -1883,7 +1883,7 @@ func (c *controllerTest) commonTests() {
 			Context("not created by the operator", func() {
 				BeforeEach(func() {
 					role = t.OtherRole()
-					t.objs = append(t.objs, t.NewCryostat().Instance, role)
+					t.objs = append(t.objs, t.NewCryostat().Object, role)
 				})
 				It("should not delete the Role", func() {
 					t.reconcileCryostatFully()
@@ -1899,7 +1899,7 @@ func (c *controllerTest) commonTests() {
 			BeforeEach(func() {
 				cr = t.NewCryostat()
 				oldBinding = t.OtherRoleBinding(t.Namespace)
-				t.objs = append(t.objs, cr.Instance, oldBinding)
+				t.objs = append(t.objs, cr.Object, oldBinding)
 			})
 			It("should update the Role Binding", func() {
 				t.reconcileCryostatFully()
@@ -1908,7 +1908,7 @@ func (c *controllerTest) commonTests() {
 				err := t.Client.Get(context.Background(), types.NamespacedName{Name: t.Name, Namespace: t.Namespace}, binding)
 				Expect(err).ToNot(HaveOccurred())
 
-				Expect(metav1.IsControlledBy(binding, cr.Instance)).To(BeTrue())
+				Expect(metav1.IsControlledBy(binding, cr.Object)).To(BeTrue())
 
 				// Labels are unaffected
 				Expect(binding.Labels).To(Equal(oldBinding.Labels))
@@ -1926,7 +1926,7 @@ func (c *controllerTest) commonTests() {
 			BeforeEach(func() {
 				cr = t.NewCryostat()
 				oldBinding = t.OtherClusterRoleBinding()
-				t.objs = append(t.objs, cr.Instance, oldBinding)
+				t.objs = append(t.objs, cr.Object, oldBinding)
 			})
 			It("should update the Cluster Role Binding", func() {
 				t.reconcileCryostatFully()
@@ -1998,7 +1998,7 @@ func (t *cryostatTestInput) reconcileDeletedCryostat() {
 	cr := t.getCryostatInstance()
 
 	delTime := metav1.Unix(0, 1598045501618*int64(time.Millisecond))
-	cr.Instance.SetDeletionTimestamp(&delTime)
+	cr.Object.SetDeletionTimestamp(&delTime)
 	t.updateCryostatInstance(cr)
 
 	// Reconcile again
@@ -2011,7 +2011,7 @@ func (t *cryostatTestInput) checkMetadata(object metav1.Object, expected metav1.
 	Expect(object.GetLabels()).To(Equal(expected.GetLabels()))
 	Expect(object.GetAnnotations()).To(Equal(expected.GetAnnotations()))
 	Expect(object.GetOwnerReferences()).To(HaveLen(1))
-	Expect(metav1.IsControlledBy(object, t.getCryostatInstance().Instance))
+	Expect(metav1.IsControlledBy(object, t.getCryostatInstance().Object))
 }
 
 func (t *cryostatTestInput) expectNoCryostat() {
@@ -2331,7 +2331,7 @@ func (t *cryostatTestInput) expectIdempotence() {
 
 func (t *cryostatTestInput) expectCryostatFinalizerPresent() {
 	cr := t.getCryostatInstance()
-	Expect(cr.Instance.GetFinalizers()).To(ContainElement("operator.cryostat.io/cryostat.finalizer"))
+	Expect(cr.Object.GetFinalizers()).To(ContainElement("operator.cryostat.io/cryostat.finalizer"))
 }
 
 func (t *cryostatTestInput) checkGrafanaService() {
@@ -2437,7 +2437,7 @@ func (t *cryostatTestInput) checkMainDeployment() {
 		"component":              "cryostat",
 		"app.kubernetes.io/name": "cryostat",
 	}))
-	Expect(metav1.IsControlledBy(deployment, cr.Instance)).To(BeTrue())
+	Expect(metav1.IsControlledBy(deployment, cr.Object)).To(BeTrue())
 	Expect(deployment.Spec.Selector).To(Equal(t.NewMainDeploymentSelector()))
 	Expect(deployment.Spec.Replicas).ToNot(BeNil())
 	Expect(*deployment.Spec.Replicas).To(Equal(int32(1)))
@@ -2527,7 +2527,7 @@ func (t *cryostatTestInput) checkReportsDeployment() {
 		"component":              "reports",
 		"app.kubernetes.io/name": "cryostat-reports",
 	}))
-	Expect(metav1.IsControlledBy(deployment, cr.Instance)).To(BeTrue())
+	Expect(metav1.IsControlledBy(deployment, cr.Object)).To(BeTrue())
 	Expect(deployment.Spec.Selector).To(Equal(t.NewReportsDeploymentSelector()))
 	Expect(deployment.Spec.Replicas).ToNot(BeNil())
 	Expect(*deployment.Spec.Replicas).To(Equal(t.ReportReplicas))
@@ -2757,7 +2757,7 @@ func (t *cryostatTestInput) lookupCryostatInstance() (*model.CryostatInstance, e
 }
 
 func (t *cryostatTestInput) updateCryostatInstance(cr *model.CryostatInstance) {
-	err := t.Client.Update(context.Background(), cr.Instance)
+	err := t.Client.Update(context.Background(), cr.Object)
 	Expect(err).ToNot(HaveOccurred())
 }
 

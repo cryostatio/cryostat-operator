@@ -73,7 +73,7 @@ func (r *Reconciler) reconcileGrafanaSecret(ctx context.Context, cr *model.Cryos
 		}
 		secretName = ""
 	} else {
-		err := r.createOrUpdateSecret(ctx, secret, cr.Instance, func() error {
+		err := r.createOrUpdateSecret(ctx, secret, cr.Object, func() error {
 			if secret.StringData == nil {
 				secret.StringData = map[string]string{}
 			}
@@ -93,7 +93,7 @@ func (r *Reconciler) reconcileGrafanaSecret(ctx context.Context, cr *model.Cryos
 
 	// Set the Grafana secret in the CR status
 	cr.Status.GrafanaSecret = secretName
-	return r.Client.Status().Update(ctx, cr.Instance)
+	return r.Client.Status().Update(ctx, cr.Object)
 }
 
 // jmxSecretNameSuffix is the suffix to be appended to the name of a
@@ -114,7 +114,7 @@ func (r *Reconciler) reconcileJMXSecret(ctx context.Context, cr *model.CryostatI
 		},
 	}
 
-	return r.createOrUpdateSecret(ctx, secret, cr.Instance, func() error {
+	return r.createOrUpdateSecret(ctx, secret, cr.Object, func() error {
 		if secret.StringData == nil {
 			secret.StringData = map[string]string{}
 		}
@@ -148,7 +148,7 @@ func (r *Reconciler) reconcileDatabaseSecret(ctx context.Context, cr *model.Cryo
 		return nil // Do not delete default secret to allow reverting to use default if needed
 	}
 
-	return r.createOrUpdateSecret(ctx, secret, cr.Instance, func() error {
+	return r.createOrUpdateSecret(ctx, secret, cr.Object, func() error {
 		if secret.StringData == nil {
 			secret.StringData = map[string]string{}
 		}

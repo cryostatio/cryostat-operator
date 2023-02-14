@@ -141,8 +141,8 @@ func (r *Reconciler) reconcileCryostat(ctx context.Context, cr *model.CryostatIn
 	reqLogger := r.Log.WithValues("Request.Namespace", cr.InstallNamespace, "Request.Name", cr.Name)
 
 	// Check if this Cryostat is being deleted
-	if cr.Instance.GetDeletionTimestamp() != nil {
-		if controllerutil.ContainsFinalizer(cr.Instance, cryostatFinalizer) {
+	if cr.Object.GetDeletionTimestamp() != nil {
+		if controllerutil.ContainsFinalizer(cr.Object, cryostatFinalizer) {
 			// Perform finalizer logic related to RBAC objects
 			err := r.finalizeRBAC(ctx, cr)
 			if err != nil {
@@ -155,7 +155,7 @@ func (r *Reconciler) reconcileCryostat(ctx context.Context, cr *model.CryostatIn
 				return reconcile.Result{}, err
 			}
 
-			err = common.RemoveFinalizer(ctx, r.Client, cr.Instance, cryostatFinalizer)
+			err = common.RemoveFinalizer(ctx, r.Client, cr.Object, cryostatFinalizer)
 			if err != nil {
 				return reconcile.Result{}, err
 			}
@@ -165,8 +165,8 @@ func (r *Reconciler) reconcileCryostat(ctx context.Context, cr *model.CryostatIn
 	}
 
 	// Add our finalizer, so we can clean up Cryostat resources upon deletion
-	if !controllerutil.ContainsFinalizer(cr.Instance, cryostatFinalizer) {
-		err := common.AddFinalizer(ctx, r.Client, cr.Instance, cryostatFinalizer)
+	if !controllerutil.ContainsFinalizer(cr.Object, cryostatFinalizer) {
+		err := common.AddFinalizer(ctx, r.Client, cr.Object, cryostatFinalizer)
 		if err != nil {
 			return reconcile.Result{}, err
 		}
@@ -246,7 +246,7 @@ func (r *Reconciler) reconcileCryostat(ctx context.Context, cr *model.CryostatIn
 	}
 
 	deployment := resources.NewDeploymentForCR(cr, serviceSpecs, imageTags, tlsConfig, *fsGroup, r.IsOpenShift)
-	err = r.createOrUpdateDeployment(ctx, deployment, cr.Instance)
+	err = r.createOrUpdateDeployment(ctx, deployment, cr.Object)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
@@ -256,7 +256,7 @@ func (r *Reconciler) reconcileCryostat(ctx context.Context, cr *model.CryostatIn
 		cr.Status.ApplicationURL = serviceSpecs.CoreURL.String()
 	}
 	*cr.TargetNamespaceStatus = cr.TargetNamespaces
-	err = r.Client.Status().Update(ctx, cr.Instance)
+	err = r.Client.Status().Update(ctx, cr.Object)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
@@ -323,7 +323,7 @@ func (r *Reconciler) reconcileReports(ctx context.Context, reqLogger logr.Logger
 		removeConditionIfPresent(cr, operatorv1beta1.ConditionTypeReportsDeploymentAvailable,
 			operatorv1beta1.ConditionTypeReportsDeploymentProgressing,
 			operatorv1beta1.ConditionTypeReportsDeploymentReplicaFailure)
-		err := r.Client.Status().Update(ctx, cr.Instance)
+		err := r.Client.Status().Update(ctx, cr.Object)
 		if err != nil {
 			return reconcile.Result{}, err
 		}
@@ -331,7 +331,7 @@ func (r *Reconciler) reconcileReports(ctx context.Context, reqLogger logr.Logger
 	}
 
 	if desired > 0 {
-		err = r.createOrUpdateDeployment(ctx, deployment, cr.Instance)
+		err = r.createOrUpdateDeployment(ctx, deployment, cr.Object)
 		if err != nil {
 			return reconcile.Result{}, err
 		}
@@ -407,7 +407,7 @@ func (r *Reconciler) updateCondition(ctx context.Context, cr *model.CryostatInst
 		Reason:  reason,
 		Message: message,
 	})
-	err := r.Client.Status().Update(ctx, cr.Instance)
+	err := r.Client.Status().Update(ctx, cr.Object)
 	if err != nil {
 		reqLogger.Error(err, "failed to update condition", "type", condType)
 	}
@@ -439,7 +439,7 @@ func (r *Reconciler) updateConditionsFromDeployment(ctx context.Context, cr *mod
 			})
 		}
 	}
-	err = r.Client.Status().Update(ctx, cr.Instance)
+	err = r.Client.Status().Update(ctx, cr.Object)
 	if err != nil {
 		reqLogger.Error(err, "failed to update conditions for deployment", "deployment", deploy.Name)
 	}

@@ -105,7 +105,7 @@ func (r *Reconciler) reconcileRoute(ctx context.Context, route *routev1.Route, s
 	if err != nil {
 		return nil, err
 	}
-	route, err = r.createOrUpdateRoute(ctx, route, cr.Instance, svc, port, tls, config)
+	route, err = r.createOrUpdateRoute(ctx, route, cr.Object, svc, port, tls, config)
 	if err != nil {
 		return nil, err
 	}

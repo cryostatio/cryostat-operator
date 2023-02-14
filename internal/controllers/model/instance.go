@@ -61,7 +61,7 @@ type CryostatInstance struct {
 	// Reference to the common Status properties to both CRD types.
 	Status *operatorv1beta1.CryostatStatus
 	// The actual CR instance as a generic Kubernetes object.
-	Instance client.Object
+	Object client.Object
 }
 
 // FromCryostat creates a CryostatInstance from a Cryostat CR
@@ -76,7 +76,7 @@ func FromCryostat(cr *operatorv1beta1.Cryostat) *CryostatInstance {
 		Spec:   &cr.Spec,
 		Status: &cr.Status,
 
-		Instance: cr,
+		Object: cr,
 	}
 }
 
@@ -96,6 +96,6 @@ func FromClusterCryostat(cr *operatorv1beta1.ClusterCryostat) *CryostatInstance 
 		Spec:   &cr.Spec.CryostatSpec,
 		Status: &cr.Status.CryostatStatus,
 
-		Instance: cr,
+		Object: cr,
 	}
 }

@@ -61,7 +61,7 @@ var _ = Describe("ClusterCryostatController", func() {
 		BeforeEach(func() {
 			t = c.commonBeforeEach()
 			t.TargetNamespaces = targetNamespaces
-			t.objs = append(t.objs, t.NewCryostat().Instance)
+			t.objs = append(t.objs, t.NewCryostat().Object)
 			// Create Namespaces
 			saveNS := t.Namespace
 			for _, ns := range targetNamespaces {
@@ -95,7 +95,7 @@ var _ = Describe("ClusterCryostatController", func() {
 				t.TargetNamespaces = targetNamespaces[:1]
 				cr := t.NewCryostat()
 				*cr.TargetNamespaceStatus = targetNamespaces
-				t.objs = append(t.objs, cr.Instance,
+				t.objs = append(t.objs, cr.Object,
 					t.NewRoleBinding(targetNamespaces[0]),
 					t.NewRoleBinding(targetNamespaces[1]))
 			})

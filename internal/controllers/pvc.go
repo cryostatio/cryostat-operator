@@ -70,12 +70,12 @@ func (r *Reconciler) reconcilePVC(ctx context.Context, cr *model.CryostatInstanc
 	// Look up PVC configuration, applying defaults where needed
 	config := configurePVC(cr)
 
-	err := r.createOrUpdatePVC(ctx, pvc, cr.Instance, config)
+	err := r.createOrUpdatePVC(ctx, pvc, cr.Object, config)
 	if err != nil {
 		// If the API server says the PVC is invalid, emit a warning event
 		// to inform the user.
 		if kerrors.IsInvalid(err) {
-			r.EventRecorder.Event(cr.Instance, corev1.EventTypeWarning, eventPersistentVolumeClaimInvalidType, err.Error())
+			r.EventRecorder.Event(cr.Object, corev1.EventTypeWarning, eventPersistentVolumeClaimInvalidType, err.Error())
 		}
 		return err
 	}
