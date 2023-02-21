@@ -4399,7 +4399,7 @@ spec:
                 type: object
               targetNamespaces:
                 description: List of namespaces whose workloads Cryostat should be
-                  permitted to access and profile. Defaults to `spec.installNamespace`.
+                  permitted to access and profile.
                 items:
                   type: string
                 type: array

@@ -121,6 +121,22 @@ var _ = Describe("ClusterCryostatController", func() {
 				t.expectTargetNamespaces()
 			})
 		})
+
+		Context("with no target namespaces", func() {
+			BeforeEach(func() {
+				t = c.commonBeforeEach()
+				t.TargetNamespaces = nil
+				t.objs = append(t.objs, t.NewCryostat().Object)
+			})
+
+			It("should reconcile successfully", func() {
+				t.reconcileCryostatFully()
+			})
+
+			It("should update the target namespaces in Status", func() {
+				t.expectTargetNamespaces()
+			})
+		})
 	})
 })
 

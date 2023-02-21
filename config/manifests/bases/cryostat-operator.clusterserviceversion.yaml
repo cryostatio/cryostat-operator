@@ -70,7 +70,7 @@ spec:
         x-descriptors:
         - urn:alm:descriptor:io.kubernetes:Namespace
       - description: List of namespaces whose workloads Cryostat should be permitted
-          to access and profile. Defaults to `spec.installNamespace`.
+          to access and profile.
         displayName: Target Namespaces
         path: targetNamespaces
       - description: Use cert-manager to secure in-cluster communication between Cryostat

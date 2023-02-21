@@ -48,7 +48,8 @@ type ClusterCryostatSpec struct {
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,order=1,xDescriptors={"urn:alm:descriptor:io.kubernetes:Namespace"}
 	InstallNamespace string `json:"installNamespace"`
 	// List of namespaces whose workloads Cryostat should be
-	// permitted to access and profile. Defaults to `spec.installNamespace`.
+	// permitted to access and profile.
+	// +optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,order=2
 	TargetNamespaces []string `json:"targetNamespaces,omitempty"`
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
@@ -59,6 +60,7 @@ type ClusterCryostatSpec struct {
 type ClusterCryostatStatus struct {
 	// List of namespaces that Cryostat has been configured
 	// and authorized to access and profile.
+	// +optional
 	// +operator-sdk:csv:customresourcedefinitions:type=status,order=3
 	TargetNamespaces []string `json:"targetNamespaces,omitempty"`
 	// +operator-sdk:csv:customresourcedefinitions:type=status
