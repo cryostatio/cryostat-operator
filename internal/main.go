@@ -61,7 +61,6 @@ import (
 	operatorv1beta1 "github.com/cryostatio/cryostat-operator/api/v1beta1"
 	"github.com/cryostatio/cryostat-operator/internal/controllers"
 	"github.com/cryostatio/cryostat-operator/internal/controllers/common"
-	openshiftv1 "github.com/openshift/api/route/v1"
 	// +kubebuilder:scaffold:imports
 )
 
@@ -137,19 +136,13 @@ func main() {
 	setupLog.Info(fmt.Sprintf("detected %s environment", environment))
 
 	certManager := isCertManagerInstalled(apiResources)
-
-	if err = (&controllers.CryostatReconciler{
-		Client:                 mgr.GetClient(),
-		Log:                    ctrl.Log.WithName("controllers").WithName("Cryostat"),
-		Scheme:                 mgr.GetScheme(),
-		IsOpenShift:            openShift,
-		IsCertManagerInstalled: certManager,
-		EventRecorder:          mgr.GetEventRecorderFor("cryostat-controller"),
-		RESTMapper:             mgr.GetRESTMapper(),
-		ReconcilerTLS: common.NewReconcilerTLS(&common.ReconcilerTLSConfig{
-			Client: mgr.GetClient(),
-		}),
-	}).SetupWithManager(mgr); err != nil {
+	config := newReconcilerConfig(mgr, "ClusterCryostat", "clustercryostat-controller", openShift, certManager)
+	if err = (controllers.NewClusterCryostatReconciler(config)).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "ClusterCryostat")
+		os.Exit(1)
+	}
+	config = newReconcilerConfig(mgr, "Cryostat", "cryostat-controller", openShift, certManager)
+	if err = (controllers.NewCryostatReconciler(config)).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "Cryostat")
 		os.Exit(1)
 	}
@@ -186,7 +179,7 @@ func getWatchNamespace() (string, error) {
 }
 
 func isOpenShift(apiResources []*metav1.APIResourceList) bool {
-	return lookupGVK(apiResources, openshiftv1.GroupVersion.String(), "Route")
+	return lookupGVK(apiResources, routev1.GroupVersion.String(), "Route")
 }
 
 func isCertManagerInstalled(apiResources []*metav1.APIResourceList) bool {
@@ -219,4 +212,20 @@ func lookupGVK(resources []*metav1.APIResourceList, groupVersion string, kind st
 		}
 	}
 	return false
+}
+
+func newReconcilerConfig(mgr ctrl.Manager, logName string, eventRecorderName string, openShift bool,
+	certManager bool) *controllers.ReconcilerConfig {
+	return &controllers.ReconcilerConfig{
+		Client:                 mgr.GetClient(),
+		Log:                    ctrl.Log.WithName("controllers").WithName(logName),
+		Scheme:                 mgr.GetScheme(),
+		IsOpenShift:            openShift,
+		IsCertManagerInstalled: certManager,
+		EventRecorder:          mgr.GetEventRecorderFor(eventRecorderName),
+		RESTMapper:             mgr.GetRESTMapper(),
+		ReconcilerTLS: common.NewReconcilerTLS(&common.ReconcilerTLSConfig{
+			Client: mgr.GetClient(),
+		}),
+	}
 }

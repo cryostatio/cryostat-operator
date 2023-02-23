@@ -41,8 +41,8 @@ import (
 	"fmt"
 	"regexp"
 
-	operatorv1beta1 "github.com/cryostatio/cryostat-operator/api/v1beta1"
 	"github.com/cryostatio/cryostat-operator/internal/controllers/common"
+	"github.com/cryostatio/cryostat-operator/internal/controllers/model"
 	"github.com/go-logr/logr"
 	configv1 "github.com/openshift/api/config/v1"
 	consolev1 "github.com/openshift/api/console/v1"
@@ -52,7 +52,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
-func (r *CryostatReconciler) reconcileOpenShift(ctx context.Context, cr *operatorv1beta1.Cryostat) error {
+func (r *Reconciler) reconcileOpenShift(ctx context.Context, cr *model.CryostatInstance) error {
 	if !r.IsOpenShift {
 		return nil
 	}
@@ -63,11 +63,11 @@ func (r *CryostatReconciler) reconcileOpenShift(ctx context.Context, cr *operato
 	return r.addCorsAllowedOriginIfNotPresent(ctx, cr)
 }
 
-func (r *CryostatReconciler) finalizeOpenShift(ctx context.Context, cr *operatorv1beta1.Cryostat) error {
+func (r *Reconciler) finalizeOpenShift(ctx context.Context, cr *model.CryostatInstance) error {
 	if !r.IsOpenShift {
 		return nil
 	}
-	reqLogger := r.Log.WithValues("Request.Namespace", cr.Namespace, "Request.Name", cr.Name)
+	reqLogger := r.Log.WithValues("Request.Namespace", cr.InstallNamespace, "Request.Name", cr.Name)
 	err := r.deleteConsoleLink(ctx, newConsoleLink(cr), reqLogger)
 	if err != nil {
 		return err
@@ -75,17 +75,17 @@ func (r *CryostatReconciler) finalizeOpenShift(ctx context.Context, cr *operator
 	return r.deleteCorsAllowedOrigins(ctx, cr)
 }
 
-func newConsoleLink(cr *operatorv1beta1.Cryostat) *consolev1.ConsoleLink {
+func newConsoleLink(cr *model.CryostatInstance) *consolev1.ConsoleLink {
 	// Cluster scoped, so use a unique name to avoid conflicts
 	return &consolev1.ConsoleLink{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: common.ClusterUniqueName(cr),
+			Name: common.ClusterUniqueName(cr.Name, cr.InstallNamespace),
 		},
 	}
 }
 
-func (r *CryostatReconciler) reconcileConsoleLink(ctx context.Context, cr *operatorv1beta1.Cryostat) error {
-	reqLogger := r.Log.WithValues("Request.Namespace", cr.Namespace, "Request.Name", cr.Name)
+func (r *Reconciler) reconcileConsoleLink(ctx context.Context, cr *model.CryostatInstance) error {
+	reqLogger := r.Log.WithValues("Request.Namespace", cr.InstallNamespace, "Request.Name", cr.Name)
 	link := newConsoleLink(cr)
 
 	url := cr.Status.ApplicationURL
@@ -104,7 +104,7 @@ func (r *CryostatReconciler) reconcileConsoleLink(ctx context.Context, cr *opera
 		}
 		link.Spec.Location = consolev1.NamespaceDashboard
 		link.Spec.NamespaceDashboard = &consolev1.NamespaceDashboardSpec{
-			Namespaces: []string{cr.Namespace},
+			Namespaces: []string{cr.InstallNamespace},
 		}
 		return nil
 	})
@@ -115,7 +115,7 @@ func (r *CryostatReconciler) reconcileConsoleLink(ctx context.Context, cr *opera
 	return nil
 }
 
-func (r *CryostatReconciler) deleteConsoleLink(ctx context.Context, link *consolev1.ConsoleLink, logger logr.Logger) error {
+func (r *Reconciler) deleteConsoleLink(ctx context.Context, link *consolev1.ConsoleLink, logger logr.Logger) error {
 	err := r.Client.Delete(ctx, link)
 	if err != nil {
 		if kerrors.IsNotFound(err) {
@@ -129,8 +129,8 @@ func (r *CryostatReconciler) deleteConsoleLink(ctx context.Context, link *consol
 	return nil
 }
 
-func (r *CryostatReconciler) addCorsAllowedOriginIfNotPresent(ctx context.Context, cr *operatorv1beta1.Cryostat) error {
-	reqLogger := r.Log.WithValues("Request.Namespace", cr.Namespace, "Request.Name", cr.Name)
+func (r *Reconciler) addCorsAllowedOriginIfNotPresent(ctx context.Context, cr *model.CryostatInstance) error {
+	reqLogger := r.Log.WithValues("Request.Namespace", cr.InstallNamespace, "Request.Name", cr.Name)
 
 	allowedOrigin := cr.Status.ApplicationURL
 	if len(allowedOrigin) == 0 {
@@ -167,8 +167,8 @@ func (r *CryostatReconciler) addCorsAllowedOriginIfNotPresent(ctx context.Contex
 	return nil
 }
 
-func (r *CryostatReconciler) deleteCorsAllowedOrigins(ctx context.Context, cr *operatorv1beta1.Cryostat) error {
-	reqLogger := r.Log.WithValues("Request.Namespace", cr.Namespace, "Request.Name", cr.Name)
+func (r *Reconciler) deleteCorsAllowedOrigins(ctx context.Context, cr *model.CryostatInstance) error {
+	reqLogger := r.Log.WithValues("Request.Namespace", cr.InstallNamespace, "Request.Name", cr.Name)
 
 	allowedOrigin := cr.Status.ApplicationURL
 	if len(allowedOrigin) == 0 {

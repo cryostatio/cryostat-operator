@@ -41,17 +41,18 @@ import (
 	"encoding/json"
 	"fmt"
 
-	operatorv1beta1 "github.com/cryostatio/cryostat-operator/api/v1beta1"
 	"github.com/cryostatio/cryostat-operator/internal/controllers/common"
+	"github.com/cryostatio/cryostat-operator/internal/controllers/model"
 	oauthv1 "github.com/openshift/api/oauth/v1"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
-func (r *CryostatReconciler) reconcileRBAC(ctx context.Context, cr *operatorv1beta1.Cryostat) error {
+func (r *Reconciler) reconcileRBAC(ctx context.Context, cr *model.CryostatInstance) error {
 	err := r.reconcileServiceAccount(ctx, cr)
 	if err != nil {
 		return err
@@ -71,23 +72,23 @@ func (r *CryostatReconciler) reconcileRBAC(ctx context.Context, cr *operatorv1be
 	return nil
 }
 
-func (r *CryostatReconciler) finalizeRBAC(ctx context.Context, cr *operatorv1beta1.Cryostat) error {
+func (r *Reconciler) finalizeRBAC(ctx context.Context, cr *model.CryostatInstance) error {
 	return r.deleteClusterRoleBinding(ctx, cr)
 }
 
-func newServiceAccount(cr *operatorv1beta1.Cryostat) *corev1.ServiceAccount {
+func newServiceAccount(cr *model.CryostatInstance) *corev1.ServiceAccount {
 	return &corev1.ServiceAccount{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      cr.Name,
-			Namespace: cr.Namespace,
+			Namespace: cr.InstallNamespace,
 		},
 	}
 }
 
-func (r *CryostatReconciler) reconcileServiceAccount(ctx context.Context, cr *operatorv1beta1.Cryostat) error {
+func (r *Reconciler) reconcileServiceAccount(ctx context.Context, cr *model.CryostatInstance) error {
 	sa := newServiceAccount(cr)
 	labels := map[string]string{
-		"app": "cryostat",
+		"app": cr.Name,
 	}
 	annotations := map[string]string{}
 	// If running on OpenShift, set the route reference as an annotation.
@@ -108,58 +109,33 @@ func (r *CryostatReconciler) reconcileServiceAccount(ctx context.Context, cr *op
 
 		annotations["serviceaccounts.openshift.io/oauth-redirectreference.route"] = string(ref)
 	}
-	return r.createOrUpdateServiceAccount(ctx, sa, cr, labels, annotations)
+	return r.createOrUpdateServiceAccount(ctx, sa, cr.Object, labels, annotations)
 }
 
-func newRole(cr *operatorv1beta1.Cryostat) *rbacv1.Role {
+func newRole(cr *model.CryostatInstance) *rbacv1.Role {
 	return &rbacv1.Role{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      cr.Name,
-			Namespace: cr.Namespace,
+			Namespace: cr.InstallNamespace,
 		},
 	}
 }
 
-func (r *CryostatReconciler) reconcileRole(ctx context.Context, cr *operatorv1beta1.Cryostat) error {
-	role := newRole(cr)
-	rules := []rbacv1.PolicyRule{
-		{
-			Verbs:     []string{"get", "list", "watch"},
-			APIGroups: []string{""},
-			Resources: []string{"endpoints"},
-		},
-		{
-			Verbs:     []string{"get"},
-			APIGroups: []string{""},
-			Resources: []string{"pods", "replicationcontrollers"},
-		},
-		{
-			Verbs:     []string{"get"},
-			APIGroups: []string{"apps"},
-			Resources: []string{"replicasets", "deployments", "daemonsets", "statefulsets"},
-		},
-		{
-			Verbs:     []string{"get"},
-			APIGroups: []string{"apps.openshift.io"},
-			Resources: []string{"deploymentconfigs"},
-		},
-		{
-			Verbs:     []string{"get", "list"},
-			APIGroups: []string{"route.openshift.io"},
-			Resources: []string{"routes"},
-		},
-	}
-	return r.createOrUpdateRole(ctx, role, cr, rules)
+func (r *Reconciler) reconcileRole(ctx context.Context, cr *model.CryostatInstance) error {
+	// Replaced by a cluster role, clean up any legacy role
+	return r.cleanUpRole(ctx, cr, newRole(cr))
 }
 
-func (r *CryostatReconciler) reconcileRoleBinding(ctx context.Context, cr *operatorv1beta1.Cryostat) error {
-	binding := &rbacv1.RoleBinding{
+func newRoleBinding(cr *model.CryostatInstance, namespace string) *rbacv1.RoleBinding {
+	return &rbacv1.RoleBinding{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      cr.Name,
-			Namespace: cr.Namespace,
+			Namespace: namespace,
 		},
 	}
+}
 
+func (r *Reconciler) reconcileRoleBinding(ctx context.Context, cr *model.CryostatInstance) error {
 	sa := newServiceAccount(cr)
 	subjects := []rbacv1.Subject{
 		{
@@ -169,26 +145,42 @@ func (r *CryostatReconciler) reconcileRoleBinding(ctx context.Context, cr *opera
 		},
 	}
 
-	roleRef := &rbacv1.RoleRef{
-		APIGroup: "rbac.authorization.k8s.io",
-		Kind:     "Role",
-		Name:     newRole(cr).Name,
+	// Create a RoleBinding in each target namespace
+	for _, ns := range cr.TargetNamespaces {
+		binding := newRoleBinding(cr, ns)
+		roleRef := &rbacv1.RoleRef{
+			APIGroup: "rbac.authorization.k8s.io",
+			Kind:     "ClusterRole",
+			Name:     "cryostat-operator-cryostat-namespaced",
+		}
+		err := r.createOrUpdateRoleBinding(ctx, binding, cr.Object, subjects, roleRef)
+		if err != nil {
+			return err
+		}
+	}
+	// Delete any RoleBindings in target namespaces that are no longer requested
+	for _, ns := range toDelete(cr) {
+		binding := newRoleBinding(cr, ns)
+		err := r.deleteRoleBinding(ctx, binding)
+		if err != nil {
+			return err
+		}
 	}
 
-	return r.createOrUpdateRoleBinding(ctx, binding, cr, subjects, roleRef)
+	return nil
 }
 
-func newClusterRoleBinding(cr *operatorv1beta1.Cryostat) *rbacv1.ClusterRoleBinding {
+func newClusterRoleBinding(cr *model.CryostatInstance) *rbacv1.ClusterRoleBinding {
 	return &rbacv1.ClusterRoleBinding{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: common.ClusterUniqueName(cr),
+			Name: common.ClusterUniqueName(cr.Name, cr.InstallNamespace),
 		},
 	}
 }
 
 const clusterRoleName = "cryostat-operator-cryostat"
 
-func (r *CryostatReconciler) reconcileClusterRoleBinding(ctx context.Context, cr *operatorv1beta1.Cryostat) error {
+func (r *Reconciler) reconcileClusterRoleBinding(ctx context.Context, cr *model.CryostatInstance) error {
 	binding := newClusterRoleBinding(cr)
 
 	sa := newServiceAccount(cr)
@@ -206,10 +198,10 @@ func (r *CryostatReconciler) reconcileClusterRoleBinding(ctx context.Context, cr
 		Name:     clusterRoleName,
 	}
 
-	return r.createOrUpdateClusterRoleBinding(ctx, binding, cr, subjects, roleRef)
+	return r.createOrUpdateClusterRoleBinding(ctx, binding, cr.Object, subjects, roleRef)
 }
 
-func (r *CryostatReconciler) createOrUpdateServiceAccount(ctx context.Context, sa *corev1.ServiceAccount,
+func (r *Reconciler) createOrUpdateServiceAccount(ctx context.Context, sa *corev1.ServiceAccount,
 	owner metav1.Object, labels map[string]string, annotations map[string]string) error {
 	op, err := controllerutil.CreateOrUpdate(ctx, r.Client, sa, func() error {
 		// TODO just replace the labels and annotations we manage, once we allow the user to configure
@@ -238,26 +230,22 @@ func (r *CryostatReconciler) createOrUpdateServiceAccount(ctx context.Context, s
 	return nil
 }
 
-func (r *CryostatReconciler) createOrUpdateRole(ctx context.Context, role *rbacv1.Role,
-	owner metav1.Object, rules []rbacv1.PolicyRule) error {
-	op, err := controllerutil.CreateOrUpdate(ctx, r.Client, role, func() error {
-		// Update the list of PolicyRules
-		role.Rules = rules
-
-		// Set the Cryostat CR as controller
-		if err := controllerutil.SetControllerReference(owner, role, r.Scheme); err != nil {
-			return err
-		}
-		return nil
-	})
-	if err != nil {
+func (r *Reconciler) cleanUpRole(ctx context.Context, cr *model.CryostatInstance, role *rbacv1.Role) error {
+	err := r.Client.Get(ctx, types.NamespacedName{Name: role.Name, Namespace: role.Namespace}, role)
+	if err != nil && !kerrors.IsNotFound(err) {
+		r.Log.Error(err, "Could not look up role", "name", role.Name, "namespace", role.Namespace)
 		return err
+	} else if metav1.IsControlledBy(role, cr.Object) {
+		err := r.Client.Delete(ctx, role)
+		if err != nil {
+			r.Log.Info("Failed to delete role", "name", role.Name, "namespace", role.Namespace)
+		}
+		r.Log.Info("Role deleted", "name", role.Name, "namespace", role.Namespace)
 	}
-	r.Log.Info(fmt.Sprintf("Role %s", op), "name", role.Name, "namespace", role.Namespace)
 	return nil
 }
 
-func (r *CryostatReconciler) createOrUpdateRoleBinding(ctx context.Context, binding *rbacv1.RoleBinding,
+func (r *Reconciler) createOrUpdateRoleBinding(ctx context.Context, binding *rbacv1.RoleBinding,
 	owner metav1.Object, subjects []rbacv1.Subject, roleRef *rbacv1.RoleRef) error {
 	op, err := controllerutil.CreateOrUpdate(ctx, r.Client, binding, func() error {
 		// Update the list of Subjects
@@ -278,7 +266,21 @@ func (r *CryostatReconciler) createOrUpdateRoleBinding(ctx context.Context, bind
 	return nil
 }
 
-func (r *CryostatReconciler) createOrUpdateClusterRoleBinding(ctx context.Context, binding *rbacv1.ClusterRoleBinding,
+func (r *Reconciler) deleteRoleBinding(ctx context.Context, binding *rbacv1.RoleBinding) error {
+	err := r.Client.Delete(ctx, binding)
+	if err != nil {
+		if kerrors.IsNotFound(err) {
+			r.Log.Info("No role binding to delete", "name", binding.Name, "namespace", binding.Namespace)
+			return nil
+		}
+		r.Log.Error(err, "Could not delete role binding", "name", binding.Name, "namespace", binding.Namespace)
+		return err
+	}
+	r.Log.Info("Role Binding deleted", "name", binding.Name, "namespace", binding.Namespace)
+	return nil
+}
+
+func (r *Reconciler) createOrUpdateClusterRoleBinding(ctx context.Context, binding *rbacv1.ClusterRoleBinding,
 	owner metav1.Object, subjects []rbacv1.Subject, roleRef *rbacv1.RoleRef) error {
 	op, err := controllerutil.CreateOrUpdate(ctx, r.Client, binding, func() error {
 		// Update the list of Subjects
@@ -296,7 +298,7 @@ func (r *CryostatReconciler) createOrUpdateClusterRoleBinding(ctx context.Contex
 	return nil
 }
 
-func (r *CryostatReconciler) deleteClusterRoleBinding(ctx context.Context, cr *operatorv1beta1.Cryostat) error {
+func (r *Reconciler) deleteClusterRoleBinding(ctx context.Context, cr *model.CryostatInstance) error {
 	clusterBinding := newClusterRoleBinding(cr)
 	err := r.Delete(ctx, clusterBinding)
 	if err != nil {
@@ -309,4 +311,23 @@ func (r *CryostatReconciler) deleteClusterRoleBinding(ctx context.Context, cr *o
 	}
 	r.Log.Info("deleted ClusterRoleBinding", "bindingName", clusterBinding.Name)
 	return nil
+}
+
+func toDelete(cr *model.CryostatInstance) []string {
+	toDelete := []string{}
+	for _, ns := range *cr.TargetNamespaceStatus {
+		if !containsNamespace(cr.TargetNamespaces, ns) {
+			toDelete = append(toDelete, ns)
+		}
+	}
+	return toDelete
+}
+
+func containsNamespace(namespaces []string, namespace string) bool {
+	for _, ns := range namespaces {
+		if ns == namespace {
+			return true
+		}
+	}
+	return false
 }

@@ -41,7 +41,7 @@ import (
 	"errors"
 	"strings"
 
-	operatorv1beta1 "github.com/cryostatio/cryostat-operator/api/v1beta1"
+	"github.com/cryostatio/cryostat-operator/internal/controllers/model"
 	certv1 "github.com/jetstack/cert-manager/pkg/apis/certmanager/v1"
 	certMeta "github.com/jetstack/cert-manager/pkg/apis/meta/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -52,7 +52,7 @@ import (
 // ReconcilerTLS contains methods a reconciler may wish to use when configuring
 // TLS-related functionality
 type ReconcilerTLS interface {
-	IsCertManagerEnabled(cryostat *operatorv1beta1.Cryostat) bool
+	IsCertManagerEnabled(cr *model.CryostatInstance) bool
 	GetCertificateSecret(ctx context.Context, cert *certv1.Certificate) (*corev1.Secret, error)
 	OSUtils
 }
@@ -90,7 +90,7 @@ func NewReconcilerTLS(config *ReconcilerTLSConfig) ReconcilerTLS {
 
 // IsCertManagerEnabled returns whether TLS using cert-manager is enabled
 // for this operator
-func (r *reconcilerTLS) IsCertManagerEnabled(cr *operatorv1beta1.Cryostat) bool {
+func (r *reconcilerTLS) IsCertManagerEnabled(cr *model.CryostatInstance) bool {
 	// First check if cert-manager is explicitly enabled or disabled in CR
 	if cr.Spec.EnableCertManager != nil {
 		return *cr.Spec.EnableCertManager

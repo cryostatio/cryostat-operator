@@ -45,7 +45,7 @@ import (
 // CryostatSpec defines the desired state of Cryostat.
 type CryostatSpec struct {
 	// Deploy a pared-down Cryostat instance with no Grafana Dashboard or JFR Data Source.
-	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Minimal Deployment",xDescriptors={"urn:alm:descriptor:com.tectonic.ui:booleanSwitch"}
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,order=4,displayName="Minimal Deployment",xDescriptors={"urn:alm:descriptor:com.tectonic.ui:booleanSwitch"}
 	Minimal bool `json:"minimal"`
 	// List of TLS certificates to trust when connecting to targets.
 	// +optional
@@ -58,7 +58,7 @@ type CryostatSpec struct {
 	// Use cert-manager to secure in-cluster communication between Cryostat components.
 	// Requires cert-manager to be installed.
 	// +optional
-	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Enable cert-manager Integration",xDescriptors={"urn:alm:descriptor:com.tectonic.ui:booleanSwitch"}
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,order=3,displayName="Enable cert-manager Integration",xDescriptors={"urn:alm:descriptor:com.tectonic.ui:booleanSwitch"}
 	EnableCertManager *bool `json:"enableCertManager"`
 	// Options to customize the storage for Flight Recordings and Templates.
 	// +optional
@@ -135,10 +135,10 @@ type CryostatStatus struct {
 	Conditions []metav1.Condition `json:"conditions,omitempty"`
 	// Name of the Secret containing the generated Grafana credentials.
 	// +optional
-	// +operator-sdk:csv:customresourcedefinitions:type=status,xDescriptors={"urn:alm:descriptor:io.kubernetes:Secret"}
+	// +operator-sdk:csv:customresourcedefinitions:type=status,order=2,xDescriptors={"urn:alm:descriptor:io.kubernetes:Secret"}
 	GrafanaSecret string `json:"grafanaSecret,omitempty"`
 	// Address of the deployed Cryostat web application.
-	// +operator-sdk:csv:customresourcedefinitions:type=status,xDescriptors={"urn:alm:descriptor:org.w3:link"}
+	// +operator-sdk:csv:customresourcedefinitions:type=status,order=1,xDescriptors={"urn:alm:descriptor:org.w3:link"}
 	ApplicationURL string `json:"applicationUrl"`
 }
 
@@ -413,9 +413,11 @@ type JmxCacheOptions struct {
 // +kubebuilder:storageversion
 // +kubebuilder:resource:path=cryostats,scope=Namespaced
 
-// Cryostat contains configuration options for controlling the Deployment of
-// the Cryostat application and its related components. A Cryostat instance
-// must be created to instruct the operator to deploy the Cryostat application.
+// Cryostat allows you to install Cryostat for a single namespace.
+// It contains configuration options for controlling the Deployment of the Cryostat
+// application and its related components.
+// A ClusterCryostat or Cryostat instance must be created to instruct the operator
+// to deploy the Cryostat application.
 // +operator-sdk:csv:customresourcedefinitions:resources={{Deployment,v1},{Ingress,v1},{PersistentVolumeClaim,v1},{Secret,v1},{Service,v1},{Route,v1},{ConsoleLink,v1}}
 // +kubebuilder:printcolumn:name="Application URL",type=string,JSONPath=`.status.applicationUrl`
 // +kubebuilder:printcolumn:name="Grafana Secret",type=string,JSONPath=`.status.grafanaSecret`

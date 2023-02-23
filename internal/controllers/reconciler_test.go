@@ -39,7 +39,6 @@ package controllers_test
 import (
 	"context"
 	"fmt"
-	"strconv"
 	"time"
 
 	certv1 "github.com/jetstack/cert-manager/pkg/apis/certmanager/v1"
@@ -63,66 +62,81 @@ import (
 	"k8s.io/client-go/tools/record"
 	ctrlclient "sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	operatorv1beta1 "github.com/cryostatio/cryostat-operator/api/v1beta1"
 	"github.com/cryostatio/cryostat-operator/internal/controllers"
+	"github.com/cryostatio/cryostat-operator/internal/controllers/model"
 	"github.com/cryostatio/cryostat-operator/internal/test"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 )
 
+type controllerTest struct {
+	clusterScoped   bool
+	constructorFunc func(*controllers.ReconcilerConfig) controllers.CommonReconciler
+}
+
 type cryostatTestInput struct {
-	controller *controllers.CryostatReconciler
+	controller controllers.CommonReconciler
 	objs       []runtime.Object
 	test.TestReconcilerConfig
 	*test.TestResources
 }
 
-var _ = Describe("CryostatController", func() {
+func (c *controllerTest) commonBeforeEach() *cryostatTestInput {
+	t := &cryostatTestInput{
+		TestReconcilerConfig: test.TestReconcilerConfig{
+			GeneratedPasswords: []string{"grafana", "credentials_database", "jmx", "keystore"},
+		},
+		TestResources: &test.TestResources{
+			Name:          "cryostat",
+			Namespace:     "test",
+			TLS:           true,
+			ExternalTLS:   true,
+			OpenShift:     true,
+			ClusterScoped: c.clusterScoped,
+		},
+	}
+	t.objs = []runtime.Object{
+		t.NewNamespace(),
+		t.NewApiServer(),
+	}
+	return t
+}
+
+func (c *controllerTest) commonJustBeforeEach(t *cryostatTestInput) {
+	logger := zap.New()
+	logf.SetLogger(logger)
+	s := test.NewTestScheme()
+
+	// Set a CreationTimestamp for created objects to match a real API server
+	// TODO When using envtest instead of fake client, this is probably no longer needed
+	err := test.SetCreationTimestamp(t.objs...)
+	Expect(err).ToNot(HaveOccurred())
+	t.Client = fake.NewClientBuilder().WithScheme(s).WithRuntimeObjects(t.objs...).Build()
+	t.controller = c.constructorFunc(&controllers.ReconcilerConfig{
+		Client:        test.NewClientWithTimestamp(test.NewTestClient(t.Client, t.TestResources)),
+		Scheme:        s,
+		IsOpenShift:   t.OpenShift,
+		EventRecorder: record.NewFakeRecorder(1024),
+		RESTMapper:    test.NewTESTRESTMapper(),
+		Log:           logger,
+		ReconcilerTLS: test.NewTestReconcilerTLS(&t.TestReconcilerConfig),
+	})
+}
+
+func (c *controllerTest) commonTests() {
 	var t *cryostatTestInput
 
 	JustBeforeEach(func() {
-		logger := zap.New()
-		logf.SetLogger(logger)
-		s := test.NewTestScheme()
-
-		// Set a CreationTimestamp for created objects to match a real API server
-		// TODO When using envtest instead of fake client, this is probably no longer needed
-		err := test.SetCreationTimestamp(t.objs...)
-		Expect(err).ToNot(HaveOccurred())
-		t.Client = fake.NewClientBuilder().WithScheme(s).WithRuntimeObjects(t.objs...).Build()
-		t.controller = &controllers.CryostatReconciler{
-			Client:        test.NewClientWithTimestamp(test.NewTestClient(t.Client, t.TestResources)),
-			Scheme:        s,
-			IsOpenShift:   t.OpenShift,
-			EventRecorder: record.NewFakeRecorder(1024),
-			RESTMapper:    test.NewTESTRESTMapper(),
-			Log:           logger,
-			ReconcilerTLS: test.NewTestReconcilerTLS(&t.TestReconcilerConfig),
-		}
+		c.commonJustBeforeEach(t)
 	})
 
 	BeforeEach(func() {
-		t = &cryostatTestInput{
-			TestReconcilerConfig: test.TestReconcilerConfig{
-				GeneratedPasswords: []string{"grafana", "credentials_database", "jmx", "keystore"},
-			},
-			TestResources: &test.TestResources{
-				Namespace:   "test",
-				TLS:         true,
-				ExternalTLS: true,
-				OpenShift:   true,
-			},
-		}
-		t.objs = []runtime.Object{
-			t.NewNamespace(),
-			t.NewApiServer(),
-		}
-	})
-
-	AfterEach(func() {
-		t = nil
+		t = c.commonBeforeEach()
+		t.TargetNamespaces = []string{t.Namespace}
 	})
 
 	Describe("reconciling a request in OpenShift", func() {
@@ -150,7 +164,7 @@ var _ = Describe("CryostatController", func() {
 			})
 			It("should create Grafana service and set owner", func() {
 				service := &corev1.Service{}
-				err := t.Client.Get(context.Background(), types.NamespacedName{Name: "cryostat-grafana", Namespace: t.Namespace}, service)
+				err := t.Client.Get(context.Background(), types.NamespacedName{Name: t.Name + "-grafana", Namespace: t.Namespace}, service)
 				Expect(kerrors.IsNotFound(err)).To(BeTrue())
 
 				t.reconcileCryostatFully()
@@ -176,7 +190,7 @@ var _ = Describe("CryostatController", func() {
 			Context("deployment is progressing", func() {
 				JustBeforeEach(func() {
 					t.reconcileCryostatFully()
-					t.makeDeploymentProgress("cryostat")
+					t.makeDeploymentProgress(t.Name)
 				})
 				It("should update conditions", func() {
 					t.checkConditionPresent(operatorv1beta1.ConditionTypeMainDeploymentAvailable, metav1.ConditionFalse,
@@ -187,7 +201,7 @@ var _ = Describe("CryostatController", func() {
 				})
 				Context("then becomes available", func() {
 					JustBeforeEach(func() {
-						t.makeDeploymentAvailable("cryostat")
+						t.makeDeploymentAvailable(t.Name)
 					})
 					It("should update conditions", func() {
 						t.checkConditionPresent(operatorv1beta1.ConditionTypeMainDeploymentAvailable, metav1.ConditionTrue,
@@ -199,7 +213,7 @@ var _ = Describe("CryostatController", func() {
 				})
 				Context("then fails to roll out", func() {
 					JustBeforeEach(func() {
-						t.makeDeploymentFail("cryostat")
+						t.makeDeploymentFail(t.Name)
 					})
 					It("should update conditions", func() {
 						t.checkConditionPresent(operatorv1beta1.ConditionTypeMainDeploymentAvailable, metav1.ConditionFalse,
@@ -214,25 +228,35 @@ var _ = Describe("CryostatController", func() {
 		}
 		Context("successfully creates required resources", func() {
 			BeforeEach(func() {
-				t.objs = append(t.objs, t.NewCryostat())
+				t.objs = append(t.objs, t.NewCryostat().Object)
 			})
 
 			expectSuccessful()
 		})
 		Context("with multiple namespaces", func() {
+			// Use different names as well for cluster-scoped case
+			names := []string{"cryostat-one", "cryostat-two"}
 			namespaces := []string{"test-one", "test-two"}
 			BeforeEach(func() {
-				for _, ns := range namespaces {
-					t.Namespace = ns
-					t.objs = append(t.objs, t.NewNamespace(), t.NewCryostat())
+				// Sanity check for test
+				Expect(names).To(HaveLen(len(namespaces)))
+				for i := range namespaces {
+					t.Name = names[i]
+					t.Namespace = namespaces[i]
+					t.TargetNamespaces = []string{t.Namespace}
+					t.objs = append(t.objs, t.NewNamespace(), t.NewCryostat().Object)
 				}
 			})
 
-			for _, ns := range namespaces {
-				ns := ns // capture value
+			for i := range namespaces {
+				// capture values for closure
+				name := names[i]
+				ns := namespaces[i]
 				Context(fmt.Sprintf("successfully creates required resources in namespace %s", ns), func() {
 					BeforeEach(func() {
+						t.Name = name
 						t.Namespace = ns
+						t.TargetNamespaces = []string{t.Namespace}
 					})
 
 					expectSuccessful()
@@ -243,7 +267,7 @@ var _ = Describe("CryostatController", func() {
 			BeforeEach(func() {
 				t.Minimal = true
 				t.GeneratedPasswords = []string{"credentials_database", "jmx", "keystore"}
-				t.objs = append(t.objs, t.NewCryostat())
+				t.objs = append(t.objs, t.NewCryostat().Object)
 			})
 			It("should create certificates", func() {
 				t.expectCertificates()
@@ -278,7 +302,7 @@ var _ = Describe("CryostatController", func() {
 		})
 		Context("after cryostat reconciled successfully", func() {
 			BeforeEach(func() {
-				t.objs = append(t.objs, t.NewCryostat())
+				t.objs = append(t.objs, t.NewCryostat().Object)
 			})
 			It("should be idempotent", func() {
 				t.expectIdempotence()
@@ -287,7 +311,7 @@ var _ = Describe("CryostatController", func() {
 		Context("After a minimal cryostat reconciled successfully", func() {
 			BeforeEach(func() {
 				t.Minimal = true
-				t.objs = append(t.objs, t.NewCryostat())
+				t.objs = append(t.objs, t.NewCryostat().Object)
 			})
 			It("should be idempotent", func() {
 				t.expectIdempotence()
@@ -295,26 +319,25 @@ var _ = Describe("CryostatController", func() {
 		})
 		Context("Cryostat does not exist", func() {
 			It("should do nothing", func() {
-				req := reconcile.Request{NamespacedName: types.NamespacedName{Name: "does-not-exist", Namespace: t.Namespace}}
-				result, err := t.controller.Reconcile(context.Background(), req)
+				result, err := t.reconcileWithName("does-not-exist")
 				Expect(err).ToNot(HaveOccurred())
 				Expect(result).To(Equal(reconcile.Result{}))
 			})
 		})
 		Context("with an existing main Deployment", func() {
-			var cr *operatorv1beta1.Cryostat
+			var cr *model.CryostatInstance
 			var oldDeploy *appsv1.Deployment
 			BeforeEach(func() {
 				cr = t.NewCryostat()
 				oldDeploy = t.OtherDeployment()
-				t.objs = append(t.objs, cr, oldDeploy)
+				t.objs = append(t.objs, cr.Object, oldDeploy)
 			})
 			JustBeforeEach(func() {
 				t.reconcileCryostatFully()
 			})
 			It("should update the Deployment", func() {
 				deploy := &appsv1.Deployment{}
-				err := t.Client.Get(context.Background(), types.NamespacedName{Name: "cryostat", Namespace: t.Namespace}, deploy)
+				err := t.Client.Get(context.Background(), types.NamespacedName{Name: t.Name, Namespace: t.Namespace}, deploy)
 				Expect(err).ToNot(HaveOccurred())
 
 				Expect(deploy.Annotations).To(Equal(map[string]string{
@@ -322,13 +345,13 @@ var _ = Describe("CryostatController", func() {
 					"other":                        "annotation",
 				}))
 				Expect(deploy.Labels).To(Equal(map[string]string{
-					"app":                    "cryostat",
+					"app":                    t.Name,
 					"kind":                   "cryostat",
 					"component":              "cryostat",
 					"app.kubernetes.io/name": "cryostat",
 					"other":                  "label",
 				}))
-				Expect(metav1.IsControlledBy(deploy, cr)).To(BeTrue())
+				Expect(metav1.IsControlledBy(deploy, cr.Object)).To(BeTrue())
 
 				t.checkMainPodTemplate(deploy, cr)
 
@@ -348,31 +371,31 @@ var _ = Describe("CryostatController", func() {
 			})
 		})
 		Context("with an existing Service Account", func() {
-			var cr *operatorv1beta1.Cryostat
+			var cr *model.CryostatInstance
 			var oldSA *corev1.ServiceAccount
 			BeforeEach(func() {
 				cr = t.NewCryostat()
 				oldSA = t.OtherServiceAccount()
-				t.objs = append(t.objs, cr, oldSA)
+				t.objs = append(t.objs, cr.Object, oldSA)
 			})
 			It("should update the Service Account", func() {
 				t.reconcileCryostatFully()
 
 				sa := &corev1.ServiceAccount{}
-				err := t.Client.Get(context.Background(), types.NamespacedName{Name: "cryostat", Namespace: t.Namespace}, sa)
+				err := t.Client.Get(context.Background(), types.NamespacedName{Name: t.Name, Namespace: t.Namespace}, sa)
 				Expect(err).ToNot(HaveOccurred())
 
 				Expect(sa.Annotations).To(Equal(map[string]string{
 					"hello": "world",
-					"serviceaccounts.openshift.io/oauth-redirectreference.route": `{"metadata":{"creationTimestamp":null},"reference":{"group":"","kind":"Route","name":"cryostat"}}`,
+					"serviceaccounts.openshift.io/oauth-redirectreference.route": fmt.Sprintf(`{"metadata":{"creationTimestamp":null},"reference":{"group":"","kind":"Route","name":"%s"}}`, t.Name),
 				}))
 
 				Expect(sa.Labels).To(Equal(map[string]string{
-					"app":   "cryostat",
+					"app":   t.Name,
 					"other": "label",
 				}))
 
-				Expect(metav1.IsControlledBy(sa, cr)).To(BeTrue())
+				Expect(metav1.IsControlledBy(sa, cr.Object)).To(BeTrue())
 
 				Expect(sa.ImagePullSecrets).To(Equal(oldSA.ImagePullSecrets))
 				Expect(sa.Secrets).To(Equal(oldSA.Secrets))
@@ -380,64 +403,70 @@ var _ = Describe("CryostatController", func() {
 			})
 		})
 		Context("with an existing Role", func() {
-			var cr *operatorv1beta1.Cryostat
-			var oldRole *rbacv1.Role
-			BeforeEach(func() {
-				cr = t.NewCryostat()
-				oldRole = t.OtherRole()
-				t.objs = append(t.objs, cr, oldRole)
+			var role *rbacv1.Role
+			Context("created by the operator", func() {
+				BeforeEach(func() {
+					cr := t.NewCryostat()
+					role = t.NewRole()
+					err := controllerutil.SetControllerReference(cr.Object, role, test.NewTestScheme())
+					Expect(err).ToNot(HaveOccurred())
+					t.objs = append(t.objs, cr.Object, role)
+				})
+				It("should delete the Role", func() {
+					t.reconcileCryostatFully()
+
+					err := t.Client.Get(context.Background(), types.NamespacedName{Name: role.Name, Namespace: role.Namespace}, role)
+					Expect(err).To(HaveOccurred())
+					Expect(kerrors.IsNotFound(err)).To(BeTrue())
+				})
 			})
-			It("should update the Role", func() {
-				t.reconcileCryostatFully()
+			Context("not created by the operator", func() {
+				BeforeEach(func() {
+					role = t.OtherRole()
+					t.objs = append(t.objs, t.NewCryostat().Object, role)
+				})
+				It("should not delete the Role", func() {
+					t.reconcileCryostatFully()
 
-				role := &rbacv1.Role{}
-				err := t.Client.Get(context.Background(), types.NamespacedName{Name: "cryostat", Namespace: t.Namespace}, role)
-				Expect(err).ToNot(HaveOccurred())
-
-				Expect(metav1.IsControlledBy(role, cr)).To(BeTrue())
-
-				// Labels are unaffected
-				Expect(role.Labels).To(Equal(oldRole.Labels))
-				Expect(role.Annotations).To(Equal(oldRole.Annotations))
-
-				// Rules should be fully replaced
-				Expect(role.Rules).To(Equal(t.NewRole().Rules))
+					err := t.Client.Get(context.Background(), types.NamespacedName{Name: role.Name, Namespace: role.Namespace}, role)
+					Expect(err).ToNot(HaveOccurred())
+				})
 			})
 		})
 		Context("with an existing Role Binding", func() {
-			var cr *operatorv1beta1.Cryostat
+			var cr *model.CryostatInstance
 			var oldBinding *rbacv1.RoleBinding
 			BeforeEach(func() {
 				cr = t.NewCryostat()
-				oldBinding = t.OtherRoleBinding()
-				t.objs = append(t.objs, cr, oldBinding)
+				oldBinding = t.OtherRoleBinding(t.Namespace)
+				t.objs = append(t.objs, cr.Object, oldBinding)
 			})
 			It("should update the Role Binding", func() {
 				t.reconcileCryostatFully()
 
 				binding := &rbacv1.RoleBinding{}
-				err := t.Client.Get(context.Background(), types.NamespacedName{Name: "cryostat", Namespace: t.Namespace}, binding)
+				err := t.Client.Get(context.Background(), types.NamespacedName{Name: t.Name, Namespace: t.Namespace}, binding)
 				Expect(err).ToNot(HaveOccurred())
 
-				Expect(metav1.IsControlledBy(binding, cr)).To(BeTrue())
+				Expect(metav1.IsControlledBy(binding, cr.Object)).To(BeTrue())
 
 				// Labels are unaffected
 				Expect(binding.Labels).To(Equal(oldBinding.Labels))
 				Expect(binding.Annotations).To(Equal(oldBinding.Annotations))
 
 				// Subjects and RoleRef should be fully replaced
-				expected := t.NewRoleBinding()
+				expected := t.NewRoleBinding(t.Namespace)
 				Expect(binding.Subjects).To(Equal(expected.Subjects))
 				Expect(binding.RoleRef).To(Equal(expected.RoleRef))
 			})
 		})
 		Context("with an existing Cluster Role Binding", func() {
-			var cr *operatorv1beta1.Cryostat
+			var cr *model.CryostatInstance
 			var oldBinding *rbacv1.ClusterRoleBinding
 			BeforeEach(func() {
 				cr = t.NewCryostat()
 				oldBinding = t.OtherClusterRoleBinding()
-				t.objs = append(t.objs, cr, oldBinding)
+				t.objs = append(t.objs, cr.Object, oldBinding)
 			})
 			It("should update the Cluster Role Binding", func() {
 				t.reconcileCryostatFully()
@@ -459,12 +488,12 @@ var _ = Describe("CryostatController", func() {
 			})
 		})
 		Context("with an existing Grafana Secret", func() {
-			var cr *operatorv1beta1.Cryostat
+			var cr *model.CryostatInstance
 			var oldSecret *corev1.Secret
 			BeforeEach(func() {
 				cr = t.NewCryostat()
 				oldSecret = t.OtherGrafanaSecret()
-				t.objs = append(t.objs, cr, oldSecret)
+				t.objs = append(t.objs, cr.Object, oldSecret)
 			})
 			It("should update the username but not password", func() {
 				t.reconcileCryostatFully()
@@ -473,7 +502,7 @@ var _ = Describe("CryostatController", func() {
 				err := t.Client.Get(context.Background(), types.NamespacedName{Name: oldSecret.Name, Namespace: t.Namespace}, secret)
 				Expect(err).ToNot(HaveOccurred())
 
-				Expect(metav1.IsControlledBy(secret, cr)).To(BeTrue())
+				Expect(metav1.IsControlledBy(secret, cr.Object)).To(BeTrue())
 
 				// Username should be replaced, but not password
 				expected := t.NewGrafanaSecret()
@@ -482,12 +511,12 @@ var _ = Describe("CryostatController", func() {
 			})
 		})
 		Context("with an existing JMX Secret", func() {
-			var cr *operatorv1beta1.Cryostat
+			var cr *model.CryostatInstance
 			var oldSecret *corev1.Secret
 			BeforeEach(func() {
 				cr = t.NewCryostat()
 				oldSecret = t.OtherJMXSecret()
-				t.objs = append(t.objs, cr, oldSecret)
+				t.objs = append(t.objs, cr.Object, oldSecret)
 			})
 			It("should update the username but not password", func() {
 				t.reconcileCryostatFully()
@@ -496,7 +525,7 @@ var _ = Describe("CryostatController", func() {
 				err := t.Client.Get(context.Background(), types.NamespacedName{Name: oldSecret.Name, Namespace: t.Namespace}, secret)
 				Expect(err).ToNot(HaveOccurred())
 
-				Expect(metav1.IsControlledBy(secret, cr)).To(BeTrue())
+				Expect(metav1.IsControlledBy(secret, cr.Object)).To(BeTrue())
 
 				// Username should be replaced, but not password
 				expected := t.NewJMXSecret()
@@ -505,12 +534,12 @@ var _ = Describe("CryostatController", func() {
 			})
 		})
 		Context("with an existing Credentials Database Secret", func() {
-			var cr *operatorv1beta1.Cryostat
+			var cr *model.CryostatInstance
 			var oldSecret *corev1.Secret
 			BeforeEach(func() {
 				cr = t.NewCryostat()
 				oldSecret = t.OtherCredentialsDatabaseSecret()
-				t.objs = append(t.objs, cr, oldSecret)
+				t.objs = append(t.objs, cr.Object, oldSecret)
 			})
 			It("should not update password", func() {
 				t.reconcileCryostatFully()
@@ -519,19 +548,19 @@ var _ = Describe("CryostatController", func() {
 				err := t.Client.Get(context.Background(), types.NamespacedName{Name: oldSecret.Name, Namespace: t.Namespace}, secret)
 				Expect(err).ToNot(HaveOccurred())
 
-				Expect(metav1.IsControlledBy(secret, cr)).To(BeTrue())
+				Expect(metav1.IsControlledBy(secret, cr.Object)).To(BeTrue())
 				Expect(secret.StringData["CRYOSTAT_JMX_CREDENTIALS_DB_PASSWORD"]).To(Equal(oldSecret.StringData["CRYOSTAT_JMX_CREDENTIALS_DB_PASSWORD"]))
 			})
 		})
 		Context("with existing Routes", func() {
-			var cr *operatorv1beta1.Cryostat
+			var cr *model.CryostatInstance
 			var oldCoreRoute *openshiftv1.Route
 			var oldGrafanaRoute *openshiftv1.Route
 			BeforeEach(func() {
 				cr = t.NewCryostat()
 				oldCoreRoute = t.OtherCoreRoute()
 				oldGrafanaRoute = t.OtherGrafanaRoute()
-				t.objs = append(t.objs, cr, oldCoreRoute, oldGrafanaRoute)
+				t.objs = append(t.objs, cr.Object, oldCoreRoute, oldGrafanaRoute)
 			})
 			It("should update the Routes", func() {
 				t.reconcileCryostatFully()
@@ -544,19 +573,16 @@ var _ = Describe("CryostatController", func() {
 			BeforeEach(func() {
 				t.Minimal = true
 				t.GeneratedPasswords = []string{"credentials_database", "jmx", "keystore", "grafana"}
-				t.objs = append(t.objs, t.NewCryostat())
+				t.objs = append(t.objs, t.NewCryostat().Object)
 			})
 			JustBeforeEach(func() {
 				t.reconcileCryostatFully()
 
-				cryostat := &operatorv1beta1.Cryostat{}
-				err := t.Client.Get(context.Background(), types.NamespacedName{Name: "cryostat", Namespace: t.Namespace}, cryostat)
-				Expect(err).ToNot(HaveOccurred())
+				cryostat := t.getCryostatInstance()
 
 				t.Minimal = false
 				cryostat.Spec.Minimal = false
-				err = t.Client.Update(context.Background(), cryostat)
-				Expect(err).ToNot(HaveOccurred())
+				t.updateCryostatInstance(cryostat)
 
 				t.reconcileCryostatFully()
 			})
@@ -576,29 +602,26 @@ var _ = Describe("CryostatController", func() {
 		})
 		Context("Switching from a non-minimal to a minimal deployment", func() {
 			BeforeEach(func() {
-				t.objs = append(t.objs, t.NewCryostat())
+				t.objs = append(t.objs, t.NewCryostat().Object)
 			})
 			JustBeforeEach(func() {
 				t.reconcileCryostatFully()
 
-				cryostat := &operatorv1beta1.Cryostat{}
-				err := t.Client.Get(context.Background(), types.NamespacedName{Name: "cryostat", Namespace: t.Namespace}, cryostat)
-				Expect(err).ToNot(HaveOccurred())
+				cryostat := t.getCryostatInstance()
 
 				t.Minimal = true
 				cryostat.Spec.Minimal = true
-				err = t.Client.Status().Update(context.Background(), cryostat)
-				Expect(err).ToNot(HaveOccurred())
+				t.updateCryostatInstance(cryostat)
 
 				t.reconcileCryostatFully()
 			})
 			It("should delete Grafana network resources", func() {
 				service := &corev1.Service{}
-				err := t.Client.Get(context.Background(), types.NamespacedName{Name: "cryostat-grafana", Namespace: t.Namespace}, service)
+				err := t.Client.Get(context.Background(), types.NamespacedName{Name: t.Name + "-grafana", Namespace: t.Namespace}, service)
 				Expect(kerrors.IsNotFound(err)).To(BeTrue())
 
 				route := &openshiftv1.Route{}
-				err = t.Client.Get(context.Background(), types.NamespacedName{Name: "cryostat-grafana", Namespace: t.Namespace}, route)
+				err = t.Client.Get(context.Background(), types.NamespacedName{Name: t.Name + "-grafana", Namespace: t.Namespace}, route)
 				Expect(kerrors.IsNotFound(err)).To(BeTrue())
 			})
 			It("should delete the Grafana secret", func() {
@@ -617,11 +640,11 @@ var _ = Describe("CryostatController", func() {
 			})
 		})
 		Context("with report generator service", func() {
-			var cr *operatorv1beta1.Cryostat
+			var cr *model.CryostatInstance
 			BeforeEach(func() {
 				t.ReportReplicas = 1
 				cr = t.NewCryostat()
-				t.objs = append(t.objs, cr)
+				t.objs = append(t.objs, cr.Object)
 			})
 			JustBeforeEach(func() {
 				t.reconcileCryostatFully()
@@ -635,7 +658,7 @@ var _ = Describe("CryostatController", func() {
 				It("should configure deployment appropriately", func() {
 					t.checkMainDeployment()
 					t.checkReportsDeployment()
-					t.checkService("cryostat-reports", t.NewReportsService())
+					t.checkService(t.Name+"-reports", t.NewReportsService())
 				})
 			})
 			Context("with Scheduling options", func() {
@@ -654,7 +677,7 @@ var _ = Describe("CryostatController", func() {
 					It("should configure deployment appropriately", func() {
 						t.checkMainDeployment()
 						t.checkReportsDeployment()
-						t.checkService("cryostat-reports", t.NewReportsService())
+						t.checkService(t.Name+"-reports", t.NewReportsService())
 					})
 				})
 				Context("with low limits", func() {
@@ -664,13 +687,13 @@ var _ = Describe("CryostatController", func() {
 					It("should configure deployment appropriately", func() {
 						t.checkMainDeployment()
 						t.checkReportsDeployment()
-						t.checkService("cryostat-reports", t.NewReportsService())
+						t.checkService(t.Name+"-reports", t.NewReportsService())
 					})
 				})
 			})
 			Context("deployment is progressing", func() {
 				JustBeforeEach(func() {
-					t.makeDeploymentProgress("cryostat-reports")
+					t.makeDeploymentProgress(t.Name + "-reports")
 				})
 				It("should update conditions", func() {
 					t.checkConditionPresent(operatorv1beta1.ConditionTypeReportsDeploymentAvailable, metav1.ConditionFalse,
@@ -681,7 +704,7 @@ var _ = Describe("CryostatController", func() {
 				})
 				Context("then becomes available", func() {
 					JustBeforeEach(func() {
-						t.makeDeploymentAvailable("cryostat-reports")
+						t.makeDeploymentAvailable(t.Name + "-reports")
 					})
 					It("should update conditions", func() {
 						t.checkConditionPresent(operatorv1beta1.ConditionTypeReportsDeploymentAvailable, metav1.ConditionTrue,
@@ -693,7 +716,7 @@ var _ = Describe("CryostatController", func() {
 				})
 				Context("then fails to roll out", func() {
 					JustBeforeEach(func() {
-						t.makeDeploymentFail("cryostat-reports")
+						t.makeDeploymentFail(t.Name + "-reports")
 					})
 					It("should update conditions", func() {
 						t.checkConditionPresent(operatorv1beta1.ConditionTypeReportsDeploymentAvailable, metav1.ConditionFalse,
@@ -708,103 +731,91 @@ var _ = Describe("CryostatController", func() {
 		})
 		Context("Switching from 0 report sidecars to 1", func() {
 			BeforeEach(func() {
-				t.objs = append(t.objs, t.NewCryostat())
+				t.objs = append(t.objs, t.NewCryostat().Object)
 			})
 			JustBeforeEach(func() {
 				t.reconcileCryostatFully()
 
-				cryostat := &operatorv1beta1.Cryostat{}
-				err := t.Client.Get(context.Background(), types.NamespacedName{Name: "cryostat", Namespace: t.Namespace}, cryostat)
-				Expect(err).ToNot(HaveOccurred())
+				cryostat := t.getCryostatInstance()
 
 				t.ReportReplicas = 1
 				cryostat.Spec.ReportOptions = &operatorv1beta1.ReportConfiguration{
 					Replicas: t.ReportReplicas,
 				}
-				err = t.Client.Status().Update(context.Background(), cryostat)
-				Expect(err).ToNot(HaveOccurred())
+				t.updateCryostatInstance(cryostat)
 
 				t.reconcileCryostatFully()
 			})
 			It("should configure deployment appropriately", func() {
 				t.checkMainDeployment()
 				t.checkReportsDeployment()
-				t.checkService("cryostat-reports", t.NewReportsService())
+				t.checkService(t.Name+"-reports", t.NewReportsService())
 			})
 		})
 		Context("Switching from 1 report sidecar to 2", func() {
 			BeforeEach(func() {
 				t.ReportReplicas = 1
-				t.objs = append(t.objs, t.NewCryostat())
+				t.objs = append(t.objs, t.NewCryostat().Object)
 			})
 			JustBeforeEach(func() {
 				t.reconcileCryostatFully()
 
-				cryostat := &operatorv1beta1.Cryostat{}
-				err := t.Client.Get(context.Background(), types.NamespacedName{Name: "cryostat", Namespace: t.Namespace}, cryostat)
-				Expect(err).ToNot(HaveOccurred())
+				cryostat := t.getCryostatInstance()
 
 				t.ReportReplicas = 2
 				cryostat.Spec.ReportOptions.Replicas = t.ReportReplicas
-				err = t.Client.Status().Update(context.Background(), cryostat)
-				Expect(err).ToNot(HaveOccurred())
+				t.updateCryostatInstance(cryostat)
 
 				t.reconcileCryostatFully()
 			})
 			It("should configure deployment appropriately", func() {
 				t.checkMainDeployment()
 				t.checkReportsDeployment()
-				t.checkService("cryostat-reports", t.NewReportsService())
+				t.checkService(t.Name+"-reports", t.NewReportsService())
 			})
 		})
 		Context("Switching from 2 report sidecars to 1", func() {
 			BeforeEach(func() {
 				t.ReportReplicas = 2
-				t.objs = append(t.objs, t.NewCryostat())
+				t.objs = append(t.objs, t.NewCryostat().Object)
 			})
 			JustBeforeEach(func() {
 				t.reconcileCryostatFully()
 
-				cryostat := &operatorv1beta1.Cryostat{}
-				err := t.Client.Get(context.Background(), types.NamespacedName{Name: "cryostat", Namespace: t.Namespace}, cryostat)
-				Expect(err).ToNot(HaveOccurred())
+				cryostat := t.getCryostatInstance()
 
 				t.ReportReplicas = 1
 				cryostat.Spec.ReportOptions.Replicas = t.ReportReplicas
-				err = t.Client.Status().Update(context.Background(), cryostat)
-				Expect(err).ToNot(HaveOccurred())
+				t.updateCryostatInstance(cryostat)
 
 				t.reconcileCryostatFully()
 			})
 			It("should configure deployment appropriately", func() {
 				t.checkMainDeployment()
 				t.checkReportsDeployment()
-				t.checkService("cryostat-reports", t.NewReportsService())
+				t.checkService(t.Name+"-reports", t.NewReportsService())
 			})
 		})
 		Context("Switching from 1 report sidecar to 0", func() {
 			BeforeEach(func() {
 				t.ReportReplicas = 1
-				t.objs = append(t.objs, t.NewCryostat())
+				t.objs = append(t.objs, t.NewCryostat().Object)
 			})
 			JustBeforeEach(func() {
 				t.reconcileCryostatFully()
-				t.makeDeploymentAvailable("cryostat-reports")
+				t.makeDeploymentAvailable(t.Name + "-reports")
 
-				cryostat := &operatorv1beta1.Cryostat{}
-				err := t.Client.Get(context.Background(), types.NamespacedName{Name: "cryostat", Namespace: t.Namespace}, cryostat)
-				Expect(err).ToNot(HaveOccurred())
+				cryostat := t.getCryostatInstance()
 
 				t.ReportReplicas = 0
 				cryostat.Spec.ReportOptions.Replicas = t.ReportReplicas
-				err = t.Client.Status().Update(context.Background(), cryostat)
-				Expect(err).ToNot(HaveOccurred())
+				t.updateCryostatInstance(cryostat)
 
 				t.reconcileCryostatFully()
 			})
 			It("should configure deployment appropriately", func() {
 				t.checkMainDeployment()
-				t.expectNoService("cryostat-reports")
+				t.expectNoService(t.Name + "-reports")
 				t.expectNoReportsDeployment()
 			})
 			It("should remove conditions", func() {
@@ -814,10 +825,10 @@ var _ = Describe("CryostatController", func() {
 			})
 		})
 		Context("Cryostat CR has list of certificate secrets", func() {
-			var cr *operatorv1beta1.Cryostat
+			var cr *model.CryostatInstance
 			BeforeEach(func() {
 				cr = t.NewCryostatWithSecrets()
-				t.objs = append(t.objs, cr, t.NewTestCertSecret("testCert1"),
+				t.objs = append(t.objs, cr.Object, t.NewTestCertSecret("testCert1"),
 					t.NewTestCertSecret("testCert2"))
 			})
 			It("Should add volumes and volumeMounts to deployment", func() {
@@ -836,7 +847,7 @@ var _ = Describe("CryostatController", func() {
 		})
 		Context("Adding a certificate to the TrustedCertSecrets list", func() {
 			BeforeEach(func() {
-				t.objs = append(t.objs, t.NewCryostat(), t.NewTestCertSecret("testCert1"),
+				t.objs = append(t.objs, t.NewCryostat().Object, t.NewTestCertSecret("testCert1"),
 					t.NewTestCertSecret("testCert2"))
 			})
 			JustBeforeEach(func() {
@@ -844,19 +855,16 @@ var _ = Describe("CryostatController", func() {
 			})
 			It("Should update the corresponding deployment", func() {
 				// Get Cryostat CR after reconciling
-				cr := &operatorv1beta1.Cryostat{}
-				err := t.Client.Get(context.Background(), types.NamespacedName{Name: "cryostat", Namespace: t.Namespace}, cr)
-				Expect(err).ToNot(HaveOccurred())
+				cr := t.getCryostatInstance()
 
 				// Update it with new TrustedCertSecrets
 				cr.Spec.TrustedCertSecrets = t.NewCryostatWithSecrets().Spec.TrustedCertSecrets
-				err = t.Client.Update(context.Background(), cr)
-				Expect(err).ToNot(HaveOccurred())
+				t.updateCryostatInstance(cr)
 
 				t.reconcileCryostatFully()
 
 				deployment := &appsv1.Deployment{}
-				err = t.Client.Get(context.Background(), types.NamespacedName{Name: "cryostat", Namespace: t.Namespace}, deployment)
+				err := t.Client.Get(context.Background(), types.NamespacedName{Name: t.Name, Namespace: t.Namespace}, deployment)
 				Expect(err).ToNot(HaveOccurred())
 
 				volumes := deployment.Spec.Template.Spec.Volumes
@@ -870,7 +878,7 @@ var _ = Describe("CryostatController", func() {
 		})
 		Context("Cryostat CR has list of event templates", func() {
 			BeforeEach(func() {
-				t.objs = append(t.objs, t.NewCryostatWithTemplates(), t.NewTemplateConfigMap(),
+				t.objs = append(t.objs, t.NewCryostatWithTemplates().Object, t.NewTemplateConfigMap(),
 					t.NewOtherTemplateConfigMap())
 			})
 			It("Should add volumes and volumeMounts to deployment", func() {
@@ -884,7 +892,7 @@ var _ = Describe("CryostatController", func() {
 				cr := t.NewCryostatWithTemplates()
 				certManager := false
 				cr.Spec.EnableCertManager = &certManager
-				t.objs = append(t.objs, cr, t.NewTemplateConfigMap(),
+				t.objs = append(t.objs, cr.Object, t.NewTemplateConfigMap(),
 					t.NewOtherTemplateConfigMap())
 			})
 			It("Should add volumes and volumeMounts to deployment", func() {
@@ -894,7 +902,7 @@ var _ = Describe("CryostatController", func() {
 		})
 		Context("Adding a template to the EventTemplates list", func() {
 			BeforeEach(func() {
-				t.objs = append(t.objs, t.NewCryostat(), t.NewTemplateConfigMap(),
+				t.objs = append(t.objs, t.NewCryostat().Object, t.NewTemplateConfigMap(),
 					t.NewOtherTemplateConfigMap())
 			})
 			JustBeforeEach(func() {
@@ -902,14 +910,11 @@ var _ = Describe("CryostatController", func() {
 			})
 			It("Should update the corresponding deployment", func() {
 				// Get Cryostat CR after reconciling
-				cr := &operatorv1beta1.Cryostat{}
-				err := t.Client.Get(context.Background(), types.NamespacedName{Name: "cryostat", Namespace: t.Namespace}, cr)
-				Expect(err).ToNot(HaveOccurred())
+				cr := t.getCryostatInstance()
 
 				// Update it with new EventTemplates
 				cr.Spec.EventTemplates = t.NewCryostatWithTemplates().Spec.EventTemplates
-				err = t.Client.Update(context.Background(), cr)
-				Expect(err).ToNot(HaveOccurred())
+				t.updateCryostatInstance(cr)
 
 				t.reconcileCryostatFully()
 				t.checkDeploymentHasTemplates()
@@ -917,7 +922,7 @@ var _ = Describe("CryostatController", func() {
 		})
 		Context("with custom PVC spec overriding all defaults", func() {
 			BeforeEach(func() {
-				t.objs = append(t.objs, t.NewCryostatWithPVCSpec())
+				t.objs = append(t.objs, t.NewCryostatWithPVCSpec().Object)
 			})
 			It("should create the PVC with requested spec", func() {
 				t.expectPVC(t.NewCustomPVC())
@@ -925,7 +930,7 @@ var _ = Describe("CryostatController", func() {
 		})
 		Context("with custom PVC spec overriding some defaults", func() {
 			BeforeEach(func() {
-				t.objs = append(t.objs, t.NewCryostatWithPVCSpecSomeDefault())
+				t.objs = append(t.objs, t.NewCryostatWithPVCSpecSomeDefault().Object)
 			})
 			It("should create the PVC with requested spec", func() {
 				t.expectPVC(t.NewCustomPVCSomeDefault())
@@ -933,7 +938,7 @@ var _ = Describe("CryostatController", func() {
 		})
 		Context("with custom PVC config with no spec", func() {
 			BeforeEach(func() {
-				t.objs = append(t.objs, t.NewCryostatWithPVCLabelsOnly())
+				t.objs = append(t.objs, t.NewCryostatWithPVCLabelsOnly().Object)
 			})
 			It("should create the PVC with requested label", func() {
 				t.expectPVC(t.NewDefaultPVCWithLabel())
@@ -943,7 +948,7 @@ var _ = Describe("CryostatController", func() {
 			var oldPVC *corev1.PersistentVolumeClaim
 			BeforeEach(func() {
 				oldPVC = t.NewDefaultPVC()
-				t.objs = append(t.objs, t.NewCryostatWithPVCSpec(), oldPVC)
+				t.objs = append(t.objs, t.NewCryostatWithPVCSpec().Object, oldPVC)
 			})
 			Context("that successfully updates", func() {
 				BeforeEach(func() {
@@ -960,7 +965,7 @@ var _ = Describe("CryostatController", func() {
 					expected := t.NewDefaultPVC()
 					metav1.SetMetaDataLabel(&expected.ObjectMeta, "my", "label")
 					metav1.SetMetaDataLabel(&expected.ObjectMeta, "another", "label")
-					metav1.SetMetaDataLabel(&expected.ObjectMeta, "app", "cryostat")
+					metav1.SetMetaDataLabel(&expected.ObjectMeta, "app", t.Name)
 					metav1.SetMetaDataAnnotation(&expected.ObjectMeta, "my/custom", "annotation")
 					metav1.SetMetaDataAnnotation(&expected.ObjectMeta, "another/custom", "annotation")
 					expected.Spec.Resources.Requests[corev1.ResourceStorage] = resource.MustParse("10Gi")
@@ -974,16 +979,15 @@ var _ = Describe("CryostatController", func() {
 						field.Forbidden(field.NewPath("spec"), "test error"),
 					})
 					t.Client = test.NewClientWithUpdateError(t.Client, oldPVC, invalidErr)
-					t.controller.Client = t.Client
+					t.controller.GetConfig().Client = t.Client
 
 					// Expect an Invalid status error after reconciling
-					req := reconcile.Request{NamespacedName: types.NamespacedName{Name: "cryostat", Namespace: t.Namespace}}
-					_, err := t.controller.Reconcile(context.Background(), req)
+					_, err := t.reconcile()
 					Expect(err).To(HaveOccurred())
 					Expect(kerrors.IsInvalid(err)).To(BeTrue())
 				})
 				It("should emit a PersistentVolumeClaimInvalid event", func() {
-					recorder := t.controller.EventRecorder.(*record.FakeRecorder)
+					recorder := t.controller.GetConfig().EventRecorder.(*record.FakeRecorder)
 					var eventMsg string
 					Expect(recorder.Events).To(Receive(&eventMsg))
 					Expect(eventMsg).To(ContainSubstring("PersistentVolumeClaimInvalid"))
@@ -992,7 +996,7 @@ var _ = Describe("CryostatController", func() {
 		})
 		Context("with custom EmptyDir config", func() {
 			BeforeEach(func() {
-				t.objs = append(t.objs, t.NewCryostatWithDefaultEmptyDir())
+				t.objs = append(t.objs, t.NewCryostatWithDefaultEmptyDir().Object)
 			})
 			It("should create the EmptyDir with default specs", func() {
 				t.expectEmptyDir(t.NewDefaultEmptyDir())
@@ -1003,7 +1007,7 @@ var _ = Describe("CryostatController", func() {
 		})
 		Context("with custom EmptyDir config with requested spec", func() {
 			BeforeEach(func() {
-				t.objs = append(t.objs, t.NewCryostatWithEmptyDirSpec())
+				t.objs = append(t.objs, t.NewCryostatWithEmptyDirSpec().Object)
 			})
 			It("should create the EmptyDir with requested specs", func() {
 				t.expectEmptyDir(t.NewEmptyDirWithSpec())
@@ -1016,15 +1020,15 @@ var _ = Describe("CryostatController", func() {
 			var mainDeploy, reportsDeploy *appsv1.Deployment
 			BeforeEach(func() {
 				t.ReportReplicas = 1
-				t.objs = append(t.objs, t.NewCryostatWithReportsSvc())
+				t.objs = append(t.objs, t.NewCryostatWithReportsSvc().Object)
 			})
 			JustBeforeEach(func() {
 				t.reconcileCryostatFully()
 				mainDeploy = &appsv1.Deployment{}
-				err := t.Client.Get(context.Background(), types.NamespacedName{Name: "cryostat", Namespace: t.Namespace}, mainDeploy)
+				err := t.Client.Get(context.Background(), types.NamespacedName{Name: t.Name, Namespace: t.Namespace}, mainDeploy)
 				Expect(err).ToNot(HaveOccurred())
 				reportsDeploy = &appsv1.Deployment{}
-				err = t.Client.Get(context.Background(), types.NamespacedName{Name: "cryostat-reports", Namespace: t.Namespace}, reportsDeploy)
+				err = t.Client.Get(context.Background(), types.NamespacedName{Name: t.Name + "-reports", Namespace: t.Namespace}, reportsDeploy)
 				Expect(err).ToNot(HaveOccurred())
 			})
 			Context("for development", func() {
@@ -1134,7 +1138,7 @@ var _ = Describe("CryostatController", func() {
 		})
 		Context("when deleted", func() {
 			BeforeEach(func() {
-				t.objs = append(t.objs, t.NewCryostat())
+				t.objs = append(t.objs, t.NewCryostat().Object)
 			})
 			JustBeforeEach(func() {
 				t.reconcileCryostatFully()
@@ -1163,7 +1167,7 @@ var _ = Describe("CryostatController", func() {
 		})
 		Context("on OpenShift", func() {
 			BeforeEach(func() {
-				t.objs = append(t.objs, t.NewCryostat())
+				t.objs = append(t.objs, t.NewCryostat().Object)
 			})
 			JustBeforeEach(func() {
 				t.reconcileCryostatFully()
@@ -1200,7 +1204,7 @@ var _ = Describe("CryostatController", func() {
 				apiServer := &configv1.APIServer{}
 				err := t.Client.Get(context.Background(), types.NamespacedName{Name: "cluster"}, apiServer)
 				Expect(err).ToNot(HaveOccurred())
-				Expect(apiServer.Spec.AdditionalCORSAllowedOrigins).To(ContainElement("https://cryostat\\.example\\.com"))
+				Expect(apiServer.Spec.AdditionalCORSAllowedOrigins).To(ContainElement(fmt.Sprintf("https://%s\\.example\\.com", t.Name)))
 			})
 			It("should add the finalizer", func() {
 				t.expectCryostatFinalizerPresent()
@@ -1208,12 +1212,12 @@ var _ = Describe("CryostatController", func() {
 			Context("with restricted SCC", func() {
 				BeforeEach(func() {
 					t.objs = []runtime.Object{
-						t.NewCryostat(), t.NewNamespaceWithSCCSupGroups(), t.NewApiServer(),
+						t.NewCryostat().Object, t.NewNamespaceWithSCCSupGroups(), t.NewApiServer(),
 					}
 				})
 				It("should set fsGroup to value derived from namespace", func() {
 					deploy := &appsv1.Deployment{}
-					err := t.Client.Get(context.Background(), types.NamespacedName{Name: "cryostat", Namespace: t.Namespace}, deploy)
+					err := t.Client.Get(context.Background(), types.NamespacedName{Name: t.Name, Namespace: t.Namespace}, deploy)
 					Expect(err).ToNot(HaveOccurred())
 					sc := deploy.Spec.Template.Spec.SecurityContext
 					Expect(sc).ToNot(BeNil())
@@ -1258,7 +1262,7 @@ var _ = Describe("CryostatController", func() {
 		Context("with cert-manager disabled in CR", func() {
 			BeforeEach(func() {
 				t.TLS = false
-				t.objs = append(t.objs, t.NewCryostatCertManagerDisabled())
+				t.objs = append(t.objs, t.NewCryostatCertManagerDisabled().Object)
 			})
 			It("should create deployment and set owner", func() {
 				t.expectDeployment()
@@ -1276,7 +1280,7 @@ var _ = Describe("CryostatController", func() {
 		})
 		Context("with cert-manager not configured in CR", func() {
 			BeforeEach(func() {
-				t.objs = append(t.objs, t.NewCryostatCertManagerUndefined())
+				t.objs = append(t.objs, t.NewCryostatCertManagerUndefined().Object)
 			})
 			It("should create deployment and set owner", func() {
 				t.expectDeployment()
@@ -1298,7 +1302,7 @@ var _ = Describe("CryostatController", func() {
 				disableTLS := true
 				t.EnvDisableTLS = &disableTLS
 				t.TLS = false
-				t.objs = append(t.objs, t.NewCryostatCertManagerUndefined())
+				t.objs = append(t.objs, t.NewCryostatCertManagerUndefined().Object)
 			})
 			It("should create deployment and set owner", func() {
 				t.expectDeployment()
@@ -1321,20 +1325,17 @@ var _ = Describe("CryostatController", func() {
 		})
 		Context("Disable cert-manager after being enabled", func() {
 			BeforeEach(func() {
-				t.objs = append(t.objs, t.NewCryostat())
+				t.objs = append(t.objs, t.NewCryostat().Object)
 			})
 			JustBeforeEach(func() {
 				t.reconcileCryostatFully()
 
-				cryostat := &operatorv1beta1.Cryostat{}
-				err := t.Client.Get(context.Background(), types.NamespacedName{Name: "cryostat", Namespace: t.Namespace}, cryostat)
-				Expect(err).ToNot(HaveOccurred())
+				cryostat := t.getCryostatInstance()
 
 				t.TLS = false
 				certManager := false
 				cryostat.Spec.EnableCertManager = &certManager
-				err = t.Client.Status().Update(context.Background(), cryostat)
-				Expect(err).ToNot(HaveOccurred())
+				t.updateCryostatInstance(cryostat)
 
 				t.reconcileCryostatFully()
 			})
@@ -1352,20 +1353,17 @@ var _ = Describe("CryostatController", func() {
 		Context("Enable cert-manager after being disabled", func() {
 			BeforeEach(func() {
 				t.TLS = false
-				t.objs = append(t.objs, t.NewCryostatCertManagerDisabled())
+				t.objs = append(t.objs, t.NewCryostatCertManagerDisabled().Object)
 			})
 			JustBeforeEach(func() {
 				t.reconcileCryostatFully()
 
-				cryostat := &operatorv1beta1.Cryostat{}
-				err := t.Client.Get(context.Background(), types.NamespacedName{Name: "cryostat", Namespace: t.Namespace}, cryostat)
-				Expect(err).ToNot(HaveOccurred())
+				cryostat := t.getCryostatInstance()
 
 				t.TLS = true
 				certManager := true
 				cryostat.Spec.EnableCertManager = &certManager
-				err = t.Client.Status().Update(context.Background(), cryostat)
-				Expect(err).ToNot(HaveOccurred())
+				t.updateCryostatInstance(cryostat)
 
 				t.reconcileCryostatFully()
 			})
@@ -1386,19 +1384,18 @@ var _ = Describe("CryostatController", func() {
 		Context("cert-manager missing", func() {
 			JustBeforeEach(func() {
 				// Replace with an empty RESTMapper
-				t.controller.RESTMapper = meta.NewDefaultRESTMapper([]schema.GroupVersion{})
+				t.controller.GetConfig().RESTMapper = meta.NewDefaultRESTMapper([]schema.GroupVersion{})
 			})
 			Context("and enabled", func() {
 				BeforeEach(func() {
-					t.objs = append(t.objs, t.NewCryostat())
+					t.objs = append(t.objs, t.NewCryostat().Object)
 				})
 				JustBeforeEach(func() {
-					req := reconcile.Request{NamespacedName: types.NamespacedName{Name: "cryostat", Namespace: t.Namespace}}
-					_, err := t.controller.Reconcile(context.Background(), req)
+					_, err := t.reconcile()
 					Expect(err).To(HaveOccurred())
 				})
 				It("should emit a CertManagerUnavailable Event", func() {
-					recorder := t.controller.EventRecorder.(*record.FakeRecorder)
+					recorder := t.controller.GetConfig().EventRecorder.(*record.FakeRecorder)
 					var eventMsg string
 					Expect(recorder.Events).To(Receive(&eventMsg))
 					Expect(eventMsg).To(ContainSubstring("CertManagerUnavailable"))
@@ -1411,15 +1408,14 @@ var _ = Describe("CryostatController", func() {
 			Context("and disabled", func() {
 				BeforeEach(func() {
 					t.TLS = false
-					t.objs = append(t.objs, t.NewCryostatCertManagerDisabled())
+					t.objs = append(t.objs, t.NewCryostatCertManagerDisabled().Object)
 				})
 				JustBeforeEach(func() {
-					req := reconcile.Request{NamespacedName: types.NamespacedName{Name: "cryostat", Namespace: t.Namespace}}
-					_, err := t.controller.Reconcile(context.Background(), req)
+					_, err := t.reconcile()
 					Expect(err).ToNot(HaveOccurred())
 				})
 				It("should not emit a CertManagerUnavailable Event", func() {
-					recorder := t.controller.EventRecorder.(*record.FakeRecorder)
+					recorder := t.controller.GetConfig().EventRecorder.(*record.FakeRecorder)
 					Expect(recorder.Events).ToNot(Receive())
 				})
 				It("should set TLSSetupComplete Condition", func() {
@@ -1434,45 +1430,41 @@ var _ = Describe("CryostatController", func() {
 			})
 			Context("containing core config", func() {
 				BeforeEach(func() {
-					t.objs = append(t.objs, t.NewCryostatWithCoreSvc())
+					t.objs = append(t.objs, t.NewCryostatWithCoreSvc().Object)
 				})
-				It("should created the service as described", func() {
-					t.checkService("cryostat", t.NewCustomizedCoreService())
+				It("should create the service as described", func() {
+					t.checkService(t.Name, t.NewCustomizedCoreService())
 				})
 			})
 			Context("containing grafana config", func() {
 				BeforeEach(func() {
-					t.objs = append(t.objs, t.NewCryostatWithGrafanaSvc())
+					t.objs = append(t.objs, t.NewCryostatWithGrafanaSvc().Object)
 				})
-				It("should created the service as described", func() {
-					t.checkService("cryostat-grafana", t.NewCustomizedGrafanaService())
+				It("should create the service as described", func() {
+					t.checkService(t.Name+"-grafana", t.NewCustomizedGrafanaService())
 				})
 			})
 			Context("containing reports config", func() {
 				BeforeEach(func() {
 					t.ReportReplicas = 1
-					t.objs = append(t.objs, t.NewCryostatWithReportsSvc())
+					t.objs = append(t.objs, t.NewCryostatWithReportsSvc().Object)
 				})
-				It("should created the service as described", func() {
-					t.checkService("cryostat-reports", t.NewCustomizedReportsService())
+				It("should create the service as described", func() {
+					t.checkService(t.Name+"-reports", t.NewCustomizedReportsService())
 				})
 			})
 			Context("and existing services", func() {
-				var cr *operatorv1beta1.Cryostat
+				var cr *model.CryostatInstance
 				BeforeEach(func() {
-					t.objs = append(t.objs, t.NewCryostat())
+					t.objs = append(t.objs, t.NewCryostat().Object)
 				})
 				JustBeforeEach(func() {
 					// Fetch the current Cryostat CR
-					namespacedName := types.NamespacedName{Name: cr.Name, Namespace: cr.Namespace}
-					current := &operatorv1beta1.Cryostat{}
-					err := t.Client.Get(context.Background(), namespacedName, current)
-					Expect(err).ToNot(HaveOccurred())
+					current := t.getCryostatInstance()
 
 					// Customize it with service options from the test specs
-					current.Spec = cr.Spec
-					err = t.Client.Update(context.Background(), current)
-					Expect(err).ToNot(HaveOccurred())
+					*current.Spec = *cr.Spec
+					t.updateCryostatInstance(current)
 
 					t.reconcileCryostatFully()
 				})
@@ -1480,16 +1472,16 @@ var _ = Describe("CryostatController", func() {
 					BeforeEach(func() {
 						cr = t.NewCryostatWithCoreSvc()
 					})
-					It("should created the service as described", func() {
-						t.checkService("cryostat", t.NewCustomizedCoreService())
+					It("should create the service as described", func() {
+						t.checkService(t.Name, t.NewCustomizedCoreService())
 					})
 				})
 				Context("containing grafana config", func() {
 					BeforeEach(func() {
 						cr = t.NewCryostatWithGrafanaSvc()
 					})
-					It("should created the service as described", func() {
-						t.checkService("cryostat-grafana", t.NewCustomizedGrafanaService())
+					It("should create the service as described", func() {
+						t.checkService(t.Name+"-grafana", t.NewCustomizedGrafanaService())
 					})
 				})
 				Context("containing reports config", func() {
@@ -1497,8 +1489,8 @@ var _ = Describe("CryostatController", func() {
 						t.ReportReplicas = 1
 						cr = t.NewCryostatWithReportsSvc()
 					})
-					It("should created the service as described", func() {
-						t.checkService("cryostat-reports", t.NewCustomizedReportsService())
+					It("should create the service as described", func() {
+						t.checkService(t.Name+"-reports", t.NewCustomizedReportsService())
 					})
 				})
 			})
@@ -1509,7 +1501,7 @@ var _ = Describe("CryostatController", func() {
 			})
 			Context("containing MaxWsConnections", func() {
 				BeforeEach(func() {
-					t.objs = append(t.objs, t.NewCryostatWithWsConnectionsSpec())
+					t.objs = append(t.objs, t.NewCryostatWithWsConnectionsSpec().Object)
 				})
 				It("should set max WebSocket connections", func() {
 					t.checkCoreHasEnvironmentVariables(t.NewWsConnectionsEnv())
@@ -1517,7 +1509,7 @@ var _ = Describe("CryostatController", func() {
 			})
 			Context("containing SubProcessMaxHeapSize", func() {
 				BeforeEach(func() {
-					t.objs = append(t.objs, t.NewCryostatWithReportSubprocessHeapSpec())
+					t.objs = append(t.objs, t.NewCryostatWithReportSubprocessHeapSpec().Object)
 				})
 				It("should set report subprocess max heap size", func() {
 					t.checkCoreHasEnvironmentVariables(t.NewReportSubprocessHeapEnv())
@@ -1525,7 +1517,7 @@ var _ = Describe("CryostatController", func() {
 			})
 			Context("containing JmxCacheOptions", func() {
 				BeforeEach(func() {
-					t.objs = append(t.objs, t.NewCryostatWithJmxCacheOptionsSpec())
+					t.objs = append(t.objs, t.NewCryostatWithJmxCacheOptionsSpec().Object)
 				})
 				It("should set JMX cache options", func() {
 					t.checkCoreHasEnvironmentVariables(t.NewJmxCacheOptionsEnv())
@@ -1535,7 +1527,7 @@ var _ = Describe("CryostatController", func() {
 		Context("with resource requirements", func() {
 			Context("fully specified", func() {
 				BeforeEach(func() {
-					t.objs = append(t.objs, t.NewCryostatWithResources())
+					t.objs = append(t.objs, t.NewCryostatWithResources().Object)
 				})
 				It("should create expected deployment", func() {
 					t.expectDeployment()
@@ -1543,7 +1535,7 @@ var _ = Describe("CryostatController", func() {
 			})
 			Context("with low limits", func() {
 				BeforeEach(func() {
-					t.objs = append(t.objs, t.NewCryostatWithLowResourceLimit())
+					t.objs = append(t.objs, t.NewCryostatWithLowResourceLimit().Object)
 				})
 				It("should create expected deployment", func() {
 					t.expectDeployment()
@@ -1556,7 +1548,7 @@ var _ = Describe("CryostatController", func() {
 			})
 			Context("containing core config", func() {
 				BeforeEach(func() {
-					t.objs = append(t.objs, t.NewCryostatWithCoreNetworkOptions())
+					t.objs = append(t.objs, t.NewCryostatWithCoreNetworkOptions().Object)
 				})
 				It("should create the route as described", func() {
 					t.checkRoute(t.NewCustomCoreRoute())
@@ -1564,7 +1556,7 @@ var _ = Describe("CryostatController", func() {
 			})
 			Context("containing grafana config", func() {
 				BeforeEach(func() {
-					t.objs = append(t.objs, t.NewCryostatWithGrafanaNetworkOptions())
+					t.objs = append(t.objs, t.NewCryostatWithGrafanaNetworkOptions().Object)
 				})
 				It("should create the route as described", func() {
 					t.checkRoute(t.NewCustomGrafanaRoute())
@@ -1573,7 +1565,7 @@ var _ = Describe("CryostatController", func() {
 		})
 		Context("Cryostat CR has authorization properties", func() {
 			BeforeEach(func() {
-				t.objs = append(t.objs, t.NewCryostatWithAuthProperties(), t.NewAuthPropertiesConfigMap(), t.NewAuthClusterRole())
+				t.objs = append(t.objs, t.NewCryostatWithAuthProperties().Object, t.NewAuthPropertiesConfigMap(), t.NewAuthClusterRole())
 			})
 			JustBeforeEach(func() {
 				t.reconcileCryostatFully()
@@ -1588,7 +1580,7 @@ var _ = Describe("CryostatController", func() {
 			})
 			Context("containing Cryostat security options", func() {
 				BeforeEach(func() {
-					t.objs = append(t.objs, t.NewCryostatWithSecurityOptions())
+					t.objs = append(t.objs, t.NewCryostatWithSecurityOptions().Object)
 				})
 				It("should add security context as described", func() {
 					t.checkMainDeployment()
@@ -1597,7 +1589,7 @@ var _ = Describe("CryostatController", func() {
 			Context("containing Report security options", func() {
 				Context("with 0 report replica", func() {
 					BeforeEach(func() {
-						t.objs = append(t.objs, t.NewCryostatWithReportSecurityOptions())
+						t.objs = append(t.objs, t.NewCryostatWithReportSecurityOptions().Object)
 					})
 					It("should add security context as described", func() {
 						t.expectNoReportsDeployment()
@@ -1607,7 +1599,7 @@ var _ = Describe("CryostatController", func() {
 					BeforeEach(func() {
 						t.ReportReplicas = 1
 						cr := t.NewCryostatWithReportSecurityOptions()
-						t.objs = append(t.objs, cr)
+						t.objs = append(t.objs, cr.Object)
 					})
 					It("should add security context as described", func() {
 						t.checkReportsDeployment()
@@ -1618,7 +1610,7 @@ var _ = Describe("CryostatController", func() {
 		})
 		Context("with Scheduling options", func() {
 			BeforeEach(func() {
-				t.objs = append(t.objs, t.NewCryostatWithScheduling())
+				t.objs = append(t.objs, t.NewCryostatWithScheduling().Object)
 			})
 			It("should configure deployment appropriately", func() {
 				t.expectDeployment()
@@ -1627,7 +1619,7 @@ var _ = Describe("CryostatController", func() {
 		})
 		Context("with built-in target discovery mechanism disabled", func() {
 			BeforeEach(func() {
-				t.objs = append(t.objs, t.NewCryostatWithBuiltInDiscoveryDisabled())
+				t.objs = append(t.objs, t.NewCryostatWithBuiltInDiscoveryDisabled().Object)
 			})
 			It("should configure deployment appropriately", func() {
 				t.expectDeployment()
@@ -1635,7 +1627,7 @@ var _ = Describe("CryostatController", func() {
 		})
 		Context("with secret provided for database password", func() {
 			BeforeEach(func() {
-				t.objs = append(t.objs, t.NewCryostatWithDatabaseSecretProvided())
+				t.objs = append(t.objs, t.NewCryostatWithDatabaseSecretProvided().Object)
 			})
 			It("should configure deployment appropriately", func() {
 				t.expectDeployment()
@@ -1644,7 +1636,7 @@ var _ = Describe("CryostatController", func() {
 				t.reconcileCryostatFully()
 
 				secret := &corev1.Secret{}
-				err := t.Client.Get(context.Background(), types.NamespacedName{Name: "cryostat-jmx-credentials-db", Namespace: t.Namespace}, secret)
+				err := t.Client.Get(context.Background(), types.NamespacedName{Name: t.Name + "-jmx-credentials-db", Namespace: t.Namespace}, secret)
 				Expect(kerrors.IsNotFound(err)).To(BeTrue())
 			})
 			Context("with an existing Credentials Database Secret", func() {
@@ -1655,7 +1647,7 @@ var _ = Describe("CryostatController", func() {
 					t.reconcileCryostatFully()
 
 					secret := &corev1.Secret{}
-					err := t.Client.Get(context.Background(), types.NamespacedName{Name: "cryostat-jmx-credentials-db", Namespace: t.Namespace}, secret)
+					err := t.Client.Get(context.Background(), types.NamespacedName{Name: t.Name + "-jmx-credentials-db", Namespace: t.Namespace}, secret)
 					Expect(err).ToNot(HaveOccurred())
 				})
 			})
@@ -1668,7 +1660,7 @@ var _ = Describe("CryostatController", func() {
 		})
 		Context("with TLS ingress", func() {
 			BeforeEach(func() {
-				t.objs = append(t.objs, t.NewCryostatWithIngress())
+				t.objs = append(t.objs, t.NewCryostatWithIngress().Object)
 			})
 			It("should create ingresses", func() {
 				t.expectIngresses()
@@ -1687,7 +1679,7 @@ var _ = Describe("CryostatController", func() {
 		Context("with non-TLS ingress", func() {
 			BeforeEach(func() {
 				t.ExternalTLS = false
-				t.objs = append(t.objs, t.NewCryostatWithIngress())
+				t.objs = append(t.objs, t.NewCryostatWithIngress().Object)
 			})
 			It("should create ingresses", func() {
 				t.expectIngresses()
@@ -1705,7 +1697,7 @@ var _ = Describe("CryostatController", func() {
 		})
 		Context("no ingress configuration is provided", func() {
 			BeforeEach(func() {
-				t.objs = append(t.objs, t.NewCryostat())
+				t.objs = append(t.objs, t.NewCryostat().Object)
 			})
 			It("should not create ingresses or routes", func() {
 				t.reconcileCryostatFully()
@@ -1714,43 +1706,38 @@ var _ = Describe("CryostatController", func() {
 			})
 		})
 		Context("with existing Ingresses", func() {
-			var cr *operatorv1beta1.Cryostat
+			var cr *model.CryostatInstance
 			var oldCoreIngress *netv1.Ingress
 			var oldGrafanaIngress *netv1.Ingress
 			BeforeEach(func() {
 				cr = t.NewCryostatWithIngress()
 				oldCoreIngress = t.OtherCoreIngress()
 				oldGrafanaIngress = t.OtherGrafanaIngress()
-				t.objs = append(t.objs, cr, oldCoreIngress, oldGrafanaIngress)
+				t.objs = append(t.objs, cr.Object, oldCoreIngress, oldGrafanaIngress)
 			})
 			It("should update the Ingresses", func() {
 				t.expectIngresses()
 			})
 		})
 		Context("networkConfig for one of the services is nil", func() {
-			var cr *operatorv1beta1.Cryostat
+			var cr *model.CryostatInstance
 			BeforeEach(func() {
 				cr = t.NewCryostatWithIngress()
-				t.objs = append(t.objs, cr)
+				t.objs = append(t.objs, cr.Object)
 			})
 			It("should only create specified ingresses", func() {
-				c := &operatorv1beta1.Cryostat{}
-				err := t.Client.Get(context.Background(), types.NamespacedName{Name: "cryostat", Namespace: t.Namespace}, c)
-				Expect(err).ToNot(HaveOccurred())
-				err = t.Client.Update(context.Background(), c)
-				Expect(err).ToNot(HaveOccurred())
+				c := t.getCryostatInstance()
+				c.Spec.NetworkOptions.CoreConfig = nil
+				t.updateCryostatInstance(c)
 
 				t.reconcileCryostatFully()
 				expectedConfig := cr.Spec.NetworkOptions
 
 				ingress := &netv1.Ingress{}
-				err = t.Client.Get(context.Background(), types.NamespacedName{Name: "cryostat", Namespace: t.Namespace}, ingress)
-				Expect(err).ToNot(HaveOccurred())
-				Expect(ingress.Annotations).To(Equal(expectedConfig.CoreConfig.Annotations))
-				Expect(ingress.Labels).To(Equal(expectedConfig.CoreConfig.Labels))
-				Expect(ingress.Spec).To(Equal(*expectedConfig.CoreConfig.IngressSpec))
+				err := t.Client.Get(context.Background(), types.NamespacedName{Name: t.Name, Namespace: t.Namespace}, ingress)
+				Expect(kerrors.IsNotFound(err)).To(BeTrue())
 
-				err = t.Client.Get(context.Background(), types.NamespacedName{Name: "cryostat-grafana", Namespace: t.Namespace}, ingress)
+				err = t.Client.Get(context.Background(), types.NamespacedName{Name: t.Name + "-grafana", Namespace: t.Namespace}, ingress)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(ingress.Annotations).To(Equal(expectedConfig.GrafanaConfig.Annotations))
 				Expect(ingress.Labels).To(Equal(expectedConfig.GrafanaConfig.Labels))
@@ -1759,36 +1746,33 @@ var _ = Describe("CryostatController", func() {
 			})
 		})
 		Context("ingressSpec for one of the services is nil", func() {
-			var cr *operatorv1beta1.Cryostat
+			var cr *model.CryostatInstance
 			BeforeEach(func() {
 				cr = t.NewCryostatWithIngress()
-				t.objs = append(t.objs, cr)
+				t.objs = append(t.objs, cr.Object)
 			})
 			It("should only create specified ingresses", func() {
-				c := &operatorv1beta1.Cryostat{}
-				err := t.Client.Get(context.Background(), types.NamespacedName{Name: "cryostat", Namespace: t.Namespace}, c)
-				Expect(err).ToNot(HaveOccurred())
+				c := t.getCryostatInstance()
 				c.Spec.NetworkOptions.CoreConfig.IngressSpec = nil
-				err = t.Client.Update(context.Background(), c)
-				Expect(err).ToNot(HaveOccurred())
+				t.updateCryostatInstance(c)
 
 				t.reconcileCryostatFully()
 				expectedConfig := cr.Spec.NetworkOptions
 
 				ingress := &netv1.Ingress{}
-				err = t.Client.Get(context.Background(), types.NamespacedName{Name: "cryostat-grafana", Namespace: t.Namespace}, ingress)
+				err := t.Client.Get(context.Background(), types.NamespacedName{Name: t.Name + "-grafana", Namespace: t.Namespace}, ingress)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(ingress.Annotations).To(Equal(expectedConfig.GrafanaConfig.Annotations))
 				Expect(ingress.Labels).To(Equal(expectedConfig.GrafanaConfig.Labels))
 				Expect(ingress.Spec).To(Equal(*expectedConfig.GrafanaConfig.IngressSpec))
 
-				err = t.Client.Get(context.Background(), types.NamespacedName{Name: "cryostat", Namespace: t.Namespace}, ingress)
+				err = t.Client.Get(context.Background(), types.NamespacedName{Name: t.Name, Namespace: t.Namespace}, ingress)
 				Expect(kerrors.IsNotFound(err)).To(BeTrue())
 			})
 		})
 		Context("Cryostat CR has authorization properties", func() {
 			BeforeEach(func() {
-				t.objs = append(t.objs, t.NewCryostatWithAuthProperties(), t.NewAuthPropertiesConfigMap(), t.NewAuthClusterRole())
+				t.objs = append(t.objs, t.NewCryostatWithAuthProperties().Object, t.NewAuthPropertiesConfigMap(), t.NewAuthClusterRole())
 			})
 			JustBeforeEach(func() {
 				t.reconcileCryostatFully()
@@ -1801,7 +1785,7 @@ var _ = Describe("CryostatController", func() {
 			BeforeEach(func() {
 				t.ReportReplicas = 1
 				cr := t.NewCryostatWithIngress()
-				t.objs = append(t.objs, cr)
+				t.objs = append(t.objs, cr.Object)
 			})
 			JustBeforeEach(func() {
 				t.reconcileCryostatFully()
@@ -1811,7 +1795,7 @@ var _ = Describe("CryostatController", func() {
 				t.checkReportsDeployment()
 			})
 			It("should create the reports service", func() {
-				t.checkService("cryostat-reports", t.NewReportsService())
+				t.checkService(t.Name+"-reports", t.NewReportsService())
 			})
 		})
 		Context("with security options", func() {
@@ -1820,7 +1804,7 @@ var _ = Describe("CryostatController", func() {
 			})
 			Context("containing Cryostat security options", func() {
 				BeforeEach(func() {
-					t.objs = append(t.objs, t.NewCryostatWithSecurityOptions())
+					t.objs = append(t.objs, t.NewCryostatWithSecurityOptions().Object)
 				})
 				It("should add security context as described", func() {
 					t.checkMainDeployment()
@@ -1829,7 +1813,7 @@ var _ = Describe("CryostatController", func() {
 			Context("containing Report security options", func() {
 				Context("with 0 report replica", func() {
 					BeforeEach(func() {
-						t.objs = append(t.objs, t.NewCryostatWithReportSecurityOptions())
+						t.objs = append(t.objs, t.NewCryostatWithReportSecurityOptions().Object)
 					})
 					It("should add security context as described", func() {
 						t.expectNoReportsDeployment()
@@ -1838,7 +1822,7 @@ var _ = Describe("CryostatController", func() {
 				Context("with 1 report replicas", func() {
 					BeforeEach(func() {
 						t.ReportReplicas = 1
-						t.objs = append(t.objs, t.NewCryostatWithReportSecurityOptions())
+						t.objs = append(t.objs, t.NewCryostatWithReportSecurityOptions().Object)
 					})
 					It("should add security context as described", func() {
 						t.checkReportsDeployment()
@@ -1848,18 +1832,18 @@ var _ = Describe("CryostatController", func() {
 			})
 		})
 		Context("with an existing Service Account", func() {
-			var cr *operatorv1beta1.Cryostat
+			var cr *model.CryostatInstance
 			var oldSA *corev1.ServiceAccount
 			BeforeEach(func() {
 				cr = t.NewCryostat()
 				oldSA = t.OtherServiceAccount()
-				t.objs = append(t.objs, cr, oldSA)
+				t.objs = append(t.objs, cr.Object, oldSA)
 			})
 			It("should update the Service Account", func() {
 				t.reconcileCryostatFully()
 
 				sa := &corev1.ServiceAccount{}
-				err := t.Client.Get(context.Background(), types.NamespacedName{Name: "cryostat", Namespace: t.Namespace}, sa)
+				err := t.Client.Get(context.Background(), types.NamespacedName{Name: t.Name, Namespace: t.Namespace}, sa)
 				Expect(err).ToNot(HaveOccurred())
 
 				Expect(sa.Annotations).To(Equal(map[string]string{
@@ -1867,11 +1851,11 @@ var _ = Describe("CryostatController", func() {
 				}))
 
 				Expect(sa.Labels).To(Equal(map[string]string{
-					"app":   "cryostat",
+					"app":   t.Name,
 					"other": "label",
 				}))
 
-				Expect(metav1.IsControlledBy(sa, cr)).To(BeTrue())
+				Expect(metav1.IsControlledBy(sa, cr.Object)).To(BeTrue())
 
 				Expect(sa.ImagePullSecrets).To(Equal(oldSA.ImagePullSecrets))
 				Expect(sa.Secrets).To(Equal(oldSA.Secrets))
@@ -1879,64 +1863,70 @@ var _ = Describe("CryostatController", func() {
 			})
 		})
 		Context("with an existing Role", func() {
-			var cr *operatorv1beta1.Cryostat
-			var oldRole *rbacv1.Role
-			BeforeEach(func() {
-				cr = t.NewCryostat()
-				oldRole = t.OtherRole()
-				t.objs = append(t.objs, cr, oldRole)
+			var role *rbacv1.Role
+			Context("created by the operator", func() {
+				BeforeEach(func() {
+					cr := t.NewCryostat()
+					role = t.NewRole()
+					err := controllerutil.SetControllerReference(cr.Object, role, test.NewTestScheme())
+					Expect(err).ToNot(HaveOccurred())
+					t.objs = append(t.objs, cr.Object, role)
+				})
+				It("should delete the Role", func() {
+					t.reconcileCryostatFully()
+
+					err := t.Client.Get(context.Background(), types.NamespacedName{Name: role.Name, Namespace: role.Namespace}, role)
+					Expect(err).To(HaveOccurred())
+					Expect(kerrors.IsNotFound(err)).To(BeTrue())
+				})
 			})
-			It("should update the Role", func() {
-				t.reconcileCryostatFully()
+			Context("not created by the operator", func() {
+				BeforeEach(func() {
+					role = t.OtherRole()
+					t.objs = append(t.objs, t.NewCryostat().Object, role)
+				})
+				It("should not delete the Role", func() {
+					t.reconcileCryostatFully()
 
-				role := &rbacv1.Role{}
-				err := t.Client.Get(context.Background(), types.NamespacedName{Name: "cryostat", Namespace: t.Namespace}, role)
-				Expect(err).ToNot(HaveOccurred())
-
-				Expect(metav1.IsControlledBy(role, cr)).To(BeTrue())
-
-				// Labels are unaffected
-				Expect(role.Labels).To(Equal(oldRole.Labels))
-				Expect(role.Annotations).To(Equal(oldRole.Annotations))
-
-				// Rules should be fully replaced
-				Expect(role.Rules).To(Equal(t.NewRole().Rules))
+					err := t.Client.Get(context.Background(), types.NamespacedName{Name: role.Name, Namespace: role.Namespace}, role)
+					Expect(err).ToNot(HaveOccurred())
+				})
 			})
 		})
 		Context("with an existing Role Binding", func() {
-			var cr *operatorv1beta1.Cryostat
+			var cr *model.CryostatInstance
 			var oldBinding *rbacv1.RoleBinding
 			BeforeEach(func() {
 				cr = t.NewCryostat()
-				oldBinding = t.OtherRoleBinding()
-				t.objs = append(t.objs, cr, oldBinding)
+				oldBinding = t.OtherRoleBinding(t.Namespace)
+				t.objs = append(t.objs, cr.Object, oldBinding)
 			})
 			It("should update the Role Binding", func() {
 				t.reconcileCryostatFully()
 
 				binding := &rbacv1.RoleBinding{}
-				err := t.Client.Get(context.Background(), types.NamespacedName{Name: "cryostat", Namespace: t.Namespace}, binding)
+				err := t.Client.Get(context.Background(), types.NamespacedName{Name: t.Name, Namespace: t.Namespace}, binding)
 				Expect(err).ToNot(HaveOccurred())
 
-				Expect(metav1.IsControlledBy(binding, cr)).To(BeTrue())
+				Expect(metav1.IsControlledBy(binding, cr.Object)).To(BeTrue())
 
 				// Labels are unaffected
 				Expect(binding.Labels).To(Equal(oldBinding.Labels))
 				Expect(binding.Annotations).To(Equal(oldBinding.Annotations))
 
 				// Subjects and RoleRef should be fully replaced
-				expected := t.NewRoleBinding()
+				expected := t.NewRoleBinding(t.Namespace)
 				Expect(binding.Subjects).To(Equal(expected.Subjects))
 				Expect(binding.RoleRef).To(Equal(expected.RoleRef))
 			})
 		})
 		Context("with an existing Cluster Role Binding", func() {
-			var cr *operatorv1beta1.Cryostat
+			var cr *model.CryostatInstance
 			var oldBinding *rbacv1.ClusterRoleBinding
 			BeforeEach(func() {
 				cr = t.NewCryostat()
 				oldBinding = t.OtherClusterRoleBinding()
-				t.objs = append(t.objs, cr, oldBinding)
+				t.objs = append(t.objs, cr.Object, oldBinding)
 			})
 			It("should update the Cluster Role Binding", func() {
 				t.reconcileCryostatFully()
@@ -1958,7 +1948,7 @@ var _ = Describe("CryostatController", func() {
 			})
 		})
 	})
-})
+}
 
 func (t *cryostatTestInput) checkRoutes() {
 	if !t.Minimal {
@@ -1972,7 +1962,7 @@ func (t *cryostatTestInput) checkRoute(expected *openshiftv1.Route) *openshiftv1
 	err := t.Client.Get(context.Background(), types.NamespacedName{Name: expected.Name, Namespace: expected.Namespace}, route)
 	Expect(err).ToNot(HaveOccurred())
 
-	checkMetadata(route, expected)
+	t.checkMetadata(route, expected)
 	Expect(route.Spec.To).To(Equal(expected.Spec.To))
 	Expect(route.Spec.Port).To(Equal(expected.Spec.Port))
 	Expect(route.Spec.TLS).To(Equal(expected.Spec.TLS))
@@ -1980,9 +1970,7 @@ func (t *cryostatTestInput) checkRoute(expected *openshiftv1.Route) *openshiftv1
 }
 
 func (t *cryostatTestInput) checkConditionPresent(condType operatorv1beta1.CryostatConditionType, status metav1.ConditionStatus, reason string) {
-	cr := &operatorv1beta1.Cryostat{}
-	err := t.Client.Get(context.Background(), types.NamespacedName{Name: "cryostat", Namespace: t.Namespace}, cr)
-	Expect(err).ToNot(HaveOccurred())
+	cr := t.getCryostatInstance()
 
 	condition := meta.FindStatusCondition(cr.Status.Conditions, string(condType))
 	Expect(condition).ToNot(BeNil())
@@ -1991,18 +1979,15 @@ func (t *cryostatTestInput) checkConditionPresent(condType operatorv1beta1.Cryos
 }
 
 func (t *cryostatTestInput) checkConditionAbsent(condType operatorv1beta1.CryostatConditionType) {
-	cr := &operatorv1beta1.Cryostat{}
-	err := t.Client.Get(context.Background(), types.NamespacedName{Name: "cryostat", Namespace: t.Namespace}, cr)
-	Expect(err).ToNot(HaveOccurred())
+	cr := t.getCryostatInstance()
 
 	condition := meta.FindStatusCondition(cr.Status.Conditions, string(condType))
 	Expect(condition).To(BeNil())
 }
 
 func (t *cryostatTestInput) reconcileCryostatFully() {
-	req := reconcile.Request{NamespacedName: types.NamespacedName{Name: "cryostat", Namespace: t.Namespace}}
 	Eventually(func() reconcile.Result {
-		result, err := t.controller.Reconcile(context.Background(), req)
+		result, err := t.reconcile()
 		Expect(err).ToNot(HaveOccurred())
 		return result
 	}).WithTimeout(time.Minute).WithPolling(time.Millisecond).Should(Equal(reconcile.Result{}))
@@ -2010,39 +1995,32 @@ func (t *cryostatTestInput) reconcileCryostatFully() {
 
 func (t *cryostatTestInput) reconcileDeletedCryostat() {
 	// Simulate deletion by setting DeletionTimestamp
-	cr := &operatorv1beta1.Cryostat{}
-	err := t.Client.Get(context.Background(), types.NamespacedName{Name: "cryostat", Namespace: t.Namespace}, cr)
-	Expect(err).ToNot(HaveOccurred())
+	cr := t.getCryostatInstance()
 
 	delTime := metav1.Unix(0, 1598045501618*int64(time.Millisecond))
-	cr.DeletionTimestamp = &delTime
-	err = t.Client.Update(context.Background(), cr)
-	Expect(err).ToNot(HaveOccurred())
+	cr.Object.SetDeletionTimestamp(&delTime)
+	t.updateCryostatInstance(cr)
 
 	// Reconcile again
 	t.reconcileCryostatFully()
 }
 
-func checkMetadata(object metav1.Object, expected metav1.Object) {
+func (t *cryostatTestInput) checkMetadata(object metav1.Object, expected metav1.Object) {
 	Expect(object.GetName()).To(Equal(expected.GetName()))
 	Expect(object.GetNamespace()).To(Equal(expected.GetNamespace()))
 	Expect(object.GetLabels()).To(Equal(expected.GetLabels()))
 	Expect(object.GetAnnotations()).To(Equal(expected.GetAnnotations()))
-	ownerReferences := object.GetOwnerReferences()
-	Expect(ownerReferences).To(HaveLen(1))
-	Expect(ownerReferences[0].Kind).To(Equal("Cryostat"))
-	Expect(ownerReferences[0].Name).To(Equal("cryostat"))
+	Expect(object.GetOwnerReferences()).To(HaveLen(1))
+	Expect(metav1.IsControlledBy(object, t.getCryostatInstance().Object))
 }
 
 func (t *cryostatTestInput) expectNoCryostat() {
-	instance := &operatorv1beta1.Cryostat{}
-	err := t.Client.Get(context.Background(), types.NamespacedName{Name: "cryostat", Namespace: t.Namespace}, instance)
+	_, err := t.lookupCryostatInstance()
 	Expect(kerrors.IsNotFound(err)).To(BeTrue())
 }
 
 func (t *cryostatTestInput) expectCertificates() {
-	req := reconcile.Request{NamespacedName: types.NamespacedName{Name: "cryostat", Namespace: t.Namespace}}
-	result, err := t.controller.Reconcile(context.Background(), req)
+	result, err := t.reconcile()
 	Expect(err).ToNot(HaveOccurred())
 	Expect(result).To(Equal(reconcile.Result{RequeueAfter: 5 * time.Second}))
 	t.checkCertificates()
@@ -2068,7 +2046,7 @@ func (t *cryostatTestInput) checkCertificates() {
 		actual := &certv1.Certificate{}
 		err := t.Client.Get(context.Background(), types.NamespacedName{Name: expected.Name, Namespace: expected.Namespace}, actual)
 		Expect(err).ToNot(HaveOccurred())
-		checkMetadata(actual, expected)
+		t.checkMetadata(actual, expected)
 		Expect(actual.Spec).To(Equal(expected.Spec))
 	}
 	// Check issuers as well
@@ -2077,7 +2055,7 @@ func (t *cryostatTestInput) checkCertificates() {
 		actual := &certv1.Issuer{}
 		err := t.Client.Get(context.Background(), types.NamespacedName{Name: expected.Name, Namespace: expected.Namespace}, actual)
 		Expect(err).ToNot(HaveOccurred())
-		checkMetadata(actual, expected)
+		t.checkMetadata(actual, expected)
 		Expect(actual.Spec).To(Equal(expected.Spec))
 	}
 	// Check keystore secret
@@ -2085,7 +2063,7 @@ func (t *cryostatTestInput) checkCertificates() {
 	secret := &corev1.Secret{}
 	err := t.Client.Get(context.Background(), types.NamespacedName{Name: expectedSecret.Name, Namespace: expectedSecret.Namespace}, secret)
 	Expect(err).ToNot(HaveOccurred())
-	checkMetadata(secret, expectedSecret)
+	t.checkMetadata(secret, expectedSecret)
 	Expect(secret.StringData).To(Equal(secret.StringData))
 }
 
@@ -2093,28 +2071,25 @@ func (t *cryostatTestInput) expectRBAC() {
 	t.reconcileCryostatFully()
 
 	sa := &corev1.ServiceAccount{}
-	err := t.Client.Get(context.Background(), types.NamespacedName{Name: "cryostat", Namespace: t.Namespace}, sa)
+	err := t.Client.Get(context.Background(), types.NamespacedName{Name: t.Name, Namespace: t.Namespace}, sa)
 	Expect(err).ToNot(HaveOccurred())
 	expectedSA := t.NewServiceAccount()
-	checkMetadata(sa, expectedSA)
+	t.checkMetadata(sa, expectedSA)
 	Expect(sa.Secrets).To(Equal(expectedSA.Secrets))
 	Expect(sa.ImagePullSecrets).To(Equal(expectedSA.ImagePullSecrets))
 	Expect(sa.AutomountServiceAccountToken).To(Equal(expectedSA.AutomountServiceAccountToken))
 
-	role := &rbacv1.Role{}
-	err = t.Client.Get(context.Background(), types.NamespacedName{Name: "cryostat", Namespace: t.Namespace}, role)
-	Expect(err).ToNot(HaveOccurred())
-	expectedRole := t.NewRole()
-	checkMetadata(role, expectedRole)
-	Expect(role.Rules).To(Equal(expectedRole.Rules))
-
-	binding := &rbacv1.RoleBinding{}
-	err = t.Client.Get(context.Background(), types.NamespacedName{Name: "cryostat", Namespace: t.Namespace}, binding)
-	Expect(err).ToNot(HaveOccurred())
-	expectedBinding := t.NewRoleBinding()
-	checkMetadata(binding, expectedBinding)
-	Expect(binding.Subjects).To(Equal(expectedBinding.Subjects))
-	Expect(binding.RoleRef).To(Equal(expectedBinding.RoleRef))
+	// Check for Role and RoleBinding in each target namespace
+	Expect(t.TargetNamespaces).ToNot(BeEmpty()) // Sanity check for tests
+	for _, ns := range t.TargetNamespaces {
+		binding := &rbacv1.RoleBinding{}
+		err = t.Client.Get(context.Background(), types.NamespacedName{Name: t.Name, Namespace: ns}, binding)
+		Expect(err).ToNot(HaveOccurred())
+		expectedBinding := t.NewRoleBinding(ns)
+		t.checkMetadata(binding, expectedBinding)
+		Expect(binding.Subjects).To(Equal(expectedBinding.Subjects))
+		Expect(binding.RoleRef).To(Equal(expectedBinding.RoleRef))
+	}
 
 	expectedClusterBinding := t.NewClusterRoleBinding()
 	clusterBinding := &rbacv1.ClusterRoleBinding{}
@@ -2141,26 +2116,24 @@ func (t *cryostatTestInput) expectRoutes() {
 
 func (t *cryostatTestInput) expectNoRoutes() {
 	svc := &openshiftv1.Route{}
-	err := t.Client.Get(context.Background(), types.NamespacedName{Name: "cryostat", Namespace: t.Namespace}, svc)
+	err := t.Client.Get(context.Background(), types.NamespacedName{Name: t.Name, Namespace: t.Namespace}, svc)
 	Expect(kerrors.IsNotFound(err)).To(BeTrue())
-	err = t.Client.Get(context.Background(), types.NamespacedName{Name: "cryostat-grafana", Namespace: t.Namespace}, svc)
+	err = t.Client.Get(context.Background(), types.NamespacedName{Name: t.Name + "-grafana", Namespace: t.Namespace}, svc)
 	Expect(kerrors.IsNotFound(err)).To(BeTrue())
 }
 
 func (t *cryostatTestInput) checkIngresses() {
-	cr := &operatorv1beta1.Cryostat{}
-	err := t.Client.Get(context.Background(), types.NamespacedName{Name: "cryostat", Namespace: t.Namespace}, cr)
-	Expect(err).ToNot(HaveOccurred())
+	cr := t.getCryostatInstance()
 	expectedConfig := cr.Spec.NetworkOptions
 
 	ingress := &netv1.Ingress{}
-	err = t.Client.Get(context.Background(), types.NamespacedName{Name: "cryostat", Namespace: t.Namespace}, ingress)
+	err := t.Client.Get(context.Background(), types.NamespacedName{Name: t.Name, Namespace: t.Namespace}, ingress)
 	Expect(err).ToNot(HaveOccurred())
 	Expect(ingress.Annotations).To(Equal(expectedConfig.CoreConfig.Annotations))
 	Expect(ingress.Labels).To(Equal(expectedConfig.CoreConfig.Labels))
 	Expect(ingress.Spec).To(Equal(*expectedConfig.CoreConfig.IngressSpec))
 
-	err = t.Client.Get(context.Background(), types.NamespacedName{Name: "cryostat-grafana", Namespace: t.Namespace}, ingress)
+	err = t.Client.Get(context.Background(), types.NamespacedName{Name: t.Name + "-grafana", Namespace: t.Namespace}, ingress)
 	Expect(err).ToNot(HaveOccurred())
 	Expect(ingress.Annotations).To(Equal(expectedConfig.GrafanaConfig.Annotations))
 	Expect(ingress.Labels).To(Equal(expectedConfig.GrafanaConfig.Labels))
@@ -2174,15 +2147,15 @@ func (t *cryostatTestInput) expectIngresses() {
 
 func (t *cryostatTestInput) expectNoIngresses() {
 	ing := &netv1.Ingress{}
-	err := t.Client.Get(context.Background(), types.NamespacedName{Name: "cryostat", Namespace: t.Namespace}, ing)
+	err := t.Client.Get(context.Background(), types.NamespacedName{Name: t.Name, Namespace: t.Namespace}, ing)
 	Expect(kerrors.IsNotFound(err)).To(BeTrue())
-	err = t.Client.Get(context.Background(), types.NamespacedName{Name: "cryostat-grafana", Namespace: t.Namespace}, ing)
+	err = t.Client.Get(context.Background(), types.NamespacedName{Name: t.Name + "-grafana", Namespace: t.Namespace}, ing)
 	Expect(kerrors.IsNotFound(err)).To(BeTrue())
 }
 
 func (t *cryostatTestInput) expectPVC(expectedPvc *corev1.PersistentVolumeClaim) {
 	pvc := &corev1.PersistentVolumeClaim{}
-	err := t.Client.Get(context.Background(), types.NamespacedName{Name: "cryostat", Namespace: t.Namespace}, pvc)
+	err := t.Client.Get(context.Background(), types.NamespacedName{Name: t.Name, Namespace: t.Namespace}, pvc)
 	Expect(kerrors.IsNotFound(err)).To(BeTrue())
 
 	t.reconcileCryostatFully()
@@ -2192,11 +2165,11 @@ func (t *cryostatTestInput) expectPVC(expectedPvc *corev1.PersistentVolumeClaim)
 
 func (t *cryostatTestInput) checkPVC(expectedPVC *corev1.PersistentVolumeClaim) {
 	pvc := &corev1.PersistentVolumeClaim{}
-	err := t.Client.Get(context.Background(), types.NamespacedName{Name: "cryostat", Namespace: t.Namespace}, pvc)
+	err := t.Client.Get(context.Background(), types.NamespacedName{Name: t.Name, Namespace: t.Namespace}, pvc)
 	Expect(err).ToNot(HaveOccurred())
 
 	// Compare to desired spec
-	checkMetadata(pvc, expectedPVC)
+	t.checkMetadata(pvc, expectedPVC)
 	Expect(pvc.Spec.AccessModes).To(Equal(expectedPVC.Spec.AccessModes))
 	Expect(pvc.Spec.StorageClassName).To(Equal(expectedPVC.Spec.StorageClassName))
 	Expect(pvc.Spec.VolumeName).To(Equal(expectedPVC.Spec.VolumeName))
@@ -2214,7 +2187,7 @@ func (t *cryostatTestInput) expectEmptyDir(expectedEmptyDir *corev1.EmptyDirVolu
 	t.reconcileCryostatFully()
 
 	deployment := &appsv1.Deployment{}
-	err := t.Client.Get(context.Background(), types.NamespacedName{Name: "cryostat", Namespace: t.Namespace}, deployment)
+	err := t.Client.Get(context.Background(), types.NamespacedName{Name: t.Name, Namespace: t.Namespace}, deployment)
 	Expect(err).ToNot(HaveOccurred())
 
 	volume := deployment.Spec.Template.Spec.Volumes[0]
@@ -2229,7 +2202,7 @@ func (t *cryostatTestInput) expectInMemoryDatabase() {
 	t.reconcileCryostatFully()
 
 	deployment := &appsv1.Deployment{}
-	err := t.Client.Get(context.Background(), types.NamespacedName{Name: "cryostat", Namespace: t.Namespace}, deployment)
+	err := t.Client.Get(context.Background(), types.NamespacedName{Name: t.Name, Namespace: t.Namespace}, deployment)
 	Expect(err).ToNot(HaveOccurred())
 
 	containers := deployment.Spec.Template.Spec.Containers
@@ -2239,7 +2212,7 @@ func (t *cryostatTestInput) expectInMemoryDatabase() {
 
 func (t *cryostatTestInput) expectGrafanaSecret() {
 	secret := &corev1.Secret{}
-	err := t.Client.Get(context.Background(), types.NamespacedName{Name: "cryostat-grafana-basic", Namespace: t.Namespace}, secret)
+	err := t.Client.Get(context.Background(), types.NamespacedName{Name: t.Name + "-grafana-basic", Namespace: t.Namespace}, secret)
 	Expect(kerrors.IsNotFound(err)).To(BeTrue())
 
 	t.reconcileCryostatFully()
@@ -2248,18 +2221,18 @@ func (t *cryostatTestInput) expectGrafanaSecret() {
 
 func (t *cryostatTestInput) checkGrafanaSecret() {
 	secret := &corev1.Secret{}
-	err := t.Client.Get(context.Background(), types.NamespacedName{Name: "cryostat-grafana-basic", Namespace: t.Namespace}, secret)
+	err := t.Client.Get(context.Background(), types.NamespacedName{Name: t.Name + "-grafana-basic", Namespace: t.Namespace}, secret)
 	Expect(err).ToNot(HaveOccurred())
 
 	// Compare to desired spec
 	expectedSecret := t.NewGrafanaSecret()
-	checkMetadata(secret, expectedSecret)
+	t.checkMetadata(secret, expectedSecret)
 	Expect(secret.StringData).To(Equal(expectedSecret.StringData))
 }
 
 func (t *cryostatTestInput) expectCredentialsDatabaseSecret() {
 	secret := &corev1.Secret{}
-	err := t.Client.Get(context.Background(), types.NamespacedName{Name: "cryostat-jmx-credentials-db", Namespace: t.Namespace}, secret)
+	err := t.Client.Get(context.Background(), types.NamespacedName{Name: t.Name + "-jmx-credentials-db", Namespace: t.Namespace}, secret)
 	Expect(kerrors.IsNotFound(err)).To(BeTrue())
 
 	t.reconcileCryostatFully()
@@ -2268,73 +2241,60 @@ func (t *cryostatTestInput) expectCredentialsDatabaseSecret() {
 
 func (t *cryostatTestInput) checkCredentialsDatabaseSecret() {
 	secret := &corev1.Secret{}
-	err := t.Client.Get(context.Background(), types.NamespacedName{Name: "cryostat-jmx-credentials-db", Namespace: t.Namespace}, secret)
+	err := t.Client.Get(context.Background(), types.NamespacedName{Name: t.Name + "-jmx-credentials-db", Namespace: t.Namespace}, secret)
 	Expect(err).ToNot(HaveOccurred())
 
 	// Compare to desired spec
 	expectedSecret := t.NewCredentialsDatabaseSecret()
-	checkMetadata(secret, expectedSecret)
+	t.checkMetadata(secret, expectedSecret)
 	Expect(secret.StringData).To(Equal(expectedSecret.StringData))
 }
 
 func (t *cryostatTestInput) expectJMXSecret() {
 	secret := &corev1.Secret{}
-	err := t.Client.Get(context.Background(), types.NamespacedName{Name: "cryostat-jmx-auth", Namespace: t.Namespace}, secret)
+	err := t.Client.Get(context.Background(), types.NamespacedName{Name: t.Name + "-jmx-auth", Namespace: t.Namespace}, secret)
 	Expect(kerrors.IsNotFound(err)).To(BeTrue())
 
 	t.reconcileCryostatFully()
 
-	err = t.Client.Get(context.Background(), types.NamespacedName{Name: "cryostat-jmx-auth", Namespace: t.Namespace}, secret)
+	err = t.Client.Get(context.Background(), types.NamespacedName{Name: t.Name + "-jmx-auth", Namespace: t.Namespace}, secret)
 	Expect(err).ToNot(HaveOccurred())
 
 	expectedSecret := t.NewJMXSecret()
-	checkMetadata(secret, expectedSecret)
+	t.checkMetadata(secret, expectedSecret)
 	Expect(secret.StringData).To(Equal(expectedSecret.StringData))
 }
 
 func (t *cryostatTestInput) expectCoreService() {
 	service := &corev1.Service{}
-	err := t.Client.Get(context.Background(), types.NamespacedName{Name: "cryostat", Namespace: t.Namespace}, service)
+	err := t.Client.Get(context.Background(), types.NamespacedName{Name: t.Name, Namespace: t.Namespace}, service)
 	Expect(kerrors.IsNotFound(err)).To(BeTrue())
 
 	t.reconcileCryostatFully()
 
-	t.checkService("cryostat", t.NewCryostatService())
+	t.checkService(t.Name, t.NewCryostatService())
 }
 
 func (t *cryostatTestInput) expectStatusApplicationURL() {
-	instance := &operatorv1beta1.Cryostat{}
-	err := t.Client.Get(context.Background(), types.NamespacedName{Name: "cryostat", Namespace: t.Namespace}, instance)
-	Expect(err).ToNot(HaveOccurred())
-
 	t.reconcileCryostatFully()
 
-	err = t.Client.Get(context.Background(), types.NamespacedName{Name: "cryostat", Namespace: t.Namespace}, instance)
-	Expect(err).ToNot(HaveOccurred())
-
-	Expect(instance.Status.ApplicationURL).To(Equal("https://cryostat.example.com"))
+	instance := t.getCryostatInstance()
+	Expect(instance.Status.ApplicationURL).To(Equal(fmt.Sprintf("https://%s.example.com", t.Name)))
 }
 
 func (t *cryostatTestInput) expectStatusGrafanaSecretName(secretName string) {
-	instance := &operatorv1beta1.Cryostat{}
-	err := t.Client.Get(context.Background(), types.NamespacedName{Name: "cryostat", Namespace: t.Namespace}, instance)
-	Expect(err).ToNot(HaveOccurred())
-
 	t.reconcileCryostatFully()
 	t.checkStatusGrafanaSecretName(secretName)
 }
 
 func (t *cryostatTestInput) checkStatusGrafanaSecretName(secretName string) {
-	instance := &operatorv1beta1.Cryostat{}
-	err := t.Client.Get(context.Background(), types.NamespacedName{Name: "cryostat", Namespace: t.Namespace}, instance)
-	Expect(err).ToNot(HaveOccurred())
-
+	instance := t.getCryostatInstance()
 	Expect(instance.Status.GrafanaSecret).To(Equal(secretName))
 }
 
 func (t *cryostatTestInput) expectDeployment() {
 	deployment := &appsv1.Deployment{}
-	err := t.Client.Get(context.Background(), types.NamespacedName{Name: "cryostat", Namespace: t.Namespace}, deployment)
+	err := t.Client.Get(context.Background(), types.NamespacedName{Name: t.Name, Namespace: t.Namespace}, deployment)
 	Expect(kerrors.IsNotFound(err)).To(BeTrue())
 
 	t.reconcileCryostatFully()
@@ -2344,7 +2304,7 @@ func (t *cryostatTestInput) expectDeployment() {
 func (t *cryostatTestInput) expectDeploymentHasCertSecrets() {
 	t.reconcileCryostatFully()
 	deployment := &appsv1.Deployment{}
-	err := t.Client.Get(context.Background(), types.NamespacedName{Name: "cryostat", Namespace: t.Namespace}, deployment)
+	err := t.Client.Get(context.Background(), types.NamespacedName{Name: t.Name, Namespace: t.Namespace}, deployment)
 	Expect(err).ToNot(HaveOccurred())
 
 	volumes := deployment.Spec.Template.Spec.Volumes
@@ -2357,32 +2317,25 @@ func (t *cryostatTestInput) expectDeploymentHasCertSecrets() {
 }
 
 func (t *cryostatTestInput) expectIdempotence() {
-	req := reconcile.Request{NamespacedName: types.NamespacedName{Name: "cryostat", Namespace: t.Namespace}}
 	t.reconcileCryostatFully()
 
-	obj := &operatorv1beta1.Cryostat{}
-	err := t.Client.Get(context.Background(), req.NamespacedName, obj)
-	Expect(err).ToNot(HaveOccurred())
+	obj := t.getCryostatInstance()
 
 	// Reconcile again
 	t.reconcileCryostatFully()
 
-	obj2 := &operatorv1beta1.Cryostat{}
-	err = t.Client.Get(context.Background(), req.NamespacedName, obj2)
-	Expect(err).ToNot(HaveOccurred())
+	obj2 := t.getCryostatInstance()
 	Expect(obj2.Status).To(Equal(obj.Status))
 	Expect(obj2.Spec).To(Equal(obj.Spec))
 }
 
 func (t *cryostatTestInput) expectCryostatFinalizerPresent() {
-	cr := &operatorv1beta1.Cryostat{}
-	err := t.Client.Get(context.Background(), types.NamespacedName{Name: "cryostat", Namespace: t.Namespace}, cr)
-	Expect(err).ToNot(HaveOccurred())
-	Expect(cr.GetFinalizers()).To(ContainElement("operator.cryostat.io/cryostat.finalizer"))
+	cr := t.getCryostatInstance()
+	Expect(cr.Object.GetFinalizers()).To(ContainElement("operator.cryostat.io/cryostat.finalizer"))
 }
 
 func (t *cryostatTestInput) checkGrafanaService() {
-	t.checkService("cryostat-grafana", t.NewGrafanaService())
+	t.checkService(t.Name+"-grafana", t.NewGrafanaService())
 }
 
 func (t *cryostatTestInput) checkService(svcName string, expected *corev1.Service) {
@@ -2390,7 +2343,7 @@ func (t *cryostatTestInput) checkService(svcName string, expected *corev1.Servic
 	err := t.Client.Get(context.Background(), types.NamespacedName{Name: svcName, Namespace: t.Namespace}, service)
 	Expect(err).ToNot(HaveOccurred())
 
-	checkMetadata(service, expected)
+	t.checkMetadata(service, expected)
 	Expect(service.Spec.Type).To(Equal(expected.Spec.Type))
 	Expect(service.Spec.Selector).To(Equal(expected.Spec.Selector))
 	Expect(service.Spec.Ports).To(Equal(expected.Spec.Ports))
@@ -2404,7 +2357,7 @@ func (t *cryostatTestInput) expectNoService(svcName string) {
 
 func (t *cryostatTestInput) expectNoReportsDeployment() {
 	deployment := &appsv1.Deployment{}
-	err := t.Client.Get(context.Background(), types.NamespacedName{Name: "cryostat-reports", Namespace: t.Namespace}, deployment)
+	err := t.Client.Get(context.Background(), types.NamespacedName{Name: t.Name + "-reports", Namespace: t.Namespace}, deployment)
 	Expect(kerrors.IsNotFound(err)).To(BeTrue())
 }
 
@@ -2468,25 +2421,23 @@ func (t *cryostatTestInput) setDeploymentConditions(deployName string, available
 
 func (t *cryostatTestInput) checkMainDeployment() {
 	deployment := &appsv1.Deployment{}
-	err := t.Client.Get(context.Background(), types.NamespacedName{Name: "cryostat", Namespace: t.Namespace}, deployment)
+	err := t.Client.Get(context.Background(), types.NamespacedName{Name: t.Name, Namespace: t.Namespace}, deployment)
 	Expect(err).ToNot(HaveOccurred())
 
-	cr := &operatorv1beta1.Cryostat{}
-	err = t.Client.Get(context.Background(), types.NamespacedName{Name: "cryostat", Namespace: t.Namespace}, cr)
-	Expect(err).ToNot(HaveOccurred())
+	cr := t.getCryostatInstance()
 
-	Expect(deployment.Name).To(Equal("cryostat"))
+	Expect(deployment.Name).To(Equal(t.Name))
 	Expect(deployment.Namespace).To(Equal(t.Namespace))
 	Expect(deployment.Annotations).To(Equal(map[string]string{
 		"app.openshift.io/connects-to": "cryostat-operator-controller-manager",
 	}))
 	Expect(deployment.Labels).To(Equal(map[string]string{
-		"app":                    "cryostat",
+		"app":                    t.Name,
 		"kind":                   "cryostat",
 		"component":              "cryostat",
 		"app.kubernetes.io/name": "cryostat",
 	}))
-	Expect(metav1.IsControlledBy(deployment, cr)).To(BeTrue())
+	Expect(metav1.IsControlledBy(deployment, cr.Object)).To(BeTrue())
 	Expect(deployment.Spec.Selector).To(Equal(t.NewMainDeploymentSelector()))
 	Expect(deployment.Spec.Replicas).ToNot(BeNil())
 	Expect(*deployment.Spec.Replicas).To(Equal(int32(1)))
@@ -2496,12 +2447,12 @@ func (t *cryostatTestInput) checkMainDeployment() {
 	t.checkMainPodTemplate(deployment, cr)
 }
 
-func (t *cryostatTestInput) checkMainPodTemplate(deployment *appsv1.Deployment, cr *operatorv1beta1.Cryostat) {
+func (t *cryostatTestInput) checkMainPodTemplate(deployment *appsv1.Deployment, cr *model.CryostatInstance) {
 	template := deployment.Spec.Template
-	Expect(template.Name).To(Equal("cryostat"))
+	Expect(template.Name).To(Equal(t.Name))
 	Expect(template.Namespace).To(Equal(t.Namespace))
 	Expect(template.Labels).To(Equal(map[string]string{
-		"app":       "cryostat",
+		"app":       t.Name,
 		"kind":      "cryostat",
 		"component": "cryostat",
 	}))
@@ -2510,18 +2461,18 @@ func (t *cryostatTestInput) checkMainPodTemplate(deployment *appsv1.Deployment, 
 
 	// Check that the networking environment variables are set correctly
 	coreContainer := template.Spec.Containers[0]
-	port := "10000"
+	port := int32(10000)
 	if cr.Spec.ServiceOptions != nil && cr.Spec.ServiceOptions.ReportsConfig != nil &&
 		cr.Spec.ServiceOptions.ReportsConfig.HTTPPort != nil {
-		port = strconv.Itoa(int(*cr.Spec.ServiceOptions.ReportsConfig.HTTPPort))
+		port = *cr.Spec.ServiceOptions.ReportsConfig.HTTPPort
 	}
 	var reportsUrl string
 	if t.ReportReplicas == 0 {
 		reportsUrl = ""
 	} else if t.TLS {
-		reportsUrl = "https://cryostat-reports:" + port
+		reportsUrl = fmt.Sprintf("https://%s-reports:%d", t.Name, port)
 	} else {
-		reportsUrl = "http://cryostat-reports:" + port
+		reportsUrl = fmt.Sprintf("http://%s-reports:%d", t.Name, port)
 	}
 	ingress := !t.OpenShift &&
 		cr.Spec.NetworkOptions != nil && cr.Spec.NetworkOptions.CoreConfig != nil && cr.Spec.NetworkOptions.CoreConfig.IngressSpec != nil
@@ -2544,7 +2495,7 @@ func (t *cryostatTestInput) checkMainPodTemplate(deployment *appsv1.Deployment, 
 	}
 
 	// Check that the proper Service Account is set
-	Expect(template.Spec.ServiceAccountName).To(Equal("cryostat"))
+	Expect(template.Spec.ServiceAccountName).To(Equal(t.Name))
 
 	if cr.Spec.SchedulingOptions != nil {
 		scheduling := cr.Spec.SchedulingOptions
@@ -2560,25 +2511,23 @@ func (t *cryostatTestInput) checkMainPodTemplate(deployment *appsv1.Deployment, 
 
 func (t *cryostatTestInput) checkReportsDeployment() {
 	deployment := &appsv1.Deployment{}
-	err := t.Client.Get(context.Background(), types.NamespacedName{Name: "cryostat-reports", Namespace: t.Namespace}, deployment)
+	err := t.Client.Get(context.Background(), types.NamespacedName{Name: t.Name + "-reports", Namespace: t.Namespace}, deployment)
 	Expect(err).ToNot(HaveOccurred())
 
-	cr := &operatorv1beta1.Cryostat{}
-	err = t.Client.Get(context.Background(), types.NamespacedName{Name: "cryostat", Namespace: t.Namespace}, cr)
-	Expect(err).ToNot(HaveOccurred())
+	cr := t.getCryostatInstance()
 
-	Expect(deployment.Name).To(Equal("cryostat-reports"))
+	Expect(deployment.Name).To(Equal(t.Name + "-reports"))
 	Expect(deployment.Namespace).To(Equal(t.Namespace))
 	Expect(deployment.Annotations).To(Equal(map[string]string{
-		"app.openshift.io/connects-to": "cryostat",
+		"app.openshift.io/connects-to": t.Name,
 	}))
 	Expect(deployment.Labels).To(Equal(map[string]string{
-		"app":                    "cryostat",
+		"app":                    t.Name,
 		"kind":                   "cryostat",
 		"component":              "reports",
 		"app.kubernetes.io/name": "cryostat-reports",
 	}))
-	Expect(metav1.IsControlledBy(deployment, cr)).To(BeTrue())
+	Expect(metav1.IsControlledBy(deployment, cr.Object)).To(BeTrue())
 	Expect(deployment.Spec.Selector).To(Equal(t.NewReportsDeploymentSelector()))
 	Expect(deployment.Spec.Replicas).ToNot(BeNil())
 	Expect(*deployment.Spec.Replicas).To(Equal(t.ReportReplicas))
@@ -2586,10 +2535,10 @@ func (t *cryostatTestInput) checkReportsDeployment() {
 
 	// compare Pod template
 	template := deployment.Spec.Template
-	Expect(template.Name).To(Equal("cryostat-reports"))
+	Expect(template.Name).To(Equal(t.Name + "-reports"))
 	Expect(template.Namespace).To(Equal(t.Namespace))
 	Expect(template.Labels).To(Equal(map[string]string{
-		"app":       "cryostat",
+		"app":       t.Name,
 		"kind":      "cryostat",
 		"component": "reports",
 	}))
@@ -2616,7 +2565,7 @@ func (t *cryostatTestInput) checkReportsDeployment() {
 
 func (t *cryostatTestInput) checkDeploymentHasTemplates() {
 	deployment := &appsv1.Deployment{}
-	err := t.Client.Get(context.Background(), types.NamespacedName{Name: "cryostat", Namespace: t.Namespace}, deployment)
+	err := t.Client.Get(context.Background(), types.NamespacedName{Name: t.Name, Namespace: t.Namespace}, deployment)
 	Expect(err).ToNot(HaveOccurred())
 
 	volumes := deployment.Spec.Template.Spec.Volumes
@@ -2630,7 +2579,7 @@ func (t *cryostatTestInput) checkDeploymentHasTemplates() {
 
 func (t *cryostatTestInput) checkDeploymentHasAuthProperties() {
 	deployment := &appsv1.Deployment{}
-	err := t.Client.Get(context.Background(), types.NamespacedName{Name: "cryostat", Namespace: t.Namespace}, deployment)
+	err := t.Client.Get(context.Background(), types.NamespacedName{Name: t.Name, Namespace: t.Namespace}, deployment)
 	Expect(err).ToNot(HaveOccurred())
 
 	volumes := deployment.Spec.Template.Spec.Volumes
@@ -2647,7 +2596,7 @@ func (t *cryostatTestInput) checkDeploymentHasAuthProperties() {
 
 func (t *cryostatTestInput) checkDeploymentHasNoAuthProperties() {
 	deployment := &appsv1.Deployment{}
-	err := t.Client.Get(context.Background(), types.NamespacedName{Name: "cryostat", Namespace: t.Namespace}, deployment)
+	err := t.Client.Get(context.Background(), types.NamespacedName{Name: t.Name, Namespace: t.Namespace}, deployment)
 	Expect(err).ToNot(HaveOccurred())
 
 	volumes := deployment.Spec.Template.Spec.Volumes
@@ -2668,7 +2617,7 @@ func (t *cryostatTestInput) checkCoreContainer(container *corev1.Container, ingr
 	emptyDir bool, builtInDiscoveryDisabled bool, dbSecretProvided bool,
 	resources *corev1.ResourceRequirements,
 	securityContext *corev1.SecurityContext) {
-	Expect(container.Name).To(Equal("cryostat"))
+	Expect(container.Name).To(Equal(t.Name))
 	if t.EnvCoreImageTag == nil {
 		Expect(container.Image).To(HavePrefix("quay.io/cryostat/cryostat:"))
 	} else {
@@ -2686,7 +2635,7 @@ func (t *cryostatTestInput) checkCoreContainer(container *corev1.Container, ingr
 }
 
 func (t *cryostatTestInput) checkGrafanaContainer(container *corev1.Container, resources *corev1.ResourceRequirements, securityContext *corev1.SecurityContext) {
-	Expect(container.Name).To(Equal("cryostat-grafana"))
+	Expect(container.Name).To(Equal(t.Name + "-grafana"))
 	if t.EnvGrafanaImageTag == nil {
 		Expect(container.Image).To(HavePrefix("quay.io/cryostat/cryostat-grafana-dashboard:"))
 	} else {
@@ -2703,7 +2652,7 @@ func (t *cryostatTestInput) checkGrafanaContainer(container *corev1.Container, r
 }
 
 func (t *cryostatTestInput) checkDatasourceContainer(container *corev1.Container, resources *corev1.ResourceRequirements, securityContext *corev1.SecurityContext) {
-	Expect(container.Name).To(Equal("cryostat-jfr-datasource"))
+	Expect(container.Name).To(Equal(t.Name + "-jfr-datasource"))
 	if t.EnvDatasourceImageTag == nil {
 		Expect(container.Image).To(HavePrefix("quay.io/cryostat/jfr-datasource:"))
 	} else {
@@ -2720,7 +2669,7 @@ func (t *cryostatTestInput) checkDatasourceContainer(container *corev1.Container
 }
 
 func (t *cryostatTestInput) checkReportsContainer(container *corev1.Container, resources *corev1.ResourceRequirements, securityContext *corev1.SecurityContext) {
-	Expect(container.Name).To(Equal("cryostat-reports"))
+	Expect(container.Name).To(Equal(t.Name + "-reports"))
 	if t.EnvReportsImageTag == nil {
 		Expect(container.Image).To(HavePrefix("quay.io/cryostat/cryostat-reports:"))
 	} else {
@@ -2737,7 +2686,7 @@ func (t *cryostatTestInput) checkReportsContainer(container *corev1.Container, r
 
 func (t *cryostatTestInput) checkCoreHasEnvironmentVariables(expectedEnvVars []corev1.EnvVar) {
 	deployment := &appsv1.Deployment{}
-	err := t.Client.Get(context.Background(), types.NamespacedName{Name: "cryostat", Namespace: t.Namespace}, deployment)
+	err := t.Client.Get(context.Background(), types.NamespacedName{Name: t.Name, Namespace: t.Namespace}, deployment)
 	Expect(err).ToNot(HaveOccurred())
 
 	template := deployment.Spec.Template
@@ -2781,4 +2730,46 @@ func checkResourceRequirements(containerResource, expectedResource *corev1.Resou
 			Expect(limitMemory.Equal(expectedlimitMemory)).To(BeTrue())
 		}
 	}
+}
+
+func (t *cryostatTestInput) getCryostatInstance() *model.CryostatInstance {
+	cr, err := t.lookupCryostatInstance()
+	Expect(err).ToNot(HaveOccurred())
+	return cr
+}
+
+func (t *cryostatTestInput) lookupCryostatInstance() (*model.CryostatInstance, error) {
+	if t.ClusterScoped {
+		cr := &operatorv1beta1.ClusterCryostat{}
+		err := t.Client.Get(context.Background(), types.NamespacedName{Name: t.Name}, cr)
+		if err != nil {
+			return nil, err
+		}
+		return t.ConvertClusterToModel(cr), nil
+	} else {
+		cr := &operatorv1beta1.Cryostat{}
+		err := t.Client.Get(context.Background(), types.NamespacedName{Name: t.Name, Namespace: t.Namespace}, cr)
+		if err != nil {
+			return nil, err
+		}
+		return t.ConvertNamespacedToModel(cr), nil
+	}
+}
+
+func (t *cryostatTestInput) updateCryostatInstance(cr *model.CryostatInstance) {
+	err := t.Client.Update(context.Background(), cr.Object)
+	Expect(err).ToNot(HaveOccurred())
+}
+
+func (t *cryostatTestInput) reconcile() (reconcile.Result, error) {
+	return t.reconcileWithName(t.Name)
+}
+
+func (t *cryostatTestInput) reconcileWithName(name string) (reconcile.Result, error) {
+	nsName := types.NamespacedName{Name: name}
+	if !t.ClusterScoped {
+		nsName.Namespace = t.Namespace
+	}
+	req := reconcile.Request{NamespacedName: nsName}
+	return t.controller.Reconcile(context.Background(), req)
 }
