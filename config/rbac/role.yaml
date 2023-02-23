@@ -52,6 +52,26 @@ rules:
   - delete
   - list
 - apiGroups:
+  - operator.cryostat.io
+  resources:
+  - clustercryostats
+  verbs:
+  - '*'
+- apiGroups:
+  - operator.cryostat.io
+  resources:
+  - clustercryostats/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - operator.cryostat.io
+  resources:
+  - clustercryostats/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
   - rbac.authorization.k8s.io
   resources:
   - clusterrolebindings

@@ -41,8 +41,11 @@ import (
 	"net/url"
 	"regexp"
 	"strconv"
+	"strings"
 
 	operatorv1beta1 "github.com/cryostatio/cryostat-operator/api/v1beta1"
+	"github.com/cryostatio/cryostat-operator/internal/controllers/constants"
+	"github.com/cryostatio/cryostat-operator/internal/controllers/model"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -89,24 +92,14 @@ const (
 	defaultReportMemoryRequest        string = "256Mi"
 )
 
-const (
-	cryostatHTTPContainerPort int32  = 8181
-	cryostatJMXContainerPort  int32  = 9091
-	grafanaContainerPort      int32  = 3000
-	datasourceContainerPort   int32  = 8080
-	reportsContainerPort      int32  = 10000
-	loopbackAddress           string = "127.0.0.1"
-	operatorNamePrefix        string = "cryostat-operator-"
-)
-
-func NewDeploymentForCR(cr *operatorv1beta1.Cryostat, specs *ServiceSpecs, imageTags *ImageTags,
+func NewDeploymentForCR(cr *model.CryostatInstance, specs *ServiceSpecs, imageTags *ImageTags,
 	tls *TLSConfig, fsGroup int64, openshift bool) *appsv1.Deployment {
 	// Force one replica to avoid lock file and PVC contention
 	replicas := int32(1)
 	return &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      cr.Name,
-			Namespace: cr.Namespace,
+			Namespace: cr.InstallNamespace,
 			Labels: map[string]string{
 				"app":                    cr.Name,
 				"kind":                   "cryostat",
@@ -129,7 +122,7 @@ func NewDeploymentForCR(cr *operatorv1beta1.Cryostat, specs *ServiceSpecs, image
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      cr.Name,
-					Namespace: cr.Namespace,
+					Namespace: cr.InstallNamespace,
 					Labels: map[string]string{
 						"app":       cr.Name,
 						"kind":      "cryostat",
@@ -146,7 +139,7 @@ func NewDeploymentForCR(cr *operatorv1beta1.Cryostat, specs *ServiceSpecs, image
 	}
 }
 
-func NewDeploymentForReports(cr *operatorv1beta1.Cryostat, imageTags *ImageTags, tls *TLSConfig,
+func NewDeploymentForReports(cr *model.CryostatInstance, imageTags *ImageTags, tls *TLSConfig,
 	openshift bool) *appsv1.Deployment {
 	replicas := int32(0)
 	if cr.Spec.ReportOptions != nil {
@@ -155,7 +148,7 @@ func NewDeploymentForReports(cr *operatorv1beta1.Cryostat, imageTags *ImageTags,
 	return &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      cr.Name + "-reports",
-			Namespace: cr.Namespace,
+			Namespace: cr.InstallNamespace,
 			Labels: map[string]string{
 				"app":                    cr.Name,
 				"kind":                   "cryostat",
@@ -178,7 +171,7 @@ func NewDeploymentForReports(cr *operatorv1beta1.Cryostat, imageTags *ImageTags,
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      cr.Name + "-reports",
-					Namespace: cr.Namespace,
+					Namespace: cr.InstallNamespace,
 					Labels: map[string]string{
 						"app":       cr.Name,
 						"kind":      "cryostat",
@@ -192,10 +185,7 @@ func NewDeploymentForReports(cr *operatorv1beta1.Cryostat, imageTags *ImageTags,
 	}
 }
 
-// Hostname alias for loopback address, to be used for health checks
-const healthCheckHostname = "cryostat-health.local"
-
-func NewPodForCR(cr *operatorv1beta1.Cryostat, specs *ServiceSpecs, imageTags *ImageTags,
+func NewPodForCR(cr *model.CryostatInstance, specs *ServiceSpecs, imageTags *ImageTags,
 	tls *TLSConfig, fsGroup int64, openshift bool) *corev1.PodSpec {
 	var containers []corev1.Container
 	if cr.Spec.Minimal {
@@ -248,7 +238,7 @@ func NewPodForCR(cr *operatorv1beta1.Cryostat, specs *ServiceSpecs, imageTags *I
 				},
 				Items: []corev1.KeyToPath{
 					{
-						Key:  CAKey,
+						Key:  constants.CAKey,
 						Path: cr.Name + "-ca.crt",
 						Mode: &readOnlyMode,
 					},
@@ -359,9 +349,9 @@ func NewPodForCR(cr *operatorv1beta1.Cryostat, specs *ServiceSpecs, imageTags *I
 	// work over HTTPS with hostname added as a SubjectAltName
 	hostAliases := []corev1.HostAlias{
 		{
-			IP: loopbackAddress,
+			IP: constants.LoopbackAddress,
 			Hostnames: []string{
-				healthCheckHostname,
+				constants.HealthCheckHostname,
 			},
 		},
 	}
@@ -396,7 +386,7 @@ func NewPodForCR(cr *operatorv1beta1.Cryostat, specs *ServiceSpecs, imageTags *I
 	}
 }
 
-func NewReportContainerResource(cr *operatorv1beta1.Cryostat) *corev1.ResourceRequirements {
+func NewReportContainerResource(cr *model.CryostatInstance) *corev1.ResourceRequirements {
 	resources := &corev1.ResourceRequirements{}
 	if cr.Spec.ReportOptions != nil {
 		resources = cr.Spec.ReportOptions.Resources.DeepCopy()
@@ -409,7 +399,7 @@ func NewReportContainerResource(cr *operatorv1beta1.Cryostat) *corev1.ResourceRe
 // https://kubernetes.io/docs/concepts/security/pod-security-standards/#restricted
 const capabilityAll corev1.Capability = "ALL"
 
-func NewPodForReports(cr *operatorv1beta1.Cryostat, imageTags *ImageTags, tls *TLSConfig, openshift bool) *corev1.PodSpec {
+func NewPodForReports(cr *model.CryostatInstance, imageTags *ImageTags, tls *TLSConfig, openshift bool) *corev1.PodSpec {
 	resources := NewReportContainerResource(cr)
 	cpus := resources.Requests.Cpu().Value() // Round to 1 if cpu request < 1000m
 	if limits := resources.Limits; limits != nil {
@@ -438,7 +428,7 @@ func NewPodForReports(cr *operatorv1beta1.Cryostat, imageTags *ImageTags, tls *T
 		tlsEnvs := []corev1.EnvVar{
 			{
 				Name:  "QUARKUS_HTTP_SSL_PORT",
-				Value: strconv.Itoa(int(reportsContainerPort)),
+				Value: strconv.Itoa(int(constants.ReportsContainerPort)),
 			},
 			{
 				Name:  "QUARKUS_HTTP_SSL_CERTIFICATE_KEY_FILE",
@@ -479,14 +469,14 @@ func NewPodForReports(cr *operatorv1beta1.Cryostat, imageTags *ImageTags, tls *T
 	} else {
 		envs = append(envs, corev1.EnvVar{
 			Name:  "QUARKUS_HTTP_PORT",
-			Value: strconv.Itoa(int(reportsContainerPort)),
+			Value: strconv.Itoa(int(constants.ReportsContainerPort)),
 		})
 	}
 
 	probeHandler := corev1.ProbeHandler{
 		HTTPGet: &corev1.HTTPGetAction{
 			Scheme: livenessProbeScheme,
-			Port:   intstr.IntOrString{IntVal: reportsContainerPort},
+			Port:   intstr.IntOrString{IntVal: constants.ReportsContainerPort},
 			Path:   "/health",
 		},
 	}
@@ -540,7 +530,7 @@ func NewPodForReports(cr *operatorv1beta1.Cryostat, imageTags *ImageTags, tls *T
 				ImagePullPolicy: getPullPolicy(imageTags.ReportsImageTag),
 				Ports: []corev1.ContainerPort{
 					{
-						ContainerPort: reportsContainerPort,
+						ContainerPort: constants.ReportsContainerPort,
 					},
 				},
 				Env:          envs,
@@ -563,7 +553,7 @@ func NewPodForReports(cr *operatorv1beta1.Cryostat, imageTags *ImageTags, tls *T
 	}
 }
 
-func NewCoreContainerResource(cr *operatorv1beta1.Cryostat) *corev1.ResourceRequirements {
+func NewCoreContainerResource(cr *model.CryostatInstance) *corev1.ResourceRequirements {
 	resources := &corev1.ResourceRequirements{}
 	if cr.Spec.Resources != nil {
 		resources = cr.Spec.Resources.CoreResources.DeepCopy()
@@ -572,7 +562,7 @@ func NewCoreContainerResource(cr *operatorv1beta1.Cryostat) *corev1.ResourceRequ
 	return resources
 }
 
-func NewCoreContainer(cr *operatorv1beta1.Cryostat, specs *ServiceSpecs, imageTag string,
+func NewCoreContainer(cr *model.CryostatInstance, specs *ServiceSpecs, imageTag string,
 	tls *TLSConfig, openshift bool) corev1.Container {
 	configPath := "/opt/cryostat.d/conf.d"
 	archivePath := "/opt/cryostat.d/recordings.d"
@@ -584,7 +574,7 @@ func NewCoreContainer(cr *operatorv1beta1.Cryostat, specs *ServiceSpecs, imageTa
 	envs := []corev1.EnvVar{
 		{
 			Name:  "CRYOSTAT_WEB_PORT",
-			Value: strconv.Itoa(int(cryostatHTTPContainerPort)),
+			Value: strconv.Itoa(int(constants.CryostatHTTPContainerPort)),
 		},
 		{
 			Name:  "CRYOSTAT_CONFIG_PATH",
@@ -609,6 +599,10 @@ func NewCoreContainer(cr *operatorv1beta1.Cryostat, specs *ServiceSpecs, imageTa
 		{
 			Name:  "CRYOSTAT_ENABLE_JDP_BROADCAST",
 			Value: "false",
+		},
+		{
+			Name:  "CRYOSTAT_K8S_NAMESPACES",
+			Value: strings.Join(cr.TargetNamespaces, ","),
 		},
 	}
 
@@ -747,7 +741,7 @@ func NewCoreContainer(cr *operatorv1beta1.Cryostat, specs *ServiceSpecs, imageTa
 			},
 			{
 				Name:  "CRYOSTAT_BASE_OAUTH_ROLE",
-				Value: operatorNamePrefix + "oauth-client",
+				Value: constants.OperatorNamePrefix + "oauth-client",
 			},
 		}
 		envs = append(envs, openshiftEnvs...)
@@ -890,7 +884,7 @@ func NewCoreContainer(cr *operatorv1beta1.Cryostat, specs *ServiceSpecs, imageTa
 
 	probeHandler := corev1.ProbeHandler{
 		HTTPGet: &corev1.HTTPGetAction{
-			Port:   intstr.IntOrString{IntVal: cryostatHTTPContainerPort},
+			Port:   intstr.IntOrString{IntVal: constants.CryostatHTTPContainerPort},
 			Path:   "/health/liveness",
 			Scheme: livenessProbeScheme,
 		},
@@ -916,10 +910,10 @@ func NewCoreContainer(cr *operatorv1beta1.Cryostat, specs *ServiceSpecs, imageTa
 		VolumeMounts:    mounts,
 		Ports: []corev1.ContainerPort{
 			{
-				ContainerPort: cryostatHTTPContainerPort,
+				ContainerPort: constants.CryostatHTTPContainerPort,
 			},
 			{
-				ContainerPort: cryostatJMXContainerPort,
+				ContainerPort: constants.CryostatJMXContainerPort,
 			},
 		},
 		Env:       envs,
@@ -937,7 +931,7 @@ func NewCoreContainer(cr *operatorv1beta1.Cryostat, specs *ServiceSpecs, imageTa
 	}
 }
 
-func NewGrafanaContainerResource(cr *operatorv1beta1.Cryostat) *corev1.ResourceRequirements {
+func NewGrafanaContainerResource(cr *model.CryostatInstance) *corev1.ResourceRequirements {
 	resources := &corev1.ResourceRequirements{}
 	if cr.Spec.Resources != nil {
 		resources = cr.Spec.Resources.GrafanaResources.DeepCopy()
@@ -946,7 +940,7 @@ func NewGrafanaContainerResource(cr *operatorv1beta1.Cryostat) *corev1.ResourceR
 	return resources
 }
 
-func NewGrafanaContainer(cr *operatorv1beta1.Cryostat, imageTag string, tls *TLSConfig) corev1.Container {
+func NewGrafanaContainer(cr *model.CryostatInstance, imageTag string, tls *TLSConfig) corev1.Container {
 	envs := []corev1.EnvVar{
 		{
 			Name:  "JFR_DATASOURCE_URL",
@@ -1006,7 +1000,7 @@ func NewGrafanaContainer(cr *operatorv1beta1.Cryostat, imageTag string, tls *TLS
 		VolumeMounts:    mounts,
 		Ports: []corev1.ContainerPort{
 			{
-				ContainerPort: grafanaContainerPort,
+				ContainerPort: constants.GrafanaContainerPort,
 			},
 		},
 		Env: envs,
@@ -1034,9 +1028,9 @@ func NewGrafanaContainer(cr *operatorv1beta1.Cryostat, imageTag string, tls *TLS
 }
 
 // datasourceURL contains the fixed URL to jfr-datasource's web server
-var datasourceURL = "http://" + loopbackAddress + ":" + strconv.Itoa(int(datasourceContainerPort))
+var datasourceURL = "http://" + constants.LoopbackAddress + ":" + strconv.Itoa(int(constants.DatasourceContainerPort))
 
-func NewJfrDatasourceContainerResource(cr *operatorv1beta1.Cryostat) *corev1.ResourceRequirements {
+func NewJfrDatasourceContainerResource(cr *model.CryostatInstance) *corev1.ResourceRequirements {
 	resources := &corev1.ResourceRequirements{}
 	if cr.Spec.Resources != nil {
 		resources = cr.Spec.Resources.DataSourceResources.DeepCopy()
@@ -1045,7 +1039,7 @@ func NewJfrDatasourceContainerResource(cr *operatorv1beta1.Cryostat) *corev1.Res
 	return resources
 }
 
-func NewJfrDatasourceContainer(cr *operatorv1beta1.Cryostat, imageTag string) corev1.Container {
+func NewJfrDatasourceContainer(cr *model.CryostatInstance, imageTag string) corev1.Container {
 	var containerSc *corev1.SecurityContext
 	if cr.Spec.SecurityOptions != nil && cr.Spec.SecurityOptions.DataSourceSecurityContext != nil {
 		containerSc = cr.Spec.SecurityOptions.DataSourceSecurityContext
@@ -1065,13 +1059,13 @@ func NewJfrDatasourceContainer(cr *operatorv1beta1.Cryostat, imageTag string) co
 		ImagePullPolicy: getPullPolicy(imageTag),
 		Ports: []corev1.ContainerPort{
 			{
-				ContainerPort: datasourceContainerPort,
+				ContainerPort: constants.DatasourceContainerPort,
 			},
 		},
 		Env: []corev1.EnvVar{
 			{
 				Name:  "LISTEN_HOST",
-				Value: loopbackAddress,
+				Value: constants.LoopbackAddress,
 			},
 		},
 		// Can't use HTTP probe since the port is not exposed over the network
@@ -1105,7 +1099,7 @@ func getInternalDashboardURL(tls *TLSConfig) string {
 	if tls == nil {
 		scheme = "http"
 	}
-	return fmt.Sprintf("%s://%s:%d", scheme, healthCheckHostname, grafanaContainerPort)
+	return fmt.Sprintf("%s://%s:%d", scheme, constants.HealthCheckHostname, constants.GrafanaContainerPort)
 }
 
 // Matches image tags of the form "major.minor.patch"
@@ -1120,7 +1114,7 @@ func getPullPolicy(imageTag string) corev1.PullPolicy {
 	return corev1.PullIfNotPresent
 }
 
-func newVolumeForCR(cr *operatorv1beta1.Cryostat) []corev1.Volume {
+func newVolumeForCR(cr *model.CryostatInstance) []corev1.Volume {
 	var volumeSource corev1.VolumeSource
 	if useEmptyDir(cr) {
 		emptyDir := cr.Spec.StorageOptions.EmptyDir
@@ -1164,7 +1158,7 @@ func seccompProfile(openshift bool) *corev1.SeccompProfile {
 	}
 }
 
-func useEmptyDir(cr *operatorv1beta1.Cryostat) bool {
+func useEmptyDir(cr *model.CryostatInstance) bool {
 	return cr.Spec.StorageOptions != nil && cr.Spec.StorageOptions.EmptyDir != nil && cr.Spec.StorageOptions.EmptyDir.Enabled
 
 }

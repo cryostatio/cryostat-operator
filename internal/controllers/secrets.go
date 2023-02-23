@@ -40,15 +40,14 @@ import (
 	"context"
 	"fmt"
 
-	operatorv1beta1 "github.com/cryostatio/cryostat-operator/api/v1beta1"
-
+	"github.com/cryostatio/cryostat-operator/internal/controllers/model"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
-func (r *CryostatReconciler) reconcileSecrets(ctx context.Context, cr *operatorv1beta1.Cryostat) error {
+func (r *Reconciler) reconcileSecrets(ctx context.Context, cr *model.CryostatInstance) error {
 	if err := r.reconcileGrafanaSecret(ctx, cr); err != nil {
 		return err
 	}
@@ -58,11 +57,11 @@ func (r *CryostatReconciler) reconcileSecrets(ctx context.Context, cr *operatorv
 	return r.reconcileJMXSecret(ctx, cr)
 }
 
-func (r *CryostatReconciler) reconcileGrafanaSecret(ctx context.Context, cr *operatorv1beta1.Cryostat) error {
+func (r *Reconciler) reconcileGrafanaSecret(ctx context.Context, cr *model.CryostatInstance) error {
 	secret := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      cr.Name + "-grafana-basic",
-			Namespace: cr.Namespace,
+			Namespace: cr.InstallNamespace,
 		},
 	}
 
@@ -74,7 +73,7 @@ func (r *CryostatReconciler) reconcileGrafanaSecret(ctx context.Context, cr *ope
 		}
 		secretName = ""
 	} else {
-		err := r.createOrUpdateSecret(ctx, secret, cr, func() error {
+		err := r.createOrUpdateSecret(ctx, secret, cr.Object, func() error {
 			if secret.StringData == nil {
 				secret.StringData = map[string]string{}
 			}
@@ -94,7 +93,7 @@ func (r *CryostatReconciler) reconcileGrafanaSecret(ctx context.Context, cr *ope
 
 	// Set the Grafana secret in the CR status
 	cr.Status.GrafanaSecret = secretName
-	return r.Client.Status().Update(ctx, cr)
+	return r.Client.Status().Update(ctx, cr.Object)
 }
 
 // jmxSecretNameSuffix is the suffix to be appended to the name of a
@@ -107,15 +106,15 @@ const jmxSecretUserKey = "CRYOSTAT_RJMX_USER"
 // jmxSecretPassKey indexes the password within the Cryostat JMX auth secret
 const jmxSecretPassKey = "CRYOSTAT_RJMX_PASS"
 
-func (r *CryostatReconciler) reconcileJMXSecret(ctx context.Context, cr *operatorv1beta1.Cryostat) error {
+func (r *Reconciler) reconcileJMXSecret(ctx context.Context, cr *model.CryostatInstance) error {
 	secret := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      cr.Name + jmxSecretNameSuffix,
-			Namespace: cr.Namespace,
+			Namespace: cr.InstallNamespace,
 		},
 	}
 
-	return r.createOrUpdateSecret(ctx, secret, cr, func() error {
+	return r.createOrUpdateSecret(ctx, secret, cr.Object, func() error {
 		if secret.StringData == nil {
 			secret.StringData = map[string]string{}
 		}
@@ -136,11 +135,11 @@ const databaseSecretNameSuffix = "-jmx-credentials-db"
 // dbSecretUserKey indexes the password within the Cryostat JMX credentials database Secret
 const databaseSecretPassKey = "CRYOSTAT_JMX_CREDENTIALS_DB_PASSWORD"
 
-func (r *CryostatReconciler) reconcileDatabaseSecret(ctx context.Context, cr *operatorv1beta1.Cryostat) error {
+func (r *Reconciler) reconcileDatabaseSecret(ctx context.Context, cr *model.CryostatInstance) error {
 	secret := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      cr.Name + databaseSecretNameSuffix,
-			Namespace: cr.Namespace,
+			Namespace: cr.InstallNamespace,
 		},
 	}
 
@@ -149,7 +148,7 @@ func (r *CryostatReconciler) reconcileDatabaseSecret(ctx context.Context, cr *op
 		return nil // Do not delete default secret to allow reverting to use default if needed
 	}
 
-	return r.createOrUpdateSecret(ctx, secret, cr, func() error {
+	return r.createOrUpdateSecret(ctx, secret, cr.Object, func() error {
 		if secret.StringData == nil {
 			secret.StringData = map[string]string{}
 		}
@@ -162,7 +161,7 @@ func (r *CryostatReconciler) reconcileDatabaseSecret(ctx context.Context, cr *op
 	})
 }
 
-func (r *CryostatReconciler) createOrUpdateSecret(ctx context.Context, secret *corev1.Secret, owner metav1.Object,
+func (r *Reconciler) createOrUpdateSecret(ctx context.Context, secret *corev1.Secret, owner metav1.Object,
 	delegate controllerutil.MutateFn) error {
 	op, err := controllerutil.CreateOrUpdate(ctx, r.Client, secret, func() error {
 		// Set the Cryostat CR as controller
@@ -179,7 +178,7 @@ func (r *CryostatReconciler) createOrUpdateSecret(ctx context.Context, secret *c
 	return nil
 }
 
-func (r *CryostatReconciler) deleteSecret(ctx context.Context, secret *corev1.Secret) error {
+func (r *Reconciler) deleteSecret(ctx context.Context, secret *corev1.Secret) error {
 	err := r.Client.Delete(ctx, secret)
 	if err != nil && !errors.IsNotFound(err) {
 		r.Log.Error(err, "Could not delete secret", "name", secret.Name, "namespace", secret.Namespace)

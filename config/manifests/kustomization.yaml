@@ -4,7 +4,13 @@ resources:
 - ../samples
 - ../scorecard
 
-#patchesJson6902:
+patchesJson6902:
+- path: targetNamespaces_patch.yaml
+  target:
+    group: operators.coreos.com
+    version: v1alpha1
+    kind: ClusterServiceVersion
+    name: cryostat-operator.v0.0.0
 #- target:
 #    group: apps
 #    version: v1
