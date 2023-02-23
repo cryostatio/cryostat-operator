@@ -94,7 +94,7 @@ type ClusterCryostat struct {
 type ClusterCryostatList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
-	Items           []Cryostat `json:"items"`
+	Items           []ClusterCryostat `json:"items"`
 }
 
 func init() {

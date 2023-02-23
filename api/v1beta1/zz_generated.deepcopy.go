@@ -147,7 +147,7 @@ func (in *ClusterCryostatList) DeepCopyInto(out *ClusterCryostatList) {
 	in.ListMeta.DeepCopyInto(&out.ListMeta)
 	if in.Items != nil {
 		in, out := &in.Items, &out.Items
-		*out = make([]Cryostat, len(*in))
+		*out = make([]ClusterCryostat, len(*in))
 		for i := range *in {
 			(*in)[i].DeepCopyInto(&(*out)[i])
 		}
