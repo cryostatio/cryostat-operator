@@ -50,7 +50,6 @@ import (
 	configv1 "github.com/openshift/api/config/v1"
 	consolev1 "github.com/openshift/api/console/v1"
 	routev1 "github.com/openshift/api/route/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
@@ -123,19 +122,35 @@ func main() {
 		os.Exit(1)
 	}
 
-	apiResources, err := getAPIResources(mgr)
+	// To look for particular resource types on the API server
+	dc, err := discovery.NewDiscoveryClientForConfig(mgr.GetConfig())
 	if err != nil {
-		setupLog.Error(err, "failed to look up API resources from server")
+		setupLog.Error(err, "failed to create discovery client")
 		os.Exit(1)
 	}
-	openShift := isOpenShift(apiResources)
+
+	openShift, err := isOpenShift(dc)
+	if err != nil {
+		setupLog.Error(err, "could not determine whether manager is running on OpenShift")
+		os.Exit(1)
+	}
 	environment := "Kubernetes"
 	if openShift {
 		environment = "OpenShift"
 	}
 	setupLog.Info(fmt.Sprintf("detected %s environment", environment))
 
-	certManager := isCertManagerInstalled(apiResources)
+	certManager, err := isCertManagerInstalled(dc)
+	if err != nil {
+		setupLog.Error(err, "could not determine whether cert-manager is installed")
+		os.Exit(1)
+	}
+	if certManager {
+		setupLog.Info("found cert-manager installation")
+	} else {
+		setupLog.Info("did not find cert-manager installation")
+	}
+
 	config := newReconcilerConfig(mgr, "ClusterCryostat", "clustercryostat-controller", openShift, certManager)
 	if err = (controllers.NewClusterCryostatReconciler(config)).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "ClusterCryostat")
@@ -178,40 +193,12 @@ func getWatchNamespace() (string, error) {
 	return ns, nil
 }
 
-func isOpenShift(apiResources []*metav1.APIResourceList) bool {
-	return lookupGVK(apiResources, routev1.GroupVersion.String(), "Route")
+func isOpenShift(client discovery.DiscoveryInterface) (bool, error) {
+	return discovery.IsResourceEnabled(client, routev1.GroupVersion.WithResource("routes"))
 }
 
-func isCertManagerInstalled(apiResources []*metav1.APIResourceList) bool {
-	return lookupGVK(apiResources, certv1.SchemeGroupVersion.String(), certv1.IssuerKind)
-}
-
-func getAPIResources(mgr ctrl.Manager) ([]*metav1.APIResourceList, error) {
-	// Retrieve list of groups and resources from the API server
-	dc, err := discovery.NewDiscoveryClientForConfig(mgr.GetConfig())
-	if err != nil {
-		return nil, err
-	}
-	_, resources, err := dc.ServerGroupsAndResources()
-	if err != nil {
-		return nil, err
-	}
-	return resources, nil
-}
-
-func lookupGVK(resources []*metav1.APIResourceList, groupVersion string, kind string) bool {
-	for _, list := range resources {
-		// Look up GroupVersion
-		if list.GroupVersion == groupVersion {
-			for _, apiRes := range list.APIResources {
-				// Look up Kind
-				if apiRes.Kind == kind {
-					return true
-				}
-			}
-		}
-	}
-	return false
+func isCertManagerInstalled(client discovery.DiscoveryInterface) (bool, error) {
+	return discovery.IsResourceEnabled(client, certv1.SchemeGroupVersion.WithResource("issuers"))
 }
 
 func newReconcilerConfig(mgr ctrl.Manager, logName string, eventRecorderName string, openShift bool,
