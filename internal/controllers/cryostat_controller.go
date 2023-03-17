@@ -66,9 +66,9 @@ func NewCryostatReconciler(config *ReconcilerConfig) *CryostatReconciler {
 	}
 }
 
-// +kubebuilder:rbac:namespace=system,groups=operator.cryostat.io,resources=cryostats,verbs=*
-// +kubebuilder:rbac:namespace=system,groups=operator.cryostat.io,resources=cryostats/status,verbs=get;update;patch
-// +kubebuilder:rbac:namespace=system,groups=operator.cryostat.io,resources=cryostats/finalizers,verbs=update
+// +kubebuilder:rbac:groups=operator.cryostat.io,resources=cryostats,verbs=*
+// +kubebuilder:rbac:groups=operator.cryostat.io,resources=cryostats/status,verbs=get;update;patch
+// +kubebuilder:rbac:groups=operator.cryostat.io,resources=cryostats/finalizers,verbs=update
 
 // Reconcile processes a Cryostat CR and manages a Cryostat installation accordingly
 func (r *CryostatReconciler) Reconcile(ctx context.Context, request ctrl.Request) (ctrl.Result, error) {

@@ -860,11 +860,46 @@ spec:
         - apiGroups:
           - ""
           resources:
+          - configmaps
+          - endpoints
+          - events
+          - persistentvolumeclaims
+          - pods
+          - secrets
+          - serviceaccounts
+          - services
+          - services/finalizers
+          verbs:
+          - '*'
+        - apiGroups:
+          - ""
+          resources:
           - namespaces
           verbs:
           - get
           - list
           - watch
+        - apiGroups:
+          - ""
+          resources:
+          - replicationcontrollers
+          verbs:
+          - get
+        - apiGroups:
+          - apps
+          resources:
+          - daemonsets
+          - deployments
+          - replicasets
+          - statefulsets
+          verbs:
+          - '*'
+        - apiGroups:
+          - apps.openshift.io
+          resources:
+          - deploymentconfigs
+          verbs:
+          - get
         - apiGroups:
           - authentication.k8s.io
           resources:
@@ -877,6 +912,18 @@ spec:
           - selfsubjectaccessreviews
           verbs:
           - create
+        - apiGroups:
+          - cert-manager.io
+          resources:
+          - certificates
+          - issuers
+          verbs:
+          - create
+          - delete
+          - get
+          - list
+          - update
+          - watch
         - apiGroups:
           - config.openshift.io
           resources:
@@ -896,6 +943,12 @@ spec:
           - get
           - list
           - update
+        - apiGroups:
+          - networking.k8s.io
+          resources:
+          - ingresses
+          verbs:
+          - '*'
         - apiGroups:
           - oauth.openshift.io
           resources:
@@ -924,6 +977,26 @@ spec:
           - patch
           - update
         - apiGroups:
+          - operator.cryostat.io
+          resources:
+          - cryostats
+          verbs:
+          - '*'
+        - apiGroups:
+          - operator.cryostat.io
+          resources:
+          - cryostats/finalizers
+          verbs:
+          - update
+        - apiGroups:
+          - operator.cryostat.io
+          resources:
+          - cryostats/status
+          verbs:
+          - get
+          - patch
+          - update
+        - apiGroups:
           - rbac.authorization.k8s.io
           resources:
           - clusterrolebindings
@@ -934,6 +1007,25 @@ spec:
           - list
           - update
           - watch
+        - apiGroups:
+          - rbac.authorization.k8s.io
+          resources:
+          - rolebindings
+          - roles
+          verbs:
+          - create
+          - delete
+          - get
+          - list
+          - update
+          - watch
+        - apiGroups:
+          - route.openshift.io
+          resources:
+          - routes
+          - routes/custom-host
+          verbs:
+          - '*'
         serviceAccountName: cryostat-operator-service-account
       deployments:
       - label:
@@ -1037,104 +1129,12 @@ spec:
           - create
           - patch
         - apiGroups:
-          - ""
-          resources:
-          - configmaps
-          - endpoints
-          - events
-          - persistentvolumeclaims
-          - pods
-          - secrets
-          - serviceaccounts
-          - services
-          - services/finalizers
-          verbs:
-          - '*'
-        - apiGroups:
-          - ""
-          resources:
-          - replicationcontrollers
-          verbs:
-          - get
-        - apiGroups:
-          - apps
-          resources:
-          - daemonsets
-          - deployments
-          - replicasets
-          - statefulsets
-          verbs:
-          - '*'
-        - apiGroups:
-          - apps.openshift.io
-          resources:
-          - deploymentconfigs
-          verbs:
-          - get
-        - apiGroups:
-          - cert-manager.io
-          resources:
-          - certificates
-          - issuers
-          verbs:
-          - create
-          - delete
-          - get
-          - list
-          - update
-          - watch
-        - apiGroups:
           - monitoring.coreos.com
           resources:
           - servicemonitors
           verbs:
           - create
           - get
-        - apiGroups:
-          - networking.k8s.io
-          resources:
-          - ingresses
-          verbs:
-          - '*'
-        - apiGroups:
-          - operator.cryostat.io
-          resources:
-          - cryostats
-          verbs:
-          - '*'
-        - apiGroups:
-          - operator.cryostat.io
-          resources:
-          - cryostats/finalizers
-          verbs:
-          - update
-        - apiGroups:
-          - operator.cryostat.io
-          resources:
-          - cryostats/status
-          verbs:
-          - get
-          - patch
-          - update
-        - apiGroups:
-          - rbac.authorization.k8s.io
-          resources:
-          - rolebindings
-          - roles
-          verbs:
-          - create
-          - delete
-          - get
-          - list
-          - update
-          - watch
-        - apiGroups:
-          - route.openshift.io
-          resources:
-          - routes
-          - routes/custom-host
-          verbs:
-          - '*'
         serviceAccountName: cryostat-operator-service-account
     strategy: deployment
   installModes:
