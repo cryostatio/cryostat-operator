@@ -46,3 +46,21 @@ rules:
   - deployments
   verbs:
   - get
+- apiGroups:
+  - operator.cryostat.io
+  resources:
+  - cryostats
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - operator.cryostat.io
+  resources:
+  - cryostats/status
+  verbs:
+  - get
