@@ -41,6 +41,7 @@ import (
 	"fmt"
 	"time"
 
+	operatorv1beta1 "github.com/cryostatio/cryostat-operator/api/v1beta1"
 	scapiv1alpha3 "github.com/operator-framework/api/pkg/apis/scorecard/v1alpha3"
 	apimanifests "github.com/operator-framework/api/pkg/manifests"
 
@@ -49,14 +50,13 @@ import (
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
-	"k8s.io/client-go/kubernetes"
-	ctrl "sigs.k8s.io/controller-runtime"
 )
 
 const (
 	OperatorInstallTestName string        = "operator-install"
+	CryostatCRTestName      string        = "cryostat-cr"
 	operatorDeploymentName  string        = "cryostat-operator-controller-manager"
-	testTimeout             time.Duration = time.Second * 60
+	testTimeout             time.Duration = time.Minute * 10
 )
 
 // OperatorInstallTest checks that the operator installed correctly
@@ -68,7 +68,7 @@ func OperatorInstallTest(bundle *apimanifests.Bundle, namespace string) scapiv1a
 	r.Suggestions = make([]string, 0)
 
 	// Create a new Kubernetes REST client for this test
-	client, err := newKubeClient()
+	client, err := NewClientset()
 	if err != nil {
 		return fail(r, fmt.Sprintf("failed to create client: %s", err.Error()))
 	}
@@ -76,14 +76,82 @@ func OperatorInstallTest(bundle *apimanifests.Bundle, namespace string) scapiv1a
 	// Poll the deployment until it becomes available or we timeout
 	ctx, cancel := context.WithTimeout(context.Background(), testTimeout)
 	defer cancel()
+	err = waitForDeploymentAvailability(ctx, client, namespace, operatorDeploymentName, &r)
+	if err != nil {
+		return fail(r, fmt.Sprintf("operator deployment did not become available: %s", err.Error()))
+	}
+
+	return r
+}
+
+// CryostatCRTest checks that the operator installs Cryostat in response to a Cryostat CR
+func CryostatCRTest(bundle *apimanifests.Bundle, namespace string) scapiv1alpha3.TestResult {
+	r := scapiv1alpha3.TestResult{}
+	r.Name = CryostatCRTestName
+	r.State = scapiv1alpha3.PassState
+	r.Errors = make([]string, 0)
+	r.Suggestions = make([]string, 0)
+
+	// Create a new Kubernetes REST client for this test
+	client, err := NewClientset()
+	if err != nil {
+		return fail(r, fmt.Sprintf("failed to create client: %s", err.Error()))
+	}
+
+	// Create a default Cryostat CR
+	cr := &operatorv1beta1.Cryostat{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "cryostat-cr-test",
+			Namespace: namespace,
+		},
+		Spec: operatorv1beta1.CryostatSpec{
+			Minimal: false,
+		},
+	}
+
+	ctx := context.Background()
+	cr, err = client.OperatorCRDs().Cryostats(namespace).Create(ctx, cr)
+	if err != nil {
+		return fail(r, fmt.Sprintf("failed to create Cryostat CR: %s", err.Error()))
+	}
+
+	// Poll the deployment until it becomes available or we timeout
+	ctx, cancel := context.WithTimeout(context.Background(), testTimeout)
+	defer cancel()
+	err = waitForDeploymentAvailability(ctx, client, cr.Namespace, cr.Name, &r)
+	if err != nil {
+		return fail(r, fmt.Sprintf("Cryostat main deployment did not become available: %s", err.Error()))
+	}
+
 	err = wait.PollImmediateUntilWithContext(ctx, time.Second, func(ctx context.Context) (done bool, err error) {
-		deploy, err := client.AppsV1().Deployments(namespace).Get(ctx, operatorDeploymentName, metav1.GetOptions{})
+		cr, err = client.OperatorCRDs().Cryostats(namespace).Get(ctx, cr.Name)
+		if err != nil {
+			return false, fmt.Errorf("failed to get Cryostat CR: %s", err.Error())
+		}
+		if len(cr.Status.ApplicationURL) > 0 {
+			return true, nil
+		}
+		r.Log += "Application URL is not yet available\n"
+		return false, nil
+	})
+	if err != nil {
+		return fail(r, fmt.Sprintf("Application URL not found in CR: %s", err.Error()))
+	}
+	r.Log += fmt.Sprintf("Application is ready at %s\n", cr.Status.ApplicationURL)
+
+	return r
+}
+
+func waitForDeploymentAvailability(ctx context.Context, client *CryostatClientset, namespace string,
+	name string, r *scapiv1alpha3.TestResult) error {
+	return wait.PollImmediateUntilWithContext(ctx, time.Second, func(ctx context.Context) (done bool, err error) {
+		deploy, err := client.AppsV1().Deployments(namespace).Get(ctx, name, metav1.GetOptions{})
 		if err != nil {
 			if kerrors.IsNotFound(err) {
-				r.Log += fmt.Sprintf("deployment %s is not yet found\n", operatorDeploymentName)
+				r.Log += fmt.Sprintf("deployment %s is not yet found\n", name)
 				return false, nil // Retry
 			}
-			return false, fmt.Errorf("failed to get operator deployment: %s", err.Error())
+			return false, fmt.Errorf("failed to get deployment: %s", err.Error())
 		}
 		// Check for Available condition
 		for _, condition := range deploy.Status.Conditions {
@@ -96,22 +164,6 @@ func OperatorInstallTest(bundle *apimanifests.Bundle, namespace string) scapiv1a
 		r.Log += fmt.Sprintf("deployment %s is not yet available\n", deploy.Name)
 		return false, nil
 	})
-	if err != nil {
-		return fail(r, fmt.Sprintf("operator deployment did not become available: %s", err.Error()))
-	}
-
-	return r
-}
-
-func newKubeClient() (*kubernetes.Clientset, error) {
-	// Get in-cluster REST config from pod
-	config, err := ctrl.GetConfig()
-	if err != nil {
-		return nil, err
-	}
-
-	// Create a new Clientset to communicate with the cluster
-	return kubernetes.NewForConfig(config)
 }
 
 func fail(r scapiv1alpha3.TestResult, message string) scapiv1alpha3.TestResult {

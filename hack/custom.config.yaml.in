@@ -11,3 +11,13 @@
     labels:
       suite: cryostat
       test: operator-install
+- op: add
+  path: /stages/0/tests/-
+  value:
+    entrypoint:
+    - cryostat-scorecard-tests
+    - cryostat-cr
+    image: "${CUSTOM_SCORECARD_IMG}"
+    labels:
+      suite: cryostat
+      test: cryostat-cr

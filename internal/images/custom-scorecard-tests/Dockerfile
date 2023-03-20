@@ -46,6 +46,7 @@ COPY go.sum go.sum
 RUN go mod download
 
 # Copy the go source
+COPY api/ api/
 COPY internal/images/custom-scorecard-tests/main.go internal/images/custom-scorecard-tests/main.go
 COPY internal/test/scorecard/ internal/test/scorecard/
 
