@@ -89,6 +89,7 @@ CUSTOM_SCORECARD_VERSION ?= 2.3.0-$(shell date -u '+%Y%m%d%H%M%S')
 export CUSTOM_SCORECARD_IMG ?= $(IMAGE_TAG_BASE)-scorecard:$(CUSTOM_SCORECARD_VERSION)
 
 DEPLOY_NAMESPACE ?= cryostat-operator-system
+TARGET_NAMESPACES ?= $(DEPLOY_NAMESPACE)
 SCORECARD_NAMESPACE ?= cryostat-operator-scorecard
 
 # Get the currently used golang install path (in GOPATH/bin, unless GOBIN is set)
@@ -340,7 +341,10 @@ create_cryostat_cr: destroy_cryostat_cr
 
 .PHONY: create_clustercryostat_cr
 create_clustercryostat_cr: destroy_clustercryostat_cr
-	$(CLUSTER_CLIENT) patch -f config/samples/operator_v1beta1_clustercryostat.yaml --local=true --type=merge -p '{"spec": {"installNamespace": "$(DEPLOY_NAMESPACE)", "targetNamespaces": ["$(DEPLOY_NAMESPACE)"]}}' -o yaml | oc apply -f -
+	target_ns_json=$$(jq -nc '$$ARGS.positional' --args -- $(TARGET_NAMESPACES)) && \
+	$(CLUSTER_CLIENT) patch -f config/samples/operator_v1beta1_clustercryostat.yaml --local=true --type=merge \
+	-p "{\"spec\": {\"installNamespace\": \"$(DEPLOY_NAMESPACE)\", \"targetNamespaces\": $$target_ns_json}}" -o yaml | \
+	oc apply -f -
 
 # Undeploy a Cryostat instance
 .PHONY: destroy_cryostat_cr
