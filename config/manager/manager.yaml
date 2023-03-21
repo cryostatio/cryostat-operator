@@ -48,9 +48,7 @@ spec:
           periodSeconds: 10
         env:
         - name: WATCH_NAMESPACE
-          valueFrom:
-            fieldRef:
-              fieldPath: metadata.namespace
+          value: ""
         resources:
           limits:
             cpu: 1000m

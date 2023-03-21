@@ -43,6 +43,7 @@ USE_IMAGE_DIGESTS ?= false
 ifeq ($(USE_IMAGE_DIGESTS), true)
 	BUNDLE_GEN_FLAGS += --use-image-digests
 endif
+BUNDLE_INSTALL_MODE ?= AllNamespaces
 
 IMAGE_BUILDER ?= podman
 # Image URL to use all building/pushing image targets
@@ -88,6 +89,7 @@ CUSTOM_SCORECARD_VERSION ?= 2.3.0-$(shell date -u '+%Y%m%d%H%M%S')
 export CUSTOM_SCORECARD_IMG ?= $(IMAGE_TAG_BASE)-scorecard:$(CUSTOM_SCORECARD_VERSION)
 
 DEPLOY_NAMESPACE ?= cryostat-operator-system
+TARGET_NAMESPACES ?= $(DEPLOY_NAMESPACE)
 SCORECARD_NAMESPACE ?= cryostat-operator-scorecard
 
 # Get the currently used golang install path (in GOPATH/bin, unless GOBIN is set)
@@ -190,6 +192,7 @@ endif
 .PHONY: undeploy
 undeploy:
 	- $(CLUSTER_CLIENT) delete --ignore-not-found=$(ignore-not-found) -f config/samples/operator_v1beta1_cryostat.yaml
+	- $(CLUSTER_CLIENT) delete --ignore-not-found=$(ignore-not-found) -f config/samples/operator_v1beta1_clustercryostat.yaml
 	- $(KUSTOMIZE) build config/default | $(CLUSTER_CLIENT) delete --ignore-not-found=$(ignore-not-found) -f -
 
 # Generate manifests e.g. CRD, RBAC etc.
@@ -311,7 +314,7 @@ bundle-build:
 
 .PHONY: deploy_bundle
 deploy_bundle: check_cert_manager undeploy_bundle
-	operator-sdk run bundle $(BUNDLE_IMG)
+	operator-sdk run bundle --install-mode $(BUNDLE_INSTALL_MODE) $(BUNDLE_IMG)
 ifeq ($(DISABLE_SERVICE_TLS), true)
 	@echo "Disabling TLS for in-cluster communication between Services"
 	@current_ns=`$(CLUSTER_CLIENT) config view --minify -o 'jsonpath={.contexts[0].context.namespace}'` && \
@@ -336,10 +339,21 @@ undeploy_bundle:
 create_cryostat_cr: destroy_cryostat_cr
 	$(CLUSTER_CLIENT) create -f config/samples/operator_v1beta1_cryostat.yaml
 
+.PHONY: create_clustercryostat_cr
+create_clustercryostat_cr: destroy_clustercryostat_cr
+	target_ns_json=$$(jq -nc '$$ARGS.positional' --args -- $(TARGET_NAMESPACES)) && \
+	$(CLUSTER_CLIENT) patch -f config/samples/operator_v1beta1_clustercryostat.yaml --local=true --type=merge \
+	-p "{\"spec\": {\"installNamespace\": \"$(DEPLOY_NAMESPACE)\", \"targetNamespaces\": $$target_ns_json}}" -o yaml | \
+	oc apply -f -
+
 # Undeploy a Cryostat instance
 .PHONY: destroy_cryostat_cr
 destroy_cryostat_cr:
 	- $(CLUSTER_CLIENT) delete --ignore-not-found=$(ignore-not-found) -f config/samples/operator_v1beta1_cryostat.yaml
+
+.PHONY: destroy_clustercryostat_cr
+destroy_clustercryostat_cr:
+	- $(CLUSTER_CLIENT) delete --ignore-not-found=$(ignore-not-found) -f config/samples/operator_v1beta1_clustercryostat.yaml
 
 # Build custom scorecard tests
 .PHONY: custom-scorecard-tests
