@@ -26,7 +26,9 @@ metadata:
 ```
 
 ### Installation Namespace
-Since the `ClusterCryostat` API is cluster-scoped, we cannot use the `metadata.namespace` property to determine where Cryostat should be installed. You must instead provide the namespace where Cryostat should be installed into using the `spec.installNamespace` property. For optimal security, we suggest using a different installation namespace than the namespace where the operator is installed, and a different namespace from where your target workloads will be. This is because the operator uses a larger set of permissions compared to Cryostat itself, and Cryostat may have more permissions than your target workloads. It is considered good practice to isolate more privileged Service Accounts from less privileged users, since a user authorized to create workloads can [access any Service Account](https://kubernetes.io/docs/concepts/security/rbac-good-practices/#workload-creation) in that namespace.
+Since the `ClusterCryostat` API is cluster-scoped, we cannot use the `metadata.namespace` property to determine where Cryostat should be installed. You must instead provide the namespace where Cryostat should be installed into using the `spec.installNamespace` property.
+
+For optimal security, we suggest using a different installation namespace than the namespace where the operator is installed, and a different namespace from where your target workloads will be. This is because the operator uses a larger set of permissions compared to Cryostat itself, and Cryostat may have more permissions than your target workloads. It is considered good practice to isolate more privileged Service Accounts from less privileged users, since a user authorized to create workloads can [access any Service Account](https://kubernetes.io/docs/concepts/security/rbac-good-practices/#workload-creation) in that namespace.
 
 ```yaml
 apiVersion: operator.cryostat.io/v1beta1
