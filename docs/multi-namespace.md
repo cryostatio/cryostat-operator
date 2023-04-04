@@ -1,4 +1,4 @@
-## Configuring a multi-namespace Cryostat
+## Configuring a Multi-Namespace Cryostat
 In addition to installing [Cryostat](https://github.com/cryostatio/cryostat) into a single namespace, the Cryostat Operator also allows you to create a Cryostat installation that can work across multiple namespaces. This can be done using the `ClusterCryostat` API. The `ClusterCryostat` API contains all the same [configuration properties](config.md) as the `Cryostat` API does, but has some key differences to enable multi-namespace support that we'll outline below.
 
 ```yaml
