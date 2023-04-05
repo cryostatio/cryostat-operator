@@ -28,6 +28,8 @@ metadata:
 ### Data Isolation
 When installed in a cluster-wide, multi-namespace manner, all users with access to a Cryostat instance have the same visibility and privileges to all data available to that Cryostat instance. Administrators deploying Cryostat instances must ensure that the users who have access to a Cryostat instance also have equivalent access to all the applications that can be monitored by that Cryostat instance. Otherwise, underprivileged users may use Cryostat to escalate permissions to start recordings and collect JFR data from applications that they do not otherwise have access to.
 
+For now, all authorization checks are done against the namespace where Cryostat is installed. For a user to use Cryostat with workloads in a target namespace, that user must have the necessary Kubernetes permissions in the namespace where Cryostat is installed.
+
 ### Installation Namespace
 Since the `ClusterCryostat` API is cluster-scoped, we cannot use the `metadata.namespace` property to determine where Cryostat should be installed. You must instead provide the namespace where Cryostat should be installed into using the `spec.installNamespace` property.
 
