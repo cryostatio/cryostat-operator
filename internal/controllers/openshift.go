@@ -79,7 +79,8 @@ func newConsoleLink(cr *model.CryostatInstance) *consolev1.ConsoleLink {
 	// Cluster scoped, so use a unique name to avoid conflicts
 	return &consolev1.ConsoleLink{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: common.ClusterUniqueName(cr.Name, cr.InstallNamespace),
+			Name: common.ClusterUniqueName(cr.Object.GetObjectKind().GroupVersionKind().Kind,
+				cr.Name, cr.InstallNamespace),
 		},
 	}
 }

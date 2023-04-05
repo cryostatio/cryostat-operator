@@ -156,7 +156,7 @@ func (c *timestampClient) Create(ctx context.Context, obj ctrlclient.Object, opt
 
 var creationTimestamp = metav1.NewTime(time.Unix(1664573254, 0))
 
-func SetCreationTimestamp(objs ...runtime.Object) error {
+func SetCreationTimestamp(objs ...ctrlclient.Object) error {
 	for _, obj := range objs {
 		metaObj, err := meta.Accessor(obj)
 		if err != nil {
