@@ -2487,7 +2487,7 @@ func (r *TestResources) clusterUniqueSuffix() string {
 func (r *TestResources) NewClusterRoleBinding() *rbacv1.ClusterRoleBinding {
 	return &rbacv1.ClusterRoleBinding{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: "cryostat-" + r.clusterUniqueSuffix(),
+			Name: r.getClusterUniqueName(),
 		},
 		Subjects: []rbacv1.Subject{
 			{
@@ -2507,7 +2507,7 @@ func (r *TestResources) NewClusterRoleBinding() *rbacv1.ClusterRoleBinding {
 func (r *TestResources) OtherClusterRoleBinding() *rbacv1.ClusterRoleBinding {
 	return &rbacv1.ClusterRoleBinding{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: "cryostat-" + r.clusterUniqueSuffix(),
+			Name: r.getClusterUniqueName(),
 			Labels: map[string]string{
 				"test": "label",
 			},
@@ -2586,7 +2586,7 @@ func (r *TestResources) NewNamespaceWithSCCSupGroups() *corev1.Namespace {
 func (r *TestResources) NewConsoleLink() *consolev1.ConsoleLink {
 	return &consolev1.ConsoleLink{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: "cryostat-" + r.clusterUniqueSuffix(),
+			Name: r.getClusterUniqueName(),
 		},
 		Spec: consolev1.ConsoleLinkSpec{
 			Link: consolev1.Link{
@@ -2604,7 +2604,7 @@ func (r *TestResources) NewConsoleLink() *consolev1.ConsoleLink {
 func (r *TestResources) OtherConsoleLink() *consolev1.ConsoleLink {
 	return &consolev1.ConsoleLink{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: "cryostat-" + r.clusterUniqueSuffix(),
+			Name: r.getClusterUniqueName(),
 			Labels: map[string]string{
 				"my": "label",
 			},
@@ -2758,4 +2758,21 @@ func checkWithLimit(requests, limits corev1.ResourceList) {
 			requests[corev1.ResourceMemory] = limitMemory.DeepCopy()
 		}
 	}
+}
+
+func (r *TestResources) NewLockConfigMap() *corev1.ConfigMap {
+	return &corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      r.Name + "-lock",
+			Namespace: r.Namespace,
+		},
+	}
+}
+
+func (r *TestResources) getClusterUniqueName() string {
+	prefix := "cryostat-"
+	if r.ClusterScoped {
+		prefix = "clustercryostat-"
+	}
+	return prefix + r.clusterUniqueSuffix()
 }

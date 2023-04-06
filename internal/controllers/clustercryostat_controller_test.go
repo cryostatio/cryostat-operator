@@ -75,6 +75,10 @@ var _ = Describe("ClusterCryostatController", func() {
 			c.commonJustBeforeEach(t)
 		})
 
+		JustAfterEach(func() {
+			c.commonJustAfterEach(t)
+		})
+
 		It("should create the expected main deployment", func() {
 			t.expectDeployment()
 		})

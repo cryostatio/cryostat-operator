@@ -34,59 +34,39 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-package common
+package controllers
 
 import (
-	"crypto/sha256"
+	"context"
 	"fmt"
-	"io/ioutil"
-	"math/rand"
-	"os"
-	"strings"
-	"time"
 
-	"k8s.io/apimachinery/pkg/types"
-	logf "sigs.k8s.io/controller-runtime/pkg/log"
+	"github.com/cryostatio/cryostat-operator/internal/controllers/model"
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
-var log = logf.Log.WithName("common")
-
-// OSUtils is an abstraction on functionality that interacts with the operating system
-type OSUtils interface {
-	GetEnv(name string) string
-	GetFileContents(path string) ([]byte, error)
-	GenPasswd(length int) string
-}
-
-type defaultOSUtils struct{}
-
-// GetEnv returns the value of the environment variable with the provided name. If no such
-// variable exists, the empty string is returned.
-func (o *defaultOSUtils) GetEnv(name string) string {
-	return os.Getenv(name)
-}
-
-// GetFileContents reads and returns the entire file contents specified by the path
-func (o *defaultOSUtils) GetFileContents(path string) ([]byte, error) {
-	return ioutil.ReadFile(path)
-}
-
-// GenPasswd generates a psuedorandom password of a given length.
-func (o *defaultOSUtils) GenPasswd(length int) string {
-	rand.Seed(time.Now().UnixNano())
-	chars := "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_"
-	b := make([]byte, length)
-	for i := range b {
-		b[i] = chars[rand.Intn(len(chars))]
+func (r *Reconciler) reconcileLockConfigMap(ctx context.Context, cr *model.CryostatInstance) error {
+	cm := &corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      cr.Name + "-lock",
+			Namespace: cr.InstallNamespace,
+		},
 	}
-	return string(b)
+	return r.createOrUpdateConfigMap(ctx, cm, cr.Object)
 }
 
-// ClusterUniqueName returns a name for cluster-scoped objects that is
-// uniquely identified by a namespace and name.
-func ClusterUniqueName(kind string, name string, namespace string) string {
-	// Use the SHA256 checksum of the namespaced name as a suffix
-	nn := types.NamespacedName{Namespace: namespace, Name: name}
-	suffix := fmt.Sprintf("%x", sha256.Sum256([]byte(nn.String())))
-	return strings.ToLower(kind) + "-" + suffix
+func (r *Reconciler) createOrUpdateConfigMap(ctx context.Context, cm *corev1.ConfigMap, owner metav1.Object) error {
+	op, err := controllerutil.CreateOrUpdate(ctx, r.Client, cm, func() error {
+		// Set the Cryostat CR as controller
+		if err := controllerutil.SetControllerReference(owner, cm, r.Scheme); err != nil {
+			return err
+		}
+		return nil
+	})
+	if err != nil {
+		return err
+	}
+	r.Log.Info(fmt.Sprintf("Config Map %s", op), "name", cm.Name, "namespace", cm.Namespace)
+	return nil
 }

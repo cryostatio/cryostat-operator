@@ -138,7 +138,18 @@ var reportsDeploymentConditions = deploymentConditionTypeMap{
 }
 
 func (r *Reconciler) reconcileCryostat(ctx context.Context, cr *model.CryostatInstance) (ctrl.Result, error) {
+	result, err := r.reconcile(ctx, cr)
+	return result, r.checkConflicts(cr, err)
+}
+
+func (r *Reconciler) reconcile(ctx context.Context, cr *model.CryostatInstance) (ctrl.Result, error) {
 	reqLogger := r.Log.WithValues("Request.Namespace", cr.InstallNamespace, "Request.Name", cr.Name)
+
+	// Create lock config map or fail if owned by another CR
+	err := r.reconcileLockConfigMap(ctx, cr)
+	if err != nil {
+		return reconcile.Result{}, err
+	}
 
 	// Check if this Cryostat is being deleted
 	if cr.Object.GetDeletionTimestamp() != nil {
@@ -174,7 +185,7 @@ func (r *Reconciler) reconcileCryostat(ctx context.Context, cr *model.CryostatIn
 
 	reqLogger.Info("Spec", "Minimal", cr.Spec.Minimal)
 
-	err := r.reconcilePVC(ctx, cr)
+	err = r.reconcilePVC(ctx, cr)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
@@ -503,6 +514,31 @@ func (r *Reconciler) deleteDeployment(ctx context.Context, deploy *appsv1.Deploy
 	}
 	r.Log.Info("Deployment deleted", "name", deploy.Name, "namespace", deploy.Namespace)
 	return nil
+}
+
+const eventNameConflictReason = "CryostatNameConflict"
+
+func (r *Reconciler) checkConflicts(cr *model.CryostatInstance, err error) error {
+	if err == nil {
+		return nil
+	}
+	alreadyOwned, ok := err.(*controllerutil.AlreadyOwnedError)
+	if !ok {
+		return err
+	}
+	r.Log.Error(err, "Could not process custom resource")
+	metaType, err := meta.TypeAccessor(alreadyOwned.Object)
+	if err != nil {
+		return err
+	}
+	msg := fmt.Sprintf("This instance needs to manage the %s %s in namespace %s, but it is already owned by %s %s. "+
+		"Please choose a different name for your instance.",
+		metaType.GetKind(), alreadyOwned.Object.GetName(), alreadyOwned.Object.GetNamespace(),
+		alreadyOwned.Owner.Kind, alreadyOwned.Owner.Name)
+	r.EventRecorder.Event(cr.Object, corev1.EventTypeWarning, eventNameConflictReason, msg)
+	// Log the event message as well
+	r.Log.Info(msg)
+	return alreadyOwned
 }
 
 func requeueIfIngressNotReady(log logr.Logger, err error) (reconcile.Result, error) {

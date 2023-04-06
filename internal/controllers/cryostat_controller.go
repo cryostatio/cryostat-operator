@@ -91,9 +91,6 @@ func (r *CryostatReconciler) Reconcile(ctx context.Context, request ctrl.Request
 		return reconcile.Result{}, err
 	}
 
-	// TODO Consider potential name conflicts.
-	// For namespaced, look up cluster-scoped with same name. If it exists, check the list of target namespaces.
-	// If there's a match, don't process the CR. Emit an event warning the user of the conflict.
 	instance := model.FromCryostat(cr)
 	return r.delegate.reconcileCryostat(ctx, instance)
 }
