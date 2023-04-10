@@ -75,11 +75,11 @@ CERT_MANAGER_MANIFEST ?= \
 	https://github.com/jetstack/cert-manager/releases/download/v$(CERT_MANAGER_VERSION)/cert-manager.yaml
 
 KUSTOMIZE_VERSION ?= 3.8.7
-CONTROLLER_TOOLS_VERSION ?= 0.9.2
+CONTROLLER_TOOLS_VERSION ?= 0.11.1
 ADDLICENSE_VERSION ?= 1.0.0
 OPM_VERSION ?= 1.23.0
 # ENVTEST_K8S_VERSION refers to the version of kubebuilder assets to be downloaded by envtest binary.
-ENVTEST_K8S_VERSION ?= 1.24 
+ENVTEST_K8S_VERSION ?= 1.26
 
 # Scorecard ImagePullPolicy is hardcoded to IfNotPresent
 # See: https://github.com/operator-framework/operator-sdk/pull/4762
@@ -135,7 +135,7 @@ ifneq ($(SKIP_TESTS), true)
 	$(CLUSTER_CLIENT) create namespace $(SCORECARD_NAMESPACE)
 	$(CLUSTER_CLIENT) -n $(SCORECARD_NAMESPACE) create -f internal/images/custom-scorecard-tests/rbac/
 	operator-sdk run bundle -n $(SCORECARD_NAMESPACE) $(BUNDLE_IMG)
-	operator-sdk scorecard -n $(SCORECARD_NAMESPACE) -s cryostat-scorecard -w 5m $(BUNDLE_IMG)
+	operator-sdk scorecard -n $(SCORECARD_NAMESPACE) -s cryostat-scorecard -w 5m $(BUNDLE_IMG) --pod-security=restricted
 	- operator-sdk cleanup -n $(SCORECARD_NAMESPACE) $(OPERATOR_NAME)
 	- $(CLUSTER_CLIENT) delete --ignore-not-found=$(ignore-not-found) namespace $(SCORECARD_NAMESPACE)
 endif
@@ -147,12 +147,12 @@ clean-scorecard:
 
 # Build manager binary
 .PHONY: manager
-manager: generate fmt vet
+manager: manifests generate fmt vet
 	go build -o bin/manager internal/main.go
 
 # Run against the configured Kubernetes cluster in ~/.kube/config
 .PHONY: run
-run: generate fmt vet manifests
+run: manifests generate fmt vet
 	go run ./internal/main.go
 
 ifndef ignore-not-found
@@ -227,7 +227,7 @@ add-license: addlicense
 
 # Build the OCI image
 .PHONY: oci-build
-oci-build: generate manifests test-envtest
+oci-build: manifests generate fmt vet test-envtest
 	BUILDAH_FORMAT=docker $(IMAGE_BUILDER) build -t $(OPERATOR_IMG) .
 
 # PLATFORMS defines the target platforms for the manager image to provide support to multiple
@@ -238,7 +238,7 @@ oci-build: generate manifests test-envtest
 # To properly provided solutions that supports more than one platform you should use this option.
 PLATFORMS ?= linux/arm64,linux/amd64,linux/s390x,linux/ppc64le
 .PHONY: docker-buildx
-docker-buildx: generate manifests test-envtest ## Build OCI image for the manager for cross-platform support
+docker-buildx: manifests generate fmt vet test-envtest ## Build OCI image for the manager for cross-platform support
 	# copy existing Dockerfile and insert --platform=${BUILDPLATFORM} into Dockerfile.cross, and preserve the original Dockerfile
 	sed -e '1 s/\(^FROM\)/FROM --platform=\$$\{BUILDPLATFORM\}/; t' -e ' 1,// s//FROM --platform=\$$\{BUILDPLATFORM\}/' Dockerfile > Dockerfile.cross
 	- docker buildx create --name project-v3-builder
@@ -269,20 +269,25 @@ LOCALBIN ?= $(shell pwd)/bin
 $(LOCALBIN):
 	mkdir -p $(LOCALBIN)
 
-# Download controller-gen locally if necessary
+# Download controller-gen locally if necessary. If wrong version is installed, it will be overwritten.
 CONTROLLER_GEN = $(LOCALBIN)/controller-gen
 .PHONY: controller-gen
 controller-gen: $(CONTROLLER_GEN)
 $(CONTROLLER_GEN): $(LOCALBIN)
-	test -s $(CONTROLLER_GEN) || GOBIN=$(LOCALBIN) go install sigs.k8s.io/controller-tools/cmd/controller-gen@v$(CONTROLLER_TOOLS_VERSION)
+	test -s $(CONTROLLER_GEN) && $(CONTROLLER_GEN) --version | grep -q $(CONTROLLER_TOOLS_VERSION) || \
+	GOBIN=$(LOCALBIN) go install sigs.k8s.io/controller-tools/cmd/controller-gen@v$(CONTROLLER_TOOLS_VERSION)
 
-# Download kustomize locally if necessary
+# Download kustomize locally if necessary. If wrong version is installed, it will be removed before downloading.
 KUSTOMIZE_INSTALL_SCRIPT ?= "https://raw.githubusercontent.com/kubernetes-sigs/kustomize/master/hack/install_kustomize.sh"
 KUSTOMIZE = $(LOCALBIN)/kustomize
 .PHONY: kustomize
 kustomize: $(KUSTOMIZE)
 $(KUSTOMIZE): $(LOCALBIN)
-	test -s $(KUSTOMIZE) || curl -s $(KUSTOMIZE_INSTALL_SCRIPT) | bash -s -- $(subst v,,$(KUSTOMIZE_VERSION)) $(LOCALBIN)
+	@if test -x $(LOCALBIN)/kustomize && ! $(LOCALBIN)/kustomize version | grep -q $(KUSTOMIZE_VERSION); then \
+		echo "$(LOCALBIN)/kustomize version is not expected $(KUSTOMIZE_VERSION). Removing it before installing."; \
+		rm -rf $(LOCALBIN)/kustomize; \
+	fi
+	test -s $(KUSTOMIZE) || { curl -Ss $(KUSTOMIZE_INSTALL_SCRIPT) | bash -s -- $(subst v,,$(KUSTOMIZE_VERSION)) $(LOCALBIN); }
 
 # Download addlicense locally if necessary
 ADDLICENSE = $(LOCALBIN)/addlicense
