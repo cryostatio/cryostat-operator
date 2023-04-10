@@ -121,11 +121,10 @@ all: manager
 .PHONY: test
 test: test-envtest test-scorecard
 
-# FIXME remove ACK_GINKGO_DEPRECATIONS when upgrading to ginkgo 2.0
 .PHONY: test-envtest
 test-envtest: generate manifests fmt vet setup-envtest
 ifneq ($(SKIP_TESTS), true)
-	ACK_GINKGO_DEPRECATIONS=1.16.5  KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) -p path)" $(GO_TEST) -v -coverprofile cover.out ./...
+	KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) --bin-dir $(LOCALBIN) -p path)" $(GO_TEST) -v -coverprofile cover.out ./...
 endif
 
 .PHONY: test-scorecard
@@ -228,9 +227,25 @@ add-license: addlicense
 
 # Build the OCI image
 .PHONY: oci-build
-oci-build: generate manifests manager test-envtest
+oci-build: generate manifests test-envtest
 	BUILDAH_FORMAT=docker $(IMAGE_BUILDER) build -t $(OPERATOR_IMG) .
 
+# PLATFORMS defines the target platforms for the manager image to provide support to multiple
+# architectures. (i.e. make docker-buildx OPERATOR_IMG=quay.io/cryostat/cryostat-operator:2.3.0).To use this option you need to:
+# - use docker as IMAGE_BUILDER.
+# - able to use docker buildx . More info: https://docs.docker.com/build/buildx/
+# - have enable BuildKit, More info: https://docs.docker.com/develop/develop-images/build_enhancements/
+# To properly provided solutions that supports more than one platform you should use this option.
+PLATFORMS ?= linux/arm64,linux/amd64,linux/s390x,linux/ppc64le
+.PHONY: docker-buildx
+docker-buildx: generate manifests test-envtest ## Build OCI image for the manager for cross-platform support
+	# copy existing Dockerfile and insert --platform=${BUILDPLATFORM} into Dockerfile.cross, and preserve the original Dockerfile
+	sed -e '1 s/\(^FROM\)/FROM --platform=\$$\{BUILDPLATFORM\}/; t' -e ' 1,// s//FROM --platform=\$$\{BUILDPLATFORM\}/' Dockerfile > Dockerfile.cross
+	- docker buildx create --name project-v3-builder
+	docker buildx use project-v3-builder
+	- docker buildx build --platform=$(PLATFORMS) --tag $(OPERATOR_IMG) -f Dockerfile.cross .
+	- docker buildx rm project-v3-builder
+	rm Dockerfile.cross
 
 .PHONY: cert_manager
 cert_manager: remove_cert_manager

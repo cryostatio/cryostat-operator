@@ -77,7 +77,7 @@ func NewTestClient(client ctrlclient.Client, resources *TestResources) ctrlclien
 	}
 }
 
-func (c *testClient) Get(ctx context.Context, key ctrlclient.ObjectKey, obj ctrlclient.Object) error {
+func (c *testClient) Get(ctx context.Context, key ctrlclient.ObjectKey, obj ctrlclient.Object, opts ...ctrlclient.GetOption) error {
 	err := c.Client.Get(ctx, key, obj)
 	if err != nil {
 		return err
