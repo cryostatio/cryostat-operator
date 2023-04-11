@@ -4398,8 +4398,10 @@ spec:
                     type: boolean
                 type: object
               targetNamespaces:
-                description: List of namespaces whose workloads Cryostat should be
-                  permitted to access and profile.
+                description: 'List of namespaces whose workloads Cryostat should be
+                  permitted to access and profile. Warning: All Cryostat users will
+                  be able to create and manage recordings for workloads in the listed
+                  namespaces. More details: https://github.com/cryostatio/cryostat-operator/blob/v2.3.0/docs/multi-namespace.md#data-isolation'
                 items:
                   type: string
                 type: array
