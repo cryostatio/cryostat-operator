@@ -69,8 +69,10 @@ spec:
         path: installNamespace
         x-descriptors:
         - urn:alm:descriptor:io.kubernetes:Namespace
-      - description: List of namespaces whose workloads Cryostat should be permitted
-          to access and profile.
+      - description: 'List of namespaces whose workloads Cryostat should be permitted
+          to access and profile. Warning: All Cryostat users will be able to create
+          and manage recordings for workloads in the listed namespaces. More details:
+          https://github.com/cryostatio/cryostat-operator/blob/v2.3.0/docs/multi-namespace.md#data-isolation'
         displayName: Target Namespaces
         path: targetNamespaces
       - description: Use cert-manager to secure in-cluster communication between Cryostat
