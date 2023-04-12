@@ -228,24 +228,36 @@ add-license: addlicense
 # Build the OCI image
 .PHONY: oci-build
 oci-build: manifests generate fmt vet test-envtest
-	BUILDAH_FORMAT=docker $(IMAGE_BUILDER) build -t $(OPERATOR_IMG) .
+	BUILDAH_FORMAT=docker $(IMAGE_BUILDER) build --build-arg TARGETOS=$(OS) --build-arg TARGETARCH=$(ARCH) -t $(OPERATOR_IMG) .
 
 # PLATFORMS defines the target platforms for the manager image to provide support to multiple
-# architectures. (i.e. make docker-buildx OPERATOR_IMG=quay.io/cryostat/cryostat-operator:2.3.0).To use this option you need to:
-# - use docker as IMAGE_BUILDER.
-# - able to use docker buildx . More info: https://docs.docker.com/build/buildx/
+# architectures. (i.e. make oci-buildx OPERATOR_IMG=quay.io/cryostat/cryostat-operator:2.3.0).
+# You need to be able to push the image for your registry (i.e. if you do not inform a valid value via OPERATOR_IMG=<myregistry/image:<tag>> than the export will fail)
+# If IMAGE_BUILDER is docker, you need to:
+# - able to use docker buildx. More info: https://docs.docker.com/build/buildx/
 # - have enable BuildKit, More info: https://docs.docker.com/develop/develop-images/build_enhancements/
+# If IMAGE_BUILDER is podman, you need to:
+# - install qemu-user-static.
 # To properly provided solutions that supports more than one platform you should use this option.
 PLATFORMS ?= linux/arm64,linux/amd64,linux/s390x,linux/ppc64le
-.PHONY: docker-buildx
-docker-buildx: manifests generate fmt vet test-envtest ## Build OCI image for the manager for cross-platform support
-	# copy existing Dockerfile and insert --platform=${BUILDPLATFORM} into Dockerfile.cross, and preserve the original Dockerfile
+.PHONY: oci-buildx
+oci-buildx: # manifests generate fmt vet test-envtest ## Build OCI image for the manager for cross-platform support
+ifeq ($(IMAGE_BUILDER), docker)
+# copy existing Dockerfile and insert --platform=${BUILDPLATFORM} into Dockerfile.cross, and preserve the original Dockerfile
 	sed -e '1 s/\(^FROM\)/FROM --platform=\$$\{BUILDPLATFORM\}/; t' -e ' 1,// s//FROM --platform=\$$\{BUILDPLATFORM\}/' Dockerfile > Dockerfile.cross
 	- docker buildx create --name project-v3-builder
 	docker buildx use project-v3-builder
-	- docker buildx build --platform=$(PLATFORMS) --tag $(OPERATOR_IMG) -f Dockerfile.cross .
+	- docker buildx build --push --platform=$(PLATFORMS) --tag $(OPERATOR_IMG) -f Dockerfile.cross .
 	- docker buildx rm project-v3-builder
 	rm Dockerfile.cross
+else
+	for platform in $$(echo $(PLATFORMS) | sed "s/,/ /g"); do \
+		os=$$(echo $${platform} | cut -d/ -f 1); \
+		arch=$$(echo $${platform} | cut -d/ -f 2); \
+		BUILDAH_FORMAT=docker podman buildx build --manifest $(OPERATOR_IMG) --platform $${platform} --build-arg TARGETOS=$${os} --build-arg TARGETARCH=$${arch} . ; \
+	done
+	podman manifest push $(OPERATOR_IMG) $(OPERATOR_IMG)
+endif
 
 .PHONY: cert_manager
 cert_manager: remove_cert_manager
