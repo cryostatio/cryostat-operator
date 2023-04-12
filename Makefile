@@ -266,14 +266,15 @@ check_cert_manager:
 
 # Location to install dependencies
 LOCALBIN ?= $(shell pwd)/bin
-$(LOCALBIN):
+PHONY: local-bin
+local-bin:
 	mkdir -p $(LOCALBIN)
 
 # Download controller-gen locally if necessary. If wrong version is installed, it will be overwritten.
 CONTROLLER_GEN = $(LOCALBIN)/controller-gen
 .PHONY: controller-gen
 controller-gen: $(CONTROLLER_GEN)
-$(CONTROLLER_GEN): $(LOCALBIN)
+$(CONTROLLER_GEN): local-bin
 	test -s $(CONTROLLER_GEN) && $(CONTROLLER_GEN) --version | grep -q $(CONTROLLER_TOOLS_VERSION) || \
 	GOBIN=$(LOCALBIN) go install sigs.k8s.io/controller-tools/cmd/controller-gen@v$(CONTROLLER_TOOLS_VERSION)
 
@@ -282,7 +283,7 @@ KUSTOMIZE_INSTALL_SCRIPT ?= "https://raw.githubusercontent.com/kubernetes-sigs/k
 KUSTOMIZE = $(LOCALBIN)/kustomize
 .PHONY: kustomize
 kustomize: $(KUSTOMIZE)
-$(KUSTOMIZE): $(LOCALBIN)
+$(KUSTOMIZE): local-bin
 	@if test -x $(LOCALBIN)/kustomize && ! $(LOCALBIN)/kustomize version | grep -q $(KUSTOMIZE_VERSION); then \
 		echo "$(LOCALBIN)/kustomize version is not expected $(KUSTOMIZE_VERSION). Removing it before installing."; \
 		rm -rf $(LOCALBIN)/kustomize; \
@@ -293,21 +294,21 @@ $(KUSTOMIZE): $(LOCALBIN)
 ADDLICENSE = $(LOCALBIN)/addlicense
 .PHONY: addlicense
 addlicense: $(ADDLICENSE)
-$(ADDLICENSE): $(LOCALBIN)
+$(ADDLICENSE): local-bin
 	test -s $(ADDLICENSE) || GOBIN=$(LOCALBIN) go install github.com/google/addlicense@v$(ADDLICENSE_VERSION)
 
 # Download setup-envtest locally if necessary
 ENVTEST = $(LOCALBIN)/setup-envtest
 .PHONY: setup-envtest
 setup-envtest: $(ENVTEST)
-$(ENVTEST): $(LOCALBIN)
+$(ENVTEST): local-bin
 	test -s $(ENVTEST) || GOBIN=$(LOCALBIN) go install sigs.k8s.io/controller-runtime/tools/setup-envtest@latest
 
 # Download opm locally if necessary
 OPM = $(LOCALBIN)/opm
 .PHONY: opm
 opm: $(OPM)
-$(OPM): $(LOCALBIN)
+$(OPM): local-bin
 	test -s $(OPM) || \
 	{ \
 	set -e ;\
