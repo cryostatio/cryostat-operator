@@ -41,9 +41,9 @@ import (
 	"errors"
 	"strings"
 
+	certv1 "github.com/cert-manager/cert-manager/pkg/apis/certmanager/v1"
+	certMeta "github.com/cert-manager/cert-manager/pkg/apis/meta/v1"
 	"github.com/cryostatio/cryostat-operator/internal/controllers/model"
-	certv1 "github.com/jetstack/cert-manager/pkg/apis/certmanager/v1"
-	certMeta "github.com/jetstack/cert-manager/pkg/apis/meta/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"

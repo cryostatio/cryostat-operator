@@ -39,10 +39,10 @@ package resource_definitions
 import (
 	"fmt"
 
+	certv1 "github.com/cert-manager/cert-manager/pkg/apis/certmanager/v1"
+	certMeta "github.com/cert-manager/cert-manager/pkg/apis/meta/v1"
 	"github.com/cryostatio/cryostat-operator/internal/controllers/constants"
 	"github.com/cryostatio/cryostat-operator/internal/controllers/model"
-	certv1 "github.com/jetstack/cert-manager/pkg/apis/certmanager/v1"
-	certMeta "github.com/jetstack/cert-manager/pkg/apis/meta/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
