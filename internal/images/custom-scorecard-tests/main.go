@@ -58,6 +58,7 @@ func main() {
 	openShiftCertManager := flag.Bool(argInstallOpenShiftCertManager, false, "installs the cert-manager Operator for Red Hat OpenShift")
 	flag.Parse()
 	if openShiftCertManager == nil {
+		// Default to false
 		openShiftCertManager = &[]bool{false}[0]
 	}
 
@@ -65,7 +66,6 @@ func main() {
 	if len(entrypoint) == 0 {
 		log.Fatal("specify one or more test name arguments")
 	}
-	fmt.Println(entrypoint)
 
 	// Get namespace from SCORECARD_NAMESPACE environment variable
 	namespace := os.Getenv("SCORECARD_NAMESPACE")

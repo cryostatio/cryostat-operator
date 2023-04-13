@@ -206,8 +206,12 @@ func installOpenShiftCertManager(r *scapiv1alpha3.TestResult) error {
 		}
 
 		csv := &operatorsv1alpha1.ClusterServiceVersion{}
-		err = olmClient.Get().Resource("clusterserviceversions").Namespace(sub.Namespace).Name(sub.Status.InstalledCSV).Do(ctx).Into(csv)
+		err = olmClient.Get().Resource("clusterserviceversions").Namespace(sub.Namespace).Name(sub.Status.CurrentCSV).Do(ctx).Into(csv)
 		if err != nil {
+			if kerrors.IsNotFound(err) {
+				r.Log += fmt.Sprintf("ClusterServiceVersion %s not yet found\n", sub.Status.CurrentCSV)
+				return false, nil
+			}
 			return false, fmt.Errorf("failed to get ClusterServiceVersion: %s", err.Error())
 		}
 		// Check for Succeeded phase
