@@ -38,7 +38,7 @@ package controllers_test
 
 import (
 	"github.com/cryostatio/cryostat-operator/internal/controllers"
-	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/ginkgo/v2"
 )
 
 var _ = Describe("CryostatController", func() {

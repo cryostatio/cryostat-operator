@@ -111,7 +111,7 @@ export PULL_POLICY
 GINKGO ?= $(shell go env GOPATH)/bin/ginkgo
 GO_TEST ?= go test
 ifneq ("$(wildcard $(GINKGO))","")
-GO_TEST="$(GINKGO)" -cover -outputdir=.
+GO_TEST="$(GINKGO)" -cover -output-dir=.
 endif
 
 .PHONY: all
