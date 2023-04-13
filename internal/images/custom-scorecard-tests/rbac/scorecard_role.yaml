@@ -80,6 +80,13 @@ rules:
 - apiGroups:
   - config.openshift.io
   resources:
+  - clusterversions
+  verbs:
+  - get
+  - list
+- apiGroups:
+  - config.openshift.io
+  resources:
   - operatorgroups
   verbs:
   - create
@@ -87,6 +94,7 @@ rules:
   - operators.coreos.com
   resources:
   - subscriptions
+  - clusterserviceversions
   verbs:
   - create
   - get

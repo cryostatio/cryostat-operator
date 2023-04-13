@@ -40,4 +40,4 @@ resources:
 - scorecard_role_binding.yaml
 - scorecard_role.yaml
 - scorecard_service_account.yaml
-namespace: scorecard
+namespace: cryostat-operator-scorecard
