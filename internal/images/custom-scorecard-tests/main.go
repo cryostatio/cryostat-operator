@@ -50,8 +50,7 @@ import (
 	tests "github.com/cryostatio/cryostat-operator/internal/test/scorecard"
 )
 
-// const podBundleRoot = "/bundle"
-const podBundleRoot = "../../../../bundle" // FIXME
+const podBundleRoot = "/bundle"
 
 const argInstallOpenShiftCertManager = "installOpenShiftCertManager"
 

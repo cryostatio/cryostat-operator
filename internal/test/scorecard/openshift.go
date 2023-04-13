@@ -40,7 +40,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"time"
 
 	"github.com/blang/semver/v4"
 	scapiv1alpha3 "github.com/operator-framework/api/pkg/apis/scorecard/v1alpha3"
@@ -193,7 +192,7 @@ func installOpenShiftCertManager(r *scapiv1alpha3.TestResult) error {
 	r.Log += fmt.Sprintf("Created Subscription for openshift-cert-manager-operator in %s\n", subNamespace)
 
 	// Check CSV status until we know cert-manager installed successfully
-	wait.PollImmediateUntilWithContext(ctx, time.Second, func(ctx context.Context) (bool, error) {
+	return wait.PollImmediateUntilWithContext(ctx, testTimeout, func(ctx context.Context) (bool, error) {
 		err := olmClient.Get().Resource("subscriptions").Namespace(sub.Namespace).Name(sub.Name).Do(ctx).Into(sub)
 		if err != nil {
 			return false, fmt.Errorf("failed to get Subscription: %s", err.Error())
@@ -217,5 +216,4 @@ func installOpenShiftCertManager(r *scapiv1alpha3.TestResult) error {
 		r.Log += fmt.Sprintf("ClusterServiceVersion %s is not yet ready. Current status %s\n", csv.Name, csv.Status.Message)
 		return false, nil
 	})
-	return nil
 }

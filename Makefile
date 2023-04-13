@@ -128,12 +128,13 @@ ifneq ($(SKIP_TESTS), true)
 endif
 
 .PHONY: test-scorecard
-test-scorecard: check_cert_manager
+test-scorecard: check_cert_manager kustomize
 ifneq ($(SKIP_TESTS), true)
 	@$(CLUSTER_CLIENT) get namespace $(SCORECARD_NAMESPACE) >/dev/null 2>&1 &&\
 		echo "$(SCORECARD_NAMESPACE) namespace already exists, please remove it with \"make clean-scorecard\"" >&2 && exit 1 || true
 	$(CLUSTER_CLIENT) create namespace $(SCORECARD_NAMESPACE)
-	$(CLUSTER_CLIENT) -n $(SCORECARD_NAMESPACE) create -f internal/images/custom-scorecard-tests/rbac/
+	cd internal/images/custom-scorecard-tests/rbac/ && $(KUSTOMIZE) edit set namespace $(SCORECARD_NAMESPACE)
+	$(KUSTOMIZE) build internal/images/custom-scorecard-tests/rbac/ | $(CLUSTER_CLIENT) apply -f -
 	operator-sdk run bundle -n $(SCORECARD_NAMESPACE) $(BUNDLE_IMG)
 	operator-sdk scorecard -n $(SCORECARD_NAMESPACE) -s cryostat-scorecard -w 5m $(BUNDLE_IMG) --pod-security=restricted
 	- operator-sdk cleanup -n $(SCORECARD_NAMESPACE) $(OPERATOR_NAME)
