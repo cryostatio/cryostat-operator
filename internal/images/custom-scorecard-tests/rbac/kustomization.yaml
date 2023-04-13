@@ -34,8 +34,10 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
-kind: ServiceAccount
-apiVersion: v1
-metadata:
-  name: cryostat-scorecard
-  namespace: placeholder
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+- scorecard_role_binding.yaml
+- scorecard_role.yaml
+- scorecard_service_account.yaml
+namespace: scorecard

@@ -39,6 +39,7 @@ apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
   name: cryostat-scorecard
+  namespace: placeholder
 rules:
 - apiGroups:
   - apps
@@ -64,3 +65,36 @@ rules:
   - cryostats/status
   verbs:
   - get
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: cryostat-scorecard
+rules:
+- apiGroups:
+  - config.openshift.io
+  resources:
+  - operatorhubs
+  verbs:
+  - patch
+- apiGroups:
+  - config.openshift.io
+  resources:
+  - operatorgroups
+  verbs:
+  - create
+- apiGroups:
+  - operators.coreos.com
+  resources:
+  - subscriptions
+  verbs:
+  - create
+  - get
+  - list
+  - watch
+- apiGroups:
+  - ""
+  resources:
+  - namespaces
+  verbs:
+  - create

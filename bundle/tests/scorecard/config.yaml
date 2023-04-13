@@ -69,7 +69,7 @@ stages:
   - entrypoint:
     - cryostat-scorecard-tests
     - operator-install
-    image: quay.io/cryostat/cryostat-operator-scorecard:2.3.0-20230317202041
+    image: quay.io/ebaron/cryostat-operator-scorecard:2.3.0-20230413141555
     labels:
       suite: cryostat
       test: operator-install
@@ -78,8 +78,9 @@ stages:
         mountPath: {}
   - entrypoint:
     - cryostat-scorecard-tests
+    - --installOpenShiftCertManager
     - cryostat-cr
-    image: quay.io/cryostat/cryostat-operator-scorecard:2.3.0-20230317202041
+    image: quay.io/ebaron/cryostat-operator-scorecard:2.3.0-20230413141555
     labels:
       suite: cryostat
       test: cryostat-cr

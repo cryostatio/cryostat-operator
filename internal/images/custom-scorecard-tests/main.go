@@ -38,6 +38,7 @@ package main
 
 import (
 	"encoding/json"
+	"flag"
 	"fmt"
 	"log"
 	"os"
@@ -49,13 +50,23 @@ import (
 	tests "github.com/cryostatio/cryostat-operator/internal/test/scorecard"
 )
 
-const podBundleRoot = "/bundle"
+// const podBundleRoot = "/bundle"
+const podBundleRoot = "../../../../bundle" // FIXME
+
+const argInstallOpenShiftCertManager = "installOpenShiftCertManager"
 
 func main() {
-	entrypoint := os.Args[1:]
+	openShiftCertManager := flag.Bool(argInstallOpenShiftCertManager, false, "installs the cert-manager Operator for Red Hat OpenShift")
+	flag.Parse()
+	if openShiftCertManager == nil {
+		openShiftCertManager = &[]bool{false}[0]
+	}
+
+	entrypoint := flag.Args()
 	if len(entrypoint) == 0 {
 		log.Fatal("specify one or more test name arguments")
 	}
+	fmt.Println(entrypoint)
 
 	// Get namespace from SCORECARD_NAMESPACE environment variable
 	namespace := os.Getenv("SCORECARD_NAMESPACE")
@@ -75,7 +86,7 @@ func main() {
 	if !validateTests(entrypoint) {
 		results = printValidTests()
 	} else {
-		results = runTests(entrypoint, bundle, namespace)
+		results = runTests(entrypoint, bundle, namespace, *openShiftCertManager)
 	}
 
 	// Print results in expected JSON form
@@ -109,7 +120,8 @@ func validateTests(testNames []string) bool {
 	return true
 }
 
-func runTests(testNames []string, bundle *apimanifests.Bundle, namespace string) []scapiv1alpha3.TestResult {
+func runTests(testNames []string, bundle *apimanifests.Bundle, namespace string,
+	openShiftCertManager bool) []scapiv1alpha3.TestResult {
 	results := []scapiv1alpha3.TestResult{}
 
 	// Run tests
@@ -118,7 +130,7 @@ func runTests(testNames []string, bundle *apimanifests.Bundle, namespace string)
 		case tests.OperatorInstallTestName:
 			results = append(results, tests.OperatorInstallTest(bundle, namespace))
 		case tests.CryostatCRTestName:
-			results = append(results, tests.CryostatCRTest(bundle, namespace))
+			results = append(results, tests.CryostatCRTest(bundle, namespace, openShiftCertManager))
 		default:
 			log.Fatalf("unknown test found: %s", testName)
 		}
