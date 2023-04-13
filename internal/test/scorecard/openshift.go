@@ -53,11 +53,9 @@ import (
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/runtime/serializer"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
 	corev1client "k8s.io/client-go/kubernetes/typed/core/v1"
-	"k8s.io/client-go/rest"
 )
 
 func installOpenShiftCertManager(r *scapiv1alpha3.TestResult) error {
@@ -79,16 +77,14 @@ func installOpenShiftCertManager(r *scapiv1alpha3.TestResult) error {
 		return err
 	}
 
-	openshift := *config
-	openshift.GroupVersion = &configv1.SchemeGroupVersion
-	openshift.APIPath = "/apis"
-	openshift.ContentType = runtime.ContentTypeJSON
-	openshift.NegotiatedSerializer = serializer.WithoutConversionCodecFactory{CodecFactory: serializer.NewCodecFactory(scheme)}
-	openshiftClient, err := rest.RESTClientFor(&openshift)
+	// Client to use with ClusterVersion and OperatorHub API
+	openshiftClient, err := newRESTClientForGV(config, scheme, &configv1.SchemeGroupVersion)
 	if err != nil {
 		return err
 	}
 
+	// Check which OpenShift version we're on. Different versions of the cert-manager operator
+	// support different install modes. We have to differentiate when we create the subscription.
 	clusterVersions := &configv1.ClusterVersionList{}
 	err = openshiftClient.Get().Resource("clusterversions").Do(ctx).Into(clusterVersions)
 	if err != nil {
@@ -107,11 +103,13 @@ func installOpenShiftCertManager(r *scapiv1alpha3.TestResult) error {
 	if err != nil {
 		return err
 	}
+	// The stable-v1 channel is available on OpenShift 4.12+
 	useStable := false
 	if version.GTE(semver.MustParse("4.12.0")) {
 		useStable = true
 	}
 
+	// Patch the OperatorHub config to enable the default catalog sources
 	hubPatch := `[{"op": "add", "path": "/spec/disableAllDefaultSources", "value": false}]`
 	hub := &configv1.OperatorHub{}
 	err = openshiftClient.Patch(types.JSONPatchType).Resource("operatorhubs").Name("cluster").Body([]byte(hubPatch)).Do(ctx).Into(hub)
@@ -120,49 +118,21 @@ func installOpenShiftCertManager(r *scapiv1alpha3.TestResult) error {
 	}
 	r.Log += "OperatorHub patched to enable default catalog sources\n"
 
-	olmConfig := *config
-	olmConfig.GroupVersion = &operatorsv1alpha1.SchemeGroupVersion
-	olmConfig.APIPath = "/apis"
-	olmConfig.ContentType = runtime.ContentTypeJSON
-	olmConfig.NegotiatedSerializer = serializer.WithoutConversionCodecFactory{CodecFactory: serializer.NewCodecFactory(scheme)}
-	olmClient, err := rest.RESTClientFor(&olmConfig)
+	// Client for Subscription and ClusterServiceVersion APIs
+	olmClient, err := newRESTClientForGV(config, scheme, &operatorsv1alpha1.SchemeGroupVersion)
 	if err != nil {
 		return err
 	}
 
-	// // Make a copy to handle default catalogs being disabled
-	// catalogSrc := &operatorsv1alpha1.CatalogSource{
-	// 	ObjectMeta: metav1.ObjectMeta{
-	// 		Name:      "redhat-operators",
-	// 		Namespace: "openshift-marketplace",
-	// 	},
-	// }
-	// err = olmClient.Get().Resource("catalogsources").Namespace(catalogSrc.Namespace).Name(catalogSrc.Name).Do(ctx).Into(catalogSrc)
-	// if err != nil {
-	// 	return err
-	// }
-	// fmt.Println("Got catalog source", catalogSrc)
-	// catalogSrc = &operatorsv1alpha1.CatalogSource{
-	// 	ObjectMeta: metav1.ObjectMeta{
-	// 		Name:      "cryostat-scorecard-catalog",
-	// 		Namespace: catalogSrc.Namespace,
-	// 	},
-	// 	Spec: operatorsv1alpha1.CatalogSourceSpec{
-	// 		SourceType: catalogSrc.Spec.SourceType,
-	// 		Image:      catalogSrc.Spec.Image,
-	// 	},
-	// }
-	// err = olmClient.Post().Resource("catalogsources").Namespace(catalogSrc.Namespace).Name(catalogSrc.Name).Body(catalogSrc).Do(ctx).Into(catalogSrc)
-	// if err != nil {
-	// 	return err
-	// }
-	// fmt.Println("Created catalog source")
+	// With the stable-v1 channel, we need to install the operator into one
+	// namespace. This requires us to create the namespace and an OperatorGroup for it.
 	subNamespace := "openshift-operators"
 	channel := "tech-preview"
 	if useStable {
 		subNamespace = "cert-manager-operator"
 		channel = "stable-v1"
 
+		// Client for Namespaces
 		client, err := corev1client.NewForConfig(config)
 		if err != nil {
 			return err
@@ -190,12 +160,8 @@ func installOpenShiftCertManager(r *scapiv1alpha3.TestResult) error {
 			},
 		}
 
-		ogConfig := *config
-		ogConfig.GroupVersion = &operatorsv1.SchemeGroupVersion
-		ogConfig.APIPath = "/apis"
-		ogConfig.ContentType = runtime.ContentTypeJSON
-		ogConfig.NegotiatedSerializer = serializer.WithoutConversionCodecFactory{CodecFactory: serializer.NewCodecFactory(scheme)}
-		ogClient, err := rest.RESTClientFor(&ogConfig)
+		// Client for OperatorGroup API
+		ogClient, err := newRESTClientForGV(config, scheme, &operatorsv1.SchemeGroupVersion)
 		if err != nil {
 			return err
 		}
@@ -205,6 +171,9 @@ func installOpenShiftCertManager(r *scapiv1alpha3.TestResult) error {
 		}
 		r.Log += fmt.Sprintf("Created OperatorGroup for %s\n", subNamespace)
 	}
+
+	// Create the Subscription for the cert-manager operator. The namespace and channel
+	// are dependent on the OpenShift version
 	sub := &operatorsv1alpha1.Subscription{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "cert-manager-sub",
@@ -223,6 +192,7 @@ func installOpenShiftCertManager(r *scapiv1alpha3.TestResult) error {
 	}
 	r.Log += fmt.Sprintf("Created Subscription for openshift-cert-manager-operator in %s\n", subNamespace)
 
+	// Check CSV status until we know cert-manager installed successfully
 	wait.PollImmediateUntilWithContext(ctx, time.Second, func(ctx context.Context) (bool, error) {
 		err := olmClient.Get().Resource("subscriptions").Namespace(sub.Namespace).Name(sub.Name).Do(ctx).Into(sub)
 		if err != nil {
@@ -238,7 +208,7 @@ func installOpenShiftCertManager(r *scapiv1alpha3.TestResult) error {
 		if err != nil {
 			return false, fmt.Errorf("failed to get ClusterServiceVersion: %s", err.Error())
 		}
-		// Check for Succeeded condition
+		// Check for Succeeded phase
 		if csv.Status.Phase == operatorsv1alpha1.CSVPhaseSucceeded &&
 			csv.Status.Reason == operatorsv1alpha1.CSVReasonInstallSuccessful {
 			r.Log += fmt.Sprintf("ClusterServiceVersion %s successfully installed\n", csv.Name)
