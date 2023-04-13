@@ -75,11 +75,11 @@ CERT_MANAGER_MANIFEST ?= \
 	https://github.com/jetstack/cert-manager/releases/download/v$(CERT_MANAGER_VERSION)/cert-manager.yaml
 
 KUSTOMIZE_VERSION ?= 3.8.7
-CONTROLLER_GEN_VERSION ?= 0.9.0
+CONTROLLER_TOOLS_VERSION ?= 0.11.1
 ADDLICENSE_VERSION ?= 1.0.0
 OPM_VERSION ?= 1.23.0
 # ENVTEST_K8S_VERSION refers to the version of kubebuilder assets to be downloaded by envtest binary.
-ENVTEST_K8S_VERSION ?= 1.24 
+ENVTEST_K8S_VERSION ?= 1.26
 
 # Scorecard ImagePullPolicy is hardcoded to IfNotPresent
 # See: https://github.com/operator-framework/operator-sdk/pull/4762
@@ -121,11 +121,10 @@ all: manager
 .PHONY: test
 test: test-envtest test-scorecard
 
-# FIXME remove ACK_GINKGO_DEPRECATIONS when upgrading to ginkgo 2.0
 .PHONY: test-envtest
 test-envtest: generate manifests fmt vet setup-envtest
 ifneq ($(SKIP_TESTS), true)
-	ACK_GINKGO_DEPRECATIONS=1.16.5  KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) -p path)" $(GO_TEST) -v -coverprofile cover.out ./...
+	KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) --bin-dir $(LOCALBIN) -p path)" $(GO_TEST) -v -coverprofile cover.out ./...
 endif
 
 .PHONY: test-scorecard
@@ -136,7 +135,7 @@ ifneq ($(SKIP_TESTS), true)
 	$(CLUSTER_CLIENT) create namespace $(SCORECARD_NAMESPACE)
 	$(CLUSTER_CLIENT) -n $(SCORECARD_NAMESPACE) create -f internal/images/custom-scorecard-tests/rbac/
 	operator-sdk run bundle -n $(SCORECARD_NAMESPACE) $(BUNDLE_IMG)
-	operator-sdk scorecard -n $(SCORECARD_NAMESPACE) -s cryostat-scorecard -w 5m $(BUNDLE_IMG)
+	operator-sdk scorecard -n $(SCORECARD_NAMESPACE) -s cryostat-scorecard -w 5m $(BUNDLE_IMG) --pod-security=restricted
 	- operator-sdk cleanup -n $(SCORECARD_NAMESPACE) $(OPERATOR_NAME)
 	- $(CLUSTER_CLIENT) delete --ignore-not-found=$(ignore-not-found) namespace $(SCORECARD_NAMESPACE)
 endif
@@ -148,12 +147,12 @@ clean-scorecard:
 
 # Build manager binary
 .PHONY: manager
-manager: generate fmt vet
+manager: manifests generate fmt vet
 	go build -o bin/manager internal/main.go
 
 # Run against the configured Kubernetes cluster in ~/.kube/config
 .PHONY: run
-run: generate fmt vet manifests
+run: manifests generate fmt vet
 	go run ./internal/main.go
 
 ifndef ignore-not-found
@@ -228,9 +227,39 @@ add-license: addlicense
 
 # Build the OCI image
 .PHONY: oci-build
-oci-build: generate manifests manager test-envtest
-	BUILDAH_FORMAT=docker $(IMAGE_BUILDER) build -t $(OPERATOR_IMG) .
+oci-build: manifests generate fmt vet test-envtest
+	BUILDAH_FORMAT=docker $(IMAGE_BUILDER) build --build-arg TARGETOS=$(OS) --build-arg TARGETARCH=$(ARCH) -t $(OPERATOR_IMG) .
 
+# PLATFORMS defines the target platforms for the manager image to provide support to multiple
+# architectures. (i.e. make oci-buildx OPERATOR_IMG=quay.io/cryostat/cryostat-operator:2.3.0).
+# You need to be able to push the image for your registry (i.e. if you do not inform a valid value via OPERATOR_IMG=<myregistry/image:<tag>> than the export will fail)
+# If IMAGE_BUILDER is docker, you need to:
+# - able to use docker buildx. More info: https://docs.docker.com/build/buildx/
+# - have enable BuildKit, More info: https://docs.docker.com/develop/develop-images/build_enhancements/
+# If IMAGE_BUILDER is podman, you need to:
+# - install qemu-user-static.
+# To properly provided solutions that supports more than one platform you should use this option.
+PLATFORMS ?= linux/arm64,linux/amd64,linux/s390x,linux/ppc64le
+.PHONY: oci-buildx
+oci-buildx: manifests generate fmt vet test-envtest ## Build OCI image for the manager for cross-platform support
+ifeq ($(IMAGE_BUILDER), docker)
+# copy existing Dockerfile and insert --platform=${BUILDPLATFORM} into Dockerfile.cross, and preserve the original Dockerfile
+	sed -e '1 s/\(^FROM\)/FROM --platform=\$$\{BUILDPLATFORM\}/; t' -e ' 1,// s//FROM --platform=\$$\{BUILDPLATFORM\}/' Dockerfile > Dockerfile.cross
+	- docker buildx create --name project-v3-builder
+	docker buildx use project-v3-builder
+	- docker buildx build --push --platform=$(PLATFORMS) --tag $(OPERATOR_IMG) -f Dockerfile.cross .
+	- docker buildx rm project-v3-builder
+	rm Dockerfile.cross
+else ifeq ($(IMAGE_BUILDER), podman)
+	for platform in $$(echo $(PLATFORMS) | sed "s/,/ /g"); do \
+		os=$$(echo $${platform} | cut -d/ -f 1); \
+		arch=$$(echo $${platform} | cut -d/ -f 2); \
+		BUILDAH_FORMAT=docker podman buildx build --manifest $(OPERATOR_IMG) --platform $${platform} --build-arg TARGETOS=$${os} --build-arg TARGETARCH=$${arch} . ; \
+	done
+	podman manifest push $(OPERATOR_IMG) $(OPERATOR_IMG)
+else
+	$(error unsupported IMAGE_BUILDER: $(IMAGE_BUILDER))
+endif
 
 .PHONY: cert_manager
 cert_manager: remove_cert_manager
@@ -251,43 +280,49 @@ check_cert_manager:
 
 # Location to install dependencies
 LOCALBIN ?= $(shell pwd)/bin
-$(LOCALBIN):
+PHONY: local-bin
+local-bin:
 	mkdir -p $(LOCALBIN)
 
-# Download controller-gen locally if necessary
+# Download controller-gen locally if necessary. If wrong version is installed, it will be overwritten.
 CONTROLLER_GEN = $(LOCALBIN)/controller-gen
 .PHONY: controller-gen
 controller-gen: $(CONTROLLER_GEN)
-$(CONTROLLER_GEN): $(LOCALBIN)
-	test -s $(CONTROLLER_GEN) || GOBIN=$(LOCALBIN) go install sigs.k8s.io/controller-tools/cmd/controller-gen@v$(CONTROLLER_GEN_VERSION)
+$(CONTROLLER_GEN): local-bin
+	test -s $(CONTROLLER_GEN) && $(CONTROLLER_GEN) --version | grep -q $(CONTROLLER_TOOLS_VERSION) || \
+	GOBIN=$(LOCALBIN) go install sigs.k8s.io/controller-tools/cmd/controller-gen@v$(CONTROLLER_TOOLS_VERSION)
 
-# Download kustomize locally if necessary
+# Download kustomize locally if necessary. If wrong version is installed, it will be removed before downloading.
 KUSTOMIZE_INSTALL_SCRIPT ?= "https://raw.githubusercontent.com/kubernetes-sigs/kustomize/master/hack/install_kustomize.sh"
 KUSTOMIZE = $(LOCALBIN)/kustomize
 .PHONY: kustomize
 kustomize: $(KUSTOMIZE)
-$(KUSTOMIZE): $(LOCALBIN)
-	test -s $(KUSTOMIZE) || curl -s $(KUSTOMIZE_INSTALL_SCRIPT) | bash -s -- $(subst v,,$(KUSTOMIZE_VERSION)) $(LOCALBIN)
+$(KUSTOMIZE): local-bin
+	@if test -x $(LOCALBIN)/kustomize && ! $(LOCALBIN)/kustomize version | grep -q $(KUSTOMIZE_VERSION); then \
+		echo "$(LOCALBIN)/kustomize version is not expected $(KUSTOMIZE_VERSION). Removing it before installing."; \
+		rm -rf $(LOCALBIN)/kustomize; \
+	fi
+	test -s $(KUSTOMIZE) || { curl -Ss $(KUSTOMIZE_INSTALL_SCRIPT) | bash -s -- $(subst v,,$(KUSTOMIZE_VERSION)) $(LOCALBIN); }
 
 # Download addlicense locally if necessary
 ADDLICENSE = $(LOCALBIN)/addlicense
 .PHONY: addlicense
 addlicense: $(ADDLICENSE)
-$(ADDLICENSE): $(LOCALBIN)
+$(ADDLICENSE): local-bin
 	test -s $(ADDLICENSE) || GOBIN=$(LOCALBIN) go install github.com/google/addlicense@v$(ADDLICENSE_VERSION)
 
 # Download setup-envtest locally if necessary
 ENVTEST = $(LOCALBIN)/setup-envtest
 .PHONY: setup-envtest
 setup-envtest: $(ENVTEST)
-$(ENVTEST): $(LOCALBIN)
+$(ENVTEST): local-bin
 	test -s $(ENVTEST) || GOBIN=$(LOCALBIN) go install sigs.k8s.io/controller-runtime/tools/setup-envtest@latest
 
 # Download opm locally if necessary
 OPM = $(LOCALBIN)/opm
 .PHONY: opm
 opm: $(OPM)
-$(OPM): $(LOCALBIN)
+$(OPM): local-bin
 	test -s $(OPM) || \
 	{ \
 	set -e ;\

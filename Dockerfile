@@ -1,5 +1,7 @@
 # Build the manager binary
-FROM docker.io/library/golang:1.18 as builder
+FROM docker.io/library/golang:1.19 as builder
+ARG TARGETOS
+ARG TARGETARCH
 
 WORKDIR /workspace
 # Copy the Go Modules manifests
@@ -15,7 +17,11 @@ COPY api/ api/
 COPY internal/controllers/ internal/controllers/
 
 # Build
-RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 GO111MODULE=on go build -a -o manager internal/main.go
+# the GOARCH has not a default value to allow the binary be built according to the host where the command
+# was called. For example, if we call make oci-build in a local env which has the Apple Silicon M1 SO
+# the docker BUILDPLATFORM arg will be linux/arm64 when for Apple x86 it will be linux/amd64. Therefore,
+# by leaving it empty we can ensure that the container and binary shipped on it will have the same platform.
+RUN CGO_ENABLED=0 GOOS=${TARGETOS:-linux} GOARCH=${TARGETARCH} GO111MODULE=on go build -a -o manager internal/main.go
 
 FROM registry.access.redhat.com/ubi8/ubi-minimal:latest
 WORKDIR /
