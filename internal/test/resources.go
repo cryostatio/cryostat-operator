@@ -41,10 +41,10 @@ import (
 	"fmt"
 	"strings"
 
+	certv1 "github.com/cert-manager/cert-manager/pkg/apis/certmanager/v1"
+	certMeta "github.com/cert-manager/cert-manager/pkg/apis/meta/v1"
 	operatorv1beta1 "github.com/cryostatio/cryostat-operator/api/v1beta1"
 	"github.com/cryostatio/cryostat-operator/internal/controllers/model"
-	certv1 "github.com/jetstack/cert-manager/pkg/apis/certmanager/v1"
-	certMeta "github.com/jetstack/cert-manager/pkg/apis/meta/v1"
 	"github.com/onsi/gomega"
 	configv1 "github.com/openshift/api/config/v1"
 	consolev1 "github.com/openshift/api/console/v1"

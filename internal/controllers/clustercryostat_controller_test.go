@@ -40,7 +40,7 @@ import (
 	"context"
 
 	"github.com/cryostatio/cryostat-operator/internal/controllers"
-	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"

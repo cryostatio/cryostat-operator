@@ -37,7 +37,7 @@
 package constants
 
 import (
-	certMeta "github.com/jetstack/cert-manager/pkg/apis/meta/v1"
+	certMeta "github.com/cert-manager/cert-manager/pkg/apis/meta/v1"
 )
 
 const (
