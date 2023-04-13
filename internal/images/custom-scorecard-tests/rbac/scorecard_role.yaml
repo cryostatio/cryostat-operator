@@ -85,7 +85,7 @@ rules:
   - get
   - list
 - apiGroups:
-  - config.openshift.io
+  - operators.coreos.com
   resources:
   - operatorgroups
   verbs:
