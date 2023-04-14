@@ -136,16 +136,22 @@ ifneq ($(SKIP_TESTS), true)
 	cd internal/images/custom-scorecard-tests/rbac/ && $(KUSTOMIZE) edit set namespace $(SCORECARD_NAMESPACE)
 	$(KUSTOMIZE) build internal/images/custom-scorecard-tests/rbac/ | $(CLUSTER_CLIENT) apply -f -
 	operator-sdk run bundle -n $(SCORECARD_NAMESPACE) $(BUNDLE_IMG)
+	$(call scorecard-cleanup); \
+	trap cleanup EXIT; \
 	operator-sdk scorecard -n $(SCORECARD_NAMESPACE) -s cryostat-scorecard -w 5m $(BUNDLE_IMG) --pod-security=restricted
-	- operator-sdk cleanup -n $(SCORECARD_NAMESPACE) $(OPERATOR_NAME)
-	- $(CLUSTER_CLIENT) delete --ignore-not-found=$(ignore-not-found) namespace $(SCORECARD_NAMESPACE)
 endif
 
 .PHONY: clean-scorecard
 clean-scorecard:
-	- operator-sdk cleanup -n $(SCORECARD_NAMESPACE) $(OPERATOR_NAME)
-	- $(KUSTOMIZE) build internal/images/custom-scorecard-tests/rbac/ | $(CLUSTER_CLIENT) delete --ignore-not-found=$(ignore-not-found) -f -
-	- $(CLUSTER_CLIENT) delete --ignore-not-found=$(ignore-not-found) namespace $(SCORECARD_NAMESPACE)
+	- $(call scorecard-cleanup); cleanup
+
+define scorecard-cleanup
+function cleanup { \
+	operator-sdk cleanup -n $(SCORECARD_NAMESPACE) $(OPERATOR_NAME); \
+	$(KUSTOMIZE) build internal/images/custom-scorecard-tests/rbac/ | $(CLUSTER_CLIENT) delete --ignore-not-found=true -f -; \
+	$(CLUSTER_CLIENT) delete --ignore-not-found=true namespace $(SCORECARD_NAMESPACE); \
+}
+endef
 
 # Build manager binary
 .PHONY: manager

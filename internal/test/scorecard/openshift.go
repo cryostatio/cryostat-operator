@@ -139,7 +139,7 @@ func installOpenShiftCertManager(r *scapiv1alpha3.TestResult) error {
 		}
 		ns := &corev1.Namespace{
 			ObjectMeta: metav1.ObjectMeta{
-				Name: "cert-manager-operator",
+				Name: subNamespace,
 			},
 		}
 		_, err = client.Namespaces().Create(ctx, ns, metav1.CreateOptions{})
