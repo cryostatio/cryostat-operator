@@ -147,9 +147,12 @@ clean-scorecard:
 
 define scorecard-cleanup
 function cleanup { \
+	(\
+	set +e; \
 	operator-sdk cleanup -n $(SCORECARD_NAMESPACE) $(OPERATOR_NAME); \
-	$(KUSTOMIZE) build internal/images/custom-scorecard-tests/rbac/ | $(CLUSTER_CLIENT) delete --ignore-not-found=true -f -; \
-	$(CLUSTER_CLIENT) delete --ignore-not-found=true namespace $(SCORECARD_NAMESPACE); \
+	$(KUSTOMIZE) build internal/images/custom-scorecard-tests/rbac/ | echo $(CLUSTER_CLIENT) delete --ignore-not-found=$(ignore-not-found) -f -; \
+	$(CLUSTER_CLIENT) delete --ignore-not-found=$(ignore-not-found) namespace $(SCORECARD_NAMESPACE); \
+	)\
 }
 endef
 
