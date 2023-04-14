@@ -35,7 +35,7 @@ jobs:
           ${{ runner.os }}-go-
     - uses: jpkrohling/setup-operator-sdk@v1.1.0
       with:
-        operator-sdk-version: v1.22.2
+        operator-sdk-version: v1.28.0
     - run: make generate manifests manager test-envtest
       if: ${{ github.event_name == 'pull_request' }}
     - run: make oci-build

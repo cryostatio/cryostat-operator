@@ -38,10 +38,25 @@ kind: RoleBinding
 apiVersion: rbac.authorization.k8s.io/v1
 metadata:
   name: cryostat-scorecard
+  namespace: placeholder
 subjects:
 - kind: ServiceAccount
   name: cryostat-scorecard
+  namespace: placeholder
 roleRef:
   kind: Role
+  name: cryostat-scorecard
+  apiGroup: rbac.authorization.k8s.io
+---
+kind: ClusterRoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: cryostat-scorecard
+subjects:
+- kind: ServiceAccount
+  name: cryostat-scorecard
+  namespace: placeholder
+roleRef:
+  kind: ClusterRole
   name: cryostat-scorecard
   apiGroup: rbac.authorization.k8s.io

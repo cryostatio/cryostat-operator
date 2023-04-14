@@ -43,6 +43,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
@@ -144,11 +145,16 @@ func newCRDClient(config *rest.Config) (*rest.RESTClient, error) {
 	if err := operatorv1beta1.AddToScheme(scheme); err != nil {
 		return nil, err
 	}
-	config.GroupVersion = &operatorv1beta1.GroupVersion
-	config.APIPath = "/apis"
-	config.ContentType = runtime.ContentTypeJSON
-	config.NegotiatedSerializer = serializer.WithoutConversionCodecFactory{CodecFactory: serializer.NewCodecFactory(scheme)}
-	return rest.RESTClientFor(config)
+	return newRESTClientForGV(config, scheme, &operatorv1beta1.GroupVersion)
+}
+
+func newRESTClientForGV(config *rest.Config, scheme *runtime.Scheme, gv *schema.GroupVersion) (*rest.RESTClient, error) {
+	configCopy := *config
+	configCopy.GroupVersion = gv
+	configCopy.APIPath = "/apis"
+	configCopy.ContentType = runtime.ContentTypeJSON
+	configCopy.NegotiatedSerializer = serializer.WithoutConversionCodecFactory{CodecFactory: serializer.NewCodecFactory(scheme)}
+	return rest.RESTClientFor(&configCopy)
 }
 
 func get[r runtime.Object](ctx context.Context, c rest.Interface, res string, ns string, name string, result r) (r, error) {

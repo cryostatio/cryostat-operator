@@ -3,6 +3,7 @@ module github.com/cryostatio/cryostat-operator
 go 1.19
 
 require (
+	github.com/blang/semver/v4 v4.0.0
 	github.com/cert-manager/cert-manager v1.11.1
 	github.com/go-logr/logr v1.2.4
 	github.com/google/go-cmp v0.5.9
@@ -18,7 +19,6 @@ require (
 
 require (
 	github.com/beorn7/perks v1.0.1 // indirect
-	github.com/blang/semver/v4 v4.0.0 // indirect
 	github.com/cespare/xxhash/v2 v2.2.0 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/emicklei/go-restful/v3 v3.9.0 // indirect

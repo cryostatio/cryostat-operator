@@ -85,7 +85,7 @@ func OperatorInstallTest(bundle *apimanifests.Bundle, namespace string) scapiv1a
 }
 
 // CryostatCRTest checks that the operator installs Cryostat in response to a Cryostat CR
-func CryostatCRTest(bundle *apimanifests.Bundle, namespace string) scapiv1alpha3.TestResult {
+func CryostatCRTest(bundle *apimanifests.Bundle, namespace string, openShiftCertManager bool) scapiv1alpha3.TestResult {
 	r := scapiv1alpha3.TestResult{}
 	r.Name = CryostatCRTestName
 	r.State = scapiv1alpha3.PassState
@@ -96,6 +96,13 @@ func CryostatCRTest(bundle *apimanifests.Bundle, namespace string) scapiv1alpha3
 	client, err := NewClientset()
 	if err != nil {
 		return fail(r, fmt.Sprintf("failed to create client: %s", err.Error()))
+	}
+
+	if openShiftCertManager {
+		err := installOpenShiftCertManager(&r)
+		if err != nil {
+			return fail(r, fmt.Sprintf("failed to install cert-manager Operator for Red Hat OpenShift: %s", err.Error()))
+		}
 	}
 
 	// Create a default Cryostat CR
