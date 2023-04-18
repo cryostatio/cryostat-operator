@@ -1481,7 +1481,7 @@ func (r *TestResources) NewReportsEnvironmentVariables(resources *corev1.Resourc
 			Value: "0.0.0.0",
 		},
 		{
-			Name:  "JAVA_OPTIONS",
+			Name:  "JAVA_OPTS",
 			Value: opts,
 		},
 	}
