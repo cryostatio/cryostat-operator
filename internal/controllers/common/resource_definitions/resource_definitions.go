@@ -415,7 +415,7 @@ func NewPodForReports(cr *model.CryostatInstance, imageTags *ImageTags, tls *TLS
 			Value: "0.0.0.0",
 		},
 		{
-			Name:  "JAVA_OPTIONS",
+			Name:  "JAVA_OPTS",
 			Value: javaOpts,
 		},
 	}
