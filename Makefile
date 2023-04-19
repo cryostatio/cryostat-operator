@@ -8,7 +8,7 @@ OS = $(shell go env GOOS)
 ARCH = $(shell go env GOARCH)
 
 # Current Operator version
-IMAGE_VERSION ?= 2.3.0-dev
+IMAGE_VERSION ?= 2.4.0-dev
 BUNDLE_VERSION ?= $(IMAGE_VERSION)
 DEFAULT_NAMESPACE ?= quay.io/cryostat
 IMAGE_NAMESPACE ?= $(DEFAULT_NAMESPACE)
@@ -85,7 +85,7 @@ ENVTEST_K8S_VERSION ?= 1.26
 # See: https://github.com/operator-framework/operator-sdk/pull/4762
 #
 # Suffix is the timestamp of the image build, compute with: date -u '+%Y%m%d%H%M%S'
-CUSTOM_SCORECARD_VERSION ?= 2.3.0-$(shell date -u '+%Y%m%d%H%M%S')
+CUSTOM_SCORECARD_VERSION ?= 2.4.0-$(shell date -u '+%Y%m%d%H%M%S')
 export CUSTOM_SCORECARD_IMG ?= $(IMAGE_TAG_BASE)-scorecard:$(CUSTOM_SCORECARD_VERSION)
 
 DEPLOY_NAMESPACE ?= cryostat-operator-system
@@ -242,7 +242,7 @@ oci-build: manifests generate fmt vet test-envtest
 	BUILDAH_FORMAT=docker $(IMAGE_BUILDER) build --build-arg TARGETOS=$(OS) --build-arg TARGETARCH=$(ARCH) -t $(OPERATOR_IMG) .
 
 # PLATFORMS defines the target platforms for the manager image to provide support to multiple
-# architectures. (i.e. make oci-buildx OPERATOR_IMG=quay.io/cryostat/cryostat-operator:2.3.0).
+# architectures. (i.e. make oci-buildx OPERATOR_IMG=quay.io/cryostat/cryostat-operator:latest).
 # You need to be able to push the image for your registry (i.e. if you do not inform a valid value via OPERATOR_IMG=<myregistry/image:<tag>> than the export will fail)
 # If IMAGE_BUILDER is docker, you need to:
 # - able to use docker buildx. More info: https://docs.docker.com/build/buildx/
