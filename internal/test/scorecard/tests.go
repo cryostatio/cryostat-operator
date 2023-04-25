@@ -97,6 +97,7 @@ func CryostatCRTest(bundle *apimanifests.Bundle, namespace string, openShiftCert
 	if err != nil {
 		return fail(r, fmt.Sprintf("failed to create client: %s", err.Error()))
 	}
+	defer cleanupCryostat(&r, client, namespace)
 
 	if openShiftCertManager {
 		err := installOpenShiftCertManager(&r)
@@ -177,4 +178,19 @@ func fail(r scapiv1alpha3.TestResult, message string) scapiv1alpha3.TestResult {
 	r.State = scapiv1alpha3.FailState
 	r.Errors = append(r.Errors, message)
 	return r
+}
+
+func cleanupCryostat(r *scapiv1alpha3.TestResult, client *CryostatClientset, namespace string) {
+	cr := &operatorv1beta1.Cryostat{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "cryostat-cr-test",
+			Namespace: namespace,
+		},
+	}
+	ctx := context.Background()
+	err := client.OperatorCRDs().Cryostats(cr.Namespace).Delete(ctx,
+		cr.Name, &metav1.DeleteOptions{})
+	if err != nil {
+		r.Log += fmt.Sprintf("failed to delete Cryostat: %s\n", err.Error())
+	}
 }
