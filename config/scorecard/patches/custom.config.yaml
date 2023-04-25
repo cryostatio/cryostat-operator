@@ -8,7 +8,11 @@
     entrypoint:
     - cryostat-scorecard-tests
     - operator-install
+<<<<<<< HEAD
     image: "quay.io/cryostat/cryostat-operator-scorecard:2.3.0-20230414180132"
+=======
+    image: "quay.io/cryostat/cryostat-operator-scorecard:2.4.0-20230425143552"
+>>>>>>> bb06391 (test(scorecard): clean up CR after test finishes (#557))
     labels:
       suite: cryostat
       test: operator-install
@@ -18,7 +22,11 @@
     entrypoint:
     - cryostat-scorecard-tests
     - cryostat-cr
+<<<<<<< HEAD
     image: "quay.io/cryostat/cryostat-operator-scorecard:2.3.0-20230414180132"
+=======
+    image: "quay.io/cryostat/cryostat-operator-scorecard:2.4.0-20230425143552"
+>>>>>>> bb06391 (test(scorecard): clean up CR after test finishes (#557))
     labels:
       suite: cryostat
       test: cryostat-cr
