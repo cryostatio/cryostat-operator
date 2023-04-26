@@ -69,11 +69,7 @@ stages:
   - entrypoint:
     - cryostat-scorecard-tests
     - operator-install
-<<<<<<< HEAD
-    image: quay.io/cryostat/cryostat-operator-scorecard:2.3.0-20230425180821
-=======
-    image: quay.io/cryostat/cryostat-operator-scorecard:2.4.0-20230426204317
->>>>>>> 64e99af (test(scorecard): log workload conditions/events upon failure (#560))
+    image: quay.io/cryostat/cryostat-operator-scorecard:2.3.0-20230426212501
     labels:
       suite: cryostat
       test: operator-install
@@ -83,11 +79,7 @@ stages:
   - entrypoint:
     - cryostat-scorecard-tests
     - cryostat-cr
-<<<<<<< HEAD
-    image: quay.io/cryostat/cryostat-operator-scorecard:2.3.0-20230425180821
-=======
-    image: quay.io/cryostat/cryostat-operator-scorecard:2.4.0-20230426204317
->>>>>>> 64e99af (test(scorecard): log workload conditions/events upon failure (#560))
+    image: quay.io/cryostat/cryostat-operator-scorecard:2.3.0-20230426212501
     labels:
       suite: cryostat
       test: cryostat-cr
