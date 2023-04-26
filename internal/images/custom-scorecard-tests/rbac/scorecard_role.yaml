@@ -42,11 +42,21 @@ metadata:
   namespace: placeholder
 rules:
 - apiGroups:
+  - ""
+  resources:
+  - pods
+  - events
+  verbs:
+  - get
+  - list
+- apiGroups:
   - apps
   resources:
   - deployments
+  - replicasets
   verbs:
   - get
+  - list
 - apiGroups:
   - operator.cryostat.io
   resources:
