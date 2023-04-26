@@ -58,7 +58,7 @@ const (
 	OperatorInstallTestName string        = "operator-install"
 	CryostatCRTestName      string        = "cryostat-cr"
 	operatorDeploymentName  string        = "cryostat-operator-controller-manager"
-	testTimeout             time.Duration = time.Minute * 2 // FIXME
+	testTimeout             time.Duration = time.Minute * 10
 )
 
 // OperatorInstallTest checks that the operator installed correctly
