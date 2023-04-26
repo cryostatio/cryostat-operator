@@ -49,7 +49,9 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/client-go/kubernetes/scheme"
 )
 
 const (
@@ -152,7 +154,7 @@ func CryostatCRTest(bundle *apimanifests.Bundle, namespace string, openShiftCert
 
 func waitForDeploymentAvailability(ctx context.Context, client *CryostatClientset, namespace string,
 	name string, r *scapiv1alpha3.TestResult) error {
-	return wait.PollImmediateUntilWithContext(ctx, time.Second, func(ctx context.Context) (done bool, err error) {
+	err := wait.PollImmediateUntilWithContext(ctx, time.Second, func(ctx context.Context) (done bool, err error) {
 		deploy, err := client.AppsV1().Deployments(namespace).Get(ctx, name, metav1.GetOptions{})
 		if err != nil {
 			if kerrors.IsNotFound(err) {
@@ -168,10 +170,22 @@ func waitForDeploymentAvailability(ctx context.Context, client *CryostatClientse
 				r.Log += fmt.Sprintf("deployment %s is available\n", deploy.Name)
 				return true, nil
 			}
+			if condition.Type == appsv1.DeploymentReplicaFailure &&
+				condition.Status == corev1.ConditionTrue {
+				r.Log += fmt.Sprintf("deployment %s is failing, %s: %s\n", deploy.Name,
+					condition.Reason, condition.Message)
+			}
 		}
 		r.Log += fmt.Sprintf("deployment %s is not yet available\n", deploy.Name)
 		return false, nil
 	})
+	if err != nil {
+		logErr := logErrors(r, client, namespace, name)
+		if logErr != nil {
+			r.Log += fmt.Sprintf("failed to look up deployment errors: %s\n", logErr.Error())
+		}
+	}
+	return err
 }
 
 func fail(r scapiv1alpha3.TestResult, message string) scapiv1alpha3.TestResult {
@@ -193,4 +207,84 @@ func cleanupCryostat(r *scapiv1alpha3.TestResult, client *CryostatClientset, nam
 	if err != nil {
 		r.Log += fmt.Sprintf("failed to delete Cryostat: %s\n", err.Error())
 	}
+}
+
+func logErrors(r *scapiv1alpha3.TestResult, client *CryostatClientset, namespace string, name string) error {
+	ctx := context.Background()
+	deploy, err := client.AppsV1().Deployments(namespace).Get(ctx, name, metav1.GetOptions{})
+	if err != nil {
+		return err
+	}
+	// Log deployment conditions and events
+	r.Log += fmt.Sprintf("deployment %s conditions:\n", deploy.Name)
+	for _, condition := range deploy.Status.Conditions {
+		r.Log += fmt.Sprintf("\t%s == %s, %s: %s\n", condition.Type,
+			condition.Status, condition.Reason, condition.Message)
+	}
+
+	r.Log += fmt.Sprintf("deployment %s warning events:\n", deploy.Name)
+	err = logEvents(r, client, namespace, scheme.Scheme, deploy)
+	if err != nil {
+		return err
+	}
+
+	// Look up replica sets for deployment and log conditions and events
+	selector, err := metav1.LabelSelectorAsSelector(deploy.Spec.Selector)
+	if err != nil {
+		return err
+	}
+	replicaSets, err := client.AppsV1().ReplicaSets(namespace).List(ctx, metav1.ListOptions{
+		LabelSelector: selector.String(),
+	})
+	if err != nil {
+		return err
+	}
+	for _, rs := range replicaSets.Items {
+		r.Log += fmt.Sprintf("replica set %s conditions:\n", rs.Name)
+		for _, condition := range rs.Status.Conditions {
+			r.Log += fmt.Sprintf("\t%s == %s, %s: %s\n", condition.Type, condition.Status,
+				condition.Reason, condition.Message)
+		}
+		r.Log += fmt.Sprintf("replica set %s warning events:\n", rs.Name)
+		err = logEvents(r, client, namespace, scheme.Scheme, &rs)
+		if err != nil {
+			return err
+		}
+	}
+
+	// Look up pods for deployment and log conditions and events
+	pods, err := client.CoreV1().Pods(namespace).List(ctx, metav1.ListOptions{
+		LabelSelector: selector.String(),
+	})
+	if err != nil {
+		return err
+	}
+	for _, pod := range pods.Items {
+		r.Log += fmt.Sprintf("pod %s phase: %s\n", pod.Name, pod.Status.Phase)
+		r.Log += fmt.Sprintf("pod %s conditions:\n", pod.Name)
+		for _, condition := range pod.Status.Conditions {
+			r.Log += fmt.Sprintf("\t%s == %s, %s: %s\n", condition.Type, condition.Status,
+				condition.Reason, condition.Message)
+		}
+		r.Log += fmt.Sprintf("pod %s warning events:\n", pod.Name)
+		err = logEvents(r, client, namespace, scheme.Scheme, &pod)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func logEvents(r *scapiv1alpha3.TestResult, client *CryostatClientset, namespace string,
+	scheme *runtime.Scheme, obj runtime.Object) error {
+	events, err := client.CoreV1().Events(namespace).Search(scheme, obj)
+	if err != nil {
+		return err
+	}
+	for _, event := range events.Items {
+		if event.Type == corev1.EventTypeWarning {
+			r.Log += fmt.Sprintf("\t%s: %s\n", event.Reason, event.Message)
+		}
+	}
+	return nil
 }

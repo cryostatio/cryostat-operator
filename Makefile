@@ -138,7 +138,7 @@ ifneq ($(SKIP_TESTS), true)
 	operator-sdk run bundle -n $(SCORECARD_NAMESPACE) $(BUNDLE_IMG)
 	$(call scorecard-cleanup); \
 	trap cleanup EXIT; \
-	operator-sdk scorecard -n $(SCORECARD_NAMESPACE) -s cryostat-scorecard -w 10m $(BUNDLE_IMG) --pod-security=restricted
+	operator-sdk scorecard -n $(SCORECARD_NAMESPACE) -s cryostat-scorecard -w 20m $(BUNDLE_IMG) --pod-security=restricted
 endif
 
 .PHONY: clean-scorecard
