@@ -2695,7 +2695,7 @@ func (r *TestResources) NewDatasourceContainerResource(cr *model.CryostatInstanc
 func newGrafanaContainerDefaultResource() *corev1.ResourceRequirements {
 	return &corev1.ResourceRequirements{
 		Requests: corev1.ResourceList{
-			corev1.ResourceCPU:    resource.MustParse("1000m"),
+			corev1.ResourceCPU:    resource.MustParse("100m"),
 			corev1.ResourceMemory: resource.MustParse("256Mi"),
 		},
 	}
