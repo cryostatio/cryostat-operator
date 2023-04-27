@@ -168,9 +168,9 @@ By default, the operator deploys Cryostat with pre-configured resource requests:
 | Cryostat container CPU | 100m |
 | Cryostat container Memory | 384Mi |
 | JFR Data Source container CPU | 100m |
-|	JFR Data Source container Memory | 512Mi |
-|	Grafana container CPU | 1000m |
-|	Grafana container Memory | 256Mi |
+| JFR Data Source container Memory | 512Mi |
+| Grafana container CPU | 100m |
+| Grafana container Memory | 256Mi |
 
 Using the Cryostat custom resource, you can define resources requests and/or limits for each of the three containers in Cryostat's main pod:
 - the `core` container running the Cryostat backend and web application. If setting a memory limit for this container, we recommend at least 768MiB.
