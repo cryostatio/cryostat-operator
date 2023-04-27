@@ -10,9 +10,9 @@ metadata:
     operatorframework.io/initialization-resource: |-
       {
         "apiVersion": "operator.cryostat.io/v1beta1",
-        "kind": "ClusterCryostat",
+        "kind": "Cryostat",
         "metadata": {
-          "name": "clustercryostat-sample"
+          "name": "cryostat-sample"
         },
         "spec": {
           "enableCertManager": true,
