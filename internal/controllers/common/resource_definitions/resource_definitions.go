@@ -86,7 +86,7 @@ const (
 	defaultCoreMemoryRequest          string = "384Mi"
 	defaultJfrDatasourceCpuRequest    string = "100m"
 	defaultJfrDatasourceMemoryRequest string = "512Mi"
-	defaultGrafanaCpuRequest          string = "1000m"
+	defaultGrafanaCpuRequest          string = "100m"
 	defaultGrafanaMemoryRequest       string = "256Mi"
 	defaultReportCpuRequest           string = "128m"
 	defaultReportMemoryRequest        string = "256Mi"
