@@ -481,6 +481,14 @@ func (c *controllerTest) commonTests() {
 				Expect(binding.Subjects).To(Equal(expected.Subjects))
 				Expect(binding.RoleRef).To(Equal(expected.RoleRef))
 			})
+			Context("with a different roleRef", func() {
+				BeforeEach(func() {
+					oldBinding.RoleRef = t.OtherRoleRef()
+				})
+				It("should delete and re-create the Role Binding", func() {
+					t.expectRBAC()
+				})
+			})
 		})
 		Context("with an existing Cluster Role Binding", func() {
 			var cr *model.CryostatInstance
@@ -507,6 +515,14 @@ func (c *controllerTest) commonTests() {
 				// Subjects and RoleRef should be fully replaced
 				Expect(binding.Subjects).To(Equal(expected.Subjects))
 				Expect(binding.RoleRef).To(Equal(expected.RoleRef))
+			})
+			Context("with a different roleRef", func() {
+				BeforeEach(func() {
+					oldBinding.RoleRef = t.OtherRoleRef()
+				})
+				It("should delete and re-create the Cluster Role Binding", func() {
+					t.expectRBAC()
+				})
 			})
 		})
 		Context("with an existing Grafana Secret", func() {
