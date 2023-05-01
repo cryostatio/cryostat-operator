@@ -2471,11 +2471,15 @@ func (r *TestResources) OtherRoleBinding(ns string) *rbacv1.RoleBinding {
 				Name: "also-not-cryostat",
 			},
 		},
-		RoleRef: rbacv1.RoleRef{
-			APIGroup: "rbac.authorization.k8s.io",
-			Kind:     "ClusterRole",
-			Name:     "not-cryostat",
-		},
+		RoleRef: r.NewRoleBinding(ns).RoleRef,
+	}
+}
+
+func (r *TestResources) OtherRoleRef() rbacv1.RoleRef {
+	return rbacv1.RoleRef{
+		APIGroup: "rbac.authorization.k8s.io",
+		Kind:     "ClusterRole",
+		Name:     "not-cryostat",
 	}
 }
 
@@ -2523,11 +2527,7 @@ func (r *TestResources) OtherClusterRoleBinding() *rbacv1.ClusterRoleBinding {
 				Name: "also-not-cryostat",
 			},
 		},
-		RoleRef: rbacv1.RoleRef{
-			APIGroup: "rbac.authorization.k8s.io",
-			Kind:     "ClusterRole",
-			Name:     "not-cryostat",
-		},
+		RoleRef: r.NewClusterRoleBinding().RoleRef,
 	}
 }
 
