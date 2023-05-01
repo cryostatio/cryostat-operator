@@ -8,7 +8,11 @@
     entrypoint:
     - cryostat-scorecard-tests
     - operator-install
+<<<<<<< HEAD
     image: "quay.io/cryostat/cryostat-operator-scorecard:2.3.0-20230426212501"
+=======
+    image: "quay.io/cryostat/cryostat-operator-scorecard:2.4.0-20230501145243"
+>>>>>>> 8ef8a87 (build(go): upgrade to Golang 1.20 (#569))
     labels:
       suite: cryostat
       test: operator-install
@@ -18,7 +22,11 @@
     entrypoint:
     - cryostat-scorecard-tests
     - cryostat-cr
+<<<<<<< HEAD
     image: "quay.io/cryostat/cryostat-operator-scorecard:2.3.0-20230426212501"
+=======
+    image: "quay.io/cryostat/cryostat-operator-scorecard:2.4.0-20230501145243"
+>>>>>>> 8ef8a87 (build(go): upgrade to Golang 1.20 (#569))
     labels:
       suite: cryostat
       test: cryostat-cr
