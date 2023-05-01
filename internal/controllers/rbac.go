@@ -39,10 +39,12 @@ package controllers
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 
 	"github.com/cryostatio/cryostat-operator/internal/controllers/common"
 	"github.com/cryostatio/cryostat-operator/internal/controllers/model"
+	"github.com/google/go-cmp/cmp"
 	oauthv1 "github.com/openshift/api/oauth/v1"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
@@ -73,7 +75,7 @@ func (r *Reconciler) reconcileRBAC(ctx context.Context, cr *model.CryostatInstan
 }
 
 func (r *Reconciler) finalizeRBAC(ctx context.Context, cr *model.CryostatInstance) error {
-	return r.deleteClusterRoleBinding(ctx, cr)
+	return r.deleteClusterRoleBinding(ctx, newClusterRoleBinding(cr))
 }
 
 func newServiceAccount(cr *model.CryostatInstance) *corev1.ServiceAccount {
@@ -248,10 +250,15 @@ func (r *Reconciler) cleanUpRole(ctx context.Context, cr *model.CryostatInstance
 
 func (r *Reconciler) createOrUpdateRoleBinding(ctx context.Context, binding *rbacv1.RoleBinding,
 	owner metav1.Object, subjects []rbacv1.Subject, roleRef *rbacv1.RoleRef) error {
+	bindingCopy := binding.DeepCopy()
 	op, err := controllerutil.CreateOrUpdate(ctx, r.Client, binding, func() error {
 		// Update the list of Subjects
 		binding.Subjects = subjects
 		// Update the Role reference
+		roleRef, err := getRoleRef(binding, &binding.RoleRef, roleRef)
+		if err != nil {
+			return err
+		}
 		binding.RoleRef = *roleRef
 
 		// Set the Cryostat CR as controller
@@ -261,10 +268,39 @@ func (r *Reconciler) createOrUpdateRoleBinding(ctx context.Context, binding *rba
 		return nil
 	})
 	if err != nil {
+		if err == errRoleRefModified {
+			return r.recreateRoleBinding(ctx, bindingCopy, owner, subjects, roleRef)
+		}
 		return err
 	}
 	r.Log.Info(fmt.Sprintf("Role Binding %s", op), "name", binding.Name, "namespace", binding.Namespace)
 	return nil
+}
+
+var errRoleRefModified error = errors.New("role binding roleRef has been modified")
+
+func getRoleRef(binding metav1.Object, oldRef *rbacv1.RoleRef, newRef *rbacv1.RoleRef) (*rbacv1.RoleRef, error) {
+	// The RoleRef field is immutable. In order to update this field, we need to
+	// delete and re-create the role binding.
+	// See: https://kubernetes.io/docs/reference/access-authn-authz/rbac/#clusterrolebinding-example
+	creationTimestamp := binding.GetCreationTimestamp()
+	if creationTimestamp.IsZero() {
+		return newRef, nil
+	} else if !cmp.Equal(oldRef, newRef) {
+		// Return error so role binding can be recreated
+		return nil, errRoleRefModified
+	}
+	return oldRef, nil
+}
+
+func (r *Reconciler) recreateRoleBinding(ctx context.Context, binding *rbacv1.RoleBinding, owner metav1.Object,
+	subjects []rbacv1.Subject, roleRef *rbacv1.RoleRef) error {
+	// Delete and recreate role binding
+	err := r.deleteRoleBinding(ctx, binding)
+	if err != nil {
+		return err
+	}
+	return r.createOrUpdateRoleBinding(ctx, binding, owner, subjects, roleRef)
 }
 
 func (r *Reconciler) deleteRoleBinding(ctx context.Context, binding *rbacv1.RoleBinding) error {
@@ -283,24 +319,41 @@ func (r *Reconciler) deleteRoleBinding(ctx context.Context, binding *rbacv1.Role
 
 func (r *Reconciler) createOrUpdateClusterRoleBinding(ctx context.Context, binding *rbacv1.ClusterRoleBinding,
 	owner metav1.Object, subjects []rbacv1.Subject, roleRef *rbacv1.RoleRef) error {
+	bindingCopy := binding.DeepCopy()
 	op, err := controllerutil.CreateOrUpdate(ctx, r.Client, binding, func() error {
 		// Update the list of Subjects
 		binding.Subjects = subjects
 		// Update the Role reference
+		roleRef, err := getRoleRef(binding, &binding.RoleRef, roleRef)
+		if err != nil {
+			return err
+		}
 		binding.RoleRef = *roleRef
 
 		// ClusterRoleBinding can't be owned by namespaced CR, clean up using finalizer
 		return nil
 	})
 	if err != nil {
+		if err == errRoleRefModified {
+			return r.recreateClusterRoleBinding(ctx, bindingCopy, owner, subjects, roleRef)
+		}
 		return err
 	}
 	r.Log.Info(fmt.Sprintf("Cluster Role Binding %s", op), "name", binding.Name)
 	return nil
 }
 
-func (r *Reconciler) deleteClusterRoleBinding(ctx context.Context, cr *model.CryostatInstance) error {
-	clusterBinding := newClusterRoleBinding(cr)
+func (r *Reconciler) recreateClusterRoleBinding(ctx context.Context, binding *rbacv1.ClusterRoleBinding, owner metav1.Object,
+	subjects []rbacv1.Subject, roleRef *rbacv1.RoleRef) error {
+	// Delete and recreate role binding
+	err := r.deleteClusterRoleBinding(ctx, binding)
+	if err != nil {
+		return err
+	}
+	return r.createOrUpdateClusterRoleBinding(ctx, binding, owner, subjects, roleRef)
+}
+
+func (r *Reconciler) deleteClusterRoleBinding(ctx context.Context, clusterBinding *rbacv1.ClusterRoleBinding) error {
 	err := r.Delete(ctx, clusterBinding)
 	if err != nil {
 		if kerrors.IsNotFound(err) {
