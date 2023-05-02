@@ -108,12 +108,12 @@ spec:
                     type: integer
                 type: object
               jmxCredentialsDatabaseOptions:
-                description: Options to configure the Cryostat application's JMX credentials
+                description: Options to configure the Cryostat application's credentials
                   database.
                 properties:
                   databaseSecretName:
                     description: Name of the secret containing the password to encrypt
-                      JMX credentials database.
+                      credentials database.
                     type: string
                 type: object
               maxWsConnections:

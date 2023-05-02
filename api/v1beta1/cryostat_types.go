@@ -106,9 +106,9 @@ type CryostatSpec struct {
 	// +optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	TargetDiscoveryOptions *TargetDiscoveryOptions `json:"targetDiscoveryOptions,omitempty"`
-	// Options to configure the Cryostat application's JMX credentials database.
+	// Options to configure the Cryostat application's credentials database.
 	// +optional
-	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="JMX Credentials Database Options"
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Credentials Database Options"
 	JmxCredentialsDatabaseOptions *JmxCredentialsDatabaseOptions `json:"jmxCredentialsDatabaseOptions,omitempty"`
 }
 
@@ -522,9 +522,9 @@ type TargetDiscoveryOptions struct {
 	BuiltInDiscoveryDisabled bool `json:"builtInDiscoveryDisabled,omitempty"`
 }
 
-// JmxCredentialsDatabaseOptions provides configuration options to the Cryostat application's JMX credentials database.
+// JmxCredentialsDatabaseOptions provides configuration options to the Cryostat application's credentials database.
 type JmxCredentialsDatabaseOptions struct {
-	// Name of the secret containing the password to encrypt JMX credentials database.
+	// Name of the secret containing the password to encrypt credentials database.
 	// +optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:io.kubernetes:Secret"}
 	DatabaseSecretName *string `json:"databaseSecretName,omitempty"`

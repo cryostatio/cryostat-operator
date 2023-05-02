@@ -133,11 +133,10 @@ spec:
         path: jmxCacheOptions.targetCacheTTL
         x-descriptors:
         - urn:alm:descriptor:com.tectonic.ui:number
-      - description: Options to configure the Cryostat application's JMX credentials
-          database.
-        displayName: JMX Credentials Database Options
+      - description: Options to configure the Cryostat application's credentials database.
+        displayName: Credentials Database Options
         path: jmxCredentialsDatabaseOptions
-      - description: Name of the secret containing the password to encrypt JMX credentials
+      - description: Name of the secret containing the password to encrypt credentials
           database.
         displayName: Database Secret Name
         path: jmxCredentialsDatabaseOptions.databaseSecretName
@@ -505,11 +504,10 @@ spec:
         path: jmxCacheOptions.targetCacheTTL
         x-descriptors:
         - urn:alm:descriptor:com.tectonic.ui:number
-      - description: Options to configure the Cryostat application's JMX credentials
-          database.
-        displayName: JMX Credentials Database Options
+      - description: Options to configure the Cryostat application's credentials database.
+        displayName: Credentials Database Options
         path: jmxCredentialsDatabaseOptions
-      - description: Name of the secret containing the password to encrypt JMX credentials
+      - description: Name of the secret containing the password to encrypt credentials
           database.
         displayName: Database Secret Name
         path: jmxCredentialsDatabaseOptions.databaseSecretName
