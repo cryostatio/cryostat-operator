@@ -53,13 +53,8 @@ metadata:
       ]
     capabilities: Seamless Upgrades
     categories: Monitoring, Developer Tools
-<<<<<<< HEAD
     containerImage: quay.io/cryostat/cryostat-operator:2.3.0-dev
-    createdAt: "2023-05-01T20:00:15Z"
-=======
-    containerImage: quay.io/cryostat/cryostat-operator:2.4.0-dev
-    createdAt: "2023-05-02T15:53:41Z"
->>>>>>> dd8c8f0 (fix(crd): remove mentions of JMX in credential database (#575))
+    createdAt: "2023-05-02T19:38:15Z"
     description: JVM monitoring and profiling tool
     operatorframework.io/initialization-resource: |-
       {
