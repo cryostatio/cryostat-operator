@@ -53,8 +53,13 @@ metadata:
       ]
     capabilities: Seamless Upgrades
     categories: Monitoring, Developer Tools
+<<<<<<< HEAD
     containerImage: quay.io/cryostat/cryostat-operator:2.3.0-dev
     createdAt: "2023-05-01T20:00:15Z"
+=======
+    containerImage: quay.io/cryostat/cryostat-operator:2.4.0-dev
+    createdAt: "2023-05-02T15:53:41Z"
+>>>>>>> dd8c8f0 (fix(crd): remove mentions of JMX in credential database (#575))
     description: JVM monitoring and profiling tool
     operatorframework.io/initialization-resource: |-
       {
@@ -182,11 +187,10 @@ spec:
         path: jmxCacheOptions.targetCacheTTL
         x-descriptors:
         - urn:alm:descriptor:com.tectonic.ui:number
-      - description: Options to configure the Cryostat application's JMX credentials
-          database.
-        displayName: JMX Credentials Database Options
+      - description: Options to configure the Cryostat application's credentials database.
+        displayName: Credentials Database Options
         path: jmxCredentialsDatabaseOptions
-      - description: Name of the secret containing the password to encrypt JMX credentials
+      - description: Name of the secret containing the password to encrypt credentials
           database.
         displayName: Database Secret Name
         path: jmxCredentialsDatabaseOptions.databaseSecretName
@@ -566,11 +570,10 @@ spec:
         path: jmxCacheOptions.targetCacheTTL
         x-descriptors:
         - urn:alm:descriptor:com.tectonic.ui:number
-      - description: Options to configure the Cryostat application's JMX credentials
-          database.
-        displayName: JMX Credentials Database Options
+      - description: Options to configure the Cryostat application's credentials database.
+        displayName: Credentials Database Options
         path: jmxCredentialsDatabaseOptions
-      - description: Name of the secret containing the password to encrypt JMX credentials
+      - description: Name of the secret containing the password to encrypt credentials
           database.
         displayName: Database Secret Name
         path: jmxCredentialsDatabaseOptions.databaseSecretName
