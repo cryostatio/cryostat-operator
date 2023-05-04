@@ -425,7 +425,7 @@ undeploy_sample_app: undeploy_sample_app_quarkus
 
 .PHONY: sample_app_quarkus
 sample_app_quarkus: undeploy_sample_app_quarkus
-	$(call new-sample-app,quay.io/andrewazores/quarkus-test:0.0.10,quarkus-test)
+	$(call new-sample-app,quay.io/andrewazores/quarkus-test:0.0.10)
 	$(CLUSTER_CLIENT) patch svc/quarkus-test -p '{"spec":{"$setElementOrder/ports":[{"port":9097},{"port":8080}],"ports":[{"name":"jfr-jmx","port":9097}]}}'
 
 .PHONY: undeploy_sample_app_quarkus
@@ -447,5 +447,5 @@ undeploy_sample_app_agent:
 
 define new-sample-app
 @if [ ! "$(CLUSTER_CLIENT)" = "oc" ]; then echo "CLUSTER_CLIENT must be 'oc' for sample app deployments" && exit 1; fi
-$(CLUSTER_CLIENT) new-app $(1) --name $(2)
+$(CLUSTER_CLIENT) new-app $(1)
 endef
