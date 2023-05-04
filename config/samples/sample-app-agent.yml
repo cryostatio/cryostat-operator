@@ -1,0 +1,146 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  annotations:
+    deployment.kubernetes.io/revision: "3"
+    image.openshift.io/triggers: '[{"from":{"kind":"ImageStreamTag","name":"quarkus-test-agent:0.0.12"},"fieldPath":"spec.template.spec.containers[?(@.name==\"quarkus-test-agent\")].image"}]'
+    openshift.io/generated-by: OpenShiftNewApp
+  creationTimestamp: "2023-05-04T14:49:52Z"
+  generation: 3
+  labels:
+    app: quarkus-test-agent
+    app.kubernetes.io/component: quarkus-test-agent
+    app.kubernetes.io/instance: quarkus-test-agent
+  name: quarkus-test-agent
+  namespace: cryostat-test
+  resourceVersion: "43683"
+spec:
+  progressDeadlineSeconds: 600
+  replicas: 1
+  revisionHistoryLimit: 10
+  selector:
+    matchLabels:
+      deployment: quarkus-test-agent
+  strategy:
+    rollingUpdate:
+      maxSurge: 25%
+      maxUnavailable: 25%
+    type: RollingUpdate
+  template:
+    metadata:
+      annotations:
+        openshift.io/generated-by: OpenShiftNewApp
+      creationTimestamp: null
+      labels:
+        deployment: quarkus-test-agent
+    spec:
+      containers:
+      - env:
+        - name: CRYOSTAT_AGENT_APP_NAME
+          value: agent-test
+        - name: NAMESPACE
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: metadata.namespace
+        - name: CRYOSTAT_AGENT_BASEURI
+          value: https://cryostat-sample.$(NAMESPACE).svc:8181
+        - name: POD_IP
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: status.podIP
+        - name: CRYOSTAT_AGENT_CALLBACK
+          value: http://$(POD_IP):9977
+        - name: CRYOSTAT_AGENT_AUTHORIZATION
+          value: Bearer abcd1234
+        - name: KEYSTORE_PASS
+          valueFrom:
+            secretKeyRef:
+              key: KEYSTORE_PASS
+              name: cryostat-sample-keystore
+        - name: JAVA_OPTS_APPEND
+          value: |-
+            -Djavax.net.ssl.trustStore=/var/run/secrets/myapp/truststore.p12
+            -Djavax.net.ssl.trustStorePassword=$(KEYSTORE_PASS)
+        image: quay.io/andrewazores/quarkus-test@sha256:96f0f8bf0878a0843df08f9fec8ee9cf9c0ea09ee8c462b2c28ae504085a8b1b
+        imagePullPolicy: IfNotPresent
+        name: quarkus-test-agent
+        ports:
+        - containerPort: 10010
+          protocol: TCP
+        - containerPort: 8080
+          protocol: TCP
+        - containerPort: 8443
+          protocol: TCP
+        - containerPort: 9097
+          protocol: TCP
+        resources: {}
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+        terminationMessagePath: /dev/termination-log
+        terminationMessagePolicy: File
+        volumeMounts:
+        - mountPath: /var/run/secrets/myapp/truststore.p12
+          name: truststore
+          subPath: truststore.p12
+      dnsPolicy: ClusterFirst
+      restartPolicy: Always
+      schedulerName: default-scheduler
+      securityContext:
+        runAsNonRoot: true
+      terminationGracePeriodSeconds: 30
+      volumes:
+      - name: truststore
+        secret:
+          defaultMode: 420
+          secretName: cryostat-sample-tls
+---
+apiVersion: v1
+kind: Service
+metadata:
+  annotations:
+    openshift.io/generated-by: OpenShiftNewApp
+  creationTimestamp: "2023-05-04T14:49:52Z"
+  labels:
+    app: quarkus-test-agent
+    app.kubernetes.io/component: quarkus-test-agent
+    app.kubernetes.io/instance: quarkus-test-agent
+  name: quarkus-test-agent
+  namespace: cryostat-test
+  resourceVersion: "43247"
+  uid: 76251f40-2456-45df-a7e6-869c8d0abc46
+spec:
+  internalTrafficPolicy: Cluster
+  ipFamilies:
+  - IPv4
+  ipFamilyPolicy: SingleStack
+  ports:
+  - name: jfr-jmx
+    port: 9097
+    protocol: TCP
+    targetPort: 9097
+  - name: agent-http
+    port: 9977
+    protocol: TCP
+    targetPort: 9977
+  - name: app-http
+    port: 10010
+    protocol: TCP
+    targetPort: 10010
+  - name: 8080-tcp
+    port: 8080
+    protocol: TCP
+    targetPort: 8080
+  - name: 8443-tcp
+    port: 8443
+    protocol: TCP
+    targetPort: 8443
+  selector:
+    deployment: quarkus-test-agent
+  sessionAffinity: None
+  type: ClusterIP
