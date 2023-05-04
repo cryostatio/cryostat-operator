@@ -436,7 +436,7 @@ undeploy_sample_app_quarkus:
 sample_app_agent: undeploy_sample_app_agent
 	$(CLUSTER_CLIENT) create -f config/samples/sample-app-agent.yml
 	@if [ ! "$(CLUSTER_CLIENT)" = "oc" ]; then \
-		@echo "You must now 'oc edit deployment/quarkus-test-agent' and set CRYOSTAT_AGENT_AUTHORIZATION to a suitable auth token value, ex 'oc whoami -t | base64'."; \
+		@echo "You must now 'oc edit deployment/quarkus-test-agent' and set CRYOSTAT_AGENT_AUTHORIZATION to a suitable auth token value."; \
 	else \
 		oc set env deployment/quarkus-test-agent CRYOSTAT_AGENT_AUTHORIZATION="Bearer $(shell oc whoami -t | base64)"; \
 	fi
