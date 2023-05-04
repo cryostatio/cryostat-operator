@@ -425,14 +425,25 @@ undeploy_sample_app: undeploy_sample_app_quarkus
 
 .PHONY: sample_app_quarkus
 sample_app_quarkus: undeploy_sample_app_quarkus
-	$(call new-sample-app,quay.io/andrewazores/quarkus-test:0.0.10)
+	$(call new-sample-app,quay.io/andrewazores/quarkus-test:0.0.10,quarkus-test)
 	$(CLUSTER_CLIENT) patch svc/quarkus-test -p '{"spec":{"$setElementOrder/ports":[{"port":9097},{"port":8080}],"ports":[{"name":"jfr-jmx","port":9097}]}}'
 
 .PHONY: undeploy_sample_app_quarkus
 undeploy_sample_app_quarkus:
 	- $(CLUSTER_CLIENT) delete all -l app=quarkus-test
 
+.PHONY: sample_app_agent
+sample_app_agent: undeploy_sample_app_agent
+	$(call new-sample-app,quay.io/andrewazores/quarkus-test:0.0.12,quarkus-test-agent)
+	$(CLUSTER_CLIENT) patch deployment/quarkus-test-agent -p '{"spec":{"template":{"spec":{"$setElementOrder/containers":[{"name":"quarkus-test-agent"}],"containers":[{"env":[{"name":"CRYOSTAT_AGENT_APP_NAME","value":"quarkus-test-agent"},{"name":"NAMESPACE","valueFrom":{"fieldRef":{"fieldPath":"metadata.namespace"}}},{"name":"CRYOSTAT_AGENT_BASEURI","value":"https://cryostat-sample.$(NAMESPACE).svc:8181"},{"name":"POD_IP","valueFrom":{"fieldRef":{"fieldPath":"status.podIP"}}},{"name":"CRYOSTAT_AGENT_CALLBACK","value":"http://$(POD_IP):9977"},{"name":"CRYOSTAT_AGENT_AUTHORIZATION","value":"Bearer abcd1234"},{"name":"KEYSTORE_PASS","valueFrom":{"secretKeyRef":{"key":"KEYSTORE_PASS","name":"cryostat-sample-keystore"}}},{"name":"JAVA_OPTS_APPEND","value":"-Djavax.net.ssl.trustStore=/var/run/secrets/myapp/truststore.p12\n-Djavax.net.ssl.trustStorePassword=$(KEYSTORE_PASS)"}],"name":"quarkus-test-agent","volumeMounts":[{"mountPath":"/var/run/secrets/myapp/truststore.p12","name":"truststore","subPath":"truststore.p12"}]}],"volumes":[{"name":"truststore","secret":{"defaultMode":420,"secretName":"cryostat-sample-tls"}}]}}}}'
+	$(CLUSTER_CLIENT) patch svc/quarkus-test-agent -p '{"spec":{"$setElementOrder/ports":[{"port":9097},{"port":9977},{"port":10010}],"ports":[{"name":"jfr-jmx","port":9097},{"name":"agent-http","port":9977,"protocol":"TCP","targetPort":9977},{"name":"app-http","port":10010},{"$patch":"delete","port":8080},{"$patch":"delete","port":8443}]}}'
+	- echo "You must now 'oc edit deployment/quarkus-test-agent' and set CRYOSTAT_AGENT_AUTHORIZATION to a suitable auth token value, ex 'oc whoami -t | base64'."
+
+.PHONY: undeploy_sample_app_agent
+undeploy_sample_app_agent:
+	- $(CLUSTER_CLIENT) delete all -l app=quarkus-test-agent
+
 define new-sample-app
 @if [ ! "$(CLUSTER_CLIENT)" = "oc" ]; then echo "CLUSTER_CLIENT must be 'oc' for sample app deployments" && exit 1; fi
-$(CLUSTER_CLIENT) new-app $(1)
+$(CLUSTER_CLIENT) new-app $(1) --name $(2)
 endef
