@@ -2,19 +2,11 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  annotations:
-    deployment.kubernetes.io/revision: "3"
-    image.openshift.io/triggers: '[{"from":{"kind":"ImageStreamTag","name":"quarkus-test-agent:0.0.12"},"fieldPath":"spec.template.spec.containers[?(@.name==\"quarkus-test-agent\")].image"}]'
-    openshift.io/generated-by: OpenShiftNewApp
-  creationTimestamp: "2023-05-04T14:49:52Z"
-  generation: 3
   labels:
     app: quarkus-test-agent
     app.kubernetes.io/component: quarkus-test-agent
     app.kubernetes.io/instance: quarkus-test-agent
   name: quarkus-test-agent
-  namespace: cryostat-test
-  resourceVersion: "43683"
 spec:
   progressDeadlineSeconds: 600
   replicas: 1
@@ -103,17 +95,11 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  annotations:
-    openshift.io/generated-by: OpenShiftNewApp
-  creationTimestamp: "2023-05-04T14:49:52Z"
   labels:
     app: quarkus-test-agent
     app.kubernetes.io/component: quarkus-test-agent
     app.kubernetes.io/instance: quarkus-test-agent
   name: quarkus-test-agent
-  namespace: cryostat-test
-  resourceVersion: "43247"
-  uid: 76251f40-2456-45df-a7e6-869c8d0abc46
 spec:
   internalTrafficPolicy: Cluster
   ipFamilies:
