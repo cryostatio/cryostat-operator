@@ -50,10 +50,12 @@ import (
 	configv1 "github.com/openshift/api/config/v1"
 	consolev1 "github.com/openshift/api/console/v1"
 	routev1 "github.com/openshift/api/route/v1"
+	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
@@ -105,6 +107,14 @@ func main() {
 
 	ctrl.SetLogger(zap.New(zap.UseFlagOptions(&opts)))
 
+	// For OwnNamespace install mode, we need to see RoleBindings in other namespaces
+	// when used with ClusterCryostat
+	// https://github.com/cryostatio/cryostat-operator/issues/580
+	disableCache := []client.Object{}
+	if len(watchNamespace) > 0 {
+		disableCache = append(disableCache, &rbacv1.RoleBinding{})
+	}
+
 	// FIXME Disable metrics until this issue is resolved:
 	// https://github.com/operator-framework/operator-sdk/issues/4684
 	metricsAddr = "0"
@@ -116,6 +126,7 @@ func main() {
 		LeaderElection:         enableLeaderElection,
 		LeaderElectionID:       "d696d7ab.redhat.com",
 		Namespace:              watchNamespace,
+		ClientDisableCacheFor:  disableCache,
 	})
 	if err != nil {
 		setupLog.Error(err, "unable to start manager")

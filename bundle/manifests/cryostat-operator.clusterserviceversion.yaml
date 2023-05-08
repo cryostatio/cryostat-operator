@@ -53,8 +53,13 @@ metadata:
       ]
     capabilities: Seamless Upgrades
     categories: Monitoring, Developer Tools
+<<<<<<< HEAD
     containerImage: quay.io/cryostat/cryostat-operator:2.3.0-dev
     createdAt: "2023-05-02T19:38:15Z"
+=======
+    containerImage: quay.io/cryostat/cryostat-operator:2.4.0-dev
+    createdAt: "2023-05-08T19:40:30Z"
+>>>>>>> 0758742 (fix(rbac): bypass cache when reading RoleBindings (#581))
     description: JVM monitoring and profiling tool
     operatorframework.io/initialization-resource: |-
       {
