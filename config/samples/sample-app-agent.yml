@@ -56,7 +56,13 @@ spec:
           protocol: TCP
         - containerPort: 9097
           protocol: TCP
-        resources: {}
+        resources:
+          requests:
+            cpu: 200m
+            memory: 96Mi
+          limits:
+            cpu: 500m
+            memory: 128Mi
         securityContext:
           allowPrivilegeEscalation: false
           capabilities:
