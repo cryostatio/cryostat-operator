@@ -4,28 +4,16 @@ kind: Deployment
 metadata:
   labels:
     app: quarkus-test-agent
-    app.kubernetes.io/component: quarkus-test-agent
-    app.kubernetes.io/instance: quarkus-test-agent
   name: quarkus-test-agent
 spec:
-  progressDeadlineSeconds: 600
   replicas: 1
-  revisionHistoryLimit: 10
   selector:
     matchLabels:
-      deployment: quarkus-test-agent
-  strategy:
-    rollingUpdate:
-      maxSurge: 25%
-      maxUnavailable: 25%
-    type: RollingUpdate
+      app: quarkus-test-agent
   template:
     metadata:
-      annotations:
-        openshift.io/generated-by: OpenShiftNewApp
-      creationTimestamp: null
       labels:
-        deployment: quarkus-test-agent
+        app: quarkus-test-agent
     spec:
       containers:
       - env:
@@ -74,18 +62,13 @@ spec:
           capabilities:
             drop:
             - ALL
-        terminationMessagePath: /dev/termination-log
-        terminationMessagePolicy: File
         volumeMounts:
         - mountPath: /var/run/secrets/myapp/truststore.p12
           name: truststore
           subPath: truststore.p12
-      dnsPolicy: ClusterFirst
       restartPolicy: Always
-      schedulerName: default-scheduler
       securityContext:
         runAsNonRoot: true
-      terminationGracePeriodSeconds: 30
       volumes:
       - name: truststore
         secret:
@@ -97,14 +80,10 @@ kind: Service
 metadata:
   labels:
     app: quarkus-test-agent
-    app.kubernetes.io/component: quarkus-test-agent
-    app.kubernetes.io/instance: quarkus-test-agent
   name: quarkus-test-agent
 spec:
-  internalTrafficPolicy: Cluster
-  ipFamilies:
-  - IPv4
-  ipFamilyPolicy: SingleStack
+  selector:
+    app: quarkus-test-agent
   ports:
   - name: jfr-jmx
     port: 9097
@@ -126,7 +105,3 @@ spec:
     port: 8443
     protocol: TCP
     targetPort: 8443
-  selector:
-    deployment: quarkus-test-agent
-  sessionAffinity: None
-  type: ClusterIP
