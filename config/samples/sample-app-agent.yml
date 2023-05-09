@@ -56,7 +56,7 @@ spec:
           value: |-
             -Djavax.net.ssl.trustStore=/var/run/secrets/myapp/truststore.p12
             -Djavax.net.ssl.trustStorePassword=$(KEYSTORE_PASS)
-        image: quay.io/andrewazores/quarkus-test@sha256:96f0f8bf0878a0843df08f9fec8ee9cf9c0ea09ee8c462b2c28ae504085a8b1b
+        image: quay.io/andrewazores/quarkus-test:latest
         imagePullPolicy: IfNotPresent
         name: quarkus-test-agent
         ports:
