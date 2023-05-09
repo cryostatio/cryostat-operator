@@ -72,7 +72,6 @@ spec:
       volumes:
       - name: truststore
         secret:
-          defaultMode: 420
           secretName: cryostat-sample-tls
 ---
 apiVersion: v1
