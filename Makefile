@@ -418,14 +418,10 @@ scorecard-build: custom-scorecard-tests
 # Local development/testing helpers
 
 .PHONY: sample_app
-sample_app: undeploy_sample_app
-	$(call new-sample-app,quay.io/andrewazores/vertx-fib-demo:0.9.1)
-	$(CLUSTER_CLIENT) patch svc/vertx-fib-demo -p '{"spec":{"$setElementOrder/ports":[{"port":8080},{"port":8443},{"port":9093}],"ports":[{"name":"jfr-jmx","port":9093}]}}'
-	$(CLUSTER_CLIENT) patch deployment/vertx-fib-demo -p '{"spec":{"template":{"spec":{"$setElementOrder/containers":[{"name":"vertx-fib-demo"}],"containers":[{"name":"vertx-fib-demo","env":[{"name":"USE_AUTH","value":"true"}],"resources":{"limits":{"cpu":"200m","memory":"256Mi"}}}]}}}}'
+sample_app: sample_app_quarkus
 
 .PHONY: undeploy_sample_app
-undeploy_sample_app:
-	- $(CLUSTER_CLIENT) delete all -l app=vertx-fib-demo
+undeploy_sample_app: undeploy_sample_app_quarkus
 
 .PHONY: sample_app_quarkus
 sample_app_quarkus: undeploy_sample_app_quarkus
@@ -435,6 +431,23 @@ sample_app_quarkus: undeploy_sample_app_quarkus
 .PHONY: undeploy_sample_app_quarkus
 undeploy_sample_app_quarkus:
 	- $(CLUSTER_CLIENT) delete all -l app=quarkus-test
+
+.PHONY: sample_app_agent
+sample_app_agent: undeploy_sample_app_agent
+	@if [ -z "${AUTH_TOKEN}" ]; then \
+		if [ "${CLUSTER_CLIENT}" = "oc" ]; then\
+			AUTH_TOKEN=`oc whoami -t | base64`; \
+		else \
+			echo "'AUTH_TOKEN' must be specified."; \
+			exit 1; \
+		fi; \
+	fi; \
+	$(CLUSTER_CLIENT) create -f config/samples/sample-app-agent.yml; \
+	$(CLUSTER_CLIENT) set env deployment/quarkus-test-agent CRYOSTAT_AGENT_AUTHORIZATION="Bearer $(AUTH_TOKEN)"
+
+.PHONY: undeploy_sample_app_agent
+undeploy_sample_app_agent:
+	- $(CLUSTER_CLIENT) delete -f config/samples/sample-app-agent.yml
 
 define new-sample-app
 @if [ ! "$(CLUSTER_CLIENT)" = "oc" ]; then echo "CLUSTER_CLIENT must be 'oc' for sample app deployments" && exit 1; fi

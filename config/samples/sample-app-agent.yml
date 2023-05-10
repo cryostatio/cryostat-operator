@@ -1,0 +1,112 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: quarkus-test-agent
+  name: quarkus-test-agent
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: quarkus-test-agent
+  template:
+    metadata:
+      labels:
+        app: quarkus-test-agent
+    spec:
+      containers:
+      - env:
+        - name: CRYOSTAT_AGENT_APP_NAME
+          value: agent-test
+        - name: NAMESPACE
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: metadata.namespace
+        - name: CRYOSTAT_AGENT_BASEURI
+          value: https://cryostat-sample.$(NAMESPACE).svc:8181
+        - name: POD_IP
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: status.podIP
+        - name: CRYOSTAT_AGENT_CALLBACK
+          value: http://$(POD_IP):9977
+        - name: CRYOSTAT_AGENT_AUTHORIZATION
+          value: Bearer abcd1234
+        - name: KEYSTORE_PASS
+          valueFrom:
+            secretKeyRef:
+              key: KEYSTORE_PASS
+              name: cryostat-sample-keystore
+        - name: JAVA_OPTS_APPEND
+          value: |-
+            -Djavax.net.ssl.trustStore=/var/run/secrets/myapp/truststore.p12
+            -Djavax.net.ssl.trustStorePassword=$(KEYSTORE_PASS)
+        image: quay.io/andrewazores/quarkus-test:latest
+        imagePullPolicy: IfNotPresent
+        name: quarkus-test-agent
+        ports:
+        - containerPort: 10010
+          protocol: TCP
+        - containerPort: 8080
+          protocol: TCP
+        - containerPort: 8443
+          protocol: TCP
+        - containerPort: 9097
+          protocol: TCP
+        resources:
+          requests:
+            cpu: 200m
+            memory: 96Mi
+          limits:
+            cpu: 500m
+            memory: 128Mi
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+        volumeMounts:
+        - mountPath: /var/run/secrets/myapp/truststore.p12
+          name: truststore
+          subPath: truststore.p12
+      restartPolicy: Always
+      securityContext:
+        runAsNonRoot: true
+      volumes:
+      - name: truststore
+        secret:
+          secretName: cryostat-sample-tls
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: quarkus-test-agent
+  name: quarkus-test-agent
+spec:
+  selector:
+    app: quarkus-test-agent
+  ports:
+  - name: jfr-jmx
+    port: 9097
+    protocol: TCP
+    targetPort: 9097
+  - name: agent-http
+    port: 9977
+    protocol: TCP
+    targetPort: 9977
+  - name: app-http
+    port: 10010
+    protocol: TCP
+    targetPort: 10010
+  - name: 8080-tcp
+    port: 8080
+    protocol: TCP
+    targetPort: 8080
+  - name: 8443-tcp
+    port: 8443
+    protocol: TCP
+    targetPort: 8443
