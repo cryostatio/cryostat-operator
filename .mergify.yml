@@ -9,3 +9,10 @@ pull_request_rules:
           - cryostat-v2.3
         assignees:
           - "{{ author }}"
+  - name: auto label PRs from reviewers
+    conditions:
+      - author=@reviewers
+    actions:
+      label:
+        add:
+          - safe-to-test
