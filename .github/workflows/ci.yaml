@@ -99,19 +99,7 @@ jobs:
         password: ${{ secrets.GHCR_PR_TOKEN }}
     - name: Set up Kind cluster
       run: |
-        {
-            printf -- "kind: Cluster\n"
-            printf -- "apiVersion: kind.x-k8s.io/v1alpha4\n"
-            printf -- "nodes:\n"
-            printf -- "- role: control-plane\n"
-            printf -- "  kubeadmConfigPatches:\n"
-            printf -- "  - |\n"
-            printf -- "    kind: InitConfiguration\n"
-            printf -- "    nodeRegistration:\n"
-            printf -- "      kubeletExtraArgs:\n"
-            printf -- "        node-labels: \"ingress-ready=true\"\n"
-        } > kind-config.yaml
-        kind create cluster --config=kind-config.yaml -n ci-${{ github.run_id }}
+        kind create cluster --config=".github/kind-config.yaml" -n ci-${{ github.run_id }}
         # Enabling Ingress
         kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/main/deploy/static/provider/kind/deploy.yaml
         kubectl rollout status -w deployment/ingress-nginx-controller -n ingress-nginx --timeout 5m
