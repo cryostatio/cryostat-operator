@@ -1,5 +1,9 @@
 name: CI
 
+concurrency:
+  group: ci-${{ github.run_id }}
+  cancel-in-progress: true
+
 on:
   push:
     branches:
@@ -107,7 +111,7 @@ jobs:
             printf -- "      kubeletExtraArgs:\n"
             printf -- "        node-labels: \"ingress-ready=true\"\n"
         } > kind-config.yaml
-        kind create cluster --config=kind-config.yaml -n ci-${{ github.repository_owner }}
+        kind create cluster --config=kind-config.yaml -n ci-${{ github.run_id }}
         # Enabling Ingress
         kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/main/deploy/static/provider/kind/deploy.yaml
         kubectl rollout status -w deployment/ingress-nginx-controller -n ingress-nginx --timeout 5m
@@ -144,7 +148,7 @@ jobs:
       run: |
         operator-sdk scorecard -n $SCORECARD_NAMESPACE -s $SCORECARD_SA_NAME -w 20m --pod-security=restricted ./bundle
     - name: Clean up Kind cluster 
-      run: kind delete cluster -n ci-${{ github.repository_owner }}
+      run: kind delete cluster -n ci-${{ github.run_id }}
   build-operator:
     runs-on: ubuntu-latest
     if: ${{ github.event_name == 'push' && github.repository_owner == 'cryostatio' }}
