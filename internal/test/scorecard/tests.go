@@ -48,7 +48,7 @@ import (
 	routev1 "github.com/openshift/api/route/v1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
-	v1 "k8s.io/api/networking/v1"
+	netv1 "k8s.io/api/networking/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -302,27 +302,27 @@ func newCryostatCR(namespace string, withIngress bool) *operatorv1beta1.Cryostat
 	}
 
 	if withIngress {
-		pathType := v1.PathTypePrefix
+		pathType := netv1.PathTypePrefix
 		cr.Spec.NetworkOptions = &operatorv1beta1.NetworkConfigurationList{
 			CoreConfig: &operatorv1beta1.NetworkConfiguration{
 				Annotations: map[string]string{
 					"nginx.ingress.kubernetes.io/backend-protocol": "HTTPS",
 				},
-				IngressSpec: &v1.IngressSpec{
-					TLS: []v1.IngressTLS{},
-					Rules: []v1.IngressRule{
+				IngressSpec: &netv1.IngressSpec{
+					TLS: []netv1.IngressTLS{},
+					Rules: []netv1.IngressRule{
 						{
 							Host: "testing.cryostat",
-							IngressRuleValue: v1.IngressRuleValue{
-								HTTP: &v1.HTTPIngressRuleValue{
-									Paths: []v1.HTTPIngressPath{
+							IngressRuleValue: netv1.IngressRuleValue{
+								HTTP: &netv1.HTTPIngressRuleValue{
+									Paths: []netv1.HTTPIngressPath{
 										{
 											Path:     "/",
 											PathType: &pathType,
-											Backend: v1.IngressBackend{
-												Service: &v1.IngressServiceBackend{
+											Backend: netv1.IngressBackend{
+												Service: &netv1.IngressServiceBackend{
 													Name: "cryostat-cr-test",
-													Port: v1.ServiceBackendPort{
+													Port: netv1.ServiceBackendPort{
 														Number: 8181,
 													},
 												},
@@ -339,21 +339,21 @@ func newCryostatCR(namespace string, withIngress bool) *operatorv1beta1.Cryostat
 				Annotations: map[string]string{
 					"nginx.ingress.kubernetes.io/backend-protocol": "HTTPS",
 				},
-				IngressSpec: &v1.IngressSpec{
-					TLS: []v1.IngressTLS{},
-					Rules: []v1.IngressRule{
+				IngressSpec: &netv1.IngressSpec{
+					TLS: []netv1.IngressTLS{},
+					Rules: []netv1.IngressRule{
 						{
 							Host: "testing.cryostat-grafana",
-							IngressRuleValue: v1.IngressRuleValue{
-								HTTP: &v1.HTTPIngressRuleValue{
-									Paths: []v1.HTTPIngressPath{
+							IngressRuleValue: netv1.IngressRuleValue{
+								HTTP: &netv1.HTTPIngressRuleValue{
+									Paths: []netv1.HTTPIngressPath{
 										{
 											Path:     "/",
 											PathType: &pathType,
-											Backend: v1.IngressBackend{
-												Service: &v1.IngressServiceBackend{
+											Backend: netv1.IngressBackend{
+												Service: &netv1.IngressServiceBackend{
 													Name: "cryostat-cr-test-grafana",
-													Port: v1.ServiceBackendPort{
+													Port: netv1.ServiceBackendPort{
 														Number: 3000,
 													},
 												},
