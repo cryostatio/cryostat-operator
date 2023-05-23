@@ -18,7 +18,8 @@ IMAGE_TAG_BASE ?= $(IMAGE_NAMESPACE)/$(OPERATOR_NAME)
 
 # Default bundle image tag
 BUNDLE_IMG ?= $(IMAGE_TAG_BASE)-bundle:$(BUNDLE_VERSION)
-BUNDLE_IMGS ?= $(BUNDLE_IMG) 
+BUNDLE_IMGS ?= $(BUNDLE_IMG)
+BUNDLE_SOURCE ?= $(BUNDLE_IMG)
 
 # Default catalog image tag
 CATALOG_IMG ?= $(IMAGE_TAG_BASE)-catalog:$(BUNDLE_VERSION) 
@@ -130,20 +131,32 @@ endif
 .PHONY: test-scorecard
 test-scorecard: check_cert_manager kustomize
 ifneq ($(SKIP_TESTS), true)
-	@$(CLUSTER_CLIENT) get namespace $(SCORECARD_NAMESPACE) >/dev/null 2>&1 &&\
-		echo "$(SCORECARD_NAMESPACE) namespace already exists, please remove it with \"make clean-scorecard\"" >&2 && exit 1 || true
-	$(CLUSTER_CLIENT) create namespace $(SCORECARD_NAMESPACE)
-	cd internal/images/custom-scorecard-tests/rbac/ && $(KUSTOMIZE) edit set namespace $(SCORECARD_NAMESPACE)
-	$(KUSTOMIZE) build internal/images/custom-scorecard-tests/rbac/ | $(CLUSTER_CLIENT) apply -f -
-	operator-sdk run bundle -n $(SCORECARD_NAMESPACE) $(BUNDLE_IMG)
+	$(call scorecard-setup)
 	$(call scorecard-cleanup); \
 	trap cleanup EXIT; \
-	operator-sdk scorecard -n $(SCORECARD_NAMESPACE) -s cryostat-scorecard -w 20m $(BUNDLE_IMG) --pod-security=restricted
+	operator-sdk scorecard -n $(SCORECARD_NAMESPACE) -s cryostat-scorecard -w 20m $(BUNDLE_SOURCE) --pod-security=restricted
 endif
 
 .PHONY: clean-scorecard
 clean-scorecard:
 	- $(call scorecard-cleanup); cleanup
+
+define scorecard-setup
+@$(CLUSTER_CLIENT) get namespace $(SCORECARD_NAMESPACE) >/dev/null 2>&1 &&\
+	echo "$(SCORECARD_NAMESPACE) namespace already exists, please remove it with \"make clean-scorecard\"" >&2 && exit 1 || true
+$(CLUSTER_CLIENT) create namespace $(SCORECARD_NAMESPACE)
+cd internal/images/custom-scorecard-tests/rbac/ && $(KUSTOMIZE) edit set namespace $(SCORECARD_NAMESPACE)
+$(KUSTOMIZE) build internal/images/custom-scorecard-tests/rbac/ | $(CLUSTER_CLIENT) apply -f -
+
+if [[ -n $(SCORECARD_REGISTRY_SERVER) && -n $(SCORECARD_REGISTRY_USERNAME) && -n $(SCORECARD_REGISTRY_PASSWORD) ]]; then \
+	$(CLUSTER_CLIENT) create -n $(SCORECARD_NAMESPACE) secret docker-registry registry-key --docker-server="$(SCORECARD_REGISTRY_SERVER)" \
+		--docker-username="$(SCORECARD_REGISTRY_USERNAME)" --docker-password="$(SCORECARD_REGISTRY_PASSWORD)"; \
+	$(CLUSTER_CLIENT) patch sa cryostat-scorecard -n $(SCORECARD_NAMESPACE) -p '{"imagePullSecrets": [{"name": "registry-key"}]}'; \
+	operator-sdk run bundle -n $(SCORECARD_NAMESPACE) --timeout 20m $(BUNDLE_IMG) --pull-secret-name registry-key --service-account cryostat-scorecard; \
+else \
+	operator-sdk run bundle -n $(SCORECARD_NAMESPACE) --timeout 20m $(BUNDLE_IMG);\
+fi
+endef
 
 define scorecard-cleanup
 function cleanup { \

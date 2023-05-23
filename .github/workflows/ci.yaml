@@ -55,9 +55,7 @@ jobs:
   scorecard-test:
     runs-on: ubuntu-latest
     if: ${{ github.repository_owner == 'cryostatio' }}
-    env: 
-      SCORECARD_NAMESPACE: cryostat-operator-scorecard
-      SCORECARD_SA_NAME: cryostat-scorecard
+    env:
       GHCR_USERNAME: ${{ github.repository_owner }}
       GHCR_PASSWORD: ${{ secrets.GHCR_PR_TOKEN }}
       GHCR_SERVER: ghcr.io
@@ -112,29 +110,14 @@ jobs:
         registry: ${{ env.GHCR_SERVER }}
         username: ${{ github.repository_owner }}
         password: ${{ secrets.GHCR_PR_TOKEN }}
-    - name: Set up scorecard environment
-      run: |
-        KUSTOMIZE=$PWD/bin/kustomize
-        make kustomize
-
-        # Create a test namespace
-        kubectl create namespace $SCORECARD_NAMESPACE
-
-        # Generate rbacs
-        pushd internal/images/custom-scorecard-tests/rbac/ && $KUSTOMIZE edit set namespace $SCORECARD_NAMESPACE
-        popd && $KUSTOMIZE build internal/images/custom-scorecard-tests/rbac/ | kubectl apply -f -
-
-        # Define credentials to pull from ghcr.io
-        kubectl create -n $SCORECARD_NAMESPACE secret docker-registry ghcr-key --docker-server="$GHCR_SERVER" \
-          --docker-username="$GHCR_USERNAME" --docker-password="$GHCR_PASSWORD"
-        kubectl patch sa $SCORECARD_SA_NAME -n $SCORECARD_NAMESPACE -p '{"imagePullSecrets": [{"name": "ghcr-key"}]}'
-
-        # Deploy the operator
-        operator-sdk run bundle -n $SCORECARD_NAMESPACE \
-          --timeout 20m --pull-secret-name ghcr-key --service-account $SCORECARD_SA_NAME ${{ steps.push-bundle-to-ghcr.outputs.registry-path }}
     - name: Run scorecard tests
       run: |
-        operator-sdk scorecard -n $SCORECARD_NAMESPACE -s $SCORECARD_SA_NAME -w 20m --pod-security=restricted ./bundle
+        BUNDLE_SOURCE="./bundle" \
+        SCORECARD_REGISTRY_SERVER="$GHCR_SERVER" \
+        SCORECARD_REGISTRY_USERNAME="${{ github.repository_owner }}" \
+        SCORECARD_REGISTRY_PASSWORD="${{ secrets.GHCR_PR_TOKEN }}" \
+        BUNDLE_IMG="${{ steps.push-bundle-to-ghcr.outputs.registry-path }}" \
+        make test-scorecard
     - name: Clean up Kind cluster 
       run: kind delete cluster -n ci-${{ github.run_id }}
   build-operator:
