@@ -309,7 +309,7 @@ func newCryostatCR(namespace string, withIngress bool) *operatorv1beta1.Cryostat
 					"nginx.ingress.kubernetes.io/backend-protocol": "HTTPS",
 				},
 				IngressSpec: &netv1.IngressSpec{
-					TLS: []netv1.IngressTLS{},
+					TLS: []netv1.IngressTLS{{}},
 					Rules: []netv1.IngressRule{
 						{
 							Host: "testing.cryostat",
@@ -340,7 +340,7 @@ func newCryostatCR(namespace string, withIngress bool) *operatorv1beta1.Cryostat
 					"nginx.ingress.kubernetes.io/backend-protocol": "HTTPS",
 				},
 				IngressSpec: &netv1.IngressSpec{
-					TLS: []netv1.IngressTLS{},
+					TLS: []netv1.IngressTLS{{}},
 					Rules: []netv1.IngressRule{
 						{
 							Host: "testing.cryostat-grafana",
