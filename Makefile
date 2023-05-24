@@ -163,6 +163,7 @@ function cleanup { \
 	set +e; \
 	operator-sdk cleanup -n $(SCORECARD_NAMESPACE) $(OPERATOR_NAME); \
 	$(KUSTOMIZE) build internal/images/custom-scorecard-tests/rbac/ | $(CLUSTER_CLIENT) delete --ignore-not-found=$(ignore-not-found) -f -; \
+	$(CLUSTER_CLIENT) delete --ignore-not-found=$(ignore-not-found) -n $(SCORECARD_NAMESPACE) secret registry-key; \
 	$(CLUSTER_CLIENT) delete --ignore-not-found=$(ignore-not-found) namespace $(SCORECARD_NAMESPACE); \
 	)\
 }
