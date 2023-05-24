@@ -148,7 +148,7 @@ cd internal/images/custom-scorecard-tests/rbac/ && $(KUSTOMIZE) edit set namespa
 $(KUSTOMIZE) build internal/images/custom-scorecard-tests/rbac/ | $(CLUSTER_CLIENT) apply -f -
 
 if [[ -n "$(SCORECARD_REGISTRY_SERVER)" && -n "$(SCORECARD_REGISTRY_USERNAME)" && -n "$(SCORECARD_REGISTRY_PASSWORD)" ]]; then \
-	$(CLUSTER_CLIENT) create -n $(SCORECARD_NAMESPACE) secret docker-registry registry-key --docker-server="$(SCORECARD_REGISTRY_SERVER)" \
+	@$(CLUSTER_CLIENT) create -n $(SCORECARD_NAMESPACE) secret docker-registry registry-key --docker-server="$(SCORECARD_REGISTRY_SERVER)" \
 		--docker-username="$(SCORECARD_REGISTRY_USERNAME)" --docker-password="$(SCORECARD_REGISTRY_PASSWORD)"; \
 	$(CLUSTER_CLIENT) patch sa cryostat-scorecard -n $(SCORECARD_NAMESPACE) -p '{"imagePullSecrets": [{"name": "registry-key"}]}'; \
 	$(eval SCORECARD_ARGS=--pull-secret-name registry-key --service-account cryostat-scorecard) \
