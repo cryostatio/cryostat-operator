@@ -19,7 +19,6 @@ IMAGE_TAG_BASE ?= $(IMAGE_NAMESPACE)/$(OPERATOR_NAME)
 # Default bundle image tag
 BUNDLE_IMG ?= $(IMAGE_TAG_BASE)-bundle:$(BUNDLE_VERSION)
 BUNDLE_IMGS ?= $(BUNDLE_IMG)
-BUNDLE_SOURCE ?= $(BUNDLE_IMG)
 
 # Default catalog image tag
 CATALOG_IMG ?= $(IMAGE_TAG_BASE)-catalog:$(BUNDLE_VERSION) 
@@ -134,7 +133,7 @@ ifneq ($(SKIP_TESTS), true)
 	$(call scorecard-setup)
 	$(call scorecard-cleanup); \
 	trap cleanup EXIT; \
-	operator-sdk scorecard -n $(SCORECARD_NAMESPACE) -s cryostat-scorecard -w 20m $(BUNDLE_SOURCE) --pod-security=restricted
+	operator-sdk scorecard -n $(SCORECARD_NAMESPACE) -s cryostat-scorecard -w 20m $(BUNDLE_IMG) --pod-security=restricted
 endif
 
 .PHONY: clean-scorecard
@@ -154,7 +153,7 @@ if [[ -n "$(SCORECARD_REGISTRY_SERVER)" && -n "$(SCORECARD_REGISTRY_USERNAME)" &
 	$(CLUSTER_CLIENT) patch sa cryostat-scorecard -n $(SCORECARD_NAMESPACE) -p '{"imagePullSecrets": [{"name": "registry-key"}]}'; \
 	$(eval SCORECARD_ARGS=--pull-secret-name registry-key --service-account cryostat-scorecard) \
 fi
-operator-sdk run bundle -n $(SCORECARD_NAMESPACE) --timeout 20m $(BUNDLE_IMG) $(SCORECARD_ARGS)
+operator-sdk run bundle -n $(SCORECARD_NAMESPACE) --timeout 20m $(BUNDLE_IMG)
 endef
 
 define scorecard-cleanup
