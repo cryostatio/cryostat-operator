@@ -105,14 +105,14 @@ jobs:
       run: curl -sL https://github.com/operator-framework/operator-lifecycle-manager/releases/download/v0.24.0/install.sh | bash -s v0.24.0
     - name: Install Cert Manager
       run: make cert_manager
-    - uses: docker/login-action@v2
+    - uses: redhat-actions/podman-login@v1
       with:
         registry: ${{ env.GHCR_SERVER }}
         username: ${{ github.repository_owner }}
         password: ${{ secrets.GHCR_PR_TOKEN }}
+        auth_file_path: ${{ env.HOME }}/.docker/config.json
     - name: Run scorecard tests
       run: |
-        BUNDLE_SOURCE="./bundle" \
         SCORECARD_REGISTRY_SERVER="$GHCR_SERVER" \
         SCORECARD_REGISTRY_USERNAME="${{ github.repository_owner }}" \
         SCORECARD_REGISTRY_PASSWORD="${{ secrets.GHCR_PR_TOKEN }}" \
