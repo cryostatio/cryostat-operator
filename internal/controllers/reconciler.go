@@ -145,12 +145,6 @@ func (r *Reconciler) reconcileCryostat(ctx context.Context, cr *model.CryostatIn
 func (r *Reconciler) reconcile(ctx context.Context, cr *model.CryostatInstance) (ctrl.Result, error) {
 	reqLogger := r.Log.WithValues("Request.Namespace", cr.InstallNamespace, "Request.Name", cr.Name)
 
-	// Create lock config map or fail if owned by another CR
-	err := r.reconcileLockConfigMap(ctx, cr)
-	if err != nil {
-		return reconcile.Result{}, err
-	}
-
 	// Check if this Cryostat is being deleted
 	if cr.Object.GetDeletionTimestamp() != nil {
 		if controllerutil.ContainsFinalizer(cr.Object, cryostatFinalizer) {
@@ -184,6 +178,12 @@ func (r *Reconciler) reconcile(ctx context.Context, cr *model.CryostatInstance) 
 	}
 
 	reqLogger.Info("Spec", "Minimal", cr.Spec.Minimal)
+
+	// Create lock config map or fail if owned by another CR
+	err := r.reconcileLockConfigMap(ctx, cr)
+	if err != nil {
+		return reconcile.Result{}, err
+	}
 
 	err = r.reconcilePVC(ctx, cr)
 	if err != nil {
