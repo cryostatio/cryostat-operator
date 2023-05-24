@@ -148,14 +148,13 @@ $(CLUSTER_CLIENT) create namespace $(SCORECARD_NAMESPACE)
 cd internal/images/custom-scorecard-tests/rbac/ && $(KUSTOMIZE) edit set namespace $(SCORECARD_NAMESPACE)
 $(KUSTOMIZE) build internal/images/custom-scorecard-tests/rbac/ | $(CLUSTER_CLIENT) apply -f -
 
-if [[ -n $(SCORECARD_REGISTRY_SERVER) && -n $(SCORECARD_REGISTRY_USERNAME) && -n $(SCORECARD_REGISTRY_PASSWORD) ]]; then \
+if [[ -n "$(SCORECARD_REGISTRY_SERVER)" && -n "$(SCORECARD_REGISTRY_USERNAME)" && -n "$(SCORECARD_REGISTRY_PASSWORD)" ]]; then \
 	$(CLUSTER_CLIENT) create -n $(SCORECARD_NAMESPACE) secret docker-registry registry-key --docker-server="$(SCORECARD_REGISTRY_SERVER)" \
 		--docker-username="$(SCORECARD_REGISTRY_USERNAME)" --docker-password="$(SCORECARD_REGISTRY_PASSWORD)"; \
 	$(CLUSTER_CLIENT) patch sa cryostat-scorecard -n $(SCORECARD_NAMESPACE) -p '{"imagePullSecrets": [{"name": "registry-key"}]}'; \
-	operator-sdk run bundle -n $(SCORECARD_NAMESPACE) --timeout 20m $(BUNDLE_IMG) --pull-secret-name registry-key --service-account cryostat-scorecard; \
-else \
-	operator-sdk run bundle -n $(SCORECARD_NAMESPACE) --timeout 20m $(BUNDLE_IMG);\
+	$(eval SCORECARD_ARGS=--pull-secret-name registry-key --service-account cryostat-scorecard) \
 fi
+operator-sdk run bundle -n $(SCORECARD_NAMESPACE) --timeout 20m $(BUNDLE_IMG) $(SCORECARD_ARGS)
 endef
 
 define scorecard-cleanup
