@@ -45,12 +45,15 @@ import (
 	scapiv1alpha3 "github.com/operator-framework/api/pkg/apis/scorecard/v1alpha3"
 	apimanifests "github.com/operator-framework/api/pkg/manifests"
 
+	routev1 "github.com/openshift/api/route/v1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	netv1 "k8s.io/api/networking/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/kubernetes/scheme"
 )
 
@@ -101,7 +104,12 @@ func CryostatCRTest(bundle *apimanifests.Bundle, namespace string, openShiftCert
 	}
 	defer cleanupCryostat(&r, client, namespace)
 
-	if openShiftCertManager {
+	openshift, err := isOpenShift(client.DiscoveryClient)
+	if err != nil {
+		return fail(r, fmt.Sprintf("could not determine whether platform is OpenShift: %s", err.Error()))
+	}
+
+	if openshift && openShiftCertManager {
 		err := installOpenShiftCertManager(&r)
 		if err != nil {
 			return fail(r, fmt.Sprintf("failed to install cert-manager Operator for Red Hat OpenShift: %s", err.Error()))
@@ -109,15 +117,7 @@ func CryostatCRTest(bundle *apimanifests.Bundle, namespace string, openShiftCert
 	}
 
 	// Create a default Cryostat CR
-	cr := &operatorv1beta1.Cryostat{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "cryostat-cr-test",
-			Namespace: namespace,
-		},
-		Spec: operatorv1beta1.CryostatSpec{
-			Minimal: false,
-		},
-	}
+	cr := newCryostatCR(namespace, !openshift)
 
 	ctx := context.Background()
 	cr, err = client.OperatorCRDs().Cryostats(namespace).Create(ctx, cr)
@@ -287,4 +287,90 @@ func logEvents(r *scapiv1alpha3.TestResult, client *CryostatClientset, namespace
 		}
 	}
 	return nil
+}
+
+func newCryostatCR(namespace string, withIngress bool) *operatorv1beta1.Cryostat {
+	cr := &operatorv1beta1.Cryostat{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "cryostat-cr-test",
+			Namespace: namespace,
+		},
+		Spec: operatorv1beta1.CryostatSpec{
+			Minimal:           false,
+			EnableCertManager: &[]bool{true}[0],
+		},
+	}
+
+	if withIngress {
+		pathType := netv1.PathTypePrefix
+		cr.Spec.NetworkOptions = &operatorv1beta1.NetworkConfigurationList{
+			CoreConfig: &operatorv1beta1.NetworkConfiguration{
+				Annotations: map[string]string{
+					"nginx.ingress.kubernetes.io/backend-protocol": "HTTPS",
+				},
+				IngressSpec: &netv1.IngressSpec{
+					TLS: []netv1.IngressTLS{{}},
+					Rules: []netv1.IngressRule{
+						{
+							Host: "testing.cryostat",
+							IngressRuleValue: netv1.IngressRuleValue{
+								HTTP: &netv1.HTTPIngressRuleValue{
+									Paths: []netv1.HTTPIngressPath{
+										{
+											Path:     "/",
+											PathType: &pathType,
+											Backend: netv1.IngressBackend{
+												Service: &netv1.IngressServiceBackend{
+													Name: "cryostat-cr-test",
+													Port: netv1.ServiceBackendPort{
+														Number: 8181,
+													},
+												},
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			GrafanaConfig: &operatorv1beta1.NetworkConfiguration{
+				Annotations: map[string]string{
+					"nginx.ingress.kubernetes.io/backend-protocol": "HTTPS",
+				},
+				IngressSpec: &netv1.IngressSpec{
+					TLS: []netv1.IngressTLS{{}},
+					Rules: []netv1.IngressRule{
+						{
+							Host: "testing.cryostat-grafana",
+							IngressRuleValue: netv1.IngressRuleValue{
+								HTTP: &netv1.HTTPIngressRuleValue{
+									Paths: []netv1.HTTPIngressPath{
+										{
+											Path:     "/",
+											PathType: &pathType,
+											Backend: netv1.IngressBackend{
+												Service: &netv1.IngressServiceBackend{
+													Name: "cryostat-cr-test-grafana",
+													Port: netv1.ServiceBackendPort{
+														Number: 3000,
+													},
+												},
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		}
+	}
+	return cr
+}
+
+func isOpenShift(client discovery.DiscoveryInterface) (bool, error) {
+	return discovery.IsResourceEnabled(client, routev1.GroupVersion.WithResource("routes"))
 }
