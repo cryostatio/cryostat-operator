@@ -66,7 +66,7 @@ jobs:
     - name: Build scorecard image for test
       id: build-scorecard
       run: |
-        make scorecard-build CUSTOM_SCORECARD_IMG=ghcr.io/${{ github.repository_owner }}/cryostat-operator-scorecard:ci-$GITHUB_SHA
+        CUSTOM_SCORECARD_IMG=ghcr.io/${{ github.repository_owner }}/cryostat-operator-scorecard:ci-$GITHUB_SHA make scorecard-build
         echo "tag=ci-$GITHUB_SHA" >> $GITHUB_OUTPUT
     - name: Push scorecard image to ghcr.io for test
       id: push-scorecard-to-ghcr
@@ -77,10 +77,29 @@ jobs:
         registry: ghcr.io/${{ github.repository_owner }}
         username: ${{ github.repository_owner }}
         password: ${{ secrets.GHCR_PR_TOKEN }}
+    - name: Build operator image for test
+      id: build-operator
+      run: |
+        OPERATOR_IMG=ghcr.io/${{ github.repository_owner }}/cryostat-operator:ci-$GITHUB_SHA \
+        SKIP_TESTS=true \
+        make oci-build
+        echo "tag=ci-$GITHUB_SHA" >> $GITHUB_OUTPUT
+    - name: Push operator image to ghcr.io for test
+      id: push-operator-to-ghcr
+      uses: redhat-actions/push-to-registry@v2
+      with:
+        image: cryostat-operator
+        tags: ${{ steps.build-operator.outputs.tag }}
+        registry: ghcr.io/${{ github.repository_owner }}
+        username: ${{ github.repository_owner }}
+        password: ${{ secrets.GHCR_PR_TOKEN }}
     - name: Build bundle image for test
       id: build-bundle
       run: |
-        make bundle bundle-build BUNDLE_IMG=ghcr.io/${{ github.repository_owner }}/cryostat-operator-bundle:ci-$GITHUB_SHA
+        yq -i '.spec.template.spec.imagePullSecrets = [{"name": "registry-key"}]' config/manager/manager.yaml
+        OPERATOR_IMG=${{ steps.push-operator-to-ghcr.outputs.registry-path }} \
+        BUNDLE_IMG=ghcr.io/${{ github.repository_owner }}/cryostat-operator-bundle:ci-$GITHUB_SHA \
+        make bundle bundle-build 
         echo "tag=ci-$GITHUB_SHA" >> $GITHUB_OUTPUT
     - name: Push bundle image to ghcr.io for test
       id: push-bundle-to-ghcr
