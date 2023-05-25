@@ -1,4 +1,8 @@
-name: CI build
+name: CI
+
+concurrency:
+  group: ci-${{ github.run_id }}
+  cancel-in-progress: true
 
 on:
   push:
@@ -8,19 +12,32 @@ on:
       - v[0-9]+.[0-9]+
       - cryostat-v[0-9]+.[0-9]+
 
-  pull_request:
+  pull_request_target:
+    types:
+      - opened
+      - reopened
+      - synchronize
+      - labeled
+      - unlabeled
     branches:
       - main
       - v[0-9]+
       - v[0-9]+.[0-9]+
       - cryostat-v[0-9]+.[0-9]+
 
+env:
+  CI_OPERATOR_IMG: quay.io/cryostat/cryostat-operator
+  CI_BUNDLE_IMG: quay.io/cryostat/cryostat-operator-bundle
+  CI_SCORECARD_IMG: quay.io/cryostat/cryostat-operator-scorecard
+
 jobs:
-  build:
+  controller-test:
     runs-on: ubuntu-latest
-    env:
-      CI_OPERATOR_IMG: quay.io/cryostat/cryostat-operator
+    if: ${{ github.repository_owner == 'cryostatio' }}
     steps:
+    - name: Fail if safe-to-test label NOT applied
+      if: ${{ github.event_name == 'pull_request_target' && !contains(github.event.pull_request.labels.*.name, 'safe-to-test') }}
+      run: exit 1
     - uses: actions/checkout@v2
     - uses: actions/setup-go@v2
       with:
@@ -33,13 +50,98 @@ jobs:
         key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
         restore-keys: |
           ${{ runner.os }}-go-
+    - name: Run controller tests
+      run: make test-envtest
+  scorecard-test:
+    runs-on: ubuntu-latest
+    if: ${{ github.repository_owner == 'cryostatio' }}
+    steps:
+    - name: Fail if safe-to-test label NOT applied
+      if: ${{ github.event_name == 'pull_request_target' && !contains(github.event.pull_request.labels.*.name, 'safe-to-test') }}
+      run: exit 1
+    - uses: actions/checkout@v2
     - uses: jpkrohling/setup-operator-sdk@v1.1.0
       with:
         operator-sdk-version: v1.28.0
-    - run: make generate manifests manager test-envtest
-      if: ${{ github.event_name == 'pull_request' }}
-    - run: make oci-build
-      if: ${{ github.event_name == 'push' }}
+    - name: Build scorecard image for test
+      id: build-scorecard
+      run: |
+        CUSTOM_SCORECARD_IMG=ghcr.io/${{ github.repository_owner }}/cryostat-operator-scorecard:ci-$GITHUB_SHA make scorecard-build
+        echo "tag=ci-$GITHUB_SHA" >> $GITHUB_OUTPUT
+    - name: Push scorecard image to ghcr.io for test
+      id: push-scorecard-to-ghcr
+      uses: redhat-actions/push-to-registry@v2
+      with:
+        image: cryostat-operator-scorecard
+        tags: ${{ steps.build-scorecard.outputs.tag }}
+        registry: ghcr.io/${{ github.repository_owner }}
+        username: ${{ github.repository_owner }}
+        password: ${{ secrets.GHCR_PR_TOKEN }}
+    - name: Build operator image for test
+      id: build-operator
+      run: |
+        OPERATOR_IMG=ghcr.io/${{ github.repository_owner }}/cryostat-operator:ci-$GITHUB_SHA \
+        SKIP_TESTS=true \
+        make oci-build
+        echo "tag=ci-$GITHUB_SHA" >> $GITHUB_OUTPUT
+    - name: Push operator image to ghcr.io for test
+      id: push-operator-to-ghcr
+      uses: redhat-actions/push-to-registry@v2
+      with:
+        image: cryostat-operator
+        tags: ${{ steps.build-operator.outputs.tag }}
+        registry: ghcr.io/${{ github.repository_owner }}
+        username: ${{ github.repository_owner }}
+        password: ${{ secrets.GHCR_PR_TOKEN }}
+    - name: Build bundle image for test
+      id: build-bundle
+      run: |
+        yq -i '.spec.template.spec.imagePullSecrets = [{"name": "registry-key"}]' config/manager/manager.yaml
+        OPERATOR_IMG=${{ steps.push-operator-to-ghcr.outputs.registry-path }} \
+        BUNDLE_IMG=ghcr.io/${{ github.repository_owner }}/cryostat-operator-bundle:ci-$GITHUB_SHA \
+        make bundle bundle-build 
+        echo "tag=ci-$GITHUB_SHA" >> $GITHUB_OUTPUT
+    - name: Push bundle image to ghcr.io for test
+      id: push-bundle-to-ghcr
+      uses: redhat-actions/push-to-registry@v2
+      with:
+        image: cryostat-operator-bundle
+        tags: ${{ steps.build-bundle.outputs.tag }}
+        registry: ghcr.io/${{ github.repository_owner }}
+        username: ${{ github.repository_owner }}
+        password: ${{ secrets.GHCR_PR_TOKEN }}
+    - name: Set up Kind cluster
+      run: |
+        kind create cluster --config=".github/kind-config.yaml" -n ci-${{ github.run_id }}
+        # Enabling Ingress
+        kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/main/deploy/static/provider/kind/deploy.yaml
+        kubectl rollout status -w deployment/ingress-nginx-controller -n ingress-nginx --timeout 5m
+    - name: Install Operator Lifecycle Manager
+      run: curl -sL https://github.com/operator-framework/operator-lifecycle-manager/releases/download/v0.24.0/install.sh | bash -s v0.24.0
+    - name: Install Cert Manager
+      run: make cert_manager
+    - uses: redhat-actions/podman-login@v1
+      with:
+        registry: ghcr.io
+        username: ${{ github.repository_owner }}
+        password: ${{ secrets.GHCR_PR_TOKEN }}
+        auth_file_path: $HOME/.docker/config.json
+    - name: Run scorecard tests
+      run: |
+        SCORECARD_REGISTRY_SERVER="ghcr.io" \
+        SCORECARD_REGISTRY_USERNAME="${{ github.repository_owner }}" \
+        SCORECARD_REGISTRY_PASSWORD="${{ secrets.GHCR_PR_TOKEN }}" \
+        BUNDLE_IMG="${{ steps.push-bundle-to-ghcr.outputs.registry-path }}" \
+        make test-scorecard
+    - name: Clean up Kind cluster 
+      run: kind delete cluster -n ci-${{ github.run_id }}
+  build-operator:
+    runs-on: ubuntu-latest
+    if: ${{ github.event_name == 'push' && github.repository_owner == 'cryostatio' }}
+    steps:
+    - uses: actions/checkout@v2
+    - name: Build operator image
+      run: SKIP_TESTS=true make oci-build
     - name: Tag image
       id: tag-image
       run: |
@@ -48,11 +150,10 @@ jobs:
           podman tag \
           ${{ env.CI_OPERATOR_IMG }}:$IMG_TAG \
           ${{ env.CI_OPERATOR_IMG }}:latest
-          echo "::set-output name=tags::$IMG_TAG latest"
+          echo "tags=$IMG_TAG latest" >> $GITHUB_OUTPUT
         else
-          echo "::set-output name=tags::$IMG_TAG"
-        fi
-      if: ${{ github.event_name == 'push' && github.repository_owner == 'cryostatio' }}
+          echo "tags=$IMG_TAG" >> $GITHUB_OUTPUT
+        fi    
     - name: Push to quay.io
       id: push-to-quay
       uses: redhat-actions/push-to-registry@v2
@@ -62,7 +163,69 @@ jobs:
         registry: quay.io/cryostat
         username: cryostat+bot
         password: ${{ secrets.REGISTRY_PASSWORD }}
-      if: ${{ github.event_name == 'push' && github.repository_owner == 'cryostatio' }}
     - name: Print image URL
       run: echo "Image pushed to ${{ steps.push-to-quay.outputs.registry-paths }}"
-      if: ${{ github.event_name == 'push' && github.repository_owner == 'cryostatio' }}
+  build-bundle:
+    runs-on: ubuntu-latest
+    if: ${{ github.event_name == 'push' && github.repository_owner == 'cryostatio' }}
+    steps:
+    - uses: actions/checkout@v2
+    - name: Build bundle image
+      run: make bundle-build
+    - name: Tag image
+      id: tag-image
+      run: |
+        IMG_TAG="$(make --eval='print-img-ver: ; @echo $(IMAGE_VERSION)' print-img-ver)"
+        if [ "$GITHUB_REF" == "refs/heads/main" ]; then
+          podman tag \
+          ${{ env.CI_BUNDLE_IMG }}:$IMG_TAG \
+          ${{ env.CI_BUNDLE_IMG }}:latest
+          echo "tags=$IMG_TAG latest" >> $GITHUB_OUTPUT
+        else
+          echo "tags=$IMG_TAG" >> $GITHUB_OUTPUT
+        fi
+    - name: Push to quay.io
+      id: push-to-quay
+      uses: redhat-actions/push-to-registry@v2
+      with:
+        image: cryostat-operator-bundle
+        tags: ${{ steps.tag-image.outputs.tags }}
+        registry: quay.io/cryostat
+        username: cryostat+bot
+        password: ${{ secrets.REGISTRY_PASSWORD }}
+    - name: Print image URL
+      run: echo "Image pushed to ${{ steps.push-to-quay.outputs.registry-paths }}"
+  build-scorecard:
+    runs-on: ubuntu-latest
+    if: ${{ github.event_name == 'push' && github.repository_owner == 'cryostatio' }}
+    steps:
+    - uses: actions/checkout@v2
+    - name: Get scorecard image tag
+      id: get-image-tag
+      run: |
+        SCORECARD_TAG=$(yq '[.stages[0].tests[].image | capture("cryostat-operator-scorecard:(?P<tag>[\w.\-_]+)$")][0].tag' bundle/tests/scorecard/config.yaml)
+        echo "tag=$SCORECARD_TAG" >> $GITHUB_OUTPUT
+    - name: Check if scorecard image tag already exists
+      id: check-tag-exists
+      run: |
+        EXIST=false
+        if [ -n $(podman search --list-tags ${CI_SCORECARD_IMG} --format json | jq --arg TAG ${{ steps.get-image-tag.outputs.tag }} '.[0].Tags[] | select( . == $TAG)') ]; then
+          EXIST=true
+        fi
+        echo "exist=$EXIST" >> $GITHUB_OUTPUT
+    - name: Build scorecard image
+      run: make scorecard-build CUSTOM_SCORECARD_IMG=${CI_SCORECARD_IMG}:${{ steps.get-image-tag.outputs.tag }}
+      if: ${{ steps.check-tag-exists.outputs.exist == 'false' }}
+    - name: Push to quay.io
+      id: push-to-quay
+      uses: redhat-actions/push-to-registry@v2
+      with:
+        image: cryostat-operator-scorecard
+        tags: ${{ steps.get-image-tag.outputs.tag }}
+        registry: quay.io/cryostat
+        username: cryostat+bot
+        password: ${{ secrets.REGISTRY_PASSWORD }}
+      if: ${{ steps.check-tag-exists.outputs.exist == 'false' }}
+    - name: Print image URL
+      run: echo "Image pushed to ${{ steps.push-to-quay.outputs.registry-paths }}"
+      if: ${{ steps.check-tag-exists.outputs.exist == 'false' }}

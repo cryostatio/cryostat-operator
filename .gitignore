@@ -107,3 +107,6 @@ cache/
 
 # OPM tmp directory
 bundle_tmp*/
+
+# operator-sdk tmp bundles
+bundle-*/
