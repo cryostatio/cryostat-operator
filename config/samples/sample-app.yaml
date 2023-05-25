@@ -1,0 +1,60 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: quarkus-test
+  name: quarkus-test
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: quarkus-test
+  template:
+    metadata:
+      labels:
+        app: quarkus-test
+    spec:
+      containers:
+        - image: quay.io/andrewazores/quarkus-test:latest
+          imagePullPolicy: Always
+          name: quarkus-test
+          ports:
+          - containerPort: 10010
+            protocol: TCP
+          - containerPort: 9097
+            protocol: TCP
+          resources:
+            requests:
+              cpu: 200m
+              memory: 96Mi
+            limits:
+              cpu: 500m
+              memory: 128Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+              - ALL
+      restartPolicy: Always
+      securityContext:
+        runAsNonRoot: true
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: quarkus-test
+  name: quarkus-test
+spec:
+  selector:
+    app: quarkus-test
+  ports:
+  - name: jfr-jmx
+    port: 9097
+    protocol: TCP
+    targetPort: 9097
+  - name: app-http
+    port: 10010
+    protocol: TCP
+    targetPort: 10010

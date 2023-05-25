@@ -45,14 +45,10 @@ spec:
             -Djavax.net.ssl.trustStore=/var/run/secrets/myapp/truststore.p12
             -Djavax.net.ssl.trustStorePassword=$(KEYSTORE_PASS)
         image: quay.io/andrewazores/quarkus-test:latest
-        imagePullPolicy: IfNotPresent
+        imagePullPolicy: Always
         name: quarkus-test-agent
         ports:
         - containerPort: 10010
-          protocol: TCP
-        - containerPort: 8080
-          protocol: TCP
-        - containerPort: 8443
           protocol: TCP
         - containerPort: 9097
           protocol: TCP
@@ -102,11 +98,3 @@ spec:
     port: 10010
     protocol: TCP
     targetPort: 10010
-  - name: 8080-tcp
-    port: 8080
-    protocol: TCP
-    targetPort: 8080
-  - name: 8443-tcp
-    port: 8443
-    protocol: TCP
-    targetPort: 8443
