@@ -429,7 +429,6 @@ scorecard-build: custom-scorecard-tests
 	BUILDAH_FORMAT=docker $(IMAGE_BUILDER) build -t $(CUSTOM_SCORECARD_IMG) \
 	-f internal/images/custom-scorecard-tests/Dockerfile .
 
-SAMPLE_APP_FLAGS ?= --ignore-not-found=$(ignore-not-found)
 # Local development/testing helpers
 ifneq ($(origin SAMPLE_APP_NAMESPACE), undefined)
 SAMPLE_APP_FLAGS += -n $(SAMPLE_APP_NAMESPACE)
@@ -441,7 +440,7 @@ sample_app:
 
 .PHONY: undeploy_sample_app
 undeploy_sample_app:
-	$(CLUSTER_CLIENT) delete $(SAMPLE_APP_FLAGS) -f config/samples/sample-app.yaml
+	$(CLUSTER_CLIENT) delete $(SAMPLE_APP_FLAGS) --ignore-not-found=$(ignore-not-found) -f config/samples/sample-app.yaml
 
 .PHONY: sample_app_agent
 sample_app_agent: undeploy_sample_app_agent
@@ -451,11 +450,11 @@ sample_app_agent: undeploy_sample_app_agent
 		else \
 			echo "'AUTH_TOKEN' must be specified."; \
 			exit 1; \
-		fi; \`
+		fi; \
 	fi; \
 	$(CLUSTER_CLIENT) apply $(SAMPLE_APP_FLAGS) -f config/samples/sample-app-agent.yaml; \
 	$(CLUSTER_CLIENT) set env $(SAMPLE_APP_FLAGS) deployment/quarkus-test-agent CRYOSTAT_AGENT_AUTHORIZATION="Bearer $(AUTH_TOKEN)"
 
 .PHONY: undeploy_sample_app_agent
 undeploy_sample_app_agent:
-	- $(CLUSTER_CLIENT) delete $(SAMPLE_APP_FLAGS) -f config/samples/sample-app-agent.yaml
+	- $(CLUSTER_CLIENT) delete $(SAMPLE_APP_FLAGS) --ignore-not-found=$(ignore-not-found) -f config/samples/sample-app-agent.yaml
