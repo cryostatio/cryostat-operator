@@ -173,6 +173,7 @@ func (r *Reconciler) deleteCorsAllowedOrigins(ctx context.Context, cr *model.Cry
 
 	allowedOrigin := cr.Status.ApplicationURL
 	if len(allowedOrigin) == 0 {
+		reqLogger.Info("No Route to remove from APIServer config")
 		return nil
 	}
 

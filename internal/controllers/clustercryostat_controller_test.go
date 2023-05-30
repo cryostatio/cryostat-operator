@@ -73,6 +73,7 @@ var _ = Describe("ClusterCryostatController", func() {
 
 		JustBeforeEach(func() {
 			c.commonJustBeforeEach(t)
+			t.reconcileCryostatFully()
 		})
 
 		JustAfterEach(func() {
@@ -80,7 +81,7 @@ var _ = Describe("ClusterCryostatController", func() {
 		})
 
 		It("should create the expected main deployment", func() {
-			t.expectDeployment()
+			t.expectMainDeployment()
 		})
 
 		It("should create RBAC in each namespace", func() {
@@ -103,24 +104,18 @@ var _ = Describe("ClusterCryostatController", func() {
 					t.NewRoleBinding(targetNamespaces[0]),
 					t.NewRoleBinding(targetNamespaces[1]))
 			})
-
 			It("should create the expected main deployment", func() {
-				t.expectDeployment()
+				t.expectMainDeployment()
 			})
-
 			It("leave RBAC for the first namespace", func() {
 				t.expectRBAC()
 			})
-
 			It("should remove RBAC from the second namespace", func() {
-				t.reconcileCryostatFully()
-
 				binding := t.NewRoleBinding(targetNamespaces[1])
 				err := t.Client.Get(context.Background(), types.NamespacedName{Name: binding.Name, Namespace: binding.Namespace}, binding)
 				Expect(err).ToNot(BeNil())
 				Expect(errors.IsNotFound(err)).To(BeTrue())
 			})
-
 			It("should update the target namespaces in Status", func() {
 				t.expectTargetNamespaces()
 			})
@@ -132,11 +127,6 @@ var _ = Describe("ClusterCryostatController", func() {
 				t.TargetNamespaces = nil
 				t.objs = append(t.objs, t.NewCryostat().Object)
 			})
-
-			It("should reconcile successfully", func() {
-				t.reconcileCryostatFully()
-			})
-
 			It("should update the target namespaces in Status", func() {
 				t.expectTargetNamespaces()
 			})
@@ -145,7 +135,6 @@ var _ = Describe("ClusterCryostatController", func() {
 })
 
 func (t *cryostatTestInput) expectTargetNamespaces() {
-	t.reconcileCryostatFully()
 	cr := t.getCryostatInstance()
 	Expect(*cr.TargetNamespaceStatus).To(ConsistOf(t.TargetNamespaces))
 }
