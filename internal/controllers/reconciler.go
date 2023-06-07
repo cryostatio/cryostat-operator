@@ -64,9 +64,14 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+	"sigs.k8s.io/controller-runtime/pkg/handler"
+	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+	"sigs.k8s.io/controller-runtime/pkg/source"
 )
 
 // ReconcilerConfig contains common configuration parameters for
@@ -79,6 +84,10 @@ type ReconcilerConfig struct {
 	IsCertManagerInstalled bool
 	EventRecorder          record.EventRecorder
 	RESTMapper             meta.RESTMapper
+	ObjectType             client.Object
+	ListType               client.ObjectList
+	IsNamespaced           bool
+	Namespaces             []string
 	common.ReconcilerTLS
 }
 
@@ -289,10 +298,28 @@ func (r *Reconciler) reconcile(ctx context.Context, cr *model.CryostatInstance) 
 	return reconcile.Result{}, nil
 }
 
-func (r *Reconciler) setupWithManager(mgr ctrl.Manager, obj client.Object,
-	impl reconcile.Reconciler) error {
+func (r *Reconciler) setupWithManager(mgr ctrl.Manager, impl reconcile.Reconciler) error {
+	gvk, err := apiutil.GVKForObject(r.ObjectType, mgr.GetScheme())
+	if err != nil {
+		return err
+	}
+	namespaces := namespacesToSet(r.Namespaces)
 	c := ctrl.NewControllerManagedBy(mgr).
-		For(obj)
+		For(r.ObjectType).
+		// TODO remove this once only AllNamespace mode is supported
+		WithEventFilter(predicate.NewPredicateFuncs(func(object client.Object) bool {
+			// Restrict watch for CRs to specified namespaces
+			if object.GetObjectKind().GroupVersionKind().GroupKind() == gvk.GroupKind() {
+				_, pres := namespaces[object.GetNamespace()]
+				if !pres {
+					return false
+				}
+			}
+			return true
+		})).
+		Watches(&source.Kind{Type: &corev1.Secret{}},
+			handler.EnqueueRequestsFromMapFunc(r.findObjectsForPullSecret),
+			builder.WithPredicates(predicate.ResourceVersionChangedPredicate{}))
 
 	// Watch for changes to secondary resources and requeue the owner Cryostat
 	resources := []client.Object{&appsv1.Deployment{}, &corev1.Service{}, &corev1.Secret{}, &corev1.PersistentVolumeClaim{},
@@ -582,4 +609,64 @@ func mergeLabelsAndAnnotations(dest *metav1.ObjectMeta, srcLabels, srcAnnotation
 	for k, v := range srcAnnotations {
 		dest.Annotations[k] = v
 	}
+}
+
+func (r *Reconciler) findObjectsForPullSecret(secret client.Object) []reconcile.Request {
+	if secret.GetNamespace() != "openshift-config" || secret.GetName() != "pull-secret" {
+		return nil
+	}
+	namespaces := []string{""}
+	if r.IsNamespaced {
+		namespaces = r.Namespaces
+	}
+
+	result := []reconcile.Request{}
+	for _, namespace := range namespaces {
+		instanceList, ok := r.ListType.DeepCopyObject().(client.ObjectList)
+		if !ok {
+			r.Log.Error(fmt.Errorf("type %T is not an ObjectList", r.ListType),
+				"could not allocate a list")
+			return []reconcile.Request{}
+		}
+
+		listOps := &client.ListOptions{
+			Namespace: namespace,
+		}
+		err := r.List(context.Background(), instanceList, listOps)
+		if err != nil {
+			r.Log.Error(err, "failed to list %T", r.ObjectType, "namespace", namespace)
+			return []reconcile.Request{}
+		}
+
+		items, err := meta.ExtractList(instanceList)
+		if err != nil {
+			r.Log.Error(err, "could not get items from list")
+			return []reconcile.Request{}
+		}
+		requests := make([]reconcile.Request, len(items))
+		for i, item := range items {
+			obj, err := meta.Accessor(item)
+			if err != nil {
+				r.Log.Error(err, "list contains an invalid item")
+			}
+			requests[i] = reconcile.Request{
+				NamespacedName: types.NamespacedName{
+					Name:      obj.GetName(),
+					Namespace: obj.GetNamespace(),
+				},
+			}
+			// XXX
+			r.Log.Info(fmt.Sprintf("Enqueueing %T %s for pull-secret change", r.ObjectType, types.NamespacedName{Namespace: obj.GetNamespace(), Name: obj.GetName()}.String()))
+		}
+		result = append(result, requests...)
+	}
+	return result
+}
+
+func namespacesToSet(namespaces []string) map[string]struct{} {
+	result := make(map[string]struct{}, len(namespaces))
+	for _, namespace := range namespaces {
+		result[namespace] = struct{}{}
+	}
+	return result
 }

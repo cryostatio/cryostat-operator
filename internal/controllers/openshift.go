@@ -38,14 +38,18 @@ package controllers
 
 import (
 	"context"
+	"encoding/json"
+	"errors"
 	"fmt"
 	"regexp"
+	"strings"
 
 	"github.com/cryostatio/cryostat-operator/internal/controllers/common"
 	"github.com/cryostatio/cryostat-operator/internal/controllers/model"
 	"github.com/go-logr/logr"
 	configv1 "github.com/openshift/api/config/v1"
 	consolev1 "github.com/openshift/api/console/v1"
+	corev1 "k8s.io/api/core/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -57,6 +61,10 @@ func (r *Reconciler) reconcileOpenShift(ctx context.Context, cr *model.CryostatI
 		return nil
 	}
 	err := r.reconcileConsoleLink(ctx, cr)
+	if err != nil {
+		return err
+	}
+	err = r.reconcilePullSecret(ctx, cr)
 	if err != nil {
 		return err
 	}
@@ -203,4 +211,65 @@ func (r *Reconciler) deleteCorsAllowedOrigins(ctx context.Context, cr *model.Cry
 
 	reqLogger.Info("Removed from APIServer CORS allowed origins")
 	return nil
+}
+
+func (r *Reconciler) reconcilePullSecret(ctx context.Context, cr *model.CryostatInstance) error {
+	secret := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      cr.Name + "-insights-token",
+			Namespace: cr.InstallNamespace,
+		},
+	}
+
+	token, err := r.getTokenFromPullSecret(ctx)
+	if err != nil {
+		// TODO warn instead of fail?
+		return err
+	}
+
+	return r.createOrUpdateSecret(ctx, secret, cr.Object, func() error {
+		if secret.StringData == nil {
+			secret.StringData = map[string]string{}
+		}
+		secret.StringData["token"] = *token
+		return nil
+	})
+}
+
+func (r *Reconciler) getTokenFromPullSecret(ctx context.Context) (*string, error) {
+	// Get the global pull secret
+	pullSecret := &corev1.Secret{}
+	err := r.Client.Get(ctx, types.NamespacedName{Namespace: "openshift-config", Name: "pull-secret"}, pullSecret)
+	if err != nil {
+		return nil, err
+	}
+
+	// Look for the .dockerconfigjson key within it
+	dockerConfigRaw, pres := pullSecret.Data[corev1.DockerConfigJsonKey]
+	if !pres {
+		return nil, fmt.Errorf("no %s key present in pull secret", corev1.DockerConfigJsonKey)
+	}
+
+	// Unmarshal the .dockerconfigjson into a struct
+	dockerConfig := struct {
+		Auths map[string]struct {
+			Auth string `json:"auth"`
+		} `json:"auths"`
+	}{}
+	err = json.Unmarshal(dockerConfigRaw, &dockerConfig)
+	if err != nil {
+		return nil, err
+	}
+
+	// Look for the "cloud.openshift.com" auth
+	openshiftAuth, pres := dockerConfig.Auths["cloud.openshift.com"]
+	if !pres {
+		return nil, errors.New("no \"cloud.openshift.com\" auth within pull secret")
+	}
+
+	token := strings.TrimSpace(openshiftAuth.Auth)
+	if strings.Contains(token, "\n") || strings.Contains(token, "\r") {
+		return nil, fmt.Errorf("invalid cloud.openshift.com token")
+	}
+	return &token, nil
 }

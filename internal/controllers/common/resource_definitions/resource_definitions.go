@@ -310,26 +310,40 @@ func NewPodForCR(cr *model.CryostatInstance, specs *ServiceSpecs, imageTags *Ima
 		volumes = append(volumes, eventTemplateVolume)
 	}
 
-	// Add Auth properties as a volume if specified (on Openshift)
-	if openshift && cr.Spec.AuthProperties != nil {
-		authResourceVolume := corev1.Volume{
-			Name: "auth-properties-" + cr.Spec.AuthProperties.ConfigMapName,
-			VolumeSource: corev1.VolumeSource{
-				ConfigMap: &corev1.ConfigMapVolumeSource{
-					LocalObjectReference: corev1.LocalObjectReference{
-						Name: cr.Spec.AuthProperties.ConfigMapName,
-					},
-					Items: []corev1.KeyToPath{
-						{
-							Key:  cr.Spec.AuthProperties.Filename,
-							Path: "OpenShiftAuthManager.properties",
-							Mode: &readOnlyMode,
+	if openshift {
+		// Add Auth properties as a volume if specified (on Openshift)
+		if cr.Spec.AuthProperties != nil {
+			authResourceVolume := corev1.Volume{
+				Name: "auth-properties-" + cr.Spec.AuthProperties.ConfigMapName,
+				VolumeSource: corev1.VolumeSource{
+					ConfigMap: &corev1.ConfigMapVolumeSource{
+						LocalObjectReference: corev1.LocalObjectReference{
+							Name: cr.Spec.AuthProperties.ConfigMapName,
+						},
+						Items: []corev1.KeyToPath{
+							{
+								Key:  cr.Spec.AuthProperties.Filename,
+								Path: "OpenShiftAuthManager.properties",
+								Mode: &readOnlyMode,
+							},
 						},
 					},
 				},
+			}
+			volumes = append(volumes, authResourceVolume)
+		}
+
+		// Add Insights token secret as a volume
+		insightsVolume := corev1.Volume{
+			Name: "insights-token",
+			VolumeSource: corev1.VolumeSource{
+				Secret: &corev1.SecretVolumeSource{
+					SecretName: cr.Name + "-insights-token",
+					Optional:   &[]bool{true}[0],
+				},
 			},
 		}
-		volumes = append(volumes, authResourceVolume)
+		volumes = append(volumes, insightsVolume)
 	}
 
 	var podSc *corev1.PodSecurityContext
@@ -759,6 +773,13 @@ func NewCoreContainer(cr *model.CryostatInstance, specs *ServiceSpecs, imageTag 
 				Value: cr.Spec.AuthProperties.ClusterRoleName,
 			})
 		}
+
+		// Mount Insights token
+		mounts = append(mounts, corev1.VolumeMount{
+			Name:      "insights-token",
+			MountPath: "/var/run/secrets/operator.cryostat.io/insights-token",
+			ReadOnly:  true,
+		})
 	}
 
 	disableBuiltInDiscovery := cr.Spec.TargetDiscoveryOptions != nil && cr.Spec.TargetDiscoveryOptions.BuiltInDiscoveryDisabled

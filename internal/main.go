@@ -40,6 +40,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"strings"
 
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	// to ensure that exec-entrypoint and run can make use of them.
@@ -104,6 +105,7 @@ func main() {
 		setupLog.Error(err, "unable to get WatchNamespace, "+
 			"the manager will watch and manage resources in all namespaces")
 	}
+	namespaces := strings.Split(watchNamespace, ",")
 
 	ctrl.SetLogger(zap.New(zap.UseFlagOptions(&opts)))
 
@@ -111,7 +113,7 @@ func main() {
 	// when used with ClusterCryostat
 	// https://github.com/cryostatio/cryostat-operator/issues/580
 	disableCache := []client.Object{}
-	if len(watchNamespace) > 0 {
+	if len(namespaces) > 0 {
 		disableCache = append(disableCache, &rbacv1.RoleBinding{})
 	}
 
@@ -125,8 +127,7 @@ func main() {
 		HealthProbeBindAddress: probeAddr,
 		LeaderElection:         enableLeaderElection,
 		LeaderElectionID:       "d696d7ab.redhat.com",
-		Namespace:              watchNamespace,
-		ClientDisableCacheFor:  disableCache,
+		ClientDisableCacheFor:  disableCache, // FIXME can probable remove
 	})
 	if err != nil {
 		setupLog.Error(err, "unable to start manager")
@@ -162,12 +163,15 @@ func main() {
 		setupLog.Info("did not find cert-manager installation")
 	}
 
-	config := newReconcilerConfig(mgr, "ClusterCryostat", "clustercryostat-controller", openShift, certManager)
+	config := newReconcilerConfig(mgr, "ClusterCryostat", "clustercryostat-controller", openShift,
+		certManager, &operatorv1beta1.ClusterCryostat{}, &operatorv1beta1.ClusterCryostatList{},
+		false, namespaces)
 	if err = (controllers.NewClusterCryostatReconciler(config)).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "ClusterCryostat")
 		os.Exit(1)
 	}
-	config = newReconcilerConfig(mgr, "Cryostat", "cryostat-controller", openShift, certManager)
+	config = newReconcilerConfig(mgr, "Cryostat", "cryostat-controller", openShift, certManager,
+		&operatorv1beta1.Cryostat{}, &operatorv1beta1.CryostatList{}, true, namespaces)
 	if err = (controllers.NewCryostatReconciler(config)).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "Cryostat")
 		os.Exit(1)
@@ -213,7 +217,8 @@ func isCertManagerInstalled(client discovery.DiscoveryInterface) (bool, error) {
 }
 
 func newReconcilerConfig(mgr ctrl.Manager, logName string, eventRecorderName string, openShift bool,
-	certManager bool) *controllers.ReconcilerConfig {
+	certManager bool, objType client.Object, listType client.ObjectList, isNamespaced bool,
+	namespaces []string) *controllers.ReconcilerConfig {
 	return &controllers.ReconcilerConfig{
 		Client:                 mgr.GetClient(),
 		Log:                    ctrl.Log.WithName("controllers").WithName(logName),
@@ -222,6 +227,10 @@ func newReconcilerConfig(mgr ctrl.Manager, logName string, eventRecorderName str
 		IsCertManagerInstalled: certManager,
 		EventRecorder:          mgr.GetEventRecorderFor(eventRecorderName),
 		RESTMapper:             mgr.GetRESTMapper(),
+		ObjectType:             objType,
+		ListType:               listType,
+		IsNamespaced:           isNamespaced,
+		Namespaces:             namespaces,
 		ReconcilerTLS: common.NewReconcilerTLS(&common.ReconcilerTLSConfig{
 			Client: mgr.GetClient(),
 		}),
