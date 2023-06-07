@@ -29,6 +29,8 @@ env:
   CI_OPERATOR_IMG: quay.io/cryostat/cryostat-operator
   CI_BUNDLE_IMG: quay.io/cryostat/cryostat-operator-bundle
   CI_SCORECARD_IMG: quay.io/cryostat/cryostat-operator-scorecard
+  REPOSITORY: ${{ github.event.pull_request.head.repo.full_name }}
+  REF: ${{ github.event.pull_request.head.ref }}
 
 jobs:
   controller-test:
@@ -39,6 +41,9 @@ jobs:
       if: ${{ github.event_name == 'pull_request_target' && !contains(github.event.pull_request.labels.*.name, 'safe-to-test') }}
       run: exit 1
     - uses: actions/checkout@v2
+      with:
+        repository: ${{ env.REPOSITORY }}
+        ref: ${{ env.REF }}
     - uses: actions/setup-go@v2
       with:
         go-version: '1.20.*'
@@ -60,6 +65,9 @@ jobs:
       if: ${{ github.event_name == 'pull_request_target' && !contains(github.event.pull_request.labels.*.name, 'safe-to-test') }}
       run: exit 1
     - uses: actions/checkout@v2
+      with:
+        repository: ${{ env.REPOSITORY }}
+        ref: ${{ env.REF }}
     - uses: jpkrohling/setup-operator-sdk@v1.1.0
       with:
         operator-sdk-version: v1.28.0
