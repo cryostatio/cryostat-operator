@@ -338,8 +338,9 @@ func NewPodForCR(cr *model.CryostatInstance, specs *ServiceSpecs, imageTags *Ima
 			Name: "insights-token",
 			VolumeSource: corev1.VolumeSource{
 				Secret: &corev1.SecretVolumeSource{
-					SecretName: cr.Name + "-insights-token",
-					Optional:   &[]bool{true}[0],
+					SecretName:  cr.Name + "-insights-token",
+					Optional:    &[]bool{true}[0],
+					DefaultMode: &readOnlyMode,
 				},
 			},
 		}
