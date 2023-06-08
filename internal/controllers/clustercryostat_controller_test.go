@@ -139,6 +139,6 @@ func (t *cryostatTestInput) expectTargetNamespaces() {
 	Expect(*cr.TargetNamespaceStatus).To(ConsistOf(t.TargetNamespaces))
 }
 
-func newClusterCryostatController(config *controllers.ReconcilerConfig) controllers.CommonReconciler {
+func newClusterCryostatController(config *controllers.ReconcilerConfig) (controllers.CommonReconciler, error) {
 	return controllers.NewClusterCryostatReconciler(config)
 }

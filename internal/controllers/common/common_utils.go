@@ -45,6 +45,7 @@ import (
 	"strings"
 	"time"
 
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 )
@@ -84,9 +85,9 @@ func (o *defaultOSUtils) GenPasswd(length int) string {
 
 // ClusterUniqueName returns a name for cluster-scoped objects that is
 // uniquely identified by a namespace and name.
-func ClusterUniqueName(kind string, name string, namespace string) string {
+func ClusterUniqueName(gvk *schema.GroupVersionKind, name string, namespace string) string {
 	// Use the SHA256 checksum of the namespaced name as a suffix
 	nn := types.NamespacedName{Namespace: namespace, Name: name}
 	suffix := fmt.Sprintf("%x", sha256.Sum256([]byte(nn.String())))
-	return strings.ToLower(kind) + "-" + suffix
+	return strings.ToLower(gvk.Kind) + "-" + suffix
 }

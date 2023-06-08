@@ -39,6 +39,7 @@ package controllers_test
 import (
 	"context"
 	"fmt"
+	"strconv"
 	"time"
 
 	certv1 "github.com/cert-manager/cert-manager/pkg/apis/certmanager/v1"
@@ -59,7 +60,9 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/validation/field"
+	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/tools/record"
+	ctrl "sigs.k8s.io/controller-runtime"
 	ctrlclient "sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -75,12 +78,13 @@ import (
 
 type controllerTest struct {
 	clusterScoped   bool
-	constructorFunc func(*controllers.ReconcilerConfig) controllers.CommonReconciler
+	constructorFunc func(*controllers.ReconcilerConfig) (controllers.CommonReconciler, error)
 }
 
 type cryostatTestInput struct {
-	controller controllers.CommonReconciler
-	objs       []ctrlclient.Object
+	controller      controllers.CommonReconciler
+	objs            []ctrlclient.Object
+	watchNamespaces []string
 	test.TestReconcilerConfig
 	*test.TestResources
 }
@@ -102,6 +106,7 @@ func (c *controllerTest) commonBeforeEach() *cryostatTestInput {
 	t.objs = []ctrlclient.Object{
 		t.NewNamespace(),
 		t.NewApiServer(),
+		t.NewGlobalPullSecret(), // TODO OpenShift only?
 	}
 	return t
 }
@@ -114,11 +119,13 @@ func (c *controllerTest) commonJustBeforeEach(t *cryostatTestInput) {
 	err := test.SetCreationTimestamp(t.objs...)
 	Expect(err).ToNot(HaveOccurred())
 	t.Client = fake.NewClientBuilder().WithScheme(s).WithObjects(t.objs...).Build()
-	t.controller = c.constructorFunc(t.newReconcilerConfig(s, t.Client))
+	t.controller, err = c.constructorFunc(t.newReconcilerConfig(s, t.Client))
+	Expect(err).ToNot(HaveOccurred())
 }
 
 func (c *controllerTest) commonJustAfterEach(t *cryostatTestInput) {
 	for _, obj := range t.objs {
+		fmt.Printf("Deleting: %v\n", obj) // XXX
 		err := ctrlclient.IgnoreNotFound(t.Client.Delete(context.Background(), obj))
 		Expect(err).ToNot(HaveOccurred())
 	}
@@ -136,6 +143,7 @@ func (t *cryostatTestInput) newReconcilerConfig(scheme *runtime.Scheme, client c
 		RESTMapper:    test.NewTESTRESTMapper(),
 		Log:           logger,
 		ReconcilerTLS: test.NewTestReconcilerTLS(&t.TestReconcilerConfig),
+		Namespaces:    t.watchNamespaces,
 	}
 }
 
@@ -225,22 +233,26 @@ func expectSuccessful(t **cryostatTestInput) {
 }
 
 func (c *controllerTest) commonTests() {
+	c.commonTestsWithoutManager()
+	c.commonTestsWithManager()
+}
+
+func (c *controllerTest) commonTestsWithoutManager() {
 	var t *cryostatTestInput
 
-	BeforeEach(func() {
-		t = c.commonBeforeEach()
-		t.TargetNamespaces = []string{t.Namespace}
-	})
-
-	JustBeforeEach(func() {
-		c.commonJustBeforeEach(t)
-	})
-
-	JustAfterEach(func() {
-		c.commonJustAfterEach(t)
-	})
-
 	Describe("reconciling a request in OpenShift", func() {
+		BeforeEach(func() {
+			t = c.commonBeforeEach()
+			t.TargetNamespaces = []string{t.Namespace}
+		})
+
+		JustBeforeEach(func() {
+			c.commonJustBeforeEach(t)
+		})
+
+		JustAfterEach(func() {
+			c.commonJustAfterEach(t)
+		})
 		Context("with a default CR", func() {
 			BeforeEach(func() {
 				t.objs = append(t.objs, t.NewCryostat().Object)
@@ -1285,6 +1297,9 @@ func (c *controllerTest) commonTests() {
 			It("should add application url to APIServer AdditionalCORSAllowedOrigins", func() {
 				t.expectAPIServer()
 			})
+			It("should create an Insights token secret", func() {
+				t.expectInsightsTokenSecret()
+			})
 			It("should add the finalizer", func() {
 				t.expectCryostatFinalizerPresent()
 			})
@@ -1292,6 +1307,7 @@ func (c *controllerTest) commonTests() {
 				BeforeEach(func() {
 					t.objs = []ctrlclient.Object{
 						t.NewCryostat().Object, t.NewNamespaceWithSCCSupGroups(), t.NewApiServer(),
+						t.NewGlobalPullSecret(),
 					}
 				})
 				It("should set fsGroup to value derived from namespace", func() {
@@ -1763,10 +1779,14 @@ func (c *controllerTest) commonTests() {
 
 			JustBeforeEach(func() {
 				other.commonJustBeforeEach(otherInput)
+
 				// Controllers need to share client to have shared view of objects
 				otherInput.Client = t.Client
 				config := otherInput.newReconcilerConfig(otherInput.Client.Scheme(), otherInput.Client)
-				otherInput.controller = other.constructorFunc(config)
+				controller, err := other.constructorFunc(config)
+				Expect(err).ToNot(HaveOccurred())
+				otherInput.controller = controller
+
 				// Reconcile conflicting namespaced Cryostat fully
 				otherInput.reconcileCryostatFully()
 				// Try reconciling ClusterCryostat
@@ -1858,7 +1878,17 @@ func (c *controllerTest) commonTests() {
 
 	Describe("reconciling a request in Kubernetes", func() {
 		BeforeEach(func() {
+			t = c.commonBeforeEach()
+			t.TargetNamespaces = []string{t.Namespace}
 			t.OpenShift = false
+		})
+
+		JustBeforeEach(func() {
+			c.commonJustBeforeEach(t)
+		})
+
+		JustAfterEach(func() {
+			c.commonJustAfterEach(t)
 		})
 		Context("with TLS ingress", func() {
 			BeforeEach(func() {
@@ -2161,6 +2191,210 @@ func (c *controllerTest) commonTests() {
 	})
 }
 
+func (c *controllerTest) commonTestsWithManager() {
+	var t *cryostatTestInput
+
+	Describe("setting up the controller", func() {
+		var done chan interface{}
+		var cancel context.CancelFunc
+
+		BeforeEach(func() {
+			t = &cryostatTestInput{
+				TestReconcilerConfig: test.TestReconcilerConfig{
+					GeneratedPasswords: []string{"grafana", "credentials_database", "jmx", "keystore"},
+				},
+				TestResources: &test.TestResources{
+					Name:          "cryostat",
+					Namespace:     "test",
+					TLS:           true,
+					ExternalTLS:   true,
+					OpenShift:     true,
+					ClusterScoped: c.clusterScoped,
+				},
+			}
+			suffix := strconv.Itoa(nameSuffix)
+			t.Name += "-" + suffix
+			t.Namespace += "-" + suffix
+			t.TargetNamespaces = []string{t.Namespace}
+			t.watchNamespaces = []string{t.Namespace}
+
+			t.TLS = false // TODO can use InstallCertManager
+			t.objs = []ctrlclient.Object{
+				t.NewNamespace(),
+				t.NewApiServer(),
+				t.NewGlobalPullSecret(),
+			}
+		})
+		JustBeforeEach(func() {
+			k8sClient, err := ctrlclient.New(cfg, ctrlclient.Options{Scheme: scheme.Scheme})
+			Expect(err).NotTo(HaveOccurred())
+			Expect(k8sClient).NotTo(BeNil())
+
+			// Create openshift-config namespace first
+			ns := &corev1.Namespace{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "openshift-config",
+				},
+			}
+			err = k8sClient.Create(context.Background(), ns)
+			Expect(ctrlclient.IgnoreAlreadyExists(err)).ToNot(HaveOccurred())
+
+			// Create namespaces first
+			// nsGeneratedNameMap := map[string]string{}
+			// otherObjs := []ctrlclient.Object{}
+			for _, obj := range t.objs {
+				// 	if ns, ok := obj.(*corev1.Namespace); ok {
+				// 		saveName := ns.Name
+				// 		ns.GenerateName = ns.Name + "-"
+				// 		ns.Name = ""
+				// 		fmt.Printf("Creating: %v\n", ns) // XXX
+				// 		err := k8sClient.Create(context.TODO(), obj)
+				// 		Expect(err).ToNot(HaveOccurred())
+				// 		fmt.Println("Namespace: " + ns.Name) // XXX
+				// 		nsGeneratedNameMap[saveName] = ns.Name
+				// 	} else {
+				// 		otherObjs = append(otherObjs, obj)
+				// 	}
+				// }
+				// // Create other objects while substituting namespace
+				// for _, obj := range otherObjs {
+				// 	if len(obj.GetNamespace()) > 0 {
+				// 		Expect(nsGeneratedNameMap).To(HaveKey(obj.GetNamespace()))
+				// 		ns := nsGeneratedNameMap[obj.GetNamespace()]
+				// 		obj.SetNamespace(ns)
+				// 	}
+				fmt.Printf("Creating: %v\n", obj) // XXX
+				err := k8sClient.Create(context.TODO(), obj)
+				Expect(err).ToNot(HaveOccurred())
+			}
+			// // Replace namespace variables with generated names
+			// Expect(nsGeneratedNameMap).To(HaveKey(t.Namespace))
+			// t.Namespace = nsGeneratedNameMap[t.Namespace]
+			// Expect(nsGeneratedNameMap).To(HaveKey(otherNamespace))
+			// otherNamespace = nsGeneratedNameMap[otherNamespace]
+			// t.TargetNamespaces = []string{t.Namespace}
+			// t.watchNamespaces = []string{t.Namespace}
+
+			t.Client = k8sClient
+			controller, err := c.constructorFunc(t.newReconcilerConfig(scheme.Scheme, t.Client))
+			Expect(err).ToNot(HaveOccurred())
+			t.controller = controller
+			manager, err := ctrl.NewManager(cfg, ctrl.Options{
+				Scheme:                 test.NewTestScheme(),
+				MetricsBindAddress:     "0",
+				Port:                   9443,
+				HealthProbeBindAddress: "0",
+				LeaderElection:         false,
+			})
+			Expect(err).ToNot(HaveOccurred())
+			err = t.controller.SetupWithManager(manager)
+			Expect(err).ToNot(HaveOccurred())
+
+			ctx, fn := context.WithCancel(context.Background())
+			cancel = fn
+			done = make(chan interface{})
+			go func() {
+				defer GinkgoRecover()
+				err := manager.Start(ctx)
+				Expect(err).ToNot(HaveOccurred())
+				fmt.Println("Stopping Manager") // XXX
+				close(done)
+			}()
+		})
+		JustAfterEach(func() {
+			for _, obj := range t.objs {
+				fmt.Printf("Deleting: %v\n", obj) // XXX
+				err := ctrlclient.IgnoreNotFound(t.Client.Delete(context.Background(), obj))
+				Expect(err).ToNot(HaveOccurred())
+			}
+		})
+		AfterEach(func() {
+			if cancel != nil {
+				cancel()
+				<-done
+			}
+			nameSuffix++
+		})
+
+		Context("watches the configured namespace(s)", func() {
+			var otherNamespace string
+
+			BeforeEach(func() {
+				suffix := strconv.Itoa(nameSuffix)
+				saveNS := t.Namespace
+				otherNamespace = "other-" + suffix
+				t.Namespace = otherNamespace
+				otherNS := t.NewNamespace()
+				t.Namespace = saveNS
+				t.objs = append(t.objs, otherNS)
+			})
+			Context("creating a CR in the watched namespace", func() {
+				BeforeEach(func() {
+					t.objs = append(t.objs, t.NewCryostatWithIngressCertManagerDisabled().Object)
+				})
+				It("should reconcile the CR", func() {
+					Eventually(func() bool {
+						cr := t.getCryostatInstance()
+						if cr != nil && cr.Status != nil && len(cr.Status.ApplicationURL) > 0 {
+							return true
+						}
+						return false
+					}).WithTimeout(time.Minute).WithPolling(time.Millisecond).Should(BeTrue())
+				})
+			})
+			if !c.clusterScoped {
+				Context("creating a CR in a different namespace", func() {
+					BeforeEach(func() {
+						t.Namespace = otherNamespace
+						t.TargetNamespaces = []string{otherNamespace}
+						t.objs = append(t.objs, t.NewCryostatWithIngressCertManagerDisabled().Object)
+					})
+					It("should not reconcile the CR", func() {
+						Consistently(func() bool {
+							cr := t.getCryostatInstance()
+							if cr != nil && cr.Status != nil && len(cr.Status.ApplicationURL) > 0 {
+								return true
+							}
+							return false
+						}).WithTimeout(time.Minute).WithPolling(time.Millisecond).Should(BeFalse())
+					})
+				})
+			}
+		})
+
+		Context("watches the global pull secret", func() {
+			BeforeEach(func() {
+				cr := t.NewCryostatWithIngressCertManagerDisabled()
+				t.objs = append(t.objs, cr.Object)
+			})
+			JustBeforeEach(func() {
+				// Wait for Insights Token to exist to ensure it will be updated later
+				Eventually(t.getInsightsTokenValue()).WithTimeout(time.Minute).WithPolling(time.Millisecond).Should(Equal("world"))
+				// Wait for reconciler to finish
+				time.Sleep(30 * time.Second) // TODO is there some way to check reconciler queue size?
+			})
+			Context("when the pull secret is updated", func() {
+				JustBeforeEach(func() {
+					secret := t.NewGlobalPullSecret()
+					err := t.Client.Get(context.Background(), types.NamespacedName{Namespace: secret.Namespace, Name: secret.Name}, secret)
+					Expect(err).ToNot(HaveOccurred())
+
+					if secret.StringData == nil {
+						secret.StringData = map[string]string{}
+					}
+					secret.StringData[corev1.DockerConfigJsonKey] = `{"auths":{"example.com":{"auth":"hello"},"cloud.openshift.com":{"auth":"foo"}}}`
+
+					err = t.Client.Update(context.Background(), secret)
+					Expect(err).ToNot(HaveOccurred())
+				})
+				It("should update the Insights token", func() {
+					Eventually(t.getInsightsTokenValue()).WithTimeout(time.Minute).WithPolling(time.Millisecond).Should(Equal("foo"))
+				})
+			})
+		})
+	})
+}
+
 func (t *cryostatTestInput) expectRoutes() {
 	if !t.Minimal {
 		t.checkRoute(t.NewGrafanaRoute())
@@ -2444,6 +2678,16 @@ func (t *cryostatTestInput) expectJMXSecret() {
 	Expect(err).ToNot(HaveOccurred())
 
 	expectedSecret := t.NewJMXSecret()
+	t.checkMetadata(secret, expectedSecret)
+	Expect(secret.StringData).To(Equal(expectedSecret.StringData))
+}
+
+func (t *cryostatTestInput) expectInsightsTokenSecret() {
+	expectedSecret := t.NewInsightsTokenSecret()
+	secret := &corev1.Secret{}
+	err := t.Client.Get(context.Background(), types.NamespacedName{Name: expectedSecret.Name, Namespace: expectedSecret.Namespace}, secret)
+	Expect(err).ToNot(HaveOccurred())
+
 	t.checkMetadata(secret, expectedSecret)
 	Expect(secret.StringData).To(Equal(expectedSecret.StringData))
 }
@@ -2979,7 +3223,19 @@ func (t *cryostatTestInput) expectResourcesUnaffected() {
 	}
 }
 
-func getControllerFunc(clusterScoped bool) func(*controllers.ReconcilerConfig) controllers.CommonReconciler {
+func (t *cryostatTestInput) getInsightsTokenValue() func() string {
+	tokenSecret := t.NewInsightsTokenSecret()
+	return func() string {
+		err := t.Client.Get(context.Background(), types.NamespacedName{Namespace: tokenSecret.Namespace, Name: tokenSecret.Name}, tokenSecret)
+		Expect(ctrlclient.IgnoreNotFound(err)).ToNot(HaveOccurred())
+		if tokenSecret != nil {
+			return string(tokenSecret.Data["token"])
+		}
+		return ""
+	}
+}
+
+func getControllerFunc(clusterScoped bool) func(*controllers.ReconcilerConfig) (controllers.CommonReconciler, error) {
 	if clusterScoped {
 		return newClusterCryostatController
 	}

@@ -164,16 +164,25 @@ func main() {
 	}
 
 	config := newReconcilerConfig(mgr, "ClusterCryostat", "clustercryostat-controller", openShift,
-		certManager, &operatorv1beta1.ClusterCryostat{}, &operatorv1beta1.ClusterCryostatList{},
-		false, namespaces)
-	if err = (controllers.NewClusterCryostatReconciler(config)).SetupWithManager(mgr); err != nil {
+		certManager, namespaces)
+	clusterController, err := controllers.NewClusterCryostatReconciler(config)
+	if err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "ClusterCryostat")
 		os.Exit(1)
 	}
+	if err = clusterController.SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to add controller to manager", "controller", "ClusterCryostat")
+		os.Exit(1)
+	}
 	config = newReconcilerConfig(mgr, "Cryostat", "cryostat-controller", openShift, certManager,
-		&operatorv1beta1.Cryostat{}, &operatorv1beta1.CryostatList{}, true, namespaces)
-	if err = (controllers.NewCryostatReconciler(config)).SetupWithManager(mgr); err != nil {
+		namespaces)
+	controller, err := controllers.NewCryostatReconciler(config)
+	if err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "Cryostat")
+		os.Exit(1)
+	}
+	if err = controller.SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to add controller to manager", "controller", "Cryostat")
 		os.Exit(1)
 	}
 	// +kubebuilder:scaffold:builder
@@ -217,8 +226,7 @@ func isCertManagerInstalled(client discovery.DiscoveryInterface) (bool, error) {
 }
 
 func newReconcilerConfig(mgr ctrl.Manager, logName string, eventRecorderName string, openShift bool,
-	certManager bool, objType client.Object, listType client.ObjectList, isNamespaced bool,
-	namespaces []string) *controllers.ReconcilerConfig {
+	certManager bool, namespaces []string) *controllers.ReconcilerConfig {
 	return &controllers.ReconcilerConfig{
 		Client:                 mgr.GetClient(),
 		Log:                    ctrl.Log.WithName("controllers").WithName(logName),
@@ -227,9 +235,6 @@ func newReconcilerConfig(mgr ctrl.Manager, logName string, eventRecorderName str
 		IsCertManagerInstalled: certManager,
 		EventRecorder:          mgr.GetEventRecorderFor(eventRecorderName),
 		RESTMapper:             mgr.GetRESTMapper(),
-		ObjectType:             objType,
-		ListType:               listType,
-		IsNamespaced:           isNamespaced,
 		Namespaces:             namespaces,
 		ReconcilerTLS: common.NewReconcilerTLS(&common.ReconcilerTLSConfig{
 			Client: mgr.GetClient(),

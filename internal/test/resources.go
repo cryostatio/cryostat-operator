@@ -206,7 +206,14 @@ func (r *TestResources) NewCryostatWithTemplates() *model.CryostatInstance {
 }
 
 func (r *TestResources) NewCryostatWithIngress() *model.CryostatInstance {
-	cr := r.NewCryostat()
+	return r.addIngressToCryostat(r.NewCryostat())
+}
+
+func (r *TestResources) NewCryostatWithIngressCertManagerDisabled() *model.CryostatInstance {
+	return r.addIngressToCryostat(r.NewCryostatCertManagerDisabled())
+}
+
+func (r *TestResources) addIngressToCryostat(cr *model.CryostatInstance) *model.CryostatInstance {
 	networkConfig := r.newNetworkConfigurationList()
 	cr.Spec.NetworkOptions = &networkConfig
 	return cr
@@ -1625,6 +1632,14 @@ func (r *TestResources) NewCoreVolumeMounts() []corev1.VolumeMount {
 				MountPath: fmt.Sprintf("/var/run/secrets/operator.cryostat.io/%s-tls", r.Name),
 			})
 	}
+	if r.OpenShift {
+		mounts = append(mounts,
+			corev1.VolumeMount{
+				Name:      "insights-token",
+				ReadOnly:  true,
+				MountPath: "/var/run/secrets/operator.cryostat.io/insights-token",
+			})
+	}
 	return mounts
 }
 
@@ -1987,6 +2002,20 @@ func (r *TestResources) newVolumes(certProjections []corev1.VolumeProjection) []
 				},
 			},
 		})
+
+	if r.OpenShift {
+		volumes = append(volumes,
+			corev1.Volume{
+				Name: "insights-token",
+				VolumeSource: corev1.VolumeSource{
+					Secret: &corev1.SecretVolumeSource{
+						SecretName:  r.Name + "-insights-token",
+						Optional:    &[]bool{true}[0],
+						DefaultMode: &readOnlymode,
+					},
+				},
+			})
+	}
 
 	return volumes
 }
@@ -2765,6 +2794,32 @@ func (r *TestResources) NewLockConfigMap() *corev1.ConfigMap {
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      r.Name + "-lock",
 			Namespace: r.Namespace,
+		},
+	}
+}
+
+func (r *TestResources) NewGlobalPullSecret() *corev1.Secret {
+	config := `{"auths":{"example.com":{"auth":"hello"},"cloud.openshift.com":{"auth":"world"}}}`
+	return &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "pull-secret",
+			Namespace: "openshift-config",
+		},
+		Data: map[string][]byte{
+			corev1.DockerConfigJsonKey: []byte(config),
+		},
+	}
+}
+
+func (r *TestResources) NewInsightsTokenSecret() *corev1.Secret {
+	config := "world"
+	return &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      r.Name + "-insights-token",
+			Namespace: r.Namespace,
+		},
+		StringData: map[string]string{
+			"token": config,
 		},
 	}
 }

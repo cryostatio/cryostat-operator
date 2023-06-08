@@ -61,6 +61,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -84,9 +85,6 @@ type ReconcilerConfig struct {
 	IsCertManagerInstalled bool
 	EventRecorder          record.EventRecorder
 	RESTMapper             meta.RESTMapper
-	ObjectType             client.Object
-	ListType               client.ObjectList
-	IsNamespaced           bool
 	Namespaces             []string
 	common.ReconcilerTLS
 }
@@ -95,11 +93,16 @@ type ReconcilerConfig struct {
 // between the ClusterCryostat and Cryostat reconcilers
 type CommonReconciler interface {
 	reconcile.Reconciler
+	SetupWithManager(mgr ctrl.Manager) error
 	GetConfig() *ReconcilerConfig
 }
 
 type Reconciler struct {
 	*ReconcilerConfig
+	objectType   client.Object
+	listType     client.ObjectList
+	isNamespaced bool
+	gvk          *schema.GroupVersionKind
 }
 
 // Name used for Finalizer that handles Cryostat deletion
@@ -144,6 +147,21 @@ var reportsDeploymentConditions = deploymentConditionTypeMap{
 	operatorv1beta1.ConditionTypeReportsDeploymentAvailable:      appsv1.DeploymentAvailable,
 	operatorv1beta1.ConditionTypeReportsDeploymentProgressing:    appsv1.DeploymentProgressing,
 	operatorv1beta1.ConditionTypeReportsDeploymentReplicaFailure: appsv1.DeploymentReplicaFailure,
+}
+
+func newReconciler(config *ReconcilerConfig, objType client.Object, listType client.ObjectList,
+	isNamespaced bool) (*Reconciler, error) {
+	gvk, err := apiutil.GVKForObject(objType, config.Scheme)
+	if err != nil {
+		return nil, err
+	}
+	return &Reconciler{
+		ReconcilerConfig: config,
+		objectType:       objType,
+		listType:         listType,
+		isNamespaced:     isNamespaced,
+		gvk:              &gvk,
+	}, nil
 }
 
 func (r *Reconciler) reconcileCryostat(ctx context.Context, cr *model.CryostatInstance) (ctrl.Result, error) {
@@ -299,17 +317,24 @@ func (r *Reconciler) reconcile(ctx context.Context, cr *model.CryostatInstance) 
 }
 
 func (r *Reconciler) setupWithManager(mgr ctrl.Manager, impl reconcile.Reconciler) error {
-	gvk, err := apiutil.GVKForObject(r.ObjectType, mgr.GetScheme())
-	if err != nil {
-		return err
-	}
 	namespaces := namespacesToSet(r.Namespaces)
 	c := ctrl.NewControllerManagedBy(mgr).
-		For(r.ObjectType).
+		For(r.objectType).
 		// TODO remove this once only AllNamespace mode is supported
 		WithEventFilter(predicate.NewPredicateFuncs(func(object client.Object) bool {
-			// Restrict watch for CRs to specified namespaces
-			if object.GetObjectKind().GroupVersionKind().GroupKind() == gvk.GroupKind() {
+			// Restrict watch for namespaced CRs to specified namespaces
+			fmt.Println("KIND: " + object.GetObjectKind().GroupVersionKind().GroupKind().String()) // XXX
+			gk := object.GetObjectKind().GroupVersionKind().GroupKind()
+			if gk.Empty() {
+				gvk, err := apiutil.GVKForObject(object, mgr.GetScheme())
+				if err != nil {
+					r.Log.Info("failed to find GVK for %T %s/%s", object, object.GetNamespace(), object.GetName())
+					return false
+				}
+				gk = gvk.GroupKind()
+				fmt.Println("KIND after lookup: " + gvk.GroupKind().String()) // XXX
+			}
+			if gk == r.gvk.GroupKind() && len(object.GetNamespace()) > 0 {
 				_, pres := namespaces[object.GetNamespace()]
 				if !pres {
 					return false
@@ -613,18 +638,19 @@ func mergeLabelsAndAnnotations(dest *metav1.ObjectMeta, srcLabels, srcAnnotation
 
 func (r *Reconciler) findObjectsForPullSecret(secret client.Object) []reconcile.Request {
 	if secret.GetNamespace() != "openshift-config" || secret.GetName() != "pull-secret" {
+		fmt.Printf("GOT SECRET %s/%s\n", secret.GetNamespace(), secret.GetName())
 		return nil
 	}
 	namespaces := []string{""}
-	if r.IsNamespaced {
+	if r.isNamespaced {
 		namespaces = r.Namespaces
 	}
 
 	result := []reconcile.Request{}
 	for _, namespace := range namespaces {
-		instanceList, ok := r.ListType.DeepCopyObject().(client.ObjectList)
+		instanceList, ok := r.listType.DeepCopyObject().(client.ObjectList)
 		if !ok {
-			r.Log.Error(fmt.Errorf("type %T is not an ObjectList", r.ListType),
+			r.Log.Error(fmt.Errorf("type %T is not an ObjectList", r.listType),
 				"could not allocate a list")
 			return []reconcile.Request{}
 		}
@@ -634,7 +660,7 @@ func (r *Reconciler) findObjectsForPullSecret(secret client.Object) []reconcile.
 		}
 		err := r.List(context.Background(), instanceList, listOps)
 		if err != nil {
-			r.Log.Error(err, "failed to list %T", r.ObjectType, "namespace", namespace)
+			r.Log.Error(err, "failed to list %T", r.objectType, "namespace", namespace)
 			return []reconcile.Request{}
 		}
 
@@ -656,7 +682,7 @@ func (r *Reconciler) findObjectsForPullSecret(secret client.Object) []reconcile.
 				},
 			}
 			// XXX
-			r.Log.Info(fmt.Sprintf("Enqueueing %T %s for pull-secret change", r.ObjectType, types.NamespacedName{Namespace: obj.GetNamespace(), Name: obj.GetName()}.String()))
+			r.Log.Info(fmt.Sprintf("Enqueueing %T %s for pull-secret change", r.objectType, types.NamespacedName{Namespace: obj.GetNamespace(), Name: obj.GetName()}.String()))
 		}
 		result = append(result, requests...)
 	}

@@ -37,6 +37,8 @@
 package controllers_test
 
 import (
+	"fmt"
+	"go/build"
 	"path/filepath"
 	"testing"
 
@@ -64,6 +66,7 @@ import (
 var cfg *rest.Config
 var k8sClient client.Client
 var testEnv *envtest.Environment
+var nameSuffix int
 
 func TestAPIs(t *testing.T) {
 	RegisterFailHandler(Fail)
@@ -75,9 +78,18 @@ var _ = BeforeSuite(func() {
 	logf.SetLogger(zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)))
 
 	By("bootstrapping test environment")
+	// TODO hardcoded version
+	openshiftPrefix := []string{build.Default.GOPATH, "pkg", "mod", "github.com", "openshift", "api@v0.0.0-20230406152840-ce21e3fe5da2"}
 	testEnv = &envtest.Environment{
-		CRDDirectoryPaths: []string{filepath.Join("..", "config", "crd", "bases")},
+		CRDDirectoryPaths: []string{
+			filepath.Join("..", "..", "config", "crd", "bases"),
+			filepath.Join(append(openshiftPrefix, "route", "v1")...),
+			filepath.Join(append(openshiftPrefix, "console", "v1")...),
+			filepath.Join(append(openshiftPrefix, "config", "v1")...),
+		},
+		ErrorIfCRDPathMissing: true,
 	}
+	fmt.Println(testEnv.CRDDirectoryPaths)
 
 	var err error
 	// cfg is defined in this file globally.
@@ -106,6 +118,7 @@ var _ = BeforeSuite(func() {
 	Expect(err).NotTo(HaveOccurred())
 	Expect(k8sClient).NotTo(BeNil())
 
+	nameSuffix = 0
 })
 
 var _ = AfterSuite(func() {

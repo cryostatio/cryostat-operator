@@ -57,13 +57,16 @@ type CryostatReconciler struct {
 	*ReconcilerConfig
 }
 
-func NewCryostatReconciler(config *ReconcilerConfig) *CryostatReconciler {
+func NewCryostatReconciler(config *ReconcilerConfig) (*CryostatReconciler, error) {
+	delegate, err := newReconciler(config, &operatorv1beta1.Cryostat{},
+		&operatorv1beta1.CryostatList{}, true)
+	if err != nil {
+		return nil, err
+	}
 	return &CryostatReconciler{
 		ReconcilerConfig: config,
-		delegate: &Reconciler{
-			ReconcilerConfig: config,
-		},
-	}
+		delegate:         delegate,
+	}, nil
 }
 
 // +kubebuilder:rbac:groups=operator.cryostat.io,resources=cryostats,verbs=*

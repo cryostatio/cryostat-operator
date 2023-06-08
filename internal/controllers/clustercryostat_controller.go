@@ -60,13 +60,16 @@ type ClusterCryostatReconciler struct {
 	*ReconcilerConfig
 }
 
-func NewClusterCryostatReconciler(config *ReconcilerConfig) *ClusterCryostatReconciler {
+func NewClusterCryostatReconciler(config *ReconcilerConfig) (*ClusterCryostatReconciler, error) {
+	delegate, err := newReconciler(config, &operatorv1beta1.ClusterCryostat{},
+		&operatorv1beta1.ClusterCryostatList{}, false)
+	if err != nil {
+		return nil, err
+	}
 	return &ClusterCryostatReconciler{
 		ReconcilerConfig: config,
-		delegate: &Reconciler{
-			ReconcilerConfig: config,
-		},
-	}
+		delegate:         delegate,
+	}, nil
 }
 
 // +kubebuilder:rbac:groups="",resources=pods;services;services/finalizers;endpoints;persistentvolumeclaims;events;configmaps;secrets;serviceaccounts,verbs=*
