@@ -39,6 +39,7 @@ package controllers_test
 import (
 	"fmt"
 	"go/build"
+	"os"
 	"path/filepath"
 	"testing"
 
@@ -78,8 +79,10 @@ var _ = BeforeSuite(func() {
 	logf.SetLogger(zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)))
 
 	By("bootstrapping test environment")
-	// TODO hardcoded version
-	openshiftPrefix := []string{build.Default.GOPATH, "pkg", "mod", "github.com", "openshift", "api@v0.0.0-20230406152840-ce21e3fe5da2"}
+	openshiftModVersion := os.Getenv("OPENSHIFT_API_MOD_VERSION")
+	Expect(openshiftModVersion).ToNot(BeEmpty(), "OPENSHIFT_API_MOD_VERSION environment variable must be set")
+	openshiftPrefix := []string{build.Default.GOPATH, "pkg", "mod", "github.com", "openshift",
+		"api@" + openshiftModVersion}
 	testEnv = &envtest.Environment{
 		CRDDirectoryPaths: []string{
 			filepath.Join("..", "..", "config", "crd", "bases"),
