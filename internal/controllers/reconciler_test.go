@@ -2231,6 +2231,11 @@ func (c *controllerTest) commonTestsWithManager() {
 			Expect(k8sClient).NotTo(BeNil())
 
 			// Create openshift-config namespace first
+			// Don't include this with other objects, since those will be deleted
+			// after the test. EnvTest doesn't support namespace deletion, so an
+			// attempt to delete openshift-config will prevent us from using it
+			// for subsequent tests.
+			// See: https://book.kubebuilder.io/reference/envtest.html#namespace-usage-limitation
 			ns := &corev1.Namespace{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "openshift-config",
@@ -2239,41 +2244,11 @@ func (c *controllerTest) commonTestsWithManager() {
 			err = k8sClient.Create(context.Background(), ns)
 			Expect(ctrlclient.IgnoreAlreadyExists(err)).ToNot(HaveOccurred())
 
-			// Create namespaces first
-			// nsGeneratedNameMap := map[string]string{}
-			// otherObjs := []ctrlclient.Object{}
 			for _, obj := range t.objs {
-				// 	if ns, ok := obj.(*corev1.Namespace); ok {
-				// 		saveName := ns.Name
-				// 		ns.GenerateName = ns.Name + "-"
-				// 		ns.Name = ""
-				// 		fmt.Printf("Creating: %v\n", ns) // XXX
-				// 		err := k8sClient.Create(context.TODO(), obj)
-				// 		Expect(err).ToNot(HaveOccurred())
-				// 		fmt.Println("Namespace: " + ns.Name) // XXX
-				// 		nsGeneratedNameMap[saveName] = ns.Name
-				// 	} else {
-				// 		otherObjs = append(otherObjs, obj)
-				// 	}
-				// }
-				// // Create other objects while substituting namespace
-				// for _, obj := range otherObjs {
-				// 	if len(obj.GetNamespace()) > 0 {
-				// 		Expect(nsGeneratedNameMap).To(HaveKey(obj.GetNamespace()))
-				// 		ns := nsGeneratedNameMap[obj.GetNamespace()]
-				// 		obj.SetNamespace(ns)
-				// 	}
 				fmt.Printf("Creating: %v\n", obj) // XXX
 				err := k8sClient.Create(context.TODO(), obj)
 				Expect(err).ToNot(HaveOccurred())
 			}
-			// // Replace namespace variables with generated names
-			// Expect(nsGeneratedNameMap).To(HaveKey(t.Namespace))
-			// t.Namespace = nsGeneratedNameMap[t.Namespace]
-			// Expect(nsGeneratedNameMap).To(HaveKey(otherNamespace))
-			// otherNamespace = nsGeneratedNameMap[otherNamespace]
-			// t.TargetNamespaces = []string{t.Namespace}
-			// t.watchNamespaces = []string{t.Namespace}
 
 			t.Client = k8sClient
 			controller, err := c.constructorFunc(t.newReconcilerConfig(scheme.Scheme, t.Client))
