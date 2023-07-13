@@ -2960,13 +2960,6 @@ func (t *cryostatTestInput) expectConsoleLink() {
 	Expect(link.Spec).To(Equal(expectedLink.Spec))
 }
 
-func (t *cryostatTestInput) expectAPIServer() {
-	apiServer := &configv1.APIServer{}
-	err := t.Client.Get(context.Background(), types.NamespacedName{Name: "cluster"}, apiServer)
-	Expect(err).ToNot(HaveOccurred())
-	Expect(apiServer.Spec.AdditionalCORSAllowedOrigins).To(ContainElement(fmt.Sprintf("https://%s\\.example\\.com", t.Name)))
-}
-
 func (t *cryostatTestInput) expectResourcesUnaffected() {
 	for _, check := range resourceChecks() {
 		check.expectFunc(t)
