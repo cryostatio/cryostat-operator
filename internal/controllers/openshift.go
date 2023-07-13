@@ -56,11 +56,7 @@ func (r *Reconciler) reconcileOpenShift(ctx context.Context, cr *model.CryostatI
 	if !r.IsOpenShift {
 		return nil
 	}
-	err := r.reconcileConsoleLink(ctx, cr)
-	if err != nil {
-		return err
-	}
-	return r.addCorsAllowedOriginIfNotPresent(ctx, cr)
+	return r.reconcileConsoleLink(ctx, cr)
 }
 
 func (r *Reconciler) finalizeOpenShift(ctx context.Context, cr *model.CryostatInstance) error {
@@ -127,44 +123,6 @@ func (r *Reconciler) deleteConsoleLink(ctx context.Context, link *consolev1.Cons
 		return err
 	}
 	logger.Info("deleted ConsoleLink", "name", link.Name)
-	return nil
-}
-
-func (r *Reconciler) addCorsAllowedOriginIfNotPresent(ctx context.Context, cr *model.CryostatInstance) error {
-	reqLogger := r.Log.WithValues("Request.Namespace", cr.InstallNamespace, "Request.Name", cr.Name)
-
-	allowedOrigin := cr.Status.ApplicationURL
-	if len(allowedOrigin) == 0 {
-		return nil
-	}
-
-	apiServer := &configv1.APIServer{}
-	err := r.Client.Get(ctx, types.NamespacedName{Name: apiServerName}, apiServer)
-	if err != nil {
-		reqLogger.Error(err, "Failed to get APIServer config")
-		return err
-	}
-
-	allowedOriginAsRegex := regexp.QuoteMeta(allowedOrigin)
-
-	for _, origin := range apiServer.Spec.AdditionalCORSAllowedOrigins {
-		if origin == allowedOriginAsRegex {
-			return nil
-		}
-	}
-
-	apiServer.Spec.AdditionalCORSAllowedOrigins = append(
-		apiServer.Spec.AdditionalCORSAllowedOrigins,
-		allowedOriginAsRegex,
-	)
-
-	err = r.Client.Update(ctx, apiServer)
-	if err != nil {
-		reqLogger.Error(err, "Failed to update APIServer CORS allowed origins")
-		return err
-	}
-
-	reqLogger.Info("Added to APIServer CORS allowed origins")
 	return nil
 }
 

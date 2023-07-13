@@ -1282,9 +1282,6 @@ func (c *controllerTest) commonTests() {
 					Expect(link.Spec.NamespaceDashboard).To(Equal(expectedLink.Spec.NamespaceDashboard))
 				})
 			})
-			It("should add application url to APIServer AdditionalCORSAllowedOrigins", func() {
-				t.expectAPIServer()
-			})
 			It("should add the finalizer", func() {
 				t.expectCryostatFinalizerPresent()
 			})
@@ -1810,9 +1807,6 @@ func (c *controllerTest) commonTests() {
 					Context("on OpenShift", func() {
 						It("should not delete exisiting ConsoleLink", func() {
 							otherInput.expectConsoleLink()
-						})
-						It("should not remove CORS entry from APIServer", func() {
-							otherInput.expectAPIServer()
 						})
 					})
 				})
