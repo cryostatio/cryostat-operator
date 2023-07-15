@@ -56,7 +56,12 @@ func (r *Reconciler) reconcileOpenShift(ctx context.Context, cr *model.CryostatI
 	if !r.IsOpenShift {
 		return nil
 	}
-	return r.reconcileConsoleLink(ctx, cr)
+	err := r.reconcileConsoleLink(ctx, cr)
+	if err != nil {
+		return err
+	}
+	// Remove CORS modifications from previous operator versions
+	return r.deleteCorsAllowedOrigins(ctx, cr)
 }
 
 func (r *Reconciler) finalizeOpenShift(ctx context.Context, cr *model.CryostatInstance) error {
