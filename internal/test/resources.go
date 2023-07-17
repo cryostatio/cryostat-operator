@@ -2636,6 +2636,20 @@ func (r *TestResources) NewApiServer() *configv1.APIServer {
 	}
 }
 
+func (r *TestResources) NewApiServerWithApplicationURL() *configv1.APIServer {
+	return &configv1.APIServer{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "cluster",
+		},
+		Spec: configv1.APIServerSpec{
+			AdditionalCORSAllowedOrigins: []string{
+				"https://an-existing-user-specified\\.allowed\\.origin\\.com",
+				fmt.Sprintf("https://%s.example.com", r.Name),
+			},
+		},
+	}
+}
+
 func newCoreContainerDefaultResource() *corev1.ResourceRequirements {
 	return &corev1.ResourceRequirements{
 		Requests: corev1.ResourceList{
