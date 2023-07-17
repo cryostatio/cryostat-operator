@@ -1282,8 +1282,20 @@ func (c *controllerTest) commonTests() {
 					Expect(link.Spec.NamespaceDashboard).To(Equal(expectedLink.Spec.NamespaceDashboard))
 				})
 			})
-			It("should add application url to APIServer AdditionalCORSAllowedOrigins", func() {
-				t.expectAPIServer()
+			Context("with an existing application url in APIServer AdditionalCORSAllowedOrigins", func() {
+				BeforeEach(func() {
+					t.objs = []ctrlclient.Object{
+						t.NewApiServerWithApplicationURL(),
+						t.NewNamespace(),
+					}
+				})
+				It("should remove the application url", func() {
+					apiServer := &configv1.APIServer{}
+					err := t.Client.Get(context.Background(), types.NamespacedName{Name: "cluster"}, apiServer)
+					Expect(err).ToNot(HaveOccurred())
+					Expect(apiServer.Spec.AdditionalCORSAllowedOrigins).ToNot(ContainElement(fmt.Sprintf("https://%s\\.example\\.com", t.Name)))
+					Expect(apiServer.Spec.AdditionalCORSAllowedOrigins).To(ContainElement("https://an-existing-user-specified\\.allowed\\.origin\\.com"))
+				})
 			})
 			It("should add the finalizer", func() {
 				t.expectCryostatFinalizerPresent()
@@ -1319,7 +1331,7 @@ func (c *controllerTest) commonTests() {
 						apiServer := &configv1.APIServer{}
 						err := t.Client.Get(context.Background(), types.NamespacedName{Name: "cluster"}, apiServer)
 						Expect(err).ToNot(HaveOccurred())
-						Expect(apiServer.Spec.AdditionalCORSAllowedOrigins).ToNot(ContainElement("https://cryostat\\.example\\.com"))
+						Expect(apiServer.Spec.AdditionalCORSAllowedOrigins).ToNot(ContainElement(fmt.Sprintf("https://%s\\.example\\.com", t.Name)))
 						Expect(apiServer.Spec.AdditionalCORSAllowedOrigins).To(ContainElement("https://an-existing-user-specified\\.allowed\\.origin\\.com"))
 					})
 					It("should delete Cryostat", func() {
@@ -1810,9 +1822,6 @@ func (c *controllerTest) commonTests() {
 					Context("on OpenShift", func() {
 						It("should not delete exisiting ConsoleLink", func() {
 							otherInput.expectConsoleLink()
-						})
-						It("should not remove CORS entry from APIServer", func() {
-							otherInput.expectAPIServer()
 						})
 					})
 				})
@@ -2964,13 +2973,6 @@ func (t *cryostatTestInput) expectConsoleLink() {
 	err := t.Client.Get(context.Background(), types.NamespacedName{Name: expectedLink.Name}, link)
 	Expect(err).ToNot(HaveOccurred())
 	Expect(link.Spec).To(Equal(expectedLink.Spec))
-}
-
-func (t *cryostatTestInput) expectAPIServer() {
-	apiServer := &configv1.APIServer{}
-	err := t.Client.Get(context.Background(), types.NamespacedName{Name: "cluster"}, apiServer)
-	Expect(err).ToNot(HaveOccurred())
-	Expect(apiServer.Spec.AdditionalCORSAllowedOrigins).To(ContainElement(fmt.Sprintf("https://%s\\.example\\.com", t.Name)))
 }
 
 func (t *cryostatTestInput) expectResourcesUnaffected() {
