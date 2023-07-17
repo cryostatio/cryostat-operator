@@ -154,16 +154,15 @@ func (r *Reconciler) deleteCorsAllowedOrigins(ctx context.Context, cr *model.Cry
 			apiServer.Spec.AdditionalCORSAllowedOrigins = append(
 				apiServer.Spec.AdditionalCORSAllowedOrigins[:i],
 				apiServer.Spec.AdditionalCORSAllowedOrigins[i+1:]...)
-			break
+			err = r.Client.Update(ctx, apiServer)
+			if err != nil {
+				reqLogger.Error(err, "Failed to remove Cryostat origin from APIServer CORS allowed origins")
+				return err
+			}
+
+			reqLogger.Info("Removed from APIServer CORS allowed origins")
+			return nil
 		}
 	}
-
-	err = r.Client.Update(ctx, apiServer)
-	if err != nil {
-		reqLogger.Error(err, "Failed to remove Cryostat origin from APIServer CORS allowed origins")
-		return err
-	}
-
-	reqLogger.Info("Removed from APIServer CORS allowed origins")
 	return nil
 }
