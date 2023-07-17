@@ -1293,7 +1293,7 @@ func (c *controllerTest) commonTests() {
 					apiServer := &configv1.APIServer{}
 					err := t.Client.Get(context.Background(), types.NamespacedName{Name: "cluster"}, apiServer)
 					Expect(err).ToNot(HaveOccurred())
-					Expect(apiServer.Spec.AdditionalCORSAllowedOrigins).ToNot(ContainElement("https://cryostat\\.example\\.com"))
+					Expect(apiServer.Spec.AdditionalCORSAllowedOrigins).ToNot(ContainElement(fmt.Sprintf("https://%s\\.example\\.com", t.Name)))
 					Expect(apiServer.Spec.AdditionalCORSAllowedOrigins).To(ContainElement("https://an-existing-user-specified\\.allowed\\.origin\\.com"))
 				})
 			})
@@ -1331,7 +1331,7 @@ func (c *controllerTest) commonTests() {
 						apiServer := &configv1.APIServer{}
 						err := t.Client.Get(context.Background(), types.NamespacedName{Name: "cluster"}, apiServer)
 						Expect(err).ToNot(HaveOccurred())
-						Expect(apiServer.Spec.AdditionalCORSAllowedOrigins).ToNot(ContainElement("https://cryostat\\.example\\.com"))
+						Expect(apiServer.Spec.AdditionalCORSAllowedOrigins).ToNot(ContainElement(fmt.Sprintf("https://%s\\.example\\.com", t.Name)))
 						Expect(apiServer.Spec.AdditionalCORSAllowedOrigins).To(ContainElement("https://an-existing-user-specified\\.allowed\\.origin\\.com"))
 					})
 					It("should delete Cryostat", func() {
