@@ -76,7 +76,7 @@ CERT_MANAGER_MANIFEST ?= \
 
 KUSTOMIZE_VERSION ?= 3.8.7
 CONTROLLER_TOOLS_VERSION ?= 0.11.1
-ADDLICENSE_VERSION ?= 1.0.0
+GOLICENSE_VERSION ?= 1.29.0
 OPM_VERSION ?= 1.23.0
 # ENVTEST_K8S_VERSION refers to the version of kubebuilder assets to be downloaded by envtest binary.
 ENVTEST_K8S_VERSION ?= 1.26
@@ -245,10 +245,20 @@ generate: controller-gen
 # Check and add (if missing) license header
 LICENSE_FILE = $(shell pwd)/LICENSE
 GO_PACKAGES := $(shell go list -test -f '{{.Dir}}' ./... | sed -e "s|^$$(pwd)||" | cut -d/ -f2 | sort -u)
+.PHONY: check-license
+check-license: golicense
+	@echo "Checking license..."
+	$(GOLICENSE) --config=go-license.yml --verify $(shell find ${GO_PACKAGES} -name "*.go")
+
 .PHONY: add-license 
-add-license: addlicense
-	@echo "Checking/Adding license..."
-	$(ADDLICENSE) -v -f $(LICENSE_FILE) ${GO_PACKAGES}
+add-license: golicense
+	@echo "Adding license..."
+	$(GOLICENSE) --config=go-license.yml $(shell find ${GO_PACKAGES} -name "*.go")
+
+.PHONY: remove-license
+remove-license: golicense
+	@echo "Removing license..."
+	$(GOLICENSE) --config=go-license.yml --remove $(shell find ${GO_PACKAGES} -name "*.go")
 
 # Build the OCI image
 .PHONY: oci-build
@@ -329,12 +339,12 @@ $(KUSTOMIZE): local-bin
 	fi
 	test -s $(KUSTOMIZE) || { curl -Ss $(KUSTOMIZE_INSTALL_SCRIPT) | bash -s -- $(subst v,,$(KUSTOMIZE_VERSION)) $(LOCALBIN); }
 
-# Download addlicense locally if necessary
-ADDLICENSE = $(LOCALBIN)/addlicense
-.PHONY: addlicense
-addlicense: $(ADDLICENSE)
-$(ADDLICENSE): local-bin
-	test -s $(ADDLICENSE) || GOBIN=$(LOCALBIN) go install github.com/google/addlicense@v$(ADDLICENSE_VERSION)
+# Download go-license locally if necessary
+GOLICENSE = $(LOCALBIN)/go-license
+.PHONY: golicense
+golicense: $(GOLICENSE)
+$(GOLICENSE): local-bin
+	test -s $(GOLICENSE) || GOBIN=$(LOCALBIN) go install github.com/palantir/go-license@v$(GOLICENSE_VERSION)
 
 # Download setup-envtest locally if necessary
 ENVTEST = $(LOCALBIN)/setup-envtest
