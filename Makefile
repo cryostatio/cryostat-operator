@@ -275,7 +275,7 @@ oci-build: manifests generate fmt vet test-envtest
 # - install qemu-user-static.
 # To properly provided solutions that supports more than one platform you should use this option.
 PLATFORMS ?= linux/arm64,linux/amd64,linux/s390x,linux/ppc64le
-MANIFEST_PUSH ?= false
+MANIFEST_PUSH ?= true
 .PHONY: oci-buildx
 oci-buildx: manifests generate fmt vet test-envtest ## Build OCI image for the manager for cross-platform support
 ifeq ($(IMAGE_BUILDER), docker)
