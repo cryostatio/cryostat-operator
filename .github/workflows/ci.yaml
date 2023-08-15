@@ -28,9 +28,9 @@ on:
 env:
   CI_USER: cryostat+bot
   CI_REGISTRY: quay.io/cryostat
-  CI_OPERATOR_IMG: $CI_REGISTRY/cryostat-operator
-  CI_BUNDLE_IMG: $CI_REGISTRY/cryostat-operator-bundle
-  CI_SCORECARD_IMG: $CI_REGISTRY/cryostat-operator-scorecard
+  CI_OPERATOR_IMG: ${CI_REGISTRY}/cryostat-operator
+  CI_BUNDLE_IMG: ${CI_REGISTRY}/cryostat-operator-bundle
+  CI_SCORECARD_IMG: ${CI_REGISTRY}/cryostat-operator-scorecard
   REPOSITORY: ${{ github.event.pull_request.head.repo.full_name }}
   REF: ${{ github.event.pull_request.head.ref }}
 
@@ -157,7 +157,7 @@ jobs:
         sudo apt-get install -y qemu-user-static
     - name: Build operator image
       run: |
-        SKIP_TESTS=true PLATFORMS=linux/amd64,linux/arm64 MANIFEST_PUSH=false make oci-buildx
+        IMAGE_NAMESPACE=${{ env.CI_REGISTRY }} SKIP_TESTS=true PLATFORMS=linux/amd64,linux/arm64 MANIFEST_PUSH=false make oci-buildx
     - name: Tag image
       id: tag-image
       run: |
@@ -187,7 +187,7 @@ jobs:
     steps:
     - uses: actions/checkout@v2
     - name: Build bundle image
-      run: make bundle-build
+      run: IMAGE_NAMESPACE=${{ env.CI_REGISTRY }} make bundle-build
     - name: Tag image
       id: tag-image
       run: |
