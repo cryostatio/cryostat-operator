@@ -149,7 +149,8 @@ jobs:
     steps:
     - uses: actions/checkout@v2
     - name: Build operator image
-      run: SKIP_TESTS=true make oci-build
+      run: |
+        SKIP_TESTS=true PLATFORMS=linux/amd64,linux/arm64 MANIFEST_PUSH=true make oci-buildx
     - name: Tag image
       id: tag-image
       run: |

@@ -275,23 +275,26 @@ oci-build: manifests generate fmt vet test-envtest
 # - install qemu-user-static.
 # To properly provided solutions that supports more than one platform you should use this option.
 PLATFORMS ?= linux/arm64,linux/amd64,linux/s390x,linux/ppc64le
+MANIFEST_PUSH ?= false
 .PHONY: oci-buildx
 oci-buildx: manifests generate fmt vet test-envtest ## Build OCI image for the manager for cross-platform support
 ifeq ($(IMAGE_BUILDER), docker)
 # copy existing Dockerfile and insert --platform=${BUILDPLATFORM} into Dockerfile.cross, and preserve the original Dockerfile
 	sed -e '1 s/\(^FROM\)/FROM --platform=\$$\{BUILDPLATFORM\}/; t' -e ' 1,// s//FROM --platform=\$$\{BUILDPLATFORM\}/' Dockerfile > Dockerfile.cross
-	- docker buildx create --name project-v3-builder
-	docker buildx use project-v3-builder
-	- docker buildx build --push --platform=$(PLATFORMS) --tag $(OPERATOR_IMG) -f Dockerfile.cross .
-	- docker buildx rm project-v3-builder
+	- $(IMAGE_BUILDER) buildx create --name project-v3-builder
+	$(IMAGE_BUILDER) buildx use project-v3-builder
+	- $(IMAGE_BUILDER) buildx build --push --platform=$(PLATFORMS) --tag $(OPERATOR_IMG) -f Dockerfile.cross .
+	- $(IMAGE_BUILDER) buildx rm project-v3-builder
 	rm Dockerfile.cross
 else ifeq ($(IMAGE_BUILDER), podman)
 	for platform in $$(echo $(PLATFORMS) | sed "s/,/ /g"); do \
 		os=$$(echo $${platform} | cut -d/ -f 1); \
 		arch=$$(echo $${platform} | cut -d/ -f 2); \
-		BUILDAH_FORMAT=docker podman buildx build --manifest $(OPERATOR_IMG) --platform $${platform} --build-arg TARGETOS=$${os} --build-arg TARGETARCH=$${arch} . ; \
+		BUILDAH_FORMAT=docker $(IMAGE_BUILDER) buildx build --manifest $(OPERATOR_IMG) --platform $${platform} --build-arg TARGETOS=$${os} --build-arg TARGETARCH=$${arch} . ; \
 	done
-	podman manifest push $(OPERATOR_IMG) $(OPERATOR_IMG)
+	if [ "${MANIFEST_PUSH}" = "true" ] ; then \
+		$(IMAGE_BUILDER) manifest push $(OPERATOR_IMG) $(OPERATOR_IMG) ; \
+	fi
 else
 	$(error unsupported IMAGE_BUILDER: $(IMAGE_BUILDER))
 endif
