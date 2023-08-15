@@ -26,9 +26,11 @@ on:
       - cryostat-v[0-9]+.[0-9]+
 
 env:
-  CI_OPERATOR_IMG: quay.io/cryostat/cryostat-operator
-  CI_BUNDLE_IMG: quay.io/cryostat/cryostat-operator-bundle
-  CI_SCORECARD_IMG: quay.io/cryostat/cryostat-operator-scorecard
+  CI_USER: cryostat+bot
+  CI_REGISTRY: quay.io/cryostat
+  CI_OPERATOR_IMG: $CI_REGISTRY/cryostat-operator
+  CI_BUNDLE_IMG: $CI_REGISTRY/cryostat-operator-bundle
+  CI_SCORECARD_IMG: $CI_REGISTRY/cryostat-operator-scorecard
   REPOSITORY: ${{ github.event.pull_request.head.repo.full_name }}
   REF: ${{ github.event.pull_request.head.ref }}
 
@@ -148,9 +150,14 @@ jobs:
     if: ${{ github.event_name == 'push' && github.repository_owner == 'cryostatio' }}
     steps:
     - uses: actions/checkout@v2
+    - name: Install qemu
+      continue-on-error: false
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y qemu-user-static
     - name: Build operator image
       run: |
-        SKIP_TESTS=true PLATFORMS=linux/amd64,linux/arm64 MANIFEST_PUSH=true make oci-buildx
+        SKIP_TESTS=true PLATFORMS=linux/amd64,linux/arm64 MANIFEST_PUSH=false make oci-buildx
     - name: Tag image
       id: tag-image
       run: |
@@ -169,8 +176,8 @@ jobs:
       with:
         image: cryostat-operator
         tags: ${{ steps.tag-image.outputs.tags }}
-        registry: quay.io/cryostat
-        username: cryostat+bot
+        registry: ${{ env.CI_REGISTRY }}
+        username: ${{ env.CI_USER }}
         password: ${{ secrets.REGISTRY_PASSWORD }}
     - name: Print image URL
       run: echo "Image pushed to ${{ steps.push-to-quay.outputs.registry-paths }}"
@@ -199,8 +206,8 @@ jobs:
       with:
         image: cryostat-operator-bundle
         tags: ${{ steps.tag-image.outputs.tags }}
-        registry: quay.io/cryostat
-        username: cryostat+bot
+        registry: ${{ env.CI_REGISTRY }}
+        username: ${{ env.CI_USER }}
         password: ${{ secrets.REGISTRY_PASSWORD }}
     - name: Print image URL
       run: echo "Image pushed to ${{ steps.push-to-quay.outputs.registry-paths }}"
@@ -231,8 +238,8 @@ jobs:
       with:
         image: cryostat-operator-scorecard
         tags: ${{ steps.get-image-tag.outputs.tag }}
-        registry: quay.io/cryostat
-        username: cryostat+bot
+        registry: ${{ env.CI_REGISTRY }}
+        username: ${{ env.CI_USER }}
         password: ${{ secrets.REGISTRY_PASSWORD }}
       if: ${{ steps.check-tag-exists.outputs.exist == 'false' }}
     - name: Print image URL
