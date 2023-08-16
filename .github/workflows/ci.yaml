@@ -74,6 +74,11 @@ jobs:
     - uses: jpkrohling/setup-operator-sdk@v1.1.0
       with:
         operator-sdk-version: v1.28.0
+    - name: Install qemu
+      continue-on-error: false
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y qemu-user-static
     - name: Build scorecard image for test
       id: build-scorecard
       run: |
@@ -233,6 +238,11 @@ jobs:
           EXIST=true
         fi
         echo "exist=$EXIST" >> $GITHUB_OUTPUT
+    - name: Install qemu
+      continue-on-error: false
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y qemu-user-static
     - name: Build scorecard image
       run: |
         CUSTOM_SCORECARD_IMG=${CI_SCORECARD_IMG}:${{ steps.get-image-tag.outputs.tag }} \
