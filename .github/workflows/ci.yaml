@@ -31,6 +31,7 @@ env:
   CI_OPERATOR_IMG: quay.io/cryostat/cryostat-operator
   CI_BUNDLE_IMG: quay.io/cryostat/cryostat-operator-bundle
   CI_SCORECARD_IMG: quay.io/cryostat/cryostat-operator-scorecard
+  CI_PLATFORMS: linux/amd64,linux/arm64
   REPOSITORY: ${{ github.event.pull_request.head.repo.full_name }}
   REF: ${{ github.event.pull_request.head.ref }}
 
@@ -73,10 +74,18 @@ jobs:
     - uses: jpkrohling/setup-operator-sdk@v1.1.0
       with:
         operator-sdk-version: v1.28.0
+    - name: Install qemu
+      continue-on-error: false
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y qemu-user-static
     - name: Build scorecard image for test
       id: build-scorecard
       run: |
-        CUSTOM_SCORECARD_IMG=ghcr.io/${{ github.repository_owner }}/cryostat-operator-scorecard:ci-$GITHUB_SHA make scorecard-build
+        CUSTOM_SCORECARD_IMG=ghcr.io/${{ github.repository_owner }}/cryostat-operator-scorecard:ci-$GITHUB_SHA \
+        PLATFORMS=${{ env.CI_PLATFORMS }} \
+        MANIFEST_PUSH=false \
+          make scorecard-build
         echo "tag=ci-$GITHUB_SHA" >> $GITHUB_OUTPUT
     - name: Push scorecard image to ghcr.io for test
       id: push-scorecard-to-ghcr
@@ -157,7 +166,7 @@ jobs:
         sudo apt-get install -y qemu-user-static
     - name: Build operator image
       run: |
-        IMAGE_NAMESPACE=${{ env.CI_REGISTRY }} SKIP_TESTS=true PLATFORMS=linux/amd64,linux/arm64 MANIFEST_PUSH=false make oci-buildx
+        IMAGE_NAMESPACE=${{ env.CI_REGISTRY }} SKIP_TESTS=true PLATFORMS=${{ env.CI_PLATFORMS }} MANIFEST_PUSH=false make oci-buildx
     - name: Tag image
       id: tag-image
       run: |
@@ -229,8 +238,18 @@ jobs:
           EXIST=true
         fi
         echo "exist=$EXIST" >> $GITHUB_OUTPUT
+    - name: Install qemu
+      continue-on-error: false
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y qemu-user-static
+      if: ${{ steps.check-tag-exists.outputs.exist == 'false' }}
     - name: Build scorecard image
-      run: make scorecard-build CUSTOM_SCORECARD_IMG=${CI_SCORECARD_IMG}:${{ steps.get-image-tag.outputs.tag }}
+      run: |
+        CUSTOM_SCORECARD_IMG=${CI_SCORECARD_IMG}:${{ steps.get-image-tag.outputs.tag }} \
+        PLATFORMS=${{ env.CI_PLATFORMS }} \
+        MANIFEST_PUSH=false \
+          make scorecard-build
       if: ${{ steps.check-tag-exists.outputs.exist == 'false' }}
     - name: Push to quay.io
       id: push-to-quay
