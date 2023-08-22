@@ -117,8 +117,8 @@ func (r *Reconciler) createOrUpdateRoute(ctx context.Context, route *routev1.Rou
 
 	op, err := controllerutil.CreateOrUpdate(ctx, r.Client, route, func() error {
 		// Set labels and annotations from CR
-		route.Labels = config.Labels
-		route.Annotations = config.Annotations
+		mergeLabelsAndAnnotations(&route.ObjectMeta, config.Labels, config.Annotations)
+
 		// Set the Cryostat CR as controller
 		if err := controllerutil.SetControllerReference(owner, route, r.Scheme); err != nil {
 			return err
