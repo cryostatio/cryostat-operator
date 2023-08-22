@@ -100,8 +100,8 @@ func (r *Reconciler) createOrUpdateIngress(ctx context.Context, ingress *netv1.I
 	config *operatorv1beta1.NetworkConfiguration) (*netv1.Ingress, error) {
 	op, err := controllerutil.CreateOrUpdate(ctx, r.Client, ingress, func() error {
 		// Set labels and annotations from CR
-		ingress.Labels = config.Labels
-		ingress.Annotations = config.Annotations
+		mergeLabelsAndAnnotations(&ingress.ObjectMeta, config.Labels, config.Annotations)
+
 		// Set the Cryostat CR as controller
 		if err := controllerutil.SetControllerReference(owner, ingress, r.Scheme); err != nil {
 			return err
