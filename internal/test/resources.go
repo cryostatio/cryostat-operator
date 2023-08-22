@@ -2094,6 +2094,9 @@ func (r *TestResources) newRoute(name string, port int) *routev1.Route {
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
 			Namespace: r.Namespace,
+			Labels: map[string]string{
+				"app":       r.Name,
+				"component": "cryostat"},
 		},
 		Spec: routev1.RouteSpec{
 			To: routev1.RouteTargetReference{
