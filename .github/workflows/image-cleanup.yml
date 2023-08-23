@@ -1,0 +1,28 @@
+name: Clean up PR-scoped test images
+
+on:
+  pull_request_target:
+    types:
+      - closed
+
+jobs:
+  delete-images:
+    name: Delete PR-scoped test images
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v2
+
+      - name: Delete Docker images
+        uses: r26d/ghcr-delete-image-action@v1.2.2
+        with:
+          owner: ${{ github.repository_owner }}
+          name: cryostat-operator
+          token: ${{ secrets.GHCR_PR_TOKEN }}
+          ignore-missing-package: true
+          tag-regex: pr-${{ github.event.number }}-.*
+          tagged-keep-latest: 0
+
+        if: github.repository_owner == 'cryostatio'
+
+
