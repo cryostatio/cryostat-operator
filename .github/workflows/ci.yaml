@@ -19,6 +19,7 @@ on:
       - synchronize
       - labeled
       - unlabeled
+      - closed
     branches:
       - main
       - v[0-9]+
@@ -295,3 +296,22 @@ jobs:
     - name: Print image URL
       run: echo "Image pushed to ${{ steps.push-to-quay.outputs.registry-paths }}"
       if: ${{ steps.check-tag-exists.outputs.exist == 'false' }}
+  delete-images:
+      name: Delete Docker images
+      runs-on: ubuntu-latest
+      steps:
+        - name: Check out code
+          uses: actions/checkout@v2
+
+        - name: Delete Docker images
+          uses: r26d/ghcr-delete-image-action@v1.2.2
+          with:
+            owner: ${{ github.repository_owner }}
+            name: cryostat-operator
+            token: ${{ secrets.GHCR_PR_TOKEN }}
+            ignore-missing-package: true
+            tag-regex: pr-${{ github.event.number }}-.*
+            tagged-keep-latest: 0
+
+        if: github.repository_owner == 'cryostatio'
+
