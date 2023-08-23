@@ -291,7 +291,7 @@ else ifeq ($(IMAGE_BUILDER), podman)
 	for platform in $$(echo $(PLATFORMS) | sed "s/,/ /g"); do \
 		os=$$(echo $${platform} | cut -d/ -f 1); \
 		arch=$$(echo $${platform} | cut -d/ -f 2); \
-		BUILDAH_FORMAT=docker $(IMAGE_BUILDER) buildx build --manifest $(OPERATOR_IMG) --platform $${platform} --build-arg TARGETOS=$${os} --build-arg TARGETARCH=$${arch} . ; \
+		BUILDAH_FORMAT=docker $(IMAGE_BUILDER) buildx build -f Dockerfile.cross --manifest $(OPERATOR_IMG) --platform $${platform} --build-arg TARGETOS=$${os} --build-arg TARGETARCH=$${arch} . ; \
 	done
 	if [ "${MANIFEST_PUSH}" = "true" ] ; then \
 		$(IMAGE_BUILDER) manifest push $(OPERATOR_IMG) $(OPERATOR_IMG) ; \
@@ -452,7 +452,7 @@ else ifeq ($(IMAGE_BUILDER), podman)
 	for platform in $$(echo $(PLATFORMS) | sed "s/,/ /g"); do \
 		os=$$(echo $${platform} | cut -d/ -f 1); \
 		arch=$$(echo $${platform} | cut -d/ -f 2); \
-		BUILDAH_FORMAT=docker $(IMAGE_BUILDER) buildx build --manifest $(CUSTOM_SCORECARD_IMG) --platform $${platform} --build-arg TARGETOS=$${os} --build-arg TARGETARCH=$${arch} . ; \
+		BUILDAH_FORMAT=docker $(IMAGE_BUILDER) buildx build -f internal/images/custom-scorecard-tests/Dockerfile.cross --manifest $(CUSTOM_SCORECARD_IMG) --platform $${platform} --build-arg TARGETOS=$${os} --build-arg TARGETARCH=$${arch} . ; \
 	done
 	if [ "${MANIFEST_PUSH}" = "true" ] ; then \
 		$(IMAGE_BUILDER) manifest push $(CUSTOM_SCORECARD_IMG) $(CUSTOM_SCORECARD_IMG) ; \

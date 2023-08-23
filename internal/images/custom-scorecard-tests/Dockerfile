@@ -14,6 +14,8 @@
 
 # Build the manager binary
 FROM docker.io/library/golang:1.20 as builder
+ARG TARGETOS
+ARG TARGETARCH
 
 WORKDIR /workspace
 # Copy the Go Modules manifests
@@ -29,7 +31,7 @@ COPY internal/images/custom-scorecard-tests/main.go internal/images/custom-score
 COPY internal/test/scorecard/ internal/test/scorecard/
 
 # Build
-RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 GO111MODULE=on go build -a -o cryostat-scorecard-tests \
+RUN CGO_ENABLED=0 GOOS=${TARGETOS:-linux} GOARCH=${TARGETARCH} GO111MODULE=on go build -a -o cryostat-scorecard-tests \
     internal/images/custom-scorecard-tests/main.go
 
 FROM registry.access.redhat.com/ubi8/ubi-minimal:latest
