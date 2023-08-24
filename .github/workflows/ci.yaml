@@ -82,11 +82,11 @@ jobs:
     - name: Build scorecard image for test
       id: build-scorecard
       run: |
-        CUSTOM_SCORECARD_IMG=ghcr.io/${{ github.repository_owner }}/cryostat-operator-scorecard:ci-$GITHUB_SHA \
+        CUSTOM_SCORECARD_IMG=ghcr.io/${{ github.repository_owner }}/cryostat-operator-scorecard:pr-${{ github.event.number }}-$GITHUB_SHA \
         PLATFORMS=${{ env.CI_PLATFORMS }} \
         MANIFEST_PUSH=false \
           make scorecard-build
-        echo "tag=ci-$GITHUB_SHA" >> $GITHUB_OUTPUT
+        echo "tag=pr-${{ github.event.number }}-$GITHUB_SHA" >> $GITHUB_OUTPUT
     - name: Push scorecard image to ghcr.io for test
       id: push-scorecard-to-ghcr
       uses: redhat-actions/push-to-registry@v2
@@ -99,10 +99,10 @@ jobs:
     - name: Build operator image for test
       id: build-operator
       run: |
-        OPERATOR_IMG=ghcr.io/${{ github.repository_owner }}/cryostat-operator:ci-$GITHUB_SHA \
+        OPERATOR_IMG=ghcr.io/${{ github.repository_owner }}/cryostat-operator:pr-${{ github.event.number }}-$GITHUB_SHA \
         SKIP_TESTS=true \
         make oci-build
-        echo "tag=ci-$GITHUB_SHA" >> $GITHUB_OUTPUT
+        echo "tag=pr-${{ github.event.number }}-$GITHUB_SHA" >> $GITHUB_OUTPUT
     - name: Push operator image to ghcr.io for test
       id: push-operator-to-ghcr
       uses: redhat-actions/push-to-registry@v2
@@ -117,9 +117,9 @@ jobs:
       run: |
         yq -i '.spec.template.spec.imagePullSecrets = [{"name": "registry-key"}]' config/manager/manager.yaml
         OPERATOR_IMG=${{ steps.push-operator-to-ghcr.outputs.registry-path }} \
-        BUNDLE_IMG=ghcr.io/${{ github.repository_owner }}/cryostat-operator-bundle:ci-$GITHUB_SHA \
-        make bundle bundle-build 
-        echo "tag=ci-$GITHUB_SHA" >> $GITHUB_OUTPUT
+        BUNDLE_IMG=ghcr.io/${{ github.repository_owner }}/cryostat-operator-bundle:pr-${{ github.event.number }}-$GITHUB_SHA \
+        make bundle bundle-build
+        echo "tag=pr-${{ github.event.number }}-$GITHUB_SHA" >> $GITHUB_OUTPUT
     - name: Push bundle image to ghcr.io for test
       id: push-bundle-to-ghcr
       uses: redhat-actions/push-to-registry@v2
@@ -178,7 +178,7 @@ jobs:
           echo "tags=$IMG_TAG latest" >> $GITHUB_OUTPUT
         else
           echo "tags=$IMG_TAG" >> $GITHUB_OUTPUT
-        fi    
+        fi
     - name: Push to quay.io
       id: push-to-quay
       uses: redhat-actions/push-to-registry@v2
