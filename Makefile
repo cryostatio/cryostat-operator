@@ -274,8 +274,6 @@ oci-build: manifests generate fmt vet test-envtest
 # If IMAGE_BUILDER is docker, you need to:
 # - able to use docker buildx. More info: https://docs.docker.com/build/buildx/
 # - have enable BuildKit, More info: https://docs.docker.com/develop/develop-images/build_enhancements/
-# If IMAGE_BUILDER is podman, you need to:
-# - install qemu-user-static.
 # To properly provided solutions that supports more than one platform you should use this option.
 .PHONY: oci-buildx
 oci-buildx: manifests generate fmt vet test-envtest ## Build OCI image for the manager for cross-platform support
@@ -287,11 +285,7 @@ ifeq ($(IMAGE_BUILDER), docker)
 	- $(IMAGE_BUILDER) buildx build --push --platform=$(PLATFORMS) --tag $(OPERATOR_IMG) -f Dockerfile.cross .
 	- $(IMAGE_BUILDER) buildx rm project-v3-builder
 else ifeq ($(IMAGE_BUILDER), podman)
-	for platform in $$(echo $(PLATFORMS) | sed "s/,/ /g"); do \
-		os=$$(echo $${platform} | cut -d/ -f 1); \
-		arch=$$(echo $${platform} | cut -d/ -f 2); \
-		BUILDAH_FORMAT=docker $(IMAGE_BUILDER) buildx build -f Dockerfile.cross --manifest $(OPERATOR_IMG) --platform $${platform} --build-arg TARGETOS=$${os} --build-arg TARGETARCH=$${arch} . ; \
-	done
+	BUILDAH_FORMAT=docker $(IMAGE_BUILDER) build -f Dockerfile.cross --manifest $(OPERATOR_IMG) --platform $(PLATFORMS) . ; \
 	if [ "${MANIFEST_PUSH}" = "true" ] ; then \
 		$(IMAGE_BUILDER) manifest push $(OPERATOR_IMG) $(OPERATOR_IMG) ; \
 	fi
@@ -448,11 +442,7 @@ ifeq ($(IMAGE_BUILDER), docker)
 	- $(IMAGE_BUILDER) buildx build --push --platform=$(PLATFORMS) --tag $(CUSTOM_SCORECARD_IMG) -f internal/images/custom-scorecard-tests/Dockerfile.cross .
 	- $(IMAGE_BUILDER) buildx rm project-v3-builder
 else ifeq ($(IMAGE_BUILDER), podman)
-	for platform in $$(echo $(PLATFORMS) | sed "s/,/ /g"); do \
-		os=$$(echo $${platform} | cut -d/ -f 1); \
-		arch=$$(echo $${platform} | cut -d/ -f 2); \
-		BUILDAH_FORMAT=docker $(IMAGE_BUILDER) buildx build -f internal/images/custom-scorecard-tests/Dockerfile.cross --manifest $(CUSTOM_SCORECARD_IMG) --platform $${platform} --build-arg TARGETOS=$${os} --build-arg TARGETARCH=$${arch} . ; \
-	done
+	BUILDAH_FORMAT=docker $(IMAGE_BUILDER) build -f internal/images/custom-scorecard-tests/Dockerfile.cross --manifest $(CUSTOM_SCORECARD_IMG) --platform $(PLATFORMS) . ; \
 	if [ "${MANIFEST_PUSH}" = "true" ] ; then \
 		$(IMAGE_BUILDER) manifest push $(CUSTOM_SCORECARD_IMG) $(CUSTOM_SCORECARD_IMG) ; \
 	fi
