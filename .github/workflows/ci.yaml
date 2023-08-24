@@ -117,10 +117,11 @@ jobs:
         sudo apt install podman
     - name: Build scorecard image for test
       run: |
-        CUSTOM_SCORECARD_IMG=ghcr.io/${{ github.repository_owner }}/cryostat-operator-scorecard:${{ env.TAG }} \
-        PLATFORMS=linux/amd64 \
+        CUSTOM_SCORECARD_IMG=ghcr.io/${{ github.repository_owner }}/cryostat-operator-scorecard:pr-${{ github.event.number }}-$GITHUB_SHA \
+        PLATFORMS=${{ env.CI_PLATFORMS }} \
         MANIFEST_PUSH=false \
-        make scorecard-build
+          make scorecard-build
+        echo "tag=pr-${{ github.event.number }}-$GITHUB_SHA" >> $GITHUB_OUTPUT
     - name: Push scorecard image to ghcr.io for test
       id: push-scorecard-to-ghcr
       uses: redhat-actions/push-to-registry@v2
@@ -132,9 +133,10 @@ jobs:
         password: ${{ secrets.GHCR_PR_TOKEN }}
     - name: Build operator image for test
       run: |
-        OPERATOR_IMG=ghcr.io/${{ github.repository_owner }}/cryostat-operator:${{ env.TAG }} \
+        OPERATOR_IMG=ghcr.io/${{ github.repository_owner }}/cryostat-operator:pr-${{ github.event.number }}-$GITHUB_SHA \
         SKIP_TESTS=true \
         make oci-build
+        echo "tag=pr-${{ github.event.number }}-$GITHUB_SHA" >> $GITHUB_OUTPUT
     - name: Push operator image to ghcr.io for test
       id: push-operator-to-ghcr
       uses: redhat-actions/push-to-registry@v2
@@ -148,8 +150,9 @@ jobs:
       run: |
         yq -i '.spec.template.spec.imagePullSecrets = [{"name": "registry-key"}]' config/manager/manager.yaml
         OPERATOR_IMG=${{ steps.push-operator-to-ghcr.outputs.registry-path }} \
-        BUNDLE_IMG=ghcr.io/${{ github.repository_owner }}/cryostat-operator-bundle:${{ env.TAG }} \
+        BUNDLE_IMG=ghcr.io/${{ github.repository_owner }}/cryostat-operator-bundle:pr-${{ github.event.number }}-$GITHUB_SHA \
         make bundle bundle-build
+        echo "tag=pr-${{ github.event.number }}-$GITHUB_SHA" >> $GITHUB_OUTPUT
     - name: Push bundle image to ghcr.io for test
       id: push-bundle-to-ghcr
       uses: redhat-actions/push-to-registry@v2
