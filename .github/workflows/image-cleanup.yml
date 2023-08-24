@@ -12,16 +12,13 @@ jobs:
 
     strategy:
       matrix:
-       image-names:
-        - cryostat-operator
-        - cryostat-operator-bundle
-        - cryostat-operator-scorecard
+        image: [cryostat-operator, cryostat-operator-bundle, cryostat-operator-scorecard]
     steps:
       - name: Delete Docker images
        uses: r26d/ghcr-delete-image-action@v1.2.2
        with:
           owner: ${{ github.repository_owner }}
-          name: ${{ matrix.image-names }}
+          name: ${{ matrix.image }}
           token: ${{ secrets.GHCR_PR_TOKEN }}
           ignore-missing-package: true
           tag-regex: pr-${{ github.event.number }}-.*
