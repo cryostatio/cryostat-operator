@@ -77,7 +77,10 @@ jobs:
     - name: Build scorecard image for test
       id: build-scorecard
       run: |
-        CUSTOM_SCORECARD_IMG=ghcr.io/${{ github.repository_owner }}/cryostat-operator-scorecard:ci-$GITHUB_SHA make scorecard-build
+        CUSTOM_SCORECARD_IMG=ghcr.io/${{ github.repository_owner }}/cryostat-operator-scorecard:ci-$GITHUB_SHA \
+        PLATFORMS=linux/amd64 \
+        MANIFEST_PUSH=false \
+        make scorecard-build
         echo "tag=ci-$GITHUB_SHA" >> $GITHUB_OUTPUT
     - name: Push scorecard image to ghcr.io for test
       id: push-scorecard-to-ghcr
