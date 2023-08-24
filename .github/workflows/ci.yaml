@@ -154,11 +154,6 @@ jobs:
     if: ${{ github.event_name == 'push' && github.repository_owner == 'cryostatio' }}
     steps:
     - uses: actions/checkout@v2
-    - name: Install qemu
-      continue-on-error: false
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y qemu-user-static
     - name: Build operator image
       run: |
         IMAGE_NAMESPACE=${{ env.CI_REGISTRY }} SKIP_TESTS=true PLATFORMS=${{ env.CI_PLATFORMS }} MANIFEST_PUSH=false make oci-buildx
@@ -233,11 +228,6 @@ jobs:
           EXIST=true
         fi
         echo "exist=$EXIST" >> $GITHUB_OUTPUT
-    - name: Install qemu
-      continue-on-error: false
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y qemu-user-static
       if: ${{ steps.check-tag-exists.outputs.exist == 'false' }}
     - name: Build scorecard image
       run: |
