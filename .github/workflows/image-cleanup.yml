@@ -7,15 +7,13 @@ on:
 
 jobs:
   delete-images:
-    name: Delete PR-scoped test images
     runs-on: ubuntu-latest
     if: github.repository_owner == 'cryostatio'
     strategy:
       matrix:
         image: [cryostat-operator, cryostat-operator-bundle, cryostat-operator-scorecard]
     steps:
-    - name: Delete Docker images
-      uses: r26d/ghcr-delete-image-action@v1.2.2
+    - uses: r26d/ghcr-delete-image-action@v1.2.2
       with:
         owner: ${{ github.repository_owner }}
         name: ${{ matrix.image }}
