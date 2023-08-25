@@ -38,36 +38,6 @@ env:
   OPENSUSE_UNOFFICIAL_LIBCONTAINERS_SOURCE_URL: "https://download.opensuse.org/repositories/devel:/kubic:/libcontainers:/unstable/xUbuntu_22.04"
 
 jobs:
-  get-test-image-tag:
-    runs-on: ubuntu-latest
-    if: ${{ github.repository_owner == 'cryostatio' }}
-    outputs:
-      tag: ${{ steps.compute-tag.outputs.tag }}
-    steps:
-    - name: Compute test image tag
-      id: compute-tag
-      run: |
-        prefix="ci"
-        if [ -n "${{ github.event.number }}" ]; then
-          prefix="pr-${{ github.event.number }}"
-        fi
-        echo "tag=${prefix}-$GITHUB_SHA" >> $GITHUB_OUTPUT
-  clean-up-test-images:
-    runs-on: ubuntu-latest
-    needs: [get-test-image-tag, scorecard-test]
-    if: github.repository_owner == 'cryostatio'
-    strategy:
-      matrix:
-        image: [cryostat-operator, cryostat-operator-bundle, cryostat-operator-scorecard]
-    steps:
-    - uses: r26d/ghcr-delete-image-action@v1.3.0
-      with:
-        owner: ${{ github.repository_owner }}
-        name: ${{ matrix.image }}
-        token: ${{ secrets.GHCR_PR_TOKEN }}
-        ignore-missing-package: true
-        tag-regex: ${{ needs.get-test-image-tag.outputs.tag }}
-        tagged-keep-latest: 0
   controller-test:
     runs-on: ubuntu-latest
     if: ${{ github.repository_owner == 'cryostatio' }}
@@ -94,9 +64,6 @@ jobs:
       run: make test-envtest
   scorecard-test:
     runs-on: ubuntu-latest
-    needs: [get-test-image-tag]
-    env:
-      TAG: ${{ needs.get-test-image-tag.outputs.tag }}
     if: ${{ github.repository_owner == 'cryostatio' }}
     steps:
     - name: Fail if safe-to-test label NOT applied
@@ -116,22 +83,24 @@ jobs:
         sudo apt update
         sudo apt install podman
     - name: Build scorecard image for test
+      id: build-scorecard
       run: |
         CUSTOM_SCORECARD_IMG=ghcr.io/${{ github.repository_owner }}/cryostat-operator-scorecard:pr-${{ github.event.number }}-$GITHUB_SHA \
-        PLATFORMS=${{ env.CI_PLATFORMS }} \
+        PLATFORMS=linux/amd64 \
         MANIFEST_PUSH=false \
-          make scorecard-build
-        echo "tag=pr-${{ github.event.number }}-$GITHUB_SHA" >> $GITHUB_OUTPUT
+        make scorecard-build
+        echo "tag=ci-$GITHUB_SHA" >> $GITHUB_OUTPUT
     - name: Push scorecard image to ghcr.io for test
       id: push-scorecard-to-ghcr
       uses: redhat-actions/push-to-registry@v2
       with:
         image: cryostat-operator-scorecard
-        tags: ${{ env.TAG }}
+        tags: ${{ steps.build-scorecard.outputs.tag }}
         registry: ghcr.io/${{ github.repository_owner }}
         username: ${{ github.repository_owner }}
         password: ${{ secrets.GHCR_PR_TOKEN }}
     - name: Build operator image for test
+      id: build-operator
       run: |
         OPERATOR_IMG=ghcr.io/${{ github.repository_owner }}/cryostat-operator:pr-${{ github.event.number }}-$GITHUB_SHA \
         SKIP_TESTS=true \
@@ -142,11 +111,12 @@ jobs:
       uses: redhat-actions/push-to-registry@v2
       with:
         image: cryostat-operator
-        tags: ${{ env.TAG }}
+        tags: ${{ steps.build-operator.outputs.tag }}
         registry: ghcr.io/${{ github.repository_owner }}
         username: ${{ github.repository_owner }}
         password: ${{ secrets.GHCR_PR_TOKEN }}
     - name: Build bundle image for test
+      id: build-bundle
       run: |
         yq -i '.spec.template.spec.imagePullSecrets = [{"name": "registry-key"}]' config/manager/manager.yaml
         OPERATOR_IMG=${{ steps.push-operator-to-ghcr.outputs.registry-path }} \
@@ -158,7 +128,7 @@ jobs:
       uses: redhat-actions/push-to-registry@v2
       with:
         image: cryostat-operator-bundle
-        tags: ${{ env.TAG }}
+        tags: ${{ steps.build-bundle.outputs.tag }}
         registry: ghcr.io/${{ github.repository_owner }}
         username: ${{ github.repository_owner }}
         password: ${{ secrets.GHCR_PR_TOKEN }}
