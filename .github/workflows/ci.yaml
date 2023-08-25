@@ -34,6 +34,8 @@ env:
   CI_PLATFORMS: linux/amd64,linux/arm64
   REPOSITORY: ${{ github.event.pull_request.head.repo.full_name }}
   REF: ${{ github.event.pull_request.head.ref }}
+  OPENSUSE_UNOFFICIAL_LIBCONTAINERS_KEY_URL: "https://download.opensuse.org/repositories/devel:/kubic:/libcontainers:/unstable/xUbuntu_22.04/Release.key"
+  OPENSUSE_UNOFFICIAL_LIBCONTAINERS_SOURCE_URL: "https://download.opensuse.org/repositories/devel:/kubic:/libcontainers:/unstable/xUbuntu_22.04"
 
 jobs:
   controller-test:
@@ -74,18 +76,19 @@ jobs:
     - uses: jpkrohling/setup-operator-sdk@v1.1.0
       with:
         operator-sdk-version: v1.28.0
-    - name: Install qemu
-      continue-on-error: false
+    - name: Install podman v4
       run: |
-        sudo apt-get update
-        sudo apt-get install -y qemu-user-static
+        echo "deb $OPENSUSE_UNOFFICIAL_LIBCONTAINERS_SOURCE_URL/ /" | sudo tee /etc/apt/sources.list.d/devel:kubic:libcontainers:unstable.list
+        curl -fsSL $OPENSUSE_UNOFFICIAL_LIBCONTAINERS_KEY_URL | gpg --dearmor | sudo tee /etc/apt/trusted.gpg.d/devel_kubic_libcontainers_unstable.gpg
+        sudo apt update
+        sudo apt install podman
     - name: Build scorecard image for test
       id: build-scorecard
       run: |
         CUSTOM_SCORECARD_IMG=ghcr.io/${{ github.repository_owner }}/cryostat-operator-scorecard:ci-$GITHUB_SHA \
-        PLATFORMS=${{ env.CI_PLATFORMS }} \
+        PLATFORMS=linux/amd64 \
         MANIFEST_PUSH=false \
-          make scorecard-build
+        make scorecard-build
         echo "tag=ci-$GITHUB_SHA" >> $GITHUB_OUTPUT
     - name: Push scorecard image to ghcr.io for test
       id: push-scorecard-to-ghcr
@@ -159,11 +162,12 @@ jobs:
     if: ${{ github.event_name == 'push' && github.repository_owner == 'cryostatio' }}
     steps:
     - uses: actions/checkout@v2
-    - name: Install qemu
-      continue-on-error: false
+    - name: Install podman v4
       run: |
-        sudo apt-get update
-        sudo apt-get install -y qemu-user-static
+        echo "deb $OPENSUSE_UNOFFICIAL_LIBCONTAINERS_SOURCE_URL/ /" | sudo tee /etc/apt/sources.list.d/devel:kubic:libcontainers:unstable.list
+        curl -fsSL $OPENSUSE_UNOFFICIAL_LIBCONTAINERS_KEY_URL | gpg --dearmor | sudo tee /etc/apt/trusted.gpg.d/devel_kubic_libcontainers_unstable.gpg > /dev/null
+        sudo apt update
+        sudo apt install podman
     - name: Build operator image
       run: |
         IMAGE_NAMESPACE=${{ env.CI_REGISTRY }} SKIP_TESTS=true PLATFORMS=${{ env.CI_PLATFORMS }} MANIFEST_PUSH=false make oci-buildx
@@ -238,12 +242,12 @@ jobs:
           EXIST=true
         fi
         echo "exist=$EXIST" >> $GITHUB_OUTPUT
-    - name: Install qemu
-      continue-on-error: false
+    - name: Install podman v4
       run: |
-        sudo apt-get update
-        sudo apt-get install -y qemu-user-static
-      if: ${{ steps.check-tag-exists.outputs.exist == 'false' }}
+        echo "deb $OPENSUSE_UNOFFICIAL_LIBCONTAINERS_SOURCE_URL/ /" | sudo tee /etc/apt/sources.list.d/devel:kubic:libcontainers:unstable.list
+        curl -fsSL $OPENSUSE_UNOFFICIAL_LIBCONTAINERS_KEY_URL | gpg --dearmor | sudo tee /etc/apt/trusted.gpg.d/devel_kubic_libcontainers_unstable.gpg > /dev/null
+        sudo apt update
+        sudo apt install podman
     - name: Build scorecard image
       run: |
         CUSTOM_SCORECARD_IMG=${CI_SCORECARD_IMG}:${{ steps.get-image-tag.outputs.tag }} \
