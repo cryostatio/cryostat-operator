@@ -2095,8 +2095,7 @@ func (r *TestResources) newRoute(name string, port int) *routev1.Route {
 			Name:      name,
 			Namespace: r.Namespace,
 			Labels: map[string]string{
-				"app":       r.Name,
-				"component": "cryostat"},
+				"app": r.Name},
 		},
 		Spec: routev1.RouteSpec{
 			To: routev1.RouteTargetReference{

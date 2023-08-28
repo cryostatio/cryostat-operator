@@ -117,6 +117,43 @@ func (r *Reconciler) createOrUpdateIngress(ctx context.Context, ingress *netv1.I
 	return ingress, nil
 }
 
+func configureCoreIngress(cr *model.CryostatInstance) *operatorv1beta1.NetworkConfiguration {
+	var config *operatorv1beta1.NetworkConfiguration
+	if cr.Spec.NetworkOptions == nil || cr.Spec.NetworkOptions.CoreConfig == nil {
+		config = &operatorv1beta1.NetworkConfiguration{}
+	} else {
+		config = cr.Spec.NetworkOptions.CoreConfig
+	}
+
+	configureRoute(config, cr.Name, "cryostat")
+	return config
+}
+
+func configureGrafanaIngress(cr *model.CryostatInstance) *operatorv1beta1.NetworkConfiguration {
+	var config *operatorv1beta1.NetworkConfiguration
+	if cr.Spec.NetworkOptions == nil || cr.Spec.NetworkOptions.GrafanaConfig == nil {
+		config = &operatorv1beta1.NetworkConfiguration{}
+	} else {
+		config = cr.Spec.NetworkOptions.GrafanaConfig
+	}
+
+	configureRoute(config, cr.Name, "cryostat")
+	return config
+}
+
+func configureIngress(config *operatorv1beta1.NetworkConfiguration, appLabel string, componentLabel string) {
+	if config.Labels == nil {
+		config.Labels = map[string]string{}
+	}
+	if config.Annotations == nil {
+		config.Annotations = map[string]string{}
+	}
+
+	// Add required labels, overriding any user-specified labels with the same keys
+	config.Labels["app"] = appLabel
+	config.Labels["component"] = componentLabel
+}
+
 func (r *Reconciler) deleteIngress(ctx context.Context, ingress *netv1.Ingress) error {
 	err := r.Client.Delete(ctx, ingress)
 	if err != nil && !errors.IsNotFound(err) {

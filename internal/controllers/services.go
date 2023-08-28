@@ -248,7 +248,6 @@ func (r *Reconciler) createOrUpdateService(ctx context.Context, svc *corev1.Serv
 		// Update labels and annotations
 		mergeLabelsAndAnnotations(&svc.ObjectMeta, config.Labels, config.Annotations)
 
-		svc.Annotations = config.Annotations
 		// Set the Cryostat CR as controller
 		if err := controllerutil.SetControllerReference(owner, svc, r.Scheme); err != nil {
 			return err
