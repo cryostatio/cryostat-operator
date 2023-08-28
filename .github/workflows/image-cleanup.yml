@@ -13,7 +13,7 @@ jobs:
       matrix:
         image: [cryostat-operator, cryostat-operator-bundle, cryostat-operator-scorecard]
     steps:
-    - uses: r26d/ghcr-delete-image-action@v1.2.2
+    - uses: r26d/ghcr-delete-image-action@v1.3.0
       with:
         owner: ${{ github.repository_owner }}
         name: ${{ matrix.image }}
