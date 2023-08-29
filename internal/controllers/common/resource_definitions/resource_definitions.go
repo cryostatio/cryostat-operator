@@ -539,14 +539,23 @@ func NewCoreContainerResource(cr *model.CryostatInstance) *corev1.ResourceRequir
 	hasReportSidecar := cr.Spec.ReportOptions.Replicas > 0
 	cpuRequest := defaultCoreCpuRequest
 	if !hasReportSidecar {
-		cpuRequest = defaultReportCpuRequest
+		cpuRequest = max(defaultReportCpuRequest, defaultCoreCpuRequest)
 	}
 	memoryRequest := defaultCoreMemoryRequest
 	if !hasReportSidecar {
-		memoryRequest = defaultReportMemoryRequest
+		memoryRequest = max(defaultReportMemoryRequest, defaultCoreMemoryRequest)
 	}
 	populateResourceRequest(resources, cpuRequest, memoryRequest)
 	return resources
+}
+
+func max(x string, y string) string {
+	xr := resource.MustParse(x)
+	yr := resource.MustParse(y)
+	if xr.Cmp(yr) == 1 {
+		return x
+	}
+	return y
 }
 
 func NewCoreContainer(cr *model.CryostatInstance, specs *ServiceSpecs, imageTag string,
