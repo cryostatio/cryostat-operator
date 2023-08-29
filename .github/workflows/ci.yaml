@@ -82,53 +82,55 @@ jobs:
         curl -fsSL $OPENSUSE_UNOFFICIAL_LIBCONTAINERS_KEY_URL | gpg --dearmor | sudo tee /etc/apt/trusted.gpg.d/devel_kubic_libcontainers_unstable.gpg
         sudo apt update
         sudo apt install podman
-    - name: Build scorecard image for test
-      id: build-scorecard
+    - name: Compute test image tags
+      id: compute-tag
       run: |
-        CUSTOM_SCORECARD_IMG=ghcr.io/${{ github.repository_owner }}/cryostat-operator-scorecard:pr-${{ github.event.number }}-$GITHUB_SHA \
+        prefix="ci"
+        if [ -n "${{ github.event.number }}" ]; then
+          prefix="pr-${{ github.event.number }}"
+        fi
+        echo "tag=${prefix}-$GITHUB_SHA" >> $GITHUB_OUTPUT
+    - name: Build scorecard image for test
+      run: |
+        CUSTOM_SCORECARD_IMG=ghcr.io/${{ github.repository_owner }}/cryostat-operator-scorecard:${{ steps.compute-tag.outputs.tag }} \
         PLATFORMS=linux/amd64 \
         MANIFEST_PUSH=false \
         make scorecard-build
-        echo "tag=ci-$GITHUB_SHA" >> $GITHUB_OUTPUT
     - name: Push scorecard image to ghcr.io for test
       id: push-scorecard-to-ghcr
       uses: redhat-actions/push-to-registry@v2
       with:
         image: cryostat-operator-scorecard
-        tags: ${{ steps.build-scorecard.outputs.tag }}
+        tags: ${{ steps.compute-tag.outputs.tag }}
         registry: ghcr.io/${{ github.repository_owner }}
         username: ${{ github.repository_owner }}
         password: ${{ secrets.GHCR_PR_TOKEN }}
     - name: Build operator image for test
-      id: build-operator
       run: |
-        OPERATOR_IMG=ghcr.io/${{ github.repository_owner }}/cryostat-operator:pr-${{ github.event.number }}-$GITHUB_SHA \
+        OPERATOR_IMG=ghcr.io/${{ github.repository_owner }}/cryostat-operator:${{ steps.compute-tag.outputs.tag }} \
         SKIP_TESTS=true \
         make oci-build
-        echo "tag=pr-${{ github.event.number }}-$GITHUB_SHA" >> $GITHUB_OUTPUT
     - name: Push operator image to ghcr.io for test
       id: push-operator-to-ghcr
       uses: redhat-actions/push-to-registry@v2
       with:
         image: cryostat-operator
-        tags: ${{ steps.build-operator.outputs.tag }}
+        tags: ${{ steps.compute-tag.outputs.tag }}
         registry: ghcr.io/${{ github.repository_owner }}
         username: ${{ github.repository_owner }}
         password: ${{ secrets.GHCR_PR_TOKEN }}
     - name: Build bundle image for test
-      id: build-bundle
       run: |
         yq -i '.spec.template.spec.imagePullSecrets = [{"name": "registry-key"}]' config/manager/manager.yaml
         OPERATOR_IMG=${{ steps.push-operator-to-ghcr.outputs.registry-path }} \
-        BUNDLE_IMG=ghcr.io/${{ github.repository_owner }}/cryostat-operator-bundle:pr-${{ github.event.number }}-$GITHUB_SHA \
+        BUNDLE_IMG=ghcr.io/${{ github.repository_owner }}/cryostat-operator-bundle:${{ steps.compute-tag.outputs.tag }} \
         make bundle bundle-build
-        echo "tag=pr-${{ github.event.number }}-$GITHUB_SHA" >> $GITHUB_OUTPUT
     - name: Push bundle image to ghcr.io for test
       id: push-bundle-to-ghcr
       uses: redhat-actions/push-to-registry@v2
       with:
         image: cryostat-operator-bundle
-        tags: ${{ steps.build-bundle.outputs.tag }}
+        tags: ${{ steps.compute-tag.outputs.tag }}
         registry: ghcr.io/${{ github.repository_owner }}
         username: ${{ github.repository_owner }}
         password: ${{ secrets.GHCR_PR_TOKEN }}
