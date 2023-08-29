@@ -211,3 +211,5 @@ Before the scorecard tests are run, all cryostat and cryostat-operator
 resources will be deleted to ensure a clean slate.
 
 `make test` will run all tests.
+
+@echo doing something
