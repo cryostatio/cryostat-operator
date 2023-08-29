@@ -64,7 +64,9 @@ jobs:
       run: make test-envtest
   scorecard-test:
     runs-on: ubuntu-latest
-    if: ${{ github.repository_owner == 'cryostatio' }}
+    # if: ${{ github.repository_owner == 'cryostatio' }}
+    permissions:
+      packages: write
     steps:
     - name: Fail if safe-to-test label NOT applied
       if: ${{ github.event_name == 'pull_request_target' && !contains(github.event.pull_request.labels.*.name, 'safe-to-test') }}
@@ -104,7 +106,7 @@ jobs:
         tags: ${{ steps.compute-tag.outputs.tag }}
         registry: ghcr.io/${{ github.repository_owner }}
         username: ${{ github.repository_owner }}
-        password: ${{ secrets.GHCR_PR_TOKEN }}
+        password: ${{ secrets.GITHUB_TOKEN }}
     - name: Build operator image for test
       run: |
         OPERATOR_IMG=ghcr.io/${{ github.repository_owner }}/cryostat-operator:${{ steps.compute-tag.outputs.tag }} \
@@ -118,7 +120,7 @@ jobs:
         tags: ${{ steps.compute-tag.outputs.tag }}
         registry: ghcr.io/${{ github.repository_owner }}
         username: ${{ github.repository_owner }}
-        password: ${{ secrets.GHCR_PR_TOKEN }}
+        password: ${{ secrets.GITHUB_TOKEN }}
     - name: Build bundle image for test
       run: |
         yq -i '.spec.template.spec.imagePullSecrets = [{"name": "registry-key"}]' config/manager/manager.yaml
@@ -133,7 +135,7 @@ jobs:
         tags: ${{ steps.compute-tag.outputs.tag }}
         registry: ghcr.io/${{ github.repository_owner }}
         username: ${{ github.repository_owner }}
-        password: ${{ secrets.GHCR_PR_TOKEN }}
+        password: ${{ secrets.GITHUB_TOKEN }}
     - name: Set up Kind cluster
       run: |
         kind create cluster --config=".github/kind-config.yaml" -n ci-${{ github.run_id }}
@@ -148,13 +150,13 @@ jobs:
       with:
         registry: ghcr.io
         username: ${{ github.repository_owner }}
-        password: ${{ secrets.GHCR_PR_TOKEN }}
+        password: ${{ secrets.GITHUB_TOKEN }}
         auth_file_path: $HOME/.docker/config.json
     - name: Run scorecard tests
       run: |
         SCORECARD_REGISTRY_SERVER="ghcr.io" \
         SCORECARD_REGISTRY_USERNAME="${{ github.repository_owner }}" \
-        SCORECARD_REGISTRY_PASSWORD="${{ secrets.GHCR_PR_TOKEN }}" \
+        SCORECARD_REGISTRY_PASSWORD="${{ secrets.GITHUB_TOKEN }}" \
         BUNDLE_IMG="${{ steps.push-bundle-to-ghcr.outputs.registry-path }}" \
         make test-scorecard
     - name: Clean up Kind cluster 
