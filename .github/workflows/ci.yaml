@@ -84,7 +84,7 @@ jobs:
         sudo apt install podman
     - name: Compute test image tags
       id: compute-tag
-      run:
+      run: |
         prefix="ci"
         if [ -n "${{ github.event.number }}" ]; then
           prefix="pr-${{ github.event.number }}"
