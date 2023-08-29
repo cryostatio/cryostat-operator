@@ -42,8 +42,8 @@ func (r *Reconciler) reconcileCoreIngress(ctx context.Context, cr *model.Cryosta
 		// User has not requested an Ingress, delete if it exists
 		return r.deleteIngress(ctx, ingress)
 	}
-
-	url, err := r.reconcileIngress(ctx, ingress, cr, cr.Spec.NetworkOptions.CoreConfig)
+	coreConfig := configureCoreIngress(cr)
+	url, err := r.reconcileIngress(ctx, ingress, cr, coreConfig)
 	if err != nil {
 		return err
 	}
@@ -66,7 +66,8 @@ func (r *Reconciler) reconcileGrafanaIngress(ctx context.Context, cr *model.Cryo
 		// an Ingress, delete if it exists
 		return r.deleteIngress(ctx, ingress)
 	}
-	url, err := r.reconcileIngress(ctx, ingress, cr, cr.Spec.NetworkOptions.GrafanaConfig)
+	grafanaConfig := configureGrafanaIngress(cr)
+	url, err := r.reconcileIngress(ctx, ingress, cr, grafanaConfig)
 	if err != nil {
 		return err
 	}

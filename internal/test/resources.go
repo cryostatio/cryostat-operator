@@ -2062,7 +2062,11 @@ func (r *TestResources) NewCoreRoute() *routev1.Route {
 func (r *TestResources) NewCustomCoreRoute() *routev1.Route {
 	route := r.NewCoreRoute()
 	route.Annotations = map[string]string{"custom": "annotation"}
-	route.Labels = map[string]string{"custom": "label"}
+	route.Labels = map[string]string{
+		"custom":    "label",
+		"app":       r.Name,
+		"component": "cryostat",
+	}
 	return route
 }
 
@@ -2073,7 +2077,11 @@ func (r *TestResources) NewGrafanaRoute() *routev1.Route {
 func (r *TestResources) NewCustomGrafanaRoute() *routev1.Route {
 	route := r.NewGrafanaRoute()
 	route.Annotations = map[string]string{"grafana": "annotation"}
-	route.Labels = map[string]string{"grafana": "label"}
+	route.Labels = map[string]string{
+		"grafana":   "label",
+		"app":       r.Name,
+		"component": "cryostat",
+	}
 	return route
 }
 
@@ -2095,7 +2103,9 @@ func (r *TestResources) newRoute(name string, port int) *routev1.Route {
 			Name:      name,
 			Namespace: r.Namespace,
 			Labels: map[string]string{
-				"app": r.Name},
+				"app":       r.Name,
+				"component": "cryostat",
+			},
 		},
 		Spec: routev1.RouteSpec{
 			To: routev1.RouteTargetReference{
@@ -2233,9 +2243,13 @@ func (r *TestResources) OtherGrafanaIngress() *netv1.Ingress {
 func (r *TestResources) newNetworkConfigurationList() operatorv1beta1.NetworkConfigurationList {
 	coreSVC := r.NewCryostatService()
 	coreIng := r.newNetworkConfiguration(coreSVC.Name, coreSVC.Spec.Ports[0].Port)
+	coreIng.Annotations["custom"] = "annotation"
+	coreIng.Labels["custom"] = "label"
 
 	grafanaSVC := r.NewGrafanaService()
 	grafanaIng := r.newNetworkConfiguration(grafanaSVC.Name, grafanaSVC.Spec.Ports[0].Port)
+	grafanaIng.Annotations["grafana"] = "annotation"
+	grafanaIng.Labels["grafana"] = "label"
 
 	return operatorv1beta1.NetworkConfigurationList{
 		CoreConfig:    &coreIng,
