@@ -5,25 +5,9 @@ concurrency:
   cancel-in-progress: true
 
 on:
-  push:
-    branches:
-      - main
-      - v[0-9]+
-      - v[0-9]+.[0-9]+
-      - cryostat-v[0-9]+.[0-9]+
-
-  pull_request_target:
+  issue_comment:
     types:
-      - opened
-      - reopened
-      - synchronize
-      - labeled
-      - unlabeled
-    branches:
-      - main
-      - v[0-9]+
-      - v[0-9]+.[0-9]+
-      - cryostat-v[0-9]+.[0-9]+
+      - created
 
 env:
   CI_USER: cryostat+bot
@@ -32,8 +16,6 @@ env:
   CI_BUNDLE_IMG: quay.io/cryostat/cryostat-operator-bundle
   CI_SCORECARD_IMG: quay.io/cryostat/cryostat-operator-scorecard
   CI_PLATFORMS: linux/amd64,linux/arm64
-  REPOSITORY: ${{ github.event.pull_request.head.repo.full_name }}
-  REF: ${{ github.event.pull_request.head.ref }}
   OPENSUSE_UNOFFICIAL_LIBCONTAINERS_KEY_URL: "https://download.opensuse.org/repositories/devel:/kubic:/libcontainers:/unstable/xUbuntu_22.04/Release.key"
   OPENSUSE_UNOFFICIAL_LIBCONTAINERS_SOURCE_URL: "https://download.opensuse.org/repositories/devel:/kubic:/libcontainers:/unstable/xUbuntu_22.04"
 
@@ -68,17 +50,73 @@ jobs:
         ignore-missing-package: true
         tag-regex: ${{ needs.get-test-image-tag.outputs.tag }}
         tagged-keep-latest: 0
+  check-before-build:
+    runs-on: ubuntu-latest
+    if: ${{ github.repository_owner == 'cryostatio' && github.event.issue.pull_request && startsWith(github.event.comment.body, '/build_test' }}
+    steps:
+    - name: Fail if needs-triage label applied 
+      if: ${{ contains(github.event.issue.labels.*.name, 'needs-triage') }}
+      run: exit 1
+    - name: Show warning if permission is denied
+      if: |
+        !(github.event.comment.author_association == 'MEMBER' || github.event.comment.author_association == 'OWNER')
+        && (!contains(github.event.issue.labels.*.name, 'safe-to-test') || github.event.issue.user.name != github.event.comment.user.name)
+      uses: thollander/actions-comment-pull-request@v2
+      with:
+        message: |-
+          You do not have permission to run the /build_test command. Please ask @cryostatio/reviewers
+          to resolve the issue.
+    - name: Fail if command permission is denied
+      if: |
+        !(github.event.comment.author_association == 'MEMBER' || github.event.comment.author_association == 'OWNER')
+        && (!contains(github.event.issue.labels.*.name, 'safe-to-test') || github.event.issue.user.name != github.event.comment.user.name)
+      run: exit 1
+    - name: React to comment
+      uses: actions/github-script@v4
+      with:
+        script: |
+            const {owner, repo} = context.issue
+            github.reactions.createForIssueComment({
+              owner,
+              repo,
+              comment_id: context.payload.comment.id,
+              content: "+1",
+            });  
+
+  checkout-branch: 
+    runs-on: ubuntu-latest
+    needs: [check-before-build]
+    permissions:
+      contents: read
+      issues: read
+      pull-requests: read
+    outputs: 
+      PR_head_ref: ${{ fromJSON(steps.comment-branch.outputs.result).ref }}
+      PR_num: ${{ fromJSON(steps.comment-branch.outputs.result).num }}
+      PR_repo: ${{ fromJSON(steps.comment-branch.outputs.result).repo }}
+    steps:
+    - uses: actions/github-script@v4
+      id: comment-branch
+      with:
+        script: |
+          const result = await github.pulls.get ({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            pull_number: context.issue.number
+          })
+          return { repo: result.data.head.repo.full_name, num: result.data.number, ref: result.data.head.ref }
+    
   controller-test:
     runs-on: ubuntu-latest
-    if: ${{ github.repository_owner == 'cryostatio' }}
+    needs: [checkout-branch]
+    env: 
+      ref: ${{ needs.checkout-branch.outputs.PR_head_ref }}
+      repo: ${{ needs.checkout-branch.outputs.PR_repo }}
     steps:
-    - name: Fail if safe-to-test label NOT applied
-      if: ${{ github.event_name == 'pull_request_target' && !contains(github.event.pull_request.labels.*.name, 'safe-to-test') }}
-      run: exit 1
     - uses: actions/checkout@v2
       with:
-        repository: ${{ env.REPOSITORY }}
-        ref: ${{ env.REF }}
+        repository: ${{ env.repo }}
+        ref: ${{ env.ref }}
     - uses: actions/setup-go@v2
       with:
         go-version: '1.20.*'
@@ -92,20 +130,24 @@ jobs:
           ${{ runner.os }}-go-
     - name: Run controller tests
       run: make test-envtest
+
   scorecard-test:
     runs-on: ubuntu-latest
     needs: [get-test-image-tag]
     env:
       TAG: ${{ needs.get-test-image-tag.outputs.tag }}
-    if: ${{ github.repository_owner == 'cryostatio' }}
+    permissions:
+      packages: write
+    needs: [checkout-branch]
+    env:
+      ref: ${{ needs.checkout-branch.outputs.PR_head_ref }}
+      repo: ${{ needs.checkout-branch.outputs.PR_repo }}
+      num: ${{ needs.checkout-branch.outputs.PR_num }}
     steps:
-    - name: Fail if safe-to-test label NOT applied
-      if: ${{ github.event_name == 'pull_request_target' && !contains(github.event.pull_request.labels.*.name, 'safe-to-test') }}
-      run: exit 1
     - uses: actions/checkout@v2
       with:
-        repository: ${{ env.REPOSITORY }}
-        ref: ${{ env.REF }}
+        repository: ${{ env.repo }}
+        ref: ${{ env.ref }}
     - uses: jpkrohling/setup-operator-sdk@v1.1.0
       with:
         operator-sdk-version: v1.28.0
@@ -129,7 +171,7 @@ jobs:
         tags: ${{ env.TAG }}
         registry: ghcr.io/${{ github.repository_owner }}
         username: ${{ github.repository_owner }}
-        password: ${{ secrets.GHCR_PR_TOKEN }}
+        password: ${{ secrets.GITHUB_TOKEN }}
     - name: Build operator image for test
       run: |
         OPERATOR_IMG=ghcr.io/${{ github.repository_owner }}/cryostat-operator:${{ env.TAG }} \
@@ -143,7 +185,7 @@ jobs:
         tags: ${{ env.TAG }}
         registry: ghcr.io/${{ github.repository_owner }}
         username: ${{ github.repository_owner }}
-        password: ${{ secrets.GHCR_PR_TOKEN }}
+        password: ${{ secrets.GITHUB_TOKEN }}
     - name: Build bundle image for test
       run: |
         yq -i '.spec.template.spec.imagePullSecrets = [{"name": "registry-key"}]' config/manager/manager.yaml
@@ -158,7 +200,7 @@ jobs:
         tags: ${{ env.TAG }}
         registry: ghcr.io/${{ github.repository_owner }}
         username: ${{ github.repository_owner }}
-        password: ${{ secrets.GHCR_PR_TOKEN }}
+        password: ${{ secrets.GITHUB_TOKEN }}
     - name: Set up Kind cluster
       run: |
         kind create cluster --config=".github/kind-config.yaml" -n ci-${{ github.run_id }}
@@ -173,20 +215,21 @@ jobs:
       with:
         registry: ghcr.io
         username: ${{ github.repository_owner }}
-        password: ${{ secrets.GHCR_PR_TOKEN }}
+        password: ${{ secrets.GITHUB_TOKEN }}
         auth_file_path: $HOME/.docker/config.json
     - name: Run scorecard tests
       run: |
         SCORECARD_REGISTRY_SERVER="ghcr.io" \
         SCORECARD_REGISTRY_USERNAME="${{ github.repository_owner }}" \
-        SCORECARD_REGISTRY_PASSWORD="${{ secrets.GHCR_PR_TOKEN }}" \
+        SCORECARD_REGISTRY_PASSWORD="${{ secrets.GITHUB_TOKEN }}" \
         BUNDLE_IMG="${{ steps.push-bundle-to-ghcr.outputs.registry-path }}" \
         make test-scorecard
     - name: Clean up Kind cluster 
       run: kind delete cluster -n ci-${{ github.run_id }}
+
   build-operator:
     runs-on: ubuntu-latest
-    if: ${{ github.event_name == 'push' && github.repository_owner == 'cryostatio' }}
+    needs: [checkout-branch]
     steps:
     - uses: actions/checkout@v2
     - name: Install podman v4
@@ -221,9 +264,10 @@ jobs:
         password: ${{ secrets.REGISTRY_PASSWORD }}
     - name: Print image URL
       run: echo "Image pushed to ${{ steps.push-to-quay.outputs.registry-paths }}"
+
   build-bundle:
     runs-on: ubuntu-latest
-    if: ${{ github.event_name == 'push' && github.repository_owner == 'cryostatio' }}
+    needs: [checkout-branch]
     steps:
     - uses: actions/checkout@v2
     - name: Build bundle image
@@ -251,9 +295,10 @@ jobs:
         password: ${{ secrets.REGISTRY_PASSWORD }}
     - name: Print image URL
       run: echo "Image pushed to ${{ steps.push-to-quay.outputs.registry-paths }}"
+
   build-scorecard:
     runs-on: ubuntu-latest
-    if: ${{ github.event_name == 'push' && github.repository_owner == 'cryostatio' }}
+    needs: [checkout-branch]
     steps:
     - uses: actions/checkout@v2
     - name: Get scorecard image tag
