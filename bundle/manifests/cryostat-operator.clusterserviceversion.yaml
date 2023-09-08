@@ -53,8 +53,8 @@ metadata:
       ]
     capabilities: Seamless Upgrades
     categories: Monitoring, Developer Tools
-    containerImage: quay.io/cryostat/cryostat-operator:2.3.1-dev
-    createdAt: "2023-05-19T17:53:38Z"
+    containerImage: quay.io/cryostat/cryostat-operator:2.3.1
+    createdAt: "2023-09-08T18:15:46Z"
     description: JVM monitoring and profiling tool
     operatorframework.io/initialization-resource: |-
       {
@@ -71,11 +71,11 @@ metadata:
           }
         }
       }
-    operators.operatorframework.io/builder: operator-sdk-v1.28.0
+    operators.operatorframework.io/builder: operator-sdk-v1.28.1
     operators.operatorframework.io/project_layout: go.kubebuilder.io/v3
     repository: github.com/cryostatio/cryostat-operator
     support: Cryostat Community
-  name: cryostat-operator.v2.3.1-dev
+  name: cryostat-operator.v2.3.1
   namespace: placeholder
 spec:
   apiservicedefinitions: {}
@@ -1051,19 +1051,19 @@ spec:
                 - /manager
                 env:
                 - name: RELATED_IMAGE_CORE
-                  value: quay.io/cryostat/cryostat:2.3.1-snapshot
+                  value: quay.io/cryostat/cryostat:2.3.1
                 - name: RELATED_IMAGE_DATASOURCE
-                  value: quay.io/cryostat/jfr-datasource:2.3.1-snapshot
+                  value: quay.io/cryostat/jfr-datasource:2.3.1
                 - name: RELATED_IMAGE_GRAFANA
                   value: quay.io/cryostat/cryostat-grafana-dashboard:cryostat-v2.3
                 - name: RELATED_IMAGE_REPORTS
-                  value: quay.io/cryostat/cryostat-reports:2.3.1-snapshot
+                  value: quay.io/cryostat/cryostat-reports:2.3.1
                 - name: WATCH_NAMESPACE
                   valueFrom:
                     fieldRef:
                       fieldPath: metadata.annotations['olm.targetNamespaces']
-                image: quay.io/cryostat/cryostat-operator:2.3.1-dev
-                imagePullPolicy: Always
+                image: quay.io/cryostat/cryostat-operator:2.3.1
+                imagePullPolicy: IfNotPresent
                 livenessProbe:
                   httpGet:
                     path: /healthz
@@ -1169,12 +1169,12 @@ spec:
   provider:
     name: The Cryostat Community
   relatedImages:
-  - image: quay.io/cryostat/cryostat:2.3.1-snapshot
+  - image: quay.io/cryostat/cryostat:2.3.1
     name: core
-  - image: quay.io/cryostat/jfr-datasource:2.3.1-snapshot
+  - image: quay.io/cryostat/jfr-datasource:2.3.1
     name: datasource
   - image: quay.io/cryostat/cryostat-grafana-dashboard:cryostat-v2.3
     name: grafana
-  - image: quay.io/cryostat/cryostat-reports:2.3.1-snapshot
+  - image: quay.io/cryostat/cryostat-reports:2.3.1
     name: reports
-  version: 2.3.1-dev
+  version: 2.3.1
