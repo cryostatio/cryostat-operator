@@ -54,7 +54,7 @@ metadata:
     capabilities: Seamless Upgrades
     categories: Monitoring, Developer Tools
     containerImage: quay.io/cryostat/cryostat-operator:2.3.1
-    createdAt: "2023-09-08T18:47:08Z"
+    createdAt: "2023-09-08T18:49:54Z"
     description: JVM monitoring and profiling tool
     operatorframework.io/initialization-resource: |-
       {
@@ -1055,7 +1055,7 @@ spec:
                 - name: RELATED_IMAGE_DATASOURCE
                   value: quay.io/cryostat/jfr-datasource:2.3.1
                 - name: RELATED_IMAGE_GRAFANA
-                  value: quay.io/cryostat/cryostat-grafana-dashboard:cryostat-v2.3.1
+                  value: quay.io/cryostat/cryostat-grafana-dashboard:2.3.1
                 - name: RELATED_IMAGE_REPORTS
                   value: quay.io/cryostat/cryostat-reports:2.3.1
                 - name: WATCH_NAMESPACE
@@ -1173,7 +1173,7 @@ spec:
     name: core
   - image: quay.io/cryostat/jfr-datasource:2.3.1
     name: datasource
-  - image: quay.io/cryostat/cryostat-grafana-dashboard:cryostat-v2.3.1
+  - image: quay.io/cryostat/cryostat-grafana-dashboard:2.3.1
     name: grafana
   - image: quay.io/cryostat/cryostat-reports:2.3.1
     name: reports
