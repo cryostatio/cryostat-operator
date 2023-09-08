@@ -153,7 +153,7 @@ define scorecard-setup
 @$(CLUSTER_CLIENT) get namespace $(SCORECARD_NAMESPACE) >/dev/null 2>&1 &&\
 	echo "$(SCORECARD_NAMESPACE) namespace already exists, please remove it with \"make clean-scorecard\"" >&2 && exit 1 || true
 $(CLUSTER_CLIENT) create namespace $(SCORECARD_NAMESPACE) && \
-	kubectl label --overwrite namespace $(SCORECARD_NAMESPACE) pod-security.kubernetes.io/warn=restricted pod-security.kubernetes.io/audit=restricted
+	$(CLUSTER_CLIENT) label --overwrite namespace $(SCORECARD_NAMESPACE) pod-security.kubernetes.io/warn=restricted pod-security.kubernetes.io/audit=restricted
 cd internal/images/custom-scorecard-tests/rbac/ && $(KUSTOMIZE) edit set namespace $(SCORECARD_NAMESPACE)
 $(KUSTOMIZE) build internal/images/custom-scorecard-tests/rbac/ | $(CLUSTER_CLIENT) apply -f -
 @if [ -n "$(SCORECARD_ARGS)" ]; then \
