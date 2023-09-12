@@ -604,8 +604,16 @@ func (c *controllerTest) commonTests() {
 				t.reconcileCryostatFully()
 			})
 			It("should update the Routes", func() {
-				// Routes should be replaced
-				t.expectRoutes()
+				if !t.Minimal {
+					expected := t.NewGrafanaRoute()
+					metav1.SetMetaDataAnnotation(&expected.ObjectMeta, "grafana", "annotation")
+					metav1.SetMetaDataLabel(&expected.ObjectMeta, "grafana", "label")
+					t.checkRoute(expected)
+				}
+				expected := t.NewCoreRoute()
+				metav1.SetMetaDataAnnotation(&expected.ObjectMeta, "custom", "annotation")
+				metav1.SetMetaDataLabel(&expected.ObjectMeta, "custom", "label")
+				t.checkRoute(expected)
 			})
 		})
 		Context("Switching from a minimal to a non-minimal deployment", func() {
@@ -1930,6 +1938,8 @@ func (c *controllerTest) commonTests() {
 
 				t.reconcileCryostatFully()
 				expectedConfig := cr.Spec.NetworkOptions
+				expectedConfig.GrafanaConfig.Labels["app"] = cr.Name
+				expectedConfig.GrafanaConfig.Labels["component"] = "cryostat"
 
 				ingress := &netv1.Ingress{}
 				err := t.Client.Get(context.Background(), types.NamespacedName{Name: t.Name, Namespace: t.Namespace}, ingress)
@@ -1956,6 +1966,8 @@ func (c *controllerTest) commonTests() {
 
 				t.reconcileCryostatFully()
 				expectedConfig := cr.Spec.NetworkOptions
+				expectedConfig.GrafanaConfig.Labels["app"] = cr.Name
+				expectedConfig.GrafanaConfig.Labels["component"] = "cryostat"
 
 				ingress := &netv1.Ingress{}
 				err := t.Client.Get(context.Background(), types.NamespacedName{Name: t.Name + "-grafana", Namespace: t.Namespace}, ingress)

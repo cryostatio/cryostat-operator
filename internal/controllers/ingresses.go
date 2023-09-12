@@ -42,8 +42,8 @@ func (r *Reconciler) reconcileCoreIngress(ctx context.Context, cr *model.Cryosta
 		// User has not requested an Ingress, delete if it exists
 		return r.deleteIngress(ctx, ingress)
 	}
-
-	url, err := r.reconcileIngress(ctx, ingress, cr, cr.Spec.NetworkOptions.CoreConfig)
+	coreConfig := configureCoreIngress(cr)
+	url, err := r.reconcileIngress(ctx, ingress, cr, coreConfig)
 	if err != nil {
 		return err
 	}
@@ -66,7 +66,8 @@ func (r *Reconciler) reconcileGrafanaIngress(ctx context.Context, cr *model.Cryo
 		// an Ingress, delete if it exists
 		return r.deleteIngress(ctx, ingress)
 	}
-	url, err := r.reconcileIngress(ctx, ingress, cr, cr.Spec.NetworkOptions.GrafanaConfig)
+	grafanaConfig := configureGrafanaIngress(cr)
+	url, err := r.reconcileIngress(ctx, ingress, cr, grafanaConfig)
 	if err != nil {
 		return err
 	}
@@ -100,8 +101,8 @@ func (r *Reconciler) createOrUpdateIngress(ctx context.Context, ingress *netv1.I
 	config *operatorv1beta1.NetworkConfiguration) (*netv1.Ingress, error) {
 	op, err := controllerutil.CreateOrUpdate(ctx, r.Client, ingress, func() error {
 		// Set labels and annotations from CR
-		ingress.Labels = config.Labels
-		ingress.Annotations = config.Annotations
+		mergeLabelsAndAnnotations(&ingress.ObjectMeta, config.Labels, config.Annotations)
+
 		// Set the Cryostat CR as controller
 		if err := controllerutil.SetControllerReference(owner, ingress, r.Scheme); err != nil {
 			return err
@@ -115,6 +116,43 @@ func (r *Reconciler) createOrUpdateIngress(ctx context.Context, ingress *netv1.I
 	}
 	r.Log.Info(fmt.Sprintf("Ingress %s", op), "name", ingress.Name, "namespace", ingress.Namespace)
 	return ingress, nil
+}
+
+func configureCoreIngress(cr *model.CryostatInstance) *operatorv1beta1.NetworkConfiguration {
+	var config *operatorv1beta1.NetworkConfiguration
+	if cr.Spec.NetworkOptions == nil || cr.Spec.NetworkOptions.CoreConfig == nil {
+		config = &operatorv1beta1.NetworkConfiguration{}
+	} else {
+		config = cr.Spec.NetworkOptions.CoreConfig
+	}
+
+	configureRoute(config, cr.Name, "cryostat")
+	return config
+}
+
+func configureGrafanaIngress(cr *model.CryostatInstance) *operatorv1beta1.NetworkConfiguration {
+	var config *operatorv1beta1.NetworkConfiguration
+	if cr.Spec.NetworkOptions == nil || cr.Spec.NetworkOptions.GrafanaConfig == nil {
+		config = &operatorv1beta1.NetworkConfiguration{}
+	} else {
+		config = cr.Spec.NetworkOptions.GrafanaConfig
+	}
+
+	configureRoute(config, cr.Name, "cryostat")
+	return config
+}
+
+func configureIngress(config *operatorv1beta1.NetworkConfiguration, appLabel string, componentLabel string) {
+	if config.Labels == nil {
+		config.Labels = map[string]string{}
+	}
+	if config.Annotations == nil {
+		config.Annotations = map[string]string{}
+	}
+
+	// Add required labels, overriding any user-specified labels with the same keys
+	config.Labels["app"] = appLabel
+	config.Labels["component"] = componentLabel
 }
 
 func (r *Reconciler) deleteIngress(ctx context.Context, ingress *netv1.Ingress) error {
