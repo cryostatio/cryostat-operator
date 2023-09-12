@@ -117,8 +117,8 @@ func (r *Reconciler) createOrUpdateRoute(ctx context.Context, route *routev1.Rou
 
 	op, err := controllerutil.CreateOrUpdate(ctx, r.Client, route, func() error {
 		// Set labels and annotations from CR
-		route.Labels = config.Labels
-		route.Annotations = config.Annotations
+		mergeLabelsAndAnnotations(&route.ObjectMeta, config.Labels, config.Annotations)
+
 		// Set the Cryostat CR as controller
 		if err := controllerutil.SetControllerReference(owner, route, r.Scheme); err != nil {
 			return err
@@ -172,7 +172,7 @@ func configureCoreRoute(cr *model.CryostatInstance) *operatorv1beta1.NetworkConf
 		config = cr.Spec.NetworkOptions.CoreConfig
 	}
 
-	configureRoute(config)
+	configureRoute(config, cr.Name, "cryostat")
 	return config
 }
 
@@ -184,15 +184,19 @@ func configureGrafanaRoute(cr *model.CryostatInstance) *operatorv1beta1.NetworkC
 		config = cr.Spec.NetworkOptions.GrafanaConfig
 	}
 
-	configureRoute(config)
+	configureRoute(config, cr.Name, "cryostat")
 	return config
 }
 
-func configureRoute(config *operatorv1beta1.NetworkConfiguration) {
+func configureRoute(config *operatorv1beta1.NetworkConfiguration, appLabel string, componentLabel string) {
 	if config.Labels == nil {
 		config.Labels = map[string]string{}
 	}
 	if config.Annotations == nil {
 		config.Annotations = map[string]string{}
 	}
+
+	// Add required labels, overriding any user-specified labels with the same keys
+	config.Labels["app"] = appLabel
+	config.Labels["component"] = componentLabel
 }

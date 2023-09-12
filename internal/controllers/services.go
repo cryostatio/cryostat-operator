@@ -246,8 +246,8 @@ func (r *Reconciler) createOrUpdateService(ctx context.Context, svc *corev1.Serv
 	config *operatorv1beta1.ServiceConfig, delegate controllerutil.MutateFn) error {
 	op, err := controllerutil.CreateOrUpdate(ctx, r.Client, svc, func() error {
 		// Update labels and annotations
-		svc.Labels = config.Labels
-		svc.Annotations = config.Annotations
+		mergeLabelsAndAnnotations(&svc.ObjectMeta, config.Labels, config.Annotations)
+
 		// Set the Cryostat CR as controller
 		if err := controllerutil.SetControllerReference(owner, svc, r.Scheme); err != nil {
 			return err
