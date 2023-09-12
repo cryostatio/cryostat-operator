@@ -324,7 +324,11 @@ func (r *TestResources) NewCryostatWithCoreNetworkOptions() *model.CryostatInsta
 	cr.Spec.NetworkOptions = &operatorv1beta1.NetworkConfigurationList{
 		CoreConfig: &operatorv1beta1.NetworkConfiguration{
 			Annotations: map[string]string{"custom": "annotation"},
-			Labels:      map[string]string{"custom": "label"},
+			Labels: map[string]string{
+				"custom":    "label",
+				"app":       "test-app",
+				"component": "test-comp",
+			},
 		},
 	}
 	return cr
@@ -335,7 +339,11 @@ func (r *TestResources) NewCryostatWithGrafanaNetworkOptions() *model.CryostatIn
 	cr.Spec.NetworkOptions = &operatorv1beta1.NetworkConfigurationList{
 		GrafanaConfig: &operatorv1beta1.NetworkConfiguration{
 			Annotations: map[string]string{"grafana": "annotation"},
-			Labels:      map[string]string{"grafana": "label"},
+			Labels: map[string]string{
+				"grafana":   "label",
+				"component": "test-comp",
+				"app":       "test-app",
+			},
 		},
 	}
 	return cr
