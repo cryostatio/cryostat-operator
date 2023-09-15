@@ -8,6 +8,8 @@ on:
 jobs:
   delete-images:
     runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
     if: github.repository_owner == 'cryostatio'
     strategy:
       matrix:
@@ -17,7 +19,7 @@ jobs:
       with:
         owner: ${{ github.repository_owner }}
         name: ${{ matrix.image }}
-        token: ${{ secrets.GHCR_PR_TOKEN }}
+        token: ${{ secrets.GITHUB_TOKEN }}
         ignore-missing-package: true
         tag-regex: pr-${{ github.event.number }}-.*
         tagged-keep-latest: 0
