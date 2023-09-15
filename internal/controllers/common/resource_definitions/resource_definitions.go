@@ -60,14 +60,14 @@ type TLSConfig struct {
 }
 
 const (
-	defaultCoreCpuRequest             string = "100m"
-	defaultCoreMemoryRequest          string = "384Mi"
-	defaultJfrDatasourceCpuRequest    string = "100m"
-	defaultJfrDatasourceMemoryRequest string = "512Mi"
+	defaultCoreCpuRequest             string = "500m"
+	defaultCoreMemoryRequest          string = "256Mi"
+	defaultJfrDatasourceCpuRequest    string = "200m"
+	defaultJfrDatasourceMemoryRequest string = "384Mi"
 	defaultGrafanaCpuRequest          string = "100m"
-	defaultGrafanaMemoryRequest       string = "256Mi"
-	defaultReportCpuRequest           string = "128m"
-	defaultReportMemoryRequest        string = "256Mi"
+	defaultGrafanaMemoryRequest       string = "120Mi"
+	defaultReportCpuRequest           string = "200m"
+	defaultReportMemoryRequest        string = "384Mi"
 )
 
 func NewDeploymentForCR(cr *model.CryostatInstance, specs *ServiceSpecs, imageTags *ImageTags,

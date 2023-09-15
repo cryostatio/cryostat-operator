@@ -156,8 +156,8 @@ If the sidecar's resource requests are not specified, they are set with the foll
 
 | Request | Quantity |
 |---------|----------|
-| Reports Container CPU | 128m |
-| Reports Container Memory | 256Mi |
+| Reports Container CPU | 200m |
+| Reports Container Memory | 384Mi |
 
 
 ### Resource Requirements
@@ -165,12 +165,12 @@ By default, the operator deploys Cryostat with pre-configured resource requests:
 
 | Request | Quantity |
 |---------|----------|
-| Cryostat container CPU | 100m |
-| Cryostat container Memory | 384Mi |
-| JFR Data Source container CPU | 100m |
-| JFR Data Source container Memory | 512Mi |
+| Cryostat container CPU | 500m |
+| Cryostat container Memory | 256Mi |
+| JFR Data Source container CPU | 200m |
+| JFR Data Source container Memory | 384Mi |
 | Grafana container CPU | 100m |
-| Grafana container Memory | 256Mi |
+| Grafana container Memory | 120Mi |
 
 Using the Cryostat custom resource, you can define resources requests and/or limits for each of the three containers in Cryostat's main pod:
 - the `core` container running the Cryostat backend and web application. If setting a memory limit for this container, we recommend at least 768MiB.
