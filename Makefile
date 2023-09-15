@@ -75,9 +75,9 @@ REPORTS_NAME ?= cryostat-reports
 REPORTS_VERSION ?= latest
 export REPORTS_IMG ?= $(REPORTS_NAMESPACE)/$(REPORTS_NAME):$(REPORTS_VERSION)
 
-CERT_MANAGER_VERSION ?= 1.7.1
+CERT_MANAGER_VERSION ?= 1.11.5
 CERT_MANAGER_MANIFEST ?= \
-	https://github.com/jetstack/cert-manager/releases/download/v$(CERT_MANAGER_VERSION)/cert-manager.yaml
+	https://github.com/cert-manager/cert-manager/releases/download/v$(CERT_MANAGER_VERSION)/cert-manager.yaml
 
 KUSTOMIZE_VERSION ?= 3.8.7
 CONTROLLER_TOOLS_VERSION ?= 0.11.1
@@ -152,7 +152,8 @@ endif
 define scorecard-setup
 @$(CLUSTER_CLIENT) get namespace $(SCORECARD_NAMESPACE) >/dev/null 2>&1 &&\
 	echo "$(SCORECARD_NAMESPACE) namespace already exists, please remove it with \"make clean-scorecard\"" >&2 && exit 1 || true
-$(CLUSTER_CLIENT) create namespace $(SCORECARD_NAMESPACE)
+$(CLUSTER_CLIENT) create namespace $(SCORECARD_NAMESPACE) && \
+	$(CLUSTER_CLIENT) label --overwrite namespace $(SCORECARD_NAMESPACE) pod-security.kubernetes.io/warn=restricted pod-security.kubernetes.io/audit=restricted
 cd internal/images/custom-scorecard-tests/rbac/ && $(KUSTOMIZE) edit set namespace $(SCORECARD_NAMESPACE)
 $(KUSTOMIZE) build internal/images/custom-scorecard-tests/rbac/ | $(CLUSTER_CLIENT) apply -f -
 @if [ -n "$(SCORECARD_ARGS)" ]; then \
@@ -160,7 +161,7 @@ $(KUSTOMIZE) build internal/images/custom-scorecard-tests/rbac/ | $(CLUSTER_CLIE
 		--docker-username="$(SCORECARD_REGISTRY_USERNAME)" --docker-password="$(SCORECARD_REGISTRY_PASSWORD)"; \
 	$(CLUSTER_CLIENT) patch sa cryostat-scorecard -n $(SCORECARD_NAMESPACE) -p '{"imagePullSecrets": [{"name": "registry-key"}]}'; \
 fi
-operator-sdk run bundle -n $(SCORECARD_NAMESPACE) --timeout 20m $(BUNDLE_IMG) $(SCORECARD_ARGS)
+operator-sdk run bundle -n $(SCORECARD_NAMESPACE) --timeout 20m $(BUNDLE_IMG) --security-context-config=restricted $(SCORECARD_ARGS)
 endef
 
 define scorecard-cleanup
