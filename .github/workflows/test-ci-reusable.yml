@@ -1,0 +1,140 @@
+on:
+  workflow_call:
+    inputs:
+      tag:
+        required: true 
+        type: string
+      repository:
+        required: false
+        type: string
+      ref:
+        required: false 
+        type: string
+      
+env: 
+  OPENSUSE_UNOFFICIAL_LIBCONTAINERS_KEY_URL: "https://download.opensuse.org/repositories/devel:/kubic:/libcontainers:/unstable/xUbuntu_22.04/Release.key"
+  OPENSUSE_UNOFFICIAL_LIBCONTAINERS_SOURCE_URL: "https://download.opensuse.org/repositories/devel:/kubic:/libcontainers:/unstable/xUbuntu_22.04"
+
+jobs:
+  clean-up-test-images:
+    runs-on: ubuntu-latest
+    needs: [scorecard-test]
+    strategy:
+      matrix:
+        image: [cryostat-operator, cryostat-operator-bundle, cryostat-operator-scorecard]
+    steps:
+    - uses: r26d/ghcr-delete-image-action@v1.3.0
+      with:
+        owner: ${{ github.repository_owner }}
+        name: ${{ matrix.image }}
+        token: ${{ secrets.GHCR_PR_TOKEN }}
+        ignore-missing-package: true
+        tag-regex: ${{ inputs.tag }}
+        tagged-keep-latest: 0
+
+  controller-test:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+      with:
+        repository: ${{ inputs.repository }}
+        ref: ${{ inputs.ref }}
+    - uses: actions/setup-go@v2
+      with:
+        go-version: '1.20.*'
+    - uses: actions/cache@v2
+      with:
+        path: |
+          ~/go/pkg/mod
+          ~/.cache/go-build
+        key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+        restore-keys: |
+          ${{ runner.os }}-go-
+    - name: Run controller tests
+      run: make test-envtest
+  
+  scorecard-test:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+      with:
+        repository: ${{ inputs.repository }}
+        ref: ${{ inputs.ref }}
+    - uses: jpkrohling/setup-operator-sdk@v1.1.0
+      with:
+        operator-sdk-version: v1.28.0
+    - name: Install podman v4
+      run: |
+        echo "deb $OPENSUSE_UNOFFICIAL_LIBCONTAINERS_SOURCE_URL/ /" | sudo tee /etc/apt/sources.list.d/devel:kubic:libcontainers:unstable.list
+        curl -fsSL $OPENSUSE_UNOFFICIAL_LIBCONTAINERS_KEY_URL | gpg --dearmor | sudo tee /etc/apt/trusted.gpg.d/devel_kubic_libcontainers_unstable.gpg
+        sudo apt update
+        sudo apt install podman
+    - name: Build scorecard image for test
+      run: |
+        CUSTOM_SCORECARD_IMG=ghcr.io/${{ github.repository_owner }}/cryostat-operator-scorecard:${{ inputs.tag }} \
+        PLATFORMS=linux/amd64 \
+        MANIFEST_PUSH=false \
+        make scorecard-build
+    - name: Push scorecard image to ghcr.io for test
+      id: push-scorecard-to-ghcr
+      uses: redhat-actions/push-to-registry@v2
+      with:
+        image: cryostat-operator-scorecard
+        tags: ${{ inputs.tag }}
+        registry: ghcr.io/${{ github.repository_owner }}
+        username: ${{ github.repository_owner }}
+        password: ${{ secrets.GHCR_PR_TOKEN }}
+    - name: Build operator image for test
+      run: |
+        OPERATOR_IMG=ghcr.io/${{ github.repository_owner }}/cryostat-operator:${{ inputs.tag }} \
+        SKIP_TESTS=true \
+        make oci-build
+    - name: Push operator image to ghcr.io for test
+      id: push-operator-to-ghcr
+      uses: redhat-actions/push-to-registry@v2
+      with:
+        image: cryostat-operator
+        tags: ${{ inputs.tag }}
+        registry: ghcr.io/${{ github.repository_owner }}
+        username: ${{ github.repository_owner }}
+        password: ${{ secrets.GHCR_PR_TOKEN }}
+    - name: Build bundle image for test
+      run: |
+        yq -i '.spec.template.spec.imagePullSecrets = [{"name": "registry-key"}]' config/manager/manager.yaml
+        OPERATOR_IMG=${{ steps.push-operator-to-ghcr.outputs.registry-path }} \
+        BUNDLE_IMG=ghcr.io/${{ github.repository_owner }}/cryostat-operator-bundle:${{ inputs.tag }} \
+        make bundle bundle-build
+    - name: Push bundle image to ghcr.io for test
+      id: push-bundle-to-ghcr
+      uses: redhat-actions/push-to-registry@v2
+      with:
+        image: cryostat-operator-bundle
+        tags: ${{ inputs.tag }}
+        registry: ghcr.io/${{ github.repository_owner }}
+        username: ${{ github.repository_owner }}
+        password: ${{ secrets.GHCR_PR_TOKEN }}
+    - name: Set up Kind cluster
+      run: |
+        kind create cluster --config=".github/kind-config.yaml" -n ci-${{ github.run_id }}
+        # Enabling Ingress
+        kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/main/deploy/static/provider/kind/deploy.yaml
+        kubectl rollout status -w deployment/ingress-nginx-controller -n ingress-nginx --timeout 5m
+    - name: Install Operator Lifecycle Manager
+      run: curl -sL https://github.com/operator-framework/operator-lifecycle-manager/releases/download/v0.24.0/install.sh | bash -s v0.24.0
+    - name: Install Cert Manager
+      run: make cert_manager
+    - uses: redhat-actions/podman-login@v1
+      with:
+        registry: ghcr.io
+        username: ${{ github.repository_owner }}
+        password: ${{ secrets.GHCR_PR_TOKEN }}
+        auth_file_path: $HOME/.docker/config.json
+    - name: Run scorecard tests
+      run: |
+        SCORECARD_REGISTRY_SERVER="ghcr.io" \
+        SCORECARD_REGISTRY_USERNAME="${{ github.repository_owner }}" \
+        SCORECARD_REGISTRY_PASSWORD="${{ secrets.GHCR_PR_TOKEN }}" \
+        BUNDLE_IMG="${{ steps.push-bundle-to-ghcr.outputs.registry-path }}" \
+        make test-scorecard
+    - name: Clean up Kind cluster 
+      run: kind delete cluster -n ci-${{ github.run_id }}
