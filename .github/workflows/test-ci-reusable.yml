@@ -5,10 +5,10 @@ on:
         required: true 
         type: string
       repository:
-        required: true 
+        required: false
         type: string
       ref:
-        required: true 
+        required: false 
         type: string
       
 env: 
