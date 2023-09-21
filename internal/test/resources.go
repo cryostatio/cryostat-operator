@@ -654,6 +654,44 @@ func (r *TestResources) NewCryostatWithDatabaseSecretProvided() *model.CryostatI
 	return cr
 }
 
+func (r *TestResources) NewCryostatWithAdditionalMetadata() *model.CryostatInstance {
+	cr := r.NewCryostat()
+	cr.Spec.OperandMetadata = &operatorv1beta1.OperandMetadata{
+		DeploymentMetadata: &operatorv1beta1.ResourceMetadata{
+			Labels: map[string]string{
+				"myDeploymentExtraLabel":       "myDeploymentLabel",
+				"mySecondDeploymentExtraLabel": "mySecondDeploymentLabel",
+				// below, labels that should be discarded as overriden by the default
+				"app":                    "myApp",
+				"component":              "myComponent",
+				"kind":                   "myKind",
+				"app.kubernetes.io/name": "myName",
+			},
+			Annotations: map[string]string{
+				"myDeploymentExtraAnnotation":       "myDeploymentAnnotation",
+				"mySecondDeploymentExtraAnnotation": "mySecondDeploymentAnnotation",
+				// below, annotation that should be discarded as overriden by the default
+				"app.openshift.io/connects-to": "connectToMe",
+			},
+		},
+		PodMetadata: &operatorv1beta1.ResourceMetadata{
+			Labels: map[string]string{
+				"myPodExtraLabel":       "myPodLabel",
+				"myPodSecondExtraLabel": "myPodSecondLabel",
+				// below, labels that should be discarded as overriden by the default
+				"app":       "myApp",
+				"component": "myComponent",
+				"kind":      "myKind",
+			},
+			Annotations: map[string]string{
+				"myPodExtraAnnotation":       "myPodAnnotation",
+				"mySecondPodExtraAnnotation": "mySecondPodAnnotation",
+			},
+		},
+	}
+	return cr
+}
+
 func (r *TestResources) NewCryostatService() *corev1.Service {
 	c := true
 	return &corev1.Service{

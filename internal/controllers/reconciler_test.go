@@ -2157,6 +2157,19 @@ func (c *controllerTest) commonTests() {
 				Expect(binding.RoleRef).To(Equal(expected.RoleRef))
 			})
 		})
+		Context("with additionnal label and annotation", func() {
+			BeforeEach(func() {
+				t.ReportReplicas = 1
+				t.objs = append(t.objs, t.NewCryostatWithAdditionalMetadata().Object)
+			})
+			JustBeforeEach(func() {
+				t.reconcileCryostatFully()
+			})
+			It("should have added the extra label and annotation to deployments and pods", func() {
+				t.expectMainDeploymentHasExtraMetadata()
+				t.expectReportsDeploymentHasExtraMetadata()
+			})
+		})
 	})
 }
 
@@ -2604,6 +2617,30 @@ func (t *cryostatTestInput) expectMainDeployment() {
 	t.checkMainPodTemplate(deployment, cr)
 }
 
+func (t *cryostatTestInput) expectMainDeploymentHasExtraMetadata() {
+	deployment := &appsv1.Deployment{}
+	err := t.Client.Get(context.Background(), types.NamespacedName{Name: t.Name, Namespace: t.Namespace}, deployment)
+	Expect(err).ToNot(HaveOccurred())
+
+	cr := t.getCryostatInstance()
+
+	Expect(deployment.Annotations).To(Equal(map[string]string{
+		"app.openshift.io/connects-to":      "cryostat-operator-controller-manager",
+		"myDeploymentExtraAnnotation":       "myDeploymentAnnotation",
+		"mySecondDeploymentExtraAnnotation": "mySecondDeploymentAnnotation",
+	}))
+	Expect(deployment.Labels).To(Equal(map[string]string{
+		"app":                          t.Name,
+		"kind":                         "cryostat",
+		"component":                    "cryostat",
+		"app.kubernetes.io/name":       "cryostat",
+		"myDeploymentExtraLabel":       "myDeploymentLabel",
+		"mySecondDeploymentExtraLabel": "mySecondDeploymentLabel",
+	}))
+	// compare Pod template
+	t.expectMainPodTemplateHasExtraMetadata(deployment, cr)
+}
+
 func (t *cryostatTestInput) checkMainPodTemplate(deployment *appsv1.Deployment, cr *model.CryostatInstance) {
 	template := deployment.Spec.Template
 	Expect(template.Name).To(Equal(t.Name))
@@ -2666,6 +2703,21 @@ func (t *cryostatTestInput) checkMainPodTemplate(deployment *appsv1.Deployment, 
 	}
 }
 
+func (t *cryostatTestInput) expectMainPodTemplateHasExtraMetadata(deployment *appsv1.Deployment, cr *model.CryostatInstance) {
+	template := deployment.Spec.Template
+	Expect(template.Labels).To(Equal(map[string]string{
+		"app":                   t.Name,
+		"kind":                  "cryostat",
+		"component":             "cryostat",
+		"myPodExtraLabel":       "myPodLabel",
+		"myPodSecondExtraLabel": "myPodSecondLabel",
+	}))
+	Expect(template.Annotations).To(Equal(map[string]string{
+		"myPodExtraAnnotation":       "myPodAnnotation",
+		"mySecondPodExtraAnnotation": "mySecondPodAnnotation",
+	}))
+}
+
 func (t *cryostatTestInput) checkReportsDeployment() {
 	deployment := &appsv1.Deployment{}
 	err := t.Client.Get(context.Background(), types.NamespacedName{Name: t.Name + "-reports", Namespace: t.Namespace}, deployment)
@@ -2718,6 +2770,37 @@ func (t *cryostatTestInput) checkReportsDeployment() {
 		}
 		Expect(template.Spec.Tolerations).To(Equal(scheduling.Tolerations))
 	}
+}
+
+func (t *cryostatTestInput) expectReportsDeploymentHasExtraMetadata() {
+	reportDeployment := &appsv1.Deployment{}
+	err := t.Client.Get(context.Background(), types.NamespacedName{Name: t.Name + "-reports", Namespace: t.Namespace}, reportDeployment)
+	Expect(err).ToNot(HaveOccurred())
+	Expect(reportDeployment.Annotations).To(Equal(map[string]string{
+		"app.openshift.io/connects-to":      t.Name,
+		"myDeploymentExtraAnnotation":       "myDeploymentAnnotation",
+		"mySecondDeploymentExtraAnnotation": "mySecondDeploymentAnnotation",
+	}))
+	Expect(reportDeployment.Labels).To(Equal(map[string]string{
+		"app":                          t.Name,
+		"kind":                         "cryostat",
+		"component":                    "reports",
+		"app.kubernetes.io/name":       "cryostat-reports",
+		"myDeploymentExtraLabel":       "myDeploymentLabel",
+		"mySecondDeploymentExtraLabel": "mySecondDeploymentLabel",
+	}))
+	template := reportDeployment.Spec.Template
+	Expect(template.Labels).To(Equal(map[string]string{
+		"app":                   t.Name,
+		"kind":                  "cryostat",
+		"component":             "reports",
+		"myPodExtraLabel":       "myPodLabel",
+		"myPodSecondExtraLabel": "myPodSecondLabel",
+	}))
+	Expect(template.Annotations).To(Equal(map[string]string{
+		"myPodExtraAnnotation":       "myPodAnnotation",
+		"mySecondPodExtraAnnotation": "mySecondPodAnnotation",
+	}))
 }
 
 func (t *cryostatTestInput) checkDeploymentHasTemplates() {

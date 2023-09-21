@@ -54,7 +54,7 @@ metadata:
     capabilities: Seamless Upgrades
     categories: Monitoring, Developer Tools
     containerImage: quay.io/cryostat/cryostat-operator:2.4.0-dev
-    createdAt: "2023-09-18T15:10:18Z"
+    createdAt: "2023-09-28T14:25:20Z"
     description: JVM monitoring and profiling tool
     operatorframework.io/initialization-resource: |-
       {
@@ -256,6 +256,15 @@ spec:
           label with key "app" is reserved for use by the operator.
         displayName: Labels
         path: networkOptions.grafanaConfig.labels
+      - description: Options to configure the Cryostat deployments and pods metadata
+        displayName: Operand metadata
+        path: operandMetadata
+      - description: Options to configure the Cryostat deployments metadata
+        displayName: Deployments metadata
+        path: operandMetadata.deploymentMetadata
+      - description: Options to configure the Cryostat pods metadata
+        displayName: Pods metadata
+        path: operandMetadata.podMetadata
       - description: Options to configure Cryostat Automated Report Analysis.
         displayName: Report Options
         path: reportOptions
@@ -639,6 +648,15 @@ spec:
           label with key "app" is reserved for use by the operator.
         displayName: Labels
         path: networkOptions.grafanaConfig.labels
+      - description: Options to configure the Cryostat deployments and pods metadata
+        displayName: Operand metadata
+        path: operandMetadata
+      - description: Options to configure the Cryostat deployments metadata
+        displayName: Deployments metadata
+        path: operandMetadata.deploymentMetadata
+      - description: Options to configure the Cryostat pods metadata
+        displayName: Pods metadata
+        path: operandMetadata.podMetadata
       - description: Options to configure Cryostat Automated Report Analysis.
         displayName: Report Options
         path: reportOptions

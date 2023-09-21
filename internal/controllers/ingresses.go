@@ -20,6 +20,7 @@ import (
 	"net/url"
 
 	operatorv1beta1 "github.com/cryostatio/cryostat-operator/api/v1beta1"
+	common "github.com/cryostatio/cryostat-operator/internal/controllers/common"
 	"github.com/cryostatio/cryostat-operator/internal/controllers/common/resource_definitions"
 	"github.com/cryostatio/cryostat-operator/internal/controllers/model"
 	netv1 "k8s.io/api/networking/v1"
@@ -101,7 +102,7 @@ func (r *Reconciler) createOrUpdateIngress(ctx context.Context, ingress *netv1.I
 	config *operatorv1beta1.NetworkConfiguration) (*netv1.Ingress, error) {
 	op, err := controllerutil.CreateOrUpdate(ctx, r.Client, ingress, func() error {
 		// Set labels and annotations from CR
-		mergeLabelsAndAnnotations(&ingress.ObjectMeta, config.Labels, config.Annotations)
+		common.MergeLabelsAndAnnotations(&ingress.ObjectMeta, config.Labels, config.Annotations)
 
 		// Set the Cryostat CR as controller
 		if err := controllerutil.SetControllerReference(owner, ingress, r.Scheme); err != nil {

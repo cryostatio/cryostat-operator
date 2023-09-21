@@ -24,7 +24,7 @@ import (
 
 	certv1 "github.com/cert-manager/cert-manager/pkg/apis/certmanager/v1"
 	operatorv1beta1 "github.com/cryostatio/cryostat-operator/api/v1beta1"
-	"github.com/cryostatio/cryostat-operator/internal/controllers/common"
+	common "github.com/cryostatio/cryostat-operator/internal/controllers/common"
 	resources "github.com/cryostatio/cryostat-operator/internal/controllers/common/resource_definitions"
 	"github.com/cryostatio/cryostat-operator/internal/controllers/model"
 	"github.com/go-logr/logr"
@@ -440,9 +440,8 @@ var errSelectorModified error = errors.New("deployment selector has been modifie
 func (r *Reconciler) createOrUpdateDeployment(ctx context.Context, deploy *appsv1.Deployment, owner metav1.Object) error {
 	deployCopy := deploy.DeepCopy()
 	op, err := controllerutil.CreateOrUpdate(ctx, r.Client, deploy, func() error {
-		// TODO consider managing labels and annotations using CRD
 		// Merge any required labels and annotations
-		mergeLabelsAndAnnotations(&deploy.ObjectMeta, deployCopy.Labels, deployCopy.Annotations)
+		common.MergeLabelsAndAnnotations(&deploy.ObjectMeta, deployCopy.Labels, deployCopy.Annotations)
 		// Set the Cryostat CR as controller
 		if err := controllerutil.SetControllerReference(owner, deploy, r.Scheme); err != nil {
 			return err
@@ -461,7 +460,7 @@ func (r *Reconciler) createOrUpdateDeployment(ctx context.Context, deploy *appsv
 		// Update pod template spec to propagate any changes from Cryostat CR
 		deploy.Spec.Template.Spec = deployCopy.Spec.Template.Spec
 		// Update pod template metadata
-		mergeLabelsAndAnnotations(&deploy.Spec.Template.ObjectMeta, deployCopy.Spec.Template.Labels,
+		common.MergeLabelsAndAnnotations(&deploy.Spec.Template.ObjectMeta, deployCopy.Spec.Template.Labels,
 			deployCopy.Spec.Template.Annotations)
 		return nil
 	})
@@ -542,22 +541,4 @@ func findDeployCondition(conditions []appsv1.DeploymentCondition, condType appsv
 		}
 	}
 	return nil
-}
-
-func mergeLabelsAndAnnotations(dest *metav1.ObjectMeta, srcLabels, srcAnnotations map[string]string) {
-	// Check and create labels/annotations map if absent
-	if dest.Labels == nil {
-		dest.Labels = map[string]string{}
-	}
-	if dest.Annotations == nil {
-		dest.Annotations = map[string]string{}
-	}
-
-	// Merge labels and annotations, preferring those in the source
-	for k, v := range srcLabels {
-		dest.Labels[k] = v
-	}
-	for k, v := range srcAnnotations {
-		dest.Annotations[k] = v
-	}
 }

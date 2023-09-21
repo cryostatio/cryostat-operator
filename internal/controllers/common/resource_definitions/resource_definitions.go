@@ -22,6 +22,7 @@ import (
 	"strings"
 
 	operatorv1beta1 "github.com/cryostatio/cryostat-operator/api/v1beta1"
+	common "github.com/cryostatio/cryostat-operator/internal/controllers/common"
 	"github.com/cryostatio/cryostat-operator/internal/controllers/constants"
 	"github.com/cryostatio/cryostat-operator/internal/controllers/model"
 	appsv1 "k8s.io/api/apps/v1"
@@ -74,20 +75,63 @@ func NewDeploymentForCR(cr *model.CryostatInstance, specs *ServiceSpecs, imageTa
 	tls *TLSConfig, fsGroup int64, openshift bool) *appsv1.Deployment {
 	// Force one replica to avoid lock file and PVC contention
 	replicas := int32(1)
+
+	defaultDeploymentLabels := map[string]string{
+		"app":                    cr.Name,
+		"kind":                   "cryostat",
+		"component":              "cryostat",
+		"app.kubernetes.io/name": "cryostat",
+	}
+	defaultDeploymentAnnotations := map[string]string{
+		"app.openshift.io/connects-to": "cryostat-operator-controller-manager",
+	}
+	defaultPodLabels := map[string]string{
+		"app":       cr.Name,
+		"kind":      "cryostat",
+		"component": "cryostat",
+	}
+	userDefinedDeploymentLabels := make(map[string]string)
+	userDefinedDeploymentAnnotations := make(map[string]string)
+	userDefinedPodTemplateLabels := make(map[string]string)
+	userDefinedPodTemplateAnnotations := make(map[string]string)
+	if cr.Spec.OperandMetadata != nil {
+		if cr.Spec.OperandMetadata.DeploymentMetadata != nil {
+			for k, v := range cr.Spec.OperandMetadata.DeploymentMetadata.Labels {
+				userDefinedDeploymentLabels[k] = v
+			}
+			for k, v := range cr.Spec.OperandMetadata.DeploymentMetadata.Annotations {
+				userDefinedDeploymentAnnotations[k] = v
+			}
+		}
+		if cr.Spec.OperandMetadata.PodMetadata != nil {
+			for k, v := range cr.Spec.OperandMetadata.PodMetadata.Labels {
+				userDefinedPodTemplateLabels[k] = v
+			}
+			for k, v := range cr.Spec.OperandMetadata.PodMetadata.Annotations {
+				userDefinedPodTemplateAnnotations[k] = v
+			}
+		}
+	}
+
+	// First set the user defined labels and annotation in the meta, so that the default ones can override them
+	deploymentMeta := metav1.ObjectMeta{
+		Name:        cr.Name,
+		Namespace:   cr.InstallNamespace,
+		Labels:      userDefinedDeploymentLabels,
+		Annotations: userDefinedDeploymentAnnotations,
+	}
+	common.MergeLabelsAndAnnotations(&deploymentMeta, defaultDeploymentLabels, defaultDeploymentAnnotations)
+
+	podTemplateMeta := metav1.ObjectMeta{
+		Name:        cr.Name,
+		Namespace:   cr.InstallNamespace,
+		Labels:      userDefinedPodTemplateLabels,
+		Annotations: userDefinedPodTemplateAnnotations,
+	}
+	common.MergeLabelsAndAnnotations(&podTemplateMeta, defaultPodLabels, nil)
+
 	return &appsv1.Deployment{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      cr.Name,
-			Namespace: cr.InstallNamespace,
-			Labels: map[string]string{
-				"app":                    cr.Name,
-				"kind":                   "cryostat",
-				"component":              "cryostat",
-				"app.kubernetes.io/name": "cryostat",
-			},
-			Annotations: map[string]string{
-				"app.openshift.io/connects-to": "cryostat-operator-controller-manager",
-			},
-		},
+		ObjectMeta: deploymentMeta,
 		Spec: appsv1.DeploymentSpec{
 			// Selector is immutable, avoid modifying if possible
 			Selector: &metav1.LabelSelector{
@@ -98,16 +142,8 @@ func NewDeploymentForCR(cr *model.CryostatInstance, specs *ServiceSpecs, imageTa
 				},
 			},
 			Template: corev1.PodTemplateSpec{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      cr.Name,
-					Namespace: cr.InstallNamespace,
-					Labels: map[string]string{
-						"app":       cr.Name,
-						"kind":      "cryostat",
-						"component": "cryostat",
-					},
-				},
-				Spec: *NewPodForCR(cr, specs, imageTags, tls, fsGroup, openshift),
+				ObjectMeta: podTemplateMeta,
+				Spec:       *NewPodForCR(cr, specs, imageTags, tls, fsGroup, openshift),
 			},
 			Replicas: &replicas,
 			Strategy: appsv1.DeploymentStrategy{
@@ -123,20 +159,63 @@ func NewDeploymentForReports(cr *model.CryostatInstance, imageTags *ImageTags, t
 	if cr.Spec.ReportOptions != nil {
 		replicas = cr.Spec.ReportOptions.Replicas
 	}
+
+	defaultDeploymentLabels := map[string]string{
+		"app":                    cr.Name,
+		"kind":                   "cryostat",
+		"component":              "reports",
+		"app.kubernetes.io/name": "cryostat-reports",
+	}
+	defaultDeploymentAnnotations := map[string]string{
+		"app.openshift.io/connects-to": cr.Name,
+	}
+	defaultPodLabels := map[string]string{
+		"app":       cr.Name,
+		"kind":      "cryostat",
+		"component": "reports",
+	}
+	userDefinedDeploymentLabels := make(map[string]string)
+	userDefinedDeploymentAnnotations := make(map[string]string)
+	userDefinedPodTemplateLabels := make(map[string]string)
+	userDefinedPodTemplateAnnotations := make(map[string]string)
+	if cr.Spec.OperandMetadata != nil {
+		if cr.Spec.OperandMetadata.DeploymentMetadata != nil {
+			for k, v := range cr.Spec.OperandMetadata.DeploymentMetadata.Labels {
+				userDefinedDeploymentLabels[k] = v
+			}
+			for k, v := range cr.Spec.OperandMetadata.DeploymentMetadata.Annotations {
+				userDefinedDeploymentAnnotations[k] = v
+			}
+		}
+		if cr.Spec.OperandMetadata.PodMetadata != nil {
+			for k, v := range cr.Spec.OperandMetadata.PodMetadata.Labels {
+				userDefinedPodTemplateLabels[k] = v
+			}
+			for k, v := range cr.Spec.OperandMetadata.PodMetadata.Annotations {
+				userDefinedPodTemplateAnnotations[k] = v
+			}
+		}
+	}
+
+	// First set the user defined labels and annotation in the meta, so that the default ones can override them
+	deploymentMeta := metav1.ObjectMeta{
+		Name:        cr.Name + "-reports",
+		Namespace:   cr.InstallNamespace,
+		Labels:      userDefinedDeploymentLabels,
+		Annotations: userDefinedDeploymentAnnotations,
+	}
+	common.MergeLabelsAndAnnotations(&deploymentMeta, defaultDeploymentLabels, defaultDeploymentAnnotations)
+
+	podTemplateMeta := metav1.ObjectMeta{
+		Name:        cr.Name + "-reports",
+		Namespace:   cr.InstallNamespace,
+		Labels:      userDefinedPodTemplateLabels,
+		Annotations: userDefinedPodTemplateAnnotations,
+	}
+	common.MergeLabelsAndAnnotations(&podTemplateMeta, defaultPodLabels, nil)
+
 	return &appsv1.Deployment{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      cr.Name + "-reports",
-			Namespace: cr.InstallNamespace,
-			Labels: map[string]string{
-				"app":                    cr.Name,
-				"kind":                   "cryostat",
-				"component":              "reports",
-				"app.kubernetes.io/name": "cryostat-reports",
-			},
-			Annotations: map[string]string{
-				"app.openshift.io/connects-to": cr.Name,
-			},
-		},
+		ObjectMeta: deploymentMeta,
 		Spec: appsv1.DeploymentSpec{
 			// Selector is immutable, avoid modifying if possible
 			Selector: &metav1.LabelSelector{
@@ -147,16 +226,8 @@ func NewDeploymentForReports(cr *model.CryostatInstance, imageTags *ImageTags, t
 				},
 			},
 			Template: corev1.PodTemplateSpec{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      cr.Name + "-reports",
-					Namespace: cr.InstallNamespace,
-					Labels: map[string]string{
-						"app":       cr.Name,
-						"kind":      "cryostat",
-						"component": "reports",
-					},
-				},
-				Spec: *NewPodForReports(cr, imageTags, tls, openshift),
+				ObjectMeta: podTemplateMeta,
+				Spec:       *NewPodForReports(cr, imageTags, tls, openshift),
 			},
 			Replicas: &replicas,
 		},
