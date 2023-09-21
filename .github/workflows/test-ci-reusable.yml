@@ -60,9 +60,6 @@ jobs:
       with:
         repository: ${{ inputs.repository }}
         ref: ${{ inputs.ref }}
-    - uses: jpkrohling/setup-operator-sdk@v1.1.0
-      with:
-        operator-sdk-version: v1.28.0
     - name: Install podman v4
       run: |
         echo "deb $OPENSUSE_UNOFFICIAL_LIBCONTAINERS_SOURCE_URL/ /" | sudo tee /etc/apt/sources.list.d/devel:kubic:libcontainers:unstable.list
