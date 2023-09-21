@@ -135,7 +135,7 @@ ifneq ($(SKIP_TESTS), true)
 endif
 
 .PHONY: test-scorecard
-test-scorecard: check_cert_manager kustomize
+test-scorecard: check_cert_manager kustomize operator-sdk
 ifneq ($(SKIP_TESTS), true)
 	$(call scorecard-setup)
 	$(call scorecard-cleanup); \
