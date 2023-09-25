@@ -1,6 +1,7 @@
 # cryostat-operator
 
-[![CI build](https://github.com/cryostatio/cryostat-operator/actions/workflows/ci.yaml/badge.svg)](https://github.com/cryostatio/cryostat-operator/actions/workflows/ci.yaml)
+[![CI build](https://github.com/cryostatio/cryostat-operator/actions/workflows/build-ci.yml/badge.svg)](https://github.com/cryostatio/cryostat-operator/actions/workflows/build-ci.yml)
+[![Test CI push](https://github.com/cryostatio/cryostat-operator/actions/workflows/test-ci-push.yml/badge.svg)](https://github.com/cryostatio/cryostat-operator/actions/workflows/test-ci-push.yml)
 [![Google Group : Cryostat Development](https://img.shields.io/badge/Google%20Group-Cryostat%20Development-blue.svg)](https://groups.google.com/g/cryostat-development)
 
 A Kubernetes Operator to automate deployment of
