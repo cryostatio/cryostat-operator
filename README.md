@@ -1,6 +1,6 @@
 # cryostat-operator
 
-[![CI build](https://github.com/cryostatio/cryostat-operator/actions/workflows/build-ci.yaml/badge.svg)](https://github.com/cryostatio/cryostat-operator/actions/workflows/build-ci.yaml)
+[![CI build](https://github.com/cryostatio/cryostat-operator/actions/workflows/build-ci.yml/badge.svg)](https://github.com/cryostatio/cryostat-operator/actions/workflows/build-ci.yml)
 [![Test CI push](https://github.com/cryostatio/cryostat-operator/actions/workflows/test-ci-push.yaml/badge.svg)](https://github.com/cryostatio/cryostat-operator/actions/workflows/test-ci-push.yaml)
 [![Google Group : Cryostat Development](https://img.shields.io/badge/Google%20Group-Cryostat%20Development-blue.svg)](https://groups.google.com/g/cryostat-development)
 
