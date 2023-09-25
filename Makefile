@@ -389,7 +389,7 @@ endif
 
 # Generate bundle manifests and metadata, then validate generated files.
 .PHONY: bundle
-bundle: manifests kustomize
+bundle: manifests kustomize operator-sdk
 	$(OPERATOR_SDK) generate kustomize manifests -q
 	cd config/manager && $(KUSTOMIZE) edit set image controller=$(OPERATOR_IMG)
 	$(KUSTOMIZE) build config/manifests | $(OPERATOR_SDK) generate bundle $(BUNDLE_GEN_FLAGS)
@@ -401,7 +401,7 @@ bundle-build:
 	$(IMAGE_BUILDER) build -f bundle.Dockerfile -t $(BUNDLE_IMG) .
 
 .PHONY: deploy_bundle
-deploy_bundle: check_cert_manager undeploy_bundle
+deploy_bundle: check_cert_manager undeploy_bundle 
 	$(OPERATOR_SDK) run bundle --install-mode $(BUNDLE_INSTALL_MODE) $(BUNDLE_IMG)
 ifeq ($(DISABLE_SERVICE_TLS), true)
 	@echo "Disabling TLS for in-cluster communication between Services"
@@ -419,7 +419,7 @@ ifeq ($(DISABLE_SERVICE_TLS), true)
 endif
 
 .PHONY: undeploy_bundle
-undeploy_bundle:
+undeploy_bundle: operator-sdk
 	- $(OPERATOR_SDK) cleanup $(OPERATOR_NAME)
 
 # Deploy a Cryostat instance
