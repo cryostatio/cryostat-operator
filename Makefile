@@ -17,16 +17,15 @@ OPERATOR_SDK_VERSION ?= v1.31.0
 CLUSTER_CLIENT ?= kubectl
 IMAGE_TAG_BASE ?= $(IMAGE_NAMESPACE)/$(OPERATOR_NAME)
 
-
 # Default bundle image tag
 BUNDLE_IMG ?= $(IMAGE_TAG_BASE)-bundle:$(BUNDLE_VERSION)
 BUNDLE_IMGS ?= $(BUNDLE_IMG)
 
 # Default catalog image tag
-CATALOG_IMG ?= $(IMAGE_TAG_BASE)-catalog:$(BUNDLE_VERSION) 
+CATALOG_IMG ?= $(IMAGE_TAG_BASE)-catalog:$(BUNDLE_VERSION)
 ifneq ($(origin CATALOG_BASE_IMG), undefined)
-FROM_INDEX_OPT := --from-index $(CATALOG_BASE_IMG) 
-endif 
+FROM_INDEX_OPT := --from-index $(CATALOG_BASE_IMG)
+endif
 
 # Options for 'bundle-build'
 ifneq ($(origin CHANNELS), undefined)
@@ -189,7 +188,7 @@ run: manifests generate fmt vet
 	go run ./internal/main.go
 
 ifndef ignore-not-found
-  ignore-not-found = false
+	ignore-not-found = false
 endif
 
 # Install CRDs into a cluster
@@ -258,7 +257,7 @@ check-license: golicense
 	@echo "Checking license..."
 	$(GOLICENSE) --config=go-license.yml --verify $(shell find ${GO_PACKAGES} -name "*.go")
 
-.PHONY: add-license 
+.PHONY: add-license
 add-license: golicense
 	@echo "Adding license..."
 	$(GOLICENSE) --config=go-license.yml $(shell find ${GO_PACKAGES} -name "*.go")
@@ -308,11 +307,11 @@ remove_cert_manager:
 .PHONY: check_cert_manager
 check_cert_manager:
 	@api_versions=$$($(CLUSTER_CLIENT) api-versions) &&\
-       if [ $$(echo "$${api_versions}" | grep -c '^cert-manager.io/v1$$') -eq 0 ]; then if [ "$${DISABLE_SERVICE_TLS}" != "true" ]; then\
-                       echo 'cert-manager is not installed, install using "make cert_manager" or disable TLS for services by setting DISABLE_SERVICE_TLS to true' >&2\
-                       && exit 1;\
-               fi;\
-       fi
+		if [ $$(echo "$${api_versions}" | grep -c '^cert-manager.io/v1$$') -eq 0 ]; then if [ "$${DISABLE_SERVICE_TLS}" != "true" ]; then\
+						echo 'cert-manager is not installed, install using "make cert_manager" or disable TLS for services by setting DISABLE_SERVICE_TLS to true' >&2\
+					&& exit 1;\
+				fi;\
+		fi
 
 # Location to install dependencies
 LOCALBIN ?= $(shell pwd)/bin
@@ -401,7 +400,7 @@ bundle-build:
 	$(IMAGE_BUILDER) build -f bundle.Dockerfile -t $(BUNDLE_IMG) .
 
 .PHONY: deploy_bundle
-deploy_bundle: check_cert_manager undeploy_bundle 
+deploy_bundle: check_cert_manager undeploy_bundle
 	$(OPERATOR_SDK) run bundle --install-mode $(BUNDLE_INSTALL_MODE) $(BUNDLE_IMG)
 ifeq ($(DISABLE_SERVICE_TLS), true)
 	@echo "Disabling TLS for in-cluster communication between Services"
@@ -478,7 +477,7 @@ endif
 
 .PHONY: sample_app
 sample_app:
-	$(CLUSTER_CLIENT) apply $(SAMPLE_APP_FLAGS) -f config/samples/sample-app.yaml 
+	$(CLUSTER_CLIENT) apply $(SAMPLE_APP_FLAGS) -f config/samples/sample-app.yaml
 
 .PHONY: undeploy_sample_app
 undeploy_sample_app:
