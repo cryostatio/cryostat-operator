@@ -144,7 +144,7 @@ ifneq ($(SKIP_TESTS), true)
 endif
 
 .PHONY: clean-scorecard
-clean-scorecard:
+clean-scorecard: operator-sdk
 	- $(call scorecard-cleanup); cleanup
 
 ifneq ($(and $(SCORECARD_REGISTRY_SERVER),$(SCORECARD_REGISTRY_USERNAME),$(SCORECARD_REGISTRY_PASSWORD)),)
