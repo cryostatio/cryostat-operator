@@ -13,6 +13,7 @@ BUNDLE_VERSION ?= $(IMAGE_VERSION)
 DEFAULT_NAMESPACE ?= quay.io/cryostat
 IMAGE_NAMESPACE ?= $(DEFAULT_NAMESPACE)
 OPERATOR_NAME ?= cryostat-operator
+OPERATOR_SDK_VERSION ?= v1.31.0
 CLUSTER_CLIENT ?= kubectl
 IMAGE_TAG_BASE ?= $(IMAGE_NAMESPACE)/$(OPERATOR_NAME)
 
@@ -21,10 +22,10 @@ BUNDLE_IMG ?= $(IMAGE_TAG_BASE)-bundle:$(BUNDLE_VERSION)
 BUNDLE_IMGS ?= $(BUNDLE_IMG)
 
 # Default catalog image tag
-CATALOG_IMG ?= $(IMAGE_TAG_BASE)-catalog:$(BUNDLE_VERSION) 
+CATALOG_IMG ?= $(IMAGE_TAG_BASE)-catalog:$(BUNDLE_VERSION)
 ifneq ($(origin CATALOG_BASE_IMG), undefined)
-FROM_INDEX_OPT := --from-index $(CATALOG_BASE_IMG) 
-endif 
+FROM_INDEX_OPT := --from-index $(CATALOG_BASE_IMG)
+endif
 
 # Options for 'bundle-build'
 ifneq ($(origin CHANNELS), undefined)
@@ -133,16 +134,16 @@ ifneq ($(SKIP_TESTS), true)
 endif
 
 .PHONY: test-scorecard
-test-scorecard: check_cert_manager kustomize
+test-scorecard: check_cert_manager kustomize operator-sdk
 ifneq ($(SKIP_TESTS), true)
 	$(call scorecard-setup)
 	$(call scorecard-cleanup); \
 	trap cleanup EXIT; \
-	operator-sdk scorecard -n $(SCORECARD_NAMESPACE) -s cryostat-scorecard -w 20m $(BUNDLE_IMG) --pod-security=restricted
+	$(OPERATOR_SDK) scorecard -n $(SCORECARD_NAMESPACE) -s cryostat-scorecard -w 20m $(BUNDLE_IMG) --pod-security=restricted
 endif
 
 .PHONY: clean-scorecard
-clean-scorecard:
+clean-scorecard: operator-sdk
 	- $(call scorecard-cleanup); cleanup
 
 ifneq ($(and $(SCORECARD_REGISTRY_SERVER),$(SCORECARD_REGISTRY_USERNAME),$(SCORECARD_REGISTRY_PASSWORD)),)
@@ -161,14 +162,14 @@ $(KUSTOMIZE) build internal/images/custom-scorecard-tests/rbac/ | $(CLUSTER_CLIE
 		--docker-username="$(SCORECARD_REGISTRY_USERNAME)" --docker-password="$(SCORECARD_REGISTRY_PASSWORD)"; \
 	$(CLUSTER_CLIENT) patch sa cryostat-scorecard -n $(SCORECARD_NAMESPACE) -p '{"imagePullSecrets": [{"name": "registry-key"}]}'; \
 fi
-operator-sdk run bundle -n $(SCORECARD_NAMESPACE) --timeout 20m $(BUNDLE_IMG) --security-context-config=restricted $(SCORECARD_ARGS)
+$(OPERATOR_SDK) run bundle -n $(SCORECARD_NAMESPACE) --timeout 20m $(BUNDLE_IMG) --security-context-config=restricted $(SCORECARD_ARGS)
 endef
 
 define scorecard-cleanup
 function cleanup { \
 	(\
 	set +e; \
-	operator-sdk cleanup -n $(SCORECARD_NAMESPACE) $(OPERATOR_NAME); \
+	$(OPERATOR_SDK) cleanup -n $(SCORECARD_NAMESPACE) $(OPERATOR_NAME); \
 	$(KUSTOMIZE) build internal/images/custom-scorecard-tests/rbac/ | $(CLUSTER_CLIENT) delete --ignore-not-found=$(ignore-not-found) -f -; \
 	$(CLUSTER_CLIENT) delete --ignore-not-found=$(ignore-not-found) -n $(SCORECARD_NAMESPACE) secret registry-key; \
 	$(CLUSTER_CLIENT) delete --ignore-not-found=$(ignore-not-found) namespace $(SCORECARD_NAMESPACE); \
@@ -187,7 +188,7 @@ run: manifests generate fmt vet
 	go run ./internal/main.go
 
 ifndef ignore-not-found
-  ignore-not-found = false
+	ignore-not-found = false
 endif
 
 # Install CRDs into a cluster
@@ -256,7 +257,7 @@ check-license: golicense
 	@echo "Checking license..."
 	$(GOLICENSE) --config=go-license.yml --verify $(shell find ${GO_PACKAGES} -name "*.go")
 
-.PHONY: add-license 
+.PHONY: add-license
 add-license: golicense
 	@echo "Adding license..."
 	$(GOLICENSE) --config=go-license.yml $(shell find ${GO_PACKAGES} -name "*.go")
@@ -306,11 +307,11 @@ remove_cert_manager:
 .PHONY: check_cert_manager
 check_cert_manager:
 	@api_versions=$$($(CLUSTER_CLIENT) api-versions) &&\
-       if [ $$(echo "$${api_versions}" | grep -c '^cert-manager.io/v1$$') -eq 0 ]; then if [ "$${DISABLE_SERVICE_TLS}" != "true" ]; then\
-                       echo 'cert-manager is not installed, install using "make cert_manager" or disable TLS for services by setting DISABLE_SERVICE_TLS to true' >&2\
-                       && exit 1;\
-               fi;\
-       fi
+	if [ $$(echo "$${api_versions}" | grep -c '^cert-manager.io/v1$$') -eq 0 ]; then\
+		if [ "$${DISABLE_SERVICE_TLS}" != "true" ]; then\
+			echo 'cert-manager is not installed, install using "make cert_manager" or disable TLS for services by setting DISABLE_SERVICE_TLS to true' >&2 && exit 1;\
+		fi;\
+	fi
 
 # Location to install dependencies
 LOCALBIN ?= $(shell pwd)/bin
@@ -368,13 +369,30 @@ $(OPM): local-bin
 catalog-build: opm
 	$(OPM) index add --container-tool $(IMAGE_BUILDER) --mode semver --tag $(CATALOG_IMG) --bundles $(BUNDLE_IMGS) $(FROM_INDEX_OPT)
 
+.PHONY: operator-sdk
+OPERATOR_SDK ?= $(LOCALBIN)/operator-sdk
+operator-sdk: ## Download operator-sdk locally if necessary.
+ifeq (,$(wildcard $(OPERATOR_SDK)))
+ifeq (, $(shell which operator-sdk 2>/dev/null))
+	@{ \
+	set -e ;\
+	mkdir -p $(dir $(OPERATOR_SDK)) ;\
+	OS=$(shell go env GOOS) && ARCH=$(shell go env GOARCH) && \
+	curl -sSLo $(OPERATOR_SDK) https://github.com/operator-framework/operator-sdk/releases/download/$(OPERATOR_SDK_VERSION)/operator-sdk_$${OS}_$${ARCH} ;\
+	chmod +x $(OPERATOR_SDK) ;\
+	}
+else
+OPERATOR_SDK = $(shell which operator-sdk)
+endif
+endif
+
 # Generate bundle manifests and metadata, then validate generated files.
 .PHONY: bundle
-bundle: manifests kustomize
-	operator-sdk generate kustomize manifests -q
+bundle: manifests kustomize operator-sdk
+	$(OPERATOR_SDK) generate kustomize manifests -q
 	cd config/manager && $(KUSTOMIZE) edit set image controller=$(OPERATOR_IMG)
-	$(KUSTOMIZE) build config/manifests | operator-sdk generate bundle $(BUNDLE_GEN_FLAGS)
-	operator-sdk bundle validate ./bundle
+	$(KUSTOMIZE) build config/manifests | $(OPERATOR_SDK) generate bundle $(BUNDLE_GEN_FLAGS)
+	$(OPERATOR_SDK) bundle validate ./bundle
 
 # Build the bundle image.
 .PHONY: bundle-build
@@ -383,7 +401,7 @@ bundle-build:
 
 .PHONY: deploy_bundle
 deploy_bundle: check_cert_manager undeploy_bundle
-	operator-sdk run bundle --install-mode $(BUNDLE_INSTALL_MODE) $(BUNDLE_IMG)
+	$(OPERATOR_SDK) run bundle --install-mode $(BUNDLE_INSTALL_MODE) $(BUNDLE_IMG)
 ifeq ($(DISABLE_SERVICE_TLS), true)
 	@echo "Disabling TLS for in-cluster communication between Services"
 	@current_ns=`$(CLUSTER_CLIENT) config view --minify -o 'jsonpath={.contexts[0].context.namespace}'` && \
@@ -400,8 +418,8 @@ ifeq ($(DISABLE_SERVICE_TLS), true)
 endif
 
 .PHONY: undeploy_bundle
-undeploy_bundle:
-	- operator-sdk cleanup $(OPERATOR_NAME)
+undeploy_bundle: operator-sdk
+	- $(OPERATOR_SDK) cleanup $(OPERATOR_NAME)
 
 # Deploy a Cryostat instance
 .PHONY: create_cryostat_cr
@@ -459,7 +477,7 @@ endif
 
 .PHONY: sample_app
 sample_app:
-	$(CLUSTER_CLIENT) apply $(SAMPLE_APP_FLAGS) -f config/samples/sample-app.yaml 
+	$(CLUSTER_CLIENT) apply $(SAMPLE_APP_FLAGS) -f config/samples/sample-app.yaml
 
 .PHONY: undeploy_sample_app
 undeploy_sample_app:
