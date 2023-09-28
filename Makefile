@@ -292,7 +292,7 @@ generate: controller-gen ## Generate code containing DeepCopy, DeepCopyInto, and
 LICENSE_FILE = $(shell pwd)/LICENSE
 GO_PACKAGES := $(shell go list -test -f '{{.Dir}}' ./... | sed -e "s|^$$(pwd)||" | cut -d/ -f2 | sort -u)
 .PHONY: check-license
-check-license: golicense ## Check and add (if missing) license header.
+check-license: golicense ## Check if license headers are missing from any code files.
 	@echo "Checking license..."
 	$(GOLICENSE) --config=go-license.yml --verify $(shell find ${GO_PACKAGES} -name "*.go")
 
