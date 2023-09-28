@@ -446,7 +446,7 @@ ifeq ($(DISABLE_SERVICE_TLS), true)
 endif
 
 .PHONY: undeploy
-undeploy: ## Undeploy controller from the configured Kubernetes cluster in ~/.kube/config
+undeploy: ## Undeploy controller from the configured cluster in ~/.kube/config.
 	- $(CLUSTER_CLIENT) delete --ignore-not-found=$(ignore-not-found) -f config/samples/operator_v1beta1_cryostat.yaml
 	- $(CLUSTER_CLIENT) delete --ignore-not-found=$(ignore-not-found) -f config/samples/operator_v1beta1_clustercryostat.yaml
 	- $(KUSTOMIZE) build config/default | $(CLUSTER_CLIENT) delete --ignore-not-found=$(ignore-not-found) -f -
