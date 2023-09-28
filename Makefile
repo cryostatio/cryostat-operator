@@ -474,7 +474,7 @@ undeploy_bundle: operator-sdk ## Undeploy the controller in the bundle format wi
 	- $(OPERATOR_SDK) cleanup $(OPERATOR_NAME)
 
 .PHONY: create_cryostat_cr
-create_cryostat_cr: destroy_cryostat_cr ## Deploy a Cryostat instance.
+create_cryostat_cr: destroy_cryostat_cr ## Create a namespaced Cryostat instance.
 	$(CLUSTER_CLIENT) create -f config/samples/operator_v1beta1_cryostat.yaml
 
 .PHONY: create_clustercryostat_cr
