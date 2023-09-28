@@ -470,7 +470,7 @@ ifeq ($(DISABLE_SERVICE_TLS), true)
 endif
 
 .PHONY: undeploy_bundle
-undeploy_bundle: operator-sdk ## Undeploy deployed bundle.
+undeploy_bundle: operator-sdk ## Undeploy the controller in the bundle format with OLM.
 	- $(OPERATOR_SDK) cleanup $(OPERATOR_NAME)
 
 .PHONY: create_cryostat_cr
