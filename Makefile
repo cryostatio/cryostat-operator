@@ -434,7 +434,7 @@ predeploy:
 	cd config/default && $(KUSTOMIZE) edit set namespace $(DEPLOY_NAMESPACE)
 
 .PHONY: print_deploy_config
-print_deploy_config: predeploy ## Print deployment configuration.
+print_deploy_config: predeploy ## Print deployment configurations for the controller.
 	$(KUSTOMIZE) build config/default
 
 .PHONY: deploy
