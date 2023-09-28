@@ -485,7 +485,7 @@ create_clustercryostat_cr: destroy_clustercryostat_cr ## Deploy a Cryostat clust
 	oc apply -f -
 
 .PHONY: destroy_cryostat_cr
-destroy_cryostat_cr: ## Undeploy a Cryostat instance.
+destroy_cryostat_cr: ## Delete a namespaced Cryostat instance.
 	- $(CLUSTER_CLIENT) delete --ignore-not-found=$(ignore-not-found) -f config/samples/operator_v1beta1_cryostat.yaml
 
 .PHONY: destroy_clustercryostat_cr
