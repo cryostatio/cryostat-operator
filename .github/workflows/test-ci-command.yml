@@ -16,7 +16,7 @@ jobs:
       pull-requests: write
     if: github.repository_owner == 'cryostatio' && github.event.issue.pull_request && startsWith(github.event.comment.body, '/build_test')
     steps:
-    - name: Fail if needs-triage label applied 
+    - name: Fail if needs-triage label applied
       if: ${{ contains(github.event.issue.labels.*.name, 'needs-triage') }}
       run: exit 1
     - name: Show warning if permission is denied
@@ -43,14 +43,14 @@ jobs:
               repo,
               comment_id: context.payload.comment.id,
               content: "+1",
-            });  
+            });
 
-  checkout-branch: 
+  checkout-branch:
     runs-on: ubuntu-latest
     needs: [check-before-test]
     permissions:
       pull-requests: read
-    outputs: 
+    outputs:
       PR_head_ref: ${{ fromJSON(steps.comment-branch.outputs.result).ref }}
       PR_num: ${{ fromJSON(steps.comment-branch.outputs.result).num }}
       PR_repo: ${{ fromJSON(steps.comment-branch.outputs.result).repo }}
