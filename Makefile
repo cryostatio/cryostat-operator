@@ -425,7 +425,7 @@ install: manifests kustomize ## Install CRDs into the cluster specified in ~/.ku
 	$(KUSTOMIZE) build config/crd | $(CLUSTER_CLIENT) apply -f -
 
 .PHONY: uninstall
-uninstall: manifests kustomize ## Uninstall CRDs from a cluster.
+uninstall: manifests kustomize ## Uninstall CRDs from the cluster specified in ~/.kube/config.
 	- $(KUSTOMIZE) build config/crd | $(CLUSTER_CLIENT) delete --ignore-not-found=$(ignore-not-found) -f -
 
 .PHONY: predeploy
