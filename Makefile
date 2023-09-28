@@ -489,5 +489,5 @@ destroy_cryostat_cr: ## Delete a namespaced Cryostat instance.
 	- $(CLUSTER_CLIENT) delete --ignore-not-found=$(ignore-not-found) -f config/samples/operator_v1beta1_cryostat.yaml
 
 .PHONY: destroy_clustercryostat_cr
-destroy_clustercryostat_cr: ## Undeploy a Cryostat cluster.
+destroy_clustercryostat_cr: ## Delete a cluster-wide Cryostat cluster.
 	- $(CLUSTER_CLIENT) delete --ignore-not-found=$(ignore-not-found) -f config/samples/operator_v1beta1_clustercryostat.yaml
