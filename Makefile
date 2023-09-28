@@ -333,7 +333,7 @@ sample_app_agent: undeploy_sample_app_agent ## Deploy sample app agent.
 	$(CLUSTER_CLIENT) set env $(SAMPLE_APP_FLAGS) deployment/quarkus-test-agent CRYOSTAT_AGENT_AUTHORIZATION="Bearer $(AUTH_TOKEN)"
 
 .PHONY: undeploy_sample_app_agent
-undeploy_sample_app_agent: ## Undeploy sample app agent.
+undeploy_sample_app_agent: ## Undeploy sample app with Cryostat Agent.
 	- $(CLUSTER_CLIENT) delete $(SAMPLE_APP_FLAGS) --ignore-not-found=$(ignore-not-found) -f config/samples/sample-app-agent.yaml
 
 .PHONY: cert_manager
