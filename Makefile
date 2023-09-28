@@ -452,7 +452,7 @@ undeploy: ## Undeploy controller from the configured cluster in ~/.kube/config.
 	- $(KUSTOMIZE) build config/default | $(CLUSTER_CLIENT) delete --ignore-not-found=$(ignore-not-found) -f -
 
 .PHONY: deploy_bundle
-deploy_bundle: check_cert_manager undeploy_bundle ## Deploy the bundled image.
+deploy_bundle: check_cert_manager undeploy_bundle ## Deploy the controller in the bundle format with OLM.
 	$(OPERATOR_SDK) run bundle --install-mode $(BUNDLE_INSTALL_MODE) $(BUNDLE_IMG)
 ifeq ($(DISABLE_SERVICE_TLS), true)
 	@echo "Disabling TLS for in-cluster communication between Services"
