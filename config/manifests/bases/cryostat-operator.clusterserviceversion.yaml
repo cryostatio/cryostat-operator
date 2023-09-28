@@ -206,6 +206,15 @@ spec:
           label with key "app" is reserved for use by the operator.
         displayName: Labels
         path: networkOptions.grafanaConfig.labels
+      - description: Options to configure the Cryostat deployments and pods metadata
+        displayName: Operand metadata
+        path: operandMetadata
+      - description: Options to configure the Cryostat deployments metadata
+        displayName: Deployments metadata
+        path: operandMetadata.deploymentMetadata
+      - description: Options to configure the Cryostat pods metadata
+        displayName: Pods metadata
+        path: operandMetadata.podMetadata
       - description: Options to configure Cryostat Automated Report Analysis.
         displayName: Report Options
         path: reportOptions
@@ -577,6 +586,15 @@ spec:
           label with key "app" is reserved for use by the operator.
         displayName: Labels
         path: networkOptions.grafanaConfig.labels
+      - description: Options to configure the Cryostat deployments and pods metadata
+        displayName: Operand metadata
+        path: operandMetadata
+      - description: Options to configure the Cryostat deployments metadata
+        displayName: Deployments metadata
+        path: operandMetadata.deploymentMetadata
+      - description: Options to configure the Cryostat pods metadata
+        displayName: Pods metadata
+        path: operandMetadata.podMetadata
       - description: Options to configure Cryostat Automated Report Analysis.
         displayName: Report Options
         path: reportOptions

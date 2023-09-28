@@ -1074,6 +1074,45 @@ spec:
                         type: object
                     type: object
                 type: object
+              operandMetadata:
+                description: Options to configure the Cryostat deployments and pods
+                  metadata
+                properties:
+                  deploymentMetadata:
+                    description: Options to configure the Cryostat deployments metadata
+                    properties:
+                      annotations:
+                        additionalProperties:
+                          type: string
+                        description: Annotations to add to the resources during its
+                          creation.
+                        type: object
+                      labels:
+                        additionalProperties:
+                          type: string
+                        description: Labels to add to the resources during its creation.
+                          The labels with keys "app" and "component" are reserved
+                          for use by the operator.
+                        type: object
+                    type: object
+                  podMetadata:
+                    description: Options to configure the Cryostat pods metadata
+                    properties:
+                      annotations:
+                        additionalProperties:
+                          type: string
+                        description: Annotations to add to the resources during its
+                          creation.
+                        type: object
+                      labels:
+                        additionalProperties:
+                          type: string
+                        description: Labels to add to the resources during its creation.
+                          The labels with keys "app" and "component" are reserved
+                          for use by the operator.
+                        type: object
+                    type: object
+                type: object
               reportOptions:
                 description: Options to configure Cryostat Automated Report Analysis.
                 properties:

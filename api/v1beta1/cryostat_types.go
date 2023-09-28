@@ -88,6 +88,32 @@ type CryostatSpec struct {
 	// +optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Credentials Database Options"
 	JmxCredentialsDatabaseOptions *JmxCredentialsDatabaseOptions `json:"jmxCredentialsDatabaseOptions,omitempty"`
+	// Options to configure the Cryostat deployments and pods metadata
+	// +optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Operand metadata"
+	OperandMetadata *OperandMetadata `json:"operandMetadata,omitempty"`
+}
+
+type OperandMetadata struct {
+	// Options to configure the Cryostat deployments metadata
+	// +optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Deployments metadata"
+	DeploymentMetadata *ResourceMetadata `json:"deploymentMetadata,omitempty"`
+	// Options to configure the Cryostat pods metadata
+	// +optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Pods metadata"
+	PodMetadata *ResourceMetadata `json:"podMetadata,omitempty"`
+}
+
+type ResourceMetadata struct {
+	// Annotations to add to the resources during its creation.
+	// +optional
+	Annotations map[string]string `json:"annotations,omitempty"`
+	// Labels to add to the resources during its creation.
+	// The labels with keys "app" and "component" are reserved
+	// for use by the operator.
+	// +optional
+	Labels map[string]string `json:"labels,omitempty"`
 }
 
 type ResourceConfigList struct {

@@ -23,6 +23,7 @@ import (
 	"strings"
 	"time"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 )
@@ -67,4 +68,23 @@ func ClusterUniqueName(kind string, name string, namespace string) string {
 	nn := types.NamespacedName{Namespace: namespace, Name: name}
 	suffix := fmt.Sprintf("%x", sha256.Sum256([]byte(nn.String())))
 	return strings.ToLower(kind) + "-" + suffix
+}
+
+func MergeLabelsAndAnnotations(dest *metav1.ObjectMeta, srcLabels, srcAnnotations map[string]string) {
+	// Check and create labels/annotations map if absent
+	if dest.Labels == nil {
+		dest.Labels = map[string]string{}
+	}
+	if dest.Annotations == nil {
+		dest.Annotations = map[string]string{}
+	}
+
+	// Merge labels and annotations, preferring those in the source
+	for k, v := range srcLabels {
+		dest.Labels[k] = v
+	}
+
+	for k, v := range srcAnnotations {
+		dest.Annotations[k] = v
+	}
 }

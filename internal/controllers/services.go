@@ -21,6 +21,7 @@ import (
 	"strconv"
 
 	operatorv1beta1 "github.com/cryostatio/cryostat-operator/api/v1beta1"
+	common "github.com/cryostatio/cryostat-operator/internal/controllers/common"
 	"github.com/cryostatio/cryostat-operator/internal/controllers/common/resource_definitions"
 	"github.com/cryostatio/cryostat-operator/internal/controllers/constants"
 	"github.com/cryostatio/cryostat-operator/internal/controllers/model"
@@ -246,7 +247,7 @@ func (r *Reconciler) createOrUpdateService(ctx context.Context, svc *corev1.Serv
 	config *operatorv1beta1.ServiceConfig, delegate controllerutil.MutateFn) error {
 	op, err := controllerutil.CreateOrUpdate(ctx, r.Client, svc, func() error {
 		// Update labels and annotations
-		mergeLabelsAndAnnotations(&svc.ObjectMeta, config.Labels, config.Annotations)
+		common.MergeLabelsAndAnnotations(&svc.ObjectMeta, config.Labels, config.Annotations)
 
 		// Set the Cryostat CR as controller
 		if err := controllerutil.SetControllerReference(owner, svc, r.Scheme); err != nil {
