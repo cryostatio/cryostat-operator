@@ -228,7 +228,8 @@ endif
 oci-build: manifests generate fmt vet test-envtest ## Build OCI image for the manager.
 	BUILDAH_FORMAT=docker $(IMAGE_BUILDER) build --build-arg TARGETOS=$(OS) --build-arg TARGETARCH=$(ARCH) -t $(OPERATOR_IMG) .
 
-# You need to be able to push the image for your registry (i.e. if you do not inform a valid value via OPERATOR_IMG=<myregistry/image:<tag>> than the export will fail)
+# You may need to be able to push the image for your registry (i.e. if you do not inform a valid value via OPERATOR_IMG=<myregistry/image:<tag>> than the export will fail)
+# If using podman, then you can set MANIFEST_PUSH to avoid this behaviour.
 # If IMAGE_BUILDER is docker, you need to:
 # - able to use docker buildx. More info: https://docs.docker.com/build/buildx/
 # - have enable BuildKit, More info: https://docs.docker.com/develop/develop-images/build_enhancements/
