@@ -285,7 +285,7 @@ vet: ## Run go vet against code.
 	go vet ./...
 
 .PHONY: generate
-generate: controller-gen ## Generate code.
+generate: controller-gen ## Generate code containing DeepCopy, DeepCopyInto, and DeepCopyObject method implementations.
 	go generate ./...
 	$(CONTROLLER_GEN) object:headerFile="hack/boilerplate.go.txt" paths="./..."
 
