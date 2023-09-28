@@ -438,7 +438,7 @@ print_deploy_config: predeploy ## Print deployment configuration.
 	$(KUSTOMIZE) build config/default
 
 .PHONY: deploy
-deploy: check_cert_manager manifests kustomize predeploy ## Deploy controller in the configured Kubernetes cluster in ~/.kube/config
+deploy: check_cert_manager manifests kustomize predeploy ## Deploy controller in the configured cluster in ~/.kube/config
 	$(KUSTOMIZE) build config/default | $(CLUSTER_CLIENT) apply -f -
 ifeq ($(DISABLE_SERVICE_TLS), true)
 	@echo "Disabling TLS for in-cluster communication between Services"
