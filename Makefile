@@ -478,7 +478,7 @@ create_cryostat_cr: destroy_cryostat_cr ## Create a namespaced Cryostat instance
 	$(CLUSTER_CLIENT) create -f config/samples/operator_v1beta1_cryostat.yaml
 
 .PHONY: create_clustercryostat_cr
-create_clustercryostat_cr: destroy_clustercryostat_cr ## Deploy a Cryostat cluster.
+create_clustercryostat_cr: destroy_clustercryostat_cr ## Create a cluster-wide Cryostat instance.
 	target_ns_json=$$(jq -nc '$$ARGS.positional' --args -- $(TARGET_NAMESPACES)) && \
 	$(CLUSTER_CLIENT) patch -f config/samples/operator_v1beta1_clustercryostat.yaml --local=true --type=merge \
 	-p "{\"spec\": {\"installNamespace\": \"$(DEPLOY_NAMESPACE)\", \"targetNamespaces\": $$target_ns_json}}" -o yaml | \
