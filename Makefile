@@ -421,7 +421,7 @@ endif
 ##@ Deployment
 
 .PHONY: install
-install: manifests kustomize ## Install CRDs into a cluster.
+install: manifests kustomize ## Install CRDs into the cluster specified in ~/.kube/config.
 	$(KUSTOMIZE) build config/crd | $(CLUSTER_CLIENT) apply -f -
 
 .PHONY: uninstall
