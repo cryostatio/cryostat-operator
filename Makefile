@@ -199,7 +199,7 @@ ifndef ignore-not-found
 endif
 
 .PHONY: custom-scorecard-tests
-custom-scorecard-tests: fmt vet ## Build custom scorecard tests.
+custom-scorecard-tests: fmt vet ## Build the custom scorecard binary.
 	cd internal/images/custom-scorecard-tests/ && \
 	go build -o bin/cryostat-scorecard-tests main.go
 
