@@ -429,7 +429,7 @@ uninstall: manifests kustomize ## Uninstall CRDs from the cluster specified in ~
 	- $(KUSTOMIZE) build config/crd | $(CLUSTER_CLIENT) delete --ignore-not-found=$(ignore-not-found) -f -
 
 .PHONY: predeploy
-predeploy: ## Prepare for deployment.
+predeploy:
 	cd config/manager && $(KUSTOMIZE) edit set image controller=$(OPERATOR_IMG)
 	cd config/default && $(KUSTOMIZE) edit set namespace $(DEPLOY_NAMESPACE)
 
