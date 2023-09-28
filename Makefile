@@ -225,7 +225,7 @@ endif
 	rm internal/images/custom-scorecard-tests/Dockerfile.cross
 
 .PHONY: oci-build
-oci-build: manifests generate fmt vet test-envtest ## Build the OCI image.
+oci-build: manifests generate fmt vet test-envtest ## Build OCI image for the manager.
 	BUILDAH_FORMAT=docker $(IMAGE_BUILDER) build --build-arg TARGETOS=$(OS) --build-arg TARGETARCH=$(ARCH) -t $(OPERATOR_IMG) .
 
 # You need to be able to push the image for your registry (i.e. if you do not inform a valid value via OPERATOR_IMG=<myregistry/image:<tag>> than the export will fail)
