@@ -254,7 +254,7 @@ endif
 	rm Dockerfile.cross
 
 .PHONY: catalog-build
-catalog-build: opm ## Build for catalog.
+catalog-build: opm ## Build a catalog image.
 	$(OPM) index add --container-tool $(IMAGE_BUILDER) --mode semver --tag $(CATALOG_IMG) --bundles $(BUNDLE_IMGS) $(FROM_INDEX_OPT)
 
 .PHONY: bundle
