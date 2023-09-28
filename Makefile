@@ -337,7 +337,7 @@ undeploy_sample_app_agent: ## Undeploy sample app agent.
 	- $(CLUSTER_CLIENT) delete $(SAMPLE_APP_FLAGS) --ignore-not-found=$(ignore-not-found) -f config/samples/sample-app-agent.yaml
 
 .PHONY: cert_manager
-cert_manager: remove_cert_manager ## Restart cert manager.
+cert_manager: remove_cert_manager ## Install cert manager.
 	$(CLUSTER_CLIENT) create --validate=false -f $(CERT_MANAGER_MANIFEST)
 
 .PHONY: remove_cert_manager
