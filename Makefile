@@ -271,7 +271,7 @@ bundle-build: ## Build the bundle image.
 ##@ Development
 
 .PHONY: manifests
-manifests: controller-gen ## Generate manifests e.g. CRD, RBAC etc.
+manifests: controller-gen ## Generate manifests e.g. CRD, RBAC, etc.
 	$(CONTROLLER_GEN) rbac:roleName=role crd webhook paths="./..." output:crd:artifacts:config=config/crd/bases
 	envsubst < hack/image_tag_patch.yaml.in > config/default/image_tag_patch.yaml
 	envsubst < hack/image_pull_patch.yaml.in > config/default/image_pull_patch.yaml
