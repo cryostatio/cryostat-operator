@@ -120,21 +120,28 @@ ifneq ("$(wildcard $(GINKGO))","")
 GO_TEST="$(GINKGO)" -cover -output-dir=.
 endif
 
+##@ General
+
 .PHONY: all
 all: manager
 
-# Run tests
-.PHONY: test
+.PHONY: help
+help: ## Display this help.
+	@awk 'BEGIN {FS = ":.*##"; printf "\nUsage:\n  make \033[36m<target>\033[0m\n"} /^[a-zA-Z_0-9-]+:.*?##/ { printf "  \033[36m%-15s\033[0m %s\n", $$1, $$2 } /^##@/ { printf "\n\033[1m%s\033[0m\n", substr($$0, 5) } ' $(MAKEFILE_LIST)
+
+##@ Tests
+
+.PHONY: test ## Run tests.
 test: test-envtest test-scorecard
 
 .PHONY: test-envtest
-test-envtest: generate manifests fmt vet setup-envtest
+test-envtest: generate manifests fmt vet setup-envtest ## Run tests using envtest.
 ifneq ($(SKIP_TESTS), true)
 	KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) --bin-dir $(LOCALBIN) -p path)" $(GO_TEST) -v -coverprofile cover.out ./...
 endif
 
 .PHONY: test-scorecard
-test-scorecard: check_cert_manager kustomize operator-sdk
+test-scorecard: check_cert_manager kustomize operator-sdk ## Run scorecard tests.
 ifneq ($(SKIP_TESTS), true)
 	$(call scorecard-setup)
 	$(call scorecard-cleanup); \
@@ -143,7 +150,7 @@ ifneq ($(SKIP_TESTS), true)
 endif
 
 .PHONY: clean-scorecard
-clean-scorecard: operator-sdk
+clean-scorecard: operator-sdk ## Clean up scorecard resources.
 	- $(call scorecard-cleanup); cleanup
 
 ifneq ($(and $(SCORECARD_REGISTRY_SERVER),$(SCORECARD_REGISTRY_USERNAME),$(SCORECARD_REGISTRY_PASSWORD)),)
@@ -177,280 +184,27 @@ function cleanup { \
 }
 endef
 
-# Build manager binary
+##@ Build
+
 .PHONY: manager
-manager: manifests generate fmt vet
+manager: manifests generate fmt vet ## Build the manager binary.
 	go build -o bin/manager internal/main.go
 
-# Run against the configured Kubernetes cluster in ~/.kube/config
 .PHONY: run
-run: manifests generate fmt vet
+run: manifests generate fmt vet ## Run against the configured Kubernetes cluster in ~/.kube/config
 	go run ./internal/main.go
 
 ifndef ignore-not-found
 	ignore-not-found = false
 endif
 
-# Install CRDs into a cluster
-.PHONY: install
-install: manifests kustomize
-	$(KUSTOMIZE) build config/crd | $(CLUSTER_CLIENT) apply -f -
-
-# Uninstall CRDs from a cluster
-.PHONY: uninstall
-uninstall: manifests kustomize
-	- $(KUSTOMIZE) build config/crd | $(CLUSTER_CLIENT) delete --ignore-not-found=$(ignore-not-found) -f -
-
-.PHONY: predeploy
-predeploy:
-	cd config/manager && $(KUSTOMIZE) edit set image controller=$(OPERATOR_IMG)
-	cd config/default && $(KUSTOMIZE) edit set namespace $(DEPLOY_NAMESPACE)
-
-.PHONY: print_deploy_config
-print_deploy_config: predeploy
-	$(KUSTOMIZE) build config/default
-
-# Deploy controller in the configured Kubernetes cluster in ~/.kube/config
-.PHONY: deploy
-deploy: check_cert_manager manifests kustomize predeploy
-	$(KUSTOMIZE) build config/default | $(CLUSTER_CLIENT) apply -f -
-ifeq ($(DISABLE_SERVICE_TLS), true)
-	@echo "Disabling TLS for in-cluster communication between Services"
-	@$(CLUSTER_CLIENT) -n $(DEPLOY_NAMESPACE) set env deployment/cryostat-operator-controller-manager DISABLE_SERVICE_TLS=true
-endif
-
-# Undeploy controller from the configured Kubernetes cluster in ~/.kube/config
-.PHONY: undeploy
-undeploy:
-	- $(CLUSTER_CLIENT) delete --ignore-not-found=$(ignore-not-found) -f config/samples/operator_v1beta1_cryostat.yaml
-	- $(CLUSTER_CLIENT) delete --ignore-not-found=$(ignore-not-found) -f config/samples/operator_v1beta1_clustercryostat.yaml
-	- $(KUSTOMIZE) build config/default | $(CLUSTER_CLIENT) delete --ignore-not-found=$(ignore-not-found) -f -
-
-# Generate manifests e.g. CRD, RBAC etc.
-.PHONY: manifests
-manifests: controller-gen
-	$(CONTROLLER_GEN) rbac:roleName=role crd webhook paths="./..." output:crd:artifacts:config=config/crd/bases
-	envsubst < hack/image_tag_patch.yaml.in > config/default/image_tag_patch.yaml
-	envsubst < hack/image_pull_patch.yaml.in > config/default/image_pull_patch.yaml
-
-# Run go fmt against code
-.PHONY: fmt
-fmt: add-license
-	go fmt ./...
-
-# Run go vet against code
-.PHONY: vet
-vet:
-	go vet ./...
-
-# Generate code
-.PHONY: generate
-generate: controller-gen
-	go generate ./...
-	$(CONTROLLER_GEN) object:headerFile="hack/boilerplate.go.txt" paths="./..."
-
-# Check and add (if missing) license header
-LICENSE_FILE = $(shell pwd)/LICENSE
-GO_PACKAGES := $(shell go list -test -f '{{.Dir}}' ./... | sed -e "s|^$$(pwd)||" | cut -d/ -f2 | sort -u)
-.PHONY: check-license
-check-license: golicense
-	@echo "Checking license..."
-	$(GOLICENSE) --config=go-license.yml --verify $(shell find ${GO_PACKAGES} -name "*.go")
-
-.PHONY: add-license
-add-license: golicense
-	@echo "Adding license..."
-	$(GOLICENSE) --config=go-license.yml $(shell find ${GO_PACKAGES} -name "*.go")
-
-.PHONY: remove-license
-remove-license: golicense
-	@echo "Removing license..."
-	$(GOLICENSE) --config=go-license.yml --remove $(shell find ${GO_PACKAGES} -name "*.go")
-
-# Build the OCI image
-.PHONY: oci-build
-oci-build: manifests generate fmt vet test-envtest
-	BUILDAH_FORMAT=docker $(IMAGE_BUILDER) build --build-arg TARGETOS=$(OS) --build-arg TARGETARCH=$(ARCH) -t $(OPERATOR_IMG) .
-
-# You need to be able to push the image for your registry (i.e. if you do not inform a valid value via OPERATOR_IMG=<myregistry/image:<tag>> than the export will fail)
-# If IMAGE_BUILDER is docker, you need to:
-# - able to use docker buildx. More info: https://docs.docker.com/build/buildx/
-# - have enable BuildKit, More info: https://docs.docker.com/develop/develop-images/build_enhancements/
-# To properly provided solutions that supports more than one platform you should use this option.
-.PHONY: oci-buildx
-oci-buildx: manifests generate fmt vet test-envtest ## Build OCI image for the manager for cross-platform support
-# copy existing Dockerfile and insert --platform=${BUILDPLATFORM} into Dockerfile.cross, and preserve the original Dockerfile
-	sed -e '1 s/\(^FROM\)/FROM --platform=\$$\{BUILDPLATFORM\}/; t' -e ' 1,// s//FROM --platform=\$$\{BUILDPLATFORM\}/' Dockerfile > Dockerfile.cross
-ifeq ($(IMAGE_BUILDER), docker)
-	- $(IMAGE_BUILDER) buildx create --name project-v3-builder
-	$(IMAGE_BUILDER) buildx use project-v3-builder
-	- $(IMAGE_BUILDER) buildx build --push --platform=$(PLATFORMS) --tag $(OPERATOR_IMG) -f Dockerfile.cross .
-	- $(IMAGE_BUILDER) buildx rm project-v3-builder
-else ifeq ($(IMAGE_BUILDER), podman)
-	BUILDAH_FORMAT=docker $(IMAGE_BUILDER) build -f Dockerfile.cross --manifest $(OPERATOR_IMG) --platform $(PLATFORMS) . ; \
-	if [ "${MANIFEST_PUSH}" = "true" ] ; then \
-		$(IMAGE_BUILDER) manifest push $(OPERATOR_IMG) $(OPERATOR_IMG) ; \
-	fi
-else
-	$(error unsupported IMAGE_BUILDER: $(IMAGE_BUILDER))
-endif
-	rm Dockerfile.cross
-
-.PHONY: cert_manager
-cert_manager: remove_cert_manager
-	$(CLUSTER_CLIENT) create --validate=false -f $(CERT_MANAGER_MANIFEST)
-
-.PHONY: remove_cert_manager
-remove_cert_manager:
-	- $(CLUSTER_CLIENT) delete --ignore-not-found=$(ignore-not-found) -f $(CERT_MANAGER_MANIFEST)
-
-.PHONY: check_cert_manager
-check_cert_manager:
-	@api_versions=$$($(CLUSTER_CLIENT) api-versions) &&\
-	if [ $$(echo "$${api_versions}" | grep -c '^cert-manager.io/v1$$') -eq 0 ]; then\
-		if [ "$${DISABLE_SERVICE_TLS}" != "true" ]; then\
-			echo 'cert-manager is not installed, install using "make cert_manager" or disable TLS for services by setting DISABLE_SERVICE_TLS to true' >&2 && exit 1;\
-		fi;\
-	fi
-
-# Location to install dependencies
-LOCALBIN ?= $(shell pwd)/bin
-PHONY: local-bin
-local-bin:
-	mkdir -p $(LOCALBIN)
-
-# Download controller-gen locally if necessary. If wrong version is installed, it will be overwritten.
-CONTROLLER_GEN = $(LOCALBIN)/controller-gen
-.PHONY: controller-gen
-controller-gen: $(CONTROLLER_GEN)
-$(CONTROLLER_GEN): local-bin
-	test -s $(CONTROLLER_GEN) && $(CONTROLLER_GEN) --version | grep -q $(CONTROLLER_TOOLS_VERSION) || \
-	GOBIN=$(LOCALBIN) go install sigs.k8s.io/controller-tools/cmd/controller-gen@v$(CONTROLLER_TOOLS_VERSION)
-
-# Download kustomize locally if necessary. If wrong version is installed, it will be removed before downloading.
-KUSTOMIZE_INSTALL_SCRIPT ?= "https://raw.githubusercontent.com/kubernetes-sigs/kustomize/master/hack/install_kustomize.sh"
-KUSTOMIZE = $(LOCALBIN)/kustomize
-.PHONY: kustomize
-kustomize: $(KUSTOMIZE)
-$(KUSTOMIZE): local-bin
-	@if test -x $(LOCALBIN)/kustomize && ! $(LOCALBIN)/kustomize version | grep -q $(KUSTOMIZE_VERSION); then \
-		echo "$(LOCALBIN)/kustomize version is not expected $(KUSTOMIZE_VERSION). Removing it before installing."; \
-		rm -rf $(LOCALBIN)/kustomize; \
-	fi
-	test -s $(KUSTOMIZE) || { curl -Ss $(KUSTOMIZE_INSTALL_SCRIPT) | bash -s -- $(subst v,,$(KUSTOMIZE_VERSION)) $(LOCALBIN); }
-
-# Download go-license locally if necessary
-GOLICENSE = $(LOCALBIN)/go-license
-.PHONY: golicense
-golicense: $(GOLICENSE)
-$(GOLICENSE): local-bin
-	test -s $(GOLICENSE) || GOBIN=$(LOCALBIN) go install github.com/palantir/go-license@v$(GOLICENSE_VERSION)
-
-# Download setup-envtest locally if necessary
-ENVTEST = $(LOCALBIN)/setup-envtest
-.PHONY: setup-envtest
-setup-envtest: $(ENVTEST)
-$(ENVTEST): local-bin
-	test -s $(ENVTEST) || GOBIN=$(LOCALBIN) go install sigs.k8s.io/controller-runtime/tools/setup-envtest@latest
-
-# Download opm locally if necessary
-OPM = $(LOCALBIN)/opm
-.PHONY: opm
-opm: $(OPM)
-$(OPM): local-bin
-	test -s $(OPM) || \
-	{ \
-	set -e ;\
-	curl -sSLo $(OPM) https://github.com/operator-framework/operator-registry/releases/download/v$(OPM_VERSION)/$(OS)-$(ARCH)-opm ;\
-	chmod +x $(OPM) ;\
-	}
-
-.PHONY: catalog-build
-catalog-build: opm
-	$(OPM) index add --container-tool $(IMAGE_BUILDER) --mode semver --tag $(CATALOG_IMG) --bundles $(BUNDLE_IMGS) $(FROM_INDEX_OPT)
-
-.PHONY: operator-sdk
-OPERATOR_SDK ?= $(LOCALBIN)/operator-sdk
-operator-sdk: ## Download operator-sdk locally if necessary.
-ifeq (,$(wildcard $(OPERATOR_SDK)))
-ifeq (, $(shell which operator-sdk 2>/dev/null))
-	@{ \
-	set -e ;\
-	mkdir -p $(dir $(OPERATOR_SDK)) ;\
-	OS=$(shell go env GOOS) && ARCH=$(shell go env GOARCH) && \
-	curl -sSLo $(OPERATOR_SDK) https://github.com/operator-framework/operator-sdk/releases/download/$(OPERATOR_SDK_VERSION)/operator-sdk_$${OS}_$${ARCH} ;\
-	chmod +x $(OPERATOR_SDK) ;\
-	}
-else
-OPERATOR_SDK = $(shell which operator-sdk)
-endif
-endif
-
-# Generate bundle manifests and metadata, then validate generated files.
-.PHONY: bundle
-bundle: manifests kustomize operator-sdk
-	$(OPERATOR_SDK) generate kustomize manifests -q
-	cd config/manager && $(KUSTOMIZE) edit set image controller=$(OPERATOR_IMG)
-	$(KUSTOMIZE) build config/manifests | $(OPERATOR_SDK) generate bundle $(BUNDLE_GEN_FLAGS)
-	$(OPERATOR_SDK) bundle validate ./bundle
-
-# Build the bundle image.
-.PHONY: bundle-build
-bundle-build:
-	$(IMAGE_BUILDER) build -f bundle.Dockerfile -t $(BUNDLE_IMG) .
-
-.PHONY: deploy_bundle
-deploy_bundle: check_cert_manager undeploy_bundle
-	$(OPERATOR_SDK) run bundle --install-mode $(BUNDLE_INSTALL_MODE) $(BUNDLE_IMG)
-ifeq ($(DISABLE_SERVICE_TLS), true)
-	@echo "Disabling TLS for in-cluster communication between Services"
-	@current_ns=`$(CLUSTER_CLIENT) config view --minify -o 'jsonpath={.contexts[0].context.namespace}'` && \
-	if [ -z "$${current_ns}" ]; then \
-		echo "Failed to determine Namespace in current context" >&2; \
-		exit 1; \
-	fi; \
-	set -f -- `$(CLUSTER_CLIENT) get sub -l "operators.coreos.com/$(OPERATOR_NAME).$${current_ns}" -o name` && \
-	if [ "$${#}" -ne 1 ]; then \
-		echo -e "Expected 1 Subscription, found $${#}:\n$${@}" >&2; \
-		exit 1; \
-	fi; \
-	$(CLUSTER_CLIENT) patch --type=merge -p '{"spec":{"config":{"env":[{"name":"DISABLE_SERVICE_TLS","value":"true"}]}}}' "$${1}"
-endif
-
-.PHONY: undeploy_bundle
-undeploy_bundle: operator-sdk
-	- $(OPERATOR_SDK) cleanup $(OPERATOR_NAME)
-
-# Deploy a Cryostat instance
-.PHONY: create_cryostat_cr
-create_cryostat_cr: destroy_cryostat_cr
-	$(CLUSTER_CLIENT) create -f config/samples/operator_v1beta1_cryostat.yaml
-
-.PHONY: create_clustercryostat_cr
-create_clustercryostat_cr: destroy_clustercryostat_cr
-	target_ns_json=$$(jq -nc '$$ARGS.positional' --args -- $(TARGET_NAMESPACES)) && \
-	$(CLUSTER_CLIENT) patch -f config/samples/operator_v1beta1_clustercryostat.yaml --local=true --type=merge \
-	-p "{\"spec\": {\"installNamespace\": \"$(DEPLOY_NAMESPACE)\", \"targetNamespaces\": $$target_ns_json}}" -o yaml | \
-	oc apply -f -
-
-# Undeploy a Cryostat instance
-.PHONY: destroy_cryostat_cr
-destroy_cryostat_cr:
-	- $(CLUSTER_CLIENT) delete --ignore-not-found=$(ignore-not-found) -f config/samples/operator_v1beta1_cryostat.yaml
-
-.PHONY: destroy_clustercryostat_cr
-destroy_clustercryostat_cr:
-	- $(CLUSTER_CLIENT) delete --ignore-not-found=$(ignore-not-found) -f config/samples/operator_v1beta1_clustercryostat.yaml
-
-# Build custom scorecard tests
 .PHONY: custom-scorecard-tests
-custom-scorecard-tests: fmt vet
+custom-scorecard-tests: fmt vet ## Build custom scorecard tests.
 	cd internal/images/custom-scorecard-tests/ && \
 	go build -o bin/cryostat-scorecard-tests main.go
 
-# Build the custom scorecard OCI image
 .PHONY: scorecard-build
-scorecard-build: custom-scorecard-tests
+scorecard-build: custom-scorecard-tests ## Build the custom scorecard OCI image.
 	printf '# Code generated by hack/custom.config.yaml.in. DO NOT EDIT.\n' > config/scorecard/patches/custom.config.yaml
 	envsubst < hack/custom.config.yaml.in >> config/scorecard/patches/custom.config.yaml
 # copy existing Dockerfile and insert --platform=${BUILDPLATFORM} into Dockerfile.cross, and preserve the original Dockerfile
@@ -470,21 +224,102 @@ else
 endif
 	rm internal/images/custom-scorecard-tests/Dockerfile.cross
 
+.PHONY: oci-build
+oci-build: manifests generate fmt vet test-envtest ## Build the OCI image.
+	BUILDAH_FORMAT=docker $(IMAGE_BUILDER) build --build-arg TARGETOS=$(OS) --build-arg TARGETARCH=$(ARCH) -t $(OPERATOR_IMG) .
+
+# You need to be able to push the image for your registry (i.e. if you do not inform a valid value via OPERATOR_IMG=<myregistry/image:<tag>> than the export will fail)
+# If IMAGE_BUILDER is docker, you need to:
+# - able to use docker buildx. More info: https://docs.docker.com/build/buildx/
+# - have enable BuildKit, More info: https://docs.docker.com/develop/develop-images/build_enhancements/
+# To properly provided solutions that supports more than one platform you should use this option.
+.PHONY: oci-buildx
+oci-buildx: manifests generate fmt vet test-envtest ## Build OCI image for the manager for cross-platform support.
+# copy existing Dockerfile and insert --platform=${BUILDPLATFORM} into Dockerfile.cross, and preserve the original Dockerfile
+	sed -e '1 s/\(^FROM\)/FROM --platform=\$$\{BUILDPLATFORM\}/; t' -e ' 1,// s//FROM --platform=\$$\{BUILDPLATFORM\}/' Dockerfile > Dockerfile.cross
+ifeq ($(IMAGE_BUILDER), docker)
+	- $(IMAGE_BUILDER) buildx create --name project-v3-builder
+	$(IMAGE_BUILDER) buildx use project-v3-builder
+	- $(IMAGE_BUILDER) buildx build --push --platform=$(PLATFORMS) --tag $(OPERATOR_IMG) -f Dockerfile.cross .
+	- $(IMAGE_BUILDER) buildx rm project-v3-builder
+else ifeq ($(IMAGE_BUILDER), podman)
+	BUILDAH_FORMAT=docker $(IMAGE_BUILDER) build -f Dockerfile.cross --manifest $(OPERATOR_IMG) --platform $(PLATFORMS) . ; \
+	if [ "${MANIFEST_PUSH}" = "true" ] ; then \
+		$(IMAGE_BUILDER) manifest push $(OPERATOR_IMG) $(OPERATOR_IMG) ; \
+	fi
+else
+	$(error unsupported IMAGE_BUILDER: $(IMAGE_BUILDER))
+endif
+	rm Dockerfile.cross
+
+.PHONY: catalog-build
+catalog-build: opm ## Build for catalog.
+	$(OPM) index add --container-tool $(IMAGE_BUILDER) --mode semver --tag $(CATALOG_IMG) --bundles $(BUNDLE_IMGS) $(FROM_INDEX_OPT)
+
+.PHONY: bundle
+bundle: manifests kustomize operator-sdk ## Generate bundle manifests and metadata, then validate generated files.
+	$(OPERATOR_SDK) generate kustomize manifests -q
+	cd config/manager && $(KUSTOMIZE) edit set image controller=$(OPERATOR_IMG)
+	$(KUSTOMIZE) build config/manifests | $(OPERATOR_SDK) generate bundle $(BUNDLE_GEN_FLAGS)
+	$(OPERATOR_SDK) bundle validate ./bundle
+
+.PHONY: bundle-build
+bundle-build: ## Build the bundle image.
+	$(IMAGE_BUILDER) build -f bundle.Dockerfile -t $(BUNDLE_IMG) .
+
+##@ Development
+
+.PHONY: manifests
+manifests: controller-gen ## Generate manifests e.g. CRD, RBAC etc.
+	$(CONTROLLER_GEN) rbac:roleName=role crd webhook paths="./..." output:crd:artifacts:config=config/crd/bases
+	envsubst < hack/image_tag_patch.yaml.in > config/default/image_tag_patch.yaml
+	envsubst < hack/image_pull_patch.yaml.in > config/default/image_pull_patch.yaml
+
+.PHONY: fmt
+fmt: add-license ## Run go fmt against code.
+	go fmt ./...
+
+.PHONY: vet
+vet: ## Run go vet against code.
+	go vet ./...
+
+.PHONY: generate
+generate: controller-gen ## Generate code.
+	go generate ./...
+	$(CONTROLLER_GEN) object:headerFile="hack/boilerplate.go.txt" paths="./..."
+
+LICENSE_FILE = $(shell pwd)/LICENSE
+GO_PACKAGES := $(shell go list -test -f '{{.Dir}}' ./... | sed -e "s|^$$(pwd)||" | cut -d/ -f2 | sort -u)
+.PHONY: check-license
+check-license: golicense ## Check and add (if missing) license header.
+	@echo "Checking license..."
+	$(GOLICENSE) --config=go-license.yml --verify $(shell find ${GO_PACKAGES} -name "*.go")
+
+.PHONY: add-license
+add-license: golicense ## Add license headers to code files.
+	@echo "Adding license..."
+	$(GOLICENSE) --config=go-license.yml $(shell find ${GO_PACKAGES} -name "*.go")
+
+.PHONY: remove-license
+remove-license: golicense ## Remove license headers from code files.
+	@echo "Removing license..."
+	$(GOLICENSE) --config=go-license.yml --remove $(shell find ${GO_PACKAGES} -name "*.go")
+
 # Local development/testing helpers
 ifneq ($(origin SAMPLE_APP_NAMESPACE), undefined)
 SAMPLE_APP_FLAGS += -n $(SAMPLE_APP_NAMESPACE)
 endif
 
 .PHONY: sample_app
-sample_app:
+sample_app: ## Deploy sample app.
 	$(CLUSTER_CLIENT) apply $(SAMPLE_APP_FLAGS) -f config/samples/sample-app.yaml
 
 .PHONY: undeploy_sample_app
-undeploy_sample_app:
+undeploy_sample_app: ## Undeploy sample app.
 	$(CLUSTER_CLIENT) delete $(SAMPLE_APP_FLAGS) --ignore-not-found=$(ignore-not-found) -f config/samples/sample-app.yaml
 
 .PHONY: sample_app_agent
-sample_app_agent: undeploy_sample_app_agent
+sample_app_agent: undeploy_sample_app_agent ## Deploy sample app agent.
 	@if [ -z "${AUTH_TOKEN}" ]; then \
 		if [ "${CLUSTER_CLIENT}" = "oc" ]; then\
 			AUTH_TOKEN=`oc whoami -t | base64`; \
@@ -497,5 +332,161 @@ sample_app_agent: undeploy_sample_app_agent
 	$(CLUSTER_CLIENT) set env $(SAMPLE_APP_FLAGS) deployment/quarkus-test-agent CRYOSTAT_AGENT_AUTHORIZATION="Bearer $(AUTH_TOKEN)"
 
 .PHONY: undeploy_sample_app_agent
-undeploy_sample_app_agent:
+undeploy_sample_app_agent: ## Undeploy sample app agent.
 	- $(CLUSTER_CLIENT) delete $(SAMPLE_APP_FLAGS) --ignore-not-found=$(ignore-not-found) -f config/samples/sample-app-agent.yaml
+
+.PHONY: cert_manager
+cert_manager: remove_cert_manager ## Restart cert manager.
+	$(CLUSTER_CLIENT) create --validate=false -f $(CERT_MANAGER_MANIFEST)
+
+.PHONY: remove_cert_manager
+remove_cert_manager: ## Remove cert manager.
+	- $(CLUSTER_CLIENT) delete --ignore-not-found=$(ignore-not-found) -f $(CERT_MANAGER_MANIFEST)
+
+.PHONY: check_cert_manager
+check_cert_manager: ## Check cert manager.
+	@api_versions=$$($(CLUSTER_CLIENT) api-versions) &&\
+	if [ $$(echo "$${api_versions}" | grep -c '^cert-manager.io/v1$$') -eq 0 ]; then\
+		if [ "$${DISABLE_SERVICE_TLS}" != "true" ]; then\
+			echo 'cert-manager is not installed, install using "make cert_manager" or disable TLS for services by setting DISABLE_SERVICE_TLS to true' >&2 && exit 1;\
+		fi;\
+	fi
+
+##@ Build Dependencies
+
+LOCALBIN ?= $(shell pwd)/bin
+PHONY: local-bin
+local-bin: ## Location to install dependencies.
+	mkdir -p $(LOCALBIN)
+
+CONTROLLER_GEN = $(LOCALBIN)/controller-gen
+.PHONY: controller-gen
+controller-gen: $(CONTROLLER_GEN) ## Download controller-gen locally if necessary. If wrong version is installed, it will be overwritten.
+$(CONTROLLER_GEN): local-bin
+	test -s $(CONTROLLER_GEN) && $(CONTROLLER_GEN) --version | grep -q $(CONTROLLER_TOOLS_VERSION) || \
+	GOBIN=$(LOCALBIN) go install sigs.k8s.io/controller-tools/cmd/controller-gen@v$(CONTROLLER_TOOLS_VERSION)
+
+KUSTOMIZE_INSTALL_SCRIPT ?= "https://raw.githubusercontent.com/kubernetes-sigs/kustomize/master/hack/install_kustomize.sh"
+KUSTOMIZE = $(LOCALBIN)/kustomize
+.PHONY: kustomize
+kustomize: $(KUSTOMIZE) ## Download kustomize locally if necessary. If wrong version is installed, it will be removed before downloading.
+$(KUSTOMIZE): local-bin
+	@if test -x $(LOCALBIN)/kustomize && ! $(LOCALBIN)/kustomize version | grep -q $(KUSTOMIZE_VERSION); then \
+		echo "$(LOCALBIN)/kustomize version is not expected $(KUSTOMIZE_VERSION). Removing it before installing."; \
+		rm -rf $(LOCALBIN)/kustomize; \
+	fi
+	test -s $(KUSTOMIZE) || { curl -Ss $(KUSTOMIZE_INSTALL_SCRIPT) | bash -s -- $(subst v,,$(KUSTOMIZE_VERSION)) $(LOCALBIN); }
+
+GOLICENSE = $(LOCALBIN)/go-license
+.PHONY: golicense
+golicense: $(GOLICENSE) ## Download go-license locally if necessary.
+$(GOLICENSE): local-bin
+	test -s $(GOLICENSE) || GOBIN=$(LOCALBIN) go install github.com/palantir/go-license@v$(GOLICENSE_VERSION)
+
+ENVTEST = $(LOCALBIN)/setup-envtest
+.PHONY: setup-envtest
+setup-envtest: $(ENVTEST) ## Download setup-envtest locally if necessary.
+$(ENVTEST): local-bin
+	test -s $(ENVTEST) || GOBIN=$(LOCALBIN) go install sigs.k8s.io/controller-runtime/tools/setup-envtest@latest
+
+OPM = $(LOCALBIN)/opm
+.PHONY: opm
+opm: $(OPM) ## Download opm locally if necessary.
+$(OPM): local-bin
+	test -s $(OPM) || \
+	{ \
+	set -e ;\
+	curl -sSLo $(OPM) https://github.com/operator-framework/operator-registry/releases/download/v$(OPM_VERSION)/$(OS)-$(ARCH)-opm ;\
+	chmod +x $(OPM) ;\
+	}
+
+.PHONY: operator-sdk
+OPERATOR_SDK ?= $(LOCALBIN)/operator-sdk
+operator-sdk: ## Download operator-sdk locally if necessary.
+ifeq (,$(wildcard $(OPERATOR_SDK)))
+ifeq (, $(shell which operator-sdk 2>/dev/null))
+	@{ \
+	set -e ;\
+	mkdir -p $(dir $(OPERATOR_SDK)) ;\
+	OS=$(shell go env GOOS) && ARCH=$(shell go env GOARCH) && \
+	curl -sSLo $(OPERATOR_SDK) https://github.com/operator-framework/operator-sdk/releases/download/$(OPERATOR_SDK_VERSION)/operator-sdk_$${OS}_$${ARCH} ;\
+	chmod +x $(OPERATOR_SDK) ;\
+	}
+else
+OPERATOR_SDK = $(shell which operator-sdk)
+endif
+endif
+
+##@ Deployment
+
+.PHONY: install
+install: manifests kustomize ## Install CRDs into a cluster.
+	$(KUSTOMIZE) build config/crd | $(CLUSTER_CLIENT) apply -f -
+
+.PHONY: uninstall
+uninstall: manifests kustomize ## Uninstall CRDs from a cluster.
+	- $(KUSTOMIZE) build config/crd | $(CLUSTER_CLIENT) delete --ignore-not-found=$(ignore-not-found) -f -
+
+.PHONY: predeploy
+predeploy: ## Prepare for deployment.
+	cd config/manager && $(KUSTOMIZE) edit set image controller=$(OPERATOR_IMG)
+	cd config/default && $(KUSTOMIZE) edit set namespace $(DEPLOY_NAMESPACE)
+
+.PHONY: print_deploy_config
+print_deploy_config: predeploy ## Print deployment configuration.
+	$(KUSTOMIZE) build config/default
+
+.PHONY: deploy
+deploy: check_cert_manager manifests kustomize predeploy ## Deploy controller in the configured Kubernetes cluster in ~/.kube/config
+	$(KUSTOMIZE) build config/default | $(CLUSTER_CLIENT) apply -f -
+ifeq ($(DISABLE_SERVICE_TLS), true)
+	@echo "Disabling TLS for in-cluster communication between Services"
+	@$(CLUSTER_CLIENT) -n $(DEPLOY_NAMESPACE) set env deployment/cryostat-operator-controller-manager DISABLE_SERVICE_TLS=true
+endif
+
+.PHONY: undeploy
+undeploy: ## Undeploy controller from the configured Kubernetes cluster in ~/.kube/config
+	- $(CLUSTER_CLIENT) delete --ignore-not-found=$(ignore-not-found) -f config/samples/operator_v1beta1_cryostat.yaml
+	- $(CLUSTER_CLIENT) delete --ignore-not-found=$(ignore-not-found) -f config/samples/operator_v1beta1_clustercryostat.yaml
+	- $(KUSTOMIZE) build config/default | $(CLUSTER_CLIENT) delete --ignore-not-found=$(ignore-not-found) -f -
+
+.PHONY: deploy_bundle
+deploy_bundle: check_cert_manager undeploy_bundle ## Deploy the bundled image.
+	$(OPERATOR_SDK) run bundle --install-mode $(BUNDLE_INSTALL_MODE) $(BUNDLE_IMG)
+ifeq ($(DISABLE_SERVICE_TLS), true)
+	@echo "Disabling TLS for in-cluster communication between Services"
+	@current_ns=`$(CLUSTER_CLIENT) config view --minify -o 'jsonpath={.contexts[0].context.namespace}'` && \
+	if [ -z "$${current_ns}" ]; then \
+		echo "Failed to determine Namespace in current context" >&2; \
+		exit 1; \
+	fi; \
+	set -f -- `$(CLUSTER_CLIENT) get sub -l "operators.coreos.com/$(OPERATOR_NAME).$${current_ns}" -o name` && \
+	if [ "$${#}" -ne 1 ]; then \
+		echo -e "Expected 1 Subscription, found $${#}:\n$${@}" >&2; \
+		exit 1; \
+	fi; \
+	$(CLUSTER_CLIENT) patch --type=merge -p '{"spec":{"config":{"env":[{"name":"DISABLE_SERVICE_TLS","value":"true"}]}}}' "$${1}"
+endif
+
+.PHONY: undeploy_bundle
+undeploy_bundle: operator-sdk ## Undeploy deployed bundle.
+	- $(OPERATOR_SDK) cleanup $(OPERATOR_NAME)
+
+.PHONY: create_cryostat_cr
+create_cryostat_cr: destroy_cryostat_cr ## Deploy a Cryostat instance.
+	$(CLUSTER_CLIENT) create -f config/samples/operator_v1beta1_cryostat.yaml
+
+.PHONY: create_clustercryostat_cr
+create_clustercryostat_cr: destroy_clustercryostat_cr ## Deploy a Cryostat cluster.
+	target_ns_json=$$(jq -nc '$$ARGS.positional' --args -- $(TARGET_NAMESPACES)) && \
+	$(CLUSTER_CLIENT) patch -f config/samples/operator_v1beta1_clustercryostat.yaml --local=true --type=merge \
+	-p "{\"spec\": {\"installNamespace\": \"$(DEPLOY_NAMESPACE)\", \"targetNamespaces\": $$target_ns_json}}" -o yaml | \
+	oc apply -f -
+
+.PHONY: destroy_cryostat_cr
+destroy_cryostat_cr: ## Undeploy a Cryostat instance.
+	- $(CLUSTER_CLIENT) delete --ignore-not-found=$(ignore-not-found) -f config/samples/operator_v1beta1_cryostat.yaml
+
+.PHONY: destroy_clustercryostat_cr
+destroy_clustercryostat_cr: ## Undeploy a Cryostat cluster.
+	- $(CLUSTER_CLIENT) delete --ignore-not-found=$(ignore-not-found) -f config/samples/operator_v1beta1_clustercryostat.yaml
