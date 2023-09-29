@@ -86,6 +86,8 @@ jobs:
   run-test-jobs:
     uses: ./.github/workflows/test-ci-reusable.yml
     needs: [get-test-image-tag, checkout-branch]
+    permissions:
+      packages: write
     with:
       repository: ${{ needs.checkout-branch.outputs.PR_repo }}
       ref: ${{ needs.checkout-branch.outputs.PR_head_ref }}

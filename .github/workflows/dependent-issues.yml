@@ -12,7 +12,7 @@ on:
       - edited
       - reopened
       - synchronize
-
+  
   # Schedule a daily check. Used in referencing cross-repository
   # issues or pull requests
   schedule:
@@ -20,6 +20,10 @@ on:
 
 jobs:
   check:
+    permissions:
+      issues: write
+      pull-requests: write
+      statuses: write
     runs-on: ubuntu-latest
     steps:
       - uses: z0al/dependent-issues@v1
