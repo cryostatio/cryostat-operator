@@ -12,7 +12,6 @@ on:
       - edited
       - reopened
       - synchronize
-  
   # Schedule a daily check. Used in referencing cross-repository
   # issues or pull requests
   schedule:
