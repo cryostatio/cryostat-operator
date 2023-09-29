@@ -34,11 +34,11 @@ jobs:
         && (!contains(github.event.issue.labels.*.name, 'safe-to-test') || github.event.issue.user.name != github.event.comment.user.name)
       run: exit 1
     - name: React to comment
-      uses: actions/github-script@v4
+      uses: actions/github-script@v6
       with:
         script: |
             const {owner, repo} = context.issue
-            github.reactions.createForIssueComment({
+            github.rest.reactions.createForIssueComment({github.reactions.createForIssueComment
               owner,
               repo,
               comment_id: context.payload.comment.id,
@@ -55,11 +55,11 @@ jobs:
       PR_num: ${{ fromJSON(steps.comment-branch.outputs.result).num }}
       PR_repo: ${{ fromJSON(steps.comment-branch.outputs.result).repo }}
     steps:
-    - uses: actions/github-script@v4
+    - uses: actions/github-script@v6
       id: comment-branch
       with:
         script: |
-          const result = await github.pulls.get ({
+          const result = await github.rest.pulls.get ({
             owner: context.repo.owner,
             repo: context.repo.repo,
             pull_number: context.issue.number
