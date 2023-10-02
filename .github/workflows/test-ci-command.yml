@@ -38,7 +38,7 @@ jobs:
       with:
         script: |
             const {owner, repo} = context.issue
-            github.rest.reactions.createForIssueComment({github.reactions.createForIssueComment
+            github.rest.reactions.createForIssueComment({
               owner,
               repo,
               comment_id: context.payload.comment.id,
