@@ -26,7 +26,7 @@ jobs:
   build-operator:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v4
     - name: Install podman v4
       run: |
         echo "deb $OPENSUSE_UNOFFICIAL_LIBCONTAINERS_SOURCE_URL/ /" | sudo tee /etc/apt/sources.list.d/devel:kubic:libcontainers:unstable.list
@@ -63,7 +63,7 @@ jobs:
   build-bundle:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v4
     - name: Build bundle image
       run: IMAGE_NAMESPACE=${{ env.CI_REGISTRY }} make bundle-build
     - name: Tag image
@@ -93,7 +93,7 @@ jobs:
   build-scorecard:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v4
     - name: Get scorecard image tag
       id: get-image-tag
       run: |
