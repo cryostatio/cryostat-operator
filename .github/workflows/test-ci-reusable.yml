@@ -2,16 +2,16 @@ on:
   workflow_call:
     inputs:
       tag:
-        required: true 
+        required: true
         type: string
       repository:
         required: false
         type: string
       ref:
-        required: false 
+        required: false
         type: string
       
-env: 
+env:
   OPENSUSE_UNOFFICIAL_LIBCONTAINERS_KEY_URL: "https://download.opensuse.org/repositories/devel:/kubic:/libcontainers:/unstable/xUbuntu_22.04/Release.key"
   OPENSUSE_UNOFFICIAL_LIBCONTAINERS_SOURCE_URL: "https://download.opensuse.org/repositories/devel:/kubic:/libcontainers:/unstable/xUbuntu_22.04"
 
@@ -27,7 +27,7 @@ jobs:
       with:
         owner: ${{ github.repository_owner }}
         name: ${{ matrix.image }}
-        token: ${{ secrets.GHCR_PR_TOKEN }}
+        token: ${{ secrets.GITHUB_TOKEN }}
         ignore-missing-package: true
         tag-regex: ${{ inputs.tag }}
         tagged-keep-latest: 0
@@ -80,7 +80,7 @@ jobs:
         tags: ${{ inputs.tag }}
         registry: ghcr.io/${{ github.repository_owner }}
         username: ${{ github.repository_owner }}
-        password: ${{ secrets.GHCR_PR_TOKEN }}
+        password: ${{ secrets.GITHUB_TOKEN }}
     - name: Build operator image for test
       run: |
         OPERATOR_IMG=ghcr.io/${{ github.repository_owner }}/cryostat-operator:${{ inputs.tag }} \
@@ -94,7 +94,7 @@ jobs:
         tags: ${{ inputs.tag }}
         registry: ghcr.io/${{ github.repository_owner }}
         username: ${{ github.repository_owner }}
-        password: ${{ secrets.GHCR_PR_TOKEN }}
+        password: ${{ secrets.GITHUB_TOKEN }}
     - name: Build bundle image for test
       run: |
         yq -i '.spec.template.spec.imagePullSecrets = [{"name": "registry-key"}]' config/manager/manager.yaml
@@ -109,7 +109,7 @@ jobs:
         tags: ${{ inputs.tag }}
         registry: ghcr.io/${{ github.repository_owner }}
         username: ${{ github.repository_owner }}
-        password: ${{ secrets.GHCR_PR_TOKEN }}
+        password: ${{ secrets.GITHUB_TOKEN }}
     - name: Set up Kind cluster
       run: |
         kind create cluster --config=".github/kind-config.yaml" -n ci-${{ github.run_id }}
@@ -124,14 +124,14 @@ jobs:
       with:
         registry: ghcr.io
         username: ${{ github.repository_owner }}
-        password: ${{ secrets.GHCR_PR_TOKEN }}
+        password: ${{ secrets.GITHUB_TOKEN }}
         auth_file_path: $HOME/.docker/config.json
     - name: Run scorecard tests
       run: |
         SCORECARD_REGISTRY_SERVER="ghcr.io" \
         SCORECARD_REGISTRY_USERNAME="${{ github.repository_owner }}" \
-        SCORECARD_REGISTRY_PASSWORD="${{ secrets.GHCR_PR_TOKEN }}" \
+        SCORECARD_REGISTRY_PASSWORD="${{ secrets.GITHUB_TOKEN }}" \
         BUNDLE_IMG="${{ steps.push-bundle-to-ghcr.outputs.registry-path }}" \
         make test-scorecard
-    - name: Clean up Kind cluster 
+    - name: Clean up Kind cluster
       run: kind delete cluster -n ci-${{ github.run_id }}

@@ -195,7 +195,7 @@ run: manifests generate fmt vet ## Run against the configured Kubernetes cluster
 	go run ./internal/main.go
 
 ifndef ignore-not-found
-	ignore-not-found = false
+ignore-not-found = false
 endif
 
 .PHONY: custom-scorecard-tests
