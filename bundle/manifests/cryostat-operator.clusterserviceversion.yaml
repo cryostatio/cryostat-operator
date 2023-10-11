@@ -53,8 +53,8 @@ metadata:
       ]
     capabilities: Seamless Upgrades
     categories: Monitoring, Developer Tools
-    containerImage: quay.io/cryostat/cryostat-operator:2.4.0-dev
-    createdAt: "2023-09-28T14:25:20Z"
+    containerImage: quay.io/cryostat/cryostat-operator:2.5.0-dev
+    createdAt: "2023-10-11T14:49:05Z"
     description: JVM monitoring and profiling tool
     operatorframework.io/initialization-resource: |-
       {
@@ -79,7 +79,7 @@ metadata:
     operatorframework.io/arch.amd64: supported
     operatorframework.io/arch.arm64: supported
     operatorframework.io/os.linux: supported
-  name: cryostat-operator.v2.4.0-dev
+  name: cryostat-operator.v2.5.0-dev
   namespace: placeholder
 spec:
   apiservicedefinitions: {}
@@ -1084,7 +1084,7 @@ spec:
                   valueFrom:
                     fieldRef:
                       fieldPath: metadata.annotations['olm.targetNamespaces']
-                image: quay.io/cryostat/cryostat-operator:2.4.0-dev
+                image: quay.io/cryostat/cryostat-operator:2.5.0-dev
                 imagePullPolicy: Always
                 livenessProbe:
                   httpGet:
@@ -1199,4 +1199,4 @@ spec:
     name: grafana
   - image: quay.io/cryostat/cryostat-reports:latest
     name: reports
-  version: 2.4.0-dev
+  version: 2.5.0-dev
