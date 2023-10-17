@@ -64,8 +64,8 @@ jobs:
       run: |
         echo "deb $OPENSUSE_UNOFFICIAL_LIBCONTAINERS_SOURCE_URL/ /" | sudo tee /etc/apt/sources.list.d/devel:kubic:libcontainers:unstable.list
         curl -fsSL $OPENSUSE_UNOFFICIAL_LIBCONTAINERS_KEY_URL | gpg --dearmor | sudo tee /etc/apt/trusted.gpg.d/devel_kubic_libcontainers_unstable.gpg
-        sudo apt update
-        sudo apt install podman
+        sudo apt -y update
+        sudo apt -y install podman
     - name: Build scorecard image for test
       run: |
         CUSTOM_SCORECARD_IMG=ghcr.io/${{ github.repository_owner }}/cryostat-operator-scorecard:${{ inputs.tag }} \
