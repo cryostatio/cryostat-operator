@@ -18,6 +18,5 @@ updates:
       - dependency-name: sigs.k8s.io/*
         update-types: ["version-update:semver-major", "version-update:semver-minor"]
       - dependency-name: github.com/openshift/api
-        update-types: ["version-update:semver-major", "version-update:semver-minor"]
       - dependency-name: github.com/onsi/*
         update-types: ["version-update:semver-major", "version-update:semver-minor"]
