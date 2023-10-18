@@ -1,0 +1,22 @@
+version: 2
+
+updates:
+  - package-ecosystem: gomod
+    directory: /
+    schedule:
+      interval: daily
+    reviewers:
+      - "cryostatio/reviewers"
+    labels:
+      - "dependencies"
+      - "chore"
+      - "safe-to-test"
+    open-pull-requests-limit: 20
+    ignore:
+      - dependency-name: k8s.io/*
+        update-types: ["version-update:semver-major", "version-update:semver-minor"]
+      - dependency-name: sigs.k8s.io/*
+        update-types: ["version-update:semver-major", "version-update:semver-minor"]
+      - dependency-name: github.com/openshift/api
+      - dependency-name: github.com/onsi/*
+        update-types: ["version-update:semver-major", "version-update:semver-minor"]
