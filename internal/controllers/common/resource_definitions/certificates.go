@@ -54,11 +54,11 @@ func NewCryostatCAIssuer(cr *model.CryostatInstance) *certv1.Issuer {
 	}
 }
 
-func NewCryostatCACert(cr *model.CryostatInstance) *certv1.Certificate {
+func NewCryostatCACert(cr *model.CryostatInstance, namespace string) *certv1.Certificate {
 	return &certv1.Certificate{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      cr.Name + "-ca",
-			Namespace: cr.InstallNamespace,
+			Namespace: namespace,
 		},
 		Spec: certv1.CertificateSpec{
 			CommonName: fmt.Sprintf("ca.%s.cert-manager", cr.Name),

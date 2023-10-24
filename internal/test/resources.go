@@ -1071,11 +1071,11 @@ func (r *TestResources) NewReportsCert() *certv1.Certificate {
 	}
 }
 
-func (r *TestResources) NewCACert() *certv1.Certificate {
+func (r *TestResources) NewCACert(ns string) *certv1.Certificate {
 	return &certv1.Certificate{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      r.Name + "-ca",
-			Namespace: r.Namespace,
+			Namespace: ns,
 		},
 		Spec: certv1.CertificateSpec{
 			CommonName: fmt.Sprintf("ca.%s.cert-manager", r.Name),

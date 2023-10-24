@@ -56,7 +56,7 @@ func (r *Reconciler) setupTLS(ctx context.Context, cr *model.CryostatInstance) (
 	}
 
 	// Create CA certificate for Cryostat using the self-signed issuer
-	caCert := resources.NewCryostatCACert(cr)
+	caCert := resources.NewCryostatCACert(cr, cr.InstallNamespace)
 	err = r.createOrUpdateCertificate(ctx, caCert, cr.Object)
 	if err != nil {
 		return nil, err
@@ -120,6 +120,33 @@ func (r *Reconciler) setupTLS(ctx context.Context, cr *model.CryostatInstance) (
 	err = r.setCertSecretOwner(ctx, cr.Object, certificates...)
 	if err != nil {
 		return nil, err
+	}
+
+	// Copy Cryostat CA secret in each target namespace
+	for _, ns := range cr.TargetNamespaces {
+		secret, err := r.GetCertificateSecret(ctx, caCert)
+		if err != nil {
+			return nil, err
+		}
+		namespaceSecret := secret.DeepCopy()
+		namespaceSecret.Namespace = ns
+	}
+	// Delete any Cryostat CA secrets in target namespaces that are no longer requested
+	for _, ns := range toDelete(cr) {
+		secret, err := r.GetCertificateSecret(ctx, caCert)
+		if err != nil {
+			return nil, err
+		}
+		namespaceSecret := &corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      secret.Name,
+				Namespace: ns,
+			},
+		}
+		err = r.deleteSecret(ctx, namespaceSecret)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	// Get the Cryostat CA certificate bytes from certificate secret
