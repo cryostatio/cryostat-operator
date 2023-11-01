@@ -1,0 +1,82 @@
+apiVersion: console.openshift.io/v1
+kind: ConsoleQuickStart
+metadata:
+  annotations: 
+    capability.openshift.io/name: Console
+  name: configuring-cryostat
+spec:
+  title: Configure Java applications with the Red Hat build of Cryostat 
+  conclusion: Your Java application has now been configured to be detected by Cryostat. To profile your Java applications with Cryostat, please follow this documentation.
+  description: Configure your Java applications on OpenShift to be profiled and monitored using the Red Hat build of Cryostat.
+  durationMinutes: 10
+  displayName: Configuring Cryostat
+  introduction: "Cryostat is a container-native Java application based on JDK Flight Recorder (JFR). You can use it to monitor the performance of the Java Virtual Machine (JVM) for containerized workloads that run on an OpenShift cluster.
+To enable Cryostat to gather, store, and analyze Java Flight Recorder (JFR) data about target applications that run on Java Virtual Machine (JVM)s, you must configure the applications so that Cryostat can detect and connect to them. This requires you to configure your Java applications to allow Java Management Extensions (JMX) connections and use an OpenShift Service for detection and JMX for connectivity.
+JMX is a standard feature on a JVM with which you can monitor and manage target applications that run on the JVM. For Cryostat to use JMX, you must enable and configure JMX when you start the JVM because Cryostat requires the target applications to expose a JMX port. Cryostat communicates with the target applications over this JMX port to start and stop JFR recordings and to pull JFR data over the network, enabling Cryostat to store and analyze this JFR data. 
+If you have not yet installed the Cryostat operator, start with the “Get started with the Red Hat build of Cryostat” quick start.
+
+
+In this quick start, you will complete the following tasks:
+Enable remote Java Management Extensions (JMX) connections on your Java application
+Update Red Hat OpenShift Services with the remote JMX port
+View your Java application as a target in the Cryostat web application
+Note: The quickstart uses a sample Quarkus application. You can deploy your own Quarkus application or follow this quick start."
+  tasks:
+  - description: "To enable remote JMX connections:
+Click on the perspective switcher at the top of the navigation, and select Administrator.
+In the navigation menu, click Workloads > Deployments.
+Click on the quarkus-quickstarts deployment name (or your application’s deployment name).
+Click Environment.
+Add a single value entry environment variable where 
+Name: JAVA_OPTS_APPEND
+Value: -Dcom.sun.management.jmxremote.port=9091 -Dcom.sun.management.jmxremote.authenticate=false -Dcom.sun.management.jmxremote.ssl=false
+Note: This method enables remote JMX without authentication. Reference Configuring Java applications for details on configuring authentication with SSL/TLS for Remote JMX.
+Click Save."
+    review: 
+      failedTaskHelp: "This task isn’t verified yet. Try the task again."
+      instructions: |-
+        "Click Reload at the bottom of the Environment tab.
+        1. Do you see a single values entry for JAVA_OPTS_APPEND?
+        Yes/No"
+      summary:
+        failed: This task isn’t verified yet. Try the task again.
+        success: You have enabled remote JMX connections.
+    title: Enable remote Java Management Extensions (JMX) connections on your Java application
+  - description: "To update Red Hat OpenShift Service with the remote JMX port:
+Click on the perspective switcher at the top of the navigation, and select Administrator.
+In the navigation menu, click Networking > Services.
+Click on the quarkus-quickstarts service name (or your application’s service name).
+Click the “YAML” tab to bring up the YAML editor.
+In the spec > ports section, add a new port for jfr-jmx
+/code    
+- name: jfr-jmx
+      protocol: TCP
+      port: 9091
+      targetPort: 9091
+Click Save."
+    review: 
+      failedTaskHelp: "This task isn’t verified yet. Try the task again, or read more about this topic."
+      instructions: |-
+        "Click on the perspective switcher at the top of the navigation, and select Developer.
+	In the navigation menu, click Topology.
+	Click on the Cryostat-sample pod > Resources.
+	Do you see Service port: jfr-jmx -> Pod port: 9091 in the cryostat-sample service?"
+      summary:
+        failed: "This task isn’t verified yet. Try the task again, or read more about this topic."
+        success: "You have updated the Red Hat Openshift Service with the remote JMX port."
+      title: "Update the Red Hat Openshift Service with the remote JMX port."
+  - description: "View your Java application as a target in Cryostat:
+Click on the perspective switcher at the top of the navigation, and select Developer.
+In the navigation menu, click Topology.
+The external link icon on the top right quadrant of the cryostat-sample deployment represents the route URL. Click on the external link icon to open the URL and run the Cryostat web application in a new browser tab.
+Enter your OpenShift credentials to log in to the Cryostat web application.
+In the Cryostat web application, click on Recordings in the left navigation menu.
+View quarkus-quickstarts (or your deployed application) in the Targets list.
+Your Java application has now been configured to be detected by Cryostat. To profile your Java applications with Cryostat, please follow this documentation."
+accessReviewResources:
+  - group: operator.cryostat.io
+    resource: cryostat
+    verb: create
+  - group: operators.coreos.com
+    resource: cryostat-operator
+    verb: create
