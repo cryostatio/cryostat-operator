@@ -65,14 +65,11 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
-	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
-	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-	"sigs.k8s.io/controller-runtime/pkg/source"
 )
 
 // ReconcilerConfig contains common configuration parameters for
@@ -86,6 +83,7 @@ type ReconcilerConfig struct {
 	EventRecorder          record.EventRecorder
 	RESTMapper             meta.RESTMapper
 	Namespaces             []string
+	Insights               bool
 	common.ReconcilerTLS
 }
 
@@ -341,10 +339,7 @@ func (r *Reconciler) setupWithManager(mgr ctrl.Manager, impl reconcile.Reconcile
 				}
 			}
 			return true
-		})).
-		Watches(&source.Kind{Type: &corev1.Secret{}},
-			handler.EnqueueRequestsFromMapFunc(r.findObjectsForPullSecret),
-			builder.WithPredicates(predicate.ResourceVersionChangedPredicate{}))
+		}))
 
 	// Watch for changes to secondary resources and requeue the owner Cryostat
 	resources := []client.Object{&appsv1.Deployment{}, &corev1.Service{}, &corev1.Secret{}, &corev1.PersistentVolumeClaim{},
@@ -634,59 +629,6 @@ func mergeLabelsAndAnnotations(dest *metav1.ObjectMeta, srcLabels, srcAnnotation
 	for k, v := range srcAnnotations {
 		dest.Annotations[k] = v
 	}
-}
-
-func (r *Reconciler) findObjectsForPullSecret(secret client.Object) []reconcile.Request {
-	if secret.GetNamespace() != "openshift-config" || secret.GetName() != "pull-secret" {
-		fmt.Printf("GOT SECRET %s/%s\n", secret.GetNamespace(), secret.GetName())
-		return nil
-	}
-	namespaces := []string{""}
-	if r.isNamespaced {
-		namespaces = r.Namespaces
-	}
-
-	result := []reconcile.Request{}
-	for _, namespace := range namespaces {
-		instanceList, ok := r.listType.DeepCopyObject().(client.ObjectList)
-		if !ok {
-			r.Log.Error(fmt.Errorf("type %T is not an ObjectList", r.listType),
-				"could not allocate a list")
-			return []reconcile.Request{}
-		}
-
-		listOps := &client.ListOptions{
-			Namespace: namespace,
-		}
-		err := r.List(context.Background(), instanceList, listOps)
-		if err != nil {
-			r.Log.Error(err, "failed to list %T", r.objectType, "namespace", namespace)
-			return []reconcile.Request{}
-		}
-
-		items, err := meta.ExtractList(instanceList)
-		if err != nil {
-			r.Log.Error(err, "could not get items from list")
-			return []reconcile.Request{}
-		}
-		requests := make([]reconcile.Request, len(items))
-		for i, item := range items {
-			obj, err := meta.Accessor(item)
-			if err != nil {
-				r.Log.Error(err, "list contains an invalid item")
-			}
-			requests[i] = reconcile.Request{
-				NamespacedName: types.NamespacedName{
-					Name:      obj.GetName(),
-					Namespace: obj.GetNamespace(),
-				},
-			}
-			// XXX
-			r.Log.Info(fmt.Sprintf("Enqueueing %T %s for pull-secret change", r.objectType, types.NamespacedName{Namespace: obj.GetNamespace(), Name: obj.GetName()}.String()))
-		}
-		result = append(result, requests...)
-	}
-	return result
 }
 
 func namespacesToSet(namespaces []string) map[string]struct{} {

@@ -17,3 +17,5 @@ spec:
           value: "quay.io/cryostat/cryostat-grafana-dashboard:latest"
         - name: RELATED_IMAGE_REPORTS
           value: "quay.io/cryostat/cryostat-reports:latest"
+        - name: RELATED_IMAGE_INSIGHTS_PROXY
+          value: "quay.io/3scale/apicast:insights-01"

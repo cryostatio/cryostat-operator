@@ -34,12 +34,26 @@ rules:
   verbs:
   - get
 - apiGroups:
+  - ""
+  resources:
+  - secrets
+  - services
+  verbs:
+  - '*'
+- apiGroups:
   - apps
   resources:
   - daemonsets
   - deployments
   - replicasets
   - statefulsets
+  verbs:
+  - '*'
+- apiGroups:
+  - apps
+  resources:
+  - deployments
+  - deployments/finalizers
   verbs:
   - '*'
 - apiGroups:

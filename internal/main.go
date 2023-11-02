@@ -48,6 +48,7 @@ import (
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 
 	certv1 "github.com/cert-manager/cert-manager/pkg/apis/certmanager/v1"
+	"github.com/go-logr/logr"
 	configv1 "github.com/openshift/api/config/v1"
 	consolev1 "github.com/openshift/api/console/v1"
 	routev1 "github.com/openshift/api/route/v1"
@@ -63,6 +64,7 @@ import (
 	operatorv1beta1 "github.com/cryostatio/cryostat-operator/api/v1beta1"
 	"github.com/cryostatio/cryostat-operator/internal/controllers"
 	"github.com/cryostatio/cryostat-operator/internal/controllers/common"
+	"github.com/cryostatio/cryostat-operator/internal/controllers/insights"
 	// +kubebuilder:scaffold:imports
 )
 
@@ -163,8 +165,26 @@ func main() {
 		setupLog.Info("did not find cert-manager installation")
 	}
 
+	// Optionally enable Insights integration
+	insights := false
+	// TODO want some way to clean up without deleting operator. Maybe need a ConfigMap or CR owner instead of this deployment
+	if isInsightsEnabled() {
+		namespace := getOperatorNamespace()
+		// This will happen when running the operator locally
+		if len(namespace) == 0 {
+			setupLog.Info("Operator namespace not detected, disabling Insights integration")
+		} else {
+			err := createInsightsController(mgr, namespace, setupLog)
+			if err != nil {
+				setupLog.Error(err, "unable to add controller to manager", "controller", "Insights")
+			} else {
+				insights = true
+			}
+		}
+	}
+
 	config := newReconcilerConfig(mgr, "ClusterCryostat", "clustercryostat-controller", openShift,
-		certManager, namespaces)
+		certManager, namespaces, insights)
 	clusterController, err := controllers.NewClusterCryostatReconciler(config)
 	if err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "ClusterCryostat")
@@ -175,7 +195,7 @@ func main() {
 		os.Exit(1)
 	}
 	config = newReconcilerConfig(mgr, "Cryostat", "cryostat-controller", openShift, certManager,
-		namespaces)
+		namespaces, insights)
 	controller, err := controllers.NewCryostatReconciler(config)
 	if err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "Cryostat")
@@ -226,7 +246,7 @@ func isCertManagerInstalled(client discovery.DiscoveryInterface) (bool, error) {
 }
 
 func newReconcilerConfig(mgr ctrl.Manager, logName string, eventRecorderName string, openShift bool,
-	certManager bool, namespaces []string) *controllers.ReconcilerConfig {
+	certManager bool, namespaces []string, insights bool) *controllers.ReconcilerConfig {
 	return &controllers.ReconcilerConfig{
 		Client:                 mgr.GetClient(),
 		Log:                    ctrl.Log.WithName("controllers").WithName(logName),
@@ -236,8 +256,38 @@ func newReconcilerConfig(mgr ctrl.Manager, logName string, eventRecorderName str
 		EventRecorder:          mgr.GetEventRecorderFor(eventRecorderName),
 		RESTMapper:             mgr.GetRESTMapper(),
 		Namespaces:             namespaces,
+		Insights:               insights,
 		ReconcilerTLS: common.NewReconcilerTLS(&common.ReconcilerTLSConfig{
 			Client: mgr.GetClient(),
 		}),
 	}
+}
+
+func isInsightsEnabled() bool {
+	return strings.ToLower(os.Getenv(insights.EnvInsightsEnabled)) == "true"
+}
+
+func getOperatorNamespace() string {
+	return os.Getenv("NAMESPACE")
+}
+
+func createInsightsController(mgr ctrl.Manager, namespace string, log logr.Logger) error {
+	config := &insights.InsightsReconcilerConfig{
+		Client:    mgr.GetClient(),
+		Log:       ctrl.Log.WithName("controllers").WithName("Insights"),
+		Scheme:    mgr.GetScheme(),
+		Namespace: namespace,
+		ReconcilerTLS: common.NewReconcilerTLS(&common.ReconcilerTLSConfig{
+			Client: mgr.GetClient(),
+		}),
+	}
+	controller, err := insights.NewInsightsReconciler(config)
+	if err != nil {
+		return err
+	}
+	if err := controller.SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to add controller to manager", "controller", "Insights")
+		os.Exit(1)
+	}
+	return nil
 }

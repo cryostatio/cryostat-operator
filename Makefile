@@ -114,6 +114,19 @@ ifneq ("$(wildcard $(GINKGO))","")
 GO_TEST="$(GINKGO)" -cover -output-dir=.
 endif
 
+# Optional Red Hat Insights integration
+ENABLE_INSIGHTS ?= false
+ifeq ($(ENABLE_INSIGHTS), true)
+KUSTOMIZE_DIR ?= config/insights
+INSIGHTS_PROXY_NAMESPACE ?= quay.io/3scale
+INSIGHTS_PROXY_NAME ?= apicast
+INSIGHTS_PROXY_VERSION ?= insights-01
+export INSIGHTS_PROXY_IMG ?= $(INSIGHTS_PROXY_NAMESPACE)/$(INSIGHTS_PROXY_NAME):$(INSIGHTS_PROXY_VERSION)
+export INSIGHTS_BACKEND ?= cert.console.redhat.com
+else
+KUSTOMIZE_DIR ?= config/default
+endif
+
 .PHONY: all
 all: manager
 
@@ -203,12 +216,12 @@ predeploy:
 
 .PHONY: print_deploy_config
 print_deploy_config: predeploy
-	$(KUSTOMIZE) build config/default
+	$(KUSTOMIZE) build $(KUSTOMIZE_DIR)
 
 # Deploy controller in the configured Kubernetes cluster in ~/.kube/config
 .PHONY: deploy
 deploy: check_cert_manager manifests kustomize predeploy
-	$(KUSTOMIZE) build config/default | $(CLUSTER_CLIENT) apply -f -
+	$(KUSTOMIZE) build $(KUSTOMIZE_DIR) | $(CLUSTER_CLIENT) apply -f -
 ifeq ($(DISABLE_SERVICE_TLS), true)
 	@echo "Disabling TLS for in-cluster communication between Services"
 	@$(CLUSTER_CLIENT) -n $(DEPLOY_NAMESPACE) set env deployment/cryostat-operator-controller-manager DISABLE_SERVICE_TLS=true
@@ -219,7 +232,7 @@ endif
 undeploy:
 	- $(CLUSTER_CLIENT) delete --ignore-not-found=$(ignore-not-found) -f config/samples/operator_v1beta1_cryostat.yaml
 	- $(CLUSTER_CLIENT) delete --ignore-not-found=$(ignore-not-found) -f config/samples/operator_v1beta1_clustercryostat.yaml
-	- $(KUSTOMIZE) build config/default | $(CLUSTER_CLIENT) delete --ignore-not-found=$(ignore-not-found) -f -
+	- $(KUSTOMIZE) build $(KUSTOMIZE_DIR) | $(CLUSTER_CLIENT) delete --ignore-not-found=$(ignore-not-found) -f -
 
 # Generate manifests e.g. CRD, RBAC etc.
 .PHONY: manifests
@@ -227,6 +240,9 @@ manifests: controller-gen
 	$(CONTROLLER_GEN) rbac:roleName=role crd webhook paths="./..." output:crd:artifacts:config=config/crd/bases
 	envsubst < hack/image_tag_patch.yaml.in > config/default/image_tag_patch.yaml
 	envsubst < hack/image_pull_patch.yaml.in > config/default/image_pull_patch.yaml
+ifeq ($(ENABLE_INSIGHTS), true)
+	envsubst < hack/insights_patch.yaml.in > config/insights/insights_patch.yaml
+endif
 
 # Run go fmt against code
 .PHONY: fmt

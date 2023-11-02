@@ -1,0 +1,17 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: controller-manager
+  namespace: system
+spec:
+  template:
+    spec:
+      containers:
+      - name: manager
+        env:
+        - name: RELATED_IMAGE_INSIGHTS_PROXY
+          value: "${INSIGHTS_PROXY_IMG}"
+        - name: INSIGHTS_ENABLED
+          value: "true"
+        - name: INSIGHTS_BACKEND_DOMAIN
+          value: "${INSIGHTS_BACKEND}"
