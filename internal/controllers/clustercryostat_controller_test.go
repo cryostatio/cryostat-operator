@@ -66,10 +66,6 @@ var _ = Describe("ClusterCryostatController", func() {
 			t.expectRBAC()
 		})
 
-		It("should create Cryostat CA Certificate in each namespace", func() {
-			t.expectCertificates()
-		})
-
 		It("should update the target namespaces in Status", func() {
 			t.expectTargetNamespaces()
 		})
@@ -95,15 +91,6 @@ var _ = Describe("ClusterCryostatController", func() {
 			It("should remove RBAC from the second namespace", func() {
 				binding := t.NewRoleBinding(targetNamespaces[1])
 				err := t.Client.Get(context.Background(), types.NamespacedName{Name: binding.Name, Namespace: binding.Namespace}, binding)
-				Expect(err).ToNot(BeNil())
-				Expect(errors.IsNotFound(err)).To(BeTrue())
-			})
-			It("leave Cryostat CA Certificate for the first namespace", func() {
-				t.expectCertificates()
-			})
-			It("should remove Cryostat CA Certificate from the second namespace", func() {
-				certificate := t.NewCACert(targetNamespaces[1])
-				err := t.Client.Get(context.Background(), types.NamespacedName{Name: certificate.Name, Namespace: certificate.Namespace}, certificate)
 				Expect(err).ToNot(BeNil())
 				Expect(errors.IsNotFound(err)).To(BeTrue())
 			})

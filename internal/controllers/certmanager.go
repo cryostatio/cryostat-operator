@@ -56,7 +56,7 @@ func (r *Reconciler) setupTLS(ctx context.Context, cr *model.CryostatInstance) (
 	}
 
 	// Create CA certificate for Cryostat using the self-signed issuer
-	caCert := resources.NewCryostatCACert(cr, cr.InstallNamespace)
+	caCert := resources.NewCryostatCACert(cr)
 	err = r.createOrUpdateCertificate(ctx, caCert, cr.Object)
 	if err != nil {
 		return nil, err

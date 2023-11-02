@@ -70,7 +70,7 @@ func (c *testClient) makeCertificatesReady(ctx context.Context, obj runtime.Obje
 	// If this object is one of the operator-managed certificates, mock the behaviour
 	// of cert-manager processing those certificates
 	cert, ok := obj.(*certv1.Certificate)
-	if ok && c.matchesName(cert, c.NewCryostatCert(), c.NewCACert(c.Namespace), c.NewGrafanaCert(), c.NewReportsCert()) &&
+	if ok && c.matchesName(cert, c.NewCryostatCert(), c.NewCACert(), c.NewGrafanaCert(), c.NewReportsCert()) &&
 		len(cert.Status.Conditions) == 0 {
 		// Create certificate secret
 		c.createCertSecret(ctx, cert)

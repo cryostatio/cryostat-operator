@@ -1865,7 +1865,7 @@ func (c *controllerTest) commonTests() {
 				})
 
 				It("should fail to reconcile", func() {
-					t.expectAlreadyOwnedError(reconcileErr, "Certificate", t.NewCACert(nsInput.Namespace), otherInput)
+					t.expectAlreadyOwnedError(reconcileErr, "RoleBinding", t.NewRoleBinding(nsInput.Namespace), otherInput)
 				})
 
 				It("should emit a CryostatNameConflict event", func() {
@@ -2304,7 +2304,7 @@ func (t *cryostatTestInput) expectWaitingForCertificate() {
 
 func (t *cryostatTestInput) expectCertificates() {
 	// Check certificates
-	certs := []*certv1.Certificate{t.NewCryostatCert(), t.NewCACert(t.Namespace), t.NewReportsCert()}
+	certs := []*certv1.Certificate{t.NewCryostatCert(), t.NewCACert(), t.NewReportsCert()}
 	if !t.Minimal {
 		certs = append(certs, t.NewGrafanaCert())
 	} else {
@@ -2316,16 +2316,6 @@ func (t *cryostatTestInput) expectCertificates() {
 	}
 	for _, expected := range certs {
 		actual := &certv1.Certificate{}
-		err := t.Client.Get(context.Background(), types.NamespacedName{Name: expected.Name, Namespace: expected.Namespace}, actual)
-		Expect(err).ToNot(HaveOccurred())
-		t.checkMetadata(actual, expected)
-		Expect(actual.Spec).To(Equal(expected.Spec))
-	}
-	// Check for Cryostat CA Certificate in each target namespace
-	Expect(t.TargetNamespaces).ToNot(BeEmpty()) // Sanity check for tests
-	for _, ns := range t.TargetNamespaces {
-		actual := &certv1.Certificate{}
-		expected := t.NewCACert(ns)
 		err := t.Client.Get(context.Background(), types.NamespacedName{Name: expected.Name, Namespace: expected.Namespace}, actual)
 		Expect(err).ToNot(HaveOccurred())
 		t.checkMetadata(actual, expected)
