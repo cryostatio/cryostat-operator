@@ -41,6 +41,7 @@ import (
 	"fmt"
 
 	operatorv1beta1 "github.com/cryostatio/cryostat-operator/api/v1beta1"
+	"github.com/cryostatio/cryostat-operator/internal/controllers/common"
 	"github.com/cryostatio/cryostat-operator/internal/controllers/model"
 	corev1 "k8s.io/api/core/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
@@ -86,7 +87,7 @@ func (r *Reconciler) createOrUpdatePVC(ctx context.Context, pvc *corev1.Persiste
 	owner metav1.Object, config *operatorv1beta1.PersistentVolumeClaimConfig) error {
 	op, err := controllerutil.CreateOrUpdate(ctx, r.Client, pvc, func() error {
 		// Merge labels and annotations to prevent overriding any set by Kubernetes
-		mergeLabelsAndAnnotations(&pvc.ObjectMeta, config.Labels, config.Annotations)
+		common.MergeLabelsAndAnnotations(&pvc.ObjectMeta, config.Labels, config.Annotations)
 
 		// Set the Cryostat CR as controller
 		if err := controllerutil.SetControllerReference(owner, pvc, r.Scheme); err != nil {

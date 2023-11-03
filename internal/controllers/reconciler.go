@@ -98,7 +98,6 @@ type CommonReconciler interface {
 type Reconciler struct {
 	*ReconcilerConfig
 	objectType   client.Object
-	listType     client.ObjectList
 	isNamespaced bool
 	gvk          *schema.GroupVersionKind
 }
@@ -156,7 +155,6 @@ func newReconciler(config *ReconcilerConfig, objType client.Object, listType cli
 	return &Reconciler{
 		ReconcilerConfig: config,
 		objectType:       objType,
-		listType:         listType,
 		isNamespaced:     isNamespaced,
 		gvk:              &gvk,
 	}, nil
@@ -314,32 +312,28 @@ func (r *Reconciler) reconcile(ctx context.Context, cr *model.CryostatInstance) 
 	return reconcile.Result{}, nil
 }
 
+func NamespaceEventFilter(scheme *runtime.Scheme, namespaceList []string) predicate.Predicate {
+	namespaces := namespacesToSet(namespaceList)
+	return predicate.NewPredicateFuncs(func(object client.Object) bool {
+		// Restrict watch for namespaced objects to specified namespaces
+		if len(object.GetNamespace()) > 0 {
+			_, pres := namespaces[object.GetNamespace()]
+			if !pres {
+				return false
+			}
+		}
+		return true
+	})
+}
+
 func (r *Reconciler) setupWithManager(mgr ctrl.Manager, impl reconcile.Reconciler) error {
-	namespaces := namespacesToSet(r.Namespaces)
 	c := ctrl.NewControllerManagedBy(mgr).
-		For(r.objectType).
+		For(r.objectType)
+
+	if r.isNamespaced {
 		// TODO remove this once only AllNamespace mode is supported
-		WithEventFilter(predicate.NewPredicateFuncs(func(object client.Object) bool {
-			// Restrict watch for namespaced CRs to specified namespaces
-			fmt.Println("KIND: " + object.GetObjectKind().GroupVersionKind().GroupKind().String()) // XXX
-			gk := object.GetObjectKind().GroupVersionKind().GroupKind()
-			if gk.Empty() {
-				gvk, err := apiutil.GVKForObject(object, mgr.GetScheme())
-				if err != nil {
-					r.Log.Info("failed to find GVK for %T %s/%s", object, object.GetNamespace(), object.GetName())
-					return false
-				}
-				gk = gvk.GroupKind()
-				fmt.Println("KIND after lookup: " + gvk.GroupKind().String()) // XXX
-			}
-			if gk == r.gvk.GroupKind() && len(object.GetNamespace()) > 0 {
-				_, pres := namespaces[object.GetNamespace()]
-				if !pres {
-					return false
-				}
-			}
-			return true
-		}))
+		c = c.WithEventFilter(NamespaceEventFilter(mgr.GetScheme(), r.Namespaces))
+	}
 
 	// Watch for changes to secondary resources and requeue the owner Cryostat
 	resources := []client.Object{&appsv1.Deployment{}, &corev1.Service{}, &corev1.Secret{}, &corev1.PersistentVolumeClaim{},
@@ -511,7 +505,7 @@ func (r *Reconciler) createOrUpdateDeployment(ctx context.Context, deploy *appsv
 	op, err := controllerutil.CreateOrUpdate(ctx, r.Client, deploy, func() error {
 		// TODO consider managing labels and annotations using CRD
 		// Merge any required labels and annotations
-		mergeLabelsAndAnnotations(&deploy.ObjectMeta, deployCopy.Labels, deployCopy.Annotations)
+		common.MergeLabelsAndAnnotations(&deploy.ObjectMeta, deployCopy.Labels, deployCopy.Annotations)
 		// Set the Cryostat CR as controller
 		if err := controllerutil.SetControllerReference(owner, deploy, r.Scheme); err != nil {
 			return err
@@ -530,7 +524,7 @@ func (r *Reconciler) createOrUpdateDeployment(ctx context.Context, deploy *appsv
 		// Update pod template spec to propagate any changes from Cryostat CR
 		deploy.Spec.Template.Spec = deployCopy.Spec.Template.Spec
 		// Update pod template metadata
-		mergeLabelsAndAnnotations(&deploy.Spec.Template.ObjectMeta, deployCopy.Spec.Template.Labels,
+		common.MergeLabelsAndAnnotations(&deploy.Spec.Template.ObjectMeta, deployCopy.Spec.Template.Labels,
 			deployCopy.Spec.Template.Annotations)
 		return nil
 	})
@@ -611,24 +605,6 @@ func findDeployCondition(conditions []appsv1.DeploymentCondition, condType appsv
 		}
 	}
 	return nil
-}
-
-func mergeLabelsAndAnnotations(dest *metav1.ObjectMeta, srcLabels, srcAnnotations map[string]string) {
-	// Check and create labels/annotations map if absent
-	if dest.Labels == nil {
-		dest.Labels = map[string]string{}
-	}
-	if dest.Annotations == nil {
-		dest.Annotations = map[string]string{}
-	}
-
-	// Merge labels and annotations, preferring those in the source
-	for k, v := range srcLabels {
-		dest.Labels[k] = v
-	}
-	for k, v := range srcAnnotations {
-		dest.Annotations[k] = v
-	}
 }
 
 func namespacesToSet(namespaces []string) map[string]struct{} {

@@ -410,10 +410,6 @@ func NewReportContainerResource(cr *model.CryostatInstance) *corev1.ResourceRequ
 	return resources
 }
 
-// ALL capability to drop for restricted pod security. See:
-// https://kubernetes.io/docs/concepts/security/pod-security-standards/#restricted
-const capabilityAll corev1.Capability = "ALL"
-
 func NewPodForReports(cr *model.CryostatInstance, imageTags *ImageTags, tls *TLSConfig, openshift bool) *corev1.PodSpec {
 	resources := NewReportContainerResource(cr)
 	cpus := resources.Requests.Cpu().Value() // Round to 1 if cpu request < 1000m
@@ -515,7 +511,7 @@ func NewPodForReports(cr *model.CryostatInstance, imageTags *ImageTags, tls *TLS
 		containerSc = &corev1.SecurityContext{
 			AllowPrivilegeEscalation: &privEscalation,
 			Capabilities: &corev1.Capabilities{
-				Drop: []corev1.Capability{capabilityAll},
+				Drop: []corev1.Capability{constants.CapabilityAll},
 			},
 		}
 	}
@@ -920,7 +916,7 @@ func NewCoreContainer(cr *model.CryostatInstance, specs *ServiceSpecs, imageTag 
 		containerSc = &corev1.SecurityContext{
 			AllowPrivilegeEscalation: &privEscalation,
 			Capabilities: &corev1.Capabilities{
-				Drop: []corev1.Capability{capabilityAll},
+				Drop: []corev1.Capability{constants.CapabilityAll},
 			},
 		}
 	}
@@ -1010,7 +1006,7 @@ func NewGrafanaContainer(cr *model.CryostatInstance, imageTag string, tls *TLSCo
 		containerSc = &corev1.SecurityContext{
 			AllowPrivilegeEscalation: &privEscalation,
 			Capabilities: &corev1.Capabilities{
-				Drop: []corev1.Capability{capabilityAll},
+				Drop: []corev1.Capability{constants.CapabilityAll},
 			},
 		}
 	}
@@ -1070,7 +1066,7 @@ func NewJfrDatasourceContainer(cr *model.CryostatInstance, imageTag string) core
 		containerSc = &corev1.SecurityContext{
 			AllowPrivilegeEscalation: &privEscalation,
 			Capabilities: &corev1.Capabilities{
-				Drop: []corev1.Capability{capabilityAll},
+				Drop: []corev1.Capability{constants.CapabilityAll},
 			},
 		}
 	}

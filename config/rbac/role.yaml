@@ -9,6 +9,15 @@ rules:
   - ""
   resources:
   - configmaps
+  - configmaps/finalizers
+  - secrets
+  - services
+  verbs:
+  - '*'
+- apiGroups:
+  - ""
+  resources:
+  - configmaps
   - endpoints
   - events
   - persistentvolumeclaims
@@ -33,13 +42,6 @@ rules:
   - replicationcontrollers
   verbs:
   - get
-- apiGroups:
-  - ""
-  resources:
-  - secrets
-  - services
-  verbs:
-  - '*'
 - apiGroups:
   - apps
   resources:

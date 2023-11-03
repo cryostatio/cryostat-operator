@@ -45,6 +45,7 @@ import (
 	"strings"
 	"time"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
@@ -59,21 +60,21 @@ type OSUtils interface {
 	GenPasswd(length int) string
 }
 
-type defaultOSUtils struct{}
+type DefaultOSUtils struct{}
 
 // GetEnv returns the value of the environment variable with the provided name. If no such
 // variable exists, the empty string is returned.
-func (o *defaultOSUtils) GetEnv(name string) string {
+func (o *DefaultOSUtils) GetEnv(name string) string {
 	return os.Getenv(name)
 }
 
 // GetFileContents reads and returns the entire file contents specified by the path
-func (o *defaultOSUtils) GetFileContents(path string) ([]byte, error) {
+func (o *DefaultOSUtils) GetFileContents(path string) ([]byte, error) {
 	return ioutil.ReadFile(path)
 }
 
 // GenPasswd generates a psuedorandom password of a given length.
-func (o *defaultOSUtils) GenPasswd(length int) string {
+func (o *DefaultOSUtils) GenPasswd(length int) string {
 	rand.Seed(time.Now().UnixNano())
 	chars := "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_"
 	b := make([]byte, length)
@@ -90,4 +91,25 @@ func ClusterUniqueName(gvk *schema.GroupVersionKind, name string, namespace stri
 	nn := types.NamespacedName{Namespace: namespace, Name: name}
 	suffix := fmt.Sprintf("%x", sha256.Sum256([]byte(nn.String())))
 	return strings.ToLower(gvk.Kind) + "-" + suffix
+}
+
+// MergeLabelsAndAnnotations copies labels and annotations from a source
+// to the destination ObjectMeta, overwriting any existing labels and
+// annotations of the same key.
+func MergeLabelsAndAnnotations(dest *metav1.ObjectMeta, srcLabels, srcAnnotations map[string]string) {
+	// Check and create labels/annotations map if absent
+	if dest.Labels == nil {
+		dest.Labels = map[string]string{}
+	}
+	if dest.Annotations == nil {
+		dest.Annotations = map[string]string{}
+	}
+
+	// Merge labels and annotations, preferring those in the source
+	for k, v := range srcLabels {
+		dest.Labels[k] = v
+	}
+	for k, v := range srcAnnotations {
+		dest.Annotations[k] = v
+	}
 }

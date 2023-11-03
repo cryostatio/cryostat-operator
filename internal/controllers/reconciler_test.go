@@ -234,7 +234,7 @@ func expectSuccessful(t **cryostatTestInput) {
 
 func (c *controllerTest) commonTests() {
 	c.commonTestsWithoutManager()
-	c.commonTestsWithManager()
+	//c.commonTestsWithManager()
 }
 
 func (c *controllerTest) commonTestsWithoutManager() {

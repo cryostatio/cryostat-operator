@@ -40,7 +40,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"os"
 
 	ctrl "sigs.k8s.io/controller-runtime"
 
@@ -51,10 +50,8 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
-	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
-	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 )
@@ -72,13 +69,14 @@ type InsightsReconcilerConfig struct {
 	Log       logr.Logger
 	Scheme    *runtime.Scheme
 	Namespace string
-	common.ReconcilerTLS
+	common.OSUtils
 }
 
 const (
 	// TODO move to constants, share
+	InsightsConfigMapName    = "insights-proxy"
 	OperatorDeploymentName   = "cryostat-operator-controller-manager"
-	ProxyDeploymentName      = "insights-proxy"
+	ProxyDeploymentName      = InsightsConfigMapName
 	ProxyServiceName         = ProxyDeploymentName
 	ProxySecretName          = "apicastconf"
 	EnvInsightsBackendDomain = "INSIGHTS_BACKEND_DOMAIN" // TODO Kustomize?
@@ -93,7 +91,7 @@ func NewInsightsReconciler(config *InsightsReconcilerConfig) (*InsightsReconcile
 	if len(backendDomain) == 0 {
 		return nil, errors.New("no backend domain provided for Insights")
 	}
-	imageTag := os.Getenv(EnvInsightsProxyImageTag)
+	imageTag := config.GetEnv(EnvInsightsProxyImageTag)
 	if len(imageTag) == 0 {
 		return nil, errors.New("no proxy image tag provided for Insights")
 	}
@@ -108,7 +106,7 @@ func NewInsightsReconciler(config *InsightsReconcilerConfig) (*InsightsReconcile
 }
 
 // +kubebuilder:rbac:groups=apps,resources=deployments;deployments/finalizers,verbs=*
-// +kubebuilder:rbac:groups="",resources=services;secrets,verbs=*
+// +kubebuilder:rbac:groups="",resources=services;secrets;configmaps;configmaps/finalizers,verbs=*
 
 // Reconcile processes a Cryostat CR and manages a Cryostat installation accordingly
 func (r *InsightsReconciler) Reconcile(ctx context.Context, request ctrl.Request) (ctrl.Result, error) {
@@ -133,14 +131,11 @@ func (r *InsightsReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	c := ctrl.NewControllerManagedBy(mgr).
 		Named("insights").
 		Watches(&source.Kind{Type: &corev1.Secret{}},
-			handler.EnqueueRequestsFromMapFunc(r.isPullSecretOrProxyConfig), // TODO extract handlers and unit test
-			builder.WithPredicates(predicate.ResourceVersionChangedPredicate{})).
+			handler.EnqueueRequestsFromMapFunc(r.isPullSecretOrProxyConfig)). // TODO extract handlers and unit test
 		Watches(&source.Kind{Type: &appsv1.Deployment{}},
-			handler.EnqueueRequestsFromMapFunc(r.isProxyDeployment),
-			builder.WithPredicates(predicate.ResourceVersionChangedPredicate{})).
+			handler.EnqueueRequestsFromMapFunc(r.isProxyDeployment)).
 		Watches(&source.Kind{Type: &corev1.Service{}},
-			handler.EnqueueRequestsFromMapFunc(r.isProxyService),
-			builder.WithPredicates(predicate.ResourceVersionChangedPredicate{}))
+			handler.EnqueueRequestsFromMapFunc(r.isProxyService))
 	return c.Complete(r)
 }
 

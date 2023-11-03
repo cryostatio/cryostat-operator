@@ -34,65 +34,51 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-package controllers_test
+package test
 
 import (
-	"github.com/cryostatio/cryostat-operator/internal/controllers"
-	"github.com/cryostatio/cryostat-operator/internal/controllers/model"
-	. "github.com/onsi/ginkgo/v2"
-	. "github.com/onsi/gomega"
-	"sigs.k8s.io/controller-runtime/pkg/event"
-	"sigs.k8s.io/controller-runtime/pkg/predicate"
+	"strconv"
 )
 
-var _ = Describe("CryostatController", func() {
-	c := &controllerTest{
-		clusterScoped:   false,
-		constructorFunc: newCryostatController,
+// TestUtilsConfig groups parameters used to create a test OSUtils
+type TestUtilsConfig struct {
+	EnvInsightsEnabled       *bool
+	EnvInsightsProxyImageTag *string
+	EnvInsightsBackendDomain *string
+	EnvInsightsProxyDomain   *string
+}
+
+type testOSUtils struct {
+	envs map[string]string
+}
+
+func NewTestOSUtils(config *TestUtilsConfig) *testOSUtils {
+	envs := map[string]string{}
+	if config.EnvInsightsEnabled != nil {
+		envs["DISABLE_SERVICE_TLS"] = strconv.FormatBool(*config.EnvInsightsEnabled)
 	}
+	if config.EnvInsightsProxyImageTag != nil {
+		envs["RELATED_IMAGE_INSIGHTS_PROXY"] = *config.EnvInsightsProxyImageTag
+	}
+	if config.EnvInsightsBackendDomain != nil {
+		envs["INSIGHTS_BACKEND_DOMAIN"] = *config.EnvInsightsBackendDomain
+	}
+	if config.EnvInsightsProxyDomain != nil {
+		envs["INSIGHTS_PROXY_DOMAIN"] = *config.EnvInsightsProxyDomain
+	}
+	return &testOSUtils{envs: envs}
+}
 
-	c.commonTests()
+func (o *testOSUtils) GetFileContents(path string) ([]byte, error) {
+	// Unused
+	return nil, nil
+}
 
-	Describe("filtering requests", func() {
-		Context("watches the configured namespace(s)", func() {
-			var t *cryostatTestInput
-			var filter predicate.Predicate
-			var cr *model.CryostatInstance
+func (o *testOSUtils) GetEnv(name string) string {
+	return o.envs[name]
+}
 
-			BeforeEach(func() {
-				t = c.commonBeforeEach()
-			})
-			JustBeforeEach(func() {
-				c.commonJustBeforeEach(t)
-				filter = controllers.NamespaceEventFilter(t.Client.Scheme(), t.watchNamespaces)
-			})
-			Context("creating a CR in the watched namespace", func() {
-				BeforeEach(func() {
-					cr = t.NewCryostat()
-				})
-				It("should reconcile the CR", func() {
-					result := filter.Create(event.CreateEvent{
-						Object: cr.Object,
-					})
-					Expect(result).To(BeTrue())
-				})
-			})
-			Context("creating a CR in a non-watched namespace", func() {
-				BeforeEach(func() {
-					t.Namespace = "something-else"
-					cr = t.NewCryostat()
-				})
-				It("should reconcile the CR", func() {
-					result := filter.Create(event.CreateEvent{
-						Object: cr.Object,
-					})
-					Expect(result).To(BeFalse())
-				})
-			})
-		})
-	})
-})
-
-func newCryostatController(config *controllers.ReconcilerConfig) (controllers.CommonReconciler, error) {
-	return controllers.NewCryostatReconciler(config)
+func (o *testOSUtils) GenPasswd(length int) string {
+	// Unused
+	return ""
 }

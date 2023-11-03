@@ -81,7 +81,7 @@ const disableServiceTLS = "DISABLE_SERVICE_TLS"
 func NewReconcilerTLS(config *ReconcilerTLSConfig) ReconcilerTLS {
 	configCopy := *config
 	if config.OSUtils == nil {
-		configCopy.OSUtils = &defaultOSUtils{}
+		configCopy.OSUtils = &DefaultOSUtils{}
 	}
 	return &reconcilerTLS{
 		ReconcilerTLSConfig: &configCopy,

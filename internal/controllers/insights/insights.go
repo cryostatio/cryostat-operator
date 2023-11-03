@@ -43,6 +43,8 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/cryostatio/cryostat-operator/internal/controllers/common"
+	"github.com/cryostatio/cryostat-operator/internal/controllers/constants"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -70,8 +72,8 @@ func (r *InsightsReconciler) reconcilePullSecret(ctx context.Context) error {
 			Namespace: r.Namespace,
 		},
 	}
-	owner := &appsv1.Deployment{}
-	err := r.Client.Get(ctx, types.NamespacedName{Name: OperatorDeploymentName,
+	owner := &corev1.ConfigMap{}
+	err := r.Client.Get(ctx, types.NamespacedName{Name: InsightsConfigMapName,
 		Namespace: r.Namespace}, owner)
 	if err != nil {
 		return err
@@ -79,11 +81,9 @@ func (r *InsightsReconciler) reconcilePullSecret(ctx context.Context) error {
 
 	token, err := r.getTokenFromPullSecret(ctx)
 	if err != nil {
-		// TODO warn instead of fail?
 		return err
 	}
 
-	// TODO convert to APICast secret
 	params := &apiCastConfigParams{
 		FrontendDomains:       fmt.Sprintf("\"%s\",\"%s.%s.svc.cluster.local\"", ProxyServiceName, ProxyServiceName, r.Namespace),
 		BackendInsightsDomain: r.backendDomain,
@@ -95,13 +95,7 @@ func (r *InsightsReconciler) reconcilePullSecret(ctx context.Context) error {
 		return err
 	}
 
-	return r.createOrUpdateSecret(ctx, secret, owner, func() error {
-		if secret.StringData == nil {
-			secret.StringData = map[string]string{}
-		}
-		secret.StringData["config.json"] = *config
-		return nil
-	})
+	return r.createOrUpdateProxySecret(ctx, secret, owner, *config)
 }
 
 func (r *InsightsReconciler) reconcileProxyDeployment(ctx context.Context) error {
@@ -111,14 +105,14 @@ func (r *InsightsReconciler) reconcileProxyDeployment(ctx context.Context) error
 			Namespace: r.Namespace,
 		},
 	}
-	owner := &appsv1.Deployment{}
-	err := r.Client.Get(ctx, types.NamespacedName{Name: OperatorDeploymentName,
+	owner := &corev1.ConfigMap{}
+	err := r.Client.Get(ctx, types.NamespacedName{Name: InsightsConfigMapName,
 		Namespace: r.Namespace}, owner)
 	if err != nil {
 		return err
 	}
 
-	return r.createOrUpdateDeployment(ctx, deploy, owner)
+	return r.createOrUpdateProxyDeployment(ctx, deploy, owner)
 }
 
 func (r *InsightsReconciler) reconcileProxyService(ctx context.Context) error {
@@ -128,14 +122,14 @@ func (r *InsightsReconciler) reconcileProxyService(ctx context.Context) error {
 			Namespace: r.Namespace,
 		},
 	}
-	owner := &appsv1.Deployment{}
-	err := r.Client.Get(ctx, types.NamespacedName{Name: OperatorDeploymentName,
+	owner := &corev1.ConfigMap{}
+	err := r.Client.Get(ctx, types.NamespacedName{Name: InsightsConfigMapName,
 		Namespace: r.Namespace}, owner)
 	if err != nil {
 		return err
 	}
 
-	return r.createOrUpdateService(ctx, svc, owner)
+	return r.createOrUpdateProxyService(ctx, svc, owner)
 }
 
 func (r *InsightsReconciler) getTokenFromPullSecret(ctx context.Context) (*string, error) {
@@ -177,16 +171,19 @@ func (r *InsightsReconciler) getTokenFromPullSecret(ctx context.Context) (*strin
 	return &token, nil
 }
 
-// FIXME dedup
-func (r *InsightsReconciler) createOrUpdateSecret(ctx context.Context, secret *corev1.Secret, owner metav1.Object,
-	delegate controllerutil.MutateFn) error {
+func (r *InsightsReconciler) createOrUpdateProxySecret(ctx context.Context, secret *corev1.Secret, owner metav1.Object,
+	config string) error {
 	op, err := controllerutil.CreateOrUpdate(ctx, r.Client, secret, func() error {
-		// Set the Cryostat CR as controller
+		// Set the config map as controller
 		if err := controllerutil.SetControllerReference(owner, secret, r.Scheme); err != nil {
 			return err
 		}
-		// Call the delegate for secret-specific mutations
-		return delegate()
+		// Add the APICast config.json
+		if secret.StringData == nil {
+			secret.StringData = map[string]string{}
+		}
+		secret.StringData["config.json"] = config
+		return nil
 	})
 	if err != nil {
 		return err
@@ -195,13 +192,12 @@ func (r *InsightsReconciler) createOrUpdateSecret(ctx context.Context, secret *c
 	return nil
 }
 
-// TODO dedup
-func (r *InsightsReconciler) createOrUpdateDeployment(ctx context.Context, deploy *appsv1.Deployment, owner metav1.Object) error {
+func (r *InsightsReconciler) createOrUpdateProxyDeployment(ctx context.Context, deploy *appsv1.Deployment, owner metav1.Object) error {
 	op, err := controllerutil.CreateOrUpdate(ctx, r.Client, deploy, func() error {
 		labels := map[string]string{"app": ProxyDeploymentName}
 		annotations := map[string]string{}
-		mergeLabelsAndAnnotations(&deploy.ObjectMeta, labels, annotations)
-		// Set the Cryostat CR as controller
+		common.MergeLabelsAndAnnotations(&deploy.ObjectMeta, labels, annotations)
+		// Set the config map as controller
 		if err := controllerutil.SetControllerReference(owner, deploy, r.Scheme); err != nil {
 			return err
 		}
@@ -210,16 +206,15 @@ func (r *InsightsReconciler) createOrUpdateDeployment(ctx context.Context, deplo
 			// Selector is immutable, avoid modifying if possible
 			deploy.Spec.Selector = &metav1.LabelSelector{
 				MatchLabels: map[string]string{
-					"app": ProxyDeploymentName, // FIXME Does this need to be "deployment"?
+					"app": ProxyDeploymentName,
 				},
 			}
 		}
-		// TODO handle selector modified case?
 
-		// Update pod template spec to propagate any changes from Cryostat CR
-		deploy.Spec.Template.Spec = *r.getPodSpec()
+		// Update pod template spec
+		deploy.Spec.Template.Spec = *r.getProxyPodSpec()
 		// Update pod template metadata
-		mergeLabelsAndAnnotations(&deploy.Spec.Template.ObjectMeta, labels, annotations)
+		common.MergeLabelsAndAnnotations(&deploy.Spec.Template.ObjectMeta, labels, annotations)
 		return nil
 	})
 	if err != nil {
@@ -229,14 +224,14 @@ func (r *InsightsReconciler) createOrUpdateDeployment(ctx context.Context, deplo
 	return nil
 }
 
-func (r *InsightsReconciler) createOrUpdateService(ctx context.Context, svc *corev1.Service, owner metav1.Object) error {
+func (r *InsightsReconciler) createOrUpdateProxyService(ctx context.Context, svc *corev1.Service, owner metav1.Object) error {
 	op, err := controllerutil.CreateOrUpdate(ctx, r.Client, svc, func() error {
 		// Update labels and annotations
 		labels := map[string]string{"app": ProxyDeploymentName}
 		annotations := map[string]string{}
-		mergeLabelsAndAnnotations(&svc.ObjectMeta, labels, annotations)
+		common.MergeLabelsAndAnnotations(&svc.ObjectMeta, labels, annotations)
 
-		// Set the Cryostat CR as controller
+		// Set the config map as controller
 		if err := controllerutil.SetControllerReference(owner, svc, r.Scheme); err != nil {
 			return err
 		}
@@ -266,12 +261,7 @@ func (r *InsightsReconciler) createOrUpdateService(ctx context.Context, svc *cor
 	return nil
 }
 
-// TODO dedup
-// ALL capability to drop for restricted pod security. See:
-// https://kubernetes.io/docs/concepts/security/pod-security-standards/#restricted
-const capabilityAll corev1.Capability = "ALL"
-
-func (r *InsightsReconciler) getPodSpec() *corev1.PodSpec {
+func (r *InsightsReconciler) getProxyPodSpec() *corev1.PodSpec {
 	privEscalation := false
 	nonRoot := true
 	readOnlyMode := int32(0440)
@@ -312,7 +302,7 @@ func (r *InsightsReconciler) getPodSpec() *corev1.PodSpec {
 				SecurityContext: &corev1.SecurityContext{
 					AllowPrivilegeEscalation: &privEscalation,
 					Capabilities: &corev1.Capabilities{
-						Drop: []corev1.Capability{capabilityAll},
+						Drop: []corev1.Capability{constants.CapabilityAll},
 					},
 				},
 				LivenessProbe: &corev1.Probe{
@@ -372,24 +362,5 @@ func seccompProfile(openshift bool) *corev1.SeccompProfile {
 	}
 	return &corev1.SeccompProfile{
 		Type: corev1.SeccompProfileTypeRuntimeDefault,
-	}
-}
-
-// TODO dedup
-func mergeLabelsAndAnnotations(dest *metav1.ObjectMeta, srcLabels, srcAnnotations map[string]string) {
-	// Check and create labels/annotations map if absent
-	if dest.Labels == nil {
-		dest.Labels = map[string]string{}
-	}
-	if dest.Annotations == nil {
-		dest.Annotations = map[string]string{}
-	}
-
-	// Merge labels and annotations, preferring those in the source
-	for k, v := range srcLabels {
-		dest.Labels[k] = v
-	}
-	for k, v := range srcAnnotations {
-		dest.Annotations[k] = v
 	}
 }
