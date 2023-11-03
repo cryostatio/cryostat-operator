@@ -46,6 +46,7 @@ type TestUtilsConfig struct {
 	EnvInsightsProxyImageTag *string
 	EnvInsightsBackendDomain *string
 	EnvInsightsProxyDomain   *string
+	EnvNamespace             *string
 }
 
 type testOSUtils struct {
@@ -55,7 +56,7 @@ type testOSUtils struct {
 func NewTestOSUtils(config *TestUtilsConfig) *testOSUtils {
 	envs := map[string]string{}
 	if config.EnvInsightsEnabled != nil {
-		envs["DISABLE_SERVICE_TLS"] = strconv.FormatBool(*config.EnvInsightsEnabled)
+		envs["INSIGHTS_ENABLED"] = strconv.FormatBool(*config.EnvInsightsEnabled)
 	}
 	if config.EnvInsightsProxyImageTag != nil {
 		envs["RELATED_IMAGE_INSIGHTS_PROXY"] = *config.EnvInsightsProxyImageTag
@@ -65,6 +66,9 @@ func NewTestOSUtils(config *TestUtilsConfig) *testOSUtils {
 	}
 	if config.EnvInsightsProxyDomain != nil {
 		envs["INSIGHTS_PROXY_DOMAIN"] = *config.EnvInsightsProxyDomain
+	}
+	if config.EnvNamespace != nil {
+		envs["NAMESPACE"] = *config.EnvNamespace
 	}
 	return &testOSUtils{envs: envs}
 }

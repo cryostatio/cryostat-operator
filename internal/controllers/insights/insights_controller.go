@@ -39,7 +39,6 @@ package insights
 import (
 	"context"
 	"errors"
-	"fmt"
 
 	ctrl "sigs.k8s.io/controller-runtime"
 
@@ -79,7 +78,7 @@ const (
 	ProxyDeploymentName      = InsightsConfigMapName
 	ProxyServiceName         = ProxyDeploymentName
 	ProxySecretName          = "apicastconf"
-	EnvInsightsBackendDomain = "INSIGHTS_BACKEND_DOMAIN" // TODO Kustomize?
+	EnvInsightsBackendDomain = "INSIGHTS_BACKEND_DOMAIN"
 	EnvInsightsProxyDomain   = "INSIGHTS_PROXY_DOMAIN"
 	EnvInsightsEnabled       = "INSIGHTS_ENABLED"
 	// Environment variable to override the Insights proxy image
@@ -111,13 +110,8 @@ func NewInsightsReconciler(config *InsightsReconcilerConfig) (*InsightsReconcile
 // Reconcile processes a Cryostat CR and manages a Cryostat installation accordingly
 func (r *InsightsReconciler) Reconcile(ctx context.Context, request ctrl.Request) (ctrl.Result, error) {
 	reqLogger := r.Log.WithValues("Request.Namespace", request.Namespace, "Request.Name", request.Name)
-
 	reqLogger.Info("Reconciling Insights Proxy")
 
-	// FIXME probably can remove this
-	if request.Name != ProxyDeploymentName || request.Namespace != r.Namespace {
-		reqLogger.Error(nil, "Invalid request")
-	}
 	// Reconcile all Insights support
 	err := r.reconcileInsights(ctx)
 	if err != nil {
@@ -131,7 +125,7 @@ func (r *InsightsReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	c := ctrl.NewControllerManagedBy(mgr).
 		Named("insights").
 		Watches(&source.Kind{Type: &corev1.Secret{}},
-			handler.EnqueueRequestsFromMapFunc(r.isPullSecretOrProxyConfig)). // TODO extract handlers and unit test
+			handler.EnqueueRequestsFromMapFunc(r.isPullSecretOrProxyConfig)).
 		Watches(&source.Kind{Type: &appsv1.Deployment{}},
 			handler.EnqueueRequestsFromMapFunc(r.isProxyDeployment)).
 		Watches(&source.Kind{Type: &corev1.Service{}},
@@ -142,7 +136,6 @@ func (r *InsightsReconciler) SetupWithManager(mgr ctrl.Manager) error {
 func (r *InsightsReconciler) isPullSecretOrProxyConfig(secret client.Object) []reconcile.Request {
 	if !(secret.GetNamespace() == "openshift-config" && secret.GetName() == "pull-secret") &&
 		!(secret.GetNamespace() == r.Namespace && secret.GetName() == ProxySecretName) {
-		fmt.Printf("GOT SECRET %s/%s\n", secret.GetNamespace(), secret.GetName())
 		return nil
 	}
 	return r.proxyDeploymentRequest()
@@ -150,7 +143,6 @@ func (r *InsightsReconciler) isPullSecretOrProxyConfig(secret client.Object) []r
 
 func (r *InsightsReconciler) isProxyDeployment(deploy client.Object) []reconcile.Request {
 	if deploy.GetNamespace() != r.Namespace || deploy.GetName() != ProxyDeploymentName {
-		fmt.Printf("GOT DEPLOYMENT %s/%s\n", deploy.GetNamespace(), deploy.GetName())
 		return nil
 	}
 	return r.proxyDeploymentRequest()
@@ -158,7 +150,6 @@ func (r *InsightsReconciler) isProxyDeployment(deploy client.Object) []reconcile
 
 func (r *InsightsReconciler) isProxyService(svc client.Object) []reconcile.Request {
 	if svc.GetNamespace() != r.Namespace || svc.GetName() != ProxyServiceName {
-		fmt.Printf("GOT SERVICE %s/%s\n", svc.GetNamespace(), svc.GetName())
 		return nil
 	}
 	return r.proxyDeploymentRequest()

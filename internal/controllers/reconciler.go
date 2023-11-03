@@ -40,6 +40,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net/url"
 	"regexp"
 	"strconv"
 	"time"
@@ -83,7 +84,7 @@ type ReconcilerConfig struct {
 	EventRecorder          record.EventRecorder
 	RESTMapper             meta.RESTMapper
 	Namespaces             []string
-	Insights               bool
+	InsightsProxy          *url.URL // Only defined if Insights is enabled
 	common.ReconcilerTLS
 }
 
@@ -258,7 +259,9 @@ func (r *Reconciler) reconcile(ctx context.Context, cr *model.CryostatInstance) 
 		return reconcile.Result{}, err
 	}
 
-	serviceSpecs := &resources.ServiceSpecs{}
+	serviceSpecs := &resources.ServiceSpecs{
+		InsightsURL: r.InsightsProxy,
+	}
 	err = r.reconcileGrafanaService(ctx, cr, tlsConfig, serviceSpecs)
 	if err != nil {
 		return requeueIfIngressNotReady(reqLogger, err)

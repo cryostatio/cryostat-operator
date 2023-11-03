@@ -39,6 +39,7 @@ package controllers_test
 import (
 	"context"
 	"fmt"
+	"net/url"
 	"strconv"
 	"time"
 
@@ -135,6 +136,13 @@ func (t *cryostatTestInput) newReconcilerConfig(scheme *runtime.Scheme, client c
 	logger := zap.New().WithValues("cluster-scoped", t.ClusterScoped)
 	logf.SetLogger(logger)
 
+	// Set InsightsURL in config, if provided
+	var insightsURL *url.URL
+	if len(t.InsightsURL) > 0 {
+		url, err := url.Parse(t.InsightsURL)
+		Expect(err).ToNot(HaveOccurred())
+		insightsURL = url
+	}
 	return &controllers.ReconcilerConfig{
 		Client:        test.NewClientWithTimestamp(test.NewTestClient(client, t.TestResources)),
 		Scheme:        scheme,
@@ -144,6 +152,7 @@ func (t *cryostatTestInput) newReconcilerConfig(scheme *runtime.Scheme, client c
 		Log:           logger,
 		ReconcilerTLS: test.NewTestReconcilerTLS(&t.TestReconcilerConfig),
 		Namespaces:    t.watchNamespaces,
+		InsightsProxy: insightsURL,
 	}
 }
 
@@ -1297,9 +1306,6 @@ func (c *controllerTest) commonTestsWithoutManager() {
 			It("should add application url to APIServer AdditionalCORSAllowedOrigins", func() {
 				t.expectAPIServer()
 			})
-			It("should create an Insights token secret", func() {
-				t.expectInsightsTokenSecret()
-			})
 			It("should add the finalizer", func() {
 				t.expectCryostatFinalizerPresent()
 			})
@@ -1351,6 +1357,17 @@ func (c *controllerTest) commonTestsWithoutManager() {
 					It("should delete Cryostat", func() {
 						t.expectNoCryostat()
 					})
+				})
+			})
+			Context("with Insights enabled", func() {
+				BeforeEach(func() {
+					t.InsightsURL = "http://insights-proxy.foo.svc.cluster.local"
+				})
+				JustBeforeEach(func() {
+					t.reconcileCryostatFully()
+				})
+				It("should create deployment", func() {
+					t.expectMainDeployment()
 				})
 			})
 		})
@@ -2336,37 +2353,6 @@ func (c *controllerTest) commonTestsWithManager() {
 				})
 			}
 		})
-
-		Context("watches the global pull secret", func() {
-			BeforeEach(func() {
-				cr := t.NewCryostatWithIngressCertManagerDisabled()
-				t.objs = append(t.objs, cr.Object)
-			})
-			JustBeforeEach(func() {
-				// Wait for Insights Token to exist to ensure it will be updated later
-				Eventually(t.getInsightsTokenValue()).WithTimeout(time.Minute).WithPolling(time.Millisecond).Should(Equal("world"))
-				// Wait for reconciler to finish
-				time.Sleep(30 * time.Second) // TODO is there some way to check reconciler queue size?
-			})
-			Context("when the pull secret is updated", func() {
-				JustBeforeEach(func() {
-					secret := t.NewGlobalPullSecret()
-					err := t.Client.Get(context.Background(), types.NamespacedName{Namespace: secret.Namespace, Name: secret.Name}, secret)
-					Expect(err).ToNot(HaveOccurred())
-
-					if secret.StringData == nil {
-						secret.StringData = map[string]string{}
-					}
-					secret.StringData[corev1.DockerConfigJsonKey] = `{"auths":{"example.com":{"auth":"hello"},"cloud.openshift.com":{"auth":"foo"}}}`
-
-					err = t.Client.Update(context.Background(), secret)
-					Expect(err).ToNot(HaveOccurred())
-				})
-				It("should update the Insights token", func() {
-					Eventually(t.getInsightsTokenValue()).WithTimeout(time.Minute).WithPolling(time.Millisecond).Should(Equal("foo"))
-				})
-			})
-		})
 	})
 }
 
@@ -2653,16 +2639,6 @@ func (t *cryostatTestInput) expectJMXSecret() {
 	Expect(err).ToNot(HaveOccurred())
 
 	expectedSecret := t.NewJMXSecret()
-	t.checkMetadata(secret, expectedSecret)
-	Expect(secret.StringData).To(Equal(expectedSecret.StringData))
-}
-
-func (t *cryostatTestInput) expectInsightsTokenSecret() {
-	expectedSecret := t.NewInsightsTokenSecret()
-	secret := &corev1.Secret{}
-	err := t.Client.Get(context.Background(), types.NamespacedName{Name: expectedSecret.Name, Namespace: expectedSecret.Namespace}, secret)
-	Expect(err).ToNot(HaveOccurred())
-
 	t.checkMetadata(secret, expectedSecret)
 	Expect(secret.StringData).To(Equal(expectedSecret.StringData))
 }
@@ -3195,18 +3171,6 @@ func (t *cryostatTestInput) expectAPIServer() {
 func (t *cryostatTestInput) expectResourcesUnaffected() {
 	for _, check := range resourceChecks() {
 		check.expectFunc(t)
-	}
-}
-
-func (t *cryostatTestInput) getInsightsTokenValue() func() string {
-	tokenSecret := t.NewInsightsTokenSecret()
-	return func() string {
-		err := t.Client.Get(context.Background(), types.NamespacedName{Namespace: tokenSecret.Namespace, Name: tokenSecret.Name}, tokenSecret)
-		Expect(ctrlclient.IgnoreNotFound(err)).ToNot(HaveOccurred())
-		if tokenSecret != nil {
-			return string(tokenSecret.Data["token"])
-		}
-		return ""
 	}
 }
 

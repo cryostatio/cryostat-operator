@@ -38,6 +38,8 @@ package insights
 
 import (
 	"context"
+	"fmt"
+	"net/url"
 	"strings"
 
 	"github.com/cryostatio/cryostat-operator/internal/controllers/common"
@@ -52,48 +54,52 @@ import (
 )
 
 type InsightsIntegration struct {
+	Manager ctrl.Manager
+	Log     *logr.Logger
 	common.OSUtils
 }
 
-func NewInsightsIntegration() *InsightsIntegration {
+func NewInsightsIntegration(mgr ctrl.Manager, log *logr.Logger) *InsightsIntegration {
 	return &InsightsIntegration{
+		Manager: mgr,
+		Log:     log,
 		OSUtils: &common.DefaultOSUtils{},
 	}
 }
 
-func (i *InsightsIntegration) Setup(mgr ctrl.Manager, log logr.Logger) (bool, error) {
-	enabled := false
+func (i *InsightsIntegration) Setup() (*url.URL, error) {
+	var proxyUrl *url.URL
 	namespace := i.getOperatorNamespace()
 	// This will happen when running the operator locally
 	if len(namespace) == 0 {
-		log.Info("Operator namespace not detected, disabling Insights integration")
-		return false, nil
+		i.Log.Info("Operator namespace not detected, disabling Insights integration")
+		return nil, nil
 	}
 
 	ctx := context.Background()
 	if i.isInsightsEnabled() {
-		err := i.createInsightsController(mgr, namespace, log)
+		err := i.createInsightsController(namespace)
 		if err != nil {
-			log.Error(err, "unable to add controller to manager", "controller", "Insights")
-			return false, err
+			i.Log.Error(err, "unable to add controller to manager", "controller", "Insights")
+			return nil, err
 		}
 		// Create a Config Map to be used as a parent of all Insights Proxy related objects
-		err = i.createConfigMap(ctx, mgr, namespace)
+		err = i.createConfigMap(ctx, namespace)
 		if err != nil {
-			log.Error(err, "failed to create config map for Insights")
-			return false, err
+			i.Log.Error(err, "failed to create config map for Insights")
+			return nil, err
 		}
-		enabled = true
+		proxyUrl = i.getProxyURL(namespace)
 	} else {
 		// Delete any previously created Config Map (and its children)
-		err := i.deleteConfigMap(ctx, mgr, namespace)
+		err := i.deleteConfigMap(ctx, namespace)
 		if err != nil {
-			log.Error(err, "failed to delete config map for Insights")
-			return false, err
+			i.Log.Error(err, "failed to delete config map for Insights")
+			return nil, err
 		}
 
 	}
-	return enabled, nil
+	return proxyUrl, nil
 }
 
 func (i *InsightsIntegration) isInsightsEnabled() bool {
@@ -104,11 +110,11 @@ func (i *InsightsIntegration) getOperatorNamespace() string {
 	return i.GetEnv("NAMESPACE")
 }
 
-func (i *InsightsIntegration) createInsightsController(mgr ctrl.Manager, namespace string, log logr.Logger) error {
+func (i *InsightsIntegration) createInsightsController(namespace string) error {
 	config := &InsightsReconcilerConfig{
-		Client:    mgr.GetClient(),
+		Client:    i.Manager.GetClient(),
 		Log:       ctrl.Log.WithName("controllers").WithName("Insights"),
-		Scheme:    mgr.GetScheme(),
+		Scheme:    i.Manager.GetScheme(),
 		Namespace: namespace,
 		OSUtils:   i.OSUtils,
 	}
@@ -116,16 +122,16 @@ func (i *InsightsIntegration) createInsightsController(mgr ctrl.Manager, namespa
 	if err != nil {
 		return err
 	}
-	if err := controller.SetupWithManager(mgr); err != nil {
+	if err := controller.SetupWithManager(i.Manager); err != nil {
 		return err
 	}
 	return nil
 }
 
-func (i *InsightsIntegration) createConfigMap(ctx context.Context, mgr ctrl.Manager, namespace string) error {
+func (i *InsightsIntegration) createConfigMap(ctx context.Context, namespace string) error {
 	// The config map should be owned by the operator deployment to ensure it and its descendants are garbage collected
 	owner := &appsv1.Deployment{}
-	err := mgr.GetAPIReader().Get(ctx, types.NamespacedName{Name: OperatorDeploymentName, Namespace: namespace}, owner)
+	err := i.Manager.GetAPIReader().Get(ctx, types.NamespacedName{Name: OperatorDeploymentName, Namespace: namespace}, owner)
 	if err != nil {
 		return err
 	}
@@ -136,17 +142,20 @@ func (i *InsightsIntegration) createConfigMap(ctx context.Context, mgr ctrl.Mana
 			Namespace: namespace,
 		},
 	}
-	err = controllerutil.SetControllerReference(owner, cm, mgr.GetScheme())
+	err = controllerutil.SetControllerReference(owner, cm, i.Manager.GetScheme())
 	if err != nil {
 		return err
 	}
 
-	err = mgr.GetClient().Create(ctx, cm, &client.CreateOptions{})
+	err = i.Manager.GetClient().Create(ctx, cm, &client.CreateOptions{})
+	if err == nil {
+		i.Log.Info("Config Map for Insights created", "name", cm.Name, "namespace", cm.Namespace)
+	}
 	// This may already exist if the pod restarted
 	return client.IgnoreAlreadyExists(err)
 }
 
-func (i *InsightsIntegration) deleteConfigMap(ctx context.Context, mgr ctrl.Manager, namespace string) error {
+func (i *InsightsIntegration) deleteConfigMap(ctx context.Context, namespace string) error {
 	// Children will be garbage collected
 	cm := &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
@@ -155,7 +164,17 @@ func (i *InsightsIntegration) deleteConfigMap(ctx context.Context, mgr ctrl.Mana
 		},
 	}
 
-	err := mgr.GetClient().Delete(ctx, cm, &client.DeleteOptions{})
+	err := i.Manager.GetClient().Delete(ctx, cm, &client.DeleteOptions{})
+	if err == nil {
+		i.Log.Info("Config Map for Insights deleted", "name", cm.Name, "namespace", cm.Namespace)
+	}
 	// This may not exist if no config map was previously created
 	return client.IgnoreNotFound(err)
+}
+
+func (i *InsightsIntegration) getProxyURL(namespace string) *url.URL {
+	return &url.URL{
+		Scheme: "http", // TODO add https support (r.IsCertManagerInstalled)
+		Host:   fmt.Sprintf("%s.%s.svc.cluster.local", ProxyServiceName, namespace),
+	}
 }

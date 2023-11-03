@@ -39,6 +39,7 @@ package main
 import (
 	"flag"
 	"fmt"
+	"net/url"
 	"os"
 	"strings"
 
@@ -165,13 +166,13 @@ func main() {
 	}
 
 	// Optionally enable Insights integration. Will only be enabled if INSIGHTS_ENABLED is true
-	insights, err := insights.NewInsightsIntegration().Setup(mgr, setupLog)
+	insightsURL, err := insights.NewInsightsIntegration(mgr, &setupLog).Setup()
 	if err != nil {
 		setupLog.Error(err, "failed to set up Insights integration")
 	}
 
 	config := newReconcilerConfig(mgr, "ClusterCryostat", "clustercryostat-controller", openShift,
-		certManager, namespaces, insights)
+		certManager, namespaces, insightsURL)
 	clusterController, err := controllers.NewClusterCryostatReconciler(config)
 	if err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "ClusterCryostat")
@@ -182,7 +183,7 @@ func main() {
 		os.Exit(1)
 	}
 	config = newReconcilerConfig(mgr, "Cryostat", "cryostat-controller", openShift, certManager,
-		namespaces, insights)
+		namespaces, insightsURL)
 	controller, err := controllers.NewCryostatReconciler(config)
 	if err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "Cryostat")
@@ -233,7 +234,7 @@ func isCertManagerInstalled(client discovery.DiscoveryInterface) (bool, error) {
 }
 
 func newReconcilerConfig(mgr ctrl.Manager, logName string, eventRecorderName string, openShift bool,
-	certManager bool, namespaces []string, insights bool) *controllers.ReconcilerConfig {
+	certManager bool, namespaces []string, insightsURL *url.URL) *controllers.ReconcilerConfig {
 	return &controllers.ReconcilerConfig{
 		Client:                 mgr.GetClient(),
 		Log:                    ctrl.Log.WithName("controllers").WithName(logName),
@@ -243,7 +244,7 @@ func newReconcilerConfig(mgr ctrl.Manager, logName string, eventRecorderName str
 		EventRecorder:          mgr.GetEventRecorderFor(eventRecorderName),
 		RESTMapper:             mgr.GetRESTMapper(),
 		Namespaces:             namespaces,
-		Insights:               insights,
+		InsightsProxy:          insightsURL,
 		ReconcilerTLS: common.NewReconcilerTLS(&common.ReconcilerTLSConfig{
 			Client: mgr.GetClient(),
 		}),

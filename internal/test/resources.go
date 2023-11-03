@@ -73,6 +73,7 @@ type TestResources struct {
 	ReportReplicas   int32
 	ClusterScoped    bool
 	TargetNamespaces []string
+	InsightsURL      string
 }
 
 func NewTestScheme() *runtime.Scheme {
@@ -1358,6 +1359,14 @@ func (r *TestResources) NewCoreEnvironmentVariables(reportsUrl string, authProps
 			corev1.EnvVar{
 				Name:  "CRYOSTAT_REPORT_GENERATION_MAX_HEAP",
 				Value: "200",
+			})
+	}
+
+	if len(r.InsightsURL) > 0 {
+		envs = append(envs,
+			corev1.EnvVar{
+				Name:  "INSIGHTS_PROXY",
+				Value: r.InsightsURL,
 			})
 	}
 	return envs

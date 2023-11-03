@@ -62,9 +62,10 @@ type ImageTags struct {
 }
 
 type ServiceSpecs struct {
-	CoreURL    *url.URL
-	GrafanaURL *url.URL
-	ReportsURL *url.URL
+	CoreURL     *url.URL
+	GrafanaURL  *url.URL
+	ReportsURL  *url.URL
+	InsightsURL *url.URL
 }
 
 // TLSConfig contains TLS-related information useful when creating other objects
@@ -689,6 +690,17 @@ func NewCoreContainer(cr *model.CryostatInstance, specs *ServiceSpecs, imageTag 
 			},
 		}
 		envs = append(envs, subprocessReportHeapEnv...)
+	}
+
+	// Define INSIGHTS_PROXY URL if Insights integration is enabled
+	if specs.InsightsURL != nil {
+		insightsEnvs := []corev1.EnvVar{
+			{
+				Name:  "INSIGHTS_PROXY",
+				Value: specs.InsightsURL.String(),
+			},
+		}
+		envs = append(envs, insightsEnvs...)
 	}
 
 	if cr.Spec.MaxWsConnections != 0 {
