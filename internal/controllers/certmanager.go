@@ -130,6 +130,12 @@ func (r *Reconciler) setupTLS(ctx context.Context, cr *model.CryostatInstance) (
 		}
 		namespaceSecret := secret.DeepCopy()
 		namespaceSecret.Namespace = ns
+		err = r.createOrUpdateSecret(ctx, namespaceSecret, cr.Object, func() error {
+			if secret.StringData == nil {
+				secret.StringData = map[string]string{}
+			}
+			return nil
+		})
 	}
 	// Delete any Cryostat CA secrets in target namespaces that are no longer requested
 	for _, ns := range toDelete(cr) {
@@ -156,6 +162,37 @@ func (r *Reconciler) setupTLS(ctx context.Context, cr *model.CryostatInstance) (
 	}
 	tlsConfig.CACert = caBytes
 	return tlsConfig, nil
+}
+
+func (r *Reconciler) finalizeTLS(ctx context.Context, cr *model.CryostatInstance) error {
+	caCert := resources.NewCryostatCACert(cr)
+	err := r.createOrUpdateCertificate(ctx, caCert, cr.Object)
+	if err != nil {
+		return err
+	}
+	for _, ns := range cr.TargetNamespaces {
+		secret, err := r.GetCertificateSecret(ctx, caCert)
+		if err != nil {
+			return err
+		}
+		namespaceSecret := &corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      secret.Name,
+				Namespace: ns,
+			},
+		}
+		err = r.deleteSecret(ctx, namespaceSecret)
+		if err != nil {
+			if kerrors.IsNotFound(err) {
+				r.Log.Info("secret not found, proceeding with deletion", "name", namespaceSecret.Name, "namespace", namespaceSecret.Namespace)
+				return nil
+			}
+			r.Log.Error(err, "failed to delete secret", "name", namespaceSecret.Name, "namespace", namespaceSecret.Namespace)
+			return err
+		}
+		r.Log.Info("deleted secret", "name", namespaceSecret.Name, "namespace", namespaceSecret.Namespace)
+	}
+	return nil
 }
 
 func (r *Reconciler) setCertSecretOwner(ctx context.Context, owner metav1.Object, certs ...*certv1.Certificate) error {

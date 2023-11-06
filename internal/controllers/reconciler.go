@@ -161,6 +161,11 @@ func (r *Reconciler) reconcile(ctx context.Context, cr *model.CryostatInstance) 
 				return reconcile.Result{}, err
 			}
 
+			err = r.finalizeTLS(ctx, cr)
+			if err != nil {
+				return reconcile.Result{}, err
+			}
+
 			err = common.RemoveFinalizer(ctx, r.Client, cr.Object, cryostatFinalizer)
 			if err != nil {
 				return reconcile.Result{}, err
