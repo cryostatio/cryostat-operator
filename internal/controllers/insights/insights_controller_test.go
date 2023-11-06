@@ -122,30 +122,7 @@ var _ = Describe("InsightsController", func() {
 					}, actual)
 					Expect(err).ToNot(HaveOccurred())
 
-					Expect(actual.Labels).To(Equal(expected.Labels))
-					Expect(actual.Annotations).To(Equal(expected.Annotations))
-					Expect(metav1.IsControlledBy(actual, t.NewProxyConfigMap())).To(BeTrue())
-					Expect(actual.Spec.Selector).To(Equal(expected.Spec.Selector))
-
-					expectedTemplate := expected.Spec.Template
-					actualTemplate := actual.Spec.Template
-					Expect(actualTemplate.Labels).To(Equal(expectedTemplate.Labels))
-					Expect(actualTemplate.Annotations).To(Equal(expectedTemplate.Annotations))
-					Expect(actualTemplate.Spec.SecurityContext).To(Equal(expectedTemplate.Spec.SecurityContext))
-					Expect(actualTemplate.Spec.Volumes).To(Equal(expectedTemplate.Spec.Volumes))
-
-					Expect(actualTemplate.Spec.Containers).To(HaveLen(1))
-					expectedContainer := expectedTemplate.Spec.Containers[0]
-					actualContainer := actualTemplate.Spec.Containers[0]
-					Expect(actualContainer.Ports).To(ConsistOf(expectedContainer.Ports))
-					Expect(actualContainer.Env).To(ConsistOf(expectedContainer.Env))
-					Expect(actualContainer.EnvFrom).To(ConsistOf(expectedContainer.EnvFrom))
-					Expect(actualContainer.VolumeMounts).To(ConsistOf(expectedContainer.VolumeMounts))
-					Expect(actualContainer.LivenessProbe).To(Equal(expectedContainer.LivenessProbe))
-					Expect(actualContainer.StartupProbe).To(Equal(expectedContainer.StartupProbe))
-					Expect(actualContainer.SecurityContext).To(Equal(expectedContainer.SecurityContext))
-
-					test.ExpectResourceRequirements(&actualContainer.Resources, &expectedContainer.Resources)
+					t.checkProxyDeployment(actual, expected)
 				})
 				It("should create the proxy service", func() {
 					expected := t.NewInsightsProxyService()
@@ -233,11 +210,12 @@ var _ = Describe("InsightsController", func() {
 				})
 				It("should leave the custom resource requirements", func() {
 					// Fetch the deployment again
-					deploy := t.getProxyDeployment()
+					actual := t.getProxyDeployment()
 
-					// Check the resource requirements
-					actual := deploy.Spec.Template.Spec.Containers[0].Resources
-					test.ExpectResourceRequirements(&actual, resources)
+					// Check only resource requirements differ from defaults
+					t.Resources = resources
+					expected := t.NewInsightsProxyDeployment()
+					t.checkProxyDeployment(actual, expected)
 				})
 			})
 		})
@@ -257,4 +235,31 @@ func (t *insightsTestInput) getProxyDeployment() *appsv1.Deployment {
 	}, deploy)
 	Expect(err).ToNot(HaveOccurred())
 	return deploy
+}
+
+func (t *insightsTestInput) checkProxyDeployment(actual, expected *appsv1.Deployment) {
+	Expect(actual.Labels).To(Equal(expected.Labels))
+	Expect(actual.Annotations).To(Equal(expected.Annotations))
+	Expect(metav1.IsControlledBy(actual, t.NewProxyConfigMap())).To(BeTrue())
+	Expect(actual.Spec.Selector).To(Equal(expected.Spec.Selector))
+
+	expectedTemplate := expected.Spec.Template
+	actualTemplate := actual.Spec.Template
+	Expect(actualTemplate.Labels).To(Equal(expectedTemplate.Labels))
+	Expect(actualTemplate.Annotations).To(Equal(expectedTemplate.Annotations))
+	Expect(actualTemplate.Spec.SecurityContext).To(Equal(expectedTemplate.Spec.SecurityContext))
+	Expect(actualTemplate.Spec.Volumes).To(Equal(expectedTemplate.Spec.Volumes))
+
+	Expect(actualTemplate.Spec.Containers).To(HaveLen(1))
+	expectedContainer := expectedTemplate.Spec.Containers[0]
+	actualContainer := actualTemplate.Spec.Containers[0]
+	Expect(actualContainer.Ports).To(ConsistOf(expectedContainer.Ports))
+	Expect(actualContainer.Env).To(ConsistOf(expectedContainer.Env))
+	Expect(actualContainer.EnvFrom).To(ConsistOf(expectedContainer.EnvFrom))
+	Expect(actualContainer.VolumeMounts).To(ConsistOf(expectedContainer.VolumeMounts))
+	Expect(actualContainer.LivenessProbe).To(Equal(expectedContainer.LivenessProbe))
+	Expect(actualContainer.StartupProbe).To(Equal(expectedContainer.StartupProbe))
+	Expect(actualContainer.SecurityContext).To(Equal(expectedContainer.SecurityContext))
+
+	test.ExpectResourceRequirements(&actualContainer.Resources, &expectedContainer.Resources)
 }
