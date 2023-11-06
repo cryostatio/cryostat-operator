@@ -23,6 +23,7 @@ import (
 	"strings"
 	"time"
 
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
@@ -89,5 +90,21 @@ func MergeLabelsAndAnnotations(dest *metav1.ObjectMeta, srcLabels, srcAnnotation
 	}
 	for k, v := range srcAnnotations {
 		dest.Annotations[k] = v
+	}
+}
+
+// SeccompProfile returns a SeccompProfile for the restricted
+// Pod Security Standard that, on OpenShift, is backwards-compatible
+// with OpenShift < 4.11.
+// TODO Remove once OpenShift < 4.11 support is dropped
+func SeccompProfile(openshift bool) *corev1.SeccompProfile {
+	// For backward-compatibility with OpenShift < 4.11,
+	// leave the seccompProfile empty. In OpenShift >= 4.11,
+	// the restricted-v2 SCC will populate it for us.
+	if openshift {
+		return nil
+	}
+	return &corev1.SeccompProfile{
+		Type: corev1.SeccompProfileTypeRuntimeDefault,
 	}
 }

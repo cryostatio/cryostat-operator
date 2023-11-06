@@ -125,8 +125,7 @@ var reportsDeploymentConditions = deploymentConditionTypeMap{
 	operatorv1beta1.ConditionTypeReportsDeploymentReplicaFailure: appsv1.DeploymentReplicaFailure,
 }
 
-func newReconciler(config *ReconcilerConfig, objType client.Object, listType client.ObjectList,
-	isNamespaced bool) (*Reconciler, error) {
+func newReconciler(config *ReconcilerConfig, objType client.Object, isNamespaced bool) (*Reconciler, error) {
 	gvk, err := apiutil.GVKForObject(objType, config.Scheme)
 	if err != nil {
 		return nil, err

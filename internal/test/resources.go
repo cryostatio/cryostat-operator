@@ -1665,14 +1665,6 @@ func (r *TestResources) NewCoreVolumeMounts() []corev1.VolumeMount {
 				MountPath: fmt.Sprintf("/var/run/secrets/operator.cryostat.io/%s-tls", r.Name),
 			})
 	}
-	if r.OpenShift {
-		mounts = append(mounts,
-			corev1.VolumeMount{
-				Name:      "insights-token",
-				ReadOnly:  true,
-				MountPath: "/var/run/secrets/operator.cryostat.io/insights-token",
-			})
-	}
 	return mounts
 }
 
@@ -2035,20 +2027,6 @@ func (r *TestResources) newVolumes(certProjections []corev1.VolumeProjection) []
 				},
 			},
 		})
-
-	if r.OpenShift {
-		volumes = append(volumes,
-			corev1.Volume{
-				Name: "insights-token",
-				VolumeSource: corev1.VolumeSource{
-					Secret: &corev1.SecretVolumeSource{
-						SecretName:  r.Name + "-insights-token",
-						Optional:    &[]bool{true}[0],
-						DefaultMode: &readOnlymode,
-					},
-				},
-			})
-	}
 
 	return volumes
 }
@@ -2857,32 +2835,6 @@ func (r *TestResources) NewLockConfigMap() *corev1.ConfigMap {
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      r.Name + "-lock",
 			Namespace: r.Namespace,
-		},
-	}
-}
-
-func (r *TestResources) NewGlobalPullSecret() *corev1.Secret {
-	config := `{"auths":{"example.com":{"auth":"hello"},"cloud.openshift.com":{"auth":"world"}}}`
-	return &corev1.Secret{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "pull-secret",
-			Namespace: "openshift-config",
-		},
-		Data: map[string][]byte{
-			corev1.DockerConfigJsonKey: []byte(config),
-		},
-	}
-}
-
-func (r *TestResources) NewInsightsTokenSecret() *corev1.Secret {
-	config := "world"
-	return &corev1.Secret{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      r.Name + "-insights-token",
-			Namespace: r.Namespace,
-		},
-		StringData: map[string]string{
-			"token": config,
 		},
 	}
 }

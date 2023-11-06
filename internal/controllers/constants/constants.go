@@ -27,6 +27,7 @@ const (
 	ReportsContainerPort      int32  = 10000
 	LoopbackAddress           string = "127.0.0.1"
 	OperatorNamePrefix        string = "cryostat-operator-"
+	OperatorDeploymentName    string = "cryostat-operator-controller-manager"
 	HttpPortName              string = "http"
 	// CAKey is the key for a CA certificate within a TLS secret
 	CAKey = certMeta.TLSCAKey

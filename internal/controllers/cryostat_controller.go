@@ -36,8 +36,7 @@ type CryostatReconciler struct {
 }
 
 func NewCryostatReconciler(config *ReconcilerConfig) (*CryostatReconciler, error) {
-	delegate, err := newReconciler(config, &operatorv1beta1.Cryostat{},
-		&operatorv1beta1.CryostatList{}, true)
+	delegate, err := newReconciler(config, &operatorv1beta1.Cryostat{}, true)
 	if err != nil {
 		return nil, err
 	}

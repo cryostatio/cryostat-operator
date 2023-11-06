@@ -150,9 +150,7 @@ test: test-envtest test-scorecard
 .PHONY: test-envtest
 test-envtest: generate manifests fmt vet setup-envtest ## Run tests using envtest.
 ifneq ($(SKIP_TESTS), true)
-	KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) --bin-dir $(LOCALBIN) -p path)" \
-	OPENSHIFT_API_MOD_VERSION=$(shell go list -m -f '{{if .Replace}}{{.Replace.Version}}{{else}}{{.Version}}{{end}}' github.com/openshift/api) \
-	$(GO_TEST) -v -coverprofile cover.out ./...
+	KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) --bin-dir $(LOCALBIN) -p path)" $(GO_TEST) -v -coverprofile cover.out ./...
 endif
 
 .PHONY: test-scorecard

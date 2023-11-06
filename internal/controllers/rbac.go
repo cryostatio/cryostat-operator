@@ -151,7 +151,6 @@ func (r *Reconciler) reconcileRoleBinding(ctx context.Context, cr *model.Cryosta
 }
 
 func (r *Reconciler) newClusterRoleBinding(cr *model.CryostatInstance) *rbacv1.ClusterRoleBinding {
-	fmt.Println("CRB KIND: " + r.gvk.Kind) // XXX
 	return &rbacv1.ClusterRoleBinding{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: common.ClusterUniqueName(r.gvk, cr.Name, cr.InstallNamespace),

@@ -18,7 +18,6 @@ import (
 	"context"
 	"fmt"
 	"net/url"
-	"strconv"
 	"time"
 
 	certv1 "github.com/cert-manager/cert-manager/pkg/apis/certmanager/v1"
@@ -39,9 +38,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/validation/field"
-	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/tools/record"
-	ctrl "sigs.k8s.io/controller-runtime"
 	ctrlclient "sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -85,7 +82,6 @@ func (c *controllerTest) commonBeforeEach() *cryostatTestInput {
 	t.objs = []ctrlclient.Object{
 		t.NewNamespace(),
 		t.NewApiServer(),
-		t.NewGlobalPullSecret(), // TODO OpenShift only?
 	}
 	return t
 }
@@ -104,7 +100,6 @@ func (c *controllerTest) commonJustBeforeEach(t *cryostatTestInput) {
 
 func (c *controllerTest) commonJustAfterEach(t *cryostatTestInput) {
 	for _, obj := range t.objs {
-		fmt.Printf("Deleting: %v\n", obj) // XXX
 		err := ctrlclient.IgnoreNotFound(t.Client.Delete(context.Background(), obj))
 		Expect(err).ToNot(HaveOccurred())
 	}
@@ -220,11 +215,6 @@ func expectSuccessful(t **cryostatTestInput) {
 }
 
 func (c *controllerTest) commonTests() {
-	c.commonTestsWithoutManager()
-	//c.commonTestsWithManager()
-}
-
-func (c *controllerTest) commonTestsWithoutManager() {
 	var t *cryostatTestInput
 
 	Describe("reconciling a request in OpenShift", func() {
@@ -1311,7 +1301,6 @@ func (c *controllerTest) commonTestsWithoutManager() {
 				BeforeEach(func() {
 					t.objs = []ctrlclient.Object{
 						t.NewCryostat().Object, t.NewNamespaceWithSCCSupGroups(), t.NewApiServer(),
-						t.NewGlobalPullSecret(),
 					}
 				})
 				It("should set fsGroup to value derived from namespace", func() {
@@ -2216,154 +2205,6 @@ func (c *controllerTest) commonTestsWithoutManager() {
 				t.expectMainDeploymentHasExtraMetadata()
 				t.expectReportsDeploymentHasExtraMetadata()
 			})
-		})
-	})
-}
-
-func (c *controllerTest) commonTestsWithManager() {
-	var t *cryostatTestInput
-
-	Describe("setting up the controller", func() {
-		var done chan interface{}
-		var cancel context.CancelFunc
-
-		BeforeEach(func() {
-			t = &cryostatTestInput{
-				TestReconcilerConfig: test.TestReconcilerConfig{
-					GeneratedPasswords: []string{"grafana", "credentials_database", "jmx", "keystore"},
-				},
-				TestResources: &test.TestResources{
-					Name:          "cryostat",
-					Namespace:     "test",
-					TLS:           true,
-					ExternalTLS:   true,
-					OpenShift:     true,
-					ClusterScoped: c.clusterScoped,
-				},
-			}
-			suffix := strconv.Itoa(nameSuffix)
-			t.Name += "-" + suffix
-			t.Namespace += "-" + suffix
-			t.TargetNamespaces = []string{t.Namespace}
-			t.watchNamespaces = []string{t.Namespace}
-
-			t.TLS = false // TODO can use InstallCertManager
-			t.objs = []ctrlclient.Object{
-				t.NewNamespace(),
-				t.NewApiServer(),
-				t.NewGlobalPullSecret(),
-			}
-		})
-		JustBeforeEach(func() {
-			k8sClient, err := ctrlclient.New(cfg, ctrlclient.Options{Scheme: scheme.Scheme})
-			Expect(err).NotTo(HaveOccurred())
-			Expect(k8sClient).NotTo(BeNil())
-
-			// Create openshift-config namespace first
-			// Don't include this with other objects, since those will be deleted
-			// after the test. EnvTest doesn't support namespace deletion, so an
-			// attempt to delete openshift-config will prevent us from using it
-			// for subsequent tests.
-			// See: https://book.kubebuilder.io/reference/envtest.html#namespace-usage-limitation
-			ns := &corev1.Namespace{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: "openshift-config",
-				},
-			}
-			err = k8sClient.Create(context.Background(), ns)
-			Expect(ctrlclient.IgnoreAlreadyExists(err)).ToNot(HaveOccurred())
-
-			for _, obj := range t.objs {
-				fmt.Printf("Creating: %v\n", obj) // XXX
-				err := k8sClient.Create(context.TODO(), obj)
-				Expect(err).ToNot(HaveOccurred())
-			}
-
-			t.Client = k8sClient
-			controller, err := c.constructorFunc(t.newReconcilerConfig(scheme.Scheme, t.Client))
-			Expect(err).ToNot(HaveOccurred())
-			t.controller = controller
-			manager, err := ctrl.NewManager(cfg, ctrl.Options{
-				Scheme:                 test.NewTestScheme(),
-				MetricsBindAddress:     "0",
-				Port:                   9443,
-				HealthProbeBindAddress: "0",
-				LeaderElection:         false,
-			})
-			Expect(err).ToNot(HaveOccurred())
-			err = t.controller.SetupWithManager(manager)
-			Expect(err).ToNot(HaveOccurred())
-
-			ctx, fn := context.WithCancel(context.Background())
-			cancel = fn
-			done = make(chan interface{})
-			go func() {
-				defer GinkgoRecover()
-				err := manager.Start(ctx)
-				Expect(err).ToNot(HaveOccurred())
-				fmt.Println("Stopping Manager") // XXX
-				close(done)
-			}()
-		})
-		JustAfterEach(func() {
-			for _, obj := range t.objs {
-				fmt.Printf("Deleting: %v\n", obj) // XXX
-				err := ctrlclient.IgnoreNotFound(t.Client.Delete(context.Background(), obj))
-				Expect(err).ToNot(HaveOccurred())
-			}
-		})
-		AfterEach(func() {
-			if cancel != nil {
-				cancel()
-				<-done
-			}
-			nameSuffix++
-		})
-
-		Context("watches the configured namespace(s)", func() {
-			var otherNamespace string
-
-			BeforeEach(func() {
-				suffix := strconv.Itoa(nameSuffix)
-				saveNS := t.Namespace
-				otherNamespace = "other-" + suffix
-				t.Namespace = otherNamespace
-				otherNS := t.NewNamespace()
-				t.Namespace = saveNS
-				t.objs = append(t.objs, otherNS)
-			})
-			Context("creating a CR in the watched namespace", func() {
-				BeforeEach(func() {
-					t.objs = append(t.objs, t.NewCryostatWithIngressCertManagerDisabled().Object)
-				})
-				It("should reconcile the CR", func() {
-					Eventually(func() bool {
-						cr := t.getCryostatInstance()
-						if cr != nil && cr.Status != nil && len(cr.Status.ApplicationURL) > 0 {
-							return true
-						}
-						return false
-					}).WithTimeout(time.Minute).WithPolling(time.Millisecond).Should(BeTrue())
-				})
-			})
-			if !c.clusterScoped {
-				Context("creating a CR in a different namespace", func() {
-					BeforeEach(func() {
-						t.Namespace = otherNamespace
-						t.TargetNamespaces = []string{otherNamespace}
-						t.objs = append(t.objs, t.NewCryostatWithIngressCertManagerDisabled().Object)
-					})
-					It("should not reconcile the CR", func() {
-						Consistently(func() bool {
-							cr := t.getCryostatInstance()
-							if cr != nil && cr.Status != nil && len(cr.Status.ApplicationURL) > 0 {
-								return true
-							}
-							return false
-						}).WithTimeout(time.Minute).WithPolling(time.Millisecond).Should(BeFalse())
-					})
-				})
-			}
 		})
 	})
 }

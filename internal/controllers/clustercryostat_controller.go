@@ -39,8 +39,7 @@ type ClusterCryostatReconciler struct {
 }
 
 func NewClusterCryostatReconciler(config *ReconcilerConfig) (*ClusterCryostatReconciler, error) {
-	delegate, err := newReconciler(config, &operatorv1beta1.ClusterCryostat{},
-		&operatorv1beta1.ClusterCryostatList{}, false)
+	delegate, err := newReconciler(config, &operatorv1beta1.ClusterCryostat{}, false)
 	if err != nil {
 		return nil, err
 	}
@@ -69,17 +68,6 @@ func NewClusterCryostatReconciler(config *ReconcilerConfig) (*ClusterCryostatRec
 // +kubebuilder:rbac:groups=operator.cryostat.io,resources=clustercryostats/finalizers,verbs=update
 // +kubebuilder:rbac:groups=console.openshift.io,resources=consolelinks,verbs=get;create;list;update;delete
 // +kubebuilder:rbac:groups=networking.k8s.io,resources=ingresses,verbs=*
-
-// XXX
-// Note: You cannot restrict create or deletecollection requests by their
-// resource name. For create, this limitation is because the name of the
-// new object may not be known at authorization time. If you restrict list
-// or watch by resourceName, clients must include a metadata.name field
-// selector in their list or watch request that matches the specified
-// resourceName in order to be authorized. For example, kubectl get
-// configmaps --field-selector=metadata.name=my-configmap
-//
-// https://kubernetes.io/docs/reference/access-authn-authz/rbac/#referring-to-resources
 
 // Reconcile processes a ClusterCryostat CR and manages a Cryostat installation accordingly
 func (r *ClusterCryostatReconciler) Reconcile(ctx context.Context, request ctrl.Request) (ctrl.Result, error) {
