@@ -1,0 +1,135 @@
+name: build-CI
+
+concurrency:
+  group: ci-${{ github.run_id }}
+  cancel-in-progress: true
+
+on:
+  push:
+    branches:
+      - main
+      - v[0-9]+
+      - v[0-9]+.[0-9]+
+      - cryostat-v[0-9]+.[0-9]+
+
+env:
+  CI_USER: cryostat+bot
+  CI_REGISTRY: quay.io/cryostat
+  CI_OPERATOR_IMG: quay.io/cryostat/cryostat-operator
+  CI_BUNDLE_IMG: quay.io/cryostat/cryostat-operator-bundle
+  CI_SCORECARD_IMG: quay.io/cryostat/cryostat-operator-scorecard
+  CI_PLATFORMS: linux/amd64,linux/arm64
+  OPENSUSE_UNOFFICIAL_LIBCONTAINERS_KEY_URL: "https://download.opensuse.org/repositories/devel:/kubic:/libcontainers:/unstable/xUbuntu_22.04/Release.key"
+  OPENSUSE_UNOFFICIAL_LIBCONTAINERS_SOURCE_URL: "https://download.opensuse.org/repositories/devel:/kubic:/libcontainers:/unstable/xUbuntu_22.04"
+
+jobs:
+  build-operator:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - name: Install podman v4
+      run: |
+        echo "deb $OPENSUSE_UNOFFICIAL_LIBCONTAINERS_SOURCE_URL/ /" | sudo tee /etc/apt/sources.list.d/devel:kubic:libcontainers:unstable.list
+        curl -fsSL $OPENSUSE_UNOFFICIAL_LIBCONTAINERS_KEY_URL | gpg --dearmor | sudo tee /etc/apt/trusted.gpg.d/devel_kubic_libcontainers_unstable.gpg > /dev/null
+        sudo apt update
+        sudo apt install podman
+    - name: Build operator image
+      run: |
+        IMAGE_NAMESPACE=${{ env.CI_REGISTRY }} SKIP_TESTS=true PLATFORMS=${{ env.CI_PLATFORMS }} MANIFEST_PUSH=false make oci-buildx
+    - name: Tag image
+      id: tag-image
+      run: |
+        IMG_TAG="$(make --eval='print-img-ver: ; @echo $(IMAGE_VERSION)' print-img-ver)"
+        if [ "$GITHUB_REF" == "refs/heads/main" ]; then
+          podman tag \
+          ${{ env.CI_OPERATOR_IMG }}:$IMG_TAG \
+          ${{ env.CI_OPERATOR_IMG }}:latest
+          echo "tags=$IMG_TAG latest" >> $GITHUB_OUTPUT
+        else
+          echo "tags=$IMG_TAG" >> $GITHUB_OUTPUT
+        fi
+    - name: Push to quay.io
+      id: push-to-quay
+      uses: redhat-actions/push-to-registry@v2
+      with:
+        image: cryostat-operator
+        tags: ${{ steps.tag-image.outputs.tags }}
+        registry: ${{ env.CI_REGISTRY }}
+        username: ${{ env.CI_USER }}
+        password: ${{ secrets.REGISTRY_PASSWORD }}
+    - name: Print image URL
+      run: echo "Image pushed to ${{ steps.push-to-quay.outputs.registry-paths }}"
+
+  build-bundle:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - name: Build bundle image
+      run: IMAGE_NAMESPACE=${{ env.CI_REGISTRY }} make bundle-build
+    - name: Tag image
+      id: tag-image
+      run: |
+        IMG_TAG="$(make --eval='print-img-ver: ; @echo $(IMAGE_VERSION)' print-img-ver)"
+        if [ "$GITHUB_REF" == "refs/heads/main" ]; then
+          podman tag \
+          ${{ env.CI_BUNDLE_IMG }}:$IMG_TAG \
+          ${{ env.CI_BUNDLE_IMG }}:latest
+          echo "tags=$IMG_TAG latest" >> $GITHUB_OUTPUT
+        else
+          echo "tags=$IMG_TAG" >> $GITHUB_OUTPUT
+        fi
+    - name: Push to quay.io
+      id: push-to-quay
+      uses: redhat-actions/push-to-registry@v2
+      with:
+        image: cryostat-operator-bundle
+        tags: ${{ steps.tag-image.outputs.tags }}
+        registry: ${{ env.CI_REGISTRY }}
+        username: ${{ env.CI_USER }}
+        password: ${{ secrets.REGISTRY_PASSWORD }}
+    - name: Print image URL
+      run: echo "Image pushed to ${{ steps.push-to-quay.outputs.registry-paths }}"
+
+  build-scorecard:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - name: Get scorecard image tag
+      id: get-image-tag
+      run: |
+        SCORECARD_TAG=$(yq '[.stages[0].tests[].image | capture("cryostat-operator-scorecard:(?P<tag>[\w.\-_]+)$")][0].tag' bundle/tests/scorecard/config.yaml)
+        echo "tag=$SCORECARD_TAG" >> $GITHUB_OUTPUT
+    - name: Check if scorecard image tag already exists
+      id: check-tag-exists
+      run: |
+        EXIST=false
+        if [ -n "$(podman search --list-tags ${CI_SCORECARD_IMG} --format json | jq --arg TAG ${{ steps.get-image-tag.outputs.tag }} '.[0].Tags[] | select( . == $TAG)')" ]; then
+          EXIST=true
+        fi
+        echo "exist=$EXIST" >> $GITHUB_OUTPUT
+    - name: Install podman v4
+      run: |
+        echo "deb $OPENSUSE_UNOFFICIAL_LIBCONTAINERS_SOURCE_URL/ /" | sudo tee /etc/apt/sources.list.d/devel:kubic:libcontainers:unstable.list
+        curl -fsSL $OPENSUSE_UNOFFICIAL_LIBCONTAINERS_KEY_URL | gpg --dearmor | sudo tee /etc/apt/trusted.gpg.d/devel_kubic_libcontainers_unstable.gpg > /dev/null
+        sudo apt update
+        sudo apt install podman
+    - name: Build scorecard image
+      run: |
+        CUSTOM_SCORECARD_IMG=${CI_SCORECARD_IMG}:${{ steps.get-image-tag.outputs.tag }} \
+        PLATFORMS=${{ env.CI_PLATFORMS }} \
+        MANIFEST_PUSH=false \
+          make scorecard-build
+      if: ${{ steps.check-tag-exists.outputs.exist == 'false' }}
+    - name: Push to quay.io
+      id: push-to-quay
+      uses: redhat-actions/push-to-registry@v2
+      with:
+        image: cryostat-operator-scorecard
+        tags: ${{ steps.get-image-tag.outputs.tag }}
+        registry: ${{ env.CI_REGISTRY }}
+        username: ${{ env.CI_USER }}
+        password: ${{ secrets.REGISTRY_PASSWORD }}
+      if: ${{ steps.check-tag-exists.outputs.exist == 'false' }}
+    - name: Print image URL
+      run: echo "Image pushed to ${{ steps.push-to-quay.outputs.registry-paths }}"
+      if: ${{ steps.check-tag-exists.outputs.exist == 'false' }}

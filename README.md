@@ -1,6 +1,7 @@
 # cryostat-operator
 
-[![CI build](https://github.com/cryostatio/cryostat-operator/actions/workflows/ci.yaml/badge.svg)](https://github.com/cryostatio/cryostat-operator/actions/workflows/ci.yaml)
+[![CI build](https://github.com/cryostatio/cryostat-operator/actions/workflows/build-ci.yml/badge.svg)](https://github.com/cryostatio/cryostat-operator/actions/workflows/build-ci.yml)
+[![Test CI push](https://github.com/cryostatio/cryostat-operator/actions/workflows/test-ci-push.yml/badge.svg)](https://github.com/cryostatio/cryostat-operator/actions/workflows/test-ci-push.yml)
 [![Google Group : Cryostat Development](https://img.shields.io/badge/Google%20Group-Cryostat%20Development-blue.svg)](https://groups.google.com/g/cryostat-development)
 
 A Kubernetes Operator to automate deployment of
@@ -50,8 +51,8 @@ kubectl get secret ${CRYOSTAT_NAME}-jmx-auth -o jsonpath='{$.data.CRYOSTAT_RJMX_
 # Building
 ## Requirements
 - `go` v1.20
-- [`operator-sdk`](https://github.com/operator-framework/operator-sdk) v1.28.0
-- [`cert-manager`](https://github.com/jetstack/cert-manager) v1.7.1+ (Recommended)
+- [`operator-sdk`](https://github.com/operator-framework/operator-sdk) v1.31.0
+- [`cert-manager`](https://github.com/cert-manager/cert-manager) v1.11.5+ (Recommended)
 - `podman` or `docker`
 - [`jq`](https://stedolan.github.io/jq/) v1.6+
 - `ginkgo` (Optional)

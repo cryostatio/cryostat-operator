@@ -1,38 +1,16 @@
-// Copyright The Cryostat Authors
+// Copyright The Cryostat Authors.
 //
-// The Universal Permissive License (UPL), Version 1.0
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
 //
-// Subject to the condition set forth below, permission is hereby granted to any
-// person obtaining a copy of this software, associated documentation and/or data
-// (collectively the "Software"), free of charge and under any and all copyright
-// rights in the Software, and any and all patent rights owned or freely
-// licensable by each licensor hereunder covering either (i) the unmodified
-// Software as contributed to or provided by such licensor, or (ii) the Larger
-// Works (as defined below), to deal in both
+// http://www.apache.org/licenses/LICENSE-2.0
 //
-// (a) the Software, and
-// (b) any piece of software and/or hardware listed in the lrgrwrks.txt file if
-// one is included with the Software (each a "Larger Work" to which the Software
-// is contributed by such licensors),
-//
-// without restriction, including without limitation the rights to copy, create
-// derivative works of, display, perform, and distribute the Software and make,
-// use, sell, offer for sale, import, export, have made, and have sold the
-// Software and the Larger Work(s), and to sublicense the foregoing rights on
-// either these or other terms.
-//
-// This license is subject to the following condition:
-// The above copyright notice and either this complete permission notice or at
-// a minimum a reference to the UPL must be included in all copies or
-// substantial portions of the Software.
-//
-// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-// SOFTWARE.
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
 package test
 
@@ -354,7 +332,11 @@ func (r *TestResources) NewCryostatWithCoreNetworkOptions() *model.CryostatInsta
 	cr.Spec.NetworkOptions = &operatorv1beta1.NetworkConfigurationList{
 		CoreConfig: &operatorv1beta1.NetworkConfiguration{
 			Annotations: map[string]string{"custom": "annotation"},
-			Labels:      map[string]string{"custom": "label"},
+			Labels: map[string]string{
+				"custom":    "label",
+				"app":       "test-app",
+				"component": "test-comp",
+			},
 		},
 	}
 	return cr
@@ -365,7 +347,11 @@ func (r *TestResources) NewCryostatWithGrafanaNetworkOptions() *model.CryostatIn
 	cr.Spec.NetworkOptions = &operatorv1beta1.NetworkConfigurationList{
 		GrafanaConfig: &operatorv1beta1.NetworkConfiguration{
 			Annotations: map[string]string{"grafana": "annotation"},
-			Labels:      map[string]string{"grafana": "label"},
+			Labels: map[string]string{
+				"grafana":   "label",
+				"component": "test-comp",
+				"app":       "test-app",
+			},
 		},
 	}
 	return cr
@@ -672,6 +658,44 @@ func (r *TestResources) NewCryostatWithDatabaseSecretProvided() *model.CryostatI
 	cr := r.NewCryostat()
 	cr.Spec.JmxCredentialsDatabaseOptions = &operatorv1beta1.JmxCredentialsDatabaseOptions{
 		DatabaseSecretName: &providedDatabaseSecretName,
+	}
+	return cr
+}
+
+func (r *TestResources) NewCryostatWithAdditionalMetadata() *model.CryostatInstance {
+	cr := r.NewCryostat()
+	cr.Spec.OperandMetadata = &operatorv1beta1.OperandMetadata{
+		DeploymentMetadata: &operatorv1beta1.ResourceMetadata{
+			Labels: map[string]string{
+				"myDeploymentExtraLabel":       "myDeploymentLabel",
+				"mySecondDeploymentExtraLabel": "mySecondDeploymentLabel",
+				// below, labels that should be discarded as overriden by the default
+				"app":                    "myApp",
+				"component":              "myComponent",
+				"kind":                   "myKind",
+				"app.kubernetes.io/name": "myName",
+			},
+			Annotations: map[string]string{
+				"myDeploymentExtraAnnotation":       "myDeploymentAnnotation",
+				"mySecondDeploymentExtraAnnotation": "mySecondDeploymentAnnotation",
+				// below, annotation that should be discarded as overriden by the default
+				"app.openshift.io/connects-to": "connectToMe",
+			},
+		},
+		PodMetadata: &operatorv1beta1.ResourceMetadata{
+			Labels: map[string]string{
+				"myPodExtraLabel":       "myPodLabel",
+				"myPodSecondExtraLabel": "myPodSecondLabel",
+				// below, labels that should be discarded as overriden by the default
+				"app":       "myApp",
+				"component": "myComponent",
+				"kind":      "myKind",
+			},
+			Annotations: map[string]string{
+				"myPodExtraAnnotation":       "myPodAnnotation",
+				"mySecondPodExtraAnnotation": "mySecondPodAnnotation",
+			},
+		},
 	}
 	return cr
 }
@@ -2122,7 +2146,11 @@ func (r *TestResources) NewCoreRoute() *routev1.Route {
 func (r *TestResources) NewCustomCoreRoute() *routev1.Route {
 	route := r.NewCoreRoute()
 	route.Annotations = map[string]string{"custom": "annotation"}
-	route.Labels = map[string]string{"custom": "label"}
+	route.Labels = map[string]string{
+		"custom":    "label",
+		"app":       r.Name,
+		"component": "cryostat",
+	}
 	return route
 }
 
@@ -2133,7 +2161,11 @@ func (r *TestResources) NewGrafanaRoute() *routev1.Route {
 func (r *TestResources) NewCustomGrafanaRoute() *routev1.Route {
 	route := r.NewGrafanaRoute()
 	route.Annotations = map[string]string{"grafana": "annotation"}
-	route.Labels = map[string]string{"grafana": "label"}
+	route.Labels = map[string]string{
+		"grafana":   "label",
+		"app":       r.Name,
+		"component": "cryostat",
+	}
 	return route
 }
 
@@ -2154,6 +2186,10 @@ func (r *TestResources) newRoute(name string, port int) *routev1.Route {
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
 			Namespace: r.Namespace,
+			Labels: map[string]string{
+				"app":       r.Name,
+				"component": "cryostat",
+			},
 		},
 		Spec: routev1.RouteSpec{
 			To: routev1.RouteTargetReference{
@@ -2291,9 +2327,13 @@ func (r *TestResources) OtherGrafanaIngress() *netv1.Ingress {
 func (r *TestResources) newNetworkConfigurationList() operatorv1beta1.NetworkConfigurationList {
 	coreSVC := r.NewCryostatService()
 	coreIng := r.newNetworkConfiguration(coreSVC.Name, coreSVC.Spec.Ports[0].Port)
+	coreIng.Annotations["custom"] = "annotation"
+	coreIng.Labels["custom"] = "label"
 
 	grafanaSVC := r.NewGrafanaService()
 	grafanaIng := r.newNetworkConfiguration(grafanaSVC.Name, grafanaSVC.Spec.Ports[0].Port)
+	grafanaIng.Annotations["grafana"] = "annotation"
+	grafanaIng.Labels["grafana"] = "label"
 
 	return operatorv1beta1.NetworkConfigurationList{
 		CoreConfig:    &coreIng,
@@ -2674,11 +2714,25 @@ func (r *TestResources) NewApiServer() *configv1.APIServer {
 	}
 }
 
+func (r *TestResources) NewApiServerWithApplicationURL() *configv1.APIServer {
+	return &configv1.APIServer{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "cluster",
+		},
+		Spec: configv1.APIServerSpec{
+			AdditionalCORSAllowedOrigins: []string{
+				"https://an-existing-user-specified\\.allowed\\.origin\\.com",
+				fmt.Sprintf("https://%s.example.com", r.Name),
+			},
+		},
+	}
+}
+
 func newCoreContainerDefaultResource() *corev1.ResourceRequirements {
 	return &corev1.ResourceRequirements{
 		Requests: corev1.ResourceList{
-			corev1.ResourceCPU:    resource.MustParse("100m"),
-			corev1.ResourceMemory: resource.MustParse("384Mi"),
+			corev1.ResourceCPU:    resource.MustParse("500m"),
+			corev1.ResourceMemory: resource.MustParse("256Mi"),
 		},
 	}
 }
@@ -2705,8 +2759,8 @@ func (r *TestResources) NewCoreContainerResource(cr *model.CryostatInstance) *co
 func newDatasourceContainerDefaultResource() *corev1.ResourceRequirements {
 	return &corev1.ResourceRequirements{
 		Requests: corev1.ResourceList{
-			corev1.ResourceCPU:    resource.MustParse("100m"),
-			corev1.ResourceMemory: resource.MustParse("512Mi"),
+			corev1.ResourceCPU:    resource.MustParse("200m"),
+			corev1.ResourceMemory: resource.MustParse("384Mi"),
 		},
 	}
 }
@@ -2734,7 +2788,7 @@ func newGrafanaContainerDefaultResource() *corev1.ResourceRequirements {
 	return &corev1.ResourceRequirements{
 		Requests: corev1.ResourceList{
 			corev1.ResourceCPU:    resource.MustParse("100m"),
-			corev1.ResourceMemory: resource.MustParse("256Mi"),
+			corev1.ResourceMemory: resource.MustParse("120Mi"),
 		},
 	}
 }
@@ -2761,8 +2815,8 @@ func (r *TestResources) NewGrafanaContainerResource(cr *model.CryostatInstance) 
 func newReportContainerDefaultResource() *corev1.ResourceRequirements {
 	return &corev1.ResourceRequirements{
 		Requests: corev1.ResourceList{
-			corev1.ResourceCPU:    resource.MustParse("128m"),
-			corev1.ResourceMemory: resource.MustParse("256Mi"),
+			corev1.ResourceCPU:    resource.MustParse("200m"),
+			corev1.ResourceMemory: resource.MustParse("384Mi"),
 		},
 	}
 }

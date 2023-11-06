@@ -4,8 +4,7 @@ metadata:
   annotations:
     capabilities: Seamless Upgrades
     categories: Monitoring, Developer Tools
-    containerImage: quay.io/cryostat/cryostat-operator:2.4.0-dev
-    createdAt: "2023-04-19 00:00:00"
+    containerImage: quay.io/cryostat/cryostat-operator:2.5.0-dev
     description: JVM monitoring and profiling tool
     operatorframework.io/initialization-resource: |-
       {
@@ -26,6 +25,10 @@ metadata:
     operators.operatorframework.io/project_layout: go.kubebuilder.io/v3
     repository: github.com/cryostatio/cryostat-operator
     support: Cryostat Community
+  labels:
+    operatorframework.io/arch.amd64: supported
+    operatorframework.io/arch.arm64: supported
+    operatorframework.io/os.linux: supported
   name: cryostat-operator.v0.0.0
   namespace: placeholder
 spec:
@@ -203,6 +206,15 @@ spec:
           label with key "app" is reserved for use by the operator.
         displayName: Labels
         path: networkOptions.grafanaConfig.labels
+      - description: Options to configure the Cryostat deployments and pods metadata
+        displayName: Operand metadata
+        path: operandMetadata
+      - description: Options to configure the Cryostat deployments metadata
+        displayName: Deployments metadata
+        path: operandMetadata.deploymentMetadata
+      - description: Options to configure the Cryostat pods metadata
+        displayName: Pods metadata
+        path: operandMetadata.podMetadata
       - description: Options to configure Cryostat Automated Report Analysis.
         displayName: Report Options
         path: reportOptions
@@ -574,6 +586,15 @@ spec:
           label with key "app" is reserved for use by the operator.
         displayName: Labels
         path: networkOptions.grafanaConfig.labels
+      - description: Options to configure the Cryostat deployments and pods metadata
+        displayName: Operand metadata
+        path: operandMetadata
+      - description: Options to configure the Cryostat deployments metadata
+        displayName: Deployments metadata
+        path: operandMetadata.deploymentMetadata
+      - description: Options to configure the Cryostat pods metadata
+        displayName: Pods metadata
+        path: operandMetadata.podMetadata
       - description: Options to configure Cryostat Automated Report Analysis.
         displayName: Report Options
         path: reportOptions

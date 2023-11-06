@@ -1,38 +1,16 @@
-// Copyright The Cryostat Authors
+// Copyright The Cryostat Authors.
 //
-// The Universal Permissive License (UPL), Version 1.0
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
 //
-// Subject to the condition set forth below, permission is hereby granted to any
-// person obtaining a copy of this software, associated documentation and/or data
-// (collectively the "Software"), free of charge and under any and all copyright
-// rights in the Software, and any and all patent rights owned or freely
-// licensable by each licensor hereunder covering either (i) the unmodified
-// Software as contributed to or provided by such licensor, or (ii) the Larger
-// Works (as defined below), to deal in both
+// http://www.apache.org/licenses/LICENSE-2.0
 //
-// (a) the Software, and
-// (b) any piece of software and/or hardware listed in the lrgrwrks.txt file if
-// one is included with the Software (each a "Larger Work" to which the Software
-// is contributed by such licensors),
-//
-// without restriction, including without limitation the rights to copy, create
-// derivative works of, display, perform, and distribute the Software and make,
-// use, sell, offer for sale, import, export, have made, and have sold the
-// Software and the Larger Work(s), and to sublicense the foregoing rights on
-// either these or other terms.
-//
-// This license is subject to the following condition:
-// The above copyright notice and either this complete permission notice or at
-// a minimum a reference to the UPL must be included in all copies or
-// substantial portions of the Software.
-//
-// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-// SOFTWARE.
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
 package controllers_test
 
@@ -647,8 +625,16 @@ func (c *controllerTest) commonTestsWithoutManager() {
 				t.reconcileCryostatFully()
 			})
 			It("should update the Routes", func() {
-				// Routes should be replaced
-				t.expectRoutes()
+				if !t.Minimal {
+					expected := t.NewGrafanaRoute()
+					metav1.SetMetaDataAnnotation(&expected.ObjectMeta, "grafana", "annotation")
+					metav1.SetMetaDataLabel(&expected.ObjectMeta, "grafana", "label")
+					t.checkRoute(expected)
+				}
+				expected := t.NewCoreRoute()
+				metav1.SetMetaDataAnnotation(&expected.ObjectMeta, "custom", "annotation")
+				metav1.SetMetaDataLabel(&expected.ObjectMeta, "custom", "label")
+				t.checkRoute(expected)
 			})
 		})
 		Context("Switching from a minimal to a non-minimal deployment", func() {
@@ -1303,8 +1289,20 @@ func (c *controllerTest) commonTestsWithoutManager() {
 					Expect(link.Spec.NamespaceDashboard).To(Equal(expectedLink.Spec.NamespaceDashboard))
 				})
 			})
-			It("should add application url to APIServer AdditionalCORSAllowedOrigins", func() {
-				t.expectAPIServer()
+			Context("with an existing application url in APIServer AdditionalCORSAllowedOrigins", func() {
+				BeforeEach(func() {
+					t.objs = []ctrlclient.Object{
+						t.NewApiServerWithApplicationURL(),
+						t.NewNamespace(),
+					}
+				})
+				It("should remove the application url", func() {
+					apiServer := &configv1.APIServer{}
+					err := t.Client.Get(context.Background(), types.NamespacedName{Name: "cluster"}, apiServer)
+					Expect(err).ToNot(HaveOccurred())
+					Expect(apiServer.Spec.AdditionalCORSAllowedOrigins).ToNot(ContainElement(fmt.Sprintf("https://%s\\.example\\.com", t.Name)))
+					Expect(apiServer.Spec.AdditionalCORSAllowedOrigins).To(ContainElement("https://an-existing-user-specified\\.allowed\\.origin\\.com"))
+				})
 			})
 			It("should add the finalizer", func() {
 				t.expectCryostatFinalizerPresent()
@@ -1341,7 +1339,7 @@ func (c *controllerTest) commonTestsWithoutManager() {
 						apiServer := &configv1.APIServer{}
 						err := t.Client.Get(context.Background(), types.NamespacedName{Name: "cluster"}, apiServer)
 						Expect(err).ToNot(HaveOccurred())
-						Expect(apiServer.Spec.AdditionalCORSAllowedOrigins).ToNot(ContainElement("https://cryostat\\.example\\.com"))
+						Expect(apiServer.Spec.AdditionalCORSAllowedOrigins).ToNot(ContainElement(fmt.Sprintf("https://%s\\.example\\.com", t.Name)))
 						Expect(apiServer.Spec.AdditionalCORSAllowedOrigins).To(ContainElement("https://an-existing-user-specified\\.allowed\\.origin\\.com"))
 					})
 					It("should delete Cryostat", func() {
@@ -1848,9 +1846,6 @@ func (c *controllerTest) commonTestsWithoutManager() {
 						It("should not delete exisiting ConsoleLink", func() {
 							otherInput.expectConsoleLink()
 						})
-						It("should not remove CORS entry from APIServer", func() {
-							otherInput.expectAPIServer()
-						})
 					})
 				})
 			})
@@ -1990,6 +1985,8 @@ func (c *controllerTest) commonTestsWithoutManager() {
 
 				t.reconcileCryostatFully()
 				expectedConfig := cr.Spec.NetworkOptions
+				expectedConfig.GrafanaConfig.Labels["app"] = cr.Name
+				expectedConfig.GrafanaConfig.Labels["component"] = "cryostat"
 
 				ingress := &netv1.Ingress{}
 				err := t.Client.Get(context.Background(), types.NamespacedName{Name: t.Name, Namespace: t.Namespace}, ingress)
@@ -2016,6 +2013,8 @@ func (c *controllerTest) commonTestsWithoutManager() {
 
 				t.reconcileCryostatFully()
 				expectedConfig := cr.Spec.NetworkOptions
+				expectedConfig.GrafanaConfig.Labels["app"] = cr.Name
+				expectedConfig.GrafanaConfig.Labels["component"] = "cryostat"
 
 				ingress := &netv1.Ingress{}
 				err := t.Client.Get(context.Background(), types.NamespacedName{Name: t.Name + "-grafana", Namespace: t.Namespace}, ingress)
@@ -2203,6 +2202,19 @@ func (c *controllerTest) commonTestsWithoutManager() {
 				// Subjects and RoleRef should be fully replaced
 				Expect(binding.Subjects).To(Equal(expected.Subjects))
 				Expect(binding.RoleRef).To(Equal(expected.RoleRef))
+			})
+		})
+		Context("with additionnal label and annotation", func() {
+			BeforeEach(func() {
+				t.ReportReplicas = 1
+				t.objs = append(t.objs, t.NewCryostatWithAdditionalMetadata().Object)
+			})
+			JustBeforeEach(func() {
+				t.reconcileCryostatFully()
+			})
+			It("should have added the extra label and annotation to deployments and pods", func() {
+				t.expectMainDeploymentHasExtraMetadata()
+				t.expectReportsDeploymentHasExtraMetadata()
 			})
 		})
 	})
@@ -2800,6 +2812,30 @@ func (t *cryostatTestInput) expectMainDeployment() {
 	t.checkMainPodTemplate(deployment, cr)
 }
 
+func (t *cryostatTestInput) expectMainDeploymentHasExtraMetadata() {
+	deployment := &appsv1.Deployment{}
+	err := t.Client.Get(context.Background(), types.NamespacedName{Name: t.Name, Namespace: t.Namespace}, deployment)
+	Expect(err).ToNot(HaveOccurred())
+
+	cr := t.getCryostatInstance()
+
+	Expect(deployment.Annotations).To(Equal(map[string]string{
+		"app.openshift.io/connects-to":      "cryostat-operator-controller-manager",
+		"myDeploymentExtraAnnotation":       "myDeploymentAnnotation",
+		"mySecondDeploymentExtraAnnotation": "mySecondDeploymentAnnotation",
+	}))
+	Expect(deployment.Labels).To(Equal(map[string]string{
+		"app":                          t.Name,
+		"kind":                         "cryostat",
+		"component":                    "cryostat",
+		"app.kubernetes.io/name":       "cryostat",
+		"myDeploymentExtraLabel":       "myDeploymentLabel",
+		"mySecondDeploymentExtraLabel": "mySecondDeploymentLabel",
+	}))
+	// compare Pod template
+	t.expectMainPodTemplateHasExtraMetadata(deployment, cr)
+}
+
 func (t *cryostatTestInput) checkMainPodTemplate(deployment *appsv1.Deployment, cr *model.CryostatInstance) {
 	template := deployment.Spec.Template
 	Expect(template.Name).To(Equal(t.Name))
@@ -2862,6 +2898,21 @@ func (t *cryostatTestInput) checkMainPodTemplate(deployment *appsv1.Deployment, 
 	}
 }
 
+func (t *cryostatTestInput) expectMainPodTemplateHasExtraMetadata(deployment *appsv1.Deployment, cr *model.CryostatInstance) {
+	template := deployment.Spec.Template
+	Expect(template.Labels).To(Equal(map[string]string{
+		"app":                   t.Name,
+		"kind":                  "cryostat",
+		"component":             "cryostat",
+		"myPodExtraLabel":       "myPodLabel",
+		"myPodSecondExtraLabel": "myPodSecondLabel",
+	}))
+	Expect(template.Annotations).To(Equal(map[string]string{
+		"myPodExtraAnnotation":       "myPodAnnotation",
+		"mySecondPodExtraAnnotation": "mySecondPodAnnotation",
+	}))
+}
+
 func (t *cryostatTestInput) checkReportsDeployment() {
 	deployment := &appsv1.Deployment{}
 	err := t.Client.Get(context.Background(), types.NamespacedName{Name: t.Name + "-reports", Namespace: t.Namespace}, deployment)
@@ -2914,6 +2965,37 @@ func (t *cryostatTestInput) checkReportsDeployment() {
 		}
 		Expect(template.Spec.Tolerations).To(Equal(scheduling.Tolerations))
 	}
+}
+
+func (t *cryostatTestInput) expectReportsDeploymentHasExtraMetadata() {
+	reportDeployment := &appsv1.Deployment{}
+	err := t.Client.Get(context.Background(), types.NamespacedName{Name: t.Name + "-reports", Namespace: t.Namespace}, reportDeployment)
+	Expect(err).ToNot(HaveOccurred())
+	Expect(reportDeployment.Annotations).To(Equal(map[string]string{
+		"app.openshift.io/connects-to":      t.Name,
+		"myDeploymentExtraAnnotation":       "myDeploymentAnnotation",
+		"mySecondDeploymentExtraAnnotation": "mySecondDeploymentAnnotation",
+	}))
+	Expect(reportDeployment.Labels).To(Equal(map[string]string{
+		"app":                          t.Name,
+		"kind":                         "cryostat",
+		"component":                    "reports",
+		"app.kubernetes.io/name":       "cryostat-reports",
+		"myDeploymentExtraLabel":       "myDeploymentLabel",
+		"mySecondDeploymentExtraLabel": "mySecondDeploymentLabel",
+	}))
+	template := reportDeployment.Spec.Template
+	Expect(template.Labels).To(Equal(map[string]string{
+		"app":                   t.Name,
+		"kind":                  "cryostat",
+		"component":             "reports",
+		"myPodExtraLabel":       "myPodLabel",
+		"myPodSecondExtraLabel": "myPodSecondLabel",
+	}))
+	Expect(template.Annotations).To(Equal(map[string]string{
+		"myPodExtraAnnotation":       "myPodAnnotation",
+		"mySecondPodExtraAnnotation": "mySecondPodAnnotation",
+	}))
 }
 
 func (t *cryostatTestInput) checkDeploymentHasTemplates() {
@@ -3159,13 +3241,6 @@ func (t *cryostatTestInput) expectConsoleLink() {
 	err := t.Client.Get(context.Background(), types.NamespacedName{Name: expectedLink.Name}, link)
 	Expect(err).ToNot(HaveOccurred())
 	Expect(link.Spec).To(Equal(expectedLink.Spec))
-}
-
-func (t *cryostatTestInput) expectAPIServer() {
-	apiServer := &configv1.APIServer{}
-	err := t.Client.Get(context.Background(), types.NamespacedName{Name: "cluster"}, apiServer)
-	Expect(err).ToNot(HaveOccurred())
-	Expect(apiServer.Spec.AdditionalCORSAllowedOrigins).To(ContainElement(fmt.Sprintf("https://%s\\.example\\.com", t.Name)))
 }
 
 func (t *cryostatTestInput) expectResourcesUnaffected() {

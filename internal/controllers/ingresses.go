@@ -1,38 +1,16 @@
-// Copyright The Cryostat Authors
+// Copyright The Cryostat Authors.
 //
-// The Universal Permissive License (UPL), Version 1.0
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
 //
-// Subject to the condition set forth below, permission is hereby granted to any
-// person obtaining a copy of this software, associated documentation and/or data
-// (collectively the "Software"), free of charge and under any and all copyright
-// rights in the Software, and any and all patent rights owned or freely
-// licensable by each licensor hereunder covering either (i) the unmodified
-// Software as contributed to or provided by such licensor, or (ii) the Larger
-// Works (as defined below), to deal in both
+// http://www.apache.org/licenses/LICENSE-2.0
 //
-// (a) the Software, and
-// (b) any piece of software and/or hardware listed in the lrgrwrks.txt file if
-// one is included with the Software (each a "Larger Work" to which the Software
-// is contributed by such licensors),
-//
-// without restriction, including without limitation the rights to copy, create
-// derivative works of, display, perform, and distribute the Software and make,
-// use, sell, offer for sale, import, export, have made, and have sold the
-// Software and the Larger Work(s), and to sublicense the foregoing rights on
-// either these or other terms.
-//
-// This license is subject to the following condition:
-// The above copyright notice and either this complete permission notice or at
-// a minimum a reference to the UPL must be included in all copies or
-// substantial portions of the Software.
-//
-// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-// SOFTWARE.
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
 package controllers
 
@@ -42,6 +20,7 @@ import (
 	"net/url"
 
 	operatorv1beta1 "github.com/cryostatio/cryostat-operator/api/v1beta1"
+	common "github.com/cryostatio/cryostat-operator/internal/controllers/common"
 	"github.com/cryostatio/cryostat-operator/internal/controllers/common/resource_definitions"
 	"github.com/cryostatio/cryostat-operator/internal/controllers/model"
 	netv1 "k8s.io/api/networking/v1"
@@ -64,8 +43,8 @@ func (r *Reconciler) reconcileCoreIngress(ctx context.Context, cr *model.Cryosta
 		// User has not requested an Ingress, delete if it exists
 		return r.deleteIngress(ctx, ingress)
 	}
-
-	url, err := r.reconcileIngress(ctx, ingress, cr, cr.Spec.NetworkOptions.CoreConfig)
+	coreConfig := configureCoreIngress(cr)
+	url, err := r.reconcileIngress(ctx, ingress, cr, coreConfig)
 	if err != nil {
 		return err
 	}
@@ -88,7 +67,8 @@ func (r *Reconciler) reconcileGrafanaIngress(ctx context.Context, cr *model.Cryo
 		// an Ingress, delete if it exists
 		return r.deleteIngress(ctx, ingress)
 	}
-	url, err := r.reconcileIngress(ctx, ingress, cr, cr.Spec.NetworkOptions.GrafanaConfig)
+	grafanaConfig := configureGrafanaIngress(cr)
+	url, err := r.reconcileIngress(ctx, ingress, cr, grafanaConfig)
 	if err != nil {
 		return err
 	}
@@ -122,8 +102,8 @@ func (r *Reconciler) createOrUpdateIngress(ctx context.Context, ingress *netv1.I
 	config *operatorv1beta1.NetworkConfiguration) (*netv1.Ingress, error) {
 	op, err := controllerutil.CreateOrUpdate(ctx, r.Client, ingress, func() error {
 		// Set labels and annotations from CR
-		ingress.Labels = config.Labels
-		ingress.Annotations = config.Annotations
+		common.MergeLabelsAndAnnotations(&ingress.ObjectMeta, config.Labels, config.Annotations)
+
 		// Set the Cryostat CR as controller
 		if err := controllerutil.SetControllerReference(owner, ingress, r.Scheme); err != nil {
 			return err
@@ -137,6 +117,43 @@ func (r *Reconciler) createOrUpdateIngress(ctx context.Context, ingress *netv1.I
 	}
 	r.Log.Info(fmt.Sprintf("Ingress %s", op), "name", ingress.Name, "namespace", ingress.Namespace)
 	return ingress, nil
+}
+
+func configureCoreIngress(cr *model.CryostatInstance) *operatorv1beta1.NetworkConfiguration {
+	var config *operatorv1beta1.NetworkConfiguration
+	if cr.Spec.NetworkOptions == nil || cr.Spec.NetworkOptions.CoreConfig == nil {
+		config = &operatorv1beta1.NetworkConfiguration{}
+	} else {
+		config = cr.Spec.NetworkOptions.CoreConfig
+	}
+
+	configureRoute(config, cr.Name, "cryostat")
+	return config
+}
+
+func configureGrafanaIngress(cr *model.CryostatInstance) *operatorv1beta1.NetworkConfiguration {
+	var config *operatorv1beta1.NetworkConfiguration
+	if cr.Spec.NetworkOptions == nil || cr.Spec.NetworkOptions.GrafanaConfig == nil {
+		config = &operatorv1beta1.NetworkConfiguration{}
+	} else {
+		config = cr.Spec.NetworkOptions.GrafanaConfig
+	}
+
+	configureRoute(config, cr.Name, "cryostat")
+	return config
+}
+
+func configureIngress(config *operatorv1beta1.NetworkConfiguration, appLabel string, componentLabel string) {
+	if config.Labels == nil {
+		config.Labels = map[string]string{}
+	}
+	if config.Annotations == nil {
+		config.Annotations = map[string]string{}
+	}
+
+	// Add required labels, overriding any user-specified labels with the same keys
+	config.Labels["app"] = appLabel
+	config.Labels["component"] = componentLabel
 }
 
 func (r *Reconciler) deleteIngress(ctx context.Context, ingress *netv1.Ingress) error {

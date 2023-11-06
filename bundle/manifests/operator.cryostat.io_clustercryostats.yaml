@@ -1078,6 +1078,45 @@ spec:
                         type: object
                     type: object
                 type: object
+              operandMetadata:
+                description: Options to configure the Cryostat deployments and pods
+                  metadata
+                properties:
+                  deploymentMetadata:
+                    description: Options to configure the Cryostat deployments metadata
+                    properties:
+                      annotations:
+                        additionalProperties:
+                          type: string
+                        description: Annotations to add to the resources during its
+                          creation.
+                        type: object
+                      labels:
+                        additionalProperties:
+                          type: string
+                        description: Labels to add to the resources during its creation.
+                          The labels with keys "app" and "component" are reserved
+                          for use by the operator.
+                        type: object
+                    type: object
+                  podMetadata:
+                    description: Options to configure the Cryostat pods metadata
+                    properties:
+                      annotations:
+                        additionalProperties:
+                          type: string
+                        description: Annotations to add to the resources during its
+                          creation.
+                        type: object
+                      labels:
+                        additionalProperties:
+                          type: string
+                        description: Labels to add to the resources during its creation.
+                          The labels with keys "app" and "component" are reserved
+                          for use by the operator.
+                        type: object
+                    type: object
+                type: object
               reportOptions:
                 description: Options to configure Cryostat Automated Report Analysis.
                 properties:
@@ -1096,7 +1135,8 @@ spec:
                         description: "Claims lists the names of resources, defined
                           in spec.resourceClaims, that are used by this container.
                           \n This is an alpha field and requires enabling the DynamicResourceAllocation
-                          feature gate. \n This field is immutable."
+                          feature gate. \n This field is immutable. It can only be
+                          set for containers."
                         items:
                           description: ResourceClaim references one entry in PodSpec.ResourceClaims.
                           properties:
@@ -2471,7 +2511,8 @@ spec:
                         description: "Claims lists the names of resources, defined
                           in spec.resourceClaims, that are used by this container.
                           \n This is an alpha field and requires enabling the DynamicResourceAllocation
-                          feature gate. \n This field is immutable."
+                          feature gate. \n This field is immutable. It can only be
+                          set for containers."
                         items:
                           description: ResourceClaim references one entry in PodSpec.ResourceClaims.
                           properties:
@@ -2518,7 +2559,8 @@ spec:
                         description: "Claims lists the names of resources, defined
                           in spec.resourceClaims, that are used by this container.
                           \n This is an alpha field and requires enabling the DynamicResourceAllocation
-                          feature gate. \n This field is immutable."
+                          feature gate. \n This field is immutable. It can only be
+                          set for containers."
                         items:
                           description: ResourceClaim references one entry in PodSpec.ResourceClaims.
                           properties:
@@ -2565,7 +2607,8 @@ spec:
                         description: "Claims lists the names of resources, defined
                           in spec.resourceClaims, that are used by this container.
                           \n This is an alpha field and requires enabling the DynamicResourceAllocation
-                          feature gate. \n This field is immutable."
+                          feature gate. \n This field is immutable. It can only be
+                          set for containers."
                         items:
                           description: ResourceClaim references one entry in PodSpec.ResourceClaims.
                           properties:
@@ -4451,7 +4494,8 @@ spec:
                                   defined in spec.resourceClaims, that are used by
                                   this container. \n This is an alpha field and requires
                                   enabling the DynamicResourceAllocation feature gate.
-                                  \n This field is immutable."
+                                  \n This field is immutable. It can only be set for
+                                  containers."
                                 items:
                                   description: ResourceClaim references one entry
                                     in PodSpec.ResourceClaims.
