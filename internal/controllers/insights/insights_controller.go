@@ -69,7 +69,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/source"
 )
 
-// TODO
+// InsightsReconciler reconciles the Insights proxy for Cryostat agents
 type InsightsReconciler struct {
 	*InsightsReconcilerConfig
 	backendDomain string
@@ -77,6 +77,7 @@ type InsightsReconciler struct {
 	proxyImageTag string
 }
 
+// InsightsReconcilerConfig contains configuration to create an InsightsReconciler
 type InsightsReconcilerConfig struct {
 	client.Client
 	Log       logr.Logger
@@ -97,6 +98,7 @@ const (
 	EnvInsightsProxyImageTag = "RELATED_IMAGE_INSIGHTS_PROXY"
 )
 
+// NewInsightsReconciler creates an InsightsReconciler using the provided configuration
 func NewInsightsReconciler(config *InsightsReconcilerConfig) (*InsightsReconciler, error) {
 	backendDomain := config.GetEnv(EnvInsightsBackendDomain)
 	if len(backendDomain) == 0 {
@@ -119,7 +121,7 @@ func NewInsightsReconciler(config *InsightsReconcilerConfig) (*InsightsReconcile
 // +kubebuilder:rbac:groups=apps,resources=deployments;deployments/finalizers,verbs=*
 // +kubebuilder:rbac:groups="",resources=services;secrets;configmaps;configmaps/finalizers,verbs=*
 
-// Reconcile processes a Cryostat CR and manages a Cryostat installation accordingly
+// Reconcile processes the Insights proxy deployment and configures it accordingly
 func (r *InsightsReconciler) Reconcile(ctx context.Context, request ctrl.Request) (ctrl.Result, error) {
 	reqLogger := r.Log.WithValues("Request.Namespace", request.Namespace, "Request.Name", request.Name)
 	reqLogger.Info("Reconciling Insights Proxy")
@@ -136,6 +138,7 @@ func (r *InsightsReconciler) Reconcile(ctx context.Context, request ctrl.Request
 func (r *InsightsReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	c := ctrl.NewControllerManagedBy(mgr).
 		Named("insights").
+		// Filter controller to watch only specific objects we care about
 		Watches(&source.Kind{Type: &corev1.Secret{}},
 			handler.EnqueueRequestsFromMapFunc(r.isPullSecretOrProxyConfig)).
 		Watches(&source.Kind{Type: &appsv1.Deployment{}},
