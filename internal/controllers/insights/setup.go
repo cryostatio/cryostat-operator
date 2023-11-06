@@ -51,7 +51,7 @@ func (i *InsightsIntegration) Setup() (*url.URL, error) {
 	namespace := i.getOperatorNamespace()
 	// This will happen when running the operator locally
 	if len(namespace) == 0 {
-		i.Log.Info("Operator namespace not detected, disabling Insights integration")
+		i.Log.Info("Operator namespace not detected")
 		return nil, nil
 	}
 
