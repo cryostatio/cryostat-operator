@@ -360,20 +360,7 @@ func (r *InsightsReconciler) getProxyPodSpec() *corev1.PodSpec {
 		},
 		SecurityContext: &corev1.PodSecurityContext{
 			RunAsNonRoot:   &nonRoot,
-			SeccompProfile: seccompProfile(true),
+			SeccompProfile: common.SeccompProfile(true),
 		},
-	}
-}
-
-// TODO dedup or remove
-func seccompProfile(openshift bool) *corev1.SeccompProfile {
-	// For backward-compatibility with OpenShift < 4.11,
-	// leave the seccompProfile empty. In OpenShift >= 4.11,
-	// the restricted-v2 SCC will populate it for us.
-	if openshift {
-		return nil
-	}
-	return &corev1.SeccompProfile{
-		Type: corev1.SeccompProfileTypeRuntimeDefault,
 	}
 }

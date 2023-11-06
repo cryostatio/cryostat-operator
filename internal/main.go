@@ -107,7 +107,7 @@ func main() {
 		HealthProbeBindAddress: probeAddr,
 		LeaderElection:         enableLeaderElection,
 		LeaderElectionID:       "d696d7ab.redhat.com",
-		ClientDisableCacheFor:  disableCache, // FIXME can probable remove
+		ClientDisableCacheFor:  disableCache, // TODO can probably remove
 	})
 	if err != nil {
 		setupLog.Error(err, "unable to start manager")
