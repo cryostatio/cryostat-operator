@@ -83,6 +83,7 @@ func (c *controllerTest) commonBeforeEach() *cryostatTestInput {
 		t.NewNamespace(),
 		t.NewApiServer(),
 	}
+	t.watchNamespaces = []string{t.Namespace}
 	return t
 }
 

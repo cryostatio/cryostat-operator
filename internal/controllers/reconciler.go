@@ -292,7 +292,7 @@ func (r *Reconciler) reconcile(ctx context.Context, cr *model.CryostatInstance) 
 	return reconcile.Result{}, nil
 }
 
-func NamespaceEventFilter(scheme *runtime.Scheme, namespaceList []string) predicate.Predicate {
+func namespaceEventFilter(scheme *runtime.Scheme, namespaceList []string) predicate.Predicate {
 	namespaces := namespacesToSet(namespaceList)
 	return predicate.NewPredicateFuncs(func(object client.Object) bool {
 		// Restrict watch for namespaced objects to specified namespaces
@@ -312,7 +312,7 @@ func (r *Reconciler) setupWithManager(mgr ctrl.Manager, impl reconcile.Reconcile
 
 	if r.isNamespaced {
 		// TODO remove this once only AllNamespace mode is supported
-		c = c.WithEventFilter(NamespaceEventFilter(mgr.GetScheme(), r.Namespaces))
+		c = c.WithEventFilter(namespaceEventFilter(mgr.GetScheme(), r.Namespaces))
 	}
 
 	// Watch for changes to secondary resources and requeue the owner Cryostat

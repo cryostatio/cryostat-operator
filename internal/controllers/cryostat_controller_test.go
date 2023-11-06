@@ -16,11 +16,7 @@ package controllers_test
 
 import (
 	"github.com/cryostatio/cryostat-operator/internal/controllers"
-	"github.com/cryostatio/cryostat-operator/internal/controllers/model"
 	. "github.com/onsi/ginkgo/v2"
-	. "github.com/onsi/gomega"
-	"sigs.k8s.io/controller-runtime/pkg/event"
-	"sigs.k8s.io/controller-runtime/pkg/predicate"
 )
 
 var _ = Describe("CryostatController", func() {
@@ -30,46 +26,6 @@ var _ = Describe("CryostatController", func() {
 	}
 
 	c.commonTests()
-
-	Describe("filtering requests", func() {
-		Context("watches the configured namespace(s)", func() {
-			var t *cryostatTestInput
-			var filter predicate.Predicate
-			var cr *model.CryostatInstance
-
-			BeforeEach(func() {
-				t = c.commonBeforeEach()
-				t.watchNamespaces = []string{t.Namespace}
-			})
-			JustBeforeEach(func() {
-				c.commonJustBeforeEach(t)
-				filter = controllers.NamespaceEventFilter(t.Client.Scheme(), t.watchNamespaces)
-			})
-			Context("creating a CR in the watched namespace", func() {
-				BeforeEach(func() {
-					cr = t.NewCryostat()
-				})
-				It("should reconcile the CR", func() {
-					result := filter.Create(event.CreateEvent{
-						Object: cr.Object,
-					})
-					Expect(result).To(BeTrue())
-				})
-			})
-			Context("creating a CR in a non-watched namespace", func() {
-				BeforeEach(func() {
-					t.Namespace = "something-else"
-					cr = t.NewCryostat()
-				})
-				It("should reconcile the CR", func() {
-					result := filter.Create(event.CreateEvent{
-						Object: cr.Object,
-					})
-					Expect(result).To(BeFalse())
-				})
-			})
-		})
-	})
 })
 
 func newCryostatController(config *controllers.ReconcilerConfig) (controllers.CommonReconciler, error) {
