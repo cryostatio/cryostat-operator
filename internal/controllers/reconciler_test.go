@@ -2908,7 +2908,7 @@ func (t *cryostatTestInput) checkCoreContainer(container *corev1.Container, ingr
 	Expect(container.StartupProbe).To(Equal(t.NewCoreStartupProbe()))
 	Expect(container.SecurityContext).To(Equal(securityContext))
 
-	checkResourceRequirements(&container.Resources, resources)
+	test.ExpectResourceRequirements(&container.Resources, resources)
 }
 
 func (t *cryostatTestInput) checkGrafanaContainer(container *corev1.Container, resources *corev1.ResourceRequirements, securityContext *corev1.SecurityContext) {
@@ -2925,7 +2925,7 @@ func (t *cryostatTestInput) checkGrafanaContainer(container *corev1.Container, r
 	Expect(container.LivenessProbe).To(Equal(t.NewGrafanaLivenessProbe()))
 	Expect(container.SecurityContext).To(Equal(securityContext))
 
-	checkResourceRequirements(&container.Resources, resources)
+	test.ExpectResourceRequirements(&container.Resources, resources)
 }
 
 func (t *cryostatTestInput) checkDatasourceContainer(container *corev1.Container, resources *corev1.ResourceRequirements, securityContext *corev1.SecurityContext) {
@@ -2942,7 +2942,7 @@ func (t *cryostatTestInput) checkDatasourceContainer(container *corev1.Container
 	Expect(container.LivenessProbe).To(Equal(t.NewDatasourceLivenessProbe()))
 	Expect(container.SecurityContext).To(Equal(securityContext))
 
-	checkResourceRequirements(&container.Resources, resources)
+	test.ExpectResourceRequirements(&container.Resources, resources)
 }
 
 func (t *cryostatTestInput) checkReportsContainer(container *corev1.Container, resources *corev1.ResourceRequirements, securityContext *corev1.SecurityContext) {
@@ -2958,7 +2958,7 @@ func (t *cryostatTestInput) checkReportsContainer(container *corev1.Container, r
 	Expect(container.LivenessProbe).To(Equal(t.NewReportsLivenessProbe()))
 	Expect(container.SecurityContext).To(Equal(securityContext))
 
-	checkResourceRequirements(&container.Resources, resources)
+	test.ExpectResourceRequirements(&container.Resources, resources)
 }
 
 func (t *cryostatTestInput) checkCoreHasEnvironmentVariables(expectedEnvVars []corev1.EnvVar) {
@@ -2970,43 +2970,6 @@ func (t *cryostatTestInput) checkCoreHasEnvironmentVariables(expectedEnvVars []c
 	coreContainer := template.Spec.Containers[0]
 
 	Expect(coreContainer.Env).To(ContainElements(expectedEnvVars))
-}
-
-func checkResourceRequirements(containerResource, expectedResource *corev1.ResourceRequirements) {
-	// Containers must have resource requests
-	Expect(containerResource.Requests).ToNot(BeNil())
-
-	requestCpu, requestCpuFound := containerResource.Requests[corev1.ResourceCPU]
-	expectedRequestCpu := expectedResource.Requests[corev1.ResourceCPU]
-	Expect(requestCpuFound).To(BeTrue())
-	Expect(requestCpu.Equal(expectedRequestCpu)).To(BeTrue())
-
-	requestMemory, requestMemoryFound := containerResource.Requests[corev1.ResourceMemory]
-	expectedRequestMemory := expectedResource.Requests[corev1.ResourceMemory]
-	Expect(requestMemoryFound).To(BeTrue())
-	Expect(requestMemory.Equal(expectedRequestMemory)).To(BeTrue())
-
-	if expectedResource.Limits == nil {
-		Expect(containerResource.Limits).To(BeNil())
-	} else {
-		Expect(containerResource.Limits).ToNot(BeNil())
-
-		limitCpu, limitCpuFound := containerResource.Limits[corev1.ResourceCPU]
-		expectedLimitCpu, expectedLimitCpuFound := expectedResource.Limits[corev1.ResourceCPU]
-
-		Expect(limitCpuFound).To(Equal(expectedLimitCpuFound))
-		if expectedLimitCpuFound {
-			Expect(limitCpu.Equal(expectedLimitCpu)).To(BeTrue())
-		}
-
-		limitMemory, limitMemoryFound := containerResource.Limits[corev1.ResourceMemory]
-		expectedlimitMemory, expectedLimitMemoryFound := expectedResource.Limits[corev1.ResourceMemory]
-
-		Expect(limitMemoryFound).To(Equal(expectedLimitMemoryFound))
-		if expectedLimitCpuFound {
-			Expect(limitMemory.Equal(expectedlimitMemory)).To(BeTrue())
-		}
-	}
 }
 
 func (t *cryostatTestInput) getCryostatInstance() *model.CryostatInstance {

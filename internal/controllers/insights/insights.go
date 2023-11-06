@@ -61,6 +61,7 @@ import (
 	"github.com/cryostatio/cryostat-operator/internal/controllers/constants"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
@@ -225,7 +226,7 @@ func (r *InsightsReconciler) createOrUpdateProxyDeployment(ctx context.Context, 
 		}
 
 		// Update pod template spec
-		deploy.Spec.Template.Spec = *r.getProxyPodSpec()
+		r.createOrUpdateProxyPodSpec(deploy)
 		// Update pod template metadata
 		common.MergeLabelsAndAnnotations(&deploy.Spec.Template.ObjectMeta, labels, annotations)
 		return nil
@@ -274,93 +275,118 @@ func (r *InsightsReconciler) createOrUpdateProxyService(ctx context.Context, svc
 	return nil
 }
 
-func (r *InsightsReconciler) getProxyPodSpec() *corev1.PodSpec {
+const (
+	defaultProxyCPURequest = "50m"
+	defaultProxyCPULimit   = "200m"
+	defaultProxyMemRequest = "64Mi"
+	defaultProxyMemLimit   = "128Mi"
+)
+
+func (r *InsightsReconciler) createOrUpdateProxyPodSpec(deploy *appsv1.Deployment) {
 	privEscalation := false
 	nonRoot := true
 	readOnlyMode := int32(0440)
 
-	return &corev1.PodSpec{
-		Containers: []corev1.Container{
-			{
-				Name:  ProxyDeploymentName,
-				Image: r.proxyImageTag,
-				Env: []corev1.EnvVar{
-					{
-						Name:  "THREESCALE_CONFIG_FILE",
-						Value: "/tmp/gateway-configuration-volume/config.json",
-					},
-				},
-				VolumeMounts: []corev1.VolumeMount{
-					{
-						Name:      "gateway-configuration-volume",
-						MountPath: "/tmp/gateway-configuration-volume",
-						ReadOnly:  true,
-					},
-				},
-				Ports: []corev1.ContainerPort{
-					{
-						Name:          "proxy",
-						ContainerPort: 8080,
-					},
-					{
-						Name:          "management",
-						ContainerPort: 8090,
-					},
-					{
-						Name:          "metrics",
-						ContainerPort: 9421,
-					},
-				},
-				Resources: corev1.ResourceRequirements{}, // TODO
-				SecurityContext: &corev1.SecurityContext{
-					AllowPrivilegeEscalation: &privEscalation,
-					Capabilities: &corev1.Capabilities{
-						Drop: []corev1.Capability{constants.CapabilityAll},
-					},
-				},
-				LivenessProbe: &corev1.Probe{
-					InitialDelaySeconds: 10,
-					TimeoutSeconds:      5,
-					ProbeHandler: corev1.ProbeHandler{
-						HTTPGet: &corev1.HTTPGetAction{
-							Path: "/status/live",
-							Port: intstr.FromInt(8090),
-						},
-					},
-				},
-				ReadinessProbe: &corev1.Probe{
-					InitialDelaySeconds: 15,
-					PeriodSeconds:       30,
-					TimeoutSeconds:      5,
-					ProbeHandler: corev1.ProbeHandler{
-						HTTPGet: &corev1.HTTPGetAction{
-							Path: "/status/ready",
-							Port: intstr.FromInt(8090),
+	podSpec := &deploy.Spec.Template.Spec
+	// Create the container if it doesn't exist
+	var container *corev1.Container
+	if deploy.CreationTimestamp.IsZero() {
+		podSpec.Containers = []corev1.Container{{}}
+	}
+	container = &podSpec.Containers[0]
+
+	// Set fields that are hard-coded by operator
+	container.Name = ProxyDeploymentName
+	container.Image = r.proxyImageTag
+	container.Env = []corev1.EnvVar{
+		{
+			Name:  "THREESCALE_CONFIG_FILE",
+			Value: "/tmp/gateway-configuration-volume/config.json",
+		},
+	}
+	container.VolumeMounts = []corev1.VolumeMount{
+		{
+			Name:      "gateway-configuration-volume",
+			MountPath: "/tmp/gateway-configuration-volume",
+			ReadOnly:  true,
+		},
+	}
+	container.Ports = []corev1.ContainerPort{
+		{
+			Name:          "proxy",
+			ContainerPort: 8080,
+		},
+		{
+			Name:          "management",
+			ContainerPort: 8090,
+		},
+		{
+			Name:          "metrics",
+			ContainerPort: 9421,
+		},
+	}
+	container.SecurityContext = &corev1.SecurityContext{
+		AllowPrivilegeEscalation: &privEscalation,
+		Capabilities: &corev1.Capabilities{
+			Drop: []corev1.Capability{constants.CapabilityAll},
+		},
+	}
+	container.LivenessProbe = &corev1.Probe{
+		InitialDelaySeconds: 10,
+		TimeoutSeconds:      5,
+		ProbeHandler: corev1.ProbeHandler{
+			HTTPGet: &corev1.HTTPGetAction{
+				Path: "/status/live",
+				Port: intstr.FromInt(8090),
+			},
+		},
+	}
+	container.ReadinessProbe = &corev1.Probe{
+		InitialDelaySeconds: 15,
+		PeriodSeconds:       30,
+		TimeoutSeconds:      5,
+		ProbeHandler: corev1.ProbeHandler{
+			HTTPGet: &corev1.HTTPGetAction{
+				Path: "/status/ready",
+				Port: intstr.FromInt(8090),
+			},
+		},
+	}
+
+	// Set resource requirements only on creation, this allows
+	// the user to modify them if they wish
+	if deploy.CreationTimestamp.IsZero() {
+		container.Resources = corev1.ResourceRequirements{
+			Requests: corev1.ResourceList{
+				corev1.ResourceCPU:    resource.MustParse(defaultProxyCPURequest),
+				corev1.ResourceMemory: resource.MustParse(defaultProxyMemRequest),
+			},
+			Limits: corev1.ResourceList{
+				corev1.ResourceCPU:    resource.MustParse(defaultProxyCPULimit),
+				corev1.ResourceMemory: resource.MustParse(defaultProxyMemLimit),
+			},
+		}
+	}
+
+	podSpec.Volumes = []corev1.Volume{ // TODO detect change and redeploy
+		{
+			Name: "gateway-configuration-volume",
+			VolumeSource: corev1.VolumeSource{
+				Secret: &corev1.SecretVolumeSource{
+					SecretName: ProxySecretName,
+					Items: []corev1.KeyToPath{
+						{
+							Key:  "config.json",
+							Path: "config.json",
+							Mode: &readOnlyMode,
 						},
 					},
 				},
 			},
 		},
-		Volumes: []corev1.Volume{ // TODO detect change and redeploy
-			{
-				Name: "gateway-configuration-volume",
-				VolumeSource: corev1.VolumeSource{
-					Secret: &corev1.SecretVolumeSource{
-						SecretName: ProxySecretName,
-						Items: []corev1.KeyToPath{
-							{
-								Key:  "config.json",
-								Path: "config.json",
-								Mode: &readOnlyMode,
-							},
-						},
-					},
-				},
-			},
-		},
-		SecurityContext: &corev1.PodSecurityContext{
-			RunAsNonRoot:   &nonRoot,
-			SeccompProfile: common.SeccompProfile(true),
-		},
+	}
+	podSpec.SecurityContext = &corev1.PodSecurityContext{
+		RunAsNonRoot:   &nonRoot,
+		SeccompProfile: common.SeccompProfile(true),
 	}
 }

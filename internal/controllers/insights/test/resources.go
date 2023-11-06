@@ -56,12 +56,14 @@ import (
 	"github.com/cryostatio/cryostat-operator/internal/test"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
 type InsightsTestResources struct {
 	*test.TestResources
+	Resources *corev1.ResourceRequirements
 }
 
 func (r *InsightsTestResources) NewGlobalPullSecret() *corev1.Secret {
@@ -178,7 +180,90 @@ func (r *InsightsTestResources) NewInsightsProxySecret() *corev1.Secret {
 	}
 }
 
+func (r *InsightsTestResources) NewInsightsProxySecretWithProxyDomain() *corev1.Secret {
+	return &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "apicastconf",
+			Namespace: r.Namespace,
+		},
+		StringData: map[string]string{
+			"config.json": fmt.Sprintf(`{
+				"services": [
+				  {
+					"id": "1",
+					"backend_version": "1",
+					"proxy": {
+					  "hosts": ["insights-proxy","insights-proxy.%s.svc.cluster.local"],
+					  "api_backend": "https://insights.example.com:443/",
+					  "backend": { "endpoint": "http://127.0.0.1:8081", "host": "backend" },
+					  "policy_chain": [
+						{
+						  "name": "default_credentials",
+						  "version": "builtin",
+						  "configuration": {
+							"auth_type": "user_key",
+							"user_key": "dummy_key"
+						  }
+						},
+						{
+						  "name": "apicast.policy.http_proxy",
+						  "configuration": {
+						    "https_proxy": "http://proxy.example.com/",
+						    "http_proxy": "http://proxy.example.com/"
+						  }
+						},
+						{
+						  "name": "headers",
+						  "version": "builtin",
+						  "configuration": {
+							"request": [
+							  {
+								"op": "set",
+								"header": "Authorization",
+								"value_type": "plain",
+								"value": "world"
+							  }
+							]
+						  }
+						},
+						{
+						  "name": "apicast.policy.apicast"
+						}
+					  ],
+					  "proxy_rules": [
+						{
+						  "http_method": "POST",
+						  "pattern": "/",
+						  "metric_system_name": "hits",
+						  "delta": 1,
+						  "parameters": [],
+						  "querystring_parameters": {}
+						}
+					  ]
+					}
+				  }
+				]
+			  }`, r.Namespace),
+		},
+	}
+}
+
 func (r *InsightsTestResources) NewInsightsProxyDeployment() *appsv1.Deployment {
+	var resources *corev1.ResourceRequirements
+	if r.Resources != nil {
+		resources = r.Resources
+	} else {
+		resources = &corev1.ResourceRequirements{
+			Requests: corev1.ResourceList{
+				corev1.ResourceCPU:    resource.MustParse("50m"),
+				corev1.ResourceMemory: resource.MustParse("64Mi"),
+			},
+			Limits: corev1.ResourceList{
+				corev1.ResourceCPU:    resource.MustParse("200m"),
+				corev1.ResourceMemory: resource.MustParse("128Mi"),
+			},
+		}
+	}
 	return &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "insights-proxy",
@@ -231,7 +316,7 @@ func (r *InsightsTestResources) NewInsightsProxyDeployment() *appsv1.Deployment 
 									ContainerPort: 9421,
 								},
 							},
-							Resources: corev1.ResourceRequirements{}, // TODO
+							Resources: *resources,
 							SecurityContext: &corev1.SecurityContext{
 								AllowPrivilegeEscalation: &[]bool{false}[0],
 								Capabilities: &corev1.Capabilities{

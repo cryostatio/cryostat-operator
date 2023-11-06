@@ -61,6 +61,7 @@ import (
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	ctrlclient "sigs.k8s.io/controller-runtime/pkg/client"
@@ -179,7 +180,8 @@ var _ = Describe("InsightsController", func() {
 					Expect(actualContainer.LivenessProbe).To(Equal(expectedContainer.LivenessProbe))
 					Expect(actualContainer.StartupProbe).To(Equal(expectedContainer.StartupProbe))
 					Expect(actualContainer.SecurityContext).To(Equal(expectedContainer.SecurityContext))
-					Expect(actualContainer.Resources).To(Equal(expectedContainer.Resources))
+
+					test.ExpectResourceRequirements(&actualContainer.Resources, &expectedContainer.Resources)
 				})
 				It("should create the proxy service", func() {
 					expected := t.NewInsightsProxyService()
@@ -199,6 +201,81 @@ var _ = Describe("InsightsController", func() {
 					Expect(actual.Spec.Ports).To(ConsistOf(expected.Spec.Ports))
 				})
 			})
+			Context("with a proxy domain", func() {
+				BeforeEach(func() {
+					t.EnvInsightsProxyDomain = &[]string{"proxy.example.com"}[0]
+				})
+				JustBeforeEach(func() {
+					result, err := t.reconcile()
+					Expect(err).ToNot(HaveOccurred())
+					Expect(result).To(Equal(reconcile.Result{}))
+				})
+				It("should create the APICast config secret", func() {
+					expected := t.NewInsightsProxySecretWithProxyDomain()
+					actual := &corev1.Secret{}
+					err := t.client.Get(context.Background(), types.NamespacedName{
+						Name:      expected.Name,
+						Namespace: expected.Namespace,
+					}, actual)
+					Expect(err).ToNot(HaveOccurred())
+
+					Expect(actual.Labels).To(Equal(expected.Labels))
+					Expect(actual.Annotations).To(Equal(expected.Annotations))
+					Expect(metav1.IsControlledBy(actual, t.NewProxyConfigMap())).To(BeTrue())
+					Expect(actual.StringData).To(HaveLen(1))
+					Expect(actual.StringData).To(HaveKey("config.json"))
+					Expect(actual.StringData["config.json"]).To(MatchJSON(expected.StringData["config.json"]))
+				})
+			})
+		})
+		Context("updating the deployment", func() {
+			BeforeEach(func() {
+				t.objs = append(t.objs,
+					t.NewInsightsProxyDeployment(),
+					t.NewInsightsProxySecret(),
+					t.NewInsightsProxyService(),
+				)
+			})
+			Context("with resource requirements", func() {
+				var resources *corev1.ResourceRequirements
+
+				BeforeEach(func() {
+					resources = &corev1.ResourceRequirements{
+						Requests: corev1.ResourceList{
+							corev1.ResourceCPU:    resource.MustParse("100m"),
+							corev1.ResourceMemory: resource.MustParse("128Mi"),
+						},
+						Limits: corev1.ResourceList{
+							corev1.ResourceCPU:    resource.MustParse("500m"),
+							corev1.ResourceMemory: resource.MustParse("256Mi"),
+						},
+					}
+				})
+				JustBeforeEach(func() {
+					// Fetch the deployment
+					deploy := t.getProxyDeployment()
+
+					// Change the resource requirements
+					deploy.Spec.Template.Spec.Containers[0].Resources = *resources
+
+					// Update the deployment
+					err := t.client.Update(context.Background(), deploy)
+					Expect(err).ToNot(HaveOccurred())
+
+					// Reconcile again
+					result, err := t.reconcile()
+					Expect(err).ToNot(HaveOccurred())
+					Expect(result).To(Equal(reconcile.Result{}))
+				})
+				It("should leave the custom resource requirements", func() {
+					// Fetch the deployment again
+					deploy := t.getProxyDeployment()
+
+					// Check the resource requirements
+					actual := deploy.Spec.Template.Spec.Containers[0].Resources
+					test.ExpectResourceRequirements(&actual, resources)
+				})
+			})
 		})
 	})
 })
@@ -206,4 +283,14 @@ var _ = Describe("InsightsController", func() {
 func (t *insightsTestInput) reconcile() (reconcile.Result, error) {
 	req := reconcile.Request{NamespacedName: types.NamespacedName{Name: "insights-proxy", Namespace: t.Namespace}}
 	return t.controller.Reconcile(context.Background(), req)
+}
+
+func (t *insightsTestInput) getProxyDeployment() *appsv1.Deployment {
+	deploy := t.NewInsightsProxyDeployment()
+	err := t.client.Get(context.Background(), types.NamespacedName{
+		Name:      deploy.Name,
+		Namespace: deploy.Namespace,
+	}, deploy)
+	Expect(err).ToNot(HaveOccurred())
+	return deploy
 }
