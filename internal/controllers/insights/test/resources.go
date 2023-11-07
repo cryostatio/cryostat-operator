@@ -117,7 +117,7 @@ func (r *InsightsTestResources) NewInsightsProxySecret() *corev1.Secret {
 								"op": "set",
 								"header": "Authorization",
 								"value_type": "plain",
-								"value": "world"
+								"value": "Bearer world"
 							  }
 							]
 						  }
@@ -185,7 +185,7 @@ func (r *InsightsTestResources) NewInsightsProxySecretWithProxyDomain() *corev1.
 								"op": "set",
 								"header": "Authorization",
 								"value_type": "plain",
-								"value": "world"
+								"value": "Bearer world"
 							  }
 							]
 						  }

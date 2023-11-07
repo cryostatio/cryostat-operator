@@ -62,7 +62,7 @@ var apiCastConfigTemplate = template.Must(template.New("").Parse(`{
                   "op": "set",
                   "header": "Authorization",
                   "value_type": "plain",
-                  "value": "{{ .HeaderValue }}"
+                  "value": "Bearer {{ .HeaderValue }}"
                 }
               ]
             }
