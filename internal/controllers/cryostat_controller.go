@@ -35,13 +35,15 @@ type CryostatReconciler struct {
 	*ReconcilerConfig
 }
 
-func NewCryostatReconciler(config *ReconcilerConfig) *CryostatReconciler {
+func NewCryostatReconciler(config *ReconcilerConfig) (*CryostatReconciler, error) {
+	delegate, err := newReconciler(config, &operatorv1beta1.Cryostat{}, true)
+	if err != nil {
+		return nil, err
+	}
 	return &CryostatReconciler{
 		ReconcilerConfig: config,
-		delegate: &Reconciler{
-			ReconcilerConfig: config,
-		},
-	}
+		delegate:         delegate,
+	}, nil
 }
 
 // +kubebuilder:rbac:groups=operator.cryostat.io,resources=cryostats,verbs=*
@@ -75,7 +77,7 @@ func (r *CryostatReconciler) Reconcile(ctx context.Context, request ctrl.Request
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *CryostatReconciler) SetupWithManager(mgr ctrl.Manager) error {
-	return r.delegate.setupWithManager(mgr, &operatorv1beta1.Cryostat{}, r)
+	return r.delegate.setupWithManager(mgr, r)
 }
 
 func (r *CryostatReconciler) GetConfig() *ReconcilerConfig {

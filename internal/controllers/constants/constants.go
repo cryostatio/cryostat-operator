@@ -16,6 +16,7 @@ package constants
 
 import (
 	certMeta "github.com/cert-manager/cert-manager/pkg/apis/meta/v1"
+	corev1 "k8s.io/api/core/v1"
 )
 
 const (
@@ -26,9 +27,13 @@ const (
 	ReportsContainerPort      int32  = 10000
 	LoopbackAddress           string = "127.0.0.1"
 	OperatorNamePrefix        string = "cryostat-operator-"
+	OperatorDeploymentName    string = "cryostat-operator-controller-manager"
 	HttpPortName              string = "http"
 	// CAKey is the key for a CA certificate within a TLS secret
 	CAKey = certMeta.TLSCAKey
 	// Hostname alias for loopback address, to be used for health checks
 	HealthCheckHostname = "cryostat-health.local"
+	// ALL capability to drop for restricted pod security. See:
+	// https://kubernetes.io/docs/concepts/security/pod-security-standards/#restricted
+	CapabilityAll corev1.Capability = "ALL"
 )

@@ -18,6 +18,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net/url"
 	"regexp"
 	"strconv"
 	"time"
@@ -39,11 +40,14 @@ import (
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
@@ -57,6 +61,8 @@ type ReconcilerConfig struct {
 	IsCertManagerInstalled bool
 	EventRecorder          record.EventRecorder
 	RESTMapper             meta.RESTMapper
+	Namespaces             []string
+	InsightsProxy          *url.URL // Only defined if Insights is enabled
 	common.ReconcilerTLS
 }
 
@@ -64,11 +70,15 @@ type ReconcilerConfig struct {
 // between the ClusterCryostat and Cryostat reconcilers
 type CommonReconciler interface {
 	reconcile.Reconciler
+	SetupWithManager(mgr ctrl.Manager) error
 	GetConfig() *ReconcilerConfig
 }
 
 type Reconciler struct {
 	*ReconcilerConfig
+	objectType   client.Object
+	isNamespaced bool
+	gvk          *schema.GroupVersionKind
 }
 
 // Name used for Finalizer that handles Cryostat deletion
@@ -113,6 +123,19 @@ var reportsDeploymentConditions = deploymentConditionTypeMap{
 	operatorv1beta1.ConditionTypeReportsDeploymentAvailable:      appsv1.DeploymentAvailable,
 	operatorv1beta1.ConditionTypeReportsDeploymentProgressing:    appsv1.DeploymentProgressing,
 	operatorv1beta1.ConditionTypeReportsDeploymentReplicaFailure: appsv1.DeploymentReplicaFailure,
+}
+
+func newReconciler(config *ReconcilerConfig, objType client.Object, isNamespaced bool) (*Reconciler, error) {
+	gvk, err := apiutil.GVKForObject(objType, config.Scheme)
+	if err != nil {
+		return nil, err
+	}
+	return &Reconciler{
+		ReconcilerConfig: config,
+		objectType:       objType,
+		isNamespaced:     isNamespaced,
+		gvk:              &gvk,
+	}, nil
 }
 
 func (r *Reconciler) reconcileCryostat(ctx context.Context, cr *model.CryostatInstance) (ctrl.Result, error) {
@@ -213,7 +236,9 @@ func (r *Reconciler) reconcile(ctx context.Context, cr *model.CryostatInstance) 
 		return reconcile.Result{}, err
 	}
 
-	serviceSpecs := &resources.ServiceSpecs{}
+	serviceSpecs := &resources.ServiceSpecs{
+		InsightsURL: r.InsightsProxy,
+	}
 	err = r.reconcileGrafanaService(ctx, cr, tlsConfig, serviceSpecs)
 	if err != nil {
 		return requeueIfIngressNotReady(reqLogger, err)
@@ -267,10 +292,31 @@ func (r *Reconciler) reconcile(ctx context.Context, cr *model.CryostatInstance) 
 	return reconcile.Result{}, nil
 }
 
-func (r *Reconciler) setupWithManager(mgr ctrl.Manager, obj client.Object,
-	impl reconcile.Reconciler) error {
+func namespaceEventFilter(scheme *runtime.Scheme, namespaceList []string) predicate.Predicate {
+	namespaces := namespacesToSet(namespaceList)
+	return predicate.NewPredicateFuncs(func(object client.Object) bool {
+		// Restrict watch for namespaced objects to specified namespaces
+		if len(object.GetNamespace()) > 0 {
+			_, pres := namespaces[object.GetNamespace()]
+			if !pres {
+				return false
+			}
+		}
+		return true
+	})
+}
+
+func (r *Reconciler) setupWithManager(mgr ctrl.Manager, impl reconcile.Reconciler) error {
 	c := ctrl.NewControllerManagedBy(mgr).
-		For(obj)
+		For(r.objectType)
+
+	// Filter watch to specified namespaces only if the CRD is namespaced and
+	// we're not running in AllNamespace mode
+	// TODO remove this once only AllNamespace mode is supported
+	if r.isNamespaced && len(r.Namespaces) > 0 {
+		r.Log.Info(fmt.Sprintf("Adding EventFilter for namespaces: %v", r.Namespaces))
+		c = c.WithEventFilter(namespaceEventFilter(mgr.GetScheme(), r.Namespaces))
+	}
 
 	// Watch for changes to secondary resources and requeue the owner Cryostat
 	resources := []client.Object{&appsv1.Deployment{}, &corev1.Service{}, &corev1.Secret{}, &corev1.PersistentVolumeClaim{},
@@ -541,4 +587,12 @@ func findDeployCondition(conditions []appsv1.DeploymentCondition, condType appsv
 		}
 	}
 	return nil
+}
+
+func namespacesToSet(namespaces []string) map[string]struct{} {
+	result := make(map[string]struct{}, len(namespaces))
+	for _, namespace := range namespaces {
+		result[namespace] = struct{}{}
+	}
+	return result
 }

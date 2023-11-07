@@ -41,9 +41,10 @@ type ImageTags struct {
 }
 
 type ServiceSpecs struct {
-	CoreURL    *url.URL
-	GrafanaURL *url.URL
-	ReportsURL *url.URL
+	CoreURL     *url.URL
+	GrafanaURL  *url.URL
+	ReportsURL  *url.URL
+	InsightsURL *url.URL
 }
 
 // TLSConfig contains TLS-related information useful when creating other objects
@@ -390,7 +391,7 @@ func NewPodForCR(cr *model.CryostatInstance, specs *ServiceSpecs, imageTags *Ima
 			// Ensure PV mounts are writable
 			FSGroup:        &fsGroup,
 			RunAsNonRoot:   &nonRoot,
-			SeccompProfile: seccompProfile(openshift),
+			SeccompProfile: common.SeccompProfile(openshift),
 		}
 	}
 
@@ -443,10 +444,6 @@ func NewReportContainerResource(cr *model.CryostatInstance) *corev1.ResourceRequ
 	populateResourceRequest(resources, defaultReportCpuRequest, defaultReportMemoryRequest)
 	return resources
 }
-
-// ALL capability to drop for restricted pod security. See:
-// https://kubernetes.io/docs/concepts/security/pod-security-standards/#restricted
-const capabilityAll corev1.Capability = "ALL"
 
 func NewPodForReports(cr *model.CryostatInstance, imageTags *ImageTags, tls *TLSConfig, openshift bool) *corev1.PodSpec {
 	resources := NewReportContainerResource(cr)
@@ -537,7 +534,7 @@ func NewPodForReports(cr *model.CryostatInstance, imageTags *ImageTags, tls *TLS
 		nonRoot := true
 		podSc = &corev1.PodSecurityContext{
 			RunAsNonRoot:   &nonRoot,
-			SeccompProfile: seccompProfile(openshift),
+			SeccompProfile: common.SeccompProfile(openshift),
 		}
 	}
 
@@ -549,7 +546,7 @@ func NewPodForReports(cr *model.CryostatInstance, imageTags *ImageTags, tls *TLS
 		containerSc = &corev1.SecurityContext{
 			AllowPrivilegeEscalation: &privEscalation,
 			Capabilities: &corev1.Capabilities{
-				Drop: []corev1.Capability{capabilityAll},
+				Drop: []corev1.Capability{constants.CapabilityAll},
 			},
 		}
 	}
@@ -727,6 +724,17 @@ func NewCoreContainer(cr *model.CryostatInstance, specs *ServiceSpecs, imageTag 
 			},
 		}
 		envs = append(envs, subprocessReportHeapEnv...)
+	}
+
+	// Define INSIGHTS_PROXY URL if Insights integration is enabled
+	if specs.InsightsURL != nil {
+		insightsEnvs := []corev1.EnvVar{
+			{
+				Name:  "INSIGHTS_PROXY",
+				Value: specs.InsightsURL.String(),
+			},
+		}
+		envs = append(envs, insightsEnvs...)
 	}
 
 	if cr.Spec.MaxWsConnections != 0 {
@@ -947,7 +955,7 @@ func NewCoreContainer(cr *model.CryostatInstance, specs *ServiceSpecs, imageTag 
 		containerSc = &corev1.SecurityContext{
 			AllowPrivilegeEscalation: &privEscalation,
 			Capabilities: &corev1.Capabilities{
-				Drop: []corev1.Capability{capabilityAll},
+				Drop: []corev1.Capability{constants.CapabilityAll},
 			},
 		}
 	}
@@ -1037,7 +1045,7 @@ func NewGrafanaContainer(cr *model.CryostatInstance, imageTag string, tls *TLSCo
 		containerSc = &corev1.SecurityContext{
 			AllowPrivilegeEscalation: &privEscalation,
 			Capabilities: &corev1.Capabilities{
-				Drop: []corev1.Capability{capabilityAll},
+				Drop: []corev1.Capability{constants.CapabilityAll},
 			},
 		}
 	}
@@ -1097,7 +1105,7 @@ func NewJfrDatasourceContainer(cr *model.CryostatInstance, imageTag string) core
 		containerSc = &corev1.SecurityContext{
 			AllowPrivilegeEscalation: &privEscalation,
 			Capabilities: &corev1.Capabilities{
-				Drop: []corev1.Capability{capabilityAll},
+				Drop: []corev1.Capability{constants.CapabilityAll},
 			},
 		}
 	}
@@ -1192,18 +1200,6 @@ func newVolumeForCR(cr *model.CryostatInstance) []corev1.Volume {
 			Name:         cr.Name,
 			VolumeSource: volumeSource,
 		},
-	}
-}
-
-func seccompProfile(openshift bool) *corev1.SeccompProfile {
-	// For backward-compatibility with OpenShift < 4.11,
-	// leave the seccompProfile empty. In OpenShift >= 4.11,
-	// the restricted-v2 SCC will populate it for us.
-	if openshift {
-		return nil
-	}
-	return &corev1.SeccompProfile{
-		Type: corev1.SeccompProfileTypeRuntimeDefault,
 	}
 }
 

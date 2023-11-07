@@ -53,8 +53,13 @@ metadata:
       ]
     capabilities: Seamless Upgrades
     categories: Monitoring, Developer Tools
+<<<<<<< HEAD
     containerImage: quay.io/cryostat/cryostat-operator:2.4.0-dev
     createdAt: "2023-10-27T14:13:11Z"
+=======
+    containerImage: quay.io/cryostat/cryostat-operator:2.5.0-dev
+    createdAt: "2023-11-07T20:18:21Z"
+>>>>>>> d719e43 (feat(insights): optionally deploy a proxy for Insights (#670))
     description: JVM monitoring and profiling tool
     operatorframework.io/initialization-resource: |-
       {
@@ -883,6 +888,15 @@ spec:
           - ""
           resources:
           - configmaps
+          - configmaps/finalizers
+          - secrets
+          - services
+          verbs:
+          - '*'
+        - apiGroups:
+          - ""
+          resources:
+          - configmaps
           - endpoints
           - events
           - persistentvolumeclaims
@@ -914,6 +928,13 @@ spec:
           - deployments
           - replicasets
           - statefulsets
+          verbs:
+          - '*'
+        - apiGroups:
+          - apps
+          resources:
+          - deployments
+          - deployments/finalizers
           verbs:
           - '*'
         - apiGroups:
@@ -1084,7 +1105,15 @@ spec:
                   valueFrom:
                     fieldRef:
                       fieldPath: metadata.annotations['olm.targetNamespaces']
+<<<<<<< HEAD
                 image: quay.io/cryostat/cryostat-operator:2.4.0-dev
+=======
+                - name: NAMESPACE
+                  valueFrom:
+                    fieldRef:
+                      fieldPath: metadata.namespace
+                image: quay.io/cryostat/cryostat-operator:2.5.0-dev
+>>>>>>> d719e43 (feat(insights): optionally deploy a proxy for Insights (#670))
                 imagePullPolicy: Always
                 livenessProbe:
                   httpGet:
