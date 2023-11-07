@@ -310,8 +310,11 @@ func (r *Reconciler) setupWithManager(mgr ctrl.Manager, impl reconcile.Reconcile
 	c := ctrl.NewControllerManagedBy(mgr).
 		For(r.objectType)
 
-	if r.isNamespaced {
-		// TODO remove this once only AllNamespace mode is supported
+	// Filter watch to specified namespaces only if the CRD is namespaced and
+	// we're not running in AllNamespace mode
+	// TODO remove this once only AllNamespace mode is supported
+	if r.isNamespaced && len(r.Namespaces) > 0 {
+		r.Log.Info(fmt.Sprintf("Adding EventFilter for namespaces: %v", r.Namespaces))
 		c = c.WithEventFilter(namespaceEventFilter(mgr.GetScheme(), r.Namespaces))
 	}
 

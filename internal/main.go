@@ -85,7 +85,10 @@ func main() {
 		setupLog.Error(err, "unable to get WatchNamespace, "+
 			"the manager will watch and manage resources in all namespaces")
 	}
-	namespaces := strings.Split(watchNamespace, ",")
+	namespaces := []string{}
+	if len(watchNamespace) > 0 {
+		namespaces = append(namespaces, strings.Split(watchNamespace, ",")...)
+	}
 
 	ctrl.SetLogger(zap.New(zap.UseFlagOptions(&opts)))
 
