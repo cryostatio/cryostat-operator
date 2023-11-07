@@ -29,7 +29,7 @@ In this quick start, you will complete the following tasks:
 1. Enable remote Java Management Extensions (JMX) connections on your Java application<br />
 2. Update Red Hat OpenShift Services with the remote JMX port<br />
 3. View your Java application as a target in the Cryostat web application<br />
-Note: The quickstart uses a sample [Quarkus application.](https://github.com/quarkusio/quarkus-quickstarts) You can deploy your own Quarkus application or follow this [quick start.](http://LINK/quickstart?quickstart=quarkus-with-s2i)\ "
+Note: The quickstart uses a sample [Quarkus application.](https://github.com/quarkusio/quarkus-quickstarts) You can deploy your own Quarkus application or follow the quarkus-with-s2i quick start.\ "
   tasks:
   - description: "To enable remote JMX connections: <br /><br />
 1. Click on the perspective switcher at the top of the navigation, and select <b>Administrator</b>. <br />
