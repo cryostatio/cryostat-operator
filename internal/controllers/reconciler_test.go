@@ -17,6 +17,7 @@ package controllers_test
 import (
 	"context"
 	"fmt"
+	"net/url"
 	"time"
 
 	certv1 "github.com/cert-manager/cert-manager/pkg/apis/certmanager/v1"
@@ -53,12 +54,13 @@ import (
 
 type controllerTest struct {
 	clusterScoped   bool
-	constructorFunc func(*controllers.ReconcilerConfig) controllers.CommonReconciler
+	constructorFunc func(*controllers.ReconcilerConfig) (controllers.CommonReconciler, error)
 }
 
 type cryostatTestInput struct {
-	controller controllers.CommonReconciler
-	objs       []ctrlclient.Object
+	controller      controllers.CommonReconciler
+	objs            []ctrlclient.Object
+	watchNamespaces []string
 	test.TestReconcilerConfig
 	*test.TestResources
 }
@@ -81,6 +83,7 @@ func (c *controllerTest) commonBeforeEach() *cryostatTestInput {
 		t.NewNamespace(),
 		t.NewApiServer(),
 	}
+	t.watchNamespaces = []string{t.Namespace}
 	return t
 }
 
@@ -92,7 +95,8 @@ func (c *controllerTest) commonJustBeforeEach(t *cryostatTestInput) {
 	err := test.SetCreationTimestamp(t.objs...)
 	Expect(err).ToNot(HaveOccurred())
 	t.Client = fake.NewClientBuilder().WithScheme(s).WithObjects(t.objs...).Build()
-	t.controller = c.constructorFunc(t.newReconcilerConfig(s, t.Client))
+	t.controller, err = c.constructorFunc(t.newReconcilerConfig(s, t.Client))
+	Expect(err).ToNot(HaveOccurred())
 }
 
 func (c *controllerTest) commonJustAfterEach(t *cryostatTestInput) {
@@ -106,6 +110,13 @@ func (t *cryostatTestInput) newReconcilerConfig(scheme *runtime.Scheme, client c
 	logger := zap.New().WithValues("cluster-scoped", t.ClusterScoped)
 	logf.SetLogger(logger)
 
+	// Set InsightsURL in config, if provided
+	var insightsURL *url.URL
+	if len(t.InsightsURL) > 0 {
+		url, err := url.Parse(t.InsightsURL)
+		Expect(err).ToNot(HaveOccurred())
+		insightsURL = url
+	}
 	return &controllers.ReconcilerConfig{
 		Client:        test.NewClientWithTimestamp(test.NewTestClient(client, t.TestResources)),
 		Scheme:        scheme,
@@ -114,6 +125,8 @@ func (t *cryostatTestInput) newReconcilerConfig(scheme *runtime.Scheme, client c
 		RESTMapper:    test.NewTESTRESTMapper(),
 		Log:           logger,
 		ReconcilerTLS: test.NewTestReconcilerTLS(&t.TestReconcilerConfig),
+		Namespaces:    t.watchNamespaces,
+		InsightsProxy: insightsURL,
 	}
 }
 
@@ -205,20 +218,19 @@ func expectSuccessful(t **cryostatTestInput) {
 func (c *controllerTest) commonTests() {
 	var t *cryostatTestInput
 
-	BeforeEach(func() {
-		t = c.commonBeforeEach()
-		t.TargetNamespaces = []string{t.Namespace}
-	})
-
-	JustBeforeEach(func() {
-		c.commonJustBeforeEach(t)
-	})
-
-	JustAfterEach(func() {
-		c.commonJustAfterEach(t)
-	})
-
 	Describe("reconciling a request in OpenShift", func() {
+		BeforeEach(func() {
+			t = c.commonBeforeEach()
+			t.TargetNamespaces = []string{t.Namespace}
+		})
+
+		JustBeforeEach(func() {
+			c.commonJustBeforeEach(t)
+		})
+
+		JustAfterEach(func() {
+			c.commonJustAfterEach(t)
+		})
 		Context("with a default CR", func() {
 			BeforeEach(func() {
 				t.objs = append(t.objs, t.NewCryostat().Object)
@@ -1335,6 +1347,17 @@ func (c *controllerTest) commonTests() {
 					})
 				})
 			})
+			Context("with Insights enabled", func() {
+				BeforeEach(func() {
+					t.InsightsURL = "http://insights-proxy.foo.svc.cluster.local"
+				})
+				JustBeforeEach(func() {
+					t.reconcileCryostatFully()
+				})
+				It("should create deployment", func() {
+					t.expectMainDeployment()
+				})
+			})
 		})
 		Context("with cert-manager disabled in CR", func() {
 			BeforeEach(func() {
@@ -1761,10 +1784,14 @@ func (c *controllerTest) commonTests() {
 
 			JustBeforeEach(func() {
 				other.commonJustBeforeEach(otherInput)
+
 				// Controllers need to share client to have shared view of objects
 				otherInput.Client = t.Client
 				config := otherInput.newReconcilerConfig(otherInput.Client.Scheme(), otherInput.Client)
-				otherInput.controller = other.constructorFunc(config)
+				controller, err := other.constructorFunc(config)
+				Expect(err).ToNot(HaveOccurred())
+				otherInput.controller = controller
+
 				// Reconcile conflicting namespaced Cryostat fully
 				otherInput.reconcileCryostatFully()
 				// Try reconciling ClusterCryostat
@@ -1853,7 +1880,17 @@ func (c *controllerTest) commonTests() {
 
 	Describe("reconciling a request in Kubernetes", func() {
 		BeforeEach(func() {
+			t = c.commonBeforeEach()
+			t.TargetNamespaces = []string{t.Namespace}
 			t.OpenShift = false
+		})
+
+		JustBeforeEach(func() {
+			c.commonJustBeforeEach(t)
+		})
+
+		JustAfterEach(func() {
+			c.commonJustAfterEach(t)
 		})
 		Context("with TLS ingress", func() {
 			BeforeEach(func() {
@@ -2871,7 +2908,7 @@ func (t *cryostatTestInput) checkCoreContainer(container *corev1.Container, ingr
 	Expect(container.StartupProbe).To(Equal(t.NewCoreStartupProbe()))
 	Expect(container.SecurityContext).To(Equal(securityContext))
 
-	checkResourceRequirements(&container.Resources, resources)
+	test.ExpectResourceRequirements(&container.Resources, resources)
 }
 
 func (t *cryostatTestInput) checkGrafanaContainer(container *corev1.Container, resources *corev1.ResourceRequirements, securityContext *corev1.SecurityContext) {
@@ -2888,7 +2925,7 @@ func (t *cryostatTestInput) checkGrafanaContainer(container *corev1.Container, r
 	Expect(container.LivenessProbe).To(Equal(t.NewGrafanaLivenessProbe()))
 	Expect(container.SecurityContext).To(Equal(securityContext))
 
-	checkResourceRequirements(&container.Resources, resources)
+	test.ExpectResourceRequirements(&container.Resources, resources)
 }
 
 func (t *cryostatTestInput) checkDatasourceContainer(container *corev1.Container, resources *corev1.ResourceRequirements, securityContext *corev1.SecurityContext) {
@@ -2905,7 +2942,7 @@ func (t *cryostatTestInput) checkDatasourceContainer(container *corev1.Container
 	Expect(container.LivenessProbe).To(Equal(t.NewDatasourceLivenessProbe()))
 	Expect(container.SecurityContext).To(Equal(securityContext))
 
-	checkResourceRequirements(&container.Resources, resources)
+	test.ExpectResourceRequirements(&container.Resources, resources)
 }
 
 func (t *cryostatTestInput) checkReportsContainer(container *corev1.Container, resources *corev1.ResourceRequirements, securityContext *corev1.SecurityContext) {
@@ -2921,7 +2958,7 @@ func (t *cryostatTestInput) checkReportsContainer(container *corev1.Container, r
 	Expect(container.LivenessProbe).To(Equal(t.NewReportsLivenessProbe()))
 	Expect(container.SecurityContext).To(Equal(securityContext))
 
-	checkResourceRequirements(&container.Resources, resources)
+	test.ExpectResourceRequirements(&container.Resources, resources)
 }
 
 func (t *cryostatTestInput) checkCoreHasEnvironmentVariables(expectedEnvVars []corev1.EnvVar) {
@@ -2933,43 +2970,6 @@ func (t *cryostatTestInput) checkCoreHasEnvironmentVariables(expectedEnvVars []c
 	coreContainer := template.Spec.Containers[0]
 
 	Expect(coreContainer.Env).To(ContainElements(expectedEnvVars))
-}
-
-func checkResourceRequirements(containerResource, expectedResource *corev1.ResourceRequirements) {
-	// Containers must have resource requests
-	Expect(containerResource.Requests).ToNot(BeNil())
-
-	requestCpu, requestCpuFound := containerResource.Requests[corev1.ResourceCPU]
-	expectedRequestCpu := expectedResource.Requests[corev1.ResourceCPU]
-	Expect(requestCpuFound).To(BeTrue())
-	Expect(requestCpu.Equal(expectedRequestCpu)).To(BeTrue())
-
-	requestMemory, requestMemoryFound := containerResource.Requests[corev1.ResourceMemory]
-	expectedRequestMemory := expectedResource.Requests[corev1.ResourceMemory]
-	Expect(requestMemoryFound).To(BeTrue())
-	Expect(requestMemory.Equal(expectedRequestMemory)).To(BeTrue())
-
-	if expectedResource.Limits == nil {
-		Expect(containerResource.Limits).To(BeNil())
-	} else {
-		Expect(containerResource.Limits).ToNot(BeNil())
-
-		limitCpu, limitCpuFound := containerResource.Limits[corev1.ResourceCPU]
-		expectedLimitCpu, expectedLimitCpuFound := expectedResource.Limits[corev1.ResourceCPU]
-
-		Expect(limitCpuFound).To(Equal(expectedLimitCpuFound))
-		if expectedLimitCpuFound {
-			Expect(limitCpu.Equal(expectedLimitCpu)).To(BeTrue())
-		}
-
-		limitMemory, limitMemoryFound := containerResource.Limits[corev1.ResourceMemory]
-		expectedlimitMemory, expectedLimitMemoryFound := expectedResource.Limits[corev1.ResourceMemory]
-
-		Expect(limitMemoryFound).To(Equal(expectedLimitMemoryFound))
-		if expectedLimitCpuFound {
-			Expect(limitMemory.Equal(expectedlimitMemory)).To(BeTrue())
-		}
-	}
 }
 
 func (t *cryostatTestInput) getCryostatInstance() *model.CryostatInstance {
@@ -3054,7 +3054,7 @@ func (t *cryostatTestInput) expectResourcesUnaffected() {
 	}
 }
 
-func getControllerFunc(clusterScoped bool) func(*controllers.ReconcilerConfig) controllers.CommonReconciler {
+func getControllerFunc(clusterScoped bool) func(*controllers.ReconcilerConfig) (controllers.CommonReconciler, error) {
 	if clusterScoped {
 		return newClusterCryostatController
 	}
