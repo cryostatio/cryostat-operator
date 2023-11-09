@@ -54,6 +54,7 @@ const (
 	InsightsConfigMapName    = "insights-proxy"
 	ProxyDeploymentName      = InsightsConfigMapName
 	ProxyServiceName         = ProxyDeploymentName
+	ProxyServicePort         = 8080
 	ProxySecretName          = "apicastconf"
 	EnvInsightsBackendDomain = "INSIGHTS_BACKEND_DOMAIN"
 	EnvInsightsProxyDomain   = "INSIGHTS_PROXY_DOMAIN"
