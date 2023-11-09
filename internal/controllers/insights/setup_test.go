@@ -82,7 +82,7 @@ var _ = Describe("InsightsIntegration", func() {
 				result, err := integration.Setup()
 				Expect(err).ToNot(HaveOccurred())
 				Expect(result).ToNot(BeNil())
-				Expect(result.String()).To(Equal("http://insights-proxy.test.svc.cluster.local"))
+				Expect(result.String()).To(Equal("http://insights-proxy.test.svc.cluster.local:8080"))
 			})
 
 			It("should create config map", func() {

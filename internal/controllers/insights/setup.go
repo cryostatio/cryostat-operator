@@ -156,6 +156,7 @@ func (i *InsightsIntegration) deleteConfigMap(ctx context.Context, namespace str
 func (i *InsightsIntegration) getProxyURL(namespace string) *url.URL {
 	return &url.URL{
 		Scheme: "http", // TODO add https support (r.IsCertManagerInstalled)
-		Host:   fmt.Sprintf("%s.%s.svc.cluster.local", ProxyServiceName, namespace),
+		Host: fmt.Sprintf("%s.%s.svc.cluster.local:%d", ProxyServiceName, namespace,
+			ProxyServicePort),
 	}
 }
