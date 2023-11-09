@@ -221,7 +221,7 @@ func (r *InsightsReconciler) createOrUpdateProxyService(ctx context.Context, svc
 		svc.Spec.Ports = []corev1.ServicePort{
 			{
 				Name:       "proxy",
-				Port:       8080,
+				Port:       ProxyServicePort,
 				TargetPort: intstr.FromString("proxy"),
 			},
 			{
@@ -278,7 +278,7 @@ func (r *InsightsReconciler) createOrUpdateProxyPodSpec(deploy *appsv1.Deploymen
 	container.Ports = []corev1.ContainerPort{
 		{
 			Name:          "proxy",
-			ContainerPort: 8080,
+			ContainerPort: ProxyServicePort,
 		},
 		{
 			Name:          "management",
