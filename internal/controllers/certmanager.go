@@ -122,32 +122,42 @@ func (r *Reconciler) setupTLS(ctx context.Context, cr *model.CryostatInstance) (
 		return nil, err
 	}
 
+	secret, err := r.GetCertificateSecret(ctx, caCert)
+	if err != nil {
+		return nil, err
+	}
 	// Copy Cryostat CA secret in each target namespace
 	for _, ns := range cr.TargetNamespaces {
-		secret, err := r.GetCertificateSecret(ctx, caCert)
-		if err != nil {
-			return nil, err
-		}
-		namespaceSecret := secret.DeepCopy()
-		namespaceSecret.Namespace = ns
-		err = r.createOrUpdateSecret(ctx, namespaceSecret, cr.Object, func() error {
-			if secret.StringData == nil {
-				secret.StringData = map[string]string{}
+		if ns != cr.InstallNamespace {
+			namespaceSecret := &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      caCert.Spec.SecretName,
+					Namespace: ns,
+				},
+				Type: secret.Type,
 			}
-			return nil
-		})
+			err = r.createOrUpdateSecret(ctx, namespaceSecret, cr.Object, func() error {
+				namespaceSecret.Data = secret.Data
+				return nil
+			})
+			if err != nil {
+				return nil, err
+			}
+		}
 	}
 	// Delete any Cryostat CA secrets in target namespaces that are no longer requested
 	for _, ns := range toDelete(cr) {
-		namespaceSecret := &corev1.Secret{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      caCert.Spec.SecretName,
-				Namespace: ns,
-			},
-		}
-		err = r.deleteSecret(ctx, namespaceSecret)
-		if err != nil {
-			return nil, err
+		if ns != cr.InstallNamespace {
+			namespaceSecret := &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      caCert.Spec.SecretName,
+					Namespace: ns,
+				},
+			}
+			err = r.deleteSecret(ctx, namespaceSecret)
+			if err != nil {
+				return nil, err
+			}
 		}
 	}
 
@@ -163,22 +173,18 @@ func (r *Reconciler) setupTLS(ctx context.Context, cr *model.CryostatInstance) (
 func (r *Reconciler) finalizeTLS(ctx context.Context, cr *model.CryostatInstance) error {
 	caCert := resources.NewCryostatCACert(cr)
 	for _, ns := range cr.TargetNamespaces {
-		namespaceSecret := &corev1.Secret{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      caCert.Spec.SecretName,
-				Namespace: ns,
-			},
-		}
-		err := r.deleteSecret(ctx, namespaceSecret)
-		if err != nil {
-			if kerrors.IsNotFound(err) {
-				r.Log.Info("secret not found, proceeding with deletion", "name", namespaceSecret.Name, "namespace", namespaceSecret.Namespace)
-				return nil
+		if ns != cr.InstallNamespace {
+			namespaceSecret := &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      caCert.Spec.SecretName,
+					Namespace: ns,
+				},
 			}
-			r.Log.Error(err, "failed to delete secret", "name", namespaceSecret.Name, "namespace", namespaceSecret.Namespace)
-			return err
+			err := r.deleteSecret(ctx, namespaceSecret)
+			if err != nil {
+				return err
+			}
 		}
-		r.Log.Info("deleted secret", "name", namespaceSecret.Name, "namespace", namespaceSecret.Namespace)
 	}
 	return nil
 }

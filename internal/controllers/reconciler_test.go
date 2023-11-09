@@ -2336,7 +2336,18 @@ func (t *cryostatTestInput) expectCertificates() {
 	err := t.Client.Get(context.Background(), types.NamespacedName{Name: expectedSecret.Name, Namespace: expectedSecret.Namespace}, secret)
 	Expect(err).ToNot(HaveOccurred())
 	t.checkMetadata(secret, expectedSecret)
-	Expect(secret.StringData).To(Equal(secret.StringData))
+	Expect(secret.StringData).To(Equal(expectedSecret.StringData))
+
+	// Check CA Cert secrets in each target namespace
+	Expect(t.TargetNamespaces).ToNot(BeEmpty())
+	for _, ns := range t.TargetNamespaces {
+		namespaceSecret := t.NewCACertSecret(ns)
+		secret := &corev1.Secret{}
+		err := t.Client.Get(context.Background(), types.NamespacedName{Name: namespaceSecret.Name, Namespace: ns}, secret)
+		Expect(err).ToNot(HaveOccurred())
+		t.checkMetadata(secret, namespaceSecret)
+		Expect(secret.Data).To(Equal(namespaceSecret.Data))
+	}
 }
 
 func (t *cryostatTestInput) expectRBAC() {
