@@ -96,7 +96,7 @@ CUSTOM_SCORECARD_VERSION ?= 2.5.0-$(shell date -u '+%Y%m%d%H%M%S')
 export CUSTOM_SCORECARD_IMG ?= $(IMAGE_TAG_BASE)-scorecard:$(CUSTOM_SCORECARD_VERSION)
 
 DEPLOY_NAMESPACE ?= cryostat-operator-system
-TARGET_NAMESPACES ?= $(DEPLOY_NAMESPACE)
+TARGET_NAMESPACES ?= $(DEPLOY_NAMESPACE) # A space-separated list of target namespaces
 SCORECARD_NAMESPACE ?= cryostat-operator-scorecard
 
 # Get the currently used golang install path (in GOPATH/bin, unless GOBIN is set)
