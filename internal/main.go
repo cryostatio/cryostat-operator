@@ -147,9 +147,12 @@ func main() {
 	}
 
 	// Optionally enable Insights integration. Will only be enabled if INSIGHTS_ENABLED is true
-	insightsURL, err := insights.NewInsightsIntegration(mgr, &setupLog).Setup()
-	if err != nil {
-		setupLog.Error(err, "failed to set up Insights integration")
+	var insightsURL *url.URL
+	if openShift {
+		insightsURL, err = insights.NewInsightsIntegration(mgr, &setupLog).Setup()
+		if err != nil {
+			setupLog.Error(err, "failed to set up Insights integration")
+		}
 	}
 
 	config := newReconcilerConfig(mgr, "ClusterCryostat", "clustercryostat-controller", openShift,
@@ -185,7 +188,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	setupLog.Info("starting manager")
+	setupLog.Info("starting manager", "version", controllers.OperatorVersion)
 	if err := mgr.Start(ctrl.SetupSignalHandler()); err != nil {
 		setupLog.Error(err, "problem running manager")
 		os.Exit(1)

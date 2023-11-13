@@ -14,4 +14,4 @@ spec:
         - name: INSIGHTS_ENABLED
           value: "true"
         - name: INSIGHTS_BACKEND_DOMAIN
-          value: "cert.console.redhat.com"
+          value: "console.redhat.com"
