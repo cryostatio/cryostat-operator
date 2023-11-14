@@ -53,8 +53,13 @@ metadata:
       ]
     capabilities: Seamless Upgrades
     categories: Monitoring, Developer Tools
+<<<<<<< HEAD
     containerImage: quay.io/cryostat/cryostat-operator:2.4.0-dev
     createdAt: "2023-11-07T21:50:35Z"
+=======
+    containerImage: quay.io/cryostat/cryostat-operator:2.5.0-dev
+    createdAt: "2023-11-13T21:47:45Z"
+>>>>>>> a05b517 (fix(insights): set User-Agent header for UHC Auth Proxy (#677))
     description: JVM monitoring and profiling tool
     operatorframework.io/initialization-resource: |-
       {
@@ -970,6 +975,14 @@ spec:
           - get
           - list
           - update
+          - watch
+        - apiGroups:
+          - config.openshift.io
+          resources:
+          - clusterversions
+          verbs:
+          - get
+          - list
           - watch
         - apiGroups:
           - console.openshift.io

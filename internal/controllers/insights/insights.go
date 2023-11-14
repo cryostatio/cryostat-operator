@@ -21,8 +21,10 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/cryostatio/cryostat-operator/internal/controllers"
 	"github.com/cryostatio/cryostat-operator/internal/controllers/common"
 	"github.com/cryostatio/cryostat-operator/internal/controllers/constants"
+	configv1 "github.com/openshift/api/config/v1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -63,11 +65,17 @@ func (r *InsightsReconciler) reconcilePullSecret(ctx context.Context) error {
 		return err
 	}
 
+	userAgent, err := r.getUserAgentString(ctx)
+	if err != nil {
+		return err
+	}
+
 	params := &apiCastConfigParams{
 		FrontendDomains:       fmt.Sprintf("\"%s\",\"%s.%s.svc.cluster.local\"", ProxyServiceName, ProxyServiceName, r.Namespace),
 		BackendInsightsDomain: r.backendDomain,
 		ProxyDomain:           r.proxyDomain,
 		HeaderValue:           *token,
+		UserAgent:             *userAgent,
 	}
 	config, err := getAPICastConfig(params)
 	if err != nil {
@@ -147,6 +155,17 @@ func (r *InsightsReconciler) getTokenFromPullSecret(ctx context.Context) (*strin
 		return nil, fmt.Errorf("invalid cloud.openshift.com token")
 	}
 	return &token, nil
+}
+
+func (r *InsightsReconciler) getUserAgentString(ctx context.Context) (*string, error) {
+	cv := &configv1.ClusterVersion{}
+	err := r.Client.Get(ctx, types.NamespacedName{Name: "version"}, cv)
+	if err != nil {
+		return nil, err
+	}
+
+	userAgent := fmt.Sprintf("cryostat-operator/%s cluster/%s", controllers.OperatorVersion, cv.Spec.ClusterID)
+	return &userAgent, nil
 }
 
 func (r *InsightsReconciler) createOrUpdateProxySecret(ctx context.Context, secret *corev1.Secret, owner metav1.Object,

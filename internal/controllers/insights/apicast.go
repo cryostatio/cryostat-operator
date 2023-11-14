@@ -23,6 +23,7 @@ type apiCastConfigParams struct {
 	FrontendDomains       string
 	BackendInsightsDomain string
 	HeaderValue           string
+	UserAgent             string
 	ProxyDomain           string
 }
 
@@ -63,6 +64,12 @@ var apiCastConfigTemplate = template.Must(template.New("").Parse(`{
                   "header": "Authorization",
                   "value_type": "plain",
                   "value": "Bearer {{ .HeaderValue }}"
+                },
+                {
+                  "op": "set",
+                  "header": "User-Agent",
+                  "value_type": "plain",
+                  "value": "{{ .UserAgent }}"
                 }
               ]
             }

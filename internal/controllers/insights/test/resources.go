@@ -18,6 +18,7 @@ import (
 	"fmt"
 
 	"github.com/cryostatio/cryostat-operator/internal/test"
+	configv1 "github.com/openshift/api/config/v1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -29,6 +30,8 @@ type InsightsTestResources struct {
 	*test.TestResources
 	Resources *corev1.ResourceRequirements
 }
+
+const expectedOperatorVersion = "2.5.0-dev"
 
 func (r *InsightsTestResources) NewGlobalPullSecret() *corev1.Secret {
 	config := `{"auths":{"example.com":{"auth":"hello"},"cloud.openshift.com":{"auth":"world"}}}`
@@ -118,6 +121,12 @@ func (r *InsightsTestResources) NewInsightsProxySecret() *corev1.Secret {
 								"header": "Authorization",
 								"value_type": "plain",
 								"value": "Bearer world"
+							  },
+							  {
+								"op": "set",
+								"header": "User-Agent",
+								"value_type": "plain",
+								"value": "cryostat-operator/%s cluster/abcde"
 							  }
 							]
 						  }
@@ -139,7 +148,7 @@ func (r *InsightsTestResources) NewInsightsProxySecret() *corev1.Secret {
 					}
 				  }
 				]
-			  }`, r.Namespace),
+			  }`, r.Namespace, expectedOperatorVersion),
 		},
 	}
 }
@@ -186,6 +195,12 @@ func (r *InsightsTestResources) NewInsightsProxySecretWithProxyDomain() *corev1.
 								"header": "Authorization",
 								"value_type": "plain",
 								"value": "Bearer world"
+							  },
+							  {
+								"op": "set",
+								"header": "User-Agent",
+								"value_type": "plain",
+								"value": "cryostat-operator/%s cluster/abcde"
 							  }
 							]
 						  }
@@ -207,7 +222,7 @@ func (r *InsightsTestResources) NewInsightsProxySecretWithProxyDomain() *corev1.
 					}
 				  }
 				]
-			  }`, r.Namespace),
+			  }`, r.Namespace, expectedOperatorVersion),
 		},
 	}
 }
@@ -362,6 +377,17 @@ func (r *InsightsTestResources) NewInsightsProxyService() *corev1.Service {
 					TargetPort: intstr.FromString("management"),
 				},
 			},
+		},
+	}
+}
+
+func (r *InsightsTestResources) NewClusterVersion() *configv1.ClusterVersion {
+	return &configv1.ClusterVersion{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "version",
+		},
+		Spec: configv1.ClusterVersionSpec{
+			ClusterID: "abcde",
 		},
 	}
 }

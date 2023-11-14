@@ -23,6 +23,7 @@ import (
 )
 
 const appNameEnv = "APP_NAME"
+const operatorVersionEnv = "OPERATOR_VERSION"
 const coreImageEnv = "CORE_IMG"
 const datasourceImageEnv = "DATASOURCE_IMG"
 const grafanaImageEnv = "GRAFANA_IMG"
@@ -35,12 +36,14 @@ func main() {
 	// Fill in image tags struct from the environment variables
 	consts := struct {
 		AppName            string
+		OperatorVersion    string
 		CoreImageTag       string
 		DatasourceImageTag string
 		GrafanaImageTag    string
 		ReportsImageTag    string
 	}{
 		AppName:            getEnvVar(appNameEnv),
+		OperatorVersion:    getEnvVar(operatorVersionEnv),
 		CoreImageTag:       getEnvVar(coreImageEnv),
 		DatasourceImageTag: getEnvVar(datasourceImageEnv),
 		GrafanaImageTag:    getEnvVar(grafanaImageEnv),
@@ -73,6 +76,9 @@ package controllers
 
 // User facing name of the operand application
 const AppName = "{{ .AppName }}"
+
+// Version of the Cryostat Operator
+const OperatorVersion = "{{ .OperatorVersion }}"
 
 // Default image tag for the core application image
 const DefaultCoreImageTag = "{{ .CoreImageTag }}"

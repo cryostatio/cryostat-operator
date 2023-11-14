@@ -63,6 +63,7 @@ var _ = Describe("InsightsController", func() {
 			t.objs = []ctrlclient.Object{
 				t.NewNamespace(),
 				t.NewGlobalPullSecret(),
+				t.NewClusterVersion(),
 				t.NewOperatorDeployment(),
 				t.NewProxyConfigMap(),
 			}
