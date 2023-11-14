@@ -8,7 +8,8 @@ OS = $(shell go env GOOS)
 ARCH = $(shell go env GOARCH)
 
 # Current Operator version
-IMAGE_VERSION ?= 2.5.0-dev
+export OPERATOR_VERSION ?= 2.5.0-dev
+IMAGE_VERSION ?= $(OPERATOR_VERSION)
 BUNDLE_VERSION ?= $(IMAGE_VERSION)
 DEFAULT_NAMESPACE ?= quay.io/cryostat
 IMAGE_NAMESPACE ?= $(DEFAULT_NAMESPACE)
@@ -128,7 +129,7 @@ INSIGHTS_PROXY_NAMESPACE ?= quay.io/3scale
 INSIGHTS_PROXY_NAME ?= apicast
 INSIGHTS_PROXY_VERSION ?= insights-01
 export INSIGHTS_PROXY_IMG ?= $(INSIGHTS_PROXY_NAMESPACE)/$(INSIGHTS_PROXY_NAME):$(INSIGHTS_PROXY_VERSION)
-export INSIGHTS_BACKEND ?= cert.console.redhat.com
+export INSIGHTS_BACKEND ?= console.redhat.com
 else
 KUSTOMIZE_DIR ?= config/default
 endif

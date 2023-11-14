@@ -4,6 +4,9 @@ package controllers
 // User facing name of the operand application
 const AppName = "Cryostat"
 
+// Version of the Cryostat Operator
+const OperatorVersion = "2.5.0-dev"
+
 // Default image tag for the core application image
 const DefaultCoreImageTag = "quay.io/cryostat/cryostat:latest"
 
