@@ -23,7 +23,7 @@ import (
 )
 
 const appNameEnv = "APP_NAME"
-const imageVersionEnv = "IMAGE_VERSION"
+const operatorVersionEnv = "OPERATOR_VERSION"
 const coreImageEnv = "CORE_IMG"
 const datasourceImageEnv = "DATASOURCE_IMG"
 const grafanaImageEnv = "GRAFANA_IMG"
@@ -43,7 +43,7 @@ func main() {
 		ReportsImageTag    string
 	}{
 		AppName:            getEnvVar(appNameEnv),
-		OperatorVersion:    getEnvVar(imageVersionEnv),
+		OperatorVersion:    getEnvVar(operatorVersionEnv),
 		CoreImageTag:       getEnvVar(coreImageEnv),
 		DatasourceImageTag: getEnvVar(datasourceImageEnv),
 		GrafanaImageTag:    getEnvVar(grafanaImageEnv),

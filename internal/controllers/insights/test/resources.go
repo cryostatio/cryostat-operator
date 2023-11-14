@@ -17,7 +17,6 @@ package test
 import (
 	"fmt"
 
-	"github.com/cryostatio/cryostat-operator/internal/controllers"
 	"github.com/cryostatio/cryostat-operator/internal/test"
 	configv1 "github.com/openshift/api/config/v1"
 	appsv1 "k8s.io/api/apps/v1"
@@ -31,6 +30,8 @@ type InsightsTestResources struct {
 	*test.TestResources
 	Resources *corev1.ResourceRequirements
 }
+
+const expectedOperatorVersion = "2.5.0-dev"
 
 func (r *InsightsTestResources) NewGlobalPullSecret() *corev1.Secret {
 	config := `{"auths":{"example.com":{"auth":"hello"},"cloud.openshift.com":{"auth":"world"}}}`
@@ -147,7 +148,7 @@ func (r *InsightsTestResources) NewInsightsProxySecret() *corev1.Secret {
 					}
 				  }
 				]
-			  }`, r.Namespace, controllers.OperatorVersion),
+			  }`, r.Namespace, expectedOperatorVersion),
 		},
 	}
 }
@@ -221,7 +222,7 @@ func (r *InsightsTestResources) NewInsightsProxySecretWithProxyDomain() *corev1.
 					}
 				  }
 				]
-			  }`, r.Namespace, controllers.OperatorVersion),
+			  }`, r.Namespace, expectedOperatorVersion),
 		},
 	}
 }
