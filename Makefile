@@ -8,12 +8,8 @@ OS = $(shell go env GOOS)
 ARCH = $(shell go env GOARCH)
 
 # Current Operator version
-<<<<<<< HEAD
-IMAGE_VERSION ?= 2.4.0-dev
-=======
-export OPERATOR_VERSION ?= 2.5.0-dev
+export OPERATOR_VERSION ?= 2.4.0-dev
 IMAGE_VERSION ?= $(OPERATOR_VERSION)
->>>>>>> a05b517 (fix(insights): set User-Agent header for UHC Auth Proxy (#677))
 BUNDLE_VERSION ?= $(IMAGE_VERSION)
 DEFAULT_NAMESPACE ?= quay.io/cryostat
 IMAGE_NAMESPACE ?= $(DEFAULT_NAMESPACE)
