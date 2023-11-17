@@ -10,10 +10,17 @@ on:
       ref:
         required: false
         type: string
+      sha:
+        required: true
+        type: string
       
 env:
   OPENSUSE_UNOFFICIAL_LIBCONTAINERS_KEY_URL: "https://download.opensuse.org/repositories/devel:/kubic:/libcontainers:/unstable/xUbuntu_22.04/Release.key"
   OPENSUSE_UNOFFICIAL_LIBCONTAINERS_SOURCE_URL: "https://download.opensuse.org/repositories/devel:/kubic:/libcontainers:/unstable/xUbuntu_22.04"
+
+permissions:
+  statuses: write
+  packages: write
 
 jobs:
   clean-up-test-images:
@@ -44,6 +51,14 @@ jobs:
         go-version: '1.20.*'
     - name: Run controller tests
       run: make test-envtest
+    - name: Set latest commit status as ${{ job.status }}
+      uses: myrotvorets/set-commit-status-action@master
+      if: always()
+      with:
+        sha: ${{ inputs.sha }}
+        token: ${{ secrets.GITHUB_TOKEN }}
+        status: ${{ job.status }}
+        context: ${{ github.job }}
   
   scorecard-test:
     runs-on: ubuntu-latest
@@ -127,3 +142,11 @@ jobs:
         make test-scorecard
     - name: Clean up Kind cluster
       run: kind delete cluster -n ci-${{ github.run_id }}
+    - name: Set latest commit status as ${{ job.status }}
+      uses: myrotvorets/set-commit-status-action@master
+      if: always()
+      with:
+        sha: ${{ inputs.sha }}
+        token: ${{ secrets.GITHUB_TOKEN }}
+        status: ${{ job.status }}
+        context: ${{ github.job }}
