@@ -54,6 +54,7 @@ jobs:
       PR_head_ref: ${{ fromJSON(steps.comment-branch.outputs.result).ref }}
       PR_num: ${{ fromJSON(steps.comment-branch.outputs.result).num }}
       PR_repo: ${{ fromJSON(steps.comment-branch.outputs.result).repo }}
+      PR_head_sha: ${{ fromJSON(steps.comment-branch.outputs.result).head_sha }}
     steps:
     - uses: actions/github-script@v6
       id: comment-branch
@@ -64,7 +65,7 @@ jobs:
             repo: context.repo.repo,
             pull_number: context.issue.number
           })
-          return { repo: result.data.head.repo.full_name, num: result.data.number, ref: result.data.head.ref }
+          return { repo: result.data.head.repo.full_name, num: result.data.number, ref: result.data.head.ref, head_sha: result.data.head.sha }
   
   get-test-image-tag:
     runs-on: ubuntu-latest
@@ -87,8 +88,10 @@ jobs:
     uses: ./.github/workflows/test-ci-reusable.yml
     needs: [get-test-image-tag, checkout-branch]
     permissions:
+      statuses: write
       packages: write
     with:
       repository: ${{ needs.checkout-branch.outputs.PR_repo }}
       ref: ${{ needs.checkout-branch.outputs.PR_head_ref }}
       tag: ${{ needs.get-test-image-tag.outputs.tag }}
+      sha: ${{ needs.checkout-branch.outputs.PR_head_sha }}

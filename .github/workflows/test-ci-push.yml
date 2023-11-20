@@ -13,6 +13,13 @@ on:
       - cryostat-v[0-9]+.[0-9]+
 
 jobs:
+  check-before-test:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Fail if needs-triage label applied
+      if: ${{ contains(github.event.pull_request.labels.*.name, 'needs-triage') }}
+      run: exit 1
+
   get-test-image-tag:
     runs-on: ubuntu-latest
     outputs:
@@ -30,5 +37,9 @@ jobs:
   run-test-jobs:
     uses: ./.github/workflows/test-ci-reusable.yml
     needs: [get-test-image-tag]
+    permissions:
+      packages: write
+      statuses: write
     with:
       tag: ${{ needs.get-test-image-tag.outputs.tag }}
+      sha: ${{ needs.checkout-branch.outputs.PR_head_sha }}
