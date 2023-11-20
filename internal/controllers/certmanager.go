@@ -137,7 +137,10 @@ func (r *Reconciler) setupTLS(ctx context.Context, cr *model.CryostatInstance) (
 				Type: secret.Type,
 			}
 			err = r.createOrUpdateSecret(ctx, namespaceSecret, cr.Object, func() error {
-				namespaceSecret.Data = secret.Data
+				if namespaceSecret.Data == nil {
+					namespaceSecret.Data = map[string][]byte{}
+				}
+				namespaceSecret.Data[corev1.TLSCertKey] = secret.Data[corev1.TLSCertKey]
 				return nil
 			})
 			if err != nil {
