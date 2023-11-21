@@ -3,6 +3,7 @@ resources:
 - ../default
 - ../samples
 - ../scorecard
+- ../openshift
 
 patchesJson6902:
 - path: targetNamespaces_patch.yaml
