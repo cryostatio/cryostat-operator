@@ -21,6 +21,7 @@ IMAGE_TAG_BASE ?= $(IMAGE_NAMESPACE)/$(OPERATOR_NAME)
 # Default bundle image tag
 BUNDLE_IMG ?= $(IMAGE_TAG_BASE)-bundle:$(BUNDLE_VERSION)
 BUNDLE_IMGS ?= $(BUNDLE_IMG)
+BUNDLE_MODE ?= k8s
 
 # Default catalog image tag
 CATALOG_IMG ?= $(IMAGE_TAG_BASE)-catalog:$(BUNDLE_VERSION)
@@ -275,6 +276,9 @@ catalog-build: opm ## Build a catalog image.
 bundle: manifests kustomize operator-sdk ## Generate bundle manifests and metadata, then validate generated files.
 	$(OPERATOR_SDK) generate kustomize manifests -q
 	cd config/manager && $(KUSTOMIZE) edit set image controller=$(OPERATOR_IMG)
+ifeq ($(BUNDLE_MODE), ocp)
+	cd config/manifests && $(KUSTOMIZE) edit add base ../openshift
+endif
 	$(KUSTOMIZE) build config/manifests | $(OPERATOR_SDK) generate bundle $(BUNDLE_GEN_FLAGS)
 	$(OPERATOR_SDK) bundle validate ./bundle
 
