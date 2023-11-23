@@ -53,7 +53,7 @@ func (r *Reconciler) reconcileRBAC(ctx context.Context, cr *model.CryostatInstan
 }
 
 func (r *Reconciler) finalizeRBAC(ctx context.Context, cr *model.CryostatInstance) error {
-	return r.deleteClusterRoleBinding(ctx, newClusterRoleBinding(cr))
+	return r.deleteClusterRoleBinding(ctx, r.newClusterRoleBinding(cr))
 }
 
 func newServiceAccount(cr *model.CryostatInstance) *corev1.ServiceAccount {
@@ -150,11 +150,10 @@ func (r *Reconciler) reconcileRoleBinding(ctx context.Context, cr *model.Cryosta
 	return nil
 }
 
-func newClusterRoleBinding(cr *model.CryostatInstance) *rbacv1.ClusterRoleBinding {
+func (r *Reconciler) newClusterRoleBinding(cr *model.CryostatInstance) *rbacv1.ClusterRoleBinding {
 	return &rbacv1.ClusterRoleBinding{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: common.ClusterUniqueName(cr.Object.GetObjectKind().GroupVersionKind().Kind,
-				cr.Name, cr.InstallNamespace),
+			Name: common.ClusterUniqueName(r.gvk, cr.Name, cr.InstallNamespace),
 		},
 	}
 }
@@ -162,7 +161,7 @@ func newClusterRoleBinding(cr *model.CryostatInstance) *rbacv1.ClusterRoleBindin
 const clusterRoleName = "cryostat-operator-cryostat"
 
 func (r *Reconciler) reconcileClusterRoleBinding(ctx context.Context, cr *model.CryostatInstance) error {
-	binding := newClusterRoleBinding(cr)
+	binding := r.newClusterRoleBinding(cr)
 
 	sa := newServiceAccount(cr)
 	subjects := []rbacv1.Subject{

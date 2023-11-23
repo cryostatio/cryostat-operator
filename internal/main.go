@@ -17,7 +17,9 @@ package main
 import (
 	"flag"
 	"fmt"
+	"net/url"
 	"os"
+	"strings"
 
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	// to ensure that exec-entrypoint and run can make use of them.
@@ -40,6 +42,7 @@ import (
 	operatorv1beta1 "github.com/cryostatio/cryostat-operator/api/v1beta1"
 	"github.com/cryostatio/cryostat-operator/internal/controllers"
 	"github.com/cryostatio/cryostat-operator/internal/controllers/common"
+	"github.com/cryostatio/cryostat-operator/internal/controllers/insights"
 	// +kubebuilder:scaffold:imports
 )
 
@@ -82,6 +85,10 @@ func main() {
 		setupLog.Error(err, "unable to get WatchNamespace, "+
 			"the manager will watch and manage resources in all namespaces")
 	}
+	namespaces := []string{}
+	if len(watchNamespace) > 0 {
+		namespaces = append(namespaces, strings.Split(watchNamespace, ",")...)
+	}
 
 	ctrl.SetLogger(zap.New(zap.UseFlagOptions(&opts)))
 
@@ -89,7 +96,7 @@ func main() {
 	// when used with ClusterCryostat
 	// https://github.com/cryostatio/cryostat-operator/issues/580
 	disableCache := []client.Object{}
-	if len(watchNamespace) > 0 {
+	if len(namespaces) > 0 {
 		disableCache = append(disableCache, &rbacv1.RoleBinding{})
 	}
 
@@ -103,8 +110,7 @@ func main() {
 		HealthProbeBindAddress: probeAddr,
 		LeaderElection:         enableLeaderElection,
 		LeaderElectionID:       "d696d7ab.redhat.com",
-		Namespace:              watchNamespace,
-		ClientDisableCacheFor:  disableCache,
+		ClientDisableCacheFor:  disableCache, // TODO can probably remove
 	})
 	if err != nil {
 		setupLog.Error(err, "unable to start manager")
@@ -140,14 +146,35 @@ func main() {
 		setupLog.Info("did not find cert-manager installation")
 	}
 
-	config := newReconcilerConfig(mgr, "ClusterCryostat", "clustercryostat-controller", openShift, certManager)
-	if err = (controllers.NewClusterCryostatReconciler(config)).SetupWithManager(mgr); err != nil {
+	// Optionally enable Insights integration. Will only be enabled if INSIGHTS_ENABLED is true
+	var insightsURL *url.URL
+	if openShift {
+		insightsURL, err = insights.NewInsightsIntegration(mgr, &setupLog).Setup()
+		if err != nil {
+			setupLog.Error(err, "failed to set up Insights integration")
+		}
+	}
+
+	config := newReconcilerConfig(mgr, "ClusterCryostat", "clustercryostat-controller", openShift,
+		certManager, namespaces, insightsURL)
+	clusterController, err := controllers.NewClusterCryostatReconciler(config)
+	if err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "ClusterCryostat")
 		os.Exit(1)
 	}
-	config = newReconcilerConfig(mgr, "Cryostat", "cryostat-controller", openShift, certManager)
-	if err = (controllers.NewCryostatReconciler(config)).SetupWithManager(mgr); err != nil {
+	if err = clusterController.SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to add controller to manager", "controller", "ClusterCryostat")
+		os.Exit(1)
+	}
+	config = newReconcilerConfig(mgr, "Cryostat", "cryostat-controller", openShift, certManager,
+		namespaces, insightsURL)
+	controller, err := controllers.NewCryostatReconciler(config)
+	if err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "Cryostat")
+		os.Exit(1)
+	}
+	if err = controller.SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to add controller to manager", "controller", "Cryostat")
 		os.Exit(1)
 	}
 	// +kubebuilder:scaffold:builder
@@ -161,7 +188,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	setupLog.Info("starting manager")
+	setupLog.Info("starting manager", "version", controllers.OperatorVersion)
 	if err := mgr.Start(ctrl.SetupSignalHandler()); err != nil {
 		setupLog.Error(err, "problem running manager")
 		os.Exit(1)
@@ -191,7 +218,7 @@ func isCertManagerInstalled(client discovery.DiscoveryInterface) (bool, error) {
 }
 
 func newReconcilerConfig(mgr ctrl.Manager, logName string, eventRecorderName string, openShift bool,
-	certManager bool) *controllers.ReconcilerConfig {
+	certManager bool, namespaces []string, insightsURL *url.URL) *controllers.ReconcilerConfig {
 	return &controllers.ReconcilerConfig{
 		Client:                 mgr.GetClient(),
 		Log:                    ctrl.Log.WithName("controllers").WithName(logName),
@@ -200,6 +227,8 @@ func newReconcilerConfig(mgr ctrl.Manager, logName string, eventRecorderName str
 		IsCertManagerInstalled: certManager,
 		EventRecorder:          mgr.GetEventRecorderFor(eventRecorderName),
 		RESTMapper:             mgr.GetRESTMapper(),
+		Namespaces:             namespaces,
+		InsightsProxy:          insightsURL,
 		ReconcilerTLS: common.NewReconcilerTLS(&common.ReconcilerTLSConfig{
 			Client: mgr.GetClient(),
 		}),

@@ -47,26 +47,25 @@ func (r *Reconciler) finalizeOpenShift(ctx context.Context, cr *model.CryostatIn
 		return nil
 	}
 	reqLogger := r.Log.WithValues("Request.Namespace", cr.InstallNamespace, "Request.Name", cr.Name)
-	err := r.deleteConsoleLink(ctx, newConsoleLink(cr), reqLogger)
+	err := r.deleteConsoleLink(ctx, r.newConsoleLink(cr), reqLogger)
 	if err != nil {
 		return err
 	}
 	return r.deleteCorsAllowedOrigins(ctx, cr)
 }
 
-func newConsoleLink(cr *model.CryostatInstance) *consolev1.ConsoleLink {
+func (r *Reconciler) newConsoleLink(cr *model.CryostatInstance) *consolev1.ConsoleLink {
 	// Cluster scoped, so use a unique name to avoid conflicts
 	return &consolev1.ConsoleLink{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: common.ClusterUniqueName(cr.Object.GetObjectKind().GroupVersionKind().Kind,
-				cr.Name, cr.InstallNamespace),
+			Name: common.ClusterUniqueName(r.gvk, cr.Name, cr.InstallNamespace),
 		},
 	}
 }
 
 func (r *Reconciler) reconcileConsoleLink(ctx context.Context, cr *model.CryostatInstance) error {
 	reqLogger := r.Log.WithValues("Request.Namespace", cr.InstallNamespace, "Request.Name", cr.Name)
-	link := newConsoleLink(cr)
+	link := r.newConsoleLink(cr)
 
 	url := cr.Status.ApplicationURL
 	if len(url) == 0 {

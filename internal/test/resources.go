@@ -51,6 +51,7 @@ type TestResources struct {
 	ReportReplicas   int32
 	ClusterScoped    bool
 	TargetNamespaces []string
+	InsightsURL      string
 }
 
 func NewTestScheme() *runtime.Scheme {
@@ -184,7 +185,14 @@ func (r *TestResources) NewCryostatWithTemplates() *model.CryostatInstance {
 }
 
 func (r *TestResources) NewCryostatWithIngress() *model.CryostatInstance {
-	cr := r.NewCryostat()
+	return r.addIngressToCryostat(r.NewCryostat())
+}
+
+func (r *TestResources) NewCryostatWithIngressCertManagerDisabled() *model.CryostatInstance {
+	return r.addIngressToCryostat(r.NewCryostatCertManagerDisabled())
+}
+
+func (r *TestResources) addIngressToCryostat(cr *model.CryostatInstance) *model.CryostatInstance {
 	networkConfig := r.newNetworkConfigurationList()
 	cr.Spec.NetworkOptions = &networkConfig
 	return cr
@@ -1375,6 +1383,14 @@ func (r *TestResources) NewCoreEnvironmentVariables(reportsUrl string, authProps
 			corev1.EnvVar{
 				Name:  "CRYOSTAT_REPORT_GENERATION_MAX_HEAP",
 				Value: "200",
+			})
+	}
+
+	if len(r.InsightsURL) > 0 {
+		envs = append(envs,
+			corev1.EnvVar{
+				Name:  "INSIGHTS_PROXY",
+				Value: r.InsightsURL,
 			})
 	}
 	return envs

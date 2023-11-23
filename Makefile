@@ -8,7 +8,8 @@ OS = $(shell go env GOOS)
 ARCH = $(shell go env GOARCH)
 
 # Current Operator version
-IMAGE_VERSION ?= 2.5.0-dev
+export OPERATOR_VERSION ?= 2.5.0-dev
+IMAGE_VERSION ?= $(OPERATOR_VERSION)
 BUNDLE_VERSION ?= $(IMAGE_VERSION)
 DEFAULT_NAMESPACE ?= quay.io/cryostat
 IMAGE_NAMESPACE ?= $(DEFAULT_NAMESPACE)
@@ -95,7 +96,7 @@ CUSTOM_SCORECARD_VERSION ?= 2.5.0-$(shell date -u '+%Y%m%d%H%M%S')
 export CUSTOM_SCORECARD_IMG ?= $(IMAGE_TAG_BASE)-scorecard:$(CUSTOM_SCORECARD_VERSION)
 
 DEPLOY_NAMESPACE ?= cryostat-operator-system
-TARGET_NAMESPACES ?= $(DEPLOY_NAMESPACE)
+TARGET_NAMESPACES ?= $(DEPLOY_NAMESPACE) # A space-separated list of target namespaces
 SCORECARD_NAMESPACE ?= cryostat-operator-scorecard
 
 # Get the currently used golang install path (in GOPATH/bin, unless GOBIN is set)
@@ -118,6 +119,19 @@ GINKGO ?= $(shell go env GOPATH)/bin/ginkgo
 GO_TEST ?= go test
 ifneq ("$(wildcard $(GINKGO))","")
 GO_TEST="$(GINKGO)" -cover -output-dir=.
+endif
+
+# Optional Red Hat Insights integration
+ENABLE_INSIGHTS ?= false
+ifeq ($(ENABLE_INSIGHTS), true)
+KUSTOMIZE_DIR ?= config/insights
+INSIGHTS_PROXY_NAMESPACE ?= quay.io/3scale
+INSIGHTS_PROXY_NAME ?= apicast
+INSIGHTS_PROXY_VERSION ?= insights-01
+export INSIGHTS_PROXY_IMG ?= $(INSIGHTS_PROXY_NAMESPACE)/$(INSIGHTS_PROXY_NAME):$(INSIGHTS_PROXY_VERSION)
+export INSIGHTS_BACKEND ?= console.redhat.com
+else
+KUSTOMIZE_DIR ?= config/default
 endif
 
 ##@ General
@@ -275,6 +289,9 @@ manifests: controller-gen ## Generate manifests e.g. CRD, RBAC, etc.
 	$(CONTROLLER_GEN) rbac:roleName=role crd webhook paths="./..." output:crd:artifacts:config=config/crd/bases
 	envsubst < hack/image_tag_patch.yaml.in > config/default/image_tag_patch.yaml
 	envsubst < hack/image_pull_patch.yaml.in > config/default/image_pull_patch.yaml
+ifeq ($(ENABLE_INSIGHTS), true)
+	envsubst < hack/insights_patch.yaml.in > config/insights/insights_patch.yaml
+endif
 
 .PHONY: fmt
 fmt: add-license ## Run go fmt against code.
@@ -435,11 +452,11 @@ predeploy:
 
 .PHONY: print_deploy_config
 print_deploy_config: predeploy ## Print deployment configurations for the controller.
-	$(KUSTOMIZE) build config/default
+	$(KUSTOMIZE) build $(KUSTOMIZE_DIR)
 
 .PHONY: deploy
 deploy: check_cert_manager manifests kustomize predeploy ## Deploy controller in the configured cluster in ~/.kube/config
-	$(KUSTOMIZE) build config/default | $(CLUSTER_CLIENT) apply -f -
+	$(KUSTOMIZE) build $(KUSTOMIZE_DIR) | $(CLUSTER_CLIENT) apply -f -
 ifeq ($(DISABLE_SERVICE_TLS), true)
 	@echo "Disabling TLS for in-cluster communication between Services"
 	@$(CLUSTER_CLIENT) -n $(DEPLOY_NAMESPACE) set env deployment/cryostat-operator-controller-manager DISABLE_SERVICE_TLS=true
@@ -449,7 +466,7 @@ endif
 undeploy: ## Undeploy controller from the configured cluster in ~/.kube/config.
 	- $(CLUSTER_CLIENT) delete --ignore-not-found=$(ignore-not-found) -f config/samples/operator_v1beta1_cryostat.yaml
 	- $(CLUSTER_CLIENT) delete --ignore-not-found=$(ignore-not-found) -f config/samples/operator_v1beta1_clustercryostat.yaml
-	- $(KUSTOMIZE) build config/default | $(CLUSTER_CLIENT) delete --ignore-not-found=$(ignore-not-found) -f -
+	- $(KUSTOMIZE) build $(KUSTOMIZE_DIR) | $(CLUSTER_CLIENT) delete --ignore-not-found=$(ignore-not-found) -f -
 
 .PHONY: deploy_bundle
 deploy_bundle: check_cert_manager undeploy_bundle ## Deploy the controller in the bundle format with OLM.
@@ -482,7 +499,7 @@ create_clustercryostat_cr: destroy_clustercryostat_cr ## Create a cluster-wide C
 	target_ns_json=$$(jq -nc '$$ARGS.positional' --args -- $(TARGET_NAMESPACES)) && \
 	$(CLUSTER_CLIENT) patch -f config/samples/operator_v1beta1_clustercryostat.yaml --local=true --type=merge \
 	-p "{\"spec\": {\"installNamespace\": \"$(DEPLOY_NAMESPACE)\", \"targetNamespaces\": $$target_ns_json}}" -o yaml | \
-	oc apply -f -
+	$(CLUSTER_CLIENT) apply -f -
 
 .PHONY: destroy_cryostat_cr
 destroy_cryostat_cr: ## Delete a namespaced Cryostat instance.

@@ -23,7 +23,9 @@ import (
 	"strings"
 	"time"
 
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 )
@@ -37,21 +39,21 @@ type OSUtils interface {
 	GenPasswd(length int) string
 }
 
-type defaultOSUtils struct{}
+type DefaultOSUtils struct{}
 
 // GetEnv returns the value of the environment variable with the provided name. If no such
 // variable exists, the empty string is returned.
-func (o *defaultOSUtils) GetEnv(name string) string {
+func (o *DefaultOSUtils) GetEnv(name string) string {
 	return os.Getenv(name)
 }
 
 // GetFileContents reads and returns the entire file contents specified by the path
-func (o *defaultOSUtils) GetFileContents(path string) ([]byte, error) {
+func (o *DefaultOSUtils) GetFileContents(path string) ([]byte, error) {
 	return ioutil.ReadFile(path)
 }
 
 // GenPasswd generates a psuedorandom password of a given length.
-func (o *defaultOSUtils) GenPasswd(length int) string {
+func (o *DefaultOSUtils) GenPasswd(length int) string {
 	rand.Seed(time.Now().UnixNano())
 	chars := "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_"
 	b := make([]byte, length)
@@ -63,13 +65,16 @@ func (o *defaultOSUtils) GenPasswd(length int) string {
 
 // ClusterUniqueName returns a name for cluster-scoped objects that is
 // uniquely identified by a namespace and name.
-func ClusterUniqueName(kind string, name string, namespace string) string {
+func ClusterUniqueName(gvk *schema.GroupVersionKind, name string, namespace string) string {
 	// Use the SHA256 checksum of the namespaced name as a suffix
 	nn := types.NamespacedName{Namespace: namespace, Name: name}
 	suffix := fmt.Sprintf("%x", sha256.Sum256([]byte(nn.String())))
-	return strings.ToLower(kind) + "-" + suffix
+	return strings.ToLower(gvk.Kind) + "-" + suffix
 }
 
+// MergeLabelsAndAnnotations copies labels and annotations from a source
+// to the destination ObjectMeta, overwriting any existing labels and
+// annotations of the same key.
 func MergeLabelsAndAnnotations(dest *metav1.ObjectMeta, srcLabels, srcAnnotations map[string]string) {
 	// Check and create labels/annotations map if absent
 	if dest.Labels == nil {
@@ -83,8 +88,23 @@ func MergeLabelsAndAnnotations(dest *metav1.ObjectMeta, srcLabels, srcAnnotation
 	for k, v := range srcLabels {
 		dest.Labels[k] = v
 	}
-
 	for k, v := range srcAnnotations {
 		dest.Annotations[k] = v
+	}
+}
+
+// SeccompProfile returns a SeccompProfile for the restricted
+// Pod Security Standard that, on OpenShift, is backwards-compatible
+// with OpenShift < 4.11.
+// TODO Remove once OpenShift < 4.11 support is dropped
+func SeccompProfile(openshift bool) *corev1.SeccompProfile {
+	// For backward-compatibility with OpenShift < 4.11,
+	// leave the seccompProfile empty. In OpenShift >= 4.11,
+	// the restricted-v2 SCC will populate it for us.
+	if openshift {
+		return nil
+	}
+	return &corev1.SeccompProfile{
+		Type: corev1.SeccompProfileTypeRuntimeDefault,
 	}
 }
