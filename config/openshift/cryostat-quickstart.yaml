@@ -90,4 +90,3 @@ Your Java application has now been configured to be detected by Cryostat. To pro
         Did your Java application open in a separate browser window?"
     conclusion: >- 
       "Red Hat build of Cryostat is now configured."
-      
