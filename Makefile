@@ -467,7 +467,6 @@ ifeq ($(DISABLE_SERVICE_TLS), true)
 		exit 1; \
 	fi; \
 	$(CLUSTER_CLIENT) patch --type=merge -p '{"spec":{"config":{"env":[{"name":"DISABLE_SERVICE_TLS","value":"true"}]}}}' "$${1}"
-	$(CLUSTER_CLIENT) create -f quickstart/cryostat-quickstart.yaml
 endif
 
 .PHONY: undeploy_bundle
