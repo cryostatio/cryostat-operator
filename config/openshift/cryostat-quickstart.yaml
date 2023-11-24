@@ -95,7 +95,7 @@ spec:
   - description: >
       View your Java application as a target in the Red Hat build of Cryostat web application:
 
-      1. Click on the perspective switcher at the top of the navigation, and select **Developer**.
+      1. In the main navigation, click the dropdown menu and select **Developer**.
 
       1. In the navigation menu, click **Topology**.
 
