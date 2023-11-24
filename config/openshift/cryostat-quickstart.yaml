@@ -92,6 +92,9 @@ spec:
         1. Click on the quarkus-quickstarts deployment name (or your application's service name).
 
         1. Click on the **Resources** tab.
+
+
+        Do you see **Service port: jfr-jmx -> Pod port: 9091** in the quarkus-quickstarts service?
   - description: >
       View your Java application as a target in the Red Hat build of Cryostat web application:
 
@@ -117,6 +120,6 @@ spec:
       instructions: |-
         #### Verify your Java application is running on Red Hat build of Cryostat web application:
 
-        - Did the Cryostat web application open in a separate browser window?
+        Did the Cryostat web application open in a separate browser window?
   conclusion: >-
       Your Java application has now been configured to be detected by Cryostat. To profile your Java applications with Cryostat, please follow [this documentation](https://access.redhat.com/documentation/en-us/red_hat_build_of_cryostat/2/html/getting_started_with_cryostat/assembly_creating-recordings_assembly_configuing-java-applications).
