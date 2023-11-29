@@ -92,7 +92,8 @@ func (c *testClient) createCertSecret(ctx context.Context, cert *certv1.Certific
 			Namespace: cert.Namespace,
 		},
 		Data: map[string][]byte{
-			corev1.TLSCertKey: []byte(cert.Name + "-bytes"),
+			corev1.TLSCertKey:       []byte(cert.Name + "-bytes"),
+			corev1.TLSPrivateKeyKey: []byte(cert.Name + "-key"),
 		},
 	}
 	err := c.Create(ctx, secret)

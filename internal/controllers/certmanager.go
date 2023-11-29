@@ -134,7 +134,7 @@ func (r *Reconciler) setupTLS(ctx context.Context, cr *model.CryostatInstance) (
 					Name:      caCert.Spec.SecretName,
 					Namespace: ns,
 				},
-				Type: secret.Type,
+				Type: corev1.SecretTypeOpaque,
 			}
 			err = r.createOrUpdateSecret(ctx, namespaceSecret, cr.Object, func() error {
 				if namespaceSecret.Data == nil {
