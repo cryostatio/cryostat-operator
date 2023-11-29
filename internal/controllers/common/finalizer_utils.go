@@ -22,7 +22,7 @@ import (
 )
 
 // AddFinalizer adds the provided finalizer to the object and updates it in the cluster
-func AddFinalizer(ctx context.Context, client client.Client, obj controllerutil.Object, finalizer string) error {
+func AddFinalizer(ctx context.Context, client client.Client, obj client.Object, finalizer string) error {
 	log.Info("adding finalizer to object", "namespace", obj.GetNamespace(), "name", obj.GetName())
 	controllerutil.AddFinalizer(obj, finalizer)
 	err := client.Update(ctx, obj)
@@ -35,7 +35,7 @@ func AddFinalizer(ctx context.Context, client client.Client, obj controllerutil.
 }
 
 // RemoveFinalizer removes the provided finalizer from the object and updates it in the cluster
-func RemoveFinalizer(ctx context.Context, client client.Client, obj controllerutil.Object, finalizer string) error {
+func RemoveFinalizer(ctx context.Context, client client.Client, obj client.Object, finalizer string) error {
 	log.Info("removing finalizer from object", "namespace", obj.GetNamespace(), "name", obj.GetName())
 	controllerutil.RemoveFinalizer(obj, finalizer)
 	err := client.Update(ctx, obj)

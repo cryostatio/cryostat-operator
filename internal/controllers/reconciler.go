@@ -161,6 +161,12 @@ func (r *Reconciler) reconcile(ctx context.Context, cr *model.CryostatInstance) 
 				return reconcile.Result{}, err
 			}
 
+			// Finalizer for CA Cert secrets
+			err = r.finalizeTLS(ctx, cr)
+			if err != nil {
+				return reconcile.Result{}, err
+			}
+
 			err = common.RemoveFinalizer(ctx, r.Client, cr.Object, cryostatFinalizer)
 			if err != nil {
 				return reconcile.Result{}, err
@@ -196,8 +202,15 @@ func (r *Reconciler) reconcile(ctx context.Context, cr *model.CryostatInstance) 
 		return reconcile.Result{}, err
 	}
 
+	// Reconcile RBAC resources for Cryostat
+	err = r.reconcileRBAC(ctx, cr)
+	if err != nil {
+		return reconcile.Result{}, err
+	}
+
 	// Set up TLS using cert-manager, if available
 	var tlsConfig *resources.TLSConfig
+
 	if r.IsCertManagerEnabled(cr) {
 		tlsConfig, err = r.setupTLS(ctx, cr)
 		if err != nil {
@@ -228,12 +241,6 @@ func (r *Reconciler) reconcile(ctx context.Context, cr *model.CryostatInstance) 
 		if err != nil {
 			return reconcile.Result{}, err
 		}
-	}
-
-	// Reconcile RBAC resources for Cryostat
-	err = r.reconcileRBAC(ctx, cr)
-	if err != nil {
-		return reconcile.Result{}, err
 	}
 
 	serviceSpecs := &resources.ServiceSpecs{

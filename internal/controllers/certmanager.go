@@ -122,6 +122,48 @@ func (r *Reconciler) setupTLS(ctx context.Context, cr *model.CryostatInstance) (
 		return nil, err
 	}
 
+	secret, err := r.GetCertificateSecret(ctx, caCert)
+	if err != nil {
+		return nil, err
+	}
+	// Copy Cryostat CA secret in each target namespace
+	for _, ns := range cr.TargetNamespaces {
+		if ns != cr.InstallNamespace {
+			namespaceSecret := &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      caCert.Spec.SecretName,
+					Namespace: ns,
+				},
+				Type: corev1.SecretTypeOpaque,
+			}
+			err = r.createOrUpdateSecret(ctx, namespaceSecret, cr.Object, func() error {
+				if namespaceSecret.Data == nil {
+					namespaceSecret.Data = map[string][]byte{}
+				}
+				namespaceSecret.Data[corev1.TLSCertKey] = secret.Data[corev1.TLSCertKey]
+				return nil
+			})
+			if err != nil {
+				return nil, err
+			}
+		}
+	}
+	// Delete any Cryostat CA secrets in target namespaces that are no longer requested
+	for _, ns := range toDelete(cr) {
+		if ns != cr.InstallNamespace {
+			namespaceSecret := &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      caCert.Spec.SecretName,
+					Namespace: ns,
+				},
+			}
+			err = r.deleteSecret(ctx, namespaceSecret)
+			if err != nil {
+				return nil, err
+			}
+		}
+	}
+
 	// Get the Cryostat CA certificate bytes from certificate secret
 	caBytes, err := r.getCertficateBytes(ctx, caCert)
 	if err != nil {
@@ -129,6 +171,25 @@ func (r *Reconciler) setupTLS(ctx context.Context, cr *model.CryostatInstance) (
 	}
 	tlsConfig.CACert = caBytes
 	return tlsConfig, nil
+}
+
+func (r *Reconciler) finalizeTLS(ctx context.Context, cr *model.CryostatInstance) error {
+	caCert := resources.NewCryostatCACert(cr)
+	for _, ns := range cr.TargetNamespaces {
+		if ns != cr.InstallNamespace {
+			namespaceSecret := &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      caCert.Spec.SecretName,
+					Namespace: ns,
+				},
+			}
+			err := r.deleteSecret(ctx, namespaceSecret)
+			if err != nil {
+				return err
+			}
+		}
+	}
+	return nil
 }
 
 func (r *Reconciler) setCertSecretOwner(ctx context.Context, owner metav1.Object, certs ...*certv1.Certificate) error {

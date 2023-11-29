@@ -880,6 +880,19 @@ func (r *TestResources) NewTestService() *corev1.Service {
 	}
 }
 
+func (r *TestResources) NewCACertSecret(ns string) *corev1.Secret {
+	return &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      r.Name + "-ca",
+			Namespace: ns,
+		},
+		Type: corev1.SecretTypeOpaque,
+		Data: map[string][]byte{
+			corev1.TLSCertKey: []byte(r.Name + "-ca-bytes"),
+		},
+	}
+}
+
 func (r *TestResources) NewGrafanaSecret() *corev1.Secret {
 	return &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{

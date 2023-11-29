@@ -20,6 +20,7 @@ import (
 	"github.com/cryostatio/cryostat-operator/internal/controllers"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
 )
@@ -62,6 +63,10 @@ var _ = Describe("ClusterCryostatController", func() {
 			t.expectMainDeployment()
 		})
 
+		It("should create CA Cert secret in each namespace", func() {
+			t.expectCertificates()
+		})
+
 		It("should create RBAC in each namespace", func() {
 			t.expectRBAC()
 		})
@@ -80,7 +85,9 @@ var _ = Describe("ClusterCryostatController", func() {
 				*cr.TargetNamespaceStatus = targetNamespaces
 				t.objs = append(t.objs, cr.Object,
 					t.NewRoleBinding(targetNamespaces[0]),
-					t.NewRoleBinding(targetNamespaces[1]))
+					t.NewRoleBinding(targetNamespaces[1]),
+					t.NewCACertSecret(targetNamespaces[0]),
+					t.NewCACertSecret(targetNamespaces[1]))
 			})
 			It("should create the expected main deployment", func() {
 				t.expectMainDeployment()
@@ -91,6 +98,16 @@ var _ = Describe("ClusterCryostatController", func() {
 			It("should remove RBAC from the second namespace", func() {
 				binding := t.NewRoleBinding(targetNamespaces[1])
 				err := t.Client.Get(context.Background(), types.NamespacedName{Name: binding.Name, Namespace: binding.Namespace}, binding)
+				Expect(err).ToNot(BeNil())
+				Expect(errors.IsNotFound(err)).To(BeTrue())
+			})
+			It("leave CA Cert secret for the first namespace", func() {
+				t.expectCertificates()
+			})
+			It("should remove CA Cert secret from the second namespace", func() {
+				caCert := t.NewCACert()
+				secret := &corev1.Secret{}
+				err := t.Client.Get(context.Background(), types.NamespacedName{Name: caCert.Name, Namespace: targetNamespaces[1]}, secret)
 				Expect(err).ToNot(BeNil())
 				Expect(errors.IsNotFound(err)).To(BeTrue())
 			})
