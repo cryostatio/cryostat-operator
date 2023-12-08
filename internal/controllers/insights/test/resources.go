@@ -31,7 +31,7 @@ type InsightsTestResources struct {
 	Resources *corev1.ResourceRequirements
 }
 
-const expectedOperatorVersion = "2.4.0-dev"
+const expectedOperatorVersion = "2.4.0"
 
 func (r *InsightsTestResources) NewGlobalPullSecret() *corev1.Secret {
 	config := `{"auths":{"example.com":{"auth":"hello"},"cloud.openshift.com":{"auth":"world"}}}`
