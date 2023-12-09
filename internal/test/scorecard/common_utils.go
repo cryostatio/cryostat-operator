@@ -38,6 +38,12 @@ const (
 	testTimeout            time.Duration = time.Minute * 10
 )
 
+type TestResources struct {
+	OpenShift bool
+	Client    *CryostatClientset
+	*scapiv1alpha3.TestResult
+}
+
 func waitForDeploymentAvailability(ctx context.Context, client *CryostatClientset, namespace string,
 	name string, r *scapiv1alpha3.TestResult) error {
 	err := wait.PollImmediateUntilWithContext(ctx, time.Second, func(ctx context.Context) (done bool, err error) {
@@ -66,12 +72,17 @@ func waitForDeploymentAvailability(ctx context.Context, client *CryostatClientse
 		return false, nil
 	})
 	if err != nil {
-		logErr := logErrors(r, client, namespace, name)
+		logErr := logWorkloadEvents(r, client, namespace, name)
 		if logErr != nil {
 			r.Log += fmt.Sprintf("failed to look up deployment errors: %s\n", logErr.Error())
 		}
 	}
 	return err
+}
+
+func logError(r *scapiv1alpha3.TestResult, message string) {
+	r.State = scapiv1alpha3.FailState
+	r.Errors = append(r.Errors, message)
 }
 
 func fail(r scapiv1alpha3.TestResult, message string) scapiv1alpha3.TestResult {
@@ -80,7 +91,7 @@ func fail(r scapiv1alpha3.TestResult, message string) scapiv1alpha3.TestResult {
 	return r
 }
 
-func logErrors(r *scapiv1alpha3.TestResult, client *CryostatClientset, namespace string, name string) error {
+func logWorkloadEvents(r *scapiv1alpha3.TestResult, client *CryostatClientset, namespace string, name string) error {
 	ctx := context.Background()
 	deploy, err := client.AppsV1().Deployments(namespace).Get(ctx, name, metav1.GetOptions{})
 	if err != nil {
@@ -160,13 +171,47 @@ func logEvents(r *scapiv1alpha3.TestResult, client *CryostatClientset, namespace
 	return nil
 }
 
-func newEmptyTestResult(testName string) scapiv1alpha3.TestResult {
-	return scapiv1alpha3.TestResult{
+func newEmptyTestResult(testName string) *scapiv1alpha3.TestResult {
+	return &scapiv1alpha3.TestResult{
 		Name:        testName,
 		State:       scapiv1alpha3.PassState,
 		Errors:      make([]string, 0),
 		Suggestions: make([]string, 0),
 	}
+}
+
+func newTestResources(testName string) *TestResources {
+	return &TestResources{
+		TestResult: newEmptyTestResult(testName),
+	}
+}
+
+func setupCRTestResources(tr *TestResources, openShiftCertManager bool) error {
+	r := tr.TestResult
+
+	// Create a new Kubernetes REST client for this test
+	client, err := NewClientset()
+	if err != nil {
+		logError(r, fmt.Sprintf("failed to create client: %s", err.Error()))
+		return err
+	}
+	tr.Client = client
+
+	openshift, err := isOpenShift(client)
+	if err != nil {
+		logError(r, fmt.Sprintf("could not determine whether platform is OpenShift: %s", err.Error()))
+		return err
+	}
+	tr.OpenShift = openshift
+
+	if openshift && openShiftCertManager {
+		err := installOpenShiftCertManager(r)
+		if err != nil {
+			logError(r, fmt.Sprintf("failed to install cert-manager Operator for Red Hat OpenShift: %s", err.Error()))
+			return err
+		}
+	}
+	return nil
 }
 
 func newCryostatCR(namespace string, withIngress bool) *operatorv1beta1.Cryostat {
@@ -251,19 +296,23 @@ func newCryostatCR(namespace string, withIngress bool) *operatorv1beta1.Cryostat
 	return cr
 }
 
-func createAndWaitForCryostat(cr *operatorv1beta1.Cryostat, client *CryostatClientset, r scapiv1alpha3.TestResult) scapiv1alpha3.TestResult {
-	ctx := context.Background()
-	cr, err := client.OperatorCRDs().Cryostats(cr.Namespace).Create(ctx, cr)
+func createAndWaitForCryostat(cr *operatorv1beta1.Cryostat, resources *TestResources) error {
+	client := resources.Client
+	r := resources.TestResult
+
+	cr, err := client.OperatorCRDs().Cryostats(cr.Namespace).Create(context.Background(), cr)
 	if err != nil {
-		return fail(r, fmt.Sprintf("failed to create Cryostat CR: %s", err.Error()))
+		logError(r, fmt.Sprintf("failed to create Cryostat CR: %s", err.Error()))
+		return err
 	}
 
 	// Poll the deployment until it becomes available or we timeout
 	ctx, cancel := context.WithTimeout(context.Background(), testTimeout)
 	defer cancel()
-	err = waitForDeploymentAvailability(ctx, client, cr.Namespace, cr.Name, &r)
+	err = waitForDeploymentAvailability(ctx, client, cr.Namespace, cr.Name, r)
 	if err != nil {
-		return fail(r, fmt.Sprintf("Cryostat main deployment did not become available: %s", err.Error()))
+		logError(r, fmt.Sprintf("Cryostat main deployment did not become available: %s", err.Error()))
+		return err
 	}
 
 	err = wait.PollImmediateUntilWithContext(ctx, time.Second, func(ctx context.Context) (done bool, err error) {
@@ -278,11 +327,12 @@ func createAndWaitForCryostat(cr *operatorv1beta1.Cryostat, client *CryostatClie
 		return false, nil
 	})
 	if err != nil {
-		return fail(r, fmt.Sprintf("Application URL not found in CR: %s", err.Error()))
+		logError(r, fmt.Sprintf("Application URL not found in CR: %s", err.Error()))
+		return err
 	}
 	r.Log += fmt.Sprintf("Application is ready at %s\n", cr.Status.ApplicationURL)
 
-	return r
+	return nil
 }
 
 func cleanupCryostat(r *scapiv1alpha3.TestResult, client *CryostatClientset, namespace string) {
