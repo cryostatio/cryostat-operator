@@ -19,10 +19,10 @@ import (
 
 	operatorv1beta1 "github.com/cryostatio/cryostat-operator/api/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
+
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -33,6 +33,11 @@ import (
 type CryostatClientset struct {
 	*kubernetes.Clientset
 	operatorClient *OperatorCRDClient
+}
+
+// OperatorCRDs returns a OperatorCRDClient
+func (c *CryostatClientset) OperatorCRDs() *OperatorCRDClient {
+	return c.operatorClient
 }
 
 // NewClientset creates a CryostatClientset
@@ -60,21 +65,6 @@ func NewClientset() (*CryostatClientset, error) {
 	}, nil
 }
 
-// OperatorCRDs returns a OperatorCRDClient
-func (c *CryostatClientset) OperatorCRDs() *OperatorCRDClient {
-	return c.operatorClient
-}
-
-func newOperatorCRDClient(config *rest.Config) (*OperatorCRDClient, error) {
-	client, err := newCRDClient(config)
-	if err != nil {
-		return nil, err
-	}
-	return &OperatorCRDClient{
-		client: client,
-	}, nil
-}
-
 // OperatorCRDClient is a Kubernetes REST client for performing operations on
 // Cryostat Operator custom resources
 type OperatorCRDClient struct {
@@ -88,6 +78,33 @@ func (c *OperatorCRDClient) Cryostats(namespace string) *CryostatClient {
 		namespace:  namespace,
 		resource:   "cryostats",
 	}
+}
+
+func newOperatorCRDClient(config *rest.Config) (*OperatorCRDClient, error) {
+	client, err := newCRDClient(config)
+	if err != nil {
+		return nil, err
+	}
+	return &OperatorCRDClient{
+		client: client,
+	}, nil
+}
+
+func newCRDClient(config *rest.Config) (*rest.RESTClient, error) {
+	scheme := runtime.NewScheme()
+	if err := operatorv1beta1.AddToScheme(scheme); err != nil {
+		return nil, err
+	}
+	return newRESTClientForGV(config, scheme, &operatorv1beta1.GroupVersion)
+}
+
+func newRESTClientForGV(config *rest.Config, scheme *runtime.Scheme, gv *schema.GroupVersion) (*rest.RESTClient, error) {
+	configCopy := *config
+	configCopy.GroupVersion = gv
+	configCopy.APIPath = "/apis"
+	configCopy.ContentType = runtime.ContentTypeJSON
+	configCopy.NegotiatedSerializer = serializer.WithoutConversionCodecFactory{CodecFactory: serializer.NewCodecFactory(scheme)}
+	return rest.RESTClientFor(&configCopy)
 }
 
 // CryostatClient contains methods to perform operations on
@@ -116,23 +133,6 @@ func (c *CryostatClient) Update(ctx context.Context, obj *operatorv1beta1.Cryost
 // Delete deletes the Cryostat CR with the given name
 func (c *CryostatClient) Delete(ctx context.Context, name string, options *metav1.DeleteOptions) error {
 	return delete(ctx, c.restClient, c.resource, c.namespace, name, options)
-}
-
-func newCRDClient(config *rest.Config) (*rest.RESTClient, error) {
-	scheme := runtime.NewScheme()
-	if err := operatorv1beta1.AddToScheme(scheme); err != nil {
-		return nil, err
-	}
-	return newRESTClientForGV(config, scheme, &operatorv1beta1.GroupVersion)
-}
-
-func newRESTClientForGV(config *rest.Config, scheme *runtime.Scheme, gv *schema.GroupVersion) (*rest.RESTClient, error) {
-	configCopy := *config
-	configCopy.GroupVersion = gv
-	configCopy.APIPath = "/apis"
-	configCopy.ContentType = runtime.ContentTypeJSON
-	configCopy.NegotiatedSerializer = serializer.WithoutConversionCodecFactory{CodecFactory: serializer.NewCodecFactory(scheme)}
-	return rest.RESTClientFor(&configCopy)
 }
 
 func get[r runtime.Object](ctx context.Context, c rest.Interface, res string, ns string, name string, result r) (r, error) {
