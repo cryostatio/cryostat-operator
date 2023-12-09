@@ -94,3 +94,52 @@ rules:
   - namespaces
   verbs:
   - create
+---
+# Permissions for default OAuth configurations
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: oauth-client
+rules:
+- apiGroups:
+  - operator.cryostat.io
+  resources:
+  - cryostats
+  verbs:
+  - create
+  - patch
+  - delete
+  - get
+- apiGroups:
+  - ""
+  resources:
+  - pods
+  - pods/exec
+  - services
+  verbs:
+  - create
+  - patch
+  - delete
+  - get
+- apiGroups:
+  - ""
+  resources:
+  - replicationcontrollers
+  - endpoints
+  verbs:
+  - get
+- apiGroups:
+  - apps
+  resources:
+  - deployments
+  verbs:
+  - create
+  - get
+- apiGroups:
+  - apps
+  resources:
+  - daemonsets
+  - replicasets
+  - statefulsets
+  verbs:
+  - get
