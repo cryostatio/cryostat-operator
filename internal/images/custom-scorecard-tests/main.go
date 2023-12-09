@@ -90,6 +90,7 @@ func validateTests(testNames []string) bool {
 		switch testName {
 		case tests.OperatorInstallTestName:
 		case tests.CryostatCRTestName:
+		case tests.CryostatRecordingTestName:
 		default:
 			return false
 		}
@@ -108,6 +109,8 @@ func runTests(testNames []string, bundle *apimanifests.Bundle, namespace string,
 			results = append(results, tests.OperatorInstallTest(bundle, namespace))
 		case tests.CryostatCRTestName:
 			results = append(results, tests.CryostatCRTest(bundle, namespace, openShiftCertManager))
+		case tests.CryostatRecordingTestName:
+			results = append(results, tests.CryostatRecordingTest(bundle, namespace, openShiftCertManager))
 		default:
 			log.Fatalf("unknown test found: %s", testName)
 		}
