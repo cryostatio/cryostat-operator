@@ -16,6 +16,8 @@ package scorecard
 
 import (
 	"context"
+	"net/http"
+	"net/url"
 
 	operatorv1beta1 "github.com/cryostatio/cryostat-operator/api/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -161,4 +163,70 @@ func delete(ctx context.Context, c rest.Interface, res string, ns string, name s
 		Namespace(ns).Resource(res).
 		Name(name).Body(opts).Do(ctx).
 		Error()
+}
+
+// CryostatRESTClientset contains methods to interact with
+// the Cryostat API
+type CryostatRESTClientset struct {
+	// Application URL pointing to Cryostat
+	base     *url.URL
+	v1Client *APIV1Client
+}
+
+func NewCryostatRESTClientset(applicationURL string) (*CryostatRESTClientset, error) {
+	base, err := url.Parse(applicationURL)
+	if err != nil {
+		return nil, err
+	}
+	return &CryostatRESTClientset{
+		base:     base,
+		v1Client: &APIV1Client{},
+	}, nil
+}
+
+func (cs *CryostatRESTClientset) APIV1(applicationURL string) *APIV1Client {
+	return cs.v1Client
+}
+
+type TargetInterface interface {
+	List() []runtime.Object
+}
+
+type RecordingInterface interface {
+	Get(target string, name string) []runtime.Object
+	Delete(target string, name string) error
+}
+
+type CryostatAPIClient interface {
+	Version() string
+	Prefix() string
+}
+
+type APIV1Client struct{}
+
+func (v1 *APIV1Client) Version() string {
+	return "v1"
+}
+
+func (v1 *APIV1Client) Prefix() string {
+	return "/api/v1"
+}
+
+// func (v1 *APIV1Client) Targets() TargetInterface {
+// 	return &TargetInterface{
+// 		List() {
+
+// 		}
+// 	}
+// }
+
+// CryostatRESTRequest
+type CryostatRESTRequest struct {
+	base    *url.URL
+	verb    string
+	headers http.Header
+	params  url.Values
+
+	APIversion string
+	path       string
 }

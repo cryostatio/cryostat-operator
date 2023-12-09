@@ -28,22 +28,6 @@ const (
 	CryostatRecordingTestName string = "cryostat-recording"
 )
 
-func commonCRTestSetup(testName string, openShiftCertManager bool) (*CryostatClientset, scapiv1alpha3.TestResult) {
-	r := newEmptyTestResult(testName)
-	// Create a new Kubernetes REST client for this test
-	client, err := NewClientset()
-	if err != nil {
-		return nil, fail(r, fmt.Sprintf("failed to create client: %s", err.Error()))
-	}
-	if openShiftCertManager {
-		err := installOpenShiftCertManager(&r)
-		if err != nil {
-			return client, fail(r, fmt.Sprintf("failed to install cert-manager Operator for Red Hat OpenShift: %s", err.Error()))
-		}
-	}
-	return client, r
-}
-
 // OperatorInstallTest checks that the operator installed correctly
 func OperatorInstallTest(bundle *apimanifests.Bundle, namespace string) scapiv1alpha3.TestResult {
 	r := newEmptyTestResult(OperatorInstallTestName)
@@ -51,60 +35,57 @@ func OperatorInstallTest(bundle *apimanifests.Bundle, namespace string) scapiv1a
 	// Create a new Kubernetes REST client for this test
 	client, err := NewClientset()
 	if err != nil {
-		return fail(r, fmt.Sprintf("failed to create client: %s", err.Error()))
+		return fail(*r, fmt.Sprintf("failed to create client: %s", err.Error()))
 	}
 
 	// Poll the deployment until it becomes available or we timeout
 	ctx, cancel := context.WithTimeout(context.Background(), testTimeout)
 	defer cancel()
-	err = waitForDeploymentAvailability(ctx, client, namespace, operatorDeploymentName, &r)
+	err = waitForDeploymentAvailability(ctx, client, namespace, operatorDeploymentName, r)
 	if err != nil {
-		return fail(r, fmt.Sprintf("operator deployment did not become available: %s", err.Error()))
+		return fail(*r, fmt.Sprintf("operator deployment did not become available: %s", err.Error()))
 	}
 
-	return r
+	return *r
 }
 
 // CryostatCRTest checks that the operator installs Cryostat in response to a Cryostat CR
 func CryostatCRTest(bundle *apimanifests.Bundle, namespace string, openShiftCertManager bool) scapiv1alpha3.TestResult {
-	client, r := commonCRTestSetup(CryostatCRTestName, openShiftCertManager)
-	if r.State != scapiv1alpha3.PassState {
-		return r
-	}
-	openshift, err := isOpenShift(client)
-	if err != nil {
-		return fail(r, fmt.Sprintf("could not determine whether platform is OpenShift: %s", err.Error()))
-	}
-	// Create a default Cryostat CR
-	cr := newCryostatCR(namespace, !openshift)
-	defer cleanupCryostat(&r, client, namespace)
+	tr := newTestResources(CryostatCRTestName)
+	r := tr.TestResult
 
-	return createAndWaitForCryostat(cr, client, r)
+	err := setupCRTestResources(tr, openShiftCertManager)
+	if err != nil {
+		return fail(*r, fmt.Sprintf("failed to set up %s test: %s", CryostatCRTestName, err.Error()))
+	}
+
+	// Create a default Cryostat CR
+	cr := newCryostatCR(namespace, !tr.OpenShift)
+	defer cleanupCryostat(r, tr.Client, namespace)
+
+	err = createAndWaitForCryostat(cr, tr)
+	if err != nil {
+		return fail(*r, fmt.Sprintf("%s test failed: %s", CryostatCRTestName, err.Error()))
+	}
+	return *r
 }
 
 func CryostatRecordingTest(bundle *apimanifests.Bundle, namespace string, openShiftCertManager bool) scapiv1alpha3.TestResult {
-	client, r := commonCRTestSetup(CryostatRecordingTestName, openShiftCertManager)
-	if r.State != scapiv1alpha3.PassState {
-		return r
-	}
-	openshift, err := isOpenShift(client)
+	tr := newTestResources(CryostatCRTestName)
+	r := tr.TestResult
+
+	err := setupCRTestResources(tr, openShiftCertManager)
 	if err != nil {
-		return fail(r, fmt.Sprintf("could not determine whether platform is OpenShift: %s", err.Error()))
+		return fail(*r, fmt.Sprintf("failed to set up %s test: %s", CryostatRecordingTestName, err.Error()))
 	}
+
 	// Create a default Cryostat CR
-	cr := newCryostatCR(namespace, !openshift)
-	defer cleanupCryostat(&r, client, namespace)
+	cr := newCryostatCR(namespace, !tr.OpenShift)
+	defer cleanupCryostat(r, tr.Client, namespace)
 
-	r = createAndWaitForCryostat(cr, client, r)
-
-	// // FIXME
-	// endpoint := fmt.Sprintf("/api/v1/targets/:targetId/recordings")
-
-	// resp, err = http.Post(endpoint, "application/json", nil)
-	// if err != nil {
-	// 	return fail(r, fmt.Sprintf("could not determine whether platform is OpenShift: %s", err.Error()))
-	// }
-	// defer resp.Body.close()
-	return r
-
+	err = createAndWaitForCryostat(cr, tr)
+	if err != nil {
+		return fail(*r, fmt.Sprintf("%s test failed: %s", CryostatRecordingTestName, err.Error()))
+	}
+	return *r
 }
