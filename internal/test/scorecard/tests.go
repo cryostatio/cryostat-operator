@@ -76,8 +76,10 @@ func CryostatCRTest(bundle *apimanifests.Bundle, namespace string, openShiftCert
 		return fail(r, fmt.Sprintf("could not determine whether platform is OpenShift: %s", err.Error()))
 	}
 	// Create a default Cryostat CR
-	r = createAndWaitForCryostat(newCryostatCR(namespace, !openshift), client, r)
-	return cleanupCryostat(r, client, namespace)
+	cr := newCryostatCR(namespace, !openshift)
+	defer cleanupCryostat(&r, client, namespace)
+
+	return createAndWaitForCryostat(cr, client, r)
 }
 
 func CryostatRecordingTest(bundle *apimanifests.Bundle, namespace string, openShiftCertManager bool) scapiv1alpha3.TestResult {
@@ -90,9 +92,19 @@ func CryostatRecordingTest(bundle *apimanifests.Bundle, namespace string, openSh
 		return fail(r, fmt.Sprintf("could not determine whether platform is OpenShift: %s", err.Error()))
 	}
 	// Create a default Cryostat CR
-	r = createAndWaitForCryostat(newCryostatCR(namespace, !openshift), client, r)
+	cr := newCryostatCR(namespace, !openshift)
+	defer cleanupCryostat(&r, client, namespace)
 
-	// Create a recording
+	r = createAndWaitForCryostat(cr, client, r)
 
-	return cleanupCryostat(r, client, namespace)
+	// // FIXME
+	// endpoint := fmt.Sprintf("/api/v1/targets/:targetId/recordings")
+
+	// resp, err = http.Post(endpoint, "application/json", nil)
+	// if err != nil {
+	// 	return fail(r, fmt.Sprintf("could not determine whether platform is OpenShift: %s", err.Error()))
+	// }
+	// defer resp.Body.close()
+	return r
+
 }

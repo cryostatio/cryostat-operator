@@ -271,7 +271,7 @@ func createAndWaitForCryostat(cr *operatorv1beta1.Cryostat, client *CryostatClie
 	return r
 }
 
-func cleanupCryostat(r scapiv1alpha3.TestResult, client *CryostatClientset, namespace string) scapiv1alpha3.TestResult {
+func cleanupCryostat(r *scapiv1alpha3.TestResult, client *CryostatClientset, namespace string) {
 	cr := &operatorv1beta1.Cryostat{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      cryostastCRName,
@@ -284,5 +284,4 @@ func cleanupCryostat(r scapiv1alpha3.TestResult, client *CryostatClientset, name
 	if err != nil {
 		r.Log += fmt.Sprintf("failed to delete Cryostat: %s\n", err.Error())
 	}
-	return r
 }
