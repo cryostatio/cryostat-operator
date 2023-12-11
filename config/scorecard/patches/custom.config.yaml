@@ -22,3 +22,13 @@
     labels:
       suite: cryostat
       test: cryostat-cr
+- op: add
+  path: /stages/0/tests/-
+  value:
+    entrypoint:
+    - cryostat-scorecard-tests
+    - cryostat-recording
+    image: "quay.io/cryostat/cryostat-operator-scorecard:2.5.0-20231211072824"
+    labels:
+      suite: cryostat
+      test: cryostat-recording

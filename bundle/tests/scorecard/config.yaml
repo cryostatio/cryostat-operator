@@ -86,6 +86,16 @@ stages:
     storage:
       spec:
         mountPath: {}
+  - entrypoint:
+    - cryostat-scorecard-tests
+    - cryostat-recording
+    image: quay.io/cryostat/cryostat-operator-scorecard:2.5.0-20231211072824
+    labels:
+      suite: cryostat
+      test: cryostat-recording
+    storage:
+      spec:
+        mountPath: {}
 storage:
   spec:
     mountPath: {}
