@@ -15,7 +15,11 @@
 package scorecard
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
+	"fmt"
+	"io"
 	"net/http"
 	"net/url"
 
@@ -27,7 +31,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
-	ctrl "sigs.k8s.io/controller-runtime"
 )
 
 // CryostatClientset is a Kubernetes Clientset that can also
@@ -45,7 +48,7 @@ func (c *CryostatClientset) OperatorCRDs() *OperatorCRDClient {
 // NewClientset creates a CryostatClientset
 func NewClientset() (*CryostatClientset, error) {
 	// Get in-cluster REST config from pod
-	config, err := ctrl.GetConfig()
+	config, err := rest.InClusterConfig()
 	if err != nil {
 		return nil, err
 	}
@@ -169,8 +172,11 @@ func delete(ctx context.Context, c rest.Interface, res string, ns string, name s
 // the Cryostat API
 type CryostatRESTClientset struct {
 	// Application URL pointing to Cryostat
-	base     *url.URL
-	v1Client *APIV1Client
+	TargetClient *TargetClient
+}
+
+func (cs *CryostatRESTClientset) Targets() *TargetClient {
+	return cs.TargetClient
 }
 
 func NewCryostatRESTClientset(applicationURL string) (*CryostatRESTClientset, error) {
@@ -179,54 +185,146 @@ func NewCryostatRESTClientset(applicationURL string) (*CryostatRESTClientset, er
 		return nil, err
 	}
 	return &CryostatRESTClientset{
-		base:     base,
-		v1Client: &APIV1Client{},
+		TargetClient: &TargetClient{
+			Base: base,
+		},
 	}, nil
 }
 
-func (cs *CryostatRESTClientset) APIV1(applicationURL string) *APIV1Client {
-	return cs.v1Client
+// Client for Cryostat Target resources
+type TargetClient struct {
+	Base *url.URL
 }
 
-type TargetInterface interface {
-	List() []runtime.Object
+func (client *TargetClient) List() ([]Target, error) {
+	return nil, nil
 }
 
-type RecordingInterface interface {
-	Get(target string, name string) []runtime.Object
-	Delete(target string, name string) error
+// Client for Cryostat Recording resources
+type RecordingClient struct {
+	Base *url.URL
 }
 
-type CryostatAPIClient interface {
-	Version() string
-	Prefix() string
+func (client *RecordingClient) Get(ctx context.Context, recordingName string) ([]Target, error) {
+	return nil, nil
 }
 
-type APIV1Client struct{}
+func (client *RecordingClient) Create(ctx context.Context, options *RecordingCreateOptions) (*Recording, error) {
+	req, err := NewCryostatRESTReqruest(http.MethodPost, options)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create a Cryostat REST request: %s", err.Error())
+	}
 
-func (v1 *APIV1Client) Version() string {
-	return "v1"
+	r := &Recording{}
+	err = req.Do(r)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create recording: %s", err.Error())
+	}
+	return r, nil
 }
 
-func (v1 *APIV1Client) Prefix() string {
-	return "/api/v1"
+type CryostatAPIResources interface {
+	Target | Recording
 }
 
-// func (v1 *APIV1Client) Targets() TargetInterface {
-// 	return &TargetInterface{
-// 		List() {
+type Target struct {
+	ConnectUrl string `json:"connectUrl"`
+	Alias      string `json:"alias,omitempty"`
+}
 
-// 		}
-// 	}
-// }
+type RecordingCreateOptions struct {
+	RecordingName string `json:"recordingName"`
+	Events        string `json:"events"`
+	Duration      int32  `json:"duration,omitempty"`
+	ToDisk        bool   `json:"toDisk,omitempty"`
+	MaxSize       int32  `json:"maxSize,omitempty"`
+	MaxAge        int32  `json:"maxAge,omitempty"`
+}
+
+type Recording struct {
+	DownloadURL string `json:"downloadUrl"`
+	ReportURL   string `json:"reportUrl"`
+	Id          string `json:"id"`
+	Name        string `json:"name"`
+	StartTime   int32  `json:"startTime"`
+	Duration    int32  `json:"duration"`
+	Continuous  bool   `json:"continuous"`
+	ToDisk      bool   `json:"toDisk"`
+	MaxSize     int32  `json:"maxSize"`
+	MaxAge      int32  `json:"maxAge"`
+}
 
 // CryostatRESTRequest
 type CryostatRESTRequest struct {
-	base    *url.URL
-	verb    string
-	headers http.Header
-	params  url.Values
+	URL       *url.URL
+	Verb      string
+	Headers   http.Header
+	Params    url.Values
+	Body      io.Reader
+	OpenShift bool
+}
 
-	APIversion string
-	path       string
+func (r *CryostatRESTRequest) Do(result any) error {
+	// Construct a complete URL with params
+	query := r.URL.Query()
+	for key, values := range r.Params {
+		for _, value := range values {
+			query.Add(key, value)
+		}
+	}
+	r.URL.RawQuery = query.Encode()
+
+	// Add Auth Header
+	err := r.SetAuthHeader()
+	if err != nil {
+		return err
+	}
+
+	request, err := http.NewRequest(r.Verb, r.URL.RequestURI(), r.Body)
+	if err != nil {
+		return err
+	}
+
+	resp, err := http.DefaultClient.Do(request)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	bodyAsBytes, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return fmt.Errorf("failed to read response body: %s", err.Error())
+	}
+
+	err = json.Unmarshal(bodyAsBytes, result)
+	if err != nil {
+		return fmt.Errorf("failed to JSON decode response body: %s", err.Error())
+	}
+
+	return nil
+}
+
+func (r *CryostatRESTRequest) SetAuthHeader() error {
+	header := r.Headers
+	// Authentication is only enabled on OCP (currently)
+	if r.OpenShift {
+		config, err := rest.InClusterConfig()
+		if err != nil {
+			return fmt.Errorf("failed to get in cluster config: %s", err.Error())
+		}
+		header.Add("Authorization", fmt.Sprintf("Bearer %s", config.BearerToken))
+	}
+	return nil
+}
+
+func NewCryostatRESTReqruest(verb string, body any) (*CryostatRESTRequest, error) {
+	_body, err := json.Marshal(body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to JSON encode recording option: %s", err.Error())
+	}
+	req := &CryostatRESTRequest{
+		Verb: http.MethodPost,
+		Body: bytes.NewReader(_body),
+	}
+	return req, nil
 }
