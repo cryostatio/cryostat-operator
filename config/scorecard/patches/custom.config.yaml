@@ -8,7 +8,7 @@
     entrypoint:
     - cryostat-scorecard-tests
     - operator-install
-    image: "quay.io/cryostat/cryostat-operator-scorecard:2.5.0-20231211072824"
+    image: "quay.io/cryostat/cryostat-operator-scorecard:2.5.0-20231212234113"
     labels:
       suite: cryostat
       test: operator-install
@@ -18,7 +18,7 @@
     entrypoint:
     - cryostat-scorecard-tests
     - cryostat-cr
-    image: "quay.io/cryostat/cryostat-operator-scorecard:2.5.0-20231211072824"
+    image: "quay.io/cryostat/cryostat-operator-scorecard:2.5.0-20231212234113"
     labels:
       suite: cryostat
       test: cryostat-cr
@@ -28,7 +28,7 @@
     entrypoint:
     - cryostat-scorecard-tests
     - cryostat-recording
-    image: "quay.io/cryostat/cryostat-operator-scorecard:2.5.0-20231211072824"
+    image: "quay.io/cryostat/cryostat-operator-scorecard:2.5.0-20231212234113"
     labels:
       suite: cryostat
       test: cryostat-recording
