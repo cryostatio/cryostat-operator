@@ -172,11 +172,16 @@ func delete(ctx context.Context, c rest.Interface, res string, ns string, name s
 // the Cryostat API
 type CryostatRESTClientset struct {
 	// Application URL pointing to Cryostat
-	TargetClient *TargetClient
+	*TargetClient
+	*RecordingClient
 }
 
-func (cs *CryostatRESTClientset) Targets() *TargetClient {
-	return cs.TargetClient
+func (c *CryostatRESTClientset) Targets() *TargetClient {
+	return c.TargetClient
+}
+
+func (c *CryostatRESTClientset) Recordings() *RecordingClient {
+	return c.RecordingClient
 }
 
 func NewCryostatRESTClientset(applicationURL string) (*CryostatRESTClientset, error) {
@@ -205,26 +210,83 @@ type RecordingClient struct {
 	Base *url.URL
 }
 
-func (client *RecordingClient) Get(ctx context.Context, recordingName string) ([]Target, error) {
+func (client *RecordingClient) Get(target Target, recordingName string) (*Recording, error) {
+	apiPath := url.PathEscape(fmt.Sprintf("/api/v1/targets/%s/recordings/%s", target.ConnectUrl, recordingName))
+	req, err := NewCryostatRESTRequest(client.Base.JoinPath(apiPath), http.MethodGet, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create a Cryostat REST request: %s", err.Error())
+	}
+
+	recs := []Recording{}
+	err = req.SendForJSON(&recs)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get recording: %s", err.Error())
+	}
+
+	for _, rec := range recs {
+		if rec.Name == recordingName {
+			return &rec, nil
+		}
+	}
+
 	return nil, nil
 }
 
-func (client *RecordingClient) Create(ctx context.Context, target Target, options *RecordingCreateOptions) (*Recording, error) {
-	req, err := NewCryostatRESTRequest(client.Base.JoinPath(client.APIPath(target)), http.MethodPost, options)
+func (client *RecordingClient) Create(target Target, options *RecordingCreateOptions) (*Recording, error) {
+	apiPath := url.PathEscape(fmt.Sprintf("/api/v1/targets/%s/recordings", target.ConnectUrl))
+	req, err := NewCryostatRESTRequest(client.Base.JoinPath(apiPath), http.MethodPost, options)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create a Cryostat REST request: %s", err.Error())
 	}
 
 	r := &Recording{}
-	err = req.Do(r)
+	err = req.SendForJSON(r)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create recording: %s", err.Error())
 	}
 	return r, nil
 }
 
-func (client *RecordingClient) APIPath(target Target) string {
-	return url.PathEscape(fmt.Sprintf("/api/v1/targets/%s/recordings", target.ConnectUrl))
+func (client *RecordingClient) Archive(target Target, recordingName string) (*string, error) {
+	apiPath := url.PathEscape(fmt.Sprintf("/api/v1/targets/%s/recordings/%s", target.ConnectUrl, recordingName))
+	req, err := NewCryostatRESTRequest(client.Base.JoinPath(apiPath), http.MethodPatch, "SAVE")
+	if err != nil {
+		return nil, fmt.Errorf("failed to create a Cryostat REST request: %s", err.Error())
+	}
+
+	archiveName, err := req.SendForPlainText()
+	if err != nil {
+		return nil, fmt.Errorf("failed to archive recording: %s", err.Error())
+	}
+	return archiveName, nil
+}
+
+func (client *RecordingClient) Stop(target Target, recordingName string) error {
+	apiPath := url.PathEscape(fmt.Sprintf("/api/v1/targets/%s/recordings/%s", target.ConnectUrl, recordingName))
+	req, err := NewCryostatRESTRequest(client.Base.JoinPath(apiPath), http.MethodPatch, "STOP")
+	if err != nil {
+		return fmt.Errorf("failed to create a Cryostat REST request: %s", err.Error())
+	}
+
+	err = req.SendForJSON(nil)
+	if err != nil {
+		return fmt.Errorf("failed to stop recording: %s", err.Error())
+	}
+	return nil
+}
+
+func (client *RecordingClient) Delete(target Target, recordingName string) error {
+	apiPath := url.PathEscape(fmt.Sprintf("/api/v1/targets/%s/recordings/%s", target.ConnectUrl, recordingName))
+	req, err := NewCryostatRESTRequest(client.Base.JoinPath(apiPath), http.MethodDelete, nil)
+	if err != nil {
+		return fmt.Errorf("failed to create a Cryostat REST request: %s", err.Error())
+	}
+
+	err = req.SendForJSON(nil)
+	if err != nil {
+		return fmt.Errorf("failed to delete recording: %s", err.Error())
+	}
+	return nil
 }
 
 type CryostatAPIResources interface {
@@ -251,6 +313,7 @@ type Recording struct {
 	Id          string `json:"id"`
 	Name        string `json:"name"`
 	StartTime   int32  `json:"startTime"`
+	State       string `json:"state"`
 	Duration    int32  `json:"duration"`
 	Continuous  bool   `json:"continuous"`
 	ToDisk      bool   `json:"toDisk"`
@@ -266,7 +329,33 @@ type CryostatRESTRequest struct {
 	Body   io.Reader
 }
 
-func (r *CryostatRESTRequest) Do(result any) error {
+func (r *CryostatRESTRequest) SendForPlainText() (*string, error) {
+	req, err := http.NewRequest(r.Verb, r.URL.String(), r.Body)
+	if err != nil {
+		return nil, err
+	}
+	addHeaders(req, r.Header)
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if !statusOK(resp.StatusCode) {
+		return nil, fmt.Errorf("API request failed with status code: %d", resp.StatusCode)
+	}
+
+	bodyAsBytes, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read response body: %s", err.Error())
+	}
+
+	body := string(bodyAsBytes)
+	return &body, nil
+}
+
+func (r *CryostatRESTRequest) SendForJSON(result any) error {
 	req, err := http.NewRequest(r.Verb, r.URL.String(), r.Body)
 	if err != nil {
 		return err
@@ -278,6 +367,10 @@ func (r *CryostatRESTRequest) Do(result any) error {
 		return err
 	}
 	defer resp.Body.Close()
+
+	if !statusOK(resp.StatusCode) {
+		return fmt.Errorf("API request failed with status code: %d", resp.StatusCode)
+	}
 
 	bodyAsBytes, err := io.ReadAll(resp.Body)
 	if err != nil {
@@ -299,6 +392,10 @@ func addHeaders(req *http.Request, header http.Header) {
 			req.Header.Add(key, value)
 		}
 	}
+}
+
+func statusOK(statusCode int) bool {
+	return statusCode >= 200 && statusCode < 300
 }
 
 func NewCryostatRESTRequest(url *url.URL, verb string, body any) (*CryostatRESTRequest, error) {

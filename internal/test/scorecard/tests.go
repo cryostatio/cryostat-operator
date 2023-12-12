@@ -85,7 +85,72 @@ func CryostatRecordingTest(bundle *apimanifests.Bundle, namespace string, openSh
 
 	err = createAndWaitForCryostat(cr, tr)
 	if err != nil {
-		return fail(*r, fmt.Sprintf("%s test failed: %s", CryostatRecordingTestName, err.Error()))
+		return fail(*r, fmt.Sprintf("failed to determine application URL: %s", err.Error()))
 	}
+
+	apiClient, err := NewCryostatRESTClientset(cr.Status.ApplicationURL)
+	if err != nil {
+		return fail(*r, fmt.Sprintf("failed to get Cryostat API client: %s", err.Error()))
+	}
+
+	// Get a target
+	targets, err := apiClient.Targets().List()
+	if err != nil {
+		return fail(*r, fmt.Sprintf("failed to list discovered targets: %s", err.Error()))
+	}
+	if len(targets) == 0 {
+		return fail(*r, "cryostat failed to discover any targets")
+	}
+	target := targets[0]
+	r.Log += fmt.Sprintf("using target: %+v", target)
+
+	// Create a recording
+	options := &RecordingCreateOptions{
+		RecordingName: "scorecard-test-rec",
+		Events:        "template=ALL",
+		Duration:      0,
+		ToDisk:        true,
+		MaxSize:       0,
+		MaxAge:        0,
+	}
+	recording, err := apiClient.Recordings().Create(target, options)
+	if err != nil {
+		return fail(*r, fmt.Sprintf("failed to create a recording: %s", err.Error()))
+	}
+	r.Log += fmt.Sprintf("created a recording: %+v", recording)
+
+	// Archive the recording
+	archiveName, err := apiClient.Recordings().Archive(target, recording.Name)
+	if err != nil {
+		return fail(*r, fmt.Sprintf("failed to archive the recording: %s", err.Error()))
+	}
+	r.Log += fmt.Sprintf("archived the recording %s at: %s", recording.Name, *archiveName)
+
+	// Stop the recording
+	err = apiClient.Recordings().Stop(target, recording.Name)
+	if err != nil {
+		return fail(*r, fmt.Sprintf("failed to stop the recording %s: %s", recording.Name, err.Error()))
+	}
+
+	recording, err = apiClient.Recordings().Get(target, recording.Name)
+	if err != nil {
+		return fail(*r, fmt.Sprintf("failed to get the recordings: %s", err.Error()))
+	}
+	if recording == nil {
+		return fail(*r, fmt.Sprintf("recording %s does not exist: %s", recording.Name, err.Error()))
+	}
+
+	if recording.State != "STOPPED" {
+		return fail(*r, fmt.Sprintf("recording %s failed to stop: %s", recording.Name, err.Error()))
+	}
+	r.Log += fmt.Sprintf("stopped the recording: %s", recording.Name)
+
+	// Delete the recording
+	err = apiClient.Recordings().Delete(target, recording.Name)
+	if err != nil {
+		return fail(*r, fmt.Sprintf("failed to delete the recording %s: %s", recording.Name, err.Error()))
+	}
+	r.Log += fmt.Sprintf("deleted the recording: %s", recording.Name)
+
 	return *r
 }
