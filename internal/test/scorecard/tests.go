@@ -17,9 +17,11 @@ package scorecard
 import (
 	"context"
 	"fmt"
+	"time"
 
 	scapiv1alpha3 "github.com/operator-framework/api/pkg/apis/scorecard/v1alpha3"
 	apimanifests "github.com/operator-framework/api/pkg/manifests"
+	"k8s.io/apimachinery/pkg/util/wait"
 )
 
 const (
@@ -60,18 +62,17 @@ func CryostatCRTest(bundle *apimanifests.Bundle, namespace string, openShiftCert
 	}
 
 	// Create a default Cryostat CR
-	cr := newCryostatCR(namespace, !tr.OpenShift)
-	defer cleanupCryostat(r, tr.Client, namespace)
-
-	err = createAndWaitForCryostat(cr, tr)
+	_, err = createAndWaitForCryostat(newCryostatCR(namespace, !tr.OpenShift), tr)
 	if err != nil {
 		return fail(*r, fmt.Sprintf("%s test failed: %s", CryostatCRTestName, err.Error()))
 	}
+	defer cleanupCryostat(r, tr.Client, namespace)
+
 	return *r
 }
 
 func CryostatRecordingTest(bundle *apimanifests.Bundle, namespace string, openShiftCertManager bool) scapiv1alpha3.TestResult {
-	tr := newTestResources(CryostatCRTestName)
+	tr := newTestResources(CryostatRecordingTestName)
 	r := tr.TestResult
 
 	err := setupCRTestResources(tr, openShiftCertManager)
@@ -80,29 +81,39 @@ func CryostatRecordingTest(bundle *apimanifests.Bundle, namespace string, openSh
 	}
 
 	// Create a default Cryostat CR
-	cr := newCryostatCR(namespace, !tr.OpenShift)
-	defer cleanupCryostat(r, tr.Client, namespace)
-
-	err = createAndWaitForCryostat(cr, tr)
+	cr, err := createAndWaitForCryostat(newCryostatCR(namespace, !tr.OpenShift), tr)
 	if err != nil {
 		return fail(*r, fmt.Sprintf("failed to determine application URL: %s", err.Error()))
 	}
+	defer cleanupCryostat(r, tr.Client, namespace)
 
 	apiClient, err := NewCryostatRESTClientset(cr.Status.ApplicationURL)
 	if err != nil {
 		return fail(*r, fmt.Sprintf("failed to get Cryostat API client: %s", err.Error()))
 	}
 
-	// Get a target
-	targets, err := apiClient.Targets().List()
+	// Get a target for test.
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+	defer cancel()
+
+	var target Target
+	err = wait.PollImmediateUntilWithContext(ctx, time.Second, func(ctx context.Context) (done bool, err error) {
+		targets, err := apiClient.Targets().List()
+		if err != nil {
+			logError(r, fmt.Sprintf("failed to list discovered targets: %s", err.Error()))
+			return false, err
+		}
+		if len(targets) == 0 {
+			r.Log += "no target is yet discovered\n"
+			return false, nil // Try again
+		}
+		target = targets[0]
+		r.Log += fmt.Sprintf("found target: %+v", target)
+		return true, nil
+	})
 	if err != nil {
-		return fail(*r, fmt.Sprintf("failed to list discovered targets: %s", err.Error()))
+		return fail(*r, fmt.Sprintf("failed to get a target for test: %s", err.Error()))
 	}
-	if len(targets) == 0 {
-		return fail(*r, "cryostat failed to discover any targets")
-	}
-	target := targets[0]
-	r.Log += fmt.Sprintf("using target: %+v", target)
 
 	// Create a recording
 	options := &RecordingCreateOptions{

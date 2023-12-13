@@ -296,14 +296,14 @@ func newCryostatCR(namespace string, withIngress bool) *operatorv1beta1.Cryostat
 	return cr
 }
 
-func createAndWaitForCryostat(cr *operatorv1beta1.Cryostat, resources *TestResources) error {
+func createAndWaitForCryostat(cr *operatorv1beta1.Cryostat, resources *TestResources) (*operatorv1beta1.Cryostat, error) {
 	client := resources.Client
 	r := resources.TestResult
 
 	cr, err := client.OperatorCRDs().Cryostats(cr.Namespace).Create(context.Background(), cr)
 	if err != nil {
 		logError(r, fmt.Sprintf("failed to create Cryostat CR: %s", err.Error()))
-		return err
+		return nil, err
 	}
 
 	// Poll the deployment until it becomes available or we timeout
@@ -312,7 +312,7 @@ func createAndWaitForCryostat(cr *operatorv1beta1.Cryostat, resources *TestResou
 	err = waitForDeploymentAvailability(ctx, client, cr.Namespace, cr.Name, r)
 	if err != nil {
 		logError(r, fmt.Sprintf("Cryostat main deployment did not become available: %s", err.Error()))
-		return err
+		return nil, err
 	}
 
 	err = wait.PollImmediateUntilWithContext(ctx, time.Second, func(ctx context.Context) (done bool, err error) {
@@ -323,16 +323,16 @@ func createAndWaitForCryostat(cr *operatorv1beta1.Cryostat, resources *TestResou
 		if len(cr.Status.ApplicationURL) > 0 {
 			return true, nil
 		}
-		r.Log += "Application URL is not yet available\n"
+		r.Log += "application URL is not yet available\n"
 		return false, nil
 	})
 	if err != nil {
-		logError(r, fmt.Sprintf("Application URL not found in CR: %s", err.Error()))
-		return err
+		logError(r, fmt.Sprintf("application URL not found in CR: %s", err.Error()))
+		return nil, err
 	}
-	r.Log += fmt.Sprintf("Application is ready at %s\n", cr.Status.ApplicationURL)
+	r.Log += fmt.Sprintf("application is ready at %s\n", cr.Status.ApplicationURL)
 
-	return nil
+	return cr, nil
 }
 
 func cleanupCryostat(r *scapiv1alpha3.TestResult, client *CryostatClientset, namespace string) {
