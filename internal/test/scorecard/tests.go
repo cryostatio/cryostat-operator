@@ -98,7 +98,7 @@ func CryostatRecordingTest(bundle *apimanifests.Bundle, namespace string, openSh
 
 	var target Target
 	err = wait.PollImmediateUntilWithContext(ctx, time.Second, func(ctx context.Context) (done bool, err error) {
-		targets, err := apiClient.Targets().List()
+		targets, err := apiClient.Targets().List(context.Background())
 		if err != nil {
 			logError(r, fmt.Sprintf("failed to list discovered targets: %s", err.Error()))
 			return false, err
@@ -108,12 +108,13 @@ func CryostatRecordingTest(bundle *apimanifests.Bundle, namespace string, openSh
 			return false, nil // Try again
 		}
 		target = targets[0]
-		r.Log += fmt.Sprintf("found target: %+v", target)
+		r.Log += fmt.Sprintf("found a target: %+v", target)
 		return true, nil
 	})
 	if err != nil {
 		return fail(*r, fmt.Sprintf("failed to get a target for test: %s", err.Error()))
 	}
+	connectUrl := target.ConnectUrl
 
 	// Create a recording
 	options := &RecordingCreateOptions{
@@ -124,26 +125,26 @@ func CryostatRecordingTest(bundle *apimanifests.Bundle, namespace string, openSh
 		MaxSize:       0,
 		MaxAge:        0,
 	}
-	recording, err := apiClient.Recordings().Create(target, options)
+	recording, err := apiClient.Recordings().Create(context.Background(), connectUrl, options)
 	if err != nil {
 		return fail(*r, fmt.Sprintf("failed to create a recording: %s", err.Error()))
 	}
 	r.Log += fmt.Sprintf("created a recording: %+v", recording)
 
 	// Archive the recording
-	archiveName, err := apiClient.Recordings().Archive(target, recording.Name)
+	archiveName, err := apiClient.Recordings().Archive(context.Background(), connectUrl, recording.Name)
 	if err != nil {
 		return fail(*r, fmt.Sprintf("failed to archive the recording: %s", err.Error()))
 	}
-	r.Log += fmt.Sprintf("archived the recording %s at: %s", recording.Name, *archiveName)
+	r.Log += fmt.Sprintf("archived the recording %s at: %s", recording.Name, archiveName)
 
 	// Stop the recording
-	err = apiClient.Recordings().Stop(target, recording.Name)
+	err = apiClient.Recordings().Stop(context.Background(), connectUrl, recording.Name)
 	if err != nil {
 		return fail(*r, fmt.Sprintf("failed to stop the recording %s: %s", recording.Name, err.Error()))
 	}
 
-	recording, err = apiClient.Recordings().Get(target, recording.Name)
+	recording, err = apiClient.Recordings().Get(context.Background(), connectUrl, recording.Name)
 	if err != nil {
 		return fail(*r, fmt.Sprintf("failed to get the recordings: %s", err.Error()))
 	}
@@ -157,7 +158,7 @@ func CryostatRecordingTest(bundle *apimanifests.Bundle, namespace string, openSh
 	r.Log += fmt.Sprintf("stopped the recording: %s", recording.Name)
 
 	// Delete the recording
-	err = apiClient.Recordings().Delete(target, recording.Name)
+	err = apiClient.Recordings().Delete(context.Background(), connectUrl, recording.Name)
 	if err != nil {
 		return fail(*r, fmt.Sprintf("failed to delete the recording %s: %s", recording.Name, err.Error()))
 	}
