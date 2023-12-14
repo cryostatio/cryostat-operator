@@ -272,12 +272,12 @@ func (client *RecordingClient) Get(ctx context.Context, connectUrl string, recor
 
 func (client *RecordingClient) Create(ctx context.Context, connectUrl string, options *RecordingCreateOptions) (*Recording, error) {
 	url := client.Base.JoinPath(fmt.Sprintf("/api/v1/targets/%s/recordings", url.PathEscape(connectUrl)))
-	body := options.ToMultiPart()
+	body := strings.NewReader(options.ToFormData())
 	req, err := NewHttpRequest(ctx, http.MethodPost, url.String(), body)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create a Cryostat REST request: %s", err.Error())
 	}
-	req.Header.Add("Content-type", "multipart/form-data")
+	req.Header.Add("Content-type", "application/x-www-form-urlencoded")
 
 	resp, err := client.Do(req)
 	if err != nil {
