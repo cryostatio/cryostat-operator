@@ -15,9 +15,6 @@
 package scorecard
 
 import (
-	"bytes"
-	"io"
-	"mime/multipart"
 	"net/url"
 	"strconv"
 )
@@ -31,20 +28,17 @@ type RecordingCreateOptions struct {
 	MaxAge        int32
 }
 
-func (opts *RecordingCreateOptions) ToMultiPart() io.Reader {
-	formBuffer := &bytes.Buffer{}
-	writer := multipart.NewWriter(formBuffer)
+func (opts *RecordingCreateOptions) ToFormData() string {
+	formData := &url.Values{}
 
-	writer.WriteField("recordingName", url.PathEscape(opts.RecordingName))
-	writer.WriteField("events", opts.Events)
-	writer.WriteField("duration", strconv.Itoa(int(opts.Duration)))
-	writer.WriteField("toDisk", strconv.FormatBool(opts.ToDisk))
-	writer.WriteField("maxSize", strconv.Itoa(int(opts.MaxSize)))
-	writer.WriteField("maxAge", strconv.Itoa(int(opts.MaxAge)))
+	formData.Add("recordingName", url.PathEscape(opts.RecordingName))
+	formData.Add("events", opts.Events)
+	formData.Add("duration", strconv.Itoa(int(opts.Duration)))
+	formData.Add("toDisk", strconv.FormatBool(opts.ToDisk))
+	formData.Add("maxSize", strconv.Itoa(int(opts.MaxSize)))
+	formData.Add("maxAge", strconv.Itoa(int(opts.MaxAge)))
 
-	writer.Close()
-
-	return bytes.NewReader(formBuffer.Bytes())
+	return formData.Encode()
 }
 
 type Recording struct {
