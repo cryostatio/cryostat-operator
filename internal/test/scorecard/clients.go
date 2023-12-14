@@ -211,7 +211,7 @@ type TargetClient struct {
 
 func (client *TargetClient) List(ctx context.Context) ([]Target, error) {
 	url := client.Base.JoinPath("/api/v1/targets")
-	req, err := NewHttpRequest(ctx, url.String(), http.MethodGet, nil)
+	req, err := NewHttpRequest(ctx, http.MethodGet, url.String(), nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create a Cryostat REST request: %s", err.Error())
 	}
@@ -222,7 +222,7 @@ func (client *TargetClient) List(ctx context.Context) ([]Target, error) {
 	}
 
 	if !StatusOK(resp.StatusCode) {
-		return nil, fmt.Errorf("API request failed with status code %d: %+v", resp.StatusCode, resp.Status)
+		return nil, fmt.Errorf("API request failed with status code %d: %s", resp.StatusCode, ReadError(resp))
 	}
 
 	targets := make([]Target, 0)
@@ -253,7 +253,7 @@ func (client *RecordingClient) Get(ctx context.Context, connectUrl string, recor
 	}
 
 	if !StatusOK(resp.StatusCode) {
-		return nil, fmt.Errorf("API request failed with status code %d: %+v", resp.StatusCode, resp.Status)
+		return nil, fmt.Errorf("API request failed with status code %d: %s", resp.StatusCode, ReadError(resp))
 	}
 
 	recordings := make([]Recording, 0)
@@ -272,10 +272,7 @@ func (client *RecordingClient) Get(ctx context.Context, connectUrl string, recor
 
 func (client *RecordingClient) Create(ctx context.Context, connectUrl string, options *RecordingCreateOptions) (*Recording, error) {
 	url := client.Base.JoinPath(fmt.Sprintf("/api/v1/targets/%s/recordings", url.PathEscape(connectUrl)))
-	body, err := options.ToMultiPart()
-	if err != nil {
-		return nil, fmt.Errorf("failed to create a form multi-part: %s", err.Error())
-	}
+	body := options.ToMultiPart()
 	req, err := NewHttpRequest(ctx, http.MethodPost, url.String(), body)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create a Cryostat REST request: %s", err.Error())
@@ -288,7 +285,7 @@ func (client *RecordingClient) Create(ctx context.Context, connectUrl string, op
 	}
 
 	if !StatusOK(resp.StatusCode) {
-		return nil, fmt.Errorf("API request failed with status code %d: %+v", resp.StatusCode, resp.Status)
+		return nil, fmt.Errorf("API request failed with status code %d: %s", resp.StatusCode, ReadError(resp))
 	}
 
 	recording := &Recording{}
@@ -314,7 +311,7 @@ func (client *RecordingClient) Archive(ctx context.Context, connectUrl string, r
 	}
 
 	if !StatusOK(resp.StatusCode) {
-		return "", fmt.Errorf("API request failed with status code %d: %+v", resp.StatusCode, resp.Status)
+		return "", fmt.Errorf("API request failed with status code %d: %s", resp.StatusCode, ReadError(resp))
 	}
 
 	bodyAsString, err := ReadString(resp)
@@ -339,7 +336,7 @@ func (client *RecordingClient) Stop(ctx context.Context, connectUrl string, reco
 	}
 
 	if !StatusOK(resp.StatusCode) {
-		return fmt.Errorf("API request failed with status code %d: %+v", resp.StatusCode, resp.Status)
+		return fmt.Errorf("API request failed with status code %d: %s", resp.StatusCode, ReadError(resp))
 	}
 	return nil
 }
@@ -356,7 +353,7 @@ func (client *RecordingClient) Delete(ctx context.Context, connectUrl string, re
 		return err
 	}
 	if !StatusOK(resp.StatusCode) {
-		return fmt.Errorf("API request failed with status code %d: %+v", resp.StatusCode, resp.Status)
+		return fmt.Errorf("API request failed with status code %d: %s", resp.StatusCode, ReadError(resp))
 	}
 	return nil
 }
@@ -380,6 +377,11 @@ func ReadString(resp *http.Response) (string, error) {
 		return "", err
 	}
 	return string(body), nil
+}
+
+func ReadError(resp *http.Response) string {
+	body, _ := ReadString(resp)
+	return string(body)
 }
 
 func NewHttpClient() *http.Client {
