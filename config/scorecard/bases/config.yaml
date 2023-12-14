@@ -3,5 +3,7 @@ kind: Configuration
 metadata:
   name: config
 stages:
-- parallel: true
+- parallel: true # Build-in Tests
+  tests: []
+- parallel: false # Cryostat Custom Tests
   tests: []
