@@ -2,7 +2,7 @@
   path: /serviceaccount
   value: cryostat-scorecard
 - op: add
-  path: /stages/0/tests/-
+  path: /stages/1/tests/-
   value:
     entrypoint:
     - cryostat-scorecard-tests
@@ -12,7 +12,7 @@
       suite: cryostat
       test: operator-install
 - op: add
-  path: /stages/0/tests/-
+  path: /stages/1/tests/-
   value:
     entrypoint:
     - cryostat-scorecard-tests
@@ -22,7 +22,7 @@
       suite: cryostat
       test: cryostat-cr
 - op: add
-  path: /stages/0/tests/-
+  path: /stages/1/tests/-
   value:
     entrypoint:
     - cryostat-scorecard-tests
