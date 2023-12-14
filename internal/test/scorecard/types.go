@@ -16,42 +16,35 @@ package scorecard
 
 import (
 	"bytes"
-	"errors"
 	"io"
 	"mime/multipart"
+	"net/url"
 	"strconv"
 )
 
 type RecordingCreateOptions struct {
-	RecordingName string `json:"recordingName"`
-	Events        string `json:"events"`
-	Duration      int32  `json:"duration,omitempty"`
-	ToDisk        bool   `json:"toDisk,omitempty"`
-	MaxSize       int32  `json:"maxSize,omitempty"`
-	MaxAge        int32  `json:"maxAge,omitempty"`
+	RecordingName string
+	Events        string
+	Duration      int32
+	ToDisk        bool
+	MaxSize       int32
+	MaxAge        int32
 }
 
-func (opts *RecordingCreateOptions) ToMultiPart() (io.Reader, error) {
-	form := &bytes.Buffer{}
-	writer := multipart.NewWriter(form)
+func (opts *RecordingCreateOptions) ToMultiPart() io.Reader {
+	formBuffer := &bytes.Buffer{}
+	writer := multipart.NewWriter(formBuffer)
 
-	errs := make([]error, 0)
-
-	errs = append(errs,
-		writer.WriteField("recordingName", opts.RecordingName),
-		writer.WriteField("events", opts.Events),
-		writer.WriteField("duration", strconv.Itoa(int(opts.Duration))),
-		writer.WriteField("toDisk", strconv.FormatBool(opts.ToDisk)),
-		writer.WriteField("maxSize", strconv.Itoa(int(opts.MaxSize))),
-		writer.WriteField("maxAge", strconv.Itoa(int(opts.MaxAge))),
-	)
+	writer.WriteField("recordingName", url.PathEscape(opts.RecordingName))
+	writer.WriteField("events", opts.Events)
+	writer.WriteField("duration", strconv.Itoa(int(opts.Duration)))
+	writer.WriteField("toDisk", strconv.FormatBool(opts.ToDisk))
+	writer.WriteField("maxSize", strconv.Itoa(int(opts.MaxSize)))
+	writer.WriteField("maxAge", strconv.Itoa(int(opts.MaxAge)))
 
 	writer.Close()
 
-	if len(errs) > 0 {
-		return nil, errors.Join(errs...)
-	}
-	return bytes.NewReader(form.Bytes()), nil
+	return bytes.NewReader(formBuffer.Bytes())
 }
 
 type Recording struct {
