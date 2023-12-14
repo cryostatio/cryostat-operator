@@ -437,11 +437,12 @@ func NewCryostatRESTRequest(url *url.URL, verb string, body any) (*CryostatRESTR
 }
 
 func NewHttpClient() *http.Client {
-	client := *http.DefaultClient
-	client.Transport = &http.Transport{
-		TLSClientConfig: &tls.Config{
-			InsecureSkipVerify: true,
-		},
+	client := &http.Client{}
+	// Ignore verifying certs
+	transport := http.DefaultTransport.(*http.Transport).Clone()
+	transport.TLSClientConfig = &tls.Config{
+		InsecureSkipVerify: true,
 	}
-	return &client
+	client.Transport = transport
+	return client
 }
