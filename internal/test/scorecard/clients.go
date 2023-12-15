@@ -16,7 +16,6 @@ package scorecard
 
 import (
 	"context"
-	"crypto/tls"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
@@ -190,11 +189,7 @@ func (c *CryostatRESTClientset) Credential() *CredentialClient {
 	return c.CredentialClient
 }
 
-func NewCryostatRESTClientset(applicationURL string) (*CryostatRESTClientset, error) {
-	base, err := url.Parse(applicationURL)
-	if err != nil {
-		return nil, err
-	}
+func NewCryostatRESTClientset(base *url.URL) *CryostatRESTClientset {
 	httpClient := NewHttpClient()
 	return &CryostatRESTClientset{
 		TargetClient: &TargetClient{
@@ -209,7 +204,7 @@ func NewCryostatRESTClientset(applicationURL string) (*CryostatRESTClientset, er
 			Base:   base,
 			Client: httpClient,
 		},
-	}, nil
+	}
 }
 
 // Client for Cryostat Target resources
@@ -224,6 +219,7 @@ func (client *TargetClient) List(ctx context.Context) ([]Target, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to create a Cryostat REST request: %s", err.Error())
 	}
+	req.Header.Add("Accept", "*/*")
 
 	resp, err := client.Do(req)
 	if err != nil {
@@ -240,6 +236,8 @@ func (client *TargetClient) List(ctx context.Context) ([]Target, error) {
 		return nil, fmt.Errorf("failed to read response body: %s", err.Error())
 	}
 
+	defer resp.Body.Close()
+
 	return targets, nil
 }
 
@@ -250,11 +248,12 @@ type RecordingClient struct {
 }
 
 func (client *RecordingClient) Get(ctx context.Context, connectUrl string, recordingName string) (*Recording, error) {
-	url := client.Base.JoinPath(fmt.Sprintf("/api/v1/targets/%s/recordings/%s", url.PathEscape(connectUrl), recordingName))
+	url := client.Base.JoinPath(fmt.Sprintf("/api/v1/targets/%s/recordings", url.PathEscape(connectUrl)))
 	req, err := NewHttpRequest(ctx, http.MethodGet, url.String(), nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create a Cryostat REST request: %s", err.Error())
 	}
+	req.Header.Add("Accept", "*/*")
 
 	resp, err := client.Do(req)
 	if err != nil {
@@ -276,7 +275,10 @@ func (client *RecordingClient) Get(ctx context.Context, connectUrl string, recor
 			return &rec, nil
 		}
 	}
-	return nil, nil
+
+	defer resp.Body.Close()
+
+	return nil, fmt.Errorf("recording %s does not exist for target %s", recordingName, connectUrl)
 }
 
 func (client *RecordingClient) Create(ctx context.Context, connectUrl string, options *RecordingCreateOptions) (*Recording, error) {
@@ -286,7 +288,8 @@ func (client *RecordingClient) Create(ctx context.Context, connectUrl string, op
 	if err != nil {
 		return nil, fmt.Errorf("failed to create a Cryostat REST request: %s", err.Error())
 	}
-	req.Header.Add("Content-type", "application/x-www-form-urlencoded")
+	req.Header.Add("Content-Type", "application/x-www-form-urlencoded")
+	req.Header.Add("Accept", "*/*")
 
 	resp, err := client.Do(req)
 	if err != nil {
@@ -302,17 +305,21 @@ func (client *RecordingClient) Create(ctx context.Context, connectUrl string, op
 	if err != nil {
 		return nil, fmt.Errorf("failed to read response body: %s", err.Error())
 	}
+
+	defer resp.Body.Close()
+
 	return recording, err
 }
 
 func (client *RecordingClient) Archive(ctx context.Context, connectUrl string, recordingName string) (string, error) {
-	url := client.Base.JoinPath(fmt.Sprintf("/api/v1/targets/%s/recordings/%s", url.PathEscape(connectUrl), recordingName))
+	url := client.Base.JoinPath(fmt.Sprintf("/api/v1/targets/%s/recordings/%s", url.PathEscape(connectUrl), url.PathEscape(recordingName)))
 	body := strings.NewReader("SAVE")
-	req, err := NewHttpRequest(ctx, http.MethodDelete, url.String(), body)
+	req, err := NewHttpRequest(ctx, http.MethodPatch, url.String(), body)
 	if err != nil {
 		return "", fmt.Errorf("failed to create a REST request: %s", err.Error())
 	}
-	req.Header.Add("Content-type", "text/plain")
+	req.Header.Add("Content-Type", "text/plain")
+	req.Header.Add("Accept", "*/*")
 
 	resp, err := client.Do(req)
 	if err != nil {
@@ -327,17 +334,20 @@ func (client *RecordingClient) Archive(ctx context.Context, connectUrl string, r
 	if err != nil {
 		return "", fmt.Errorf("failed to read response body: %s", err.Error())
 	}
+
+	defer resp.Body.Close()
+
 	return bodyAsString, nil
 }
 
 func (client *RecordingClient) Stop(ctx context.Context, connectUrl string, recordingName string) error {
-	url := client.Base.JoinPath(fmt.Sprintf("/api/v1/targets/%s/recordings/%s", url.PathEscape(connectUrl), recordingName))
+	url := client.Base.JoinPath(fmt.Sprintf("/api/v1/targets/%s/recordings/%s", url.PathEscape(connectUrl), url.PathEscape(recordingName)))
 	body := strings.NewReader("STOP")
-	req, err := NewHttpRequest(ctx, http.MethodDelete, url.String(), body)
+	req, err := NewHttpRequest(ctx, http.MethodPatch, url.String(), body)
 	if err != nil {
 		return fmt.Errorf("failed to create a REST request: %s", err.Error())
 	}
-	req.Header.Add("Content-type", "text/plain")
+	req.Header.Add("Content-Type", "text/plain")
 
 	resp, err := client.Do(req)
 	if err != nil {
@@ -347,11 +357,14 @@ func (client *RecordingClient) Stop(ctx context.Context, connectUrl string, reco
 	if !StatusOK(resp.StatusCode) {
 		return fmt.Errorf("API request failed with status code %d: %s", resp.StatusCode, ReadError(resp))
 	}
+
+	defer resp.Body.Close()
+
 	return nil
 }
 
 func (client *RecordingClient) Delete(ctx context.Context, connectUrl string, recordingName string) error {
-	url := client.Base.JoinPath(fmt.Sprintf("/api/v1/targets/%s/recordings/%s", url.PathEscape(connectUrl), recordingName))
+	url := client.Base.JoinPath(fmt.Sprintf("/api/v1/targets/%s/recordings/%s", url.PathEscape(connectUrl), url.PathEscape(recordingName)))
 	req, err := NewHttpRequest(ctx, http.MethodDelete, url.String(), nil)
 	if err != nil {
 		return fmt.Errorf("failed to create a REST request: %s", err.Error())
@@ -364,6 +377,37 @@ func (client *RecordingClient) Delete(ctx context.Context, connectUrl string, re
 	if !StatusOK(resp.StatusCode) {
 		return fmt.Errorf("API request failed with status code %d: %s", resp.StatusCode, ReadError(resp))
 	}
+
+	defer resp.Body.Close()
+
+	return nil
+}
+
+type CredentialClient struct {
+	Base *url.URL
+	*http.Client
+}
+
+func (client *CredentialClient) Create(ctx context.Context, credential *Credential) error {
+	url := client.Base.JoinPath("/api/v2.2/credentials")
+	body := strings.NewReader(credential.ToFormData())
+	req, err := NewHttpRequest(ctx, http.MethodPost, url.String(), body)
+	if err != nil {
+		return fmt.Errorf("failed to create a Cryostat REST request: %s", err.Error())
+	}
+	req.Header.Add("Content-Type", "application/x-www-form-urlencoded")
+
+	resp, err := client.Do(req)
+	if err != nil {
+		return err
+	}
+
+	if !StatusOK(resp.StatusCode) {
+		return fmt.Errorf("API request failed with status code %d: %s", resp.StatusCode, ReadError(resp))
+	}
+
+	defer resp.Body.Close()
+
 	return nil
 }
 
@@ -394,12 +438,14 @@ func ReadError(resp *http.Response) string {
 }
 
 func NewHttpClient() *http.Client {
-	client := &http.Client{}
-	// Ignore verifying certs
-	transport := http.DefaultTransport.(*http.Transport).Clone()
-	transport.TLSClientConfig = &tls.Config{
-		InsecureSkipVerify: true,
+	client := &http.Client{
+		Timeout: testTimeout,
 	}
+
+	transport := http.DefaultTransport.(*http.Transport).Clone()
+	// Ignore verifying certs
+	transport.TLSClientConfig.InsecureSkipVerify = true
+
 	client.Transport = transport
 	return client
 }
@@ -420,30 +466,4 @@ func NewHttpRequest(ctx context.Context, method string, url string, body io.Read
 
 func StatusOK(statusCode int) bool {
 	return statusCode >= 200 && statusCode < 300
-}
-
-type CredentialClient struct {
-	Base *url.URL
-	*http.Client
-}
-
-func (client *CredentialClient) Create(ctx context.Context, credential *Credential) error {
-	url := client.Base.JoinPath("/api/v2.2/credentials")
-	body := strings.NewReader(credential.ToFormData())
-	req, err := NewHttpRequest(ctx, http.MethodPost, url.String(), body)
-	if err != nil {
-		return fmt.Errorf("failed to create a Cryostat REST request: %s", err.Error())
-	}
-	req.Header.Add("Content-type", "application/x-www-form-urlencoded")
-
-	resp, err := client.Do(req)
-	if err != nil {
-		return err
-	}
-
-	if !StatusOK(resp.StatusCode) {
-		return fmt.Errorf("API request failed with status code %d: %s", resp.StatusCode, ReadError(resp))
-	}
-
-	return nil
 }
