@@ -21,6 +21,7 @@ import (
 
 	scapiv1alpha3 "github.com/operator-framework/api/pkg/apis/scorecard/v1alpha3"
 	apimanifests "github.com/operator-framework/api/pkg/manifests"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 )
 
@@ -107,7 +108,7 @@ func CryostatRecordingTest(bundle *apimanifests.Bundle, namespace string, openSh
 			r.Log += "no target is yet discovered\n"
 			return false, nil // Try again
 		}
-		target = targets[0]
+		target = targets[0] // Cryostat
 		r.Log += fmt.Sprintf("found a target: %+v", target)
 		return true, nil
 	})
@@ -115,6 +116,24 @@ func CryostatRecordingTest(bundle *apimanifests.Bundle, namespace string, openSh
 		return fail(*r, fmt.Sprintf("failed to get a target for test: %s", err.Error()))
 	}
 	connectUrl := target.ConnectUrl
+
+	jmxSecretName := cryostastCRName + "-jmx-auth"
+	secret, err := tr.Client.CoreV1().Secrets(namespace).Get(context.Background(), jmxSecretName, metav1.GetOptions{})
+	if err != nil {
+		return fail(*r, fmt.Sprintf("failed to get jmx credentials: %s", err.Error()))
+	}
+
+	credential := &Credential{
+		UserName:        string(secret.Data["CRYOSTAT_RJMX_USER"]),
+		Password:        string(secret.Data["CRYOSTAT_RJMX_PASS"]),
+		MatchExpression: fmt.Sprintf("target.alias==\"%s\"", target.Alias),
+	}
+
+	err = apiClient.CredentialClient.Create(context.Background(), credential)
+	if err != nil {
+		return fail(*r, fmt.Sprintf("failed to create stored credential: %s", err.Error()))
+	}
+	r.Log += fmt.Sprintf("created stored credential with match expression: %s", credential.MatchExpression)
 
 	// Create a recording
 	options := &RecordingCreateOptions{
