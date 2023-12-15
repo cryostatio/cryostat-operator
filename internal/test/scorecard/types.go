@@ -31,7 +31,7 @@ type RecordingCreateOptions struct {
 func (opts *RecordingCreateOptions) ToFormData() string {
 	formData := &url.Values{}
 
-	formData.Add("recordingName", url.PathEscape(opts.RecordingName))
+	formData.Add("recordingName", opts.RecordingName)
 	formData.Add("events", opts.Events)
 	formData.Add("duration", strconv.Itoa(int(opts.Duration)))
 	formData.Add("toDisk", strconv.FormatBool(opts.ToDisk))

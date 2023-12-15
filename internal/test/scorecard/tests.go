@@ -17,6 +17,7 @@ package scorecard
 import (
 	"context"
 	"fmt"
+	"net/url"
 	"time"
 
 	scapiv1alpha3 "github.com/operator-framework/api/pkg/apis/scorecard/v1alpha3"
@@ -63,11 +64,11 @@ func CryostatCRTest(bundle *apimanifests.Bundle, namespace string, openShiftCert
 	}
 
 	// Create a default Cryostat CR
-	_, err = createAndWaitForCryostat(newCryostatCR(namespace, !tr.OpenShift), tr)
+	_, err = createAndWaitTillCryostatAvailable(newCryostatCR(CryostatCRTestName, namespace, !tr.OpenShift), tr)
 	if err != nil {
 		return fail(*r, fmt.Sprintf("%s test failed: %s", CryostatCRTestName, err.Error()))
 	}
-	defer cleanupCryostat(r, tr.Client, namespace)
+	defer cleanupCryostat(r, tr.Client, CryostatCRTestName, namespace)
 
 	return *r
 }
@@ -82,22 +83,28 @@ func CryostatRecordingTest(bundle *apimanifests.Bundle, namespace string, openSh
 	}
 
 	// Create a default Cryostat CR
-	cr, err := createAndWaitForCryostat(newCryostatCR(namespace, !tr.OpenShift), tr)
+	cr, err := createAndWaitTillCryostatAvailable(newCryostatCR(CryostatRecordingTestName, namespace, !tr.OpenShift), tr)
 	if err != nil {
 		return fail(*r, fmt.Sprintf("failed to determine application URL: %s", err.Error()))
 	}
-	defer cleanupCryostat(r, tr.Client, namespace)
+	defer cleanupCryostat(r, tr.Client, CryostatRecordingTestName, namespace)
 
-	apiClient, err := NewCryostatRESTClientset(cr.Status.ApplicationURL)
+	base, err := url.Parse(cr.Status.ApplicationURL)
 	if err != nil {
-		return fail(*r, fmt.Sprintf("failed to get Cryostat API client: %s", err.Error()))
+		return fail(*r, fmt.Sprintf("application URL is invalid: %s", err.Error()))
 	}
 
-	// Get a target for test.
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
-	defer cancel()
+	err = waitTillCryostatReachable(base, tr)
+	if err != nil {
+		return fail(*r, fmt.Sprintf("failed to reach the application: %s", err.Error()))
+	}
 
+	apiClient := NewCryostatRESTClientset(base)
+
+	// Get a target for test
 	var target Target
+	ctx, cancel := context.WithTimeout(context.Background(), testTimeout)
+	defer cancel()
 	err = wait.PollImmediateUntilWithContext(ctx, time.Second, func(ctx context.Context) (done bool, err error) {
 		targets, err := apiClient.Targets().List(context.Background())
 		if err != nil {
@@ -109,7 +116,7 @@ func CryostatRecordingTest(bundle *apimanifests.Bundle, namespace string, openSh
 			return false, nil // Try again
 		}
 		target = targets[0] // Cryostat
-		r.Log += fmt.Sprintf("found a target: %+v", target)
+		r.Log += fmt.Sprintf("found a target: %+v\n", target)
 		return true, nil
 	})
 	if err != nil {
@@ -117,7 +124,7 @@ func CryostatRecordingTest(bundle *apimanifests.Bundle, namespace string, openSh
 	}
 	connectUrl := target.ConnectUrl
 
-	jmxSecretName := cryostastCRName + "-jmx-auth"
+	jmxSecretName := CryostatRecordingTestName + "-jmx-auth"
 	secret, err := tr.Client.CoreV1().Secrets(namespace).Get(context.Background(), jmxSecretName, metav1.GetOptions{})
 	if err != nil {
 		return fail(*r, fmt.Sprintf("failed to get jmx credentials: %s", err.Error()))
@@ -133,13 +140,16 @@ func CryostatRecordingTest(bundle *apimanifests.Bundle, namespace string, openSh
 	if err != nil {
 		return fail(*r, fmt.Sprintf("failed to create stored credential: %s", err.Error()))
 	}
-	r.Log += fmt.Sprintf("created stored credential with match expression: %s", credential.MatchExpression)
+	r.Log += fmt.Sprintf("created stored credential with match expression: %s\n", credential.MatchExpression)
+
+	// Wait for Cryostat to update the discovery tree
+	time.Sleep(2 * time.Second)
 
 	// Create a recording
 	options := &RecordingCreateOptions{
 		RecordingName: "scorecard-test-rec",
 		Events:        "template=ALL",
-		Duration:      0,
+		Duration:      0, // Continuous
 		ToDisk:        true,
 		MaxSize:       0,
 		MaxAge:        0,
@@ -148,14 +158,17 @@ func CryostatRecordingTest(bundle *apimanifests.Bundle, namespace string, openSh
 	if err != nil {
 		return fail(*r, fmt.Sprintf("failed to create a recording: %s", err.Error()))
 	}
-	r.Log += fmt.Sprintf("created a recording: %+v", recording)
+	r.Log += fmt.Sprintf("created a recording: %+v\n", recording)
+
+	// Allow the recording to run for 5s
+	time.Sleep(5 * time.Second)
 
 	// Archive the recording
 	archiveName, err := apiClient.Recordings().Archive(context.Background(), connectUrl, recording.Name)
 	if err != nil {
 		return fail(*r, fmt.Sprintf("failed to archive the recording: %s", err.Error()))
 	}
-	r.Log += fmt.Sprintf("archived the recording %s at: %s", recording.Name, archiveName)
+	r.Log += fmt.Sprintf("archived the recording %s at: %s\n", recording.Name, archiveName)
 
 	// Stop the recording
 	err = apiClient.Recordings().Stop(context.Background(), connectUrl, recording.Name)
@@ -167,21 +180,18 @@ func CryostatRecordingTest(bundle *apimanifests.Bundle, namespace string, openSh
 	if err != nil {
 		return fail(*r, fmt.Sprintf("failed to get the recordings: %s", err.Error()))
 	}
-	if recording == nil {
-		return fail(*r, fmt.Sprintf("recording %s does not exist: %s", recording.Name, err.Error()))
-	}
 
 	if recording.State != "STOPPED" {
 		return fail(*r, fmt.Sprintf("recording %s failed to stop: %s", recording.Name, err.Error()))
 	}
-	r.Log += fmt.Sprintf("stopped the recording: %s", recording.Name)
+	r.Log += fmt.Sprintf("stopped the recording: %s\n", recording.Name)
 
 	// Delete the recording
 	err = apiClient.Recordings().Delete(context.Background(), connectUrl, recording.Name)
 	if err != nil {
 		return fail(*r, fmt.Sprintf("failed to delete the recording %s: %s", recording.Name, err.Error()))
 	}
-	r.Log += fmt.Sprintf("deleted the recording: %s", recording.Name)
+	r.Log += fmt.Sprintf("deleted the recording: %s\n", recording.Name)
 
 	return *r
 }

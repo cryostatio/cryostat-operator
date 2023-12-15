@@ -17,6 +17,8 @@ package scorecard
 import (
 	"context"
 	"fmt"
+	"net/http"
+	"net/url"
 	"time"
 
 	operatorv1beta1 "github.com/cryostatio/cryostat-operator/api/v1beta1"
@@ -34,7 +36,6 @@ import (
 
 const (
 	operatorDeploymentName string        = "cryostat-operator-controller-manager"
-	cryostastCRName        string        = "cryostat-cr-test"
 	testTimeout            time.Duration = time.Minute * 10
 )
 
@@ -214,10 +215,10 @@ func setupCRTestResources(tr *TestResources, openShiftCertManager bool) error {
 	return nil
 }
 
-func newCryostatCR(namespace string, withIngress bool) *operatorv1beta1.Cryostat {
+func newCryostatCR(name string, namespace string, withIngress bool) *operatorv1beta1.Cryostat {
 	cr := &operatorv1beta1.Cryostat{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      cryostastCRName,
+			Name:      name,
 			Namespace: namespace,
 		},
 		Spec: operatorv1beta1.CryostatSpec{
@@ -246,7 +247,7 @@ func newCryostatCR(namespace string, withIngress bool) *operatorv1beta1.Cryostat
 											PathType: &pathType,
 											Backend: netv1.IngressBackend{
 												Service: &netv1.IngressServiceBackend{
-													Name: cryostastCRName,
+													Name: name,
 													Port: netv1.ServiceBackendPort{
 														Number: 8181,
 													},
@@ -277,7 +278,7 @@ func newCryostatCR(namespace string, withIngress bool) *operatorv1beta1.Cryostat
 											PathType: &pathType,
 											Backend: netv1.IngressBackend{
 												Service: &netv1.IngressServiceBackend{
-													Name: fmt.Sprintf("%s-grafana", cryostastCRName),
+													Name: fmt.Sprintf("%s-grafana", name),
 													Port: netv1.ServiceBackendPort{
 														Number: 3000,
 													},
@@ -296,7 +297,7 @@ func newCryostatCR(namespace string, withIngress bool) *operatorv1beta1.Cryostat
 	return cr
 }
 
-func createAndWaitForCryostat(cr *operatorv1beta1.Cryostat, resources *TestResources) (*operatorv1beta1.Cryostat, error) {
+func createAndWaitTillCryostatAvailable(cr *operatorv1beta1.Cryostat, resources *TestResources) (*operatorv1beta1.Cryostat, error) {
 	client := resources.Client
 	r := resources.TestResult
 
@@ -335,10 +336,45 @@ func createAndWaitForCryostat(cr *operatorv1beta1.Cryostat, resources *TestResou
 	return cr, nil
 }
 
-func cleanupCryostat(r *scapiv1alpha3.TestResult, client *CryostatClientset, namespace string) {
+func waitTillCryostatReachable(base *url.URL, resources *TestResources) error {
+	client := NewHttpClient()
+	r := resources.TestResult
+
+	ctx, cancel := context.WithTimeout(context.Background(), testTimeout)
+	defer cancel()
+
+	err := wait.PollImmediateUntilWithContext(ctx, time.Second, func(ctx context.Context) (done bool, err error) {
+		url := base.JoinPath("/health")
+		req, err := NewHttpRequest(ctx, http.MethodGet, url.String(), nil)
+		if err != nil {
+			return false, fmt.Errorf("failed to create a Cryostat REST request: %s", err.Error())
+		}
+		req.Header.Add("Accept", "*/*")
+
+		resp, err := client.Do(req)
+		if err != nil {
+			return false, err
+		}
+		defer resp.Body.Close()
+
+		if !StatusOK(resp.StatusCode) {
+			if resp.StatusCode == http.StatusServiceUnavailable {
+				r.Log += fmt.Sprintf("application is not yet reachable at %s\n", url.String())
+				return false, nil // Try again
+			}
+			return false, fmt.Errorf("API request failed with status code %d: %s", resp.StatusCode, ReadError(resp))
+		}
+
+		return true, nil
+	})
+
+	return err
+}
+
+func cleanupCryostat(r *scapiv1alpha3.TestResult, client *CryostatClientset, name string, namespace string) {
 	cr := &operatorv1beta1.Cryostat{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      cryostastCRName,
+			Name:      name,
 			Namespace: namespace,
 		},
 	}
