@@ -41,6 +41,22 @@ func (opts *RecordingCreateOptions) ToFormData() string {
 	return formData.Encode()
 }
 
+type Credential struct {
+	UserName        string
+	Password        string
+	MatchExpression string
+}
+
+func (cred *Credential) ToFormData() string {
+	formData := &url.Values{}
+
+	formData.Add("username", cred.UserName)
+	formData.Add("password", cred.Password)
+	formData.Add("matchExpression", cred.MatchExpression)
+
+	return formData.Encode()
+}
+
 type Recording struct {
 	DownloadURL string `json:"downloadUrl"`
 	ReportURL   string `json:"reportUrl"`

@@ -173,8 +173,9 @@ func delete(ctx context.Context, c rest.Interface, res string, ns string, name s
 // CryostatRESTClientset contains methods to interact with
 // the Cryostat API
 type CryostatRESTClientset struct {
-	*TargetClient
-	*RecordingClient
+	TargetClient     *TargetClient
+	RecordingClient  *RecordingClient
+	CredentialClient *CredentialClient
 }
 
 func (c *CryostatRESTClientset) Targets() *TargetClient {
@@ -183,6 +184,10 @@ func (c *CryostatRESTClientset) Targets() *TargetClient {
 
 func (c *CryostatRESTClientset) Recordings() *RecordingClient {
 	return c.RecordingClient
+}
+
+func (c *CryostatRESTClientset) Credential() *CredentialClient {
+	return c.CredentialClient
 }
 
 func NewCryostatRESTClientset(applicationURL string) (*CryostatRESTClientset, error) {
@@ -197,6 +202,10 @@ func NewCryostatRESTClientset(applicationURL string) (*CryostatRESTClientset, er
 			Client: httpClient,
 		},
 		RecordingClient: &RecordingClient{
+			Base:   base,
+			Client: httpClient,
+		},
+		CredentialClient: &CredentialClient{
 			Base:   base,
 			Client: httpClient,
 		},
@@ -358,7 +367,7 @@ func (client *RecordingClient) Delete(ctx context.Context, connectUrl string, re
 	return nil
 }
 
-func ReadJSON(resp *http.Response, result any) error {
+func ReadJSON(resp *http.Response, result interface{}) error {
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return nil
@@ -411,4 +420,30 @@ func NewHttpRequest(ctx context.Context, method string, url string, body io.Read
 
 func StatusOK(statusCode int) bool {
 	return statusCode >= 200 && statusCode < 300
+}
+
+type CredentialClient struct {
+	Base *url.URL
+	*http.Client
+}
+
+func (client *CredentialClient) Create(ctx context.Context, credential *Credential) error {
+	url := client.Base.JoinPath("/api/v2.2/credentials")
+	body := strings.NewReader(credential.ToFormData())
+	req, err := NewHttpRequest(ctx, http.MethodPost, url.String(), body)
+	if err != nil {
+		return fmt.Errorf("failed to create a Cryostat REST request: %s", err.Error())
+	}
+	req.Header.Add("Content-type", "application/x-www-form-urlencoded")
+
+	resp, err := client.Do(req)
+	if err != nil {
+		return err
+	}
+
+	if !StatusOK(resp.StatusCode) {
+		return fmt.Errorf("API request failed with status code %d: %s", resp.StatusCode, ReadError(resp))
+	}
+
+	return nil
 }
