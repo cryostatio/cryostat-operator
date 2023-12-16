@@ -190,27 +190,32 @@ func (c *CryostatRESTClientset) Credential() *CredentialClient {
 }
 
 func NewCryostatRESTClientset(base *url.URL) *CryostatRESTClientset {
-	httpClient := NewHttpClient()
+	commonClient := &commonCryostatRESTClient{
+		Base:   base,
+		Client: NewHttpClient(),
+	}
+
 	return &CryostatRESTClientset{
 		TargetClient: &TargetClient{
-			Base:   base,
-			Client: httpClient,
+			commonCryostatRESTClient: commonClient,
 		},
 		RecordingClient: &RecordingClient{
-			Base:   base,
-			Client: httpClient,
+			commonCryostatRESTClient: commonClient,
 		},
 		CredentialClient: &CredentialClient{
-			Base:   base,
-			Client: httpClient,
+			commonCryostatRESTClient: commonClient,
 		},
 	}
 }
 
-// Client for Cryostat Target resources
-type TargetClient struct {
+type commonCryostatRESTClient struct {
 	Base *url.URL
 	*http.Client
+}
+
+// Client for Cryostat Target resources
+type TargetClient struct {
+	*commonCryostatRESTClient
 }
 
 func (client *TargetClient) List(ctx context.Context) ([]Target, error) {
@@ -243,8 +248,7 @@ func (client *TargetClient) List(ctx context.Context) ([]Target, error) {
 
 // Client for Cryostat Recording resources
 type RecordingClient struct {
-	Base *url.URL
-	*http.Client
+	*commonCryostatRESTClient
 }
 
 func (client *RecordingClient) Get(ctx context.Context, connectUrl string, recordingName string) (*Recording, error) {
@@ -384,8 +388,7 @@ func (client *RecordingClient) Delete(ctx context.Context, connectUrl string, re
 }
 
 type CredentialClient struct {
-	Base *url.URL
-	*http.Client
+	*commonCryostatRESTClient
 }
 
 func (client *CredentialClient) Create(ctx context.Context, credential *Credential) error {
