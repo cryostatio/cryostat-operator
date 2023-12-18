@@ -8,7 +8,7 @@ OS = $(shell go env GOOS)
 ARCH = $(shell go env GOARCH)
 
 # Current Operator version
-export OPERATOR_VERSION ?= 2.4.0
+export OPERATOR_VERSION ?= 2.4.1-dev
 IMAGE_VERSION ?= $(OPERATOR_VERSION)
 BUNDLE_VERSION ?= $(IMAGE_VERSION)
 DEFAULT_NAMESPACE ?= quay.io/cryostat
@@ -63,19 +63,19 @@ export APP_NAME ?= Cryostat
 # Images used by the operator
 CORE_NAMESPACE ?= $(DEFAULT_NAMESPACE)
 CORE_NAME ?= cryostat
-CORE_VERSION ?= 2.4.0
+CORE_VERSION ?= 2.4.1-snapshot
 export CORE_IMG ?= $(CORE_NAMESPACE)/$(CORE_NAME):$(CORE_VERSION)
 DATASOURCE_NAMESPACE ?= $(DEFAULT_NAMESPACE)
 DATASOURCE_NAME ?= jfr-datasource
-DATASOURCE_VERSION ?= 2.4.0
+DATASOURCE_VERSION ?= 2.4.1-snapshot
 export DATASOURCE_IMG ?= $(DATASOURCE_NAMESPACE)/$(DATASOURCE_NAME):$(DATASOURCE_VERSION)
 GRAFANA_NAMESPACE ?= $(DEFAULT_NAMESPACE)
 GRAFANA_NAME ?= cryostat-grafana-dashboard
-GRAFANA_VERSION ?= 2.4.0
+GRAFANA_VERSION ?= cryostat-v2.4
 export GRAFANA_IMG ?= $(GRAFANA_NAMESPACE)/$(GRAFANA_NAME):$(GRAFANA_VERSION)
 REPORTS_NAMESPACE ?= $(DEFAULT_NAMESPACE)
 REPORTS_NAME ?= cryostat-reports
-REPORTS_VERSION ?= 2.4.0
+REPORTS_VERSION ?= 2.4.1-snapshot
 export REPORTS_IMG ?= $(REPORTS_NAMESPACE)/$(REPORTS_NAME):$(REPORTS_VERSION)
 
 CERT_MANAGER_VERSION ?= 1.11.5
@@ -93,7 +93,7 @@ ENVTEST_K8S_VERSION ?= 1.26
 # See: https://github.com/operator-framework/operator-sdk/pull/4762
 #
 # Suffix is the timestamp of the image build, compute with: date -u '+%Y%m%d%H%M%S'
-CUSTOM_SCORECARD_VERSION ?= 2.4.0-$(shell date -u '+%Y%m%d%H%M%S')
+CUSTOM_SCORECARD_VERSION ?= 2.4.1-$(shell date -u '+%Y%m%d%H%M%S')
 export CUSTOM_SCORECARD_IMG ?= $(IMAGE_TAG_BASE)-scorecard:$(CUSTOM_SCORECARD_VERSION)
 
 DEPLOY_NAMESPACE ?= cryostat-operator-system

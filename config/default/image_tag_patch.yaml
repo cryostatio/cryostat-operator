@@ -10,10 +10,10 @@ spec:
       - name: manager
         env:
         - name: RELATED_IMAGE_CORE
-          value: "quay.io/cryostat/cryostat:2.4.0"
+          value: "quay.io/cryostat/cryostat:2.4.1-snapshot"
         - name: RELATED_IMAGE_DATASOURCE
-          value: "quay.io/cryostat/jfr-datasource:2.4.0"
+          value: "quay.io/cryostat/jfr-datasource:2.4.1-snapshot"
         - name: RELATED_IMAGE_GRAFANA
-          value: "quay.io/cryostat/cryostat-grafana-dashboard:2.4.0"
+          value: "quay.io/cryostat/cryostat-grafana-dashboard:cryostat-v2.4"
         - name: RELATED_IMAGE_REPORTS
-          value: "quay.io/cryostat/cryostat-reports:2.4.0"
+          value: "quay.io/cryostat/cryostat-reports:2.4.1-snapshot"
