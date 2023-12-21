@@ -251,7 +251,7 @@ type RecordingClient struct {
 	*commonCryostatRESTClient
 }
 
-func (client *RecordingClient) Get(ctx context.Context, connectUrl string, recordingName string) (*Recording, error) {
+func (client *RecordingClient) List(ctx context.Context, connectUrl string) ([]Recording, error) {
 	url := client.Base.JoinPath(fmt.Sprintf("/api/v1/targets/%s/recordings", url.PathEscape(connectUrl)))
 	req, err := NewHttpRequest(ctx, http.MethodGet, url.String(), nil)
 	if err != nil {
@@ -273,14 +273,22 @@ func (client *RecordingClient) Get(ctx context.Context, connectUrl string, recor
 	if err != nil {
 		return nil, fmt.Errorf("failed to read response body: %s", err.Error())
 	}
+	defer resp.Body.Close()
+
+	return recordings, nil
+}
+
+func (client *RecordingClient) Get(ctx context.Context, connectUrl string, recordingName string) (*Recording, error) {
+	recordings, err := client.List(ctx, connectUrl)
+	if err != nil {
+		return nil, err
+	}
 
 	for _, rec := range recordings {
 		if rec.Name == recordingName {
 			return &rec, nil
 		}
 	}
-
-	defer resp.Body.Close()
 
 	return nil, fmt.Errorf("recording %s does not exist for target %s", recordingName, connectUrl)
 }
