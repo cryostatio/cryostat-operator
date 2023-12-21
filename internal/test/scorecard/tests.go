@@ -154,44 +154,61 @@ func CryostatRecordingTest(bundle *apimanifests.Bundle, namespace string, openSh
 		MaxSize:       0,
 		MaxAge:        0,
 	}
-	recording, err := apiClient.Recordings().Create(context.Background(), connectUrl, options)
+	rec, err := apiClient.Recordings().Create(context.Background(), connectUrl, options)
 	if err != nil {
 		return fail(*r, fmt.Sprintf("failed to create a recording: %s", err.Error()))
 	}
-	r.Log += fmt.Sprintf("created a recording: %+v\n", recording)
+	r.Log += fmt.Sprintf("created a recording: %+v\n", rec)
+
+	// View the current recording list after creating one
+	recs, err := apiClient.Recordings().List(context.Background(), connectUrl)
+	if err != nil {
+		return fail(*r, fmt.Sprintf("failed to list recordings: %s", err.Error()))
+	}
+	r.Log += fmt.Sprintf("current list of recordings: %+v\n", recs)
 
 	// Allow the recording to run for 5s
 	time.Sleep(5 * time.Second)
 
 	// Archive the recording
-	archiveName, err := apiClient.Recordings().Archive(context.Background(), connectUrl, recording.Name)
+	archiveName, err := apiClient.Recordings().Archive(context.Background(), connectUrl, rec.Name)
 	if err != nil {
 		return fail(*r, fmt.Sprintf("failed to archive the recording: %s", err.Error()))
 	}
-	r.Log += fmt.Sprintf("archived the recording %s at: %s\n", recording.Name, archiveName)
+	r.Log += fmt.Sprintf("archived the recording %s at: %s\n", rec.Name, archiveName)
+
+	// TODO: Fetch archives and output to log
+
+	// TODO: Generate a report
 
 	// Stop the recording
-	err = apiClient.Recordings().Stop(context.Background(), connectUrl, recording.Name)
+	err = apiClient.Recordings().Stop(context.Background(), connectUrl, rec.Name)
 	if err != nil {
-		return fail(*r, fmt.Sprintf("failed to stop the recording %s: %s", recording.Name, err.Error()))
+		return fail(*r, fmt.Sprintf("failed to stop the recording %s: %s", rec.Name, err.Error()))
 	}
-
-	recording, err = apiClient.Recordings().Get(context.Background(), connectUrl, recording.Name)
+	// Get the recording to verify its state
+	rec, err = apiClient.Recordings().Get(context.Background(), connectUrl, rec.Name)
 	if err != nil {
 		return fail(*r, fmt.Sprintf("failed to get the recordings: %s", err.Error()))
 	}
-
-	if recording.State != "STOPPED" {
-		return fail(*r, fmt.Sprintf("recording %s failed to stop: %s", recording.Name, err.Error()))
+	if rec.State != "STOPPED" {
+		return fail(*r, fmt.Sprintf("recording %s failed to stop: %s", rec.Name, err.Error()))
 	}
-	r.Log += fmt.Sprintf("stopped the recording: %s\n", recording.Name)
+	r.Log += fmt.Sprintf("stopped the recording: %s\n", rec.Name)
 
 	// Delete the recording
-	err = apiClient.Recordings().Delete(context.Background(), connectUrl, recording.Name)
+	err = apiClient.Recordings().Delete(context.Background(), connectUrl, rec.Name)
 	if err != nil {
-		return fail(*r, fmt.Sprintf("failed to delete the recording %s: %s", recording.Name, err.Error()))
+		return fail(*r, fmt.Sprintf("failed to delete the recording %s: %s", rec.Name, err.Error()))
 	}
-	r.Log += fmt.Sprintf("deleted the recording: %s\n", recording.Name)
+	r.Log += fmt.Sprintf("deleted the recording: %s\n", rec.Name)
+
+	// View the current recording list after deleting one
+	recs, err = apiClient.Recordings().List(context.Background(), connectUrl)
+	if err != nil {
+		return fail(*r, fmt.Sprintf("failed to list recordings: %s", err.Error()))
+	}
+	r.Log += fmt.Sprintf("current list of recordings: %+v\n", recs)
 
 	return *r
 }
