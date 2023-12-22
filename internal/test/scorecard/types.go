@@ -15,6 +15,7 @@
 package scorecard
 
 import (
+	"encoding/json"
 	"net/url"
 	"strconv"
 )
@@ -71,7 +72,34 @@ type Recording struct {
 	MaxAge      int32  `json:"maxAge"`
 }
 
+type Archive struct {
+	Name        string
+	DownloadUrl string
+	ReportUrl   string
+	Metadata    struct {
+		Labels map[string]interface{}
+	}
+	Size int32
+}
+
 type Target struct {
 	ConnectUrl string `json:"connectUrl"`
 	Alias      string `json:"alias,omitempty"`
+}
+
+type GraphQLQuery struct {
+	Query     string            `json:"query"`
+	Variables map[string]string `json:"variables,omitempty"`
+}
+
+func (query *GraphQLQuery) ToJSON() ([]byte, error) {
+	return json.Marshal(query)
+}
+
+type ArchiveGraphQLResponse struct {
+	Data struct {
+		ArchivedRecordings struct {
+			Data []Archive `json:"data"`
+		} `json:"archivedRecordings"`
+	} `json:"data"`
 }
