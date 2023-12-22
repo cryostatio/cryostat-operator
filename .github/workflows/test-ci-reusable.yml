@@ -117,14 +117,14 @@ jobs:
         registry: ghcr.io/${{ github.repository_owner }}
         username: ${{ github.repository_owner }}
         password: ${{ secrets.GITHUB_TOKEN }}
-    - name: Set up Kind cluster
-      run: |
-        kind create cluster --config=".github/kind-config.yaml" -n ci-${{ github.run_id }}
-        # Enabling Ingress
-        kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/main/deploy/static/provider/kind/deploy.yaml
-        kubectl rollout status -w deployment/ingress-nginx-controller -n ingress-nginx --timeout 5m
-    - name: Install Operator Lifecycle Manager
-      run: curl -sL https://github.com/operator-framework/operator-lifecycle-manager/releases/download/v0.24.0/install.sh | bash -s v0.24.0
+    - name: Set up k8s
+      uses: medyagh/setup-minikube@v0.0.14
+      with:
+        driver: docker
+        container-runtime: cri-o
+        network-plugin: cni
+        cni: calico
+        addons: storage-provisioner,default-storageclass,ingress,olm
     - name: Install Cert Manager
       run: make cert_manager
     - uses: redhat-actions/podman-login@v1
