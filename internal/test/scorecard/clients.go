@@ -263,6 +263,7 @@ func (client *RecordingClient) List(ctx context.Context, connectUrl string) ([]R
 	if err != nil {
 		return nil, err
 	}
+	defer resp.Body.Close()
 
 	if !StatusOK(resp.StatusCode) {
 		return nil, fmt.Errorf("API request failed with status code %d: %s", resp.StatusCode, ReadError(resp))
@@ -273,7 +274,6 @@ func (client *RecordingClient) List(ctx context.Context, connectUrl string) ([]R
 	if err != nil {
 		return nil, fmt.Errorf("failed to read response body: %s", err.Error())
 	}
-	defer resp.Body.Close()
 
 	return recordings, nil
 }
@@ -307,6 +307,7 @@ func (client *RecordingClient) Create(ctx context.Context, connectUrl string, op
 	if err != nil {
 		return nil, err
 	}
+	defer resp.Body.Close()
 
 	if !StatusOK(resp.StatusCode) {
 		return nil, fmt.Errorf("API request failed with status code %d: %s", resp.StatusCode, ReadError(resp))
@@ -317,8 +318,6 @@ func (client *RecordingClient) Create(ctx context.Context, connectUrl string, op
 	if err != nil {
 		return nil, fmt.Errorf("failed to read response body: %s", err.Error())
 	}
-
-	defer resp.Body.Close()
 
 	return recording, err
 }
@@ -337,6 +336,7 @@ func (client *RecordingClient) Archive(ctx context.Context, connectUrl string, r
 	if err != nil {
 		return "", err
 	}
+	defer resp.Body.Close()
 
 	if !StatusOK(resp.StatusCode) {
 		return "", fmt.Errorf("API request failed with status code %d: %s", resp.StatusCode, ReadError(resp))
@@ -346,8 +346,6 @@ func (client *RecordingClient) Archive(ctx context.Context, connectUrl string, r
 	if err != nil {
 		return "", fmt.Errorf("failed to read response body: %s", err.Error())
 	}
-
-	defer resp.Body.Close()
 
 	return bodyAsString, nil
 }
@@ -365,12 +363,11 @@ func (client *RecordingClient) Stop(ctx context.Context, connectUrl string, reco
 	if err != nil {
 		return err
 	}
+	defer resp.Body.Close()
 
 	if !StatusOK(resp.StatusCode) {
 		return fmt.Errorf("API request failed with status code %d: %s", resp.StatusCode, ReadError(resp))
 	}
-
-	defer resp.Body.Close()
 
 	return nil
 }
@@ -386,13 +383,45 @@ func (client *RecordingClient) Delete(ctx context.Context, connectUrl string, re
 	if err != nil {
 		return err
 	}
+	defer resp.Body.Close()
+
 	if !StatusOK(resp.StatusCode) {
 		return fmt.Errorf("API request failed with status code %d: %s", resp.StatusCode, ReadError(resp))
 	}
 
+	return nil
+}
+
+func (client *RecordingClient) GenerateReport(ctx context.Context, connectUrl string, recordingName *Recording) (map[string]interface{}, error) {
+	reportURL := recordingName.ReportURL
+
+	if len(reportURL) < 1 {
+		return nil, fmt.Errorf("report URL is not available")
+	}
+
+	req, err := NewHttpRequest(ctx, http.MethodGet, reportURL, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create a REST request: %s", err.Error())
+	}
+	req.Header.Add("Accept", "application/json")
+
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, err
+	}
 	defer resp.Body.Close()
 
-	return nil
+	if !StatusOK(resp.StatusCode) {
+		return nil, fmt.Errorf("API request failed with status code %d: %s", resp.StatusCode, ReadError(resp))
+	}
+
+	report := make(map[string]interface{}, 0)
+	err = ReadJSON(resp, &report)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read response body: %s", err.Error())
+	}
+
+	return report, nil
 }
 
 type CredentialClient struct {
@@ -412,12 +441,11 @@ func (client *CredentialClient) Create(ctx context.Context, credential *Credenti
 	if err != nil {
 		return err
 	}
+	defer resp.Body.Close()
 
 	if !StatusOK(resp.StatusCode) {
 		return fmt.Errorf("API request failed with status code %d: %s", resp.StatusCode, ReadError(resp))
 	}
-
-	defer resp.Body.Close()
 
 	return nil
 }
@@ -425,12 +453,12 @@ func (client *CredentialClient) Create(ctx context.Context, credential *Credenti
 func ReadJSON(resp *http.Response, result interface{}) error {
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return nil
+		return err
 	}
 
 	err = json.Unmarshal(body, result)
 	if err != nil {
-		return nil
+		return err
 	}
 	return nil
 }

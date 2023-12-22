@@ -147,7 +147,7 @@ func CryostatRecordingTest(bundle *apimanifests.Bundle, namespace string, openSh
 
 	// Create a recording
 	options := &RecordingCreateOptions{
-		RecordingName: "scorecard-test-rec",
+		RecordingName: "scorecard_test_rec",
 		Events:        "template=ALL",
 		Duration:      0, // Continuous
 		ToDisk:        true,
@@ -167,8 +167,8 @@ func CryostatRecordingTest(bundle *apimanifests.Bundle, namespace string, openSh
 	}
 	r.Log += fmt.Sprintf("current list of recordings: %+v\n", recs)
 
-	// Allow the recording to run for 5s
-	time.Sleep(5 * time.Second)
+	// Allow the recording to run for 10s
+	time.Sleep(30 * time.Second)
 
 	// Archive the recording
 	archiveName, err := apiClient.Recordings().Archive(context.Background(), connectUrl, rec.Name)
@@ -179,7 +179,11 @@ func CryostatRecordingTest(bundle *apimanifests.Bundle, namespace string, openSh
 
 	// TODO: Fetch archives and output to log
 
-	// TODO: Generate a report
+	report, err := apiClient.Recordings().GenerateReport(context.Background(), connectUrl, rec)
+	if err != nil {
+		return fail(*r, fmt.Sprintf("failed to generate report for the recording: %s", err.Error()))
+	}
+	r.Log += fmt.Sprintf("generated report for the recording %s: %+v\n", rec.Name, report)
 
 	// Stop the recording
 	err = apiClient.Recordings().Stop(context.Background(), connectUrl, rec.Name)

@@ -359,7 +359,7 @@ func waitTillCryostatReachable(base *url.URL, resources *TestResources) error {
 
 		if !StatusOK(resp.StatusCode) {
 			if resp.StatusCode == http.StatusServiceUnavailable {
-				r.Log += fmt.Sprintf("application is not yet reachable at %s\n", url.String())
+				r.Log += fmt.Sprintf("application is not yet reachable at %s\n", base.String())
 				return false, nil // Try again
 			}
 			return false, fmt.Errorf("API request failed with status code %d: %s", resp.StatusCode, ReadError(resp))
