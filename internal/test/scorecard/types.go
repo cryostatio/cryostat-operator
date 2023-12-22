@@ -60,9 +60,9 @@ func (cred *Credential) ToFormData() string {
 type Recording struct {
 	DownloadURL string `json:"downloadUrl"`
 	ReportURL   string `json:"reportUrl"`
-	Id          string `json:"id"`
+	Id          uint32 `json:"id"`
 	Name        string `json:"name"`
-	StartTime   int32  `json:"startTime"`
+	StartTime   uint64 `json:"startTime"`
 	State       string `json:"state"`
 	Duration    int32  `json:"duration"`
 	Continuous  bool   `json:"continuous"`
