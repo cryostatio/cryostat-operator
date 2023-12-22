@@ -15,6 +15,7 @@
 package scorecard
 
 import (
+	"bytes"
 	"context"
 	"encoding/base64"
 	"encoding/json"
@@ -422,6 +423,61 @@ func (client *RecordingClient) GenerateReport(ctx context.Context, connectUrl st
 	}
 
 	return report, nil
+}
+
+func (client *RecordingClient) ListArchives(ctx context.Context, connectUrl string) ([]Archive, error) {
+	url := client.Base.JoinPath("/api/v2.2/graphql")
+
+	query := &GraphQLQuery{
+		Query: `
+			query ArchivedRecordingsForTarget($connectUrl: String) {
+				archivedRecordings(filter: { sourceTarget: $connectUrl }) {
+					data {
+						name
+						downloadUrl
+						reportUrl
+						metadata {
+						labels
+						}
+						size
+					}
+				}
+			}
+		`,
+		Variables: map[string]string{
+			connectUrl: connectUrl,
+		},
+	}
+	queryJSON, err := query.ToJSON()
+	if err != nil {
+		return nil, fmt.Errorf("failed to construct graph query: %s", err.Error())
+	}
+
+	body := bytes.NewReader(queryJSON)
+	req, err := NewHttpRequest(ctx, http.MethodPost, url.String(), body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create a Cryostat REST request: %s", err.Error())
+	}
+	req.Header.Add("Content-Type", "application/json")
+	req.Header.Add("Accept", "*/*")
+
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if !StatusOK(resp.StatusCode) {
+		return nil, fmt.Errorf("API request failed with status code %d: %s", resp.StatusCode, ReadError(resp))
+	}
+
+	graphQLResponse := &ArchiveGraphQLResponse{}
+	err = ReadJSON(resp, graphQLResponse)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read response body: %s", err.Error())
+	}
+
+	return graphQLResponse.Data.ArchivedRecordings.Data, nil
 }
 
 type CredentialClient struct {

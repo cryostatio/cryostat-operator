@@ -177,7 +177,11 @@ func CryostatRecordingTest(bundle *apimanifests.Bundle, namespace string, openSh
 	}
 	r.Log += fmt.Sprintf("archived the recording %s at: %s\n", rec.Name, archiveName)
 
-	// TODO: Fetch archives and output to log
+	archives, err := apiClient.Recordings().ListArchives(context.Background(), connectUrl)
+	if err != nil {
+		return fail(*r, fmt.Sprintf("failed to list archives: %s", err.Error()))
+	}
+	r.Log += fmt.Sprintf("current list of archives: %+v\n", archives)
 
 	report, err := apiClient.Recordings().GenerateReport(context.Background(), connectUrl, rec)
 	if err != nil {
