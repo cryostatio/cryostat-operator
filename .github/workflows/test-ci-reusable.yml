@@ -122,8 +122,6 @@ jobs:
       with:
         driver: docker
         container-runtime: cri-o
-        network-plugin: cni
-        cni: calico
         addons: storage-provisioner,default-storageclass,ingress,olm
     - name: Install Cert Manager
       run: make cert_manager
