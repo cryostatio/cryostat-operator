@@ -140,8 +140,6 @@ jobs:
         SCORECARD_REGISTRY_PASSWORD="${{ secrets.GITHUB_TOKEN }}" \
         BUNDLE_IMG="${{ steps.push-bundle-to-ghcr.outputs.registry-path }}" \
         make test-scorecard
-    - name: Clean up Kind cluster
-      run: kind delete cluster -n ci-${{ github.run_id }}
     - name: Set latest commit status as ${{ job.status }}
       uses: myrotvorets/set-commit-status-action@master
       if: always()
