@@ -121,6 +121,9 @@ jobs:
       uses: helm/kind-action@v1.8.0
       with:
         config: .github/kind-config.yaml
+        cluster_name: ci-${{ github.run_id }}
+        wait: 1m
+        ignore_failed_clean: true
     - name: Set up Ingress Controller
       run: |
         # Install nginx ingress controller
@@ -136,7 +139,7 @@ jobs:
           -n ingress-nginx
 
         # Modify /etc/hosts to resolve hostnames
-        ip_address=$(docker inspect -f '{{range.NetworkSettings.Networks}}{{.IPAddress}}{{end}}' kind-control-plane)
+        ip_address=$(docker inspect -f '{{range.NetworkSettings.Networks}}{{.IPAddress}}{{end}}' ci-${{ github.run_id }}-control-plane)
         echo "$ip_address testing.cryostat" | sudo tee -a /etc/hosts
     - name: Install Operator Lifecycle Manager
       run: curl -sL https://github.com/operator-framework/operator-lifecycle-manager/releases/download/v0.24.0/install.sh | bash -s v0.24.0
