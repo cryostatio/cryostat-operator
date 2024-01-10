@@ -2,6 +2,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
+    cert-manager.io/inject-ca-from: cryostat-operator-system/cryostat-operator-serving-cert
     controller-gen.kubebuilder.io/version: v0.11.1
   creationTimestamp: null
   name: cryostats.operator.cryostat.io
@@ -4605,6 +4606,14 @@ spec:
                       the built-in discovery mechanisms. Defaults to false
                     type: boolean
                 type: object
+              targetNamespaces:
+                description: 'List of namespaces whose workloads Cryostat should be
+                  permitted to access and profile. Warning: All Cryostat users will
+                  be able to create and manage recordings for workloads in the listed
+                  namespaces. More details: https://github.com/cryostatio/cryostat-operator/blob/v2.3.0/docs/multi-namespace.md#data-isolation'
+                items:
+                  type: string
+                type: array
               trustedCertSecrets:
                 description: List of TLS certificates to trust when connecting to
                   targets.

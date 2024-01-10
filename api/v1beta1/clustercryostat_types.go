@@ -25,13 +25,6 @@ type ClusterCryostatSpec struct {
 	// its own namespace.
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,order=1,xDescriptors={"urn:alm:descriptor:io.kubernetes:Namespace"}
 	InstallNamespace string `json:"installNamespace"`
-	// List of namespaces whose workloads Cryostat should be
-	// permitted to access and profile. Warning: All Cryostat users will be able to create and manage
-	// recordings for workloads in the listed namespaces.
-	// More details: https://github.com/cryostatio/cryostat-operator/blob/v2.3.0/docs/multi-namespace.md#data-isolation
-	// +optional
-	// +operator-sdk:csv:customresourcedefinitions:type=spec,order=2
-	TargetNamespaces []string `json:"targetNamespaces,omitempty"`
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	CryostatSpec `json:",inline"`
 }

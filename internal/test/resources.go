@@ -98,7 +98,6 @@ func (r *TestResources) newClusterCryostat() *operatorv1beta1.ClusterCryostat {
 		},
 		Spec: operatorv1beta1.ClusterCryostatSpec{
 			InstallNamespace: r.Namespace,
-			TargetNamespaces: r.TargetNamespaces,
 			CryostatSpec:     r.newCryostatSpec(),
 		},
 	}
@@ -123,6 +122,7 @@ func (r *TestResources) newCryostatSpec() operatorv1beta1.CryostatSpec {
 		}
 	}
 	return operatorv1beta1.CryostatSpec{
+		TargetNamespaces:  r.TargetNamespaces,
 		Minimal:           r.Minimal,
 		EnableCertManager: &certManager,
 		ReportOptions:     reportOptions,

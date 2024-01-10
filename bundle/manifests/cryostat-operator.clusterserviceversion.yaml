@@ -54,7 +54,7 @@ metadata:
     capabilities: Seamless Upgrades
     categories: Monitoring, Developer Tools
     containerImage: quay.io/cryostat/cryostat-operator:2.5.0-dev
-    createdAt: "2024-02-01T22:15:13Z"
+    createdAt: "2024-02-01T22:23:31Z"
     description: JVM monitoring and profiling tool
     operatorframework.io/initialization-resource: |-
       {
@@ -520,6 +520,12 @@ spec:
         name: ""
         version: v1
       specDescriptors:
+      - description: 'List of namespaces whose workloads Cryostat should be permitted
+          to access and profile. Warning: All Cryostat users will be able to create
+          and manage recordings for workloads in the listed namespaces. More details:
+          https://github.com/cryostatio/cryostat-operator/blob/v2.3.0/docs/multi-namespace.md#data-isolation'
+        displayName: Target Namespaces
+        path: targetNamespaces
       - description: Use cert-manager to secure in-cluster communication between Cryostat
           components. Requires cert-manager to be installed.
         displayName: Enable cert-manager Integration
@@ -951,6 +957,12 @@ spec:
           verbs:
           - create
         - apiGroups:
+          - authorization.k8s.io
+          resources:
+          - subjectaccessreviews
+          verbs:
+          - create
+        - apiGroups:
           - cert-manager.io
           resources:
           - certificates
@@ -1121,6 +1133,10 @@ spec:
                   initialDelaySeconds: 15
                   periodSeconds: 20
                 name: manager
+                ports:
+                - containerPort: 9443
+                  name: webhook-server
+                  protocol: TCP
                 readinessProbe:
                   httpGet:
                     path: /readyz
@@ -1139,12 +1155,21 @@ spec:
                   capabilities:
                     drop:
                     - ALL
+                volumeMounts:
+                - mountPath: /tmp/k8s-webhook-server/serving-certs
+                  name: cert
+                  readOnly: true
               securityContext:
                 runAsNonRoot: true
                 seccompProfile:
                   type: RuntimeDefault
               serviceAccountName: cryostat-operator-service-account
               terminationGracePeriodSeconds: 10
+              volumes:
+              - name: cert
+                secret:
+                  defaultMode: 420
+                  secretName: webhook-server-cert
       permissions:
       - rules:
         - apiGroups:
@@ -1228,3 +1253,44 @@ spec:
   - image: quay.io/cryostat/cryostat-reports:latest
     name: reports
   version: 2.5.0-dev
+  webhookdefinitions:
+  - admissionReviewVersions:
+    - v1
+    containerPort: 443
+    deploymentName: cryostat-operator-controller-manager
+    failurePolicy: Fail
+    generateName: mcryostat.kb.io
+    rules:
+    - apiGroups:
+      - operator.cryostat.io
+      apiVersions:
+      - v1beta1
+      operations:
+      - CREATE
+      - UPDATE
+      resources:
+      - cryostats
+    sideEffects: None
+    targetPort: 9443
+    type: MutatingAdmissionWebhook
+    webhookPath: /mutate-operator-cryostat-io-v1beta1-cryostat
+  - admissionReviewVersions:
+    - v1
+    containerPort: 443
+    deploymentName: cryostat-operator-controller-manager
+    failurePolicy: Fail
+    generateName: vcryostat.kb.io
+    rules:
+    - apiGroups:
+      - operator.cryostat.io
+      apiVersions:
+      - v1beta1
+      operations:
+      - CREATE
+      - UPDATE
+      resources:
+      - cryostats
+    sideEffects: None
+    targetPort: 9443
+    type: ValidatingAdmissionWebhook
+    webhookPath: /validate-operator-cryostat-io-v1beta1-cryostat

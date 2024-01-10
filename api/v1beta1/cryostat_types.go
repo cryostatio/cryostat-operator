@@ -22,6 +22,13 @@ import (
 
 // CryostatSpec defines the desired state of Cryostat.
 type CryostatSpec struct {
+	// List of namespaces whose workloads Cryostat should be
+	// permitted to access and profile. Warning: All Cryostat users will be able to create and manage
+	// recordings for workloads in the listed namespaces.
+	// More details: https://github.com/cryostatio/cryostat-operator/blob/v2.3.0/docs/multi-namespace.md#data-isolation
+	// +optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,order=2
+	TargetNamespaces []string `json:"targetNamespaces,omitempty"` // TODO update doc link
 	// Deploy a pared-down Cryostat instance with no Grafana Dashboard or JFR Data Source.
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,order=4,displayName="Minimal Deployment",xDescriptors={"urn:alm:descriptor:com.tectonic.ui:booleanSwitch"}
 	Minimal bool `json:"minimal"`
