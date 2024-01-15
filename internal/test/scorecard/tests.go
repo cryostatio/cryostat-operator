@@ -94,7 +94,7 @@ func CryostatRecordingTest(bundle *apimanifests.Bundle, namespace string, openSh
 		return fail(*r, fmt.Sprintf("application URL is invalid: %s", err.Error()))
 	}
 
-	err = waitTillCryostatReachable(base, tr)
+	err = waitTillCryostatReady(base, tr)
 	if err != nil {
 		return fail(*r, fmt.Sprintf("failed to reach the application: %s", err.Error()))
 	}

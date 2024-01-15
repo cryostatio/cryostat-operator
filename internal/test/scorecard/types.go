@@ -16,9 +16,35 @@ package scorecard
 
 import (
 	"encoding/json"
+	"errors"
 	"net/url"
 	"strconv"
 )
+
+type HealthResponse struct {
+	CryostatVersion      string `json:"cryostatVersion"`
+	DashboardAvailable   bool   `json:"dashboardAvailable"`
+	DashboardConfigured  bool   `json:"dashboardConfigured"`
+	DataSourceAvailable  bool   `json:"datasourceAvailable"`
+	DataSourceConfigured bool   `json:"datasourceConfigured"`
+	ReportsAvailable     bool   `json:"reportsAvailable"`
+	ReportsConfigured    bool   `json:"reportsConfigured"`
+}
+
+func (health *HealthResponse) Ready() error {
+	if !health.DashboardAvailable {
+		return errors.New("dashboard is not available")
+	}
+
+	if !health.DataSourceAvailable {
+		return errors.New("datasource is not available")
+	}
+
+	if !health.ReportsAvailable {
+		return errors.New("report is not available")
+	}
+	return nil
+}
 
 type RecordingCreateOptions struct {
 	RecordingName string
