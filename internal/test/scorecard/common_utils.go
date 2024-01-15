@@ -372,7 +372,7 @@ func waitTillCryostatReady(base *url.URL, resources *TestResources) error {
 		}
 
 		if err = health.Ready(); err != nil {
-			r.Log += fmt.Sprintf("application is not yet ready: %s", err.Error())
+			r.Log += fmt.Sprintf("application is not yet ready: %s\n", err.Error())
 			return false, nil // Try again
 		}
 
