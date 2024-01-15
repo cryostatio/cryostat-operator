@@ -331,12 +331,12 @@ func createAndWaitTillCryostatAvailable(cr *operatorv1beta1.Cryostat, resources 
 		logError(r, fmt.Sprintf("application URL not found in CR: %s", err.Error()))
 		return nil, err
 	}
-	r.Log += fmt.Sprintf("application is ready at %s\n", cr.Status.ApplicationURL)
+	r.Log += fmt.Sprintf("application is available at %s\n", cr.Status.ApplicationURL)
 
 	return cr, nil
 }
 
-func waitTillCryostatReachable(base *url.URL, resources *TestResources) error {
+func waitTillCryostatReady(base *url.URL, resources *TestResources) error {
 	client := NewHttpClient()
 	r := resources.TestResult
 
@@ -357,6 +357,12 @@ func waitTillCryostatReachable(base *url.URL, resources *TestResources) error {
 		}
 		defer resp.Body.Close()
 
+		health := &HealthResponse{}
+		err = ReadJSON(resp, health)
+		if err != nil {
+			return false, fmt.Errorf("failed to read response body: %s", err.Error())
+		}
+
 		if !StatusOK(resp.StatusCode) {
 			if resp.StatusCode == http.StatusServiceUnavailable {
 				r.Log += fmt.Sprintf("application is not yet reachable at %s\n", base.String())
@@ -365,6 +371,12 @@ func waitTillCryostatReachable(base *url.URL, resources *TestResources) error {
 			return false, fmt.Errorf("API request failed with status code %d: %s", resp.StatusCode, ReadError(resp))
 		}
 
+		if err = health.Ready(); err != nil {
+			r.Log += fmt.Sprintf("application is not yet ready: %s", err.Error())
+			return false, nil // Try again
+		}
+
+		r.Log += fmt.Sprintf("application is ready at %s\n", base.String())
 		return true, nil
 	})
 
