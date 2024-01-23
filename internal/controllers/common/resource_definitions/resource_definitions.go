@@ -818,12 +818,38 @@ func NewCoreContainer(cr *model.CryostatInstance, specs *ServiceSpecs, imageTag 
 		}
 	}
 
-	disableBuiltInDiscovery := cr.Spec.TargetDiscoveryOptions != nil && cr.Spec.TargetDiscoveryOptions.BuiltInDiscoveryDisabled
-	if disableBuiltInDiscovery {
-		envs = append(envs, corev1.EnvVar{
-			Name:  "CRYOSTAT_DISABLE_BUILTIN_DISCOVERY",
-			Value: "true",
-		})
+	if cr.Spec.TargetDiscoveryOptions != nil {
+		if cr.Spec.TargetDiscoveryOptions.BuiltInDiscoveryDisabled {
+			envs = append(envs, corev1.EnvVar{
+				Name:  "CRYOSTAT_DISABLE_BUILTIN_DISCOVERY",
+				Value: "true",
+			})
+		}
+
+		if cr.Spec.TargetDiscoveryOptions.DiscoveryPortConfig != nil {
+			sep, emptyValue := ",", "-"
+
+			portNames := emptyValue
+			if len(cr.Spec.TargetDiscoveryOptions.DiscoveryPortConfig.DiscoveryPortNames) > 0 {
+				portNames = strings.Join(cr.Spec.TargetDiscoveryOptions.DiscoveryPortConfig.DiscoveryPortNames[:], sep)
+			}
+
+			portNumbers := emptyValue
+			if len(cr.Spec.TargetDiscoveryOptions.DiscoveryPortConfig.DiscoveryPortNumbers) > 0 {
+				portNumbers = strings.Trim(strings.ReplaceAll(fmt.Sprint(cr.Spec.TargetDiscoveryOptions.DiscoveryPortConfig.DiscoveryPortNumbers), " ", sep), "[]")
+			}
+
+			envs = append(envs,
+				corev1.EnvVar{
+					Name:  "CRYOSTAT_DISCOVERY_K8S_PORT_NAMES",
+					Value: portNames,
+				},
+				corev1.EnvVar{
+					Name:  "CRYOSTAT_DISCOVERY_K8S_PORT_NUMBERS",
+					Value: portNumbers,
+				},
+			)
+		}
 	}
 
 	if !useEmptyDir(cr) {

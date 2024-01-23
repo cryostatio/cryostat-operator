@@ -520,10 +520,27 @@ type ReportsSecurityOptions struct {
 
 // TargetDiscoveryOptions provides configuration options to the Cryostat application's target discovery mechanisms.
 type TargetDiscoveryOptions struct {
-	// When true, the Cryostat application will disable the built-in discovery mechanisms. Defaults to false
+	// When true, the Cryostat application will disable the built-in discovery mechanisms. Defaults to false.
 	// +optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Disable Built-in Discovery",xDescriptors={"urn:alm:descriptor:com.tectonic.ui:booleanSwitch"}
 	BuiltInDiscoveryDisabled bool `json:"builtInDiscoveryDisabled,omitempty"`
+	// Specifications for how the Cryostat the Cryostat application considers a target as connectable over JMX.
+	// +optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec
+	DiscoveryPortConfig *DiscoveryPortConfiguration `json:"discoveryPortConfig,omitempty"`
+}
+
+// DiscoveryPortConfiguration provides customizations to which port names and numbers on targets are exposed for JMX connections.
+// If not specified, the Cryostat application will consider port named `jfr-jmx` or numbered `9091` by default.
+type DiscoveryPortConfiguration struct {
+	// List of port names for JMX connections to targets.
+	// +optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec
+	DiscoveryPortNames []string `json:"discoveryPortNames,omitempty"`
+	// List of port numbers for JMX connections to targets.
+	// +optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec
+	DiscoveryPortNumbers []int32 `json:"discoveryPortNumbers,omitempty"`
 }
 
 // JmxCredentialsDatabaseOptions provides configuration options to the Cryostat application's credentials database.
