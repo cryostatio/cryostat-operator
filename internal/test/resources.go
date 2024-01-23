@@ -550,6 +550,28 @@ func (r *TestResources) NewCryostatWithBuiltInDiscoveryDisabled() *model.Cryosta
 	return cr
 }
 
+func (r *TestResources) NewCryostatWithDiscoveryPortConfig() *model.CryostatInstance {
+	cr := r.NewCryostat()
+	cr.Spec.TargetDiscoveryOptions = &operatorv1beta1.TargetDiscoveryOptions{
+		DiscoveryPortConfig: &operatorv1beta1.DiscoveryPortConfiguration{
+			DiscoveryPortNames:   []string{"custom-port-name", "another-custom-port-name"},
+			DiscoveryPortNumbers: []int32{9092, 9090},
+		},
+	}
+	return cr
+}
+
+func (r *TestResources) NewCryostatWithEmptyDiscoveryPortConfig() *model.CryostatInstance {
+	cr := r.NewCryostat()
+	cr.Spec.TargetDiscoveryOptions = &operatorv1beta1.TargetDiscoveryOptions{
+		DiscoveryPortConfig: &operatorv1beta1.DiscoveryPortConfiguration{
+			DiscoveryPortNames:   []string{},
+			DiscoveryPortNumbers: []int32{},
+		},
+	}
+	return cr
+}
+
 func newPVCSpec(storageClass string, storageRequest string,
 	accessModes ...corev1.PersistentVolumeAccessMode) *corev1.PersistentVolumeClaimSpec {
 	return &corev1.PersistentVolumeClaimSpec{
@@ -1255,7 +1277,7 @@ func (r *TestResources) NewReportsPorts() []corev1.ContainerPort {
 }
 
 func (r *TestResources) NewCoreEnvironmentVariables(reportsUrl string, authProps bool, ingress bool,
-	emptyDir bool, builtInDiscoveryDisabled bool, dbSecretProvided bool) []corev1.EnvVar {
+	emptyDir bool, builtInDiscoveryDisabled bool, hasPortConfig bool, portConfigListEmpty bool, dbSecretProvided bool) []corev1.EnvVar {
 	envs := []corev1.EnvVar{
 		{
 			Name:  "CRYOSTAT_WEB_PORT",
@@ -1299,12 +1321,7 @@ func (r *TestResources) NewCoreEnvironmentVariables(reportsUrl string, authProps
 		},
 	}
 
-	if builtInDiscoveryDisabled {
-		envs = append(envs, corev1.EnvVar{
-			Name:  "CRYOSTAT_DISABLE_BUILTIN_DISCOVERY",
-			Value: "true",
-		})
-	}
+	envs = append(envs, r.NewTargetDiscoveryEnvVar(builtInDiscoveryDisabled, hasPortConfig, portConfigListEmpty)...)
 
 	if !emptyDir {
 		envs = append(envs, r.DatabaseConfigEnvironmentVariables()...)
@@ -1624,6 +1641,35 @@ func (r *TestResources) NewJmxCacheOptionsEnv() []corev1.EnvVar {
 			Value: "20",
 		},
 	}
+}
+
+func (r *TestResources) NewTargetDiscoveryEnvVar(builtInDiscoveryDisabled bool, hasPortConfig bool, portConfigListEmpty bool) []corev1.EnvVar {
+	envs := make([]corev1.EnvVar, 0)
+
+	if builtInDiscoveryDisabled {
+		envs = append(envs, corev1.EnvVar{
+			Name:  "CRYOSTAT_DISABLE_BUILTIN_DISCOVERY",
+			Value: "true",
+		})
+	}
+	if hasPortConfig {
+		portNames, portNumbers := "-", "-"
+		if !portConfigListEmpty {
+			portNames = "custom-port-name,another-custom-port-name"
+			portNumbers = "9092,9090"
+		}
+		envs = append(envs,
+			corev1.EnvVar{
+				Name:  "CRYOSTAT_DISCOVERY_K8S_PORT_NAMES",
+				Value: portNames,
+			},
+			corev1.EnvVar{
+				Name:  "CRYOSTAT_DISCOVERY_K8S_PORT_NUMBERS",
+				Value: portNumbers,
+			},
+		)
+	}
+	return envs
 }
 
 func (r *TestResources) NewCoreVolumeMounts() []corev1.VolumeMount {
