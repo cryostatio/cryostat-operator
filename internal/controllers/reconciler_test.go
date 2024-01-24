@@ -1733,21 +1733,18 @@ func (c *controllerTest) commonTests() {
 
 		})
 		Context("with target discovery options provided", func() {
+			JustBeforeEach(func() {
+				t.reconcileCryostatFully()
+			})
 			Context("with built-in target discovery mechanism disabled", func() {
 				BeforeEach(func() {
 					t.objs = append(t.objs, t.NewCryostatWithBuiltInDiscoveryDisabled().Object)
-				})
-				JustBeforeEach(func() {
-					t.reconcileCryostatFully()
 				})
 				It("should configure deployment appropriately", func() {
 					t.expectMainDeployment()
 				})
 			})
 			Context("with discovery port configurations", func() {
-				JustBeforeEach(func() {
-					t.reconcileCryostatFully()
-				})
 				Context("containing empty lists", func() {
 					BeforeEach(func() {
 						t.objs = append(t.objs, t.NewCryostatWithEmptyDiscoveryPortConfig().Object)
