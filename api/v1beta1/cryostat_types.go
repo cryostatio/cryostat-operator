@@ -524,12 +524,11 @@ type TargetDiscoveryOptions struct {
 	// +optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Disable Built-in Discovery",xDescriptors={"urn:alm:descriptor:com.tectonic.ui:booleanSwitch"}
 	BuiltInDiscoveryDisabled bool `json:"builtInDiscoveryDisabled,omitempty"`
-	// Specifications for how the Cryostat the Cryostat application considers a target as connectable over JMX.
-	// List of port names that the Cryostat application should look for in targets for JMX connections.
+	// List of port names that the Cryostat application should look for in order to consider a target as JMX connectable.
 	// +optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	DiscoveryPortNames []string `json:"discoveryPortNames"`
-	// List of port numbers that the Cryostat application should look for in targets for JMX connections.
+	// List of port numbers that the Cryostat application should look for in order to consider a target as JMX connectable.
 	// +optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	DiscoveryPortNumbers []int32 `json:"discoveryPortNumbers"`

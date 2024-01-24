@@ -4609,16 +4609,14 @@ spec:
                       the built-in discovery mechanisms. Defaults to false.
                     type: boolean
                   discoveryPortNames:
-                    description: Specifications for how the Cryostat the Cryostat
-                      application considers a target as connectable over JMX. List
-                      of port names that the Cryostat application should look for
-                      in targets for JMX connections.
+                    description: List of port names that the Cryostat application
+                      should look for in order to consider a target as JMX connectable.
                     items:
                       type: string
                     type: array
                   discoveryPortNumbers:
                     description: List of port numbers that the Cryostat application
-                      should look for in targets for JMX connections.
+                      should look for in order to consider a target as JMX connectable.
                     items:
                       format: int32
                       type: integer

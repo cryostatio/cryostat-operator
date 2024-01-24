@@ -54,7 +54,7 @@ metadata:
     capabilities: Seamless Upgrades
     categories: Monitoring, Developer Tools
     containerImage: quay.io/cryostat/cryostat-operator:2.5.0-dev
-    createdAt: "2024-01-24T06:28:46Z"
+    createdAt: "2024-01-24T06:46:02Z"
     description: JVM monitoring and profiling tool
     operatorframework.io/initialization-resource: |-
       {
@@ -449,13 +449,12 @@ spec:
         path: targetDiscoveryOptions.builtInDiscoveryDisabled
         x-descriptors:
         - urn:alm:descriptor:com.tectonic.ui:booleanSwitch
-      - description: Specifications for how the Cryostat the Cryostat application
-          considers a target as connectable over JMX. List of port names that the
-          Cryostat application should look for in targets for JMX connections.
+      - description: List of port names that the Cryostat application should look
+          for in order to consider a target as JMX connectable.
         displayName: Discovery Port Names
         path: targetDiscoveryOptions.discoveryPortNames
       - description: List of port numbers that the Cryostat application should look
-          for in targets for JMX connections.
+          for in order to consider a target as JMX connectable.
         displayName: Discovery Port Numbers
         path: targetDiscoveryOptions.discoveryPortNumbers
       - description: List of TLS certificates to trust when connecting to targets.
@@ -850,13 +849,12 @@ spec:
         path: targetDiscoveryOptions.builtInDiscoveryDisabled
         x-descriptors:
         - urn:alm:descriptor:com.tectonic.ui:booleanSwitch
-      - description: Specifications for how the Cryostat the Cryostat application
-          considers a target as connectable over JMX. List of port names that the
-          Cryostat application should look for in targets for JMX connections.
+      - description: List of port names that the Cryostat application should look
+          for in order to consider a target as JMX connectable.
         displayName: Discovery Port Names
         path: targetDiscoveryOptions.discoveryPortNames
       - description: List of port numbers that the Cryostat application should look
-          for in targets for JMX connections.
+          for in order to consider a target as JMX connectable.
         displayName: Discovery Port Numbers
         path: targetDiscoveryOptions.discoveryPortNumbers
       - description: List of TLS certificates to trust when connecting to targets.
