@@ -2743,7 +2743,9 @@ func (t *cryostatTestInput) checkMainPodTemplate(deployment *appsv1.Deployment, 
 		cr.Spec.NetworkOptions != nil && cr.Spec.NetworkOptions.CoreConfig != nil && cr.Spec.NetworkOptions.CoreConfig.IngressSpec != nil
 	emptyDir := cr.Spec.StorageOptions != nil && cr.Spec.StorageOptions.EmptyDir != nil && cr.Spec.StorageOptions.EmptyDir.Enabled
 	builtInDiscoveryDisabled := cr.Spec.TargetDiscoveryOptions != nil && cr.Spec.TargetDiscoveryOptions.BuiltInDiscoveryDisabled
-	hasPortConfig := cr.Spec.TargetDiscoveryOptions.DiscoveryPortNames != nil && cr.Spec.TargetDiscoveryOptions.DiscoveryPortNumbers != nil
+	hasPortConfig := cr.Spec.TargetDiscoveryOptions != nil &&
+		cr.Spec.TargetDiscoveryOptions.DiscoveryPortNames != nil &&
+		cr.Spec.TargetDiscoveryOptions.DiscoveryPortNumbers != nil
 	portConfigListEmpty := hasPortConfig &&
 		len(cr.Spec.TargetDiscoveryOptions.DiscoveryPortNames) == 0 &&
 		len(cr.Spec.TargetDiscoveryOptions.DiscoveryPortNumbers) == 0
