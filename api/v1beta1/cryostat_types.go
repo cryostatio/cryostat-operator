@@ -527,7 +527,7 @@ type TargetDiscoveryOptions struct {
 	// Specifications for how the Cryostat the Cryostat application considers a target as connectable over JMX.
 	// +optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
-	DiscoveryPortConfig *DiscoveryPortConfiguration `json:"discoveryPortConfig,omitempty"`
+	DiscoveryPortConfig *DiscoveryPortConfiguration `json:"discoveryPortConfig"`
 }
 
 // DiscoveryPortConfiguration provides customizations to which port names and numbers on targets are exposed for JMX connections.
