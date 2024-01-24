@@ -4605,22 +4605,21 @@ spec:
                     description: When true, the Cryostat application will disable
                       the built-in discovery mechanisms. Defaults to false.
                     type: boolean
-                  discoveryPortConfig:
+                  discoveryPortNames:
                     description: Specifications for how the Cryostat the Cryostat
-                      application considers a target as connectable over JMX.
-                    properties:
-                      discoveryPortNames:
-                        description: List of port names for JMX connections to targets.
-                        items:
-                          type: string
-                        type: array
-                      discoveryPortNumbers:
-                        description: List of port numbers for JMX connections to targets.
-                        items:
-                          format: int32
-                          type: integer
-                        type: array
-                    type: object
+                      application considers a target as connectable over JMX. List
+                      of port names that the Cryostat application should look for
+                      in targets for JMX connections.
+                    items:
+                      type: string
+                    type: array
+                  discoveryPortNumbers:
+                    description: List of port numbers that the Cryostat application
+                      should look for in targets for JMX connections.
+                    items:
+                      format: int32
+                      type: integer
+                    type: array
                 type: object
               trustedCertSecrets:
                 description: List of TLS certificates to trust when connecting to
