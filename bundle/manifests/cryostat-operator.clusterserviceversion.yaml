@@ -54,7 +54,7 @@ metadata:
     capabilities: Seamless Upgrades
     categories: Monitoring, Developer Tools
     containerImage: quay.io/cryostat/cryostat-operator:2.5.0-dev
-    createdAt: "2023-11-13T21:47:45Z"
+    createdAt: "2024-01-24T00:59:53Z"
     description: JVM monitoring and profiling tool
     operatorframework.io/initialization-resource: |-
       {
@@ -444,11 +444,21 @@ spec:
         displayName: Target Discovery Options
         path: targetDiscoveryOptions
       - description: When true, the Cryostat application will disable the built-in
-          discovery mechanisms. Defaults to false
+          discovery mechanisms. Defaults to false.
         displayName: Disable Built-in Discovery
         path: targetDiscoveryOptions.builtInDiscoveryDisabled
         x-descriptors:
         - urn:alm:descriptor:com.tectonic.ui:booleanSwitch
+      - description: Specifications for how the Cryostat the Cryostat application
+          considers a target as connectable over JMX.
+        displayName: Discovery Port Config
+        path: targetDiscoveryOptions.discoveryPortConfig
+      - description: List of port names for JMX connections to targets.
+        displayName: Discovery Port Names
+        path: targetDiscoveryOptions.discoveryPortConfig.discoveryPortNames
+      - description: List of port numbers for JMX connections to targets.
+        displayName: Discovery Port Numbers
+        path: targetDiscoveryOptions.discoveryPortConfig.discoveryPortNumbers
       - description: List of TLS certificates to trust when connecting to targets.
         displayName: Trusted TLS Certificates
         path: trustedCertSecrets
@@ -836,11 +846,21 @@ spec:
         displayName: Target Discovery Options
         path: targetDiscoveryOptions
       - description: When true, the Cryostat application will disable the built-in
-          discovery mechanisms. Defaults to false
+          discovery mechanisms. Defaults to false.
         displayName: Disable Built-in Discovery
         path: targetDiscoveryOptions.builtInDiscoveryDisabled
         x-descriptors:
         - urn:alm:descriptor:com.tectonic.ui:booleanSwitch
+      - description: Specifications for how the Cryostat the Cryostat application
+          considers a target as connectable over JMX.
+        displayName: Discovery Port Config
+        path: targetDiscoveryOptions.discoveryPortConfig
+      - description: List of port names for JMX connections to targets.
+        displayName: Discovery Port Names
+        path: targetDiscoveryOptions.discoveryPortConfig.discoveryPortNames
+      - description: List of port numbers for JMX connections to targets.
+        displayName: Discovery Port Numbers
+        path: targetDiscoveryOptions.discoveryPortConfig.discoveryPortNumbers
       - description: List of TLS certificates to trust when connecting to targets.
         displayName: Trusted TLS Certificates
         path: trustedCertSecrets

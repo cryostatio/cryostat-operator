@@ -394,11 +394,21 @@ spec:
         displayName: Target Discovery Options
         path: targetDiscoveryOptions
       - description: When true, the Cryostat application will disable the built-in
-          discovery mechanisms. Defaults to false
+          discovery mechanisms. Defaults to false.
         displayName: Disable Built-in Discovery
         path: targetDiscoveryOptions.builtInDiscoveryDisabled
         x-descriptors:
         - urn:alm:descriptor:com.tectonic.ui:booleanSwitch
+      - description: Specifications for how the Cryostat the Cryostat application
+          considers a target as connectable over JMX.
+        displayName: Discovery Port Config
+        path: targetDiscoveryOptions.discoveryPortConfig
+      - description: List of port names for JMX connections to targets.
+        displayName: Discovery Port Names
+        path: targetDiscoveryOptions.discoveryPortConfig.discoveryPortNames
+      - description: List of port numbers for JMX connections to targets.
+        displayName: Discovery Port Numbers
+        path: targetDiscoveryOptions.discoveryPortConfig.discoveryPortNumbers
       - description: List of TLS certificates to trust when connecting to targets.
         displayName: Trusted TLS Certificates
         path: trustedCertSecrets
@@ -774,11 +784,21 @@ spec:
         displayName: Target Discovery Options
         path: targetDiscoveryOptions
       - description: When true, the Cryostat application will disable the built-in
-          discovery mechanisms. Defaults to false
+          discovery mechanisms. Defaults to false.
         displayName: Disable Built-in Discovery
         path: targetDiscoveryOptions.builtInDiscoveryDisabled
         x-descriptors:
         - urn:alm:descriptor:com.tectonic.ui:booleanSwitch
+      - description: Specifications for how the Cryostat the Cryostat application
+          considers a target as connectable over JMX.
+        displayName: Discovery Port Config
+        path: targetDiscoveryOptions.discoveryPortConfig
+      - description: List of port names for JMX connections to targets.
+        displayName: Discovery Port Names
+        path: targetDiscoveryOptions.discoveryPortConfig.discoveryPortNames
+      - description: List of port numbers for JMX connections to targets.
+        displayName: Discovery Port Numbers
+        path: targetDiscoveryOptions.discoveryPortConfig.discoveryPortNumbers
       - description: List of TLS certificates to trust when connecting to targets.
         displayName: Trusted TLS Certificates
         path: trustedCertSecrets
