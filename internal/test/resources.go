@@ -2644,6 +2644,14 @@ func (r *TestResources) NewNamespace() *corev1.Namespace {
 	}
 }
 
+func (r *TestResources) NewOtherNamespace(name string) *corev1.Namespace {
+	return &corev1.Namespace{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: name,
+		},
+	}
+}
+
 func (r *TestResources) NewNamespaceWithSCCSupGroups() *corev1.Namespace {
 	ns := r.NewNamespace()
 	ns.Annotations = map[string]string{
