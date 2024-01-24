@@ -54,7 +54,7 @@ metadata:
     capabilities: Seamless Upgrades
     categories: Monitoring, Developer Tools
     containerImage: quay.io/cryostat/cryostat-operator:2.5.0-dev
-    createdAt: "2024-01-24T06:46:02Z"
+    createdAt: "2024-01-24T07:33:49Z"
     description: JVM monitoring and profiling tool
     operatorframework.io/initialization-resource: |-
       {
@@ -450,11 +450,13 @@ spec:
         x-descriptors:
         - urn:alm:descriptor:com.tectonic.ui:booleanSwitch
       - description: List of port names that the Cryostat application should look
-          for in order to consider a target as JMX connectable.
+          for in order to consider a target as JMX connectable. Defaults to consider
+          ports named jfr-jmx.
         displayName: Discovery Port Names
         path: targetDiscoveryOptions.discoveryPortNames
       - description: List of port numbers that the Cryostat application should look
-          for in order to consider a target as JMX connectable.
+          for in order to consider a target as JMX connectable. Defaults to consider
+          ports numbered 9091.
         displayName: Discovery Port Numbers
         path: targetDiscoveryOptions.discoveryPortNumbers
       - description: List of TLS certificates to trust when connecting to targets.
@@ -850,11 +852,13 @@ spec:
         x-descriptors:
         - urn:alm:descriptor:com.tectonic.ui:booleanSwitch
       - description: List of port names that the Cryostat application should look
-          for in order to consider a target as JMX connectable.
+          for in order to consider a target as JMX connectable. Defaults to consider
+          ports named jfr-jmx.
         displayName: Discovery Port Names
         path: targetDiscoveryOptions.discoveryPortNames
       - description: List of port numbers that the Cryostat application should look
-          for in order to consider a target as JMX connectable.
+          for in order to consider a target as JMX connectable. Defaults to consider
+          ports numbered 9091.
         displayName: Discovery Port Numbers
         path: targetDiscoveryOptions.discoveryPortNumbers
       - description: List of TLS certificates to trust when connecting to targets.
