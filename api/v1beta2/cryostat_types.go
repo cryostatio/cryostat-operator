@@ -12,16 +12,25 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package v1beta1
+package v1beta2
 
 import (
 	corev1 "k8s.io/api/core/v1"
 	netv1 "k8s.io/api/networking/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"sigs.k8s.io/controller-runtime/pkg/conversion"
 )
 
 // CryostatSpec defines the desired state of Cryostat.
 type CryostatSpec struct {
+	// List of namespaces whose workloads Cryostat should be
+	// permitted to access and profile. Defaults to this Cryostat's namespace.
+	// Warning: All Cryostat users will be able to create and manage
+	// recordings for workloads in the listed namespaces.
+	// More details: https://github.com/cryostatio/cryostat-operator/blob/v2.4.0/docs/multi-namespace.md#data-isolation
+	// +optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,order=2
+	TargetNamespaces []string `json:"targetNamespaces,omitempty"`
 	// Deploy a pared-down Cryostat instance with no Grafana Dashboard or JFR Data Source.
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,order=4,displayName="Minimal Deployment",xDescriptors={"urn:alm:descriptor:com.tectonic.ui:booleanSwitch"}
 	Minimal bool `json:"minimal"`
@@ -133,6 +142,11 @@ type ResourceConfigList struct {
 
 // CryostatStatus defines the observed state of Cryostat.
 type CryostatStatus struct {
+	// List of namespaces that Cryostat has been configured
+	// and authorized to access and profile.
+	// +optional
+	// +operator-sdk:csv:customresourcedefinitions:type=status,order=3
+	TargetNamespaces []string `json:"targetNamespaces,omitempty"`
 	// Conditions of the components managed by the Cryostat Operator.
 	// +optional
 	// +operator-sdk:csv:customresourcedefinitions:type=status,displayName="Cryostat Conditions",xDescriptors={"urn:alm:descriptor:io.kubernetes.conditions"}
@@ -414,6 +428,7 @@ type JmxCacheOptions struct {
 
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
+// +kubebuilder:storageversion
 // +kubebuilder:resource:path=cryostats,scope=Namespaced
 
 // Cryostat allows you to install Cryostat for a single namespace.
@@ -430,6 +445,16 @@ type Cryostat struct {
 
 	Spec   CryostatSpec   `json:"spec,omitempty"`
 	Status CryostatStatus `json:"status,omitempty"`
+}
+
+// ConvertFrom implements conversion.Convertible.
+func (*Cryostat) ConvertFrom(src conversion.Hub) error {
+	panic("unimplemented")
+}
+
+// ConvertTo implements conversion.Convertible.
+func (*Cryostat) ConvertTo(dst conversion.Hub) error {
+	panic("unimplemented")
 }
 
 // +kubebuilder:object:root=true

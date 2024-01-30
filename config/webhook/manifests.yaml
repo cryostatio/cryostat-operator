@@ -11,14 +11,14 @@ webhooks:
     service:
       name: webhook-service
       namespace: system
-      path: /mutate-operator-cryostat-io-v1beta1-cryostat
+      path: /mutate-operator-cryostat-io-v1beta2-cryostat
   failurePolicy: Fail
   name: mcryostat.kb.io
   rules:
   - apiGroups:
     - operator.cryostat.io
     apiVersions:
-    - v1beta1
+    - v1beta2
     operations:
     - CREATE
     - UPDATE
@@ -38,14 +38,14 @@ webhooks:
     service:
       name: webhook-service
       namespace: system
-      path: /validate-operator-cryostat-io-v1beta1-cryostat
+      path: /validate-operator-cryostat-io-v1beta2-cryostat
   failurePolicy: Fail
   name: vcryostat.kb.io
   rules:
   - apiGroups:
     - operator.cryostat.io
     apiVersions:
-    - v1beta1
+    - v1beta2
     operations:
     - CREATE
     - UPDATE

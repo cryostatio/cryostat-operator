@@ -25,10 +25,10 @@ var cryostatlog = logf.Log.WithName("cryostat-resource")
 
 // +kubebuilder:rbac:groups=authorization.k8s.io,resources=subjectaccessreviews,verbs=create
 
-//+kubebuilder:webhook:path=/mutate-operator-cryostat-io-v1beta1-cryostat,mutating=true,failurePolicy=fail,sideEffects=None,groups=operator.cryostat.io,resources=cryostats,verbs=create;update,versions=v1beta1,name=mcryostat.kb.io,admissionReviewVersions=v1
+//+kubebuilder:webhook:path=/mutate-operator-cryostat-io-v1beta2-cryostat,mutating=true,failurePolicy=fail,sideEffects=None,groups=operator.cryostat.io,resources=cryostats,verbs=create;update,versions=v1beta2,name=mcryostat.kb.io,admissionReviewVersions=v1
 
 // TODO(user): change verbs to "verbs=create;update;delete" if you want to enable deletion validation.
-//+kubebuilder:webhook:path=/validate-operator-cryostat-io-v1beta1-cryostat,mutating=false,failurePolicy=fail,sideEffects=None,groups=operator.cryostat.io,resources=cryostats,verbs=create;update,versions=v1beta1,name=vcryostat.kb.io,admissionReviewVersions=v1
+//+kubebuilder:webhook:path=/validate-operator-cryostat-io-v1beta2-cryostat,mutating=false,failurePolicy=fail,sideEffects=None,groups=operator.cryostat.io,resources=cryostats,verbs=create;update,versions=v1beta2,name=vcryostat.kb.io,admissionReviewVersions=v1
 
 func SetupWebhookWithManager(mgr ctrl.Manager, apiType runtime.Object) error {
 	return ctrl.NewWebhookManagedBy(mgr).

@@ -19,9 +19,11 @@ import (
 
 	certv1 "github.com/cert-manager/cert-manager/pkg/apis/certmanager/v1"
 	certMeta "github.com/cert-manager/cert-manager/pkg/apis/meta/v1"
+	"github.com/cryostatio/cryostat-operator/internal/controllers/common"
 	"github.com/cryostatio/cryostat-operator/internal/controllers/constants"
 	"github.com/cryostatio/cryostat-operator/internal/controllers/model"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
 func NewSelfSignedIssuer(cr *model.CryostatInstance) *certv1.Issuer {
@@ -54,7 +56,7 @@ func NewCryostatCAIssuer(cr *model.CryostatInstance) *certv1.Issuer {
 	}
 }
 
-func NewCryostatCACert(cr *model.CryostatInstance) *certv1.Certificate {
+func NewCryostatCACert(gvk *schema.GroupVersionKind, cr *model.CryostatInstance) *certv1.Certificate {
 	return &certv1.Certificate{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      cr.Name + "-ca",
@@ -62,7 +64,7 @@ func NewCryostatCACert(cr *model.CryostatInstance) *certv1.Certificate {
 		},
 		Spec: certv1.CertificateSpec{
 			CommonName: fmt.Sprintf("ca.%s.cert-manager", cr.Name),
-			SecretName: cr.Name + "-ca",
+			SecretName: common.ClusterUniqueNameWithPrefix(gvk, "ca", cr.Name, cr.InstallNamespace),
 			IssuerRef: certMeta.ObjectReference{
 				Name: cr.Name + "-self-signed",
 			},

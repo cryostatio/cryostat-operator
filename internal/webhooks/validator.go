@@ -18,7 +18,7 @@ import (
 	"context"
 	"fmt"
 
-	operatorv1beta1 "github.com/cryostatio/cryostat-operator/api/v1beta1"
+	operatorv1beta2 "github.com/cryostatio/cryostat-operator/api/v1beta2"
 	"github.com/go-logr/logr"
 	authnv1 "k8s.io/api/authentication/v1"
 	authzv1 "k8s.io/api/authorization/v1"
@@ -69,7 +69,7 @@ func (e *ErrNotPermitted) Error() string {
 var _ error = &ErrNotPermitted{}
 
 func (r *CryostatValidator) validate(ctx context.Context, obj runtime.Object, op string) error {
-	cr, ok := obj.(*operatorv1beta1.Cryostat)
+	cr, ok := obj.(*operatorv1beta2.Cryostat)
 	if !ok {
 		return fmt.Errorf("expected a Cryostat, but received a %T", obj)
 	}
@@ -94,8 +94,8 @@ func (r *CryostatValidator) validate(ctx context.Context, obj runtime.Object, op
 				ResourceAttributes: &authzv1.ResourceAttributes{
 					Namespace: namespace,
 					Verb:      "create",
-					Group:     operatorv1beta1.GroupVersion.Group,
-					Version:   operatorv1beta1.GroupVersion.Version,
+					Group:     operatorv1beta2.GroupVersion.Group,
+					Version:   operatorv1beta2.GroupVersion.Version,
 					Resource:  "cryostats",
 				},
 			},

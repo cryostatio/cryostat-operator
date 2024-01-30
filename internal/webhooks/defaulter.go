@@ -18,7 +18,7 @@ import (
 	"context"
 	"fmt"
 
-	operatorv1beta1 "github.com/cryostatio/cryostat-operator/api/v1beta1"
+	operatorv1beta2 "github.com/cryostatio/cryostat-operator/api/v1beta2"
 	"github.com/go-logr/logr"
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
@@ -32,7 +32,7 @@ var _ admission.CustomDefaulter = &cryostatDefaulter{}
 
 // Default applies default values to a Cryostat
 func (r *cryostatDefaulter) Default(ctx context.Context, obj runtime.Object) error {
-	cr, ok := obj.(*operatorv1beta1.Cryostat)
+	cr, ok := obj.(*operatorv1beta2.Cryostat)
 	if !ok {
 		return fmt.Errorf("expected a Cryostat, but received a %T", obj)
 	}

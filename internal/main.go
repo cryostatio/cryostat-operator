@@ -39,6 +39,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 
 	operatorv1beta1 "github.com/cryostatio/cryostat-operator/api/v1beta1"
+	operatorv1beta2 "github.com/cryostatio/cryostat-operator/api/v1beta2"
 	"github.com/cryostatio/cryostat-operator/internal/controllers"
 	"github.com/cryostatio/cryostat-operator/internal/controllers/common"
 	"github.com/cryostatio/cryostat-operator/internal/controllers/insights"
@@ -62,6 +63,7 @@ func init() {
 	utilruntime.Must(consolev1.AddToScheme(scheme))
 	utilruntime.Must(configv1.AddToScheme(scheme))
 
+	utilruntime.Must(operatorv1beta2.AddToScheme(scheme))
 	// +kubebuilder:scaffold:scheme
 }
 
@@ -172,7 +174,7 @@ func main() {
 		setupLog.Error(err, "unable to add controller to manager", "controller", "Cryostat")
 		os.Exit(1)
 	}
-	if err = webhooks.SetupWebhookWithManager(mgr, &operatorv1beta1.Cryostat{}); err != nil {
+	if err = webhooks.SetupWebhookWithManager(mgr, &operatorv1beta2.Cryostat{}); err != nil {
 		setupLog.Error(err, "unable to create webhook", "webhook", "Cryostat")
 		os.Exit(1)
 	}

@@ -15,7 +15,7 @@
 package test
 
 import (
-	operatorv1beta1 "github.com/cryostatio/cryostat-operator/api/v1beta1"
+	operatorv1beta2 "github.com/cryostatio/cryostat-operator/api/v1beta2"
 	"github.com/cryostatio/cryostat-operator/internal/test"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
@@ -43,7 +43,7 @@ func (r *WebhookTestResources) NewWebhookTestRole(namespace string) *rbacv1.Role
 		},
 		Rules: []rbacv1.PolicyRule{
 			{
-				APIGroups: []string{operatorv1beta1.GroupVersion.Group},
+				APIGroups: []string{operatorv1beta2.GroupVersion.Group},
 				Verbs:     []string{"*"},
 				Resources: []string{"cryostats"},
 			},

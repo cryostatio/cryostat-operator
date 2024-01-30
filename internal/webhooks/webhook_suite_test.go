@@ -26,7 +26,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	operatorv1beta1 "github.com/cryostatio/cryostat-operator/api/v1beta1"
+	operatorv1beta2 "github.com/cryostatio/cryostat-operator/api/v1beta2"
 	"github.com/cryostatio/cryostat-operator/internal/webhooks"
 	admissionv1beta1 "k8s.io/api/admission/v1beta1"
 
@@ -80,7 +80,7 @@ var _ = BeforeSuite(func() {
 	k8sScheme = runtime.NewScheme()
 	err = scheme.AddToScheme(k8sScheme)
 	Expect(err).NotTo(HaveOccurred())
-	err = operatorv1beta1.AddToScheme(k8sScheme)
+	err = operatorv1beta2.AddToScheme(k8sScheme)
 	Expect(err).NotTo(HaveOccurred())
 
 	err = admissionv1beta1.AddToScheme(k8sScheme)
@@ -104,7 +104,7 @@ var _ = BeforeSuite(func() {
 	})
 	Expect(err).NotTo(HaveOccurred())
 
-	err = webhooks.SetupWebhookWithManager(mgr, &operatorv1beta1.Cryostat{})
+	err = webhooks.SetupWebhookWithManager(mgr, &operatorv1beta2.Cryostat{})
 	Expect(err).NotTo(HaveOccurred())
 
 	//+kubebuilder:scaffold:webhook

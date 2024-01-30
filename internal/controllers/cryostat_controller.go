@@ -19,7 +19,7 @@ import (
 
 	ctrl "sigs.k8s.io/controller-runtime"
 
-	operatorv1beta1 "github.com/cryostatio/cryostat-operator/api/v1beta1"
+	operatorv1beta2 "github.com/cryostatio/cryostat-operator/api/v1beta2"
 	"github.com/cryostatio/cryostat-operator/internal/controllers/model"
 
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
@@ -36,7 +36,7 @@ type CryostatReconciler struct {
 }
 
 func NewCryostatReconciler(config *ReconcilerConfig) (*CryostatReconciler, error) {
-	delegate, err := newReconciler(config, &operatorv1beta1.Cryostat{}, true)
+	delegate, err := newReconciler(config, &operatorv1beta2.Cryostat{}, true)
 	if err != nil {
 		return nil, err
 	}
@@ -57,7 +57,7 @@ func (r *CryostatReconciler) Reconcile(ctx context.Context, request ctrl.Request
 	reqLogger.Info("Reconciling Cryostat")
 
 	// Fetch the Cryostat instance
-	cr := &operatorv1beta1.Cryostat{}
+	cr := &operatorv1beta2.Cryostat{}
 	err := r.Client.Get(ctx, request.NamespacedName, cr)
 	if err != nil {
 		if kerrors.IsNotFound(err) {

@@ -20,7 +20,7 @@ import (
 	"net/url"
 	"strconv"
 
-	operatorv1beta1 "github.com/cryostatio/cryostat-operator/api/v1beta1"
+	operatorv1beta2 "github.com/cryostatio/cryostat-operator/api/v1beta2"
 	common "github.com/cryostatio/cryostat-operator/internal/controllers/common"
 	"github.com/cryostatio/cryostat-operator/internal/controllers/common/resource_definitions"
 	"github.com/cryostatio/cryostat-operator/internal/controllers/constants"
@@ -159,11 +159,11 @@ func (r *Reconciler) reconcileReportsService(ctx context.Context, cr *model.Cryo
 	return nil
 }
 
-func configureCoreService(cr *model.CryostatInstance) *operatorv1beta1.CoreServiceConfig {
+func configureCoreService(cr *model.CryostatInstance) *operatorv1beta2.CoreServiceConfig {
 	// Check CR for config
-	var config *operatorv1beta1.CoreServiceConfig
+	var config *operatorv1beta2.CoreServiceConfig
 	if cr.Spec.ServiceOptions == nil || cr.Spec.ServiceOptions.CoreConfig == nil {
-		config = &operatorv1beta1.CoreServiceConfig{}
+		config = &operatorv1beta2.CoreServiceConfig{}
 	} else {
 		config = cr.Spec.ServiceOptions.CoreConfig.DeepCopy()
 	}
@@ -184,11 +184,11 @@ func configureCoreService(cr *model.CryostatInstance) *operatorv1beta1.CoreServi
 	return config
 }
 
-func configureGrafanaService(cr *model.CryostatInstance) *operatorv1beta1.GrafanaServiceConfig {
+func configureGrafanaService(cr *model.CryostatInstance) *operatorv1beta2.GrafanaServiceConfig {
 	// Check CR for config
-	var config *operatorv1beta1.GrafanaServiceConfig
+	var config *operatorv1beta2.GrafanaServiceConfig
 	if cr.Spec.ServiceOptions == nil || cr.Spec.ServiceOptions.GrafanaConfig == nil {
-		config = &operatorv1beta1.GrafanaServiceConfig{}
+		config = &operatorv1beta2.GrafanaServiceConfig{}
 	} else {
 		config = cr.Spec.ServiceOptions.GrafanaConfig.DeepCopy()
 	}
@@ -205,11 +205,11 @@ func configureGrafanaService(cr *model.CryostatInstance) *operatorv1beta1.Grafan
 	return config
 }
 
-func configureReportsService(cr *model.CryostatInstance) *operatorv1beta1.ReportsServiceConfig {
+func configureReportsService(cr *model.CryostatInstance) *operatorv1beta2.ReportsServiceConfig {
 	// Check CR for config
-	var config *operatorv1beta1.ReportsServiceConfig
+	var config *operatorv1beta2.ReportsServiceConfig
 	if cr.Spec.ServiceOptions == nil || cr.Spec.ServiceOptions.ReportsConfig == nil {
-		config = &operatorv1beta1.ReportsServiceConfig{}
+		config = &operatorv1beta2.ReportsServiceConfig{}
 	} else {
 		config = cr.Spec.ServiceOptions.ReportsConfig.DeepCopy()
 	}
@@ -226,7 +226,7 @@ func configureReportsService(cr *model.CryostatInstance) *operatorv1beta1.Report
 	return config
 }
 
-func configureService(config *operatorv1beta1.ServiceConfig, appLabel string, componentLabel string) {
+func configureService(config *operatorv1beta2.ServiceConfig, appLabel string, componentLabel string) {
 	if config.ServiceType == nil {
 		svcType := corev1.ServiceTypeClusterIP
 		config.ServiceType = &svcType
@@ -244,7 +244,7 @@ func configureService(config *operatorv1beta1.ServiceConfig, appLabel string, co
 }
 
 func (r *Reconciler) createOrUpdateService(ctx context.Context, svc *corev1.Service, owner metav1.Object,
-	config *operatorv1beta1.ServiceConfig, delegate controllerutil.MutateFn) error {
+	config *operatorv1beta2.ServiceConfig, delegate controllerutil.MutateFn) error {
 	op, err := controllerutil.CreateOrUpdate(ctx, r.Client, svc, func() error {
 		// Update labels and annotations
 		common.MergeLabelsAndAnnotations(&svc.ObjectMeta, config.Labels, config.Annotations)

@@ -14,13 +14,29 @@ resources:
 - api:
     crdVersion: v1
     namespaced: true
-  controller: true
   domain: cryostat.io
   group: operator
   kind: Cryostat
   path: github.com/cryostatio/cryostat-operator/api/v1beta1
   version: v1beta1
+- api:
+    crdVersion: v1
+  domain: cryostat.io
+  group: operator
+  kind: ClusterCryostat
+  path: github.com/cryostatio/cryostat-operator/api/v1beta1
+  version: v1beta1
+- api:
+    crdVersion: v1
+    namespaced: true
+  controller: true
+  domain: cryostat.io
+  group: operator
+  kind: Cryostat
+  path: github.com/cryostatio/cryostat-operator/api/v1beta2
+  version: v1beta2
   webhooks:
+    conversion: true
     defaulting: true
     validation: true
     webhookVersion: v1
@@ -30,6 +46,9 @@ resources:
   domain: cryostat.io
   group: operator
   kind: ClusterCryostat
-  path: github.com/cryostatio/cryostat-operator/api/v1beta1
-  version: v1beta1
+  path: github.com/cryostatio/cryostat-operator/api/v1beta2
+  version: v1beta2
+  webhooks:
+    conversion: true
+    webhookVersion: v1
 version: "3"
