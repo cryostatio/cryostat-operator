@@ -12,24 +12,16 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package controllers_test
+package v1beta1_test
 
 import (
-	"github.com/cryostatio/cryostat-operator/internal/controllers"
+	"testing"
+
 	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
 )
 
-// TODO get multi-namespace tests from ClusterCryostat controller, or move to reconciler_tests.go
-// TODO add conversion webhook tests (maybe try enumerate all test.NewCryostat* methods and try converting them)
-var _ = Describe("CryostatController", func() {
-	c := &controllerTest{
-		clusterScoped:   false,
-		constructorFunc: newCryostatController,
-	}
-
-	c.commonTests()
-})
-
-func newCryostatController(config *controllers.ReconcilerConfig) (controllers.CommonReconciler, error) {
-	return controllers.NewCryostatReconciler(config)
+func TestBooks(t *testing.T) {
+	RegisterFailHandler(Fail)
+	RunSpecs(t, "Cryostat Suite")
 }

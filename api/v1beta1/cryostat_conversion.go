@@ -70,7 +70,7 @@ func convertStatusTo(src *CryostatStatus, dst *operatorv1beta2.CryostatStatus) {
 func convertCertSecretsTo(srcCerts []CertificateSecret) []operatorv1beta2.CertificateSecret {
 	var dstCerts []operatorv1beta2.CertificateSecret
 	if srcCerts != nil {
-		dstCerts = make([]operatorv1beta2.CertificateSecret, len(srcCerts))
+		dstCerts = make([]operatorv1beta2.CertificateSecret, 0, len(srcCerts))
 		for _, cert := range srcCerts {
 			dstCerts = append(dstCerts, operatorv1beta2.CertificateSecret{
 				SecretName:     cert.SecretName,
@@ -84,7 +84,7 @@ func convertCertSecretsTo(srcCerts []CertificateSecret) []operatorv1beta2.Certif
 func convertEventTemplatesTo(srcTemplates []TemplateConfigMap) []operatorv1beta2.TemplateConfigMap {
 	var dstTemplates []operatorv1beta2.TemplateConfigMap
 	if srcTemplates != nil {
-		dstTemplates = make([]operatorv1beta2.TemplateConfigMap, len(srcTemplates))
+		dstTemplates = make([]operatorv1beta2.TemplateConfigMap, 0, len(srcTemplates))
 		for _, template := range srcTemplates {
 			dstTemplates = append(dstTemplates, operatorv1beta2.TemplateConfigMap{
 				ConfigMapName: template.ConfigMapName,
@@ -234,7 +234,7 @@ func convertResourceOptionsTo(srcOpts *ResourceConfigList) *operatorv1beta2.Reso
 		dstOpts = &operatorv1beta2.ResourceConfigList{
 			CoreResources:       srcOpts.CoreResources,
 			DataSourceResources: srcOpts.DataSourceResources,
-			GrafanaResources:    dstOpts.GrafanaResources,
+			GrafanaResources:    srcOpts.GrafanaResources,
 		}
 	}
 	return dstOpts
@@ -352,7 +352,7 @@ func convertStatusFrom(src *operatorv1beta2.CryostatStatus, dst *CryostatStatus)
 func convertCertSecretsFrom(srcCerts []operatorv1beta2.CertificateSecret) []CertificateSecret {
 	var dstCerts []CertificateSecret
 	if srcCerts != nil {
-		dstCerts = make([]CertificateSecret, len(srcCerts))
+		dstCerts = make([]CertificateSecret, 0, len(srcCerts))
 		for _, cert := range srcCerts {
 			dstCerts = append(dstCerts, CertificateSecret{
 				SecretName:     cert.SecretName,
@@ -366,7 +366,7 @@ func convertCertSecretsFrom(srcCerts []operatorv1beta2.CertificateSecret) []Cert
 func convertEventTemplatesFrom(srcTemplates []operatorv1beta2.TemplateConfigMap) []TemplateConfigMap {
 	var dstTemplates []TemplateConfigMap
 	if srcTemplates != nil {
-		dstTemplates = make([]TemplateConfigMap, len(srcTemplates))
+		dstTemplates = make([]TemplateConfigMap, 0, len(srcTemplates))
 		for _, template := range srcTemplates {
 			dstTemplates = append(dstTemplates, TemplateConfigMap{
 				ConfigMapName: template.ConfigMapName,
@@ -516,7 +516,7 @@ func convertResourceOptionsFrom(srcOpts *operatorv1beta2.ResourceConfigList) *Re
 		dstOpts = &ResourceConfigList{
 			CoreResources:       srcOpts.CoreResources,
 			DataSourceResources: srcOpts.DataSourceResources,
-			GrafanaResources:    dstOpts.GrafanaResources,
+			GrafanaResources:    srcOpts.GrafanaResources,
 		}
 	}
 	return dstOpts
