@@ -357,18 +357,18 @@ func waitTillCryostatReady(base *url.URL, resources *TestResources) error {
 		}
 		defer resp.Body.Close()
 
-		health := &HealthResponse{}
-		err = ReadJSON(resp, health)
-		if err != nil {
-			return false, fmt.Errorf("failed to read response body: %s", err.Error())
-		}
-
 		if !StatusOK(resp.StatusCode) {
 			if resp.StatusCode == http.StatusServiceUnavailable {
 				r.Log += fmt.Sprintf("application is not yet reachable at %s\n", base.String())
 				return false, nil // Try again
 			}
 			return false, fmt.Errorf("API request failed with status code %d: %s", resp.StatusCode, ReadError(resp))
+		}
+
+		health := &HealthResponse{}
+		err = ReadJSON(resp, health)
+		if err != nil {
+			return false, fmt.Errorf("failed to read response body: %s", err.Error())
 		}
 
 		if err = health.Ready(); err != nil {
