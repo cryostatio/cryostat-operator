@@ -571,11 +571,3 @@ func findDeployCondition(conditions []appsv1.DeploymentCondition, condType appsv
 	}
 	return nil
 }
-
-func namespacesToSet(namespaces []string) map[string]struct{} {
-	result := make(map[string]struct{}, len(namespaces))
-	for _, namespace := range namespaces {
-		result[namespace] = struct{}{}
-	}
-	return result
-}
