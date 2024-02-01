@@ -7,6 +7,16 @@ metadata:
   creationTimestamp: null
   name: clustercryostats.operator.cryostat.io
 spec:
+  conversion:
+    strategy: Webhook
+    webhook:
+      clientConfig:
+        service:
+          name: cryostat-operator-webhook-service
+          namespace: cryostat-operator-system
+          path: /convert
+      conversionReviewVersions:
+      - v1
   group: operator.cryostat.io
   names:
     kind: ClusterCryostat

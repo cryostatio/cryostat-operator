@@ -40,7 +40,7 @@ func NewSelfSignedIssuer(cr *model.CryostatInstance) *certv1.Issuer {
 	}
 }
 
-func NewCryostatCAIssuer(cr *model.CryostatInstance) *certv1.Issuer {
+func NewCryostatCAIssuer(gvk *schema.GroupVersionKind, cr *model.CryostatInstance) *certv1.Issuer {
 	return &certv1.Issuer{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      cr.Name + "-ca",
@@ -49,7 +49,7 @@ func NewCryostatCAIssuer(cr *model.CryostatInstance) *certv1.Issuer {
 		Spec: certv1.IssuerSpec{
 			IssuerConfig: certv1.IssuerConfig{
 				CA: &certv1.CAIssuer{
-					SecretName: cr.Name + "-ca",
+					SecretName: NewCryostatCACert(gvk, cr).Spec.SecretName,
 				},
 			},
 		},

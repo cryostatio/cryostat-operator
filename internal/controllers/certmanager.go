@@ -63,7 +63,7 @@ func (r *Reconciler) setupTLS(ctx context.Context, cr *model.CryostatInstance) (
 	}
 
 	// Create CA issuer using the CA cert just created
-	err = r.createOrUpdateIssuer(ctx, resources.NewCryostatCAIssuer(cr), cr.Object)
+	err = r.createOrUpdateIssuer(ctx, resources.NewCryostatCAIssuer(r.gvk, cr), cr.Object)
 	if err != nil {
 		return nil, err
 	}

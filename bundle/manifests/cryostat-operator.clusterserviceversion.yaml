@@ -100,7 +100,7 @@ metadata:
     capabilities: Seamless Upgrades
     categories: Monitoring, Developer Tools
     containerImage: quay.io/cryostat/cryostat-operator:2.5.0-dev
-    createdAt: "2024-02-01T22:24:13Z"
+    createdAt: "2024-02-01T22:49:04Z"
     description: JVM monitoring and profiling tool
     operatorframework.io/initialization-resource: |-
       {
@@ -2073,6 +2073,18 @@ spec:
     name: reports
   version: 2.5.0-dev
   webhookdefinitions:
+  - admissionReviewVersions:
+    - v1
+    containerPort: 443
+    conversionCRDs:
+    - clustercryostats.operator.cryostat.io
+    - cryostats.operator.cryostat.io
+    deploymentName: cryostat-operator-controller-manager
+    generateName: cclustercryostatscryostats.kb.io
+    sideEffects: None
+    targetPort: 9443
+    type: ConversionWebhook
+    webhookPath: /convert
   - admissionReviewVersions:
     - v1
     containerPort: 443

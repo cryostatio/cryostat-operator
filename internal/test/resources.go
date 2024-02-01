@@ -1123,7 +1123,7 @@ func (r *TestResources) NewCryostatCAIssuer() *certv1.Issuer {
 		Spec: certv1.IssuerSpec{
 			IssuerConfig: certv1.IssuerConfig{
 				CA: &certv1.CAIssuer{
-					SecretName: r.Name + "-ca",
+					SecretName: r.getClusterUniqueNameForCA(),
 				},
 			},
 		},

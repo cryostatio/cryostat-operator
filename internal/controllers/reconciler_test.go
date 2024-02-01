@@ -16,7 +16,6 @@ package controllers_test
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"net/url"
 	"time"
@@ -31,7 +30,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	netv1 "k8s.io/api/networking/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -1925,8 +1923,6 @@ func (c *controllerTest) commonTests() {
 					t.TargetNamespaces = targetNamespaces[:1]
 					cr := t.NewCryostat()
 					*cr.TargetNamespaceStatus = targetNamespaces
-					crJson, _ := json.MarshalIndent(cr, "", "  ")
-					fmt.Printf("%+v\n", string(crJson)) // XXX
 					t.objs = append(t.objs, cr.Object,
 						t.NewRoleBinding(targetNamespaces[0]),
 						t.NewRoleBinding(targetNamespaces[1]),
@@ -1934,9 +1930,6 @@ func (c *controllerTest) commonTests() {
 						t.NewCACertSecret(targetNamespaces[1]))
 				})
 				It("should create the expected main deployment", func() {
-					cr, _ := t.lookupCryostatInstance()
-					crJson, _ := json.MarshalIndent(cr, "", "  ")
-					fmt.Printf("%+v\n", string(crJson)) // XXX
 					t.expectMainDeployment()
 				})
 				It("leave RBAC for the first namespace", func() {
@@ -1946,7 +1939,7 @@ func (c *controllerTest) commonTests() {
 					binding := t.NewRoleBinding(targetNamespaces[1])
 					err := t.Client.Get(context.Background(), types.NamespacedName{Name: binding.Name, Namespace: binding.Namespace}, binding)
 					Expect(err).ToNot(BeNil())
-					Expect(errors.IsNotFound(err)).To(BeTrue())
+					Expect(kerrors.IsNotFound(err)).To(BeTrue())
 				})
 				It("leave CA Cert secret for the first namespace", func() {
 					t.expectCertificates()
@@ -1955,7 +1948,7 @@ func (c *controllerTest) commonTests() {
 					secret := t.NewCACertSecret(targetNamespaces[1])
 					err := t.Client.Get(context.Background(), types.NamespacedName{Name: secret.Name, Namespace: secret.Namespace}, secret)
 					Expect(err).ToNot(BeNil())
-					Expect(errors.IsNotFound(err)).To(BeTrue())
+					Expect(kerrors.IsNotFound(err)).To(BeTrue())
 				})
 				It("should update the target namespaces in Status", func() {
 					t.expectTargetNamespaces()
