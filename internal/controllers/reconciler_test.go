@@ -16,6 +16,7 @@ package controllers_test
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net/url"
 	"time"
@@ -30,6 +31,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	netv1 "k8s.io/api/networking/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -1878,6 +1880,98 @@ func (c *controllerTest) commonTests() {
 				})
 			})
 		})
+
+		Context("reconciling a multi-namespace request", func() {
+			targetNamespaces := []string{"multi-test-one", "multi-test-two"}
+
+			BeforeEach(func() {
+				// Create Namespaces
+				for _, ns := range targetNamespaces {
+					t.objs = append(t.objs, t.NewOtherNamespace(ns))
+				}
+			})
+
+			JustBeforeEach(func() {
+				t.reconcileCryostatFully()
+			})
+
+			Context("with unchanged target namespaces", func() {
+				BeforeEach(func() {
+					t.TargetNamespaces = targetNamespaces
+					t.objs = append(t.objs, t.NewCryostat().Object)
+				})
+
+				It("should create the expected main deployment", func() {
+					t.expectMainDeployment()
+				})
+
+				It("should create CA Cert secret in each namespace", func() {
+					t.expectCertificates()
+				})
+
+				It("should create RBAC in each namespace", func() {
+					t.expectRBAC()
+				})
+
+				It("should update the target namespaces in Status", func() {
+					t.expectTargetNamespaces()
+				})
+			})
+
+			Context("with removed target namespaces", func() {
+				BeforeEach(func() {
+					// Begin with RBAC set up for two namespaces,
+					// and remove the second namespace from the spec
+					t.TargetNamespaces = targetNamespaces[:1]
+					cr := t.NewCryostat()
+					*cr.TargetNamespaceStatus = targetNamespaces
+					crJson, _ := json.MarshalIndent(cr, "", "  ")
+					fmt.Printf("%+v\n", string(crJson)) // XXX
+					t.objs = append(t.objs, cr.Object,
+						t.NewRoleBinding(targetNamespaces[0]),
+						t.NewRoleBinding(targetNamespaces[1]),
+						t.NewCACertSecret(targetNamespaces[0]),
+						t.NewCACertSecret(targetNamespaces[1]))
+				})
+				It("should create the expected main deployment", func() {
+					cr, _ := t.lookupCryostatInstance()
+					crJson, _ := json.MarshalIndent(cr, "", "  ")
+					fmt.Printf("%+v\n", string(crJson)) // XXX
+					t.expectMainDeployment()
+				})
+				It("leave RBAC for the first namespace", func() {
+					t.expectRBAC()
+				})
+				It("should remove RBAC from the second namespace", func() {
+					binding := t.NewRoleBinding(targetNamespaces[1])
+					err := t.Client.Get(context.Background(), types.NamespacedName{Name: binding.Name, Namespace: binding.Namespace}, binding)
+					Expect(err).ToNot(BeNil())
+					Expect(errors.IsNotFound(err)).To(BeTrue())
+				})
+				It("leave CA Cert secret for the first namespace", func() {
+					t.expectCertificates()
+				})
+				It("should remove CA Cert secret from the second namespace", func() {
+					secret := t.NewCACertSecret(targetNamespaces[1])
+					err := t.Client.Get(context.Background(), types.NamespacedName{Name: secret.Name, Namespace: secret.Namespace}, secret)
+					Expect(err).ToNot(BeNil())
+					Expect(errors.IsNotFound(err)).To(BeTrue())
+				})
+				It("should update the target namespaces in Status", func() {
+					t.expectTargetNamespaces()
+				})
+			})
+
+			Context("with no target namespaces", func() {
+				BeforeEach(func() {
+					t.TargetNamespaces = nil
+					t.objs = append(t.objs, t.NewCryostat().Object)
+				})
+				It("should update the target namespaces in Status", func() {
+					t.expectTargetNamespaces()
+				})
+			})
+		})
 	})
 
 	Describe("reconciling a request in Kubernetes", func() {
@@ -3072,6 +3166,11 @@ func (t *cryostatTestInput) expectResourcesUnaffected() {
 	for _, check := range resourceChecks() {
 		check.expectFunc(t)
 	}
+}
+
+func (t *cryostatTestInput) expectTargetNamespaces() {
+	cr := t.getCryostatInstance()
+	Expect(*cr.TargetNamespaceStatus).To(ConsistOf(t.TargetNamespaces))
 }
 
 func getControllerFunc(clusterScoped bool) func(*controllers.ReconcilerConfig) (controllers.CommonReconciler, error) {

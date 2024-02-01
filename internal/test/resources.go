@@ -130,12 +130,11 @@ func (r *TestResources) newCryostatSpec() operatorv1beta2.CryostatSpec {
 }
 
 func (r *TestResources) ConvertNamespacedToModel(cr *operatorv1beta2.Cryostat) *model.CryostatInstance {
-	targetNS := []string{cr.Namespace}
 	return &model.CryostatInstance{
 		Name:                  cr.Name,
 		InstallNamespace:      cr.Namespace,
-		TargetNamespaces:      targetNS,
-		TargetNamespaceStatus: &targetNS,
+		TargetNamespaces:      cr.Spec.TargetNamespaces,
+		TargetNamespaceStatus: &cr.Status.TargetNamespaces,
 		Spec:                  &cr.Spec,
 		Status:                &cr.Status,
 		Object:                cr,

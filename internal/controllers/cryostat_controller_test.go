@@ -19,8 +19,6 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 )
 
-// TODO get multi-namespace tests from ClusterCryostat controller, or move to reconciler_tests.go
-// TODO add conversion webhook tests (maybe try enumerate all test.NewCryostat* methods and try converting them)
 var _ = Describe("CryostatController", func() {
 	c := &controllerTest{
 		clusterScoped:   false,

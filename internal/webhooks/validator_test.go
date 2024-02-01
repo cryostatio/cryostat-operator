@@ -35,12 +35,9 @@ import (
 )
 
 type validatorTestInput struct {
-	client            ctrlclient.Client
-	validator         *webhooks.CryostatValidator
-	objs              []ctrlclient.Object
-	user              string
-	allowedUser       string // TODO change to UserInfo?
-	allowedNamespaces []string
+	client    ctrlclient.Client
+	validator *webhooks.CryostatValidator
+	objs      []ctrlclient.Object
 	*webhooktests.WebhookTestResources
 }
 
@@ -66,9 +63,6 @@ var _ = Describe("CryostatValidator", func() {
 					},
 				},
 			},
-			user:              "user",
-			allowedUser:       "user",
-			allowedNamespaces: []string{ns, otherNS},
 		}
 		t.objs = []ctrlclient.Object{
 			t.NewNamespace(), t.NewOtherNamespace(otherNS),
