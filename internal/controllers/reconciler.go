@@ -47,7 +47,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
-	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
@@ -61,7 +60,6 @@ type ReconcilerConfig struct {
 	IsCertManagerInstalled bool
 	EventRecorder          record.EventRecorder
 	RESTMapper             meta.RESTMapper
-	Namespaces             []string
 	InsightsProxy          *url.URL // Only defined if Insights is enabled
 	common.ReconcilerTLS
 }
@@ -299,31 +297,9 @@ func (r *Reconciler) reconcile(ctx context.Context, cr *model.CryostatInstance) 
 	return reconcile.Result{}, nil
 }
 
-func namespaceEventFilter(scheme *runtime.Scheme, namespaceList []string) predicate.Predicate {
-	namespaces := namespacesToSet(namespaceList)
-	return predicate.NewPredicateFuncs(func(object client.Object) bool {
-		// Restrict watch for namespaced objects to specified namespaces
-		if len(object.GetNamespace()) > 0 {
-			_, pres := namespaces[object.GetNamespace()]
-			if !pres {
-				return false
-			}
-		}
-		return true
-	})
-}
-
 func (r *Reconciler) setupWithManager(mgr ctrl.Manager, impl reconcile.Reconciler) error {
 	c := ctrl.NewControllerManagedBy(mgr).
 		For(r.objectType)
-
-	// Filter watch to specified namespaces only if the CRD is namespaced and
-	// we're not running in AllNamespace mode
-	// TODO remove this once only AllNamespace mode is supported
-	if r.isNamespaced && len(r.Namespaces) > 0 {
-		r.Log.Info(fmt.Sprintf("Adding EventFilter for namespaces: %v", r.Namespaces))
-		c = c.WithEventFilter(namespaceEventFilter(mgr.GetScheme(), r.Namespaces))
-	}
 
 	// Watch for changes to secondary resources and requeue the owner Cryostat
 	resources := []client.Object{&appsv1.Deployment{}, &corev1.Service{}, &corev1.Secret{}, &corev1.PersistentVolumeClaim{},

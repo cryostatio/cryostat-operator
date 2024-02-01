@@ -58,9 +58,8 @@ type controllerTest struct {
 }
 
 type cryostatTestInput struct {
-	controller      controllers.CommonReconciler
-	objs            []ctrlclient.Object
-	watchNamespaces []string
+	controller controllers.CommonReconciler
+	objs       []ctrlclient.Object
 	test.TestReconcilerConfig
 	*test.TestResources
 }
@@ -83,7 +82,6 @@ func (c *controllerTest) commonBeforeEach() *cryostatTestInput {
 		t.NewNamespace(),
 		t.NewApiServer(),
 	}
-	t.watchNamespaces = []string{t.Namespace}
 	return t
 }
 
@@ -125,7 +123,6 @@ func (t *cryostatTestInput) newReconcilerConfig(scheme *runtime.Scheme, client c
 		RESTMapper:    test.NewTESTRESTMapper(),
 		Log:           logger,
 		ReconcilerTLS: test.NewTestReconcilerTLS(&t.TestReconcilerConfig),
-		Namespaces:    t.watchNamespaces,
 		InsightsProxy: insightsURL,
 	}
 }
