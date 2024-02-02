@@ -109,7 +109,6 @@ func (r *CryostatValidator) validate(ctx context.Context, obj runtime.Object, op
 		if !sar.Status.Allowed {
 			return NewErrNotPermitted(op, namespace)
 		}
-		r.Log.Info(fmt.Sprintf("Access Allowed: %v", userInfo)) // XXX
 	}
 
 	return nil
