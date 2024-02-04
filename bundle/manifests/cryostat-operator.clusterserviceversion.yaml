@@ -54,7 +54,7 @@ metadata:
     capabilities: Seamless Upgrades
     categories: Monitoring, Developer Tools
     containerImage: quay.io/cryostat/cryostat-operator:2.5.0-dev
-    createdAt: "2024-01-24T07:33:49Z"
+    createdAt: "2024-02-04T06:09:16Z"
     description: JVM monitoring and profiling tool
     operatorframework.io/initialization-resource: |-
       {
@@ -449,16 +449,30 @@ spec:
         path: targetDiscoveryOptions.builtInDiscoveryDisabled
         x-descriptors:
         - urn:alm:descriptor:com.tectonic.ui:booleanSwitch
+      - description: When true, the Cryostat application will use the default port
+          name jfr-jmx to look for JMX connectable targets.
+        displayName: Disable Built-in Port Names
+        path: targetDiscoveryOptions.disableBuiltInPortNames
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:booleanSwitch
+      - description: When true, the Cryostat application will use the default port
+          number 9091 to look for JMX connectable targets.
+        displayName: Disable Built-in Port Numbers
+        path: targetDiscoveryOptions.disableBuiltInPortNumbers
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:booleanSwitch
       - description: List of port names that the Cryostat application should look
-          for in order to consider a target as JMX connectable. Defaults to consider
-          ports named jfr-jmx.
+          for in order to consider a target as JMX connectable.
         displayName: Discovery Port Names
         path: targetDiscoveryOptions.discoveryPortNames
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:fieldDependency:targetDiscoveryOptions.disableBuiltInPortNames:true
       - description: List of port numbers that the Cryostat application should look
-          for in order to consider a target as JMX connectable. Defaults to consider
-          ports numbered 9091.
+          for in order to consider a target as JMX connectable.
         displayName: Discovery Port Numbers
         path: targetDiscoveryOptions.discoveryPortNumbers
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:fieldDependency:targetDiscoveryOptions.disableBuiltInPortNumbers:true
       - description: List of TLS certificates to trust when connecting to targets.
         displayName: Trusted TLS Certificates
         path: trustedCertSecrets
@@ -851,16 +865,30 @@ spec:
         path: targetDiscoveryOptions.builtInDiscoveryDisabled
         x-descriptors:
         - urn:alm:descriptor:com.tectonic.ui:booleanSwitch
+      - description: When true, the Cryostat application will use the default port
+          name jfr-jmx to look for JMX connectable targets.
+        displayName: Disable Built-in Port Names
+        path: targetDiscoveryOptions.disableBuiltInPortNames
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:booleanSwitch
+      - description: When true, the Cryostat application will use the default port
+          number 9091 to look for JMX connectable targets.
+        displayName: Disable Built-in Port Numbers
+        path: targetDiscoveryOptions.disableBuiltInPortNumbers
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:booleanSwitch
       - description: List of port names that the Cryostat application should look
-          for in order to consider a target as JMX connectable. Defaults to consider
-          ports named jfr-jmx.
+          for in order to consider a target as JMX connectable.
         displayName: Discovery Port Names
         path: targetDiscoveryOptions.discoveryPortNames
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:fieldDependency:targetDiscoveryOptions.disableBuiltInPortNames:true
       - description: List of port numbers that the Cryostat application should look
-          for in order to consider a target as JMX connectable. Defaults to consider
-          ports numbered 9091.
+          for in order to consider a target as JMX connectable.
         displayName: Discovery Port Numbers
         path: targetDiscoveryOptions.discoveryPortNumbers
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:fieldDependency:targetDiscoveryOptions.disableBuiltInPortNumbers:true
       - description: List of TLS certificates to trust when connecting to targets.
         displayName: Trusted TLS Certificates
         path: trustedCertSecrets

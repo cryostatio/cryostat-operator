@@ -826,13 +826,13 @@ func NewCoreContainer(cr *model.CryostatInstance, specs *ServiceSpecs, imageTag 
 			})
 		}
 
-		sep, emptyValue := ",", "-"
-
-		if cr.Spec.TargetDiscoveryOptions.DiscoveryPortNames != nil {
-			portNames := emptyValue
-			if len(cr.Spec.TargetDiscoveryOptions.DiscoveryPortNames) > 0 {
-				portNames = strings.Join(cr.Spec.TargetDiscoveryOptions.DiscoveryPortNames[:], sep)
-			}
+		var portNames string
+		if len(cr.Spec.TargetDiscoveryOptions.DiscoveryPortNames) > 0 {
+			portNames = strings.Join(cr.Spec.TargetDiscoveryOptions.DiscoveryPortNames[:], ",")
+		} else if cr.Spec.TargetDiscoveryOptions.DisableBuiltInPortNames {
+			portNames = "-"
+		}
+		if len(portNames) > 0 {
 			envs = append(envs,
 				corev1.EnvVar{
 					Name:  "CRYOSTAT_DISCOVERY_K8S_PORT_NAMES",
@@ -841,11 +841,13 @@ func NewCoreContainer(cr *model.CryostatInstance, specs *ServiceSpecs, imageTag 
 			)
 		}
 
-		if cr.Spec.TargetDiscoveryOptions.DiscoveryPortNumbers != nil {
-			portNumbers := emptyValue
-			if len(cr.Spec.TargetDiscoveryOptions.DiscoveryPortNumbers) > 0 {
-				portNumbers = strings.Trim(strings.ReplaceAll(fmt.Sprint(cr.Spec.TargetDiscoveryOptions.DiscoveryPortNumbers), " ", sep), "[]")
-			}
+		portNumbers := ""
+		if len(cr.Spec.TargetDiscoveryOptions.DiscoveryPortNumbers) > 0 {
+			portNumbers = strings.Trim(strings.ReplaceAll(fmt.Sprint(cr.Spec.TargetDiscoveryOptions.DiscoveryPortNumbers), " ", ","), "[]")
+		} else if cr.Spec.TargetDiscoveryOptions.DisableBuiltInPortNumbers {
+			portNumbers = "0"
+		}
+		if len(portNumbers) > 0 {
 			envs = append(envs,
 				corev1.EnvVar{
 					Name:  "CRYOSTAT_DISCOVERY_K8S_PORT_NUMBERS",

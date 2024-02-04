@@ -559,11 +559,11 @@ func (r *TestResources) NewCryostatWithDiscoveryPortConfig() *model.CryostatInst
 	return cr
 }
 
-func (r *TestResources) NewCryostatWithEmptyDiscoveryPortConfig() *model.CryostatInstance {
+func (r *TestResources) NewCryostatWithBuiltInPortConfigDisabled() *model.CryostatInstance {
 	cr := r.NewCryostat()
 	cr.Spec.TargetDiscoveryOptions = &operatorv1beta1.TargetDiscoveryOptions{
-		DiscoveryPortNames:   []string{},
-		DiscoveryPortNumbers: []int32{},
+		DisableBuiltInPortNames:   true,
+		DisableBuiltInPortNumbers: true,
 	}
 	return cr
 }
@@ -1273,7 +1273,7 @@ func (r *TestResources) NewReportsPorts() []corev1.ContainerPort {
 }
 
 func (r *TestResources) NewCoreEnvironmentVariables(reportsUrl string, authProps bool, ingress bool,
-	emptyDir bool, builtInDiscoveryDisabled bool, hasPortConfig bool, portConfigListEmpty bool, dbSecretProvided bool) []corev1.EnvVar {
+	emptyDir bool, builtInDiscoveryDisabled bool, hasPortConfig bool, builtInPortConfigDisabled bool, dbSecretProvided bool) []corev1.EnvVar {
 	envs := []corev1.EnvVar{
 		{
 			Name:  "CRYOSTAT_WEB_PORT",
@@ -1317,7 +1317,7 @@ func (r *TestResources) NewCoreEnvironmentVariables(reportsUrl string, authProps
 		},
 	}
 
-	envs = append(envs, r.NewTargetDiscoveryEnvVar(builtInDiscoveryDisabled, hasPortConfig, portConfigListEmpty)...)
+	envs = append(envs, r.NewTargetDiscoveryEnvVar(builtInDiscoveryDisabled, hasPortConfig, builtInPortConfigDisabled)...)
 
 	if !emptyDir {
 		envs = append(envs, r.DatabaseConfigEnvironmentVariables()...)
@@ -1639,7 +1639,7 @@ func (r *TestResources) NewJmxCacheOptionsEnv() []corev1.EnvVar {
 	}
 }
 
-func (r *TestResources) NewTargetDiscoveryEnvVar(builtInDiscoveryDisabled bool, hasPortConfig bool, portConfigListEmpty bool) []corev1.EnvVar {
+func (r *TestResources) NewTargetDiscoveryEnvVar(builtInDiscoveryDisabled bool, hasPortConfig bool, builtInPortConfigDisabled bool) []corev1.EnvVar {
 	envs := make([]corev1.EnvVar, 0)
 
 	if builtInDiscoveryDisabled {
@@ -1648,20 +1648,27 @@ func (r *TestResources) NewTargetDiscoveryEnvVar(builtInDiscoveryDisabled bool, 
 			Value: "true",
 		})
 	}
+
 	if hasPortConfig {
-		portNames, portNumbers := "-", "-"
-		if !portConfigListEmpty {
-			portNames = "custom-port-name,another-custom-port-name"
-			portNumbers = "9092,9090"
-		}
 		envs = append(envs,
 			corev1.EnvVar{
 				Name:  "CRYOSTAT_DISCOVERY_K8S_PORT_NAMES",
-				Value: portNames,
+				Value: "custom-port-name,another-custom-port-name",
 			},
 			corev1.EnvVar{
 				Name:  "CRYOSTAT_DISCOVERY_K8S_PORT_NUMBERS",
-				Value: portNumbers,
+				Value: "9092,9090",
+			},
+		)
+	} else if builtInPortConfigDisabled {
+		envs = append(envs,
+			corev1.EnvVar{
+				Name:  "CRYOSTAT_DISCOVERY_K8S_PORT_NAMES",
+				Value: "-",
+			},
+			corev1.EnvVar{
+				Name:  "CRYOSTAT_DISCOVERY_K8S_PORT_NUMBERS",
+				Value: "0",
 			},
 		)
 	}
