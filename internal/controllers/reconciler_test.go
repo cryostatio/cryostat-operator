@@ -1729,15 +1729,35 @@ func (c *controllerTest) commonTests() {
 			})
 
 		})
-		Context("with built-in target discovery mechanism disabled", func() {
-			BeforeEach(func() {
-				t.objs = append(t.objs, t.NewCryostatWithBuiltInDiscoveryDisabled().Object)
-			})
+		Context("with target discovery options provided", func() {
 			JustBeforeEach(func() {
 				t.reconcileCryostatFully()
 			})
-			It("should configure deployment appropriately", func() {
-				t.expectMainDeployment()
+			Context("with built-in target discovery mechanism disabled", func() {
+				BeforeEach(func() {
+					t.objs = append(t.objs, t.NewCryostatWithBuiltInDiscoveryDisabled().Object)
+				})
+				It("should configure deployment appropriately", func() {
+					t.expectMainDeployment()
+				})
+			})
+			Context("with discovery port configurations", func() {
+				Context("with built-in values disabled", func() {
+					BeforeEach(func() {
+						t.objs = append(t.objs, t.NewCryostatWithBuiltInPortConfigDisabled().Object)
+					})
+					It("should configure deployment appropriately", func() {
+						t.expectMainDeployment()
+					})
+				})
+				Context("containing non-empty lists", func() {
+					BeforeEach(func() {
+						t.objs = append(t.objs, t.NewCryostatWithDiscoveryPortConfig().Object)
+					})
+					It("should configure deployment appropriately", func() {
+						t.expectMainDeployment()
+					})
+				})
 			})
 		})
 		Context("with secret provided for database password", func() {
@@ -2720,10 +2740,21 @@ func (t *cryostatTestInput) checkMainPodTemplate(deployment *appsv1.Deployment, 
 		cr.Spec.NetworkOptions != nil && cr.Spec.NetworkOptions.CoreConfig != nil && cr.Spec.NetworkOptions.CoreConfig.IngressSpec != nil
 	emptyDir := cr.Spec.StorageOptions != nil && cr.Spec.StorageOptions.EmptyDir != nil && cr.Spec.StorageOptions.EmptyDir.Enabled
 	builtInDiscoveryDisabled := cr.Spec.TargetDiscoveryOptions != nil && cr.Spec.TargetDiscoveryOptions.BuiltInDiscoveryDisabled
+	hasPortConfig := cr.Spec.TargetDiscoveryOptions != nil &&
+		len(cr.Spec.TargetDiscoveryOptions.DiscoveryPortNames) > 0 &&
+		len(cr.Spec.TargetDiscoveryOptions.DiscoveryPortNumbers) > 0
+	builtInPortConfigDisabled := cr.Spec.TargetDiscoveryOptions != nil &&
+		cr.Spec.TargetDiscoveryOptions.DisableBuiltInPortNames &&
+		cr.Spec.TargetDiscoveryOptions.DisableBuiltInPortNumbers
 	dbSecretProvided := cr.Spec.JmxCredentialsDatabaseOptions != nil && cr.Spec.JmxCredentialsDatabaseOptions.DatabaseSecretName != nil
 
 	t.checkCoreContainer(&coreContainer, ingress, reportsUrl,
-		cr.Spec.AuthProperties != nil, emptyDir, builtInDiscoveryDisabled, dbSecretProvided,
+		cr.Spec.AuthProperties != nil,
+		emptyDir,
+		builtInDiscoveryDisabled,
+		hasPortConfig,
+		builtInPortConfigDisabled,
+		dbSecretProvided,
 		t.NewCoreContainerResource(cr), t.NewCoreSecurityContext(cr))
 
 	if !t.Minimal {
@@ -2879,7 +2910,7 @@ func (t *cryostatTestInput) checkDeploymentHasAuthProperties() {
 	volumeMounts := coreContainer.VolumeMounts
 	expectedVolumeMounts := t.NewVolumeMountsWithAuthProperties()
 	Expect(volumeMounts).To(ConsistOf(expectedVolumeMounts))
-	Expect(coreContainer.Env).To(ConsistOf(t.NewCoreEnvironmentVariables("", true, false, false, false, false)))
+	Expect(coreContainer.Env).To(ConsistOf(t.NewCoreEnvironmentVariables("", true, false, false, false, false, false, false)))
 }
 
 func (t *cryostatTestInput) checkDeploymentHasNoAuthProperties() {
@@ -2902,7 +2933,9 @@ func (t *cryostatTestInput) checkDeploymentHasNoAuthProperties() {
 
 func (t *cryostatTestInput) checkCoreContainer(container *corev1.Container, ingress bool,
 	reportsUrl string, authProps bool,
-	emptyDir bool, builtInDiscoveryDisabled bool, dbSecretProvided bool,
+	emptyDir bool,
+	builtInDiscoveryDisabled bool, hasPortConfig bool, builtInPortConfigDisabled bool,
+	dbSecretProvided bool,
 	resources *corev1.ResourceRequirements,
 	securityContext *corev1.SecurityContext) {
 	Expect(container.Name).To(Equal(t.Name))
@@ -2912,7 +2945,7 @@ func (t *cryostatTestInput) checkCoreContainer(container *corev1.Container, ingr
 		Expect(container.Image).To(Equal(*t.EnvCoreImageTag))
 	}
 	Expect(container.Ports).To(ConsistOf(t.NewCorePorts()))
-	Expect(container.Env).To(ConsistOf(t.NewCoreEnvironmentVariables(reportsUrl, authProps, ingress, emptyDir, builtInDiscoveryDisabled, dbSecretProvided)))
+	Expect(container.Env).To(ConsistOf(t.NewCoreEnvironmentVariables(reportsUrl, authProps, ingress, emptyDir, builtInDiscoveryDisabled, hasPortConfig, builtInPortConfigDisabled, dbSecretProvided)))
 	Expect(container.EnvFrom).To(ConsistOf(t.NewCoreEnvFromSource()))
 	Expect(container.VolumeMounts).To(ConsistOf(t.NewCoreVolumeMounts()))
 	Expect(container.LivenessProbe).To(Equal(t.NewCoreLivenessProbe()))
