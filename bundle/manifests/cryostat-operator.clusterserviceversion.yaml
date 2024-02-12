@@ -100,11 +100,11 @@ metadata:
     capabilities: Seamless Upgrades
     categories: Monitoring, Developer Tools
     containerImage: quay.io/cryostat/cryostat-operator:2.5.0-dev
-    createdAt: "2024-02-01T22:49:04Z"
+    createdAt: "2024-02-12T22:09:00Z"
     description: JVM monitoring and profiling tool
     operatorframework.io/initialization-resource: |-
       {
-        "apiVersion": "operator.cryostat.io/v1beta1",
+        "apiVersion": "operator.cryostat.io/v1beta2",
         "kind": "Cryostat",
         "metadata": {
           "name": "cryostat-sample"
@@ -503,6 +503,12 @@ spec:
         path: trustedCertSecrets[0].secretName
         x-descriptors:
         - urn:alm:descriptor:io.kubernetes:Secret
+      - description: A namespace whose workloads Cryostat should be able to connect
+          and record
+        displayName: Target Namespace
+        path: targetNamespaces[0]
+        x-descriptors:
+        - urn:alm:descriptor:io.kubernetes:Namespace
       statusDescriptors:
       - description: Address of the deployed Cryostat web application.
         displayName: Application URL
@@ -523,6 +529,12 @@ spec:
         path: conditions
         x-descriptors:
         - urn:alm:descriptor:io.kubernetes.conditions
+      - description: A namespace whose workloads Cryostat should be able to connect
+          and record
+        displayName: Target Namespace
+        path: targetNamespaces[0]
+        x-descriptors:
+        - urn:alm:descriptor:io.kubernetes:Namespace
       version: v1beta1
     - description: ClusterCryostat allows you to install Cryostat for multiple namespaces
         or cluster-wide. It contains configuration options for controlling the Deployment
@@ -1670,6 +1682,12 @@ spec:
         path: trustedCertSecrets[0].secretName
         x-descriptors:
         - urn:alm:descriptor:io.kubernetes:Secret
+      - description: A namespace whose workloads Cryostat should be able to connect
+          and record
+        displayName: Target Namespace
+        path: targetNamespaces[0]
+        x-descriptors:
+        - urn:alm:descriptor:io.kubernetes:Namespace
       statusDescriptors:
       - description: Address of the deployed Cryostat web application.
         displayName: Application URL
@@ -1690,6 +1708,12 @@ spec:
         path: conditions
         x-descriptors:
         - urn:alm:descriptor:io.kubernetes.conditions
+      - description: A namespace whose workloads Cryostat should be able to connect
+          and record
+        displayName: Target Namespace
+        path: targetNamespaces[0]
+        x-descriptors:
+        - urn:alm:descriptor:io.kubernetes:Namespace
       version: v1beta2
   description: |
     Cryostat provides a cloud-based solution for interacting with the JDK Flight Recorder already present in OpenJDK 11+ JVMs. With Cryostat, users can remotely start, stop, retrieve, and even analyze JFR event data, providing the capability to easily take advantage of Flight Recorder's extremely low runtime cost and overhead and the flexibility to monitor applications and analyze recording data without transferring data outside of the cluster the application runs within.

@@ -8,7 +8,7 @@ metadata:
     description: JVM monitoring and profiling tool
     operatorframework.io/initialization-resource: |-
       {
-        "apiVersion": "operator.cryostat.io/v1beta1",
+        "apiVersion": "operator.cryostat.io/v1beta2",
         "kind": "Cryostat",
         "metadata": {
           "name": "cryostat-sample"
