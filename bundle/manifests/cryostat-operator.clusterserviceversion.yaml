@@ -54,7 +54,7 @@ metadata:
     capabilities: Seamless Upgrades
     categories: Monitoring, Developer Tools
     containerImage: quay.io/cryostat/cryostat-operator:2.4.1-dev
-    createdAt: "2023-12-08T21:11:45Z"
+    createdAt: "2024-02-12T19:51:22Z"
     description: JVM monitoring and profiling tool
     operatorframework.io/initialization-resource: |-
       {
@@ -444,11 +444,35 @@ spec:
         displayName: Target Discovery Options
         path: targetDiscoveryOptions
       - description: When true, the Cryostat application will disable the built-in
-          discovery mechanisms. Defaults to false
+          discovery mechanisms. Defaults to false.
         displayName: Disable Built-in Discovery
         path: targetDiscoveryOptions.builtInDiscoveryDisabled
         x-descriptors:
         - urn:alm:descriptor:com.tectonic.ui:booleanSwitch
+      - description: When true, the Cryostat application will use the default port
+          name jfr-jmx to look for JMX connectable targets.
+        displayName: Disable Built-in Port Names
+        path: targetDiscoveryOptions.disableBuiltInPortNames
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:booleanSwitch
+      - description: When true, the Cryostat application will use the default port
+          number 9091 to look for JMX connectable targets.
+        displayName: Disable Built-in Port Numbers
+        path: targetDiscoveryOptions.disableBuiltInPortNumbers
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:booleanSwitch
+      - description: List of port names that the Cryostat application should look
+          for in order to consider a target as JMX connectable.
+        displayName: Discovery Port Names
+        path: targetDiscoveryOptions.discoveryPortNames
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:fieldDependency:targetDiscoveryOptions.disableBuiltInPortNames:true
+      - description: List of port numbers that the Cryostat application should look
+          for in order to consider a target as JMX connectable.
+        displayName: Discovery Port Numbers
+        path: targetDiscoveryOptions.discoveryPortNumbers
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:fieldDependency:targetDiscoveryOptions.disableBuiltInPortNumbers:true
       - description: List of TLS certificates to trust when connecting to targets.
         displayName: Trusted TLS Certificates
         path: trustedCertSecrets
@@ -836,11 +860,35 @@ spec:
         displayName: Target Discovery Options
         path: targetDiscoveryOptions
       - description: When true, the Cryostat application will disable the built-in
-          discovery mechanisms. Defaults to false
+          discovery mechanisms. Defaults to false.
         displayName: Disable Built-in Discovery
         path: targetDiscoveryOptions.builtInDiscoveryDisabled
         x-descriptors:
         - urn:alm:descriptor:com.tectonic.ui:booleanSwitch
+      - description: When true, the Cryostat application will use the default port
+          name jfr-jmx to look for JMX connectable targets.
+        displayName: Disable Built-in Port Names
+        path: targetDiscoveryOptions.disableBuiltInPortNames
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:booleanSwitch
+      - description: When true, the Cryostat application will use the default port
+          number 9091 to look for JMX connectable targets.
+        displayName: Disable Built-in Port Numbers
+        path: targetDiscoveryOptions.disableBuiltInPortNumbers
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:booleanSwitch
+      - description: List of port names that the Cryostat application should look
+          for in order to consider a target as JMX connectable.
+        displayName: Discovery Port Names
+        path: targetDiscoveryOptions.discoveryPortNames
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:fieldDependency:targetDiscoveryOptions.disableBuiltInPortNames:true
+      - description: List of port numbers that the Cryostat application should look
+          for in order to consider a target as JMX connectable.
+        displayName: Discovery Port Numbers
+        path: targetDiscoveryOptions.discoveryPortNumbers
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:fieldDependency:targetDiscoveryOptions.disableBuiltInPortNumbers:true
       - description: List of TLS certificates to trust when connecting to targets.
         displayName: Trusted TLS Certificates
         path: trustedCertSecrets
