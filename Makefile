@@ -46,7 +46,6 @@ USE_IMAGE_DIGESTS ?= false
 ifeq ($(USE_IMAGE_DIGESTS), true)
 	BUNDLE_GEN_FLAGS += --use-image-digests
 endif
-BUNDLE_INSTALL_MODE ?= AllNamespaces
 
 IMAGE_BUILDER ?= podman
 # Image URL to use all building/pushing image targets
@@ -474,7 +473,7 @@ undeploy: ## Undeploy controller from the configured cluster in ~/.kube/config.
 
 .PHONY: deploy_bundle
 deploy_bundle: check_cert_manager undeploy_bundle ## Deploy the controller in the bundle format with OLM.
-	$(OPERATOR_SDK) run bundle --install-mode $(BUNDLE_INSTALL_MODE) $(BUNDLE_IMG)
+	$(OPERATOR_SDK) run bundle --install-mode AllNamespaces $(BUNDLE_IMG)
 ifeq ($(DISABLE_SERVICE_TLS), true)
 	@echo "Disabling TLS for in-cluster communication between Services"
 	@current_ns=`$(CLUSTER_CLIENT) config view --minify -o 'jsonpath={.contexts[0].context.namespace}'` && \

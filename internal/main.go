@@ -19,7 +19,6 @@ import (
 	"fmt"
 	"net/url"
 	"os"
-	"strings"
 
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	// to ensure that exec-entrypoint and run can make use of them.
@@ -30,12 +29,10 @@ import (
 	configv1 "github.com/openshift/api/config/v1"
 	consolev1 "github.com/openshift/api/console/v1"
 	routev1 "github.com/openshift/api/route/v1"
-	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	ctrl "sigs.k8s.io/controller-runtime"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
@@ -80,25 +77,7 @@ func main() {
 	opts.BindFlags(flag.CommandLine)
 	flag.Parse()
 
-	watchNamespace, err := getWatchNamespace()
-	if err != nil {
-		setupLog.Error(err, "unable to get WatchNamespace, "+
-			"the manager will watch and manage resources in all namespaces")
-	}
-	namespaces := []string{}
-	if len(watchNamespace) > 0 {
-		namespaces = append(namespaces, strings.Split(watchNamespace, ",")...)
-	}
-
 	ctrl.SetLogger(zap.New(zap.UseFlagOptions(&opts)))
-
-	// For OwnNamespace install mode, we need to see RoleBindings in other namespaces
-	// when used with ClusterCryostat
-	// https://github.com/cryostatio/cryostat-operator/issues/580
-	disableCache := []client.Object{}
-	if len(namespaces) > 0 {
-		disableCache = append(disableCache, &rbacv1.RoleBinding{})
-	}
 
 	// FIXME Disable metrics until this issue is resolved:
 	// https://github.com/operator-framework/operator-sdk/issues/4684
@@ -110,7 +89,6 @@ func main() {
 		HealthProbeBindAddress: probeAddr,
 		LeaderElection:         enableLeaderElection,
 		LeaderElectionID:       "d696d7ab.redhat.com",
-		ClientDisableCacheFor:  disableCache, // TODO can probably remove
 	})
 	if err != nil {
 		setupLog.Error(err, "unable to start manager")
@@ -156,7 +134,7 @@ func main() {
 	}
 
 	config := newReconcilerConfig(mgr, "ClusterCryostat", "clustercryostat-controller", openShift,
-		certManager, namespaces, insightsURL)
+		certManager, insightsURL)
 	clusterController, err := controllers.NewClusterCryostatReconciler(config)
 	if err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "ClusterCryostat")
@@ -167,7 +145,7 @@ func main() {
 		os.Exit(1)
 	}
 	config = newReconcilerConfig(mgr, "Cryostat", "cryostat-controller", openShift, certManager,
-		namespaces, insightsURL)
+		insightsURL)
 	controller, err := controllers.NewCryostatReconciler(config)
 	if err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "Cryostat")
@@ -195,20 +173,6 @@ func main() {
 	}
 }
 
-// getWatchNamespace returns the Namespace the operator should be watching for changes
-func getWatchNamespace() (string, error) {
-	// WatchNamespaceEnvVar is the constant for env variable WATCH_NAMESPACE
-	// which specifies the Namespace to watch.
-	// An empty value means the operator is running with cluster scope.
-	var watchNamespaceEnvVar = "WATCH_NAMESPACE"
-
-	ns, found := os.LookupEnv(watchNamespaceEnvVar)
-	if !found {
-		return "", fmt.Errorf("%s must be set", watchNamespaceEnvVar)
-	}
-	return ns, nil
-}
-
 func isOpenShift(client discovery.DiscoveryInterface) (bool, error) {
 	return discovery.IsResourceEnabled(client, routev1.GroupVersion.WithResource("routes"))
 }
@@ -218,7 +182,7 @@ func isCertManagerInstalled(client discovery.DiscoveryInterface) (bool, error) {
 }
 
 func newReconcilerConfig(mgr ctrl.Manager, logName string, eventRecorderName string, openShift bool,
-	certManager bool, namespaces []string, insightsURL *url.URL) *controllers.ReconcilerConfig {
+	certManager bool, insightsURL *url.URL) *controllers.ReconcilerConfig {
 	return &controllers.ReconcilerConfig{
 		Client:                 mgr.GetClient(),
 		Log:                    ctrl.Log.WithName("controllers").WithName(logName),
@@ -227,7 +191,6 @@ func newReconcilerConfig(mgr ctrl.Manager, logName string, eventRecorderName str
 		IsCertManagerInstalled: certManager,
 		EventRecorder:          mgr.GetEventRecorderFor(eventRecorderName),
 		RESTMapper:             mgr.GetRESTMapper(),
-		Namespaces:             namespaces,
 		InsightsProxy:          insightsURL,
 		ReconcilerTLS: common.NewReconcilerTLS(&common.ReconcilerTLSConfig{
 			Client: mgr.GetClient(),
