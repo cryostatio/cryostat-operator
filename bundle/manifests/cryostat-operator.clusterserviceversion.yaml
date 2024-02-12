@@ -843,7 +843,7 @@ spec:
         displayName: Target Discovery Options
         path: targetDiscoveryOptions
       - description: When true, the Cryostat application will disable the built-in
-          discovery mechanisms. Defaults to false
+          discovery mechanisms. Defaults to false.
         displayName: Disable Built-in Discovery
         path: targetDiscoveryOptions.builtInDiscoveryDisabled
         x-descriptors:

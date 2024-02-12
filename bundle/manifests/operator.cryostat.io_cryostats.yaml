@@ -9693,7 +9693,7 @@ spec:
                 properties:
                   builtInDiscoveryDisabled:
                     description: When true, the Cryostat application will disable
-                      the built-in discovery mechanisms. Defaults to false
+                      the built-in discovery mechanisms. Defaults to false.
                     type: boolean
                   disableBuiltInPortNames:
                     description: When true, the Cryostat application will use the
