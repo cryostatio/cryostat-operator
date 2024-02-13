@@ -18,7 +18,7 @@ import (
 	"context"
 	"fmt"
 
-	operatorv1beta1 "github.com/cryostatio/cryostat-operator/api/v1beta1"
+	operatorv1beta2 "github.com/cryostatio/cryostat-operator/api/v1beta2"
 	"github.com/cryostatio/cryostat-operator/internal/controllers/common"
 	"github.com/cryostatio/cryostat-operator/internal/controllers/model"
 	corev1 "k8s.io/api/core/v1"
@@ -62,7 +62,7 @@ func (r *Reconciler) reconcilePVC(ctx context.Context, cr *model.CryostatInstanc
 }
 
 func (r *Reconciler) createOrUpdatePVC(ctx context.Context, pvc *corev1.PersistentVolumeClaim,
-	owner metav1.Object, config *operatorv1beta1.PersistentVolumeClaimConfig) error {
+	owner metav1.Object, config *operatorv1beta2.PersistentVolumeClaimConfig) error {
 	op, err := controllerutil.CreateOrUpdate(ctx, r.Client, pvc, func() error {
 		// Merge labels and annotations to prevent overriding any set by Kubernetes
 		common.MergeLabelsAndAnnotations(&pvc.ObjectMeta, config.Labels, config.Annotations)
@@ -94,11 +94,11 @@ func (r *Reconciler) createOrUpdatePVC(ctx context.Context, pvc *corev1.Persiste
 	return nil
 }
 
-func configurePVC(cr *model.CryostatInstance) *operatorv1beta1.PersistentVolumeClaimConfig {
+func configurePVC(cr *model.CryostatInstance) *operatorv1beta2.PersistentVolumeClaimConfig {
 	// Check for PVC config within CR
-	var config *operatorv1beta1.PersistentVolumeClaimConfig
+	var config *operatorv1beta2.PersistentVolumeClaimConfig
 	if cr.Spec.StorageOptions == nil || cr.Spec.StorageOptions.PVC == nil {
-		config = &operatorv1beta1.PersistentVolumeClaimConfig{}
+		config = &operatorv1beta2.PersistentVolumeClaimConfig{}
 	} else {
 		config = cr.Spec.StorageOptions.PVC.DeepCopy()
 	}

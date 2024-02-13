@@ -12,22 +12,16 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package controllers_test
+package v1beta1_test
 
 import (
-	"github.com/cryostatio/cryostat-operator/internal/controllers"
+	"testing"
+
 	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
 )
 
-var _ = Describe("ClusterCryostatController", func() {
-	c := controllerTest{
-		clusterScoped:   true,
-		constructorFunc: newClusterCryostatController,
-	}
-
-	c.commonTests()
-})
-
-func newClusterCryostatController(config *controllers.ReconcilerConfig) (controllers.CommonReconciler, error) {
-	return controllers.NewClusterCryostatReconciler(config)
+func TestBooks(t *testing.T) {
+	RegisterFailHandler(Fail)
+	RunSpecs(t, "Cryostat Suite")
 }

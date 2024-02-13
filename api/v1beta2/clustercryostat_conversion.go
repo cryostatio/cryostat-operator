@@ -12,22 +12,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package controllers_test
+package v1beta2
 
-import (
-	"github.com/cryostatio/cryostat-operator/internal/controllers"
-	. "github.com/onsi/ginkgo/v2"
-)
+import "sigs.k8s.io/controller-runtime/pkg/conversion"
 
-var _ = Describe("ClusterCryostatController", func() {
-	c := controllerTest{
-		clusterScoped:   true,
-		constructorFunc: newClusterCryostatController,
-	}
+// TODO Remove this file with ClusterCryostat CRD
 
-	c.commonTests()
-})
+var _ conversion.Hub = &ClusterCryostat{}
 
-func newClusterCryostatController(config *controllers.ReconcilerConfig) (controllers.CommonReconciler, error) {
-	return controllers.NewClusterCryostatReconciler(config)
-}
+// Hub marks this type as a conversion hub.
+func (*ClusterCryostat) Hub() {}

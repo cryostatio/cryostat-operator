@@ -45,7 +45,7 @@ import (
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
-	operatorv1beta1 "github.com/cryostatio/cryostat-operator/api/v1beta1"
+	operatorv1beta2 "github.com/cryostatio/cryostat-operator/api/v1beta2"
 	"github.com/cryostatio/cryostat-operator/internal/controllers"
 	"github.com/cryostatio/cryostat-operator/internal/controllers/model"
 	"github.com/cryostatio/cryostat-operator/internal/test"
@@ -170,7 +170,7 @@ func expectSuccessful(t **cryostatTestInput) {
 		(*t).expectStatusGrafanaSecretName((*t).NewGrafanaSecret().Name)
 	})
 	It("should set TLSSetupComplete condition", func() {
-		(*t).checkConditionPresent(operatorv1beta1.ConditionTypeTLSSetupComplete, metav1.ConditionTrue,
+		(*t).checkConditionPresent(operatorv1beta2.ConditionTypeTLSSetupComplete, metav1.ConditionTrue,
 			"AllCertificatesReady")
 	})
 	Context("deployment is progressing", func() {
@@ -178,22 +178,22 @@ func expectSuccessful(t **cryostatTestInput) {
 			(*t).makeDeploymentProgress((*t).Name)
 		})
 		It("should update conditions", func() {
-			(*t).checkConditionPresent(operatorv1beta1.ConditionTypeMainDeploymentAvailable, metav1.ConditionFalse,
+			(*t).checkConditionPresent(operatorv1beta2.ConditionTypeMainDeploymentAvailable, metav1.ConditionFalse,
 				"TestAvailable")
-			(*t).checkConditionPresent(operatorv1beta1.ConditionTypeMainDeploymentProgressing, metav1.ConditionTrue,
+			(*t).checkConditionPresent(operatorv1beta2.ConditionTypeMainDeploymentProgressing, metav1.ConditionTrue,
 				"TestProgressing")
-			(*t).checkConditionAbsent(operatorv1beta1.ConditionTypeMainDeploymentReplicaFailure)
+			(*t).checkConditionAbsent(operatorv1beta2.ConditionTypeMainDeploymentReplicaFailure)
 		})
 		Context("then becomes available", func() {
 			JustBeforeEach(func() {
 				(*t).makeDeploymentAvailable((*t).Name)
 			})
 			It("should update conditions", func() {
-				(*t).checkConditionPresent(operatorv1beta1.ConditionTypeMainDeploymentAvailable, metav1.ConditionTrue,
+				(*t).checkConditionPresent(operatorv1beta2.ConditionTypeMainDeploymentAvailable, metav1.ConditionTrue,
 					"TestAvailable")
-				(*t).checkConditionPresent(operatorv1beta1.ConditionTypeMainDeploymentProgressing, metav1.ConditionTrue,
+				(*t).checkConditionPresent(operatorv1beta2.ConditionTypeMainDeploymentProgressing, metav1.ConditionTrue,
 					"TestProgressing")
-				(*t).checkConditionAbsent(operatorv1beta1.ConditionTypeMainDeploymentReplicaFailure)
+				(*t).checkConditionAbsent(operatorv1beta2.ConditionTypeMainDeploymentReplicaFailure)
 			})
 		})
 		Context("then fails to roll out", func() {
@@ -201,11 +201,11 @@ func expectSuccessful(t **cryostatTestInput) {
 				(*t).makeDeploymentFail((*t).Name)
 			})
 			It("should update conditions", func() {
-				(*t).checkConditionPresent(operatorv1beta1.ConditionTypeMainDeploymentAvailable, metav1.ConditionFalse,
+				(*t).checkConditionPresent(operatorv1beta2.ConditionTypeMainDeploymentAvailable, metav1.ConditionFalse,
 					"TestAvailable")
-				(*t).checkConditionPresent(operatorv1beta1.ConditionTypeMainDeploymentProgressing, metav1.ConditionFalse,
+				(*t).checkConditionPresent(operatorv1beta2.ConditionTypeMainDeploymentProgressing, metav1.ConditionFalse,
 					"TestProgressing")
-				(*t).checkConditionPresent(operatorv1beta1.ConditionTypeMainDeploymentReplicaFailure, metav1.ConditionTrue,
+				(*t).checkConditionPresent(operatorv1beta2.ConditionTypeMainDeploymentReplicaFailure, metav1.ConditionTrue,
 					"TestReplicaFailure")
 			})
 		})
@@ -471,18 +471,16 @@ func (c *controllerTest) commonTests() {
 				t.reconcileCryostatFully()
 			})
 			It("should update the Role Binding", func() {
+				expected := t.NewRoleBinding(t.Namespace)
 				binding := &rbacv1.RoleBinding{}
-				err := t.Client.Get(context.Background(), types.NamespacedName{Name: t.Name, Namespace: t.Namespace}, binding)
+				err := t.Client.Get(context.Background(), types.NamespacedName{Name: expected.Name, Namespace: expected.Namespace}, binding)
 				Expect(err).ToNot(HaveOccurred())
-
-				Expect(metav1.IsControlledBy(binding, cr.Object)).To(BeTrue())
 
 				// Labels are unaffected
 				Expect(binding.Labels).To(Equal(oldBinding.Labels))
 				Expect(binding.Annotations).To(Equal(oldBinding.Annotations))
 
 				// Subjects and RoleRef should be fully replaced
-				expected := t.NewRoleBinding(t.Namespace)
 				Expect(binding.Subjects).To(Equal(expected.Subjects))
 				Expect(binding.RoleRef).To(Equal(expected.RoleRef))
 			})
@@ -752,22 +750,22 @@ func (c *controllerTest) commonTests() {
 					t.makeDeploymentProgress(t.Name + "-reports")
 				})
 				It("should update conditions", func() {
-					t.checkConditionPresent(operatorv1beta1.ConditionTypeReportsDeploymentAvailable, metav1.ConditionFalse,
+					t.checkConditionPresent(operatorv1beta2.ConditionTypeReportsDeploymentAvailable, metav1.ConditionFalse,
 						"TestAvailable")
-					t.checkConditionPresent(operatorv1beta1.ConditionTypeReportsDeploymentProgressing, metav1.ConditionTrue,
+					t.checkConditionPresent(operatorv1beta2.ConditionTypeReportsDeploymentProgressing, metav1.ConditionTrue,
 						"TestProgressing")
-					t.checkConditionAbsent(operatorv1beta1.ConditionTypeReportsDeploymentReplicaFailure)
+					t.checkConditionAbsent(operatorv1beta2.ConditionTypeReportsDeploymentReplicaFailure)
 				})
 				Context("then becomes available", func() {
 					JustBeforeEach(func() {
 						t.makeDeploymentAvailable(t.Name + "-reports")
 					})
 					It("should update conditions", func() {
-						t.checkConditionPresent(operatorv1beta1.ConditionTypeReportsDeploymentAvailable, metav1.ConditionTrue,
+						t.checkConditionPresent(operatorv1beta2.ConditionTypeReportsDeploymentAvailable, metav1.ConditionTrue,
 							"TestAvailable")
-						t.checkConditionPresent(operatorv1beta1.ConditionTypeReportsDeploymentProgressing, metav1.ConditionTrue,
+						t.checkConditionPresent(operatorv1beta2.ConditionTypeReportsDeploymentProgressing, metav1.ConditionTrue,
 							"TestProgressing")
-						t.checkConditionAbsent(operatorv1beta1.ConditionTypeReportsDeploymentReplicaFailure)
+						t.checkConditionAbsent(operatorv1beta2.ConditionTypeReportsDeploymentReplicaFailure)
 					})
 				})
 				Context("then fails to roll out", func() {
@@ -775,11 +773,11 @@ func (c *controllerTest) commonTests() {
 						t.makeDeploymentFail(t.Name + "-reports")
 					})
 					It("should update conditions", func() {
-						t.checkConditionPresent(operatorv1beta1.ConditionTypeReportsDeploymentAvailable, metav1.ConditionFalse,
+						t.checkConditionPresent(operatorv1beta2.ConditionTypeReportsDeploymentAvailable, metav1.ConditionFalse,
 							"TestAvailable")
-						t.checkConditionPresent(operatorv1beta1.ConditionTypeReportsDeploymentProgressing, metav1.ConditionFalse,
+						t.checkConditionPresent(operatorv1beta2.ConditionTypeReportsDeploymentProgressing, metav1.ConditionFalse,
 							"TestProgressing")
-						t.checkConditionPresent(operatorv1beta1.ConditionTypeReportsDeploymentReplicaFailure, metav1.ConditionTrue,
+						t.checkConditionPresent(operatorv1beta2.ConditionTypeReportsDeploymentReplicaFailure, metav1.ConditionTrue,
 							"TestReplicaFailure")
 					})
 				})
@@ -795,7 +793,7 @@ func (c *controllerTest) commonTests() {
 				cryostat := t.getCryostatInstance()
 
 				t.ReportReplicas = 1
-				cryostat.Spec.ReportOptions = &operatorv1beta1.ReportConfiguration{
+				cryostat.Spec.ReportOptions = &operatorv1beta2.ReportConfiguration{
 					Replicas: t.ReportReplicas,
 				}
 				t.updateCryostatInstance(cryostat)
@@ -875,9 +873,9 @@ func (c *controllerTest) commonTests() {
 				t.expectNoReportsDeployment()
 			})
 			It("should remove conditions", func() {
-				t.checkConditionAbsent(operatorv1beta1.ConditionTypeReportsDeploymentAvailable)
-				t.checkConditionAbsent(operatorv1beta1.ConditionTypeReportsDeploymentProgressing)
-				t.checkConditionAbsent(operatorv1beta1.ConditionTypeReportsDeploymentReplicaFailure)
+				t.checkConditionAbsent(operatorv1beta2.ConditionTypeReportsDeploymentAvailable)
+				t.checkConditionAbsent(operatorv1beta2.ConditionTypeReportsDeploymentProgressing)
+				t.checkConditionAbsent(operatorv1beta2.ConditionTypeReportsDeploymentReplicaFailure)
 			})
 		})
 		Context("Cryostat CR has list of certificate secrets", func() {
@@ -1396,7 +1394,7 @@ func (c *controllerTest) commonTests() {
 			})
 			It("should set TLSSetupComplete condition", func() {
 				t.reconcileCryostatFully()
-				t.checkConditionPresent(operatorv1beta1.ConditionTypeTLSSetupComplete, metav1.ConditionTrue,
+				t.checkConditionPresent(operatorv1beta2.ConditionTypeTLSSetupComplete, metav1.ConditionTrue,
 					"AllCertificatesReady")
 			})
 		})
@@ -1425,7 +1423,7 @@ func (c *controllerTest) commonTests() {
 			})
 			It("should set TLSSetupComplete Condition", func() {
 				t.reconcileCryostatFully()
-				t.checkConditionPresent(operatorv1beta1.ConditionTypeTLSSetupComplete, metav1.ConditionTrue,
+				t.checkConditionPresent(operatorv1beta2.ConditionTypeTLSSetupComplete, metav1.ConditionTrue,
 					"CertManagerDisabled")
 			})
 		})
@@ -1452,7 +1450,7 @@ func (c *controllerTest) commonTests() {
 				t.expectRoutes()
 			})
 			It("should set TLSSetupComplete Condition", func() {
-				t.checkConditionPresent(operatorv1beta1.ConditionTypeTLSSetupComplete, metav1.ConditionTrue,
+				t.checkConditionPresent(operatorv1beta2.ConditionTypeTLSSetupComplete, metav1.ConditionTrue,
 					"CertManagerDisabled")
 			})
 		})
@@ -1483,7 +1481,7 @@ func (c *controllerTest) commonTests() {
 				t.expectRoutes()
 			})
 			It("should set TLSSetupComplete condition", func() {
-				t.checkConditionPresent(operatorv1beta1.ConditionTypeTLSSetupComplete, metav1.ConditionTrue,
+				t.checkConditionPresent(operatorv1beta2.ConditionTypeTLSSetupComplete, metav1.ConditionTrue,
 					"AllCertificatesReady")
 			})
 		})
@@ -1507,7 +1505,7 @@ func (c *controllerTest) commonTests() {
 					Expect(eventMsg).To(ContainSubstring("CertManagerUnavailable"))
 				})
 				It("should set TLSSetupComplete Condition", func() {
-					t.checkConditionPresent(operatorv1beta1.ConditionTypeTLSSetupComplete, metav1.ConditionFalse,
+					t.checkConditionPresent(operatorv1beta2.ConditionTypeTLSSetupComplete, metav1.ConditionFalse,
 						"CertManagerUnavailable")
 				})
 			})
@@ -1525,7 +1523,7 @@ func (c *controllerTest) commonTests() {
 					Expect(recorder.Events).ToNot(Receive())
 				})
 				It("should set TLSSetupComplete Condition", func() {
-					t.checkConditionPresent(operatorv1beta1.ConditionTypeTLSSetupComplete, metav1.ConditionTrue,
+					t.checkConditionPresent(operatorv1beta2.ConditionTypeTLSSetupComplete, metav1.ConditionTrue,
 						"CertManagerDisabled")
 				})
 			})
@@ -1811,8 +1809,6 @@ func (c *controllerTest) commonTests() {
 
 				// Reconcile conflicting namespaced Cryostat fully
 				otherInput.reconcileCryostatFully()
-				// Try reconciling ClusterCryostat
-				reconcileErr = t.reconcileCryostatFullyWithError()
 			})
 
 			JustAfterEach(func() {
@@ -1826,6 +1822,11 @@ func (c *controllerTest) commonTests() {
 
 					t.objs = append(t.objs, t.NewCryostat().Object, otherInput.NewCryostat().Object)
 					otherInput.objs = t.objs
+				})
+
+				JustBeforeEach(func() {
+					// Try reconciling ClusterCryostat
+					reconcileErr = t.reconcileCryostatFullyWithError()
 				})
 
 				It("should fail to reconcile", func() {
@@ -1881,16 +1882,107 @@ func (c *controllerTest) commonTests() {
 					otherInput.objs = t.objs
 				})
 
-				It("should fail to reconcile", func() {
-					t.expectAlreadyOwnedError(reconcileErr, "RoleBinding", t.NewRoleBinding(nsInput.Namespace), otherInput)
-				})
-
-				It("should emit a CryostatNameConflict event", func() {
-					t.expectNameConflictEvent()
+				JustBeforeEach(func() {
+					// Try reconciling ClusterCryostat
+					t.reconcileCryostatFully()
 				})
 
 				// Existing Cryostat installation should be unaffected
-				expectSuccessful(&otherInput)
+				Context("existing installation", func() {
+					expectSuccessful(&otherInput)
+				})
+
+				// New installation should also be unaffected
+				Context("new installation", func() {
+					expectSuccessful(&otherInput)
+				})
+			})
+		})
+
+		Context("reconciling a multi-namespace request", func() {
+			targetNamespaces := []string{"multi-test-one", "multi-test-two"}
+
+			BeforeEach(func() {
+				// Create Namespaces
+				for _, ns := range targetNamespaces {
+					t.objs = append(t.objs, t.NewOtherNamespace(ns))
+				}
+			})
+
+			JustBeforeEach(func() {
+				t.reconcileCryostatFully()
+			})
+
+			Context("with unchanged target namespaces", func() {
+				BeforeEach(func() {
+					t.TargetNamespaces = targetNamespaces
+					t.objs = append(t.objs, t.NewCryostat().Object)
+				})
+
+				It("should create the expected main deployment", func() {
+					t.expectMainDeployment()
+				})
+
+				It("should create CA Cert secret in each namespace", func() {
+					t.expectCertificates()
+				})
+
+				It("should create RBAC in each namespace", func() {
+					t.expectRBAC()
+				})
+
+				It("should update the target namespaces in Status", func() {
+					t.expectTargetNamespaces()
+				})
+			})
+
+			Context("with removed target namespaces", func() {
+				BeforeEach(func() {
+					// Begin with RBAC set up for two namespaces,
+					// and remove the second namespace from the spec
+					t.TargetNamespaces = targetNamespaces[:1]
+					cr := t.NewCryostat()
+					*cr.TargetNamespaceStatus = targetNamespaces
+					t.objs = append(t.objs, cr.Object,
+						t.NewRoleBinding(targetNamespaces[0]),
+						t.NewRoleBinding(targetNamespaces[1]),
+						t.NewCACertSecret(targetNamespaces[0]),
+						t.NewCACertSecret(targetNamespaces[1]))
+				})
+				It("should create the expected main deployment", func() {
+					t.expectMainDeployment()
+				})
+				It("leave RBAC for the first namespace", func() {
+					t.expectRBAC()
+				})
+				It("should remove RBAC from the second namespace", func() {
+					binding := t.NewRoleBinding(targetNamespaces[1])
+					err := t.Client.Get(context.Background(), types.NamespacedName{Name: binding.Name, Namespace: binding.Namespace}, binding)
+					Expect(err).ToNot(BeNil())
+					Expect(kerrors.IsNotFound(err)).To(BeTrue())
+				})
+				It("leave CA Cert secret for the first namespace", func() {
+					t.expectCertificates()
+				})
+				It("should remove CA Cert secret from the second namespace", func() {
+					secret := t.NewCACertSecret(targetNamespaces[1])
+					err := t.Client.Get(context.Background(), types.NamespacedName{Name: secret.Name, Namespace: secret.Namespace}, secret)
+					Expect(err).ToNot(BeNil())
+					Expect(kerrors.IsNotFound(err)).To(BeTrue())
+				})
+				It("should update the target namespaces in Status", func() {
+					t.expectTargetNamespaces()
+				})
+			})
+
+			Context("with no target namespaces", func() {
+				BeforeEach(func() {
+					t.TargetNamespaces = nil
+					t.objs = append(t.objs, t.NewCryostat().Object)
+				})
+				It("should update the target namespaces in Status", func() {
+					t.expectTargetNamespaces()
+				})
 			})
 		})
 	})
@@ -2168,18 +2260,16 @@ func (c *controllerTest) commonTests() {
 			It("should update the Role Binding", func() {
 				t.reconcileCryostatFully()
 
+				expected := t.NewRoleBinding(t.Namespace)
 				binding := &rbacv1.RoleBinding{}
-				err := t.Client.Get(context.Background(), types.NamespacedName{Name: t.Name, Namespace: t.Namespace}, binding)
+				err := t.Client.Get(context.Background(), types.NamespacedName{Name: expected.Name, Namespace: expected.Namespace}, binding)
 				Expect(err).ToNot(HaveOccurred())
-
-				Expect(metav1.IsControlledBy(binding, cr.Object)).To(BeTrue())
 
 				// Labels are unaffected
 				Expect(binding.Labels).To(Equal(oldBinding.Labels))
 				Expect(binding.Annotations).To(Equal(oldBinding.Annotations))
 
 				// Subjects and RoleRef should be fully replaced
-				expected := t.NewRoleBinding(t.Namespace)
 				Expect(binding.Subjects).To(Equal(expected.Subjects))
 				Expect(binding.RoleRef).To(Equal(expected.RoleRef))
 			})
@@ -2246,7 +2336,7 @@ func (t *cryostatTestInput) checkRoute(expected *openshiftv1.Route) *openshiftv1
 	return route
 }
 
-func (t *cryostatTestInput) checkConditionPresent(condType operatorv1beta1.CryostatConditionType, status metav1.ConditionStatus, reason string) {
+func (t *cryostatTestInput) checkConditionPresent(condType operatorv1beta2.CryostatConditionType, status metav1.ConditionStatus, reason string) {
 	cr := t.getCryostatInstance()
 
 	condition := meta.FindStatusCondition(cr.Status.Conditions, string(condType))
@@ -2255,7 +2345,7 @@ func (t *cryostatTestInput) checkConditionPresent(condType operatorv1beta1.Cryos
 	Expect(condition.Reason).To(Equal(reason))
 }
 
-func (t *cryostatTestInput) checkConditionAbsent(condType operatorv1beta1.CryostatConditionType) {
+func (t *cryostatTestInput) checkConditionAbsent(condType operatorv1beta2.CryostatConditionType) {
 	cr := t.getCryostatInstance()
 
 	condition := meta.FindStatusCondition(cr.Status.Conditions, string(condType))
@@ -2296,12 +2386,16 @@ func (t *cryostatTestInput) reconcileDeletedCryostat() {
 }
 
 func (t *cryostatTestInput) checkMetadata(object metav1.Object, expected metav1.Object) {
+	t.checkMetadataNoOwner(object, expected)
+	Expect(object.GetOwnerReferences()).To(HaveLen(1))
+	Expect(metav1.IsControlledBy(object, t.getCryostatInstance().Object))
+}
+
+func (t *cryostatTestInput) checkMetadataNoOwner(object metav1.Object, expected metav1.Object) {
 	Expect(object.GetName()).To(Equal(expected.GetName()))
 	Expect(object.GetNamespace()).To(Equal(expected.GetNamespace()))
 	Expect(object.GetLabels()).To(Equal(expected.GetLabels()))
 	Expect(object.GetAnnotations()).To(Equal(expected.GetAnnotations()))
-	Expect(object.GetOwnerReferences()).To(HaveLen(1))
-	Expect(metav1.IsControlledBy(object, t.getCryostatInstance().Object))
 }
 
 func (t *cryostatTestInput) expectNoCryostat() {
@@ -2315,7 +2409,7 @@ func (t *cryostatTestInput) expectWaitingForCertificate() {
 	Expect(result).To(Equal(reconcile.Result{RequeueAfter: 5 * time.Second}))
 
 	// Check TLSSetupComplete condition
-	t.checkConditionPresent(operatorv1beta1.ConditionTypeTLSSetupComplete, metav1.ConditionFalse,
+	t.checkConditionPresent(operatorv1beta2.ConditionTypeTLSSetupComplete, metav1.ConditionFalse,
 		"WaitingForCertificate")
 }
 
@@ -2359,13 +2453,14 @@ func (t *cryostatTestInput) expectCertificates() {
 	Expect(t.TargetNamespaces).ToNot(BeEmpty())
 	for _, ns := range t.TargetNamespaces {
 		if ns != t.Namespace {
-			namespaceSecret := t.NewCACertSecret(ns)
+			expectedSecret := t.NewCACertSecret(ns)
 			secret := &corev1.Secret{}
-			err := t.Client.Get(context.Background(), types.NamespacedName{Name: namespaceSecret.Name, Namespace: ns}, secret)
+			err := t.Client.Get(context.Background(), types.NamespacedName{Name: expectedSecret.Name, Namespace: ns}, secret)
 			Expect(err).ToNot(HaveOccurred())
-			t.checkMetadata(secret, namespaceSecret)
-			Expect(secret.Data).To(Equal(namespaceSecret.Data))
-			Expect(secret.Type).To(Equal(namespaceSecret.Type))
+			t.checkMetadataNoOwner(secret, expectedSecret)
+			Expect(secret.GetOwnerReferences()).To(BeEmpty())
+			Expect(secret.Data).To(Equal(expectedSecret.Data))
+			Expect(secret.Type).To(Equal(expectedSecret.Type))
 		}
 	}
 }
@@ -2383,11 +2478,12 @@ func (t *cryostatTestInput) expectRBAC() {
 	// Check for Role and RoleBinding in each target namespace
 	Expect(t.TargetNamespaces).ToNot(BeEmpty()) // Sanity check for tests
 	for _, ns := range t.TargetNamespaces {
-		binding := &rbacv1.RoleBinding{}
-		err = t.Client.Get(context.Background(), types.NamespacedName{Name: t.Name, Namespace: ns}, binding)
-		Expect(err).ToNot(HaveOccurred())
 		expectedBinding := t.NewRoleBinding(ns)
-		t.checkMetadata(binding, expectedBinding)
+		binding := &rbacv1.RoleBinding{}
+		err = t.Client.Get(context.Background(), types.NamespacedName{Name: expectedBinding.Name, Namespace: expectedBinding.Namespace}, binding)
+		Expect(err).ToNot(HaveOccurred())
+		t.checkMetadataNoOwner(binding, expectedBinding)
+		Expect(binding.GetOwnerReferences()).To(BeEmpty())
 		Expect(binding.Subjects).To(Equal(expectedBinding.Subjects))
 		Expect(binding.RoleRef).To(Equal(expectedBinding.RoleRef))
 	}
@@ -3024,14 +3120,14 @@ func (t *cryostatTestInput) getCryostatInstance() *model.CryostatInstance {
 
 func (t *cryostatTestInput) lookupCryostatInstance() (*model.CryostatInstance, error) {
 	if t.ClusterScoped {
-		cr := &operatorv1beta1.ClusterCryostat{}
+		cr := &operatorv1beta2.ClusterCryostat{}
 		err := t.Client.Get(context.Background(), types.NamespacedName{Name: t.Name}, cr)
 		if err != nil {
 			return nil, err
 		}
 		return t.ConvertClusterToModel(cr), nil
 	} else {
-		cr := &operatorv1beta1.Cryostat{}
+		cr := &operatorv1beta2.Cryostat{}
 		err := t.Client.Get(context.Background(), types.NamespacedName{Name: t.Name, Namespace: t.Namespace}, cr)
 		if err != nil {
 			return nil, err
@@ -3096,6 +3192,11 @@ func (t *cryostatTestInput) expectResourcesUnaffected() {
 	for _, check := range resourceChecks() {
 		check.expectFunc(t)
 	}
+}
+
+func (t *cryostatTestInput) expectTargetNamespaces() {
+	cr := t.getCryostatInstance()
+	Expect(*cr.TargetNamespaceStatus).To(ConsistOf(t.TargetNamespaces))
 }
 
 func getControllerFunc(clusterScoped bool) func(*controllers.ReconcilerConfig) (controllers.CommonReconciler, error) {
