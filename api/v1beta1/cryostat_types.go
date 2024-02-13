@@ -519,10 +519,26 @@ type ReportsSecurityOptions struct {
 
 // TargetDiscoveryOptions provides configuration options to the Cryostat application's target discovery mechanisms.
 type TargetDiscoveryOptions struct {
-	// When true, the Cryostat application will disable the built-in discovery mechanisms. Defaults to false
+	// When true, the Cryostat application will disable the built-in discovery mechanisms. Defaults to false.
 	// +optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Disable Built-in Discovery",xDescriptors={"urn:alm:descriptor:com.tectonic.ui:booleanSwitch"}
 	BuiltInDiscoveryDisabled bool `json:"builtInDiscoveryDisabled,omitempty"`
+	// When true, the Cryostat application will use the default port name jfr-jmx to look for JMX connectable targets.
+	// +optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Disable Built-in Port Names",xDescriptors={"urn:alm:descriptor:com.tectonic.ui:booleanSwitch"}
+	DisableBuiltInPortNames bool `json:"disableBuiltInPortNames,omitempty"`
+	// List of port names that the Cryostat application should look for in order to consider a target as JMX connectable.
+	// +optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:com.tectonic.ui:fieldDependency:targetDiscoveryOptions.disableBuiltInPortNames:true"}
+	DiscoveryPortNames []string `json:"discoveryPortNames,omitempty"`
+	// When true, the Cryostat application will use the default port number 9091 to look for JMX connectable targets.
+	// +optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Disable Built-in Port Numbers",xDescriptors={"urn:alm:descriptor:com.tectonic.ui:booleanSwitch"}
+	DisableBuiltInPortNumbers bool `json:"disableBuiltInPortNumbers,omitempty"`
+	// List of port numbers that the Cryostat application should look for in order to consider a target as JMX connectable.
+	// +optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:com.tectonic.ui:fieldDependency:targetDiscoveryOptions.disableBuiltInPortNumbers:true"}
+	DiscoveryPortNumbers []int32 `json:"discoveryPortNumbers,omitempty"`
 }
 
 // JmxCredentialsDatabaseOptions provides configuration options to the Cryostat application's credentials database.
