@@ -1111,10 +1111,14 @@ func (c *controllerTest) commonTests() {
 					datasourceImg := "my/datasource-image:1.0.0-BETA25"
 					grafanaImg := "my/grafana-image:1.0.0-dev"
 					reportsImg := "my/reports-image:1.0.0-SNAPSHOT"
+					storageImg := "my/storage-image:1.0.0"
+					databaseImg := "my/database-image:1.0.0"
 					t.EnvCoreImageTag = &coreImg
 					t.EnvDatasourceImageTag = &datasourceImg
 					t.EnvGrafanaImageTag = &grafanaImg
 					t.EnvReportsImageTag = &reportsImg
+					t.EnvDatabaseImageTag = &databaseImg
+					t.EnvStorageImageTag = &storageImg
 				})
 				It("should create deployment with the expected tags", func() {
 					t.expectMainDeployment()
@@ -1122,7 +1126,7 @@ func (c *controllerTest) commonTests() {
 				})
 				It("should set ImagePullPolicy to Always", func() {
 					containers := mainDeploy.Spec.Template.Spec.Containers
-					Expect(containers).To(HaveLen(3))
+					Expect(containers).To(HaveLen(5))
 					for _, container := range containers {
 						Expect(container.ImagePullPolicy).To(Equal(corev1.PullAlways))
 					}
@@ -1137,10 +1141,14 @@ func (c *controllerTest) commonTests() {
 					datasourceImg := "my/datasource-image:1.0.0"
 					grafanaImg := "my/grafana-image:1.0.0"
 					reportsImg := "my/reports-image:1.0.0"
+					storageImg := "my/storage-image:1.0.0"
+					databaseImg := "my/database-image:1.0.0"
 					t.EnvCoreImageTag = &coreImg
 					t.EnvDatasourceImageTag = &datasourceImg
 					t.EnvGrafanaImageTag = &grafanaImg
 					t.EnvReportsImageTag = &reportsImg
+					t.EnvDatabaseImageTag = &databaseImg
+					t.EnvStorageImageTag = &storageImg
 				})
 				JustBeforeEach(func() {
 					t.reconcileCryostatFully()
@@ -1151,7 +1159,7 @@ func (c *controllerTest) commonTests() {
 				})
 				It("should set ImagePullPolicy to IfNotPresent", func() {
 					containers := mainDeploy.Spec.Template.Spec.Containers
-					Expect(containers).To(HaveLen(3))
+					Expect(containers).To(HaveLen(5))
 					for _, container := range containers {
 						Expect(container.ImagePullPolicy).To(Equal(corev1.PullIfNotPresent))
 					}
@@ -1177,7 +1185,7 @@ func (c *controllerTest) commonTests() {
 				})
 				It("should set ImagePullPolicy to IfNotPresent", func() {
 					containers := mainDeploy.Spec.Template.Spec.Containers
-					Expect(containers).To(HaveLen(3))
+					Expect(containers).To(HaveLen(5))
 					for _, container := range containers {
 						Expect(container.ImagePullPolicy).To(Equal(corev1.PullIfNotPresent))
 					}
@@ -1203,7 +1211,7 @@ func (c *controllerTest) commonTests() {
 				})
 				It("should set ImagePullPolicy to Always", func() {
 					containers := mainDeploy.Spec.Template.Spec.Containers
-					Expect(containers).To(HaveLen(3))
+					Expect(containers).To(HaveLen(5))
 					for _, container := range containers {
 						Expect(container.ImagePullPolicy).To(Equal(corev1.PullAlways))
 					}

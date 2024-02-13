@@ -4,7 +4,7 @@ metadata:
   annotations:
     capabilities: Seamless Upgrades
     categories: Monitoring, Developer Tools
-    containerImage: quay.io/cryostat/cryostat-operator:2.5.0-dev
+    containerImage: quay.io/cryostat/cryostat-operator:3.0.0-dev
     description: JVM monitoring and profiling tool
     operatorframework.io/initialization-resource: |-
       {
@@ -340,6 +340,12 @@ spec:
       - description: Security Context to apply to the Grafana container.
         displayName: Grafana Security Context
         path: securityOptions.grafanaSecurityContext
+      - description: Security Context to apply to the storage container.
+        displayName: storage Security Context
+        path: securityOptions.storageSecurityContext
+      - description: Security Context to apply to the database container.
+        displayName: database Security Context
+        path: securityOptions.databaseSecurityContext
       - description: Security Context to apply to the Cryostat pod.
         displayName: Pod Security Context
         path: securityOptions.podSecurityContext
@@ -744,6 +750,12 @@ spec:
       - description: Security Context to apply to the Grafana container.
         displayName: Grafana Security Context
         path: securityOptions.grafanaSecurityContext
+      - description: Security Context to apply to the storage container.
+        displayName: storage Security Context
+        path: securityOptions.storageSecurityContext
+      - description: Security Context to apply to the database container.
+        displayName: database Security Context
+        path: securityOptions.databaseSecurityContext
       - description: Security Context to apply to the Cryostat pod.
         displayName: Pod Security Context
         path: securityOptions.podSecurityContext
