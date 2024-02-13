@@ -2,4 +2,6 @@
 resources:
 - operator_v1beta1_cryostat.yaml
 - operator_v1beta1_clustercryostat.yaml
+- operator_v1beta2_cryostat.yaml
+- operator_v1beta2_clustercryostat.yaml
 # +kubebuilder:scaffold:manifestskustomizesamples

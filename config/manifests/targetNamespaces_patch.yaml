@@ -15,3 +15,35 @@
     path: targetNamespaces[0]
     x-descriptors:
     - "urn:alm:descriptor:io.kubernetes:Namespace"
+- op: add
+  path: /spec/customresourcedefinitions/owned/1/specDescriptors/-
+  value:
+    description: "A namespace whose workloads Cryostat should be able to connect and record"
+    displayName: "Target Namespace"
+    path: targetNamespaces[0]
+    x-descriptors:
+    - "urn:alm:descriptor:io.kubernetes:Namespace"
+- op: add
+  path: /spec/customresourcedefinitions/owned/1/statusDescriptors/-
+  value:
+    description: "A namespace whose workloads Cryostat should be able to connect and record"
+    displayName: "Target Namespace"
+    path: targetNamespaces[0]
+    x-descriptors:
+    - "urn:alm:descriptor:io.kubernetes:Namespace"
+- op: add
+  path: /spec/customresourcedefinitions/owned/2/specDescriptors/-
+  value:
+    description: "A namespace whose workloads Cryostat should be able to connect and record"
+    displayName: "Target Namespace"
+    path: targetNamespaces[0]
+    x-descriptors:
+    - "urn:alm:descriptor:io.kubernetes:Namespace"
+- op: add
+  path: /spec/customresourcedefinitions/owned/2/statusDescriptors/-
+  value:
+    description: "A namespace whose workloads Cryostat should be able to connect and record"
+    displayName: "Target Namespace"
+    path: targetNamespaces[0]
+    x-descriptors:
+    - "urn:alm:descriptor:io.kubernetes:Namespace"

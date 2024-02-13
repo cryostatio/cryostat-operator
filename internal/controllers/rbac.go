@@ -53,7 +53,11 @@ func (r *Reconciler) reconcileRBAC(ctx context.Context, cr *model.CryostatInstan
 }
 
 func (r *Reconciler) finalizeRBAC(ctx context.Context, cr *model.CryostatInstance) error {
-	return r.deleteClusterRoleBinding(ctx, r.newClusterRoleBinding(cr))
+	err := r.deleteClusterRoleBinding(ctx, r.newClusterRoleBinding(cr))
+	if err != nil {
+		return err
+	}
+	return r.finalizeRoleBindings(ctx, cr)
 }
 
 func newServiceAccount(cr *model.CryostatInstance) *corev1.ServiceAccount {
@@ -106,10 +110,10 @@ func (r *Reconciler) reconcileRole(ctx context.Context, cr *model.CryostatInstan
 	return r.cleanUpRole(ctx, cr, newRole(cr))
 }
 
-func newRoleBinding(cr *model.CryostatInstance, namespace string) *rbacv1.RoleBinding {
+func (r *Reconciler) newRoleBinding(cr *model.CryostatInstance, namespace string) *rbacv1.RoleBinding {
 	return &rbacv1.RoleBinding{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      cr.Name,
+			Name:      common.ClusterUniqueName(r.gvk, cr.Name, cr.InstallNamespace),
 			Namespace: namespace,
 		},
 	}
@@ -127,7 +131,7 @@ func (r *Reconciler) reconcileRoleBinding(ctx context.Context, cr *model.Cryosta
 
 	// Create a RoleBinding in each target namespace
 	for _, ns := range cr.TargetNamespaces {
-		binding := newRoleBinding(cr, ns)
+		binding := r.newRoleBinding(cr, ns)
 		roleRef := &rbacv1.RoleRef{
 			APIGroup: "rbac.authorization.k8s.io",
 			Kind:     "ClusterRole",
@@ -140,13 +144,24 @@ func (r *Reconciler) reconcileRoleBinding(ctx context.Context, cr *model.Cryosta
 	}
 	// Delete any RoleBindings in target namespaces that are no longer requested
 	for _, ns := range toDelete(cr) {
-		binding := newRoleBinding(cr, ns)
+		binding := r.newRoleBinding(cr, ns)
 		err := r.deleteRoleBinding(ctx, binding)
 		if err != nil {
 			return err
 		}
 	}
 
+	return nil
+}
+
+func (r *Reconciler) finalizeRoleBindings(ctx context.Context, cr *model.CryostatInstance) error {
+	for _, ns := range cr.TargetNamespaces {
+		binding := r.newRoleBinding(cr, ns)
+		err := r.deleteRoleBinding(ctx, binding)
+		if err != nil {
+			return err
+		}
+	}
 	return nil
 }
 
@@ -237,11 +252,6 @@ func (r *Reconciler) createOrUpdateRoleBinding(ctx context.Context, binding *rba
 			return err
 		}
 		binding.RoleRef = *roleRef
-
-		// Set the Cryostat CR as controller
-		if err := controllerutil.SetControllerReference(owner, binding, r.Scheme); err != nil {
-			return err
-		}
 		return nil
 	})
 	if err != nil {

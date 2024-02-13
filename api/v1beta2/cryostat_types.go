@@ -12,16 +12,25 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package v1beta1
+package v1beta2
 
 import (
 	corev1 "k8s.io/api/core/v1"
 	netv1 "k8s.io/api/networking/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"sigs.k8s.io/controller-runtime/pkg/conversion"
 )
 
 // CryostatSpec defines the desired state of Cryostat.
 type CryostatSpec struct {
+	// List of namespaces whose workloads Cryostat should be
+	// permitted to access and profile. Defaults to this Cryostat's namespace.
+	// Warning: All Cryostat users will be able to create and manage
+	// recordings for workloads in the listed namespaces.
+	// More details: https://github.com/cryostatio/cryostat-operator/blob/v2.4.0/docs/multi-namespace.md#data-isolation
+	// +optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,order=2
+	TargetNamespaces []string `json:"targetNamespaces,omitempty"`
 	// Deploy a pared-down Cryostat instance with no Grafana Dashboard or JFR Data Source.
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,order=4,displayName="Minimal Deployment",xDescriptors={"urn:alm:descriptor:com.tectonic.ui:booleanSwitch"}
 	Minimal bool `json:"minimal"`
@@ -133,6 +142,11 @@ type ResourceConfigList struct {
 
 // CryostatStatus defines the observed state of Cryostat.
 type CryostatStatus struct {
+	// List of namespaces that Cryostat has been configured
+	// and authorized to access and profile.
+	// +optional
+	// +operator-sdk:csv:customresourcedefinitions:type=status,order=3
+	TargetNamespaces []string `json:"targetNamespaces,omitempty"`
 	// Conditions of the components managed by the Cryostat Operator.
 	// +optional
 	// +operator-sdk:csv:customresourcedefinitions:type=status,displayName="Cryostat Conditions",xDescriptors={"urn:alm:descriptor:io.kubernetes.conditions"}
@@ -414,6 +428,7 @@ type JmxCacheOptions struct {
 
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
+// +kubebuilder:storageversion
 // +kubebuilder:resource:path=cryostats,scope=Namespaced
 
 // Cryostat allows you to install Cryostat for a single namespace.
@@ -430,6 +445,16 @@ type Cryostat struct {
 
 	Spec   CryostatSpec   `json:"spec,omitempty"`
 	Status CryostatStatus `json:"status,omitempty"`
+}
+
+// ConvertFrom implements conversion.Convertible.
+func (*Cryostat) ConvertFrom(src conversion.Hub) error {
+	panic("unimplemented")
+}
+
+// ConvertTo implements conversion.Convertible.
+func (*Cryostat) ConvertTo(dst conversion.Hub) error {
+	panic("unimplemented")
 }
 
 // +kubebuilder:object:root=true
@@ -519,26 +544,10 @@ type ReportsSecurityOptions struct {
 
 // TargetDiscoveryOptions provides configuration options to the Cryostat application's target discovery mechanisms.
 type TargetDiscoveryOptions struct {
-	// When true, the Cryostat application will disable the built-in discovery mechanisms. Defaults to false.
+	// When true, the Cryostat application will disable the built-in discovery mechanisms. Defaults to false
 	// +optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Disable Built-in Discovery",xDescriptors={"urn:alm:descriptor:com.tectonic.ui:booleanSwitch"}
 	BuiltInDiscoveryDisabled bool `json:"builtInDiscoveryDisabled,omitempty"`
-	// When true, the Cryostat application will use the default port name jfr-jmx to look for JMX connectable targets.
-	// +optional
-	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Disable Built-in Port Names",xDescriptors={"urn:alm:descriptor:com.tectonic.ui:booleanSwitch"}
-	DisableBuiltInPortNames bool `json:"disableBuiltInPortNames,omitempty"`
-	// List of port names that the Cryostat application should look for in order to consider a target as JMX connectable.
-	// +optional
-	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:com.tectonic.ui:fieldDependency:targetDiscoveryOptions.disableBuiltInPortNames:true"}
-	DiscoveryPortNames []string `json:"discoveryPortNames,omitempty"`
-	// When true, the Cryostat application will use the default port number 9091 to look for JMX connectable targets.
-	// +optional
-	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Disable Built-in Port Numbers",xDescriptors={"urn:alm:descriptor:com.tectonic.ui:booleanSwitch"}
-	DisableBuiltInPortNumbers bool `json:"disableBuiltInPortNumbers,omitempty"`
-	// List of port numbers that the Cryostat application should look for in order to consider a target as JMX connectable.
-	// +optional
-	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:com.tectonic.ui:fieldDependency:targetDiscoveryOptions.disableBuiltInPortNumbers:true"}
-	DiscoveryPortNumbers []int32 `json:"discoveryPortNumbers,omitempty"`
 }
 
 // JmxCredentialsDatabaseOptions provides configuration options to the Cryostat application's credentials database.

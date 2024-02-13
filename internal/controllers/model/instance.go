@@ -15,7 +15,7 @@
 package model
 
 import (
-	operatorv1beta1 "github.com/cryostatio/cryostat-operator/api/v1beta1"
+	operatorv1beta2 "github.com/cryostatio/cryostat-operator/api/v1beta2"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -35,21 +35,20 @@ type CryostatInstance struct {
 	// For ClusterCryostat, this is a reference to status.TargetNamespaces.
 	TargetNamespaceStatus *[]string
 	// Reference to the common Spec properties to both CRD types.
-	Spec *operatorv1beta1.CryostatSpec
+	Spec *operatorv1beta2.CryostatSpec
 	// Reference to the common Status properties to both CRD types.
-	Status *operatorv1beta1.CryostatStatus
+	Status *operatorv1beta2.CryostatStatus
 	// The actual CR instance as a generic Kubernetes object.
 	Object client.Object
 }
 
 // FromCryostat creates a CryostatInstance from a Cryostat CR
-func FromCryostat(cr *operatorv1beta1.Cryostat) *CryostatInstance {
-	targetNS := []string{cr.Namespace}
+func FromCryostat(cr *operatorv1beta2.Cryostat) *CryostatInstance {
 	return &CryostatInstance{
 		Name:                  cr.Name,
 		InstallNamespace:      cr.Namespace,
-		TargetNamespaces:      targetNS,
-		TargetNamespaceStatus: &targetNS,
+		TargetNamespaces:      cr.Spec.TargetNamespaces,
+		TargetNamespaceStatus: &cr.Status.TargetNamespaces,
 
 		Spec:   &cr.Spec,
 		Status: &cr.Status,
@@ -59,7 +58,8 @@ func FromCryostat(cr *operatorv1beta1.Cryostat) *CryostatInstance {
 }
 
 // FromClusterCryostat creates a CryostatInstance from a ClusterCryostat CR
-func FromClusterCryostat(cr *operatorv1beta1.ClusterCryostat) *CryostatInstance {
+func FromClusterCryostat(cr *operatorv1beta2.ClusterCryostat) *CryostatInstance {
+	// TODO Remove this CRD
 	return &CryostatInstance{
 		Name:                  cr.Name,
 		InstallNamespace:      cr.Spec.InstallNamespace,

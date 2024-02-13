@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package v1beta1
+package v1beta2
 
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -25,30 +25,19 @@ type ClusterCryostatSpec struct {
 	// its own namespace.
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,order=1,xDescriptors={"urn:alm:descriptor:io.kubernetes:Namespace"}
 	InstallNamespace string `json:"installNamespace"`
-	// List of namespaces whose workloads Cryostat should be
-	// permitted to access and profile. Warning: All Cryostat users will be able to create and manage
-	// recordings for workloads in the listed namespaces.
-	// More details: https://github.com/cryostatio/cryostat-operator/blob/v2.3.0/docs/multi-namespace.md#data-isolation
-	// +optional
-	// +operator-sdk:csv:customresourcedefinitions:type=spec,order=2
-	TargetNamespaces []string `json:"targetNamespaces,omitempty"`
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	CryostatSpec `json:",inline"`
 }
 
 // ClusterCryostatStatus defines the observed state of ClusterCryostat.
 type ClusterCryostatStatus struct {
-	// List of namespaces that Cryostat has been configured
-	// and authorized to access and profile.
-	// +optional
-	// +operator-sdk:csv:customresourcedefinitions:type=status,order=3
-	TargetNamespaces []string `json:"targetNamespaces,omitempty"`
 	// +operator-sdk:csv:customresourcedefinitions:type=status
 	CryostatStatus `json:",inline"`
 }
 
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
+// +kubebuilder:storageversion
 // +kubebuilder:resource:path=clustercryostats,scope=Cluster
 
 // ClusterCryostat allows you to install Cryostat for multiple namespaces or cluster-wide.

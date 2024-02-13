@@ -56,14 +56,14 @@ func (r *Reconciler) setupTLS(ctx context.Context, cr *model.CryostatInstance) (
 	}
 
 	// Create CA certificate for Cryostat using the self-signed issuer
-	caCert := resources.NewCryostatCACert(cr)
+	caCert := resources.NewCryostatCACert(r.gvk, cr)
 	err = r.createOrUpdateCertificate(ctx, caCert, cr.Object)
 	if err != nil {
 		return nil, err
 	}
 
 	// Create CA issuer using the CA cert just created
-	err = r.createOrUpdateIssuer(ctx, resources.NewCryostatCAIssuer(cr), cr.Object)
+	err = r.createOrUpdateIssuer(ctx, resources.NewCryostatCAIssuer(r.gvk, cr), cr.Object)
 	if err != nil {
 		return nil, err
 	}
@@ -136,13 +136,7 @@ func (r *Reconciler) setupTLS(ctx context.Context, cr *model.CryostatInstance) (
 				},
 				Type: corev1.SecretTypeOpaque,
 			}
-			err = r.createOrUpdateSecret(ctx, namespaceSecret, cr.Object, func() error {
-				if namespaceSecret.Data == nil {
-					namespaceSecret.Data = map[string][]byte{}
-				}
-				namespaceSecret.Data[corev1.TLSCertKey] = secret.Data[corev1.TLSCertKey]
-				return nil
-			})
+			err = r.createOrUpdateCertSecret(ctx, namespaceSecret, secret.Data[corev1.TLSCertKey])
 			if err != nil {
 				return nil, err
 			}
@@ -174,7 +168,7 @@ func (r *Reconciler) setupTLS(ctx context.Context, cr *model.CryostatInstance) (
 }
 
 func (r *Reconciler) finalizeTLS(ctx context.Context, cr *model.CryostatInstance) error {
-	caCert := resources.NewCryostatCACert(cr)
+	caCert := resources.NewCryostatCACert(r.gvk, cr)
 	for _, ns := range cr.TargetNamespaces {
 		if ns != cr.InstallNamespace {
 			namespaceSecret := &corev1.Secret{
@@ -298,6 +292,21 @@ func (r *Reconciler) createOrUpdateKeystoreSecret(ctx context.Context, secret *c
 				"KEYSTORE_PASS": r.GenPasswd(20),
 			}
 		}
+		return nil
+	})
+	if err != nil {
+		return err
+	}
+	r.Log.Info(fmt.Sprintf("Secret %s", op), "name", secret.Name, "namespace", secret.Namespace)
+	return nil
+}
+
+func (r *Reconciler) createOrUpdateCertSecret(ctx context.Context, secret *corev1.Secret, cert []byte) error {
+	op, err := controllerutil.CreateOrUpdate(ctx, r.Client, secret, func() error {
+		if secret.Data == nil {
+			secret.Data = map[string][]byte{}
+		}
+		secret.Data[corev1.TLSCertKey] = cert
 		return nil
 	})
 	if err != nil {

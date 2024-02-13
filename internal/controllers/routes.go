@@ -20,7 +20,7 @@ import (
 	"fmt"
 	"net/url"
 
-	operatorv1beta1 "github.com/cryostatio/cryostat-operator/api/v1beta1"
+	operatorv1beta2 "github.com/cryostatio/cryostat-operator/api/v1beta2"
 	common "github.com/cryostatio/cryostat-operator/internal/controllers/common"
 	"github.com/cryostatio/cryostat-operator/internal/controllers/common/resource_definitions"
 	"github.com/cryostatio/cryostat-operator/internal/controllers/constants"
@@ -79,7 +79,7 @@ func (r *Reconciler) reconcileGrafanaRoute(ctx context.Context, svc *corev1.Serv
 var ErrIngressNotReady = goerrors.New("ingress configuration not yet available")
 
 func (r *Reconciler) reconcileRoute(ctx context.Context, route *routev1.Route, svc *corev1.Service,
-	cr *model.CryostatInstance, tls *resource_definitions.TLSConfig, config *operatorv1beta1.NetworkConfiguration) (*url.URL, error) {
+	cr *model.CryostatInstance, tls *resource_definitions.TLSConfig, config *operatorv1beta2.NetworkConfiguration) (*url.URL, error) {
 	port, err := getHTTPPort(svc)
 	if err != nil {
 		return nil, err
@@ -101,7 +101,7 @@ func (r *Reconciler) reconcileRoute(ctx context.Context, route *routev1.Route, s
 }
 
 func (r *Reconciler) createOrUpdateRoute(ctx context.Context, route *routev1.Route, owner metav1.Object,
-	svc *corev1.Service, exposePort *corev1.ServicePort, tlsConfig *resource_definitions.TLSConfig, config *operatorv1beta1.NetworkConfiguration) (*routev1.Route, error) {
+	svc *corev1.Service, exposePort *corev1.ServicePort, tlsConfig *resource_definitions.TLSConfig, config *operatorv1beta2.NetworkConfiguration) (*routev1.Route, error) {
 	// Use edge termination by default
 	var routeTLS *routev1.TLSConfig
 	if tlsConfig == nil {
@@ -165,10 +165,10 @@ func getHTTPPort(svc *corev1.Service) (*corev1.ServicePort, error) {
 	return nil, fmt.Errorf("no \"%s\"port in %s service in %s namespace", constants.HttpPortName, svc.Name, svc.Namespace)
 }
 
-func configureCoreRoute(cr *model.CryostatInstance) *operatorv1beta1.NetworkConfiguration {
-	var config *operatorv1beta1.NetworkConfiguration
+func configureCoreRoute(cr *model.CryostatInstance) *operatorv1beta2.NetworkConfiguration {
+	var config *operatorv1beta2.NetworkConfiguration
 	if cr.Spec.NetworkOptions == nil || cr.Spec.NetworkOptions.CoreConfig == nil {
-		config = &operatorv1beta1.NetworkConfiguration{}
+		config = &operatorv1beta2.NetworkConfiguration{}
 	} else {
 		config = cr.Spec.NetworkOptions.CoreConfig
 	}
@@ -177,10 +177,10 @@ func configureCoreRoute(cr *model.CryostatInstance) *operatorv1beta1.NetworkConf
 	return config
 }
 
-func configureGrafanaRoute(cr *model.CryostatInstance) *operatorv1beta1.NetworkConfiguration {
-	var config *operatorv1beta1.NetworkConfiguration
+func configureGrafanaRoute(cr *model.CryostatInstance) *operatorv1beta2.NetworkConfiguration {
+	var config *operatorv1beta2.NetworkConfiguration
 	if cr.Spec.NetworkOptions == nil || cr.Spec.NetworkOptions.GrafanaConfig == nil {
-		config = &operatorv1beta1.NetworkConfiguration{}
+		config = &operatorv1beta2.NetworkConfiguration{}
 	} else {
 		config = cr.Spec.NetworkOptions.GrafanaConfig
 	}
@@ -189,7 +189,7 @@ func configureGrafanaRoute(cr *model.CryostatInstance) *operatorv1beta1.NetworkC
 	return config
 }
 
-func configureRoute(config *operatorv1beta1.NetworkConfiguration, appLabel string, componentLabel string) {
+func configureRoute(config *operatorv1beta2.NetworkConfiguration, appLabel string, componentLabel string) {
 	if config.Labels == nil {
 		config.Labels = map[string]string{}
 	}
