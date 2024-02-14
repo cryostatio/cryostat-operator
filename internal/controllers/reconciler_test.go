@@ -1111,8 +1111,8 @@ func (c *controllerTest) commonTests() {
 					datasourceImg := "my/datasource-image:1.0.0-BETA25"
 					grafanaImg := "my/grafana-image:1.0.0-dev"
 					reportsImg := "my/reports-image:1.0.0-SNAPSHOT"
-					storageImg := "my/storage-image:1.0.0"
-					databaseImg := "my/database-image:1.0.0"
+					storageImg := "my/storage-image:1.0.0-dev"
+					databaseImg := "my/database-image:1.0.0-dev"
 					t.EnvCoreImageTag = &coreImg
 					t.EnvDatasourceImageTag = &datasourceImg
 					t.EnvGrafanaImageTag = &grafanaImg
@@ -1174,10 +1174,14 @@ func (c *controllerTest) commonTests() {
 					datasourceImg := "my/datasource-image@sha256:59ded87392077c2371b26e021aade0409855b597383fa78e549eefafab8fc90c"
 					grafanaImg := "my/grafana-image@sha256:e5bc16c2c5b69cd6fd8fdf1381d0a8b6cc9e01d92b9e1bb0a61ed89196563c72"
 					reportsImg := "my/reports-image@sha256:8a23ca5e8c8a343789b8c14558a44a49d35ecd130c18e62edf0d1ad9ce88d37d"
+					storageImg := "my/reports-image@sha256:8b23ca5e8c8a343789b8c14558a44a49d35ecd130c18e62edf0d1ad9ce88d37d"
+					databaseImg := "my/reports-image@sha256:8c23ca5e8c8a343789b8c14558a44a49d35ecd130c18e62edf0d1ad9ce88d37d"
 					t.EnvCoreImageTag = &coreImg
 					t.EnvDatasourceImageTag = &datasourceImg
 					t.EnvGrafanaImageTag = &grafanaImg
 					t.EnvReportsImageTag = &reportsImg
+					t.EnvDatabaseImageTag = &databaseImg
+					t.EnvStorageImageTag = &storageImg
 				})
 				It("should create deployment with the expected tags", func() {
 					t.expectMainDeployment()
