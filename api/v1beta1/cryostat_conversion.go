@@ -555,7 +555,11 @@ func convertTargetDiscoveryFrom(srcOpts *operatorv1beta2.TargetDiscoveryOptions)
 	var dstOpts *TargetDiscoveryOptions
 	if srcOpts != nil {
 		dstOpts = &TargetDiscoveryOptions{
-			BuiltInDiscoveryDisabled: srcOpts.BuiltInDiscoveryDisabled,
+			BuiltInDiscoveryDisabled:  srcOpts.BuiltInDiscoveryDisabled,
+			DisableBuiltInPortNames:   srcOpts.DisableBuiltInPortNames,
+			DiscoveryPortNames:        srcOpts.DiscoveryPortNames,
+			DisableBuiltInPortNumbers: srcOpts.DisableBuiltInPortNumbers,
+			DiscoveryPortNumbers:      srcOpts.DiscoveryPortNumbers,
 		}
 	}
 	return dstOpts
