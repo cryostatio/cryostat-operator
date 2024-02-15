@@ -1241,6 +1241,27 @@ func (c *controllerTest) commonTests() {
 					t.expectNoCryostat()
 				})
 			})
+			Context("RoleBinding exists", func() {
+				JustBeforeEach(func() {
+					t.reconcileDeletedCryostat()
+				})
+				It("should delete the RoleBinding", func() {
+					t.checkRoleBindingsDeleted()
+				})
+				It("should delete Cryostat", func() {
+					t.expectNoCryostat()
+				})
+			})
+			Context("RoleBinding does not exist", func() {
+				JustBeforeEach(func() {
+					err := t.Client.Delete(context.Background(), t.NewRoleBinding(t.Namespace))
+					Expect(err).ToNot(HaveOccurred())
+					t.reconcileDeletedCryostat()
+				})
+				It("should delete Cryostat", func() {
+					t.expectNoCryostat()
+				})
+			})
 		})
 		Context("on OpenShift", func() {
 			BeforeEach(func() {
@@ -1782,7 +1803,7 @@ func (c *controllerTest) commonTests() {
 				})
 			})
 		})
-		FContext("with an existing Cryostat CR", func() {
+		Context("with an existing Cryostat CR", func() {
 			var otherInput *cryostatTestInput
 
 			BeforeEach(func() {
@@ -1901,6 +1922,30 @@ func (c *controllerTest) commonTests() {
 
 				It("should update the target namespaces in Status", func() {
 					t.expectTargetNamespaces()
+				})
+
+				Context("when deleted", func() {
+					Context("RoleBindings exist", func() {
+						JustBeforeEach(func() {
+							t.reconcileDeletedCryostat()
+						})
+						It("should delete the RoleBindings", func() {
+							t.checkRoleBindingsDeleted()
+						})
+						It("should delete Cryostat", func() {
+							t.expectNoCryostat()
+						})
+					})
+					Context("RoleBinding does not exist", func() {
+						JustBeforeEach(func() {
+							err := t.Client.Delete(context.Background(), t.NewRoleBinding(targetNamespaces[0]))
+							Expect(err).ToNot(HaveOccurred())
+							t.reconcileDeletedCryostat()
+						})
+						It("should delete Cryostat", func() {
+							t.expectNoCryostat()
+						})
+					})
 				})
 			})
 
@@ -2472,6 +2517,15 @@ func (t *cryostatTestInput) checkClusterRoleBindingDeleted() {
 	clusterBinding := &rbacv1.ClusterRoleBinding{}
 	err := t.Client.Get(context.Background(), types.NamespacedName{Name: t.NewClusterRoleBinding().Name}, clusterBinding)
 	Expect(kerrors.IsNotFound(err)).To(BeTrue())
+}
+
+func (t *cryostatTestInput) checkRoleBindingsDeleted() {
+	for _, ns := range t.TargetNamespaces {
+		expected := t.NewRoleBinding(ns)
+		binding := &rbacv1.RoleBinding{}
+		err := t.Client.Get(context.Background(), types.NamespacedName{Name: expected.Name, Namespace: expected.Namespace}, binding)
+		Expect(kerrors.IsNotFound(err)).To(BeTrue())
+	}
 }
 
 func (t *cryostatTestInput) expectNoRoutes() {
