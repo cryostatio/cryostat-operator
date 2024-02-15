@@ -1,6 +1,25 @@
 ## Configuring Cryostat
 The operator creates and manages a Deployment of [Cryostat](https://github.com/cryostatio/cryostat) when the user creates or updates a `Cryostat` object. Only one `Cryostat` object should exist in the operator's namespace at a time. There are a few options available in the `Cryostat` spec that control how Cryostat is deployed.
 
+### Target Namespaces
+Specify the list of namespaces containing your workloads that you want your multi-namespace Cryostat installation to work with under the `spec.targetNamespaces` property. The resulting Cryostat will have permissions to access workloads only within these specified namespaces. If not specified, `spec.targetNamespaces` will default to the namespace of the `Cryostat` object.
+
+```yaml
+apiVersion: operator.cryostat.io/v1beta2
+kind: Cryostat
+metadata:
+  name: cryostat-sample
+spec:
+  targetNamespaces:
+    - my-app-namespace
+    - my-other-app-namespace
+```
+
+#### Data Isolation
+When installed in a multi-namespace manner, all users with access to a Cryostat instance have the same visibility and privileges to all data available to that Cryostat instance. Administrators deploying Cryostat instances must ensure that the users who have access to a Cryostat instance also have equivalent access to all the applications that can be monitored by that Cryostat instance. Otherwise, underprivileged users may use Cryostat to escalate permissions to start recordings and collect JFR data from applications that they do not otherwise have access to.
+
+For now, all authorization checks are done against the namespace where Cryostat is installed. For a user to use Cryostat with workloads in a target namespace, that user must have the necessary Kubernetes permissions in the namespace where Cryostat is installed.
+
 ### Minimal Deployment
 The `spec.minimal` property determines what is deployed alongside Cryostat. This value is set to `false` by default, which tells the operator to deploy Cryostat, with a [customized Grafana](https://github.com/cryostatio/cryostat-grafana-dashboard) and a [Grafana Data Source for JFR files](https://github.com/cryostatio/jfr-datasource) as 3 containers within a Pod. When `minimal` is set to `true`, the Deployment consists of only the Cryostat container.
 ```yaml
