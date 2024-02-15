@@ -445,6 +445,24 @@ func (r *TestResources) NewCryostatWithBuiltInDiscoveryDisabledV1Beta1() *operat
 	return cr
 }
 
+func (r *TestResources) NewCryostatWithDiscoveryPortConfigV1Beta1() *operatorv1beta1.Cryostat {
+	cr := r.NewCryostatV1Beta1()
+	cr.Spec.TargetDiscoveryOptions = &operatorv1beta1.TargetDiscoveryOptions{
+		DiscoveryPortNames:   []string{"custom-port-name", "another-custom-port-name"},
+		DiscoveryPortNumbers: []int32{9092, 9090},
+	}
+	return cr
+}
+
+func (r *TestResources) NewCryostatWithBuiltInPortConfigDisabledV1Beta1() *operatorv1beta1.Cryostat {
+	cr := r.NewCryostatV1Beta1()
+	cr.Spec.TargetDiscoveryOptions = &operatorv1beta1.TargetDiscoveryOptions{
+		DisableBuiltInPortNames:   true,
+		DisableBuiltInPortNumbers: true,
+	}
+	return cr
+}
+
 func (r *TestResources) NewCryostatWithJmxCacheOptionsSpecV1Beta1() *operatorv1beta1.Cryostat {
 	cr := r.NewCryostatV1Beta1()
 	cr.Spec.JmxCacheOptions = &operatorv1beta1.JmxCacheOptions{

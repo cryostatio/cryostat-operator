@@ -551,7 +551,7 @@ func (r *TestResources) NewCryostatWithBuiltInDiscoveryDisabled() *model.Cryosta
 
 func (r *TestResources) NewCryostatWithDiscoveryPortConfig() *model.CryostatInstance {
 	cr := r.NewCryostat()
-	cr.Spec.TargetDiscoveryOptions = &operatorv1beta1.TargetDiscoveryOptions{
+	cr.Spec.TargetDiscoveryOptions = &operatorv1beta2.TargetDiscoveryOptions{
 		DiscoveryPortNames:   []string{"custom-port-name", "another-custom-port-name"},
 		DiscoveryPortNumbers: []int32{9092, 9090},
 	}
@@ -560,7 +560,7 @@ func (r *TestResources) NewCryostatWithDiscoveryPortConfig() *model.CryostatInst
 
 func (r *TestResources) NewCryostatWithBuiltInPortConfigDisabled() *model.CryostatInstance {
 	cr := r.NewCryostat()
-	cr.Spec.TargetDiscoveryOptions = &operatorv1beta1.TargetDiscoveryOptions{
+	cr.Spec.TargetDiscoveryOptions = &operatorv1beta2.TargetDiscoveryOptions{
 		DisableBuiltInPortNames:   true,
 		DisableBuiltInPortNumbers: true,
 	}
