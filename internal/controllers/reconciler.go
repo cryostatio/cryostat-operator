@@ -64,8 +64,7 @@ type ReconcilerConfig struct {
 	common.ReconcilerTLS
 }
 
-// CommonReconciler is an interface for shared behaviour
-// between the ClusterCryostat and Cryostat reconcilers
+// CommonReconciler is an interface for behaviour of the Cryostat reconciler
 type CommonReconciler interface {
 	reconcile.Reconciler
 	SetupWithManager(mgr ctrl.Manager) error
@@ -137,11 +136,6 @@ func newReconciler(config *ReconcilerConfig, objType client.Object, isNamespaced
 }
 
 func (r *Reconciler) reconcileCryostat(ctx context.Context, cr *model.CryostatInstance) (ctrl.Result, error) {
-	result, err := r.reconcile(ctx, cr)
-	return result, r.checkConflicts(cr, err)
-}
-
-func (r *Reconciler) reconcile(ctx context.Context, cr *model.CryostatInstance) (ctrl.Result, error) {
 	reqLogger := r.Log.WithValues("Request.Namespace", cr.InstallNamespace, "Request.Name", cr.Name)
 
 	// Check if this Cryostat is being deleted
@@ -520,31 +514,6 @@ func (r *Reconciler) deleteDeployment(ctx context.Context, deploy *appsv1.Deploy
 	}
 	r.Log.Info("Deployment deleted", "name", deploy.Name, "namespace", deploy.Namespace)
 	return nil
-}
-
-const eventNameConflictReason = "CryostatNameConflict"
-
-func (r *Reconciler) checkConflicts(cr *model.CryostatInstance, err error) error {
-	if err == nil {
-		return nil
-	}
-	alreadyOwned, ok := err.(*controllerutil.AlreadyOwnedError)
-	if !ok {
-		return err
-	}
-	r.Log.Error(err, "Could not process custom resource")
-	metaType, err := meta.TypeAccessor(alreadyOwned.Object)
-	if err != nil {
-		return err
-	}
-	msg := fmt.Sprintf("This instance needs to manage the %s %s in namespace %s, but it is already owned by %s %s. "+
-		"Please choose a different name for your instance.",
-		metaType.GetKind(), alreadyOwned.Object.GetName(), alreadyOwned.Object.GetNamespace(),
-		alreadyOwned.Owner.Kind, alreadyOwned.Owner.Name)
-	r.EventRecorder.Event(cr.Object, corev1.EventTypeWarning, eventNameConflictReason, msg)
-	// Log the event message as well
-	r.Log.Info(msg)
-	return alreadyOwned
 }
 
 func requeueIfIngressNotReady(log logr.Logger, err error) (reconcile.Result, error) {
