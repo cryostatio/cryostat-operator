@@ -152,18 +152,7 @@ func main() {
 		}
 	}
 
-	config := newReconcilerConfig(mgr, "ClusterCryostat", "clustercryostat-controller", openShift,
-		certManager, insightsURL)
-	clusterController, err := controllers.NewClusterCryostatReconciler(config)
-	if err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "ClusterCryostat")
-		os.Exit(1)
-	}
-	if err = clusterController.SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to add controller to manager", "controller", "ClusterCryostat")
-		os.Exit(1)
-	}
-	config = newReconcilerConfig(mgr, "Cryostat", "cryostat-controller", openShift, certManager,
+	config := newReconcilerConfig(mgr, "Cryostat", "cryostat-controller", openShift, certManager,
 		insightsURL)
 	controller, err := controllers.NewCryostatReconciler(config)
 	if err != nil {

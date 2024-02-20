@@ -468,7 +468,6 @@ endif
 .PHONY: undeploy
 undeploy: ## Undeploy controller from the configured cluster in ~/.kube/config.
 	- $(CLUSTER_CLIENT) delete --ignore-not-found=$(ignore-not-found) -f config/samples/operator_v1beta1_cryostat.yaml
-	- $(CLUSTER_CLIENT) delete --ignore-not-found=$(ignore-not-found) -f config/samples/operator_v1beta1_clustercryostat.yaml
 	- $(KUSTOMIZE) build $(KUSTOMIZE_DIR) | $(CLUSTER_CLIENT) delete --ignore-not-found=$(ignore-not-found) -f -
 
 .PHONY: deploy_bundle
@@ -495,19 +494,8 @@ undeploy_bundle: operator-sdk ## Undeploy the controller in the bundle format wi
 
 .PHONY: create_cryostat_cr
 create_cryostat_cr: destroy_cryostat_cr ## Create a namespaced Cryostat instance.
-	$(CLUSTER_CLIENT) create -f config/samples/operator_v1beta1_cryostat.yaml
-
-.PHONY: create_clustercryostat_cr
-create_clustercryostat_cr: destroy_clustercryostat_cr ## Create a cluster-wide Cryostat instance.
-	target_ns_json=$$(jq -nc '$$ARGS.positional' --args -- $(TARGET_NAMESPACES)) && \
-	$(CLUSTER_CLIENT) patch -f config/samples/operator_v1beta1_clustercryostat.yaml --local=true --type=merge \
-	-p "{\"spec\": {\"installNamespace\": \"$(DEPLOY_NAMESPACE)\", \"targetNamespaces\": $$target_ns_json}}" -o yaml | \
-	$(CLUSTER_CLIENT) apply -f -
+	$(CLUSTER_CLIENT) create -f config/samples/operator_v1beta2_cryostat.yaml
 
 .PHONY: destroy_cryostat_cr
 destroy_cryostat_cr: ## Delete a namespaced Cryostat instance.
 	- $(CLUSTER_CLIENT) delete --ignore-not-found=$(ignore-not-found) -f config/samples/operator_v1beta1_cryostat.yaml
-
-.PHONY: destroy_clustercryostat_cr
-destroy_clustercryostat_cr: ## Delete a cluster-wide Cryostat instance.
-	- $(CLUSTER_CLIENT) delete --ignore-not-found=$(ignore-not-found) -f config/samples/operator_v1beta1_clustercryostat.yaml

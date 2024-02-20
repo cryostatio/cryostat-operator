@@ -137,26 +137,6 @@ rules:
 - apiGroups:
   - operator.cryostat.io
   resources:
-  - clustercryostats
-  verbs:
-  - '*'
-- apiGroups:
-  - operator.cryostat.io
-  resources:
-  - clustercryostats/finalizers
-  verbs:
-  - update
-- apiGroups:
-  - operator.cryostat.io
-  resources:
-  - clustercryostats/status
-  verbs:
-  - get
-  - patch
-  - update
-- apiGroups:
-  - operator.cryostat.io
-  resources:
   - cryostats
   verbs:
   - '*'

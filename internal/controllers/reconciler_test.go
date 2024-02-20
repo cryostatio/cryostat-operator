@@ -53,7 +53,6 @@ import (
 )
 
 type controllerTest struct {
-	clusterScoped   bool
 	constructorFunc func(*controllers.ReconcilerConfig) (controllers.CommonReconciler, error)
 }
 
@@ -70,12 +69,11 @@ func (c *controllerTest) commonBeforeEach() *cryostatTestInput {
 			GeneratedPasswords: []string{"grafana", "credentials_database", "jmx", "keystore"},
 		},
 		TestResources: &test.TestResources{
-			Name:          "cryostat",
-			Namespace:     "test",
-			TLS:           true,
-			ExternalTLS:   true,
-			OpenShift:     true,
-			ClusterScoped: c.clusterScoped,
+			Name:        "cryostat",
+			Namespace:   "test",
+			TLS:         true,
+			ExternalTLS: true,
+			OpenShift:   true,
 		},
 	}
 	t.objs = []ctrlclient.Object{
@@ -105,7 +103,7 @@ func (c *controllerTest) commonJustAfterEach(t *cryostatTestInput) {
 }
 
 func (t *cryostatTestInput) newReconcilerConfig(scheme *runtime.Scheme, client ctrlclient.Client) *controllers.ReconcilerConfig {
-	logger := zap.New().WithValues("cluster-scoped", t.ClusterScoped)
+	logger := zap.New()
 	logf.SetLogger(logger)
 
 	// Set InsightsURL in config, if provided
@@ -1243,6 +1241,27 @@ func (c *controllerTest) commonTests() {
 					t.expectNoCryostat()
 				})
 			})
+			Context("RoleBinding exists", func() {
+				JustBeforeEach(func() {
+					t.reconcileDeletedCryostat()
+				})
+				It("should delete the RoleBinding", func() {
+					t.checkRoleBindingsDeleted()
+				})
+				It("should delete Cryostat", func() {
+					t.expectNoCryostat()
+				})
+			})
+			Context("RoleBinding does not exist", func() {
+				JustBeforeEach(func() {
+					err := t.Client.Delete(context.Background(), t.NewRoleBinding(t.Namespace))
+					Expect(err).ToNot(HaveOccurred())
+					t.reconcileDeletedCryostat()
+				})
+				It("should delete Cryostat", func() {
+					t.expectNoCryostat()
+				})
+			})
 		})
 		Context("on OpenShift", func() {
 			BeforeEach(func() {
@@ -1784,26 +1803,20 @@ func (c *controllerTest) commonTests() {
 				})
 			})
 		})
-		Context("with a conflicting Cryostat CR", func() {
-			var other *controllerTest
+		Context("with an existing Cryostat CR", func() {
 			var otherInput *cryostatTestInput
-			var reconcileErr error
 
 			BeforeEach(func() {
-				other = &controllerTest{
-					clusterScoped:   !c.clusterScoped,
-					constructorFunc: getControllerFunc(!c.clusterScoped),
-				}
-				otherInput = other.commonBeforeEach()
+				otherInput = c.commonBeforeEach()
 			})
 
 			JustBeforeEach(func() {
-				other.commonJustBeforeEach(otherInput)
+				c.commonJustBeforeEach(otherInput)
 
 				// Controllers need to share client to have shared view of objects
 				otherInput.Client = t.Client
 				config := otherInput.newReconcilerConfig(otherInput.Client.Scheme(), otherInput.Client)
-				controller, err := other.constructorFunc(config)
+				controller, err := c.constructorFunc(config)
 				Expect(err).ToNot(HaveOccurred())
 				otherInput.controller = controller
 
@@ -1812,78 +1825,24 @@ func (c *controllerTest) commonTests() {
 			})
 
 			JustAfterEach(func() {
-				other.commonJustAfterEach(otherInput)
+				c.commonJustAfterEach(otherInput)
 			})
 
-			Context("in the install namespace", func() {
+			Context("installing into its target namespace", func() {
 				BeforeEach(func() {
+					// Set up the CRs so the Cryostat's namespace conflicts with the target
+					// namespace of the existing Cryostat
+					otherNS := "other-test"
+					otherInput.Namespace = otherNS
+					otherInput.TargetNamespaces = []string{otherNS, t.Namespace}
 					t.TargetNamespaces = []string{t.Namespace}
-					otherInput.TargetNamespaces = t.TargetNamespaces
 
-					t.objs = append(t.objs, t.NewCryostat().Object, otherInput.NewCryostat().Object)
+					t.objs = append(t.objs, otherInput.NewNamespace(), t.NewCryostat().Object, otherInput.NewCryostat().Object)
 					otherInput.objs = t.objs
 				})
 
 				JustBeforeEach(func() {
-					// Try reconciling ClusterCryostat
-					reconcileErr = t.reconcileCryostatFullyWithError()
-				})
-
-				It("should fail to reconcile", func() {
-					t.expectAlreadyOwnedError(reconcileErr, "ConfigMap", t.NewLockConfigMap(), otherInput)
-				})
-
-				It("should emit a CryostatNameConflict event", func() {
-					t.expectNameConflictEvent()
-				})
-
-				It("should not affect the existing installation", func() {
-					otherInput.expectResourcesUnaffected()
-				})
-
-				Context("when deleted", func() {
-					JustBeforeEach(func() {
-						t.reconcileDeletedCryostat()
-					})
-
-					It("should not affect the existing installation", func() {
-						otherInput.expectResourcesUnaffected()
-					})
-
-					Context("on OpenShift", func() {
-						It("should not delete exisiting ConsoleLink", func() {
-							otherInput.expectConsoleLink()
-						})
-					})
-				})
-			})
-
-			Context("in a target namespace", func() {
-				// We need to also distinguish which input is cluster-scoped
-				var clusterInput, nsInput *cryostatTestInput
-				BeforeEach(func() {
-					// Set up the CRs so the Cryostat conflicts with the target
-					// namespace of the ClusterCryostat, but not the install namespace
-					installNS := t.Namespace
-					targetNS := "other-test"
-					if otherInput.ClusterScoped {
-						clusterInput = otherInput
-						nsInput = t
-					} else {
-						clusterInput = t
-						nsInput = otherInput
-					}
-					clusterInput.Namespace = installNS
-					clusterInput.TargetNamespaces = []string{targetNS}
-					nsInput.Namespace = targetNS
-					nsInput.TargetNamespaces = t.TargetNamespaces
-
-					t.objs = append(t.objs, nsInput.NewNamespace(), t.NewCryostat().Object, otherInput.NewCryostat().Object)
-					otherInput.objs = t.objs
-				})
-
-				JustBeforeEach(func() {
-					// Try reconciling ClusterCryostat
+					// Try reconciling the new Cryostat
 					t.reconcileCryostatFully()
 				})
 
@@ -1894,7 +1853,37 @@ func (c *controllerTest) commonTests() {
 
 				// New installation should also be unaffected
 				Context("new installation", func() {
+					expectSuccessful(&t)
+				})
+			})
+
+			Context("with a common target namespace", func() {
+				BeforeEach(func() {
+					// Set up the CRs so the Cryostat's target namespace conflicts with the target
+					// namespace of another Cryostat
+					targetNS := "other-test-target"
+					otherNS := "other-test"
+					otherInput.Namespace = otherNS
+					otherInput.TargetNamespaces = []string{otherNS, targetNS}
+					t.TargetNamespaces = []string{t.Namespace, targetNS}
+
+					t.objs = append(t.objs, t.NewOtherNamespace(targetNS), otherInput.NewNamespace(), t.NewCryostat().Object, otherInput.NewCryostat().Object)
+					otherInput.objs = t.objs
+				})
+
+				JustBeforeEach(func() {
+					// Try reconciling the new Cryostat
+					t.reconcileCryostatFully()
+				})
+
+				// Existing Cryostat installation should be unaffected
+				Context("existing installation", func() {
 					expectSuccessful(&otherInput)
+				})
+
+				// New installation should also be unaffected
+				Context("new installation", func() {
+					expectSuccessful(&t)
 				})
 			})
 		})
@@ -1933,6 +1922,30 @@ func (c *controllerTest) commonTests() {
 
 				It("should update the target namespaces in Status", func() {
 					t.expectTargetNamespaces()
+				})
+
+				Context("when deleted", func() {
+					Context("RoleBindings exist", func() {
+						JustBeforeEach(func() {
+							t.reconcileDeletedCryostat()
+						})
+						It("should delete the RoleBindings", func() {
+							t.checkRoleBindingsDeleted()
+						})
+						It("should delete Cryostat", func() {
+							t.expectNoCryostat()
+						})
+					})
+					Context("RoleBinding does not exist", func() {
+						JustBeforeEach(func() {
+							err := t.Client.Delete(context.Background(), t.NewRoleBinding(targetNamespaces[0]))
+							Expect(err).ToNot(HaveOccurred())
+							t.reconcileDeletedCryostat()
+						})
+						It("should delete Cryostat", func() {
+							t.expectNoCryostat()
+						})
+					})
 				})
 			})
 
@@ -2504,6 +2517,15 @@ func (t *cryostatTestInput) checkClusterRoleBindingDeleted() {
 	clusterBinding := &rbacv1.ClusterRoleBinding{}
 	err := t.Client.Get(context.Background(), types.NamespacedName{Name: t.NewClusterRoleBinding().Name}, clusterBinding)
 	Expect(kerrors.IsNotFound(err)).To(BeTrue())
+}
+
+func (t *cryostatTestInput) checkRoleBindingsDeleted() {
+	for _, ns := range t.TargetNamespaces {
+		expected := t.NewRoleBinding(ns)
+		binding := &rbacv1.RoleBinding{}
+		err := t.Client.Get(context.Background(), types.NamespacedName{Name: expected.Name, Namespace: expected.Namespace}, binding)
+		Expect(kerrors.IsNotFound(err)).To(BeTrue())
+	}
 }
 
 func (t *cryostatTestInput) expectNoRoutes() {
@@ -3119,21 +3141,12 @@ func (t *cryostatTestInput) getCryostatInstance() *model.CryostatInstance {
 }
 
 func (t *cryostatTestInput) lookupCryostatInstance() (*model.CryostatInstance, error) {
-	if t.ClusterScoped {
-		cr := &operatorv1beta2.ClusterCryostat{}
-		err := t.Client.Get(context.Background(), types.NamespacedName{Name: t.Name}, cr)
-		if err != nil {
-			return nil, err
-		}
-		return t.ConvertClusterToModel(cr), nil
-	} else {
-		cr := &operatorv1beta2.Cryostat{}
-		err := t.Client.Get(context.Background(), types.NamespacedName{Name: t.Name, Namespace: t.Namespace}, cr)
-		if err != nil {
-			return nil, err
-		}
-		return t.ConvertNamespacedToModel(cr), nil
+	cr := &operatorv1beta2.Cryostat{}
+	err := t.Client.Get(context.Background(), types.NamespacedName{Name: t.Name, Namespace: t.Namespace}, cr)
+	if err != nil {
+		return nil, err
 	}
+	return t.ConvertNamespacedToModel(cr), nil
 }
 
 func (t *cryostatTestInput) updateCryostatInstance(cr *model.CryostatInstance) {
@@ -3146,38 +3159,9 @@ func (t *cryostatTestInput) reconcile() (reconcile.Result, error) {
 }
 
 func (t *cryostatTestInput) reconcileWithName(name string) (reconcile.Result, error) {
-	nsName := types.NamespacedName{Name: name}
-	if !t.ClusterScoped {
-		nsName.Namespace = t.Namespace
-	}
+	nsName := types.NamespacedName{Name: name, Namespace: t.Namespace}
 	req := reconcile.Request{NamespacedName: nsName}
 	return t.controller.Reconcile(context.Background(), req)
-}
-
-func (t *cryostatTestInput) expectAlreadyOwnedError(reconcileErr error, expectedKind string, expected metav1.Object, otherInput *cryostatTestInput) {
-	Expect(reconcileErr).ToNot(BeNil())
-	Expect(reconcileErr).To(BeAssignableToTypeOf(&controllerutil.AlreadyOwnedError{}))
-
-	// Check identity of conflicting owner and conflicting object
-	alreadyOwned := reconcileErr.(*controllerutil.AlreadyOwnedError)
-	typeMeta, err := meta.TypeAccessor(alreadyOwned.Object)
-	Expect(err).ToNot(HaveOccurred())
-	Expect(typeMeta.GetKind()).To(Equal(expectedKind))
-	Expect(alreadyOwned.Object.GetName()).To(Equal(expected.GetName()))
-	Expect(alreadyOwned.Object.GetNamespace()).To(Equal(expected.GetNamespace()))
-	if otherInput.ClusterScoped {
-		Expect(alreadyOwned.Owner.Kind).To(Equal("ClusterCryostat"))
-	} else {
-		Expect(alreadyOwned.Owner.Kind).To(Equal("Cryostat"))
-	}
-	Expect(alreadyOwned.Owner.Name).To(Equal(otherInput.Name))
-}
-
-func (t *cryostatTestInput) expectNameConflictEvent() {
-	recorder := t.controller.GetConfig().EventRecorder.(*record.FakeRecorder)
-	var eventMsg string
-	Expect(recorder.Events).To(Receive(&eventMsg))
-	Expect(eventMsg).To(ContainSubstring("CryostatNameConflict"))
 }
 
 func (t *cryostatTestInput) expectConsoleLink() {
@@ -3197,11 +3181,4 @@ func (t *cryostatTestInput) expectResourcesUnaffected() {
 func (t *cryostatTestInput) expectTargetNamespaces() {
 	cr := t.getCryostatInstance()
 	Expect(*cr.TargetNamespaceStatus).To(ConsistOf(t.TargetNamespaces))
-}
-
-func getControllerFunc(clusterScoped bool) func(*controllers.ReconcilerConfig) (controllers.CommonReconciler, error) {
-	if clusterScoped {
-		return newClusterCryostatController
-	}
-	return newCryostatController
 }

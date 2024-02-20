@@ -21,7 +21,6 @@ import (
 
 var _ = Describe("CryostatController", func() {
 	c := &controllerTest{
-		clusterScoped:   false,
 		constructorFunc: newCryostatController,
 	}
 

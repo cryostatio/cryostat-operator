@@ -49,7 +49,6 @@ type TestResources struct {
 	ExternalTLS      bool
 	OpenShift        bool
 	ReportReplicas   int32
-	ClusterScoped    bool
 	TargetNamespaces []string
 	InsightsURL      string
 }
@@ -84,23 +83,7 @@ func NewTESTRESTMapper() meta.RESTMapper {
 }
 
 func (r *TestResources) NewCryostat() *model.CryostatInstance {
-	if r.ClusterScoped {
-		return r.ConvertClusterToModel(r.newClusterCryostat())
-	} else {
-		return r.ConvertNamespacedToModel(r.newCryostat())
-	}
-}
-
-func (r *TestResources) newClusterCryostat() *operatorv1beta2.ClusterCryostat {
-	return &operatorv1beta2.ClusterCryostat{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: r.Name,
-		},
-		Spec: operatorv1beta2.ClusterCryostatSpec{
-			InstallNamespace: r.Namespace,
-			CryostatSpec:     r.newCryostatSpec(),
-		},
-	}
+	return r.ConvertNamespacedToModel(r.newCryostat())
 }
 
 func (r *TestResources) newCryostat() *operatorv1beta2.Cryostat {
@@ -137,18 +120,6 @@ func (r *TestResources) ConvertNamespacedToModel(cr *operatorv1beta2.Cryostat) *
 		TargetNamespaceStatus: &cr.Status.TargetNamespaces,
 		Spec:                  &cr.Spec,
 		Status:                &cr.Status,
-		Object:                cr,
-	}
-}
-
-func (r *TestResources) ConvertClusterToModel(cr *operatorv1beta2.ClusterCryostat) *model.CryostatInstance {
-	return &model.CryostatInstance{
-		Name:                  cr.Name,
-		InstallNamespace:      cr.Spec.InstallNamespace,
-		TargetNamespaces:      cr.Spec.TargetNamespaces,
-		TargetNamespaceStatus: &cr.Status.TargetNamespaces,
-		Spec:                  &cr.Spec.CryostatSpec,
-		Status:                &cr.Status.CryostatStatus,
 		Object:                cr,
 	}
 }
@@ -2909,17 +2880,9 @@ func (r *TestResources) NewLockConfigMap() *corev1.ConfigMap {
 }
 
 func (r *TestResources) getClusterUniqueName() string {
-	prefix := "cryostat-"
-	if r.ClusterScoped {
-		prefix = "clustercryostat-"
-	}
-	return prefix + r.clusterUniqueSuffix()
+	return "cryostat-" + r.clusterUniqueSuffix()
 }
 
 func (r *TestResources) getClusterUniqueNameForCA() string {
-	prefix := "cryostat-ca-"
-	if r.ClusterScoped {
-		prefix = "clustercryostat-ca-"
-	}
-	return prefix + r.clusterUniqueSuffix()
+	return "cryostat-ca-" + r.clusterUniqueSuffix()
 }
