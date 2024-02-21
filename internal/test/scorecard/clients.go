@@ -136,7 +136,7 @@ func (c *CryostatClient) Create(ctx context.Context, obj *operatorv1beta1.Cryost
 
 // Update updates the provided Cryostat CR
 func (c *CryostatClient) Update(ctx context.Context, obj *operatorv1beta1.Cryostat) (*operatorv1beta1.Cryostat, error) {
-	return update(ctx, c.restClient, c.resource, c.namespace, obj, &operatorv1beta1.Cryostat{})
+	return update(ctx, c.restClient, c.resource, c.namespace, obj, &operatorv1beta1.Cryostat{}, obj.Name)
 }
 
 // Delete deletes the Cryostat CR with the given name
@@ -158,9 +158,9 @@ func create[r runtime.Object](ctx context.Context, c rest.Interface, res string,
 	return result, err
 }
 
-func update[r runtime.Object](ctx context.Context, c rest.Interface, res string, ns string, obj r, result r) (r, error) {
+func update[r runtime.Object](ctx context.Context, c rest.Interface, res string, ns string, obj r, result r, name string) (r, error) {
 	err := c.Put().
-		Namespace(ns).Resource(res).
+		Namespace(ns).Resource(res).Name(name).
 		Body(obj).Do(ctx).Into(result)
 	return result, err
 }
