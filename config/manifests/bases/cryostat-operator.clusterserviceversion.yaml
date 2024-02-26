@@ -337,18 +337,18 @@ spec:
       - description: Security Context to apply to the JFR Data Source container.
         displayName: Data Source Security Context
         path: securityOptions.dataSourceSecurityContext
+      - description: Security Context to apply to the storage container.
+        displayName: Database Security Context
+        path: securityOptions.databaseSecurityContext
       - description: Security Context to apply to the Grafana container.
         displayName: Grafana Security Context
         path: securityOptions.grafanaSecurityContext
-      - description: Security Context to apply to the storage container.
-        displayName: storage Security Context
-        path: securityOptions.storageSecurityContext
-      - description: Security Context to apply to the database container.
-        displayName: database Security Context
-        path: securityOptions.databaseSecurityContext
       - description: Security Context to apply to the Cryostat pod.
         displayName: Pod Security Context
         path: securityOptions.podSecurityContext
+      - description: Security Context to apply to the storage container.
+        displayName: Storage Security Context
+        path: securityOptions.storageSecurityContext
       - description: Options to customize the services created for the Cryostat application
           and Grafana dashboard.
         displayName: Service Options
@@ -393,7 +393,7 @@ spec:
         displayName: Target Discovery Options
         path: targetDiscoveryOptions
       - description: When true, the Cryostat application will disable the built-in
-          discovery mechanisms. Defaults to false.
+          discovery mechanisms. Defaults to false
         displayName: Disable Built-in Discovery
         path: targetDiscoveryOptions.builtInDiscoveryDisabled
         x-descriptors:
@@ -747,18 +747,18 @@ spec:
       - description: Security Context to apply to the JFR Data Source container.
         displayName: Data Source Security Context
         path: securityOptions.dataSourceSecurityContext
+      - description: Security Context to apply to the storage container.
+        displayName: Database Security Context
+        path: securityOptions.databaseSecurityContext
       - description: Security Context to apply to the Grafana container.
         displayName: Grafana Security Context
         path: securityOptions.grafanaSecurityContext
-      - description: Security Context to apply to the storage container.
-        displayName: storage Security Context
-        path: securityOptions.storageSecurityContext
-      - description: Security Context to apply to the database container.
-        displayName: database Security Context
-        path: securityOptions.databaseSecurityContext
       - description: Security Context to apply to the Cryostat pod.
         displayName: Pod Security Context
         path: securityOptions.podSecurityContext
+      - description: Security Context to apply to the storage container.
+        displayName: Storage Security Context
+        path: securityOptions.storageSecurityContext
       - description: Options to customize the services created for the Cryostat application
           and Grafana dashboard.
         displayName: Service Options

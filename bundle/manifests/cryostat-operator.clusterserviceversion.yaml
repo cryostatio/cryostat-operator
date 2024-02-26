@@ -54,7 +54,7 @@ metadata:
     capabilities: Seamless Upgrades
     categories: Monitoring, Developer Tools
     containerImage: quay.io/cryostat/cryostat-operator:3.0.0-dev
-    createdAt: "2024-02-15T20:45:48Z"
+    createdAt: "2024-02-26T22:11:08Z"
     description: JVM monitoring and profiling tool
     operatorframework.io/initialization-resource: |-
       {
@@ -71,7 +71,7 @@ metadata:
           }
         }
       }
-    operators.operatorframework.io/builder: operator-sdk-v1.31.0
+    operators.operatorframework.io/builder: operator-sdk-v1.32.0
     operators.operatorframework.io/project_layout: go.kubebuilder.io/v3
     repository: github.com/cryostatio/cryostat-operator
     support: Cryostat Community
@@ -381,18 +381,18 @@ spec:
       - description: Security Context to apply to the JFR Data Source container.
         displayName: Data Source Security Context
         path: securityOptions.dataSourceSecurityContext
+      - description: Security Context to apply to the storage container.
+        displayName: Database Security Context
+        path: securityOptions.databaseSecurityContext
       - description: Security Context to apply to the Grafana container.
         displayName: Grafana Security Context
         path: securityOptions.grafanaSecurityContext
-      - description: Security Context to apply to the storage container.
-        displayName: Storage Security Context
-        path: securityOptions.storageSecurityContext
-      - description: Security Context to apply to the storage container.
-        displayName: Storage Security Context
-        path: securityOptions.databaseSecurityContext
       - description: Security Context to apply to the Cryostat pod.
         displayName: Pod Security Context
         path: securityOptions.podSecurityContext
+      - description: Security Context to apply to the storage container.
+        displayName: Storage Security Context
+        path: securityOptions.storageSecurityContext
       - description: Options to customize the services created for the Cryostat application
           and Grafana dashboard.
         displayName: Service Options
@@ -793,18 +793,18 @@ spec:
       - description: Security Context to apply to the JFR Data Source container.
         displayName: Data Source Security Context
         path: securityOptions.dataSourceSecurityContext
+      - description: Security Context to apply to the storage container.
+        displayName: Database Security Context
+        path: securityOptions.databaseSecurityContext
       - description: Security Context to apply to the Grafana container.
         displayName: Grafana Security Context
         path: securityOptions.grafanaSecurityContext
-      - description: Security Context to apply to the storage container.
-        displayName: Storage Security Context
-        path: securityOptions.storageSecurityContext
-      - description: Security Context to apply to the storage container.
-        displayName: Storage Security Context
-        path: securityOptions.databaseSecurityContext
       - description: Security Context to apply to the Cryostat pod.
         displayName: Pod Security Context
         path: securityOptions.podSecurityContext
+      - description: Security Context to apply to the storage container.
+        displayName: Storage Security Context
+        path: securityOptions.storageSecurityContext
       - description: Options to customize the services created for the Cryostat application
           and Grafana dashboard.
         displayName: Service Options
@@ -849,7 +849,7 @@ spec:
         displayName: Target Discovery Options
         path: targetDiscoveryOptions
       - description: When true, the Cryostat application will disable the built-in
-          discovery mechanisms. Defaults to false.
+          discovery mechanisms. Defaults to false
         displayName: Disable Built-in Discovery
         path: targetDiscoveryOptions.builtInDiscoveryDisabled
         x-descriptors:
@@ -1143,8 +1143,6 @@ spec:
                   value: quay.io/cryostat/cryostat-grafana-dashboard:latest
                 - name: RELATED_IMAGE_REPORTS
                   value: quay.io/cryostat/cryostat-reports:latest
-                - name: RELATED_IMAGE_STORAGE
-                  value: quay.io/cryostat/cryostat-storage:latest
                 - name: WATCH_NAMESPACE
                   valueFrom:
                     fieldRef:
@@ -1153,7 +1151,7 @@ spec:
                   valueFrom:
                     fieldRef:
                       fieldPath: metadata.namespace
-                image: quay.io/jmatsuok/cryostat-operator:3.0.0-dev
+                image: quay.io/cryostat/cryostat-operator:3.0.0-dev
                 imagePullPolicy: Always
                 livenessProbe:
                   httpGet:
@@ -1281,8 +1279,6 @@ spec:
     name: grafana
   - image: quay.io/cryostat/cryostat-reports:latest
     name: reports
-  - image: quay.io/cryostat/cryostat-storage:latest
-    name: storage
   version: 3.0.0-dev
   webhookdefinitions:
   - admissionReviewVersions:
