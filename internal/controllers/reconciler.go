@@ -94,7 +94,7 @@ const grafanaImageTagEnv = "RELATED_IMAGE_GRAFANA"
 const reportsImageTagEnv = "RELATED_IMAGE_REPORTS"
 
 // Environment variable to override the cryostat-storage image
-const storageImageTagEnv = "RELATED_IMAGE_STOARGE"
+const storageImageTagEnv = "RELATED_IMAGE_STORAGE"
 
 // Environment variable to override the cryostat-database image
 const databaseImageTagEnv = "RELATED_IMAGE_DATABASE"

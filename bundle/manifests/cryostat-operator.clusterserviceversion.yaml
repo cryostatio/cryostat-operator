@@ -796,6 +796,12 @@ spec:
       - description: Security Context to apply to the Grafana container.
         displayName: Grafana Security Context
         path: securityOptions.grafanaSecurityContext
+      - description: Security Context to apply to the storage container.
+        displayName: Storage Security Context
+        path: securityOptions.storageSecurityContext
+      - description: Security Context to apply to the storage container.
+        displayName: Storage Security Context
+        path: securityOptions.databaseSecurityContext
       - description: Security Context to apply to the Cryostat pod.
         displayName: Pod Security Context
         path: securityOptions.podSecurityContext
