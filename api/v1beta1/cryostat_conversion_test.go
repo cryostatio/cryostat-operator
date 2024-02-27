@@ -134,8 +134,6 @@ func tableEntries() []TableEntry {
 			(*test.TestResources).NewCryostatWithBuiltInPortConfigDisabled),
 		Entry("JMX cache options", (*test.TestResources).NewCryostatWithJmxCacheOptionsSpecV1Beta1,
 			(*test.TestResources).NewCryostatWithJmxCacheOptionsSpec),
-		Entry("WS connections", (*test.TestResources).NewCryostatWithWsConnectionsSpecV1Beta1,
-			(*test.TestResources).NewCryostatWithWsConnectionsSpec),
 		Entry("subprocess heap", (*test.TestResources).NewCryostatWithReportSubprocessHeapSpecV1Beta1,
 			(*test.TestResources).NewCryostatWithReportSubprocessHeapSpec),
 		Entry("security", (*test.TestResources).NewCryostatWithSecurityOptionsV1Beta1,

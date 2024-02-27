@@ -50,7 +50,6 @@ func convertSpecTo(src *CryostatSpec, dst *operatorv1beta2.CryostatSpec) {
 	dst.ServiceOptions = convertServiceOptionsTo(src.ServiceOptions)
 	dst.NetworkOptions = convertNetworkOptionsTo(src.NetworkOptions)
 	dst.ReportOptions = convertReportOptionsTo(src.ReportOptions)
-	dst.MaxWsConnections = src.MaxWsConnections
 	dst.JmxCacheOptions = convertJmxCacheOptionsTo(src.JmxCacheOptions)
 	dst.Resources = convertResourceOptionsTo(src.Resources)
 	dst.AuthProperties = convertAuthPropertiesTo(src.AuthProperties)
@@ -336,7 +335,6 @@ func convertSpecFrom(src *operatorv1beta2.CryostatSpec, dst *CryostatSpec) {
 	dst.ServiceOptions = convertServiceOptionsFrom(src.ServiceOptions)
 	dst.NetworkOptions = convertNetworkOptionsFrom(src.NetworkOptions)
 	dst.ReportOptions = convertReportOptionsFrom(src.ReportOptions)
-	dst.MaxWsConnections = src.MaxWsConnections
 	dst.JmxCacheOptions = convertJmxCacheOptionsFrom(src.JmxCacheOptions)
 	dst.Resources = convertResourceOptionsFrom(src.Resources)
 	dst.AuthProperties = convertAuthPropertiesFrom(src.AuthProperties)

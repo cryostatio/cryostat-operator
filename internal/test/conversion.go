@@ -472,12 +472,6 @@ func (r *TestResources) NewCryostatWithJmxCacheOptionsSpecV1Beta1() *operatorv1b
 	return cr
 }
 
-func (r *TestResources) NewCryostatWithWsConnectionsSpecV1Beta1() *operatorv1beta1.Cryostat {
-	cr := r.NewCryostatV1Beta1()
-	cr.Spec.MaxWsConnections = 10
-	return cr
-}
-
 func (r *TestResources) NewCryostatWithReportSubprocessHeapSpecV1Beta1() *operatorv1beta1.Cryostat {
 	cr := r.NewCryostatV1Beta1()
 	if cr.Spec.ReportOptions == nil {
