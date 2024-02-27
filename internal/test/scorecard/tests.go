@@ -23,7 +23,6 @@ import (
 	scapiv1alpha3 "github.com/operator-framework/api/pkg/apis/scorecard/v1alpha3"
 	apimanifests "github.com/operator-framework/api/pkg/manifests"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/util/wait"
 )
 
 const (
@@ -101,27 +100,18 @@ func CryostatRecordingTest(bundle *apimanifests.Bundle, namespace string, openSh
 
 	apiClient := NewCryostatRESTClientset(base)
 
-	// Get a target for test
-	var target Target
-	ctx, cancel := context.WithTimeout(context.Background(), testTimeout)
-	defer cancel()
-	err = wait.PollImmediateUntilWithContext(ctx, time.Second, func(ctx context.Context) (done bool, err error) {
-		targets, err := apiClient.Targets().List(context.Background())
-		if err != nil {
-			logError(r, fmt.Sprintf("failed to list discovered targets: %s", err.Error()))
-			return false, err
-		}
-		if len(targets) == 0 {
-			r.Log += "no target is yet discovered\n"
-			return false, nil // Try again
-		}
-		target = targets[0] // Cryostat
-		r.Log += fmt.Sprintf("found a target: %+v\n", target)
-		return true, nil
-	})
-	if err != nil {
-		return fail(*r, fmt.Sprintf("failed to get a target for test: %s", err.Error()))
+	// Create a custom target for test
+	targetOptions := &TargetCreateOptions{
+		ConnectUrl: "service:jmx:rmi:///jndi/rmi://localhost:0/jmxrmi",
+		Alias:      "custom-target",
+		Username:   "user",
+		Password:   "pass",
 	}
+	target, err := apiClient.Targets().Create(context.Background(), targetOptions)
+	if err != nil {
+		return fail(*r, fmt.Sprintf("failed to create a target: %s", err.Error()))
+	}
+	r.Log += fmt.Sprintf("created a custom target: %+v\n", target)
 	connectUrl := target.ConnectUrl
 
 	jmxSecretName := CryostatRecordingTestName + "-jmx-auth"

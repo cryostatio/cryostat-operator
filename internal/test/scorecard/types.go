@@ -113,6 +113,24 @@ type Target struct {
 	Alias      string `json:"alias,omitempty"`
 }
 
+type TargetCreateOptions struct {
+	ConnectUrl string `json:"connectUrl"`
+	Alias      string `json:"alias,omitempty"`
+	Username   string `json:"username"`
+	Password   string `json:"password"`
+}
+
+func (opts *TargetCreateOptions) ToFormData() string {
+	formData := &url.Values{}
+
+	formData.Add("connectUrl", opts.ConnectUrl)
+	formData.Add("alias", opts.Alias)
+	formData.Add("username", opts.Username)
+	formData.Add("password", opts.Password)
+
+	return formData.Encode()
+}
+
 type GraphQLQuery struct {
 	Query     string            `json:"query"`
 	Variables map[string]string `json:"variables,omitempty"`
