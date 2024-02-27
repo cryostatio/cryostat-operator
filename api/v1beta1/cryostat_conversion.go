@@ -157,7 +157,6 @@ func convertNetworkOptionsTo(srcOpts *NetworkConfigurationList) *operatorv1beta2
 		dstOpts = &operatorv1beta2.NetworkConfigurationList{
 			CoreConfig:    convertNetworkConfigTo(srcOpts.CoreConfig),
 			GrafanaConfig: convertNetworkConfigTo(srcOpts.GrafanaConfig),
-			CommandConfig: convertNetworkConfigTo(srcOpts.CommandConfig), // TODO Remove this from v1beta2 API
 		}
 	}
 	return dstOpts
@@ -442,7 +441,6 @@ func convertNetworkOptionsFrom(srcOpts *operatorv1beta2.NetworkConfigurationList
 		dstOpts = &NetworkConfigurationList{
 			CoreConfig:    convertNetworkConfigFrom(srcOpts.CoreConfig),
 			GrafanaConfig: convertNetworkConfigFrom(srcOpts.GrafanaConfig),
-			CommandConfig: convertNetworkConfigFrom(srcOpts.CommandConfig), // TODO Remove this from v1beta2 API
 		}
 	}
 	return dstOpts
