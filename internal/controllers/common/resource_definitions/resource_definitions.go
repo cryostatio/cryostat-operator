@@ -38,6 +38,8 @@ type ImageTags struct {
 	DatasourceImageTag string
 	GrafanaImageTag    string
 	ReportsImageTag    string
+	StorageImageTag    string
+	DatabaseImageTag   string
 }
 
 type ServiceSpecs struct {
@@ -45,6 +47,8 @@ type ServiceSpecs struct {
 	GrafanaURL  *url.URL
 	ReportsURL  *url.URL
 	InsightsURL *url.URL
+	StorageURL  *url.URL
+	DatabaseURL *url.URL
 }
 
 // TLSConfig contains TLS-related information useful when creating other objects
@@ -247,6 +251,8 @@ func NewPodForCR(cr *model.CryostatInstance, specs *ServiceSpecs, imageTags *Ima
 			NewCoreContainer(cr, specs, imageTags.CoreImageTag, tls, openshift),
 			NewGrafanaContainer(cr, imageTags.GrafanaImageTag, tls),
 			NewJfrDatasourceContainer(cr, imageTags.DatasourceImageTag),
+			NewStorageContainer(cr, imageTags.StorageImageTag, tls),
+			newDatabaseContainer(cr, imageTags.DatabaseImageTag, tls),
 		}
 	}
 
@@ -1112,6 +1118,50 @@ func NewGrafanaContainer(cr *model.CryostatInstance, imageTag string, tls *TLSCo
 		},
 		SecurityContext: containerSc,
 		Resources:       *NewGrafanaContainerResource(cr),
+	}
+}
+
+func NewStorageContainer(cr *model.CryostatInstance, imageTag string, tls *TLSConfig) corev1.Container {
+	var containerSc *corev1.SecurityContext
+	if cr.Spec.SecurityOptions != nil && cr.Spec.SecurityOptions.StorageSecurityContext != nil {
+		containerSc = cr.Spec.SecurityOptions.StorageSecurityContext
+	} else {
+		privEscalation := false
+		containerSc = &corev1.SecurityContext{
+			AllowPrivilegeEscalation: &privEscalation,
+			Capabilities: &corev1.Capabilities{
+				Drop: []corev1.Capability{constants.CapabilityAll},
+			},
+		}
+	}
+
+	return corev1.Container{
+		Name:            cr.Name + "-storage",
+		Image:           imageTag,
+		ImagePullPolicy: getPullPolicy(imageTag),
+		SecurityContext: containerSc,
+	}
+}
+
+func newDatabaseContainer(cr *model.CryostatInstance, imageTag string, tls *TLSConfig) corev1.Container {
+	var containerSc *corev1.SecurityContext
+	if cr.Spec.SecurityOptions != nil && cr.Spec.SecurityOptions.DatabaseSecurityContext != nil {
+		containerSc = cr.Spec.SecurityOptions.DatabaseSecurityContext
+	} else {
+		privEscalation := false
+		containerSc = &corev1.SecurityContext{
+			AllowPrivilegeEscalation: &privEscalation,
+			Capabilities: &corev1.Capabilities{
+				Drop: []corev1.Capability{constants.CapabilityAll},
+			},
+		}
+	}
+
+	return corev1.Container{
+		Name:            cr.Name + "-db",
+		Image:           imageTag,
+		ImagePullPolicy: getPullPolicy(imageTag),
+		SecurityContext: containerSc,
 	}
 }
 

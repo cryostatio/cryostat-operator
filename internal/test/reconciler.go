@@ -29,6 +29,8 @@ type TestReconcilerConfig struct {
 	EnvDisableTLS         *bool
 	EnvCoreImageTag       *string
 	EnvDatasourceImageTag *string
+	EnvStorageImageTag    *string
+	EnvDatabaseImageTag   *string
 	EnvGrafanaImageTag    *string
 	EnvReportsImageTag    *string
 	GeneratedPasswords    []string
@@ -60,6 +62,12 @@ func newTestOSUtils(config *TestReconcilerConfig) *testOSUtils {
 	}
 	if config.EnvGrafanaImageTag != nil {
 		envs["RELATED_IMAGE_GRAFANA"] = *config.EnvGrafanaImageTag
+	}
+	if config.EnvStorageImageTag != nil {
+		envs["RELATED_IMAGE_STORAGE"] = *config.EnvStorageImageTag
+	}
+	if config.EnvDatabaseImageTag != nil {
+		envs["RELATED_IMAGE_DATABASE"] = *config.EnvDatabaseImageTag
 	}
 	if config.EnvReportsImageTag != nil {
 		envs["RELATED_IMAGE_REPORTS"] = *config.EnvReportsImageTag

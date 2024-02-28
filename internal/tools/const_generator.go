@@ -28,6 +28,8 @@ const coreImageEnv = "CORE_IMG"
 const datasourceImageEnv = "DATASOURCE_IMG"
 const grafanaImageEnv = "GRAFANA_IMG"
 const reportsImageEnv = "REPORTS_IMG"
+const storageImageEnv = "STORAGE_IMG"
+const databaseImageEnv = "DATABASE_IMG"
 
 // This program generates a imagetag_generated.go file containing image tag
 // constants for each container image deployed by the operator. These constants
@@ -41,6 +43,8 @@ func main() {
 		DatasourceImageTag string
 		GrafanaImageTag    string
 		ReportsImageTag    string
+		StorageImageTag    string
+		DatabaseImageTag   string
 	}{
 		AppName:            getEnvVar(appNameEnv),
 		OperatorVersion:    getEnvVar(operatorVersionEnv),
@@ -48,6 +52,8 @@ func main() {
 		DatasourceImageTag: getEnvVar(datasourceImageEnv),
 		GrafanaImageTag:    getEnvVar(grafanaImageEnv),
 		ReportsImageTag:    getEnvVar(reportsImageEnv),
+		StorageImageTag:    getEnvVar(storageImageEnv),
+		DatabaseImageTag:   getEnvVar(databaseImageEnv),
 	}
 
 	// Create the source file to generate
@@ -91,4 +97,10 @@ const DefaultGrafanaImageTag = "{{ .GrafanaImageTag }}"
 
 // Default image tag for the Grafana dashboard image
 const DefaultReportsImageTag = "{{ .ReportsImageTag }}"
+
+// Default image tag for the Storage image
+const DefaultStorageImageTag = "{{ .StorageImageTag }}"
+
+// Default image tag for the Database image
+const DefaultDatabaseImageTag = "{{ .DatabaseImageTag }}"
 `))
