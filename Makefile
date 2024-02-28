@@ -135,6 +135,14 @@ else
 KUSTOMIZE_DIR ?= config/default
 endif
 
+# Specify which scorecard tests/suites to run
+ifneq ($(SCORECARD_TEST_SELECTION),)
+SCORECARD_TEST_SELECTOR := --selector='test in ($(SCORECARD_TEST_SELECTION))'
+endif
+ifneq ($(SCORECARD_TEST_SUITE),)
+SCORECARD_TEST_SELECTOR := --selector=suite=$(SCORECARD_TEST_SUITE)
+endif
+
 ##@ General
 
 .PHONY: all
@@ -159,9 +167,9 @@ endif
 test-scorecard: check_cert_manager kustomize operator-sdk ## Run scorecard tests.
 ifneq ($(SKIP_TESTS), true)
 	$(call scorecard-setup)
-	$(call scorecard-cleanup); \
-	trap cleanup EXIT; \
-	$(OPERATOR_SDK) scorecard -n $(SCORECARD_NAMESPACE) -s cryostat-scorecard -w 20m $(BUNDLE_IMG) --pod-security=restricted
+	$(call scorecard-cleanup) ; \
+	trap cleanup EXIT ; \
+	$(OPERATOR_SDK) scorecard -n $(SCORECARD_NAMESPACE) -s cryostat-scorecard -w 20m $(BUNDLE_IMG) --pod-security=restricted $(SCORECARD_TEST_SELECTOR)
 endif
 
 .PHONY: clean-scorecard
