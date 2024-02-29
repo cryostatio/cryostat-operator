@@ -253,7 +253,6 @@ func (client *TargetClient) Create(ctx context.Context, options *Target) (*Targe
 	if err != nil {
 		return nil, fmt.Errorf("failed to create a Cryostat REST request: %s", err.Error())
 	}
-	req.Header.Add("Content-Type", "application/x-www-form-urlencoded")
 	req.Header.Add("Accept", "*/*")
 
 	resp, err := client.Do(req)
@@ -263,7 +262,7 @@ func (client *TargetClient) Create(ctx context.Context, options *Target) (*Targe
 	defer resp.Body.Close()
 
 	if !StatusOK(resp.StatusCode) {
-		return nil, fmt.Errorf("API request failed with status code %d: %s", resp.StatusCode, ReadError(resp))
+		return nil, fmt.Errorf("API request failed with status code: %d, response body: %s, and headers:\n%s", resp.StatusCode, ReadError(resp), ReadHeader(resp))
 	}
 
 	targetResp := &CustomTargetResponse{}
@@ -553,6 +552,16 @@ func ReadString(resp *http.Response) (string, error) {
 		return "", err
 	}
 	return string(body), nil
+}
+
+func ReadHeader(resp *http.Response) string {
+	var header string
+	for name, value := range resp.Header {
+		for _, h := range value {
+			header += fmt.Sprintf("%s: %s\n", name, h)
+		}
+	}
+	return header
 }
 
 func ReadError(resp *http.Response) string {
