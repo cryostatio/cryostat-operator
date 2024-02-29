@@ -256,6 +256,7 @@ func (client *TargetClient) Create(ctx context.Context, options *Target) (*Targe
 	if err != nil {
 		return nil, fmt.Errorf("failed to create a Cryostat REST request: %s", err.Error())
 	}
+	req.Header.Add("Content-Type", "application/x-www-form-urlencoded")
 	req.Header.Add("Accept", "*/*")
 
 	resp, err := SendRequest(ctx, client.Client, req)
