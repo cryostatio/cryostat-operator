@@ -383,6 +383,88 @@ func waitTillCryostatReady(base *url.URL, resources *TestResources) error {
 	return err
 }
 
+func updateAndWaitTillCryostatAvailable(cr *operatorv1beta1.Cryostat, resources *TestResources) error {
+	client := resources.Client
+	r := resources.TestResult
+
+	cr, err := client.OperatorCRDs().Cryostats(cr.Namespace).Update(context.Background(), cr)
+	if err != nil {
+		r.Log += fmt.Sprintf("failed to update Cryostat CR: %s", err.Error())
+		return err
+	}
+
+	// Poll the deployment until it becomes available or we timeout
+	ctx, cancel := context.WithTimeout(context.Background(), testTimeout)
+	defer cancel()
+	err = wait.PollImmediateUntilWithContext(ctx, time.Second, func(ctx context.Context) (done bool, err error) {
+		deploy, err := client.AppsV1().Deployments(cr.Namespace).Get(ctx, cr.Name, metav1.GetOptions{})
+		if err != nil {
+			if kerrors.IsNotFound(err) {
+				r.Log += fmt.Sprintf("deployment %s is not yet found\n", cr.Name)
+				return false, nil // Retry
+			}
+			return false, fmt.Errorf("failed to get deployment: %s", err.Error())
+		}
+
+		// Wait for deployment to update by verifying Cryostat has PVC configured
+		for _, volume := range deploy.Spec.Template.Spec.Volumes {
+			if volume.VolumeSource.EmptyDir != nil {
+				r.Log += fmt.Sprintf("Cryostat deployment is still updating. Storage: %s\n", volume.VolumeSource.EmptyDir)
+				return false, nil // Retry
+			}
+			if volume.VolumeSource.PersistentVolumeClaim != nil {
+				break
+			}
+		}
+
+		// Check for deployment condition
+		if deploy.Generation <= deploy.Status.ObservedGeneration {
+			for _, condition := range deploy.Status.Conditions {
+				if condition.Type == appsv1.DeploymentProgressing && condition.Status == corev1.ConditionFalse && condition.Reason == "ProgressDeadlineExceeded" {
+					return false, fmt.Errorf("deployment %s exceeded its progress deadline", deploy.Name) // Don't Retry
+				}
+			}
+			if deploy.Spec.Replicas != nil && deploy.Status.UpdatedReplicas < *deploy.Spec.Replicas {
+				r.Log += fmt.Sprintf("Waiting for deployment %s rollout to finish: %d out of %d new replicas have been updated... \n", deploy.Name, deploy.Status.UpdatedReplicas, *deploy.Spec.Replicas)
+				return false, nil
+			}
+			if deploy.Status.Replicas > deploy.Status.UpdatedReplicas {
+				r.Log += fmt.Sprintf("Waiting for deployment %s rollout to finish: %d old replicas are pending termination.. \n", deploy.Name, deploy.Status.Replicas-deploy.Status.UpdatedReplicas)
+				return false, nil
+			}
+			if deploy.Status.AvailableReplicas < deploy.Status.UpdatedReplicas {
+				r.Log += fmt.Sprintf("Waiting for deployment %s rollout to finish: %d out of %d updated replicas are available... \n", deploy.Name, deploy.Status.AvailableReplicas, deploy.Status.UpdatedReplicas)
+				return false, nil
+			}
+			r.Log += fmt.Sprintf("deployment %s successfully rolled out\n", deploy.Name)
+			return true, nil
+		}
+		r.Log += "Waiting for deployment spec update to be observed...\n"
+		return false, nil
+	})
+	if err != nil {
+		return fmt.Errorf("failed to look up deployment errors: %s", err.Error())
+	}
+
+	err = wait.PollImmediateUntilWithContext(ctx, time.Second, func(ctx context.Context) (done bool, err error) {
+		cr, err = client.OperatorCRDs().Cryostats(cr.Namespace).Get(ctx, cr.Name)
+		if err != nil {
+			return false, fmt.Errorf("failed to get Cryostat CR: %s", err.Error())
+		}
+		if len(cr.Status.ApplicationURL) > 0 {
+			return true, nil
+		}
+		r.Log += "application URL is not yet available\n"
+		return false, nil
+	})
+	if err != nil {
+		return fmt.Errorf("application URL not found in CR: %s", err.Error())
+	}
+	r.Log += fmt.Sprintf("application is available at %s\n", cr.Status.ApplicationURL)
+
+	return err
+}
+
 func cleanupCryostat(r *scapiv1alpha3.TestResult, client *CryostatClientset, name string, namespace string) {
 	cr := &operatorv1beta1.Cryostat{
 		ObjectMeta: metav1.ObjectMeta{
