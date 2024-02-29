@@ -55,7 +55,7 @@ var _ = Describe("Cryostat", func() {
 
 			Expect(converted).To(Equal(newCR))
 		},
-		tableEntries(),
+		tableEntriesTo(),
 	)
 
 	DescribeTable("converting from v1beta2 to v1beta1",
@@ -71,10 +71,19 @@ var _ = Describe("Cryostat", func() {
 
 			Expect(converted).To(Equal(oldCR))
 		},
-		tableEntries(),
+		tableEntriesFrom(),
 	)
 
 })
+
+func tableEntriesTo() []TableEntry {
+	return append(tableEntries(), Entry("WS connections", (*test.TestResources).NewCryostatWithWsConnectionsSpecV1Beta1,
+		(*test.TestResources).NewCryostat))
+}
+
+func tableEntriesFrom() []TableEntry {
+	return tableEntries()
+}
 
 func tableEntries() []TableEntry {
 	return []TableEntry{
