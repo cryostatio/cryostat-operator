@@ -19,16 +19,19 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
 	"net/url"
 	"strings"
+	"time"
 
 	operatorv1beta1 "github.com/cryostatio/cryostat-operator/api/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
+	"k8s.io/apimachinery/pkg/util/wait"
 
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes"
@@ -227,7 +230,7 @@ func (client *TargetClient) List(ctx context.Context) ([]Target, error) {
 	}
 	req.Header.Add("Accept", "*/*")
 
-	resp, err := client.Do(req)
+	resp, err := SendRequest(ctx, client.Client, req)
 	if err != nil {
 		return nil, err
 	}
@@ -255,7 +258,7 @@ func (client *TargetClient) Create(ctx context.Context, options *Target) (*Targe
 	}
 	req.Header.Add("Accept", "*/*")
 
-	resp, err := client.Do(req)
+	resp, err := SendRequest(ctx, client.Client, req)
 	if err != nil {
 		return nil, err
 	}
@@ -287,7 +290,7 @@ func (client *RecordingClient) List(ctx context.Context, connectUrl string) ([]R
 	}
 	req.Header.Add("Accept", "*/*")
 
-	resp, err := client.Do(req)
+	resp, err := SendRequest(ctx, client.Client, req)
 	if err != nil {
 		return nil, err
 	}
@@ -331,7 +334,7 @@ func (client *RecordingClient) Create(ctx context.Context, connectUrl string, op
 	req.Header.Add("Content-Type", "application/x-www-form-urlencoded")
 	req.Header.Add("Accept", "*/*")
 
-	resp, err := client.Do(req)
+	resp, err := SendRequest(ctx, client.Client, req)
 	if err != nil {
 		return nil, err
 	}
@@ -360,7 +363,7 @@ func (client *RecordingClient) Archive(ctx context.Context, connectUrl string, r
 	req.Header.Add("Content-Type", "text/plain")
 	req.Header.Add("Accept", "*/*")
 
-	resp, err := client.Do(req)
+	resp, err := SendRequest(ctx, client.Client, req)
 	if err != nil {
 		return "", err
 	}
@@ -387,7 +390,7 @@ func (client *RecordingClient) Stop(ctx context.Context, connectUrl string, reco
 	}
 	req.Header.Add("Content-Type", "text/plain")
 
-	resp, err := client.Do(req)
+	resp, err := SendRequest(ctx, client.Client, req)
 	if err != nil {
 		return err
 	}
@@ -407,7 +410,7 @@ func (client *RecordingClient) Delete(ctx context.Context, connectUrl string, re
 		return fmt.Errorf("failed to create a REST request: %s", err.Error())
 	}
 
-	resp, err := client.Do(req)
+	resp, err := SendRequest(ctx, client.Client, req)
 	if err != nil {
 		return err
 	}
@@ -433,7 +436,7 @@ func (client *RecordingClient) GenerateReport(ctx context.Context, connectUrl st
 	}
 	req.Header.Add("Accept", "application/json")
 
-	resp, err := client.Do(req)
+	resp, err := SendRequest(ctx, client.Client, req)
 	if err != nil {
 		return nil, err
 	}
@@ -488,7 +491,7 @@ func (client *RecordingClient) ListArchives(ctx context.Context, connectUrl stri
 	req.Header.Add("Content-Type", "application/json")
 	req.Header.Add("Accept", "*/*")
 
-	resp, err := client.Do(req)
+	resp, err := SendRequest(ctx, client.Client, req)
 	if err != nil {
 		return nil, err
 	}
@@ -520,7 +523,7 @@ func (client *CredentialClient) Create(ctx context.Context, credential *Credenti
 	}
 	req.Header.Add("Content-Type", "application/x-www-form-urlencoded")
 
-	resp, err := client.Do(req)
+	resp, err := SendRequest(ctx, client.Client, req)
 	if err != nil {
 		return err
 	}
@@ -555,7 +558,7 @@ func ReadString(resp *http.Response) (string, error) {
 }
 
 func ReadHeader(resp *http.Response) string {
-	var header string
+	header := ""
 	for name, value := range resp.Header {
 		for _, h := range value {
 			header += fmt.Sprintf("%s: %s\n", name, h)
@@ -598,4 +601,22 @@ func NewHttpRequest(ctx context.Context, method string, url string, body io.Read
 
 func StatusOK(statusCode int) bool {
 	return statusCode >= 200 && statusCode < 300
+}
+
+func SendRequest(ctx context.Context, httpClient *http.Client, req *http.Request) (*http.Response, error) {
+	var response *http.Response
+	err := wait.PollImmediateUntilWithContext(ctx, time.Second, func(ctx context.Context) (done bool, err error) {
+		resp, err := httpClient.Do(req)
+		if err != nil {
+			// Retry when connection is closed.
+			if errors.Is(err, io.EOF) {
+				return false, nil
+			}
+			return false, err
+		}
+		response = resp
+		return true, nil
+	})
+
+	return response, err
 }

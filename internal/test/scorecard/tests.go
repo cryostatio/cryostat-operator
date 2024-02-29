@@ -16,16 +16,13 @@ package scorecard
 
 import (
 	"context"
-	"errors"
 	"fmt"
-	"io"
 	"net/url"
 	"time"
 
 	scapiv1alpha3 "github.com/operator-framework/api/pkg/apis/scorecard/v1alpha3"
 	apimanifests "github.com/operator-framework/api/pkg/manifests"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/util/wait"
 )
 
 const (
@@ -163,23 +160,11 @@ func CryostatRecordingTest(bundle *apimanifests.Bundle, namespace string, openSh
 	time.Sleep(30 * time.Second)
 
 	// Archive the recording
-	ctx, cancel := context.WithTimeout(context.Background(), testTimeout)
-	defer cancel()
-	err = wait.PollImmediateUntilWithContext(ctx, time.Second, func(ctx context.Context) (done bool, err error) {
-		archiveName, err := apiClient.Recordings().Archive(context.Background(), connectUrl, rec.Name)
-		if errors.Is(err, io.EOF) {
-			r.Log += fmt.Sprintf("archiving recording resulted in EOF: %s, trying again", err.Error())
-			return false, nil
-		}
-		if err != nil {
-			return true, fmt.Errorf("failed to archive the recording: %s", err.Error())
-		}
-		r.Log += fmt.Sprintf("archived the recording %s at: %s\n", rec.Name, archiveName)
-		return true, nil
-	})
+	archiveName, err := apiClient.Recordings().Archive(context.Background(), connectUrl, rec.Name)
 	if err != nil {
-		return fail(*r, err.Error())
+		return fail(*r, fmt.Sprintf("failed to archive the recording: %s", err.Error()))
 	}
+	r.Log += fmt.Sprintf("archived the recording %s at: %s\n", rec.Name, archiveName)
 
 	archives, err := apiClient.Recordings().ListArchives(context.Background(), connectUrl)
 	if err != nil {

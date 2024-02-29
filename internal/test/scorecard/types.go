@@ -119,11 +119,11 @@ type Target struct {
 	Alias      string `json:"alias,omitempty"`
 }
 
-func (opts *Target) ToFormData() string {
+func (target *Target) ToFormData() string {
 	formData := &url.Values{}
 
-	formData.Add("connectUrl", opts.ConnectUrl)
-	formData.Add("alias", opts.Alias)
+	formData.Add("connectUrl", target.ConnectUrl)
+	formData.Add("alias", target.Alias)
 
 	return formData.Encode()
 }
