@@ -234,7 +234,7 @@ func (client *TargetClient) List(ctx context.Context) ([]Target, error) {
 	defer resp.Body.Close()
 
 	if !StatusOK(resp.StatusCode) {
-		return nil, fmt.Errorf("API request failed with status code %d: %s", resp.StatusCode, ReadError(resp))
+		return nil, fmt.Errorf("API request failed with status code: %d, response body: %s, and headers:\n%s", resp.StatusCode, ReadError(resp), ReadHeader(resp))
 	}
 
 	targets := make([]Target, 0)
@@ -294,7 +294,7 @@ func (client *RecordingClient) List(ctx context.Context, connectUrl string) ([]R
 	defer resp.Body.Close()
 
 	if !StatusOK(resp.StatusCode) {
-		return nil, fmt.Errorf("API request failed with status code %d: %s", resp.StatusCode, ReadError(resp))
+		return nil, fmt.Errorf("API request failed with status code: %d, response body: %s, and headers:\n%s", resp.StatusCode, ReadError(resp), ReadHeader(resp))
 	}
 
 	recordings := make([]Recording, 0)
@@ -338,7 +338,7 @@ func (client *RecordingClient) Create(ctx context.Context, connectUrl string, op
 	defer resp.Body.Close()
 
 	if !StatusOK(resp.StatusCode) {
-		return nil, fmt.Errorf("API request failed with status code %d: %s", resp.StatusCode, ReadError(resp))
+		return nil, fmt.Errorf("API request failed with status code: %d, response body: %s, and headers:\n%s", resp.StatusCode, ReadError(resp), ReadHeader(resp))
 	}
 
 	recording := &Recording{}
@@ -367,7 +367,7 @@ func (client *RecordingClient) Archive(ctx context.Context, connectUrl string, r
 	defer resp.Body.Close()
 
 	if !StatusOK(resp.StatusCode) {
-		return "", fmt.Errorf("API request failed with status code %d: %s", resp.StatusCode, ReadError(resp))
+		return "", fmt.Errorf("API request failed with status code: %d, response body: %s, and headers:\n%s", resp.StatusCode, ReadError(resp), ReadHeader(resp))
 	}
 
 	bodyAsString, err := ReadString(resp)
@@ -394,7 +394,7 @@ func (client *RecordingClient) Stop(ctx context.Context, connectUrl string, reco
 	defer resp.Body.Close()
 
 	if !StatusOK(resp.StatusCode) {
-		return fmt.Errorf("API request failed with status code %d: %s", resp.StatusCode, ReadError(resp))
+		return fmt.Errorf("API request failed with status code: %d, response body: %s, and headers:\n%s", resp.StatusCode, ReadError(resp), ReadHeader(resp))
 	}
 
 	return nil
@@ -414,7 +414,7 @@ func (client *RecordingClient) Delete(ctx context.Context, connectUrl string, re
 	defer resp.Body.Close()
 
 	if !StatusOK(resp.StatusCode) {
-		return fmt.Errorf("API request failed with status code %d: %s", resp.StatusCode, ReadError(resp))
+		return fmt.Errorf("API request failed with status code: %d, response body: %s, and headers:\n%s", resp.StatusCode, ReadError(resp), ReadHeader(resp))
 	}
 
 	return nil
@@ -440,7 +440,7 @@ func (client *RecordingClient) GenerateReport(ctx context.Context, connectUrl st
 	defer resp.Body.Close()
 
 	if !StatusOK(resp.StatusCode) {
-		return nil, fmt.Errorf("API request failed with status code %d: %s", resp.StatusCode, ReadError(resp))
+		return nil, fmt.Errorf("API request failed with status code: %d, response body: %s, and headers:\n%s", resp.StatusCode, ReadError(resp), ReadHeader(resp))
 	}
 
 	report := make(map[string]interface{}, 0)
@@ -495,7 +495,7 @@ func (client *RecordingClient) ListArchives(ctx context.Context, connectUrl stri
 	defer resp.Body.Close()
 
 	if !StatusOK(resp.StatusCode) {
-		return nil, fmt.Errorf("API request failed with status code %d: %s", resp.StatusCode, ReadError(resp))
+		return nil, fmt.Errorf("API request failed with status code: %d, response body: %s, and headers:\n%s", resp.StatusCode, ReadError(resp), ReadHeader(resp))
 	}
 
 	graphQLResponse := &ArchiveGraphQLResponse{}
@@ -527,7 +527,7 @@ func (client *CredentialClient) Create(ctx context.Context, credential *Credenti
 	defer resp.Body.Close()
 
 	if !StatusOK(resp.StatusCode) {
-		return fmt.Errorf("API request failed with status code %d: %s", resp.StatusCode, ReadError(resp))
+		return fmt.Errorf("API request failed with status code: %d, response body: %s, and headers:\n%s", resp.StatusCode, ReadError(resp), ReadHeader(resp))
 	}
 
 	return nil
