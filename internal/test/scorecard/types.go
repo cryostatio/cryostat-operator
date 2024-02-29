@@ -108,9 +108,24 @@ type Archive struct {
 	Size int32
 }
 
+type CustomTargetResponse struct {
+	Data struct {
+		Result *Target `json:"result"`
+	} `json:"data"`
+}
+
 type Target struct {
 	ConnectUrl string `json:"connectUrl"`
 	Alias      string `json:"alias,omitempty"`
+}
+
+func (opts *Target) ToFormData() string {
+	formData := &url.Values{}
+
+	formData.Add("connectUrl", opts.ConnectUrl)
+	formData.Add("alias", opts.Alias)
+
+	return formData.Encode()
 }
 
 type GraphQLQuery struct {

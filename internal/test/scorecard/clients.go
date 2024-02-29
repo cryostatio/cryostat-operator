@@ -231,6 +231,7 @@ func (client *TargetClient) List(ctx context.Context) ([]Target, error) {
 	if err != nil {
 		return nil, err
 	}
+	defer resp.Body.Close()
 
 	if !StatusOK(resp.StatusCode) {
 		return nil, fmt.Errorf("API request failed with status code %d: %s", resp.StatusCode, ReadError(resp))
@@ -242,9 +243,36 @@ func (client *TargetClient) List(ctx context.Context) ([]Target, error) {
 		return nil, fmt.Errorf("failed to read response body: %s", err.Error())
 	}
 
+	return targets, nil
+}
+
+func (client *TargetClient) Create(ctx context.Context, options *Target) (*Target, error) {
+	url := client.Base.JoinPath("/api/v2/targets")
+	body := strings.NewReader(options.ToFormData())
+	req, err := NewHttpRequest(ctx, http.MethodPost, url.String(), body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create a Cryostat REST request: %s", err.Error())
+	}
+	req.Header.Add("Content-Type", "application/x-www-form-urlencoded")
+	req.Header.Add("Accept", "*/*")
+
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, err
+	}
 	defer resp.Body.Close()
 
-	return targets, nil
+	if !StatusOK(resp.StatusCode) {
+		return nil, fmt.Errorf("API request failed with status code %d: %s", resp.StatusCode, ReadError(resp))
+	}
+
+	targetResp := &CustomTargetResponse{}
+	err = ReadJSON(resp, targetResp)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read response body: %s", err.Error())
+	}
+
+	return targetResp.Data.Result, nil
 }
 
 // Client for Cryostat Recording resources
@@ -529,7 +557,7 @@ func ReadString(resp *http.Response) (string, error) {
 
 func ReadError(resp *http.Response) string {
 	body, _ := ReadString(resp)
-	return string(body)
+	return body
 }
 
 func NewHttpClient() *http.Client {
