@@ -33,6 +33,7 @@ const (
 	CryostatCRTestName           string = "cryostat-cr"
 	CryostatRecordingTestName    string = "cryostat-recording"
 	CryostatConfigChangeTestName string = "cryostat-config-change"
+	CryostatReportTestName       string = "cryostat-report"
 )
 
 // OperatorInstallTest checks that the operator installed correctly
@@ -275,6 +276,45 @@ func CryostatRecordingTest(bundle *apimanifests.Bundle, namespace string, openSh
 		return fail(*r, fmt.Sprintf("failed to list recordings: %s", err.Error()))
 	}
 	r.Log += fmt.Sprintf("current list of recordings: %+v\n", recs)
+
+	return *r
+}
+
+func CryostatReportTest(bundle *apimanifests.Bundle, namespace string, openShiftCertManager bool) scapiv1alpha3.TestResult {
+	tr := newTestResources(CryostatReportTestName)
+	r := tr.TestResult
+
+	err := setupCRTestResources(tr, openShiftCertManager)
+	if err != nil {
+		return fail(*r, fmt.Sprintf("failed to set up %s test: %s", CryostatReportTestName, err.Error()))
+	}
+
+	// Create a default Cryostat CR
+	_, err = createAndWaitTillCryostatAvailable(newCryostatCR(CryostatReportTestName, namespace, !tr.OpenShift), tr)
+	if err != nil {
+		return fail(*r, fmt.Sprintf("failed to determine application URL: %s", err.Error()))
+	}
+	defer cleanupCryostat(r, tr.Client, CryostatReportTestName, namespace)
+
+	// Add one report sidecar to Cryostat CR
+	ctx, cancel := context.WithTimeout(context.Background(), testTimeout)
+	defer cancel()
+	client := tr.Client
+	cr, err := client.OperatorCRDs().Cryostats(namespace).Get(ctx, CryostatReportTestName)
+	if err != nil {
+		return fail(*r, fmt.Sprintf("failed to get Cryostat CR: %s", err.Error()))
+	}
+	cr.Spec.ReportOptions = &operatorv1beta1.ReportConfiguration{
+		Replicas: 1,
+	}
+
+	// Wait for deployment of reports
+	err = updateAndWaitTillCryostatAvailable(cr, tr)
+	if err != nil {
+		return fail(*r, fmt.Sprintf("Cryostat redeployment did not become available: %s", err.Error()))
+	}
+	r.Log += "Reports deployment was successful"
+	defer cleanupCryostat(r, tr.Client, CryostatReportTestName, namespace)
 
 	return *r
 }
