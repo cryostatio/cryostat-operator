@@ -138,12 +138,6 @@ spec:
         path: jmxCredentialsDatabaseOptions.databaseSecretName
         x-descriptors:
         - urn:alm:descriptor:io.kubernetes:Secret
-      - description: The maximum number of WebSocket client connections allowed (minimum
-          1, default unlimited).
-        displayName: Max WebSocket Connections
-        path: maxWsConnections
-        x-descriptors:
-        - urn:alm:descriptor:com.tectonic.ui:number
       - description: Options to control how the operator exposes the application outside
           of the cluster, such as using an Ingress or Route.
         displayName: Network Options
@@ -542,12 +536,6 @@ spec:
         path: jmxCredentialsDatabaseOptions.databaseSecretName
         x-descriptors:
         - urn:alm:descriptor:io.kubernetes:Secret
-      - description: The maximum number of WebSocket client connections allowed (minimum
-          1, default unlimited).
-        displayName: Max WebSocket Connections
-        path: maxWsConnections
-        x-descriptors:
-        - urn:alm:descriptor:com.tectonic.ui:number
       - description: Options to control how the operator exposes the application outside
           of the cluster, such as using an Ingress or Route.
         displayName: Network Options

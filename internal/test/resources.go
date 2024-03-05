@@ -560,12 +560,6 @@ func (r *TestResources) NewCryostatWithJmxCacheOptionsSpec() *model.CryostatInst
 	return cr
 }
 
-func (r *TestResources) NewCryostatWithWsConnectionsSpec() *model.CryostatInstance {
-	cr := r.NewCryostat()
-	cr.Spec.MaxWsConnections = 10
-	return cr
-}
-
 func (r *TestResources) NewCryostatWithReportSubprocessHeapSpec() *model.CryostatInstance {
 	cr := r.NewCryostat()
 	if cr.Spec.ReportOptions == nil {
@@ -1574,15 +1568,6 @@ func (r *TestResources) NewGrafanaEnvFromSource() []corev1.EnvFromSource {
 					Name: r.Name + "-grafana-basic",
 				},
 			},
-		},
-	}
-}
-
-func (r *TestResources) NewWsConnectionsEnv() []corev1.EnvVar {
-	return []corev1.EnvVar{
-		{
-			Name:  "CRYOSTAT_MAX_WS_CONNECTIONS",
-			Value: "10",
 		},
 	}
 }

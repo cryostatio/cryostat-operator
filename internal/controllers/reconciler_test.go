@@ -1622,14 +1622,6 @@ func (c *controllerTest) commonTests() {
 			JustBeforeEach(func() {
 				t.reconcileCryostatFully()
 			})
-			Context("containing MaxWsConnections", func() {
-				BeforeEach(func() {
-					t.objs = append(t.objs, t.NewCryostatWithWsConnectionsSpec().Object)
-				})
-				It("should set max WebSocket connections", func() {
-					t.checkCoreHasEnvironmentVariables(t.NewWsConnectionsEnv())
-				})
-			})
 			Context("containing SubProcessMaxHeapSize", func() {
 				BeforeEach(func() {
 					t.objs = append(t.objs, t.NewCryostatWithReportSubprocessHeapSpec().Object)

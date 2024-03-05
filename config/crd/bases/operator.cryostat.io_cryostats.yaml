@@ -117,12 +117,6 @@ spec:
                       credentials database.
                     type: string
                 type: object
-              maxWsConnections:
-                description: The maximum number of WebSocket client connections allowed
-                  (minimum 1, default unlimited).
-                format: int32
-                minimum: 1
-                type: integer
               minimal:
                 description: Deploy a pared-down Cryostat instance with no Grafana
                   Dashboard or JFR Data Source.
@@ -4834,12 +4828,6 @@ spec:
                       credentials database.
                     type: string
                 type: object
-              maxWsConnections:
-                description: The maximum number of WebSocket client connections allowed
-                  (minimum 1, default unlimited).
-                format: int32
-                minimum: 1
-                type: integer
               minimal:
                 description: Deploy a pared-down Cryostat instance with no Grafana
                   Dashboard or JFR Data Source.

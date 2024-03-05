@@ -55,7 +55,7 @@ var _ = Describe("Cryostat", func() {
 
 			Expect(converted).To(Equal(newCR))
 		},
-		tableEntries(),
+		tableEntriesTo(),
 	)
 
 	DescribeTable("converting from v1beta2 to v1beta1",
@@ -71,10 +71,19 @@ var _ = Describe("Cryostat", func() {
 
 			Expect(converted).To(Equal(oldCR))
 		},
-		tableEntries(),
+		tableEntriesFrom(),
 	)
 
 })
+
+func tableEntriesTo() []TableEntry {
+	return append(tableEntries(), Entry("WS connections", (*test.TestResources).NewCryostatWithWsConnectionsSpecV1Beta1,
+		(*test.TestResources).NewCryostat))
+}
+
+func tableEntriesFrom() []TableEntry {
+	return tableEntries()
+}
 
 func tableEntries() []TableEntry {
 	return []TableEntry{
@@ -134,8 +143,6 @@ func tableEntries() []TableEntry {
 			(*test.TestResources).NewCryostatWithBuiltInPortConfigDisabled),
 		Entry("JMX cache options", (*test.TestResources).NewCryostatWithJmxCacheOptionsSpecV1Beta1,
 			(*test.TestResources).NewCryostatWithJmxCacheOptionsSpec),
-		Entry("WS connections", (*test.TestResources).NewCryostatWithWsConnectionsSpecV1Beta1,
-			(*test.TestResources).NewCryostatWithWsConnectionsSpec),
 		Entry("subprocess heap", (*test.TestResources).NewCryostatWithReportSubprocessHeapSpecV1Beta1,
 			(*test.TestResources).NewCryostatWithReportSubprocessHeapSpec),
 		Entry("security", (*test.TestResources).NewCryostatWithSecurityOptionsV1Beta1,

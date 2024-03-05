@@ -281,18 +281,6 @@ spec:
 
 When running on OpenShift, labels and annotations specified in `coreConfig` and `grafanaConfig` will be applied to the coresponding Routes created by the operator.
 
-### Cryostat Client Options
-The `maxWsConnections` property optionally specifies the maximum number of WebSocket client connections allowed.
-The default number of `maxWsConnections` is unlimited.
-```yaml
-apiVersion: operator.cryostat.io/v1beta1
-kind: Cryostat
-metadata:
-  name: cryostat-sample
-spec:
-  maxWsConnections: 2
-```
-
 ### JMX Cache Configuration Options
 Cryostat's target JMX connection cache can be optionally configured with `targetCacheSize` and `targetCacheTTL`.
 `targetCacheSize` sets the maximum number of JMX connections cached by Cryostat.
