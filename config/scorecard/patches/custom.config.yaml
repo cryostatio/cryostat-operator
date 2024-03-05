@@ -3,22 +3,32 @@
   path: /serviceaccount
   value: cryostat-scorecard
 - op: add
-  path: /stages/0/tests/-
+  path: /stages/1/tests/-
   value:
     entrypoint:
     - cryostat-scorecard-tests
     - operator-install
-    image: "quay.io/cryostat/cryostat-operator-scorecard:2.5.0-20231011144522"
+    image: "quay.io/cryostat/cryostat-operator-scorecard:2.5.0-20240305020416"
     labels:
       suite: cryostat
       test: operator-install
 - op: add
-  path: /stages/0/tests/-
+  path: /stages/1/tests/-
   value:
     entrypoint:
     - cryostat-scorecard-tests
     - cryostat-cr
-    image: "quay.io/cryostat/cryostat-operator-scorecard:2.5.0-20231011144522"
+    image: "quay.io/cryostat/cryostat-operator-scorecard:2.5.0-20240305020416"
     labels:
       suite: cryostat
       test: cryostat-cr
+- op: add
+  path: /stages/1/tests/-
+  value:
+    entrypoint:
+    - cryostat-scorecard-tests
+    - cryostat-recording
+    image: "quay.io/cryostat/cryostat-operator-scorecard:2.5.0-20240305020416"
+    labels:
+      suite: cryostat
+      test: cryostat-recording
