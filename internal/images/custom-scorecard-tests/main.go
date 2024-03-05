@@ -79,6 +79,7 @@ func printValidTests() []scapiv1alpha3.TestResult {
 	str := fmt.Sprintf("valid tests for this image include: %s", strings.Join([]string{
 		tests.OperatorInstallTestName,
 		tests.CryostatCRTestName,
+		tests.CryostatRecordingTestName,
 	}, ","))
 	result.Errors = append(result.Errors, str)
 
