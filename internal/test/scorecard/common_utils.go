@@ -345,7 +345,7 @@ func waitTillCryostatReady(base *url.URL, resources *TestResources) error {
 
 	err := wait.PollImmediateUntilWithContext(ctx, time.Second, func(ctx context.Context) (done bool, err error) {
 		url := base.JoinPath("/health")
-		req, err := NewHttpRequest(ctx, http.MethodGet, url.String(), nil)
+		req, err := NewHttpRequest(ctx, http.MethodGet, url.String(), nil, make(http.Header))
 		if err != nil {
 			return false, fmt.Errorf("failed to create a Cryostat REST request: %s", err.Error())
 		}

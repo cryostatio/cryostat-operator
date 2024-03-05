@@ -15,7 +15,6 @@
 package scorecard
 
 import (
-	"bytes"
 	"context"
 	"encoding/base64"
 	"encoding/json"
@@ -224,13 +223,10 @@ type TargetClient struct {
 
 func (client *TargetClient) List(ctx context.Context) ([]Target, error) {
 	url := client.Base.JoinPath("/api/v1/targets")
-	req, err := NewHttpRequest(ctx, http.MethodGet, url.String(), nil)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create a Cryostat REST request: %s", err.Error())
-	}
-	req.Header.Add("Accept", "*/*")
+	header := make(http.Header)
+	header.Add("Accept", "*/*")
 
-	resp, err := SendRequest(ctx, client.Client, req)
+	resp, err := SendRequest(ctx, client.Client, http.MethodGet, url.String(), nil, header)
 	if err != nil {
 		return nil, err
 	}
@@ -251,15 +247,12 @@ func (client *TargetClient) List(ctx context.Context) ([]Target, error) {
 
 func (client *TargetClient) Create(ctx context.Context, options *Target) (*Target, error) {
 	url := client.Base.JoinPath("/api/v2/targets")
-	body := strings.NewReader(options.ToFormData())
-	req, err := NewHttpRequest(ctx, http.MethodPost, url.String(), body)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create a Cryostat REST request: %s", err.Error())
-	}
-	req.Header.Add("Content-Type", "application/x-www-form-urlencoded")
-	req.Header.Add("Accept", "*/*")
+	header := make(http.Header)
+	header.Add("Content-Type", "application/x-www-form-urlencoded")
+	header.Add("Accept", "*/*")
+	body := options.ToFormData()
 
-	resp, err := SendRequest(ctx, client.Client, req)
+	resp, err := SendRequest(ctx, client.Client, http.MethodPost, url.String(), &body, header)
 	if err != nil {
 		return nil, err
 	}
@@ -285,13 +278,10 @@ type RecordingClient struct {
 
 func (client *RecordingClient) List(ctx context.Context, connectUrl string) ([]Recording, error) {
 	url := client.Base.JoinPath(fmt.Sprintf("/api/v1/targets/%s/recordings", url.PathEscape(connectUrl)))
-	req, err := NewHttpRequest(ctx, http.MethodGet, url.String(), nil)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create a Cryostat REST request: %s", err.Error())
-	}
-	req.Header.Add("Accept", "*/*")
+	header := make(http.Header)
+	header.Add("Accept", "*/*")
 
-	resp, err := SendRequest(ctx, client.Client, req)
+	resp, err := SendRequest(ctx, client.Client, http.MethodGet, url.String(), nil, header)
 	if err != nil {
 		return nil, err
 	}
@@ -327,15 +317,12 @@ func (client *RecordingClient) Get(ctx context.Context, connectUrl string, recor
 
 func (client *RecordingClient) Create(ctx context.Context, connectUrl string, options *RecordingCreateOptions) (*Recording, error) {
 	url := client.Base.JoinPath(fmt.Sprintf("/api/v1/targets/%s/recordings", url.PathEscape(connectUrl)))
-	body := strings.NewReader(options.ToFormData())
-	req, err := NewHttpRequest(ctx, http.MethodPost, url.String(), body)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create a Cryostat REST request: %s", err.Error())
-	}
-	req.Header.Add("Content-Type", "application/x-www-form-urlencoded")
-	req.Header.Add("Accept", "*/*")
+	body := options.ToFormData()
+	header := make(http.Header)
+	header.Add("Content-Type", "application/x-www-form-urlencoded")
+	header.Add("Accept", "*/*")
 
-	resp, err := SendRequest(ctx, client.Client, req)
+	resp, err := SendRequest(ctx, client.Client, http.MethodPost, url.String(), &body, header)
 	if err != nil {
 		return nil, err
 	}
@@ -356,15 +343,12 @@ func (client *RecordingClient) Create(ctx context.Context, connectUrl string, op
 
 func (client *RecordingClient) Archive(ctx context.Context, connectUrl string, recordingName string) (string, error) {
 	url := client.Base.JoinPath(fmt.Sprintf("/api/v1/targets/%s/recordings/%s", url.PathEscape(connectUrl), url.PathEscape(recordingName)))
-	body := strings.NewReader("SAVE")
-	req, err := NewHttpRequest(ctx, http.MethodPatch, url.String(), body)
-	if err != nil {
-		return "", fmt.Errorf("failed to create a REST request: %s", err.Error())
-	}
-	req.Header.Add("Content-Type", "text/plain")
-	req.Header.Add("Accept", "*/*")
+	body := "SAVE"
+	header := make(http.Header)
+	header.Add("Content-Type", "text/plain")
+	header.Add("Accept", "*/*")
 
-	resp, err := SendRequest(ctx, client.Client, req)
+	resp, err := SendRequest(ctx, client.Client, http.MethodPatch, url.String(), &body, header)
 	if err != nil {
 		return "", err
 	}
@@ -384,14 +368,12 @@ func (client *RecordingClient) Archive(ctx context.Context, connectUrl string, r
 
 func (client *RecordingClient) Stop(ctx context.Context, connectUrl string, recordingName string) error {
 	url := client.Base.JoinPath(fmt.Sprintf("/api/v1/targets/%s/recordings/%s", url.PathEscape(connectUrl), url.PathEscape(recordingName)))
-	body := strings.NewReader("STOP")
-	req, err := NewHttpRequest(ctx, http.MethodPatch, url.String(), body)
-	if err != nil {
-		return fmt.Errorf("failed to create a REST request: %s", err.Error())
-	}
-	req.Header.Add("Content-Type", "text/plain")
+	body := "STOP"
+	header := make(http.Header)
+	header.Add("Content-Type", "text/plain")
+	header.Add("Accept", "*/*")
 
-	resp, err := SendRequest(ctx, client.Client, req)
+	resp, err := SendRequest(ctx, client.Client, http.MethodPatch, url.String(), &body, header)
 	if err != nil {
 		return err
 	}
@@ -406,12 +388,9 @@ func (client *RecordingClient) Stop(ctx context.Context, connectUrl string, reco
 
 func (client *RecordingClient) Delete(ctx context.Context, connectUrl string, recordingName string) error {
 	url := client.Base.JoinPath(fmt.Sprintf("/api/v1/targets/%s/recordings/%s", url.PathEscape(connectUrl), url.PathEscape(recordingName)))
-	req, err := NewHttpRequest(ctx, http.MethodDelete, url.String(), nil)
-	if err != nil {
-		return fmt.Errorf("failed to create a REST request: %s", err.Error())
-	}
+	header := make(http.Header)
 
-	resp, err := SendRequest(ctx, client.Client, req)
+	resp, err := SendRequest(ctx, client.Client, http.MethodDelete, url.String(), nil, header)
 	if err != nil {
 		return err
 	}
@@ -431,13 +410,10 @@ func (client *RecordingClient) GenerateReport(ctx context.Context, connectUrl st
 		return nil, fmt.Errorf("report URL is not available")
 	}
 
-	req, err := NewHttpRequest(ctx, http.MethodGet, reportURL, nil)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create a REST request: %s", err.Error())
-	}
-	req.Header.Add("Accept", "application/json")
+	header := make(http.Header)
+	header.Add("Accept", "application/json")
 
-	resp, err := SendRequest(ctx, client.Client, req)
+	resp, err := SendRequest(ctx, client.Client, http.MethodGet, reportURL, nil, header)
 	if err != nil {
 		return nil, err
 	}
@@ -483,16 +459,13 @@ func (client *RecordingClient) ListArchives(ctx context.Context, connectUrl stri
 	if err != nil {
 		return nil, fmt.Errorf("failed to construct graph query: %s", err.Error())
 	}
+	body := string(queryJSON)
 
-	body := bytes.NewReader(queryJSON)
-	req, err := NewHttpRequest(ctx, http.MethodPost, url.String(), body)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create a Cryostat REST request: %s", err.Error())
-	}
-	req.Header.Add("Content-Type", "application/json")
-	req.Header.Add("Accept", "*/*")
+	header := make(http.Header)
+	header.Add("Content-Type", "application/json")
+	header.Add("Accept", "*/*")
 
-	resp, err := SendRequest(ctx, client.Client, req)
+	resp, err := SendRequest(ctx, client.Client, http.MethodPost, url.String(), &body, header)
 	if err != nil {
 		return nil, err
 	}
@@ -517,14 +490,11 @@ type CredentialClient struct {
 
 func (client *CredentialClient) Create(ctx context.Context, credential *Credential) error {
 	url := client.Base.JoinPath("/api/v2.2/credentials")
-	body := strings.NewReader(credential.ToFormData())
-	req, err := NewHttpRequest(ctx, http.MethodPost, url.String(), body)
-	if err != nil {
-		return fmt.Errorf("failed to create a Cryostat REST request: %s", err.Error())
-	}
-	req.Header.Add("Content-Type", "application/x-www-form-urlencoded")
+	body := credential.ToFormData()
+	header := make(http.Header)
+	header.Add("Content-Type", "application/x-www-form-urlencoded")
 
-	resp, err := SendRequest(ctx, client.Client, req)
+	resp, err := SendRequest(ctx, client.Client, http.MethodPost, url.String(), &body, header)
 	if err != nil {
 		return err
 	}
@@ -586,10 +556,17 @@ func NewHttpClient() *http.Client {
 	return client
 }
 
-func NewHttpRequest(ctx context.Context, method string, url string, body io.Reader) (*http.Request, error) {
-	req, err := http.NewRequestWithContext(ctx, method, url, body)
+func NewHttpRequest(ctx context.Context, method string, url string, body *string, header http.Header) (*http.Request, error) {
+	var reqBody io.Reader
+	if body != nil {
+		reqBody = strings.NewReader(*body)
+	}
+	req, err := http.NewRequestWithContext(ctx, method, url, reqBody)
 	if err != nil {
 		return nil, err
+	}
+	if header != nil {
+		req.Header = header
 	}
 	// Authentication is only enabled on OCP. Ignored on k8s.
 	config, err := rest.InClusterConfig()
@@ -604,9 +581,15 @@ func StatusOK(statusCode int) bool {
 	return statusCode >= 200 && statusCode < 300
 }
 
-func SendRequest(ctx context.Context, httpClient *http.Client, req *http.Request) (*http.Response, error) {
+func SendRequest(ctx context.Context, httpClient *http.Client, method string, url string, body *string, header http.Header) (*http.Response, error) {
 	var response *http.Response
 	err := wait.PollImmediateUntilWithContext(ctx, time.Second, func(ctx context.Context) (done bool, err error) {
+		// Create a new request
+		req, err := NewHttpRequest(ctx, method, url, body, header)
+		if err != nil {
+			return false, fmt.Errorf("failed to create a Cryostat REST request: %s", err.Error())
+		}
+
 		resp, err := httpClient.Do(req)
 		if err != nil {
 			// Retry when connection is closed.
