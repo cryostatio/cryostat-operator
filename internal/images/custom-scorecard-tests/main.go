@@ -79,6 +79,7 @@ func printValidTests() []scapiv1alpha3.TestResult {
 	str := fmt.Sprintf("valid tests for this image include: %s", strings.Join([]string{
 		tests.OperatorInstallTestName,
 		tests.CryostatCRTestName,
+		tests.CryostatRecordingTestName,
 	}, ","))
 	result.Errors = append(result.Errors, str)
 
@@ -90,6 +91,7 @@ func validateTests(testNames []string) bool {
 		switch testName {
 		case tests.OperatorInstallTestName:
 		case tests.CryostatCRTestName:
+		case tests.CryostatRecordingTestName:
 		default:
 			return false
 		}
@@ -108,6 +110,8 @@ func runTests(testNames []string, bundle *apimanifests.Bundle, namespace string,
 			results = append(results, tests.OperatorInstallTest(bundle, namespace))
 		case tests.CryostatCRTestName:
 			results = append(results, tests.CryostatCRTest(bundle, namespace, openShiftCertManager))
+		case tests.CryostatRecordingTestName:
+			results = append(results, tests.CryostatRecordingTest(bundle, namespace, openShiftCertManager))
 		default:
 			log.Fatalf("unknown test found: %s", testName)
 		}

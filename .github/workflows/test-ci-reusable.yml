@@ -118,11 +118,29 @@ jobs:
         username: ${{ github.repository_owner }}
         password: ${{ secrets.GITHUB_TOKEN }}
     - name: Set up Kind cluster
+      uses: helm/kind-action@v1.8.0
+      with:
+        config: .github/kind-config.yaml
+        cluster_name: ci-${{ github.run_id }}
+        wait: 1m
+        ignore_failed_clean: true
+    - name: Set up Ingress Controller
       run: |
-        kind create cluster --config=".github/kind-config.yaml" -n ci-${{ github.run_id }}
-        # Enabling Ingress
+        # Install nginx ingress controller
         kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/main/deploy/static/provider/kind/deploy.yaml
-        kubectl rollout status -w deployment/ingress-nginx-controller -n ingress-nginx --timeout 5m
+        kubectl rollout status -w \
+          deployment/ingress-nginx-controller \
+          -n ingress-nginx --timeout 5m
+        
+        # Lower the number of worker processes
+        kubectl patch cm/ingress-nginx-controller \
+          --type merge \
+          -p '{"data":{"worker-processes":"1"}}' \
+          -n ingress-nginx
+
+        # Modify /etc/hosts to resolve hostnames
+        ip_address=$(docker inspect -f '{{range.NetworkSettings.Networks}}{{.IPAddress}}{{end}}' ci-${{ github.run_id }}-control-plane)
+        echo "$ip_address testing.cryostat" | sudo tee -a /etc/hosts
     - name: Install Operator Lifecycle Manager
       run: curl -sL https://github.com/operator-framework/operator-lifecycle-manager/releases/download/v0.24.0/install.sh | bash -s v0.24.0
     - name: Install Cert Manager
@@ -140,8 +158,6 @@ jobs:
         SCORECARD_REGISTRY_PASSWORD="${{ secrets.GITHUB_TOKEN }}" \
         BUNDLE_IMG="${{ steps.push-bundle-to-ghcr.outputs.registry-path }}" \
         make test-scorecard
-    - name: Clean up Kind cluster
-      run: kind delete cluster -n ci-${{ github.run_id }}
     - name: Set latest commit status as ${{ job.status }}
       uses: myrotvorets/set-commit-status-action@master
       if: always()
