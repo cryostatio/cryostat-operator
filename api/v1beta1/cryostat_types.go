@@ -342,6 +342,13 @@ type NetworkConfigurationList struct {
 	// +optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	CoreConfig *NetworkConfiguration `json:"coreConfig,omitempty"`
+	// Specifications for how to expose the Cryostat command service,
+	// which serves the WebSocket command channel.
+	// +optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:com.tectonic.ui:hidden"}
+	//
+	// Deprecated: CommandConfig is no longer used.
+	CommandConfig *NetworkConfiguration `json:"commandConfig,omitempty"`
 	// Specifications for how to expose Cryostat's Grafana service,
 	// which serves the Grafana dashboard.
 	// +optional

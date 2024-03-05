@@ -77,8 +77,11 @@ var _ = Describe("Cryostat", func() {
 })
 
 func tableEntriesTo() []TableEntry {
-	return append(tableEntries(), Entry("WS connections", (*test.TestResources).NewCryostatWithWsConnectionsSpecV1Beta1,
-		(*test.TestResources).NewCryostat))
+	return append(tableEntries(),
+		Entry("WS connections", (*test.TestResources).NewCryostatWithWsConnectionsSpecV1Beta1,
+			(*test.TestResources).NewCryostat),
+		Entry("command config", (*test.TestResources).NewCryostatWithCommandConfigV1Beta1,
+			(*test.TestResources).NewCryostat))
 }
 
 func tableEntriesFrom() []TableEntry {
