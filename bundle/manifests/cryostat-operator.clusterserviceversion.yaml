@@ -54,7 +54,7 @@ metadata:
     capabilities: Seamless Upgrades
     categories: Monitoring, Developer Tools
     containerImage: quay.io/cryostat/cryostat-operator:2.5.0-dev
-    createdAt: "2024-02-15T20:45:48Z"
+    createdAt: "2024-03-06T21:13:39Z"
     description: JVM monitoring and profiling tool
     operatorframework.io/initialization-resource: |-
       {
@@ -182,6 +182,12 @@ spec:
         path: jmxCredentialsDatabaseOptions.databaseSecretName
         x-descriptors:
         - urn:alm:descriptor:io.kubernetes:Secret
+      - description: The maximum number of WebSocket client connections allowed (minimum
+          1, default unlimited).
+        displayName: Max WebSocket Connections
+        path: maxWsConnections
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:number
       - description: Options to control how the operator exposes the application outside
           of the cluster, such as using an Ingress or Route.
         displayName: Network Options
