@@ -81,31 +81,23 @@ func (r *Reconciler) reconcileGrafanaService(ctx context.Context, cr *model.Cryo
 		},
 	}
 
-	if cr.Spec.Minimal {
-		// Delete service if it exists
-		err := r.deleteService(ctx, svc)
-		if err != nil {
-			return err
+	config := configureGrafanaService(cr)
+	err := r.createOrUpdateService(ctx, svc, cr.Object, &config.ServiceConfig, func() error {
+		svc.Spec.Selector = map[string]string{
+			"app":       cr.Name,
+			"component": "cryostat",
 		}
-	} else {
-		config := configureGrafanaService(cr)
-		err := r.createOrUpdateService(ctx, svc, cr.Object, &config.ServiceConfig, func() error {
-			svc.Spec.Selector = map[string]string{
-				"app":       cr.Name,
-				"component": "cryostat",
-			}
-			svc.Spec.Ports = []corev1.ServicePort{
-				{
-					Name:       "http",
-					Port:       *config.HTTPPort,
-					TargetPort: intstr.IntOrString{IntVal: 3000},
-				},
-			}
-			return nil
-		})
-		if err != nil {
-			return err
+		svc.Spec.Ports = []corev1.ServicePort{
+			{
+				Name:       "http",
+				Port:       *config.HTTPPort,
+				TargetPort: intstr.IntOrString{IntVal: 3000},
+			},
 		}
+		return nil
+	})
+	if err != nil {
+		return err
 	}
 
 	if r.IsOpenShift {

@@ -4834,10 +4834,6 @@ spec:
                       credentials database.
                     type: string
                 type: object
-              minimal:
-                description: Deploy a pared-down Cryostat instance with no Grafana
-                  Dashboard or JFR Data Source.
-                type: boolean
               networkOptions:
                 description: Options to control how the operator exposes the application
                   outside of the cluster, such as using an Ingress or Route.
@@ -9046,8 +9042,6 @@ spec:
                   - secretName
                   type: object
                 type: array
-            required:
-            - minimal
             type: object
           status:
             description: CryostatStatus defines the observed state of Cryostat.

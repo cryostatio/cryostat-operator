@@ -61,10 +61,9 @@ func (r *Reconciler) reconcileGrafanaIngress(ctx context.Context, cr *model.Cryo
 		},
 	}
 
-	if cr.Spec.Minimal || cr.Spec.NetworkOptions == nil || cr.Spec.NetworkOptions.GrafanaConfig == nil ||
+	if cr.Spec.NetworkOptions == nil || cr.Spec.NetworkOptions.GrafanaConfig == nil ||
 		cr.Spec.NetworkOptions.GrafanaConfig.IngressSpec == nil {
-		// User has either chosen a minimal deployment or not requested
-		// an Ingress, delete if it exists
+		// User has not requested an Ingress, delete if it exists
 		return r.deleteIngress(ctx, ingress)
 	}
 	grafanaConfig := configureGrafanaIngress(cr)

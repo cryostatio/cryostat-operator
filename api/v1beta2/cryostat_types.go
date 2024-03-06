@@ -31,9 +31,6 @@ type CryostatSpec struct {
 	// +optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,order=2
 	TargetNamespaces []string `json:"targetNamespaces,omitempty"`
-	// Deploy a pared-down Cryostat instance with no Grafana Dashboard or JFR Data Source.
-	// +operator-sdk:csv:customresourcedefinitions:type=spec,order=4,displayName="Minimal Deployment",xDescriptors={"urn:alm:descriptor:com.tectonic.ui:booleanSwitch"}
-	Minimal bool `json:"minimal"`
 	// List of TLS certificates to trust when connecting to targets.
 	// +optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Trusted TLS Certificates"

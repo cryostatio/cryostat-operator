@@ -44,7 +44,6 @@ import (
 type TestResources struct {
 	Name             string
 	Namespace        string
-	Minimal          bool
 	TLS              bool
 	ExternalTLS      bool
 	OpenShift        bool
@@ -106,7 +105,6 @@ func (r *TestResources) newCryostatSpec() operatorv1beta2.CryostatSpec {
 	}
 	return operatorv1beta2.CryostatSpec{
 		TargetNamespaces:  r.TargetNamespaces,
-		Minimal:           r.Minimal,
 		EnableCertManager: &certManager,
 		ReportOptions:     reportOptions,
 	}
@@ -1340,15 +1338,13 @@ func (r *TestResources) NewCoreEnvironmentVariables(reportsUrl string, authProps
 				Optional: &optional,
 			},
 		},
-	})
+	},
+		corev1.EnvVar{
+			Name:  "GRAFANA_DATASOURCE_URL",
+			Value: "http://127.0.0.1:8080",
+		},
+	)
 
-	if !r.Minimal {
-		envs = append(envs,
-			corev1.EnvVar{
-				Name:  "GRAFANA_DATASOURCE_URL",
-				Value: "http://127.0.0.1:8080",
-			})
-	}
 	if !r.TLS {
 		envs = append(envs,
 			corev1.EnvVar{
@@ -1472,33 +1468,31 @@ func (r *TestResources) newNetworkEnvironmentVariables() []corev1.EnvVar {
 				Value: "80",
 			})
 	}
-	if !r.Minimal {
-		if r.ExternalTLS {
-			envs = append(envs,
-				corev1.EnvVar{
-					Name:  "GRAFANA_DASHBOARD_EXT_URL",
-					Value: fmt.Sprintf("https://%s-grafana.example.com", r.Name),
-				})
-		} else {
-			envs = append(envs,
-				corev1.EnvVar{
-					Name:  "GRAFANA_DASHBOARD_EXT_URL",
-					Value: fmt.Sprintf("http://%s-grafana.example.com", r.Name),
-				})
-		}
-		if r.TLS {
-			envs = append(envs,
-				corev1.EnvVar{
-					Name:  "GRAFANA_DASHBOARD_URL",
-					Value: "https://cryostat-health.local:3000",
-				})
-		} else {
-			envs = append(envs,
-				corev1.EnvVar{
-					Name:  "GRAFANA_DASHBOARD_URL",
-					Value: "http://cryostat-health.local:3000",
-				})
-		}
+	if r.ExternalTLS {
+		envs = append(envs,
+			corev1.EnvVar{
+				Name:  "GRAFANA_DASHBOARD_EXT_URL",
+				Value: fmt.Sprintf("https://%s-grafana.example.com", r.Name),
+			})
+	} else {
+		envs = append(envs,
+			corev1.EnvVar{
+				Name:  "GRAFANA_DASHBOARD_EXT_URL",
+				Value: fmt.Sprintf("http://%s-grafana.example.com", r.Name),
+			})
+	}
+	if r.TLS {
+		envs = append(envs,
+			corev1.EnvVar{
+				Name:  "GRAFANA_DASHBOARD_URL",
+				Value: "https://cryostat-health.local:3000",
+			})
+	} else {
+		envs = append(envs,
+			corev1.EnvVar{
+				Name:  "GRAFANA_DASHBOARD_URL",
+				Value: "http://cryostat-health.local:3000",
+			})
 	}
 	return envs
 }
@@ -2058,18 +2052,16 @@ func (r *TestResources) newVolumes(certProjections []corev1.VolumeProjection) []
 						},
 					},
 				},
-			})
-		if !r.Minimal {
-			volumes = append(volumes,
-				corev1.Volume{
-					Name: "grafana-tls-secret",
-					VolumeSource: corev1.VolumeSource{
-						Secret: &corev1.SecretVolumeSource{
-							SecretName: r.Name + "-grafana-tls",
-						},
+			},
+			corev1.Volume{
+				Name: "grafana-tls-secret",
+				VolumeSource: corev1.VolumeSource{
+					Secret: &corev1.SecretVolumeSource{
+						SecretName: r.Name + "-grafana-tls",
 					},
-				})
-		}
+				},
+			},
+		)
 	}
 
 	volumes = append(volumes,

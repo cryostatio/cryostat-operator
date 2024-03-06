@@ -275,60 +275,8 @@ func (c *controllerTest) commonTests() {
 				})
 			}
 		})
-		Context("succesfully creates required resources for minimal deployment", func() {
-			BeforeEach(func() {
-				t.Minimal = true
-				t.GeneratedPasswords = []string{"credentials_database", "jmx", "keystore"}
-				t.objs = append(t.objs, t.NewCryostat().Object)
-			})
-			JustBeforeEach(func() {
-				t.reconcileCryostatFully()
-			})
-			It("should create certificates", func() {
-				t.expectCertificates()
-			})
-			It("should create RBAC", func() {
-				t.expectRBAC()
-			})
-			It("should create routes", func() {
-				t.expectRoutes()
-			})
-			It("should create persistent volume claim and set owner", func() {
-				t.expectPVC(t.NewDefaultPVC())
-			})
-			It("should create Credentials Database secret and set owner", func() {
-				t.expectCredentialsDatabaseSecret()
-			})
-			It("should create JMX secret and set owner", func() {
-				t.expectJMXSecret()
-			})
-			It("should create core service and set owner", func() {
-				t.expectCoreService()
-			})
-			It("should set ApplicationURL in CR Status", func() {
-				t.expectStatusApplicationURL()
-			})
-			It("should not set GrafanaSecret in CR Status", func() {
-				t.expectStatusGrafanaSecretName("")
-			})
-			It("should create deployment and set owner", func() {
-				t.expectMainDeployment()
-			})
-		})
 		Context("after cryostat reconciled successfully", func() {
 			BeforeEach(func() {
-				t.objs = append(t.objs, t.NewCryostat().Object)
-			})
-			JustBeforeEach(func() {
-				t.reconcileCryostatFully()
-			})
-			It("should be idempotent", func() {
-				t.expectIdempotence()
-			})
-		})
-		Context("After a minimal cryostat reconciled successfully", func() {
-			BeforeEach(func() {
-				t.Minimal = true
 				t.objs = append(t.objs, t.NewCryostat().Object)
 			})
 			JustBeforeEach(func() {
@@ -609,86 +557,15 @@ func (c *controllerTest) commonTests() {
 				t.reconcileCryostatFully()
 			})
 			It("should update the Routes", func() {
-				if !t.Minimal {
-					expected := t.NewGrafanaRoute()
-					metav1.SetMetaDataAnnotation(&expected.ObjectMeta, "grafana", "annotation")
-					metav1.SetMetaDataLabel(&expected.ObjectMeta, "grafana", "label")
-					t.checkRoute(expected)
-				}
-				expected := t.NewCoreRoute()
+				expected := t.NewGrafanaRoute()
+				metav1.SetMetaDataAnnotation(&expected.ObjectMeta, "grafana", "annotation")
+				metav1.SetMetaDataLabel(&expected.ObjectMeta, "grafana", "label")
+				t.checkRoute(expected)
+
+				expected = t.NewCoreRoute()
 				metav1.SetMetaDataAnnotation(&expected.ObjectMeta, "custom", "annotation")
 				metav1.SetMetaDataLabel(&expected.ObjectMeta, "custom", "label")
 				t.checkRoute(expected)
-			})
-		})
-		Context("Switching from a minimal to a non-minimal deployment", func() {
-			BeforeEach(func() {
-				t.Minimal = true
-				t.GeneratedPasswords = []string{"credentials_database", "jmx", "keystore", "grafana"}
-				t.objs = append(t.objs, t.NewCryostat().Object)
-			})
-			JustBeforeEach(func() {
-				t.reconcileCryostatFully()
-
-				cryostat := t.getCryostatInstance()
-
-				t.Minimal = false
-				cryostat.Spec.Minimal = false
-				t.updateCryostatInstance(cryostat)
-
-				t.reconcileCryostatFully()
-			})
-			It("should create Grafana network resources", func() {
-				t.expectGrafanaService()
-			})
-			It("should create the Grafana secret", func() {
-				t.expectGrafanaSecret()
-				t.expectStatusGrafanaSecretName(t.NewGrafanaSecret().Name)
-			})
-			It("should configure deployment appropriately", func() {
-				t.expectMainDeployment()
-			})
-			It("should create certificates", func() {
-				t.expectCertificates()
-			})
-		})
-		Context("Switching from a non-minimal to a minimal deployment", func() {
-			BeforeEach(func() {
-				t.objs = append(t.objs, t.NewCryostat().Object)
-			})
-			JustBeforeEach(func() {
-				t.reconcileCryostatFully()
-
-				cryostat := t.getCryostatInstance()
-
-				t.Minimal = true
-				cryostat.Spec.Minimal = true
-				t.updateCryostatInstance(cryostat)
-
-				t.reconcileCryostatFully()
-			})
-			It("should delete Grafana network resources", func() {
-				service := &corev1.Service{}
-				err := t.Client.Get(context.Background(), types.NamespacedName{Name: t.Name + "-grafana", Namespace: t.Namespace}, service)
-				Expect(kerrors.IsNotFound(err)).To(BeTrue())
-
-				route := &openshiftv1.Route{}
-				err = t.Client.Get(context.Background(), types.NamespacedName{Name: t.Name + "-grafana", Namespace: t.Namespace}, route)
-				Expect(kerrors.IsNotFound(err)).To(BeTrue())
-			})
-			It("should delete the Grafana secret", func() {
-				secret := &corev1.Secret{}
-				notExpected := t.NewGrafanaSecret()
-				err := t.Client.Get(context.Background(), types.NamespacedName{Name: notExpected.Name, Namespace: notExpected.Namespace}, secret)
-				Expect(kerrors.IsNotFound(err)).To(BeTrue())
-
-				t.expectStatusGrafanaSecretName("")
-			})
-			It("should configure deployment appropriately", func() {
-				t.expectMainDeployment()
-			})
-			It("should create certificates", func() {
-				t.expectCertificates()
 			})
 		})
 		Context("with report generator service", func() {
@@ -2323,9 +2200,7 @@ func (c *controllerTest) commonTests() {
 }
 
 func (t *cryostatTestInput) expectRoutes() {
-	if !t.Minimal {
-		t.checkRoute(t.NewGrafanaRoute())
-	}
+	t.checkRoute(t.NewGrafanaRoute())
 	t.checkRoute(t.NewCoreRoute())
 }
 
@@ -2420,16 +2295,7 @@ func (t *cryostatTestInput) expectWaitingForCertificate() {
 
 func (t *cryostatTestInput) expectCertificates() {
 	// Check certificates
-	certs := []*certv1.Certificate{t.NewCryostatCert(), t.NewCACert(), t.NewReportsCert()}
-	if !t.Minimal {
-		certs = append(certs, t.NewGrafanaCert())
-	} else {
-		actual := &certv1.Certificate{}
-		expected := t.NewGrafanaCert()
-		err := t.Client.Get(context.Background(), types.NamespacedName{Name: expected.Name, Namespace: expected.Namespace}, actual)
-		Expect(err).To(HaveOccurred())
-		Expect(kerrors.IsNotFound(err))
-	}
+	certs := []*certv1.Certificate{t.NewCryostatCert(), t.NewCACert(), t.NewReportsCert(), t.NewGrafanaCert()}
 	for _, expected := range certs {
 		actual := &certv1.Certificate{}
 		err := t.Client.Get(context.Background(), types.NamespacedName{Name: expected.Name, Namespace: expected.Namespace}, actual)
@@ -2867,15 +2733,13 @@ func (t *cryostatTestInput) checkMainPodTemplate(deployment *appsv1.Deployment, 
 		dbSecretProvided,
 		t.NewCoreContainerResource(cr), t.NewCoreSecurityContext(cr))
 
-	if !t.Minimal {
-		// Check that Grafana is configured properly, depending on the environment
-		grafanaContainer := template.Spec.Containers[1]
-		t.checkGrafanaContainer(&grafanaContainer, t.NewGrafanaContainerResource(cr), t.NewGrafanaSecurityContext(cr))
+	// Check that Grafana is configured properly, depending on the environment
+	grafanaContainer := template.Spec.Containers[1]
+	t.checkGrafanaContainer(&grafanaContainer, t.NewGrafanaContainerResource(cr), t.NewGrafanaSecurityContext(cr))
 
-		// Check that JFR Datasource is configured properly
-		datasourceContainer := template.Spec.Containers[2]
-		t.checkDatasourceContainer(&datasourceContainer, t.NewDatasourceContainerResource(cr), t.NewDatasourceSecurityContext(cr))
-	}
+	// Check that JFR Datasource is configured properly
+	datasourceContainer := template.Spec.Containers[2]
+	t.checkDatasourceContainer(&datasourceContainer, t.NewDatasourceContainerResource(cr), t.NewDatasourceSecurityContext(cr))
 
 	// Check that the proper Service Account is set
 	Expect(template.Spec.ServiceAccountName).To(Equal(t.Name))
