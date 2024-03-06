@@ -289,31 +289,16 @@ func CryostatReportTest(bundle *apimanifests.Bundle, namespace string, openShift
 		return fail(*r, fmt.Sprintf("failed to set up %s test: %s", CryostatReportTestName, err.Error()))
 	}
 
-	// Create a default Cryostat CR
-	_, err = createAndWaitTillCryostatAvailable(newCryostatCR(CryostatReportTestName, namespace, !tr.OpenShift), tr)
-	if err != nil {
-		return fail(*r, fmt.Sprintf("failed to determine application URL: %s", err.Error()))
-	}
-	defer cleanupCryostat(r, tr.Client, CryostatReportTestName, namespace)
-
-	// Add one report sidecar to Cryostat CR
-	ctx, cancel := context.WithTimeout(context.Background(), testTimeout)
-	defer cancel()
-	client := tr.Client
-	cr, err := client.OperatorCRDs().Cryostats(namespace).Get(ctx, CryostatReportTestName)
-	if err != nil {
-		return fail(*r, fmt.Sprintf("failed to get Cryostat CR: %s", err.Error()))
-	}
+	cr := newCryostatCR(CryostatReportTestName, namespace, !tr.OpenShift)
 	cr.Spec.ReportOptions = &operatorv1beta1.ReportConfiguration{
 		Replicas: 1,
 	}
 
-	// Wait for deployment of reports
-	err = updateAndWaitTillCryostatAvailable(cr, tr)
+	// Create a default Cryostat CR
+	_, err = createAndWaitTillCryostatAvailable(cr, tr)
 	if err != nil {
-		return fail(*r, fmt.Sprintf("Cryostat redeployment did not become available: %s", err.Error()))
+		return fail(*r, fmt.Sprintf("%s test failed: %s", CryostatReportTestName, err.Error()))
 	}
-	r.Log += "Reports deployment was successful"
 	defer cleanupCryostat(r, tr.Client, CryostatReportTestName, namespace)
 
 	return *r
