@@ -95,8 +95,9 @@ func CryostatConfigChangeTest(bundle *apimanifests.Bundle, namespace string, ope
 
 	_, err = createAndWaitTillCryostatAvailable(cr, tr)
 	if err != nil {
-		return fail(*r, fmt.Sprintf("%s test failed: %s", CryostatConfigChangeTestName, err.Error()))
+		return fail(*r, fmt.Sprintf("failed to determine application URL: %s", err.Error()))
 	}
+	defer cleanupCryostat(r, tr.Client, CryostatRecordingTestName, namespace)
 
 	// Switch Cryostat CR to PVC for redeployment
 	ctx, cancel := context.WithTimeout(context.Background(), testTimeout)
@@ -125,8 +126,17 @@ func CryostatConfigChangeTest(bundle *apimanifests.Bundle, namespace string, ope
 	if err != nil {
 		return fail(*r, fmt.Sprintf("Cryostat redeployment did not become available: %s", err.Error()))
 	}
-	r.Log += "Cryostat deployment has successfully updated to pvc"
-	defer cleanupCryostat(r, tr.Client, CryostatConfigChangeTestName, namespace)
+	r.Log += "Cryostat deployment has successfully updated with new spec template"
+
+	base, err := url.Parse(cr.Status.ApplicationURL)
+	if err != nil {
+		return fail(*r, fmt.Sprintf("application URL is invalid: %s", err.Error()))
+	}
+
+	err = waitTillCryostatReady(base, tr)
+	if err != nil {
+		return fail(*r, fmt.Sprintf("failed to reach the application: %s", err.Error()))
+	}
 
 	return *r
 }
@@ -183,7 +193,6 @@ func CryostatRecordingTest(bundle *apimanifests.Bundle, namespace string, openSh
 		Password:        string(secret.Data["CRYOSTAT_RJMX_PASS"]),
 		MatchExpression: fmt.Sprintf("target.alias==\"%s\"", target.Alias),
 	}
-	defer cleanupCryostat(r, tr.Client, CryostatCRTestName, namespace)
 
 	err = apiClient.CredentialClient.Create(context.Background(), credential)
 	if err != nil {

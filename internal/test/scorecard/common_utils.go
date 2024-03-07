@@ -429,7 +429,7 @@ func updateAndWaitTillCryostatAvailable(cr *operatorv1beta1.Cryostat, resources 
 				return false, nil
 			}
 			if deploy.Status.Replicas > deploy.Status.UpdatedReplicas {
-				r.Log += fmt.Sprintf("Waiting for deployment %s rollout to finish: %d old replicas are pending termination.. \n", deploy.Name, deploy.Status.Replicas-deploy.Status.UpdatedReplicas)
+				r.Log += fmt.Sprintf("Waiting for deployment %s rollout to finish: %d old replicas are pending termination... \n", deploy.Name, deploy.Status.Replicas-deploy.Status.UpdatedReplicas)
 				return false, nil
 			}
 			if deploy.Status.AvailableReplicas < deploy.Status.UpdatedReplicas {
@@ -445,23 +445,6 @@ func updateAndWaitTillCryostatAvailable(cr *operatorv1beta1.Cryostat, resources 
 	if err != nil {
 		return fmt.Errorf("failed to look up deployment errors: %s", err.Error())
 	}
-
-	err = wait.PollImmediateUntilWithContext(ctx, time.Second, func(ctx context.Context) (done bool, err error) {
-		cr, err = client.OperatorCRDs().Cryostats(cr.Namespace).Get(ctx, cr.Name)
-		if err != nil {
-			return false, fmt.Errorf("failed to get Cryostat CR: %s", err.Error())
-		}
-		if len(cr.Status.ApplicationURL) > 0 {
-			return true, nil
-		}
-		r.Log += "application URL is not yet available\n"
-		return false, nil
-	})
-	if err != nil {
-		return fmt.Errorf("application URL not found in CR: %s", err.Error())
-	}
-	r.Log += fmt.Sprintf("application is available at %s\n", cr.Status.ApplicationURL)
-
 	return err
 }
 

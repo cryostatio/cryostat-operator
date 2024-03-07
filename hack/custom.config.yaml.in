@@ -31,7 +31,7 @@
     labels:
       suite: cryostat
       test: cryostat-recording
-- op:add
+- op: add
   path: /stages/1/tests/-
   value:
     entrypoint:
