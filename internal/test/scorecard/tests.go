@@ -20,15 +20,19 @@ import (
 	"net/url"
 	"time"
 
+	operatorv1beta1 "github.com/cryostatio/cryostat-operator/api/v1beta1"
 	scapiv1alpha3 "github.com/operator-framework/api/pkg/apis/scorecard/v1alpha3"
 	apimanifests "github.com/operator-framework/api/pkg/manifests"
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 const (
-	OperatorInstallTestName   string = "operator-install"
-	CryostatCRTestName        string = "cryostat-cr"
-	CryostatRecordingTestName string = "cryostat-recording"
+	OperatorInstallTestName      string = "operator-install"
+	CryostatCRTestName           string = "cryostat-cr"
+	CryostatRecordingTestName    string = "cryostat-recording"
+	CryostatConfigChangeTestName string = "cryostat-config-change"
 )
 
 // OperatorInstallTest checks that the operator installed correctly
@@ -68,6 +72,71 @@ func CryostatCRTest(bundle *apimanifests.Bundle, namespace string, openShiftCert
 		return fail(*r, fmt.Sprintf("%s test failed: %s", CryostatCRTestName, err.Error()))
 	}
 	defer cleanupCryostat(r, tr.Client, CryostatCRTestName, namespace)
+
+	return *r
+}
+
+func CryostatConfigChangeTest(bundle *apimanifests.Bundle, namespace string, openShiftCertManager bool) scapiv1alpha3.TestResult {
+	tr := newTestResources(CryostatConfigChangeTestName)
+	r := tr.TestResult
+
+	err := setupCRTestResources(tr, openShiftCertManager)
+	if err != nil {
+		return fail(*r, fmt.Sprintf("failed to set up %s test: %s", CryostatConfigChangeTestName, err.Error()))
+	}
+
+	// Create a default Cryostat CR with default empty dir
+	cr := newCryostatCR(CryostatConfigChangeTestName, namespace, !tr.OpenShift)
+	cr.Spec.StorageOptions = &operatorv1beta1.StorageConfiguration{
+		EmptyDir: &operatorv1beta1.EmptyDirConfig{
+			Enabled: true,
+		},
+	}
+
+	_, err = createAndWaitTillCryostatAvailable(cr, tr)
+	if err != nil {
+		return fail(*r, fmt.Sprintf("failed to determine application URL: %s", err.Error()))
+	}
+	defer cleanupCryostat(r, tr.Client, CryostatRecordingTestName, namespace)
+
+	// Switch Cryostat CR to PVC for redeployment
+	ctx, cancel := context.WithTimeout(context.Background(), testTimeout)
+	defer cancel()
+	client := tr.Client
+
+	cr, err = client.OperatorCRDs().Cryostats(namespace).Get(ctx, CryostatConfigChangeTestName)
+	if err != nil {
+		return fail(*r, fmt.Sprintf("failed to get Cryostat CR: %s", err.Error()))
+	}
+	cr.Spec.StorageOptions = &operatorv1beta1.StorageConfiguration{
+		PVC: &operatorv1beta1.PersistentVolumeClaimConfig{
+			Spec: &corev1.PersistentVolumeClaimSpec{
+				StorageClassName: nil,
+				Resources: corev1.ResourceRequirements{
+					Requests: corev1.ResourceList{
+						corev1.ResourceStorage: resource.MustParse("1Gi"),
+					},
+				},
+			},
+		},
+	}
+
+	// Wait for redeployment of Cryostat CR
+	err = updateAndWaitTillCryostatAvailable(cr, tr)
+	if err != nil {
+		return fail(*r, fmt.Sprintf("Cryostat redeployment did not become available: %s", err.Error()))
+	}
+	r.Log += "Cryostat deployment has successfully updated with new spec template"
+
+	base, err := url.Parse(cr.Status.ApplicationURL)
+	if err != nil {
+		return fail(*r, fmt.Sprintf("application URL is invalid: %s", err.Error()))
+	}
+
+	err = waitTillCryostatReady(base, tr)
+	if err != nil {
+		return fail(*r, fmt.Sprintf("failed to reach the application: %s", err.Error()))
+	}
 
 	return *r
 }
