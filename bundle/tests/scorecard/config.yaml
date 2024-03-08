@@ -70,7 +70,7 @@ stages:
   - entrypoint:
     - cryostat-scorecard-tests
     - operator-install
-    image: quay.io/cryostat/cryostat-operator-scorecard:2.5.0-20240305020416
+    image: quay.io/cryostat/cryostat-operator-scorecard:2.5.0-20240307153901
     labels:
       suite: cryostat
       test: operator-install
@@ -80,7 +80,7 @@ stages:
   - entrypoint:
     - cryostat-scorecard-tests
     - cryostat-cr
-    image: quay.io/cryostat/cryostat-operator-scorecard:2.5.0-20240305020416
+    image: quay.io/cryostat/cryostat-operator-scorecard:2.5.0-20240307153901
     labels:
       suite: cryostat
       test: cryostat-cr
@@ -90,10 +90,20 @@ stages:
   - entrypoint:
     - cryostat-scorecard-tests
     - cryostat-recording
-    image: quay.io/cryostat/cryostat-operator-scorecard:2.5.0-20240305020416
+    image: quay.io/cryostat/cryostat-operator-scorecard:2.5.0-20240307153901
     labels:
       suite: cryostat
       test: cryostat-recording
+    storage:
+      spec:
+        mountPath: {}
+  - entrypoint:
+    - cryostat-scorecard-tests
+    - cryostat-config-change
+    image: quay.io/cryostat/cryostat-operator-scorecard:2.5.0-20240307153901
+    labels:
+      suite: cryostat
+      test: cryostat-config-change
     storage:
       spec:
         mountPath: {}
