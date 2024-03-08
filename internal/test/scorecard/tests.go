@@ -143,7 +143,7 @@ func CryostatConfigChangeTest(bundle *apimanifests.Bundle, namespace string, ope
 }
 
 // TODO add a built in discovery test too
-func CryostatRecordingTest(bundle *apimanifests.Bundle, namespace string, openShiftCertManager bool) scapiv1alpha3.TestResult {
+func CryostatRecordingTest(bundle *apimanifests.Bundle, namespace string, openShiftCertManager bool) (result scapiv1alpha3.TestResult) {
 	tr := newTestResources(CryostatRecordingTestName)
 	r := tr.TestResult
 
@@ -157,6 +157,9 @@ func CryostatRecordingTest(bundle *apimanifests.Bundle, namespace string, openSh
 	if err != nil {
 		return fail(*r, fmt.Sprintf("failed to determine application URL: %s", err.Error()))
 	}
+	ch := StartLogs(tr.Client.Clientset, cr)
+	defer CollectContainersLogsToResult(&result, ch)
+
 	defer cleanupCryostat(r, tr.Client, CryostatRecordingTestName, namespace)
 
 	base, err := url.Parse(cr.Status.ApplicationURL)
