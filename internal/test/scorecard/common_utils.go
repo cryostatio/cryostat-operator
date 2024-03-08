@@ -1,4 +1,5 @@
 // Copyright The Cryostat Authors.
+// Copyright 2016 The Kubernetes Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -417,6 +418,7 @@ func updateAndWaitTillCryostatAvailable(cr *operatorv1beta1.Cryostat, resources 
 			}
 		}
 
+		// Derived from kubectl: https://github.com/kubernetes/kubectl/blob/24d21a0/pkg/polymorphichelpers/rollout_status.go#L75-L91
 		// Check for deployment condition
 		if deploy.Generation <= deploy.Status.ObservedGeneration {
 			for _, condition := range deploy.Status.Conditions {
