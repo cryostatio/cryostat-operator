@@ -54,7 +54,11 @@ metadata:
     capabilities: Seamless Upgrades
     categories: Monitoring, Developer Tools
     containerImage: quay.io/cryostat/cryostat-operator:2.5.0-dev
+<<<<<<< HEAD
     createdAt: "2024-03-06T21:13:39Z"
+=======
+    createdAt: "2024-03-07T15:43:22Z"
+>>>>>>> bf8df15 (test(scorecard): scorecard test for Cryostat CR configuration changes (#739))
     description: JVM monitoring and profiling tool
     operatorframework.io/initialization-resource: |-
       {
