@@ -384,24 +384,18 @@ func waitTillCryostatReady(base *url.URL, resources *TestResources) error {
 	return err
 }
 
-func updateAndWaitTillCryostatAvailable(cr *operatorv1beta1.Cryostat, resources *TestResources) error {
+func CheckRolloutStatus(name string, namespace string, resources *TestResources) error {
 	client := resources.Client
 	r := resources.TestResult
-
-	cr, err := client.OperatorCRDs().Cryostats(cr.Namespace).Update(context.Background(), cr)
-	if err != nil {
-		r.Log += fmt.Sprintf("failed to update Cryostat CR: %s", err.Error())
-		return err
-	}
 
 	// Poll the deployment until it becomes available or we timeout
 	ctx, cancel := context.WithTimeout(context.Background(), testTimeout)
 	defer cancel()
-	err = wait.PollImmediateUntilWithContext(ctx, time.Second, func(ctx context.Context) (done bool, err error) {
-		deploy, err := client.AppsV1().Deployments(cr.Namespace).Get(ctx, cr.Name, metav1.GetOptions{})
+	err := wait.PollImmediateUntilWithContext(ctx, time.Second, func(ctx context.Context) (done bool, err error) {
+		deploy, err := client.AppsV1().Deployments(namespace).Get(ctx, name, metav1.GetOptions{})
 		if err != nil {
 			if kerrors.IsNotFound(err) {
-				r.Log += fmt.Sprintf("deployment %s is not yet found\n", cr.Name)
+				r.Log += fmt.Sprintf("deployment %s is not yet found\n", name)
 				return false, nil // Retry
 			}
 			return false, fmt.Errorf("failed to get deployment: %s", err.Error())
@@ -441,7 +435,7 @@ func updateAndWaitTillCryostatAvailable(cr *operatorv1beta1.Cryostat, resources 
 			r.Log += fmt.Sprintf("deployment %s successfully rolled out\n", deploy.Name)
 			return true, nil
 		}
-		r.Log += "Waiting for deployment spec update to be observed...\n"
+		r.Log += "Waiting for deployment spec to be observed...\n"
 		return false, nil
 	})
 	if err != nil {

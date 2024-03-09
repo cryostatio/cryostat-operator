@@ -295,11 +295,27 @@ func CryostatReportTest(bundle *apimanifests.Bundle, namespace string, openShift
 	}
 
 	// Create a default Cryostat CR
-	_, err = createAndWaitTillCryostatAvailable(cr, tr)
+	cr, err = createAndWaitTillCryostatAvailable(cr, tr)
 	if err != nil {
 		return fail(*r, fmt.Sprintf("%s test failed: %s", CryostatReportTestName, err.Error()))
 	}
 	defer cleanupCryostat(r, tr.Client, CryostatReportTestName, namespace)
+
+	// Check rollout status of report sidecar
+	err = CheckRolloutStatus(cr.Name+"-reports", cr.Namespace, tr)
+	if err != nil {
+		return fail(*r, fmt.Sprintf("failed to successfully rollout %s: %s", CryostatReportTestName, err.Error()))
+	}
+
+	// Query health of report sidecar
+	base, err := url.Parse(cr.Status.ApplicationURL)
+	if err != nil {
+		return fail(*r, fmt.Sprintf("application URL is invalid: %s", err.Error()))
+	}
+	err = waitTillCryostatReady(base, tr)
+	if err != nil {
+		return fail(*r, fmt.Sprintf("failed to reach the application: %s", err.Error()))
+	}
 
 	return *r
 }
