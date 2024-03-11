@@ -31,64 +31,22 @@ type ContainerLog struct {
 	Log       string
 }
 
-func LogCryostatContainer(clientset *kubernetes.Clientset, cr *operatorv1beta1.Cryostat, ch chan *ContainerLog) {
+func LogContainer(clientset *kubernetes.Clientset, namespace, podName, containerName string, ch chan *ContainerLog) {
 	containerLog := &ContainerLog{
-		Container: "cryostat",
+		Container: containerName,
 	}
 	buf := &strings.Builder{}
-	podName, err := getCryostatPodNameForCR(clientset, cr)
+
+	err := GetContainerLogs(clientset, namespace, podName, containerName, buf)
 	if err != nil {
-		buf.WriteString(fmt.Sprintf("failed to get pod name: %s", err.Error()))
-	} else {
-		err := LogContainer(clientset, cr.Namespace, podName, cr.Name, buf)
-		if err != nil {
-			buf.WriteString(err.Error())
-		}
+		buf.WriteString(fmt.Sprintf("%s\n", err.Error()))
 	}
 
 	containerLog.Log = buf.String()
 	ch <- containerLog
 }
 
-func LogGrafanaContainer(clientset *kubernetes.Clientset, cr *operatorv1beta1.Cryostat, ch chan *ContainerLog) {
-	containerLog := &ContainerLog{
-		Container: "grafana",
-	}
-	buf := &strings.Builder{}
-	podName, err := getCryostatPodNameForCR(clientset, cr)
-	if err != nil {
-		buf.WriteString(fmt.Sprintf("failed to get pod name: %s", err.Error()))
-	} else {
-		err := LogContainer(clientset, cr.Namespace, podName, cr.Name+"-grafana", buf)
-		if err != nil {
-			buf.WriteString(err.Error())
-		}
-	}
-
-	containerLog.Log = buf.String()
-	ch <- containerLog
-}
-
-func LogDatasourceContainer(clientset *kubernetes.Clientset, cr *operatorv1beta1.Cryostat, ch chan *ContainerLog) {
-	containerLog := &ContainerLog{
-		Container: "jfr-datasource",
-	}
-	buf := &strings.Builder{}
-	podName, err := getCryostatPodNameForCR(clientset, cr)
-	if err != nil {
-		buf.WriteString(fmt.Sprintf("failed to get pod name: %s", err.Error()))
-	} else {
-		err := LogContainer(clientset, cr.Namespace, podName, cr.Name+"-jfr-datasource", buf)
-		if err != nil {
-			buf.WriteString(err.Error())
-		}
-	}
-
-	containerLog.Log = buf.String()
-	ch <- containerLog
-}
-
-func LogContainer(clientset *kubernetes.Clientset, namespace, podName, containerName string, dest io.Writer) error {
+func GetContainerLogs(clientset *kubernetes.Clientset, namespace, podName, containerName string, dest io.Writer) error {
 	ctx, cancel := context.WithTimeout(context.TODO(), testTimeout)
 	defer cancel()
 
@@ -126,10 +84,23 @@ func CollectContainersLogsToResult(result *scapiv1alpha3.TestResult, ch chan *Co
 	}
 }
 
-func StartLogs(clientset *kubernetes.Clientset, cr *operatorv1beta1.Cryostat) chan *ContainerLog {
-	ch := make(chan *ContainerLog, 3)
-	go LogCryostatContainer(clientset, cr, ch)
-	go LogGrafanaContainer(clientset, cr, ch)
-	go LogDatasourceContainer(clientset, cr, ch)
-	return ch
+func StartLogs(clientset *kubernetes.Clientset, cr *operatorv1beta1.Cryostat) (chan *ContainerLog, error) {
+	podName, err := getCryostatPodNameForCR(clientset, cr)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get pod name for CR: %s", err.Error())
+	}
+
+	containerNames := []string{
+		cr.Name,
+		cr.Name + "-grafana",
+		cr.Name + "-jfr-datasource",
+	}
+
+	ch := make(chan *ContainerLog, len(containerNames))
+
+	for _, containerName := range containerNames {
+		go LogContainer(clientset, cr.Namespace, podName, containerName, ch)
+	}
+
+	return ch, nil
 }

@@ -157,7 +157,10 @@ func CryostatRecordingTest(bundle *apimanifests.Bundle, namespace string, openSh
 	if err != nil {
 		return fail(*r, fmt.Sprintf("failed to determine application URL: %s", err.Error()))
 	}
-	ch := StartLogs(tr.Client.Clientset, cr)
+	ch, err := StartLogs(tr.Client.Clientset, cr)
+	if err != nil {
+		return fail(*r, fmt.Sprintf("failed to retrieve logs for the application: %s", err.Error()))
+	}
 	defer CollectContainersLogsToResult(&result, ch)
 
 	defer cleanupCryostat(r, tr.Client, CryostatRecordingTestName, namespace)
