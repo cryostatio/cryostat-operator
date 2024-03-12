@@ -29,11 +29,12 @@ import (
 )
 
 const (
-	OperatorInstallTestName      string = "operator-install"
-	CryostatCRTestName           string = "cryostat-cr"
-	CryostatRecordingTestName    string = "cryostat-recording"
-	CryostatConfigChangeTestName string = "cryostat-config-change"
-	CryostatReportTestName       string = "cryostat-report"
+	OperatorInstallTestName        string = "operator-install"
+	CryostatCRTestName             string = "cryostat-cr"
+	CryostatRecordingTestName      string = "cryostat-recording"
+	CryostatConfigChangeTestName   string = "cryostat-config-change"
+	CryostatMultiNamespaceTestName string = "cryostat-multi-namespace"
+	CryostatReportTestName         string = "cryostat-report"
 )
 
 // OperatorInstallTest checks that the operator installed correctly
@@ -76,6 +77,25 @@ func CryostatCRTest(bundle *apimanifests.Bundle, namespace string, openShiftCert
 	return r.TestResult
 }
 
+// CryostatCRTest checks that the operator installs Cryostat in response to a Cryostat CR
+func CryostatMultiNamespaceTest(bundle *apimanifests.Bundle, namespace string, namespaces []string, openShiftCertManager bool) scapiv1alpha3.TestResult {
+	r := newTestResources(CryostatMultiNamespaceTestName)
+
+	err := r.setupCRTestResources(openShiftCertManager)
+	if err != nil {
+		return r.fail(fmt.Sprintf("failed to set up %s test: %s", CryostatMultiNamespaceTestName, err.Error()))
+	}
+	defer r.cleanupAndLogs(CryostatMultiNamespaceTestName, namespace)
+
+	// Create a default ClusterCryostat CR
+	_, err = r.createAndWaitTillClusterCryostatAvailable(newClusterCryostatCR(CryostatMultiNamespaceTestName, namespace, namespaces, !r.OpenShift))
+	if err != nil {
+		return r.fail(fmt.Sprintf("%s test failed: %s", CryostatMultiNamespaceTestName, err.Error()))
+	}
+
+	return r.TestResult
+}
+
 func CryostatConfigChangeTest(bundle *apimanifests.Bundle, namespace string, openShiftCertManager bool) *scapiv1alpha3.TestResult {
 	r := newTestResources(CryostatConfigChangeTestName)
 
@@ -97,6 +117,7 @@ func CryostatConfigChangeTest(bundle *apimanifests.Bundle, namespace string, ope
 	if err != nil {
 		return r.fail(fmt.Sprintf("failed to determine application URL: %s", err.Error()))
 	}
+	defer cleanupCryostat(r, tr.Client, CryostatConfigChangeTestName, namespace)
 
 	// Switch Cryostat CR to PVC for redeployment
 	ctx, cancel := context.WithTimeout(context.Background(), testTimeout)

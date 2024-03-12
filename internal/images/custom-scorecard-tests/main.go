@@ -51,6 +51,9 @@ func main() {
 		log.Fatal("SCORECARD_NAMESPACE environment variable not set")
 	}
 
+	// Set target namespaces for multi-namespace test
+	namespaces := []string{"other-scorecard-namespace"}
+
 	// Read the pod's untar'd bundle from a well-known path.
 	bundle, err := apimanifests.GetBundleFromDir(podBundleRoot)
 	if err != nil {
@@ -63,7 +66,7 @@ func main() {
 	if !validateTests(entrypoint) {
 		results = printValidTests()
 	} else {
-		results = runTests(entrypoint, bundle, namespace, *openShiftCertManager)
+		results = runTests(entrypoint, bundle, namespace, namespaces, *openShiftCertManager)
 	}
 
 	// Print results in expected JSON form
@@ -79,6 +82,7 @@ func printValidTests() []scapiv1alpha3.TestResult {
 	str := fmt.Sprintf("valid tests for this image include: %s", strings.Join([]string{
 		tests.OperatorInstallTestName,
 		tests.CryostatCRTestName,
+		tests.CryostatMultiNamespaceTestName,
 		tests.CryostatRecordingTestName,
 		tests.CryostatConfigChangeTestName,
 		tests.CryostatReportTestName,
@@ -93,6 +97,7 @@ func validateTests(testNames []string) bool {
 		switch testName {
 		case tests.OperatorInstallTestName:
 		case tests.CryostatCRTestName:
+		case tests.CryostatMultiNamespaceTestName:
 		case tests.CryostatRecordingTestName:
 		case tests.CryostatConfigChangeTestName:
 		case tests.CryostatReportTestName:
@@ -103,7 +108,7 @@ func validateTests(testNames []string) bool {
 	return true
 }
 
-func runTests(testNames []string, bundle *apimanifests.Bundle, namespace string,
+func runTests(testNames []string, bundle *apimanifests.Bundle, namespace string, namespaces []string,
 	openShiftCertManager bool) []scapiv1alpha3.TestResult {
 	results := []scapiv1alpha3.TestResult{}
 
@@ -114,6 +119,8 @@ func runTests(testNames []string, bundle *apimanifests.Bundle, namespace string,
 			results = append(results, *tests.OperatorInstallTest(bundle, namespace, openShiftCertManager))
 		case tests.CryostatCRTestName:
 			results = append(results, *tests.CryostatCRTest(bundle, namespace, openShiftCertManager))
+		case tests.CryostatMultiNamespaceTestName:
+			results = append(results, *tests.CryostatMultiNamespaceTest(bundle, namespace, namespaces, openShiftCertManager))
 		case tests.CryostatRecordingTestName:
 			results = append(results, *tests.CryostatRecordingTest(bundle, namespace, openShiftCertManager))
 		case tests.CryostatConfigChangeTestName:

@@ -89,6 +89,15 @@ func (c *OperatorCRDClient) Cryostats(namespace string) *CryostatClient {
 	}
 }
 
+// Cryostats returns a ClusterCryostatClient configured to a specific namespace
+func (c *OperatorCRDClient) ClusterCryostats(namespace string) *CryostatClient {
+	return &CryostatClient{
+		restClient: c.client,
+		namespace:  namespace,
+		resource:   "clustercryostats",
+	}
+}
+
 func newOperatorCRDClient(config *rest.Config) (*OperatorCRDClient, error) {
 	client, err := newCRDClient(config)
 	if err != nil {
@@ -122,6 +131,39 @@ type CryostatClient struct {
 	restClient rest.Interface
 	namespace  string
 	resource   string
+}
+
+// Get returns a Cryostat CR for the given name
+func (c *CryostatClient) GetCluster(ctx context.Context, name string) (*operatorv1beta1.ClusterCryostat, error) {
+	return getCluster(ctx, c.restClient, c.resource, name, &operatorv1beta1.ClusterCryostat{})
+}
+
+// Create creates the provided ClusterCryostat CR
+func (c *CryostatClient) CreateCluster(ctx context.Context, obj *operatorv1beta1.ClusterCryostat) (*operatorv1beta1.ClusterCryostat, error) {
+	return createCluster(ctx, c.restClient, c.resource, obj, &operatorv1beta1.ClusterCryostat{})
+}
+
+// Delete deletes the Cryostat CR with the given name
+func (c *CryostatClient) DeleteCluster(ctx context.Context, name string, options *metav1.DeleteOptions) error {
+	return deleteCluster(ctx, c.restClient, c.resource, name, options)
+}
+
+func getCluster[r runtime.Object](ctx context.Context, c rest.Interface, res string, name string, result r) (r, error) {
+	err := c.Get().Resource(res).
+		Name(name).Do(ctx).Into(result)
+	return result, err
+}
+
+func createCluster[r runtime.Object](ctx context.Context, c rest.Interface, res string, obj r, result r) (r, error) {
+	err := c.Post().Resource(res).
+		Body(obj).Do(ctx).Into(result)
+	return result, err
+}
+
+func deleteCluster(ctx context.Context, c rest.Interface, res string, name string, opts *metav1.DeleteOptions) error {
+	return c.Delete().Resource(res).
+		Name(name).Body(opts).Do(ctx).
+		Error()
 }
 
 // Get returns a Cryostat CR for the given name

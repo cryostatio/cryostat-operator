@@ -237,80 +237,107 @@ func newCryostatCR(name string, namespace string, withIngress bool) *operatorv1b
 			Name:      name,
 			Namespace: namespace,
 		},
-		Spec: operatorv1beta1.CryostatSpec{
-			Minimal:           false,
-			EnableCertManager: &[]bool{true}[0],
+		Spec: newCryostatSpec(),
+	}
+
+	if withIngress {
+		configureIngress(name, &cr.Spec)
+	}
+	return cr
+}
+
+func newClusterCryostatCR(name string, namespace string, namespaces []string, withIngress bool) *operatorv1beta1.ClusterCryostat {
+	cr := &operatorv1beta1.ClusterCryostat{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: namespace,
+		},
+		Spec: operatorv1beta1.ClusterCryostatSpec{
+			InstallNamespace: namespace,
+			TargetNamespaces: namespaces,
+			CryostatSpec:     newCryostatSpec(),
 		},
 	}
 
 	if withIngress {
-		pathType := netv1.PathTypePrefix
-		cr.Spec.NetworkOptions = &operatorv1beta1.NetworkConfigurationList{
-			CoreConfig: &operatorv1beta1.NetworkConfiguration{
-				Annotations: map[string]string{
-					"nginx.ingress.kubernetes.io/backend-protocol": "HTTPS",
-				},
-				IngressSpec: &netv1.IngressSpec{
-					TLS: []netv1.IngressTLS{{}},
-					Rules: []netv1.IngressRule{
-						{
-							Host: "testing.cryostat",
-							IngressRuleValue: netv1.IngressRuleValue{
-								HTTP: &netv1.HTTPIngressRuleValue{
-									Paths: []netv1.HTTPIngressPath{
-										{
-											Path:     "/",
-											PathType: &pathType,
-											Backend: netv1.IngressBackend{
-												Service: &netv1.IngressServiceBackend{
-													Name: name,
-													Port: netv1.ServiceBackendPort{
-														Number: 8181,
-													},
-												},
-											},
-										},
-									},
-								},
-							},
-						},
-					},
-				},
-			},
-			GrafanaConfig: &operatorv1beta1.NetworkConfiguration{
-				Annotations: map[string]string{
-					"nginx.ingress.kubernetes.io/backend-protocol": "HTTPS",
-				},
-				IngressSpec: &netv1.IngressSpec{
-					TLS: []netv1.IngressTLS{{}},
-					Rules: []netv1.IngressRule{
-						{
-							Host: "testing.cryostat-grafana",
-							IngressRuleValue: netv1.IngressRuleValue{
-								HTTP: &netv1.HTTPIngressRuleValue{
-									Paths: []netv1.HTTPIngressPath{
-										{
-											Path:     "/",
-											PathType: &pathType,
-											Backend: netv1.IngressBackend{
-												Service: &netv1.IngressServiceBackend{
-													Name: fmt.Sprintf("%s-grafana", name),
-													Port: netv1.ServiceBackendPort{
-														Number: 3000,
-													},
-												},
-											},
-										},
-									},
-								},
-							},
-						},
-					},
-				},
-			},
-		}
+		configureIngress(name, &cr.Spec.CryostatSpec)
 	}
 	return cr
+}
+
+func newCryostatSpec() operatorv1beta1.CryostatSpec {
+	return operatorv1beta1.CryostatSpec{
+		Minimal:           false,
+		EnableCertManager: &[]bool{true}[0],
+	}
+}
+
+func configureIngress(name string, cryostatSpec *operatorv1beta1.CryostatSpec) {
+	pathType := netv1.PathTypePrefix
+	cryostatSpec.NetworkOptions = &operatorv1beta1.NetworkConfigurationList{
+		CoreConfig: &operatorv1beta1.NetworkConfiguration{
+			Annotations: map[string]string{
+				"nginx.ingress.kubernetes.io/backend-protocol": "HTTPS",
+			},
+			IngressSpec: &netv1.IngressSpec{
+				TLS: []netv1.IngressTLS{{}},
+				Rules: []netv1.IngressRule{
+					{
+						Host: "testing.cryostat",
+						IngressRuleValue: netv1.IngressRuleValue{
+							HTTP: &netv1.HTTPIngressRuleValue{
+								Paths: []netv1.HTTPIngressPath{
+									{
+										Path:     "/",
+										PathType: &pathType,
+										Backend: netv1.IngressBackend{
+											Service: &netv1.IngressServiceBackend{
+												Name: name,
+												Port: netv1.ServiceBackendPort{
+													Number: 8181,
+												},
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		GrafanaConfig: &operatorv1beta1.NetworkConfiguration{
+			Annotations: map[string]string{
+				"nginx.ingress.kubernetes.io/backend-protocol": "HTTPS",
+			},
+			IngressSpec: &netv1.IngressSpec{
+				TLS: []netv1.IngressTLS{{}},
+				Rules: []netv1.IngressRule{
+					{
+						Host: "testing.cryostat-grafana",
+						IngressRuleValue: netv1.IngressRuleValue{
+							HTTP: &netv1.HTTPIngressRuleValue{
+								Paths: []netv1.HTTPIngressPath{
+									{
+										Path:     "/",
+										PathType: &pathType,
+										Backend: netv1.IngressBackend{
+											Service: &netv1.IngressServiceBackend{
+												Name: fmt.Sprintf("%s-grafana", name),
+												Port: netv1.ServiceBackendPort{
+													Number: 3000,
+												},
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
 }
 
 func (r *TestResources) createAndWaitTillCryostatAvailable(cr *operatorv1beta1.Cryostat) (*operatorv1beta1.Cryostat, error) {
@@ -345,6 +372,59 @@ func (r *TestResources) createAndWaitTillCryostatAvailable(cr *operatorv1beta1.C
 		return nil, err
 	}
 	r.Log += fmt.Sprintf("application is available at %s\n", cr.Status.ApplicationURL)
+
+	return cr, nil
+}
+
+func (r *TestResources) createAndWaitTillClusterCryostatAvailable(cr *operatorv1beta1.ClusterCryostat) (*operatorv1beta1.ClusterCryostat, error) {
+	cr, err := r.Client.OperatorCRDs().ClusterCryostats(cr.Spec.InstallNamespace).CreateCluster(context.Background(), cr)
+	if err != nil {
+		r.logError(fmt.Sprintf("failed to create ClusterCryostat CR: %s", err.Error()))
+		return nil, err
+	}
+
+	// Poll the deployment until it becomes available or we timeout
+	ctx, cancel := context.WithTimeout(context.Background(), testTimeout)
+	defer cancel()
+	err = r.waitForDeploymentAvailability(ctx, cr.Spec.InstallNamespace, cr.Name)
+	if err != nil {
+		r.logError(fmt.Sprintf("ClusterCryostat main deployment did not become available: %s", err.Error()))
+		return nil, err
+	}
+
+	err = wait.PollImmediateUntilWithContext(ctx, time.Second, func(ctx context.Context) (done bool, err error) {
+		cr, err = r.Client.OperatorCRDs().ClusterCryostats(cr.Spec.InstallNamespace).GetCluster(ctx, cr.Name)
+		if err != nil {
+			return false, fmt.Errorf("failed to get ClusterCryostat CR: %s", err.Error())
+		}
+		if len(cr.Status.TargetNamespaces) > 0 && cr.Status.TargetNamespaces[0] == cr.Spec.TargetNamespaces[0] {
+			r.Log += fmt.Sprintf("application has access to the following namespace: %s\n", cr.Status.TargetNamespaces)
+			return true, nil
+		}
+		r.Log += "application's target namespaces are not yet available\n"
+		return false, nil
+	})
+	if err != nil {
+		r.logError(fmt.Sprintf("application's target namespaces not found in CR: %s", err.Error()))
+		return nil, err
+	}
+
+	err = wait.PollImmediateUntilWithContext(ctx, time.Second, func(ctx context.Context) (done bool, err error) {
+		cr, err = r.Client.OperatorCRDs().ClusterCryostats(cr.Spec.InstallNamespace).GetCluster(ctx, cr.Name)
+		if err != nil {
+			return false, fmt.Errorf("failed to get ClusterCryostat CR: %s", err.Error())
+		}
+		if len(cr.Status.CryostatStatus.ApplicationURL) > 0 {
+			return true, nil
+		}
+		r.Log += "application URL is not yet available\n"
+		return false, nil
+	})
+	if err != nil {
+		r.logError(fmt.Sprintf("application URL not found in CR: %s", err.Error()))
+		return nil, err
+	}
+	r.Log += fmt.Sprintf("application is available at %s\n", cr.Status.CryostatStatus.ApplicationURL)
 
 	return cr, nil
 }
@@ -532,4 +612,18 @@ func (r *TestResources) getCryostatPodNameForCR(cr *operatorv1beta1.Cryostat) (s
 	}
 
 	return pods.Items[0].ObjectMeta.Name, nil
+}
+
+func cleanupClusterCryostat(r *scapiv1alpha3.TestResult, client *CryostatClientset, name string) {
+	cr := &operatorv1beta1.ClusterCryostat{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: name,
+		},
+	}
+	ctx := context.Background()
+	err := client.OperatorCRDs().ClusterCryostats(cr.Namespace).DeleteCluster(ctx,
+		cr.Name, &metav1.DeleteOptions{})
+	if err != nil {
+		r.Log += fmt.Sprintf("failed to delete ClusterCryostat: %s\n", err.Error())
+	}
 }
