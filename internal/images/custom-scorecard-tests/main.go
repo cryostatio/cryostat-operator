@@ -111,15 +111,15 @@ func runTests(testNames []string, bundle *apimanifests.Bundle, namespace string,
 	for _, testName := range testNames {
 		switch testName {
 		case tests.OperatorInstallTestName:
-			results = append(results, tests.OperatorInstallTest(bundle, namespace))
+			results = append(results, *tests.OperatorInstallTest(bundle, namespace, openShiftCertManager))
 		case tests.CryostatCRTestName:
-			results = append(results, tests.CryostatCRTest(bundle, namespace, openShiftCertManager))
+			results = append(results, *tests.CryostatCRTest(bundle, namespace, openShiftCertManager))
 		case tests.CryostatRecordingTestName:
-			results = append(results, tests.CryostatRecordingTest(bundle, namespace, openShiftCertManager))
+			results = append(results, *tests.CryostatRecordingTest(bundle, namespace, openShiftCertManager))
 		case tests.CryostatConfigChangeTestName:
-			results = append(results, tests.CryostatConfigChangeTest(bundle, namespace, openShiftCertManager))
+			results = append(results, *tests.CryostatConfigChangeTest(bundle, namespace, openShiftCertManager))
 		case tests.CryostatReportTestName:
-			results = append(results, tests.CryostatReportTest(bundle, namespace, openShiftCertManager))
+			results = append(results, *tests.CryostatReportTest(bundle, namespace, openShiftCertManager))
 		default:
 			log.Fatalf("unknown test found: %s", testName)
 		}
