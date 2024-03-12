@@ -177,6 +177,16 @@ func logEvents(r *scapiv1alpha3.TestResult, client *CryostatClientset, namespace
 	return nil
 }
 
+func deferLogWorkloadEvents(r *scapiv1alpha3.TestResult, client *CryostatClientset, namespace string, name string) {
+	if len(r.Errors) > 0 {
+		r.Log += "WORKLOAD EVENTS: \n"
+		logErr := logWorkloadEvents(r, client, namespace, name)
+		if logErr != nil {
+			r.Log += fmt.Sprintf("failed to get workload logs: %s", logErr)
+		}
+	}
+}
+
 func newEmptyTestResult(testName string) *scapiv1alpha3.TestResult {
 	return &scapiv1alpha3.TestResult{
 		Name:        testName,

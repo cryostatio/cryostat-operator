@@ -174,6 +174,7 @@ func CryostatRecordingTest(bundle *apimanifests.Bundle, namespace string, openSh
 	if err != nil {
 		return fail(*r, fmt.Sprintf("failed to reach the application: %s", err.Error()))
 	}
+	defer deferLogWorkloadEvents(&result, tr.Client, cr.Namespace, cr.Name)
 
 	apiClient := NewCryostatRESTClientset(base)
 
