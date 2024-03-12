@@ -98,7 +98,7 @@ func CryostatConfigChangeTest(bundle *apimanifests.Bundle, namespace string, ope
 	if err != nil {
 		return fail(*r, fmt.Sprintf("failed to determine application URL: %s", err.Error()))
 	}
-	defer cleanupCryostat(r, tr.Client, CryostatRecordingTestName, namespace)
+	defer cleanupCryostat(r, tr.Client, CryostatConfigChangeTestName, namespace)
 
 	// Switch Cryostat CR to PVC for redeployment
 	ctx, cancel := context.WithTimeout(context.Background(), testTimeout)
@@ -127,7 +127,7 @@ func CryostatConfigChangeTest(bundle *apimanifests.Bundle, namespace string, ope
 	if err != nil {
 		return fail(*r, fmt.Sprintf("Cryostat redeployment did not become available: %s", err.Error()))
 	}
-	r.Log += "Cryostat deployment has successfully updated with new spec template"
+	r.Log += "Cryostat deployment has successfully updated with new spec template\n"
 
 	base, err := url.Parse(cr.Status.ApplicationURL)
 	if err != nil {
@@ -289,9 +289,15 @@ func CryostatReportTest(bundle *apimanifests.Bundle, namespace string, openShift
 		return fail(*r, fmt.Sprintf("failed to set up %s test: %s", CryostatReportTestName, err.Error()))
 	}
 
+	port := int32(10000)
 	cr := newCryostatCR(CryostatReportTestName, namespace, !tr.OpenShift)
 	cr.Spec.ReportOptions = &operatorv1beta1.ReportConfiguration{
 		Replicas: 1,
+	}
+	cr.Spec.ServiceOptions = &operatorv1beta1.ServiceConfigList{
+		ReportsConfig: &operatorv1beta1.ReportsServiceConfig{
+			HTTPPort: &port,
+		},
 	}
 
 	// Create a default Cryostat CR
@@ -301,18 +307,8 @@ func CryostatReportTest(bundle *apimanifests.Bundle, namespace string, openShift
 	}
 	defer cleanupCryostat(r, tr.Client, CryostatReportTestName, namespace)
 
-	// Check rollout status of report sidecar
-	err = CheckRolloutStatus(cr.Name+"-reports", cr.Namespace, tr)
-	if err != nil {
-		return fail(*r, fmt.Sprintf("failed to successfully rollout %s: %s", CryostatReportTestName, err.Error()))
-	}
-
 	// Query health of report sidecar
-	base, err := url.Parse(cr.Status.ApplicationURL)
-	if err != nil {
-		return fail(*r, fmt.Sprintf("application URL is invalid: %s", err.Error()))
-	}
-	err = waitTillCryostatReady(base, tr)
+	err = waitTillReportReady(cr.Name+"-reports", cr.Namespace, port, tr)
 	if err != nil {
 		return fail(*r, fmt.Sprintf("failed to reach the application: %s", err.Error()))
 	}

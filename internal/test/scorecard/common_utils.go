@@ -17,7 +17,9 @@ package scorecard
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"net/url"
 	"time"
@@ -338,34 +340,7 @@ func createAndWaitTillCryostatAvailable(cr *operatorv1beta1.Cryostat, resources 
 }
 
 func waitTillCryostatReady(base *url.URL, resources *TestResources) error {
-	client := NewHttpClient()
-	r := resources.TestResult
-
-	ctx, cancel := context.WithTimeout(context.Background(), testTimeout)
-	defer cancel()
-
-	err := wait.PollImmediateUntilWithContext(ctx, time.Second, func(ctx context.Context) (done bool, err error) {
-		url := base.JoinPath("/health")
-		req, err := NewHttpRequest(ctx, http.MethodGet, url.String(), nil, make(http.Header))
-		if err != nil {
-			return false, fmt.Errorf("failed to create a Cryostat REST request: %s", err.Error())
-		}
-		req.Header.Add("Accept", "*/*")
-
-		resp, err := client.Do(req)
-		if err != nil {
-			return false, err
-		}
-		defer resp.Body.Close()
-
-		if !StatusOK(resp.StatusCode) {
-			if resp.StatusCode == http.StatusServiceUnavailable {
-				r.Log += fmt.Sprintf("application is not yet reachable at %s\n", base.String())
-				return false, nil // Try again
-			}
-			return false, fmt.Errorf("API request failed with status code %d: %s", resp.StatusCode, ReadError(resp))
-		}
-
+	return sendHealthRequest(base, resources, func(resp *http.Response, r *scapiv1alpha3.TestResult) (done bool, err error) {
 		health := &HealthResponse{}
 		err = ReadJSON(resp, health)
 		if err != nil {
@@ -380,7 +355,65 @@ func waitTillCryostatReady(base *url.URL, resources *TestResources) error {
 		r.Log += fmt.Sprintf("application is ready at %s\n", base.String())
 		return true, nil
 	})
+}
 
+func waitTillReportReady(name string, namespace string, port int32, resources *TestResources) error {
+	client := resources.Client
+	r := resources.TestResult
+
+	ctx, cancel := context.WithTimeout(context.Background(), testTimeout)
+	defer cancel()
+
+	err := waitForDeploymentAvailability(ctx, client, namespace, name, r)
+	if err != nil {
+		return fmt.Errorf("report sidecar deployment did not become available: %s", err.Error())
+	}
+
+	reportsUrl := fmt.Sprintf("https://%s.%s.svc.cluster.local:%d", name, namespace, port)
+	base, err := url.Parse(reportsUrl)
+	if err != nil {
+		return fmt.Errorf("application URL is invalid: %s", err.Error())
+	}
+
+	return sendHealthRequest(base, resources, func(resp *http.Response, r *scapiv1alpha3.TestResult) (done bool, err error) {
+		r.Log += fmt.Sprintf("reports sidecar is ready at %s\n", base.String())
+		return true, nil
+	})
+}
+
+func sendHealthRequest(base *url.URL, resources *TestResources, healthCheck func(resp *http.Response, r *scapiv1alpha3.TestResult) (done bool, err error)) error {
+	client := NewHttpClient()
+	r := resources.TestResult
+
+	ctx, cancel := context.WithTimeout(context.Background(), testTimeout)
+	defer cancel()
+
+	err := wait.PollImmediateUntilWithContext(ctx, time.Second, func(ctx context.Context) (done bool, err error) {
+		url := base.JoinPath("/health")
+		req, err := NewHttpRequest(ctx, http.MethodGet, url.String(), nil, make(http.Header))
+		if err != nil {
+			return false, fmt.Errorf("failed to create a an http request: %s", err.Error())
+		}
+		req.Header.Add("Accept", "*/*")
+
+		resp, err := client.Do(req)
+		if err != nil {
+			if errors.Is(err, io.EOF) {
+				return false, nil // Retry
+			}
+			return false, err
+		}
+		defer resp.Body.Close()
+
+		if !StatusOK(resp.StatusCode) {
+			if resp.StatusCode == http.StatusServiceUnavailable {
+				r.Log += fmt.Sprintf("application is not yet reachable at %s\n", base.String())
+				return false, nil // Try again
+			}
+			return false, fmt.Errorf("API request failed with status code %d: %s", resp.StatusCode, ReadError(resp))
+		}
+		return healthCheck(resp, r)
+	})
 	return err
 }
 
@@ -442,66 +475,6 @@ func updateAndWaitTillCryostatAvailable(cr *operatorv1beta1.Cryostat, resources 
 			return true, nil
 		}
 		r.Log += "Waiting for deployment spec update to be observed...\n"
-		return false, nil
-	})
-	if err != nil {
-		return fmt.Errorf("failed to look up deployment errors: %s", err.Error())
-	}
-	return err
-}
-
-func CheckRolloutStatus(name string, namespace string, resources *TestResources) error {
-	client := resources.Client
-	r := resources.TestResult
-
-	// Poll the deployment until it becomes available or we timeout
-	ctx, cancel := context.WithTimeout(context.Background(), testTimeout)
-	defer cancel()
-	err := wait.PollImmediateUntilWithContext(ctx, time.Second, func(ctx context.Context) (done bool, err error) {
-		deploy, err := client.AppsV1().Deployments(namespace).Get(ctx, name, metav1.GetOptions{})
-		if err != nil {
-			if kerrors.IsNotFound(err) {
-				r.Log += fmt.Sprintf("deployment %s is not yet found\n", name)
-				return false, nil // Retry
-			}
-			return false, fmt.Errorf("failed to get deployment: %s", err.Error())
-		}
-
-		// Wait for deployment to update by verifying Cryostat has PVC configured
-		for _, volume := range deploy.Spec.Template.Spec.Volumes {
-			if volume.VolumeSource.EmptyDir != nil {
-				r.Log += fmt.Sprintf("Cryostat deployment is still updating. Storage: %s\n", volume.VolumeSource.EmptyDir)
-				return false, nil // Retry
-			}
-			if volume.VolumeSource.PersistentVolumeClaim != nil {
-				break
-			}
-		}
-
-		// Derived from kubectl: https://github.com/kubernetes/kubectl/blob/24d21a0/pkg/polymorphichelpers/rollout_status.go#L75-L91
-		// Check for deployment condition
-		if deploy.Generation <= deploy.Status.ObservedGeneration {
-			for _, condition := range deploy.Status.Conditions {
-				if condition.Type == appsv1.DeploymentProgressing && condition.Status == corev1.ConditionFalse && condition.Reason == "ProgressDeadlineExceeded" {
-					return false, fmt.Errorf("deployment %s exceeded its progress deadline", deploy.Name) // Don't Retry
-				}
-			}
-			if deploy.Spec.Replicas != nil && deploy.Status.UpdatedReplicas < *deploy.Spec.Replicas {
-				r.Log += fmt.Sprintf("Waiting for deployment %s rollout to finish: %d out of %d new replicas have been updated... \n", deploy.Name, deploy.Status.UpdatedReplicas, *deploy.Spec.Replicas)
-				return false, nil
-			}
-			if deploy.Status.Replicas > deploy.Status.UpdatedReplicas {
-				r.Log += fmt.Sprintf("Waiting for deployment %s rollout to finish: %d old replicas are pending termination... \n", deploy.Name, deploy.Status.Replicas-deploy.Status.UpdatedReplicas)
-				return false, nil
-			}
-			if deploy.Status.AvailableReplicas < deploy.Status.UpdatedReplicas {
-				r.Log += fmt.Sprintf("Waiting for deployment %s rollout to finish: %d out of %d updated replicas are available... \n", deploy.Name, deploy.Status.AvailableReplicas, deploy.Status.UpdatedReplicas)
-				return false, nil
-			}
-			r.Log += fmt.Sprintf("deployment %s successfully rolled out\n", deploy.Name)
-			return true, nil
-		}
-		r.Log += "Waiting for deployment spec to be observed...\n"
 		return false, nil
 	})
 	if err != nil {
