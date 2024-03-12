@@ -484,8 +484,10 @@ func (r *TestResources) NewCryostatWithCommandConfigV1Beta1() *operatorv1beta1.C
 	commandIng.Annotations["command"] = "annotation"
 	commandIng.Labels["command"] = "label"
 
-	cr := r.NewCryostatV1Beta1()
+	cr := r.NewCryostatWithIngressV1Beta1()
 	cr.Spec.NetworkOptions = &operatorv1beta1.NetworkConfigurationList{
+		CoreConfig:    cr.Spec.NetworkOptions.CoreConfig,
+		GrafanaConfig: cr.Spec.NetworkOptions.GrafanaConfig,
 		CommandConfig: &commandIng,
 	}
 	return cr
