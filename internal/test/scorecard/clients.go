@@ -587,7 +587,7 @@ func SendRequest(ctx context.Context, httpClient *http.Client, method string, ur
 		// Create a new request
 		req, err := NewHttpRequest(ctx, method, url, body, header)
 		if err != nil {
-			return false, fmt.Errorf("failed to create a Cryostat REST request: %s", err.Error())
+			return false, fmt.Errorf("failed to create an http request: %s", err.Error())
 		}
 
 		resp, err := httpClient.Do(req)
