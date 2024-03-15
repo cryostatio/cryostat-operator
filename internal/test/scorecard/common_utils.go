@@ -17,7 +17,9 @@ package scorecard
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"net/url"
 	"time"
@@ -338,34 +340,7 @@ func createAndWaitTillCryostatAvailable(cr *operatorv1beta1.Cryostat, resources 
 }
 
 func waitTillCryostatReady(base *url.URL, resources *TestResources) error {
-	client := NewHttpClient()
-	r := resources.TestResult
-
-	ctx, cancel := context.WithTimeout(context.Background(), testTimeout)
-	defer cancel()
-
-	err := wait.PollImmediateUntilWithContext(ctx, time.Second, func(ctx context.Context) (done bool, err error) {
-		url := base.JoinPath("/health")
-		req, err := NewHttpRequest(ctx, http.MethodGet, url.String(), nil, make(http.Header))
-		if err != nil {
-			return false, fmt.Errorf("failed to create a Cryostat REST request: %s", err.Error())
-		}
-		req.Header.Add("Accept", "*/*")
-
-		resp, err := client.Do(req)
-		if err != nil {
-			return false, err
-		}
-		defer resp.Body.Close()
-
-		if !StatusOK(resp.StatusCode) {
-			if resp.StatusCode == http.StatusServiceUnavailable {
-				r.Log += fmt.Sprintf("application is not yet reachable at %s\n", base.String())
-				return false, nil // Try again
-			}
-			return false, fmt.Errorf("API request failed with status code %d: %s", resp.StatusCode, ReadError(resp))
-		}
-
+	return sendHealthRequest(base, resources, func(resp *http.Response, r *scapiv1alpha3.TestResult) (done bool, err error) {
 		health := &HealthResponse{}
 		err = ReadJSON(resp, health)
 		if err != nil {
@@ -380,7 +355,65 @@ func waitTillCryostatReady(base *url.URL, resources *TestResources) error {
 		r.Log += fmt.Sprintf("application is ready at %s\n", base.String())
 		return true, nil
 	})
+}
 
+func waitTillReportReady(name string, namespace string, port int32, resources *TestResources) error {
+	client := resources.Client
+	r := resources.TestResult
+
+	ctx, cancel := context.WithTimeout(context.Background(), testTimeout)
+	defer cancel()
+
+	err := waitForDeploymentAvailability(ctx, client, namespace, name, r)
+	if err != nil {
+		return fmt.Errorf("report sidecar deployment did not become available: %s", err.Error())
+	}
+
+	reportsUrl := fmt.Sprintf("https://%s.%s.svc.cluster.local:%d", name, namespace, port)
+	base, err := url.Parse(reportsUrl)
+	if err != nil {
+		return fmt.Errorf("application URL is invalid: %s", err.Error())
+	}
+
+	return sendHealthRequest(base, resources, func(resp *http.Response, r *scapiv1alpha3.TestResult) (done bool, err error) {
+		r.Log += fmt.Sprintf("reports sidecar is ready at %s\n", base.String())
+		return true, nil
+	})
+}
+
+func sendHealthRequest(base *url.URL, resources *TestResources, healthCheck func(resp *http.Response, r *scapiv1alpha3.TestResult) (done bool, err error)) error {
+	client := NewHttpClient()
+	r := resources.TestResult
+
+	ctx, cancel := context.WithTimeout(context.Background(), testTimeout)
+	defer cancel()
+
+	err := wait.PollImmediateUntilWithContext(ctx, time.Second, func(ctx context.Context) (done bool, err error) {
+		url := base.JoinPath("/health")
+		req, err := NewHttpRequest(ctx, http.MethodGet, url.String(), nil, make(http.Header))
+		if err != nil {
+			return false, fmt.Errorf("failed to create a an http request: %s", err.Error())
+		}
+		req.Header.Add("Accept", "*/*")
+
+		resp, err := client.Do(req)
+		if err != nil {
+			if errors.Is(err, io.EOF) {
+				return false, nil // Retry
+			}
+			return false, err
+		}
+		defer resp.Body.Close()
+
+		if !StatusOK(resp.StatusCode) {
+			if resp.StatusCode == http.StatusServiceUnavailable {
+				r.Log += fmt.Sprintf("application is not yet reachable at %s\n", base.String())
+				return false, nil // Try again
+			}
+			return false, fmt.Errorf("API request failed with status code %d: %s", resp.StatusCode, ReadError(resp))
+		}
+		return healthCheck(resp, r)
+	})
 	return err
 }
 

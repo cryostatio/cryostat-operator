@@ -41,3 +41,13 @@
     labels:
       suite: cryostat
       test: cryostat-config-change
+- op: add
+  path: /stages/1/tests/-
+  value:
+    entrypoint:
+    - cryostat-scorecard-tests
+    - cryostat-report
+    image: "${CUSTOM_SCORECARD_IMG}"
+    labels:
+      suite: cryostat
+      test: cryostat-report
