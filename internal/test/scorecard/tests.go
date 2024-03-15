@@ -33,6 +33,7 @@ const (
 	CryostatCRTestName           string = "cryostat-cr"
 	CryostatRecordingTestName    string = "cryostat-recording"
 	CryostatConfigChangeTestName string = "cryostat-config-change"
+	CryostatReportTestName       string = "cryostat-report"
 )
 
 // OperatorInstallTest checks that the operator installed correctly
@@ -97,7 +98,7 @@ func CryostatConfigChangeTest(bundle *apimanifests.Bundle, namespace string, ope
 	if err != nil {
 		return fail(*r, fmt.Sprintf("failed to determine application URL: %s", err.Error()))
 	}
-	defer cleanupCryostat(r, tr.Client, CryostatRecordingTestName, namespace)
+	defer cleanupCryostat(r, tr.Client, CryostatConfigChangeTestName, namespace)
 
 	// Switch Cryostat CR to PVC for redeployment
 	ctx, cancel := context.WithTimeout(context.Background(), testTimeout)
@@ -126,7 +127,7 @@ func CryostatConfigChangeTest(bundle *apimanifests.Bundle, namespace string, ope
 	if err != nil {
 		return fail(*r, fmt.Sprintf("Cryostat redeployment did not become available: %s", err.Error()))
 	}
-	r.Log += "Cryostat deployment has successfully updated with new spec template"
+	r.Log += "Cryostat deployment has successfully updated with new spec template\n"
 
 	base, err := url.Parse(cr.Status.ApplicationURL)
 	if err != nil {
@@ -275,6 +276,42 @@ func CryostatRecordingTest(bundle *apimanifests.Bundle, namespace string, openSh
 		return fail(*r, fmt.Sprintf("failed to list recordings: %s", err.Error()))
 	}
 	r.Log += fmt.Sprintf("current list of recordings: %+v\n", recs)
+
+	return *r
+}
+
+func CryostatReportTest(bundle *apimanifests.Bundle, namespace string, openShiftCertManager bool) scapiv1alpha3.TestResult {
+	tr := newTestResources(CryostatReportTestName)
+	r := tr.TestResult
+
+	err := setupCRTestResources(tr, openShiftCertManager)
+	if err != nil {
+		return fail(*r, fmt.Sprintf("failed to set up %s test: %s", CryostatReportTestName, err.Error()))
+	}
+
+	port := int32(10000)
+	cr := newCryostatCR(CryostatReportTestName, namespace, !tr.OpenShift)
+	cr.Spec.ReportOptions = &operatorv1beta1.ReportConfiguration{
+		Replicas: 1,
+	}
+	cr.Spec.ServiceOptions = &operatorv1beta1.ServiceConfigList{
+		ReportsConfig: &operatorv1beta1.ReportsServiceConfig{
+			HTTPPort: &port,
+		},
+	}
+
+	// Create a default Cryostat CR
+	cr, err = createAndWaitTillCryostatAvailable(cr, tr)
+	if err != nil {
+		return fail(*r, fmt.Sprintf("%s test failed: %s", CryostatReportTestName, err.Error()))
+	}
+	defer cleanupCryostat(r, tr.Client, CryostatReportTestName, namespace)
+
+	// Query health of report sidecar
+	err = waitTillReportReady(cr.Name+"-reports", cr.Namespace, port, tr)
+	if err != nil {
+		return fail(*r, fmt.Sprintf("failed to reach the application: %s", err.Error()))
+	}
 
 	return *r
 }
