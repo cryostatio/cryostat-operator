@@ -70,7 +70,11 @@ stages:
   - entrypoint:
     - cryostat-scorecard-tests
     - operator-install
+<<<<<<< HEAD
     image: quay.io/cryostat/cryostat-operator-scorecard:2.5.0-20240307154322
+=======
+    image: quay.io/cryostat/cryostat-operator-scorecard:2.5.0-20240313145612
+>>>>>>> 96ea4cb (test(scorecard): scorecard test for report generator  (#753))
     labels:
       suite: cryostat
       test: operator-install
@@ -80,7 +84,11 @@ stages:
   - entrypoint:
     - cryostat-scorecard-tests
     - cryostat-cr
+<<<<<<< HEAD
     image: quay.io/cryostat/cryostat-operator-scorecard:2.5.0-20240307154322
+=======
+    image: quay.io/cryostat/cryostat-operator-scorecard:2.5.0-20240313145612
+>>>>>>> 96ea4cb (test(scorecard): scorecard test for report generator  (#753))
     labels:
       suite: cryostat
       test: cryostat-cr
@@ -90,7 +98,11 @@ stages:
   - entrypoint:
     - cryostat-scorecard-tests
     - cryostat-recording
+<<<<<<< HEAD
     image: quay.io/cryostat/cryostat-operator-scorecard:2.5.0-20240307154322
+=======
+    image: quay.io/cryostat/cryostat-operator-scorecard:2.5.0-20240313145612
+>>>>>>> 96ea4cb (test(scorecard): scorecard test for report generator  (#753))
     labels:
       suite: cryostat
       test: cryostat-recording
@@ -100,10 +112,24 @@ stages:
   - entrypoint:
     - cryostat-scorecard-tests
     - cryostat-config-change
+<<<<<<< HEAD
     image: quay.io/cryostat/cryostat-operator-scorecard:2.5.0-20240307154322
+=======
+    image: quay.io/cryostat/cryostat-operator-scorecard:2.5.0-20240313145612
+>>>>>>> 96ea4cb (test(scorecard): scorecard test for report generator  (#753))
     labels:
       suite: cryostat
       test: cryostat-config-change
+    storage:
+      spec:
+        mountPath: {}
+  - entrypoint:
+    - cryostat-scorecard-tests
+    - cryostat-report
+    image: quay.io/cryostat/cryostat-operator-scorecard:2.5.0-20240313145612
+    labels:
+      suite: cryostat
+      test: cryostat-report
     storage:
       spec:
         mountPath: {}
