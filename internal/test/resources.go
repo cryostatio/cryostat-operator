@@ -761,6 +761,43 @@ func (r *TestResources) NewGrafanaService() *corev1.Service {
 	}
 }
 
+func (r *TestResources) NewCommandService() *corev1.Service {
+	c := true
+	return &corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      r.Name + "-command",
+			Namespace: r.Namespace,
+			OwnerReferences: []metav1.OwnerReference{
+				{
+					APIVersion: operatorv1beta2.GroupVersion.String(),
+					Kind:       "Cryostat",
+					Name:       r.Name,
+					UID:        "",
+					Controller: &c,
+				},
+			},
+			Labels: map[string]string{
+				"app":       r.Name,
+				"component": "cryostat",
+			},
+		},
+		Spec: corev1.ServiceSpec{
+			Type: corev1.ServiceTypeClusterIP,
+			Selector: map[string]string{
+				"app":       r.Name,
+				"component": "cryostat",
+			},
+			Ports: []corev1.ServicePort{
+				{
+					Name:       "http",
+					Port:       10001,
+					TargetPort: intstr.FromInt(10001),
+				},
+			},
+		},
+	}
+}
+
 func (r *TestResources) NewReportsService() *corev1.Service {
 	c := true
 	return &corev1.Service{

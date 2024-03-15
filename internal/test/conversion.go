@@ -478,6 +478,21 @@ func (r *TestResources) NewCryostatWithWsConnectionsSpecV1Beta1() *operatorv1bet
 	return cr
 }
 
+func (r *TestResources) NewCryostatWithCommandConfigV1Beta1() *operatorv1beta1.Cryostat {
+	commandSVC := r.NewCommandService()
+	commandIng := r.newNetworkConfigurationV1Beta1(commandSVC.Name, commandSVC.Spec.Ports[0].Port)
+	commandIng.Annotations["command"] = "annotation"
+	commandIng.Labels["command"] = "label"
+
+	cr := r.NewCryostatWithIngressV1Beta1()
+	cr.Spec.NetworkOptions = &operatorv1beta1.NetworkConfigurationList{
+		CoreConfig:    cr.Spec.NetworkOptions.CoreConfig,
+		GrafanaConfig: cr.Spec.NetworkOptions.GrafanaConfig,
+		CommandConfig: &commandIng,
+	}
+	return cr
+}
+
 func (r *TestResources) NewCryostatWithReportSubprocessHeapSpecV1Beta1() *operatorv1beta1.Cryostat {
 	cr := r.NewCryostatV1Beta1()
 	if cr.Spec.ReportOptions == nil {

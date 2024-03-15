@@ -142,25 +142,6 @@ spec:
           of the cluster, such as using an Ingress or Route.
         displayName: Network Options
         path: networkOptions
-      - description: "Specifications for how to expose the Cryostat command service,
-          which serves the WebSocket command channel. \n Deprecated: CommandConfig
-          is no longer used."
-        displayName: Command Config
-        path: networkOptions.commandConfig
-        x-descriptors:
-        - urn:alm:descriptor:com.tectonic.ui:hidden
-      - description: Annotations to add to the Ingress or Route during its creation.
-        displayName: Annotations
-        path: networkOptions.commandConfig.annotations
-      - description: Configuration for an Ingress object. Currently subpaths are not
-          supported, so unique hosts must be specified (if a single external IP is
-          being used) to differentiate between ingresses/services.
-        displayName: Ingress Spec
-        path: networkOptions.commandConfig.ingressSpec
-      - description: Labels to add to the Ingress or Route during its creation. The
-          label with key "app" is reserved for use by the operator.
-        displayName: Labels
-        path: networkOptions.commandConfig.labels
       - description: Specifications for how to expose the Cryostat service, which
           serves the Cryostat application.
         displayName: Core Config
