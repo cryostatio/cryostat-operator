@@ -70,7 +70,11 @@ stages:
   - entrypoint:
     - cryostat-scorecard-tests
     - operator-install
+<<<<<<< HEAD
     image: quay.io/cryostat/cryostat-operator-scorecard:2.5.0-20240313155212
+=======
+    image: quay.io/cryostat/cryostat-operator-scorecard:2.5.0-20240318064753
+>>>>>>> d01e0d2 (test(scorecard): add container logs to scorecard results (#758))
     labels:
       suite: cryostat
       test: operator-install
@@ -80,7 +84,11 @@ stages:
   - entrypoint:
     - cryostat-scorecard-tests
     - cryostat-cr
+<<<<<<< HEAD
     image: quay.io/cryostat/cryostat-operator-scorecard:2.5.0-20240313155212
+=======
+    image: quay.io/cryostat/cryostat-operator-scorecard:2.5.0-20240318064753
+>>>>>>> d01e0d2 (test(scorecard): add container logs to scorecard results (#758))
     labels:
       suite: cryostat
       test: cryostat-cr
@@ -90,7 +98,11 @@ stages:
   - entrypoint:
     - cryostat-scorecard-tests
     - cryostat-recording
+<<<<<<< HEAD
     image: quay.io/cryostat/cryostat-operator-scorecard:2.5.0-20240313155212
+=======
+    image: quay.io/cryostat/cryostat-operator-scorecard:2.5.0-20240318064753
+>>>>>>> d01e0d2 (test(scorecard): add container logs to scorecard results (#758))
     labels:
       suite: cryostat
       test: cryostat-recording
@@ -100,7 +112,11 @@ stages:
   - entrypoint:
     - cryostat-scorecard-tests
     - cryostat-config-change
+<<<<<<< HEAD
     image: quay.io/cryostat/cryostat-operator-scorecard:2.5.0-20240313155212
+=======
+    image: quay.io/cryostat/cryostat-operator-scorecard:2.5.0-20240318064753
+>>>>>>> d01e0d2 (test(scorecard): add container logs to scorecard results (#758))
     labels:
       suite: cryostat
       test: cryostat-config-change
@@ -110,7 +126,11 @@ stages:
   - entrypoint:
     - cryostat-scorecard-tests
     - cryostat-report
+<<<<<<< HEAD
     image: quay.io/cryostat/cryostat-operator-scorecard:2.5.0-20240313155212
+=======
+    image: quay.io/cryostat/cryostat-operator-scorecard:2.5.0-20240318064753
+>>>>>>> d01e0d2 (test(scorecard): add container logs to scorecard results (#758))
     labels:
       suite: cryostat
       test: cryostat-report
