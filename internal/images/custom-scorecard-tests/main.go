@@ -51,9 +51,6 @@ func main() {
 		log.Fatal("SCORECARD_NAMESPACE environment variable not set")
 	}
 
-	// Set target namespaces for multi-namespace test
-	namespaces := []string{"other-scorecard-namespace"}
-
 	// Read the pod's untar'd bundle from a well-known path.
 	bundle, err := apimanifests.GetBundleFromDir(podBundleRoot)
 	if err != nil {
@@ -66,7 +63,7 @@ func main() {
 	if !validateTests(entrypoint) {
 		results = printValidTests()
 	} else {
-		results = runTests(entrypoint, bundle, namespace, namespaces, *openShiftCertManager)
+		results = runTests(entrypoint, bundle, namespace, *openShiftCertManager)
 	}
 
 	// Print results in expected JSON form
@@ -108,7 +105,7 @@ func validateTests(testNames []string) bool {
 	return true
 }
 
-func runTests(testNames []string, bundle *apimanifests.Bundle, namespace string, namespaces []string,
+func runTests(testNames []string, bundle *apimanifests.Bundle, namespace string,
 	openShiftCertManager bool) []scapiv1alpha3.TestResult {
 	results := []scapiv1alpha3.TestResult{}
 

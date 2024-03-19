@@ -40,7 +40,7 @@ import (
 
 const (
 	operatorDeploymentName string        = "cryostat-operator-controller-manager"
-	testTimeout            time.Duration = time.Minute * 10
+	testTimeout            time.Duration = time.Minute * 5
 )
 
 type TestResources struct {
@@ -231,6 +231,24 @@ func (r *TestResources) setupCRTestResources(openShiftCertManager bool) error {
 	return nil
 }
 
+func setupTargetNamespace(tr *TestResources, name string) error {
+	client := tr.Client
+	r := tr.TestResult
+	ctx := context.Background()
+
+	ns := &corev1.Namespace{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: name,
+		},
+	}
+	ns, err := client.CoreV1().Namespaces().Create(ctx, ns, metav1.CreateOptions{})
+	if err != nil {
+		return fmt.Errorf("failed to create namespace %s: %s", name, err.Error())
+	}
+	r.Log += fmt.Sprintf("create namespace: %s\n", ns.Name)
+	return nil
+}
+
 func newCryostatCR(name string, namespace string, withIngress bool) *operatorv1beta1.Cryostat {
 	cr := &operatorv1beta1.Cryostat{
 		ObjectMeta: metav1.ObjectMeta{
@@ -249,8 +267,7 @@ func newCryostatCR(name string, namespace string, withIngress bool) *operatorv1b
 func newClusterCryostatCR(name string, namespace string, namespaces []string, withIngress bool) *operatorv1beta1.ClusterCryostat {
 	cr := &operatorv1beta1.ClusterCryostat{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      name,
-			Namespace: namespace,
+			Name: name,
 		},
 		Spec: operatorv1beta1.ClusterCryostatSpec{
 			InstallNamespace: namespace,
@@ -614,16 +631,36 @@ func (r *TestResources) getCryostatPodNameForCR(cr *operatorv1beta1.Cryostat) (s
 	return pods.Items[0].ObjectMeta.Name, nil
 }
 
-func cleanupClusterCryostat(r *scapiv1alpha3.TestResult, client *CryostatClientset, name string) {
+func cleanupClusterCryostat(r *scapiv1alpha3.TestResult, client *CryostatClientset, name string, namespace string) {
 	cr := &operatorv1beta1.ClusterCryostat{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: name,
 		},
+		Spec: operatorv1beta1.ClusterCryostatSpec{
+			InstallNamespace: namespace,
+		},
 	}
+
+	r.Log += "trying to delete ClusterCryostat"
 	ctx := context.Background()
-	err := client.OperatorCRDs().ClusterCryostats(cr.Namespace).DeleteCluster(ctx,
+	err := client.OperatorCRDs().ClusterCryostats(cr.Spec.InstallNamespace).DeleteCluster(ctx,
 		cr.Name, &metav1.DeleteOptions{})
 	if err != nil {
 		r.Log += fmt.Sprintf("failed to delete ClusterCryostat: %s\n", err.Error())
+	}
+}
+
+func cleanupNamespace(r *scapiv1alpha3.TestResult, client *CryostatClientset, name string) {
+	ns := &corev1.Namespace{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: name,
+		},
+	}
+
+	r.Log += "trying to delete other_cryostat_namespace"
+	ctx := context.Background()
+	err := client.CoreV1().Namespaces().Delete(ctx, ns.Name, metav1.DeleteOptions{})
+	if err != nil {
+		r.Log += fmt.Sprintf("failed to delete namespace %s: %s", name, err.Error())
 	}
 }

@@ -28,7 +28,7 @@
     entrypoint:
     - cryostat-scorecard-tests
     - cryostat-multi-namespace
-    image: "quay.io/cryostat/cryostat-operator-scorecard:2.5.0-20240314155707"
+    image: "quay.io/cryostat/cryostat-operator-scorecard:2.5.0-20240319151847"
     labels:
       suite: cryostat
       test: cryostat-multi-namespace

@@ -90,7 +90,7 @@ stages:
   - entrypoint:
     - cryostat-scorecard-tests
     - cryostat-multi-namespace
-    image: quay.io/miwan/cryostat-operator-scorecard:2.5.0-20240314154252
+    image: quay.io/cryostat/cryostat-operator-scorecard:2.5.0-20240319151455
     labels:
       suite: cryostat
       test: cryostat-multi-namespace
