@@ -102,6 +102,13 @@ rules:
   - statefulsets
   verbs:
   - get
+# Permissions to retrieve container logs
+- apiGroups:
+  - ""
+  resources:
+  - pods/log
+  verbs:
+  - get
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole

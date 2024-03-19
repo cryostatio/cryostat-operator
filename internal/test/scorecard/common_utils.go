@@ -32,8 +32,10 @@ import (
 	netv1 "k8s.io/api/networking/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/scheme"
 )
 
@@ -496,4 +498,30 @@ func cleanupCryostat(r *scapiv1alpha3.TestResult, client *CryostatClientset, nam
 	if err != nil {
 		r.Log += fmt.Sprintf("failed to delete Cryostat: %s\n", err.Error())
 	}
+}
+
+func getCryostatPodNameForCR(clientset *kubernetes.Clientset, cr *operatorv1beta1.Cryostat) (string, error) {
+	selector := metav1.LabelSelector{
+		MatchLabels: map[string]string{
+			"app":       cr.Name,
+			"component": "cryostat",
+		},
+	}
+	opts := metav1.ListOptions{
+		LabelSelector: labels.Set(selector.MatchLabels).String(),
+	}
+
+	ctx, cancel := context.WithTimeout(context.TODO(), testTimeout)
+	defer cancel()
+
+	pods, err := clientset.CoreV1().Pods(cr.Namespace).List(ctx, opts)
+	if err != nil {
+		return "", err
+	}
+
+	if len(pods.Items) == 0 {
+		return "", fmt.Errorf("no matching cryostat pods for cr: %s", cr.Name)
+	}
+
+	return pods.Items[0].ObjectMeta.Name, nil
 }
