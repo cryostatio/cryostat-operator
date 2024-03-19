@@ -89,11 +89,10 @@ func (c *OperatorCRDClient) Cryostats(namespace string) *CryostatClient {
 	}
 }
 
-// Cryostats returns a ClusterCryostatClient configured to a specific namespace
-func (c *OperatorCRDClient) ClusterCryostats(namespace string) *CryostatClient {
+// ClusterCryostats returns a ClusterCryostatClient
+func (c *OperatorCRDClient) ClusterCryostats() *CryostatClient {
 	return &CryostatClient{
 		restClient: c.client,
-		namespace:  namespace,
 		resource:   "clustercryostats",
 	}
 }
@@ -134,36 +133,18 @@ type CryostatClient struct {
 }
 
 // Get returns a Cryostat CR for the given name
-func (c *CryostatClient) GetCluster(ctx context.Context, name string) (*operatorv1beta1.ClusterCryostat, error) {
-	return getCluster(ctx, c.restClient, c.resource, name, &operatorv1beta1.ClusterCryostat{})
+func (c *CryostatClient) GetNonNamespaced(ctx context.Context, name string) (*operatorv1beta1.ClusterCryostat, error) {
+	return get(ctx, c.restClient, c.resource, c.namespace, name, &operatorv1beta1.ClusterCryostat{})
 }
 
 // Create creates the provided ClusterCryostat CR
-func (c *CryostatClient) CreateCluster(ctx context.Context, obj *operatorv1beta1.ClusterCryostat) (*operatorv1beta1.ClusterCryostat, error) {
-	return createCluster(ctx, c.restClient, c.resource, obj, &operatorv1beta1.ClusterCryostat{})
+func (c *CryostatClient) CreateNonNamespaced(ctx context.Context, obj *operatorv1beta1.ClusterCryostat) (*operatorv1beta1.ClusterCryostat, error) {
+	return create(ctx, c.restClient, c.resource, c.namespace, obj, &operatorv1beta1.ClusterCryostat{})
 }
 
 // Delete deletes the Cryostat CR with the given name
-func (c *CryostatClient) DeleteCluster(ctx context.Context, name string, options *metav1.DeleteOptions) error {
-	return deleteCluster(ctx, c.restClient, c.resource, name, options)
-}
-
-func getCluster[r runtime.Object](ctx context.Context, c rest.Interface, res string, name string, result r) (r, error) {
-	err := c.Get().Resource(res).
-		Name(name).Do(ctx).Into(result)
-	return result, err
-}
-
-func createCluster[r runtime.Object](ctx context.Context, c rest.Interface, res string, obj r, result r) (r, error) {
-	err := c.Post().Resource(res).
-		Body(obj).Do(ctx).Into(result)
-	return result, err
-}
-
-func deleteCluster(ctx context.Context, c rest.Interface, res string, name string, opts *metav1.DeleteOptions) error {
-	return c.Delete().Resource(res).
-		Name(name).Body(opts).Do(ctx).
-		Error()
+func (c *CryostatClient) DeleteNonNamespaced(ctx context.Context, name string, options *metav1.DeleteOptions) error {
+	return delete(ctx, c.restClient, c.resource, c.namespace, name, options)
 }
 
 // Get returns a Cryostat CR for the given name
@@ -187,31 +168,38 @@ func (c *CryostatClient) Delete(ctx context.Context, name string, options *metav
 }
 
 func get[r runtime.Object](ctx context.Context, c rest.Interface, res string, ns string, name string, result r) (r, error) {
-	err := c.Get().
-		Namespace(ns).Resource(res).
-		Name(name).Do(ctx).Into(result)
+	rq := c.Get().Resource(res).Name(name)
+	if len(ns) > 0 {
+		rq = rq.Namespace(ns)
+	}
+	err := rq.Do(ctx).Into(result)
 	return result, err
 }
 
 func create[r runtime.Object](ctx context.Context, c rest.Interface, res string, ns string, obj r, result r) (r, error) {
-	err := c.Post().
-		Namespace(ns).Resource(res).
-		Body(obj).Do(ctx).Into(result)
+	rq := c.Post().Resource(res).Body(obj)
+	if len(ns) > 0 {
+		rq = rq.Namespace(ns)
+	}
+	err := rq.Do(ctx).Into(result)
 	return result, err
 }
 
 func update[r runtime.Object](ctx context.Context, c rest.Interface, res string, ns string, obj r, result r, name string) (r, error) {
-	err := c.Put().
-		Namespace(ns).Resource(res).Name(name).
-		Body(obj).Do(ctx).Into(result)
+	rq := c.Put().Resource(res).Name(name).Body(obj)
+	if len(ns) > 0 {
+		rq = rq.Namespace(ns)
+	}
+	err := rq.Do(ctx).Into(result)
 	return result, err
 }
 
 func delete(ctx context.Context, c rest.Interface, res string, ns string, name string, opts *metav1.DeleteOptions) error {
-	return c.Delete().
-		Namespace(ns).Resource(res).
-		Name(name).Body(opts).Do(ctx).
-		Error()
+	rq := c.Delete().Resource(res).Name(name).Body(opts)
+	if len(ns) > 0 {
+		rq = rq.Namespace(ns)
+	}
+	return rq.Do(ctx).Error()
 }
 
 // CryostatRESTClientset contains methods to interact with

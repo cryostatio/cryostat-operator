@@ -87,17 +87,20 @@ func CryostatMultiNamespaceTest(bundle *apimanifests.Bundle, namespace string, o
 	}
 
 	namespaces := []string{"other-scorecard-namespace"}
-	err = r.setupTargetNamespace(namespaces[0])
-	if err != nil {
-		return r.fail(fmt.Sprintf("failed to create an additional namespace for %s test: %s", CryostatMultiNamespaceTestName, err.Error()))
+	for _, ns := range namespaces {
+		err = r.setupTargetNamespace(ns)
+		if err != nil {
+			return r.fail(fmt.Sprintf("failed to create an additional namespace %s for %s test: %s", ns, CryostatMultiNamespaceTestName, err.Error()))
+		}
+		defer r.cleanupNamespace(ns)
 	}
-	defer r.cleanupNamespace(namespaces[0])
 
 	// Create a default ClusterCryostat CR
 	_, err = r.createAndWaitTillClusterCryostatAvailable(newClusterCryostatCR(CryostatMultiNamespaceTestName, namespace, namespaces, !r.OpenShift))
 	if err != nil {
 		return r.fail(fmt.Sprintf("%s test failed: %s", CryostatMultiNamespaceTestName, err.Error()))
 	}
+	defer r.cleanupClusterCryostat(CryostatMultiNamespaceTestName, namespace)
 
 	return r.TestResult
 }
