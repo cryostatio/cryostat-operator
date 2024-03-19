@@ -151,7 +151,6 @@ rules:
   verbs:
   - create
   - delete
-  - get
 - apiGroups:
   - operator.cryostat.io
   resources:
@@ -165,11 +164,4 @@ rules:
   resources:
   - clustercryostats/status
   verbs:
-  - get
-- apiGroups:
-  - apps
-  resources:
-  - deployments
-  verbs:
-  - create
   - get

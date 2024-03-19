@@ -117,7 +117,7 @@ func runTests(testNames []string, bundle *apimanifests.Bundle, namespace string,
 		case tests.CryostatCRTestName:
 			results = append(results, *tests.CryostatCRTest(bundle, namespace, openShiftCertManager))
 		case tests.CryostatMultiNamespaceTestName:
-			results = append(results, *tests.CryostatMultiNamespaceTest(bundle, namespace, namespaces, openShiftCertManager))
+			results = append(results, *tests.CryostatMultiNamespaceTest(bundle, namespace, openShiftCertManager))
 		case tests.CryostatRecordingTestName:
 			results = append(results, *tests.CryostatRecordingTest(bundle, namespace, openShiftCertManager))
 		case tests.CryostatConfigChangeTestName:

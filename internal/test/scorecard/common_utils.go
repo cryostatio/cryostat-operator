@@ -40,7 +40,7 @@ import (
 
 const (
 	operatorDeploymentName string        = "cryostat-operator-controller-manager"
-	testTimeout            time.Duration = time.Minute * 5
+	testTimeout            time.Duration = time.Minute * 10
 )
 
 type TestResources struct {
@@ -231,9 +231,7 @@ func (r *TestResources) setupCRTestResources(openShiftCertManager bool) error {
 	return nil
 }
 
-func setupTargetNamespace(tr *TestResources, name string) error {
-	client := tr.Client
-	r := tr.TestResult
+func (r *TestResources) setupTargetNamespace(name string) error {
 	ctx := context.Background()
 
 	ns := &corev1.Namespace{
@@ -241,11 +239,11 @@ func setupTargetNamespace(tr *TestResources, name string) error {
 			Name: name,
 		},
 	}
-	ns, err := client.CoreV1().Namespaces().Create(ctx, ns, metav1.CreateOptions{})
+	ns, err := r.Client.CoreV1().Namespaces().Create(ctx, ns, metav1.CreateOptions{})
 	if err != nil {
 		return fmt.Errorf("failed to create namespace %s: %s", name, err.Error())
 	}
-	r.Log += fmt.Sprintf("create namespace: %s\n", ns.Name)
+	r.Log += fmt.Sprintf("created namespace: %s\n", ns.Name)
 	return nil
 }
 
@@ -394,7 +392,7 @@ func (r *TestResources) createAndWaitTillCryostatAvailable(cr *operatorv1beta1.C
 }
 
 func (r *TestResources) createAndWaitTillClusterCryostatAvailable(cr *operatorv1beta1.ClusterCryostat) (*operatorv1beta1.ClusterCryostat, error) {
-	cr, err := r.Client.OperatorCRDs().ClusterCryostats(cr.Spec.InstallNamespace).CreateCluster(context.Background(), cr)
+	cr, err := r.Client.OperatorCRDs().ClusterCryostats().CreateNonNamespaced(context.Background(), cr)
 	if err != nil {
 		r.logError(fmt.Sprintf("failed to create ClusterCryostat CR: %s", err.Error()))
 		return nil, err
@@ -410,37 +408,30 @@ func (r *TestResources) createAndWaitTillClusterCryostatAvailable(cr *operatorv1
 	}
 
 	err = wait.PollImmediateUntilWithContext(ctx, time.Second, func(ctx context.Context) (done bool, err error) {
-		cr, err = r.Client.OperatorCRDs().ClusterCryostats(cr.Spec.InstallNamespace).GetCluster(ctx, cr.Name)
+		cr, err = r.Client.OperatorCRDs().ClusterCryostats().GetNonNamespaced(ctx, cr.Name)
 		if err != nil {
 			return false, fmt.Errorf("failed to get ClusterCryostat CR: %s", err.Error())
 		}
-		if len(cr.Status.TargetNamespaces) > 0 && cr.Status.TargetNamespaces[0] == cr.Spec.TargetNamespaces[0] {
-			r.Log += fmt.Sprintf("application has access to the following namespace: %s\n", cr.Status.TargetNamespaces)
-			return true, nil
+		if len(cr.Status.TargetNamespaces) != len(cr.Spec.TargetNamespaces) {
+			r.Log += "application's target namespaces are not yet available"
+			return false, nil // Retry
 		}
-		r.Log += "application's target namespaces are not yet available\n"
-		return false, nil
-	})
-	if err != nil {
-		r.logError(fmt.Sprintf("application's target namespaces not found in CR: %s", err.Error()))
-		return nil, err
-	}
-
-	err = wait.PollImmediateUntilWithContext(ctx, time.Second, func(ctx context.Context) (done bool, err error) {
-		cr, err = r.Client.OperatorCRDs().ClusterCryostats(cr.Spec.InstallNamespace).GetCluster(ctx, cr.Name)
-		if err != nil {
-			return false, fmt.Errorf("failed to get ClusterCryostat CR: %s", err.Error())
+		for i := range cr.Status.TargetNamespaces {
+			if cr.Status.TargetNamespaces[i] != cr.Spec.TargetNamespaces[i] {
+				return false, fmt.Errorf("application's target namespaces do not correctly match CR's")
+			}
 		}
-		if len(cr.Status.CryostatStatus.ApplicationURL) > 0 {
-			return true, nil
+		if len(cr.Status.CryostatStatus.ApplicationURL) == 0 {
+			r.Log += "application URL is not yet available\n"
+			return false, nil // Retry
 		}
-		r.Log += "application URL is not yet available\n"
-		return false, nil
+		return true, nil
 	})
 	if err != nil {
 		r.logError(fmt.Sprintf("application URL not found in CR: %s", err.Error()))
 		return nil, err
 	}
+	r.Log += fmt.Sprintf("application has access to the following namespaces: %s\n", cr.Status.TargetNamespaces)
 	r.Log += fmt.Sprintf("application is available at %s\n", cr.Status.CryostatStatus.ApplicationURL)
 
 	return cr, nil
@@ -631,7 +622,9 @@ func (r *TestResources) getCryostatPodNameForCR(cr *operatorv1beta1.Cryostat) (s
 	return pods.Items[0].ObjectMeta.Name, nil
 }
 
-func cleanupClusterCryostat(r *scapiv1alpha3.TestResult, client *CryostatClientset, name string, namespace string) {
+func (r *TestResources) cleanupClusterCryostat(name string, namespace string, targetNamespaces []string) {
+	r.LogWorkloadEventsOnError(namespace, name)
+
 	cr := &operatorv1beta1.ClusterCryostat{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: name,
@@ -641,26 +634,27 @@ func cleanupClusterCryostat(r *scapiv1alpha3.TestResult, client *CryostatClients
 		},
 	}
 
-	r.Log += "trying to delete ClusterCryostat"
 	ctx := context.Background()
-	err := client.OperatorCRDs().ClusterCryostats(cr.Spec.InstallNamespace).DeleteCluster(ctx,
+	err := r.Client.OperatorCRDs().ClusterCryostats().DeleteNonNamespaced(ctx,
 		cr.Name, &metav1.DeleteOptions{})
 	if err != nil {
-		r.Log += fmt.Sprintf("failed to delete ClusterCryostat: %s\n", err.Error())
-	}
-}
-
-func cleanupNamespace(r *scapiv1alpha3.TestResult, client *CryostatClientset, name string) {
-	ns := &corev1.Namespace{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: name,
-		},
+		if !kerrors.IsNotFound(err) {
+			r.Log += fmt.Sprintf("failed to delete ClusterCryostat: %s\n", err.Error())
+		}
 	}
 
-	r.Log += "trying to delete other_cryostat_namespace"
-	ctx := context.Background()
-	err := client.CoreV1().Namespaces().Delete(ctx, ns.Name, metav1.DeleteOptions{})
-	if err != nil {
-		r.Log += fmt.Sprintf("failed to delete namespace %s: %s", name, err.Error())
+	for _, ns := range targetNamespaces {
+		ns := &corev1.Namespace{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: ns,
+			},
+		}
+
+		err := r.Client.CoreV1().Namespaces().Delete(ctx, ns.Name, metav1.DeleteOptions{})
+		if err != nil {
+			if !kerrors.IsNotFound(err) {
+				r.Log += fmt.Sprintf("failed to delete namespace %s: %s\n", ns, err.Error())
+			}
+		}
 	}
 }
