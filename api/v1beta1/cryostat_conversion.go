@@ -42,7 +42,6 @@ func (src *Cryostat) ConvertTo(dstRaw conversion.Hub) error {
 }
 
 func convertSpecTo(src *CryostatSpec, dst *operatorv1beta2.CryostatSpec) {
-	dst.Minimal = src.Minimal
 	dst.EnableCertManager = src.EnableCertManager
 	dst.TrustedCertSecrets = convertCertSecretsTo(src.TrustedCertSecrets)
 	dst.EventTemplates = convertEventTemplatesTo(src.EventTemplates)
@@ -326,7 +325,6 @@ func (dst *Cryostat) ConvertFrom(srcRaw conversion.Hub) error {
 }
 
 func convertSpecFrom(src *operatorv1beta2.CryostatSpec, dst *CryostatSpec) {
-	dst.Minimal = src.Minimal
 	dst.EnableCertManager = src.EnableCertManager
 	dst.TrustedCertSecrets = convertCertSecretsFrom(src.TrustedCertSecrets)
 	dst.EventTemplates = convertEventTemplatesFrom(src.EventTemplates)

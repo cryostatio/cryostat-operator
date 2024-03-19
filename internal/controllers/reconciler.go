@@ -176,8 +176,6 @@ func (r *Reconciler) reconcileCryostat(ctx context.Context, cr *model.CryostatIn
 		}
 	}
 
-	reqLogger.Info("Spec", "Minimal", cr.Spec.Minimal)
-
 	// Create lock config map or fail if owned by another CR
 	err := r.reconcileLockConfigMap(ctx, cr)
 	if err != nil {

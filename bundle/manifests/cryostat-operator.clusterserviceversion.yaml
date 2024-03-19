@@ -36,7 +36,6 @@ metadata:
           "spec": {
             "enableCertManager": true,
             "eventTemplates": [],
-            "minimal": false,
             "reportOptions": {
               "replicas": 0
             },
@@ -54,7 +53,7 @@ metadata:
     capabilities: Seamless Upgrades
     categories: Monitoring, Developer Tools
     containerImage: quay.io/cryostat/cryostat-operator:2.5.0-dev
-    createdAt: "2024-03-15T21:38:16Z"
+    createdAt: "2024-03-18T06:34:51Z"
     description: JVM monitoring and profiling tool
     operatorframework.io/initialization-resource: |-
       {
@@ -65,7 +64,6 @@ metadata:
         },
         "spec": {
           "enableCertManager": true,
-          "minimal": false,
           "reportOptions": {
             "replicas": 0
           }
@@ -525,12 +523,6 @@ spec:
           components. Requires cert-manager to be installed.
         displayName: Enable cert-manager Integration
         path: enableCertManager
-        x-descriptors:
-        - urn:alm:descriptor:com.tectonic.ui:booleanSwitch
-      - description: Deploy a pared-down Cryostat instance with no Grafana Dashboard
-          or JFR Data Source.
-        displayName: Minimal Deployment
-        path: minimal
         x-descriptors:
         - urn:alm:descriptor:com.tectonic.ui:booleanSwitch
       - description: Override default authorization properties for Cryostat on OpenShift.

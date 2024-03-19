@@ -20,17 +20,6 @@ When installed in a multi-namespace manner, all users with access to a Cryostat 
 
 For now, all authorization checks are done against the namespace where Cryostat is installed. For a user to use Cryostat with workloads in a target namespace, that user must have the necessary Kubernetes permissions in the namespace where Cryostat is installed.
 
-### Minimal Deployment
-The `spec.minimal` property determines what is deployed alongside Cryostat. This value is set to `false` by default, which tells the operator to deploy Cryostat, with a [customized Grafana](https://github.com/cryostatio/cryostat-grafana-dashboard) and a [Grafana Data Source for JFR files](https://github.com/cryostatio/jfr-datasource) as 3 containers within a Pod. When `minimal` is set to `true`, the Deployment consists of only the Cryostat container.
-```yaml
-apiVersion: operator.cryostat.io/v1beta1
-kind: Cryostat
-metadata:
-  name: cryostat-sample
-spec:
-  minimal: true
-```
-
 ### Disabling cert-manager Integration
 By default, the operator expects [cert-manager](https://cert-manager.io/) to be available in the cluster. The operator uses cert-manager to generate a self-signed CA to allow traffic between Cryostat components within the cluster to use HTTPS. If cert-manager is not available in the cluster, this integration can be disabled with the `spec.enableCertManager` property.
 ```yaml

@@ -27,7 +27,6 @@ import (
 	"github.com/cryostatio/cryostat-operator/internal/controllers/model"
 	routev1 "github.com/openshift/api/route/v1"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
@@ -61,10 +60,7 @@ func (r *Reconciler) reconcileGrafanaRoute(ctx context.Context, svc *corev1.Serv
 			Namespace: cr.InstallNamespace,
 		},
 	}
-	if cr.Spec.Minimal {
-		// Delete route if it exists
-		return r.deleteRoute(ctx, route)
-	}
+
 	grafanaConfig := configureGrafanaRoute(cr)
 	url, err := r.reconcileRoute(ctx, route, svc, cr, tls, grafanaConfig)
 	if err != nil {
@@ -143,16 +139,6 @@ func getProtocol(route *routev1.Route) string {
 		return "http"
 	}
 	return "https"
-}
-
-func (r *Reconciler) deleteRoute(ctx context.Context, route *routev1.Route) error {
-	err := r.Client.Delete(ctx, route)
-	if err != nil && !errors.IsNotFound(err) {
-		r.Log.Error(err, "Could not delete route", "name", route.Name, "namespace", route.Namespace)
-		return err
-	}
-	r.Log.Info("Route deleted", "name", route.Name, "namespace", route.Namespace)
-	return nil
 }
 
 func getHTTPPort(svc *corev1.Service) (*corev1.ServicePort, error) {

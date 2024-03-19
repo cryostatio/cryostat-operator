@@ -43,9 +43,20 @@ func (r *TestResources) newCryostatSpecV1Beta1() operatorv1beta1.CryostatSpec {
 		}
 	}
 	return operatorv1beta1.CryostatSpec{
-		Minimal:           r.Minimal,
 		EnableCertManager: &certManager,
 		ReportOptions:     reportOptions,
+	}
+}
+
+func (r *TestResources) NewCryostatWithMinimalModeV1Beta1() *operatorv1beta1.Cryostat {
+	spec := r.newCryostatSpecV1Beta1()
+	spec.Minimal = true
+	return &operatorv1beta1.Cryostat{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      r.Name,
+			Namespace: r.Namespace,
+		},
+		Spec: spec,
 	}
 }
 

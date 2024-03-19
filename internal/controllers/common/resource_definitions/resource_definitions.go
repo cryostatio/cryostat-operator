@@ -237,17 +237,10 @@ func NewDeploymentForReports(cr *model.CryostatInstance, imageTags *ImageTags, t
 
 func NewPodForCR(cr *model.CryostatInstance, specs *ServiceSpecs, imageTags *ImageTags,
 	tls *TLSConfig, fsGroup int64, openshift bool) *corev1.PodSpec {
-	var containers []corev1.Container
-	if cr.Spec.Minimal {
-		containers = []corev1.Container{
-			NewCoreContainer(cr, specs, imageTags.CoreImageTag, tls, openshift),
-		}
-	} else {
-		containers = []corev1.Container{
-			NewCoreContainer(cr, specs, imageTags.CoreImageTag, tls, openshift),
-			NewGrafanaContainer(cr, imageTags.GrafanaImageTag, tls),
-			NewJfrDatasourceContainer(cr, imageTags.DatasourceImageTag),
-		}
+	containers := []corev1.Container{
+		NewCoreContainer(cr, specs, imageTags.CoreImageTag, tls, openshift),
+		NewGrafanaContainer(cr, imageTags.GrafanaImageTag, tls),
+		NewJfrDatasourceContainer(cr, imageTags.DatasourceImageTag),
 	}
 
 	volumes := newVolumeForCR(cr)
@@ -296,35 +289,31 @@ func NewPodForCR(cr *model.CryostatInstance, specs *ServiceSpecs, imageTags *Ima
 			},
 		})
 
-		keyVolume := corev1.Volume{
-			Name: "keystore",
-			VolumeSource: corev1.VolumeSource{
-				Secret: &corev1.SecretVolumeSource{
-					SecretName: tls.CryostatSecret,
-					Items: []corev1.KeyToPath{
-						{
-							Key:  "keystore.p12",
-							Path: "keystore.p12",
-							Mode: &readOnlyMode,
+		volumes = append(volumes,
+			corev1.Volume{
+				Name: "keystore",
+				VolumeSource: corev1.VolumeSource{
+					Secret: &corev1.SecretVolumeSource{
+						SecretName: tls.CryostatSecret,
+						Items: []corev1.KeyToPath{
+							{
+								Key:  "keystore.p12",
+								Path: "keystore.p12",
+								Mode: &readOnlyMode,
+							},
 						},
 					},
 				},
 			},
-		}
-
-		volumes = append(volumes, keyVolume)
-
-		if !cr.Spec.Minimal {
-			grafanaSecretVolume := corev1.Volume{
+			corev1.Volume{
 				Name: "grafana-tls-secret",
 				VolumeSource: corev1.VolumeSource{
 					Secret: &corev1.SecretVolumeSource{
 						SecretName: tls.GrafanaSecret,
 					},
 				},
-			}
-			volumes = append(volumes, grafanaSecretVolume)
-		}
+			},
+		)
 	}
 
 	// Project certificate secrets into deployment
@@ -886,26 +875,24 @@ func NewCoreContainer(cr *model.CryostatInstance, specs *ServiceSpecs, imageTag 
 		},
 	})
 
-	if !cr.Spec.Minimal {
-		grafanaVars := []corev1.EnvVar{
-			{
-				Name:  "GRAFANA_DATASOURCE_URL",
-				Value: datasourceURL,
-			},
-		}
-		if specs.GrafanaURL != nil {
-			grafanaVars = append(grafanaVars,
-				corev1.EnvVar{
-					Name:  "GRAFANA_DASHBOARD_EXT_URL",
-					Value: specs.GrafanaURL.String(),
-				},
-				corev1.EnvVar{
-					Name:  "GRAFANA_DASHBOARD_URL",
-					Value: getInternalDashboardURL(tls),
-				})
-		}
-		envs = append(envs, grafanaVars...)
+	grafanaVars := []corev1.EnvVar{
+		{
+			Name:  "GRAFANA_DATASOURCE_URL",
+			Value: datasourceURL,
+		},
 	}
+	if specs.GrafanaURL != nil {
+		grafanaVars = append(grafanaVars,
+			corev1.EnvVar{
+				Name:  "GRAFANA_DASHBOARD_EXT_URL",
+				Value: specs.GrafanaURL.String(),
+			},
+			corev1.EnvVar{
+				Name:  "GRAFANA_DASHBOARD_URL",
+				Value: getInternalDashboardURL(tls),
+			})
+	}
+	envs = append(envs, grafanaVars...)
 
 	livenessProbeScheme := corev1.URISchemeHTTP
 	if tls == nil {
