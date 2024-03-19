@@ -150,3 +150,12 @@ rules:
   - namespaces
   verbs:
   - create
+  - delete
+- apiGroups:
+  - operator.cryostat.io
+  resources:
+  - cryostats
+  verbs:
+  - create
+  - delete
+  - get
