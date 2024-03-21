@@ -101,6 +101,9 @@ func logWorkloadEvents(r *scapiv1alpha3.TestResult, client *CryostatClientset, n
 	ctx := context.Background()
 	deploy, err := client.AppsV1().Deployments(namespace).Get(ctx, name, metav1.GetOptions{})
 	if err != nil {
+		if kerrors.IsNotFound(err) {
+			return nil
+		}
 		return err
 	}
 	// Log deployment conditions and events
@@ -177,12 +180,14 @@ func logEvents(r *scapiv1alpha3.TestResult, client *CryostatClientset, namespace
 	return nil
 }
 
-func deferLogWorkloadEvents(r *scapiv1alpha3.TestResult, client *CryostatClientset, namespace string, name string) {
+func LogWorkloadEventsOnError(r *scapiv1alpha3.TestResult, client *CryostatClientset, namespace string, name string) {
 	if len(r.Errors) > 0 {
-		r.Log += "WORKLOAD EVENTS: \n"
-		logErr := logWorkloadEvents(r, client, namespace, name)
-		if logErr != nil {
-			r.Log += fmt.Sprintf("failed to get workload logs: %s", logErr)
+		r.Log += "\nWORKLOAD EVENTS:\n"
+		for _, deployName := range []string{name, name + "-reports"} {
+			logErr := logWorkloadEvents(r, client, namespace, deployName)
+			if logErr != nil {
+				r.Log += fmt.Sprintf("failed to get workload logs: %s", logErr)
+			}
 		}
 	}
 }
@@ -495,7 +500,9 @@ func updateAndWaitTillCryostatAvailable(cr *operatorv1beta1.Cryostat, resources 
 	return err
 }
 
-func cleanupCryostat(r *scapiv1alpha3.TestResult, client *CryostatClientset, name string, namespace string) {
+func cleanupAndLogs(r *scapiv1alpha3.TestResult, client *CryostatClientset, name string, namespace string, logChannel *chan *ContainerLog) {
+	LogWorkloadEventsOnError(r, client, namespace, name)
+
 	cr := &operatorv1beta1.Cryostat{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
@@ -503,10 +510,15 @@ func cleanupCryostat(r *scapiv1alpha3.TestResult, client *CryostatClientset, nam
 		},
 	}
 	ctx := context.Background()
-	err := client.OperatorCRDs().Cryostats(cr.Namespace).Delete(ctx,
-		cr.Name, &metav1.DeleteOptions{})
+	err := client.OperatorCRDs().Cryostats(cr.Namespace).Delete(ctx, cr.Name, &metav1.DeleteOptions{})
 	if err != nil {
-		r.Log += fmt.Sprintf("failed to delete Cryostat: %s\n", err.Error())
+		if !kerrors.IsNotFound(err) {
+			r.Log += fmt.Sprintf("failed to delete Cryostat: %s\n", err.Error())
+		}
+	}
+
+	if logChannel != nil {
+		CollectContainersLogsToResult(r, *logChannel)
 	}
 }
 
