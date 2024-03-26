@@ -23,8 +23,6 @@ import (
 	operatorv1beta1 "github.com/cryostatio/cryostat-operator/api/v1beta1"
 	scapiv1alpha3 "github.com/operator-framework/api/pkg/apis/scorecard/v1alpha3"
 	apimanifests "github.com/operator-framework/api/pkg/manifests"
-	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -101,28 +99,6 @@ func CryostatConfigChangeTest(bundle *apimanifests.Bundle, namespace string, ope
 	defer cleanupCryostat(r, tr.Client, CryostatConfigChangeTestName, namespace)
 
 	// Switch Cryostat CR to PVC for redeployment
-	ctx, cancel := context.WithTimeout(context.Background(), testTimeout)
-	defer cancel()
-	client := tr.Client
-
-	cr, err = client.OperatorCRDs().Cryostats(namespace).Get(ctx, CryostatConfigChangeTestName)
-	if err != nil {
-		return fail(*r, fmt.Sprintf("failed to get Cryostat CR: %s", err.Error()))
-	}
-	cr.Spec.StorageOptions = &operatorv1beta1.StorageConfiguration{
-		PVC: &operatorv1beta1.PersistentVolumeClaimConfig{
-			Spec: &corev1.PersistentVolumeClaimSpec{
-				StorageClassName: nil,
-				Resources: corev1.ResourceRequirements{
-					Requests: corev1.ResourceList{
-						corev1.ResourceStorage: resource.MustParse("1Gi"),
-					},
-				},
-			},
-		},
-	}
-
-	// Wait for redeployment of Cryostat CR
 	err = updateAndWaitTillCryostatAvailable(cr, tr)
 	if err != nil {
 		return fail(*r, fmt.Sprintf("Cryostat redeployment did not become available: %s", err.Error()))
