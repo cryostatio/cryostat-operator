@@ -45,7 +45,6 @@ func OperatorInstallTest(bundle *apimanifests.Bundle, namespace string) (result 
 	if err != nil {
 		return fail(*r, fmt.Sprintf("failed to create client: %s", err.Error()))
 	}
-	defer cleanupAndLogs(&result, client, CryostatCRTestName, namespace, nil)
 
 	// Poll the deployment until it becomes available or we timeout
 	ctx, cancel := context.WithTimeout(context.Background(), testTimeout)
@@ -67,7 +66,7 @@ func CryostatCRTest(bundle *apimanifests.Bundle, namespace string, openShiftCert
 	if err != nil {
 		return fail(*r, fmt.Sprintf("failed to set up %s test: %s", CryostatCRTestName, err.Error()))
 	}
-	defer cleanupAndLogs(&result, tr.Client, CryostatCRTestName, namespace, nil)
+	defer cleanupAndLogs(&result, tr, CryostatCRTestName, namespace)
 
 	// Create a default Cryostat CR
 	_, err = createAndWaitTillCryostatAvailable(newCryostatCR(CryostatCRTestName, namespace, !tr.OpenShift), tr)
@@ -85,7 +84,7 @@ func CryostatConfigChangeTest(bundle *apimanifests.Bundle, namespace string, ope
 	if err != nil {
 		return fail(*r, fmt.Sprintf("failed to set up %s test: %s", CryostatConfigChangeTestName, err.Error()))
 	}
-	defer cleanupAndLogs(&result, tr.Client, CryostatConfigChangeTestName, namespace, nil)
+	defer cleanupAndLogs(&result, tr, CryostatConfigChangeTestName, namespace)
 
 	// Create a default Cryostat CR with default empty dir
 	cr := newCryostatCR(CryostatConfigChangeTestName, namespace, !tr.OpenShift)
@@ -146,20 +145,19 @@ func CryostatConfigChangeTest(bundle *apimanifests.Bundle, namespace string, ope
 func CryostatRecordingTest(bundle *apimanifests.Bundle, namespace string, openShiftCertManager bool) (result scapiv1alpha3.TestResult) {
 	tr := newTestResources(CryostatRecordingTestName)
 	r := tr.TestResult
-	var ch chan *ContainerLog
 
 	err := setupCRTestResources(tr, openShiftCertManager)
 	if err != nil {
 		return fail(*r, fmt.Sprintf("failed to set up %s test: %s", CryostatRecordingTestName, err.Error()))
 	}
-	defer cleanupAndLogs(&result, tr.Client, CryostatRecordingTestName, namespace, &ch)
+	defer cleanupAndLogs(&result, tr, CryostatRecordingTestName, namespace)
 
 	// Create a default Cryostat CR
 	cr, err := createAndWaitTillCryostatAvailable(newCryostatCR(CryostatRecordingTestName, namespace, !tr.OpenShift), tr)
 	if err != nil {
 		return fail(*r, fmt.Sprintf("failed to determine application URL: %s", err.Error()))
 	}
-	ch, err = StartLogs(tr.Client.Clientset, cr)
+	tr.LogChannel, err = StartLogs(tr.Client.Clientset, cr)
 	if err != nil {
 		r.Log += fmt.Sprintf("failed to retrieve logs for the application: %s", err.Error())
 	}
@@ -293,7 +291,7 @@ func CryostatReportTest(bundle *apimanifests.Bundle, namespace string, openShift
 	if err != nil {
 		return fail(*r, fmt.Sprintf("failed to set up %s test: %s", CryostatReportTestName, err.Error()))
 	}
-	defer cleanupAndLogs(&result, tr.Client, CryostatReportTestName, namespace, nil)
+	defer cleanupAndLogs(&result, tr, CryostatReportTestName, namespace)
 
 	port := int32(10000)
 	cr := newCryostatCR(CryostatReportTestName, namespace, !tr.OpenShift)

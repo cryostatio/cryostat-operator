@@ -45,8 +45,9 @@ const (
 )
 
 type TestResources struct {
-	OpenShift bool
-	Client    *CryostatClientset
+	OpenShift  bool
+	Client     *CryostatClientset
+	LogChannel chan *ContainerLog
 	*scapiv1alpha3.TestResult
 }
 
@@ -500,7 +501,9 @@ func updateAndWaitTillCryostatAvailable(cr *operatorv1beta1.Cryostat, resources 
 	return err
 }
 
-func cleanupAndLogs(r *scapiv1alpha3.TestResult, client *CryostatClientset, name string, namespace string, logChannel *chan *ContainerLog) {
+func cleanupAndLogs(r *scapiv1alpha3.TestResult, tr *TestResources, name string, namespace string) {
+	client := tr.Client
+
 	LogWorkloadEventsOnError(r, client, namespace, name)
 
 	cr := &operatorv1beta1.Cryostat{
@@ -517,8 +520,8 @@ func cleanupAndLogs(r *scapiv1alpha3.TestResult, client *CryostatClientset, name
 		}
 	}
 
-	if logChannel != nil {
-		CollectContainersLogsToResult(r, *logChannel)
+	if tr.LogChannel != nil {
+		CollectContainersLogsToResult(r, tr.LogChannel)
 	}
 }
 
