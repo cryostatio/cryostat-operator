@@ -1246,6 +1246,106 @@ func (r *TestResources) NewCoreEnvironmentVariables(reportsUrl string, authProps
 	emptyDir bool, builtInDiscoveryDisabled bool, hasPortConfig bool, builtInPortConfigDisabled bool, dbSecretProvided bool) []corev1.EnvVar {
 	envs := []corev1.EnvVar{
 		{
+			Name:  "QUARKUS_HTTP_HOST",
+			Value: "localhost",
+		},
+		{
+			Name:  "QUARKUS_HTTP_PORT",
+			Value: "8181",
+		},
+		{
+			Name:  "QUARKUS_HTTP_PROXY_ADDRESS_FORWARDING",
+			Value: "true",
+		},
+		{
+			Name:  "QUARKUS_PROXY_ALLOW_X_FORWARDED",
+			Value: "true",
+		},
+		{
+			Name:  "QUARKUS_PROXY_ENABLE_FORWARDED_HOST",
+			Value: "true",
+		},
+		{
+			Name:  "QUARKUS_PROXY_ENABLE_FORWARDED_PREFIX",
+			Value: "true",
+		},
+		{
+			Name:  "QUARKUS_HIBERNATE_ORM_DATABASE_GENERATION",
+			Value: "drop-and-create",
+		},
+		{
+			Name:  "QUARKUS_DATASOURCE_USERNAME",
+			Value: "cryostat3",
+		},
+		{
+			Name:  "QUARKUS_DATASOURCE_JDBC_URL",
+			Value: "jdbc:postgresql://localhost:5432/cryostat3",
+		},
+		{
+			Name:  "STORAGE_BUCKETS_ARCHIVE_NAME",
+			Value: "archivedrecordings",
+		},
+		{
+			Name:  "QUARKUS_S3_ENDPOINT_OVERRIDE",
+			Value: "http://localhost:8333",
+		},
+		{
+			Name:  "QUARKUS_S3_PATH_STYLE_ACCESS",
+			Value: "true",
+		},
+		{
+			Name:  "QUARKUS_S3_AWS_REGION",
+			Value: "us-east-1",
+		},
+		{
+			Name:  "QUARKUS_S3_AWS_CREDENTIALS_TYPE",
+			Value: "static",
+		},
+		{
+			Name:  "QUARKUS_S3_CREDENTIALS_STATIC_PROVIDER_ACCESS_KEY_ID",
+			Value: "cryostat",
+		},
+		{
+			Name:  "AWS_ACCESS_KEY_ID",
+			Value: "$(QUARKUS_S3_AWS_CREDENTIALS_STATIC_PROVIDER_ACCESS_KEY_ID)",
+		},
+		{
+			Name:  "POSTGRESQL_USER",
+			Value: "cryostat3",
+		},
+		{
+			Name:  "POSTGRESQL_DATABASE",
+			Value: "cryostat3",
+		},
+		{
+			Name:  "CRYOSTAT_BUCKETS",
+			Value: "archivedrecordings,archivedreports",
+		},
+		{
+			Name:  "CRYOSTAT_ACCESS_KEY",
+			Value: "cryostat",
+		},
+		{
+			Name:  "DATA_DIR",
+			Value: "/data",
+		},
+		{
+			Name:  "VOLUME_PREALLOCATE",
+			Value: "false",
+		},
+		{
+			Name:  "VOLUME_SIZE_LIMIT_MB",
+			Value: "500",
+		},
+		{
+			Name:  "VOLUME_MAX",
+			Value: "16",
+		},
+		{
+			Name:  "IP_BIND",
+			Value: "0.0.0.0",
+		},
+		{
 			Name:  "CRYOSTAT_WEB_PORT",
 			Value: "8181",
 		},
@@ -1306,6 +1406,81 @@ func (r *TestResources) NewCoreEnvironmentVariables(reportsUrl string, authProps
 					Name: secretName,
 				},
 				Key:      "CRYOSTAT_JMX_CREDENTIALS_DB_PASSWORD",
+				Optional: &optional,
+			},
+		},
+	})
+
+	secretName = r.Name + "-db-connection-key"
+	envs = append(envs, corev1.EnvVar{
+		Name: "QUARKUS_DATASOURCE_PASSWORD",
+		ValueFrom: &corev1.EnvVarSource{
+			SecretKeyRef: &corev1.SecretKeySelector{
+				LocalObjectReference: corev1.LocalObjectReference{
+					Name: secretName,
+				},
+				Key:      "CONNECTION_KEY",
+				Optional: &optional,
+			},
+		},
+	})
+
+	secretName = r.Name + "-s-storage-secret-key"
+	envs = append(envs, corev1.EnvVar{
+		Name: "QUARKUS_S3_AWS_CREDENTIALS_STATIC_PROVIDER_SECRET_ACCESS_KEY",
+		ValueFrom: &corev1.EnvVarSource{
+			SecretKeyRef: &corev1.SecretKeySelector{
+				LocalObjectReference: corev1.LocalObjectReference{
+					Name: secretName,
+				},
+				Key:      "SECRET_KEY",
+				Optional: &optional,
+			},
+		},
+	})
+
+	envs = append(envs, corev1.EnvVar{
+		Name:  "AWS_SECRET_ACCESS_KEY",
+		Value: "$(QUARKUS_S3_AWS_CREDENTIALS_STATIC_PROVIDER_SECRET_ACCESS_KEY)",
+	})
+
+	secretName = r.Name + "-s-db-connection-key"
+	envs = append(envs, corev1.EnvVar{
+		Name: "POSTGRESQL_PASSWORD",
+		ValueFrom: &corev1.EnvVarSource{
+			SecretKeyRef: &corev1.SecretKeySelector{
+				LocalObjectReference: corev1.LocalObjectReference{
+					Name: secretName,
+				},
+				Key:      "CONNECTION_KEY",
+				Optional: &optional,
+			},
+		},
+	})
+
+	secretName = r.Name + "-s-db-encryption-key"
+	envs = append(envs, corev1.EnvVar{
+		Name: "PG_ENCRYPT_KEY",
+		ValueFrom: &corev1.EnvVarSource{
+			SecretKeyRef: &corev1.SecretKeySelector{
+				LocalObjectReference: corev1.LocalObjectReference{
+					Name: secretName,
+				},
+				Key:      "ENCRYPTION_KEY",
+				Optional: &optional,
+			},
+		},
+	})
+
+	secretName = r.Name + "-s-storage-secret-key"
+	envs = append(envs, corev1.EnvVar{
+		Name: "CRYOSTAT_SECRET_KEY",
+		ValueFrom: &corev1.EnvVarSource{
+			SecretKeyRef: &corev1.SecretKeySelector{
+				LocalObjectReference: corev1.LocalObjectReference{
+					Name: secretName,
+				},
+				Key:      "SECRET_KEY",
 				Optional: &optional,
 			},
 		},
@@ -1687,6 +1862,16 @@ func (r *TestResources) NewCoreVolumeMounts() []corev1.VolumeMount {
 			Name:      "cert-secrets",
 			ReadOnly:  true,
 			MountPath: "/truststore/operator",
+		},
+		{
+			Name:      r.Name,
+			MountPath: "/var/lib/pgsql/data",
+			SubPath:   "postgres",
+		},
+		{
+			Name:      r.Name,
+			MountPath: "/data",
+			SubPath:   "seaweed",
 		},
 	}
 	if r.TLS {

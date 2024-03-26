@@ -625,6 +625,106 @@ func NewCoreContainer(cr *model.CryostatInstance, specs *ServiceSpecs, imageTag 
 
 	envs := []corev1.EnvVar{
 		{
+			Name:  "QUARKUS_HTTP_HOST",
+			Value: "localhost",
+		},
+		{
+			Name:  "QUARKUS_HTTP_PORT",
+			Value: "8181",
+		},
+		{
+			Name:  "QUARKUS_HTTP_PROXY_ADDRESS_FORWARDING",
+			Value: "true",
+		},
+		{
+			Name:  "QUARKUS_PROXY_ALLOW_X_FORWARDED",
+			Value: "true",
+		},
+		{
+			Name:  "QUARKUS_PROXY_ENABLE_FORWARDED_HOST",
+			Value: "true",
+		},
+		{
+			Name:  "QUARKUS_PROXY_ENABLE_FORWARDED_PREFIX",
+			Value: "true",
+		},
+		{
+			Name:  "QUARKUS_HIBERNATE_ORM_DATABASE_GENERATION",
+			Value: "drop-and-create",
+		},
+		{
+			Name:  "QUARKUS_DATASOURCE_USERNAME",
+			Value: "cryostat3",
+		},
+		{
+			Name:  "QUARKUS_DATASOURCE_JDBC_URL",
+			Value: "jdbc:postgresql://localhost:5432/cryostat3",
+		},
+		{
+			Name:  "STORAGE_BUCKETS_ARCHIVE_NAME",
+			Value: "archivedrecordings",
+		},
+		{
+			Name:  "QUARKUS_S3_ENDPOINT_OVERRIDE",
+			Value: "http://localhost:8333",
+		},
+		{
+			Name:  "QUARKUS_S3_PATH_STYLE_ACCESS",
+			Value: "true",
+		},
+		{
+			Name:  "QUARKUS_S3_AWS_REGION",
+			Value: "us-east-1",
+		},
+		{
+			Name:  "QUARKUS_S3_AWS_CREDENTIALS_TYPE",
+			Value: "static",
+		},
+		{
+			Name:  "QUARKUS_S3_CREDENTIALS_STATIC_PROVIDER_ACCESS_KEY_ID",
+			Value: "cryostat",
+		},
+		{
+			Name:  "AWS_ACCESS_KEY_ID",
+			Value: "$(QUARKUS_S3_AWS_CREDENTIALS_STATIC_PROVIDER_ACCESS_KEY_ID)",
+		},
+		{
+			Name:  "POSTGRESQL_USER",
+			Value: "cryostat3",
+		},
+		{
+			Name:  "POSTGRESQL_DATABASE",
+			Value: "cryostat3",
+		},
+		{
+			Name:  "CRYOSTAT_BUCKETS",
+			Value: "archivedrecordings,archivedreports",
+		},
+		{
+			Name:  "CRYOSTAT_ACCESS_KEY",
+			Value: "cryostat",
+		},
+		{
+			Name:  "DATA_DIR",
+			Value: "/data",
+		},
+		{
+			Name:  "VOLUME_PREALLOCATE",
+			Value: "false",
+		},
+		{
+			Name:  "VOLUME_SIZE_LIMIT_MB",
+			Value: "500",
+		},
+		{
+			Name:  "VOLUME_MAX",
+			Value: "16",
+		},
+		{
+			Name:  "IP_BIND",
+			Value: "0.0.0.0",
+		},
+		{
 			Name:  "CRYOSTAT_WEB_PORT",
 			Value: strconv.Itoa(int(constants.CryostatHTTPContainerPort)),
 		},
@@ -695,7 +795,93 @@ func NewCoreContainer(cr *model.CryostatInstance, specs *ServiceSpecs, imageTag 
 			MountPath: "/truststore/operator",
 			ReadOnly:  true,
 		},
+		{
+			Name:      cr.Name,
+			MountPath: "/var/lib/pgsql/data",
+			SubPath:   "postgres",
+		},
+		{
+			Name:      cr.Name,
+			MountPath: "/data",
+			SubPath:   "seaweed",
+		},
 	}
+
+	optional := false
+	secretName := cr.Name + "-db-connection-key"
+	envs = append(envs, corev1.EnvVar{
+		Name: "QUARKUS_DATASOURCE_PASSWORD",
+		ValueFrom: &corev1.EnvVarSource{
+			SecretKeyRef: &corev1.SecretKeySelector{
+				LocalObjectReference: corev1.LocalObjectReference{
+					Name: secretName,
+				},
+				Key:      "CONNECTION_KEY",
+				Optional: &optional,
+			},
+		},
+	})
+
+	secretName = cr.Name + "-s-storage-secret-key"
+	envs = append(envs, corev1.EnvVar{
+		Name: "QUARKUS_S3_AWS_CREDENTIALS_STATIC_PROVIDER_SECRET_ACCESS_KEY",
+		ValueFrom: &corev1.EnvVarSource{
+			SecretKeyRef: &corev1.SecretKeySelector{
+				LocalObjectReference: corev1.LocalObjectReference{
+					Name: secretName,
+				},
+				Key:      "SECRET_KEY",
+				Optional: &optional,
+			},
+		},
+	})
+
+	envs = append(envs, corev1.EnvVar{
+		Name:  "AWS_SECRET_ACCESS_KEY",
+		Value: "$(QUARKUS_S3_AWS_CREDENTIALS_STATIC_PROVIDER_SECRET_ACCESS_KEY)",
+	})
+
+	secretName = cr.Name + "-s-db-connection-key"
+	envs = append(envs, corev1.EnvVar{
+		Name: "POSTGRESQL_PASSWORD",
+		ValueFrom: &corev1.EnvVarSource{
+			SecretKeyRef: &corev1.SecretKeySelector{
+				LocalObjectReference: corev1.LocalObjectReference{
+					Name: secretName,
+				},
+				Key:      "CONNECTION_KEY",
+				Optional: &optional,
+			},
+		},
+	})
+
+	secretName = cr.Name + "-s-db-encryption-key"
+	envs = append(envs, corev1.EnvVar{
+		Name: "PG_ENCRYPT_KEY",
+		ValueFrom: &corev1.EnvVarSource{
+			SecretKeyRef: &corev1.SecretKeySelector{
+				LocalObjectReference: corev1.LocalObjectReference{
+					Name: secretName,
+				},
+				Key:      "ENCRYPTION_KEY",
+				Optional: &optional,
+			},
+		},
+	})
+
+	secretName = cr.Name + "-s-storage-secret-key"
+	envs = append(envs, corev1.EnvVar{
+		Name: "CRYOSTAT_SECRET_KEY",
+		ValueFrom: &corev1.EnvVarSource{
+			SecretKeyRef: &corev1.SecretKeySelector{
+				LocalObjectReference: corev1.LocalObjectReference{
+					Name: secretName,
+				},
+				Key:      "SECRET_KEY",
+				Optional: &optional,
+			},
+		},
+	})
 
 	if specs.CoreURL != nil {
 		coreEnvs := []corev1.EnvVar{
@@ -886,7 +1072,7 @@ func NewCoreContainer(cr *model.CryostatInstance, specs *ServiceSpecs, imageTag 
 	}
 
 	secretOptional := false
-	secretName := cr.Name + "-jmx-credentials-db"
+	secretName = cr.Name + "-jmx-credentials-db"
 	if cr.Spec.JmxCredentialsDatabaseOptions != nil && cr.Spec.JmxCredentialsDatabaseOptions.DatabaseSecretName != nil {
 		secretName = *cr.Spec.JmxCredentialsDatabaseOptions.DatabaseSecretName
 	}
@@ -1121,6 +1307,13 @@ func NewGrafanaContainer(cr *model.CryostatInstance, imageTag string, tls *TLSCo
 	}
 }
 
+/*
+ * storage.image.repository - Repository for the database container
+ * storage.image.pullPolicy - Pull Policy for the database container
+ * storage.image.tag - Image tag for the database container
+ * storage.resources - Resource requests/limits for the database container
+ * storage.securityContext - Security Context for the database container
+ */
 func NewStorageContainer(cr *model.CryostatInstance, imageTag string, tls *TLSConfig) corev1.Container {
 	var containerSc *corev1.SecurityContext
 	if cr.Spec.SecurityOptions != nil && cr.Spec.SecurityOptions.StorageSecurityContext != nil {
@@ -1143,6 +1336,13 @@ func NewStorageContainer(cr *model.CryostatInstance, imageTag string, tls *TLSCo
 	}
 }
 
+/*
+ * db.image.repository - Repository for the database container
+ * db.image.pullPolicy - Pull Policy for the database container
+ * db.image.tag - Image tag for the database container
+ * db.resources - Resource requests/limits for the database container
+ * db.securityContext - Security Context for the database container
+ */
 func newDatabaseContainer(cr *model.CryostatInstance, imageTag string, tls *TLSConfig) corev1.Container {
 	var containerSc *corev1.SecurityContext
 	if cr.Spec.SecurityOptions != nil && cr.Spec.SecurityOptions.DatabaseSecurityContext != nil {
