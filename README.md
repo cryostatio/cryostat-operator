@@ -50,7 +50,7 @@ kubectl get secret ${CRYOSTAT_NAME}-jmx-auth -o jsonpath='{$.data.CRYOSTAT_RJMX_
 
 # Building
 ## Requirements
-- `go` v1.20
+- `go` v1.21
 - [`operator-sdk`](https://github.com/operator-framework/operator-sdk) v1.31.0
 - [`cert-manager`](https://github.com/cert-manager/cert-manager) v1.11.5+ (Recommended)
 - `podman` or `docker`
