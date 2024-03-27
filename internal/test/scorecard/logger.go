@@ -21,9 +21,7 @@ import (
 	"strings"
 
 	operatorv1beta1 "github.com/cryostatio/cryostat-operator/api/v1beta1"
-	scapiv1alpha3 "github.com/operator-framework/api/pkg/apis/scorecard/v1alpha3"
 	v1 "k8s.io/api/core/v1"
-	"k8s.io/client-go/kubernetes"
 )
 
 type ContainerLog struct {
@@ -31,22 +29,22 @@ type ContainerLog struct {
 	Log       string
 }
 
-func LogContainer(clientset *kubernetes.Clientset, namespace, podName, containerName string, ch chan *ContainerLog) {
+func (r *TestResources) logContainer(namespace, podName, containerName string) {
 	containerLog := &ContainerLog{
 		Container: containerName,
 	}
 	buf := &strings.Builder{}
 
-	err := GetContainerLogs(clientset, namespace, podName, containerName, buf)
+	err := r.GetContainerLogs(namespace, podName, containerName, buf)
 	if err != nil {
 		buf.WriteString(fmt.Sprintf("%s\n", err.Error()))
 	}
 
 	containerLog.Log = buf.String()
-	ch <- containerLog
+	r.LogChannel <- containerLog
 }
 
-func GetContainerLogs(clientset *kubernetes.Clientset, namespace, podName, containerName string, dest io.Writer) error {
+func (r *TestResources) GetContainerLogs(namespace, podName, containerName string, dest io.Writer) error {
 	ctx, cancel := context.WithTimeout(context.TODO(), testTimeout)
 	defer cancel()
 
@@ -54,7 +52,7 @@ func GetContainerLogs(clientset *kubernetes.Clientset, namespace, podName, conta
 		Follow:    true,
 		Container: containerName,
 	}
-	stream, err := clientset.CoreV1().Pods(namespace).GetLogs(podName, logOptions).Stream(ctx)
+	stream, err := r.Client.CoreV1().Pods(namespace).GetLogs(podName, logOptions).Stream(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to get logs for container %s in pod %s: %s", containerName, podName, err.Error())
 	}
@@ -67,27 +65,27 @@ func GetContainerLogs(clientset *kubernetes.Clientset, namespace, podName, conta
 	return nil
 }
 
-func CollectLogs(ch chan *ContainerLog) []*ContainerLog {
+func (r *TestResources) CollectLogs() []*ContainerLog {
 	logs := make([]*ContainerLog, 0)
-	for i := 0; i < cap(ch); i++ {
-		logs = append(logs, <-ch)
+	for i := 0; i < cap(r.LogChannel); i++ {
+		logs = append(logs, <-r.LogChannel)
 	}
 	return logs
 }
 
-func CollectContainersLogsToResult(result *scapiv1alpha3.TestResult, ch chan *ContainerLog) {
-	logs := CollectLogs(ch)
+func (r *TestResources) CollectContainersLogsToResult() {
+	logs := r.CollectLogs()
 	for _, log := range logs {
 		if log != nil {
-			result.Log += fmt.Sprintf("\n%s CONTAINER LOG:\n\n\t%s\n", strings.ToUpper(log.Container), log.Log)
+			r.Log += fmt.Sprintf("\n%s CONTAINER LOG:\n\n\t%s\n", strings.ToUpper(log.Container), log.Log)
 		}
 	}
 }
 
-func StartLogs(clientset *kubernetes.Clientset, cr *operatorv1beta1.Cryostat) (chan *ContainerLog, error) {
-	podName, err := getCryostatPodNameForCR(clientset, cr)
+func (r *TestResources) StartLogs(cr *operatorv1beta1.Cryostat) error {
+	podName, err := r.getCryostatPodNameForCR(cr)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get pod name for CR: %s", err.Error())
+		return fmt.Errorf("failed to get pod name for CR: %s", err.Error())
 	}
 
 	containerNames := []string{
@@ -96,11 +94,11 @@ func StartLogs(clientset *kubernetes.Clientset, cr *operatorv1beta1.Cryostat) (c
 		cr.Name + "-jfr-datasource",
 	}
 
-	ch := make(chan *ContainerLog, len(containerNames))
+	r.LogChannel = make(chan *ContainerLog, len(containerNames))
 
 	for _, containerName := range containerNames {
-		go LogContainer(clientset, cr.Namespace, podName, containerName, ch)
+		go r.logContainer(cr.Namespace, podName, containerName)
 	}
 
-	return ch, nil
+	return nil
 }
