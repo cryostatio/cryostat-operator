@@ -21,7 +21,6 @@ import (
 	"time"
 
 	"github.com/blang/semver/v4"
-	scapiv1alpha3 "github.com/operator-framework/api/pkg/apis/scorecard/v1alpha3"
 	operatorsv1 "github.com/operator-framework/api/pkg/operators/v1"
 	operatorsv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -39,7 +38,7 @@ import (
 	corev1client "k8s.io/client-go/kubernetes/typed/core/v1"
 )
 
-func installOpenShiftCertManager(r *scapiv1alpha3.TestResult) error {
+func (r *TestResources) installOpenShiftCertManager() error {
 	ctx := context.Background()
 
 	// Get in-cluster REST config from pod
