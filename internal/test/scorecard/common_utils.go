@@ -622,7 +622,9 @@ func (r *TestResources) getCryostatPodNameForCR(cr *operatorv1beta1.Cryostat) (s
 	return pods.Items[0].ObjectMeta.Name, nil
 }
 
-func (r *TestResources) cleanupClusterCryostat(name string, namespace string) {
+func (r *TestResources) cleanupClusterCryostat(name string, namespace string, targetNamespaces []string) {
+	r.LogWorkloadEventsOnError(namespace, name)
+
 	cr := &operatorv1beta1.ClusterCryostat{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: name,
@@ -636,20 +638,23 @@ func (r *TestResources) cleanupClusterCryostat(name string, namespace string) {
 	err := r.Client.OperatorCRDs().ClusterCryostats().DeleteNonNamespaced(ctx,
 		cr.Name, &metav1.DeleteOptions{})
 	if err != nil {
-		r.Log += fmt.Sprintf("failed to delete ClusterCryostat: %s\n", err.Error())
-	}
-}
-
-func (r *TestResources) cleanupNamespace(name string) {
-	ns := &corev1.Namespace{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: name,
-		},
+		if !kerrors.IsNotFound(err) {
+			r.Log += fmt.Sprintf("failed to delete ClusterCryostat: %s\n", err.Error())
+		}
 	}
 
-	ctx := context.Background()
-	err := r.Client.CoreV1().Namespaces().Delete(ctx, ns.Name, metav1.DeleteOptions{})
-	if err != nil {
-		r.Log += fmt.Sprintf("failed to delete namespace %s: %s", name, err.Error())
+	for _, ns := range targetNamespaces {
+		ns := &corev1.Namespace{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: ns,
+			},
+		}
+
+		err := r.Client.CoreV1().Namespaces().Delete(ctx, ns.Name, metav1.DeleteOptions{})
+		if err != nil {
+			if !kerrors.IsNotFound(err) {
+				r.Log += fmt.Sprintf("failed to delete namespace %s: %s\n", ns, err.Error())
+			}
+		}
 	}
 }

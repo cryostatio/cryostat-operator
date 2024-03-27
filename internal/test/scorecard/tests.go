@@ -80,19 +80,19 @@ func CryostatCRTest(bundle *apimanifests.Bundle, namespace string, openShiftCert
 // CryostatMultiNamespaceTest checks that the operator installs ClusterCryostat in response to a ClusterCryostat CR
 func CryostatMultiNamespaceTest(bundle *apimanifests.Bundle, namespace string, openShiftCertManager bool) *scapiv1alpha3.TestResult {
 	r := newTestResources(CryostatMultiNamespaceTestName)
+	namespaces := []string{"other-scorecard-namespace"}
 
 	err := r.setupCRTestResources(openShiftCertManager)
 	if err != nil {
 		return r.fail(fmt.Sprintf("failed to set up %s test: %s", CryostatMultiNamespaceTestName, err.Error()))
 	}
+	defer r.cleanupClusterCryostat(CryostatMultiNamespaceTestName, namespace, namespaces)
 
-	namespaces := []string{"other-scorecard-namespace"}
 	for _, ns := range namespaces {
 		err = r.setupTargetNamespace(ns)
 		if err != nil {
 			return r.fail(fmt.Sprintf("failed to create an additional namespace %s for %s test: %s", ns, CryostatMultiNamespaceTestName, err.Error()))
 		}
-		defer r.cleanupNamespace(ns)
 	}
 
 	// Create a default ClusterCryostat CR
@@ -100,7 +100,6 @@ func CryostatMultiNamespaceTest(bundle *apimanifests.Bundle, namespace string, o
 	if err != nil {
 		return r.fail(fmt.Sprintf("%s test failed: %s", CryostatMultiNamespaceTestName, err.Error()))
 	}
-	defer r.cleanupClusterCryostat(CryostatMultiNamespaceTestName, namespace)
 
 	return r.TestResult
 }
