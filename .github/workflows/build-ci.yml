@@ -97,7 +97,7 @@ jobs:
     - name: Get scorecard image tag
       id: get-image-tag
       run: |
-        SCORECARD_TAG=$(yq '[.stages[0].tests[].image | capture("cryostat-operator-scorecard:(?P<tag>[\w.\-_]+)$")][0].tag' bundle/tests/scorecard/config.yaml)
+        SCORECARD_TAG=$(yq '[.stages[1].tests[].image | capture("cryostat-operator-scorecard:(?P<tag>[\w.\-_]+)$")][0].tag' bundle/tests/scorecard/config.yaml)
         echo "tag=$SCORECARD_TAG" >> $GITHUB_OUTPUT
     - name: Check if scorecard image tag already exists
       id: check-tag-exists

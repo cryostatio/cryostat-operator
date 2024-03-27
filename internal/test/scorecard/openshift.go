@@ -21,22 +21,24 @@ import (
 	"time"
 
 	"github.com/blang/semver/v4"
-	scapiv1alpha3 "github.com/operator-framework/api/pkg/apis/scorecard/v1alpha3"
 	operatorsv1 "github.com/operator-framework/api/pkg/operators/v1"
 	operatorsv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
 	ctrl "sigs.k8s.io/controller-runtime"
 
 	configv1 "github.com/openshift/api/config/v1"
+	routev1 "github.com/openshift/api/route/v1"
 	corev1 "k8s.io/api/core/v1"
+
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/client-go/discovery"
 	corev1client "k8s.io/client-go/kubernetes/typed/core/v1"
 )
 
-func installOpenShiftCertManager(r *scapiv1alpha3.TestResult) error {
+func (r *TestResources) installOpenShiftCertManager() error {
 	ctx := context.Background()
 
 	// Get in-cluster REST config from pod
@@ -201,4 +203,8 @@ func installOpenShiftCertManager(r *scapiv1alpha3.TestResult) error {
 		r.Log += fmt.Sprintf("ClusterServiceVersion %s is not yet ready. Current status %s\n", csv.Name, csv.Status.Message)
 		return false, nil
 	})
+}
+
+func isOpenShift(client discovery.DiscoveryInterface) (bool, error) {
+	return discovery.IsResourceEnabled(client, routev1.GroupVersion.WithResource("routes"))
 }
