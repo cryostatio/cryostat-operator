@@ -79,6 +79,7 @@ func printValidTests() []scapiv1alpha3.TestResult {
 	str := fmt.Sprintf("valid tests for this image include: %s", strings.Join([]string{
 		tests.OperatorInstallTestName,
 		tests.CryostatCRTestName,
+		tests.CryostatMultiNamespaceTestName,
 		tests.CryostatRecordingTestName,
 		tests.CryostatConfigChangeTestName,
 		tests.CryostatReportTestName,
@@ -93,6 +94,7 @@ func validateTests(testNames []string) bool {
 		switch testName {
 		case tests.OperatorInstallTestName:
 		case tests.CryostatCRTestName:
+		case tests.CryostatMultiNamespaceTestName:
 		case tests.CryostatRecordingTestName:
 		case tests.CryostatConfigChangeTestName:
 		case tests.CryostatReportTestName:
@@ -114,6 +116,8 @@ func runTests(testNames []string, bundle *apimanifests.Bundle, namespace string,
 			results = append(results, *tests.OperatorInstallTest(bundle, namespace, openShiftCertManager))
 		case tests.CryostatCRTestName:
 			results = append(results, *tests.CryostatCRTest(bundle, namespace, openShiftCertManager))
+		case tests.CryostatMultiNamespaceTestName:
+			results = append(results, *tests.CryostatMultiNamespaceTest(bundle, namespace, openShiftCertManager))
 		case tests.CryostatRecordingTestName:
 			results = append(results, *tests.CryostatRecordingTest(bundle, namespace, openShiftCertManager))
 		case tests.CryostatConfigChangeTestName:

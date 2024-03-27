@@ -24,7 +24,7 @@ import (
 	"net/url"
 	"time"
 
-	operatorv1beta1 "github.com/cryostatio/cryostat-operator/api/v1beta1"
+	operatorv1beta2 "github.com/cryostatio/cryostat-operator/api/v1beta2"
 	scapiv1alpha3 "github.com/operator-framework/api/pkg/apis/scorecard/v1alpha3"
 
 	appsv1 "k8s.io/api/apps/v1"
@@ -231,89 +231,128 @@ func (r *TestResources) setupCRTestResources(openShiftCertManager bool) error {
 	return nil
 }
 
-func newCryostatCR(name string, namespace string, withIngress bool) *operatorv1beta1.Cryostat {
-	cr := &operatorv1beta1.Cryostat{
+func setupTargetNamespace(tr *TestResources, name string) error {
+	client := tr.Client
+	r := tr.TestResult
+	ctx := context.Background()
+
+	ns := &corev1.Namespace{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: name,
+		},
+	}
+	ns, err := client.CoreV1().Namespaces().Create(ctx, ns, metav1.CreateOptions{})
+	if err != nil {
+		return fmt.Errorf("failed to create namespace %s: %s", name, err.Error())
+	}
+	r.Log += fmt.Sprintf("created namespace: %s\n", ns.Name)
+	return nil
+}
+
+func newCryostatCR(name string, namespace string, withIngress bool) *operatorv1beta2.Cryostat {
+	cr := &operatorv1beta2.Cryostat{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
 			Namespace: namespace,
 		},
-		Spec: operatorv1beta1.CryostatSpec{
-			Minimal:           false,
+		Spec: operatorv1beta2.CryostatSpec{
 			EnableCertManager: &[]bool{true}[0],
 		},
 	}
-
 	if withIngress {
-		pathType := netv1.PathTypePrefix
-		cr.Spec.NetworkOptions = &operatorv1beta1.NetworkConfigurationList{
-			CoreConfig: &operatorv1beta1.NetworkConfiguration{
-				Annotations: map[string]string{
-					"nginx.ingress.kubernetes.io/backend-protocol": "HTTPS",
-				},
-				IngressSpec: &netv1.IngressSpec{
-					TLS: []netv1.IngressTLS{{}},
-					Rules: []netv1.IngressRule{
-						{
-							Host: "testing.cryostat",
-							IngressRuleValue: netv1.IngressRuleValue{
-								HTTP: &netv1.HTTPIngressRuleValue{
-									Paths: []netv1.HTTPIngressPath{
-										{
-											Path:     "/",
-											PathType: &pathType,
-											Backend: netv1.IngressBackend{
-												Service: &netv1.IngressServiceBackend{
-													Name: name,
-													Port: netv1.ServiceBackendPort{
-														Number: 8181,
-													},
-												},
-											},
-										},
-									},
-								},
-							},
-						},
-					},
-				},
-			},
-			GrafanaConfig: &operatorv1beta1.NetworkConfiguration{
-				Annotations: map[string]string{
-					"nginx.ingress.kubernetes.io/backend-protocol": "HTTPS",
-				},
-				IngressSpec: &netv1.IngressSpec{
-					TLS: []netv1.IngressTLS{{}},
-					Rules: []netv1.IngressRule{
-						{
-							Host: "testing.cryostat-grafana",
-							IngressRuleValue: netv1.IngressRuleValue{
-								HTTP: &netv1.HTTPIngressRuleValue{
-									Paths: []netv1.HTTPIngressPath{
-										{
-											Path:     "/",
-											PathType: &pathType,
-											Backend: netv1.IngressBackend{
-												Service: &netv1.IngressServiceBackend{
-													Name: fmt.Sprintf("%s-grafana", name),
-													Port: netv1.ServiceBackendPort{
-														Number: 3000,
-													},
-												},
-											},
-										},
-									},
-								},
-							},
-						},
-					},
-				},
-			},
-		}
+		configureIngress(name, &cr.Spec)
 	}
+
 	return cr
 }
 
-func (r *TestResources) createAndWaitTillCryostatAvailable(cr *operatorv1beta1.Cryostat) (*operatorv1beta1.Cryostat, error) {
+func newMultiNamespaceCryostatCR(name string, namespace string, namespaces []string, withIngress bool) *operatorv1beta2.Cryostat {
+	cr := &operatorv1beta2.Cryostat{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: namespace,
+		},
+		Spec: operatorv1beta2.CryostatSpec{
+			TargetNamespaces:  namespaces,
+			EnableCertManager: &[]bool{true}[0],
+		},
+	}
+	if withIngress {
+		configureIngress(name, &cr.Spec)
+	}
+
+	return cr
+}
+
+func configureIngress(name string, cryostatSpec *operatorv1beta2.CryostatSpec) {
+	pathType := netv1.PathTypePrefix
+	cryostatSpec.NetworkOptions = &operatorv1beta2.NetworkConfigurationList{
+		CoreConfig: &operatorv1beta2.NetworkConfiguration{
+			Annotations: map[string]string{
+				"nginx.ingress.kubernetes.io/backend-protocol": "HTTPS",
+			},
+			IngressSpec: &netv1.IngressSpec{
+				TLS: []netv1.IngressTLS{{}},
+				Rules: []netv1.IngressRule{
+					{
+						Host: "testing.cryostat",
+						IngressRuleValue: netv1.IngressRuleValue{
+							HTTP: &netv1.HTTPIngressRuleValue{
+								Paths: []netv1.HTTPIngressPath{
+									{
+										Path:     "/",
+										PathType: &pathType,
+										Backend: netv1.IngressBackend{
+											Service: &netv1.IngressServiceBackend{
+												Name: name,
+												Port: netv1.ServiceBackendPort{
+													Number: 8181,
+												},
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		GrafanaConfig: &operatorv1beta2.NetworkConfiguration{
+			Annotations: map[string]string{
+				"nginx.ingress.kubernetes.io/backend-protocol": "HTTPS",
+			},
+			IngressSpec: &netv1.IngressSpec{
+				TLS: []netv1.IngressTLS{{}},
+				Rules: []netv1.IngressRule{
+					{
+						Host: "testing.cryostat-grafana",
+						IngressRuleValue: netv1.IngressRuleValue{
+							HTTP: &netv1.HTTPIngressRuleValue{
+								Paths: []netv1.HTTPIngressPath{
+									{
+										Path:     "/",
+										PathType: &pathType,
+										Backend: netv1.IngressBackend{
+											Service: &netv1.IngressServiceBackend{
+												Name: fmt.Sprintf("%s-grafana", name),
+												Port: netv1.ServiceBackendPort{
+													Number: 3000,
+												},
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
+func (r *TestResources) createAndWaitTillCryostatAvailable(cr *operatorv1beta2.Cryostat) (*operatorv1beta2.Cryostat, error) {
 	cr, err := r.Client.OperatorCRDs().Cryostats(cr.Namespace).Create(context.Background(), cr)
 	if err != nil {
 		r.logError(fmt.Sprintf("failed to create Cryostat CR: %s", err.Error()))
@@ -334,16 +373,28 @@ func (r *TestResources) createAndWaitTillCryostatAvailable(cr *operatorv1beta1.C
 		if err != nil {
 			return false, fmt.Errorf("failed to get Cryostat CR: %s", err.Error())
 		}
-		if len(cr.Status.ApplicationURL) > 0 {
-			return true, nil
+		if len(cr.Spec.TargetNamespaces) > 0 {
+			if len(cr.Status.TargetNamespaces) == 0 {
+				r.Log += "application's target namespaces are not available"
+				return false, nil // Retry
+			}
+			for i := range cr.Status.TargetNamespaces {
+				if cr.Status.TargetNamespaces[i] != cr.Spec.TargetNamespaces[i] {
+					return false, fmt.Errorf("application's target namespaces do not correctly match CR's")
+				}
+			}
 		}
-		r.Log += "application URL is not yet available\n"
-		return false, nil
+		if len(cr.Status.ApplicationURL) == 0 {
+			r.Log += "application URL is not yet available\n"
+			return false, nil
+		}
+		return true, nil
 	})
 	if err != nil {
 		r.logError(fmt.Sprintf("application URL not found in CR: %s", err.Error()))
 		return nil, err
 	}
+	r.Log += fmt.Sprintf("application has access to the following namespaces: %s\n", cr.Status.TargetNamespaces)
 	r.Log += fmt.Sprintf("application is available at %s\n", cr.Status.ApplicationURL)
 
 	return cr, nil
@@ -423,7 +474,7 @@ func (r *TestResources) sendHealthRequest(base *url.URL, healthCheck func(resp *
 	return err
 }
 
-func (r *TestResources) updateAndWaitTillCryostatAvailable(cr *operatorv1beta1.Cryostat) error {
+func (r *TestResources) updateAndWaitTillCryostatAvailable(cr *operatorv1beta2.Cryostat) error {
 	cr, err := r.Client.OperatorCRDs().Cryostats(cr.Namespace).Update(context.Background(), cr)
 	if err != nil {
 		r.Log += fmt.Sprintf("failed to update Cryostat CR: %s", err.Error())
@@ -489,7 +540,7 @@ func (r *TestResources) updateAndWaitTillCryostatAvailable(cr *operatorv1beta1.C
 func (r *TestResources) cleanupAndLogs(name string, namespace string) {
 	r.LogWorkloadEventsOnError(namespace, name)
 
-	cr := &operatorv1beta1.Cryostat{
+	cr := &operatorv1beta2.Cryostat{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
 			Namespace: namespace,
@@ -508,7 +559,7 @@ func (r *TestResources) cleanupAndLogs(name string, namespace string) {
 	}
 }
 
-func (r *TestResources) getCryostatPodNameForCR(cr *operatorv1beta1.Cryostat) (string, error) {
+func (r *TestResources) getCryostatPodNameForCR(cr *operatorv1beta2.Cryostat) (string, error) {
 	selector := metav1.LabelSelector{
 		MatchLabels: map[string]string{
 			"app":       cr.Name,
@@ -532,4 +583,18 @@ func (r *TestResources) getCryostatPodNameForCR(cr *operatorv1beta1.Cryostat) (s
 	}
 
 	return pods.Items[0].ObjectMeta.Name, nil
+}
+
+func (r *TestResources) cleanupNamespace(name string) {
+	ns := &corev1.Namespace{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: name,
+		},
+	}
+
+	ctx := context.Background()
+	err := r.Client.CoreV1().Namespaces().Delete(ctx, ns.Name, metav1.DeleteOptions{})
+	if err != nil {
+		r.Log += fmt.Sprintf("failed to delete namespace %s: %s", name, err.Error())
+	}
 }
