@@ -97,11 +97,12 @@ func (r *TestResources) StartLogs(cr *operatorv1beta1.Cryostat) error {
 		return fmt.Errorf("failed to get pod name for CR: %s", err.Error())
 	}
 
-	logSelections := make(map[string][]string)
-	logSelections[cryostatPodName] = []string{
-		cr.Name,
-		cr.Name + "-grafana",
-		cr.Name + "-jfr-datasource",
+	logSelections := map[string][]string{
+		cryostatPodName: {
+			cr.Name,
+			cr.Name + "-grafana",
+			cr.Name + "-jfr-datasource",
+		},
 	}
 	bufferSize := 3
 
@@ -116,9 +117,9 @@ func (r *TestResources) StartLogs(cr *operatorv1beta1.Cryostat) error {
 
 	r.LogChannel = make(chan *ContainerLog, bufferSize)
 
-	for podName, containers := range logSelections {
+	for pod, containers := range logSelections {
 		for _, container := range containers {
-			go r.logContainer(cr.Namespace, podName, container)
+			go r.logContainer(cr.Namespace, pod, container)
 		}
 	}
 
