@@ -35,7 +35,6 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
-	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/scheme"
 )
 
@@ -51,10 +50,9 @@ type TestResources struct {
 	*scapiv1alpha3.TestResult
 }
 
-func waitForDeploymentAvailability(ctx context.Context, client *CryostatClientset, namespace string,
-	name string, r *scapiv1alpha3.TestResult) error {
+func (r *TestResources) waitForDeploymentAvailability(ctx context.Context, namespace string, name string) error {
 	err := wait.PollImmediateUntilWithContext(ctx, time.Second, func(ctx context.Context) (done bool, err error) {
-		deploy, err := client.AppsV1().Deployments(namespace).Get(ctx, name, metav1.GetOptions{})
+		deploy, err := r.Client.AppsV1().Deployments(namespace).Get(ctx, name, metav1.GetOptions{})
 		if err != nil {
 			if kerrors.IsNotFound(err) {
 				r.Log += fmt.Sprintf("deployment %s is not yet found\n", name)
@@ -79,7 +77,7 @@ func waitForDeploymentAvailability(ctx context.Context, client *CryostatClientse
 		return false, nil
 	})
 	if err != nil {
-		logErr := logWorkloadEvents(r, client, namespace, name)
+		logErr := r.logWorkloadEvents(namespace, name)
 		if logErr != nil {
 			r.Log += fmt.Sprintf("failed to look up deployment errors: %s\n", logErr.Error())
 		}
@@ -87,20 +85,20 @@ func waitForDeploymentAvailability(ctx context.Context, client *CryostatClientse
 	return err
 }
 
-func logError(r *scapiv1alpha3.TestResult, message string) {
+func (r *TestResources) logError(message string) {
 	r.State = scapiv1alpha3.FailState
 	r.Errors = append(r.Errors, message)
 }
 
-func fail(r scapiv1alpha3.TestResult, message string) scapiv1alpha3.TestResult {
+func (r *TestResources) fail(message string) *scapiv1alpha3.TestResult {
 	r.State = scapiv1alpha3.FailState
 	r.Errors = append(r.Errors, message)
-	return r
+	return r.TestResult
 }
 
-func logWorkloadEvents(r *scapiv1alpha3.TestResult, client *CryostatClientset, namespace string, name string) error {
+func (r *TestResources) logWorkloadEvents(namespace string, name string) error {
 	ctx := context.Background()
-	deploy, err := client.AppsV1().Deployments(namespace).Get(ctx, name, metav1.GetOptions{})
+	deploy, err := r.Client.AppsV1().Deployments(namespace).Get(ctx, name, metav1.GetOptions{})
 	if err != nil {
 		if kerrors.IsNotFound(err) {
 			return nil
@@ -115,7 +113,7 @@ func logWorkloadEvents(r *scapiv1alpha3.TestResult, client *CryostatClientset, n
 	}
 
 	r.Log += fmt.Sprintf("deployment %s warning events:\n", deploy.Name)
-	err = logEvents(r, client, namespace, scheme.Scheme, deploy)
+	err = r.logEvents(namespace, scheme.Scheme, deploy)
 	if err != nil {
 		return err
 	}
@@ -125,7 +123,7 @@ func logWorkloadEvents(r *scapiv1alpha3.TestResult, client *CryostatClientset, n
 	if err != nil {
 		return err
 	}
-	replicaSets, err := client.AppsV1().ReplicaSets(namespace).List(ctx, metav1.ListOptions{
+	replicaSets, err := r.Client.AppsV1().ReplicaSets(namespace).List(ctx, metav1.ListOptions{
 		LabelSelector: selector.String(),
 	})
 	if err != nil {
@@ -138,14 +136,14 @@ func logWorkloadEvents(r *scapiv1alpha3.TestResult, client *CryostatClientset, n
 				condition.Reason, condition.Message)
 		}
 		r.Log += fmt.Sprintf("replica set %s warning events:\n", rs.Name)
-		err = logEvents(r, client, namespace, scheme.Scheme, &rs)
+		err = r.logEvents(namespace, scheme.Scheme, &rs)
 		if err != nil {
 			return err
 		}
 	}
 
 	// Look up pods for deployment and log conditions and events
-	pods, err := client.CoreV1().Pods(namespace).List(ctx, metav1.ListOptions{
+	pods, err := r.Client.CoreV1().Pods(namespace).List(ctx, metav1.ListOptions{
 		LabelSelector: selector.String(),
 	})
 	if err != nil {
@@ -159,7 +157,7 @@ func logWorkloadEvents(r *scapiv1alpha3.TestResult, client *CryostatClientset, n
 				condition.Reason, condition.Message)
 		}
 		r.Log += fmt.Sprintf("pod %s warning events:\n", pod.Name)
-		err = logEvents(r, client, namespace, scheme.Scheme, &pod)
+		err = r.logEvents(namespace, scheme.Scheme, &pod)
 		if err != nil {
 			return err
 		}
@@ -167,9 +165,8 @@ func logWorkloadEvents(r *scapiv1alpha3.TestResult, client *CryostatClientset, n
 	return nil
 }
 
-func logEvents(r *scapiv1alpha3.TestResult, client *CryostatClientset, namespace string,
-	scheme *runtime.Scheme, obj runtime.Object) error {
-	events, err := client.CoreV1().Events(namespace).Search(scheme, obj)
+func (r *TestResources) logEvents(namespace string, scheme *runtime.Scheme, obj runtime.Object) error {
+	events, err := r.Client.CoreV1().Events(namespace).Search(scheme, obj)
 	if err != nil {
 		return err
 	}
@@ -181,11 +178,11 @@ func logEvents(r *scapiv1alpha3.TestResult, client *CryostatClientset, namespace
 	return nil
 }
 
-func LogWorkloadEventsOnError(r *scapiv1alpha3.TestResult, client *CryostatClientset, namespace string, name string) {
+func (r *TestResources) LogWorkloadEventsOnError(namespace string, name string) {
 	if len(r.Errors) > 0 {
 		r.Log += "\nWORKLOAD EVENTS:\n"
 		for _, deployName := range []string{name, name + "-reports"} {
-			logErr := logWorkloadEvents(r, client, namespace, deployName)
+			logErr := r.logWorkloadEvents(namespace, deployName)
 			if logErr != nil {
 				r.Log += fmt.Sprintf("failed to get workload logs: %s", logErr)
 			}
@@ -208,28 +205,26 @@ func newTestResources(testName string) *TestResources {
 	}
 }
 
-func setupCRTestResources(tr *TestResources, openShiftCertManager bool) error {
-	r := tr.TestResult
-
+func (r *TestResources) setupCRTestResources(openShiftCertManager bool) error {
 	// Create a new Kubernetes REST client for this test
 	client, err := NewClientset()
 	if err != nil {
-		logError(r, fmt.Sprintf("failed to create client: %s", err.Error()))
+		r.logError(fmt.Sprintf("failed to create client: %s", err.Error()))
 		return err
 	}
-	tr.Client = client
+	r.Client = client
 
 	openshift, err := isOpenShift(client)
 	if err != nil {
-		logError(r, fmt.Sprintf("could not determine whether platform is OpenShift: %s", err.Error()))
+		r.logError(fmt.Sprintf("could not determine whether platform is OpenShift: %s", err.Error()))
 		return err
 	}
-	tr.OpenShift = openshift
+	r.OpenShift = openshift
 
 	if openshift && openShiftCertManager {
-		err := installOpenShiftCertManager(r)
+		err := r.installOpenShiftCertManager()
 		if err != nil {
-			logError(r, fmt.Sprintf("failed to install cert-manager Operator for Red Hat OpenShift: %s", err.Error()))
+			r.logError(fmt.Sprintf("failed to install cert-manager Operator for Red Hat OpenShift: %s", err.Error()))
 			return err
 		}
 	}
@@ -318,27 +313,24 @@ func newCryostatCR(name string, namespace string, withIngress bool) *operatorv1b
 	return cr
 }
 
-func createAndWaitTillCryostatAvailable(cr *operatorv1beta1.Cryostat, resources *TestResources) (*operatorv1beta1.Cryostat, error) {
-	client := resources.Client
-	r := resources.TestResult
-
-	cr, err := client.OperatorCRDs().Cryostats(cr.Namespace).Create(context.Background(), cr)
+func (r *TestResources) createAndWaitTillCryostatAvailable(cr *operatorv1beta1.Cryostat) (*operatorv1beta1.Cryostat, error) {
+	cr, err := r.Client.OperatorCRDs().Cryostats(cr.Namespace).Create(context.Background(), cr)
 	if err != nil {
-		logError(r, fmt.Sprintf("failed to create Cryostat CR: %s", err.Error()))
+		r.logError(fmt.Sprintf("failed to create Cryostat CR: %s", err.Error()))
 		return nil, err
 	}
 
 	// Poll the deployment until it becomes available or we timeout
 	ctx, cancel := context.WithTimeout(context.Background(), testTimeout)
 	defer cancel()
-	err = waitForDeploymentAvailability(ctx, client, cr.Namespace, cr.Name, r)
+	err = r.waitForDeploymentAvailability(ctx, cr.Namespace, cr.Name)
 	if err != nil {
-		logError(r, fmt.Sprintf("Cryostat main deployment did not become available: %s", err.Error()))
+		r.logError(fmt.Sprintf("Cryostat main deployment did not become available: %s", err.Error()))
 		return nil, err
 	}
 
 	err = wait.PollImmediateUntilWithContext(ctx, time.Second, func(ctx context.Context) (done bool, err error) {
-		cr, err = client.OperatorCRDs().Cryostats(cr.Namespace).Get(ctx, cr.Name)
+		cr, err = r.Client.OperatorCRDs().Cryostats(cr.Namespace).Get(ctx, cr.Name)
 		if err != nil {
 			return false, fmt.Errorf("failed to get Cryostat CR: %s", err.Error())
 		}
@@ -349,7 +341,7 @@ func createAndWaitTillCryostatAvailable(cr *operatorv1beta1.Cryostat, resources 
 		return false, nil
 	})
 	if err != nil {
-		logError(r, fmt.Sprintf("application URL not found in CR: %s", err.Error()))
+		r.logError(fmt.Sprintf("application URL not found in CR: %s", err.Error()))
 		return nil, err
 	}
 	r.Log += fmt.Sprintf("application is available at %s\n", cr.Status.ApplicationURL)
@@ -357,8 +349,8 @@ func createAndWaitTillCryostatAvailable(cr *operatorv1beta1.Cryostat, resources 
 	return cr, nil
 }
 
-func waitTillCryostatReady(base *url.URL, resources *TestResources) error {
-	return sendHealthRequest(base, resources, func(resp *http.Response, r *scapiv1alpha3.TestResult) (done bool, err error) {
+func (r *TestResources) waitTillCryostatReady(base *url.URL) error {
+	return r.sendHealthRequest(base, func(resp *http.Response, r *scapiv1alpha3.TestResult) (done bool, err error) {
 		health := &HealthResponse{}
 		err = ReadJSON(resp, health)
 		if err != nil {
@@ -375,14 +367,11 @@ func waitTillCryostatReady(base *url.URL, resources *TestResources) error {
 	})
 }
 
-func waitTillReportReady(name string, namespace string, port int32, resources *TestResources) error {
-	client := resources.Client
-	r := resources.TestResult
-
+func (r *TestResources) waitTillReportReady(name string, namespace string, port int32) error {
 	ctx, cancel := context.WithTimeout(context.Background(), testTimeout)
 	defer cancel()
 
-	err := waitForDeploymentAvailability(ctx, client, namespace, name, r)
+	err := r.waitForDeploymentAvailability(ctx, namespace, name)
 	if err != nil {
 		return fmt.Errorf("report sidecar deployment did not become available: %s", err.Error())
 	}
@@ -393,15 +382,14 @@ func waitTillReportReady(name string, namespace string, port int32, resources *T
 		return fmt.Errorf("application URL is invalid: %s", err.Error())
 	}
 
-	return sendHealthRequest(base, resources, func(resp *http.Response, r *scapiv1alpha3.TestResult) (done bool, err error) {
+	return r.sendHealthRequest(base, func(resp *http.Response, r *scapiv1alpha3.TestResult) (done bool, err error) {
 		r.Log += fmt.Sprintf("reports sidecar is ready at %s\n", base.String())
 		return true, nil
 	})
 }
 
-func sendHealthRequest(base *url.URL, resources *TestResources, healthCheck func(resp *http.Response, r *scapiv1alpha3.TestResult) (done bool, err error)) error {
+func (r *TestResources) sendHealthRequest(base *url.URL, healthCheck func(resp *http.Response, r *scapiv1alpha3.TestResult) (done bool, err error)) error {
 	client := NewHttpClient()
-	r := resources.TestResult
 
 	ctx, cancel := context.WithTimeout(context.Background(), testTimeout)
 	defer cancel()
@@ -430,16 +418,13 @@ func sendHealthRequest(base *url.URL, resources *TestResources, healthCheck func
 			}
 			return false, fmt.Errorf("API request failed with status code %d: %s", resp.StatusCode, ReadError(resp))
 		}
-		return healthCheck(resp, r)
+		return healthCheck(resp, r.TestResult)
 	})
 	return err
 }
 
-func updateAndWaitTillCryostatAvailable(cr *operatorv1beta1.Cryostat, resources *TestResources) error {
-	client := resources.Client
-	r := resources.TestResult
-
-	cr, err := client.OperatorCRDs().Cryostats(cr.Namespace).Update(context.Background(), cr)
+func (r *TestResources) updateAndWaitTillCryostatAvailable(cr *operatorv1beta1.Cryostat) error {
+	cr, err := r.Client.OperatorCRDs().Cryostats(cr.Namespace).Update(context.Background(), cr)
 	if err != nil {
 		r.Log += fmt.Sprintf("failed to update Cryostat CR: %s", err.Error())
 		return err
@@ -449,7 +434,7 @@ func updateAndWaitTillCryostatAvailable(cr *operatorv1beta1.Cryostat, resources 
 	ctx, cancel := context.WithTimeout(context.Background(), testTimeout)
 	defer cancel()
 	err = wait.PollImmediateUntilWithContext(ctx, time.Second, func(ctx context.Context) (done bool, err error) {
-		deploy, err := client.AppsV1().Deployments(cr.Namespace).Get(ctx, cr.Name, metav1.GetOptions{})
+		deploy, err := r.Client.AppsV1().Deployments(cr.Namespace).Get(ctx, cr.Name, metav1.GetOptions{})
 		if err != nil {
 			if kerrors.IsNotFound(err) {
 				r.Log += fmt.Sprintf("deployment %s is not yet found\n", cr.Name)
@@ -501,10 +486,8 @@ func updateAndWaitTillCryostatAvailable(cr *operatorv1beta1.Cryostat, resources 
 	return err
 }
 
-func cleanupAndLogs(r *scapiv1alpha3.TestResult, tr *TestResources, name string, namespace string) {
-	client := tr.Client
-
-	LogWorkloadEventsOnError(r, client, namespace, name)
+func (r *TestResources) cleanupAndLogs(name string, namespace string) {
+	r.LogWorkloadEventsOnError(namespace, name)
 
 	cr := &operatorv1beta1.Cryostat{
 		ObjectMeta: metav1.ObjectMeta{
@@ -513,19 +496,19 @@ func cleanupAndLogs(r *scapiv1alpha3.TestResult, tr *TestResources, name string,
 		},
 	}
 	ctx := context.Background()
-	err := client.OperatorCRDs().Cryostats(cr.Namespace).Delete(ctx, cr.Name, &metav1.DeleteOptions{})
+	err := r.Client.OperatorCRDs().Cryostats(cr.Namespace).Delete(ctx, cr.Name, &metav1.DeleteOptions{})
 	if err != nil {
 		if !kerrors.IsNotFound(err) {
 			r.Log += fmt.Sprintf("failed to delete Cryostat: %s\n", err.Error())
 		}
 	}
 
-	if tr.LogChannel != nil {
-		CollectContainersLogsToResult(r, tr.LogChannel)
+	if r.LogChannel != nil {
+		r.CollectContainersLogsToResult()
 	}
 }
 
-func getCryostatPodNameForCR(clientset *kubernetes.Clientset, cr *operatorv1beta1.Cryostat) (string, error) {
+func (r *TestResources) getCryostatPodNameForCR(cr *operatorv1beta1.Cryostat) (string, error) {
 	selector := metav1.LabelSelector{
 		MatchLabels: map[string]string{
 			"app":       cr.Name,
@@ -539,7 +522,7 @@ func getCryostatPodNameForCR(clientset *kubernetes.Clientset, cr *operatorv1beta
 	ctx, cancel := context.WithTimeout(context.TODO(), testTimeout)
 	defer cancel()
 
-	pods, err := clientset.CoreV1().Pods(cr.Namespace).List(ctx, opts)
+	pods, err := r.Client.CoreV1().Pods(cr.Namespace).List(ctx, opts)
 	if err != nil {
 		return "", err
 	}

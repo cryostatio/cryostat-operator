@@ -37,76 +37,74 @@ const (
 )
 
 // OperatorInstallTest checks that the operator installed correctly
-func OperatorInstallTest(bundle *apimanifests.Bundle, namespace string) (result scapiv1alpha3.TestResult) {
-	r := newEmptyTestResult(OperatorInstallTestName)
+func OperatorInstallTest(bundle *apimanifests.Bundle, namespace string, openShiftCertManager bool) *scapiv1alpha3.TestResult {
+	r := newTestResources(OperatorInstallTestName)
 
 	// Create a new Kubernetes REST client for this test
-	client, err := NewClientset()
+	err := r.setupCRTestResources(openShiftCertManager)
 	if err != nil {
-		return fail(*r, fmt.Sprintf("failed to create client: %s", err.Error()))
+		return r.fail(fmt.Sprintf("failed to set up %s test: %s", OperatorInstallTestName, err.Error()))
 	}
+	defer r.cleanupAndLogs(OperatorInstallTestName, namespace)
 
 	// Poll the deployment until it becomes available or we timeout
 	ctx, cancel := context.WithTimeout(context.Background(), testTimeout)
 	defer cancel()
-	err = waitForDeploymentAvailability(ctx, client, namespace, operatorDeploymentName, r)
+	err = r.waitForDeploymentAvailability(ctx, namespace, operatorDeploymentName)
 	if err != nil {
-		return fail(*r, fmt.Sprintf("operator deployment did not become available: %s", err.Error()))
+		return r.fail(fmt.Sprintf("operator deployment did not become available: %s", err.Error()))
 	}
 
-	return *r
+	return r.TestResult
 }
 
 // CryostatCRTest checks that the operator installs Cryostat in response to a Cryostat CR
-func CryostatCRTest(bundle *apimanifests.Bundle, namespace string, openShiftCertManager bool) (result scapiv1alpha3.TestResult) {
-	tr := newTestResources(CryostatCRTestName)
-	r := tr.TestResult
+func CryostatCRTest(bundle *apimanifests.Bundle, namespace string, openShiftCertManager bool) *scapiv1alpha3.TestResult {
+	r := newTestResources(CryostatCRTestName)
 
-	err := setupCRTestResources(tr, openShiftCertManager)
+	err := r.setupCRTestResources(openShiftCertManager)
 	if err != nil {
-		return fail(*r, fmt.Sprintf("failed to set up %s test: %s", CryostatCRTestName, err.Error()))
+		return r.fail(fmt.Sprintf("failed to set up %s test: %s", CryostatCRTestName, err.Error()))
 	}
-	defer cleanupAndLogs(&result, tr, CryostatCRTestName, namespace)
+	defer r.cleanupAndLogs(CryostatCRTestName, namespace)
 
 	// Create a default Cryostat CR
-	_, err = createAndWaitTillCryostatAvailable(newCryostatCR(CryostatCRTestName, namespace, !tr.OpenShift), tr)
+	_, err = r.createAndWaitTillCryostatAvailable(newCryostatCR(CryostatCRTestName, namespace, !r.OpenShift))
 	if err != nil {
-		return fail(*r, fmt.Sprintf("%s test failed: %s", CryostatCRTestName, err.Error()))
+		return r.fail(fmt.Sprintf("%s test failed: %s", CryostatCRTestName, err.Error()))
 	}
-	return *r
+	return r.TestResult
 }
 
-func CryostatConfigChangeTest(bundle *apimanifests.Bundle, namespace string, openShiftCertManager bool) (result scapiv1alpha3.TestResult) {
-	tr := newTestResources(CryostatConfigChangeTestName)
-	r := tr.TestResult
+func CryostatConfigChangeTest(bundle *apimanifests.Bundle, namespace string, openShiftCertManager bool) *scapiv1alpha3.TestResult {
+	r := newTestResources(CryostatConfigChangeTestName)
 
-	err := setupCRTestResources(tr, openShiftCertManager)
+	err := r.setupCRTestResources(openShiftCertManager)
 	if err != nil {
-		return fail(*r, fmt.Sprintf("failed to set up %s test: %s", CryostatConfigChangeTestName, err.Error()))
+		return r.fail(fmt.Sprintf("failed to set up %s test: %s", CryostatConfigChangeTestName, err.Error()))
 	}
-	defer cleanupAndLogs(&result, tr, CryostatConfigChangeTestName, namespace)
+	defer r.cleanupAndLogs(CryostatConfigChangeTestName, namespace)
 
 	// Create a default Cryostat CR with default empty dir
-	cr := newCryostatCR(CryostatConfigChangeTestName, namespace, !tr.OpenShift)
+	cr := newCryostatCR(CryostatConfigChangeTestName, namespace, !r.OpenShift)
 	cr.Spec.StorageOptions = &operatorv1beta1.StorageConfiguration{
 		EmptyDir: &operatorv1beta1.EmptyDirConfig{
 			Enabled: true,
 		},
 	}
 
-	_, err = createAndWaitTillCryostatAvailable(cr, tr)
+	_, err = r.createAndWaitTillCryostatAvailable(cr)
 	if err != nil {
-		return fail(*r, fmt.Sprintf("failed to determine application URL: %s", err.Error()))
+		return r.fail(fmt.Sprintf("failed to determine application URL: %s", err.Error()))
 	}
 
 	// Switch Cryostat CR to PVC for redeployment
 	ctx, cancel := context.WithTimeout(context.Background(), testTimeout)
 	defer cancel()
-	client := tr.Client
 
-	cr, err = client.OperatorCRDs().Cryostats(namespace).Get(ctx, CryostatConfigChangeTestName)
+	cr, err = r.Client.OperatorCRDs().Cryostats(namespace).Get(ctx, CryostatConfigChangeTestName)
 	if err != nil {
-		return fail(*r, fmt.Sprintf("failed to get Cryostat CR: %s", err.Error()))
+		return r.fail(fmt.Sprintf("failed to get Cryostat CR: %s", err.Error()))
 	}
 	cr.Spec.StorageOptions = &operatorv1beta1.StorageConfiguration{
 		PVC: &operatorv1beta1.PersistentVolumeClaimConfig{
@@ -122,54 +120,53 @@ func CryostatConfigChangeTest(bundle *apimanifests.Bundle, namespace string, ope
 	}
 
 	// Wait for redeployment of Cryostat CR
-	err = updateAndWaitTillCryostatAvailable(cr, tr)
+	err = r.updateAndWaitTillCryostatAvailable(cr)
 	if err != nil {
-		return fail(*r, fmt.Sprintf("Cryostat redeployment did not become available: %s", err.Error()))
+		return r.fail(fmt.Sprintf("Cryostat redeployment did not become available: %s", err.Error()))
 	}
 	r.Log += "Cryostat deployment has successfully updated with new spec template\n"
 
 	base, err := url.Parse(cr.Status.ApplicationURL)
 	if err != nil {
-		return fail(*r, fmt.Sprintf("application URL is invalid: %s", err.Error()))
+		return r.fail(fmt.Sprintf("application URL is invalid: %s", err.Error()))
 	}
 
-	err = waitTillCryostatReady(base, tr)
+	err = r.waitTillCryostatReady(base)
 	if err != nil {
-		return fail(*r, fmt.Sprintf("failed to reach the application: %s", err.Error()))
+		return r.fail(fmt.Sprintf("failed to reach the application: %s", err.Error()))
 	}
 
-	return *r
+	return r.TestResult
 }
 
 // TODO add a built in discovery test too
-func CryostatRecordingTest(bundle *apimanifests.Bundle, namespace string, openShiftCertManager bool) (result scapiv1alpha3.TestResult) {
-	tr := newTestResources(CryostatRecordingTestName)
-	r := tr.TestResult
+func CryostatRecordingTest(bundle *apimanifests.Bundle, namespace string, openShiftCertManager bool) *scapiv1alpha3.TestResult {
+	r := newTestResources(CryostatRecordingTestName)
 
-	err := setupCRTestResources(tr, openShiftCertManager)
+	err := r.setupCRTestResources(openShiftCertManager)
 	if err != nil {
-		return fail(*r, fmt.Sprintf("failed to set up %s test: %s", CryostatRecordingTestName, err.Error()))
+		return r.fail(fmt.Sprintf("failed to set up %s test: %s", CryostatRecordingTestName, err.Error()))
 	}
-	defer cleanupAndLogs(&result, tr, CryostatRecordingTestName, namespace)
+	defer r.cleanupAndLogs(CryostatRecordingTestName, namespace)
 
 	// Create a default Cryostat CR
-	cr, err := createAndWaitTillCryostatAvailable(newCryostatCR(CryostatRecordingTestName, namespace, !tr.OpenShift), tr)
+	cr, err := r.createAndWaitTillCryostatAvailable(newCryostatCR(CryostatRecordingTestName, namespace, !r.OpenShift))
 	if err != nil {
-		return fail(*r, fmt.Sprintf("failed to determine application URL: %s", err.Error()))
+		return r.fail(fmt.Sprintf("failed to determine application URL: %s", err.Error()))
 	}
-	tr.LogChannel, err = StartLogs(tr.Client.Clientset, cr)
+	err = r.StartLogs(cr)
 	if err != nil {
 		r.Log += fmt.Sprintf("failed to retrieve logs for the application: %s", err.Error())
 	}
 
 	base, err := url.Parse(cr.Status.ApplicationURL)
 	if err != nil {
-		return fail(*r, fmt.Sprintf("application URL is invalid: %s", err.Error()))
+		return r.fail(fmt.Sprintf("application URL is invalid: %s", err.Error()))
 	}
 
-	err = waitTillCryostatReady(base, tr)
+	err = r.waitTillCryostatReady(base)
 	if err != nil {
-		return fail(*r, fmt.Sprintf("failed to reach the application: %s", err.Error()))
+		return r.fail(fmt.Sprintf("failed to reach the application: %s", err.Error()))
 	}
 
 	apiClient := NewCryostatRESTClientset(base)
@@ -181,15 +178,15 @@ func CryostatRecordingTest(bundle *apimanifests.Bundle, namespace string, openSh
 	}
 	target, err := apiClient.Targets().Create(context.Background(), targetOptions)
 	if err != nil {
-		return fail(*r, fmt.Sprintf("failed to create a target: %s", err.Error()))
+		return r.fail(fmt.Sprintf("failed to create a target: %s", err.Error()))
 	}
 	r.Log += fmt.Sprintf("created a custom target: %+v\n", target)
 	connectUrl := target.ConnectUrl
 
 	jmxSecretName := CryostatRecordingTestName + "-jmx-auth"
-	secret, err := tr.Client.CoreV1().Secrets(namespace).Get(context.Background(), jmxSecretName, metav1.GetOptions{})
+	secret, err := r.Client.CoreV1().Secrets(namespace).Get(context.Background(), jmxSecretName, metav1.GetOptions{})
 	if err != nil {
-		return fail(*r, fmt.Sprintf("failed to get jmx credentials: %s", err.Error()))
+		return r.fail(fmt.Sprintf("failed to get jmx credentials: %s", err.Error()))
 	}
 
 	credential := &Credential{
@@ -200,7 +197,7 @@ func CryostatRecordingTest(bundle *apimanifests.Bundle, namespace string, openSh
 
 	err = apiClient.CredentialClient.Create(context.Background(), credential)
 	if err != nil {
-		return fail(*r, fmt.Sprintf("failed to create stored credential: %s", err.Error()))
+		return r.fail(fmt.Sprintf("failed to create stored credential: %s", err.Error()))
 	}
 	r.Log += fmt.Sprintf("created stored credential with match expression: %s\n", credential.MatchExpression)
 
@@ -218,14 +215,14 @@ func CryostatRecordingTest(bundle *apimanifests.Bundle, namespace string, openSh
 	}
 	rec, err := apiClient.Recordings().Create(context.Background(), connectUrl, options)
 	if err != nil {
-		return fail(*r, fmt.Sprintf("failed to create a recording: %s", err.Error()))
+		return r.fail(fmt.Sprintf("failed to create a recording: %s", err.Error()))
 	}
 	r.Log += fmt.Sprintf("created a recording: %+v\n", rec)
 
 	// View the current recording list after creating one
 	recs, err := apiClient.Recordings().List(context.Background(), connectUrl)
 	if err != nil {
-		return fail(*r, fmt.Sprintf("failed to list recordings: %s", err.Error()))
+		return r.fail(fmt.Sprintf("failed to list recordings: %s", err.Error()))
 	}
 	r.Log += fmt.Sprintf("current list of recordings: %+v\n", recs)
 
@@ -235,66 +232,65 @@ func CryostatRecordingTest(bundle *apimanifests.Bundle, namespace string, openSh
 	// Archive the recording
 	archiveName, err := apiClient.Recordings().Archive(context.Background(), connectUrl, rec.Name)
 	if err != nil {
-		return fail(*r, fmt.Sprintf("failed to archive the recording: %s", err.Error()))
+		return r.fail(fmt.Sprintf("failed to archive the recording: %s", err.Error()))
 	}
 	r.Log += fmt.Sprintf("archived the recording %s at: %s\n", rec.Name, archiveName)
 
 	archives, err := apiClient.Recordings().ListArchives(context.Background(), connectUrl)
 	if err != nil {
-		return fail(*r, fmt.Sprintf("failed to list archives: %s", err.Error()))
+		return r.fail(fmt.Sprintf("failed to list archives: %s", err.Error()))
 	}
 	r.Log += fmt.Sprintf("current list of archives: %+v\n", archives)
 
 	report, err := apiClient.Recordings().GenerateReport(context.Background(), connectUrl, rec)
 	if err != nil {
-		return fail(*r, fmt.Sprintf("failed to generate report for the recording: %s", err.Error()))
+		return r.fail(fmt.Sprintf("failed to generate report for the recording: %s", err.Error()))
 	}
 	r.Log += fmt.Sprintf("generated report for the recording %s: %+v\n", rec.Name, report)
 
 	// Stop the recording
 	err = apiClient.Recordings().Stop(context.Background(), connectUrl, rec.Name)
 	if err != nil {
-		return fail(*r, fmt.Sprintf("failed to stop the recording %s: %s", rec.Name, err.Error()))
+		return r.fail(fmt.Sprintf("failed to stop the recording %s: %s", rec.Name, err.Error()))
 	}
 	// Get the recording to verify its state
 	rec, err = apiClient.Recordings().Get(context.Background(), connectUrl, rec.Name)
 	if err != nil {
-		return fail(*r, fmt.Sprintf("failed to get the recordings: %s", err.Error()))
+		return r.fail(fmt.Sprintf("failed to get the recordings: %s", err.Error()))
 	}
 	if rec.State != "STOPPED" {
-		return fail(*r, fmt.Sprintf("recording %s failed to stop: %s", rec.Name, err.Error()))
+		return r.fail(fmt.Sprintf("recording %s failed to stop: %s", rec.Name, err.Error()))
 	}
 	r.Log += fmt.Sprintf("stopped the recording: %s\n", rec.Name)
 
 	// Delete the recording
 	err = apiClient.Recordings().Delete(context.Background(), connectUrl, rec.Name)
 	if err != nil {
-		return fail(*r, fmt.Sprintf("failed to delete the recording %s: %s", rec.Name, err.Error()))
+		return r.fail(fmt.Sprintf("failed to delete the recording %s: %s", rec.Name, err.Error()))
 	}
 	r.Log += fmt.Sprintf("deleted the recording: %s\n", rec.Name)
 
 	// View the current recording list after deleting one
 	recs, err = apiClient.Recordings().List(context.Background(), connectUrl)
 	if err != nil {
-		return fail(*r, fmt.Sprintf("failed to list recordings: %s", err.Error()))
+		return r.fail(fmt.Sprintf("failed to list recordings: %s", err.Error()))
 	}
 	r.Log += fmt.Sprintf("current list of recordings: %+v\n", recs)
 
-	return *r
+	return r.TestResult
 }
 
-func CryostatReportTest(bundle *apimanifests.Bundle, namespace string, openShiftCertManager bool) (result scapiv1alpha3.TestResult) {
-	tr := newTestResources(CryostatReportTestName)
-	r := tr.TestResult
+func CryostatReportTest(bundle *apimanifests.Bundle, namespace string, openShiftCertManager bool) *scapiv1alpha3.TestResult {
+	r := newTestResources(CryostatReportTestName)
 
-	err := setupCRTestResources(tr, openShiftCertManager)
+	err := r.setupCRTestResources(openShiftCertManager)
 	if err != nil {
-		return fail(*r, fmt.Sprintf("failed to set up %s test: %s", CryostatReportTestName, err.Error()))
+		return r.fail(fmt.Sprintf("failed to set up %s test: %s", CryostatReportTestName, err.Error()))
 	}
-	defer cleanupAndLogs(&result, tr, CryostatReportTestName, namespace)
+	defer r.cleanupAndLogs(CryostatReportTestName, namespace)
 
 	port := int32(10000)
-	cr := newCryostatCR(CryostatReportTestName, namespace, !tr.OpenShift)
+	cr := newCryostatCR(CryostatReportTestName, namespace, !r.OpenShift)
 	cr.Spec.ReportOptions = &operatorv1beta1.ReportConfiguration{
 		Replicas: 1,
 	}
@@ -305,16 +301,16 @@ func CryostatReportTest(bundle *apimanifests.Bundle, namespace string, openShift
 	}
 
 	// Create a default Cryostat CR
-	cr, err = createAndWaitTillCryostatAvailable(cr, tr)
+	cr, err = r.createAndWaitTillCryostatAvailable(cr)
 	if err != nil {
-		return fail(*r, fmt.Sprintf("%s test failed: %s", CryostatReportTestName, err.Error()))
+		return r.fail(fmt.Sprintf("%s test failed: %s", CryostatReportTestName, err.Error()))
 	}
 
 	// Query health of report sidecar
-	err = waitTillReportReady(cr.Name+"-reports", cr.Namespace, port, tr)
+	err = r.waitTillReportReady(cr.Name+"-reports", cr.Namespace, port)
 	if err != nil {
-		return fail(*r, fmt.Sprintf("failed to reach the application: %s", err.Error()))
+		return r.fail(fmt.Sprintf("failed to reach the application: %s", err.Error()))
 	}
 
-	return *r
+	return r.TestResult
 }
