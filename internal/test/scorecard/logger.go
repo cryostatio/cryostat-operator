@@ -79,7 +79,7 @@ func CollectContainersLogsToResult(result *scapiv1alpha3.TestResult, ch chan *Co
 	logs := CollectLogs(ch)
 	for _, log := range logs {
 		if log != nil {
-			result.Log += fmt.Sprintf("%s CONTAINER LOG:\n\n\t%s\n", strings.ToUpper(log.Container), log.Log)
+			result.Log += fmt.Sprintf("\n%s CONTAINER LOG:\n\n\t%s\n", strings.ToUpper(log.Container), log.Log)
 		}
 	}
 }
