@@ -92,14 +92,14 @@ func CryostatConfigChangeTest(bundle *apimanifests.Bundle, namespace string, ope
 		},
 	}
 
-	_, err = createAndWaitTillCryostatAvailable(cr, tr)
+	cr, err = createAndWaitTillCryostatAvailable(cr, tr)
 	if err != nil {
 		return fail(*r, fmt.Sprintf("failed to determine application URL: %s", err.Error()))
 	}
 	defer cleanupCryostat(r, tr.Client, CryostatConfigChangeTestName, namespace)
 
 	// Switch Cryostat CR to PVC for redeployment
-	err = updateAndWaitTillCryostatAvailable(cr, tr)
+	cr, err = updateAndWaitTillCryostatAvailable(cr, tr)
 	if err != nil {
 		return fail(*r, fmt.Sprintf("Cryostat redeployment did not become available: %s", err.Error()))
 	}
