@@ -31,12 +31,14 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	netv1 "k8s.io/api/networking/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/scheme"
+	"k8s.io/client-go/util/retry"
 )
 
 const (
@@ -419,14 +421,35 @@ func sendHealthRequest(base *url.URL, resources *TestResources, healthCheck func
 	return err
 }
 
-func updateAndWaitTillCryostatAvailable(cr *operatorv1beta1.Cryostat, resources *TestResources) error {
+func updateAndWaitTillCryostatAvailable(cr *operatorv1beta1.Cryostat, resources *TestResources) (*operatorv1beta1.Cryostat, error) {
 	client := resources.Client
 	r := resources.TestResult
+	ctx := context.Background()
 
-	cr, err := client.OperatorCRDs().Cryostats(cr.Namespace).Update(context.Background(), cr)
-	if err != nil {
-		r.Log += fmt.Sprintf("failed to update Cryostat CR: %s", err.Error())
+	err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
+		cr, err := client.OperatorCRDs().Cryostats(cr.Namespace).Get(ctx, cr.Name)
+		if err != nil {
+			return fmt.Errorf("failed to get Cryostat CR: %s", err.Error())
+		}
+
+		cr.Spec.StorageOptions = &operatorv1beta1.StorageConfiguration{
+			PVC: &operatorv1beta1.PersistentVolumeClaimConfig{
+				Spec: &corev1.PersistentVolumeClaimSpec{
+					StorageClassName: nil,
+					Resources: corev1.ResourceRequirements{
+						Requests: corev1.ResourceList{
+							corev1.ResourceStorage: resource.MustParse("1Gi"),
+						},
+					},
+				},
+			},
+		}
+
+		cr, err = client.OperatorCRDs().Cryostats(cr.Namespace).Update(context.Background(), cr)
 		return err
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to update Cryostat CR: %s", err.Error())
 	}
 
 	// Poll the deployment until it becomes available or we timeout
@@ -480,9 +503,9 @@ func updateAndWaitTillCryostatAvailable(cr *operatorv1beta1.Cryostat, resources 
 		return false, nil
 	})
 	if err != nil {
-		return fmt.Errorf("failed to look up deployment errors: %s", err.Error())
+		return nil, fmt.Errorf("failed to look up deployment errors: %s", err.Error())
 	}
-	return err
+	return cr, err
 }
 
 func cleanupCryostat(r *scapiv1alpha3.TestResult, client *CryostatClientset, name string, namespace string) {
