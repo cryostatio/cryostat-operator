@@ -126,13 +126,14 @@ func CryostatConfigChangeTest(bundle *apimanifests.Bundle, namespace string, ope
 	}
 
 	// Switch Cryostat CR to PVC for redeployment
-	err = r.updateAndWaitTillCryostatAvailable(cr)
+	cr, err = r.updateAndWaitTillCryostatAvailable(cr)
 	if err != nil {
 		return r.fail(fmt.Sprintf("Cryostat redeployment did not become available: %s", err.Error()))
 	}
 	r.Log += "Cryostat deployment has successfully updated with new spec template\n"
 
 	base, err := url.Parse(cr.Status.ApplicationURL)
+	r.Log += fmt.Sprintf("base url: %s\n", base)
 	if err != nil {
 		return r.fail(fmt.Sprintf("application URL is invalid: %s", err.Error()))
 	}

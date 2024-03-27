@@ -513,11 +513,11 @@ func (r *TestResources) sendHealthRequest(base *url.URL, healthCheck func(resp *
 	return err
 }
 
-func (r *TestResources) updateAndWaitTillCryostatAvailable(cr *operatorv1beta1.Cryostat) error {
+func (r *TestResources) updateAndWaitTillCryostatAvailable(cr *operatorv1beta1.Cryostat) (*operatorv1beta1.Cryostat, error) {
 	ctx := context.Background()
 
 	err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
-		cr, err := r.Client.OperatorCRDs().Cryostats(cr.Namespace).Get(ctx, CryostatConfigChangeTestName)
+		cr, err := r.Client.OperatorCRDs().Cryostats(cr.Namespace).Get(ctx, cr.Name)
 		if err != nil {
 			return fmt.Errorf("failed to get Cryostat CR: %s", err.Error())
 		}
@@ -535,11 +535,11 @@ func (r *TestResources) updateAndWaitTillCryostatAvailable(cr *operatorv1beta1.C
 			},
 		}
 
-		_, err = r.Client.OperatorCRDs().Cryostats(cr.Namespace).Update(context.Background(), cr)
+		cr, err = r.Client.OperatorCRDs().Cryostats(cr.Namespace).Update(context.Background(), cr)
 		return err
 	})
 	if err != nil {
-		return fmt.Errorf("failed to update Cryostat CR: %s", err.Error())
+		return nil, fmt.Errorf("failed to update Cryostat CR: %s", err.Error())
 	}
 
 	// Poll the deployment until it becomes available or we timeout
@@ -593,9 +593,9 @@ func (r *TestResources) updateAndWaitTillCryostatAvailable(cr *operatorv1beta1.C
 		return false, nil
 	})
 	if err != nil {
-		return fmt.Errorf("failed to look up deployment errors: %s", err.Error())
+		return nil, fmt.Errorf("failed to look up deployment errors: %s", err.Error())
 	}
-	return err
+	return cr, err
 }
 
 func (r *TestResources) cleanupAndLogs(name string, namespace string) {
