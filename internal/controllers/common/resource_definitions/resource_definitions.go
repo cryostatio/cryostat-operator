@@ -689,46 +689,6 @@ func NewCoreContainer(cr *model.CryostatInstance, specs *ServiceSpecs, imageTag 
 			Value: "$(QUARKUS_S3_AWS_CREDENTIALS_STATIC_PROVIDER_ACCESS_KEY_ID)",
 		},
 		{
-			Name:  "POSTGRESQL_USER",
-			Value: "cryostat3",
-		},
-		{
-			Name:  "POSTGRESQL_DATABASE",
-			Value: "cryostat3",
-		},
-		{
-			Name:  "CRYOSTAT_BUCKETS",
-			Value: "archivedrecordings,archivedreports",
-		},
-		{
-			Name:  "CRYOSTAT_ACCESS_KEY",
-			Value: "cryostat",
-		},
-		{
-			Name:  "DATA_DIR",
-			Value: "/data",
-		},
-		{
-			Name:  "VOLUME_PREALLOCATE",
-			Value: "false",
-		},
-		{
-			Name:  "VOLUME_SIZE_LIMIT_MB",
-			Value: "500",
-		},
-		{
-			Name:  "VOLUME_MAX",
-			Value: "16",
-		},
-		{
-			Name:  "IP_BIND",
-			Value: "0.0.0.0",
-		},
-		{
-			Name:  "CRYOSTAT_WEB_PORT",
-			Value: strconv.Itoa(int(constants.CryostatHTTPContainerPort)),
-		},
-		{
 			Name:  "CRYOSTAT_CONFIG_PATH",
 			Value: configPath,
 		},
@@ -795,16 +755,6 @@ func NewCoreContainer(cr *model.CryostatInstance, specs *ServiceSpecs, imageTag 
 			MountPath: "/truststore/operator",
 			ReadOnly:  true,
 		},
-		{
-			Name:      cr.Name,
-			MountPath: "/var/lib/pgsql/data",
-			SubPath:   "postgres",
-		},
-		{
-			Name:      cr.Name,
-			MountPath: "/data",
-			SubPath:   "seaweed",
-		},
 	}
 
 	optional := false
@@ -822,7 +772,7 @@ func NewCoreContainer(cr *model.CryostatInstance, specs *ServiceSpecs, imageTag 
 		},
 	})
 
-	secretName = cr.Name + "-s-storage-secret-key"
+	secretName = cr.Name + "-storage-secret-key"
 	envs = append(envs, corev1.EnvVar{
 		Name: "QUARKUS_S3_AWS_CREDENTIALS_STATIC_PROVIDER_SECRET_ACCESS_KEY",
 		ValueFrom: &corev1.EnvVarSource{
@@ -839,48 +789,6 @@ func NewCoreContainer(cr *model.CryostatInstance, specs *ServiceSpecs, imageTag 
 	envs = append(envs, corev1.EnvVar{
 		Name:  "AWS_SECRET_ACCESS_KEY",
 		Value: "$(QUARKUS_S3_AWS_CREDENTIALS_STATIC_PROVIDER_SECRET_ACCESS_KEY)",
-	})
-
-	secretName = cr.Name + "-s-db-connection-key"
-	envs = append(envs, corev1.EnvVar{
-		Name: "POSTGRESQL_PASSWORD",
-		ValueFrom: &corev1.EnvVarSource{
-			SecretKeyRef: &corev1.SecretKeySelector{
-				LocalObjectReference: corev1.LocalObjectReference{
-					Name: secretName,
-				},
-				Key:      "CONNECTION_KEY",
-				Optional: &optional,
-			},
-		},
-	})
-
-	secretName = cr.Name + "-s-db-encryption-key"
-	envs = append(envs, corev1.EnvVar{
-		Name: "PG_ENCRYPT_KEY",
-		ValueFrom: &corev1.EnvVarSource{
-			SecretKeyRef: &corev1.SecretKeySelector{
-				LocalObjectReference: corev1.LocalObjectReference{
-					Name: secretName,
-				},
-				Key:      "ENCRYPTION_KEY",
-				Optional: &optional,
-			},
-		},
-	})
-
-	secretName = cr.Name + "-s-storage-secret-key"
-	envs = append(envs, corev1.EnvVar{
-		Name: "CRYOSTAT_SECRET_KEY",
-		ValueFrom: &corev1.EnvVarSource{
-			SecretKeyRef: &corev1.SecretKeySelector{
-				LocalObjectReference: corev1.LocalObjectReference{
-					Name: secretName,
-				},
-				Key:      "SECRET_KEY",
-				Optional: &optional,
-			},
-		},
 	})
 
 	if specs.CoreURL != nil {
@@ -1316,6 +1224,60 @@ func NewGrafanaContainer(cr *model.CryostatInstance, imageTag string, tls *TLSCo
  */
 func NewStorageContainer(cr *model.CryostatInstance, imageTag string, tls *TLSConfig) corev1.Container {
 	var containerSc *corev1.SecurityContext
+	envs := []corev1.EnvVar{
+		{
+			Name:  "CRYOSTAT_BUCKETS",
+			Value: "archivedrecordings,archivedreports",
+		},
+		{
+			Name:  "CRYOSTAT_ACCESS_KEY",
+			Value: "cryostat",
+		},
+		{
+			Name:  "DATA_DIR",
+			Value: "/data",
+		},
+		{
+			Name:  "VOLUME_PREALLOCATE",
+			Value: "false",
+		},
+		{
+			Name:  "VOLUME_SIZE_LIMIT_MB",
+			Value: "500",
+		},
+		{
+			Name:  "VOLUME_MAX",
+			Value: "16",
+		},
+		{
+			Name:  "IP_BIND",
+			Value: "0.0.0.0",
+		},
+	}
+
+	mounts := []corev1.VolumeMount{
+		{
+			Name:      cr.Name,
+			MountPath: "/data",
+			SubPath:   "seaweed",
+		},
+	}
+
+	secretName := cr.Name + "-storage-secret-key"
+	optional := false
+	envs = append(envs, corev1.EnvVar{
+		Name: "QUARKUS_S3_AWS_CREDENTIALS_STATIC_PROVIDER_SECRET_ACCESS_KEY",
+		ValueFrom: &corev1.EnvVarSource{
+			SecretKeyRef: &corev1.SecretKeySelector{
+				LocalObjectReference: corev1.LocalObjectReference{
+					Name: secretName,
+				},
+				Key:      "SECRET_KEY",
+				Optional: &optional,
+			},
+		},
+	})
+
 	if cr.Spec.SecurityOptions != nil && cr.Spec.SecurityOptions.StorageSecurityContext != nil {
 		containerSc = cr.Spec.SecurityOptions.StorageSecurityContext
 	} else {
@@ -1328,14 +1290,45 @@ func NewStorageContainer(cr *model.CryostatInstance, imageTag string, tls *TLSCo
 		}
 	}
 
+	livenessProbeScheme := corev1.URISchemeHTTP
+	probeHandler := corev1.ProbeHandler{
+		HTTPGet: &corev1.HTTPGetAction{
+			Port:   intstr.IntOrString{IntVal: 8333},
+			Path:   "/status",
+			Scheme: livenessProbeScheme,
+		},
+	}
+
 	return corev1.Container{
 		Name:            cr.Name + "-storage",
 		Image:           imageTag,
 		ImagePullPolicy: getPullPolicy(imageTag),
+		VolumeMounts:    mounts,
 		SecurityContext: containerSc,
+		Env:             envs,
+		Ports: []corev1.ContainerPort{
+			{
+				ContainerPort: constants.StoragePort,
+			},
+		},
+		LivenessProbe: &corev1.Probe{
+			ProbeHandler:     probeHandler,
+			FailureThreshold: 2,
+		},
+		StartupProbe: &corev1.Probe{
+			ProbeHandler:     probeHandler,
+			FailureThreshold: 13,
+		},
 	}
 }
 
+/*
+* 		{
+			Name:      cr.Name,
+			MountPath: "/var/lib/pgsql/data",
+			SubPath:   "postgres",
+		},
+*/
 /*
  * db.image.repository - Repository for the database container
  * db.image.pullPolicy - Pull Policy for the database container
@@ -1357,11 +1350,73 @@ func newDatabaseContainer(cr *model.CryostatInstance, imageTag string, tls *TLSC
 		}
 	}
 
+	envs := []corev1.EnvVar{
+		{
+			Name:  "POSTGRESQL_USER",
+			Value: "cryostat3",
+		},
+		{
+			Name:  "POSTGRESQL_DATABASE",
+			Value: "cryostat3",
+		},
+	}
+
+	optional := false
+	secretName := cr.Name + "-db-connection-key"
+	envs = append(envs, corev1.EnvVar{
+		Name: "POSTGRESQL_PASSWORD",
+		ValueFrom: &corev1.EnvVarSource{
+			SecretKeyRef: &corev1.SecretKeySelector{
+				LocalObjectReference: corev1.LocalObjectReference{
+					Name: secretName,
+				},
+				Key:      "CONNECTION_KEY",
+				Optional: &optional,
+			},
+		},
+	})
+
+	secretName = cr.Name + "-db-encryption-key"
+	envs = append(envs, corev1.EnvVar{
+		Name: "PG_ENCRYPT_KEY",
+		ValueFrom: &corev1.EnvVarSource{
+			SecretKeyRef: &corev1.SecretKeySelector{
+				LocalObjectReference: corev1.LocalObjectReference{
+					Name: secretName,
+				},
+				Key:      "ENCRYPTION_KEY",
+				Optional: &optional,
+			},
+		},
+	})
+
+	mounts := []corev1.VolumeMount{
+		{
+			Name:      cr.Name,
+			MountPath: "/data",
+			SubPath:   "seaweed",
+		},
+	}
+
 	return corev1.Container{
 		Name:            cr.Name + "-db",
 		Image:           imageTag,
 		ImagePullPolicy: getPullPolicy(imageTag),
+		VolumeMounts:    mounts,
 		SecurityContext: containerSc,
+		Env:             envs,
+		Ports: []corev1.ContainerPort{
+			{
+				ContainerPort: constants.DatabasePort,
+			},
+		},
+		ReadinessProbe: &corev1.Probe{
+			ProbeHandler: corev1.ProbeHandler{
+				Exec: &corev1.ExecAction{
+					Command: []string{"pg_isready", "-U", "cryostat3", "-d", "cryostat3"},
+				},
+			},
+		},
 	}
 }
 

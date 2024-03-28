@@ -1310,46 +1310,6 @@ func (r *TestResources) NewCoreEnvironmentVariables(reportsUrl string, authProps
 			Value: "$(QUARKUS_S3_AWS_CREDENTIALS_STATIC_PROVIDER_ACCESS_KEY_ID)",
 		},
 		{
-			Name:  "POSTGRESQL_USER",
-			Value: "cryostat3",
-		},
-		{
-			Name:  "POSTGRESQL_DATABASE",
-			Value: "cryostat3",
-		},
-		{
-			Name:  "CRYOSTAT_BUCKETS",
-			Value: "archivedrecordings,archivedreports",
-		},
-		{
-			Name:  "CRYOSTAT_ACCESS_KEY",
-			Value: "cryostat",
-		},
-		{
-			Name:  "DATA_DIR",
-			Value: "/data",
-		},
-		{
-			Name:  "VOLUME_PREALLOCATE",
-			Value: "false",
-		},
-		{
-			Name:  "VOLUME_SIZE_LIMIT_MB",
-			Value: "500",
-		},
-		{
-			Name:  "VOLUME_MAX",
-			Value: "16",
-		},
-		{
-			Name:  "IP_BIND",
-			Value: "0.0.0.0",
-		},
-		{
-			Name:  "CRYOSTAT_WEB_PORT",
-			Value: "8181",
-		},
-		{
 			Name:  "CRYOSTAT_CONFIG_PATH",
 			Value: "/opt/cryostat.d/conf.d",
 		},
@@ -1425,7 +1385,7 @@ func (r *TestResources) NewCoreEnvironmentVariables(reportsUrl string, authProps
 		},
 	})
 
-	secretName = r.Name + "-s-storage-secret-key"
+	secretName = r.Name + "-storage-secret-key"
 	envs = append(envs, corev1.EnvVar{
 		Name: "QUARKUS_S3_AWS_CREDENTIALS_STATIC_PROVIDER_SECRET_ACCESS_KEY",
 		ValueFrom: &corev1.EnvVarSource{
@@ -1442,48 +1402,6 @@ func (r *TestResources) NewCoreEnvironmentVariables(reportsUrl string, authProps
 	envs = append(envs, corev1.EnvVar{
 		Name:  "AWS_SECRET_ACCESS_KEY",
 		Value: "$(QUARKUS_S3_AWS_CREDENTIALS_STATIC_PROVIDER_SECRET_ACCESS_KEY)",
-	})
-
-	secretName = r.Name + "-s-db-connection-key"
-	envs = append(envs, corev1.EnvVar{
-		Name: "POSTGRESQL_PASSWORD",
-		ValueFrom: &corev1.EnvVarSource{
-			SecretKeyRef: &corev1.SecretKeySelector{
-				LocalObjectReference: corev1.LocalObjectReference{
-					Name: secretName,
-				},
-				Key:      "CONNECTION_KEY",
-				Optional: &optional,
-			},
-		},
-	})
-
-	secretName = r.Name + "-s-db-encryption-key"
-	envs = append(envs, corev1.EnvVar{
-		Name: "PG_ENCRYPT_KEY",
-		ValueFrom: &corev1.EnvVarSource{
-			SecretKeyRef: &corev1.SecretKeySelector{
-				LocalObjectReference: corev1.LocalObjectReference{
-					Name: secretName,
-				},
-				Key:      "ENCRYPTION_KEY",
-				Optional: &optional,
-			},
-		},
-	})
-
-	secretName = r.Name + "-s-storage-secret-key"
-	envs = append(envs, corev1.EnvVar{
-		Name: "CRYOSTAT_SECRET_KEY",
-		ValueFrom: &corev1.EnvVarSource{
-			SecretKeyRef: &corev1.SecretKeySelector{
-				LocalObjectReference: corev1.LocalObjectReference{
-					Name: secretName,
-				},
-				Key:      "SECRET_KEY",
-				Optional: &optional,
-			},
-		},
 	})
 
 	if !r.Minimal {
@@ -1862,16 +1780,6 @@ func (r *TestResources) NewCoreVolumeMounts() []corev1.VolumeMount {
 			Name:      "cert-secrets",
 			ReadOnly:  true,
 			MountPath: "/truststore/operator",
-		},
-		{
-			Name:      r.Name,
-			MountPath: "/var/lib/pgsql/data",
-			SubPath:   "postgres",
-		},
-		{
-			Name:      r.Name,
-			MountPath: "/data",
-			SubPath:   "seaweed",
 		},
 	}
 	if r.TLS {
