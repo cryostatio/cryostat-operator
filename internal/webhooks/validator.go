@@ -35,19 +35,19 @@ type CryostatValidator struct {
 var _ admission.CustomValidator = &CryostatValidator{}
 
 // ValidateCreate validates a Create operation on a Cryostat
-func (r *CryostatValidator) ValidateCreate(ctx context.Context, obj runtime.Object) error {
+func (r *CryostatValidator) ValidateCreate(ctx context.Context, obj runtime.Object) (admission.Warnings, error) {
 	return r.validate(ctx, obj, "create")
 }
 
 // ValidateCreate validates an Update operation on a Cryostat
-func (r *CryostatValidator) ValidateUpdate(ctx context.Context, oldObj, newObj runtime.Object) error {
+func (r *CryostatValidator) ValidateUpdate(ctx context.Context, oldObj, newObj runtime.Object) (admission.Warnings, error) {
 	return r.validate(ctx, newObj, "update")
 }
 
 // ValidateCreate validates a Delete operation on a Cryostat
-func (r *CryostatValidator) ValidateDelete(ctx context.Context, obj runtime.Object) error {
+func (r *CryostatValidator) ValidateDelete(ctx context.Context, obj runtime.Object) (admission.Warnings, error) {
 	// Nothing to validate on deletion
-	return nil
+	return nil, nil
 }
 
 type ErrNotPermitted struct {
@@ -68,17 +68,17 @@ func (e *ErrNotPermitted) Error() string {
 
 var _ error = &ErrNotPermitted{}
 
-func (r *CryostatValidator) validate(ctx context.Context, obj runtime.Object, op string) error {
+func (r *CryostatValidator) validate(ctx context.Context, obj runtime.Object, op string) (admission.Warnings, error) {
 	cr, ok := obj.(*operatorv1beta2.Cryostat)
 	if !ok {
-		return fmt.Errorf("expected a Cryostat, but received a %T", obj)
+		return nil, fmt.Errorf("expected a Cryostat, but received a %T", obj)
 	}
 	r.Log.Info(fmt.Sprintf("validate %s", op), "name", cr.Name, "namespace", cr.Namespace)
 
 	// Look up the user who made this request
 	req, err := admission.RequestFromContext(ctx)
 	if err != nil {
-		return fmt.Errorf("no admission request found in context: %w", err)
+		return nil, fmt.Errorf("no admission request found in context: %w", err)
 	}
 	userInfo := req.UserInfo
 
@@ -103,15 +103,15 @@ func (r *CryostatValidator) validate(ctx context.Context, obj runtime.Object, op
 
 		err := r.Client.Create(ctx, sar)
 		if err != nil {
-			return fmt.Errorf("failed to check permissions: %w", err)
+			return nil, fmt.Errorf("failed to check permissions: %w", err)
 		}
 
 		if !sar.Status.Allowed {
-			return NewErrNotPermitted(op, namespace)
+			return nil, NewErrNotPermitted(op, namespace)
 		}
 	}
 
-	return nil
+	return nil, nil
 }
 
 func translateExtra(extra map[string]authnv1.ExtraValue) map[string]authzv1.ExtraValue {

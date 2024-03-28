@@ -9,15 +9,6 @@ rules:
   - ""
   resources:
   - configmaps
-  - configmaps/finalizers
-  - secrets
-  - services
-  verbs:
-  - '*'
-- apiGroups:
-  - ""
-  resources:
-  - configmaps
   - endpoints
   - events
   - persistentvolumeclaims
@@ -43,19 +34,22 @@ rules:
   verbs:
   - get
 - apiGroups:
+  - ""
+  resourceNames:
+  - pull-secret
+  resources:
+  - secrets
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
   - apps
   resources:
   - daemonsets
   - deployments
   - replicasets
   - statefulsets
-  verbs:
-  - '*'
-- apiGroups:
-  - apps
-  resources:
-  - deployments
-  - deployments/finalizers
   verbs:
   - '*'
 - apiGroups:
@@ -192,6 +186,40 @@ metadata:
   name: role
   namespace: system
 rules:
+- apiGroups:
+  - ""
+  resources:
+  - configmaps
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - update
+  - watch
+- apiGroups:
+  - ""
+  resources:
+  - configmaps/finalizers
+  - secrets
+  - services
+  verbs:
+  - create
+  - get
+  - list
+  - update
+  - watch
+- apiGroups:
+  - apps
+  resources:
+  - deployments
+  - deployments/finalizers
+  verbs:
+  - create
+  - get
+  - list
+  - update
+  - watch
 - apiGroups:
   - monitoring.coreos.com
   resources:

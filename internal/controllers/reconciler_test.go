@@ -90,7 +90,8 @@ func (c *controllerTest) commonJustBeforeEach(t *cryostatTestInput) {
 	// TODO When using envtest instead of fake client, this is probably no longer needed
 	err := test.SetCreationTimestamp(t.objs...)
 	Expect(err).ToNot(HaveOccurred())
-	t.Client = fake.NewClientBuilder().WithScheme(s).WithObjects(t.objs...).Build()
+	t.Client = fake.NewClientBuilder().WithScheme(s).WithObjects(t.objs...).
+		WithStatusSubresource(&operatorv1beta2.Cryostat{}, &certv1.Certificate{}, &openshiftv1.Route{}).Build()
 	t.controller, err = c.constructorFunc(t.newReconcilerConfig(s, t.Client))
 	Expect(err).ToNot(HaveOccurred())
 }
@@ -1938,7 +1939,15 @@ func (c *controllerTest) commonTests() {
 				t.reconcileCryostatFully()
 			})
 			It("should update the Ingresses", func() {
-				t.expectIngresses()
+				expected := t.NewGrafanaIngress()
+				metav1.SetMetaDataAnnotation(&expected.ObjectMeta, "other-grafana", "annotation")
+				metav1.SetMetaDataLabel(&expected.ObjectMeta, "other-grafana", "label")
+				t.checkIngress(expected)
+
+				expected = t.NewCoreIngress()
+				metav1.SetMetaDataAnnotation(&expected.ObjectMeta, "other", "annotation")
+				metav1.SetMetaDataLabel(&expected.ObjectMeta, "other", "label")
+				t.checkIngress(expected)
 			})
 		})
 		Context("networkConfig for one of the services is nil", func() {
@@ -2217,26 +2226,13 @@ func (t *cryostatTestInput) reconcileCryostatFully() {
 	}).WithTimeout(time.Minute).WithPolling(time.Millisecond).Should(Equal(reconcile.Result{}))
 }
 
-func (t *cryostatTestInput) reconcileCryostatFullyWithError() error {
-	var reconcileErr error
-	Eventually(func() error {
-		result, err := t.reconcile()
-		if err == nil {
-			Expect(result).ToNot(Equal(reconcile.Result{}))
-		}
-		reconcileErr = err
-		return err
-	}).WithTimeout(time.Minute).WithPolling(time.Millisecond).Should(Not(BeNil()))
-	return reconcileErr
-}
-
 func (t *cryostatTestInput) reconcileDeletedCryostat() {
-	// Simulate deletion by setting DeletionTimestamp
 	cr := t.getCryostatInstance()
 
-	delTime := metav1.Unix(0, 1598045501618*int64(time.Millisecond))
-	cr.Object.SetDeletionTimestamp(&delTime)
-	t.updateCryostatInstance(cr)
+	// Check that the finalizer is set, then delete
+	Expect(controllerutil.ContainsFinalizer(cr.Object, "operator.cryostat.io/cryostat.finalizer"))
+	err := t.Client.Delete(context.Background(), cr.Object)
+	Expect(err).ToNot(HaveOccurred())
 
 	// Reconcile again
 	t.reconcileCryostatFully()
@@ -2372,21 +2368,17 @@ func (t *cryostatTestInput) expectNoRoutes() {
 }
 
 func (t *cryostatTestInput) expectIngresses() {
-	cr := t.getCryostatInstance()
-	expectedConfig := cr.Spec.NetworkOptions
+	t.checkIngress(t.NewCoreIngress())
+	t.checkIngress(t.NewGrafanaIngress())
+}
 
+func (t *cryostatTestInput) checkIngress(expected *netv1.Ingress) {
 	ingress := &netv1.Ingress{}
-	err := t.Client.Get(context.Background(), types.NamespacedName{Name: t.Name, Namespace: t.Namespace}, ingress)
+	err := t.Client.Get(context.Background(), types.NamespacedName{Name: expected.Name, Namespace: expected.Namespace}, ingress)
 	Expect(err).ToNot(HaveOccurred())
-	Expect(ingress.Annotations).To(Equal(expectedConfig.CoreConfig.Annotations))
-	Expect(ingress.Labels).To(Equal(expectedConfig.CoreConfig.Labels))
-	Expect(ingress.Spec).To(Equal(*expectedConfig.CoreConfig.IngressSpec))
-
-	err = t.Client.Get(context.Background(), types.NamespacedName{Name: t.Name + "-grafana", Namespace: t.Namespace}, ingress)
-	Expect(err).ToNot(HaveOccurred())
-	Expect(ingress.Annotations).To(Equal(expectedConfig.GrafanaConfig.Annotations))
-	Expect(ingress.Labels).To(Equal(expectedConfig.GrafanaConfig.Labels))
-	Expect(ingress.Spec).To(Equal(*expectedConfig.GrafanaConfig.IngressSpec))
+	Expect(ingress.Annotations).To(Equal(expected.Annotations))
+	Expect(ingress.Labels).To(Equal(expected.Labels))
+	Expect(ingress.Spec).To(Equal(expected.Spec))
 }
 
 func (t *cryostatTestInput) expectNoIngresses() {
