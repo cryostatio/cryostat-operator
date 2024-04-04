@@ -51,11 +51,10 @@ func OperatorInstallTest(bundle *apimanifests.Bundle, namespace string, openShif
 	// Poll the deployment until it becomes available or we timeout
 	ctx, cancel := context.WithTimeout(context.Background(), testTimeout)
 	defer cancel()
-	err = r.waitForDeploymentAvailability(ctx)
+	err = r.waitForDeploymentAvailability(ctx, operatorDeploymentName, namespace)
 	if err != nil {
 		return r.fail(fmt.Sprintf("operator deployment did not become available: %s", err.Error()))
 	}
-
 	return r.TestResult
 }
 
@@ -80,7 +79,7 @@ func CryostatCRTest(bundle *apimanifests.Bundle, namespace string, openShiftCert
 // CryostatMultiNamespaceTest checks that the operator installs multi-namespace Cryostat in response to a multi-namespace Cryostat CR
 func CryostatMultiNamespaceTest(bundle *apimanifests.Bundle, namespace string, openShiftCertManager bool) *scapiv1alpha3.TestResult {
 	r := newTestResources(CryostatMultiNamespaceTestName, namespace)
-	r.TargetNamespaces = []string{"other-scorecard-namespace"}
+	r.TargetNamespaces = []string{namespace + "-other"}
 
 	err := r.setupCRTestResources(openShiftCertManager)
 	if err != nil {

@@ -53,12 +53,12 @@ type TestResources struct {
 	*scapiv1alpha3.TestResult
 }
 
-func (r *TestResources) waitForDeploymentAvailability(ctx context.Context) error {
+func (r *TestResources) waitForDeploymentAvailability(ctx context.Context, name string, namespace string) error {
 	err := wait.PollImmediateUntilWithContext(ctx, time.Second, func(ctx context.Context) (done bool, err error) {
-		deploy, err := r.Client.AppsV1().Deployments(r.Namespace).Get(ctx, r.Name, metav1.GetOptions{})
+		deploy, err := r.Client.AppsV1().Deployments(namespace).Get(ctx, name, metav1.GetOptions{})
 		if err != nil {
 			if kerrors.IsNotFound(err) {
-				r.Log += fmt.Sprintf("deployment %s is not yet found\n", r.Name)
+				r.Log += fmt.Sprintf("deployment %s is not yet found\n", name)
 				return false, nil // Retry
 			}
 			return false, fmt.Errorf("failed to get deployment: %s", err.Error())
@@ -367,7 +367,7 @@ func (r *TestResources) createAndWaitTillCryostatAvailable(cr *operatorv1beta2.C
 	// Poll the deployment until it becomes available or we timeout
 	ctx, cancel := context.WithTimeout(context.Background(), testTimeout)
 	defer cancel()
-	err = r.waitForDeploymentAvailability(ctx)
+	err = r.waitForDeploymentAvailability(ctx, r.Name, r.Namespace)
 	if err != nil {
 		r.logError(fmt.Sprintf("Cryostat main deployment did not become available: %s", err.Error()))
 		return nil, err
@@ -427,7 +427,7 @@ func (r *TestResources) waitTillReportReady(port int32) error {
 	ctx, cancel := context.WithTimeout(context.Background(), testTimeout)
 	defer cancel()
 
-	err := r.waitForDeploymentAvailability(ctx)
+	err := r.waitForDeploymentAvailability(ctx, r.Name+"-reports", r.Namespace)
 	if err != nil {
 		return fmt.Errorf("report sidecar deployment did not become available: %s", err.Error())
 	}
