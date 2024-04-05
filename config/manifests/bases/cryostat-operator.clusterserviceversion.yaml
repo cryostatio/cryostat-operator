@@ -415,8 +415,8 @@ spec:
       version: v1beta2
     - description: Cryostat allows you to install Cryostat for a single namespace.
         It contains configuration options for controlling the Deployment of the Cryostat
-        application and its related components. A ClusterCryostat or Cryostat instance
-        must be created to instruct the operator to deploy the Cryostat application.
+        application and its related components. A Cryostat instance must be created
+        to instruct the operator to deploy the Cryostat application.
       displayName: Cryostat
       kind: Cryostat
       name: cryostats.operator.cryostat.io

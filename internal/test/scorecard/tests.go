@@ -20,7 +20,7 @@ import (
 	"net/url"
 	"time"
 
-	operatorv1beta1 "github.com/cryostatio/cryostat-operator/api/v1beta1"
+	operatorv1beta2 "github.com/cryostatio/cryostat-operator/api/v1beta2"
 	scapiv1alpha3 "github.com/operator-framework/api/pkg/apis/scorecard/v1alpha3"
 	apimanifests "github.com/operator-framework/api/pkg/manifests"
 	corev1 "k8s.io/api/core/v1"
@@ -29,66 +29,92 @@ import (
 )
 
 const (
-	OperatorInstallTestName      string = "operator-install"
-	CryostatCRTestName           string = "cryostat-cr"
-	CryostatRecordingTestName    string = "cryostat-recording"
-	CryostatConfigChangeTestName string = "cryostat-config-change"
-	CryostatReportTestName       string = "cryostat-report"
+	OperatorInstallTestName        string = "operator-install"
+	CryostatCRTestName             string = "cryostat-cr"
+	CryostatMultiNamespaceTestName string = "cryostat-multi-namespace"
+	CryostatRecordingTestName      string = "cryostat-recording"
+	CryostatConfigChangeTestName   string = "cryostat-config-change"
+	CryostatReportTestName         string = "cryostat-report"
 )
 
 // OperatorInstallTest checks that the operator installed correctly
 func OperatorInstallTest(bundle *apimanifests.Bundle, namespace string, openShiftCertManager bool) *scapiv1alpha3.TestResult {
-	r := newTestResources(OperatorInstallTestName)
+	r := newTestResources(OperatorInstallTestName, namespace)
 
 	// Create a new Kubernetes REST client for this test
 	err := r.setupCRTestResources(openShiftCertManager)
 	if err != nil {
 		return r.fail(fmt.Sprintf("failed to set up %s test: %s", OperatorInstallTestName, err.Error()))
 	}
-	defer r.cleanupAndLogs(OperatorInstallTestName, namespace)
+	defer r.cleanupAndLogs()
 
 	// Poll the deployment until it becomes available or we timeout
 	ctx, cancel := context.WithTimeout(context.Background(), testTimeout)
 	defer cancel()
-	err = r.waitForDeploymentAvailability(ctx, namespace, operatorDeploymentName)
+	err = r.waitForDeploymentAvailability(ctx, operatorDeploymentName, namespace)
 	if err != nil {
 		return r.fail(fmt.Sprintf("operator deployment did not become available: %s", err.Error()))
 	}
-
 	return r.TestResult
 }
 
 // CryostatCRTest checks that the operator installs Cryostat in response to a Cryostat CR
 func CryostatCRTest(bundle *apimanifests.Bundle, namespace string, openShiftCertManager bool) *scapiv1alpha3.TestResult {
-	r := newTestResources(CryostatCRTestName)
+	r := newTestResources(CryostatCRTestName, namespace)
 
 	err := r.setupCRTestResources(openShiftCertManager)
 	if err != nil {
 		return r.fail(fmt.Sprintf("failed to set up %s test: %s", CryostatCRTestName, err.Error()))
 	}
-	defer r.cleanupAndLogs(CryostatCRTestName, namespace)
+	defer r.cleanupAndLogs()
 
 	// Create a default Cryostat CR
-	_, err = r.createAndWaitTillCryostatAvailable(newCryostatCR(CryostatCRTestName, namespace, !r.OpenShift))
+	_, err = r.createAndWaitTillCryostatAvailable(r.newCryostatCR())
 	if err != nil {
 		return r.fail(fmt.Sprintf("%s test failed: %s", CryostatCRTestName, err.Error()))
 	}
 	return r.TestResult
 }
 
+// CryostatMultiNamespaceTest checks that the operator installs multi-namespace Cryostat in response to a multi-namespace Cryostat CR
+func CryostatMultiNamespaceTest(bundle *apimanifests.Bundle, namespace string, openShiftCertManager bool) *scapiv1alpha3.TestResult {
+	r := newTestResources(CryostatMultiNamespaceTestName, namespace)
+	r.TargetNamespaces = []string{namespace + "-other"}
+
+	err := r.setupCRTestResources(openShiftCertManager)
+	if err != nil {
+		return r.fail(fmt.Sprintf("failed to set up %s test: %s", CryostatMultiNamespaceTestName, err.Error()))
+	}
+	defer r.cleanupAndLogs()
+
+	err = r.setupTargetNamespace()
+	if err != nil {
+		return r.fail(fmt.Sprintf("failed to create target namespaces for %s test: %s", CryostatMultiNamespaceTestName, err.Error()))
+	}
+
+	// Create a default ClusterCryostat CR
+	_, err = r.createAndWaitTillCryostatAvailable(r.newMultiNamespaceCryostatCR())
+	if err != nil {
+		return r.fail(fmt.Sprintf("%s test failed: %s", CryostatMultiNamespaceTestName, err.Error()))
+	}
+
+	return r.TestResult
+}
+
+// CryostatConfigChangeTest checks that the operator redeploys Cryostat in response to a change to Cryostat CR
 func CryostatConfigChangeTest(bundle *apimanifests.Bundle, namespace string, openShiftCertManager bool) *scapiv1alpha3.TestResult {
-	r := newTestResources(CryostatConfigChangeTestName)
+	r := newTestResources(CryostatConfigChangeTestName, namespace)
 
 	err := r.setupCRTestResources(openShiftCertManager)
 	if err != nil {
 		return r.fail(fmt.Sprintf("failed to set up %s test: %s", CryostatConfigChangeTestName, err.Error()))
 	}
-	defer r.cleanupAndLogs(CryostatConfigChangeTestName, namespace)
+	defer r.cleanupAndLogs()
 
 	// Create a default Cryostat CR with default empty dir
-	cr := newCryostatCR(CryostatConfigChangeTestName, namespace, !r.OpenShift)
-	cr.Spec.StorageOptions = &operatorv1beta1.StorageConfiguration{
-		EmptyDir: &operatorv1beta1.EmptyDirConfig{
+	cr := r.newCryostatCR()
+	cr.Spec.StorageOptions = &operatorv1beta2.StorageConfiguration{
+		EmptyDir: &operatorv1beta2.EmptyDirConfig{
 			Enabled: true,
 		},
 	}
@@ -106,8 +132,8 @@ func CryostatConfigChangeTest(bundle *apimanifests.Bundle, namespace string, ope
 	if err != nil {
 		return r.fail(fmt.Sprintf("failed to get Cryostat CR: %s", err.Error()))
 	}
-	cr.Spec.StorageOptions = &operatorv1beta1.StorageConfiguration{
-		PVC: &operatorv1beta1.PersistentVolumeClaimConfig{
+	cr.Spec.StorageOptions = &operatorv1beta2.StorageConfiguration{
+		PVC: &operatorv1beta2.PersistentVolumeClaimConfig{
 			Spec: &corev1.PersistentVolumeClaimSpec{
 				StorageClassName: nil,
 				Resources: corev1.ResourceRequirements{
@@ -141,16 +167,16 @@ func CryostatConfigChangeTest(bundle *apimanifests.Bundle, namespace string, ope
 
 // TODO add a built in discovery test too
 func CryostatRecordingTest(bundle *apimanifests.Bundle, namespace string, openShiftCertManager bool) *scapiv1alpha3.TestResult {
-	r := newTestResources(CryostatRecordingTestName)
+	r := newTestResources(CryostatRecordingTestName, namespace)
 
 	err := r.setupCRTestResources(openShiftCertManager)
 	if err != nil {
 		return r.fail(fmt.Sprintf("failed to set up %s test: %s", CryostatRecordingTestName, err.Error()))
 	}
-	defer r.cleanupAndLogs(CryostatRecordingTestName, namespace)
+	defer r.cleanupAndLogs()
 
 	// Create a default Cryostat CR
-	cr, err := r.createAndWaitTillCryostatAvailable(newCryostatCR(CryostatRecordingTestName, namespace, !r.OpenShift))
+	cr, err := r.createAndWaitTillCryostatAvailable(r.newCryostatCR())
 	if err != nil {
 		return r.fail(fmt.Sprintf("failed to determine application URL: %s", err.Error()))
 	}
@@ -280,34 +306,35 @@ func CryostatRecordingTest(bundle *apimanifests.Bundle, namespace string, openSh
 	return r.TestResult
 }
 
+// CryostatReportTest checks that the operator deploys a report sidecar in response to a Cryostat CR
 func CryostatReportTest(bundle *apimanifests.Bundle, namespace string, openShiftCertManager bool) *scapiv1alpha3.TestResult {
-	r := newTestResources(CryostatReportTestName)
+	r := newTestResources(CryostatReportTestName, namespace)
 
 	err := r.setupCRTestResources(openShiftCertManager)
 	if err != nil {
 		return r.fail(fmt.Sprintf("failed to set up %s test: %s", CryostatReportTestName, err.Error()))
 	}
-	defer r.cleanupAndLogs(CryostatReportTestName, namespace)
+	defer r.cleanupAndLogs()
 
 	port := int32(10000)
-	cr := newCryostatCR(CryostatReportTestName, namespace, !r.OpenShift)
-	cr.Spec.ReportOptions = &operatorv1beta1.ReportConfiguration{
+	cr := r.newCryostatCR()
+	cr.Spec.ReportOptions = &operatorv1beta2.ReportConfiguration{
 		Replicas: 1,
 	}
-	cr.Spec.ServiceOptions = &operatorv1beta1.ServiceConfigList{
-		ReportsConfig: &operatorv1beta1.ReportsServiceConfig{
+	cr.Spec.ServiceOptions = &operatorv1beta2.ServiceConfigList{
+		ReportsConfig: &operatorv1beta2.ReportsServiceConfig{
 			HTTPPort: &port,
 		},
 	}
 
 	// Create a default Cryostat CR
-	cr, err = r.createAndWaitTillCryostatAvailable(cr)
+	_, err = r.createAndWaitTillCryostatAvailable(cr)
 	if err != nil {
 		return r.fail(fmt.Sprintf("%s test failed: %s", CryostatReportTestName, err.Error()))
 	}
 
 	// Query health of report sidecar
-	err = r.waitTillReportReady(cr.Name+"-reports", cr.Namespace, port)
+	err = r.waitTillReportReady(port)
 	if err != nil {
 		return r.fail(fmt.Sprintf("failed to reach the application: %s", err.Error()))
 	}

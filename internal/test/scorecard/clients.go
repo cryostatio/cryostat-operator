@@ -26,7 +26,7 @@ import (
 	"strings"
 	"time"
 
-	operatorv1beta1 "github.com/cryostatio/cryostat-operator/api/v1beta1"
+	operatorv1beta2 "github.com/cryostatio/cryostat-operator/api/v1beta2"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
@@ -101,10 +101,10 @@ func newOperatorCRDClient(config *rest.Config) (*OperatorCRDClient, error) {
 
 func newCRDClient(config *rest.Config) (*rest.RESTClient, error) {
 	scheme := runtime.NewScheme()
-	if err := operatorv1beta1.AddToScheme(scheme); err != nil {
+	if err := operatorv1beta2.AddToScheme(scheme); err != nil {
 		return nil, err
 	}
-	return newRESTClientForGV(config, scheme, &operatorv1beta1.GroupVersion)
+	return newRESTClientForGV(config, scheme, &operatorv1beta2.GroupVersion)
 }
 
 func newRESTClientForGV(config *rest.Config, scheme *runtime.Scheme, gv *schema.GroupVersion) (*rest.RESTClient, error) {
@@ -125,18 +125,18 @@ type CryostatClient struct {
 }
 
 // Get returns a Cryostat CR for the given name
-func (c *CryostatClient) Get(ctx context.Context, name string) (*operatorv1beta1.Cryostat, error) {
-	return get(ctx, c.restClient, c.resource, c.namespace, name, &operatorv1beta1.Cryostat{})
+func (c *CryostatClient) Get(ctx context.Context, name string) (*operatorv1beta2.Cryostat, error) {
+	return get(ctx, c.restClient, c.resource, c.namespace, name, &operatorv1beta2.Cryostat{})
 }
 
 // Create creates the provided Cryostat CR
-func (c *CryostatClient) Create(ctx context.Context, obj *operatorv1beta1.Cryostat) (*operatorv1beta1.Cryostat, error) {
-	return create(ctx, c.restClient, c.resource, c.namespace, obj, &operatorv1beta1.Cryostat{})
+func (c *CryostatClient) Create(ctx context.Context, obj *operatorv1beta2.Cryostat) (*operatorv1beta2.Cryostat, error) {
+	return create(ctx, c.restClient, c.resource, c.namespace, obj, &operatorv1beta2.Cryostat{})
 }
 
 // Update updates the provided Cryostat CR
-func (c *CryostatClient) Update(ctx context.Context, obj *operatorv1beta1.Cryostat) (*operatorv1beta1.Cryostat, error) {
-	return update(ctx, c.restClient, c.resource, c.namespace, obj, &operatorv1beta1.Cryostat{}, obj.Name)
+func (c *CryostatClient) Update(ctx context.Context, obj *operatorv1beta2.Cryostat) (*operatorv1beta2.Cryostat, error) {
+	return update(ctx, c.restClient, c.resource, c.namespace, obj, &operatorv1beta2.Cryostat{}, obj.Name)
 }
 
 // Delete deletes the Cryostat CR with the given name

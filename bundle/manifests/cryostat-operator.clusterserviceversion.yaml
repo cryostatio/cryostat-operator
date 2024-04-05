@@ -53,7 +53,7 @@ metadata:
     capabilities: Seamless Upgrades
     categories: Monitoring, Developer Tools
     containerImage: quay.io/cryostat/cryostat-operator:3.0.0-dev
-    createdAt: "2024-03-27T18:30:58Z"
+    createdAt: "2024-04-04T17:19:02Z"
     description: JVM monitoring and profiling tool
     operatorframework.io/initialization-resource: |-
       {
@@ -85,8 +85,8 @@ spec:
     owned:
     - description: Cryostat allows you to install Cryostat for a single namespace.
         It contains configuration options for controlling the Deployment of the Cryostat
-        application and its related components. A ClusterCryostat or Cryostat instance
-        must be created to instruct the operator to deploy the Cryostat application.
+        application and its related components. A Cryostat instance must be created
+        to instruct the operator to deploy the Cryostat application.
       displayName: Cryostat
       kind: Cryostat
       name: cryostats.operator.cryostat.io
