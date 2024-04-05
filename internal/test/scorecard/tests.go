@@ -29,11 +29,12 @@ import (
 )
 
 const (
-	OperatorInstallTestName      string = "operator-install"
-	CryostatCRTestName           string = "cryostat-cr"
-	CryostatRecordingTestName    string = "cryostat-recording"
-	CryostatConfigChangeTestName string = "cryostat-config-change"
-	CryostatReportTestName       string = "cryostat-report"
+	OperatorInstallTestName        string = "operator-install"
+	CryostatCRTestName             string = "cryostat-cr"
+	CryostatMultiNamespaceTestName string = "cryostat-multi-namespace"
+	CryostatConfigChangeTestName   string = "cryostat-config-change"
+	CryostatRecordingTestName      string = "cryostat-recording"
+	CryostatReportTestName         string = "cryostat-report"
 )
 
 // OperatorInstallTest checks that the operator installed correctly
@@ -76,6 +77,34 @@ func CryostatCRTest(bundle *apimanifests.Bundle, namespace string, openShiftCert
 	return r.TestResult
 }
 
+// CryostatMultiNamespaceTest checks that the operator installs ClusterCryostat in response to a ClusterCryostat CR
+func CryostatMultiNamespaceTest(bundle *apimanifests.Bundle, namespace string, openShiftCertManager bool) *scapiv1alpha3.TestResult {
+	r := newTestResources(CryostatMultiNamespaceTestName)
+	namespaces := []string{namespace + "-other"}
+
+	err := r.setupCRTestResources(openShiftCertManager)
+	if err != nil {
+		return r.fail(fmt.Sprintf("failed to set up %s test: %s", CryostatMultiNamespaceTestName, err.Error()))
+	}
+	defer r.cleanupClusterCryostat(CryostatMultiNamespaceTestName, namespace, namespaces)
+
+	for _, ns := range namespaces {
+		err = r.setupTargetNamespace(ns)
+		if err != nil {
+			return r.fail(fmt.Sprintf("failed to create an additional namespace %s for %s test: %s", ns, CryostatMultiNamespaceTestName, err.Error()))
+		}
+	}
+
+	// Create a default ClusterCryostat CR
+	_, err = r.createAndWaitTillClusterCryostatAvailable(newClusterCryostatCR(CryostatMultiNamespaceTestName, namespace, namespaces, !r.OpenShift))
+	if err != nil {
+		return r.fail(fmt.Sprintf("%s test failed: %s", CryostatMultiNamespaceTestName, err.Error()))
+	}
+
+	return r.TestResult
+}
+
+// CryostatConfigChangeTest checks that the operator redeploys Cryostat in response to a change to Cryostat CR
 func CryostatConfigChangeTest(bundle *apimanifests.Bundle, namespace string, openShiftCertManager bool) *scapiv1alpha3.TestResult {
 	r := newTestResources(CryostatConfigChangeTestName)
 
@@ -280,6 +309,7 @@ func CryostatRecordingTest(bundle *apimanifests.Bundle, namespace string, openSh
 	return r.TestResult
 }
 
+// CryostatReportTest checks that the operator deploys a report sidecar in response to a Cryostat CR
 func CryostatReportTest(bundle *apimanifests.Bundle, namespace string, openShiftCertManager bool) *scapiv1alpha3.TestResult {
 	r := newTestResources(CryostatReportTestName)
 
