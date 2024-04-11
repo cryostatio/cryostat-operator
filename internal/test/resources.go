@@ -1400,6 +1400,11 @@ func (r *TestResources) NewCoreEnvironmentVariables(reportsUrl string, authProps
 	})
 
 	envs = append(envs, corev1.EnvVar{
+		Name:  "QUARKUS_S3_AWS_CREDENTIALS_STATIC_PROVIDER_ACCESS_KEY_ID",
+		Value: "cryostat",
+	})
+
+	envs = append(envs, corev1.EnvVar{
 		Name:  "AWS_SECRET_ACCESS_KEY",
 		Value: "$(QUARKUS_S3_AWS_CREDENTIALS_STATIC_PROVIDER_SECRET_ACCESS_KEY)",
 	})
