@@ -910,11 +910,11 @@ func (r *TestResources) OtherGrafanaSecret() *corev1.Secret {
 func (r *TestResources) NewCredentialsDatabaseSecret() *corev1.Secret {
 	return &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      r.Name + "-jmx-credentials-db",
+			Name:      r.Name + "-db-connection-key",
 			Namespace: r.Namespace,
 		},
 		StringData: map[string]string{
-			"CRYOSTAT_JMX_CREDENTIALS_DB_PASSWORD": "credentials_database",
+			"CONNECTION_KEY": "credentials_database",
 		},
 	}
 }
@@ -934,11 +934,11 @@ func (r *TestResources) NewStorageSecret() *corev1.Secret {
 func (r *TestResources) OtherCredentialsDatabaseSecret() *corev1.Secret {
 	return &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      r.Name + "-jmx-credentials-db",
+			Name:      r.Name + "-db-connection-key",
 			Namespace: r.Namespace,
 		},
 		StringData: map[string]string{
-			"CRYOSTAT_JMX_CREDENTIALS_DB_PASSWORD": "other-pass",
+			"CONNECTION_KEY": "other-pass",
 		},
 	}
 }
@@ -1371,20 +1371,6 @@ func (r *TestResources) NewCoreEnvironmentVariables(reportsUrl string, authProps
 		secretName = providedDatabaseSecretName
 	}
 	envs = append(envs, corev1.EnvVar{
-		Name: "CRYOSTAT_JMX_CREDENTIALS_DB_PASSWORD",
-		ValueFrom: &corev1.EnvVarSource{
-			SecretKeyRef: &corev1.SecretKeySelector{
-				LocalObjectReference: corev1.LocalObjectReference{
-					Name: secretName,
-				},
-				Key:      "CRYOSTAT_JMX_CREDENTIALS_DB_PASSWORD",
-				Optional: &optional,
-			},
-		},
-	})
-
-	secretName = r.Name + "-db-connection-key"
-	envs = append(envs, corev1.EnvVar{
 		Name: "QUARKUS_DATASOURCE_PASSWORD",
 		ValueFrom: &corev1.EnvVarSource{
 			SecretKeyRef: &corev1.SecretKeySelector{
@@ -1397,7 +1383,7 @@ func (r *TestResources) NewCoreEnvironmentVariables(reportsUrl string, authProps
 		},
 	})
 
-	secretName = r.Name + "-storage-secret-key"
+	secretName = r.NewStorageSecret().Name
 	envs = append(envs, corev1.EnvVar{
 		Name: "QUARKUS_S3_AWS_CREDENTIALS_STATIC_PROVIDER_SECRET_ACCESS_KEY",
 		ValueFrom: &corev1.EnvVarSource{

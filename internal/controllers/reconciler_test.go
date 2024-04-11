@@ -593,7 +593,7 @@ func (c *controllerTest) commonTests() {
 				Expect(err).ToNot(HaveOccurred())
 
 				Expect(metav1.IsControlledBy(secret, cr.Object)).To(BeTrue())
-				Expect(secret.StringData["CRYOSTAT_JMX_CREDENTIALS_DB_PASSWORD"]).To(Equal(oldSecret.StringData["CRYOSTAT_JMX_CREDENTIALS_DB_PASSWORD"]))
+				Expect(secret.StringData["CONNECTION_KEY"]).To(Equal(oldSecret.StringData["CONNECTION_KEY"]))
 			})
 		})
 		Context("with existing Routes", func() {
@@ -1802,7 +1802,7 @@ func (c *controllerTest) commonTests() {
 			})
 			It("should not generate default secret", func() {
 				secret := &corev1.Secret{}
-				err := t.Client.Get(context.Background(), types.NamespacedName{Name: t.Name + "-jmx-credentials-db", Namespace: t.Namespace}, secret)
+				err := t.Client.Get(context.Background(), types.NamespacedName{Name: t.Name + "-db-connection-key", Namespace: t.Namespace}, secret)
 				Expect(kerrors.IsNotFound(err)).To(BeTrue())
 			})
 			Context("with an existing Credentials Database Secret", func() {
@@ -1811,7 +1811,7 @@ func (c *controllerTest) commonTests() {
 				})
 				It("should not delete the existing Credentials Database Secret", func() {
 					secret := &corev1.Secret{}
-					err := t.Client.Get(context.Background(), types.NamespacedName{Name: t.Name + "-jmx-credentials-db", Namespace: t.Namespace}, secret)
+					err := t.Client.Get(context.Background(), types.NamespacedName{Name: t.Name + "-db-connection-key", Namespace: t.Namespace}, secret)
 					Expect(err).ToNot(HaveOccurred())
 				})
 			})
@@ -2640,7 +2640,7 @@ func (t *cryostatTestInput) expectGrafanaSecret() {
 
 func (t *cryostatTestInput) expectCredentialsDatabaseSecret() {
 	secret := &corev1.Secret{}
-	err := t.Client.Get(context.Background(), types.NamespacedName{Name: t.Name + "-jmx-credentials-db", Namespace: t.Namespace}, secret)
+	err := t.Client.Get(context.Background(), types.NamespacedName{Name: t.Name + "-db-connection-key", Namespace: t.Namespace}, secret)
 	Expect(err).ToNot(HaveOccurred())
 
 	// Compare to desired spec

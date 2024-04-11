@@ -759,6 +759,9 @@ func NewCoreContainer(cr *model.CryostatInstance, specs *ServiceSpecs, imageTag 
 
 	optional := false
 	secretName := cr.Name + "-db-connection-key"
+	if cr.Spec.JmxCredentialsDatabaseOptions != nil && cr.Spec.JmxCredentialsDatabaseOptions.DatabaseSecretName != nil {
+		secretName = *cr.Spec.JmxCredentialsDatabaseOptions.DatabaseSecretName
+	}
 	envs = append(envs, corev1.EnvVar{
 		Name: "QUARKUS_DATASOURCE_PASSWORD",
 		ValueFrom: &corev1.EnvVarSource{
@@ -978,24 +981,6 @@ func NewCoreContainer(cr *model.CryostatInstance, specs *ServiceSpecs, imageTag 
 			Value: cr.Name,
 		})
 	}
-
-	secretOptional := false
-	secretName = cr.Name + "-jmx-credentials-db"
-	if cr.Spec.JmxCredentialsDatabaseOptions != nil && cr.Spec.JmxCredentialsDatabaseOptions.DatabaseSecretName != nil {
-		secretName = *cr.Spec.JmxCredentialsDatabaseOptions.DatabaseSecretName
-	}
-	envs = append(envs, corev1.EnvVar{
-		Name: "CRYOSTAT_JMX_CREDENTIALS_DB_PASSWORD",
-		ValueFrom: &corev1.EnvVarSource{
-			SecretKeyRef: &corev1.SecretKeySelector{
-				LocalObjectReference: corev1.LocalObjectReference{
-					Name: secretName,
-				},
-				Key:      "CRYOSTAT_JMX_CREDENTIALS_DB_PASSWORD",
-				Optional: &secretOptional,
-			},
-		},
-	})
 
 	if !cr.Spec.Minimal {
 		grafanaVars := []corev1.EnvVar{
