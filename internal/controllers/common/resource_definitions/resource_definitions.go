@@ -633,19 +633,19 @@ func NewCoreContainer(cr *model.CryostatInstance, specs *ServiceSpecs, imageTag 
 			Value: "8181",
 		},
 		{
-			Name:  "QUARKUS_HTTP_PROXY_ADDRESS_FORWARDING",
+			Name:  "QUARKUS_HTTP_PROXY_PROXY_ADDRESS_FORWARDING",
 			Value: "true",
 		},
 		{
-			Name:  "QUARKUS_PROXY_ALLOW_X_FORWARDED",
+			Name:  "QUARKUS_HTTP_PROXY_ALLOW_X_FORWARDED",
 			Value: "true",
 		},
 		{
-			Name:  "QUARKUS_PROXY_ENABLE_FORWARDED_HOST",
+			Name:  "QUARKUS_HTTP_PROXY_ENABLE_FORWARDED_HOST",
 			Value: "true",
 		},
 		{
-			Name:  "QUARKUS_PROXY_ENABLE_FORWARDED_PREFIX",
+			Name:  "QUARKUS_HTTP_PROXY_ENABLE_FORWARDED_PREFIX",
 			Value: "true",
 		},
 		{
