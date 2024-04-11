@@ -1898,15 +1898,11 @@ func (r *TestResources) NewCoreStartupProbe() *corev1.Probe {
 }
 
 func (r *TestResources) newCoreProbeHandler() corev1.ProbeHandler {
-	protocol := corev1.URISchemeHTTPS
-	if !r.TLS {
-		protocol = corev1.URISchemeHTTP
-	}
 	return corev1.ProbeHandler{
 		HTTPGet: &corev1.HTTPGetAction{
 			Port:   intstr.IntOrString{IntVal: 8181},
 			Path:   "/health/liveness",
-			Scheme: protocol,
+			Scheme: corev1.URISchemeHTTP,
 		},
 	}
 }

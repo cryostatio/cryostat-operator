@@ -1008,7 +1008,6 @@ func NewCoreContainer(cr *model.CryostatInstance, specs *ServiceSpecs, imageTag 
 		envs = append(envs, grafanaVars...)
 	}
 
-	livenessProbeScheme := corev1.URISchemeHTTP
 	if tls == nil {
 		// If TLS isn't set up, tell Cryostat to not use it
 		envs = append(envs, corev1.EnvVar{
@@ -1044,9 +1043,6 @@ func NewCoreContainer(cr *model.CryostatInstance, specs *ServiceSpecs, imageTag 
 		}
 
 		mounts = append(mounts, keystoreMount)
-
-		// Use HTTPS for liveness probe
-		livenessProbeScheme = corev1.URISchemeHTTPS
 	}
 
 	// Mount the templates specified in Cryostat CR under /opt/cryostat.d/templates.d
@@ -1064,7 +1060,7 @@ func NewCoreContainer(cr *model.CryostatInstance, specs *ServiceSpecs, imageTag 
 		HTTPGet: &corev1.HTTPGetAction{
 			Port:   intstr.IntOrString{IntVal: constants.CryostatHTTPContainerPort},
 			Path:   "/health/liveness",
-			Scheme: livenessProbeScheme,
+			Scheme: corev1.URISchemeHTTP,
 		},
 	}
 
