@@ -1217,7 +1217,7 @@ func NewStorageContainer(cr *model.CryostatInstance, imageTag string, tls *TLSCo
 	envs := []corev1.EnvVar{
 		{
 			Name:  "CRYOSTAT_BUCKETS",
-			Value: "archivedrecordings,archivedreports",
+			Value: "archivedrecordings,archivedreports,eventtemplates",
 		},
 		{
 			Name:  "CRYOSTAT_ACCESS_KEY",
