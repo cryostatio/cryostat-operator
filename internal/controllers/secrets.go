@@ -147,7 +147,7 @@ func (r *Reconciler) reconcileDatabaseSecret(ctx context.Context, cr *model.Cryo
 const storageSecretNameSuffix = "-storage-secret-key"
 
 // storageSecretUserKey indexes the password within the Cryostat storage Secret
-const storageSecretPassKey = "CRYOSTAT_STORAGE_SECRET_KEY"
+const storageSecretPassKey = "SECRET_KEY"
 
 func (r *Reconciler) reconcileStorageSecret(ctx context.Context, cr *model.CryostatInstance) error {
 	secret := &corev1.Secret{

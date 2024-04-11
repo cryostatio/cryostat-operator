@@ -926,7 +926,7 @@ func (r *TestResources) NewStorageSecret() *corev1.Secret {
 			Namespace: r.Namespace,
 		},
 		StringData: map[string]string{
-			"CRYOSTAT_STORAGE_SECRET_KEY": "object_storage",
+			"SECRET_KEY": "object_storage",
 		},
 	}
 }
