@@ -29,7 +29,7 @@ func (r *Reconciler) reconcileSecrets(ctx context.Context, cr *model.CryostatIns
 	if err := r.reconcileGrafanaSecret(ctx, cr); err != nil {
 		return err
 	}
-	if err := r.reconcileDatabaseSecret(ctx, cr); err != nil {
+	if err := r.reconcileDatabaseConnectionSecret(ctx, cr); err != nil {
 		return err
 	}
 	if err := r.reconcileStorageSecret(ctx, cr); err != nil {
@@ -111,12 +111,15 @@ func (r *Reconciler) reconcileJMXSecret(ctx context.Context, cr *model.CryostatI
 
 // databaseSecretNameSuffix is the suffix to be appended to the name of a
 // Cryostat CR to name its credentials database secret
-const databaseSecretNameSuffix = "-db-connection-key"
+const databaseSecretNameSuffix = "-db"
 
-// dbSecretUserKey indexes the password within the Cryostat credentials database Secret
-const databaseSecretPassKey = "CONNECTION_KEY"
+// databaseSecretConnectionPassKey indexes the database connection password within the Cryostat database Secret
+const databaseSecretConnectionPassKey = "CONNECTION_KEY"
 
-func (r *Reconciler) reconcileDatabaseSecret(ctx context.Context, cr *model.CryostatInstance) error {
+// databaseSecretEncryptionKey indexes the database encryption key within the Cryostat database Secret
+const databaseSecretEncryptionKey = "ENCRYPTION_KEY"
+
+func (r *Reconciler) reconcileDatabaseConnectionSecret(ctx context.Context, cr *model.CryostatInstance) error {
 	secret := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      cr.Name + databaseSecretNameSuffix,
@@ -136,7 +139,8 @@ func (r *Reconciler) reconcileDatabaseSecret(ctx context.Context, cr *model.Cryo
 
 		// Password is generated, so don't regenerate it when updating
 		if secret.CreationTimestamp.IsZero() {
-			secret.StringData[databaseSecretPassKey] = r.GenPasswd(32)
+			secret.StringData[databaseSecretConnectionPassKey] = r.GenPasswd(32)
+			secret.StringData[databaseSecretEncryptionKey] = r.GenPasswd(32)
 		}
 		return nil
 	})

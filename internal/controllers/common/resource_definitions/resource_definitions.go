@@ -758,7 +758,7 @@ func NewCoreContainer(cr *model.CryostatInstance, specs *ServiceSpecs, imageTag 
 	}
 
 	optional := false
-	secretName := cr.Name + "-db-connection-key"
+	secretName := cr.Name + "-db"
 	if cr.Spec.JmxCredentialsDatabaseOptions != nil && cr.Spec.JmxCredentialsDatabaseOptions.DatabaseSecretName != nil {
 		secretName = *cr.Spec.JmxCredentialsDatabaseOptions.DatabaseSecretName
 	}
@@ -1347,7 +1347,7 @@ func newDatabaseContainer(cr *model.CryostatInstance, imageTag string, tls *TLSC
 	}
 
 	optional := false
-	secretName := cr.Name + "-db-connection-key"
+	secretName := cr.Name + "-db"
 	envs = append(envs, corev1.EnvVar{
 		Name: "POSTGRESQL_PASSWORD",
 		ValueFrom: &corev1.EnvVarSource{
@@ -1361,7 +1361,6 @@ func newDatabaseContainer(cr *model.CryostatInstance, imageTag string, tls *TLSC
 		},
 	})
 
-	secretName = cr.Name + "-db-encryption-key"
 	envs = append(envs, corev1.EnvVar{
 		Name: "PG_ENCRYPT_KEY",
 		ValueFrom: &corev1.EnvVarSource{

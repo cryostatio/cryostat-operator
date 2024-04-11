@@ -66,7 +66,7 @@ type cryostatTestInput struct {
 func (c *controllerTest) commonBeforeEach() *cryostatTestInput {
 	t := &cryostatTestInput{
 		TestReconcilerConfig: test.TestReconcilerConfig{
-			GeneratedPasswords: []string{"grafana", "credentials_database", "object_storage", "jmx", "keystore"},
+			GeneratedPasswords: []string{"grafana", "credentials_database", "encryption_key", "object_storage", "jmx", "keystore"},
 		},
 		TestResources: &test.TestResources{
 			Name:        "cryostat",
@@ -279,7 +279,7 @@ func (c *controllerTest) commonTests() {
 		Context("succesfully creates required resources for minimal deployment", func() {
 			BeforeEach(func() {
 				t.Minimal = true
-				t.GeneratedPasswords = []string{"credentials_database", "object_storage", "jmx", "keystore"}
+				t.GeneratedPasswords = []string{"credentials_database", "encryption_key", "object_storage", "jmx", "keystore"}
 				t.objs = append(t.objs, t.NewCryostat().Object)
 			})
 			JustBeforeEach(func() {
@@ -581,7 +581,7 @@ func (c *controllerTest) commonTests() {
 			var oldSecret *corev1.Secret
 			BeforeEach(func() {
 				cr = t.NewCryostat()
-				oldSecret = t.OtherCredentialsDatabaseSecret()
+				oldSecret = t.OtherDatabaseSecret()
 				t.objs = append(t.objs, cr.Object, oldSecret)
 			})
 			JustBeforeEach(func() {
@@ -625,7 +625,7 @@ func (c *controllerTest) commonTests() {
 		Context("Switching from a minimal to a non-minimal deployment", func() {
 			BeforeEach(func() {
 				t.Minimal = true
-				t.GeneratedPasswords = []string{"credentials_database", "object_storage", "jmx", "keystore", "grafana"}
+				t.GeneratedPasswords = []string{"credentials_database", "encryption_key", "object_storage", "jmx", "keystore", "grafana"}
 				t.objs = append(t.objs, t.NewCryostat().Object)
 			})
 			JustBeforeEach(func() {
@@ -1802,16 +1802,16 @@ func (c *controllerTest) commonTests() {
 			})
 			It("should not generate default secret", func() {
 				secret := &corev1.Secret{}
-				err := t.Client.Get(context.Background(), types.NamespacedName{Name: t.Name + "-db-connection-key", Namespace: t.Namespace}, secret)
+				err := t.Client.Get(context.Background(), types.NamespacedName{Name: t.Name + "-db", Namespace: t.Namespace}, secret)
 				Expect(kerrors.IsNotFound(err)).To(BeTrue())
 			})
 			Context("with an existing Credentials Database Secret", func() {
 				BeforeEach(func() {
-					t.objs = append(t.objs, t.NewCredentialsDatabaseSecret())
+					t.objs = append(t.objs, t.NewDatabaseSecret())
 				})
 				It("should not delete the existing Credentials Database Secret", func() {
 					secret := &corev1.Secret{}
-					err := t.Client.Get(context.Background(), types.NamespacedName{Name: t.Name + "-db-connection-key", Namespace: t.Namespace}, secret)
+					err := t.Client.Get(context.Background(), types.NamespacedName{Name: t.Name + "-db", Namespace: t.Namespace}, secret)
 					Expect(err).ToNot(HaveOccurred())
 				})
 			})
@@ -2640,11 +2640,11 @@ func (t *cryostatTestInput) expectGrafanaSecret() {
 
 func (t *cryostatTestInput) expectCredentialsDatabaseSecret() {
 	secret := &corev1.Secret{}
-	err := t.Client.Get(context.Background(), types.NamespacedName{Name: t.Name + "-db-connection-key", Namespace: t.Namespace}, secret)
+	err := t.Client.Get(context.Background(), types.NamespacedName{Name: t.Name + "-db", Namespace: t.Namespace}, secret)
 	Expect(err).ToNot(HaveOccurred())
 
 	// Compare to desired spec
-	expectedSecret := t.NewCredentialsDatabaseSecret()
+	expectedSecret := t.NewDatabaseSecret()
 	t.checkMetadata(secret, expectedSecret)
 	Expect(secret.StringData).To(Equal(expectedSecret.StringData))
 }

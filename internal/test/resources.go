@@ -907,14 +907,15 @@ func (r *TestResources) OtherGrafanaSecret() *corev1.Secret {
 	}
 }
 
-func (r *TestResources) NewCredentialsDatabaseSecret() *corev1.Secret {
+func (r *TestResources) NewDatabaseSecret() *corev1.Secret {
 	return &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      r.Name + "-db-connection-key",
+			Name:      r.Name + "-db",
 			Namespace: r.Namespace,
 		},
 		StringData: map[string]string{
 			"CONNECTION_KEY": "credentials_database",
+			"ENCRYPTION_KEY": "encryption_key",
 		},
 	}
 }
@@ -931,14 +932,15 @@ func (r *TestResources) NewStorageSecret() *corev1.Secret {
 	}
 }
 
-func (r *TestResources) OtherCredentialsDatabaseSecret() *corev1.Secret {
+func (r *TestResources) OtherDatabaseSecret() *corev1.Secret {
 	return &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      r.Name + "-db-connection-key",
+			Name:      r.Name + "-db",
 			Namespace: r.Namespace,
 		},
 		StringData: map[string]string{
 			"CONNECTION_KEY": "other-pass",
+			"ENCRYPTION_KEY": "other-key",
 		},
 	}
 }
@@ -1366,7 +1368,7 @@ func (r *TestResources) NewCoreEnvironmentVariables(reportsUrl string, authProps
 	}
 
 	optional := false
-	secretName := r.NewCredentialsDatabaseSecret().Name
+	secretName := r.NewDatabaseSecret().Name
 	if dbSecretProvided {
 		secretName = providedDatabaseSecretName
 	}
