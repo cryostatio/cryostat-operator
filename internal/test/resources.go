@@ -1243,7 +1243,7 @@ func (r *TestResources) NewGrafanaPorts() []corev1.ContainerPort {
 func (r *TestResources) NewDatasourcePorts() []corev1.ContainerPort {
 	return []corev1.ContainerPort{
 		{
-			ContainerPort: 8080,
+			ContainerPort: 8989,
 		},
 	}
 }
@@ -1252,6 +1252,20 @@ func (r *TestResources) NewReportsPorts() []corev1.ContainerPort {
 	return []corev1.ContainerPort{
 		{
 			ContainerPort: 10000,
+		},
+	}
+}
+
+func (r *TestResources) NewStoragePorts() []corev1.ContainerPort {
+	return []corev1.ContainerPort{
+		{
+			ContainerPort: 8080,
+		},
+		{
+			ContainerPort: 8333,
+		},
+		{
+			ContainerPort: 8888,
 		},
 	}
 }
@@ -1413,7 +1427,7 @@ func (r *TestResources) NewCoreEnvironmentVariables(reportsUrl string, authProps
 		envs = append(envs,
 			corev1.EnvVar{
 				Name:  "GRAFANA_DATASOURCE_URL",
-				Value: "http://127.0.0.1:8080",
+				Value: "http://127.0.0.1:8989",
 			})
 	}
 	if !r.TLS {
@@ -1574,7 +1588,7 @@ func (r *TestResources) NewGrafanaEnvironmentVariables() []corev1.EnvVar {
 	envs := []corev1.EnvVar{
 		{
 			Name:  "JFR_DATASOURCE_URL",
-			Value: "http://127.0.0.1:8080",
+			Value: "http://127.0.0.1:8989",
 		},
 	}
 	if r.TLS {
@@ -1595,8 +1609,12 @@ func (r *TestResources) NewGrafanaEnvironmentVariables() []corev1.EnvVar {
 func (r *TestResources) NewDatasourceEnvironmentVariables() []corev1.EnvVar {
 	return []corev1.EnvVar{
 		{
-			Name:  "LISTEN_HOST",
+			Name:  "QUARKUS_HTTP_HOST",
 			Value: "127.0.0.1",
+		},
+		{
+			Name:  "QUARKUS_HTTP_PORT",
+			Value: "8989",
 		},
 	}
 }
@@ -1640,6 +1658,19 @@ func (r *TestResources) NewReportsEnvironmentVariables(resources *corev1.Resourc
 		})
 	}
 	return envs
+}
+
+func (r *TestResources) NewStorageEnvironmentVariables() []corev1.EnvVar {
+	return []corev1.EnvVar{
+		{
+			Name:  "QUARKUS_HTTP_HOST",
+			Value: "127.0.0.1",
+		},
+		{
+			Name:  "QUARKUS_HTTP_PORT",
+			Value: "8989",
+		},
+	}
 }
 
 func (r *TestResources) NewCoreEnvFromSource() []corev1.EnvFromSource {
@@ -1900,7 +1931,7 @@ func (r *TestResources) NewDatasourceLivenessProbe() *corev1.Probe {
 	return &corev1.Probe{
 		ProbeHandler: corev1.ProbeHandler{
 			Exec: &corev1.ExecAction{
-				Command: []string{"curl", "--fail", "http://127.0.0.1:8080"},
+				Command: []string{"curl", "--fail", "http://127.0.0.1:8989"},
 			},
 		},
 	}

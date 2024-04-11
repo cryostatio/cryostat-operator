@@ -1446,8 +1446,12 @@ func NewJfrDatasourceContainer(cr *model.CryostatInstance, imageTag string) core
 		},
 		Env: []corev1.EnvVar{
 			{
-				Name:  "LISTEN_HOST",
+				Name:  "QUARKUS_HTTP_HOST",
 				Value: constants.LoopbackAddress,
+			},
+			{
+				Name:  "QUARKUS_HTTP_PORT",
+				Value: strconv.Itoa(int(constants.DatasourceContainerPort)),
 			},
 		},
 		// Can't use HTTP probe since the port is not exposed over the network

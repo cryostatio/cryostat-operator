@@ -3148,6 +3148,22 @@ func (t *cryostatTestInput) checkReportsContainer(container *corev1.Container, r
 	test.ExpectResourceRequirements(&container.Resources, resources)
 }
 
+// func (t *cryostatTestInput) checkStorageContainer(container *corev1.Container, resources *corev1.ResourceRequirements, securityContext *corev1.SecurityContext) {
+// 	Expect(container.Name).To(Equal(t.Name + "-storage"))
+// 	if t.EnvReportsImageTag == nil {
+// 		Expect(container.Image).To(HavePrefix("quay.io/cryostat/cryostat-storage:"))
+// 	} else {
+// 		Expect(container.Image).To(Equal(*t.EnvReportsImageTag))
+// 	}
+// 	Expect(container.Ports).To(ConsistOf(t.NewStoragePorts()))
+// 	Expect(container.Env).To(ConsistOf(t.NewStorageEnvironmentVariables(resources)))
+// 	Expect(container.VolumeMounts).To(ConsistOf(t.NewReportsVolumeMounts()))
+// 	Expect(container.LivenessProbe).To(Equal(t.NewReportsLivenessProbe()))
+// 	Expect(container.SecurityContext).To(Equal(securityContext))
+
+// 	test.ExpectResourceRequirements(&container.Resources, resources)
+// }
+
 func (t *cryostatTestInput) checkCoreHasEnvironmentVariables(expectedEnvVars []corev1.EnvVar) {
 	deployment := &appsv1.Deployment{}
 	err := t.Client.Get(context.Background(), types.NamespacedName{Name: t.Name, Namespace: t.Namespace}, deployment)
