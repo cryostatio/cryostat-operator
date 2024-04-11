@@ -1228,18 +1228,6 @@ func NewStorageContainer(cr *model.CryostatInstance, imageTag string, tls *TLSCo
 			Value: "/data",
 		},
 		{
-			Name:  "VOLUME_PREALLOCATE",
-			Value: "false",
-		},
-		{
-			Name:  "VOLUME_SIZE_LIMIT_MB",
-			Value: "500",
-		},
-		{
-			Name:  "VOLUME_MAX",
-			Value: "16",
-		},
-		{
 			Name:  "IP_BIND",
 			Value: "0.0.0.0",
 		},
