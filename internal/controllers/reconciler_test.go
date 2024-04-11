@@ -66,7 +66,7 @@ type cryostatTestInput struct {
 func (c *controllerTest) commonBeforeEach() *cryostatTestInput {
 	t := &cryostatTestInput{
 		TestReconcilerConfig: test.TestReconcilerConfig{
-			GeneratedPasswords: []string{"grafana", "credentials_database", "jmx", "keystore"},
+			GeneratedPasswords: []string{"grafana", "credentials_database", "object_storage", "jmx", "keystore"},
 		},
 		TestResources: &test.TestResources{
 			Name:        "cryostat",
@@ -146,6 +146,7 @@ func resourceChecks() []resourceCheck {
 		}, "persistent volume claim"},
 		{(*cryostatTestInput).expectGrafanaSecret, "Grafana secret"},
 		{(*cryostatTestInput).expectCredentialsDatabaseSecret, "credentials database secret"},
+		{(*cryostatTestInput).expectStorageSecret, "object storage secret"},
 		{(*cryostatTestInput).expectJMXSecret, "JMX secret"},
 		{(*cryostatTestInput).expectGrafanaService, "Grafana service"},
 		{(*cryostatTestInput).expectCoreService, "core service"},
@@ -278,7 +279,7 @@ func (c *controllerTest) commonTests() {
 		Context("succesfully creates required resources for minimal deployment", func() {
 			BeforeEach(func() {
 				t.Minimal = true
-				t.GeneratedPasswords = []string{"credentials_database", "jmx", "keystore"}
+				t.GeneratedPasswords = []string{"credentials_database", "object_storage", "jmx", "keystore"}
 				t.objs = append(t.objs, t.NewCryostat().Object)
 			})
 			JustBeforeEach(func() {
@@ -624,7 +625,7 @@ func (c *controllerTest) commonTests() {
 		Context("Switching from a minimal to a non-minimal deployment", func() {
 			BeforeEach(func() {
 				t.Minimal = true
-				t.GeneratedPasswords = []string{"credentials_database", "jmx", "keystore", "grafana"}
+				t.GeneratedPasswords = []string{"credentials_database", "object_storage", "jmx", "keystore", "grafana"}
 				t.objs = append(t.objs, t.NewCryostat().Object)
 			})
 			JustBeforeEach(func() {
@@ -2648,11 +2649,23 @@ func (t *cryostatTestInput) expectCredentialsDatabaseSecret() {
 	Expect(secret.StringData).To(Equal(expectedSecret.StringData))
 }
 
+func (t *cryostatTestInput) expectStorageSecret() {
+	secret := &corev1.Secret{}
+	err := t.Client.Get(context.Background(), types.NamespacedName{Name: t.Name + "-storage-secret-key", Namespace: t.Namespace}, secret)
+	Expect(err).ToNot(HaveOccurred())
+
+	// Compare to desired spec
+	expectedSecret := t.NewStorageSecret()
+	t.checkMetadata(secret, expectedSecret)
+	Expect(secret.StringData).To(Equal(expectedSecret.StringData))
+}
+
 func (t *cryostatTestInput) expectJMXSecret() {
 	secret := &corev1.Secret{}
 	err := t.Client.Get(context.Background(), types.NamespacedName{Name: t.Name + "-jmx-auth", Namespace: t.Namespace}, secret)
 	Expect(err).ToNot(HaveOccurred())
 
+	// Compare to desired spec
 	expectedSecret := t.NewJMXSecret()
 	t.checkMetadata(secret, expectedSecret)
 	Expect(secret.StringData).To(Equal(expectedSecret.StringData))

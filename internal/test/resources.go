@@ -919,6 +919,18 @@ func (r *TestResources) NewCredentialsDatabaseSecret() *corev1.Secret {
 	}
 }
 
+func (r *TestResources) NewStorageSecret() *corev1.Secret {
+	return &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      r.Name + "-storage-secret-key",
+			Namespace: r.Namespace,
+		},
+		StringData: map[string]string{
+			"CRYOSTAT_STORAGE_SECRET_KEY": "object_storage",
+		},
+	}
+}
+
 func (r *TestResources) OtherCredentialsDatabaseSecret() *corev1.Secret {
 	return &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
