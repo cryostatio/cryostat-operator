@@ -906,8 +906,8 @@ func (r *TestResources) NewDatabaseSecret() *corev1.Secret {
 			Namespace: r.Namespace,
 		},
 		StringData: map[string]string{
-			"CONNECTION_KEY": "credentials_database",
-			"ENCRYPTION_KEY": "encryption_key",
+			"CONNECTION_KEY": "credentials_database", // notsecret
+			"ENCRYPTION_KEY": "encryption_key", // notsecret
 		},
 	}
 }
@@ -919,7 +919,7 @@ func (r *TestResources) NewStorageSecret() *corev1.Secret {
 			Namespace: r.Namespace,
 		},
 		StringData: map[string]string{
-			"SECRET_KEY": "object_storage",
+			"SECRET_KEY": "object_storage", // notsecret
 		},
 	}
 }
@@ -931,8 +931,8 @@ func (r *TestResources) OtherDatabaseSecret() *corev1.Secret {
 			Namespace: r.Namespace,
 		},
 		StringData: map[string]string{
-			"CONNECTION_KEY": "other-pass",
-			"ENCRYPTION_KEY": "other-key",
+			"CONNECTION_KEY": "other-pass", // notsecret
+			"ENCRYPTION_KEY": "other-key", // notsecret
 		},
 	}
 }
@@ -944,7 +944,7 @@ func (r *TestResources) NewKeystoreSecret() *corev1.Secret {
 			Namespace: r.Namespace,
 		},
 		StringData: map[string]string{
-			"KEYSTORE_PASS": "keystore",
+			"KEYSTORE_PASS": "keystore", // notsecret
 		},
 	}
 }
@@ -956,8 +956,8 @@ func (r *TestResources) OtherJMXSecret() *corev1.Secret {
 			Namespace: r.Namespace,
 		},
 		StringData: map[string]string{
-			"CRYOSTAT_RJMX_USER": "not-cryostat",
-			"CRYOSTAT_RJMX_PASS": "other-pass",
+			"CRYOSTAT_RJMX_USER": "not-cryostat", // notsecret
+			"CRYOSTAT_RJMX_PASS": "other-pass", // notsecret
 		},
 	}
 }
