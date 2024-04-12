@@ -1420,6 +1420,10 @@ func (r *TestResources) newNetworkEnvironmentVariables() []corev1.EnvVar {
 func (r *TestResources) NewGrafanaEnvironmentVariables() []corev1.EnvVar {
 	envs := []corev1.EnvVar{
 		{
+			Name:  "GF_AUTH_ANONYMOUS_ENABLED",
+			Value: "true",
+		},
+		{
 			Name:  "JFR_DATASOURCE_URL",
 			Value: "http://127.0.0.1:8989",
 		},

@@ -819,6 +819,10 @@ func NewGrafanaContainerResource(cr *model.CryostatInstance) *corev1.ResourceReq
 func NewGrafanaContainer(cr *model.CryostatInstance, imageTag string, tls *TLSConfig) corev1.Container {
 	envs := []corev1.EnvVar{
 		{
+			Name:  "GF_AUTH_ANONYMOUS_ENABLED",
+			Value: "true",
+		},
+		{
 			Name:  "JFR_DATASOURCE_URL",
 			Value: datasourceURL,
 		},
