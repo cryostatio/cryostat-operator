@@ -139,8 +139,6 @@ func tableEntries() []TableEntry {
 			(*test.TestResources).NewCryostatWithResources),
 		Entry("low resource limit", (*test.TestResources).NewCryostatWithLowResourceLimitV1Beta1,
 			(*test.TestResources).NewCryostatWithLowResourceLimit),
-		Entry("auth properties", (*test.TestResources).NewCryostatWithAuthPropertiesV1Beta1,
-			(*test.TestResources).NewCryostatWithAuthProperties),
 		Entry("built-in discovery disabled", (*test.TestResources).NewCryostatWithBuiltInDiscoveryDisabledV1Beta1,
 			(*test.TestResources).NewCryostatWithBuiltInDiscoveryDisabled),
 		Entry("discovery port custom config", (*test.TestResources).NewCryostatWithDiscoveryPortConfigV1Beta1,

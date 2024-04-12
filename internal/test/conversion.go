@@ -438,16 +438,6 @@ func (r *TestResources) NewCryostatWithLowResourceLimitV1Beta1() *operatorv1beta
 	return cr
 }
 
-func (r *TestResources) NewCryostatWithAuthPropertiesV1Beta1() *operatorv1beta1.Cryostat {
-	cr := r.NewCryostatV1Beta1()
-	cr.Spec.AuthProperties = &operatorv1beta1.AuthorizationProperties{
-		ConfigMapName:   "authConfigMapName",
-		Filename:        "auth.properties",
-		ClusterRoleName: "custom-auth-cluster-role",
-	}
-	return cr
-}
-
 func (r *TestResources) NewCryostatWithBuiltInDiscoveryDisabledV1Beta1() *operatorv1beta1.Cryostat {
 	cr := r.NewCryostatV1Beta1()
 	cr.Spec.TargetDiscoveryOptions = &operatorv1beta1.TargetDiscoveryOptions{

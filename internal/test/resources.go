@@ -17,7 +17,6 @@ package test
 import (
 	"crypto/sha256"
 	"fmt"
-	"strings"
 
 	certv1 "github.com/cert-manager/cert-manager/pkg/apis/certmanager/v1"
 	certMeta "github.com/cert-manager/cert-manager/pkg/apis/meta/v1"
@@ -500,16 +499,6 @@ func (r *TestResources) NewCryostatWithLowResourceLimit() *model.CryostatInstanc
 	return cr
 }
 
-func (r *TestResources) NewCryostatWithAuthProperties() *model.CryostatInstance {
-	cr := r.NewCryostat()
-	cr.Spec.AuthProperties = &operatorv1beta2.AuthorizationProperties{
-		ConfigMapName:   "authConfigMapName",
-		Filename:        "auth.properties",
-		ClusterRoleName: "custom-auth-cluster-role",
-	}
-	return cr
-}
-
 func (r *TestResources) NewCryostatWithBuiltInDiscoveryDisabled() *model.CryostatInstance {
 	cr := r.NewCryostat()
 	cr.Spec.TargetDiscoveryOptions = &operatorv1beta2.TargetDiscoveryOptions{
@@ -910,32 +899,6 @@ func (r *TestResources) NewCACertSecret(ns string) *corev1.Secret {
 	}
 }
 
-func (r *TestResources) NewGrafanaSecret() *corev1.Secret {
-	return &corev1.Secret{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      r.Name + "-grafana-basic",
-			Namespace: r.Namespace,
-		},
-		StringData: map[string]string{
-			"GF_SECURITY_ADMIN_USER":     "admin",
-			"GF_SECURITY_ADMIN_PASSWORD": "grafana",
-		},
-	}
-}
-
-func (r *TestResources) OtherGrafanaSecret() *corev1.Secret {
-	return &corev1.Secret{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      r.Name + "-grafana-basic",
-			Namespace: r.Namespace,
-		},
-		StringData: map[string]string{
-			"GF_SECURITY_ADMIN_USER":     "user",
-			"GF_SECURITY_ADMIN_PASSWORD": "goodpassword",
-		},
-	}
-}
-
 func (r *TestResources) NewDatabaseSecret() *corev1.Secret {
 	return &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
@@ -970,19 +933,6 @@ func (r *TestResources) OtherDatabaseSecret() *corev1.Secret {
 		StringData: map[string]string{
 			"CONNECTION_KEY": "other-pass",
 			"ENCRYPTION_KEY": "other-key",
-		},
-	}
-}
-
-func (r *TestResources) NewJMXSecret() *corev1.Secret {
-	return &corev1.Secret{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      r.Name + "-jmx-auth",
-			Namespace: r.Namespace,
-		},
-		StringData: map[string]string{
-			"CRYOSTAT_RJMX_USER": "cryostat",
-			"CRYOSTAT_RJMX_PASS": "jmx",
 		},
 	}
 }
@@ -1299,7 +1249,7 @@ func (r *TestResources) NewStoragePorts() []corev1.ContainerPort {
 	}
 }
 
-func (r *TestResources) NewCoreEnvironmentVariables(reportsUrl string, authProps bool, ingress bool,
+func (r *TestResources) NewCoreEnvironmentVariables(reportsUrl string, ingress bool,
 	emptyDir bool, builtInDiscoveryDisabled bool, hasPortConfig bool, builtInPortConfigDisabled bool, dbSecretProvided bool) []corev1.EnvVar {
 	envs := []corev1.EnvVar{
 		{
@@ -1366,49 +1316,9 @@ func (r *TestResources) NewCoreEnvironmentVariables(reportsUrl string, authProps
 			Name:  "AWS_ACCESS_KEY_ID",
 			Value: "$(QUARKUS_S3_AWS_CREDENTIALS_STATIC_PROVIDER_ACCESS_KEY_ID)",
 		},
-		{
-			Name:  "CRYOSTAT_CONFIG_PATH",
-			Value: "/opt/cryostat.d/conf.d",
-		},
-		{
-			Name:  "CRYOSTAT_ARCHIVE_PATH",
-			Value: "/opt/cryostat.d/recordings.d",
-		},
-		{
-			Name:  "CRYOSTAT_TEMPLATE_PATH",
-			Value: "/opt/cryostat.d/templates.d",
-		},
-		{
-			Name:  "CRYOSTAT_CLIENTLIB_PATH",
-			Value: "/opt/cryostat.d/clientlib.d",
-		},
-		{
-			Name:  "CRYOSTAT_PROBE_TEMPLATE_PATH",
-			Value: "/opt/cryostat.d/probes.d",
-		},
-		{
-			Name:  "CRYOSTAT_ENABLE_JDP_BROADCAST",
-			Value: "false",
-		},
-		{
-			Name:  "CRYOSTAT_TARGET_CACHE_SIZE",
-			Value: "-1",
-		},
-		{
-			Name:  "CRYOSTAT_TARGET_CACHE_TTL",
-			Value: "10",
-		},
-		{
-			Name:  "CRYOSTAT_K8S_NAMESPACES",
-			Value: strings.Join(r.TargetNamespaces, ","),
-		},
 	}
 
 	envs = append(envs, r.NewTargetDiscoveryEnvVar(builtInDiscoveryDisabled, hasPortConfig, builtInPortConfigDisabled)...)
-
-	if !emptyDir {
-		envs = append(envs, r.DatabaseConfigEnvironmentVariables()...)
-	}
 
 	optional := false
 	secretName := r.NewDatabaseSecret().Name
@@ -1433,20 +1343,17 @@ func (r *TestResources) NewCoreEnvironmentVariables(reportsUrl string, authProps
 		},
 	)
 
-	if !r.TLS {
-		envs = append(envs,
-			corev1.EnvVar{
-				Name:  "CRYOSTAT_DISABLE_SSL",
-				Value: "true",
-			})
-		if r.ExternalTLS {
-			envs = append(envs,
-				corev1.EnvVar{
-					Name:  "CRYOSTAT_SSL_PROXIED",
-					Value: "true",
-				})
-		}
-	} else {
+	envs = append(envs, corev1.EnvVar{
+		Name:  "QUARKUS_S3_AWS_CREDENTIALS_STATIC_PROVIDER_ACCESS_KEY_ID",
+		Value: "cryostat",
+	})
+
+	envs = append(envs, corev1.EnvVar{
+		Name:  "AWS_SECRET_ACCESS_KEY",
+		Value: "$(QUARKUS_S3_AWS_CREDENTIALS_STATIC_PROVIDER_SECRET_ACCESS_KEY)",
+	})
+
+	if r.TLS {
 		envs = append(envs, corev1.EnvVar{
 			Name:  "KEYSTORE_PATH",
 			Value: fmt.Sprintf("/var/run/secrets/operator.cryostat.io/%s-tls/keystore.p12", r.Name),
@@ -1454,30 +1361,6 @@ func (r *TestResources) NewCoreEnvironmentVariables(reportsUrl string, authProps
 	}
 
 	if r.OpenShift {
-		envs = append(envs,
-			corev1.EnvVar{
-				Name:  "CRYOSTAT_PLATFORM",
-				Value: "io.cryostat.platform.internal.OpenShiftPlatformStrategy",
-			},
-			corev1.EnvVar{
-				Name:  "CRYOSTAT_AUTH_MANAGER",
-				Value: "io.cryostat.net.openshift.OpenShiftAuthManager",
-			},
-			corev1.EnvVar{
-				Name:  "CRYOSTAT_OAUTH_CLIENT_ID",
-				Value: r.Name,
-			},
-			corev1.EnvVar{
-				Name:  "CRYOSTAT_BASE_OAUTH_ROLE",
-				Value: "cryostat-operator-oauth-client",
-			})
-
-		if authProps {
-			envs = append(envs, corev1.EnvVar{
-				Name:  "CRYOSTAT_CUSTOM_OAUTH_ROLE",
-				Value: "custom-auth-cluster-role",
-			})
-		}
 		envs = append(envs, r.newNetworkEnvironmentVariables()...)
 	} else if ingress { // On Kubernetes
 		envs = append(envs, r.newNetworkEnvironmentVariables()...)
@@ -1486,14 +1369,8 @@ func (r *TestResources) NewCoreEnvironmentVariables(reportsUrl string, authProps
 	if reportsUrl != "" {
 		envs = append(envs,
 			corev1.EnvVar{
-				Name:  "CRYOSTAT_REPORT_GENERATOR",
+				Name:  "CRYOSTAT_SERVICES_REPORTS_URL",
 				Value: reportsUrl,
-			})
-	} else {
-		envs = append(envs,
-			corev1.EnvVar{
-				Name:  "CRYOSTAT_REPORT_GENERATION_MAX_HEAP",
-				Value: "200",
 			})
 	}
 
@@ -1507,80 +1384,35 @@ func (r *TestResources) NewCoreEnvironmentVariables(reportsUrl string, authProps
 	return envs
 }
 
-func (r *TestResources) DatabaseConfigEnvironmentVariables() []corev1.EnvVar {
-	return []corev1.EnvVar{
-		{
-			Name:  "CRYOSTAT_JDBC_URL",
-			Value: "jdbc:h2:file:/opt/cryostat.d/conf.d/h2;INIT=create domain if not exists jsonb as varchar",
-		},
-		{
-			Name:  "CRYOSTAT_HBM2DDL",
-			Value: "update",
-		},
-		{
-			Name:  "CRYOSTAT_JDBC_DRIVER",
-			Value: "org.h2.Driver",
-		},
-		{
-			Name:  "CRYOSTAT_HIBERNATE_DIALECT",
-			Value: "org.hibernate.dialect.H2Dialect",
-		},
-		{
-			Name:  "CRYOSTAT_JDBC_USERNAME",
-			Value: r.Name,
-		},
-		{
-			Name:  "CRYOSTAT_JDBC_PASSWORD",
-			Value: r.Name,
-		},
-	}
-}
-
 func (r *TestResources) newNetworkEnvironmentVariables() []corev1.EnvVar {
-	envs := []corev1.EnvVar{
-		{
-			Name:  "CRYOSTAT_WEB_HOST",
-			Value: r.Name + ".example.com",
-		},
-	}
-	if r.ExternalTLS {
-		envs = append(envs,
-			corev1.EnvVar{
-				Name:  "CRYOSTAT_EXT_WEB_PORT",
-				Value: "443",
-			})
-	} else {
-		envs = append(envs,
-			corev1.EnvVar{
-				Name:  "CRYOSTAT_EXT_WEB_PORT",
-				Value: "80",
-			})
-	}
-	if r.ExternalTLS {
-		envs = append(envs,
-			corev1.EnvVar{
-				Name:  "GRAFANA_DASHBOARD_EXT_URL",
-				Value: fmt.Sprintf("https://%s-grafana.example.com", r.Name),
-			})
-	} else {
-		envs = append(envs,
-			corev1.EnvVar{
-				Name:  "GRAFANA_DASHBOARD_EXT_URL",
-				Value: fmt.Sprintf("http://%s-grafana.example.com", r.Name),
-			})
-	}
-	if r.TLS {
-		envs = append(envs,
-			corev1.EnvVar{
-				Name:  "GRAFANA_DASHBOARD_URL",
-				Value: "https://cryostat-health.local:3000",
-			})
-	} else {
-		envs = append(envs,
-			corev1.EnvVar{
-				Name:  "GRAFANA_DASHBOARD_URL",
-				Value: "http://cryostat-health.local:3000",
-			})
+	envs := []corev1.EnvVar{}
+	if !r.Minimal {
+		if r.ExternalTLS {
+			envs = append(envs,
+				corev1.EnvVar{
+					Name:  "GRAFANA_DASHBOARD_EXT_URL",
+					Value: fmt.Sprintf("https://%s-grafana.example.com", r.Name),
+				})
+		} else {
+			envs = append(envs,
+				corev1.EnvVar{
+					Name:  "GRAFANA_DASHBOARD_EXT_URL",
+					Value: fmt.Sprintf("http://%s-grafana.example.com", r.Name),
+				})
+		}
+		if r.TLS {
+			envs = append(envs,
+				corev1.EnvVar{
+					Name:  "GRAFANA_DASHBOARD_URL",
+					Value: "https://cryostat-health.local:3000",
+				})
+		} else {
+			envs = append(envs,
+				corev1.EnvVar{
+					Name:  "GRAFANA_DASHBOARD_URL",
+					Value: "http://cryostat-health.local:3000",
+				})
+		}
 	}
 	return envs
 }
@@ -1591,18 +1423,6 @@ func (r *TestResources) NewGrafanaEnvironmentVariables() []corev1.EnvVar {
 			Name:  "JFR_DATASOURCE_URL",
 			Value: "http://127.0.0.1:8989",
 		},
-	}
-	if r.TLS {
-		envs = append(envs, corev1.EnvVar{
-			Name:  "GF_SERVER_PROTOCOL",
-			Value: "https",
-		}, corev1.EnvVar{
-			Name:  "GF_SERVER_CERT_KEY",
-			Value: fmt.Sprintf("/var/run/secrets/operator.cryostat.io/%s-grafana-tls/tls.key", r.Name),
-		}, corev1.EnvVar{
-			Name:  "GF_SERVER_CERT_FILE",
-			Value: fmt.Sprintf("/var/run/secrets/operator.cryostat.io/%s-grafana-tls/tls.crt", r.Name),
-		})
 	}
 	return envs
 }
@@ -1616,6 +1436,10 @@ func (r *TestResources) NewDatasourceEnvironmentVariables() []corev1.EnvVar {
 		{
 			Name:  "QUARKUS_HTTP_PORT",
 			Value: "8989",
+		},
+		{
+			Name:  "QUARKUS_HTTP_BODY_UPLOADS_DIRECTORY",
+			Value: "/var/run/jfr-datasource",
 		},
 	}
 }
@@ -1637,53 +1461,16 @@ func (r *TestResources) NewReportsEnvironmentVariables(resources *corev1.Resourc
 			Name:  "JAVA_OPTS",
 			Value: opts,
 		},
-	}
-	if r.TLS {
-		envs = append(envs, corev1.EnvVar{
-			Name:  "QUARKUS_HTTP_SSL_PORT",
-			Value: "10000",
-		}, corev1.EnvVar{
-			Name:  "QUARKUS_HTTP_SSL_CERTIFICATE_KEY_FILE",
-			Value: fmt.Sprintf("/var/run/secrets/operator.cryostat.io/%s-reports-tls/tls.key", r.Name),
-		}, corev1.EnvVar{
-			Name:  "QUARKUS_HTTP_SSL_CERTIFICATE_FILE",
-			Value: fmt.Sprintf("/var/run/secrets/operator.cryostat.io/%s-reports-tls/tls.crt", r.Name),
-		}, corev1.EnvVar{
-			Name:  "QUARKUS_HTTP_INSECURE_REQUESTS",
-			Value: "disabled",
-		})
-	} else {
-		envs = append(envs, corev1.EnvVar{
+		{
 			Name:  "QUARKUS_HTTP_PORT",
 			Value: "10000",
-		})
+		},
 	}
 	return envs
 }
 
-func (r *TestResources) NewStorageEnvironmentVariables() []corev1.EnvVar {
-	return []corev1.EnvVar{
-		{
-			Name:  "QUARKUS_HTTP_HOST",
-			Value: "127.0.0.1",
-		},
-		{
-			Name:  "QUARKUS_HTTP_PORT",
-			Value: "8989",
-		},
-	}
-}
-
 func (r *TestResources) NewCoreEnvFromSource() []corev1.EnvFromSource {
-	envsFrom := []corev1.EnvFromSource{
-		{
-			SecretRef: &corev1.SecretEnvSource{
-				LocalObjectReference: corev1.LocalObjectReference{
-					Name: r.Name + "-jmx-auth",
-				},
-			},
-		},
-	}
+	envsFrom := []corev1.EnvFromSource{}
 	if r.TLS {
 		envsFrom = append(envsFrom, corev1.EnvFromSource{
 			SecretRef: &corev1.SecretEnvSource{
@@ -1696,23 +1483,11 @@ func (r *TestResources) NewCoreEnvFromSource() []corev1.EnvFromSource {
 	return envsFrom
 }
 
-func (r *TestResources) NewGrafanaEnvFromSource() []corev1.EnvFromSource {
-	return []corev1.EnvFromSource{
-		{
-			SecretRef: &corev1.SecretEnvSource{
-				LocalObjectReference: corev1.LocalObjectReference{
-					Name: r.Name + "-grafana-basic",
-				},
-			},
-		},
-	}
-}
-
-func (r *TestResources) NewReportSubprocessHeapEnv() []corev1.EnvVar {
+func (r *TestResources) NewWsConnectionsEnv() []corev1.EnvVar {
 	return []corev1.EnvVar{
 		{
-			Name:  "CRYOSTAT_REPORT_GENERATION_MAX_HEAP",
-			Value: "500",
+			Name:  "CRYOSTAT_CONNECTIONS_MAX_OPEN",
+			Value: "10",
 		},
 	}
 }
@@ -1720,11 +1495,11 @@ func (r *TestResources) NewReportSubprocessHeapEnv() []corev1.EnvVar {
 func (r *TestResources) NewJmxCacheOptionsEnv() []corev1.EnvVar {
 	return []corev1.EnvVar{
 		{
-			Name:  "CRYOSTAT_TARGET_CACHE_SIZE",
+			Name:  "CRYOSTAT_CONNECTIONS_MAX_OPEN",
 			Value: "10",
 		},
 		{
-			Name:  "CRYOSTAT_TARGET_CACHE_TTL",
+			Name:  "CRYOSTAT_CONNECTIONS_TTL",
 			Value: "20",
 		},
 	}
@@ -1771,44 +1546,14 @@ func (r *TestResources) NewCoreVolumeMounts() []corev1.VolumeMount {
 		{
 			Name:      r.Name,
 			ReadOnly:  false,
-			MountPath: "/opt/cryostat.d/conf.d",
-			SubPath:   "config",
-		},
-		{
-			Name:      r.Name,
-			ReadOnly:  false,
-			MountPath: "/opt/cryostat.d/recordings.d",
-			SubPath:   "flightrecordings",
-		},
-		{
-			Name:      r.Name,
-			ReadOnly:  false,
-			MountPath: "/opt/cryostat.d/templates.d",
-			SubPath:   "templates",
-		},
-		{
-			Name:      r.Name,
-			ReadOnly:  false,
-			MountPath: "/opt/cryostat.d/clientlib.d",
-			SubPath:   "clientlib",
-		},
-		{
-			Name:      r.Name,
-			ReadOnly:  false,
-			MountPath: "/opt/cryostat.d/probes.d",
-			SubPath:   "probes",
-		},
-		{
-			Name:      r.Name,
-			ReadOnly:  false,
 			MountPath: "truststore",
 			SubPath:   "truststore",
 		},
-		{
-			Name:      "cert-secrets",
-			ReadOnly:  true,
-			MountPath: "/truststore/operator",
-		},
+		// {
+		// 	Name:      "cert-secrets",
+		// 	ReadOnly:  true,
+		// 	MountPath: "/truststore/operator",
+		// },
 	}
 	if r.TLS {
 		mounts = append(mounts,
@@ -1816,32 +1561,6 @@ func (r *TestResources) NewCoreVolumeMounts() []corev1.VolumeMount {
 				Name:      "keystore",
 				ReadOnly:  true,
 				MountPath: fmt.Sprintf("/var/run/secrets/operator.cryostat.io/%s-tls", r.Name),
-			})
-	}
-	return mounts
-}
-
-func (r *TestResources) NewGrafanaVolumeMounts() []corev1.VolumeMount {
-	mounts := []corev1.VolumeMount{}
-	if r.TLS {
-		mounts = append(mounts,
-			corev1.VolumeMount{
-				Name:      "grafana-tls-secret",
-				MountPath: fmt.Sprintf("/var/run/secrets/operator.cryostat.io/%s-grafana-tls", r.Name),
-				ReadOnly:  true,
-			})
-	}
-	return mounts
-}
-
-func (r *TestResources) NewReportsVolumeMounts() []corev1.VolumeMount {
-	mounts := []corev1.VolumeMount{}
-	if r.TLS {
-		mounts = append(mounts,
-			corev1.VolumeMount{
-				Name:      "reports-tls-secret",
-				MountPath: fmt.Sprintf("/var/run/secrets/operator.cryostat.io/%s-reports-tls", r.Name),
-				ReadOnly:  true,
 			})
 	}
 	return mounts
@@ -1861,19 +1580,6 @@ func (r *TestResources) NewVolumeMountsWithTemplates() []corev1.VolumeMount {
 			MountPath: "/opt/cryostat.d/templates.d/templateCM2_other-template.jfc",
 			SubPath:   "other-template.jfc",
 		})
-}
-
-func (r *TestResources) NewVolumeMountsWithAuthProperties() []corev1.VolumeMount {
-	return append(r.NewCoreVolumeMounts(), r.NewAuthPropertiesVolumeMount())
-}
-
-func (r *TestResources) NewAuthPropertiesVolumeMount() corev1.VolumeMount {
-	return corev1.VolumeMount{
-		Name:      "auth-properties-authConfigMapName",
-		ReadOnly:  true,
-		MountPath: "/app/resources/io/cryostat/net/openshift/OpenShiftAuthManager.properties",
-		SubPath:   "OpenShiftAuthManager.properties",
-	}
 }
 
 func (r *TestResources) NewCoreLivenessProbe() *corev1.Probe {
@@ -1900,19 +1606,27 @@ func (r *TestResources) newCoreProbeHandler() corev1.ProbeHandler {
 }
 
 func (r *TestResources) NewGrafanaLivenessProbe() *corev1.Probe {
-	protocol := corev1.URISchemeHTTPS
-	if !r.TLS {
-		protocol = corev1.URISchemeHTTP
-	}
 	return &corev1.Probe{
 		ProbeHandler: corev1.ProbeHandler{
 			HTTPGet: &corev1.HTTPGetAction{
 				Port:   intstr.IntOrString{IntVal: 3000},
 				Path:   "/api/health",
-				Scheme: protocol,
+				Scheme: corev1.URISchemeHTTP,
 			},
 		},
 	}
+}
+
+func (r *TestResources) NewDatasourceVolumeMounts() []corev1.VolumeMount {
+	mounts := []corev1.VolumeMount{
+		{
+			Name:      r.Name,
+			ReadOnly:  false,
+			MountPath: "/var/run/jfr-datasource",
+			SubPath:   "datasource",
+		},
+	}
+	return mounts
 }
 
 func (r *TestResources) NewDatasourceLivenessProbe() *corev1.Probe {
@@ -1926,16 +1640,12 @@ func (r *TestResources) NewDatasourceLivenessProbe() *corev1.Probe {
 }
 
 func (r *TestResources) NewReportsLivenessProbe() *corev1.Probe {
-	protocol := corev1.URISchemeHTTPS
-	if !r.TLS {
-		protocol = corev1.URISchemeHTTP
-	}
 	return &corev1.Probe{
 		ProbeHandler: corev1.ProbeHandler{
 			HTTPGet: &corev1.HTTPGetAction{
 				Port:   intstr.IntOrString{IntVal: 10000},
 				Path:   "/health",
-				Scheme: protocol,
+				Scheme: corev1.URISchemeHTTP,
 			},
 		},
 	}
@@ -2109,7 +1819,6 @@ func (r *TestResources) NewAuthPropertiesVolume() corev1.Volume {
 }
 
 func (r *TestResources) newVolumes(certProjections []corev1.VolumeProjection) []corev1.Volume {
-	readOnlymode := int32(0440)
 	volumes := []corev1.Volume{
 		{
 			Name: r.Name,
@@ -2121,77 +1830,11 @@ func (r *TestResources) newVolumes(certProjections []corev1.VolumeProjection) []
 			},
 		},
 	}
-	projs := append([]corev1.VolumeProjection{}, certProjections...)
-	if r.TLS {
-		projs = append(projs, corev1.VolumeProjection{
-			Secret: &corev1.SecretProjection{
-				LocalObjectReference: corev1.LocalObjectReference{
-					Name: r.Name + "-tls",
-				},
-				Items: []corev1.KeyToPath{
-					{
-						Key:  "ca.crt",
-						Path: r.Name + "-ca.crt",
-						Mode: &readOnlymode,
-					},
-				},
-			},
-		})
-
-		volumes = append(volumes,
-			corev1.Volume{
-				Name: "keystore",
-				VolumeSource: corev1.VolumeSource{
-					Secret: &corev1.SecretVolumeSource{
-						SecretName: r.Name + "-tls",
-						Items: []corev1.KeyToPath{
-							{
-								Key:  "keystore.p12",
-								Path: "keystore.p12",
-								Mode: &readOnlymode,
-							},
-						},
-					},
-				},
-			},
-			corev1.Volume{
-				Name: "grafana-tls-secret",
-				VolumeSource: corev1.VolumeSource{
-					Secret: &corev1.SecretVolumeSource{
-						SecretName: r.Name + "-grafana-tls",
-					},
-				},
-			},
-		)
-	}
-
-	volumes = append(volumes,
-		corev1.Volume{
-			Name: "cert-secrets",
-			VolumeSource: corev1.VolumeSource{
-				Projected: &corev1.ProjectedVolumeSource{
-					Sources: projs,
-				},
-			},
-		})
-
 	return volumes
 }
 
 func (r *TestResources) NewReportsVolumes() []corev1.Volume {
-	if !r.TLS {
-		return nil
-	}
-	return []corev1.Volume{
-		{
-			Name: "reports-tls-secret",
-			VolumeSource: corev1.VolumeSource{
-				Secret: &corev1.SecretVolumeSource{
-					SecretName: r.Name + "-reports-tls",
-				},
-			},
-		},
-	}
+	return nil
 }
 
 func (r *TestResources) commonDefaultPodSecurityContext(fsGroup *int64) *corev1.PodSecurityContext {

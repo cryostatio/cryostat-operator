@@ -51,7 +51,6 @@ func convertSpecTo(src *CryostatSpec, dst *operatorv1beta2.CryostatSpec) {
 	dst.ReportOptions = convertReportOptionsTo(src.ReportOptions)
 	dst.JmxCacheOptions = convertJmxCacheOptionsTo(src.JmxCacheOptions)
 	dst.Resources = convertResourceOptionsTo(src.Resources)
-	dst.AuthProperties = convertAuthPropertiesTo(src.AuthProperties)
 	dst.SecurityOptions = convertSecurityOptionsTo(src.SecurityOptions)
 	dst.SchedulingOptions = convertSchedulingOptionsTo(src.SchedulingOptions)
 	dst.TargetDiscoveryOptions = convertTargetDiscoveryTo(src.TargetDiscoveryOptions)
@@ -237,18 +236,6 @@ func convertResourceOptionsTo(srcOpts *ResourceConfigList) *operatorv1beta2.Reso
 	return dstOpts
 }
 
-func convertAuthPropertiesTo(srcProps *AuthorizationProperties) *operatorv1beta2.AuthorizationProperties {
-	var dstProps *operatorv1beta2.AuthorizationProperties
-	if srcProps != nil {
-		dstProps = &operatorv1beta2.AuthorizationProperties{
-			ClusterRoleName: srcProps.ClusterRoleName,
-			ConfigMapName:   srcProps.ConfigMapName,
-			Filename:        srcProps.Filename,
-		}
-	}
-	return dstProps
-}
-
 func convertSecurityOptionsTo(srcOpts *SecurityOptions) *operatorv1beta2.SecurityOptions {
 	var dstOpts *operatorv1beta2.SecurityOptions
 	if srcOpts != nil {
@@ -334,7 +321,6 @@ func convertSpecFrom(src *operatorv1beta2.CryostatSpec, dst *CryostatSpec) {
 	dst.ReportOptions = convertReportOptionsFrom(src.ReportOptions)
 	dst.JmxCacheOptions = convertJmxCacheOptionsFrom(src.JmxCacheOptions)
 	dst.Resources = convertResourceOptionsFrom(src.Resources)
-	dst.AuthProperties = convertAuthPropertiesFrom(src.AuthProperties)
 	dst.SecurityOptions = convertSecurityOptionsFrom(src.SecurityOptions)
 	dst.SchedulingOptions = convertSchedulingOptionsFrom(src.SchedulingOptions)
 	dst.TargetDiscoveryOptions = convertTargetDiscoveryFrom(src.TargetDiscoveryOptions)
@@ -518,18 +504,6 @@ func convertResourceOptionsFrom(srcOpts *operatorv1beta2.ResourceConfigList) *Re
 		}
 	}
 	return dstOpts
-}
-
-func convertAuthPropertiesFrom(srcProps *operatorv1beta2.AuthorizationProperties) *AuthorizationProperties {
-	var dstProps *AuthorizationProperties
-	if srcProps != nil {
-		dstProps = &AuthorizationProperties{
-			ClusterRoleName: srcProps.ClusterRoleName,
-			ConfigMapName:   srcProps.ConfigMapName,
-			Filename:        srcProps.Filename,
-		}
-	}
-	return dstProps
 }
 
 func convertSecurityOptionsFrom(srcOpts *operatorv1beta2.SecurityOptions) *SecurityOptions {

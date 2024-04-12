@@ -69,10 +69,6 @@ type CryostatSpec struct {
 	// +optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	Resources *ResourceConfigList `json:"resources,omitempty"`
-	// Override default authorization properties for Cryostat on OpenShift.
-	// +optional
-	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Authorization Properties",xDescriptors={"urn:alm:descriptor:com.tectonic.ui:advanced"}
-	AuthProperties *AuthorizationProperties `json:"authProperties,omitempty"`
 	// Options to configure the Security Contexts for the Cryostat application.
 	// +optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:com.tectonic.ui:advanced"}
@@ -474,22 +470,6 @@ type TemplateConfigMap struct {
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:io.kubernetes:ConfigMap"}
 	ConfigMapName string `json:"configMapName"`
 	// Filename within config map containing the template file.
-	Filename string `json:"filename"`
-}
-
-// Authorization properties provide custom permission mapping between Cryostat resources to Kubernetes resources.
-// If the mapping is updated, Cryostat must be manually restarted.
-type AuthorizationProperties struct {
-	// Name of the ClusterRole to use when Cryostat requests a role-scoped OAuth token.
-	// This ClusterRole should contain permissions for all Kubernetes objects listed in custom permission mapping.
-	// More details: https://docs.openshift.com/container-platform/4.11/authentication/tokens-scoping.html#scoping-tokens-role-scope_configuring-internal-oauth
-	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="ClusterRole Name",xDescriptors={"urn:alm:descriptor:io.kubernetes:ClusterRole"}
-	ClusterRoleName string `json:"clusterRoleName"`
-	// Name of config map in the local namespace.
-	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="ConfigMap Name",xDescriptors={"urn:alm:descriptor:io.kubernetes:ConfigMap"}
-	ConfigMapName string `json:"configMapName"`
-	// Filename within config map containing the resource mapping.
-	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:com.tectonic.ui:text"}
 	Filename string `json:"filename"`
 }
 
