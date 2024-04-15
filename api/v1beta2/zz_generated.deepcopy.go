@@ -413,11 +413,6 @@ func (in *NetworkConfigurationList) DeepCopyInto(out *NetworkConfigurationList) 
 		*out = new(NetworkConfiguration)
 		(*in).DeepCopyInto(*out)
 	}
-	if in.CommandConfig != nil {
-		in, out := &in.CommandConfig, &out.CommandConfig
-		*out = new(NetworkConfiguration)
-		(*in).DeepCopyInto(*out)
-	}
 	if in.GrafanaConfig != nil {
 		in, out := &in.GrafanaConfig, &out.GrafanaConfig
 		*out = new(NetworkConfiguration)

@@ -24,7 +24,6 @@ import (
 	resources "github.com/cryostatio/cryostat-operator/internal/controllers/common/resource_definitions"
 	"github.com/cryostatio/cryostat-operator/internal/controllers/model"
 	corev1 "k8s.io/api/core/v1"
-	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -95,26 +94,13 @@ func (r *Reconciler) setupTLS(ctx context.Context, cr *model.CryostatInstance) (
 	}
 	certificates := []*certv1.Certificate{caCert, cryostatCert, reportsCert}
 	// Create a certificate for Grafana signed by the Cryostat CA
-	if !cr.Spec.Minimal {
-		grafanaCert := resources.NewGrafanaCert(cr)
-		err = r.createOrUpdateCertificate(ctx, grafanaCert, cr.Object)
-		if err != nil {
-			return nil, err
-		}
-		certificates = append(certificates, grafanaCert)
-		tlsConfig.GrafanaSecret = grafanaCert.Spec.SecretName
-	} else {
-		grafanaCert := resources.NewGrafanaCert(cr)
-		secret := secretForCertificate(grafanaCert)
-		err = r.deleteSecret(ctx, secret)
-		if err != nil {
-			return nil, err
-		}
-		err = r.deleteCert(ctx, grafanaCert)
-		if err != nil {
-			return nil, err
-		}
+	grafanaCert := resources.NewGrafanaCert(cr)
+	err = r.createOrUpdateCertificate(ctx, grafanaCert, cr.Object)
+	if err != nil {
+		return nil, err
 	}
+	certificates = append(certificates, grafanaCert)
+	tlsConfig.GrafanaSecret = grafanaCert.Spec.SecretName
 
 	// Update owner references of TLS secrets created by cert-manager to ensure proper cleanup
 	err = r.setCertSecretOwner(ctx, cr.Object, certificates...)
@@ -211,15 +197,6 @@ func (r *Reconciler) setCertSecretOwner(ctx context.Context, owner metav1.Object
 	return nil
 }
 
-func secretForCertificate(cert *certv1.Certificate) *corev1.Secret {
-	return &corev1.Secret{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      cert.Spec.SecretName,
-			Namespace: cert.Namespace,
-		},
-	}
-}
-
 func (r *Reconciler) certManagerAvailable() (bool, error) {
 	// Check if cert-manager API is available. Checking just one should be enough.
 	_, err := r.RESTMapper.RESTMapping(schema.GroupKind{
@@ -313,16 +290,6 @@ func (r *Reconciler) createOrUpdateCertSecret(ctx context.Context, secret *corev
 		return err
 	}
 	r.Log.Info(fmt.Sprintf("Secret %s", op), "name", secret.Name, "namespace", secret.Namespace)
-	return nil
-}
-
-func (r *Reconciler) deleteCert(ctx context.Context, cert *certv1.Certificate) error {
-	err := r.Client.Delete(ctx, cert)
-	if err != nil && !kerrors.IsNotFound(err) {
-		r.Log.Error(err, "Could not delete certificate", "name", cert.Name, "namespace", cert.Namespace)
-		return err
-	}
-	r.Log.Info("Cert deleted", "name", cert.Name, "namespace", cert.Namespace)
 	return nil
 }
 

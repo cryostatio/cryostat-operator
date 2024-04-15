@@ -42,7 +42,6 @@ func (src *Cryostat) ConvertTo(dstRaw conversion.Hub) error {
 }
 
 func convertSpecTo(src *CryostatSpec, dst *operatorv1beta2.CryostatSpec) {
-	dst.Minimal = src.Minimal
 	dst.EnableCertManager = src.EnableCertManager
 	dst.TrustedCertSecrets = convertCertSecretsTo(src.TrustedCertSecrets)
 	dst.EventTemplates = convertEventTemplatesTo(src.EventTemplates)
@@ -50,7 +49,6 @@ func convertSpecTo(src *CryostatSpec, dst *operatorv1beta2.CryostatSpec) {
 	dst.ServiceOptions = convertServiceOptionsTo(src.ServiceOptions)
 	dst.NetworkOptions = convertNetworkOptionsTo(src.NetworkOptions)
 	dst.ReportOptions = convertReportOptionsTo(src.ReportOptions)
-	dst.MaxWsConnections = src.MaxWsConnections
 	dst.JmxCacheOptions = convertJmxCacheOptionsTo(src.JmxCacheOptions)
 	dst.Resources = convertResourceOptionsTo(src.Resources)
 	dst.AuthProperties = convertAuthPropertiesTo(src.AuthProperties)
@@ -158,7 +156,6 @@ func convertNetworkOptionsTo(srcOpts *NetworkConfigurationList) *operatorv1beta2
 		dstOpts = &operatorv1beta2.NetworkConfigurationList{
 			CoreConfig:    convertNetworkConfigTo(srcOpts.CoreConfig),
 			GrafanaConfig: convertNetworkConfigTo(srcOpts.GrafanaConfig),
-			CommandConfig: convertNetworkConfigTo(srcOpts.CommandConfig), // TODO Remove this from v1beta2 API
 		}
 	}
 	return dstOpts
@@ -328,7 +325,6 @@ func (dst *Cryostat) ConvertFrom(srcRaw conversion.Hub) error {
 }
 
 func convertSpecFrom(src *operatorv1beta2.CryostatSpec, dst *CryostatSpec) {
-	dst.Minimal = src.Minimal
 	dst.EnableCertManager = src.EnableCertManager
 	dst.TrustedCertSecrets = convertCertSecretsFrom(src.TrustedCertSecrets)
 	dst.EventTemplates = convertEventTemplatesFrom(src.EventTemplates)
@@ -336,7 +332,6 @@ func convertSpecFrom(src *operatorv1beta2.CryostatSpec, dst *CryostatSpec) {
 	dst.ServiceOptions = convertServiceOptionsFrom(src.ServiceOptions)
 	dst.NetworkOptions = convertNetworkOptionsFrom(src.NetworkOptions)
 	dst.ReportOptions = convertReportOptionsFrom(src.ReportOptions)
-	dst.MaxWsConnections = src.MaxWsConnections
 	dst.JmxCacheOptions = convertJmxCacheOptionsFrom(src.JmxCacheOptions)
 	dst.Resources = convertResourceOptionsFrom(src.Resources)
 	dst.AuthProperties = convertAuthPropertiesFrom(src.AuthProperties)
@@ -444,7 +439,6 @@ func convertNetworkOptionsFrom(srcOpts *operatorv1beta2.NetworkConfigurationList
 		dstOpts = &NetworkConfigurationList{
 			CoreConfig:    convertNetworkConfigFrom(srcOpts.CoreConfig),
 			GrafanaConfig: convertNetworkConfigFrom(srcOpts.GrafanaConfig),
-			CommandConfig: convertNetworkConfigFrom(srcOpts.CommandConfig), // TODO Remove this from v1beta2 API
 		}
 	}
 	return dstOpts

@@ -44,7 +44,6 @@ import (
 type TestResources struct {
 	Name             string
 	Namespace        string
-	Minimal          bool
 	TLS              bool
 	ExternalTLS      bool
 	OpenShift        bool
@@ -106,7 +105,6 @@ func (r *TestResources) newCryostatSpec() operatorv1beta2.CryostatSpec {
 	}
 	return operatorv1beta2.CryostatSpec{
 		TargetNamespaces:  r.TargetNamespaces,
-		Minimal:           r.Minimal,
 		EnableCertManager: &certManager,
 		ReportOptions:     reportOptions,
 	}
@@ -560,12 +558,6 @@ func (r *TestResources) NewCryostatWithJmxCacheOptionsSpec() *model.CryostatInst
 	return cr
 }
 
-func (r *TestResources) NewCryostatWithWsConnectionsSpec() *model.CryostatInstance {
-	cr := r.NewCryostat()
-	cr.Spec.MaxWsConnections = 10
-	return cr
-}
-
 func (r *TestResources) NewCryostatWithReportSubprocessHeapSpec() *model.CryostatInstance {
 	cr := r.NewCryostat()
 	if cr.Spec.ReportOptions == nil {
@@ -761,6 +753,43 @@ func (r *TestResources) NewGrafanaService() *corev1.Service {
 					Name:       "http",
 					Port:       3000,
 					TargetPort: intstr.FromInt(3000),
+				},
+			},
+		},
+	}
+}
+
+func (r *TestResources) NewCommandService() *corev1.Service {
+	c := true
+	return &corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      r.Name + "-command",
+			Namespace: r.Namespace,
+			OwnerReferences: []metav1.OwnerReference{
+				{
+					APIVersion: operatorv1beta2.GroupVersion.String(),
+					Kind:       "Cryostat",
+					Name:       r.Name,
+					UID:        "",
+					Controller: &c,
+				},
+			},
+			Labels: map[string]string{
+				"app":       r.Name,
+				"component": "cryostat",
+			},
+		},
+		Spec: corev1.ServiceSpec{
+			Type: corev1.ServiceTypeClusterIP,
+			Selector: map[string]string{
+				"app":       r.Name,
+				"component": "cryostat",
+			},
+			Ports: []corev1.ServicePort{
+				{
+					Name:       "http",
+					Port:       10001,
+					TargetPort: intstr.FromInt(10001),
 				},
 			},
 		},
@@ -1397,39 +1426,13 @@ func (r *TestResources) NewCoreEnvironmentVariables(reportsUrl string, authProps
 				Optional: &optional,
 			},
 		},
-	})
-
-	secretName = r.NewStorageSecret().Name
-	envs = append(envs, corev1.EnvVar{
-		Name: "QUARKUS_S3_AWS_CREDENTIALS_STATIC_PROVIDER_SECRET_ACCESS_KEY",
-		ValueFrom: &corev1.EnvVarSource{
-			SecretKeyRef: &corev1.SecretKeySelector{
-				LocalObjectReference: corev1.LocalObjectReference{
-					Name: secretName,
-				},
-				Key:      "SECRET_KEY",
-				Optional: &optional,
-			},
+	},
+		corev1.EnvVar{
+			Name:  "GRAFANA_DATASOURCE_URL",
+			Value: "http://127.0.0.1:8080",
 		},
-	})
+	)
 
-	envs = append(envs, corev1.EnvVar{
-		Name:  "QUARKUS_S3_AWS_CREDENTIALS_STATIC_PROVIDER_ACCESS_KEY_ID",
-		Value: "cryostat",
-	})
-
-	envs = append(envs, corev1.EnvVar{
-		Name:  "AWS_SECRET_ACCESS_KEY",
-		Value: "$(QUARKUS_S3_AWS_CREDENTIALS_STATIC_PROVIDER_SECRET_ACCESS_KEY)",
-	})
-
-	if !r.Minimal {
-		envs = append(envs,
-			corev1.EnvVar{
-				Name:  "GRAFANA_DATASOURCE_URL",
-				Value: "http://127.0.0.1:8989",
-			})
-	}
 	if !r.TLS {
 		envs = append(envs,
 			corev1.EnvVar{
@@ -1553,33 +1556,31 @@ func (r *TestResources) newNetworkEnvironmentVariables() []corev1.EnvVar {
 				Value: "80",
 			})
 	}
-	if !r.Minimal {
-		if r.ExternalTLS {
-			envs = append(envs,
-				corev1.EnvVar{
-					Name:  "GRAFANA_DASHBOARD_EXT_URL",
-					Value: fmt.Sprintf("https://%s-grafana.example.com", r.Name),
-				})
-		} else {
-			envs = append(envs,
-				corev1.EnvVar{
-					Name:  "GRAFANA_DASHBOARD_EXT_URL",
-					Value: fmt.Sprintf("http://%s-grafana.example.com", r.Name),
-				})
-		}
-		if r.TLS {
-			envs = append(envs,
-				corev1.EnvVar{
-					Name:  "GRAFANA_DASHBOARD_URL",
-					Value: "https://cryostat-health.local:3000",
-				})
-		} else {
-			envs = append(envs,
-				corev1.EnvVar{
-					Name:  "GRAFANA_DASHBOARD_URL",
-					Value: "http://cryostat-health.local:3000",
-				})
-		}
+	if r.ExternalTLS {
+		envs = append(envs,
+			corev1.EnvVar{
+				Name:  "GRAFANA_DASHBOARD_EXT_URL",
+				Value: fmt.Sprintf("https://%s-grafana.example.com", r.Name),
+			})
+	} else {
+		envs = append(envs,
+			corev1.EnvVar{
+				Name:  "GRAFANA_DASHBOARD_EXT_URL",
+				Value: fmt.Sprintf("http://%s-grafana.example.com", r.Name),
+			})
+	}
+	if r.TLS {
+		envs = append(envs,
+			corev1.EnvVar{
+				Name:  "GRAFANA_DASHBOARD_URL",
+				Value: "https://cryostat-health.local:3000",
+			})
+	} else {
+		envs = append(envs,
+			corev1.EnvVar{
+				Name:  "GRAFANA_DASHBOARD_URL",
+				Value: "http://cryostat-health.local:3000",
+			})
 	}
 	return envs
 }
@@ -1703,15 +1704,6 @@ func (r *TestResources) NewGrafanaEnvFromSource() []corev1.EnvFromSource {
 					Name: r.Name + "-grafana-basic",
 				},
 			},
-		},
-	}
-}
-
-func (r *TestResources) NewWsConnectionsEnv() []corev1.EnvVar {
-	return []corev1.EnvVar{
-		{
-			Name:  "CRYOSTAT_MAX_WS_CONNECTIONS",
-			Value: "10",
 		},
 	}
 }
@@ -2161,18 +2153,16 @@ func (r *TestResources) newVolumes(certProjections []corev1.VolumeProjection) []
 						},
 					},
 				},
-			})
-		if !r.Minimal {
-			volumes = append(volumes,
-				corev1.Volume{
-					Name: "grafana-tls-secret",
-					VolumeSource: corev1.VolumeSource{
-						Secret: &corev1.SecretVolumeSource{
-							SecretName: r.Name + "-grafana-tls",
-						},
+			},
+			corev1.Volume{
+				Name: "grafana-tls-secret",
+				VolumeSource: corev1.VolumeSource{
+					Secret: &corev1.SecretVolumeSource{
+						SecretName: r.Name + "-grafana-tls",
 					},
-				})
-		}
+				},
+			},
+		)
 	}
 
 	volumes = append(volumes,

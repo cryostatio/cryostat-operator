@@ -46,34 +46,24 @@ func (r *Reconciler) reconcileGrafanaSecret(ctx context.Context, cr *model.Cryos
 		},
 	}
 
-	var secretName string
-	if cr.Spec.Minimal {
-		err := r.deleteSecret(ctx, secret)
-		if err != nil {
-			return err
+	err := r.createOrUpdateSecret(ctx, secret, cr.Object, func() error {
+		if secret.StringData == nil {
+			secret.StringData = map[string]string{}
 		}
-		secretName = ""
-	} else {
-		err := r.createOrUpdateSecret(ctx, secret, cr.Object, func() error {
-			if secret.StringData == nil {
-				secret.StringData = map[string]string{}
-			}
-			secret.StringData["GF_SECURITY_ADMIN_USER"] = "admin"
+		secret.StringData["GF_SECURITY_ADMIN_USER"] = "admin"
 
-			// Password is generated, so don't regenerate it when updating
-			if secret.CreationTimestamp.IsZero() {
-				secret.StringData["GF_SECURITY_ADMIN_PASSWORD"] = r.GenPasswd(20)
-			}
-			return nil
-		})
-		if err != nil {
-			return err
+		// Password is generated, so don't regenerate it when updating
+		if secret.CreationTimestamp.IsZero() {
+			secret.StringData["GF_SECURITY_ADMIN_PASSWORD"] = r.GenPasswd(20)
 		}
-		secretName = secret.Name
+		return nil
+	})
+	if err != nil {
+		return err
 	}
 
 	// Set the Grafana secret in the CR status
-	cr.Status.GrafanaSecret = secretName
+	cr.Status.GrafanaSecret = secret.Name
 	return r.Client.Status().Update(ctx, cr.Object)
 }
 

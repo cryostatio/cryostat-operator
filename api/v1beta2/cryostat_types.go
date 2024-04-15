@@ -31,9 +31,6 @@ type CryostatSpec struct {
 	// +optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,order=2
 	TargetNamespaces []string `json:"targetNamespaces,omitempty"`
-	// Deploy a pared-down Cryostat instance with no Grafana Dashboard or JFR Data Source.
-	// +operator-sdk:csv:customresourcedefinitions:type=spec,order=4,displayName="Minimal Deployment",xDescriptors={"urn:alm:descriptor:com.tectonic.ui:booleanSwitch"}
-	Minimal bool `json:"minimal"`
 	// List of TLS certificates to trust when connecting to targets.
 	// +optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Trusted TLS Certificates"
@@ -64,11 +61,6 @@ type CryostatSpec struct {
 	// +optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	ReportOptions *ReportConfiguration `json:"reportOptions,omitempty"`
-	// The maximum number of WebSocket client connections allowed (minimum 1, default unlimited).
-	// +optional
-	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Max WebSocket Connections",xDescriptors={"urn:alm:descriptor:com.tectonic.ui:number"}
-	// +kubebuilder:validation:Minimum=1
-	MaxWsConnections int32 `json:"maxWsConnections,omitempty"`
 	// Options to customize the JMX target connections cache for the Cryostat application.
 	// +optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="JMX Connections Cache Options"
@@ -356,13 +348,6 @@ type NetworkConfigurationList struct {
 	// +optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	CoreConfig *NetworkConfiguration `json:"coreConfig,omitempty"`
-	// Specifications for how to expose the Cryostat command service,
-	// which serves the WebSocket command channel.
-	// +optional
-	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:com.tectonic.ui:hidden"}
-	//
-	// Deprecated: CommandConfig is no longer used.
-	CommandConfig *NetworkConfiguration `json:"commandConfig,omitempty"`
 	// Specifications for how to expose Cryostat's Grafana service,
 	// which serves the Grafana dashboard.
 	// +optional

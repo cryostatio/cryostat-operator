@@ -3,7 +3,6 @@ kind: Cryostat
 metadata:
   name: cryostat-sample
 spec:
-  minimal: false
   enableCertManager: true
   trustedCertSecrets: []
   eventTemplates: []

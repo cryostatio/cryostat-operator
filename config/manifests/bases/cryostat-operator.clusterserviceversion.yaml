@@ -15,7 +15,6 @@ metadata:
         },
         "spec": {
           "enableCertManager": true,
-          "minimal": false,
           "reportOptions": {
             "replicas": 0
           }
@@ -77,12 +76,6 @@ spec:
         path: enableCertManager
         x-descriptors:
         - urn:alm:descriptor:com.tectonic.ui:booleanSwitch
-      - description: Deploy a pared-down Cryostat instance with no Grafana Dashboard
-          or JFR Data Source.
-        displayName: Minimal Deployment
-        path: minimal
-        x-descriptors:
-        - urn:alm:descriptor:com.tectonic.ui:booleanSwitch
       - description: Override default authorization properties for Cryostat on OpenShift.
         displayName: Authorization Properties
         path: authProperties
@@ -138,35 +131,10 @@ spec:
         path: jmxCredentialsDatabaseOptions.databaseSecretName
         x-descriptors:
         - urn:alm:descriptor:io.kubernetes:Secret
-      - description: The maximum number of WebSocket client connections allowed (minimum
-          1, default unlimited).
-        displayName: Max WebSocket Connections
-        path: maxWsConnections
-        x-descriptors:
-        - urn:alm:descriptor:com.tectonic.ui:number
       - description: Options to control how the operator exposes the application outside
           of the cluster, such as using an Ingress or Route.
         displayName: Network Options
         path: networkOptions
-      - description: "Specifications for how to expose the Cryostat command service,
-          which serves the WebSocket command channel. \n Deprecated: CommandConfig
-          is no longer used."
-        displayName: Command Config
-        path: networkOptions.commandConfig
-        x-descriptors:
-        - urn:alm:descriptor:com.tectonic.ui:hidden
-      - description: Annotations to add to the Ingress or Route during its creation.
-        displayName: Annotations
-        path: networkOptions.commandConfig.annotations
-      - description: Configuration for an Ingress object. Currently subpaths are not
-          supported, so unique hosts must be specified (if a single external IP is
-          being used) to differentiate between ingresses/services.
-        displayName: Ingress Spec
-        path: networkOptions.commandConfig.ingressSpec
-      - description: Labels to add to the Ingress or Route during its creation. The
-          label with key "app" is reserved for use by the operator.
-        displayName: Labels
-        path: networkOptions.commandConfig.labels
       - description: Specifications for how to expose the Cryostat service, which
           serves the Cryostat application.
         displayName: Core Config
@@ -453,8 +421,8 @@ spec:
       version: v1beta2
     - description: Cryostat allows you to install Cryostat for a single namespace.
         It contains configuration options for controlling the Deployment of the Cryostat
-        application and its related components. A ClusterCryostat or Cryostat instance
-        must be created to instruct the operator to deploy the Cryostat application.
+        application and its related components. A Cryostat instance must be created
+        to instruct the operator to deploy the Cryostat application.
       displayName: Cryostat
       kind: Cryostat
       name: cryostats.operator.cryostat.io

@@ -31,9 +31,9 @@ const reportsImageEnv = "REPORTS_IMG"
 const storageImageEnv = "STORAGE_IMG"
 const databaseImageEnv = "DATABASE_IMG"
 
-// This program generates a imagetag_generated.go file containing image tag
-// constants for each container image deployed by the operator. These constants
-// are populated using environment variables.
+// This program generates a const_generated.go file containing image tag
+// constants for each container image deployed by the operator, along with
+// other constants. These constants are populated using environment variables.
 func main() {
 	// Fill in image tags struct from the environment variables
 	consts := struct {
