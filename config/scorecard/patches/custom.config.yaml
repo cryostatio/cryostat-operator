@@ -8,11 +8,7 @@
     entrypoint:
     - cryostat-scorecard-tests
     - operator-install
-<<<<<<< HEAD
-    image: "quay.io/cryostat/cryostat-operator-scorecard:2.5.0-20240327175405"
-=======
     image: "quay.io/cryostat/cryostat-operator-scorecard:3.0.0-20240404171904"
->>>>>>> upstream/cryostat3
     labels:
       suite: cryostat
       test: operator-install
@@ -22,11 +18,7 @@
     entrypoint:
     - cryostat-scorecard-tests
     - cryostat-cr
-<<<<<<< HEAD
-    image: "quay.io/cryostat/cryostat-operator-scorecard:2.5.0-20240327175405"
-=======
     image: "quay.io/cryostat/cryostat-operator-scorecard:3.0.0-20240404171904"
->>>>>>> upstream/cryostat3
     labels:
       suite: cryostat
       test: cryostat-cr
@@ -35,10 +27,6 @@
   value:
     entrypoint:
     - cryostat-scorecard-tests
-<<<<<<< HEAD
-    - cryostat-recording
-    image: "quay.io/cryostat/cryostat-operator-scorecard:2.5.0-20240327175405"
-=======
     - cryostat-multi-namespace
     image: "quay.io/cryostat/cryostat-operator-scorecard:3.0.0-20240404171904"
     labels:
@@ -51,7 +39,6 @@
     - cryostat-scorecard-tests
     - cryostat-recording
     image: "quay.io/cryostat/cryostat-operator-scorecard:3.0.0-20240404171904"
->>>>>>> upstream/cryostat3
     labels:
       suite: cryostat
       test: cryostat-recording
@@ -61,11 +48,7 @@
     entrypoint:
     - cryostat-scorecard-tests
     - cryostat-config-change
-<<<<<<< HEAD
-    image: "quay.io/cryostat/cryostat-operator-scorecard:2.5.0-20240327175405"
-=======
     image: "quay.io/cryostat/cryostat-operator-scorecard:3.0.0-20240404171904"
->>>>>>> upstream/cryostat3
     labels:
       suite: cryostat
       test: cryostat-config-change
@@ -75,11 +58,7 @@
     entrypoint:
     - cryostat-scorecard-tests
     - cryostat-report
-<<<<<<< HEAD
-    image: "quay.io/cryostat/cryostat-operator-scorecard:2.5.0-20240327175405"
-=======
     image: "quay.io/cryostat/cryostat-operator-scorecard:3.0.0-20240404171904"
->>>>>>> upstream/cryostat3
     labels:
       suite: cryostat
       test: cryostat-report
