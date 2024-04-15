@@ -517,7 +517,8 @@ func (r *TestResources) updateAndWaitTillCryostatAvailable(cr *operatorv1beta1.C
 	ctx := context.Background()
 
 	err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
-		cr, err := r.Client.OperatorCRDs().Cryostats(cr.Namespace).Get(ctx, cr.Name)
+		var err error
+		cr, err = r.Client.OperatorCRDs().Cryostats(cr.Namespace).Get(ctx, cr.Name)
 		if err != nil {
 			return fmt.Errorf("failed to get Cryostat CR: %s", err.Error())
 		}
