@@ -571,24 +571,50 @@ func (r *TestResources) getCryostatPodNameForCR(cr *operatorv1beta2.Cryostat) (s
 	selector := metav1.LabelSelector{
 		MatchLabels: map[string]string{
 			"app":       cr.Name,
+			"kind":      "cryostat",
 			"component": "cryostat",
 		},
 	}
-	opts := metav1.ListOptions{
-		LabelSelector: labels.Set(selector.MatchLabels).String(),
-	}
 
-	ctx, cancel := context.WithTimeout(context.TODO(), testTimeout)
-	defer cancel()
-
-	pods, err := r.Client.CoreV1().Pods(cr.Namespace).List(ctx, opts)
+	names, err := r.getPodnamesForSelector(cr.Namespace, selector)
 	if err != nil {
 		return "", err
 	}
 
-	if len(pods.Items) == 0 {
+	if len(names) == 0 {
 		return "", fmt.Errorf("no matching cryostat pods for cr: %s", cr.Name)
 	}
+	return names[0].ObjectMeta.Name, nil
+}
 
-	return pods.Items[0].ObjectMeta.Name, nil
+func (r *TestResources) getReportPodNameForCR(cr *operatorv1beta1.Cryostat) (string, error) {
+	selector := metav1.LabelSelector{
+		MatchLabels: map[string]string{
+			"app":       cr.Name,
+			"kind":      "cryostat",
+			"component": "reports",
+		},
+	}
+
+	names, err := r.getPodnamesForSelector(cr.Namespace, selector)
+	if err != nil {
+		return "", err
+	}
+
+	if len(names) == 0 {
+		return "", fmt.Errorf("no matching report sidecar pods for cr: %s", cr.Name)
+	}
+	return names[0].ObjectMeta.Name, nil
+}
+
+func (r *TestResources) getPodnamesForSelector(namespace string, selector metav1.LabelSelector) ([]corev1.Pod, error) {
+	labelSelector := labels.Set(selector.MatchLabels).String()
+
+	ctx, cancel := context.WithTimeout(context.TODO(), testTimeout)
+	defer cancel()
+
+	pods, err := r.Client.CoreV1().Pods(namespace).List(ctx, metav1.ListOptions{
+		LabelSelector: labelSelector,
+	})
+	return pods.Items, err
 }

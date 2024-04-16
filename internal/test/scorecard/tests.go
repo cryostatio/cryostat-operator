@@ -339,5 +339,10 @@ func CryostatReportTest(bundle *apimanifests.Bundle, namespace string, openShift
 		return r.fail(fmt.Sprintf("failed to reach the application: %s", err.Error()))
 	}
 
+	err = r.StartLogs(cr)
+	if err != nil {
+		r.Log += fmt.Sprintf("failed to retrieve logs for the application: %s", err.Error())
+	}
+
 	return r.TestResult
 }
