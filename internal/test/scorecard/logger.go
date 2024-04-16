@@ -25,12 +25,16 @@ import (
 )
 
 type ContainerLog struct {
+	Namespace string
+	Pod       string
 	Container string
 	Log       string
 }
 
 func (r *TestResources) logContainer(namespace, podName, containerName string) {
 	containerLog := &ContainerLog{
+		Namespace: namespace,
+		Pod:       podName,
 		Container: containerName,
 	}
 	buf := &strings.Builder{}
@@ -77,27 +81,46 @@ func (r *TestResources) CollectContainersLogsToResult() {
 	logs := r.CollectLogs()
 	for _, log := range logs {
 		if log != nil {
-			r.Log += fmt.Sprintf("\n%s CONTAINER LOG:\n\n\t%s\n", strings.ToUpper(log.Container), log.Log)
+			r.Log += fmt.Sprintf("\nNAMESPACE: %s\nPOD: %s\nCONTAINER: %s\nLOG:\n\t%s\n",
+				strings.ToUpper(log.Namespace),
+				strings.ToUpper(log.Pod),
+				strings.ToUpper(log.Container),
+				log.Log,
+			)
 		}
 	}
 }
 
 func (r *TestResources) StartLogs(cr *operatorv1beta2.Cryostat) error {
-	podName, err := r.getCryostatPodNameForCR(cr)
+	cryostatPodName, err := r.getCryostatPodNameForCR(cr)
 	if err != nil {
 		return fmt.Errorf("failed to get pod name for CR: %s", err.Error())
 	}
 
-	containerNames := []string{
-		cr.Name,
-		cr.Name + "-grafana",
-		cr.Name + "-jfr-datasource",
+	logSelections := map[string][]string{
+		cryostatPodName: {
+			cr.Name,
+			cr.Name + "-grafana",
+			cr.Name + "-jfr-datasource",
+		},
+	}
+	bufferSize := 3
+
+	if cr.Spec.ReportOptions != nil && cr.Spec.ReportOptions.Replicas > 0 {
+		reportPodName, err := r.getReportPodNameForCR(cr)
+		if err != nil {
+			return fmt.Errorf("failed to get pod name for report sidecar: %s", err.Error())
+		}
+		logSelections[reportPodName] = []string{cr.Name + "-reports"}
+		bufferSize++
 	}
 
-	r.LogChannel = make(chan *ContainerLog, len(containerNames))
+	r.LogChannel = make(chan *ContainerLog, bufferSize)
 
-	for _, containerName := range containerNames {
-		go r.logContainer(cr.Namespace, podName, containerName)
+	for pod, containers := range logSelections {
+		for _, container := range containers {
+			go r.logContainer(cr.Namespace, pod, container)
+		}
 	}
 
 	return nil
