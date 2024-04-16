@@ -23,8 +23,6 @@ import (
 	operatorv1beta2 "github.com/cryostatio/cryostat-operator/api/v1beta2"
 	scapiv1alpha3 "github.com/operator-framework/api/pkg/apis/scorecard/v1alpha3"
 	apimanifests "github.com/operator-framework/api/pkg/manifests"
-	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -125,6 +123,7 @@ func CryostatConfigChangeTest(bundle *apimanifests.Bundle, namespace string, ope
 	}
 
 	// Switch Cryostat CR to PVC for redeployment
+<<<<<<< HEAD
 	ctx, cancel := context.WithTimeout(context.Background(), testTimeout)
 	defer cancel()
 
@@ -147,12 +146,16 @@ func CryostatConfigChangeTest(bundle *apimanifests.Bundle, namespace string, ope
 
 	// Wait for redeployment of Cryostat CR
 	err = r.updateAndWaitTillCryostatAvailable(cr)
+=======
+	cr, err = r.updateAndWaitTillCryostatAvailable(cr)
+>>>>>>> d7b0379 (test(scorecard): retry on cryostat update conflict (#774))
 	if err != nil {
 		return r.fail(fmt.Sprintf("Cryostat redeployment did not become available: %s", err.Error()))
 	}
 	r.Log += "Cryostat deployment has successfully updated with new spec template\n"
 
 	base, err := url.Parse(cr.Status.ApplicationURL)
+	r.Log += fmt.Sprintf("base url: %s\n", base)
 	if err != nil {
 		return r.fail(fmt.Sprintf("application URL is invalid: %s", err.Error()))
 	}

@@ -31,11 +31,13 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	netv1 "k8s.io/api/networking/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes/scheme"
+	"k8s.io/client-go/util/retry"
 )
 
 const (
@@ -479,11 +481,41 @@ func (r *TestResources) sendHealthRequest(base *url.URL, healthCheck func(resp *
 	return err
 }
 
+<<<<<<< HEAD
 func (r *TestResources) updateAndWaitTillCryostatAvailable(cr *operatorv1beta2.Cryostat) error {
 	cr, err := r.Client.OperatorCRDs().Cryostats(cr.Namespace).Update(context.Background(), cr)
 	if err != nil {
 		r.Log += fmt.Sprintf("failed to update Cryostat CR: %s", err.Error())
+=======
+func (r *TestResources) updateAndWaitTillCryostatAvailable(cr *operatorv1beta1.Cryostat) (*operatorv1beta1.Cryostat, error) {
+	ctx := context.Background()
+
+	err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
+		var err error
+		cr, err = r.Client.OperatorCRDs().Cryostats(cr.Namespace).Get(ctx, cr.Name)
+		if err != nil {
+			return fmt.Errorf("failed to get Cryostat CR: %s", err.Error())
+		}
+
+		cr.Spec.StorageOptions = &operatorv1beta1.StorageConfiguration{
+			PVC: &operatorv1beta1.PersistentVolumeClaimConfig{
+				Spec: &corev1.PersistentVolumeClaimSpec{
+					StorageClassName: nil,
+					Resources: corev1.ResourceRequirements{
+						Requests: corev1.ResourceList{
+							corev1.ResourceStorage: resource.MustParse("1Gi"),
+						},
+					},
+				},
+			},
+		}
+
+		cr, err = r.Client.OperatorCRDs().Cryostats(cr.Namespace).Update(context.Background(), cr)
+>>>>>>> d7b0379 (test(scorecard): retry on cryostat update conflict (#774))
 		return err
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to update Cryostat CR: %s", err.Error())
 	}
 
 	// Poll the deployment until it becomes available or we timeout
@@ -537,9 +569,9 @@ func (r *TestResources) updateAndWaitTillCryostatAvailable(cr *operatorv1beta2.C
 		return false, nil
 	})
 	if err != nil {
-		return fmt.Errorf("failed to look up deployment errors: %s", err.Error())
+		return nil, fmt.Errorf("failed to look up deployment errors: %s", err.Error())
 	}
-	return err
+	return cr, err
 }
 
 func (r *TestResources) cleanupAndLogs() {
