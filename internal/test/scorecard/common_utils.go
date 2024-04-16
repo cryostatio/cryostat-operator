@@ -587,7 +587,7 @@ func (r *TestResources) getCryostatPodNameForCR(cr *operatorv1beta2.Cryostat) (s
 	return names[0].ObjectMeta.Name, nil
 }
 
-func (r *TestResources) getReportPodNameForCR(cr *operatorv1beta1.Cryostat) (string, error) {
+func (r *TestResources) getReportPodNameForCR(cr *operatorv1beta2.Cryostat) (string, error) {
 	selector := metav1.LabelSelector{
 		MatchLabels: map[string]string{
 			"app":       cr.Name,

@@ -91,13 +91,8 @@ func (r *TestResources) CollectContainersLogsToResult() {
 	}
 }
 
-<<<<<<< HEAD
 func (r *TestResources) StartLogs(cr *operatorv1beta2.Cryostat) error {
-	podName, err := r.getCryostatPodNameForCR(cr)
-=======
-func (r *TestResources) StartLogs(cr *operatorv1beta1.Cryostat) error {
 	cryostatPodName, err := r.getCryostatPodNameForCR(cr)
->>>>>>> 4b8ad76 (test(scorecard): add container logs for report sidecard test (#772))
 	if err != nil {
 		return fmt.Errorf("failed to get pod name for CR: %s", err.Error())
 	}
