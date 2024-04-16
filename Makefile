@@ -457,8 +457,8 @@ endif
 ##@ Deployment
 
 .PHONY: install
-install: manifests kustomize ## Install CRDs into the cluster specified in ~/.kube/config.
-	$(KUSTOMIZE) build config/crd | $(CLUSTER_CLIENT) apply -f -
+install: uninstall manifests kustomize ## Install CRDs into the cluster specified in ~/.kube/config.
+	$(KUSTOMIZE) build config/crd | $(CLUSTER_CLIENT) create -f -
 
 .PHONY: uninstall
 uninstall: manifests kustomize ## Uninstall CRDs from the cluster specified in ~/.kube/config.
@@ -474,8 +474,8 @@ print_deploy_config: predeploy ## Print deployment configurations for the contro
 	$(KUSTOMIZE) build $(KUSTOMIZE_DIR)
 
 .PHONY: deploy
-deploy: check_cert_manager manifests kustomize predeploy ## Deploy controller in the configured cluster in ~/.kube/config
-	$(KUSTOMIZE) build $(KUSTOMIZE_DIR) | $(CLUSTER_CLIENT) apply -f -
+deploy: check_cert_manager manifests kustomize predeploy undeploy ## Deploy controller in the configured cluster in ~/.kube/config
+	$(KUSTOMIZE) build $(KUSTOMIZE_DIR) | $(CLUSTER_CLIENT) create -f -
 ifeq ($(DISABLE_SERVICE_TLS), true)
 	@echo "Disabling TLS for in-cluster communication between Services"
 	@$(CLUSTER_CLIENT) -n $(DEPLOY_NAMESPACE) set env deployment/cryostat-operator-controller-manager DISABLE_SERVICE_TLS=true
