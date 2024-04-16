@@ -70,11 +70,7 @@ stages:
   - entrypoint:
     - cryostat-scorecard-tests
     - operator-install
-<<<<<<< HEAD
-    image: quay.io/cryostat/cryostat-operator-scorecard:3.0.0-20240416191245
-=======
-    image: quay.io/cryostat/cryostat-operator-scorecard:2.5.0-20240416204604
->>>>>>> d7b0379 (test(scorecard): retry on cryostat update conflict (#774))
+    image: quay.io/cryostat/cryostat-operator-scorecard:3.0.0-20240416210645
     labels:
       suite: cryostat
       test: operator-install
@@ -84,11 +80,7 @@ stages:
   - entrypoint:
     - cryostat-scorecard-tests
     - cryostat-cr
-<<<<<<< HEAD
-    image: quay.io/cryostat/cryostat-operator-scorecard:3.0.0-20240416191245
-=======
-    image: quay.io/cryostat/cryostat-operator-scorecard:2.5.0-20240416204604
->>>>>>> d7b0379 (test(scorecard): retry on cryostat update conflict (#774))
+    image: quay.io/cryostat/cryostat-operator-scorecard:3.0.0-20240416210645
     labels:
       suite: cryostat
       test: cryostat-cr
@@ -98,11 +90,7 @@ stages:
   - entrypoint:
     - cryostat-scorecard-tests
     - cryostat-multi-namespace
-<<<<<<< HEAD
-    image: quay.io/cryostat/cryostat-operator-scorecard:3.0.0-20240416191245
-=======
-    image: quay.io/cryostat/cryostat-operator-scorecard:2.5.0-20240416204604
->>>>>>> d7b0379 (test(scorecard): retry on cryostat update conflict (#774))
+    image: quay.io/cryostat/cryostat-operator-scorecard:3.0.0-20240416210645
     labels:
       suite: cryostat
       test: cryostat-multi-namespace
@@ -112,11 +100,7 @@ stages:
   - entrypoint:
     - cryostat-scorecard-tests
     - cryostat-recording
-<<<<<<< HEAD
-    image: quay.io/cryostat/cryostat-operator-scorecard:3.0.0-20240416191245
-=======
-    image: quay.io/cryostat/cryostat-operator-scorecard:2.5.0-20240416204604
->>>>>>> d7b0379 (test(scorecard): retry on cryostat update conflict (#774))
+    image: quay.io/cryostat/cryostat-operator-scorecard:3.0.0-20240416210645
     labels:
       suite: cryostat
       test: cryostat-recording
@@ -126,11 +110,7 @@ stages:
   - entrypoint:
     - cryostat-scorecard-tests
     - cryostat-config-change
-<<<<<<< HEAD
-    image: quay.io/cryostat/cryostat-operator-scorecard:3.0.0-20240416191245
-=======
-    image: quay.io/cryostat/cryostat-operator-scorecard:2.5.0-20240416204604
->>>>>>> d7b0379 (test(scorecard): retry on cryostat update conflict (#774))
+    image: quay.io/cryostat/cryostat-operator-scorecard:3.0.0-20240416210645
     labels:
       suite: cryostat
       test: cryostat-config-change
@@ -140,11 +120,7 @@ stages:
   - entrypoint:
     - cryostat-scorecard-tests
     - cryostat-report
-<<<<<<< HEAD
-    image: quay.io/cryostat/cryostat-operator-scorecard:3.0.0-20240416191245
-=======
-    image: quay.io/cryostat/cryostat-operator-scorecard:2.5.0-20240416204604
->>>>>>> d7b0379 (test(scorecard): retry on cryostat update conflict (#774))
+    image: quay.io/cryostat/cryostat-operator-scorecard:3.0.0-20240416210645
     labels:
       suite: cryostat
       test: cryostat-report

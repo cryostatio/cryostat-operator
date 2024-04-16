@@ -481,13 +481,7 @@ func (r *TestResources) sendHealthRequest(base *url.URL, healthCheck func(resp *
 	return err
 }
 
-<<<<<<< HEAD
-func (r *TestResources) updateAndWaitTillCryostatAvailable(cr *operatorv1beta2.Cryostat) error {
-	cr, err := r.Client.OperatorCRDs().Cryostats(cr.Namespace).Update(context.Background(), cr)
-	if err != nil {
-		r.Log += fmt.Sprintf("failed to update Cryostat CR: %s", err.Error())
-=======
-func (r *TestResources) updateAndWaitTillCryostatAvailable(cr *operatorv1beta1.Cryostat) (*operatorv1beta1.Cryostat, error) {
+func (r *TestResources) updateAndWaitTillCryostatAvailable(cr *operatorv1beta2.Cryostat) (*operatorv1beta2.Cryostat, error) {
 	ctx := context.Background()
 
 	err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
@@ -497,8 +491,8 @@ func (r *TestResources) updateAndWaitTillCryostatAvailable(cr *operatorv1beta1.C
 			return fmt.Errorf("failed to get Cryostat CR: %s", err.Error())
 		}
 
-		cr.Spec.StorageOptions = &operatorv1beta1.StorageConfiguration{
-			PVC: &operatorv1beta1.PersistentVolumeClaimConfig{
+		cr.Spec.StorageOptions = &operatorv1beta2.StorageConfiguration{
+			PVC: &operatorv1beta2.PersistentVolumeClaimConfig{
 				Spec: &corev1.PersistentVolumeClaimSpec{
 					StorageClassName: nil,
 					Resources: corev1.ResourceRequirements{
@@ -511,7 +505,6 @@ func (r *TestResources) updateAndWaitTillCryostatAvailable(cr *operatorv1beta1.C
 		}
 
 		cr, err = r.Client.OperatorCRDs().Cryostats(cr.Namespace).Update(context.Background(), cr)
->>>>>>> d7b0379 (test(scorecard): retry on cryostat update conflict (#774))
 		return err
 	})
 	if err != nil {

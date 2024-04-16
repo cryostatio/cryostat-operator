@@ -123,32 +123,7 @@ func CryostatConfigChangeTest(bundle *apimanifests.Bundle, namespace string, ope
 	}
 
 	// Switch Cryostat CR to PVC for redeployment
-<<<<<<< HEAD
-	ctx, cancel := context.WithTimeout(context.Background(), testTimeout)
-	defer cancel()
-
-	cr, err = r.Client.OperatorCRDs().Cryostats(namespace).Get(ctx, CryostatConfigChangeTestName)
-	if err != nil {
-		return r.fail(fmt.Sprintf("failed to get Cryostat CR: %s", err.Error()))
-	}
-	cr.Spec.StorageOptions = &operatorv1beta2.StorageConfiguration{
-		PVC: &operatorv1beta2.PersistentVolumeClaimConfig{
-			Spec: &corev1.PersistentVolumeClaimSpec{
-				StorageClassName: nil,
-				Resources: corev1.ResourceRequirements{
-					Requests: corev1.ResourceList{
-						corev1.ResourceStorage: resource.MustParse("1Gi"),
-					},
-				},
-			},
-		},
-	}
-
-	// Wait for redeployment of Cryostat CR
-	err = r.updateAndWaitTillCryostatAvailable(cr)
-=======
 	cr, err = r.updateAndWaitTillCryostatAvailable(cr)
->>>>>>> d7b0379 (test(scorecard): retry on cryostat update conflict (#774))
 	if err != nil {
 		return r.fail(fmt.Sprintf("Cryostat redeployment did not become available: %s", err.Error()))
 	}
