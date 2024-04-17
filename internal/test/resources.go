@@ -907,7 +907,7 @@ func (r *TestResources) NewDatabaseSecret() *corev1.Secret {
 		},
 		StringData: map[string]string{
 			"CONNECTION_KEY": "credentials_database", // notsecret
-			"ENCRYPTION_KEY": "encryption_key", // notsecret
+			"ENCRYPTION_KEY": "encryption_key",       // notsecret
 		},
 	}
 }
@@ -932,7 +932,7 @@ func (r *TestResources) OtherDatabaseSecret() *corev1.Secret {
 		},
 		StringData: map[string]string{
 			"CONNECTION_KEY": "other-pass", // notsecret
-			"ENCRYPTION_KEY": "other-key", // notsecret
+			"ENCRYPTION_KEY": "other-key",  // notsecret
 		},
 	}
 }
@@ -957,7 +957,7 @@ func (r *TestResources) OtherJMXSecret() *corev1.Secret {
 		},
 		StringData: map[string]string{
 			"CRYOSTAT_RJMX_USER": "not-cryostat", // notsecret
-			"CRYOSTAT_RJMX_PASS": "other-pass", // notsecret
+			"CRYOSTAT_RJMX_PASS": "other-pass",   // notsecret
 		},
 	}
 }
@@ -1386,34 +1386,6 @@ func (r *TestResources) NewCoreEnvironmentVariables(reportsUrl string, ingress b
 
 func (r *TestResources) newNetworkEnvironmentVariables() []corev1.EnvVar {
 	envs := []corev1.EnvVar{}
-	if !r.Minimal {
-		if r.ExternalTLS {
-			envs = append(envs,
-				corev1.EnvVar{
-					Name:  "GRAFANA_DASHBOARD_EXT_URL",
-					Value: fmt.Sprintf("https://%s-grafana.example.com", r.Name),
-				})
-		} else {
-			envs = append(envs,
-				corev1.EnvVar{
-					Name:  "GRAFANA_DASHBOARD_EXT_URL",
-					Value: fmt.Sprintf("http://%s-grafana.example.com", r.Name),
-				})
-		}
-		if r.TLS {
-			envs = append(envs,
-				corev1.EnvVar{
-					Name:  "GRAFANA_DASHBOARD_URL",
-					Value: "https://cryostat-health.local:3000",
-				})
-		} else {
-			envs = append(envs,
-				corev1.EnvVar{
-					Name:  "GRAFANA_DASHBOARD_URL",
-					Value: "http://cryostat-health.local:3000",
-				})
-		}
-	}
 	return envs
 }
 
