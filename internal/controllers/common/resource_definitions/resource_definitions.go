@@ -355,28 +355,6 @@ func NewPodForCR(cr *model.CryostatInstance, specs *ServiceSpecs, imageTags *Ima
 		volumes = append(volumes, eventTemplateVolume)
 	}
 
-	// Add Auth properties as a volume if specified (on Openshift)
-	if openshift && cr.Spec.AuthProperties != nil {
-		authResourceVolume := corev1.Volume{
-			Name: "auth-properties-" + cr.Spec.AuthProperties.ConfigMapName,
-			VolumeSource: corev1.VolumeSource{
-				ConfigMap: &corev1.ConfigMapVolumeSource{
-					LocalObjectReference: corev1.LocalObjectReference{
-						Name: cr.Spec.AuthProperties.ConfigMapName,
-					},
-					Items: []corev1.KeyToPath{
-						{
-							Key:  cr.Spec.AuthProperties.Filename,
-							Path: "OpenShiftAuthManager.properties",
-							Mode: &readOnlyMode,
-						},
-					},
-				},
-			},
-		}
-		volumes = append(volumes, authResourceVolume)
-	}
-
 	var podSc *corev1.PodSecurityContext
 	if cr.Spec.SecurityOptions != nil && cr.Spec.SecurityOptions.PodSecurityContext != nil {
 		podSc = cr.Spec.SecurityOptions.PodSecurityContext
@@ -610,7 +588,6 @@ func NewCoreContainer(cr *model.CryostatInstance, specs *ServiceSpecs, imageTag 
 	templatesPath := "/opt/cryostat.d/templates.d"
 	clientlibPath := "/opt/cryostat.d/clientlib.d"
 	probesPath := "/opt/cryostat.d/probes.d"
-	authPropertiesPath := "/app/resources/io/cryostat/net/openshift/OpenShiftAuthManager.properties"
 
 	envs := []corev1.EnvVar{
 		{
@@ -804,23 +781,11 @@ func NewCoreContainer(cr *model.CryostatInstance, specs *ServiceSpecs, imageTag 
 	if specs.ReportsURL != nil {
 		reportsEnvs := []corev1.EnvVar{
 			{
-				Name:  "CRYOSTAT_REPORT_GENERATOR",
+				Name:  "CRYOSTAT_SERVICES_REPORTS_URL",
 				Value: specs.ReportsURL.String(),
 			},
 		}
 		envs = append(envs, reportsEnvs...)
-	} else {
-		subProcessMaxHeapSize := "200"
-		if cr.Spec.ReportOptions != nil && cr.Spec.ReportOptions.SubProcessMaxHeapSize != 0 {
-			subProcessMaxHeapSize = strconv.Itoa(int(cr.Spec.ReportOptions.SubProcessMaxHeapSize))
-		}
-		subprocessReportHeapEnv := []corev1.EnvVar{
-			{
-				Name:  "CRYOSTAT_REPORT_GENERATION_MAX_HEAP",
-				Value: subProcessMaxHeapSize,
-			},
-		}
-		envs = append(envs, subprocessReportHeapEnv...)
 	}
 
 	// Define INSIGHTS_PROXY URL if Insights integration is enabled
@@ -848,11 +813,11 @@ func NewCoreContainer(cr *model.CryostatInstance, specs *ServiceSpecs, imageTag 
 	}
 	jmxCacheEnvs := []corev1.EnvVar{
 		{
-			Name:  "CRYOSTAT_TARGET_CACHE_SIZE",
+			Name:  "CRYOSTAT_CONNECTIONS_MAX_OPEN",
 			Value: targetCacheSize,
 		},
 		{
-			Name:  "CRYOSTAT_TARGET_CACHE_TTL",
+			Name:  "CRYOSTAT_CONNECTIONS_TTL",
 			Value: targetCacheTTL,
 		},
 	}
@@ -867,51 +832,7 @@ func NewCoreContainer(cr *model.CryostatInstance, specs *ServiceSpecs, imageTag 
 		},
 	}
 
-	if openshift {
-		// Force OpenShift platform strategy
-		openshiftEnvs := []corev1.EnvVar{
-			{
-				Name:  "CRYOSTAT_PLATFORM",
-				Value: "io.cryostat.platform.internal.OpenShiftPlatformStrategy",
-			},
-			{
-				Name:  "CRYOSTAT_AUTH_MANAGER",
-				Value: "io.cryostat.net.openshift.OpenShiftAuthManager",
-			},
-			{
-				Name:  "CRYOSTAT_OAUTH_CLIENT_ID",
-				Value: cr.Name,
-			},
-			{
-				Name:  "CRYOSTAT_BASE_OAUTH_ROLE",
-				Value: constants.OperatorNamePrefix + "oauth-client",
-			},
-		}
-		envs = append(envs, openshiftEnvs...)
-
-		if cr.Spec.AuthProperties != nil {
-			// Mount Auth properties if specified (on Openshift)
-			mounts = append(mounts, corev1.VolumeMount{
-				Name:      "auth-properties-" + cr.Spec.AuthProperties.ConfigMapName,
-				MountPath: authPropertiesPath,
-				SubPath:   "OpenShiftAuthManager.properties",
-				ReadOnly:  true,
-			})
-			envs = append(envs, corev1.EnvVar{
-				Name:  "CRYOSTAT_CUSTOM_OAUTH_ROLE",
-				Value: cr.Spec.AuthProperties.ClusterRoleName,
-			})
-		}
-	}
-
 	if cr.Spec.TargetDiscoveryOptions != nil {
-		if cr.Spec.TargetDiscoveryOptions.BuiltInDiscoveryDisabled {
-			envs = append(envs, corev1.EnvVar{
-				Name:  "CRYOSTAT_DISABLE_BUILTIN_DISCOVERY",
-				Value: "true",
-			})
-		}
-
 		var portNames string
 		if len(cr.Spec.TargetDiscoveryOptions.DiscoveryPortNames) > 0 {
 			portNames = strings.Join(cr.Spec.TargetDiscoveryOptions.DiscoveryPortNames[:], ",")
@@ -942,46 +863,6 @@ func NewCoreContainer(cr *model.CryostatInstance, specs *ServiceSpecs, imageTag 
 			)
 		}
 	}
-
-	if !useEmptyDir(cr) {
-		envs = append(envs, corev1.EnvVar{
-			Name:  "CRYOSTAT_JDBC_URL",
-			Value: "jdbc:h2:file:/opt/cryostat.d/conf.d/h2;INIT=create domain if not exists jsonb as varchar",
-		}, corev1.EnvVar{
-			Name:  "CRYOSTAT_HBM2DDL",
-			Value: "update",
-		}, corev1.EnvVar{
-			Name:  "CRYOSTAT_JDBC_DRIVER",
-			Value: "org.h2.Driver",
-		}, corev1.EnvVar{
-			Name:  "CRYOSTAT_HIBERNATE_DIALECT",
-			Value: "org.hibernate.dialect.H2Dialect",
-		}, corev1.EnvVar{
-			Name:  "CRYOSTAT_JDBC_USERNAME",
-			Value: cr.Name,
-		}, corev1.EnvVar{
-			Name:  "CRYOSTAT_JDBC_PASSWORD",
-			Value: cr.Name,
-		})
-	}
-
-	secretOptional := false
-	secretName = cr.Name + "-jmx-credentials-db"
-	if cr.Spec.JmxCredentialsDatabaseOptions != nil && cr.Spec.JmxCredentialsDatabaseOptions.DatabaseSecretName != nil {
-		secretName = *cr.Spec.JmxCredentialsDatabaseOptions.DatabaseSecretName
-	}
-	envs = append(envs, corev1.EnvVar{
-		Name: "CRYOSTAT_JMX_CREDENTIALS_DB_PASSWORD",
-		ValueFrom: &corev1.EnvVarSource{
-			SecretKeyRef: &corev1.SecretKeySelector{
-				LocalObjectReference: corev1.LocalObjectReference{
-					Name: secretName,
-				},
-				Key:      "CRYOSTAT_JMX_CREDENTIALS_DB_PASSWORD",
-				Optional: &secretOptional,
-			},
-		},
-	})
 
 	grafanaVars := []corev1.EnvVar{
 		{

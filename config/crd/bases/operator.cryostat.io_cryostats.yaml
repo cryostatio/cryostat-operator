@@ -8664,7 +8664,7 @@ spec:
                         type: object
                     type: object
                   databaseSecurityContext:
-                    description: Security Context to apply to the storage container.
+                    description: Security Context to apply to the database container.
                     properties:
                       allowPrivilegeEscalation:
                         description: 'AllowPrivilegeEscalation controls whether a
