@@ -535,7 +535,7 @@ func NewCoreContainer(cr *model.CryostatInstance, specs *ServiceSpecs, imageTag 
 			Value: "static",
 		},
 		{
-			Name:  "QUARKUS_S3_CREDENTIALS_STATIC_PROVIDER_ACCESS_KEY_ID",
+			Name:  "QUARKUS_S3_AWS_CREDENTIALS_STATIC_PROVIDER_ACCESS_KEY_ID",
 			Value: "cryostat",
 		},
 		{
@@ -560,46 +560,6 @@ func NewCoreContainer(cr *model.CryostatInstance, specs *ServiceSpecs, imageTag 
 
 	optional := false
 	secretName := cr.Name + "-db"
-	if cr.Spec.JmxCredentialsDatabaseOptions != nil && cr.Spec.JmxCredentialsDatabaseOptions.DatabaseSecretName != nil {
-		secretName = *cr.Spec.JmxCredentialsDatabaseOptions.DatabaseSecretName
-	}
-	envs = append(envs, corev1.EnvVar{
-		Name: "QUARKUS_DATASOURCE_PASSWORD",
-		ValueFrom: &corev1.EnvVarSource{
-			SecretKeyRef: &corev1.SecretKeySelector{
-				LocalObjectReference: corev1.LocalObjectReference{
-					Name: secretName,
-				},
-				Key:      "CONNECTION_KEY",
-				Optional: &optional,
-			},
-		},
-	})
-
-	envs = append(envs, corev1.EnvVar{
-		Name:  "QUARKUS_S3_AWS_CREDENTIALS_STATIC_PROVIDER_ACCESS_KEY_ID",
-		Value: "cryostat",
-	})
-
-	secretName = cr.Name + "-storage-secret-key"
-	envs = append(envs, corev1.EnvVar{
-		Name: "QUARKUS_S3_AWS_CREDENTIALS_STATIC_PROVIDER_SECRET_ACCESS_KEY",
-		ValueFrom: &corev1.EnvVarSource{
-			SecretKeyRef: &corev1.SecretKeySelector{
-				LocalObjectReference: corev1.LocalObjectReference{
-					Name: secretName,
-				},
-				Key:      "SECRET_KEY",
-				Optional: &optional,
-			},
-		},
-	})
-
-	envs = append(envs, corev1.EnvVar{
-		Name:  "AWS_SECRET_ACCESS_KEY",
-		Value: "$(QUARKUS_S3_AWS_CREDENTIALS_STATIC_PROVIDER_SECRET_ACCESS_KEY)",
-	})
-
 	envs = append(envs, corev1.EnvVar{
 		Name: "QUARKUS_DATASOURCE_PASSWORD",
 		ValueFrom: &corev1.EnvVarSource{
@@ -676,16 +636,6 @@ func NewCoreContainer(cr *model.CryostatInstance, specs *ServiceSpecs, imageTag 
 		}
 	}
 
-	envsFrom := []corev1.EnvFromSource{
-		{
-			SecretRef: &corev1.SecretEnvSource{
-				LocalObjectReference: corev1.LocalObjectReference{
-					Name: cr.Name + "-jmx-auth",
-				},
-			},
-		},
-	}
-
 	if cr.Spec.TargetDiscoveryOptions != nil {
 		var portNames string
 		if len(cr.Spec.TargetDiscoveryOptions.DiscoveryPortNames) > 0 {
@@ -737,6 +687,7 @@ func NewCoreContainer(cr *model.CryostatInstance, specs *ServiceSpecs, imageTag 
 	}
 	envs = append(envs, grafanaVars...)
 
+	envsFrom := []corev1.EnvFromSource{}
 	if tls != nil {
 		// Configure keystore location and password in expected environment variables
 		envs = append(envs, corev1.EnvVar{

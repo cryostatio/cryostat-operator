@@ -936,19 +936,6 @@ func (r *TestResources) NewKeystoreSecret() *corev1.Secret {
 	}
 }
 
-func (r *TestResources) OtherJMXSecret() *corev1.Secret {
-	return &corev1.Secret{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      r.Name + "-jmx-auth",
-			Namespace: r.Namespace,
-		},
-		StringData: map[string]string{
-			"CRYOSTAT_RJMX_USER": "not-cryostat", // notsecret
-			"CRYOSTAT_RJMX_PASS": "other-pass",   // notsecret
-		},
-	}
-}
-
 func (r *TestResources) NewTestCertSecret(name string) *corev1.Secret {
 	return &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
@@ -1296,51 +1283,7 @@ func (r *TestResources) NewCoreEnvironmentVariables(reportsUrl string, ingress b
 			Value: "static",
 		},
 		{
-			Name:  "QUARKUS_S3_CREDENTIALS_STATIC_PROVIDER_ACCESS_KEY_ID",
-			Value: "cryostat",
-		},
-		{
-			Name:  "AWS_ACCESS_KEY_ID",
-			Value: "$(QUARKUS_S3_AWS_CREDENTIALS_STATIC_PROVIDER_ACCESS_KEY_ID)",
-		},
-		{
-			Name:  "QUARKUS_HIBERNATE_ORM_DATABASE_GENERATION",
-			Value: "drop-and-create",
-		},
-		{
-			Name:  "QUARKUS_DATASOURCE_USERNAME",
-			Value: "cryostat3",
-		},
-		{
-			Name:  "STORAGE_BUCKETS_ARCHIVE_NAME",
-			Value: "archivedrecordings",
-		},
-		{
-			Name:  "CRYOSTAT_CONNECTIONS_MAX_OPEN",
-			Value: "-1",
-		},
-		{
-			Name:  "CRYOSTAT_CONNECTIONS_TTL",
-			Value: "10",
-		},
-		{
-			Name:  "QUARKUS_S3_ENDPOINT_OVERRIDE",
-			Value: "http://localhost:8333",
-		},
-		{
-			Name:  "QUARKUS_S3_PATH_STYLE_ACCESS",
-			Value: "true",
-		},
-		{
-			Name:  "QUARKUS_S3_AWS_REGION",
-			Value: "us-east-1",
-		},
-		{
-			Name:  "QUARKUS_S3_AWS_CREDENTIALS_TYPE",
-			Value: "static",
-		},
-		{
-			Name:  "QUARKUS_S3_CREDENTIALS_STATIC_PROVIDER_ACCESS_KEY_ID",
+			Name:  "QUARKUS_S3_AWS_CREDENTIALS_STATIC_PROVIDER_ACCESS_KEY_ID",
 			Value: "cryostat",
 		},
 		{
@@ -1351,17 +1294,35 @@ func (r *TestResources) NewCoreEnvironmentVariables(reportsUrl string, ingress b
 			Name:  "GRAFANA_DATASOURCE_URL",
 			Value: "http://127.0.0.1:8989",
 		},
-		{
-			Name:  "QUARKUS_S3_AWS_CREDENTIALS_STATIC_PROVIDER_ACCESS_KEY_ID",
-			Value: "cryostat",
-		},
-		{
-			Name:  "AWS_SECRET_ACCESS_KEY",
-			Value: "$(QUARKUS_S3_AWS_CREDENTIALS_STATIC_PROVIDER_SECRET_ACCESS_KEY)",
-		},
 	}
 
 	envs = append(envs, r.NewTargetDiscoveryEnvVar(hasPortConfig, builtInPortConfigDisabled)...)
+
+	dashboardVars := []corev1.EnvVar{}
+	if r.TLS {
+		dashboardVars = []corev1.EnvVar{
+			{
+				Name:  "GRAFANA_DASHBOARD_URL",
+				Value: "https://cryostat-health.local:3000",
+			},
+			{
+				Name:  "GRAFANA_DASHBOARD_EXT_URL",
+				Value: "https://cryostat-grafana.example.com",
+			},
+		}
+	} else {
+		dashboardVars = []corev1.EnvVar{
+			{
+				Name:  "GRAFANA_DASHBOARD_URL",
+				Value: "http://cryostat-health.local:3000",
+			},
+			{
+				Name:  "GRAFANA_DASHBOARD_EXT_URL",
+				Value: "http://cryostat-grafana.example.com",
+			},
+		}
+	}
+	envs = append(envs, dashboardVars...)
 
 	optional := false
 	secretName := r.NewDatabaseSecret().Name
