@@ -24,6 +24,8 @@ import (
 
 const appNameEnv = "APP_NAME"
 const operatorVersionEnv = "OPERATOR_VERSION"
+const oauth2ProxyImageEnv = "OAUTH2_PROXY_IMG"
+const openshiftOauthProxyImageEnv = "OPENSHIFT_OAUTH_PROXY_IMG"
 const coreImageEnv = "CORE_IMG"
 const datasourceImageEnv = "DATASOURCE_IMG"
 const grafanaImageEnv = "GRAFANA_IMG"
@@ -39,6 +41,8 @@ func main() {
 	consts := struct {
 		AppName            string
 		OperatorVersion    string
+		OAuth2ProxyImageTag string
+		OpenShiftOAuthProxyImageTag string
 		CoreImageTag       string
 		DatasourceImageTag string
 		GrafanaImageTag    string
@@ -48,6 +52,8 @@ func main() {
 	}{
 		AppName:            getEnvVar(appNameEnv),
 		OperatorVersion:    getEnvVar(operatorVersionEnv),
+		OAuth2ProxyImageTag: getEnvVar(oauth2ProxyImageEnv),
+		OpenShiftOAuthProxyImageTag: getEnvVar(openshiftOauthProxyImageEnv),
 		CoreImageTag:       getEnvVar(coreImageEnv),
 		DatasourceImageTag: getEnvVar(datasourceImageEnv),
 		GrafanaImageTag:    getEnvVar(grafanaImageEnv),
@@ -85,6 +91,12 @@ const AppName = "{{ .AppName }}"
 
 // Version of the Cryostat Operator
 const OperatorVersion = "{{ .OperatorVersion }}"
+
+// Default image tag for the OAuth2 Proxy
+const DefaultOAuth2ProxyImageTag = "{{ .OAuth2ProxyImageTag }}"
+
+// Default image tag for the OpenShift OAuth Proxy
+const DefaultOpenShiftOAuthProxyImageTag = "{{ .OpenShiftOAuthProxyImageTag }}"
 
 // Default image tag for the core application image
 const DefaultCoreImageTag = "{{ .CoreImageTag }}"

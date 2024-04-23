@@ -51,7 +51,7 @@ func (r *Reconciler) reconcileCoreService(ctx context.Context, cr *model.Cryosta
 			{
 				Name:       "http",
 				Port:       *config.HTTPPort,
-				TargetPort: intstr.IntOrString{IntVal: constants.CryostatHTTPContainerPort},
+				TargetPort: intstr.IntOrString{IntVal: constants.AuthProxyHttpContainerPort},
 			},
 			{
 				Name:       "jfr-jmx",

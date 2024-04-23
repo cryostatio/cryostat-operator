@@ -81,6 +81,12 @@ type Reconciler struct {
 // Name used for Finalizer that handles Cryostat deletion
 const cryostatFinalizer = "operator.cryostat.io/cryostat.finalizer"
 
+// Environment variable to override the OAuth2 Proxy image
+const oauth2ProxyImageTagEnv = "RELATED_IMAGE_OAUTH2_PROXY"
+
+// Environment variable to override the core application image
+const openshiftOauthProxyImageTagEnv = "RELATED_IMAGE_OPENSHIFT_OAUTH_PROXY"
+
 // Environment variable to override the core application image
 const coreImageTagEnv = "RELATED_IMAGE_CORE"
 
@@ -364,12 +370,14 @@ func (r *Reconciler) reconcileReports(ctx context.Context, reqLogger logr.Logger
 
 func (r *Reconciler) getImageTags() *resources.ImageTags {
 	return &resources.ImageTags{
-		CoreImageTag:       r.getEnvOrDefault(coreImageTagEnv, DefaultCoreImageTag),
-		DatasourceImageTag: r.getEnvOrDefault(datasourceImageTagEnv, DefaultDatasourceImageTag),
-		GrafanaImageTag:    r.getEnvOrDefault(grafanaImageTagEnv, DefaultGrafanaImageTag),
-		ReportsImageTag:    r.getEnvOrDefault(reportsImageTagEnv, DefaultReportsImageTag),
-		StorageImageTag:    r.getEnvOrDefault(storageImageTagEnv, DefaultStorageImageTag),
-		DatabaseImageTag:   r.getEnvOrDefault(databaseImageTagEnv, DefaultDatabaseImageTag),
+		OAuth2ProxyImageTag:         r.getEnvOrDefault(oauth2ProxyImageTagEnv, DefaultOAuth2ProxyImageTag),
+		OpenShiftOAuthProxyImageTag: r.getEnvOrDefault(openshiftOauthProxyImageTagEnv, DefaultOpenShiftOAuthProxyImageTag),
+		CoreImageTag:                r.getEnvOrDefault(coreImageTagEnv, DefaultCoreImageTag),
+		DatasourceImageTag:          r.getEnvOrDefault(datasourceImageTagEnv, DefaultDatasourceImageTag),
+		GrafanaImageTag:             r.getEnvOrDefault(grafanaImageTagEnv, DefaultGrafanaImageTag),
+		ReportsImageTag:             r.getEnvOrDefault(reportsImageTagEnv, DefaultReportsImageTag),
+		StorageImageTag:             r.getEnvOrDefault(storageImageTagEnv, DefaultStorageImageTag),
+		DatabaseImageTag:            r.getEnvOrDefault(databaseImageTagEnv, DefaultDatabaseImageTag),
 	}
 }
 

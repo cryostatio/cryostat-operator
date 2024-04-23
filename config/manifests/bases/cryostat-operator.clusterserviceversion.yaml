@@ -246,6 +246,11 @@ spec:
       - description: Resource requirements for the Cryostat deployment.
         displayName: Resources
         path: resources
+      - description: Resource requirements for the auth proxy.
+        displayName: Auth Proxy Resources
+        path: resources.authProxyResources
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:resourceRequirements
       - description: Resource requirements for the Cryostat application. If specifying
           a memory limit, at least 768MiB is recommended.
         displayName: Core Resources
@@ -299,13 +304,16 @@ spec:
         path: securityOptions
         x-descriptors:
         - urn:alm:descriptor:com.tectonic.ui:advanced
+      - description: Security Context to apply to the auth proxy container.
+        displayName: Auth Proxy Security Context
+        path: securityOptions.authProxySecurityContext
       - description: Security Context to apply to the Cryostat application container.
         displayName: Core Security Context
         path: securityOptions.coreSecurityContext
       - description: Security Context to apply to the JFR Data Source container.
         displayName: Data Source Security Context
         path: securityOptions.dataSourceSecurityContext
-      - description: Security Context to apply to the storage container.
+      - description: Security Context to apply to the database container.
         displayName: Database Security Context
         path: securityOptions.databaseSecurityContext
       - description: Security Context to apply to the Grafana container.
