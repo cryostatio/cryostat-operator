@@ -924,19 +924,6 @@ func (r *TestResources) NewStorageSecret() *corev1.Secret {
 	}
 }
 
-func (r *TestResources) OtherDatabaseSecret() *corev1.Secret {
-	return &corev1.Secret{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      r.Name + "-db",
-			Namespace: r.Namespace,
-		},
-		StringData: map[string]string{
-			"CONNECTION_KEY": "other-pass", // notsecret
-			"ENCRYPTION_KEY": "other-key",  // notsecret
-		},
-	}
-}
-
 func (r *TestResources) NewKeystoreSecret() *corev1.Secret {
 	return &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
@@ -1250,7 +1237,7 @@ func (r *TestResources) NewStoragePorts() []corev1.ContainerPort {
 }
 
 func (r *TestResources) NewCoreEnvironmentVariables(reportsUrl string, ingress bool,
-	emptyDir bool, builtInDiscoveryDisabled bool, hasPortConfig bool, builtInPortConfigDisabled bool, dbSecretProvided bool) []corev1.EnvVar {
+	emptyDir bool, hasPortConfig bool, builtInPortConfigDisabled bool, dbSecretProvided bool) []corev1.EnvVar {
 	envs := []corev1.EnvVar{
 		{
 			Name:  "QUARKUS_HTTP_HOST",
@@ -1316,9 +1303,65 @@ func (r *TestResources) NewCoreEnvironmentVariables(reportsUrl string, ingress b
 			Name:  "AWS_ACCESS_KEY_ID",
 			Value: "$(QUARKUS_S3_AWS_CREDENTIALS_STATIC_PROVIDER_ACCESS_KEY_ID)",
 		},
+		{
+			Name:  "QUARKUS_HIBERNATE_ORM_DATABASE_GENERATION",
+			Value: "drop-and-create",
+		},
+		{
+			Name:  "QUARKUS_DATASOURCE_USERNAME",
+			Value: "cryostat3",
+		},
+		{
+			Name:  "STORAGE_BUCKETS_ARCHIVE_NAME",
+			Value: "archivedrecordings",
+		},
+		{
+			Name:  "CRYOSTAT_CONNECTIONS_MAX_OPEN",
+			Value: "-1",
+		},
+		{
+			Name:  "CRYOSTAT_CONNECTIONS_TTL",
+			Value: "10",
+		},
+		{
+			Name:  "QUARKUS_S3_ENDPOINT_OVERRIDE",
+			Value: "http://localhost:8333",
+		},
+		{
+			Name:  "QUARKUS_S3_PATH_STYLE_ACCESS",
+			Value: "true",
+		},
+		{
+			Name:  "QUARKUS_S3_AWS_REGION",
+			Value: "us-east-1",
+		},
+		{
+			Name:  "QUARKUS_S3_AWS_CREDENTIALS_TYPE",
+			Value: "static",
+		},
+		{
+			Name:  "QUARKUS_S3_CREDENTIALS_STATIC_PROVIDER_ACCESS_KEY_ID",
+			Value: "cryostat",
+		},
+		{
+			Name:  "AWS_ACCESS_KEY_ID",
+			Value: "$(QUARKUS_S3_AWS_CREDENTIALS_STATIC_PROVIDER_ACCESS_KEY_ID)",
+		},
+		{
+			Name:  "GRAFANA_DATASOURCE_URL",
+			Value: "http://127.0.0.1:8989",
+		},
+		{
+			Name:  "QUARKUS_S3_AWS_CREDENTIALS_STATIC_PROVIDER_ACCESS_KEY_ID",
+			Value: "cryostat",
+		},
+		{
+			Name:  "AWS_SECRET_ACCESS_KEY",
+			Value: "$(QUARKUS_S3_AWS_CREDENTIALS_STATIC_PROVIDER_SECRET_ACCESS_KEY)",
+		},
 	}
 
-	envs = append(envs, r.NewTargetDiscoveryEnvVar(builtInDiscoveryDisabled, hasPortConfig, builtInPortConfigDisabled)...)
+	envs = append(envs, r.NewTargetDiscoveryEnvVar(hasPortConfig, builtInPortConfigDisabled)...)
 
 	optional := false
 	secretName := r.NewDatabaseSecret().Name
@@ -1337,10 +1380,21 @@ func (r *TestResources) NewCoreEnvironmentVariables(reportsUrl string, ingress b
 			},
 		},
 	},
-		corev1.EnvVar{
-			Name:  "GRAFANA_DATASOURCE_URL",
-			Value: "http://127.0.0.1:8080",
+	)
+
+	secretName = r.NewStorageSecret().Name
+	envs = append(envs, corev1.EnvVar{
+		Name: "QUARKUS_S3_AWS_CREDENTIALS_STATIC_PROVIDER_SECRET_ACCESS_KEY",
+		ValueFrom: &corev1.EnvVarSource{
+			SecretKeyRef: &corev1.SecretKeySelector{
+				LocalObjectReference: corev1.LocalObjectReference{
+					Name: secretName,
+				},
+				Key:      "SECRET_KEY",
+				Optional: &optional,
+			},
 		},
+	},
 	)
 
 	envs = append(envs, corev1.EnvVar{
@@ -1360,9 +1414,7 @@ func (r *TestResources) NewCoreEnvironmentVariables(reportsUrl string, ingress b
 		})
 	}
 
-	if r.OpenShift {
-		envs = append(envs, r.newNetworkEnvironmentVariables()...)
-	} else if ingress { // On Kubernetes
+	if r.OpenShift || ingress {
 		envs = append(envs, r.newNetworkEnvironmentVariables()...)
 	}
 
@@ -1445,6 +1497,19 @@ func (r *TestResources) NewReportsEnvironmentVariables(resources *corev1.Resourc
 	return envs
 }
 
+func (r *TestResources) NewStorageEnvironmentVariables() []corev1.EnvVar {
+	return []corev1.EnvVar{
+		{
+			Name:  "QUARKUS_HTTP_HOST",
+			Value: "127.0.0.1",
+		},
+		{
+			Name:  "QUARKUS_HTTP_PORT",
+			Value: "8989",
+		},
+	}
+}
+
 func (r *TestResources) NewCoreEnvFromSource() []corev1.EnvFromSource {
 	envsFrom := []corev1.EnvFromSource{}
 	if r.TLS {
@@ -1481,15 +1546,8 @@ func (r *TestResources) NewJmxCacheOptionsEnv() []corev1.EnvVar {
 	}
 }
 
-func (r *TestResources) NewTargetDiscoveryEnvVar(builtInDiscoveryDisabled bool, hasPortConfig bool, builtInPortConfigDisabled bool) []corev1.EnvVar {
+func (r *TestResources) NewTargetDiscoveryEnvVar(hasPortConfig bool, builtInPortConfigDisabled bool) []corev1.EnvVar {
 	envs := make([]corev1.EnvVar, 0)
-
-	if builtInDiscoveryDisabled {
-		envs = append(envs, corev1.EnvVar{
-			Name:  "CRYOSTAT_DISABLE_BUILTIN_DISCOVERY",
-			Value: "true",
-		})
-	}
 
 	if hasPortConfig {
 		envs = append(envs,
@@ -2232,26 +2290,6 @@ func (r *TestResources) OtherRole() *rbacv1.Role {
 	}
 }
 
-func (r *TestResources) NewAuthClusterRole() *rbacv1.ClusterRole {
-	return &rbacv1.ClusterRole{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: "custom-auth-cluster-role",
-		},
-		Rules: []rbacv1.PolicyRule{
-			{
-				Verbs:     []string{"get", "update", "patch", "delete"},
-				APIGroups: []string{"group"},
-				Resources: []string{"resources"},
-			},
-			{
-				Verbs:     []string{"get", "update", "patch", "delete"},
-				APIGroups: []string{"another_group"},
-				Resources: []string{"another_resources"},
-			},
-		},
-	}
-}
-
 func (r *TestResources) NewRoleBinding(ns string) *rbacv1.RoleBinding {
 	return &rbacv1.RoleBinding{
 		ObjectMeta: metav1.ObjectMeta{
@@ -2373,18 +2411,6 @@ func (r *TestResources) NewOtherTemplateConfigMap() *corev1.ConfigMap {
 		},
 		Data: map[string]string{
 			"other-template.jfc": "more XML template data",
-		},
-	}
-}
-
-func (r *TestResources) NewAuthPropertiesConfigMap() *corev1.ConfigMap {
-	return &corev1.ConfigMap{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "authConfigMapName",
-			Namespace: r.Namespace,
-		},
-		Data: map[string]string{
-			"auth.properties": "CRYOSTAT_RESOURCE=resources.group\nANOTHER_CRYOSTAT_RESOURCE=another_resources.another_group",
 		},
 	}
 }

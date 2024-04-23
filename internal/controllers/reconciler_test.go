@@ -476,7 +476,7 @@ func (c *controllerTest) commonTests() {
 			var oldSecret *corev1.Secret
 			BeforeEach(func() {
 				cr = t.NewCryostat()
-				oldSecret = t.OtherDatabaseSecret()
+				oldSecret = t.NewDatabaseSecret()
 				t.objs = append(t.objs, cr.Object, oldSecret)
 			})
 			JustBeforeEach(func() {
@@ -2619,7 +2619,6 @@ func (t *cryostatTestInput) checkMainPodTemplate(deployment *appsv1.Deployment, 
 	ingress := !t.OpenShift &&
 		cr.Spec.NetworkOptions != nil && cr.Spec.NetworkOptions.CoreConfig != nil && cr.Spec.NetworkOptions.CoreConfig.IngressSpec != nil
 	emptyDir := cr.Spec.StorageOptions != nil && cr.Spec.StorageOptions.EmptyDir != nil && cr.Spec.StorageOptions.EmptyDir.Enabled
-	builtInDiscoveryDisabled := cr.Spec.TargetDiscoveryOptions != nil && cr.Spec.TargetDiscoveryOptions.BuiltInDiscoveryDisabled
 	hasPortConfig := cr.Spec.TargetDiscoveryOptions != nil &&
 		len(cr.Spec.TargetDiscoveryOptions.DiscoveryPortNames) > 0 &&
 		len(cr.Spec.TargetDiscoveryOptions.DiscoveryPortNumbers) > 0
@@ -2630,7 +2629,6 @@ func (t *cryostatTestInput) checkMainPodTemplate(deployment *appsv1.Deployment, 
 
 	t.checkCoreContainer(&coreContainer, ingress, reportsUrl,
 		emptyDir,
-		builtInDiscoveryDisabled,
 		hasPortConfig,
 		builtInPortConfigDisabled,
 		dbSecretProvided,
@@ -2776,7 +2774,7 @@ func (t *cryostatTestInput) checkDeploymentHasTemplates() {
 func (t *cryostatTestInput) checkCoreContainer(container *corev1.Container, ingress bool,
 	reportsUrl string,
 	emptyDir bool,
-	builtInDiscoveryDisabled bool, hasPortConfig bool, builtInPortConfigDisabled bool,
+	hasPortConfig bool, builtInPortConfigDisabled bool,
 	dbSecretProvided bool,
 	resources *corev1.ResourceRequirements,
 	securityContext *corev1.SecurityContext) {
@@ -2787,7 +2785,7 @@ func (t *cryostatTestInput) checkCoreContainer(container *corev1.Container, ingr
 		Expect(container.Image).To(Equal(*t.EnvCoreImageTag))
 	}
 	Expect(container.Ports).To(ConsistOf(t.NewCorePorts()))
-	Expect(container.Env).To(ConsistOf(t.NewCoreEnvironmentVariables(reportsUrl, ingress, emptyDir, builtInDiscoveryDisabled, hasPortConfig, builtInPortConfigDisabled, dbSecretProvided)))
+	Expect(container.Env).To(ConsistOf(t.NewCoreEnvironmentVariables(reportsUrl, ingress, emptyDir, hasPortConfig, builtInPortConfigDisabled, dbSecretProvided)))
 	Expect(container.EnvFrom).To(ConsistOf(t.NewCoreEnvFromSource()))
 	Expect(container.VolumeMounts).To(ConsistOf(t.NewCoreVolumeMounts()))
 	Expect(container.LivenessProbe).To(Equal(t.NewCoreLivenessProbe()))

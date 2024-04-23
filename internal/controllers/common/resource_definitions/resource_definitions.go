@@ -477,7 +477,6 @@ func NewCoreContainerResource(cr *model.CryostatInstance) *corev1.ResourceRequir
 
 func NewCoreContainer(cr *model.CryostatInstance, specs *ServiceSpecs, imageTag string,
 	tls *TLSConfig, openshift bool) corev1.Container {
-
 	envs := []corev1.EnvVar{
 		{
 			Name:  "QUARKUS_HTTP_HOST",
@@ -601,6 +600,43 @@ func NewCoreContainer(cr *model.CryostatInstance, specs *ServiceSpecs, imageTag 
 		Value: "$(QUARKUS_S3_AWS_CREDENTIALS_STATIC_PROVIDER_SECRET_ACCESS_KEY)",
 	})
 
+	envs = append(envs, corev1.EnvVar{
+		Name: "QUARKUS_DATASOURCE_PASSWORD",
+		ValueFrom: &corev1.EnvVarSource{
+			SecretKeyRef: &corev1.SecretKeySelector{
+				LocalObjectReference: corev1.LocalObjectReference{
+					Name: secretName,
+				},
+				Key:      "CONNECTION_KEY",
+				Optional: &optional,
+			},
+		},
+	})
+
+	envs = append(envs, corev1.EnvVar{
+		Name:  "QUARKUS_S3_AWS_CREDENTIALS_STATIC_PROVIDER_ACCESS_KEY_ID",
+		Value: "cryostat",
+	})
+
+	secretName = cr.Name + "-storage-secret-key"
+	envs = append(envs, corev1.EnvVar{
+		Name: "QUARKUS_S3_AWS_CREDENTIALS_STATIC_PROVIDER_SECRET_ACCESS_KEY",
+		ValueFrom: &corev1.EnvVarSource{
+			SecretKeyRef: &corev1.SecretKeySelector{
+				LocalObjectReference: corev1.LocalObjectReference{
+					Name: secretName,
+				},
+				Key:      "SECRET_KEY",
+				Optional: &optional,
+			},
+		},
+	})
+
+	envs = append(envs, corev1.EnvVar{
+		Name:  "AWS_SECRET_ACCESS_KEY",
+		Value: "$(QUARKUS_S3_AWS_CREDENTIALS_STATIC_PROVIDER_SECRET_ACCESS_KEY)",
+	})
+
 	if specs.ReportsURL != nil {
 		reportsEnvs := []corev1.EnvVar{
 			{
@@ -640,17 +676,17 @@ func NewCoreContainer(cr *model.CryostatInstance, specs *ServiceSpecs, imageTag 
 		}
 	}
 
-	if cr.Spec.TargetDiscoveryOptions != nil {
-		// FIXME in Cryostat 3.0, none of the discovery mechanisms are enabled by default other than Custom Targets or
-		// Discovery Plugin registration. Each other mechanism (JDP, k8s, Docker/Podman) must be enabled as desired.
-		if cr.Spec.TargetDiscoveryOptions.BuiltInDiscoveryDisabled {
-			envs = append(envs, corev1.EnvVar{
-				Name:  "CRYOSTAT_DISABLE_BUILTIN_DISCOVERY",
-				Value: "true",
-			})
-		}
+	envsFrom := []corev1.EnvFromSource{
+		{
+			SecretRef: &corev1.SecretEnvSource{
+				LocalObjectReference: corev1.LocalObjectReference{
+					Name: cr.Name + "-jmx-auth",
+				},
+			},
+		},
+	}
 
-		// FIXME this is not yet implemented in 3.0. See https://github.com/cryostatio/cryostat3/pull/325
+	if cr.Spec.TargetDiscoveryOptions != nil {
 		var portNames string
 		if len(cr.Spec.TargetDiscoveryOptions.DiscoveryPortNames) > 0 {
 			portNames = strings.Join(cr.Spec.TargetDiscoveryOptions.DiscoveryPortNames[:], ",")
@@ -682,24 +718,6 @@ func NewCoreContainer(cr *model.CryostatInstance, specs *ServiceSpecs, imageTag 
 		}
 	}
 
-	secretOptional := false
-	secretName = cr.Name + "-jmx-credentials-db"
-	if cr.Spec.JmxCredentialsDatabaseOptions != nil && cr.Spec.JmxCredentialsDatabaseOptions.DatabaseSecretName != nil {
-		secretName = *cr.Spec.JmxCredentialsDatabaseOptions.DatabaseSecretName
-	}
-	envs = append(envs, corev1.EnvVar{
-		Name: "CRYOSTAT_JMX_CREDENTIALS_DB_PASSWORD",
-		ValueFrom: &corev1.EnvVarSource{
-			SecretKeyRef: &corev1.SecretKeySelector{
-				LocalObjectReference: corev1.LocalObjectReference{
-					Name: secretName,
-				},
-				Key:      "CRYOSTAT_JMX_CREDENTIALS_DB_PASSWORD",
-				Optional: &secretOptional,
-			},
-		},
-	})
-
 	grafanaVars := []corev1.EnvVar{
 		{
 			Name:  "GRAFANA_DATASOURCE_URL",
@@ -719,9 +737,7 @@ func NewCoreContainer(cr *model.CryostatInstance, specs *ServiceSpecs, imageTag 
 	}
 	envs = append(envs, grafanaVars...)
 
-	envsFrom := []corev1.EnvFromSource{}
-	if tls == nil {
-	} else {
+	if tls != nil {
 		// Configure keystore location and password in expected environment variables
 		envs = append(envs, corev1.EnvVar{
 			Name:  "KEYSTORE_PATH",

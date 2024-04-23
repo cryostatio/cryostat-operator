@@ -31,11 +31,13 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	netv1 "k8s.io/api/networking/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes/scheme"
+	"k8s.io/client-go/util/retry"
 )
 
 const (
@@ -479,11 +481,34 @@ func (r *TestResources) sendHealthRequest(base *url.URL, healthCheck func(resp *
 	return err
 }
 
-func (r *TestResources) updateAndWaitTillCryostatAvailable(cr *operatorv1beta2.Cryostat) error {
-	cr, err := r.Client.OperatorCRDs().Cryostats(cr.Namespace).Update(context.Background(), cr)
-	if err != nil {
-		r.Log += fmt.Sprintf("failed to update Cryostat CR: %s", err.Error())
+func (r *TestResources) updateAndWaitTillCryostatAvailable(cr *operatorv1beta2.Cryostat) (*operatorv1beta2.Cryostat, error) {
+	ctx := context.Background()
+
+	err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
+		var err error
+		cr, err = r.Client.OperatorCRDs().Cryostats(cr.Namespace).Get(ctx, cr.Name)
+		if err != nil {
+			return fmt.Errorf("failed to get Cryostat CR: %s", err.Error())
+		}
+
+		cr.Spec.StorageOptions = &operatorv1beta2.StorageConfiguration{
+			PVC: &operatorv1beta2.PersistentVolumeClaimConfig{
+				Spec: &corev1.PersistentVolumeClaimSpec{
+					StorageClassName: nil,
+					Resources: corev1.ResourceRequirements{
+						Requests: corev1.ResourceList{
+							corev1.ResourceStorage: resource.MustParse("1Gi"),
+						},
+					},
+				},
+			},
+		}
+
+		cr, err = r.Client.OperatorCRDs().Cryostats(cr.Namespace).Update(context.Background(), cr)
 		return err
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to update Cryostat CR: %s", err.Error())
 	}
 
 	// Poll the deployment until it becomes available or we timeout
@@ -537,9 +562,9 @@ func (r *TestResources) updateAndWaitTillCryostatAvailable(cr *operatorv1beta2.C
 		return false, nil
 	})
 	if err != nil {
-		return fmt.Errorf("failed to look up deployment errors: %s", err.Error())
+		return nil, fmt.Errorf("failed to look up deployment errors: %s", err.Error())
 	}
-	return err
+	return cr, err
 }
 
 func (r *TestResources) cleanupAndLogs() {
@@ -571,24 +596,50 @@ func (r *TestResources) getCryostatPodNameForCR(cr *operatorv1beta2.Cryostat) (s
 	selector := metav1.LabelSelector{
 		MatchLabels: map[string]string{
 			"app":       cr.Name,
+			"kind":      "cryostat",
 			"component": "cryostat",
 		},
 	}
-	opts := metav1.ListOptions{
-		LabelSelector: labels.Set(selector.MatchLabels).String(),
-	}
 
-	ctx, cancel := context.WithTimeout(context.TODO(), testTimeout)
-	defer cancel()
-
-	pods, err := r.Client.CoreV1().Pods(cr.Namespace).List(ctx, opts)
+	names, err := r.getPodnamesForSelector(cr.Namespace, selector)
 	if err != nil {
 		return "", err
 	}
 
-	if len(pods.Items) == 0 {
+	if len(names) == 0 {
 		return "", fmt.Errorf("no matching cryostat pods for cr: %s", cr.Name)
 	}
+	return names[0].ObjectMeta.Name, nil
+}
 
-	return pods.Items[0].ObjectMeta.Name, nil
+func (r *TestResources) getReportPodNameForCR(cr *operatorv1beta2.Cryostat) (string, error) {
+	selector := metav1.LabelSelector{
+		MatchLabels: map[string]string{
+			"app":       cr.Name,
+			"kind":      "cryostat",
+			"component": "reports",
+		},
+	}
+
+	names, err := r.getPodnamesForSelector(cr.Namespace, selector)
+	if err != nil {
+		return "", err
+	}
+
+	if len(names) == 0 {
+		return "", fmt.Errorf("no matching report sidecar pods for cr: %s", cr.Name)
+	}
+	return names[0].ObjectMeta.Name, nil
+}
+
+func (r *TestResources) getPodnamesForSelector(namespace string, selector metav1.LabelSelector) ([]corev1.Pod, error) {
+	labelSelector := labels.Set(selector.MatchLabels).String()
+
+	ctx, cancel := context.WithTimeout(context.TODO(), testTimeout)
+	defer cancel()
+
+	pods, err := r.Client.CoreV1().Pods(namespace).List(ctx, metav1.ListOptions{
+		LabelSelector: labelSelector,
+	})
+	return pods.Items, err
 }
