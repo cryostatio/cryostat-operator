@@ -93,6 +93,12 @@ const grafanaImageTagEnv = "RELATED_IMAGE_GRAFANA"
 // Environment variable to override the cryostat-reports image
 const reportsImageTagEnv = "RELATED_IMAGE_REPORTS"
 
+// Environment variable to override the cryostat-storage image
+const storageImageTagEnv = "RELATED_IMAGE_STORAGE"
+
+// Environment variable to override the cryostat-database image
+const databaseImageTagEnv = "RELATED_IMAGE_DATABASE"
+
 // Regular expression for the start of a GID range in the OpenShift
 // supplemental groups SCC annotation
 var supGroupRegexp = regexp.MustCompile(`^\d+`)
@@ -362,6 +368,8 @@ func (r *Reconciler) getImageTags() *resources.ImageTags {
 		DatasourceImageTag: r.getEnvOrDefault(datasourceImageTagEnv, DefaultDatasourceImageTag),
 		GrafanaImageTag:    r.getEnvOrDefault(grafanaImageTagEnv, DefaultGrafanaImageTag),
 		ReportsImageTag:    r.getEnvOrDefault(reportsImageTagEnv, DefaultReportsImageTag),
+		StorageImageTag:    r.getEnvOrDefault(storageImageTagEnv, DefaultStorageImageTag),
+		DatabaseImageTag:   r.getEnvOrDefault(databaseImageTagEnv, DefaultDatabaseImageTag),
 	}
 }
 

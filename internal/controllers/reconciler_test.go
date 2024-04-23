@@ -66,7 +66,7 @@ type cryostatTestInput struct {
 func (c *controllerTest) commonBeforeEach() *cryostatTestInput {
 	t := &cryostatTestInput{
 		TestReconcilerConfig: test.TestReconcilerConfig{
-			GeneratedPasswords: []string{"grafana", "credentials_database", "jmx", "keystore"},
+			GeneratedPasswords: []string{"grafana", "credentials_database", "encryption_key", "object_storage", "jmx", "keystore"},
 		},
 		TestResources: &test.TestResources{
 			Name:        "cryostat",
@@ -146,6 +146,7 @@ func resourceChecks() []resourceCheck {
 		}, "persistent volume claim"},
 		{(*cryostatTestInput).expectGrafanaSecret, "Grafana secret"},
 		{(*cryostatTestInput).expectCredentialsDatabaseSecret, "credentials database secret"},
+		{(*cryostatTestInput).expectStorageSecret, "object storage secret"},
 		{(*cryostatTestInput).expectJMXSecret, "JMX secret"},
 		{(*cryostatTestInput).expectGrafanaService, "Grafana service"},
 		{(*cryostatTestInput).expectCoreService, "core service"},
@@ -528,7 +529,7 @@ func (c *controllerTest) commonTests() {
 			var oldSecret *corev1.Secret
 			BeforeEach(func() {
 				cr = t.NewCryostat()
-				oldSecret = t.OtherCredentialsDatabaseSecret()
+				oldSecret = t.OtherDatabaseSecret()
 				t.objs = append(t.objs, cr.Object, oldSecret)
 			})
 			JustBeforeEach(func() {
@@ -540,7 +541,7 @@ func (c *controllerTest) commonTests() {
 				Expect(err).ToNot(HaveOccurred())
 
 				Expect(metav1.IsControlledBy(secret, cr.Object)).To(BeTrue())
-				Expect(secret.StringData["CRYOSTAT_JMX_CREDENTIALS_DB_PASSWORD"]).To(Equal(oldSecret.StringData["CRYOSTAT_JMX_CREDENTIALS_DB_PASSWORD"]))
+				Expect(secret.StringData["CONNECTION_KEY"]).To(Equal(oldSecret.StringData["CONNECTION_KEY"]))
 			})
 		})
 		Context("with existing Routes", func() {
@@ -949,9 +950,6 @@ func (c *controllerTest) commonTests() {
 			It("should create the EmptyDir with default specs", func() {
 				t.expectEmptyDir(t.NewDefaultEmptyDir())
 			})
-			It("should set Cryostat database to h2:mem", func() {
-				t.expectInMemoryDatabase()
-			})
 		})
 		Context("with custom EmptyDir config with requested spec", func() {
 			BeforeEach(func() {
@@ -962,9 +960,6 @@ func (c *controllerTest) commonTests() {
 			})
 			It("should create the EmptyDir with requested specs", func() {
 				t.expectEmptyDir(t.NewEmptyDirWithSpec())
-			})
-			It("should set Cryostat database to h2:file", func() {
-				t.expectInMemoryDatabase()
 			})
 		})
 		Context("with overriden image tags", func() {
@@ -988,10 +983,14 @@ func (c *controllerTest) commonTests() {
 					datasourceImg := "my/datasource-image:1.0.0-BETA25"
 					grafanaImg := "my/grafana-image:1.0.0-dev"
 					reportsImg := "my/reports-image:1.0.0-SNAPSHOT"
+					storageImg := "my/storage-image:1.0.0-dev"
+					databaseImg := "my/database-image:1.0.0-dev"
 					t.EnvCoreImageTag = &coreImg
 					t.EnvDatasourceImageTag = &datasourceImg
 					t.EnvGrafanaImageTag = &grafanaImg
 					t.EnvReportsImageTag = &reportsImg
+					t.EnvDatabaseImageTag = &databaseImg
+					t.EnvStorageImageTag = &storageImg
 				})
 				It("should create deployment with the expected tags", func() {
 					t.expectMainDeployment()
@@ -999,7 +998,7 @@ func (c *controllerTest) commonTests() {
 				})
 				It("should set ImagePullPolicy to Always", func() {
 					containers := mainDeploy.Spec.Template.Spec.Containers
-					Expect(containers).To(HaveLen(3))
+					Expect(containers).To(HaveLen(5))
 					for _, container := range containers {
 						Expect(container.ImagePullPolicy).To(Equal(corev1.PullAlways))
 					}
@@ -1014,10 +1013,14 @@ func (c *controllerTest) commonTests() {
 					datasourceImg := "my/datasource-image:1.0.0"
 					grafanaImg := "my/grafana-image:1.0.0"
 					reportsImg := "my/reports-image:1.0.0"
+					storageImg := "my/storage-image:1.0.0"
+					databaseImg := "my/database-image:1.0.0"
 					t.EnvCoreImageTag = &coreImg
 					t.EnvDatasourceImageTag = &datasourceImg
 					t.EnvGrafanaImageTag = &grafanaImg
 					t.EnvReportsImageTag = &reportsImg
+					t.EnvDatabaseImageTag = &databaseImg
+					t.EnvStorageImageTag = &storageImg
 				})
 				JustBeforeEach(func() {
 					t.reconcileCryostatFully()
@@ -1028,7 +1031,7 @@ func (c *controllerTest) commonTests() {
 				})
 				It("should set ImagePullPolicy to IfNotPresent", func() {
 					containers := mainDeploy.Spec.Template.Spec.Containers
-					Expect(containers).To(HaveLen(3))
+					Expect(containers).To(HaveLen(5))
 					for _, container := range containers {
 						Expect(container.ImagePullPolicy).To(Equal(corev1.PullIfNotPresent))
 					}
@@ -1043,10 +1046,14 @@ func (c *controllerTest) commonTests() {
 					datasourceImg := "my/datasource-image@sha256:59ded87392077c2371b26e021aade0409855b597383fa78e549eefafab8fc90c"
 					grafanaImg := "my/grafana-image@sha256:e5bc16c2c5b69cd6fd8fdf1381d0a8b6cc9e01d92b9e1bb0a61ed89196563c72"
 					reportsImg := "my/reports-image@sha256:8a23ca5e8c8a343789b8c14558a44a49d35ecd130c18e62edf0d1ad9ce88d37d"
+					storageImg := "my/storage-image@sha256:8b23ca5e8c8a343789b8c14558a44a49d35ecd130c18e62edf0d1ad9ce88d37d"
+					databaseImg := "my/database-image@sha256:8c23ca5e8c8a343789b8c14558a44a49d35ecd130c18e62edf0d1ad9ce88d37d"
 					t.EnvCoreImageTag = &coreImg
 					t.EnvDatasourceImageTag = &datasourceImg
 					t.EnvGrafanaImageTag = &grafanaImg
 					t.EnvReportsImageTag = &reportsImg
+					t.EnvDatabaseImageTag = &databaseImg
+					t.EnvStorageImageTag = &storageImg
 				})
 				It("should create deployment with the expected tags", func() {
 					t.expectMainDeployment()
@@ -1054,7 +1061,7 @@ func (c *controllerTest) commonTests() {
 				})
 				It("should set ImagePullPolicy to IfNotPresent", func() {
 					containers := mainDeploy.Spec.Template.Spec.Containers
-					Expect(containers).To(HaveLen(3))
+					Expect(containers).To(HaveLen(5))
 					for _, container := range containers {
 						Expect(container.ImagePullPolicy).To(Equal(corev1.PullIfNotPresent))
 					}
@@ -1080,7 +1087,7 @@ func (c *controllerTest) commonTests() {
 				})
 				It("should set ImagePullPolicy to Always", func() {
 					containers := mainDeploy.Spec.Template.Spec.Containers
-					Expect(containers).To(HaveLen(3))
+					Expect(containers).To(HaveLen(5))
 					for _, container := range containers {
 						Expect(container.ImagePullPolicy).To(Equal(corev1.PullAlways))
 					}
@@ -1499,14 +1506,6 @@ func (c *controllerTest) commonTests() {
 			JustBeforeEach(func() {
 				t.reconcileCryostatFully()
 			})
-			Context("containing SubProcessMaxHeapSize", func() {
-				BeforeEach(func() {
-					t.objs = append(t.objs, t.NewCryostatWithReportSubprocessHeapSpec().Object)
-				})
-				It("should set report subprocess max heap size", func() {
-					t.checkCoreHasEnvironmentVariables(t.NewReportSubprocessHeapEnv())
-				})
-			})
 			Context("containing JmxCacheOptions", func() {
 				BeforeEach(func() {
 					t.objs = append(t.objs, t.NewCryostatWithJmxCacheOptionsSpec().Object)
@@ -1556,17 +1555,6 @@ func (c *controllerTest) commonTests() {
 				It("should create the route as described", func() {
 					t.checkRoute(t.NewCustomGrafanaRoute())
 				})
-			})
-		})
-		Context("Cryostat CR has authorization properties", func() {
-			BeforeEach(func() {
-				t.objs = append(t.objs, t.NewCryostatWithAuthProperties().Object, t.NewAuthPropertiesConfigMap(), t.NewAuthClusterRole())
-			})
-			JustBeforeEach(func() {
-				t.reconcileCryostatFully()
-			})
-			It("Should add volumes and volumeMounts to deployment", func() {
-				t.checkDeploymentHasAuthProperties()
 			})
 		})
 		Context("with security options", func() {
@@ -1658,16 +1646,16 @@ func (c *controllerTest) commonTests() {
 			})
 			It("should not generate default secret", func() {
 				secret := &corev1.Secret{}
-				err := t.Client.Get(context.Background(), types.NamespacedName{Name: t.Name + "-jmx-credentials-db", Namespace: t.Namespace}, secret)
+				err := t.Client.Get(context.Background(), types.NamespacedName{Name: t.Name + "-db", Namespace: t.Namespace}, secret)
 				Expect(kerrors.IsNotFound(err)).To(BeTrue())
 			})
 			Context("with an existing Credentials Database Secret", func() {
 				BeforeEach(func() {
-					t.objs = append(t.objs, t.NewCredentialsDatabaseSecret())
+					t.objs = append(t.objs, t.NewDatabaseSecret())
 				})
 				It("should not delete the existing Credentials Database Secret", func() {
 					secret := &corev1.Secret{}
-					err := t.Client.Get(context.Background(), types.NamespacedName{Name: t.Name + "-jmx-credentials-db", Namespace: t.Namespace}, secret)
+					err := t.Client.Get(context.Background(), types.NamespacedName{Name: t.Name + "-db", Namespace: t.Namespace}, secret)
 					Expect(err).ToNot(HaveOccurred())
 				})
 			})
@@ -2006,17 +1994,6 @@ func (c *controllerTest) commonTests() {
 
 				err = t.Client.Get(context.Background(), types.NamespacedName{Name: t.Name, Namespace: t.Namespace}, ingress)
 				Expect(kerrors.IsNotFound(err)).To(BeTrue())
-			})
-		})
-		Context("Cryostat CR has authorization properties", func() {
-			BeforeEach(func() {
-				t.objs = append(t.objs, t.NewCryostatWithAuthProperties().Object, t.NewAuthPropertiesConfigMap(), t.NewAuthClusterRole())
-			})
-			JustBeforeEach(func() {
-				t.reconcileCryostatFully()
-			})
-			It("Should not add volumes and volumeMounts to deployment", func() {
-				t.checkDeploymentHasNoAuthProperties()
 			})
 		})
 		Context("with report generator service", func() {
@@ -2462,16 +2439,6 @@ func (t *cryostatTestInput) expectEmptyDir(expectedEmptyDir *corev1.EmptyDirVolu
 	Expect(emptyDir.SizeLimit).To(Equal(expectedEmptyDir.SizeLimit))
 }
 
-func (t *cryostatTestInput) expectInMemoryDatabase() {
-	deployment := &appsv1.Deployment{}
-	err := t.Client.Get(context.Background(), types.NamespacedName{Name: t.Name, Namespace: t.Namespace}, deployment)
-	Expect(err).ToNot(HaveOccurred())
-
-	containers := deployment.Spec.Template.Spec.Containers
-	coreContainer := containers[0]
-	Expect(coreContainer.Env).ToNot(ContainElements(t.DatabaseConfigEnvironmentVariables()))
-}
-
 func (t *cryostatTestInput) expectGrafanaSecret() {
 	secret := &corev1.Secret{}
 	err := t.Client.Get(context.Background(), types.NamespacedName{Name: t.Name + "-grafana-basic", Namespace: t.Namespace}, secret)
@@ -2485,11 +2452,22 @@ func (t *cryostatTestInput) expectGrafanaSecret() {
 
 func (t *cryostatTestInput) expectCredentialsDatabaseSecret() {
 	secret := &corev1.Secret{}
-	err := t.Client.Get(context.Background(), types.NamespacedName{Name: t.Name + "-jmx-credentials-db", Namespace: t.Namespace}, secret)
+	err := t.Client.Get(context.Background(), types.NamespacedName{Name: t.Name + "-db", Namespace: t.Namespace}, secret)
 	Expect(err).ToNot(HaveOccurred())
 
 	// Compare to desired spec
-	expectedSecret := t.NewCredentialsDatabaseSecret()
+	expectedSecret := t.NewDatabaseSecret()
+	t.checkMetadata(secret, expectedSecret)
+	Expect(secret.StringData).To(Equal(expectedSecret.StringData))
+}
+
+func (t *cryostatTestInput) expectStorageSecret() {
+	secret := &corev1.Secret{}
+	err := t.Client.Get(context.Background(), types.NamespacedName{Name: t.Name + "-storage-secret-key", Namespace: t.Namespace}, secret)
+	Expect(err).ToNot(HaveOccurred())
+
+	// Compare to desired spec
+	expectedSecret := t.NewStorageSecret()
 	t.checkMetadata(secret, expectedSecret)
 	Expect(secret.StringData).To(Equal(expectedSecret.StringData))
 }
@@ -2499,6 +2477,7 @@ func (t *cryostatTestInput) expectJMXSecret() {
 	err := t.Client.Get(context.Background(), types.NamespacedName{Name: t.Name + "-jmx-auth", Namespace: t.Namespace}, secret)
 	Expect(err).ToNot(HaveOccurred())
 
+	// Compare to desired spec
 	expectedSecret := t.NewJMXSecret()
 	t.checkMetadata(secret, expectedSecret)
 	Expect(secret.StringData).To(Equal(expectedSecret.StringData))
@@ -2715,7 +2694,6 @@ func (t *cryostatTestInput) checkMainPodTemplate(deployment *appsv1.Deployment, 
 	ingress := !t.OpenShift &&
 		cr.Spec.NetworkOptions != nil && cr.Spec.NetworkOptions.CoreConfig != nil && cr.Spec.NetworkOptions.CoreConfig.IngressSpec != nil
 	emptyDir := cr.Spec.StorageOptions != nil && cr.Spec.StorageOptions.EmptyDir != nil && cr.Spec.StorageOptions.EmptyDir.Enabled
-	builtInDiscoveryDisabled := cr.Spec.TargetDiscoveryOptions != nil && cr.Spec.TargetDiscoveryOptions.BuiltInDiscoveryDisabled
 	hasPortConfig := cr.Spec.TargetDiscoveryOptions != nil &&
 		len(cr.Spec.TargetDiscoveryOptions.DiscoveryPortNames) > 0 &&
 		len(cr.Spec.TargetDiscoveryOptions.DiscoveryPortNumbers) > 0
@@ -2727,7 +2705,6 @@ func (t *cryostatTestInput) checkMainPodTemplate(deployment *appsv1.Deployment, 
 	t.checkCoreContainer(&coreContainer, ingress, reportsUrl,
 		cr.Spec.AuthProperties != nil,
 		emptyDir,
-		builtInDiscoveryDisabled,
 		hasPortConfig,
 		builtInPortConfigDisabled,
 		dbSecretProvided,
@@ -2870,45 +2847,10 @@ func (t *cryostatTestInput) checkDeploymentHasTemplates() {
 	Expect(volumeMounts).To(ConsistOf(expectedVolumeMounts))
 }
 
-func (t *cryostatTestInput) checkDeploymentHasAuthProperties() {
-	deployment := &appsv1.Deployment{}
-	err := t.Client.Get(context.Background(), types.NamespacedName{Name: t.Name, Namespace: t.Namespace}, deployment)
-	Expect(err).ToNot(HaveOccurred())
-
-	volumes := deployment.Spec.Template.Spec.Volumes
-	expectedVolumes := t.NewVolumeWithAuthProperties()
-	Expect(volumes).To(ConsistOf(expectedVolumes))
-
-	coreContainer := deployment.Spec.Template.Spec.Containers[0]
-
-	volumeMounts := coreContainer.VolumeMounts
-	expectedVolumeMounts := t.NewVolumeMountsWithAuthProperties()
-	Expect(volumeMounts).To(ConsistOf(expectedVolumeMounts))
-	Expect(coreContainer.Env).To(ConsistOf(t.NewCoreEnvironmentVariables("", true, false, false, false, false, false, false)))
-}
-
-func (t *cryostatTestInput) checkDeploymentHasNoAuthProperties() {
-	deployment := &appsv1.Deployment{}
-	err := t.Client.Get(context.Background(), types.NamespacedName{Name: t.Name, Namespace: t.Namespace}, deployment)
-	Expect(err).ToNot(HaveOccurred())
-
-	volumes := deployment.Spec.Template.Spec.Volumes
-	expectedVolumes := t.NewVolumes()
-	Expect(volumes).ToNot(ContainElements(t.NewAuthPropertiesVolume()))
-	Expect(volumes).To(ConsistOf(expectedVolumes))
-
-	coreContainer := deployment.Spec.Template.Spec.Containers[0]
-
-	volumeMounts := coreContainer.VolumeMounts
-	expectedVolumeMounts := t.NewCoreVolumeMounts()
-	Expect(volumeMounts).ToNot(ContainElement(t.NewAuthPropertiesVolumeMount()))
-	Expect(volumeMounts).To(ConsistOf(expectedVolumeMounts))
-}
-
 func (t *cryostatTestInput) checkCoreContainer(container *corev1.Container, ingress bool,
 	reportsUrl string, authProps bool,
 	emptyDir bool,
-	builtInDiscoveryDisabled bool, hasPortConfig bool, builtInPortConfigDisabled bool,
+	hasPortConfig bool, builtInPortConfigDisabled bool,
 	dbSecretProvided bool,
 	resources *corev1.ResourceRequirements,
 	securityContext *corev1.SecurityContext) {
@@ -2919,7 +2861,7 @@ func (t *cryostatTestInput) checkCoreContainer(container *corev1.Container, ingr
 		Expect(container.Image).To(Equal(*t.EnvCoreImageTag))
 	}
 	Expect(container.Ports).To(ConsistOf(t.NewCorePorts()))
-	Expect(container.Env).To(ConsistOf(t.NewCoreEnvironmentVariables(reportsUrl, authProps, ingress, emptyDir, builtInDiscoveryDisabled, hasPortConfig, builtInPortConfigDisabled, dbSecretProvided)))
+	Expect(container.Env).To(ConsistOf(t.NewCoreEnvironmentVariables(reportsUrl, authProps, ingress, emptyDir, hasPortConfig, builtInPortConfigDisabled, dbSecretProvided)))
 	Expect(container.EnvFrom).To(ConsistOf(t.NewCoreEnvFromSource()))
 	Expect(container.VolumeMounts).To(ConsistOf(t.NewCoreVolumeMounts()))
 	Expect(container.LivenessProbe).To(Equal(t.NewCoreLivenessProbe()))
@@ -2978,6 +2920,22 @@ func (t *cryostatTestInput) checkReportsContainer(container *corev1.Container, r
 
 	test.ExpectResourceRequirements(&container.Resources, resources)
 }
+
+// func (t *cryostatTestInput) checkStorageContainer(container *corev1.Container, resources *corev1.ResourceRequirements, securityContext *corev1.SecurityContext) {
+// 	Expect(container.Name).To(Equal(t.Name + "-storage"))
+// 	if t.EnvReportsImageTag == nil {
+// 		Expect(container.Image).To(HavePrefix("quay.io/cryostat/cryostat-storage:"))
+// 	} else {
+// 		Expect(container.Image).To(Equal(*t.EnvReportsImageTag))
+// 	}
+// 	Expect(container.Ports).To(ConsistOf(t.NewStoragePorts()))
+// 	Expect(container.Env).To(ConsistOf(t.NewStorageEnvironmentVariables(resources)))
+// 	Expect(container.VolumeMounts).To(ConsistOf(t.NewReportsVolumeMounts()))
+// 	Expect(container.LivenessProbe).To(Equal(t.NewReportsLivenessProbe()))
+// 	Expect(container.SecurityContext).To(Equal(securityContext))
+
+// 	test.ExpectResourceRequirements(&container.Resources, resources)
+// }
 
 func (t *cryostatTestInput) checkCoreHasEnvironmentVariables(expectedEnvVars []corev1.EnvVar) {
 	deployment := &appsv1.Deployment{}

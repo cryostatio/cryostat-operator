@@ -62,7 +62,7 @@ export APP_NAME ?= Cryostat
 # Images used by the operator
 CORE_NAMESPACE ?= $(DEFAULT_NAMESPACE)
 CORE_NAME ?= cryostat
-CORE_VERSION ?= latest
+CORE_VERSION ?= 3.0.0-snapshot
 export CORE_IMG ?= $(CORE_NAMESPACE)/$(CORE_NAME):$(CORE_VERSION)
 DATASOURCE_NAMESPACE ?= $(DEFAULT_NAMESPACE)
 DATASOURCE_NAME ?= jfr-datasource
@@ -76,6 +76,14 @@ REPORTS_NAMESPACE ?= $(DEFAULT_NAMESPACE)
 REPORTS_NAME ?= cryostat-reports
 REPORTS_VERSION ?= latest
 export REPORTS_IMG ?= $(REPORTS_NAMESPACE)/$(REPORTS_NAME):$(REPORTS_VERSION)
+DATABASE_NAMESPACE ?= $(DEFAULT_NAMESPACE)
+DATABASE_NAME ?= cryostat-db
+DATABASE_VERSION ?= latest
+export DATABASE_IMG ?= $(DATABASE_NAMESPACE)/$(DATABASE_NAME):$(DATABASE_VERSION)
+STORAGE_NAMESPACE ?= $(DEFAULT_NAMESPACE)
+STORAGE_NAME ?= cryostat-storage
+STORAGE_VERSION ?= latest
+export STORAGE_IMG ?= $(STORAGE_NAMESPACE)/$(STORAGE_NAME):$(STORAGE_VERSION)
 
 CERT_MANAGER_VERSION ?= 1.11.5
 CERT_MANAGER_MANIFEST ?= \
@@ -449,8 +457,8 @@ endif
 ##@ Deployment
 
 .PHONY: install
-install: manifests kustomize ## Install CRDs into the cluster specified in ~/.kube/config.
-	$(KUSTOMIZE) build config/crd | $(CLUSTER_CLIENT) apply -f -
+install: uninstall manifests kustomize ## Install CRDs into the cluster specified in ~/.kube/config.
+	$(KUSTOMIZE) build config/crd | $(CLUSTER_CLIENT) create -f -
 
 .PHONY: uninstall
 uninstall: manifests kustomize ## Uninstall CRDs from the cluster specified in ~/.kube/config.
@@ -466,8 +474,8 @@ print_deploy_config: predeploy ## Print deployment configurations for the contro
 	$(KUSTOMIZE) build $(KUSTOMIZE_DIR)
 
 .PHONY: deploy
-deploy: check_cert_manager manifests kustomize predeploy ## Deploy controller in the configured cluster in ~/.kube/config
-	$(KUSTOMIZE) build $(KUSTOMIZE_DIR) | $(CLUSTER_CLIENT) apply -f -
+deploy: check_cert_manager manifests kustomize predeploy undeploy ## Deploy controller in the configured cluster in ~/.kube/config
+	$(KUSTOMIZE) build $(KUSTOMIZE_DIR) | $(CLUSTER_CLIENT) create -f -
 ifeq ($(DISABLE_SERVICE_TLS), true)
 	@echo "Disabling TLS for in-cluster communication between Services"
 	@$(CLUSTER_CLIENT) -n $(DEPLOY_NAMESPACE) set env deployment/cryostat-operator-controller-manager DISABLE_SERVICE_TLS=true

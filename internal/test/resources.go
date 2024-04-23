@@ -500,16 +500,6 @@ func (r *TestResources) NewCryostatWithLowResourceLimit() *model.CryostatInstanc
 	return cr
 }
 
-func (r *TestResources) NewCryostatWithAuthProperties() *model.CryostatInstance {
-	cr := r.NewCryostat()
-	cr.Spec.AuthProperties = &operatorv1beta2.AuthorizationProperties{
-		ConfigMapName:   "authConfigMapName",
-		Filename:        "auth.properties",
-		ClusterRoleName: "custom-auth-cluster-role",
-	}
-	return cr
-}
-
 func (r *TestResources) NewCryostatWithBuiltInDiscoveryDisabled() *model.CryostatInstance {
 	cr := r.NewCryostat()
 	cr.Spec.TargetDiscoveryOptions = &operatorv1beta2.TargetDiscoveryOptions{
@@ -936,26 +926,40 @@ func (r *TestResources) OtherGrafanaSecret() *corev1.Secret {
 	}
 }
 
-func (r *TestResources) NewCredentialsDatabaseSecret() *corev1.Secret {
+func (r *TestResources) NewDatabaseSecret() *corev1.Secret {
 	return &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      r.Name + "-jmx-credentials-db",
+			Name:      r.Name + "-db",
 			Namespace: r.Namespace,
 		},
 		StringData: map[string]string{
-			"CRYOSTAT_JMX_CREDENTIALS_DB_PASSWORD": "credentials_database",
+			"CONNECTION_KEY": "credentials_database",
+			"ENCRYPTION_KEY": "encryption_key",
 		},
 	}
 }
 
-func (r *TestResources) OtherCredentialsDatabaseSecret() *corev1.Secret {
+func (r *TestResources) NewStorageSecret() *corev1.Secret {
 	return &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      r.Name + "-jmx-credentials-db",
+			Name:      r.Name + "-storage-secret-key",
 			Namespace: r.Namespace,
 		},
 		StringData: map[string]string{
-			"CRYOSTAT_JMX_CREDENTIALS_DB_PASSWORD": "other-pass",
+			"SECRET_KEY": "object_storage",
+		},
+	}
+}
+
+func (r *TestResources) OtherDatabaseSecret() *corev1.Secret {
+	return &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      r.Name + "-db",
+			Namespace: r.Namespace,
+		},
+		StringData: map[string]string{
+			"CONNECTION_KEY": "other-pass",
+			"ENCRYPTION_KEY": "other-key",
 		},
 	}
 }
@@ -1258,7 +1262,7 @@ func (r *TestResources) NewGrafanaPorts() []corev1.ContainerPort {
 func (r *TestResources) NewDatasourcePorts() []corev1.ContainerPort {
 	return []corev1.ContainerPort{
 		{
-			ContainerPort: 8080,
+			ContainerPort: 8989,
 		},
 	}
 }
@@ -1271,12 +1275,86 @@ func (r *TestResources) NewReportsPorts() []corev1.ContainerPort {
 	}
 }
 
+func (r *TestResources) NewStoragePorts() []corev1.ContainerPort {
+	return []corev1.ContainerPort{
+		{
+			ContainerPort: 8080,
+		},
+		{
+			ContainerPort: 8333,
+		},
+		{
+			ContainerPort: 8888,
+		},
+	}
+}
+
 func (r *TestResources) NewCoreEnvironmentVariables(reportsUrl string, authProps bool, ingress bool,
-	emptyDir bool, builtInDiscoveryDisabled bool, hasPortConfig bool, builtInPortConfigDisabled bool, dbSecretProvided bool) []corev1.EnvVar {
+	emptyDir bool, hasPortConfig bool, builtInPortConfigDisabled bool, dbSecretProvided bool) []corev1.EnvVar {
 	envs := []corev1.EnvVar{
 		{
-			Name:  "CRYOSTAT_WEB_PORT",
+			Name:  "QUARKUS_HTTP_HOST",
+			Value: "localhost",
+		},
+		{
+			Name:  "QUARKUS_HTTP_PORT",
 			Value: "8181",
+		},
+		{
+			Name:  "QUARKUS_HTTP_PROXY_PROXY_ADDRESS_FORWARDING",
+			Value: "true",
+		},
+		{
+			Name:  "QUARKUS_HTTP_PROXY_ALLOW_X_FORWARDED",
+			Value: "true",
+		},
+		{
+			Name:  "QUARKUS_HTTP_PROXY_ENABLE_FORWARDED_HOST",
+			Value: "true",
+		},
+		{
+			Name:  "QUARKUS_HTTP_PROXY_ENABLE_FORWARDED_PREFIX",
+			Value: "true",
+		},
+		{
+			Name:  "QUARKUS_HIBERNATE_ORM_DATABASE_GENERATION",
+			Value: "drop-and-create",
+		},
+		{
+			Name:  "QUARKUS_DATASOURCE_USERNAME",
+			Value: "cryostat3",
+		},
+		{
+			Name:  "QUARKUS_DATASOURCE_JDBC_URL",
+			Value: "jdbc:postgresql://localhost:5432/cryostat3",
+		},
+		{
+			Name:  "STORAGE_BUCKETS_ARCHIVE_NAME",
+			Value: "archivedrecordings",
+		},
+		{
+			Name:  "QUARKUS_S3_ENDPOINT_OVERRIDE",
+			Value: "http://localhost:8333",
+		},
+		{
+			Name:  "QUARKUS_S3_PATH_STYLE_ACCESS",
+			Value: "true",
+		},
+		{
+			Name:  "QUARKUS_S3_AWS_REGION",
+			Value: "us-east-1",
+		},
+		{
+			Name:  "QUARKUS_S3_AWS_CREDENTIALS_TYPE",
+			Value: "static",
+		},
+		{
+			Name:  "QUARKUS_S3_CREDENTIALS_STATIC_PROVIDER_ACCESS_KEY_ID",
+			Value: "cryostat",
+		},
+		{
+			Name:  "AWS_ACCESS_KEY_ID",
+			Value: "$(QUARKUS_S3_AWS_CREDENTIALS_STATIC_PROVIDER_ACCESS_KEY_ID)",
 		},
 		{
 			Name:  "CRYOSTAT_CONFIG_PATH",
@@ -1303,46 +1381,65 @@ func (r *TestResources) NewCoreEnvironmentVariables(reportsUrl string, authProps
 			Value: "false",
 		},
 		{
-			Name:  "CRYOSTAT_TARGET_CACHE_SIZE",
+			Name:  "CRYOSTAT_CONNECTIONS_MAX_OPEN",
 			Value: "-1",
 		},
 		{
-			Name:  "CRYOSTAT_TARGET_CACHE_TTL",
+			Name:  "CRYOSTAT_CONNECTIONS_TTL",
 			Value: "10",
 		},
 		{
 			Name:  "CRYOSTAT_K8S_NAMESPACES",
 			Value: strings.Join(r.TargetNamespaces, ","),
 		},
+		{
+			Name:  "GRAFANA_DATASOURCE_URL",
+			Value: "http://127.0.0.1:8989",
+		},
+		{
+			Name:  "QUARKUS_S3_AWS_CREDENTIALS_STATIC_PROVIDER_ACCESS_KEY_ID",
+			Value: "cryostat",
+		},
+		{
+			Name:  "AWS_SECRET_ACCESS_KEY",
+			Value: "$(QUARKUS_S3_AWS_CREDENTIALS_STATIC_PROVIDER_SECRET_ACCESS_KEY)",
+		},
 	}
 
-	envs = append(envs, r.NewTargetDiscoveryEnvVar(builtInDiscoveryDisabled, hasPortConfig, builtInPortConfigDisabled)...)
-
-	if !emptyDir {
-		envs = append(envs, r.DatabaseConfigEnvironmentVariables()...)
-	}
+	envs = append(envs, r.NewTargetDiscoveryEnvVar(hasPortConfig, builtInPortConfigDisabled)...)
 
 	optional := false
-	secretName := r.NewCredentialsDatabaseSecret().Name
+	secretName := r.NewDatabaseSecret().Name
 	if dbSecretProvided {
 		secretName = providedDatabaseSecretName
 	}
 	envs = append(envs, corev1.EnvVar{
-		Name: "CRYOSTAT_JMX_CREDENTIALS_DB_PASSWORD",
+		Name: "QUARKUS_DATASOURCE_PASSWORD",
 		ValueFrom: &corev1.EnvVarSource{
 			SecretKeyRef: &corev1.SecretKeySelector{
 				LocalObjectReference: corev1.LocalObjectReference{
 					Name: secretName,
 				},
-				Key:      "CRYOSTAT_JMX_CREDENTIALS_DB_PASSWORD",
+				Key:      "CONNECTION_KEY",
 				Optional: &optional,
 			},
 		},
 	},
-		corev1.EnvVar{
-			Name:  "GRAFANA_DATASOURCE_URL",
-			Value: "http://127.0.0.1:8080",
+	)
+
+	secretName = r.NewStorageSecret().Name
+	envs = append(envs, corev1.EnvVar{
+		Name: "QUARKUS_S3_AWS_CREDENTIALS_STATIC_PROVIDER_SECRET_ACCESS_KEY",
+		ValueFrom: &corev1.EnvVarSource{
+			SecretKeyRef: &corev1.SecretKeySelector{
+				LocalObjectReference: corev1.LocalObjectReference{
+					Name: secretName,
+				},
+				Key:      "SECRET_KEY",
+				Optional: &optional,
+			},
 		},
+	},
 	)
 
 	if !r.TLS {
@@ -1365,47 +1462,15 @@ func (r *TestResources) NewCoreEnvironmentVariables(reportsUrl string, authProps
 		})
 	}
 
-	if r.OpenShift {
-		envs = append(envs,
-			corev1.EnvVar{
-				Name:  "CRYOSTAT_PLATFORM",
-				Value: "io.cryostat.platform.internal.OpenShiftPlatformStrategy",
-			},
-			corev1.EnvVar{
-				Name:  "CRYOSTAT_AUTH_MANAGER",
-				Value: "io.cryostat.net.openshift.OpenShiftAuthManager",
-			},
-			corev1.EnvVar{
-				Name:  "CRYOSTAT_OAUTH_CLIENT_ID",
-				Value: r.Name,
-			},
-			corev1.EnvVar{
-				Name:  "CRYOSTAT_BASE_OAUTH_ROLE",
-				Value: "cryostat-operator-oauth-client",
-			})
-
-		if authProps {
-			envs = append(envs, corev1.EnvVar{
-				Name:  "CRYOSTAT_CUSTOM_OAUTH_ROLE",
-				Value: "custom-auth-cluster-role",
-			})
-		}
-		envs = append(envs, r.newNetworkEnvironmentVariables()...)
-	} else if ingress { // On Kubernetes
+	if r.OpenShift || ingress {
 		envs = append(envs, r.newNetworkEnvironmentVariables()...)
 	}
 
 	if reportsUrl != "" {
 		envs = append(envs,
 			corev1.EnvVar{
-				Name:  "CRYOSTAT_REPORT_GENERATOR",
+				Name:  "CRYOSTAT_SERVICES_REPORTS_URL",
 				Value: reportsUrl,
-			})
-	} else {
-		envs = append(envs,
-			corev1.EnvVar{
-				Name:  "CRYOSTAT_REPORT_GENERATION_MAX_HEAP",
-				Value: "200",
 			})
 	}
 
@@ -1417,35 +1482,6 @@ func (r *TestResources) NewCoreEnvironmentVariables(reportsUrl string, authProps
 			})
 	}
 	return envs
-}
-
-func (r *TestResources) DatabaseConfigEnvironmentVariables() []corev1.EnvVar {
-	return []corev1.EnvVar{
-		{
-			Name:  "CRYOSTAT_JDBC_URL",
-			Value: "jdbc:h2:file:/opt/cryostat.d/conf.d/h2;INIT=create domain if not exists jsonb as varchar",
-		},
-		{
-			Name:  "CRYOSTAT_HBM2DDL",
-			Value: "update",
-		},
-		{
-			Name:  "CRYOSTAT_JDBC_DRIVER",
-			Value: "org.h2.Driver",
-		},
-		{
-			Name:  "CRYOSTAT_HIBERNATE_DIALECT",
-			Value: "org.hibernate.dialect.H2Dialect",
-		},
-		{
-			Name:  "CRYOSTAT_JDBC_USERNAME",
-			Value: r.Name,
-		},
-		{
-			Name:  "CRYOSTAT_JDBC_PASSWORD",
-			Value: r.Name,
-		},
-	}
 }
 
 func (r *TestResources) newNetworkEnvironmentVariables() []corev1.EnvVar {
@@ -1501,7 +1537,7 @@ func (r *TestResources) NewGrafanaEnvironmentVariables() []corev1.EnvVar {
 	envs := []corev1.EnvVar{
 		{
 			Name:  "JFR_DATASOURCE_URL",
-			Value: "http://127.0.0.1:8080",
+			Value: "http://127.0.0.1:8989",
 		},
 	}
 	if r.TLS {
@@ -1522,8 +1558,12 @@ func (r *TestResources) NewGrafanaEnvironmentVariables() []corev1.EnvVar {
 func (r *TestResources) NewDatasourceEnvironmentVariables() []corev1.EnvVar {
 	return []corev1.EnvVar{
 		{
-			Name:  "LISTEN_HOST",
+			Name:  "QUARKUS_HTTP_HOST",
 			Value: "127.0.0.1",
+		},
+		{
+			Name:  "QUARKUS_HTTP_PORT",
+			Value: "8989",
 		},
 	}
 }
@@ -1569,6 +1609,19 @@ func (r *TestResources) NewReportsEnvironmentVariables(resources *corev1.Resourc
 	return envs
 }
 
+func (r *TestResources) NewStorageEnvironmentVariables() []corev1.EnvVar {
+	return []corev1.EnvVar{
+		{
+			Name:  "QUARKUS_HTTP_HOST",
+			Value: "127.0.0.1",
+		},
+		{
+			Name:  "QUARKUS_HTTP_PORT",
+			Value: "8989",
+		},
+	}
+}
+
 func (r *TestResources) NewCoreEnvFromSource() []corev1.EnvFromSource {
 	envsFrom := []corev1.EnvFromSource{
 		{
@@ -1603,37 +1656,21 @@ func (r *TestResources) NewGrafanaEnvFromSource() []corev1.EnvFromSource {
 	}
 }
 
-func (r *TestResources) NewReportSubprocessHeapEnv() []corev1.EnvVar {
-	return []corev1.EnvVar{
-		{
-			Name:  "CRYOSTAT_REPORT_GENERATION_MAX_HEAP",
-			Value: "500",
-		},
-	}
-}
-
 func (r *TestResources) NewJmxCacheOptionsEnv() []corev1.EnvVar {
 	return []corev1.EnvVar{
 		{
-			Name:  "CRYOSTAT_TARGET_CACHE_SIZE",
+			Name:  "CRYOSTAT_CONNECTIONS_MAX_OPEN",
 			Value: "10",
 		},
 		{
-			Name:  "CRYOSTAT_TARGET_CACHE_TTL",
+			Name:  "CRYOSTAT_CONNECTIONS_TTL",
 			Value: "20",
 		},
 	}
 }
 
-func (r *TestResources) NewTargetDiscoveryEnvVar(builtInDiscoveryDisabled bool, hasPortConfig bool, builtInPortConfigDisabled bool) []corev1.EnvVar {
+func (r *TestResources) NewTargetDiscoveryEnvVar(hasPortConfig bool, builtInPortConfigDisabled bool) []corev1.EnvVar {
 	envs := make([]corev1.EnvVar, 0)
-
-	if builtInDiscoveryDisabled {
-		envs = append(envs, corev1.EnvVar{
-			Name:  "CRYOSTAT_DISABLE_BUILTIN_DISCOVERY",
-			Value: "true",
-		})
-	}
 
 	if hasPortConfig {
 		envs = append(envs,
@@ -1785,15 +1822,11 @@ func (r *TestResources) NewCoreStartupProbe() *corev1.Probe {
 }
 
 func (r *TestResources) newCoreProbeHandler() corev1.ProbeHandler {
-	protocol := corev1.URISchemeHTTPS
-	if !r.TLS {
-		protocol = corev1.URISchemeHTTP
-	}
 	return corev1.ProbeHandler{
 		HTTPGet: &corev1.HTTPGetAction{
 			Port:   intstr.IntOrString{IntVal: 8181},
 			Path:   "/health/liveness",
-			Scheme: protocol,
+			Scheme: corev1.URISchemeHTTP,
 		},
 	}
 }
@@ -1818,7 +1851,7 @@ func (r *TestResources) NewDatasourceLivenessProbe() *corev1.Probe {
 	return &corev1.Probe{
 		ProbeHandler: corev1.ProbeHandler{
 			Exec: &corev1.ExecAction{
-				Command: []string{"curl", "--fail", "http://127.0.0.1:8080"},
+				Command: []string{"curl", "--fail", "http://127.0.0.1:8989"},
 			},
 		},
 	}
@@ -2512,26 +2545,6 @@ func (r *TestResources) OtherRole() *rbacv1.Role {
 	}
 }
 
-func (r *TestResources) NewAuthClusterRole() *rbacv1.ClusterRole {
-	return &rbacv1.ClusterRole{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: "custom-auth-cluster-role",
-		},
-		Rules: []rbacv1.PolicyRule{
-			{
-				Verbs:     []string{"get", "update", "patch", "delete"},
-				APIGroups: []string{"group"},
-				Resources: []string{"resources"},
-			},
-			{
-				Verbs:     []string{"get", "update", "patch", "delete"},
-				APIGroups: []string{"another_group"},
-				Resources: []string{"another_resources"},
-			},
-		},
-	}
-}
-
 func (r *TestResources) NewRoleBinding(ns string) *rbacv1.RoleBinding {
 	return &rbacv1.RoleBinding{
 		ObjectMeta: metav1.ObjectMeta{
@@ -2653,18 +2666,6 @@ func (r *TestResources) NewOtherTemplateConfigMap() *corev1.ConfigMap {
 		},
 		Data: map[string]string{
 			"other-template.jfc": "more XML template data",
-		},
-	}
-}
-
-func (r *TestResources) NewAuthPropertiesConfigMap() *corev1.ConfigMap {
-	return &corev1.ConfigMap{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "authConfigMapName",
-			Namespace: r.Namespace,
-		},
-		Data: map[string]string{
-			"auth.properties": "CRYOSTAT_RESOURCE=resources.group\nANOTHER_CRYOSTAT_RESOURCE=another_resources.another_group",
 		},
 	}
 }

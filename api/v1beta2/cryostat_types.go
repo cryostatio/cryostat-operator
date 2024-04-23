@@ -512,6 +512,14 @@ type SecurityOptions struct {
 	// +optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	GrafanaSecurityContext *corev1.SecurityContext `json:"grafanaSecurityContext,omitempty"`
+	// Security Context to apply to the storage container.
+	// +optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec
+	StorageSecurityContext *corev1.SecurityContext `json:"storageSecurityContext,omitempty"`
+	// Security Context to apply to the database container.
+	// +optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec
+	DatabaseSecurityContext *corev1.SecurityContext `json:"databaseSecurityContext,omitempty"`
 }
 
 // ReportsSecurityOptions contains Security Context customizations for the

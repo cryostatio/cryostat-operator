@@ -141,6 +141,8 @@ type CryostatStatus struct {
 	// +optional
 	// +operator-sdk:csv:customresourcedefinitions:type=status,order=2,xDescriptors={"urn:alm:descriptor:io.kubernetes:Secret"}
 	GrafanaSecret string `json:"grafanaSecret,omitempty"`
+	// Name of the Secret containing the cryostat storage connection key
+	StorageSecret string `json:"storageSecret,omitempty"`
 	// Address of the deployed Cryostat web application.
 	// +operator-sdk:csv:customresourcedefinitions:type=status,order=1,xDescriptors={"urn:alm:descriptor:org.w3:link"}
 	ApplicationURL string `json:"applicationUrl"`
@@ -287,6 +289,13 @@ type GrafanaServiceConfig struct {
 	ServiceConfig `json:",inline"`
 }
 
+type StorageServiceConfig struct {
+	// HTTP port number for the cryostat storage service.
+	// Defaults to 8333
+	HTTPPort      *int32 `json:"httpPort,omitempty"`
+	ServiceConfig `json:",inline"`
+}
+
 // ReportsServiceConfig provides customization for the service handling
 // traffic for the cryostat-reports sidecars.
 type ReportsServiceConfig struct {
@@ -309,6 +318,9 @@ type ServiceConfigList struct {
 	// Specification for the service responsible for the cryostat-reports sidecars.
 	// +optional
 	ReportsConfig *ReportsServiceConfig `json:"reportsConfig,omitempty"`
+	// Specification for the service responsible for the cryostat storage container.
+	// +optional
+	StorageConfig *StorageServiceConfig `json:"storageConfig,omitEmpty"`
 }
 
 // NetworkConfiguration provides customization for how to expose a Cryostat
@@ -502,6 +514,14 @@ type SecurityOptions struct {
 	// +optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	GrafanaSecurityContext *corev1.SecurityContext `json:"grafanaSecurityContext,omitempty"`
+	// Security Context to apply to the storage container.
+	// +optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec
+	StorageSecurityContext *corev1.SecurityContext `json:"storageSecurityContext,omitempty"`
+	// Security Context to apply to the storage container.
+	// +optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec
+	DatabaseSecurityContext *corev1.SecurityContext `json:"databaseSecurityContext,omitempty"`
 }
 
 // ReportsSecurityOptions contains Security Context customizations for the

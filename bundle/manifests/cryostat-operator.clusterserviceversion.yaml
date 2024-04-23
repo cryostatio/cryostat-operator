@@ -69,7 +69,7 @@ metadata:
           }
         }
       }
-    operators.operatorframework.io/builder: operator-sdk-v1.31.0
+    operators.operatorframework.io/builder: operator-sdk-v1.32.0
     operators.operatorframework.io/project_layout: go.kubebuilder.io/v3
     repository: github.com/cryostatio/cryostat-operator
     support: Cryostat Community
@@ -379,12 +379,18 @@ spec:
       - description: Security Context to apply to the JFR Data Source container.
         displayName: Data Source Security Context
         path: securityOptions.dataSourceSecurityContext
+      - description: Security Context to apply to the storage container.
+        displayName: Database Security Context
+        path: securityOptions.databaseSecurityContext
       - description: Security Context to apply to the Grafana container.
         displayName: Grafana Security Context
         path: securityOptions.grafanaSecurityContext
       - description: Security Context to apply to the Cryostat pod.
         displayName: Pod Security Context
         path: securityOptions.podSecurityContext
+      - description: Security Context to apply to the storage container.
+        displayName: Storage Security Context
+        path: securityOptions.storageSecurityContext
       - description: Options to customize the services created for the Cryostat application
           and Grafana dashboard.
         displayName: Service Options
@@ -754,12 +760,18 @@ spec:
       - description: Security Context to apply to the JFR Data Source container.
         displayName: Data Source Security Context
         path: securityOptions.dataSourceSecurityContext
+      - description: Security Context to apply to the storage container.
+        displayName: Database Security Context
+        path: securityOptions.databaseSecurityContext
       - description: Security Context to apply to the Grafana container.
         displayName: Grafana Security Context
         path: securityOptions.grafanaSecurityContext
       - description: Security Context to apply to the Cryostat pod.
         displayName: Pod Security Context
         path: securityOptions.podSecurityContext
+      - description: Security Context to apply to the storage container.
+        displayName: Storage Security Context
+        path: securityOptions.storageSecurityContext
       - description: Options to customize the services created for the Cryostat application
           and Grafana dashboard.
         displayName: Service Options
@@ -1091,7 +1103,7 @@ spec:
                 - /manager
                 env:
                 - name: RELATED_IMAGE_CORE
-                  value: quay.io/cryostat/cryostat:latest
+                  value: quay.io/cryostat/cryostat:3.0.0-snapshot
                 - name: RELATED_IMAGE_DATASOURCE
                   value: quay.io/cryostat/jfr-datasource:latest
                 - name: RELATED_IMAGE_GRAFANA
@@ -1226,7 +1238,7 @@ spec:
   provider:
     name: The Cryostat Community
   relatedImages:
-  - image: quay.io/cryostat/cryostat:latest
+  - image: quay.io/cryostat/cryostat:3.0.0-snapshot
     name: core
   - image: quay.io/cryostat/jfr-datasource:latest
     name: datasource

@@ -305,12 +305,18 @@ spec:
       - description: Security Context to apply to the JFR Data Source container.
         displayName: Data Source Security Context
         path: securityOptions.dataSourceSecurityContext
+      - description: Security Context to apply to the storage container.
+        displayName: Database Security Context
+        path: securityOptions.databaseSecurityContext
       - description: Security Context to apply to the Grafana container.
         displayName: Grafana Security Context
         path: securityOptions.grafanaSecurityContext
       - description: Security Context to apply to the Cryostat pod.
         displayName: Pod Security Context
         path: securityOptions.podSecurityContext
+      - description: Security Context to apply to the storage container.
+        displayName: Storage Security Context
+        path: securityOptions.storageSecurityContext
       - description: Options to customize the services created for the Cryostat application
           and Grafana dashboard.
         displayName: Service Options
@@ -709,12 +715,18 @@ spec:
       - description: Security Context to apply to the JFR Data Source container.
         displayName: Data Source Security Context
         path: securityOptions.dataSourceSecurityContext
+      - description: Security Context to apply to the storage container.
+        displayName: Database Security Context
+        path: securityOptions.databaseSecurityContext
       - description: Security Context to apply to the Grafana container.
         displayName: Grafana Security Context
         path: securityOptions.grafanaSecurityContext
       - description: Security Context to apply to the Cryostat pod.
         displayName: Pod Security Context
         path: securityOptions.podSecurityContext
+      - description: Security Context to apply to the storage container.
+        displayName: Storage Security Context
+        path: securityOptions.storageSecurityContext
       - description: Options to customize the services created for the Cryostat application
           and Grafana dashboard.
         displayName: Service Options
