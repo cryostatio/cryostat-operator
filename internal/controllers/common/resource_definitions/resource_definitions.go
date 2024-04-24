@@ -618,6 +618,36 @@ func NewOpenShiftAuthProxyContainer(cr *model.CryostatInstance, specs *ServiceSp
 		},
 	}
 
+	basicAuthEnabled := false
+	args := []string{
+		fmt.Sprintf("--skip-provider-button=%t", !basicAuthEnabled),
+		fmt.Sprintf("--upstream=http://localhost:%d/", constants.CryostatHTTPContainerPort),
+		fmt.Sprintf("--upstream=http://localhost:%d/grafana/", constants.GrafanaContainerPort),
+		fmt.Sprintf("--upstream=http://localhost:%d/storage/", constants.StoragePort),
+		"--cookie-secret=REPLACEME",
+		fmt.Sprintf("--openshift-service-account=%s", cr.Name),
+		"--proxy-websockets=true",
+		fmt.Sprintf("--http-address=0.0.0.0:%d", constants.AuthProxyHttpContainerPort),
+		fmt.Sprintf(
+			`--openshift-sar=[{"group":"","name":"","namespace":"%s","resource":"pods","subresource":"exec","verb":"create","version":""}]`,
+			cr.InstallNamespace,
+		),
+		fmt.Sprintf(
+			`--openshift-delegate-urls={"/health":{},"/api":{"group":"","name":"","namespace":"%s","resource":"pods","subresource":"exec","verb":"create","version":""}, "/storage":{"group":"","name":"","namespace":"%s","resource":"pods","subresource":"exec","verb":"create","version":""}, "/grafana":{"group":"","name":"","namespace":"%s","resource":"pods","subresource":"exec","verb":"create","version":""} }`,
+			cr.InstallNamespace,
+			cr.InstallNamespace,
+			cr.InstallNamespace,
+		),
+		"--proxy-prefix=/oauth2",
+	}
+	if tls != nil {
+		// "--https-address=:8443",
+		// "--tls-cert=/etc/tls/private/tls.crt",
+		// "--tls-key=/etc/tls/private/tls.key",
+	} else {
+		args = append(args, "--https-address=")
+	}
+
 	return corev1.Container{
 		Name:            cr.Name + "-auth-proxy",
 		Image:           imageTag,
@@ -635,21 +665,7 @@ func NewOpenShiftAuthProxyContainer(cr *model.CryostatInstance, specs *ServiceSp
 			ProbeHandler: probeHandler,
 		},
 		SecurityContext: containerSc,
-		Args: []string{
-			"--skip-provider-button=true",
-			"--upstream=http://localhost:8181/",
-			"--upstream=http://localhost:3000/grafana/",
-			"--upstream=http://localhost:8333/storage/",
-			"--cookie-secret=REPLACEME",
-			"--openshift-service-account=" + cr.Name,
-			"--proxy-websockets=true",
-			"--http-address=0.0.0.0:4180",
-			"--https-address=",
-			// "--https-address=:8443",
-			// "--tls-cert=/etc/tls/private/tls.crt",
-			// "--tls-key=/etc/tls/private/tls.key",
-			"--proxy-prefix=/oauth2",
-		},
+		Args:            args,
 	}
 }
 
