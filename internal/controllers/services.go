@@ -165,7 +165,7 @@ func configureCoreService(cr *model.CryostatInstance) *operatorv1beta2.CoreServi
 
 	// Apply default HTTP and JMX port if not provided
 	if config.HTTPPort == nil {
-		httpPort := constants.CryostatHTTPContainerPort
+		httpPort := constants.AuthProxyHttpContainerPort
 		config.HTTPPort = &httpPort
 	}
 	if config.JMXPort == nil {
