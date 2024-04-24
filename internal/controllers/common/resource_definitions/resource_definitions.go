@@ -247,12 +247,12 @@ func NewDeploymentForReports(cr *model.CryostatInstance, imageTags *ImageTags, t
 func NewPodForCR(cr *model.CryostatInstance, specs *ServiceSpecs, imageTags *ImageTags,
 	tls *TLSConfig, fsGroup int64, openshift bool) *corev1.PodSpec {
 	containers := []corev1.Container{
-		NewAuthProxyContainer(cr, specs, imageTags.OAuth2ProxyImageTag, imageTags.OpenShiftOAuthProxyImageTag, tls, openshift),
 		NewCoreContainer(cr, specs, imageTags.CoreImageTag, tls, openshift),
 		NewGrafanaContainer(cr, imageTags.GrafanaImageTag, tls),
 		NewJfrDatasourceContainer(cr, imageTags.DatasourceImageTag),
 		NewStorageContainer(cr, imageTags.StorageImageTag, tls),
 		newDatabaseContainer(cr, imageTags.DatabaseImageTag, tls),
+		NewAuthProxyContainer(cr, specs, imageTags.OAuth2ProxyImageTag, imageTags.OpenShiftOAuthProxyImageTag, tls, openshift),
 	}
 
 	volumes := newVolumeForCR(cr)
