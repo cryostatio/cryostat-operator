@@ -637,7 +637,7 @@ func NewOpenShiftAuthProxyContainer(cr *model.CryostatInstance, specs *ServiceSp
 			"--upstream=http://localhost:3000/grafana/",
 			"--upstream=http://localhost:8333/storage/",
 			"--cookie-secret=REPLACEME",
-			"--openshift-service-account=default",
+			"--openshift-service-account=" + cr.Name,
 			"--proxy-websockets=true",
 			"--http-address=0.0.0.0:4180",
 			"--https-address=",
