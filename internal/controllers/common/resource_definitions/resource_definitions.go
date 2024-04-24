@@ -610,6 +610,14 @@ func NewOpenShiftAuthProxyContainer(cr *model.CryostatInstance, specs *ServiceSp
 		}
 	}
 
+	probeHandler := corev1.ProbeHandler{
+		HTTPGet: &corev1.HTTPGetAction{
+			Port:   intstr.IntOrString{IntVal: constants.AuthProxyHttpContainerPort},
+			Path:   "/ping",
+			Scheme: corev1.URISchemeHTTP,
+		},
+	}
+
 	return corev1.Container{
 		Name:            cr.Name + "-auth-proxy",
 		Image:           imageTag,
@@ -623,13 +631,9 @@ func NewOpenShiftAuthProxyContainer(cr *model.CryostatInstance, specs *ServiceSp
 		// Env:       envs,
 		// EnvFrom:   envsFrom,
 		Resources: *NewAuthProxyContainerResource(cr),
-		// LivenessProbe: &corev1.Probe{
-		// 	ProbeHandler: probeHandler,
-		// },
-		// StartupProbe: &corev1.Probe{
-		// 	ProbeHandler:     probeHandler,
-		// 	FailureThreshold: 18,
-		// },
+		LivenessProbe: &corev1.Probe{
+			ProbeHandler: probeHandler,
+		},
 		SecurityContext: containerSc,
 		Args: []string{
 			"--skip-provider-button=true",
