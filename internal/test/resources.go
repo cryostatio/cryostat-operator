@@ -2307,14 +2307,71 @@ func (r *TestResources) OtherGrafanaRoute() *routev1.Route {
 	}
 }
 
+func (r *TestResources) NewCoreIngress() *netv1.Ingress {
+	return r.newIngress(r.Name, 8181, map[string]string{"custom": "annotation"},
+		map[string]string{"my": "label", "custom": "label"})
+}
+
+func (r *TestResources) NewGrafanaIngress() *netv1.Ingress {
+	return r.newIngress(r.Name+"-grafana", 3000, map[string]string{"grafana": "annotation"},
+		map[string]string{"my": "label", "grafana": "label"})
+}
+
+func (r *TestResources) newIngress(name string, svcPort int32, annotations, labels map[string]string) *netv1.Ingress {
+	pathtype := netv1.PathTypePrefix
+
+	annotations["nginx.ingress.kubernetes.io/backend-protocol"] = "HTTPS"
+	labels["app"] = r.Name
+	labels["component"] = "cryostat"
+
+	var ingressTLS []netv1.IngressTLS
+	if r.ExternalTLS {
+		ingressTLS = []netv1.IngressTLS{{}}
+	}
+	return &netv1.Ingress{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:        name,
+			Namespace:   r.Namespace,
+			Annotations: annotations,
+			Labels:      labels,
+		},
+		Spec: netv1.IngressSpec{
+			Rules: []netv1.IngressRule{
+				{
+					Host: name + ".example.com",
+					IngressRuleValue: netv1.IngressRuleValue{
+						HTTP: &netv1.HTTPIngressRuleValue{
+							Paths: []netv1.HTTPIngressPath{
+								{
+									Path:     "/",
+									PathType: &pathtype,
+									Backend: netv1.IngressBackend{
+										Service: &netv1.IngressServiceBackend{
+											Name: name,
+											Port: netv1.ServiceBackendPort{
+												Number: svcPort,
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			TLS: ingressTLS,
+		},
+	}
+}
+
 func (r *TestResources) OtherCoreIngress() *netv1.Ingress {
 	pathtype := netv1.PathTypePrefix
 	return &netv1.Ingress{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        r.Name,
 			Namespace:   r.Namespace,
-			Annotations: map[string]string{"custom": "annotation"},
-			Labels:      map[string]string{"custom": "label"},
+			Annotations: map[string]string{"other": "annotation"},
+			Labels:      map[string]string{"other": "label", "app": "not-cryostat"},
 		},
 		Spec: netv1.IngressSpec{
 			Rules: []netv1.IngressRule{
@@ -2350,8 +2407,8 @@ func (r *TestResources) OtherGrafanaIngress() *netv1.Ingress {
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        r.Name + "-grafana",
 			Namespace:   r.Namespace,
-			Annotations: map[string]string{"grafana": "annotation"},
-			Labels:      map[string]string{"grafana": "label"},
+			Annotations: map[string]string{"other-grafana": "annotation"},
+			Labels:      map[string]string{"other-grafana": "label", "app": "not-grafana"},
 		},
 		Spec: netv1.IngressSpec{
 			Rules: []netv1.IngressRule{
