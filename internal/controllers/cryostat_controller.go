@@ -69,6 +69,14 @@ func NewCryostatReconciler(config *ReconcilerConfig) (*CryostatReconciler, error
 // +kubebuilder:rbac:groups=console.openshift.io,resources=consolelinks,verbs=get;create;list;update;delete
 // +kubebuilder:rbac:groups=networking.k8s.io,resources=ingresses,verbs=*
 
+// RBAC for Insights controller, remove these when moving to a separate container
+// +kubebuilder:rbac:namespace=system,groups=apps,resources=deployments;deployments/finalizers,verbs=create;update;get;list;watch
+// +kubebuilder:rbac:namespace=system,groups="",resources=services;secrets;configmaps/finalizers,verbs=create;update;get;list;watch
+// +kubebuilder:rbac:namespace=system,groups="",resources=configmaps,verbs=create;update;delete;get;list;watch
+// +kubebuilder:rbac:groups=config.openshift.io,resources=clusterversions,verbs=get;list;watch
+// OLM doesn't let us specify RBAC for openshift-config namespace, so we need a cluster-wide permission
+// +kubebuilder:rbac:groups="",resources=secrets,verbs=get;list;watch,resourceNames=pull-secret
+
 // Reconcile processes a Cryostat CR and manages a Cryostat installation accordingly
 func (r *CryostatReconciler) Reconcile(ctx context.Context, request ctrl.Request) (ctrl.Result, error) {
 	reqLogger := r.Log.WithValues("Request.Namespace", request.Namespace, "Request.Name", request.Name)

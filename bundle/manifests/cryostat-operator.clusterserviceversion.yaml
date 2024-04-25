@@ -53,7 +53,7 @@ metadata:
     capabilities: Seamless Upgrades
     categories: Monitoring, Developer Tools
     containerImage: quay.io/cryostat/cryostat-operator:3.0.0-dev
-    createdAt: "2024-04-16T21:08:10Z"
+    createdAt: "2024-04-25T15:33:04Z"
     description: JVM monitoring and profiling tool
     operatorframework.io/initialization-resource: |-
       {
@@ -69,7 +69,7 @@ metadata:
           }
         }
       }
-    operators.operatorframework.io/builder: operator-sdk-v1.32.0
+    operators.operatorframework.io/builder: operator-sdk-v1.31.0
     operators.operatorframework.io/project_layout: go.kubebuilder.io/v3
     repository: github.com/cryostatio/cryostat-operator
     support: Cryostat Community
@@ -760,7 +760,7 @@ spec:
       - description: Security Context to apply to the JFR Data Source container.
         displayName: Data Source Security Context
         path: securityOptions.dataSourceSecurityContext
-      - description: Security Context to apply to the storage container.
+      - description: Security Context to apply to the database container.
         displayName: Database Security Context
         path: securityOptions.databaseSecurityContext
       - description: Security Context to apply to the Grafana container.
@@ -903,15 +903,6 @@ spec:
           - ""
           resources:
           - configmaps
-          - configmaps/finalizers
-          - secrets
-          - services
-          verbs:
-          - '*'
-        - apiGroups:
-          - ""
-          resources:
-          - configmaps
           - endpoints
           - events
           - persistentvolumeclaims
@@ -937,19 +928,22 @@ spec:
           verbs:
           - get
         - apiGroups:
+          - ""
+          resourceNames:
+          - pull-secret
+          resources:
+          - secrets
+          verbs:
+          - get
+          - list
+          - watch
+        - apiGroups:
           - apps
           resources:
           - daemonsets
           - deployments
           - replicasets
           - statefulsets
-          verbs:
-          - '*'
-        - apiGroups:
-          - apps
-          resources:
-          - deployments
-          - deployments/finalizers
           verbs:
           - '*'
         - apiGroups:
@@ -1114,7 +1108,7 @@ spec:
                   valueFrom:
                     fieldRef:
                       fieldPath: metadata.annotations['olm.targetNamespaces']
-                - name: NAMESPACE
+                - name: OPERATOR_NAMESPACE
                   valueFrom:
                     fieldRef:
                       fieldPath: metadata.namespace
@@ -1197,6 +1191,40 @@ spec:
           verbs:
           - create
           - patch
+        - apiGroups:
+          - ""
+          resources:
+          - configmaps
+          verbs:
+          - create
+          - delete
+          - get
+          - list
+          - update
+          - watch
+        - apiGroups:
+          - ""
+          resources:
+          - configmaps/finalizers
+          - secrets
+          - services
+          verbs:
+          - create
+          - get
+          - list
+          - update
+          - watch
+        - apiGroups:
+          - apps
+          resources:
+          - deployments
+          - deployments/finalizers
+          verbs:
+          - create
+          - get
+          - list
+          - update
+          - watch
         - apiGroups:
           - monitoring.coreos.com
           resources:

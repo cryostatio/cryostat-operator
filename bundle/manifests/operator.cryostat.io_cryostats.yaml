@@ -158,7 +158,7 @@ spec:
                           between ingresses/services.
                         properties:
                           defaultBackend:
-                            description: DefaultBackend is the backend that should
+                            description: defaultBackend is the backend that should
                               handle requests that don't match any rule. If Rules
                               are not specified, DefaultBackend must be specified.
                               If DefaultBackend is not set, the handling of requests
@@ -166,7 +166,7 @@ spec:
                               Ingress controller.
                             properties:
                               resource:
-                                description: Resource is an ObjectRef to another Kubernetes
+                                description: resource is an ObjectRef to another Kubernetes
                                   resource in the namespace of the Ingress object.
                                   If resource is specified, a service.Name and service.Port
                                   must not be specified. This is a mutually exclusive
@@ -193,25 +193,25 @@ spec:
                                 type: object
                                 x-kubernetes-map-type: atomic
                               service:
-                                description: Service references a Service as a Backend.
+                                description: service references a service as a backend.
                                   This is a mutually exclusive setting with "Resource".
                                 properties:
                                   name:
-                                    description: Name is the referenced service. The
+                                    description: name is the referenced service. The
                                       service must exist in the same namespace as
                                       the Ingress object.
                                     type: string
                                   port:
-                                    description: Port of the referenced service. A
+                                    description: port of the referenced service. A
                                       port name or port number is required for a IngressServiceBackend.
                                     properties:
                                       name:
-                                        description: Name is the name of the port
+                                        description: name is the name of the port
                                           on the Service. This is a mutually exclusive
                                           setting with "Number".
                                         type: string
                                       number:
-                                        description: Number is the numerical port
+                                        description: number is the numerical port
                                           number (e.g. 80) on the Service. This is
                                           a mutually exclusive setting with "Name".
                                         format: int32
@@ -222,7 +222,7 @@ spec:
                                 type: object
                             type: object
                           ingressClassName:
-                            description: IngressClassName is the name of an IngressClass
+                            description: ingressClassName is the name of an IngressClass
                               cluster resource. Ingress controller implementations
                               use this field to know whether they should be serving
                               this Ingress resource, by a transitive connection (controller
@@ -237,9 +237,9 @@ spec:
                               honor that annotation if present.
                             type: string
                           rules:
-                            description: A list of host rules used to configure the
-                              Ingress. If unspecified, or no rule matches, all traffic
-                              is sent to the default backend.
+                            description: rules is a list of host rules used to configure
+                              the Ingress. If unspecified, or no rule matches, all
+                              traffic is sent to the default backend.
                             items:
                               description: IngressRule represents the rules mapping
                                 the paths under a specified host to the related backend
@@ -248,7 +248,7 @@ spec:
                                 with the matching IngressRuleValue.
                               properties:
                                 host:
-                                  description: "Host is the fully qualified domain
+                                  description: "host is the fully qualified domain
                                     name of a network host, as defined by RFC 3986.
                                     Note the following deviations from the \"host\"
                                     part of the URI as defined in RFC 3986: 1. IPs
@@ -261,7 +261,7 @@ spec:
                                     Incoming requests are matched against the host
                                     before the IngressRuleValue. If the host is unspecified,
                                     the Ingress routes all traffic based on the specified
-                                    IngressRuleValue. \n Host can be \"precise\" which
+                                    IngressRuleValue. \n host can be \"precise\" which
                                     is a domain name without the terminating dot of
                                     a network host (e.g. \"foo.bar.com\") or \"wildcard\",
                                     which is a domain name prefixed with a single
@@ -270,9 +270,9 @@ spec:
                                     DNS label and matches only a single label. You
                                     cannot have a wildcard label by itself (e.g. Host
                                     == \"*\"). Requests will be matched against the
-                                    Host field in the following way: 1. If Host is
+                                    Host field in the following way: 1. If host is
                                     precise, the request matches this rule if the
-                                    http host header is equal to Host. 2. If Host
+                                    http host header is equal to Host. 2. If host
                                     is a wildcard, then the request matches this rule
                                     if the http host header is to equal to the suffix
                                     (removing the first label) of the wildcard rule."
@@ -287,20 +287,20 @@ spec:
                                     or ''#''.'
                                   properties:
                                     paths:
-                                      description: A collection of paths that map
-                                        requests to backends.
+                                      description: paths is a collection of paths
+                                        that map requests to backends.
                                       items:
                                         description: HTTPIngressPath associates a
                                           path with a backend. Incoming urls matching
                                           the path are forwarded to the backend.
                                         properties:
                                           backend:
-                                            description: Backend defines the referenced
+                                            description: backend defines the referenced
                                               service endpoint to which the traffic
                                               will be forwarded to.
                                             properties:
                                               resource:
-                                                description: Resource is an ObjectRef
+                                                description: resource is an ObjectRef
                                                   to another Kubernetes resource in
                                                   the namespace of the Ingress object.
                                                   If resource is specified, a service.Name
@@ -331,30 +331,30 @@ spec:
                                                 type: object
                                                 x-kubernetes-map-type: atomic
                                               service:
-                                                description: Service references a
-                                                  Service as a Backend. This is a
+                                                description: service references a
+                                                  service as a backend. This is a
                                                   mutually exclusive setting with
                                                   "Resource".
                                                 properties:
                                                   name:
-                                                    description: Name is the referenced
+                                                    description: name is the referenced
                                                       service. The service must exist
                                                       in the same namespace as the
                                                       Ingress object.
                                                     type: string
                                                   port:
-                                                    description: Port of the referenced
+                                                    description: port of the referenced
                                                       service. A port name or port
                                                       number is required for a IngressServiceBackend.
                                                     properties:
                                                       name:
-                                                        description: Name is the name
+                                                        description: name is the name
                                                           of the port on the Service.
                                                           This is a mutually exclusive
                                                           setting with "Number".
                                                         type: string
                                                       number:
-                                                        description: Number is the
+                                                        description: number is the
                                                           numerical port number (e.g.
                                                           80) on the Service. This
                                                           is a mutually exclusive
@@ -367,7 +367,7 @@ spec:
                                                 type: object
                                             type: object
                                           path:
-                                            description: Path is matched against the
+                                            description: path is matched against the
                                               path of an incoming request. Currently
                                               it can contain characters disallowed
                                               from the conventional "path" part of
@@ -377,8 +377,8 @@ spec:
                                               or "Prefix".
                                             type: string
                                           pathType:
-                                            description: 'PathType determines the
-                                              interpretation of the Path matching.
+                                            description: 'pathType determines the
+                                              interpretation of the path matching.
                                               PathType can be one of the following
                                               values: * Exact: Matches the URL path
                                               exactly. * Prefix: Matches based on
@@ -414,20 +414,21 @@ spec:
                             type: array
                             x-kubernetes-list-type: atomic
                           tls:
-                            description: TLS configuration. Currently the Ingress
-                              only supports a single TLS port, 443. If multiple members
-                              of this list specify different hosts, they will be multiplexed
-                              on the same port according to the hostname specified
-                              through the SNI TLS extension, if the ingress controller
-                              fulfilling the ingress supports SNI.
+                            description: tls represents the TLS configuration. Currently
+                              the Ingress only supports a single TLS port, 443. If
+                              multiple members of this list specify different hosts,
+                              they will be multiplexed on the same port according
+                              to the hostname specified through the SNI TLS extension,
+                              if the ingress controller fulfilling the ingress supports
+                              SNI.
                             items:
                               description: IngressTLS describes the transport layer
-                                security associated with an Ingress.
+                                security associated with an ingress.
                               properties:
                                 hosts:
-                                  description: Hosts are a list of hosts included
-                                    in the TLS certificate. The values in this list
-                                    must match the name/s used in the tlsSecret. Defaults
+                                  description: hosts is a list of hosts included in
+                                    the TLS certificate. The values in this list must
+                                    match the name/s used in the tlsSecret. Defaults
                                     to the wildcard host setting for the loadbalancer
                                     controller fulfilling this Ingress, if left unspecified.
                                   items:
@@ -435,13 +436,13 @@ spec:
                                   type: array
                                   x-kubernetes-list-type: atomic
                                 secretName:
-                                  description: SecretName is the name of the secret
+                                  description: secretName is the name of the secret
                                     used to terminate TLS traffic on port 443. Field
                                     is left optional to allow TLS routing based on
                                     SNI hostname alone. If the SNI host in a listener
                                     conflicts with the "Host" header field used by
                                     an IngressRule, the SNI host is used for termination
-                                    and value of the Host header is used for routing.
+                                    and value of the "Host" header is used for routing.
                                   type: string
                               type: object
                             type: array
@@ -472,7 +473,7 @@ spec:
                           between ingresses/services.
                         properties:
                           defaultBackend:
-                            description: DefaultBackend is the backend that should
+                            description: defaultBackend is the backend that should
                               handle requests that don't match any rule. If Rules
                               are not specified, DefaultBackend must be specified.
                               If DefaultBackend is not set, the handling of requests
@@ -480,7 +481,7 @@ spec:
                               Ingress controller.
                             properties:
                               resource:
-                                description: Resource is an ObjectRef to another Kubernetes
+                                description: resource is an ObjectRef to another Kubernetes
                                   resource in the namespace of the Ingress object.
                                   If resource is specified, a service.Name and service.Port
                                   must not be specified. This is a mutually exclusive
@@ -507,25 +508,25 @@ spec:
                                 type: object
                                 x-kubernetes-map-type: atomic
                               service:
-                                description: Service references a Service as a Backend.
+                                description: service references a service as a backend.
                                   This is a mutually exclusive setting with "Resource".
                                 properties:
                                   name:
-                                    description: Name is the referenced service. The
+                                    description: name is the referenced service. The
                                       service must exist in the same namespace as
                                       the Ingress object.
                                     type: string
                                   port:
-                                    description: Port of the referenced service. A
+                                    description: port of the referenced service. A
                                       port name or port number is required for a IngressServiceBackend.
                                     properties:
                                       name:
-                                        description: Name is the name of the port
+                                        description: name is the name of the port
                                           on the Service. This is a mutually exclusive
                                           setting with "Number".
                                         type: string
                                       number:
-                                        description: Number is the numerical port
+                                        description: number is the numerical port
                                           number (e.g. 80) on the Service. This is
                                           a mutually exclusive setting with "Name".
                                         format: int32
@@ -536,7 +537,7 @@ spec:
                                 type: object
                             type: object
                           ingressClassName:
-                            description: IngressClassName is the name of an IngressClass
+                            description: ingressClassName is the name of an IngressClass
                               cluster resource. Ingress controller implementations
                               use this field to know whether they should be serving
                               this Ingress resource, by a transitive connection (controller
@@ -551,9 +552,9 @@ spec:
                               honor that annotation if present.
                             type: string
                           rules:
-                            description: A list of host rules used to configure the
-                              Ingress. If unspecified, or no rule matches, all traffic
-                              is sent to the default backend.
+                            description: rules is a list of host rules used to configure
+                              the Ingress. If unspecified, or no rule matches, all
+                              traffic is sent to the default backend.
                             items:
                               description: IngressRule represents the rules mapping
                                 the paths under a specified host to the related backend
@@ -562,7 +563,7 @@ spec:
                                 with the matching IngressRuleValue.
                               properties:
                                 host:
-                                  description: "Host is the fully qualified domain
+                                  description: "host is the fully qualified domain
                                     name of a network host, as defined by RFC 3986.
                                     Note the following deviations from the \"host\"
                                     part of the URI as defined in RFC 3986: 1. IPs
@@ -575,7 +576,7 @@ spec:
                                     Incoming requests are matched against the host
                                     before the IngressRuleValue. If the host is unspecified,
                                     the Ingress routes all traffic based on the specified
-                                    IngressRuleValue. \n Host can be \"precise\" which
+                                    IngressRuleValue. \n host can be \"precise\" which
                                     is a domain name without the terminating dot of
                                     a network host (e.g. \"foo.bar.com\") or \"wildcard\",
                                     which is a domain name prefixed with a single
@@ -584,9 +585,9 @@ spec:
                                     DNS label and matches only a single label. You
                                     cannot have a wildcard label by itself (e.g. Host
                                     == \"*\"). Requests will be matched against the
-                                    Host field in the following way: 1. If Host is
+                                    Host field in the following way: 1. If host is
                                     precise, the request matches this rule if the
-                                    http host header is equal to Host. 2. If Host
+                                    http host header is equal to Host. 2. If host
                                     is a wildcard, then the request matches this rule
                                     if the http host header is to equal to the suffix
                                     (removing the first label) of the wildcard rule."
@@ -601,20 +602,20 @@ spec:
                                     or ''#''.'
                                   properties:
                                     paths:
-                                      description: A collection of paths that map
-                                        requests to backends.
+                                      description: paths is a collection of paths
+                                        that map requests to backends.
                                       items:
                                         description: HTTPIngressPath associates a
                                           path with a backend. Incoming urls matching
                                           the path are forwarded to the backend.
                                         properties:
                                           backend:
-                                            description: Backend defines the referenced
+                                            description: backend defines the referenced
                                               service endpoint to which the traffic
                                               will be forwarded to.
                                             properties:
                                               resource:
-                                                description: Resource is an ObjectRef
+                                                description: resource is an ObjectRef
                                                   to another Kubernetes resource in
                                                   the namespace of the Ingress object.
                                                   If resource is specified, a service.Name
@@ -645,30 +646,30 @@ spec:
                                                 type: object
                                                 x-kubernetes-map-type: atomic
                                               service:
-                                                description: Service references a
-                                                  Service as a Backend. This is a
+                                                description: service references a
+                                                  service as a backend. This is a
                                                   mutually exclusive setting with
                                                   "Resource".
                                                 properties:
                                                   name:
-                                                    description: Name is the referenced
+                                                    description: name is the referenced
                                                       service. The service must exist
                                                       in the same namespace as the
                                                       Ingress object.
                                                     type: string
                                                   port:
-                                                    description: Port of the referenced
+                                                    description: port of the referenced
                                                       service. A port name or port
                                                       number is required for a IngressServiceBackend.
                                                     properties:
                                                       name:
-                                                        description: Name is the name
+                                                        description: name is the name
                                                           of the port on the Service.
                                                           This is a mutually exclusive
                                                           setting with "Number".
                                                         type: string
                                                       number:
-                                                        description: Number is the
+                                                        description: number is the
                                                           numerical port number (e.g.
                                                           80) on the Service. This
                                                           is a mutually exclusive
@@ -681,7 +682,7 @@ spec:
                                                 type: object
                                             type: object
                                           path:
-                                            description: Path is matched against the
+                                            description: path is matched against the
                                               path of an incoming request. Currently
                                               it can contain characters disallowed
                                               from the conventional "path" part of
@@ -691,8 +692,8 @@ spec:
                                               or "Prefix".
                                             type: string
                                           pathType:
-                                            description: 'PathType determines the
-                                              interpretation of the Path matching.
+                                            description: 'pathType determines the
+                                              interpretation of the path matching.
                                               PathType can be one of the following
                                               values: * Exact: Matches the URL path
                                               exactly. * Prefix: Matches based on
@@ -728,20 +729,21 @@ spec:
                             type: array
                             x-kubernetes-list-type: atomic
                           tls:
-                            description: TLS configuration. Currently the Ingress
-                              only supports a single TLS port, 443. If multiple members
-                              of this list specify different hosts, they will be multiplexed
-                              on the same port according to the hostname specified
-                              through the SNI TLS extension, if the ingress controller
-                              fulfilling the ingress supports SNI.
+                            description: tls represents the TLS configuration. Currently
+                              the Ingress only supports a single TLS port, 443. If
+                              multiple members of this list specify different hosts,
+                              they will be multiplexed on the same port according
+                              to the hostname specified through the SNI TLS extension,
+                              if the ingress controller fulfilling the ingress supports
+                              SNI.
                             items:
                               description: IngressTLS describes the transport layer
-                                security associated with an Ingress.
+                                security associated with an ingress.
                               properties:
                                 hosts:
-                                  description: Hosts are a list of hosts included
-                                    in the TLS certificate. The values in this list
-                                    must match the name/s used in the tlsSecret. Defaults
+                                  description: hosts is a list of hosts included in
+                                    the TLS certificate. The values in this list must
+                                    match the name/s used in the tlsSecret. Defaults
                                     to the wildcard host setting for the loadbalancer
                                     controller fulfilling this Ingress, if left unspecified.
                                   items:
@@ -749,13 +751,13 @@ spec:
                                   type: array
                                   x-kubernetes-list-type: atomic
                                 secretName:
-                                  description: SecretName is the name of the secret
+                                  description: secretName is the name of the secret
                                     used to terminate TLS traffic on port 443. Field
                                     is left optional to allow TLS routing based on
                                     SNI hostname alone. If the SNI host in a listener
                                     conflicts with the "Host" header field used by
                                     an IngressRule, the SNI host is used for termination
-                                    and value of the Host header is used for routing.
+                                    and value of the "Host" header is used for routing.
                                   type: string
                               type: object
                             type: array
@@ -786,7 +788,7 @@ spec:
                           between ingresses/services.
                         properties:
                           defaultBackend:
-                            description: DefaultBackend is the backend that should
+                            description: defaultBackend is the backend that should
                               handle requests that don't match any rule. If Rules
                               are not specified, DefaultBackend must be specified.
                               If DefaultBackend is not set, the handling of requests
@@ -794,7 +796,7 @@ spec:
                               Ingress controller.
                             properties:
                               resource:
-                                description: Resource is an ObjectRef to another Kubernetes
+                                description: resource is an ObjectRef to another Kubernetes
                                   resource in the namespace of the Ingress object.
                                   If resource is specified, a service.Name and service.Port
                                   must not be specified. This is a mutually exclusive
@@ -821,25 +823,25 @@ spec:
                                 type: object
                                 x-kubernetes-map-type: atomic
                               service:
-                                description: Service references a Service as a Backend.
+                                description: service references a service as a backend.
                                   This is a mutually exclusive setting with "Resource".
                                 properties:
                                   name:
-                                    description: Name is the referenced service. The
+                                    description: name is the referenced service. The
                                       service must exist in the same namespace as
                                       the Ingress object.
                                     type: string
                                   port:
-                                    description: Port of the referenced service. A
+                                    description: port of the referenced service. A
                                       port name or port number is required for a IngressServiceBackend.
                                     properties:
                                       name:
-                                        description: Name is the name of the port
+                                        description: name is the name of the port
                                           on the Service. This is a mutually exclusive
                                           setting with "Number".
                                         type: string
                                       number:
-                                        description: Number is the numerical port
+                                        description: number is the numerical port
                                           number (e.g. 80) on the Service. This is
                                           a mutually exclusive setting with "Name".
                                         format: int32
@@ -850,7 +852,7 @@ spec:
                                 type: object
                             type: object
                           ingressClassName:
-                            description: IngressClassName is the name of an IngressClass
+                            description: ingressClassName is the name of an IngressClass
                               cluster resource. Ingress controller implementations
                               use this field to know whether they should be serving
                               this Ingress resource, by a transitive connection (controller
@@ -865,9 +867,9 @@ spec:
                               honor that annotation if present.
                             type: string
                           rules:
-                            description: A list of host rules used to configure the
-                              Ingress. If unspecified, or no rule matches, all traffic
-                              is sent to the default backend.
+                            description: rules is a list of host rules used to configure
+                              the Ingress. If unspecified, or no rule matches, all
+                              traffic is sent to the default backend.
                             items:
                               description: IngressRule represents the rules mapping
                                 the paths under a specified host to the related backend
@@ -876,7 +878,7 @@ spec:
                                 with the matching IngressRuleValue.
                               properties:
                                 host:
-                                  description: "Host is the fully qualified domain
+                                  description: "host is the fully qualified domain
                                     name of a network host, as defined by RFC 3986.
                                     Note the following deviations from the \"host\"
                                     part of the URI as defined in RFC 3986: 1. IPs
@@ -889,7 +891,7 @@ spec:
                                     Incoming requests are matched against the host
                                     before the IngressRuleValue. If the host is unspecified,
                                     the Ingress routes all traffic based on the specified
-                                    IngressRuleValue. \n Host can be \"precise\" which
+                                    IngressRuleValue. \n host can be \"precise\" which
                                     is a domain name without the terminating dot of
                                     a network host (e.g. \"foo.bar.com\") or \"wildcard\",
                                     which is a domain name prefixed with a single
@@ -898,9 +900,9 @@ spec:
                                     DNS label and matches only a single label. You
                                     cannot have a wildcard label by itself (e.g. Host
                                     == \"*\"). Requests will be matched against the
-                                    Host field in the following way: 1. If Host is
+                                    Host field in the following way: 1. If host is
                                     precise, the request matches this rule if the
-                                    http host header is equal to Host. 2. If Host
+                                    http host header is equal to Host. 2. If host
                                     is a wildcard, then the request matches this rule
                                     if the http host header is to equal to the suffix
                                     (removing the first label) of the wildcard rule."
@@ -915,20 +917,20 @@ spec:
                                     or ''#''.'
                                   properties:
                                     paths:
-                                      description: A collection of paths that map
-                                        requests to backends.
+                                      description: paths is a collection of paths
+                                        that map requests to backends.
                                       items:
                                         description: HTTPIngressPath associates a
                                           path with a backend. Incoming urls matching
                                           the path are forwarded to the backend.
                                         properties:
                                           backend:
-                                            description: Backend defines the referenced
+                                            description: backend defines the referenced
                                               service endpoint to which the traffic
                                               will be forwarded to.
                                             properties:
                                               resource:
-                                                description: Resource is an ObjectRef
+                                                description: resource is an ObjectRef
                                                   to another Kubernetes resource in
                                                   the namespace of the Ingress object.
                                                   If resource is specified, a service.Name
@@ -959,30 +961,30 @@ spec:
                                                 type: object
                                                 x-kubernetes-map-type: atomic
                                               service:
-                                                description: Service references a
-                                                  Service as a Backend. This is a
+                                                description: service references a
+                                                  service as a backend. This is a
                                                   mutually exclusive setting with
                                                   "Resource".
                                                 properties:
                                                   name:
-                                                    description: Name is the referenced
+                                                    description: name is the referenced
                                                       service. The service must exist
                                                       in the same namespace as the
                                                       Ingress object.
                                                     type: string
                                                   port:
-                                                    description: Port of the referenced
+                                                    description: port of the referenced
                                                       service. A port name or port
                                                       number is required for a IngressServiceBackend.
                                                     properties:
                                                       name:
-                                                        description: Name is the name
+                                                        description: name is the name
                                                           of the port on the Service.
                                                           This is a mutually exclusive
                                                           setting with "Number".
                                                         type: string
                                                       number:
-                                                        description: Number is the
+                                                        description: number is the
                                                           numerical port number (e.g.
                                                           80) on the Service. This
                                                           is a mutually exclusive
@@ -995,7 +997,7 @@ spec:
                                                 type: object
                                             type: object
                                           path:
-                                            description: Path is matched against the
+                                            description: path is matched against the
                                               path of an incoming request. Currently
                                               it can contain characters disallowed
                                               from the conventional "path" part of
@@ -1005,8 +1007,8 @@ spec:
                                               or "Prefix".
                                             type: string
                                           pathType:
-                                            description: 'PathType determines the
-                                              interpretation of the Path matching.
+                                            description: 'pathType determines the
+                                              interpretation of the path matching.
                                               PathType can be one of the following
                                               values: * Exact: Matches the URL path
                                               exactly. * Prefix: Matches based on
@@ -1042,20 +1044,21 @@ spec:
                             type: array
                             x-kubernetes-list-type: atomic
                           tls:
-                            description: TLS configuration. Currently the Ingress
-                              only supports a single TLS port, 443. If multiple members
-                              of this list specify different hosts, they will be multiplexed
-                              on the same port according to the hostname specified
-                              through the SNI TLS extension, if the ingress controller
-                              fulfilling the ingress supports SNI.
+                            description: tls represents the TLS configuration. Currently
+                              the Ingress only supports a single TLS port, 443. If
+                              multiple members of this list specify different hosts,
+                              they will be multiplexed on the same port according
+                              to the hostname specified through the SNI TLS extension,
+                              if the ingress controller fulfilling the ingress supports
+                              SNI.
                             items:
                               description: IngressTLS describes the transport layer
-                                security associated with an Ingress.
+                                security associated with an ingress.
                               properties:
                                 hosts:
-                                  description: Hosts are a list of hosts included
-                                    in the TLS certificate. The values in this list
-                                    must match the name/s used in the tlsSecret. Defaults
+                                  description: hosts is a list of hosts included in
+                                    the TLS certificate. The values in this list must
+                                    match the name/s used in the tlsSecret. Defaults
                                     to the wildcard host setting for the loadbalancer
                                     controller fulfilling this Ingress, if left unspecified.
                                   items:
@@ -1063,13 +1066,13 @@ spec:
                                   type: array
                                   x-kubernetes-list-type: atomic
                                 secretName:
-                                  description: SecretName is the name of the secret
+                                  description: secretName is the name of the secret
                                     used to terminate TLS traffic on port 443. Field
                                     is left optional to allow TLS routing based on
                                     SNI hostname alone. If the SNI host in a listener
                                     conflicts with the "Host" header field used by
                                     an IngressRule, the SNI host is used for termination
-                                    and value of the Host header is used for routing.
+                                    and value of the "Host" header is used for routing.
                                   type: string
                               type: object
                             type: array
@@ -1179,7 +1182,8 @@ spec:
                         description: 'Requests describes the minimum amount of compute
                           resources required. If Requests is omitted for a container,
                           it defaults to Limits if that is explicitly specified, otherwise
-                          to an implementation-defined value. More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/'
+                          to an implementation-defined value. Requests cannot exceed
+                          Limits. More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/'
                         type: object
                     type: object
                   schedulingOptions:
@@ -2232,8 +2236,9 @@ spec:
                                   defined in a file on the node should be used. The
                                   profile must be preconfigured on the node to work.
                                   Must be a descending path, relative to the kubelet's
-                                  configured seccomp profile location. Must only be
-                                  set if type is "Localhost".
+                                  configured seccomp profile location. Must be set
+                                  if type is "Localhost". Must NOT be set for any
+                                  other type.
                                 type: string
                               type:
                                 description: "type indicates which kind of seccomp
@@ -2301,15 +2306,11 @@ spec:
                                 type: string
                               hostProcess:
                                 description: HostProcess determines if a container
-                                  should be run as a 'Host Process' container. This
-                                  field is alpha-level and will only be honored by
-                                  components that enable the WindowsHostProcessContainers
-                                  feature flag. Setting this field without the feature
-                                  flag will result in errors when validating the Pod.
-                                  All of a Pod's containers must have the same effective
+                                  should be run as a 'Host Process' container. All
+                                  of a Pod's containers must have the same effective
                                   HostProcess value (it is not allowed to have a mix
-                                  of HostProcess containers and non-HostProcess containers).  In
-                                  addition, if HostProcess is true then HostNetwork
+                                  of HostProcess containers and non-HostProcess containers).
+                                  In addition, if HostProcess is true then HostNetwork
                                   must also be set to true.
                                 type: boolean
                               runAsUserName:
@@ -2442,8 +2443,9 @@ spec:
                                   defined in a file on the node should be used. The
                                   profile must be preconfigured on the node to work.
                                   Must be a descending path, relative to the kubelet's
-                                  configured seccomp profile location. Must only be
-                                  set if type is "Localhost".
+                                  configured seccomp profile location. Must be set
+                                  if type is "Localhost". Must NOT be set for any
+                                  other type.
                                 type: string
                               type:
                                 description: "type indicates which kind of seccomp
@@ -2476,15 +2478,11 @@ spec:
                                 type: string
                               hostProcess:
                                 description: HostProcess determines if a container
-                                  should be run as a 'Host Process' container. This
-                                  field is alpha-level and will only be honored by
-                                  components that enable the WindowsHostProcessContainers
-                                  feature flag. Setting this field without the feature
-                                  flag will result in errors when validating the Pod.
-                                  All of a Pod's containers must have the same effective
+                                  should be run as a 'Host Process' container. All
+                                  of a Pod's containers must have the same effective
                                   HostProcess value (it is not allowed to have a mix
-                                  of HostProcess containers and non-HostProcess containers).  In
-                                  addition, if HostProcess is true then HostNetwork
+                                  of HostProcess containers and non-HostProcess containers).
+                                  In addition, if HostProcess is true then HostNetwork
                                   must also be set to true.
                                 type: boolean
                               runAsUserName:
@@ -2555,7 +2553,8 @@ spec:
                         description: 'Requests describes the minimum amount of compute
                           resources required. If Requests is omitted for a container,
                           it defaults to Limits if that is explicitly specified, otherwise
-                          to an implementation-defined value. More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/'
+                          to an implementation-defined value. Requests cannot exceed
+                          Limits. More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/'
                         type: object
                     type: object
                   dataSourceResources:
@@ -2603,7 +2602,8 @@ spec:
                         description: 'Requests describes the minimum amount of compute
                           resources required. If Requests is omitted for a container,
                           it defaults to Limits if that is explicitly specified, otherwise
-                          to an implementation-defined value. More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/'
+                          to an implementation-defined value. Requests cannot exceed
+                          Limits. More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/'
                         type: object
                     type: object
                   grafanaResources:
@@ -2651,7 +2651,8 @@ spec:
                         description: 'Requests describes the minimum amount of compute
                           resources required. If Requests is omitted for a container,
                           it defaults to Limits if that is explicitly specified, otherwise
-                          to an implementation-defined value. More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/'
+                          to an implementation-defined value. Requests cannot exceed
+                          Limits. More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/'
                         type: object
                     type: object
                 type: object
@@ -3694,7 +3695,8 @@ spec:
                               in a file on the node should be used. The profile must
                               be preconfigured on the node to work. Must be a descending
                               path, relative to the kubelet's configured seccomp profile
-                              location. Must only be set if type is "Localhost".
+                              location. Must be set if type is "Localhost". Must NOT
+                              be set for any other type.
                             type: string
                           type:
                             description: "type indicates which kind of seccomp profile
@@ -3726,15 +3728,12 @@ spec:
                             type: string
                           hostProcess:
                             description: HostProcess determines if a container should
-                              be run as a 'Host Process' container. This field is
-                              alpha-level and will only be honored by components that
-                              enable the WindowsHostProcessContainers feature flag.
-                              Setting this field without the feature flag will result
-                              in errors when validating the Pod. All of a Pod's containers
-                              must have the same effective HostProcess value (it is
-                              not allowed to have a mix of HostProcess containers
-                              and non-HostProcess containers).  In addition, if HostProcess
-                              is true then HostNetwork must also be set to true.
+                              be run as a 'Host Process' container. All of a Pod's
+                              containers must have the same effective HostProcess
+                              value (it is not allowed to have a mix of HostProcess
+                              containers and non-HostProcess containers). In addition,
+                              if HostProcess is true then HostNetwork must also be
+                              set to true.
                             type: boolean
                           runAsUserName:
                             description: The UserName in Windows to run the entrypoint
@@ -3863,7 +3862,8 @@ spec:
                               in a file on the node should be used. The profile must
                               be preconfigured on the node to work. Must be a descending
                               path, relative to the kubelet's configured seccomp profile
-                              location. Must only be set if type is "Localhost".
+                              location. Must be set if type is "Localhost". Must NOT
+                              be set for any other type.
                             type: string
                           type:
                             description: "type indicates which kind of seccomp profile
@@ -3895,15 +3895,12 @@ spec:
                             type: string
                           hostProcess:
                             description: HostProcess determines if a container should
-                              be run as a 'Host Process' container. This field is
-                              alpha-level and will only be honored by components that
-                              enable the WindowsHostProcessContainers feature flag.
-                              Setting this field without the feature flag will result
-                              in errors when validating the Pod. All of a Pod's containers
-                              must have the same effective HostProcess value (it is
-                              not allowed to have a mix of HostProcess containers
-                              and non-HostProcess containers).  In addition, if HostProcess
-                              is true then HostNetwork must also be set to true.
+                              be run as a 'Host Process' container. All of a Pod's
+                              containers must have the same effective HostProcess
+                              value (it is not allowed to have a mix of HostProcess
+                              containers and non-HostProcess containers). In addition,
+                              if HostProcess is true then HostNetwork must also be
+                              set to true.
                             type: boolean
                           runAsUserName:
                             description: The UserName in Windows to run the entrypoint
@@ -4031,7 +4028,8 @@ spec:
                               in a file on the node should be used. The profile must
                               be preconfigured on the node to work. Must be a descending
                               path, relative to the kubelet's configured seccomp profile
-                              location. Must only be set if type is "Localhost".
+                              location. Must be set if type is "Localhost". Must NOT
+                              be set for any other type.
                             type: string
                           type:
                             description: "type indicates which kind of seccomp profile
@@ -4063,15 +4061,12 @@ spec:
                             type: string
                           hostProcess:
                             description: HostProcess determines if a container should
-                              be run as a 'Host Process' container. This field is
-                              alpha-level and will only be honored by components that
-                              enable the WindowsHostProcessContainers feature flag.
-                              Setting this field without the feature flag will result
-                              in errors when validating the Pod. All of a Pod's containers
-                              must have the same effective HostProcess value (it is
-                              not allowed to have a mix of HostProcess containers
-                              and non-HostProcess containers).  In addition, if HostProcess
-                              is true then HostNetwork must also be set to true.
+                              be run as a 'Host Process' container. All of a Pod's
+                              containers must have the same effective HostProcess
+                              value (it is not allowed to have a mix of HostProcess
+                              containers and non-HostProcess containers). In addition,
+                              if HostProcess is true then HostNetwork must also be
+                              set to true.
                             type: boolean
                           runAsUserName:
                             description: The UserName in Windows to run the entrypoint
@@ -4199,7 +4194,8 @@ spec:
                               in a file on the node should be used. The profile must
                               be preconfigured on the node to work. Must be a descending
                               path, relative to the kubelet's configured seccomp profile
-                              location. Must only be set if type is "Localhost".
+                              location. Must be set if type is "Localhost". Must NOT
+                              be set for any other type.
                             type: string
                           type:
                             description: "type indicates which kind of seccomp profile
@@ -4231,15 +4227,12 @@ spec:
                             type: string
                           hostProcess:
                             description: HostProcess determines if a container should
-                              be run as a 'Host Process' container. This field is
-                              alpha-level and will only be honored by components that
-                              enable the WindowsHostProcessContainers feature flag.
-                              Setting this field without the feature flag will result
-                              in errors when validating the Pod. All of a Pod's containers
-                              must have the same effective HostProcess value (it is
-                              not allowed to have a mix of HostProcess containers
-                              and non-HostProcess containers).  In addition, if HostProcess
-                              is true then HostNetwork must also be set to true.
+                              be run as a 'Host Process' container. All of a Pod's
+                              containers must have the same effective HostProcess
+                              value (it is not allowed to have a mix of HostProcess
+                              containers and non-HostProcess containers). In addition,
+                              if HostProcess is true then HostNetwork must also be
+                              set to true.
                             type: boolean
                           runAsUserName:
                             description: The UserName in Windows to run the entrypoint
@@ -4340,7 +4333,8 @@ spec:
                               in a file on the node should be used. The profile must
                               be preconfigured on the node to work. Must be a descending
                               path, relative to the kubelet's configured seccomp profile
-                              location. Must only be set if type is "Localhost".
+                              location. Must be set if type is "Localhost". Must NOT
+                              be set for any other type.
                             type: string
                           type:
                             description: "type indicates which kind of seccomp profile
@@ -4405,15 +4399,12 @@ spec:
                             type: string
                           hostProcess:
                             description: HostProcess determines if a container should
-                              be run as a 'Host Process' container. This field is
-                              alpha-level and will only be honored by components that
-                              enable the WindowsHostProcessContainers feature flag.
-                              Setting this field without the feature flag will result
-                              in errors when validating the Pod. All of a Pod's containers
-                              must have the same effective HostProcess value (it is
-                              not allowed to have a mix of HostProcess containers
-                              and non-HostProcess containers).  In addition, if HostProcess
-                              is true then HostNetwork must also be set to true.
+                              be run as a 'Host Process' container. All of a Pod's
+                              containers must have the same effective HostProcess
+                              value (it is not allowed to have a mix of HostProcess
+                              containers and non-HostProcess containers). In addition,
+                              if HostProcess is true then HostNetwork must also be
+                              set to true.
                             type: boolean
                           runAsUserName:
                             description: The UserName in Windows to run the entrypoint
@@ -4541,7 +4532,8 @@ spec:
                               in a file on the node should be used. The profile must
                               be preconfigured on the node to work. Must be a descending
                               path, relative to the kubelet's configured seccomp profile
-                              location. Must only be set if type is "Localhost".
+                              location. Must be set if type is "Localhost". Must NOT
+                              be set for any other type.
                             type: string
                           type:
                             description: "type indicates which kind of seccomp profile
@@ -4573,15 +4565,12 @@ spec:
                             type: string
                           hostProcess:
                             description: HostProcess determines if a container should
-                              be run as a 'Host Process' container. This field is
-                              alpha-level and will only be honored by components that
-                              enable the WindowsHostProcessContainers feature flag.
-                              Setting this field without the feature flag will result
-                              in errors when validating the Pod. All of a Pod's containers
-                              must have the same effective HostProcess value (it is
-                              not allowed to have a mix of HostProcess containers
-                              and non-HostProcess containers).  In addition, if HostProcess
-                              is true then HostNetwork must also be set to true.
+                              be run as a 'Host Process' container. All of a Pod's
+                              containers must have the same effective HostProcess
+                              value (it is not allowed to have a mix of HostProcess
+                              containers and non-HostProcess containers). In addition,
+                              if HostProcess is true then HostNetwork must also be
+                              set to true.
                             type: boolean
                           runAsUserName:
                             description: The UserName in Windows to run the entrypoint
@@ -4902,7 +4891,8 @@ spec:
                                   of compute resources required. If Requests is omitted
                                   for a container, it defaults to Limits if that is
                                   explicitly specified, otherwise to an implementation-defined
-                                  value. More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/'
+                                  value. Requests cannot exceed Limits. More info:
+                                  https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/'
                                 type: object
                             type: object
                           selector:
@@ -5230,7 +5220,7 @@ spec:
                           between ingresses/services.
                         properties:
                           defaultBackend:
-                            description: DefaultBackend is the backend that should
+                            description: defaultBackend is the backend that should
                               handle requests that don't match any rule. If Rules
                               are not specified, DefaultBackend must be specified.
                               If DefaultBackend is not set, the handling of requests
@@ -5238,7 +5228,7 @@ spec:
                               Ingress controller.
                             properties:
                               resource:
-                                description: Resource is an ObjectRef to another Kubernetes
+                                description: resource is an ObjectRef to another Kubernetes
                                   resource in the namespace of the Ingress object.
                                   If resource is specified, a service.Name and service.Port
                                   must not be specified. This is a mutually exclusive
@@ -5265,25 +5255,25 @@ spec:
                                 type: object
                                 x-kubernetes-map-type: atomic
                               service:
-                                description: Service references a Service as a Backend.
+                                description: service references a service as a backend.
                                   This is a mutually exclusive setting with "Resource".
                                 properties:
                                   name:
-                                    description: Name is the referenced service. The
+                                    description: name is the referenced service. The
                                       service must exist in the same namespace as
                                       the Ingress object.
                                     type: string
                                   port:
-                                    description: Port of the referenced service. A
+                                    description: port of the referenced service. A
                                       port name or port number is required for a IngressServiceBackend.
                                     properties:
                                       name:
-                                        description: Name is the name of the port
+                                        description: name is the name of the port
                                           on the Service. This is a mutually exclusive
                                           setting with "Number".
                                         type: string
                                       number:
-                                        description: Number is the numerical port
+                                        description: number is the numerical port
                                           number (e.g. 80) on the Service. This is
                                           a mutually exclusive setting with "Name".
                                         format: int32
@@ -5294,7 +5284,7 @@ spec:
                                 type: object
                             type: object
                           ingressClassName:
-                            description: IngressClassName is the name of an IngressClass
+                            description: ingressClassName is the name of an IngressClass
                               cluster resource. Ingress controller implementations
                               use this field to know whether they should be serving
                               this Ingress resource, by a transitive connection (controller
@@ -5309,9 +5299,9 @@ spec:
                               honor that annotation if present.
                             type: string
                           rules:
-                            description: A list of host rules used to configure the
-                              Ingress. If unspecified, or no rule matches, all traffic
-                              is sent to the default backend.
+                            description: rules is a list of host rules used to configure
+                              the Ingress. If unspecified, or no rule matches, all
+                              traffic is sent to the default backend.
                             items:
                               description: IngressRule represents the rules mapping
                                 the paths under a specified host to the related backend
@@ -5320,7 +5310,7 @@ spec:
                                 with the matching IngressRuleValue.
                               properties:
                                 host:
-                                  description: "Host is the fully qualified domain
+                                  description: "host is the fully qualified domain
                                     name of a network host, as defined by RFC 3986.
                                     Note the following deviations from the \"host\"
                                     part of the URI as defined in RFC 3986: 1. IPs
@@ -5333,7 +5323,7 @@ spec:
                                     Incoming requests are matched against the host
                                     before the IngressRuleValue. If the host is unspecified,
                                     the Ingress routes all traffic based on the specified
-                                    IngressRuleValue. \n Host can be \"precise\" which
+                                    IngressRuleValue. \n host can be \"precise\" which
                                     is a domain name without the terminating dot of
                                     a network host (e.g. \"foo.bar.com\") or \"wildcard\",
                                     which is a domain name prefixed with a single
@@ -5342,9 +5332,9 @@ spec:
                                     DNS label and matches only a single label. You
                                     cannot have a wildcard label by itself (e.g. Host
                                     == \"*\"). Requests will be matched against the
-                                    Host field in the following way: 1. If Host is
+                                    Host field in the following way: 1. If host is
                                     precise, the request matches this rule if the
-                                    http host header is equal to Host. 2. If Host
+                                    http host header is equal to Host. 2. If host
                                     is a wildcard, then the request matches this rule
                                     if the http host header is to equal to the suffix
                                     (removing the first label) of the wildcard rule."
@@ -5359,20 +5349,20 @@ spec:
                                     or ''#''.'
                                   properties:
                                     paths:
-                                      description: A collection of paths that map
-                                        requests to backends.
+                                      description: paths is a collection of paths
+                                        that map requests to backends.
                                       items:
                                         description: HTTPIngressPath associates a
                                           path with a backend. Incoming urls matching
                                           the path are forwarded to the backend.
                                         properties:
                                           backend:
-                                            description: Backend defines the referenced
+                                            description: backend defines the referenced
                                               service endpoint to which the traffic
                                               will be forwarded to.
                                             properties:
                                               resource:
-                                                description: Resource is an ObjectRef
+                                                description: resource is an ObjectRef
                                                   to another Kubernetes resource in
                                                   the namespace of the Ingress object.
                                                   If resource is specified, a service.Name
@@ -5403,30 +5393,30 @@ spec:
                                                 type: object
                                                 x-kubernetes-map-type: atomic
                                               service:
-                                                description: Service references a
-                                                  Service as a Backend. This is a
+                                                description: service references a
+                                                  service as a backend. This is a
                                                   mutually exclusive setting with
                                                   "Resource".
                                                 properties:
                                                   name:
-                                                    description: Name is the referenced
+                                                    description: name is the referenced
                                                       service. The service must exist
                                                       in the same namespace as the
                                                       Ingress object.
                                                     type: string
                                                   port:
-                                                    description: Port of the referenced
+                                                    description: port of the referenced
                                                       service. A port name or port
                                                       number is required for a IngressServiceBackend.
                                                     properties:
                                                       name:
-                                                        description: Name is the name
+                                                        description: name is the name
                                                           of the port on the Service.
                                                           This is a mutually exclusive
                                                           setting with "Number".
                                                         type: string
                                                       number:
-                                                        description: Number is the
+                                                        description: number is the
                                                           numerical port number (e.g.
                                                           80) on the Service. This
                                                           is a mutually exclusive
@@ -5439,7 +5429,7 @@ spec:
                                                 type: object
                                             type: object
                                           path:
-                                            description: Path is matched against the
+                                            description: path is matched against the
                                               path of an incoming request. Currently
                                               it can contain characters disallowed
                                               from the conventional "path" part of
@@ -5449,8 +5439,8 @@ spec:
                                               or "Prefix".
                                             type: string
                                           pathType:
-                                            description: 'PathType determines the
-                                              interpretation of the Path matching.
+                                            description: 'pathType determines the
+                                              interpretation of the path matching.
                                               PathType can be one of the following
                                               values: * Exact: Matches the URL path
                                               exactly. * Prefix: Matches based on
@@ -5486,20 +5476,21 @@ spec:
                             type: array
                             x-kubernetes-list-type: atomic
                           tls:
-                            description: TLS configuration. Currently the Ingress
-                              only supports a single TLS port, 443. If multiple members
-                              of this list specify different hosts, they will be multiplexed
-                              on the same port according to the hostname specified
-                              through the SNI TLS extension, if the ingress controller
-                              fulfilling the ingress supports SNI.
+                            description: tls represents the TLS configuration. Currently
+                              the Ingress only supports a single TLS port, 443. If
+                              multiple members of this list specify different hosts,
+                              they will be multiplexed on the same port according
+                              to the hostname specified through the SNI TLS extension,
+                              if the ingress controller fulfilling the ingress supports
+                              SNI.
                             items:
                               description: IngressTLS describes the transport layer
-                                security associated with an Ingress.
+                                security associated with an ingress.
                               properties:
                                 hosts:
-                                  description: Hosts are a list of hosts included
-                                    in the TLS certificate. The values in this list
-                                    must match the name/s used in the tlsSecret. Defaults
+                                  description: hosts is a list of hosts included in
+                                    the TLS certificate. The values in this list must
+                                    match the name/s used in the tlsSecret. Defaults
                                     to the wildcard host setting for the loadbalancer
                                     controller fulfilling this Ingress, if left unspecified.
                                   items:
@@ -5507,13 +5498,13 @@ spec:
                                   type: array
                                   x-kubernetes-list-type: atomic
                                 secretName:
-                                  description: SecretName is the name of the secret
+                                  description: secretName is the name of the secret
                                     used to terminate TLS traffic on port 443. Field
                                     is left optional to allow TLS routing based on
                                     SNI hostname alone. If the SNI host in a listener
                                     conflicts with the "Host" header field used by
                                     an IngressRule, the SNI host is used for termination
-                                    and value of the Host header is used for routing.
+                                    and value of the "Host" header is used for routing.
                                   type: string
                               type: object
                             type: array
@@ -5544,7 +5535,7 @@ spec:
                           between ingresses/services.
                         properties:
                           defaultBackend:
-                            description: DefaultBackend is the backend that should
+                            description: defaultBackend is the backend that should
                               handle requests that don't match any rule. If Rules
                               are not specified, DefaultBackend must be specified.
                               If DefaultBackend is not set, the handling of requests
@@ -5552,7 +5543,7 @@ spec:
                               Ingress controller.
                             properties:
                               resource:
-                                description: Resource is an ObjectRef to another Kubernetes
+                                description: resource is an ObjectRef to another Kubernetes
                                   resource in the namespace of the Ingress object.
                                   If resource is specified, a service.Name and service.Port
                                   must not be specified. This is a mutually exclusive
@@ -5579,25 +5570,25 @@ spec:
                                 type: object
                                 x-kubernetes-map-type: atomic
                               service:
-                                description: Service references a Service as a Backend.
+                                description: service references a service as a backend.
                                   This is a mutually exclusive setting with "Resource".
                                 properties:
                                   name:
-                                    description: Name is the referenced service. The
+                                    description: name is the referenced service. The
                                       service must exist in the same namespace as
                                       the Ingress object.
                                     type: string
                                   port:
-                                    description: Port of the referenced service. A
+                                    description: port of the referenced service. A
                                       port name or port number is required for a IngressServiceBackend.
                                     properties:
                                       name:
-                                        description: Name is the name of the port
+                                        description: name is the name of the port
                                           on the Service. This is a mutually exclusive
                                           setting with "Number".
                                         type: string
                                       number:
-                                        description: Number is the numerical port
+                                        description: number is the numerical port
                                           number (e.g. 80) on the Service. This is
                                           a mutually exclusive setting with "Name".
                                         format: int32
@@ -5608,7 +5599,7 @@ spec:
                                 type: object
                             type: object
                           ingressClassName:
-                            description: IngressClassName is the name of an IngressClass
+                            description: ingressClassName is the name of an IngressClass
                               cluster resource. Ingress controller implementations
                               use this field to know whether they should be serving
                               this Ingress resource, by a transitive connection (controller
@@ -5623,9 +5614,9 @@ spec:
                               honor that annotation if present.
                             type: string
                           rules:
-                            description: A list of host rules used to configure the
-                              Ingress. If unspecified, or no rule matches, all traffic
-                              is sent to the default backend.
+                            description: rules is a list of host rules used to configure
+                              the Ingress. If unspecified, or no rule matches, all
+                              traffic is sent to the default backend.
                             items:
                               description: IngressRule represents the rules mapping
                                 the paths under a specified host to the related backend
@@ -5634,7 +5625,7 @@ spec:
                                 with the matching IngressRuleValue.
                               properties:
                                 host:
-                                  description: "Host is the fully qualified domain
+                                  description: "host is the fully qualified domain
                                     name of a network host, as defined by RFC 3986.
                                     Note the following deviations from the \"host\"
                                     part of the URI as defined in RFC 3986: 1. IPs
@@ -5647,7 +5638,7 @@ spec:
                                     Incoming requests are matched against the host
                                     before the IngressRuleValue. If the host is unspecified,
                                     the Ingress routes all traffic based on the specified
-                                    IngressRuleValue. \n Host can be \"precise\" which
+                                    IngressRuleValue. \n host can be \"precise\" which
                                     is a domain name without the terminating dot of
                                     a network host (e.g. \"foo.bar.com\") or \"wildcard\",
                                     which is a domain name prefixed with a single
@@ -5656,9 +5647,9 @@ spec:
                                     DNS label and matches only a single label. You
                                     cannot have a wildcard label by itself (e.g. Host
                                     == \"*\"). Requests will be matched against the
-                                    Host field in the following way: 1. If Host is
+                                    Host field in the following way: 1. If host is
                                     precise, the request matches this rule if the
-                                    http host header is equal to Host. 2. If Host
+                                    http host header is equal to Host. 2. If host
                                     is a wildcard, then the request matches this rule
                                     if the http host header is to equal to the suffix
                                     (removing the first label) of the wildcard rule."
@@ -5673,20 +5664,20 @@ spec:
                                     or ''#''.'
                                   properties:
                                     paths:
-                                      description: A collection of paths that map
-                                        requests to backends.
+                                      description: paths is a collection of paths
+                                        that map requests to backends.
                                       items:
                                         description: HTTPIngressPath associates a
                                           path with a backend. Incoming urls matching
                                           the path are forwarded to the backend.
                                         properties:
                                           backend:
-                                            description: Backend defines the referenced
+                                            description: backend defines the referenced
                                               service endpoint to which the traffic
                                               will be forwarded to.
                                             properties:
                                               resource:
-                                                description: Resource is an ObjectRef
+                                                description: resource is an ObjectRef
                                                   to another Kubernetes resource in
                                                   the namespace of the Ingress object.
                                                   If resource is specified, a service.Name
@@ -5717,30 +5708,30 @@ spec:
                                                 type: object
                                                 x-kubernetes-map-type: atomic
                                               service:
-                                                description: Service references a
-                                                  Service as a Backend. This is a
+                                                description: service references a
+                                                  service as a backend. This is a
                                                   mutually exclusive setting with
                                                   "Resource".
                                                 properties:
                                                   name:
-                                                    description: Name is the referenced
+                                                    description: name is the referenced
                                                       service. The service must exist
                                                       in the same namespace as the
                                                       Ingress object.
                                                     type: string
                                                   port:
-                                                    description: Port of the referenced
+                                                    description: port of the referenced
                                                       service. A port name or port
                                                       number is required for a IngressServiceBackend.
                                                     properties:
                                                       name:
-                                                        description: Name is the name
+                                                        description: name is the name
                                                           of the port on the Service.
                                                           This is a mutually exclusive
                                                           setting with "Number".
                                                         type: string
                                                       number:
-                                                        description: Number is the
+                                                        description: number is the
                                                           numerical port number (e.g.
                                                           80) on the Service. This
                                                           is a mutually exclusive
@@ -5753,7 +5744,7 @@ spec:
                                                 type: object
                                             type: object
                                           path:
-                                            description: Path is matched against the
+                                            description: path is matched against the
                                               path of an incoming request. Currently
                                               it can contain characters disallowed
                                               from the conventional "path" part of
@@ -5763,8 +5754,8 @@ spec:
                                               or "Prefix".
                                             type: string
                                           pathType:
-                                            description: 'PathType determines the
-                                              interpretation of the Path matching.
+                                            description: 'pathType determines the
+                                              interpretation of the path matching.
                                               PathType can be one of the following
                                               values: * Exact: Matches the URL path
                                               exactly. * Prefix: Matches based on
@@ -5800,20 +5791,21 @@ spec:
                             type: array
                             x-kubernetes-list-type: atomic
                           tls:
-                            description: TLS configuration. Currently the Ingress
-                              only supports a single TLS port, 443. If multiple members
-                              of this list specify different hosts, they will be multiplexed
-                              on the same port according to the hostname specified
-                              through the SNI TLS extension, if the ingress controller
-                              fulfilling the ingress supports SNI.
+                            description: tls represents the TLS configuration. Currently
+                              the Ingress only supports a single TLS port, 443. If
+                              multiple members of this list specify different hosts,
+                              they will be multiplexed on the same port according
+                              to the hostname specified through the SNI TLS extension,
+                              if the ingress controller fulfilling the ingress supports
+                              SNI.
                             items:
                               description: IngressTLS describes the transport layer
-                                security associated with an Ingress.
+                                security associated with an ingress.
                               properties:
                                 hosts:
-                                  description: Hosts are a list of hosts included
-                                    in the TLS certificate. The values in this list
-                                    must match the name/s used in the tlsSecret. Defaults
+                                  description: hosts is a list of hosts included in
+                                    the TLS certificate. The values in this list must
+                                    match the name/s used in the tlsSecret. Defaults
                                     to the wildcard host setting for the loadbalancer
                                     controller fulfilling this Ingress, if left unspecified.
                                   items:
@@ -5821,13 +5813,13 @@ spec:
                                   type: array
                                   x-kubernetes-list-type: atomic
                                 secretName:
-                                  description: SecretName is the name of the secret
+                                  description: secretName is the name of the secret
                                     used to terminate TLS traffic on port 443. Field
                                     is left optional to allow TLS routing based on
                                     SNI hostname alone. If the SNI host in a listener
                                     conflicts with the "Host" header field used by
                                     an IngressRule, the SNI host is used for termination
-                                    and value of the Host header is used for routing.
+                                    and value of the "Host" header is used for routing.
                                   type: string
                               type: object
                             type: array
@@ -5937,7 +5929,8 @@ spec:
                         description: 'Requests describes the minimum amount of compute
                           resources required. If Requests is omitted for a container,
                           it defaults to Limits if that is explicitly specified, otherwise
-                          to an implementation-defined value. More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/'
+                          to an implementation-defined value. Requests cannot exceed
+                          Limits. More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/'
                         type: object
                     type: object
                   schedulingOptions:
@@ -6990,8 +6983,9 @@ spec:
                                   defined in a file on the node should be used. The
                                   profile must be preconfigured on the node to work.
                                   Must be a descending path, relative to the kubelet's
-                                  configured seccomp profile location. Must only be
-                                  set if type is "Localhost".
+                                  configured seccomp profile location. Must be set
+                                  if type is "Localhost". Must NOT be set for any
+                                  other type.
                                 type: string
                               type:
                                 description: "type indicates which kind of seccomp
@@ -7059,15 +7053,11 @@ spec:
                                 type: string
                               hostProcess:
                                 description: HostProcess determines if a container
-                                  should be run as a 'Host Process' container. This
-                                  field is alpha-level and will only be honored by
-                                  components that enable the WindowsHostProcessContainers
-                                  feature flag. Setting this field without the feature
-                                  flag will result in errors when validating the Pod.
-                                  All of a Pod's containers must have the same effective
+                                  should be run as a 'Host Process' container. All
+                                  of a Pod's containers must have the same effective
                                   HostProcess value (it is not allowed to have a mix
-                                  of HostProcess containers and non-HostProcess containers).  In
-                                  addition, if HostProcess is true then HostNetwork
+                                  of HostProcess containers and non-HostProcess containers).
+                                  In addition, if HostProcess is true then HostNetwork
                                   must also be set to true.
                                 type: boolean
                               runAsUserName:
@@ -7200,8 +7190,9 @@ spec:
                                   defined in a file on the node should be used. The
                                   profile must be preconfigured on the node to work.
                                   Must be a descending path, relative to the kubelet's
-                                  configured seccomp profile location. Must only be
-                                  set if type is "Localhost".
+                                  configured seccomp profile location. Must be set
+                                  if type is "Localhost". Must NOT be set for any
+                                  other type.
                                 type: string
                               type:
                                 description: "type indicates which kind of seccomp
@@ -7234,15 +7225,11 @@ spec:
                                 type: string
                               hostProcess:
                                 description: HostProcess determines if a container
-                                  should be run as a 'Host Process' container. This
-                                  field is alpha-level and will only be honored by
-                                  components that enable the WindowsHostProcessContainers
-                                  feature flag. Setting this field without the feature
-                                  flag will result in errors when validating the Pod.
-                                  All of a Pod's containers must have the same effective
+                                  should be run as a 'Host Process' container. All
+                                  of a Pod's containers must have the same effective
                                   HostProcess value (it is not allowed to have a mix
-                                  of HostProcess containers and non-HostProcess containers).  In
-                                  addition, if HostProcess is true then HostNetwork
+                                  of HostProcess containers and non-HostProcess containers).
+                                  In addition, if HostProcess is true then HostNetwork
                                   must also be set to true.
                                 type: boolean
                               runAsUserName:
@@ -7313,7 +7300,8 @@ spec:
                         description: 'Requests describes the minimum amount of compute
                           resources required. If Requests is omitted for a container,
                           it defaults to Limits if that is explicitly specified, otherwise
-                          to an implementation-defined value. More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/'
+                          to an implementation-defined value. Requests cannot exceed
+                          Limits. More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/'
                         type: object
                     type: object
                   dataSourceResources:
@@ -7361,7 +7349,8 @@ spec:
                         description: 'Requests describes the minimum amount of compute
                           resources required. If Requests is omitted for a container,
                           it defaults to Limits if that is explicitly specified, otherwise
-                          to an implementation-defined value. More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/'
+                          to an implementation-defined value. Requests cannot exceed
+                          Limits. More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/'
                         type: object
                     type: object
                   grafanaResources:
@@ -7409,7 +7398,8 @@ spec:
                         description: 'Requests describes the minimum amount of compute
                           resources required. If Requests is omitted for a container,
                           it defaults to Limits if that is explicitly specified, otherwise
-                          to an implementation-defined value. More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/'
+                          to an implementation-defined value. Requests cannot exceed
+                          Limits. More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/'
                         type: object
                     type: object
                 type: object
@@ -8452,7 +8442,8 @@ spec:
                               in a file on the node should be used. The profile must
                               be preconfigured on the node to work. Must be a descending
                               path, relative to the kubelet's configured seccomp profile
-                              location. Must only be set if type is "Localhost".
+                              location. Must be set if type is "Localhost". Must NOT
+                              be set for any other type.
                             type: string
                           type:
                             description: "type indicates which kind of seccomp profile
@@ -8484,15 +8475,12 @@ spec:
                             type: string
                           hostProcess:
                             description: HostProcess determines if a container should
-                              be run as a 'Host Process' container. This field is
-                              alpha-level and will only be honored by components that
-                              enable the WindowsHostProcessContainers feature flag.
-                              Setting this field without the feature flag will result
-                              in errors when validating the Pod. All of a Pod's containers
-                              must have the same effective HostProcess value (it is
-                              not allowed to have a mix of HostProcess containers
-                              and non-HostProcess containers).  In addition, if HostProcess
-                              is true then HostNetwork must also be set to true.
+                              be run as a 'Host Process' container. All of a Pod's
+                              containers must have the same effective HostProcess
+                              value (it is not allowed to have a mix of HostProcess
+                              containers and non-HostProcess containers). In addition,
+                              if HostProcess is true then HostNetwork must also be
+                              set to true.
                             type: boolean
                           runAsUserName:
                             description: The UserName in Windows to run the entrypoint
@@ -8621,7 +8609,8 @@ spec:
                               in a file on the node should be used. The profile must
                               be preconfigured on the node to work. Must be a descending
                               path, relative to the kubelet's configured seccomp profile
-                              location. Must only be set if type is "Localhost".
+                              location. Must be set if type is "Localhost". Must NOT
+                              be set for any other type.
                             type: string
                           type:
                             description: "type indicates which kind of seccomp profile
@@ -8653,15 +8642,12 @@ spec:
                             type: string
                           hostProcess:
                             description: HostProcess determines if a container should
-                              be run as a 'Host Process' container. This field is
-                              alpha-level and will only be honored by components that
-                              enable the WindowsHostProcessContainers feature flag.
-                              Setting this field without the feature flag will result
-                              in errors when validating the Pod. All of a Pod's containers
-                              must have the same effective HostProcess value (it is
-                              not allowed to have a mix of HostProcess containers
-                              and non-HostProcess containers).  In addition, if HostProcess
-                              is true then HostNetwork must also be set to true.
+                              be run as a 'Host Process' container. All of a Pod's
+                              containers must have the same effective HostProcess
+                              value (it is not allowed to have a mix of HostProcess
+                              containers and non-HostProcess containers). In addition,
+                              if HostProcess is true then HostNetwork must also be
+                              set to true.
                             type: boolean
                           runAsUserName:
                             description: The UserName in Windows to run the entrypoint
@@ -8674,7 +8660,7 @@ spec:
                         type: object
                     type: object
                   databaseSecurityContext:
-                    description: Security Context to apply to the storage container.
+                    description: Security Context to apply to the database container.
                     properties:
                       allowPrivilegeEscalation:
                         description: 'AllowPrivilegeEscalation controls whether a
@@ -8789,7 +8775,8 @@ spec:
                               in a file on the node should be used. The profile must
                               be preconfigured on the node to work. Must be a descending
                               path, relative to the kubelet's configured seccomp profile
-                              location. Must only be set if type is "Localhost".
+                              location. Must be set if type is "Localhost". Must NOT
+                              be set for any other type.
                             type: string
                           type:
                             description: "type indicates which kind of seccomp profile
@@ -8821,15 +8808,12 @@ spec:
                             type: string
                           hostProcess:
                             description: HostProcess determines if a container should
-                              be run as a 'Host Process' container. This field is
-                              alpha-level and will only be honored by components that
-                              enable the WindowsHostProcessContainers feature flag.
-                              Setting this field without the feature flag will result
-                              in errors when validating the Pod. All of a Pod's containers
-                              must have the same effective HostProcess value (it is
-                              not allowed to have a mix of HostProcess containers
-                              and non-HostProcess containers).  In addition, if HostProcess
-                              is true then HostNetwork must also be set to true.
+                              be run as a 'Host Process' container. All of a Pod's
+                              containers must have the same effective HostProcess
+                              value (it is not allowed to have a mix of HostProcess
+                              containers and non-HostProcess containers). In addition,
+                              if HostProcess is true then HostNetwork must also be
+                              set to true.
                             type: boolean
                           runAsUserName:
                             description: The UserName in Windows to run the entrypoint
@@ -8957,7 +8941,8 @@ spec:
                               in a file on the node should be used. The profile must
                               be preconfigured on the node to work. Must be a descending
                               path, relative to the kubelet's configured seccomp profile
-                              location. Must only be set if type is "Localhost".
+                              location. Must be set if type is "Localhost". Must NOT
+                              be set for any other type.
                             type: string
                           type:
                             description: "type indicates which kind of seccomp profile
@@ -8989,15 +8974,12 @@ spec:
                             type: string
                           hostProcess:
                             description: HostProcess determines if a container should
-                              be run as a 'Host Process' container. This field is
-                              alpha-level and will only be honored by components that
-                              enable the WindowsHostProcessContainers feature flag.
-                              Setting this field without the feature flag will result
-                              in errors when validating the Pod. All of a Pod's containers
-                              must have the same effective HostProcess value (it is
-                              not allowed to have a mix of HostProcess containers
-                              and non-HostProcess containers).  In addition, if HostProcess
-                              is true then HostNetwork must also be set to true.
+                              be run as a 'Host Process' container. All of a Pod's
+                              containers must have the same effective HostProcess
+                              value (it is not allowed to have a mix of HostProcess
+                              containers and non-HostProcess containers). In addition,
+                              if HostProcess is true then HostNetwork must also be
+                              set to true.
                             type: boolean
                           runAsUserName:
                             description: The UserName in Windows to run the entrypoint
@@ -9098,7 +9080,8 @@ spec:
                               in a file on the node should be used. The profile must
                               be preconfigured on the node to work. Must be a descending
                               path, relative to the kubelet's configured seccomp profile
-                              location. Must only be set if type is "Localhost".
+                              location. Must be set if type is "Localhost". Must NOT
+                              be set for any other type.
                             type: string
                           type:
                             description: "type indicates which kind of seccomp profile
@@ -9163,15 +9146,12 @@ spec:
                             type: string
                           hostProcess:
                             description: HostProcess determines if a container should
-                              be run as a 'Host Process' container. This field is
-                              alpha-level and will only be honored by components that
-                              enable the WindowsHostProcessContainers feature flag.
-                              Setting this field without the feature flag will result
-                              in errors when validating the Pod. All of a Pod's containers
-                              must have the same effective HostProcess value (it is
-                              not allowed to have a mix of HostProcess containers
-                              and non-HostProcess containers).  In addition, if HostProcess
-                              is true then HostNetwork must also be set to true.
+                              be run as a 'Host Process' container. All of a Pod's
+                              containers must have the same effective HostProcess
+                              value (it is not allowed to have a mix of HostProcess
+                              containers and non-HostProcess containers). In addition,
+                              if HostProcess is true then HostNetwork must also be
+                              set to true.
                             type: boolean
                           runAsUserName:
                             description: The UserName in Windows to run the entrypoint
@@ -9299,7 +9279,8 @@ spec:
                               in a file on the node should be used. The profile must
                               be preconfigured on the node to work. Must be a descending
                               path, relative to the kubelet's configured seccomp profile
-                              location. Must only be set if type is "Localhost".
+                              location. Must be set if type is "Localhost". Must NOT
+                              be set for any other type.
                             type: string
                           type:
                             description: "type indicates which kind of seccomp profile
@@ -9331,15 +9312,12 @@ spec:
                             type: string
                           hostProcess:
                             description: HostProcess determines if a container should
-                              be run as a 'Host Process' container. This field is
-                              alpha-level and will only be honored by components that
-                              enable the WindowsHostProcessContainers feature flag.
-                              Setting this field without the feature flag will result
-                              in errors when validating the Pod. All of a Pod's containers
-                              must have the same effective HostProcess value (it is
-                              not allowed to have a mix of HostProcess containers
-                              and non-HostProcess containers).  In addition, if HostProcess
-                              is true then HostNetwork must also be set to true.
+                              be run as a 'Host Process' container. All of a Pod's
+                              containers must have the same effective HostProcess
+                              value (it is not allowed to have a mix of HostProcess
+                              containers and non-HostProcess containers). In addition,
+                              if HostProcess is true then HostNetwork must also be
+                              set to true.
                             type: boolean
                           runAsUserName:
                             description: The UserName in Windows to run the entrypoint
@@ -9634,7 +9612,8 @@ spec:
                                   of compute resources required. If Requests is omitted
                                   for a container, it defaults to Limits if that is
                                   explicitly specified, otherwise to an implementation-defined
-                                  value. More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/'
+                                  value. Requests cannot exceed Limits. More info:
+                                  https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/'
                                 type: object
                             type: object
                           selector:
