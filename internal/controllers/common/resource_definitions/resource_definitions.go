@@ -781,7 +781,11 @@ func NewCoreContainer(cr *model.CryostatInstance, specs *ServiceSpecs, imageTag 
 			Value: "false",
 		},
 		{
-			Name:  "CRYOSTAT_K8S_NAMESPACES",
+			Name:  "CRYOSTAT_DISCOVERY_KUBERNETES_ENABLED",
+			Value: "true",
+		},
+		{
+			Name:  "CRYOSTAT_DISCOVERY_KUBERNETES_NAMESPACES",
 			Value: strings.Join(cr.TargetNamespaces, ","),
 		},
 	}

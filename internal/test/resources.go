@@ -1389,7 +1389,11 @@ func (r *TestResources) NewCoreEnvironmentVariables(reportsUrl string, authProps
 			Value: "10",
 		},
 		{
-			Name:  "CRYOSTAT_K8S_NAMESPACES",
+			Name:  "CRYOSTAT_DISCOVERY_KUBERNETES_ENABLED",
+			Value: "true",
+		},
+		{
+			Name:  "CRYOSTAT_DISCOVERY_KUBERNETES_NAMESPACES",
 			Value: strings.Join(r.TargetNamespaces, ","),
 		},
 		{
