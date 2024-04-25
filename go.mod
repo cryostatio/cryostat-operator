@@ -80,14 +80,5 @@ require (
 	sigs.k8s.io/yaml v1.3.0 // indirect
 )
 
-// Fix for CVE-2020-26160
-replace github.com/dgrijalva/jwt-go => github.com/golang-jwt/jwt v3.2.1+incompatible
-
 // Fix for CVE-2022-28948
 replace gopkg.in/yaml.v3 => gopkg.in/yaml.v3 v3.0.1
-
-// Fix for CVE-2021-3121
-replace github.com/gogo/protobuf => github.com/gogo/protobuf v1.3.2
-
-// Fix for CVE-2022-1996
-replace github.com/emicklei/go-restful => github.com/emicklei/go-restful v2.16.0+incompatible
