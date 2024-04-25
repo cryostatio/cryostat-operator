@@ -640,13 +640,13 @@ func NewOpenShiftAuthProxyContainer(cr *model.CryostatInstance, specs *ServiceSp
 		),
 		"--proxy-prefix=/oauth2",
 	}
-	if tls != nil {
-		// "--https-address=:8443",
-		// "--tls-cert=/etc/tls/private/tls.crt",
-		// "--tls-key=/etc/tls/private/tls.key",
-	} else {
-		args = append(args, "--https-address=")
-	}
+	// if tls != nil {
+	// "--https-address=:8443",
+	// "--tls-cert=/etc/tls/private/tls.crt",
+	// "--tls-key=/etc/tls/private/tls.key",
+	// } else {
+	args = append(args, "--https-address=")
+	// }
 
 	return corev1.Container{
 		Name:            cr.Name + "-auth-proxy",
