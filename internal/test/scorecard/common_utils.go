@@ -313,7 +313,7 @@ func configureIngress(name string, cryostatSpec *operatorv1beta2.CryostatSpec) {
 											Service: &netv1.IngressServiceBackend{
 												Name: name,
 												Port: netv1.ServiceBackendPort{
-													Number: 8181,
+													Number: 4180,
 												},
 											},
 										},

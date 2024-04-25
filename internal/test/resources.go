@@ -2308,7 +2308,7 @@ func (r *TestResources) OtherGrafanaRoute() *routev1.Route {
 }
 
 func (r *TestResources) NewCoreIngress() *netv1.Ingress {
-	return r.newIngress(r.Name, 8181, map[string]string{"custom": "annotation"},
+	return r.newIngress(r.Name, 4180, map[string]string{"custom": "annotation"},
 		map[string]string{"my": "label", "custom": "label"})
 }
 
