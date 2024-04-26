@@ -53,7 +53,7 @@ metadata:
     capabilities: Seamless Upgrades
     categories: Monitoring, Developer Tools
     containerImage: quay.io/cryostat/cryostat-operator:3.0.0-dev
-    createdAt: "2024-04-26T21:39:27Z"
+    createdAt: "2024-04-26T21:41:55Z"
     description: JVM monitoring and profiling tool
     operatorframework.io/initialization-resource: |-
       {
@@ -553,6 +553,22 @@ spec:
         path: authProperties.filename
         x-descriptors:
         - urn:alm:descriptor:com.tectonic.ui:text
+      - description: Additional configuration options for the authorization proxy.
+        displayName: Authorization Options
+        path: authorizationOptions
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:advanced
+      - description: Filename for the htpasswd file within the secret
+        displayName: Basic Auth Filename
+        path: authorizationOptions.basicAuthFileName
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:text
+      - description: Name of the secret containing the Basic authentication htpasswd
+          file
+        displayName: Basic Auth Secret Name
+        path: authorizationOptions.basicAuthSecretName
+        x-descriptors:
+        - urn:alm:descriptor:io.kubernetes:Secret
       - description: List of Flight Recorder Event Templates to preconfigure in Cryostat.
         displayName: Event Templates
         path: eventTemplates
