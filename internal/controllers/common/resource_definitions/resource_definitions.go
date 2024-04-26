@@ -633,11 +633,10 @@ func NewOpenShiftAuthProxyContainer(cr *model.CryostatInstance, specs *ServiceSp
 			cr.InstallNamespace,
 		),
 		fmt.Sprintf(
-			`--openshift-delegate-urls={"/health":{},"/api":{"group":"","name":"","namespace":"%s","resource":"pods","subresource":"exec","verb":"create","version":""}, "/storage":{"group":"","name":"","namespace":"%s","resource":"pods","subresource":"exec","verb":"create","version":""}, "/grafana":{"group":"","name":"","namespace":"%s","resource":"pods","subresource":"exec","verb":"create","version":""} }`,
-			cr.InstallNamespace,
-			cr.InstallNamespace,
+			`--openshift-delegate-urls={"/":{"group":"","name":"","namespace":"%s","resource":"pods","subresource":"exec","verb":"create","version":""}}`,
 			cr.InstallNamespace,
 		),
+		"--bypass-auth=for=^/health",
 		"--proxy-prefix=/oauth2",
 	}
 	// if tls != nil {
