@@ -345,7 +345,7 @@ func NewPodForCR(cr *model.CryostatInstance, specs *ServiceSpecs, imageTags *Ima
 				Name: "auth-proxy-htpasswd",
 				VolumeSource: corev1.VolumeSource{
 					Secret: &corev1.SecretVolumeSource{
-						SecretName: *cr.Spec.AuthorizationOptions.BasicAuthSecretName,
+						SecretName: *cr.Spec.AuthorizationOptions.BasicAuth.SecretName,
 					},
 				},
 			},
@@ -653,13 +653,13 @@ func NewOpenShiftAuthProxyContainer(cr *model.CryostatInstance, specs *ServiceSp
 
 	volumeMounts := []corev1.VolumeMount{}
 	if isBasicAuthEnabled(cr) {
-		mountPath := fmt.Sprintf("/var/run/secrets/operator.cryostat.io/%s", *cr.Spec.AuthorizationOptions.BasicAuthSecretName)
+		mountPath := fmt.Sprintf("/var/run/secrets/operator.cryostat.io/%s", *cr.Spec.AuthorizationOptions.BasicAuth.SecretName)
 		volumeMounts = append(volumeMounts, corev1.VolumeMount{
 			Name:      "auth-proxy-htpasswd",
 			MountPath: mountPath,
 			ReadOnly:  true,
 		})
-		args = append(args, fmt.Sprintf("--htpasswd-file=%s/%s", mountPath, *cr.Spec.AuthorizationOptions.BasicAuthFilename))
+		args = append(args, fmt.Sprintf("--htpasswd-file=%s/%s", mountPath, *cr.Spec.AuthorizationOptions.BasicAuth.Filename))
 	}
 
 	args = append(args,
@@ -1528,7 +1528,7 @@ func useEmptyDir(cr *model.CryostatInstance) bool {
 }
 
 func isBasicAuthEnabled(cr *model.CryostatInstance) bool {
-	return cr.Spec.AuthorizationOptions != nil && cr.Spec.AuthorizationOptions.BasicAuthSecretName != nil && cr.Spec.AuthorizationOptions.BasicAuthFilename != nil
+	return cr.Spec.AuthorizationOptions != nil && cr.Spec.AuthorizationOptions.BasicAuth != nil && cr.Spec.AuthorizationOptions.BasicAuth.SecretName != nil && cr.Spec.AuthorizationOptions.BasicAuth.Filename != nil
 }
 
 func checkResourceRequestWithLimit(requests, limits corev1.ResourceList) {

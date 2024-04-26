@@ -487,14 +487,21 @@ type TemplateConfigMap struct {
 
 // Authorization options provide additional configurations for the auth proxy.
 type AuthorizationOptions struct {
-	// Name of the secret containing the Basic authentication htpasswd file
+	// Reference to a secret and file name containing the Basic authentication htpasswd file
 	// +optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:io.kubernetes:Secret"}
-	BasicAuthSecretName *string `json:"basicAuthSecretName,omitempty"`
-	// Filename for the htpasswd file within the secret
+	BasicAuth *SecretFile `json:"basicAuth,omitempty"`
+}
+
+type SecretFile struct {
+	// Name of the secret to reference.
+	// +optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:io.kubernetes:Secret"}
+	SecretName *string `json:"secretName,omitempty"`
+	// Name of the file within the secret.
 	// +optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:com.tectonic.ui:text"}
-	BasicAuthFilename *string `json:"basicAuthFileName,omitempty"`
+	Filename *string `json:"filename,omitempty"`
 }
 
 // Authorization properties provide custom permission mapping between Cryostat resources to Kubernetes resources.
