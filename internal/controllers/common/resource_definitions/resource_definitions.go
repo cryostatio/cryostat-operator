@@ -636,7 +636,7 @@ func NewOpenShiftAuthProxyContainer(cr *model.CryostatInstance, specs *ServiceSp
 			`--openshift-delegate-urls={"/":{"group":"","name":"","namespace":"%s","resource":"pods","subresource":"exec","verb":"create","version":""}}`,
 			cr.InstallNamespace,
 		),
-		"--bypass-auth=for=^/health",
+		"--bypass-auth-for=^/health",
 		"--proxy-prefix=/oauth2",
 	}
 	// if tls != nil {
