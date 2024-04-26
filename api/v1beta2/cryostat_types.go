@@ -69,6 +69,10 @@ type CryostatSpec struct {
 	// +optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	Resources *ResourceConfigList `json:"resources,omitempty"`
+	// Additional configuration options for the authorization proxy.
+	// +optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Authorization Options",xDescriptors={"urn:alm:descriptor:com.tectonic.ui:advanced"}
+	AuthorizationOptions *AuthorizationOptions `json:"authorizationOptions,omitempty"`
 	// Override default authorization properties for Cryostat on OpenShift.
 	// +optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Authorization Properties",xDescriptors={"urn:alm:descriptor:com.tectonic.ui:advanced"}
@@ -479,6 +483,18 @@ type TemplateConfigMap struct {
 	ConfigMapName string `json:"configMapName"`
 	// Filename within config map containing the template file.
 	Filename string `json:"filename"`
+}
+
+// Authorization options provide additional configurations for the auth proxy.
+type AuthorizationOptions struct {
+	// Name of the secret containing the Basic authentication htpasswd file
+	// +optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:io.kubernetes:Secret"}
+	BasicAuthSecretName *string `json:"basicAuthSecretName,omitempty"`
+	// Filename for the htpasswd file within the secret
+	// +optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:com.tectonic.ui:text"}
+	BasicAuthFilename *string `json:"basicAuthFileName,omitempty"`
 }
 
 // Authorization properties provide custom permission mapping between Cryostat resources to Kubernetes resources.
