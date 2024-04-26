@@ -986,12 +986,16 @@ func (c *controllerTest) commonTests() {
 					reportsImg := "my/reports-image:1.0.0-SNAPSHOT"
 					storageImg := "my/storage-image:1.0.0-dev"
 					databaseImg := "my/database-image:1.0.0-dev"
+					oauth2ProxyImg := "my/auth-proxy:1.0.0-dev"
+					openshiftAuthProxyImg := "my/openshift-auth-proxy:1.0.0-dev"
 					t.EnvCoreImageTag = &coreImg
 					t.EnvDatasourceImageTag = &datasourceImg
 					t.EnvGrafanaImageTag = &grafanaImg
 					t.EnvReportsImageTag = &reportsImg
 					t.EnvDatabaseImageTag = &databaseImg
 					t.EnvStorageImageTag = &storageImg
+					t.EnvOAuth2ProxyImageTag = &oauth2ProxyImg
+					t.EnvOpenShiftOAuthProxyImageTag = &openshiftAuthProxyImg
 				})
 				It("should create deployment with the expected tags", func() {
 					t.expectMainDeployment()
@@ -999,7 +1003,7 @@ func (c *controllerTest) commonTests() {
 				})
 				It("should set ImagePullPolicy to Always", func() {
 					containers := mainDeploy.Spec.Template.Spec.Containers
-					Expect(containers).To(HaveLen(5))
+					Expect(containers).To(HaveLen(6))
 					for _, container := range containers {
 						Expect(container.ImagePullPolicy).To(Equal(corev1.PullAlways))
 					}
@@ -1016,12 +1020,16 @@ func (c *controllerTest) commonTests() {
 					reportsImg := "my/reports-image:1.0.0"
 					storageImg := "my/storage-image:1.0.0"
 					databaseImg := "my/database-image:1.0.0"
+					oauth2ProxyImg := "my/authproxy-image:1.0.0"
+					openshiftAuthProxyImg := "my/openshift-authproxy-image:1.0.0"
 					t.EnvCoreImageTag = &coreImg
 					t.EnvDatasourceImageTag = &datasourceImg
 					t.EnvGrafanaImageTag = &grafanaImg
 					t.EnvReportsImageTag = &reportsImg
 					t.EnvDatabaseImageTag = &databaseImg
 					t.EnvStorageImageTag = &storageImg
+					t.EnvOAuth2ProxyImageTag = &oauth2ProxyImg
+					t.EnvOpenShiftOAuthProxyImageTag = &openshiftAuthProxyImg
 				})
 				JustBeforeEach(func() {
 					t.reconcileCryostatFully()
@@ -1032,8 +1040,9 @@ func (c *controllerTest) commonTests() {
 				})
 				It("should set ImagePullPolicy to IfNotPresent", func() {
 					containers := mainDeploy.Spec.Template.Spec.Containers
-					Expect(containers).To(HaveLen(5))
+					Expect(containers).To(HaveLen(6))
 					for _, container := range containers {
+						fmt.Println(container.Image)
 						Expect(container.ImagePullPolicy).To(Equal(corev1.PullIfNotPresent))
 					}
 					reportContainers := reportsDeploy.Spec.Template.Spec.Containers
@@ -1049,12 +1058,16 @@ func (c *controllerTest) commonTests() {
 					reportsImg := "my/reports-image@sha256:8a23ca5e8c8a343789b8c14558a44a49d35ecd130c18e62edf0d1ad9ce88d37d"
 					storageImg := "my/storage-image@sha256:8b23ca5e8c8a343789b8c14558a44a49d35ecd130c18e62edf0d1ad9ce88d37d"
 					databaseImg := "my/database-image@sha256:8c23ca5e8c8a343789b8c14558a44a49d35ecd130c18e62edf0d1ad9ce88d37d"
+					oauth2ProxyImage := "my/authproxy-image@sha256:8c23ca5e8c8a343789b8c14558a44a49d35ecd130c18e62edf0d1ad9ce88d37d"
+					openshiftAuthProxyImage := "my/openshift-authproxy-image@sha256:8c23ca5e8c8a343789b8c14558a44a49d35ecd130c18e62edf0d1ad9ce88d37d"
 					t.EnvCoreImageTag = &coreImg
 					t.EnvDatasourceImageTag = &datasourceImg
 					t.EnvGrafanaImageTag = &grafanaImg
 					t.EnvReportsImageTag = &reportsImg
 					t.EnvDatabaseImageTag = &databaseImg
 					t.EnvStorageImageTag = &storageImg
+					t.EnvOAuth2ProxyImageTag = &oauth2ProxyImage
+					t.EnvOpenShiftOAuthProxyImageTag = &openshiftAuthProxyImage
 				})
 				It("should create deployment with the expected tags", func() {
 					t.expectMainDeployment()
@@ -1062,7 +1075,7 @@ func (c *controllerTest) commonTests() {
 				})
 				It("should set ImagePullPolicy to IfNotPresent", func() {
 					containers := mainDeploy.Spec.Template.Spec.Containers
-					Expect(containers).To(HaveLen(5))
+					Expect(containers).To(HaveLen(6))
 					for _, container := range containers {
 						Expect(container.ImagePullPolicy).To(Equal(corev1.PullIfNotPresent))
 					}
@@ -1077,10 +1090,14 @@ func (c *controllerTest) commonTests() {
 					datasourceImg := "my/datasource-image:latest"
 					grafanaImg := "my/grafana-image:latest"
 					reportsImg := "my/reports-image:latest"
+					oauth2ProxyImg := "my/authproxy-image:latest"
+					openshiftAuthProxyImg := "my/openshift-authproxy-image:latest"
 					t.EnvCoreImageTag = &coreImg
 					t.EnvDatasourceImageTag = &datasourceImg
 					t.EnvGrafanaImageTag = &grafanaImg
 					t.EnvReportsImageTag = &reportsImg
+					t.EnvOAuth2ProxyImageTag = &oauth2ProxyImg
+					t.EnvOpenShiftOAuthProxyImageTag = &openshiftAuthProxyImg
 				})
 				It("should create deployment with the expected tags", func() {
 					t.expectMainDeployment()
@@ -1088,7 +1105,7 @@ func (c *controllerTest) commonTests() {
 				})
 				It("should set ImagePullPolicy to Always", func() {
 					containers := mainDeploy.Spec.Template.Spec.Containers
-					Expect(containers).To(HaveLen(5))
+					Expect(containers).To(HaveLen(6))
 					for _, container := range containers {
 						Expect(container.ImagePullPolicy).To(Equal(corev1.PullAlways))
 					}

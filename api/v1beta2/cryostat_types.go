@@ -118,6 +118,10 @@ type ResourceMetadata struct {
 }
 
 type ResourceConfigList struct {
+	// Resource requirements for the auth proxy.
+	// +optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:com.tectonic.ui:resourceRequirements"}
+	AuthProxyResources corev1.ResourceRequirements `json:"authProxyResources,omitempty"`
 	// Resource requirements for the Cryostat application. If specifying a memory limit, at least 768MiB is recommended.
 	// +optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:com.tectonic.ui:resourceRequirements"}
@@ -500,6 +504,10 @@ type SecurityOptions struct {
 	// +optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	PodSecurityContext *corev1.PodSecurityContext `json:"podSecurityContext,omitempty"`
+	// Security Context to apply to the auth proxy container.
+	// +optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec
+	AuthProxySecurityContext *corev1.SecurityContext `json:"authProxySecurityContext,omitempty"`
 	// Security Context to apply to the Cryostat application container.
 	// +optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec

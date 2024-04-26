@@ -51,7 +51,7 @@ func (r *Reconciler) reconcileCoreService(ctx context.Context, cr *model.Cryosta
 			{
 				Name:       "http",
 				Port:       *config.HTTPPort,
-				TargetPort: intstr.IntOrString{IntVal: constants.CryostatHTTPContainerPort},
+				TargetPort: intstr.IntOrString{IntVal: constants.AuthProxyHttpContainerPort},
 			},
 			{
 				Name:       "jfr-jmx",
@@ -165,7 +165,7 @@ func configureCoreService(cr *model.CryostatInstance) *operatorv1beta2.CoreServi
 
 	// Apply default HTTP and JMX port if not provided
 	if config.HTTPPort == nil {
-		httpPort := constants.CryostatHTTPContainerPort
+		httpPort := constants.AuthProxyHttpContainerPort
 		config.HTTPPort = &httpPort
 	}
 	if config.JMXPort == nil {

@@ -34,21 +34,24 @@ import (
 
 // ImageTags contains container image tags for each of the images to deploy
 type ImageTags struct {
-	CoreImageTag       string
-	DatasourceImageTag string
-	GrafanaImageTag    string
-	ReportsImageTag    string
-	StorageImageTag    string
-	DatabaseImageTag   string
+	OAuth2ProxyImageTag         string
+	OpenShiftOAuthProxyImageTag string
+	CoreImageTag                string
+	DatasourceImageTag          string
+	GrafanaImageTag             string
+	ReportsImageTag             string
+	StorageImageTag             string
+	DatabaseImageTag            string
 }
 
 type ServiceSpecs struct {
-	CoreURL     *url.URL
-	GrafanaURL  *url.URL
-	ReportsURL  *url.URL
-	InsightsURL *url.URL
-	StorageURL  *url.URL
-	DatabaseURL *url.URL
+	AuthProxyURL *url.URL
+	CoreURL      *url.URL
+	GrafanaURL   *url.URL
+	ReportsURL   *url.URL
+	InsightsURL  *url.URL
+	StorageURL   *url.URL
+	DatabaseURL  *url.URL
 }
 
 // TLSConfig contains TLS-related information useful when creating other objects
@@ -66,6 +69,8 @@ type TLSConfig struct {
 }
 
 const (
+	defaultAuthProxyCpuRequest        string = "50m"
+	defaultAuthProxyMemoryRequest     string = "100Mi"
 	defaultCoreCpuRequest             string = "500m"
 	defaultCoreMemoryRequest          string = "256Mi"
 	defaultJfrDatasourceCpuRequest    string = "200m"
@@ -247,6 +252,7 @@ func NewPodForCR(cr *model.CryostatInstance, specs *ServiceSpecs, imageTags *Ima
 		NewJfrDatasourceContainer(cr, imageTags.DatasourceImageTag),
 		NewStorageContainer(cr, imageTags.StorageImageTag, tls),
 		newDatabaseContainer(cr, imageTags.DatabaseImageTag, tls),
+		NewAuthProxyContainer(cr, specs, imageTags.OAuth2ProxyImageTag, imageTags.OpenShiftOAuthProxyImageTag, tls, openshift),
 	}
 
 	volumes := newVolumeForCR(cr)
@@ -572,6 +578,101 @@ func NewPodForReports(cr *model.CryostatInstance, imageTags *ImageTags, tls *TLS
 	}
 }
 
+func NewAuthProxyContainerResource(cr *model.CryostatInstance) *corev1.ResourceRequirements {
+	resources := &corev1.ResourceRequirements{}
+	if cr.Spec.Resources != nil {
+		resources = cr.Spec.Resources.AuthProxyResources.DeepCopy()
+	}
+	populateResourceRequest(resources, defaultAuthProxyCpuRequest, defaultAuthProxyMemoryRequest)
+	return resources
+}
+
+func NewAuthProxyContainer(cr *model.CryostatInstance, specs *ServiceSpecs, oauth2ProxyImageTag string, openshiftAuthProxyImageTag string,
+	tls *TLSConfig, openshift bool) corev1.Container {
+	// if (openshift) {
+	return NewOpenShiftAuthProxyContainer(cr, specs, openshiftAuthProxyImageTag, tls)
+	// }
+	// return NewOAuth2ProxyContainer(cr, specs, oauth2ProxyImageTag, tls)
+}
+
+func NewOpenShiftAuthProxyContainer(cr *model.CryostatInstance, specs *ServiceSpecs, imageTag string,
+	tls *TLSConfig) corev1.Container {
+	var containerSc *corev1.SecurityContext
+	if cr.Spec.SecurityOptions != nil && cr.Spec.SecurityOptions.AuthProxySecurityContext != nil {
+		containerSc = cr.Spec.SecurityOptions.AuthProxySecurityContext
+	} else {
+		privEscalation := false
+		containerSc = &corev1.SecurityContext{
+			AllowPrivilegeEscalation: &privEscalation,
+			Capabilities: &corev1.Capabilities{
+				Drop: []corev1.Capability{constants.CapabilityAll},
+			},
+		}
+	}
+
+	probeHandler := corev1.ProbeHandler{
+		HTTPGet: &corev1.HTTPGetAction{
+			Port:   intstr.IntOrString{IntVal: constants.AuthProxyHttpContainerPort},
+			Path:   "/ping",
+			Scheme: corev1.URISchemeHTTP,
+		},
+	}
+
+	basicAuthEnabled := false
+	args := []string{
+		fmt.Sprintf("--skip-provider-button=%t", !basicAuthEnabled),
+		fmt.Sprintf("--upstream=http://localhost:%d/", constants.CryostatHTTPContainerPort),
+		fmt.Sprintf("--upstream=http://localhost:%d/grafana/", constants.GrafanaContainerPort),
+		fmt.Sprintf("--upstream=http://localhost:%d/storage/", constants.StoragePort),
+		"--cookie-secret=REPLACEME",
+		fmt.Sprintf("--openshift-service-account=%s", cr.Name),
+		"--proxy-websockets=true",
+		fmt.Sprintf("--http-address=0.0.0.0:%d", constants.AuthProxyHttpContainerPort),
+		fmt.Sprintf(
+			`--openshift-sar=[{"group":"","name":"","namespace":"%s","resource":"pods","subresource":"exec","verb":"create","version":""}]`,
+			cr.InstallNamespace,
+		),
+		fmt.Sprintf(
+			`--openshift-delegate-urls={"/":{"group":"","name":"","namespace":"%s","resource":"pods","subresource":"exec","verb":"create","version":""}}`,
+			cr.InstallNamespace,
+		),
+		"--bypass-auth-for=^/health",
+		"--proxy-prefix=/oauth2",
+	}
+	// if tls != nil {
+	// "--https-address=:8443",
+	// "--tls-cert=/etc/tls/private/tls.crt",
+	// "--tls-key=/etc/tls/private/tls.key",
+	// } else {
+	args = append(args, "--https-address=")
+	// }
+
+	return corev1.Container{
+		Name:            cr.Name + "-auth-proxy",
+		Image:           imageTag,
+		ImagePullPolicy: getPullPolicy(imageTag),
+		// VolumeMounts:    mounts,
+		Ports: []corev1.ContainerPort{
+			{
+				ContainerPort: constants.AuthProxyHttpContainerPort,
+			},
+		},
+		// Env:       envs,
+		// EnvFrom:   envsFrom,
+		Resources: *NewAuthProxyContainerResource(cr),
+		LivenessProbe: &corev1.Probe{
+			ProbeHandler: probeHandler,
+		},
+		SecurityContext: containerSc,
+		Args:            args,
+	}
+}
+
+// func NewOAuth2ProxyContainer(cr *model.CryostatInstance, specs *ServiceSpecs, imageTag string,
+// tls *TLSConfig) corev1.Container {
+
+// }
+
 func NewCoreContainerResource(cr *model.CryostatInstance) *corev1.ResourceRequirements {
 	resources := &corev1.ResourceRequirements{}
 	if cr.Spec.Resources != nil {
@@ -679,7 +780,11 @@ func NewCoreContainer(cr *model.CryostatInstance, specs *ServiceSpecs, imageTag 
 			Value: "false",
 		},
 		{
-			Name:  "CRYOSTAT_K8S_NAMESPACES",
+			Name:  "CRYOSTAT_DISCOVERY_KUBERNETES_ENABLED",
+			Value: "true",
+		},
+		{
+			Name:  "CRYOSTAT_DISCOVERY_KUBERNETES_NAMESPACES",
 			Value: strings.Join(cr.TargetNamespaces, ","),
 		},
 	}

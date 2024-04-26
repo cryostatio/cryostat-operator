@@ -699,8 +699,8 @@ func (r *TestResources) NewCryostatService() *corev1.Service {
 			Ports: []corev1.ServicePort{
 				{
 					Name:       "http",
-					Port:       8181,
-					TargetPort: intstr.FromInt(8181),
+					Port:       4180,
+					TargetPort: intstr.FromInt(4180),
 				},
 				{
 					Name:       "jfr-jmx",
@@ -880,7 +880,7 @@ func (r *TestResources) NewTestService() *corev1.Service {
 			Ports: []corev1.ServicePort{
 				{
 					Name: "test",
-					Port: 8181,
+					Port: 4180,
 				},
 			},
 		},
@@ -1389,7 +1389,11 @@ func (r *TestResources) NewCoreEnvironmentVariables(reportsUrl string, authProps
 			Value: "10",
 		},
 		{
-			Name:  "CRYOSTAT_K8S_NAMESPACES",
+			Name:  "CRYOSTAT_DISCOVERY_KUBERNETES_ENABLED",
+			Value: "true",
+		},
+		{
+			Name:  "CRYOSTAT_DISCOVERY_KUBERNETES_NAMESPACES",
 			Value: strings.Join(r.TargetNamespaces, ","),
 		},
 		{
@@ -2197,7 +2201,7 @@ func (r *TestResources) NewReportSecurityContext(cr *model.CryostatInstance) *co
 }
 
 func (r *TestResources) NewCoreRoute() *routev1.Route {
-	return r.newRoute(r.Name, 8181)
+	return r.newRoute(r.Name, 4180)
 }
 
 func (r *TestResources) NewCustomCoreRoute() *routev1.Route {
@@ -2308,7 +2312,7 @@ func (r *TestResources) OtherGrafanaRoute() *routev1.Route {
 }
 
 func (r *TestResources) NewCoreIngress() *netv1.Ingress {
-	return r.newIngress(r.Name, 8181, map[string]string{"custom": "annotation"},
+	return r.newIngress(r.Name, 4180, map[string]string{"custom": "annotation"},
 		map[string]string{"my": "label", "custom": "label"})
 }
 

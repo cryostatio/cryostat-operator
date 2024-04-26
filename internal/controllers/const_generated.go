@@ -7,6 +7,12 @@ const AppName = "Cryostat"
 // Version of the Cryostat Operator
 const OperatorVersion = "3.0.0-dev"
 
+// Default image tag for the OAuth2 Proxy
+const DefaultOAuth2ProxyImageTag = "quay.io/oauth2-proxy/oauth2-proxy:latest"
+
+// Default image tag for the OpenShift OAuth Proxy
+const DefaultOpenShiftOAuthProxyImageTag = "quay.io/openshift/origin-oauth-proxy:latest"
+
 // Default image tag for the core application image
 const DefaultCoreImageTag = "quay.io/cryostat/cryostat:3.0.0-snapshot"
 
