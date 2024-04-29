@@ -5150,6 +5150,22 @@ spec:
                 - configMapName
                 - filename
                 type: object
+              authorizationOptions:
+                description: Additional configuration options for the authorization
+                  proxy.
+                properties:
+                  basicAuth:
+                    description: Reference to a secret and file name containing the
+                      Basic authentication htpasswd file
+                    properties:
+                      filename:
+                        description: Name of the file within the secret.
+                        type: string
+                      secretName:
+                        description: Name of the secret to reference.
+                        type: string
+                    type: object
+                type: object
               enableCertManager:
                 description: Use cert-manager to secure in-cluster communication between
                   Cryostat components. Requires cert-manager to be installed.

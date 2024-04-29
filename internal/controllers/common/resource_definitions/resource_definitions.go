@@ -70,7 +70,7 @@ type TLSConfig struct {
 
 const (
 	defaultAuthProxyCpuRequest        string = "50m"
-	defaultAuthProxyMemoryRequest     string = "100Mi"
+	defaultAuthProxyMemoryRequest     string = "120Mi"
 	defaultCoreCpuRequest             string = "500m"
 	defaultCoreMemoryRequest          string = "256Mi"
 	defaultJfrDatasourceCpuRequest    string = "200m"
@@ -338,6 +338,19 @@ func NewPodForCR(cr *model.CryostatInstance, specs *ServiceSpecs, imageTags *Ima
 		},
 	}
 	volumes = append(volumes, certVolume)
+
+	if isBasicAuthEnabled(cr) {
+		volumes = append(volumes,
+			corev1.Volume{
+				Name: "auth-proxy-htpasswd",
+				VolumeSource: corev1.VolumeSource{
+					Secret: &corev1.SecretVolumeSource{
+						SecretName: *cr.Spec.AuthorizationOptions.BasicAuth.SecretName,
+					},
+				},
+			},
+		)
+	}
 
 	// Add any EventTemplates as volumes
 	for _, template := range cr.Spec.EventTemplates {
@@ -618,9 +631,7 @@ func NewOpenShiftAuthProxyContainer(cr *model.CryostatInstance, specs *ServiceSp
 		},
 	}
 
-	basicAuthEnabled := false
 	args := []string{
-		fmt.Sprintf("--skip-provider-button=%t", !basicAuthEnabled),
 		fmt.Sprintf("--upstream=http://localhost:%d/", constants.CryostatHTTPContainerPort),
 		fmt.Sprintf("--upstream=http://localhost:%d/grafana/", constants.GrafanaContainerPort),
 		fmt.Sprintf("--upstream=http://localhost:%d/storage/", constants.StoragePort),
@@ -639,6 +650,22 @@ func NewOpenShiftAuthProxyContainer(cr *model.CryostatInstance, specs *ServiceSp
 		"--bypass-auth-for=^/health",
 		"--proxy-prefix=/oauth2",
 	}
+
+	volumeMounts := []corev1.VolumeMount{}
+	if isBasicAuthEnabled(cr) {
+		mountPath := fmt.Sprintf("/var/run/secrets/operator.cryostat.io/%s", *cr.Spec.AuthorizationOptions.BasicAuth.SecretName)
+		volumeMounts = append(volumeMounts, corev1.VolumeMount{
+			Name:      "auth-proxy-htpasswd",
+			MountPath: mountPath,
+			ReadOnly:  true,
+		})
+		args = append(args, fmt.Sprintf("--htpasswd-file=%s/%s", mountPath, *cr.Spec.AuthorizationOptions.BasicAuth.Filename))
+	}
+
+	args = append(args,
+		fmt.Sprintf("--skip-provider-button=%t", !isBasicAuthEnabled(cr)),
+	)
+
 	// if tls != nil {
 	// "--https-address=:8443",
 	// "--tls-cert=/etc/tls/private/tls.crt",
@@ -651,7 +678,7 @@ func NewOpenShiftAuthProxyContainer(cr *model.CryostatInstance, specs *ServiceSp
 		Name:            cr.Name + "-auth-proxy",
 		Image:           imageTag,
 		ImagePullPolicy: getPullPolicy(imageTag),
-		// VolumeMounts:    mounts,
+		VolumeMounts:    volumeMounts,
 		Ports: []corev1.ContainerPort{
 			{
 				ContainerPort: constants.AuthProxyHttpContainerPort,
@@ -1498,7 +1525,10 @@ func newVolumeForCR(cr *model.CryostatInstance) []corev1.Volume {
 
 func useEmptyDir(cr *model.CryostatInstance) bool {
 	return cr.Spec.StorageOptions != nil && cr.Spec.StorageOptions.EmptyDir != nil && cr.Spec.StorageOptions.EmptyDir.Enabled
+}
 
+func isBasicAuthEnabled(cr *model.CryostatInstance) bool {
+	return cr.Spec.AuthorizationOptions != nil && cr.Spec.AuthorizationOptions.BasicAuth != nil && cr.Spec.AuthorizationOptions.BasicAuth.SecretName != nil && cr.Spec.AuthorizationOptions.BasicAuth.Filename != nil
 }
 
 func checkResourceRequestWithLimit(requests, limits corev1.ResourceList) {
