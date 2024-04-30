@@ -15,6 +15,7 @@
 package resource_definitions
 
 import (
+	"encoding/json"
 	"fmt"
 	"net/url"
 	"regexp"
@@ -26,6 +27,7 @@ import (
 	"github.com/cryostatio/cryostat-operator/internal/controllers/constants"
 	"github.com/cryostatio/cryostat-operator/internal/controllers/model"
 	appsv1 "k8s.io/api/apps/v1"
+	authzv1 "k8s.io/api/authorization/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -661,17 +663,25 @@ func NewOpenShiftAuthProxyContainer(cr *model.CryostatInstance, specs *ServiceSp
 		fmt.Sprintf("--openshift-service-account=%s", cr.Name),
 		"--proxy-websockets=true",
 		fmt.Sprintf("--http-address=0.0.0.0:%d", constants.AuthProxyHttpContainerPort),
-		fmt.Sprintf(
-			`--openshift-sar=[{"group":"","name":"","namespace":"%s","resource":"pods","subresource":"exec","verb":"create","version":""}]`,
-			cr.InstallNamespace,
-		),
-		fmt.Sprintf(
-			`--openshift-delegate-urls={"/":{"group":"","name":"","namespace":"%s","resource":"pods","subresource":"exec","verb":"create","version":""}}`,
-			cr.InstallNamespace,
-		),
-		"--bypass-auth-for=^/health",
 		"--proxy-prefix=/oauth2",
 	}
+	if isOpenShiftAuthProxyDisabled(cr) {
+		args = append(args, "--bypass-auth-for=.*")
+	} else {
+		args = append(args, "--bypass-auth-for=^/health")
+	}
+
+	// FIXME don't ignore this error! We're far removed from the reconciler loop - we should return this
+	// error to the top so the reconciler can properly handle it
+	subjectAccessReviewJson, _ := json.Marshal(getOpenShiftSubjectAccessReviews(cr))
+	args = append(args, fmt.Sprintf("--openshift-sar=%s", string(subjectAccessReviewJson)))
+
+	delegateUrls := make(map[string]authzv1.ResourceAttributes)
+	delegateUrls["/"] = getOpenShiftTokenReview(cr)
+	// FIXME don't ignore this error! We're far removed from the reconciler loop - we should return this
+	// error to the top so the reconciler can properly handle it
+	tokenReviewJson, _ := json.Marshal(delegateUrls)
+	args = append(args, fmt.Sprintf("--openshift-delegate-urls=%s", string(tokenReviewJson)))
 
 	volumeMounts := []corev1.VolumeMount{}
 	if isBasicAuthEnabled(cr) {
@@ -726,6 +736,41 @@ func NewOpenShiftAuthProxyContainer(cr *model.CryostatInstance, specs *ServiceSp
 		},
 		SecurityContext: containerSc,
 		Args:            args,
+	}
+}
+
+func isOpenShiftAuthProxyDisabled(cr *model.CryostatInstance) bool {
+	if cr.Spec.AuthorizationOptions != nil && cr.Spec.AuthorizationOptions.OpenShiftSsoRoles != nil && cr.Spec.AuthorizationOptions.OpenShiftSsoRoles.Disabled != nil {
+		return *cr.Spec.AuthorizationOptions.OpenShiftSsoRoles.Disabled
+	}
+	return false
+}
+
+func getOpenShiftSubjectAccessReviews(cr *model.CryostatInstance) []authzv1.ResourceAttributes {
+	if cr.Spec.AuthorizationOptions != nil && cr.Spec.AuthorizationOptions.OpenShiftSsoRoles != nil && cr.Spec.AuthorizationOptions.OpenShiftSsoRoles.SubjectAccessReview != nil {
+		return []authzv1.ResourceAttributes{*cr.Spec.AuthorizationOptions.OpenShiftSsoRoles.SubjectAccessReview}
+	}
+	return []authzv1.ResourceAttributes{
+		getDefaultOpenShiftAccessRole(cr),
+	}
+}
+
+func getOpenShiftTokenReview(cr *model.CryostatInstance) authzv1.ResourceAttributes {
+	if cr.Spec.AuthorizationOptions != nil && cr.Spec.AuthorizationOptions.OpenShiftSsoRoles != nil && cr.Spec.AuthorizationOptions.OpenShiftSsoRoles.TokenReview != nil {
+		return *cr.Spec.AuthorizationOptions.OpenShiftSsoRoles.TokenReview
+	}
+	return getDefaultOpenShiftAccessRole(cr)
+}
+
+func getDefaultOpenShiftAccessRole(cr *model.CryostatInstance) authzv1.ResourceAttributes {
+	return authzv1.ResourceAttributes{
+		Namespace:   cr.InstallNamespace,
+		Verb:        "create",
+		Group:       "",
+		Version:     "",
+		Resource:    "pods",
+		Subresource: "exec",
+		Name:        "",
 	}
 }
 
