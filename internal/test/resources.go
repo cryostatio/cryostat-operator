@@ -2111,6 +2111,27 @@ func (r *TestResources) newVolumes(certProjections []corev1.VolumeProjection) []
 			},
 		})
 
+	if !r.OpenShift {
+		readOnlyMode := int32(0440)
+		volumes = append(volumes, corev1.Volume{
+			Name: r.Name + "-oauth2-proxy-cfg",
+			VolumeSource: corev1.VolumeSource{
+				ConfigMap: &corev1.ConfigMapVolumeSource{
+					LocalObjectReference: corev1.LocalObjectReference{
+						Name: r.Name + "-oauth2-proxy-cfg",
+					},
+					Items: []corev1.KeyToPath{
+						{
+							Key:  "alpha_config.json",
+							Path: "alpha_config.json",
+							Mode: &readOnlyMode,
+						},
+					},
+				},
+			},
+		})
+	}
+
 	return volumes
 }
 
