@@ -487,11 +487,6 @@ type TemplateConfigMap struct {
 
 // Authorization options provide additional configurations for the auth proxy.
 type AuthorizationOptions struct {
-	// Disable OpenShift SSO integration and deploy an OAuth2 Proxy instance instead. If used without a Basic authentication
-	// secret then this will result in no authz checks performed for clients accessing Cryostat.
-	// +optional
-	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:com.tectonic.ui:booleanSwitch"}
-	DisableOpenShiftSSO *bool `json:"disableOpenShiftSso,omitempty"`
 	// Reference to a secret and file name containing the Basic authentication htpasswd file
 	// +optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:io.kubernetes:Secret"}

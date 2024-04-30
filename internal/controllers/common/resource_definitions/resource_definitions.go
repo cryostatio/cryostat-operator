@@ -1649,8 +1649,7 @@ func useEmptyDir(cr *model.CryostatInstance) bool {
 }
 
 func DeployOpenShiftOAuth(cr *model.CryostatInstance, deployedOnOpenShift bool) bool {
-	oauth2Requested := cr.Spec.AuthorizationOptions != nil && cr.Spec.AuthorizationOptions.DisableOpenShiftSSO != nil && *cr.Spec.AuthorizationOptions.DisableOpenShiftSSO
-	return deployedOnOpenShift && !oauth2Requested
+	return deployedOnOpenShift
 }
 
 func isBasicAuthEnabled(cr *model.CryostatInstance) bool {
