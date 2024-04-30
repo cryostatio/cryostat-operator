@@ -51,7 +51,7 @@ func (r *Reconciler) reconcileOAuth2ProxyCookieSecret(ctx context.Context, cr *m
 	}
 
 	if resources.DeployOpenShiftOAuth(cr, r.IsOpenShift) {
-		return r.Client.Delete(ctx, secret)
+		return r.deleteSecret(ctx, secret)
 	} else {
 		return r.createOrUpdateSecret(ctx, secret, cr.Object, func() error {
 			if secret.StringData == nil {

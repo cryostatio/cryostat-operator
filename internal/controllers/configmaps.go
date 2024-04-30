@@ -23,6 +23,7 @@ import (
 	"github.com/cryostatio/cryostat-operator/internal/controllers/constants"
 	"github.com/cryostatio/cryostat-operator/internal/controllers/model"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
@@ -37,22 +38,22 @@ func (r *Reconciler) reconcileLockConfigMap(ctx context.Context, cr *model.Cryos
 	return r.createOrUpdateConfigMap(ctx, cm, cr.Object)
 }
 
-type OAuth2ProxyAlphaConfig struct {
-	Server         AlphaConfigServer         `json:"server,omitempty"`
-	UpstreamConfig AlphaConfigUpstreamConfig `json:"upstreamConfig,omitempty"`
-	Providers      []AlphaConfigProvider     `json:"providers,omitempty"`
+type oauth2ProxyAlphaConfig struct {
+	Server         alphaConfigServer         `json:"server,omitempty"`
+	UpstreamConfig alphaConfigUpstreamConfig `json:"upstreamConfig,omitempty"`
+	Providers      []alphaConfigProvider     `json:"providers,omitempty"`
 }
 
-type AlphaConfigServer struct {
+type alphaConfigServer struct {
 	BindAddress string `json:"BindAddress,omitempty"`
 }
 
-type AlphaConfigUpstreamConfig struct {
+type alphaConfigUpstreamConfig struct {
 	ProxyRawPath bool                  `json:"proxyRawPath,omitempty"`
-	Upstreams    []AlphaConfigUpstream `json:"upstreams,omitempty"`
+	Upstreams    []alphaConfigUpstream `json:"upstreams,omitempty"`
 }
 
-type AlphaConfigProvider struct {
+type alphaConfigProvider struct {
 	Id           string `json:"id,omitempty"`
 	Name         string `json:"name,omitempty"`
 	ClientId     string `json:"clientId,omitempty"`
@@ -60,7 +61,7 @@ type AlphaConfigProvider struct {
 	Provider     string `json:"provider,omitempty"`
 }
 
-type AlphaConfigUpstream struct {
+type alphaConfigUpstream struct {
 	Id              string `json:"id,omitempty"`
 	Path            string `json:"path,omitempty"`
 	RewriteTarget   string `json:"rewriteTarget,omitempty"`
@@ -69,11 +70,11 @@ type AlphaConfigUpstream struct {
 	ProxyWebSockets bool   `json:"proxyWebSockets,omitempty"`
 }
 
-func (r *Reconciler) reconcileOauth2ProxyConfig(ctx context.Context, cr *model.CryostatInstance) error {
+func (r *Reconciler) reconcileOAuth2ProxyConfig(ctx context.Context, cr *model.CryostatInstance) error {
 	immutable := true
-	cfg := &OAuth2ProxyAlphaConfig{
-		Server: AlphaConfigServer{BindAddress: fmt.Sprintf("http://0.0.0.0:%d", constants.AuthProxyHttpContainerPort)},
-		UpstreamConfig: AlphaConfigUpstreamConfig{ProxyRawPath: true, Upstreams: []AlphaConfigUpstream{
+	cfg := &oauth2ProxyAlphaConfig{
+		Server: alphaConfigServer{BindAddress: fmt.Sprintf("http://0.0.0.0:%d", constants.AuthProxyHttpContainerPort)},
+		UpstreamConfig: alphaConfigUpstreamConfig{ProxyRawPath: true, Upstreams: []alphaConfigUpstream{
 			{
 				Id:   "cryostat",
 				Path: "/",
@@ -93,7 +94,7 @@ func (r *Reconciler) reconcileOauth2ProxyConfig(ctx context.Context, cr *model.C
 				ProxyWebSockets: false,
 			},
 		}},
-		Providers: []AlphaConfigProvider{{Id: "dummy", Name: "Unused - Sign In Below", ClientId: "CLIENT_ID", ClientSecret: "CLIENT_SECRET", Provider: "google"}},
+		Providers: []alphaConfigProvider{{Id: "dummy", Name: "Unused - Sign In Below", ClientId: "CLIENT_ID", ClientSecret: "CLIENT_SECRET", Provider: "google"}},
 	}
 
 	data := make(map[string]string)
@@ -112,7 +113,7 @@ func (r *Reconciler) reconcileOauth2ProxyConfig(ctx context.Context, cr *model.C
 	}
 
 	if resources.DeployOpenShiftOAuth(cr, r.IsOpenShift) {
-		return r.Client.Delete(ctx, cm)
+		return r.deleteConfigMap(ctx, cm)
 	} else {
 		return r.createOrUpdateConfigMap(ctx, cm, cr.Object)
 	}
@@ -130,5 +131,15 @@ func (r *Reconciler) createOrUpdateConfigMap(ctx context.Context, cm *corev1.Con
 		return err
 	}
 	r.Log.Info(fmt.Sprintf("Config Map %s", op), "name", cm.Name, "namespace", cm.Namespace)
+	return nil
+}
+
+func (r *Reconciler) deleteConfigMap(ctx context.Context, cm *corev1.ConfigMap) error {
+	err := r.Client.Delete(ctx, cm)
+	if err != nil && !errors.IsNotFound(err) {
+		r.Log.Error(err, "Could not delete ConfigMap", "name", cm.Name, "namespace", cm.Namespace)
+		return err
+	}
+	r.Log.Info("ConfigMap deleted", "name", cm.Name, "namespace", cm.Namespace)
 	return nil
 }

@@ -194,7 +194,7 @@ func (r *Reconciler) reconcileCryostat(ctx context.Context, cr *model.CryostatIn
 		return reconcile.Result{}, err
 	}
 
-	err = r.reconcileOauth2ProxyConfig(ctx, cr)
+	err = r.reconcileOAuth2ProxyConfig(ctx, cr)
 	if err != nil {
 		return reconcile.Result{}, err
 	}

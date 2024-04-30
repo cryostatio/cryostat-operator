@@ -66,7 +66,7 @@ type cryostatTestInput struct {
 func (c *controllerTest) commonBeforeEach() *cryostatTestInput {
 	t := &cryostatTestInput{
 		TestReconcilerConfig: test.TestReconcilerConfig{
-			GeneratedPasswords: []string{"grafana", "credentials_database", "encryption_key", "object_storage", "jmx", "keystore"},
+			GeneratedPasswords: []string{"grafana", "credentials_database", "encryption_key", "object_storage", "jmx", "keystore", "oauth2-cookie"},
 		},
 		TestResources: &test.TestResources{
 			Name:        "cryostat",
