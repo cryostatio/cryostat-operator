@@ -658,7 +658,6 @@ func NewOpenShiftAuthProxyContainer(cr *model.CryostatInstance, specs *ServiceSp
 		fmt.Sprintf("--upstream=http://localhost:%d/", constants.CryostatHTTPContainerPort),
 		fmt.Sprintf("--upstream=http://localhost:%d/grafana/", constants.GrafanaContainerPort),
 		fmt.Sprintf("--upstream=http://localhost:%d/storage/", constants.StoragePort),
-		"--cookie-secret=REPLACEME",
 		fmt.Sprintf("--openshift-service-account=%s", cr.Name),
 		"--proxy-websockets=true",
 		fmt.Sprintf("--http-address=0.0.0.0:%d", constants.AuthProxyHttpContainerPort),
@@ -697,6 +696,18 @@ func NewOpenShiftAuthProxyContainer(cr *model.CryostatInstance, specs *ServiceSp
 	args = append(args, "--https-address=")
 	// }
 
+	cookieOptional := false
+	envsFrom := []corev1.EnvFromSource{
+		{
+			SecretRef: &corev1.SecretEnvSource{
+				LocalObjectReference: corev1.LocalObjectReference{
+					Name: cr.Name + "-oauth2-cookie",
+				},
+				Optional: &cookieOptional,
+			},
+		},
+	}
+
 	return corev1.Container{
 		Name:            cr.Name + "-auth-proxy",
 		Image:           imageTag,
@@ -708,7 +719,7 @@ func NewOpenShiftAuthProxyContainer(cr *model.CryostatInstance, specs *ServiceSp
 			},
 		},
 		// Env:       envs,
-		// EnvFrom:   envsFrom,
+		EnvFrom:   envsFrom,
 		Resources: *NewAuthProxyContainerResource(cr),
 		LivenessProbe: &corev1.Probe{
 			ProbeHandler: probeHandler,
