@@ -749,14 +749,20 @@ func NewOAuth2ProxyContainer(cr *model.CryostatInstance, specs *ServiceSpecs, im
 			Value: fmt.Sprintf("http://localhost:%d/oauth2/callback", constants.AuthProxyHttpContainerPort),
 		},
 		{
-			// FIXME this should be generated and mounted from a secret
-			Name:  "OAUTH2_PROXY_COOKIE_SECRET",
-			Value: "__24_BYTE_COOKIE_SECRET_",
-		},
-		{
-			// FIXME this should be configurable from the AuthorizationOptions
 			Name:  "OAUTH2_PROXY_EMAIL_DOMAINS",
 			Value: "*",
+		},
+	}
+
+	cookieOptional := false
+	envsFrom := []corev1.EnvFromSource{
+		{
+			SecretRef: &corev1.SecretEnvSource{
+				LocalObjectReference: corev1.LocalObjectReference{
+					Name: cr.Name + "-oauth2-cookie",
+				},
+				Optional: &cookieOptional,
+			},
 		},
 	}
 
@@ -802,8 +808,8 @@ func NewOAuth2ProxyContainer(cr *model.CryostatInstance, specs *ServiceSpecs, im
 				ContainerPort: constants.AuthProxyHttpContainerPort,
 			},
 		},
-		Env: envs,
-		// EnvFrom:   envsFrom,
+		Env:       envs,
+		EnvFrom:   envsFrom,
 		Resources: *NewAuthProxyContainerResource(cr),
 		LivenessProbe: &corev1.Probe{
 			ProbeHandler: probeHandler,

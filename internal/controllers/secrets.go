@@ -18,6 +18,7 @@ import (
 	"context"
 	"fmt"
 
+	resources "github.com/cryostatio/cryostat-operator/internal/controllers/common/resource_definitions"
 	"github.com/cryostatio/cryostat-operator/internal/controllers/model"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -26,6 +27,9 @@ import (
 )
 
 func (r *Reconciler) reconcileSecrets(ctx context.Context, cr *model.CryostatInstance) error {
+	if err := r.reconcileOAuth2ProxyCookieSecret(ctx, cr); err != nil {
+		return err
+	}
 	if err := r.reconcileGrafanaSecret(ctx, cr); err != nil {
 		return err
 	}
@@ -36,6 +40,31 @@ func (r *Reconciler) reconcileSecrets(ctx context.Context, cr *model.CryostatIns
 		return err
 	}
 	return r.reconcileJMXSecret(ctx, cr)
+}
+
+func (r *Reconciler) reconcileOAuth2ProxyCookieSecret(ctx context.Context, cr *model.CryostatInstance) error {
+	secret := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      cr.Name + "-oauth2-cookie",
+			Namespace: cr.InstallNamespace,
+		},
+	}
+
+	if resources.DeployOpenShiftOAuth(cr, r.IsOpenShift) {
+		return r.Client.Delete(ctx, secret)
+	} else {
+		return r.createOrUpdateSecret(ctx, secret, cr.Object, func() error {
+			if secret.StringData == nil {
+				secret.StringData = map[string]string{}
+			}
+
+			// secret is generated, so don't regenerate it when updating
+			if secret.CreationTimestamp.IsZero() {
+				secret.StringData["OAUTH2_PROXY_COOKIE_SECRET"] = r.GenPasswd(32)
+			}
+			return nil
+		})
+	}
 }
 
 func (r *Reconciler) reconcileGrafanaSecret(ctx context.Context, cr *model.CryostatInstance) error {
