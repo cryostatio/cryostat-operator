@@ -79,6 +79,8 @@ const (
 	defaultGrafanaMemoryRequest       string = "120Mi"
 	defaultReportCpuRequest           string = "200m"
 	defaultReportMemoryRequest        string = "384Mi"
+	Oauth2ConfigFileName              string = "alpha_config.json"
+	Oauth2ConfigFilePath              string = "/etc/oauth2_proxy/alpha_config"
 )
 
 func NewDeploymentForCR(cr *model.CryostatInstance, specs *ServiceSpecs, imageTags *ImageTags,
@@ -350,8 +352,8 @@ func NewPodForCR(cr *model.CryostatInstance, specs *ServiceSpecs, imageTags *Ima
 					},
 					Items: []corev1.KeyToPath{
 						{
-							Key:  Oauth2ConfigFileName(cr),
-							Path: Oauth2ConfigFileName(cr),
+							Key:  Oauth2ConfigFileName,
+							Path: Oauth2ConfigFileName,
 							Mode: &readOnlyMode,
 						},
 					},
@@ -740,7 +742,7 @@ func NewOAuth2ProxyContainer(cr *model.CryostatInstance, specs *ServiceSpecs, im
 	}
 
 	args := []string{
-		fmt.Sprintf("--alpha-config=%s/%s", Oauth2ConfigFilePath(cr), Oauth2ConfigFileName(cr)),
+		fmt.Sprintf("--alpha-config=%s/%s", Oauth2ConfigFilePath, Oauth2ConfigFileName),
 	}
 
 	envs := []corev1.EnvVar{
@@ -769,7 +771,7 @@ func NewOAuth2ProxyContainer(cr *model.CryostatInstance, specs *ServiceSpecs, im
 	volumeMounts := []corev1.VolumeMount{
 		{
 			Name:      cr.Name + "-oauth2-proxy-cfg",
-			MountPath: Oauth2ConfigFilePath(cr),
+			MountPath: Oauth2ConfigFilePath,
 			ReadOnly:  true,
 		},
 	}
@@ -1644,16 +1646,6 @@ func newVolumeForCR(cr *model.CryostatInstance) []corev1.Volume {
 
 func useEmptyDir(cr *model.CryostatInstance) bool {
 	return cr.Spec.StorageOptions != nil && cr.Spec.StorageOptions.EmptyDir != nil && cr.Spec.StorageOptions.EmptyDir.Enabled
-}
-
-func Oauth2ConfigFileName(cr *model.CryostatInstance) string {
-	configFileName := "alpha_config.json"
-	return configFileName
-}
-
-func Oauth2ConfigFilePath(cr *model.CryostatInstance) string {
-	configFilePath := fmt.Sprintf("/etc/oauth2_proxy/alpha_config")
-	return configFilePath
 }
 
 func DeployOpenShiftOAuth(cr *model.CryostatInstance, deployedOnOpenShift bool) bool {
