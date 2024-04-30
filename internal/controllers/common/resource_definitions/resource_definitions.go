@@ -341,7 +341,7 @@ func NewPodForCR(cr *model.CryostatInstance, specs *ServiceSpecs, imageTags *Ima
 	}
 	volumes = append(volumes, certVolume)
 
-	if !DeployOpenShiftOAuth(cr, openshift) {
+	if !openshift {
 		// if not deploying openshift-oauth-proxy then we must be deploying oauth2_proxy instead
 		volumes = append(volumes, corev1.Volume{
 			Name: cr.Name + "-oauth2-proxy-cfg",
@@ -625,7 +625,7 @@ func NewAuthProxyContainerResource(cr *model.CryostatInstance) *corev1.ResourceR
 
 func NewAuthProxyContainer(cr *model.CryostatInstance, specs *ServiceSpecs, oauth2ProxyImageTag string, openshiftAuthProxyImageTag string,
 	tls *TLSConfig, openshift bool) corev1.Container {
-	if DeployOpenShiftOAuth(cr, openshift) {
+	if openshift {
 		return NewOpenShiftAuthProxyContainer(cr, specs, openshiftAuthProxyImageTag, tls)
 	}
 	return NewOAuth2ProxyContainer(cr, specs, oauth2ProxyImageTag, tls)
@@ -1646,10 +1646,6 @@ func newVolumeForCR(cr *model.CryostatInstance) []corev1.Volume {
 
 func useEmptyDir(cr *model.CryostatInstance) bool {
 	return cr.Spec.StorageOptions != nil && cr.Spec.StorageOptions.EmptyDir != nil && cr.Spec.StorageOptions.EmptyDir.Enabled
-}
-
-func DeployOpenShiftOAuth(cr *model.CryostatInstance, deployedOnOpenShift bool) bool {
-	return deployedOnOpenShift
 }
 
 func isBasicAuthEnabled(cr *model.CryostatInstance) bool {

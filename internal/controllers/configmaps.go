@@ -112,7 +112,7 @@ func (r *Reconciler) reconcileOAuth2ProxyConfig(ctx context.Context, cr *model.C
 		Data:      data,
 	}
 
-	if resources.DeployOpenShiftOAuth(cr, r.IsOpenShift) {
+	if r.IsOpenShift {
 		return r.deleteConfigMap(ctx, cm)
 	} else {
 		return r.createOrUpdateConfigMap(ctx, cm, cr.Object)

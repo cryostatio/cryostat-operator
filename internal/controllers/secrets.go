@@ -18,7 +18,6 @@ import (
 	"context"
 	"fmt"
 
-	resources "github.com/cryostatio/cryostat-operator/internal/controllers/common/resource_definitions"
 	"github.com/cryostatio/cryostat-operator/internal/controllers/model"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -50,7 +49,7 @@ func (r *Reconciler) reconcileOAuth2ProxyCookieSecret(ctx context.Context, cr *m
 		},
 	}
 
-	if resources.DeployOpenShiftOAuth(cr, r.IsOpenShift) {
+	if r.IsOpenShift {
 		return r.deleteSecret(ctx, secret)
 	} else {
 		return r.createOrUpdateSecret(ctx, secret, cr.Object, func() error {
