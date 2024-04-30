@@ -70,12 +70,6 @@ type AlphaConfigUpstream struct {
 }
 
 func (r *Reconciler) reconcileOauth2ProxyConfig(ctx context.Context, cr *model.CryostatInstance) error {
-	if resources.DeployOpenShiftOAuth(cr, r.IsOpenShift) {
-		// this is only needed when deploying oauth2_proxy, not when deploying openshift-oauth-proxy
-		// TODO detect the case where we previously deployed oauth2_proxy and are switching to
-		// openshift-oauth-proxy, so we need to delete the old config map
-		return nil
-	}
 	immutable := true
 	cfg := &OAuth2ProxyAlphaConfig{
 		Server: AlphaConfigServer{BindAddress: fmt.Sprintf("http://0.0.0.0:%d", constants.AuthProxyHttpContainerPort)},
@@ -116,7 +110,12 @@ func (r *Reconciler) reconcileOauth2ProxyConfig(ctx context.Context, cr *model.C
 		Immutable: &immutable,
 		Data:      data,
 	}
-	return r.createOrUpdateConfigMap(ctx, cm, cr.Object)
+
+	if resources.DeployOpenShiftOAuth(cr, r.IsOpenShift) {
+		return r.Client.Delete(ctx, cm)
+	} else {
+		return r.createOrUpdateConfigMap(ctx, cm, cr.Object)
+	}
 }
 
 func (r *Reconciler) createOrUpdateConfigMap(ctx context.Context, cm *corev1.ConfigMap, owner metav1.Object) error {
