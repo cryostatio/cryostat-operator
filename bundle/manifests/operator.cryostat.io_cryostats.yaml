@@ -5165,6 +5165,12 @@ spec:
                         description: Name of the secret to reference.
                         type: string
                     type: object
+                  disableOpenShiftSso:
+                    description: Disable OpenShift SSO integration and deploy an OAuth2
+                      Proxy instance instead. If used without a Basic authentication
+                      secret then this will result in no authz checks performed for
+                      clients accessing Cryostat.
+                    type: boolean
                 type: object
               enableCertManager:
                 description: Use cert-manager to secure in-cluster communication between

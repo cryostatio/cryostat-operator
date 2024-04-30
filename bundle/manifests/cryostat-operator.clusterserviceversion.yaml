@@ -53,7 +53,7 @@ metadata:
     capabilities: Seamless Upgrades
     categories: Monitoring, Developer Tools
     containerImage: quay.io/cryostat/cryostat-operator:3.0.0-dev
-    createdAt: "2024-04-26T21:51:07Z"
+    createdAt: "2024-04-30T16:17:11Z"
     description: JVM monitoring and profiling tool
     operatorframework.io/initialization-resource: |-
       {
@@ -574,6 +574,13 @@ spec:
         path: authorizationOptions.basicAuth.secretName
         x-descriptors:
         - urn:alm:descriptor:io.kubernetes:Secret
+      - description: Disable OpenShift SSO integration and deploy an OAuth2 Proxy
+          instance instead. If used without a Basic authentication secret then this
+          will result in no authz checks performed for clients accessing Cryostat.
+        displayName: Disable Open Shift SSO
+        path: authorizationOptions.disableOpenShiftSso
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:booleanSwitch
       - description: List of Flight Recorder Event Templates to preconfigure in Cryostat.
         displayName: Event Templates
         path: eventTemplates

@@ -339,10 +339,31 @@ func NewPodForCR(cr *model.CryostatInstance, specs *ServiceSpecs, imageTags *Ima
 	}
 	volumes = append(volumes, certVolume)
 
+	if !DeployOpenShiftOAuth(cr, openshift) {
+		// if not deploying openshift-oauth-proxy then we must be deploying oauth2_proxy instead
+		volumes = append(volumes, corev1.Volume{
+			Name: cr.Name + "-oauth2-proxy-cfg",
+			VolumeSource: corev1.VolumeSource{
+				ConfigMap: &corev1.ConfigMapVolumeSource{
+					LocalObjectReference: corev1.LocalObjectReference{
+						Name: cr.Name + "-oauth2-proxy-cfg",
+					},
+					Items: []corev1.KeyToPath{
+						{
+							Key:  Oauth2ConfigFileName(cr),
+							Path: Oauth2ConfigFileName(cr),
+							Mode: &readOnlyMode,
+						},
+					},
+				},
+			},
+		})
+	}
+
 	if isBasicAuthEnabled(cr) {
 		volumes = append(volumes,
 			corev1.Volume{
-				Name: "auth-proxy-htpasswd",
+				Name: cr.Name + "-auth-proxy-htpasswd",
 				VolumeSource: corev1.VolumeSource{
 					Secret: &corev1.SecretVolumeSource{
 						SecretName: *cr.Spec.AuthorizationOptions.BasicAuth.SecretName,
@@ -602,10 +623,10 @@ func NewAuthProxyContainerResource(cr *model.CryostatInstance) *corev1.ResourceR
 
 func NewAuthProxyContainer(cr *model.CryostatInstance, specs *ServiceSpecs, oauth2ProxyImageTag string, openshiftAuthProxyImageTag string,
 	tls *TLSConfig, openshift bool) corev1.Container {
-	// if (openshift) {
-	return NewOpenShiftAuthProxyContainer(cr, specs, openshiftAuthProxyImageTag, tls)
-	// }
-	// return NewOAuth2ProxyContainer(cr, specs, oauth2ProxyImageTag, tls)
+	if DeployOpenShiftOAuth(cr, openshift) {
+		return NewOpenShiftAuthProxyContainer(cr, specs, openshiftAuthProxyImageTag, tls)
+	}
+	return NewOAuth2ProxyContainer(cr, specs, oauth2ProxyImageTag, tls)
 }
 
 func NewOpenShiftAuthProxyContainer(cr *model.CryostatInstance, specs *ServiceSpecs, imageTag string,
@@ -653,9 +674,9 @@ func NewOpenShiftAuthProxyContainer(cr *model.CryostatInstance, specs *ServiceSp
 
 	volumeMounts := []corev1.VolumeMount{}
 	if isBasicAuthEnabled(cr) {
-		mountPath := fmt.Sprintf("/var/run/secrets/operator.cryostat.io/%s", *cr.Spec.AuthorizationOptions.BasicAuth.SecretName)
+		mountPath := "/var/run/secrets/operator.cryostat.io"
 		volumeMounts = append(volumeMounts, corev1.VolumeMount{
-			Name:      "auth-proxy-htpasswd",
+			Name:      cr.Name + "-auth-proxy-htpasswd",
 			MountPath: mountPath,
 			ReadOnly:  true,
 		})
@@ -695,10 +716,102 @@ func NewOpenShiftAuthProxyContainer(cr *model.CryostatInstance, specs *ServiceSp
 	}
 }
 
-// func NewOAuth2ProxyContainer(cr *model.CryostatInstance, specs *ServiceSpecs, imageTag string,
-// tls *TLSConfig) corev1.Container {
+func NewOAuth2ProxyContainer(cr *model.CryostatInstance, specs *ServiceSpecs, imageTag string,
+	tls *TLSConfig) corev1.Container {
+	var containerSc *corev1.SecurityContext
+	if cr.Spec.SecurityOptions != nil && cr.Spec.SecurityOptions.AuthProxySecurityContext != nil {
+		containerSc = cr.Spec.SecurityOptions.AuthProxySecurityContext
+	} else {
+		privEscalation := false
+		containerSc = &corev1.SecurityContext{
+			AllowPrivilegeEscalation: &privEscalation,
+			Capabilities: &corev1.Capabilities{
+				Drop: []corev1.Capability{constants.CapabilityAll},
+			},
+		}
+	}
 
-// }
+	probeHandler := corev1.ProbeHandler{
+		HTTPGet: &corev1.HTTPGetAction{
+			Port:   intstr.IntOrString{IntVal: constants.AuthProxyHttpContainerPort},
+			Path:   "/ping",
+			Scheme: corev1.URISchemeHTTP,
+		},
+	}
+
+	args := []string{
+		fmt.Sprintf("--alpha-config=%s/%s", Oauth2ConfigFilePath(cr), Oauth2ConfigFileName(cr)),
+	}
+
+	envs := []corev1.EnvVar{
+		{
+			Name:  "OAUTH2_PROXY_REDIRECT_URL",
+			Value: fmt.Sprintf("http://localhost:%d/oauth2/callback", constants.AuthProxyHttpContainerPort),
+		},
+		{
+			// FIXME this should be generated and mounted from a secret
+			Name:  "OAUTH2_PROXY_COOKIE_SECRET",
+			Value: "__24_BYTE_COOKIE_SECRET_",
+		},
+		{
+			// FIXME this should be configurable from the AuthorizationOptions
+			Name:  "OAUTH2_PROXY_EMAIL_DOMAINS",
+			Value: "*",
+		},
+	}
+
+	volumeMounts := []corev1.VolumeMount{
+		{
+			Name:      cr.Name + "-oauth2-proxy-cfg",
+			MountPath: Oauth2ConfigFilePath(cr),
+			ReadOnly:  true,
+		},
+	}
+
+	if isBasicAuthEnabled(cr) {
+		mountPath := "/var/run/secrets/operator.cryostat.io"
+		volumeMounts = append(volumeMounts, corev1.VolumeMount{
+			Name:      cr.Name + "-auth-proxy-htpasswd",
+			MountPath: mountPath,
+			ReadOnly:  true,
+		})
+		envs = append(envs, []corev1.EnvVar{
+			{
+				Name:  "OAUTH2_PROXY_HTPASSWD_FILE",
+				Value: mountPath + "/" + *cr.Spec.AuthorizationOptions.BasicAuth.Filename,
+			},
+			{
+				Name:  "OAUTH2_PROXY_HTPASSWD_USER_GROUP",
+				Value: "write",
+			},
+		}...)
+	} else {
+		envs = append(envs, corev1.EnvVar{
+			Name:  "OAUTH2_PROXY_SKIP_AUTH_ROUTES",
+			Value: ".*",
+		})
+	}
+
+	return corev1.Container{
+		Name:            cr.Name + "-auth-proxy",
+		Image:           imageTag,
+		ImagePullPolicy: getPullPolicy(imageTag),
+		VolumeMounts:    volumeMounts,
+		Ports: []corev1.ContainerPort{
+			{
+				ContainerPort: constants.AuthProxyHttpContainerPort,
+			},
+		},
+		Env: envs,
+		// EnvFrom:   envsFrom,
+		Resources: *NewAuthProxyContainerResource(cr),
+		LivenessProbe: &corev1.Probe{
+			ProbeHandler: probeHandler,
+		},
+		SecurityContext: containerSc,
+		Args:            args,
+	}
+}
 
 func NewCoreContainerResource(cr *model.CryostatInstance) *corev1.ResourceRequirements {
 	resources := &corev1.ResourceRequirements{}
@@ -1525,6 +1638,21 @@ func newVolumeForCR(cr *model.CryostatInstance) []corev1.Volume {
 
 func useEmptyDir(cr *model.CryostatInstance) bool {
 	return cr.Spec.StorageOptions != nil && cr.Spec.StorageOptions.EmptyDir != nil && cr.Spec.StorageOptions.EmptyDir.Enabled
+}
+
+func Oauth2ConfigFileName(cr *model.CryostatInstance) string {
+	configFileName := "alpha_config.json"
+	return configFileName
+}
+
+func Oauth2ConfigFilePath(cr *model.CryostatInstance) string {
+	configFilePath := fmt.Sprintf("/etc/oauth2_proxy/alpha_config")
+	return configFilePath
+}
+
+func DeployOpenShiftOAuth(cr *model.CryostatInstance, deployedOnOpenShift bool) bool {
+	oauth2Requested := cr.Spec.AuthorizationOptions != nil && cr.Spec.AuthorizationOptions.DisableOpenShiftSSO != nil && *cr.Spec.AuthorizationOptions.DisableOpenShiftSSO
+	return deployedOnOpenShift && !oauth2Requested
 }
 
 func isBasicAuthEnabled(cr *model.CryostatInstance) bool {
