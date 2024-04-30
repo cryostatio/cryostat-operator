@@ -101,7 +101,7 @@ func (r *Reconciler) reconcileOauth2ProxyConfig(ctx context.Context, cr *model.C
 	if err != nil {
 		return err
 	}
-	data[resources.Oauth2ConfigFileName] = string(json)
+	data[resources.OAuth2ConfigFileName] = string(json)
 	cm := &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      cr.Name + "-oauth2-proxy-cfg",

@@ -79,8 +79,8 @@ const (
 	defaultGrafanaMemoryRequest       string = "120Mi"
 	defaultReportCpuRequest           string = "200m"
 	defaultReportMemoryRequest        string = "384Mi"
-	Oauth2ConfigFileName              string = "alpha_config.json"
-	Oauth2ConfigFilePath              string = "/etc/oauth2_proxy/alpha_config"
+	OAuth2ConfigFileName              string = "alpha_config.json"
+	OAuth2ConfigFilePath              string = "/etc/oauth2_proxy/alpha_config"
 )
 
 func NewDeploymentForCR(cr *model.CryostatInstance, specs *ServiceSpecs, imageTags *ImageTags,
@@ -352,8 +352,8 @@ func NewPodForCR(cr *model.CryostatInstance, specs *ServiceSpecs, imageTags *Ima
 					},
 					Items: []corev1.KeyToPath{
 						{
-							Key:  Oauth2ConfigFileName,
-							Path: Oauth2ConfigFileName,
+							Key:  OAuth2ConfigFileName,
+							Path: OAuth2ConfigFileName,
 							Mode: &readOnlyMode,
 						},
 					},
@@ -742,7 +742,7 @@ func NewOAuth2ProxyContainer(cr *model.CryostatInstance, specs *ServiceSpecs, im
 	}
 
 	args := []string{
-		fmt.Sprintf("--alpha-config=%s/%s", Oauth2ConfigFilePath, Oauth2ConfigFileName),
+		fmt.Sprintf("--alpha-config=%s/%s", OAuth2ConfigFilePath, OAuth2ConfigFileName),
 	}
 
 	envs := []corev1.EnvVar{
@@ -771,7 +771,7 @@ func NewOAuth2ProxyContainer(cr *model.CryostatInstance, specs *ServiceSpecs, im
 	volumeMounts := []corev1.VolumeMount{
 		{
 			Name:      cr.Name + "-oauth2-proxy-cfg",
-			MountPath: Oauth2ConfigFilePath,
+			MountPath: OAuth2ConfigFilePath,
 			ReadOnly:  true,
 		},
 	}
