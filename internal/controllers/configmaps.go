@@ -77,25 +77,24 @@ func (r *Reconciler) reconcileOauth2ProxyConfig(ctx context.Context, cr *model.C
 		return nil
 	}
 	immutable := true
-
 	cfg := &OAuth2ProxyAlphaConfig{
 		Server: AlphaConfigServer{BindAddress: fmt.Sprintf("http://0.0.0.0:%d", constants.AuthProxyHttpContainerPort)},
 		UpstreamConfig: AlphaConfigUpstreamConfig{ProxyRawPath: true, Upstreams: []AlphaConfigUpstream{
 			{
 				Id:   "cryostat",
 				Path: "/",
-				Uri:  "http://localhost:8181",
+				Uri:  fmt.Sprintf("http://localhost:%d", constants.CryostatHTTPContainerPort),
 			},
 			{
 				Id:   "grafana",
 				Path: "/grafana/",
-				Uri:  "http://localhost:3000",
+				Uri:  fmt.Sprintf("http://localhost:%d", constants.GrafanaContainerPort),
 			},
 			{
 				Id:              "storage",
 				Path:            "^/storage/(.*)$",
 				RewriteTarget:   "/$1",
-				Uri:             "http://localhost:8333",
+				Uri:             fmt.Sprintf("http://localhost:%d", constants.StoragePort),
 				PassHostHeader:  false,
 				ProxyWebSockets: false,
 			},
