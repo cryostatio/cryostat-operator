@@ -647,7 +647,7 @@ func NewOpenShiftAuthProxyContainer(cr *model.CryostatInstance, specs *ServiceSp
 	probeHandler := corev1.ProbeHandler{
 		HTTPGet: &corev1.HTTPGetAction{
 			Port:   intstr.IntOrString{IntVal: constants.AuthProxyHttpContainerPort},
-			Path:   "/ping",
+			Path:   "/oauth/healthz",
 			Scheme: corev1.URISchemeHTTP,
 		},
 	}
