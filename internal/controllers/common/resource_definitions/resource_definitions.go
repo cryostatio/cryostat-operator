@@ -988,14 +988,6 @@ func NewCoreContainer(cr *model.CryostatInstance, specs *ServiceSpecs, imageTag 
 			Name:  "CRYOSTAT_ENABLE_JDP_BROADCAST",
 			Value: "false",
 		},
-		{
-			Name:  "CRYOSTAT_DISCOVERY_KUBERNETES_ENABLED",
-			Value: "true",
-		},
-		{
-			Name:  "CRYOSTAT_DISCOVERY_KUBERNETES_NAMESPACES",
-			Value: strings.Join(cr.TargetNamespaces, ","),
-		},
 	}
 
 	mounts := []corev1.VolumeMount{
@@ -1116,7 +1108,6 @@ func NewCoreContainer(cr *model.CryostatInstance, specs *ServiceSpecs, imageTag 
 	targetCacheSize := "-1"
 	targetCacheTTL := "10"
 	if cr.Spec.JmxCacheOptions != nil {
-
 		if cr.Spec.JmxCacheOptions.TargetCacheSize != 0 {
 			targetCacheSize = strconv.Itoa(int(cr.Spec.JmxCacheOptions.TargetCacheSize))
 		}
@@ -1146,37 +1137,43 @@ func NewCoreContainer(cr *model.CryostatInstance, specs *ServiceSpecs, imageTag 
 		},
 	}
 
+	k8sDiscoveryEnabled := true
+	k8sDiscoveryPortNames := "jfr-jmx"
+	k8sDiscoveryPortNumbers := "9091"
 	if cr.Spec.TargetDiscoveryOptions != nil {
-		var portNames string
+		k8sDiscoveryEnabled = !cr.Spec.TargetDiscoveryOptions.BuiltInDiscoveryDisabled
+
 		if len(cr.Spec.TargetDiscoveryOptions.DiscoveryPortNames) > 0 {
-			portNames = strings.Join(cr.Spec.TargetDiscoveryOptions.DiscoveryPortNames[:], ",")
+			k8sDiscoveryPortNames = strings.Join(cr.Spec.TargetDiscoveryOptions.DiscoveryPortNames[:], ",")
 		} else if cr.Spec.TargetDiscoveryOptions.DisableBuiltInPortNames {
-			portNames = "-"
-		}
-		if len(portNames) > 0 {
-			envs = append(envs,
-				corev1.EnvVar{
-					Name:  "CRYOSTAT_DISCOVERY_K8S_PORT_NAMES",
-					Value: portNames,
-				},
-			)
+			k8sDiscoveryPortNames = ""
 		}
 
-		portNumbers := ""
 		if len(cr.Spec.TargetDiscoveryOptions.DiscoveryPortNumbers) > 0 {
-			portNumbers = strings.Trim(strings.ReplaceAll(fmt.Sprint(cr.Spec.TargetDiscoveryOptions.DiscoveryPortNumbers), " ", ","), "[]")
+			k8sDiscoveryPortNumbers = strings.Trim(strings.ReplaceAll(fmt.Sprint(cr.Spec.TargetDiscoveryOptions.DiscoveryPortNumbers), " ", ","), "[]")
 		} else if cr.Spec.TargetDiscoveryOptions.DisableBuiltInPortNumbers {
-			portNumbers = "0"
-		}
-		if len(portNumbers) > 0 {
-			envs = append(envs,
-				corev1.EnvVar{
-					Name:  "CRYOSTAT_DISCOVERY_K8S_PORT_NUMBERS",
-					Value: portNumbers,
-				},
-			)
+			k8sDiscoveryPortNumbers = ""
 		}
 	}
+	envs = append(envs, []corev1.EnvVar{
+		{
+			Name:  "CRYOSTAT_DISCOVERY_KUBERNETES_ENABLED",
+			Value: fmt.Sprintf("%t", k8sDiscoveryEnabled),
+		},
+		{
+			Name:  "CRYOSTAT_DISCOVERY_KUBERNETES_NAMESPACES",
+			Value: strings.Join(cr.TargetNamespaces, ","),
+		},
+		{
+			Name:  "CRYOSTAT_DISCOVERY_KUBERNETES_PORT_NAMES",
+			Value: k8sDiscoveryPortNames,
+		},
+		{
+			Name:  "CRYOSTAT_DISCOVERY_KUBERNETES_PORT_NUMBERS",
+			Value: k8sDiscoveryPortNumbers,
+		},
+	}...,
+	)
 
 	grafanaVars := []corev1.EnvVar{
 		{

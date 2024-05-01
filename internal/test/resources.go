@@ -1290,7 +1290,7 @@ func (r *TestResources) NewStoragePorts() []corev1.ContainerPort {
 }
 
 func (r *TestResources) NewCoreEnvironmentVariables(reportsUrl string, authProps bool, ingress bool,
-	emptyDir bool, hasPortConfig bool, builtInPortConfigDisabled bool, dbSecretProvided bool) []corev1.EnvVar {
+	emptyDir bool, hasPortConfig bool, builtInDiscoveryDisabled bool, builtInPortConfigDisabled bool, dbSecretProvided bool) []corev1.EnvVar {
 	envs := []corev1.EnvVar{
 		{
 			Name:  "QUARKUS_HTTP_HOST",
@@ -1389,10 +1389,6 @@ func (r *TestResources) NewCoreEnvironmentVariables(reportsUrl string, authProps
 			Value: "10",
 		},
 		{
-			Name:  "CRYOSTAT_DISCOVERY_KUBERNETES_ENABLED",
-			Value: "true",
-		},
-		{
 			Name:  "CRYOSTAT_DISCOVERY_KUBERNETES_NAMESPACES",
 			Value: strings.Join(r.TargetNamespaces, ","),
 		},
@@ -1410,7 +1406,7 @@ func (r *TestResources) NewCoreEnvironmentVariables(reportsUrl string, authProps
 		},
 	}
 
-	envs = append(envs, r.NewTargetDiscoveryEnvVar(hasPortConfig, builtInPortConfigDisabled)...)
+	envs = append(envs, r.NewTargetDiscoveryEnvVars(hasPortConfig, builtInDiscoveryDisabled, builtInPortConfigDisabled)...)
 
 	optional := false
 	secretName := r.NewDatabaseSecret().Name
@@ -1673,29 +1669,45 @@ func (r *TestResources) NewJmxCacheOptionsEnv() []corev1.EnvVar {
 	}
 }
 
-func (r *TestResources) NewTargetDiscoveryEnvVar(hasPortConfig bool, builtInPortConfigDisabled bool) []corev1.EnvVar {
-	envs := make([]corev1.EnvVar, 0)
+func (r *TestResources) NewTargetDiscoveryEnvVars(hasPortConfig bool, builtInDiscoveryDisabled bool, builtInPortConfigDisabled bool) []corev1.EnvVar {
+	envs := []corev1.EnvVar{
+		{
+			Name:  "CRYOSTAT_DISCOVERY_KUBERNETES_ENABLED",
+			Value: fmt.Sprintf("%t", !builtInDiscoveryDisabled),
+		},
+	}
 
 	if hasPortConfig {
 		envs = append(envs,
 			corev1.EnvVar{
-				Name:  "CRYOSTAT_DISCOVERY_K8S_PORT_NAMES",
+				Name:  "CRYOSTAT_DISCOVERY_KUBERNETES_PORT_NAMES",
 				Value: "custom-port-name,another-custom-port-name",
 			},
 			corev1.EnvVar{
-				Name:  "CRYOSTAT_DISCOVERY_K8S_PORT_NUMBERS",
+				Name:  "CRYOSTAT_DISCOVERY_KUBERNETES_PORT_NUMBERS",
 				Value: "9092,9090",
 			},
 		)
 	} else if builtInPortConfigDisabled {
 		envs = append(envs,
 			corev1.EnvVar{
-				Name:  "CRYOSTAT_DISCOVERY_K8S_PORT_NAMES",
-				Value: "-",
+				Name:  "CRYOSTAT_DISCOVERY_KUBERNETES_PORT_NAMES",
+				Value: "",
 			},
 			corev1.EnvVar{
-				Name:  "CRYOSTAT_DISCOVERY_K8S_PORT_NUMBERS",
-				Value: "0",
+				Name:  "CRYOSTAT_DISCOVERY_KUBERNETES_PORT_NUMBERS",
+				Value: "",
+			},
+		)
+	} else {
+		envs = append(envs,
+			corev1.EnvVar{
+				Name:  "CRYOSTAT_DISCOVERY_KUBERNETES_PORT_NAMES",
+				Value: "jfr-jmx",
+			},
+			corev1.EnvVar{
+				Name:  "CRYOSTAT_DISCOVERY_KUBERNETES_PORT_NUMBERS",
+				Value: "9091",
 			},
 		)
 	}
