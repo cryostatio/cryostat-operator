@@ -86,7 +86,7 @@ const (
 )
 
 func NewDeploymentForCR(cr *model.CryostatInstance, specs *ServiceSpecs, imageTags *ImageTags,
-	tls *TLSConfig, fsGroup int64, openshift bool) *appsv1.Deployment {
+	tls *TLSConfig, fsGroup int64, openshift bool) (*appsv1.Deployment, error) {
 	// Force one replica to avoid lock file and PVC contention
 	replicas := int32(1)
 
@@ -144,6 +144,10 @@ func NewDeploymentForCR(cr *model.CryostatInstance, specs *ServiceSpecs, imageTa
 	}
 	common.MergeLabelsAndAnnotations(&podTemplateMeta, defaultPodLabels, nil)
 
+	pod, err := NewPodForCR(cr, specs, imageTags, tls, fsGroup, openshift)
+	if err != nil {
+		return nil, err
+	}
 	return &appsv1.Deployment{
 		ObjectMeta: deploymentMeta,
 		Spec: appsv1.DeploymentSpec{
@@ -157,14 +161,14 @@ func NewDeploymentForCR(cr *model.CryostatInstance, specs *ServiceSpecs, imageTa
 			},
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: podTemplateMeta,
-				Spec:       *NewPodForCR(cr, specs, imageTags, tls, fsGroup, openshift),
+				Spec:       *pod,
 			},
 			Replicas: &replicas,
 			Strategy: appsv1.DeploymentStrategy{
 				Type: appsv1.RecreateDeploymentStrategyType,
 			},
 		},
-	}
+	}, nil
 }
 
 func NewDeploymentForReports(cr *model.CryostatInstance, imageTags *ImageTags, tls *TLSConfig,
@@ -249,14 +253,18 @@ func NewDeploymentForReports(cr *model.CryostatInstance, imageTags *ImageTags, t
 }
 
 func NewPodForCR(cr *model.CryostatInstance, specs *ServiceSpecs, imageTags *ImageTags,
-	tls *TLSConfig, fsGroup int64, openshift bool) *corev1.PodSpec {
+	tls *TLSConfig, fsGroup int64, openshift bool) (*corev1.PodSpec, error) {
+	authProxy, err := NewAuthProxyContainer(cr, specs, imageTags.OAuth2ProxyImageTag, imageTags.OpenShiftOAuthProxyImageTag, tls, openshift)
+	if err != nil {
+		return nil, err
+	}
 	containers := []corev1.Container{
 		NewCoreContainer(cr, specs, imageTags.CoreImageTag, tls, openshift),
 		NewGrafanaContainer(cr, imageTags.GrafanaImageTag, tls),
 		NewJfrDatasourceContainer(cr, imageTags.DatasourceImageTag),
 		NewStorageContainer(cr, imageTags.StorageImageTag, tls),
 		newDatabaseContainer(cr, imageTags.DatabaseImageTag, tls),
-		NewAuthProxyContainer(cr, specs, imageTags.OAuth2ProxyImageTag, imageTags.OpenShiftOAuthProxyImageTag, tls, openshift),
+		*authProxy,
 	}
 
 	volumes := newVolumeForCR(cr)
@@ -450,7 +458,7 @@ func NewPodForCR(cr *model.CryostatInstance, specs *ServiceSpecs, imageTags *Ima
 		NodeSelector:                 nodeSelector,
 		Affinity:                     affinity,
 		Tolerations:                  tolerations,
-	}
+	}, nil
 }
 
 func NewReportContainerResource(cr *model.CryostatInstance) *corev1.ResourceRequirements {
@@ -626,7 +634,7 @@ func NewAuthProxyContainerResource(cr *model.CryostatInstance) *corev1.ResourceR
 }
 
 func NewAuthProxyContainer(cr *model.CryostatInstance, specs *ServiceSpecs, oauth2ProxyImageTag string, openshiftAuthProxyImageTag string,
-	tls *TLSConfig, openshift bool) corev1.Container {
+	tls *TLSConfig, openshift bool) (*corev1.Container, error) {
 	if openshift {
 		return NewOpenShiftAuthProxyContainer(cr, specs, openshiftAuthProxyImageTag, tls)
 	}
@@ -634,7 +642,7 @@ func NewAuthProxyContainer(cr *model.CryostatInstance, specs *ServiceSpecs, oaut
 }
 
 func NewOpenShiftAuthProxyContainer(cr *model.CryostatInstance, specs *ServiceSpecs, imageTag string,
-	tls *TLSConfig) corev1.Container {
+	tls *TLSConfig) (*corev1.Container, error) {
 	var containerSc *corev1.SecurityContext
 	if cr.Spec.SecurityOptions != nil && cr.Spec.SecurityOptions.AuthProxySecurityContext != nil {
 		containerSc = cr.Spec.SecurityOptions.AuthProxySecurityContext
@@ -671,16 +679,18 @@ func NewOpenShiftAuthProxyContainer(cr *model.CryostatInstance, specs *ServiceSp
 		args = append(args, "--bypass-auth-for=^/health")
 	}
 
-	// FIXME don't ignore this error! We're far removed from the reconciler loop - we should return this
-	// error to the top so the reconciler can properly handle it
-	subjectAccessReviewJson, _ := json.Marshal(getOpenShiftSubjectAccessReviews(cr))
+	subjectAccessReviewJson, err := json.Marshal(getOpenShiftSubjectAccessReviews(cr))
+	if err != nil {
+		return nil, err
+	}
 	args = append(args, fmt.Sprintf("--openshift-sar=%s", string(subjectAccessReviewJson)))
 
 	delegateUrls := make(map[string]authzv1.ResourceAttributes)
 	delegateUrls["/"] = getOpenShiftTokenReview(cr)
-	// FIXME don't ignore this error! We're far removed from the reconciler loop - we should return this
-	// error to the top so the reconciler can properly handle it
-	tokenReviewJson, _ := json.Marshal(delegateUrls)
+	tokenReviewJson, err := json.Marshal(delegateUrls)
+	if err != nil {
+		return nil, err
+	}
 	args = append(args, fmt.Sprintf("--openshift-delegate-urls=%s", string(tokenReviewJson)))
 
 	volumeMounts := []corev1.VolumeMount{}
@@ -718,7 +728,7 @@ func NewOpenShiftAuthProxyContainer(cr *model.CryostatInstance, specs *ServiceSp
 		},
 	}
 
-	return corev1.Container{
+	return &corev1.Container{
 		Name:            cr.Name + "-auth-proxy",
 		Image:           imageTag,
 		ImagePullPolicy: getPullPolicy(imageTag),
@@ -736,7 +746,7 @@ func NewOpenShiftAuthProxyContainer(cr *model.CryostatInstance, specs *ServiceSp
 		},
 		SecurityContext: containerSc,
 		Args:            args,
-	}
+	}, nil
 }
 
 func isOpenShiftAuthProxyDisabled(cr *model.CryostatInstance) bool {
@@ -775,7 +785,7 @@ func getDefaultOpenShiftAccessRole(cr *model.CryostatInstance) authzv1.ResourceA
 }
 
 func NewOAuth2ProxyContainer(cr *model.CryostatInstance, specs *ServiceSpecs, imageTag string,
-	tls *TLSConfig) corev1.Container {
+	tls *TLSConfig) (*corev1.Container, error) {
 	var containerSc *corev1.SecurityContext
 	if cr.Spec.SecurityOptions != nil && cr.Spec.SecurityOptions.AuthProxySecurityContext != nil {
 		containerSc = cr.Spec.SecurityOptions.AuthProxySecurityContext
@@ -856,7 +866,7 @@ func NewOAuth2ProxyContainer(cr *model.CryostatInstance, specs *ServiceSpecs, im
 		})
 	}
 
-	return corev1.Container{
+	return &corev1.Container{
 		Name:            cr.Name + "-auth-proxy",
 		Image:           imageTag,
 		ImagePullPolicy: getPullPolicy(imageTag),
@@ -874,7 +884,7 @@ func NewOAuth2ProxyContainer(cr *model.CryostatInstance, specs *ServiceSpecs, im
 		},
 		SecurityContext: containerSc,
 		Args:            args,
-	}
+	}, nil
 }
 
 func NewCoreContainerResource(cr *model.CryostatInstance) *corev1.ResourceRequirements {
