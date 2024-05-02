@@ -750,8 +750,8 @@ func NewOpenShiftAuthProxyContainer(cr *model.CryostatInstance, specs *ServiceSp
 }
 
 func isOpenShiftAuthProxyDisabled(cr *model.CryostatInstance) bool {
-	if cr.Spec.AuthorizationOptions != nil && cr.Spec.AuthorizationOptions.OpenShiftSSO != nil && cr.Spec.AuthorizationOptions.OpenShiftSSO.Disabled != nil {
-		return *cr.Spec.AuthorizationOptions.OpenShiftSSO.Disabled
+	if cr.Spec.AuthorizationOptions != nil && cr.Spec.AuthorizationOptions.OpenShiftSSO != nil && cr.Spec.AuthorizationOptions.OpenShiftSSO.Disable != nil {
+		return *cr.Spec.AuthorizationOptions.OpenShiftSSO.Disable
 	}
 	return false
 }

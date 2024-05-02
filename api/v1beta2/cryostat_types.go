@@ -505,7 +505,7 @@ type OpenShiftSSOConfig struct {
 	// will also bypass the BasicAuth, if specified.
 	// +optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Disable OpenShift SSO",xDescriptors={"urn:alm:descriptor:com.tectonic.ui:booleanSwitch"}
-	Disabled *bool `json:"disabled,omitempty"`
+	Disable *bool `json:"disable,omitempty"`
 	// The SubjectAccessReview that interactive clients (users visiting the application via web browser) must pass in
 	// order to access the application. If not specified, the default role required is "create pods/exec" in the Cryostat
 	// application's installation namespace.

@@ -130,7 +130,7 @@ spec:
           the application without authentication. This will also bypass the BasicAuth,
           if specified.
         displayName: Disable OpenShift SSO
-        path: authorizationOptions.openShiftSSO.disabled
+        path: authorizationOptions.openShiftSSO.disable
         x-descriptors:
         - urn:alm:descriptor:com.tectonic.ui:booleanSwitch
       - description: The SubjectAccessReview that interactive clients (users visiting
