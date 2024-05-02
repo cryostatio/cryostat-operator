@@ -858,6 +858,10 @@ func NewOAuth2ProxyContainer(cr *model.CryostatInstance, specs *ServiceSpecs, im
 				Name:  "OAUTH2_PROXY_HTPASSWD_USER_GROUP",
 				Value: "write",
 			},
+			{
+				Name:  "OAUTH2_PROXY_SKIP_AUTH_ROUTES",
+				Value: "^/health(/liveness)?$",
+			},
 		}...)
 	} else {
 		envs = append(envs, corev1.EnvVar{
