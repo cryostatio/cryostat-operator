@@ -490,8 +490,8 @@ type TemplateConfigMap struct {
 type AuthorizationOptions struct {
 	// Configuration for OpenShift RBAC to define which OpenShift user accounts may access the Cryostat application.
 	// +optional
-	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="OpenShift SSO Roles"
-	OpenShiftSSORoles *OpenShiftSSORoles `json:"openShiftSSORoles,omitempty"`
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="OpenShift SSO"
+	OpenShiftSSO *OpenShiftSSOConfig `json:"openShiftSSORoles,omitempty"`
 	// Reference to a secret and file name containing the Basic authentication htpasswd file. If deploying on OpenShift this
 	// defines additional user accounts that can access the Cryostat application, on top of the OpenShift user accounts which
 	// pass the OpenShiftSsoRoles checks. If not on OpenShift then this defines the only user accounts that have access.
@@ -500,7 +500,7 @@ type AuthorizationOptions struct {
 	BasicAuth *SecretFile `json:"basicAuth,omitempty"`
 }
 
-type OpenShiftSSORoles struct {
+type OpenShiftSSOConfig struct {
 	// Disable OpenShift SSO integration and allow all users to access the application without authentication. This
 	// will also bypass the BasicAuth, if specified.
 	// +optional
