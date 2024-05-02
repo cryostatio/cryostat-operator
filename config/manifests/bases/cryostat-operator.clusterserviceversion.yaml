@@ -126,6 +126,13 @@ spec:
           accounts may access the Cryostat application.
         displayName: OpenShift SSO
         path: authorizationOptions.openShiftSSO
+      - description: The AccessReview or TokenAccessReview that all clients (users
+          visiting the application via web browser as well as CLI utilities and other
+          programs presenting Bearer auth tokens) must pass in order to access the
+          application. If not specified, the default role required is "create pods/exec"
+          in the Cryostat application's installation namespace.
+        displayName: Access Review
+        path: authorizationOptions.openShiftSSO.accessReview
       - description: Disable OpenShift SSO integration and allow all users to access
           the application without authentication. This will also bypass the BasicAuth,
           if specified.
@@ -133,18 +140,6 @@ spec:
         path: authorizationOptions.openShiftSSO.disable
         x-descriptors:
         - urn:alm:descriptor:com.tectonic.ui:booleanSwitch
-      - description: The SubjectAccessReview that interactive clients (users visiting
-          the application via web browser) must pass in order to access the application.
-          If not specified, the default role required is "create pods/exec" in the
-          Cryostat application's installation namespace.
-        displayName: Subject Access Review
-        path: authorizationOptions.openShiftSSO.subjectAccessReview
-      - description: The TokenAccessReview that programmatic clients (CLI utilities
-          and others presenting Bearer auth tokens) must pass in order to access the
-          application. If not specified, the default role required is "create pods/exec"
-          in the Cryostat application's installation namespace.
-        displayName: Token Access Review
-        path: authorizationOptions.openShiftSSO.tokenAccessReview
       - description: List of Flight Recorder Event Templates to preconfigure in Cryostat.
         displayName: Event Templates
         path: eventTemplates

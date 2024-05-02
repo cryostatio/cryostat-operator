@@ -5173,97 +5173,55 @@ spec:
                     description: Configuration for OpenShift RBAC to define which
                       OpenShift user accounts may access the Cryostat application.
                     properties:
+                      accessReview:
+                        description: The AccessReview or TokenAccessReview that all
+                          clients (users visiting the application via web browser
+                          as well as CLI utilities and other programs presenting Bearer
+                          auth tokens) must pass in order to access the application.
+                          If not specified, the default role required is "create pods/exec"
+                          in the Cryostat application's installation namespace.
+                        properties:
+                          group:
+                            description: Group is the API Group of the Resource.  "*"
+                              means all.
+                            type: string
+                          name:
+                            description: Name is the name of the resource being requested
+                              for a "get" or deleted for a "delete". "" (empty) means
+                              all.
+                            type: string
+                          namespace:
+                            description: Namespace is the namespace of the action
+                              being requested.  Currently, there is no distinction
+                              between no namespace and all namespaces "" (empty) is
+                              defaulted for LocalSubjectAccessReviews "" (empty) is
+                              empty for cluster-scoped resources "" (empty) means
+                              "all" for namespace scoped resources from a SubjectAccessReview
+                              or SelfSubjectAccessReview
+                            type: string
+                          resource:
+                            description: Resource is one of the existing resource
+                              types.  "*" means all.
+                            type: string
+                          subresource:
+                            description: Subresource is one of the existing resource
+                              types.  "" means none.
+                            type: string
+                          verb:
+                            description: 'Verb is a kubernetes resource API verb,
+                              like: get, list, watch, create, update, delete, proxy.  "*"
+                              means all.'
+                            type: string
+                          version:
+                            description: Version is the API Version of the Resource.  "*"
+                              means all.
+                            type: string
+                        type: object
                       disable:
                         description: Disable OpenShift SSO integration and allow all
                           users to access the application without authentication.
                           This will also bypass the BasicAuth, if specified.
                         type: boolean
-                      subjectAccessReview:
-                        description: The SubjectAccessReview that interactive clients
-                          (users visiting the application via web browser) must pass
-                          in order to access the application. If not specified, the
-                          default role required is "create pods/exec" in the Cryostat
-                          application's installation namespace.
-                        properties:
-                          group:
-                            description: Group is the API Group of the Resource.  "*"
-                              means all.
-                            type: string
-                          name:
-                            description: Name is the name of the resource being requested
-                              for a "get" or deleted for a "delete". "" (empty) means
-                              all.
-                            type: string
-                          namespace:
-                            description: Namespace is the namespace of the action
-                              being requested.  Currently, there is no distinction
-                              between no namespace and all namespaces "" (empty) is
-                              defaulted for LocalSubjectAccessReviews "" (empty) is
-                              empty for cluster-scoped resources "" (empty) means
-                              "all" for namespace scoped resources from a SubjectAccessReview
-                              or SelfSubjectAccessReview
-                            type: string
-                          resource:
-                            description: Resource is one of the existing resource
-                              types.  "*" means all.
-                            type: string
-                          subresource:
-                            description: Subresource is one of the existing resource
-                              types.  "" means none.
-                            type: string
-                          verb:
-                            description: 'Verb is a kubernetes resource API verb,
-                              like: get, list, watch, create, update, delete, proxy.  "*"
-                              means all.'
-                            type: string
-                          version:
-                            description: Version is the API Version of the Resource.  "*"
-                              means all.
-                            type: string
-                        type: object
-                      tokenAccessReview:
-                        description: The TokenAccessReview that programmatic clients
-                          (CLI utilities and others presenting Bearer auth tokens)
-                          must pass in order to access the application. If not specified,
-                          the default role required is "create pods/exec" in the Cryostat
-                          application's installation namespace.
-                        properties:
-                          group:
-                            description: Group is the API Group of the Resource.  "*"
-                              means all.
-                            type: string
-                          name:
-                            description: Name is the name of the resource being requested
-                              for a "get" or deleted for a "delete". "" (empty) means
-                              all.
-                            type: string
-                          namespace:
-                            description: Namespace is the namespace of the action
-                              being requested.  Currently, there is no distinction
-                              between no namespace and all namespaces "" (empty) is
-                              defaulted for LocalSubjectAccessReviews "" (empty) is
-                              empty for cluster-scoped resources "" (empty) means
-                              "all" for namespace scoped resources from a SubjectAccessReview
-                              or SelfSubjectAccessReview
-                            type: string
-                          resource:
-                            description: Resource is one of the existing resource
-                              types.  "*" means all.
-                            type: string
-                          subresource:
-                            description: Subresource is one of the existing resource
-                              types.  "" means none.
-                            type: string
-                          verb:
-                            description: 'Verb is a kubernetes resource API verb,
-                              like: get, list, watch, create, update, delete, proxy.  "*"
-                              means all.'
-                            type: string
-                          version:
-                            description: Version is the API Version of the Resource.  "*"
-                              means all.
-                            type: string
-                        type: object
                     type: object
                 type: object
               enableCertManager:

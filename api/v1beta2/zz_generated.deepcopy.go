@@ -469,13 +469,8 @@ func (in *OpenShiftSSOConfig) DeepCopyInto(out *OpenShiftSSOConfig) {
 		*out = new(bool)
 		**out = **in
 	}
-	if in.SubjectAccessReview != nil {
-		in, out := &in.SubjectAccessReview, &out.SubjectAccessReview
-		*out = new(authorizationv1.ResourceAttributes)
-		**out = **in
-	}
-	if in.TokenAccessReview != nil {
-		in, out := &in.TokenAccessReview, &out.TokenAccessReview
+	if in.AccessReview != nil {
+		in, out := &in.AccessReview, &out.AccessReview
 		*out = new(authorizationv1.ResourceAttributes)
 		**out = **in
 	}

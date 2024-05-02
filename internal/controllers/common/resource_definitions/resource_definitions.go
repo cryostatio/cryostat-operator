@@ -679,14 +679,14 @@ func NewOpenShiftAuthProxyContainer(cr *model.CryostatInstance, specs *ServiceSp
 		args = append(args, "--bypass-auth-for=^/health(/liveness)?$")
 	}
 
-	subjectAccessReviewJson, err := json.Marshal(getOpenShiftSubjectAccessReviews(cr))
+	subjectAccessReviewJson, err := json.Marshal([]authzv1.ResourceAttributes{getOpenShiftAccessReview(cr)})
 	if err != nil {
 		return nil, err
 	}
 	args = append(args, fmt.Sprintf("--openshift-sar=%s", string(subjectAccessReviewJson)))
 
 	delegateUrls := make(map[string]authzv1.ResourceAttributes)
-	delegateUrls["/"] = getOpenShiftTokenReview(cr)
+	delegateUrls["/"] = getOpenShiftAccessReview(cr)
 	tokenReviewJson, err := json.Marshal(delegateUrls)
 	if err != nil {
 		return nil, err
@@ -756,18 +756,9 @@ func isOpenShiftAuthProxyDisabled(cr *model.CryostatInstance) bool {
 	return false
 }
 
-func getOpenShiftSubjectAccessReviews(cr *model.CryostatInstance) []authzv1.ResourceAttributes {
-	if cr.Spec.AuthorizationOptions != nil && cr.Spec.AuthorizationOptions.OpenShiftSSO != nil && cr.Spec.AuthorizationOptions.OpenShiftSSO.SubjectAccessReview != nil {
-		return []authzv1.ResourceAttributes{*cr.Spec.AuthorizationOptions.OpenShiftSSO.SubjectAccessReview}
-	}
-	return []authzv1.ResourceAttributes{
-		getDefaultOpenShiftAccessRole(cr),
-	}
-}
-
-func getOpenShiftTokenReview(cr *model.CryostatInstance) authzv1.ResourceAttributes {
-	if cr.Spec.AuthorizationOptions != nil && cr.Spec.AuthorizationOptions.OpenShiftSSO != nil && cr.Spec.AuthorizationOptions.OpenShiftSSO.TokenAccessReview != nil {
-		return *cr.Spec.AuthorizationOptions.OpenShiftSSO.TokenAccessReview
+func getOpenShiftAccessReview(cr *model.CryostatInstance) authzv1.ResourceAttributes {
+	if cr.Spec.AuthorizationOptions != nil && cr.Spec.AuthorizationOptions.OpenShiftSSO != nil && cr.Spec.AuthorizationOptions.OpenShiftSSO.AccessReview != nil {
+		return *cr.Spec.AuthorizationOptions.OpenShiftSSO.AccessReview
 	}
 	return getDefaultOpenShiftAccessRole(cr)
 }
