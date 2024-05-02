@@ -512,12 +512,12 @@ type OpenShiftSSOConfig struct {
 	// +optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	SubjectAccessReview *authzv1.ResourceAttributes `json:"subjectAccessReview,omitempty"`
-	// The TokenReview that programmatic clients (CLI utilities and others presenting Bearer auth tokens) must pass in
+	// The TokenAccessReview that programmatic clients (CLI utilities and others presenting Bearer auth tokens) must pass in
 	// order to access the application. If not specified, the default role required is "create pods/exec" in the Cryostat
 	// application's installation namespace.
 	// +optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
-	TokenReview *authzv1.ResourceAttributes `json:"tokenReview,omitempty"`
+	TokenAccessReview *authzv1.ResourceAttributes `json:"tokenAccessReview,omitempty"`
 }
 
 type SecretFile struct {

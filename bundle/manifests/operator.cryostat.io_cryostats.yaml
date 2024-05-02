@@ -5221,10 +5221,10 @@ spec:
                               means all.
                             type: string
                         type: object
-                      tokenReview:
-                        description: The TokenReview that programmatic clients (CLI
-                          utilities and others presenting Bearer auth tokens) must
-                          pass in order to access the application. If not specified,
+                      tokenAccessReview:
+                        description: The TokenAccessReview that programmatic clients
+                          (CLI utilities and others presenting Bearer auth tokens)
+                          must pass in order to access the application. If not specified,
                           the default role required is "create pods/exec" in the Cryostat
                           application's installation namespace.
                         properties:

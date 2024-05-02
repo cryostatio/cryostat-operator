@@ -139,12 +139,12 @@ spec:
           Cryostat application's installation namespace.
         displayName: Subject Access Review
         path: authorizationOptions.openShiftSSORoles.subjectAccessReview
-      - description: The TokenReview that programmatic clients (CLI utilities and
-          others presenting Bearer auth tokens) must pass in order to access the application.
-          If not specified, the default role required is "create pods/exec" in the
-          Cryostat application's installation namespace.
-        displayName: Token Review
-        path: authorizationOptions.openShiftSSORoles.tokenReview
+      - description: The TokenAccessReview that programmatic clients (CLI utilities
+          and others presenting Bearer auth tokens) must pass in order to access the
+          application. If not specified, the default role required is "create pods/exec"
+          in the Cryostat application's installation namespace.
+        displayName: Token Access Review
+        path: authorizationOptions.openShiftSSORoles.tokenAccessReview
       - description: List of Flight Recorder Event Templates to preconfigure in Cryostat.
         displayName: Event Templates
         path: eventTemplates

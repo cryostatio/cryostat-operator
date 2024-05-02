@@ -766,8 +766,8 @@ func getOpenShiftSubjectAccessReviews(cr *model.CryostatInstance) []authzv1.Reso
 }
 
 func getOpenShiftTokenReview(cr *model.CryostatInstance) authzv1.ResourceAttributes {
-	if cr.Spec.AuthorizationOptions != nil && cr.Spec.AuthorizationOptions.OpenShiftSSO != nil && cr.Spec.AuthorizationOptions.OpenShiftSSO.TokenReview != nil {
-		return *cr.Spec.AuthorizationOptions.OpenShiftSSO.TokenReview
+	if cr.Spec.AuthorizationOptions != nil && cr.Spec.AuthorizationOptions.OpenShiftSSO != nil && cr.Spec.AuthorizationOptions.OpenShiftSSO.TokenAccessReview != nil {
+		return *cr.Spec.AuthorizationOptions.OpenShiftSSO.TokenAccessReview
 	}
 	return getDefaultOpenShiftAccessRole(cr)
 }
