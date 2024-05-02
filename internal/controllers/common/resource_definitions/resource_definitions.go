@@ -676,7 +676,7 @@ func NewOpenShiftAuthProxyContainer(cr *model.CryostatInstance, specs *ServiceSp
 	if isOpenShiftAuthProxyDisabled(cr) {
 		args = append(args, "--bypass-auth-for=.*")
 	} else {
-		args = append(args, "--bypass-auth-for=^/health")
+		args = append(args, "--bypass-auth-for=^/health(/liveness)?$")
 	}
 
 	subjectAccessReviewJson, err := json.Marshal(getOpenShiftSubjectAccessReviews(cr))
