@@ -750,15 +750,15 @@ func NewOpenShiftAuthProxyContainer(cr *model.CryostatInstance, specs *ServiceSp
 }
 
 func isOpenShiftAuthProxyDisabled(cr *model.CryostatInstance) bool {
-	if cr.Spec.AuthorizationOptions != nil && cr.Spec.AuthorizationOptions.OpenShiftSsoRoles != nil && cr.Spec.AuthorizationOptions.OpenShiftSsoRoles.Disabled != nil {
-		return *cr.Spec.AuthorizationOptions.OpenShiftSsoRoles.Disabled
+	if cr.Spec.AuthorizationOptions != nil && cr.Spec.AuthorizationOptions.OpenShiftSSORoles != nil && cr.Spec.AuthorizationOptions.OpenShiftSSORoles.Disabled != nil {
+		return *cr.Spec.AuthorizationOptions.OpenShiftSSORoles.Disabled
 	}
 	return false
 }
 
 func getOpenShiftSubjectAccessReviews(cr *model.CryostatInstance) []authzv1.ResourceAttributes {
-	if cr.Spec.AuthorizationOptions != nil && cr.Spec.AuthorizationOptions.OpenShiftSsoRoles != nil && cr.Spec.AuthorizationOptions.OpenShiftSsoRoles.SubjectAccessReview != nil {
-		return []authzv1.ResourceAttributes{*cr.Spec.AuthorizationOptions.OpenShiftSsoRoles.SubjectAccessReview}
+	if cr.Spec.AuthorizationOptions != nil && cr.Spec.AuthorizationOptions.OpenShiftSSORoles != nil && cr.Spec.AuthorizationOptions.OpenShiftSSORoles.SubjectAccessReview != nil {
+		return []authzv1.ResourceAttributes{*cr.Spec.AuthorizationOptions.OpenShiftSSORoles.SubjectAccessReview}
 	}
 	return []authzv1.ResourceAttributes{
 		getDefaultOpenShiftAccessRole(cr),
@@ -766,8 +766,8 @@ func getOpenShiftSubjectAccessReviews(cr *model.CryostatInstance) []authzv1.Reso
 }
 
 func getOpenShiftTokenReview(cr *model.CryostatInstance) authzv1.ResourceAttributes {
-	if cr.Spec.AuthorizationOptions != nil && cr.Spec.AuthorizationOptions.OpenShiftSsoRoles != nil && cr.Spec.AuthorizationOptions.OpenShiftSsoRoles.TokenReview != nil {
-		return *cr.Spec.AuthorizationOptions.OpenShiftSsoRoles.TokenReview
+	if cr.Spec.AuthorizationOptions != nil && cr.Spec.AuthorizationOptions.OpenShiftSSORoles != nil && cr.Spec.AuthorizationOptions.OpenShiftSSORoles.TokenReview != nil {
+		return *cr.Spec.AuthorizationOptions.OpenShiftSSORoles.TokenReview
 	}
 	return getDefaultOpenShiftAccessRole(cr)
 }
