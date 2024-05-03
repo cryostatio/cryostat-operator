@@ -21,3 +21,7 @@ spec:
           value: "quay.io/cryostat/cryostat-grafana-dashboard:latest"
         - name: RELATED_IMAGE_REPORTS
           value: "quay.io/cryostat/cryostat-reports:latest"
+        - name: RELATED_IMAGE_STORAGE
+          value: "quay.io/cryostat/cryostat-storage:latest"
+        - name: RELATED_IMAGE_DATABASE
+          value: "quay.io/cryostat/cryostat-db:latest"
