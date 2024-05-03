@@ -9925,14 +9925,14 @@ spec:
                   the Cryostat application.
                 properties:
                   targetCacheSize:
-                    description: The maximum number of JMX connections to cache. Use
-                      `-1` for an unlimited cache size (TTL expiration only). Defaults
-                      to `-1`.
+                    description: The maximum number of target connections to cache.
+                      Use `-1` for an unlimited cache size (TTL expiration only).
+                      Defaults to `-1`.
                     format: int32
                     minimum: -1
                     type: integer
                   targetCacheTTL:
-                    description: The time to live (in seconds) for cached JMX connections.
+                    description: The time to live (in seconds) for cached target connections.
                       Defaults to `10`.
                     format: int32
                     minimum: 1
