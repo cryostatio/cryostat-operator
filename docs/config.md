@@ -478,6 +478,8 @@ spec:
 
 If you wish to use only Cryostat's [Discovery Plugin API](https://github.com/cryostatio/cryostat/blob/801779d5ddf7fa30f7b230f649220a852b06f27d/docs/DISCOVERY_PLUGINS.md), set the property `spec.targetDiscoveryOptions.builtInDiscoveryDisabled` to `true` to disable Cryostat's built-in discovery mechanisms.
 
+You may also change the list of port names and port numbers that Cryostat uses to discover compatible target Endpoints. By default it looks for ports with the name `jfr-jmx` or with the number `9091`.
+
 ```yaml
 apiVersion: operator.cryostat.io/v1beta1
 kind: Cryostat
@@ -485,5 +487,9 @@ metadata:
   name: cryostat-sample
 spec:
   targetDiscoveryOptions:
-    builtInDiscoveryDisabled: true
+    builtInDiscoveryDisabled: false
+    discoveryPortNames:
+      - my-jmx-port # look for ports named my-jmx-port or jdk-observe
+      - jdk-observe
+    disableBuiltInPortNumbers: true # ignore default port number 9091
 ```
