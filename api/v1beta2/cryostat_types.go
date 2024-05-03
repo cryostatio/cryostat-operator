@@ -45,7 +45,7 @@ type CryostatSpec struct {
 	// +optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,order=3,displayName="Enable cert-manager Integration",xDescriptors={"urn:alm:descriptor:com.tectonic.ui:booleanSwitch"}
 	EnableCertManager *bool `json:"enableCertManager"`
-	// Options to customize the storage for Flight Recordings and Templates.
+	// Options to customize the storage provisioned for the database and object storage.
 	// +optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	StorageOptions *StorageConfiguration `json:"storageOptions,omitempty"`
@@ -62,7 +62,7 @@ type CryostatSpec struct {
 	// +optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	ReportOptions *ReportConfiguration `json:"reportOptions,omitempty"`
-	// Options to customize the JMX target connections cache for the Cryostat application.
+	// Options to customize the target connections cache for the Cryostat application.
 	// +optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="JMX Connections Cache Options"
 	JmxCacheOptions *JmxCacheOptions `json:"jmxCacheOptions,omitempty"`

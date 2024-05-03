@@ -5236,8 +5236,8 @@ spec:
                   type: object
                 type: array
               jmxCacheOptions:
-                description: Options to customize the JMX target connections cache
-                  for the Cryostat application.
+                description: Options to customize the target connections cache for
+                  the Cryostat application.
                 properties:
                   targetCacheSize:
                     description: The maximum number of JMX connections to cache. Use
@@ -9688,8 +9688,8 @@ spec:
                     type: object
                 type: object
               storageOptions:
-                description: Options to customize the storage for Flight Recordings
-                  and Templates.
+                description: Options to customize the storage provisioned for the
+                  database and object storage.
                 properties:
                   emptyDir:
                     description: Configuration for an EmptyDir to be created by the
