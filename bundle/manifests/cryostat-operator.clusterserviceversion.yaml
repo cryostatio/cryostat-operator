@@ -53,7 +53,7 @@ metadata:
     capabilities: Seamless Upgrades
     categories: Monitoring, Developer Tools
     containerImage: quay.io/cryostat/cryostat-operator:3.0.0-dev
-    createdAt: "2024-05-03T16:40:49Z"
+    createdAt: "2024-05-03T17:25:03Z"
     description: JVM monitoring and profiling tool
     operatorframework.io/initialization-resource: |-
       {
@@ -786,8 +786,7 @@ spec:
       - description: Security Context to apply to the storage container.
         displayName: Storage Security Context
         path: securityOptions.storageSecurityContext
-      - description: Options to customize the services created for the Cryostat application
-          and Grafana dashboard.
+      - description: Options to customize the services created for the Cryostat application.
         displayName: Service Options
         path: serviceOptions
       - description: Options to customize the storage provisioned for the database

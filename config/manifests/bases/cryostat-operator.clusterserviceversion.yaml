@@ -331,8 +331,7 @@ spec:
       - description: Security Context to apply to the storage container.
         displayName: Storage Security Context
         path: securityOptions.storageSecurityContext
-      - description: Options to customize the services created for the Cryostat application
-          and Grafana dashboard.
+      - description: Options to customize the services created for the Cryostat application.
         displayName: Service Options
         path: serviceOptions
       - description: Options to customize the storage provisioned for the database

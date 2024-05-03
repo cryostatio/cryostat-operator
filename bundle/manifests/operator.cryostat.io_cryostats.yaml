@@ -5101,9 +5101,6 @@ spec:
     - jsonPath: .status.applicationUrl
       name: Application URL
       type: string
-    - jsonPath: .status.grafanaSecret
-      name: Grafana Secret
-      type: string
     name: v1beta2
     schema:
       openAPIV3Schema:
@@ -9583,7 +9580,7 @@ spec:
                 type: object
               serviceOptions:
                 description: Options to customize the services created for the Cryostat
-                  application and Grafana dashboard.
+                  application.
                 properties:
                   coreConfig:
                     description: Specification for the service responsible for the
