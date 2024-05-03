@@ -401,15 +401,15 @@ type EmptyDirConfig struct {
 	SizeLimit string `json:"sizeLimit,omitempty"`
 }
 
-// JmxCacheConfig provides customization for the JMX target connections
+// TargetConnectionCacheOptions provides customization for the target connections
 // cache for the Cryostat application.
 type TargetConnectionCacheOptions struct {
-	// The maximum number of JMX connections to cache. Use `-1` for an unlimited cache size (TTL expiration only). Defaults to `-1`.
+	// The maximum number of target connections to cache. Use `-1` for an unlimited cache size (TTL expiration only). Defaults to `-1`.
 	// +optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:com.tectonic.ui:number"}
 	// +kubebuilder:validation:Minimum=-1
 	TargetCacheSize int32 `json:"targetCacheSize,omitempty"`
-	// The time to live (in seconds) for cached JMX connections. Defaults to `10`.
+	// The time to live (in seconds) for cached target connections. Defaults to `10`.
 	// +optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:com.tectonic.ui:number"}
 	// +kubebuilder:validation:Minimum=1
