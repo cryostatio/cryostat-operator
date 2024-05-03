@@ -1151,7 +1151,7 @@ func NewCoreContainer(cr *model.CryostatInstance, specs *ServiceSpecs, imageTag 
 		grafanaVars = append(grafanaVars,
 			corev1.EnvVar{
 				Name:  "GRAFANA_DASHBOARD_EXT_URL",
-				Value: specs.GrafanaURL.String(),
+				Value: fmt.Sprintf("%s/grafana/", specs.GrafanaURL.String()),
 			},
 			corev1.EnvVar{
 				Name:  "GRAFANA_DASHBOARD_URL",
