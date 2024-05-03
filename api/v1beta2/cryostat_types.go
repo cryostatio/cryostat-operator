@@ -74,10 +74,6 @@ type CryostatSpec struct {
 	// +optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Authorization Options",xDescriptors={"urn:alm:descriptor:com.tectonic.ui:advanced"}
 	AuthorizationOptions *AuthorizationOptions `json:"authorizationOptions,omitempty"`
-	// Override default authorization properties for Cryostat on OpenShift.
-	// +optional
-	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Authorization Properties",xDescriptors={"urn:alm:descriptor:com.tectonic.ui:advanced"}
-	AuthProperties *AuthorizationProperties `json:"authProperties,omitempty"`
 	// Options to configure the Security Contexts for the Cryostat application.
 	// +optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:com.tectonic.ui:advanced"}

@@ -5128,28 +5128,6 @@ spec:
           spec:
             description: CryostatSpec defines the desired state of Cryostat.
             properties:
-              authProperties:
-                description: Override default authorization properties for Cryostat
-                  on OpenShift.
-                properties:
-                  clusterRoleName:
-                    description: 'Name of the ClusterRole to use when Cryostat requests
-                      a role-scoped OAuth token. This ClusterRole should contain permissions
-                      for all Kubernetes objects listed in custom permission mapping.
-                      More details: https://docs.openshift.com/container-platform/4.11/authentication/tokens-scoping.html#scoping-tokens-role-scope_configuring-internal-oauth'
-                    type: string
-                  configMapName:
-                    description: Name of config map in the local namespace.
-                    type: string
-                  filename:
-                    description: Filename within config map containing the resource
-                      mapping.
-                    type: string
-                required:
-                - clusterRoleName
-                - configMapName
-                - filename
-                type: object
               authorizationOptions:
                 description: Additional configuration options for the authorization
                   proxy.

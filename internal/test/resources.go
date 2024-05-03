@@ -1289,7 +1289,7 @@ func (r *TestResources) NewStoragePorts() []corev1.ContainerPort {
 	}
 }
 
-func (r *TestResources) NewCoreEnvironmentVariables(reportsUrl string, authProps bool, ingress bool,
+func (r *TestResources) NewCoreEnvironmentVariables(reportsUrl string, ingress bool,
 	emptyDir bool, hasPortConfig bool, builtInDiscoveryDisabled bool, builtInPortConfigDisabled bool, dbSecretProvided bool) []corev1.EnvVar {
 	envs := []corev1.EnvVar{
 		{

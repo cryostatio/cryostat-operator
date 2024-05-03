@@ -262,11 +262,6 @@ func (in *CryostatSpec) DeepCopyInto(out *CryostatSpec) {
 		*out = new(AuthorizationOptions)
 		(*in).DeepCopyInto(*out)
 	}
-	if in.AuthProperties != nil {
-		in, out := &in.AuthProperties, &out.AuthProperties
-		*out = new(AuthorizationProperties)
-		**out = **in
-	}
 	if in.SecurityOptions != nil {
 		in, out := &in.SecurityOptions, &out.SecurityOptions
 		*out = new(SecurityOptions)
