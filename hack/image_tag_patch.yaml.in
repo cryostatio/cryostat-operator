@@ -21,3 +21,7 @@ spec:
           value: "${GRAFANA_IMG}"
         - name: RELATED_IMAGE_REPORTS
           value: "${REPORTS_IMG}"
+        - name: RELATED_IMAGE_STORAGE
+          value: "${STORAGE_IMG}"
+        - name: RELATED_IMAGE_DATABASE
+          value: "${DATABASE_IMG}"
