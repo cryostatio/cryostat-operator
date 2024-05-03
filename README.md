@@ -31,14 +31,6 @@ at the URL provided by:
 ```
 kubectl get cryostat -o jsonpath='{$.items[0].status.applicationUrl}'
 ```
-The Grafana credentials can be obtained with:
-```shell
-CRYOSTAT_NAME=$(kubectl get cryostat -o jsonpath='{$.items[0].metadata.name}')
-# Username
-kubectl get secret ${CRYOSTAT_NAME}-grafana-basic -o jsonpath='{$.data.GF_SECURITY_ADMIN_USER}' | base64 -d
-# Password
-kubectl get secret ${CRYOSTAT_NAME}-grafana-basic -o jsonpath='{$.data.GF_SECURITY_ADMIN_PASSWORD}' | base64 -d
-```
 The JMX authentication credentials for Cryostat itself can be obtained with:
 ```shell
 CRYOSTAT_NAME=$(kubectl get cryostat -o jsonpath='{$.items[0].metadata.name}')
