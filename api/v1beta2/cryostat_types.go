@@ -15,6 +15,7 @@
 package v1beta2
 
 import (
+	authzv1 "k8s.io/api/authorization/v1"
 	corev1 "k8s.io/api/core/v1"
 	netv1 "k8s.io/api/networking/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -487,10 +488,30 @@ type TemplateConfigMap struct {
 
 // Authorization options provide additional configurations for the auth proxy.
 type AuthorizationOptions struct {
-	// Reference to a secret and file name containing the Basic authentication htpasswd file
+	// Configuration for OpenShift RBAC to define which OpenShift user accounts may access the Cryostat application.
+	// +optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="OpenShift SSO"
+	OpenShiftSSO *OpenShiftSSOConfig `json:"openShiftSSO,omitempty"`
+	// Reference to a secret and file name containing the Basic authentication htpasswd file. If deploying on OpenShift this
+	// defines additional user accounts that can access the Cryostat application, on top of the OpenShift user accounts which
+	// pass the OpenShift SSO Roles checks. If not on OpenShift then this defines the only user accounts that have access.
 	// +optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:io.kubernetes:Secret"}
 	BasicAuth *SecretFile `json:"basicAuth,omitempty"`
+}
+
+type OpenShiftSSOConfig struct {
+	// Disable OpenShift SSO integration and allow all users to access the application without authentication. This
+	// will also bypass the BasicAuth, if specified.
+	// +optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Disable OpenShift SSO",xDescriptors={"urn:alm:descriptor:com.tectonic.ui:booleanSwitch"}
+	Disable *bool `json:"disable,omitempty"`
+	// The SubjectAccessReview or TokenAccessReview that all clients (users visiting the application via web browser as well
+	// as CLI utilities and other programs presenting Bearer auth tokens) must pass in order to access the application.
+	// If not specified, the default role required is "create pods/exec" in the Cryostat application's installation namespace.
+	// +optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec
+	AccessReview *authzv1.ResourceAttributes `json:"accessReview,omitempty"`
 }
 
 type SecretFile struct {

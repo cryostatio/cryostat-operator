@@ -53,7 +53,7 @@ metadata:
     capabilities: Seamless Upgrades
     categories: Monitoring, Developer Tools
     containerImage: quay.io/cryostat/cryostat-operator:3.0.0-dev
-    createdAt: "2024-04-26T21:51:07Z"
+    createdAt: "2024-05-03T13:22:52Z"
     description: JVM monitoring and profiling tool
     operatorframework.io/initialization-resource: |-
       {
@@ -559,7 +559,10 @@ spec:
         x-descriptors:
         - urn:alm:descriptor:com.tectonic.ui:advanced
       - description: Reference to a secret and file name containing the Basic authentication
-          htpasswd file
+          htpasswd file. If deploying on OpenShift this defines additional user accounts
+          that can access the Cryostat application, on top of the OpenShift user accounts
+          which pass the OpenShift SSO Roles checks. If not on OpenShift then this
+          defines the only user accounts that have access.
         displayName: Basic Auth
         path: authorizationOptions.basicAuth
         x-descriptors:
@@ -574,6 +577,24 @@ spec:
         path: authorizationOptions.basicAuth.secretName
         x-descriptors:
         - urn:alm:descriptor:io.kubernetes:Secret
+      - description: Configuration for OpenShift RBAC to define which OpenShift user
+          accounts may access the Cryostat application.
+        displayName: OpenShift SSO
+        path: authorizationOptions.openShiftSSO
+      - description: The SubjectAccessReview or TokenAccessReview that all clients
+          (users visiting the application via web browser as well as CLI utilities
+          and other programs presenting Bearer auth tokens) must pass in order to
+          access the application. If not specified, the default role required is "create
+          pods/exec" in the Cryostat application's installation namespace.
+        displayName: Access Review
+        path: authorizationOptions.openShiftSSO.accessReview
+      - description: Disable OpenShift SSO integration and allow all users to access
+          the application without authentication. This will also bypass the BasicAuth,
+          if specified.
+        displayName: Disable OpenShift SSO
+        path: authorizationOptions.openShiftSSO.disable
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:booleanSwitch
       - description: List of Flight Recorder Event Templates to preconfigure in Cryostat.
         displayName: Event Templates
         path: eventTemplates
