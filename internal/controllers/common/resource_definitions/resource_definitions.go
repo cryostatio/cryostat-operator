@@ -1146,16 +1146,16 @@ func NewCoreContainer(cr *model.CryostatInstance, specs *ServiceSpecs, imageTag 
 			Name:  "GRAFANA_DATASOURCE_URL",
 			Value: datasourceURL,
 		},
-		{
-			Name:  "GRAFANA_DASHBOARD_URL",
-			Value: getInternalDashboardURL(tls),
-		},
 	}
 	if specs.AuthProxyURL != nil {
 		grafanaVars = append(grafanaVars,
 			corev1.EnvVar{
 				Name:  "GRAFANA_DASHBOARD_EXT_URL",
 				Value: fmt.Sprintf("%s/grafana/", specs.AuthProxyURL.String()),
+			},
+			corev1.EnvVar{
+				Name:  "GRAFANA_DASHBOARD_URL",
+				Value: getInternalDashboardURL(tls),
 			},
 		)
 	}
