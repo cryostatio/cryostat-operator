@@ -1335,20 +1335,8 @@ func (r *TestResources) NewCoreEnvironmentVariables(reportsUrl string, ingress b
 			Value: "/opt/cryostat.d/conf.d",
 		},
 		{
-			Name:  "CRYOSTAT_ARCHIVE_PATH",
-			Value: "/opt/cryostat.d/recordings.d",
-		},
-		{
 			Name:  "CRYOSTAT_TEMPLATE_PATH",
 			Value: "/opt/cryostat.d/templates.d",
-		},
-		{
-			Name:  "CRYOSTAT_CLIENTLIB_PATH",
-			Value: "/opt/cryostat.d/clientlib.d",
-		},
-		{
-			Name:  "CRYOSTAT_PROBE_TEMPLATE_PATH",
-			Value: "/opt/cryostat.d/probes.d",
 		},
 		{
 			Name:  "CRYOSTAT_ENABLE_JDP_BROADCAST",
@@ -1715,26 +1703,8 @@ func (r *TestResources) NewCoreVolumeMounts() []corev1.VolumeMount {
 		{
 			Name:      r.Name,
 			ReadOnly:  false,
-			MountPath: "/opt/cryostat.d/recordings.d",
-			SubPath:   "flightrecordings",
-		},
-		{
-			Name:      r.Name,
-			ReadOnly:  false,
 			MountPath: "/opt/cryostat.d/templates.d",
 			SubPath:   "templates",
-		},
-		{
-			Name:      r.Name,
-			ReadOnly:  false,
-			MountPath: "/opt/cryostat.d/clientlib.d",
-			SubPath:   "clientlib",
-		},
-		{
-			Name:      r.Name,
-			ReadOnly:  false,
-			MountPath: "/opt/cryostat.d/probes.d",
-			SubPath:   "probes",
 		},
 		{
 			Name:      r.Name,

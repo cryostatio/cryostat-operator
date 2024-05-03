@@ -894,10 +894,7 @@ func NewCoreContainerResource(cr *model.CryostatInstance) *corev1.ResourceRequir
 func NewCoreContainer(cr *model.CryostatInstance, specs *ServiceSpecs, imageTag string,
 	tls *TLSConfig, openshift bool) corev1.Container {
 	configPath := "/opt/cryostat.d/conf.d"
-	archivePath := "/opt/cryostat.d/recordings.d"
 	templatesPath := "/opt/cryostat.d/templates.d"
-	clientlibPath := "/opt/cryostat.d/clientlib.d"
-	probesPath := "/opt/cryostat.d/probes.d"
 
 	envs := []corev1.EnvVar{
 		{
@@ -969,20 +966,8 @@ func NewCoreContainer(cr *model.CryostatInstance, specs *ServiceSpecs, imageTag 
 			Value: configPath,
 		},
 		{
-			Name:  "CRYOSTAT_ARCHIVE_PATH",
-			Value: archivePath,
-		},
-		{
 			Name:  "CRYOSTAT_TEMPLATE_PATH",
 			Value: templatesPath,
-		},
-		{
-			Name:  "CRYOSTAT_CLIENTLIB_PATH",
-			Value: clientlibPath,
-		},
-		{
-			Name:  "CRYOSTAT_PROBE_TEMPLATE_PATH",
-			Value: probesPath,
 		},
 		{
 			Name:  "CRYOSTAT_ENABLE_JDP_BROADCAST",
@@ -998,23 +983,8 @@ func NewCoreContainer(cr *model.CryostatInstance, specs *ServiceSpecs, imageTag 
 		},
 		{
 			Name:      cr.Name,
-			MountPath: archivePath,
-			SubPath:   "flightrecordings",
-		},
-		{
-			Name:      cr.Name,
 			MountPath: templatesPath,
 			SubPath:   "templates",
-		},
-		{
-			Name:      cr.Name,
-			MountPath: clientlibPath,
-			SubPath:   "clientlib",
-		},
-		{
-			Name:      cr.Name,
-			MountPath: probesPath,
-			SubPath:   "probes",
 		},
 		{
 			Name:      cr.Name,
