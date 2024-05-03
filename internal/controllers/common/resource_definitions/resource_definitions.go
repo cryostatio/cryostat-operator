@@ -1031,8 +1031,8 @@ func NewCoreContainer(cr *model.CryostatInstance, specs *ServiceSpecs, imageTag 
 
 	optional := false
 	secretName := cr.Name + "-db"
-	if cr.Spec.DatabaseOptions != nil && cr.Spec.DatabaseOptions.DatabaseSecretName != nil {
-		secretName = *cr.Spec.DatabaseOptions.DatabaseSecretName
+	if cr.Spec.DatabaseOptions != nil && cr.Spec.DatabaseOptions.SecretName != nil {
+		secretName = *cr.Spec.DatabaseOptions.SecretName
 	}
 	envs = append(envs, corev1.EnvVar{
 		Name: "QUARKUS_DATASOURCE_PASSWORD",

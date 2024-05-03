@@ -53,7 +53,7 @@ metadata:
     capabilities: Seamless Upgrades
     categories: Monitoring, Developer Tools
     containerImage: quay.io/cryostat/cryostat-operator:3.0.0-dev
-    createdAt: "2024-05-03T13:45:26Z"
+    createdAt: "2024-05-03T14:03:18Z"
     description: JVM monitoring and profiling tool
     operatorframework.io/initialization-resource: |-
       {
@@ -580,8 +580,8 @@ spec:
           contain a CONNECTION_KEY secret which is the database connection password,
           and an ENCRYPTION_KEY secret which is the key used to encrypt sensitive
           data stored within the database, such as the target credentials keyring.
-        displayName: Database Secret Name
-        path: databaseOptions.databaseSecretName
+        displayName: Secret Name
+        path: databaseOptions.secretName
         x-descriptors:
         - urn:alm:descriptor:io.kubernetes:Secret
       - description: List of Flight Recorder Event Templates to preconfigure in Cryostat.

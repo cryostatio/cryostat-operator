@@ -5205,7 +5205,7 @@ spec:
               databaseOptions:
                 description: Options to configure the Cryostat application's database.
                 properties:
-                  databaseSecretName:
+                  secretName:
                     description: Name of the secret containing database keys. This
                       secret must contain a CONNECTION_KEY secret which is the database
                       connection password, and an ENCRYPTION_KEY secret which is the

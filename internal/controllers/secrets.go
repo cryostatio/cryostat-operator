@@ -136,7 +136,7 @@ func (r *Reconciler) reconcileDatabaseConnectionSecret(ctx context.Context, cr *
 		},
 	}
 
-	secretProvided := cr.Spec.DatabaseOptions != nil && cr.Spec.DatabaseOptions.DatabaseSecretName != nil
+	secretProvided := cr.Spec.DatabaseOptions != nil && cr.Spec.DatabaseOptions.SecretName != nil
 	if secretProvided {
 		return nil // Do not delete default secret to allow reverting to use default if needed
 	}

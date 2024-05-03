@@ -614,5 +614,5 @@ type DatabaseOptions struct {
 	// stored within the database, such as the target credentials keyring.
 	// +optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:io.kubernetes:Secret"}
-	DatabaseSecretName *string `json:"databaseSecretName,omitempty"`
+	SecretName *string `json:"secretName,omitempty"`
 }

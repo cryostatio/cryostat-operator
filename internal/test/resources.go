@@ -627,7 +627,7 @@ var providedDatabaseSecretName string = "credentials-database-secret"
 func (r *TestResources) NewCryostatWithDatabaseSecretProvided() *model.CryostatInstance {
 	cr := r.NewCryostat()
 	cr.Spec.DatabaseOptions = &operatorv1beta2.DatabaseOptions{
-		DatabaseSecretName: &providedDatabaseSecretName,
+		SecretName: &providedDatabaseSecretName,
 	}
 	return cr
 }

@@ -267,7 +267,7 @@ func convertDatabaseOptionsTo(srcOpts *JmxCredentialsDatabaseOptions) *operatorv
 	var dstOpts *operatorv1beta2.DatabaseOptions
 	if srcOpts != nil {
 		dstOpts = &operatorv1beta2.DatabaseOptions{
-			DatabaseSecretName: srcOpts.DatabaseSecretName,
+			SecretName: srcOpts.DatabaseSecretName,
 		}
 	}
 	return dstOpts
@@ -537,7 +537,7 @@ func convertDatabaseOptionsFrom(srcOpts *operatorv1beta2.DatabaseOptions) *JmxCr
 	var dstOpts *JmxCredentialsDatabaseOptions
 	if srcOpts != nil {
 		dstOpts = &JmxCredentialsDatabaseOptions{
-			DatabaseSecretName: srcOpts.DatabaseSecretName,
+			DatabaseSecretName: srcOpts.SecretName,
 		}
 	}
 	return dstOpts
