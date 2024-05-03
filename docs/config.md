@@ -286,9 +286,9 @@ spec:
     targetCacheTTL: 10
 ```
 
-### JMX Credentials Database
+### Application Database
 
-The Cryostat application must be provided with a password to encrypt saved JMX credentials in database. The user can specify a secret containing the password entry with key `CRYOSTAT_JMX_CREDENTIALS_DB_PASSWORD`. The Cryostat application will use this password to encrypt saved JMX credentials in database.
+Cryostat stores various pieces of information in a database. This can also include target application connection credentials, such as target applications' JMX credentials, which are stored in an encrypted database table. By default, the Operator will generate both a random database connection key and a random table encryption key and configure Cryostat and the database to use these. You may also specify these keys yourself by creating a Secret containing the keys `CONNECTION_KEY` and `ENCRYPTION_KEY`.
 
 For example:
 ```yaml
@@ -298,10 +298,11 @@ metadata:
   name: credentials-database-secret
 type: Opaque
 stringData:
-  CRYOSTAT_JMX_CREDENTIALS_DB_PASSWORD: a-very-good-password
+  CONNECTION_KEY: a-very-good-password
+  ENCRYPTION_KEY: a-second-good-password
 ```
 
-Then, the property `.spec.jmxCredentialsDatabaseOptions.databaseSecretName` must be set to use this secret for password.
+Then, the property `.spec.databaseOptions.secretName` must be set to use this Secret for the two keys.
 
 ```yaml
 apiVersion: operator.cryostat.io/v1beta1
@@ -313,47 +314,38 @@ spec:
     databaseSecretName: credentials-database-secret
 ```
 
-**Note**: If the secret is not provided, a default one is generated for this purpose. However, switching between using provided and generated secret is not allowed to avoid password mismatch that causes the Cryostat application's failure to access the credentials database.
+**Note**: If the secret is not provided, one is generated for this purpose containing two randomly generated keys. However, switching between using provided and generated secret is not allowed to avoid password mismatch that causes the Cryostat application's failure to access the database or failure to decrypt the credentials keyring.
 
-### Authorization Properties
+### Authorization Options
 
-When running on OpenShift, the user is required to have sufficient permissions for certain Kubernetes resources that are mapped into Cryostat-managed resources for authorization.
+On OpenShift, the authentication/authorization proxy deployed in front of the Cryostat application requires all users to pass a `create pods/exec` access review in the Cryostat installation namespace.
+This means that access to the Cryostat application is granted to exactly the set of OpenShift cluster user accounts and service accounts which have this Role.
 
-The mappings can be specified using a ConfigMap that is compatible with [`OpenShiftAuthManager.properties`](https://github.com/cryostatio/cryostat/blob/6db048682b2b0048c1f6ea9215de626b5a5be284/src/main/resources/io/cryostat/net/openshift/OpenShiftAuthManager.properties). For example:
+The auth proxy may also be configured to allow Basic authentication by creating a Secret containing an `htpasswd` user file. Any user accounts defined in this file will also be granted access to
+the Cryostat application, and when this configuration is enabled you will see an additional Basic login option when visiting the Cryostat application UI. If deployed on a non-OpenShift Kubernetes
+then this is the only supported authentication mechanism.
+
+If not deployed on OpenShift, or if OpenShift SSO integration is disabled, then no authentication is performed by default - the Cryostat application UI is openly accessible. You should configure
+`htpasswd` Basic authentication or install some other access control mechanism.
+
 ```yaml
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: auth-properties
-data:  
-  auth.properties: |
-    TARGET=pods,deployments.apps
-    RECORDING=pods,pods/exec
-    CERTIFICATE=deployments.apps,pods,cryostats.operator.cryostat.io
-    CREDENTIALS=cryostats.operator.cryostat.io
-```
-
-If custom mapping is specified, a ClusterRole must be defined and should contain permissions for all Kubernetes objects listed in custom permission mapping. This ClusterRole will give additional rules on top of [default rules](https://github.com/cryostatio/cryostat-operator/blob/1b5d1ab97fca925e14b6c2baf2585f5e04426440/config/rbac/oauth_client.yaml).
-
-
-**Note**: Using [`Secret`](https://kubernetes.io/docs/concepts/configuration/secret/) in mapping can fail with access denied under [security protection](https://kubernetes.io/docs/concepts/configuration/secret/#information-security-for-secrets) against escalations. Find more details about this issue [here](https://docs.openshift.com/container-platform/4.11/authentication/tokens-scoping.html#scoping-tokens-role-scope_configuring-internal-oauth).
-
-The property `spec.authProperties` can then be set to configure Cryostat to use this mapping instead of the default ones.
-```yaml
-apiVersion: operator.cryostat.io/v1beta1
+apiVersion: operator.cryostat.io/v1beta2
 kind: Cryostat
 metadata:
   name: cryostat-sample
 spec:
-  authProperties:
-    configMapName: auth-properties
-    filename: auth.properties
-    clusterRoleName: oauth-cluster-role
+  authorizationOptions:
+    openShiftSSO: # only effective when running on OpenShift
+      disable: false # set this to `true` to disable OpenShift SSO integration
+      accessReview: # override this to change the required Role for users and service accounts to access the application
+        verb: create
+        resource: pods
+        subresource: exec
+        namespace: cryostat-install-namespace
+    basicAuth:
+      secretName: my-secret # a Secret with this name must exist in the Cryostat installation namespace
+      filename: htpasswd.conf # the name of the htpasswd user file within the Secret
 ```
-
-Each `configMapName` must refer to the name of a Config Map in the same namespace as Cryostat. The corresponding `filename` must be a key within that Config Map containing resource mappings. The `clusterRoleName` must be a valid name of an existing Cluster Role.
-
-**Note:** If the mapping is updated, Cryostat must be manually restarted.
 
 
 ### Security Context
