@@ -39,4 +39,9 @@ const (
 	// ALL capability to drop for restricted pod security. See:
 	// https://kubernetes.io/docs/concepts/security/pod-security-standards/#restricted
 	CapabilityAll corev1.Capability = "ALL"
+
+	// DatabaseSecretConnectionKey indexes the database connection password within the Cryostat database Secret
+	DatabaseSecretConnectionKey = "CONNECTION_KEY"
+	// DatabaseSecretEncryptionKey indexes the database encryption key within the Cryostat database Secret
+	DatabaseSecretEncryptionKey = "ENCRYPTION_KEY"
 )

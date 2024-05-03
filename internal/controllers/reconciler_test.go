@@ -2710,7 +2710,7 @@ func (t *cryostatTestInput) checkMainPodTemplate(deployment *appsv1.Deployment, 
 	builtInPortConfigDisabled := cr.Spec.TargetDiscoveryOptions != nil &&
 		cr.Spec.TargetDiscoveryOptions.DisableBuiltInPortNames &&
 		cr.Spec.TargetDiscoveryOptions.DisableBuiltInPortNumbers
-	dbSecretProvided := cr.Spec.JmxCredentialsDatabaseOptions != nil && cr.Spec.JmxCredentialsDatabaseOptions.DatabaseSecretName != nil
+	dbSecretProvided := cr.Spec.DatabaseOptions != nil && cr.Spec.DatabaseOptions.DatabaseSecretName != nil
 
 	t.checkCoreContainer(&coreContainer, ingress, reportsUrl,
 		emptyDir,

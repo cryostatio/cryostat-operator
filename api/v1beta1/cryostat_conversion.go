@@ -54,7 +54,7 @@ func convertSpecTo(src *CryostatSpec, dst *operatorv1beta2.CryostatSpec) {
 	dst.SecurityOptions = convertSecurityOptionsTo(src.SecurityOptions)
 	dst.SchedulingOptions = convertSchedulingOptionsTo(src.SchedulingOptions)
 	dst.TargetDiscoveryOptions = convertTargetDiscoveryTo(src.TargetDiscoveryOptions)
-	dst.JmxCredentialsDatabaseOptions = convertDatabaseOptionsTo(src.JmxCredentialsDatabaseOptions)
+	dst.DatabaseOptions = convertDatabaseOptionsTo(src.JmxCredentialsDatabaseOptions)
 	dst.OperandMetadata = convertOperandMetadataTo(src.OperandMetadata)
 }
 
@@ -263,10 +263,10 @@ func convertTargetDiscoveryTo(srcOpts *TargetDiscoveryOptions) *operatorv1beta2.
 	return dstOpts
 }
 
-func convertDatabaseOptionsTo(srcOpts *JmxCredentialsDatabaseOptions) *operatorv1beta2.JmxCredentialsDatabaseOptions {
-	var dstOpts *operatorv1beta2.JmxCredentialsDatabaseOptions
+func convertDatabaseOptionsTo(srcOpts *JmxCredentialsDatabaseOptions) *operatorv1beta2.DatabaseOptions {
+	var dstOpts *operatorv1beta2.DatabaseOptions
 	if srcOpts != nil {
-		dstOpts = &operatorv1beta2.JmxCredentialsDatabaseOptions{
+		dstOpts = &operatorv1beta2.DatabaseOptions{
 			DatabaseSecretName: srcOpts.DatabaseSecretName,
 		}
 	}
@@ -324,7 +324,7 @@ func convertSpecFrom(src *operatorv1beta2.CryostatSpec, dst *CryostatSpec) {
 	dst.SecurityOptions = convertSecurityOptionsFrom(src.SecurityOptions)
 	dst.SchedulingOptions = convertSchedulingOptionsFrom(src.SchedulingOptions)
 	dst.TargetDiscoveryOptions = convertTargetDiscoveryFrom(src.TargetDiscoveryOptions)
-	dst.JmxCredentialsDatabaseOptions = convertDatabaseOptionsFrom(src.JmxCredentialsDatabaseOptions)
+	dst.JmxCredentialsDatabaseOptions = convertDatabaseOptionsFrom(src.DatabaseOptions)
 	dst.OperandMetadata = convertOperandMetadataFrom(src.OperandMetadata)
 }
 
@@ -533,7 +533,7 @@ func convertTargetDiscoveryFrom(srcOpts *operatorv1beta2.TargetDiscoveryOptions)
 	return dstOpts
 }
 
-func convertDatabaseOptionsFrom(srcOpts *operatorv1beta2.JmxCredentialsDatabaseOptions) *JmxCredentialsDatabaseOptions {
+func convertDatabaseOptionsFrom(srcOpts *operatorv1beta2.DatabaseOptions) *JmxCredentialsDatabaseOptions {
 	var dstOpts *JmxCredentialsDatabaseOptions
 	if srcOpts != nil {
 		dstOpts = &JmxCredentialsDatabaseOptions{

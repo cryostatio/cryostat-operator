@@ -5192,6 +5192,17 @@ spec:
                         type: boolean
                     type: object
                 type: object
+              databaseOptions:
+                description: Options to configure the Cryostat application's database.
+                properties:
+                  databaseSecretName:
+                    description: Name of the secret containing database keys. This
+                      secret must contain a CONNECTION_KEY secret which is the database
+                      connection password, and an ENCRYPTION_KEY secret which is the
+                      key used to encrypt sensitive data stored within the database,
+                      such as the target credentials keyring.
+                    type: string
+                type: object
               enableCertManager:
                 description: Use cert-manager to secure in-cluster communication between
                   Cryostat components. Requires cert-manager to be installed.
@@ -5231,15 +5242,6 @@ spec:
                     format: int32
                     minimum: 1
                     type: integer
-                type: object
-              jmxCredentialsDatabaseOptions:
-                description: Options to configure the Cryostat application's credentials
-                  database.
-                properties:
-                  databaseSecretName:
-                    description: Name of the secret containing the password to encrypt
-                      credentials database.
-                    type: string
                 type: object
               networkOptions:
                 description: Options to control how the operator exposes the application

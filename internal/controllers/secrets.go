@@ -18,6 +18,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/cryostatio/cryostat-operator/internal/controllers/constants"
 	"github.com/cryostatio/cryostat-operator/internal/controllers/model"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -127,12 +128,6 @@ func (r *Reconciler) reconcileJMXSecret(ctx context.Context, cr *model.CryostatI
 // Cryostat CR to name its credentials database secret
 const databaseSecretNameSuffix = "-db"
 
-// databaseSecretConnectionPassKey indexes the database connection password within the Cryostat database Secret
-const databaseSecretConnectionPassKey = "CONNECTION_KEY"
-
-// databaseSecretEncryptionKey indexes the database encryption key within the Cryostat database Secret
-const databaseSecretEncryptionKey = "ENCRYPTION_KEY"
-
 func (r *Reconciler) reconcileDatabaseConnectionSecret(ctx context.Context, cr *model.CryostatInstance) error {
 	secret := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
@@ -141,7 +136,7 @@ func (r *Reconciler) reconcileDatabaseConnectionSecret(ctx context.Context, cr *
 		},
 	}
 
-	secretProvided := cr.Spec.JmxCredentialsDatabaseOptions != nil && cr.Spec.JmxCredentialsDatabaseOptions.DatabaseSecretName != nil
+	secretProvided := cr.Spec.DatabaseOptions != nil && cr.Spec.DatabaseOptions.DatabaseSecretName != nil
 	if secretProvided {
 		return nil // Do not delete default secret to allow reverting to use default if needed
 	}
@@ -153,8 +148,8 @@ func (r *Reconciler) reconcileDatabaseConnectionSecret(ctx context.Context, cr *
 
 		// Password is generated, so don't regenerate it when updating
 		if secret.CreationTimestamp.IsZero() {
-			secret.StringData[databaseSecretConnectionPassKey] = r.GenPasswd(32)
-			secret.StringData[databaseSecretEncryptionKey] = r.GenPasswd(32)
+			secret.StringData[constants.DatabaseSecretConnectionKey] = r.GenPasswd(32)
+			secret.StringData[constants.DatabaseSecretEncryptionKey] = r.GenPasswd(32)
 		}
 		return nil
 	})

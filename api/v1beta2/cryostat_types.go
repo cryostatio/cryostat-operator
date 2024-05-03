@@ -86,10 +86,10 @@ type CryostatSpec struct {
 	// +optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	TargetDiscoveryOptions *TargetDiscoveryOptions `json:"targetDiscoveryOptions,omitempty"`
-	// Options to configure the Cryostat application's credentials database.
+	// Options to configure the Cryostat application's database.
 	// +optional
-	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Credentials Database Options"
-	JmxCredentialsDatabaseOptions *JmxCredentialsDatabaseOptions `json:"jmxCredentialsDatabaseOptions,omitempty"`
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Database Options"
+	DatabaseOptions *DatabaseOptions `json:"databaseOptions,omitempty"`
 	// Options to configure the Cryostat deployments and pods metadata
 	// +optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Operand metadata"
@@ -607,9 +607,11 @@ type TargetDiscoveryOptions struct {
 	DiscoveryPortNumbers []int32 `json:"discoveryPortNumbers,omitempty"`
 }
 
-// JmxCredentialsDatabaseOptions provides configuration options to the Cryostat application's credentials database.
-type JmxCredentialsDatabaseOptions struct {
-	// Name of the secret containing the password to encrypt credentials database.
+// DatabaseOptions provides configuration options to the Cryostat application's database.
+type DatabaseOptions struct {
+	// Name of the secret containing database keys. This secret must contain a CONNECTION_KEY secret which is the
+	// database connection password, and an ENCRYPTION_KEY secret which is the key used to encrypt sensitive data
+	// stored within the database, such as the target credentials keyring.
 	// +optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:io.kubernetes:Secret"}
 	DatabaseSecretName *string `json:"databaseSecretName,omitempty"`

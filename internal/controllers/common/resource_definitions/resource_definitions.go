@@ -1031,8 +1031,8 @@ func NewCoreContainer(cr *model.CryostatInstance, specs *ServiceSpecs, imageTag 
 
 	optional := false
 	secretName := cr.Name + "-db"
-	if cr.Spec.JmxCredentialsDatabaseOptions != nil && cr.Spec.JmxCredentialsDatabaseOptions.DatabaseSecretName != nil {
-		secretName = *cr.Spec.JmxCredentialsDatabaseOptions.DatabaseSecretName
+	if cr.Spec.DatabaseOptions != nil && cr.Spec.DatabaseOptions.DatabaseSecretName != nil {
+		secretName = *cr.Spec.DatabaseOptions.DatabaseSecretName
 	}
 	envs = append(envs, corev1.EnvVar{
 		Name: "QUARKUS_DATASOURCE_PASSWORD",
@@ -1041,7 +1041,7 @@ func NewCoreContainer(cr *model.CryostatInstance, specs *ServiceSpecs, imageTag 
 				LocalObjectReference: corev1.LocalObjectReference{
 					Name: secretName,
 				},
-				Key:      "CONNECTION_KEY",
+				Key:      constants.DatabaseSecretConnectionKey,
 				Optional: &optional,
 			},
 		},
@@ -1530,7 +1530,7 @@ func newDatabaseContainer(cr *model.CryostatInstance, imageTag string, tls *TLSC
 				LocalObjectReference: corev1.LocalObjectReference{
 					Name: secretName,
 				},
-				Key:      "CONNECTION_KEY",
+				Key:      constants.DatabaseSecretConnectionKey,
 				Optional: &optional,
 			},
 		},
@@ -1543,7 +1543,7 @@ func newDatabaseContainer(cr *model.CryostatInstance, imageTag string, tls *TLSC
 				LocalObjectReference: corev1.LocalObjectReference{
 					Name: secretName,
 				},
-				Key:      "ENCRYPTION_KEY",
+				Key:      constants.DatabaseSecretEncryptionKey,
 				Optional: &optional,
 			},
 		},
