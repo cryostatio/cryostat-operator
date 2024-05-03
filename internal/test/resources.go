@@ -1498,7 +1498,7 @@ func (r *TestResources) NewGrafanaEnvironmentVariables() []corev1.EnvVar {
 			Value: "http://127.0.0.1:8989",
 		},
 		{
-			Name:      "GF_AUTH_ANONYMOUS",
+			Name:      "GF_AUTH_ANONYMOUS_ENABLED",
 			Value:     "true",
 			ValueFrom: nil,
 		},
