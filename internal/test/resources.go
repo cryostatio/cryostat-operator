@@ -1539,6 +1539,26 @@ func (r *TestResources) NewGrafanaEnvironmentVariables() []corev1.EnvVar {
 			Name:  "JFR_DATASOURCE_URL",
 			Value: "http://127.0.0.1:8989",
 		},
+		{
+			Name:      "GF_INSTALL_PLUGINS",
+			Value:     "grafana-simple-json-datasource",
+			ValueFrom: nil,
+		},
+		{
+			Name:      "GF_AUTH_ANONYMOUS",
+			Value:     "true",
+			ValueFrom: nil,
+		},
+		{
+			Name:      "GF_SERVER_DOMAIN",
+			Value:     "localhost",
+			ValueFrom: nil,
+		},
+		{
+			Name:      "GF_SERVER_SERVE_FROM_SUB_PATH",
+			Value:     "true",
+			ValueFrom: nil,
+		},
 	}
 	if r.TLS {
 		envs = append(envs, corev1.EnvVar{
@@ -1550,6 +1570,14 @@ func (r *TestResources) NewGrafanaEnvironmentVariables() []corev1.EnvVar {
 		}, corev1.EnvVar{
 			Name:  "GF_SERVER_CERT_FILE",
 			Value: fmt.Sprintf("/var/run/secrets/operator.cryostat.io/%s-grafana-tls/tls.crt", r.Name),
+		}, corev1.EnvVar{
+			Name:  "GF_SERVER_ROOT_URL",
+			Value: "https://localhost:4180/grafana/",
+		})
+	} else {
+		envs = append(envs, corev1.EnvVar{
+			Name:  "GF_SERVER_ROOT_URL",
+			Value: "http://localhost:4180/grafana/",
 		})
 	}
 	return envs

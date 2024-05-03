@@ -1303,6 +1303,22 @@ func NewGrafanaContainerResource(cr *model.CryostatInstance) *corev1.ResourceReq
 func NewGrafanaContainer(cr *model.CryostatInstance, imageTag string, tls *TLSConfig) corev1.Container {
 	envs := []corev1.EnvVar{
 		{
+			Name:  "GF_INSTALL_PLUGINS",
+			Value: "grafana-simple-json-datasource",
+		},
+		{
+			Name:  "GF_AUTH_ANONYMOUS",
+			Value: "true",
+		},
+		{
+			Name:  "GF_SERVER_DOMAIN",
+			Value: "localhost",
+		},
+		{
+			Name:  "GF_SERVER_SERVE_FROM_SUB_PATH",
+			Value: "true",
+		},
+		{
 			Name:  "JFR_DATASOURCE_URL",
 			Value: datasourceURL,
 		},
@@ -1316,6 +1332,10 @@ func NewGrafanaContainer(cr *model.CryostatInstance, imageTag string, tls *TLSCo
 			{
 				Name:  "GF_SERVER_PROTOCOL",
 				Value: "https",
+			},
+			{
+				Name:  "GF_SERVER_ROOT_URL",
+				Value: fmt.Sprintf("%s://localhost:%d/grafana/", "https", constants.AuthProxyHttpContainerPort),
 			},
 			{
 				Name:  "GF_SERVER_CERT_KEY",
@@ -1338,6 +1358,11 @@ func NewGrafanaContainer(cr *model.CryostatInstance, imageTag string, tls *TLSCo
 
 		// Use HTTPS for liveness probe
 		livenessProbeScheme = corev1.URISchemeHTTPS
+	} else {
+		envs = append(envs, corev1.EnvVar{
+			Name:  "GF_SERVER_ROOT_URL",
+			Value: fmt.Sprintf("%s://localhost:%d/grafana/", "http", constants.AuthProxyHttpContainerPort),
+		})
 	}
 
 	var containerSc *corev1.SecurityContext
