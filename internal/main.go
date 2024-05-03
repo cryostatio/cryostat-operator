@@ -75,6 +75,7 @@ func main() {
 	var probeAddr string
 	var secureMetrics bool
 	var enableHTTP2 bool
+	var forceOpenShift bool
 	flag.StringVar(&metricsAddr, "metrics-bind-address", ":8080", "The address the metric endpoint binds to.")
 	flag.StringVar(&probeAddr, "health-probe-bind-address", ":8081", "The address the probe endpoint binds to.")
 	flag.BoolVar(&enableLeaderElection, "leader-elect", false,
@@ -83,6 +84,7 @@ func main() {
 	flag.BoolVar(&secureMetrics, "metrics-secure", false,
 		"If set the metrics endpoint is served securely")
 	flag.BoolVar(&enableHTTP2, "enable-http2", false, "If HTTP/2 should be enabled for the metrics and webhook servers.")
+	flag.BoolVar(&forceOpenShift, "force-openshift", false, "Force the controller to consider current platform as OpenShift")
 	opts := zap.Options{
 		Development: true,
 	}
@@ -138,7 +140,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	openShift, err := isOpenShift(dc)
+	openShift, err := isOpenShift(dc, forceOpenShift)
 	if err != nil {
 		setupLog.Error(err, "could not determine whether manager is running on OpenShift")
 		os.Exit(1)
@@ -205,7 +207,10 @@ func main() {
 	}
 }
 
-func isOpenShift(client discovery.DiscoveryInterface) (bool, error) {
+func isOpenShift(client discovery.DiscoveryInterface, forceOpenShift bool) (bool, error) {
+	if forceOpenShift {
+		return true, nil
+	}
 	return discovery.IsResourceEnabled(client, routev1.GroupVersion.WithResource("routes"))
 }
 
