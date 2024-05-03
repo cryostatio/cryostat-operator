@@ -494,7 +494,7 @@ type AuthorizationOptions struct {
 	OpenShiftSSO *OpenShiftSSOConfig `json:"openShiftSSO,omitempty"`
 	// Reference to a secret and file name containing the Basic authentication htpasswd file. If deploying on OpenShift this
 	// defines additional user accounts that can access the Cryostat application, on top of the OpenShift user accounts which
-	// pass the OpenShiftSsoRoles checks. If not on OpenShift then this defines the only user accounts that have access.
+	// pass the OpenShift SSO Roles checks. If not on OpenShift then this defines the only user accounts that have access.
 	// +optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:io.kubernetes:Secret"}
 	BasicAuth *SecretFile `json:"basicAuth,omitempty"`
