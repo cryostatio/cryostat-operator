@@ -49,7 +49,7 @@ type CryostatSpec struct {
 	// +optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	StorageOptions *StorageConfiguration `json:"storageOptions,omitempty"`
-	// Options to customize the services created for the Cryostat application and Grafana dashboard.
+	// Options to customize the services created for the Cryostat application.
 	// +optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	ServiceOptions *ServiceConfigList `json:"serviceOptions,omitempty"`
@@ -424,7 +424,6 @@ type TargetConnectionCacheOptions struct {
 // to deploy the Cryostat application.
 // +operator-sdk:csv:customresourcedefinitions:resources={{Deployment,v1},{Ingress,v1},{PersistentVolumeClaim,v1},{Secret,v1},{Service,v1},{Route,v1},{ConsoleLink,v1}}
 // +kubebuilder:printcolumn:name="Application URL",type=string,JSONPath=`.status.applicationUrl`
-// +kubebuilder:printcolumn:name="Grafana Secret",type=string,JSONPath=`.status.grafanaSecret`
 type Cryostat struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
