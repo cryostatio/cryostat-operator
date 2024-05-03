@@ -541,7 +541,7 @@ func newPVCSpec(storageClass string, storageRequest string,
 
 func (r *TestResources) NewCryostatWithJmxCacheOptionsSpec() *model.CryostatInstance {
 	cr := r.NewCryostat()
-	cr.Spec.JmxCacheOptions = &operatorv1beta2.JmxCacheOptions{
+	cr.Spec.TargetConnectionCacheOptions = &operatorv1beta2.TargetConnectionCacheOptions{
 		TargetCacheSize: 10,
 		TargetCacheTTL:  20,
 	}

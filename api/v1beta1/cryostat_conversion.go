@@ -49,7 +49,7 @@ func convertSpecTo(src *CryostatSpec, dst *operatorv1beta2.CryostatSpec) {
 	dst.ServiceOptions = convertServiceOptionsTo(src.ServiceOptions)
 	dst.NetworkOptions = convertNetworkOptionsTo(src.NetworkOptions)
 	dst.ReportOptions = convertReportOptionsTo(src.ReportOptions)
-	dst.JmxCacheOptions = convertJmxCacheOptionsTo(src.JmxCacheOptions)
+	dst.TargetConnectionCacheOptions = convertJmxCacheOptionsTo(src.JmxCacheOptions)
 	dst.Resources = convertResourceOptionsTo(src.Resources)
 	dst.SecurityOptions = convertSecurityOptionsTo(src.SecurityOptions)
 	dst.SchedulingOptions = convertSchedulingOptionsTo(src.SchedulingOptions)
@@ -213,10 +213,10 @@ func convertSchedulingOptionsTo(srcOpts *SchedulingConfiguration) *operatorv1bet
 	return dstOpts
 }
 
-func convertJmxCacheOptionsTo(srcOpts *JmxCacheOptions) *operatorv1beta2.JmxCacheOptions {
-	var dstOpts *operatorv1beta2.JmxCacheOptions
+func convertJmxCacheOptionsTo(srcOpts *JmxCacheOptions) *operatorv1beta2.TargetConnectionCacheOptions {
+	var dstOpts *operatorv1beta2.TargetConnectionCacheOptions
 	if srcOpts != nil {
-		dstOpts = &operatorv1beta2.JmxCacheOptions{
+		dstOpts = &operatorv1beta2.TargetConnectionCacheOptions{
 			TargetCacheSize: srcOpts.TargetCacheSize,
 			TargetCacheTTL:  srcOpts.TargetCacheTTL,
 		}
@@ -319,7 +319,7 @@ func convertSpecFrom(src *operatorv1beta2.CryostatSpec, dst *CryostatSpec) {
 	dst.ServiceOptions = convertServiceOptionsFrom(src.ServiceOptions)
 	dst.NetworkOptions = convertNetworkOptionsFrom(src.NetworkOptions)
 	dst.ReportOptions = convertReportOptionsFrom(src.ReportOptions)
-	dst.JmxCacheOptions = convertJmxCacheOptionsFrom(src.JmxCacheOptions)
+	dst.JmxCacheOptions = convertJmxCacheOptionsFrom(src.TargetConnectionCacheOptions)
 	dst.Resources = convertResourceOptionsFrom(src.Resources)
 	dst.SecurityOptions = convertSecurityOptionsFrom(src.SecurityOptions)
 	dst.SchedulingOptions = convertSchedulingOptionsFrom(src.SchedulingOptions)
@@ -483,7 +483,7 @@ func convertSchedulingOptionsFrom(srcOpts *operatorv1beta2.SchedulingConfigurati
 	return dstOpts
 }
 
-func convertJmxCacheOptionsFrom(srcOpts *operatorv1beta2.JmxCacheOptions) *JmxCacheOptions {
+func convertJmxCacheOptionsFrom(srcOpts *operatorv1beta2.TargetConnectionCacheOptions) *JmxCacheOptions {
 	var dstOpts *JmxCacheOptions
 	if srcOpts != nil {
 		dstOpts = &JmxCacheOptions{

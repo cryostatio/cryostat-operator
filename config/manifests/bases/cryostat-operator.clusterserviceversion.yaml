@@ -137,22 +137,6 @@ spec:
         path: eventTemplates[0].configMapName
         x-descriptors:
         - urn:alm:descriptor:io.kubernetes:ConfigMap
-      - description: Options to customize the target connections cache for the Cryostat
-          application.
-        displayName: JMX Connections Cache Options
-        path: jmxCacheOptions
-      - description: The maximum number of JMX connections to cache. Use `-1` for
-          an unlimited cache size (TTL expiration only). Defaults to `-1`.
-        displayName: Target Cache Size
-        path: jmxCacheOptions.targetCacheSize
-        x-descriptors:
-        - urn:alm:descriptor:com.tectonic.ui:number
-      - description: The time to live (in seconds) for cached JMX connections. Defaults
-          to `10`.
-        displayName: Target Cache TTL
-        path: jmxCacheOptions.targetCacheTTL
-        x-descriptors:
-        - urn:alm:descriptor:com.tectonic.ui:number
       - description: Options to control how the operator exposes the application outside
           of the cluster, such as using an Ingress or Route.
         displayName: Network Options
@@ -387,6 +371,22 @@ spec:
           has created the PVC, changes to this field have no effect.
         displayName: Spec
         path: storageOptions.pvc.spec
+      - description: Options to customize the target connections cache for the Cryostat
+          application.
+        displayName: Target Connection Cache Options
+        path: targetConnectionCacheOptions
+      - description: The maximum number of JMX connections to cache. Use `-1` for
+          an unlimited cache size (TTL expiration only). Defaults to `-1`.
+        displayName: Target Cache Size
+        path: targetConnectionCacheOptions.targetCacheSize
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:number
+      - description: The time to live (in seconds) for cached JMX connections. Defaults
+          to `10`.
+        displayName: Target Cache TTL
+        path: targetConnectionCacheOptions.targetCacheTTL
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:number
       - description: Options to configure the Cryostat application's target discovery
           mechanisms.
         displayName: Target Discovery Options

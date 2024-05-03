@@ -1107,16 +1107,16 @@ func NewCoreContainer(cr *model.CryostatInstance, specs *ServiceSpecs, imageTag 
 
 	targetCacheSize := "-1"
 	targetCacheTTL := "10"
-	if cr.Spec.JmxCacheOptions != nil {
-		if cr.Spec.JmxCacheOptions.TargetCacheSize != 0 {
-			targetCacheSize = strconv.Itoa(int(cr.Spec.JmxCacheOptions.TargetCacheSize))
+	if cr.Spec.TargetConnectionCacheOptions != nil {
+		if cr.Spec.TargetConnectionCacheOptions.TargetCacheSize != 0 {
+			targetCacheSize = strconv.Itoa(int(cr.Spec.TargetConnectionCacheOptions.TargetCacheSize))
 		}
 
-		if cr.Spec.JmxCacheOptions.TargetCacheTTL != 0 {
-			targetCacheTTL = strconv.Itoa(int(cr.Spec.JmxCacheOptions.TargetCacheTTL))
+		if cr.Spec.TargetConnectionCacheOptions.TargetCacheTTL != 0 {
+			targetCacheTTL = strconv.Itoa(int(cr.Spec.TargetConnectionCacheOptions.TargetCacheTTL))
 		}
 	}
-	jmxCacheEnvs := []corev1.EnvVar{
+	connectionCacheEnvs := []corev1.EnvVar{
 		{
 			Name:  "CRYOSTAT_CONNECTIONS_MAX_OPEN",
 			Value: targetCacheSize,
@@ -1126,7 +1126,7 @@ func NewCoreContainer(cr *model.CryostatInstance, specs *ServiceSpecs, imageTag 
 			Value: targetCacheTTL,
 		},
 	}
-	envs = append(envs, jmxCacheEnvs...)
+	envs = append(envs, connectionCacheEnvs...)
 	envsFrom := []corev1.EnvFromSource{
 		{
 			SecretRef: &corev1.SecretEnvSource{

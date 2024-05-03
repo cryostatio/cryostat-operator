@@ -64,8 +64,8 @@ type CryostatSpec struct {
 	ReportOptions *ReportConfiguration `json:"reportOptions,omitempty"`
 	// Options to customize the target connections cache for the Cryostat application.
 	// +optional
-	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="JMX Connections Cache Options"
-	JmxCacheOptions *JmxCacheOptions `json:"jmxCacheOptions,omitempty"`
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Target Connection Cache Options"
+	TargetConnectionCacheOptions *TargetConnectionCacheOptions `json:"targetConnectionCacheOptions,omitempty"`
 	// Resource requirements for the Cryostat deployment.
 	// +optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
@@ -403,7 +403,7 @@ type EmptyDirConfig struct {
 
 // JmxCacheConfig provides customization for the JMX target connections
 // cache for the Cryostat application.
-type JmxCacheOptions struct {
+type TargetConnectionCacheOptions struct {
 	// The maximum number of JMX connections to cache. Use `-1` for an unlimited cache size (TTL expiration only). Defaults to `-1`.
 	// +optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:com.tectonic.ui:number"}
