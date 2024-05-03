@@ -14,3 +14,12 @@ images:
 - name: controller
   newName: quay.io/cryostat/cryostat-operator
   newTag: 3.0.0-dev
+
+# patchesJson6902:
+# - path: patches/force_openshift_patch.yaml
+#   target:
+#     group: apps
+#     kind: Deployment
+#     name: controller-manager
+#     namespace: system
+#     version: v1
