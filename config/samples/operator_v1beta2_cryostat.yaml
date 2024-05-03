@@ -3,7 +3,10 @@ kind: Cryostat
 metadata:
   name: cryostat-sample
 spec:
-  enableCertManager: true
+  enableCertManager: false
+  authorizationOptions:
+    openShiftSSO:
+      disable: true
   trustedCertSecrets: []
   eventTemplates: []
   storageOptions:

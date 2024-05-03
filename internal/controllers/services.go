@@ -72,41 +72,6 @@ func (r *Reconciler) reconcileCoreService(ctx context.Context, cr *model.Cryosta
 	}
 }
 
-func (r *Reconciler) reconcileGrafanaService(ctx context.Context, cr *model.CryostatInstance,
-	tls *resource_definitions.TLSConfig, specs *resource_definitions.ServiceSpecs) error {
-	svc := &corev1.Service{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      cr.Name + "-grafana",
-			Namespace: cr.InstallNamespace,
-		},
-	}
-
-	config := configureGrafanaService(cr)
-	err := r.createOrUpdateService(ctx, svc, cr.Object, &config.ServiceConfig, func() error {
-		svc.Spec.Selector = map[string]string{
-			"app":       cr.Name,
-			"component": "cryostat",
-		}
-		svc.Spec.Ports = []corev1.ServicePort{
-			{
-				Name:       "http",
-				Port:       *config.HTTPPort,
-				TargetPort: intstr.IntOrString{IntVal: 3000},
-			},
-		}
-		return nil
-	})
-	if err != nil {
-		return err
-	}
-
-	if r.IsOpenShift {
-		return r.reconcileGrafanaRoute(ctx, svc, cr, tls, specs)
-	} else {
-		return r.reconcileGrafanaIngress(ctx, cr, specs)
-	}
-}
-
 func (r *Reconciler) reconcileReportsService(ctx context.Context, cr *model.CryostatInstance,
 	tls *resource_definitions.TLSConfig, specs *resource_definitions.ServiceSpecs) error {
 	config := configureReportsService(cr)
@@ -171,27 +136,6 @@ func configureCoreService(cr *model.CryostatInstance) *operatorv1beta2.CoreServi
 	if config.JMXPort == nil {
 		jmxPort := constants.CryostatJMXContainerPort
 		config.JMXPort = &jmxPort
-	}
-
-	return config
-}
-
-func configureGrafanaService(cr *model.CryostatInstance) *operatorv1beta2.GrafanaServiceConfig {
-	// Check CR for config
-	var config *operatorv1beta2.GrafanaServiceConfig
-	if cr.Spec.ServiceOptions == nil || cr.Spec.ServiceOptions.GrafanaConfig == nil {
-		config = &operatorv1beta2.GrafanaServiceConfig{}
-	} else {
-		config = cr.Spec.ServiceOptions.GrafanaConfig.DeepCopy()
-	}
-
-	// Apply common service defaults
-	configureService(&config.ServiceConfig, cr.Name, "cryostat")
-
-	// Apply default HTTP port if not provided
-	if config.HTTPPort == nil {
-		httpPort := constants.GrafanaContainerPort
-		config.HTTPPort = &httpPort
 	}
 
 	return config

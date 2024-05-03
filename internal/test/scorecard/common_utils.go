@@ -325,37 +325,6 @@ func configureIngress(name string, cryostatSpec *operatorv1beta2.CryostatSpec) {
 				},
 			},
 		},
-		GrafanaConfig: &operatorv1beta2.NetworkConfiguration{
-			Annotations: map[string]string{
-				"nginx.ingress.kubernetes.io/backend-protocol": "HTTPS",
-			},
-			IngressSpec: &netv1.IngressSpec{
-				TLS: []netv1.IngressTLS{{}},
-				Rules: []netv1.IngressRule{
-					{
-						Host: "testing.cryostat-grafana",
-						IngressRuleValue: netv1.IngressRuleValue{
-							HTTP: &netv1.HTTPIngressRuleValue{
-								Paths: []netv1.HTTPIngressPath{
-									{
-										Path:     "/",
-										PathType: &pathType,
-										Backend: netv1.IngressBackend{
-											Service: &netv1.IngressServiceBackend{
-												Name: fmt.Sprintf("%s-grafana", name),
-												Port: netv1.ServiceBackendPort{
-													Number: 3000,
-												},
-											},
-										},
-									},
-								},
-							},
-						},
-					},
-				},
-			},
-		},
 	}
 }
 

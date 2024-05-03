@@ -253,10 +253,6 @@ func (r *Reconciler) reconcileCryostat(ctx context.Context, cr *model.CryostatIn
 	serviceSpecs := &resources.ServiceSpecs{
 		InsightsURL: r.InsightsProxy,
 	}
-	err = r.reconcileGrafanaService(ctx, cr, tlsConfig, serviceSpecs)
-	if err != nil {
-		return requeueIfIngressNotReady(reqLogger, err)
-	}
 	err = r.reconcileCoreService(ctx, cr, tlsConfig, serviceSpecs)
 	if err != nil {
 		return requeueIfIngressNotReady(reqLogger, err)

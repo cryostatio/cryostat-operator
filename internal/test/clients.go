@@ -104,7 +104,7 @@ func (c *testClient) updateRouteStatus(ctx context.Context, obj runtime.Object) 
 	// If this object is an operator-managed route, mock the behaviour
 	// of OpenShift's router by setting a dummy hostname in its Status
 	route, ok := obj.(*routev1.Route)
-	if ok && c.matchesName(route, c.NewGrafanaRoute(), c.NewCoreRoute()) &&
+	if ok && c.matchesName(route, c.NewCoreRoute()) &&
 		len(route.Status.Ingress) == 0 {
 		route.Status.Ingress = append(route.Status.Ingress, routev1.RouteIngress{
 			Host: route.Name + ".example.com",

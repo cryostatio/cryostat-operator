@@ -53,24 +53,6 @@ func (r *Reconciler) reconcileCoreRoute(ctx context.Context, svc *corev1.Service
 	return nil
 }
 
-func (r *Reconciler) reconcileGrafanaRoute(ctx context.Context, svc *corev1.Service, cr *model.CryostatInstance,
-	tls *resource_definitions.TLSConfig, specs *resource_definitions.ServiceSpecs) error {
-	route := &routev1.Route{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      cr.Name + "-grafana",
-			Namespace: cr.InstallNamespace,
-		},
-	}
-
-	grafanaConfig := configureGrafanaRoute(cr)
-	url, err := r.reconcileRoute(ctx, route, svc, cr, tls, grafanaConfig)
-	if err != nil {
-		return err
-	}
-	specs.GrafanaURL = url
-	return nil
-}
-
 // ErrIngressNotReady is returned when Kubernetes has not yet exposed our services
 // so that they may be accessed outside of the cluster
 var ErrIngressNotReady = goerrors.New("ingress configuration not yet available")
@@ -158,18 +140,6 @@ func configureCoreRoute(cr *model.CryostatInstance) *operatorv1beta2.NetworkConf
 		config = &operatorv1beta2.NetworkConfiguration{}
 	} else {
 		config = cr.Spec.NetworkOptions.CoreConfig
-	}
-
-	configureRoute(config, cr.Name, "cryostat")
-	return config
-}
-
-func configureGrafanaRoute(cr *model.CryostatInstance) *operatorv1beta2.NetworkConfiguration {
-	var config *operatorv1beta2.NetworkConfiguration
-	if cr.Spec.NetworkOptions == nil || cr.Spec.NetworkOptions.GrafanaConfig == nil {
-		config = &operatorv1beta2.NetworkConfiguration{}
-	} else {
-		config = cr.Spec.NetworkOptions.GrafanaConfig
 	}
 
 	configureRoute(config, cr.Name, "cryostat")

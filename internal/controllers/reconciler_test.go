@@ -148,7 +148,6 @@ func resourceChecks() []resourceCheck {
 		{(*cryostatTestInput).expectCredentialsDatabaseSecret, "credentials database secret"},
 		{(*cryostatTestInput).expectStorageSecret, "object storage secret"},
 		{(*cryostatTestInput).expectJMXSecret, "JMX secret"},
-		{(*cryostatTestInput).expectGrafanaService, "Grafana service"},
 		{(*cryostatTestInput).expectCoreService, "core service"},
 		{(*cryostatTestInput).expectMainDeployment, "main deployment"},
 		{(*cryostatTestInput).expectLockConfigMap, "lock config map"},
@@ -520,23 +519,16 @@ func (c *controllerTest) commonTests() {
 		Context("with existing Routes", func() {
 			var cr *model.CryostatInstance
 			var oldCoreRoute *openshiftv1.Route
-			var oldGrafanaRoute *openshiftv1.Route
 			BeforeEach(func() {
 				cr = t.NewCryostat()
 				oldCoreRoute = t.OtherCoreRoute()
-				oldGrafanaRoute = t.OtherGrafanaRoute()
-				t.objs = append(t.objs, cr.Object, oldCoreRoute, oldGrafanaRoute)
+				t.objs = append(t.objs, cr.Object, oldCoreRoute)
 			})
 			JustBeforeEach(func() {
 				t.reconcileCryostatFully()
 			})
 			It("should update the Routes", func() {
-				expected := t.NewGrafanaRoute()
-				metav1.SetMetaDataAnnotation(&expected.ObjectMeta, "grafana", "annotation")
-				metav1.SetMetaDataLabel(&expected.ObjectMeta, "grafana", "label")
-				t.checkRoute(expected)
-
-				expected = t.NewCoreRoute()
+				expected := t.NewCoreRoute()
 				metav1.SetMetaDataAnnotation(&expected.ObjectMeta, "custom", "annotation")
 				metav1.SetMetaDataLabel(&expected.ObjectMeta, "custom", "label")
 				t.checkRoute(expected)
@@ -1433,14 +1425,6 @@ func (c *controllerTest) commonTests() {
 					t.checkService(t.Name, t.NewCustomizedCoreService())
 				})
 			})
-			Context("containing grafana config", func() {
-				BeforeEach(func() {
-					t.objs = append(t.objs, t.NewCryostatWithGrafanaSvc().Object)
-				})
-				It("should create the service as described", func() {
-					t.checkService(t.Name+"-grafana", t.NewCustomizedGrafanaService())
-				})
-			})
 			Context("containing reports config", func() {
 				BeforeEach(func() {
 					t.ReportReplicas = 1
@@ -1471,14 +1455,6 @@ func (c *controllerTest) commonTests() {
 					})
 					It("should create the service as described", func() {
 						t.checkService(t.Name, t.NewCustomizedCoreService())
-					})
-				})
-				Context("containing grafana config", func() {
-					BeforeEach(func() {
-						cr = t.NewCryostatWithGrafanaSvc()
-					})
-					It("should create the service as described", func() {
-						t.checkService(t.Name+"-grafana", t.NewCustomizedGrafanaService())
 					})
 				})
 				Context("containing reports config", func() {
@@ -1536,14 +1512,6 @@ func (c *controllerTest) commonTests() {
 				})
 				It("should create the route as described", func() {
 					t.checkRoute(t.NewCustomCoreRoute())
-				})
-			})
-			Context("containing grafana config", func() {
-				BeforeEach(func() {
-					t.objs = append(t.objs, t.NewCryostatWithGrafanaNetworkOptions().Object)
-				})
-				It("should create the route as described", func() {
-					t.checkRoute(t.NewCustomGrafanaRoute())
 				})
 			})
 		})
@@ -1917,23 +1885,16 @@ func (c *controllerTest) commonTests() {
 		Context("with existing Ingresses", func() {
 			var cr *model.CryostatInstance
 			var oldCoreIngress *netv1.Ingress
-			var oldGrafanaIngress *netv1.Ingress
 			BeforeEach(func() {
 				cr = t.NewCryostatWithIngress()
 				oldCoreIngress = t.OtherCoreIngress()
-				oldGrafanaIngress = t.OtherGrafanaIngress()
-				t.objs = append(t.objs, cr.Object, oldCoreIngress, oldGrafanaIngress)
+				t.objs = append(t.objs, cr.Object, oldCoreIngress)
 			})
 			JustBeforeEach(func() {
 				t.reconcileCryostatFully()
 			})
 			It("should update the Ingresses", func() {
-				expected := t.NewGrafanaIngress()
-				metav1.SetMetaDataAnnotation(&expected.ObjectMeta, "other-grafana", "annotation")
-				metav1.SetMetaDataLabel(&expected.ObjectMeta, "other-grafana", "label")
-				t.checkIngress(expected)
-
-				expected = t.NewCoreIngress()
+				expected := t.NewCoreIngress()
 				metav1.SetMetaDataAnnotation(&expected.ObjectMeta, "other", "annotation")
 				metav1.SetMetaDataLabel(&expected.ObjectMeta, "other", "label")
 				t.checkIngress(expected)
@@ -1951,20 +1912,10 @@ func (c *controllerTest) commonTests() {
 				t.updateCryostatInstance(c)
 
 				t.reconcileCryostatFully()
-				expectedConfig := cr.Spec.NetworkOptions
-				expectedConfig.GrafanaConfig.Labels["app"] = cr.Name
-				expectedConfig.GrafanaConfig.Labels["component"] = "cryostat"
 
 				ingress := &netv1.Ingress{}
 				err := t.Client.Get(context.Background(), types.NamespacedName{Name: t.Name, Namespace: t.Namespace}, ingress)
 				Expect(kerrors.IsNotFound(err)).To(BeTrue())
-
-				err = t.Client.Get(context.Background(), types.NamespacedName{Name: t.Name + "-grafana", Namespace: t.Namespace}, ingress)
-				Expect(err).ToNot(HaveOccurred())
-				Expect(ingress.Annotations).To(Equal(expectedConfig.GrafanaConfig.Annotations))
-				Expect(ingress.Labels).To(Equal(expectedConfig.GrafanaConfig.Labels))
-				Expect(ingress.Spec).To(Equal(*expectedConfig.GrafanaConfig.IngressSpec))
-
 			})
 		})
 		Context("ingressSpec for one of the services is nil", func() {
@@ -1979,18 +1930,9 @@ func (c *controllerTest) commonTests() {
 				t.updateCryostatInstance(c)
 
 				t.reconcileCryostatFully()
-				expectedConfig := cr.Spec.NetworkOptions
-				expectedConfig.GrafanaConfig.Labels["app"] = cr.Name
-				expectedConfig.GrafanaConfig.Labels["component"] = "cryostat"
 
 				ingress := &netv1.Ingress{}
-				err := t.Client.Get(context.Background(), types.NamespacedName{Name: t.Name + "-grafana", Namespace: t.Namespace}, ingress)
-				Expect(err).ToNot(HaveOccurred())
-				Expect(ingress.Annotations).To(Equal(expectedConfig.GrafanaConfig.Annotations))
-				Expect(ingress.Labels).To(Equal(expectedConfig.GrafanaConfig.Labels))
-				Expect(ingress.Spec).To(Equal(*expectedConfig.GrafanaConfig.IngressSpec))
-
-				err = t.Client.Get(context.Background(), types.NamespacedName{Name: t.Name, Namespace: t.Namespace}, ingress)
+				err := t.Client.Get(context.Background(), types.NamespacedName{Name: t.Name, Namespace: t.Namespace}, ingress)
 				Expect(kerrors.IsNotFound(err)).To(BeTrue())
 			})
 		})
@@ -2175,7 +2117,6 @@ func (c *controllerTest) commonTests() {
 }
 
 func (t *cryostatTestInput) expectRoutes() {
-	t.checkRoute(t.NewGrafanaRoute())
 	t.checkRoute(t.NewCoreRoute())
 }
 
@@ -2352,13 +2293,10 @@ func (t *cryostatTestInput) expectNoRoutes() {
 	svc := &openshiftv1.Route{}
 	err := t.Client.Get(context.Background(), types.NamespacedName{Name: t.Name, Namespace: t.Namespace}, svc)
 	Expect(kerrors.IsNotFound(err)).To(BeTrue())
-	err = t.Client.Get(context.Background(), types.NamespacedName{Name: t.Name + "-grafana", Namespace: t.Namespace}, svc)
-	Expect(kerrors.IsNotFound(err)).To(BeTrue())
 }
 
 func (t *cryostatTestInput) expectIngresses() {
 	t.checkIngress(t.NewCoreIngress())
-	t.checkIngress(t.NewGrafanaIngress())
 }
 
 func (t *cryostatTestInput) checkIngress(expected *netv1.Ingress) {
@@ -2373,8 +2311,6 @@ func (t *cryostatTestInput) checkIngress(expected *netv1.Ingress) {
 func (t *cryostatTestInput) expectNoIngresses() {
 	ing := &netv1.Ingress{}
 	err := t.Client.Get(context.Background(), types.NamespacedName{Name: t.Name, Namespace: t.Namespace}, ing)
-	Expect(kerrors.IsNotFound(err)).To(BeTrue())
-	err = t.Client.Get(context.Background(), types.NamespacedName{Name: t.Name + "-grafana", Namespace: t.Namespace}, ing)
 	Expect(kerrors.IsNotFound(err)).To(BeTrue())
 }
 
@@ -2490,10 +2426,6 @@ func (t *cryostatTestInput) expectIdempotence() {
 func (t *cryostatTestInput) expectCryostatFinalizerPresent() {
 	cr := t.getCryostatInstance()
 	Expect(cr.Object.GetFinalizers()).To(ContainElement("operator.cryostat.io/cryostat.finalizer"))
-}
-
-func (t *cryostatTestInput) expectGrafanaService() {
-	t.checkService(t.Name+"-grafana", t.NewGrafanaService())
 }
 
 func (t *cryostatTestInput) checkService(svcName string, expected *corev1.Service) {

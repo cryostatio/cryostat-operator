@@ -292,16 +292,6 @@ type CoreServiceConfig struct {
 	ServiceConfig `json:",inline"`
 }
 
-// GrafanaServiceConfig provides customization for the service handling
-// traffic for the Grafana dashboard.
-type GrafanaServiceConfig struct {
-	// HTTP port number for the Grafana dashboard service.
-	// Defaults to 3000.
-	// +optional
-	HTTPPort      *int32 `json:"httpPort,omitempty"`
-	ServiceConfig `json:",inline"`
-}
-
 // ReportsServiceConfig provides customization for the service handling
 // traffic for the cryostat-reports sidecars.
 type ReportsServiceConfig struct {
@@ -318,9 +308,6 @@ type ServiceConfigList struct {
 	// Specification for the service responsible for the Cryostat application.
 	// +optional
 	CoreConfig *CoreServiceConfig `json:"coreConfig,omitempty"`
-	// Specification for the service responsible for the Cryostat Grafana dashboard.
-	// +optional
-	GrafanaConfig *GrafanaServiceConfig `json:"grafanaConfig,omitempty"`
 	// Specification for the service responsible for the cryostat-reports sidecars.
 	// +optional
 	ReportsConfig *ReportsServiceConfig `json:"reportsConfig,omitempty"`
@@ -357,11 +344,6 @@ type NetworkConfigurationList struct {
 	// +optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	CoreConfig *NetworkConfiguration `json:"coreConfig,omitempty"`
-	// Specifications for how to expose Cryostat's Grafana service,
-	// which serves the Grafana dashboard.
-	// +optional
-	// +operator-sdk:csv:customresourcedefinitions:type=spec
-	GrafanaConfig *NetworkConfiguration `json:"grafanaConfig,omitempty"`
 }
 
 // PersistentVolumeClaimConfig holds all customization options to
