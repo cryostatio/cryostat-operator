@@ -969,10 +969,6 @@ func NewCoreContainer(cr *model.CryostatInstance, specs *ServiceSpecs, imageTag 
 			Name:  "CRYOSTAT_TEMPLATE_PATH",
 			Value: templatesPath,
 		},
-		{
-			Name:  "CRYOSTAT_ENABLE_JDP_BROADCAST",
-			Value: "false",
-		},
 	}
 
 	mounts := []corev1.VolumeMount{

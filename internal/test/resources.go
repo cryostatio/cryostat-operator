@@ -1339,10 +1339,6 @@ func (r *TestResources) NewCoreEnvironmentVariables(reportsUrl string, ingress b
 			Value: "/opt/cryostat.d/templates.d",
 		},
 		{
-			Name:  "CRYOSTAT_ENABLE_JDP_BROADCAST",
-			Value: "false",
-		},
-		{
 			Name:  "CRYOSTAT_CONNECTIONS_MAX_OPEN",
 			Value: "-1",
 		},
