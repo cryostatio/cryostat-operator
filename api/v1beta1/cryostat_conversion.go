@@ -61,7 +61,6 @@ func convertSpecTo(src *CryostatSpec, dst *operatorv1beta2.CryostatSpec) {
 func convertStatusTo(src *CryostatStatus, dst *operatorv1beta2.CryostatStatus) {
 	dst.ApplicationURL = src.ApplicationURL
 	dst.Conditions = src.Conditions
-	dst.GrafanaSecret = src.GrafanaSecret
 }
 
 func convertCertSecretsTo(srcCerts []CertificateSecret) []operatorv1beta2.CertificateSecret {
@@ -331,7 +330,6 @@ func convertSpecFrom(src *operatorv1beta2.CryostatSpec, dst *CryostatSpec) {
 func convertStatusFrom(src *operatorv1beta2.CryostatStatus, dst *CryostatStatus) {
 	dst.ApplicationURL = src.ApplicationURL
 	dst.Conditions = src.Conditions
-	dst.GrafanaSecret = src.GrafanaSecret
 }
 
 func convertCertSecretsFrom(srcCerts []operatorv1beta2.CertificateSecret) []CertificateSecret {

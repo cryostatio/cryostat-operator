@@ -1389,15 +1389,6 @@ func NewGrafanaContainer(cr *model.CryostatInstance, imageTag string, tls *TLSCo
 			},
 		},
 		Env: envs,
-		EnvFrom: []corev1.EnvFromSource{
-			{
-				SecretRef: &corev1.SecretEnvSource{
-					LocalObjectReference: corev1.LocalObjectReference{
-						Name: cr.Name + "-grafana-basic",
-					},
-				},
-			},
-		},
 		LivenessProbe: &corev1.Probe{
 			ProbeHandler: corev1.ProbeHandler{
 				HTTPGet: &corev1.HTTPGetAction{

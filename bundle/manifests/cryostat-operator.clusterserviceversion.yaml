@@ -53,7 +53,7 @@ metadata:
     capabilities: Seamless Upgrades
     categories: Monitoring, Developer Tools
     containerImage: quay.io/cryostat/cryostat-operator:3.0.0-dev
-    createdAt: "2024-05-03T14:26:42Z"
+    createdAt: "2024-05-03T14:42:40Z"
     description: JVM monitoring and profiling tool
     operatorframework.io/initialization-resource: |-
       {
@@ -830,14 +830,14 @@ spec:
           application.
         displayName: Target Connection Cache Options
         path: targetConnectionCacheOptions
-      - description: The maximum number of JMX connections to cache. Use `-1` for
+      - description: The maximum number of target connections to cache. Use `-1` for
           an unlimited cache size (TTL expiration only). Defaults to `-1`.
         displayName: Target Cache Size
         path: targetConnectionCacheOptions.targetCacheSize
         x-descriptors:
         - urn:alm:descriptor:com.tectonic.ui:number
-      - description: The time to live (in seconds) for cached JMX connections. Defaults
-          to `10`.
+      - description: The time to live (in seconds) for cached target connections.
+          Defaults to `10`.
         displayName: Target Cache TTL
         path: targetConnectionCacheOptions.targetCacheTTL
         x-descriptors:
@@ -896,11 +896,6 @@ spec:
         path: applicationUrl
         x-descriptors:
         - urn:alm:descriptor:org.w3:link
-      - description: Name of the Secret containing the generated Grafana credentials.
-        displayName: Grafana Secret
-        path: grafanaSecret
-        x-descriptors:
-        - urn:alm:descriptor:io.kubernetes:Secret
       - description: List of namespaces that Cryostat has been configured and authorized
           to access and profile.
         displayName: Target Namespaces

@@ -900,32 +900,6 @@ func (r *TestResources) NewCACertSecret(ns string) *corev1.Secret {
 	}
 }
 
-func (r *TestResources) NewGrafanaSecret() *corev1.Secret {
-	return &corev1.Secret{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      r.Name + "-grafana-basic",
-			Namespace: r.Namespace,
-		},
-		StringData: map[string]string{
-			"GF_SECURITY_ADMIN_USER":     "admin",
-			"GF_SECURITY_ADMIN_PASSWORD": "grafana",
-		},
-	}
-}
-
-func (r *TestResources) OtherGrafanaSecret() *corev1.Secret {
-	return &corev1.Secret{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      r.Name + "-grafana-basic",
-			Namespace: r.Namespace,
-		},
-		StringData: map[string]string{
-			"GF_SECURITY_ADMIN_USER":     "user",
-			"GF_SECURITY_ADMIN_PASSWORD": "goodpassword",
-		},
-	}
-}
-
 func (r *TestResources) NewDatabaseSecret() *corev1.Secret {
 	return &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
@@ -1670,18 +1644,6 @@ func (r *TestResources) NewCoreEnvFromSource() []corev1.EnvFromSource {
 		})
 	}
 	return envsFrom
-}
-
-func (r *TestResources) NewGrafanaEnvFromSource() []corev1.EnvFromSource {
-	return []corev1.EnvFromSource{
-		{
-			SecretRef: &corev1.SecretEnvSource{
-				LocalObjectReference: corev1.LocalObjectReference{
-					Name: r.Name + "-grafana-basic",
-				},
-			},
-		},
-	}
 }
 
 func (r *TestResources) NewJmxCacheOptionsEnv() []corev1.EnvVar {

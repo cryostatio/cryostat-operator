@@ -148,10 +148,6 @@ type CryostatStatus struct {
 	// +optional
 	// +operator-sdk:csv:customresourcedefinitions:type=status,displayName="Cryostat Conditions",xDescriptors={"urn:alm:descriptor:io.kubernetes.conditions"}
 	Conditions []metav1.Condition `json:"conditions,omitempty"`
-	// Name of the Secret containing the generated Grafana credentials.
-	// +optional
-	// +operator-sdk:csv:customresourcedefinitions:type=status,order=2,xDescriptors={"urn:alm:descriptor:io.kubernetes:Secret"}
-	GrafanaSecret string `json:"grafanaSecret,omitempty"`
 	// Address of the deployed Cryostat web application.
 	// +operator-sdk:csv:customresourcedefinitions:type=status,order=1,xDescriptors={"urn:alm:descriptor:org.w3:link"}
 	ApplicationURL string `json:"applicationUrl"`

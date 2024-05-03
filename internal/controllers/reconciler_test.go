@@ -66,7 +66,7 @@ type cryostatTestInput struct {
 func (c *controllerTest) commonBeforeEach() *cryostatTestInput {
 	t := &cryostatTestInput{
 		TestReconcilerConfig: test.TestReconcilerConfig{
-			GeneratedPasswords: []string{"auth_cookie_secret", "grafana", "credentials_database", "encryption_key", "object_storage", "jmx", "keystore"},
+			GeneratedPasswords: []string{"auth_cookie_secret", "credentials_database", "encryption_key", "object_storage", "jmx", "keystore"},
 		},
 		TestResources: &test.TestResources{
 			Name:        "cryostat",
@@ -145,7 +145,6 @@ func resourceChecks() []resourceCheck {
 		{func(t *cryostatTestInput) {
 			t.expectPVC(t.NewDefaultPVC())
 		}, "persistent volume claim"},
-		{(*cryostatTestInput).expectGrafanaSecret, "Grafana secret"},
 		{(*cryostatTestInput).expectCredentialsDatabaseSecret, "credentials database secret"},
 		{(*cryostatTestInput).expectStorageSecret, "object storage secret"},
 		{(*cryostatTestInput).expectJMXSecret, "JMX secret"},
@@ -165,9 +164,6 @@ func expectSuccessful(t **cryostatTestInput) {
 	}
 	It("should set ApplicationURL in CR Status", func() {
 		(*t).expectStatusApplicationURL()
-	})
-	It("should set GrafanaSecret in CR Status", func() {
-		(*t).expectStatusGrafanaSecretName((*t).NewGrafanaSecret().Name)
 	})
 	It("should set TLSSetupComplete condition", func() {
 		(*t).checkConditionPresent(operatorv1beta2.ConditionTypeTLSSetupComplete, metav1.ConditionTrue,
@@ -475,30 +471,6 @@ func (c *controllerTest) commonTests() {
 				It("should delete and re-create the Cluster Role Binding", func() {
 					t.expectRBAC()
 				})
-			})
-		})
-		Context("with an existing Grafana Secret", func() {
-			var cr *model.CryostatInstance
-			var oldSecret *corev1.Secret
-			BeforeEach(func() {
-				cr = t.NewCryostat()
-				oldSecret = t.OtherGrafanaSecret()
-				t.objs = append(t.objs, cr.Object, oldSecret)
-			})
-			JustBeforeEach(func() {
-				t.reconcileCryostatFully()
-			})
-			It("should update the username but not password", func() {
-				secret := &corev1.Secret{}
-				err := t.Client.Get(context.Background(), types.NamespacedName{Name: oldSecret.Name, Namespace: t.Namespace}, secret)
-				Expect(err).ToNot(HaveOccurred())
-
-				Expect(metav1.IsControlledBy(secret, cr.Object)).To(BeTrue())
-
-				// Username should be replaced, but not password
-				expected := t.NewGrafanaSecret()
-				Expect(secret.StringData["GF_SECURITY_ADMIN_USER"]).To(Equal(expected.StringData["GF_SECURITY_ADMIN_USER"]))
-				Expect(secret.StringData["GF_SECURITY_ADMIN_PASSWORD"]).To(Equal(oldSecret.StringData["GF_SECURITY_ADMIN_PASSWORD"]))
 			})
 		})
 		Context("with an existing JMX Secret", func() {
@@ -2448,17 +2420,6 @@ func (t *cryostatTestInput) expectEmptyDir(expectedEmptyDir *corev1.EmptyDirVolu
 	Expect(emptyDir.SizeLimit).To(Equal(expectedEmptyDir.SizeLimit))
 }
 
-func (t *cryostatTestInput) expectGrafanaSecret() {
-	secret := &corev1.Secret{}
-	err := t.Client.Get(context.Background(), types.NamespacedName{Name: t.Name + "-grafana-basic", Namespace: t.Namespace}, secret)
-	Expect(err).ToNot(HaveOccurred())
-
-	// Compare to desired spec
-	expectedSecret := t.NewGrafanaSecret()
-	t.checkMetadata(secret, expectedSecret)
-	Expect(secret.StringData).To(Equal(expectedSecret.StringData))
-}
-
 func (t *cryostatTestInput) expectCredentialsDatabaseSecret() {
 	secret := &corev1.Secret{}
 	err := t.Client.Get(context.Background(), types.NamespacedName{Name: t.Name + "-db", Namespace: t.Namespace}, secret)
@@ -2499,11 +2460,6 @@ func (t *cryostatTestInput) expectCoreService() {
 func (t *cryostatTestInput) expectStatusApplicationURL() {
 	instance := t.getCryostatInstance()
 	Expect(instance.Status.ApplicationURL).To(Equal(fmt.Sprintf("https://%s.example.com", t.Name)))
-}
-
-func (t *cryostatTestInput) expectStatusGrafanaSecretName(secretName string) {
-	instance := t.getCryostatInstance()
-	Expect(instance.Status.GrafanaSecret).To(Equal(secretName))
 }
 
 func (t *cryostatTestInput) expectDeploymentHasCertSecrets() {
@@ -2890,7 +2846,6 @@ func (t *cryostatTestInput) checkGrafanaContainer(container *corev1.Container, r
 	}
 	Expect(container.Ports).To(ConsistOf(t.NewGrafanaPorts()))
 	Expect(container.Env).To(ConsistOf(t.NewGrafanaEnvironmentVariables()))
-	Expect(container.EnvFrom).To(ConsistOf(t.NewGrafanaEnvFromSource()))
 	Expect(container.VolumeMounts).To(ConsistOf(t.NewGrafanaVolumeMounts()))
 	Expect(container.LivenessProbe).To(Equal(t.NewGrafanaLivenessProbe()))
 	Expect(container.SecurityContext).To(Equal(securityContext))

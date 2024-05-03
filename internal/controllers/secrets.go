@@ -30,9 +30,6 @@ func (r *Reconciler) reconcileSecrets(ctx context.Context, cr *model.CryostatIns
 	if err := r.reconcileAuthProxyCookieSecret(ctx, cr); err != nil {
 		return err
 	}
-	if err := r.reconcileGrafanaSecret(ctx, cr); err != nil {
-		return err
-	}
 	if err := r.reconcileDatabaseConnectionSecret(ctx, cr); err != nil {
 		return err
 	}
@@ -61,35 +58,6 @@ func (r *Reconciler) reconcileAuthProxyCookieSecret(ctx context.Context, cr *mod
 		}
 		return nil
 	})
-}
-
-func (r *Reconciler) reconcileGrafanaSecret(ctx context.Context, cr *model.CryostatInstance) error {
-	secret := &corev1.Secret{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      cr.Name + "-grafana-basic",
-			Namespace: cr.InstallNamespace,
-		},
-	}
-
-	err := r.createOrUpdateSecret(ctx, secret, cr.Object, func() error {
-		if secret.StringData == nil {
-			secret.StringData = map[string]string{}
-		}
-		secret.StringData["GF_SECURITY_ADMIN_USER"] = "admin"
-
-		// Password is generated, so don't regenerate it when updating
-		if secret.CreationTimestamp.IsZero() {
-			secret.StringData["GF_SECURITY_ADMIN_PASSWORD"] = r.GenPasswd(20)
-		}
-		return nil
-	})
-	if err != nil {
-		return err
-	}
-
-	// Set the Grafana secret in the CR status
-	cr.Status.GrafanaSecret = secret.Name
-	return r.Client.Status().Update(ctx, cr.Object)
 }
 
 // jmxSecretNameSuffix is the suffix to be appended to the name of a
