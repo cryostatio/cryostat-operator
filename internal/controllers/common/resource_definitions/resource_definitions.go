@@ -1269,10 +1269,6 @@ func NewGrafanaContainerResource(cr *model.CryostatInstance) *corev1.ResourceReq
 func NewGrafanaContainer(cr *model.CryostatInstance, imageTag string, tls *TLSConfig) corev1.Container {
 	envs := []corev1.EnvVar{
 		{
-			Name:  "GF_INSTALL_PLUGINS",
-			Value: "grafana-simple-json-datasource",
-		},
-		{
 			Name:  "GF_AUTH_ANONYMOUS",
 			Value: "true",
 		},

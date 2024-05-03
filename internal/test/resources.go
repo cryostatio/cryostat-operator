@@ -1498,11 +1498,6 @@ func (r *TestResources) NewGrafanaEnvironmentVariables() []corev1.EnvVar {
 			Value: "http://127.0.0.1:8989",
 		},
 		{
-			Name:      "GF_INSTALL_PLUGINS",
-			Value:     "grafana-simple-json-datasource",
-			ValueFrom: nil,
-		},
-		{
 			Name:      "GF_AUTH_ANONYMOUS",
 			Value:     "true",
 			ValueFrom: nil,
