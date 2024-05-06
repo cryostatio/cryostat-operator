@@ -71,20 +71,20 @@ type TLSConfig struct {
 }
 
 const (
-	defaultAuthProxyCpuRequest        string = "50m"
-	defaultAuthProxyMemoryRequest     string = "120Mi"
+	defaultAuthProxyCpuRequest        string = "25m"
+	defaultAuthProxyMemoryRequest     string = "64Mi"
 	defaultCoreCpuRequest             string = "500m"
-	defaultCoreMemoryRequest          string = "256Mi"
+	defaultCoreMemoryRequest          string = "384Mi"
 	defaultJfrDatasourceCpuRequest    string = "200m"
-	defaultJfrDatasourceMemoryRequest string = "384Mi"
-	defaultGrafanaCpuRequest          string = "100m"
-	defaultGrafanaMemoryRequest       string = "120Mi"
-	defaultReportCpuRequest           string = "200m"
-	defaultReportMemoryRequest        string = "384Mi"
+	defaultJfrDatasourceMemoryRequest string = "200Mi"
+	defaultGrafanaCpuRequest          string = "25m"
+	defaultGrafanaMemoryRequest       string = "80Mi"
 	defaultDatabaseCpuRequest         string = "25m"
 	defaultDatabaseMemoryRequest      string = "64Mi"
 	defaultStorageCpuRequest          string = "50m"
 	defaultStorageMemoryRequest       string = "384Mi"
+	defaultReportCpuRequest           string = "500m"
+	defaultReportMemoryRequest        string = "512Mi"
 	OAuth2ConfigFileName              string = "alpha_config.json"
 	OAuth2ConfigFilePath              string = "/etc/oauth2_proxy/alpha_config"
 )

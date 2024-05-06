@@ -2810,7 +2810,7 @@ func newCoreContainerDefaultResource() *corev1.ResourceRequirements {
 	return &corev1.ResourceRequirements{
 		Requests: corev1.ResourceList{
 			corev1.ResourceCPU:    resource.MustParse("500m"),
-			corev1.ResourceMemory: resource.MustParse("256Mi"),
+			corev1.ResourceMemory: resource.MustParse("384Mi"),
 		},
 	}
 }
@@ -2838,7 +2838,7 @@ func newDatasourceContainerDefaultResource() *corev1.ResourceRequirements {
 	return &corev1.ResourceRequirements{
 		Requests: corev1.ResourceList{
 			corev1.ResourceCPU:    resource.MustParse("200m"),
-			corev1.ResourceMemory: resource.MustParse("384Mi"),
+			corev1.ResourceMemory: resource.MustParse("200Mi"),
 		},
 	}
 }
@@ -2865,8 +2865,8 @@ func (r *TestResources) NewDatasourceContainerResource(cr *model.CryostatInstanc
 func newGrafanaContainerDefaultResource() *corev1.ResourceRequirements {
 	return &corev1.ResourceRequirements{
 		Requests: corev1.ResourceList{
-			corev1.ResourceCPU:    resource.MustParse("100m"),
-			corev1.ResourceMemory: resource.MustParse("120Mi"),
+			corev1.ResourceCPU:    resource.MustParse("25m"),
+			corev1.ResourceMemory: resource.MustParse("80Mi"),
 		},
 	}
 }
@@ -2893,8 +2893,8 @@ func (r *TestResources) NewGrafanaContainerResource(cr *model.CryostatInstance) 
 func newReportContainerDefaultResource() *corev1.ResourceRequirements {
 	return &corev1.ResourceRequirements{
 		Requests: corev1.ResourceList{
-			corev1.ResourceCPU:    resource.MustParse("200m"),
-			corev1.ResourceMemory: resource.MustParse("384Mi"),
+			corev1.ResourceCPU:    resource.MustParse("500m"),
+			corev1.ResourceMemory: resource.MustParse("512Mi"),
 		},
 	}
 }
