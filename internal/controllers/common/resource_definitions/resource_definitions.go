@@ -82,7 +82,7 @@ const (
 	defaultDatabaseCpuRequest         string = "25m"
 	defaultDatabaseMemoryRequest      string = "64Mi"
 	defaultStorageCpuRequest          string = "50m"
-	defaultStorageMemoryRequest       string = "384Mi"
+	defaultStorageMemoryRequest       string = "256Mi"
 	defaultReportCpuRequest           string = "500m"
 	defaultReportMemoryRequest        string = "512Mi"
 	OAuth2ConfigFileName              string = "alpha_config.json"
