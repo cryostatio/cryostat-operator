@@ -81,6 +81,10 @@ const (
 	defaultGrafanaMemoryRequest       string = "120Mi"
 	defaultReportCpuRequest           string = "200m"
 	defaultReportMemoryRequest        string = "384Mi"
+	defaultDatabaseCpuRequest         string = "25m"
+	defaultDatabaseMemoryRequest      string = "64Mi"
+	defaultStorageCpuRequest          string = "50m"
+	defaultStorageMemoryRequest       string = "384Mi"
 	OAuth2ConfigFileName              string = "alpha_config.json"
 	OAuth2ConfigFilePath              string = "/etc/oauth2_proxy/alpha_config"
 )
@@ -1366,13 +1370,15 @@ func NewGrafanaContainer(cr *model.CryostatInstance, imageTag string, tls *TLSCo
 	}
 }
 
-/*
- * storage.image.repository - Repository for the database container
- * storage.image.pullPolicy - Pull Policy for the database container
- * storage.image.tag - Image tag for the database container
- * storage.resources - Resource requests/limits for the database container
- * storage.securityContext - Security Context for the database container
- */
+func NewStorageContainerResource(cr *model.CryostatInstance) *corev1.ResourceRequirements {
+	resources := &corev1.ResourceRequirements{}
+	if cr.Spec.Resources != nil {
+		resources = cr.Spec.Resources.ObjectStorageResources.DeepCopy()
+	}
+	populateResourceRequest(resources, defaultStorageCpuRequest, defaultStorageMemoryRequest)
+	return resources
+}
+
 func NewStorageContainer(cr *model.CryostatInstance, imageTag string, tls *TLSConfig) corev1.Container {
 	var containerSc *corev1.SecurityContext
 	envs := []corev1.EnvVar{
@@ -1458,23 +1464,19 @@ func NewStorageContainer(cr *model.CryostatInstance, imageTag string, tls *TLSCo
 			ProbeHandler:     probeHandler,
 			FailureThreshold: 13,
 		},
+		Resources: *NewStorageContainerResource(cr),
 	}
 }
 
-/*
-* 		{
-			Name:      cr.Name,
-			MountPath: "/var/lib/pgsql/data",
-			SubPath:   "postgres",
-		},
-*/
-/*
- * db.image.repository - Repository for the database container
- * db.image.pullPolicy - Pull Policy for the database container
- * db.image.tag - Image tag for the database container
- * db.resources - Resource requests/limits for the database container
- * db.securityContext - Security Context for the database container
- */
+func NewDatabaseContainerResource(cr *model.CryostatInstance) *corev1.ResourceRequirements {
+	resources := &corev1.ResourceRequirements{}
+	if cr.Spec.Resources != nil {
+		resources = cr.Spec.Resources.DatabaseResources.DeepCopy()
+	}
+	populateResourceRequest(resources, defaultDatabaseCpuRequest, defaultDatabaseMemoryRequest)
+	return resources
+}
+
 func newDatabaseContainer(cr *model.CryostatInstance, imageTag string, tls *TLSConfig) corev1.Container {
 	var containerSc *corev1.SecurityContext
 	if cr.Spec.SecurityOptions != nil && cr.Spec.SecurityOptions.DatabaseSecurityContext != nil {
@@ -1555,6 +1557,7 @@ func newDatabaseContainer(cr *model.CryostatInstance, imageTag string, tls *TLSC
 				},
 			},
 		},
+		Resources: *NewDatabaseContainerResource(cr),
 	}
 }
 

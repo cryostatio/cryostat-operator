@@ -258,7 +258,7 @@ spec:
         x-descriptors:
         - urn:alm:descriptor:com.tectonic.ui:resourceRequirements
       - description: Resource requirements for the Cryostat application. If specifying
-          a memory limit, at least 768MiB is recommended.
+          a memory limit, at least 384MiB is recommended.
         displayName: Core Resources
         path: resources.coreResources
         x-descriptors:
@@ -268,9 +268,19 @@ spec:
         path: resources.dataSourceResources
         x-descriptors:
         - urn:alm:descriptor:com.tectonic.ui:resourceRequirements
+      - description: Resource requirements for the database container.
+        displayName: Database Resources
+        path: resources.databaseResources
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:resourceRequirements
       - description: Resource requirements for the Grafana container.
         displayName: Grafana Resources
         path: resources.grafanaResources
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:resourceRequirements
+      - description: Resource requirements for the object storage container.
+        displayName: Object Storage Resources
+        path: resources.objectStorageResources
         x-descriptors:
         - urn:alm:descriptor:com.tectonic.ui:resourceRequirements
       - description: Options to configure scheduling for the Cryostat deployment

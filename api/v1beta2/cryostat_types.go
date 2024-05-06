@@ -123,7 +123,7 @@ type ResourceConfigList struct {
 	// +optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:com.tectonic.ui:resourceRequirements"}
 	AuthProxyResources corev1.ResourceRequirements `json:"authProxyResources,omitempty"`
-	// Resource requirements for the Cryostat application. If specifying a memory limit, at least 768MiB is recommended.
+	// Resource requirements for the Cryostat application. If specifying a memory limit, at least 384MiB is recommended.
 	// +optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:com.tectonic.ui:resourceRequirements"}
 	CoreResources corev1.ResourceRequirements `json:"coreResources,omitempty"`
@@ -135,6 +135,14 @@ type ResourceConfigList struct {
 	// +optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:com.tectonic.ui:resourceRequirements"}
 	GrafanaResources corev1.ResourceRequirements `json:"grafanaResources,omitempty"`
+	// Resource requirements for the database container.
+	// +optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:com.tectonic.ui:resourceRequirements"}
+	DatabaseResources corev1.ResourceRequirements `json:"databaseResources,omitempty"`
+	// Resource requirements for the object storage container.
+	// +optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:com.tectonic.ui:resourceRequirements"}
+	ObjectStorageResources corev1.ResourceRequirements `json:"objectStorageResources,omitempty"`
 }
 
 // CryostatStatus defines the observed state of Cryostat.
