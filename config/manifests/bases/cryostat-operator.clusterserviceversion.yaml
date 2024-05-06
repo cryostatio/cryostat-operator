@@ -157,22 +157,6 @@ spec:
           label with key "app" is reserved for use by the operator.
         displayName: Labels
         path: networkOptions.coreConfig.labels
-      - description: Specifications for how to expose Cryostat's Grafana service,
-          which serves the Grafana dashboard.
-        displayName: Grafana Config
-        path: networkOptions.grafanaConfig
-      - description: Annotations to add to the Ingress or Route during its creation.
-        displayName: Annotations
-        path: networkOptions.grafanaConfig.annotations
-      - description: Configuration for an Ingress object. Currently subpaths are not
-          supported, so unique hosts must be specified (if a single external IP is
-          being used) to differentiate between ingresses/services.
-        displayName: Ingress Spec
-        path: networkOptions.grafanaConfig.ingressSpec
-      - description: Labels to add to the Ingress or Route during its creation. The
-          label with key "app" is reserved for use by the operator.
-        displayName: Labels
-        path: networkOptions.grafanaConfig.labels
       - description: Options to configure the Cryostat deployments and pods metadata
         displayName: Operand metadata
         path: operandMetadata

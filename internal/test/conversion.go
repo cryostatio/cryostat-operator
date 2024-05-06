@@ -630,14 +630,8 @@ func (r *TestResources) newNetworkConfigurationListV1Beta1() operatorv1beta1.Net
 	coreIng.Annotations["custom"] = "annotation"
 	coreIng.Labels["custom"] = "label"
 
-	grafanaSVC := r.NewGrafanaService()
-	grafanaIng := r.newNetworkConfigurationV1Beta1(grafanaSVC.Name, grafanaSVC.Spec.Ports[0].Port)
-	grafanaIng.Annotations["grafana"] = "annotation"
-	grafanaIng.Labels["grafana"] = "label"
-
 	return operatorv1beta1.NetworkConfigurationList{
-		CoreConfig:    &coreIng,
-		GrafanaConfig: &grafanaIng,
+		CoreConfig: &coreIng,
 	}
 }
 
