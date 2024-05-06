@@ -1532,7 +1532,7 @@ func newDatabaseContainer(cr *model.CryostatInstance, imageTag string, tls *TLSC
 		{
 			Name:      cr.Name,
 			MountPath: "/data",
-			SubPath:   "seaweed",
+			SubPath:   "postgres",
 		},
 	}
 
