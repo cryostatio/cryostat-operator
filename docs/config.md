@@ -318,12 +318,14 @@ spec:
 
 ### Authorization Options
 
-On OpenShift, the authentication/authorization proxy deployed in front of the Cryostat application requires all users to pass a `create pods/exec` access review in the Cryostat installation namespace.
-This means that access to the Cryostat application is granted to exactly the set of OpenShift cluster user accounts and service accounts which have this Role.
+On OpenShift, the authentication/authorization proxy deployed in front of the Cryostat application requires all users to pass a `create pods/exec` access review in the Cryostat installation namespace
+by default. This means that access to the Cryostat application is granted to exactly the set of OpenShift cluster user accounts and service accounts which have this Role. This can be configured
+using `spec.authorizationOptions.openShiftSSO.accessReview` as depicted below, but note that the `namespace` field should always be included and in most cases should match the Cryostat installation namespace.
 
-The auth proxy may also be configured to allow Basic authentication by creating a Secret containing an `htpasswd` user file. Any user accounts defined in this file will also be granted access to
-the Cryostat application, and when this configuration is enabled you will see an additional Basic login option when visiting the Cryostat application UI. If deployed on a non-OpenShift Kubernetes
-then this is the only supported authentication mechanism.
+The auth proxy may also be configured to allow Basic authentication by creating a Secret containing an `htpasswd` user file. An `htpasswd` file granting access to a user named `user` with the
+password `pass` can be generated like this: `htpasswd -cbB htpasswd.conf user pass`. The password should use `bcrypt` hashing, specified by the `-B` flag.
+Any user accounts defined in this file will also be granted access to the Cryostat application, and when this configuration is enabled you will see an additional Basic login option when visiting
+the Cryostat application UI. If deployed on a non-OpenShift Kubernetes then this is the only supported authentication mechanism.
 
 If not deployed on OpenShift, or if OpenShift SSO integration is disabled, then no authentication is performed by default - the Cryostat application UI is openly accessible. You should configure
 `htpasswd` Basic authentication or install some other access control mechanism.
