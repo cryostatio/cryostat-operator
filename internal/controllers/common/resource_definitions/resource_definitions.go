@@ -1041,19 +1041,6 @@ func NewCoreContainer(cr *model.CryostatInstance, specs *ServiceSpecs, imageTag 
 		Value: "$(QUARKUS_S3_AWS_CREDENTIALS_STATIC_PROVIDER_SECRET_ACCESS_KEY)",
 	})
 
-	if specs.CoreURL != nil {
-		coreEnvs := []corev1.EnvVar{
-			{
-				Name:  "CRYOSTAT_EXT_WEB_PORT",
-				Value: getPort(specs.CoreURL),
-			},
-			{
-				Name:  "CRYOSTAT_WEB_HOST",
-				Value: specs.CoreURL.Hostname(),
-			},
-		}
-		envs = append(envs, coreEnvs...)
-	}
 	if specs.ReportsURL != nil {
 		reportsEnvs := []corev1.EnvVar{
 			{
@@ -1165,20 +1152,7 @@ func NewCoreContainer(cr *model.CryostatInstance, specs *ServiceSpecs, imageTag 
 	}
 	envs = append(envs, grafanaVars...)
 
-	if tls == nil {
-		// If TLS isn't set up, tell Cryostat to not use it
-		envs = append(envs, corev1.EnvVar{
-			Name:  "CRYOSTAT_DISABLE_SSL",
-			Value: "true",
-		})
-		// Set CRYOSTAT_SSL_PROXIED if Ingress/Route use HTTPS
-		if specs.CoreURL != nil && specs.CoreURL.Scheme == "https" {
-			envs = append(envs, corev1.EnvVar{
-				Name:  "CRYOSTAT_SSL_PROXIED",
-				Value: "true",
-			})
-		}
-	} else {
+	if tls != nil {
 		// Configure keystore location and password in expected environment variables
 		envs = append(envs, corev1.EnvVar{
 			Name:  "KEYSTORE_PATH",

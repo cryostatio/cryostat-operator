@@ -1400,20 +1400,7 @@ func (r *TestResources) NewCoreEnvironmentVariables(reportsUrl string, ingress b
 	},
 	)
 
-	if !r.TLS {
-		envs = append(envs,
-			corev1.EnvVar{
-				Name:  "CRYOSTAT_DISABLE_SSL",
-				Value: "true",
-			})
-		if r.ExternalTLS {
-			envs = append(envs,
-				corev1.EnvVar{
-					Name:  "CRYOSTAT_SSL_PROXIED",
-					Value: "true",
-				})
-		}
-	} else {
+	if r.TLS {
 		envs = append(envs, corev1.EnvVar{
 			Name:  "KEYSTORE_PATH",
 			Value: fmt.Sprintf("/var/run/secrets/operator.cryostat.io/%s-tls/keystore.p12", r.Name),
@@ -1443,25 +1430,7 @@ func (r *TestResources) NewCoreEnvironmentVariables(reportsUrl string, ingress b
 }
 
 func (r *TestResources) newNetworkEnvironmentVariables() []corev1.EnvVar {
-	envs := []corev1.EnvVar{
-		{
-			Name:  "CRYOSTAT_WEB_HOST",
-			Value: r.Name + ".example.com",
-		},
-	}
-	if r.ExternalTLS {
-		envs = append(envs,
-			corev1.EnvVar{
-				Name:  "CRYOSTAT_EXT_WEB_PORT",
-				Value: "443",
-			})
-	} else {
-		envs = append(envs,
-			corev1.EnvVar{
-				Name:  "CRYOSTAT_EXT_WEB_PORT",
-				Value: "80",
-			})
-	}
+	envs := []corev1.EnvVar{}
 	if r.ExternalTLS {
 		envs = append(envs,
 			corev1.EnvVar{
