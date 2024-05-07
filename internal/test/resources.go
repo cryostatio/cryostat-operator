@@ -974,33 +974,6 @@ func (r *TestResources) NewCryostatCert() *certv1.Certificate {
 	}
 }
 
-func (r *TestResources) NewGrafanaCert() *certv1.Certificate {
-	return &certv1.Certificate{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      r.Name + "-grafana",
-			Namespace: r.Namespace,
-		},
-		Spec: certv1.CertificateSpec{
-			CommonName: fmt.Sprintf(r.Name+"-grafana.%s.svc", r.Namespace),
-			DNSNames: []string{
-				r.Name + "-grafana",
-				fmt.Sprintf(r.Name+"-grafana.%s.svc", r.Namespace),
-				fmt.Sprintf(r.Name+"-grafana.%s.svc.cluster.local", r.Namespace),
-				"cryostat-health.local",
-			},
-			SecretName: r.Name + "-grafana-tls",
-			IssuerRef: certMeta.ObjectReference{
-				Name: r.Name + "-ca",
-			},
-			Usages: []certv1.KeyUsage{
-				certv1.UsageDigitalSignature,
-				certv1.UsageKeyEncipherment,
-				certv1.UsageServerAuth,
-			},
-		},
-	}
-}
-
 func (r *TestResources) NewReportsCert() *certv1.Certificate {
 	return &certv1.Certificate{
 		ObjectMeta: metav1.ObjectMeta{
@@ -1348,13 +1321,6 @@ func (r *TestResources) NewCoreEnvironmentVariables(reportsUrl string, ingress b
 	},
 	)
 
-	if r.TLS {
-		envs = append(envs, corev1.EnvVar{
-			Name:  "KEYSTORE_PATH",
-			Value: fmt.Sprintf("/var/run/secrets/operator.cryostat.io/%s-tls/keystore.p12", r.Name),
-		})
-	}
-
 	if r.OpenShift || ingress {
 		envs = append(envs, r.newNetworkEnvironmentVariables()...)
 	}
@@ -1392,19 +1358,11 @@ func (r *TestResources) newNetworkEnvironmentVariables() []corev1.EnvVar {
 				Value: fmt.Sprintf("http://%s.example.com/grafana/", r.Name),
 			})
 	}
-	if r.TLS {
-		envs = append(envs,
-			corev1.EnvVar{
-				Name:  "GRAFANA_DASHBOARD_URL",
-				Value: "https://cryostat-health.local:3000",
-			})
-	} else {
-		envs = append(envs,
-			corev1.EnvVar{
-				Name:  "GRAFANA_DASHBOARD_URL",
-				Value: "http://cryostat-health.local:3000",
-			})
-	}
+	envs = append(envs,
+		corev1.EnvVar{
+			Name:  "GRAFANA_DASHBOARD_URL",
+			Value: "http://cryostat-health.local:3000",
+		})
 	return envs
 }
 
@@ -1429,26 +1387,10 @@ func (r *TestResources) NewGrafanaEnvironmentVariables() []corev1.EnvVar {
 			Value:     "true",
 			ValueFrom: nil,
 		},
-	}
-	if r.TLS {
-		envs = append(envs, corev1.EnvVar{
-			Name:  "GF_SERVER_PROTOCOL",
-			Value: "https",
-		}, corev1.EnvVar{
-			Name:  "GF_SERVER_CERT_KEY",
-			Value: fmt.Sprintf("/var/run/secrets/operator.cryostat.io/%s-grafana-tls/tls.key", r.Name),
-		}, corev1.EnvVar{
-			Name:  "GF_SERVER_CERT_FILE",
-			Value: fmt.Sprintf("/var/run/secrets/operator.cryostat.io/%s-grafana-tls/tls.crt", r.Name),
-		}, corev1.EnvVar{
-			Name:  "GF_SERVER_ROOT_URL",
-			Value: "https://localhost:4180/grafana/",
-		})
-	} else {
-		envs = append(envs, corev1.EnvVar{
+		{
 			Name:  "GF_SERVER_ROOT_URL",
 			Value: "http://localhost:4180/grafana/",
-		})
+		},
 	}
 	return envs
 }
@@ -1529,15 +1471,6 @@ func (r *TestResources) NewCoreEnvFromSource() []corev1.EnvFromSource {
 				},
 			},
 		},
-	}
-	if r.TLS {
-		envsFrom = append(envsFrom, corev1.EnvFromSource{
-			SecretRef: &corev1.SecretEnvSource{
-				LocalObjectReference: corev1.LocalObjectReference{
-					Name: r.Name + "-keystore",
-				},
-			},
-		})
 	}
 	return envsFrom
 }
@@ -1626,27 +1559,11 @@ func (r *TestResources) NewCoreVolumeMounts() []corev1.VolumeMount {
 			MountPath: "/truststore/operator",
 		},
 	}
-	if r.TLS {
-		mounts = append(mounts,
-			corev1.VolumeMount{
-				Name:      "keystore",
-				ReadOnly:  true,
-				MountPath: fmt.Sprintf("/var/run/secrets/operator.cryostat.io/%s-tls", r.Name),
-			})
-	}
 	return mounts
 }
 
 func (r *TestResources) NewGrafanaVolumeMounts() []corev1.VolumeMount {
 	mounts := []corev1.VolumeMount{}
-	if r.TLS {
-		mounts = append(mounts,
-			corev1.VolumeMount{
-				Name:      "grafana-tls-secret",
-				MountPath: fmt.Sprintf("/var/run/secrets/operator.cryostat.io/%s-grafana-tls", r.Name),
-				ReadOnly:  true,
-			})
-	}
 	return mounts
 }
 
@@ -1716,16 +1633,12 @@ func (r *TestResources) newCoreProbeHandler() corev1.ProbeHandler {
 }
 
 func (r *TestResources) NewGrafanaLivenessProbe() *corev1.Probe {
-	protocol := corev1.URISchemeHTTPS
-	if !r.TLS {
-		protocol = corev1.URISchemeHTTP
-	}
 	return &corev1.Probe{
 		ProbeHandler: corev1.ProbeHandler{
 			HTTPGet: &corev1.HTTPGetAction{
 				Port:   intstr.IntOrString{IntVal: 3000},
 				Path:   "/api/health",
-				Scheme: protocol,
+				Scheme: corev1.URISchemeHTTP,
 			},
 		},
 	}
@@ -1967,14 +1880,6 @@ func (r *TestResources) newVolumes(certProjections []corev1.VolumeProjection) []
 								Mode: &readOnlymode,
 							},
 						},
-					},
-				},
-			},
-			corev1.Volume{
-				Name: "grafana-tls-secret",
-				VolumeSource: corev1.VolumeSource{
-					Secret: &corev1.SecretVolumeSource{
-						SecretName: r.Name + "-grafana-tls",
 					},
 				},
 			},

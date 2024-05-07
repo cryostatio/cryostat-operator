@@ -59,8 +59,6 @@ type ServiceSpecs struct {
 type TLSConfig struct {
 	// Name of the TLS secret for Cryostat
 	CryostatSecret string
-	// Name of the TLS secret for Grafana
-	GrafanaSecret string
 	// Name of the TLS secret for Reports Generator
 	ReportsSecret string
 	// Name of the secret containing the password for the keystore in CryostatSecret
@@ -329,14 +327,6 @@ func NewPodForCR(cr *model.CryostatInstance, specs *ServiceSpecs, imageTags *Ima
 								Mode: &readOnlyMode,
 							},
 						},
-					},
-				},
-			},
-			corev1.Volume{
-				Name: "grafana-tls-secret",
-				VolumeSource: corev1.VolumeSource{
-					Secret: &corev1.SecretVolumeSource{
-						SecretName: tls.GrafanaSecret,
 					},
 				},
 			},
@@ -1145,35 +1135,11 @@ func NewCoreContainer(cr *model.CryostatInstance, specs *ServiceSpecs, imageTag 
 			},
 			corev1.EnvVar{
 				Name:  "GRAFANA_DASHBOARD_URL",
-				Value: getInternalDashboardURL(tls),
+				Value: getInternalDashboardURL(),
 			},
 		)
 	}
 	envs = append(envs, grafanaVars...)
-
-	if tls != nil {
-		// Configure keystore location and password in expected environment variables
-		envs = append(envs, corev1.EnvVar{
-			Name:  "KEYSTORE_PATH",
-			Value: fmt.Sprintf("/var/run/secrets/operator.cryostat.io/%s/keystore.p12", tls.CryostatSecret),
-		})
-		envsFrom = append(envsFrom, corev1.EnvFromSource{
-			SecretRef: &corev1.SecretEnvSource{
-				LocalObjectReference: corev1.LocalObjectReference{
-					Name: tls.KeystorePassSecret,
-				},
-			},
-		})
-
-		// Mount the TLS secret's keystore
-		keystoreMount := corev1.VolumeMount{
-			Name:      "keystore",
-			MountPath: fmt.Sprintf("/var/run/secrets/operator.cryostat.io/%s", tls.CryostatSecret),
-			ReadOnly:  true,
-		}
-
-		mounts = append(mounts, keystoreMount)
-	}
 
 	// Mount the templates specified in Cryostat CR under /opt/cryostat.d/templates.d
 	for _, template := range cr.Spec.EventTemplates {
@@ -1262,47 +1228,10 @@ func NewGrafanaContainer(cr *model.CryostatInstance, imageTag string, tls *TLSCo
 			Name:  "JFR_DATASOURCE_URL",
 			Value: datasourceURL,
 		},
-	}
-	mounts := []corev1.VolumeMount{}
-
-	// Configure TLS key/cert if enabled
-	livenessProbeScheme := corev1.URISchemeHTTP
-	if tls != nil {
-		tlsEnvs := []corev1.EnvVar{
-			{
-				Name:  "GF_SERVER_PROTOCOL",
-				Value: "https",
-			},
-			{
-				Name:  "GF_SERVER_ROOT_URL",
-				Value: fmt.Sprintf("%s://localhost:%d/grafana/", "https", constants.AuthProxyHttpContainerPort),
-			},
-			{
-				Name:  "GF_SERVER_CERT_KEY",
-				Value: fmt.Sprintf("/var/run/secrets/operator.cryostat.io/%s/%s", tls.GrafanaSecret, corev1.TLSPrivateKeyKey),
-			},
-			{
-				Name:  "GF_SERVER_CERT_FILE",
-				Value: fmt.Sprintf("/var/run/secrets/operator.cryostat.io/%s/%s", tls.GrafanaSecret, corev1.TLSCertKey),
-			},
-		}
-
-		tlsSecretMount := corev1.VolumeMount{
-			Name:      "grafana-tls-secret",
-			MountPath: "/var/run/secrets/operator.cryostat.io/" + tls.GrafanaSecret,
-			ReadOnly:  true,
-		}
-
-		envs = append(envs, tlsEnvs...)
-		mounts = append(mounts, tlsSecretMount)
-
-		// Use HTTPS for liveness probe
-		livenessProbeScheme = corev1.URISchemeHTTPS
-	} else {
-		envs = append(envs, corev1.EnvVar{
+		{
 			Name:  "GF_SERVER_ROOT_URL",
 			Value: fmt.Sprintf("%s://localhost:%d/grafana/", "http", constants.AuthProxyHttpContainerPort),
-		})
+		},
 	}
 
 	var containerSc *corev1.SecurityContext
@@ -1322,7 +1251,6 @@ func NewGrafanaContainer(cr *model.CryostatInstance, imageTag string, tls *TLSCo
 		Name:            cr.Name + "-grafana",
 		Image:           imageTag,
 		ImagePullPolicy: getPullPolicy(imageTag),
-		VolumeMounts:    mounts,
 		Ports: []corev1.ContainerPort{
 			{
 				ContainerPort: constants.GrafanaContainerPort,
@@ -1334,7 +1262,7 @@ func NewGrafanaContainer(cr *model.CryostatInstance, imageTag string, tls *TLSCo
 				HTTPGet: &corev1.HTTPGetAction{
 					Port:   intstr.IntOrString{IntVal: 3000},
 					Path:   "/api/health",
-					Scheme: livenessProbeScheme,
+					Scheme: corev1.URISchemeHTTP,
 				},
 			},
 		},
@@ -1605,12 +1533,8 @@ func getPort(url *url.URL) string {
 	return "80"
 }
 
-func getInternalDashboardURL(tls *TLSConfig) string {
-	scheme := "https"
-	if tls == nil {
-		scheme = "http"
-	}
-	return fmt.Sprintf("%s://%s:%d", scheme, constants.HealthCheckHostname, constants.GrafanaContainerPort)
+func getInternalDashboardURL() string {
+	return fmt.Sprintf("%s://%s:%d", "http", constants.HealthCheckHostname, constants.GrafanaContainerPort)
 }
 
 // Matches image tags of the form "major.minor.patch"
