@@ -2,7 +2,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    cert-manager.io/inject-ca-from: cryostat3/cryostat-operator-serving-cert
+    cert-manager.io/inject-ca-from: cryostat-operator-system/cryostat-operator-serving-cert
     controller-gen.kubebuilder.io/version: v0.11.1
   creationTimestamp: null
   name: cryostats.operator.cryostat.io
@@ -13,7 +13,7 @@ spec:
       clientConfig:
         service:
           name: cryostat-operator-webhook-service
-          namespace: cryostat3
+          namespace: cryostat-operator-system
           path: /convert
       conversionReviewVersions:
       - v1
