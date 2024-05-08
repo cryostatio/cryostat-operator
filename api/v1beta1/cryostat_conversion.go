@@ -49,20 +49,18 @@ func convertSpecTo(src *CryostatSpec, dst *operatorv1beta2.CryostatSpec) {
 	dst.ServiceOptions = convertServiceOptionsTo(src.ServiceOptions)
 	dst.NetworkOptions = convertNetworkOptionsTo(src.NetworkOptions)
 	dst.ReportOptions = convertReportOptionsTo(src.ReportOptions)
-	dst.JmxCacheOptions = convertJmxCacheOptionsTo(src.JmxCacheOptions)
+	dst.TargetConnectionCacheOptions = convertJmxCacheOptionsTo(src.JmxCacheOptions)
 	dst.Resources = convertResourceOptionsTo(src.Resources)
-	dst.AuthProperties = convertAuthPropertiesTo(src.AuthProperties)
 	dst.SecurityOptions = convertSecurityOptionsTo(src.SecurityOptions)
 	dst.SchedulingOptions = convertSchedulingOptionsTo(src.SchedulingOptions)
 	dst.TargetDiscoveryOptions = convertTargetDiscoveryTo(src.TargetDiscoveryOptions)
-	dst.JmxCredentialsDatabaseOptions = convertDatabaseOptionsTo(src.JmxCredentialsDatabaseOptions)
+	dst.DatabaseOptions = convertDatabaseOptionsTo(src.JmxCredentialsDatabaseOptions)
 	dst.OperandMetadata = convertOperandMetadataTo(src.OperandMetadata)
 }
 
 func convertStatusTo(src *CryostatStatus, dst *operatorv1beta2.CryostatStatus) {
 	dst.ApplicationURL = src.ApplicationURL
 	dst.Conditions = src.Conditions
-	dst.GrafanaSecret = src.GrafanaSecret
 }
 
 func convertCertSecretsTo(srcCerts []CertificateSecret) []operatorv1beta2.CertificateSecret {
@@ -214,10 +212,10 @@ func convertSchedulingOptionsTo(srcOpts *SchedulingConfiguration) *operatorv1bet
 	return dstOpts
 }
 
-func convertJmxCacheOptionsTo(srcOpts *JmxCacheOptions) *operatorv1beta2.JmxCacheOptions {
-	var dstOpts *operatorv1beta2.JmxCacheOptions
+func convertJmxCacheOptionsTo(srcOpts *JmxCacheOptions) *operatorv1beta2.TargetConnectionCacheOptions {
+	var dstOpts *operatorv1beta2.TargetConnectionCacheOptions
 	if srcOpts != nil {
-		dstOpts = &operatorv1beta2.JmxCacheOptions{
+		dstOpts = &operatorv1beta2.TargetConnectionCacheOptions{
 			TargetCacheSize: srcOpts.TargetCacheSize,
 			TargetCacheTTL:  srcOpts.TargetCacheTTL,
 		}
@@ -235,18 +233,6 @@ func convertResourceOptionsTo(srcOpts *ResourceConfigList) *operatorv1beta2.Reso
 		}
 	}
 	return dstOpts
-}
-
-func convertAuthPropertiesTo(srcProps *AuthorizationProperties) *operatorv1beta2.AuthorizationProperties {
-	var dstProps *operatorv1beta2.AuthorizationProperties
-	if srcProps != nil {
-		dstProps = &operatorv1beta2.AuthorizationProperties{
-			ClusterRoleName: srcProps.ClusterRoleName,
-			ConfigMapName:   srcProps.ConfigMapName,
-			Filename:        srcProps.Filename,
-		}
-	}
-	return dstProps
 }
 
 func convertSecurityOptionsTo(srcOpts *SecurityOptions) *operatorv1beta2.SecurityOptions {
@@ -276,11 +262,11 @@ func convertTargetDiscoveryTo(srcOpts *TargetDiscoveryOptions) *operatorv1beta2.
 	return dstOpts
 }
 
-func convertDatabaseOptionsTo(srcOpts *JmxCredentialsDatabaseOptions) *operatorv1beta2.JmxCredentialsDatabaseOptions {
-	var dstOpts *operatorv1beta2.JmxCredentialsDatabaseOptions
+func convertDatabaseOptionsTo(srcOpts *JmxCredentialsDatabaseOptions) *operatorv1beta2.DatabaseOptions {
+	var dstOpts *operatorv1beta2.DatabaseOptions
 	if srcOpts != nil {
-		dstOpts = &operatorv1beta2.JmxCredentialsDatabaseOptions{
-			DatabaseSecretName: srcOpts.DatabaseSecretName,
+		dstOpts = &operatorv1beta2.DatabaseOptions{
+			SecretName: srcOpts.DatabaseSecretName,
 		}
 	}
 	return dstOpts
@@ -332,20 +318,18 @@ func convertSpecFrom(src *operatorv1beta2.CryostatSpec, dst *CryostatSpec) {
 	dst.ServiceOptions = convertServiceOptionsFrom(src.ServiceOptions)
 	dst.NetworkOptions = convertNetworkOptionsFrom(src.NetworkOptions)
 	dst.ReportOptions = convertReportOptionsFrom(src.ReportOptions)
-	dst.JmxCacheOptions = convertJmxCacheOptionsFrom(src.JmxCacheOptions)
+	dst.JmxCacheOptions = convertJmxCacheOptionsFrom(src.TargetConnectionCacheOptions)
 	dst.Resources = convertResourceOptionsFrom(src.Resources)
-	dst.AuthProperties = convertAuthPropertiesFrom(src.AuthProperties)
 	dst.SecurityOptions = convertSecurityOptionsFrom(src.SecurityOptions)
 	dst.SchedulingOptions = convertSchedulingOptionsFrom(src.SchedulingOptions)
 	dst.TargetDiscoveryOptions = convertTargetDiscoveryFrom(src.TargetDiscoveryOptions)
-	dst.JmxCredentialsDatabaseOptions = convertDatabaseOptionsFrom(src.JmxCredentialsDatabaseOptions)
+	dst.JmxCredentialsDatabaseOptions = convertDatabaseOptionsFrom(src.DatabaseOptions)
 	dst.OperandMetadata = convertOperandMetadataFrom(src.OperandMetadata)
 }
 
 func convertStatusFrom(src *operatorv1beta2.CryostatStatus, dst *CryostatStatus) {
 	dst.ApplicationURL = src.ApplicationURL
 	dst.Conditions = src.Conditions
-	dst.GrafanaSecret = src.GrafanaSecret
 }
 
 func convertCertSecretsFrom(srcCerts []operatorv1beta2.CertificateSecret) []CertificateSecret {
@@ -497,7 +481,7 @@ func convertSchedulingOptionsFrom(srcOpts *operatorv1beta2.SchedulingConfigurati
 	return dstOpts
 }
 
-func convertJmxCacheOptionsFrom(srcOpts *operatorv1beta2.JmxCacheOptions) *JmxCacheOptions {
+func convertJmxCacheOptionsFrom(srcOpts *operatorv1beta2.TargetConnectionCacheOptions) *JmxCacheOptions {
 	var dstOpts *JmxCacheOptions
 	if srcOpts != nil {
 		dstOpts = &JmxCacheOptions{
@@ -518,18 +502,6 @@ func convertResourceOptionsFrom(srcOpts *operatorv1beta2.ResourceConfigList) *Re
 		}
 	}
 	return dstOpts
-}
-
-func convertAuthPropertiesFrom(srcProps *operatorv1beta2.AuthorizationProperties) *AuthorizationProperties {
-	var dstProps *AuthorizationProperties
-	if srcProps != nil {
-		dstProps = &AuthorizationProperties{
-			ClusterRoleName: srcProps.ClusterRoleName,
-			ConfigMapName:   srcProps.ConfigMapName,
-			Filename:        srcProps.Filename,
-		}
-	}
-	return dstProps
 }
 
 func convertSecurityOptionsFrom(srcOpts *operatorv1beta2.SecurityOptions) *SecurityOptions {
@@ -559,11 +531,11 @@ func convertTargetDiscoveryFrom(srcOpts *operatorv1beta2.TargetDiscoveryOptions)
 	return dstOpts
 }
 
-func convertDatabaseOptionsFrom(srcOpts *operatorv1beta2.JmxCredentialsDatabaseOptions) *JmxCredentialsDatabaseOptions {
+func convertDatabaseOptionsFrom(srcOpts *operatorv1beta2.DatabaseOptions) *JmxCredentialsDatabaseOptions {
 	var dstOpts *JmxCredentialsDatabaseOptions
 	if srcOpts != nil {
 		dstOpts = &JmxCredentialsDatabaseOptions{
-			DatabaseSecretName: srcOpts.DatabaseSecretName,
+			DatabaseSecretName: srcOpts.SecretName,
 		}
 	}
 	return dstOpts

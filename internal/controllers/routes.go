@@ -48,6 +48,7 @@ func (r *Reconciler) reconcileCoreRoute(ctx context.Context, svc *corev1.Service
 	if err != nil {
 		return err
 	}
+	specs.AuthProxyURL = url
 	specs.CoreURL = url
 	return nil
 }

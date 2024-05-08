@@ -45,11 +45,11 @@ type CryostatSpec struct {
 	// +optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,order=3,displayName="Enable cert-manager Integration",xDescriptors={"urn:alm:descriptor:com.tectonic.ui:booleanSwitch"}
 	EnableCertManager *bool `json:"enableCertManager"`
-	// Options to customize the storage for Flight Recordings and Templates.
+	// Options to customize the storage provisioned for the database and object storage.
 	// +optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	StorageOptions *StorageConfiguration `json:"storageOptions,omitempty"`
-	// Options to customize the services created for the Cryostat application and Grafana dashboard.
+	// Options to customize the services created for the Cryostat application.
 	// +optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	ServiceOptions *ServiceConfigList `json:"serviceOptions,omitempty"`
@@ -62,10 +62,10 @@ type CryostatSpec struct {
 	// +optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	ReportOptions *ReportConfiguration `json:"reportOptions,omitempty"`
-	// Options to customize the JMX target connections cache for the Cryostat application.
+	// Options to customize the target connections cache for the Cryostat application.
 	// +optional
-	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="JMX Connections Cache Options"
-	JmxCacheOptions *JmxCacheOptions `json:"jmxCacheOptions,omitempty"`
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Target Connection Cache Options"
+	TargetConnectionCacheOptions *TargetConnectionCacheOptions `json:"targetConnectionCacheOptions,omitempty"`
 	// Resource requirements for the Cryostat deployment.
 	// +optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
@@ -74,10 +74,6 @@ type CryostatSpec struct {
 	// +optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Authorization Options",xDescriptors={"urn:alm:descriptor:com.tectonic.ui:advanced"}
 	AuthorizationOptions *AuthorizationOptions `json:"authorizationOptions,omitempty"`
-	// Override default authorization properties for Cryostat on OpenShift.
-	// +optional
-	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Authorization Properties",xDescriptors={"urn:alm:descriptor:com.tectonic.ui:advanced"}
-	AuthProperties *AuthorizationProperties `json:"authProperties,omitempty"`
 	// Options to configure the Security Contexts for the Cryostat application.
 	// +optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:com.tectonic.ui:advanced"}
@@ -90,10 +86,10 @@ type CryostatSpec struct {
 	// +optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	TargetDiscoveryOptions *TargetDiscoveryOptions `json:"targetDiscoveryOptions,omitempty"`
-	// Options to configure the Cryostat application's credentials database.
+	// Options to configure the Cryostat application's database.
 	// +optional
-	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Credentials Database Options"
-	JmxCredentialsDatabaseOptions *JmxCredentialsDatabaseOptions `json:"jmxCredentialsDatabaseOptions,omitempty"`
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Database Options"
+	DatabaseOptions *DatabaseOptions `json:"databaseOptions,omitempty"`
 	// Options to configure the Cryostat deployments and pods metadata
 	// +optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Operand metadata"
@@ -127,7 +123,7 @@ type ResourceConfigList struct {
 	// +optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:com.tectonic.ui:resourceRequirements"}
 	AuthProxyResources corev1.ResourceRequirements `json:"authProxyResources,omitempty"`
-	// Resource requirements for the Cryostat application. If specifying a memory limit, at least 768MiB is recommended.
+	// Resource requirements for the Cryostat application. If specifying a memory limit, at least 384MiB is recommended.
 	// +optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:com.tectonic.ui:resourceRequirements"}
 	CoreResources corev1.ResourceRequirements `json:"coreResources,omitempty"`
@@ -139,6 +135,14 @@ type ResourceConfigList struct {
 	// +optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:com.tectonic.ui:resourceRequirements"}
 	GrafanaResources corev1.ResourceRequirements `json:"grafanaResources,omitempty"`
+	// Resource requirements for the database container.
+	// +optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:com.tectonic.ui:resourceRequirements"}
+	DatabaseResources corev1.ResourceRequirements `json:"databaseResources,omitempty"`
+	// Resource requirements for the object storage container.
+	// +optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:com.tectonic.ui:resourceRequirements"}
+	ObjectStorageResources corev1.ResourceRequirements `json:"objectStorageResources,omitempty"`
 }
 
 // CryostatStatus defines the observed state of Cryostat.
@@ -152,10 +156,6 @@ type CryostatStatus struct {
 	// +optional
 	// +operator-sdk:csv:customresourcedefinitions:type=status,displayName="Cryostat Conditions",xDescriptors={"urn:alm:descriptor:io.kubernetes.conditions"}
 	Conditions []metav1.Condition `json:"conditions,omitempty"`
-	// Name of the Secret containing the generated Grafana credentials.
-	// +optional
-	// +operator-sdk:csv:customresourcedefinitions:type=status,order=2,xDescriptors={"urn:alm:descriptor:io.kubernetes:Secret"}
-	GrafanaSecret string `json:"grafanaSecret,omitempty"`
 	// Address of the deployed Cryostat web application.
 	// +operator-sdk:csv:customresourcedefinitions:type=status,order=1,xDescriptors={"urn:alm:descriptor:org.w3:link"}
 	ApplicationURL string `json:"applicationUrl"`
@@ -405,15 +405,15 @@ type EmptyDirConfig struct {
 	SizeLimit string `json:"sizeLimit,omitempty"`
 }
 
-// JmxCacheConfig provides customization for the JMX target connections
+// TargetConnectionCacheOptions provides customization for the target connections
 // cache for the Cryostat application.
-type JmxCacheOptions struct {
-	// The maximum number of JMX connections to cache. Use `-1` for an unlimited cache size (TTL expiration only). Defaults to `-1`.
+type TargetConnectionCacheOptions struct {
+	// The maximum number of target connections to cache. Use `-1` for an unlimited cache size (TTL expiration only). Defaults to `-1`.
 	// +optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:com.tectonic.ui:number"}
 	// +kubebuilder:validation:Minimum=-1
 	TargetCacheSize int32 `json:"targetCacheSize,omitempty"`
-	// The time to live (in seconds) for cached JMX connections. Defaults to `10`.
+	// The time to live (in seconds) for cached target connections. Defaults to `10`.
 	// +optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:com.tectonic.ui:number"}
 	// +kubebuilder:validation:Minimum=1
@@ -432,7 +432,6 @@ type JmxCacheOptions struct {
 // to deploy the Cryostat application.
 // +operator-sdk:csv:customresourcedefinitions:resources={{Deployment,v1},{Ingress,v1},{PersistentVolumeClaim,v1},{Secret,v1},{Service,v1},{Route,v1},{ConsoleLink,v1}}
 // +kubebuilder:printcolumn:name="Application URL",type=string,JSONPath=`.status.applicationUrl`
-// +kubebuilder:printcolumn:name="Grafana Secret",type=string,JSONPath=`.status.grafanaSecret`
 type Cryostat struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
@@ -611,10 +610,12 @@ type TargetDiscoveryOptions struct {
 	DiscoveryPortNumbers []int32 `json:"discoveryPortNumbers,omitempty"`
 }
 
-// JmxCredentialsDatabaseOptions provides configuration options to the Cryostat application's credentials database.
-type JmxCredentialsDatabaseOptions struct {
-	// Name of the secret containing the password to encrypt credentials database.
+// DatabaseOptions provides configuration options to the Cryostat application's database.
+type DatabaseOptions struct {
+	// Name of the secret containing database keys. This secret must contain a CONNECTION_KEY secret which is the
+	// database connection password, and an ENCRYPTION_KEY secret which is the key used to encrypt sensitive data
+	// stored within the database, such as the target credentials keyring.
 	// +optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:io.kubernetes:Secret"}
-	DatabaseSecretName *string `json:"databaseSecretName,omitempty"`
+	SecretName *string `json:"secretName,omitempty"`
 }

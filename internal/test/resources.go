@@ -541,7 +541,7 @@ func newPVCSpec(storageClass string, storageRequest string,
 
 func (r *TestResources) NewCryostatWithJmxCacheOptionsSpec() *model.CryostatInstance {
 	cr := r.NewCryostat()
-	cr.Spec.JmxCacheOptions = &operatorv1beta2.JmxCacheOptions{
+	cr.Spec.TargetConnectionCacheOptions = &operatorv1beta2.TargetConnectionCacheOptions{
 		TargetCacheSize: 10,
 		TargetCacheTTL:  20,
 	}
@@ -626,8 +626,8 @@ var providedDatabaseSecretName string = "credentials-database-secret"
 
 func (r *TestResources) NewCryostatWithDatabaseSecretProvided() *model.CryostatInstance {
 	cr := r.NewCryostat()
-	cr.Spec.JmxCredentialsDatabaseOptions = &operatorv1beta2.JmxCredentialsDatabaseOptions{
-		DatabaseSecretName: &providedDatabaseSecretName,
+	cr.Spec.DatabaseOptions = &operatorv1beta2.DatabaseOptions{
+		SecretName: &providedDatabaseSecretName,
 	}
 	return cr
 }
@@ -896,32 +896,6 @@ func (r *TestResources) NewCACertSecret(ns string) *corev1.Secret {
 		Type: corev1.SecretTypeOpaque,
 		Data: map[string][]byte{
 			corev1.TLSCertKey: []byte(r.Name + "-ca-bytes"),
-		},
-	}
-}
-
-func (r *TestResources) NewGrafanaSecret() *corev1.Secret {
-	return &corev1.Secret{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      r.Name + "-grafana-basic",
-			Namespace: r.Namespace,
-		},
-		StringData: map[string]string{
-			"GF_SECURITY_ADMIN_USER":     "admin",
-			"GF_SECURITY_ADMIN_PASSWORD": "grafana",
-		},
-	}
-}
-
-func (r *TestResources) OtherGrafanaSecret() *corev1.Secret {
-	return &corev1.Secret{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      r.Name + "-grafana-basic",
-			Namespace: r.Namespace,
-		},
-		StringData: map[string]string{
-			"GF_SECURITY_ADMIN_USER":     "user",
-			"GF_SECURITY_ADMIN_PASSWORD": "goodpassword",
 		},
 	}
 }
@@ -1289,7 +1263,7 @@ func (r *TestResources) NewStoragePorts() []corev1.ContainerPort {
 	}
 }
 
-func (r *TestResources) NewCoreEnvironmentVariables(reportsUrl string, authProps bool, ingress bool,
+func (r *TestResources) NewCoreEnvironmentVariables(reportsUrl string, ingress bool,
 	emptyDir bool, hasPortConfig bool, builtInDiscoveryDisabled bool, builtInPortConfigDisabled bool, dbSecretProvided bool) []corev1.EnvVar {
 	envs := []corev1.EnvVar{
 		{
@@ -1361,24 +1335,8 @@ func (r *TestResources) NewCoreEnvironmentVariables(reportsUrl string, authProps
 			Value: "/opt/cryostat.d/conf.d",
 		},
 		{
-			Name:  "CRYOSTAT_ARCHIVE_PATH",
-			Value: "/opt/cryostat.d/recordings.d",
-		},
-		{
 			Name:  "CRYOSTAT_TEMPLATE_PATH",
 			Value: "/opt/cryostat.d/templates.d",
-		},
-		{
-			Name:  "CRYOSTAT_CLIENTLIB_PATH",
-			Value: "/opt/cryostat.d/clientlib.d",
-		},
-		{
-			Name:  "CRYOSTAT_PROBE_TEMPLATE_PATH",
-			Value: "/opt/cryostat.d/probes.d",
-		},
-		{
-			Name:  "CRYOSTAT_ENABLE_JDP_BROADCAST",
-			Value: "false",
 		},
 		{
 			Name:  "CRYOSTAT_CONNECTIONS_MAX_OPEN",
@@ -1442,20 +1400,7 @@ func (r *TestResources) NewCoreEnvironmentVariables(reportsUrl string, authProps
 	},
 	)
 
-	if !r.TLS {
-		envs = append(envs,
-			corev1.EnvVar{
-				Name:  "CRYOSTAT_DISABLE_SSL",
-				Value: "true",
-			})
-		if r.ExternalTLS {
-			envs = append(envs,
-				corev1.EnvVar{
-					Name:  "CRYOSTAT_SSL_PROXIED",
-					Value: "true",
-				})
-		}
-	} else {
+	if r.TLS {
 		envs = append(envs, corev1.EnvVar{
 			Name:  "KEYSTORE_PATH",
 			Value: fmt.Sprintf("/var/run/secrets/operator.cryostat.io/%s-tls/keystore.p12", r.Name),
@@ -1485,36 +1430,18 @@ func (r *TestResources) NewCoreEnvironmentVariables(reportsUrl string, authProps
 }
 
 func (r *TestResources) newNetworkEnvironmentVariables() []corev1.EnvVar {
-	envs := []corev1.EnvVar{
-		{
-			Name:  "CRYOSTAT_WEB_HOST",
-			Value: r.Name + ".example.com",
-		},
-	}
-	if r.ExternalTLS {
-		envs = append(envs,
-			corev1.EnvVar{
-				Name:  "CRYOSTAT_EXT_WEB_PORT",
-				Value: "443",
-			})
-	} else {
-		envs = append(envs,
-			corev1.EnvVar{
-				Name:  "CRYOSTAT_EXT_WEB_PORT",
-				Value: "80",
-			})
-	}
+	envs := []corev1.EnvVar{}
 	if r.ExternalTLS {
 		envs = append(envs,
 			corev1.EnvVar{
 				Name:  "GRAFANA_DASHBOARD_EXT_URL",
-				Value: fmt.Sprintf("https://%s-grafana.example.com", r.Name),
+				Value: fmt.Sprintf("https://%s.example.com/grafana/", r.Name),
 			})
 	} else {
 		envs = append(envs,
 			corev1.EnvVar{
 				Name:  "GRAFANA_DASHBOARD_EXT_URL",
-				Value: fmt.Sprintf("http://%s-grafana.example.com", r.Name),
+				Value: fmt.Sprintf("http://%s.example.com/grafana/", r.Name),
 			})
 	}
 	if r.TLS {
@@ -1539,6 +1466,21 @@ func (r *TestResources) NewGrafanaEnvironmentVariables() []corev1.EnvVar {
 			Name:  "JFR_DATASOURCE_URL",
 			Value: "http://127.0.0.1:8989",
 		},
+		{
+			Name:      "GF_AUTH_ANONYMOUS_ENABLED",
+			Value:     "true",
+			ValueFrom: nil,
+		},
+		{
+			Name:      "GF_SERVER_DOMAIN",
+			Value:     "localhost",
+			ValueFrom: nil,
+		},
+		{
+			Name:      "GF_SERVER_SERVE_FROM_SUB_PATH",
+			Value:     "true",
+			ValueFrom: nil,
+		},
 	}
 	if r.TLS {
 		envs = append(envs, corev1.EnvVar{
@@ -1550,6 +1492,14 @@ func (r *TestResources) NewGrafanaEnvironmentVariables() []corev1.EnvVar {
 		}, corev1.EnvVar{
 			Name:  "GF_SERVER_CERT_FILE",
 			Value: fmt.Sprintf("/var/run/secrets/operator.cryostat.io/%s-grafana-tls/tls.crt", r.Name),
+		}, corev1.EnvVar{
+			Name:  "GF_SERVER_ROOT_URL",
+			Value: "https://localhost:4180/grafana/",
+		})
+	} else {
+		envs = append(envs, corev1.EnvVar{
+			Name:  "GF_SERVER_ROOT_URL",
+			Value: "http://localhost:4180/grafana/",
 		})
 	}
 	return envs
@@ -1644,18 +1594,6 @@ func (r *TestResources) NewCoreEnvFromSource() []corev1.EnvFromSource {
 	return envsFrom
 }
 
-func (r *TestResources) NewGrafanaEnvFromSource() []corev1.EnvFromSource {
-	return []corev1.EnvFromSource{
-		{
-			SecretRef: &corev1.SecretEnvSource{
-				LocalObjectReference: corev1.LocalObjectReference{
-					Name: r.Name + "-grafana-basic",
-				},
-			},
-		},
-	}
-}
-
 func (r *TestResources) NewJmxCacheOptionsEnv() []corev1.EnvVar {
 	return []corev1.EnvVar{
 		{
@@ -1725,26 +1663,8 @@ func (r *TestResources) NewCoreVolumeMounts() []corev1.VolumeMount {
 		{
 			Name:      r.Name,
 			ReadOnly:  false,
-			MountPath: "/opt/cryostat.d/recordings.d",
-			SubPath:   "flightrecordings",
-		},
-		{
-			Name:      r.Name,
-			ReadOnly:  false,
 			MountPath: "/opt/cryostat.d/templates.d",
 			SubPath:   "templates",
-		},
-		{
-			Name:      r.Name,
-			ReadOnly:  false,
-			MountPath: "/opt/cryostat.d/clientlib.d",
-			SubPath:   "clientlib",
-		},
-		{
-			Name:      r.Name,
-			ReadOnly:  false,
-			MountPath: "/opt/cryostat.d/probes.d",
-			SubPath:   "probes",
 		},
 		{
 			Name:      r.Name,
@@ -2859,7 +2779,7 @@ func newCoreContainerDefaultResource() *corev1.ResourceRequirements {
 	return &corev1.ResourceRequirements{
 		Requests: corev1.ResourceList{
 			corev1.ResourceCPU:    resource.MustParse("500m"),
-			corev1.ResourceMemory: resource.MustParse("256Mi"),
+			corev1.ResourceMemory: resource.MustParse("384Mi"),
 		},
 	}
 }
@@ -2887,7 +2807,7 @@ func newDatasourceContainerDefaultResource() *corev1.ResourceRequirements {
 	return &corev1.ResourceRequirements{
 		Requests: corev1.ResourceList{
 			corev1.ResourceCPU:    resource.MustParse("200m"),
-			corev1.ResourceMemory: resource.MustParse("384Mi"),
+			corev1.ResourceMemory: resource.MustParse("200Mi"),
 		},
 	}
 }
@@ -2914,8 +2834,8 @@ func (r *TestResources) NewDatasourceContainerResource(cr *model.CryostatInstanc
 func newGrafanaContainerDefaultResource() *corev1.ResourceRequirements {
 	return &corev1.ResourceRequirements{
 		Requests: corev1.ResourceList{
-			corev1.ResourceCPU:    resource.MustParse("100m"),
-			corev1.ResourceMemory: resource.MustParse("120Mi"),
+			corev1.ResourceCPU:    resource.MustParse("25m"),
+			corev1.ResourceMemory: resource.MustParse("80Mi"),
 		},
 	}
 }
@@ -2942,8 +2862,8 @@ func (r *TestResources) NewGrafanaContainerResource(cr *model.CryostatInstance) 
 func newReportContainerDefaultResource() *corev1.ResourceRequirements {
 	return &corev1.ResourceRequirements{
 		Requests: corev1.ResourceList{
-			corev1.ResourceCPU:    resource.MustParse("200m"),
-			corev1.ResourceMemory: resource.MustParse("384Mi"),
+			corev1.ResourceCPU:    resource.MustParse("500m"),
+			corev1.ResourceMemory: resource.MustParse("512Mi"),
 		},
 	}
 }

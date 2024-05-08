@@ -5101,9 +5101,6 @@ spec:
     - jsonPath: .status.applicationUrl
       name: Application URL
       type: string
-    - jsonPath: .status.grafanaSecret
-      name: Grafana Secret
-      type: string
     name: v1beta2
     schema:
       openAPIV3Schema:
@@ -5128,28 +5125,6 @@ spec:
           spec:
             description: CryostatSpec defines the desired state of Cryostat.
             properties:
-              authProperties:
-                description: Override default authorization properties for Cryostat
-                  on OpenShift.
-                properties:
-                  clusterRoleName:
-                    description: 'Name of the ClusterRole to use when Cryostat requests
-                      a role-scoped OAuth token. This ClusterRole should contain permissions
-                      for all Kubernetes objects listed in custom permission mapping.
-                      More details: https://docs.openshift.com/container-platform/4.11/authentication/tokens-scoping.html#scoping-tokens-role-scope_configuring-internal-oauth'
-                    type: string
-                  configMapName:
-                    description: Name of config map in the local namespace.
-                    type: string
-                  filename:
-                    description: Filename within config map containing the resource
-                      mapping.
-                    type: string
-                required:
-                - clusterRoleName
-                - configMapName
-                - filename
-                type: object
               authorizationOptions:
                 description: Additional configuration options for the authorization
                   proxy.
@@ -5224,6 +5199,17 @@ spec:
                         type: boolean
                     type: object
                 type: object
+              databaseOptions:
+                description: Options to configure the Cryostat application's database.
+                properties:
+                  secretName:
+                    description: Name of the secret containing database keys. This
+                      secret must contain a CONNECTION_KEY secret which is the database
+                      connection password, and an ENCRYPTION_KEY secret which is the
+                      key used to encrypt sensitive data stored within the database,
+                      such as the target credentials keyring.
+                    type: string
+                type: object
               enableCertManager:
                 description: Use cert-manager to secure in-cluster communication between
                   Cryostat components. Requires cert-manager to be installed.
@@ -5246,33 +5232,6 @@ spec:
                   - filename
                   type: object
                 type: array
-              jmxCacheOptions:
-                description: Options to customize the JMX target connections cache
-                  for the Cryostat application.
-                properties:
-                  targetCacheSize:
-                    description: The maximum number of JMX connections to cache. Use
-                      `-1` for an unlimited cache size (TTL expiration only). Defaults
-                      to `-1`.
-                    format: int32
-                    minimum: -1
-                    type: integer
-                  targetCacheTTL:
-                    description: The time to live (in seconds) for cached JMX connections.
-                      Defaults to `10`.
-                    format: int32
-                    minimum: 1
-                    type: integer
-                type: object
-              jmxCredentialsDatabaseOptions:
-                description: Options to configure the Cryostat application's credentials
-                  database.
-                properties:
-                  databaseSecretName:
-                    description: Name of the secret containing the password to encrypt
-                      credentials database.
-                    type: string
-                type: object
               networkOptions:
                 description: Options to control how the operator exposes the application
                   outside of the cluster, such as using an Ingress or Route.
@@ -7379,7 +7338,7 @@ spec:
                     type: object
                   coreResources:
                     description: Resource requirements for the Cryostat application.
-                      If specifying a memory limit, at least 768MiB is recommended.
+                      If specifying a memory limit, at least 384MiB is recommended.
                     properties:
                       claims:
                         description: "Claims lists the names of resources, defined
@@ -7476,8 +7435,106 @@ spec:
                           Limits. More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/'
                         type: object
                     type: object
+                  databaseResources:
+                    description: Resource requirements for the database container.
+                    properties:
+                      claims:
+                        description: "Claims lists the names of resources, defined
+                          in spec.resourceClaims, that are used by this container.
+                          \n This is an alpha field and requires enabling the DynamicResourceAllocation
+                          feature gate. \n This field is immutable. It can only be
+                          set for containers."
+                        items:
+                          description: ResourceClaim references one entry in PodSpec.ResourceClaims.
+                          properties:
+                            name:
+                              description: Name must match the name of one entry in
+                                pod.spec.resourceClaims of the Pod where this field
+                                is used. It makes that resource available inside a
+                                container.
+                              type: string
+                          required:
+                          - name
+                          type: object
+                        type: array
+                        x-kubernetes-list-map-keys:
+                        - name
+                        x-kubernetes-list-type: map
+                      limits:
+                        additionalProperties:
+                          anyOf:
+                          - type: integer
+                          - type: string
+                          pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                          x-kubernetes-int-or-string: true
+                        description: 'Limits describes the maximum amount of compute
+                          resources allowed. More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/'
+                        type: object
+                      requests:
+                        additionalProperties:
+                          anyOf:
+                          - type: integer
+                          - type: string
+                          pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                          x-kubernetes-int-or-string: true
+                        description: 'Requests describes the minimum amount of compute
+                          resources required. If Requests is omitted for a container,
+                          it defaults to Limits if that is explicitly specified, otherwise
+                          to an implementation-defined value. Requests cannot exceed
+                          Limits. More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/'
+                        type: object
+                    type: object
                   grafanaResources:
                     description: Resource requirements for the Grafana container.
+                    properties:
+                      claims:
+                        description: "Claims lists the names of resources, defined
+                          in spec.resourceClaims, that are used by this container.
+                          \n This is an alpha field and requires enabling the DynamicResourceAllocation
+                          feature gate. \n This field is immutable. It can only be
+                          set for containers."
+                        items:
+                          description: ResourceClaim references one entry in PodSpec.ResourceClaims.
+                          properties:
+                            name:
+                              description: Name must match the name of one entry in
+                                pod.spec.resourceClaims of the Pod where this field
+                                is used. It makes that resource available inside a
+                                container.
+                              type: string
+                          required:
+                          - name
+                          type: object
+                        type: array
+                        x-kubernetes-list-map-keys:
+                        - name
+                        x-kubernetes-list-type: map
+                      limits:
+                        additionalProperties:
+                          anyOf:
+                          - type: integer
+                          - type: string
+                          pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                          x-kubernetes-int-or-string: true
+                        description: 'Limits describes the maximum amount of compute
+                          resources allowed. More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/'
+                        type: object
+                      requests:
+                        additionalProperties:
+                          anyOf:
+                          - type: integer
+                          - type: string
+                          pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                          x-kubernetes-int-or-string: true
+                        description: 'Requests describes the minimum amount of compute
+                          resources required. If Requests is omitted for a container,
+                          it defaults to Limits if that is explicitly specified, otherwise
+                          to an implementation-defined value. Requests cannot exceed
+                          Limits. More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/'
+                        type: object
+                    type: object
+                  objectStorageResources:
+                    description: Resource requirements for the object storage container.
                     properties:
                       claims:
                         description: "Claims lists the names of resources, defined
@@ -9621,7 +9678,7 @@ spec:
                 type: object
               serviceOptions:
                 description: Options to customize the services created for the Cryostat
-                  application and Grafana dashboard.
+                  application.
                 properties:
                   coreConfig:
                     description: Specification for the service responsible for the
@@ -9708,8 +9765,8 @@ spec:
                     type: object
                 type: object
               storageOptions:
-                description: Options to customize the storage for Flight Recordings
-                  and Templates.
+                description: Options to customize the storage provisioned for the
+                  database and object storage.
                 properties:
                   emptyDir:
                     description: Configuration for an EmptyDir to be created by the
@@ -9968,6 +10025,24 @@ spec:
                         type: object
                     type: object
                 type: object
+              targetConnectionCacheOptions:
+                description: Options to customize the target connections cache for
+                  the Cryostat application.
+                properties:
+                  targetCacheSize:
+                    description: The maximum number of target connections to cache.
+                      Use `-1` for an unlimited cache size (TTL expiration only).
+                      Defaults to `-1`.
+                    format: int32
+                    minimum: -1
+                    type: integer
+                  targetCacheTTL:
+                    description: The time to live (in seconds) for cached target connections.
+                      Defaults to `10`.
+                    format: int32
+                    minimum: 1
+                    type: integer
+                type: object
               targetDiscoveryOptions:
                 description: Options to configure the Cryostat application's target
                   discovery mechanisms.
@@ -10098,9 +10173,6 @@ spec:
                   - type
                   type: object
                 type: array
-              grafanaSecret:
-                description: Name of the Secret containing the generated Grafana credentials.
-                type: string
               targetNamespaces:
                 description: List of namespaces that Cryostat has been configured
                   and authorized to access and profile.

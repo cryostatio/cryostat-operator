@@ -48,6 +48,7 @@ func (r *Reconciler) reconcileCoreIngress(ctx context.Context, cr *model.Cryosta
 	if err != nil {
 		return err
 	}
+	specs.AuthProxyURL = url
 	specs.CoreURL = url
 	return nil
 }
