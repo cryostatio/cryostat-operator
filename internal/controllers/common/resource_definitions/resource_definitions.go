@@ -663,7 +663,6 @@ func NewOpenShiftAuthProxyContainer(cr *model.CryostatInstance, specs *ServiceSp
 		fmt.Sprintf("--upstream=http://localhost:%d/storage/", constants.StoragePort),
 		fmt.Sprintf("--openshift-service-account=%s", cr.Name),
 		"--proxy-websockets=true",
-		fmt.Sprintf("--http-address=0.0.0.0:%d", constants.AuthProxyHttpContainerPort),
 		"--proxy-prefix=/oauth2",
 	}
 	if isOpenShiftAuthProxyDisabled(cr) {
@@ -708,12 +707,10 @@ func NewOpenShiftAuthProxyContainer(cr *model.CryostatInstance, specs *ServiceSp
 	}
 
 	livenessProbeScheme := corev1.URISchemeHTTP
-	livenessProbePort := constants.AuthProxyHttpContainerPort
 	if tls != nil {
-		ports = append(ports, corev1.ContainerPort{ContainerPort: constants.AuthProxyHttpsContainerPort})
-
 		args = append(args,
-			fmt.Sprintf("--https-address=:%d", constants.AuthProxyHttpsContainerPort),
+			fmt.Sprintf("--http-address="),
+			fmt.Sprintf("--https-address=:%d", constants.AuthProxyHttpContainerPort),
 			fmt.Sprintf("--tls-cert=/var/run/secrets/operator.cryostat.io/%s/%s", tls.CryostatSecret, corev1.TLSCertKey),
 			fmt.Sprintf("--tls-key=/var/run/secrets/operator.cryostat.io/%s/%s", tls.CryostatSecret, corev1.TLSPrivateKeyKey),
 		)
@@ -727,14 +724,16 @@ func NewOpenShiftAuthProxyContainer(cr *model.CryostatInstance, specs *ServiceSp
 		volumeMounts = append(volumeMounts, tlsSecretMount)
 
 		livenessProbeScheme = corev1.URISchemeHTTPS
-		livenessProbePort = constants.AuthProxyHttpsContainerPort
 	} else {
-		args = append(args, "--https-address=")
+		args = append(args,
+			fmt.Sprintf("--http-address=0.0.0.0:%d", constants.AuthProxyHttpContainerPort),
+			"--https-address=",
+		)
 	}
 
 	probeHandler := corev1.ProbeHandler{
 		HTTPGet: &corev1.HTTPGetAction{
-			Port:   intstr.IntOrString{IntVal: livenessProbePort},
+			Port:   intstr.IntOrString{IntVal: constants.AuthProxyHttpContainerPort},
 			Path:   "/oauth2/healthz",
 			Scheme: livenessProbeScheme,
 		},
@@ -852,10 +851,7 @@ func NewOAuth2ProxyContainer(cr *model.CryostatInstance, specs *ServiceSpecs, im
 	}
 
 	livenessProbeScheme := corev1.URISchemeHTTP
-	livenessProbePort := constants.AuthProxyHttpContainerPort
 	if tls != nil {
-		ports = append(ports, corev1.ContainerPort{ContainerPort: constants.AuthProxyHttpsContainerPort})
-
 		tlsSecretMount := corev1.VolumeMount{
 			Name:      "auth-proxy-tls-secret",
 			MountPath: "/var/run/secrets/operator.cryostat.io/" + tls.CryostatSecret,
@@ -865,12 +861,11 @@ func NewOAuth2ProxyContainer(cr *model.CryostatInstance, specs *ServiceSpecs, im
 		volumeMounts = append(volumeMounts, tlsSecretMount)
 
 		livenessProbeScheme = corev1.URISchemeHTTPS
-		livenessProbePort = constants.AuthProxyHttpsContainerPort
 	}
 
 	probeHandler := corev1.ProbeHandler{
 		HTTPGet: &corev1.HTTPGetAction{
-			Port:   intstr.IntOrString{IntVal: livenessProbePort},
+			Port:   intstr.IntOrString{IntVal: constants.AuthProxyHttpContainerPort},
 			Path:   "/ping",
 			Scheme: livenessProbeScheme,
 		},

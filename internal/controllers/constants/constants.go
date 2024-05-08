@@ -20,19 +20,18 @@ import (
 )
 
 const (
-	AuthProxyHttpContainerPort  int32  = 4180
-	AuthProxyHttpsContainerPort int32  = 4143
-	CryostatHTTPContainerPort   int32  = 8181
-	CryostatJMXContainerPort    int32  = 9091
-	GrafanaContainerPort        int32  = 3000
-	DatasourceContainerPort     int32  = 8989
-	ReportsContainerPort        int32  = 10000
-	StoragePort                 int32  = 8333
-	DatabasePort                int32  = 5432
-	LoopbackAddress             string = "127.0.0.1"
-	OperatorNamePrefix          string = "cryostat-operator-"
-	OperatorDeploymentName      string = "cryostat-operator-controller-manager"
-	HttpPortName                string = "http"
+	AuthProxyHttpContainerPort int32  = 4180
+	CryostatHTTPContainerPort  int32  = 8181
+	CryostatJMXContainerPort   int32  = 9091
+	GrafanaContainerPort       int32  = 3000
+	DatasourceContainerPort    int32  = 8989
+	ReportsContainerPort       int32  = 10000
+	StoragePort                int32  = 8333
+	DatabasePort               int32  = 5432
+	LoopbackAddress            string = "127.0.0.1"
+	OperatorNamePrefix         string = "cryostat-operator-"
+	OperatorDeploymentName     string = "cryostat-operator-controller-manager"
+	HttpPortName               string = "http"
 	// CAKey is the key for a CA certificate within a TLS secret
 	CAKey = certMeta.TLSCAKey
 	// Hostname alias for loopback address, to be used for health checks

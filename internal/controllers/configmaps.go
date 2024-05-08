@@ -46,7 +46,7 @@ type oauth2ProxyAlphaConfig struct {
 
 type alphaConfigServer struct {
 	BindAddress       string   `json:"BindAddress,omitempty"`
-	SecureBindAddress *string  `json:"SecureBindAddress,omitempty"`
+	SecureBindAddress string   `json:"SecureBindAddress,omitempty"`
 	TLS               proxyTLS `json:"TLS,omitempty"`
 }
 
@@ -85,7 +85,7 @@ func (r *Reconciler) reconcileOAuth2ProxyConfig(ctx context.Context, cr *model.C
 	bindHost := "0.0.0.0"
 	immutable := true
 	cfg := &oauth2ProxyAlphaConfig{
-		Server: alphaConfigServer{BindAddress: fmt.Sprintf("http://%s:%d", bindHost, constants.AuthProxyHttpContainerPort)},
+		Server: alphaConfigServer{},
 		UpstreamConfig: alphaConfigUpstreamConfig{ProxyRawPath: true, Upstreams: []alphaConfigUpstream{
 			{
 				Id:   "cryostat",
@@ -110,8 +110,7 @@ func (r *Reconciler) reconcileOAuth2ProxyConfig(ctx context.Context, cr *model.C
 	}
 
 	if tls != nil {
-		tlsBindAddress := fmt.Sprintf("https://%s:%d", bindHost, constants.AuthProxyHttpsContainerPort)
-		cfg.Server.SecureBindAddress = &tlsBindAddress
+		cfg.Server.SecureBindAddress = fmt.Sprintf("https://%s:%d", bindHost, constants.AuthProxyHttpContainerPort)
 		cfg.Server.TLS = proxyTLS{
 			Key: tlsSecretSource{
 				FromFile: fmt.Sprintf("/var/run/secrets/operator.cryostat.io/%s/%s", tls.CryostatSecret, corev1.TLSPrivateKeyKey),
@@ -120,6 +119,8 @@ func (r *Reconciler) reconcileOAuth2ProxyConfig(ctx context.Context, cr *model.C
 				FromFile: fmt.Sprintf("/var/run/secrets/operator.cryostat.io/%s/%s", tls.CryostatSecret, corev1.TLSCertKey),
 			},
 		}
+	} else {
+		cfg.Server.BindAddress = fmt.Sprintf("http://%s:%d", bindHost, constants.AuthProxyHttpContainerPort)
 	}
 
 	data := make(map[string]string)

@@ -42,28 +42,17 @@ func (r *Reconciler) reconcileCoreService(ctx context.Context, cr *model.Cryosta
 	}
 	config := configureCoreService(cr, tls)
 
-	var httpPort corev1.ServicePort
-	if tls == nil {
-		httpPort = corev1.ServicePort{
-			Name:       "http",
-			Port:       *config.HTTPPort,
-			TargetPort: intstr.IntOrString{IntVal: constants.AuthProxyHttpContainerPort},
-		}
-	} else {
-		httpPort = corev1.ServicePort{
-			Name:       "http",
-			Port:       *config.HTTPPort,
-			TargetPort: intstr.IntOrString{IntVal: constants.AuthProxyHttpsContainerPort},
-		}
-	}
-
 	err := r.createOrUpdateService(ctx, svc, cr.Object, &config.ServiceConfig, func() error {
 		svc.Spec.Selector = map[string]string{
 			"app":       cr.Name,
 			"component": "cryostat",
 		}
 		svc.Spec.Ports = []corev1.ServicePort{
-			httpPort,
+			corev1.ServicePort{
+				Name:       "http",
+				Port:       *config.HTTPPort,
+				TargetPort: intstr.IntOrString{IntVal: constants.AuthProxyHttpContainerPort},
+			},
 			{
 				Name:       "jfr-jmx",
 				Port:       *config.JMXPort,
@@ -141,13 +130,8 @@ func configureCoreService(cr *model.CryostatInstance, tls *resource_definitions.
 
 	// Apply default HTTP and JMX port if not provided
 	if config.HTTPPort == nil {
-		if tls == nil {
-			httpPort := constants.AuthProxyHttpContainerPort
-			config.HTTPPort = &httpPort
-		} else {
-			httpPort := constants.AuthProxyHttpsContainerPort
-			config.HTTPPort = &httpPort
-		}
+		httpPort := constants.AuthProxyHttpContainerPort
+		config.HTTPPort = &httpPort
 	}
 	if config.JMXPort == nil {
 		jmxPort := constants.CryostatJMXContainerPort
