@@ -1575,7 +1575,7 @@ func getPort(url *url.URL) string {
 }
 
 func getInternalDashboardURL() string {
-	return fmt.Sprintf("%s://%s:%d", "http", constants.HealthCheckHostname, constants.GrafanaContainerPort)
+	return fmt.Sprintf("http://%s:%d", constants.HealthCheckHostname, constants.GrafanaContainerPort)
 }
 
 // Matches image tags of the form "major.minor.patch"

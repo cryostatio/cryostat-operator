@@ -40,7 +40,7 @@ func (r *Reconciler) reconcileCoreService(ctx context.Context, cr *model.Cryosta
 			Namespace: cr.InstallNamespace,
 		},
 	}
-	config := configureCoreService(cr, tls)
+	config := configureCoreService(cr)
 
 	err := r.createOrUpdateService(ctx, svc, cr.Object, &config.ServiceConfig, func() error {
 		svc.Spec.Selector = map[string]string{
@@ -48,7 +48,7 @@ func (r *Reconciler) reconcileCoreService(ctx context.Context, cr *model.Cryosta
 			"component": "cryostat",
 		}
 		svc.Spec.Ports = []corev1.ServicePort{
-			corev1.ServicePort{
+			{
 				Name:       "http",
 				Port:       *config.HTTPPort,
 				TargetPort: intstr.IntOrString{IntVal: constants.AuthProxyHttpContainerPort},
@@ -116,7 +116,7 @@ func (r *Reconciler) reconcileReportsService(ctx context.Context, cr *model.Cryo
 	return nil
 }
 
-func configureCoreService(cr *model.CryostatInstance, tls *resource_definitions.TLSConfig) *operatorv1beta2.CoreServiceConfig {
+func configureCoreService(cr *model.CryostatInstance) *operatorv1beta2.CoreServiceConfig {
 	// Check CR for config
 	var config *operatorv1beta2.CoreServiceConfig
 	if cr.Spec.ServiceOptions == nil || cr.Spec.ServiceOptions.CoreConfig == nil {
