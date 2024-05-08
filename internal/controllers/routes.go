@@ -90,8 +90,9 @@ func (r *Reconciler) createOrUpdateRoute(ctx context.Context, route *routev1.Rou
 		}
 	} else {
 		routeTLS = &routev1.TLSConfig{
-			Termination:              routev1.TLSTerminationReencrypt,
-			DestinationCACertificate: string(tlsConfig.CACert),
+			Termination:                   routev1.TLSTerminationReencrypt,
+			DestinationCACertificate:      string(tlsConfig.CACert),
+			InsecureEdgeTerminationPolicy: routev1.InsecureEdgeTerminationPolicyRedirect,
 		}
 	}
 

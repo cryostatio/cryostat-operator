@@ -45,7 +45,18 @@ type oauth2ProxyAlphaConfig struct {
 }
 
 type alphaConfigServer struct {
-	BindAddress string `json:"BindAddress,omitempty"`
+	BindAddress       string   `json:"BindAddress,omitempty"`
+	SecureBindAddress string   `json:"SecureBindAddress,omitempty"`
+	TLS               proxyTLS `json:"TLS,omitempty"`
+}
+
+type proxyTLS struct {
+	Key  tlsSecretSource `json:"Key,omitempty"`
+	Cert tlsSecretSource `json:"Cert,omitempty"`
+}
+
+type tlsSecretSource struct {
+	FromFile string `json:"fromFile,omitempty"`
 }
 
 type alphaConfigUpstreamConfig struct {
@@ -70,10 +81,11 @@ type alphaConfigUpstream struct {
 	ProxyWebSockets bool   `json:"proxyWebSockets,omitempty"`
 }
 
-func (r *Reconciler) reconcileOAuth2ProxyConfig(ctx context.Context, cr *model.CryostatInstance) error {
+func (r *Reconciler) reconcileOAuth2ProxyConfig(ctx context.Context, cr *model.CryostatInstance, tls *resources.TLSConfig) error {
+	bindHost := "0.0.0.0"
 	immutable := true
 	cfg := &oauth2ProxyAlphaConfig{
-		Server: alphaConfigServer{BindAddress: fmt.Sprintf("http://0.0.0.0:%d", constants.AuthProxyHttpContainerPort)},
+		Server: alphaConfigServer{},
 		UpstreamConfig: alphaConfigUpstreamConfig{ProxyRawPath: true, Upstreams: []alphaConfigUpstream{
 			{
 				Id:   "cryostat",
@@ -95,6 +107,20 @@ func (r *Reconciler) reconcileOAuth2ProxyConfig(ctx context.Context, cr *model.C
 			},
 		}},
 		Providers: []alphaConfigProvider{{Id: "dummy", Name: "Unused - Sign In Below", ClientId: "CLIENT_ID", ClientSecret: "CLIENT_SECRET", Provider: "google"}},
+	}
+
+	if tls != nil {
+		cfg.Server.SecureBindAddress = fmt.Sprintf("https://%s:%d", bindHost, constants.AuthProxyHttpContainerPort)
+		cfg.Server.TLS = proxyTLS{
+			Key: tlsSecretSource{
+				FromFile: fmt.Sprintf("/var/run/secrets/operator.cryostat.io/%s/%s", tls.CryostatSecret, corev1.TLSPrivateKeyKey),
+			},
+			Cert: tlsSecretSource{
+				FromFile: fmt.Sprintf("/var/run/secrets/operator.cryostat.io/%s/%s", tls.CryostatSecret, corev1.TLSCertKey),
+			},
+		}
+	} else {
+		cfg.Server.BindAddress = fmt.Sprintf("http://%s:%d", bindHost, constants.AuthProxyHttpContainerPort)
 	}
 
 	data := make(map[string]string)

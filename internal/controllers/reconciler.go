@@ -194,11 +194,6 @@ func (r *Reconciler) reconcileCryostat(ctx context.Context, cr *model.CryostatIn
 		return reconcile.Result{}, err
 	}
 
-	err = r.reconcileOAuth2ProxyConfig(ctx, cr)
-	if err != nil {
-		return reconcile.Result{}, err
-	}
-
 	err = r.reconcilePVC(ctx, cr)
 	if err != nil {
 		return reconcile.Result{}, err
@@ -248,6 +243,11 @@ func (r *Reconciler) reconcileCryostat(ctx context.Context, cr *model.CryostatIn
 		if err != nil {
 			return reconcile.Result{}, err
 		}
+	}
+
+	err = r.reconcileOAuth2ProxyConfig(ctx, cr, tlsConfig)
+	if err != nil {
+		return reconcile.Result{}, err
 	}
 
 	serviceSpecs := &resources.ServiceSpecs{

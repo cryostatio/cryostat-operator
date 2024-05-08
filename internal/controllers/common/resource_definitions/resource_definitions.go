@@ -59,8 +59,6 @@ type ServiceSpecs struct {
 type TLSConfig struct {
 	// Name of the TLS secret for Cryostat
 	CryostatSecret string
-	// Name of the TLS secret for Grafana
-	GrafanaSecret string
 	// Name of the TLS secret for Reports Generator
 	ReportsSecret string
 	// Name of the secret containing the password for the keystore in CryostatSecret
@@ -318,6 +316,14 @@ func NewPodForCR(cr *model.CryostatInstance, specs *ServiceSpecs, imageTags *Ima
 
 		volumes = append(volumes,
 			corev1.Volume{
+				Name: "auth-proxy-tls-secret",
+				VolumeSource: corev1.VolumeSource{
+					Secret: &corev1.SecretVolumeSource{
+						SecretName: tls.CryostatSecret,
+					},
+				},
+			},
+			corev1.Volume{
 				Name: "keystore",
 				VolumeSource: corev1.VolumeSource{
 					Secret: &corev1.SecretVolumeSource{
@@ -329,14 +335,6 @@ func NewPodForCR(cr *model.CryostatInstance, specs *ServiceSpecs, imageTags *Ima
 								Mode: &readOnlyMode,
 							},
 						},
-					},
-				},
-			},
-			corev1.Volume{
-				Name: "grafana-tls-secret",
-				VolumeSource: corev1.VolumeSource{
-					Secret: &corev1.SecretVolumeSource{
-						SecretName: tls.GrafanaSecret,
 					},
 				},
 			},
@@ -423,16 +421,6 @@ func NewPodForCR(cr *model.CryostatInstance, specs *ServiceSpecs, imageTags *Ima
 		}
 	}
 
-	// Use HostAlias for loopback address to allow health checks to
-	// work over HTTPS with hostname added as a SubjectAltName
-	hostAliases := []corev1.HostAlias{
-		{
-			IP: constants.LoopbackAddress,
-			Hostnames: []string{
-				constants.HealthCheckHostname,
-			},
-		},
-	}
 	var nodeSelector map[string]string
 	var affinity *corev1.Affinity
 	var tolerations []corev1.Toleration
@@ -456,7 +444,6 @@ func NewPodForCR(cr *model.CryostatInstance, specs *ServiceSpecs, imageTags *Ima
 		Volumes:                      volumes,
 		Containers:                   containers,
 		SecurityContext:              podSc,
-		HostAliases:                  hostAliases,
 		AutomountServiceAccountToken: &automountSAToken,
 		NodeSelector:                 nodeSelector,
 		Affinity:                     affinity,
@@ -659,21 +646,12 @@ func NewOpenShiftAuthProxyContainer(cr *model.CryostatInstance, specs *ServiceSp
 		}
 	}
 
-	probeHandler := corev1.ProbeHandler{
-		HTTPGet: &corev1.HTTPGetAction{
-			Port:   intstr.IntOrString{IntVal: constants.AuthProxyHttpContainerPort},
-			Path:   "/oauth2/healthz",
-			Scheme: corev1.URISchemeHTTP,
-		},
-	}
-
 	args := []string{
 		fmt.Sprintf("--upstream=http://localhost:%d/", constants.CryostatHTTPContainerPort),
 		fmt.Sprintf("--upstream=http://localhost:%d/grafana/", constants.GrafanaContainerPort),
 		fmt.Sprintf("--upstream=http://localhost:%d/storage/", constants.StoragePort),
 		fmt.Sprintf("--openshift-service-account=%s", cr.Name),
 		"--proxy-websockets=true",
-		fmt.Sprintf("--http-address=0.0.0.0:%d", constants.AuthProxyHttpContainerPort),
 		"--proxy-prefix=/oauth2",
 	}
 	if isOpenShiftAuthProxyDisabled(cr) {
@@ -697,6 +675,7 @@ func NewOpenShiftAuthProxyContainer(cr *model.CryostatInstance, specs *ServiceSp
 	args = append(args, fmt.Sprintf("--openshift-delegate-urls=%s", string(tokenReviewJson)))
 
 	volumeMounts := []corev1.VolumeMount{}
+
 	if isBasicAuthEnabled(cr) {
 		mountPath := "/var/run/secrets/operator.cryostat.io"
 		volumeMounts = append(volumeMounts, corev1.VolumeMount{
@@ -706,31 +685,34 @@ func NewOpenShiftAuthProxyContainer(cr *model.CryostatInstance, specs *ServiceSp
 		})
 		args = append(args, fmt.Sprintf("--htpasswd-file=%s/%s", mountPath, *cr.Spec.AuthorizationOptions.BasicAuth.Filename))
 	}
-
 	args = append(args,
 		fmt.Sprintf("--skip-provider-button=%t", !isBasicAuthEnabled(cr)),
 	)
 
-	// if tls != nil {
-	// "--https-address=:8443",
-	// "--tls-cert=/etc/tls/private/tls.crt",
-	// "--tls-key=/etc/tls/private/tls.key",
-	// } else {
-	args = append(args, "--https-address=")
-	// }
+	livenessProbeScheme := corev1.URISchemeHTTP
+	if tls != nil {
+		args = append(args,
+			fmt.Sprintf("--http-address="),
+			fmt.Sprintf("--https-address=0.0.0.0:%d", constants.AuthProxyHttpContainerPort),
+			fmt.Sprintf("--tls-cert=/var/run/secrets/operator.cryostat.io/%s/%s", tls.CryostatSecret, corev1.TLSCertKey),
+			fmt.Sprintf("--tls-key=/var/run/secrets/operator.cryostat.io/%s/%s", tls.CryostatSecret, corev1.TLSPrivateKeyKey),
+		)
 
-	cookieOptional := false
-	envsFrom := []corev1.EnvFromSource{
-		{
-			SecretRef: &corev1.SecretEnvSource{
-				LocalObjectReference: corev1.LocalObjectReference{
-					Name: cr.Name + "-oauth2-cookie",
-				},
-				Optional: &cookieOptional,
-			},
-		},
+		volumeMounts = append(volumeMounts, corev1.VolumeMount{
+			Name:      "auth-proxy-tls-secret",
+			MountPath: "/var/run/secrets/operator.cryostat.io/" + tls.CryostatSecret,
+			ReadOnly:  true,
+		})
+
+		livenessProbeScheme = corev1.URISchemeHTTPS
+	} else {
+		args = append(args,
+			fmt.Sprintf("--http-address=0.0.0.0:%d", constants.AuthProxyHttpContainerPort),
+			"--https-address=",
+		)
 	}
 
+	cookieOptional := false
 	return &corev1.Container{
 		Name:            cr.Name + "-auth-proxy",
 		Image:           imageTag,
@@ -741,11 +723,25 @@ func NewOpenShiftAuthProxyContainer(cr *model.CryostatInstance, specs *ServiceSp
 				ContainerPort: constants.AuthProxyHttpContainerPort,
 			},
 		},
-		// Env:       envs,
-		EnvFrom:   envsFrom,
+		EnvFrom: []corev1.EnvFromSource{
+			{
+				SecretRef: &corev1.SecretEnvSource{
+					LocalObjectReference: corev1.LocalObjectReference{
+						Name: cr.Name + "-oauth2-cookie",
+					},
+					Optional: &cookieOptional,
+				},
+			},
+		},
 		Resources: *NewAuthProxyContainerResource(cr),
 		LivenessProbe: &corev1.Probe{
-			ProbeHandler: probeHandler,
+			ProbeHandler: corev1.ProbeHandler{
+				HTTPGet: &corev1.HTTPGetAction{
+					Port:   intstr.IntOrString{IntVal: constants.AuthProxyHttpContainerPort},
+					Path:   "/oauth2/healthz",
+					Scheme: livenessProbeScheme,
+				},
+			},
 		},
 		SecurityContext: containerSc,
 		Args:            args,
@@ -793,18 +789,6 @@ func NewOAuth2ProxyContainer(cr *model.CryostatInstance, specs *ServiceSpecs, im
 		}
 	}
 
-	probeHandler := corev1.ProbeHandler{
-		HTTPGet: &corev1.HTTPGetAction{
-			Port:   intstr.IntOrString{IntVal: constants.AuthProxyHttpContainerPort},
-			Path:   "/ping",
-			Scheme: corev1.URISchemeHTTP,
-		},
-	}
-
-	args := []string{
-		fmt.Sprintf("--alpha-config=%s/%s", OAuth2ConfigFilePath, OAuth2ConfigFileName),
-	}
-
 	envs := []corev1.EnvVar{
 		{
 			Name:  "OAUTH2_PROXY_REDIRECT_URL",
@@ -816,24 +800,23 @@ func NewOAuth2ProxyContainer(cr *model.CryostatInstance, specs *ServiceSpecs, im
 		},
 	}
 
-	cookieOptional := false
-	envsFrom := []corev1.EnvFromSource{
-		{
-			SecretRef: &corev1.SecretEnvSource{
-				LocalObjectReference: corev1.LocalObjectReference{
-					Name: cr.Name + "-oauth2-cookie",
-				},
-				Optional: &cookieOptional,
-			},
-		},
-	}
-
 	volumeMounts := []corev1.VolumeMount{
 		{
 			Name:      cr.Name + "-oauth2-proxy-cfg",
 			MountPath: OAuth2ConfigFilePath,
 			ReadOnly:  true,
 		},
+	}
+
+	livenessProbeScheme := corev1.URISchemeHTTP
+	if tls != nil {
+		volumeMounts = append(volumeMounts, corev1.VolumeMount{
+			Name:      "auth-proxy-tls-secret",
+			MountPath: "/var/run/secrets/operator.cryostat.io/" + tls.CryostatSecret,
+			ReadOnly:  true,
+		})
+
+		livenessProbeScheme = corev1.URISchemeHTTPS
 	}
 
 	if isBasicAuthEnabled(cr) {
@@ -864,6 +847,7 @@ func NewOAuth2ProxyContainer(cr *model.CryostatInstance, specs *ServiceSpecs, im
 		})
 	}
 
+	cookieOptional := false
 	return &corev1.Container{
 		Name:            cr.Name + "-auth-proxy",
 		Image:           imageTag,
@@ -874,14 +858,31 @@ func NewOAuth2ProxyContainer(cr *model.CryostatInstance, specs *ServiceSpecs, im
 				ContainerPort: constants.AuthProxyHttpContainerPort,
 			},
 		},
-		Env:       envs,
-		EnvFrom:   envsFrom,
+		Env: envs,
+		EnvFrom: []corev1.EnvFromSource{
+			{
+				SecretRef: &corev1.SecretEnvSource{
+					LocalObjectReference: corev1.LocalObjectReference{
+						Name: cr.Name + "-oauth2-cookie",
+					},
+					Optional: &cookieOptional,
+				},
+			},
+		},
 		Resources: *NewAuthProxyContainerResource(cr),
 		LivenessProbe: &corev1.Probe{
-			ProbeHandler: probeHandler,
+			ProbeHandler: corev1.ProbeHandler{
+				HTTPGet: &corev1.HTTPGetAction{
+					Port:   intstr.IntOrString{IntVal: constants.AuthProxyHttpContainerPort},
+					Path:   "/ping",
+					Scheme: livenessProbeScheme,
+				},
+			},
 		},
 		SecurityContext: containerSc,
-		Args:            args,
+		Args: []string{
+			fmt.Sprintf("--alpha-config=%s/%s", OAuth2ConfigFilePath, OAuth2ConfigFileName),
+		},
 	}, nil
 }
 
@@ -1145,35 +1146,11 @@ func NewCoreContainer(cr *model.CryostatInstance, specs *ServiceSpecs, imageTag 
 			},
 			corev1.EnvVar{
 				Name:  "GRAFANA_DASHBOARD_URL",
-				Value: getInternalDashboardURL(tls),
+				Value: getInternalDashboardURL(),
 			},
 		)
 	}
 	envs = append(envs, grafanaVars...)
-
-	if tls != nil {
-		// Configure keystore location and password in expected environment variables
-		envs = append(envs, corev1.EnvVar{
-			Name:  "KEYSTORE_PATH",
-			Value: fmt.Sprintf("/var/run/secrets/operator.cryostat.io/%s/keystore.p12", tls.CryostatSecret),
-		})
-		envsFrom = append(envsFrom, corev1.EnvFromSource{
-			SecretRef: &corev1.SecretEnvSource{
-				LocalObjectReference: corev1.LocalObjectReference{
-					Name: tls.KeystorePassSecret,
-				},
-			},
-		})
-
-		// Mount the TLS secret's keystore
-		keystoreMount := corev1.VolumeMount{
-			Name:      "keystore",
-			MountPath: fmt.Sprintf("/var/run/secrets/operator.cryostat.io/%s", tls.CryostatSecret),
-			ReadOnly:  true,
-		}
-
-		mounts = append(mounts, keystoreMount)
-	}
 
 	// Mount the templates specified in Cryostat CR under /opt/cryostat.d/templates.d
 	for _, template := range cr.Spec.EventTemplates {
@@ -1262,47 +1239,10 @@ func NewGrafanaContainer(cr *model.CryostatInstance, imageTag string, tls *TLSCo
 			Name:  "JFR_DATASOURCE_URL",
 			Value: datasourceURL,
 		},
-	}
-	mounts := []corev1.VolumeMount{}
-
-	// Configure TLS key/cert if enabled
-	livenessProbeScheme := corev1.URISchemeHTTP
-	if tls != nil {
-		tlsEnvs := []corev1.EnvVar{
-			{
-				Name:  "GF_SERVER_PROTOCOL",
-				Value: "https",
-			},
-			{
-				Name:  "GF_SERVER_ROOT_URL",
-				Value: fmt.Sprintf("%s://localhost:%d/grafana/", "https", constants.AuthProxyHttpContainerPort),
-			},
-			{
-				Name:  "GF_SERVER_CERT_KEY",
-				Value: fmt.Sprintf("/var/run/secrets/operator.cryostat.io/%s/%s", tls.GrafanaSecret, corev1.TLSPrivateKeyKey),
-			},
-			{
-				Name:  "GF_SERVER_CERT_FILE",
-				Value: fmt.Sprintf("/var/run/secrets/operator.cryostat.io/%s/%s", tls.GrafanaSecret, corev1.TLSCertKey),
-			},
-		}
-
-		tlsSecretMount := corev1.VolumeMount{
-			Name:      "grafana-tls-secret",
-			MountPath: "/var/run/secrets/operator.cryostat.io/" + tls.GrafanaSecret,
-			ReadOnly:  true,
-		}
-
-		envs = append(envs, tlsEnvs...)
-		mounts = append(mounts, tlsSecretMount)
-
-		// Use HTTPS for liveness probe
-		livenessProbeScheme = corev1.URISchemeHTTPS
-	} else {
-		envs = append(envs, corev1.EnvVar{
+		{
 			Name:  "GF_SERVER_ROOT_URL",
 			Value: fmt.Sprintf("%s://localhost:%d/grafana/", "http", constants.AuthProxyHttpContainerPort),
-		})
+		},
 	}
 
 	var containerSc *corev1.SecurityContext
@@ -1322,7 +1262,6 @@ func NewGrafanaContainer(cr *model.CryostatInstance, imageTag string, tls *TLSCo
 		Name:            cr.Name + "-grafana",
 		Image:           imageTag,
 		ImagePullPolicy: getPullPolicy(imageTag),
-		VolumeMounts:    mounts,
 		Ports: []corev1.ContainerPort{
 			{
 				ContainerPort: constants.GrafanaContainerPort,
@@ -1334,7 +1273,7 @@ func NewGrafanaContainer(cr *model.CryostatInstance, imageTag string, tls *TLSCo
 				HTTPGet: &corev1.HTTPGetAction{
 					Port:   intstr.IntOrString{IntVal: 3000},
 					Path:   "/api/health",
-					Scheme: livenessProbeScheme,
+					Scheme: corev1.URISchemeHTTP,
 				},
 			},
 		},
@@ -1605,12 +1544,8 @@ func getPort(url *url.URL) string {
 	return "80"
 }
 
-func getInternalDashboardURL(tls *TLSConfig) string {
-	scheme := "https"
-	if tls == nil {
-		scheme = "http"
-	}
-	return fmt.Sprintf("%s://%s:%d", scheme, constants.HealthCheckHostname, constants.GrafanaContainerPort)
+func getInternalDashboardURL() string {
+	return fmt.Sprintf("http://localhost:%d", constants.GrafanaContainerPort)
 }
 
 // Matches image tags of the form "major.minor.patch"

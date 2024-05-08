@@ -93,14 +93,6 @@ func (r *Reconciler) setupTLS(ctx context.Context, cr *model.CryostatInstance) (
 		KeystorePassSecret: cryostatCert.Spec.Keystores.PKCS12.PasswordSecretRef.Name,
 	}
 	certificates := []*certv1.Certificate{caCert, cryostatCert, reportsCert}
-	// Create a certificate for Grafana signed by the Cryostat CA
-	grafanaCert := resources.NewGrafanaCert(cr)
-	err = r.createOrUpdateCertificate(ctx, grafanaCert, cr.Object)
-	if err != nil {
-		return nil, err
-	}
-	certificates = append(certificates, grafanaCert)
-	tlsConfig.GrafanaSecret = grafanaCert.Spec.SecretName
 
 	// Update owner references of TLS secrets created by cert-manager to ensure proper cleanup
 	err = r.setCertSecretOwner(ctx, cr.Object, certificates...)
