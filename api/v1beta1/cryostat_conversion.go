@@ -124,12 +124,6 @@ func convertServiceOptionsTo(srcOpts *ServiceConfigList) *operatorv1beta2.Servic
 				ServiceConfig: convertServiceConfigTo(srcOpts.CoreConfig.ServiceConfig),
 			}
 		}
-		if srcOpts.GrafanaConfig != nil {
-			dstOpts.GrafanaConfig = &operatorv1beta2.GrafanaServiceConfig{
-				HTTPPort:      srcOpts.GrafanaConfig.HTTPPort,
-				ServiceConfig: convertServiceConfigTo(srcOpts.GrafanaConfig.ServiceConfig),
-			}
-		}
 		if srcOpts.ReportsConfig != nil {
 			dstOpts.ReportsConfig = &operatorv1beta2.ReportsServiceConfig{
 				HTTPPort:      srcOpts.ReportsConfig.HTTPPort,
@@ -152,8 +146,7 @@ func convertNetworkOptionsTo(srcOpts *NetworkConfigurationList) *operatorv1beta2
 	var dstOpts *operatorv1beta2.NetworkConfigurationList
 	if srcOpts != nil {
 		dstOpts = &operatorv1beta2.NetworkConfigurationList{
-			CoreConfig:    convertNetworkConfigTo(srcOpts.CoreConfig),
-			GrafanaConfig: convertNetworkConfigTo(srcOpts.GrafanaConfig),
+			CoreConfig: convertNetworkConfigTo(srcOpts.CoreConfig),
 		}
 	}
 	return dstOpts
@@ -393,12 +386,6 @@ func convertServiceOptionsFrom(srcOpts *operatorv1beta2.ServiceConfigList) *Serv
 				ServiceConfig: convertServiceConfigFrom(srcOpts.CoreConfig.ServiceConfig),
 			}
 		}
-		if srcOpts.GrafanaConfig != nil {
-			dstOpts.GrafanaConfig = &GrafanaServiceConfig{
-				HTTPPort:      srcOpts.GrafanaConfig.HTTPPort,
-				ServiceConfig: convertServiceConfigFrom(srcOpts.GrafanaConfig.ServiceConfig),
-			}
-		}
 		if srcOpts.ReportsConfig != nil {
 			dstOpts.ReportsConfig = &ReportsServiceConfig{
 				HTTPPort:      srcOpts.ReportsConfig.HTTPPort,
@@ -421,8 +408,7 @@ func convertNetworkOptionsFrom(srcOpts *operatorv1beta2.NetworkConfigurationList
 	var dstOpts *NetworkConfigurationList
 	if srcOpts != nil {
 		dstOpts = &NetworkConfigurationList{
-			CoreConfig:    convertNetworkConfigFrom(srcOpts.CoreConfig),
-			GrafanaConfig: convertNetworkConfigFrom(srcOpts.GrafanaConfig),
+			CoreConfig: convertNetworkConfigFrom(srcOpts.CoreConfig),
 		}
 	}
 	return dstOpts

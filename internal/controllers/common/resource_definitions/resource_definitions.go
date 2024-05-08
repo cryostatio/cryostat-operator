@@ -49,7 +49,6 @@ type ImageTags struct {
 type ServiceSpecs struct {
 	AuthProxyURL *url.URL
 	CoreURL      *url.URL
-	GrafanaURL   *url.URL
 	ReportsURL   *url.URL
 	InsightsURL  *url.URL
 	StorageURL   *url.URL

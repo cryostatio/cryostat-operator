@@ -251,28 +251,6 @@ func (r *TestResources) NewCryostatWithCoreSvc() *model.CryostatInstance {
 	return cr
 }
 
-func (r *TestResources) NewCryostatWithGrafanaSvc() *model.CryostatInstance {
-	svcType := corev1.ServiceTypeNodePort
-	httpPort := int32(8080)
-	cr := r.NewCryostat()
-	cr.Spec.ServiceOptions = &operatorv1beta2.ServiceConfigList{
-		GrafanaConfig: &operatorv1beta2.GrafanaServiceConfig{
-			HTTPPort: &httpPort,
-			ServiceConfig: operatorv1beta2.ServiceConfig{
-				ServiceType: &svcType,
-				Annotations: map[string]string{
-					"my/custom": "annotation",
-				},
-				Labels: map[string]string{
-					"my":  "label",
-					"app": "somethingelse",
-				},
-			},
-		},
-	}
-	return cr
-}
-
 func (r *TestResources) NewCryostatWithReportsSvc() *model.CryostatInstance {
 	svcType := corev1.ServiceTypeNodePort
 	httpPort := int32(13161)
@@ -304,21 +282,6 @@ func (r *TestResources) NewCryostatWithCoreNetworkOptions() *model.CryostatInsta
 				"custom":    "label",
 				"app":       "test-app",
 				"component": "test-comp",
-			},
-		},
-	}
-	return cr
-}
-
-func (r *TestResources) NewCryostatWithGrafanaNetworkOptions() *model.CryostatInstance {
-	cr := r.NewCryostat()
-	cr.Spec.NetworkOptions = &operatorv1beta2.NetworkConfigurationList{
-		GrafanaConfig: &operatorv1beta2.NetworkConfiguration{
-			Annotations: map[string]string{"grafana": "annotation"},
-			Labels: map[string]string{
-				"grafana":   "label",
-				"component": "test-comp",
-				"app":       "test-app",
 			},
 		},
 	}
@@ -828,21 +791,6 @@ func (r *TestResources) NewCustomizedCoreService() *corev1.Service {
 	svc.Spec.Type = corev1.ServiceTypeNodePort
 	svc.Spec.Ports[0].Port = 8080
 	svc.Spec.Ports[1].Port = 9095
-	svc.Annotations = map[string]string{
-		"my/custom": "annotation",
-	}
-	svc.Labels = map[string]string{
-		"app":       r.Name,
-		"component": "cryostat",
-		"my":        "label",
-	}
-	return svc
-}
-
-func (r *TestResources) NewCustomizedGrafanaService() *corev1.Service {
-	svc := r.NewGrafanaService()
-	svc.Spec.Type = corev1.ServiceTypeNodePort
-	svc.Spec.Ports[0].Port = 8080
 	svc.Annotations = map[string]string{
 		"my/custom": "annotation",
 	}
@@ -2168,21 +2116,6 @@ func (r *TestResources) NewCustomCoreRoute() *routev1.Route {
 	return route
 }
 
-func (r *TestResources) NewGrafanaRoute() *routev1.Route {
-	return r.newRoute(r.Name+"-grafana", 3000)
-}
-
-func (r *TestResources) NewCustomGrafanaRoute() *routev1.Route {
-	route := r.NewGrafanaRoute()
-	route.Annotations = map[string]string{"grafana": "annotation"}
-	route.Labels = map[string]string{
-		"grafana":   "label",
-		"app":       r.Name,
-		"component": "cryostat",
-	}
-	return route
-}
-
 func (r *TestResources) newRoute(name string, port int) *routev1.Route {
 	var routeTLS *routev1.TLSConfig
 	if !r.TLS {
@@ -2244,34 +2177,9 @@ func (r *TestResources) OtherCoreRoute() *routev1.Route {
 	}
 }
 
-func (r *TestResources) OtherGrafanaRoute() *routev1.Route {
-	return &routev1.Route{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:        r.Name + "-grafana",
-			Namespace:   r.Namespace,
-			Annotations: map[string]string{"grafana": "annotation"},
-			Labels:      map[string]string{"grafana": "label"},
-		},
-		Spec: routev1.RouteSpec{
-			To: routev1.RouteTargetReference{
-				Kind: "Service",
-				Name: "not-grafana",
-			},
-			Port: &routev1.RoutePort{
-				TargetPort: intstr.FromInt(5678),
-			},
-		},
-	}
-}
-
 func (r *TestResources) NewCoreIngress() *netv1.Ingress {
 	return r.newIngress(r.Name, 4180, map[string]string{"custom": "annotation"},
 		map[string]string{"my": "label", "custom": "label"})
-}
-
-func (r *TestResources) NewGrafanaIngress() *netv1.Ingress {
-	return r.newIngress(r.Name+"-grafana", 3000, map[string]string{"grafana": "annotation"},
-		map[string]string{"my": "label", "grafana": "label"})
 }
 
 func (r *TestResources) newIngress(name string, svcPort int32, annotations, labels map[string]string) *netv1.Ingress {
@@ -2358,57 +2266,14 @@ func (r *TestResources) OtherCoreIngress() *netv1.Ingress {
 	}
 }
 
-func (r *TestResources) OtherGrafanaIngress() *netv1.Ingress {
-	pathtype := netv1.PathTypePrefix
-	return &netv1.Ingress{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:        r.Name + "-grafana",
-			Namespace:   r.Namespace,
-			Annotations: map[string]string{"other-grafana": "annotation"},
-			Labels:      map[string]string{"other-grafana": "label", "app": "not-grafana"},
-		},
-		Spec: netv1.IngressSpec{
-			Rules: []netv1.IngressRule{
-				{
-					Host: "some-other-grafana.example.com",
-					IngressRuleValue: netv1.IngressRuleValue{
-						HTTP: &netv1.HTTPIngressRuleValue{
-							Paths: []netv1.HTTPIngressPath{
-								{
-									Path:     "/",
-									PathType: &pathtype,
-									Backend: netv1.IngressBackend{
-										Service: &netv1.IngressServiceBackend{
-											Name: "some-other-grafana",
-											Port: netv1.ServiceBackendPort{
-												Number: 5000,
-											},
-										},
-									},
-								},
-							},
-						},
-					},
-				},
-			},
-		},
-	}
-}
-
 func (r *TestResources) newNetworkConfigurationList() operatorv1beta2.NetworkConfigurationList {
 	coreSVC := r.NewCryostatService()
 	coreIng := r.newNetworkConfiguration(coreSVC.Name, coreSVC.Spec.Ports[0].Port)
 	coreIng.Annotations["custom"] = "annotation"
 	coreIng.Labels["custom"] = "label"
 
-	grafanaSVC := r.NewGrafanaService()
-	grafanaIng := r.newNetworkConfiguration(grafanaSVC.Name, grafanaSVC.Spec.Ports[0].Port)
-	grafanaIng.Annotations["grafana"] = "annotation"
-	grafanaIng.Labels["grafana"] = "label"
-
 	return operatorv1beta2.NetworkConfigurationList{
-		CoreConfig:    &coreIng,
-		GrafanaConfig: &grafanaIng,
+		CoreConfig: &coreIng,
 	}
 }
 

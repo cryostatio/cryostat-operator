@@ -53,29 +53,6 @@ func (r *Reconciler) reconcileCoreIngress(ctx context.Context, cr *model.Cryosta
 	return nil
 }
 
-func (r *Reconciler) reconcileGrafanaIngress(ctx context.Context, cr *model.CryostatInstance,
-	specs *resource_definitions.ServiceSpecs) error {
-	ingress := &netv1.Ingress{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      cr.Name + "-grafana",
-			Namespace: cr.InstallNamespace,
-		},
-	}
-
-	if cr.Spec.NetworkOptions == nil || cr.Spec.NetworkOptions.GrafanaConfig == nil ||
-		cr.Spec.NetworkOptions.GrafanaConfig.IngressSpec == nil {
-		// User has not requested an Ingress, delete if it exists
-		return r.deleteIngress(ctx, ingress)
-	}
-	grafanaConfig := configureGrafanaIngress(cr)
-	url, err := r.reconcileIngress(ctx, ingress, cr, grafanaConfig)
-	if err != nil {
-		return err
-	}
-	specs.GrafanaURL = url
-	return nil
-}
-
 func (r *Reconciler) reconcileIngress(ctx context.Context, ingress *netv1.Ingress, cr *model.CryostatInstance,
 	config *operatorv1beta2.NetworkConfiguration) (*url.URL, error) {
 	ingress, err := r.createOrUpdateIngress(ctx, ingress, cr.Object, config)
@@ -125,18 +102,6 @@ func configureCoreIngress(cr *model.CryostatInstance) *operatorv1beta2.NetworkCo
 		config = &operatorv1beta2.NetworkConfiguration{}
 	} else {
 		config = cr.Spec.NetworkOptions.CoreConfig
-	}
-
-	configureIngress(config, cr.Name, "cryostat")
-	return config
-}
-
-func configureGrafanaIngress(cr *model.CryostatInstance) *operatorv1beta2.NetworkConfiguration {
-	var config *operatorv1beta2.NetworkConfiguration
-	if cr.Spec.NetworkOptions == nil || cr.Spec.NetworkOptions.GrafanaConfig == nil {
-		config = &operatorv1beta2.NetworkConfiguration{}
-	} else {
-		config = cr.Spec.NetworkOptions.GrafanaConfig
 	}
 
 	configureIngress(config, cr.Name, "cryostat")
