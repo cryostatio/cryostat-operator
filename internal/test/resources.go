@@ -1883,6 +1883,14 @@ func (r *TestResources) newVolumes(certProjections []corev1.VolumeProjection) []
 					},
 				},
 			},
+			corev1.Volume{
+				Name: "auth-proxy-tls-secret",
+				VolumeSource: corev1.VolumeSource{
+					Secret: &corev1.SecretVolumeSource{
+						SecretName: r.Name + "-tls",
+					},
+				},
+			},
 		)
 	}
 
@@ -2030,8 +2038,9 @@ func (r *TestResources) newRoute(name string, port int) *routev1.Route {
 		}
 	} else {
 		routeTLS = &routev1.TLSConfig{
-			Termination:              routev1.TLSTerminationReencrypt,
-			DestinationCACertificate: r.Name + "-ca-bytes",
+			Termination:                   routev1.TLSTerminationReencrypt,
+			DestinationCACertificate:      r.Name + "-ca-bytes",
+			InsecureEdgeTerminationPolicy: routev1.InsecureEdgeTerminationPolicyRedirect,
 		}
 	}
 	return &routev1.Route{
