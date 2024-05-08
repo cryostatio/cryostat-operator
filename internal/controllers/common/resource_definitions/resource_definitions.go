@@ -421,16 +421,6 @@ func NewPodForCR(cr *model.CryostatInstance, specs *ServiceSpecs, imageTags *Ima
 		}
 	}
 
-	// Use HostAlias for loopback address to allow health checks to
-	// work over HTTPS with hostname added as a SubjectAltName
-	hostAliases := []corev1.HostAlias{
-		{
-			IP: constants.LoopbackAddress,
-			Hostnames: []string{
-				constants.HealthCheckHostname,
-			},
-		},
-	}
 	var nodeSelector map[string]string
 	var affinity *corev1.Affinity
 	var tolerations []corev1.Toleration
@@ -454,7 +444,6 @@ func NewPodForCR(cr *model.CryostatInstance, specs *ServiceSpecs, imageTags *Ima
 		Volumes:                      volumes,
 		Containers:                   containers,
 		SecurityContext:              podSc,
-		HostAliases:                  hostAliases,
 		AutomountServiceAccountToken: &automountSAToken,
 		NodeSelector:                 nodeSelector,
 		Affinity:                     affinity,
@@ -1556,7 +1545,7 @@ func getPort(url *url.URL) string {
 }
 
 func getInternalDashboardURL() string {
-	return fmt.Sprintf("http://%s:%d", constants.HealthCheckHostname, constants.GrafanaContainerPort)
+	return fmt.Sprintf("http://localhost:%d", constants.GrafanaContainerPort)
 }
 
 // Matches image tags of the form "major.minor.patch"

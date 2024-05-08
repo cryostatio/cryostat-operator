@@ -34,8 +34,6 @@ const (
 	HttpPortName               string = "http"
 	// CAKey is the key for a CA certificate within a TLS secret
 	CAKey = certMeta.TLSCAKey
-	// Hostname alias for loopback address, to be used for health checks
-	HealthCheckHostname = "cryostat-health.local"
 	// ALL capability to drop for restricted pod security. See:
 	// https://kubernetes.io/docs/concepts/security/pod-security-standards/#restricted
 	CapabilityAll corev1.Capability = "ALL"

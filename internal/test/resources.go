@@ -1344,7 +1344,12 @@ func (r *TestResources) NewCoreEnvironmentVariables(reportsUrl string, ingress b
 }
 
 func (r *TestResources) newNetworkEnvironmentVariables() []corev1.EnvVar {
-	envs := []corev1.EnvVar{}
+	envs := []corev1.EnvVar{
+		{
+			Name:  "GRAFANA_DASHBOARD_URL",
+			Value: "http://localhost:3000",
+		},
+	}
 	if r.ExternalTLS {
 		envs = append(envs,
 			corev1.EnvVar{
@@ -1358,11 +1363,6 @@ func (r *TestResources) newNetworkEnvironmentVariables() []corev1.EnvVar {
 				Value: fmt.Sprintf("http://%s.example.com/grafana/", r.Name),
 			})
 	}
-	envs = append(envs,
-		corev1.EnvVar{
-			Name:  "GRAFANA_DASHBOARD_URL",
-			Value: "http://cryostat-health.local:3000",
-		})
 	return envs
 }
 
