@@ -686,6 +686,7 @@ func NewOpenShiftAuthProxyContainer(cr *model.CryostatInstance, specs *ServiceSp
 	args = append(args, fmt.Sprintf("--openshift-delegate-urls=%s", string(tokenReviewJson)))
 
 	volumeMounts := []corev1.VolumeMount{}
+
 	if isBasicAuthEnabled(cr) {
 		mountPath := "/var/run/secrets/operator.cryostat.io"
 		volumeMounts = append(volumeMounts, corev1.VolumeMount{
@@ -695,16 +696,9 @@ func NewOpenShiftAuthProxyContainer(cr *model.CryostatInstance, specs *ServiceSp
 		})
 		args = append(args, fmt.Sprintf("--htpasswd-file=%s/%s", mountPath, *cr.Spec.AuthorizationOptions.BasicAuth.Filename))
 	}
-
 	args = append(args,
 		fmt.Sprintf("--skip-provider-button=%t", !isBasicAuthEnabled(cr)),
 	)
-
-	ports := []corev1.ContainerPort{
-		{
-			ContainerPort: constants.AuthProxyHttpContainerPort,
-		},
-	}
 
 	livenessProbeScheme := corev1.URISchemeHTTP
 	if tls != nil {
@@ -715,13 +709,11 @@ func NewOpenShiftAuthProxyContainer(cr *model.CryostatInstance, specs *ServiceSp
 			fmt.Sprintf("--tls-key=/var/run/secrets/operator.cryostat.io/%s/%s", tls.CryostatSecret, corev1.TLSPrivateKeyKey),
 		)
 
-		tlsSecretMount := corev1.VolumeMount{
+		volumeMounts = append(volumeMounts, corev1.VolumeMount{
 			Name:      "auth-proxy-tls-secret",
 			MountPath: "/var/run/secrets/operator.cryostat.io/" + tls.CryostatSecret,
 			ReadOnly:  true,
-		}
-
-		volumeMounts = append(volumeMounts, tlsSecretMount)
+		})
 
 		livenessProbeScheme = corev1.URISchemeHTTPS
 	} else {
@@ -731,37 +723,36 @@ func NewOpenShiftAuthProxyContainer(cr *model.CryostatInstance, specs *ServiceSp
 		)
 	}
 
-	probeHandler := corev1.ProbeHandler{
-		HTTPGet: &corev1.HTTPGetAction{
-			Port:   intstr.IntOrString{IntVal: constants.AuthProxyHttpContainerPort},
-			Path:   "/oauth2/healthz",
-			Scheme: livenessProbeScheme,
-		},
-	}
-
 	cookieOptional := false
-	envsFrom := []corev1.EnvFromSource{
-		{
-			SecretRef: &corev1.SecretEnvSource{
-				LocalObjectReference: corev1.LocalObjectReference{
-					Name: cr.Name + "-oauth2-cookie",
-				},
-				Optional: &cookieOptional,
-			},
-		},
-	}
-
 	return &corev1.Container{
 		Name:            cr.Name + "-auth-proxy",
 		Image:           imageTag,
 		ImagePullPolicy: getPullPolicy(imageTag),
 		VolumeMounts:    volumeMounts,
-		Ports:           ports,
-		// Env:       envs,
-		EnvFrom:   envsFrom,
+		Ports: []corev1.ContainerPort{
+			{
+				ContainerPort: constants.AuthProxyHttpContainerPort,
+			},
+		},
+		EnvFrom: []corev1.EnvFromSource{
+			{
+				SecretRef: &corev1.SecretEnvSource{
+					LocalObjectReference: corev1.LocalObjectReference{
+						Name: cr.Name + "-oauth2-cookie",
+					},
+					Optional: &cookieOptional,
+				},
+			},
+		},
 		Resources: *NewAuthProxyContainerResource(cr),
 		LivenessProbe: &corev1.Probe{
-			ProbeHandler: probeHandler,
+			ProbeHandler: corev1.ProbeHandler{
+				HTTPGet: &corev1.HTTPGetAction{
+					Port:   intstr.IntOrString{IntVal: constants.AuthProxyHttpContainerPort},
+					Path:   "/oauth2/healthz",
+					Scheme: livenessProbeScheme,
+				},
+			},
 		},
 		SecurityContext: containerSc,
 		Args:            args,
@@ -809,10 +800,6 @@ func NewOAuth2ProxyContainer(cr *model.CryostatInstance, specs *ServiceSpecs, im
 		}
 	}
 
-	args := []string{
-		fmt.Sprintf("--alpha-config=%s/%s", OAuth2ConfigFilePath, OAuth2ConfigFileName),
-	}
-
 	envs := []corev1.EnvVar{
 		{
 			Name:  "OAUTH2_PROXY_REDIRECT_URL",
@@ -824,18 +811,6 @@ func NewOAuth2ProxyContainer(cr *model.CryostatInstance, specs *ServiceSpecs, im
 		},
 	}
 
-	cookieOptional := false
-	envsFrom := []corev1.EnvFromSource{
-		{
-			SecretRef: &corev1.SecretEnvSource{
-				LocalObjectReference: corev1.LocalObjectReference{
-					Name: cr.Name + "-oauth2-cookie",
-				},
-				Optional: &cookieOptional,
-			},
-		},
-	}
-
 	volumeMounts := []corev1.VolumeMount{
 		{
 			Name:      cr.Name + "-oauth2-proxy-cfg",
@@ -844,31 +819,15 @@ func NewOAuth2ProxyContainer(cr *model.CryostatInstance, specs *ServiceSpecs, im
 		},
 	}
 
-	ports := []corev1.ContainerPort{
-		{
-			ContainerPort: constants.AuthProxyHttpContainerPort,
-		},
-	}
-
 	livenessProbeScheme := corev1.URISchemeHTTP
 	if tls != nil {
-		tlsSecretMount := corev1.VolumeMount{
+		volumeMounts = append(volumeMounts, corev1.VolumeMount{
 			Name:      "auth-proxy-tls-secret",
 			MountPath: "/var/run/secrets/operator.cryostat.io/" + tls.CryostatSecret,
 			ReadOnly:  true,
-		}
-
-		volumeMounts = append(volumeMounts, tlsSecretMount)
+		})
 
 		livenessProbeScheme = corev1.URISchemeHTTPS
-	}
-
-	probeHandler := corev1.ProbeHandler{
-		HTTPGet: &corev1.HTTPGetAction{
-			Port:   intstr.IntOrString{IntVal: constants.AuthProxyHttpContainerPort},
-			Path:   "/ping",
-			Scheme: livenessProbeScheme,
-		},
 	}
 
 	if isBasicAuthEnabled(cr) {
@@ -899,20 +858,42 @@ func NewOAuth2ProxyContainer(cr *model.CryostatInstance, specs *ServiceSpecs, im
 		})
 	}
 
+	cookieOptional := false
 	return &corev1.Container{
 		Name:            cr.Name + "-auth-proxy",
 		Image:           imageTag,
 		ImagePullPolicy: getPullPolicy(imageTag),
 		VolumeMounts:    volumeMounts,
-		Ports:           ports,
-		Env:             envs,
-		EnvFrom:         envsFrom,
-		Resources:       *NewAuthProxyContainerResource(cr),
+		Ports: []corev1.ContainerPort{
+			{
+				ContainerPort: constants.AuthProxyHttpContainerPort,
+			},
+		},
+		Env: envs,
+		EnvFrom: []corev1.EnvFromSource{
+			{
+				SecretRef: &corev1.SecretEnvSource{
+					LocalObjectReference: corev1.LocalObjectReference{
+						Name: cr.Name + "-oauth2-cookie",
+					},
+					Optional: &cookieOptional,
+				},
+			},
+		},
+		Resources: *NewAuthProxyContainerResource(cr),
 		LivenessProbe: &corev1.Probe{
-			ProbeHandler: probeHandler,
+			ProbeHandler: corev1.ProbeHandler{
+				HTTPGet: &corev1.HTTPGetAction{
+					Port:   intstr.IntOrString{IntVal: constants.AuthProxyHttpContainerPort},
+					Path:   "/ping",
+					Scheme: livenessProbeScheme,
+				},
+			},
 		},
 		SecurityContext: containerSc,
-		Args:            args,
+		Args: []string{
+			fmt.Sprintf("--alpha-config=%s/%s", OAuth2ConfigFilePath, OAuth2ConfigFileName),
+		},
 	}, nil
 }
 
