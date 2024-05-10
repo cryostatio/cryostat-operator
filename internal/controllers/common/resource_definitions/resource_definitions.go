@@ -477,11 +477,11 @@ func NewPodForReports(cr *model.CryostatInstance, imageTags *ImageTags, tls *TLS
 				Value: strconv.Itoa(int(constants.ReportsContainerPort)),
 			},
 			{
-				Name:  "QUARKUS_HTTP_SSL_CERTIFICATE_KEY_FILE",
+				Name:  "QUARKUS_HTTP_SSL_CERTIFICATE_KEY_FILES",
 				Value: fmt.Sprintf("/var/run/secrets/operator.cryostat.io/%s/%s", tls.ReportsSecret, corev1.TLSPrivateKeyKey),
 			},
 			{
-				Name:  "QUARKUS_HTTP_SSL_CERTIFICATE_FILE",
+				Name:  "QUARKUS_HTTP_SSL_CERTIFICATE_FILES",
 				Value: fmt.Sprintf("/var/run/secrets/operator.cryostat.io/%s/%s", tls.ReportsSecret, corev1.TLSCertKey),
 			},
 			{
