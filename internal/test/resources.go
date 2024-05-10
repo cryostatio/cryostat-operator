@@ -1556,10 +1556,10 @@ func (r *TestResources) NewReportsEnvironmentVariables(resources *corev1.Resourc
 			Name:  "QUARKUS_HTTP_SSL_PORT",
 			Value: "10000",
 		}, corev1.EnvVar{
-			Name:  "QUARKUS_HTTP_SSL_CERTIFICATE_KEY_FILE",
+			Name:  "QUARKUS_HTTP_SSL_CERTIFICATE_KEY_FILES",
 			Value: fmt.Sprintf("/var/run/secrets/operator.cryostat.io/%s-reports-tls/tls.key", r.Name),
 		}, corev1.EnvVar{
-			Name:  "QUARKUS_HTTP_SSL_CERTIFICATE_FILE",
+			Name:  "QUARKUS_HTTP_SSL_CERTIFICATE_FILES",
 			Value: fmt.Sprintf("/var/run/secrets/operator.cryostat.io/%s-reports-tls/tls.crt", r.Name),
 		}, corev1.EnvVar{
 			Name:  "QUARKUS_HTTP_INSECURE_REQUESTS",
