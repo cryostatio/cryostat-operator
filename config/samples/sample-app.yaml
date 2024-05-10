@@ -16,7 +16,7 @@ spec:
         app: quarkus-test
     spec:
       containers:
-        - image: quay.io/andrewazores/quarkus-test:latest
+        - image: quay.io/miwan/quarkus-test/0.4.0-snapshot
           imagePullPolicy: Always
           name: quarkus-test
           ports:

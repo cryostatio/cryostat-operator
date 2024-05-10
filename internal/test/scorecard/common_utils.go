@@ -22,6 +22,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"os"
 	"time"
 
 	operatorv1beta1 "github.com/cryostatio/cryostat-operator/api/v1beta1"
@@ -36,8 +37,10 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
+	v1 "k8s.io/client-go/applyconfigurations/apps/v1"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/util/retry"
+	"sigs.k8s.io/yaml"
 )
 
 const (
@@ -708,4 +711,35 @@ func (r *TestResources) cleanupClusterCryostat(name string, namespace string, ta
 			}
 		}
 	}
+}
+
+func (r *TestResources) ApplyandCreateSampleApplication(name string, namespace string) (*appsv1.Deployment, error) {
+	quarkusDeploy := v1.DeploymentApplyConfiguration{}
+	yamlFile, err := os.ReadFile("/config/samples/sample-app.yaml")
+	if err != nil {
+		return nil, fmt.Errorf("unable to read sample-app yaml file: %s", err.Error())
+	}
+	err = yaml.Unmarshal(yamlFile, quarkusDeploy)
+	if err != nil {
+		return nil, fmt.Errorf("unable to unmarshal sample-app yaml file: %s", err.Error())
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), testTimeout)
+	defer cancel()
+	deploy, err := r.Client.AppsV1().Deployments(namespace).Apply(ctx, &quarkusDeploy, metav1.ApplyOptions{FieldManager: "application/apply-patch+yaml"})
+	if err != nil {
+		return nil, fmt.Errorf("deployment %s unable to be applied: %s", name, err.Error())
+	}
+	deploy, err = r.Client.AppsV1().Deployments(namespace).Create(ctx, deploy, metav1.CreateOptions{})
+	if err != nil {
+		return nil, fmt.Errorf("deployment %s unable to be created: %s", name, err.Error())
+	}
+
+	err = r.waitForDeploymentAvailability(ctx, deploy.Namespace, deploy.Name)
+	if err != nil {
+		r.logError(fmt.Sprintf("sample app deployment did not become available: %s", err.Error()))
+		return nil, err
+	}
+
+	return deploy, nil
 }

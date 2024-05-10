@@ -8,6 +8,7 @@
     entrypoint:
     - cryostat-scorecard-tests
     - operator-install
+    image: "quay.io/miwan/cryostat-operator-scorecard:2.5.0-20240508202313"
     image: "quay.io/cryostat/cryostat-operator-scorecard:2.5.0-20240510190403"
     labels:
       suite: cryostat
@@ -62,3 +63,13 @@
     labels:
       suite: cryostat
       test: cryostat-report
+- op: add
+  path: /stages/1/tests/-
+  value:
+    entrypoint:
+    - cryostat-scorecard-tests
+    - cryostat-agent
+    image: "quay.io/miwan/cryostat-operator-scorecard:2.5.0-20240508202313"
+    labels:
+      suite: cryostat
+      test: cryostat-agent

@@ -34,6 +34,7 @@ rules:
   - replicasets
   verbs:
   - get
+  - patch
   - list
 - apiGroups:
   - operator.cryostat.io

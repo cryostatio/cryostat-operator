@@ -208,6 +208,7 @@ type CryostatRESTClientset struct {
 	TargetClient     *TargetClient
 	RecordingClient  *RecordingClient
 	CredentialClient *CredentialClient
+	DiscoveryClient  *DiscoveryClient
 }
 
 func (c *CryostatRESTClientset) Targets() *TargetClient {
@@ -220,6 +221,10 @@ func (c *CryostatRESTClientset) Recordings() *RecordingClient {
 
 func (c *CryostatRESTClientset) Credential() *CredentialClient {
 	return c.CredentialClient
+}
+
+func (c *CryostatRESTClientset) Discovery() *DiscoveryClient {
+	return c.DiscoveryClient
 }
 
 func NewCryostatRESTClientset(base *url.URL) *CryostatRESTClientset {
@@ -236,6 +241,9 @@ func NewCryostatRESTClientset(base *url.URL) *CryostatRESTClientset {
 			commonCryostatRESTClient: commonClient,
 		},
 		CredentialClient: &CredentialClient{
+			commonCryostatRESTClient: commonClient,
+		},
+		DiscoveryClient: &DiscoveryClient{
 			commonCryostatRESTClient: commonClient,
 		},
 	}
@@ -535,6 +543,36 @@ func (client *CredentialClient) Create(ctx context.Context, credential *Credenti
 	}
 
 	return nil
+}
+
+// Client for Cryostat Target resources
+type DiscoveryClient struct {
+	*commonCryostatRESTClient
+}
+
+func (client *DiscoveryClient) Register(ctx context.Context, discoveryPlugin *Plugin) (*RegistrationResponse, error) {
+	url := client.Base.JoinPath("/api/v2.2/discovery")
+	body := discoveryPlugin.ToFormData()
+	header := make(http.Header)
+	header.Add("Content-Type", "application/json")
+	header.Add("Accept", "*/*")
+
+	resp, err := SendRequest(ctx, client.Client, http.MethodPost, url.String(), &body, header)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if !StatusOK(resp.StatusCode) {
+		return nil, fmt.Errorf("API request failed with status code: %d, response body: %s, and headers:\n%s", resp.StatusCode, ReadError(resp), ReadHeader(resp))
+	}
+
+	pluginResponse := &RegistrationResponse{}
+	err = ReadJSON(resp, pluginResponse)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read response body: %s", err.Error())
+	}
+	return pluginResponse, nil
 }
 
 func ReadJSON(resp *http.Response, result interface{}) error {

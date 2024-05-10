@@ -33,6 +33,7 @@ const (
 	CryostatConfigChangeTestName   string = "cryostat-config-change"
 	CryostatRecordingTestName      string = "cryostat-recording"
 	CryostatReportTestName         string = "cryostat-report"
+	CryostatAgentTestName          string = "cryostat-agent"
 )
 
 // OperatorInstallTest checks that the operator installed correctly
@@ -324,6 +325,50 @@ func CryostatReportTest(bundle *apimanifests.Bundle, namespace string, openShift
 	if err != nil {
 		r.Log += fmt.Sprintf("failed to retrieve logs for the application: %s", err.Error())
 	}
+
+	return r.TestResult
+}
+
+func CryostatAgentTest(bundle *apimanifests.Bundle, namespace string, openShiftCertManager bool) *scapiv1alpha3.TestResult {
+	r := newTestResources(CryostatAgentTestName)
+
+	err := r.setupCRTestResources(openShiftCertManager)
+	if err != nil {
+		return r.fail(fmt.Sprintf("failed to set up %s test: %s", CryostatAgentTestName, err.Error()))
+	}
+	defer r.cleanupAndLogs(CryostatRecordingTestName, namespace)
+
+	cr, err := r.createAndWaitTillCryostatAvailable(newCryostatCR(CryostatAgentTestName, namespace, !r.OpenShift))
+	if err != nil {
+		return r.fail(fmt.Sprintf("failed to determine application URL: %s", err.Error()))
+	}
+
+	base, err := url.Parse(cr.Status.ApplicationURL)
+	if err != nil {
+		return r.fail(fmt.Sprintf("application URL is invalid: %s", err.Error()))
+	}
+
+	err = r.waitTillCryostatReady(base)
+	if err != nil {
+		return r.fail(fmt.Sprintf("failed to reach the application: %s", err.Error()))
+	}
+
+	_, err = r.ApplyandCreateSampleApplication(CryostatAgentTestName, namespace)
+	if err != nil {
+		return r.fail(fmt.Sprintf("application failed to be deployed: %s", err.Error()))
+	}
+
+	apiClient := NewCryostatRESTClientset(base)
+
+	pluginOptions := &Plugin{
+		Realm:    "quarkus-test-agent",
+		Callback: "http://quarkus-test:9097",
+	}
+	quarkusAppPlugin, err := apiClient.Discovery().Register(context.Background(), pluginOptions)
+	if err != nil {
+		return r.fail(fmt.Sprintf("failed to create a target: %s", err.Error()))
+	}
+	r.Log += fmt.Sprintf("created a custom target: %+v\n", quarkusAppPlugin)
 
 	return r.TestResult
 }
