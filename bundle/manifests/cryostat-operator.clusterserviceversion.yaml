@@ -52,8 +52,13 @@ metadata:
       ]
     capabilities: Seamless Upgrades
     categories: Monitoring, Developer Tools
+<<<<<<< HEAD
     containerImage: quay.io/cryostat/cryostat-operator:3.0.0-dev
     createdAt: "2024-05-08T18:54:35Z"
+=======
+    containerImage: quay.io/cryostat/cryostat-operator:2.5.0-dev
+    createdAt: "2024-05-10T19:04:02Z"
+>>>>>>> 0a426ad (fix(reports): update deprecated quarkus properties (#818))
     description: JVM monitoring and profiling tool
     operatorframework.io/initialization-resource: |-
       {
