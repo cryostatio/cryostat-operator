@@ -56,7 +56,7 @@ type TestResources struct {
 }
 
 func (r *TestResources) waitForDeploymentAvailability(ctx context.Context, name string, namespace string) error {
-	err := wait.PollImmediateUntilWithContext(ctx, time.Second, func(ctx context.Context) (done bool, err error) {
+	err := wait.PollUntilContextCancel(ctx, time.Second, true, func(ctx context.Context) (done bool, err error) {
 		deploy, err := r.Client.AppsV1().Deployments(namespace).Get(ctx, name, metav1.GetOptions{})
 		if err != nil {
 			if kerrors.IsNotFound(err) {
@@ -344,7 +344,7 @@ func (r *TestResources) createAndWaitTillCryostatAvailable(cr *operatorv1beta2.C
 		return nil, err
 	}
 
-	err = wait.PollImmediateUntilWithContext(ctx, time.Second, func(ctx context.Context) (done bool, err error) {
+	err = wait.PollUntilContextCancel(ctx, time.Second, true, func(ctx context.Context) (done bool, err error) {
 		cr, err = r.Client.OperatorCRDs().Cryostats(cr.Namespace).Get(ctx, cr.Name)
 		if err != nil {
 			return false, fmt.Errorf("failed to get Cryostat CR: %s", err.Error())
@@ -421,7 +421,7 @@ func (r *TestResources) sendHealthRequest(base *url.URL, healthCheck func(resp *
 	ctx, cancel := context.WithTimeout(context.Background(), testTimeout)
 	defer cancel()
 
-	err := wait.PollImmediateUntilWithContext(ctx, time.Second, func(ctx context.Context) (done bool, err error) {
+	err := wait.PollUntilContextCancel(ctx, time.Second, true, func(ctx context.Context) (done bool, err error) {
 		url := base.JoinPath("/health")
 		req, err := NewHttpRequest(ctx, http.MethodGet, url.String(), nil, make(http.Header))
 		if err != nil {
@@ -483,7 +483,7 @@ func (r *TestResources) updateAndWaitTillCryostatAvailable(cr *operatorv1beta2.C
 	// Poll the deployment until it becomes available or we timeout
 	ctx, cancel := context.WithTimeout(context.Background(), testTimeout)
 	defer cancel()
-	err = wait.PollImmediateUntilWithContext(ctx, time.Second, func(ctx context.Context) (done bool, err error) {
+	err = wait.PollUntilContextCancel(ctx, time.Second, true, func(ctx context.Context) (done bool, err error) {
 		deploy, err := r.Client.AppsV1().Deployments(cr.Namespace).Get(ctx, cr.Name, metav1.GetOptions{})
 		if err != nil {
 			if kerrors.IsNotFound(err) {
