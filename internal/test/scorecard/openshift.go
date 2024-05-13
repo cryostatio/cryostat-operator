@@ -175,7 +175,7 @@ func (r *TestResources) installOpenShiftCertManager() error {
 	// Check CSV status until we know cert-manager installed successfully
 	ctx, cancel := context.WithTimeout(ctx, testTimeout)
 	defer cancel()
-	return wait.PollImmediateUntilWithContext(ctx, time.Second, func(ctx context.Context) (bool, error) {
+	return wait.PollUntilContextCancel(ctx, time.Second, true, func(ctx context.Context) (bool, error) {
 		err := olmClient.Get().Resource("subscriptions").Namespace(sub.Namespace).Name(sub.Name).Do(ctx).Into(sub)
 		if err != nil {
 			return false, fmt.Errorf("failed to get Subscription: %s", err.Error())

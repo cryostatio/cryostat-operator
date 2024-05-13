@@ -185,7 +185,6 @@ func CryostatRecordingTest(bundle *apimanifests.Bundle, namespace string, openSh
 		return r.fail(fmt.Sprintf("failed to create a target: %s", err.Error()))
 	}
 	r.Log += fmt.Sprintf("created a custom target: %+v\n", target)
-	connectUrl := target.ConnectUrl
 
 	jmxSecretName := CryostatRecordingTestName + "-jmx-auth"
 	secret, err := r.Client.CoreV1().Secrets(namespace).Get(context.Background(), jmxSecretName, metav1.GetOptions{})
@@ -217,48 +216,48 @@ func CryostatRecordingTest(bundle *apimanifests.Bundle, namespace string, openSh
 		MaxSize:       0,
 		MaxAge:        0,
 	}
-	rec, err := apiClient.Recordings().Create(context.Background(), connectUrl, options)
+	rec, err := apiClient.Recordings().Create(context.Background(), target, options)
 	if err != nil {
 		return r.fail(fmt.Sprintf("failed to create a recording: %s", err.Error()))
 	}
 	r.Log += fmt.Sprintf("created a recording: %+v\n", rec)
 
 	// View the current recording list after creating one
-	recs, err := apiClient.Recordings().List(context.Background(), connectUrl)
+	recs, err := apiClient.Recordings().List(context.Background(), target)
 	if err != nil {
 		return r.fail(fmt.Sprintf("failed to list recordings: %s", err.Error()))
 	}
 	r.Log += fmt.Sprintf("current list of recordings: %+v\n", recs)
 
-	// Allow the recording to run for 10s
+	// Allow the recording to run for 30s
 	time.Sleep(30 * time.Second)
 
 	// Archive the recording
-	archiveName, err := apiClient.Recordings().Archive(context.Background(), connectUrl, rec.Name)
+	archiveName, err := apiClient.Recordings().Archive(context.Background(), target, rec.Id)
 	if err != nil {
 		return r.fail(fmt.Sprintf("failed to archive the recording: %s", err.Error()))
 	}
 	r.Log += fmt.Sprintf("archived the recording %s at: %s\n", rec.Name, archiveName)
 
-	archives, err := apiClient.Recordings().ListArchives(context.Background(), connectUrl)
+	archives, err := apiClient.Recordings().ListArchives(context.Background(), target)
 	if err != nil {
 		return r.fail(fmt.Sprintf("failed to list archives: %s", err.Error()))
 	}
 	r.Log += fmt.Sprintf("current list of archives: %+v\n", archives)
 
-	report, err := apiClient.Recordings().GenerateReport(context.Background(), connectUrl, rec)
+	report, err := apiClient.Recordings().GenerateReport(context.Background(), target, rec)
 	if err != nil {
 		return r.fail(fmt.Sprintf("failed to generate report for the recording: %s", err.Error()))
 	}
 	r.Log += fmt.Sprintf("generated report for the recording %s: %+v\n", rec.Name, report)
 
 	// Stop the recording
-	err = apiClient.Recordings().Stop(context.Background(), connectUrl, rec.Name)
+	err = apiClient.Recordings().Stop(context.Background(), target, rec.Id)
 	if err != nil {
 		return r.fail(fmt.Sprintf("failed to stop the recording %s: %s", rec.Name, err.Error()))
 	}
 	// Get the recording to verify its state
-	rec, err = apiClient.Recordings().Get(context.Background(), connectUrl, rec.Name)
+	rec, err = apiClient.Recordings().Get(context.Background(), target, rec.Name)
 	if err != nil {
 		return r.fail(fmt.Sprintf("failed to get the recordings: %s", err.Error()))
 	}
@@ -268,14 +267,14 @@ func CryostatRecordingTest(bundle *apimanifests.Bundle, namespace string, openSh
 	r.Log += fmt.Sprintf("stopped the recording: %s\n", rec.Name)
 
 	// Delete the recording
-	err = apiClient.Recordings().Delete(context.Background(), connectUrl, rec.Name)
+	err = apiClient.Recordings().Delete(context.Background(), target, rec.Id)
 	if err != nil {
 		return r.fail(fmt.Sprintf("failed to delete the recording %s: %s", rec.Name, err.Error()))
 	}
 	r.Log += fmt.Sprintf("deleted the recording: %s\n", rec.Name)
 
 	// View the current recording list after deleting one
-	recs, err = apiClient.Recordings().List(context.Background(), connectUrl)
+	recs, err = apiClient.Recordings().List(context.Background(), target)
 	if err != nil {
 		return r.fail(fmt.Sprintf("failed to list recordings: %s", err.Error()))
 	}
