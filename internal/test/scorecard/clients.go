@@ -144,16 +144,20 @@ func (c *CryostatClient) Delete(ctx context.Context, name string, options *metav
 }
 
 func get[r runtime.Object](ctx context.Context, c rest.Interface, res string, ns string, name string, result r) (r, error) {
-	err := c.Get().
-		Namespace(ns).Resource(res).
-		Name(name).Do(ctx).Into(result)
+	rq := c.Get().Resource(res).Name(name)
+	if len(ns) > 0 {
+		rq = rq.Namespace(ns)
+	}
+	err := rq.Do(ctx).Into(result)
 	return result, err
 }
 
 func create[r runtime.Object](ctx context.Context, c rest.Interface, res string, ns string, obj r, result r) (r, error) {
-	err := c.Post().
-		Namespace(ns).Resource(res).
-		Body(obj).Do(ctx).Into(result)
+	rq := c.Post().Resource(res).Body(obj)
+	if len(ns) > 0 {
+		rq = rq.Namespace(ns)
+	}
+	err := rq.Do(ctx).Into(result)
 	return result, err
 }
 
@@ -165,10 +169,11 @@ func update[r runtime.Object](ctx context.Context, c rest.Interface, res string,
 }
 
 func delete(ctx context.Context, c rest.Interface, res string, ns string, name string, opts *metav1.DeleteOptions) error {
-	return c.Delete().
-		Namespace(ns).Resource(res).
-		Name(name).Body(opts).Do(ctx).
-		Error()
+	rq := c.Delete().Resource(res).Name(name).Body(opts)
+	if len(ns) > 0 {
+		rq = rq.Namespace(ns)
+	}
+	return rq.Do(ctx).Error()
 }
 
 // CryostatRESTClientset contains methods to interact with
