@@ -22,7 +22,6 @@ import (
 	"io"
 	"net/http"
 	"net/url"
-	"os"
 	"time"
 
 	operatorv1beta1 "github.com/cryostatio/cryostat-operator/api/v1beta1"
@@ -36,11 +35,10 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/apimachinery/pkg/util/wait"
-	v1 "k8s.io/client-go/applyconfigurations/apps/v1"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/util/retry"
-	"sigs.k8s.io/yaml"
 )
 
 const (
@@ -360,6 +358,103 @@ func configureIngress(name string, cryostatSpec *operatorv1beta1.CryostatSpec) {
 	}
 }
 
+func newSampleApp(namespace string) *appsv1.Deployment {
+	deploy := &appsv1.Deployment{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "quarkus-test",
+			Namespace: namespace,
+			Labels: map[string]string{
+				"app": "quarkus-test",
+			},
+		},
+		Spec: appsv1.DeploymentSpec{
+			Selector: &metav1.LabelSelector{
+				MatchLabels: map[string]string{
+					"app": "quarkus-test",
+				},
+			},
+			Template: corev1.PodTemplateSpec{
+				ObjectMeta: metav1.ObjectMeta{
+					Labels: map[string]string{
+						"app": "quarkus-test",
+					},
+				},
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{
+						{
+							Name:            "quarkus-test",
+							Image:           "quay.io/miwan/quarkus-test:0.4.0-snapshot",
+							ImagePullPolicy: corev1.PullAlways,
+							Ports: []corev1.ContainerPort{
+								{
+									ContainerPort: 10010,
+									Protocol:      corev1.ProtocolTCP,
+								},
+								{
+									ContainerPort: 9097,
+									Protocol:      corev1.ProtocolTCP,
+								},
+							},
+							Resources: corev1.ResourceRequirements{
+								Requests: corev1.ResourceList{
+									corev1.ResourceCPU:    resource.MustParse("200m"),
+									corev1.ResourceMemory: resource.MustParse("96Mi"),
+								},
+								Limits: corev1.ResourceList{
+									corev1.ResourceCPU:    resource.MustParse("500m"),
+									corev1.ResourceMemory: resource.MustParse("128Mi"),
+								},
+							},
+							SecurityContext: &corev1.SecurityContext{
+								AllowPrivilegeEscalation: &[]bool{false}[0],
+								Capabilities: &corev1.Capabilities{
+									Drop: []corev1.Capability{"ALL"},
+								},
+							},
+						},
+					},
+					RestartPolicy: corev1.RestartPolicyAlways,
+					SecurityContext: &corev1.PodSecurityContext{
+						RunAsNonRoot: &[]bool{true}[0],
+					},
+				},
+			},
+		},
+	}
+	return deploy
+}
+
+func newSampleService(namespace string) *corev1.Service {
+	return &corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "quarkus-test",
+			Namespace: namespace,
+			Labels: map[string]string{
+				"app": "quarkus-test",
+			},
+		},
+		Spec: corev1.ServiceSpec{
+			Selector: map[string]string{
+				"app": "quarkus-test",
+			},
+			Ports: []corev1.ServicePort{
+				{
+					Name:       "app-http",
+					Port:       10010,
+					TargetPort: intstr.FromInt(10010),
+					Protocol:   corev1.ProtocolTCP,
+				},
+				{
+					Name:       "jfr-jmx",
+					Port:       9097,
+					TargetPort: intstr.FromInt(9097),
+					Protocol:   corev1.ProtocolTCP,
+				},
+			},
+		},
+	}
+}
+
 func (r *TestResources) createAndWaitTillCryostatAvailable(cr *operatorv1beta1.Cryostat) (*operatorv1beta1.Cryostat, error) {
 	cr, err := r.Client.OperatorCRDs().Cryostats(cr.Namespace).Create(context.Background(), cr)
 	if err != nil {
@@ -558,7 +653,6 @@ func (r *TestResources) updateAndWaitTillCryostatAvailable(cr *operatorv1beta1.C
 			}
 			return false, fmt.Errorf("failed to get deployment: %s", err.Error())
 		}
-
 		// Wait for deployment to update by verifying Cryostat has PVC configured
 		for _, volume := range deploy.Spec.Template.Spec.Volumes {
 			if volume.VolumeSource.EmptyDir != nil {
@@ -713,26 +807,17 @@ func (r *TestResources) cleanupClusterCryostat(name string, namespace string, ta
 	}
 }
 
-func (r *TestResources) ApplyandCreateSampleApplication(name string, namespace string) (*appsv1.Deployment, error) {
-	quarkusDeploy := v1.DeploymentApplyConfiguration{}
-	yamlFile, err := os.ReadFile("/config/samples/sample-app.yaml")
-	if err != nil {
-		return nil, fmt.Errorf("unable to read sample-app yaml file: %s", err.Error())
-	}
-	err = yaml.Unmarshal(yamlFile, quarkusDeploy)
-	if err != nil {
-		return nil, fmt.Errorf("unable to unmarshal sample-app yaml file: %s", err.Error())
-	}
-
+func (r *TestResources) ApplyandCreateSampleApplication(deploy *appsv1.Deployment, service *corev1.Service) (*appsv1.Deployment, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), testTimeout)
 	defer cancel()
-	deploy, err := r.Client.AppsV1().Deployments(namespace).Apply(ctx, &quarkusDeploy, metav1.ApplyOptions{FieldManager: "application/apply-patch+yaml"})
+	deploy, err := r.Client.AppsV1().Deployments(deploy.Namespace).Create(ctx, deploy, metav1.CreateOptions{})
 	if err != nil {
-		return nil, fmt.Errorf("deployment %s unable to be applied: %s", name, err.Error())
+		return nil, fmt.Errorf("deployment %s unable to be created: %s", deploy.Name, err.Error())
 	}
-	deploy, err = r.Client.AppsV1().Deployments(namespace).Create(ctx, deploy, metav1.CreateOptions{})
+
+	_, err = r.Client.CoreV1().Services(service.Namespace).Create(ctx, service, metav1.CreateOptions{})
 	if err != nil {
-		return nil, fmt.Errorf("deployment %s unable to be created: %s", name, err.Error())
+		return nil, fmt.Errorf("service %s unable to be created: %s", deploy.Name, err.Error())
 	}
 
 	err = r.waitForDeploymentAvailability(ctx, deploy.Namespace, deploy.Name)
@@ -741,5 +826,5 @@ func (r *TestResources) ApplyandCreateSampleApplication(name string, namespace s
 		return nil, err
 	}
 
-	return deploy, nil
+	return nil, nil
 }

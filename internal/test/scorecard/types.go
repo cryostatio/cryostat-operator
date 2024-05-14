@@ -161,13 +161,6 @@ type RegistrationResponse struct {
 	} `json:"data"`
 }
 
-func (plugin *Plugin) ToFormData() string {
-	formData := &url.Values{}
-
-	formData.Add("realm", plugin.Realm)
-	formData.Add("callback", plugin.Callback)
-	formData.Add("id", plugin.Id)
-	formData.Add("token", plugin.Token)
-
-	return formData.Encode()
+func (plugin *Plugin) ToJSON() ([]byte, error) {
+	return json.Marshal(plugin)
 }

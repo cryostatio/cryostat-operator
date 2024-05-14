@@ -353,7 +353,8 @@ func CryostatAgentTest(bundle *apimanifests.Bundle, namespace string, openShiftC
 		return r.fail(fmt.Sprintf("failed to reach the application: %s", err.Error()))
 	}
 
-	_, err = r.ApplyandCreateSampleApplication(CryostatAgentTestName, namespace)
+	service := newSampleService(namespace)
+	_, err = r.ApplyandCreateSampleApplication(newSampleApp(namespace), service)
 	if err != nil {
 		return r.fail(fmt.Sprintf("application failed to be deployed: %s", err.Error()))
 	}
@@ -366,9 +367,9 @@ func CryostatAgentTest(bundle *apimanifests.Bundle, namespace string, openShiftC
 	}
 	quarkusAppPlugin, err := apiClient.Discovery().Register(context.Background(), pluginOptions)
 	if err != nil {
-		return r.fail(fmt.Sprintf("failed to create a target: %s", err.Error()))
+		return r.fail(fmt.Sprintf("failed to register sample app: %s", err.Error()))
 	}
-	r.Log += fmt.Sprintf("created a custom target: %+v\n", quarkusAppPlugin)
+	r.Log += fmt.Sprintf("registered sample app: %+v\n", quarkusAppPlugin)
 
 	return r.TestResult
 }

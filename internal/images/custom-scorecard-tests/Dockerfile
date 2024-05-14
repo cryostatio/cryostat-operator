@@ -47,6 +47,4 @@ RUN  /usr/local/bin/user_setup
 
 ENTRYPOINT ["/usr/local/bin/entrypoint"]
 
-COPY config/samples/sample-app.yaml config/samples/sample-app.yaml
-
 USER ${USER_UID}
