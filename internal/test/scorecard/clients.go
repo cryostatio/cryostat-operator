@@ -30,6 +30,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
 	"k8s.io/apimachinery/pkg/util/wait"
+	"sigs.k8s.io/controller-runtime/pkg/client/config"
 
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes"
@@ -51,7 +52,7 @@ func (c *CryostatClientset) OperatorCRDs() *OperatorCRDClient {
 // NewClientset creates a CryostatClientset
 func NewClientset() (*CryostatClientset, error) {
 	// Get in-cluster REST config from pod
-	config, err := rest.InClusterConfig()
+	config, err := config.GetConfig()
 	if err != nil {
 		return nil, err
 	}
@@ -583,7 +584,7 @@ func NewHttpRequest(ctx context.Context, method string, url string, body *string
 	}
 
 	// Authentication for OpenShift SSO
-	config, err := rest.InClusterConfig()
+	config, err := config.GetConfig()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get in-cluster configurations: %s", err.Error())
 	}
