@@ -158,6 +158,9 @@ ifneq ($(SCORECARD_TEST_SUITE),)
 SCORECARD_TEST_SELECTOR := --selector=suite=$(SCORECARD_TEST_SUITE)
 endif
 
+# Specify whether to run scorecard tests only (without setup)
+SCORECARD_TEST_ONLY ?= false
+
 ##@ General
 
 .PHONY: all
@@ -185,6 +188,21 @@ ifneq ($(SKIP_TESTS), true)
 	$(call scorecard-cleanup) ; \
 	trap cleanup EXIT ; \
 	$(OPERATOR_SDK) scorecard -n $(SCORECARD_NAMESPACE) -s cryostat-scorecard -w 20m $(BUNDLE_IMG) --pod-security=restricted $(SCORECARD_TEST_SELECTOR)
+endif
+
+.PHONY: test-scorecard-local
+test-scorecard-local: check_cert_manager kustomize operator-sdk ## Run scorecard test locally without rebuilding bundle.
+ifneq ($(SKIP_TESTS), true)
+ifeq ($(SCORECARD_TEST_SELECTION),)
+	@echo "No test selected. Use SCORECARD_TEST_SELECTION to specify tests. For example: SCORECARD_TEST_SELECTION=cryostat-recording make test-scorecard-local"
+else ifeq ($(SCORECARD_TEST_ONLY), true)
+	@$(call scorecard-local)
+else
+	@$(call scorecard-setup)
+	$(call scorecard-cleanup) ; \
+	trap cleanup EXIT ; \
+	$(call scorecard-local)
+endif
 endif
 
 .PHONY: clean-scorecard
@@ -220,6 +238,13 @@ function cleanup { \
 	$(CLUSTER_CLIENT) delete --ignore-not-found=$(ignore-not-found) namespace $(SCORECARD_NAMESPACE); \
 	)\
 }
+endef
+
+define scorecard-local
+for test in $${SCORECARD_TEST_SELECTION//,/ }; do \
+	echo "Running scorecard test \"$${test}\""; \
+	SCORECARD_NAMESPACE=$(SCORECARD_NAMESPACE) BUNDLE_DIR=./bundle go run internal/images/custom-scorecard-tests/main.go $${test}; \
+done
 endef
 
 ##@ Build
