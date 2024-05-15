@@ -147,7 +147,6 @@ func resourceChecks() []resourceCheck {
 		}, "persistent volume claim"},
 		{(*cryostatTestInput).expectDatabaseSecret, "database secret"},
 		{(*cryostatTestInput).expectStorageSecret, "object storage secret"},
-		{(*cryostatTestInput).expectJMXSecret, "JMX secret"},
 		{(*cryostatTestInput).expectCoreService, "core service"},
 		{(*cryostatTestInput).expectMainDeployment, "main deployment"},
 		{(*cryostatTestInput).expectLockConfigMap, "lock config map"},
@@ -476,30 +475,6 @@ func (c *controllerTest) commonTests() {
 				It("should delete and re-create the Cluster Role Binding", func() {
 					t.expectRBAC()
 				})
-			})
-		})
-		Context("with an existing JMX Secret", func() {
-			var cr *model.CryostatInstance
-			var oldSecret *corev1.Secret
-			BeforeEach(func() {
-				cr = t.NewCryostat()
-				oldSecret = t.OtherJMXSecret()
-				t.objs = append(t.objs, cr.Object, oldSecret)
-			})
-			JustBeforeEach(func() {
-				t.reconcileCryostatFully()
-			})
-			It("should update the username but not password", func() {
-				secret := &corev1.Secret{}
-				err := t.Client.Get(context.Background(), types.NamespacedName{Name: oldSecret.Name, Namespace: t.Namespace}, secret)
-				Expect(err).ToNot(HaveOccurred())
-
-				Expect(metav1.IsControlledBy(secret, cr.Object)).To(BeTrue())
-
-				// Username should be replaced, but not password
-				expected := t.NewJMXSecret()
-				Expect(secret.StringData["CRYOSTAT_RJMX_USER"]).To(Equal(expected.StringData["CRYOSTAT_RJMX_USER"]))
-				Expect(secret.StringData["CRYOSTAT_RJMX_PASS"]).To(Equal(oldSecret.StringData["CRYOSTAT_RJMX_PASS"]))
 			})
 		})
 		Context("with an existing Database Secret", func() {
@@ -2386,17 +2361,6 @@ func (t *cryostatTestInput) expectStorageSecret() {
 
 	// Compare to desired spec
 	expectedSecret := t.NewStorageSecret()
-	t.checkMetadata(secret, expectedSecret)
-	Expect(secret.StringData).To(Equal(expectedSecret.StringData))
-}
-
-func (t *cryostatTestInput) expectJMXSecret() {
-	secret := &corev1.Secret{}
-	err := t.Client.Get(context.Background(), types.NamespacedName{Name: t.Name + "-jmx-auth", Namespace: t.Namespace}, secret)
-	Expect(err).ToNot(HaveOccurred())
-
-	// Compare to desired spec
-	expectedSecret := t.NewJMXSecret()
 	t.checkMetadata(secret, expectedSecret)
 	Expect(secret.StringData).To(Equal(expectedSecret.StringData))
 }

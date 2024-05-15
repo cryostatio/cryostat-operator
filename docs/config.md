@@ -99,7 +99,7 @@ spec:
 ```
 
 ### Service Options
-The Cryostat operator creates three services: one for the core Cryostat application, one for Grafana, and one for the cryostat-reports sidecars. These services are created by default as Cluster IP services. The core service exposes two ports: `8181` for HTTP and `9091` for JMX. The Grafana service exposes port `3000` for HTTP traffic. The Reports service exposts port `10000` for HTTP traffic. The service type, port numbers, labels and annotations can all be customized using the `spec.serviceOptions` property.
+The Cryostat operator creates two services: one for the core Cryostat application and (optionally) one for the cryostat-reports sidecars. These services are created by default as Cluster IP services. The core service exposes one ports `4180` for HTTP(S). The Reports service exposts port `10000` for HTTP(S) traffic. The service type, port numbers, labels and annotations can all be customized using the `spec.serviceOptions` property.
 ```yaml
 apiVersion: operator.cryostat.io/v1beta1
 kind: Cryostat
@@ -114,7 +114,6 @@ spec:
         my-custom-annotation: some-value
       serviceType: NodePort
       httpPort: 8080
-      jmxPort: 9095
     grafanaConfig:
       labels:
         my-custom-label: some-value

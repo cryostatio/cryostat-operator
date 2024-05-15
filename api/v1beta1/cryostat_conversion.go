@@ -120,7 +120,6 @@ func convertServiceOptionsTo(srcOpts *ServiceConfigList) *operatorv1beta2.Servic
 		if srcOpts.CoreConfig != nil {
 			dstOpts.CoreConfig = &operatorv1beta2.CoreServiceConfig{
 				HTTPPort:      srcOpts.CoreConfig.HTTPPort,
-				JMXPort:       srcOpts.CoreConfig.JMXPort,
 				ServiceConfig: convertServiceConfigTo(srcOpts.CoreConfig.ServiceConfig),
 			}
 		}
@@ -382,7 +381,6 @@ func convertServiceOptionsFrom(srcOpts *operatorv1beta2.ServiceConfigList) *Serv
 		if srcOpts.CoreConfig != nil {
 			dstOpts.CoreConfig = &CoreServiceConfig{
 				HTTPPort:      srcOpts.CoreConfig.HTTPPort,
-				JMXPort:       srcOpts.CoreConfig.JMXPort,
 				ServiceConfig: convertServiceConfigFrom(srcOpts.CoreConfig.ServiceConfig),
 			}
 		}

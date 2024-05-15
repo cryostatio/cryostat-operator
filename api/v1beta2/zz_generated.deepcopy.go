@@ -125,11 +125,6 @@ func (in *CoreServiceConfig) DeepCopyInto(out *CoreServiceConfig) {
 		*out = new(int32)
 		**out = **in
 	}
-	if in.JMXPort != nil {
-		in, out := &in.JMXPort, &out.JMXPort
-		*out = new(int32)
-		**out = **in
-	}
 	in.ServiceConfig.DeepCopyInto(&out.ServiceConfig)
 }
 
