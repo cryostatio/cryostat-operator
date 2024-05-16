@@ -25,7 +25,7 @@ spec:
               apiVersion: v1
               fieldPath: metadata.namespace
         - name: CRYOSTAT_AGENT_BASEURI
-          value: https://cryostat-sample.$(NAMESPACE).svc:8181
+          value: https://cryostat-sample.$(NAMESPACE).svc:4180
         - name: POD_IP
           valueFrom:
             fieldRef:
