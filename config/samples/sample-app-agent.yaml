@@ -24,6 +24,8 @@ spec:
             fieldRef:
               apiVersion: v1
               fieldPath: metadata.namespace
+        - name: CRYOSTAT_AGENT_API_WRITES_ENABLED
+          value: "true"
         - name: CRYOSTAT_AGENT_BASEURI
           value: https://cryostat-sample.$(NAMESPACE).svc:4180
         - name: POD_IP
