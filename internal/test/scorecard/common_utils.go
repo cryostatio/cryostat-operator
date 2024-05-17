@@ -396,7 +396,7 @@ func newSampleApp(namespace string) *appsv1.Deployment {
 								},
 								{
 									Name:  "CRYOSTAT_AGENT_BASEURI",
-									Value: fmt.Sprintf("https://cryostat-sample.%s.svc:8181", namespace),
+									Value: fmt.Sprintf("https://cryostat-agent.%s.svc:8181", namespace),
 								},
 								{
 									Name:  "CRYOSTAT_AGENT_CALLBACK",
