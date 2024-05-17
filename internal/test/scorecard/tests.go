@@ -343,6 +343,11 @@ func CryostatAgentTest(bundle *apimanifests.Bundle, namespace string, openShiftC
 		return r.fail(fmt.Sprintf("failed to determine application URL: %s", err.Error()))
 	}
 
+	err = r.StartLogs(cr)
+	if err != nil {
+		r.Log += fmt.Sprintf("failed to retrieve logs for the application: %s", err.Error())
+	}
+
 	base, err := url.Parse(cr.Status.ApplicationURL)
 	if err != nil {
 		return r.fail(fmt.Sprintf("application URL is invalid: %s", err.Error()))
@@ -353,23 +358,113 @@ func CryostatAgentTest(bundle *apimanifests.Bundle, namespace string, openShiftC
 		return r.fail(fmt.Sprintf("failed to reach the application: %s", err.Error()))
 	}
 
-	service := newSampleService(namespace)
-	_, err = r.ApplyandCreateSampleApplication(newSampleApp(namespace), service)
+	svc := newSampleService(namespace)
+	_, err = r.ApplyandCreateSampleApplication(newSampleApp(namespace), svc)
 	if err != nil {
 		return r.fail(fmt.Sprintf("application failed to be deployed: %s", err.Error()))
 	}
 
 	apiClient := NewCryostatRESTClientset(base)
 
-	pluginOptions := &Plugin{
-		Realm:    "quarkus-test-agent",
-		Callback: "http://quarkus-test:9097",
-	}
-	quarkusAppPlugin, err := apiClient.Discovery().Register(context.Background(), pluginOptions)
+	target, err := r.getSampleAppTarget(apiClient)
 	if err != nil {
 		return r.fail(fmt.Sprintf("failed to register sample app: %s", err.Error()))
 	}
-	r.Log += fmt.Sprintf("registered sample app: %+v\n", quarkusAppPlugin)
+	connectUrl := target.ConnectUrl
+
+	jmxSecretName := CryostatAgentTestName + "-jmx-auth"
+	secret, err := r.Client.CoreV1().Secrets(namespace).Get(context.Background(), jmxSecretName, metav1.GetOptions{})
+	if err != nil {
+		return r.fail(fmt.Sprintf("failed to get jmx credentials: %s", err.Error()))
+	}
+
+	credential := &Credential{
+		UserName:        string(secret.Data["CRYOSTAT_RJMX_USER"]),
+		Password:        string(secret.Data["CRYOSTAT_RJMX_PASS"]),
+		MatchExpression: fmt.Sprintf("target.alias==\"%s\"", target.Alias),
+	}
+
+	err = apiClient.CredentialClient.Create(context.Background(), credential)
+	if err != nil {
+		return r.fail(fmt.Sprintf("failed to create stored credential: %s", err.Error()))
+	}
+	r.Log += fmt.Sprintf("created stored credential with match expression: %s\n", credential.MatchExpression)
+
+	// Wait for Cryostat to update the discovery tree
+	time.Sleep(30 * time.Second)
+
+	// Create a recording
+	options := &RecordingCreateOptions{
+		RecordingName: "scorecard_test_rec",
+		Events:        "template=ALL",
+		Duration:      0, // Continuous
+		ToDisk:        true,
+		MaxSize:       0,
+		MaxAge:        0,
+	}
+	rec, err := apiClient.Recordings().Create(context.Background(), connectUrl, options)
+	if err != nil {
+		return r.fail(fmt.Sprintf("failed to create a recording: %s", err.Error()))
+	}
+	r.Log += fmt.Sprintf("created a recording: %+v\n", rec)
+
+	// View the current recording list after creating one
+	recs, err := apiClient.Recordings().List(context.Background(), connectUrl)
+	if err != nil {
+		return r.fail(fmt.Sprintf("failed to list recordings: %s", err.Error()))
+	}
+	r.Log += fmt.Sprintf("current list of recordings: %+v\n", recs)
+
+	// Allow the recording to run for 10s
+	time.Sleep(30 * time.Second)
+
+	// Archive the recording
+	archiveName, err := apiClient.Recordings().Archive(context.Background(), connectUrl, rec.Name)
+	if err != nil {
+		return r.fail(fmt.Sprintf("failed to archive the recording: %s", err.Error()))
+	}
+	r.Log += fmt.Sprintf("archived the recording %s at: %s\n", rec.Name, archiveName)
+
+	archives, err := apiClient.Recordings().ListArchives(context.Background(), connectUrl)
+	if err != nil {
+		return r.fail(fmt.Sprintf("failed to list archives: %s", err.Error()))
+	}
+	r.Log += fmt.Sprintf("current list of archives: %+v\n", archives)
+
+	report, err := apiClient.Recordings().GenerateReport(context.Background(), connectUrl, rec)
+	if err != nil {
+		return r.fail(fmt.Sprintf("failed to generate report for the recording: %s", err.Error()))
+	}
+	r.Log += fmt.Sprintf("generated report for the recording %s: %+v\n", rec.Name, report)
+
+	// Stop the recording
+	err = apiClient.Recordings().Stop(context.Background(), connectUrl, rec.Name)
+	if err != nil {
+		return r.fail(fmt.Sprintf("failed to stop the recording %s: %s", rec.Name, err.Error()))
+	}
+	// Get the recording to verify its state
+	rec, err = apiClient.Recordings().Get(context.Background(), connectUrl, rec.Name)
+	if err != nil {
+		return r.fail(fmt.Sprintf("failed to get the recordings: %s", err.Error()))
+	}
+	if rec.State != "STOPPED" {
+		return r.fail(fmt.Sprintf("recording %s failed to stop: %s", rec.Name, err.Error()))
+	}
+	r.Log += fmt.Sprintf("stopped the recording: %s\n", rec.Name)
+
+	// Delete the recording
+	err = apiClient.Recordings().Delete(context.Background(), connectUrl, rec.Name)
+	if err != nil {
+		return r.fail(fmt.Sprintf("failed to delete the recording %s: %s", rec.Name, err.Error()))
+	}
+	r.Log += fmt.Sprintf("deleted the recording: %s\n", rec.Name)
+
+	// View the current recording list after deleting one
+	recs, err = apiClient.Recordings().List(context.Background(), connectUrl)
+	if err != nil {
+		return r.fail(fmt.Sprintf("failed to list recordings: %s", err.Error()))
+	}
+	r.Log += fmt.Sprintf("current list of recordings: %+v\n", recs)
 
 	return r.TestResult
 }

@@ -15,7 +15,6 @@
 package scorecard
 
 import (
-	"bytes"
 	"context"
 	"encoding/base64"
 	"encoding/json"
@@ -209,7 +208,6 @@ type CryostatRESTClientset struct {
 	TargetClient     *TargetClient
 	RecordingClient  *RecordingClient
 	CredentialClient *CredentialClient
-	DiscoveryClient  *DiscoveryClient
 }
 
 func (c *CryostatRESTClientset) Targets() *TargetClient {
@@ -222,10 +220,6 @@ func (c *CryostatRESTClientset) Recordings() *RecordingClient {
 
 func (c *CryostatRESTClientset) Credential() *CredentialClient {
 	return c.CredentialClient
-}
-
-func (c *CryostatRESTClientset) Discovery() *DiscoveryClient {
-	return c.DiscoveryClient
 }
 
 func NewCryostatRESTClientset(base *url.URL) *CryostatRESTClientset {
@@ -242,9 +236,6 @@ func NewCryostatRESTClientset(base *url.URL) *CryostatRESTClientset {
 			commonCryostatRESTClient: commonClient,
 		},
 		CredentialClient: &CredentialClient{
-			commonCryostatRESTClient: commonClient,
-		},
-		DiscoveryClient: &DiscoveryClient{
 			commonCryostatRESTClient: commonClient,
 		},
 	}
@@ -546,36 +537,6 @@ func (client *CredentialClient) Create(ctx context.Context, credential *Credenti
 	return nil
 }
 
-// Client for Cryostat Target resources
-type DiscoveryClient struct {
-	*commonCryostatRESTClient
-}
-
-func (client *DiscoveryClient) Register(ctx context.Context, discoveryPlugin *Plugin) (*RegistrationResponse, error) {
-	url := client.Base.JoinPath("/api/v2.2/discovery")
-	header := make(http.Header)
-	body, _ := discoveryPlugin.ToJSON()
-	header.Add("Content-Type", "application/x-www-form-urlencoded")
-	header.Add("Accept", "*/*")
-
-	resp, err := SendJSONRequest(ctx, client.Client, http.MethodPost, url.String(), &body, header)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-
-	if !StatusOK(resp.StatusCode) {
-		return nil, fmt.Errorf("API request failed with status code: %d, response body: %s, and headers:\n%s", resp.StatusCode, ReadError(resp), ReadHeader(resp))
-	}
-
-	pluginResponse := &RegistrationResponse{}
-	err = ReadJSON(resp, pluginResponse)
-	if err != nil {
-		return nil, fmt.Errorf("failed to read response body: %s", err.Error())
-	}
-	return pluginResponse, nil
-}
-
 func ReadJSON(resp *http.Response, result interface{}) error {
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
@@ -672,46 +633,4 @@ func SendRequest(ctx context.Context, httpClient *http.Client, method string, ur
 	})
 
 	return response, err
-}
-
-func SendJSONRequest(ctx context.Context, httpClient *http.Client, method string, url string, body *[]byte, header http.Header) (*http.Response, error) {
-	var response *http.Response
-	err := wait.PollImmediateUntilWithContext(ctx, time.Second, func(ctx context.Context) (done bool, err error) {
-		// Create a new request
-		req, err := NewJSONHttpRequest(ctx, method, url, body, header)
-		if err != nil {
-			return false, fmt.Errorf("failed to create an http request: %s", err.Error())
-		}
-
-		resp, err := httpClient.Do(req)
-		if err != nil {
-			// Retry when connection is closed.
-			if errors.Is(err, io.EOF) {
-				return false, nil
-			}
-			return false, err
-		}
-		response = resp
-		return true, nil
-	})
-
-	return response, err
-}
-
-func NewJSONHttpRequest(ctx context.Context, method string, url string, body *[]byte, header http.Header) (*http.Request, error) {
-	reqBody := bytes.NewBuffer(*body)
-	req, err := http.NewRequestWithContext(ctx, method, url, reqBody)
-	if err != nil {
-		return nil, err
-	}
-	if header != nil {
-		req.Header = header
-	}
-	// Authentication is only enabled on OCP. Ignored on k8s.
-	config, err := rest.InClusterConfig()
-	if err != nil {
-		return nil, fmt.Errorf("failed to get in-cluster configurations: %s", err.Error())
-	}
-	req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", base64.StdEncoding.EncodeToString([]byte(config.BearerToken))))
-	return req, nil
 }

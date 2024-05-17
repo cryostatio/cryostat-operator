@@ -22,6 +22,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"strings"
 	"time"
 
 	operatorv1beta1 "github.com/cryostatio/cryostat-operator/api/v1beta1"
@@ -359,32 +360,53 @@ func configureIngress(name string, cryostatSpec *operatorv1beta1.CryostatSpec) {
 }
 
 func newSampleApp(namespace string) *appsv1.Deployment {
+	replicas := int32(1)
+
 	deploy := &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "quarkus-test",
+			Name:      "quarkus-test-agent",
 			Namespace: namespace,
 			Labels: map[string]string{
-				"app": "quarkus-test",
+				"app": "quarkus-test-agent",
 			},
 		},
 		Spec: appsv1.DeploymentSpec{
+			Replicas: &replicas,
 			Selector: &metav1.LabelSelector{
 				MatchLabels: map[string]string{
-					"app": "quarkus-test",
+					"app": "quarkus-test-agent",
 				},
 			},
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
 					Labels: map[string]string{
-						"app": "quarkus-test",
+						"app": "quarkus-test-agent",
 					},
 				},
 				Spec: corev1.PodSpec{
 					Containers: []corev1.Container{
 						{
-							Name:            "quarkus-test",
+							Name:            "quarkus-test-agent",
 							Image:           "quay.io/miwan/quarkus-test:0.4.0-snapshot",
 							ImagePullPolicy: corev1.PullAlways,
+							Env: []corev1.EnvVar{
+								{
+									Name:  "CRYOSTAT_AGENT_APP_NAME",
+									Value: "agent-test",
+								},
+								{
+									Name:  "CRYOSTAT_AGENT_BASEURI",
+									Value: fmt.Sprintf("https://cryostat-sample.%s.svc:8181", namespace),
+								},
+								{
+									Name:  "CRYOSTAT_AGENT_CALLBACK",
+									Value: "http://quarkus-test-agent:9977",
+								},
+								{
+									Name:  "CRYOSTAT_AGENT_AUTHORIZATION",
+									Value: "Bearer abcd1234",
+								},
+							},
 							Ports: []corev1.ContainerPort{
 								{
 									ContainerPort: 10010,
@@ -427,21 +449,27 @@ func newSampleApp(namespace string) *appsv1.Deployment {
 func newSampleService(namespace string) *corev1.Service {
 	return &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "quarkus-test",
+			Name:      "quarkus-test-agent",
 			Namespace: namespace,
 			Labels: map[string]string{
-				"app": "quarkus-test",
+				"app": "quarkus-test-agent",
 			},
 		},
 		Spec: corev1.ServiceSpec{
 			Selector: map[string]string{
-				"app": "quarkus-test",
+				"app": "quarkus-test-agent",
 			},
 			Ports: []corev1.ServicePort{
 				{
 					Name:       "app-http",
 					Port:       10010,
 					TargetPort: intstr.FromInt(10010),
+					Protocol:   corev1.ProtocolTCP,
+				},
+				{
+					Name:       "agent-http",
+					Port:       9977,
+					TargetPort: intstr.FromInt(9977),
 					Protocol:   corev1.ProtocolTCP,
 				},
 				{
@@ -807,7 +835,7 @@ func (r *TestResources) cleanupClusterCryostat(name string, namespace string, ta
 	}
 }
 
-func (r *TestResources) ApplyandCreateSampleApplication(deploy *appsv1.Deployment, service *corev1.Service) (*appsv1.Deployment, error) {
+func (r *TestResources) ApplyandCreateSampleApplication(deploy *appsv1.Deployment, svc *corev1.Service) (*appsv1.Deployment, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), testTimeout)
 	defer cancel()
 	deploy, err := r.Client.AppsV1().Deployments(deploy.Namespace).Create(ctx, deploy, metav1.CreateOptions{})
@@ -815,7 +843,7 @@ func (r *TestResources) ApplyandCreateSampleApplication(deploy *appsv1.Deploymen
 		return nil, fmt.Errorf("deployment %s unable to be created: %s", deploy.Name, err.Error())
 	}
 
-	_, err = r.Client.CoreV1().Services(service.Namespace).Create(ctx, service, metav1.CreateOptions{})
+	_, err = r.Client.CoreV1().Services(svc.Namespace).Create(ctx, svc, metav1.CreateOptions{})
 	if err != nil {
 		return nil, fmt.Errorf("service %s unable to be created: %s", deploy.Name, err.Error())
 	}
@@ -827,4 +855,30 @@ func (r *TestResources) ApplyandCreateSampleApplication(deploy *appsv1.Deploymen
 	}
 
 	return nil, nil
+}
+
+func (r *TestResources) getSampleAppTarget(apiClient *CryostatRESTClientset) (*Target, error) {
+	var sampleAppTarget *Target
+
+	ctx, cancel := context.WithTimeout(context.Background(), testTimeout)
+	defer cancel()
+	err := wait.PollImmediateUntilWithContext(ctx, time.Second, func(ctx context.Context) (done bool, err error) {
+		targets, err := apiClient.Targets().List(ctx)
+		if err != nil {
+			return false, fmt.Errorf("failed to list targets: %s", err.Error())
+		}
+		for _, target := range targets {
+			if strings.Contains(target.Alias, "quarkus-test-agent") {
+				sampleAppTarget = &target
+				r.Log += fmt.Sprintf("successfully registered target: %+v\n", target)
+				return true, nil
+			}
+			r.Log += "waiting for sample app target to appear"
+		}
+		return false, nil
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to find sample app target: %s", err.Error())
+	}
+	return sampleAppTarget, nil
 }

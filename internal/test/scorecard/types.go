@@ -144,23 +144,3 @@ type ArchiveGraphQLResponse struct {
 		} `json:"archivedRecordings"`
 	} `json:"data"`
 }
-
-type Plugin struct {
-	Realm    string `json:"realm"`
-	Callback string `json:"callback"`
-	Id       string `json:"id,omitempty"`
-	Token    string `json:"token,omitempty"`
-}
-
-type RegistrationResponse struct {
-	Data struct {
-		Result struct {
-			Id    string `json:"id"`
-			Token string `json:"token"`
-		} `json:"result"`
-	} `json:"data"`
-}
-
-func (plugin *Plugin) ToJSON() ([]byte, error) {
-	return json.Marshal(plugin)
-}
