@@ -342,12 +342,6 @@ func CryostatAgentTest(bundle *apimanifests.Bundle, namespace string, openShiftC
 	if err != nil {
 		return r.fail(fmt.Sprintf("failed to determine application URL: %s", err.Error()))
 	}
-
-	err = r.StartLogs(cr)
-	if err != nil {
-		r.Log += fmt.Sprintf("failed to retrieve logs for the application: %s", err.Error())
-	}
-
 	base, err := url.Parse(cr.Status.ApplicationURL)
 	if err != nil {
 		return r.fail(fmt.Sprintf("application URL is invalid: %s", err.Error()))
