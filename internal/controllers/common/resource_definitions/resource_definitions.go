@@ -1623,9 +1623,8 @@ func populateResourceRequest(resources *corev1.ResourceRequirements, defaultCpu,
 }
 
 func getDatabaseSecret(cr *model.CryostatInstance) string {
-	secretName := cr.Name + "-db"
 	if cr.Spec.DatabaseOptions != nil && cr.Spec.DatabaseOptions.SecretName != nil {
-		secretName = *cr.Spec.DatabaseOptions.SecretName
+		return *cr.Spec.DatabaseOptions.SecretName
 	}
-	return secretName
+	return cr.Name + "-db"
 }
