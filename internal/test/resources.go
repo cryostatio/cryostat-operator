@@ -1199,6 +1199,14 @@ func (r *TestResources) NewDatabasePorts() []corev1.ContainerPort {
 	}
 }
 
+func (r *TestResources) NewAuthProxyPorts() []corev1.ContainerPort {
+	return []corev1.ContainerPort{
+		{
+			ContainerPort: 4180,
+		},
+	}
+}
+
 func (r *TestResources) NewCoreEnvironmentVariables(reportsUrl string, ingress bool,
 	emptyDir bool, hasPortConfig bool, builtInDiscoveryDisabled bool, builtInPortConfigDisabled bool, dbSecretProvided bool) []corev1.EnvVar {
 	envs := []corev1.EnvVar{
@@ -1539,6 +1547,61 @@ func (r *TestResources) NewDatabaseEnvironmentVariables(dbSecretProvided bool) [
 	}
 }
 
+func (r *TestResources) NewAuthProxyEnvironmentVariables(basicAuthConfigured bool, basicAuthFilename string) []corev1.EnvVar {
+	envs := []corev1.EnvVar{}
+
+	if !r.OpenShift {
+		envs = append(envs,
+			corev1.EnvVar{
+				Name:  "OAUTH2_PROXY_REDIRECT_URL",
+				Value: "http://localhost:4180/oauth2/callback",
+			},
+			corev1.EnvVar{
+				Name:  "OAUTH2_PROXY_EMAIL_DOMAINS",
+				Value: "*",
+			},
+		)
+
+		if basicAuthConfigured {
+			envs = append(envs,
+				corev1.EnvVar{
+					Name:  "OAUTH2_PROXY_HTPASSWD_FILE",
+					Value: "/var/run/secrets/operator.cryostat.io/" + basicAuthFilename,
+				},
+				corev1.EnvVar{
+					Name:  "OAUTH2_PROXY_HTPASSWD_USER_GROUP",
+					Value: "write",
+				},
+				corev1.EnvVar{
+					Name:  "OAUTH2_PROXY_SKIP_AUTH_ROUTES",
+					Value: "^/health(/liveness)?$",
+				},
+			)
+		} else {
+			envs = append(envs,
+				corev1.EnvVar{
+					Name:  "OAUTH2_PROXY_SKIP_AUTH_ROUTES",
+					Value: ".*",
+				})
+		}
+	}
+
+	return envs
+}
+
+func (r *TestResources) NewAuthProxyEnvFromSource() []corev1.EnvFromSource {
+	return []corev1.EnvFromSource{
+		{
+			SecretRef: &corev1.SecretEnvSource{
+				LocalObjectReference: corev1.LocalObjectReference{
+					Name: r.Name + "-oauth2-cookie",
+				},
+				Optional: &[]bool{false}[0],
+			},
+		},
+	}
+}
+
 func (r *TestResources) NewCoreEnvFromSource() []corev1.EnvFromSource {
 	envsFrom := []corev1.EnvFromSource{
 		{
@@ -1659,6 +1722,37 @@ func (r *TestResources) NewDatabaseVolumeMounts() []corev1.VolumeMount {
 	}
 }
 
+func (r *TestResources) NewAuthProxyVolumeMounts(basicAuthConfigured bool) []corev1.VolumeMount {
+	mounts := []corev1.VolumeMount{}
+	if r.TLS {
+		mounts = append(mounts, corev1.VolumeMount{
+			Name:      "auth-proxy-tls-secret",
+			MountPath: fmt.Sprintf("/var/run/secrets/operator.cryostat.io/%s-tls", r.Name),
+			ReadOnly:  true,
+		})
+	}
+
+	if basicAuthConfigured {
+		mounts = append(mounts, corev1.VolumeMount{
+			Name:      r.Name + "-auth-proxy-htpasswd",
+			MountPath: "/var/run/secrets/operator.cryostat.io",
+			ReadOnly:  true,
+		})
+	}
+
+	if !r.OpenShift {
+		mounts = append(mounts,
+			corev1.VolumeMount{
+				Name:      r.Name + "-oauth2-proxy-cfg",
+				MountPath: "/etc/oauth2_proxy/alpha_config",
+				ReadOnly:  true,
+			})
+
+	}
+
+	return mounts
+}
+
 func (r *TestResources) NewReportsVolumeMounts() []corev1.VolumeMount {
 	mounts := []corev1.VolumeMount{}
 	if r.TLS {
@@ -1764,6 +1858,26 @@ func (r *TestResources) NewDatabaseReadinessProbe() *corev1.Probe {
 		ProbeHandler: corev1.ProbeHandler{
 			Exec: &corev1.ExecAction{
 				Command: []string{"pg_isready", "-U", "cryostat3", "-d", "cryostat3"},
+			},
+		},
+	}
+}
+
+func (r *TestResources) NewAuthProxyLivnessProbe() *corev1.Probe {
+	protocol := corev1.URISchemeHTTP
+	if r.TLS {
+		protocol = corev1.URISchemeHTTPS
+	}
+	path := "/ping"
+	if r.OpenShift {
+		path = "/oauth2/healthz"
+	}
+	return &corev1.Probe{
+		ProbeHandler: corev1.ProbeHandler{
+			HTTPGet: &corev1.HTTPGetAction{
+				Port:   intstr.IntOrString{IntVal: 4180},
+				Path:   path,
+				Scheme: protocol,
 			},
 		},
 	}
@@ -2784,6 +2898,26 @@ func (r *TestResources) NewDatabaseContainerResource(cr *model.CryostatInstance)
 
 	if cr.Spec.Resources != nil && cr.Spec.Resources.DatabaseResources.Limits != nil {
 		resources.Limits = cr.Spec.Resources.DatabaseResources.Limits
+		checkWithLimit(resources.Requests, resources.Limits)
+	}
+
+	return resources
+}
+
+func (r *TestResources) NewAuthProxyContainerResource(cr *model.CryostatInstance) *corev1.ResourceRequirements {
+	resources := &corev1.ResourceRequirements{
+		Requests: corev1.ResourceList{
+			corev1.ResourceCPU:    resource.MustParse("25m"),
+			corev1.ResourceMemory: resource.MustParse("64Mi"),
+		},
+	}
+
+	if cr.Spec.Resources != nil && cr.Spec.Resources.AuthProxyResources.Requests != nil {
+		resources.Requests = cr.Spec.Resources.AuthProxyResources.Requests
+	}
+
+	if cr.Spec.Resources != nil && cr.Spec.Resources.AuthProxyResources.Limits != nil {
+		resources.Limits = cr.Spec.Resources.AuthProxyResources.Limits
 		checkWithLimit(resources.Requests, resources.Limits)
 	}
 
