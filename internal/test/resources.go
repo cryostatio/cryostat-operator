@@ -1186,13 +1186,7 @@ func (r *TestResources) NewReportsPorts() []corev1.ContainerPort {
 func (r *TestResources) NewStoragePorts() []corev1.ContainerPort {
 	return []corev1.ContainerPort{
 		{
-			ContainerPort: 8080,
-		},
-		{
 			ContainerPort: 8333,
-		},
-		{
-			ContainerPort: 8888,
 		},
 	}
 }
@@ -1465,12 +1459,32 @@ func (r *TestResources) NewReportsEnvironmentVariables(resources *corev1.Resourc
 func (r *TestResources) NewStorageEnvironmentVariables() []corev1.EnvVar {
 	return []corev1.EnvVar{
 		{
-			Name:  "QUARKUS_HTTP_HOST",
-			Value: "127.0.0.1",
+			Name:  "CRYOSTAT_BUCKETS",
+			Value: "archivedrecordings,archivedreports,eventtemplates,probes",
 		},
 		{
-			Name:  "QUARKUS_HTTP_PORT",
-			Value: "8989",
+			Name:  "CRYOSTAT_ACCESS_KEY",
+			Value: "cryostat",
+		},
+		{
+			Name:  "DATA_DIR",
+			Value: "/data",
+		},
+		{
+			Name:  "IP_BIND",
+			Value: "0.0.0.0",
+		},
+		{
+			Name: "CRYOSTAT_SECRET_KEY",
+			ValueFrom: &corev1.EnvVarSource{
+				SecretKeyRef: &corev1.SecretKeySelector{
+					LocalObjectReference: corev1.LocalObjectReference{
+						Name: r.Name + "-storage-secret-key",
+					},
+					Key:      "SECRET_KEY",
+					Optional: &[]bool{false}[0],
+				},
+			},
 		},
 	}
 }
@@ -1575,9 +1589,14 @@ func (r *TestResources) NewCoreVolumeMounts() []corev1.VolumeMount {
 	return mounts
 }
 
-func (r *TestResources) NewGrafanaVolumeMounts() []corev1.VolumeMount {
-	mounts := []corev1.VolumeMount{}
-	return mounts
+func (r *TestResources) NewStorageVolumeMounts() []corev1.VolumeMount {
+	return []corev1.VolumeMount{
+		{
+			Name:      r.Name,
+			MountPath: "/data",
+			SubPath:   "seaweed",
+		},
+	}
 }
 
 func (r *TestResources) NewReportsVolumeMounts() []corev1.VolumeMount {
@@ -1664,6 +1683,19 @@ func (r *TestResources) NewDatasourceLivenessProbe() *corev1.Probe {
 				Command: []string{"curl", "--fail", "http://127.0.0.1:8989"},
 			},
 		},
+	}
+}
+
+func (r *TestResources) NewStorageLivenessProbe() *corev1.Probe {
+	return &corev1.Probe{
+		ProbeHandler: corev1.ProbeHandler{
+			HTTPGet: &corev1.HTTPGetAction{
+				Port:   intstr.IntOrString{IntVal: 8333},
+				Path:   "/status",
+				Scheme: corev1.URISchemeHTTP,
+			},
+		},
+		FailureThreshold: 2,
 	}
 }
 
@@ -2016,6 +2048,27 @@ func (r *TestResources) NewGrafanaSecurityContext(cr *model.CryostatInstance) *c
 func (r *TestResources) NewDatasourceSecurityContext(cr *model.CryostatInstance) *corev1.SecurityContext {
 	if cr.Spec.SecurityOptions != nil && cr.Spec.SecurityOptions.DataSourceSecurityContext != nil {
 		return cr.Spec.SecurityOptions.DataSourceSecurityContext
+	}
+	return r.commonDefaultSecurityContext()
+}
+
+func (r *TestResources) NewStorageSecurityContext(cr *model.CryostatInstance) *corev1.SecurityContext {
+	if cr.Spec.SecurityOptions != nil && cr.Spec.SecurityOptions.StorageSecurityContext != nil {
+		return cr.Spec.SecurityOptions.StorageSecurityContext
+	}
+	return r.commonDefaultSecurityContext()
+}
+
+func (r *TestResources) NewDatabaseSecurityContext(cr *model.CryostatInstance) *corev1.SecurityContext {
+	if cr.Spec.SecurityOptions != nil && cr.Spec.SecurityOptions.DatabaseSecurityContext != nil {
+		return cr.Spec.SecurityOptions.DatabaseSecurityContext
+	}
+	return r.commonDefaultSecurityContext()
+}
+
+func (r *TestResources) NewAuthProxySecurityContext(cr *model.CryostatInstance) *corev1.SecurityContext {
+	if cr.Spec.SecurityOptions != nil && cr.Spec.SecurityOptions.AuthProxySecurityContext != nil {
+		return cr.Spec.SecurityOptions.AuthProxySecurityContext
 	}
 	return r.commonDefaultSecurityContext()
 }
@@ -2567,117 +2620,107 @@ func (r *TestResources) NewApiServerWithApplicationURL() *configv1.APIServer {
 	}
 }
 
-func newCoreContainerDefaultResource() *corev1.ResourceRequirements {
-	return &corev1.ResourceRequirements{
+func (r *TestResources) NewCoreContainerResource(cr *model.CryostatInstance) *corev1.ResourceRequirements {
+	resources := &corev1.ResourceRequirements{
 		Requests: corev1.ResourceList{
 			corev1.ResourceCPU:    resource.MustParse("500m"),
 			corev1.ResourceMemory: resource.MustParse("384Mi"),
 		},
 	}
-}
 
-func (r *TestResources) NewCoreContainerResource(cr *model.CryostatInstance) *corev1.ResourceRequirements {
-	requests := newCoreContainerDefaultResource().Requests
-	var limits corev1.ResourceList
 	if cr.Spec.Resources != nil && cr.Spec.Resources.CoreResources.Requests != nil {
-		requests = cr.Spec.Resources.CoreResources.Requests
-	} else if cr.Spec.Resources != nil && cr.Spec.Resources.CoreResources.Limits != nil {
-		checkWithLimit(requests, cr.Spec.Resources.CoreResources.Limits)
+		resources.Requests = cr.Spec.Resources.CoreResources.Requests
 	}
 
-	if cr.Spec.Resources != nil {
-		limits = cr.Spec.Resources.CoreResources.Limits
+	if cr.Spec.Resources != nil && cr.Spec.Resources.CoreResources.Limits != nil {
+		resources.Limits = cr.Spec.Resources.CoreResources.Limits
+		checkWithLimit(resources.Requests, resources.Limits)
 	}
 
-	return &corev1.ResourceRequirements{
-		Requests: requests,
-		Limits:   limits,
-	}
+	return resources
 }
 
-func newDatasourceContainerDefaultResource() *corev1.ResourceRequirements {
-	return &corev1.ResourceRequirements{
+func (r *TestResources) NewDatasourceContainerResource(cr *model.CryostatInstance) *corev1.ResourceRequirements {
+	resources := &corev1.ResourceRequirements{
 		Requests: corev1.ResourceList{
 			corev1.ResourceCPU:    resource.MustParse("200m"),
 			corev1.ResourceMemory: resource.MustParse("200Mi"),
 		},
 	}
-}
 
-func (r *TestResources) NewDatasourceContainerResource(cr *model.CryostatInstance) *corev1.ResourceRequirements {
-	requests := newDatasourceContainerDefaultResource().Requests
-	var limits corev1.ResourceList
 	if cr.Spec.Resources != nil && cr.Spec.Resources.DataSourceResources.Requests != nil {
-		requests = cr.Spec.Resources.DataSourceResources.Requests
-	} else if cr.Spec.Resources != nil && cr.Spec.Resources.DataSourceResources.Limits != nil {
-		checkWithLimit(requests, cr.Spec.Resources.DataSourceResources.Limits)
+		resources.Requests = cr.Spec.Resources.DataSourceResources.Requests
 	}
 
-	if cr.Spec.Resources != nil {
-		limits = cr.Spec.Resources.DataSourceResources.Limits
+	if cr.Spec.Resources != nil && cr.Spec.Resources.DataSourceResources.Limits != nil {
+		resources.Limits = cr.Spec.Resources.DataSourceResources.Limits
+		checkWithLimit(resources.Requests, resources.Limits)
 	}
 
-	return &corev1.ResourceRequirements{
-		Requests: requests,
-		Limits:   limits,
-	}
+	return resources
 }
 
-func newGrafanaContainerDefaultResource() *corev1.ResourceRequirements {
-	return &corev1.ResourceRequirements{
+func (r *TestResources) NewGrafanaContainerResource(cr *model.CryostatInstance) *corev1.ResourceRequirements {
+	resources := &corev1.ResourceRequirements{
 		Requests: corev1.ResourceList{
 			corev1.ResourceCPU:    resource.MustParse("25m"),
 			corev1.ResourceMemory: resource.MustParse("80Mi"),
 		},
 	}
-}
 
-func (r *TestResources) NewGrafanaContainerResource(cr *model.CryostatInstance) *corev1.ResourceRequirements {
-	requests := newGrafanaContainerDefaultResource().Requests
-	var limits corev1.ResourceList
 	if cr.Spec.Resources != nil && cr.Spec.Resources.GrafanaResources.Requests != nil {
-		requests = cr.Spec.Resources.GrafanaResources.Requests
-	} else if cr.Spec.Resources != nil && cr.Spec.Resources.GrafanaResources.Limits != nil {
-		checkWithLimit(requests, cr.Spec.Resources.GrafanaResources.Limits)
+		resources.Requests = cr.Spec.Resources.GrafanaResources.Requests
 	}
 
-	if cr.Spec.Resources != nil {
-		limits = cr.Spec.Resources.GrafanaResources.Limits
+	if cr.Spec.Resources != nil && cr.Spec.Resources.GrafanaResources.Limits != nil {
+		resources.Limits = cr.Spec.Resources.GrafanaResources.Limits
+		checkWithLimit(resources.Requests, resources.Limits)
 	}
 
-	return &corev1.ResourceRequirements{
-		Requests: requests,
-		Limits:   limits,
-	}
+	return resources
 }
 
-func newReportContainerDefaultResource() *corev1.ResourceRequirements {
-	return &corev1.ResourceRequirements{
+func (r *TestResources) NewStorageContainerResource(cr *model.CryostatInstance) *corev1.ResourceRequirements {
+	resources := &corev1.ResourceRequirements{
+		Requests: corev1.ResourceList{
+			corev1.ResourceCPU:    resource.MustParse("50m"),
+			corev1.ResourceMemory: resource.MustParse("256Mi"),
+		},
+	}
+
+	if cr.Spec.Resources != nil && cr.Spec.Resources.ObjectStorageResources.Requests != nil {
+		resources.Requests = cr.Spec.Resources.ObjectStorageResources.Requests
+	}
+
+	if cr.Spec.Resources != nil && cr.Spec.Resources.ObjectStorageResources.Limits != nil {
+		resources.Limits = cr.Spec.Resources.ObjectStorageResources.Limits
+		checkWithLimit(resources.Requests, resources.Limits)
+	}
+
+	return resources
+}
+
+func (r *TestResources) NewReportContainerResource(cr *model.CryostatInstance) *corev1.ResourceRequirements {
+	resources := &corev1.ResourceRequirements{
 		Requests: corev1.ResourceList{
 			corev1.ResourceCPU:    resource.MustParse("500m"),
 			corev1.ResourceMemory: resource.MustParse("512Mi"),
 		},
 	}
-}
-
-func (r *TestResources) NewReportContainerResource(cr *model.CryostatInstance) *corev1.ResourceRequirements {
-	requests := newReportContainerDefaultResource().Requests
-	var limits corev1.ResourceList
 
 	if cr.Spec.ReportOptions != nil {
 		reportOptions := cr.Spec.ReportOptions
 		if reportOptions.Resources.Requests != nil {
-			requests = reportOptions.Resources.Requests
-		} else if reportOptions.Resources.Limits != nil {
-			checkWithLimit(requests, reportOptions.Resources.Limits)
+			resources.Requests = reportOptions.Resources.Requests
 		}
 
-		limits = reportOptions.Resources.Limits
+		if reportOptions.Resources.Limits != nil {
+			resources.Limits = reportOptions.Resources.Limits
+			checkWithLimit(resources.Requests, resources.Limits)
+		}
 	}
-	return &corev1.ResourceRequirements{
-		Requests: requests,
-		Limits:   limits,
-	}
+
+	return resources
 }
 
 func checkWithLimit(requests, limits corev1.ResourceList) {

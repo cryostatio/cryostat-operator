@@ -2638,6 +2638,18 @@ func (t *cryostatTestInput) checkMainPodTemplate(deployment *appsv1.Deployment, 
 	datasourceContainer := template.Spec.Containers[2]
 	t.checkDatasourceContainer(&datasourceContainer, t.NewDatasourceContainerResource(cr), t.NewDatasourceSecurityContext(cr))
 
+	// Check that Storage is configured properly
+	storageContainer := template.Spec.Containers[3]
+	t.checkStorageContainer(&storageContainer, t.NewStorageContainerResource(cr), t.NewStorageSecurityContext(cr))
+
+	// Check that Database is configured properly
+	databaseContainer := template.Spec.Containers[4]
+	t.checkDatabaseContainer(&databaseContainer, nil, t.NewDatabaseSecurityContext(cr))
+
+	// Check that Auth Proxy is configured properly
+	authProxyContainer := template.Spec.Containers[5]
+	t.checkAuthProxyContainer(&authProxyContainer, nil, t.NewAuthProxySecurityContext(cr))
+
 	// Check that the proper Service Account is set
 	Expect(template.Spec.ServiceAccountName).To(Equal(t.Name))
 
@@ -2800,7 +2812,7 @@ func (t *cryostatTestInput) checkGrafanaContainer(container *corev1.Container, r
 	}
 	Expect(container.Ports).To(ConsistOf(t.NewGrafanaPorts()))
 	Expect(container.Env).To(ConsistOf(t.NewGrafanaEnvironmentVariables()))
-	Expect(container.VolumeMounts).To(ConsistOf(t.NewGrafanaVolumeMounts()))
+	Expect(container.VolumeMounts).To(BeEmpty())
 	Expect(container.LivenessProbe).To(Equal(t.NewGrafanaLivenessProbe()))
 	Expect(container.SecurityContext).To(Equal(securityContext))
 
@@ -2824,6 +2836,31 @@ func (t *cryostatTestInput) checkDatasourceContainer(container *corev1.Container
 	test.ExpectResourceRequirements(&container.Resources, resources)
 }
 
+func (t *cryostatTestInput) checkStorageContainer(container *corev1.Container, resources *corev1.ResourceRequirements, securityContext *corev1.SecurityContext) {
+	Expect(container.Name).To(Equal(t.Name + "-storage"))
+	if t.EnvStorageImageTag == nil {
+		Expect(container.Image).To(HavePrefix("quay.io/cryostat/cryostat-storage:"))
+	} else {
+		Expect(container.Image).To(Equal(*t.EnvStorageImageTag))
+	}
+	Expect(container.Ports).To(ConsistOf(t.NewStoragePorts()))
+	Expect(container.Env).To(ConsistOf(t.NewStorageEnvironmentVariables()))
+	Expect(container.EnvFrom).To(BeEmpty())
+	Expect(container.VolumeMounts).To(ConsistOf(t.NewStorageVolumeMounts()))
+	Expect(container.LivenessProbe).To(Equal(t.NewStorageLivenessProbe()))
+	Expect(container.SecurityContext).To(Equal(securityContext))
+
+	test.ExpectResourceRequirements(&container.Resources, resources)
+}
+
+func (t *cryostatTestInput) checkDatabaseContainer(container *corev1.Container, resources *corev1.ResourceRequirements, securityContext *corev1.SecurityContext) {
+	// TODO: Check Database Container
+}
+
+func (t *cryostatTestInput) checkAuthProxyContainer(container *corev1.Container, resources *corev1.ResourceRequirements, securityContext *corev1.SecurityContext) {
+	// TODO: Check Auth Proxy container
+}
+
 func (t *cryostatTestInput) checkReportsContainer(container *corev1.Container, resources *corev1.ResourceRequirements, securityContext *corev1.SecurityContext) {
 	Expect(container.Name).To(Equal(t.Name + "-reports"))
 	if t.EnvReportsImageTag == nil {
@@ -2839,22 +2876,6 @@ func (t *cryostatTestInput) checkReportsContainer(container *corev1.Container, r
 
 	test.ExpectResourceRequirements(&container.Resources, resources)
 }
-
-// func (t *cryostatTestInput) checkStorageContainer(container *corev1.Container, resources *corev1.ResourceRequirements, securityContext *corev1.SecurityContext) {
-// 	Expect(container.Name).To(Equal(t.Name + "-storage"))
-// 	if t.EnvReportsImageTag == nil {
-// 		Expect(container.Image).To(HavePrefix("quay.io/cryostat/cryostat-storage:"))
-// 	} else {
-// 		Expect(container.Image).To(Equal(*t.EnvReportsImageTag))
-// 	}
-// 	Expect(container.Ports).To(ConsistOf(t.NewStoragePorts()))
-// 	Expect(container.Env).To(ConsistOf(t.NewStorageEnvironmentVariables(resources)))
-// 	Expect(container.VolumeMounts).To(ConsistOf(t.NewReportsVolumeMounts()))
-// 	Expect(container.LivenessProbe).To(Equal(t.NewReportsLivenessProbe()))
-// 	Expect(container.SecurityContext).To(Equal(securityContext))
-
-// 	test.ExpectResourceRequirements(&container.Resources, resources)
-// }
 
 func (t *cryostatTestInput) checkCoreHasEnvironmentVariables(expectedEnvVars []corev1.EnvVar) {
 	deployment := &appsv1.Deployment{}
@@ -2903,12 +2924,6 @@ func (t *cryostatTestInput) expectConsoleLink() {
 	err := t.Client.Get(context.Background(), types.NamespacedName{Name: expectedLink.Name}, link)
 	Expect(err).ToNot(HaveOccurred())
 	Expect(link.Spec).To(Equal(expectedLink.Spec))
-}
-
-func (t *cryostatTestInput) expectResourcesUnaffected() {
-	for _, check := range resourceChecks() {
-		check.expectFunc(t)
-	}
 }
 
 func (t *cryostatTestInput) expectTargetNamespaces() {

@@ -1000,10 +1000,7 @@ func NewCoreContainer(cr *model.CryostatInstance, specs *ServiceSpecs, imageTag 
 	}
 
 	optional := false
-	secretName := cr.Name + "-db"
-	if cr.Spec.DatabaseOptions != nil && cr.Spec.DatabaseOptions.SecretName != nil {
-		secretName = *cr.Spec.DatabaseOptions.SecretName
-	}
+	secretName := getDatabaseSecret(cr)
 	envs = append(envs, corev1.EnvVar{
 		Name: "QUARKUS_DATASOURCE_PASSWORD",
 		ValueFrom: &corev1.EnvVarSource{
@@ -1415,7 +1412,7 @@ func newDatabaseContainer(cr *model.CryostatInstance, imageTag string, tls *TLSC
 	}
 
 	optional := false
-	secretName := cr.Name + "-db"
+	secretName := getDatabaseSecret(cr)
 	envs = append(envs, corev1.EnvVar{
 		Name: "POSTGRESQL_PASSWORD",
 		ValueFrom: &corev1.EnvVarSource{
@@ -1623,4 +1620,12 @@ func populateResourceRequest(resources *corev1.ResourceRequirements, defaultCpu,
 		requests[corev1.ResourceMemory] = resource.MustParse(defaultMemory)
 	}
 	checkResourceRequestWithLimit(requests, resources.Limits)
+}
+
+func getDatabaseSecret(cr *model.CryostatInstance) string {
+	secretName := cr.Name + "-db"
+	if cr.Spec.DatabaseOptions != nil && cr.Spec.DatabaseOptions.SecretName != nil {
+		secretName = *cr.Spec.DatabaseOptions.SecretName
+	}
+	return secretName
 }
