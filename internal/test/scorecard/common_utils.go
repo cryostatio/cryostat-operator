@@ -48,18 +48,19 @@ const (
 )
 
 type TestResources struct {
+	Namespace  string
 	OpenShift  bool
 	Client     *CryostatClientset
 	LogChannel chan *ContainerLog
 	*scapiv1alpha3.TestResult
 }
 
-func (r *TestResources) waitForDeploymentAvailability(ctx context.Context, namespace string, name string) error {
+func (r *TestResources) waitForDeploymentAvailability(ctx context.Context) error {
 	err := wait.PollImmediateUntilWithContext(ctx, time.Second, func(ctx context.Context) (done bool, err error) {
-		deploy, err := r.Client.AppsV1().Deployments(namespace).Get(ctx, name, metav1.GetOptions{})
+		deploy, err := r.Client.AppsV1().Deployments(r.Namespace).Get(ctx, r.Name, metav1.GetOptions{})
 		if err != nil {
 			if kerrors.IsNotFound(err) {
-				r.Log += fmt.Sprintf("deployment %s is not yet found\n", name)
+				r.Log += fmt.Sprintf("deployment %s is not yet found\n", r.Name)
 				return false, nil // Retry
 			}
 			return false, fmt.Errorf("failed to get deployment: %s", err.Error())
@@ -81,7 +82,7 @@ func (r *TestResources) waitForDeploymentAvailability(ctx context.Context, names
 		return false, nil
 	})
 	if err != nil {
-		logErr := r.logWorkloadEvents(namespace, name)
+		logErr := r.logWorkloadEvents(r.Namespace, r.Name)
 		if logErr != nil {
 			r.Log += fmt.Sprintf("failed to look up deployment errors: %s\n", logErr.Error())
 		}
@@ -203,8 +204,9 @@ func newEmptyTestResult(testName string) *scapiv1alpha3.TestResult {
 	}
 }
 
-func newTestResources(testName string) *TestResources {
+func newTestResources(testName string, namespace string) *TestResources {
 	return &TestResources{
+		Namespace:  namespace,
 		TestResult: newEmptyTestResult(testName),
 	}
 }
@@ -251,35 +253,35 @@ func (r *TestResources) setupTargetNamespace(name string) error {
 	return nil
 }
 
-func newCryostatCR(name string, namespace string, withIngress bool) *operatorv1beta1.Cryostat {
+func (r *TestResources) newCryostatCR(withIngress bool) *operatorv1beta1.Cryostat {
 	cr := &operatorv1beta1.Cryostat{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      name,
-			Namespace: namespace,
+			Name:      r.Name,
+			Namespace: r.Namespace,
 		},
 		Spec: newCryostatSpec(),
 	}
 
 	if withIngress {
-		configureIngress(name, &cr.Spec)
+		r.configureIngress(&cr.Spec)
 	}
 	return cr
 }
 
-func newClusterCryostatCR(name string, namespace string, namespaces []string, withIngress bool) *operatorv1beta1.ClusterCryostat {
+func (r *TestResources) newClusterCryostatCR(namespaces []string, withIngress bool) *operatorv1beta1.ClusterCryostat {
 	cr := &operatorv1beta1.ClusterCryostat{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: name,
+			Name: r.Name,
 		},
 		Spec: operatorv1beta1.ClusterCryostatSpec{
-			InstallNamespace: namespace,
+			InstallNamespace: r.Namespace,
 			TargetNamespaces: namespaces,
 			CryostatSpec:     newCryostatSpec(),
 		},
 	}
 
 	if withIngress {
-		configureIngress(name, &cr.Spec.CryostatSpec)
+		r.configureIngress(&cr.Spec.CryostatSpec)
 	}
 	return cr
 }
@@ -291,7 +293,7 @@ func newCryostatSpec() operatorv1beta1.CryostatSpec {
 	}
 }
 
-func configureIngress(name string, cryostatSpec *operatorv1beta1.CryostatSpec) {
+func (r *TestResources) configureIngress(cryostatSpec *operatorv1beta1.CryostatSpec) {
 	pathType := netv1.PathTypePrefix
 	cryostatSpec.NetworkOptions = &operatorv1beta1.NetworkConfigurationList{
 		CoreConfig: &operatorv1beta1.NetworkConfiguration{
@@ -311,7 +313,7 @@ func configureIngress(name string, cryostatSpec *operatorv1beta1.CryostatSpec) {
 										PathType: &pathType,
 										Backend: netv1.IngressBackend{
 											Service: &netv1.IngressServiceBackend{
-												Name: name,
+												Name: r.Name,
 												Port: netv1.ServiceBackendPort{
 													Number: 8181,
 												},
@@ -342,7 +344,7 @@ func configureIngress(name string, cryostatSpec *operatorv1beta1.CryostatSpec) {
 										PathType: &pathType,
 										Backend: netv1.IngressBackend{
 											Service: &netv1.IngressServiceBackend{
-												Name: fmt.Sprintf("%s-grafana", name),
+												Name: fmt.Sprintf("%s-grafana", r.Name),
 												Port: netv1.ServiceBackendPort{
 													Number: 3000,
 												},
@@ -359,13 +361,13 @@ func configureIngress(name string, cryostatSpec *operatorv1beta1.CryostatSpec) {
 	}
 }
 
-func newSampleApp(namespace string) *appsv1.Deployment {
+func (r *TestResources) newSampleApp() *appsv1.Deployment {
 	replicas := int32(1)
 
 	deploy := &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "quarkus-test-agent",
-			Namespace: namespace,
+			Namespace: r.Namespace,
 			Labels: map[string]string{
 				"app": "quarkus-test-agent",
 			},
@@ -396,7 +398,7 @@ func newSampleApp(namespace string) *appsv1.Deployment {
 								},
 								{
 									Name:  "CRYOSTAT_AGENT_BASEURI",
-									Value: fmt.Sprintf("https://cryostat-agent.%s.svc:8181", namespace),
+									Value: fmt.Sprintf("https://cryostat-agent.%s.svc:8181", r.Namespace),
 								},
 								{
 									Name:  "CRYOSTAT_AGENT_CALLBACK",
@@ -446,11 +448,11 @@ func newSampleApp(namespace string) *appsv1.Deployment {
 	return deploy
 }
 
-func newSampleService(namespace string) *corev1.Service {
+func (r *TestResources) newSampleService() *corev1.Service {
 	return &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "quarkus-test-agent",
-			Namespace: namespace,
+			Namespace: r.Namespace,
 			Labels: map[string]string{
 				"app": "quarkus-test-agent",
 			},
@@ -493,7 +495,7 @@ func (r *TestResources) createAndWaitTillCryostatAvailable(cr *operatorv1beta1.C
 	// Poll the deployment until it becomes available or we timeout
 	ctx, cancel := context.WithTimeout(context.Background(), testTimeout)
 	defer cancel()
-	err = r.waitForDeploymentAvailability(ctx, cr.Namespace, cr.Name)
+	err = r.waitForDeploymentAvailability(ctx)
 	if err != nil {
 		r.logError(fmt.Sprintf("Cryostat main deployment did not become available: %s", err.Error()))
 		return nil, err
@@ -529,7 +531,7 @@ func (r *TestResources) createAndWaitTillClusterCryostatAvailable(cr *operatorv1
 	// Poll the deployment until it becomes available or we timeout
 	ctx, cancel := context.WithTimeout(context.Background(), testTimeout)
 	defer cancel()
-	err = r.waitForDeploymentAvailability(ctx, cr.Spec.InstallNamespace, cr.Name)
+	err = r.waitForDeploymentAvailability(ctx)
 	if err != nil {
 		r.logError(fmt.Sprintf("ClusterCryostat main deployment did not become available: %s", err.Error()))
 		return nil, err
@@ -583,16 +585,16 @@ func (r *TestResources) waitTillCryostatReady(base *url.URL) error {
 	})
 }
 
-func (r *TestResources) waitTillReportReady(name string, namespace string, port int32) error {
+func (r *TestResources) waitTillReportReady(port int32) error {
 	ctx, cancel := context.WithTimeout(context.Background(), testTimeout)
 	defer cancel()
 
-	err := r.waitForDeploymentAvailability(ctx, namespace, name)
+	err := r.waitForDeploymentAvailability(ctx)
 	if err != nil {
 		return fmt.Errorf("report sidecar deployment did not become available: %s", err.Error())
 	}
 
-	reportsUrl := fmt.Sprintf("https://%s.%s.svc.cluster.local:%d", name, namespace, port)
+	reportsUrl := fmt.Sprintf("https://%s.%s.svc.cluster.local:%d", r.Name+"-reports", r.Namespace, port)
 	base, err := url.Parse(reportsUrl)
 	if err != nil {
 		return fmt.Errorf("application URL is invalid: %s", err.Error())
@@ -724,17 +726,11 @@ func (r *TestResources) updateAndWaitTillCryostatAvailable(cr *operatorv1beta1.C
 	return cr, err
 }
 
-func (r *TestResources) cleanupAndLogs(name string, namespace string) {
-	r.LogWorkloadEventsOnError(namespace, name)
+func (r *TestResources) cleanupAndLogs() {
+	r.LogWorkloadEventsOnError(r.Namespace, r.Name)
 
-	cr := &operatorv1beta1.Cryostat{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      name,
-			Namespace: namespace,
-		},
-	}
 	ctx := context.Background()
-	err := r.Client.OperatorCRDs().Cryostats(cr.Namespace).Delete(ctx, cr.Name, &metav1.DeleteOptions{})
+	err := r.Client.OperatorCRDs().Cryostats(r.Namespace).Delete(ctx, r.Name, &metav1.DeleteOptions{})
 	if err != nil {
 		if !kerrors.IsNotFound(err) {
 			r.Log += fmt.Sprintf("failed to delete Cryostat: %s\n", err.Error())
@@ -798,21 +794,12 @@ func (r *TestResources) getPodnamesForSelector(namespace string, selector metav1
 	return pods.Items, err
 }
 
-func (r *TestResources) cleanupClusterCryostat(name string, namespace string, targetNamespaces []string) {
-	r.LogWorkloadEventsOnError(namespace, name)
-
-	cr := &operatorv1beta1.ClusterCryostat{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: name,
-		},
-		Spec: operatorv1beta1.ClusterCryostatSpec{
-			InstallNamespace: namespace,
-		},
-	}
+func (r *TestResources) cleanupClusterCryostat(targetNamespaces []string) {
+	r.LogWorkloadEventsOnError(r.Namespace, r.Name)
 
 	ctx := context.Background()
 	err := r.Client.OperatorCRDs().ClusterCryostats().DeleteNonNamespaced(ctx,
-		cr.Name, &metav1.DeleteOptions{})
+		r.Name, &metav1.DeleteOptions{})
 	if err != nil {
 		if !kerrors.IsNotFound(err) {
 			r.Log += fmt.Sprintf("failed to delete ClusterCryostat: %s\n", err.Error())
@@ -848,13 +835,13 @@ func (r *TestResources) ApplyandCreateSampleApplication(deploy *appsv1.Deploymen
 		return nil, fmt.Errorf("service %s unable to be created: %s", deploy.Name, err.Error())
 	}
 
-	err = r.waitForDeploymentAvailability(ctx, deploy.Namespace, deploy.Name)
+	err = r.waitForDeploymentAvailability(ctx)
 	if err != nil {
 		r.logError(fmt.Sprintf("sample app deployment did not become available: %s", err.Error()))
 		return nil, err
 	}
 
-	return nil, nil
+	return deploy, nil
 }
 
 func (r *TestResources) getSampleAppTarget(apiClient *CryostatRESTClientset) (*Target, error) {
