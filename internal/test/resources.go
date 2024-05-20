@@ -855,8 +855,21 @@ func (r *TestResources) NewDatabaseSecret() *corev1.Secret {
 			Namespace: r.Namespace,
 		},
 		StringData: map[string]string{
-			"CONNECTION_KEY": "credentials_database",
+			"CONNECTION_KEY": "connection_key",
 			"ENCRYPTION_KEY": "encryption_key",
+		},
+	}
+}
+
+func (r *TestResources) NewCustomDatabaseSecret() *corev1.Secret {
+	return &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      providedDatabaseSecretName,
+			Namespace: r.Namespace,
+		},
+		StringData: map[string]string{
+			"CONNECTION_KEY": "custom-connection_database",
+			"ENCRYPTION_KEY": "custom-encryption_key",
 		},
 	}
 }

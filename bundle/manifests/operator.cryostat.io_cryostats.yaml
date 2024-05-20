@@ -4646,7 +4646,7 @@ spec:
                     type: object
                   reportsConfig:
                     description: Specification for the service responsible for the
-                      cryostat-reports sidecars.
+                      Cryostat reports sidecars.
                     properties:
                       annotations:
                         additionalProperties:
@@ -4672,7 +4672,7 @@ spec:
                     type: object
                   storageConfig:
                     description: Specification for the service responsible for the
-                      cryostat storage container.
+                      Cryostat storage container.
                     properties:
                       annotations:
                         additionalProperties:
@@ -5085,10 +5085,6 @@ spec:
               grafanaSecret:
                 description: Name of the Secret containing the generated Grafana credentials.
                 type: string
-              storageSecret:
-                description: Name of the Secret containing the cryostat storage connection
-                  key
-                type: string
             required:
             - applicationUrl
             type: object
@@ -5100,6 +5096,15 @@ spec:
   - additionalPrinterColumns:
     - jsonPath: .status.applicationUrl
       name: Application URL
+      type: string
+    - jsonPath: .status.targetNamespaces
+      name: Target Namespaces
+      type: string
+    - jsonPath: .status.storageSecret
+      name: Storage Secret
+      type: string
+    - jsonPath: .status.databaseSecret
+      name: Database Secret
       type: string
     name: v1beta2
     schema:
@@ -9832,6 +9837,14 @@ spec:
                   - type
                   type: object
                 type: array
+              databaseSecret:
+                description: Name of the Secret containing the Cryostat database connection
+                  and encryption keys.
+                type: string
+              storageSecret:
+                description: Name of the Secret containing the Cryostat storage connection
+                  key.
+                type: string
               targetNamespaces:
                 description: List of namespaces that Cryostat has been configured
                   and authorized to access and profile.
