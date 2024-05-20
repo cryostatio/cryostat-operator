@@ -2644,7 +2644,7 @@ func (t *cryostatTestInput) checkMainPodTemplate(deployment *appsv1.Deployment, 
 
 	// Check that Database is configured properly
 	databaseContainer := template.Spec.Containers[4]
-	t.checkDatabaseContainer(&databaseContainer, nil, t.NewDatabaseSecurityContext(cr))
+	t.checkDatabaseContainer(&databaseContainer, t.NewDatabaseContainerResource(cr), t.NewDatabaseSecurityContext(cr), dbSecretProvided)
 
 	// Check that Auth Proxy is configured properly
 	authProxyContainer := template.Spec.Containers[5]
@@ -2853,8 +2853,21 @@ func (t *cryostatTestInput) checkStorageContainer(container *corev1.Container, r
 	test.ExpectResourceRequirements(&container.Resources, resources)
 }
 
-func (t *cryostatTestInput) checkDatabaseContainer(container *corev1.Container, resources *corev1.ResourceRequirements, securityContext *corev1.SecurityContext) {
-	// TODO: Check Database Container
+func (t *cryostatTestInput) checkDatabaseContainer(container *corev1.Container, resources *corev1.ResourceRequirements, securityContext *corev1.SecurityContext, dbSecretProvided bool) {
+	Expect(container.Name).To(Equal(t.Name + "-db"))
+	if t.EnvDatabaseImageTag == nil {
+		Expect(container.Image).To(HavePrefix("quay.io/cryostat/cryostat-db:"))
+	} else {
+		Expect(container.Image).To(Equal(*t.EnvDatabaseImageTag))
+	}
+	Expect(container.Ports).To(ConsistOf(t.NewDatabasePorts()))
+	Expect(container.Env).To(ConsistOf(t.NewDatabaseEnvironmentVariables(dbSecretProvided)))
+	Expect(container.EnvFrom).To(BeEmpty())
+	Expect(container.VolumeMounts).To(ConsistOf(t.NewDatabaseVolumeMounts()))
+	Expect(container.ReadinessProbe).To(Equal(t.NewDatabaseReadinessProbe()))
+	Expect(container.SecurityContext).To(Equal(securityContext))
+
+	test.ExpectResourceRequirements(&container.Resources, resources)
 }
 
 func (t *cryostatTestInput) checkAuthProxyContainer(container *corev1.Container, resources *corev1.ResourceRequirements, securityContext *corev1.SecurityContext) {

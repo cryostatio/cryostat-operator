@@ -1191,6 +1191,14 @@ func (r *TestResources) NewStoragePorts() []corev1.ContainerPort {
 	}
 }
 
+func (r *TestResources) NewDatabasePorts() []corev1.ContainerPort {
+	return []corev1.ContainerPort{
+		{
+			ContainerPort: 5432,
+		},
+	}
+}
+
 func (r *TestResources) NewCoreEnvironmentVariables(reportsUrl string, ingress bool,
 	emptyDir bool, hasPortConfig bool, builtInDiscoveryDisabled bool, builtInPortConfigDisabled bool, dbSecretProvided bool) []corev1.EnvVar {
 	envs := []corev1.EnvVar{
@@ -1489,6 +1497,48 @@ func (r *TestResources) NewStorageEnvironmentVariables() []corev1.EnvVar {
 	}
 }
 
+func (r *TestResources) NewDatabaseEnvironmentVariables(dbSecretProvided bool) []corev1.EnvVar {
+	optional := false
+	secretName := r.Name + "-db"
+	if dbSecretProvided {
+		secretName = providedDatabaseSecretName
+	}
+	return []corev1.EnvVar{
+		{
+			Name:  "POSTGRESQL_USER",
+			Value: "cryostat3",
+		},
+		{
+			Name:  "POSTGRESQL_DATABASE",
+			Value: "cryostat3",
+		},
+		{
+			Name: "POSTGRESQL_PASSWORD",
+			ValueFrom: &corev1.EnvVarSource{
+				SecretKeyRef: &corev1.SecretKeySelector{
+					LocalObjectReference: corev1.LocalObjectReference{
+						Name: secretName,
+					},
+					Key:      "CONNECTION_KEY",
+					Optional: &optional,
+				},
+			},
+		},
+		{
+			Name: "PG_ENCRYPT_KEY",
+			ValueFrom: &corev1.EnvVarSource{
+				SecretKeyRef: &corev1.SecretKeySelector{
+					LocalObjectReference: corev1.LocalObjectReference{
+						Name: secretName,
+					},
+					Key:      "ENCRYPTION_KEY",
+					Optional: &optional,
+				},
+			},
+		},
+	}
+}
+
 func (r *TestResources) NewCoreEnvFromSource() []corev1.EnvFromSource {
 	envsFrom := []corev1.EnvFromSource{
 		{
@@ -1599,6 +1649,16 @@ func (r *TestResources) NewStorageVolumeMounts() []corev1.VolumeMount {
 	}
 }
 
+func (r *TestResources) NewDatabaseVolumeMounts() []corev1.VolumeMount {
+	return []corev1.VolumeMount{
+		{
+			Name:      r.Name,
+			MountPath: "/data",
+			SubPath:   "postgres",
+		},
+	}
+}
+
 func (r *TestResources) NewReportsVolumeMounts() []corev1.VolumeMount {
 	mounts := []corev1.VolumeMount{}
 	if r.TLS {
@@ -1696,6 +1756,16 @@ func (r *TestResources) NewStorageLivenessProbe() *corev1.Probe {
 			},
 		},
 		FailureThreshold: 2,
+	}
+}
+
+func (r *TestResources) NewDatabaseReadinessProbe() *corev1.Probe {
+	return &corev1.Probe{
+		ProbeHandler: corev1.ProbeHandler{
+			Exec: &corev1.ExecAction{
+				Command: []string{"pg_isready", "-U", "cryostat3", "-d", "cryostat3"},
+			},
+		},
 	}
 }
 
@@ -2694,6 +2764,26 @@ func (r *TestResources) NewStorageContainerResource(cr *model.CryostatInstance) 
 
 	if cr.Spec.Resources != nil && cr.Spec.Resources.ObjectStorageResources.Limits != nil {
 		resources.Limits = cr.Spec.Resources.ObjectStorageResources.Limits
+		checkWithLimit(resources.Requests, resources.Limits)
+	}
+
+	return resources
+}
+
+func (r *TestResources) NewDatabaseContainerResource(cr *model.CryostatInstance) *corev1.ResourceRequirements {
+	resources := &corev1.ResourceRequirements{
+		Requests: corev1.ResourceList{
+			corev1.ResourceCPU:    resource.MustParse("25m"),
+			corev1.ResourceMemory: resource.MustParse("64Mi"),
+		},
+	}
+
+	if cr.Spec.Resources != nil && cr.Spec.Resources.DatabaseResources.Requests != nil {
+		resources.Requests = cr.Spec.Resources.DatabaseResources.Requests
+	}
+
+	if cr.Spec.Resources != nil && cr.Spec.Resources.DatabaseResources.Limits != nil {
+		resources.Limits = cr.Spec.Resources.DatabaseResources.Limits
 		checkWithLimit(resources.Requests, resources.Limits)
 	}
 
