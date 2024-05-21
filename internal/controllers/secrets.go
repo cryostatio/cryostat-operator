@@ -93,34 +93,42 @@ func (r *Reconciler) reconcileJMXSecret(ctx context.Context, cr *model.CryostatI
 }
 
 // databaseSecretNameSuffix is the suffix to be appended to the name of a
-// Cryostat CR to name its credentials database secret
+// Cryostat CR to name its database secret
 const databaseSecretNameSuffix = "-db"
 
 func (r *Reconciler) reconcileDatabaseConnectionSecret(ctx context.Context, cr *model.CryostatInstance) error {
-	secret := &corev1.Secret{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      cr.Name + databaseSecretNameSuffix,
-			Namespace: cr.InstallNamespace,
-		},
-	}
-
+	var secretName string
 	secretProvided := cr.Spec.DatabaseOptions != nil && cr.Spec.DatabaseOptions.SecretName != nil
 	if secretProvided {
-		return nil // Do not delete default secret to allow reverting to use default if needed
+		// Do not delete default secret to allow reverting to use default if needed
+		secretName = *cr.Spec.DatabaseOptions.SecretName
+	} else {
+		secret := &corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      cr.Name + databaseSecretNameSuffix,
+				Namespace: cr.InstallNamespace,
+			},
+		}
+		err := r.createOrUpdateSecret(ctx, secret, cr.Object, func() error {
+			if secret.StringData == nil {
+				secret.StringData = map[string]string{}
+			}
+
+			// Password is generated, so don't regenerate it when updating
+			if secret.CreationTimestamp.IsZero() {
+				secret.StringData[constants.DatabaseSecretConnectionKey] = r.GenPasswd(32)
+				secret.StringData[constants.DatabaseSecretEncryptionKey] = r.GenPasswd(32)
+			}
+			return nil
+		})
+
+		if err != nil {
+			return err
+		}
+		secretName = secret.Name
 	}
-
-	return r.createOrUpdateSecret(ctx, secret, cr.Object, func() error {
-		if secret.StringData == nil {
-			secret.StringData = map[string]string{}
-		}
-
-		// Password is generated, so don't regenerate it when updating
-		if secret.CreationTimestamp.IsZero() {
-			secret.StringData[constants.DatabaseSecretConnectionKey] = r.GenPasswd(32)
-			secret.StringData[constants.DatabaseSecretEncryptionKey] = r.GenPasswd(32)
-		}
-		return nil
-	})
+	cr.Status.DatabaseSecret = secretName
+	return r.Client.Status().Update(ctx, cr.Object)
 }
 
 // storageSecretNameSuffix is the suffix to be appended to the name of a
@@ -138,12 +146,7 @@ func (r *Reconciler) reconcileStorageSecret(ctx context.Context, cr *model.Cryos
 		},
 	}
 
-	// secretProvided := cr.Spec.JmxCredentialsDatabaseOptions != nil && cr.Spec.JmxCredentialsDatabaseOptions.DatabaseSecretName != nil
-	// if secretProvided {
-	//      return nil // Do not delete default secret to allow reverting to use default if needed
-	// }
-
-	return r.createOrUpdateSecret(ctx, secret, cr.Object, func() error {
+	err := r.createOrUpdateSecret(ctx, secret, cr.Object, func() error {
 		if secret.StringData == nil {
 			secret.StringData = map[string]string{}
 		}
@@ -154,6 +157,13 @@ func (r *Reconciler) reconcileStorageSecret(ctx context.Context, cr *model.Cryos
 		}
 		return nil
 	})
+
+	if err != nil {
+		return err
+	}
+
+	cr.Status.StorageSecret = secret.Name
+	return r.Client.Status().Update(ctx, cr.Object)
 }
 
 func (r *Reconciler) createOrUpdateSecret(ctx context.Context, secret *corev1.Secret, owner metav1.Object,

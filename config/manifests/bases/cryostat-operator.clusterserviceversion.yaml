@@ -428,6 +428,18 @@ spec:
         path: applicationUrl
         x-descriptors:
         - urn:alm:descriptor:org.w3:link
+      - description: Name of the Secret containing the Cryostat database connection
+          and encryption keys.
+        displayName: Database Secret
+        path: databaseSecret
+        x-descriptors:
+        - urn:alm:descriptor:io.kubernetes:Secret
+      - description: Name of the Secret containing the Cryostat storage connection
+          key.
+        displayName: Storage Secret
+        path: storageSecret
+        x-descriptors:
+        - urn:alm:descriptor:io.kubernetes:Secret
       - description: List of namespaces that Cryostat has been configured and authorized
           to access and profile.
         displayName: Target Namespaces

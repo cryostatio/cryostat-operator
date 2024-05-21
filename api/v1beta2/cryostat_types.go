@@ -159,6 +159,14 @@ type CryostatStatus struct {
 	// Address of the deployed Cryostat web application.
 	// +operator-sdk:csv:customresourcedefinitions:type=status,order=1,xDescriptors={"urn:alm:descriptor:org.w3:link"}
 	ApplicationURL string `json:"applicationUrl"`
+	// Name of the Secret containing the Cryostat storage connection key.
+	// +optional
+	// +operator-sdk:csv:customresourcedefinitions:type=status,order=2,xDescriptors={"urn:alm:descriptor:io.kubernetes:Secret"}
+	StorageSecret string `json:"storageSecret,omitempty"`
+	// Name of the Secret containing the Cryostat database connection and encryption keys.
+	// +optional
+	// +operator-sdk:csv:customresourcedefinitions:type=status,order=2,xDescriptors={"urn:alm:descriptor:io.kubernetes:Secret"}
+	DatabaseSecret string `json:"databaseSecret,omitempty"`
 }
 
 // CryostatConditionType refers to a Condition type that may be used in status.conditions
@@ -414,6 +422,9 @@ type TargetConnectionCacheOptions struct {
 // to deploy the Cryostat application.
 // +operator-sdk:csv:customresourcedefinitions:resources={{Deployment,v1},{Ingress,v1},{PersistentVolumeClaim,v1},{Secret,v1},{Service,v1},{Route,v1},{ConsoleLink,v1}}
 // +kubebuilder:printcolumn:name="Application URL",type=string,JSONPath=`.status.applicationUrl`
+// +kubebuilder:printcolumn:name="Target Namespaces",type=string,JSONPath=`.status.targetNamespaces`
+// +kubebuilder:printcolumn:name="Storage Secret",type=string,JSONPath=`.status.storageSecret`
+// +kubebuilder:printcolumn:name="Database Secret",type=string,JSONPath=`.status.databaseSecret`
 type Cryostat struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`

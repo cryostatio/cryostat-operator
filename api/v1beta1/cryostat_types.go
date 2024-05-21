@@ -141,8 +141,6 @@ type CryostatStatus struct {
 	// +optional
 	// +operator-sdk:csv:customresourcedefinitions:type=status,order=2,xDescriptors={"urn:alm:descriptor:io.kubernetes:Secret"}
 	GrafanaSecret string `json:"grafanaSecret,omitempty"`
-	// Name of the Secret containing the cryostat storage connection key
-	StorageSecret string `json:"storageSecret,omitempty"`
 	// Address of the deployed Cryostat web application.
 	// +operator-sdk:csv:customresourcedefinitions:type=status,order=1,xDescriptors={"urn:alm:descriptor:org.w3:link"}
 	ApplicationURL string `json:"applicationUrl"`
@@ -315,12 +313,12 @@ type ServiceConfigList struct {
 	// Specification for the service responsible for the Cryostat Grafana dashboard.
 	// +optional
 	GrafanaConfig *GrafanaServiceConfig `json:"grafanaConfig,omitempty"`
-	// Specification for the service responsible for the cryostat-reports sidecars.
+	// Specification for the service responsible for the Cryostat reports sidecars.
 	// +optional
 	ReportsConfig *ReportsServiceConfig `json:"reportsConfig,omitempty"`
-	// Specification for the service responsible for the cryostat storage container.
+	// Specification for the service responsible for the Cryostat storage container.
 	// +optional
-	StorageConfig *StorageServiceConfig `json:"storageConfig,omitEmpty"`
+	StorageConfig *StorageServiceConfig `json:"storageConfig,omitempty"`
 }
 
 // NetworkConfiguration provides customization for how to expose a Cryostat

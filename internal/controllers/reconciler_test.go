@@ -66,7 +66,7 @@ type cryostatTestInput struct {
 func (c *controllerTest) commonBeforeEach() *cryostatTestInput {
 	t := &cryostatTestInput{
 		TestReconcilerConfig: test.TestReconcilerConfig{
-			GeneratedPasswords: []string{"auth_cookie_secret", "credentials_database", "encryption_key", "object_storage", "jmx", "keystore"},
+			GeneratedPasswords: []string{"auth_cookie_secret", "connection_key", "encryption_key", "object_storage", "jmx", "keystore"},
 		},
 		TestResources: &test.TestResources{
 			Name:        "cryostat",
@@ -145,7 +145,7 @@ func resourceChecks() []resourceCheck {
 		{func(t *cryostatTestInput) {
 			t.expectPVC(t.NewDefaultPVC())
 		}, "persistent volume claim"},
-		{(*cryostatTestInput).expectCredentialsDatabaseSecret, "credentials database secret"},
+		{(*cryostatTestInput).expectDatabaseSecret, "database secret"},
 		{(*cryostatTestInput).expectStorageSecret, "object storage secret"},
 		{(*cryostatTestInput).expectJMXSecret, "JMX secret"},
 		{(*cryostatTestInput).expectCoreService, "core service"},
@@ -163,6 +163,12 @@ func expectSuccessful(t **cryostatTestInput) {
 	}
 	It("should set ApplicationURL in CR Status", func() {
 		(*t).expectStatusApplicationURL()
+	})
+	It("should set Database Secret in CR Status", func() {
+		(*t).expectStatusDatabaseSecret()
+	})
+	It("should set Storage Secret in CR Status", func() {
+		(*t).expectStatusStorageSecret()
 	})
 	It("should set TLSSetupComplete condition", func() {
 		(*t).checkConditionPresent(operatorv1beta2.ConditionTypeTLSSetupComplete, metav1.ConditionTrue,
@@ -496,7 +502,7 @@ func (c *controllerTest) commonTests() {
 				Expect(secret.StringData["CRYOSTAT_RJMX_PASS"]).To(Equal(oldSecret.StringData["CRYOSTAT_RJMX_PASS"]))
 			})
 		})
-		Context("with an existing Credentials Database Secret", func() {
+		Context("with an existing Database Secret", func() {
 			var cr *model.CryostatInstance
 			var oldSecret *corev1.Secret
 			BeforeEach(func() {
@@ -1592,9 +1598,11 @@ func (c *controllerTest) commonTests() {
 				})
 			})
 		})
-		Context("with secret provided for database password", func() {
+		Context("with secret provided for database", func() {
+			var customSecret *corev1.Secret
 			BeforeEach(func() {
-				t.objs = append(t.objs, t.NewCryostatWithDatabaseSecretProvided().Object)
+				customSecret = t.NewCustomDatabaseSecret()
+				t.objs = append(t.objs, t.NewCryostatWithDatabaseSecretProvided().Object, customSecret)
 			})
 			JustBeforeEach(func() {
 				t.reconcileCryostatFully()
@@ -1602,16 +1610,20 @@ func (c *controllerTest) commonTests() {
 			It("should configure deployment appropriately", func() {
 				t.expectMainDeployment()
 			})
+			It("should set Database Secret in CR Status", func() {
+				instance := t.getCryostatInstance()
+				Expect(instance.Status.DatabaseSecret).To(Equal(customSecret.Name))
+			})
 			It("should not generate default secret", func() {
 				secret := &corev1.Secret{}
 				err := t.Client.Get(context.Background(), types.NamespacedName{Name: t.Name + "-db", Namespace: t.Namespace}, secret)
 				Expect(kerrors.IsNotFound(err)).To(BeTrue())
 			})
-			Context("with an existing Credentials Database Secret", func() {
+			Context("with an existing Database Secret", func() {
 				BeforeEach(func() {
 					t.objs = append(t.objs, t.NewDatabaseSecret())
 				})
-				It("should not delete the existing Credentials Database Secret", func() {
+				It("should not delete the existing Database Secret", func() {
 					secret := &corev1.Secret{}
 					err := t.Client.Get(context.Background(), types.NamespacedName{Name: t.Name + "-db", Namespace: t.Namespace}, secret)
 					Expect(err).ToNot(HaveOccurred())
@@ -2356,7 +2368,7 @@ func (t *cryostatTestInput) expectEmptyDir(expectedEmptyDir *corev1.EmptyDirVolu
 	Expect(emptyDir.SizeLimit).To(Equal(expectedEmptyDir.SizeLimit))
 }
 
-func (t *cryostatTestInput) expectCredentialsDatabaseSecret() {
+func (t *cryostatTestInput) expectDatabaseSecret() {
 	secret := &corev1.Secret{}
 	err := t.Client.Get(context.Background(), types.NamespacedName{Name: t.Name + "-db", Namespace: t.Namespace}, secret)
 	Expect(err).ToNot(HaveOccurred())
@@ -2396,6 +2408,16 @@ func (t *cryostatTestInput) expectCoreService() {
 func (t *cryostatTestInput) expectStatusApplicationURL() {
 	instance := t.getCryostatInstance()
 	Expect(instance.Status.ApplicationURL).To(Equal(fmt.Sprintf("https://%s.example.com", t.Name)))
+}
+
+func (t *cryostatTestInput) expectStatusDatabaseSecret() {
+	instance := t.getCryostatInstance()
+	Expect(instance.Status.DatabaseSecret).To(Equal(fmt.Sprintf("%s-db", t.Name)))
+}
+
+func (t *cryostatTestInput) expectStatusStorageSecret() {
+	instance := t.getCryostatInstance()
+	Expect(instance.Status.StorageSecret).To(Equal(fmt.Sprintf("%s-storage-secret-key", t.Name)))
 }
 
 func (t *cryostatTestInput) expectDeploymentHasCertSecrets() {
