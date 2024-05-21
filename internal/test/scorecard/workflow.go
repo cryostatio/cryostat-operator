@@ -22,10 +22,9 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-func (r *TestResources) recordingFlow(target *Target, apiClient *CryostatRESTClientset) error {
-	connectUrl := target.ConnectUrl
+func (r *TestResources) recordingFlow(target *Target, apiClient *CryostatRESTClientset, ctx context.Context) error {
 	jmxSecretName := r.Name + "-jmx-auth"
-	secret, err := r.Client.CoreV1().Secrets(r.Namespace).Get(context.Background(), jmxSecretName, metav1.GetOptions{})
+	secret, err := r.Client.CoreV1().Secrets(r.Namespace).Get(ctx, jmxSecretName, metav1.GetOptions{})
 	if err != nil {
 		return fmt.Errorf("failed to get jmx credentials: %s", err.Error())
 	}
@@ -36,15 +35,16 @@ func (r *TestResources) recordingFlow(target *Target, apiClient *CryostatRESTCli
 		MatchExpression: fmt.Sprintf("target.alias==\"%s\"", target.Alias),
 	}
 
-	err = apiClient.CredentialClient.Create(context.Background(), credential)
+	err = apiClient.CredentialClient.Create(ctx, credential)
 	if err != nil {
 		return fmt.Errorf("failed to create stored credential: %s", err.Error())
 	}
 	r.Log += fmt.Sprintf("created stored credential with match expression: %s\n", credential.MatchExpression)
 
 	// Wait for Cryostat to update the discovery tree
-	time.Sleep(30 * time.Second)
+	time.Sleep(2 * time.Second)
 
+	connectUrl := target.ConnectUrl
 	// Create a recording
 	options := &RecordingCreateOptions{
 		RecordingName: "scorecard_test_rec",
@@ -54,14 +54,14 @@ func (r *TestResources) recordingFlow(target *Target, apiClient *CryostatRESTCli
 		MaxSize:       0,
 		MaxAge:        0,
 	}
-	rec, err := apiClient.Recordings().Create(context.Background(), connectUrl, options)
+	rec, err := apiClient.Recordings().Create(ctx, connectUrl, options)
 	if err != nil {
 		return fmt.Errorf("failed to create a recording: %s", err.Error())
 	}
 	r.Log += fmt.Sprintf("created a recording: %+v\n", rec)
 
 	// View the current recording list after creating one
-	recs, err := apiClient.Recordings().List(context.Background(), connectUrl)
+	recs, err := apiClient.Recordings().List(ctx, connectUrl)
 	if err != nil {
 		return fmt.Errorf("failed to list recordings: %s", err.Error())
 	}
@@ -71,31 +71,32 @@ func (r *TestResources) recordingFlow(target *Target, apiClient *CryostatRESTCli
 	time.Sleep(30 * time.Second)
 
 	// Archive the recording
-	archiveName, err := apiClient.Recordings().Archive(context.Background(), connectUrl, rec.Name)
+	archiveName, err := apiClient.Recordings().Archive(ctx, connectUrl, rec.Name)
 	if err != nil {
 		return fmt.Errorf("failed to archive the recording: %s", err.Error())
+
 	}
 	r.Log += fmt.Sprintf("archived the recording %s at: %s\n", rec.Name, archiveName)
 
-	archives, err := apiClient.Recordings().ListArchives(context.Background(), connectUrl)
+	archives, err := apiClient.Recordings().ListArchives(ctx, connectUrl)
 	if err != nil {
 		return fmt.Errorf("failed to list archives: %s", err.Error())
 	}
 	r.Log += fmt.Sprintf("current list of archives: %+v\n", archives)
 
-	report, err := apiClient.Recordings().GenerateReport(context.Background(), connectUrl, rec)
+	report, err := apiClient.Recordings().GenerateReport(ctx, connectUrl, rec)
 	if err != nil {
 		return fmt.Errorf("failed to generate report for the recording: %s", err.Error())
 	}
 	r.Log += fmt.Sprintf("generated report for the recording %s: %+v\n", rec.Name, report)
 
 	// Stop the recording
-	err = apiClient.Recordings().Stop(context.Background(), connectUrl, rec.Name)
+	err = apiClient.Recordings().Stop(ctx, connectUrl, rec.Name)
 	if err != nil {
 		return fmt.Errorf("failed to stop the recording %s: %s", rec.Name, err.Error())
 	}
 	// Get the recording to verify its state
-	rec, err = apiClient.Recordings().Get(context.Background(), connectUrl, rec.Name)
+	rec, err = apiClient.Recordings().Get(ctx, connectUrl, rec.Name)
 	if err != nil {
 		return fmt.Errorf("failed to get the recordings: %s", err.Error())
 	}
@@ -105,14 +106,14 @@ func (r *TestResources) recordingFlow(target *Target, apiClient *CryostatRESTCli
 	r.Log += fmt.Sprintf("stopped the recording: %s\n", rec.Name)
 
 	// Delete the recording
-	err = apiClient.Recordings().Delete(context.Background(), connectUrl, rec.Name)
+	err = apiClient.Recordings().Delete(ctx, connectUrl, rec.Name)
 	if err != nil {
 		return fmt.Errorf("failed to delete the recording %s: %s", rec.Name, err.Error())
 	}
 	r.Log += fmt.Sprintf("deleted the recording: %s\n", rec.Name)
 
 	// View the current recording list after deleting one
-	recs, err = apiClient.Recordings().List(context.Background(), connectUrl)
+	recs, err = apiClient.Recordings().List(ctx, connectUrl)
 	if err != nil {
 		return fmt.Errorf("failed to list recordings: %s", err.Error())
 	}

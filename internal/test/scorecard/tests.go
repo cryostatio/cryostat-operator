@@ -176,21 +176,22 @@ func CryostatRecordingTest(bundle *apimanifests.Bundle, namespace string, openSh
 	}
 
 	apiClient := NewCryostatRESTClientset(base)
+	ctx := context.Background()
 
 	// Create a custom target for test
 	targetOptions := &Target{
 		ConnectUrl: "service:jmx:rmi:///jndi/rmi://localhost:0/jmxrmi",
 		Alias:      "customTarget",
 	}
-	target, err := apiClient.Targets().Create(context.Background(), targetOptions)
+	target, err := apiClient.Targets().Create(ctx, targetOptions)
 	if err != nil {
 		return r.fail(fmt.Sprintf("failed to create a target: %s", err.Error()))
 	}
 	r.Log += fmt.Sprintf("created a custom target: %+v\n", target)
 
-	err = r.recordingFlow(target, apiClient)
+	err = r.recordingFlow(target, apiClient, ctx)
 	if err != nil {
-		return r.fail(fmt.Sprintf("failed to carry out recording actions in %s: %s", CryostatAgentTestName, err.Error()))
+		return r.fail(fmt.Sprintf("failed to carry out recording actions in %s: %s", CryostatRecordingTestName, err.Error()))
 	}
 
 	return r.TestResult
@@ -267,13 +268,14 @@ func CryostatAgentTest(bundle *apimanifests.Bundle, namespace string, openShiftC
 	}
 
 	apiClient := NewCryostatRESTClientset(base)
+	ctx := context.Background()
 
 	target, err := r.getSampleAppTarget(apiClient)
 	if err != nil {
 		return r.fail(fmt.Sprintf("failed to register sample app: %s", err.Error()))
 	}
 
-	err = r.recordingFlow(target, apiClient)
+	err = r.recordingFlow(target, apiClient, ctx)
 	if err != nil {
 		return r.fail(fmt.Sprintf("failed to carry out recording actions in %s: %s", CryostatAgentTestName, err.Error()))
 	}

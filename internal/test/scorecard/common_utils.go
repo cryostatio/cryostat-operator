@@ -495,7 +495,7 @@ func (r *TestResources) createAndWaitTillCryostatAvailable(cr *operatorv1beta1.C
 	// Poll the deployment until it becomes available or we timeout
 	ctx, cancel := context.WithTimeout(context.Background(), testTimeout)
 	defer cancel()
-	err = r.waitForDeploymentAvailability(r.Namespace, r.Name, ctx)
+	err = r.waitForDeploymentAvailability(cr.Namespace, cr.Name, ctx)
 	if err != nil {
 		r.logError(fmt.Sprintf("Cryostat main deployment did not become available: %s", err.Error()))
 		return nil, err
