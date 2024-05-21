@@ -55,12 +55,12 @@ type TestResources struct {
 	*scapiv1alpha3.TestResult
 }
 
-func (r *TestResources) waitForDeploymentAvailability(ctx context.Context) error {
+func (r *TestResources) waitForDeploymentAvailability(namespace string, name string, ctx context.Context) error {
 	err := wait.PollImmediateUntilWithContext(ctx, time.Second, func(ctx context.Context) (done bool, err error) {
-		deploy, err := r.Client.AppsV1().Deployments(r.Namespace).Get(ctx, r.Name, metav1.GetOptions{})
+		deploy, err := r.Client.AppsV1().Deployments(namespace).Get(ctx, name, metav1.GetOptions{})
 		if err != nil {
 			if kerrors.IsNotFound(err) {
-				r.Log += fmt.Sprintf("deployment %s is not yet found\n", r.Name)
+				r.Log += fmt.Sprintf("deployment %s is not yet found\n", name)
 				return false, nil // Retry
 			}
 			return false, fmt.Errorf("failed to get deployment: %s", err.Error())
@@ -82,7 +82,7 @@ func (r *TestResources) waitForDeploymentAvailability(ctx context.Context) error
 		return false, nil
 	})
 	if err != nil {
-		logErr := r.logWorkloadEvents(r.Namespace, r.Name)
+		logErr := r.logWorkloadEvents(r.Namespace, name)
 		if logErr != nil {
 			r.Log += fmt.Sprintf("failed to look up deployment errors: %s\n", logErr.Error())
 		}
@@ -495,7 +495,7 @@ func (r *TestResources) createAndWaitTillCryostatAvailable(cr *operatorv1beta1.C
 	// Poll the deployment until it becomes available or we timeout
 	ctx, cancel := context.WithTimeout(context.Background(), testTimeout)
 	defer cancel()
-	err = r.waitForDeploymentAvailability(ctx)
+	err = r.waitForDeploymentAvailability(r.Namespace, r.Name, ctx)
 	if err != nil {
 		r.logError(fmt.Sprintf("Cryostat main deployment did not become available: %s", err.Error()))
 		return nil, err
@@ -531,7 +531,7 @@ func (r *TestResources) createAndWaitTillClusterCryostatAvailable(cr *operatorv1
 	// Poll the deployment until it becomes available or we timeout
 	ctx, cancel := context.WithTimeout(context.Background(), testTimeout)
 	defer cancel()
-	err = r.waitForDeploymentAvailability(ctx)
+	err = r.waitForDeploymentAvailability(r.Namespace, r.Name, ctx)
 	if err != nil {
 		r.logError(fmt.Sprintf("ClusterCryostat main deployment did not become available: %s", err.Error()))
 		return nil, err
@@ -589,7 +589,7 @@ func (r *TestResources) waitTillReportReady(port int32) error {
 	ctx, cancel := context.WithTimeout(context.Background(), testTimeout)
 	defer cancel()
 
-	err := r.waitForDeploymentAvailability(ctx)
+	err := r.waitForDeploymentAvailability(r.Namespace, r.Name, ctx)
 	if err != nil {
 		return fmt.Errorf("report sidecar deployment did not become available: %s", err.Error())
 	}
@@ -835,7 +835,7 @@ func (r *TestResources) ApplyandCreateSampleApplication(deploy *appsv1.Deploymen
 		return nil, fmt.Errorf("service %s unable to be created: %s", deploy.Name, err.Error())
 	}
 
-	err = r.waitForDeploymentAvailability(ctx)
+	err = r.waitForDeploymentAvailability(r.Namespace, r.Name, ctx)
 	if err != nil {
 		r.logError(fmt.Sprintf("sample app deployment did not become available: %s", err.Error()))
 		return nil, err

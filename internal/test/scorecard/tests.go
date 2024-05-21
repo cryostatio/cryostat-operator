@@ -48,7 +48,7 @@ func OperatorInstallTest(bundle *apimanifests.Bundle, namespace string, openShif
 	// Poll the deployment until it becomes available or we timeout
 	ctx, cancel := context.WithTimeout(context.Background(), testTimeout)
 	defer cancel()
-	err = r.waitForDeploymentAvailability(ctx)
+	err = r.waitForDeploymentAvailability(namespace, operatorDeploymentName, ctx)
 	if err != nil {
 		return r.fail(fmt.Sprintf("operator deployment did not become available: %s", err.Error()))
 	}
