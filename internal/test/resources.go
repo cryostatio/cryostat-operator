@@ -1863,7 +1863,7 @@ func (r *TestResources) NewDatabaseReadinessProbe() *corev1.Probe {
 	}
 }
 
-func (r *TestResources) NewAuthProxyLivnessProbe() *corev1.Probe {
+func (r *TestResources) NewAuthProxyLivenessProbe() *corev1.Probe {
 	protocol := corev1.URISchemeHTTP
 	if r.TLS {
 		protocol = corev1.URISchemeHTTPS

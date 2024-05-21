@@ -2896,7 +2896,7 @@ func (t *cryostatTestInput) checkAuthProxyContainer(container *corev1.Container,
 	Expect(container.Env).To(ConsistOf(t.NewAuthProxyEnvironmentVariables(basicAuthConfigured, basicAuthFilename)))
 	Expect(container.EnvFrom).To(ConsistOf(t.NewAuthProxyEnvFromSource()))
 	Expect(container.VolumeMounts).To(ConsistOf(t.NewAuthProxyVolumeMounts(basicAuthConfigured)))
-	Expect(container.LivenessProbe).To(Equal(t.NewAuthProxyLivnessProbe()))
+	Expect(container.LivenessProbe).To(Equal(t.NewAuthProxyLivenessProbe()))
 	Expect(container.SecurityContext).To(Equal(securityContext))
 
 	test.ExpectResourceRequirements(&container.Resources, resources)
