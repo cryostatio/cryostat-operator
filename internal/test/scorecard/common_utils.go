@@ -22,6 +22,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"strings"
 	"time"
 
 	operatorv1beta2 "github.com/cryostatio/cryostat-operator/api/v1beta2"
@@ -35,6 +36,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/util/retry"
@@ -46,7 +48,6 @@ const (
 )
 
 type TestResources struct {
-	Name             string
 	Namespace        string
 	TargetNamespaces []string
 	OpenShift        bool
@@ -206,7 +207,6 @@ func newEmptyTestResult(testName string) *scapiv1alpha3.TestResult {
 
 func newTestResources(testName string, namespace string) *TestResources {
 	return &TestResources{
-		Name:       testName,
 		Namespace:  namespace,
 		TestResult: newEmptyTestResult(testName),
 	}
@@ -322,6 +322,169 @@ func configureIngress(name string, cryostatSpec *operatorv1beta2.CryostatSpec) {
 							},
 						},
 					},
+				},
+			},
+		},
+	}
+}
+
+func (r *TestResources) newSampleApp() *appsv1.Deployment {
+	replicas := int32(1)
+
+	deploy := &appsv1.Deployment{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "quarkus-test-agent",
+			Namespace: r.Namespace,
+			Labels: map[string]string{
+				"app": "quarkus-test-agent",
+			},
+		},
+		Spec: appsv1.DeploymentSpec{
+			Replicas: &replicas,
+			Selector: &metav1.LabelSelector{
+				MatchLabels: map[string]string{
+					"app": "quarkus-test-agent",
+				},
+			},
+			Template: corev1.PodTemplateSpec{
+				ObjectMeta: metav1.ObjectMeta{
+					Labels: map[string]string{
+						"app": "quarkus-test-agent",
+					},
+				},
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{
+						{
+							Name:            "quarkus-test-agent",
+							Image:           "quay.io/miwan/quarkus-test:0.3.1",
+							ImagePullPolicy: corev1.PullAlways,
+							Env: []corev1.EnvVar{
+								{
+									Name:  "CRYOSTAT_AGENT_APP_NAME",
+									Value: "agent-test",
+								},
+								{
+									Name:  "CRYOSTAT_AGENT_BASEURI",
+									Value: fmt.Sprintf("https://cryostat-agent.%s.svc:8181", r.Namespace),
+								},
+								{
+									Name:  "CRYOSTAT_AGENT_CALLBACK",
+									Value: "http://quarkus-test-agent:9977",
+								},
+								{
+									Name:  "CRYOSTAT_AGENT_AUTHORIZATION",
+									Value: "Bearer abcd1234",
+								},
+								{
+									Name: "KEYSTORE_PASS",
+									ValueFrom: &corev1.EnvVarSource{
+										SecretKeyRef: &corev1.SecretKeySelector{
+											Key: "KEYSTORE_PASS",
+											LocalObjectReference: corev1.LocalObjectReference{
+												Name: "cryostat-agent-keystore",
+											},
+										},
+									},
+								},
+								{
+									Name: "JAVA_OPTS_APPEND",
+									Value: `-Dquarkus.http.host=0.0.0.0 
+									-Djava.util.logging.manager=org.jboss.logmanager.LogManager
+									-Dcom.sun.management.jmxremote.port=9097
+									-Dcom.sun.management.jmxremote.ssl=false
+									-Dcom.sun.management.jmxremote.authenticate=false
+									-javaagent:/deployments/app/cryostat-agent.jar
+									-Djavax.net.ssl.trustStore=/var/run/secrets/myapp/truststore.p12
+									-Djavax.net.ssl.trustStorePassword=$(KEYSTORE_PASS)`,
+								},
+							},
+							Ports: []corev1.ContainerPort{
+								{
+									ContainerPort: 10010,
+									Protocol:      corev1.ProtocolTCP,
+								},
+								{
+									ContainerPort: 9097,
+									Protocol:      corev1.ProtocolTCP,
+								},
+							},
+							Resources: corev1.ResourceRequirements{
+								Requests: corev1.ResourceList{
+									corev1.ResourceCPU:    resource.MustParse("200m"),
+									corev1.ResourceMemory: resource.MustParse("96Mi"),
+								},
+								Limits: corev1.ResourceList{
+									corev1.ResourceCPU:    resource.MustParse("500m"),
+									corev1.ResourceMemory: resource.MustParse("128Mi"),
+								},
+							},
+							SecurityContext: &corev1.SecurityContext{
+								AllowPrivilegeEscalation: &[]bool{false}[0],
+								Capabilities: &corev1.Capabilities{
+									Drop: []corev1.Capability{"ALL"},
+								},
+							},
+							VolumeMounts: []corev1.VolumeMount{
+								{
+									Name:      "truststore",
+									MountPath: "/var/run/secrets/myapp/truststore.p12",
+									SubPath:   "truststore.p12",
+								},
+							},
+						},
+					},
+					RestartPolicy: corev1.RestartPolicyAlways,
+					SecurityContext: &corev1.PodSecurityContext{
+						RunAsNonRoot: &[]bool{true}[0],
+					},
+					Volumes: []corev1.Volume{
+						{
+							Name: "truststore",
+							VolumeSource: corev1.VolumeSource{
+								Secret: &corev1.SecretVolumeSource{
+									SecretName: "cryostat-agent-tls",
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+	return deploy
+}
+
+func (r *TestResources) newSampleService() *corev1.Service {
+	return &corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "quarkus-test-agent",
+			Namespace: r.Namespace,
+			Labels: map[string]string{
+				"app": "quarkus-test-agent",
+			},
+		},
+		Spec: corev1.ServiceSpec{
+			Selector: map[string]string{
+				"app": "quarkus-test-agent",
+			},
+			Ports: []corev1.ServicePort{
+				{
+					Name:       "app-http",
+					Port:       10010,
+					TargetPort: intstr.FromInt(10010),
+					Protocol:   corev1.ProtocolTCP,
+				},
+				{
+					Name:       "agent-http",
+					Port:       9977,
+					TargetPort: intstr.FromInt(9977),
+					Protocol:   corev1.ProtocolTCP,
+				},
+				{
+					Name:       "jfr-jmx",
+					Port:       9097,
+					TargetPort: intstr.FromInt(9097),
+					Protocol:   corev1.ProtocolTCP,
 				},
 			},
 		},
@@ -611,4 +774,52 @@ func (r *TestResources) getPodnamesForSelector(namespace string, selector metav1
 		LabelSelector: labelSelector,
 	})
 	return pods.Items, err
+}
+
+func (r *TestResources) applyAndCreateSampleApplication(deploy *appsv1.Deployment, svc *corev1.Service) (*appsv1.Deployment, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), testTimeout)
+	defer cancel()
+	deploy, err := r.Client.AppsV1().Deployments(deploy.Namespace).Create(ctx, deploy, metav1.CreateOptions{})
+	if err != nil {
+		return nil, fmt.Errorf("deployment %s unable to be created: %s", deploy.Name, err.Error())
+	}
+
+	_, err = r.Client.CoreV1().Services(svc.Namespace).Create(ctx, svc, metav1.CreateOptions{})
+	if err != nil {
+		return nil, fmt.Errorf("service %s unable to be created: %s", deploy.Name, err.Error())
+	}
+
+	err = r.waitForDeploymentAvailability(ctx, r.Name, r.Namespace)
+	if err != nil {
+		r.logError(fmt.Sprintf("sample app deployment did not become available: %s", err.Error()))
+		return nil, err
+	}
+
+	return deploy, nil
+}
+
+func (r *TestResources) getSampleAppTarget(apiClient *CryostatRESTClientset) (*Target, error) {
+	var sampleAppTarget *Target
+
+	ctx, cancel := context.WithTimeout(context.Background(), testTimeout)
+	defer cancel()
+	err := wait.PollImmediateUntilWithContext(ctx, time.Second, func(ctx context.Context) (done bool, err error) {
+		targets, err := apiClient.Targets().List(ctx)
+		if err != nil {
+			return false, fmt.Errorf("failed to list targets: %s", err.Error())
+		}
+		for _, target := range targets {
+			if strings.Contains(target.Alias, "quarkus-test-agent") {
+				sampleAppTarget = &target
+				r.Log += fmt.Sprintf("successfully registered target: %+v\n", target)
+				return true, nil
+			}
+			r.Log += "waiting for sample app target to appear\n"
+		}
+		return false, nil
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to find sample app target: %s", err.Error())
+	}
+	return sampleAppTarget, nil
 }

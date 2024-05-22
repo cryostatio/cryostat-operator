@@ -18,7 +18,6 @@ import (
 	"context"
 	"fmt"
 	"net/url"
-	"time"
 
 	operatorv1beta2 "github.com/cryostatio/cryostat-operator/api/v1beta2"
 	scapiv1alpha3 "github.com/operator-framework/api/pkg/apis/scorecard/v1alpha3"
@@ -32,6 +31,7 @@ const (
 	CryostatRecordingTestName      string = "cryostat-recording"
 	CryostatConfigChangeTestName   string = "cryostat-config-change"
 	CryostatReportTestName         string = "cryostat-report"
+	CryostatAgentTestName          string = "cryostat-agent"
 )
 
 // OperatorInstallTest checks that the operator installed correctly
@@ -185,81 +185,10 @@ func CryostatRecordingTest(bundle *apimanifests.Bundle, namespace string, openSh
 	}
 	r.Log += fmt.Sprintf("created a custom target: %+v\n", target)
 
-	// Wait for Cryostat to update the discovery tree
-	time.Sleep(2 * time.Second)
-
-	// Create a recording
-	options := &RecordingCreateOptions{
-		RecordingName: "scorecard_test_rec",
-		Events:        "template=ALL",
-		Duration:      0, // Continuous
-		ToDisk:        true,
-		MaxSize:       0,
-		MaxAge:        0,
-	}
-	rec, err := apiClient.Recordings().Create(context.Background(), target, options)
+	err = r.recordingFlow(target, apiClient)
 	if err != nil {
-		return r.fail(fmt.Sprintf("failed to create a recording: %s", err.Error()))
+		return r.fail(fmt.Sprintf("failed to carry out recording actions in %s: %s", CryostatRecordingTestName, err.Error()))
 	}
-	r.Log += fmt.Sprintf("created a recording: %+v\n", rec)
-
-	// View the current recording list after creating one
-	recs, err := apiClient.Recordings().List(context.Background(), target)
-	if err != nil {
-		return r.fail(fmt.Sprintf("failed to list recordings: %s", err.Error()))
-	}
-	r.Log += fmt.Sprintf("current list of recordings: %+v\n", recs)
-
-	// Allow the recording to run for 30s
-	time.Sleep(30 * time.Second)
-
-	// Archive the recording
-	archiveName, err := apiClient.Recordings().Archive(context.Background(), target, rec.Id)
-	if err != nil {
-		return r.fail(fmt.Sprintf("failed to archive the recording: %s", err.Error()))
-	}
-	r.Log += fmt.Sprintf("archived the recording %s at: %s\n", rec.Name, archiveName)
-
-	archives, err := apiClient.Recordings().ListArchives(context.Background(), target)
-	if err != nil {
-		return r.fail(fmt.Sprintf("failed to list archives: %s", err.Error()))
-	}
-	r.Log += fmt.Sprintf("current list of archives: %+v\n", archives)
-
-	report, err := apiClient.Recordings().GenerateReport(context.Background(), target, rec)
-	if err != nil {
-		return r.fail(fmt.Sprintf("failed to generate report for the recording: %s", err.Error()))
-	}
-	r.Log += fmt.Sprintf("generated report for the recording %s: %+v\n", rec.Name, report)
-
-	// Stop the recording
-	err = apiClient.Recordings().Stop(context.Background(), target, rec.Id)
-	if err != nil {
-		return r.fail(fmt.Sprintf("failed to stop the recording %s: %s", rec.Name, err.Error()))
-	}
-	// Get the recording to verify its state
-	rec, err = apiClient.Recordings().Get(context.Background(), target, rec.Name)
-	if err != nil {
-		return r.fail(fmt.Sprintf("failed to get the recordings: %s", err.Error()))
-	}
-	if rec.State != "STOPPED" {
-		return r.fail(fmt.Sprintf("recording %s failed to stop: %s", rec.Name, err.Error()))
-	}
-	r.Log += fmt.Sprintf("stopped the recording: %s\n", rec.Name)
-
-	// Delete the recording
-	err = apiClient.Recordings().Delete(context.Background(), target, rec.Id)
-	if err != nil {
-		return r.fail(fmt.Sprintf("failed to delete the recording %s: %s", rec.Name, err.Error()))
-	}
-	r.Log += fmt.Sprintf("deleted the recording: %s\n", rec.Name)
-
-	// View the current recording list after deleting one
-	recs, err = apiClient.Recordings().List(context.Background(), target)
-	if err != nil {
-		return r.fail(fmt.Sprintf("failed to list recordings: %s", err.Error()))
-	}
-	r.Log += fmt.Sprintf("current list of recordings: %+v\n", recs)
 
 	return r.TestResult
 }
@@ -300,6 +229,58 @@ func CryostatReportTest(bundle *apimanifests.Bundle, namespace string, openShift
 	err = r.StartLogs(cr)
 	if err != nil {
 		r.Log += fmt.Sprintf("failed to retrieve logs for the application: %s", err.Error())
+	}
+
+	return r.TestResult
+}
+
+func CryostatAgentTest(bundle *apimanifests.Bundle, namespace string, openShiftCertManager bool) *scapiv1alpha3.TestResult {
+	r := newTestResources(CryostatAgentTestName, namespace)
+
+	err := r.setupCRTestResources(openShiftCertManager)
+	if err != nil {
+		return r.fail(fmt.Sprintf("failed to set up %s test: %s", CryostatAgentTestName, err.Error()))
+	}
+	defer r.cleanupAndLogs()
+
+	// Create a default Cryostat CR
+	cr, err := r.createAndWaitTillCryostatAvailable(r.newCryostatCR())
+	if err != nil {
+		return r.fail(fmt.Sprintf("failed to determine application URL: %s", err.Error()))
+	}
+	err = r.StartLogs(cr)
+	if err != nil {
+		r.Log += fmt.Sprintf("failed to retrieve logs for the application: %s", err.Error())
+	}
+
+	base, err := url.Parse(cr.Status.ApplicationURL)
+	if err != nil {
+		return r.fail(fmt.Sprintf("application URL is invalid: %s", err.Error()))
+	}
+
+	err = r.waitTillCryostatReady(base)
+	if err != nil {
+		return r.fail(fmt.Sprintf("failed to reach the application: %s", err.Error()))
+	}
+
+	svc := r.newSampleService()
+	_, err = r.applyAndCreateSampleApplication(r.newSampleApp(), svc)
+	if err != nil {
+		return r.fail(fmt.Sprintf("application failed to be deployed: %s", err.Error()))
+	}
+
+	apiClient := NewCryostatRESTClientset(base)
+
+	// Create a custom target for test
+	target, err := r.getSampleAppTarget(apiClient)
+	if err != nil {
+		return r.fail(fmt.Sprintf("failed to register sample app: %s", err.Error()))
+	}
+	r.Log += fmt.Sprintf("created a quarkus-test-agent target: %+v\n", target)
+
+	err = r.recordingFlow(target, apiClient)
+	if err != nil {
+		return r.fail(fmt.Sprintf("failed to carry out recording actions in %s: %s", CryostatRecordingTestName, err.Error()))
 	}
 
 	return r.TestResult
