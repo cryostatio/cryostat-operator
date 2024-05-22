@@ -389,7 +389,7 @@ func (r *TestResources) newSampleApp() *appsv1.Deployment {
 					Containers: []corev1.Container{
 						{
 							Name:            "quarkus-test-agent",
-							Image:           "quay.io/miwan/quarkus-test:0.4.0-snapshot",
+							Image:           "quay.io/miwan/quarkus-test:0.3.1",
 							ImagePullPolicy: corev1.PullAlways,
 							Env: []corev1.EnvVar{
 								{
@@ -407,6 +407,21 @@ func (r *TestResources) newSampleApp() *appsv1.Deployment {
 								{
 									Name:  "CRYOSTAT_AGENT_AUTHORIZATION",
 									Value: "Bearer abcd1234",
+								},
+								{
+									Name: "KEYSTORE_PASS",
+									ValueFrom: &corev1.EnvVarSource{
+										SecretKeyRef: &corev1.SecretKeySelector{
+											Key: "KEYSTORE_PASS",
+											LocalObjectReference: corev1.LocalObjectReference{
+												Name: "cryostat-agent-keystore",
+											},
+										},
+									},
+								},
+								{
+									Name:  "JAVA_OPTS_APPEND",
+									Value: "-Djavax.net.ssl.trustStore=/var/run/secrets/myapp/truststore.p12 -Djavax.net.ssl.trustStorePassword=$(KEYSTORE_PASS)",
 								},
 							},
 							Ports: []corev1.ContainerPort{
@@ -435,11 +450,28 @@ func (r *TestResources) newSampleApp() *appsv1.Deployment {
 									Drop: []corev1.Capability{"ALL"},
 								},
 							},
+							VolumeMounts: []corev1.VolumeMount{
+								{
+									Name:      "truststore",
+									MountPath: "/var/run/secrets/myapp/truststore.p12",
+									SubPath:   "truststore.p12",
+								},
+							},
 						},
 					},
 					RestartPolicy: corev1.RestartPolicyAlways,
 					SecurityContext: &corev1.PodSecurityContext{
 						RunAsNonRoot: &[]bool{true}[0],
+					},
+					Volumes: []corev1.Volume{
+						{
+							Name: "truststore",
+							VolumeSource: corev1.VolumeSource{
+								Secret: &corev1.SecretVolumeSource{
+									SecretName: "cryostat-agent-tls",
+								},
+							},
+						},
 					},
 				},
 			},
@@ -860,7 +892,7 @@ func (r *TestResources) getSampleAppTarget(apiClient *CryostatRESTClientset) (*T
 				r.Log += fmt.Sprintf("successfully registered target: %+v\n", target)
 				return true, nil
 			}
-			r.Log += "waiting for sample app target to appear"
+			r.Log += "waiting for sample app target to appear\n"
 		}
 		return false, nil
 	})
