@@ -245,7 +245,7 @@ func convertTargetDiscoveryTo(srcOpts *TargetDiscoveryOptions) *operatorv1beta2.
 	var dstOpts *operatorv1beta2.TargetDiscoveryOptions
 	if srcOpts != nil {
 		dstOpts = &operatorv1beta2.TargetDiscoveryOptions{
-			BuiltInDiscoveryDisabled:  srcOpts.BuiltInDiscoveryDisabled,
+			DisableBuiltInDiscovery:   srcOpts.BuiltInDiscoveryDisabled,
 			DisableBuiltInPortNames:   srcOpts.DisableBuiltInPortNames,
 			DiscoveryPortNames:        srcOpts.DiscoveryPortNames,
 			DisableBuiltInPortNumbers: srcOpts.DisableBuiltInPortNumbers,
@@ -507,7 +507,7 @@ func convertTargetDiscoveryFrom(srcOpts *operatorv1beta2.TargetDiscoveryOptions)
 	var dstOpts *TargetDiscoveryOptions
 	if srcOpts != nil {
 		dstOpts = &TargetDiscoveryOptions{
-			BuiltInDiscoveryDisabled:  srcOpts.BuiltInDiscoveryDisabled,
+			BuiltInDiscoveryDisabled:  srcOpts.DisableBuiltInDiscovery,
 			DisableBuiltInPortNames:   srcOpts.DisableBuiltInPortNames,
 			DiscoveryPortNames:        srcOpts.DiscoveryPortNames,
 			DisableBuiltInPortNumbers: srcOpts.DisableBuiltInPortNumbers,

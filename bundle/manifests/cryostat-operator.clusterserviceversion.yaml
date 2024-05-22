@@ -53,7 +53,7 @@ metadata:
     capabilities: Seamless Upgrades
     categories: Monitoring, Developer Tools
     containerImage: quay.io/cryostat/cryostat-operator:3.0.0-dev
-    createdAt: "2024-05-27T20:00:30Z"
+    createdAt: "2024-05-28T20:14:14Z"
     description: JVM monitoring and profiling tool
     operatorframework.io/initialization-resource: |-
       {
@@ -842,17 +842,19 @@ spec:
       - description: When true, the Cryostat application will disable the built-in
           discovery mechanisms. Defaults to false
         displayName: Disable Built-in Discovery
-        path: targetDiscoveryOptions.builtInDiscoveryDisabled
+        path: targetDiscoveryOptions.disableBuiltInDiscovery
         x-descriptors:
         - urn:alm:descriptor:com.tectonic.ui:booleanSwitch
-      - description: When true, the Cryostat application will use the default port
-          name jfr-jmx to look for JMX connectable targets.
+      - description: When false and discoveryPortNames is empty, the Cryostat application
+          will use the default port name jfr-jmx to look for JMX connectable targets.
+          Defaults to false.
         displayName: Disable Built-in Port Names
         path: targetDiscoveryOptions.disableBuiltInPortNames
         x-descriptors:
         - urn:alm:descriptor:com.tectonic.ui:booleanSwitch
-      - description: When true, the Cryostat application will use the default port
-          number 9091 to look for JMX connectable targets.
+      - description: When false and discoveryPortNumbers is empty, the Cryostat application
+          will use the default port number 9091 to look for JMX connectable targets.
+          Defaults to false.
         displayName: Disable Built-in Port Numbers
         path: targetDiscoveryOptions.disableBuiltInPortNumbers
         x-descriptors:

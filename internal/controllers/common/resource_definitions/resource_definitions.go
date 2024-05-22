@@ -1095,7 +1095,7 @@ func NewCoreContainer(cr *model.CryostatInstance, specs *ServiceSpecs, imageTag 
 	k8sDiscoveryPortNames := "jfr-jmx"
 	k8sDiscoveryPortNumbers := "9091"
 	if cr.Spec.TargetDiscoveryOptions != nil {
-		k8sDiscoveryEnabled = !cr.Spec.TargetDiscoveryOptions.BuiltInDiscoveryDisabled
+		k8sDiscoveryEnabled = !cr.Spec.TargetDiscoveryOptions.DisableBuiltInDiscovery
 
 		if len(cr.Spec.TargetDiscoveryOptions.DiscoveryPortNames) > 0 {
 			k8sDiscoveryPortNames = strings.Join(cr.Spec.TargetDiscoveryOptions.DiscoveryPortNames[:], ",")

@@ -9711,17 +9711,19 @@ spec:
                 description: Options to configure the Cryostat application's target
                   discovery mechanisms.
                 properties:
-                  builtInDiscoveryDisabled:
+                  disableBuiltInDiscovery:
                     description: When true, the Cryostat application will disable
                       the built-in discovery mechanisms. Defaults to false
                     type: boolean
                   disableBuiltInPortNames:
-                    description: When true, the Cryostat application will use the
-                      default port name jfr-jmx to look for JMX connectable targets.
+                    description: When false and discoveryPortNames is empty, the Cryostat
+                      application will use the default port name jfr-jmx to look for
+                      JMX connectable targets. Defaults to false.
                     type: boolean
                   disableBuiltInPortNumbers:
-                    description: When true, the Cryostat application will use the
-                      default port number 9091 to look for JMX connectable targets.
+                    description: When false and discoveryPortNumbers is empty, the
+                      Cryostat application will use the default port number 9091 to
+                      look for JMX connectable targets. Defaults to false.
                     type: boolean
                   discoveryPortNames:
                     description: List of port names that the Cryostat application
