@@ -356,7 +356,7 @@ func (r *TestResources) newSampleApp() *appsv1.Deployment {
 					Containers: []corev1.Container{
 						{
 							Name:            "quarkus-test-agent",
-							Image:           "quay.io/miwan/quarkus-test:0.3.1",
+							Image:           "quay.io/miwan/quarkus-test:0.4.0-snapshot",
 							ImagePullPolicy: corev1.PullAlways,
 							Env: []corev1.EnvVar{
 								{
@@ -388,7 +388,7 @@ func (r *TestResources) newSampleApp() *appsv1.Deployment {
 								},
 								{
 									Name: "JAVA_OPTS_APPEND",
-									Value: `-Dquarkus.http.host=0.0.0.0 
+									Value: `-Dquarkus.http.host=0.0.0.0
 									-Djava.util.logging.manager=org.jboss.logmanager.LogManager
 									-Dcom.sun.management.jmxremote.port=9097
 									-Dcom.sun.management.jmxremote.ssl=false

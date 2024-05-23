@@ -18,10 +18,12 @@ import (
 	"context"
 	"fmt"
 	"net/url"
+	"time"
 
 	operatorv1beta2 "github.com/cryostatio/cryostat-operator/api/v1beta2"
 	scapiv1alpha3 "github.com/operator-framework/api/pkg/apis/scorecard/v1alpha3"
 	apimanifests "github.com/operator-framework/api/pkg/manifests"
+	"k8s.io/apimachinery/pkg/util/wait"
 )
 
 const (
@@ -29,6 +31,7 @@ const (
 	CryostatCRTestName             string = "cryostat-cr"
 	CryostatMultiNamespaceTestName string = "cryostat-multi-namespace"
 	CryostatRecordingTestName      string = "cryostat-recording"
+	CryostatBuiltInTestName        string = "cryostat-discovery"
 	CryostatConfigChangeTestName   string = "cryostat-config-change"
 	CryostatReportTestName         string = "cryostat-report"
 	CryostatAgentTestName          string = "cryostat-agent"
@@ -157,10 +160,6 @@ func CryostatRecordingTest(bundle *apimanifests.Bundle, namespace string, openSh
 	if err != nil {
 		return r.fail(fmt.Sprintf("failed to determine application URL: %s", err.Error()))
 	}
-	err = r.StartLogs(cr)
-	if err != nil {
-		r.Log += fmt.Sprintf("failed to retrieve logs for the application: %s", err.Error())
-	}
 
 	base, err := url.Parse(cr.Status.ApplicationURL)
 	if err != nil {
@@ -188,6 +187,67 @@ func CryostatRecordingTest(bundle *apimanifests.Bundle, namespace string, openSh
 	err = r.recordingFlow(target, apiClient)
 	if err != nil {
 		return r.fail(fmt.Sprintf("failed to carry out recording actions in %s: %s", CryostatRecordingTestName, err.Error()))
+	}
+
+	return r.TestResult
+}
+
+// TODO add a built in discovery test too
+func CryostatBuiltInTest(bundle *apimanifests.Bundle, namespace string, openShiftCertManager bool) *scapiv1alpha3.TestResult {
+	r := newTestResources(CryostatBuiltInTestName, namespace)
+
+	err := r.setupCRTestResources(openShiftCertManager)
+	if err != nil {
+		return r.fail(fmt.Sprintf("failed to set up %s test: %s", CryostatBuiltInTestName, err.Error()))
+	}
+	defer r.cleanupAndLogs()
+
+	// Create a default Cryostat CR
+	cr, err := r.createAndWaitTillCryostatAvailable(r.newCryostatCR())
+	if err != nil {
+		return r.fail(fmt.Sprintf("failed to determine application URL: %s", err.Error()))
+	}
+	err = r.StartLogs(cr)
+	if err != nil {
+		r.Log += fmt.Sprintf("failed to retrieve logs for the application: %s", err.Error())
+	}
+
+	base, err := url.Parse(cr.Status.ApplicationURL)
+	if err != nil {
+		return r.fail(fmt.Sprintf("application URL is invalid: %s", err.Error()))
+	}
+
+	err = r.waitTillCryostatReady(base)
+	if err != nil {
+		return r.fail(fmt.Sprintf("failed to reach the application: %s", err.Error()))
+	}
+
+	apiClient := NewCryostatRESTClientset(base)
+
+	var target Target
+	ctx, cancel := context.WithTimeout(context.Background(), testTimeout)
+	defer cancel()
+	err = wait.PollUntilContextCancel(ctx, time.Second, true, func(ctx context.Context) (done bool, err error) {
+		targets, err := apiClient.Targets().List(context.Background())
+		if err != nil {
+			r.Log += fmt.Sprintf("failed to list discovered targets: %s", err.Error())
+			return false, err
+		}
+		if len(targets) == 0 {
+			r.Log += "no target is yet discovered\n"
+			return false, nil // Try again
+		}
+		target = targets[0] // Cryostat
+		r.Log += fmt.Sprintf("found a target: %+v\n", target)
+		return true, nil
+	})
+	if err != nil {
+		return r.fail(fmt.Sprintf("failed to get a target for test: %s", err.Error()))
+	}
+
+	err = r.recordingFlow(&target, apiClient)
+	if err != nil {
+		return r.fail(fmt.Sprintf("failed to carry out recording actions in %s: %s", CryostatBuiltInTestName, err.Error()))
 	}
 
 	return r.TestResult
@@ -226,11 +286,6 @@ func CryostatReportTest(bundle *apimanifests.Bundle, namespace string, openShift
 		return r.fail(fmt.Sprintf("failed to reach the application: %s", err.Error()))
 	}
 
-	err = r.StartLogs(cr)
-	if err != nil {
-		r.Log += fmt.Sprintf("failed to retrieve logs for the application: %s", err.Error())
-	}
-
 	return r.TestResult
 }
 
@@ -247,10 +302,6 @@ func CryostatAgentTest(bundle *apimanifests.Bundle, namespace string, openShiftC
 	cr, err := r.createAndWaitTillCryostatAvailable(r.newCryostatCR())
 	if err != nil {
 		return r.fail(fmt.Sprintf("failed to determine application URL: %s", err.Error()))
-	}
-	err = r.StartLogs(cr)
-	if err != nil {
-		r.Log += fmt.Sprintf("failed to retrieve logs for the application: %s", err.Error())
 	}
 
 	base, err := url.Parse(cr.Status.ApplicationURL)
@@ -271,7 +322,7 @@ func CryostatAgentTest(bundle *apimanifests.Bundle, namespace string, openShiftC
 
 	apiClient := NewCryostatRESTClientset(base)
 
-	// Create a custom target for test
+	// Look for sample app target
 	target, err := r.getSampleAppTarget(apiClient)
 	if err != nil {
 		return r.fail(fmt.Sprintf("failed to register sample app: %s", err.Error()))

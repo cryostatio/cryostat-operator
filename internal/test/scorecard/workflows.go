@@ -23,7 +23,7 @@ import (
 )
 
 func (r *TestResources) recordingFlow(target *Target, apiClient *CryostatRESTClientset) error {
-	jmxSecretName := CryostatRecordingTestName + "-jmx-auth"
+	jmxSecretName := r.Name + "-jmx-auth"
 	secret, err := r.Client.CoreV1().Secrets(r.Namespace).Get(context.Background(), jmxSecretName, metav1.GetOptions{})
 	if err != nil {
 		return fmt.Errorf("failed to get jmx credentials: %s", err.Error())
