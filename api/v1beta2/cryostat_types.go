@@ -603,7 +603,7 @@ type TargetDiscoveryOptions struct {
 type DatabaseOptions struct {
 	// Name of the secret containing database keys. This secret must contain a CONNECTION_KEY secret which is the
 	// database connection password, and an ENCRYPTION_KEY secret which is the key used to encrypt sensitive data
-	// stored within the database, such as the target credentials keyring.
+	// stored within the database, such as the target credentials keyring. Cannot be updated.
 	// +optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:io.kubernetes:Secret"}
 	SecretName *string `json:"secretName,omitempty"`

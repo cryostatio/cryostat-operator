@@ -125,6 +125,7 @@ spec:
           contain a CONNECTION_KEY secret which is the database connection password,
           and an ENCRYPTION_KEY secret which is the key used to encrypt sensitive
           data stored within the database, such as the target credentials keyring.
+          Cannot be updated.
         displayName: Secret Name
         path: databaseOptions.secretName
         x-descriptors:

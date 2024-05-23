@@ -53,7 +53,7 @@ metadata:
     capabilities: Seamless Upgrades
     categories: Monitoring, Developer Tools
     containerImage: quay.io/cryostat/cryostat-operator:3.0.0-dev
-    createdAt: "2024-05-28T20:14:14Z"
+    createdAt: "2024-05-31T05:18:57Z"
     description: JVM monitoring and profiling tool
     operatorframework.io/initialization-resource: |-
       {
@@ -580,6 +580,7 @@ spec:
           contain a CONNECTION_KEY secret which is the database connection password,
           and an ENCRYPTION_KEY secret which is the key used to encrypt sensitive
           data stored within the database, such as the target credentials keyring.
+          Cannot be updated.
         displayName: Secret Name
         path: databaseOptions.secretName
         x-descriptors:
