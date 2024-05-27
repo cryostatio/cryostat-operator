@@ -133,7 +133,7 @@ func (r *Reconciler) reconcileDatabaseConnectionSecret(ctx context.Context, cr *
 
 // storageSecretNameSuffix is the suffix to be appended to the name of a
 // Cryostat CR to name its object storage secret
-const storageSecretNameSuffix = "-storage-secret-key"
+const storageSecretNameSuffix = "-storage"
 
 // storageSecretUserKey indexes the password within the Cryostat storage Secret
 const storageSecretPassKey = "SECRET_KEY"
