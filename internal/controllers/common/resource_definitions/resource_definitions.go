@@ -1019,7 +1019,7 @@ func NewCoreContainer(cr *model.CryostatInstance, specs *ServiceSpecs, imageTag 
 		Value: "cryostat",
 	})
 
-	secretName = cr.Name + "-storage-secret-key"
+	secretName = cr.Name + "-storage"
 	envs = append(envs, corev1.EnvVar{
 		Name: "QUARKUS_S3_AWS_CREDENTIALS_STATIC_PROVIDER_SECRET_ACCESS_KEY",
 		ValueFrom: &corev1.EnvVarSource{
@@ -1317,7 +1317,7 @@ func NewStorageContainer(cr *model.CryostatInstance, imageTag string, tls *TLSCo
 		},
 	}
 
-	secretName := cr.Name + "-storage-secret-key"
+	secretName := cr.Name + "-storage"
 	optional := false
 	envs = append(envs, corev1.EnvVar{
 		Name: "CRYOSTAT_SECRET_KEY",

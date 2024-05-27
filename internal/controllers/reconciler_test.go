@@ -2381,7 +2381,7 @@ func (t *cryostatTestInput) expectDatabaseSecret() {
 
 func (t *cryostatTestInput) expectStorageSecret() {
 	secret := &corev1.Secret{}
-	err := t.Client.Get(context.Background(), types.NamespacedName{Name: t.Name + "-storage-secret-key", Namespace: t.Namespace}, secret)
+	err := t.Client.Get(context.Background(), types.NamespacedName{Name: t.Name + "-storage", Namespace: t.Namespace}, secret)
 	Expect(err).ToNot(HaveOccurred())
 
 	// Compare to desired spec
@@ -2417,7 +2417,7 @@ func (t *cryostatTestInput) expectStatusDatabaseSecret() {
 
 func (t *cryostatTestInput) expectStatusStorageSecret() {
 	instance := t.getCryostatInstance()
-	Expect(instance.Status.StorageSecret).To(Equal(fmt.Sprintf("%s-storage-secret-key", t.Name)))
+	Expect(instance.Status.StorageSecret).To(Equal(fmt.Sprintf("%s-storage", t.Name)))
 }
 
 func (t *cryostatTestInput) expectDeploymentHasCertSecrets() {

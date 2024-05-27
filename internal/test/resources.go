@@ -877,7 +877,7 @@ func (r *TestResources) NewCustomDatabaseSecret() *corev1.Secret {
 func (r *TestResources) NewStorageSecret() *corev1.Secret {
 	return &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      r.Name + "-storage-secret-key",
+			Name:      r.Name + "-storage",
 			Namespace: r.Namespace,
 		},
 		StringData: map[string]string{
@@ -1495,7 +1495,7 @@ func (r *TestResources) NewStorageEnvironmentVariables() []corev1.EnvVar {
 			ValueFrom: &corev1.EnvVarSource{
 				SecretKeyRef: &corev1.SecretKeySelector{
 					LocalObjectReference: corev1.LocalObjectReference{
-						Name: r.Name + "-storage-secret-key",
+						Name: r.Name + "-storage",
 					},
 					Key:      "SECRET_KEY",
 					Optional: &[]bool{false}[0],
