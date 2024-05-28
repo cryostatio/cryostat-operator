@@ -33,10 +33,7 @@ func (r *Reconciler) reconcileSecrets(ctx context.Context, cr *model.CryostatIns
 	if err := r.reconcileDatabaseConnectionSecret(ctx, cr); err != nil {
 		return err
 	}
-	if err := r.reconcileStorageSecret(ctx, cr); err != nil {
-		return err
-	}
-	return r.reconcileJMXSecret(ctx, cr)
+	return r.reconcileStorageSecret(ctx, cr)
 }
 
 func (r *Reconciler) reconcileAuthProxyCookieSecret(ctx context.Context, cr *model.CryostatInstance) error {
@@ -55,38 +52,6 @@ func (r *Reconciler) reconcileAuthProxyCookieSecret(ctx context.Context, cr *mod
 		// secret is generated, so don't regenerate it when updating
 		if secret.CreationTimestamp.IsZero() {
 			secret.StringData["OAUTH2_PROXY_COOKIE_SECRET"] = r.GenPasswd(32)
-		}
-		return nil
-	})
-}
-
-// jmxSecretNameSuffix is the suffix to be appended to the name of a
-// Cryostat CR to name its JMX credentials secret
-const jmxSecretNameSuffix = "-jmx-auth"
-
-// jmxSecretUserKey indexes the username within the Cryostat JMX auth secret
-const jmxSecretUserKey = "CRYOSTAT_RJMX_USER"
-
-// jmxSecretPassKey indexes the password within the Cryostat JMX auth secret
-const jmxSecretPassKey = "CRYOSTAT_RJMX_PASS"
-
-func (r *Reconciler) reconcileJMXSecret(ctx context.Context, cr *model.CryostatInstance) error {
-	secret := &corev1.Secret{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      cr.Name + jmxSecretNameSuffix,
-			Namespace: cr.InstallNamespace,
-		},
-	}
-
-	return r.createOrUpdateSecret(ctx, secret, cr.Object, func() error {
-		if secret.StringData == nil {
-			secret.StringData = map[string]string{}
-		}
-		secret.StringData[jmxSecretUserKey] = "cryostat"
-
-		// Password is generated, so don't regenerate it when updating
-		if secret.CreationTimestamp.IsZero() {
-			secret.StringData[jmxSecretPassKey] = r.GenPasswd(20)
 		}
 		return nil
 	})

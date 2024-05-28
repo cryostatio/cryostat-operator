@@ -1081,15 +1081,6 @@ func NewCoreContainer(cr *model.CryostatInstance, specs *ServiceSpecs, imageTag 
 		},
 	}
 	envs = append(envs, connectionCacheEnvs...)
-	envsFrom := []corev1.EnvFromSource{
-		{
-			SecretRef: &corev1.SecretEnvSource{
-				LocalObjectReference: corev1.LocalObjectReference{
-					Name: cr.Name + "-jmx-auth",
-				},
-			},
-		},
-	}
 
 	k8sDiscoveryEnabled := true
 	k8sDiscoveryPortNames := "jfr-jmx"
@@ -1190,12 +1181,8 @@ func NewCoreContainer(cr *model.CryostatInstance, specs *ServiceSpecs, imageTag 
 			{
 				ContainerPort: constants.CryostatHTTPContainerPort,
 			},
-			{
-				ContainerPort: constants.CryostatJMXContainerPort,
-			},
 		},
 		Env:       envs,
-		EnvFrom:   envsFrom,
 		Resources: *NewCoreContainerResource(cr),
 		LivenessProbe: &corev1.Probe{
 			ProbeHandler: probeHandler,

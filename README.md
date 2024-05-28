@@ -31,14 +31,11 @@ at the URL provided by:
 ```
 kubectl get cryostat -o jsonpath='{$.items[0].status.applicationUrl}'
 ```
-The JMX authentication credentials for Cryostat itself can be obtained with:
-```shell
-CRYOSTAT_NAME=$(kubectl get cryostat -o jsonpath='{$.items[0].metadata.name}')
-# Username
-kubectl get secret ${CRYOSTAT_NAME}-jmx-auth -o jsonpath='{$.data.CRYOSTAT_RJMX_USER}' | base64 -d
-# Password
-kubectl get secret ${CRYOSTAT_NAME}-jmx-auth -o jsonpath='{$.data.CRYOSTAT_RJMX_PASS}' | base64 -d
-```
+
+To use Cryostat to monitor or profile Cryostat itself - since it is also an available JVM target -
+you may use the Cryostat web UI to define a Custom Target with the connection URL `localhost:0`.
+This is a special value which tells Cryostat's JVM that it should connect to itself directly, without
+the need to expose a JMX port over the network.
 
 # Building
 ## Requirements

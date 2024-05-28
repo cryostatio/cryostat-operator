@@ -230,12 +230,10 @@ func (r *TestResources) NewCryostatWithEmptyDirSpec() *model.CryostatInstance {
 func (r *TestResources) NewCryostatWithCoreSvc() *model.CryostatInstance {
 	svcType := corev1.ServiceTypeNodePort
 	httpPort := int32(8080)
-	jmxPort := int32(9095)
 	cr := r.NewCryostat()
 	cr.Spec.ServiceOptions = &operatorv1beta2.ServiceConfigList{
 		CoreConfig: &operatorv1beta2.CoreServiceConfig{
 			HTTPPort: &httpPort,
-			JMXPort:  &jmxPort,
 			ServiceConfig: operatorv1beta2.ServiceConfig{
 				ServiceType: &svcType,
 				Annotations: map[string]string{
@@ -665,11 +663,6 @@ func (r *TestResources) NewCryostatService() *corev1.Service {
 					Port:       4180,
 					TargetPort: intstr.FromInt(4180),
 				},
-				{
-					Name:       "jfr-jmx",
-					Port:       9091,
-					TargetPort: intstr.FromInt(9091),
-				},
 			},
 		},
 	}
@@ -790,7 +783,6 @@ func (r *TestResources) NewCustomizedCoreService() *corev1.Service {
 	svc := r.NewCryostatService()
 	svc.Spec.Type = corev1.ServiceTypeNodePort
 	svc.Spec.Ports[0].Port = 8080
-	svc.Spec.Ports[1].Port = 9095
 	svc.Annotations = map[string]string{
 		"my/custom": "annotation",
 	}
@@ -899,19 +891,6 @@ func (r *TestResources) OtherDatabaseSecret() *corev1.Secret {
 	}
 }
 
-func (r *TestResources) NewJMXSecret() *corev1.Secret {
-	return &corev1.Secret{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      r.Name + "-jmx-auth",
-			Namespace: r.Namespace,
-		},
-		StringData: map[string]string{
-			"CRYOSTAT_RJMX_USER": "cryostat",
-			"CRYOSTAT_RJMX_PASS": "jmx",
-		},
-	}
-}
-
 func (r *TestResources) NewKeystoreSecret() *corev1.Secret {
 	return &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
@@ -920,19 +899,6 @@ func (r *TestResources) NewKeystoreSecret() *corev1.Secret {
 		},
 		StringData: map[string]string{
 			"KEYSTORE_PASS": "keystore",
-		},
-	}
-}
-
-func (r *TestResources) OtherJMXSecret() *corev1.Secret {
-	return &corev1.Secret{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      r.Name + "-jmx-auth",
-			Namespace: r.Namespace,
-		},
-		StringData: map[string]string{
-			"CRYOSTAT_RJMX_USER": "not-cryostat",
-			"CRYOSTAT_RJMX_PASS": "other-pass",
 		},
 	}
 }
@@ -1152,9 +1118,6 @@ func (r *TestResources) NewCorePorts() []corev1.ContainerPort {
 	return []corev1.ContainerPort{
 		{
 			ContainerPort: 8181,
-		},
-		{
-			ContainerPort: 9091,
 		},
 	}
 }
@@ -1603,15 +1566,7 @@ func (r *TestResources) NewAuthProxyEnvFromSource() []corev1.EnvFromSource {
 }
 
 func (r *TestResources) NewCoreEnvFromSource() []corev1.EnvFromSource {
-	envsFrom := []corev1.EnvFromSource{
-		{
-			SecretRef: &corev1.SecretEnvSource{
-				LocalObjectReference: corev1.LocalObjectReference{
-					Name: r.Name + "-jmx-auth",
-				},
-			},
-		},
-	}
+	envsFrom := []corev1.EnvFromSource{}
 	return envsFrom
 }
 

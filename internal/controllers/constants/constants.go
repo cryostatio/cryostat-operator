@@ -22,7 +22,6 @@ import (
 const (
 	AuthProxyHttpContainerPort int32  = 4180
 	CryostatHTTPContainerPort  int32  = 8181
-	CryostatJMXContainerPort   int32  = 9091
 	GrafanaContainerPort       int32  = 3000
 	DatasourceContainerPort    int32  = 8989
 	ReportsContainerPort       int32  = 10000
