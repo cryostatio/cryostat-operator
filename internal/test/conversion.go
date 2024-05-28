@@ -168,12 +168,10 @@ func (r *TestResources) NewCryostatWithEmptyDirSpecV1Beta1() *operatorv1beta1.Cr
 func (r *TestResources) NewCryostatWithCoreSvcV1Beta1() *operatorv1beta1.Cryostat {
 	svcType := corev1.ServiceTypeNodePort
 	httpPort := int32(8080)
-	jmxPort := int32(9095)
 	cr := r.NewCryostatV1Beta1()
 	cr.Spec.ServiceOptions = &operatorv1beta1.ServiceConfigList{
 		CoreConfig: &operatorv1beta1.CoreServiceConfig{
 			HTTPPort: &httpPort,
-			JMXPort:  &jmxPort,
 			ServiceConfig: operatorv1beta1.ServiceConfig{
 				ServiceType: &svcType,
 				Annotations: map[string]string{
@@ -186,6 +184,13 @@ func (r *TestResources) NewCryostatWithCoreSvcV1Beta1() *operatorv1beta1.Cryosta
 			},
 		},
 	}
+	return cr
+}
+
+func (r *TestResources) NewCryostatWithCoreSvcJMXPortV1Beta1() *operatorv1beta1.Cryostat {
+	jmxPort := int32(9095)
+	cr := r.NewCryostatWithCoreSvcV1Beta1()
+	cr.Spec.ServiceOptions.CoreConfig.JMXPort = &jmxPort
 	return cr
 }
 

@@ -84,6 +84,8 @@ func tableEntriesTo() []TableEntry {
 			(*test.TestResources).NewCryostatWithIngress),
 		Entry("minimal mode", (*test.TestResources).NewCryostatWithMinimalModeV1Beta1,
 			(*test.TestResources).NewCryostat),
+		Entry("core JMX port", (*test.TestResources).NewCryostatWithCoreSvcJMXPortV1Beta1,
+			(*test.TestResources).NewCryostatWithCoreSvc),
 	)
 }
 
