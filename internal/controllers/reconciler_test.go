@@ -2580,7 +2580,7 @@ func (t *cryostatTestInput) checkMainPodTemplate(deployment *appsv1.Deployment, 
 	hasPortConfig := cr.Spec.TargetDiscoveryOptions != nil &&
 		len(cr.Spec.TargetDiscoveryOptions.DiscoveryPortNames) > 0 &&
 		len(cr.Spec.TargetDiscoveryOptions.DiscoveryPortNumbers) > 0
-	builtInDiscoveryDisabled := cr.Spec.TargetDiscoveryOptions != nil && cr.Spec.TargetDiscoveryOptions.BuiltInDiscoveryDisabled
+	builtInDiscoveryDisabled := cr.Spec.TargetDiscoveryOptions != nil && cr.Spec.TargetDiscoveryOptions.DisableBuiltInDiscovery
 	builtInPortConfigDisabled := cr.Spec.TargetDiscoveryOptions != nil &&
 		cr.Spec.TargetDiscoveryOptions.DisableBuiltInPortNames &&
 		cr.Spec.TargetDiscoveryOptions.DisableBuiltInPortNumbers

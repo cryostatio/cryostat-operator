@@ -464,7 +464,7 @@ func (r *TestResources) NewCryostatWithLowResourceLimit() *model.CryostatInstanc
 func (r *TestResources) NewCryostatWithBuiltInDiscoveryDisabled() *model.CryostatInstance {
 	cr := r.NewCryostat()
 	cr.Spec.TargetDiscoveryOptions = &operatorv1beta2.TargetDiscoveryOptions{
-		BuiltInDiscoveryDisabled: true,
+		DisableBuiltInDiscovery: true,
 	}
 	return cr
 }

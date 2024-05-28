@@ -580,8 +580,8 @@ type TargetDiscoveryOptions struct {
 	// When true, the Cryostat application will disable the built-in discovery mechanisms. Defaults to false
 	// +optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Disable Built-in Discovery",xDescriptors={"urn:alm:descriptor:com.tectonic.ui:booleanSwitch"}
-	BuiltInDiscoveryDisabled bool `json:"builtInDiscoveryDisabled,omitempty"`
-	// When true, the Cryostat application will use the default port name jfr-jmx to look for JMX connectable targets.
+	DisableBuiltInDiscovery bool `json:"disableBuiltInDiscovery,omitempty"`
+	// When false and discoveryPortNames is empty, the Cryostat application will use the default port name jfr-jmx to look for JMX connectable targets. Defaults to false.
 	// +optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Disable Built-in Port Names",xDescriptors={"urn:alm:descriptor:com.tectonic.ui:booleanSwitch"}
 	DisableBuiltInPortNames bool `json:"disableBuiltInPortNames,omitempty"`
@@ -589,7 +589,7 @@ type TargetDiscoveryOptions struct {
 	// +optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:com.tectonic.ui:fieldDependency:targetDiscoveryOptions.disableBuiltInPortNames:true"}
 	DiscoveryPortNames []string `json:"discoveryPortNames,omitempty"`
-	// When true, the Cryostat application will use the default port number 9091 to look for JMX connectable targets.
+	// When false and discoveryPortNumbers is empty, the Cryostat application will use the default port number 9091 to look for JMX connectable targets. Defaults to false.
 	// +optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Disable Built-in Port Numbers",xDescriptors={"urn:alm:descriptor:com.tectonic.ui:booleanSwitch"}
 	DisableBuiltInPortNumbers bool `json:"disableBuiltInPortNumbers,omitempty"`
