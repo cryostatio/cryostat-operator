@@ -70,7 +70,7 @@ stages:
   - entrypoint:
     - cryostat-scorecard-tests
     - operator-install
-    image: quay.io/miwan/cryostat-operator-scorecard:3.0.0-20240523180606
+    image: quay.io/miwan/cryostat-operator-scorecard:3.0.0-20240529180215
     labels:
       suite: cryostat
       test: operator-install
@@ -80,7 +80,7 @@ stages:
   - entrypoint:
     - cryostat-scorecard-tests
     - cryostat-cr
-    image: quay.io/miwan/cryostat-operator-scorecard:3.0.0-20240523180606
+    image: quay.io/miwan/cryostat-operator-scorecard:3.0.0-20240529180215
     labels:
       suite: cryostat
       test: cryostat-cr
@@ -90,7 +90,7 @@ stages:
   - entrypoint:
     - cryostat-scorecard-tests
     - cryostat-multi-namespace
-    image: quay.io/miwan/cryostat-operator-scorecard:3.0.0-20240523180606
+    image: quay.io/miwan/cryostat-operator-scorecard:3.0.0-20240529180215
     labels:
       suite: cryostat
       test: cryostat-multi-namespace
@@ -100,7 +100,7 @@ stages:
   - entrypoint:
     - cryostat-scorecard-tests
     - cryostat-recording
-    image: quay.io/miwan/cryostat-operator-scorecard:3.0.0-20240523180606
+    image: quay.io/miwan/cryostat-operator-scorecard:3.0.0-20240529180215
     labels:
       suite: cryostat
       test: cryostat-recording
@@ -110,7 +110,7 @@ stages:
   - entrypoint:
     - cryostat-scorecard-tests
     - cryostat-discovery
-    image: quay.io/miwan/cryostat-operator-scorecard:3.0.0-20240523180606
+    image: quay.io/miwan/cryostat-operator-scorecard:3.0.0-20240529180215
     labels:
       suite: cryostat
       test: cryostat-discovery
@@ -120,7 +120,7 @@ stages:
   - entrypoint:
     - cryostat-scorecard-tests
     - cryostat-config-change
-    image: quay.io/miwan/cryostat-operator-scorecard:3.0.0-20240523180606
+    image: quay.io/miwan/cryostat-operator-scorecard:3.0.0-20240529180215
     labels:
       suite: cryostat
       test: cryostat-config-change
@@ -130,7 +130,7 @@ stages:
   - entrypoint:
     - cryostat-scorecard-tests
     - cryostat-report
-    image: quay.io/miwan/cryostat-operator-scorecard:3.0.0-20240523180606
+    image: quay.io/miwan/cryostat-operator-scorecard:3.0.0-20240529180215
     labels:
       suite: cryostat
       test: cryostat-report
@@ -140,7 +140,7 @@ stages:
   - entrypoint:
     - cryostat-scorecard-tests
     - cryostat-agent
-    image: quay.io/miwan/cryostat-operator-scorecard:3.0.0-20240523180606
+    image: quay.io/miwan/cryostat-operator-scorecard:3.0.0-20240529180215
     labels:
       suite: cryostat
       test: cryostat-agent

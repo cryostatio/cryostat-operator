@@ -18,29 +18,9 @@ import (
 	"context"
 	"fmt"
 	"time"
-
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 func (r *TestResources) recordingFlow(target *Target, apiClient *CryostatRESTClientset) error {
-	jmxSecretName := r.Name + "-jmx-auth"
-	secret, err := r.Client.CoreV1().Secrets(r.Namespace).Get(context.Background(), jmxSecretName, metav1.GetOptions{})
-	if err != nil {
-		return fmt.Errorf("failed to get jmx credentials: %s", err.Error())
-	}
-
-	credential := &Credential{
-		UserName:        string(secret.Data["CRYOSTAT_RJMX_USER"]),
-		Password:        string(secret.Data["CRYOSTAT_RJMX_PASS"]),
-		MatchExpression: fmt.Sprintf("target.alias==\"%s\"", target.Alias),
-	}
-
-	err = apiClient.CredentialClient.Create(context.Background(), credential)
-	if err != nil {
-		return fmt.Errorf("failed to create stored credential: %s", err.Error())
-	}
-	r.Log += fmt.Sprintf("created stored credential with match expression: %s\n", credential.MatchExpression)
-
 	// Wait for Cryostat to update the discovery tree
 	time.Sleep(2 * time.Second)
 

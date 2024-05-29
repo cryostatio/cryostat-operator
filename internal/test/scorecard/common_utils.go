@@ -803,7 +803,7 @@ func (r *TestResources) getSampleAppTarget(apiClient *CryostatRESTClientset) (*T
 
 	ctx, cancel := context.WithTimeout(context.Background(), testTimeout)
 	defer cancel()
-	err := wait.PollImmediateUntilWithContext(ctx, time.Second, func(ctx context.Context) (done bool, err error) {
+	err := wait.PollUntilContextCancel(ctx, time.Second, true, func(ctx context.Context) (done bool, err error) {
 		targets, err := apiClient.Targets().List(ctx)
 		if err != nil {
 			return false, fmt.Errorf("failed to list targets: %s", err.Error())
