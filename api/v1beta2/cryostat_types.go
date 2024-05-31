@@ -604,7 +604,7 @@ type DatabaseOptions struct {
 	// Name of the secret containing database keys. This secret must contain a CONNECTION_KEY secret which is the
 	// database connection password, and an ENCRYPTION_KEY secret which is the key used to encrypt sensitive data
 	// stored within the database, such as the target credentials keyring. This field cannot be updated.
-	// It is recommended that the secret should be marked as immutable to avoid accidential mutations.
+	// It is recommended that the secret should be marked as immutable to avoid accidental changes to secret's data.
 	// More details: https://kubernetes.io/docs/concepts/configuration/secret/#secret-immutable
 	// +optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:io.kubernetes:Secret"}
