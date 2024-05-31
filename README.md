@@ -27,7 +27,12 @@ for the Grafana dashboard.
 
 # Using
 
-Minimum Supported Kubernetes Version: `v1.21`.
+## Requirements
+
+- `kubernetes` v1.21+ with [`Operator Lifecycle Manager`](https://olm.operatorframework.io/)
+- [`cert-manager`](https://github.com/cert-manager/cert-manager) v1.11.5+ (Recommended)
+
+## Instructions
 
 Once deployed, the `cryostat` instance can be accessed via web browser
 at the URL provided by:
@@ -44,7 +49,6 @@ the need to expose a JMX port over the network.
 ## Requirements
 - `go` v1.21
 - [`operator-sdk`](https://github.com/operator-framework/operator-sdk) v1.31.0
-- [`cert-manager`](https://github.com/cert-manager/cert-manager) v1.11.5+ (Recommended)
 - `podman` or `docker`
 - [`jq`](https://stedolan.github.io/jq/) v1.6+
 - `ginkgo` (Optional)
