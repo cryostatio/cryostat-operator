@@ -121,11 +121,12 @@ spec:
       - description: Options to configure the Cryostat application's database.
         displayName: Database Options
         path: databaseOptions
-      - description: Name of the secret containing database keys. This secret must
+      - description: 'Name of the secret containing database keys. This secret must
           contain a CONNECTION_KEY secret which is the database connection password,
           and an ENCRYPTION_KEY secret which is the key used to encrypt sensitive
           data stored within the database, such as the target credentials keyring.
-          Cannot be updated.
+          This field cannot be updated. It is recommended that the secret should be
+          marked as immutable to avoid accidential mutations. More details: https://kubernetes.io/docs/concepts/configuration/secret/#secret-immutable'
         displayName: Secret Name
         path: databaseOptions.secretName
         x-descriptors:
