@@ -852,6 +852,7 @@ func (r *TestResources) NewDatabaseSecret() *corev1.Secret {
 			"CONNECTION_KEY": "connection_key",
 			"ENCRYPTION_KEY": "encryption_key",
 		},
+		Immutable: &[]bool{true}[0],
 	}
 }
 

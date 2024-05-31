@@ -73,6 +73,7 @@ func (r *Reconciler) reconcileDatabaseConnectionSecret(ctx context.Context, cr *
 			Name:      cr.Name + databaseSecretNameSuffix,
 			Namespace: cr.InstallNamespace,
 		},
+		Immutable: &[]bool{true}[0],
 	}
 	secretName := secret.Name
 	secretProvided := cr.Spec.DatabaseOptions != nil && cr.Spec.DatabaseOptions.SecretName != nil
