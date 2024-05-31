@@ -26,6 +26,9 @@ the JFR datasource for Grafana.
 for the Grafana dashboard.
 
 # Using
+
+Minimum Supported Kubernetes Version: `v1.21`.
+
 Once deployed, the `cryostat` instance can be accessed via web browser
 at the URL provided by:
 ```
