@@ -88,7 +88,6 @@ func printValidTests() []scapiv1alpha3.TestResult {
 		tests.CryostatCRTestName,
 		tests.CryostatMultiNamespaceTestName,
 		tests.CryostatRecordingTestName,
-		tests.CryostatBuiltInTestName,
 		tests.CryostatConfigChangeTestName,
 		tests.CryostatReportTestName,
 		tests.CryostatAgentTestName,
@@ -105,7 +104,6 @@ func validateTests(testNames []string) bool {
 		case tests.CryostatCRTestName:
 		case tests.CryostatMultiNamespaceTestName:
 		case tests.CryostatRecordingTestName:
-		case tests.CryostatBuiltInTestName:
 		case tests.CryostatConfigChangeTestName:
 		case tests.CryostatReportTestName:
 		case tests.CryostatAgentTestName:
@@ -131,8 +129,6 @@ func runTests(testNames []string, bundle *apimanifests.Bundle, namespace string,
 			results = append(results, *tests.CryostatMultiNamespaceTest(bundle, namespace, openShiftCertManager))
 		case tests.CryostatRecordingTestName:
 			results = append(results, *tests.CryostatRecordingTest(bundle, namespace, openShiftCertManager))
-		case tests.CryostatBuiltInTestName:
-			results = append(results, *tests.CryostatBuiltInTest(bundle, namespace, openShiftCertManager))
 		case tests.CryostatConfigChangeTestName:
 			results = append(results, *tests.CryostatConfigChangeTest(bundle, namespace, openShiftCertManager))
 		case tests.CryostatReportTestName:

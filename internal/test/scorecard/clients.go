@@ -321,7 +321,7 @@ func (client *RecordingClient) Get(ctx context.Context, target *Target, recordin
 }
 
 func (client *RecordingClient) Create(ctx context.Context, target *Target, options *RecordingCreateOptions) (*Recording, error) {
-	url := client.Base.JoinPath(fmt.Sprintf("/api/v1/targets/%s/recordings", target.ConnectUrl))
+	url := client.Base.JoinPath(fmt.Sprintf("/api/v3/targets/%d/recordings", target.Id))
 	body := options.ToFormData()
 	header := make(http.Header)
 	header.Add("Content-Type", "application/x-www-form-urlencoded")

@@ -365,7 +365,7 @@ func (r *TestResources) newSampleApp() *appsv1.Deployment {
 								},
 								{
 									Name:  "CRYOSTAT_AGENT_BASEURI",
-									Value: fmt.Sprintf("https://cryostat-agent.%s.svc:8181", r.Namespace),
+									Value: fmt.Sprintf("https://cryostat-agent.%s.svc:4180", r.Namespace),
 								},
 								{
 									Name:  "CRYOSTAT_AGENT_CALLBACK",
