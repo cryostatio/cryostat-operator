@@ -115,6 +115,15 @@ func (r *TestResources) StartLogs(cr *operatorv1beta2.Cryostat) error {
 		bufferSize++
 	}
 
+	if r.Name == "cryostat-agent" {
+		sampleAppPodName, err := r.getSampleAppPodName()
+		if err != nil {
+			return fmt.Errorf("failed to get pod name for sample app: %s", err.Error())
+		}
+		logSelections[sampleAppPodName] = []string{"quarkus-test-agent"}
+		bufferSize++
+	}
+
 	r.LogChannel = make(chan *ContainerLog, bufferSize)
 
 	for pod, containers := range logSelections {
