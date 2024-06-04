@@ -647,6 +647,9 @@ func NewOpenShiftAuthProxyContainer(cr *model.CryostatInstance, specs *ServiceSp
 	}
 
 	args := []string{
+		"--pass-access-token=false",
+		"--pass-user-bearer-token=false",
+		"--pass-basic-auth=false",
 		fmt.Sprintf("--upstream=http://localhost:%d/", constants.CryostatHTTPContainerPort),
 		fmt.Sprintf("--upstream=http://localhost:%d/grafana/", constants.GrafanaContainerPort),
 		fmt.Sprintf("--upstream=http://localhost:%d/storage/", constants.StoragePort),
