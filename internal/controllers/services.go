@@ -111,6 +111,43 @@ func (r *Reconciler) reconcileReportsService(ctx context.Context, cr *model.Cryo
 	return nil
 }
 
+func (r *Reconciler) reconcileDatabaseService(ctx context.Context, cr *model.CryostatInstance,
+	tls *resource_definitions.TLSConfig, specs *resource_definitions.ServiceSpecs) error {
+	config := configureDatabaseService(cr)
+	svc := &corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      cr.Name + "-database",
+			Namespace: cr.InstallNamespace,
+		},
+	}
+
+	err := r.createOrUpdateService(ctx, svc, cr.Object, &config.ServiceConfig, func() error {
+		svc.Spec.Selector = map[string]string{
+			"app":       cr.Name,
+			"component": "database",
+		}
+		svc.Spec.Ports = []corev1.ServicePort{
+			{
+				Name:       "http",
+				Port:       *config.HTTPPort,
+				TargetPort: intstr.IntOrString{IntVal: constants.DatabaseContainerPort},
+			},
+		}
+		return nil
+	})
+	if err != nil {
+		return err
+	}
+
+	// Set reports URL for deployment to use
+	scheme := "http"
+	specs.ReportsURL = &url.URL{
+		Scheme: scheme,
+		Host:   svc.Name + ":" + strconv.Itoa(int(svc.Spec.Ports[0].Port)), // TODO use getHTTPPort?
+	}
+	return nil
+}
+
 func configureCoreService(cr *model.CryostatInstance) *operatorv1beta2.CoreServiceConfig {
 	// Check CR for config
 	var config *operatorv1beta2.CoreServiceConfig
@@ -147,6 +184,48 @@ func configureReportsService(cr *model.CryostatInstance) *operatorv1beta2.Report
 	// Apply default HTTP port if not provided
 	if config.HTTPPort == nil {
 		httpPort := constants.ReportsContainerPort
+		config.HTTPPort = &httpPort
+	}
+
+	return config
+}
+
+func configureDatabaseService(cr *model.CryostatInstance) *operatorv1beta2.DatabaseServiceConfig {
+	// Check CR for config
+	var config *operatorv1beta2.DatabaseServiceConfig
+	if cr.Spec.ServiceOptions == nil || cr.Spec.ServiceOptions.DatabaseConfig == nil {
+		config = &operatorv1beta2.DatabaseServiceConfig{}
+	} else {
+		config = cr.Spec.ServiceOptions.DatabaseConfig.DeepCopy()
+	}
+
+	// Apply common service defaults
+	configureService(&config.ServiceConfig, cr.Name, "database")
+
+	// Apply default HTTP port if not provided
+	if config.HTTPPort == nil {
+		httpPort := constants.DatabaseContainerPort
+		config.HTTPPort = &httpPort
+	}
+
+	return config
+}
+
+func configureStorageService(cr *model.CryostatInstance) *operatorv1beta2.StorageServiceConfig {
+	// Check CR for config
+	var config *operatorv1beta2.StorageServiceConfig
+	if cr.Spec.ServiceOptions == nil || cr.Spec.ServiceOptions.StorageConfig == nil {
+		config = &operatorv1beta2.StorageServiceConfig{}
+	} else {
+		config = cr.Spec.ServiceOptions.StorageConfig.DeepCopy()
+	}
+
+	// Apply common service defaults
+	configureService(&config.ServiceConfig, cr.Name, "storage")
+
+	// Apply default HTTP port if not providednt
+	if config.HTTPPort == nil {
+		httpPort := constants.StorageContainerPort
 		config.HTTPPort = &httpPort
 	}
 

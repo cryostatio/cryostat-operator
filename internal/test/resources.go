@@ -2276,23 +2276,23 @@ func (r *TestResources) NewDatasourceSecurityContext(cr *model.CryostatInstance)
 	return r.commonDefaultSecurityContext()
 }
 
-func (r *TestResources) NewStorageSecurityContext(cr *model.CryostatInstance) *corev1.SecurityContext {
-	if cr.Spec.SecurityOptions != nil && cr.Spec.SecurityOptions.StorageSecurityContext != nil {
-		return cr.Spec.SecurityOptions.StorageSecurityContext
+func (r *TestResources) NewAuthProxySecurityContext(cr *model.CryostatInstance) *corev1.SecurityContext {
+	if cr.Spec.SecurityOptions != nil && cr.Spec.SecurityOptions.AuthProxySecurityContext != nil {
+		return cr.Spec.SecurityOptions.AuthProxySecurityContext
 	}
 	return r.commonDefaultSecurityContext()
 }
 
 func (r *TestResources) NewDatabaseSecurityContext(cr *model.CryostatInstance) *corev1.SecurityContext {
-	if cr.Spec.SecurityOptions != nil && cr.Spec.SecurityOptions.DatabaseSecurityContext != nil {
-		return cr.Spec.SecurityOptions.DatabaseSecurityContext
+	if cr.Spec.DatabaseOptions != nil && cr.Spec.DatabaseOptions.SecurityOptions != nil && cr.Spec.DatabaseOptions.SecurityOptions.DatabaseSecurityContext != nil {
+		return cr.Spec.DatabaseOptions.SecurityOptions.DatabaseSecurityContext
 	}
 	return r.commonDefaultSecurityContext()
 }
 
-func (r *TestResources) NewAuthProxySecurityContext(cr *model.CryostatInstance) *corev1.SecurityContext {
-	if cr.Spec.SecurityOptions != nil && cr.Spec.SecurityOptions.AuthProxySecurityContext != nil {
-		return cr.Spec.SecurityOptions.AuthProxySecurityContext
+func (r *TestResources) NewStorageSecurityContext(cr *model.CryostatInstance) *corev1.SecurityContext {
+	if cr.Spec.StorageOptions != nil && cr.Spec.StorageOptions.SecurityOptions != nil && cr.Spec.StorageOptions.SecurityOptions.StorageSecurityContext != nil {
+		return cr.Spec.StorageOptions.SecurityOptions.StorageSecurityContext
 	}
 	return r.commonDefaultSecurityContext()
 }

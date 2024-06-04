@@ -269,6 +269,16 @@ func (r *Reconciler) reconcileCryostat(ctx context.Context, cr *model.CryostatIn
 		return reportsResult, err
 	}
 
+	storageResult, err := r.reconcileStorage(ctx, reqLogger, cr, tlsConfig, imageTags, serviceSpecs)
+	if err != nil {
+		return storageResult, err
+	}
+
+	databaseResult, err := r.reconcileDatabase(ctx, reqLogger, cr, tlsConfig, imageTags, serviceSpecs)
+	if err != nil {
+		return dataBase, err
+	}
+
 	deployment, err := resources.NewDeploymentForCR(cr, serviceSpecs, imageTags, tlsConfig, *fsGroup, r.IsOpenShift)
 	if err != nil {
 		return reconcile.Result{}, err
@@ -328,6 +338,93 @@ func (r *Reconciler) setupWithManager(mgr ctrl.Manager, impl reconcile.Reconcile
 }
 
 func (r *Reconciler) reconcileReports(ctx context.Context, reqLogger logr.Logger, cr *model.CryostatInstance,
+	tls *resources.TLSConfig, imageTags *resources.ImageTags, serviceSpecs *resources.ServiceSpecs) (reconcile.Result, error) {
+	reqLogger.Info("Spec", "Reports", cr.Spec.ReportOptions)
+
+	desired := int32(0)
+	if cr.Spec.ReportOptions != nil {
+		desired = cr.Spec.ReportOptions.Replicas
+	}
+
+	err := r.reconcileReportsService(ctx, cr, tls, serviceSpecs)
+	if err != nil {
+		return reconcile.Result{}, err
+	}
+	deployment := resources.NewDeploymentForReports(cr, imageTags, tls, r.IsOpenShift)
+	if desired == 0 {
+		if err := r.Client.Delete(ctx, deployment); err != nil && !kerrors.IsNotFound(err) {
+			return reconcile.Result{}, err
+		}
+
+		removeConditionIfPresent(cr, operatorv1beta1.ConditionTypeReportsDeploymentAvailable,
+			operatorv1beta1.ConditionTypeReportsDeploymentProgressing,
+			operatorv1beta1.ConditionTypeReportsDeploymentReplicaFailure)
+		err := r.Client.Status().Update(ctx, cr.Object)
+		if err != nil {
+			return reconcile.Result{}, err
+		}
+		return reconcile.Result{}, nil
+	}
+
+	if desired > 0 {
+		err = r.createOrUpdateDeployment(ctx, deployment, cr.Object)
+		if err != nil {
+			return reconcile.Result{}, err
+		}
+
+		// Check deployment status and update conditions
+		err = r.updateConditionsFromDeployment(ctx, cr, types.NamespacedName{Name: deployment.Name, Namespace: deployment.Namespace},
+			reportsDeploymentConditions)
+		if err != nil {
+			return reconcile.Result{}, err
+		}
+	}
+	return reconcile.Result{}, nil
+}
+
+func (r *Reconciler) reconcileDatabase(ctx context.Context, reqLogger logr.Logger, cr *model.CryostatInstance,
+	tls *resources.TLSConfig, imageTags *resources.ImageTags, serviceSpecs *resources.ServiceSpecs) (reconcile.Result, error) {
+	reqLogger.Info("Spec", "Database", cr.Spec.DatabaseOptions)
+
+	desired := int32(1)
+
+	err := r.reconcileReportsService(ctx, cr, tls, serviceSpecs)
+	if err != nil {
+		return reconcile.Result{}, err
+	}
+	deployment := resources.NewDeploymentForReports(cr, imageTags, tls, r.IsOpenShift)
+	if desired == 0 {
+		if err := r.Client.Delete(ctx, deployment); err != nil && !kerrors.IsNotFound(err) {
+			return reconcile.Result{}, err
+		}
+
+		removeConditionIfPresent(cr, operatorv1beta1.ConditionTypeReportsDeploymentAvailable,
+			operatorv1beta1.ConditionTypeReportsDeploymentProgressing,
+			operatorv1beta1.ConditionTypeReportsDeploymentReplicaFailure)
+		err := r.Client.Status().Update(ctx, cr.Object)
+		if err != nil {
+			return reconcile.Result{}, err
+		}
+		return reconcile.Result{}, nil
+	}
+
+	if desired > 0 {
+		err = r.createOrUpdateDeployment(ctx, deployment, cr.Object)
+		if err != nil {
+			return reconcile.Result{}, err
+		}
+
+		// Check deployment status and update conditions
+		err = r.updateConditionsFromDeployment(ctx, cr, types.NamespacedName{Name: deployment.Name, Namespace: deployment.Namespace},
+			reportsDeploymentConditions)
+		if err != nil {
+			return reconcile.Result{}, err
+		}
+	}
+	return reconcile.Result{}, nil
+}
+
+func (r *Reconciler) reconcileStorage(ctx context.Context, reqLogger logr.Logger, cr *model.CryostatInstance,
 	tls *resources.TLSConfig, imageTags *resources.ImageTags, serviceSpecs *resources.ServiceSpecs) (reconcile.Result, error) {
 	reqLogger.Info("Spec", "Reports", cr.Spec.ReportOptions)
 

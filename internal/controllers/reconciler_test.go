@@ -944,11 +944,13 @@ func (c *controllerTest) commonTests() {
 				})
 				It("should create deployment with the expected tags", func() {
 					t.expectMainDeployment()
+					t.expectDatabaseDeployment()
+					t.expectStorageDeployment()
 					t.checkReportsDeployment()
 				})
 				It("should set ImagePullPolicy to Always", func() {
 					containers := mainDeploy.Spec.Template.Spec.Containers
-					Expect(containers).To(HaveLen(6))
+					Expect(containers).To(HaveLen(4))
 					for _, container := range containers {
 						Expect(container.ImagePullPolicy).To(Equal(corev1.PullAlways))
 					}
@@ -2602,16 +2604,8 @@ func (t *cryostatTestInput) checkMainPodTemplate(deployment *appsv1.Deployment, 
 	datasourceContainer := template.Spec.Containers[2]
 	t.checkDatasourceContainer(&datasourceContainer, t.NewDatasourceContainerResource(cr), t.NewDatasourceSecurityContext(cr))
 
-	// Check that Storage is configured properly
-	storageContainer := template.Spec.Containers[3]
-	t.checkStorageContainer(&storageContainer, t.NewStorageContainerResource(cr), t.NewStorageSecurityContext(cr))
-
-	// Check that Database is configured properly
-	databaseContainer := template.Spec.Containers[4]
-	t.checkDatabaseContainer(&databaseContainer, t.NewDatabaseContainerResource(cr), t.NewDatabaseSecurityContext(cr), dbSecretProvided)
-
 	// Check that Auth Proxy is configured properly
-	authProxyContainer := template.Spec.Containers[5]
+	authProxyContainer := template.Spec.Containers[3]
 	t.checkAuthProxyContainer(&authProxyContainer, t.NewAuthProxyContainerResource(cr), t.NewAuthProxySecurityContext(cr), cr.Spec.AuthorizationOptions)
 
 	// Check that the proper Service Account is set
@@ -2642,6 +2636,49 @@ func (t *cryostatTestInput) expectMainPodTemplateHasExtraMetadata(deployment *ap
 		"myPodExtraAnnotation":       "myPodAnnotation",
 		"mySecondPodExtraAnnotation": "mySecondPodAnnotation",
 	}))
+}
+
+func (t *cryostatTestInput) expectDatabaseDeployment() {
+	deployment := &appsv1.Deployment{}
+	err := t.Client.Get(context.Background(), types.NamespacedName{Name: t.Name + "-database", Namespace: t.Namespace}, deployment)
+	Expect(err).ToNot(HaveOccurred())
+
+	template := deployment.Spec.Template
+	Expect(template.Name).To(Equal(t.Name))
+	Expect(template.Namespace).To(Equal(t.Namespace))
+	Expect(template.Labels).To(Equal(map[string]string{
+		"app":       t.Name,
+		"kind":      "cryostat",
+		"component": "database",
+	}))
+	Expect(template.Spec.Volumes).To(ConsistOf(t.NewDatabaseVolumes()))
+	Expect(template.Spec.SecurityContext).To(Equal(t.NewDatabasePodSecurityContext(cr)))
+
+	// Check that Database is configured properly
+	databaseContainer := template.Spec.Containers[1]
+	t.checkDatabaseContainer(&databaseContainer, t.NewDatabaseContainerResource(cr), t.NewDatabaseSecurityContext(cr), dbSecretProvided)
+}
+
+func (t *cryostatTestInput) expectStorageDeployment() {
+	deployment := &appsv1.Deployment{}
+	err := t.Client.Get(context.Background(), types.NamespacedName{Name: t.Name + "-storage", Namespace: t.Namespace}, deployment)
+	Expect(err).ToNot(HaveOccurred())
+
+	template := deployment.Spec.Template
+	Expect(template.Name).To(Equal(t.Name))
+	Expect(template.Namespace).To(Equal(t.Namespace))
+	Expect(template.Labels).To(Equal(map[string]string{
+		"app":       t.Name,
+		"kind":      "cryostat",
+		"component": "database",
+	}))
+	Expect(template.Spec.Volumes).To(ConsistOf(t.NewStorageVolumes()))
+	Expect(template.Spec.SecurityContext).To(Equal(t.NewStoragePodSecurityContext(cr)))
+
+	// Check that Storage is configured properly
+	storageContainer := template.Spec.Containers[1]
+	t.checkStorageContainer(&storageContainer, t.NewStorageContainerResource(cr), t.NewStorageSecurityContext(cr))
+
 }
 
 func (t *cryostatTestInput) checkReportsDeployment() {
