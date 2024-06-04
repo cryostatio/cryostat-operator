@@ -22,7 +22,7 @@ import (
 
 func (r *TestResources) recordingFlow(target *Target, apiClient *CryostatRESTClientset) error {
 	// Wait for Cryostat to update the discovery tree
-	time.Sleep(2 * time.Second)
+	time.Sleep(30 * time.Second)
 
 	// Create a recording
 	options := &RecordingCreateOptions{

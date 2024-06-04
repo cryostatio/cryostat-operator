@@ -368,12 +368,32 @@ func (r *TestResources) newSampleApp() *appsv1.Deployment {
 									Value: fmt.Sprintf("https://%s.%s.svc:4180", r.Name, r.Namespace),
 								},
 								{
+									Name: "POD_IP",
+									ValueFrom: &corev1.EnvVarSource{
+										FieldRef: &corev1.ObjectFieldSelector{
+											FieldPath: "status.podIP",
+										},
+									},
+								},
+								{
+									Name:  "CRYOSTAT_AGENT_API_WRITES_ENABLED",
+									Value: "true",
+								},
+								{
 									Name:  "CRYOSTAT_AGENT_CALLBACK",
-									Value: "http://quarkus-test-agent:9977",
+									Value: "http://${POD_IP}:9977",
 								},
 								{
 									Name:  "CRYOSTAT_AGENT_AUTHORIZATION",
 									Value: "Bearer abcd1234",
+								},
+								{
+									Name:  "CRYOSTAT_AGENT_WEBCLIENT_SSL_TRUST_ALL",
+									Value: "true",
+								},
+								{
+									Name:  "CRYOSTAT_AGENT_WEBCLIENT_SSL_VERIFY_HOSTNAME",
+									Value: "false",
 								},
 								{
 									Name: "KEYSTORE_PASS",
