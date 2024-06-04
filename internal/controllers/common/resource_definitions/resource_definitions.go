@@ -172,6 +172,168 @@ func NewDeploymentForCR(cr *model.CryostatInstance, specs *ServiceSpecs, imageTa
 	}, nil
 }
 
+func NewDeploymentForDatabase(cr *model.CryostatInstance, imageTags *ImageTags, tls *TLSConfig,
+	openshift bool) *appsv1.Deployment {
+	replicas := int32(1)
+
+	defaultDeploymentLabels := map[string]string{
+		"app":                    cr.Name,
+		"kind":                   "cryostat",
+		"component":              "database",
+		"app.kubernetes.io/name": "cryostat-database",
+	}
+	defaultDeploymentAnnotations := map[string]string{
+		"app.openshift.io/connects-to": cr.Name,
+	}
+	defaultPodLabels := map[string]string{
+		"app":       cr.Name,
+		"kind":      "cryostat",
+		"component": "database",
+	}
+	userDefinedDeploymentLabels := make(map[string]string)
+	userDefinedDeploymentAnnotations := make(map[string]string)
+	userDefinedPodTemplateLabels := make(map[string]string)
+	userDefinedPodTemplateAnnotations := make(map[string]string)
+	if cr.Spec.OperandMetadata != nil {
+		if cr.Spec.OperandMetadata.DeploymentMetadata != nil {
+			for k, v := range cr.Spec.OperandMetadata.DeploymentMetadata.Labels {
+				userDefinedDeploymentLabels[k] = v
+			}
+			for k, v := range cr.Spec.OperandMetadata.DeploymentMetadata.Annotations {
+				userDefinedDeploymentAnnotations[k] = v
+			}
+		}
+		if cr.Spec.OperandMetadata.PodMetadata != nil {
+			for k, v := range cr.Spec.OperandMetadata.PodMetadata.Labels {
+				userDefinedPodTemplateLabels[k] = v
+			}
+			for k, v := range cr.Spec.OperandMetadata.PodMetadata.Annotations {
+				userDefinedPodTemplateAnnotations[k] = v
+			}
+		}
+	}
+
+	// First set the user defined labels and annotation in the meta, so that the default ones can override them
+	deploymentMeta := metav1.ObjectMeta{
+		Name:        cr.Name + "-database",
+		Namespace:   cr.InstallNamespace,
+		Labels:      userDefinedDeploymentLabels,
+		Annotations: userDefinedDeploymentAnnotations,
+	}
+	common.MergeLabelsAndAnnotations(&deploymentMeta, defaultDeploymentLabels, defaultDeploymentAnnotations)
+
+	podTemplateMeta := metav1.ObjectMeta{
+		Name:        cr.Name + "-database",
+		Namespace:   cr.InstallNamespace,
+		Labels:      userDefinedPodTemplateLabels,
+		Annotations: userDefinedPodTemplateAnnotations,
+	}
+	common.MergeLabelsAndAnnotations(&podTemplateMeta, defaultPodLabels, nil)
+
+	return &appsv1.Deployment{
+		ObjectMeta: deploymentMeta,
+		Spec: appsv1.DeploymentSpec{
+			// Selector is immutable, avoid modifying if possible
+			Selector: &metav1.LabelSelector{
+				MatchLabels: map[string]string{
+					"app":       cr.Name,
+					"kind":      "cryostat",
+					"component": "database",
+				},
+			},
+			Template: corev1.PodTemplateSpec{
+				ObjectMeta: podTemplateMeta,
+				Spec:       *NewPodForDatabase(cr, imageTags, openshift),
+			},
+			Replicas: &replicas,
+			Strategy: appsv1.DeploymentStrategy{
+				Type: appsv1.RecreateDeploymentStrategyType,
+			},
+		},
+	}
+}
+
+func NewDeploymentForStorage(cr *model.CryostatInstance, imageTags *ImageTags, tls *TLSConfig,
+	openshift bool) *appsv1.Deployment {
+	replicas := int32(1)
+
+	defaultDeploymentLabels := map[string]string{
+		"app":                    cr.Name,
+		"kind":                   "cryostat",
+		"component":              "storage",
+		"app.kubernetes.io/name": "cryostat-storage",
+	}
+	defaultDeploymentAnnotations := map[string]string{
+		"app.openshift.io/connects-to": cr.Name,
+	}
+	defaultPodLabels := map[string]string{
+		"app":       cr.Name,
+		"kind":      "cryostat",
+		"component": "storage",
+	}
+	userDefinedDeploymentLabels := make(map[string]string)
+	userDefinedDeploymentAnnotations := make(map[string]string)
+	userDefinedPodTemplateLabels := make(map[string]string)
+	userDefinedPodTemplateAnnotations := make(map[string]string)
+	if cr.Spec.OperandMetadata != nil {
+		if cr.Spec.OperandMetadata.DeploymentMetadata != nil {
+			for k, v := range cr.Spec.OperandMetadata.DeploymentMetadata.Labels {
+				userDefinedDeploymentLabels[k] = v
+			}
+			for k, v := range cr.Spec.OperandMetadata.DeploymentMetadata.Annotations {
+				userDefinedDeploymentAnnotations[k] = v
+			}
+		}
+		if cr.Spec.OperandMetadata.PodMetadata != nil {
+			for k, v := range cr.Spec.OperandMetadata.PodMetadata.Labels {
+				userDefinedPodTemplateLabels[k] = v
+			}
+			for k, v := range cr.Spec.OperandMetadata.PodMetadata.Annotations {
+				userDefinedPodTemplateAnnotations[k] = v
+			}
+		}
+	}
+
+	// First set the user defined labels and annotation in the meta, so that the default ones can override them
+	deploymentMeta := metav1.ObjectMeta{
+		Name:        cr.Name + "-storage",
+		Namespace:   cr.InstallNamespace,
+		Labels:      userDefinedDeploymentLabels,
+		Annotations: userDefinedDeploymentAnnotations,
+	}
+	common.MergeLabelsAndAnnotations(&deploymentMeta, defaultDeploymentLabels, defaultDeploymentAnnotations)
+
+	podTemplateMeta := metav1.ObjectMeta{
+		Name:        cr.Name + "-storage",
+		Namespace:   cr.InstallNamespace,
+		Labels:      userDefinedPodTemplateLabels,
+		Annotations: userDefinedPodTemplateAnnotations,
+	}
+	common.MergeLabelsAndAnnotations(&podTemplateMeta, defaultPodLabels, nil)
+
+	return &appsv1.Deployment{
+		ObjectMeta: deploymentMeta,
+		Spec: appsv1.DeploymentSpec{
+			// Selector is immutable, avoid modifying if possible
+			Selector: &metav1.LabelSelector{
+				MatchLabels: map[string]string{
+					"app":       cr.Name,
+					"kind":      "cryostat",
+					"component": "storage",
+				},
+			},
+			Template: corev1.PodTemplateSpec{
+				ObjectMeta: podTemplateMeta,
+				Spec:       *NewPodForStorage(cr, imageTags, tls, openshift),
+			},
+			Replicas: &replicas,
+			Strategy: appsv1.DeploymentStrategy{
+				Type: appsv1.RecreateDeploymentStrategyType,
+			},
+		},
+	}
+}
+
 func NewDeploymentForReports(cr *model.CryostatInstance, imageTags *ImageTags, tls *TLSConfig,
 	openshift bool) *appsv1.Deployment {
 	replicas := int32(0)
@@ -263,8 +425,6 @@ func NewPodForCR(cr *model.CryostatInstance, specs *ServiceSpecs, imageTags *Ima
 		NewCoreContainer(cr, specs, imageTags.CoreImageTag, tls, openshift),
 		NewGrafanaContainer(cr, imageTags.GrafanaImageTag, tls),
 		NewJfrDatasourceContainer(cr, imageTags.DatasourceImageTag),
-		NewStorageContainer(cr, imageTags.StorageImageTag, tls),
-		newDatabaseContainer(cr, imageTags.DatabaseImageTag, tls),
 		*authProxy,
 	}
 
@@ -449,6 +609,86 @@ func NewPodForCR(cr *model.CryostatInstance, specs *ServiceSpecs, imageTags *Ima
 		Affinity:                     affinity,
 		Tolerations:                  tolerations,
 	}, nil
+}
+
+func NewPodForDatabase(cr *model.CryostatInstance, imageTags *ImageTags, openshift bool) *corev1.PodSpec {
+	container := []corev1.Container{NewDatabaseContainer(cr, imageTags.DatabaseImageTag)}
+
+	var podSc *corev1.PodSecurityContext
+	if cr.Spec.DatabaseOptions != nil && cr.Spec.DatabaseOptions.SecurityOptions != nil && cr.Spec.DatabaseOptions.SecurityOptions.PodSecurityContext != nil {
+		podSc = cr.Spec.DatabaseOptions.SecurityOptions.PodSecurityContext
+	} else {
+		nonRoot := true
+		podSc = &corev1.PodSecurityContext{
+			RunAsNonRoot:   &nonRoot,
+			SeccompProfile: common.SeccompProfile(openshift),
+		}
+	}
+
+	var nodeSelector map[string]string
+	var affinity *corev1.Affinity
+	var tolerations []corev1.Toleration
+
+	if cr.Spec.DatabaseOptions != nil {
+		schedulingOptions := cr.Spec.SchedulingOptions
+		nodeSelector = schedulingOptions.NodeSelector
+		if schedulingOptions.Affinity != nil {
+			affinity = &corev1.Affinity{
+				NodeAffinity:    schedulingOptions.Affinity.NodeAffinity,
+				PodAffinity:     schedulingOptions.Affinity.PodAffinity,
+				PodAntiAffinity: schedulingOptions.Affinity.PodAntiAffinity,
+			}
+		}
+		tolerations = schedulingOptions.Tolerations
+	}
+
+	return &corev1.PodSpec{
+		Containers:      container,
+		NodeSelector:    nodeSelector,
+		Affinity:        affinity,
+		Tolerations:     tolerations,
+		SecurityContext: podSc,
+	}
+}
+
+func NewPodForStorage(cr *model.CryostatInstance, imageTags *ImageTags, tls *TLSConfig, openshift bool) *corev1.PodSpec {
+	container := []corev1.Container{NewStorageContainer(cr, imageTags.StorageImageTag)}
+
+	var podSc *corev1.PodSecurityContext
+	if cr.Spec.StorageOptions != nil && cr.Spec.StorageOptions.SecurityOptions != nil && cr.Spec.StorageOptions.SecurityOptions.StorageSecurityContext != nil {
+		podSc = cr.Spec.StorageOptions.SecurityOptions.PodSecurityContext
+	} else {
+		nonRoot := true
+		podSc = &corev1.PodSecurityContext{
+			RunAsNonRoot:   &nonRoot,
+			SeccompProfile: common.SeccompProfile(openshift),
+		}
+	}
+
+	var nodeSelector map[string]string
+	var affinity *corev1.Affinity
+	var tolerations []corev1.Toleration
+
+	if cr.Spec.SchedulingOptions != nil {
+		nodeSelector = cr.Spec.SchedulingOptions.NodeSelector
+
+		if cr.Spec.SchedulingOptions.Affinity != nil {
+			affinity = &corev1.Affinity{
+				NodeAffinity:    cr.Spec.SchedulingOptions.Affinity.NodeAffinity,
+				PodAffinity:     cr.Spec.SchedulingOptions.Affinity.PodAffinity,
+				PodAntiAffinity: cr.Spec.SchedulingOptions.Affinity.PodAntiAffinity,
+			}
+		}
+		tolerations = cr.Spec.SchedulingOptions.Tolerations
+	}
+
+	return &corev1.PodSpec{
+		Containers:      container,
+		NodeSelector:    nodeSelector,
+		Affinity:        affinity,
+		Tolerations:     tolerations,
+		SecurityContext: podSc,
+	}
 }
 
 func NewReportContainerResource(cr *model.CryostatInstance) *corev1.ResourceRequirements {
@@ -1278,7 +1518,7 @@ func NewStorageContainerResource(cr *model.CryostatInstance) *corev1.ResourceReq
 	return resources
 }
 
-func NewStorageContainer(cr *model.CryostatInstance, imageTag string, tls *TLSConfig) corev1.Container {
+func NewStorageContainer(cr *model.CryostatInstance, imageTag string) corev1.Container {
 	var containerSc *corev1.SecurityContext
 	envs := []corev1.EnvVar{
 		{
@@ -1322,8 +1562,8 @@ func NewStorageContainer(cr *model.CryostatInstance, imageTag string, tls *TLSCo
 		},
 	})
 
-	if cr.Spec.SecurityOptions != nil && cr.Spec.SecurityOptions.StorageSecurityContext != nil {
-		containerSc = cr.Spec.SecurityOptions.StorageSecurityContext
+	if cr.Spec.StorageOptions != nil && cr.Spec.StorageOptions.SecurityOptions != nil && cr.Spec.StorageOptions.SecurityOptions.StorageSecurityContext != nil {
+		containerSc = cr.Spec.StorageOptions.SecurityOptions.StorageSecurityContext
 	} else {
 		privEscalation := false
 		containerSc = &corev1.SecurityContext{
@@ -1376,10 +1616,10 @@ func NewDatabaseContainerResource(cr *model.CryostatInstance) *corev1.ResourceRe
 	return resources
 }
 
-func newDatabaseContainer(cr *model.CryostatInstance, imageTag string, tls *TLSConfig) corev1.Container {
+func NewDatabaseContainer(cr *model.CryostatInstance, imageTag string) corev1.Container {
 	var containerSc *corev1.SecurityContext
-	if cr.Spec.SecurityOptions != nil && cr.Spec.SecurityOptions.DatabaseSecurityContext != nil {
-		containerSc = cr.Spec.SecurityOptions.DatabaseSecurityContext
+	if cr.Spec.DatabaseOptions != nil && cr.Spec.DatabaseOptions.SecurityOptions != nil && cr.Spec.DatabaseOptions.SecurityOptions.DatabaseSecurityContext != nil {
+		containerSc = cr.Spec.DatabaseOptions.SecurityOptions.DatabaseSecurityContext
 	} else {
 		privEscalation := false
 		containerSc = &corev1.SecurityContext{
