@@ -101,7 +101,7 @@ func (r *Reconciler) reconcileOAuth2ProxyConfig(ctx context.Context, cr *model.C
 				Id:              "storage",
 				Path:            "^/storage/(.*)$",
 				RewriteTarget:   "/$1",
-				Uri:             fmt.Sprintf("http://localhost:%d", constants.StoragePort),
+				Uri:             fmt.Sprintf("http://localhost:%d", constants.StorageContainerPort),
 				PassHostHeader:  false,
 				ProxyWebSockets: false,
 			},
