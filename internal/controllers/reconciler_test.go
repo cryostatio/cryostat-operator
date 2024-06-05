@@ -149,6 +149,8 @@ func resourceChecks() []resourceCheck {
 		{(*cryostatTestInput).expectStorageSecret, "object storage secret"},
 		{(*cryostatTestInput).expectCoreService, "core service"},
 		{(*cryostatTestInput).expectMainDeployment, "main deployment"},
+		{(*cryostatTestInput).expectDatabaseDeployment, "database deployment"},
+		{(*cryostatTestInput).expectStorageDeployment, "storage deployment"},
 		{(*cryostatTestInput).expectLockConfigMap, "lock config map"},
 	}
 }
@@ -909,7 +911,7 @@ func (c *controllerTest) commonTests() {
 			})
 		})
 		Context("with overriden image tags", func() {
-			var mainDeploy, reportsDeploy *appsv1.Deployment
+			var mainDeploy, databaseDeploy, storageDeploy, reportsDeploy *appsv1.Deployment
 			BeforeEach(func() {
 				t.ReportReplicas = 1
 				t.objs = append(t.objs, t.NewCryostatWithReportsSvc().Object)
@@ -918,6 +920,12 @@ func (c *controllerTest) commonTests() {
 				t.reconcileCryostatFully()
 				mainDeploy = &appsv1.Deployment{}
 				err := t.Client.Get(context.Background(), types.NamespacedName{Name: t.Name, Namespace: t.Namespace}, mainDeploy)
+				Expect(err).ToNot(HaveOccurred())
+				databaseDeploy = &appsv1.Deployment{}
+				err = t.Client.Get(context.Background(), types.NamespacedName{Name: t.Name + "-database", Namespace: t.Namespace}, databaseDeploy)
+				Expect(err).ToNot(HaveOccurred())
+				storageDeploy = &appsv1.Deployment{}
+				err = t.Client.Get(context.Background(), types.NamespacedName{Name: t.Name + "-storage", Namespace: t.Namespace}, storageDeploy)
 				Expect(err).ToNot(HaveOccurred())
 				reportsDeploy = &appsv1.Deployment{}
 				err = t.Client.Get(context.Background(), types.NamespacedName{Name: t.Name + "-reports", Namespace: t.Namespace}, reportsDeploy)
@@ -954,6 +962,12 @@ func (c *controllerTest) commonTests() {
 					for _, container := range containers {
 						Expect(container.ImagePullPolicy).To(Equal(corev1.PullAlways))
 					}
+					databaseContainers := databaseDeploy.Spec.Template.Spec.Containers
+					Expect(databaseContainers).To(HaveLen(1))
+					Expect(databaseContainers[0].ImagePullPolicy).To(Equal(corev1.PullAlways))
+					storageContainers := storageDeploy.Spec.Template.Spec.Containers
+					Expect(storageContainers).To(HaveLen(1))
+					Expect(storageContainers[0].ImagePullPolicy).To(Equal(corev1.PullAlways))
 					reportContainers := reportsDeploy.Spec.Template.Spec.Containers
 					Expect(reportContainers).To(HaveLen(1))
 					Expect(reportContainers[0].ImagePullPolicy).To(Equal(corev1.PullAlways))
@@ -987,11 +1001,17 @@ func (c *controllerTest) commonTests() {
 				})
 				It("should set ImagePullPolicy to IfNotPresent", func() {
 					containers := mainDeploy.Spec.Template.Spec.Containers
-					Expect(containers).To(HaveLen(6))
+					Expect(containers).To(HaveLen(4))
 					for _, container := range containers {
 						fmt.Println(container.Image)
 						Expect(container.ImagePullPolicy).To(Equal(corev1.PullIfNotPresent))
 					}
+					databaseContainers := databaseDeploy.Spec.Template.Spec.Containers
+					Expect(databaseContainers).To(HaveLen(1))
+					Expect(databaseContainers[0].ImagePullPolicy).To(Equal(corev1.PullIfNotPresent))
+					storageContainers := storageDeploy.Spec.Template.Spec.Containers
+					Expect(storageContainers).To(HaveLen(1))
+					Expect(storageContainers[0].ImagePullPolicy).To(Equal(corev1.PullIfNotPresent))
 					reportContainers := reportsDeploy.Spec.Template.Spec.Containers
 					Expect(reportContainers).To(HaveLen(1))
 					Expect(reportContainers[0].ImagePullPolicy).To(Equal(corev1.PullIfNotPresent))
@@ -1022,10 +1042,16 @@ func (c *controllerTest) commonTests() {
 				})
 				It("should set ImagePullPolicy to IfNotPresent", func() {
 					containers := mainDeploy.Spec.Template.Spec.Containers
-					Expect(containers).To(HaveLen(6))
+					Expect(containers).To(HaveLen(4))
 					for _, container := range containers {
 						Expect(container.ImagePullPolicy).To(Equal(corev1.PullIfNotPresent))
 					}
+					databaseContainers := databaseDeploy.Spec.Template.Spec.Containers
+					Expect(databaseContainers).To(HaveLen(1))
+					Expect(databaseContainers[0].ImagePullPolicy).To(Equal(corev1.PullIfNotPresent))
+					storageContainers := storageDeploy.Spec.Template.Spec.Containers
+					Expect(storageContainers).To(HaveLen(1))
+					Expect(storageContainers[0].ImagePullPolicy).To(Equal(corev1.PullIfNotPresent))
 					reportContainers := reportsDeploy.Spec.Template.Spec.Containers
 					Expect(reportContainers).To(HaveLen(1))
 					Expect(reportContainers[0].ImagePullPolicy).To(Equal(corev1.PullIfNotPresent))
@@ -1052,10 +1078,16 @@ func (c *controllerTest) commonTests() {
 				})
 				It("should set ImagePullPolicy to Always", func() {
 					containers := mainDeploy.Spec.Template.Spec.Containers
-					Expect(containers).To(HaveLen(6))
+					Expect(containers).To(HaveLen(4))
 					for _, container := range containers {
 						Expect(container.ImagePullPolicy).To(Equal(corev1.PullAlways))
 					}
+					databaseContainers := databaseDeploy.Spec.Template.Spec.Containers
+					Expect(databaseContainers).To(HaveLen(1))
+					Expect(databaseContainers[0].ImagePullPolicy).To(Equal(corev1.PullAlways))
+					storageContainers := storageDeploy.Spec.Template.Spec.Containers
+					Expect(storageContainers).To(HaveLen(1))
+					Expect(storageContainers[0].ImagePullPolicy).To(Equal(corev1.PullAlways))
 					reportContainers := reportsDeploy.Spec.Template.Spec.Containers
 					Expect(reportContainers).To(HaveLen(1))
 					Expect(reportContainers[0].ImagePullPolicy).To(Equal(corev1.PullAlways))
@@ -2643,20 +2675,51 @@ func (t *cryostatTestInput) expectDatabaseDeployment() {
 	err := t.Client.Get(context.Background(), types.NamespacedName{Name: t.Name + "-database", Namespace: t.Namespace}, deployment)
 	Expect(err).ToNot(HaveOccurred())
 
+	cr := t.getCryostatInstance()
+
+	Expect(deployment.Name).To(Equal(t.Name + "-database"))
+	Expect(deployment.Namespace).To(Equal(t.Namespace))
+	Expect(deployment.Annotations).To(Equal(map[string]string{
+		"app.openshift.io/connects-to": t.Name,
+	}))
+	Expect(deployment.Labels).To(Equal(map[string]string{
+		"app":                    t.Name,
+		"kind":                   "cryostat",
+		"component":              "database",
+		"app.kubernetes.io/name": "cryostat-database",
+	}))
+	Expect(deployment.Spec.Selector).To(Equal(t.NewDatabaseDeploymentSelector()))
+
+	// compare Pod template
 	template := deployment.Spec.Template
-	Expect(template.Name).To(Equal(t.Name))
+	Expect(template.Name).To(Equal(t.Name + "-database"))
 	Expect(template.Namespace).To(Equal(t.Namespace))
 	Expect(template.Labels).To(Equal(map[string]string{
 		"app":       t.Name,
 		"kind":      "cryostat",
 		"component": "database",
 	}))
-	Expect(template.Spec.Volumes).To(ConsistOf(t.NewDatabaseVolumes()))
 	Expect(template.Spec.SecurityContext).To(Equal(t.NewDatabasePodSecurityContext(cr)))
 
 	// Check that Database is configured properly
-	databaseContainer := template.Spec.Containers[1]
+	dbSecretProvided := cr.Spec.DatabaseOptions != nil && cr.Spec.DatabaseOptions.SecretName != nil
+	databaseContainer := template.Spec.Containers[0]
 	t.checkDatabaseContainer(&databaseContainer, t.NewDatabaseContainerResource(cr), t.NewDatabaseSecurityContext(cr), dbSecretProvided)
+
+	// Check that the default Service Account is used
+	Expect(template.Spec.ServiceAccountName).To(BeEmpty())
+	Expect(template.Spec.AutomountServiceAccountToken).To(BeNil())
+
+	if cr.Spec.DatabaseOptions != nil && cr.Spec.DatabaseOptions.SchedulingOptions != nil {
+		scheduling := cr.Spec.DatabaseOptions.SchedulingOptions
+		Expect(template.Spec.NodeSelector).To(Equal(scheduling.NodeSelector))
+		if scheduling.Affinity != nil {
+			Expect(template.Spec.Affinity.PodAffinity).To(Equal(scheduling.Affinity.PodAffinity))
+			Expect(template.Spec.Affinity.PodAntiAffinity).To(Equal(scheduling.Affinity.PodAntiAffinity))
+			Expect(template.Spec.Affinity.NodeAffinity).To(Equal(scheduling.Affinity.NodeAffinity))
+		}
+		Expect(template.Spec.Tolerations).To(Equal(scheduling.Tolerations))
+	}
 }
 
 func (t *cryostatTestInput) expectStorageDeployment() {
@@ -2664,21 +2727,50 @@ func (t *cryostatTestInput) expectStorageDeployment() {
 	err := t.Client.Get(context.Background(), types.NamespacedName{Name: t.Name + "-storage", Namespace: t.Namespace}, deployment)
 	Expect(err).ToNot(HaveOccurred())
 
+	cr := t.getCryostatInstance()
+
+	Expect(deployment.Name).To(Equal(t.Name + "-storage"))
+	Expect(deployment.Namespace).To(Equal(t.Namespace))
+	Expect(deployment.Annotations).To(Equal(map[string]string{
+		"app.openshift.io/connects-to": t.Name,
+	}))
+	Expect(deployment.Labels).To(Equal(map[string]string{
+		"app":                    t.Name,
+		"kind":                   "cryostat",
+		"component":              "storage",
+		"app.kubernetes.io/name": "cryostat-storage",
+	}))
+	Expect(deployment.Spec.Selector).To(Equal(t.NewStorageDeploymentSelector()))
+
+	// compare Pod template
 	template := deployment.Spec.Template
-	Expect(template.Name).To(Equal(t.Name))
+	Expect(template.Name).To(Equal(t.Name + "-storage"))
 	Expect(template.Namespace).To(Equal(t.Namespace))
 	Expect(template.Labels).To(Equal(map[string]string{
 		"app":       t.Name,
 		"kind":      "cryostat",
-		"component": "database",
+		"component": "storage",
 	}))
-	Expect(template.Spec.Volumes).To(ConsistOf(t.NewStorageVolumes()))
 	Expect(template.Spec.SecurityContext).To(Equal(t.NewStoragePodSecurityContext(cr)))
 
 	// Check that Storage is configured properly
-	storageContainer := template.Spec.Containers[1]
+	storageContainer := template.Spec.Containers[0]
 	t.checkStorageContainer(&storageContainer, t.NewStorageContainerResource(cr), t.NewStorageSecurityContext(cr))
 
+	// Check that the default Service Account is used
+	Expect(template.Spec.ServiceAccountName).To(BeEmpty())
+	Expect(template.Spec.AutomountServiceAccountToken).To(BeNil())
+
+	if cr.Spec.StorageOptions != nil && cr.Spec.StorageOptions.SchedulingOptions != nil {
+		scheduling := cr.Spec.StorageOptions.SchedulingOptions
+		Expect(template.Spec.NodeSelector).To(Equal(scheduling.NodeSelector))
+		if scheduling.Affinity != nil {
+			Expect(template.Spec.Affinity.PodAffinity).To(Equal(scheduling.Affinity.PodAffinity))
+			Expect(template.Spec.Affinity.PodAntiAffinity).To(Equal(scheduling.Affinity.PodAntiAffinity))
+			Expect(template.Spec.Affinity.NodeAffinity).To(Equal(scheduling.Affinity.NodeAffinity))
+		}
+		Expect(template.Spec.Tolerations).To(Equal(scheduling.Tolerations))
+	}
 }
 
 func (t *cryostatTestInput) checkReportsDeployment() {

@@ -112,7 +112,7 @@ func (r *Reconciler) reconcileReportsService(ctx context.Context, cr *model.Cryo
 }
 
 func (r *Reconciler) reconcileDatabaseService(ctx context.Context, cr *model.CryostatInstance,
-	tls *resource_definitions.TLSConfig, specs *resource_definitions.ServiceSpecs) error {
+	specs *resource_definitions.ServiceSpecs) error {
 	config := configureDatabaseService(cr)
 	svc := &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
@@ -139,9 +139,46 @@ func (r *Reconciler) reconcileDatabaseService(ctx context.Context, cr *model.Cry
 		return err
 	}
 
-	// Set reports URL for deployment to use
+	// Set database URL for deployment to use
 	scheme := "http"
-	specs.ReportsURL = &url.URL{
+	specs.DatabaseURL = &url.URL{
+		Scheme: scheme,
+		Host:   svc.Name + ":" + strconv.Itoa(int(svc.Spec.Ports[0].Port)), // TODO use getHTTPPort?
+	}
+	return nil
+}
+
+func (r *Reconciler) reconcileStorageService(ctx context.Context, cr *model.CryostatInstance,
+	specs *resource_definitions.ServiceSpecs) error {
+	config := configureStorageService(cr)
+	svc := &corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      cr.Name + "-storage",
+			Namespace: cr.InstallNamespace,
+		},
+	}
+
+	err := r.createOrUpdateService(ctx, svc, cr.Object, &config.ServiceConfig, func() error {
+		svc.Spec.Selector = map[string]string{
+			"app":       cr.Name,
+			"component": "storage",
+		}
+		svc.Spec.Ports = []corev1.ServicePort{
+			{
+				Name:       "http",
+				Port:       *config.HTTPPort,
+				TargetPort: intstr.IntOrString{IntVal: constants.StorageContainerPort},
+			},
+		}
+		return nil
+	})
+	if err != nil {
+		return err
+	}
+
+	// Set storage URL for deployment to use
+	scheme := "http"
+	specs.StorageURL = &url.URL{
 		Scheme: scheme,
 		Host:   svc.Name + ":" + strconv.Itoa(int(svc.Spec.Ports[0].Port)), // TODO use getHTTPPort?
 	}

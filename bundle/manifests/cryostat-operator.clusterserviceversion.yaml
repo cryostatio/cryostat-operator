@@ -53,7 +53,7 @@ metadata:
     capabilities: Seamless Upgrades
     categories: Monitoring, Developer Tools
     containerImage: quay.io/cryostat/cryostat-operator:3.0.0-dev
-    createdAt: "2024-05-28T20:14:14Z"
+    createdAt: "2024-06-05T17:12:51Z"
     description: JVM monitoring and profiling tool
     operatorframework.io/initialization-resource: |-
       {
@@ -576,6 +576,39 @@ spec:
       - description: Options to configure the Cryostat application's database.
         displayName: Database Options
         path: databaseOptions
+      - description: Options to configure scheduling for the Cryostat application's
+          database deployment
+        displayName: Scheduling Options
+        path: databaseOptions.schedulingOptions
+      - description: Affinity rules for scheduling Cryostat pods.
+        displayName: Affinity
+        path: databaseOptions.schedulingOptions.affinity
+      - description: 'Node affinity scheduling rules for a Cryostat pod. See: https://kubernetes.io/docs/reference/kubernetes-api/workload-resources/pod-v1/#NodeAffinity'
+        displayName: Node Affinity
+        path: databaseOptions.schedulingOptions.affinity.nodeAffinity
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:nodeAffinity
+      - description: 'Pod affinity scheduling rules for a Cryostat pod. See: https://kubernetes.io/docs/reference/kubernetes-api/workload-resources/pod-v1/#PodAffinity'
+        displayName: Pod Affinity
+        path: databaseOptions.schedulingOptions.affinity.podAffinity
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:podAffinity
+      - description: 'Pod anti-affinity scheduling rules for a Cryostat pod. See:
+          https://kubernetes.io/docs/reference/kubernetes-api/workload-resources/pod-v1/#PodAntiAffinity'
+        displayName: Pod Anti Affinity
+        path: databaseOptions.schedulingOptions.affinity.podAntiAffinity
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:podAntiAffinity
+      - description: 'Label selector used to schedule a Cryostat pod to a node. See:
+          https://kubernetes.io/docs/concepts/configuration/assign-pod-node/'
+        displayName: Node Selector
+        path: databaseOptions.schedulingOptions.nodeSelector
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:selector:core:v1:Node
+      - description: 'Tolerations to allow scheduling of Cryostat pods to tainted
+          nodes. See: https://kubernetes.io/docs/concepts/scheduling-eviction/taint-and-toleration/'
+        displayName: Tolerations
+        path: databaseOptions.schedulingOptions.tolerations
       - description: Name of the secret containing database keys. This secret must
           contain a CONNECTION_KEY secret which is the database connection password,
           and an ENCRYPTION_KEY secret which is the key used to encrypt sensitive
@@ -584,6 +617,20 @@ spec:
         path: databaseOptions.secretName
         x-descriptors:
         - urn:alm:descriptor:io.kubernetes:Secret
+      - description: Options to configure the Security Contexts for the Cryostat application's
+          database.
+        displayName: Security Options
+        path: databaseOptions.securityOptions
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:advanced
+      - description: Security Context to apply to the Cryostat application's database
+          pod.
+        displayName: Pod Security Context
+        path: databaseOptions.securityOptions.podSecurityContext
+      - description: Security Context to apply to the Cryostat application's database
+          container.
+        displayName: Database Security Context
+        path: databaseOptions.securityOptions.reportsSecurityContext
       - description: List of Flight Recorder Event Templates to preconfigure in Cryostat.
         displayName: Event Templates
         path: eventTemplates
@@ -768,18 +815,12 @@ spec:
       - description: Security Context to apply to the JFR Data Source container.
         displayName: Data Source Security Context
         path: securityOptions.dataSourceSecurityContext
-      - description: Security Context to apply to the database container.
-        displayName: Database Security Context
-        path: securityOptions.databaseSecurityContext
       - description: Security Context to apply to the Grafana container.
         displayName: Grafana Security Context
         path: securityOptions.grafanaSecurityContext
       - description: Security Context to apply to the Cryostat pod.
         displayName: Pod Security Context
         path: securityOptions.podSecurityContext
-      - description: Security Context to apply to the storage container.
-        displayName: Storage Security Context
-        path: securityOptions.storageSecurityContext
       - description: Options to customize the services created for the Cryostat application.
         displayName: Service Options
         path: serviceOptions
@@ -819,6 +860,50 @@ spec:
           has created the PVC, changes to this field have no effect.
         displayName: Spec
         path: storageOptions.pvc.spec
+      - description: Options to configure scheduling for the storage deployment
+        displayName: Scheduling Options
+        path: storageOptions.schedulingOptions
+      - description: Affinity rules for scheduling Cryostat pods.
+        displayName: Affinity
+        path: storageOptions.schedulingOptions.affinity
+      - description: 'Node affinity scheduling rules for a Cryostat pod. See: https://kubernetes.io/docs/reference/kubernetes-api/workload-resources/pod-v1/#NodeAffinity'
+        displayName: Node Affinity
+        path: storageOptions.schedulingOptions.affinity.nodeAffinity
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:nodeAffinity
+      - description: 'Pod affinity scheduling rules for a Cryostat pod. See: https://kubernetes.io/docs/reference/kubernetes-api/workload-resources/pod-v1/#PodAffinity'
+        displayName: Pod Affinity
+        path: storageOptions.schedulingOptions.affinity.podAffinity
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:podAffinity
+      - description: 'Pod anti-affinity scheduling rules for a Cryostat pod. See:
+          https://kubernetes.io/docs/reference/kubernetes-api/workload-resources/pod-v1/#PodAntiAffinity'
+        displayName: Pod Anti Affinity
+        path: storageOptions.schedulingOptions.affinity.podAntiAffinity
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:podAntiAffinity
+      - description: 'Label selector used to schedule a Cryostat pod to a node. See:
+          https://kubernetes.io/docs/concepts/configuration/assign-pod-node/'
+        displayName: Node Selector
+        path: storageOptions.schedulingOptions.nodeSelector
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:selector:core:v1:Node
+      - description: 'Tolerations to allow scheduling of Cryostat pods to tainted
+          nodes. See: https://kubernetes.io/docs/concepts/scheduling-eviction/taint-and-toleration/'
+        displayName: Tolerations
+        path: storageOptions.schedulingOptions.tolerations
+      - description: Options to configure the Security Contexts for the storage to
+          be created by the operator.
+        displayName: Security Options
+        path: storageOptions.securityOptions
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:advanced
+      - description: Security Context to apply to the storage pod.
+        displayName: Pod Security Context
+        path: storageOptions.securityOptions.podSecurityContext
+      - description: Security Context to apply to the storage container.
+        displayName: Storage Security Context
+        path: storageOptions.securityOptions.reportsSecurityContext
       - description: Options to customize the target connections cache for the Cryostat
           application.
         displayName: Target Connection Cache Options

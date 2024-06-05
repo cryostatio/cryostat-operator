@@ -203,23 +203,6 @@ type StorageConfiguration struct {
 	// +optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	EmptyDir *EmptyDirConfig `json:"emptyDir,omitempty"`
-	// Options to configure the Security Contexts for the storage to be created by the operator.
-	// +optional
-	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:com.tectonic.ui:advanced"}
-	SecurityOptions *StorageSecurityOptions `json:"securityOptions,omitempty"`
-}
-
-// StorageSecurityOptions contains Security Context customizations for the
-// storage to be created by the operator at both the pod and container level.
-type StorageSecurityOptions struct {
-	// Security Context to apply to the storage pod.
-	// +optional
-	// +operator-sdk:csv:customresourcedefinitions:type=spec
-	PodSecurityContext *corev1.PodSecurityContext `json:"podSecurityContext,omitempty"`
-	// Security Context to apply to the storage container.
-	// +optional
-	// +operator-sdk:csv:customresourcedefinitions:type=spec
-	StorageSecurityContext *corev1.SecurityContext `json:"reportsSecurityContext,omitempty"`
 }
 
 // ReportConfiguration is used to determine how many replicas of cryostat-reports
@@ -595,6 +578,14 @@ type SecurityOptions struct {
 	// +optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	GrafanaSecurityContext *corev1.SecurityContext `json:"grafanaSecurityContext,omitempty"`
+	// Security Context to apply to the storage container.
+	// +optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec
+	StorageSecurityContext *corev1.SecurityContext `json:"storageSecurityContext,omitempty"`
+	// Security Context to apply to the database container.
+	// +optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec
+	DatabaseSecurityContext *corev1.SecurityContext `json:"databaseSecurityContext,omitempty"`
 }
 
 // ReportsSecurityOptions contains Security Context customizations for the
@@ -642,21 +633,4 @@ type DatabaseOptions struct {
 	// +optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:io.kubernetes:Secret"}
 	SecretName *string `json:"secretName,omitempty"`
-	// Options to configure the Security Contexts for the Cryostat application's database.
-	// +optional
-	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:com.tectonic.ui:advanced"}
-	SecurityOptions *DatabaseSecurityOptions `json:"securityOptions,omitempty"`
-}
-
-// DatabaseSecurityOptions contains Security Context customizations for the
-// Cryostat application's database at both the pod and container level.
-type DatabaseSecurityOptions struct {
-	// Security Context to apply to the Cryostat application's database pod.
-	// +optional
-	// +operator-sdk:csv:customresourcedefinitions:type=spec
-	PodSecurityContext *corev1.PodSecurityContext `json:"podSecurityContext,omitempty"`
-	// Security Context to apply to the Cryostat application's database container.
-	// +optional
-	// +operator-sdk:csv:customresourcedefinitions:type=spec
-	DatabaseSecurityContext *corev1.SecurityContext `json:"reportsSecurityContext,omitempty"`
 }
