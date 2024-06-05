@@ -116,7 +116,7 @@ func CryostatConfigChangeTest(bundle *apimanifests.Bundle, namespace string, ope
 		},
 	}
 
-	_, err = r.createAndWaitTillCryostatAvailable(cr)
+	cr, err = r.createAndWaitTillCryostatAvailable(cr)
 	if err != nil {
 		return r.fail(fmt.Sprintf("failed to determine application URL: %s", err.Error()))
 	}
@@ -243,7 +243,7 @@ func CryostatRecordingTest(bundle *apimanifests.Bundle, namespace string, openSh
 		return r.fail(fmt.Sprintf("failed to get the recordings: %s", err.Error()))
 	}
 	if rec.State != "STOPPED" {
-		return r.fail(fmt.Sprintf("recording %s failed to stop: %s", rec.Name, err.Error()))
+		return r.fail(fmt.Sprintf("expect recording %s to have state STOPPED but found %s", rec.Name, rec.State))
 	}
 	r.Log += fmt.Sprintf("stopped the recording: %s\n", rec.Name)
 

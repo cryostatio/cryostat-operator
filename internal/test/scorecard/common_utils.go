@@ -331,7 +331,7 @@ func configureIngress(name string, cryostatSpec *operatorv1beta2.CryostatSpec) {
 func (r *TestResources) createAndWaitTillCryostatAvailable(cr *operatorv1beta2.Cryostat) (*operatorv1beta2.Cryostat, error) {
 	cr, err := r.Client.OperatorCRDs().Cryostats(cr.Namespace).Create(context.Background(), cr)
 	if err != nil {
-		r.logError(fmt.Sprintf("failed to create Cryostat CR: %s", err.Error()))
+		r.logError(fmt.Sprintf("failed to create Cryostat CR \"%s\": %s", cr.Name, err.Error()))
 		return nil, err
 	}
 
@@ -347,7 +347,7 @@ func (r *TestResources) createAndWaitTillCryostatAvailable(cr *operatorv1beta2.C
 	err = wait.PollUntilContextCancel(ctx, time.Second, true, func(ctx context.Context) (done bool, err error) {
 		cr, err = r.Client.OperatorCRDs().Cryostats(cr.Namespace).Get(ctx, cr.Name)
 		if err != nil {
-			return false, fmt.Errorf("failed to get Cryostat CR: %s", err.Error())
+			return false, fmt.Errorf("failed to get Cryostat CR \"%s\": %s", cr.Name, err.Error())
 		}
 		if len(cr.Spec.TargetNamespaces) > 0 {
 			if len(cr.Status.TargetNamespaces) == 0 {
@@ -457,7 +457,7 @@ func (r *TestResources) updateAndWaitTillCryostatAvailable(cr *operatorv1beta2.C
 		var err error
 		cr, err = r.Client.OperatorCRDs().Cryostats(cr.Namespace).Get(ctx, cr.Name)
 		if err != nil {
-			return fmt.Errorf("failed to get Cryostat CR: %s", err.Error())
+			return fmt.Errorf("failed to get Cryostat CR \"%s\": %s", cr.Name, err.Error())
 		}
 
 		cr.Spec.StorageOptions = &operatorv1beta2.StorageConfiguration{
@@ -477,7 +477,7 @@ func (r *TestResources) updateAndWaitTillCryostatAvailable(cr *operatorv1beta2.C
 		return err
 	})
 	if err != nil {
-		return nil, fmt.Errorf("failed to update Cryostat CR: %s", err.Error())
+		return nil, fmt.Errorf("failed to update Cryostat CR \"%s\": %s", cr.Name, err.Error())
 	}
 
 	// Poll the deployment until it becomes available or we timeout

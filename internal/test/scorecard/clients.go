@@ -149,6 +149,9 @@ func get[r runtime.Object](ctx context.Context, c rest.Interface, res string, ns
 	if len(ns) > 0 {
 		rq = rq.Namespace(ns)
 	}
+	if err := rq.Error(); err != nil {
+		return result, err
+	}
 	err := rq.Do(ctx).Into(result)
 	return result, err
 }
@@ -158,14 +161,22 @@ func create[r runtime.Object](ctx context.Context, c rest.Interface, res string,
 	if len(ns) > 0 {
 		rq = rq.Namespace(ns)
 	}
+	if err := rq.Error(); err != nil {
+		return result, err
+	}
 	err := rq.Do(ctx).Into(result)
 	return result, err
 }
 
 func update[r runtime.Object](ctx context.Context, c rest.Interface, res string, ns string, obj r, result r, name string) (r, error) {
-	err := c.Put().
-		Namespace(ns).Resource(res).Name(name).
-		Body(obj).Do(ctx).Into(result)
+	rq := c.Put().Resource(res).Name(name).Body(obj)
+	if len(ns) > 0 {
+		rq = rq.Namespace(ns)
+	}
+	if err := rq.Error(); err != nil {
+		return result, err
+	}
+	err := rq.Do(ctx).Into(result)
 	return result, err
 }
 
@@ -173,6 +184,9 @@ func delete(ctx context.Context, c rest.Interface, res string, ns string, name s
 	rq := c.Delete().Resource(res).Name(name).Body(opts)
 	if len(ns) > 0 {
 		rq = rq.Namespace(ns)
+	}
+	if err := rq.Error(); err != nil {
+		return err
 	}
 	return rq.Do(ctx).Error()
 }
