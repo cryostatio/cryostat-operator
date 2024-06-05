@@ -2612,14 +2612,7 @@ func (t *cryostatTestInput) checkMainPodTemplate(deployment *appsv1.Deployment, 
 
 	// Check that Auth Proxy is configured properly
 	authProxyContainer := template.Spec.Containers[5]
-	basicAuthConfigured := cr.Spec.AuthorizationOptions != nil &&
-		cr.Spec.AuthorizationOptions.BasicAuth != nil &&
-		cr.Spec.AuthorizationOptions.BasicAuth.Filename != nil && cr.Spec.AuthorizationOptions.BasicAuth.SecretName != nil
-	var basicAuthFilename string
-	if basicAuthConfigured {
-		basicAuthFilename = *cr.Spec.AuthorizationOptions.BasicAuth.Filename
-	}
-	t.checkAuthProxyContainer(&authProxyContainer, t.NewAuthProxyContainerResource(cr), t.NewAuthProxySecurityContext(cr), basicAuthConfigured, basicAuthFilename)
+	t.checkAuthProxyContainer(&authProxyContainer, t.NewAuthProxyContainerResource(cr), t.NewAuthProxySecurityContext(cr), cr.Spec.AuthorizationOptions)
 
 	// Check that the proper Service Account is set
 	Expect(template.Spec.ServiceAccountName).To(Equal(t.Name))
@@ -2841,7 +2834,7 @@ func (t *cryostatTestInput) checkDatabaseContainer(container *corev1.Container, 
 	test.ExpectResourceRequirements(&container.Resources, resources)
 }
 
-func (t *cryostatTestInput) checkAuthProxyContainer(container *corev1.Container, resources *corev1.ResourceRequirements, securityContext *corev1.SecurityContext, basicAuthConfigured bool, basicAuthFilename string) {
+func (t *cryostatTestInput) checkAuthProxyContainer(container *corev1.Container, resources *corev1.ResourceRequirements, securityContext *corev1.SecurityContext, authOptions *operatorv1beta2.AuthorizationOptions) {
 	Expect(container.Name).To(Equal(t.Name + "-auth-proxy"))
 
 	imageTag := t.EnvOAuth2ProxyImageTag
@@ -2857,11 +2850,15 @@ func (t *cryostatTestInput) checkAuthProxyContainer(container *corev1.Container,
 	}
 
 	Expect(container.Ports).To(ConsistOf(t.NewAuthProxyPorts()))
-	Expect(container.Env).To(ConsistOf(t.NewAuthProxyEnvironmentVariables(basicAuthConfigured, basicAuthFilename)))
+	Expect(container.Env).To(ConsistOf(t.NewAuthProxyEnvironmentVariables(authOptions)))
 	Expect(container.EnvFrom).To(ConsistOf(t.NewAuthProxyEnvFromSource()))
-	Expect(container.VolumeMounts).To(ConsistOf(t.NewAuthProxyVolumeMounts(basicAuthConfigured)))
+	Expect(container.VolumeMounts).To(ConsistOf(t.NewAuthProxyVolumeMounts(authOptions)))
 	Expect(container.LivenessProbe).To(Equal(t.NewAuthProxyLivenessProbe()))
 	Expect(container.SecurityContext).To(Equal(securityContext))
+
+	args, err := t.NewAuthProxyArguments(authOptions)
+	Expect(err).ToNot(HaveOccurred())
+	Expect(container.Args).To(ConsistOf(args))
 
 	test.ExpectResourceRequirements(&container.Resources, resources)
 }

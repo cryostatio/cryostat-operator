@@ -16,6 +16,7 @@ package test
 
 import (
 	"crypto/sha256"
+	"encoding/json"
 	"fmt"
 	"strings"
 
@@ -29,6 +30,7 @@ import (
 	routev1 "github.com/openshift/api/route/v1"
 	securityv1 "github.com/openshift/api/security/v1"
 	appsv1 "k8s.io/api/apps/v1"
+	authzv1 "k8s.io/api/authorization/v1"
 	corev1 "k8s.io/api/core/v1"
 	netv1 "k8s.io/api/networking/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
@@ -1510,7 +1512,7 @@ func (r *TestResources) NewDatabaseEnvironmentVariables(dbSecretProvided bool) [
 	}
 }
 
-func (r *TestResources) NewAuthProxyEnvironmentVariables(basicAuthConfigured bool, basicAuthFilename string) []corev1.EnvVar {
+func (r *TestResources) NewAuthProxyEnvironmentVariables(authOptions *operatorv1beta2.AuthorizationOptions) []corev1.EnvVar {
 	envs := []corev1.EnvVar{}
 
 	if !r.OpenShift {
@@ -1525,11 +1527,13 @@ func (r *TestResources) NewAuthProxyEnvironmentVariables(basicAuthConfigured boo
 			},
 		)
 
+		basicAuthConfigured := authOptions != nil && authOptions.BasicAuth != nil &&
+			authOptions.BasicAuth.Filename != nil && authOptions.BasicAuth.SecretName != nil
 		if basicAuthConfigured {
 			envs = append(envs,
 				corev1.EnvVar{
 					Name:  "OAUTH2_PROXY_HTPASSWD_FILE",
-					Value: "/var/run/secrets/operator.cryostat.io/" + basicAuthFilename,
+					Value: "/var/run/secrets/operator.cryostat.io/" + *authOptions.BasicAuth.Filename,
 				},
 				corev1.EnvVar{
 					Name:  "OAUTH2_PROXY_HTPASSWD_USER_GROUP",
@@ -1628,6 +1632,82 @@ func (r *TestResources) NewTargetDiscoveryEnvVars(hasPortConfig bool, builtInDis
 	return envs
 }
 
+func (r *TestResources) NewAuthProxyArguments(authOptions *operatorv1beta2.AuthorizationOptions) ([]string, error) {
+	if !r.OpenShift {
+		return []string{
+			"--alpha-config=/etc/oauth2_proxy/alpha_config/alpha_config.json",
+		}, nil
+	}
+
+	basicAuthConfigured := authOptions != nil && authOptions.BasicAuth != nil &&
+		authOptions.BasicAuth.Filename != nil && authOptions.BasicAuth.SecretName != nil
+
+	openShiftSSOConfigured := authOptions != nil && authOptions.OpenShiftSSO != nil
+	openShiftSSODisabled := openShiftSSOConfigured && authOptions.OpenShiftSSO.Disable != nil && *authOptions.OpenShiftSSO.Disable
+
+	accessReview := authzv1.ResourceAttributes{
+		Namespace:   r.Namespace,
+		Verb:        "create",
+		Group:       "",
+		Version:     "",
+		Resource:    "pods",
+		Subresource: "exec",
+		Name:        "",
+	}
+	if openShiftSSOConfigured && authOptions.OpenShiftSSO.AccessReview != nil {
+		accessReview = *authOptions.OpenShiftSSO.AccessReview
+	}
+
+	subjectAccessReviewJson, err := json.Marshal([]authzv1.ResourceAttributes{accessReview})
+	if err != nil {
+		return nil, err
+	}
+
+	delegateUrls := make(map[string]authzv1.ResourceAttributes)
+	delegateUrls["/"] = accessReview
+	tokenReviewJson, err := json.Marshal(delegateUrls)
+	if err != nil {
+		return nil, err
+	}
+
+	args := []string{
+		"--upstream=http://localhost:8181/",
+		"--upstream=http://localhost:3000/grafana/",
+		"--upstream=http://localhost:8333/storage/",
+		fmt.Sprintf("--openshift-service-account=%s", r.Name),
+		"--proxy-websockets=true",
+		"--proxy-prefix=/oauth2",
+		fmt.Sprintf("--skip-provider-button=%t", !basicAuthConfigured),
+		fmt.Sprintf("--openshift-sar=%s", subjectAccessReviewJson),
+		fmt.Sprintf("--openshift-delegate-urls=%s", string(tokenReviewJson)),
+	}
+
+	if openShiftSSODisabled {
+		args = append(args, "--bypass-auth-for=.*")
+	} else {
+		args = append(args, "--bypass-auth-for=^/health(/liveness)?$")
+	}
+
+	if basicAuthConfigured {
+		args = append(args, fmt.Sprintf("--htpasswd-file=%s/%s", "/var/run/secrets/operator.cryostat.io", *authOptions.BasicAuth.Filename))
+	}
+
+	if r.TLS {
+		args = append(args,
+			"--http-address=",
+			"--https-address=0.0.0.0:4180",
+			fmt.Sprintf("--tls-cert=/var/run/secrets/operator.cryostat.io/%s/%s", r.Name+"-tls", corev1.TLSCertKey),
+			fmt.Sprintf("--tls-key=/var/run/secrets/operator.cryostat.io/%s/%s", r.Name+"-tls", corev1.TLSPrivateKeyKey),
+		)
+	} else {
+		args = append(args,
+			"--http-address=0.0.0.0:4180",
+			"--https-address=",
+		)
+	}
+	return args, nil
+}
+
 func (r *TestResources) NewCoreVolumeMounts() []corev1.VolumeMount {
 	mounts := []corev1.VolumeMount{
 		{
@@ -1677,7 +1757,7 @@ func (r *TestResources) NewDatabaseVolumeMounts() []corev1.VolumeMount {
 	}
 }
 
-func (r *TestResources) NewAuthProxyVolumeMounts(basicAuthConfigured bool) []corev1.VolumeMount {
+func (r *TestResources) NewAuthProxyVolumeMounts(authOptions *operatorv1beta2.AuthorizationOptions) []corev1.VolumeMount {
 	mounts := []corev1.VolumeMount{}
 	if r.TLS {
 		mounts = append(mounts, corev1.VolumeMount{
@@ -1687,6 +1767,8 @@ func (r *TestResources) NewAuthProxyVolumeMounts(basicAuthConfigured bool) []cor
 		})
 	}
 
+	basicAuthConfigured := authOptions != nil && authOptions.BasicAuth != nil &&
+		authOptions.BasicAuth.Filename != nil && authOptions.BasicAuth.SecretName != nil
 	if basicAuthConfigured {
 		mounts = append(mounts, corev1.VolumeMount{
 			Name:      r.Name + "-auth-proxy-htpasswd",
