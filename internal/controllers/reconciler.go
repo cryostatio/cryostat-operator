@@ -128,6 +128,16 @@ var mainDeploymentConditions = deploymentConditionTypeMap{
 	operatorv1beta2.ConditionTypeMainDeploymentProgressing:    appsv1.DeploymentProgressing,
 	operatorv1beta2.ConditionTypeMainDeploymentReplicaFailure: appsv1.DeploymentReplicaFailure,
 }
+var databaseDeploymentConditions = deploymentConditionTypeMap{
+	operatorv1beta2.ConditionTypeDatabaseDeploymentAvailable:      appsv1.DeploymentAvailable,
+	operatorv1beta2.ConditionTypeDatabaseDeploymentProgressing:    appsv1.DeploymentProgressing,
+	operatorv1beta2.ConditionTypeDatabaseDeploymentReplicaFailure: appsv1.DeploymentReplicaFailure,
+}
+var storageDeploymentConditions = deploymentConditionTypeMap{
+	operatorv1beta2.ConditionTypeStorageDeploymentAvailable:      appsv1.DeploymentAvailable,
+	operatorv1beta2.ConditionTypeStorageDeploymentProgressing:    appsv1.DeploymentProgressing,
+	operatorv1beta2.ConditionTypeStorageDeploymentReplicaFailure: appsv1.DeploymentReplicaFailure,
+}
 var reportsDeploymentConditions = deploymentConditionTypeMap{
 	operatorv1beta2.ConditionTypeReportsDeploymentAvailable:      appsv1.DeploymentAvailable,
 	operatorv1beta2.ConditionTypeReportsDeploymentProgressing:    appsv1.DeploymentProgressing,
@@ -389,7 +399,7 @@ func (r *Reconciler) reconcileDatabase(ctx context.Context, reqLogger logr.Logge
 	if err != nil {
 		return reconcile.Result{}, err
 	}
-	deployment := resources.NewDeploymentForDatabase(cr, imageTags, r.IsOpenShift)
+	deployment := resources.NewDeploymentForDatabase(cr, imageTags, r.IsOpenShift, fsGroup)
 
 	err = r.createOrUpdateDeployment(ctx, deployment, cr.Object)
 	if err != nil {
