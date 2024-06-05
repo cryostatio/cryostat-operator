@@ -1,5 +1,6 @@
 module github.com/cryostatio/cryostat-operator
 
+// Increment to go 1.22 once downstream is compatible
 go 1.21
 
 require (
