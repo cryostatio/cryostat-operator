@@ -179,6 +179,18 @@ const (
 	ConditionTypeMainDeploymentProgressing CryostatConditionType = "MainDeploymentProgressing"
 	// If pods within the main Cryostat deployment failed to be created or destroyed.
 	ConditionTypeMainDeploymentReplicaFailure CryostatConditionType = "MainDeploymentReplicaFailure"
+	// If enabled, whether the database deployment is available.
+	ConditionTypeDatabaseDeploymentAvailable CryostatConditionType = "DatabaseDeploymentAvailable"
+	// If enabled, whether the database deployment is progressing.
+	ConditionTypeDatabaseDeploymentProgressing CryostatConditionType = "DatabaseDeploymentProgressing"
+	// If enabled, whether pods in the database deployment failed to be created or destroyed.
+	ConditionTypeDatabaseDeploymentReplicaFailure CryostatConditionType = "DatabaseDeploymentReplicaFailure"
+	// If enabled, whether the storage deployment is available.
+	ConditionTypeStorageDeploymentAvailable CryostatConditionType = "StorageDeploymentAvailable"
+	// If enabled, whether the storage deployment is progressing.
+	ConditionTypeStorageDeploymentProgressing CryostatConditionType = "StorageDeploymentProgressing"
+	// If enabled, whether pods in the storage deployment failed to be created or destroyed.
+	ConditionTypeStorageDeploymentReplicaFailure CryostatConditionType = "StorageDeploymentReplicaFailure"
 	// If enabled, whether the reports deployment is available.
 	ConditionTypeReportsDeploymentAvailable CryostatConditionType = "ReportsDeploymentAvailable"
 	// If enabled, whether the reports deployment is progressing.

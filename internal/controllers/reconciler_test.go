@@ -2757,7 +2757,7 @@ func (t *cryostatTestInput) expectDatabaseDeployment() {
 		"kind":      "cryostat",
 		"component": "database",
 	}))
-	Expect(template.Spec.SecurityContext).To(Equal(t.NewDatabasePodSecurityContext(cr)))
+	Expect(template.Spec.SecurityContext).To(Equal(t.NewPodSecurityContext(cr)))
 
 	// Check that Database is configured properly
 	dbSecretProvided := cr.Spec.DatabaseOptions != nil && cr.Spec.DatabaseOptions.SecretName != nil
@@ -2768,8 +2768,8 @@ func (t *cryostatTestInput) expectDatabaseDeployment() {
 	Expect(template.Spec.ServiceAccountName).To(BeEmpty())
 	Expect(template.Spec.AutomountServiceAccountToken).To(BeNil())
 
-	if cr.Spec.DatabaseOptions != nil && cr.Spec.DatabaseOptions.SchedulingOptions != nil {
-		scheduling := cr.Spec.DatabaseOptions.SchedulingOptions
+	if cr.Spec.SchedulingOptions != nil {
+		scheduling := cr.Spec.SchedulingOptions
 		Expect(template.Spec.NodeSelector).To(Equal(scheduling.NodeSelector))
 		if scheduling.Affinity != nil {
 			Expect(template.Spec.Affinity.PodAffinity).To(Equal(scheduling.Affinity.PodAffinity))
@@ -2809,7 +2809,7 @@ func (t *cryostatTestInput) expectStorageDeployment() {
 		"kind":      "cryostat",
 		"component": "storage",
 	}))
-	Expect(template.Spec.SecurityContext).To(Equal(t.NewStoragePodSecurityContext(cr)))
+	Expect(template.Spec.SecurityContext).To(Equal(t.NewPodSecurityContext(cr)))
 
 	// Check that Storage is configured properly
 	storageContainer := template.Spec.Containers[0]
@@ -2819,8 +2819,8 @@ func (t *cryostatTestInput) expectStorageDeployment() {
 	Expect(template.Spec.ServiceAccountName).To(BeEmpty())
 	Expect(template.Spec.AutomountServiceAccountToken).To(BeNil())
 
-	if cr.Spec.StorageOptions != nil && cr.Spec.StorageOptions.SchedulingOptions != nil {
-		scheduling := cr.Spec.StorageOptions.SchedulingOptions
+	if cr.Spec.SchedulingOptions != nil {
+		scheduling := cr.Spec.SchedulingOptions
 		Expect(template.Spec.NodeSelector).To(Equal(scheduling.NodeSelector))
 		if scheduling.Affinity != nil {
 			Expect(template.Spec.Affinity.PodAffinity).To(Equal(scheduling.Affinity.PodAffinity))
