@@ -105,42 +105,10 @@ func (r *TestResources) newCryostatSpec() operatorv1beta2.CryostatSpec {
 			Replicas: r.ReportReplicas,
 		}
 	}
-	svcType := corev1.ServiceTypeNodePort
-	databaseHttpPort := int32(5432)
-	storageHttpPort := int32(8333)
-	serviceOptions := &operatorv1beta2.ServiceConfigList{
-		DatabaseConfig: &operatorv1beta2.DatabaseServiceConfig{
-			HTTPPort: &databaseHttpPort,
-			ServiceConfig: operatorv1beta2.ServiceConfig{
-				ServiceType: &svcType,
-				Annotations: map[string]string{
-					"my/custom": "annotation",
-				},
-				Labels: map[string]string{
-					"my":  "label",
-					"app": "somethingelse",
-				},
-			},
-		},
-		StorageConfig: &operatorv1beta2.StorageServiceConfig{
-			HTTPPort: &storageHttpPort,
-			ServiceConfig: operatorv1beta2.ServiceConfig{
-				ServiceType: &svcType,
-				Annotations: map[string]string{
-					"my/custom": "annotation",
-				},
-				Labels: map[string]string{
-					"my":  "label",
-					"app": "somethingelse",
-				},
-			},
-		},
-	}
 	return operatorv1beta2.CryostatSpec{
 		TargetNamespaces:  r.TargetNamespaces,
 		EnableCertManager: &certManager,
 		ReportOptions:     reportOptions,
-		ServiceOptions:    serviceOptions,
 	}
 }
 
@@ -2381,20 +2349,6 @@ func (r *TestResources) NewReportPodSecurityContext(cr *model.CryostatInstance) 
 	return r.commonDefaultPodSecurityContext(nil)
 }
 
-func (r *TestResources) NewDatabasePodSecurityContext(cr *model.CryostatInstance) *corev1.PodSecurityContext {
-	if cr.Spec.DatabaseOptions != nil && cr.Spec.DatabaseOptions.SecurityOptions != nil && cr.Spec.DatabaseOptions.SecurityOptions.PodSecurityContext != nil {
-		return cr.Spec.DatabaseOptions.SecurityOptions.PodSecurityContext
-	}
-	return r.commonDefaultPodSecurityContext(nil)
-}
-
-func (r *TestResources) NewStoragePodSecurityContext(cr *model.CryostatInstance) *corev1.PodSecurityContext {
-	if cr.Spec.StorageOptions != nil && cr.Spec.StorageOptions.SecurityOptions != nil && cr.Spec.StorageOptions.SecurityOptions.PodSecurityContext != nil {
-		return cr.Spec.StorageOptions.SecurityOptions.PodSecurityContext
-	}
-	return r.commonDefaultPodSecurityContext(nil)
-}
-
 func (r *TestResources) NewCoreSecurityContext(cr *model.CryostatInstance) *corev1.SecurityContext {
 	if cr.Spec.SecurityOptions != nil && cr.Spec.SecurityOptions.CoreSecurityContext != nil {
 		return cr.Spec.SecurityOptions.CoreSecurityContext
@@ -2424,15 +2378,15 @@ func (r *TestResources) NewAuthProxySecurityContext(cr *model.CryostatInstance) 
 }
 
 func (r *TestResources) NewDatabaseSecurityContext(cr *model.CryostatInstance) *corev1.SecurityContext {
-	if cr.Spec.DatabaseOptions != nil && cr.Spec.DatabaseOptions.SecurityOptions != nil && cr.Spec.DatabaseOptions.SecurityOptions.DatabaseSecurityContext != nil {
-		return cr.Spec.DatabaseOptions.SecurityOptions.DatabaseSecurityContext
+	if cr.Spec.SecurityOptions != nil && cr.Spec.SecurityOptions.DatabaseSecurityContext != nil {
+		return cr.Spec.SecurityOptions.DatabaseSecurityContext
 	}
 	return r.commonDefaultSecurityContext()
 }
 
 func (r *TestResources) NewStorageSecurityContext(cr *model.CryostatInstance) *corev1.SecurityContext {
-	if cr.Spec.StorageOptions != nil && cr.Spec.StorageOptions.SecurityOptions != nil && cr.Spec.StorageOptions.SecurityOptions.StorageSecurityContext != nil {
-		return cr.Spec.StorageOptions.SecurityOptions.StorageSecurityContext
+	if cr.Spec.SecurityOptions != nil && cr.Spec.SecurityOptions.StorageSecurityContext != nil {
+		return cr.Spec.SecurityOptions.StorageSecurityContext
 	}
 	return r.commonDefaultSecurityContext()
 }

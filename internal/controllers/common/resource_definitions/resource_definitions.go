@@ -22,7 +22,7 @@ import (
 	"strconv"
 	"strings"
 
-	operatorv1beta1 "github.com/cryostatio/cryostat-operator/api/v1beta1"
+	operatorv1beta2 "github.com/cryostatio/cryostat-operator/api/v1beta2"
 	common "github.com/cryostatio/cryostat-operator/internal/controllers/common"
 	"github.com/cryostatio/cryostat-operator/internal/controllers/constants"
 	"github.com/cryostatio/cryostat-operator/internal/controllers/model"
@@ -437,7 +437,7 @@ func NewPodForCR(cr *model.CryostatInstance, specs *ServiceSpecs, imageTags *Ima
 		if secret.CertificateKey != nil {
 			key = *secret.CertificateKey
 		} else {
-			key = operatorv1beta1.DefaultCertificateKey
+			key = operatorv1beta2.DefaultCertificateKey
 		}
 		source := corev1.VolumeProjection{
 			Secret: &corev1.SecretProjection{
