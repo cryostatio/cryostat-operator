@@ -16,12 +16,13 @@ package controllers
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/cryostatio/cryostat-operator/internal/controllers/constants"
 	"github.com/cryostatio/cryostat-operator/internal/controllers/model"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
+	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
@@ -57,23 +58,35 @@ func (r *Reconciler) reconcileAuthProxyCookieSecret(ctx context.Context, cr *mod
 	})
 }
 
-// databaseSecretNameSuffix is the suffix to be appended to the name of a
-// Cryostat CR to name its database secret
-const databaseSecretNameSuffix = "-db"
+const (
+	// The suffix to be appended to the name of a Cryostat CR to name its database secret
+	databaseSecretNameSuffix          = "-db"
+	eventDatabaseSecretMismatchedType = "DatabaseSecretMismatched"
+	eventDatabaseMismatchMsg          = "\"databaseOptions.secretName\" field cannot be updated, please revert its value or re-create this Cryostat custom resource"
+)
+
+var errDatabaseSecretUpdated = errors.New("database secret cannot be updated, but another secret is specified")
 
 func (r *Reconciler) reconcileDatabaseConnectionSecret(ctx context.Context, cr *model.CryostatInstance) error {
-	var secretName string
+	secret := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      cr.Name + databaseSecretNameSuffix,
+			Namespace: cr.InstallNamespace,
+		},
+	}
+	secretName := secret.Name
 	secretProvided := cr.Spec.DatabaseOptions != nil && cr.Spec.DatabaseOptions.SecretName != nil
 	if secretProvided {
-		// Do not delete default secret to allow reverting to use default if needed
 		secretName = *cr.Spec.DatabaseOptions.SecretName
-	} else {
-		secret := &corev1.Secret{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      cr.Name + databaseSecretNameSuffix,
-				Namespace: cr.InstallNamespace,
-			},
-		}
+	}
+
+	// If the CR status contains the secret name, emit an Event in case the configured secret's name does not match.
+	if len(cr.Status.DatabaseSecret) > 0 && cr.Status.DatabaseSecret != secretName {
+		r.EventRecorder.Event(cr.Object, corev1.EventTypeWarning, eventDatabaseSecretMismatchedType, eventDatabaseMismatchMsg)
+		return errDatabaseSecretUpdated
+	}
+
+	if !secretProvided {
 		err := r.createOrUpdateSecret(ctx, secret, cr.Object, func() error {
 			if secret.StringData == nil {
 				secret.StringData = map[string]string{}
@@ -84,14 +97,16 @@ func (r *Reconciler) reconcileDatabaseConnectionSecret(ctx context.Context, cr *
 				secret.StringData[constants.DatabaseSecretConnectionKey] = r.GenPasswd(32)
 				secret.StringData[constants.DatabaseSecretEncryptionKey] = r.GenPasswd(32)
 			}
+
+			secret.Immutable = &[]bool{true}[0]
 			return nil
 		})
 
 		if err != nil {
 			return err
 		}
-		secretName = secret.Name
 	}
+
 	cr.Status.DatabaseSecret = secretName
 	return r.Client.Status().Update(ctx, cr.Object)
 }
@@ -150,7 +165,7 @@ func (r *Reconciler) createOrUpdateSecret(ctx context.Context, secret *corev1.Se
 
 func (r *Reconciler) deleteSecret(ctx context.Context, secret *corev1.Secret) error {
 	err := r.Client.Delete(ctx, secret)
-	if err != nil && !errors.IsNotFound(err) {
+	if err != nil && !kerrors.IsNotFound(err) {
 		r.Log.Error(err, "Could not delete secret", "name", secret.Name, "namespace", secret.Namespace)
 		return err
 	}

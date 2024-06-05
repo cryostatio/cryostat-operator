@@ -53,7 +53,7 @@ metadata:
     capabilities: Seamless Upgrades
     categories: Monitoring, Developer Tools
     containerImage: quay.io/cryostat/cryostat-operator:3.0.0-dev
-    createdAt: "2024-05-28T20:14:14Z"
+    createdAt: "2024-05-31T05:27:37Z"
     description: JVM monitoring and profiling tool
     operatorframework.io/initialization-resource: |-
       {
@@ -576,10 +576,13 @@ spec:
       - description: Options to configure the Cryostat application's database.
         displayName: Database Options
         path: databaseOptions
-      - description: Name of the secret containing database keys. This secret must
+      - description: 'Name of the secret containing database keys. This secret must
           contain a CONNECTION_KEY secret which is the database connection password,
           and an ENCRYPTION_KEY secret which is the key used to encrypt sensitive
           data stored within the database, such as the target credentials keyring.
+          This field cannot be updated. It is recommended that the secret should be
+          marked as immutable to avoid accidental changes to secret''s data. More
+          details: https://kubernetes.io/docs/concepts/configuration/secret/#secret-immutable'
         displayName: Secret Name
         path: databaseOptions.secretName
         x-descriptors:

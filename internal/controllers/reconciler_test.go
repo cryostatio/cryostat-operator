@@ -2352,6 +2352,7 @@ func (t *cryostatTestInput) expectDatabaseSecret() {
 	expectedSecret := t.NewDatabaseSecret()
 	t.checkMetadata(secret, expectedSecret)
 	Expect(secret.StringData).To(Equal(expectedSecret.StringData))
+	Expect(secret.Immutable).To(Equal(expectedSecret.Immutable))
 }
 
 func (t *cryostatTestInput) expectStorageSecret() {
