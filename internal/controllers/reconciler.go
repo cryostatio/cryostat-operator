@@ -24,7 +24,7 @@ import (
 	"time"
 
 	certv1 "github.com/cert-manager/cert-manager/pkg/apis/certmanager/v1"
-	operatorv1beta1 "github.com/cryostatio/cryostat-operator/api/v1beta1"
+	operatorv1beta2 "github.com/cryostatio/cryostat-operator/api/v1beta2"
 	common "github.com/cryostatio/cryostat-operator/internal/controllers/common"
 	resources "github.com/cryostatio/cryostat-operator/internal/controllers/common/resource_definitions"
 	"github.com/cryostatio/cryostat-operator/internal/controllers/model"
@@ -121,17 +121,17 @@ const (
 )
 
 // Map Cryostat conditions to deployment conditions
-type deploymentConditionTypeMap map[operatorv1beta1.CryostatConditionType]appsv1.DeploymentConditionType
+type deploymentConditionTypeMap map[operatorv1beta2.CryostatConditionType]appsv1.DeploymentConditionType
 
 var mainDeploymentConditions = deploymentConditionTypeMap{
-	operatorv1beta1.ConditionTypeMainDeploymentAvailable:      appsv1.DeploymentAvailable,
-	operatorv1beta1.ConditionTypeMainDeploymentProgressing:    appsv1.DeploymentProgressing,
-	operatorv1beta1.ConditionTypeMainDeploymentReplicaFailure: appsv1.DeploymentReplicaFailure,
+	operatorv1beta2.ConditionTypeMainDeploymentAvailable:      appsv1.DeploymentAvailable,
+	operatorv1beta2.ConditionTypeMainDeploymentProgressing:    appsv1.DeploymentProgressing,
+	operatorv1beta2.ConditionTypeMainDeploymentReplicaFailure: appsv1.DeploymentReplicaFailure,
 }
 var reportsDeploymentConditions = deploymentConditionTypeMap{
-	operatorv1beta1.ConditionTypeReportsDeploymentAvailable:      appsv1.DeploymentAvailable,
-	operatorv1beta1.ConditionTypeReportsDeploymentProgressing:    appsv1.DeploymentProgressing,
-	operatorv1beta1.ConditionTypeReportsDeploymentReplicaFailure: appsv1.DeploymentReplicaFailure,
+	operatorv1beta2.ConditionTypeReportsDeploymentAvailable:      appsv1.DeploymentAvailable,
+	operatorv1beta2.ConditionTypeReportsDeploymentProgressing:    appsv1.DeploymentProgressing,
+	operatorv1beta2.ConditionTypeReportsDeploymentReplicaFailure: appsv1.DeploymentReplicaFailure,
 }
 
 func newReconciler(config *ReconcilerConfig, objType client.Object, isNamespaced bool) (*Reconciler, error) {
@@ -217,7 +217,7 @@ func (r *Reconciler) reconcileCryostat(ctx context.Context, cr *model.CryostatIn
 		tlsConfig, err = r.setupTLS(ctx, cr)
 		if err != nil {
 			if err == common.ErrCertNotReady {
-				condErr := r.updateCondition(ctx, cr, operatorv1beta1.ConditionTypeTLSSetupComplete, metav1.ConditionFalse,
+				condErr := r.updateCondition(ctx, cr, operatorv1beta2.ConditionTypeTLSSetupComplete, metav1.ConditionFalse,
 					reasonWaitingForCert, "Waiting for certificates to become ready.")
 				if condErr != nil {
 					return reconcile.Result{}, err
@@ -225,20 +225,20 @@ func (r *Reconciler) reconcileCryostat(ctx context.Context, cr *model.CryostatIn
 				return reconcile.Result{RequeueAfter: 5 * time.Second}, nil
 			}
 			if err == errCertManagerMissing {
-				r.updateCondition(ctx, cr, operatorv1beta1.ConditionTypeTLSSetupComplete, metav1.ConditionFalse,
+				r.updateCondition(ctx, cr, operatorv1beta2.ConditionTypeTLSSetupComplete, metav1.ConditionFalse,
 					reasonCertManagerUnavailable, eventCertManagerUnavailableMsg)
 			}
 			reqLogger.Error(err, "Failed to set up TLS for Cryostat")
 			return reconcile.Result{}, err
 		}
 
-		err = r.updateCondition(ctx, cr, operatorv1beta1.ConditionTypeTLSSetupComplete, metav1.ConditionTrue,
+		err = r.updateCondition(ctx, cr, operatorv1beta2.ConditionTypeTLSSetupComplete, metav1.ConditionTrue,
 			reasonAllCertsReady, "All certificates for Cryostat components are ready.")
 		if err != nil {
 			return reconcile.Result{}, err
 		}
 	} else {
-		err = r.updateCondition(ctx, cr, operatorv1beta1.ConditionTypeTLSSetupComplete, metav1.ConditionTrue,
+		err = r.updateCondition(ctx, cr, operatorv1beta2.ConditionTypeTLSSetupComplete, metav1.ConditionTrue,
 			reasonCertManagerDisabled, "TLS setup has been disabled.")
 		if err != nil {
 			return reconcile.Result{}, err
@@ -346,9 +346,9 @@ func (r *Reconciler) reconcileReports(ctx context.Context, reqLogger logr.Logger
 			return reconcile.Result{}, err
 		}
 
-		removeConditionIfPresent(cr, operatorv1beta1.ConditionTypeReportsDeploymentAvailable,
-			operatorv1beta1.ConditionTypeReportsDeploymentProgressing,
-			operatorv1beta1.ConditionTypeReportsDeploymentReplicaFailure)
+		removeConditionIfPresent(cr, operatorv1beta2.ConditionTypeReportsDeploymentAvailable,
+			operatorv1beta2.ConditionTypeReportsDeploymentProgressing,
+			operatorv1beta2.ConditionTypeReportsDeploymentReplicaFailure)
 		err := r.Client.Status().Update(ctx, cr.Object)
 		if err != nil {
 			return reconcile.Result{}, err
@@ -429,7 +429,7 @@ func parseSupGroups(supGroups string) (*int64, error) {
 }
 
 func (r *Reconciler) updateCondition(ctx context.Context, cr *model.CryostatInstance,
-	condType operatorv1beta1.CryostatConditionType, status metav1.ConditionStatus, reason string, message string) error {
+	condType operatorv1beta2.CryostatConditionType, status metav1.ConditionStatus, reason string, message string) error {
 	reqLogger := r.Log.WithValues("Request.Namespace", cr.InstallNamespace, "Request.Name", cr.Name)
 	meta.SetStatusCondition(&cr.Status.Conditions, metav1.Condition{
 		Type:    string(condType),
@@ -541,7 +541,7 @@ func requeueIfIngressNotReady(log logr.Logger, err error) (reconcile.Result, err
 	return reconcile.Result{}, err
 }
 
-func removeConditionIfPresent(cr *model.CryostatInstance, condType ...operatorv1beta1.CryostatConditionType) {
+func removeConditionIfPresent(cr *model.CryostatInstance, condType ...operatorv1beta2.CryostatConditionType) {
 	for _, ct := range condType {
 		found := meta.FindStatusCondition(cr.Status.Conditions, string(ct))
 		if found != nil {
