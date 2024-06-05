@@ -1671,6 +1671,9 @@ func (r *TestResources) NewAuthProxyArguments(authOptions *operatorv1beta2.Autho
 	}
 
 	args := []string{
+		"--pass-access-token=false",
+		"--pass-user-bearer-token=false",
+		"--pass-basic-auth=false",
 		"--upstream=http://localhost:8181/",
 		"--upstream=http://localhost:3000/grafana/",
 		"--upstream=http://localhost:8333/storage/",
