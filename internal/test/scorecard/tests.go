@@ -116,7 +116,7 @@ func CryostatConfigChangeTest(bundle *apimanifests.Bundle, namespace string, ope
 		},
 	}
 
-	_, err = r.createAndWaitTillCryostatAvailable(cr)
+	cr, err = r.createAndWaitTillCryostatAvailable(cr)
 	if err != nil {
 		return r.fail(fmt.Sprintf("failed to determine application URL: %s", err.Error()))
 	}
