@@ -98,7 +98,7 @@ CERT_MANAGER_MANIFEST ?= \
 	https://github.com/cert-manager/cert-manager/releases/download/v$(CERT_MANAGER_VERSION)/cert-manager.yaml
 
 KUSTOMIZE_VERSION ?= 3.8.7
-CONTROLLER_TOOLS_VERSION ?= 0.11.1
+CONTROLLER_TOOLS_VERSION ?= 0.14.0
 GOLICENSE_VERSION ?= 1.29.0
 OPM_VERSION ?= 1.23.0
 # ENVTEST_K8S_VERSION refers to the version of kubebuilder assets to be downloaded by envtest binary.
