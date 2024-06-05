@@ -105,10 +105,42 @@ func (r *TestResources) newCryostatSpec() operatorv1beta2.CryostatSpec {
 			Replicas: r.ReportReplicas,
 		}
 	}
+	svcType := corev1.ServiceTypeNodePort
+	databaseHttpPort := int32(5432)
+	storageHttpPort := int32(8333)
+	serviceOptions := &operatorv1beta2.ServiceConfigList{
+		DatabaseConfig: &operatorv1beta2.DatabaseServiceConfig{
+			HTTPPort: &databaseHttpPort,
+			ServiceConfig: operatorv1beta2.ServiceConfig{
+				ServiceType: &svcType,
+				Annotations: map[string]string{
+					"my/custom": "annotation",
+				},
+				Labels: map[string]string{
+					"my":  "label",
+					"app": "somethingelse",
+				},
+			},
+		},
+		StorageConfig: &operatorv1beta2.StorageServiceConfig{
+			HTTPPort: &storageHttpPort,
+			ServiceConfig: operatorv1beta2.ServiceConfig{
+				ServiceType: &svcType,
+				Annotations: map[string]string{
+					"my/custom": "annotation",
+				},
+				Labels: map[string]string{
+					"my":  "label",
+					"app": "somethingelse",
+				},
+			},
+		},
+	}
 	return operatorv1beta2.CryostatSpec{
 		TargetNamespaces:  r.TargetNamespaces,
 		EnableCertManager: &certManager,
 		ReportOptions:     reportOptions,
+		ServiceOptions:    serviceOptions,
 	}
 }
 
@@ -748,6 +780,80 @@ func (r *TestResources) NewCommandService() *corev1.Service {
 					Name:       "http",
 					Port:       10001,
 					TargetPort: intstr.FromInt(10001),
+				},
+			},
+		},
+	}
+}
+
+func (r *TestResources) NewDatabaseService() *corev1.Service {
+	c := true
+	return &corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      r.Name + "-database",
+			Namespace: r.Namespace,
+			OwnerReferences: []metav1.OwnerReference{
+				{
+					APIVersion: operatorv1beta2.GroupVersion.String(),
+					Kind:       "Cryostat",
+					Name:       r.Name + "-database",
+					UID:        "",
+					Controller: &c,
+				},
+			},
+			Labels: map[string]string{
+				"app":       r.Name,
+				"component": "database",
+			},
+		},
+		Spec: corev1.ServiceSpec{
+			Type: corev1.ServiceTypeClusterIP,
+			Selector: map[string]string{
+				"app":       r.Name,
+				"component": "database",
+			},
+			Ports: []corev1.ServicePort{
+				{
+					Name:       "http",
+					Port:       5432,
+					TargetPort: intstr.FromInt(5432),
+				},
+			},
+		},
+	}
+}
+
+func (r *TestResources) NewStorageService() *corev1.Service {
+	c := true
+	return &corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      r.Name + "-storage",
+			Namespace: r.Namespace,
+			OwnerReferences: []metav1.OwnerReference{
+				{
+					APIVersion: operatorv1beta2.GroupVersion.String(),
+					Kind:       "Cryostat",
+					Name:       r.Name + "-storage",
+					UID:        "",
+					Controller: &c,
+				},
+			},
+			Labels: map[string]string{
+				"app":       r.Name,
+				"component": "storage",
+			},
+		},
+		Spec: corev1.ServiceSpec{
+			Type: corev1.ServiceTypeClusterIP,
+			Selector: map[string]string{
+				"app":       r.Name,
+				"component": "storage",
+			},
+			Ports: []corev1.ServicePort{
+				{
+					Name:       "http",
+					Port:       8333,
+					TargetPort: intstr.FromInt(8333),
 				},
 			},
 		},
@@ -1967,6 +2073,26 @@ func (r *TestResources) NewMainDeploymentSelector() *metav1.LabelSelector {
 	}
 }
 
+func (r *TestResources) NewDatabaseDeploymentSelector() *metav1.LabelSelector {
+	return &metav1.LabelSelector{
+		MatchLabels: map[string]string{
+			"app":       r.Name,
+			"kind":      "cryostat",
+			"component": "database",
+		},
+	}
+}
+
+func (r *TestResources) NewStorageDeploymentSelector() *metav1.LabelSelector {
+	return &metav1.LabelSelector{
+		MatchLabels: map[string]string{
+			"app":       r.Name,
+			"kind":      "cryostat",
+			"component": "storage",
+		},
+	}
+}
+
 func (r *TestResources) NewReportsDeploymentSelector() *metav1.LabelSelector {
 	return &metav1.LabelSelector{
 		MatchLabels: map[string]string{
@@ -2269,6 +2395,20 @@ func (r *TestResources) NewPodSecurityContext(cr *model.CryostatInstance) *corev
 func (r *TestResources) NewReportPodSecurityContext(cr *model.CryostatInstance) *corev1.PodSecurityContext {
 	if cr.Spec.ReportOptions != nil && cr.Spec.ReportOptions.SecurityOptions != nil && cr.Spec.ReportOptions.SecurityOptions.PodSecurityContext != nil {
 		return cr.Spec.ReportOptions.SecurityOptions.PodSecurityContext
+	}
+	return r.commonDefaultPodSecurityContext(nil)
+}
+
+func (r *TestResources) NewDatabasePodSecurityContext(cr *model.CryostatInstance) *corev1.PodSecurityContext {
+	if cr.Spec.DatabaseOptions != nil && cr.Spec.DatabaseOptions.SecurityOptions != nil && cr.Spec.DatabaseOptions.SecurityOptions.PodSecurityContext != nil {
+		return cr.Spec.DatabaseOptions.SecurityOptions.PodSecurityContext
+	}
+	return r.commonDefaultPodSecurityContext(nil)
+}
+
+func (r *TestResources) NewStoragePodSecurityContext(cr *model.CryostatInstance) *corev1.PodSecurityContext {
+	if cr.Spec.StorageOptions != nil && cr.Spec.StorageOptions.SecurityOptions != nil && cr.Spec.StorageOptions.SecurityOptions.PodSecurityContext != nil {
+		return cr.Spec.StorageOptions.SecurityOptions.PodSecurityContext
 	}
 	return r.commonDefaultPodSecurityContext(nil)
 }
