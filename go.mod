@@ -7,6 +7,7 @@ require (
 	github.com/cert-manager/cert-manager v1.11.5
 	github.com/go-logr/logr v1.3.0
 	github.com/google/go-cmp v0.6.0
+<<<<<<< HEAD
 	github.com/onsi/ginkgo/v2 v2.6.1
 	github.com/onsi/gomega v1.24.2
 	github.com/openshift/api v0.0.0-20230406152840-ce21e3fe5da2 // release-4.15
@@ -15,6 +16,16 @@ require (
 	k8s.io/apimachinery v0.26.10
 	k8s.io/client-go v0.26.10
 	sigs.k8s.io/controller-runtime v0.14.7
+=======
+	github.com/onsi/ginkgo/v2 v2.17.1
+	github.com/onsi/gomega v1.33.0
+	github.com/openshift/api v0.0.0-20240228005710-4511c790cc60 // release-4.15
+	github.com/operator-framework/api v0.22.0
+	k8s.io/api v0.28.10
+	k8s.io/apimachinery v0.28.10
+	k8s.io/client-go v0.28.10
+	sigs.k8s.io/controller-runtime v0.16.5
+>>>>>>> d5f4a39 (build(deps): bump k8s.io/client-go from 0.28.9 to 0.28.10 (#862))
 )
 
 require (
