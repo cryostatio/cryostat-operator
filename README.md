@@ -51,6 +51,7 @@ the need to expose a JMX port over the network.
 - [`operator-sdk`](https://github.com/operator-framework/operator-sdk) v1.31.0
 - `podman` or `docker`
 - [`jq`](https://stedolan.github.io/jq/) v1.6+
+- [`yq`](https://github.com/mikefarah/yq/) v4.35+
 - `ginkgo` (Optional)
 
 ## Instructions
