@@ -5,6 +5,28 @@ metadata:
     alm-examples: |-
       [
         {
+          "apiVersion": "operator.cryostat.io/v1beta2",
+          "kind": "Cryostat",
+          "metadata": {
+            "name": "cryostat-sample"
+          },
+          "spec": {
+            "enableCertManager": true,
+            "eventTemplates": [],
+            "reportOptions": {
+              "replicas": 0
+            },
+            "storageOptions": {
+              "pvc": {
+                "annotations": {},
+                "labels": {},
+                "spec": {}
+              }
+            },
+            "trustedCertSecrets": []
+          }
+        },
+        {
           "apiVersion": "operator.cryostat.io/v1beta1",
           "kind": "Cryostat",
           "metadata": {
@@ -26,34 +48,12 @@ metadata:
             },
             "trustedCertSecrets": []
           }
-        },
-        {
-          "apiVersion": "operator.cryostat.io/v1beta2",
-          "kind": "Cryostat",
-          "metadata": {
-            "name": "cryostat-sample"
-          },
-          "spec": {
-            "enableCertManager": true,
-            "eventTemplates": [],
-            "reportOptions": {
-              "replicas": 0
-            },
-            "storageOptions": {
-              "pvc": {
-                "annotations": {},
-                "labels": {},
-                "spec": {}
-              }
-            },
-            "trustedCertSecrets": []
-          }
         }
       ]
     capabilities: Seamless Upgrades
     categories: Monitoring, Developer Tools
     containerImage: quay.io/cryostat/cryostat-operator:4.0.0-dev
-    createdAt: "2024-06-07T17:42:53Z"
+    createdAt: "2024-06-07T18:03:37Z"
     description: JVM monitoring and profiling tool
     operatorframework.io/initialization-resource: |-
       {
