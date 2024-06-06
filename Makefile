@@ -328,6 +328,8 @@ ifeq ($(BUNDLE_MODE), ocp)
 	cd config/manifests && $(KUSTOMIZE) edit add base ../openshift
 endif
 	$(KUSTOMIZE) build config/manifests | $(OPERATOR_SDK) generate bundle $(BUNDLE_GEN_FLAGS)
+# Workaround for: https://issues.redhat.com/browse/OCPBUGS-34901
+	yq -i '.spec.customresourcedefinitions.owned |= pick([1, 0])' bundle/manifests/cryostat-operator.clusterserviceversion.yaml
 	$(OPERATOR_SDK) bundle validate ./bundle
 
 .PHONY: bundle-build
