@@ -16,78 +16,31 @@ package controllers
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
+	"github.com/cryostatio/cryostat-operator/internal/controllers/constants"
 	"github.com/cryostatio/cryostat-operator/internal/controllers/model"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
+	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
 func (r *Reconciler) reconcileSecrets(ctx context.Context, cr *model.CryostatInstance) error {
-	if err := r.reconcileGrafanaSecret(ctx, cr); err != nil {
+	if err := r.reconcileAuthProxyCookieSecret(ctx, cr); err != nil {
 		return err
 	}
-	if err := r.reconcileDatabaseSecret(ctx, cr); err != nil {
+	if err := r.reconcileDatabaseConnectionSecret(ctx, cr); err != nil {
 		return err
 	}
-	return r.reconcileJMXSecret(ctx, cr)
+	return r.reconcileStorageSecret(ctx, cr)
 }
 
-func (r *Reconciler) reconcileGrafanaSecret(ctx context.Context, cr *model.CryostatInstance) error {
+func (r *Reconciler) reconcileAuthProxyCookieSecret(ctx context.Context, cr *model.CryostatInstance) error {
 	secret := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      cr.Name + "-grafana-basic",
-			Namespace: cr.InstallNamespace,
-		},
-	}
-
-	var secretName string
-	if cr.Spec.Minimal {
-		err := r.deleteSecret(ctx, secret)
-		if err != nil {
-			return err
-		}
-		secretName = ""
-	} else {
-		err := r.createOrUpdateSecret(ctx, secret, cr.Object, func() error {
-			if secret.StringData == nil {
-				secret.StringData = map[string]string{}
-			}
-			secret.StringData["GF_SECURITY_ADMIN_USER"] = "admin"
-
-			// Password is generated, so don't regenerate it when updating
-			if secret.CreationTimestamp.IsZero() {
-				secret.StringData["GF_SECURITY_ADMIN_PASSWORD"] = r.GenPasswd(20)
-			}
-			return nil
-		})
-		if err != nil {
-			return err
-		}
-		secretName = secret.Name
-	}
-
-	// Set the Grafana secret in the CR status
-	cr.Status.GrafanaSecret = secretName
-	return r.Client.Status().Update(ctx, cr.Object)
-}
-
-// jmxSecretNameSuffix is the suffix to be appended to the name of a
-// Cryostat CR to name its JMX credentials secret
-const jmxSecretNameSuffix = "-jmx-auth"
-
-// jmxSecretUserKey indexes the username within the Cryostat JMX auth secret
-const jmxSecretUserKey = "CRYOSTAT_RJMX_USER"
-
-// jmxSecretPassKey indexes the password within the Cryostat JMX auth secret
-const jmxSecretPassKey = "CRYOSTAT_RJMX_PASS"
-
-func (r *Reconciler) reconcileJMXSecret(ctx context.Context, cr *model.CryostatInstance) error {
-	secret := &corev1.Secret{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      cr.Name + jmxSecretNameSuffix,
+			Name:      cr.Name + "-oauth2-cookie",
 			Namespace: cr.InstallNamespace,
 		},
 	}
@@ -96,47 +49,101 @@ func (r *Reconciler) reconcileJMXSecret(ctx context.Context, cr *model.CryostatI
 		if secret.StringData == nil {
 			secret.StringData = map[string]string{}
 		}
-		secret.StringData[jmxSecretUserKey] = "cryostat"
 
-		// Password is generated, so don't regenerate it when updating
+		// secret is generated, so don't regenerate it when updating
 		if secret.CreationTimestamp.IsZero() {
-			secret.StringData[jmxSecretPassKey] = r.GenPasswd(20)
+			secret.StringData["OAUTH2_PROXY_COOKIE_SECRET"] = r.GenPasswd(32)
 		}
 		return nil
 	})
 }
 
-// databaseSecretNameSuffix is the suffix to be appended to the name of a
-// Cryostat CR to name its credentials database secret
-const databaseSecretNameSuffix = "-jmx-credentials-db"
+const (
+	// The suffix to be appended to the name of a Cryostat CR to name its database secret
+	databaseSecretNameSuffix          = "-db"
+	eventDatabaseSecretMismatchedType = "DatabaseSecretMismatched"
+	eventDatabaseMismatchMsg          = "\"databaseOptions.secretName\" field cannot be updated, please revert its value or re-create this Cryostat custom resource"
+)
 
-// dbSecretUserKey indexes the password within the Cryostat credentials database Secret
-const databaseSecretPassKey = "CRYOSTAT_JMX_CREDENTIALS_DB_PASSWORD"
+var errDatabaseSecretUpdated = errors.New("database secret cannot be updated, but another secret is specified")
 
-func (r *Reconciler) reconcileDatabaseSecret(ctx context.Context, cr *model.CryostatInstance) error {
+func (r *Reconciler) reconcileDatabaseConnectionSecret(ctx context.Context, cr *model.CryostatInstance) error {
 	secret := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      cr.Name + databaseSecretNameSuffix,
 			Namespace: cr.InstallNamespace,
 		},
 	}
-
-	secretProvided := cr.Spec.JmxCredentialsDatabaseOptions != nil && cr.Spec.JmxCredentialsDatabaseOptions.DatabaseSecretName != nil
+	secretName := secret.Name
+	secretProvided := cr.Spec.DatabaseOptions != nil && cr.Spec.DatabaseOptions.SecretName != nil
 	if secretProvided {
-		return nil // Do not delete default secret to allow reverting to use default if needed
+		secretName = *cr.Spec.DatabaseOptions.SecretName
 	}
 
-	return r.createOrUpdateSecret(ctx, secret, cr.Object, func() error {
+	// If the CR status contains the secret name, emit an Event in case the configured secret's name does not match.
+	if len(cr.Status.DatabaseSecret) > 0 && cr.Status.DatabaseSecret != secretName {
+		r.EventRecorder.Event(cr.Object, corev1.EventTypeWarning, eventDatabaseSecretMismatchedType, eventDatabaseMismatchMsg)
+		return errDatabaseSecretUpdated
+	}
+
+	if !secretProvided {
+		err := r.createOrUpdateSecret(ctx, secret, cr.Object, func() error {
+			if secret.StringData == nil {
+				secret.StringData = map[string]string{}
+			}
+
+			// Password is generated, so don't regenerate it when updating
+			if secret.CreationTimestamp.IsZero() {
+				secret.StringData[constants.DatabaseSecretConnectionKey] = r.GenPasswd(32)
+				secret.StringData[constants.DatabaseSecretEncryptionKey] = r.GenPasswd(32)
+			}
+
+			secret.Immutable = &[]bool{true}[0]
+			return nil
+		})
+
+		if err != nil {
+			return err
+		}
+	}
+
+	cr.Status.DatabaseSecret = secretName
+	return r.Client.Status().Update(ctx, cr.Object)
+}
+
+// storageSecretNameSuffix is the suffix to be appended to the name of a
+// Cryostat CR to name its object storage secret
+const storageSecretNameSuffix = "-storage"
+
+// storageSecretUserKey indexes the password within the Cryostat storage Secret
+const storageSecretPassKey = "SECRET_KEY"
+
+func (r *Reconciler) reconcileStorageSecret(ctx context.Context, cr *model.CryostatInstance) error {
+	secret := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      cr.Name + storageSecretNameSuffix,
+			Namespace: cr.InstallNamespace,
+		},
+	}
+
+	err := r.createOrUpdateSecret(ctx, secret, cr.Object, func() error {
 		if secret.StringData == nil {
 			secret.StringData = map[string]string{}
 		}
 
 		// Password is generated, so don't regenerate it when updating
 		if secret.CreationTimestamp.IsZero() {
-			secret.StringData[databaseSecretPassKey] = r.GenPasswd(32)
+			secret.StringData[storageSecretPassKey] = r.GenPasswd(32)
 		}
 		return nil
 	})
+
+	if err != nil {
+		return err
+	}
+
+	cr.Status.StorageSecret = secret.Name
+	return r.Client.Status().Update(ctx, cr.Object)
 }
 
 func (r *Reconciler) createOrUpdateSecret(ctx context.Context, secret *corev1.Secret, owner metav1.Object,
@@ -158,7 +165,7 @@ func (r *Reconciler) createOrUpdateSecret(ctx context.Context, secret *corev1.Se
 
 func (r *Reconciler) deleteSecret(ctx context.Context, secret *corev1.Secret) error {
 	err := r.Client.Delete(ctx, secret)
-	if err != nil && !errors.IsNotFound(err) {
+	if err != nil && !kerrors.IsNotFound(err) {
 		r.Log.Error(err, "Could not delete secret", "name", secret.Name, "namespace", secret.Namespace)
 		return err
 	}

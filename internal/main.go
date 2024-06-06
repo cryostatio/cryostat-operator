@@ -15,11 +15,11 @@
 package main
 
 import (
+	"crypto/tls"
 	"flag"
 	"fmt"
 	"net/url"
 	"os"
-	"strings"
 
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	// to ensure that exec-entrypoint and run can make use of them.
@@ -30,19 +30,22 @@ import (
 	configv1 "github.com/openshift/api/config/v1"
 	consolev1 "github.com/openshift/api/console/v1"
 	routev1 "github.com/openshift/api/route/v1"
-	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	ctrl "sigs.k8s.io/controller-runtime"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
+	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
+	"sigs.k8s.io/controller-runtime/pkg/webhook"
 
+	"github.com/RedHatInsights/runtimes-inventory-operator/pkg/insights"
 	operatorv1beta1 "github.com/cryostatio/cryostat-operator/api/v1beta1"
+	operatorv1beta2 "github.com/cryostatio/cryostat-operator/api/v1beta2"
 	"github.com/cryostatio/cryostat-operator/internal/controllers"
 	"github.com/cryostatio/cryostat-operator/internal/controllers/common"
-	"github.com/cryostatio/cryostat-operator/internal/controllers/insights"
+	"github.com/cryostatio/cryostat-operator/internal/controllers/constants"
+	"github.com/cryostatio/cryostat-operator/internal/webhooks"
 	// +kubebuilder:scaffold:imports
 )
 
@@ -62,6 +65,7 @@ func init() {
 	utilruntime.Must(consolev1.AddToScheme(scheme))
 	utilruntime.Must(configv1.AddToScheme(scheme))
 
+	utilruntime.Must(operatorv1beta2.AddToScheme(scheme))
 	// +kubebuilder:scaffold:scheme
 }
 
@@ -69,48 +73,60 @@ func main() {
 	var metricsAddr string
 	var enableLeaderElection bool
 	var probeAddr string
+	var secureMetrics bool
+	var enableHTTP2 bool
+	var forceOpenShift bool
 	flag.StringVar(&metricsAddr, "metrics-bind-address", ":8080", "The address the metric endpoint binds to.")
 	flag.StringVar(&probeAddr, "health-probe-bind-address", ":8081", "The address the probe endpoint binds to.")
 	flag.BoolVar(&enableLeaderElection, "leader-elect", false,
 		"Enable leader election for controller manager. "+
 			"Enabling this will ensure there is only one active controller manager.")
+	flag.BoolVar(&secureMetrics, "metrics-secure", false,
+		"If set the metrics endpoint is served securely")
+	flag.BoolVar(&enableHTTP2, "enable-http2", false, "If HTTP/2 should be enabled for the metrics and webhook servers.")
+	flag.BoolVar(&forceOpenShift, "force-openshift", false, "Force the controller to consider current platform as OpenShift")
 	opts := zap.Options{
 		Development: true,
 	}
 	opts.BindFlags(flag.CommandLine)
 	flag.Parse()
 
-	watchNamespace, err := getWatchNamespace()
-	if err != nil {
-		setupLog.Error(err, "unable to get WatchNamespace, "+
-			"the manager will watch and manage resources in all namespaces")
-	}
-	namespaces := []string{}
-	if len(watchNamespace) > 0 {
-		namespaces = append(namespaces, strings.Split(watchNamespace, ",")...)
-	}
-
 	ctrl.SetLogger(zap.New(zap.UseFlagOptions(&opts)))
 
-	// For OwnNamespace install mode, we need to see RoleBindings in other namespaces
-	// when used with ClusterCryostat
-	// https://github.com/cryostatio/cryostat-operator/issues/580
-	disableCache := []client.Object{}
-	if len(namespaces) > 0 {
-		disableCache = append(disableCache, &rbacv1.RoleBinding{})
+	// if the enable-http2 flag is false (the default), http/2 should be disabled
+	// due to its vulnerabilities. More specifically, disabling http/2 will
+	// prevent from being vulnerable to the HTTP/2 Stream Cancelation and
+	// Rapid Reset CVEs. For more information see:
+	// - https://github.com/advisories/GHSA-qppj-fm5r-hxr3
+	// - https://github.com/advisories/GHSA-4374-p667-p6c8
+	disableHTTP2 := func(c *tls.Config) {
+		setupLog.Info("disabling http/2")
+		c.NextProtos = []string{"http/1.1"}
 	}
+
+	tlsOpts := []func(*tls.Config){}
+	if !enableHTTP2 {
+		tlsOpts = append(tlsOpts, disableHTTP2)
+	}
+
+	webhookServer := webhook.NewServer(webhook.Options{
+		TLSOpts: tlsOpts,
+	})
 
 	// FIXME Disable metrics until this issue is resolved:
 	// https://github.com/operator-framework/operator-sdk/issues/4684
 	metricsAddr = "0"
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
-		Scheme:                 scheme,
-		MetricsBindAddress:     metricsAddr,
-		Port:                   9443,
+		Scheme: scheme,
+		Metrics: metricsserver.Options{
+			BindAddress:   metricsAddr,
+			SecureServing: secureMetrics,
+			TLSOpts:       tlsOpts,
+		},
+		WebhookServer:          webhookServer,
 		HealthProbeBindAddress: probeAddr,
 		LeaderElection:         enableLeaderElection,
 		LeaderElectionID:       "d696d7ab.redhat.com",
-		ClientDisableCacheFor:  disableCache, // TODO can probably remove
 	})
 	if err != nil {
 		setupLog.Error(err, "unable to start manager")
@@ -124,7 +140,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	openShift, err := isOpenShift(dc)
+	openShift, err := isOpenShift(dc, forceOpenShift)
 	if err != nil {
 		setupLog.Error(err, "could not determine whether manager is running on OpenShift")
 		os.Exit(1)
@@ -147,27 +163,19 @@ func main() {
 	}
 
 	// Optionally enable Insights integration. Will only be enabled if INSIGHTS_ENABLED is true
+	operatorNamespace := os.Getenv("OPERATOR_NAMESPACE")
+	userAgentPrefix := fmt.Sprintf("cryostat-operator/%s", controllers.OperatorVersion)
 	var insightsURL *url.URL
 	if openShift {
-		insightsURL, err = insights.NewInsightsIntegration(mgr, &setupLog).Setup()
+		insightsURL, err = insights.NewInsightsIntegration(mgr, constants.OperatorDeploymentName,
+			operatorNamespace, userAgentPrefix, &setupLog).Setup()
 		if err != nil {
 			setupLog.Error(err, "failed to set up Insights integration")
 		}
 	}
 
-	config := newReconcilerConfig(mgr, "ClusterCryostat", "clustercryostat-controller", openShift,
-		certManager, namespaces, insightsURL)
-	clusterController, err := controllers.NewClusterCryostatReconciler(config)
-	if err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "ClusterCryostat")
-		os.Exit(1)
-	}
-	if err = clusterController.SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to add controller to manager", "controller", "ClusterCryostat")
-		os.Exit(1)
-	}
-	config = newReconcilerConfig(mgr, "Cryostat", "cryostat-controller", openShift, certManager,
-		namespaces, insightsURL)
+	config := newReconcilerConfig(mgr, "Cryostat", "cryostat-controller", openShift, certManager,
+		insightsURL)
 	controller, err := controllers.NewCryostatReconciler(config)
 	if err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "Cryostat")
@@ -175,6 +183,10 @@ func main() {
 	}
 	if err = controller.SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to add controller to manager", "controller", "Cryostat")
+		os.Exit(1)
+	}
+	if err = webhooks.SetupWebhookWithManager(mgr, &operatorv1beta2.Cryostat{}); err != nil {
+		setupLog.Error(err, "unable to create webhook", "webhook", "Cryostat")
 		os.Exit(1)
 	}
 	// +kubebuilder:scaffold:builder
@@ -195,21 +207,10 @@ func main() {
 	}
 }
 
-// getWatchNamespace returns the Namespace the operator should be watching for changes
-func getWatchNamespace() (string, error) {
-	// WatchNamespaceEnvVar is the constant for env variable WATCH_NAMESPACE
-	// which specifies the Namespace to watch.
-	// An empty value means the operator is running with cluster scope.
-	var watchNamespaceEnvVar = "WATCH_NAMESPACE"
-
-	ns, found := os.LookupEnv(watchNamespaceEnvVar)
-	if !found {
-		return "", fmt.Errorf("%s must be set", watchNamespaceEnvVar)
+func isOpenShift(client discovery.DiscoveryInterface, forceOpenShift bool) (bool, error) {
+	if forceOpenShift {
+		return true, nil
 	}
-	return ns, nil
-}
-
-func isOpenShift(client discovery.DiscoveryInterface) (bool, error) {
 	return discovery.IsResourceEnabled(client, routev1.GroupVersion.WithResource("routes"))
 }
 
@@ -218,7 +219,7 @@ func isCertManagerInstalled(client discovery.DiscoveryInterface) (bool, error) {
 }
 
 func newReconcilerConfig(mgr ctrl.Manager, logName string, eventRecorderName string, openShift bool,
-	certManager bool, namespaces []string, insightsURL *url.URL) *controllers.ReconcilerConfig {
+	certManager bool, insightsURL *url.URL) *controllers.ReconcilerConfig {
 	return &controllers.ReconcilerConfig{
 		Client:                 mgr.GetClient(),
 		Log:                    ctrl.Log.WithName("controllers").WithName(logName),
@@ -227,7 +228,6 @@ func newReconcilerConfig(mgr ctrl.Manager, logName string, eventRecorderName str
 		IsCertManagerInstalled: certManager,
 		EventRecorder:          mgr.GetEventRecorderFor(eventRecorderName),
 		RESTMapper:             mgr.GetRESTMapper(),
-		Namespaces:             namespaces,
 		InsightsProxy:          insightsURL,
 		ReconcilerTLS: common.NewReconcilerTLS(&common.ReconcilerTLSConfig{
 			Client: mgr.GetClient(),

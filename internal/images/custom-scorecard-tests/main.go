@@ -51,8 +51,15 @@ func main() {
 		log.Fatal("SCORECARD_NAMESPACE environment variable not set")
 	}
 
-	// Read the pod's untar'd bundle from a well-known path.
-	bundle, err := apimanifests.GetBundleFromDir(podBundleRoot)
+	// Get the path to the bundle from BUNDLE_DIR environment variable
+	// If empty, assume running within a pod and use a well-known path to the pod's untar'd bundle
+	bundleDir := os.Getenv("BUNDLE_DIR")
+	if len(bundleDir) == 0 {
+		bundleDir = podBundleRoot
+	}
+
+	// Read the bundle from the specified path
+	bundle, err := apimanifests.GetBundleFromDir(bundleDir)
 	if err != nil {
 		log.Fatalf("failed to read bundle manifest: %s", err.Error())
 	}

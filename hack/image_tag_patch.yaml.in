@@ -9,6 +9,10 @@ spec:
       containers:
       - name: manager
         env:
+        - name: RELATED_IMAGE_OAUTH2_PROXY
+          value: "${OAUTH2_PROXY_IMG}"
+        - name: RELATED_IMAGE_OPENSHIFT_OAUTH_PROXY
+          value: "${OPENSHIFT_OAUTH_PROXY_IMG}"
         - name: RELATED_IMAGE_CORE
           value: "${CORE_IMG}"
         - name: RELATED_IMAGE_DATASOURCE
@@ -17,3 +21,7 @@ spec:
           value: "${GRAFANA_IMG}"
         - name: RELATED_IMAGE_REPORTS
           value: "${REPORTS_IMG}"
+        - name: RELATED_IMAGE_STORAGE
+          value: "${STORAGE_IMG}"
+        - name: RELATED_IMAGE_DATABASE
+          value: "${DATABASE_IMG}"

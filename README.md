@@ -26,33 +26,29 @@ the JFR datasource for Grafana.
 for the Grafana dashboard.
 
 # Using
+
+## Requirements
+
+- `kubernetes` v1.21+ with [`Operator Lifecycle Manager`](https://olm.operatorframework.io/)
+- [`cert-manager`](https://github.com/cert-manager/cert-manager) v1.11.5+ (Recommended)
+
+## Instructions
+
 Once deployed, the `cryostat` instance can be accessed via web browser
 at the URL provided by:
 ```
 kubectl get cryostat -o jsonpath='{$.items[0].status.applicationUrl}'
 ```
-The Grafana credentials can be obtained with:
-```shell
-CRYOSTAT_NAME=$(kubectl get cryostat -o jsonpath='{$.items[0].metadata.name}')
-# Username
-kubectl get secret ${CRYOSTAT_NAME}-grafana-basic -o jsonpath='{$.data.GF_SECURITY_ADMIN_USER}' | base64 -d
-# Password
-kubectl get secret ${CRYOSTAT_NAME}-grafana-basic -o jsonpath='{$.data.GF_SECURITY_ADMIN_PASSWORD}' | base64 -d
-```
-The JMX authentication credentials for Cryostat itself can be obtained with:
-```shell
-CRYOSTAT_NAME=$(kubectl get cryostat -o jsonpath='{$.items[0].metadata.name}')
-# Username
-kubectl get secret ${CRYOSTAT_NAME}-jmx-auth -o jsonpath='{$.data.CRYOSTAT_RJMX_USER}' | base64 -d
-# Password
-kubectl get secret ${CRYOSTAT_NAME}-jmx-auth -o jsonpath='{$.data.CRYOSTAT_RJMX_PASS}' | base64 -d
-```
+
+To use Cryostat to monitor or profile Cryostat itself - since it is also an available JVM target -
+you may use the Cryostat web UI to define a Custom Target with the connection URL `localhost:0`.
+This is a special value which tells Cryostat's JVM that it should connect to itself directly, without
+the need to expose a JMX port over the network.
 
 # Building
 ## Requirements
-- `go` v1.21
+- `go` v1.21+
 - [`operator-sdk`](https://github.com/operator-framework/operator-sdk) v1.31.0
-- [`cert-manager`](https://github.com/cert-manager/cert-manager) v1.11.5+ (Recommended)
 - `podman` or `docker`
 - [`jq`](https://stedolan.github.io/jq/) v1.6+
 - `ginkgo` (Optional)

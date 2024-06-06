@@ -2,18 +2,8 @@
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  creationTimestamp: null
   name: role
 rules:
-- apiGroups:
-  - ""
-  resources:
-  - configmaps
-  - configmaps/finalizers
-  - secrets
-  - services
-  verbs:
-  - '*'
 - apiGroups:
   - ""
   resources:
@@ -43,19 +33,22 @@ rules:
   verbs:
   - get
 - apiGroups:
+  - ""
+  resourceNames:
+  - pull-secret
+  resources:
+  - secrets
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
   - apps
   resources:
   - daemonsets
   - deployments
   - replicasets
   - statefulsets
-  verbs:
-  - '*'
-- apiGroups:
-  - apps
-  resources:
-  - deployments
-  - deployments/finalizers
   verbs:
   - '*'
 - apiGroups:
@@ -74,6 +67,12 @@ rules:
   - authorization.k8s.io
   resources:
   - selfsubjectaccessreviews
+  verbs:
+  - create
+- apiGroups:
+  - authorization.k8s.io
+  resources:
+  - subjectaccessreviews
   verbs:
   - create
 - apiGroups:
@@ -131,26 +130,6 @@ rules:
 - apiGroups:
   - operator.cryostat.io
   resources:
-  - clustercryostats
-  verbs:
-  - '*'
-- apiGroups:
-  - operator.cryostat.io
-  resources:
-  - clustercryostats/finalizers
-  verbs:
-  - update
-- apiGroups:
-  - operator.cryostat.io
-  resources:
-  - clustercryostats/status
-  verbs:
-  - get
-  - patch
-  - update
-- apiGroups:
-  - operator.cryostat.io
-  resources:
   - cryostats
   verbs:
   - '*'
@@ -202,10 +181,43 @@ rules:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
-  creationTimestamp: null
   name: role
   namespace: system
 rules:
+- apiGroups:
+  - ""
+  resources:
+  - configmaps
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - update
+  - watch
+- apiGroups:
+  - ""
+  resources:
+  - configmaps/finalizers
+  - secrets
+  - services
+  verbs:
+  - create
+  - get
+  - list
+  - update
+  - watch
+- apiGroups:
+  - apps
+  resources:
+  - deployments
+  - deployments/finalizers
+  verbs:
+  - create
+  - get
+  - list
+  - update
+  - watch
 - apiGroups:
   - monitoring.coreos.com
   resources:

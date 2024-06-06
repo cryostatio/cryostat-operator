@@ -24,7 +24,7 @@ import (
 	"time"
 
 	certv1 "github.com/cert-manager/cert-manager/pkg/apis/certmanager/v1"
-	operatorv1beta1 "github.com/cryostatio/cryostat-operator/api/v1beta1"
+	operatorv1beta2 "github.com/cryostatio/cryostat-operator/api/v1beta2"
 	common "github.com/cryostatio/cryostat-operator/internal/controllers/common"
 	resources "github.com/cryostatio/cryostat-operator/internal/controllers/common/resource_definitions"
 	"github.com/cryostatio/cryostat-operator/internal/controllers/model"
@@ -47,7 +47,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
-	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
@@ -61,13 +60,11 @@ type ReconcilerConfig struct {
 	IsCertManagerInstalled bool
 	EventRecorder          record.EventRecorder
 	RESTMapper             meta.RESTMapper
-	Namespaces             []string
 	InsightsProxy          *url.URL // Only defined if Insights is enabled
 	common.ReconcilerTLS
 }
 
-// CommonReconciler is an interface for shared behaviour
-// between the ClusterCryostat and Cryostat reconcilers
+// CommonReconciler is an interface for behaviour of the Cryostat reconciler
 type CommonReconciler interface {
 	reconcile.Reconciler
 	SetupWithManager(mgr ctrl.Manager) error
@@ -84,6 +81,12 @@ type Reconciler struct {
 // Name used for Finalizer that handles Cryostat deletion
 const cryostatFinalizer = "operator.cryostat.io/cryostat.finalizer"
 
+// Environment variable to override the OAuth2 Proxy image
+const oauth2ProxyImageTagEnv = "RELATED_IMAGE_OAUTH2_PROXY"
+
+// Environment variable to override the core application image
+const openshiftOauthProxyImageTagEnv = "RELATED_IMAGE_OPENSHIFT_OAUTH_PROXY"
+
 // Environment variable to override the core application image
 const coreImageTagEnv = "RELATED_IMAGE_CORE"
 
@@ -95,6 +98,12 @@ const grafanaImageTagEnv = "RELATED_IMAGE_GRAFANA"
 
 // Environment variable to override the cryostat-reports image
 const reportsImageTagEnv = "RELATED_IMAGE_REPORTS"
+
+// Environment variable to override the cryostat-storage image
+const storageImageTagEnv = "RELATED_IMAGE_STORAGE"
+
+// Environment variable to override the cryostat-database image
+const databaseImageTagEnv = "RELATED_IMAGE_DATABASE"
 
 // Regular expression for the start of a GID range in the OpenShift
 // supplemental groups SCC annotation
@@ -112,17 +121,17 @@ const (
 )
 
 // Map Cryostat conditions to deployment conditions
-type deploymentConditionTypeMap map[operatorv1beta1.CryostatConditionType]appsv1.DeploymentConditionType
+type deploymentConditionTypeMap map[operatorv1beta2.CryostatConditionType]appsv1.DeploymentConditionType
 
 var mainDeploymentConditions = deploymentConditionTypeMap{
-	operatorv1beta1.ConditionTypeMainDeploymentAvailable:      appsv1.DeploymentAvailable,
-	operatorv1beta1.ConditionTypeMainDeploymentProgressing:    appsv1.DeploymentProgressing,
-	operatorv1beta1.ConditionTypeMainDeploymentReplicaFailure: appsv1.DeploymentReplicaFailure,
+	operatorv1beta2.ConditionTypeMainDeploymentAvailable:      appsv1.DeploymentAvailable,
+	operatorv1beta2.ConditionTypeMainDeploymentProgressing:    appsv1.DeploymentProgressing,
+	operatorv1beta2.ConditionTypeMainDeploymentReplicaFailure: appsv1.DeploymentReplicaFailure,
 }
 var reportsDeploymentConditions = deploymentConditionTypeMap{
-	operatorv1beta1.ConditionTypeReportsDeploymentAvailable:      appsv1.DeploymentAvailable,
-	operatorv1beta1.ConditionTypeReportsDeploymentProgressing:    appsv1.DeploymentProgressing,
-	operatorv1beta1.ConditionTypeReportsDeploymentReplicaFailure: appsv1.DeploymentReplicaFailure,
+	operatorv1beta2.ConditionTypeReportsDeploymentAvailable:      appsv1.DeploymentAvailable,
+	operatorv1beta2.ConditionTypeReportsDeploymentProgressing:    appsv1.DeploymentProgressing,
+	operatorv1beta2.ConditionTypeReportsDeploymentReplicaFailure: appsv1.DeploymentReplicaFailure,
 }
 
 func newReconciler(config *ReconcilerConfig, objType client.Object, isNamespaced bool) (*Reconciler, error) {
@@ -139,11 +148,6 @@ func newReconciler(config *ReconcilerConfig, objType client.Object, isNamespaced
 }
 
 func (r *Reconciler) reconcileCryostat(ctx context.Context, cr *model.CryostatInstance) (ctrl.Result, error) {
-	result, err := r.reconcile(ctx, cr)
-	return result, r.checkConflicts(cr, err)
-}
-
-func (r *Reconciler) reconcile(ctx context.Context, cr *model.CryostatInstance) (ctrl.Result, error) {
 	reqLogger := r.Log.WithValues("Request.Namespace", cr.InstallNamespace, "Request.Name", cr.Name)
 
 	// Check if this Cryostat is being deleted
@@ -184,8 +188,6 @@ func (r *Reconciler) reconcile(ctx context.Context, cr *model.CryostatInstance) 
 		}
 	}
 
-	reqLogger.Info("Spec", "Minimal", cr.Spec.Minimal)
-
 	// Create lock config map or fail if owned by another CR
 	err := r.reconcileLockConfigMap(ctx, cr)
 	if err != nil {
@@ -215,7 +217,7 @@ func (r *Reconciler) reconcile(ctx context.Context, cr *model.CryostatInstance) 
 		tlsConfig, err = r.setupTLS(ctx, cr)
 		if err != nil {
 			if err == common.ErrCertNotReady {
-				condErr := r.updateCondition(ctx, cr, operatorv1beta1.ConditionTypeTLSSetupComplete, metav1.ConditionFalse,
+				condErr := r.updateCondition(ctx, cr, operatorv1beta2.ConditionTypeTLSSetupComplete, metav1.ConditionFalse,
 					reasonWaitingForCert, "Waiting for certificates to become ready.")
 				if condErr != nil {
 					return reconcile.Result{}, err
@@ -223,32 +225,33 @@ func (r *Reconciler) reconcile(ctx context.Context, cr *model.CryostatInstance) 
 				return reconcile.Result{RequeueAfter: 5 * time.Second}, nil
 			}
 			if err == errCertManagerMissing {
-				r.updateCondition(ctx, cr, operatorv1beta1.ConditionTypeTLSSetupComplete, metav1.ConditionFalse,
+				r.updateCondition(ctx, cr, operatorv1beta2.ConditionTypeTLSSetupComplete, metav1.ConditionFalse,
 					reasonCertManagerUnavailable, eventCertManagerUnavailableMsg)
 			}
 			reqLogger.Error(err, "Failed to set up TLS for Cryostat")
 			return reconcile.Result{}, err
 		}
 
-		err = r.updateCondition(ctx, cr, operatorv1beta1.ConditionTypeTLSSetupComplete, metav1.ConditionTrue,
+		err = r.updateCondition(ctx, cr, operatorv1beta2.ConditionTypeTLSSetupComplete, metav1.ConditionTrue,
 			reasonAllCertsReady, "All certificates for Cryostat components are ready.")
 		if err != nil {
 			return reconcile.Result{}, err
 		}
 	} else {
-		err = r.updateCondition(ctx, cr, operatorv1beta1.ConditionTypeTLSSetupComplete, metav1.ConditionTrue,
+		err = r.updateCondition(ctx, cr, operatorv1beta2.ConditionTypeTLSSetupComplete, metav1.ConditionTrue,
 			reasonCertManagerDisabled, "TLS setup has been disabled.")
 		if err != nil {
 			return reconcile.Result{}, err
 		}
 	}
 
+	err = r.reconcileOAuth2ProxyConfig(ctx, cr, tlsConfig)
+	if err != nil {
+		return reconcile.Result{}, err
+	}
+
 	serviceSpecs := &resources.ServiceSpecs{
 		InsightsURL: r.InsightsProxy,
-	}
-	err = r.reconcileGrafanaService(ctx, cr, tlsConfig, serviceSpecs)
-	if err != nil {
-		return requeueIfIngressNotReady(reqLogger, err)
 	}
 	err = r.reconcileCoreService(ctx, cr, tlsConfig, serviceSpecs)
 	if err != nil {
@@ -266,7 +269,10 @@ func (r *Reconciler) reconcile(ctx context.Context, cr *model.CryostatInstance) 
 		return reportsResult, err
 	}
 
-	deployment := resources.NewDeploymentForCR(cr, serviceSpecs, imageTags, tlsConfig, *fsGroup, r.IsOpenShift)
+	deployment, err := resources.NewDeploymentForCR(cr, serviceSpecs, imageTags, tlsConfig, *fsGroup, r.IsOpenShift)
+	if err != nil {
+		return reconcile.Result{}, err
+	}
 	err = r.createOrUpdateDeployment(ctx, deployment, cr.Object)
 	if err != nil {
 		return reconcile.Result{}, err
@@ -299,31 +305,9 @@ func (r *Reconciler) reconcile(ctx context.Context, cr *model.CryostatInstance) 
 	return reconcile.Result{}, nil
 }
 
-func namespaceEventFilter(scheme *runtime.Scheme, namespaceList []string) predicate.Predicate {
-	namespaces := namespacesToSet(namespaceList)
-	return predicate.NewPredicateFuncs(func(object client.Object) bool {
-		// Restrict watch for namespaced objects to specified namespaces
-		if len(object.GetNamespace()) > 0 {
-			_, pres := namespaces[object.GetNamespace()]
-			if !pres {
-				return false
-			}
-		}
-		return true
-	})
-}
-
 func (r *Reconciler) setupWithManager(mgr ctrl.Manager, impl reconcile.Reconciler) error {
 	c := ctrl.NewControllerManagedBy(mgr).
 		For(r.objectType)
-
-	// Filter watch to specified namespaces only if the CRD is namespaced and
-	// we're not running in AllNamespace mode
-	// TODO remove this once only AllNamespace mode is supported
-	if r.isNamespaced && len(r.Namespaces) > 0 {
-		r.Log.Info(fmt.Sprintf("Adding EventFilter for namespaces: %v", r.Namespaces))
-		c = c.WithEventFilter(namespaceEventFilter(mgr.GetScheme(), r.Namespaces))
-	}
 
 	// Watch for changes to secondary resources and requeue the owner Cryostat
 	resources := []client.Object{&appsv1.Deployment{}, &corev1.Service{}, &corev1.Secret{}, &corev1.PersistentVolumeClaim{},
@@ -362,9 +346,9 @@ func (r *Reconciler) reconcileReports(ctx context.Context, reqLogger logr.Logger
 			return reconcile.Result{}, err
 		}
 
-		removeConditionIfPresent(cr, operatorv1beta1.ConditionTypeReportsDeploymentAvailable,
-			operatorv1beta1.ConditionTypeReportsDeploymentProgressing,
-			operatorv1beta1.ConditionTypeReportsDeploymentReplicaFailure)
+		removeConditionIfPresent(cr, operatorv1beta2.ConditionTypeReportsDeploymentAvailable,
+			operatorv1beta2.ConditionTypeReportsDeploymentProgressing,
+			operatorv1beta2.ConditionTypeReportsDeploymentReplicaFailure)
 		err := r.Client.Status().Update(ctx, cr.Object)
 		if err != nil {
 			return reconcile.Result{}, err
@@ -390,10 +374,14 @@ func (r *Reconciler) reconcileReports(ctx context.Context, reqLogger logr.Logger
 
 func (r *Reconciler) getImageTags() *resources.ImageTags {
 	return &resources.ImageTags{
-		CoreImageTag:       r.getEnvOrDefault(coreImageTagEnv, DefaultCoreImageTag),
-		DatasourceImageTag: r.getEnvOrDefault(datasourceImageTagEnv, DefaultDatasourceImageTag),
-		GrafanaImageTag:    r.getEnvOrDefault(grafanaImageTagEnv, DefaultGrafanaImageTag),
-		ReportsImageTag:    r.getEnvOrDefault(reportsImageTagEnv, DefaultReportsImageTag),
+		OAuth2ProxyImageTag:         r.getEnvOrDefault(oauth2ProxyImageTagEnv, DefaultOAuth2ProxyImageTag),
+		OpenShiftOAuthProxyImageTag: r.getEnvOrDefault(openshiftOauthProxyImageTagEnv, DefaultOpenShiftOAuthProxyImageTag),
+		CoreImageTag:                r.getEnvOrDefault(coreImageTagEnv, DefaultCoreImageTag),
+		DatasourceImageTag:          r.getEnvOrDefault(datasourceImageTagEnv, DefaultDatasourceImageTag),
+		GrafanaImageTag:             r.getEnvOrDefault(grafanaImageTagEnv, DefaultGrafanaImageTag),
+		ReportsImageTag:             r.getEnvOrDefault(reportsImageTagEnv, DefaultReportsImageTag),
+		StorageImageTag:             r.getEnvOrDefault(storageImageTagEnv, DefaultStorageImageTag),
+		DatabaseImageTag:            r.getEnvOrDefault(databaseImageTagEnv, DefaultDatabaseImageTag),
 	}
 }
 
@@ -441,7 +429,7 @@ func parseSupGroups(supGroups string) (*int64, error) {
 }
 
 func (r *Reconciler) updateCondition(ctx context.Context, cr *model.CryostatInstance,
-	condType operatorv1beta1.CryostatConditionType, status metav1.ConditionStatus, reason string, message string) error {
+	condType operatorv1beta2.CryostatConditionType, status metav1.ConditionStatus, reason string, message string) error {
 	reqLogger := r.Log.WithValues("Request.Namespace", cr.InstallNamespace, "Request.Name", cr.Name)
 	meta.SetStatusCondition(&cr.Status.Conditions, metav1.Condition{
 		Type:    string(condType),
@@ -546,31 +534,6 @@ func (r *Reconciler) deleteDeployment(ctx context.Context, deploy *appsv1.Deploy
 	return nil
 }
 
-const eventNameConflictReason = "CryostatNameConflict"
-
-func (r *Reconciler) checkConflicts(cr *model.CryostatInstance, err error) error {
-	if err == nil {
-		return nil
-	}
-	alreadyOwned, ok := err.(*controllerutil.AlreadyOwnedError)
-	if !ok {
-		return err
-	}
-	r.Log.Error(err, "Could not process custom resource")
-	metaType, err := meta.TypeAccessor(alreadyOwned.Object)
-	if err != nil {
-		return err
-	}
-	msg := fmt.Sprintf("This instance needs to manage the %s %s in namespace %s, but it is already owned by %s %s. "+
-		"Please choose a different name for your instance.",
-		metaType.GetKind(), alreadyOwned.Object.GetName(), alreadyOwned.Object.GetNamespace(),
-		alreadyOwned.Owner.Kind, alreadyOwned.Owner.Name)
-	r.EventRecorder.Event(cr.Object, corev1.EventTypeWarning, eventNameConflictReason, msg)
-	// Log the event message as well
-	r.Log.Info(msg)
-	return alreadyOwned
-}
-
 func requeueIfIngressNotReady(log logr.Logger, err error) (reconcile.Result, error) {
 	if err == ErrIngressNotReady {
 		return reconcile.Result{RequeueAfter: 5 * time.Second}, nil
@@ -578,7 +541,7 @@ func requeueIfIngressNotReady(log logr.Logger, err error) (reconcile.Result, err
 	return reconcile.Result{}, err
 }
 
-func removeConditionIfPresent(cr *model.CryostatInstance, condType ...operatorv1beta1.CryostatConditionType) {
+func removeConditionIfPresent(cr *model.CryostatInstance, condType ...operatorv1beta2.CryostatConditionType) {
 	for _, ct := range condType {
 		found := meta.FindStatusCondition(cr.Status.Conditions, string(ct))
 		if found != nil {
@@ -594,12 +557,4 @@ func findDeployCondition(conditions []appsv1.DeploymentCondition, condType appsv
 		}
 	}
 	return nil
-}
-
-func namespacesToSet(namespaces []string) map[string]struct{} {
-	result := make(map[string]struct{}, len(namespaces))
-	for _, namespace := range namespaces {
-		result[namespace] = struct{}{}
-	}
-	return result
 }

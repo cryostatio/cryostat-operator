@@ -20,20 +20,25 @@ import (
 )
 
 const (
-	CryostatHTTPContainerPort int32  = 8181
-	CryostatJMXContainerPort  int32  = 9091
-	GrafanaContainerPort      int32  = 3000
-	DatasourceContainerPort   int32  = 8080
-	ReportsContainerPort      int32  = 10000
-	LoopbackAddress           string = "127.0.0.1"
-	OperatorNamePrefix        string = "cryostat-operator-"
-	OperatorDeploymentName    string = "cryostat-operator-controller-manager"
-	HttpPortName              string = "http"
+	AuthProxyHttpContainerPort int32  = 4180
+	CryostatHTTPContainerPort  int32  = 8181
+	GrafanaContainerPort       int32  = 3000
+	DatasourceContainerPort    int32  = 8989
+	ReportsContainerPort       int32  = 10000
+	StoragePort                int32  = 8333
+	DatabasePort               int32  = 5432
+	LoopbackAddress            string = "127.0.0.1"
+	OperatorNamePrefix         string = "cryostat-operator-"
+	OperatorDeploymentName     string = "cryostat-operator-controller-manager"
+	HttpPortName               string = "http"
 	// CAKey is the key for a CA certificate within a TLS secret
 	CAKey = certMeta.TLSCAKey
-	// Hostname alias for loopback address, to be used for health checks
-	HealthCheckHostname = "cryostat-health.local"
 	// ALL capability to drop for restricted pod security. See:
 	// https://kubernetes.io/docs/concepts/security/pod-security-standards/#restricted
 	CapabilityAll corev1.Capability = "ALL"
+
+	// DatabaseSecretConnectionKey indexes the database connection password within the Cryostat database Secret
+	DatabaseSecretConnectionKey = "CONNECTION_KEY"
+	// DatabaseSecretEncryptionKey indexes the database encryption key within the Cryostat database Secret
+	DatabaseSecretEncryptionKey = "ENCRYPTION_KEY"
 )

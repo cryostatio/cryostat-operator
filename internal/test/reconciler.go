@@ -25,13 +25,17 @@ import (
 
 // TestReconcilerConfig groups parameters used to create a test Reconciler
 type TestReconcilerConfig struct {
-	Client                client.Client
-	EnvDisableTLS         *bool
-	EnvCoreImageTag       *string
-	EnvDatasourceImageTag *string
-	EnvGrafanaImageTag    *string
-	EnvReportsImageTag    *string
-	GeneratedPasswords    []string
+	Client                         client.Client
+	EnvDisableTLS                  *bool
+	EnvOAuth2ProxyImageTag         *string
+	EnvOpenShiftOAuthProxyImageTag *string
+	EnvCoreImageTag                *string
+	EnvDatasourceImageTag          *string
+	EnvStorageImageTag             *string
+	EnvDatabaseImageTag            *string
+	EnvGrafanaImageTag             *string
+	EnvReportsImageTag             *string
+	GeneratedPasswords             []string
 }
 
 func NewTestReconcilerTLS(config *TestReconcilerConfig) common.ReconcilerTLS {
@@ -61,8 +65,20 @@ func newTestOSUtils(config *TestReconcilerConfig) *testOSUtils {
 	if config.EnvGrafanaImageTag != nil {
 		envs["RELATED_IMAGE_GRAFANA"] = *config.EnvGrafanaImageTag
 	}
+	if config.EnvStorageImageTag != nil {
+		envs["RELATED_IMAGE_STORAGE"] = *config.EnvStorageImageTag
+	}
+	if config.EnvDatabaseImageTag != nil {
+		envs["RELATED_IMAGE_DATABASE"] = *config.EnvDatabaseImageTag
+	}
 	if config.EnvReportsImageTag != nil {
 		envs["RELATED_IMAGE_REPORTS"] = *config.EnvReportsImageTag
+	}
+	if config.EnvOAuth2ProxyImageTag != nil {
+		envs["RELATED_IMAGE_OAUTH2_PROXY"] = *config.EnvOAuth2ProxyImageTag
+	}
+	if config.EnvOpenShiftOAuthProxyImageTag != nil {
+		envs["RELATED_IMAGE_OPENSHIFT_OAUTH_PROXY"] = *config.EnvOpenShiftOAuthProxyImageTag
 	}
 	return &testOSUtils{envs: envs, passwords: config.GeneratedPasswords}
 }

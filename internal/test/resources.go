@@ -16,12 +16,13 @@ package test
 
 import (
 	"crypto/sha256"
+	"encoding/json"
 	"fmt"
 	"strings"
 
 	certv1 "github.com/cert-manager/cert-manager/pkg/apis/certmanager/v1"
 	certMeta "github.com/cert-manager/cert-manager/pkg/apis/meta/v1"
-	operatorv1beta1 "github.com/cryostatio/cryostat-operator/api/v1beta1"
+	operatorv1beta2 "github.com/cryostatio/cryostat-operator/api/v1beta2"
 	"github.com/cryostatio/cryostat-operator/internal/controllers/model"
 	"github.com/onsi/gomega"
 	configv1 "github.com/openshift/api/config/v1"
@@ -29,6 +30,7 @@ import (
 	routev1 "github.com/openshift/api/route/v1"
 	securityv1 "github.com/openshift/api/security/v1"
 	appsv1 "k8s.io/api/apps/v1"
+	authzv1 "k8s.io/api/authorization/v1"
 	corev1 "k8s.io/api/core/v1"
 	netv1 "k8s.io/api/networking/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
@@ -44,12 +46,10 @@ import (
 type TestResources struct {
 	Name             string
 	Namespace        string
-	Minimal          bool
 	TLS              bool
 	ExternalTLS      bool
 	OpenShift        bool
 	ReportReplicas   int32
-	ClusterScoped    bool
 	TargetNamespaces []string
 	InsightsURL      string
 }
@@ -59,7 +59,7 @@ func NewTestScheme() *runtime.Scheme {
 
 	// Add all APIs used by the operator to the scheme
 	sb := runtime.NewSchemeBuilder(
-		operatorv1beta1.AddToScheme,
+		operatorv1beta2.AddToScheme,
 		certv1.AddToScheme,
 		routev1.AddToScheme,
 		consolev1.AddToScheme,
@@ -84,28 +84,11 @@ func NewTESTRESTMapper() meta.RESTMapper {
 }
 
 func (r *TestResources) NewCryostat() *model.CryostatInstance {
-	if r.ClusterScoped {
-		return r.ConvertClusterToModel(r.newClusterCryostat())
-	} else {
-		return r.ConvertNamespacedToModel(r.newCryostat())
-	}
+	return r.ConvertNamespacedToModel(r.newCryostat())
 }
 
-func (r *TestResources) newClusterCryostat() *operatorv1beta1.ClusterCryostat {
-	return &operatorv1beta1.ClusterCryostat{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: r.Name,
-		},
-		Spec: operatorv1beta1.ClusterCryostatSpec{
-			InstallNamespace: r.Namespace,
-			TargetNamespaces: r.TargetNamespaces,
-			CryostatSpec:     r.newCryostatSpec(),
-		},
-	}
-}
-
-func (r *TestResources) newCryostat() *operatorv1beta1.Cryostat {
-	return &operatorv1beta1.Cryostat{
+func (r *TestResources) newCryostat() *operatorv1beta2.Cryostat {
+	return &operatorv1beta2.Cryostat{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      r.Name,
 			Namespace: r.Namespace,
@@ -114,42 +97,29 @@ func (r *TestResources) newCryostat() *operatorv1beta1.Cryostat {
 	}
 }
 
-func (r *TestResources) newCryostatSpec() operatorv1beta1.CryostatSpec {
+func (r *TestResources) newCryostatSpec() operatorv1beta2.CryostatSpec {
 	certManager := true
-	var reportOptions *operatorv1beta1.ReportConfiguration
+	var reportOptions *operatorv1beta2.ReportConfiguration
 	if r.ReportReplicas > 0 {
-		reportOptions = &operatorv1beta1.ReportConfiguration{
+		reportOptions = &operatorv1beta2.ReportConfiguration{
 			Replicas: r.ReportReplicas,
 		}
 	}
-	return operatorv1beta1.CryostatSpec{
-		Minimal:           r.Minimal,
+	return operatorv1beta2.CryostatSpec{
+		TargetNamespaces:  r.TargetNamespaces,
 		EnableCertManager: &certManager,
 		ReportOptions:     reportOptions,
 	}
 }
 
-func (r *TestResources) ConvertNamespacedToModel(cr *operatorv1beta1.Cryostat) *model.CryostatInstance {
-	targetNS := []string{cr.Namespace}
+func (r *TestResources) ConvertNamespacedToModel(cr *operatorv1beta2.Cryostat) *model.CryostatInstance {
 	return &model.CryostatInstance{
 		Name:                  cr.Name,
 		InstallNamespace:      cr.Namespace,
-		TargetNamespaces:      targetNS,
-		TargetNamespaceStatus: &targetNS,
-		Spec:                  &cr.Spec,
-		Status:                &cr.Status,
-		Object:                cr,
-	}
-}
-
-func (r *TestResources) ConvertClusterToModel(cr *operatorv1beta1.ClusterCryostat) *model.CryostatInstance {
-	return &model.CryostatInstance{
-		Name:                  cr.Name,
-		InstallNamespace:      cr.Spec.InstallNamespace,
 		TargetNamespaces:      cr.Spec.TargetNamespaces,
 		TargetNamespaceStatus: &cr.Status.TargetNamespaces,
-		Spec:                  &cr.Spec.CryostatSpec,
-		Status:                &cr.Status.CryostatStatus,
+		Spec:                  &cr.Spec,
+		Status:                &cr.Status,
 		Object:                cr,
 	}
 }
@@ -157,7 +127,7 @@ func (r *TestResources) ConvertClusterToModel(cr *operatorv1beta1.ClusterCryosta
 func (r *TestResources) NewCryostatWithSecrets() *model.CryostatInstance {
 	cr := r.NewCryostat()
 	key := "test.crt"
-	cr.Spec.TrustedCertSecrets = []operatorv1beta1.CertificateSecret{
+	cr.Spec.TrustedCertSecrets = []operatorv1beta2.CertificateSecret{
 		{
 			SecretName:     "testCert1",
 			CertificateKey: &key,
@@ -171,7 +141,7 @@ func (r *TestResources) NewCryostatWithSecrets() *model.CryostatInstance {
 
 func (r *TestResources) NewCryostatWithTemplates() *model.CryostatInstance {
 	cr := r.NewCryostat()
-	cr.Spec.EventTemplates = []operatorv1beta1.TemplateConfigMap{
+	cr.Spec.EventTemplates = []operatorv1beta2.TemplateConfigMap{
 		{
 			ConfigMapName: "templateCM1",
 			Filename:      "template.jfc",
@@ -200,8 +170,8 @@ func (r *TestResources) addIngressToCryostat(cr *model.CryostatInstance) *model.
 
 func (r *TestResources) NewCryostatWithPVCSpec() *model.CryostatInstance {
 	cr := r.NewCryostat()
-	cr.Spec.StorageOptions = &operatorv1beta1.StorageConfiguration{
-		PVC: &operatorv1beta1.PersistentVolumeClaimConfig{
+	cr.Spec.StorageOptions = &operatorv1beta2.StorageConfiguration{
+		PVC: &operatorv1beta2.PersistentVolumeClaimConfig{
 			Annotations: map[string]string{
 				"my/custom": "annotation",
 			},
@@ -217,8 +187,8 @@ func (r *TestResources) NewCryostatWithPVCSpec() *model.CryostatInstance {
 
 func (r *TestResources) NewCryostatWithPVCSpecSomeDefault() *model.CryostatInstance {
 	cr := r.NewCryostat()
-	cr.Spec.StorageOptions = &operatorv1beta1.StorageConfiguration{
-		PVC: &operatorv1beta1.PersistentVolumeClaimConfig{
+	cr.Spec.StorageOptions = &operatorv1beta2.StorageConfiguration{
+		PVC: &operatorv1beta2.PersistentVolumeClaimConfig{
 			Spec: newPVCSpec("", "1Gi"),
 		},
 	}
@@ -227,8 +197,8 @@ func (r *TestResources) NewCryostatWithPVCSpecSomeDefault() *model.CryostatInsta
 
 func (r *TestResources) NewCryostatWithPVCLabelsOnly() *model.CryostatInstance {
 	cr := r.NewCryostat()
-	cr.Spec.StorageOptions = &operatorv1beta1.StorageConfiguration{
-		PVC: &operatorv1beta1.PersistentVolumeClaimConfig{
+	cr.Spec.StorageOptions = &operatorv1beta2.StorageConfiguration{
+		PVC: &operatorv1beta2.PersistentVolumeClaimConfig{
 			Labels: map[string]string{
 				"my": "label",
 			},
@@ -239,8 +209,8 @@ func (r *TestResources) NewCryostatWithPVCLabelsOnly() *model.CryostatInstance {
 
 func (r *TestResources) NewCryostatWithDefaultEmptyDir() *model.CryostatInstance {
 	cr := r.NewCryostat()
-	cr.Spec.StorageOptions = &operatorv1beta1.StorageConfiguration{
-		EmptyDir: &operatorv1beta1.EmptyDirConfig{
+	cr.Spec.StorageOptions = &operatorv1beta2.StorageConfiguration{
+		EmptyDir: &operatorv1beta2.EmptyDirConfig{
 			Enabled: true,
 		},
 	}
@@ -249,8 +219,8 @@ func (r *TestResources) NewCryostatWithDefaultEmptyDir() *model.CryostatInstance
 
 func (r *TestResources) NewCryostatWithEmptyDirSpec() *model.CryostatInstance {
 	cr := r.NewCryostat()
-	cr.Spec.StorageOptions = &operatorv1beta1.StorageConfiguration{
-		EmptyDir: &operatorv1beta1.EmptyDirConfig{
+	cr.Spec.StorageOptions = &operatorv1beta2.StorageConfiguration{
+		EmptyDir: &operatorv1beta2.EmptyDirConfig{
 			Enabled:   true,
 			Medium:    "Memory",
 			SizeLimit: "200Mi",
@@ -262,35 +232,11 @@ func (r *TestResources) NewCryostatWithEmptyDirSpec() *model.CryostatInstance {
 func (r *TestResources) NewCryostatWithCoreSvc() *model.CryostatInstance {
 	svcType := corev1.ServiceTypeNodePort
 	httpPort := int32(8080)
-	jmxPort := int32(9095)
 	cr := r.NewCryostat()
-	cr.Spec.ServiceOptions = &operatorv1beta1.ServiceConfigList{
-		CoreConfig: &operatorv1beta1.CoreServiceConfig{
+	cr.Spec.ServiceOptions = &operatorv1beta2.ServiceConfigList{
+		CoreConfig: &operatorv1beta2.CoreServiceConfig{
 			HTTPPort: &httpPort,
-			JMXPort:  &jmxPort,
-			ServiceConfig: operatorv1beta1.ServiceConfig{
-				ServiceType: &svcType,
-				Annotations: map[string]string{
-					"my/custom": "annotation",
-				},
-				Labels: map[string]string{
-					"my":  "label",
-					"app": "somethingelse",
-				},
-			},
-		},
-	}
-	return cr
-}
-
-func (r *TestResources) NewCryostatWithGrafanaSvc() *model.CryostatInstance {
-	svcType := corev1.ServiceTypeNodePort
-	httpPort := int32(8080)
-	cr := r.NewCryostat()
-	cr.Spec.ServiceOptions = &operatorv1beta1.ServiceConfigList{
-		GrafanaConfig: &operatorv1beta1.GrafanaServiceConfig{
-			HTTPPort: &httpPort,
-			ServiceConfig: operatorv1beta1.ServiceConfig{
+			ServiceConfig: operatorv1beta2.ServiceConfig{
 				ServiceType: &svcType,
 				Annotations: map[string]string{
 					"my/custom": "annotation",
@@ -309,10 +255,10 @@ func (r *TestResources) NewCryostatWithReportsSvc() *model.CryostatInstance {
 	svcType := corev1.ServiceTypeNodePort
 	httpPort := int32(13161)
 	cr := r.NewCryostat()
-	cr.Spec.ServiceOptions = &operatorv1beta1.ServiceConfigList{
-		ReportsConfig: &operatorv1beta1.ReportsServiceConfig{
+	cr.Spec.ServiceOptions = &operatorv1beta2.ServiceConfigList{
+		ReportsConfig: &operatorv1beta2.ReportsServiceConfig{
 			HTTPPort: &httpPort,
-			ServiceConfig: operatorv1beta1.ServiceConfig{
+			ServiceConfig: operatorv1beta2.ServiceConfig{
 				ServiceType: &svcType,
 				Annotations: map[string]string{
 					"my/custom": "annotation",
@@ -329,8 +275,8 @@ func (r *TestResources) NewCryostatWithReportsSvc() *model.CryostatInstance {
 
 func (r *TestResources) NewCryostatWithCoreNetworkOptions() *model.CryostatInstance {
 	cr := r.NewCryostat()
-	cr.Spec.NetworkOptions = &operatorv1beta1.NetworkConfigurationList{
-		CoreConfig: &operatorv1beta1.NetworkConfiguration{
+	cr.Spec.NetworkOptions = &operatorv1beta2.NetworkConfigurationList{
+		CoreConfig: &operatorv1beta2.NetworkConfiguration{
 			Annotations: map[string]string{"custom": "annotation"},
 			Labels: map[string]string{
 				"custom":    "label",
@@ -342,24 +288,9 @@ func (r *TestResources) NewCryostatWithCoreNetworkOptions() *model.CryostatInsta
 	return cr
 }
 
-func (r *TestResources) NewCryostatWithGrafanaNetworkOptions() *model.CryostatInstance {
-	cr := r.NewCryostat()
-	cr.Spec.NetworkOptions = &operatorv1beta1.NetworkConfigurationList{
-		GrafanaConfig: &operatorv1beta1.NetworkConfiguration{
-			Annotations: map[string]string{"grafana": "annotation"},
-			Labels: map[string]string{
-				"grafana":   "label",
-				"component": "test-comp",
-				"app":       "test-app",
-			},
-		},
-	}
-	return cr
-}
-
 func (r *TestResources) NewCryostatWithReportsResources() *model.CryostatInstance {
 	cr := r.NewCryostat()
-	cr.Spec.ReportOptions = &operatorv1beta1.ReportConfiguration{
+	cr.Spec.ReportOptions = &operatorv1beta2.ReportConfiguration{
 		Replicas: 1,
 		Resources: corev1.ResourceRequirements{
 			Limits: corev1.ResourceList{
@@ -377,7 +308,7 @@ func (r *TestResources) NewCryostatWithReportsResources() *model.CryostatInstanc
 
 func (r *TestResources) NewCryostatWithReportLowResourceLimit() *model.CryostatInstance {
 	cr := r.NewCryostat()
-	cr.Spec.ReportOptions = &operatorv1beta1.ReportConfiguration{
+	cr.Spec.ReportOptions = &operatorv1beta2.ReportConfiguration{
 		Replicas: 1,
 		Resources: corev1.ResourceRequirements{
 			Limits: corev1.ResourceList{
@@ -389,10 +320,10 @@ func (r *TestResources) NewCryostatWithReportLowResourceLimit() *model.CryostatI
 	return cr
 }
 
-func populateCryostatWithScheduling() *operatorv1beta1.SchedulingConfiguration {
-	return &operatorv1beta1.SchedulingConfiguration{
+func populateCryostatWithScheduling() *operatorv1beta2.SchedulingConfiguration {
+	return &operatorv1beta2.SchedulingConfiguration{
 		NodeSelector: map[string]string{"node": "good"},
-		Affinity: &operatorv1beta1.Affinity{
+		Affinity: &operatorv1beta2.Affinity{
 			NodeAffinity: &corev1.NodeAffinity{
 				RequiredDuringSchedulingIgnoredDuringExecution: &corev1.NodeSelector{
 					NodeSelectorTerms: []corev1.NodeSelectorTerm{
@@ -449,7 +380,7 @@ func (r *TestResources) NewCryostatWithScheduling() *model.CryostatInstance {
 
 func (r *TestResources) NewCryostatWithReportsScheduling() *model.CryostatInstance {
 	cr := r.NewCryostat()
-	cr.Spec.ReportOptions = &operatorv1beta1.ReportConfiguration{
+	cr.Spec.ReportOptions = &operatorv1beta2.ReportConfiguration{
 		Replicas:          1,
 		SchedulingOptions: populateCryostatWithScheduling(),
 	}
@@ -472,7 +403,7 @@ func (r *TestResources) NewCryostatCertManagerUndefined() *model.CryostatInstanc
 
 func (r *TestResources) NewCryostatWithResources() *model.CryostatInstance {
 	cr := r.NewCryostat()
-	cr.Spec.Resources = &operatorv1beta1.ResourceConfigList{
+	cr.Spec.Resources = &operatorv1beta2.ResourceConfigList{
 		CoreResources: corev1.ResourceRequirements{
 			Limits: corev1.ResourceList{
 				corev1.ResourceCPU:    resource.MustParse("500m"),
@@ -509,7 +440,7 @@ func (r *TestResources) NewCryostatWithResources() *model.CryostatInstance {
 
 func (r *TestResources) NewCryostatWithLowResourceLimit() *model.CryostatInstance {
 	cr := r.NewCryostat()
-	cr.Spec.Resources = &operatorv1beta1.ResourceConfigList{
+	cr.Spec.Resources = &operatorv1beta2.ResourceConfigList{
 		CoreResources: corev1.ResourceRequirements{
 			Limits: corev1.ResourceList{
 				corev1.ResourceCPU:    resource.MustParse("10m"),
@@ -532,27 +463,17 @@ func (r *TestResources) NewCryostatWithLowResourceLimit() *model.CryostatInstanc
 	return cr
 }
 
-func (r *TestResources) NewCryostatWithAuthProperties() *model.CryostatInstance {
-	cr := r.NewCryostat()
-	cr.Spec.AuthProperties = &operatorv1beta1.AuthorizationProperties{
-		ConfigMapName:   "authConfigMapName",
-		Filename:        "auth.properties",
-		ClusterRoleName: "custom-auth-cluster-role",
-	}
-	return cr
-}
-
 func (r *TestResources) NewCryostatWithBuiltInDiscoveryDisabled() *model.CryostatInstance {
 	cr := r.NewCryostat()
-	cr.Spec.TargetDiscoveryOptions = &operatorv1beta1.TargetDiscoveryOptions{
-		BuiltInDiscoveryDisabled: true,
+	cr.Spec.TargetDiscoveryOptions = &operatorv1beta2.TargetDiscoveryOptions{
+		DisableBuiltInDiscovery: true,
 	}
 	return cr
 }
 
 func (r *TestResources) NewCryostatWithDiscoveryPortConfig() *model.CryostatInstance {
 	cr := r.NewCryostat()
-	cr.Spec.TargetDiscoveryOptions = &operatorv1beta1.TargetDiscoveryOptions{
+	cr.Spec.TargetDiscoveryOptions = &operatorv1beta2.TargetDiscoveryOptions{
 		DiscoveryPortNames:   []string{"custom-port-name", "another-custom-port-name"},
 		DiscoveryPortNumbers: []int32{9092, 9090},
 	}
@@ -561,7 +482,7 @@ func (r *TestResources) NewCryostatWithDiscoveryPortConfig() *model.CryostatInst
 
 func (r *TestResources) NewCryostatWithBuiltInPortConfigDisabled() *model.CryostatInstance {
 	cr := r.NewCryostat()
-	cr.Spec.TargetDiscoveryOptions = &operatorv1beta1.TargetDiscoveryOptions{
+	cr.Spec.TargetDiscoveryOptions = &operatorv1beta2.TargetDiscoveryOptions{
 		DisableBuiltInPortNames:   true,
 		DisableBuiltInPortNumbers: true,
 	}
@@ -583,23 +504,17 @@ func newPVCSpec(storageClass string, storageRequest string,
 
 func (r *TestResources) NewCryostatWithJmxCacheOptionsSpec() *model.CryostatInstance {
 	cr := r.NewCryostat()
-	cr.Spec.JmxCacheOptions = &operatorv1beta1.JmxCacheOptions{
+	cr.Spec.TargetConnectionCacheOptions = &operatorv1beta2.TargetConnectionCacheOptions{
 		TargetCacheSize: 10,
 		TargetCacheTTL:  20,
 	}
 	return cr
 }
 
-func (r *TestResources) NewCryostatWithWsConnectionsSpec() *model.CryostatInstance {
-	cr := r.NewCryostat()
-	cr.Spec.MaxWsConnections = 10
-	return cr
-}
-
 func (r *TestResources) NewCryostatWithReportSubprocessHeapSpec() *model.CryostatInstance {
 	cr := r.NewCryostat()
 	if cr.Spec.ReportOptions == nil {
-		cr.Spec.ReportOptions = &operatorv1beta1.ReportConfiguration{}
+		cr.Spec.ReportOptions = &operatorv1beta2.ReportConfiguration{}
 	}
 	cr.Spec.ReportOptions.SubProcessMaxHeapSize = 500
 	return cr
@@ -611,7 +526,7 @@ func (r *TestResources) NewCryostatWithSecurityOptions() *model.CryostatInstance
 	nonRoot := false
 	runAsUser := int64(0)
 	fsGroup := int64(20000)
-	cr.Spec.SecurityOptions = &operatorv1beta1.SecurityOptions{
+	cr.Spec.SecurityOptions = &operatorv1beta2.SecurityOptions{
 		PodSecurityContext: &corev1.PodSecurityContext{
 			RunAsNonRoot: &nonRoot,
 			FSGroup:      &fsGroup,
@@ -650,9 +565,9 @@ func (r *TestResources) NewCryostatWithReportSecurityOptions() *model.CryostatIn
 	privEscalation := false
 	runAsUser := int64(1002)
 	if cr.Spec.ReportOptions == nil {
-		cr.Spec.ReportOptions = &operatorv1beta1.ReportConfiguration{}
+		cr.Spec.ReportOptions = &operatorv1beta2.ReportConfiguration{}
 	}
-	cr.Spec.ReportOptions.SecurityOptions = &operatorv1beta1.ReportsSecurityOptions{
+	cr.Spec.ReportOptions.SecurityOptions = &operatorv1beta2.ReportsSecurityOptions{
 		PodSecurityContext: &corev1.PodSecurityContext{
 			RunAsNonRoot: &nonRoot,
 			SeccompProfile: &corev1.SeccompProfile{
@@ -674,16 +589,16 @@ var providedDatabaseSecretName string = "credentials-database-secret"
 
 func (r *TestResources) NewCryostatWithDatabaseSecretProvided() *model.CryostatInstance {
 	cr := r.NewCryostat()
-	cr.Spec.JmxCredentialsDatabaseOptions = &operatorv1beta1.JmxCredentialsDatabaseOptions{
-		DatabaseSecretName: &providedDatabaseSecretName,
+	cr.Spec.DatabaseOptions = &operatorv1beta2.DatabaseOptions{
+		SecretName: &providedDatabaseSecretName,
 	}
 	return cr
 }
 
 func (r *TestResources) NewCryostatWithAdditionalMetadata() *model.CryostatInstance {
 	cr := r.NewCryostat()
-	cr.Spec.OperandMetadata = &operatorv1beta1.OperandMetadata{
-		DeploymentMetadata: &operatorv1beta1.ResourceMetadata{
+	cr.Spec.OperandMetadata = &operatorv1beta2.OperandMetadata{
+		DeploymentMetadata: &operatorv1beta2.ResourceMetadata{
 			Labels: map[string]string{
 				"myDeploymentExtraLabel":       "myDeploymentLabel",
 				"mySecondDeploymentExtraLabel": "mySecondDeploymentLabel",
@@ -700,7 +615,7 @@ func (r *TestResources) NewCryostatWithAdditionalMetadata() *model.CryostatInsta
 				"app.openshift.io/connects-to": "connectToMe",
 			},
 		},
-		PodMetadata: &operatorv1beta1.ResourceMetadata{
+		PodMetadata: &operatorv1beta2.ResourceMetadata{
 			Labels: map[string]string{
 				"myPodExtraLabel":       "myPodLabel",
 				"myPodSecondExtraLabel": "myPodSecondLabel",
@@ -726,7 +641,7 @@ func (r *TestResources) NewCryostatService() *corev1.Service {
 			Namespace: r.Namespace,
 			OwnerReferences: []metav1.OwnerReference{
 				{
-					APIVersion: operatorv1beta1.GroupVersion.String(),
+					APIVersion: operatorv1beta2.GroupVersion.String(),
 					Kind:       "Cryostat",
 					Name:       r.Name,
 					UID:        "",
@@ -747,13 +662,8 @@ func (r *TestResources) NewCryostatService() *corev1.Service {
 			Ports: []corev1.ServicePort{
 				{
 					Name:       "http",
-					Port:       8181,
-					TargetPort: intstr.FromInt(8181),
-				},
-				{
-					Name:       "jfr-jmx",
-					Port:       9091,
-					TargetPort: intstr.FromInt(9091),
+					Port:       4180,
+					TargetPort: intstr.FromInt(4180),
 				},
 			},
 		},
@@ -768,7 +678,7 @@ func (r *TestResources) NewGrafanaService() *corev1.Service {
 			Namespace: r.Namespace,
 			OwnerReferences: []metav1.OwnerReference{
 				{
-					APIVersion: operatorv1beta1.GroupVersion.String(),
+					APIVersion: operatorv1beta2.GroupVersion.String(),
 					Kind:       "Cryostat",
 					Name:       r.Name,
 					UID:        "",
@@ -797,6 +707,43 @@ func (r *TestResources) NewGrafanaService() *corev1.Service {
 	}
 }
 
+func (r *TestResources) NewCommandService() *corev1.Service {
+	c := true
+	return &corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      r.Name + "-command",
+			Namespace: r.Namespace,
+			OwnerReferences: []metav1.OwnerReference{
+				{
+					APIVersion: operatorv1beta2.GroupVersion.String(),
+					Kind:       "Cryostat",
+					Name:       r.Name,
+					UID:        "",
+					Controller: &c,
+				},
+			},
+			Labels: map[string]string{
+				"app":       r.Name,
+				"component": "cryostat",
+			},
+		},
+		Spec: corev1.ServiceSpec{
+			Type: corev1.ServiceTypeClusterIP,
+			Selector: map[string]string{
+				"app":       r.Name,
+				"component": "cryostat",
+			},
+			Ports: []corev1.ServicePort{
+				{
+					Name:       "http",
+					Port:       10001,
+					TargetPort: intstr.FromInt(10001),
+				},
+			},
+		},
+	}
+}
+
 func (r *TestResources) NewReportsService() *corev1.Service {
 	c := true
 	return &corev1.Service{
@@ -805,7 +752,7 @@ func (r *TestResources) NewReportsService() *corev1.Service {
 			Namespace: r.Namespace,
 			OwnerReferences: []metav1.OwnerReference{
 				{
-					APIVersion: operatorv1beta1.GroupVersion.String(),
+					APIVersion: operatorv1beta2.GroupVersion.String(),
 					Kind:       "Cryostat",
 					Name:       r.Name + "-reports",
 					UID:        "",
@@ -836,22 +783,6 @@ func (r *TestResources) NewReportsService() *corev1.Service {
 
 func (r *TestResources) NewCustomizedCoreService() *corev1.Service {
 	svc := r.NewCryostatService()
-	svc.Spec.Type = corev1.ServiceTypeNodePort
-	svc.Spec.Ports[0].Port = 8080
-	svc.Spec.Ports[1].Port = 9095
-	svc.Annotations = map[string]string{
-		"my/custom": "annotation",
-	}
-	svc.Labels = map[string]string{
-		"app":       r.Name,
-		"component": "cryostat",
-		"my":        "label",
-	}
-	return svc
-}
-
-func (r *TestResources) NewCustomizedGrafanaService() *corev1.Service {
-	svc := r.NewGrafanaService()
 	svc.Spec.Type = corev1.ServiceTypeNodePort
 	svc.Spec.Ports[0].Port = 8080
 	svc.Annotations = map[string]string{
@@ -891,7 +822,7 @@ func (r *TestResources) NewTestService() *corev1.Service {
 			Ports: []corev1.ServicePort{
 				{
 					Name: "test",
-					Port: 8181,
+					Port: 4180,
 				},
 			},
 		},
@@ -901,7 +832,7 @@ func (r *TestResources) NewTestService() *corev1.Service {
 func (r *TestResources) NewCACertSecret(ns string) *corev1.Secret {
 	return &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      r.Name + "-ca",
+			Name:      r.getClusterUniqueNameForCA(),
 			Namespace: ns,
 		},
 		Type: corev1.SecretTypeOpaque,
@@ -911,65 +842,54 @@ func (r *TestResources) NewCACertSecret(ns string) *corev1.Secret {
 	}
 }
 
-func (r *TestResources) NewGrafanaSecret() *corev1.Secret {
+func (r *TestResources) NewDatabaseSecret() *corev1.Secret {
 	return &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      r.Name + "-grafana-basic",
+			Name:      r.Name + "-db",
 			Namespace: r.Namespace,
 		},
 		StringData: map[string]string{
-			"GF_SECURITY_ADMIN_USER":     "admin",
-			"GF_SECURITY_ADMIN_PASSWORD": "grafana",
+			"CONNECTION_KEY": "connection_key",
+			"ENCRYPTION_KEY": "encryption_key",
+		},
+		Immutable: &[]bool{true}[0],
+	}
+}
+
+func (r *TestResources) NewCustomDatabaseSecret() *corev1.Secret {
+	return &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      providedDatabaseSecretName,
+			Namespace: r.Namespace,
+		},
+		StringData: map[string]string{
+			"CONNECTION_KEY": "custom-connection_database",
+			"ENCRYPTION_KEY": "custom-encryption_key",
 		},
 	}
 }
 
-func (r *TestResources) OtherGrafanaSecret() *corev1.Secret {
+func (r *TestResources) NewStorageSecret() *corev1.Secret {
 	return &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      r.Name + "-grafana-basic",
+			Name:      r.Name + "-storage",
 			Namespace: r.Namespace,
 		},
 		StringData: map[string]string{
-			"GF_SECURITY_ADMIN_USER":     "user",
-			"GF_SECURITY_ADMIN_PASSWORD": "goodpassword",
+			"SECRET_KEY": "object_storage",
 		},
 	}
 }
 
-func (r *TestResources) NewCredentialsDatabaseSecret() *corev1.Secret {
+func (r *TestResources) OtherDatabaseSecret() *corev1.Secret {
 	return &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      r.Name + "-jmx-credentials-db",
+			Name:      r.Name + "-db",
 			Namespace: r.Namespace,
 		},
 		StringData: map[string]string{
-			"CRYOSTAT_JMX_CREDENTIALS_DB_PASSWORD": "credentials_database",
-		},
-	}
-}
-
-func (r *TestResources) OtherCredentialsDatabaseSecret() *corev1.Secret {
-	return &corev1.Secret{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      r.Name + "-jmx-credentials-db",
-			Namespace: r.Namespace,
-		},
-		StringData: map[string]string{
-			"CRYOSTAT_JMX_CREDENTIALS_DB_PASSWORD": "other-pass",
-		},
-	}
-}
-
-func (r *TestResources) NewJMXSecret() *corev1.Secret {
-	return &corev1.Secret{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      r.Name + "-jmx-auth",
-			Namespace: r.Namespace,
-		},
-		StringData: map[string]string{
-			"CRYOSTAT_RJMX_USER": "cryostat",
-			"CRYOSTAT_RJMX_PASS": "jmx",
+			"CONNECTION_KEY": "other-pass",
+			"ENCRYPTION_KEY": "other-key",
 		},
 	}
 }
@@ -982,19 +902,6 @@ func (r *TestResources) NewKeystoreSecret() *corev1.Secret {
 		},
 		StringData: map[string]string{
 			"KEYSTORE_PASS": "keystore",
-		},
-	}
-}
-
-func (r *TestResources) OtherJMXSecret() *corev1.Secret {
-	return &corev1.Secret{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      r.Name + "-jmx-auth",
-			Namespace: r.Namespace,
-		},
-		StringData: map[string]string{
-			"CRYOSTAT_RJMX_USER": "not-cryostat",
-			"CRYOSTAT_RJMX_PASS": "other-pass",
 		},
 	}
 }
@@ -1049,33 +956,6 @@ func (r *TestResources) NewCryostatCert() *certv1.Certificate {
 	}
 }
 
-func (r *TestResources) NewGrafanaCert() *certv1.Certificate {
-	return &certv1.Certificate{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      r.Name + "-grafana",
-			Namespace: r.Namespace,
-		},
-		Spec: certv1.CertificateSpec{
-			CommonName: fmt.Sprintf(r.Name+"-grafana.%s.svc", r.Namespace),
-			DNSNames: []string{
-				r.Name + "-grafana",
-				fmt.Sprintf(r.Name+"-grafana.%s.svc", r.Namespace),
-				fmt.Sprintf(r.Name+"-grafana.%s.svc.cluster.local", r.Namespace),
-				"cryostat-health.local",
-			},
-			SecretName: r.Name + "-grafana-tls",
-			IssuerRef: certMeta.ObjectReference{
-				Name: r.Name + "-ca",
-			},
-			Usages: []certv1.KeyUsage{
-				certv1.UsageDigitalSignature,
-				certv1.UsageKeyEncipherment,
-				certv1.UsageServerAuth,
-			},
-		},
-	}
-}
-
 func (r *TestResources) NewReportsCert() *certv1.Certificate {
 	return &certv1.Certificate{
 		ObjectMeta: metav1.ObjectMeta{
@@ -1110,7 +990,7 @@ func (r *TestResources) NewCACert() *certv1.Certificate {
 		},
 		Spec: certv1.CertificateSpec{
 			CommonName: fmt.Sprintf("ca.%s.cert-manager", r.Name),
-			SecretName: r.Name + "-ca",
+			SecretName: r.getClusterUniqueNameForCA(),
 			IssuerRef: certMeta.ObjectReference{
 				Name: r.Name + "-self-signed",
 			},
@@ -1142,7 +1022,7 @@ func (r *TestResources) NewCryostatCAIssuer() *certv1.Issuer {
 		Spec: certv1.IssuerSpec{
 			IssuerConfig: certv1.IssuerConfig{
 				CA: &certv1.CAIssuer{
-					SecretName: r.Name + "-ca",
+					SecretName: r.getClusterUniqueNameForCA(),
 				},
 			},
 		},
@@ -1242,9 +1122,6 @@ func (r *TestResources) NewCorePorts() []corev1.ContainerPort {
 		{
 			ContainerPort: 8181,
 		},
-		{
-			ContainerPort: 9091,
-		},
 	}
 }
 
@@ -1259,7 +1136,7 @@ func (r *TestResources) NewGrafanaPorts() []corev1.ContainerPort {
 func (r *TestResources) NewDatasourcePorts() []corev1.ContainerPort {
 	return []corev1.ContainerPort{
 		{
-			ContainerPort: 8080,
+			ContainerPort: 8989,
 		},
 	}
 }
@@ -1272,143 +1149,176 @@ func (r *TestResources) NewReportsPorts() []corev1.ContainerPort {
 	}
 }
 
-func (r *TestResources) NewCoreEnvironmentVariables(reportsUrl string, authProps bool, ingress bool,
-	emptyDir bool, builtInDiscoveryDisabled bool, hasPortConfig bool, builtInPortConfigDisabled bool, dbSecretProvided bool) []corev1.EnvVar {
+func (r *TestResources) NewStoragePorts() []corev1.ContainerPort {
+	return []corev1.ContainerPort{
+		{
+			ContainerPort: 8333,
+		},
+	}
+}
+
+func (r *TestResources) NewDatabasePorts() []corev1.ContainerPort {
+	return []corev1.ContainerPort{
+		{
+			ContainerPort: 5432,
+		},
+	}
+}
+
+func (r *TestResources) NewAuthProxyPorts() []corev1.ContainerPort {
+	return []corev1.ContainerPort{
+		{
+			ContainerPort: 4180,
+		},
+	}
+}
+
+func (r *TestResources) NewCoreEnvironmentVariables(reportsUrl string, ingress bool,
+	emptyDir bool, hasPortConfig bool, builtInDiscoveryDisabled bool, builtInPortConfigDisabled bool, dbSecretProvided bool) []corev1.EnvVar {
 	envs := []corev1.EnvVar{
 		{
-			Name:  "CRYOSTAT_WEB_PORT",
+			Name:  "QUARKUS_HTTP_HOST",
+			Value: "localhost",
+		},
+		{
+			Name:  "QUARKUS_HTTP_PORT",
 			Value: "8181",
+		},
+		{
+			Name:  "QUARKUS_HTTP_PROXY_PROXY_ADDRESS_FORWARDING",
+			Value: "true",
+		},
+		{
+			Name:  "QUARKUS_HTTP_PROXY_ALLOW_X_FORWARDED",
+			Value: "true",
+		},
+		{
+			Name:  "QUARKUS_HTTP_PROXY_ENABLE_FORWARDED_HOST",
+			Value: "true",
+		},
+		{
+			Name:  "QUARKUS_HTTP_PROXY_ENABLE_FORWARDED_PREFIX",
+			Value: "true",
+		},
+		{
+			Name:  "QUARKUS_HIBERNATE_ORM_DATABASE_GENERATION",
+			Value: "drop-and-create",
+		},
+		{
+			Name:  "QUARKUS_DATASOURCE_USERNAME",
+			Value: "cryostat3",
+		},
+		{
+			Name:  "QUARKUS_DATASOURCE_JDBC_URL",
+			Value: "jdbc:postgresql://localhost:5432/cryostat3",
+		},
+		{
+			Name:  "STORAGE_BUCKETS_ARCHIVE_NAME",
+			Value: "archivedrecordings",
+		},
+		{
+			Name:  "QUARKUS_S3_ENDPOINT_OVERRIDE",
+			Value: "http://localhost:8333",
+		},
+		{
+			Name:  "QUARKUS_S3_PATH_STYLE_ACCESS",
+			Value: "true",
+		},
+		{
+			Name:  "QUARKUS_S3_AWS_REGION",
+			Value: "us-east-1",
+		},
+		{
+			Name:  "QUARKUS_S3_AWS_CREDENTIALS_TYPE",
+			Value: "static",
+		},
+		{
+			Name:  "QUARKUS_S3_CREDENTIALS_STATIC_PROVIDER_ACCESS_KEY_ID",
+			Value: "cryostat",
+		},
+		{
+			Name:  "AWS_ACCESS_KEY_ID",
+			Value: "$(QUARKUS_S3_AWS_CREDENTIALS_STATIC_PROVIDER_ACCESS_KEY_ID)",
 		},
 		{
 			Name:  "CRYOSTAT_CONFIG_PATH",
 			Value: "/opt/cryostat.d/conf.d",
 		},
 		{
-			Name:  "CRYOSTAT_ARCHIVE_PATH",
-			Value: "/opt/cryostat.d/recordings.d",
-		},
-		{
 			Name:  "CRYOSTAT_TEMPLATE_PATH",
 			Value: "/opt/cryostat.d/templates.d",
 		},
 		{
-			Name:  "CRYOSTAT_CLIENTLIB_PATH",
-			Value: "/opt/cryostat.d/clientlib.d",
-		},
-		{
-			Name:  "CRYOSTAT_PROBE_TEMPLATE_PATH",
-			Value: "/opt/cryostat.d/probes.d",
-		},
-		{
-			Name:  "CRYOSTAT_ENABLE_JDP_BROADCAST",
-			Value: "false",
-		},
-		{
-			Name:  "CRYOSTAT_TARGET_CACHE_SIZE",
+			Name:  "CRYOSTAT_CONNECTIONS_MAX_OPEN",
 			Value: "-1",
 		},
 		{
-			Name:  "CRYOSTAT_TARGET_CACHE_TTL",
+			Name:  "CRYOSTAT_CONNECTIONS_TTL",
 			Value: "10",
 		},
 		{
-			Name:  "CRYOSTAT_K8S_NAMESPACES",
+			Name:  "CRYOSTAT_DISCOVERY_KUBERNETES_NAMESPACES",
 			Value: strings.Join(r.TargetNamespaces, ","),
+		},
+		{
+			Name:  "GRAFANA_DATASOURCE_URL",
+			Value: "http://127.0.0.1:8989",
+		},
+		{
+			Name:  "QUARKUS_S3_AWS_CREDENTIALS_STATIC_PROVIDER_ACCESS_KEY_ID",
+			Value: "cryostat",
+		},
+		{
+			Name:  "AWS_SECRET_ACCESS_KEY",
+			Value: "$(QUARKUS_S3_AWS_CREDENTIALS_STATIC_PROVIDER_SECRET_ACCESS_KEY)",
 		},
 	}
 
-	envs = append(envs, r.NewTargetDiscoveryEnvVar(builtInDiscoveryDisabled, hasPortConfig, builtInPortConfigDisabled)...)
-
-	if !emptyDir {
-		envs = append(envs, r.DatabaseConfigEnvironmentVariables()...)
-	}
+	envs = append(envs, r.NewTargetDiscoveryEnvVars(hasPortConfig, builtInDiscoveryDisabled, builtInPortConfigDisabled)...)
 
 	optional := false
-	secretName := r.NewCredentialsDatabaseSecret().Name
+	secretName := r.NewDatabaseSecret().Name
 	if dbSecretProvided {
 		secretName = providedDatabaseSecretName
 	}
 	envs = append(envs, corev1.EnvVar{
-		Name: "CRYOSTAT_JMX_CREDENTIALS_DB_PASSWORD",
+		Name: "QUARKUS_DATASOURCE_PASSWORD",
 		ValueFrom: &corev1.EnvVarSource{
 			SecretKeyRef: &corev1.SecretKeySelector{
 				LocalObjectReference: corev1.LocalObjectReference{
 					Name: secretName,
 				},
-				Key:      "CRYOSTAT_JMX_CREDENTIALS_DB_PASSWORD",
+				Key:      "CONNECTION_KEY",
 				Optional: &optional,
 			},
 		},
-	})
+	},
+	)
 
-	if !r.Minimal {
-		envs = append(envs,
-			corev1.EnvVar{
-				Name:  "GRAFANA_DATASOURCE_URL",
-				Value: "http://127.0.0.1:8080",
-			})
-	}
-	if !r.TLS {
-		envs = append(envs,
-			corev1.EnvVar{
-				Name:  "CRYOSTAT_DISABLE_SSL",
-				Value: "true",
-			})
-		if r.ExternalTLS {
-			envs = append(envs,
-				corev1.EnvVar{
-					Name:  "CRYOSTAT_SSL_PROXIED",
-					Value: "true",
-				})
-		}
-	} else {
-		envs = append(envs, corev1.EnvVar{
-			Name:  "KEYSTORE_PATH",
-			Value: fmt.Sprintf("/var/run/secrets/operator.cryostat.io/%s-tls/keystore.p12", r.Name),
-		})
-	}
+	secretName = r.NewStorageSecret().Name
+	envs = append(envs, corev1.EnvVar{
+		Name: "QUARKUS_S3_AWS_CREDENTIALS_STATIC_PROVIDER_SECRET_ACCESS_KEY",
+		ValueFrom: &corev1.EnvVarSource{
+			SecretKeyRef: &corev1.SecretKeySelector{
+				LocalObjectReference: corev1.LocalObjectReference{
+					Name: secretName,
+				},
+				Key:      "SECRET_KEY",
+				Optional: &optional,
+			},
+		},
+	},
+	)
 
-	if r.OpenShift {
-		envs = append(envs,
-			corev1.EnvVar{
-				Name:  "CRYOSTAT_PLATFORM",
-				Value: "io.cryostat.platform.internal.OpenShiftPlatformStrategy",
-			},
-			corev1.EnvVar{
-				Name:  "CRYOSTAT_AUTH_MANAGER",
-				Value: "io.cryostat.net.openshift.OpenShiftAuthManager",
-			},
-			corev1.EnvVar{
-				Name:  "CRYOSTAT_OAUTH_CLIENT_ID",
-				Value: r.Name,
-			},
-			corev1.EnvVar{
-				Name:  "CRYOSTAT_BASE_OAUTH_ROLE",
-				Value: "cryostat-operator-oauth-client",
-			})
-
-		if authProps {
-			envs = append(envs, corev1.EnvVar{
-				Name:  "CRYOSTAT_CUSTOM_OAUTH_ROLE",
-				Value: "custom-auth-cluster-role",
-			})
-		}
-		envs = append(envs, r.newNetworkEnvironmentVariables()...)
-	} else if ingress { // On Kubernetes
+	if r.OpenShift || ingress {
 		envs = append(envs, r.newNetworkEnvironmentVariables()...)
 	}
 
 	if reportsUrl != "" {
 		envs = append(envs,
 			corev1.EnvVar{
-				Name:  "CRYOSTAT_REPORT_GENERATOR",
+				Name:  "CRYOSTAT_SERVICES_REPORTS_URL",
 				Value: reportsUrl,
-			})
-	} else {
-		envs = append(envs,
-			corev1.EnvVar{
-				Name:  "CRYOSTAT_REPORT_GENERATION_MAX_HEAP",
-				Value: "200",
 			})
 	}
 
@@ -1422,82 +1332,25 @@ func (r *TestResources) NewCoreEnvironmentVariables(reportsUrl string, authProps
 	return envs
 }
 
-func (r *TestResources) DatabaseConfigEnvironmentVariables() []corev1.EnvVar {
-	return []corev1.EnvVar{
-		{
-			Name:  "CRYOSTAT_JDBC_URL",
-			Value: "jdbc:h2:file:/opt/cryostat.d/conf.d/h2;INIT=create domain if not exists jsonb as varchar",
-		},
-		{
-			Name:  "CRYOSTAT_HBM2DDL",
-			Value: "update",
-		},
-		{
-			Name:  "CRYOSTAT_JDBC_DRIVER",
-			Value: "org.h2.Driver",
-		},
-		{
-			Name:  "CRYOSTAT_HIBERNATE_DIALECT",
-			Value: "org.hibernate.dialect.H2Dialect",
-		},
-		{
-			Name:  "CRYOSTAT_JDBC_USERNAME",
-			Value: r.Name,
-		},
-		{
-			Name:  "CRYOSTAT_JDBC_PASSWORD",
-			Value: r.Name,
-		},
-	}
-}
-
 func (r *TestResources) newNetworkEnvironmentVariables() []corev1.EnvVar {
 	envs := []corev1.EnvVar{
 		{
-			Name:  "CRYOSTAT_WEB_HOST",
-			Value: r.Name + ".example.com",
+			Name:  "GRAFANA_DASHBOARD_URL",
+			Value: "http://localhost:3000",
 		},
 	}
 	if r.ExternalTLS {
 		envs = append(envs,
 			corev1.EnvVar{
-				Name:  "CRYOSTAT_EXT_WEB_PORT",
-				Value: "443",
+				Name:  "GRAFANA_DASHBOARD_EXT_URL",
+				Value: fmt.Sprintf("https://%s.example.com/grafana/", r.Name),
 			})
 	} else {
 		envs = append(envs,
 			corev1.EnvVar{
-				Name:  "CRYOSTAT_EXT_WEB_PORT",
-				Value: "80",
+				Name:  "GRAFANA_DASHBOARD_EXT_URL",
+				Value: fmt.Sprintf("http://%s.example.com/grafana/", r.Name),
 			})
-	}
-	if !r.Minimal {
-		if r.ExternalTLS {
-			envs = append(envs,
-				corev1.EnvVar{
-					Name:  "GRAFANA_DASHBOARD_EXT_URL",
-					Value: fmt.Sprintf("https://%s-grafana.example.com", r.Name),
-				})
-		} else {
-			envs = append(envs,
-				corev1.EnvVar{
-					Name:  "GRAFANA_DASHBOARD_EXT_URL",
-					Value: fmt.Sprintf("http://%s-grafana.example.com", r.Name),
-				})
-		}
-		if r.TLS {
-			envs = append(envs,
-				corev1.EnvVar{
-					Name:  "GRAFANA_DASHBOARD_URL",
-					Value: "https://cryostat-health.local:3000",
-				})
-		} else {
-			envs = append(envs,
-				corev1.EnvVar{
-					Name:  "GRAFANA_DASHBOARD_URL",
-					Value: "http://cryostat-health.local:3000",
-				})
-		}
 	}
 	return envs
 }
@@ -1506,20 +1359,27 @@ func (r *TestResources) NewGrafanaEnvironmentVariables() []corev1.EnvVar {
 	envs := []corev1.EnvVar{
 		{
 			Name:  "JFR_DATASOURCE_URL",
-			Value: "http://127.0.0.1:8080",
+			Value: "http://127.0.0.1:8989",
 		},
-	}
-	if r.TLS {
-		envs = append(envs, corev1.EnvVar{
-			Name:  "GF_SERVER_PROTOCOL",
-			Value: "https",
-		}, corev1.EnvVar{
-			Name:  "GF_SERVER_CERT_KEY",
-			Value: fmt.Sprintf("/var/run/secrets/operator.cryostat.io/%s-grafana-tls/tls.key", r.Name),
-		}, corev1.EnvVar{
-			Name:  "GF_SERVER_CERT_FILE",
-			Value: fmt.Sprintf("/var/run/secrets/operator.cryostat.io/%s-grafana-tls/tls.crt", r.Name),
-		})
+		{
+			Name:      "GF_AUTH_ANONYMOUS_ENABLED",
+			Value:     "true",
+			ValueFrom: nil,
+		},
+		{
+			Name:      "GF_SERVER_DOMAIN",
+			Value:     "localhost",
+			ValueFrom: nil,
+		},
+		{
+			Name:      "GF_SERVER_SERVE_FROM_SUB_PATH",
+			Value:     "true",
+			ValueFrom: nil,
+		},
+		{
+			Name:  "GF_SERVER_ROOT_URL",
+			Value: "http://localhost:4180/grafana/",
+		},
 	}
 	return envs
 }
@@ -1527,8 +1387,12 @@ func (r *TestResources) NewGrafanaEnvironmentVariables() []corev1.EnvVar {
 func (r *TestResources) NewDatasourceEnvironmentVariables() []corev1.EnvVar {
 	return []corev1.EnvVar{
 		{
-			Name:  "LISTEN_HOST",
+			Name:  "QUARKUS_HTTP_HOST",
 			Value: "127.0.0.1",
+		},
+		{
+			Name:  "QUARKUS_HTTP_PORT",
+			Value: "8989",
 		},
 	}
 }
@@ -1574,105 +1438,278 @@ func (r *TestResources) NewReportsEnvironmentVariables(resources *corev1.Resourc
 	return envs
 }
 
-func (r *TestResources) NewCoreEnvFromSource() []corev1.EnvFromSource {
-	envsFrom := []corev1.EnvFromSource{
+func (r *TestResources) NewStorageEnvironmentVariables() []corev1.EnvVar {
+	return []corev1.EnvVar{
 		{
-			SecretRef: &corev1.SecretEnvSource{
-				LocalObjectReference: corev1.LocalObjectReference{
-					Name: r.Name + "-jmx-auth",
+			Name:  "CRYOSTAT_BUCKETS",
+			Value: "archivedrecordings,archivedreports,eventtemplates,probes",
+		},
+		{
+			Name:  "CRYOSTAT_ACCESS_KEY",
+			Value: "cryostat",
+		},
+		{
+			Name:  "DATA_DIR",
+			Value: "/data",
+		},
+		{
+			Name:  "IP_BIND",
+			Value: "0.0.0.0",
+		},
+		{
+			Name: "CRYOSTAT_SECRET_KEY",
+			ValueFrom: &corev1.EnvVarSource{
+				SecretKeyRef: &corev1.SecretKeySelector{
+					LocalObjectReference: corev1.LocalObjectReference{
+						Name: r.Name + "-storage",
+					},
+					Key:      "SECRET_KEY",
+					Optional: &[]bool{false}[0],
 				},
 			},
 		},
 	}
-	if r.TLS {
-		envsFrom = append(envsFrom, corev1.EnvFromSource{
-			SecretRef: &corev1.SecretEnvSource{
-				LocalObjectReference: corev1.LocalObjectReference{
-					Name: r.Name + "-keystore",
-				},
-			},
-		})
-	}
-	return envsFrom
 }
 
-func (r *TestResources) NewGrafanaEnvFromSource() []corev1.EnvFromSource {
+func (r *TestResources) NewDatabaseEnvironmentVariables(dbSecretProvided bool) []corev1.EnvVar {
+	optional := false
+	secretName := r.Name + "-db"
+	if dbSecretProvided {
+		secretName = providedDatabaseSecretName
+	}
+	return []corev1.EnvVar{
+		{
+			Name:  "POSTGRESQL_USER",
+			Value: "cryostat3",
+		},
+		{
+			Name:  "POSTGRESQL_DATABASE",
+			Value: "cryostat3",
+		},
+		{
+			Name: "POSTGRESQL_PASSWORD",
+			ValueFrom: &corev1.EnvVarSource{
+				SecretKeyRef: &corev1.SecretKeySelector{
+					LocalObjectReference: corev1.LocalObjectReference{
+						Name: secretName,
+					},
+					Key:      "CONNECTION_KEY",
+					Optional: &optional,
+				},
+			},
+		},
+		{
+			Name: "PG_ENCRYPT_KEY",
+			ValueFrom: &corev1.EnvVarSource{
+				SecretKeyRef: &corev1.SecretKeySelector{
+					LocalObjectReference: corev1.LocalObjectReference{
+						Name: secretName,
+					},
+					Key:      "ENCRYPTION_KEY",
+					Optional: &optional,
+				},
+			},
+		},
+	}
+}
+
+func (r *TestResources) NewAuthProxyEnvironmentVariables(authOptions *operatorv1beta2.AuthorizationOptions) []corev1.EnvVar {
+	envs := []corev1.EnvVar{}
+
+	if !r.OpenShift {
+		envs = append(envs,
+			corev1.EnvVar{
+				Name:  "OAUTH2_PROXY_REDIRECT_URL",
+				Value: "http://localhost:4180/oauth2/callback",
+			},
+			corev1.EnvVar{
+				Name:  "OAUTH2_PROXY_EMAIL_DOMAINS",
+				Value: "*",
+			},
+		)
+
+		basicAuthConfigured := authOptions != nil && authOptions.BasicAuth != nil &&
+			authOptions.BasicAuth.Filename != nil && authOptions.BasicAuth.SecretName != nil
+		if basicAuthConfigured {
+			envs = append(envs,
+				corev1.EnvVar{
+					Name:  "OAUTH2_PROXY_HTPASSWD_FILE",
+					Value: "/var/run/secrets/operator.cryostat.io/" + *authOptions.BasicAuth.Filename,
+				},
+				corev1.EnvVar{
+					Name:  "OAUTH2_PROXY_HTPASSWD_USER_GROUP",
+					Value: "write",
+				},
+				corev1.EnvVar{
+					Name:  "OAUTH2_PROXY_SKIP_AUTH_ROUTES",
+					Value: "^/health(/liveness)?$",
+				},
+			)
+		} else {
+			envs = append(envs,
+				corev1.EnvVar{
+					Name:  "OAUTH2_PROXY_SKIP_AUTH_ROUTES",
+					Value: ".*",
+				})
+		}
+	}
+
+	return envs
+}
+
+func (r *TestResources) NewAuthProxyEnvFromSource() []corev1.EnvFromSource {
 	return []corev1.EnvFromSource{
 		{
 			SecretRef: &corev1.SecretEnvSource{
 				LocalObjectReference: corev1.LocalObjectReference{
-					Name: r.Name + "-grafana-basic",
+					Name: r.Name + "-oauth2-cookie",
 				},
+				Optional: &[]bool{false}[0],
 			},
 		},
 	}
 }
 
-func (r *TestResources) NewWsConnectionsEnv() []corev1.EnvVar {
-	return []corev1.EnvVar{
-		{
-			Name:  "CRYOSTAT_MAX_WS_CONNECTIONS",
-			Value: "10",
-		},
-	}
-}
-
-func (r *TestResources) NewReportSubprocessHeapEnv() []corev1.EnvVar {
-	return []corev1.EnvVar{
-		{
-			Name:  "CRYOSTAT_REPORT_GENERATION_MAX_HEAP",
-			Value: "500",
-		},
-	}
+func (r *TestResources) NewCoreEnvFromSource() []corev1.EnvFromSource {
+	envsFrom := []corev1.EnvFromSource{}
+	return envsFrom
 }
 
 func (r *TestResources) NewJmxCacheOptionsEnv() []corev1.EnvVar {
 	return []corev1.EnvVar{
 		{
-			Name:  "CRYOSTAT_TARGET_CACHE_SIZE",
+			Name:  "CRYOSTAT_CONNECTIONS_MAX_OPEN",
 			Value: "10",
 		},
 		{
-			Name:  "CRYOSTAT_TARGET_CACHE_TTL",
+			Name:  "CRYOSTAT_CONNECTIONS_TTL",
 			Value: "20",
 		},
 	}
 }
 
-func (r *TestResources) NewTargetDiscoveryEnvVar(builtInDiscoveryDisabled bool, hasPortConfig bool, builtInPortConfigDisabled bool) []corev1.EnvVar {
-	envs := make([]corev1.EnvVar, 0)
-
-	if builtInDiscoveryDisabled {
-		envs = append(envs, corev1.EnvVar{
-			Name:  "CRYOSTAT_DISABLE_BUILTIN_DISCOVERY",
-			Value: "true",
-		})
+func (r *TestResources) NewTargetDiscoveryEnvVars(hasPortConfig bool, builtInDiscoveryDisabled bool, builtInPortConfigDisabled bool) []corev1.EnvVar {
+	envs := []corev1.EnvVar{
+		{
+			Name:  "CRYOSTAT_DISCOVERY_KUBERNETES_ENABLED",
+			Value: fmt.Sprintf("%t", !builtInDiscoveryDisabled),
+		},
 	}
 
 	if hasPortConfig {
 		envs = append(envs,
 			corev1.EnvVar{
-				Name:  "CRYOSTAT_DISCOVERY_K8S_PORT_NAMES",
+				Name:  "CRYOSTAT_DISCOVERY_KUBERNETES_PORT_NAMES",
 				Value: "custom-port-name,another-custom-port-name",
 			},
 			corev1.EnvVar{
-				Name:  "CRYOSTAT_DISCOVERY_K8S_PORT_NUMBERS",
+				Name:  "CRYOSTAT_DISCOVERY_KUBERNETES_PORT_NUMBERS",
 				Value: "9092,9090",
 			},
 		)
 	} else if builtInPortConfigDisabled {
 		envs = append(envs,
 			corev1.EnvVar{
-				Name:  "CRYOSTAT_DISCOVERY_K8S_PORT_NAMES",
-				Value: "-",
+				Name:  "CRYOSTAT_DISCOVERY_KUBERNETES_PORT_NAMES",
+				Value: "",
 			},
 			corev1.EnvVar{
-				Name:  "CRYOSTAT_DISCOVERY_K8S_PORT_NUMBERS",
-				Value: "0",
+				Name:  "CRYOSTAT_DISCOVERY_KUBERNETES_PORT_NUMBERS",
+				Value: "",
+			},
+		)
+	} else {
+		envs = append(envs,
+			corev1.EnvVar{
+				Name:  "CRYOSTAT_DISCOVERY_KUBERNETES_PORT_NAMES",
+				Value: "jfr-jmx",
+			},
+			corev1.EnvVar{
+				Name:  "CRYOSTAT_DISCOVERY_KUBERNETES_PORT_NUMBERS",
+				Value: "9091",
 			},
 		)
 	}
 	return envs
+}
+
+func (r *TestResources) NewAuthProxyArguments(authOptions *operatorv1beta2.AuthorizationOptions) ([]string, error) {
+	if !r.OpenShift {
+		return []string{
+			"--alpha-config=/etc/oauth2_proxy/alpha_config/alpha_config.json",
+		}, nil
+	}
+
+	basicAuthConfigured := authOptions != nil && authOptions.BasicAuth != nil &&
+		authOptions.BasicAuth.Filename != nil && authOptions.BasicAuth.SecretName != nil
+
+	openShiftSSOConfigured := authOptions != nil && authOptions.OpenShiftSSO != nil
+	openShiftSSODisabled := openShiftSSOConfigured && authOptions.OpenShiftSSO.Disable != nil && *authOptions.OpenShiftSSO.Disable
+
+	accessReview := authzv1.ResourceAttributes{
+		Namespace:   r.Namespace,
+		Verb:        "create",
+		Group:       "",
+		Version:     "",
+		Resource:    "pods",
+		Subresource: "exec",
+		Name:        "",
+	}
+	if openShiftSSOConfigured && authOptions.OpenShiftSSO.AccessReview != nil {
+		accessReview = *authOptions.OpenShiftSSO.AccessReview
+	}
+
+	subjectAccessReviewJson, err := json.Marshal([]authzv1.ResourceAttributes{accessReview})
+	if err != nil {
+		return nil, err
+	}
+
+	delegateUrls := make(map[string]authzv1.ResourceAttributes)
+	delegateUrls["/"] = accessReview
+	tokenReviewJson, err := json.Marshal(delegateUrls)
+	if err != nil {
+		return nil, err
+	}
+
+	args := []string{
+		"--pass-access-token=false",
+		"--pass-user-bearer-token=false",
+		"--pass-basic-auth=false",
+		"--upstream=http://localhost:8181/",
+		"--upstream=http://localhost:3000/grafana/",
+		"--upstream=http://localhost:8333/storage/",
+		fmt.Sprintf("--openshift-service-account=%s", r.Name),
+		"--proxy-websockets=true",
+		"--proxy-prefix=/oauth2",
+		fmt.Sprintf("--skip-provider-button=%t", !basicAuthConfigured),
+		fmt.Sprintf("--openshift-sar=%s", subjectAccessReviewJson),
+		fmt.Sprintf("--openshift-delegate-urls=%s", string(tokenReviewJson)),
+	}
+
+	if openShiftSSODisabled {
+		args = append(args, "--bypass-auth-for=.*")
+	} else {
+		args = append(args, "--bypass-auth-for=^/health(/liveness)?$")
+	}
+
+	if basicAuthConfigured {
+		args = append(args, fmt.Sprintf("--htpasswd-file=%s/%s", "/var/run/secrets/operator.cryostat.io", *authOptions.BasicAuth.Filename))
+	}
+
+	if r.TLS {
+		args = append(args,
+			"--http-address=",
+			"--https-address=0.0.0.0:4180",
+			fmt.Sprintf("--tls-cert=/var/run/secrets/operator.cryostat.io/%s/%s", r.Name+"-tls", corev1.TLSCertKey),
+			fmt.Sprintf("--tls-key=/var/run/secrets/operator.cryostat.io/%s/%s", r.Name+"-tls", corev1.TLSPrivateKeyKey),
+		)
+	} else {
+		args = append(args,
+			"--http-address=0.0.0.0:4180",
+			"--https-address=",
+		)
+	}
+	return args, nil
 }
 
 func (r *TestResources) NewCoreVolumeMounts() []corev1.VolumeMount {
@@ -1686,26 +1723,8 @@ func (r *TestResources) NewCoreVolumeMounts() []corev1.VolumeMount {
 		{
 			Name:      r.Name,
 			ReadOnly:  false,
-			MountPath: "/opt/cryostat.d/recordings.d",
-			SubPath:   "flightrecordings",
-		},
-		{
-			Name:      r.Name,
-			ReadOnly:  false,
 			MountPath: "/opt/cryostat.d/templates.d",
 			SubPath:   "templates",
-		},
-		{
-			Name:      r.Name,
-			ReadOnly:  false,
-			MountPath: "/opt/cryostat.d/clientlib.d",
-			SubPath:   "clientlib",
-		},
-		{
-			Name:      r.Name,
-			ReadOnly:  false,
-			MountPath: "/opt/cryostat.d/probes.d",
-			SubPath:   "probes",
 		},
 		{
 			Name:      r.Name,
@@ -1719,27 +1738,59 @@ func (r *TestResources) NewCoreVolumeMounts() []corev1.VolumeMount {
 			MountPath: "/truststore/operator",
 		},
 	}
-	if r.TLS {
-		mounts = append(mounts,
-			corev1.VolumeMount{
-				Name:      "keystore",
-				ReadOnly:  true,
-				MountPath: fmt.Sprintf("/var/run/secrets/operator.cryostat.io/%s-tls", r.Name),
-			})
-	}
 	return mounts
 }
 
-func (r *TestResources) NewGrafanaVolumeMounts() []corev1.VolumeMount {
+func (r *TestResources) NewStorageVolumeMounts() []corev1.VolumeMount {
+	return []corev1.VolumeMount{
+		{
+			Name:      r.Name,
+			MountPath: "/data",
+			SubPath:   "seaweed",
+		},
+	}
+}
+
+func (r *TestResources) NewDatabaseVolumeMounts() []corev1.VolumeMount {
+	return []corev1.VolumeMount{
+		{
+			Name:      r.Name,
+			MountPath: "/data",
+			SubPath:   "postgres",
+		},
+	}
+}
+
+func (r *TestResources) NewAuthProxyVolumeMounts(authOptions *operatorv1beta2.AuthorizationOptions) []corev1.VolumeMount {
 	mounts := []corev1.VolumeMount{}
 	if r.TLS {
+		mounts = append(mounts, corev1.VolumeMount{
+			Name:      "auth-proxy-tls-secret",
+			MountPath: fmt.Sprintf("/var/run/secrets/operator.cryostat.io/%s-tls", r.Name),
+			ReadOnly:  true,
+		})
+	}
+
+	basicAuthConfigured := authOptions != nil && authOptions.BasicAuth != nil &&
+		authOptions.BasicAuth.Filename != nil && authOptions.BasicAuth.SecretName != nil
+	if basicAuthConfigured {
+		mounts = append(mounts, corev1.VolumeMount{
+			Name:      r.Name + "-auth-proxy-htpasswd",
+			MountPath: "/var/run/secrets/operator.cryostat.io",
+			ReadOnly:  true,
+		})
+	}
+
+	if !r.OpenShift {
 		mounts = append(mounts,
 			corev1.VolumeMount{
-				Name:      "grafana-tls-secret",
-				MountPath: fmt.Sprintf("/var/run/secrets/operator.cryostat.io/%s-grafana-tls", r.Name),
+				Name:      r.Name + "-oauth2-proxy-cfg",
+				MountPath: "/etc/oauth2_proxy/alpha_config",
 				ReadOnly:  true,
 			})
+
 	}
+
 	return mounts
 }
 
@@ -1799,30 +1850,22 @@ func (r *TestResources) NewCoreStartupProbe() *corev1.Probe {
 }
 
 func (r *TestResources) newCoreProbeHandler() corev1.ProbeHandler {
-	protocol := corev1.URISchemeHTTPS
-	if !r.TLS {
-		protocol = corev1.URISchemeHTTP
-	}
 	return corev1.ProbeHandler{
 		HTTPGet: &corev1.HTTPGetAction{
 			Port:   intstr.IntOrString{IntVal: 8181},
 			Path:   "/health/liveness",
-			Scheme: protocol,
+			Scheme: corev1.URISchemeHTTP,
 		},
 	}
 }
 
 func (r *TestResources) NewGrafanaLivenessProbe() *corev1.Probe {
-	protocol := corev1.URISchemeHTTPS
-	if !r.TLS {
-		protocol = corev1.URISchemeHTTP
-	}
 	return &corev1.Probe{
 		ProbeHandler: corev1.ProbeHandler{
 			HTTPGet: &corev1.HTTPGetAction{
 				Port:   intstr.IntOrString{IntVal: 3000},
 				Path:   "/api/health",
-				Scheme: protocol,
+				Scheme: corev1.URISchemeHTTP,
 			},
 		},
 	}
@@ -1832,7 +1875,50 @@ func (r *TestResources) NewDatasourceLivenessProbe() *corev1.Probe {
 	return &corev1.Probe{
 		ProbeHandler: corev1.ProbeHandler{
 			Exec: &corev1.ExecAction{
-				Command: []string{"curl", "--fail", "http://127.0.0.1:8080"},
+				Command: []string{"curl", "--fail", "http://127.0.0.1:8989"},
+			},
+		},
+	}
+}
+
+func (r *TestResources) NewStorageLivenessProbe() *corev1.Probe {
+	return &corev1.Probe{
+		ProbeHandler: corev1.ProbeHandler{
+			HTTPGet: &corev1.HTTPGetAction{
+				Port:   intstr.IntOrString{IntVal: 8333},
+				Path:   "/status",
+				Scheme: corev1.URISchemeHTTP,
+			},
+		},
+		FailureThreshold: 2,
+	}
+}
+
+func (r *TestResources) NewDatabaseReadinessProbe() *corev1.Probe {
+	return &corev1.Probe{
+		ProbeHandler: corev1.ProbeHandler{
+			Exec: &corev1.ExecAction{
+				Command: []string{"pg_isready", "-U", "cryostat3", "-d", "cryostat3"},
+			},
+		},
+	}
+}
+
+func (r *TestResources) NewAuthProxyLivenessProbe() *corev1.Probe {
+	protocol := corev1.URISchemeHTTP
+	if r.TLS {
+		protocol = corev1.URISchemeHTTPS
+	}
+	path := "/ping"
+	if r.OpenShift {
+		path = "/oauth2/healthz"
+	}
+	return &corev1.Probe{
+		ProbeHandler: corev1.ProbeHandler{
+			HTTPGet: &corev1.HTTPGetAction{
+				Port:   intstr.IntOrString{IntVal: 4180},
+				Path:   path,
+				Scheme: protocol,
 			},
 		},
 	}
@@ -2066,18 +2152,16 @@ func (r *TestResources) newVolumes(certProjections []corev1.VolumeProjection) []
 						},
 					},
 				},
-			})
-		if !r.Minimal {
-			volumes = append(volumes,
-				corev1.Volume{
-					Name: "grafana-tls-secret",
-					VolumeSource: corev1.VolumeSource{
-						Secret: &corev1.SecretVolumeSource{
-							SecretName: r.Name + "-grafana-tls",
-						},
+			},
+			corev1.Volume{
+				Name: "auth-proxy-tls-secret",
+				VolumeSource: corev1.VolumeSource{
+					Secret: &corev1.SecretVolumeSource{
+						SecretName: r.Name + "-tls",
 					},
-				})
-		}
+				},
+			},
+		)
 	}
 
 	volumes = append(volumes,
@@ -2089,6 +2173,27 @@ func (r *TestResources) newVolumes(certProjections []corev1.VolumeProjection) []
 				},
 			},
 		})
+
+	if !r.OpenShift {
+		readOnlyMode := int32(0440)
+		volumes = append(volumes, corev1.Volume{
+			Name: r.Name + "-oauth2-proxy-cfg",
+			VolumeSource: corev1.VolumeSource{
+				ConfigMap: &corev1.ConfigMapVolumeSource{
+					LocalObjectReference: corev1.LocalObjectReference{
+						Name: r.Name + "-oauth2-proxy-cfg",
+					},
+					Items: []corev1.KeyToPath{
+						{
+							Key:  "alpha_config.json",
+							Path: "alpha_config.json",
+							Mode: &readOnlyMode,
+						},
+					},
+				},
+			},
+		})
+	}
 
 	return volumes
 }
@@ -2172,6 +2277,27 @@ func (r *TestResources) NewDatasourceSecurityContext(cr *model.CryostatInstance)
 	return r.commonDefaultSecurityContext()
 }
 
+func (r *TestResources) NewStorageSecurityContext(cr *model.CryostatInstance) *corev1.SecurityContext {
+	if cr.Spec.SecurityOptions != nil && cr.Spec.SecurityOptions.StorageSecurityContext != nil {
+		return cr.Spec.SecurityOptions.StorageSecurityContext
+	}
+	return r.commonDefaultSecurityContext()
+}
+
+func (r *TestResources) NewDatabaseSecurityContext(cr *model.CryostatInstance) *corev1.SecurityContext {
+	if cr.Spec.SecurityOptions != nil && cr.Spec.SecurityOptions.DatabaseSecurityContext != nil {
+		return cr.Spec.SecurityOptions.DatabaseSecurityContext
+	}
+	return r.commonDefaultSecurityContext()
+}
+
+func (r *TestResources) NewAuthProxySecurityContext(cr *model.CryostatInstance) *corev1.SecurityContext {
+	if cr.Spec.SecurityOptions != nil && cr.Spec.SecurityOptions.AuthProxySecurityContext != nil {
+		return cr.Spec.SecurityOptions.AuthProxySecurityContext
+	}
+	return r.commonDefaultSecurityContext()
+}
+
 func (r *TestResources) NewReportSecurityContext(cr *model.CryostatInstance) *corev1.SecurityContext {
 	if cr.Spec.ReportOptions != nil && cr.Spec.ReportOptions.SecurityOptions != nil && cr.Spec.ReportOptions.SecurityOptions.ReportsSecurityContext != nil {
 		return cr.Spec.ReportOptions.SecurityOptions.ReportsSecurityContext
@@ -2180,7 +2306,7 @@ func (r *TestResources) NewReportSecurityContext(cr *model.CryostatInstance) *co
 }
 
 func (r *TestResources) NewCoreRoute() *routev1.Route {
-	return r.newRoute(r.Name, 8181)
+	return r.newRoute(r.Name, 4180)
 }
 
 func (r *TestResources) NewCustomCoreRoute() *routev1.Route {
@@ -2188,21 +2314,6 @@ func (r *TestResources) NewCustomCoreRoute() *routev1.Route {
 	route.Annotations = map[string]string{"custom": "annotation"}
 	route.Labels = map[string]string{
 		"custom":    "label",
-		"app":       r.Name,
-		"component": "cryostat",
-	}
-	return route
-}
-
-func (r *TestResources) NewGrafanaRoute() *routev1.Route {
-	return r.newRoute(r.Name+"-grafana", 3000)
-}
-
-func (r *TestResources) NewCustomGrafanaRoute() *routev1.Route {
-	route := r.NewGrafanaRoute()
-	route.Annotations = map[string]string{"grafana": "annotation"}
-	route.Labels = map[string]string{
-		"grafana":   "label",
 		"app":       r.Name,
 		"component": "cryostat",
 	}
@@ -2218,8 +2329,9 @@ func (r *TestResources) newRoute(name string, port int) *routev1.Route {
 		}
 	} else {
 		routeTLS = &routev1.TLSConfig{
-			Termination:              routev1.TLSTerminationReencrypt,
-			DestinationCACertificate: r.Name + "-ca-bytes",
+			Termination:                   routev1.TLSTerminationReencrypt,
+			DestinationCACertificate:      r.Name + "-ca-bytes",
+			InsecureEdgeTerminationPolicy: routev1.InsecureEdgeTerminationPolicyRedirect,
 		}
 	}
 	return &routev1.Route{
@@ -2270,22 +2382,54 @@ func (r *TestResources) OtherCoreRoute() *routev1.Route {
 	}
 }
 
-func (r *TestResources) OtherGrafanaRoute() *routev1.Route {
-	return &routev1.Route{
+func (r *TestResources) NewCoreIngress() *netv1.Ingress {
+	return r.newIngress(r.Name, 4180, map[string]string{"custom": "annotation"},
+		map[string]string{"my": "label", "custom": "label"})
+}
+
+func (r *TestResources) newIngress(name string, svcPort int32, annotations, labels map[string]string) *netv1.Ingress {
+	pathtype := netv1.PathTypePrefix
+
+	annotations["nginx.ingress.kubernetes.io/backend-protocol"] = "HTTPS"
+	labels["app"] = r.Name
+	labels["component"] = "cryostat"
+
+	var ingressTLS []netv1.IngressTLS
+	if r.ExternalTLS {
+		ingressTLS = []netv1.IngressTLS{{}}
+	}
+	return &netv1.Ingress{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:        r.Name + "-grafana",
+			Name:        name,
 			Namespace:   r.Namespace,
-			Annotations: map[string]string{"grafana": "annotation"},
-			Labels:      map[string]string{"grafana": "label"},
+			Annotations: annotations,
+			Labels:      labels,
 		},
-		Spec: routev1.RouteSpec{
-			To: routev1.RouteTargetReference{
-				Kind: "Service",
-				Name: "not-grafana",
+		Spec: netv1.IngressSpec{
+			Rules: []netv1.IngressRule{
+				{
+					Host: name + ".example.com",
+					IngressRuleValue: netv1.IngressRuleValue{
+						HTTP: &netv1.HTTPIngressRuleValue{
+							Paths: []netv1.HTTPIngressPath{
+								{
+									Path:     "/",
+									PathType: &pathtype,
+									Backend: netv1.IngressBackend{
+										Service: &netv1.IngressServiceBackend{
+											Name: name,
+											Port: netv1.ServiceBackendPort{
+												Number: svcPort,
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
 			},
-			Port: &routev1.RoutePort{
-				TargetPort: intstr.FromInt(5678),
-			},
+			TLS: ingressTLS,
 		},
 	}
 }
@@ -2296,8 +2440,8 @@ func (r *TestResources) OtherCoreIngress() *netv1.Ingress {
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        r.Name,
 			Namespace:   r.Namespace,
-			Annotations: map[string]string{"custom": "annotation"},
-			Labels:      map[string]string{"custom": "label"},
+			Annotations: map[string]string{"other": "annotation"},
+			Labels:      map[string]string{"other": "label", "app": "not-cryostat"},
 		},
 		Spec: netv1.IngressSpec{
 			Rules: []netv1.IngressRule{
@@ -2327,61 +2471,18 @@ func (r *TestResources) OtherCoreIngress() *netv1.Ingress {
 	}
 }
 
-func (r *TestResources) OtherGrafanaIngress() *netv1.Ingress {
-	pathtype := netv1.PathTypePrefix
-	return &netv1.Ingress{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:        r.Name + "-grafana",
-			Namespace:   r.Namespace,
-			Annotations: map[string]string{"grafana": "annotation"},
-			Labels:      map[string]string{"grafana": "label"},
-		},
-		Spec: netv1.IngressSpec{
-			Rules: []netv1.IngressRule{
-				{
-					Host: "some-other-grafana.example.com",
-					IngressRuleValue: netv1.IngressRuleValue{
-						HTTP: &netv1.HTTPIngressRuleValue{
-							Paths: []netv1.HTTPIngressPath{
-								{
-									Path:     "/",
-									PathType: &pathtype,
-									Backend: netv1.IngressBackend{
-										Service: &netv1.IngressServiceBackend{
-											Name: "some-other-grafana",
-											Port: netv1.ServiceBackendPort{
-												Number: 5000,
-											},
-										},
-									},
-								},
-							},
-						},
-					},
-				},
-			},
-		},
-	}
-}
-
-func (r *TestResources) newNetworkConfigurationList() operatorv1beta1.NetworkConfigurationList {
+func (r *TestResources) newNetworkConfigurationList() operatorv1beta2.NetworkConfigurationList {
 	coreSVC := r.NewCryostatService()
 	coreIng := r.newNetworkConfiguration(coreSVC.Name, coreSVC.Spec.Ports[0].Port)
 	coreIng.Annotations["custom"] = "annotation"
 	coreIng.Labels["custom"] = "label"
 
-	grafanaSVC := r.NewGrafanaService()
-	grafanaIng := r.newNetworkConfiguration(grafanaSVC.Name, grafanaSVC.Spec.Ports[0].Port)
-	grafanaIng.Annotations["grafana"] = "annotation"
-	grafanaIng.Labels["grafana"] = "label"
-
-	return operatorv1beta1.NetworkConfigurationList{
-		CoreConfig:    &coreIng,
-		GrafanaConfig: &grafanaIng,
+	return operatorv1beta2.NetworkConfigurationList{
+		CoreConfig: &coreIng,
 	}
 }
 
-func (r *TestResources) newNetworkConfiguration(svcName string, svcPort int32) operatorv1beta1.NetworkConfiguration {
+func (r *TestResources) newNetworkConfiguration(svcName string, svcPort int32) operatorv1beta2.NetworkConfiguration {
 	pathtype := netv1.PathTypePrefix
 	host := svcName + ".example.com"
 
@@ -2389,7 +2490,7 @@ func (r *TestResources) newNetworkConfiguration(svcName string, svcPort int32) o
 	if r.ExternalTLS {
 		ingressTLS = []netv1.IngressTLS{{}}
 	}
-	return operatorv1beta1.NetworkConfiguration{
+	return operatorv1beta2.NetworkConfiguration{
 		Annotations: map[string]string{"nginx.ingress.kubernetes.io/backend-protocol": "HTTPS"},
 		Labels:      map[string]string{"my": "label"},
 		IngressSpec: &netv1.IngressSpec{
@@ -2528,30 +2629,10 @@ func (r *TestResources) OtherRole() *rbacv1.Role {
 	}
 }
 
-func (r *TestResources) NewAuthClusterRole() *rbacv1.ClusterRole {
-	return &rbacv1.ClusterRole{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: "custom-auth-cluster-role",
-		},
-		Rules: []rbacv1.PolicyRule{
-			{
-				Verbs:     []string{"get", "update", "patch", "delete"},
-				APIGroups: []string{"group"},
-				Resources: []string{"resources"},
-			},
-			{
-				Verbs:     []string{"get", "update", "patch", "delete"},
-				APIGroups: []string{"another_group"},
-				Resources: []string{"another_resources"},
-			},
-		},
-	}
-}
-
 func (r *TestResources) NewRoleBinding(ns string) *rbacv1.RoleBinding {
 	return &rbacv1.RoleBinding{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      r.Name,
+			Name:      r.getClusterUniqueName(),
 			Namespace: ns,
 		},
 		Subjects: []rbacv1.Subject{
@@ -2572,7 +2653,7 @@ func (r *TestResources) NewRoleBinding(ns string) *rbacv1.RoleBinding {
 func (r *TestResources) OtherRoleBinding(ns string) *rbacv1.RoleBinding {
 	return &rbacv1.RoleBinding{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      r.Name,
+			Name:      r.getClusterUniqueName(),
 			Namespace: ns,
 			Labels: map[string]string{
 				"test": "label",
@@ -2673,22 +2754,18 @@ func (r *TestResources) NewOtherTemplateConfigMap() *corev1.ConfigMap {
 	}
 }
 
-func (r *TestResources) NewAuthPropertiesConfigMap() *corev1.ConfigMap {
-	return &corev1.ConfigMap{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "authConfigMapName",
-			Namespace: r.Namespace,
-		},
-		Data: map[string]string{
-			"auth.properties": "CRYOSTAT_RESOURCE=resources.group\nANOTHER_CRYOSTAT_RESOURCE=another_resources.another_group",
-		},
-	}
-}
-
 func (r *TestResources) NewNamespace() *corev1.Namespace {
 	return &corev1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: r.Namespace,
+		},
+	}
+}
+
+func (r *TestResources) NewOtherNamespace(name string) *corev1.Namespace {
+	return &corev1.Namespace{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: name,
 		},
 	}
 }
@@ -2768,117 +2845,147 @@ func (r *TestResources) NewApiServerWithApplicationURL() *configv1.APIServer {
 	}
 }
 
-func newCoreContainerDefaultResource() *corev1.ResourceRequirements {
-	return &corev1.ResourceRequirements{
+func (r *TestResources) NewCoreContainerResource(cr *model.CryostatInstance) *corev1.ResourceRequirements {
+	resources := &corev1.ResourceRequirements{
 		Requests: corev1.ResourceList{
 			corev1.ResourceCPU:    resource.MustParse("500m"),
-			corev1.ResourceMemory: resource.MustParse("256Mi"),
-		},
-	}
-}
-
-func (r *TestResources) NewCoreContainerResource(cr *model.CryostatInstance) *corev1.ResourceRequirements {
-	requests := newCoreContainerDefaultResource().Requests
-	var limits corev1.ResourceList
-	if cr.Spec.Resources != nil && cr.Spec.Resources.CoreResources.Requests != nil {
-		requests = cr.Spec.Resources.CoreResources.Requests
-	} else if cr.Spec.Resources != nil && cr.Spec.Resources.CoreResources.Limits != nil {
-		checkWithLimit(requests, cr.Spec.Resources.CoreResources.Limits)
-	}
-
-	if cr.Spec.Resources != nil {
-		limits = cr.Spec.Resources.CoreResources.Limits
-	}
-
-	return &corev1.ResourceRequirements{
-		Requests: requests,
-		Limits:   limits,
-	}
-}
-
-func newDatasourceContainerDefaultResource() *corev1.ResourceRequirements {
-	return &corev1.ResourceRequirements{
-		Requests: corev1.ResourceList{
-			corev1.ResourceCPU:    resource.MustParse("200m"),
 			corev1.ResourceMemory: resource.MustParse("384Mi"),
 		},
 	}
+
+	if cr.Spec.Resources != nil && cr.Spec.Resources.CoreResources.Requests != nil {
+		resources.Requests = cr.Spec.Resources.CoreResources.Requests
+	}
+
+	if cr.Spec.Resources != nil && cr.Spec.Resources.CoreResources.Limits != nil {
+		resources.Limits = cr.Spec.Resources.CoreResources.Limits
+		checkWithLimit(resources.Requests, resources.Limits)
+	}
+
+	return resources
 }
 
 func (r *TestResources) NewDatasourceContainerResource(cr *model.CryostatInstance) *corev1.ResourceRequirements {
-	requests := newDatasourceContainerDefaultResource().Requests
-	var limits corev1.ResourceList
-	if cr.Spec.Resources != nil && cr.Spec.Resources.DataSourceResources.Requests != nil {
-		requests = cr.Spec.Resources.DataSourceResources.Requests
-	} else if cr.Spec.Resources != nil && cr.Spec.Resources.DataSourceResources.Limits != nil {
-		checkWithLimit(requests, cr.Spec.Resources.DataSourceResources.Limits)
-	}
-
-	if cr.Spec.Resources != nil {
-		limits = cr.Spec.Resources.DataSourceResources.Limits
-	}
-
-	return &corev1.ResourceRequirements{
-		Requests: requests,
-		Limits:   limits,
-	}
-}
-
-func newGrafanaContainerDefaultResource() *corev1.ResourceRequirements {
-	return &corev1.ResourceRequirements{
+	resources := &corev1.ResourceRequirements{
 		Requests: corev1.ResourceList{
-			corev1.ResourceCPU:    resource.MustParse("100m"),
-			corev1.ResourceMemory: resource.MustParse("120Mi"),
+			corev1.ResourceCPU:    resource.MustParse("200m"),
+			corev1.ResourceMemory: resource.MustParse("200Mi"),
 		},
 	}
+
+	if cr.Spec.Resources != nil && cr.Spec.Resources.DataSourceResources.Requests != nil {
+		resources.Requests = cr.Spec.Resources.DataSourceResources.Requests
+	}
+
+	if cr.Spec.Resources != nil && cr.Spec.Resources.DataSourceResources.Limits != nil {
+		resources.Limits = cr.Spec.Resources.DataSourceResources.Limits
+		checkWithLimit(resources.Requests, resources.Limits)
+	}
+
+	return resources
 }
 
 func (r *TestResources) NewGrafanaContainerResource(cr *model.CryostatInstance) *corev1.ResourceRequirements {
-	requests := newGrafanaContainerDefaultResource().Requests
-	var limits corev1.ResourceList
-	if cr.Spec.Resources != nil && cr.Spec.Resources.GrafanaResources.Requests != nil {
-		requests = cr.Spec.Resources.GrafanaResources.Requests
-	} else if cr.Spec.Resources != nil && cr.Spec.Resources.GrafanaResources.Limits != nil {
-		checkWithLimit(requests, cr.Spec.Resources.GrafanaResources.Limits)
-	}
-
-	if cr.Spec.Resources != nil {
-		limits = cr.Spec.Resources.GrafanaResources.Limits
-	}
-
-	return &corev1.ResourceRequirements{
-		Requests: requests,
-		Limits:   limits,
-	}
-}
-
-func newReportContainerDefaultResource() *corev1.ResourceRequirements {
-	return &corev1.ResourceRequirements{
+	resources := &corev1.ResourceRequirements{
 		Requests: corev1.ResourceList{
-			corev1.ResourceCPU:    resource.MustParse("200m"),
-			corev1.ResourceMemory: resource.MustParse("384Mi"),
+			corev1.ResourceCPU:    resource.MustParse("25m"),
+			corev1.ResourceMemory: resource.MustParse("80Mi"),
 		},
 	}
+
+	if cr.Spec.Resources != nil && cr.Spec.Resources.GrafanaResources.Requests != nil {
+		resources.Requests = cr.Spec.Resources.GrafanaResources.Requests
+	}
+
+	if cr.Spec.Resources != nil && cr.Spec.Resources.GrafanaResources.Limits != nil {
+		resources.Limits = cr.Spec.Resources.GrafanaResources.Limits
+		checkWithLimit(resources.Requests, resources.Limits)
+	}
+
+	return resources
+}
+
+func (r *TestResources) NewStorageContainerResource(cr *model.CryostatInstance) *corev1.ResourceRequirements {
+	resources := &corev1.ResourceRequirements{
+		Requests: corev1.ResourceList{
+			corev1.ResourceCPU:    resource.MustParse("50m"),
+			corev1.ResourceMemory: resource.MustParse("256Mi"),
+		},
+	}
+
+	if cr.Spec.Resources != nil && cr.Spec.Resources.ObjectStorageResources.Requests != nil {
+		resources.Requests = cr.Spec.Resources.ObjectStorageResources.Requests
+	}
+
+	if cr.Spec.Resources != nil && cr.Spec.Resources.ObjectStorageResources.Limits != nil {
+		resources.Limits = cr.Spec.Resources.ObjectStorageResources.Limits
+		checkWithLimit(resources.Requests, resources.Limits)
+	}
+
+	return resources
+}
+
+func (r *TestResources) NewDatabaseContainerResource(cr *model.CryostatInstance) *corev1.ResourceRequirements {
+	resources := &corev1.ResourceRequirements{
+		Requests: corev1.ResourceList{
+			corev1.ResourceCPU:    resource.MustParse("25m"),
+			corev1.ResourceMemory: resource.MustParse("64Mi"),
+		},
+	}
+
+	if cr.Spec.Resources != nil && cr.Spec.Resources.DatabaseResources.Requests != nil {
+		resources.Requests = cr.Spec.Resources.DatabaseResources.Requests
+	}
+
+	if cr.Spec.Resources != nil && cr.Spec.Resources.DatabaseResources.Limits != nil {
+		resources.Limits = cr.Spec.Resources.DatabaseResources.Limits
+		checkWithLimit(resources.Requests, resources.Limits)
+	}
+
+	return resources
+}
+
+func (r *TestResources) NewAuthProxyContainerResource(cr *model.CryostatInstance) *corev1.ResourceRequirements {
+	resources := &corev1.ResourceRequirements{
+		Requests: corev1.ResourceList{
+			corev1.ResourceCPU:    resource.MustParse("25m"),
+			corev1.ResourceMemory: resource.MustParse("64Mi"),
+		},
+	}
+
+	if cr.Spec.Resources != nil && cr.Spec.Resources.AuthProxyResources.Requests != nil {
+		resources.Requests = cr.Spec.Resources.AuthProxyResources.Requests
+	}
+
+	if cr.Spec.Resources != nil && cr.Spec.Resources.AuthProxyResources.Limits != nil {
+		resources.Limits = cr.Spec.Resources.AuthProxyResources.Limits
+		checkWithLimit(resources.Requests, resources.Limits)
+	}
+
+	return resources
 }
 
 func (r *TestResources) NewReportContainerResource(cr *model.CryostatInstance) *corev1.ResourceRequirements {
-	requests := newReportContainerDefaultResource().Requests
-	var limits corev1.ResourceList
+	resources := &corev1.ResourceRequirements{
+		Requests: corev1.ResourceList{
+			corev1.ResourceCPU:    resource.MustParse("500m"),
+			corev1.ResourceMemory: resource.MustParse("512Mi"),
+		},
+	}
 
 	if cr.Spec.ReportOptions != nil {
 		reportOptions := cr.Spec.ReportOptions
 		if reportOptions.Resources.Requests != nil {
-			requests = reportOptions.Resources.Requests
-		} else if reportOptions.Resources.Limits != nil {
-			checkWithLimit(requests, reportOptions.Resources.Limits)
+			resources.Requests = reportOptions.Resources.Requests
 		}
 
-		limits = reportOptions.Resources.Limits
+		if reportOptions.Resources.Limits != nil {
+			resources.Limits = reportOptions.Resources.Limits
+			checkWithLimit(resources.Requests, resources.Limits)
+		}
 	}
-	return &corev1.ResourceRequirements{
-		Requests: requests,
-		Limits:   limits,
-	}
+
+	return resources
 }
 
 func checkWithLimit(requests, limits corev1.ResourceList) {
@@ -2902,9 +3009,9 @@ func (r *TestResources) NewLockConfigMap() *corev1.ConfigMap {
 }
 
 func (r *TestResources) getClusterUniqueName() string {
-	prefix := "cryostat-"
-	if r.ClusterScoped {
-		prefix = "clustercryostat-"
-	}
-	return prefix + r.clusterUniqueSuffix()
+	return "cryostat-" + r.clusterUniqueSuffix()
+}
+
+func (r *TestResources) getClusterUniqueNameForCA() string {
+	return "cryostat-ca-" + r.clusterUniqueSuffix()
 }

@@ -19,7 +19,7 @@ import (
 	"fmt"
 	"net/url"
 
-	operatorv1beta1 "github.com/cryostatio/cryostat-operator/api/v1beta1"
+	operatorv1beta2 "github.com/cryostatio/cryostat-operator/api/v1beta2"
 	common "github.com/cryostatio/cryostat-operator/internal/controllers/common"
 	"github.com/cryostatio/cryostat-operator/internal/controllers/common/resource_definitions"
 	"github.com/cryostatio/cryostat-operator/internal/controllers/model"
@@ -48,36 +48,13 @@ func (r *Reconciler) reconcileCoreIngress(ctx context.Context, cr *model.Cryosta
 	if err != nil {
 		return err
 	}
+	specs.AuthProxyURL = url
 	specs.CoreURL = url
 	return nil
 }
 
-func (r *Reconciler) reconcileGrafanaIngress(ctx context.Context, cr *model.CryostatInstance,
-	specs *resource_definitions.ServiceSpecs) error {
-	ingress := &netv1.Ingress{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      cr.Name + "-grafana",
-			Namespace: cr.InstallNamespace,
-		},
-	}
-
-	if cr.Spec.Minimal || cr.Spec.NetworkOptions == nil || cr.Spec.NetworkOptions.GrafanaConfig == nil ||
-		cr.Spec.NetworkOptions.GrafanaConfig.IngressSpec == nil {
-		// User has either chosen a minimal deployment or not requested
-		// an Ingress, delete if it exists
-		return r.deleteIngress(ctx, ingress)
-	}
-	grafanaConfig := configureGrafanaIngress(cr)
-	url, err := r.reconcileIngress(ctx, ingress, cr, grafanaConfig)
-	if err != nil {
-		return err
-	}
-	specs.GrafanaURL = url
-	return nil
-}
-
 func (r *Reconciler) reconcileIngress(ctx context.Context, ingress *netv1.Ingress, cr *model.CryostatInstance,
-	config *operatorv1beta1.NetworkConfiguration) (*url.URL, error) {
+	config *operatorv1beta2.NetworkConfiguration) (*url.URL, error) {
 	ingress, err := r.createOrUpdateIngress(ctx, ingress, cr.Object, config)
 	if err != nil {
 		return nil, err
@@ -99,7 +76,7 @@ func (r *Reconciler) reconcileIngress(ctx context.Context, ingress *netv1.Ingres
 }
 
 func (r *Reconciler) createOrUpdateIngress(ctx context.Context, ingress *netv1.Ingress, owner metav1.Object,
-	config *operatorv1beta1.NetworkConfiguration) (*netv1.Ingress, error) {
+	config *operatorv1beta2.NetworkConfiguration) (*netv1.Ingress, error) {
 	op, err := controllerutil.CreateOrUpdate(ctx, r.Client, ingress, func() error {
 		// Set labels and annotations from CR
 		common.MergeLabelsAndAnnotations(&ingress.ObjectMeta, config.Labels, config.Annotations)
@@ -119,31 +96,19 @@ func (r *Reconciler) createOrUpdateIngress(ctx context.Context, ingress *netv1.I
 	return ingress, nil
 }
 
-func configureCoreIngress(cr *model.CryostatInstance) *operatorv1beta1.NetworkConfiguration {
-	var config *operatorv1beta1.NetworkConfiguration
+func configureCoreIngress(cr *model.CryostatInstance) *operatorv1beta2.NetworkConfiguration {
+	var config *operatorv1beta2.NetworkConfiguration
 	if cr.Spec.NetworkOptions == nil || cr.Spec.NetworkOptions.CoreConfig == nil {
-		config = &operatorv1beta1.NetworkConfiguration{}
+		config = &operatorv1beta2.NetworkConfiguration{}
 	} else {
 		config = cr.Spec.NetworkOptions.CoreConfig
 	}
 
-	configureRoute(config, cr.Name, "cryostat")
+	configureIngress(config, cr.Name, "cryostat")
 	return config
 }
 
-func configureGrafanaIngress(cr *model.CryostatInstance) *operatorv1beta1.NetworkConfiguration {
-	var config *operatorv1beta1.NetworkConfiguration
-	if cr.Spec.NetworkOptions == nil || cr.Spec.NetworkOptions.GrafanaConfig == nil {
-		config = &operatorv1beta1.NetworkConfiguration{}
-	} else {
-		config = cr.Spec.NetworkOptions.GrafanaConfig
-	}
-
-	configureRoute(config, cr.Name, "cryostat")
-	return config
-}
-
-func configureIngress(config *operatorv1beta1.NetworkConfiguration, appLabel string, componentLabel string) {
+func configureIngress(config *operatorv1beta2.NetworkConfiguration, appLabel string, componentLabel string) {
 	if config.Labels == nil {
 		config.Labels = map[string]string{}
 	}

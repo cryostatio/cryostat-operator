@@ -9,11 +9,19 @@ spec:
       containers:
       - name: manager
         env:
+        - name: RELATED_IMAGE_OAUTH2_PROXY
+          value: "quay.io/oauth2-proxy/oauth2-proxy:latest"
+        - name: RELATED_IMAGE_OPENSHIFT_OAUTH_PROXY
+          value: "quay.io/openshift/origin-oauth-proxy:latest"
         - name: RELATED_IMAGE_CORE
-          value: "quay.io/cryostat/cryostat:latest"
+          value: "quay.io/cryostat/cryostat:3.0.0-snapshot"
         - name: RELATED_IMAGE_DATASOURCE
           value: "quay.io/cryostat/jfr-datasource:latest"
         - name: RELATED_IMAGE_GRAFANA
           value: "quay.io/cryostat/cryostat-grafana-dashboard:latest"
         - name: RELATED_IMAGE_REPORTS
           value: "quay.io/cryostat/cryostat-reports:latest"
+        - name: RELATED_IMAGE_STORAGE
+          value: "quay.io/cryostat/cryostat-storage:latest"
+        - name: RELATED_IMAGE_DATABASE
+          value: "quay.io/cryostat/cryostat-db:latest"

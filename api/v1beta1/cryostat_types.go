@@ -287,6 +287,13 @@ type GrafanaServiceConfig struct {
 	ServiceConfig `json:",inline"`
 }
 
+type StorageServiceConfig struct {
+	// HTTP port number for the cryostat storage service.
+	// Defaults to 8333
+	HTTPPort      *int32 `json:"httpPort,omitempty"`
+	ServiceConfig `json:",inline"`
+}
+
 // ReportsServiceConfig provides customization for the service handling
 // traffic for the cryostat-reports sidecars.
 type ReportsServiceConfig struct {
@@ -306,9 +313,12 @@ type ServiceConfigList struct {
 	// Specification for the service responsible for the Cryostat Grafana dashboard.
 	// +optional
 	GrafanaConfig *GrafanaServiceConfig `json:"grafanaConfig,omitempty"`
-	// Specification for the service responsible for the cryostat-reports sidecars.
+	// Specification for the service responsible for the Cryostat reports sidecars.
 	// +optional
 	ReportsConfig *ReportsServiceConfig `json:"reportsConfig,omitempty"`
+	// Specification for the service responsible for the Cryostat storage container.
+	// +optional
+	StorageConfig *StorageServiceConfig `json:"storageConfig,omitempty"`
 }
 
 // NetworkConfiguration provides customization for how to expose a Cryostat
@@ -414,13 +424,12 @@ type JmxCacheOptions struct {
 
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
-// +kubebuilder:storageversion
 // +kubebuilder:resource:path=cryostats,scope=Namespaced
 
 // Cryostat allows you to install Cryostat for a single namespace.
 // It contains configuration options for controlling the Deployment of the Cryostat
 // application and its related components.
-// A ClusterCryostat or Cryostat instance must be created to instruct the operator
+// A Cryostat instance must be created to instruct the operator
 // to deploy the Cryostat application.
 // +operator-sdk:csv:customresourcedefinitions:resources={{Deployment,v1},{Ingress,v1},{PersistentVolumeClaim,v1},{Secret,v1},{Service,v1},{Route,v1},{ConsoleLink,v1}}
 // +kubebuilder:printcolumn:name="Application URL",type=string,JSONPath=`.status.applicationUrl`
@@ -503,6 +512,14 @@ type SecurityOptions struct {
 	// +optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	GrafanaSecurityContext *corev1.SecurityContext `json:"grafanaSecurityContext,omitempty"`
+	// Security Context to apply to the storage container.
+	// +optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec
+	StorageSecurityContext *corev1.SecurityContext `json:"storageSecurityContext,omitempty"`
+	// Security Context to apply to the storage container.
+	// +optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec
+	DatabaseSecurityContext *corev1.SecurityContext `json:"databaseSecurityContext,omitempty"`
 }
 
 // ReportsSecurityOptions contains Security Context customizations for the

@@ -16,7 +16,6 @@ package scorecard
 
 import (
 	"context"
-	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -26,11 +25,12 @@ import (
 	"strings"
 	"time"
 
-	operatorv1beta1 "github.com/cryostatio/cryostat-operator/api/v1beta1"
+	operatorv1beta2 "github.com/cryostatio/cryostat-operator/api/v1beta2"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
 	"k8s.io/apimachinery/pkg/util/wait"
+	"sigs.k8s.io/controller-runtime/pkg/client/config"
 
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes"
@@ -52,7 +52,7 @@ func (c *CryostatClientset) OperatorCRDs() *OperatorCRDClient {
 // NewClientset creates a CryostatClientset
 func NewClientset() (*CryostatClientset, error) {
 	// Get in-cluster REST config from pod
-	config, err := rest.InClusterConfig()
+	config, err := config.GetConfig()
 	if err != nil {
 		return nil, err
 	}
@@ -89,14 +89,6 @@ func (c *OperatorCRDClient) Cryostats(namespace string) *CryostatClient {
 	}
 }
 
-// ClusterCryostats returns a ClusterCryostatClient
-func (c *OperatorCRDClient) ClusterCryostats() *CryostatClient {
-	return &CryostatClient{
-		restClient: c.client,
-		resource:   "clustercryostats",
-	}
-}
-
 func newOperatorCRDClient(config *rest.Config) (*OperatorCRDClient, error) {
 	client, err := newCRDClient(config)
 	if err != nil {
@@ -109,10 +101,10 @@ func newOperatorCRDClient(config *rest.Config) (*OperatorCRDClient, error) {
 
 func newCRDClient(config *rest.Config) (*rest.RESTClient, error) {
 	scheme := runtime.NewScheme()
-	if err := operatorv1beta1.AddToScheme(scheme); err != nil {
+	if err := operatorv1beta2.AddToScheme(scheme); err != nil {
 		return nil, err
 	}
-	return newRESTClientForGV(config, scheme, &operatorv1beta1.GroupVersion)
+	return newRESTClientForGV(config, scheme, &operatorv1beta2.GroupVersion)
 }
 
 func newRESTClientForGV(config *rest.Config, scheme *runtime.Scheme, gv *schema.GroupVersion) (*rest.RESTClient, error) {
@@ -133,33 +125,18 @@ type CryostatClient struct {
 }
 
 // Get returns a Cryostat CR for the given name
-func (c *CryostatClient) GetNonNamespaced(ctx context.Context, name string) (*operatorv1beta1.ClusterCryostat, error) {
-	return get(ctx, c.restClient, c.resource, c.namespace, name, &operatorv1beta1.ClusterCryostat{})
-}
-
-// Create creates the provided ClusterCryostat CR
-func (c *CryostatClient) CreateNonNamespaced(ctx context.Context, obj *operatorv1beta1.ClusterCryostat) (*operatorv1beta1.ClusterCryostat, error) {
-	return create(ctx, c.restClient, c.resource, c.namespace, obj, &operatorv1beta1.ClusterCryostat{})
-}
-
-// Delete deletes the Cryostat CR with the given name
-func (c *CryostatClient) DeleteNonNamespaced(ctx context.Context, name string, options *metav1.DeleteOptions) error {
-	return delete(ctx, c.restClient, c.resource, c.namespace, name, options)
-}
-
-// Get returns a Cryostat CR for the given name
-func (c *CryostatClient) Get(ctx context.Context, name string) (*operatorv1beta1.Cryostat, error) {
-	return get(ctx, c.restClient, c.resource, c.namespace, name, &operatorv1beta1.Cryostat{})
+func (c *CryostatClient) Get(ctx context.Context, name string) (*operatorv1beta2.Cryostat, error) {
+	return get(ctx, c.restClient, c.resource, c.namespace, name, &operatorv1beta2.Cryostat{})
 }
 
 // Create creates the provided Cryostat CR
-func (c *CryostatClient) Create(ctx context.Context, obj *operatorv1beta1.Cryostat) (*operatorv1beta1.Cryostat, error) {
-	return create(ctx, c.restClient, c.resource, c.namespace, obj, &operatorv1beta1.Cryostat{})
+func (c *CryostatClient) Create(ctx context.Context, obj *operatorv1beta2.Cryostat) (*operatorv1beta2.Cryostat, error) {
+	return create(ctx, c.restClient, c.resource, c.namespace, obj, &operatorv1beta2.Cryostat{})
 }
 
 // Update updates the provided Cryostat CR
-func (c *CryostatClient) Update(ctx context.Context, obj *operatorv1beta1.Cryostat) (*operatorv1beta1.Cryostat, error) {
-	return update(ctx, c.restClient, c.resource, c.namespace, obj, &operatorv1beta1.Cryostat{}, obj.Name)
+func (c *CryostatClient) Update(ctx context.Context, obj *operatorv1beta2.Cryostat) (*operatorv1beta2.Cryostat, error) {
+	return update(ctx, c.restClient, c.resource, c.namespace, obj, &operatorv1beta2.Cryostat{}, obj.Name)
 }
 
 // Delete deletes the Cryostat CR with the given name
@@ -172,6 +149,9 @@ func get[r runtime.Object](ctx context.Context, c rest.Interface, res string, ns
 	if len(ns) > 0 {
 		rq = rq.Namespace(ns)
 	}
+	if err := rq.Error(); err != nil {
+		return result, err
+	}
 	err := rq.Do(ctx).Into(result)
 	return result, err
 }
@@ -180,6 +160,9 @@ func create[r runtime.Object](ctx context.Context, c rest.Interface, res string,
 	rq := c.Post().Resource(res).Body(obj)
 	if len(ns) > 0 {
 		rq = rq.Namespace(ns)
+	}
+	if err := rq.Error(); err != nil {
+		return result, err
 	}
 	err := rq.Do(ctx).Into(result)
 	return result, err
@@ -190,6 +173,9 @@ func update[r runtime.Object](ctx context.Context, c rest.Interface, res string,
 	if len(ns) > 0 {
 		rq = rq.Namespace(ns)
 	}
+	if err := rq.Error(); err != nil {
+		return result, err
+	}
 	err := rq.Do(ctx).Into(result)
 	return result, err
 }
@@ -198,6 +184,9 @@ func delete(ctx context.Context, c rest.Interface, res string, ns string, name s
 	rq := c.Delete().Resource(res).Name(name).Body(opts)
 	if len(ns) > 0 {
 		rq = rq.Namespace(ns)
+	}
+	if err := rq.Error(); err != nil {
+		return err
 	}
 	return rq.Do(ctx).Error()
 }
@@ -306,8 +295,8 @@ type RecordingClient struct {
 	*commonCryostatRESTClient
 }
 
-func (client *RecordingClient) List(ctx context.Context, connectUrl string) ([]Recording, error) {
-	url := client.Base.JoinPath(fmt.Sprintf("/api/v1/targets/%s/recordings", url.PathEscape(connectUrl)))
+func (client *RecordingClient) List(ctx context.Context, target *Target) ([]Recording, error) {
+	url := client.Base.JoinPath(fmt.Sprintf("/api/v3/targets/%d/recordings", target.Id))
 	header := make(http.Header)
 	header.Add("Accept", "*/*")
 
@@ -330,8 +319,8 @@ func (client *RecordingClient) List(ctx context.Context, connectUrl string) ([]R
 	return recordings, nil
 }
 
-func (client *RecordingClient) Get(ctx context.Context, connectUrl string, recordingName string) (*Recording, error) {
-	recordings, err := client.List(ctx, connectUrl)
+func (client *RecordingClient) Get(ctx context.Context, target *Target, recordingName string) (*Recording, error) {
+	recordings, err := client.List(ctx, target)
 	if err != nil {
 		return nil, err
 	}
@@ -342,11 +331,11 @@ func (client *RecordingClient) Get(ctx context.Context, connectUrl string, recor
 		}
 	}
 
-	return nil, fmt.Errorf("recording %s does not exist for target %s", recordingName, connectUrl)
+	return nil, fmt.Errorf("recording %s does not exist for target %s", recordingName, target.ConnectUrl)
 }
 
-func (client *RecordingClient) Create(ctx context.Context, connectUrl string, options *RecordingCreateOptions) (*Recording, error) {
-	url := client.Base.JoinPath(fmt.Sprintf("/api/v1/targets/%s/recordings", url.PathEscape(connectUrl)))
+func (client *RecordingClient) Create(ctx context.Context, target *Target, options *RecordingCreateOptions) (*Recording, error) {
+	url := client.Base.JoinPath(fmt.Sprintf("/api/v3/targets/%d/recordings", target.Id))
 	body := options.ToFormData()
 	header := make(http.Header)
 	header.Add("Content-Type", "application/x-www-form-urlencoded")
@@ -371,8 +360,8 @@ func (client *RecordingClient) Create(ctx context.Context, connectUrl string, op
 	return recording, err
 }
 
-func (client *RecordingClient) Archive(ctx context.Context, connectUrl string, recordingName string) (string, error) {
-	url := client.Base.JoinPath(fmt.Sprintf("/api/v1/targets/%s/recordings/%s", url.PathEscape(connectUrl), url.PathEscape(recordingName)))
+func (client *RecordingClient) Archive(ctx context.Context, target *Target, recordingId uint32) (string, error) {
+	url := client.Base.JoinPath(fmt.Sprintf("/api/v3/targets/%d/recordings/%d", target.Id, recordingId))
 	body := "SAVE"
 	header := make(http.Header)
 	header.Add("Content-Type", "text/plain")
@@ -396,8 +385,8 @@ func (client *RecordingClient) Archive(ctx context.Context, connectUrl string, r
 	return bodyAsString, nil
 }
 
-func (client *RecordingClient) Stop(ctx context.Context, connectUrl string, recordingName string) error {
-	url := client.Base.JoinPath(fmt.Sprintf("/api/v1/targets/%s/recordings/%s", url.PathEscape(connectUrl), url.PathEscape(recordingName)))
+func (client *RecordingClient) Stop(ctx context.Context, target *Target, recordingId uint32) error {
+	url := client.Base.JoinPath(fmt.Sprintf("/api/v3/targets/%d/recordings/%d", target.Id, recordingId))
 	body := "STOP"
 	header := make(http.Header)
 	header.Add("Content-Type", "text/plain")
@@ -416,8 +405,8 @@ func (client *RecordingClient) Stop(ctx context.Context, connectUrl string, reco
 	return nil
 }
 
-func (client *RecordingClient) Delete(ctx context.Context, connectUrl string, recordingName string) error {
-	url := client.Base.JoinPath(fmt.Sprintf("/api/v1/targets/%s/recordings/%s", url.PathEscape(connectUrl), url.PathEscape(recordingName)))
+func (client *RecordingClient) Delete(ctx context.Context, target *Target, recordingId uint32) error {
+	url := client.Base.JoinPath(fmt.Sprintf("/api/v3/targets/%d/recordings/%d", target.Id, recordingId))
 	header := make(http.Header)
 
 	resp, err := SendRequest(ctx, client.Client, http.MethodDelete, url.String(), nil, header)
@@ -433,17 +422,17 @@ func (client *RecordingClient) Delete(ctx context.Context, connectUrl string, re
 	return nil
 }
 
-func (client *RecordingClient) GenerateReport(ctx context.Context, connectUrl string, recordingName *Recording) (map[string]interface{}, error) {
-	reportURL := recordingName.ReportURL
-
-	if len(reportURL) < 1 {
+func (client *RecordingClient) GenerateReport(ctx context.Context, target *Target, recording *Recording) (map[string]interface{}, error) {
+	if len(recording.ReportURL) < 1 {
 		return nil, fmt.Errorf("report URL is not available")
 	}
+
+	reportURL := client.Base.JoinPath(recording.ReportURL)
 
 	header := make(http.Header)
 	header.Add("Accept", "application/json")
 
-	resp, err := SendRequest(ctx, client.Client, http.MethodGet, reportURL, nil, header)
+	resp, err := SendRequest(ctx, client.Client, http.MethodGet, reportURL.String(), nil, header)
 	if err != nil {
 		return nil, err
 	}
@@ -462,27 +451,34 @@ func (client *RecordingClient) GenerateReport(ctx context.Context, connectUrl st
 	return report, nil
 }
 
-func (client *RecordingClient) ListArchives(ctx context.Context, connectUrl string) ([]Archive, error) {
+func (client *RecordingClient) ListArchives(ctx context.Context, target *Target) ([]Archive, error) {
 	url := client.Base.JoinPath("/api/v2.2/graphql")
 
 	query := &GraphQLQuery{
 		Query: `
-			query ArchivedRecordingsForTarget($connectUrl: String) {
-				archivedRecordings(filter: { sourceTarget: $connectUrl }) {
-					data {
-						name
-						downloadUrl
-						reportUrl
-						metadata {
-						labels
+			query ArchivedRecordingsForTarget($id: BigInteger!) {
+				targetNodes(filter: { targetIds: [$id] }) {
+					target {
+						archivedRecordings {
+							data {
+								name
+								downloadUrl
+								reportUrl
+								metadata {
+									labels {
+										key
+										value
+									}
+								}
+								size
+							}
 						}
-						size
 					}
 				}
 			}
 		`,
-		Variables: map[string]string{
-			connectUrl: connectUrl,
+		Variables: map[string]any{
+			"id": target.Id,
 		},
 	}
 	queryJSON, err := query.ToJSON()
@@ -511,7 +507,7 @@ func (client *RecordingClient) ListArchives(ctx context.Context, connectUrl stri
 		return nil, fmt.Errorf("failed to read response body: %s", err.Error())
 	}
 
-	return graphQLResponse.Data.ArchivedRecordings.Data, nil
+	return graphQLResponse.Data.TargetNodes[0].Target.ArchivedRecordings.Data, nil
 }
 
 type CredentialClient struct {
@@ -545,7 +541,7 @@ func ReadJSON(resp *http.Response, result interface{}) error {
 
 	err = json.Unmarshal(body, result)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to unmarshal JSON: %s, response body: %s ", err.Error(), body)
 	}
 	return nil
 }
@@ -595,15 +591,19 @@ func NewHttpRequest(ctx context.Context, method string, url string, body *string
 	if err != nil {
 		return nil, err
 	}
-	if header != nil {
-		req.Header = header
+
+	req.Header = header
+	if req.Header == nil {
+		req.Header = make(http.Header)
 	}
-	// Authentication is only enabled on OCP. Ignored on k8s.
-	config, err := rest.InClusterConfig()
+
+	// Authentication for OpenShift SSO
+	config, err := config.GetConfig()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get in-cluster configurations: %s", err.Error())
 	}
-	req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", base64.StdEncoding.EncodeToString([]byte(config.BearerToken))))
+
+	req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", config.BearerToken))
 	return req, nil
 }
 
@@ -613,7 +613,7 @@ func StatusOK(statusCode int) bool {
 
 func SendRequest(ctx context.Context, httpClient *http.Client, method string, url string, body *string, header http.Header) (*http.Response, error) {
 	var response *http.Response
-	err := wait.PollImmediateUntilWithContext(ctx, time.Second, func(ctx context.Context) (done bool, err error) {
+	err := wait.PollUntilContextCancel(ctx, time.Second, true, func(ctx context.Context) (done bool, err error) {
 		// Create a new request
 		req, err := NewHttpRequest(ctx, method, url, body, header)
 		if err != nil {

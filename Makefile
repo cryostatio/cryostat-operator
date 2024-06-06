@@ -8,7 +8,7 @@ OS = $(shell go env GOOS)
 ARCH = $(shell go env GOARCH)
 
 # Current Operator version
-export OPERATOR_VERSION ?= 2.5.0-dev
+export OPERATOR_VERSION ?= 3.0.0-dev
 IMAGE_VERSION ?= $(OPERATOR_VERSION)
 BUNDLE_VERSION ?= $(IMAGE_VERSION)
 DEFAULT_NAMESPACE ?= quay.io/cryostat
@@ -46,7 +46,6 @@ USE_IMAGE_DIGESTS ?= false
 ifeq ($(USE_IMAGE_DIGESTS), true)
 	BUNDLE_GEN_FLAGS += --use-image-digests
 endif
-BUNDLE_INSTALL_MODE ?= AllNamespaces
 
 IMAGE_BUILDER ?= podman
 # Image URL to use all building/pushing image targets
@@ -63,8 +62,16 @@ export APP_NAME ?= Cryostat
 # Images used by the operator
 CORE_NAMESPACE ?= $(DEFAULT_NAMESPACE)
 CORE_NAME ?= cryostat
-CORE_VERSION ?= latest
+CORE_VERSION ?= 3.0.0-snapshot
 export CORE_IMG ?= $(CORE_NAMESPACE)/$(CORE_NAME):$(CORE_VERSION)
+OAUTH2_PROXY_NAMESPACE ?= quay.io/oauth2-proxy
+OAUTH2_PROXY_NAME ?= oauth2-proxy
+OAUTH2_PROXY_VERSION ?= latest
+export OAUTH2_PROXY_IMG ?= $(OAUTH2_PROXY_NAMESPACE)/$(OAUTH2_PROXY_NAME):$(OAUTH2_PROXY_VERSION)
+OPENSHIFT_OAUTH_PROXY_NAMESPACE ?= quay.io/openshift
+OPENSHIFT_OAUTH_PROXY_NAME ?= origin-oauth-proxy
+OPENSHIFT_OAUTH_PROXY_VERSION ?= latest
+export OPENSHIFT_OAUTH_PROXY_IMG ?= $(OPENSHIFT_OAUTH_PROXY_NAMESPACE)/$(OPENSHIFT_OAUTH_PROXY_NAME):$(OPENSHIFT_OAUTH_PROXY_VERSION)
 DATASOURCE_NAMESPACE ?= $(DEFAULT_NAMESPACE)
 DATASOURCE_NAME ?= jfr-datasource
 DATASOURCE_VERSION ?= latest
@@ -77,13 +84,21 @@ REPORTS_NAMESPACE ?= $(DEFAULT_NAMESPACE)
 REPORTS_NAME ?= cryostat-reports
 REPORTS_VERSION ?= latest
 export REPORTS_IMG ?= $(REPORTS_NAMESPACE)/$(REPORTS_NAME):$(REPORTS_VERSION)
+DATABASE_NAMESPACE ?= $(DEFAULT_NAMESPACE)
+DATABASE_NAME ?= cryostat-db
+DATABASE_VERSION ?= latest
+export DATABASE_IMG ?= $(DATABASE_NAMESPACE)/$(DATABASE_NAME):$(DATABASE_VERSION)
+STORAGE_NAMESPACE ?= $(DEFAULT_NAMESPACE)
+STORAGE_NAME ?= cryostat-storage
+STORAGE_VERSION ?= latest
+export STORAGE_IMG ?= $(STORAGE_NAMESPACE)/$(STORAGE_NAME):$(STORAGE_VERSION)
 
 CERT_MANAGER_VERSION ?= 1.11.5
 CERT_MANAGER_MANIFEST ?= \
 	https://github.com/cert-manager/cert-manager/releases/download/v$(CERT_MANAGER_VERSION)/cert-manager.yaml
 
 KUSTOMIZE_VERSION ?= 3.8.7
-CONTROLLER_TOOLS_VERSION ?= 0.11.1
+CONTROLLER_TOOLS_VERSION ?= 0.14.0
 GOLICENSE_VERSION ?= 1.29.0
 OPM_VERSION ?= 1.23.0
 # ENVTEST_K8S_VERSION refers to the version of kubebuilder assets to be downloaded by envtest binary.
@@ -93,7 +108,7 @@ ENVTEST_K8S_VERSION ?= 1.26
 # See: https://github.com/operator-framework/operator-sdk/pull/4762
 #
 # Suffix is the timestamp of the image build, compute with: date -u '+%Y%m%d%H%M%S'
-CUSTOM_SCORECARD_VERSION ?= 2.5.0-$(shell date -u '+%Y%m%d%H%M%S')
+CUSTOM_SCORECARD_VERSION ?= 3.0.0-$(shell date -u '+%Y%m%d%H%M%S')
 export CUSTOM_SCORECARD_IMG ?= $(IMAGE_TAG_BASE)-scorecard:$(CUSTOM_SCORECARD_VERSION)
 
 DEPLOY_NAMESPACE ?= cryostat-operator-system
@@ -143,6 +158,9 @@ ifneq ($(SCORECARD_TEST_SUITE),)
 SCORECARD_TEST_SELECTOR := --selector=suite=$(SCORECARD_TEST_SUITE)
 endif
 
+# Specify whether to run scorecard tests only (without setup)
+SCORECARD_TEST_ONLY ?= false
+
 ##@ General
 
 .PHONY: all
@@ -170,6 +188,21 @@ ifneq ($(SKIP_TESTS), true)
 	$(call scorecard-cleanup) ; \
 	trap cleanup EXIT ; \
 	$(OPERATOR_SDK) scorecard -n $(SCORECARD_NAMESPACE) -s cryostat-scorecard -w 20m $(BUNDLE_IMG) --pod-security=restricted $(SCORECARD_TEST_SELECTOR)
+endif
+
+.PHONY: test-scorecard-local
+test-scorecard-local: check_cert_manager kustomize operator-sdk ## Run scorecard test locally without rebuilding bundle.
+ifneq ($(SKIP_TESTS), true)
+ifeq ($(SCORECARD_TEST_SELECTION),)
+	@echo "No test selected. Use SCORECARD_TEST_SELECTION to specify tests. For example: SCORECARD_TEST_SELECTION=cryostat-recording make test-scorecard-local"
+else ifeq ($(SCORECARD_TEST_ONLY), true)
+	@$(call scorecard-local)
+else
+	@$(call scorecard-setup)
+	$(call scorecard-cleanup) ; \
+	trap cleanup EXIT ; \
+	$(call scorecard-local)
+endif
 endif
 
 .PHONY: clean-scorecard
@@ -205,6 +238,13 @@ function cleanup { \
 	$(CLUSTER_CLIENT) delete --ignore-not-found=$(ignore-not-found) namespace $(SCORECARD_NAMESPACE); \
 	)\
 }
+endef
+
+define scorecard-local
+for test in $${SCORECARD_TEST_SELECTION//,/ }; do \
+	echo "Running scorecard test \"$${test}\""; \
+	SCORECARD_NAMESPACE=$(SCORECARD_NAMESPACE) BUNDLE_DIR=./bundle go run internal/images/custom-scorecard-tests/main.go $${test} | sed 's/\\n/\n/g'; \
+done
 endef
 
 ##@ Build
@@ -450,8 +490,8 @@ endif
 ##@ Deployment
 
 .PHONY: install
-install: manifests kustomize ## Install CRDs into the cluster specified in ~/.kube/config.
-	$(KUSTOMIZE) build config/crd | $(CLUSTER_CLIENT) apply -f -
+install: uninstall manifests kustomize ## Install CRDs into the cluster specified in ~/.kube/config.
+	$(KUSTOMIZE) build config/crd | $(CLUSTER_CLIENT) create -f -
 
 .PHONY: uninstall
 uninstall: manifests kustomize ## Uninstall CRDs from the cluster specified in ~/.kube/config.
@@ -467,8 +507,8 @@ print_deploy_config: predeploy ## Print deployment configurations for the contro
 	$(KUSTOMIZE) build $(KUSTOMIZE_DIR)
 
 .PHONY: deploy
-deploy: check_cert_manager manifests kustomize predeploy ## Deploy controller in the configured cluster in ~/.kube/config
-	$(KUSTOMIZE) build $(KUSTOMIZE_DIR) | $(CLUSTER_CLIENT) apply -f -
+deploy: check_cert_manager manifests kustomize predeploy undeploy ## Deploy controller in the configured cluster in ~/.kube/config
+	$(KUSTOMIZE) build $(KUSTOMIZE_DIR) | $(CLUSTER_CLIENT) create -f -
 ifeq ($(DISABLE_SERVICE_TLS), true)
 	@echo "Disabling TLS for in-cluster communication between Services"
 	@$(CLUSTER_CLIENT) -n $(DEPLOY_NAMESPACE) set env deployment/cryostat-operator-controller-manager DISABLE_SERVICE_TLS=true
@@ -477,12 +517,11 @@ endif
 .PHONY: undeploy
 undeploy: ## Undeploy controller from the configured cluster in ~/.kube/config.
 	- $(CLUSTER_CLIENT) delete --ignore-not-found=$(ignore-not-found) -f config/samples/operator_v1beta1_cryostat.yaml
-	- $(CLUSTER_CLIENT) delete --ignore-not-found=$(ignore-not-found) -f config/samples/operator_v1beta1_clustercryostat.yaml
 	- $(KUSTOMIZE) build $(KUSTOMIZE_DIR) | $(CLUSTER_CLIENT) delete --ignore-not-found=$(ignore-not-found) -f -
 
 .PHONY: deploy_bundle
 deploy_bundle: check_cert_manager undeploy_bundle ## Deploy the controller in the bundle format with OLM.
-	$(OPERATOR_SDK) run bundle --install-mode $(BUNDLE_INSTALL_MODE) $(BUNDLE_IMG)
+	$(OPERATOR_SDK) run bundle --install-mode AllNamespaces $(BUNDLE_IMG)
 ifeq ($(DISABLE_SERVICE_TLS), true)
 	@echo "Disabling TLS for in-cluster communication between Services"
 	@current_ns=`$(CLUSTER_CLIENT) config view --minify -o 'jsonpath={.contexts[0].context.namespace}'` && \
@@ -504,19 +543,8 @@ undeploy_bundle: operator-sdk ## Undeploy the controller in the bundle format wi
 
 .PHONY: create_cryostat_cr
 create_cryostat_cr: destroy_cryostat_cr ## Create a namespaced Cryostat instance.
-	$(CLUSTER_CLIENT) create -f config/samples/operator_v1beta1_cryostat.yaml
-
-.PHONY: create_clustercryostat_cr
-create_clustercryostat_cr: destroy_clustercryostat_cr ## Create a cluster-wide Cryostat instance.
-	target_ns_json=$$(jq -nc '$$ARGS.positional' --args -- $(TARGET_NAMESPACES)) && \
-	$(CLUSTER_CLIENT) patch -f config/samples/operator_v1beta1_clustercryostat.yaml --local=true --type=merge \
-	-p "{\"spec\": {\"installNamespace\": \"$(DEPLOY_NAMESPACE)\", \"targetNamespaces\": $$target_ns_json}}" -o yaml | \
-	$(CLUSTER_CLIENT) apply -f -
+	$(CLUSTER_CLIENT) create -f config/samples/operator_v1beta2_cryostat.yaml
 
 .PHONY: destroy_cryostat_cr
 destroy_cryostat_cr: ## Delete a namespaced Cryostat instance.
 	- $(CLUSTER_CLIENT) delete --ignore-not-found=$(ignore-not-found) -f config/samples/operator_v1beta1_cryostat.yaml
-
-.PHONY: destroy_clustercryostat_cr
-destroy_clustercryostat_cr: ## Delete a cluster-wide Cryostat instance.
-	- $(CLUSTER_CLIENT) delete --ignore-not-found=$(ignore-not-found) -f config/samples/operator_v1beta1_clustercryostat.yaml

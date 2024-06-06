@@ -1,9 +1,8 @@
-apiVersion: operator.cryostat.io/v1beta1
-kind: ClusterCryostat
+apiVersion: operator.cryostat.io/v1beta2
+kind: Cryostat
 metadata:
-  name: clustercryostat-sample
+  name: cryostat-sample
 spec:
-  minimal: false
   enableCertManager: true
   trustedCertSecrets: []
   eventTemplates: []

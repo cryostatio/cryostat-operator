@@ -99,13 +99,16 @@ type Recording struct {
 }
 
 type Archive struct {
-	Name        string
-	DownloadUrl string
-	ReportUrl   string
+	Name        string `json:"name"`
+	DownloadUrl string `json:"downloadUrl"`
+	ReportUrl   string `json:"reportUrl"`
 	Metadata    struct {
-		Labels map[string]interface{}
-	}
-	Size int32
+		Labels []struct {
+			Key   string `json:"key"`
+			Value string `json:"value"`
+		}
+	} `json:"metadata"`
+	Size uint32 `json:"size"`
 }
 
 type CustomTargetResponse struct {
@@ -115,6 +118,7 @@ type CustomTargetResponse struct {
 }
 
 type Target struct {
+	Id         uint32 `json:"id,omitempty"`
 	ConnectUrl string `json:"connectUrl"`
 	Alias      string `json:"alias,omitempty"`
 }
@@ -129,8 +133,8 @@ func (target *Target) ToFormData() string {
 }
 
 type GraphQLQuery struct {
-	Query     string            `json:"query"`
-	Variables map[string]string `json:"variables,omitempty"`
+	Query     string         `json:"query"`
+	Variables map[string]any `json:"variables,omitempty"`
 }
 
 func (query *GraphQLQuery) ToJSON() ([]byte, error) {
@@ -139,8 +143,12 @@ func (query *GraphQLQuery) ToJSON() ([]byte, error) {
 
 type ArchiveGraphQLResponse struct {
 	Data struct {
-		ArchivedRecordings struct {
-			Data []Archive `json:"data"`
-		} `json:"archivedRecordings"`
+		TargetNodes []struct {
+			Target struct {
+				ArchivedRecordings struct {
+					Data []Archive `json:"data"`
+				} `json:"archivedRecordings"`
+			} `json:"target"`
+		} `json:"targetNodes"`
 	} `json:"data"`
 }

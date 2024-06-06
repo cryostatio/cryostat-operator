@@ -48,7 +48,7 @@ jobs:
         ref: ${{ inputs.ref }}
     - uses: actions/setup-go@v4
       with:
-        go-version: '1.21.*'
+        go-version: '1.22.*'
     - name: Run controller tests
       run: make test-envtest
     - name: Set latest commit status as ${{ job.status }}
@@ -142,7 +142,7 @@ jobs:
         ip_address=$(docker inspect -f '{{range.NetworkSettings.Networks}}{{.IPAddress}}{{end}}' ci-${{ github.run_id }}-control-plane)
         echo "$ip_address testing.cryostat" | sudo tee -a /etc/hosts
     - name: Install Operator Lifecycle Manager
-      run: curl -sL https://github.com/operator-framework/operator-lifecycle-manager/releases/download/v0.24.0/install.sh | bash -s v0.24.0
+      run: curl -sL https://github.com/operator-framework/operator-lifecycle-manager/releases/download/v0.28.0/install.sh | bash -s v0.28.0
     - name: Install Cert Manager
       run: make cert_manager
     - uses: redhat-actions/podman-login@v1

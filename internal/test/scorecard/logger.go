@@ -20,7 +20,7 @@ import (
 	"io"
 	"strings"
 
-	operatorv1beta1 "github.com/cryostatio/cryostat-operator/api/v1beta1"
+	operatorv1beta2 "github.com/cryostatio/cryostat-operator/api/v1beta2"
 	v1 "k8s.io/api/core/v1"
 )
 
@@ -91,7 +91,7 @@ func (r *TestResources) CollectContainersLogsToResult() {
 	}
 }
 
-func (r *TestResources) StartLogs(cr *operatorv1beta1.Cryostat) error {
+func (r *TestResources) StartLogs(cr *operatorv1beta2.Cryostat) error {
 	cryostatPodName, err := r.getCryostatPodNameForCR(cr)
 	if err != nil {
 		return fmt.Errorf("failed to get pod name for CR: %s", err.Error())

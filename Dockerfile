@@ -1,5 +1,5 @@
 # Build the manager binary
-FROM docker.io/library/golang:1.21 as builder
+FROM docker.io/library/golang:1.22 as builder
 ARG TARGETOS
 ARG TARGETARCH
 
@@ -15,6 +15,7 @@ RUN go mod download
 COPY internal/main.go internal/main.go
 COPY api/ api/
 COPY internal/controllers/ internal/controllers/
+COPY internal/webhooks/ internal/webhooks/
 
 # Build
 # the GOARCH has not a default value to allow the binary be built according to the host where the command

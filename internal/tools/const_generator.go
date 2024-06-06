@@ -24,30 +24,42 @@ import (
 
 const appNameEnv = "APP_NAME"
 const operatorVersionEnv = "OPERATOR_VERSION"
+const oauth2ProxyImageEnv = "OAUTH2_PROXY_IMG"
+const openshiftOauthProxyImageEnv = "OPENSHIFT_OAUTH_PROXY_IMG"
 const coreImageEnv = "CORE_IMG"
 const datasourceImageEnv = "DATASOURCE_IMG"
 const grafanaImageEnv = "GRAFANA_IMG"
 const reportsImageEnv = "REPORTS_IMG"
+const storageImageEnv = "STORAGE_IMG"
+const databaseImageEnv = "DATABASE_IMG"
 
-// This program generates a imagetag_generated.go file containing image tag
-// constants for each container image deployed by the operator. These constants
-// are populated using environment variables.
+// This program generates a const_generated.go file containing image tag
+// constants for each container image deployed by the operator, along with
+// other constants. These constants are populated using environment variables.
 func main() {
 	// Fill in image tags struct from the environment variables
 	consts := struct {
 		AppName            string
 		OperatorVersion    string
+		OAuth2ProxyImageTag string
+		OpenShiftOAuthProxyImageTag string
 		CoreImageTag       string
 		DatasourceImageTag string
 		GrafanaImageTag    string
 		ReportsImageTag    string
+		StorageImageTag    string
+		DatabaseImageTag   string
 	}{
 		AppName:            getEnvVar(appNameEnv),
 		OperatorVersion:    getEnvVar(operatorVersionEnv),
+		OAuth2ProxyImageTag: getEnvVar(oauth2ProxyImageEnv),
+		OpenShiftOAuthProxyImageTag: getEnvVar(openshiftOauthProxyImageEnv),
 		CoreImageTag:       getEnvVar(coreImageEnv),
 		DatasourceImageTag: getEnvVar(datasourceImageEnv),
 		GrafanaImageTag:    getEnvVar(grafanaImageEnv),
 		ReportsImageTag:    getEnvVar(reportsImageEnv),
+		StorageImageTag:    getEnvVar(storageImageEnv),
+		DatabaseImageTag:   getEnvVar(databaseImageEnv),
 	}
 
 	// Create the source file to generate
@@ -80,6 +92,12 @@ const AppName = "{{ .AppName }}"
 // Version of the Cryostat Operator
 const OperatorVersion = "{{ .OperatorVersion }}"
 
+// Default image tag for the OAuth2 Proxy
+const DefaultOAuth2ProxyImageTag = "{{ .OAuth2ProxyImageTag }}"
+
+// Default image tag for the OpenShift OAuth Proxy
+const DefaultOpenShiftOAuthProxyImageTag = "{{ .OpenShiftOAuthProxyImageTag }}"
+
 // Default image tag for the core application image
 const DefaultCoreImageTag = "{{ .CoreImageTag }}"
 
@@ -91,4 +109,10 @@ const DefaultGrafanaImageTag = "{{ .GrafanaImageTag }}"
 
 // Default image tag for the Grafana dashboard image
 const DefaultReportsImageTag = "{{ .ReportsImageTag }}"
+
+// Default image tag for the Storage image
+const DefaultStorageImageTag = "{{ .StorageImageTag }}"
+
+// Default image tag for the Database image
+const DefaultDatabaseImageTag = "{{ .DatabaseImageTag }}"
 `))

@@ -20,14 +20,13 @@ import (
 	"fmt"
 	"net/url"
 
-	operatorv1beta1 "github.com/cryostatio/cryostat-operator/api/v1beta1"
+	operatorv1beta2 "github.com/cryostatio/cryostat-operator/api/v1beta2"
 	common "github.com/cryostatio/cryostat-operator/internal/controllers/common"
 	"github.com/cryostatio/cryostat-operator/internal/controllers/common/resource_definitions"
 	"github.com/cryostatio/cryostat-operator/internal/controllers/constants"
 	"github.com/cryostatio/cryostat-operator/internal/controllers/model"
 	routev1 "github.com/openshift/api/route/v1"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
@@ -49,28 +48,8 @@ func (r *Reconciler) reconcileCoreRoute(ctx context.Context, svc *corev1.Service
 	if err != nil {
 		return err
 	}
+	specs.AuthProxyURL = url
 	specs.CoreURL = url
-	return nil
-}
-
-func (r *Reconciler) reconcileGrafanaRoute(ctx context.Context, svc *corev1.Service, cr *model.CryostatInstance,
-	tls *resource_definitions.TLSConfig, specs *resource_definitions.ServiceSpecs) error {
-	route := &routev1.Route{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      cr.Name + "-grafana",
-			Namespace: cr.InstallNamespace,
-		},
-	}
-	if cr.Spec.Minimal {
-		// Delete route if it exists
-		return r.deleteRoute(ctx, route)
-	}
-	grafanaConfig := configureGrafanaRoute(cr)
-	url, err := r.reconcileRoute(ctx, route, svc, cr, tls, grafanaConfig)
-	if err != nil {
-		return err
-	}
-	specs.GrafanaURL = url
 	return nil
 }
 
@@ -79,7 +58,7 @@ func (r *Reconciler) reconcileGrafanaRoute(ctx context.Context, svc *corev1.Serv
 var ErrIngressNotReady = goerrors.New("ingress configuration not yet available")
 
 func (r *Reconciler) reconcileRoute(ctx context.Context, route *routev1.Route, svc *corev1.Service,
-	cr *model.CryostatInstance, tls *resource_definitions.TLSConfig, config *operatorv1beta1.NetworkConfiguration) (*url.URL, error) {
+	cr *model.CryostatInstance, tls *resource_definitions.TLSConfig, config *operatorv1beta2.NetworkConfiguration) (*url.URL, error) {
 	port, err := getHTTPPort(svc)
 	if err != nil {
 		return nil, err
@@ -101,7 +80,7 @@ func (r *Reconciler) reconcileRoute(ctx context.Context, route *routev1.Route, s
 }
 
 func (r *Reconciler) createOrUpdateRoute(ctx context.Context, route *routev1.Route, owner metav1.Object,
-	svc *corev1.Service, exposePort *corev1.ServicePort, tlsConfig *resource_definitions.TLSConfig, config *operatorv1beta1.NetworkConfiguration) (*routev1.Route, error) {
+	svc *corev1.Service, exposePort *corev1.ServicePort, tlsConfig *resource_definitions.TLSConfig, config *operatorv1beta2.NetworkConfiguration) (*routev1.Route, error) {
 	// Use edge termination by default
 	var routeTLS *routev1.TLSConfig
 	if tlsConfig == nil {
@@ -111,8 +90,9 @@ func (r *Reconciler) createOrUpdateRoute(ctx context.Context, route *routev1.Rou
 		}
 	} else {
 		routeTLS = &routev1.TLSConfig{
-			Termination:              routev1.TLSTerminationReencrypt,
-			DestinationCACertificate: string(tlsConfig.CACert),
+			Termination:                   routev1.TLSTerminationReencrypt,
+			DestinationCACertificate:      string(tlsConfig.CACert),
+			InsecureEdgeTerminationPolicy: routev1.InsecureEdgeTerminationPolicyRedirect,
 		}
 	}
 
@@ -145,16 +125,6 @@ func getProtocol(route *routev1.Route) string {
 	return "https"
 }
 
-func (r *Reconciler) deleteRoute(ctx context.Context, route *routev1.Route) error {
-	err := r.Client.Delete(ctx, route)
-	if err != nil && !errors.IsNotFound(err) {
-		r.Log.Error(err, "Could not delete route", "name", route.Name, "namespace", route.Namespace)
-		return err
-	}
-	r.Log.Info("Route deleted", "name", route.Name, "namespace", route.Namespace)
-	return nil
-}
-
 func getHTTPPort(svc *corev1.Service) (*corev1.ServicePort, error) {
 	for _, port := range svc.Spec.Ports {
 		if port.Name == constants.HttpPortName {
@@ -165,10 +135,10 @@ func getHTTPPort(svc *corev1.Service) (*corev1.ServicePort, error) {
 	return nil, fmt.Errorf("no \"%s\"port in %s service in %s namespace", constants.HttpPortName, svc.Name, svc.Namespace)
 }
 
-func configureCoreRoute(cr *model.CryostatInstance) *operatorv1beta1.NetworkConfiguration {
-	var config *operatorv1beta1.NetworkConfiguration
+func configureCoreRoute(cr *model.CryostatInstance) *operatorv1beta2.NetworkConfiguration {
+	var config *operatorv1beta2.NetworkConfiguration
 	if cr.Spec.NetworkOptions == nil || cr.Spec.NetworkOptions.CoreConfig == nil {
-		config = &operatorv1beta1.NetworkConfiguration{}
+		config = &operatorv1beta2.NetworkConfiguration{}
 	} else {
 		config = cr.Spec.NetworkOptions.CoreConfig
 	}
@@ -177,19 +147,7 @@ func configureCoreRoute(cr *model.CryostatInstance) *operatorv1beta1.NetworkConf
 	return config
 }
 
-func configureGrafanaRoute(cr *model.CryostatInstance) *operatorv1beta1.NetworkConfiguration {
-	var config *operatorv1beta1.NetworkConfiguration
-	if cr.Spec.NetworkOptions == nil || cr.Spec.NetworkOptions.GrafanaConfig == nil {
-		config = &operatorv1beta1.NetworkConfiguration{}
-	} else {
-		config = cr.Spec.NetworkOptions.GrafanaConfig
-	}
-
-	configureRoute(config, cr.Name, "cryostat")
-	return config
-}
-
-func configureRoute(config *operatorv1beta1.NetworkConfiguration, appLabel string, componentLabel string) {
+func configureRoute(config *operatorv1beta2.NetworkConfiguration, appLabel string, componentLabel string) {
 	if config.Labels == nil {
 		config.Labels = map[string]string{}
 	}

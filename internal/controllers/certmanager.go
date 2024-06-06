@@ -24,7 +24,6 @@ import (
 	resources "github.com/cryostatio/cryostat-operator/internal/controllers/common/resource_definitions"
 	"github.com/cryostatio/cryostat-operator/internal/controllers/model"
 	corev1 "k8s.io/api/core/v1"
-	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -56,14 +55,14 @@ func (r *Reconciler) setupTLS(ctx context.Context, cr *model.CryostatInstance) (
 	}
 
 	// Create CA certificate for Cryostat using the self-signed issuer
-	caCert := resources.NewCryostatCACert(cr)
+	caCert := resources.NewCryostatCACert(r.gvk, cr)
 	err = r.createOrUpdateCertificate(ctx, caCert, cr.Object)
 	if err != nil {
 		return nil, err
 	}
 
 	// Create CA issuer using the CA cert just created
-	err = r.createOrUpdateIssuer(ctx, resources.NewCryostatCAIssuer(cr), cr.Object)
+	err = r.createOrUpdateIssuer(ctx, resources.NewCryostatCAIssuer(r.gvk, cr), cr.Object)
 	if err != nil {
 		return nil, err
 	}
@@ -94,27 +93,6 @@ func (r *Reconciler) setupTLS(ctx context.Context, cr *model.CryostatInstance) (
 		KeystorePassSecret: cryostatCert.Spec.Keystores.PKCS12.PasswordSecretRef.Name,
 	}
 	certificates := []*certv1.Certificate{caCert, cryostatCert, reportsCert}
-	// Create a certificate for Grafana signed by the Cryostat CA
-	if !cr.Spec.Minimal {
-		grafanaCert := resources.NewGrafanaCert(cr)
-		err = r.createOrUpdateCertificate(ctx, grafanaCert, cr.Object)
-		if err != nil {
-			return nil, err
-		}
-		certificates = append(certificates, grafanaCert)
-		tlsConfig.GrafanaSecret = grafanaCert.Spec.SecretName
-	} else {
-		grafanaCert := resources.NewGrafanaCert(cr)
-		secret := secretForCertificate(grafanaCert)
-		err = r.deleteSecret(ctx, secret)
-		if err != nil {
-			return nil, err
-		}
-		err = r.deleteCert(ctx, grafanaCert)
-		if err != nil {
-			return nil, err
-		}
-	}
 
 	// Update owner references of TLS secrets created by cert-manager to ensure proper cleanup
 	err = r.setCertSecretOwner(ctx, cr.Object, certificates...)
@@ -136,13 +114,7 @@ func (r *Reconciler) setupTLS(ctx context.Context, cr *model.CryostatInstance) (
 				},
 				Type: corev1.SecretTypeOpaque,
 			}
-			err = r.createOrUpdateSecret(ctx, namespaceSecret, cr.Object, func() error {
-				if namespaceSecret.Data == nil {
-					namespaceSecret.Data = map[string][]byte{}
-				}
-				namespaceSecret.Data[corev1.TLSCertKey] = secret.Data[corev1.TLSCertKey]
-				return nil
-			})
+			err = r.createOrUpdateCertSecret(ctx, namespaceSecret, secret.Data[corev1.TLSCertKey])
 			if err != nil {
 				return nil, err
 			}
@@ -174,7 +146,7 @@ func (r *Reconciler) setupTLS(ctx context.Context, cr *model.CryostatInstance) (
 }
 
 func (r *Reconciler) finalizeTLS(ctx context.Context, cr *model.CryostatInstance) error {
-	caCert := resources.NewCryostatCACert(cr)
+	caCert := resources.NewCryostatCACert(r.gvk, cr)
 	for _, ns := range cr.TargetNamespaces {
 		if ns != cr.InstallNamespace {
 			namespaceSecret := &corev1.Secret{
@@ -215,15 +187,6 @@ func (r *Reconciler) setCertSecretOwner(ctx context.Context, owner metav1.Object
 		}
 	}
 	return nil
-}
-
-func secretForCertificate(cert *certv1.Certificate) *corev1.Secret {
-	return &corev1.Secret{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      cert.Spec.SecretName,
-			Namespace: cert.Namespace,
-		},
-	}
 }
 
 func (r *Reconciler) certManagerAvailable() (bool, error) {
@@ -307,13 +270,18 @@ func (r *Reconciler) createOrUpdateKeystoreSecret(ctx context.Context, secret *c
 	return nil
 }
 
-func (r *Reconciler) deleteCert(ctx context.Context, cert *certv1.Certificate) error {
-	err := r.Client.Delete(ctx, cert)
-	if err != nil && !kerrors.IsNotFound(err) {
-		r.Log.Error(err, "Could not delete certificate", "name", cert.Name, "namespace", cert.Namespace)
+func (r *Reconciler) createOrUpdateCertSecret(ctx context.Context, secret *corev1.Secret, cert []byte) error {
+	op, err := controllerutil.CreateOrUpdate(ctx, r.Client, secret, func() error {
+		if secret.Data == nil {
+			secret.Data = map[string][]byte{}
+		}
+		secret.Data[corev1.TLSCertKey] = cert
+		return nil
+	})
+	if err != nil {
 		return err
 	}
-	r.Log.Info("Cert deleted", "name", cert.Name, "namespace", cert.Namespace)
+	r.Log.Info(fmt.Sprintf("Secret %s", op), "name", secret.Name, "namespace", secret.Namespace)
 	return nil
 }
 

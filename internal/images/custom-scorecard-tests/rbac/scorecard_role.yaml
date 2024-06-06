@@ -154,14 +154,8 @@ rules:
 - apiGroups:
   - operator.cryostat.io
   resources:
-  - clustercryostats
+  - cryostats
   verbs:
   - create
-  - get
   - delete
-- apiGroups:
-  - operator.cryostat.io
-  resources:
-  - clustercryostats/status
-  verbs:
   - get
