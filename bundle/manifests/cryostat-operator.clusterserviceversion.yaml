@@ -30,7 +30,7 @@ metadata:
     capabilities: Seamless Upgrades
     categories: Monitoring, Developer Tools
     containerImage: quay.io/cryostat/cryostat-operator:3.0.0-dev
-    createdAt: "2024-06-07T18:04:27Z"
+    createdAt: "2024-06-07T20:23:16Z"
     description: JVM monitoring and profiling tool
     operatorframework.io/initialization-resource: |-
       {
@@ -151,6 +151,9 @@ spec:
           - description: Annotations to add to the Ingress or Route during its creation.
             displayName: Annotations
             path: networkOptions.coreConfig.annotations
+          - description: Externally routable host to be used to reach this Cryostat service. Used to define a Route's host on OpenShift when it is first created. On Kubernetes, define this using "spec.ingressSpec".
+            displayName: External Host
+            path: networkOptions.coreConfig.externalHost
           - description: Configuration for an Ingress object. Currently subpaths are not supported, so unique hosts must be specified (if a single external IP is being used) to differentiate between ingresses/services.
             displayName: Ingress Spec
             path: networkOptions.coreConfig.ingressSpec

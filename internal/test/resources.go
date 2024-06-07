@@ -288,6 +288,16 @@ func (r *TestResources) NewCryostatWithCoreNetworkOptions() *model.CryostatInsta
 	return cr
 }
 
+func (r *TestResources) NewCryostatWithCoreRouteHost() *model.CryostatInstance {
+	cr := r.NewCryostat()
+	cr.Spec.NetworkOptions = &operatorv1beta2.NetworkConfigurationList{
+		CoreConfig: &operatorv1beta2.NetworkConfiguration{
+			ExternalHost: &[]string{"cryostat.example.com"}[0],
+		},
+	}
+	return cr
+}
+
 func (r *TestResources) NewCryostatWithReportsResources() *model.CryostatInstance {
 	cr := r.NewCryostat()
 	cr.Spec.ReportOptions = &operatorv1beta2.ReportConfiguration{
@@ -2308,6 +2318,12 @@ func (r *TestResources) NewCustomCoreRoute() *routev1.Route {
 		"app":       r.Name,
 		"component": "cryostat",
 	}
+	return route
+}
+
+func (r *TestResources) NewCustomHostCoreRoute() *routev1.Route {
+	route := r.NewCoreRoute()
+	route.Spec.Host = "cryostat.example.com"
 	return route
 }
 
