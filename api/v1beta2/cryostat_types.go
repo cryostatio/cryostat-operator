@@ -322,6 +322,13 @@ type ServiceConfigList struct {
 // On OpenShift, a Route is created by default. On Kubernetes, an Ingress will
 // be created if the IngressSpec is defined within this NetworkConfiguration.
 type NetworkConfiguration struct {
+	// Externally routable host to be used to reach this
+	// Cryostat service. Used to define a Route's host on
+	// OpenShift when it is first created.
+	// On Kubernetes, define this using "spec.ingressSpec".
+	// +optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec
+	ExternalHost *string `json:"externalHost,omitempty"`
 	// Configuration for an Ingress object.
 	// Currently subpaths are not supported, so unique hosts must be specified
 	// (if a single external IP is being used) to differentiate between ingresses/services.
