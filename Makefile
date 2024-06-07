@@ -332,7 +332,6 @@ endif
 # Workaround for: https://issues.redhat.com/browse/OCPBUGS-34901
 	yq -i '.spec.customresourcedefinitions.owned |= reverse' bundle/manifests/cryostat-operator.clusterserviceversion.yaml
 	yq -i '.spec.versions |= reverse' bundle/manifests/operator.cryostat.io_cryostats.yaml
-	yq -i '.metadata.annotations.alm-examples |= (from_json | reverse | to_json)' bundle/manifests/cryostat-operator.clusterserviceversion.yaml
 	$(OPERATOR_SDK) bundle validate ./bundle
 
 .PHONY: bundle-build
