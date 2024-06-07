@@ -5,7 +5,7 @@ package controllers
 const AppName = "Cryostat"
 
 // Version of the Cryostat Operator
-const OperatorVersion = "3.0.0-dev"
+const OperatorVersion = "4.0.0-dev"
 
 // Default image tag for the OAuth2 Proxy
 const DefaultOAuth2ProxyImageTag = "quay.io/oauth2-proxy/oauth2-proxy:latest"
@@ -14,7 +14,7 @@ const DefaultOAuth2ProxyImageTag = "quay.io/oauth2-proxy/oauth2-proxy:latest"
 const DefaultOpenShiftOAuthProxyImageTag = "quay.io/cryostat/openshift-oauth-proxy:cryostat-v3.0"
 
 // Default image tag for the core application image
-const DefaultCoreImageTag = "quay.io/cryostat/cryostat:3.0.0-snapshot"
+const DefaultCoreImageTag = "quay.io/cryostat/cryostat:4.0.0-snapshot"
 
 // Default image tag for the JFR datasource image
 const DefaultDatasourceImageTag = "quay.io/cryostat/jfr-datasource:latest"

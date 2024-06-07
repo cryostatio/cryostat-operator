@@ -14,7 +14,7 @@ spec:
         - name: RELATED_IMAGE_OPENSHIFT_OAUTH_PROXY
           value: "quay.io/cryostat/openshift-oauth-proxy:cryostat-v3.0"
         - name: RELATED_IMAGE_CORE
-          value: "quay.io/cryostat/cryostat:3.0.0-snapshot"
+          value: "quay.io/cryostat/cryostat:4.0.0-snapshot"
         - name: RELATED_IMAGE_DATASOURCE
           value: "quay.io/cryostat/jfr-datasource:latest"
         - name: RELATED_IMAGE_GRAFANA
