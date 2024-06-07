@@ -111,9 +111,7 @@ func (r *Reconciler) createOrUpdateRoute(ctx context.Context, route *routev1.Rou
 		route.Spec.TLS = routeTLS
 
 		// If a custom host has been provided, specify that in the route
-		if config.ExternalHost != nil {
-			route.Spec.Host = *config.ExternalHost
-		}
+		route.Spec.Host = getExternalHost(config)
 		return nil
 	})
 	if err != nil {
@@ -128,6 +126,13 @@ func getProtocol(route *routev1.Route) string {
 		return "http"
 	}
 	return "https"
+}
+
+func getExternalHost(config *operatorv1beta2.NetworkConfiguration) string {
+	if config.ExternalHost != nil {
+		return *config.ExternalHost
+	}
+	return ""
 }
 
 func getHTTPPort(svc *corev1.Service) (*corev1.ServicePort, error) {
