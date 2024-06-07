@@ -109,6 +109,12 @@ func (r *Reconciler) createOrUpdateRoute(ctx context.Context, route *routev1.Rou
 		route.Spec.To.Name = svc.Name
 		route.Spec.Port = &routev1.RoutePort{TargetPort: exposePort.TargetPort}
 		route.Spec.TLS = routeTLS
+
+		// If a custom host has been provided, specify that in the route.
+		// Modifying the route's host after creation appears to have no effect
+		if route.CreationTimestamp.IsZero() && config.ExternalHost != nil {
+			route.Spec.Host = *config.ExternalHost
+		}
 		return nil
 	})
 	if err != nil {

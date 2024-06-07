@@ -1495,6 +1495,28 @@ func (c *controllerTest) commonTests() {
 					t.checkRoute(t.NewCustomCoreRoute())
 				})
 			})
+			Context("containing core route host", func() {
+				BeforeEach(func() {
+					t.objs = append(t.objs, t.NewCryostatWithCoreRouteHost().Object)
+				})
+				It("should create the route as described", func() {
+					t.checkRoute(t.NewCustomHostCoreRoute())
+				})
+				Context("changing host after creation", func() {
+					JustBeforeEach(func() {
+						// Remove custom route host from CR
+						cr := t.getCryostatInstance()
+						cr.Spec.NetworkOptions = t.NewCryostat().Spec.NetworkOptions
+						t.updateCryostatInstance(cr)
+
+						// Reconcile again
+						t.reconcileCryostatFully()
+					})
+					It("should leave the route as-is", func() {
+						t.checkRoute(t.NewCustomHostCoreRoute())
+					})
+				})
+			})
 		})
 		Context("with security options", func() {
 			JustBeforeEach(func() {
@@ -2113,6 +2135,7 @@ func (t *cryostatTestInput) checkRoute(expected *openshiftv1.Route) *openshiftv1
 	Expect(err).ToNot(HaveOccurred())
 
 	t.checkMetadata(route, expected)
+	Expect(route.Spec.Host).To(Equal(expected.Spec.Host))
 	Expect(route.Spec.To).To(Equal(expected.Spec.To))
 	Expect(route.Spec.Port).To(Equal(expected.Spec.Port))
 	Expect(route.Spec.TLS).To(Equal(expected.Spec.TLS))
