@@ -59,6 +59,7 @@ jobs:
         registry: ${{ env.CI_REGISTRY }}
         username: ${{ env.CI_USER }}
         password: ${{ secrets.REGISTRY_PASSWORD }}
+      if: ${{ github.repository_owner == 'cryostatio' }}
     - name: Print image URL
       run: echo "Image pushed to ${{ steps.push-to-quay.outputs.registry-paths }}"
 
@@ -89,6 +90,7 @@ jobs:
         registry: ${{ env.CI_REGISTRY }}
         username: ${{ env.CI_USER }}
         password: ${{ secrets.REGISTRY_PASSWORD }}
+      if: ${{ github.repository_owner == 'cryostatio' }}
     - name: Print image URL
       run: echo "Image pushed to ${{ steps.push-to-quay.outputs.registry-paths }}"
 
@@ -131,7 +133,7 @@ jobs:
         registry: ${{ env.CI_REGISTRY }}
         username: ${{ env.CI_USER }}
         password: ${{ secrets.REGISTRY_PASSWORD }}
-      if: ${{ steps.check-tag-exists.outputs.exist == 'false' }}
+      if: ${{ steps.check-tag-exists.outputs.exist == 'false' && github.repository_owner == 'cryostatio' }}
     - name: Print image URL
       run: echo "Image pushed to ${{ steps.push-to-quay.outputs.registry-paths }}"
       if: ${{ steps.check-tag-exists.outputs.exist == 'false' }}
