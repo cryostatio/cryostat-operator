@@ -152,8 +152,8 @@ spec:
         displayName: Annotations
         path: networkOptions.coreConfig.annotations
       - description: Externally routable host to be used to reach this Cryostat service.
-          Used to define a Route's host on OpenShift. On Kubernetes, define this using
-          "spec.ingressSpec".
+          Used to define a Route's host on OpenShift when it is first created. On
+          Kubernetes, define this using "spec.ingressSpec".
         displayName: External Host
         path: networkOptions.coreConfig.externalHost
       - description: Configuration for an Ingress object. Currently subpaths are not

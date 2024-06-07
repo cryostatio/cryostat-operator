@@ -1502,7 +1502,7 @@ func (c *controllerTest) commonTests() {
 				It("should create the route as described", func() {
 					t.checkRoute(t.NewCustomHostCoreRoute())
 				})
-				Context("reverting to default", func() {
+				Context("changing host after creation", func() {
 					JustBeforeEach(func() {
 						// Remove custom route host from CR
 						cr := t.getCryostatInstance()
@@ -1512,8 +1512,8 @@ func (c *controllerTest) commonTests() {
 						// Reconcile again
 						t.reconcileCryostatFully()
 					})
-					It("should create the route as described", func() {
-						t.checkRoute(t.NewCoreRoute())
+					It("should leave the route as-is", func() {
+						t.checkRoute(t.NewCustomHostCoreRoute())
 					})
 				})
 			})

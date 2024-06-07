@@ -4995,7 +4995,8 @@ spec:
                         description: |-
                           Externally routable host to be used to reach this
                           Cryostat service. Used to define a Route's host on
-                          OpenShift. On Kubernetes, define this using "spec.ingressSpec".
+                          OpenShift when it is first created.
+                          On Kubernetes, define this using "spec.ingressSpec".
                         type: string
                       ingressSpec:
                         description: |-

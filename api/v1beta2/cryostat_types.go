@@ -324,7 +324,8 @@ type ServiceConfigList struct {
 type NetworkConfiguration struct {
 	// Externally routable host to be used to reach this
 	// Cryostat service. Used to define a Route's host on
-	// OpenShift. On Kubernetes, define this using "spec.ingressSpec".
+	// OpenShift when it is first created.
+	// On Kubernetes, define this using "spec.ingressSpec".
 	// +optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	ExternalHost *string `json:"externalHost,omitempty"`
