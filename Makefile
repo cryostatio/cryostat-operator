@@ -330,7 +330,7 @@ ifeq ($(BUNDLE_MODE), ocp)
 endif
 	$(KUSTOMIZE) build config/manifests | $(OPERATOR_SDK) generate bundle $(BUNDLE_GEN_FLAGS)
 # Workaround for: https://issues.redhat.com/browse/OCPBUGS-34901
-	yq -i '.spec.customresourcedefinitions.owned |= pick([1, 0])' bundle/manifests/cryostat-operator.clusterserviceversion.yaml
+	yq -i '.spec.customresourcedefinitions.owned |= reverse' bundle/manifests/cryostat-operator.clusterserviceversion.yaml
 	$(OPERATOR_SDK) bundle validate ./bundle
 
 .PHONY: bundle-build
