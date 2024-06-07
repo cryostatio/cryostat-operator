@@ -1495,6 +1495,14 @@ func (c *controllerTest) commonTests() {
 					t.checkRoute(t.NewCustomCoreRoute())
 				})
 			})
+			Context("containing core route host", func() {
+				BeforeEach(func() {
+					t.objs = append(t.objs, t.NewCryostatWithCoreRouteHost().Object)
+				})
+				It("should create the route as described", func() {
+					t.checkRoute(t.NewCustomHostCoreRoute())
+				})
+			})
 		})
 		Context("with security options", func() {
 			JustBeforeEach(func() {
