@@ -425,6 +425,7 @@ type JmxCacheOptions struct {
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
 // +kubebuilder:resource:path=cryostats,scope=Namespaced
+// +kubebuilder:deprecatedversion:warning="use v1beta2 API version"
 
 // Cryostat allows you to install Cryostat for a single namespace.
 // It contains configuration options for controlling the Deployment of the Cryostat
