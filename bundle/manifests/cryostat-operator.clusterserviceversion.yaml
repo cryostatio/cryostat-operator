@@ -1158,7 +1158,7 @@ spec:
     - diagnostic
   links:
     - name: Upstream Project
-      url: https://github.com/cryostatio/cryostat
+      url: https://github.com/cryostatio/cryostat3
     - name: Website
       url: https://cryostat.io/
   maintainers:
