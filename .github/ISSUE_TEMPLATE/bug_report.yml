@@ -36,7 +36,7 @@ body:
         examples:
           - **OS**: Ubuntu 20.04
           - **Environment**: OpenShift 4.11
-          - **Version**: Cryostat 2.2.0
+          - **Version**: Cryostat 3.0.0
       value: |
           - OS: 
           - Environment: 
