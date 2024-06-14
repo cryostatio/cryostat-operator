@@ -1,5 +1,5 @@
 ## Configuring Cryostat
-The operator creates and manages a Deployment of [Cryostat](https://github.com/cryostatio/cryostat3) when the user creates or updates a `Cryostat` object. Only one `Cryostat` object should exist in the operator's namespace at a time. There are a few options available in the `Cryostat` spec that control how Cryostat is deployed.
+The operator creates and manages a Deployment of [Cryostat](https://github.com/cryostatio/cryostat) when the user creates or updates a `Cryostat` object. Only one `Cryostat` object should exist in the operator's namespace at a time. There are a few options available in the `Cryostat` spec that control how Cryostat is deployed.
 
 ### Target Namespaces
 Specify the list of namespaces containing your workloads that you want your multi-namespace Cryostat installation to work with under the `spec.targetNamespaces` property. The resulting Cryostat will have permissions to access workloads only within these specified namespaces. If not specified, `spec.targetNamespaces` will default to the namespace of the `Cryostat` object.

@@ -5,14 +5,14 @@
 [![Google Group : Cryostat Development](https://img.shields.io/badge/Google%20Group-Cryostat%20Development-blue.svg)](https://groups.google.com/g/cryostat-development)
 
 A Kubernetes Operator to automate deployment of
-[Cryostat](https://github.com/cryostatio/cryostat3).
+[Cryostat](https://github.com/cryostatio/cryostat).
 ## SEE ALSO
 
 * [cryostat-core](https://github.com/cryostatio/cryostat-core) for
 the core library providing a convenience wrapper and headless stubs for use of
 JFR using JDK Mission Control internals.
 
-* [cryostat](https://github.com/cryostatio/cryostat3) for the main API
+* [cryostat](https://github.com/cryostatio/cryostat) for the main API
 backend to detect JVMs and manage JFR.
 
 * [cryostat-web](https://github.com/cryostatio/cryostat-web) for the React
