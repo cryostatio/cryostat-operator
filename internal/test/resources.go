@@ -1039,6 +1039,22 @@ func (r *TestResources) NewCryostatCAIssuer() *certv1.Issuer {
 	}
 }
 
+func (r *TestResources) OtherCAIssuer() *certv1.Issuer {
+	return &certv1.Issuer{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      r.Name + "-ca",
+			Namespace: r.Namespace,
+		},
+		Spec: certv1.IssuerSpec{
+			IssuerConfig: certv1.IssuerConfig{
+				CA: &certv1.CAIssuer{
+					SecretName: r.Name + "-ca",
+				},
+			},
+		},
+	}
+}
+
 func (r *TestResources) newPVC(spec *corev1.PersistentVolumeClaimSpec, labels map[string]string,
 	annotations map[string]string) *corev1.PersistentVolumeClaim {
 	return &corev1.PersistentVolumeClaim{

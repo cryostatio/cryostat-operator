@@ -1711,6 +1711,36 @@ func (c *controllerTest) commonTests() {
 				})
 			})
 		})
+		Context("with a modified CA certificate", func() {
+			var oldCerts []*certv1.Certificate
+			BeforeEach(func() {
+				t.objs = append(t.objs, t.NewCryostat().Object, t.OtherCAIssuer())
+				oldCerts = []*certv1.Certificate{
+					t.NewCryostatCert(),
+					t.NewReportsCert(),
+				}
+				// Add an annotation for each cert, the test will assert that
+				// the annotation is gone.
+				for i, cert := range oldCerts {
+					metav1.SetMetaDataAnnotation(&oldCerts[i].ObjectMeta, "bad", "cert")
+					t.objs = append(t.objs, cert)
+				}
+			})
+			JustBeforeEach(func() {
+				cr := t.getCryostatInstance()
+				for _, cert := range oldCerts {
+					// Make the old certs owned by the Cryostat CR
+					err := controllerutil.SetControllerReference(cr.Object, cert, t.Client.Scheme())
+					Expect(err).ToNot(HaveOccurred())
+					err = t.Client.Update(context.Background(), cert)
+					Expect(err).ToNot(HaveOccurred())
+				}
+				t.reconcileCryostatFully()
+			})
+			It("should recreate certificates", func() {
+				t.expectCertificates()
+			})
+		})
 
 		Context("reconciling a multi-namespace request", func() {
 			targetNamespaces := []string{"multi-test-one", "multi-test-two"}
