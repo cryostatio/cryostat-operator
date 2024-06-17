@@ -24,9 +24,11 @@ import (
 	resources "github.com/cryostatio/cryostat-operator/internal/controllers/common/resource_definitions"
 	"github.com/cryostatio/cryostat-operator/internal/controllers/model"
 	corev1 "k8s.io/api/core/v1"
+	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
@@ -212,6 +214,14 @@ func (r *Reconciler) createOrUpdateIssuer(ctx context.Context, issuer *certv1.Is
 		if err := controllerutil.SetControllerReference(owner, issuer, r.Scheme); err != nil {
 			return err
 		}
+		// Check if the issuer's CA has changed
+		if !issuer.CreationTimestamp.IsZero() && r.issuerCAChanged(issuer.Spec.CA, issuerSpec.CA) {
+			// Issuer CA has changed, delete all certificates the previous CA issued
+			err := r.deleteCertChain(ctx, issuer.Namespace, issuerSpec.CA.SecretName, owner)
+			if err != nil {
+				return err
+			}
+		}
 		// Update Issuer spec
 		issuer.Spec = *issuerSpec
 		return nil
@@ -220,6 +230,61 @@ func (r *Reconciler) createOrUpdateIssuer(ctx context.Context, issuer *certv1.Is
 		return err
 	}
 	r.Log.Info(fmt.Sprintf("Issuer %s", op), "name", issuer.Name, "namespace", issuer.Namespace)
+	return nil
+}
+
+func (r *Reconciler) issuerCAChanged(current *certv1.CAIssuer, updated *certv1.CAIssuer) bool {
+	// Compare the .spec.ca.secretName in the current and updated Issuer. Return whether they differ.
+	if current == nil {
+		return false
+	}
+	currentSecret := current.SecretName
+	updatedSecret := ""
+	if updated != nil {
+		updatedSecret = updated.SecretName
+	}
+
+	if currentSecret != updatedSecret {
+		r.Log.Info("certificate authority has changed, deleting issued certificates",
+			"current", currentSecret, "updated", updatedSecret)
+		return true
+	}
+	return false
+}
+
+func (r *Reconciler) deleteCertChain(ctx context.Context, namespace string, caSecretName string, owner metav1.Object) error {
+	// Look up all certificates in this namespace
+	certs := &certv1.CertificateList{}
+	err := r.Client.List(ctx, certs, &client.ListOptions{
+		Namespace: namespace,
+	})
+	if err != nil {
+		return err
+	}
+
+	for i, cert := range certs.Items {
+		// Is the certificate owned by this CR, and not the CA itself?
+		if metav1.IsControlledBy(&certs.Items[i], owner) && cert.Spec.SecretName != caSecretName {
+			// Clean up secret referenced by the cert
+			secret := &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      cert.Spec.SecretName,
+					Namespace: cert.Namespace,
+				},
+			}
+
+			err := r.deleteSecret(ctx, secret)
+			if err != nil {
+				return err
+			}
+			// Delete the certificate
+			err = r.deleteCertificate(ctx, &certs.Items[i])
+			if err != nil {
+				return err
+			}
+		}
+	}
+
 	return nil
 }
 
@@ -291,4 +356,17 @@ func (r *Reconciler) getCertficateBytes(ctx context.Context, cert *certv1.Certif
 		return nil, err
 	}
 	return secret.Data[corev1.TLSCertKey], nil
+}
+
+func (r *Reconciler) deleteCertificate(ctx context.Context, cert *certv1.Certificate) error {
+	err := r.Client.Delete(ctx, cert)
+	if err != nil {
+		if kerrors.IsNotFound(err) {
+			return nil
+		}
+		r.Log.Error(err, "Could not delete certificate", "name", cert.Name, "namespace", cert.Namespace)
+		return err
+	}
+	r.Log.Info("deleted Certificate", "name", cert.Name, "namespace", cert.Namespace)
+	return nil
 }
