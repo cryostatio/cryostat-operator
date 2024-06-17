@@ -165,7 +165,10 @@ func (r *Reconciler) createOrUpdateSecret(ctx context.Context, secret *corev1.Se
 
 func (r *Reconciler) deleteSecret(ctx context.Context, secret *corev1.Secret) error {
 	err := r.Client.Delete(ctx, secret)
-	if err != nil && !kerrors.IsNotFound(err) {
+	if err != nil {
+		if kerrors.IsNotFound(err) {
+			return nil
+		}
 		r.Log.Error(err, "Could not delete secret", "name", secret.Name, "namespace", secret.Namespace)
 		return err
 	}
