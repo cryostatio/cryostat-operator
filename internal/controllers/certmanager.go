@@ -24,6 +24,7 @@ import (
 	resources "github.com/cryostatio/cryostat-operator/internal/controllers/common/resource_definitions"
 	"github.com/cryostatio/cryostat-operator/internal/controllers/model"
 	corev1 "k8s.io/api/core/v1"
+	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -277,11 +278,10 @@ func (r *Reconciler) deleteCertChain(ctx context.Context, namespace string, caSe
 				return err
 			}
 			// Delete the certificate
-			err = r.Client.Delete(ctx, &certs.Items[i])
+			err = r.deleteCertificate(ctx, &certs.Items[i])
 			if err != nil {
 				return err
 			}
-			r.Log.Info("deleted Certificate", "name", cert.Name, "namespace", cert.Namespace)
 		}
 	}
 
@@ -356,4 +356,17 @@ func (r *Reconciler) getCertficateBytes(ctx context.Context, cert *certv1.Certif
 		return nil, err
 	}
 	return secret.Data[corev1.TLSCertKey], nil
+}
+
+func (r *Reconciler) deleteCertificate(ctx context.Context, cert *certv1.Certificate) error {
+	err := r.Client.Delete(ctx, cert)
+	if err != nil {
+		if kerrors.IsNotFound(err) {
+			return nil
+		}
+		r.Log.Error(err, "Could not delete certificate", "name", cert.Name, "namespace", cert.Namespace)
+		return err
+	}
+	r.Log.Info("deleted Certificate", "name", cert.Name, "namespace", cert.Namespace)
+	return nil
 }
