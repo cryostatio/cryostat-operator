@@ -226,6 +226,7 @@ $(KUSTOMIZE) build internal/images/custom-scorecard-tests/rbac/ | $(CLUSTER_CLIE
 		--docker-username="$(SCORECARD_REGISTRY_USERNAME)" --docker-password="$(SCORECARD_REGISTRY_PASSWORD)"; \
 	$(CLUSTER_CLIENT) patch sa cryostat-scorecard -n $(SCORECARD_NAMESPACE) -p '{"imagePullSecrets": [{"name": "registry-key"}]}'; \
 fi
+$(CLUSTER_CLIENT) create -n $(SCORECARD_NAMESPACE) configmap scorecard-jfr-cm --from-file=internal/test/scorecard/testdata/scorecard_sample.jfr
 $(OPERATOR_SDK) run bundle -n $(SCORECARD_NAMESPACE) --timeout 20m $(BUNDLE_IMG) --security-context-config=restricted $(SCORECARD_ARGS)
 endef
 
