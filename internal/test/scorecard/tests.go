@@ -32,6 +32,7 @@ const (
 	CryostatRecordingTestName      string = "cryostat-recording"
 	CryostatConfigChangeTestName   string = "cryostat-config-change"
 	CryostatReportTestName         string = "cryostat-report"
+	CryostatGrafanaTestName        string = "cryostat-grafana"
 )
 
 // OperatorInstallTest checks that the operator installed correctly
@@ -301,6 +302,19 @@ func CryostatReportTest(bundle *apimanifests.Bundle, namespace string, openShift
 	if err != nil {
 		r.Log += fmt.Sprintf("failed to retrieve logs for the application: %s", err.Error())
 	}
+
+	return r.TestResult
+}
+
+func CryostatGrafanaTest(bundle *apimanifests.Bundle, namespace string, openShiftCertManager bool) *scapiv1alpha3.TestResult {
+	r := newTestResources(CryostatGrafanaTestName, namespace)
+
+	err := r.setupCRTestResources(openShiftCertManager)
+	if err != nil {
+		return r.fail(fmt.Sprintf("failed to set up %s test: %s", CryostatGrafanaTestName, err.Error()))
+	}
+
+	defer r.cleanupAndLogs()
 
 	return r.TestResult
 }
