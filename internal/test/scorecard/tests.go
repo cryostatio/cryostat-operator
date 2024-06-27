@@ -23,6 +23,7 @@ import (
 	operatorv1beta2 "github.com/cryostatio/cryostat-operator/api/v1beta2"
 	scapiv1alpha3 "github.com/operator-framework/api/pkg/apis/scorecard/v1alpha3"
 	apimanifests "github.com/operator-framework/api/pkg/manifests"
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 const (
@@ -315,6 +316,40 @@ func CryostatGrafanaTest(bundle *apimanifests.Bundle, namespace string, openShif
 	}
 
 	defer r.cleanupAndLogs()
+
+	// Create a default Cryostat CR
+	cr, err := r.createAndWaitTillCryostatAvailable(r.newCryostatCR())
+	if err != nil {
+		return r.fail(fmt.Sprintf("failed to determine application URL: %s", err.Error()))
+	}
+
+	err = r.StartLogs(cr)
+	if err != nil {
+		r.Log += fmt.Sprintf("failed to retrieve logs for the application: %s", err.Error())
+	}
+
+	base, err := url.Parse(cr.Status.ApplicationURL)
+	if err != nil {
+		return r.fail(fmt.Sprintf("application URL is invalid: %s", err.Error()))
+	}
+
+	err = r.waitTillCryostatReady(base)
+	if err != nil {
+		return r.fail(fmt.Sprintf("failed to reach the application: %s", err.Error()))
+	}
+
+	apiClient := NewCryostatRESTClientset(base)
+
+	// Get JFR data
+	cm, err := r.Client.CoreV1().ConfigMaps(namespace).Get(context.Background(), jfrConfigMapName, v1.GetOptions{})
+	if err != nil {
+		return r.fail(fmt.Sprintf("failed to get ConfigMap containing JFR data: %s", err.Error()))
+	}
+
+	err = apiClient.Recordings().UploadArchive(context.Background(), cm.BinaryData[jfrFilename])
+	if err != nil {
+		return r.fail(fmt.Sprintf("failed to upload archive: %s", err.Error()))
+	}
 
 	return r.TestResult
 }

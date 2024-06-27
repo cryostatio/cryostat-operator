@@ -15,11 +15,13 @@
 package scorecard
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
+	"mime/multipart"
 	"net/http"
 	"net/url"
 	"strings"
@@ -271,7 +273,7 @@ func (client *TargetClient) Create(ctx context.Context, options *Target) (*Targe
 	header.Add("Accept", "*/*")
 	body := options.ToFormData()
 
-	resp, err := SendRequest(ctx, client.Client, http.MethodPost, url.String(), &body, header)
+	resp, err := SendRequest(ctx, client.Client, http.MethodPost, url.String(), strings.NewReader(body), header)
 	if err != nil {
 		return nil, err
 	}
@@ -341,7 +343,7 @@ func (client *RecordingClient) Create(ctx context.Context, target *Target, optio
 	header.Add("Content-Type", "application/x-www-form-urlencoded")
 	header.Add("Accept", "*/*")
 
-	resp, err := SendRequest(ctx, client.Client, http.MethodPost, url.String(), &body, header)
+	resp, err := SendRequest(ctx, client.Client, http.MethodPost, url.String(), strings.NewReader(body), header)
 	if err != nil {
 		return nil, err
 	}
@@ -367,7 +369,7 @@ func (client *RecordingClient) Archive(ctx context.Context, target *Target, reco
 	header.Add("Content-Type", "text/plain")
 	header.Add("Accept", "*/*")
 
-	resp, err := SendRequest(ctx, client.Client, http.MethodPatch, url.String(), &body, header)
+	resp, err := SendRequest(ctx, client.Client, http.MethodPatch, url.String(), strings.NewReader(body), header)
 	if err != nil {
 		return "", err
 	}
@@ -392,7 +394,7 @@ func (client *RecordingClient) Stop(ctx context.Context, target *Target, recordi
 	header.Add("Content-Type", "text/plain")
 	header.Add("Accept", "*/*")
 
-	resp, err := SendRequest(ctx, client.Client, http.MethodPatch, url.String(), &body, header)
+	resp, err := SendRequest(ctx, client.Client, http.MethodPatch, url.String(), strings.NewReader(body), header)
 	if err != nil {
 		return err
 	}
@@ -485,13 +487,12 @@ func (client *RecordingClient) ListArchives(ctx context.Context, target *Target)
 	if err != nil {
 		return nil, fmt.Errorf("failed to construct graph query: %s", err.Error())
 	}
-	body := string(queryJSON)
 
 	header := make(http.Header)
 	header.Add("Content-Type", "application/json")
 	header.Add("Accept", "*/*")
 
-	resp, err := SendRequest(ctx, client.Client, http.MethodPost, url.String(), &body, header)
+	resp, err := SendRequest(ctx, client.Client, http.MethodPost, url.String(), bytes.NewReader(queryJSON), header)
 	if err != nil {
 		return nil, err
 	}
@@ -510,6 +511,42 @@ func (client *RecordingClient) ListArchives(ctx context.Context, target *Target)
 	return graphQLResponse.Data.TargetNodes[0].Target.ArchivedRecordings.Data, nil
 }
 
+func (client *RecordingClient) UploadArchive(ctx context.Context, archiveContent []byte) error {
+	url := client.Base.JoinPath("/api/v1/recordings")
+
+	body := &bytes.Buffer{}
+	mp := multipart.NewWriter(body)
+
+	part, err := mp.CreateFormFile("recording", jfrFilename)
+	if err != nil {
+		return err
+	}
+
+	if _, err = part.Write(archiveContent); err != nil {
+		return err
+	}
+
+	if err = mp.Close(); err != nil {
+		return err
+	}
+
+	header := make(http.Header)
+	header.Add("Content-Type", mp.FormDataContentType())
+	header.Add("Accept", "*/*")
+
+	resp, err := SendRequest(ctx, client.Client, http.MethodPost, url.String(), body, header)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	if !StatusOK(resp.StatusCode) {
+		return fmt.Errorf("API request failed with status code: %d, response body: %s, and headers:\n%s", resp.StatusCode, ReadError(resp), ReadHeader(resp))
+	}
+
+	return nil
+}
+
 type CredentialClient struct {
 	*commonCryostatRESTClient
 }
@@ -520,7 +557,7 @@ func (client *CredentialClient) Create(ctx context.Context, credential *Credenti
 	header := make(http.Header)
 	header.Add("Content-Type", "application/x-www-form-urlencoded")
 
-	resp, err := SendRequest(ctx, client.Client, http.MethodPost, url.String(), &body, header)
+	resp, err := SendRequest(ctx, client.Client, http.MethodPost, url.String(), strings.NewReader(body), header)
 	if err != nil {
 		return err
 	}
@@ -582,12 +619,8 @@ func NewHttpClient() *http.Client {
 	return client
 }
 
-func NewHttpRequest(ctx context.Context, method string, url string, body *string, header http.Header) (*http.Request, error) {
-	var reqBody io.Reader
-	if body != nil {
-		reqBody = strings.NewReader(*body)
-	}
-	req, err := http.NewRequestWithContext(ctx, method, url, reqBody)
+func NewHttpRequest(ctx context.Context, method string, url string, body io.Reader, header http.Header) (*http.Request, error) {
+	req, err := http.NewRequestWithContext(ctx, method, url, body)
 	if err != nil {
 		return nil, err
 	}
@@ -611,7 +644,7 @@ func StatusOK(statusCode int) bool {
 	return statusCode >= 200 && statusCode < 300
 }
 
-func SendRequest(ctx context.Context, httpClient *http.Client, method string, url string, body *string, header http.Header) (*http.Response, error) {
+func SendRequest(ctx context.Context, httpClient *http.Client, method string, url string, body io.Reader, header http.Header) (*http.Response, error) {
 	var response *http.Response
 	err := wait.PollUntilContextCancel(ctx, time.Second, true, func(ctx context.Context) (done bool, err error) {
 		// Create a new request
