@@ -42,6 +42,8 @@ import (
 
 const (
 	operatorDeploymentName string        = "cryostat-operator-controller"
+	jfrConfigMapName       string        = "scorecard-jfr-cm"
+	jfrFilename            string        = "scorecard_sample.jfr"
 	testTimeout            time.Duration = time.Minute * 10
 )
 
