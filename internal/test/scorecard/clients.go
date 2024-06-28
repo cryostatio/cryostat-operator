@@ -547,6 +547,23 @@ func (client *RecordingClient) UploadArchive(ctx context.Context, archiveContent
 	return nil
 }
 
+func (client *RecordingClient) LoadUploadedArchiveToGrafana(ctx context.Context, archiveName string) error {
+	url := client.Base.JoinPath(fmt.Sprintf("/api/beta/recordings/uploads/%s/upload", archiveName))
+	header := make(http.Header)
+
+	resp, err := SendRequest(ctx, client.Client, http.MethodPost, url.String(), nil, header)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	if !StatusOK(resp.StatusCode) {
+		return fmt.Errorf("API request failed with status code: %d, response body: %s, and headers:\n%s", resp.StatusCode, ReadError(resp), ReadHeader(resp))
+	}
+
+	return nil
+}
+
 type CredentialClient struct {
 	*commonCryostatRESTClient
 }
