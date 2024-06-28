@@ -6,6 +6,7 @@
 
 A Kubernetes Operator to automate deployment of
 [Cryostat](https://github.com/cryostatio/cryostat).
+
 ## SEE ALSO
 
 * [cryostat-core](https://github.com/cryostatio/cryostat-core) for
@@ -25,14 +26,14 @@ the JFR datasource for Grafana.
 * [cryostat-grafana-dashboard](https://github.com/cryostatio/cryostat-grafana-dashboard)
 for the Grafana dashboard.
 
-# Using
+## USING
 
-## Requirements
+### Requirements
 
 - `kubernetes` v1.21+ with [`Operator Lifecycle Manager`](https://olm.operatorframework.io/)
 - [`cert-manager`](https://github.com/cert-manager/cert-manager) v1.11.5+ (Recommended)
 
-## Instructions
+### Instructions
 
 Once deployed, the `cryostat` instance can be accessed via web browser
 at the URL provided by:
@@ -45,8 +46,9 @@ you may use the Cryostat web UI to define a Custom Target with the connection UR
 This is a special value which tells Cryostat's JVM that it should connect to itself directly, without
 the need to expose a JMX port over the network.
 
-# Building
-## Requirements
+## BUILDING
+
+### Requirements
 - `go` v1.21+
 - [`operator-sdk`](https://github.com/operator-framework/operator-sdk) v1.31.0
 - `podman` or `docker`
@@ -54,7 +56,7 @@ the need to expose a JMX port over the network.
 - [`yq`](https://github.com/mikefarah/yq/) v4.35+
 - `ginkgo` (Optional)
 
-## Instructions
+### Instructions
 `make generate manifests manager` will trigger code/YAML generation and compile
 the operator controller manager, along with running some code quality checks.
 
@@ -73,8 +75,9 @@ repository such as `quay.io`.
 `make catalog-build` will build an OCI image of the operator catalog (i.e. index)
 with version `$IMAGE_VERSION` that includes the bundle image of the same version.
 
-# Setup / Deployment
-## Bundle Deployment
+## SETUP / DEPLOYMENT
+
+### Bundle Deployment
 
 The operator can be deployed using OLM using `make deploy_bundle`. This will
 deploy `quay.io/cryostat/cryostat-operator-bundle:$IMAGE_VERSION` to
@@ -82,6 +85,36 @@ your configured cluster using `oc` or `kubectl` (`kubeconfig`). You can set the
 variables `IMAGE_NAMESPACE` or `IMAGE_VERSION` to deploy different builds of
 the bundle. Once this is complete, the Cryostat Operator will be deployed
 and running in your cluster.
+
+### Manual Deployment
+
+`make install` will create CustomResourceDefinitions and do other setup
+required to prepare the cluster for deploying the operator, using `oc` or
+`kubectl` on whichever OpenShift/Kubernetes cluster is configured with the local client.
+`make uninstall` destroys the CRDs and undoes the setup.
+
+`make run` can be used to run the operator controller manager as a process on
+your local development machine and observing/interacting with your cluster.
+This may be useful in some development scenarios, however in this case the
+operator process will not have access to certain in-cluster resources such as
+environment variables or service account token files.
+
+`make deploy` will deploy the operator using static manifests to an arbitrary namespace (default to `cryostat-operator-system`).
+- `make DEPLOY_NAMESPACE=foo-namespace deploy`
+can be used to deploy to a namespace named `foo-namespace`. For
+a convenient shorthand, use
+`make DEPLOY_NAMESPACE=$(kubectl config view --minify -o 'jsonpath={.contexts[0].context.namespace}') deploy`
+to deploy to the currently active OpenShift/Kubernetes namespace.
+- `make undeploy` will likewise remove the operator, and also uses the
+`DEPLOY_NAMESPACE` variable.
+This also respects the `IMAGE_TAG` environment variable, so that different
+versions of the operator can be easily deployed.
+- To obtain such static manifests remotely without further customizations, use:
+    ```bash
+    # Replace ref with any version tag or branch
+    kubectl kustomize "https://github.com/cryostatio/cryostat-operator.git/config/default?ref=v2.4.0"
+    ```
+
 
 ### Configuration
 
@@ -94,7 +127,7 @@ configuration options in the Cryostat CRD can be found in
 mandatory configuration in order to access Cryostat outside of the cluster.
 
 For convenience, a full deployment can be created using
-`kubectl create -f config/samples/operator_v1beta1_cryostat.yaml`, or more
+`kubectl create -f config/samples/operator_v1beta2_cryostat.yaml`, or more
 simply, `make create_cryostat_cr`.
 
 The container images used by the operator for the core application,
@@ -102,7 +135,7 @@ jfr-datasource, and the Grafana dashboard can be overridden by setting the
 `RELATED_IMAGE_CORE`, `RELATED_IMAGE_DATASOURCE`, and `RELATED_IMAGE_GRAFANA`
 environment variables, respectively, in the operator deployment.
 
-## Security
+## SECURITY
 
 By default, the operator expects cert-manager to be available in the cluster.
 This allows the operator to deploy Cryostat with all communication
@@ -158,31 +191,8 @@ $ oc get -o jsonpath='{.data.token}' secret cryostat-operator-service-account-to
 eyJhbGciOiJSUzI1NiIsImtpZCI6IkhYZC13eDdGVGwyQzdGNVpZVndScEZ2VmRxWTlzbnBUUG9HRkJpejJkV3cifQ.eyJpc3MiOiJrdWJlcm5ldGVzL3NlcnZpY2VhY2NvdW50Iiwia3ViZXJuZXRlcy5pby9zZXJ2aWNlYWNjb3VudC9uYW1lc3BhY2UiOiJkZWZhdWx0Iiwia3ViZXJuZXRlcy5pby9zZXJ2aWNlYWNjb3VudC9zZWNyZXQubmFtZSI6ImNyeW9zdGF0LW9wZXJhdG9yLXNlcnZpY2UtYWNjb3VudC10b2tlbi03dHQ3bCIsImt1YmVybmV0ZXMuaW8vc2VydmljZWFjY291bnQvc2VydmljZS1hY2NvdW50Lm5hbWUiOiJjcnlvc3RhdC1vcGVyYXRvci1zZXJ2aWNlLWFjY291bnQiLCJrdWJlcm5ldGVzLmlvL3NlcnZpY2VhY2NvdW50L3NlcnZpY2UtYWNjb3VudC51aWQiOiI2OTJhYThjNy0wODFlLTRhNTEtOTM1NS1iZTNlYWE4ZjlmYTYiLCJzdWIiOiJzeXN0ZW06c2VydmljZWFjY291bnQ6ZGVmYXVsdDpjcnlvc3RhdC1vcGVyYXRvci1zZXJ2aWNlLWFjY291bnQifQ.M7C1V0bN3aILBflO7TTOTikw7wLGRJ79-OkCDQIZbu71QLdX05jyCxxtlH32lr8jz6HwxfXXweh3ifG_2lbe7_TbM8jxmBoMdLuc4Q_akpmA-GQuDPrRxfHGJApYGQ6CVug3KHSrQwj2M4QrSUz7FoeQGaOH9BnWj1TrHGmOZUPJ6u7JSu2OwoLBda6rF-M4Bl72DmkyMAzikreRgPEk4D7gTCY0yNvsQDuUAwpFwmEukRC2WyTAVTpKPgThZUk-UJ-dXufbhAcqIRt6jeCQ19_Bo0zXc_ELgQydxuTack1ndT3HwRmwwNuZDFv-G3Y0YdjfRh00DqEvSn9ynZzwueDCJUxlHdznytfUWk9PA712JENpFC7b-zSHnjymIcFeUd8s_Zq_-JKrDIPnH0oZDRO_MUpKEC7Jz_8SeFJHLLGfBZt_aP4VwQHEUThiFQPwrfbd8tppUG2TKcekPScKcauy-BCI52odBzapP6meilMQVrmRtu7i30L05vgQiST_OsmSP8CuKW13a-leCCtN_aNQGqlWvLhP81H95ui-PvMzwMIDlfDZ03ycuYg4R4eUG3nUq7-42wrSdFLo8gm9wsl7y1ZRMQwHR1DCVBbHYS0iFOcmwto2Ejlrgvn3Cs0pDS7pDVoFkH2FsTopEw3jXtnkMs15mSmBnHz-UjF-l08
 ```
 
-## Manual Deployment
+## DEVELOPMENT
 
-`make install` will create CustomResourceDefinitions and do other setup
-required to prepare the cluster for deploying the operator, using `oc` or
-`kubectl` on whichever OpenShift cluster is configured with the local client.
-`make uninstall` destroys the CRDs and undoes the setup.
-
-`make deploy` will deploy the operator in the default namespace
-(`cryostat-operator-system`). `make DEPLOY_NAMESPACE=foo-namespace deploy`
-can be used to deploy to an arbitrary namespace named `foo-namespace`. For
-a convenient shorthand, use
-`make DEPLOY_NAMESPACE=$(kubectl config view --minify -o 'jsonpath={.contexts[0].context.namespace}') deploy`
-to deploy to the currently active OpenShift project namespace.
-`make undeploy` will likewise remove the operator, and also uses the
-`DEPLOY_NAMESPACE` variable.
-This also respects the `IMAGE_TAG` environment variable, so that different
-versions of the operator can be easily deployed.
-
-`make run` can be used to run the operator controller manager as a process on
-your local development machine and observing/interacting with your cluster.
-This may be useful in some development scenarios, however in this case the
-operator process will not have access to certain in-cluster resources such as
-environment variables or service account token files.
-
-# Development
 An invocation like
 `export IMAGE_NAMESPACE=quay.io/some-user` `export IMAGE_VERSION=test-version`
 `make generate manifests manager oci-build bundle bundle-build`
@@ -192,12 +202,14 @@ is handy for local development testing using ex. CodeReady Containers. This
 exercises a similar build and deployment path as what end users using OLM and
 OperatorHub will eventually receive.
 
-# Testing
-## Requirements
+## TESTING
+
+### Requirements
 - (optional) [oc](https://www.okd.io/download.html)
 - (optional) [crc](https://github.com/code-ready/crc)
 
-## Instructions
+### Instructions
+
 `make test-envtest` will run controller tests using ginkgo if installed, or go test if
 not, requiring no cluster connection.
 
