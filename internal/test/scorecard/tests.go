@@ -23,6 +23,7 @@ import (
 	operatorv1beta2 "github.com/cryostatio/cryostat-operator/api/v1beta2"
 	scapiv1alpha3 "github.com/operator-framework/api/pkg/apis/scorecard/v1alpha3"
 	apimanifests "github.com/operator-framework/api/pkg/manifests"
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 const (
@@ -32,6 +33,7 @@ const (
 	CryostatRecordingTestName      string = "cryostat-recording"
 	CryostatConfigChangeTestName   string = "cryostat-config-change"
 	CryostatReportTestName         string = "cryostat-report"
+	CryostatGrafanaTestName        string = "cryostat-grafana"
 )
 
 // OperatorInstallTest checks that the operator installed correctly
@@ -300,6 +302,58 @@ func CryostatReportTest(bundle *apimanifests.Bundle, namespace string, openShift
 	err = r.StartLogs(cr)
 	if err != nil {
 		r.Log += fmt.Sprintf("failed to retrieve logs for the application: %s", err.Error())
+	}
+
+	return r.TestResult
+}
+
+func CryostatGrafanaTest(bundle *apimanifests.Bundle, namespace string, openShiftCertManager bool) *scapiv1alpha3.TestResult {
+	r := newTestResources(CryostatGrafanaTestName, namespace)
+
+	err := r.setupCRTestResources(openShiftCertManager)
+	if err != nil {
+		return r.fail(fmt.Sprintf("failed to set up %s test: %s", CryostatGrafanaTestName, err.Error()))
+	}
+
+	defer r.cleanupAndLogs()
+
+	// Create a default Cryostat CR
+	cr, err := r.createAndWaitTillCryostatAvailable(r.newCryostatCR())
+	if err != nil {
+		return r.fail(fmt.Sprintf("failed to determine application URL: %s", err.Error()))
+	}
+
+	err = r.StartLogs(cr)
+	if err != nil {
+		r.Log += fmt.Sprintf("failed to retrieve logs for the application: %s", err.Error())
+	}
+
+	base, err := url.Parse(cr.Status.ApplicationURL)
+	if err != nil {
+		return r.fail(fmt.Sprintf("application URL is invalid: %s", err.Error()))
+	}
+
+	err = r.waitTillCryostatReady(base)
+	if err != nil {
+		return r.fail(fmt.Sprintf("failed to reach the application: %s", err.Error()))
+	}
+
+	apiClient := NewCryostatRESTClientset(base)
+
+	// Get JFR data
+	cm, err := r.Client.CoreV1().ConfigMaps(namespace).Get(context.Background(), jfrConfigMapName, v1.GetOptions{})
+	if err != nil {
+		return r.fail(fmt.Sprintf("failed to get ConfigMap containing JFR data: %s", err.Error()))
+	}
+
+	err = apiClient.Recordings().UploadArchive(context.Background(), cm.BinaryData[jfrFilename])
+	if err != nil {
+		return r.fail(fmt.Sprintf("failed to upload archive %s: %s", jfrFilename, err.Error()))
+	}
+
+	err = apiClient.Recordings().LoadUploadedArchiveToGrafana(context.Background(), jfrFilename)
+	if err != nil {
+		return r.fail(fmt.Sprintf("failed to load archive %s to grafana: %s", jfrFilename, err.Error()))
 	}
 
 	return r.TestResult
