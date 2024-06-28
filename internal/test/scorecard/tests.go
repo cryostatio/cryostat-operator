@@ -348,7 +348,12 @@ func CryostatGrafanaTest(bundle *apimanifests.Bundle, namespace string, openShif
 
 	err = apiClient.Recordings().UploadArchive(context.Background(), cm.BinaryData[jfrFilename])
 	if err != nil {
-		return r.fail(fmt.Sprintf("failed to upload archive: %s", err.Error()))
+		return r.fail(fmt.Sprintf("failed to upload archive %s: %s", jfrFilename, err.Error()))
+	}
+
+	err = apiClient.Recordings().LoadUploadedArchiveToGrafana(context.Background(), jfrFilename)
+	if err != nil {
+		return r.fail(fmt.Sprintf("failed to load archive %s to grafana: %s", jfrFilename, err.Error()))
 	}
 
 	return r.TestResult
