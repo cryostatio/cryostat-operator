@@ -366,5 +366,14 @@ func CryostatGrafanaTest(bundle *apimanifests.Bundle, namespace string, openShif
 		return r.fail(fmt.Sprintf("datasource %s is invalid: %s", GRAFANA_DATASOURCE_NAME, err.Error()))
 	}
 
+	dashboard, err := apiClient.Grafana().GetDashboardByUID(context.Background(), GRAFANA_DASHBOARD_UID)
+	if err != nil {
+		return r.fail(fmt.Sprintf("failed to get dashboard %s: %s", GRAFANA_DASHBOARD_UID, err.Error()))
+	}
+
+	if err = dashboard.Valid(); err != nil {
+		return r.fail(fmt.Sprintf("dashboard %s is invalid: %s", GRAFANA_DASHBOARD_UID, err.Error()))
+	}
+
 	return r.TestResult
 }

@@ -602,6 +602,29 @@ type GrafanaClient struct {
 	*commonCryostatRESTClient
 }
 
+func (client *GrafanaClient) GetDashboardByUID(ctx context.Context, uid string) (*DashBoard, error) {
+	url := client.Base.JoinPath(client.BasePath, "api/dashboards/uid", uid)
+	header := make(http.Header)
+	header.Add("Accept", "*/*")
+
+	resp, err := SendRequest(ctx, client.Client, http.MethodGet, url.String(), nil, header)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if !StatusOK(resp.StatusCode) {
+		return nil, fmt.Errorf("API request failed with status code: %d, response body: %s, and headers:\n%s", resp.StatusCode, ReadError(resp), ReadHeader(resp))
+	}
+
+	dashboard := &DashBoard{}
+	if err = ReadJSON(resp, dashboard); err != nil {
+		return nil, fmt.Errorf("failed to read response body: %s", err.Error())
+	}
+
+	return dashboard, nil
+}
+
 func (client *GrafanaClient) GetDatasourceByName(ctx context.Context, name string) (*DataSource, error) {
 	url := client.Base.JoinPath(client.BasePath, "api/datasources/name", GRAFANA_DATASOURCE_NAME)
 	header := make(http.Header)

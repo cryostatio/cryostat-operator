@@ -164,7 +164,7 @@ const (
 
 // DataSource represents a Grafana data source
 type DataSource struct {
-	ID   int64  `json:"id"`
+	ID   uint32 `json:"id"`
 	UID  string `json:"uid"`
 	Name string `json:"name"`
 
@@ -195,6 +195,62 @@ func (ds *DataSource) Valid() error {
 
 	if ds.BasicAuth {
 		return errors.New("expected basicAuth to be disabled, but got enabled")
+	}
+
+	return nil
+}
+
+// DashBoard represents a Grafana dashboard
+type DashBoard struct {
+	DashBoardMeta `json:"meta"`
+	DashBoardInfo `json:"dashboard"`
+}
+
+type DashBoardMeta struct {
+	Slug        string `json:"slug"`
+	URL         string `json:"url"`
+	Provisioned bool   `json:"provisioned"`
+}
+
+type DashBoardInfo struct {
+	UID         string                 `json:"uid"`
+	Title       string                 `json:"title"`
+	Annotations map[string]interface{} `json:"annotations"`
+	Panels      []Panel                `json:"panels"`
+}
+
+// Panel represents a Grafana panel.
+// A panel can be used either for displaying data or separating groups
+type Panel struct {
+	ID      uint32       `json:"id"`
+	Title   string       `json:"title"`
+	Type    string       `json:"type"`
+	Targets []PanelQuery `json:"targets"`
+	Panels  []Panel      `json:"panels"`
+}
+
+type PanelQuery struct {
+	RawQuery bool   `json:"rawQuery"`
+	RefID    string `json:"refId"`
+	Target   string `json:"target"`
+	Type     string `json:"table"`
+}
+
+func (db *DashBoard) Valid() error {
+	if db.UID != GRAFANA_DASHBOARD_UID {
+		return fmt.Errorf("expected dashboard uid %s, but got %s", GRAFANA_DASHBOARD_UID, db.UID)
+	}
+
+	if db.Title != GRAFANA_DASHBOARD_TITLE {
+		return fmt.Errorf("expected dashboard title %s, but got %s", GRAFANA_DASHBOARD_TITLE, db.Title)
+	}
+
+	if !db.Provisioned {
+		return errors.New("expected dashboard to be provisioned, but got unprovisioned")
+	}
+
+	if len(db.Panels) == 0 {
+		return errors.New("expected dashboard to have panels, but got 0")
 	}
 
 	return nil
