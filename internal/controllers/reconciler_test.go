@@ -1037,12 +1037,16 @@ func (c *controllerTest) commonTests() {
 					reportsImg := "my/reports-image:latest"
 					oauth2ProxyImg := "my/authproxy-image:latest"
 					openshiftAuthProxyImg := "my/openshift-authproxy-image:latest"
+					dbImg := "my/db-image:latest"
+					storageImg := "my/storage-image:latest"
 					t.EnvCoreImageTag = &coreImg
 					t.EnvDatasourceImageTag = &datasourceImg
 					t.EnvGrafanaImageTag = &grafanaImg
 					t.EnvReportsImageTag = &reportsImg
 					t.EnvOAuth2ProxyImageTag = &oauth2ProxyImg
 					t.EnvOpenShiftOAuthProxyImageTag = &openshiftAuthProxyImg
+					t.EnvDatabaseImageTag = &dbImg
+					t.EnvStorageImageTag = &storageImg
 				})
 				It("should create deployment with the expected tags", func() {
 					t.expectMainDeployment()
@@ -1052,7 +1056,7 @@ func (c *controllerTest) commonTests() {
 					containers := mainDeploy.Spec.Template.Spec.Containers
 					Expect(containers).To(HaveLen(6))
 					for _, container := range containers {
-						Expect(container.ImagePullPolicy).To(Equal(corev1.PullAlways))
+						Expect(container.ImagePullPolicy).To(Equal(corev1.PullAlways), "Container %s", container.Image)
 					}
 					reportContainers := reportsDeploy.Spec.Template.Spec.Containers
 					Expect(reportContainers).To(HaveLen(1))
