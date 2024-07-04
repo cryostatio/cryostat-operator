@@ -18,7 +18,7 @@ spec:
         - name: RELATED_IMAGE_DATASOURCE
           value: "quay.io/cryostat/jfr-datasource:3.0.1-snapshot"
         - name: RELATED_IMAGE_GRAFANA
-          value: "quay.io/cryostat/cryostat-grafana-dashboard:cryostat-v3.0"
+          value: "quay.io/cryostat/cryostat-grafana-dashboard:3.0-dev"
         - name: RELATED_IMAGE_REPORTS
           value: "quay.io/cryostat/cryostat-reports:3.0.1-snapshot"
         - name: RELATED_IMAGE_STORAGE
