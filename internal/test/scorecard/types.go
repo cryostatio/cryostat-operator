@@ -17,6 +17,7 @@ package scorecard
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/url"
 	"strconv"
 )
@@ -151,4 +152,51 @@ type ArchiveGraphQLResponse struct {
 			} `json:"target"`
 		} `json:"targetNodes"`
 	} `json:"data"`
+}
+
+const (
+	GRAFANA_DATASOURCE_NAME   = "jfr-datasource"
+	GRAFANA_DATASOURCE_URL    = "http://127.0.0.1:8989"
+	GRAFANA_DATASOURCE_TYPE   = "grafana-simple-json-datasource"
+	GRAFANA_DATASOURCE_ACCESS = "proxy"
+)
+
+// Grafana types
+type DataSource struct {
+	ID   int64  `json:"id"`
+	UID  string `json:"uid"`
+	Name string `json:"name"`
+
+	Type string `json:"type"`
+
+	URL    string `json:"url"`
+	Access string `json:"access"`
+
+	ReadOnly  bool `json:"readOnly"`
+	IsDefault bool `json:"isDefault"`
+	BasicAuth bool `json:"basicAuth"`
+}
+
+func (ds *DataSource) Valid() error {
+	if ds.Name != GRAFANA_DATASOURCE_NAME {
+		return fmt.Errorf("expected datasource name %s, but got %s", GRAFANA_DATASOURCE_NAME, ds.Name)
+	}
+
+	if ds.Type != GRAFANA_DATASOURCE_TYPE {
+		return fmt.Errorf("expected datasource type %s, but got %s", GRAFANA_DATASOURCE_TYPE, ds.Type)
+	}
+
+	if ds.URL != GRAFANA_DATASOURCE_URL {
+		return fmt.Errorf("expected datasource url %s, but got %s", GRAFANA_DATASOURCE_URL, ds.URL)
+	}
+
+	if ds.Access != GRAFANA_DATASOURCE_ACCESS {
+		return fmt.Errorf("expected datasource access %s, but got %s", GRAFANA_DATASOURCE_ACCESS, ds.Access)
+	}
+
+	if ds.BasicAuth {
+		return errors.New("expected basicAuth to be disabled, but got enabled")
+	}
+
+	return nil
 }

@@ -356,5 +356,15 @@ func CryostatGrafanaTest(bundle *apimanifests.Bundle, namespace string, openShif
 		return r.fail(fmt.Sprintf("failed to load archive %s to grafana: %s", jfrFilename, err.Error()))
 	}
 
+	// Validate datasource
+	datasource, err := apiClient.Grafana().GetDatasourceByName(context.Background(), GRAFANA_DATASOURCE_NAME)
+	if err != nil {
+		return r.fail(fmt.Sprintf("failed to get datasource %s: %s", GRAFANA_DATASOURCE_NAME, err.Error()))
+	}
+
+	if err = datasource.Valid(); err != nil {
+		return r.fail(fmt.Sprintf("datasource %s is invalid: %s", GRAFANA_DATASOURCE_NAME, err.Error()))
+	}
+
 	return r.TestResult
 }
