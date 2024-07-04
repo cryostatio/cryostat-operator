@@ -236,7 +236,7 @@ func NewCryostatRESTClientset(base *url.URL) *CryostatRESTClientset {
 		},
 		GrafanaClient: &GrafanaClient{
 			commonCryostatRESTClient: commonClient,
-			Prefix:                   "grafana",
+			BasePath:                 "grafana",
 		},
 	}
 }
@@ -598,12 +598,12 @@ func (client *CredentialClient) Create(ctx context.Context, credential *Credenti
 
 // Client for Grafana API
 type GrafanaClient struct {
-	Prefix string
+	BasePath string
 	*commonCryostatRESTClient
 }
 
 func (client *GrafanaClient) GetDatasourceByName(ctx context.Context, name string) (*DataSource, error) {
-	url := client.Base.JoinPath(client.Prefix, "api/datasources/name", GRAFANA_DATASOURCE_NAME)
+	url := client.Base.JoinPath(client.BasePath, "api/datasources/name", GRAFANA_DATASOURCE_NAME)
 	header := make(http.Header)
 	header.Add("Accept", "*/*")
 

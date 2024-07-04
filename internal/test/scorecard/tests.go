@@ -23,7 +23,7 @@ import (
 	operatorv1beta2 "github.com/cryostatio/cryostat-operator/api/v1beta2"
 	scapiv1alpha3 "github.com/operator-framework/api/pkg/apis/scorecard/v1alpha3"
 	apimanifests "github.com/operator-framework/api/pkg/manifests"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 const (
@@ -341,7 +341,7 @@ func CryostatGrafanaTest(bundle *apimanifests.Bundle, namespace string, openShif
 	apiClient := NewCryostatRESTClientset(base)
 
 	// Get JFR data
-	cm, err := r.Client.CoreV1().ConfigMaps(namespace).Get(context.Background(), jfrConfigMapName, v1.GetOptions{})
+	cm, err := r.Client.CoreV1().ConfigMaps(namespace).Get(context.Background(), jfrConfigMapName, metav1.GetOptions{})
 	if err != nil {
 		return r.fail(fmt.Sprintf("failed to get ConfigMap containing JFR data: %s", err.Error()))
 	}

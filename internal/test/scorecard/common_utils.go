@@ -299,6 +299,7 @@ func configureIngress(name string, cryostatSpec *operatorv1beta2.CryostatSpec) {
 		CoreConfig: &operatorv1beta2.NetworkConfiguration{
 			Annotations: map[string]string{
 				"nginx.ingress.kubernetes.io/backend-protocol": "HTTPS",
+				"nginx.ingress.kubernetes.io/proxy-body-size":  "10m",
 			},
 			IngressSpec: &netv1.IngressSpec{
 				TLS: []netv1.IngressTLS{{}},
