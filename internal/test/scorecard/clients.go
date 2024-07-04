@@ -199,6 +199,7 @@ type CryostatRESTClientset struct {
 	TargetClient     *TargetClient
 	RecordingClient  *RecordingClient
 	CredentialClient *CredentialClient
+	GrafanaClient    *GrafanaClient
 }
 
 func (c *CryostatRESTClientset) Targets() *TargetClient {
@@ -211,6 +212,10 @@ func (c *CryostatRESTClientset) Recordings() *RecordingClient {
 
 func (c *CryostatRESTClientset) Credential() *CredentialClient {
 	return c.CredentialClient
+}
+
+func (c *CryostatRESTClientset) Grafana() *GrafanaClient {
+	return c.GrafanaClient
 }
 
 func NewCryostatRESTClientset(base *url.URL) *CryostatRESTClientset {
@@ -228,6 +233,10 @@ func NewCryostatRESTClientset(base *url.URL) *CryostatRESTClientset {
 		},
 		CredentialClient: &CredentialClient{
 			commonCryostatRESTClient: commonClient,
+		},
+		GrafanaClient: &GrafanaClient{
+			commonCryostatRESTClient: commonClient,
+			Prefix:                   "grafana",
 		},
 	}
 }
@@ -585,6 +594,35 @@ func (client *CredentialClient) Create(ctx context.Context, credential *Credenti
 	}
 
 	return nil
+}
+
+// Client for Grafana API
+type GrafanaClient struct {
+	Prefix string
+	*commonCryostatRESTClient
+}
+
+func (client *GrafanaClient) GetDatasourceByName(ctx context.Context, name string) (*DataSource, error) {
+	url := client.Base.JoinPath(client.Prefix, "api/datasources/name", GRAFANA_DATASOURCE_NAME)
+	header := make(http.Header)
+	header.Add("Accept", "*/*")
+
+	resp, err := SendRequest(ctx, client.Client, http.MethodGet, url.String(), nil, header)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if !StatusOK(resp.StatusCode) {
+		return nil, fmt.Errorf("API request failed with status code: %d, response body: %s, and headers:\n%s", resp.StatusCode, ReadError(resp), ReadHeader(resp))
+	}
+
+	datasource := &DataSource{}
+	if err = ReadJSON(resp, datasource); err != nil {
+		return nil, fmt.Errorf("failed to read response body: %s", err.Error())
+	}
+
+	return datasource, nil
 }
 
 func ReadJSON(resp *http.Response, result interface{}) error {
