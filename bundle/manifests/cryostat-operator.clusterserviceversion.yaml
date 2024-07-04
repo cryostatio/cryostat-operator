@@ -29,8 +29,8 @@ metadata:
       ]
     capabilities: Seamless Upgrades
     categories: Monitoring, Developer Tools
-    containerImage: quay.io/cryostat/cryostat-operator:3.0.0
-    createdAt: "2024-07-04T13:19:31Z"
+    containerImage: quay.io/cryostat/cryostat-operator:3.0.1-dev
+    createdAt: "2024-07-04T16:23:44Z"
     description: JVM monitoring and profiling tool
     operatorframework.io/initialization-resource: |-
       {
@@ -54,7 +54,7 @@ metadata:
     operatorframework.io/arch.amd64: supported
     operatorframework.io/arch.arm64: supported
     operatorframework.io/os.linux: supported
-  name: cryostat-operator.v3.0.0
+  name: cryostat-operator.v3.0.1-dev
   namespace: placeholder
 spec:
   apiservicedefinitions: {}
@@ -994,19 +994,19 @@ spec:
                       - name: RELATED_IMAGE_OAUTH2_PROXY
                         value: quay.io/oauth2-proxy/oauth2-proxy:latest
                       - name: RELATED_IMAGE_OPENSHIFT_OAUTH_PROXY
-                        value: quay.io/cryostat/openshift-oauth-proxy:3.0.0
+                        value: quay.io/cryostat/openshift-oauth-proxy:cryostat-v3.0
                       - name: RELATED_IMAGE_CORE
-                        value: quay.io/cryostat/cryostat:3.0.0
+                        value: quay.io/cryostat/cryostat:3.0.1-snapshot
                       - name: RELATED_IMAGE_DATASOURCE
-                        value: quay.io/cryostat/jfr-datasource:3.0.0
+                        value: quay.io/cryostat/jfr-datasource:3.0.1-snapshot
                       - name: RELATED_IMAGE_GRAFANA
-                        value: quay.io/cryostat/cryostat-grafana-dashboard:3.0.0
+                        value: quay.io/cryostat/cryostat-grafana-dashboard:cryostat-v3.0
                       - name: RELATED_IMAGE_REPORTS
-                        value: quay.io/cryostat/cryostat-reports:3.0.0
+                        value: quay.io/cryostat/cryostat-reports:3.0.1-snapshot
                       - name: RELATED_IMAGE_STORAGE
-                        value: quay.io/cryostat/cryostat-storage:3.0.0
+                        value: quay.io/cryostat/cryostat-storage:cryostat-v3.0
                       - name: RELATED_IMAGE_DATABASE
-                        value: quay.io/cryostat/cryostat-db:3.0.0
+                        value: quay.io/cryostat/cryostat-db:cryostat-v3.0
                       - name: WATCH_NAMESPACE
                         valueFrom:
                           fieldRef:
@@ -1015,8 +1015,8 @@ spec:
                         valueFrom:
                           fieldRef:
                             fieldPath: metadata.namespace
-                    image: quay.io/cryostat/cryostat-operator:3.0.0
-                    imagePullPolicy: IfNotPresent
+                    image: quay.io/cryostat/cryostat-operator:3.0.1-dev
+                    imagePullPolicy: Always
                     livenessProbe:
                       httpGet:
                         path: /healthz
@@ -1171,21 +1171,21 @@ spec:
   relatedImages:
     - image: quay.io/oauth2-proxy/oauth2-proxy:latest
       name: oauth2-proxy
-    - image: quay.io/cryostat/openshift-oauth-proxy:3.0.0
+    - image: quay.io/cryostat/openshift-oauth-proxy:cryostat-v3.0
       name: openshift-oauth-proxy
-    - image: quay.io/cryostat/cryostat:3.0.0
+    - image: quay.io/cryostat/cryostat:3.0.1-snapshot
       name: core
-    - image: quay.io/cryostat/jfr-datasource:3.0.0
+    - image: quay.io/cryostat/jfr-datasource:3.0.1-snapshot
       name: datasource
-    - image: quay.io/cryostat/cryostat-grafana-dashboard:3.0.0
+    - image: quay.io/cryostat/cryostat-grafana-dashboard:cryostat-v3.0
       name: grafana
-    - image: quay.io/cryostat/cryostat-reports:3.0.0
+    - image: quay.io/cryostat/cryostat-reports:3.0.1-snapshot
       name: reports
-    - image: quay.io/cryostat/cryostat-storage:3.0.0
+    - image: quay.io/cryostat/cryostat-storage:cryostat-v3.0
       name: storage
-    - image: quay.io/cryostat/cryostat-db:3.0.0
+    - image: quay.io/cryostat/cryostat-db:cryostat-v3.0
       name: database
-  version: 3.0.0
+  version: 3.0.1-dev
   webhookdefinitions:
     - admissionReviewVersions:
         - v1
