@@ -155,13 +155,14 @@ type ArchiveGraphQLResponse struct {
 }
 
 const (
+	GRAFANA_DASHBOARD_UID     = "main"
+	GRAFANA_DASHBOARD_TITLE   = "Cryostat Dashboard"
 	GRAFANA_DATASOURCE_NAME   = "jfr-datasource"
-	GRAFANA_DATASOURCE_URL    = "http://127.0.0.1:8989"
 	GRAFANA_DATASOURCE_TYPE   = "grafana-simple-json-datasource"
 	GRAFANA_DATASOURCE_ACCESS = "proxy"
 )
 
-// Grafana types
+// DataSource represents a Grafana data source
 type DataSource struct {
 	ID   int64  `json:"id"`
 	UID  string `json:"uid"`
@@ -172,8 +173,6 @@ type DataSource struct {
 	URL    string `json:"url"`
 	Access string `json:"access"`
 
-	ReadOnly  bool `json:"readOnly"`
-	IsDefault bool `json:"isDefault"`
 	BasicAuth bool `json:"basicAuth"`
 }
 
@@ -186,12 +185,12 @@ func (ds *DataSource) Valid() error {
 		return fmt.Errorf("expected datasource type %s, but got %s", GRAFANA_DATASOURCE_TYPE, ds.Type)
 	}
 
-	if ds.URL != GRAFANA_DATASOURCE_URL {
-		return fmt.Errorf("expected datasource url %s, but got %s", GRAFANA_DATASOURCE_URL, ds.URL)
+	if len(ds.URL) == 0 {
+		return errors.New("expected datasource url, but got empty")
 	}
 
 	if ds.Access != GRAFANA_DATASOURCE_ACCESS {
-		return fmt.Errorf("expected datasource access %s, but got %s", GRAFANA_DATASOURCE_ACCESS, ds.Access)
+		return fmt.Errorf("expected datasource access mode %s, but got %s", GRAFANA_DATASOURCE_ACCESS, ds.Access)
 	}
 
 	if ds.BasicAuth {
