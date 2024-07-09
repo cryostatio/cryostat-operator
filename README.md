@@ -29,7 +29,7 @@ for the Grafana dashboard.
 
 ## Requirements
 
-- `kubernetes` v1.21+ with [`Operator Lifecycle Manager`](https://olm.operatorframework.io/)
+- `kubernetes` v1.25+ with [`Operator Lifecycle Manager`](https://olm.operatorframework.io/)
 - [`cert-manager`](https://github.com/cert-manager/cert-manager) v1.11.5+ (Recommended)
 
 ## Instructions
