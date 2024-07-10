@@ -453,29 +453,8 @@ func (r *TestResources) sendHealthRequest(base *url.URL, healthCheck func(resp *
 func (r *TestResources) updateAndWaitTillCryostatAvailable(cr *operatorv1beta2.Cryostat) (*operatorv1beta2.Cryostat, error) {
 	ctx := context.Background()
 
-	err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
-		var err error
-		cr, err = r.Client.OperatorCRDs().Cryostats(cr.Namespace).Get(ctx, cr.Name)
-		if err != nil {
-			return fmt.Errorf("failed to get Cryostat CR \"%s\": %s", cr.Name, err.Error())
-		}
-
-		cr.Spec.StorageOptions = &operatorv1beta2.StorageConfiguration{
-			PVC: &operatorv1beta2.PersistentVolumeClaimConfig{
-				Spec: &corev1.PersistentVolumeClaimSpec{
-					StorageClassName: nil,
-					Resources: corev1.ResourceRequirements{
-						Requests: corev1.ResourceList{
-							corev1.ResourceStorage: resource.MustParse("1Gi"),
-						},
-					},
-				},
-			},
-		}
-
-		cr, err = r.Client.OperatorCRDs().Cryostats(cr.Namespace).Update(context.Background(), cr)
-		return err
-	})
+	// Change the CR's storage options in order to trigger a redeployment
+	cr, err := r.updateStorageOptions(ctx, cr)
 	if err != nil {
 		return nil, fmt.Errorf("failed to update Cryostat CR \"%s\": %s", cr.Name, err.Error())
 	}
@@ -534,6 +513,33 @@ func (r *TestResources) updateAndWaitTillCryostatAvailable(cr *operatorv1beta2.C
 		return nil, fmt.Errorf("failed to look up deployment errors: %s", err.Error())
 	}
 	return cr, err
+}
+
+func (r *TestResources) updateStorageOptions(ctx context.Context, cr *operatorv1beta2.Cryostat) (*operatorv1beta2.Cryostat, error) {
+	var result *operatorv1beta2.Cryostat
+	err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
+		cr, err := r.Client.OperatorCRDs().Cryostats(cr.Namespace).Get(ctx, cr.Name)
+		if err != nil {
+			return fmt.Errorf("failed to get Cryostat CR \"%s\": %s", cr.Name, err.Error())
+		}
+
+		cr.Spec.StorageOptions = &operatorv1beta2.StorageConfiguration{
+			PVC: &operatorv1beta2.PersistentVolumeClaimConfig{
+				Spec: &corev1.PersistentVolumeClaimSpec{
+					StorageClassName: nil,
+					Resources: corev1.ResourceRequirements{
+						Requests: corev1.ResourceList{
+							corev1.ResourceStorage: resource.MustParse("1Gi"),
+						},
+					},
+				},
+			},
+		}
+
+		result, err = r.Client.OperatorCRDs().Cryostats(cr.Namespace).Update(ctx, cr)
+		return err
+	})
+	return result, err
 }
 
 func (r *TestResources) cleanupAndLogs() {
