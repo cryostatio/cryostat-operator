@@ -516,7 +516,7 @@ func (r *TestResources) updateAndWaitTillCryostatAvailable(cr *operatorv1beta2.C
 }
 
 func (r *TestResources) updateStorageOptions(ctx context.Context, cr *operatorv1beta2.Cryostat) (*operatorv1beta2.Cryostat, error) {
-	result := &operatorv1beta2.Cryostat{}
+	var result *operatorv1beta2.Cryostat
 	err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
 		cr, err := r.Client.OperatorCRDs().Cryostats(cr.Namespace).Get(ctx, cr.Name)
 		if err != nil {
