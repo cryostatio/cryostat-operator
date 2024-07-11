@@ -107,9 +107,14 @@ jobs:
       id: check-tag-exists
       run: |
         EXIST=false
-        if [ -n "$(podman search --list-tags ${CI_SCORECARD_IMG} --format json | jq --arg TAG ${{ steps.get-image-tag.outputs.tag }} '.[0].Tags[] | select( . == $TAG)')" ]; then
+        STATUS_CODE=$(curl -ILs -o /dev/null https://quay.io/v2/${CI_SCORECARD_IMG/"quay.io/"/}/manifests/${{ steps.get-image-tag.outputs.tag }} -w "%{http_code}")
+        if [ ${STATUS_CODE} -eq 200 ]; then
           EXIST=true
+        elif [ ${STATUS_CODE} -ne 404 ]; then
+          echo "Failed to query image's existence with status code ${STATUS_CODE}"
+          exit 1
         fi
+        echo "${CI_SCORECARD_IMG}:${{ steps.get-image-tag.outputs.tag }} exists: $EXIST"
         echo "exist=$EXIST" >> $GITHUB_OUTPUT
     - name: Install podman v4
       run: |
