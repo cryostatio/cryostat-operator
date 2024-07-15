@@ -934,11 +934,11 @@ func NewCoreContainer(cr *model.CryostatInstance, specs *ServiceSpecs, imageTag 
 		},
 		{
 			Name:  "QUARKUS_DATASOURCE_USERNAME",
-			Value: "cryostat3",
+			Value: "cryostat",
 		},
 		{
 			Name:  "QUARKUS_DATASOURCE_JDBC_URL",
-			Value: "jdbc:postgresql://localhost:5432/cryostat3",
+			Value: "jdbc:postgresql://localhost:5432/cryostat",
 		},
 		{
 			Name:  "STORAGE_BUCKETS_ARCHIVE_NAME",
@@ -1393,11 +1393,11 @@ func newDatabaseContainer(cr *model.CryostatInstance, imageTag string, tls *TLSC
 	envs := []corev1.EnvVar{
 		{
 			Name:  "POSTGRESQL_USER",
-			Value: "cryostat3",
+			Value: "cryostat",
 		},
 		{
 			Name:  "POSTGRESQL_DATABASE",
-			Value: "cryostat3",
+			Value: "cryostat",
 		},
 	}
 
@@ -1452,7 +1452,7 @@ func newDatabaseContainer(cr *model.CryostatInstance, imageTag string, tls *TLSC
 		ReadinessProbe: &corev1.Probe{
 			ProbeHandler: corev1.ProbeHandler{
 				Exec: &corev1.ExecAction{
-					Command: []string{"pg_isready", "-U", "cryostat3", "-d", "cryostat3"},
+					Command: []string{"pg_isready", "-U", "cryostat", "-d", "cryostat"},
 				},
 			},
 		},
