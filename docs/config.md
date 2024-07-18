@@ -32,7 +32,7 @@ spec:
 ```
 
 ### Custom Event Templates
-All JDK Flight Recordings created by Cryostat are configured using an event template. These templates specify which events to record, and Cryostat includes some templates automatically, including those provided by the target's JVM. Cryostat also provides the ability to [upload customized templates](https://cryostat.io/getting-started/#download-edit-and-upload-a-customized-event-template), which can then be used to create recordings.
+All JDK Flight Recordings created by Cryostat are configured using an event template. These templates specify which events to record, and Cryostat includes some templates automatically, including those provided by the target's JVM. Cryostat also provides the ability to [upload customized templates](https://cryostat.io/guides/#download-edit-and-upload-a-customized-event-template), which can then be used to create recordings.
 
 The Cryostat Operator provides an additional feature to pre-configure Cryostat with custom templates that are stored in Config Maps. When Cryostat is deployed from this Cryostat object, it will have the listed templates already available for use.
 ```yaml
@@ -210,13 +210,12 @@ This example sets CPU and memory requests and limits for each container, but you
 Note that if you define limits lower than the default requests, the resource requests will be set to the value of your provided limits.
 
 ### Network Options
-When running on Kubernetes, the operator requires Ingress configurations for each of its services to make them available outside of the cluster. For a `Cryostat` object named `x`, the following Ingress configurations must be specified within the `spec.networkOptions` property:
+When running on Kubernetes, the operator requires Ingress configurations for each of its services to make them available outside of the cluster. For a `Cryostat` object named `x`, the following Ingress configuration must be specified within the `spec.networkOptions` property:
 - `coreConfig` exposing the service `x` on port `8181` (or alternate specified in [Service Options](#service-options)).
-- `grafanaConfig` exposing the service `x-grafana` on port `3000` (or alternate specified in [Service Options](#service-options)).
 
-The user is responsible for providing the hostnames for each Ingress. In Minikube, this can be done by adding entries to the host machine's `/etc/hosts` for each hostname, pointing to Minikube's IP address. See: https://kubernetes.io/docs/tasks/access-application-cluster/ingress-minikube/
+The user is responsible for providing the hostname for this Ingress. In Minikube, this can be done by adding an entry to the host machine's `/etc/hosts` for the hostname, pointing to Minikube's IP address. See: https://kubernetes.io/docs/tasks/access-application-cluster/ingress-minikube/
 
-Since Cryostat only accept HTTPS traffic by default, the Ingresses should be configured to forward traffic to the backend services over HTTPS. For the NGINX Ingress Controller, this can be done with the `nginx.ingress.kubernetes.io/backend-protocol` annotation. The operator considers TLS to be enabled for the Ingress if the Ingress's `spec.tls` array is non-empty. The example below uses the cluster's default wildcard certificate.
+Since Cryostat only accept HTTPS traffic by default, the Ingress should be configured to forward traffic to the backend services over HTTPS. For the NGINX Ingress Controller, this can be done with the `nginx.ingress.kubernetes.io/backend-protocol` annotation. The operator considers TLS to be enabled for the Ingress if the Ingress's `spec.tls` array is non-empty. The example below uses the cluster's default wildcard certificate.
 ```yaml
 apiVersion: operator.cryostat.io/v1beta2
 kind: Cryostat
@@ -243,7 +242,7 @@ spec:
                     number: 8181
 ```
 
-When running on OpenShift, labels and annotations specified in `coreConfig` and `grafanaConfig` will be applied to the coresponding Routes created by the operator.
+When running on OpenShift, labels and annotations specified in `coreConfig` will be applied to the coresponding Route created by the operator.
 
 ### Target Cache Configuration Options
 Cryostat's target connection cache can be optionally configured with `targetCacheSize` and `targetCacheTTL`.
@@ -375,7 +374,7 @@ spec:
 If not specified, the security contexts are defaulted to conform to the [restricted](https://kubernetes.io/docs/concepts/security/pod-security-standards/#restricted) Pod Security Standard. 
 For the Cryostat application pod, the operator selects an fsGroup to ensure that Cryostat can read and write files in its Persistent Volume.
 
-On OpenShift, Cryostat application pod's `spec.securityContext.seccompProfile` is left unset for backward compatibility. On versions of OpenShift supporting Pod Security Admission, the `restricted-v2` Security Context Constraint sets `seccompProfile` to `runtime/default` as required for the restricted Pod Security Standard. For more details, see [Security Context Constraints](https://docs.openshift.com/container-platform/4.11/authentication/managing-security-context-constraints.html#default-sccs_configuring-internal-oauth).
+On OpenShift, Cryostat application pod's `spec.securityContext.seccompProfile` is left unset for backward compatibility. On versions of OpenShift supporting Pod Security Admission, the `restricted-v2` Security Context Constraint sets `seccompProfile` to `runtime/default` as required for the restricted Pod Security Standard. For more details, see [Security Context Constraints](https://docs.openshift.com/container-platform/4.16/authentication/managing-security-context-constraints.html#default-sccs_configuring-internal-oauth).
 
 ### Scheduling Options
 
@@ -453,7 +452,7 @@ spec:
 
 ### Target Discovery Options
 
-If you wish to use only Cryostat's [Discovery Plugin API](https://github.com/cryostatio/cryostat/blob/801779d5ddf7fa30f7b230f649220a852b06f27d/docs/DISCOVERY_PLUGINS.md), set the property `spec.targetDiscoveryOptions.builtInDiscoveryDisabled` to `true` to disable Cryostat's built-in discovery mechanisms.
+If you wish to use only Cryostat's [Discovery Plugin API](https://github.com/cryostatio/cryostat-legacy/blob/main/docs/DISCOVERY_PLUGINS.md), set the property `spec.targetDiscoveryOptions.disableBuiltInDiscovery` to `true` to disable Cryostat's built-in discovery mechanisms.
 
 You may also change the list of port names and port numbers that Cryostat uses to discover compatible target Endpoints. By default it looks for ports with the name `jfr-jmx` or with the number `9091`.
 
@@ -464,7 +463,7 @@ metadata:
   name: cryostat-sample
 spec:
   targetDiscoveryOptions:
-    disableBuiltInDiscovery: false
+    disableBuiltInDiscovery: true
     discoveryPortNames:
       - my-jmx-port # look for ports named my-jmx-port or jdk-observe
       - jdk-observe
