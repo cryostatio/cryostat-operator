@@ -517,7 +517,7 @@ type SecurityOptions struct {
 	// +optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	StorageSecurityContext *corev1.SecurityContext `json:"storageSecurityContext,omitempty"`
-	// Security Context to apply to the storage container.
+	// Security Context to apply to the database container.
 	// +optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	DatabaseSecurityContext *corev1.SecurityContext `json:"databaseSecurityContext,omitempty"`

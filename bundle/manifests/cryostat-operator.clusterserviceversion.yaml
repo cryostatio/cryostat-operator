@@ -686,7 +686,7 @@ spec:
           - description: Security Context to apply to the JFR Data Source container.
             displayName: Data Source Security Context
             path: securityOptions.dataSourceSecurityContext
-          - description: Security Context to apply to the storage container.
+          - description: Security Context to apply to the database container.
             displayName: Database Security Context
             path: securityOptions.databaseSecurityContext
           - description: Security Context to apply to the Grafana container.
