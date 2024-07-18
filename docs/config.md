@@ -18,7 +18,7 @@ spec:
 #### Data Isolation
 When installed in a multi-namespace manner, all users with access to a Cryostat instance have the same visibility and privileges to all data available to that Cryostat instance. Administrators deploying Cryostat instances must ensure that the users who have access to a Cryostat instance also have equivalent access to all the applications that can be monitored by that Cryostat instance. Otherwise, underprivileged users may use Cryostat to escalate permissions to start recordings and collect JFR data from applications that they do not otherwise have access to.
 
-For now, all authorization checks are done against the namespace where Cryostat is installed. For a user to use Cryostat with workloads in a target namespace, that user must have the necessary Kubernetes permissions in the namespace where Cryostat is installed.
+Authorization checks are done against the namespace where Cryostat is installed and the list of target namespaces of your multi-namespace Cryostat. For a user to use Cryostat with workloads in a target namespace, that user must have the necessary Kubernetes permissions to create single-namespaced Cryostat instances in that target namespace.
 
 ### Disabling cert-manager Integration
 By default, the operator expects [cert-manager](https://cert-manager.io/) to be available in the cluster. The operator uses cert-manager to generate a self-signed CA to allow traffic between Cryostat components within the cluster to use HTTPS. If cert-manager is not available in the cluster, this integration can be disabled with the `spec.enableCertManager` property.
@@ -156,8 +156,8 @@ If the sidecar's resource requests are not specified, they are set with the foll
 
 | Request | Quantity |
 |---------|----------|
-| Reports Container CPU | 200m |
-| Reports Container Memory | 384Mi |
+| Reports Container CPU | 500m |
+| Reports Container Memory | 512Mi |
 
 
 ### Resource Requirements
@@ -165,17 +165,26 @@ By default, the operator deploys Cryostat with pre-configured resource requests:
 
 | Request | Quantity |
 |---------|----------|
+| Auth Proxy container CPU | 25m |
+| Auth Proxy container Memory | 64Mi |
 | Cryostat container CPU | 500m |
-| Cryostat container Memory | 256Mi |
+| Cryostat container Memory | 384Mi |
 | JFR Data Source container CPU | 200m |
-| JFR Data Source container Memory | 384Mi |
-| Grafana container CPU | 100m |
-| Grafana container Memory | 120Mi |
+| JFR Data Source container Memory | 200Mi |
+| Grafana container CPU | 25m |
+| Grafana container Memory | 80Mi |
+| Database container CPU | 25m |
+| Database container Memory | 64Mi |
+| Storage container CPU | 50m |
+| Storage container Memory | 256Mi |
 
-Using the Cryostat custom resource, you can define resources requests and/or limits for each of the three containers in Cryostat's main pod:
+Using the Cryostat custom resource, you can define resources requests and/or limits for each of the six containers in Cryostat's main pod:
+- the `auth-proxy` container running the Openshift oauth proxy, which performs authorization checks, and is placed in front of the operand containers.
 - the `core` container running the Cryostat backend and web application. If setting a memory limit for this container, we recommend at least 768MiB.
 - the `datasource` container running JFR Data Source, which converts recordings into a Grafana-compatible format.
 - the `grafana` container running the Grafana instance customized for Cryostat.
+- the `database` conainer running the [Postgres](https://github.com/postgres/postgres) database image customized for Cryostat.
+- the `storage` container running the S3-compatible storage provider for Cryostat.
 ```yaml
 apiVersion: operator.cryostat.io/v1beta2
 kind: Cryostat
@@ -183,6 +192,13 @@ metadata:
   name: cryostat-sample
 spec:
   resources:
+    authProxyResources:
+      requests:
+        cpu: 800m
+        memory: 256Mi
+      limits:
+        cpu: 1000m
+        memory: 512Mi
     coreResources:
       requests:
         cpu: 1200m
@@ -204,6 +220,20 @@ spec:
       limits:
         cpu: 1000m
         memory: 512Mi
+    databaseResources:
+      requests: 600m
+        cpu: 256Mi
+        memory: 
+      limits:
+        cpu: 800m
+        memory: 512Mi
+    objectStorageResources:
+      requests: 
+        cpu: 500m
+        memory: 512Mi
+      limits:
+        cpu: 1000m
+        memory: 768 Mi
 ```
 This example sets CPU and memory requests and limits for each container, but you may choose to define any combination of requests and limits that suits your use case.
 
@@ -341,6 +371,11 @@ spec:
       runAsNonRoot: true
       seccompProfile:
         type: RuntimeDefault
+    authProxySecurityContext:
+      allowPrivilegeEscalation: false
+      capabilities:
+        drop:
+        - ALL
     coreSecurityContext:
       allowPrivilegeEscalation: false
       capabilities:
@@ -353,6 +388,16 @@ spec:
         drop:
         - ALL
     grafanaSecurityContext:
+      allowPrivilegeEscalation: false
+      capabilities:
+        drop:
+        - ALL
+    storageSecurityContext:
+      allowPrivilegeEscalation: false
+      capabilities:
+        drop:
+        - ALL
+    databaseSecurityContext:
       allowPrivilegeEscalation: false
       capabilities:
         drop:
