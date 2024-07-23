@@ -61,6 +61,10 @@ type TLSConfig struct {
 	CryostatSecret string
 	// Name of the TLS secret for Reports Generator
 	ReportsSecret string
+	// Name of the TLS secret for Database
+	DatabaseSecret string
+	// Name of the TLS secret for Storage
+	StorageSecret string
 	// Name of the secret containing the password for the keystore in CryostatSecret
 	KeystorePassSecret string
 	// PEM-encoded X.509 certificate for the Cryostat CA
@@ -172,7 +176,7 @@ func NewDeploymentForCR(cr *model.CryostatInstance, specs *ServiceSpecs, imageTa
 	}, nil
 }
 
-func NewDeploymentForDatabase(cr *model.CryostatInstance, imageTags *ImageTags,
+func NewDeploymentForDatabase(cr *model.CryostatInstance, imageTags *ImageTags, tls *TLSConfig,
 	openshift bool, fsGroup int64) *appsv1.Deployment {
 	replicas := int32(1)
 
@@ -243,7 +247,7 @@ func NewDeploymentForDatabase(cr *model.CryostatInstance, imageTags *ImageTags,
 			},
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: podTemplateMeta,
-				Spec:       *NewPodForDatabase(cr, imageTags, openshift, fsGroup),
+				Spec:       *NewPodForDatabase(cr, imageTags, tls, openshift, fsGroup),
 			},
 			Replicas: &replicas,
 			Strategy: appsv1.DeploymentStrategy{
@@ -253,7 +257,7 @@ func NewDeploymentForDatabase(cr *model.CryostatInstance, imageTags *ImageTags,
 	}
 }
 
-func NewDeploymentForStorage(cr *model.CryostatInstance, imageTags *ImageTags, openshift bool, fsGroup int64) *appsv1.Deployment {
+func NewDeploymentForStorage(cr *model.CryostatInstance, imageTags *ImageTags, tls *TLSConfig, openshift bool, fsGroup int64) *appsv1.Deployment {
 	replicas := int32(1)
 
 	defaultDeploymentLabels := map[string]string{
@@ -323,7 +327,7 @@ func NewDeploymentForStorage(cr *model.CryostatInstance, imageTags *ImageTags, o
 			},
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: podTemplateMeta,
-				Spec:       *NewPodForStorage(cr, imageTags, openshift, fsGroup),
+				Spec:       *NewPodForStorage(cr, imageTags, tls, openshift, fsGroup),
 			},
 			Replicas: &replicas,
 			Strategy: appsv1.DeploymentStrategy{
@@ -610,8 +614,21 @@ func NewPodForCR(cr *model.CryostatInstance, specs *ServiceSpecs, imageTags *Ima
 	}, nil
 }
 
-func NewPodForDatabase(cr *model.CryostatInstance, imageTags *ImageTags, openshift bool, fsGroup int64) *corev1.PodSpec {
-	container := []corev1.Container{NewDatabaseContainer(cr, imageTags.DatabaseImageTag)}
+func NewPodForDatabase(cr *model.CryostatInstance, imageTags *ImageTags, tls *TLSConfig, openshift bool, fsGroup int64) *corev1.PodSpec {
+	container := []corev1.Container{NewDatabaseContainer(cr, imageTags.DatabaseImageTag, tls)}
+
+	volumes := []corev1.Volume{}
+	if tls != nil {
+		secretVolume := corev1.Volume{
+			Name: "database-tls-secret",
+			VolumeSource: corev1.VolumeSource{
+				Secret: &corev1.SecretVolumeSource{
+					SecretName: tls.DatabaseSecret,
+				},
+			},
+		}
+		volumes = append(volumes, secretVolume)
+	}
 
 	var podSc *corev1.PodSecurityContext
 	if cr.Spec.SecurityOptions != nil && cr.Spec.SecurityOptions.PodSecurityContext != nil {
@@ -649,11 +666,25 @@ func NewPodForDatabase(cr *model.CryostatInstance, imageTags *ImageTags, openshi
 		Affinity:        affinity,
 		Tolerations:     tolerations,
 		SecurityContext: podSc,
+		Volumes:         volumes,
 	}
 }
 
-func NewPodForStorage(cr *model.CryostatInstance, imageTags *ImageTags, openshift bool, fsGroup int64) *corev1.PodSpec {
-	container := []corev1.Container{NewStorageContainer(cr, imageTags.StorageImageTag)}
+func NewPodForStorage(cr *model.CryostatInstance, imageTags *ImageTags, tls *TLSConfig, openshift bool, fsGroup int64) *corev1.PodSpec {
+	container := []corev1.Container{NewStorageContainer(cr, imageTags.StorageImageTag, tls)}
+
+	volumes := []corev1.Volume{}
+	if tls != nil {
+		secretVolume := corev1.Volume{
+			Name: "storage-tls-secret",
+			VolumeSource: corev1.VolumeSource{
+				Secret: &corev1.SecretVolumeSource{
+					SecretName: tls.StorageSecret,
+				},
+			},
+		}
+		volumes = append(volumes, secretVolume)
+	}
 
 	var podSc *corev1.PodSecurityContext
 	if cr.Spec.SecurityOptions != nil && cr.Spec.SecurityOptions.PodSecurityContext != nil {
@@ -691,6 +722,7 @@ func NewPodForStorage(cr *model.CryostatInstance, imageTags *ImageTags, openshif
 		Affinity:        affinity,
 		Tolerations:     tolerations,
 		SecurityContext: podSc,
+		Volumes:         volumes,
 	}
 }
 
@@ -1294,6 +1326,15 @@ func NewCoreContainer(cr *model.CryostatInstance, specs *ServiceSpecs, imageTag 
 		envs = append(envs, reportsEnvs...)
 	}
 
+	envs = append(envs, corev1.EnvVar{
+		Name:  "CRYOSTAT_SERVICES_DATABASE_URL",
+		Value: specs.DatabaseURL.String(),
+	})
+	envs = append(envs, corev1.EnvVar{
+		Name:  "CRYOSTAT_SERVICES_STORAGE_URL",
+		Value: specs.StorageURL.String(),
+	})
+
 	// Define INSIGHTS_PROXY URL if Insights integration is enabled
 	if specs.InsightsURL != nil {
 		insightsEnvs := []corev1.EnvVar{
@@ -1521,7 +1562,7 @@ func NewStorageContainerResource(cr *model.CryostatInstance) *corev1.ResourceReq
 	return resources
 }
 
-func NewStorageContainer(cr *model.CryostatInstance, imageTag string) corev1.Container {
+func NewStorageContainer(cr *model.CryostatInstance, imageTag string, tls *TLSConfig) corev1.Container {
 	var containerSc *corev1.SecurityContext
 	envs := []corev1.EnvVar{
 		{
@@ -1565,6 +1606,44 @@ func NewStorageContainer(cr *model.CryostatInstance, imageTag string) corev1.Con
 		},
 	})
 
+	livenessProbeScheme := corev1.URISchemeHTTP
+	if tls != nil {
+		tlsEnvs := []corev1.EnvVar{
+			{
+				Name:  "QUARKUS_HTTP_SSL_PORT",
+				Value: strconv.Itoa(int(constants.StorageContainerPort)),
+			},
+			{
+				Name:  "QUARKUS_HTTP_SSL_CERTIFICATE_KEY_FILES",
+				Value: fmt.Sprintf("/var/run/secrets/operator.cryostat.io/%s/%s", tls.StorageSecret, corev1.TLSPrivateKeyKey),
+			},
+			{
+				Name:  "QUARKUS_HTTP_SSL_CERTIFICATE_FILES",
+				Value: fmt.Sprintf("/var/run/secrets/operator.cryostat.io/%s/%s", tls.StorageSecret, corev1.TLSCertKey),
+			},
+			{
+				Name:  "QUARKUS_HTTP_INSECURE_REQUESTS",
+				Value: "disabled",
+			},
+		}
+
+		tlsSecretMount := corev1.VolumeMount{
+			Name:      "storage-tls-secret",
+			MountPath: "/var/run/secrets/operator.cryostat.io/" + tls.StorageSecret,
+			ReadOnly:  true,
+		}
+
+		envs = append(envs, tlsEnvs...)
+		mounts = append(mounts, tlsSecretMount)
+
+		livenessProbeScheme = corev1.URISchemeHTTPS
+	} else {
+		envs = append(envs, corev1.EnvVar{
+			Name:  "QUARKUS_HTTP_PORT",
+			Value: strconv.Itoa(int(constants.StorageContainerPort)),
+		})
+	}
+
 	if cr.Spec.SecurityOptions != nil && cr.Spec.SecurityOptions.StorageSecurityContext != nil {
 		containerSc = cr.Spec.SecurityOptions.StorageSecurityContext
 	} else {
@@ -1577,7 +1656,6 @@ func NewStorageContainer(cr *model.CryostatInstance, imageTag string) corev1.Con
 		}
 	}
 
-	livenessProbeScheme := corev1.URISchemeHTTP
 	probeHandler := corev1.ProbeHandler{
 		HTTPGet: &corev1.HTTPGetAction{
 			Port:   intstr.IntOrString{IntVal: 8333},
@@ -1619,7 +1697,7 @@ func NewDatabaseContainerResource(cr *model.CryostatInstance) *corev1.ResourceRe
 	return resources
 }
 
-func NewDatabaseContainer(cr *model.CryostatInstance, imageTag string) corev1.Container {
+func NewDatabaseContainer(cr *model.CryostatInstance, imageTag string, tls *TLSConfig) corev1.Container {
 	var containerSc *corev1.SecurityContext
 	if cr.Spec.SecurityOptions != nil && cr.Spec.SecurityOptions.DatabaseSecurityContext != nil {
 		containerSc = cr.Spec.SecurityOptions.DatabaseSecurityContext
@@ -1678,6 +1756,41 @@ func NewDatabaseContainer(cr *model.CryostatInstance, imageTag string) corev1.Co
 			MountPath: "/data",
 			SubPath:   "postgres",
 		},
+	}
+
+	if tls != nil {
+		tlsEnvs := []corev1.EnvVar{
+			{
+				Name:  "QUARKUS_HTTP_SSL_PORT",
+				Value: strconv.Itoa(int(constants.DatabaseContainerPort)),
+			},
+			{
+				Name:  "QUARKUS_HTTP_SSL_CERTIFICATE_KEY_FILES",
+				Value: fmt.Sprintf("/var/run/secrets/operator.cryostat.io/%s/%s", tls.DatabaseSecret, corev1.TLSPrivateKeyKey),
+			},
+			{
+				Name:  "QUARKUS_HTTP_SSL_CERTIFICATE_FILES",
+				Value: fmt.Sprintf("/var/run/secrets/operator.cryostat.io/%s/%s", tls.DatabaseSecret, corev1.TLSCertKey),
+			},
+			{
+				Name:  "QUARKUS_HTTP_INSECURE_REQUESTS",
+				Value: "disabled",
+			},
+		}
+
+		tlsSecretMount := corev1.VolumeMount{
+			Name:      "database-tls-secret",
+			MountPath: "/var/run/secrets/operator.cryostat.io/" + tls.DatabaseSecret,
+			ReadOnly:  true,
+		}
+
+		envs = append(envs, tlsEnvs...)
+		mounts = append(mounts, tlsSecretMount)
+	} else {
+		envs = append(envs, corev1.EnvVar{
+			Name:  "QUARKUS_HTTP_PORT",
+			Value: strconv.Itoa(int(constants.DatabaseContainerPort)),
+		})
 	}
 
 	return corev1.Container{

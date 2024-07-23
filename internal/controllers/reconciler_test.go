@@ -2276,7 +2276,7 @@ func (t *cryostatTestInput) expectWaitingForCertificate() {
 
 func (t *cryostatTestInput) expectCertificates() {
 	// Check certificates
-	certs := []*certv1.Certificate{t.NewCryostatCert(), t.NewCACert(), t.NewReportsCert()}
+	certs := []*certv1.Certificate{t.NewCryostatCert(), t.NewCACert(), t.NewReportsCert(), t.NewDatabaseCert(), t.NewStorageCert()}
 	for _, expected := range certs {
 		actual := &certv1.Certificate{}
 		err := t.Client.Get(context.Background(), types.NamespacedName{Name: expected.Name, Namespace: expected.Namespace}, actual)
@@ -2653,18 +2653,36 @@ func (t *cryostatTestInput) checkMainPodTemplate(deployment *appsv1.Deployment, 
 
 	// Check that the networking environment variables are set correctly
 	coreContainer := template.Spec.Containers[0]
-	port := int32(10000)
-	if cr.Spec.ServiceOptions != nil && cr.Spec.ServiceOptions.ReportsConfig != nil &&
-		cr.Spec.ServiceOptions.ReportsConfig.HTTPPort != nil {
-		port = *cr.Spec.ServiceOptions.ReportsConfig.HTTPPort
+	reportPort := int32(10000)
+	databasePort := int32(5432)
+	storagePort := int32(8333)
+	if cr.Spec.ServiceOptions != nil {
+		if cr.Spec.ServiceOptions.ReportsConfig != nil && cr.Spec.ServiceOptions.ReportsConfig.HTTPPort != nil {
+			reportPort = *cr.Spec.ServiceOptions.ReportsConfig.HTTPPort
+		}
+		if cr.Spec.ServiceOptions.DatabaseConfig != nil && cr.Spec.ServiceOptions.DatabaseConfig.HTTPPort != nil {
+			databasePort = *cr.Spec.ServiceOptions.DatabaseConfig.HTTPPort
+		}
+		if cr.Spec.ServiceOptions.StorageConfig != nil && cr.Spec.ServiceOptions.StorageConfig.HTTPPort != nil {
+			storagePort = *cr.Spec.ServiceOptions.StorageConfig.HTTPPort
+		}
 	}
 	var reportsUrl string
+	var databaseUrl string
+	var storageUrl string
 	if t.ReportReplicas == 0 {
 		reportsUrl = ""
 	} else if t.TLS {
-		reportsUrl = fmt.Sprintf("https://%s-reports:%d", t.Name, port)
+		reportsUrl = fmt.Sprintf("https://%s-reports:%d", t.Name, reportPort)
 	} else {
-		reportsUrl = fmt.Sprintf("http://%s-reports:%d", t.Name, port)
+		reportsUrl = fmt.Sprintf("http://%s-reports:%d", t.Name, reportPort)
+	}
+	if t.TLS {
+		databaseUrl = fmt.Sprintf("https://%s-database:%d", t.Name, databasePort)
+		storageUrl = fmt.Sprintf("https://%s-storage:%d", t.Name, storagePort)
+	} else {
+		databaseUrl = fmt.Sprintf("http://%s-database:%d", t.Name, databasePort)
+		storageUrl = fmt.Sprintf("http://%s-storage:%d", t.Name, storagePort)
 	}
 	ingress := !t.OpenShift &&
 		cr.Spec.NetworkOptions != nil && cr.Spec.NetworkOptions.CoreConfig != nil && cr.Spec.NetworkOptions.CoreConfig.IngressSpec != nil
@@ -2678,7 +2696,7 @@ func (t *cryostatTestInput) checkMainPodTemplate(deployment *appsv1.Deployment, 
 		cr.Spec.TargetDiscoveryOptions.DisableBuiltInPortNumbers
 	dbSecretProvided := cr.Spec.DatabaseOptions != nil && cr.Spec.DatabaseOptions.SecretName != nil
 
-	t.checkCoreContainer(&coreContainer, ingress, reportsUrl,
+	t.checkCoreContainer(&coreContainer, ingress, reportsUrl, databaseUrl, storageUrl,
 		emptyDir,
 		hasPortConfig,
 		builtInDiscoveryDisabled,
@@ -2757,6 +2775,7 @@ func (t *cryostatTestInput) expectDatabaseDeployment() {
 		"kind":      "cryostat",
 		"component": "database",
 	}))
+	Expect(template.Spec.Volumes).To(ConsistOf(t.NewDatabaseVolumes()))
 	Expect(template.Spec.SecurityContext).To(Equal(t.NewPodSecurityContext(cr)))
 
 	// Check that Database is configured properly
@@ -2809,6 +2828,7 @@ func (t *cryostatTestInput) expectStorageDeployment() {
 		"kind":      "cryostat",
 		"component": "storage",
 	}))
+	Expect(template.Spec.Volumes).To(ConsistOf(t.NewStorageVolumes()))
 	Expect(template.Spec.SecurityContext).To(Equal(t.NewPodSecurityContext(cr)))
 
 	// Check that Storage is configured properly
@@ -2932,6 +2952,8 @@ func (t *cryostatTestInput) checkDeploymentHasTemplates() {
 
 func (t *cryostatTestInput) checkCoreContainer(container *corev1.Container, ingress bool,
 	reportsUrl string,
+	databaseUrl string,
+	storageUrl string,
 	emptyDir bool,
 	hasPortConfig bool, builtInDiscoveryDisabled bool, builtInPortConfigDisabled bool,
 	dbSecretProvided bool,
@@ -2944,7 +2966,7 @@ func (t *cryostatTestInput) checkCoreContainer(container *corev1.Container, ingr
 		Expect(container.Image).To(Equal(*t.EnvCoreImageTag))
 	}
 	Expect(container.Ports).To(ConsistOf(t.NewCorePorts()))
-	Expect(container.Env).To(ConsistOf(t.NewCoreEnvironmentVariables(reportsUrl, ingress, emptyDir, hasPortConfig, builtInDiscoveryDisabled, builtInPortConfigDisabled, dbSecretProvided)))
+	Expect(container.Env).To(ConsistOf(t.NewCoreEnvironmentVariables(reportsUrl, databaseUrl, storageUrl, ingress, emptyDir, hasPortConfig, builtInDiscoveryDisabled, builtInPortConfigDisabled, dbSecretProvided)))
 	Expect(container.EnvFrom).To(ConsistOf(t.NewCoreEnvFromSource()))
 	Expect(container.VolumeMounts).To(ConsistOf(t.NewCoreVolumeMounts()))
 	Expect(container.LivenessProbe).To(Equal(t.NewCoreLivenessProbe()))
@@ -2982,40 +3004,6 @@ func (t *cryostatTestInput) checkDatasourceContainer(container *corev1.Container
 	Expect(container.EnvFrom).To(BeEmpty())
 	Expect(container.VolumeMounts).To(BeEmpty())
 	Expect(container.LivenessProbe).To(Equal(t.NewDatasourceLivenessProbe()))
-	Expect(container.SecurityContext).To(Equal(securityContext))
-
-	test.ExpectResourceRequirements(&container.Resources, resources)
-}
-
-func (t *cryostatTestInput) checkStorageContainer(container *corev1.Container, resources *corev1.ResourceRequirements, securityContext *corev1.SecurityContext) {
-	Expect(container.Name).To(Equal(t.Name + "-storage"))
-	if t.EnvStorageImageTag == nil {
-		Expect(container.Image).To(HavePrefix("quay.io/cryostat/cryostat-storage:"))
-	} else {
-		Expect(container.Image).To(Equal(*t.EnvStorageImageTag))
-	}
-	Expect(container.Ports).To(ConsistOf(t.NewStoragePorts()))
-	Expect(container.Env).To(ConsistOf(t.NewStorageEnvironmentVariables()))
-	Expect(container.EnvFrom).To(BeEmpty())
-	Expect(container.VolumeMounts).To(ConsistOf(t.NewStorageVolumeMounts()))
-	Expect(container.LivenessProbe).To(Equal(t.NewStorageLivenessProbe()))
-	Expect(container.SecurityContext).To(Equal(securityContext))
-
-	test.ExpectResourceRequirements(&container.Resources, resources)
-}
-
-func (t *cryostatTestInput) checkDatabaseContainer(container *corev1.Container, resources *corev1.ResourceRequirements, securityContext *corev1.SecurityContext, dbSecretProvided bool) {
-	Expect(container.Name).To(Equal(t.Name + "-db"))
-	if t.EnvDatabaseImageTag == nil {
-		Expect(container.Image).To(HavePrefix("quay.io/cryostat/cryostat-db:"))
-	} else {
-		Expect(container.Image).To(Equal(*t.EnvDatabaseImageTag))
-	}
-	Expect(container.Ports).To(ConsistOf(t.NewDatabasePorts()))
-	Expect(container.Env).To(ConsistOf(t.NewDatabaseEnvironmentVariables(dbSecretProvided)))
-	Expect(container.EnvFrom).To(BeEmpty())
-	Expect(container.VolumeMounts).To(ConsistOf(t.NewDatabaseVolumeMounts()))
-	Expect(container.ReadinessProbe).To(Equal(t.NewDatabaseReadinessProbe()))
 	Expect(container.SecurityContext).To(Equal(securityContext))
 
 	test.ExpectResourceRequirements(&container.Resources, resources)
@@ -3061,6 +3049,40 @@ func (t *cryostatTestInput) checkReportsContainer(container *corev1.Container, r
 	Expect(container.Env).To(ConsistOf(t.NewReportsEnvironmentVariables(resources)))
 	Expect(container.VolumeMounts).To(ConsistOf(t.NewReportsVolumeMounts()))
 	Expect(container.LivenessProbe).To(Equal(t.NewReportsLivenessProbe()))
+	Expect(container.SecurityContext).To(Equal(securityContext))
+
+	test.ExpectResourceRequirements(&container.Resources, resources)
+}
+
+func (t *cryostatTestInput) checkStorageContainer(container *corev1.Container, resources *corev1.ResourceRequirements, securityContext *corev1.SecurityContext) {
+	Expect(container.Name).To(Equal(t.Name + "-storage"))
+	if t.EnvStorageImageTag == nil {
+		Expect(container.Image).To(HavePrefix("quay.io/cryostat/cryostat-storage:"))
+	} else {
+		Expect(container.Image).To(Equal(*t.EnvStorageImageTag))
+	}
+	Expect(container.Ports).To(ConsistOf(t.NewStoragePorts()))
+	Expect(container.Env).To(ConsistOf(t.NewStorageEnvironmentVariables()))
+	Expect(container.EnvFrom).To(BeEmpty())
+	Expect(container.VolumeMounts).To(ConsistOf(t.NewStorageVolumeMounts()))
+	Expect(container.LivenessProbe).To(Equal(t.NewStorageLivenessProbe()))
+	Expect(container.SecurityContext).To(Equal(securityContext))
+
+	test.ExpectResourceRequirements(&container.Resources, resources)
+}
+
+func (t *cryostatTestInput) checkDatabaseContainer(container *corev1.Container, resources *corev1.ResourceRequirements, securityContext *corev1.SecurityContext, dbSecretProvided bool) {
+	Expect(container.Name).To(Equal(t.Name + "-db"))
+	if t.EnvDatabaseImageTag == nil {
+		Expect(container.Image).To(HavePrefix("quay.io/cryostat/cryostat-db:"))
+	} else {
+		Expect(container.Image).To(Equal(*t.EnvDatabaseImageTag))
+	}
+	Expect(container.Ports).To(ConsistOf(t.NewDatabasePorts()))
+	Expect(container.Env).To(ConsistOf(t.NewDatabaseEnvironmentVariables(dbSecretProvided)))
+	Expect(container.EnvFrom).To(BeEmpty())
+	Expect(container.VolumeMounts).To(ConsistOf(t.NewDatabaseVolumeMounts()))
+	Expect(container.ReadinessProbe).To(Equal(t.NewDatabaseReadinessProbe()))
 	Expect(container.SecurityContext).To(Equal(securityContext))
 
 	test.ExpectResourceRequirements(&container.Resources, resources)
