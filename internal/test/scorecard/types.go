@@ -158,7 +158,8 @@ const (
 	GRAFANA_DASHBOARD_UID     = "main"
 	GRAFANA_DASHBOARD_TITLE   = "Cryostat Dashboard"
 	GRAFANA_DATASOURCE_NAME   = "jfr-datasource"
-	GRAFANA_DATASOURCE_TYPE   = "grafana-simple-json-datasource"
+	GRAFANA_DATASOURCE_TYPE   = "yesoreyeram-infinity-datasource"
+	GRAFANA_DATASOURCE_URL    = "http://127.0.0.1:8989"
 	GRAFANA_DATASOURCE_ACCESS = "proxy"
 )
 
@@ -176,24 +177,24 @@ type DataSource struct {
 	BasicAuth bool `json:"basicAuth"`
 }
 
-func (ds *DataSource) Valid() error {
-	if ds.Name != GRAFANA_DATASOURCE_NAME {
-		return fmt.Errorf("expected datasource name %s, but got %s", GRAFANA_DATASOURCE_NAME, ds.Name)
+func (datasource *DataSource) Valid() error {
+	if datasource.Name != GRAFANA_DATASOURCE_NAME {
+		return fmt.Errorf("expected datasource name %s, but got %s", GRAFANA_DATASOURCE_NAME, datasource.Name)
 	}
 
-	if ds.Type != GRAFANA_DATASOURCE_TYPE {
-		return fmt.Errorf("expected datasource type %s, but got %s", GRAFANA_DATASOURCE_TYPE, ds.Type)
+	if datasource.Type != GRAFANA_DATASOURCE_TYPE {
+		return fmt.Errorf("expected datasource type %s, but got %s", GRAFANA_DATASOURCE_TYPE, datasource.Type)
 	}
 
-	if len(ds.URL) == 0 {
-		return errors.New("expected datasource url, but got empty")
+	if datasource.URL != GRAFANA_DATASOURCE_URL {
+		return fmt.Errorf("expected datasource url %s, but got %s", GRAFANA_DATASOURCE_URL, datasource.URL)
 	}
 
-	if ds.Access != GRAFANA_DATASOURCE_ACCESS {
-		return fmt.Errorf("expected datasource access mode %s, but got %s", GRAFANA_DATASOURCE_ACCESS, ds.Access)
+	if datasource.Access != GRAFANA_DATASOURCE_ACCESS {
+		return fmt.Errorf("expected datasource access mode %s, but got %s", GRAFANA_DATASOURCE_ACCESS, datasource.Access)
 	}
 
-	if ds.BasicAuth {
+	if datasource.BasicAuth {
 		return errors.New("expected basicAuth to be disabled, but got enabled")
 	}
 
@@ -229,27 +230,36 @@ type Panel struct {
 	Panels  []Panel      `json:"panels"`
 }
 
+// PanelQuery represents a query for datapoints
 type PanelQuery struct {
-	RawQuery bool   `json:"rawQuery"`
-	RefID    string `json:"refId"`
-	Target   string `json:"target"`
-	Type     string `json:"table"`
+	RefID      string            `json:"refId"`
+	Target     string            `json:"target"`
+	Type       string            `json:"type"`
+	URL        string            `json:"url"`
+	URLOptions PanelQueryOptions `json:"url_options"`
 }
 
-func (db *DashBoard) Valid() error {
-	if db.UID != GRAFANA_DASHBOARD_UID {
-		return fmt.Errorf("expected dashboard uid %s, but got %s", GRAFANA_DASHBOARD_UID, db.UID)
+type PanelQueryOptions struct {
+	BodyContentType string `json:"body_content_type"`
+	BodyType        string `json:"body_type"`
+	Method          string `json:"method"`
+	Data            string `json:"data"`
+}
+
+func (dashboard *DashBoard) Valid() error {
+	if dashboard.UID != GRAFANA_DASHBOARD_UID {
+		return fmt.Errorf("expected dashboard uid %s, but got %s", GRAFANA_DASHBOARD_UID, dashboard.UID)
 	}
 
-	if db.Title != GRAFANA_DASHBOARD_TITLE {
-		return fmt.Errorf("expected dashboard title %s, but got %s", GRAFANA_DASHBOARD_TITLE, db.Title)
+	if dashboard.Title != GRAFANA_DASHBOARD_TITLE {
+		return fmt.Errorf("expected dashboard title %s, but got %s", GRAFANA_DASHBOARD_TITLE, dashboard.Title)
 	}
 
-	if !db.Provisioned {
+	if !dashboard.Provisioned {
 		return errors.New("expected dashboard to be provisioned, but got unprovisioned")
 	}
 
-	if len(db.Panels) == 0 {
+	if len(dashboard.Panels) == 0 {
 		return errors.New("expected dashboard to have panels, but got 0")
 	}
 
