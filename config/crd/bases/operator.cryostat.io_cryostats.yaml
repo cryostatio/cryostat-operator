@@ -8933,14 +8933,16 @@ spec:
                           creation.
                         type: object
                       httpPort:
-                        description: HTTP port number for the cryostat application's
-                          database. Defaults to 5432.
+                        description: |-
+                          HTTP port number for the cryostat application's database.
+                          Defaults to 5432.
                         format: int32
                         type: integer
                       labels:
                         additionalProperties:
                           type: string
-                        description: Labels to add to the service during its creation.
+                        description: |-
+                          Labels to add to the service during its creation.
                           The labels with keys "app" and "component" are reserved
                           for use by the operator.
                         type: object
@@ -8987,14 +8989,16 @@ spec:
                           creation.
                         type: object
                       httpPort:
-                        description: HTTP port number for the storage to be created
-                          by the operator. Defaults to 8333.
+                        description: |-
+                          HTTP port number for the storage to be created by the operator.
+                          Defaults to 8333.
                         format: int32
                         type: integer
                       labels:
                         additionalProperties:
                           type: string
-                        description: Labels to add to the service during its creation.
+                        description: |-
+                          Labels to add to the service during its creation.
                           The labels with keys "app" and "component" are reserved
                           for use by the operator.
                         type: object

@@ -1066,6 +1066,58 @@ func (r *TestResources) NewReportsCert() *certv1.Certificate {
 	}
 }
 
+func (r *TestResources) NewDatabaseCert() *certv1.Certificate {
+	return &certv1.Certificate{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      r.Name + "-database",
+			Namespace: r.Namespace,
+		},
+		Spec: certv1.CertificateSpec{
+			CommonName: fmt.Sprintf(r.Name+"-database.%s.svc", r.Namespace),
+			DNSNames: []string{
+				r.Name + "-database",
+				fmt.Sprintf(r.Name+"-database.%s.svc", r.Namespace),
+				fmt.Sprintf(r.Name+"-database.%s.svc.cluster.local", r.Namespace),
+			},
+			SecretName: r.Name + "-database-tls",
+			IssuerRef: certMeta.ObjectReference{
+				Name: r.Name + "-ca",
+			},
+			Usages: []certv1.KeyUsage{
+				certv1.UsageDigitalSignature,
+				certv1.UsageKeyEncipherment,
+				certv1.UsageServerAuth,
+			},
+		},
+	}
+}
+
+func (r *TestResources) NewStorageCert() *certv1.Certificate {
+	return &certv1.Certificate{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      r.Name + "-storage",
+			Namespace: r.Namespace,
+		},
+		Spec: certv1.CertificateSpec{
+			CommonName: fmt.Sprintf(r.Name+"-storage.%s.svc", r.Namespace),
+			DNSNames: []string{
+				r.Name + "-storage",
+				fmt.Sprintf(r.Name+"-storage.%s.svc", r.Namespace),
+				fmt.Sprintf(r.Name+"-storage.%s.svc.cluster.local", r.Namespace),
+			},
+			SecretName: r.Name + "-storage-tls",
+			IssuerRef: certMeta.ObjectReference{
+				Name: r.Name + "-ca",
+			},
+			Usages: []certv1.KeyUsage{
+				certv1.UsageDigitalSignature,
+				certv1.UsageKeyEncipherment,
+				certv1.UsageServerAuth,
+			},
+		},
+	}
+}
+
 func (r *TestResources) NewCACert() *certv1.Certificate {
 	return &certv1.Certificate{
 		ObjectMeta: metav1.ObjectMeta{
@@ -1273,7 +1325,7 @@ func (r *TestResources) NewAuthProxyPorts() []corev1.ContainerPort {
 	}
 }
 
-func (r *TestResources) NewCoreEnvironmentVariables(reportsUrl string, ingress bool,
+func (r *TestResources) NewCoreEnvironmentVariables(reportsUrl string, databaseUrl string, storageUrl string, ingress bool,
 	emptyDir bool, hasPortConfig bool, builtInDiscoveryDisabled bool, builtInPortConfigDisabled bool, dbSecretProvided bool) []corev1.EnvVar {
 	envs := []corev1.EnvVar{
 		{
@@ -1422,6 +1474,22 @@ func (r *TestResources) NewCoreEnvironmentVariables(reportsUrl string, ingress b
 			})
 	}
 
+	if databaseUrl != "" {
+		envs = append(envs,
+			corev1.EnvVar{
+				Name:  "CRYOSTAT_SERVICES_DATABASE_URL",
+				Value: databaseUrl,
+			})
+	}
+
+	if storageUrl != "" {
+		envs = append(envs,
+			corev1.EnvVar{
+				Name:  "CRYOSTAT_SERVICES_STORAGE_URL",
+				Value: storageUrl,
+			})
+	}
+
 	if len(r.InsightsURL) > 0 {
 		envs = append(envs,
 			corev1.EnvVar{
@@ -1530,7 +1598,7 @@ func (r *TestResources) NewReportsEnvironmentVariables(resources *corev1.Resourc
 }
 
 func (r *TestResources) NewStorageEnvironmentVariables() []corev1.EnvVar {
-	return []corev1.EnvVar{
+	envs := []corev1.EnvVar{
 		{
 			Name:  "CRYOSTAT_BUCKETS",
 			Value: "archivedrecordings,archivedreports,eventtemplates,probes",
@@ -1560,6 +1628,27 @@ func (r *TestResources) NewStorageEnvironmentVariables() []corev1.EnvVar {
 			},
 		},
 	}
+	if r.TLS {
+		envs = append(envs, corev1.EnvVar{
+			Name:  "QUARKUS_HTTP_SSL_PORT",
+			Value: "8333",
+		}, corev1.EnvVar{
+			Name:  "QUARKUS_HTTP_SSL_CERTIFICATE_KEY_FILES",
+			Value: fmt.Sprintf("/var/run/secrets/operator.cryostat.io/%s-storage-tls/tls.key", r.Name),
+		}, corev1.EnvVar{
+			Name:  "QUARKUS_HTTP_SSL_CERTIFICATE_FILES",
+			Value: fmt.Sprintf("/var/run/secrets/operator.cryostat.io/%s-storage-tls/tls.crt", r.Name),
+		}, corev1.EnvVar{
+			Name:  "QUARKUS_HTTP_INSECURE_REQUESTS",
+			Value: "disabled",
+		})
+	} else {
+		envs = append(envs, corev1.EnvVar{
+			Name:  "QUARKUS_HTTP_PORT",
+			Value: "8333",
+		})
+	}
+	return envs
 }
 
 func (r *TestResources) NewDatabaseEnvironmentVariables(dbSecretProvided bool) []corev1.EnvVar {
@@ -1568,7 +1657,7 @@ func (r *TestResources) NewDatabaseEnvironmentVariables(dbSecretProvided bool) [
 	if dbSecretProvided {
 		secretName = providedDatabaseSecretName
 	}
-	return []corev1.EnvVar{
+	envs := []corev1.EnvVar{
 		{
 			Name:  "POSTGRESQL_USER",
 			Value: "cryostat",
@@ -1602,6 +1691,27 @@ func (r *TestResources) NewDatabaseEnvironmentVariables(dbSecretProvided bool) [
 			},
 		},
 	}
+	if r.TLS {
+		envs = append(envs, corev1.EnvVar{
+			Name:  "QUARKUS_HTTP_SSL_PORT",
+			Value: "5432",
+		}, corev1.EnvVar{
+			Name:  "QUARKUS_HTTP_SSL_CERTIFICATE_KEY_FILES",
+			Value: fmt.Sprintf("/var/run/secrets/operator.cryostat.io/%s-database-tls/tls.key", r.Name),
+		}, corev1.EnvVar{
+			Name:  "QUARKUS_HTTP_SSL_CERTIFICATE_FILES",
+			Value: fmt.Sprintf("/var/run/secrets/operator.cryostat.io/%s-database-tls/tls.crt", r.Name),
+		}, corev1.EnvVar{
+			Name:  "QUARKUS_HTTP_INSECURE_REQUESTS",
+			Value: "disabled",
+		})
+	} else {
+		envs = append(envs, corev1.EnvVar{
+			Name:  "QUARKUS_HTTP_PORT",
+			Value: "5432",
+		})
+	}
+	return envs
 }
 
 func (r *TestResources) NewAuthProxyEnvironmentVariables(authOptions *operatorv1beta2.AuthorizationOptions) []corev1.EnvVar {
@@ -1833,23 +1943,41 @@ func (r *TestResources) NewCoreVolumeMounts() []corev1.VolumeMount {
 }
 
 func (r *TestResources) NewStorageVolumeMounts() []corev1.VolumeMount {
-	return []corev1.VolumeMount{
-		{
+	mounts := []corev1.VolumeMount{}
+	mounts = append(mounts,
+		corev1.VolumeMount{
 			Name:      r.Name,
 			MountPath: "/data",
 			SubPath:   "seaweed",
-		},
+		})
+	if r.TLS {
+		mounts = append(mounts,
+			corev1.VolumeMount{
+				Name:      "storage-tls-secret",
+				MountPath: fmt.Sprintf("/var/run/secrets/operator.cryostat.io/%s-storage-tls", r.Name),
+				ReadOnly:  true,
+			})
 	}
+	return mounts
 }
 
 func (r *TestResources) NewDatabaseVolumeMounts() []corev1.VolumeMount {
-	return []corev1.VolumeMount{
-		{
+	mounts := []corev1.VolumeMount{}
+	mounts = append(mounts,
+		corev1.VolumeMount{
 			Name:      r.Name,
 			MountPath: "/data",
 			SubPath:   "postgres",
-		},
+		})
+	if r.TLS {
+		mounts = append(mounts,
+			corev1.VolumeMount{
+				Name:      "database-tls-secret",
+				MountPath: fmt.Sprintf("/var/run/secrets/operator.cryostat.io/%s-database-tls", r.Name),
+				ReadOnly:  true,
+			})
 	}
+	return mounts
 }
 
 func (r *TestResources) NewAuthProxyVolumeMounts(authOptions *operatorv1beta2.AuthorizationOptions) []corev1.VolumeMount {
@@ -1973,12 +2101,16 @@ func (r *TestResources) NewDatasourceLivenessProbe() *corev1.Probe {
 }
 
 func (r *TestResources) NewStorageLivenessProbe() *corev1.Probe {
+	protocol := corev1.URISchemeHTTPS
+	if !r.TLS {
+		protocol = corev1.URISchemeHTTP
+	}
 	return &corev1.Probe{
 		ProbeHandler: corev1.ProbeHandler{
 			HTTPGet: &corev1.HTTPGetAction{
 				Port:   intstr.IntOrString{IntVal: 8333},
 				Path:   "/status",
-				Scheme: corev1.URISchemeHTTP,
+				Scheme: protocol,
 			},
 		},
 		FailureThreshold: 2,
@@ -2319,6 +2451,38 @@ func (r *TestResources) NewReportsVolumes() []corev1.Volume {
 			VolumeSource: corev1.VolumeSource{
 				Secret: &corev1.SecretVolumeSource{
 					SecretName: r.Name + "-reports-tls",
+				},
+			},
+		},
+	}
+}
+
+func (r *TestResources) NewDatabaseVolumes() []corev1.Volume {
+	if !r.TLS {
+		return nil
+	}
+	return []corev1.Volume{
+		{
+			Name: "database-tls-secret",
+			VolumeSource: corev1.VolumeSource{
+				Secret: &corev1.SecretVolumeSource{
+					SecretName: r.Name + "-database-tls",
+				},
+			},
+		},
+	}
+}
+
+func (r *TestResources) NewStorageVolumes() []corev1.Volume {
+	if !r.TLS {
+		return nil
+	}
+	return []corev1.Volume{
+		{
+			Name: "storage-tls-secret",
+			VolumeSource: corev1.VolumeSource{
+				Secret: &corev1.SecretVolumeSource{
+					SecretName: r.Name + "-storage-tls",
 				},
 			},
 		},

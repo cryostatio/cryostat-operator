@@ -279,12 +279,12 @@ func (r *Reconciler) reconcileCryostat(ctx context.Context, cr *model.CryostatIn
 		return reportsResult, err
 	}
 
-	databaseResult, err := r.reconcileDatabase(ctx, reqLogger, cr, imageTags, serviceSpecs, *fsGroup)
+	databaseResult, err := r.reconcileDatabase(ctx, reqLogger, cr, tlsConfig, imageTags, serviceSpecs, *fsGroup)
 	if err != nil {
 		return databaseResult, err
 	}
 
-	storageResult, err := r.reconcileStorage(ctx, reqLogger, cr, imageTags, serviceSpecs, *fsGroup)
+	storageResult, err := r.reconcileStorage(ctx, reqLogger, cr, tlsConfig, imageTags, serviceSpecs, *fsGroup)
 	if err != nil {
 		return storageResult, err
 	}
@@ -392,14 +392,14 @@ func (r *Reconciler) reconcileReports(ctx context.Context, reqLogger logr.Logger
 	return reconcile.Result{}, nil
 }
 
-func (r *Reconciler) reconcileDatabase(ctx context.Context, reqLogger logr.Logger, cr *model.CryostatInstance, imageTags *resources.ImageTags, serviceSpecs *resources.ServiceSpecs, fsGroup int64) (reconcile.Result, error) {
+func (r *Reconciler) reconcileDatabase(ctx context.Context, reqLogger logr.Logger, cr *model.CryostatInstance, tls *resources.TLSConfig, imageTags *resources.ImageTags, serviceSpecs *resources.ServiceSpecs, fsGroup int64) (reconcile.Result, error) {
 	reqLogger.Info("Spec", "Database", cr.Spec.DatabaseOptions)
 
-	err := r.reconcileDatabaseService(ctx, cr, serviceSpecs)
+	err := r.reconcileDatabaseService(ctx, cr, tls, serviceSpecs)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
-	deployment := resources.NewDeploymentForDatabase(cr, imageTags, r.IsOpenShift, fsGroup)
+	deployment := resources.NewDeploymentForDatabase(cr, imageTags, tls, r.IsOpenShift, fsGroup)
 
 	err = r.createOrUpdateDeployment(ctx, deployment, cr.Object)
 	if err != nil {
@@ -415,15 +415,15 @@ func (r *Reconciler) reconcileDatabase(ctx context.Context, reqLogger logr.Logge
 	return reconcile.Result{}, nil
 }
 
-func (r *Reconciler) reconcileStorage(ctx context.Context, reqLogger logr.Logger, cr *model.CryostatInstance,
+func (r *Reconciler) reconcileStorage(ctx context.Context, reqLogger logr.Logger, cr *model.CryostatInstance, tls *resources.TLSConfig,
 	imageTags *resources.ImageTags, serviceSpecs *resources.ServiceSpecs, fsGroup int64) (reconcile.Result, error) {
 	reqLogger.Info("Spec", "Storage", cr.Spec.StorageOptions)
 
-	err := r.reconcileStorageService(ctx, cr, serviceSpecs)
+	err := r.reconcileStorageService(ctx, cr, tls, serviceSpecs)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
-	deployment := resources.NewDeploymentForStorage(cr, imageTags, r.IsOpenShift, fsGroup)
+	deployment := resources.NewDeploymentForStorage(cr, imageTags, tls, r.IsOpenShift, fsGroup)
 
 	err = r.createOrUpdateDeployment(ctx, deployment, cr.Object)
 	if err != nil {
