@@ -1,5 +1,5 @@
 ## Configuring Cryostat
-The operator creates and manages a Deployment of [Cryostat](https://github.com/cryostatio/cryostat) when the user creates or updates a `Cryostat` object. Only one `Cryostat` object should exist in the operator's namespace at a time. There are a few options available in the `Cryostat` spec that control how Cryostat is deployed.
+The operator creates and manages a Deployment of [Cryostat](https://github.com/cryostatio/cryostat) when the user creates or updates a `Cryostat` object. Only one `Cryostat` object should exist in a namespace at a time. There are a few options available in the `Cryostat` spec that control how Cryostat is deployed.
 
 ### Target Namespaces
 Specify the list of namespaces containing your workloads that you want your multi-namespace Cryostat installation to work with under the `spec.targetNamespaces` property. The resulting Cryostat will have permissions to access workloads only within these specified namespaces. If not specified, `spec.targetNamespaces` will default to the namespace of the `Cryostat` object.
@@ -178,12 +178,12 @@ By default, the operator deploys Cryostat with pre-configured resource requests:
 | Storage container CPU | 50m |
 | Storage container Memory | 256Mi |
 
-Using the Cryostat custom resource, you can define resources requests and/or limits for each of the six containers in Cryostat's main pod:
-- the `auth-proxy` container running the Openshift oauth proxy, which performs authorization checks, and is placed in front of the operand containers.
+Using the Cryostat custom resource, you can define resources requests and/or limits for each of the containers in Cryostat's main pod:
+- the `auth-proxy` container running the oauth2-proxy, which performs authorization checks, and is placed in front of the operand containers.
 - the `core` container running the Cryostat backend and web application. If setting a memory limit for this container, we recommend at least 768MiB.
 - the `datasource` container running JFR Data Source, which converts recordings into a Grafana-compatible format.
 - the `grafana` container running the Grafana instance customized for Cryostat.
-- the `database` conainer running the [Postgres](https://github.com/postgres/postgres) database image customized for Cryostat.
+- the `database` container running the Postgres [database image](https://github.com/cryostatio/cryostat-db) customized for Cryostat.
 - the `storage` container running the S3-compatible storage provider for Cryostat.
 ```yaml
 apiVersion: operator.cryostat.io/v1beta2
@@ -497,7 +497,7 @@ spec:
 
 ### Target Discovery Options
 
-If you wish to use only Cryostat's [Discovery Plugin API](https://github.com/cryostatio/cryostat-legacy/blob/main/docs/DISCOVERY_PLUGINS.md), set the property `spec.targetDiscoveryOptions.disableBuiltInDiscovery` to `true` to disable Cryostat's built-in discovery mechanisms.
+If you wish to use only Cryostat's Discovery Plugin API, set the property `spec.targetDiscoveryOptions.disableBuiltInDiscovery` to `true` to disable Cryostat's built-in discovery mechanisms. For more details, see the Discovery Plugin section in the [OpenAPI schema](https://github.com/cryostatio/cryostat/blob/main/schema/openapi.yaml).
 
 You may also change the list of port names and port numbers that Cryostat uses to discover compatible target Endpoints. By default it looks for ports with the name `jfr-jmx` or with the number `9091`.
 
