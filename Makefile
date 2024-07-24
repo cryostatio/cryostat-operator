@@ -226,7 +226,6 @@ $(KUSTOMIZE) build internal/images/custom-scorecard-tests/rbac/ | $(CLUSTER_CLIE
 		--docker-username="$(SCORECARD_REGISTRY_USERNAME)" --docker-password="$(SCORECARD_REGISTRY_PASSWORD)"; \
 	$(CLUSTER_CLIENT) patch sa cryostat-scorecard -n $(SCORECARD_NAMESPACE) -p '{"imagePullSecrets": [{"name": "registry-key"}]}'; \
 fi
-$(CLUSTER_CLIENT) create -n $(SCORECARD_NAMESPACE) configmap scorecard-jfr-cm --from-file=internal/test/scorecard/testdata/scorecard_sample.jfr
 $(OPERATOR_SDK) run bundle -n $(SCORECARD_NAMESPACE) --timeout 20m $(BUNDLE_IMG) --security-context-config=restricted $(SCORECARD_ARGS)
 endef
 
@@ -244,7 +243,10 @@ endef
 define scorecard-local
 for test in $${SCORECARD_TEST_SELECTION//,/ }; do \
 	echo "Running scorecard test \"$${test}\""; \
-	SCORECARD_NAMESPACE=$(SCORECARD_NAMESPACE) BUNDLE_DIR=./bundle go run internal/images/custom-scorecard-tests/main.go $${test} | sed 's/\\n/\n/g'; \
+	SCORECARD_NAMESPACE=$(SCORECARD_NAMESPACE) \
+	BUNDLE_DIR=./bundle \
+	TESTDATA_DIR=./internal/test/scorecard/testdata \
+	go run internal/images/custom-scorecard-tests/main.go $${test} | sed 's/\\n/\n/g'; \
 done
 endef
 

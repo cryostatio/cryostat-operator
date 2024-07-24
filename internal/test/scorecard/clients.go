@@ -24,6 +24,7 @@ import (
 	"mime/multipart"
 	"net/http"
 	"net/url"
+	"os"
 	"strings"
 	"time"
 
@@ -520,7 +521,7 @@ func (client *RecordingClient) ListArchives(ctx context.Context, target *Target)
 	return graphQLResponse.Data.TargetNodes[0].Target.ArchivedRecordings.Data, nil
 }
 
-func (client *RecordingClient) UploadArchive(ctx context.Context, archiveContent []byte) error {
+func (client *RecordingClient) UploadArchive(ctx context.Context, filePath string) error {
 	url := client.Base.JoinPath("/api/v1/recordings")
 
 	body := &bytes.Buffer{}
@@ -531,7 +532,13 @@ func (client *RecordingClient) UploadArchive(ctx context.Context, archiveContent
 		return err
 	}
 
-	if _, err = part.Write(archiveContent); err != nil {
+	file, err := os.Open(filePath)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+
+	if _, err = io.Copy(part, file); err != nil {
 		return err
 	}
 
