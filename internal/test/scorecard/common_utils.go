@@ -44,6 +44,7 @@ const (
 	operatorDeploymentName string        = "cryostat-operator-controller"
 	jfrConfigMapName       string        = "scorecard-jfr-cm"
 	jfrFilename            string        = "scorecard_sample.jfr"
+	podTestDataRoot        string        = "/testdata"
 	testTimeout            time.Duration = time.Minute * 10
 )
 

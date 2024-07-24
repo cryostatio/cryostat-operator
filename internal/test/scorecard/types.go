@@ -177,7 +177,7 @@ type DataSource struct {
 	BasicAuth bool `json:"basicAuth"`
 }
 
-func (datasource *DataSource) Valid() error {
+func (datasource *DataSource) IsValid() error {
 	if datasource.Name != GRAFANA_DATASOURCE_NAME {
 		return fmt.Errorf("expected datasource name %s, but got %s", GRAFANA_DATASOURCE_NAME, datasource.Name)
 	}
@@ -246,7 +246,7 @@ type PanelQueryOptions struct {
 	Data            string `json:"data"`
 }
 
-func (dashboard *DashBoard) Valid() error {
+func (dashboard *DashBoard) IsValid() error {
 	if dashboard.UID != GRAFANA_DASHBOARD_UID {
 		return fmt.Errorf("expected dashboard uid %s, but got %s", GRAFANA_DASHBOARD_UID, dashboard.UID)
 	}

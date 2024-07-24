@@ -18,12 +18,13 @@ import (
 	"context"
 	"fmt"
 	"net/url"
+	"os"
+	"path"
 	"time"
 
 	operatorv1beta2 "github.com/cryostatio/cryostat-operator/api/v1beta2"
 	scapiv1alpha3 "github.com/operator-framework/api/pkg/apis/scorecard/v1alpha3"
 	apimanifests "github.com/operator-framework/api/pkg/manifests"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 const (
@@ -340,13 +341,14 @@ func CryostatGrafanaTest(bundle *apimanifests.Bundle, namespace string, openShif
 
 	apiClient := NewCryostatRESTClientset(base)
 
-	// Get JFR data
-	cm, err := r.Client.CoreV1().ConfigMaps(namespace).Get(context.Background(), jfrConfigMapName, metav1.GetOptions{})
-	if err != nil {
-		return r.fail(fmt.Sprintf("failed to get ConfigMap containing JFR data: %s", err.Error()))
+	// Get the path to the testdata directory from fromTESTDATA_DIR environment variable
+	// If empty, assume running within a pod and use "/testdata"
+	testDataDir := os.Getenv("TESTDATA_DIR")
+	if len(testDataDir) == 0 {
+		testDataDir = podTestDataRoot
 	}
 
-	err = apiClient.Recordings().UploadArchive(context.Background(), cm.BinaryData[jfrFilename])
+	err = apiClient.Recordings().UploadArchive(context.Background(), path.Join(testDataDir, jfrFilename))
 	if err != nil {
 		return r.fail(fmt.Sprintf("failed to upload archive %s: %s", jfrFilename, err.Error()))
 	}
@@ -362,7 +364,7 @@ func CryostatGrafanaTest(bundle *apimanifests.Bundle, namespace string, openShif
 		return r.fail(fmt.Sprintf("failed to get datasource %s: %s", GRAFANA_DATASOURCE_NAME, err.Error()))
 	}
 
-	if err = datasource.Valid(); err != nil {
+	if err = datasource.IsValid(); err != nil {
 		return r.fail(fmt.Sprintf("datasource %s is invalid: %s", GRAFANA_DATASOURCE_NAME, err.Error()))
 	}
 
@@ -371,7 +373,7 @@ func CryostatGrafanaTest(bundle *apimanifests.Bundle, namespace string, openShif
 		return r.fail(fmt.Sprintf("failed to get dashboard %s: %s", GRAFANA_DASHBOARD_UID, err.Error()))
 	}
 
-	if err = dashboard.Valid(); err != nil {
+	if err = dashboard.IsValid(); err != nil {
 		return r.fail(fmt.Sprintf("dashboard %s is invalid: %s", GRAFANA_DASHBOARD_UID, err.Error()))
 	}
 
