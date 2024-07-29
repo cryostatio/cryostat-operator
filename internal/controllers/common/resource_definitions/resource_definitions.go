@@ -431,7 +431,7 @@ func NewPodForCR(cr *model.CryostatInstance, specs *ServiceSpecs, imageTags *Ima
 		*authProxy,
 	}
 
-	volumes := newVolumeForCR(cr)
+	volumes := []corev1.Volume{}
 	volSources := []corev1.VolumeProjection{}
 	readOnlyMode := int32(0440)
 
@@ -617,7 +617,7 @@ func NewPodForCR(cr *model.CryostatInstance, specs *ServiceSpecs, imageTags *Ima
 func NewPodForDatabase(cr *model.CryostatInstance, imageTags *ImageTags, tls *TLSConfig, openshift bool, fsGroup int64) *corev1.PodSpec {
 	container := []corev1.Container{NewDatabaseContainer(cr, imageTags.DatabaseImageTag, tls)}
 
-	volumes := []corev1.Volume{}
+	volumes := newVolumeForDatabse(cr)
 	if tls != nil {
 		secretVolume := corev1.Volume{
 			Name: "database-tls-secret",
@@ -673,7 +673,7 @@ func NewPodForDatabase(cr *model.CryostatInstance, imageTags *ImageTags, tls *TL
 func NewPodForStorage(cr *model.CryostatInstance, imageTags *ImageTags, tls *TLSConfig, openshift bool, fsGroup int64) *corev1.PodSpec {
 	container := []corev1.Container{NewStorageContainer(cr, imageTags.StorageImageTag, tls)}
 
-	volumes := []corev1.Volume{}
+	volumes := newVolumeForStorage(cr)
 	if tls != nil {
 		secretVolume := corev1.Volume{
 			Name: "storage-tls-secret",
@@ -1635,7 +1635,6 @@ func NewStorageContainer(cr *model.CryostatInstance, imageTag string, tls *TLSCo
 
 		envs = append(envs, tlsEnvs...)
 		mounts = append(mounts, tlsSecretMount)
-
 		livenessProbeScheme = corev1.URISchemeHTTPS
 	} else {
 		envs = append(envs, corev1.EnvVar{
@@ -1874,19 +1873,6 @@ func NewJfrDatasourceContainer(cr *model.CryostatInstance, imageTag string) core
 	}
 }
 
-func getPort(url *url.URL) string {
-	// Return port if already defined in URL
-	port := url.Port()
-	if len(port) > 0 {
-		return port
-	}
-	// Otherwise use default HTTP(S) ports
-	if url.Scheme == "https" {
-		return "443"
-	}
-	return "80"
-}
-
 func getInternalDashboardURL() string {
 	return fmt.Sprintf("http://localhost:%d", constants.GrafanaContainerPort)
 }
@@ -1903,7 +1889,7 @@ func getPullPolicy(imageTag string) corev1.PullPolicy {
 	return corev1.PullIfNotPresent
 }
 
-func newVolumeForCR(cr *model.CryostatInstance) []corev1.Volume {
+func newVolumeForDatabse(cr *model.CryostatInstance) []corev1.Volume {
 	var volumeSource corev1.VolumeSource
 	if useEmptyDir(cr) {
 		emptyDir := cr.Spec.StorageOptions.EmptyDir
@@ -1922,14 +1908,46 @@ func newVolumeForCR(cr *model.CryostatInstance) []corev1.Volume {
 	} else {
 		volumeSource = corev1.VolumeSource{
 			PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
-				ClaimName: cr.Name,
+				ClaimName: cr.Name + "-database",
 			},
 		}
 	}
 
 	return []corev1.Volume{
 		{
-			Name:         cr.Name,
+			Name:         cr.Name + "-database",
+			VolumeSource: volumeSource,
+		},
+	}
+}
+
+func newVolumeForStorage(cr *model.CryostatInstance) []corev1.Volume {
+	var volumeSource corev1.VolumeSource
+	if useEmptyDir(cr) {
+		emptyDir := cr.Spec.StorageOptions.EmptyDir
+
+		sizeLimit, err := resource.ParseQuantity(emptyDir.SizeLimit)
+		if err != nil {
+			sizeLimit = *resource.NewQuantity(0, resource.BinarySI)
+		}
+
+		volumeSource = corev1.VolumeSource{
+			EmptyDir: &corev1.EmptyDirVolumeSource{
+				Medium:    emptyDir.Medium,
+				SizeLimit: &sizeLimit,
+			},
+		}
+	} else {
+		volumeSource = corev1.VolumeSource{
+			PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
+				ClaimName: cr.Name + "-storage",
+			},
+		}
+	}
+
+	return []corev1.Volume{
+		{
+			Name:         cr.Name + "-storage",
 			VolumeSource: volumeSource,
 		},
 	}

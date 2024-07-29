@@ -23,7 +23,6 @@ import (
 	operatorv1beta2 "github.com/cryostatio/cryostat-operator/api/v1beta2"
 	common "github.com/cryostatio/cryostat-operator/internal/controllers/common"
 	"github.com/cryostatio/cryostat-operator/internal/controllers/common/resource_definitions"
-	resources "github.com/cryostatio/cryostat-operator/internal/controllers/common/resource_definitions"
 	"github.com/cryostatio/cryostat-operator/internal/controllers/constants"
 	"github.com/cryostatio/cryostat-operator/internal/controllers/model"
 	corev1 "k8s.io/api/core/v1"
@@ -112,7 +111,7 @@ func (r *Reconciler) reconcileReportsService(ctx context.Context, cr *model.Cryo
 	return nil
 }
 
-func (r *Reconciler) reconcileDatabaseService(ctx context.Context, cr *model.CryostatInstance, tls *resources.TLSConfig,
+func (r *Reconciler) reconcileDatabaseService(ctx context.Context, cr *model.CryostatInstance, tls *resource_definitions.TLSConfig,
 	specs *resource_definitions.ServiceSpecs) error {
 	config := configureDatabaseService(cr)
 	svc := &corev1.Service{
@@ -152,7 +151,7 @@ func (r *Reconciler) reconcileDatabaseService(ctx context.Context, cr *model.Cry
 	return nil
 }
 
-func (r *Reconciler) reconcileStorageService(ctx context.Context, cr *model.CryostatInstance, tls *resources.TLSConfig,
+func (r *Reconciler) reconcileStorageService(ctx context.Context, cr *model.CryostatInstance, tls *resource_definitions.TLSConfig,
 	specs *resource_definitions.ServiceSpecs) error {
 	config := configureStorageService(cr)
 	svc := &corev1.Service{

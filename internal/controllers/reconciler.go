@@ -204,11 +204,6 @@ func (r *Reconciler) reconcileCryostat(ctx context.Context, cr *model.CryostatIn
 		return reconcile.Result{}, err
 	}
 
-	err = r.reconcilePVC(ctx, cr)
-	if err != nil {
-		return reconcile.Result{}, err
-	}
-
 	err = r.reconcileSecrets(ctx, cr)
 	if err != nil {
 		return reconcile.Result{}, err
@@ -395,12 +390,17 @@ func (r *Reconciler) reconcileReports(ctx context.Context, reqLogger logr.Logger
 func (r *Reconciler) reconcileDatabase(ctx context.Context, reqLogger logr.Logger, cr *model.CryostatInstance, tls *resources.TLSConfig, imageTags *resources.ImageTags, serviceSpecs *resources.ServiceSpecs, fsGroup int64) (reconcile.Result, error) {
 	reqLogger.Info("Spec", "Database", cr.Spec.DatabaseOptions)
 
-	err := r.reconcileDatabaseService(ctx, cr, tls, serviceSpecs)
+	err := r.reconcileDatabasePVC(ctx, cr)
+	if err != nil {
+		return reconcile.Result{}, err
+	}
+	err = r.reconcileDatabaseService(ctx, cr, tls, serviceSpecs)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
 	deployment := resources.NewDeploymentForDatabase(cr, imageTags, tls, r.IsOpenShift, fsGroup)
 
+	r.Log.Info(deployment.Spec.Template.Spec.Containers[0].VolumeMounts[0].Name)
 	err = r.createOrUpdateDeployment(ctx, deployment, cr.Object)
 	if err != nil {
 		return reconcile.Result{}, err
@@ -419,7 +419,11 @@ func (r *Reconciler) reconcileStorage(ctx context.Context, reqLogger logr.Logger
 	imageTags *resources.ImageTags, serviceSpecs *resources.ServiceSpecs, fsGroup int64) (reconcile.Result, error) {
 	reqLogger.Info("Spec", "Storage", cr.Spec.StorageOptions)
 
-	err := r.reconcileStorageService(ctx, cr, tls, serviceSpecs)
+	err := r.reconcileStoragePVC(ctx, cr)
+	if err != nil {
+		return reconcile.Result{}, err
+	}
+	err = r.reconcileStorageService(ctx, cr, tls, serviceSpecs)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
@@ -567,15 +571,18 @@ func (r *Reconciler) createOrUpdateDeployment(ctx context.Context, deploy *appsv
 
 		// Update pod template spec to propagate any changes from Cryostat CR
 		deploy.Spec.Template.Spec = deployCopy.Spec.Template.Spec
+
 		// Update pod template metadata
 		common.MergeLabelsAndAnnotations(&deploy.Spec.Template.ObjectMeta, deployCopy.Spec.Template.Labels,
 			deployCopy.Spec.Template.Annotations)
 		return nil
 	})
 	if err != nil {
+		r.Log.Info("sdfsfsdg err")
 		if err == errSelectorModified {
 			return r.recreateDeployment(ctx, deployCopy, owner)
 		}
+		r.Log.Info(deploy.Spec.Template.Spec.Containers[0].VolumeMounts[0].Name)
 		return err
 	}
 	r.Log.Info(fmt.Sprintf("Deployment %s", op), "name", deploy.Name, "namespace", deploy.Namespace)
