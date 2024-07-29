@@ -1194,7 +1194,7 @@ func (r *TestResources) newPVC(spec *corev1.PersistentVolumeClaimSpec, labels ma
 	}
 }
 
-func (r *TestResources) NewDefaultPVC(name string) *corev1.PersistentVolumeClaim {
+func (r *TestResources) NewDefaultPVC() *corev1.PersistentVolumeClaim {
 	return r.newPVC(&corev1.PersistentVolumeClaimSpec{
 		AccessModes: []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce},
 		Resources: corev1.ResourceRequirements{
@@ -1204,10 +1204,36 @@ func (r *TestResources) NewDefaultPVC(name string) *corev1.PersistentVolumeClaim
 		},
 	}, map[string]string{
 		"app": r.Name,
-	}, nil, name)
+	}, nil, r.Name)
 }
 
-func (r *TestResources) NewCustomPVC(name string) *corev1.PersistentVolumeClaim {
+func (r *TestResources) NewDatabasePVC() *corev1.PersistentVolumeClaim {
+	return r.newPVC(&corev1.PersistentVolumeClaimSpec{
+		AccessModes: []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce},
+		Resources: corev1.ResourceRequirements{
+			Requests: corev1.ResourceList{
+				corev1.ResourceStorage: resource.MustParse("500Mi"),
+			},
+		},
+	}, map[string]string{
+		"app": r.Name,
+	}, nil, r.Name+"-database")
+}
+
+func (r *TestResources) NewStoragePVC() *corev1.PersistentVolumeClaim {
+	return r.newPVC(&corev1.PersistentVolumeClaimSpec{
+		AccessModes: []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce},
+		Resources: corev1.ResourceRequirements{
+			Requests: corev1.ResourceList{
+				corev1.ResourceStorage: resource.MustParse("500Mi"),
+			},
+		},
+	}, map[string]string{
+		"app": r.Name,
+	}, nil, r.Name+"-storage")
+}
+
+func (r *TestResources) NewCustomPVC() *corev1.PersistentVolumeClaim {
 	storageClass := "cool-storage"
 	return r.newPVC(&corev1.PersistentVolumeClaimSpec{
 		StorageClassName: &storageClass,
@@ -1222,10 +1248,10 @@ func (r *TestResources) NewCustomPVC(name string) *corev1.PersistentVolumeClaim 
 		"app": r.Name,
 	}, map[string]string{
 		"my/custom": "annotation",
-	}, name)
+	}, r.Name)
 }
 
-func (r *TestResources) NewCustomPVCSomeDefault(name string) *corev1.PersistentVolumeClaim {
+func (r *TestResources) NewCustomPVCSomeDefault() *corev1.PersistentVolumeClaim {
 	storageClass := ""
 	return r.newPVC(&corev1.PersistentVolumeClaimSpec{
 		StorageClassName: &storageClass,
@@ -1237,10 +1263,10 @@ func (r *TestResources) NewCustomPVCSomeDefault(name string) *corev1.PersistentV
 		},
 	}, map[string]string{
 		"app": r.Name,
-	}, nil, name)
+	}, nil, r.Name)
 }
 
-func (r *TestResources) NewDefaultPVCWithLabel(name string) *corev1.PersistentVolumeClaim {
+func (r *TestResources) NewDefaultPVCWithLabel() *corev1.PersistentVolumeClaim {
 	return r.newPVC(&corev1.PersistentVolumeClaimSpec{
 		AccessModes: []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce},
 		Resources: corev1.ResourceRequirements{
@@ -1251,7 +1277,7 @@ func (r *TestResources) NewDefaultPVCWithLabel(name string) *corev1.PersistentVo
 	}, map[string]string{
 		"app": r.Name,
 		"my":  "label",
-	}, nil, name)
+	}, nil, r.Name)
 }
 
 func (r *TestResources) NewDefaultEmptyDir() *corev1.EmptyDirVolumeSource {
@@ -1946,7 +1972,7 @@ func (r *TestResources) NewStorageVolumeMounts() []corev1.VolumeMount {
 	mounts := []corev1.VolumeMount{}
 	mounts = append(mounts,
 		corev1.VolumeMount{
-			Name:      r.Name,
+			Name:      r.Name + "-storage",
 			MountPath: "/data",
 			SubPath:   "seaweed",
 		})
@@ -1965,7 +1991,7 @@ func (r *TestResources) NewDatabaseVolumeMounts() []corev1.VolumeMount {
 	mounts := []corev1.VolumeMount{}
 	mounts = append(mounts,
 		corev1.VolumeMount{
-			Name:      r.Name,
+			Name:      r.Name + "-database",
 			MountPath: "/data",
 			SubPath:   "postgres",
 		})
@@ -2352,7 +2378,17 @@ func (r *TestResources) NewAuthPropertiesVolume() corev1.Volume {
 
 func (r *TestResources) newVolumes(certProjections []corev1.VolumeProjection) []corev1.Volume {
 	readOnlymode := int32(0440)
-	volumes := []corev1.Volume{}
+	volumes := []corev1.Volume{
+		{
+			Name: r.Name,
+			VolumeSource: corev1.VolumeSource{
+				PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
+					ClaimName: r.Name,
+					ReadOnly:  false,
+				},
+			},
+		},
+	}
 	projs := append([]corev1.VolumeProjection{}, certProjections...)
 	if r.TLS {
 		projs = append(projs, corev1.VolumeProjection{

@@ -31,6 +31,36 @@ import (
 // Event type to inform users of invalid PVC specs
 const eventPersistentVolumeClaimInvalidType = "PersistentVolumeClaimInvalid"
 
+func (r *Reconciler) reconcileCorePVC(ctx context.Context, cr *model.CryostatInstance) error {
+	emptyDir := cr.Spec.StorageOptions != nil && cr.Spec.StorageOptions.EmptyDir != nil && cr.Spec.StorageOptions.EmptyDir.Enabled
+	if emptyDir {
+		// If user requested an emptyDir volume, then do nothing.
+		// Don't delete the PVC to prevent accidental data loss
+		// depending on the reclaim policy.
+		return nil
+	}
+	pvc := &corev1.PersistentVolumeClaim{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      cr.Name,
+			Namespace: cr.InstallNamespace,
+		},
+	}
+
+	// Look up PVC configuration, applying defaults where needed
+	config := configurePVC(cr)
+
+	err := r.createOrUpdatePVC(ctx, pvc, cr.Object, config)
+	if err != nil {
+		// If the API server says the PVC is invalid, emit a warning event
+		// to inform the user.
+		if kerrors.IsInvalid(err) {
+			r.EventRecorder.Event(cr.Object, corev1.EventTypeWarning, eventPersistentVolumeClaimInvalidType, err.Error())
+		}
+		return err
+	}
+	return nil
+}
+
 func (r *Reconciler) reconcileDatabasePVC(ctx context.Context, cr *model.CryostatInstance) error {
 	emptyDir := cr.Spec.StorageOptions != nil && cr.Spec.StorageOptions.EmptyDir != nil && cr.Spec.StorageOptions.EmptyDir.Enabled
 	if emptyDir {
