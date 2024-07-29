@@ -142,10 +142,13 @@ func resourceChecks() []resourceCheck {
 		{(*cryostatTestInput).expectRBAC, "RBAC"},
 		{(*cryostatTestInput).expectRoutes, "routes"},
 		{func(t *cryostatTestInput) {
-			t.expectPVC(t.NewDefaultPVC(t.Name+"-database"), t.Name+"-database")
+			t.expectPVC(t.NewDefaultPVC(), t.Name)
+		}, "cryostat persistent volume claim"},
+		{func(t *cryostatTestInput) {
+			t.expectPVC(t.NewDatabasePVC(), t.Name+"-database")
 		}, "database persistent volume claim"},
 		{func(t *cryostatTestInput) {
-			t.expectPVC(t.NewDefaultPVC(t.Name+"-storage"), t.Name+"-storage")
+			t.expectPVC(t.NewStoragePVC(), t.Name+"-storage")
 		}, "storage persistent volume claim"},
 		{(*cryostatTestInput).expectDatabaseSecret, "database secret"},
 		{(*cryostatTestInput).expectStorageSecret, "object storage secret"},
@@ -821,8 +824,7 @@ func (c *controllerTest) commonTests() {
 				t.reconcileCryostatFully()
 			})
 			It("should create the PVC with requested spec", func() {
-				t.expectPVC(t.NewCustomPVC(t.Name+"-database"), t.Name+"-database")
-				t.expectPVC(t.NewCustomPVC(t.Name+"-storage"), t.Name+"-storage")
+				t.expectPVC(t.NewCustomPVC(), t.Name)
 			})
 		})
 		Context("with custom PVC spec overriding some defaults", func() {
@@ -833,8 +835,7 @@ func (c *controllerTest) commonTests() {
 				t.reconcileCryostatFully()
 			})
 			It("should create the PVC with requested spec", func() {
-				t.expectPVC(t.NewCustomPVCSomeDefault(t.Name+"-database"), t.Name+"-database")
-				t.expectPVC(t.NewCustomPVCSomeDefault(t.Name+"-storage"), t.Name+"-storage")
+				t.expectPVC(t.NewCustomPVCSomeDefault(), t.Name)
 			})
 		})
 		Context("with custom PVC config with no spec", func() {
@@ -845,52 +846,35 @@ func (c *controllerTest) commonTests() {
 				t.reconcileCryostatFully()
 			})
 			It("should create the PVC with requested label", func() {
-				t.expectPVC(t.NewDefaultPVCWithLabel(t.Name+"-database"), t.Name+"-database")
-				t.expectPVC(t.NewDefaultPVCWithLabel(t.Name+"-storage"), t.Name+"-storage")
+				t.expectPVC(t.NewDefaultPVCWithLabel(), t.Name)
 			})
 		})
 		Context("with an existing PVC", func() {
-			var oldDatabasePVC *corev1.PersistentVolumeClaim
-			var oldStoragePVC *corev1.PersistentVolumeClaim
+			var oldPVC *corev1.PersistentVolumeClaim
 			BeforeEach(func() {
-				oldDatabasePVC = t.NewDefaultPVC(t.Name + "-database")
-				oldStoragePVC = t.NewDefaultPVC(t.Name + "-storage")
-				t.objs = append(t.objs, t.NewCryostatWithPVCSpec().Object, oldDatabasePVC, oldStoragePVC)
+				oldPVC = t.NewDefaultPVC()
+				t.objs = append(t.objs, t.NewCryostatWithPVCSpec().Object, oldPVC)
 			})
 			Context("that successfully updates", func() {
 				BeforeEach(func() {
 					// Add some labels and annotations to test merging
-					metav1.SetMetaDataLabel(&oldDatabasePVC.ObjectMeta, "my", "other-label")
-					metav1.SetMetaDataLabel(&oldDatabasePVC.ObjectMeta, "another", "label")
-					metav1.SetMetaDataAnnotation(&oldDatabasePVC.ObjectMeta, "my/custom", "other-annotation")
-					metav1.SetMetaDataAnnotation(&oldDatabasePVC.ObjectMeta, "another/custom", "annotation")
-
-					metav1.SetMetaDataLabel(&oldStoragePVC.ObjectMeta, "my", "other-label")
-					metav1.SetMetaDataLabel(&oldStoragePVC.ObjectMeta, "another", "label")
-					metav1.SetMetaDataAnnotation(&oldStoragePVC.ObjectMeta, "my/custom", "other-annotation")
-					metav1.SetMetaDataAnnotation(&oldStoragePVC.ObjectMeta, "another/custom", "annotation")
+					metav1.SetMetaDataLabel(&oldPVC.ObjectMeta, "my", "other-label")
+					metav1.SetMetaDataLabel(&oldPVC.ObjectMeta, "another", "label")
+					metav1.SetMetaDataAnnotation(&oldPVC.ObjectMeta, "my/custom", "other-annotation")
+					metav1.SetMetaDataAnnotation(&oldPVC.ObjectMeta, "another/custom", "annotation")
 				})
 				JustBeforeEach(func() {
 					t.reconcileCryostatFully()
 				})
 				It("should update metadata and resource requests", func() {
-					expectedDatabase := t.NewDefaultPVC(t.Name + "-database")
-					expectedStorage := t.NewDefaultPVC(t.Name + "-storage")
-					metav1.SetMetaDataLabel(&expectedDatabase.ObjectMeta, "my", "label")
-					metav1.SetMetaDataLabel(&expectedDatabase.ObjectMeta, "another", "label")
-					metav1.SetMetaDataLabel(&expectedDatabase.ObjectMeta, "app", t.Name)
-					metav1.SetMetaDataAnnotation(&expectedDatabase.ObjectMeta, "my/custom", "annotation")
-					metav1.SetMetaDataAnnotation(&expectedDatabase.ObjectMeta, "another/custom", "annotation")
-					expectedDatabase.Spec.Resources.Requests[corev1.ResourceStorage] = resource.MustParse("10Gi")
-					t.expectPVC(expectedDatabase, t.Name+"-database")
-
-					metav1.SetMetaDataLabel(&expectedStorage.ObjectMeta, "my", "label")
-					metav1.SetMetaDataLabel(&expectedStorage.ObjectMeta, "another", "label")
-					metav1.SetMetaDataLabel(&expectedStorage.ObjectMeta, "app", t.Name)
-					metav1.SetMetaDataAnnotation(&expectedStorage.ObjectMeta, "my/custom", "annotation")
-					metav1.SetMetaDataAnnotation(&expectedStorage.ObjectMeta, "another/custom", "annotation")
-					expectedStorage.Spec.Resources.Requests[corev1.ResourceStorage] = resource.MustParse("10Gi")
-					t.expectPVC(expectedStorage, t.Name+"-storage")
+					expected := t.NewDefaultPVC()
+					metav1.SetMetaDataLabel(&expected.ObjectMeta, "my", "label")
+					metav1.SetMetaDataLabel(&expected.ObjectMeta, "another", "label")
+					metav1.SetMetaDataLabel(&expected.ObjectMeta, "app", t.Name)
+					metav1.SetMetaDataAnnotation(&expected.ObjectMeta, "my/custom", "annotation")
+					metav1.SetMetaDataAnnotation(&expected.ObjectMeta, "another/custom", "annotation")
+					expected.Spec.Resources.Requests[corev1.ResourceStorage] = resource.MustParse("10Gi")
+					t.expectPVC(expected, t.Name)
 				})
 			})
 			/**Context("that fails to update", func() {

@@ -204,6 +204,11 @@ func (r *Reconciler) reconcileCryostat(ctx context.Context, cr *model.CryostatIn
 		return reconcile.Result{}, err
 	}
 
+	err = r.reconcileCorePVC(ctx, cr)
+	if err != nil {
+		return reconcile.Result{}, err
+	}
+
 	err = r.reconcileSecrets(ctx, cr)
 	if err != nil {
 		return reconcile.Result{}, err
@@ -400,7 +405,6 @@ func (r *Reconciler) reconcileDatabase(ctx context.Context, reqLogger logr.Logge
 	}
 	deployment := resources.NewDeploymentForDatabase(cr, imageTags, tls, r.IsOpenShift, fsGroup)
 
-	r.Log.Info(deployment.Spec.Template.Spec.Containers[0].VolumeMounts[0].Name)
 	err = r.createOrUpdateDeployment(ctx, deployment, cr.Object)
 	if err != nil {
 		return reconcile.Result{}, err
@@ -578,11 +582,9 @@ func (r *Reconciler) createOrUpdateDeployment(ctx context.Context, deploy *appsv
 		return nil
 	})
 	if err != nil {
-		r.Log.Info("sdfsfsdg err")
 		if err == errSelectorModified {
 			return r.recreateDeployment(ctx, deployCopy, owner)
 		}
-		r.Log.Info(deploy.Spec.Template.Spec.Containers[0].VolumeMounts[0].Name)
 		return err
 	}
 	r.Log.Info(fmt.Sprintf("Deployment %s", op), "name", deploy.Name, "namespace", deploy.Namespace)

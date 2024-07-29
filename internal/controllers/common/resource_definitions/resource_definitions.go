@@ -431,7 +431,7 @@ func NewPodForCR(cr *model.CryostatInstance, specs *ServiceSpecs, imageTags *Ima
 		*authProxy,
 	}
 
-	volumes := []corev1.Volume{}
+	volumes := newVolumeForCR(cr)
 	volSources := []corev1.VolumeProjection{}
 	readOnlyMode := int32(0440)
 
@@ -1585,7 +1585,7 @@ func NewStorageContainer(cr *model.CryostatInstance, imageTag string, tls *TLSCo
 
 	mounts := []corev1.VolumeMount{
 		{
-			Name:      cr.Name,
+			Name:      cr.Name + "-storage",
 			MountPath: "/data",
 			SubPath:   "seaweed",
 		},
@@ -1751,7 +1751,7 @@ func NewDatabaseContainer(cr *model.CryostatInstance, imageTag string, tls *TLSC
 
 	mounts := []corev1.VolumeMount{
 		{
-			Name:      cr.Name,
+			Name:      cr.Name + "-database",
 			MountPath: "/data",
 			SubPath:   "postgres",
 		},
@@ -1887,6 +1887,38 @@ func getPullPolicy(imageTag string) corev1.PullPolicy {
 	}
 	// Likely a release, use IfNotPresent
 	return corev1.PullIfNotPresent
+}
+
+func newVolumeForCR(cr *model.CryostatInstance) []corev1.Volume {
+	var volumeSource corev1.VolumeSource
+	if useEmptyDir(cr) {
+		emptyDir := cr.Spec.StorageOptions.EmptyDir
+
+		sizeLimit, err := resource.ParseQuantity(emptyDir.SizeLimit)
+		if err != nil {
+			sizeLimit = *resource.NewQuantity(0, resource.BinarySI)
+		}
+
+		volumeSource = corev1.VolumeSource{
+			EmptyDir: &corev1.EmptyDirVolumeSource{
+				Medium:    emptyDir.Medium,
+				SizeLimit: &sizeLimit,
+			},
+		}
+	} else {
+		volumeSource = corev1.VolumeSource{
+			PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
+				ClaimName: cr.Name,
+			},
+		}
+	}
+
+	return []corev1.Volume{
+		{
+			Name:         cr.Name,
+			VolumeSource: volumeSource,
+		},
+	}
 }
 
 func newVolumeForDatabse(cr *model.CryostatInstance) []corev1.Volume {
