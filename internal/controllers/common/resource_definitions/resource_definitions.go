@@ -929,7 +929,7 @@ func NewOpenShiftAuthProxyContainer(cr *model.CryostatInstance, specs *ServiceSp
 		"--pass-basic-auth=false",
 		fmt.Sprintf("--upstream=http://localhost:%d/", constants.CryostatHTTPContainerPort),
 		fmt.Sprintf("--upstream=http://localhost:%d/grafana/", constants.GrafanaContainerPort),
-		fmt.Sprintf("--upstream=http://localhost:%d/storage/", constants.StorageContainerPort),
+		// fmt.Sprintf("--upstream=http://localhost:%d/storage/", constants.StorageContainerPort),
 		fmt.Sprintf("--openshift-service-account=%s", cr.Name),
 		"--proxy-websockets=true",
 		"--proxy-prefix=/oauth2",
@@ -1215,7 +1215,7 @@ func NewCoreContainer(cr *model.CryostatInstance, specs *ServiceSpecs, imageTag 
 		},
 		{
 			Name:  "QUARKUS_DATASOURCE_JDBC_URL",
-			Value: fmt.Sprintf("jdbc:postgresql://%s-database:5432/cryostat", cr.Name),
+			Value: fmt.Sprintf("jdbc:postgresql://%s-database.%s.svc.cluster.local:5432/cryostat", cr.Name, cr.InstallNamespace),
 		},
 		{
 			Name:  "STORAGE_BUCKETS_ARCHIVE_NAME",
@@ -1223,7 +1223,7 @@ func NewCoreContainer(cr *model.CryostatInstance, specs *ServiceSpecs, imageTag 
 		},
 		{
 			Name:  "QUARKUS_S3_ENDPOINT_OVERRIDE",
-			Value: fmt.Sprintf("http://%s-storage:8333", cr.Name),
+			Value: fmt.Sprintf("http://%s-storage.%s.svc.cluster.local:8333", cr.Name, cr.InstallNamespace),
 		},
 		{
 			Name:  "QUARKUS_S3_PATH_STYLE_ACCESS",
@@ -1327,15 +1327,6 @@ func NewCoreContainer(cr *model.CryostatInstance, specs *ServiceSpecs, imageTag 
 		}
 		envs = append(envs, reportsEnvs...)
 	}
-
-	envs = append(envs, corev1.EnvVar{
-		Name:  "CRYOSTAT_SERVICES_DATABASE_URL",
-		Value: specs.DatabaseURL.String(),
-	})
-	envs = append(envs, corev1.EnvVar{
-		Name:  "CRYOSTAT_SERVICES_STORAGE_URL",
-		Value: specs.StorageURL.String(),
-	})
 
 	// Define INSIGHTS_PROXY URL if Insights integration is enabled
 	if specs.InsightsURL != nil {

@@ -2680,35 +2680,18 @@ func (t *cryostatTestInput) checkMainPodTemplate(deployment *appsv1.Deployment, 
 	// Check that the networking environment variables are set correctly
 	coreContainer := template.Spec.Containers[0]
 	reportPort := int32(10000)
-	databasePort := int32(5432)
-	storagePort := int32(8333)
 	if cr.Spec.ServiceOptions != nil {
 		if cr.Spec.ServiceOptions.ReportsConfig != nil && cr.Spec.ServiceOptions.ReportsConfig.HTTPPort != nil {
 			reportPort = *cr.Spec.ServiceOptions.ReportsConfig.HTTPPort
 		}
-		if cr.Spec.ServiceOptions.DatabaseConfig != nil && cr.Spec.ServiceOptions.DatabaseConfig.HTTPPort != nil {
-			databasePort = *cr.Spec.ServiceOptions.DatabaseConfig.HTTPPort
-		}
-		if cr.Spec.ServiceOptions.StorageConfig != nil && cr.Spec.ServiceOptions.StorageConfig.HTTPPort != nil {
-			storagePort = *cr.Spec.ServiceOptions.StorageConfig.HTTPPort
-		}
 	}
 	var reportsUrl string
-	var databaseUrl string
-	var storageUrl string
 	if t.ReportReplicas == 0 {
 		reportsUrl = ""
 	} else if t.TLS {
 		reportsUrl = fmt.Sprintf("https://%s-reports:%d", t.Name, reportPort)
 	} else {
 		reportsUrl = fmt.Sprintf("http://%s-reports:%d", t.Name, reportPort)
-	}
-	if t.TLS {
-		databaseUrl = fmt.Sprintf("https://%s-database:%d", t.Name, databasePort)
-		storageUrl = fmt.Sprintf("https://%s-storage:%d", t.Name, storagePort)
-	} else {
-		databaseUrl = fmt.Sprintf("http://%s-database:%d", t.Name, databasePort)
-		storageUrl = fmt.Sprintf("http://%s-storage:%d", t.Name, storagePort)
 	}
 	ingress := !t.OpenShift &&
 		cr.Spec.NetworkOptions != nil && cr.Spec.NetworkOptions.CoreConfig != nil && cr.Spec.NetworkOptions.CoreConfig.IngressSpec != nil
@@ -2722,7 +2705,7 @@ func (t *cryostatTestInput) checkMainPodTemplate(deployment *appsv1.Deployment, 
 		cr.Spec.TargetDiscoveryOptions.DisableBuiltInPortNumbers
 	dbSecretProvided := cr.Spec.DatabaseOptions != nil && cr.Spec.DatabaseOptions.SecretName != nil
 
-	t.checkCoreContainer(&coreContainer, ingress, reportsUrl, databaseUrl, storageUrl,
+	t.checkCoreContainer(&coreContainer, ingress, reportsUrl,
 		emptyDir,
 		hasPortConfig,
 		builtInDiscoveryDisabled,
@@ -2978,8 +2961,6 @@ func (t *cryostatTestInput) checkDeploymentHasTemplates() {
 
 func (t *cryostatTestInput) checkCoreContainer(container *corev1.Container, ingress bool,
 	reportsUrl string,
-	databaseUrl string,
-	storageUrl string,
 	emptyDir bool,
 	hasPortConfig bool, builtInDiscoveryDisabled bool, builtInPortConfigDisabled bool,
 	dbSecretProvided bool,
@@ -2992,7 +2973,7 @@ func (t *cryostatTestInput) checkCoreContainer(container *corev1.Container, ingr
 		Expect(container.Image).To(Equal(*t.EnvCoreImageTag))
 	}
 	Expect(container.Ports).To(ConsistOf(t.NewCorePorts()))
-	Expect(container.Env).To(ConsistOf(t.NewCoreEnvironmentVariables(reportsUrl, databaseUrl, storageUrl, ingress, emptyDir, hasPortConfig, builtInDiscoveryDisabled, builtInPortConfigDisabled, dbSecretProvided)))
+	Expect(container.Env).To(ConsistOf(t.NewCoreEnvironmentVariables(reportsUrl, ingress, emptyDir, hasPortConfig, builtInDiscoveryDisabled, builtInPortConfigDisabled, dbSecretProvided)))
 	Expect(container.EnvFrom).To(ConsistOf(t.NewCoreEnvFromSource()))
 	Expect(container.VolumeMounts).To(ConsistOf(t.NewCoreVolumeMounts()))
 	Expect(container.LivenessProbe).To(Equal(t.NewCoreLivenessProbe()))

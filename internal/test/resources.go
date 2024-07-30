@@ -1352,7 +1352,7 @@ func (r *TestResources) NewAuthProxyPorts() []corev1.ContainerPort {
 	}
 }
 
-func (r *TestResources) NewCoreEnvironmentVariables(reportsUrl string, databaseUrl string, storageUrl string, ingress bool,
+func (r *TestResources) NewCoreEnvironmentVariables(reportsUrl string, ingress bool,
 	emptyDir bool, hasPortConfig bool, builtInDiscoveryDisabled bool, builtInPortConfigDisabled bool, dbSecretProvided bool) []corev1.EnvVar {
 	envs := []corev1.EnvVar{
 		{
@@ -1389,7 +1389,7 @@ func (r *TestResources) NewCoreEnvironmentVariables(reportsUrl string, databaseU
 		},
 		{
 			Name:  "QUARKUS_DATASOURCE_JDBC_URL",
-			Value: fmt.Sprintf("jdbc:postgresql://%s-database:5432/cryostat", r.Name),
+			Value: fmt.Sprintf("jdbc:postgresql://%s-database.%s.svc.cluster.local:5432/cryostat", r.Name, r.Namespace),
 		},
 		{
 			Name:  "STORAGE_BUCKETS_ARCHIVE_NAME",
@@ -1397,7 +1397,7 @@ func (r *TestResources) NewCoreEnvironmentVariables(reportsUrl string, databaseU
 		},
 		{
 			Name:  "QUARKUS_S3_ENDPOINT_OVERRIDE",
-			Value: fmt.Sprintf("http://%s-storage:8333", r.Name),
+			Value: fmt.Sprintf("http://%s-storage.%s.svc.cluster.local:8333", r.Name, r.Namespace),
 		},
 		{
 			Name:  "QUARKUS_S3_PATH_STYLE_ACCESS",
@@ -1498,22 +1498,6 @@ func (r *TestResources) NewCoreEnvironmentVariables(reportsUrl string, databaseU
 			corev1.EnvVar{
 				Name:  "CRYOSTAT_SERVICES_REPORTS_URL",
 				Value: reportsUrl,
-			})
-	}
-
-	if databaseUrl != "" {
-		envs = append(envs,
-			corev1.EnvVar{
-				Name:  "CRYOSTAT_SERVICES_DATABASE_URL",
-				Value: databaseUrl,
-			})
-	}
-
-	if storageUrl != "" {
-		envs = append(envs,
-			corev1.EnvVar{
-				Name:  "CRYOSTAT_SERVICES_STORAGE_URL",
-				Value: storageUrl,
 			})
 	}
 
@@ -1904,7 +1888,7 @@ func (r *TestResources) NewAuthProxyArguments(authOptions *operatorv1beta2.Autho
 		"--pass-basic-auth=false",
 		"--upstream=http://localhost:8181/",
 		"--upstream=http://localhost:3000/grafana/",
-		"--upstream=http://localhost:8333/storage/",
+		// "--upstream=http://localhost:8333/storage/",
 		fmt.Sprintf("--openshift-service-account=%s", r.Name),
 		"--proxy-websockets=true",
 		"--proxy-prefix=/oauth2",
