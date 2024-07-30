@@ -132,6 +132,7 @@ func NewReportsCert(cr *model.CryostatInstance) *certv1.Certificate {
 	}
 }
 
+/**
 func NewDatabaseCert(cr *model.CryostatInstance) *certv1.Certificate {
 	return &certv1.Certificate{
 		ObjectMeta: metav1.ObjectMeta{
@@ -179,3 +180,4 @@ func NewStorageCert(cr *model.CryostatInstance) *certv1.Certificate {
 		},
 	}
 }
+**/

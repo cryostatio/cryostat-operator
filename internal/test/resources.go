@@ -1066,6 +1066,7 @@ func (r *TestResources) NewReportsCert() *certv1.Certificate {
 	}
 }
 
+/**
 func (r *TestResources) NewDatabaseCert() *certv1.Certificate {
 	return &certv1.Certificate{
 		ObjectMeta: metav1.ObjectMeta{
@@ -1116,7 +1117,7 @@ func (r *TestResources) NewStorageCert() *certv1.Certificate {
 			},
 		},
 	}
-}
+}**/
 
 func (r *TestResources) NewCACert() *certv1.Certificate {
 	return &certv1.Certificate{
@@ -1388,7 +1389,7 @@ func (r *TestResources) NewCoreEnvironmentVariables(reportsUrl string, databaseU
 		},
 		{
 			Name:  "QUARKUS_DATASOURCE_JDBC_URL",
-			Value: "jdbc:postgresql://localhost:5432/cryostat",
+			Value: fmt.Sprintf("jdbc:postgresql://%s-database:5432/cryostat", r.Name),
 		},
 		{
 			Name:  "STORAGE_BUCKETS_ARCHIVE_NAME",
@@ -1396,7 +1397,7 @@ func (r *TestResources) NewCoreEnvironmentVariables(reportsUrl string, databaseU
 		},
 		{
 			Name:  "QUARKUS_S3_ENDPOINT_OVERRIDE",
-			Value: "http://localhost:8333",
+			Value: fmt.Sprintf("http://%s-storage:8333", r.Name),
 		},
 		{
 			Name:  "QUARKUS_S3_PATH_STYLE_ACCESS",
@@ -1654,26 +1655,24 @@ func (r *TestResources) NewStorageEnvironmentVariables() []corev1.EnvVar {
 			},
 		},
 	}
+	/**
 	if r.TLS {
 		envs = append(envs, corev1.EnvVar{
-			Name:  "QUARKUS_HTTP_SSL_PORT",
+			Name:  "S3_PORT_HTTPS",
 			Value: "8333",
 		}, corev1.EnvVar{
-			Name:  "QUARKUS_HTTP_SSL_CERTIFICATE_KEY_FILES",
+			Name:  "S3_KEY_FILE",
 			Value: fmt.Sprintf("/var/run/secrets/operator.cryostat.io/%s-storage-tls/tls.key", r.Name),
 		}, corev1.EnvVar{
-			Name:  "QUARKUS_HTTP_SSL_CERTIFICATE_FILES",
+			Name:  "S3_CERT_FILE",
 			Value: fmt.Sprintf("/var/run/secrets/operator.cryostat.io/%s-storage-tls/tls.crt", r.Name),
-		}, corev1.EnvVar{
-			Name:  "QUARKUS_HTTP_INSECURE_REQUESTS",
-			Value: "disabled",
 		})
 	} else {
 		envs = append(envs, corev1.EnvVar{
 			Name:  "QUARKUS_HTTP_PORT",
 			Value: "8333",
 		})
-	}
+	}**/
 	return envs
 }
 
@@ -1717,26 +1716,27 @@ func (r *TestResources) NewDatabaseEnvironmentVariables(dbSecretProvided bool) [
 			},
 		},
 	}
+	/**
 	if r.TLS {
 		envs = append(envs, corev1.EnvVar{
-			Name:  "QUARKUS_HTTP_SSL_PORT",
-			Value: "5432",
+			Name:  "QUARKUS_DATASOURCE_REACTIVE_TRUST_ALL",
+			Value: "true",
 		}, corev1.EnvVar{
-			Name:  "QUARKUS_HTTP_SSL_CERTIFICATE_KEY_FILES",
+			Name:  "QUARKUS_DATASOURCE_REACTIVE_KEY_CERTIFICATE_PEM_KEYS",
 			Value: fmt.Sprintf("/var/run/secrets/operator.cryostat.io/%s-database-tls/tls.key", r.Name),
 		}, corev1.EnvVar{
-			Name:  "QUARKUS_HTTP_SSL_CERTIFICATE_FILES",
+			Name:  "QUARKUS_DATASOURCE_REACTIVE_KEY_CERTIFICATE_PEM_CERTS",
 			Value: fmt.Sprintf("/var/run/secrets/operator.cryostat.io/%s-database-tls/tls.crt", r.Name),
 		}, corev1.EnvVar{
-			Name:  "QUARKUS_HTTP_INSECURE_REQUESTS",
-			Value: "disabled",
+			Name:  "QUARKUS_DATASOURCE_REACTIVE_URL",
+			Value: fmt.Sprintf("https://%s-database:5432", r.Name),
 		})
 	} else {
 		envs = append(envs, corev1.EnvVar{
-			Name:  "QUARKUS_HTTP_PORT",
-			Value: "5432",
+			Name:  "QUARKUS_DATASOURCE_REACTIVE_URL",
+			Value: fmt.Sprintf("http://%s-database:5432", r.Name),
 		})
-	}
+	}**/
 	return envs
 }
 
@@ -1976,6 +1976,7 @@ func (r *TestResources) NewStorageVolumeMounts() []corev1.VolumeMount {
 			MountPath: "/data",
 			SubPath:   "seaweed",
 		})
+	/**
 	if r.TLS {
 		mounts = append(mounts,
 			corev1.VolumeMount{
@@ -1983,7 +1984,7 @@ func (r *TestResources) NewStorageVolumeMounts() []corev1.VolumeMount {
 				MountPath: fmt.Sprintf("/var/run/secrets/operator.cryostat.io/%s-storage-tls", r.Name),
 				ReadOnly:  true,
 			})
-	}
+	}**/
 	return mounts
 }
 
@@ -1995,6 +1996,7 @@ func (r *TestResources) NewDatabaseVolumeMounts() []corev1.VolumeMount {
 			MountPath: "/data",
 			SubPath:   "postgres",
 		})
+	/**
 	if r.TLS {
 		mounts = append(mounts,
 			corev1.VolumeMount{
@@ -2002,7 +2004,7 @@ func (r *TestResources) NewDatabaseVolumeMounts() []corev1.VolumeMount {
 				MountPath: fmt.Sprintf("/var/run/secrets/operator.cryostat.io/%s-database-tls", r.Name),
 				ReadOnly:  true,
 			})
-	}
+	}**/
 	return mounts
 }
 
@@ -2127,10 +2129,11 @@ func (r *TestResources) NewDatasourceLivenessProbe() *corev1.Probe {
 }
 
 func (r *TestResources) NewStorageLivenessProbe() *corev1.Probe {
-	protocol := corev1.URISchemeHTTPS
-	if !r.TLS {
-		protocol = corev1.URISchemeHTTP
-	}
+	protocol := corev1.URISchemeHTTP
+	/**
+	if r.TLS {
+		protocol = corev1.URISchemeHTTPS
+	}**/
 	return &corev1.Probe{
 		ProbeHandler: corev1.ProbeHandler{
 			HTTPGet: &corev1.HTTPGetAction{
@@ -2496,6 +2499,7 @@ func (r *TestResources) NewDatabaseVolumes() []corev1.Volume {
 		},
 	}
 
+	/**
 	if r.TLS {
 		volumes = append(volumes, corev1.Volume{
 			Name: "database-tls-secret",
@@ -2505,7 +2509,7 @@ func (r *TestResources) NewDatabaseVolumes() []corev1.Volume {
 				},
 			},
 		})
-	}
+	} **/
 	return volumes
 }
 
@@ -2522,6 +2526,7 @@ func (r *TestResources) NewStorageVolumes() []corev1.Volume {
 		},
 	}
 
+	/**
 	if r.TLS {
 		volumes = append(volumes, corev1.Volume{
 			Name: "storage-tls-secret",
@@ -2531,7 +2536,7 @@ func (r *TestResources) NewStorageVolumes() []corev1.Volume {
 				},
 			},
 		})
-	}
+	}**/
 	return volumes
 }
 
