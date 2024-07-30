@@ -45,6 +45,7 @@ import (
 	"github.com/cryostatio/cryostat-operator/internal/controllers"
 	"github.com/cryostatio/cryostat-operator/internal/controllers/common"
 	"github.com/cryostatio/cryostat-operator/internal/webhooks"
+	"github.com/cryostatio/cryostat-operator/internal/webhooks/agent"
 	// +kubebuilder:scaffold:imports
 )
 
@@ -190,6 +191,10 @@ func main() {
 	}
 	if err = webhooks.SetupWebhookWithManager(mgr, &operatorv1beta2.Cryostat{}); err != nil {
 		setupLog.Error(err, "unable to create webhook", "webhook", "Cryostat")
+		os.Exit(1)
+	}
+	if err = agent.SetupWebhookWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create webhook", "webhook", "Pod")
 		os.Exit(1)
 	}
 	// +kubebuilder:scaffold:builder
