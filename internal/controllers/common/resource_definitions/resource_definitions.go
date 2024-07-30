@@ -61,6 +61,10 @@ type TLSConfig struct {
 	CryostatSecret string
 	// Name of the TLS secret for Reports Generator
 	ReportsSecret string
+	// Name of the TLS secret for Database
+	// DatabaseSecret string
+	// Name of the TLS secret for Storage
+	// StorageSecret string
 	// Name of the secret containing the password for the keystore in CryostatSecret
 	KeystorePassSecret string
 	// PEM-encoded X.509 certificate for the Cryostat CA
@@ -172,6 +176,167 @@ func NewDeploymentForCR(cr *model.CryostatInstance, specs *ServiceSpecs, imageTa
 	}, nil
 }
 
+func NewDeploymentForDatabase(cr *model.CryostatInstance, imageTags *ImageTags, tls *TLSConfig,
+	openshift bool, fsGroup int64) *appsv1.Deployment {
+	replicas := int32(1)
+
+	defaultDeploymentLabels := map[string]string{
+		"app":                    cr.Name,
+		"kind":                   "cryostat",
+		"component":              "database",
+		"app.kubernetes.io/name": "cryostat-database",
+	}
+	defaultDeploymentAnnotations := map[string]string{
+		"app.openshift.io/connects-to": cr.Name,
+	}
+	defaultPodLabels := map[string]string{
+		"app":       cr.Name,
+		"kind":      "cryostat",
+		"component": "database",
+	}
+	userDefinedDeploymentLabels := make(map[string]string)
+	userDefinedDeploymentAnnotations := make(map[string]string)
+	userDefinedPodTemplateLabels := make(map[string]string)
+	userDefinedPodTemplateAnnotations := make(map[string]string)
+	if cr.Spec.OperandMetadata != nil {
+		if cr.Spec.OperandMetadata.DeploymentMetadata != nil {
+			for k, v := range cr.Spec.OperandMetadata.DeploymentMetadata.Labels {
+				userDefinedDeploymentLabels[k] = v
+			}
+			for k, v := range cr.Spec.OperandMetadata.DeploymentMetadata.Annotations {
+				userDefinedDeploymentAnnotations[k] = v
+			}
+		}
+		if cr.Spec.OperandMetadata.PodMetadata != nil {
+			for k, v := range cr.Spec.OperandMetadata.PodMetadata.Labels {
+				userDefinedPodTemplateLabels[k] = v
+			}
+			for k, v := range cr.Spec.OperandMetadata.PodMetadata.Annotations {
+				userDefinedPodTemplateAnnotations[k] = v
+			}
+		}
+	}
+
+	// First set the user defined labels and annotation in the meta, so that the default ones can override them
+	deploymentMeta := metav1.ObjectMeta{
+		Name:        cr.Name + "-database",
+		Namespace:   cr.InstallNamespace,
+		Labels:      userDefinedDeploymentLabels,
+		Annotations: userDefinedDeploymentAnnotations,
+	}
+	common.MergeLabelsAndAnnotations(&deploymentMeta, defaultDeploymentLabels, defaultDeploymentAnnotations)
+
+	podTemplateMeta := metav1.ObjectMeta{
+		Name:        cr.Name + "-database",
+		Namespace:   cr.InstallNamespace,
+		Labels:      userDefinedPodTemplateLabels,
+		Annotations: userDefinedPodTemplateAnnotations,
+	}
+	common.MergeLabelsAndAnnotations(&podTemplateMeta, defaultPodLabels, nil)
+
+	return &appsv1.Deployment{
+		ObjectMeta: deploymentMeta,
+		Spec: appsv1.DeploymentSpec{
+			// Selector is immutable, avoid modifying if possible
+			Selector: &metav1.LabelSelector{
+				MatchLabels: map[string]string{
+					"app":       cr.Name,
+					"kind":      "cryostat",
+					"component": "database",
+				},
+			},
+			Template: corev1.PodTemplateSpec{
+				ObjectMeta: podTemplateMeta,
+				Spec:       *NewPodForDatabase(cr, imageTags, tls, openshift, fsGroup),
+			},
+			Replicas: &replicas,
+			Strategy: appsv1.DeploymentStrategy{
+				Type: appsv1.RecreateDeploymentStrategyType,
+			},
+		},
+	}
+}
+
+func NewDeploymentForStorage(cr *model.CryostatInstance, imageTags *ImageTags, tls *TLSConfig, openshift bool, fsGroup int64) *appsv1.Deployment {
+	replicas := int32(1)
+
+	defaultDeploymentLabels := map[string]string{
+		"app":                    cr.Name,
+		"kind":                   "cryostat",
+		"component":              "storage",
+		"app.kubernetes.io/name": "cryostat-storage",
+	}
+	defaultDeploymentAnnotations := map[string]string{
+		"app.openshift.io/connects-to": cr.Name,
+	}
+	defaultPodLabels := map[string]string{
+		"app":       cr.Name,
+		"kind":      "cryostat",
+		"component": "storage",
+	}
+	userDefinedDeploymentLabels := make(map[string]string)
+	userDefinedDeploymentAnnotations := make(map[string]string)
+	userDefinedPodTemplateLabels := make(map[string]string)
+	userDefinedPodTemplateAnnotations := make(map[string]string)
+	if cr.Spec.OperandMetadata != nil {
+		if cr.Spec.OperandMetadata.DeploymentMetadata != nil {
+			for k, v := range cr.Spec.OperandMetadata.DeploymentMetadata.Labels {
+				userDefinedDeploymentLabels[k] = v
+			}
+			for k, v := range cr.Spec.OperandMetadata.DeploymentMetadata.Annotations {
+				userDefinedDeploymentAnnotations[k] = v
+			}
+		}
+		if cr.Spec.OperandMetadata.PodMetadata != nil {
+			for k, v := range cr.Spec.OperandMetadata.PodMetadata.Labels {
+				userDefinedPodTemplateLabels[k] = v
+			}
+			for k, v := range cr.Spec.OperandMetadata.PodMetadata.Annotations {
+				userDefinedPodTemplateAnnotations[k] = v
+			}
+		}
+	}
+
+	// First set the user defined labels and annotation in the meta, so that the default ones can override them
+	deploymentMeta := metav1.ObjectMeta{
+		Name:        cr.Name + "-storage",
+		Namespace:   cr.InstallNamespace,
+		Labels:      userDefinedDeploymentLabels,
+		Annotations: userDefinedDeploymentAnnotations,
+	}
+	common.MergeLabelsAndAnnotations(&deploymentMeta, defaultDeploymentLabels, defaultDeploymentAnnotations)
+
+	podTemplateMeta := metav1.ObjectMeta{
+		Name:        cr.Name + "-storage",
+		Namespace:   cr.InstallNamespace,
+		Labels:      userDefinedPodTemplateLabels,
+		Annotations: userDefinedPodTemplateAnnotations,
+	}
+	common.MergeLabelsAndAnnotations(&podTemplateMeta, defaultPodLabels, nil)
+
+	return &appsv1.Deployment{
+		ObjectMeta: deploymentMeta,
+		Spec: appsv1.DeploymentSpec{
+			// Selector is immutable, avoid modifying if possible
+			Selector: &metav1.LabelSelector{
+				MatchLabels: map[string]string{
+					"app":       cr.Name,
+					"kind":      "cryostat",
+					"component": "storage",
+				},
+			},
+			Template: corev1.PodTemplateSpec{
+				ObjectMeta: podTemplateMeta,
+				Spec:       *NewPodForStorage(cr, imageTags, tls, openshift, fsGroup),
+			},
+			Replicas: &replicas,
+			Strategy: appsv1.DeploymentStrategy{
+				Type: appsv1.RecreateDeploymentStrategyType,
+			},
+		},
+	}
+}
+
 func NewDeploymentForReports(cr *model.CryostatInstance, imageTags *ImageTags, tls *TLSConfig,
 	openshift bool) *appsv1.Deployment {
 	replicas := int32(0)
@@ -263,8 +428,6 @@ func NewPodForCR(cr *model.CryostatInstance, specs *ServiceSpecs, imageTags *Ima
 		NewCoreContainer(cr, specs, imageTags.CoreImageTag, tls, openshift),
 		NewGrafanaContainer(cr, imageTags.GrafanaImageTag, tls),
 		NewJfrDatasourceContainer(cr, imageTags.DatasourceImageTag),
-		NewStorageContainer(cr, imageTags.StorageImageTag, tls),
-		newDatabaseContainer(cr, imageTags.DatabaseImageTag, tls),
 		*authProxy,
 	}
 
@@ -449,6 +612,120 @@ func NewPodForCR(cr *model.CryostatInstance, specs *ServiceSpecs, imageTags *Ima
 		Affinity:                     affinity,
 		Tolerations:                  tolerations,
 	}, nil
+}
+
+func NewPodForDatabase(cr *model.CryostatInstance, imageTags *ImageTags, tls *TLSConfig, openshift bool, fsGroup int64) *corev1.PodSpec {
+	container := []corev1.Container{NewDatabaseContainer(cr, imageTags.DatabaseImageTag, tls)}
+
+	volumes := newVolumeForDatabse(cr)
+	/**
+	if tls != nil {
+		secretVolume := corev1.Volume{
+			Name: "database-tls-secret",
+			VolumeSource: corev1.VolumeSource{
+				Secret: &corev1.SecretVolumeSource{
+					SecretName: tls.DatabaseSecret,
+				},
+			},
+		}
+		volumes = append(volumes, secretVolume)
+	}**/
+
+	var podSc *corev1.PodSecurityContext
+	if cr.Spec.SecurityOptions != nil && cr.Spec.SecurityOptions.PodSecurityContext != nil {
+		podSc = cr.Spec.SecurityOptions.PodSecurityContext
+	} else {
+		nonRoot := true
+		podSc = &corev1.PodSecurityContext{
+			// Ensure PV mounts are writable
+			FSGroup:        &fsGroup,
+			RunAsNonRoot:   &nonRoot,
+			SeccompProfile: common.SeccompProfile(openshift),
+		}
+	}
+
+	var nodeSelector map[string]string
+	var affinity *corev1.Affinity
+	var tolerations []corev1.Toleration
+
+	if cr.Spec.SchedulingOptions != nil {
+		nodeSelector = cr.Spec.SchedulingOptions.NodeSelector
+
+		if cr.Spec.SchedulingOptions.Affinity != nil {
+			affinity = &corev1.Affinity{
+				NodeAffinity:    cr.Spec.SchedulingOptions.Affinity.NodeAffinity,
+				PodAffinity:     cr.Spec.SchedulingOptions.Affinity.PodAffinity,
+				PodAntiAffinity: cr.Spec.SchedulingOptions.Affinity.PodAntiAffinity,
+			}
+		}
+		tolerations = cr.Spec.SchedulingOptions.Tolerations
+	}
+
+	return &corev1.PodSpec{
+		Containers:      container,
+		NodeSelector:    nodeSelector,
+		Affinity:        affinity,
+		Tolerations:     tolerations,
+		SecurityContext: podSc,
+		Volumes:         volumes,
+	}
+}
+
+func NewPodForStorage(cr *model.CryostatInstance, imageTags *ImageTags, tls *TLSConfig, openshift bool, fsGroup int64) *corev1.PodSpec {
+	container := []corev1.Container{NewStorageContainer(cr, imageTags.StorageImageTag, tls)}
+
+	volumes := newVolumeForStorage(cr)
+	/**
+	if tls != nil {
+		secretVolume := corev1.Volume{
+			Name: "storage-tls-secret",
+			VolumeSource: corev1.VolumeSource{
+				Secret: &corev1.SecretVolumeSource{
+					SecretName: tls.StorageSecret,
+				},
+			},
+		}
+		volumes = append(volumes, secretVolume)
+	}**/
+
+	var podSc *corev1.PodSecurityContext
+	if cr.Spec.SecurityOptions != nil && cr.Spec.SecurityOptions.PodSecurityContext != nil {
+		podSc = cr.Spec.SecurityOptions.PodSecurityContext
+	} else {
+		nonRoot := true
+		podSc = &corev1.PodSecurityContext{
+			// Ensure PV mounts are writable
+			FSGroup:        &fsGroup,
+			RunAsNonRoot:   &nonRoot,
+			SeccompProfile: common.SeccompProfile(openshift),
+		}
+	}
+
+	var nodeSelector map[string]string
+	var affinity *corev1.Affinity
+	var tolerations []corev1.Toleration
+
+	if cr.Spec.SchedulingOptions != nil {
+		nodeSelector = cr.Spec.SchedulingOptions.NodeSelector
+
+		if cr.Spec.SchedulingOptions.Affinity != nil {
+			affinity = &corev1.Affinity{
+				NodeAffinity:    cr.Spec.SchedulingOptions.Affinity.NodeAffinity,
+				PodAffinity:     cr.Spec.SchedulingOptions.Affinity.PodAffinity,
+				PodAntiAffinity: cr.Spec.SchedulingOptions.Affinity.PodAntiAffinity,
+			}
+		}
+		tolerations = cr.Spec.SchedulingOptions.Tolerations
+	}
+
+	return &corev1.PodSpec{
+		Containers:      container,
+		NodeSelector:    nodeSelector,
+		Affinity:        affinity,
+		Tolerations:     tolerations,
+		SecurityContext: podSc,
+		Volumes:         volumes,
+	}
 }
 
 func NewReportContainerResource(cr *model.CryostatInstance) *corev1.ResourceRequirements {
@@ -652,7 +929,7 @@ func NewOpenShiftAuthProxyContainer(cr *model.CryostatInstance, specs *ServiceSp
 		"--pass-basic-auth=false",
 		fmt.Sprintf("--upstream=http://localhost:%d/", constants.CryostatHTTPContainerPort),
 		fmt.Sprintf("--upstream=http://localhost:%d/grafana/", constants.GrafanaContainerPort),
-		fmt.Sprintf("--upstream=http://localhost:%d/storage/", constants.StoragePort),
+		// fmt.Sprintf("--upstream=http://localhost:%d/storage/", constants.StorageContainerPort),
 		fmt.Sprintf("--openshift-service-account=%s", cr.Name),
 		"--proxy-websockets=true",
 		"--proxy-prefix=/oauth2",
@@ -938,7 +1215,7 @@ func NewCoreContainer(cr *model.CryostatInstance, specs *ServiceSpecs, imageTag 
 		},
 		{
 			Name:  "QUARKUS_DATASOURCE_JDBC_URL",
-			Value: "jdbc:postgresql://localhost:5432/cryostat",
+			Value: fmt.Sprintf("jdbc:postgresql://%s-database.%s.svc.cluster.local:5432/cryostat", cr.Name, cr.InstallNamespace),
 		},
 		{
 			Name:  "STORAGE_BUCKETS_ARCHIVE_NAME",
@@ -946,7 +1223,7 @@ func NewCoreContainer(cr *model.CryostatInstance, specs *ServiceSpecs, imageTag 
 		},
 		{
 			Name:  "QUARKUS_S3_ENDPOINT_OVERRIDE",
-			Value: "http://localhost:8333",
+			Value: fmt.Sprintf("http://%s-storage.%s.svc.cluster.local:8333", cr.Name, cr.InstallNamespace),
 		},
 		{
 			Name:  "QUARKUS_S3_PATH_STYLE_ACCESS",
@@ -1301,7 +1578,7 @@ func NewStorageContainer(cr *model.CryostatInstance, imageTag string, tls *TLSCo
 
 	mounts := []corev1.VolumeMount{
 		{
-			Name:      cr.Name,
+			Name:      cr.Name + "-storage",
 			MountPath: "/data",
 			SubPath:   "seaweed",
 		},
@@ -1322,6 +1599,40 @@ func NewStorageContainer(cr *model.CryostatInstance, imageTag string, tls *TLSCo
 		},
 	})
 
+	livenessProbeScheme := corev1.URISchemeHTTP
+	/**
+	if tls != nil {
+		tlsEnvs := []corev1.EnvVar{
+			{
+				Name:  "S3_PORT_HTTPS",
+				Value: strconv.Itoa(int(constants.StorageContainerPort)),
+			},
+			{
+				Name:  "S3_KEY_FILE",
+				Value: fmt.Sprintf("/var/run/secrets/operator.cryostat.io/%s/%s", tls.StorageSecret, corev1.TLSPrivateKeyKey),
+			},
+			{
+				Name:  "S3_CERT_FILE",
+				Value: fmt.Sprintf("/var/run/secrets/operator.cryostat.io/%s/%s", tls.StorageSecret, corev1.TLSCertKey),
+			},
+		}
+
+		tlsSecretMount := corev1.VolumeMount{
+			Name:      "storage-tls-secret",
+			MountPath: "/var/run/secrets/operator.cryostat.io/" + tls.StorageSecret,
+			ReadOnly:  true,
+		}
+
+		envs = append(envs, tlsEnvs...)
+		mounts = append(mounts, tlsSecretMount)
+		livenessProbeScheme = corev1.URISchemeHTTPS
+	} else {
+		envs = append(envs, corev1.EnvVar{
+			Name:  "QUARKUS_HTTP_PORT",
+			Value: strconv.Itoa(int(constants.StorageContainerPort)),
+		})
+	}**/
+
 	if cr.Spec.SecurityOptions != nil && cr.Spec.SecurityOptions.StorageSecurityContext != nil {
 		containerSc = cr.Spec.SecurityOptions.StorageSecurityContext
 	} else {
@@ -1334,7 +1645,6 @@ func NewStorageContainer(cr *model.CryostatInstance, imageTag string, tls *TLSCo
 		}
 	}
 
-	livenessProbeScheme := corev1.URISchemeHTTP
 	probeHandler := corev1.ProbeHandler{
 		HTTPGet: &corev1.HTTPGetAction{
 			Port:   intstr.IntOrString{IntVal: 8333},
@@ -1352,7 +1662,7 @@ func NewStorageContainer(cr *model.CryostatInstance, imageTag string, tls *TLSCo
 		Env:             envs,
 		Ports: []corev1.ContainerPort{
 			{
-				ContainerPort: constants.StoragePort,
+				ContainerPort: constants.StorageContainerPort,
 			},
 		},
 		LivenessProbe: &corev1.Probe{
@@ -1376,7 +1686,7 @@ func NewDatabaseContainerResource(cr *model.CryostatInstance) *corev1.ResourceRe
 	return resources
 }
 
-func newDatabaseContainer(cr *model.CryostatInstance, imageTag string, tls *TLSConfig) corev1.Container {
+func NewDatabaseContainer(cr *model.CryostatInstance, imageTag string, tls *TLSConfig) corev1.Container {
 	var containerSc *corev1.SecurityContext
 	if cr.Spec.SecurityOptions != nil && cr.Spec.SecurityOptions.DatabaseSecurityContext != nil {
 		containerSc = cr.Spec.SecurityOptions.DatabaseSecurityContext
@@ -1431,11 +1741,46 @@ func newDatabaseContainer(cr *model.CryostatInstance, imageTag string, tls *TLSC
 
 	mounts := []corev1.VolumeMount{
 		{
-			Name:      cr.Name,
+			Name:      cr.Name + "-database",
 			MountPath: "/data",
 			SubPath:   "postgres",
 		},
 	}
+
+	/**
+	if tls != nil {
+		tlsEnvs := []corev1.EnvVar{
+			{
+				Name:  "QUARKUS_DATASOURCE_REACTIVE_TRUST_ALL",
+				Value: "true",
+			},
+			{
+				Name:  "QUARKUS_DATASOURCE_REACTIVE_KEY_CERTIFICATE_PEM_KEYS",
+				Value: fmt.Sprintf("/var/run/secrets/operator.cryostat.io/%s-database-tls/tls.key", cr.Name),
+			},
+			{
+				Name:  "QUARKUS_DATASOURCE_REACTIVE_KEY_CERTIFICATE_PEM_CERTS",
+				Value: fmt.Sprintf("/var/run/secrets/operator.cryostat.io/%s-database-tls/tls.crt", cr.Name),
+			},
+			{
+				Name:  "QUARKUS_DATASOURCE_REACTIVE_URL",
+				Value: fmt.Sprintf("https://%s-database:5432", cr.Name),
+			},
+		}
+		tlsSecretMount := corev1.VolumeMount{
+			Name:      "database-tls-secret",
+			MountPath: "/var/run/secrets/operator.cryostat.io/" + tls.DatabaseSecret,
+			ReadOnly:  true,
+		}
+
+		envs = append(envs, tlsEnvs...)
+		mounts = append(mounts, tlsSecretMount)
+	} else {
+		envs = append(envs, corev1.EnvVar{
+			Name:  "QUARKUS_DATASOURCE_REACTIVE_URL",
+			Value: fmt.Sprintf("http://%s-database:5432", cr.Name),
+		})
+	}**/
 
 	return corev1.Container{
 		Name:            cr.Name + "-db",
@@ -1446,7 +1791,7 @@ func newDatabaseContainer(cr *model.CryostatInstance, imageTag string, tls *TLSC
 		Env:             envs,
 		Ports: []corev1.ContainerPort{
 			{
-				ContainerPort: constants.DatabasePort,
+				ContainerPort: constants.DatabaseContainerPort,
 			},
 		},
 		ReadinessProbe: &corev1.Probe{
@@ -1518,19 +1863,6 @@ func NewJfrDatasourceContainer(cr *model.CryostatInstance, imageTag string) core
 	}
 }
 
-func getPort(url *url.URL) string {
-	// Return port if already defined in URL
-	port := url.Port()
-	if len(port) > 0 {
-		return port
-	}
-	// Otherwise use default HTTP(S) ports
-	if url.Scheme == "https" {
-		return "443"
-	}
-	return "80"
-}
-
 func getInternalDashboardURL() string {
 	return fmt.Sprintf("http://localhost:%d", constants.GrafanaContainerPort)
 }
@@ -1574,6 +1906,70 @@ func newVolumeForCR(cr *model.CryostatInstance) []corev1.Volume {
 	return []corev1.Volume{
 		{
 			Name:         cr.Name,
+			VolumeSource: volumeSource,
+		},
+	}
+}
+
+func newVolumeForDatabse(cr *model.CryostatInstance) []corev1.Volume {
+	var volumeSource corev1.VolumeSource
+	if useEmptyDir(cr) {
+		emptyDir := cr.Spec.StorageOptions.EmptyDir
+
+		sizeLimit, err := resource.ParseQuantity(emptyDir.SizeLimit)
+		if err != nil {
+			sizeLimit = *resource.NewQuantity(0, resource.BinarySI)
+		}
+
+		volumeSource = corev1.VolumeSource{
+			EmptyDir: &corev1.EmptyDirVolumeSource{
+				Medium:    emptyDir.Medium,
+				SizeLimit: &sizeLimit,
+			},
+		}
+	} else {
+		volumeSource = corev1.VolumeSource{
+			PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
+				ClaimName: cr.Name + "-database",
+			},
+		}
+	}
+
+	return []corev1.Volume{
+		{
+			Name:         cr.Name + "-database",
+			VolumeSource: volumeSource,
+		},
+	}
+}
+
+func newVolumeForStorage(cr *model.CryostatInstance) []corev1.Volume {
+	var volumeSource corev1.VolumeSource
+	if useEmptyDir(cr) {
+		emptyDir := cr.Spec.StorageOptions.EmptyDir
+
+		sizeLimit, err := resource.ParseQuantity(emptyDir.SizeLimit)
+		if err != nil {
+			sizeLimit = *resource.NewQuantity(0, resource.BinarySI)
+		}
+
+		volumeSource = corev1.VolumeSource{
+			EmptyDir: &corev1.EmptyDirVolumeSource{
+				Medium:    emptyDir.Medium,
+				SizeLimit: &sizeLimit,
+			},
+		}
+	} else {
+		volumeSource = corev1.VolumeSource{
+			PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
+				ClaimName: cr.Name + "-storage",
+			},
+		}
+	}
+
+	return []corev1.Volume{
+		{
+			Name:         cr.Name + "-storage",
 			VolumeSource: volumeSource,
 		},
 	}
