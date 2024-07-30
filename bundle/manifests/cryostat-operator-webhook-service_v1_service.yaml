@@ -7,7 +7,7 @@ metadata:
     app.kubernetes.io/created-by: cryostat-operator
     app.kubernetes.io/instance: webhook-service
     app.kubernetes.io/managed-by: kustomize
-    app.kubernetes.io/name: service
+    app.kubernetes.io/name: cryostat-operator
     app.kubernetes.io/part-of: cryostat-operator
   name: cryostat-operator-webhook-service
 spec:
@@ -16,6 +16,7 @@ spec:
     protocol: TCP
     targetPort: 9443
   selector:
+    app.kubernetes.io/name: cryostat-operator
     control-plane: controller-manager
 status:
   loadBalancer: {}

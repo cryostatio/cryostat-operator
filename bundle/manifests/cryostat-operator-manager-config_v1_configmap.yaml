@@ -14,4 +14,6 @@ data:
       resourceName: d696d7ab.redhat.com
 kind: ConfigMap
 metadata:
+  labels:
+    app.kubernetes.io/name: cryostat-operator
   name: cryostat-operator-manager-config

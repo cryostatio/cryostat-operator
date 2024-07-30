@@ -9,8 +9,8 @@ namespace: cryostat-operator-system
 namePrefix: cryostat-operator-
 
 # Labels to add to all resources and selectors.
-#commonLabels:
-#  someName: someValue
+commonLabels:
+  app.kubernetes.io/name: cryostat-operator
 
 # Protect the /metrics endpoint by putting it behind auth.
 # If you want your controller-manager to expose the /metrics
