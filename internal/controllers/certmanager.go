@@ -90,7 +90,6 @@ func (r *Reconciler) setupTLS(ctx context.Context, cr *model.CryostatInstance) (
 		return nil, err
 	}
 
-	/**
 	// Create a certificate for the Cryostat database signed by the Cryostat CA
 	databaseCert := resources.NewDatabaseCert(cr)
 	err = r.createOrUpdateCertificate(ctx, databaseCert, cr.Object)
@@ -103,10 +102,12 @@ func (r *Reconciler) setupTLS(ctx context.Context, cr *model.CryostatInstance) (
 	err = r.createOrUpdateCertificate(ctx, storageCert, cr.Object)
 	if err != nil {
 		return nil, err
-	}**/
+	}
 
 	tlsConfig := &resources.TLSConfig{
 		CryostatSecret:     cryostatCert.Spec.SecretName,
+		DatabaseSecret:     databaseCert.Spec.SecretName,
+		StorageSecret:      storageCert.Spec.SecretName,
 		ReportsSecret:      reportsCert.Spec.SecretName,
 		KeystorePassSecret: cryostatCert.Spec.Keystores.PKCS12.PasswordSecretRef.Name,
 	}

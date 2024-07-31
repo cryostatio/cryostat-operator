@@ -1397,7 +1397,7 @@ func (r *TestResources) NewCoreEnvironmentVariables(reportsUrl string, ingress b
 		},
 		{
 			Name:  "QUARKUS_S3_ENDPOINT_OVERRIDE",
-			Value: fmt.Sprintf("http://%s-storage.%s.svc.cluster.local:8333", r.Name, r.Namespace),
+			Value: fmt.Sprintf("https://%s-storage.%s.svc.cluster.local:8333", r.Name, r.Namespace),
 		},
 		{
 			Name:  "QUARKUS_S3_PATH_STYLE_ACCESS",
@@ -1960,7 +1960,7 @@ func (r *TestResources) NewStorageVolumeMounts() []corev1.VolumeMount {
 			MountPath: "/data",
 			SubPath:   "seaweed",
 		})
-	/**
+
 	if r.TLS {
 		mounts = append(mounts,
 			corev1.VolumeMount{
@@ -1968,7 +1968,7 @@ func (r *TestResources) NewStorageVolumeMounts() []corev1.VolumeMount {
 				MountPath: fmt.Sprintf("/var/run/secrets/operator.cryostat.io/%s-storage-tls", r.Name),
 				ReadOnly:  true,
 			})
-	}**/
+	}
 	return mounts
 }
 
@@ -1980,7 +1980,7 @@ func (r *TestResources) NewDatabaseVolumeMounts() []corev1.VolumeMount {
 			MountPath: "/data",
 			SubPath:   "postgres",
 		})
-	/**
+
 	if r.TLS {
 		mounts = append(mounts,
 			corev1.VolumeMount{
@@ -1988,7 +1988,7 @@ func (r *TestResources) NewDatabaseVolumeMounts() []corev1.VolumeMount {
 				MountPath: fmt.Sprintf("/var/run/secrets/operator.cryostat.io/%s-database-tls", r.Name),
 				ReadOnly:  true,
 			})
-	}**/
+	}
 	return mounts
 }
 
@@ -2114,10 +2114,10 @@ func (r *TestResources) NewDatasourceLivenessProbe() *corev1.Probe {
 
 func (r *TestResources) NewStorageLivenessProbe() *corev1.Probe {
 	protocol := corev1.URISchemeHTTP
-	/**
+
 	if r.TLS {
 		protocol = corev1.URISchemeHTTPS
-	}**/
+	}
 	return &corev1.Probe{
 		ProbeHandler: corev1.ProbeHandler{
 			HTTPGet: &corev1.HTTPGetAction{
@@ -2483,7 +2483,6 @@ func (r *TestResources) NewDatabaseVolumes() []corev1.Volume {
 		},
 	}
 
-	/**
 	if r.TLS {
 		volumes = append(volumes, corev1.Volume{
 			Name: "database-tls-secret",
@@ -2493,7 +2492,7 @@ func (r *TestResources) NewDatabaseVolumes() []corev1.Volume {
 				},
 			},
 		})
-	} **/
+	}
 	return volumes
 }
 
@@ -2510,7 +2509,6 @@ func (r *TestResources) NewStorageVolumes() []corev1.Volume {
 		},
 	}
 
-	/**
 	if r.TLS {
 		volumes = append(volumes, corev1.Volume{
 			Name: "storage-tls-secret",
@@ -2520,7 +2518,7 @@ func (r *TestResources) NewStorageVolumes() []corev1.Volume {
 				},
 			},
 		})
-	}**/
+	}
 	return volumes
 }
 
