@@ -62,9 +62,9 @@ type TLSConfig struct {
 	// Name of the TLS secret for Reports Generator
 	ReportsSecret string
 	// Name of the TLS secret for Database
-	// DatabaseSecret string
+	DatabaseSecret string
 	// Name of the TLS secret for Storage
-	// StorageSecret string
+	StorageSecret string
 	// Name of the secret containing the password for the keystore in CryostatSecret
 	KeystorePassSecret string
 	// PEM-encoded X.509 certificate for the Cryostat CA
@@ -618,7 +618,7 @@ func NewPodForDatabase(cr *model.CryostatInstance, imageTags *ImageTags, tls *TL
 	container := []corev1.Container{NewDatabaseContainer(cr, imageTags.DatabaseImageTag, tls)}
 
 	volumes := newVolumeForDatabse(cr)
-	/**
+
 	if tls != nil {
 		secretVolume := corev1.Volume{
 			Name: "database-tls-secret",
@@ -629,7 +629,7 @@ func NewPodForDatabase(cr *model.CryostatInstance, imageTags *ImageTags, tls *TL
 			},
 		}
 		volumes = append(volumes, secretVolume)
-	}**/
+	}
 
 	var podSc *corev1.PodSecurityContext
 	if cr.Spec.SecurityOptions != nil && cr.Spec.SecurityOptions.PodSecurityContext != nil {
@@ -675,7 +675,7 @@ func NewPodForStorage(cr *model.CryostatInstance, imageTags *ImageTags, tls *TLS
 	container := []corev1.Container{NewStorageContainer(cr, imageTags.StorageImageTag, tls)}
 
 	volumes := newVolumeForStorage(cr)
-	/**
+
 	if tls != nil {
 		secretVolume := corev1.Volume{
 			Name: "storage-tls-secret",
@@ -686,7 +686,7 @@ func NewPodForStorage(cr *model.CryostatInstance, imageTags *ImageTags, tls *TLS
 			},
 		}
 		volumes = append(volumes, secretVolume)
-	}**/
+	}
 
 	var podSc *corev1.PodSecurityContext
 	if cr.Spec.SecurityOptions != nil && cr.Spec.SecurityOptions.PodSecurityContext != nil {
@@ -1223,7 +1223,7 @@ func NewCoreContainer(cr *model.CryostatInstance, specs *ServiceSpecs, imageTag 
 		},
 		{
 			Name:  "QUARKUS_S3_ENDPOINT_OVERRIDE",
-			Value: fmt.Sprintf("http://%s-storage.%s.svc.cluster.local:8333", cr.Name, cr.InstallNamespace),
+			Value: fmt.Sprintf("https://%s-storage.%s.svc.cluster.local:8333", cr.Name, cr.InstallNamespace),
 		},
 		{
 			Name:  "QUARKUS_S3_PATH_STYLE_ACCESS",
@@ -1600,8 +1600,9 @@ func NewStorageContainer(cr *model.CryostatInstance, imageTag string, tls *TLSCo
 	})
 
 	livenessProbeScheme := corev1.URISchemeHTTP
-	/**
+
 	if tls != nil {
+		/**
 		tlsEnvs := []corev1.EnvVar{
 			{
 				Name:  "S3_PORT_HTTPS",
@@ -1616,6 +1617,7 @@ func NewStorageContainer(cr *model.CryostatInstance, imageTag string, tls *TLSCo
 				Value: fmt.Sprintf("/var/run/secrets/operator.cryostat.io/%s/%s", tls.StorageSecret, corev1.TLSCertKey),
 			},
 		}
+		envs = append(envs, tlsEnvs...) **/
 
 		tlsSecretMount := corev1.VolumeMount{
 			Name:      "storage-tls-secret",
@@ -1623,10 +1625,9 @@ func NewStorageContainer(cr *model.CryostatInstance, imageTag string, tls *TLSCo
 			ReadOnly:  true,
 		}
 
-		envs = append(envs, tlsEnvs...)
 		mounts = append(mounts, tlsSecretMount)
 		livenessProbeScheme = corev1.URISchemeHTTPS
-	} else {
+	} /** else {
 		envs = append(envs, corev1.EnvVar{
 			Name:  "QUARKUS_HTTP_PORT",
 			Value: strconv.Itoa(int(constants.StorageContainerPort)),
@@ -1747,8 +1748,8 @@ func NewDatabaseContainer(cr *model.CryostatInstance, imageTag string, tls *TLSC
 		},
 	}
 
-	/**
 	if tls != nil {
+		/**
 		tlsEnvs := []corev1.EnvVar{
 			{
 				Name:  "QUARKUS_DATASOURCE_REACTIVE_TRUST_ALL",
@@ -1767,15 +1768,16 @@ func NewDatabaseContainer(cr *model.CryostatInstance, imageTag string, tls *TLSC
 				Value: fmt.Sprintf("https://%s-database:5432", cr.Name),
 			},
 		}
+		envs = append(envs, tlsEnvs...) **/
+
 		tlsSecretMount := corev1.VolumeMount{
 			Name:      "database-tls-secret",
 			MountPath: "/var/run/secrets/operator.cryostat.io/" + tls.DatabaseSecret,
 			ReadOnly:  true,
 		}
 
-		envs = append(envs, tlsEnvs...)
 		mounts = append(mounts, tlsSecretMount)
-	} else {
+	} /** else {
 		envs = append(envs, corev1.EnvVar{
 			Name:  "QUARKUS_DATASOURCE_REACTIVE_URL",
 			Value: fmt.Sprintf("http://%s-database:5432", cr.Name),
