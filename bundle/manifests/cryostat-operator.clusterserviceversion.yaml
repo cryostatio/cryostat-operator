@@ -29,8 +29,13 @@ metadata:
       ]
     capabilities: Seamless Upgrades
     categories: Monitoring, Developer Tools
+<<<<<<< HEAD
     containerImage: quay.io/cryostat/cryostat-operator:3.0.1-dev
     createdAt: "2024-07-09T15:20:45Z"
+=======
+    containerImage: quay.io/cryostat/cryostat-operator:4.0.0-dev
+    createdAt: "2024-07-30T21:00:58Z"
+>>>>>>> 25de979 (fix(webhook): make label selectors unambiguous (#926))
     description: JVM monitoring and profiling tool
     operatorframework.io/initialization-resource: |-
       {
@@ -970,12 +975,14 @@ spec:
           serviceAccountName: cryostat-operator-service-account
       deployments:
         - label:
+            app.kubernetes.io/name: cryostat-operator
             control-plane: controller-manager
           name: cryostat-operator-controller-manager
           spec:
             replicas: 1
             selector:
               matchLabels:
+                app.kubernetes.io/name: cryostat-operator
                 control-plane: controller-manager
             strategy: {}
             template:
@@ -983,6 +990,7 @@ spec:
                 annotations:
                   kubectl.kubernetes.io/default-container: manager
                 labels:
+                  app.kubernetes.io/name: cryostat-operator
                   control-plane: controller-manager
               spec:
                 containers:
@@ -1046,21 +1054,12 @@ spec:
                       capabilities:
                         drop:
                           - ALL
-                    volumeMounts:
-                      - mountPath: /tmp/k8s-webhook-server/serving-certs
-                        name: cert
-                        readOnly: true
                 securityContext:
                   runAsNonRoot: true
                   seccompProfile:
                     type: RuntimeDefault
                 serviceAccountName: cryostat-operator-service-account
                 terminationGracePeriodSeconds: 10
-                volumes:
-                  - name: cert
-                    secret:
-                      defaultMode: 420
-                      secretName: webhook-server-cert
       permissions:
         - rules:
             - apiGroups:
