@@ -18,6 +18,8 @@ import (
 	"context"
 	"fmt"
 	"net/url"
+	"os"
+	"path"
 	"time"
 
 	operatorv1beta2 "github.com/cryostatio/cryostat-operator/api/v1beta2"
@@ -32,6 +34,7 @@ const (
 	CryostatRecordingTestName      string = "cryostat-recording"
 	CryostatConfigChangeTestName   string = "cryostat-config-change"
 	CryostatReportTestName         string = "cryostat-report"
+	CryostatGrafanaTestName        string = "cryostat-grafana"
 )
 
 // OperatorInstallTest checks that the operator installed correctly
@@ -300,6 +303,78 @@ func CryostatReportTest(bundle *apimanifests.Bundle, namespace string, openShift
 	err = r.StartLogs(cr)
 	if err != nil {
 		r.Log += fmt.Sprintf("failed to retrieve logs for the application: %s", err.Error())
+	}
+
+	return r.TestResult
+}
+
+func CryostatGrafanaTest(bundle *apimanifests.Bundle, namespace string, openShiftCertManager bool) *scapiv1alpha3.TestResult {
+	r := newTestResources(CryostatGrafanaTestName, namespace)
+
+	err := r.setupCRTestResources(openShiftCertManager)
+	if err != nil {
+		return r.fail(fmt.Sprintf("failed to set up %s test: %s", CryostatGrafanaTestName, err.Error()))
+	}
+
+	defer r.cleanupAndLogs()
+
+	// Create a default Cryostat CR
+	cr, err := r.createAndWaitTillCryostatAvailable(r.newCryostatCR())
+	if err != nil {
+		return r.fail(fmt.Sprintf("failed to determine application URL: %s", err.Error()))
+	}
+
+	err = r.StartLogs(cr)
+	if err != nil {
+		r.Log += fmt.Sprintf("failed to retrieve logs for the application: %s", err.Error())
+	}
+
+	base, err := url.Parse(cr.Status.ApplicationURL)
+	if err != nil {
+		return r.fail(fmt.Sprintf("application URL is invalid: %s", err.Error()))
+	}
+
+	err = r.waitTillCryostatReady(base)
+	if err != nil {
+		return r.fail(fmt.Sprintf("failed to reach the application: %s", err.Error()))
+	}
+
+	apiClient := NewCryostatRESTClientset(base)
+
+	// Get the path to the testdata directory from fromTESTDATA_DIR environment variable
+	// If empty, assume running within a pod and use "/testdata"
+	testDataDir := os.Getenv("TESTDATA_DIR")
+	if len(testDataDir) == 0 {
+		testDataDir = podTestDataRoot
+	}
+
+	err = apiClient.Recordings().UploadArchive(context.Background(), path.Join(testDataDir, jfrFilename))
+	if err != nil {
+		return r.fail(fmt.Sprintf("failed to upload archive %s: %s", jfrFilename, err.Error()))
+	}
+
+	err = apiClient.Recordings().LoadUploadedArchiveToGrafana(context.Background(), jfrFilename)
+	if err != nil {
+		return r.fail(fmt.Sprintf("failed to load archive %s to grafana: %s", jfrFilename, err.Error()))
+	}
+
+	// Validate datasource
+	datasource, err := apiClient.Grafana().GetDatasourceByName(context.Background(), GRAFANA_DATASOURCE_NAME)
+	if err != nil {
+		return r.fail(fmt.Sprintf("failed to get datasource %s: %s", GRAFANA_DATASOURCE_NAME, err.Error()))
+	}
+
+	if err = datasource.IsValid(); err != nil {
+		return r.fail(fmt.Sprintf("datasource %s is invalid: %s", GRAFANA_DATASOURCE_NAME, err.Error()))
+	}
+
+	dashboard, err := apiClient.Grafana().GetDashboardByUID(context.Background(), GRAFANA_DASHBOARD_UID)
+	if err != nil {
+		return r.fail(fmt.Sprintf("failed to get dashboard %s: %s", GRAFANA_DASHBOARD_UID, err.Error()))
+	}
+
+	if err = dashboard.IsValid(); err != nil {
+		return r.fail(fmt.Sprintf("dashboard %s is invalid: %s", GRAFANA_DASHBOARD_UID, err.Error()))
 	}
 
 	return r.TestResult
