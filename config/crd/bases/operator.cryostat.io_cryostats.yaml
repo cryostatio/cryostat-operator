@@ -3628,7 +3628,7 @@ spec:
                         type: object
                     type: object
                   databaseSecurityContext:
-                    description: Security Context to apply to the database container.
+                    description: Security Context to apply to the storage container.
                     properties:
                       allowPrivilegeEscalation:
                         description: |-

@@ -30,7 +30,7 @@ metadata:
     capabilities: Seamless Upgrades
     categories: Monitoring, Developer Tools
     containerImage: quay.io/cryostat/cryostat-operator:4.0.0-dev
-    createdAt: "2024-07-30T21:00:58Z"
+    createdAt: "2024-08-07T21:05:35Z"
     description: JVM monitoring and profiling tool
     operatorframework.io/initialization-resource: |-
       {
@@ -686,7 +686,7 @@ spec:
           - description: Security Context to apply to the JFR Data Source container.
             displayName: Data Source Security Context
             path: securityOptions.dataSourceSecurityContext
-          - description: Security Context to apply to the database container.
+          - description: Security Context to apply to the storage container.
             displayName: Database Security Context
             path: securityOptions.databaseSecurityContext
           - description: Security Context to apply to the Grafana container.
