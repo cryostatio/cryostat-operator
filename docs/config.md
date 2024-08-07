@@ -1,5 +1,5 @@
 ## Configuring Cryostat
-The operator creates and manages a Deployment of [Cryostat](https://github.com/cryostatio/cryostat) when the user creates or updates a `Cryostat` object. Only one `Cryostat` object should exist in the operator's namespace at a time. There are a few options available in the `Cryostat` spec that control how Cryostat is deployed.
+The operator creates and manages a Deployment of [Cryostat](https://github.com/cryostatio/cryostat) when the user creates or updates a `Cryostat` object. Only one `Cryostat` object should exist in a namespace at a time. There are a few options available in the `Cryostat` spec that control how Cryostat is deployed.
 
 ### Target Namespaces
 Specify the list of namespaces containing your workloads that you want your multi-namespace Cryostat installation to work with under the `spec.targetNamespaces` property. The resulting Cryostat will have permissions to access workloads only within these specified namespaces. If not specified, `spec.targetNamespaces` will default to the namespace of the `Cryostat` object.
@@ -18,12 +18,12 @@ spec:
 #### Data Isolation
 When installed in a multi-namespace manner, all users with access to a Cryostat instance have the same visibility and privileges to all data available to that Cryostat instance. Administrators deploying Cryostat instances must ensure that the users who have access to a Cryostat instance also have equivalent access to all the applications that can be monitored by that Cryostat instance. Otherwise, underprivileged users may use Cryostat to escalate permissions to start recordings and collect JFR data from applications that they do not otherwise have access to.
 
-For now, all authorization checks are done against the namespace where Cryostat is installed. For a user to use Cryostat with workloads in a target namespace, that user must have the necessary Kubernetes permissions in the namespace where Cryostat is installed.
+Authorization checks are done against the namespace where Cryostat is installed and the list of target namespaces of your multi-namespace Cryostat. For a user to use Cryostat with workloads in a target namespace, that user must have the necessary Kubernetes permissions to create single-namespaced Cryostat instances in that target namespace.
 
 ### Disabling cert-manager Integration
 By default, the operator expects [cert-manager](https://cert-manager.io/) to be available in the cluster. The operator uses cert-manager to generate a self-signed CA to allow traffic between Cryostat components within the cluster to use HTTPS. If cert-manager is not available in the cluster, this integration can be disabled with the `spec.enableCertManager` property.
 ```yaml
-apiVersion: operator.cryostat.io/v1beta1
+apiVersion: operator.cryostat.io/v1beta2
 kind: Cryostat
 metadata:
   name: cryostat-sample
@@ -32,11 +32,11 @@ spec:
 ```
 
 ### Custom Event Templates
-All JDK Flight Recordings created by Cryostat are configured using an event template. These templates specify which events to record, and Cryostat includes some templates automatically, including those provided by the target's JVM. Cryostat also provides the ability to [upload customized templates](https://cryostat.io/getting-started/#download-edit-and-upload-a-customized-event-template), which can then be used to create recordings.
+All JDK Flight Recordings created by Cryostat are configured using an event template. These templates specify which events to record, and Cryostat includes some templates automatically, including those provided by the target's JVM. Cryostat also provides the ability to [upload customized templates](https://cryostat.io/guides/#download-edit-and-upload-a-customized-event-template), which can then be used to create recordings.
 
 The Cryostat Operator provides an additional feature to pre-configure Cryostat with custom templates that are stored in Config Maps. When Cryostat is deployed from this Cryostat object, it will have the listed templates already available for use.
 ```yaml
-apiVersion: operator.cryostat.io/v1beta1
+apiVersion: operator.cryostat.io/v1beta2
 kind: Cryostat
 metadata:
   name: cryostat-sample
@@ -50,7 +50,7 @@ Multiple templates can be specified in the `eventTemplates` array. Each `configM
 ### Trusted TLS Certificates
 By default, Cryostat uses TLS when connecting to the user's applications over JMX. In order to verify the identity of the applications Cryostat connects to, it should be configured to trust the TLS certificates presented by those applications. One way to do that is to specify certificates that Cryostat should trust in the `spec.trustedCertSecrets` property.
 ```yaml
-apiVersion: operator.cryostat.io/v1beta1
+apiVersion: operator.cryostat.io/v1beta2
 kind: Cryostat
 metadata:
   name: cryostat-sample
@@ -66,7 +66,7 @@ Cryostat uses storage volumes to persist data in its database and object storage
 
 Through the `spec.storageOptions` property, users can choose to provide either a custom Persistent Volume Claim `pvc.spec` or an `emptyDir` configuration. Either of these configurations will override any defaults when the operator creates the storage volume. If an `emptyDir` configuration is enabled, Cryostat will use an EmptyDir volume instead of a Persistent Volume Claim. Additional labels and annotations for the Persistent Volume Claim may also be specified.
 ```yaml
-apiVersion: operator.cryostat.io/v1beta1
+apiVersion: operator.cryostat.io/v1beta2
 kind: Cryostat
 metadata:
   name: cryostat-sample
@@ -86,7 +86,7 @@ spec:
 The `emptyDir.medium` and `emptyDir.sizeLimit` fields are optional. If an `emptyDir` is
 specified without additional configurations, Cryostat will mount an EmptyDir volume with the same default values as Kubernetes.
 ```yaml
-apiVersion: operator.cryostat.io/v1beta1
+apiVersion: operator.cryostat.io/v1beta2
 kind: Cryostat
 metadata:
   name: cryostat-sample
@@ -101,20 +101,13 @@ spec:
 ### Service Options
 The Cryostat operator creates two services: one for the core Cryostat application and (optionally) one for the cryostat-reports sidecars. These services are created by default as Cluster IP services. The core service exposes one ports `4180` for HTTP(S). The Reports service exposts port `10000` for HTTP(S) traffic. The service type, port numbers, labels and annotations can all be customized using the `spec.serviceOptions` property.
 ```yaml
-apiVersion: operator.cryostat.io/v1beta1
+apiVersion: operator.cryostat.io/v1beta2
 kind: Cryostat
 metadata:
   name: cryostat-sample
 spec:
   serviceOptions:
     coreConfig:
-      labels:
-        my-custom-label: some-value
-      annotations:
-        my-custom-annotation: some-value
-      serviceType: NodePort
-      httpPort: 8080
-    grafanaConfig:
       labels:
         my-custom-label: some-value
       annotations:
@@ -133,7 +126,7 @@ spec:
 ### Reports Options
 The Cryostat operator can optionally configure Cryostat to use `cryostat-reports` as a sidecar microservice for generating Automated Rules Analysis Reports. If this is not configured then the main Cryostat container will perform this task itself, however, this is a relatively heavyweight and resource-intensive task. It is recommended to configure `cryostat-reports` sidecars if the Automated Analysis feature will be used or relied upon. The number of sidecar containers to deploy and the amount of CPU and memory resources to allocate for each container can be customized using the `spec.reportOptions` property.
 ```yaml
-apiVersion: operator.cryostat.io/v1beta1
+apiVersion: operator.cryostat.io/v1beta2
 kind: Cryostat
 metadata:
   name: cryostat-sample
@@ -149,7 +142,7 @@ If zero sidecar replicas are configured, SubProcessMaxHeapSize configures
 the maximum heap size of the main Cryostat container's subprocess report generator in MiB.
 The default heap size is `200` MiB.
 ```yaml
-apiVersion: operator.cryostat.io/v1beta1
+apiVersion: operator.cryostat.io/v1beta2
 kind: Cryostat
 metadata:
   name: cryostat-sample
@@ -163,8 +156,8 @@ If the sidecar's resource requests are not specified, they are set with the foll
 
 | Request | Quantity |
 |---------|----------|
-| Reports Container CPU | 200m |
-| Reports Container Memory | 384Mi |
+| Reports Container CPU | 500m |
+| Reports Container Memory | 512Mi |
 
 
 ### Resource Requirements
@@ -172,24 +165,40 @@ By default, the operator deploys Cryostat with pre-configured resource requests:
 
 | Request | Quantity |
 |---------|----------|
+| Auth Proxy container CPU | 25m |
+| Auth Proxy container Memory | 64Mi |
 | Cryostat container CPU | 500m |
-| Cryostat container Memory | 256Mi |
+| Cryostat container Memory | 384Mi |
 | JFR Data Source container CPU | 200m |
-| JFR Data Source container Memory | 384Mi |
-| Grafana container CPU | 100m |
-| Grafana container Memory | 120Mi |
+| JFR Data Source container Memory | 200Mi |
+| Grafana container CPU | 25m |
+| Grafana container Memory | 80Mi |
+| Database container CPU | 25m |
+| Database container Memory | 64Mi |
+| Storage container CPU | 50m |
+| Storage container Memory | 256Mi |
 
-Using the Cryostat custom resource, you can define resources requests and/or limits for each of the three containers in Cryostat's main pod:
+Using the Cryostat custom resource, you can define resources requests and/or limits for each of the containers in Cryostat's main pod:
+- the `auth-proxy` container running the oauth2-proxy, which performs authorization checks, and is placed in front of the operand containers.
 - the `core` container running the Cryostat backend and web application. If setting a memory limit for this container, we recommend at least 768MiB.
 - the `datasource` container running JFR Data Source, which converts recordings into a Grafana-compatible format.
 - the `grafana` container running the Grafana instance customized for Cryostat.
+- the `database` container running the Postgres [database image](https://github.com/cryostatio/cryostat-db) customized for Cryostat.
+- the `storage` container running the S3-compatible storage provider for Cryostat.
 ```yaml
-apiVersion: operator.cryostat.io/v1beta1
+apiVersion: operator.cryostat.io/v1beta2
 kind: Cryostat
 metadata:
   name: cryostat-sample
 spec:
   resources:
+    authProxyResources:
+      requests:
+        cpu: 800m
+        memory: 256Mi
+      limits:
+        cpu: 1000m
+        memory: 512Mi
     coreResources:
       requests:
         cpu: 1200m
@@ -211,21 +220,34 @@ spec:
       limits:
         cpu: 1000m
         memory: 512Mi
+    databaseResources:
+      requests: 600m
+        cpu: 256Mi
+        memory: 
+      limits:
+        cpu: 800m
+        memory: 512Mi
+    objectStorageResources:
+      requests: 
+        cpu: 500m
+        memory: 512Mi
+      limits:
+        cpu: 1000m
+        memory: 768 Mi
 ```
 This example sets CPU and memory requests and limits for each container, but you may choose to define any combination of requests and limits that suits your use case.
 
 Note that if you define limits lower than the default requests, the resource requests will be set to the value of your provided limits.
 
 ### Network Options
-When running on Kubernetes, the operator requires Ingress configurations for each of its services to make them available outside of the cluster. For a `Cryostat` object named `x`, the following Ingress configurations must be specified within the `spec.networkOptions` property:
+When running on Kubernetes, the operator requires Ingress configurations for each of its services to make them available outside of the cluster. For a `Cryostat` object named `x`, the following Ingress configuration must be specified within the `spec.networkOptions` property:
 - `coreConfig` exposing the service `x` on port `8181` (or alternate specified in [Service Options](#service-options)).
-- `grafanaConfig` exposing the service `x-grafana` on port `3000` (or alternate specified in [Service Options](#service-options)).
 
-The user is responsible for providing the hostnames for each Ingress. In Minikube, this can be done by adding entries to the host machine's `/etc/hosts` for each hostname, pointing to Minikube's IP address. See: https://kubernetes.io/docs/tasks/access-application-cluster/ingress-minikube/
+The user is responsible for providing the hostname for this Ingress. In Minikube, this can be done by adding an entry to the host machine's `/etc/hosts` for the hostname, pointing to Minikube's IP address. See: https://kubernetes.io/docs/tasks/access-application-cluster/ingress-minikube/
 
-Since Cryostat only accept HTTPS traffic by default, the Ingresses should be configured to forward traffic to the backend services over HTTPS. For the NGINX Ingress Controller, this can be done with the `nginx.ingress.kubernetes.io/backend-protocol` annotation. The operator considers TLS to be enabled for the Ingress if the Ingress's `spec.tls` array is non-empty. The example below uses the cluster's default wildcard certificate.
+Since Cryostat only accept HTTPS traffic by default, the Ingress should be configured to forward traffic to the backend services over HTTPS. For the NGINX Ingress Controller, this can be done with the `nginx.ingress.kubernetes.io/backend-protocol` annotation. The operator considers TLS to be enabled for the Ingress if the Ingress's `spec.tls` array is non-empty. The example below uses the cluster's default wildcard certificate.
 ```yaml
-apiVersion: operator.cryostat.io/v1beta1
+apiVersion: operator.cryostat.io/v1beta2
 kind: Cryostat
 metadata:
   name: cryostat-sample
@@ -248,39 +270,22 @@ spec:
                   name: cryostat-sample
                   port:
                     number: 8181
-    grafanaConfig:
-      annotations:
-        nginx.ingress.kubernetes.io/backend-protocol: HTTPS
-      ingressSpec:
-        tls:
-        - {}
-        rules:
-        - host: testing.cryostat-grafana
-          http:
-            paths:
-            - path: /
-              pathType: Prefix
-              backend:
-                service:
-                  name: cryostat-sample-grafana
-                  port:
-                    number: 3000
 ```
 
-When running on OpenShift, labels and annotations specified in `coreConfig` and `grafanaConfig` will be applied to the coresponding Routes created by the operator.
+When running on OpenShift, labels and annotations specified in `coreConfig` will be applied to the coresponding Route created by the operator.
 
-### JMX Cache Configuration Options
-Cryostat's target JMX connection cache can be optionally configured with `targetCacheSize` and `targetCacheTTL`.
-`targetCacheSize` sets the maximum number of JMX connections cached by Cryostat.
+### Target Cache Configuration Options
+Cryostat's target connection cache can be optionally configured with `targetCacheSize` and `targetCacheTTL`.
+`targetCacheSize` sets the maximum number of target connections cached by Cryostat.
 Use `-1` for an unlimited cache size. The default cache size is unlimited (`-1`).
-`targetCacheTTL` sets the time to live (in seconds) for cached JMX connections. The default TTL is `10` seconds.
+`targetCacheTTL` sets the time to live (in seconds) for cached target connections. The default TTL is `10` seconds.
 ```yaml
-apiVersion: operator.cryostat.io/v1beta1
+apiVersion: operator.cryostat.io/v1beta2
 kind: Cryostat
 metadata:
   name: cryostat-sample
 spec:
-  jmxCacheOptions:
+  targetConnectionCacheOptions:
     targetCacheSize: -1
     targetCacheTTL: 10
 ```
@@ -304,13 +309,13 @@ stringData:
 Then, the property `.spec.databaseOptions.secretName` must be set to use this Secret for the two keys.
 
 ```yaml
-apiVersion: operator.cryostat.io/v1beta1
+apiVersion: operator.cryostat.io/v1beta2
 kind: Cryostat
 metadata:
   name: cryostat-sample
 spec:
-  jmxCredentialsDatabaseOptions:
-    databaseSecretName: credentials-database-secret
+  databaseOptions:
+    secretName: credentials-database-secret
 ```
 
 **Note**: If the secret is not provided, one is generated for this purpose containing two randomly generated keys. However, switching between using provided and generated secret is not allowed to avoid password mismatch that causes the Cryostat application's failure to access the database or failure to decrypt the credentials keyring.
@@ -356,7 +361,7 @@ With [Pod Security Admission](https://kubernetes.io/docs/concepts/security/pod-s
 The user is responsible for ensuring the security contexts of their workloads to meet these standards. The property `spec.securityOptions` can be set to define security contexts for Cryostat application and `spec.reportOptions.securityOptions` is for its report sidecar.
 
 ```yaml
-apiVersion: operator.cryostat.io/v1beta1
+apiVersion: operator.cryostat.io/v1beta2
 kind: Cryostat
 metadata:
   name: cryostat-sample
@@ -366,6 +371,11 @@ spec:
       runAsNonRoot: true
       seccompProfile:
         type: RuntimeDefault
+    authProxySecurityContext:
+      allowPrivilegeEscalation: false
+      capabilities:
+        drop:
+        - ALL
     coreSecurityContext:
       allowPrivilegeEscalation: false
       capabilities:
@@ -378,6 +388,16 @@ spec:
         drop:
         - ALL
     grafanaSecurityContext:
+      allowPrivilegeEscalation: false
+      capabilities:
+        drop:
+        - ALL
+    storageSecurityContext:
+      allowPrivilegeEscalation: false
+      capabilities:
+        drop:
+        - ALL
+    databaseSecurityContext:
       allowPrivilegeEscalation: false
       capabilities:
         drop:
@@ -399,7 +419,7 @@ spec:
 If not specified, the security contexts are defaulted to conform to the [restricted](https://kubernetes.io/docs/concepts/security/pod-security-standards/#restricted) Pod Security Standard. 
 For the Cryostat application pod, the operator selects an fsGroup to ensure that Cryostat can read and write files in its Persistent Volume.
 
-On OpenShift, Cryostat application pod's `spec.securityContext.seccompProfile` is left unset for backward compatibility. On versions of OpenShift supporting Pod Security Admission, the `restricted-v2` Security Context Constraint sets `seccompProfile` to `runtime/default` as required for the restricted Pod Security Standard. For more details, see [Security Context Constraints](https://docs.openshift.com/container-platform/4.11/authentication/managing-security-context-constraints.html#default-sccs_configuring-internal-oauth).
+On OpenShift, Cryostat application pod's `spec.securityContext.seccompProfile` is left unset for backward compatibility. On versions of OpenShift supporting Pod Security Admission, the `restricted-v2` Security Context Constraint sets `seccompProfile` to `runtime/default` as required for the restricted Pod Security Standard. For more details, see [Security Context Constraints](https://docs.openshift.com/container-platform/4.16/authentication/managing-security-context-constraints.html#default-sccs_configuring-internal-oauth).
 
 ### Scheduling Options
 
@@ -407,7 +427,7 @@ If you wish to control which nodes Cryostat and its reports microservice are sch
 
 ```yaml
 kind: Cryostat
-apiVersion: operator.cryostat.io/v1beta1
+apiVersion: operator.cryostat.io/v1beta2
 metadata:
   name: cryostat
 spec:
@@ -477,18 +497,18 @@ spec:
 
 ### Target Discovery Options
 
-If you wish to use only Cryostat's [Discovery Plugin API](https://github.com/cryostatio/cryostat/blob/801779d5ddf7fa30f7b230f649220a852b06f27d/docs/DISCOVERY_PLUGINS.md), set the property `spec.targetDiscoveryOptions.builtInDiscoveryDisabled` to `true` to disable Cryostat's built-in discovery mechanisms.
+If you wish to use only Cryostat's Discovery Plugin API, set the property `spec.targetDiscoveryOptions.disableBuiltInDiscovery` to `true` to disable Cryostat's built-in discovery mechanisms. For more details, see the Discovery Plugin section in the [OpenAPI schema](https://github.com/cryostatio/cryostat/blob/main/schema/openapi.yaml).
 
 You may also change the list of port names and port numbers that Cryostat uses to discover compatible target Endpoints. By default it looks for ports with the name `jfr-jmx` or with the number `9091`.
 
 ```yaml
-apiVersion: operator.cryostat.io/v1beta1
+apiVersion: operator.cryostat.io/v1beta2
 kind: Cryostat
 metadata:
   name: cryostat-sample
 spec:
   targetDiscoveryOptions:
-    builtInDiscoveryDisabled: false
+    disableBuiltInDiscovery: true
     discoveryPortNames:
       - my-jmx-port # look for ports named my-jmx-port or jdk-observe
       - jdk-observe
