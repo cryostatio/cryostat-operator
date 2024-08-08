@@ -16,7 +16,7 @@ spec:
         app: quarkus-test
     spec:
       containers:
-        - image: quay.io/andrewazores/quarkus-test:latest
+        - image: quay.io/redhat-java-monitoring/quarkus-cryostat-agent:latest
           imagePullPolicy: Always
           name: quarkus-test
           ports:
