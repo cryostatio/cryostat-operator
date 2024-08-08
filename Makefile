@@ -415,7 +415,7 @@ sample_app_agent: undeploy_sample_app_agent ## Deploy sample app with Cryostat A
 		fi; \
 	fi; \
 	$(CLUSTER_CLIENT) apply $(SAMPLE_APP_FLAGS) -f config/samples/sample-app-agent.yaml; \
-	$(CLUSTER_CLIENT) set env $(SAMPLE_APP_FLAGS) deployment/quarkus-test-agent CRYOSTAT_AGENT_AUTHORIZATION="Bearer $(AUTH_TOKEN)"
+	$(CLUSTER_CLIENT) set env $(SAMPLE_APP_FLAGS) deployment/quarkus-cryostat-agent CRYOSTAT_AGENT_AUTHORIZATION="Bearer $(AUTH_TOKEN)"
 
 .PHONY: undeploy_sample_app_agent
 undeploy_sample_app_agent: ## Undeploy sample app with Cryostat Agent.
