@@ -37,22 +37,12 @@ spec:
           value: http://$(POD_IP):9977
         - name: CRYOSTAT_AGENT_AUTHORIZATION
           value: Bearer abcd1234
-        - name: KEYSTORE_PASS
-          valueFrom:
-            secretKeyRef:
-              key: KEYSTORE_PASS
-              name: cryostat-sample-keystore
-        - name: JAVA_OPTS_APPEND
-          value: |-
-            -Dquarkus.http.host=0.0.0.0
-            -Djava.util.logging.manager=org.jboss.logmanager.LogManager
-            -Dcom.sun.management.jmxremote.port=9097
-            -Dcom.sun.management.jmxremote.ssl=false
-            -Dcom.sun.management.jmxremote.authenticate=false
-            -javaagent:/deployments/app/cryostat-agent.jar
-            -Dcryostat.agent.webclient.tls.truststore.cert[0].path=/var/run/secrets/myapp/truststore.p12
-            -Dcryostat.agent.webclient.tls.truststore.cert[0].type=X.509
-            -Dcryostat.agent.webclient.tls.truststore.cert[0].alias=cryostat-sample
+        - name: CRYOSTAT_AGENT_WEBCLIENT_TLS_TRUSTSTORE_CERT_0__PATH
+          value: /var/run/secrets/myapp/truststore.p12
+        - name: CRYOSTAT_AGENT_WEBCLIENT_TLS_TRUSTSTORE_CERT_0__TYPE
+          value: X.509
+        - name: CRYOSTAT_AGENT_WEBCLIENT_TLS_TRUSTSTORE_CERT_0__ALIAS
+          value: cryostat-sample
         image: quay.io/redhat-java-monitoring/quarkus-cryostat-agent:latest
         imagePullPolicy: Always
         name: quarkus-cryostat-agent
