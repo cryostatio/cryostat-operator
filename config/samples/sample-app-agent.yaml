@@ -3,17 +3,17 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   labels:
-    app: quarkus-test-agent
-  name: quarkus-test-agent
+    app: quarkus-cryostat-agent
+  name: quarkus-cryostat-agent
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: quarkus-test-agent
+      app: quarkus-cryostat-agent
   template:
     metadata:
       labels:
-        app: quarkus-test-agent
+        app: quarkus-cryostat-agent
     spec:
       containers:
       - env:
@@ -37,24 +37,15 @@ spec:
           value: http://$(POD_IP):9977
         - name: CRYOSTAT_AGENT_AUTHORIZATION
           value: Bearer abcd1234
-        - name: KEYSTORE_PASS
-          valueFrom:
-            secretKeyRef:
-              key: KEYSTORE_PASS
-              name: cryostat-sample-keystore
-        - name: JAVA_OPTS_APPEND
-          value: |-
-            -Dquarkus.http.host=0.0.0.0
-            -Djava.util.logging.manager=org.jboss.logmanager.LogManager
-            -Dcom.sun.management.jmxremote.port=9097
-            -Dcom.sun.management.jmxremote.ssl=false
-            -Dcom.sun.management.jmxremote.authenticate=false
-            -javaagent:/deployments/app/cryostat-agent.jar
-            -Djavax.net.ssl.trustStore=/var/run/secrets/myapp/truststore.p12
-            -Djavax.net.ssl.trustStorePassword=$(KEYSTORE_PASS)
-        image: quay.io/andrewazores/quarkus-test:latest
+        - name: CRYOSTAT_AGENT_WEBCLIENT_TLS_TRUSTSTORE_CERT_0__PATH
+          value: /var/run/secrets/myapp/truststore.p12
+        - name: CRYOSTAT_AGENT_WEBCLIENT_TLS_TRUSTSTORE_CERT_0__TYPE
+          value: X.509
+        - name: CRYOSTAT_AGENT_WEBCLIENT_TLS_TRUSTSTORE_CERT_0__ALIAS
+          value: cryostat-sample
+        image: quay.io/redhat-java-monitoring/quarkus-cryostat-agent:latest
         imagePullPolicy: Always
-        name: quarkus-test-agent
+        name: quarkus-cryostat-agent
         ports:
         - containerPort: 10010
           protocol: TCP
@@ -88,11 +79,11 @@ apiVersion: v1
 kind: Service
 metadata:
   labels:
-    app: quarkus-test-agent
-  name: quarkus-test-agent
+    app: quarkus-cryostat-agent
+  name: quarkus-cryostat-agent
 spec:
   selector:
-    app: quarkus-test-agent
+    app: quarkus-cryostat-agent
   ports:
   - name: jfr-jmx
     port: 9097
