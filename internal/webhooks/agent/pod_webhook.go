@@ -15,6 +15,7 @@
 package agent
 
 import (
+	"github.com/cryostatio/cryostat-operator/internal/controllers/common"
 	corev1 "k8s.io/api/core/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
@@ -31,6 +32,9 @@ func SetupWebhookWithManager(mgr ctrl.Manager) error {
 		WithDefaulter(&podMutator{
 			client: mgr.GetClient(),
 			log:    &podWebhookLog,
+			ReconcilerTLS: common.NewReconcilerTLS(&common.ReconcilerTLSConfig{
+				Client: mgr.GetClient(),
+			}),
 		}).
 		Complete()
 }
