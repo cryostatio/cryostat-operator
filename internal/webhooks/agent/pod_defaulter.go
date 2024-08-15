@@ -16,11 +16,15 @@ package agent
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	operatorv1beta2 "github.com/cryostatio/cryostat-operator/api/v1beta2"
+	"github.com/cryostatio/cryostat-operator/internal/controllers/common"
+	"github.com/cryostatio/cryostat-operator/internal/controllers/constants"
+	"github.com/cryostatio/cryostat-operator/internal/controllers/model"
 	"github.com/go-logr/logr"
-	v1 "k8s.io/api/core/v1"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -31,14 +35,17 @@ import (
 type podMutator struct {
 	client client.Client
 	log    *logr.Logger
+	common.ReconcilerTLS
 }
 
 var _ admission.CustomDefaulter = &podMutator{}
 
+const agentArg = "-javaagent:/tmp/cryostat-agent/cryostat-agent-shaded.jar"
+
 // Default optionally mutates a pod to inject the Cryostat agent
 func (r *podMutator) Default(ctx context.Context, obj runtime.Object) error {
 	// FIXME Do not return error, it blocks pod creation
-	pod, ok := obj.(*v1.Pod)
+	pod, ok := obj.(*corev1.Pod)
 	if !ok {
 		return fmt.Errorf("expected a Pod, but received a %T", obj)
 	}
@@ -61,6 +68,12 @@ func (r *podMutator) Default(ctx context.Context, obj runtime.Object) error {
 		return err
 	}
 
+	// Check if this pod is within a target namespace of the CR
+	if !isTargetNamespace(cr.Status.TargetNamespaces, pod.Namespace) {
+		return fmt.Errorf("pod's namespace \"%s\" is not a target namespace of Cryostat \"%s\" in \"%s\"",
+			pod.Namespace, cr.Name, cr.Namespace)
+	}
+
 	// Select target container
 	if len(pod.Spec.Containers) == 0 {
 		return nil
@@ -68,39 +81,119 @@ func (r *podMutator) Default(ctx context.Context, obj runtime.Object) error {
 	container := &pod.Spec.Containers[0]
 
 	// Add init container
-	pod.Spec.InitContainers = append(pod.Spec.InitContainers, v1.Container{
+	pod.Spec.InitContainers = append(pod.Spec.InitContainers, corev1.Container{
 		Name:    "cryostat-agent-init",
 		Image:   "quay.io/cryostat/cryostat-agent-init:latest", // TODO related images
 		Command: []string{"cp", "-v", "/cryostat/agent/cryostat-agent-shaded.jar", "/tmp/cryostat-agent/cryostat-agent-shaded.jar"},
-		VolumeMounts: []v1.VolumeMount{
+		VolumeMounts: []corev1.VolumeMount{
 			{
 				Name:      "cryostat-agent-init",
 				MountPath: "/tmp/cryostat-agent",
 			},
-		},
+		}, // TODO Resources?
 	})
 
 	// Add emptyDir volume to copy agent into, and mount it
-	pod.Spec.Volumes = append(pod.Spec.Volumes, v1.Volume{
+	pod.Spec.Volumes = append(pod.Spec.Volumes, corev1.Volume{
 		Name: "cryostat-agent-init",
-		VolumeSource: v1.VolumeSource{
-			EmptyDir: &v1.EmptyDirVolumeSource{}, // TODO size limit?
+		VolumeSource: corev1.VolumeSource{
+			EmptyDir: &corev1.EmptyDirVolumeSource{}, // TODO size limit?
 		},
 	})
 
-	container.VolumeMounts = append(container.VolumeMounts, v1.VolumeMount{
+	container.VolumeMounts = append(container.VolumeMounts, corev1.VolumeMount{
 		Name:      "cryostat-agent-init",
 		MountPath: "/tmp/cryostat-agent",
 		ReadOnly:  true,
 	})
+
+	container.Env = append(container.Env,
+		corev1.EnvVar{
+			Name:  "CRYOSTAT_AGENT_BASEURI",
+			Value: r.cryostatURL(cr),
+		},
+		corev1.EnvVar{
+			Name: "CRYOSTAT_AGENT_POD_IP",
+			ValueFrom: &corev1.EnvVarSource{
+				FieldRef: &corev1.ObjectFieldSelector{
+					FieldPath: "status.podIP",
+				},
+			},
+		},
+		corev1.EnvVar{
+			Name:  "CRYOSTAT_AGENT_CALLBACK",
+			Value: "http://$(CRYOSTAT_AGENT_POD_IP)", // TODO HTTPS
+		},
+	)
+	extended, err := extendJavaToolOptions(container.Env)
+	if err != nil {
+		return err
+	}
+	container.Env = extended
 
 	// TODO JAVA_TOOL_OPTIONS for -javaagent?
 
 	// TODO figure out authz. may not be suitable to create a service account in each target ns with pod/exec perms.
 	// someone with access to the namespace should not necessarily have access to that permission.
 	//
+	// TokenRequest API, can we autorenew? Non-expiring token would work but security warns against using it. If
+	// using non-expiring token. Remember RBAC is validated against install namespace. Need SA per target namespace,
+	// with a RoleBinding in install namespace.
+	//
 	// could do an authz check on webhook user. if they have pod/exec permissions, then create the sa and/or secret.
 	// this would count as a side effect of the webhook. this could still allow other ns users to escalate though.
 
+	// TODO default to writes enabled, separate label?
+
 	return nil
+}
+
+func (r *podMutator) cryostatURL(cr *operatorv1beta2.Cryostat) string {
+	scheme := "https"
+	if !r.IsCertManagerEnabled(model.FromCryostat(cr)) {
+		scheme = "http"
+	}
+	return fmt.Sprintf("%s://%s.%s.svc:%d", scheme, cr.Name, cr.Namespace, // TODO maybe use service instead of CR meta
+		constants.AuthProxyHttpContainerPort)
+}
+
+func extendJavaToolOptions(envs []corev1.EnvVar) ([]corev1.EnvVar, error) {
+	existing, err := findJavaToolOptions(envs)
+	if err != nil {
+		return nil, err
+	}
+
+	if existing != nil {
+		existing.Value += " " + agentArg
+	} else {
+		envs = append(envs, corev1.EnvVar{
+			Name:  "JAVA_TOOL_OPTIONS",
+			Value: agentArg,
+		})
+	}
+
+	return envs, nil
+}
+
+var errJavaToolOptionsValueFrom error = errors.New("environment variable JAVA_TOOL_OPTIONS uses \"valueFrom\" and cannot be extended")
+
+func findJavaToolOptions(envs []corev1.EnvVar) (*corev1.EnvVar, error) {
+	for i, env := range envs {
+		if env.Name == "JAVA_TOOL_OPTIONS" {
+			if env.ValueFrom != nil {
+				return nil, errJavaToolOptionsValueFrom
+			}
+			return &envs[i], nil
+		}
+	}
+	return nil, nil
+}
+
+func isTargetNamespace(targetNamespaces []string, podNamespace string) bool {
+	for _, ns := range targetNamespaces {
+		if ns == podNamespace {
+			return true
+		}
+	}
+	return false
 }
