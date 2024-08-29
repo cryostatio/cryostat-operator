@@ -131,3 +131,51 @@ func NewReportsCert(cr *model.CryostatInstance) *certv1.Certificate {
 		},
 	}
 }
+
+func NewDatabaseCert(cr *model.CryostatInstance) *certv1.Certificate {
+	return &certv1.Certificate{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      cr.Name + "-database",
+			Namespace: cr.InstallNamespace,
+		},
+		Spec: certv1.CertificateSpec{
+			CommonName: fmt.Sprintf("%s-database.%s.svc", cr.Name, cr.InstallNamespace),
+			DNSNames: []string{
+				cr.Name + "-database",
+				fmt.Sprintf("%s-database.%s.svc", cr.Name, cr.InstallNamespace),
+				fmt.Sprintf("%s-database.%s.svc.cluster.local", cr.Name, cr.InstallNamespace),
+			},
+			SecretName: cr.Name + "-database-tls",
+			IssuerRef: certMeta.ObjectReference{
+				Name: cr.Name + "-ca",
+			},
+			Usages: append(certv1.DefaultKeyUsages(),
+				certv1.UsageServerAuth,
+			),
+		},
+	}
+}
+
+func NewStorageCert(cr *model.CryostatInstance) *certv1.Certificate {
+	return &certv1.Certificate{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      cr.Name + "-storage",
+			Namespace: cr.InstallNamespace,
+		},
+		Spec: certv1.CertificateSpec{
+			CommonName: fmt.Sprintf("%s-storage.%s.svc", cr.Name, cr.InstallNamespace),
+			DNSNames: []string{
+				cr.Name + "-storage",
+				fmt.Sprintf("%s-storage.%s.svc", cr.Name, cr.InstallNamespace),
+				fmt.Sprintf("%s-storage.%s.svc.cluster.local", cr.Name, cr.InstallNamespace),
+			},
+			SecretName: cr.Name + "-storage-tls",
+			IssuerRef: certMeta.ObjectReference{
+				Name: cr.Name + "-ca",
+			},
+			Usages: append(certv1.DefaultKeyUsages(),
+				certv1.UsageServerAuth,
+			),
+		},
+	}
+}

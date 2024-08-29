@@ -179,6 +179,18 @@ const (
 	ConditionTypeMainDeploymentProgressing CryostatConditionType = "MainDeploymentProgressing"
 	// If pods within the main Cryostat deployment failed to be created or destroyed.
 	ConditionTypeMainDeploymentReplicaFailure CryostatConditionType = "MainDeploymentReplicaFailure"
+	// If enabled, whether the database deployment is available.
+	ConditionTypeDatabaseDeploymentAvailable CryostatConditionType = "DatabaseDeploymentAvailable"
+	// If enabled, whether the database deployment is progressing.
+	ConditionTypeDatabaseDeploymentProgressing CryostatConditionType = "DatabaseDeploymentProgressing"
+	// If enabled, whether pods in the database deployment failed to be created or destroyed.
+	ConditionTypeDatabaseDeploymentReplicaFailure CryostatConditionType = "DatabaseDeploymentReplicaFailure"
+	// If enabled, whether the storage deployment is available.
+	ConditionTypeStorageDeploymentAvailable CryostatConditionType = "StorageDeploymentAvailable"
+	// If enabled, whether the storage deployment is progressing.
+	ConditionTypeStorageDeploymentProgressing CryostatConditionType = "StorageDeploymentProgressing"
+	// If enabled, whether pods in the storage deployment failed to be created or destroyed.
+	ConditionTypeStorageDeploymentReplicaFailure CryostatConditionType = "StorageDeploymentReplicaFailure"
 	// If enabled, whether the reports deployment is available.
 	ConditionTypeReportsDeploymentAvailable CryostatConditionType = "ReportsDeploymentAvailable"
 	// If enabled, whether the reports deployment is progressing.
@@ -306,6 +318,26 @@ type ReportsServiceConfig struct {
 	ServiceConfig `json:",inline"`
 }
 
+// DatabaseServiceConfig provides customization for the service handling
+// traffic for the cryostat application's database.
+type DatabaseServiceConfig struct {
+	// HTTP port number for the cryostat application's database.
+	// Defaults to 5432.
+	// +optional
+	HTTPPort      *int32 `json:"httpPort,omitempty"`
+	ServiceConfig `json:",inline"`
+}
+
+// DatabaseServiceConfig provides customization for the service handling
+// traffic for the storage to be created by the operator.
+type StorageServiceConfig struct {
+	// HTTP port number for the storage to be created by the operator.
+	// Defaults to 8333.
+	// +optional
+	HTTPPort      *int32 `json:"httpPort,omitempty"`
+	ServiceConfig `json:",inline"`
+}
+
 // ServiceConfigList holds the service configuration for each
 // service created by the operator.
 type ServiceConfigList struct {
@@ -315,6 +347,12 @@ type ServiceConfigList struct {
 	// Specification for the service responsible for the cryostat-reports sidecars.
 	// +optional
 	ReportsConfig *ReportsServiceConfig `json:"reportsConfig,omitempty"`
+	// Specification for the service responsible for the cryostat application's database.
+	// +optional
+	DatabaseConfig *DatabaseServiceConfig `json:"databaseConfig,omitempty"`
+	// Specification for the service responsible for the storage to be created by the operator.
+	// +optional
+	StorageConfig *StorageServiceConfig `json:"storageConfig,omitempty"`
 }
 
 // NetworkConfiguration provides customization for how to expose a Cryostat
