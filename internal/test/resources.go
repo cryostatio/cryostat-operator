@@ -852,6 +852,26 @@ func (r *TestResources) NewCACertSecret(ns string) *corev1.Secret {
 	}
 }
 
+func (r *TestResources) NewAgentCertSecret(ns string) *corev1.Secret {
+	name := r.getClusterUniqueNameForAgent(ns)
+	return &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: r.Namespace,
+		},
+		Data: map[string][]byte{
+			corev1.TLSPrivateKeyKey: []byte(name + "-key"),
+			corev1.TLSCertKey:       []byte(name + "-bytes"),
+		},
+	}
+}
+
+func (r *TestResources) NewAgentCertSecretCopy(ns string) *corev1.Secret {
+	secret := r.NewAgentCertSecret(ns)
+	secret.Namespace = ns
+	return secret
+}
+
 func (r *TestResources) NewDatabaseSecret() *corev1.Secret {
 	return &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{

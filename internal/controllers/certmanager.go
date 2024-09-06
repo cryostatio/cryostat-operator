@@ -135,7 +135,7 @@ func (r *Reconciler) setupTLS(ctx context.Context, cr *model.CryostatInstance) (
 				return nil, err
 			}
 		}
-		certificates = append(certificates, agentCert) // TODO test
+		certificates = append(certificates, agentCert)
 	}
 
 	if len(agentCertsNotReady) > 0 {
@@ -168,22 +168,26 @@ func (r *Reconciler) setupTLS(ctx context.Context, cr *model.CryostatInstance) (
 
 		// Delete any agent certificates removed target namespaces
 		agentCert := resources.NewAgentCert(cr, ns, r.gvk)
+
 		// Delete namespace copy
-		namespaceAgentSecret := &corev1.Secret{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      agentCert.Spec.SecretName,
-				Namespace: ns,
-			},
+		if ns != cr.InstallNamespace {
+			namespaceAgentSecret := &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      agentCert.Spec.SecretName,
+					Namespace: ns,
+				},
+			}
+			err = r.deleteSecret(ctx, namespaceAgentSecret)
+			if err != nil {
+				return nil, err
+			}
 		}
-		err = r.deleteSecret(ctx, namespaceAgentSecret)
-		if err != nil {
-			return nil, err
-		}
+
 		// Delete certificate with original secret
 		err := r.deleteCertWithSecret(ctx, agentCert)
 		if err != nil {
 			return nil, err
-		} // TODO test
+		}
 	}
 
 	return tlsConfig, nil
@@ -203,20 +207,20 @@ func (r *Reconciler) finalizeTLS(ctx context.Context, cr *model.CryostatInstance
 			if err != nil {
 				return err
 			}
-		}
 
-		// Delete any agent certificate secrets in target namespaces
-		agentCert := resources.NewAgentCert(cr, ns, r.gvk)
-		namespaceAgentSecret := &corev1.Secret{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      agentCert.Spec.SecretName,
-				Namespace: ns,
-			},
+			// Delete any agent certificate secrets in target namespaces
+			agentCert := resources.NewAgentCert(cr, ns, r.gvk)
+			namespaceAgentSecret := &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      agentCert.Spec.SecretName,
+					Namespace: ns,
+				},
+			}
+			err = r.deleteSecret(ctx, namespaceAgentSecret)
+			if err != nil {
+				return err
+			}
 		}
-		err := r.deleteSecret(ctx, namespaceAgentSecret)
-		if err != nil {
-			return err
-		} // TODO test
 	}
 
 	return nil
@@ -339,11 +343,11 @@ func (r *Reconciler) deleteCertWithSecret(ctx context.Context, cert *certv1.Cert
 			Namespace: cert.Namespace,
 		},
 	}
-
 	err := r.deleteSecret(ctx, secret)
 	if err != nil {
 		return err
 	}
+
 	// Delete the certificate
 	err = r.deleteCertificate(ctx, cert)
 	if err != nil {
@@ -359,22 +363,28 @@ func (r *Reconciler) reconcileAgentCertificate(ctx context.Context, cert *certv1
 		return err
 	}
 
-	// Fetch the certificate secret and create a copy in the target namespace
-	secret, err := r.GetCertificateSecret(ctx, cert)
-	if err != nil {
-		return err
-	}
+	// Fetch the certificate secret and create a copy in the target namespace (if not the install namespace)
+	if namespace != cr.InstallNamespace {
+		secret, err := r.GetCertificateSecret(ctx, cert)
+		if err != nil {
+			return err
+		}
 
-	targetSecret := &corev1.Secret{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      secret.Name,
-			Namespace: namespace,
-		},
+		targetSecret := &corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      secret.Name,
+				Namespace: namespace,
+			},
+		}
+		err = r.createOrUpdateSecret(ctx, targetSecret, nil, func() error {
+			targetSecret.Data = secret.Data
+			return nil
+		})
+		if err != nil {
+			return err
+		}
 	}
-	return r.createOrUpdateSecret(ctx, targetSecret, nil, func() error {
-		targetSecret.Data = secret.Data
-		return nil
-	})
+	return nil
 }
 
 func (r *Reconciler) createOrUpdateCertificate(ctx context.Context, cert *certv1.Certificate, owner metav1.Object) error {
