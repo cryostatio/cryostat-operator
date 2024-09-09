@@ -1228,7 +1228,11 @@ func (r *TestResources) NewCoreEnvironmentVariables(reportsUrl string, ingress b
 		},
 		{
 			Name:  "QUARKUS_HIBERNATE_ORM_DATABASE_GENERATION",
-			Value: "drop-and-create",
+			Value: "none",
+		},
+		{
+			Name:  "QUARKUS_HIBERNATE_ORM_SQL_LOAD_SCRIPT",
+			Value: "no-file",
 		},
 		{
 			Name:  "QUARKUS_DATASOURCE_USERNAME",
