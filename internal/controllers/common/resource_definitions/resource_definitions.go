@@ -930,7 +930,11 @@ func NewCoreContainer(cr *model.CryostatInstance, specs *ServiceSpecs, imageTag 
 		},
 		{
 			Name:  "QUARKUS_HIBERNATE_ORM_DATABASE_GENERATION",
-			Value: "drop-and-create",
+			Value: "none",
+		},
+		{
+			Name:  "QUARKUS_HIBERNATE_ORM_SQL_LOAD_SCRIPT",
+			Value: "no-file",
 		},
 		{
 			Name:  "QUARKUS_DATASOURCE_USERNAME",
