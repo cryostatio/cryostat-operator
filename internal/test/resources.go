@@ -852,6 +852,26 @@ func (r *TestResources) NewCACertSecret(ns string) *corev1.Secret {
 	}
 }
 
+func (r *TestResources) NewAgentCertSecret(ns string) *corev1.Secret {
+	name := r.getClusterUniqueNameForAgent(ns)
+	return &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: r.Namespace,
+		},
+		Data: map[string][]byte{
+			corev1.TLSPrivateKeyKey: []byte(name + "-key"),
+			corev1.TLSCertKey:       []byte(name + "-bytes"),
+		},
+	}
+}
+
+func (r *TestResources) NewAgentCertSecretCopy(ns string) *corev1.Secret {
+	secret := r.NewAgentCertSecret(ns)
+	secret.Namespace = ns
+	return secret
+}
+
 func (r *TestResources) NewDatabaseSecret() *corev1.Secret {
 	return &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
@@ -1005,6 +1025,32 @@ func (r *TestResources) NewCACert() *certv1.Certificate {
 				Name: r.Name + "-self-signed",
 			},
 			IsCA: true,
+		},
+	}
+}
+
+func (r *TestResources) NewAgentCert(namespace string) *certv1.Certificate {
+	name := r.getClusterUniqueNameForAgent(namespace)
+	return &certv1.Certificate{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: r.Namespace,
+		},
+		Spec: certv1.CertificateSpec{
+			CommonName: fmt.Sprintf("*.%s.pod", namespace),
+			DNSNames: []string{
+				fmt.Sprintf("*.%s.pod", namespace),
+			},
+			SecretName: name,
+			IssuerRef: certMeta.ObjectReference{
+				Name: r.Name + "-ca",
+			},
+			Usages: []certv1.KeyUsage{
+				certv1.UsageDigitalSignature,
+				certv1.UsageKeyEncipherment,
+				certv1.UsageServerAuth,
+				certv1.UsageClientAuth,
+			},
 		},
 	}
 }
@@ -2709,8 +2755,13 @@ func (r *TestResources) OtherRoleRef() rbacv1.RoleRef {
 	}
 }
 
-func (r *TestResources) clusterUniqueSuffix() string {
-	toEncode := r.Namespace + "/" + r.Name
+func (r *TestResources) clusterUniqueSuffix(namespace string) string {
+	var toEncode string
+	if len(namespace) == 0 {
+		toEncode = r.Namespace + "/" + r.Name
+	} else {
+		toEncode = r.Namespace + "/" + r.Name + "/" + namespace
+	}
 	return fmt.Sprintf("%x", sha256.Sum256([]byte(toEncode)))
 }
 
@@ -3036,9 +3087,17 @@ func (r *TestResources) NewLockConfigMap() *corev1.ConfigMap {
 }
 
 func (r *TestResources) getClusterUniqueName() string {
-	return "cryostat-" + r.clusterUniqueSuffix()
+	return "cryostat-" + r.clusterUniqueSuffix("")
 }
 
 func (r *TestResources) getClusterUniqueNameForCA() string {
-	return "cryostat-ca-" + r.clusterUniqueSuffix()
+	return "cryostat-ca-" + r.clusterUniqueSuffix("")
+}
+
+func (r *TestResources) getClusterUniqueNameForAgent(namespace string) string {
+	return r.GetAgentCertPrefix() + r.clusterUniqueSuffix(namespace)
+}
+
+func (r *TestResources) GetAgentCertPrefix() string {
+	return "cryostat-agent-"
 }

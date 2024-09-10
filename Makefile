@@ -546,7 +546,9 @@ undeploy_bundle: operator-sdk ## Undeploy the controller in the bundle format wi
 
 .PHONY: create_cryostat_cr
 create_cryostat_cr: destroy_cryostat_cr ## Create a namespaced Cryostat instance.
-	$(CLUSTER_CLIENT) create -f config/samples/operator_v1beta2_cryostat.yaml
+	target_ns_json=$$(jq -nc '$$ARGS.positional' --args -- $(TARGET_NAMESPACES)) && \
+	$(CLUSTER_CLIENT) patch -f config/samples/operator_v1beta2_cryostat.yaml --local=true --type=merge \
+	-p "{\"spec\": {\"targetNamespaces\": $$target_ns_json}}" -o yaml | oc apply -f -
 
 .PHONY: destroy_cryostat_cr
 destroy_cryostat_cr: ## Delete a namespaced Cryostat instance.

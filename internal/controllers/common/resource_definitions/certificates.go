@@ -131,3 +131,27 @@ func NewReportsCert(cr *model.CryostatInstance) *certv1.Certificate {
 		},
 	}
 }
+
+func NewAgentCert(cr *model.CryostatInstance, namespace string, gvk *schema.GroupVersionKind) *certv1.Certificate {
+	name := common.ClusterUniqueNameWithPrefixTargetNS(gvk, "agent", cr.Name, cr.InstallNamespace, namespace)
+	return &certv1.Certificate{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: cr.InstallNamespace,
+		},
+		Spec: certv1.CertificateSpec{
+			CommonName: fmt.Sprintf("*.%s.pod", namespace),
+			DNSNames: []string{
+				fmt.Sprintf("*.%s.pod", namespace),
+			},
+			SecretName: name,
+			IssuerRef: certMeta.ObjectReference{
+				Name: cr.Name + "-ca",
+			},
+			Usages: append(certv1.DefaultKeyUsages(),
+				certv1.UsageServerAuth,
+				certv1.UsageClientAuth,
+			),
+		},
+	}
+}

@@ -165,10 +165,12 @@ func (r *Reconciler) reconcileCryostat(ctx context.Context, cr *model.CryostatIn
 				return reconcile.Result{}, err
 			}
 
-			// Finalizer for CA Cert secrets
-			err = r.finalizeTLS(ctx, cr)
-			if err != nil {
-				return reconcile.Result{}, err
+			// Finalizer for certificates and associated secrets
+			if r.IsCertManagerEnabled(cr) {
+				err = r.finalizeTLS(ctx, cr)
+				if err != nil {
+					return reconcile.Result{}, err
+				}
 			}
 
 			err = common.RemoveFinalizer(ctx, r.Client, cr.Object, cryostatFinalizer)
