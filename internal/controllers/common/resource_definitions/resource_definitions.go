@@ -98,7 +98,7 @@ func NewDeploymentForCR(cr *model.CryostatInstance, specs *ServiceSpecs, imageTa
 		"app.kubernetes.io/name": "cryostat",
 	}
 	defaultDeploymentAnnotations := map[string]string{
-		"app.openshift.io/connects-to": "cryostat-operator-controller-manager",
+		"app.openshift.io/connects-to": constants.OperatorDeploymentName,
 	}
 	defaultPodLabels := map[string]string{
 		"app":       cr.Name,

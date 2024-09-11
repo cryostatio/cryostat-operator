@@ -312,7 +312,7 @@ func (c *controllerTest) commonTests() {
 				Expect(err).ToNot(HaveOccurred())
 
 				Expect(deploy.Annotations).To(Equal(map[string]string{
-					"app.openshift.io/connects-to": "cryostat-operator-controller-manager",
+					"app.openshift.io/connects-to": "cryostat-operator-controller",
 					"other":                        "annotation",
 				}))
 				Expect(deploy.Labels).To(Equal(map[string]string{
@@ -2563,7 +2563,7 @@ func (t *cryostatTestInput) expectMainDeployment() {
 	Expect(deployment.Name).To(Equal(t.Name))
 	Expect(deployment.Namespace).To(Equal(t.Namespace))
 	Expect(deployment.Annotations).To(Equal(map[string]string{
-		"app.openshift.io/connects-to": "cryostat-operator-controller-manager",
+		"app.openshift.io/connects-to": "cryostat-operator-controller",
 	}))
 	Expect(deployment.Labels).To(Equal(map[string]string{
 		"app":                    t.Name,
@@ -2589,7 +2589,7 @@ func (t *cryostatTestInput) expectMainDeploymentHasExtraMetadata() {
 	cr := t.getCryostatInstance()
 
 	Expect(deployment.Annotations).To(Equal(map[string]string{
-		"app.openshift.io/connects-to":      "cryostat-operator-controller-manager",
+		"app.openshift.io/connects-to":      "cryostat-operator-controller",
 		"myDeploymentExtraAnnotation":       "myDeploymentAnnotation",
 		"mySecondDeploymentExtraAnnotation": "mySecondDeploymentAnnotation",
 	}))
