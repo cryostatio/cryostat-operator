@@ -9,7 +9,7 @@ generatorOptions:
 #   target:
 #     group: apps
 #     kind: Deployment
-#     name: controller-manager
+#     name: controller
 #     namespace: system
 #     version: v1
 
