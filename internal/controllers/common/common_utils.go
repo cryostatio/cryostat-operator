@@ -23,6 +23,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/cryostatio/cryostat-operator/internal/controllers/constants"
+	"github.com/cryostatio/cryostat-operator/internal/controllers/model"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -111,6 +113,15 @@ func MergeLabelsAndAnnotations(dest *metav1.ObjectMeta, srcLabels, srcAnnotation
 	}
 	for k, v := range srcAnnotations {
 		dest.Annotations[k] = v
+	}
+}
+
+// LabelsForTargetNamespaceObject returns a set of labels for an object in a
+// target namespace that refer back to the CR associated with the object.
+func LabelsForTargetNamespaceObject(cr *model.CryostatInstance) map[string]string {
+	return map[string]string{
+		constants.TargetNamespaceCRNameLabel:      cr.Name,
+		constants.TargetNamespaceCRNamespaceLabel: cr.InstallNamespace,
 	}
 }
 

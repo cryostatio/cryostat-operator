@@ -844,6 +844,10 @@ func (r *TestResources) NewCACertSecret(ns string) *corev1.Secret {
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      r.getClusterUniqueNameForCA(),
 			Namespace: ns,
+			Labels: map[string]string{
+				"operator.cryostat.io/name":      r.Name,
+				"operator.cryostat.io/namespace": r.Namespace,
+			},
 		},
 		Type: corev1.SecretTypeOpaque,
 		Data: map[string][]byte{
@@ -868,6 +872,10 @@ func (r *TestResources) NewAgentCertSecret(ns string) *corev1.Secret {
 
 func (r *TestResources) NewAgentCertSecretCopy(ns string) *corev1.Secret {
 	secret := r.NewAgentCertSecret(ns)
+	secret.Labels = map[string]string{
+		"operator.cryostat.io/name":      r.Name,
+		"operator.cryostat.io/namespace": r.Namespace,
+	}
 	secret.Namespace = ns
 	return secret
 }
@@ -2707,6 +2715,10 @@ func (r *TestResources) NewRoleBinding(ns string) *rbacv1.RoleBinding {
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      r.getClusterUniqueName(),
 			Namespace: ns,
+			Labels: map[string]string{
+				"operator.cryostat.io/name":      r.Name,
+				"operator.cryostat.io/namespace": r.Namespace,
+			},
 		},
 		Subjects: []rbacv1.Subject{
 			{

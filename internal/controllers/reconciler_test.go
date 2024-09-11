@@ -424,8 +424,13 @@ func (c *controllerTest) commonTests() {
 				err := t.Client.Get(context.Background(), types.NamespacedName{Name: expected.Name, Namespace: expected.Namespace}, binding)
 				Expect(err).ToNot(HaveOccurred())
 
-				// Labels are unaffected
-				Expect(binding.Labels).To(Equal(oldBinding.Labels))
+				// Labels should be merged
+				expectedLabels := map[string]string{
+					"test":                           "label",
+					"operator.cryostat.io/name":      cr.Name,
+					"operator.cryostat.io/namespace": cr.InstallNamespace,
+				}
+				Expect(binding.Labels).To(Equal(expectedLabels))
 				Expect(binding.Annotations).To(Equal(oldBinding.Annotations))
 
 				// Subjects and RoleRef should be fully replaced
@@ -2144,8 +2149,13 @@ func (c *controllerTest) commonTests() {
 				err := t.Client.Get(context.Background(), types.NamespacedName{Name: expected.Name, Namespace: expected.Namespace}, binding)
 				Expect(err).ToNot(HaveOccurred())
 
-				// Labels are unaffected
-				Expect(binding.Labels).To(Equal(oldBinding.Labels))
+				// Labels should be merged
+				expectedLabels := map[string]string{
+					"test":                           "label",
+					"operator.cryostat.io/name":      cr.Name,
+					"operator.cryostat.io/namespace": cr.InstallNamespace,
+				}
+				Expect(binding.Labels).To(Equal(expectedLabels))
 				Expect(binding.Annotations).To(Equal(oldBinding.Annotations))
 
 				// Subjects and RoleRef should be fully replaced
