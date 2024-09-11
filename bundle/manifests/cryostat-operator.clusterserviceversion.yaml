@@ -30,7 +30,7 @@ metadata:
     capabilities: Seamless Upgrades
     categories: Monitoring, Developer Tools
     containerImage: quay.io/cryostat/cryostat-operator:4.0.0-dev
-    createdAt: "2024-08-07T21:05:35Z"
+    createdAt: "2024-09-11T16:26:11Z"
     description: JVM monitoring and profiling tool
     operatorframework.io/initialization-resource: |-
       {
@@ -972,7 +972,7 @@ spec:
         - label:
             app.kubernetes.io/name: cryostat-operator
             control-plane: controller-manager
-          name: cryostat-operator-controller-manager
+          name: cryostat-operator-controller
           spec:
             replicas: 1
             selector:
@@ -1186,7 +1186,7 @@ spec:
       containerPort: 443
       conversionCRDs:
         - cryostats.operator.cryostat.io
-      deploymentName: cryostat-operator-controller-manager
+      deploymentName: cryostat-operator-controller
       generateName: ccryostats.kb.io
       sideEffects: None
       targetPort: 9443
@@ -1195,7 +1195,7 @@ spec:
     - admissionReviewVersions:
         - v1
       containerPort: 443
-      deploymentName: cryostat-operator-controller-manager
+      deploymentName: cryostat-operator-controller
       failurePolicy: Fail
       generateName: mcryostat.kb.io
       rules:
@@ -1215,7 +1215,7 @@ spec:
     - admissionReviewVersions:
         - v1
       containerPort: 443
-      deploymentName: cryostat-operator-controller-manager
+      deploymentName: cryostat-operator-controller
       failurePolicy: Fail
       generateName: vcryostat.kb.io
       rules:

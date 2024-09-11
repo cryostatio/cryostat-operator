@@ -41,7 +41,7 @@ import (
 )
 
 const (
-	operatorDeploymentName string        = "cryostat-operator-controller-manager"
+	operatorDeploymentName string        = "cryostat-operator-controller"
 	testTimeout            time.Duration = time.Minute * 10
 )
 
