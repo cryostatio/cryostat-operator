@@ -17,6 +17,7 @@ package scorecard
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/url"
 	"strconv"
 )
@@ -151,4 +152,116 @@ type ArchiveGraphQLResponse struct {
 			} `json:"target"`
 		} `json:"targetNodes"`
 	} `json:"data"`
+}
+
+const (
+	GRAFANA_DASHBOARD_UID     = "main"
+	GRAFANA_DASHBOARD_TITLE   = "Cryostat Dashboard"
+	GRAFANA_DATASOURCE_NAME   = "jfr-datasource"
+	GRAFANA_DATASOURCE_TYPE   = "yesoreyeram-infinity-datasource"
+	GRAFANA_DATASOURCE_URL    = "http://127.0.0.1:8989"
+	GRAFANA_DATASOURCE_ACCESS = "proxy"
+)
+
+// DataSource represents a Grafana data source
+type DataSource struct {
+	ID   uint32 `json:"id"`
+	UID  string `json:"uid"`
+	Name string `json:"name"`
+
+	Type string `json:"type"`
+
+	URL    string `json:"url"`
+	Access string `json:"access"`
+
+	BasicAuth bool `json:"basicAuth"`
+}
+
+func (datasource *DataSource) IsValid() error {
+	if datasource.Name != GRAFANA_DATASOURCE_NAME {
+		return fmt.Errorf("expected datasource name %s, but got %s", GRAFANA_DATASOURCE_NAME, datasource.Name)
+	}
+
+	if datasource.Type != GRAFANA_DATASOURCE_TYPE {
+		return fmt.Errorf("expected datasource type %s, but got %s", GRAFANA_DATASOURCE_TYPE, datasource.Type)
+	}
+
+	if datasource.URL != GRAFANA_DATASOURCE_URL {
+		return fmt.Errorf("expected datasource url %s, but got %s", GRAFANA_DATASOURCE_URL, datasource.URL)
+	}
+
+	if datasource.Access != GRAFANA_DATASOURCE_ACCESS {
+		return fmt.Errorf("expected datasource access mode %s, but got %s", GRAFANA_DATASOURCE_ACCESS, datasource.Access)
+	}
+
+	if datasource.BasicAuth {
+		return errors.New("expected basicAuth to be disabled, but got enabled")
+	}
+
+	return nil
+}
+
+// DashBoard represents a Grafana dashboard
+type DashBoard struct {
+	DashBoardMeta `json:"meta"`
+	DashBoardInfo `json:"dashboard"`
+}
+
+type DashBoardMeta struct {
+	Slug        string `json:"slug"`
+	URL         string `json:"url"`
+	Provisioned bool   `json:"provisioned"`
+}
+
+type DashBoardInfo struct {
+	UID         string                 `json:"uid"`
+	Title       string                 `json:"title"`
+	Annotations map[string]interface{} `json:"annotations"`
+	Panels      []Panel                `json:"panels"`
+}
+
+// Panel represents a Grafana panel.
+// A panel can be used either for displaying data or separating groups
+type Panel struct {
+	ID      uint32       `json:"id"`
+	Title   string       `json:"title"`
+	Type    string       `json:"type"`
+	Targets []PanelQuery `json:"targets"`
+	Panels  []Panel      `json:"panels"`
+}
+
+// PanelQuery represents a query for datapoints
+type PanelQuery struct {
+	RefID      string            `json:"refId"`
+	Target     string            `json:"target"`
+	Type       string            `json:"type"`
+	URL        string            `json:"url"`
+	URLOptions PanelQueryOptions `json:"url_options"`
+}
+
+type PanelQueryOptions struct {
+	BodyContentType string `json:"body_content_type"`
+	BodyType        string `json:"body_type"`
+	Method          string `json:"method"`
+	Data            string `json:"data"`
+}
+
+func (dashboard *DashBoard) IsValid() error {
+	if dashboard.UID != GRAFANA_DASHBOARD_UID {
+		return fmt.Errorf("expected dashboard uid %s, but got %s", GRAFANA_DASHBOARD_UID, dashboard.UID)
+	}
+
+	if dashboard.Title != GRAFANA_DASHBOARD_TITLE {
+		return fmt.Errorf("expected dashboard title %s, but got %s", GRAFANA_DASHBOARD_TITLE, dashboard.Title)
+	}
+
+	if !dashboard.Provisioned {
+		return errors.New("expected dashboard to be provisioned, but got unprovisioned")
+	}
+
+	if len(dashboard.Panels) == 0 {
+		return errors.New("expected dashboard to have panels, but got 0")
+	}
+
+	return nil
 }

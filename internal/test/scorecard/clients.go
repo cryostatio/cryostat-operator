@@ -15,13 +15,16 @@
 package scorecard
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
+	"mime/multipart"
 	"net/http"
 	"net/url"
+	"os"
 	"strings"
 	"time"
 
@@ -197,6 +200,7 @@ type CryostatRESTClientset struct {
 	TargetClient     *TargetClient
 	RecordingClient  *RecordingClient
 	CredentialClient *CredentialClient
+	GrafanaClient    *GrafanaClient
 }
 
 func (c *CryostatRESTClientset) Targets() *TargetClient {
@@ -209,6 +213,10 @@ func (c *CryostatRESTClientset) Recordings() *RecordingClient {
 
 func (c *CryostatRESTClientset) Credential() *CredentialClient {
 	return c.CredentialClient
+}
+
+func (c *CryostatRESTClientset) Grafana() *GrafanaClient {
+	return c.GrafanaClient
 }
 
 func NewCryostatRESTClientset(base *url.URL) *CryostatRESTClientset {
@@ -226,6 +234,10 @@ func NewCryostatRESTClientset(base *url.URL) *CryostatRESTClientset {
 		},
 		CredentialClient: &CredentialClient{
 			commonCryostatRESTClient: commonClient,
+		},
+		GrafanaClient: &GrafanaClient{
+			commonCryostatRESTClient: commonClient,
+			BasePath:                 "grafana",
 		},
 	}
 }
@@ -271,7 +283,7 @@ func (client *TargetClient) Create(ctx context.Context, options *Target) (*Targe
 	header.Add("Accept", "*/*")
 	body := options.ToFormData()
 
-	resp, err := SendRequest(ctx, client.Client, http.MethodPost, url.String(), &body, header)
+	resp, err := SendRequest(ctx, client.Client, http.MethodPost, url.String(), strings.NewReader(body), header)
 	if err != nil {
 		return nil, err
 	}
@@ -341,7 +353,7 @@ func (client *RecordingClient) Create(ctx context.Context, target *Target, optio
 	header.Add("Content-Type", "application/x-www-form-urlencoded")
 	header.Add("Accept", "*/*")
 
-	resp, err := SendRequest(ctx, client.Client, http.MethodPost, url.String(), &body, header)
+	resp, err := SendRequest(ctx, client.Client, http.MethodPost, url.String(), strings.NewReader(body), header)
 	if err != nil {
 		return nil, err
 	}
@@ -367,7 +379,7 @@ func (client *RecordingClient) Archive(ctx context.Context, target *Target, reco
 	header.Add("Content-Type", "text/plain")
 	header.Add("Accept", "*/*")
 
-	resp, err := SendRequest(ctx, client.Client, http.MethodPatch, url.String(), &body, header)
+	resp, err := SendRequest(ctx, client.Client, http.MethodPatch, url.String(), strings.NewReader(body), header)
 	if err != nil {
 		return "", err
 	}
@@ -392,7 +404,7 @@ func (client *RecordingClient) Stop(ctx context.Context, target *Target, recordi
 	header.Add("Content-Type", "text/plain")
 	header.Add("Accept", "*/*")
 
-	resp, err := SendRequest(ctx, client.Client, http.MethodPatch, url.String(), &body, header)
+	resp, err := SendRequest(ctx, client.Client, http.MethodPatch, url.String(), strings.NewReader(body), header)
 	if err != nil {
 		return err
 	}
@@ -485,13 +497,12 @@ func (client *RecordingClient) ListArchives(ctx context.Context, target *Target)
 	if err != nil {
 		return nil, fmt.Errorf("failed to construct graph query: %s", err.Error())
 	}
-	body := string(queryJSON)
 
 	header := make(http.Header)
 	header.Add("Content-Type", "application/json")
 	header.Add("Accept", "*/*")
 
-	resp, err := SendRequest(ctx, client.Client, http.MethodPost, url.String(), &body, header)
+	resp, err := SendRequest(ctx, client.Client, http.MethodPost, url.String(), bytes.NewReader(queryJSON), header)
 	if err != nil {
 		return nil, err
 	}
@@ -510,17 +521,36 @@ func (client *RecordingClient) ListArchives(ctx context.Context, target *Target)
 	return graphQLResponse.Data.TargetNodes[0].Target.ArchivedRecordings.Data, nil
 }
 
-type CredentialClient struct {
-	*commonCryostatRESTClient
-}
+func (client *RecordingClient) UploadArchive(ctx context.Context, filePath string) error {
+	url := client.Base.JoinPath("/api/v1/recordings")
 
-func (client *CredentialClient) Create(ctx context.Context, credential *Credential) error {
-	url := client.Base.JoinPath("/api/v2.2/credentials")
-	body := credential.ToFormData()
+	body := &bytes.Buffer{}
+	mp := multipart.NewWriter(body)
+
+	part, err := mp.CreateFormFile("recording", jfrFilename)
+	if err != nil {
+		return err
+	}
+
+	file, err := os.Open(filePath)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+
+	if _, err = io.Copy(part, file); err != nil {
+		return err
+	}
+
+	if err = mp.Close(); err != nil {
+		return err
+	}
+
 	header := make(http.Header)
-	header.Add("Content-Type", "application/x-www-form-urlencoded")
+	header.Add("Content-Type", mp.FormDataContentType())
+	header.Add("Accept", "*/*")
 
-	resp, err := SendRequest(ctx, client.Client, http.MethodPost, url.String(), &body, header)
+	resp, err := SendRequest(ctx, client.Client, http.MethodPost, url.String(), body, header)
 	if err != nil {
 		return err
 	}
@@ -531,6 +561,98 @@ func (client *CredentialClient) Create(ctx context.Context, credential *Credenti
 	}
 
 	return nil
+}
+
+func (client *RecordingClient) LoadUploadedArchiveToGrafana(ctx context.Context, archiveName string) error {
+	url := client.Base.JoinPath(fmt.Sprintf("/api/beta/recordings/uploads/%s/upload", archiveName))
+	header := make(http.Header)
+
+	resp, err := SendRequest(ctx, client.Client, http.MethodPost, url.String(), nil, header)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	if !StatusOK(resp.StatusCode) {
+		return fmt.Errorf("API request failed with status code: %d, response body: %s, and headers:\n%s", resp.StatusCode, ReadError(resp), ReadHeader(resp))
+	}
+
+	return nil
+}
+
+type CredentialClient struct {
+	*commonCryostatRESTClient
+}
+
+func (client *CredentialClient) Create(ctx context.Context, credential *Credential) error {
+	url := client.Base.JoinPath("/api/v2.2/credentials")
+	body := credential.ToFormData()
+	header := make(http.Header)
+	header.Add("Content-Type", "application/x-www-form-urlencoded")
+
+	resp, err := SendRequest(ctx, client.Client, http.MethodPost, url.String(), strings.NewReader(body), header)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	if !StatusOK(resp.StatusCode) {
+		return fmt.Errorf("API request failed with status code: %d, response body: %s, and headers:\n%s", resp.StatusCode, ReadError(resp), ReadHeader(resp))
+	}
+
+	return nil
+}
+
+// Client for Grafana API
+type GrafanaClient struct {
+	BasePath string
+	*commonCryostatRESTClient
+}
+
+func (client *GrafanaClient) GetDashboardByUID(ctx context.Context, uid string) (*DashBoard, error) {
+	url := client.Base.JoinPath(client.BasePath, "api/dashboards/uid", uid)
+	header := make(http.Header)
+	header.Add("Accept", "*/*")
+
+	resp, err := SendRequest(ctx, client.Client, http.MethodGet, url.String(), nil, header)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if !StatusOK(resp.StatusCode) {
+		return nil, fmt.Errorf("API request failed with status code: %d, response body: %s, and headers:\n%s", resp.StatusCode, ReadError(resp), ReadHeader(resp))
+	}
+
+	dashboard := &DashBoard{}
+	if err = ReadJSON(resp, dashboard); err != nil {
+		return nil, fmt.Errorf("failed to read response body: %s", err.Error())
+	}
+
+	return dashboard, nil
+}
+
+func (client *GrafanaClient) GetDatasourceByName(ctx context.Context, name string) (*DataSource, error) {
+	url := client.Base.JoinPath(client.BasePath, "api/datasources/name", GRAFANA_DATASOURCE_NAME)
+	header := make(http.Header)
+	header.Add("Accept", "*/*")
+
+	resp, err := SendRequest(ctx, client.Client, http.MethodGet, url.String(), nil, header)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if !StatusOK(resp.StatusCode) {
+		return nil, fmt.Errorf("API request failed with status code: %d, response body: %s, and headers:\n%s", resp.StatusCode, ReadError(resp), ReadHeader(resp))
+	}
+
+	datasource := &DataSource{}
+	if err = ReadJSON(resp, datasource); err != nil {
+		return nil, fmt.Errorf("failed to read response body: %s", err.Error())
+	}
+
+	return datasource, nil
 }
 
 func ReadJSON(resp *http.Response, result interface{}) error {
@@ -582,12 +704,8 @@ func NewHttpClient() *http.Client {
 	return client
 }
 
-func NewHttpRequest(ctx context.Context, method string, url string, body *string, header http.Header) (*http.Request, error) {
-	var reqBody io.Reader
-	if body != nil {
-		reqBody = strings.NewReader(*body)
-	}
-	req, err := http.NewRequestWithContext(ctx, method, url, reqBody)
+func NewHttpRequest(ctx context.Context, method string, url string, body io.Reader, header http.Header) (*http.Request, error) {
+	req, err := http.NewRequestWithContext(ctx, method, url, body)
 	if err != nil {
 		return nil, err
 	}
@@ -611,7 +729,7 @@ func StatusOK(statusCode int) bool {
 	return statusCode >= 200 && statusCode < 300
 }
 
-func SendRequest(ctx context.Context, httpClient *http.Client, method string, url string, body *string, header http.Header) (*http.Response, error) {
+func SendRequest(ctx context.Context, httpClient *http.Client, method string, url string, body io.Reader, header http.Header) (*http.Response, error) {
 	var response *http.Response
 	err := wait.PollUntilContextCancel(ctx, time.Second, true, func(ctx context.Context) (done bool, err error) {
 		// Create a new request

@@ -42,6 +42,9 @@ import (
 
 const (
 	operatorDeploymentName string        = "cryostat-operator-controller"
+	jfrConfigMapName       string        = "scorecard-jfr-cm"
+	jfrFilename            string        = "scorecard_sample.jfr"
+	podTestDataRoot        string        = "/testdata"
 	testTimeout            time.Duration = time.Minute * 10
 )
 
@@ -297,6 +300,7 @@ func configureIngress(name string, cryostatSpec *operatorv1beta2.CryostatSpec) {
 		CoreConfig: &operatorv1beta2.NetworkConfiguration{
 			Annotations: map[string]string{
 				"nginx.ingress.kubernetes.io/backend-protocol": "HTTPS",
+				"nginx.ingress.kubernetes.io/proxy-body-size":  "10m",
 			},
 			IngressSpec: &netv1.IngressSpec{
 				TLS: []netv1.IngressTLS{{}},
