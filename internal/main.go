@@ -229,6 +229,7 @@ func newReconcilerConfig(mgr ctrl.Manager, logName string, eventRecorderName str
 		EventRecorder:          mgr.GetEventRecorderFor(eventRecorderName),
 		RESTMapper:             mgr.GetRESTMapper(),
 		InsightsProxy:          insightsURL,
+		NewControllerBuilder:   common.NewControllerBuilder,
 		ReconcilerTLS: common.NewReconcilerTLS(&common.ReconcilerTLSConfig{
 			Client: mgr.GetClient(),
 		}),

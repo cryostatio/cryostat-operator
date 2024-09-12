@@ -41,6 +41,8 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/client-go/kubernetes/scheme"
+	ctrlclient "sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/event"
 )
 
 type TestResources struct {
@@ -3112,4 +3114,29 @@ func (r *TestResources) getClusterUniqueNameForAgent(namespace string) string {
 
 func (r *TestResources) GetAgentCertPrefix() string {
 	return "cryostat-agent-"
+}
+
+func (r *TestResources) NewCreateEvent(obj ctrlclient.Object) event.CreateEvent {
+	return event.CreateEvent{
+		Object: obj,
+	}
+}
+
+func (r *TestResources) NewUpdateEvent(obj ctrlclient.Object) event.UpdateEvent {
+	return event.UpdateEvent{
+		ObjectOld: obj,
+		ObjectNew: obj,
+	}
+}
+
+func (r *TestResources) NewDeleteEvent(obj ctrlclient.Object) event.DeleteEvent {
+	return event.DeleteEvent{
+		Object: obj,
+	}
+}
+
+func (r *TestResources) NewGenericEvent(obj ctrlclient.Object) event.GenericEvent {
+	return event.GenericEvent{
+		Object: obj,
+	}
 }

@@ -45,11 +45,9 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
-	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
-	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
@@ -65,6 +63,7 @@ type ReconcilerConfig struct {
 	EventRecorder          record.EventRecorder
 	RESTMapper             meta.RESTMapper
 	InsightsProxy          *url.URL // Only defined if Insights is enabled
+	NewControllerBuilder   func(ctrl.Manager) common.ControllerBuilder
 	common.ReconcilerTLS
 }
 
@@ -311,51 +310,12 @@ func (r *Reconciler) reconcileCryostat(ctx context.Context, cr *model.CryostatIn
 	return reconcile.Result{}, nil
 }
 
-type ControllerBuilder interface {
-	For(object client.Object, opts ...builder.ForOption) ControllerBuilder
-	Owns(object client.Object, opts ...builder.OwnsOption) ControllerBuilder
-	Watches(object client.Object, eventHandler handler.EventHandler, opts ...builder.WatchesOption) ControllerBuilder
-	Complete(r reconcile.Reconciler) error
-}
-
-type ctrlBuilder struct {
-	impl *builder.Builder
-}
-
-func newControllerBuilder(mgr ctrl.Manager) ControllerBuilder {
-	return &ctrlBuilder{
-		impl: ctrl.NewControllerManagedBy(mgr),
-	}
-}
-
-func (b *ctrlBuilder) For(object client.Object, opts ...builder.ForOption) ControllerBuilder {
-	b.impl = b.impl.For(object, opts...)
-	return b
-}
-
-func (b *ctrlBuilder) Owns(object client.Object, opts ...builder.OwnsOption) ControllerBuilder {
-	b.impl = b.impl.Owns(object, opts...)
-	return b
-}
-
-func (b *ctrlBuilder) Watches(object client.Object, eventHandler handler.EventHandler, opts ...builder.WatchesOption) ControllerBuilder {
-	b.impl = b.impl.Watches(object, eventHandler, opts...)
-	return b
-}
-
-func (b *ctrlBuilder) Complete(r reconcile.Reconciler) error {
-	return b.impl.Complete(r)
-}
-
-var _ ControllerBuilder = (*ctrlBuilder)(nil)
-
-func (r *Reconciler) setupWithManager(mgr ctrl.Manager, impl reconcile.Reconciler) error {
-	c := newControllerBuilder(mgr).
-		For(r.objectType)
+func (r *Reconciler) setupWithManager(c common.ControllerBuilder, impl reconcile.Reconciler) error {
+	c = c.For(r.objectType)
 
 	// Watch for changes to secondary resources and requeue the owner Cryostat
-	resources := []client.Object{&appsv1.Deployment{}, &corev1.Service{}, &corev1.Secret{}, &corev1.PersistentVolumeClaim{},
-		&corev1.ServiceAccount{}, &rbacv1.Role{}, &rbacv1.RoleBinding{}, &netv1.Ingress{}}
+	resources := []client.Object{&appsv1.Deployment{}, &corev1.Service{}, &corev1.ConfigMap{}, &corev1.Secret{},
+		&corev1.PersistentVolumeClaim{}, &corev1.ServiceAccount{}, &rbacv1.Role{}, &rbacv1.RoleBinding{}, &netv1.Ingress{}}
 	if r.IsOpenShift {
 		resources = append(resources, &openshiftv1.Route{})
 	}
@@ -584,7 +544,8 @@ func (r *Reconciler) deleteDeployment(ctx context.Context, deploy *appsv1.Deploy
 	return nil
 }
 
-func (r *Reconciler) watchTargetNamespaces(c ControllerBuilder, resources ...client.Object) (ControllerBuilder, error) {
+func (r *Reconciler) watchTargetNamespaces(c common.ControllerBuilder,
+	resources ...client.Object) (common.ControllerBuilder, error) {
 	// Create a controller watch for resources we create in target namespaces.
 	// The watch filters objects for those that have our labels that identify their CR,
 	// and then enqueues that CR.
@@ -593,8 +554,8 @@ func (r *Reconciler) watchTargetNamespaces(c ControllerBuilder, resources ...cli
 		return nil, err
 	}
 	for _, resource := range resources {
-		c = c.Watches(resource, handler.EnqueueRequestsFromMapFunc(r.mapFromTargetNamespace()),
-			builder.WithPredicates(pred))
+		c = c.Watches(resource, c.EnqueueRequestsFromMapFunc(r.mapFromTargetNamespace()),
+			c.WithPredicates(pred))
 	}
 	return c, nil
 }
