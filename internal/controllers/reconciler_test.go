@@ -1813,21 +1813,40 @@ func (c *controllerTest) commonTests() {
 							t.expectNoCryostat()
 						})
 					})
+					Context("with cert-manager enabled", func() {
+						JustBeforeEach(func() {
+							err := t.Client.Delete(context.Background(), t.NewRoleBinding(targetNamespaces[0]))
+							Expect(err).ToNot(HaveOccurred())
+							t.reconcileDeletedCryostat()
+						})
+						It("should delete CA cert secrets from each namespace", func() {
+							t.checkCASecretsDeleted()
+						})
+						It("should delete agent cert secrets from each namespace", func() {
+							t.checkAgentCertSecretsDeleted()
+						})
+						It("should delete Cryostat", func() {
+							t.expectNoCryostat()
+						})
+					})
 				})
 			})
 
 			Context("with removed target namespaces", func() {
 				BeforeEach(func() {
+					t.TargetNamespaces = targetNamespaces
+					t.objs = append(t.objs, t.NewCryostat().Object)
+				})
+				JustBeforeEach(func() {
 					// Begin with RBAC set up for two namespaces,
 					// and remove the second namespace from the spec
 					t.TargetNamespaces = targetNamespaces[:1]
-					cr := t.NewCryostat()
-					*cr.TargetNamespaceStatus = targetNamespaces
-					t.objs = append(t.objs, cr.Object,
-						t.NewRoleBinding(targetNamespaces[0]),
-						t.NewRoleBinding(targetNamespaces[1]),
-						t.NewCACertSecret(targetNamespaces[0]),
-						t.NewCACertSecret(targetNamespaces[1]))
+					cr := t.getCryostatInstance()
+					cr.Spec.TargetNamespaces = t.TargetNamespaces
+					t.updateCryostatInstance(cr)
+
+					// Reconcile again
+					t.reconcileCryostatFully()
 				})
 				It("should create the expected main deployment", func() {
 					t.expectMainDeployment()
@@ -1841,11 +1860,29 @@ func (c *controllerTest) commonTests() {
 					Expect(err).ToNot(BeNil())
 					Expect(kerrors.IsNotFound(err)).To(BeTrue())
 				})
-				It("leave CA Cert secret for the first namespace", func() {
+				It("leave certificate secrets for the first namespace", func() {
 					t.expectCertificates()
 				})
-				It("should remove CA Cert secret from the second namespace", func() {
+				It("should remove CA cert secret from the second namespace", func() {
 					secret := t.NewCACertSecret(targetNamespaces[1])
+					err := t.Client.Get(context.Background(), types.NamespacedName{Name: secret.Name, Namespace: secret.Namespace}, secret)
+					Expect(err).ToNot(BeNil())
+					Expect(kerrors.IsNotFound(err)).To(BeTrue())
+				})
+				It("should remove agent certificate for the second namespace", func() {
+					cert := t.NewAgentCert(targetNamespaces[1])
+					err := t.Client.Get(context.Background(), types.NamespacedName{Name: cert.Name, Namespace: cert.Namespace}, cert)
+					Expect(err).ToNot(BeNil())
+					Expect(kerrors.IsNotFound(err)).To(BeTrue())
+				})
+				It("should remove agent cert secret for the second namespace", func() {
+					secret := t.NewAgentCertSecret(targetNamespaces[1])
+					err := t.Client.Get(context.Background(), types.NamespacedName{Name: secret.Name, Namespace: secret.Namespace}, secret)
+					Expect(err).ToNot(BeNil())
+					Expect(kerrors.IsNotFound(err)).To(BeTrue())
+				})
+				It("should remove agent cert secret copy from the second namespace", func() {
+					secret := t.NewAgentCertSecretCopy(targetNamespaces[1])
 					err := t.Client.Get(context.Background(), types.NamespacedName{Name: secret.Name, Namespace: secret.Namespace}, secret)
 					Expect(err).ToNot(BeNil())
 					Expect(kerrors.IsNotFound(err)).To(BeTrue())
@@ -2530,6 +2567,36 @@ func (t *cryostatTestInput) expectCertificates() {
 			Expect(secret.Type).To(Equal(expectedSecret.Type))
 		}
 	}
+
+	// Check agent certificates and secrets
+	for _, ns := range t.TargetNamespaces {
+		// Check certificate object
+		expectedCert := t.NewAgentCert(ns)
+		cert := &certv1.Certificate{}
+		err := t.Client.Get(context.Background(), types.NamespacedName{Name: expectedCert.Name, Namespace: expectedCert.Namespace}, cert)
+		Expect(err).ToNot(HaveOccurred())
+		t.checkMetadata(cert, expectedCert)
+		Expect(cert.Spec).To(Equal(expectedCert.Spec))
+
+		// Check certificate secret is created and owned by CR
+		expectedSecret := t.NewAgentCertSecret(ns)
+		secret := &corev1.Secret{}
+		err = t.Client.Get(context.Background(), types.NamespacedName{Name: expectedSecret.Name, Namespace: expectedSecret.Namespace}, secret)
+		Expect(err).ToNot(HaveOccurred())
+		t.checkMetadata(secret, expectedSecret)
+		Expect(secret.Data).To(Equal(expectedSecret.Data))
+
+		if ns != t.Namespace {
+			// Ensure secret is copied into the target namespace
+			expectedSecret = t.NewAgentCertSecretCopy(ns)
+			secret = &corev1.Secret{}
+			err = t.Client.Get(context.Background(), types.NamespacedName{Name: expectedSecret.Name, Namespace: expectedSecret.Namespace}, secret)
+			Expect(err).ToNot(HaveOccurred())
+			t.checkMetadataNoOwner(secret, expectedSecret)
+			Expect(secret.GetOwnerReferences()).To(BeEmpty())
+			Expect(secret.Data).To(Equal(expectedSecret.Data))
+		}
+	}
 }
 
 func (t *cryostatTestInput) expectRBAC() {
@@ -2578,6 +2645,24 @@ func (t *cryostatTestInput) checkRoleBindingsDeleted() {
 		expected := t.NewRoleBinding(ns)
 		binding := &rbacv1.RoleBinding{}
 		err := t.Client.Get(context.Background(), types.NamespacedName{Name: expected.Name, Namespace: expected.Namespace}, binding)
+		Expect(kerrors.IsNotFound(err)).To(BeTrue())
+	}
+}
+
+func (t *cryostatTestInput) checkCASecretsDeleted() {
+	for _, ns := range t.TargetNamespaces {
+		expected := t.NewCACertSecret(ns)
+		secret := &corev1.Secret{}
+		err := t.Client.Get(context.Background(), types.NamespacedName{Name: expected.Name, Namespace: expected.Namespace}, secret)
+		Expect(kerrors.IsNotFound(err)).To(BeTrue())
+	}
+}
+
+func (t *cryostatTestInput) checkAgentCertSecretsDeleted() {
+	for _, ns := range t.TargetNamespaces {
+		expected := t.NewAgentCertSecretCopy(ns)
+		secret := &corev1.Secret{}
+		err := t.Client.Get(context.Background(), types.NamespacedName{Name: expected.Name, Namespace: expected.Namespace}, secret)
 		Expect(kerrors.IsNotFound(err)).To(BeTrue())
 	}
 }
