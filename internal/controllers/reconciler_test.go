@@ -23,6 +23,7 @@ import (
 	certv1 "github.com/cert-manager/cert-manager/pkg/apis/certmanager/v1"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	gomegatypes "github.com/onsi/gomega/types"
 	configv1 "github.com/openshift/api/config/v1"
 	consolev1 "github.com/openshift/api/console/v1"
 	openshiftv1 "github.com/openshift/api/route/v1"
@@ -39,10 +40,14 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 	"k8s.io/client-go/tools/record"
+	"sigs.k8s.io/controller-runtime/pkg/builder"
 	ctrlclient "sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+	"sigs.k8s.io/controller-runtime/pkg/handler"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
+	"sigs.k8s.io/controller-runtime/pkg/manager"
+	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	operatorv1beta2 "github.com/cryostatio/cryostat-operator/api/v1beta2"
@@ -67,6 +72,7 @@ func (c *controllerTest) commonBeforeEach() *cryostatTestInput {
 	t := &cryostatTestInput{
 		TestReconcilerConfig: test.TestReconcilerConfig{
 			GeneratedPasswords: []string{"auth_cookie_secret", "connection_key", "encryption_key", "object_storage", "keystore"},
+			ControllerBuilder:  &test.TestCtrlBuilder{},
 		},
 		TestResources: &test.TestResources{
 			Name:        "cryostat",
@@ -115,14 +121,16 @@ func (t *cryostatTestInput) newReconcilerConfig(scheme *runtime.Scheme, client c
 		insightsURL = url
 	}
 	return &controllers.ReconcilerConfig{
-		Client:        test.NewClientWithTimestamp(test.NewTestClient(client, t.TestResources)),
-		Scheme:        scheme,
-		IsOpenShift:   t.OpenShift,
-		EventRecorder: record.NewFakeRecorder(1024),
-		RESTMapper:    test.NewTESTRESTMapper(),
-		Log:           logger,
-		ReconcilerTLS: test.NewTestReconcilerTLS(&t.TestReconcilerConfig),
-		InsightsProxy: insightsURL,
+		Client:                 test.NewClientWithTimestamp(test.NewTestClient(client, t.TestResources)),
+		Scheme:                 scheme,
+		IsOpenShift:            t.OpenShift,
+		EventRecorder:          record.NewFakeRecorder(1024),
+		RESTMapper:             test.NewTESTRESTMapper(),
+		Log:                    logger,
+		ReconcilerTLS:          test.NewTestReconcilerTLS(&t.TestReconcilerConfig),
+		InsightsProxy:          insightsURL,
+		IsCertManagerInstalled: !t.CertManagerMissing,
+		NewControllerBuilder:   test.NewControllerBuilder(&t.TestReconcilerConfig),
 	}
 }
 
@@ -424,8 +432,9 @@ func (c *controllerTest) commonTests() {
 				err := t.Client.Get(context.Background(), types.NamespacedName{Name: expected.Name, Namespace: expected.Namespace}, binding)
 				Expect(err).ToNot(HaveOccurred())
 
-				// Labels are unaffected
-				Expect(binding.Labels).To(Equal(oldBinding.Labels))
+				// Labels are merged with existing ones
+				metav1.SetMetaDataLabel(&expected.ObjectMeta, "test", "label")
+				Expect(binding.Labels).To(Equal(expected.Labels))
 				Expect(binding.Annotations).To(Equal(oldBinding.Annotations))
 
 				// Subjects and RoleRef should be fully replaced
@@ -1851,7 +1860,7 @@ func (c *controllerTest) commonTests() {
 					Expect(err).ToNot(BeNil())
 					Expect(kerrors.IsNotFound(err)).To(BeTrue())
 				})
-				It("leave certficate secrets for the first namespace", func() {
+				It("leave certificate secrets for the first namespace", func() {
 					t.expectCertificates()
 				})
 				It("should remove CA cert secret from the second namespace", func() {
@@ -2144,8 +2153,9 @@ func (c *controllerTest) commonTests() {
 				err := t.Client.Get(context.Background(), types.NamespacedName{Name: expected.Name, Namespace: expected.Namespace}, binding)
 				Expect(err).ToNot(HaveOccurred())
 
-				// Labels are unaffected
-				Expect(binding.Labels).To(Equal(oldBinding.Labels))
+				// Labels are merged with existing ones
+				metav1.SetMetaDataLabel(&expected.ObjectMeta, "test", "label")
+				Expect(binding.Labels).To(Equal(expected.Labels))
 				Expect(binding.Annotations).To(Equal(oldBinding.Annotations))
 
 				// Subjects and RoleRef should be fully replaced
@@ -2191,6 +2201,245 @@ func (c *controllerTest) commonTests() {
 			It("should have added the extra label and annotation to deployments and pods", func() {
 				t.expectMainDeploymentHasExtraMetadata()
 				t.expectReportsDeploymentHasExtraMetadata()
+			})
+		})
+	})
+
+	Describe("setting up with manager", func() {
+		BeforeEach(func() {
+			t = c.commonBeforeEach()
+			t.TargetNamespaces = []string{t.Namespace}
+		})
+
+		JustBeforeEach(func() {
+			c.commonJustBeforeEach(t)
+			// Create a default manager, not called
+			mgr, err := manager.New(cfg, manager.Options{})
+			Expect(err).ToNot(HaveOccurred())
+			t.controller.SetupWithManager(mgr)
+		})
+
+		JustAfterEach(func() {
+			c.commonJustAfterEach(t)
+		})
+
+		It("should watch Cryostat CRs", func() {
+			Expect(t.ControllerBuilder.ForCalls).To(HaveLen(1))
+			args := t.ControllerBuilder.ForCalls[0]
+			Expect(args.Object).To(BeAssignableToTypeOf(t.NewCryostat().Object))
+			Expect(args.Opts).To(BeEmpty())
+		})
+
+		It("should call Complete", func() {
+			Expect(t.ControllerBuilder.CompleteCalled).To(BeTrue())
+		})
+
+		Context("for owned resources", func() {
+			var ownsResources []ctrlclient.Object
+
+			BeforeEach(func() {
+				ownsResources = []ctrlclient.Object{
+					&appsv1.Deployment{},
+					&corev1.Service{},
+					&corev1.ConfigMap{},
+					&corev1.Secret{},
+					&corev1.PersistentVolumeClaim{},
+					&corev1.ServiceAccount{},
+					&rbacv1.Role{},
+					&rbacv1.RoleBinding{},
+					&netv1.Ingress{},
+				}
+			})
+
+			expectOwnedResources := func() {
+				It("should watch objects owned by Cryostat CRs", func() {
+					Expect(t.ControllerBuilder.OwnsCalls).To(HaveLen(len(ownsResources)))
+					resources := []ctrlclient.Object{}
+					for _, call := range t.ControllerBuilder.OwnsCalls {
+						resources = append(resources, call.Object)
+						Expect(call.Opts).To(BeEmpty())
+					}
+					Expect(resources).To(ConsistOf(ownsResources))
+				})
+			}
+
+			Context("cert-manager installed", func() {
+				BeforeEach(func() {
+					ownsResources = append(ownsResources, &certv1.Certificate{}, &certv1.Issuer{})
+				})
+				Context("on OpenShift", func() {
+					BeforeEach(func() {
+						ownsResources = append(ownsResources, &openshiftv1.Route{})
+					})
+					expectOwnedResources()
+				})
+				Context("on Kubernetes", func() {
+					BeforeEach(func() {
+						t.OpenShift = false
+					})
+					expectOwnedResources()
+				})
+			})
+
+			Context("cert-manager missing", func() {
+				BeforeEach(func() {
+					t.CertManagerMissing = true
+				})
+				Context("on OpenShift", func() {
+					BeforeEach(func() {
+						ownsResources = append(ownsResources, &openshiftv1.Route{})
+					})
+					expectOwnedResources()
+				})
+				Context("on Kubernetes", func() {
+					BeforeEach(func() {
+						t.OpenShift = false
+					})
+					expectOwnedResources()
+				})
+			})
+		})
+
+		Context("watches in target namespaces", func() {
+			var expectedResources []ctrlclient.Object
+
+			BeforeEach(func() {
+				expectedResources = []ctrlclient.Object{
+					&rbacv1.RoleBinding{},
+					&corev1.Secret{},
+				}
+			})
+
+			It("should watch specified resources", func() {
+				Expect(t.ControllerBuilder.WatchesCalls).To(HaveLen(len(expectedResources)))
+				resources := []ctrlclient.Object{}
+				for _, watch := range t.ControllerBuilder.WatchesCalls {
+					resources = append(resources, watch.Object)
+				}
+				Expect(resources).To(ConsistOf(expectedResources))
+			})
+
+			Context("filtering by labels", func() {
+				var pred predicate.Predicate
+				var obj ctrlclient.Object
+
+				JustBeforeEach(func() {
+					Expect(t.ControllerBuilder.WatchesCalls).To(HaveLen(len(expectedResources)))
+					Expect(t.ControllerBuilder.Predicates).To(HaveLen(len(expectedResources)))
+					for _, watch := range t.ControllerBuilder.WatchesCalls {
+						Expect(watch.Opts).To(HaveLen(1))
+						Expect(watch.Opts[0]).To(BeAssignableToTypeOf(builder.Predicates{}))
+					}
+					pred = t.ControllerBuilder.Predicates[0]
+				})
+
+				Context("with both labels present", func() {
+					BeforeEach(func() {
+						obj = t.NewAgentCertSecretCopy("foo")
+					})
+
+					It("should accept", func() {
+						t.expectPredicateToAccept(pred, obj)
+					})
+				})
+
+				Context("with name label missing", func() {
+					BeforeEach(func() {
+						obj = t.NewAgentCertSecretCopy("foo")
+						delete(obj.GetLabels(), "operator.cryostat.io/name")
+					})
+
+					It("should reject", func() {
+						t.expectPredicateToReject(pred, obj)
+					})
+				})
+
+				Context("with namespace label missing", func() {
+					BeforeEach(func() {
+						obj = t.NewAgentCertSecretCopy("foo")
+						delete(obj.GetLabels(), "operator.cryostat.io/namespace")
+					})
+
+					It("should reject", func() {
+						t.expectPredicateToReject(pred, obj)
+					})
+				})
+
+				Context("both labels missing", func() {
+					BeforeEach(func() {
+						obj = t.NewAgentCertSecret("foo")
+						delete(obj.GetLabels(), "operator.cryostat.io/name")
+					})
+
+					It("should reject", func() {
+						t.expectPredicateToReject(pred, obj)
+					})
+				})
+			})
+
+			Context("handling events", func() {
+				var handlerFunc handler.MapFunc
+				var obj ctrlclient.Object
+
+				JustBeforeEach(func() {
+					Expect(t.ControllerBuilder.WatchesCalls).To(HaveLen(len(expectedResources)))
+					Expect(t.ControllerBuilder.MapFuncs).To(HaveLen(len(expectedResources)))
+					for i, watch := range t.ControllerBuilder.WatchesCalls {
+						Expect(watch.EventHandler).ToNot(BeNil())
+						// Check that the handler uses the expected underlying type
+						mapFunc := t.ControllerBuilder.MapFuncs[i]
+						expectedHandler := handler.EnqueueRequestsFromMapFunc(mapFunc)
+						Expect(watch.EventHandler).To(BeAssignableToTypeOf(expectedHandler))
+					}
+					handlerFunc = t.ControllerBuilder.MapFuncs[0]
+				})
+
+				Context("with both labels present", func() {
+					BeforeEach(func() {
+						obj = t.NewAgentCertSecretCopy("foo")
+					})
+
+					It("should accept", func() {
+						result := handlerFunc(context.Background(), obj)
+						Expect(result).To(ConsistOf(newReconcileRequest(t.Namespace, t.Name)))
+					})
+				})
+
+				Context("with name label missing", func() {
+					BeforeEach(func() {
+						obj = t.NewAgentCertSecretCopy("foo")
+						delete(obj.GetLabels(), "operator.cryostat.io/name")
+					})
+
+					It("should reject", func() {
+						result := handlerFunc(context.Background(), obj)
+						Expect(result).To(BeEmpty())
+					})
+				})
+
+				Context("with namespace label missing", func() {
+					BeforeEach(func() {
+						obj = t.NewAgentCertSecretCopy("foo")
+						delete(obj.GetLabels(), "operator.cryostat.io/namespace")
+					})
+
+					It("should reject", func() {
+						result := handlerFunc(context.Background(), obj)
+						Expect(result).To(BeEmpty())
+					})
+				})
+
+				Context("both labels missing", func() {
+					BeforeEach(func() {
+						obj = t.NewAgentCertSecret("foo")
+						delete(obj.GetLabels(), "operator.cryostat.io/name")
+					})
+
+					It("should reject", func() {
+						result := handlerFunc(context.Background(), obj)
+						Expect(result).To(BeEmpty())
+					})
+				})
 			})
 		})
 	})
@@ -3058,9 +3307,14 @@ func (t *cryostatTestInput) reconcile() (reconcile.Result, error) {
 }
 
 func (t *cryostatTestInput) reconcileWithName(name string) (reconcile.Result, error) {
-	nsName := types.NamespacedName{Name: name, Namespace: t.Namespace}
-	req := reconcile.Request{NamespacedName: nsName}
+	req := newReconcileRequest(t.Namespace, name)
 	return t.controller.Reconcile(context.Background(), req)
+}
+
+func newReconcileRequest(namespace string, name string) reconcile.Request {
+	return reconcile.Request{
+		NamespacedName: types.NamespacedName{Namespace: namespace, Name: name},
+	}
 }
 
 func (t *cryostatTestInput) expectConsoleLink() {
@@ -3074,4 +3328,20 @@ func (t *cryostatTestInput) expectConsoleLink() {
 func (t *cryostatTestInput) expectTargetNamespaces() {
 	cr := t.getCryostatInstance()
 	Expect(*cr.TargetNamespaceStatus).To(ConsistOf(t.TargetNamespaces))
+}
+
+func (t *cryostatTestInput) expectPredicateToAccept(pred predicate.Predicate, obj ctrlclient.Object) {
+	t.expectPredicate(pred, obj, BeTrue())
+}
+
+func (t *cryostatTestInput) expectPredicateToReject(pred predicate.Predicate, obj ctrlclient.Object) {
+	t.expectPredicate(pred, obj, BeFalse())
+}
+
+func (t *cryostatTestInput) expectPredicate(pred predicate.Predicate, obj ctrlclient.Object,
+	matcher gomegatypes.GomegaMatcher) {
+	Expect(pred.Create(t.NewCreateEvent(obj))).To(matcher)
+	Expect(pred.Update(t.NewUpdateEvent(obj))).To(matcher)
+	Expect(pred.Delete(t.NewDeleteEvent(obj))).To(matcher)
+	Expect(pred.Generic(t.NewGenericEvent(obj))).To(matcher)
 }

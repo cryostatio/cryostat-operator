@@ -118,7 +118,8 @@ func (r *Reconciler) setupTLS(ctx context.Context, cr *model.CryostatInstance) (
 				},
 				Type: corev1.SecretTypeOpaque,
 			}
-			err = r.createOrUpdateCertSecret(ctx, namespaceSecret, caBytes)
+			err = r.createOrUpdateCertSecret(ctx, namespaceSecret, caBytes,
+				common.LabelsForTargetNamespaceObject(cr))
 			if err != nil {
 				return nil, err
 			}
@@ -377,6 +378,8 @@ func (r *Reconciler) reconcileAgentCertificate(ctx context.Context, cert *certv1
 			},
 		}
 		err = r.createOrUpdateSecret(ctx, targetSecret, nil, func() error {
+			common.MergeLabelsAndAnnotations(&targetSecret.ObjectMeta,
+				common.LabelsForTargetNamespaceObject(cr), map[string]string{})
 			targetSecret.Data = secret.Data
 			return nil
 		})
@@ -436,8 +439,10 @@ func (r *Reconciler) createOrUpdateKeystoreSecret(ctx context.Context, secret *c
 	return nil
 }
 
-func (r *Reconciler) createOrUpdateCertSecret(ctx context.Context, secret *corev1.Secret, cert []byte) error {
+func (r *Reconciler) createOrUpdateCertSecret(ctx context.Context, secret *corev1.Secret, cert []byte,
+	labels map[string]string) error {
 	op, err := controllerutil.CreateOrUpdate(ctx, r.Client, secret, func() error {
+		common.MergeLabelsAndAnnotations(&secret.ObjectMeta, labels, map[string]string{})
 		if secret.Data == nil {
 			secret.Data = map[string][]byte{}
 		}

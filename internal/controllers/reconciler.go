@@ -27,6 +27,7 @@ import (
 	operatorv1beta2 "github.com/cryostatio/cryostat-operator/api/v1beta2"
 	common "github.com/cryostatio/cryostat-operator/internal/controllers/common"
 	resources "github.com/cryostatio/cryostat-operator/internal/controllers/common/resource_definitions"
+	"github.com/cryostatio/cryostat-operator/internal/controllers/constants"
 	"github.com/cryostatio/cryostat-operator/internal/controllers/model"
 	"github.com/go-logr/logr"
 	"github.com/google/go-cmp/cmp"
@@ -47,6 +48,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
@@ -61,6 +63,7 @@ type ReconcilerConfig struct {
 	EventRecorder          record.EventRecorder
 	RESTMapper             meta.RESTMapper
 	InsightsProxy          *url.URL // Only defined if Insights is enabled
+	NewControllerBuilder   func(ctrl.Manager) common.ControllerBuilder
 	common.ReconcilerTLS
 }
 
@@ -307,13 +310,12 @@ func (r *Reconciler) reconcileCryostat(ctx context.Context, cr *model.CryostatIn
 	return reconcile.Result{}, nil
 }
 
-func (r *Reconciler) setupWithManager(mgr ctrl.Manager, impl reconcile.Reconciler) error {
-	c := ctrl.NewControllerManagedBy(mgr).
-		For(r.objectType)
+func (r *Reconciler) setupWithManager(c common.ControllerBuilder, impl reconcile.Reconciler) error {
+	c = c.For(r.objectType)
 
 	// Watch for changes to secondary resources and requeue the owner Cryostat
-	resources := []client.Object{&appsv1.Deployment{}, &corev1.Service{}, &corev1.Secret{}, &corev1.PersistentVolumeClaim{},
-		&corev1.ServiceAccount{}, &rbacv1.Role{}, &rbacv1.RoleBinding{}, &netv1.Ingress{}}
+	resources := []client.Object{&appsv1.Deployment{}, &corev1.Service{}, &corev1.ConfigMap{}, &corev1.Secret{},
+		&corev1.PersistentVolumeClaim{}, &corev1.ServiceAccount{}, &rbacv1.Role{}, &rbacv1.RoleBinding{}, &netv1.Ingress{}}
 	if r.IsOpenShift {
 		resources = append(resources, &openshiftv1.Route{})
 	}
@@ -324,6 +326,12 @@ func (r *Reconciler) setupWithManager(mgr ctrl.Manager, impl reconcile.Reconcile
 
 	for _, resource := range resources {
 		c = c.Owns(resource)
+	}
+
+	// Watch objects that we create in target namespaces
+	c, err := r.watchTargetNamespaces(c, &rbacv1.RoleBinding{}, &corev1.Secret{})
+	if err != nil {
+		return err
 	}
 
 	return c.Complete(impl)
@@ -534,6 +542,64 @@ func (r *Reconciler) deleteDeployment(ctx context.Context, deploy *appsv1.Deploy
 	}
 	r.Log.Info("Deployment deleted", "name", deploy.Name, "namespace", deploy.Namespace)
 	return nil
+}
+
+func (r *Reconciler) watchTargetNamespaces(c common.ControllerBuilder,
+	resources ...client.Object) (common.ControllerBuilder, error) {
+	// Create a controller watch for resources we create in target namespaces.
+	// The watch filters objects for those that have our labels that identify their CR,
+	// and then enqueues that CR.
+	pred, err := r.targetNamespacePredicate()
+	if err != nil {
+		return nil, err
+	}
+	for _, resource := range resources {
+		c = c.Watches(resource, c.EnqueueRequestsFromMapFunc(r.mapFromTargetNamespace()),
+			c.WithPredicates(pred))
+	}
+	return c, nil
+}
+
+func (r *Reconciler) targetNamespacePredicate() (predicate.Predicate, error) {
+	// Use a label selector that matches the existence of the
+	// target namespace labels
+	selector := metav1.LabelSelector{}
+	labels := []string{
+		constants.TargetNamespaceCRNameLabel,
+		constants.TargetNamespaceCRNamespaceLabel,
+	}
+	for _, label := range labels {
+		selector.MatchExpressions = append(selector.MatchExpressions, metav1.LabelSelectorRequirement{
+			Key:      label,
+			Operator: metav1.LabelSelectorOpExists,
+		})
+	}
+	return predicate.LabelSelectorPredicate(selector)
+}
+
+func (r *Reconciler) mapFromTargetNamespace() func(ctx context.Context, obj client.Object) []reconcile.Request {
+	return func(ctx context.Context, obj client.Object) []reconcile.Request {
+		// Get the namespace/name of the CR from the object's labels,
+		// and return a reconcile request for that namespaced name
+		labels := obj.GetLabels()
+		name, ok := labels[constants.TargetNamespaceCRNameLabel]
+		if !ok {
+			r.Log.Info("Object is missing label", "label", constants.TargetNamespaceCRNameLabel,
+				"name", obj.GetName(), "namespace", obj.GetNamespace())
+			return nil
+		}
+		namespace, ok := labels[constants.TargetNamespaceCRNamespaceLabel]
+		if !ok {
+			r.Log.Info("Object is missing label", "label", constants.TargetNamespaceCRNamespaceLabel,
+				"name", obj.GetName(), "namespace", obj.GetNamespace())
+			return nil
+		}
+		return []reconcile.Request{
+			{
+				NamespacedName: types.NamespacedName{Namespace: namespace, Name: name},
+			},
+		}
+	}
 }
 
 func requeueIfIngressNotReady(log logr.Logger, err error) (reconcile.Result, error) {

@@ -104,7 +104,7 @@ func (r *CryostatReconciler) Reconcile(ctx context.Context, request ctrl.Request
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *CryostatReconciler) SetupWithManager(mgr ctrl.Manager) error {
-	return r.delegate.setupWithManager(mgr, r)
+	return r.delegate.setupWithManager(r.NewControllerBuilder(mgr), r)
 }
 
 func (r *CryostatReconciler) GetConfig() *ReconcilerConfig {

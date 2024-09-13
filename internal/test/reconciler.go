@@ -36,6 +36,8 @@ type TestReconcilerConfig struct {
 	EnvGrafanaImageTag             *string
 	EnvReportsImageTag             *string
 	GeneratedPasswords             []string
+	ControllerBuilder              *TestCtrlBuilder
+	CertManagerMissing             bool
 }
 
 func NewTestReconcilerTLS(config *TestReconcilerConfig) common.ReconcilerTLS {

@@ -41,4 +41,8 @@ const (
 	DatabaseSecretConnectionKey = "CONNECTION_KEY"
 	// DatabaseSecretEncryptionKey indexes the database encryption key within the Cryostat database Secret
 	DatabaseSecretEncryptionKey = "ENCRYPTION_KEY"
+
+	targetNamespaceCRLabelPrefix    = "operator.cryostat.io/"
+	TargetNamespaceCRNameLabel      = targetNamespaceCRLabelPrefix + "name"
+	TargetNamespaceCRNamespaceLabel = targetNamespaceCRLabelPrefix + "namespace"
 )
