@@ -91,8 +91,15 @@ func (r *Reconciler) setupTLS(ctx context.Context, cr *model.CryostatInstance) (
 		return nil, err
 	}
 
+	// Create a certificate for the agent proxy signed by the Cryostat CA
+	agentProxyCert := resources.NewAgentProxyCert(cr)
+	err = r.createOrUpdateCertificate(ctx, agentProxyCert, cr.Object)
+	if err != nil {
+		return nil, err
+	}
+
 	// List of certificates whose secrets should be owned by this CR
-	certificates := []*certv1.Certificate{caCert, cryostatCert, reportsCert}
+	certificates := []*certv1.Certificate{caCert, cryostatCert, reportsCert, agentProxyCert}
 
 	// Get the Cryostat CA certificate bytes from certificate secret
 	caBytes, err := r.getCertficateBytes(ctx, caCert)
@@ -103,6 +110,7 @@ func (r *Reconciler) setupTLS(ctx context.Context, cr *model.CryostatInstance) (
 	tlsConfig := &resources.TLSConfig{
 		CryostatSecret:     cryostatCert.Spec.SecretName,
 		ReportsSecret:      reportsCert.Spec.SecretName,
+		AgentProxySecret:   agentProxyCert.Spec.SecretName,
 		KeystorePassSecret: cryostatCert.Spec.Keystores.PKCS12.PasswordSecretRef.Name,
 		CACert:             caBytes,
 	}

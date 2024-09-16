@@ -244,6 +244,11 @@ spec:
       - description: Resource requirements for the Cryostat deployment.
         displayName: Resources
         path: resources
+      - description: Resource requirements for the agent proxy container.
+        displayName: Agent Proxy Resources
+        path: resources.agentProxyResources
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:resourceRequirements
       - description: Resource requirements for the auth proxy.
         displayName: Auth Proxy Resources
         path: resources.authProxyResources
@@ -312,6 +317,9 @@ spec:
         path: securityOptions
         x-descriptors:
         - urn:alm:descriptor:com.tectonic.ui:advanced
+      - description: Security Context to apply to the agent proxy container.
+        displayName: Agent Proxy Security Context
+        path: securityOptions.agentProxySecurityContext
       - description: Security Context to apply to the auth proxy container.
         displayName: Auth Proxy Security Context
         path: securityOptions.authProxySecurityContext

@@ -155,3 +155,27 @@ func NewAgentCert(cr *model.CryostatInstance, namespace string, gvk *schema.Grou
 		},
 	}
 }
+
+func NewAgentProxyCert(cr *model.CryostatInstance) *certv1.Certificate {
+	return &certv1.Certificate{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      cr.Name + "-agent-proxy",
+			Namespace: cr.InstallNamespace,
+		},
+		Spec: certv1.CertificateSpec{
+			CommonName: fmt.Sprintf("%s-agent.%s.svc", cr.Name, cr.InstallNamespace),
+			DNSNames: []string{
+				cr.Name + "-agent",
+				fmt.Sprintf("%s-agent.%s.svc", cr.Name, cr.InstallNamespace),
+				fmt.Sprintf("%s-agent.%s.svc.cluster.local", cr.Name, cr.InstallNamespace),
+			},
+			SecretName: cr.Name + "-agent-tls",
+			IssuerRef: certMeta.ObjectReference{
+				Name: cr.Name + "-ca",
+			},
+			Usages: append(certv1.DefaultKeyUsages(),
+				certv1.UsageServerAuth,
+			),
+		},
+	}
+}

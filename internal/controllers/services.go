@@ -111,6 +111,46 @@ func (r *Reconciler) reconcileReportsService(ctx context.Context, cr *model.Cryo
 	return nil
 }
 
+func (r *Reconciler) reconcileAgentService(ctx context.Context, cr *model.CryostatInstance,
+	tls *resource_definitions.TLSConfig, specs *resource_definitions.ServiceSpecs) error {
+	config := configureAgentService(cr)
+	svc := &corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      cr.Name + "-agent",
+			Namespace: cr.InstallNamespace,
+		},
+	}
+
+	if tls == nil {
+		// Delete service if it exists
+		return r.deleteService(ctx, svc)
+	}
+	err := r.createOrUpdateService(ctx, svc, cr.Object, &config.ServiceConfig, func() error {
+		svc.Spec.Selector = map[string]string{
+			"app":       cr.Name,
+			"component": "cryostat",
+		}
+		svc.Spec.Ports = []corev1.ServicePort{
+			{
+				Name:       "http",
+				Port:       *config.HTTPPort,
+				TargetPort: intstr.IntOrString{IntVal: constants.AgentProxyContainerPort},
+			},
+		}
+		return nil
+	})
+	if err != nil {
+		return err
+	}
+
+	// Set reports URL for deployment to use
+	specs.ReportsURL = &url.URL{
+		Scheme: "https",
+		Host:   svc.Name + ":" + strconv.Itoa(int(svc.Spec.Ports[0].Port)), // TODO use getHTTPPort?
+	}
+	return nil
+}
+
 func configureCoreService(cr *model.CryostatInstance) *operatorv1beta2.CoreServiceConfig {
 	// Check CR for config
 	var config *operatorv1beta2.CoreServiceConfig
@@ -147,6 +187,27 @@ func configureReportsService(cr *model.CryostatInstance) *operatorv1beta2.Report
 	// Apply default HTTP port if not provided
 	if config.HTTPPort == nil {
 		httpPort := constants.ReportsContainerPort
+		config.HTTPPort = &httpPort
+	}
+
+	return config
+}
+
+func configureAgentService(cr *model.CryostatInstance) *operatorv1beta2.AgentServiceConfig {
+	// Check CR for config
+	var config *operatorv1beta2.AgentServiceConfig
+	if cr.Spec.ServiceOptions == nil || cr.Spec.ServiceOptions.AgentConfig == nil {
+		config = &operatorv1beta2.AgentServiceConfig{}
+	} else {
+		config = cr.Spec.ServiceOptions.AgentConfig.DeepCopy()
+	}
+
+	// Apply common service defaults
+	configureService(&config.ServiceConfig, cr.Name, "cryostat")
+
+	// Apply default HTTP port if not provided
+	if config.HTTPPort == nil {
+		httpPort := constants.AgentProxyContainerPort
 		config.HTTPPort = &httpPort
 	}
 

@@ -25,3 +25,5 @@ spec:
           value: "${STORAGE_IMG}"
         - name: RELATED_IMAGE_DATABASE
           value: "${DATABASE_IMG}"
+        - name: RELATED_IMAGE_AGENT_PROXY
+          value: "${AGENT_PROXY_IMG}"

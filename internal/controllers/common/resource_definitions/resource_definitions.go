@@ -44,6 +44,7 @@ type ImageTags struct {
 	ReportsImageTag             string
 	StorageImageTag             string
 	DatabaseImageTag            string
+	AgentProxyImageTag          string
 }
 
 type ServiceSpecs struct {
@@ -61,6 +62,8 @@ type TLSConfig struct {
 	CryostatSecret string
 	// Name of the TLS secret for Reports Generator
 	ReportsSecret string
+	// Name of the TLS secret for the agent proxy
+	AgentProxySecret string
 	// Name of the secret containing the password for the keystore in CryostatSecret
 	KeystorePassSecret string
 	// PEM-encoded X.509 certificate for the Cryostat CA
@@ -82,6 +85,8 @@ const (
 	defaultStorageMemoryRequest       string = "256Mi"
 	defaultReportCpuRequest           string = "500m"
 	defaultReportMemoryRequest        string = "512Mi"
+	defaultAgentProxyCpuRequest       string = "25m"
+	defaultAgentProxyMemoryRequest    string = "64Mi"
 	OAuth2ConfigFileName              string = "alpha_config.json"
 	OAuth2ConfigFilePath              string = "/etc/oauth2_proxy/alpha_config"
 )
@@ -298,6 +303,8 @@ func NewPodForCR(cr *model.CryostatInstance, specs *ServiceSpecs, imageTags *Ima
 	}
 
 	if tls != nil {
+		containers = append(containers, newAgentProxyContainer(cr, imageTags.AgentProxyImageTag, tls))
+
 		volSources = append(volSources, corev1.VolumeProjection{
 			// Add Cryostat self-signed CA
 			Secret: &corev1.SecretProjection{
@@ -320,6 +327,36 @@ func NewPodForCR(cr *model.CryostatInstance, specs *ServiceSpecs, imageTags *Ima
 				VolumeSource: corev1.VolumeSource{
 					Secret: &corev1.SecretVolumeSource{
 						SecretName: tls.CryostatSecret,
+					},
+				},
+			},
+			corev1.Volume{
+				Name: "agent-proxy-tls-secret",
+				VolumeSource: corev1.VolumeSource{
+					Secret: &corev1.SecretVolumeSource{
+						SecretName: tls.AgentProxySecret,
+					},
+				},
+			},
+			corev1.Volume{
+				Name: "agent-proxy-config",
+				VolumeSource: corev1.VolumeSource{
+					ConfigMap: &corev1.ConfigMapVolumeSource{
+						LocalObjectReference: corev1.LocalObjectReference{
+							Name: cr.Name + "-agent-proxy",
+						},
+						Items: []corev1.KeyToPath{
+							{
+								Key:  constants.AgentProxyConfigFileName,
+								Path: constants.AgentProxyConfigFileName,
+								Mode: &readOnlyMode,
+							},
+							{
+								Key:  constants.AgentProxyDHFileName,
+								Path: constants.AgentProxyDHFileName,
+								Mode: &readOnlyMode,
+							},
+						},
 					},
 				},
 			},
@@ -1161,7 +1198,7 @@ func NewCoreContainer(cr *model.CryostatInstance, specs *ServiceSpecs, imageTag 
 	probeHandler := corev1.ProbeHandler{
 		HTTPGet: &corev1.HTTPGetAction{
 			Port:   intstr.IntOrString{IntVal: constants.CryostatHTTPContainerPort},
-			Path:   "/health/liveness",
+			Path:   constants.CryostatHealthPath,
 			Scheme: corev1.URISchemeHTTP,
 		},
 	}
@@ -1520,6 +1557,70 @@ func NewJfrDatasourceContainer(cr *model.CryostatInstance, imageTag string) core
 		SecurityContext: containerSc,
 		Resources:       *NewJfrDatasourceContainerResource(cr),
 	}
+}
+
+func newAgentProxyContainer(cr *model.CryostatInstance, imageTag string, tls *TLSConfig) corev1.Container {
+	var securityContext *corev1.SecurityContext
+	if cr.Spec.SecurityOptions != nil && cr.Spec.SecurityOptions.AgentProxySecurityContext != nil {
+		securityContext = cr.Spec.SecurityOptions.AgentProxySecurityContext
+	} else {
+		privEscalation := false
+		securityContext = &corev1.SecurityContext{
+			AllowPrivilegeEscalation: &privEscalation,
+			Capabilities: &corev1.Capabilities{
+				Drop: []corev1.Capability{constants.CapabilityAll},
+			},
+		}
+	}
+
+	healthCheckPort := int32(8081)
+	return corev1.Container{
+		Name:            cr.Name + "-agent-proxy",
+		Image:           imageTag,
+		ImagePullPolicy: getPullPolicy(imageTag),
+		Ports: []corev1.ContainerPort{
+			{
+				ContainerPort: constants.AgentProxyContainerPort,
+			},
+		},
+		Command: []string{
+			"nginx", "-c",
+			fmt.Sprintf("%s/%s", constants.AgentProxyConfigFilePath, constants.AgentProxyConfigFileName),
+			"-g", "daemon off;"},
+		// Can't use HTTP probe since the port is not exposed over the network
+		LivenessProbe: &corev1.Probe{
+			ProbeHandler: corev1.ProbeHandler{
+				HTTPGet: &corev1.HTTPGetAction{
+					Path:   "/healthz",
+					Port:   intstr.FromInt32(healthCheckPort),
+					Scheme: corev1.URISchemeHTTP,
+				},
+			},
+		},
+		SecurityContext: securityContext,
+		Resources:       *newAgentProxyContainerResource(cr),
+		VolumeMounts: []corev1.VolumeMount{
+			{
+				Name:      "agent-proxy-tls-secret",
+				MountPath: "/var/run/secrets/operator.cryostat.io/" + tls.AgentProxySecret,
+				ReadOnly:  true,
+			},
+			{
+				Name:      "agent-proxy-config",
+				MountPath: constants.AgentProxyConfigFilePath,
+				ReadOnly:  true,
+			},
+		},
+	}
+}
+
+func newAgentProxyContainerResource(cr *model.CryostatInstance) *corev1.ResourceRequirements {
+	resources := &corev1.ResourceRequirements{}
+	if cr.Spec.Resources != nil {
+		resources = cr.Spec.Resources.AgentProxyResources.DeepCopy()
+	}
+	populateResourceRequest(resources, defaultJfrDatasourceCpuRequest, defaultJfrDatasourceMemoryRequest)
+	return resources
 }
 
 func getPort(url *url.URL) string {
