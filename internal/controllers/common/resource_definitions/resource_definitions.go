@@ -271,6 +271,7 @@ func NewPodForCR(cr *model.CryostatInstance, specs *ServiceSpecs, imageTags *Ima
 		NewStorageContainer(cr, imageTags.StorageImageTag, tls),
 		newDatabaseContainer(cr, imageTags.DatabaseImageTag, tls),
 		*authProxy,
+		newAgentProxyContainer(cr, imageTags.AgentProxyImageTag, tls),
 	}
 
 	volumes := newVolumeForCR(cr)
@@ -303,8 +304,6 @@ func NewPodForCR(cr *model.CryostatInstance, specs *ServiceSpecs, imageTags *Ima
 	}
 
 	if tls != nil {
-		containers = append(containers, newAgentProxyContainer(cr, imageTags.AgentProxyImageTag, tls))
-
 		volSources = append(volSources, corev1.VolumeProjection{
 			// Add Cryostat self-signed CA
 			Secret: &corev1.SecretProjection{
@@ -341,17 +340,6 @@ func NewPodForCR(cr *model.CryostatInstance, specs *ServiceSpecs, imageTags *Ima
 				},
 			},
 			corev1.Volume{
-				Name: "agent-proxy-config",
-				VolumeSource: corev1.VolumeSource{
-					ConfigMap: &corev1.ConfigMapVolumeSource{
-						LocalObjectReference: corev1.LocalObjectReference{
-							Name: cr.Name + "-agent-proxy",
-						},
-						DefaultMode: &readOnlyMode,
-					},
-				},
-			},
-			corev1.Volume{
 				Name: "keystore",
 				VolumeSource: corev1.VolumeSource{
 					Secret: &corev1.SecretVolumeSource{
@@ -378,7 +366,21 @@ func NewPodForCR(cr *model.CryostatInstance, specs *ServiceSpecs, imageTags *Ima
 			},
 		},
 	}
-	volumes = append(volumes, certVolume)
+
+	// Add agent proxy config map as a volume
+	agentProxyVolume := corev1.Volume{
+		Name: "agent-proxy-config",
+		VolumeSource: corev1.VolumeSource{
+			ConfigMap: &corev1.ConfigMapVolumeSource{
+				LocalObjectReference: corev1.LocalObjectReference{
+					Name: cr.Name + "-agent-proxy",
+				},
+				DefaultMode: &readOnlyMode,
+			},
+		},
+	}
+
+	volumes = append(volumes, certVolume, agentProxyVolume)
 
 	if !openshift {
 		// if not deploying openshift-oauth-proxy then we must be deploying oauth2_proxy instead
@@ -1564,7 +1566,23 @@ func newAgentProxyContainer(cr *model.CryostatInstance, imageTag string, tls *TL
 		}
 	}
 
-	healthCheckPort := int32(8081)
+	// Mount the config map containing the nginx.conf (and DH params if TLS is enabled)
+	mounts := []corev1.VolumeMount{
+		{
+			Name:      "agent-proxy-config",
+			MountPath: constants.AgentProxyConfigFilePath,
+			ReadOnly:  true,
+		},
+	}
+	if tls != nil {
+		// Mount the TLS secret for the agent proxy
+		mounts = append(mounts, corev1.VolumeMount{
+			Name:      "agent-proxy-tls-secret",
+			MountPath: "/var/run/secrets/operator.cryostat.io/" + tls.AgentProxySecret,
+			ReadOnly:  true,
+		})
+	}
+
 	return corev1.Container{
 		Name:            cr.Name + "-agent-proxy",
 		Image:           imageTag,
@@ -1574,37 +1592,27 @@ func newAgentProxyContainer(cr *model.CryostatInstance, imageTag string, tls *TL
 				ContainerPort: constants.AgentProxyContainerPort,
 			},
 			{
-				ContainerPort: healthCheckPort,
+				ContainerPort: constants.AgentProxyHealthPort,
 			},
 		},
+		// Override the command to run nginx pointed at our config file. See:
+		// https://github.com/sclorg/nginx-container/blob/e7d8db9bc5299a4c4e254f8a82e917c7c136468b/1.24/README.md#direct-usage-with-a-mounted-directory
 		Command: []string{
 			"nginx", "-c",
 			fmt.Sprintf("%s/%s", constants.AgentProxyConfigFilePath, constants.AgentProxyConfigFileName),
 			"-g", "daemon off;"},
-		// Can't use HTTP probe since the port is not exposed over the network
 		LivenessProbe: &corev1.Probe{
 			ProbeHandler: corev1.ProbeHandler{
 				HTTPGet: &corev1.HTTPGetAction{
 					Path:   "/healthz",
-					Port:   intstr.FromInt32(healthCheckPort),
+					Port:   intstr.FromInt32(constants.AgentProxyHealthPort),
 					Scheme: corev1.URISchemeHTTP,
 				},
 			},
 		},
 		SecurityContext: securityContext,
 		Resources:       *newAgentProxyContainerResource(cr),
-		VolumeMounts: []corev1.VolumeMount{
-			{
-				Name:      "agent-proxy-tls-secret",
-				MountPath: "/var/run/secrets/operator.cryostat.io/" + tls.AgentProxySecret,
-				ReadOnly:  true,
-			},
-			{
-				Name:      "agent-proxy-config",
-				MountPath: constants.AgentProxyConfigFilePath,
-				ReadOnly:  true,
-			},
-		},
+		VolumeMounts:    mounts,
 	}
 }
 

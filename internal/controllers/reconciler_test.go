@@ -1264,6 +1264,9 @@ func (c *controllerTest) commonTests() {
 			It("should create routes with edge TLS termination", func() {
 				t.expectRoutes()
 			})
+			It("should create the agent proxy config map", func() {
+				t.expectAgentProxyConfigMap()
+			})
 		})
 		Context("with cert-manager not configured in CR", func() {
 			BeforeEach(func() {
@@ -1285,6 +1288,9 @@ func (c *controllerTest) commonTests() {
 				t.reconcileCryostatFully()
 				t.checkConditionPresent(operatorv1beta2.ConditionTypeTLSSetupComplete, metav1.ConditionTrue,
 					"AllCertificatesReady")
+			})
+			It("should create the agent proxy config map", func() {
+				t.expectAgentProxyConfigMap()
 			})
 		})
 		Context("with DISABLE_SERVICE_TLS=true", func() {
@@ -1315,6 +1321,9 @@ func (c *controllerTest) commonTests() {
 				t.checkConditionPresent(operatorv1beta2.ConditionTypeTLSSetupComplete, metav1.ConditionTrue,
 					"CertManagerDisabled")
 			})
+			It("should create the agent proxy config map", func() {
+				t.expectAgentProxyConfigMap()
+			})
 		})
 		Context("Disable cert-manager after being enabled", func() {
 			BeforeEach(func() {
@@ -1341,6 +1350,9 @@ func (c *controllerTest) commonTests() {
 			It("should set TLSSetupComplete Condition", func() {
 				t.checkConditionPresent(operatorv1beta2.ConditionTypeTLSSetupComplete, metav1.ConditionTrue,
 					"CertManagerDisabled")
+			})
+			It("should create the agent proxy config map", func() {
+				t.expectAgentProxyConfigMap()
 			})
 		})
 		Context("Enable cert-manager after being disabled", func() {
@@ -1372,6 +1384,9 @@ func (c *controllerTest) commonTests() {
 			It("should set TLSSetupComplete condition", func() {
 				t.checkConditionPresent(operatorv1beta2.ConditionTypeTLSSetupComplete, metav1.ConditionTrue,
 					"AllCertificatesReady")
+			})
+			It("should create the agent proxy config map", func() {
+				t.expectAgentProxyConfigMap()
 			})
 		})
 		Context("cert-manager missing", func() {
@@ -2734,6 +2749,7 @@ func (t *cryostatTestInput) expectAgentProxyConfigMap() {
 	Expect(err).ToNot(HaveOccurred())
 
 	t.checkMetadata(cm, expected)
+	Expect(cm.Data).To(Equal(expected.Data))
 }
 
 func (t *cryostatTestInput) expectPVC(expectedPVC *corev1.PersistentVolumeClaim) {
@@ -2991,6 +3007,7 @@ func (t *cryostatTestInput) checkMainPodTemplate(deployment *appsv1.Deployment, 
 	Expect(template.Spec.SecurityContext).To(Equal(t.NewPodSecurityContext(cr)))
 
 	// Check that the networking environment variables are set correctly
+	Expect(len(template.Spec.Containers)).To(Equal(7))
 	coreContainer := template.Spec.Containers[0]
 	port := int32(10000)
 	if cr.Spec.ServiceOptions != nil && cr.Spec.ServiceOptions.ReportsConfig != nil &&
@@ -3045,12 +3062,9 @@ func (t *cryostatTestInput) checkMainPodTemplate(deployment *appsv1.Deployment, 
 	authProxyContainer := template.Spec.Containers[5]
 	t.checkAuthProxyContainer(&authProxyContainer, t.NewAuthProxyContainerResource(cr), t.NewAuthProxySecurityContext(cr), cr.Spec.AuthorizationOptions)
 
-	// TODO make this work without TLS
-	if t.TLS {
-		// Check that Agent Proxy is configured properly
-		agentProxyContainer := template.Spec.Containers[6]
-		t.checkAgentProxyContainer(&agentProxyContainer, t.NewAgentProxyContainerResource(cr), t.NewAgentProxySecurityContext(cr))
-	}
+	// Check that Agent Proxy is configured properly
+	agentProxyContainer := template.Spec.Containers[6]
+	t.checkAgentProxyContainer(&agentProxyContainer, t.NewAgentProxyContainerResource(cr), t.NewAgentProxySecurityContext(cr))
 
 	// Check that the proper Service Account is set
 	Expect(template.Spec.ServiceAccountName).To(Equal(t.Name))

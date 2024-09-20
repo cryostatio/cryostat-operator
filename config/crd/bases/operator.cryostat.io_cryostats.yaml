@@ -9129,7 +9129,7 @@ spec:
                       httpPort:
                         description: |-
                           HTTP port number for the Cryostat agent API service.
-                          Defaults to 8443.
+                          Defaults to 8282.
                         format: int32
                         type: integer
                       labels:

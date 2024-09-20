@@ -111,8 +111,7 @@ func (r *Reconciler) reconcileReportsService(ctx context.Context, cr *model.Cryo
 	return nil
 }
 
-func (r *Reconciler) reconcileAgentService(ctx context.Context, cr *model.CryostatInstance,
-	tls *resource_definitions.TLSConfig, specs *resource_definitions.ServiceSpecs) error {
+func (r *Reconciler) reconcileAgentService(ctx context.Context, cr *model.CryostatInstance) error {
 	config := configureAgentService(cr)
 	svc := &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
@@ -121,10 +120,6 @@ func (r *Reconciler) reconcileAgentService(ctx context.Context, cr *model.Cryost
 		},
 	}
 
-	if tls == nil {
-		// Delete service if it exists
-		return r.deleteService(ctx, svc)
-	}
 	return r.createOrUpdateService(ctx, svc, cr.Object, &config.ServiceConfig, func() error {
 		svc.Spec.Selector = map[string]string{
 			"app":       cr.Name,

@@ -86,86 +86,96 @@ type alphaConfigUpstream struct {
 }
 
 func (r *Reconciler) reconcileOAuth2ProxyConfig(ctx context.Context, cr *model.CryostatInstance, tls *resources.TLSConfig) error {
+	bindHost := "0.0.0.0"
+	immutable := true
+	cfg := &oauth2ProxyAlphaConfig{
+		Server: alphaConfigServer{},
+		UpstreamConfig: alphaConfigUpstreamConfig{ProxyRawPath: true, Upstreams: []alphaConfigUpstream{
+			{
+				Id:   "cryostat",
+				Path: "/",
+				Uri:  fmt.Sprintf("http://localhost:%d", constants.CryostatHTTPContainerPort),
+			},
+			{
+				Id:   "grafana",
+				Path: "/grafana/",
+				Uri:  fmt.Sprintf("http://localhost:%d", constants.GrafanaContainerPort),
+			},
+			{
+				Id:              "storage",
+				Path:            "^/storage/(.*)$",
+				RewriteTarget:   "/$1",
+				Uri:             fmt.Sprintf("http://localhost:%d", constants.StoragePort),
+				PassHostHeader:  false,
+				ProxyWebSockets: false,
+			},
+		}},
+		Providers: []alphaConfigProvider{{Id: "dummy", Name: "Unused - Sign In Below", ClientId: "CLIENT_ID", ClientSecret: "CLIENT_SECRET", Provider: "google"}},
+	}
+
+	if tls != nil {
+		cfg.Server.SecureBindAddress = fmt.Sprintf("https://%s:%d", bindHost, constants.AuthProxyHttpContainerPort)
+		cfg.Server.TLS = proxyTLS{
+			Key: tlsSecretSource{
+				FromFile: fmt.Sprintf("/var/run/secrets/operator.cryostat.io/%s/%s", tls.CryostatSecret, corev1.TLSPrivateKeyKey),
+			},
+			Cert: tlsSecretSource{
+				FromFile: fmt.Sprintf("/var/run/secrets/operator.cryostat.io/%s/%s", tls.CryostatSecret, corev1.TLSCertKey),
+			},
+		}
+	} else {
+		cfg.Server.BindAddress = fmt.Sprintf("http://%s:%d", bindHost, constants.AuthProxyHttpContainerPort)
+	}
+
+	data := make(map[string]string)
+	json, err := json.Marshal(cfg)
+	if err != nil {
+		return err
+	}
+	data[resources.OAuth2ConfigFileName] = string(json)
 	cm := &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      cr.Name + "-oauth2-proxy-cfg",
 			Namespace: cr.InstallNamespace,
 		},
+		Immutable: &immutable,
+		Data:      data,
 	}
 
 	if r.IsOpenShift {
 		return r.deleteConfigMap(ctx, cm)
+	} else {
+		return r.createOrUpdateConfigMap(ctx, cm, cr.Object, func() error {
+			return nil
+		})
 	}
-
-	return r.createOrUpdateConfigMap(ctx, cm, cr.Object, func() error {
-		bindHost := "0.0.0.0"
-		immutable := true
-		cfg := &oauth2ProxyAlphaConfig{
-			Server: alphaConfigServer{},
-			UpstreamConfig: alphaConfigUpstreamConfig{ProxyRawPath: true, Upstreams: []alphaConfigUpstream{
-				{
-					Id:   "cryostat",
-					Path: "/",
-					Uri:  fmt.Sprintf("http://localhost:%d", constants.CryostatHTTPContainerPort),
-				},
-				{
-					Id:   "grafana",
-					Path: "/grafana/",
-					Uri:  fmt.Sprintf("http://localhost:%d", constants.GrafanaContainerPort),
-				},
-				{
-					Id:              "storage",
-					Path:            "^/storage/(.*)$",
-					RewriteTarget:   "/$1",
-					Uri:             fmt.Sprintf("http://localhost:%d", constants.StoragePort),
-					PassHostHeader:  false,
-					ProxyWebSockets: false,
-				},
-			}},
-			Providers: []alphaConfigProvider{{Id: "dummy", Name: "Unused - Sign In Below", ClientId: "CLIENT_ID", ClientSecret: "CLIENT_SECRET", Provider: "google"}},
-		}
-
-		if tls != nil {
-			cfg.Server.SecureBindAddress = fmt.Sprintf("https://%s:%d", bindHost, constants.AuthProxyHttpContainerPort)
-			cfg.Server.TLS = proxyTLS{
-				Key: tlsSecretSource{
-					FromFile: fmt.Sprintf("/var/run/secrets/operator.cryostat.io/%s/%s", tls.CryostatSecret, corev1.TLSPrivateKeyKey),
-				},
-				Cert: tlsSecretSource{
-					FromFile: fmt.Sprintf("/var/run/secrets/operator.cryostat.io/%s/%s", tls.CryostatSecret, corev1.TLSCertKey),
-				},
-			}
-		} else {
-			cfg.Server.BindAddress = fmt.Sprintf("http://%s:%d", bindHost, constants.AuthProxyHttpContainerPort)
-		}
-
-		data := make(map[string]string)
-		json, err := json.Marshal(cfg)
-		if err != nil {
-			return err
-		}
-		data[resources.OAuth2ConfigFileName] = string(json)
-
-		cm.Immutable = &immutable
-		cm.Data = data
-		return nil
-	})
 }
 
 type nginxConfParams struct {
-	ServerName    string
-	TLSCertFile   string
-	TLSKeyFile    string
-	CACertFile    string
-	DHParamFile   string
+	// Hostname of the server
+	ServerName string
+	// Whether TLS is enabled
+	TLSEnabled bool
+	// Path to certificate for HTTPS
+	TLSCertFile string
+	// Path to private key for HTTPS
+	TLSKeyFile string
+	// Path to CA certificate
+	CACertFile string
+	// Diffie-Hellman parameters file
+	DHParamFile string
+	// Nginx proxy container port
 	ContainerPort int32
-	CryostatPort  int32
-	AllowedPaths  []string
+	// Nginx health container port
+	HealthPort int32
+	// Cryostat HTTP container port
+	CryostatPort int32
+	// Only these path prefixes will be proxied, others will return 404
+	AllowedPathPrefixes []string
 }
 
 // Reference: https://ssl-config.mozilla.org
-var nginxConfTemplate = template.Must(template.New("").Parse(`
-worker_processes auto;
+var nginxConfTemplate = template.Must(template.New("").Parse(`worker_processes auto;
 error_log stderr notice;
 pid /run/nginx.pid;
 
@@ -192,9 +202,11 @@ http {
 	default_type        application/octet-stream;
 
 	server {
+		server_name {{ .ServerName }};
+
+		{{ if .TLSEnabled -}}
 		listen {{ .ContainerPort }} ssl;
 		listen [::]:{{ .ContainerPort }} ssl;
-		server_name {{ .ServerName }};
 
 		ssl_certificate {{ .TLSCertFile }};
 		ssl_certificate_key {{ .TLSKeyFile }};
@@ -223,7 +235,14 @@ http {
 		ssl_client_certificate {{ .CACertFile }};
 		ssl_verify_client on;
 
-		{{ range .AllowedPaths -}}
+		{{- else -}}
+
+		listen {{ .ContainerPort }};
+		listen [::]:{{ .ContainerPort }};
+
+		{{- end }}
+
+		{{ range .AllowedPathPrefixes -}}
 		location {{ . }} {
 			proxy_pass http://127.0.0.1:{{ $.CryostatPort }}$request_uri;
 		}
@@ -237,7 +256,8 @@ http {
 
 	# Heatlh Check
 	server {
-		listen 8081;
+		listen {{ .HealthPort }};
+		listen [::]:{{ .HealthPort }};
 
 		location = /healthz {
 			return 200;
@@ -249,8 +269,10 @@ http {
 	}
 }`))
 
-// From https://ssl-config.mozilla.org/ffdhe2048.txt
-const dhParams = `-----BEGIN DH PARAMETERS-----
+const (
+	dhFileName = "dhparam.pem"
+	// From https://ssl-config.mozilla.org/ffdhe2048.txt
+	dhParams = `-----BEGIN DH PARAMETERS-----
 MIIBCAKCAQEA//////////+t+FRYortKmq/cViAnPTzx2LnFg84tNpWp4TZBFGQz
 +8yTnc4kmz75fS/jY2MMddj2gbICrsRhetPfHtXV/WVhJDP1H18GbtCFY2VVPe0a
 87VXE15/V8k1mE8McODmi3fipona8+/och3xWKE2rec1MKzKT0g6eXq8CrGCsyT7
@@ -258,6 +280,7 @@ YdEIqUuyyOP7uWrat2DX9GgdT0Kj3jlN9K5W7edjcrsZCwenyO4KbXCeAvzhzffi
 7MA0BM0oNC9hkXL+nOmFg/+OTxIy7vKBg8P+OxtMb61zO7X8vC7CIAXFjvGDfRaD
 ssbzSibBsu/6iGtCOGEoXJf//////////wIBAg==
 -----END DH PARAMETERS-----`
+)
 
 func (r *Reconciler) reconcileAgentProxyConfig(ctx context.Context, cr *model.CryostatInstance, tls *resources.TLSConfig) error {
 	cm := &corev1.ConfigMap{
@@ -267,39 +290,44 @@ func (r *Reconciler) reconcileAgentProxyConfig(ctx context.Context, cr *model.Cr
 		},
 	}
 
-	if tls == nil { // TODO make this work without TLS
-		return r.deleteConfigMap(ctx, cm)
-	}
-
+	data := map[string]string{}
 	buf := &bytes.Buffer{}
 	params := &nginxConfParams{
 		ServerName:    fmt.Sprintf("%s-agent.%s.svc", cr.Name, cr.InstallNamespace),
-		TLSCertFile:   fmt.Sprintf("/var/run/secrets/operator.cryostat.io/%s/%s", tls.AgentProxySecret, corev1.TLSCertKey),
-		TLSKeyFile:    fmt.Sprintf("/var/run/secrets/operator.cryostat.io/%s/%s", tls.AgentProxySecret, corev1.TLSPrivateKeyKey),
-		CACertFile:    fmt.Sprintf("/var/run/secrets/operator.cryostat.io/%s/%s", tls.AgentProxySecret, constants.CAKey),
-		DHParamFile:   fmt.Sprintf("%s/%s", constants.AgentProxyConfigFilePath, constants.AgentProxyDHFileName),
 		ContainerPort: constants.AgentProxyContainerPort,
+		HealthPort:    constants.AgentProxyHealthPort,
 		CryostatPort:  constants.CryostatHTTPContainerPort,
-		AllowedPaths: []string{
+		AllowedPathPrefixes: []string{
 			"/api/v2.2/discovery/",
 			"/api/v2.2/credentials/",
 			"/api/beta/recordings/",
 			"/health/",
 		},
 	}
+	if tls != nil {
+		params.TLSEnabled = true
+		params.TLSCertFile = fmt.Sprintf("/var/run/secrets/operator.cryostat.io/%s/%s", tls.AgentProxySecret, corev1.TLSCertKey)
+		params.TLSKeyFile = fmt.Sprintf("/var/run/secrets/operator.cryostat.io/%s/%s", tls.AgentProxySecret, corev1.TLSPrivateKeyKey)
+		params.CACertFile = fmt.Sprintf("/var/run/secrets/operator.cryostat.io/%s/%s", tls.AgentProxySecret, constants.CAKey)
+		params.DHParamFile = fmt.Sprintf("%s/%s", constants.AgentProxyConfigFilePath, dhFileName)
+
+		// Add Diffie-Hellman parameters to config map
+		data[dhFileName] = dhParams
+	}
+
+	// Create an nginx.conf where:
+	// 1. If TLS is enabled, requires client certificate authentication against our CA
+	// 2. Proxies only those API endpoints required by the agent
 	err := nginxConfTemplate.Execute(buf, params)
 	if err != nil {
 		return err
 	}
 
-	return r.createOrUpdateConfigMap(ctx, cm, cr.Object, func() error {
-		immutable := true // TODO breaks update
-		cm.Immutable = &immutable
+	// Add generated nginx.conf to config map
+	data[constants.AgentProxyConfigFileName] = buf.String()
 
-		cm.Data = map[string]string{
-			constants.AgentProxyConfigFileName: buf.String(),
-			constants.AgentProxyDHFileName:     dhParams,
-		}
+	return r.createOrUpdateConfigMap(ctx, cm, cr.Object, func() error {
+		cm.Data = data
 		return nil
 	})
 }

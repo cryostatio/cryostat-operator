@@ -27,8 +27,8 @@ const (
 	ReportsContainerPort       int32  = 10000
 	StoragePort                int32  = 8333
 	DatabasePort               int32  = 5432
-	AgentProxyContainerPort    int32  = 8443
-	AgentProxyHealthPort       int32  = 8081
+	AgentProxyContainerPort    int32  = 8282
+	AgentProxyHealthPort       int32  = 8281
 	LoopbackAddress            string = "127.0.0.1"
 	OperatorNamePrefix         string = "cryostat-operator-"
 	OperatorDeploymentName     string = "cryostat-operator-controller"
@@ -46,7 +46,6 @@ const (
 
 	AgentProxyConfigFilePath string = "/etc/nginx-cryostat"
 	AgentProxyConfigFileName string = "nginx.conf"
-	AgentProxyDHFileName     string = "dhparam.pem" // TODO non-exported
 
 	targetNamespaceCRLabelPrefix    = "operator.cryostat.io/"
 	TargetNamespaceCRNameLabel      = targetNamespaceCRLabelPrefix + "name"

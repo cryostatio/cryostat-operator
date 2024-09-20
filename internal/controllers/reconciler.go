@@ -269,7 +269,7 @@ func (r *Reconciler) reconcileCryostat(ctx context.Context, cr *model.CryostatIn
 	if err != nil {
 		return requeueIfIngressNotReady(reqLogger, err)
 	}
-	err = r.reconcileAgentService(ctx, cr, tlsConfig, serviceSpecs)
+	err = r.reconcileAgentService(ctx, cr)
 	if err != nil {
 		return reconcile.Result{}, err
 	}

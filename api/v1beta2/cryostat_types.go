@@ -314,7 +314,7 @@ type ReportsServiceConfig struct {
 // traffic from Cryostat agents to the Cryostat application.
 type AgentServiceConfig struct {
 	// HTTP port number for the Cryostat agent API service.
-	// Defaults to 8443.
+	// Defaults to 8282.
 	// +optional
 	HTTPPort      *int32 `json:"httpPort,omitempty"`
 	ServiceConfig `json:",inline"`

@@ -832,8 +832,8 @@ func (r *TestResources) NewAgentProxyService() *corev1.Service {
 			Ports: []corev1.ServicePort{
 				{
 					Name:       "http",
-					Port:       8443,
-					TargetPort: intstr.FromInt(8443),
+					Port:       8282,
+					TargetPort: intstr.FromInt(8282),
 				},
 			},
 		},
@@ -1346,10 +1346,10 @@ func (r *TestResources) NewAuthProxyPorts() []corev1.ContainerPort {
 func (r *TestResources) NewAgentProxyPorts() []corev1.ContainerPort {
 	return []corev1.ContainerPort{
 		{
-			ContainerPort: 8443,
+			ContainerPort: 8281,
 		},
 		{
-			ContainerPort: 8081,
+			ContainerPort: 8282,
 		},
 	}
 }
@@ -2138,7 +2138,7 @@ func (r *TestResources) NewAgentProxyLivenessProbe() *corev1.Probe {
 	return &corev1.Probe{
 		ProbeHandler: corev1.ProbeHandler{
 			HTTPGet: &corev1.HTTPGetAction{
-				Port:   intstr.IntOrString{IntVal: 8081},
+				Port:   intstr.IntOrString{IntVal: 8281},
 				Path:   "/healthz",
 				Scheme: corev1.URISchemeHTTP,
 			},
@@ -2341,6 +2341,17 @@ func (r *TestResources) newVolumes(certProjections []corev1.VolumeProjection) []
 				},
 			},
 		},
+		{
+			Name: "agent-proxy-config",
+			VolumeSource: corev1.VolumeSource{
+				ConfigMap: &corev1.ConfigMapVolumeSource{
+					LocalObjectReference: corev1.LocalObjectReference{
+						Name: r.Name + "-agent-proxy",
+					},
+					DefaultMode: &readOnlymode,
+				},
+			},
+		},
 	}
 	projs := append([]corev1.VolumeProjection{}, certProjections...)
 	if r.TLS {
@@ -2389,17 +2400,6 @@ func (r *TestResources) newVolumes(certProjections []corev1.VolumeProjection) []
 				VolumeSource: corev1.VolumeSource{
 					Secret: &corev1.SecretVolumeSource{
 						SecretName:  r.Name + "-agent-tls",
-						DefaultMode: &readOnlymode,
-					},
-				},
-			},
-			corev1.Volume{
-				Name: "agent-proxy-config",
-				VolumeSource: corev1.VolumeSource{
-					ConfigMap: &corev1.ConfigMapVolumeSource{
-						LocalObjectReference: corev1.LocalObjectReference{
-							Name: r.Name + "-agent-proxy",
-						},
 						DefaultMode: &readOnlymode,
 					},
 				},
@@ -3293,9 +3293,7 @@ func (r *TestResources) NewLockConfigMap() *corev1.ConfigMap {
 	}
 }
 
-func (r *TestResources) NewAgentProxyConfigMap() *corev1.ConfigMap {
-	nginxConf := fmt.Sprintf(`
-worker_processes auto;
+const nginxFormatTLS = `worker_processes auto;
 error_log stderr notice;
 pid /run/nginx.pid;
 
@@ -3322,12 +3320,13 @@ http {
 	default_type        application/octet-stream;
 
 	server {
-		listen 8081 ssl;
-		listen [::]:8181 ssl;
 		server_name %s-agent.%s.svc;
 
-		ssl_certificate /var/run/secrets/operator.cryostat.io/%s-agent/tls.crt;
-		ssl_certificate_key /var/run/secrets/operator.cryostat.io/%s-agent/tls.key;
+		listen 8282 ssl;
+		listen [::]:8282 ssl;
+
+		ssl_certificate /var/run/secrets/operator.cryostat.io/%s-agent-tls/tls.crt;
+		ssl_certificate_key /var/run/secrets/operator.cryostat.io/%s-agent-tls/tls.key;
 
 		ssl_session_timeout 5m;
 		ssl_session_cache shared:SSL:20m;
@@ -3347,10 +3346,10 @@ http {
 		ssl_stapling on;
 		ssl_stapling_verify on;
 
-		ssl_trusted_certificate /var/run/secrets/operator.cryostat.io/%s-agent/ca.crt;
+		ssl_trusted_certificate /var/run/secrets/operator.cryostat.io/%s-agent-tls/ca.crt;
 
 		# Client certificate authentication
-		ssl_client_certificate /var/run/secrets/operator.cryostat.io/%s-agent/ca.crt;
+		ssl_client_certificate /var/run/secrets/operator.cryostat.io/%s-agent-tls/ca.crt;
 		ssl_verify_client on;
 
 		location /api/v2.2/discovery/ {
@@ -3376,7 +3375,8 @@ http {
 
 	# Heatlh Check
 	server {
-		listen 8081;
+		listen 8281;
+		listen [::]:8281;
 
 		location = /healthz {
 			return 200;
@@ -3386,15 +3386,81 @@ http {
 			return 404;
 		}
 	}
-}`, r.Name, r.Namespace, r.Name, r.Name, r.Name, r.Name)
+}`
 
-	return &corev1.ConfigMap{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      r.Name + "-agent-proxy",
-			Namespace: r.Namespace,
-		},
-		Data: map[string]string{
-			"nginx.conf": nginxConf,
+const nginxFormatNoTLS = `worker_processes auto;
+error_log stderr notice;
+pid /run/nginx.pid;
+
+# Load dynamic modules. See /usr/share/doc/nginx/README.dynamic.
+include /usr/share/nginx/modules/*.conf;
+
+events {
+	worker_connections 1024;
+}
+
+http {
+	log_format  main  '$remote_addr - $remote_user [$time_local] "$request" '
+	                  '$status $body_bytes_sent "$http_referer" '
+	                  '"$http_user_agent" "$http_x_forwarded_for"';
+
+	access_log  /dev/stdout  main;
+
+	sendfile            on;
+	tcp_nopush          on;
+	keepalive_timeout   65;
+	types_hash_max_size 4096;
+
+	include             /etc/nginx/mime.types;
+	default_type        application/octet-stream;
+
+	server {
+		server_name %s-agent.%s.svc;
+
+		listen 8282;
+		listen [::]:8282;
+
+		location /api/v2.2/discovery/ {
+			proxy_pass http://127.0.0.1:8181$request_uri;
+		}
+
+		location /api/v2.2/credentials/ {
+			proxy_pass http://127.0.0.1:8181$request_uri;
+		}
+
+		location /api/beta/recordings/ {
+			proxy_pass http://127.0.0.1:8181$request_uri;
+		}
+
+		location /health/ {
+			proxy_pass http://127.0.0.1:8181$request_uri;
+		}
+
+		location / {
+			return 404;
+		}
+	}
+
+	# Heatlh Check
+	server {
+		listen 8281;
+		listen [::]:8281;
+
+		location = /healthz {
+			return 200;
+		}
+
+		location / {
+			return 404;
+		}
+	}
+}`
+
+func (r *TestResources) NewAgentProxyConfigMap() *corev1.ConfigMap {
+	var data map[string]string
+	if r.TLS {
+		data = map[string]string{
+			"nginx.conf": fmt.Sprintf(nginxFormatTLS, r.Name, r.Namespace, r.Name, r.Name, r.Name, r.Name),
 			"dhparam.pem": `-----BEGIN DH PARAMETERS-----
 MIIBCAKCAQEA//////////+t+FRYortKmq/cViAnPTzx2LnFg84tNpWp4TZBFGQz
 +8yTnc4kmz75fS/jY2MMddj2gbICrsRhetPfHtXV/WVhJDP1H18GbtCFY2VVPe0a
@@ -3403,7 +3469,19 @@ YdEIqUuyyOP7uWrat2DX9GgdT0Kj3jlN9K5W7edjcrsZCwenyO4KbXCeAvzhzffi
 7MA0BM0oNC9hkXL+nOmFg/+OTxIy7vKBg8P+OxtMb61zO7X8vC7CIAXFjvGDfRaD
 ssbzSibBsu/6iGtCOGEoXJf//////////wIBAg==
 -----END DH PARAMETERS-----`,
+		}
+	} else {
+		data = map[string]string{
+			"nginx.conf": fmt.Sprintf(nginxFormatNoTLS, r.Name, r.Namespace),
+		}
+	}
+
+	return &corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      r.Name + "-agent-proxy",
+			Namespace: r.Namespace,
 		},
+		Data: data,
 	}
 }
 
