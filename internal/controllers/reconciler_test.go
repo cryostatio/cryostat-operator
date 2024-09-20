@@ -158,6 +158,8 @@ func resourceChecks() []resourceCheck {
 		{(*cryostatTestInput).expectCoreService, "core service"},
 		{(*cryostatTestInput).expectMainDeployment, "main deployment"},
 		{(*cryostatTestInput).expectLockConfigMap, "lock config map"},
+		{(*cryostatTestInput).expectAgentProxyConfigMap, "agent proxy config map"},
+		{(*cryostatTestInput).expectAgentProxyService, "agent proxy service"},
 	}
 }
 
@@ -543,7 +545,7 @@ func (c *controllerTest) commonTests() {
 				It("should configure deployment appropriately", func() {
 					t.expectMainDeployment()
 					t.checkReportsDeployment()
-					t.checkService(t.Name+"-reports", t.NewReportsService())
+					t.checkService(t.NewReportsService())
 				})
 			})
 			Context("with Scheduling options", func() {
@@ -562,7 +564,7 @@ func (c *controllerTest) commonTests() {
 					It("should configure deployment appropriately", func() {
 						t.expectMainDeployment()
 						t.checkReportsDeployment()
-						t.checkService(t.Name+"-reports", t.NewReportsService())
+						t.checkService(t.NewReportsService())
 					})
 				})
 				Context("with low limits", func() {
@@ -572,7 +574,7 @@ func (c *controllerTest) commonTests() {
 					It("should configure deployment appropriately", func() {
 						t.expectMainDeployment()
 						t.checkReportsDeployment()
-						t.checkService(t.Name+"-reports", t.NewReportsService())
+						t.checkService(t.NewReportsService())
 					})
 				})
 			})
@@ -634,7 +636,7 @@ func (c *controllerTest) commonTests() {
 			It("should configure deployment appropriately", func() {
 				t.expectMainDeployment()
 				t.checkReportsDeployment()
-				t.checkService(t.Name+"-reports", t.NewReportsService())
+				t.checkService(t.NewReportsService())
 			})
 		})
 		Context("Switching from 1 report sidecar to 2", func() {
@@ -656,7 +658,7 @@ func (c *controllerTest) commonTests() {
 			It("should configure deployment appropriately", func() {
 				t.expectMainDeployment()
 				t.checkReportsDeployment()
-				t.checkService(t.Name+"-reports", t.NewReportsService())
+				t.checkService(t.NewReportsService())
 			})
 		})
 		Context("Switching from 2 report sidecars to 1", func() {
@@ -678,7 +680,7 @@ func (c *controllerTest) commonTests() {
 			It("should configure deployment appropriately", func() {
 				t.expectMainDeployment()
 				t.checkReportsDeployment()
-				t.checkService(t.Name+"-reports", t.NewReportsService())
+				t.checkService(t.NewReportsService())
 			})
 		})
 		Context("Switching from 1 report sidecar to 0", func() {
@@ -942,6 +944,7 @@ func (c *controllerTest) commonTests() {
 					databaseImg := "my/database-image:1.0.0-dev"
 					oauth2ProxyImg := "my/auth-proxy:1.0.0-dev"
 					openshiftAuthProxyImg := "my/openshift-auth-proxy:1.0.0-dev"
+					agentProxyImg := "my/agent-proxy:1.0.0-dev"
 					t.EnvCoreImageTag = &coreImg
 					t.EnvDatasourceImageTag = &datasourceImg
 					t.EnvGrafanaImageTag = &grafanaImg
@@ -950,6 +953,7 @@ func (c *controllerTest) commonTests() {
 					t.EnvStorageImageTag = &storageImg
 					t.EnvOAuth2ProxyImageTag = &oauth2ProxyImg
 					t.EnvOpenShiftOAuthProxyImageTag = &openshiftAuthProxyImg
+					t.EnvAgentProxyImageTag = &agentProxyImg
 				})
 				It("should create deployment with the expected tags", func() {
 					t.expectMainDeployment()
@@ -957,7 +961,7 @@ func (c *controllerTest) commonTests() {
 				})
 				It("should set ImagePullPolicy to Always", func() {
 					containers := mainDeploy.Spec.Template.Spec.Containers
-					Expect(containers).To(HaveLen(6))
+					Expect(containers).To(HaveLen(7))
 					for _, container := range containers {
 						Expect(container.ImagePullPolicy).To(Equal(corev1.PullAlways))
 					}
@@ -976,6 +980,7 @@ func (c *controllerTest) commonTests() {
 					databaseImg := "my/database-image:1.0.0"
 					oauth2ProxyImg := "my/authproxy-image:1.0.0"
 					openshiftAuthProxyImg := "my/openshift-authproxy-image:1.0.0"
+					agentProxyImg := "my/agent-proxy:1.0.0"
 					t.EnvCoreImageTag = &coreImg
 					t.EnvDatasourceImageTag = &datasourceImg
 					t.EnvGrafanaImageTag = &grafanaImg
@@ -984,6 +989,7 @@ func (c *controllerTest) commonTests() {
 					t.EnvStorageImageTag = &storageImg
 					t.EnvOAuth2ProxyImageTag = &oauth2ProxyImg
 					t.EnvOpenShiftOAuthProxyImageTag = &openshiftAuthProxyImg
+					t.EnvAgentProxyImageTag = &agentProxyImg
 				})
 				JustBeforeEach(func() {
 					t.reconcileCryostatFully()
@@ -994,7 +1000,7 @@ func (c *controllerTest) commonTests() {
 				})
 				It("should set ImagePullPolicy to IfNotPresent", func() {
 					containers := mainDeploy.Spec.Template.Spec.Containers
-					Expect(containers).To(HaveLen(6))
+					Expect(containers).To(HaveLen(7))
 					for _, container := range containers {
 						fmt.Println(container.Image)
 						Expect(container.ImagePullPolicy).To(Equal(corev1.PullIfNotPresent))
@@ -1014,6 +1020,7 @@ func (c *controllerTest) commonTests() {
 					databaseImg := "my/database-image@sha256:8c23ca5e8c8a343789b8c14558a44a49d35ecd130c18e62edf0d1ad9ce88d37d"
 					oauth2ProxyImage := "my/authproxy-image@sha256:8c23ca5e8c8a343789b8c14558a44a49d35ecd130c18e62edf0d1ad9ce88d37d"
 					openshiftAuthProxyImage := "my/openshift-authproxy-image@sha256:8c23ca5e8c8a343789b8c14558a44a49d35ecd130c18e62edf0d1ad9ce88d37d"
+					agentProxyImg := "my/agent-proxy@sha256:2da2edd513ce134e1b99ea61e84b794c2dece7bd24b9949cc267a1c29020f26a"
 					t.EnvCoreImageTag = &coreImg
 					t.EnvDatasourceImageTag = &datasourceImg
 					t.EnvGrafanaImageTag = &grafanaImg
@@ -1022,6 +1029,7 @@ func (c *controllerTest) commonTests() {
 					t.EnvStorageImageTag = &storageImg
 					t.EnvOAuth2ProxyImageTag = &oauth2ProxyImage
 					t.EnvOpenShiftOAuthProxyImageTag = &openshiftAuthProxyImage
+					t.EnvAgentProxyImageTag = &agentProxyImg
 				})
 				It("should create deployment with the expected tags", func() {
 					t.expectMainDeployment()
@@ -1029,7 +1037,7 @@ func (c *controllerTest) commonTests() {
 				})
 				It("should set ImagePullPolicy to IfNotPresent", func() {
 					containers := mainDeploy.Spec.Template.Spec.Containers
-					Expect(containers).To(HaveLen(6))
+					Expect(containers).To(HaveLen(7))
 					for _, container := range containers {
 						Expect(container.ImagePullPolicy).To(Equal(corev1.PullIfNotPresent))
 					}
@@ -1048,6 +1056,7 @@ func (c *controllerTest) commonTests() {
 					openshiftAuthProxyImg := "my/openshift-authproxy-image:latest"
 					dbImg := "my/db-image:latest"
 					storageImg := "my/storage-image:latest"
+					agentProxyImg := "my/agent-proxy:latest"
 					t.EnvCoreImageTag = &coreImg
 					t.EnvDatasourceImageTag = &datasourceImg
 					t.EnvGrafanaImageTag = &grafanaImg
@@ -1056,6 +1065,7 @@ func (c *controllerTest) commonTests() {
 					t.EnvOpenShiftOAuthProxyImageTag = &openshiftAuthProxyImg
 					t.EnvDatabaseImageTag = &dbImg
 					t.EnvStorageImageTag = &storageImg
+					t.EnvAgentProxyImageTag = &agentProxyImg
 				})
 				It("should create deployment with the expected tags", func() {
 					t.expectMainDeployment()
@@ -1063,7 +1073,7 @@ func (c *controllerTest) commonTests() {
 				})
 				It("should set ImagePullPolicy to Always", func() {
 					containers := mainDeploy.Spec.Template.Spec.Containers
-					Expect(containers).To(HaveLen(6))
+					Expect(containers).To(HaveLen(7))
 					for _, container := range containers {
 						Expect(container.ImagePullPolicy).To(Equal(corev1.PullAlways), "Container %s", container.Image)
 					}
@@ -1416,7 +1426,7 @@ func (c *controllerTest) commonTests() {
 					t.objs = append(t.objs, t.NewCryostatWithCoreSvc().Object)
 				})
 				It("should create the service as described", func() {
-					t.checkService(t.Name, t.NewCustomizedCoreService())
+					t.checkService(t.NewCustomizedCoreService())
 				})
 			})
 			Context("containing reports config", func() {
@@ -1425,7 +1435,15 @@ func (c *controllerTest) commonTests() {
 					t.objs = append(t.objs, t.NewCryostatWithReportsSvc().Object)
 				})
 				It("should create the service as described", func() {
-					t.checkService(t.Name+"-reports", t.NewCustomizedReportsService())
+					t.checkService(t.NewCustomizedReportsService())
+				})
+			})
+			Context("containing agent proxy config", func() {
+				BeforeEach(func() {
+					t.objs = append(t.objs, t.NewCryostatWithAgentSvc().Object)
+				})
+				It("should create the service as described", func() {
+					t.checkService(t.NewCustomizedAgentService())
 				})
 			})
 			Context("and existing services", func() {
@@ -1448,7 +1466,7 @@ func (c *controllerTest) commonTests() {
 						cr = t.NewCryostatWithCoreSvc()
 					})
 					It("should create the service as described", func() {
-						t.checkService(t.Name, t.NewCustomizedCoreService())
+						t.checkService(t.NewCustomizedCoreService())
 					})
 				})
 				Context("containing reports config", func() {
@@ -1457,7 +1475,15 @@ func (c *controllerTest) commonTests() {
 						cr = t.NewCryostatWithReportsSvc()
 					})
 					It("should create the service as described", func() {
-						t.checkService(t.Name+"-reports", t.NewCustomizedReportsService())
+						t.checkService(t.NewCustomizedReportsService())
+					})
+				})
+				Context("containing agent proxy config", func() {
+					BeforeEach(func() {
+						cr = t.NewCryostatWithAgentSvc()
+					})
+					It("should create the service as described", func() {
+						t.checkService(t.NewCustomizedAgentService())
 					})
 				})
 			})
@@ -1779,7 +1805,7 @@ func (c *controllerTest) commonTests() {
 					t.expectMainDeployment()
 				})
 
-				It("should create CA Cert secret in each namespace", func() {
+				It("should create certificate secrets in each namespace", func() {
 					t.expectCertificates()
 				})
 
@@ -2039,7 +2065,7 @@ func (c *controllerTest) commonTests() {
 				t.checkReportsDeployment()
 			})
 			It("should create the reports service", func() {
-				t.checkService(t.Name+"-reports", t.NewReportsService())
+				t.checkService(t.NewReportsService())
 			})
 		})
 		Context("with security options", func() {
@@ -2528,7 +2554,7 @@ func (t *cryostatTestInput) expectWaitingForCertificate() {
 
 func (t *cryostatTestInput) expectCertificates() {
 	// Check certificates
-	certs := []*certv1.Certificate{t.NewCryostatCert(), t.NewCACert(), t.NewReportsCert()}
+	certs := []*certv1.Certificate{t.NewCryostatCert(), t.NewCACert(), t.NewReportsCert(), t.NewAgentProxyCert()}
 	for _, expected := range certs {
 		actual := &certv1.Certificate{}
 		err := t.Client.Get(context.Background(), types.NamespacedName{Name: expected.Name, Namespace: expected.Namespace}, actual)
@@ -2701,6 +2727,15 @@ func (t *cryostatTestInput) expectLockConfigMap() {
 	t.checkMetadata(cm, expected)
 }
 
+func (t *cryostatTestInput) expectAgentProxyConfigMap() {
+	expected := t.NewAgentProxyConfigMap()
+	cm := &corev1.ConfigMap{}
+	err := t.Client.Get(context.Background(), types.NamespacedName{Name: expected.Name, Namespace: expected.Namespace}, cm)
+	Expect(err).ToNot(HaveOccurred())
+
+	t.checkMetadata(cm, expected)
+}
+
 func (t *cryostatTestInput) expectPVC(expectedPVC *corev1.PersistentVolumeClaim) {
 	pvc := &corev1.PersistentVolumeClaim{}
 	err := t.Client.Get(context.Background(), types.NamespacedName{Name: t.Name, Namespace: t.Namespace}, pvc)
@@ -2758,7 +2793,11 @@ func (t *cryostatTestInput) expectStorageSecret() {
 }
 
 func (t *cryostatTestInput) expectCoreService() {
-	t.checkService(t.Name, t.NewCryostatService())
+	t.checkService(t.NewCryostatService())
+}
+
+func (t *cryostatTestInput) expectAgentProxyService() {
+	t.checkService(t.NewAgentProxyService())
 }
 
 func (t *cryostatTestInput) expectStatusApplicationURL() {
@@ -2806,9 +2845,9 @@ func (t *cryostatTestInput) expectCryostatFinalizerPresent() {
 	Expect(cr.Object.GetFinalizers()).To(ContainElement("operator.cryostat.io/cryostat.finalizer"))
 }
 
-func (t *cryostatTestInput) checkService(svcName string, expected *corev1.Service) {
+func (t *cryostatTestInput) checkService(expected *corev1.Service) {
 	service := &corev1.Service{}
-	err := t.Client.Get(context.Background(), types.NamespacedName{Name: svcName, Namespace: t.Namespace}, service)
+	err := t.Client.Get(context.Background(), types.NamespacedName{Name: expected.Name, Namespace: expected.Namespace}, service)
 	Expect(err).ToNot(HaveOccurred())
 
 	t.checkMetadata(service, expected)
@@ -3005,6 +3044,13 @@ func (t *cryostatTestInput) checkMainPodTemplate(deployment *appsv1.Deployment, 
 	// Check that Auth Proxy is configured properly
 	authProxyContainer := template.Spec.Containers[5]
 	t.checkAuthProxyContainer(&authProxyContainer, t.NewAuthProxyContainerResource(cr), t.NewAuthProxySecurityContext(cr), cr.Spec.AuthorizationOptions)
+
+	// TODO make this work without TLS
+	if t.TLS {
+		// Check that Agent Proxy is configured properly
+		agentProxyContainer := template.Spec.Containers[6]
+		t.checkAgentProxyContainer(&agentProxyContainer, t.NewAgentProxyContainerResource(cr), t.NewAgentProxySecurityContext(cr))
+	}
 
 	// Check that the proper Service Account is set
 	Expect(template.Spec.ServiceAccountName).To(Equal(t.Name))
@@ -3251,6 +3297,28 @@ func (t *cryostatTestInput) checkAuthProxyContainer(container *corev1.Container,
 	args, err := t.NewAuthProxyArguments(authOptions)
 	Expect(err).ToNot(HaveOccurred())
 	Expect(container.Args).To(ConsistOf(args))
+
+	test.ExpectResourceRequirements(&container.Resources, resources)
+}
+
+func (t *cryostatTestInput) checkAgentProxyContainer(container *corev1.Container, resources *corev1.ResourceRequirements, securityContext *corev1.SecurityContext) {
+	Expect(container.Name).To(Equal(t.Name + "-agent-proxy"))
+
+	imageTag := t.EnvAgentProxyImageTag
+	defaultPrefix := "registry.access.redhat.com/ubi8/nginx-124:"
+	if imageTag != nil {
+		Expect(container.Image).To(Equal(*imageTag))
+	} else {
+		Expect(container.Image).To(HavePrefix(defaultPrefix))
+	}
+
+	Expect(container.Ports).To(ConsistOf(t.NewAgentProxyPorts()))
+	Expect(container.Env).To(ConsistOf(t.NewAgentProxyEnvironmentVariables()))
+	Expect(container.EnvFrom).To(ConsistOf(t.NewAgentProxyEnvFromSource()))
+	Expect(container.VolumeMounts).To(ConsistOf(t.NewAgentProxyVolumeMounts()))
+	Expect(container.LivenessProbe).To(Equal(t.NewAgentProxyLivenessProbe()))
+	Expect(container.SecurityContext).To(Equal(securityContext))
+	Expect(container.Command).To(Equal(t.NewAgentProxyCommand()))
 
 	test.ExpectResourceRequirements(&container.Resources, resources)
 }

@@ -46,9 +46,7 @@ const (
 
 	AgentProxyConfigFilePath string = "/etc/nginx-cryostat"
 	AgentProxyConfigFileName string = "nginx.conf"
-	AgentProxyDHFileName     string = "dhparam.pem"
-
-	CryostatHealthPath string = "/health/liveness"
+	AgentProxyDHFileName     string = "dhparam.pem" // TODO non-exported
 
 	targetNamespaceCRLabelPrefix    = "operator.cryostat.io/"
 	TargetNamespaceCRNameLabel      = targetNamespaceCRLabelPrefix + "name"

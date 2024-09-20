@@ -125,7 +125,7 @@ func (r *Reconciler) reconcileAgentService(ctx context.Context, cr *model.Cryost
 		// Delete service if it exists
 		return r.deleteService(ctx, svc)
 	}
-	err := r.createOrUpdateService(ctx, svc, cr.Object, &config.ServiceConfig, func() error {
+	return r.createOrUpdateService(ctx, svc, cr.Object, &config.ServiceConfig, func() error {
 		svc.Spec.Selector = map[string]string{
 			"app":       cr.Name,
 			"component": "cryostat",
@@ -139,16 +139,6 @@ func (r *Reconciler) reconcileAgentService(ctx context.Context, cr *model.Cryost
 		}
 		return nil
 	})
-	if err != nil {
-		return err
-	}
-
-	// Set reports URL for deployment to use
-	specs.ReportsURL = &url.URL{
-		Scheme: "https",
-		Host:   svc.Name + ":" + strconv.Itoa(int(svc.Spec.Ports[0].Port)), // TODO use getHTTPPort?
-	}
-	return nil
 }
 
 func configureCoreService(cr *model.CryostatInstance) *operatorv1beta2.CoreServiceConfig {

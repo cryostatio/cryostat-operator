@@ -80,17 +80,32 @@ func tableEntriesTo() []TableEntry {
 	return append(tableEntries(),
 		Entry("WS connections", (*test.TestResources).NewCryostatWithWsConnectionsSpecV1Beta1,
 			(*test.TestResources).NewCryostat),
-		Entry("command config", (*test.TestResources).NewCryostatWithCommandConfigV1Beta1,
+		Entry("command ingress", (*test.TestResources).NewCryostatWithCommandConfigV1Beta1,
+			(*test.TestResources).NewCryostatWithIngress),
+		Entry("grafana ingress", (*test.TestResources).NewCryostatWithGrafanaConfigV1Beta1,
 			(*test.TestResources).NewCryostatWithIngress),
 		Entry("minimal mode", (*test.TestResources).NewCryostatWithMinimalModeV1Beta1,
 			(*test.TestResources).NewCryostat),
 		Entry("core JMX port", (*test.TestResources).NewCryostatWithCoreSvcJMXPortV1Beta1,
 			(*test.TestResources).NewCryostatWithCoreSvc),
+		Entry("resources", (*test.TestResources).NewCryostatWithResourcesV1Beta1,
+			(*test.TestResources).NewCryostatWithResourcesToV1Beta2),
+		Entry("low resource limit", (*test.TestResources).NewCryostatWithLowResourceLimitV1Beta1,
+			(*test.TestResources).NewCryostatWithLowResourceLimitToV1Beta2),
+		Entry("security", (*test.TestResources).NewCryostatWithSecurityOptionsV1Beta1,
+			(*test.TestResources).NewCryostatWithSecurityOptionsToV1Beta2),
 	)
 }
 
 func tableEntriesFrom() []TableEntry {
-	return tableEntries()
+	return append(tableEntries(),
+		Entry("resources", (*test.TestResources).NewCryostatWithResourcesV1Beta1,
+			(*test.TestResources).NewCryostatWithResources),
+		Entry("low resource limit", (*test.TestResources).NewCryostatWithLowResourceLimitV1Beta1,
+			(*test.TestResources).NewCryostatWithLowResourceLimit),
+		Entry("security", (*test.TestResources).NewCryostatWithSecurityOptionsV1Beta1,
+			(*test.TestResources).NewCryostatWithSecurityOptions),
+	)
 }
 
 func tableEntries() []TableEntry {
@@ -133,10 +148,6 @@ func tableEntries() []TableEntry {
 			(*test.TestResources).NewCryostatCertManagerDisabled),
 		Entry("cert-manager undefined", (*test.TestResources).NewCryostatCertManagerUndefinedV1Beta1,
 			(*test.TestResources).NewCryostatCertManagerUndefined),
-		Entry("resources", (*test.TestResources).NewCryostatWithResourcesV1Beta1,
-			(*test.TestResources).NewCryostatWithResources),
-		Entry("low resource limit", (*test.TestResources).NewCryostatWithLowResourceLimitV1Beta1,
-			(*test.TestResources).NewCryostatWithLowResourceLimit),
 		Entry("built-in discovery disabled", (*test.TestResources).NewCryostatWithBuiltInDiscoveryDisabledV1Beta1,
 			(*test.TestResources).NewCryostatWithBuiltInDiscoveryDisabled),
 		Entry("discovery port custom config", (*test.TestResources).NewCryostatWithDiscoveryPortConfigV1Beta1,
@@ -145,8 +156,6 @@ func tableEntries() []TableEntry {
 			(*test.TestResources).NewCryostatWithBuiltInPortConfigDisabled),
 		Entry("JMX cache options", (*test.TestResources).NewCryostatWithJmxCacheOptionsSpecV1Beta1,
 			(*test.TestResources).NewCryostatWithJmxCacheOptionsSpec),
-		Entry("security", (*test.TestResources).NewCryostatWithSecurityOptionsV1Beta1,
-			(*test.TestResources).NewCryostatWithSecurityOptions),
 		Entry("reports security", (*test.TestResources).NewCryostatWithReportSecurityOptionsV1Beta1,
 			(*test.TestResources).NewCryostatWithReportSecurityOptions),
 		Entry("database secret", (*test.TestResources).NewCryostatWithDatabaseSecretProvidedV1Beta1,

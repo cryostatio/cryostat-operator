@@ -153,15 +153,14 @@ func (r *Reconciler) reconcileOAuth2ProxyConfig(ctx context.Context, cr *model.C
 }
 
 type nginxConfParams struct {
-	ServerName         string
-	TLSCertFile        string
-	TLSKeyFile         string
-	CACertFile         string
-	DHParamFile        string
-	ContainerPort      int32
-	CryostatPort       int32
-	CryostatHealthPath string
-	AllowedPaths       []string
+	ServerName    string
+	TLSCertFile   string
+	TLSKeyFile    string
+	CACertFile    string
+	DHParamFile   string
+	ContainerPort int32
+	CryostatPort  int32
+	AllowedPaths  []string
 }
 
 // Reference: https://ssl-config.mozilla.org
@@ -248,7 +247,7 @@ http {
 			return 404;
 		}
 	}
-}`)) // TODO can we proxy health check and include all TLS config without client auth?
+}`))
 
 // From https://ssl-config.mozilla.org/ffdhe2048.txt
 const dhParams = `-----BEGIN DH PARAMETERS-----
@@ -268,24 +267,24 @@ func (r *Reconciler) reconcileAgentProxyConfig(ctx context.Context, cr *model.Cr
 		},
 	}
 
-	if tls == nil {
+	if tls == nil { // TODO make this work without TLS
 		return r.deleteConfigMap(ctx, cm)
 	}
 
 	buf := &bytes.Buffer{}
 	params := &nginxConfParams{
-		ServerName:         fmt.Sprintf("%s-agent.%s.svc", cr.Name, cr.InstallNamespace),
-		TLSCertFile:        fmt.Sprintf("/var/run/secrets/operator.cryostat.io/%s/%s", tls.AgentProxySecret, corev1.TLSCertKey),
-		TLSKeyFile:         fmt.Sprintf("/var/run/secrets/operator.cryostat.io/%s/%s", tls.AgentProxySecret, corev1.TLSPrivateKeyKey),
-		CACertFile:         fmt.Sprintf("/var/run/secrets/operator.cryostat.io/%s/%s", tls.AgentProxySecret, constants.CAKey),
-		DHParamFile:        fmt.Sprintf("%s/%s", constants.AgentProxyConfigFilePath, constants.AgentProxyDHFileName),
-		ContainerPort:      constants.AgentProxyContainerPort,
-		CryostatPort:       constants.CryostatHTTPContainerPort,
-		CryostatHealthPath: constants.CryostatHealthPath,
+		ServerName:    fmt.Sprintf("%s-agent.%s.svc", cr.Name, cr.InstallNamespace),
+		TLSCertFile:   fmt.Sprintf("/var/run/secrets/operator.cryostat.io/%s/%s", tls.AgentProxySecret, corev1.TLSCertKey),
+		TLSKeyFile:    fmt.Sprintf("/var/run/secrets/operator.cryostat.io/%s/%s", tls.AgentProxySecret, corev1.TLSPrivateKeyKey),
+		CACertFile:    fmt.Sprintf("/var/run/secrets/operator.cryostat.io/%s/%s", tls.AgentProxySecret, constants.CAKey),
+		DHParamFile:   fmt.Sprintf("%s/%s", constants.AgentProxyConfigFilePath, constants.AgentProxyDHFileName),
+		ContainerPort: constants.AgentProxyContainerPort,
+		CryostatPort:  constants.CryostatHTTPContainerPort,
 		AllowedPaths: []string{
 			"/api/v2.2/discovery/",
 			"/api/v2.2/credentials/",
 			"/api/beta/recordings/",
+			"/health/",
 		},
 	}
 	err := nginxConfTemplate.Execute(buf, params)

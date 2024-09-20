@@ -16,10 +16,12 @@ package test
 
 import (
 	operatorv1beta1 "github.com/cryostatio/cryostat-operator/api/v1beta1"
+	"github.com/cryostatio/cryostat-operator/internal/controllers/model"
 	corev1 "k8s.io/api/core/v1"
 	netv1 "k8s.io/api/networking/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
 // v1beta1 versions of Cryostat CRs used for testing the conversion webhook
@@ -418,6 +420,16 @@ func (r *TestResources) NewCryostatWithResourcesV1Beta1() *operatorv1beta1.Cryos
 	return cr
 }
 
+// Converted from v1beta1 to v1beta2
+func (r *TestResources) NewCryostatWithResourcesToV1Beta2() *model.CryostatInstance {
+	cr := r.NewCryostatWithResources()
+	cr.Spec.Resources.DatabaseResources = corev1.ResourceRequirements{}
+	cr.Spec.Resources.ObjectStorageResources = corev1.ResourceRequirements{}
+	cr.Spec.Resources.AuthProxyResources = corev1.ResourceRequirements{}
+	cr.Spec.Resources.AgentProxyResources = corev1.ResourceRequirements{}
+	return cr
+}
+
 func (r *TestResources) NewCryostatWithLowResourceLimitV1Beta1() *operatorv1beta1.Cryostat {
 	cr := r.NewCryostatV1Beta1()
 	cr.Spec.Resources = &operatorv1beta1.ResourceConfigList{
@@ -440,6 +452,16 @@ func (r *TestResources) NewCryostatWithLowResourceLimitV1Beta1() *operatorv1beta
 			},
 		},
 	}
+	return cr
+}
+
+// Converted from v1beta1 to v1beta2
+func (r *TestResources) NewCryostatWithLowResourceLimitToV1Beta2() *model.CryostatInstance {
+	cr := r.NewCryostatWithLowResourceLimit()
+	cr.Spec.Resources.DatabaseResources = corev1.ResourceRequirements{}
+	cr.Spec.Resources.ObjectStorageResources = corev1.ResourceRequirements{}
+	cr.Spec.Resources.AuthProxyResources = corev1.ResourceRequirements{}
+	cr.Spec.Resources.AgentProxyResources = corev1.ResourceRequirements{}
 	return cr
 }
 
@@ -494,8 +516,35 @@ func (r *TestResources) NewCryostatWithWsConnectionsSpecV1Beta1() *operatorv1bet
 	return cr
 }
 
+func (r *TestResources) newCommandService() *corev1.Service {
+	return &corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      r.Name + "-command",
+			Namespace: r.Namespace,
+			Labels: map[string]string{
+				"app":       r.Name,
+				"component": "cryostat",
+			},
+		},
+		Spec: corev1.ServiceSpec{
+			Type: corev1.ServiceTypeClusterIP,
+			Selector: map[string]string{
+				"app":       r.Name,
+				"component": "cryostat",
+			},
+			Ports: []corev1.ServicePort{
+				{
+					Name:       "http",
+					Port:       10001,
+					TargetPort: intstr.FromInt(10001),
+				},
+			},
+		},
+	}
+}
+
 func (r *TestResources) NewCryostatWithCommandConfigV1Beta1() *operatorv1beta1.Cryostat {
-	commandSVC := r.NewCommandService()
+	commandSVC := r.newCommandService()
 	commandIng := r.newNetworkConfigurationV1Beta1(commandSVC.Name, commandSVC.Spec.Ports[0].Port)
 	commandIng.Annotations["command"] = "annotation"
 	commandIng.Labels["command"] = "label"
@@ -505,6 +554,47 @@ func (r *TestResources) NewCryostatWithCommandConfigV1Beta1() *operatorv1beta1.C
 		CoreConfig:    cr.Spec.NetworkOptions.CoreConfig,
 		GrafanaConfig: cr.Spec.NetworkOptions.GrafanaConfig,
 		CommandConfig: &commandIng,
+	}
+	return cr
+}
+
+func (r *TestResources) newGrafanaService() *corev1.Service {
+	return &corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      r.Name + "-grafana",
+			Namespace: r.Namespace,
+			Labels: map[string]string{
+				"app":       r.Name,
+				"component": "cryostat",
+			},
+		},
+		Spec: corev1.ServiceSpec{
+			Type: corev1.ServiceTypeClusterIP,
+			Selector: map[string]string{
+				"app":       r.Name,
+				"component": "cryostat",
+			},
+			Ports: []corev1.ServicePort{
+				{
+					Name:       "http",
+					Port:       3000,
+					TargetPort: intstr.FromInt(3000),
+				},
+			},
+		},
+	}
+}
+
+func (r *TestResources) NewCryostatWithGrafanaConfigV1Beta1() *operatorv1beta1.Cryostat {
+	grafanaSVC := r.newGrafanaService()
+	grafanaIng := r.newNetworkConfigurationV1Beta1(grafanaSVC.Name, grafanaSVC.Spec.Ports[0].Port)
+	grafanaIng.Annotations["command"] = "annotation"
+	grafanaIng.Labels["command"] = "label"
+
+	cr := r.NewCryostatWithIngressV1Beta1()
+	cr.Spec.NetworkOptions = &operatorv1beta1.NetworkConfigurationList{
+		CoreConfig:    cr.Spec.NetworkOptions.CoreConfig,
+		GrafanaConfig: &grafanaIng,
 	}
 	return cr
 }
@@ -554,6 +644,16 @@ func (r *TestResources) NewCryostatWithSecurityOptionsV1Beta1() *operatorv1beta1
 			RunAsUser: &runAsUser,
 		},
 	}
+	return cr
+}
+
+// Converted from v1beta1 to v1beta2
+func (r *TestResources) NewCryostatWithSecurityOptionsToV1Beta2() *model.CryostatInstance {
+	cr := r.NewCryostatWithSecurityOptions()
+	cr.Spec.SecurityOptions.DatabaseSecurityContext = nil
+	cr.Spec.SecurityOptions.StorageSecurityContext = nil
+	cr.Spec.SecurityOptions.AuthProxySecurityContext = nil
+	cr.Spec.SecurityOptions.AgentProxySecurityContext = nil
 	return cr
 }
 

@@ -326,7 +326,8 @@ func NewPodForCR(cr *model.CryostatInstance, specs *ServiceSpecs, imageTags *Ima
 				Name: "auth-proxy-tls-secret",
 				VolumeSource: corev1.VolumeSource{
 					Secret: &corev1.SecretVolumeSource{
-						SecretName: tls.CryostatSecret,
+						SecretName:  tls.CryostatSecret,
+						DefaultMode: &readOnlyMode,
 					},
 				},
 			},
@@ -334,7 +335,8 @@ func NewPodForCR(cr *model.CryostatInstance, specs *ServiceSpecs, imageTags *Ima
 				Name: "agent-proxy-tls-secret",
 				VolumeSource: corev1.VolumeSource{
 					Secret: &corev1.SecretVolumeSource{
-						SecretName: tls.AgentProxySecret,
+						SecretName:  tls.AgentProxySecret,
+						DefaultMode: &readOnlyMode,
 					},
 				},
 			},
@@ -345,18 +347,7 @@ func NewPodForCR(cr *model.CryostatInstance, specs *ServiceSpecs, imageTags *Ima
 						LocalObjectReference: corev1.LocalObjectReference{
 							Name: cr.Name + "-agent-proxy",
 						},
-						Items: []corev1.KeyToPath{
-							{
-								Key:  constants.AgentProxyConfigFileName,
-								Path: constants.AgentProxyConfigFileName,
-								Mode: &readOnlyMode,
-							},
-							{
-								Key:  constants.AgentProxyDHFileName,
-								Path: constants.AgentProxyDHFileName,
-								Mode: &readOnlyMode,
-							},
-						},
+						DefaultMode: &readOnlyMode,
 					},
 				},
 			},
@@ -1198,7 +1189,7 @@ func NewCoreContainer(cr *model.CryostatInstance, specs *ServiceSpecs, imageTag 
 	probeHandler := corev1.ProbeHandler{
 		HTTPGet: &corev1.HTTPGetAction{
 			Port:   intstr.IntOrString{IntVal: constants.CryostatHTTPContainerPort},
-			Path:   constants.CryostatHealthPath,
+			Path:   "/health/liveness",
 			Scheme: corev1.URISchemeHTTP,
 		},
 	}
@@ -1582,6 +1573,9 @@ func newAgentProxyContainer(cr *model.CryostatInstance, imageTag string, tls *TL
 			{
 				ContainerPort: constants.AgentProxyContainerPort,
 			},
+			{
+				ContainerPort: healthCheckPort,
+			},
 		},
 		Command: []string{
 			"nginx", "-c",
@@ -1619,7 +1613,7 @@ func newAgentProxyContainerResource(cr *model.CryostatInstance) *corev1.Resource
 	if cr.Spec.Resources != nil {
 		resources = cr.Spec.Resources.AgentProxyResources.DeepCopy()
 	}
-	populateResourceRequest(resources, defaultJfrDatasourceCpuRequest, defaultJfrDatasourceMemoryRequest)
+	populateResourceRequest(resources, defaultAgentProxyCpuRequest, defaultAgentProxyMemoryRequest)
 	return resources
 }
 

@@ -115,7 +115,7 @@ func (c *testClient) updateRouteStatus(ctx context.Context, obj runtime.Object) 
 }
 
 func (c *testClient) matchesCert(cert *certv1.Certificate) bool {
-	return c.matchesName(cert, c.NewCryostatCert(), c.NewCACert(), c.NewReportsCert()) ||
+	return c.matchesName(cert, c.NewCryostatCert(), c.NewCACert(), c.NewReportsCert(), c.NewAgentProxyCert()) ||
 		c.matchesPrefix(cert, c.GetAgentCertPrefix())
 }
 
