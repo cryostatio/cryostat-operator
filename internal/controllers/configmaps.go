@@ -243,7 +243,11 @@ http {
 		{{- end }}
 
 		{{ range .AllowedPathPrefixes -}}
-		location {{ . }} {
+		location {{ . }}/ {
+			proxy_pass http://127.0.0.1:{{ $.CryostatPort }}$request_uri;
+		}
+
+		location = {{ . }} {
 			proxy_pass http://127.0.0.1:{{ $.CryostatPort }}$request_uri;
 		}
 
@@ -298,10 +302,10 @@ func (r *Reconciler) reconcileAgentProxyConfig(ctx context.Context, cr *model.Cr
 		HealthPort:    constants.AgentProxyHealthPort,
 		CryostatPort:  constants.CryostatHTTPContainerPort,
 		AllowedPathPrefixes: []string{
-			"/api/v2.2/discovery/",
-			"/api/v2.2/credentials/",
-			"/api/beta/recordings/",
-			"/health/",
+			"/api/v2.2/discovery",
+			"/api/v2.2/credentials",
+			"/api/beta/recordings",
+			"/health",
 		},
 	}
 	if tls != nil {

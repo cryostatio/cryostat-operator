@@ -3356,7 +3356,15 @@ http {
 			proxy_pass http://127.0.0.1:8181$request_uri;
 		}
 
+		location = /api/v2.2/discovery {
+			proxy_pass http://127.0.0.1:8181$request_uri;
+		}
+
 		location /api/v2.2/credentials/ {
+			proxy_pass http://127.0.0.1:8181$request_uri;
+		}
+
+		location = /api/v2.2/credentials {
 			proxy_pass http://127.0.0.1:8181$request_uri;
 		}
 
@@ -3364,7 +3372,15 @@ http {
 			proxy_pass http://127.0.0.1:8181$request_uri;
 		}
 
+		location = /api/beta/recordings {
+			proxy_pass http://127.0.0.1:8181$request_uri;
+		}
+
 		location /health/ {
+			proxy_pass http://127.0.0.1:8181$request_uri;
+		}
+
+		location = /health {
 			proxy_pass http://127.0.0.1:8181$request_uri;
 		}
 
@@ -3424,7 +3440,15 @@ http {
 			proxy_pass http://127.0.0.1:8181$request_uri;
 		}
 
+		location = /api/v2.2/discovery {
+			proxy_pass http://127.0.0.1:8181$request_uri;
+		}
+
 		location /api/v2.2/credentials/ {
+			proxy_pass http://127.0.0.1:8181$request_uri;
+		}
+
+		location = /api/v2.2/credentials {
 			proxy_pass http://127.0.0.1:8181$request_uri;
 		}
 
@@ -3432,7 +3456,15 @@ http {
 			proxy_pass http://127.0.0.1:8181$request_uri;
 		}
 
+		location = /api/beta/recordings {
+			proxy_pass http://127.0.0.1:8181$request_uri;
+		}
+
 		location /health/ {
+			proxy_pass http://127.0.0.1:8181$request_uri;
+		}
+
+		location = /health {
 			proxy_pass http://127.0.0.1:8181$request_uri;
 		}
 
