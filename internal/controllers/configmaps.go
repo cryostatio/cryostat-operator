@@ -302,8 +302,8 @@ func (r *Reconciler) reconcileAgentProxyConfig(ctx context.Context, cr *model.Cr
 		HealthPort:    constants.AgentProxyHealthPort,
 		CryostatPort:  constants.CryostatHTTPContainerPort,
 		AllowedPathPrefixes: []string{
-			"/api/v2.2/discovery",
-			"/api/v2.2/credentials",
+			"/api/v4/discovery",
+			"/api/v4/credentials",
 			"/api/beta/recordings",
 			"/health",
 		},

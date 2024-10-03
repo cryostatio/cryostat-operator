@@ -241,7 +241,7 @@ type TargetClient struct {
 }
 
 func (client *TargetClient) List(ctx context.Context) ([]Target, error) {
-	url := client.Base.JoinPath("/api/v1/targets")
+	url := client.Base.JoinPath("/api/v4/targets")
 	header := make(http.Header)
 	header.Add("Accept", "*/*")
 
@@ -265,7 +265,7 @@ func (client *TargetClient) List(ctx context.Context) ([]Target, error) {
 }
 
 func (client *TargetClient) Create(ctx context.Context, options *Target) (*Target, error) {
-	url := client.Base.JoinPath("/api/v2/targets")
+	url := client.Base.JoinPath("/api/v4/targets")
 	header := make(http.Header)
 	header.Add("Content-Type", "application/x-www-form-urlencoded")
 	header.Add("Accept", "*/*")
@@ -296,7 +296,7 @@ type RecordingClient struct {
 }
 
 func (client *RecordingClient) List(ctx context.Context, target *Target) ([]Recording, error) {
-	url := client.Base.JoinPath(fmt.Sprintf("/api/v3/targets/%d/recordings", target.Id))
+	url := client.Base.JoinPath(fmt.Sprintf("/api/v4/targets/%d/recordings", target.Id))
 	header := make(http.Header)
 	header.Add("Accept", "*/*")
 
@@ -335,7 +335,7 @@ func (client *RecordingClient) Get(ctx context.Context, target *Target, recordin
 }
 
 func (client *RecordingClient) Create(ctx context.Context, target *Target, options *RecordingCreateOptions) (*Recording, error) {
-	url := client.Base.JoinPath(fmt.Sprintf("/api/v3/targets/%d/recordings", target.Id))
+	url := client.Base.JoinPath(fmt.Sprintf("/api/v4/targets/%d/recordings", target.Id))
 	body := options.ToFormData()
 	header := make(http.Header)
 	header.Add("Content-Type", "application/x-www-form-urlencoded")
@@ -361,7 +361,7 @@ func (client *RecordingClient) Create(ctx context.Context, target *Target, optio
 }
 
 func (client *RecordingClient) Archive(ctx context.Context, target *Target, recordingId uint32) (string, error) {
-	url := client.Base.JoinPath(fmt.Sprintf("/api/v3/targets/%d/recordings/%d", target.Id, recordingId))
+	url := client.Base.JoinPath(fmt.Sprintf("/api/v4/targets/%d/recordings/%d", target.Id, recordingId))
 	body := "SAVE"
 	header := make(http.Header)
 	header.Add("Content-Type", "text/plain")
@@ -386,7 +386,7 @@ func (client *RecordingClient) Archive(ctx context.Context, target *Target, reco
 }
 
 func (client *RecordingClient) Stop(ctx context.Context, target *Target, recordingId uint32) error {
-	url := client.Base.JoinPath(fmt.Sprintf("/api/v3/targets/%d/recordings/%d", target.Id, recordingId))
+	url := client.Base.JoinPath(fmt.Sprintf("/api/v4/targets/%d/recordings/%d", target.Id, recordingId))
 	body := "STOP"
 	header := make(http.Header)
 	header.Add("Content-Type", "text/plain")
@@ -406,7 +406,7 @@ func (client *RecordingClient) Stop(ctx context.Context, target *Target, recordi
 }
 
 func (client *RecordingClient) Delete(ctx context.Context, target *Target, recordingId uint32) error {
-	url := client.Base.JoinPath(fmt.Sprintf("/api/v3/targets/%d/recordings/%d", target.Id, recordingId))
+	url := client.Base.JoinPath(fmt.Sprintf("/api/v4/targets/%d/recordings/%d", target.Id, recordingId))
 	header := make(http.Header)
 
 	resp, err := SendRequest(ctx, client.Client, http.MethodDelete, url.String(), nil, header)
@@ -452,7 +452,7 @@ func (client *RecordingClient) GenerateReport(ctx context.Context, target *Targe
 }
 
 func (client *RecordingClient) ListArchives(ctx context.Context, target *Target) ([]Archive, error) {
-	url := client.Base.JoinPath("/api/v2.2/graphql")
+	url := client.Base.JoinPath("/api/v4/graphql")
 
 	query := &GraphQLQuery{
 		Query: `
@@ -515,7 +515,7 @@ type CredentialClient struct {
 }
 
 func (client *CredentialClient) Create(ctx context.Context, credential *Credential) error {
-	url := client.Base.JoinPath("/api/v2.2/credentials")
+	url := client.Base.JoinPath("/api/v4/credentials")
 	body := credential.ToFormData()
 	header := make(http.Header)
 	header.Add("Content-Type", "application/x-www-form-urlencoded")
