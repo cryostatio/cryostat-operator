@@ -108,6 +108,9 @@ const storageImageTagEnv = "RELATED_IMAGE_STORAGE"
 // Environment variable to override the cryostat-database image
 const databaseImageTagEnv = "RELATED_IMAGE_DATABASE"
 
+// Environment variable to override the agent proxy image
+const agentProxyImageTagEnv = "RELATED_IMAGE_AGENT_PROXY"
+
 // Regular expression for the start of a GID range in the OpenShift
 // supplemental groups SCC annotation
 var supGroupRegexp = regexp.MustCompile(`^\d+`)
@@ -254,6 +257,10 @@ func (r *Reconciler) reconcileCryostat(ctx context.Context, cr *model.CryostatIn
 	if err != nil {
 		return reconcile.Result{}, err
 	}
+	err = r.reconcileAgentProxyConfig(ctx, cr, tlsConfig)
+	if err != nil {
+		return reconcile.Result{}, err
+	}
 
 	serviceSpecs := &resources.ServiceSpecs{
 		InsightsURL: r.InsightsProxy,
@@ -261,6 +268,10 @@ func (r *Reconciler) reconcileCryostat(ctx context.Context, cr *model.CryostatIn
 	err = r.reconcileCoreService(ctx, cr, tlsConfig, serviceSpecs)
 	if err != nil {
 		return requeueIfIngressNotReady(reqLogger, err)
+	}
+	err = r.reconcileAgentService(ctx, cr)
+	if err != nil {
+		return reconcile.Result{}, err
 	}
 
 	imageTags := r.getImageTags()
@@ -392,6 +403,7 @@ func (r *Reconciler) getImageTags() *resources.ImageTags {
 		ReportsImageTag:             r.getEnvOrDefault(reportsImageTagEnv, DefaultReportsImageTag),
 		StorageImageTag:             r.getEnvOrDefault(storageImageTagEnv, DefaultStorageImageTag),
 		DatabaseImageTag:            r.getEnvOrDefault(databaseImageTagEnv, DefaultDatabaseImageTag),
+		AgentProxyImageTag:          r.getEnvOrDefault(agentProxyImageTagEnv, DefaultAgentProxyImageTag),
 	}
 }
 

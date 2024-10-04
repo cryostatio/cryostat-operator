@@ -30,3 +30,6 @@ const DefaultStorageImageTag = "quay.io/cryostat/cryostat-storage:latest"
 
 // Default image tag for the Database image
 const DefaultDatabaseImageTag = "quay.io/cryostat/cryostat-db:latest"
+
+// Default image tag for the agent proxy image
+const DefaultAgentProxyImageTag = "registry.access.redhat.com/ubi8/nginx-124:latest"

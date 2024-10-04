@@ -30,7 +30,7 @@ metadata:
     capabilities: Seamless Upgrades
     categories: Monitoring, Developer Tools
     containerImage: quay.io/cryostat/cryostat-operator:4.0.0-dev
-    createdAt: "2024-09-11T17:33:08Z"
+    createdAt: "2024-10-04T18:55:09Z"
     description: JVM monitoring and profiling tool
     operatorframework.io/initialization-resource: |-
       {
@@ -230,6 +230,11 @@ spec:
           - description: Resource requirements for the Cryostat deployment.
             displayName: Resources
             path: resources
+          - description: Resource requirements for the agent proxy container.
+            displayName: Agent Proxy Resources
+            path: resources.agentProxyResources
+            x-descriptors:
+              - urn:alm:descriptor:com.tectonic.ui:resourceRequirements
           - description: Resource requirements for the auth proxy.
             displayName: Auth Proxy Resources
             path: resources.authProxyResources
@@ -294,6 +299,9 @@ spec:
             path: securityOptions
             x-descriptors:
               - urn:alm:descriptor:com.tectonic.ui:advanced
+          - description: Security Context to apply to the agent proxy container.
+            displayName: Agent Proxy Security Context
+            path: securityOptions.agentProxySecurityContext
           - description: Security Context to apply to the auth proxy container.
             displayName: Auth Proxy Security Context
             path: securityOptions.authProxySecurityContext
@@ -1010,6 +1018,8 @@ spec:
                         value: quay.io/cryostat/cryostat-storage:latest
                       - name: RELATED_IMAGE_DATABASE
                         value: quay.io/cryostat/cryostat-db:latest
+                      - name: RELATED_IMAGE_AGENT_PROXY
+                        value: registry.access.redhat.com/ubi8/nginx-124:latest
                       - name: WATCH_NAMESPACE
                         valueFrom:
                           fieldRef:
@@ -1179,6 +1189,8 @@ spec:
       name: storage
     - image: quay.io/cryostat/cryostat-db:latest
       name: database
+    - image: registry.access.redhat.com/ubi8/nginx-124:latest
+      name: agent-proxy
   version: 4.0.0-dev
   webhookdefinitions:
     - admissionReviewVersions:

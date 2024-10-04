@@ -275,6 +275,28 @@ func (r *TestResources) NewCryostatWithReportsSvc() *model.CryostatInstance {
 	return cr
 }
 
+func (r *TestResources) NewCryostatWithAgentSvc() *model.CryostatInstance {
+	svcType := corev1.ServiceTypeNodePort
+	httpPort := int32(8080)
+	cr := r.NewCryostat()
+	cr.Spec.ServiceOptions = &operatorv1beta2.ServiceConfigList{
+		AgentConfig: &operatorv1beta2.AgentServiceConfig{
+			HTTPPort: &httpPort,
+			ServiceConfig: operatorv1beta2.ServiceConfig{
+				ServiceType: &svcType,
+				Annotations: map[string]string{
+					"my/custom": "annotation",
+				},
+				Labels: map[string]string{
+					"my":  "label",
+					"app": "somethingelse",
+				},
+			},
+		},
+	}
+	return cr
+}
+
 func (r *TestResources) NewCryostatWithCoreNetworkOptions() *model.CryostatInstance {
 	cr := r.NewCryostat()
 	cr.Spec.NetworkOptions = &operatorv1beta2.NetworkConfigurationList{
@@ -446,6 +468,46 @@ func (r *TestResources) NewCryostatWithResources() *model.CryostatInstance {
 				corev1.ResourceMemory: resource.MustParse("64Mi"),
 			},
 		},
+		ObjectStorageResources: corev1.ResourceRequirements{
+			Limits: corev1.ResourceList{
+				corev1.ResourceCPU:    resource.MustParse("600m"),
+				corev1.ResourceMemory: resource.MustParse("512Mi"),
+			},
+			Requests: corev1.ResourceList{
+				corev1.ResourceCPU:    resource.MustParse("300m"),
+				corev1.ResourceMemory: resource.MustParse("512Mi"),
+			},
+		},
+		DatabaseResources: corev1.ResourceRequirements{
+			Limits: corev1.ResourceList{
+				corev1.ResourceCPU:    resource.MustParse("100m"),
+				corev1.ResourceMemory: resource.MustParse("256Mi"),
+			},
+			Requests: corev1.ResourceList{
+				corev1.ResourceCPU:    resource.MustParse("50m"),
+				corev1.ResourceMemory: resource.MustParse("128Mi"),
+			},
+		},
+		AuthProxyResources: corev1.ResourceRequirements{
+			Limits: corev1.ResourceList{
+				corev1.ResourceCPU:    resource.MustParse("80m"),
+				corev1.ResourceMemory: resource.MustParse("200Mi"),
+			},
+			Requests: corev1.ResourceList{
+				corev1.ResourceCPU:    resource.MustParse("40m"),
+				corev1.ResourceMemory: resource.MustParse("100Mi"),
+			},
+		},
+		AgentProxyResources: corev1.ResourceRequirements{
+			Limits: corev1.ResourceList{
+				corev1.ResourceCPU:    resource.MustParse("60m"),
+				corev1.ResourceMemory: resource.MustParse("160Mi"),
+			},
+			Requests: corev1.ResourceList{
+				corev1.ResourceCPU:    resource.MustParse("30m"),
+				corev1.ResourceMemory: resource.MustParse("80Mi"),
+			},
+		},
 	}
 	return cr
 }
@@ -469,6 +531,30 @@ func (r *TestResources) NewCryostatWithLowResourceLimit() *model.CryostatInstanc
 			Limits: corev1.ResourceList{
 				corev1.ResourceCPU:    resource.MustParse("10m"),
 				corev1.ResourceMemory: resource.MustParse("32Mi"),
+			},
+		},
+		ObjectStorageResources: corev1.ResourceRequirements{
+			Limits: corev1.ResourceList{
+				corev1.ResourceCPU:    resource.MustParse("40m"),
+				corev1.ResourceMemory: resource.MustParse("128Mi"),
+			},
+		},
+		DatabaseResources: corev1.ResourceRequirements{
+			Limits: corev1.ResourceList{
+				corev1.ResourceCPU:    resource.MustParse("10m"),
+				corev1.ResourceMemory: resource.MustParse("32Mi"),
+			},
+		},
+		AuthProxyResources: corev1.ResourceRequirements{
+			Limits: corev1.ResourceList{
+				corev1.ResourceCPU:    resource.MustParse("20m"),
+				corev1.ResourceMemory: resource.MustParse("40Mi"),
+			},
+		},
+		AgentProxyResources: corev1.ResourceRequirements{
+			Limits: corev1.ResourceList{
+				corev1.ResourceCPU:    resource.MustParse("15m"),
+				corev1.ResourceMemory: resource.MustParse("45Mi"),
 			},
 		},
 	}
@@ -567,6 +653,34 @@ func (r *TestResources) NewCryostatWithSecurityOptions() *model.CryostatInstance
 			},
 			RunAsUser: &runAsUser,
 		},
+		StorageSecurityContext: &corev1.SecurityContext{
+			AllowPrivilegeEscalation: &privEscalation,
+			Capabilities: &corev1.Capabilities{
+				Drop: []corev1.Capability{},
+			},
+			RunAsUser: &runAsUser,
+		},
+		DatabaseSecurityContext: &corev1.SecurityContext{
+			AllowPrivilegeEscalation: &privEscalation,
+			Capabilities: &corev1.Capabilities{
+				Drop: []corev1.Capability{},
+			},
+			RunAsUser: &runAsUser,
+		},
+		AuthProxySecurityContext: &corev1.SecurityContext{
+			AllowPrivilegeEscalation: &privEscalation,
+			Capabilities: &corev1.Capabilities{
+				Drop: []corev1.Capability{},
+			},
+			RunAsUser: &runAsUser,
+		},
+		AgentProxySecurityContext: &corev1.SecurityContext{
+			AllowPrivilegeEscalation: &privEscalation,
+			Capabilities: &corev1.Capabilities{
+				Drop: []corev1.Capability{},
+			},
+			RunAsUser: &runAsUser,
+		},
 	}
 	return cr
 }
@@ -646,20 +760,10 @@ func (r *TestResources) NewCryostatWithAdditionalMetadata() *model.CryostatInsta
 }
 
 func (r *TestResources) NewCryostatService() *corev1.Service {
-	c := true
 	return &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      r.Name,
 			Namespace: r.Namespace,
-			OwnerReferences: []metav1.OwnerReference{
-				{
-					APIVersion: operatorv1beta2.GroupVersion.String(),
-					Kind:       "Cryostat",
-					Name:       r.Name,
-					UID:        "",
-					Controller: &c,
-				},
-			},
 			Labels: map[string]string{
 				"app":       r.Name,
 				"component": "cryostat",
@@ -682,95 +786,11 @@ func (r *TestResources) NewCryostatService() *corev1.Service {
 	}
 }
 
-func (r *TestResources) NewGrafanaService() *corev1.Service {
-	c := true
-	return &corev1.Service{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      r.Name + "-grafana",
-			Namespace: r.Namespace,
-			OwnerReferences: []metav1.OwnerReference{
-				{
-					APIVersion: operatorv1beta2.GroupVersion.String(),
-					Kind:       "Cryostat",
-					Name:       r.Name,
-					UID:        "",
-					Controller: &c,
-				},
-			},
-			Labels: map[string]string{
-				"app":       r.Name,
-				"component": "cryostat",
-			},
-		},
-		Spec: corev1.ServiceSpec{
-			Type: corev1.ServiceTypeClusterIP,
-			Selector: map[string]string{
-				"app":       r.Name,
-				"component": "cryostat",
-			},
-			Ports: []corev1.ServicePort{
-				{
-					Name:       "http",
-					Port:       3000,
-					TargetPort: intstr.FromInt(3000),
-				},
-			},
-		},
-	}
-}
-
-func (r *TestResources) NewCommandService() *corev1.Service {
-	c := true
-	return &corev1.Service{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      r.Name + "-command",
-			Namespace: r.Namespace,
-			OwnerReferences: []metav1.OwnerReference{
-				{
-					APIVersion: operatorv1beta2.GroupVersion.String(),
-					Kind:       "Cryostat",
-					Name:       r.Name,
-					UID:        "",
-					Controller: &c,
-				},
-			},
-			Labels: map[string]string{
-				"app":       r.Name,
-				"component": "cryostat",
-			},
-		},
-		Spec: corev1.ServiceSpec{
-			Type: corev1.ServiceTypeClusterIP,
-			Selector: map[string]string{
-				"app":       r.Name,
-				"component": "cryostat",
-			},
-			Ports: []corev1.ServicePort{
-				{
-					Name:       "http",
-					Port:       10001,
-					TargetPort: intstr.FromInt(10001),
-				},
-			},
-		},
-	}
-}
-
 func (r *TestResources) NewReportsService() *corev1.Service {
-	c := true
 	return &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      r.Name + "-reports",
 			Namespace: r.Namespace,
-			OwnerReferences: []metav1.OwnerReference{
-				{
-					APIVersion: operatorv1beta2.GroupVersion.String(),
-					Kind:       "Cryostat",
-					Name:       r.Name + "-reports",
-					UID:        "",
-					Controller: &c,
-				},
-			},
 			Labels: map[string]string{
 				"app":       r.Name,
 				"component": "reports",
@@ -787,6 +807,33 @@ func (r *TestResources) NewReportsService() *corev1.Service {
 					Name:       "http",
 					Port:       10000,
 					TargetPort: intstr.FromInt(10000),
+				},
+			},
+		},
+	}
+}
+
+func (r *TestResources) NewAgentProxyService() *corev1.Service {
+	return &corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      r.Name + "-agent",
+			Namespace: r.Namespace,
+			Labels: map[string]string{
+				"app":       r.Name,
+				"component": "cryostat",
+			},
+		},
+		Spec: corev1.ServiceSpec{
+			Type: corev1.ServiceTypeClusterIP,
+			Selector: map[string]string{
+				"app":       r.Name,
+				"component": "cryostat",
+			},
+			Ports: []corev1.ServicePort{
+				{
+					Name:       "http",
+					Port:       8282,
+					TargetPort: intstr.FromInt(8282),
 				},
 			},
 		},
@@ -818,6 +865,21 @@ func (r *TestResources) NewCustomizedReportsService() *corev1.Service {
 	svc.Labels = map[string]string{
 		"app":       r.Name,
 		"component": "reports",
+		"my":        "label",
+	}
+	return svc
+}
+
+func (r *TestResources) NewCustomizedAgentService() *corev1.Service {
+	svc := r.NewAgentProxyService()
+	svc.Spec.Type = corev1.ServiceTypeNodePort
+	svc.Spec.Ports[0].Port = 8080
+	svc.Annotations = map[string]string{
+		"my/custom": "annotation",
+	}
+	svc.Labels = map[string]string{
+		"app":       r.Name,
+		"component": "cryostat",
 		"my":        "label",
 	}
 	return svc
@@ -1010,6 +1072,32 @@ func (r *TestResources) NewReportsCert() *certv1.Certificate {
 				fmt.Sprintf(r.Name+"-reports.%s.svc.cluster.local", r.Namespace),
 			},
 			SecretName: r.Name + "-reports-tls",
+			IssuerRef: certMeta.ObjectReference{
+				Name: r.Name + "-ca",
+			},
+			Usages: []certv1.KeyUsage{
+				certv1.UsageDigitalSignature,
+				certv1.UsageKeyEncipherment,
+				certv1.UsageServerAuth,
+			},
+		},
+	}
+}
+
+func (r *TestResources) NewAgentProxyCert() *certv1.Certificate {
+	return &certv1.Certificate{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      r.Name + "-agent-proxy",
+			Namespace: r.Namespace,
+		},
+		Spec: certv1.CertificateSpec{
+			CommonName: fmt.Sprintf(r.Name+"-agent.%s.svc", r.Namespace),
+			DNSNames: []string{
+				r.Name + "-agent",
+				fmt.Sprintf(r.Name+"-agent.%s.svc", r.Namespace),
+				fmt.Sprintf(r.Name+"-agent.%s.svc.cluster.local", r.Namespace),
+			},
+			SecretName: r.Name + "-agent-tls",
 			IssuerRef: certMeta.ObjectReference{
 				Name: r.Name + "-ca",
 			},
@@ -1251,6 +1339,17 @@ func (r *TestResources) NewAuthProxyPorts() []corev1.ContainerPort {
 	return []corev1.ContainerPort{
 		{
 			ContainerPort: 4180,
+		},
+	}
+}
+
+func (r *TestResources) NewAgentProxyPorts() []corev1.ContainerPort {
+	return []corev1.ContainerPort{
+		{
+			ContainerPort: 8281,
+		},
+		{
+			ContainerPort: 8282,
 		},
 	}
 }
@@ -1634,6 +1733,10 @@ func (r *TestResources) NewAuthProxyEnvironmentVariables(authOptions *operatorv1
 	return envs
 }
 
+func (r *TestResources) NewAgentProxyEnvironmentVariables() []corev1.EnvVar {
+	return []corev1.EnvVar{}
+}
+
 func (r *TestResources) NewAuthProxyEnvFromSource() []corev1.EnvFromSource {
 	return []corev1.EnvFromSource{
 		{
@@ -1645,6 +1748,10 @@ func (r *TestResources) NewAuthProxyEnvFromSource() []corev1.EnvFromSource {
 			},
 		},
 	}
+}
+
+func (r *TestResources) NewAgentProxyEnvFromSource() []corev1.EnvFromSource {
+	return []corev1.EnvFromSource{}
 }
 
 func (r *TestResources) NewCoreEnvFromSource() []corev1.EnvFromSource {
@@ -1789,6 +1896,12 @@ func (r *TestResources) NewAuthProxyArguments(authOptions *operatorv1beta2.Autho
 	return args, nil
 }
 
+func (r *TestResources) NewAgentProxyCommand() []string {
+	return []string{
+		"nginx", "-c", "/etc/nginx-cryostat/nginx.conf", "-g", "daemon off;",
+	}
+}
+
 func (r *TestResources) NewCoreVolumeMounts() []corev1.VolumeMount {
 	mounts := []corev1.VolumeMount{
 		{
@@ -1867,6 +1980,26 @@ func (r *TestResources) NewAuthProxyVolumeMounts(authOptions *operatorv1beta2.Au
 			})
 
 	}
+
+	return mounts
+}
+
+func (r *TestResources) NewAgentProxyVolumeMounts() []corev1.VolumeMount {
+	mounts := []corev1.VolumeMount{}
+	if r.TLS {
+		mounts = append(mounts, corev1.VolumeMount{
+			Name:      "agent-proxy-tls-secret",
+			MountPath: fmt.Sprintf("/var/run/secrets/operator.cryostat.io/%s-agent-tls", r.Name),
+			ReadOnly:  true,
+		})
+	}
+
+	mounts = append(mounts,
+		corev1.VolumeMount{
+			Name:      "agent-proxy-config",
+			MountPath: "/etc/nginx-cryostat",
+			ReadOnly:  true,
+		})
 
 	return mounts
 }
@@ -1996,6 +2129,18 @@ func (r *TestResources) NewAuthProxyLivenessProbe() *corev1.Probe {
 				Port:   intstr.IntOrString{IntVal: 4180},
 				Path:   path,
 				Scheme: protocol,
+			},
+		},
+	}
+}
+
+func (r *TestResources) NewAgentProxyLivenessProbe() *corev1.Probe {
+	return &corev1.Probe{
+		ProbeHandler: corev1.ProbeHandler{
+			HTTPGet: &corev1.HTTPGetAction{
+				Port:   intstr.IntOrString{IntVal: 8281},
+				Path:   "/healthz",
+				Scheme: corev1.URISchemeHTTP,
 			},
 		},
 	}
@@ -2196,6 +2341,17 @@ func (r *TestResources) newVolumes(certProjections []corev1.VolumeProjection) []
 				},
 			},
 		},
+		{
+			Name: "agent-proxy-config",
+			VolumeSource: corev1.VolumeSource{
+				ConfigMap: &corev1.ConfigMapVolumeSource{
+					LocalObjectReference: corev1.LocalObjectReference{
+						Name: r.Name + "-agent-proxy",
+					},
+					DefaultMode: &readOnlymode,
+				},
+			},
+		},
 	}
 	projs := append([]corev1.VolumeProjection{}, certProjections...)
 	if r.TLS {
@@ -2234,7 +2390,17 @@ func (r *TestResources) newVolumes(certProjections []corev1.VolumeProjection) []
 				Name: "auth-proxy-tls-secret",
 				VolumeSource: corev1.VolumeSource{
 					Secret: &corev1.SecretVolumeSource{
-						SecretName: r.Name + "-tls",
+						SecretName:  r.Name + "-tls",
+						DefaultMode: &readOnlymode,
+					},
+				},
+			},
+			corev1.Volume{
+				Name: "agent-proxy-tls-secret",
+				VolumeSource: corev1.VolumeSource{
+					Secret: &corev1.SecretVolumeSource{
+						SecretName:  r.Name + "-agent-tls",
+						DefaultMode: &readOnlymode,
 					},
 				},
 			},
@@ -2371,6 +2537,13 @@ func (r *TestResources) NewDatabaseSecurityContext(cr *model.CryostatInstance) *
 func (r *TestResources) NewAuthProxySecurityContext(cr *model.CryostatInstance) *corev1.SecurityContext {
 	if cr.Spec.SecurityOptions != nil && cr.Spec.SecurityOptions.AuthProxySecurityContext != nil {
 		return cr.Spec.SecurityOptions.AuthProxySecurityContext
+	}
+	return r.commonDefaultSecurityContext()
+}
+
+func (r *TestResources) NewAgentProxySecurityContext(cr *model.CryostatInstance) *corev1.SecurityContext {
+	if cr.Spec.SecurityOptions != nil && cr.Spec.SecurityOptions.AgentProxySecurityContext != nil {
+		return cr.Spec.SecurityOptions.AgentProxySecurityContext
 	}
 	return r.commonDefaultSecurityContext()
 }
@@ -3057,6 +3230,26 @@ func (r *TestResources) NewAuthProxyContainerResource(cr *model.CryostatInstance
 	return resources
 }
 
+func (r *TestResources) NewAgentProxyContainerResource(cr *model.CryostatInstance) *corev1.ResourceRequirements {
+	resources := &corev1.ResourceRequirements{
+		Requests: corev1.ResourceList{
+			corev1.ResourceCPU:    resource.MustParse("25m"),
+			corev1.ResourceMemory: resource.MustParse("64Mi"),
+		},
+	}
+
+	if cr.Spec.Resources != nil && cr.Spec.Resources.AgentProxyResources.Requests != nil {
+		resources.Requests = cr.Spec.Resources.AgentProxyResources.Requests
+	}
+
+	if cr.Spec.Resources != nil && cr.Spec.Resources.AgentProxyResources.Limits != nil {
+		resources.Limits = cr.Spec.Resources.AgentProxyResources.Limits
+		checkWithLimit(resources.Requests, resources.Limits)
+	}
+
+	return resources
+}
+
 func (r *TestResources) NewReportContainerResource(cr *model.CryostatInstance) *corev1.ResourceRequirements {
 	resources := &corev1.ResourceRequirements{
 		Requests: corev1.ResourceList{
@@ -3097,6 +3290,230 @@ func (r *TestResources) NewLockConfigMap() *corev1.ConfigMap {
 			Name:      r.Name + "-lock",
 			Namespace: r.Namespace,
 		},
+	}
+}
+
+const nginxFormatTLS = `worker_processes auto;
+error_log stderr notice;
+pid /run/nginx.pid;
+
+# Load dynamic modules. See /usr/share/doc/nginx/README.dynamic.
+include /usr/share/nginx/modules/*.conf;
+
+events {
+	worker_connections 1024;
+}
+
+http {
+	log_format  main  '$remote_addr - $remote_user [$time_local] "$request" '
+	                  '$status $body_bytes_sent "$http_referer" '
+	                  '"$http_user_agent" "$http_x_forwarded_for"';
+
+	access_log  /dev/stdout  main;
+
+	sendfile            on;
+	tcp_nopush          on;
+	keepalive_timeout   65;
+	types_hash_max_size 4096;
+
+	include             /etc/nginx/mime.types;
+	default_type        application/octet-stream;
+
+	server {
+		server_name %s-agent.%s.svc;
+
+		listen 8282 ssl;
+		listen [::]:8282 ssl;
+
+		ssl_certificate /var/run/secrets/operator.cryostat.io/%s-agent-tls/tls.crt;
+		ssl_certificate_key /var/run/secrets/operator.cryostat.io/%s-agent-tls/tls.key;
+
+		ssl_session_timeout 5m;
+		ssl_session_cache shared:SSL:20m;
+		ssl_session_tickets off;
+
+		ssl_dhparam /etc/nginx-cryostat/dhparam.pem;
+
+		# intermediate configuration
+		ssl_protocols TLSv1.2 TLSv1.3;
+		ssl_ciphers ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-ECDSA-CHACHA20-POLY1305:ECDHE-RSA-CHACHA20-POLY1305:DHE-RSA-AES128-GCM-SHA256:DHE-RSA-AES256-GCM-SHA384:DHE-RSA-CHACHA20-POLY1305;
+		ssl_prefer_server_ciphers off;
+
+		# HSTS (ngx_http_headers_module is required) (63072000 seconds)
+		add_header Strict-Transport-Security "max-age=63072000" always;
+
+		# OCSP stapling
+		ssl_stapling on;
+		ssl_stapling_verify on;
+
+		ssl_trusted_certificate /var/run/secrets/operator.cryostat.io/%s-agent-tls/ca.crt;
+
+		# Client certificate authentication
+		ssl_client_certificate /var/run/secrets/operator.cryostat.io/%s-agent-tls/ca.crt;
+		ssl_verify_client on;
+
+		location /api/v4/discovery/ {
+			proxy_pass http://127.0.0.1:8181$request_uri;
+		}
+
+		location = /api/v4/discovery {
+			proxy_pass http://127.0.0.1:8181$request_uri;
+		}
+
+		location /api/v4/credentials/ {
+			proxy_pass http://127.0.0.1:8181$request_uri;
+		}
+
+		location = /api/v4/credentials {
+			proxy_pass http://127.0.0.1:8181$request_uri;
+		}
+
+		location /api/beta/recordings/ {
+			proxy_pass http://127.0.0.1:8181$request_uri;
+		}
+
+		location = /api/beta/recordings {
+			proxy_pass http://127.0.0.1:8181$request_uri;
+		}
+
+		location /health/ {
+			proxy_pass http://127.0.0.1:8181$request_uri;
+		}
+
+		location = /health {
+			proxy_pass http://127.0.0.1:8181$request_uri;
+		}
+
+		location / {
+			return 404;
+		}
+	}
+
+	# Heatlh Check
+	server {
+		listen 8281;
+		listen [::]:8281;
+
+		location = /healthz {
+			return 200;
+		}
+
+		location / {
+			return 404;
+		}
+	}
+}`
+
+const nginxFormatNoTLS = `worker_processes auto;
+error_log stderr notice;
+pid /run/nginx.pid;
+
+# Load dynamic modules. See /usr/share/doc/nginx/README.dynamic.
+include /usr/share/nginx/modules/*.conf;
+
+events {
+	worker_connections 1024;
+}
+
+http {
+	log_format  main  '$remote_addr - $remote_user [$time_local] "$request" '
+	                  '$status $body_bytes_sent "$http_referer" '
+	                  '"$http_user_agent" "$http_x_forwarded_for"';
+
+	access_log  /dev/stdout  main;
+
+	sendfile            on;
+	tcp_nopush          on;
+	keepalive_timeout   65;
+	types_hash_max_size 4096;
+
+	include             /etc/nginx/mime.types;
+	default_type        application/octet-stream;
+
+	server {
+		server_name %s-agent.%s.svc;
+
+		listen 8282;
+		listen [::]:8282;
+
+		location /api/v4/discovery/ {
+			proxy_pass http://127.0.0.1:8181$request_uri;
+		}
+
+		location = /api/v4/discovery {
+			proxy_pass http://127.0.0.1:8181$request_uri;
+		}
+
+		location /api/v4/credentials/ {
+			proxy_pass http://127.0.0.1:8181$request_uri;
+		}
+
+		location = /api/v4/credentials {
+			proxy_pass http://127.0.0.1:8181$request_uri;
+		}
+
+		location /api/beta/recordings/ {
+			proxy_pass http://127.0.0.1:8181$request_uri;
+		}
+
+		location = /api/beta/recordings {
+			proxy_pass http://127.0.0.1:8181$request_uri;
+		}
+
+		location /health/ {
+			proxy_pass http://127.0.0.1:8181$request_uri;
+		}
+
+		location = /health {
+			proxy_pass http://127.0.0.1:8181$request_uri;
+		}
+
+		location / {
+			return 404;
+		}
+	}
+
+	# Heatlh Check
+	server {
+		listen 8281;
+		listen [::]:8281;
+
+		location = /healthz {
+			return 200;
+		}
+
+		location / {
+			return 404;
+		}
+	}
+}`
+
+func (r *TestResources) NewAgentProxyConfigMap() *corev1.ConfigMap {
+	var data map[string]string
+	if r.TLS {
+		data = map[string]string{
+			"nginx.conf": fmt.Sprintf(nginxFormatTLS, r.Name, r.Namespace, r.Name, r.Name, r.Name, r.Name),
+			"dhparam.pem": `-----BEGIN DH PARAMETERS-----
+MIIBCAKCAQEA//////////+t+FRYortKmq/cViAnPTzx2LnFg84tNpWp4TZBFGQz
++8yTnc4kmz75fS/jY2MMddj2gbICrsRhetPfHtXV/WVhJDP1H18GbtCFY2VVPe0a
+87VXE15/V8k1mE8McODmi3fipona8+/och3xWKE2rec1MKzKT0g6eXq8CrGCsyT7
+YdEIqUuyyOP7uWrat2DX9GgdT0Kj3jlN9K5W7edjcrsZCwenyO4KbXCeAvzhzffi
+7MA0BM0oNC9hkXL+nOmFg/+OTxIy7vKBg8P+OxtMb61zO7X8vC7CIAXFjvGDfRaD
+ssbzSibBsu/6iGtCOGEoXJf//////////wIBAg==
+-----END DH PARAMETERS-----`,
+		}
+	} else {
+		data = map[string]string{
+			"nginx.conf": fmt.Sprintf(nginxFormatNoTLS, r.Name, r.Namespace),
+		}
+	}
+
+	return &corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      r.Name + "-agent-proxy",
+			Namespace: r.Namespace,
+		},
+		Data: data,
 	}
 }
 

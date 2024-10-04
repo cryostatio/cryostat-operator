@@ -32,6 +32,7 @@ const grafanaImageEnv = "GRAFANA_IMG"
 const reportsImageEnv = "REPORTS_IMG"
 const storageImageEnv = "STORAGE_IMG"
 const databaseImageEnv = "DATABASE_IMG"
+const agentProxyImageEnv = "AGENT_PROXY_IMG"
 
 // This program generates a const_generated.go file containing image tag
 // constants for each container image deployed by the operator, along with
@@ -39,27 +40,29 @@ const databaseImageEnv = "DATABASE_IMG"
 func main() {
 	// Fill in image tags struct from the environment variables
 	consts := struct {
-		AppName            string
-		OperatorVersion    string
-		OAuth2ProxyImageTag string
+		AppName                     string
+		OperatorVersion             string
+		OAuth2ProxyImageTag         string
 		OpenShiftOAuthProxyImageTag string
-		CoreImageTag       string
-		DatasourceImageTag string
-		GrafanaImageTag    string
-		ReportsImageTag    string
-		StorageImageTag    string
-		DatabaseImageTag   string
+		CoreImageTag                string
+		DatasourceImageTag          string
+		GrafanaImageTag             string
+		ReportsImageTag             string
+		StorageImageTag             string
+		DatabaseImageTag            string
+		AgentProxyImageTag          string
 	}{
-		AppName:            getEnvVar(appNameEnv),
-		OperatorVersion:    getEnvVar(operatorVersionEnv),
-		OAuth2ProxyImageTag: getEnvVar(oauth2ProxyImageEnv),
+		AppName:                     getEnvVar(appNameEnv),
+		OperatorVersion:             getEnvVar(operatorVersionEnv),
+		OAuth2ProxyImageTag:         getEnvVar(oauth2ProxyImageEnv),
 		OpenShiftOAuthProxyImageTag: getEnvVar(openshiftOauthProxyImageEnv),
-		CoreImageTag:       getEnvVar(coreImageEnv),
-		DatasourceImageTag: getEnvVar(datasourceImageEnv),
-		GrafanaImageTag:    getEnvVar(grafanaImageEnv),
-		ReportsImageTag:    getEnvVar(reportsImageEnv),
-		StorageImageTag:    getEnvVar(storageImageEnv),
-		DatabaseImageTag:   getEnvVar(databaseImageEnv),
+		CoreImageTag:                getEnvVar(coreImageEnv),
+		DatasourceImageTag:          getEnvVar(datasourceImageEnv),
+		GrafanaImageTag:             getEnvVar(grafanaImageEnv),
+		ReportsImageTag:             getEnvVar(reportsImageEnv),
+		StorageImageTag:             getEnvVar(storageImageEnv),
+		DatabaseImageTag:            getEnvVar(databaseImageEnv),
+		AgentProxyImageTag:          getEnvVar(agentProxyImageEnv),
 	}
 
 	// Create the source file to generate
@@ -115,4 +118,7 @@ const DefaultStorageImageTag = "{{ .StorageImageTag }}"
 
 // Default image tag for the Database image
 const DefaultDatabaseImageTag = "{{ .DatabaseImageTag }}"
+
+// Default image tag for the agent proxy image
+const DefaultAgentProxyImageTag = "{{ .AgentProxyImageTag }}"
 `))
