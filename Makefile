@@ -408,7 +408,7 @@ undeploy_sample_app: ## Undeploy sample app.
 sample_app_agent: undeploy_sample_app_agent ## Deploy sample app with Cryostat Agent.
 	@if [ -z "${AUTH_TOKEN}" ]; then \
 		if [ "${CLUSTER_CLIENT}" = "oc" ]; then\
-			AUTH_TOKEN=`oc whoami -t | base64`; \
+			AUTH_TOKEN=`oc whoami -t`; \
 		else \
 			echo "'AUTH_TOKEN' must be specified."; \
 			exit 1; \
