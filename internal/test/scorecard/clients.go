@@ -281,13 +281,13 @@ func (client *TargetClient) Create(ctx context.Context, options *Target) (*Targe
 		return nil, fmt.Errorf("API request failed with status code: %d, response body: %s, and headers:\n%s", resp.StatusCode, ReadError(resp), ReadHeader(resp))
 	}
 
-	targetResp := &CustomTargetResponse{}
+	targetResp := &Target{}
 	err = ReadJSON(resp, targetResp)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read response body: %s", err.Error())
 	}
 
-	return targetResp.Data.Result, nil
+	return targetResp, nil
 }
 
 // Client for Cryostat Recording resources
