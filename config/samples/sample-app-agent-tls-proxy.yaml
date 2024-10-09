@@ -3,17 +3,17 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   labels:
-    app: quarkus-cryostat-agent
-  name: quarkus-cryostat-agent
+    app: quarkus-cryostat-agent-tls-proxy
+  name: quarkus-cryostat-agent-tls-proxy
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: quarkus-cryostat-agent
+      app: quarkus-cryostat-agent-tls-proxy
   template:
     metadata:
       labels:
-        app: quarkus-cryostat-agent
+        app: quarkus-cryostat-agent-tls-proxy
     spec:
       containers:
       - env:
@@ -27,7 +27,7 @@ spec:
         - name: CRYOSTAT_AGENT_API_WRITES_ENABLED
           value: "true"
         - name: CRYOSTAT_AGENT_BASEURI
-          value: https://cryostat-sample.$(NAMESPACE).svc:4180
+          value: https://cryostat-sample-agent.$(NAMESPACE).svc:8282
         - name: POD_IP
           valueFrom:
             fieldRef:
@@ -35,65 +35,56 @@ spec:
               fieldPath: status.podIP
         - name: CRYOSTAT_AGENT_CALLBACK
           value: http://$(POD_IP):9977
-        - name: CRYOSTAT_AGENT_AUTHORIZATION
-          value: Bearer abcd1234
         - name: JAVA_OPTS_APPEND
           value: |-
             -Dquarkus.http.host=0.0.0.0
             -Djava.util.logging.manager=org.jboss.logmanager.LogManager
-            -Dcom.sun.management.jmxremote.port=9097
-            -Dcom.sun.management.jmxremote.ssl=false
-            -Dcom.sun.management.jmxremote.authenticate=false
             -javaagent:/deployments/app/cryostat-agent.jar
-            -Dcryostat.agent.webclient.tls.truststore.cert[0].path=/var/run/secrets/myapp/ca.crt
+            -Dcryostat.agent.webclient.tls.client-auth.cert.path=/var/run/secrets/io.cryostat/cryostat-agent/tls.crt
+            -Dcryostat.agent.webclient.tls.client-auth.key.path=/var/run/secrets/io.cryostat/cryostat-agent/tls.key
+            -Dcryostat.agent.webclient.tls.truststore.cert[0].path=/var/run/secrets/io.cryostat/cryostat-agent/ca.crt
             -Dcryostat.agent.webclient.tls.truststore.cert[0].type=X.509
-            -Dcryostat.agent.webclient.tls.truststore.cert[0].alias=cryostat-sample
+            -Dcryostat.agent.webclient.tls.truststore.cert[0].alias=cryostat
         image: quay.io/redhat-java-monitoring/quarkus-cryostat-agent:latest
         imagePullPolicy: Always
-        name: quarkus-cryostat-agent
+        name: quarkus-cryostat-agent-tls-proxy
         ports:
         - containerPort: 10010
           protocol: TCP
         - containerPort: 9097
           protocol: TCP
         resources:
-          requests:
-            cpu: 200m
-            memory: 96Mi
           limits:
             cpu: 500m
-            memory: 192Mi
+            memory: 256Mi
         securityContext:
           allowPrivilegeEscalation: false
           capabilities:
             drop:
             - ALL
         volumeMounts:
-        - mountPath: /var/run/secrets/myapp/ca.crt
-          name: truststore
-          subPath: ca.crt
+        - mountPath: /var/run/secrets/io.cryostat/cryostat-agent
+          name: agent-tls
       restartPolicy: Always
       securityContext:
         runAsNonRoot: true
       volumes:
-      - name: truststore
+      - name: agent-tls
         secret:
-          secretName: cryostat-sample-tls
+          # FIXME determine the secretName at deployment time in the Makefile and patch it here
+          secretName: cryostat-agent-f46ed1c40de4d61ac533fef337f7705ac39c8690f91a9cdca5185140f0455563
+          defaultMode: 420
 ---
 apiVersion: v1
 kind: Service
 metadata:
   labels:
-    app: quarkus-cryostat-agent
-  name: quarkus-cryostat-agent
+    app: quarkus-cryostat-agent-tls-proxy
+  name: quarkus-cryostat-agent-tls-proxy
 spec:
   selector:
-    app: quarkus-cryostat-agent
+    app: quarkus-cryostat-agent-tls-proxy
   ports:
-  - name: jfr-jmx
-    port: 9097
-    protocol: TCP
-    targetPort: 9097
   - name: agent-http
     port: 9977
     protocol: TCP
