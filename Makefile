@@ -102,7 +102,7 @@ CERT_MANAGER_VERSION ?= 1.11.5
 CERT_MANAGER_MANIFEST ?= \
 	https://github.com/cert-manager/cert-manager/releases/download/v$(CERT_MANAGER_VERSION)/cert-manager.yaml
 
-KUSTOMIZE_VERSION ?= 3.8.7
+KUSTOMIZE_VERSION ?= 4.5.7
 CONTROLLER_TOOLS_VERSION ?= 0.14.0
 GOLICENSE_VERSION ?= 1.29.0
 OPM_VERSION ?= 1.23.0
@@ -142,17 +142,23 @@ ifneq ("$(wildcard $(GINKGO))","")
 GO_TEST="$(GINKGO)" -cover -output-dir=.
 endif
 
+KUSTOMIZE_DIR ?= config/default
 # Optional Red Hat Insights integration
 ENABLE_INSIGHTS ?= false
 ifeq ($(ENABLE_INSIGHTS), true)
-KUSTOMIZE_DIR ?= config/insights
-INSIGHTS_PROXY_NAMESPACE ?= quay.io/3scale
-INSIGHTS_PROXY_NAME ?= apicast
-INSIGHTS_PROXY_VERSION ?= insights-01
+KUSTOMIZE_BUNDLE_DIR ?= config/overlays/insights
+INSIGHTS_PROXY_NAMESPACE ?= registry.redhat.io/3scale-amp2
+INSIGHTS_PROXY_NAME ?= apicast-gateway-rhel8
+INSIGHTS_PROXY_VERSION ?= 3scale2.14
 export INSIGHTS_PROXY_IMG ?= $(INSIGHTS_PROXY_NAMESPACE)/$(INSIGHTS_PROXY_NAME):$(INSIGHTS_PROXY_VERSION)
 export INSIGHTS_BACKEND ?= console.redhat.com
+RUNTIMES_INVENTORY_NAMESPACE ?= registry.redhat.io/insights-runtimes-tech-preview
+RUNTIMES_INVENTORY_NAME ?= runtimes-inventory-rhel8-operator
+RUNTIMES_INVENTORY_VERSION ?= latest
+RUNTIMES_INVENTORY_IMG ?= $(RUNTIMES_INVENTORY_NAMESPACE)/$(RUNTIMES_INVENTORY_NAME):$(RUNTIMES_INVENTORY_VERSION)
+BUNDLE_GEN_FLAGS += --extra-service-accounts cryostat-operator-insights
 else
-KUSTOMIZE_DIR ?= config/default
+KUSTOMIZE_BUNDLE_DIR ?= config/manifests
 endif
 
 # Specify which scorecard tests/suites to run
@@ -329,10 +335,13 @@ catalog-build: opm ## Build a catalog image.
 bundle: manifests kustomize operator-sdk ## Generate bundle manifests and metadata, then validate generated files.
 	$(OPERATOR_SDK) generate kustomize manifests -q
 	cd config/manager && $(KUSTOMIZE) edit set image controller=$(OPERATOR_IMG)
-ifeq ($(BUNDLE_MODE), ocp)
-	cd config/manifests && $(KUSTOMIZE) edit add base ../openshift
+ifeq ($(ENABLE_INSIGHTS), true)
+	cd config/insights && $(KUSTOMIZE) edit set image insights=$(RUNTIMES_INVENTORY_IMG)
 endif
-	$(KUSTOMIZE) build config/manifests | $(OPERATOR_SDK) generate bundle $(BUNDLE_GEN_FLAGS)
+ifeq ($(BUNDLE_MODE), ocp)
+	cd $(KUSTOMIZE_BUNDLE_DIR) && $(KUSTOMIZE) edit add base ../openshift
+endif
+	$(KUSTOMIZE) build $(KUSTOMIZE_BUNDLE_DIR) | $(OPERATOR_SDK) generate bundle $(BUNDLE_GEN_FLAGS)
 # Workaround for: https://issues.redhat.com/browse/OCPBUGS-34901
 	yq -i '.spec.customresourcedefinitions.owned |= reverse' bundle/manifests/cryostat-operator.clusterserviceversion.yaml
 	$(OPERATOR_SDK) bundle validate ./bundle
@@ -349,7 +358,7 @@ manifests: controller-gen ## Generate manifests e.g. CRD, RBAC, etc.
 	envsubst < hack/image_tag_patch.yaml.in > config/default/image_tag_patch.yaml
 	envsubst < hack/image_pull_patch.yaml.in > config/default/image_pull_patch.yaml
 ifeq ($(ENABLE_INSIGHTS), true)
-	envsubst < hack/insights_patch.yaml.in > config/insights/insights_patch.yaml
+	envsubst < hack/insights_patch.yaml.in > config/overlays/insights/insights_patch.yaml
 endif
 
 .PHONY: fmt
