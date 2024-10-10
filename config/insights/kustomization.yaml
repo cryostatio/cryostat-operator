@@ -1,5 +1,41 @@
-resources:
-- ../default
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
 
-patchesStrategicMerge:
-- insights_patch.yaml
+# Adds namespace to all resources.
+namespace: cryostat-operator-system
+
+# Value of this field is prepended to the
+# names of all resources, e.g. a deployment named
+# "wordpress" becomes "alices-wordpress".
+# Note that it should also match with the prefix (text before '-') of the namespace
+# field above.
+namePrefix: cryostat-operator-
+
+# Labels to add to all resources and selectors.
+commonLabels:
+  app.kubernetes.io/name: cryostat-operator-insights
+
+resources:
+- deployment.yaml
+- service_account.yaml
+- role.yaml
+- role_binding.yaml
+- leader_election_role.yaml
+- leader_election_role_binding.yaml
+
+replacements:
+- source:
+    fieldPath: metadata.name
+    kind: Deployment
+    name: insights
+  targets:
+  - fieldPaths:
+    - spec.template.spec.containers.[name=insights].env.[name=OPERATOR_NAME].value
+    select:
+      kind: Deployment
+      name: insights
+
+images:
+- name: insights
+  newName: registry.redhat.io/insights-runtimes-tech-preview/runtimes-inventory-rhel8-operator
+  newTag: latest

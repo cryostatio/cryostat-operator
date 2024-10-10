@@ -4,7 +4,6 @@ module github.com/cryostatio/cryostat-operator
 go 1.21
 
 require (
-	github.com/RedHatInsights/runtimes-inventory-operator v0.0.0-20240327135922-5705da62073c
 	github.com/blang/semver/v4 v4.0.0
 	github.com/cert-manager/cert-manager v1.13.6
 	github.com/go-logr/logr v1.4.2

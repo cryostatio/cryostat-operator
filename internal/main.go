@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"net/url"
 	"os"
+	"strings"
 
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	// to ensure that exec-entrypoint and run can make use of them.
@@ -39,12 +40,10 @@ import (
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 
-	"github.com/RedHatInsights/runtimes-inventory-operator/pkg/insights"
 	operatorv1beta1 "github.com/cryostatio/cryostat-operator/api/v1beta1"
 	operatorv1beta2 "github.com/cryostatio/cryostat-operator/api/v1beta2"
 	"github.com/cryostatio/cryostat-operator/internal/controllers"
 	"github.com/cryostatio/cryostat-operator/internal/controllers/common"
-	"github.com/cryostatio/cryostat-operator/internal/controllers/constants"
 	"github.com/cryostatio/cryostat-operator/internal/webhooks"
 	// +kubebuilder:scaffold:imports
 )
@@ -163,14 +162,18 @@ func main() {
 	}
 
 	// Optionally enable Insights integration. Will only be enabled if INSIGHTS_ENABLED is true
-	operatorNamespace := os.Getenv("OPERATOR_NAMESPACE")
-	userAgentPrefix := fmt.Sprintf("cryostat-operator/%s", controllers.OperatorVersion)
 	var insightsURL *url.URL
 	if openShift {
-		insightsURL, err = insights.NewInsightsIntegration(mgr, constants.OperatorDeploymentName,
-			operatorNamespace, userAgentPrefix, &setupLog).Setup()
-		if err != nil {
-			setupLog.Error(err, "failed to set up Insights integration")
+		insightsEnabledEnv := os.Getenv("INSIGHTS_ENABLED")
+		if strings.ToLower(insightsEnabledEnv) == "true" {
+			insightsURLEnv := os.Getenv("INSIGHTS_URL")
+			if len(insightsURLEnv) > 0 {
+				insightsURL, err = url.Parse(insightsURLEnv)
+				if err != nil {
+					setupLog.Error(err, "INSIGHTS_URL is invalid")
+					os.Exit(1)
+				}
+			}
 		}
 	}
 

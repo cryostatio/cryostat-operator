@@ -1,7 +1,7 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: controller
+  name: insights
   namespace: system
   labels:
     control-plane: controller-manager
@@ -15,20 +15,20 @@ spec:
       labels:
         control-plane: controller-manager
       annotations:
-        kubectl.kubernetes.io/default-container: manager
+        kubectl.kubernetes.io/default-container: insights
     spec:
-      serviceAccountName: service-account
+      serviceAccountName: insights
       securityContext:
         runAsNonRoot: true
         seccompProfile:
           type: RuntimeDefault
       containers:
-      - command:
-        - /manager
+      - name: insights
         args:
-        - --leader-elect
-        image: controller:latest
-        name: manager
+        - "--health-probe-bind-address=:8081"
+        - "--metrics-bind-address=0" # Metrics disabled
+        - "--leader-elect"
+        image: registry.redhat.io/insights-runtimes-tech-preview/runtimes-inventory-rhel8-operator:latest
         securityContext:
           allowPrivilegeEscalation: false
           capabilities:
@@ -49,6 +49,14 @@ spec:
         env:
         - name: WATCH_NAMESPACE
           value: ""
+        - name: OPERATOR_NAME
+          value: placeholder
+        - name: OPERATOR_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        - name: INSIGHTS_ENABLED
+          value: "true"
         resources:
           limits:
             cpu: 1000m

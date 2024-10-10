@@ -1,5 +1,3 @@
-github.com/RedHatInsights/runtimes-inventory-operator v0.0.0-20240327135922-5705da62073c h1:Dl3eCF6o2IUMzIi+V0RpZIii2nOUFPWI3gB/ZE2TcZY=
-github.com/RedHatInsights/runtimes-inventory-operator v0.0.0-20240327135922-5705da62073c/go.mod h1:DhoPtaJhm/8OOJjp8lrDJAmdMsjo4mDJBzHYvChegnM=
 github.com/benbjohnson/clock v1.1.0/go.mod h1:J11/hYXuz8f4ySSvYwY0FKfm+ezbsZBKZxNJlLklBHA=
 github.com/benbjohnson/clock v1.3.0 h1:ip6w0uFQkncKQ979AypyG0ER7mqUSBdKLOgAle/AT8A=
 github.com/benbjohnson/clock v1.3.0/go.mod h1:J11/hYXuz8f4ySSvYwY0FKfm+ezbsZBKZxNJlLklBHA=
