@@ -423,7 +423,24 @@ undeploy_sample_app_agent_proxy: ## Undeploy sample app with Cryostat Agent conf
 
 .PHONY: sample_app_agent_proxy
 sample_app_agent_proxy: undeploy_sample_app_agent_proxy ## Deploy sample app with Cryostat Agent configured for TLS client auth on nginx proxy.
-	$(CLUSTER_CLIENT) apply $(SAMPLE_APP_FLAGS) -f config/samples/sample-app-agent-tls-proxy.yaml
+	@if [ -z "${SECRET_HASH}" ]; then \
+		if [ -z "${DEPLOY_NAMESPACE}" ]; then \
+			if [ "${CLUSTER_CLIENT}" = "oc" ]; then \
+				DEPLOY_NAMESPACE=`oc project -q`; \
+			else \
+				echo "'DEPLOY_NAMESPACE' must be specified."; \
+				exit 1; \
+			fi; \
+		fi; \
+		if [ -z "${SAMPLE_APP_NAMESPACE}" ]; then \
+			echo "'SAMPLE_APP_NAMESPACE' must be specified."; \
+			exit 1; \
+		fi ;\
+		SECRET_HASH=`echo -n ${DEPLOY_NAMESPACE}/cryostat-sample/${SAMPLE_APP_NAMESPACE} | sha256sum`; \
+	fi; \
+	$(CLUSTER_CLIENT) patch -f config/samples/sample-app-agent-tls-proxy.yaml --local=true --type=merge \
+	-p "{\"spec\":{\"template\":{\"spec\":{\"\$setElementOrder/volumes\":[{\"name\":\"agent-tls\"}],\"volumes\":[{\"\$retainKeys\":[\"name\",\"secret\"],\"name\":\"agent-tls\",\"secret\":{\"secretName\":\"cryostat-agent-$${SECRET_HASH}\"}}]}}}}" \
+	-o yaml | oc apply -f -
 
 .PHONY: undeploy_sample_app_agent
 undeploy_sample_app_agent: ## Undeploy sample app with Cryostat Agent.
