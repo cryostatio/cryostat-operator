@@ -71,8 +71,7 @@ spec:
       volumes:
       - name: agent-tls
         secret:
-          # FIXME determine the secretName at deployment time in the Makefile and patch it here
-          secretName: cryostat-agent-f46ed1c40de4d61ac533fef337f7705ac39c8690f91a9cdca5185140f0455563
+          secretName: cryostat-agent-abcd1234
           defaultMode: 420
 ---
 apiVersion: v1
