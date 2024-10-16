@@ -71,7 +71,7 @@ spec:
       volumes:
       - name: agent-tls
         secret:
-          secretName: cryostat-agent-abcd1234
+          secretName: cryostat-agent-REPLACEHASH
           defaultMode: 420
 ---
 apiVersion: v1

@@ -436,11 +436,9 @@ sample_app_agent_proxy: undeploy_sample_app_agent_proxy ## Deploy sample app wit
 			echo "'SAMPLE_APP_NAMESPACE' must be specified."; \
 			exit 1; \
 		fi ;\
-		SECRET_HASH=`echo -n ${DEPLOY_NAMESPACE}/cryostat-sample/${SAMPLE_APP_NAMESPACE} | sha256sum`; \
+		SECRET_HASH=`echo -n ${DEPLOY_NAMESPACE}/cryostat-sample/${SAMPLE_APP_NAMESPACE} | sha256sum | cut -d' ' -f 1`; \
 	fi; \
-	$(CLUSTER_CLIENT) patch -f config/samples/sample-app-agent-tls-proxy.yaml --local=true --type=merge \
-	-p "{\"spec\":{\"template\":{\"spec\":{\"\$setElementOrder/volumes\":[{\"name\":\"agent-tls\"}],\"volumes\":[{\"\$retainKeys\":[\"name\",\"secret\"],\"name\":\"agent-tls\",\"secret\":{\"secretName\":\"cryostat-agent-$${SECRET_HASH}\"}}]}}}}" \
-	-o yaml | oc apply -f -
+	sed "s/REPLACEHASH/$${SECRET_HASH}/" < config/samples/sample-app-agent-tls-proxy.yaml | oc apply -f -
 
 .PHONY: undeploy_sample_app_agent
 undeploy_sample_app_agent: ## Undeploy sample app with Cryostat Agent.
