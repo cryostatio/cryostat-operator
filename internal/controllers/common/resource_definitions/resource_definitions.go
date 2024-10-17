@@ -1331,6 +1331,10 @@ func NewStorageContainer(cr *model.CryostatInstance, imageTag string, tls *TLSCo
 			Name:  "IP_BIND",
 			Value: "0.0.0.0",
 		},
+		{
+			Name:  "REST_ENCRYPTION_ENABLE",
+			Value: "1",
+		},
 	}
 
 	mounts := []corev1.VolumeMount{

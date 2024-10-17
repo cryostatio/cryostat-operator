@@ -1633,6 +1633,10 @@ func (r *TestResources) NewStorageEnvironmentVariables() []corev1.EnvVar {
 			Value: "0.0.0.0",
 		},
 		{
+			Name:  "REST_ENCRYPTION_ENABLE",
+			Value: "1",
+		},
+		{
 			Name: "CRYOSTAT_SECRET_KEY",
 			ValueFrom: &corev1.EnvVarSource{
 				SecretKeyRef: &corev1.SecretKeySelector{
