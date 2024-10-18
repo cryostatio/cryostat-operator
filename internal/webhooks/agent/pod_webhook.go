@@ -15,9 +15,11 @@
 package agent
 
 import (
+	operatorv1beta2 "github.com/cryostatio/cryostat-operator/api/v1beta2"
 	"github.com/cryostatio/cryostat-operator/internal/controllers/common"
 	corev1 "k8s.io/api/core/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 )
 
@@ -27,11 +29,16 @@ var podWebhookLog = logf.Log.WithName("pod-webhook")
 //+kubebuilder:webhook:path=/mutate--v1-pod,mutating=true,failurePolicy=ignore,sideEffects=None,groups="",resources=pods,verbs=create,versions=v1,name=mpod.cryostat.io,admissionReviewVersions=v1
 
 func SetupWebhookWithManager(mgr ctrl.Manager) error {
+	gvk, err := apiutil.GVKForObject(&operatorv1beta2.Cryostat{}, mgr.GetScheme())
+	if err != nil {
+		return err
+	}
 	return ctrl.NewWebhookManagedBy(mgr).
 		For(&corev1.Pod{}).
 		WithDefaulter(&podMutator{
 			client: mgr.GetClient(),
 			log:    &podWebhookLog,
+			gvk:    &gvk,
 			ReconcilerTLS: common.NewReconcilerTLS(&common.ReconcilerTLSConfig{
 				Client: mgr.GetClient(),
 			}),

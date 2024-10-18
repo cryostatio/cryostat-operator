@@ -27,6 +27,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
@@ -35,12 +36,16 @@ import (
 type podMutator struct {
 	client client.Client
 	log    *logr.Logger
+	gvk    *schema.GroupVersionKind
 	common.ReconcilerTLS
 }
 
 var _ admission.CustomDefaulter = &podMutator{}
 
-const agentArg = "-javaagent:/tmp/cryostat-agent/cryostat-agent-shaded.jar"
+const (
+	agentArg    = "-javaagent:/tmp/cryostat-agent/cryostat-agent-shaded.jar"
+	podIPEnvVar = "CRYOSTAT_AGENT_POD_IP"
+)
 
 // Default optionally mutates a pod to inject the Cryostat agent
 func (r *podMutator) Default(ctx context.Context, obj runtime.Object) error {
@@ -74,17 +79,23 @@ func (r *podMutator) Default(ctx context.Context, obj runtime.Object) error {
 			pod.Namespace, cr.Name, cr.Namespace)
 	}
 
+	// Check whether TLS is enabled for this CR
+	tlsEnabled := r.IsCertManagerEnabled(model.FromCryostat(cr))
+
 	// Select target container
 	if len(pod.Spec.Containers) == 0 {
 		return nil
 	}
+	// TODO make configurable
 	container := &pod.Spec.Containers[0]
 
 	// Add init container
 	pod.Spec.InitContainers = append(pod.Spec.InitContainers, corev1.Container{
-		Name:    "cryostat-agent-init",
-		Image:   "quay.io/cryostat/cryostat-agent-init:latest", // TODO related images
-		Command: []string{"cp", "-v", "/cryostat/agent/cryostat-agent-shaded.jar", "/tmp/cryostat-agent/cryostat-agent-shaded.jar"},
+		Name: "cryostat-agent-init",
+		//Image:   "quay.io/cryostat/cryostat-agent-init:latest", // TODO related images
+		Image:           "quay.io/ebaron/cryostat-agent-init:tls-server-key-01", // XXX
+		ImagePullPolicy: corev1.PullAlways,                                      // TODO change this
+		Command:         []string{"cp", "-v", "/cryostat/agent/cryostat-agent-shaded.jar", "/tmp/cryostat-agent/cryostat-agent-shaded.jar"},
 		VolumeMounts: []corev1.VolumeMount{
 			{
 				Name:      "cryostat-agent-init",
@@ -110,10 +121,18 @@ func (r *podMutator) Default(ctx context.Context, obj runtime.Object) error {
 	container.Env = append(container.Env,
 		corev1.EnvVar{
 			Name:  "CRYOSTAT_AGENT_BASEURI",
-			Value: r.cryostatURL(cr),
+			Value: cryostatURL(cr, tlsEnabled),
 		},
 		corev1.EnvVar{
-			Name: "CRYOSTAT_AGENT_POD_IP",
+			Name: "CRYOSTAT_AGENT_APP_NAME",
+			ValueFrom: &corev1.EnvVarSource{
+				FieldRef: &corev1.ObjectFieldSelector{
+					FieldPath: "metadata.name", // TODO recurse owner references for deployment name?
+				},
+			},
+		},
+		corev1.EnvVar{
+			Name: podIPEnvVar,
 			ValueFrom: &corev1.EnvVarSource{
 				FieldRef: &corev1.ObjectFieldSelector{
 					FieldPath: "status.podIP",
@@ -122,9 +141,90 @@ func (r *podMutator) Default(ctx context.Context, obj runtime.Object) error {
 		},
 		corev1.EnvVar{
 			Name:  "CRYOSTAT_AGENT_CALLBACK",
-			Value: "http://$(CRYOSTAT_AGENT_POD_IP)", // TODO HTTPS
+			Value: callbackURL(tlsEnabled),
+		},
+		corev1.EnvVar{
+			Name:  "CRYOSTAT_AGENT_API_WRITES_ENABLED",
+			Value: "true", // TODO default to writes enabled, separate label?
 		},
 	)
+
+	if tlsEnabled {
+		// Mount the certificate volume
+		readOnlyMode := int32(0440)
+		pod.Spec.Volumes = append(pod.Spec.Volumes, corev1.Volume{
+			Name: "cryostat-agent-tls",
+			VolumeSource: corev1.VolumeSource{
+				Secret: &corev1.SecretVolumeSource{
+					// TODO abstract implementation
+					SecretName:  common.ClusterUniqueNameWithPrefixTargetNS(r.gvk, "agent", cr.Name, cr.Namespace, pod.Namespace),
+					DefaultMode: &readOnlyMode,
+				},
+			},
+		})
+
+		container.VolumeMounts = append(container.VolumeMounts, corev1.VolumeMount{
+			Name:      "cryostat-agent-tls",
+			MountPath: "/var/run/secrets/io.cryostat/cryostat-agent",
+			ReadOnly:  true,
+		})
+
+		// Configure the Cryostat agent to use client certificate authentication
+		container.Env = append(container.Env,
+			corev1.EnvVar{
+				Name:  "CRYOSTAT_AGENT_WEBCLIENT_TLS_CLIENT_AUTH_CERT_PATH",
+				Value: fmt.Sprintf("/var/run/secrets/io.cryostat/cryostat-agent/%s", corev1.TLSCertKey),
+			},
+			corev1.EnvVar{
+				Name:  "CRYOSTAT_AGENT_WEBCLIENT_TLS_CLIENT_AUTH_KEY_PATH",
+				Value: fmt.Sprintf("/var/run/secrets/io.cryostat/cryostat-agent/%s", corev1.TLSPrivateKeyKey),
+			},
+		)
+
+		// Configure the Cryostat agent to trust the Cryostat CA
+		container.Env = append(container.Env,
+			corev1.EnvVar{
+				Name:  "CRYOSTAT_AGENT_WEBCLIENT_TLS_TRUSTSTORE_CERT_0__PATH",
+				Value: fmt.Sprintf("/var/run/secrets/io.cryostat/cryostat-agent/%s", constants.CAKey),
+			},
+			corev1.EnvVar{
+				Name:  "CRYOSTAT_AGENT_WEBCLIENT_TLS_TRUSTSTORE_CERT_0__TYPE",
+				Value: "X.509",
+			},
+			corev1.EnvVar{
+				Name:  "CRYOSTAT_AGENT_WEBCLIENT_TLS_TRUSTSTORE_CERT_0__ALIAS",
+				Value: "cryostat",
+			},
+		)
+
+		// Configure the Cryostat agent to use HTTPS for its callback server
+		/*container.Env = append(container.Env,
+			corev1.EnvVar{
+				Name:  "CRYOSTAT_AGENT_WEBSERVER_TLS_CERT_FILE",
+				Value: fmt.Sprintf("/var/run/secrets/io.cryostat/cryostat-agent/%s", corev1.TLSCertKey),
+			},
+			corev1.EnvVar{
+				Name:  "CRYOSTAT_AGENT_WEBSERVER_TLS_CERT_TYPE",
+				Value: "X.509",
+			},
+			corev1.EnvVar{
+				Name:  "CRYOSTAT_AGENT_WEBSERVER_TLS_CERT_ALIAS",
+				Value: "cryostat",
+			},
+			corev1.EnvVar{
+				Name:  "CRYOSTAT_AGENT_WEBSERVER_TLS_KEY_PATH",
+				Value: fmt.Sprintf("/var/run/secrets/io.cryostat/cryostat-agent/%s", corev1.TLSPrivateKeyKey),
+			},
+			corev1.EnvVar{
+				Name:  "CRYOSTAT_AGENT_WEBSERVER_TLS_KEY_TYPE",
+				Value: "RSA",
+			},
+			corev1.EnvVar{
+				Name:  "CRYOSTAT_AGENT_WEBSERVER_TLS_KEY_ALIAS",
+				Value: "cryostat",
+			},
+		)*/ // TODO HTTPS
+	}
 	extended, err := extendJavaToolOptions(container.Env)
 	if err != nil {
 		return err
@@ -143,18 +243,30 @@ func (r *podMutator) Default(ctx context.Context, obj runtime.Object) error {
 	// could do an authz check on webhook user. if they have pod/exec permissions, then create the sa and/or secret.
 	// this would count as a side effect of the webhook. this could still allow other ns users to escalate though.
 
-	// TODO default to writes enabled, separate label?
-
 	return nil
 }
 
-func (r *podMutator) cryostatURL(cr *operatorv1beta2.Cryostat) string {
+func cryostatURL(cr *operatorv1beta2.Cryostat, tls bool) string {
 	scheme := "https"
-	if !r.IsCertManagerEnabled(model.FromCryostat(cr)) {
+	if !tls {
 		scheme = "http"
 	}
-	return fmt.Sprintf("%s://%s.%s.svc:%d", scheme, cr.Name, cr.Namespace, // TODO maybe use service instead of CR meta
-		constants.AuthProxyHttpContainerPort)
+	// TODO see if this can be easily refactored
+	port := constants.AgentProxyContainerPort
+	if cr.Spec.ServiceOptions != nil && cr.Spec.ServiceOptions.AgentConfig != nil && cr.Spec.ServiceOptions.AgentConfig.HTTPPort != nil {
+		port = *cr.Spec.ServiceOptions.AgentConfig.HTTPPort
+	}
+	return fmt.Sprintf("%s://%s-agent.%s.svc:%d", scheme, cr.Name, cr.Namespace, // TODO maybe use agent service instead of CR meta
+		port)
+}
+
+func callbackURL(tls bool) string {
+	//scheme := "https"
+	//if !tls {
+	//	scheme = "http"
+	//}
+	scheme := "http"                                                 // TODO HTTPS
+	return fmt.Sprintf("%s://$(CRYOSTAT_AGENT_POD_IP):9977", scheme) // TODO make port configurable
 }
 
 func extendJavaToolOptions(envs []corev1.EnvVar) ([]corev1.EnvVar, error) {
