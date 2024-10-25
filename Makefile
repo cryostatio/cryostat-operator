@@ -397,25 +397,42 @@ SAMPLE_APP_FLAGS += -n $(SAMPLE_APP_NAMESPACE)
 endif
 
 .PHONY: sample_app
-sample_app: ## Deploy sample app.
+sample_app: undeploy_sample_app ## Deploy sample app.
 	$(CLUSTER_CLIENT) apply $(SAMPLE_APP_FLAGS) -f config/samples/sample-app.yaml
 
 .PHONY: undeploy_sample_app
 undeploy_sample_app: ## Undeploy sample app.
-	$(CLUSTER_CLIENT) delete $(SAMPLE_APP_FLAGS) --ignore-not-found=$(ignore-not-found) -f config/samples/sample-app.yaml
+	- $(CLUSTER_CLIENT) delete $(SAMPLE_APP_FLAGS) --ignore-not-found=$(ignore-not-found) -f config/samples/sample-app.yaml
 
 .PHONY: sample_app_agent
 sample_app_agent: undeploy_sample_app_agent ## Deploy sample app with Cryostat Agent.
 	@if [ -z "${AUTH_TOKEN}" ]; then \
 		if [ "${CLUSTER_CLIENT}" = "oc" ]; then\
-			AUTH_TOKEN=`oc whoami -t | base64`; \
+			AUTH_TOKEN=`oc whoami -t`; \
 		else \
 			echo "'AUTH_TOKEN' must be specified."; \
 			exit 1; \
 		fi; \
 	fi; \
 	$(CLUSTER_CLIENT) apply $(SAMPLE_APP_FLAGS) -f config/samples/sample-app-agent.yaml; \
-	$(CLUSTER_CLIENT) set env $(SAMPLE_APP_FLAGS) deployment/quarkus-test-agent CRYOSTAT_AGENT_AUTHORIZATION="Bearer $(AUTH_TOKEN)"
+	$(CLUSTER_CLIENT) set env $(SAMPLE_APP_FLAGS) deployment/quarkus-cryostat-agent CRYOSTAT_AGENT_AUTHORIZATION="Bearer $(AUTH_TOKEN)"
+
+.PHONY: undeploy_sample_app_agent_proxy
+undeploy_sample_app_agent_proxy: ## Undeploy sample app with Cryostat Agent configured for TLS client auth on nginx proxy.
+	- $(CLUSTER_CLIENT) delete $(SAMPLE_APP_FLAGS) --ignore-not-found=$(ignore-not-found) -f config/samples/sample-app-agent-tls-proxy.yaml
+
+.PHONY: sample_app_agent_proxy
+sample_app_agent_proxy: undeploy_sample_app_agent_proxy ## Deploy sample app with Cryostat Agent configured for TLS client auth on nginx proxy.
+	@if [ -z "${SECRET_HASH}" ]; then \
+		if [ -z "$${SAMPLE_APP_NAMESPACE}" ]; then \
+			SAMPLE_APP_NAMESPACE=`$(CLUSTER_CLIENT) config view --minify -o 'jsonpath={.contexts[0].context.namespace}'`; \
+		fi ;\
+		if [ -z "$${CRYOSTAT_CR_NAME}" ]; then \
+			CRYOSTAT_CR_NAME="cryostat-sample"; \
+		fi ;\
+		SECRET_HASH=`echo -n ${DEPLOY_NAMESPACE}/$${CRYOSTAT_CR_NAME}/$${SAMPLE_APP_NAMESPACE} | sha256sum | cut -d' ' -f 1`; \
+	fi; \
+	sed "s/REPLACEHASH/$${SECRET_HASH}/" < config/samples/sample-app-agent-tls-proxy.yaml | oc apply -f -
 
 .PHONY: undeploy_sample_app_agent
 undeploy_sample_app_agent: ## Undeploy sample app with Cryostat Agent.
