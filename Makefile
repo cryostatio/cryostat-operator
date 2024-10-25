@@ -424,10 +424,13 @@ undeploy_sample_app_agent_proxy: ## Undeploy sample app with Cryostat Agent conf
 .PHONY: sample_app_agent_proxy
 sample_app_agent_proxy: undeploy_sample_app_agent_proxy ## Deploy sample app with Cryostat Agent configured for TLS client auth on nginx proxy.
 	@if [ -z "${SECRET_HASH}" ]; then \
-		if [ -z "${SAMPLE_APP_NAMESPACE}" ]; then \
+		if [ -z "$${SAMPLE_APP_NAMESPACE}" ]; then \
 			SAMPLE_APP_NAMESPACE=`$(CLUSTER_CLIENT) config view --minify -o 'jsonpath={.contexts[0].context.namespace}'`; \
 		fi ;\
-		SECRET_HASH=`echo -n ${DEPLOY_NAMESPACE}/cryostat-sample/${namespace} | sha256sum | cut -d' ' -f 1`; \
+		if [ -z "$${CRYOSTAT_CR_NAME}" ]; then \
+			CRYOSTAT_CR_NAME="cryostat-sample"; \
+		fi ;\
+		SECRET_HASH=`echo -n ${DEPLOY_NAMESPACE}/$${CRYOSTAT_CR_NAME}/$${SAMPLE_APP_NAMESPACE} | sha256sum | cut -d' ' -f 1`; \
 	fi; \
 	sed "s/REPLACEHASH/$${SECRET_HASH}/" < config/samples/sample-app-agent-tls-proxy.yaml | oc apply -f -
 
