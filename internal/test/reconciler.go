@@ -35,7 +35,10 @@ type TestReconcilerConfig struct {
 	EnvDatabaseImageTag            *string
 	EnvGrafanaImageTag             *string
 	EnvReportsImageTag             *string
+	EnvAgentProxyImageTag          *string
 	GeneratedPasswords             []string
+	ControllerBuilder              *TestCtrlBuilder
+	CertManagerMissing             bool
 }
 
 func NewTestReconcilerTLS(config *TestReconcilerConfig) common.ReconcilerTLS {
@@ -79,6 +82,9 @@ func newTestOSUtils(config *TestReconcilerConfig) *testOSUtils {
 	}
 	if config.EnvOpenShiftOAuthProxyImageTag != nil {
 		envs["RELATED_IMAGE_OPENSHIFT_OAUTH_PROXY"] = *config.EnvOpenShiftOAuthProxyImageTag
+	}
+	if config.EnvAgentProxyImageTag != nil {
+		envs["RELATED_IMAGE_AGENT_PROXY"] = *config.EnvAgentProxyImageTag
 	}
 	return &testOSUtils{envs: envs, passwords: config.GeneratedPasswords}
 }

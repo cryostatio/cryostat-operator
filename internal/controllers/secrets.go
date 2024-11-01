@@ -149,9 +149,11 @@ func (r *Reconciler) reconcileStorageSecret(ctx context.Context, cr *model.Cryos
 func (r *Reconciler) createOrUpdateSecret(ctx context.Context, secret *corev1.Secret, owner metav1.Object,
 	delegate controllerutil.MutateFn) error {
 	op, err := controllerutil.CreateOrUpdate(ctx, r.Client, secret, func() error {
-		// Set the Cryostat CR as controller
-		if err := controllerutil.SetControllerReference(owner, secret, r.Scheme); err != nil {
-			return err
+		if owner != nil {
+			// Set the Cryostat CR as controller
+			if err := controllerutil.SetControllerReference(owner, secret, r.Scheme); err != nil {
+				return err
+			}
 		}
 		// Call the delegate for secret-specific mutations
 		return delegate()

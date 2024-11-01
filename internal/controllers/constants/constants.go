@@ -25,11 +25,13 @@ const (
 	GrafanaContainerPort       int32  = 3000
 	DatasourceContainerPort    int32  = 8989
 	ReportsContainerPort       int32  = 10000
-	StorageContainerPort       int32  = 8333
-	DatabaseContainerPort      int32  = 5432
+	StoragePort                int32  = 8333
+	DatabasePort               int32  = 5432
+	AgentProxyContainerPort    int32  = 8282
+	AgentProxyHealthPort       int32  = 8281
 	LoopbackAddress            string = "127.0.0.1"
 	OperatorNamePrefix         string = "cryostat-operator-"
-	OperatorDeploymentName     string = "cryostat-operator-controller-manager"
+	OperatorDeploymentName     string = "cryostat-operator-controller"
 	HttpPortName               string = "http"
 	// CAKey is the key for a CA certificate within a TLS secret
 	CAKey = certMeta.TLSCAKey
@@ -41,4 +43,11 @@ const (
 	DatabaseSecretConnectionKey = "CONNECTION_KEY"
 	// DatabaseSecretEncryptionKey indexes the database encryption key within the Cryostat database Secret
 	DatabaseSecretEncryptionKey = "ENCRYPTION_KEY"
+
+	AgentProxyConfigFilePath string = "/etc/nginx-cryostat"
+	AgentProxyConfigFileName string = "nginx.conf"
+
+	targetNamespaceCRLabelPrefix    = "operator.cryostat.io/"
+	TargetNamespaceCRNameLabel      = targetNamespaceCRLabelPrefix + "name"
+	TargetNamespaceCRNamespaceLabel = targetNamespaceCRLabelPrefix + "namespace"
 )

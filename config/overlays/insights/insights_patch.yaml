@@ -11,11 +11,11 @@ spec:
       - name: insights
         env:
         - name: RELATED_IMAGE_INSIGHTS_PROXY
-          value: "${INSIGHTS_PROXY_IMG}"
+          value: "registry.redhat.io/3scale-amp2/apicast-gateway-rhel8:3scale2.14"
         - name: INSIGHTS_BACKEND_DOMAIN
-          value: "${INSIGHTS_BACKEND}"
+          value: "console.redhat.com"
         - name: USER_AGENT_PREFIX
-          value: "cryostat-operator/${OPERATOR_VERSION}"
+          value: "cryostat-operator/4.0.0-dev"
 ---
 apiVersion: apps/v1
 kind: Deployment

@@ -35,7 +35,7 @@ metadata:
     capabilities: Seamless Upgrades
     categories: Monitoring, Developer Tools
     containerImage: quay.io/cryostat/cryostat-operator:4.0.0-dev
-    createdAt: "2024-07-30T18:48:36Z"
+    createdAt: "2024-10-10T18:16:26Z"
     description: JVM monitoring and profiling tool
     operatorframework.io/initialization-resource: |-
       {
@@ -235,6 +235,11 @@ spec:
           - description: Resource requirements for the Cryostat deployment.
             displayName: Resources
             path: resources
+          - description: Resource requirements for the agent proxy container.
+            displayName: Agent Proxy Resources
+            path: resources.agentProxyResources
+            x-descriptors:
+              - urn:alm:descriptor:com.tectonic.ui:resourceRequirements
           - description: Resource requirements for the auth proxy.
             displayName: Auth Proxy Resources
             path: resources.authProxyResources
@@ -299,6 +304,9 @@ spec:
             path: securityOptions
             x-descriptors:
               - urn:alm:descriptor:com.tectonic.ui:advanced
+          - description: Security Context to apply to the agent proxy container.
+            displayName: Agent Proxy Security Context
+            path: securityOptions.agentProxySecurityContext
           - description: Security Context to apply to the auth proxy container.
             displayName: Auth Proxy Security Context
             path: securityOptions.authProxySecurityContext
@@ -977,7 +985,7 @@ spec:
         - label:
             app.kubernetes.io/name: cryostat-operator
             control-plane: controller-manager
-          name: cryostat-operator-controller-manager
+          name: cryostat-operator-controller
           spec:
             replicas: 1
             selector:
@@ -1015,6 +1023,8 @@ spec:
                         value: quay.io/cryostat/cryostat-storage:latest
                       - name: RELATED_IMAGE_DATABASE
                         value: quay.io/cryostat/cryostat-db:latest
+                      - name: RELATED_IMAGE_AGENT_PROXY
+                        value: registry.access.redhat.com/ubi8/nginx-124:latest
                       - name: WATCH_NAMESPACE
                         valueFrom:
                           fieldRef:
@@ -1023,7 +1033,7 @@ spec:
                         valueFrom:
                           fieldRef:
                             fieldPath: metadata.namespace
-                    image: quay.io/miwan/cryostat-operator:4.0.0-dev
+                    image: quay.io/cryostat/cryostat-operator:4.0.0-dev
                     imagePullPolicy: Always
                     livenessProbe:
                       httpGet:
@@ -1184,6 +1194,8 @@ spec:
       name: storage
     - image: quay.io/cryostat/cryostat-db:latest
       name: database
+    - image: registry.access.redhat.com/ubi8/nginx-124:latest
+      name: agent-proxy
   version: 4.0.0-dev
   webhookdefinitions:
     - admissionReviewVersions:
@@ -1191,7 +1203,7 @@ spec:
       containerPort: 443
       conversionCRDs:
         - cryostats.operator.cryostat.io
-      deploymentName: cryostat-operator-controller-manager
+      deploymentName: cryostat-operator-controller
       generateName: ccryostats.kb.io
       sideEffects: None
       targetPort: 9443
@@ -1200,7 +1212,7 @@ spec:
     - admissionReviewVersions:
         - v1
       containerPort: 443
-      deploymentName: cryostat-operator-controller-manager
+      deploymentName: cryostat-operator-controller
       failurePolicy: Fail
       generateName: mcryostat.kb.io
       rules:
@@ -1220,7 +1232,7 @@ spec:
     - admissionReviewVersions:
         - v1
       containerPort: 443
-      deploymentName: cryostat-operator-controller-manager
+      deploymentName: cryostat-operator-controller
       failurePolicy: Fail
       generateName: vcryostat.kb.io
       rules:

@@ -23,10 +23,11 @@ import (
 	"strings"
 	"time"
 
+	"github.com/cryostatio/cryostat-operator/internal/controllers/constants"
+	"github.com/cryostatio/cryostat-operator/internal/controllers/model"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/apimachinery/pkg/types"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 )
 
@@ -69,17 +70,28 @@ func ClusterUniqueName(gvk *schema.GroupVersionKind, name string, namespace stri
 	return ClusterUniqueNameWithPrefix(gvk, "", name, namespace)
 }
 
-// ClusterUniqueName returns a name for cluster-scoped objects that is
+// ClusterUniqueNameWithPrefix returns a name for cluster-scoped objects that is
 // uniquely identified by a namespace and name. Appends the prefix to the
 // provided Kind.
 func ClusterUniqueNameWithPrefix(gvk *schema.GroupVersionKind, prefix string, name string, namespace string) string {
+	return ClusterUniqueNameWithPrefixTargetNS(gvk, prefix, name, namespace, "")
+}
+
+// ClusterUniqueNameWithPrefixTargetNS returns a name for cluster-scoped objects that is
+// uniquely identified by a namespace and name, and a target namespace.
+// Appends the prefix to the provided Kind.
+func ClusterUniqueNameWithPrefixTargetNS(gvk *schema.GroupVersionKind, prefix string, name string, namespace string,
+	targetNS string) string {
 	prefixWithKind := strings.ToLower(gvk.Kind)
 	if len(prefix) > 0 {
 		prefixWithKind += "-" + prefix
 	}
+	toHash := namespace + "/" + name
+	if len(targetNS) > 0 {
+		toHash += "/" + targetNS
+	}
 	// Use the SHA256 checksum of the namespaced name as a suffix
-	nn := types.NamespacedName{Namespace: namespace, Name: name}
-	suffix := fmt.Sprintf("%x", sha256.Sum256([]byte(nn.String())))
+	suffix := fmt.Sprintf("%x", sha256.Sum256([]byte(toHash)))
 	return prefixWithKind + "-" + suffix
 }
 
@@ -101,6 +113,15 @@ func MergeLabelsAndAnnotations(dest *metav1.ObjectMeta, srcLabels, srcAnnotation
 	}
 	for k, v := range srcAnnotations {
 		dest.Annotations[k] = v
+	}
+}
+
+// LabelsForTargetNamespaceObject returns a set of labels for an object in a
+// target namespace that refer back to the CR associated with the object.
+func LabelsForTargetNamespaceObject(cr *model.CryostatInstance) map[string]string {
+	return map[string]string{
+		constants.TargetNamespaceCRNameLabel:      cr.Name,
+		constants.TargetNamespaceCRNamespaceLabel: cr.InstallNamespace,
 	}
 }
 

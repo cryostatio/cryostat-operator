@@ -93,12 +93,16 @@ STORAGE_NAMESPACE ?= $(DEFAULT_NAMESPACE)
 STORAGE_NAME ?= cryostat-storage
 STORAGE_VERSION ?= latest
 export STORAGE_IMG ?= $(STORAGE_NAMESPACE)/$(STORAGE_NAME):$(STORAGE_VERSION)
+AGENT_PROXY_NAMESPACE ?= registry.access.redhat.com/ubi8
+AGENT_PROXY_NAME ?= nginx-124
+AGENT_PROXY_VERSION ?= latest
+export AGENT_PROXY_IMG = $(AGENT_PROXY_NAMESPACE)/$(AGENT_PROXY_NAME):$(AGENT_PROXY_VERSION)
 
 CERT_MANAGER_VERSION ?= 1.11.5
 CERT_MANAGER_MANIFEST ?= \
 	https://github.com/cert-manager/cert-manager/releases/download/v$(CERT_MANAGER_VERSION)/cert-manager.yaml
 
-KUSTOMIZE_VERSION ?= 3.8.7
+KUSTOMIZE_VERSION ?= 4.5.7
 CONTROLLER_TOOLS_VERSION ?= 0.14.0
 GOLICENSE_VERSION ?= 1.29.0
 OPM_VERSION ?= 1.23.0
@@ -138,17 +142,23 @@ ifneq ("$(wildcard $(GINKGO))","")
 GO_TEST="$(GINKGO)" -cover -output-dir=.
 endif
 
+KUSTOMIZE_DIR ?= config/default
 # Optional Red Hat Insights integration
 ENABLE_INSIGHTS ?= false
 ifeq ($(ENABLE_INSIGHTS), true)
-KUSTOMIZE_DIR ?= config/insights
-INSIGHTS_PROXY_NAMESPACE ?= quay.io/3scale
-INSIGHTS_PROXY_NAME ?= apicast
-INSIGHTS_PROXY_VERSION ?= insights-01
+KUSTOMIZE_BUNDLE_DIR ?= config/overlays/insights
+INSIGHTS_PROXY_NAMESPACE ?= registry.redhat.io/3scale-amp2
+INSIGHTS_PROXY_NAME ?= apicast-gateway-rhel8
+INSIGHTS_PROXY_VERSION ?= 3scale2.14
 export INSIGHTS_PROXY_IMG ?= $(INSIGHTS_PROXY_NAMESPACE)/$(INSIGHTS_PROXY_NAME):$(INSIGHTS_PROXY_VERSION)
 export INSIGHTS_BACKEND ?= console.redhat.com
+RUNTIMES_INVENTORY_NAMESPACE ?= registry.redhat.io/insights-runtimes-tech-preview
+RUNTIMES_INVENTORY_NAME ?= runtimes-inventory-rhel8-operator
+RUNTIMES_INVENTORY_VERSION ?= latest
+RUNTIMES_INVENTORY_IMG ?= $(RUNTIMES_INVENTORY_NAMESPACE)/$(RUNTIMES_INVENTORY_NAME):$(RUNTIMES_INVENTORY_VERSION)
+BUNDLE_GEN_FLAGS += --extra-service-accounts cryostat-operator-insights
 else
-KUSTOMIZE_DIR ?= config/default
+KUSTOMIZE_BUNDLE_DIR ?= config/manifests
 endif
 
 # Specify which scorecard tests/suites to run
@@ -325,10 +335,13 @@ catalog-build: opm ## Build a catalog image.
 bundle: manifests kustomize operator-sdk ## Generate bundle manifests and metadata, then validate generated files.
 	$(OPERATOR_SDK) generate kustomize manifests -q
 	cd config/manager && $(KUSTOMIZE) edit set image controller=$(OPERATOR_IMG)
-ifeq ($(BUNDLE_MODE), ocp)
-	cd config/manifests && $(KUSTOMIZE) edit add base ../openshift
+ifeq ($(ENABLE_INSIGHTS), true)
+	cd config/insights && $(KUSTOMIZE) edit set image insights=$(RUNTIMES_INVENTORY_IMG)
 endif
-	$(KUSTOMIZE) build config/manifests | $(OPERATOR_SDK) generate bundle $(BUNDLE_GEN_FLAGS)
+ifeq ($(BUNDLE_MODE), ocp)
+	cd $(KUSTOMIZE_BUNDLE_DIR) && $(KUSTOMIZE) edit add base ../openshift
+endif
+	$(KUSTOMIZE) build $(KUSTOMIZE_BUNDLE_DIR) | $(OPERATOR_SDK) generate bundle $(BUNDLE_GEN_FLAGS)
 # Workaround for: https://issues.redhat.com/browse/OCPBUGS-34901
 	yq -i '.spec.customresourcedefinitions.owned |= reverse' bundle/manifests/cryostat-operator.clusterserviceversion.yaml
 	$(OPERATOR_SDK) bundle validate ./bundle
@@ -345,7 +358,7 @@ manifests: controller-gen ## Generate manifests e.g. CRD, RBAC, etc.
 	envsubst < hack/image_tag_patch.yaml.in > config/default/image_tag_patch.yaml
 	envsubst < hack/image_pull_patch.yaml.in > config/default/image_pull_patch.yaml
 ifeq ($(ENABLE_INSIGHTS), true)
-	envsubst < hack/insights_patch.yaml.in > config/insights/insights_patch.yaml
+	envsubst < hack/insights_patch.yaml.in > config/overlays/insights/insights_patch.yaml
 endif
 
 .PHONY: fmt
@@ -384,25 +397,42 @@ SAMPLE_APP_FLAGS += -n $(SAMPLE_APP_NAMESPACE)
 endif
 
 .PHONY: sample_app
-sample_app: ## Deploy sample app.
+sample_app: undeploy_sample_app ## Deploy sample app.
 	$(CLUSTER_CLIENT) apply $(SAMPLE_APP_FLAGS) -f config/samples/sample-app.yaml
 
 .PHONY: undeploy_sample_app
 undeploy_sample_app: ## Undeploy sample app.
-	$(CLUSTER_CLIENT) delete $(SAMPLE_APP_FLAGS) --ignore-not-found=$(ignore-not-found) -f config/samples/sample-app.yaml
+	- $(CLUSTER_CLIENT) delete $(SAMPLE_APP_FLAGS) --ignore-not-found=$(ignore-not-found) -f config/samples/sample-app.yaml
 
 .PHONY: sample_app_agent
 sample_app_agent: undeploy_sample_app_agent ## Deploy sample app with Cryostat Agent.
 	@if [ -z "${AUTH_TOKEN}" ]; then \
 		if [ "${CLUSTER_CLIENT}" = "oc" ]; then\
-			AUTH_TOKEN=`oc whoami -t | base64`; \
+			AUTH_TOKEN=`oc whoami -t`; \
 		else \
 			echo "'AUTH_TOKEN' must be specified."; \
 			exit 1; \
 		fi; \
 	fi; \
 	$(CLUSTER_CLIENT) apply $(SAMPLE_APP_FLAGS) -f config/samples/sample-app-agent.yaml; \
-	$(CLUSTER_CLIENT) set env $(SAMPLE_APP_FLAGS) deployment/quarkus-test-agent CRYOSTAT_AGENT_AUTHORIZATION="Bearer $(AUTH_TOKEN)"
+	$(CLUSTER_CLIENT) set env $(SAMPLE_APP_FLAGS) deployment/quarkus-cryostat-agent CRYOSTAT_AGENT_AUTHORIZATION="Bearer $(AUTH_TOKEN)"
+
+.PHONY: undeploy_sample_app_agent_proxy
+undeploy_sample_app_agent_proxy: ## Undeploy sample app with Cryostat Agent configured for TLS client auth on nginx proxy.
+	- $(CLUSTER_CLIENT) delete $(SAMPLE_APP_FLAGS) --ignore-not-found=$(ignore-not-found) -f config/samples/sample-app-agent-tls-proxy.yaml
+
+.PHONY: sample_app_agent_proxy
+sample_app_agent_proxy: undeploy_sample_app_agent_proxy ## Deploy sample app with Cryostat Agent configured for TLS client auth on nginx proxy.
+	@if [ -z "${SECRET_HASH}" ]; then \
+		if [ -z "$${SAMPLE_APP_NAMESPACE}" ]; then \
+			SAMPLE_APP_NAMESPACE=`$(CLUSTER_CLIENT) config view --minify -o 'jsonpath={.contexts[0].context.namespace}'`; \
+		fi ;\
+		if [ -z "$${CRYOSTAT_CR_NAME}" ]; then \
+			CRYOSTAT_CR_NAME="cryostat-sample"; \
+		fi ;\
+		SECRET_HASH=`echo -n ${DEPLOY_NAMESPACE}/$${CRYOSTAT_CR_NAME}/$${SAMPLE_APP_NAMESPACE} | sha256sum | cut -d' ' -f 1`; \
+	fi; \
+	sed "s/REPLACEHASH/$${SECRET_HASH}/" < config/samples/sample-app-agent-tls-proxy.yaml | oc apply -f -
 
 .PHONY: undeploy_sample_app_agent
 undeploy_sample_app_agent: ## Undeploy sample app with Cryostat Agent.
@@ -514,7 +544,7 @@ deploy: check_cert_manager manifests kustomize predeploy undeploy ## Deploy cont
 	$(KUSTOMIZE) build $(KUSTOMIZE_DIR) | $(CLUSTER_CLIENT) create -f -
 ifeq ($(DISABLE_SERVICE_TLS), true)
 	@echo "Disabling TLS for in-cluster communication between Services"
-	@$(CLUSTER_CLIENT) -n $(DEPLOY_NAMESPACE) set env deployment/cryostat-operator-controller-manager DISABLE_SERVICE_TLS=true
+	@$(CLUSTER_CLIENT) -n $(DEPLOY_NAMESPACE) set env deployment/cryostat-operator-controller DISABLE_SERVICE_TLS=true
 endif
 
 .PHONY: undeploy
@@ -546,7 +576,9 @@ undeploy_bundle: operator-sdk ## Undeploy the controller in the bundle format wi
 
 .PHONY: create_cryostat_cr
 create_cryostat_cr: destroy_cryostat_cr ## Create a namespaced Cryostat instance.
-	$(CLUSTER_CLIENT) create -f config/samples/operator_v1beta2_cryostat.yaml
+	target_ns_json=$$(jq -nc '$$ARGS.positional' --args -- $(TARGET_NAMESPACES)) && \
+	$(CLUSTER_CLIENT) patch -f config/samples/operator_v1beta2_cryostat.yaml --local=true --type=merge \
+	-p "{\"spec\": {\"targetNamespaces\": $$target_ns_json}}" -o yaml | oc apply -f -
 
 .PHONY: destroy_cryostat_cr
 destroy_cryostat_cr: ## Delete a namespaced Cryostat instance.

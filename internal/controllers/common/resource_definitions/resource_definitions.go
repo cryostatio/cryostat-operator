@@ -44,6 +44,7 @@ type ImageTags struct {
 	ReportsImageTag             string
 	StorageImageTag             string
 	DatabaseImageTag            string
+	AgentProxyImageTag          string
 }
 
 type ServiceSpecs struct {
@@ -65,6 +66,8 @@ type TLSConfig struct {
 	DatabaseSecret string
 	// Name of the TLS secret for Storage
 	StorageSecret string
+	// Name of the TLS secret for the agent proxy
+	AgentProxySecret string
 	// Name of the secret containing the password for the keystore in CryostatSecret
 	KeystorePassSecret string
 	// PEM-encoded X.509 certificate for the Cryostat CA
@@ -86,6 +89,8 @@ const (
 	defaultStorageMemoryRequest       string = "256Mi"
 	defaultReportCpuRequest           string = "500m"
 	defaultReportMemoryRequest        string = "512Mi"
+	defaultAgentProxyCpuRequest       string = "25m"
+	defaultAgentProxyMemoryRequest    string = "64Mi"
 	OAuth2ConfigFileName              string = "alpha_config.json"
 	OAuth2ConfigFilePath              string = "/etc/oauth2_proxy/alpha_config"
 )
@@ -102,7 +107,7 @@ func NewDeploymentForCR(cr *model.CryostatInstance, specs *ServiceSpecs, imageTa
 		"app.kubernetes.io/name": "cryostat",
 	}
 	defaultDeploymentAnnotations := map[string]string{
-		"app.openshift.io/connects-to": "cryostat-operator-controller-manager",
+		"app.openshift.io/connects-to": constants.OperatorDeploymentName,
 	}
 	defaultPodLabels := map[string]string{
 		"app":       cr.Name,
@@ -429,6 +434,7 @@ func NewPodForCR(cr *model.CryostatInstance, specs *ServiceSpecs, imageTags *Ima
 		NewGrafanaContainer(cr, imageTags.GrafanaImageTag, tls),
 		NewJfrDatasourceContainer(cr, imageTags.DatasourceImageTag),
 		*authProxy,
+		newAgentProxyContainer(cr, imageTags.AgentProxyImageTag, tls),
 	}
 
 	volumes := newVolumeForCR(cr)
@@ -482,7 +488,17 @@ func NewPodForCR(cr *model.CryostatInstance, specs *ServiceSpecs, imageTags *Ima
 				Name: "auth-proxy-tls-secret",
 				VolumeSource: corev1.VolumeSource{
 					Secret: &corev1.SecretVolumeSource{
-						SecretName: tls.CryostatSecret,
+						SecretName:  tls.CryostatSecret,
+						DefaultMode: &readOnlyMode,
+					},
+				},
+			},
+			corev1.Volume{
+				Name: "agent-proxy-tls-secret",
+				VolumeSource: corev1.VolumeSource{
+					Secret: &corev1.SecretVolumeSource{
+						SecretName:  tls.AgentProxySecret,
+						DefaultMode: &readOnlyMode,
 					},
 				},
 			},
@@ -513,7 +529,21 @@ func NewPodForCR(cr *model.CryostatInstance, specs *ServiceSpecs, imageTags *Ima
 			},
 		},
 	}
-	volumes = append(volumes, certVolume)
+
+	// Add agent proxy config map as a volume
+	agentProxyVolume := corev1.Volume{
+		Name: "agent-proxy-config",
+		VolumeSource: corev1.VolumeSource{
+			ConfigMap: &corev1.ConfigMapVolumeSource{
+				LocalObjectReference: corev1.LocalObjectReference{
+					Name: cr.Name + "-agent-proxy",
+				},
+				DefaultMode: &readOnlyMode,
+			},
+		},
+	}
+
+	volumes = append(volumes, certVolume, agentProxyVolume)
 
 	if !openshift {
 		// if not deploying openshift-oauth-proxy then we must be deploying oauth2_proxy instead
@@ -929,7 +959,7 @@ func NewOpenShiftAuthProxyContainer(cr *model.CryostatInstance, specs *ServiceSp
 		"--pass-basic-auth=false",
 		fmt.Sprintf("--upstream=http://localhost:%d/", constants.CryostatHTTPContainerPort),
 		fmt.Sprintf("--upstream=http://localhost:%d/grafana/", constants.GrafanaContainerPort),
-		// fmt.Sprintf("--upstream=http://localhost:%d/storage/", constants.StorageContainerPort),
+		// fmt.Sprintf("--upstream=http://localhost:%d/storage/", constants.StoragePort),
 		fmt.Sprintf("--openshift-service-account=%s", cr.Name),
 		"--proxy-websockets=true",
 		"--proxy-prefix=/oauth2",
@@ -1207,7 +1237,11 @@ func NewCoreContainer(cr *model.CryostatInstance, specs *ServiceSpecs, imageTag 
 		},
 		{
 			Name:  "QUARKUS_HIBERNATE_ORM_DATABASE_GENERATION",
-			Value: "drop-and-create",
+			Value: "none",
+		},
+		{
+			Name:  "QUARKUS_HIBERNATE_ORM_SQL_LOAD_SCRIPT",
+			Value: "no-file",
 		},
 		{
 			Name:  "QUARKUS_DATASOURCE_USERNAME",
@@ -1574,6 +1608,10 @@ func NewStorageContainer(cr *model.CryostatInstance, imageTag string, tls *TLSCo
 			Name:  "IP_BIND",
 			Value: "0.0.0.0",
 		},
+		{
+			Name:  "REST_ENCRYPTION_ENABLE",
+			Value: "1",
+		},
 	}
 
 	mounts := []corev1.VolumeMount{
@@ -1606,7 +1644,7 @@ func NewStorageContainer(cr *model.CryostatInstance, imageTag string, tls *TLSCo
 		tlsEnvs := []corev1.EnvVar{
 			{
 				Name:  "S3_PORT_HTTPS",
-				Value: strconv.Itoa(int(constants.StorageContainerPort)),
+				Value: strconv.Itoa(int(constants.StoragePort)),
 			},
 			{
 				Name:  "S3_KEY_FILE",
@@ -1630,7 +1668,7 @@ func NewStorageContainer(cr *model.CryostatInstance, imageTag string, tls *TLSCo
 	} /** else {
 		envs = append(envs, corev1.EnvVar{
 			Name:  "QUARKUS_HTTP_PORT",
-			Value: strconv.Itoa(int(constants.StorageContainerPort)),
+			Value: strconv.Itoa(int(constants.StoragePort)),
 		})
 	}**/
 
@@ -1663,7 +1701,7 @@ func NewStorageContainer(cr *model.CryostatInstance, imageTag string, tls *TLSCo
 		Env:             envs,
 		Ports: []corev1.ContainerPort{
 			{
-				ContainerPort: constants.StorageContainerPort,
+				ContainerPort: constants.StoragePort,
 			},
 		},
 		LivenessProbe: &corev1.Probe{
@@ -1793,7 +1831,7 @@ func NewDatabaseContainer(cr *model.CryostatInstance, imageTag string, tls *TLSC
 		Env:             envs,
 		Ports: []corev1.ContainerPort{
 			{
-				ContainerPort: constants.DatabaseContainerPort,
+				ContainerPort: constants.DatabasePort,
 			},
 		},
 		ReadinessProbe: &corev1.Probe{
@@ -1863,6 +1901,92 @@ func NewJfrDatasourceContainer(cr *model.CryostatInstance, imageTag string) core
 		SecurityContext: containerSc,
 		Resources:       *NewJfrDatasourceContainerResource(cr),
 	}
+}
+
+func newAgentProxyContainer(cr *model.CryostatInstance, imageTag string, tls *TLSConfig) corev1.Container {
+	var securityContext *corev1.SecurityContext
+	if cr.Spec.SecurityOptions != nil && cr.Spec.SecurityOptions.AgentProxySecurityContext != nil {
+		securityContext = cr.Spec.SecurityOptions.AgentProxySecurityContext
+	} else {
+		privEscalation := false
+		securityContext = &corev1.SecurityContext{
+			AllowPrivilegeEscalation: &privEscalation,
+			Capabilities: &corev1.Capabilities{
+				Drop: []corev1.Capability{constants.CapabilityAll},
+			},
+		}
+	}
+
+	// Mount the config map containing the nginx.conf (and DH params if TLS is enabled)
+	mounts := []corev1.VolumeMount{
+		{
+			Name:      "agent-proxy-config",
+			MountPath: constants.AgentProxyConfigFilePath,
+			ReadOnly:  true,
+		},
+	}
+	if tls != nil {
+		// Mount the TLS secret for the agent proxy
+		mounts = append(mounts, corev1.VolumeMount{
+			Name:      "agent-proxy-tls-secret",
+			MountPath: "/var/run/secrets/operator.cryostat.io/" + tls.AgentProxySecret,
+			ReadOnly:  true,
+		})
+	}
+
+	return corev1.Container{
+		Name:            cr.Name + "-agent-proxy",
+		Image:           imageTag,
+		ImagePullPolicy: getPullPolicy(imageTag),
+		Ports: []corev1.ContainerPort{
+			{
+				ContainerPort: constants.AgentProxyContainerPort,
+			},
+			{
+				ContainerPort: constants.AgentProxyHealthPort,
+			},
+		},
+		// Override the command to run nginx pointed at our config file. See:
+		// https://github.com/sclorg/nginx-container/blob/e7d8db9bc5299a4c4e254f8a82e917c7c136468b/1.24/README.md#direct-usage-with-a-mounted-directory
+		Command: []string{
+			"nginx", "-c",
+			fmt.Sprintf("%s/%s", constants.AgentProxyConfigFilePath, constants.AgentProxyConfigFileName),
+			"-g", "daemon off;"},
+		LivenessProbe: &corev1.Probe{
+			ProbeHandler: corev1.ProbeHandler{
+				HTTPGet: &corev1.HTTPGetAction{
+					Path:   "/healthz",
+					Port:   intstr.FromInt32(constants.AgentProxyHealthPort),
+					Scheme: corev1.URISchemeHTTP,
+				},
+			},
+		},
+		SecurityContext: securityContext,
+		Resources:       *newAgentProxyContainerResource(cr),
+		VolumeMounts:    mounts,
+	}
+}
+
+func newAgentProxyContainerResource(cr *model.CryostatInstance) *corev1.ResourceRequirements {
+	resources := &corev1.ResourceRequirements{}
+	if cr.Spec.Resources != nil {
+		resources = cr.Spec.Resources.AgentProxyResources.DeepCopy()
+	}
+	populateResourceRequest(resources, defaultAgentProxyCpuRequest, defaultAgentProxyMemoryRequest)
+	return resources
+}
+
+func getPort(url *url.URL) string {
+	// Return port if already defined in URL
+	port := url.Port()
+	if len(port) > 0 {
+		return port
+	}
+	// Otherwise use default HTTP(S) ports
+	if url.Scheme == "https" {
+		return "443"
+	}
+	return "80"
 }
 
 func getInternalDashboardURL() string {

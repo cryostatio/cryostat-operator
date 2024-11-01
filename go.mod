@@ -4,7 +4,6 @@ module github.com/cryostatio/cryostat-operator
 go 1.21
 
 require (
-	github.com/RedHatInsights/runtimes-inventory-operator v0.0.0-20240327135922-5705da62073c
 	github.com/blang/semver/v4 v4.0.0
 	github.com/cert-manager/cert-manager v1.13.6
 	github.com/go-logr/logr v1.4.2
@@ -13,9 +12,9 @@ require (
 	github.com/onsi/gomega v1.33.1
 	github.com/openshift/api v0.0.0-20240228005710-4511c790cc60 // release-4.15
 	github.com/operator-framework/api v0.22.0
-	k8s.io/api v0.28.11
-	k8s.io/apimachinery v0.28.11
-	k8s.io/client-go v0.28.11
+	k8s.io/api v0.28.15
+	k8s.io/apimachinery v0.28.15
+	k8s.io/client-go v0.28.15
 	sigs.k8s.io/controller-runtime v0.16.6
 )
 

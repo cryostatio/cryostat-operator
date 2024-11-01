@@ -137,7 +137,9 @@ func (r *Reconciler) reconcileRoleBinding(ctx context.Context, cr *model.Cryosta
 			Kind:     "ClusterRole",
 			Name:     "cryostat-operator-cryostat-namespaced",
 		}
-		err := r.createOrUpdateRoleBinding(ctx, binding, cr.Object, subjects, roleRef)
+
+		err := r.createOrUpdateRoleBinding(ctx, binding, cr.Object, subjects, roleRef,
+			common.LabelsForTargetNamespaceObject(cr))
 		if err != nil {
 			return err
 		}
@@ -241,9 +243,11 @@ func (r *Reconciler) cleanUpRole(ctx context.Context, cr *model.CryostatInstance
 }
 
 func (r *Reconciler) createOrUpdateRoleBinding(ctx context.Context, binding *rbacv1.RoleBinding,
-	owner metav1.Object, subjects []rbacv1.Subject, roleRef *rbacv1.RoleRef) error {
+	owner metav1.Object, subjects []rbacv1.Subject, roleRef *rbacv1.RoleRef,
+	labels map[string]string) error {
 	bindingCopy := binding.DeepCopy()
 	op, err := controllerutil.CreateOrUpdate(ctx, r.Client, binding, func() error {
+		common.MergeLabelsAndAnnotations(&binding.ObjectMeta, labels, map[string]string{})
 		// Update the list of Subjects
 		binding.Subjects = subjects
 		// Update the Role reference
@@ -256,7 +260,7 @@ func (r *Reconciler) createOrUpdateRoleBinding(ctx context.Context, binding *rba
 	})
 	if err != nil {
 		if err == errRoleRefModified {
-			return r.recreateRoleBinding(ctx, bindingCopy, owner, subjects, roleRef)
+			return r.recreateRoleBinding(ctx, bindingCopy, owner, subjects, roleRef, labels)
 		}
 		return err
 	}
@@ -281,13 +285,13 @@ func getRoleRef(binding metav1.Object, oldRef *rbacv1.RoleRef, newRef *rbacv1.Ro
 }
 
 func (r *Reconciler) recreateRoleBinding(ctx context.Context, binding *rbacv1.RoleBinding, owner metav1.Object,
-	subjects []rbacv1.Subject, roleRef *rbacv1.RoleRef) error {
+	subjects []rbacv1.Subject, roleRef *rbacv1.RoleRef, labels map[string]string) error {
 	// Delete and recreate role binding
 	err := r.deleteRoleBinding(ctx, binding)
 	if err != nil {
 		return err
 	}
-	return r.createOrUpdateRoleBinding(ctx, binding, owner, subjects, roleRef)
+	return r.createOrUpdateRoleBinding(ctx, binding, owner, subjects, roleRef, labels)
 }
 
 func (r *Reconciler) deleteRoleBinding(ctx context.Context, binding *rbacv1.RoleBinding) error {

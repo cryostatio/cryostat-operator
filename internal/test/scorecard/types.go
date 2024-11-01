@@ -111,12 +111,6 @@ type Archive struct {
 	Size uint32 `json:"size"`
 }
 
-type CustomTargetResponse struct {
-	Data struct {
-		Result *Target `json:"result"`
-	} `json:"data"`
-}
-
 type Target struct {
 	Id         uint32 `json:"id,omitempty"`
 	ConnectUrl string `json:"connectUrl"`

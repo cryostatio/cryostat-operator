@@ -111,6 +111,31 @@ func (r *Reconciler) reconcileReportsService(ctx context.Context, cr *model.Cryo
 	return nil
 }
 
+func (r *Reconciler) reconcileAgentService(ctx context.Context, cr *model.CryostatInstance) error {
+	config := configureAgentService(cr)
+	svc := &corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      cr.Name + "-agent",
+			Namespace: cr.InstallNamespace,
+		},
+	}
+
+	return r.createOrUpdateService(ctx, svc, cr.Object, &config.ServiceConfig, func() error {
+		svc.Spec.Selector = map[string]string{
+			"app":       cr.Name,
+			"component": "cryostat",
+		}
+		svc.Spec.Ports = []corev1.ServicePort{
+			{
+				Name:       "http",
+				Port:       *config.HTTPPort,
+				TargetPort: intstr.IntOrString{IntVal: constants.AgentProxyContainerPort},
+			},
+		}
+		return nil
+	})
+}
+
 func (r *Reconciler) reconcileDatabaseService(ctx context.Context, cr *model.CryostatInstance, tls *resource_definitions.TLSConfig,
 	specs *resource_definitions.ServiceSpecs) error {
 	config := configureDatabaseService(cr)
@@ -128,9 +153,10 @@ func (r *Reconciler) reconcileDatabaseService(ctx context.Context, cr *model.Cry
 		}
 		svc.Spec.Ports = []corev1.ServicePort{
 			{
+				// TODO rename, this is JDBC not HTTP
 				Name:       "http",
 				Port:       *config.HTTPPort,
-				TargetPort: intstr.IntOrString{IntVal: constants.DatabaseContainerPort},
+				TargetPort: intstr.IntOrString{IntVal: constants.DatabasePort},
 			},
 		}
 		return nil
@@ -170,7 +196,7 @@ func (r *Reconciler) reconcileStorageService(ctx context.Context, cr *model.Cryo
 			{
 				Name:       "http",
 				Port:       *config.HTTPPort,
-				TargetPort: intstr.IntOrString{IntVal: constants.StorageContainerPort},
+				TargetPort: intstr.IntOrString{IntVal: constants.StoragePort},
 			},
 		}
 		return nil
@@ -247,7 +273,7 @@ func configureDatabaseService(cr *model.CryostatInstance) *operatorv1beta2.Datab
 
 	// Apply default HTTP port if not provided
 	if config.HTTPPort == nil {
-		httpPort := constants.DatabaseContainerPort
+		httpPort := constants.DatabasePort
 		config.HTTPPort = &httpPort
 	}
 
@@ -268,7 +294,28 @@ func configureStorageService(cr *model.CryostatInstance) *operatorv1beta2.Storag
 
 	// Apply default HTTP port if not providednt
 	if config.HTTPPort == nil {
-		httpPort := constants.StorageContainerPort
+		httpPort := constants.StoragePort
+		config.HTTPPort = &httpPort
+	}
+
+	return config
+}
+
+func configureAgentService(cr *model.CryostatInstance) *operatorv1beta2.AgentServiceConfig {
+	// Check CR for config
+	var config *operatorv1beta2.AgentServiceConfig
+	if cr.Spec.ServiceOptions == nil || cr.Spec.ServiceOptions.AgentConfig == nil {
+		config = &operatorv1beta2.AgentServiceConfig{}
+	} else {
+		config = cr.Spec.ServiceOptions.AgentConfig.DeepCopy()
+	}
+
+	// Apply common service defaults
+	configureService(&config.ServiceConfig, cr.Name, "cryostat")
+
+	// Apply default HTTP port if not provided
+	if config.HTTPPort == nil {
+		httpPort := constants.AgentProxyContainerPort
 		config.HTTPPort = &httpPort
 	}
 

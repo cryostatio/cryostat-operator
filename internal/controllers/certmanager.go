@@ -18,6 +18,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 
 	certv1 "github.com/cert-manager/cert-manager/pkg/apis/certmanager/v1"
 	"github.com/cryostatio/cryostat-operator/internal/controllers/common"
@@ -104,27 +105,35 @@ func (r *Reconciler) setupTLS(ctx context.Context, cr *model.CryostatInstance) (
 		return nil, err
 	}
 
+	// Create a certificate for the agent proxy signed by the Cryostat CA
+	agentProxyCert := resources.NewAgentProxyCert(cr)
+	err = r.createOrUpdateCertificate(ctx, agentProxyCert, cr.Object)
+	if err != nil {
+		return nil, err
+	}
+
+	// List of certificates whose secrets should be owned by this CR
+	certificates := []*certv1.Certificate{caCert, cryostatCert, reportsCert, agentProxyCert}
+
+	// Get the Cryostat CA certificate bytes from certificate secret
+	caBytes, err := r.getCertficateBytes(ctx, caCert)
+	if err != nil {
+		return nil, err
+	}
+
 	tlsConfig := &resources.TLSConfig{
 		CryostatSecret:     cryostatCert.Spec.SecretName,
 		DatabaseSecret:     databaseCert.Spec.SecretName,
 		StorageSecret:      storageCert.Spec.SecretName,
 		ReportsSecret:      reportsCert.Spec.SecretName,
+		AgentProxySecret:   agentProxyCert.Spec.SecretName,
 		KeystorePassSecret: cryostatCert.Spec.Keystores.PKCS12.PasswordSecretRef.Name,
-	}
-	certificates := []*certv1.Certificate{caCert, cryostatCert, reportsCert}
-
-	// Update owner references of TLS secrets created by cert-manager to ensure proper cleanup
-	err = r.setCertSecretOwner(ctx, cr.Object, certificates...)
-	if err != nil {
-		return nil, err
+		CACert:             caBytes,
 	}
 
-	secret, err := r.GetCertificateSecret(ctx, caCert)
-	if err != nil {
-		return nil, err
-	}
-	// Copy Cryostat CA secret in each target namespace
+	agentCertsNotReady := []string{}
 	for _, ns := range cr.TargetNamespaces {
+		// Copy Cryostat CA secret in each target namespace
 		if ns != cr.InstallNamespace {
 			namespaceSecret := &corev1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
@@ -133,14 +142,42 @@ func (r *Reconciler) setupTLS(ctx context.Context, cr *model.CryostatInstance) (
 				},
 				Type: corev1.SecretTypeOpaque,
 			}
-			err = r.createOrUpdateCertSecret(ctx, namespaceSecret, secret.Data[corev1.TLSCertKey])
+			err = r.createOrUpdateCertSecret(ctx, namespaceSecret, caBytes,
+				common.LabelsForTargetNamespaceObject(cr))
 			if err != nil {
 				return nil, err
 			}
 		}
+
+		// Create a certificate for Cryostat agents in each target namespace
+		agentCert := resources.NewAgentCert(cr, ns, r.gvk)
+		err := r.reconcileAgentCertificate(ctx, agentCert, cr, ns)
+		if err != nil {
+			if err == common.ErrCertNotReady {
+				// Continue with other namespaces if the cert isn't ready
+				agentCertsNotReady = append(agentCertsNotReady, agentCert.Name)
+			} else {
+				return nil, err
+			}
+		}
+		certificates = append(certificates, agentCert)
 	}
-	// Delete any Cryostat CA secrets in target namespaces that are no longer requested
+
+	if len(agentCertsNotReady) > 0 {
+		// One or more agent certificates weren't ready, so log a message and return
+		r.Log.Info("Not all agent certificates were ready", "not ready", strings.Join(agentCertsNotReady, ", "))
+		return nil, common.ErrCertNotReady
+	}
+
+	// Update owner references of TLS secrets created by cert-manager to ensure proper cleanup
+	err = r.setCertSecretOwner(ctx, cr.Object, certificates...)
+	if err != nil {
+		return nil, err
+	}
+
+	// Clean up resources from target namespaces that are no longer requested
 	for _, ns := range toDelete(cr) {
+		// Delete any Cryostat CA secret copies in removed namespaces
 		if ns != cr.InstallNamespace {
 			namespaceSecret := &corev1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
@@ -153,14 +190,31 @@ func (r *Reconciler) setupTLS(ctx context.Context, cr *model.CryostatInstance) (
 				return nil, err
 			}
 		}
+
+		// Delete any agent certificates removed target namespaces
+		agentCert := resources.NewAgentCert(cr, ns, r.gvk)
+
+		// Delete namespace copy
+		if ns != cr.InstallNamespace {
+			namespaceAgentSecret := &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      agentCert.Spec.SecretName,
+					Namespace: ns,
+				},
+			}
+			err = r.deleteSecret(ctx, namespaceAgentSecret)
+			if err != nil {
+				return nil, err
+			}
+		}
+
+		// Delete certificate with original secret
+		err := r.deleteCertWithSecret(ctx, agentCert)
+		if err != nil {
+			return nil, err
+		}
 	}
 
-	// Get the Cryostat CA certificate bytes from certificate secret
-	caBytes, err := r.getCertficateBytes(ctx, caCert)
-	if err != nil {
-		return nil, err
-	}
-	tlsConfig.CACert = caBytes
 	return tlsConfig, nil
 }
 
@@ -178,8 +232,22 @@ func (r *Reconciler) finalizeTLS(ctx context.Context, cr *model.CryostatInstance
 			if err != nil {
 				return err
 			}
+
+			// Delete any agent certificate secrets in target namespaces
+			agentCert := resources.NewAgentCert(cr, ns, r.gvk)
+			namespaceAgentSecret := &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      agentCert.Spec.SecretName,
+					Namespace: ns,
+				},
+			}
+			err = r.deleteSecret(ctx, namespaceAgentSecret)
+			if err != nil {
+				return err
+			}
 		}
 	}
+
 	return nil
 }
 
@@ -282,20 +350,7 @@ func (r *Reconciler) deleteCertChain(ctx context.Context, namespace string, caSe
 	for i, cert := range certs.Items {
 		// Is the certificate owned by this CR, and not the CA itself?
 		if metav1.IsControlledBy(&certs.Items[i], owner) && cert.Spec.SecretName != caSecretName {
-			// Clean up secret referenced by the cert
-			secret := &corev1.Secret{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      cert.Spec.SecretName,
-					Namespace: cert.Namespace,
-				},
-			}
-
-			err := r.deleteSecret(ctx, secret)
-			if err != nil {
-				return err
-			}
-			// Delete the certificate
-			err = r.deleteCertificate(ctx, &certs.Items[i])
+			err := r.deleteCertWithSecret(ctx, &certs.Items[i])
 			if err != nil {
 				return err
 			}
@@ -305,11 +360,67 @@ func (r *Reconciler) deleteCertChain(ctx context.Context, namespace string, caSe
 	return nil
 }
 
+func (r *Reconciler) deleteCertWithSecret(ctx context.Context, cert *certv1.Certificate) error {
+	// Clean up secret referenced by the cert
+	secret := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      cert.Spec.SecretName,
+			Namespace: cert.Namespace,
+		},
+	}
+	err := r.deleteSecret(ctx, secret)
+	if err != nil {
+		return err
+	}
+
+	// Delete the certificate
+	err = r.deleteCertificate(ctx, cert)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (r *Reconciler) reconcileAgentCertificate(ctx context.Context, cert *certv1.Certificate, cr *model.CryostatInstance, namespace string) error {
+	// Create the Agent certificate in the install namespace
+	err := r.createOrUpdateCertificate(ctx, cert, cr.Object)
+	if err != nil {
+		return err
+	}
+
+	// Fetch the certificate secret and create a copy in the target namespace (if not the install namespace)
+	if namespace != cr.InstallNamespace {
+		secret, err := r.GetCertificateSecret(ctx, cert)
+		if err != nil {
+			return err
+		}
+
+		targetSecret := &corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      secret.Name,
+				Namespace: namespace,
+			},
+		}
+		err = r.createOrUpdateSecret(ctx, targetSecret, nil, func() error {
+			common.MergeLabelsAndAnnotations(&targetSecret.ObjectMeta,
+				common.LabelsForTargetNamespaceObject(cr), map[string]string{})
+			targetSecret.Data = secret.Data
+			return nil
+		})
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func (r *Reconciler) createOrUpdateCertificate(ctx context.Context, cert *certv1.Certificate, owner metav1.Object) error {
 	certSpec := cert.Spec.DeepCopy()
 	op, err := controllerutil.CreateOrUpdate(ctx, r.Client, cert, func() error {
-		if err := controllerutil.SetControllerReference(owner, cert, r.Scheme); err != nil {
-			return err
+		if owner != nil {
+			if err := controllerutil.SetControllerReference(owner, cert, r.Scheme); err != nil {
+				return err
+			}
 		}
 		// Update Certificate spec
 		cert.Spec = *certSpec
@@ -352,8 +463,10 @@ func (r *Reconciler) createOrUpdateKeystoreSecret(ctx context.Context, secret *c
 	return nil
 }
 
-func (r *Reconciler) createOrUpdateCertSecret(ctx context.Context, secret *corev1.Secret, cert []byte) error {
+func (r *Reconciler) createOrUpdateCertSecret(ctx context.Context, secret *corev1.Secret, cert []byte,
+	labels map[string]string) error {
 	op, err := controllerutil.CreateOrUpdate(ctx, r.Client, secret, func() error {
+		common.MergeLabelsAndAnnotations(&secret.ObjectMeta, labels, map[string]string{})
 		if secret.Data == nil {
 			secret.Data = map[string][]byte{}
 		}
