@@ -1639,8 +1639,8 @@ func NewStorageContainer(cr *model.CryostatInstance, imageTag string, tls *TLSCo
 
 	livenessProbeScheme := corev1.URISchemeHTTP
 
+	/**
 	if tls != nil {
-		/**
 		tlsEnvs := []corev1.EnvVar{
 			{
 				Name:  "S3_PORT_HTTPS",
@@ -1655,7 +1655,7 @@ func NewStorageContainer(cr *model.CryostatInstance, imageTag string, tls *TLSCo
 				Value: fmt.Sprintf("/var/run/secrets/operator.cryostat.io/%s/%s", tls.StorageSecret, corev1.TLSCertKey),
 			},
 		}
-		envs = append(envs, tlsEnvs...) **/
+		envs = append(envs, tlsEnvs...)
 
 		tlsSecretMount := corev1.VolumeMount{
 			Name:      "storage-tls-secret",
@@ -1665,12 +1665,13 @@ func NewStorageContainer(cr *model.CryostatInstance, imageTag string, tls *TLSCo
 
 		mounts = append(mounts, tlsSecretMount)
 		livenessProbeScheme = corev1.URISchemeHTTPS
-	} /** else {
+	} else {
 		envs = append(envs, corev1.EnvVar{
 			Name:  "QUARKUS_HTTP_PORT",
 			Value: strconv.Itoa(int(constants.StoragePort)),
 		})
-	}**/
+	}
+	**/
 
 	if cr.Spec.SecurityOptions != nil && cr.Spec.SecurityOptions.StorageSecurityContext != nil {
 		containerSc = cr.Spec.SecurityOptions.StorageSecurityContext
@@ -1786,8 +1787,8 @@ func NewDatabaseContainer(cr *model.CryostatInstance, imageTag string, tls *TLSC
 		},
 	}
 
+	/**
 	if tls != nil {
-		/**
 		tlsEnvs := []corev1.EnvVar{
 			{
 				Name:  "QUARKUS_DATASOURCE_REACTIVE_TRUST_ALL",
@@ -1806,7 +1807,7 @@ func NewDatabaseContainer(cr *model.CryostatInstance, imageTag string, tls *TLSC
 				Value: fmt.Sprintf("https://%s-database:5432", cr.Name),
 			},
 		}
-		envs = append(envs, tlsEnvs...) **/
+		envs = append(envs, tlsEnvs...)
 
 		tlsSecretMount := corev1.VolumeMount{
 			Name:      "database-tls-secret",
@@ -1815,12 +1816,13 @@ func NewDatabaseContainer(cr *model.CryostatInstance, imageTag string, tls *TLSC
 		}
 
 		mounts = append(mounts, tlsSecretMount)
-	} /** else {
+	} else {
 		envs = append(envs, corev1.EnvVar{
 			Name:  "QUARKUS_DATASOURCE_REACTIVE_URL",
 			Value: fmt.Sprintf("http://%s-database:5432", cr.Name),
 		})
-	}**/
+	}
+	**/
 
 	return corev1.Container{
 		Name:            cr.Name + "-db",
