@@ -1210,6 +1210,11 @@ func NewCoreContainer(cr *model.CryostatInstance, specs *ServiceSpecs, imageTag 
 	configPath := "/opt/cryostat.d/conf.d"
 	templatesPath := "/opt/cryostat.d/templates.d"
 
+	storageProtocol := "http"
+	// TODO
+	// if tls != nil {
+	// 	storageProtocol = "https"
+	// }
 	envs := []corev1.EnvVar{
 		{
 			Name:  "QUARKUS_HTTP_HOST",
@@ -1257,7 +1262,7 @@ func NewCoreContainer(cr *model.CryostatInstance, specs *ServiceSpecs, imageTag 
 		},
 		{
 			Name:  "QUARKUS_S3_ENDPOINT_OVERRIDE",
-			Value: fmt.Sprintf("https://%s-storage.%s.svc.cluster.local:8333", cr.Name, cr.InstallNamespace),
+			Value: fmt.Sprintf("%s://%s-storage.%s.svc.cluster.local:8333", storageProtocol, cr.Name, cr.InstallNamespace),
 		},
 		{
 			Name:  "QUARKUS_S3_PATH_STYLE_ACCESS",
@@ -1639,6 +1644,7 @@ func NewStorageContainer(cr *model.CryostatInstance, imageTag string, tls *TLSCo
 
 	livenessProbeScheme := corev1.URISchemeHTTP
 
+	// TODO
 	/**
 	if tls != nil {
 		tlsEnvs := []corev1.EnvVar{
@@ -1787,6 +1793,7 @@ func NewDatabaseContainer(cr *model.CryostatInstance, imageTag string, tls *TLSC
 		},
 	}
 
+	// TODO
 	/**
 	if tls != nil {
 		tlsEnvs := []corev1.EnvVar{
