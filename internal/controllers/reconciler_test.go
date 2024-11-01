@@ -3067,7 +3067,7 @@ func (t *cryostatTestInput) checkMainPodTemplate(deployment *appsv1.Deployment, 
 	Expect(template.Spec.SecurityContext).To(Equal(t.NewPodSecurityContext(cr)))
 
 	// Check that the networking environment variables are set correctly
-	Expect(len(template.Spec.Containers)).To(Equal(7))
+	Expect(len(template.Spec.Containers)).To(Equal(5))
 	coreContainer := template.Spec.Containers[0]
 	reportPort := int32(10000)
 	if cr.Spec.ServiceOptions != nil {
@@ -3116,7 +3116,7 @@ func (t *cryostatTestInput) checkMainPodTemplate(deployment *appsv1.Deployment, 
 	t.checkAuthProxyContainer(&authProxyContainer, t.NewAuthProxyContainerResource(cr), t.NewAuthProxySecurityContext(cr), cr.Spec.AuthorizationOptions)
 
 	// Check that Agent Proxy is configured properly
-	agentProxyContainer := template.Spec.Containers[6]
+	agentProxyContainer := template.Spec.Containers[4]
 	t.checkAgentProxyContainer(&agentProxyContainer, t.NewAgentProxyContainerResource(cr), t.NewAgentProxySecurityContext(cr))
 
 	// Check that the proper Service Account is set

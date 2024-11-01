@@ -1582,6 +1582,11 @@ func (r *TestResources) NewAgentProxyPorts() []corev1.ContainerPort {
 
 func (r *TestResources) NewCoreEnvironmentVariables(reportsUrl string, ingress bool,
 	emptyDir bool, hasPortConfig bool, builtInDiscoveryDisabled bool, builtInPortConfigDisabled bool, dbSecretProvided bool) []corev1.EnvVar {
+	storageProtocol := "http"
+	// TODO
+	// if r.TLS {
+	// 	storageProtocol = "https"
+	// }
 	envs := []corev1.EnvVar{
 		{
 			Name:  "QUARKUS_HTTP_HOST",
@@ -1629,7 +1634,7 @@ func (r *TestResources) NewCoreEnvironmentVariables(reportsUrl string, ingress b
 		},
 		{
 			Name:  "QUARKUS_S3_ENDPOINT_OVERRIDE",
-			Value: fmt.Sprintf("https://%s-storage.%s.svc.cluster.local:8333", r.Name, r.Namespace),
+			Value: fmt.Sprintf("%s://%s-storage.%s.svc.cluster.local:8333", storageProtocol, r.Name, r.Namespace),
 		},
 		{
 			Name:  "QUARKUS_S3_PATH_STYLE_ACCESS",
@@ -2211,14 +2216,15 @@ func (r *TestResources) NewStorageVolumeMounts() []corev1.VolumeMount {
 			SubPath:   "seaweed",
 		})
 
-	if r.TLS {
-		mounts = append(mounts,
-			corev1.VolumeMount{
-				Name:      "storage-tls-secret",
-				MountPath: fmt.Sprintf("/var/run/secrets/operator.cryostat.io/%s-storage-tls", r.Name),
-				ReadOnly:  true,
-			})
-	}
+	// TODO
+	// if r.TLS {
+	// 	mounts = append(mounts,
+	// 		corev1.VolumeMount{
+	// 			Name:      "storage-tls-secret",
+	// 			MountPath: fmt.Sprintf("/var/run/secrets/operator.cryostat.io/%s-storage-tls", r.Name),
+	// 			ReadOnly:  true,
+	// 		})
+	// }
 	return mounts
 }
 
@@ -2231,14 +2237,15 @@ func (r *TestResources) NewDatabaseVolumeMounts() []corev1.VolumeMount {
 			SubPath:   "postgres",
 		})
 
-	if r.TLS {
-		mounts = append(mounts,
-			corev1.VolumeMount{
-				Name:      "database-tls-secret",
-				MountPath: fmt.Sprintf("/var/run/secrets/operator.cryostat.io/%s-database-tls", r.Name),
-				ReadOnly:  true,
-			})
-	}
+	// TODO
+	// if r.TLS {
+	// 	mounts = append(mounts,
+	// 		corev1.VolumeMount{
+	// 			Name:      "database-tls-secret",
+	// 			MountPath: fmt.Sprintf("/var/run/secrets/operator.cryostat.io/%s-database-tls", r.Name),
+	// 			ReadOnly:  true,
+	// 		})
+	// }
 	return mounts
 }
 
@@ -2385,9 +2392,9 @@ func (r *TestResources) NewDatasourceLivenessProbe() *corev1.Probe {
 func (r *TestResources) NewStorageLivenessProbe() *corev1.Probe {
 	protocol := corev1.URISchemeHTTP
 
-	if r.TLS {
-		protocol = corev1.URISchemeHTTPS
-	}
+	// if r.TLS {
+	// 	protocol = corev1.URISchemeHTTPS
+	// }
 	return &corev1.Probe{
 		ProbeHandler: corev1.ProbeHandler{
 			HTTPGet: &corev1.HTTPGetAction{
