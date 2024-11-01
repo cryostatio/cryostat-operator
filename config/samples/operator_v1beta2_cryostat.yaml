@@ -13,6 +13,3 @@ spec:
       spec: {}
   reportOptions:
     replicas: 0
-  securityOptions:
-    authProxySecurityContext:
-      runAsUser: 1001
