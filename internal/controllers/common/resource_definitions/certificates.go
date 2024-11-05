@@ -20,6 +20,7 @@ import (
 	certv1 "github.com/cert-manager/cert-manager/pkg/apis/certmanager/v1"
 	certMeta "github.com/cert-manager/cert-manager/pkg/apis/meta/v1"
 	"github.com/cryostatio/cryostat-operator/internal/controllers/common"
+	"github.com/cryostatio/cryostat-operator/internal/controllers/constants"
 	"github.com/cryostatio/cryostat-operator/internal/controllers/model"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -62,7 +63,7 @@ func NewCryostatCACert(gvk *schema.GroupVersionKind, cr *model.CryostatInstance)
 			Namespace: cr.InstallNamespace,
 		},
 		Spec: certv1.CertificateSpec{
-			CommonName: fmt.Sprintf("ca.%s.cert-manager", cr.Name),
+			CommonName: constants.CryostatCATLSCommonName,
 			SecretName: common.ClusterUniqueNameWithPrefix(gvk, "ca", cr.Name, cr.InstallNamespace),
 			IssuerRef: certMeta.ObjectReference{
 				Name: cr.Name + "-self-signed",
@@ -79,7 +80,7 @@ func NewCryostatCert(cr *model.CryostatInstance, keystoreSecretName string) *cer
 			Namespace: cr.InstallNamespace,
 		},
 		Spec: certv1.CertificateSpec{
-			CommonName: fmt.Sprintf("%s.%s.svc", cr.Name, cr.InstallNamespace),
+			CommonName: constants.CryostatTLSCommonName,
 			DNSNames: []string{
 				cr.Name,
 				fmt.Sprintf("%s.%s.svc", cr.Name, cr.InstallNamespace),
@@ -115,7 +116,7 @@ func NewReportsCert(cr *model.CryostatInstance) *certv1.Certificate {
 			Namespace: cr.InstallNamespace,
 		},
 		Spec: certv1.CertificateSpec{
-			CommonName: fmt.Sprintf("%s-reports.%s.svc", cr.Name, cr.InstallNamespace),
+			CommonName: constants.ReportsTLSCommonName,
 			DNSNames: []string{
 				cr.Name + "-reports",
 				fmt.Sprintf("%s-reports.%s.svc", cr.Name, cr.InstallNamespace),
@@ -140,7 +141,7 @@ func NewAgentCert(cr *model.CryostatInstance, namespace string, gvk *schema.Grou
 			Namespace: cr.InstallNamespace,
 		},
 		Spec: certv1.CertificateSpec{
-			CommonName: fmt.Sprintf("*.%s.pod", namespace),
+			CommonName: constants.AgentsTLSCommonName,
 			DNSNames: []string{
 				fmt.Sprintf("*.%s.pod", namespace),
 			},
@@ -163,7 +164,7 @@ func NewAgentProxyCert(cr *model.CryostatInstance) *certv1.Certificate {
 			Namespace: cr.InstallNamespace,
 		},
 		Spec: certv1.CertificateSpec{
-			CommonName: fmt.Sprintf("%s-agent.%s.svc", cr.Name, cr.InstallNamespace),
+			CommonName: constants.AgentAuthProxyTLSCommonName,
 			DNSNames: []string{
 				cr.Name + "-agent",
 				fmt.Sprintf("%s-agent.%s.svc", cr.Name, cr.InstallNamespace),
