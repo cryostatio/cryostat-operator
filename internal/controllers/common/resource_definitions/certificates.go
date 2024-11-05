@@ -140,7 +140,7 @@ func NewDatabaseCert(cr *model.CryostatInstance) *certv1.Certificate {
 			Namespace: cr.InstallNamespace,
 		},
 		Spec: certv1.CertificateSpec{
-			CommonName: fmt.Sprintf("%s-database.%s.svc", cr.Name, cr.InstallNamespace),
+			CommonName: constants.DatabaseTLSCommonName,
 			DNSNames: []string{
 				cr.Name + "-database",
 				fmt.Sprintf("%s-database.%s.svc", cr.Name, cr.InstallNamespace),
@@ -164,7 +164,7 @@ func NewStorageCert(cr *model.CryostatInstance) *certv1.Certificate {
 			Namespace: cr.InstallNamespace,
 		},
 		Spec: certv1.CertificateSpec{
-			CommonName: fmt.Sprintf("%s-storage.%s.svc", cr.Name, cr.InstallNamespace),
+			CommonName: constants.StorageTLSCommonName,
 			DNSNames: []string{
 				cr.Name + "-storage",
 				fmt.Sprintf("%s-storage.%s.svc", cr.Name, cr.InstallNamespace),

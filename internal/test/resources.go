@@ -1239,7 +1239,7 @@ func (r *TestResources) NewDatabaseCert() *certv1.Certificate {
 			Namespace: r.Namespace,
 		},
 		Spec: certv1.CertificateSpec{
-			CommonName: fmt.Sprintf(r.Name+"-database.%s.svc", r.Namespace),
+			CommonName: "cryostat-database",
 			DNSNames: []string{
 				r.Name + "-database",
 				fmt.Sprintf(r.Name+"-database.%s.svc", r.Namespace),
@@ -1291,7 +1291,7 @@ func (r *TestResources) NewStorageCert() *certv1.Certificate {
 			Namespace: r.Namespace,
 		},
 		Spec: certv1.CertificateSpec{
-			CommonName: fmt.Sprintf(r.Name+"-storage.%s.svc", r.Namespace),
+			CommonName: "cryostat-storage",
 			DNSNames: []string{
 				r.Name + "-storage",
 				fmt.Sprintf(r.Name+"-storage.%s.svc", r.Namespace),
