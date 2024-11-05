@@ -16,11 +16,6 @@ metadata:
             "reportOptions": {
               "replicas": 0
             },
-            "securityOptions": {
-              "authProxySecurityContext": {
-                "runAsUser": 1001
-              }
-            },
             "storageOptions": {
               "pvc": {
                 "annotations": {},
