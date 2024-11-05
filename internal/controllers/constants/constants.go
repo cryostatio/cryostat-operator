@@ -50,4 +50,10 @@ const (
 	targetNamespaceCRLabelPrefix    = "operator.cryostat.io/"
 	TargetNamespaceCRNameLabel      = targetNamespaceCRLabelPrefix + "name"
 	TargetNamespaceCRNamespaceLabel = targetNamespaceCRLabelPrefix + "namespace"
+
+	CryostatCATLSCommonName     = "cryostat-ca-cert-manager"
+	CryostatTLSCommonName       = "cryostat"
+	ReportsTLSCommonName        = "cryostat-reports"
+	AgentsTLSCommonName         = "cryostat-agent"
+	AgentAuthProxyTLSCommonName = "cryostat-agent-proxy"
 )
