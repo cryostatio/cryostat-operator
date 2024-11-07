@@ -412,8 +412,18 @@ func (r *Reconciler) createOrUpdateCertificate(ctx context.Context, cert *certv1
 
 		if !cmp.Equal(cert.Spec.CommonName, specCopy.CommonName) &&
 			!cmp.Equal(cert.Spec.DNSNames, specCopy.DNSNames) &&
+			!cmp.Equal(cert.Spec.Duration, specCopy.Duration) &&
+			!cmp.Equal(cert.Spec.RenewBefore, specCopy.RenewBefore) &&
+			!cmp.Equal(cert.Spec.IPAddresses, specCopy.IPAddresses) &&
+			!cmp.Equal(cert.Spec.URIs, specCopy.URIs) &&
+			!cmp.Equal(cert.Spec.EmailAddresses, specCopy.EmailAddresses) &&
 			!cmp.Equal(cert.Spec.SecretName, specCopy.SecretName) &&
+			!cmp.Equal(cert.Spec.SecretTemplate, specCopy.SecretTemplate) &&
 			!cmp.Equal(cert.Spec.IssuerRef, specCopy.IssuerRef) &&
+			!cmp.Equal(cert.Spec.IsCA, specCopy.IsCA) &&
+			!cmp.Equal(cert.Spec.Keystores, specCopy.Keystores) &&
+			!cmp.Equal(cert.Spec.PrivateKey, specCopy.PrivateKey) &&
+			!cmp.Equal(cert.Spec.EncodeUsagesInRequest, specCopy.EncodeUsagesInRequest) &&
 			!cmp.Equal(cert.Spec.Usages, specCopy.Usages) {
 			return errCertificateModified
 		}
