@@ -441,7 +441,7 @@ func (r *Reconciler) createOrUpdateCertificate(ctx context.Context, cert *certv1
 }
 
 func (r *Reconciler) recreateCertificate(ctx context.Context, cert *certv1.Certificate, owner metav1.Object) error {
-	err := r.deleteCertificate(ctx, cert)
+	err := r.deleteCertWithSecret(ctx, cert)
 	if err != nil {
 		return err
 	}
