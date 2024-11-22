@@ -25,6 +25,7 @@ import (
 	"github.com/cryostatio/cryostat-operator/internal/controllers/common/resource_definitions"
 	"github.com/cryostatio/cryostat-operator/internal/controllers/constants"
 	"github.com/cryostatio/cryostat-operator/internal/controllers/model"
+	"github.com/cryostatio/cryostat-operator/internal/webhooks/agent"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -136,6 +137,70 @@ func (r *Reconciler) reconcileAgentService(ctx context.Context, cr *model.Cryost
 		}
 		return nil
 	})
+}
+
+func (r *Reconciler) newAgentHeadlessService(cr *model.CryostatInstance, namespace string) *corev1.Service {
+	return &corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      common.ClusterUniqueShortName(r.gvk, cr.Name, cr.InstallNamespace),
+			Namespace: namespace,
+		},
+	}
+}
+
+func (r *Reconciler) reconcileAgentHeadlessServices(ctx context.Context, cr *model.CryostatInstance) error {
+	svcType := corev1.ServiceTypeClusterIP
+	config := &operatorv1beta2.ServiceConfig{
+		ServiceType: &svcType,
+		Labels:      common.LabelsForTargetNamespaceObject(cr),
+	}
+
+	// Create a headless Service in each target namespace
+	for _, ns := range cr.TargetNamespaces {
+		svc := r.newAgentHeadlessService(cr, ns)
+
+		err := r.createOrUpdateService(ctx, svc, cr.Object, config, func() error {
+			// Select agent auto-configuration labels
+			svc.Spec.Selector = map[string]string{
+				agent.LabelCryostatName:      cr.Name,
+				agent.LabelCryostatNamespace: cr.InstallNamespace,
+			}
+			svc.Spec.Ports = []corev1.ServicePort{
+				{
+					Name:       "http",
+					Port:       9977, // TODO make configurable
+					TargetPort: intstr.IntOrString{IntVal: 9977},
+				},
+			}
+			svc.Spec.ClusterIP = corev1.ClusterIPNone
+			return nil
+		})
+		if err != nil {
+			return err
+		}
+	}
+
+	// Delete any RoleBindings in target namespaces that are no longer requested
+	for _, ns := range toDelete(cr) {
+		svc := r.newAgentHeadlessService(cr, ns)
+		err := r.deleteService(ctx, svc)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (r *Reconciler) finalizeAgentHeadlessServices(ctx context.Context, cr *model.CryostatInstance) error {
+	for _, ns := range cr.TargetNamespaces {
+		svc := r.newAgentHeadlessService(cr, ns)
+		err := r.deleteService(ctx, svc)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func configureCoreService(cr *model.CryostatInstance) *operatorv1beta2.CoreServiceConfig {

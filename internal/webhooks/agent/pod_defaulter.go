@@ -43,13 +43,15 @@ type podMutator struct {
 var _ admission.CustomDefaulter = &podMutator{}
 
 const (
-	agentArg    = "-javaagent:/tmp/cryostat-agent/cryostat-agent-shaded.jar"
-	podIPEnvVar = "CRYOSTAT_AGENT_POD_IP"
+	agentArg      = "-javaagent:/tmp/cryostat-agent/cryostat-agent-shaded.jar"
+	podNameEnvVar = "CRYOSTAT_AGENT_POD_NAME"
+	podIPEnvVar   = "CRYOSTAT_AGENT_POD_IP"
 )
 
 // Default optionally mutates a pod to inject the Cryostat agent
 func (r *podMutator) Default(ctx context.Context, obj runtime.Object) error {
-	// FIXME Do not return error, it blocks pod creation
+	// FIXME Do not return error, it blocks pod creation. Use this:
+	// https://github.com/kubernetes-sigs/controller-runtime/blob/3b032e16c0dc19d656626a288cd417d36beaebad/pkg/webhook/admission/defaulter_custom.go#L39
 	pod, ok := obj.(*corev1.Pod)
 	if !ok {
 		return fmt.Errorf("expected a Pod, but received a %T", obj)
@@ -91,10 +93,9 @@ func (r *podMutator) Default(ctx context.Context, obj runtime.Object) error {
 
 	// Add init container
 	pod.Spec.InitContainers = append(pod.Spec.InitContainers, corev1.Container{
-		Name: "cryostat-agent-init",
-		//Image:   "quay.io/cryostat/cryostat-agent-init:latest", // TODO related images
-		Image:           "quay.io/ebaron/cryostat-agent-init:tls-server-key-01", // XXX
-		ImagePullPolicy: corev1.PullAlways,                                      // TODO change this
+		Name:            "cryostat-agent-init",
+		Image:           "quay.io/cryostat/cryostat-agent-init:latest", // TODO related images
+		ImagePullPolicy: corev1.PullAlways,                             // TODO change this
 		Command:         []string{"cp", "-v", "/cryostat/agent/cryostat-agent-shaded.jar", "/tmp/cryostat-agent/cryostat-agent-shaded.jar"},
 		VolumeMounts: []corev1.VolumeMount{
 			{
@@ -118,18 +119,25 @@ func (r *podMutator) Default(ctx context.Context, obj runtime.Object) error {
 		ReadOnly:  true,
 	})
 
+	// TODO check for existing hostname
+	hostname := pod.Spec.Hostname
+
 	container.Env = append(container.Env,
 		corev1.EnvVar{
 			Name:  "CRYOSTAT_AGENT_BASEURI",
 			Value: cryostatURL(cr, tlsEnabled),
 		},
 		corev1.EnvVar{
-			Name: "CRYOSTAT_AGENT_APP_NAME",
+			Name: podNameEnvVar,
 			ValueFrom: &corev1.EnvVarSource{
 				FieldRef: &corev1.ObjectFieldSelector{
-					FieldPath: "metadata.name", // TODO recurse owner references for deployment name?
+					FieldPath: "metadata.name",
 				},
 			},
+		},
+		corev1.EnvVar{
+			Name:  "CRYOSTAT_AGENT_APP_NAME",
+			Value: fmt.Sprintf("$(%s)", podNameEnvVar),
 		},
 		corev1.EnvVar{
 			Name: podIPEnvVar,
@@ -140,14 +148,13 @@ func (r *podMutator) Default(ctx context.Context, obj runtime.Object) error {
 			},
 		},
 		corev1.EnvVar{
-			Name:  "CRYOSTAT_AGENT_CALLBACK",
-			Value: callbackURL(tlsEnabled),
-		},
-		corev1.EnvVar{
 			Name:  "CRYOSTAT_AGENT_API_WRITES_ENABLED",
 			Value: "true", // TODO default to writes enabled, separate label?
 		},
 	)
+
+	// Append callback environment variables
+	container.Env = append(container.Env, r.callbackEnv(cr, pod.Namespace, tlsEnabled, hostname)...)
 
 	if tlsEnabled {
 		// Mount the certificate volume
@@ -198,7 +205,7 @@ func (r *podMutator) Default(ctx context.Context, obj runtime.Object) error {
 		)
 
 		// Configure the Cryostat agent to use HTTPS for its callback server
-		/*container.Env = append(container.Env,
+		container.Env = append(container.Env,
 			corev1.EnvVar{
 				Name:  "CRYOSTAT_AGENT_WEBSERVER_TLS_CERT_FILE",
 				Value: fmt.Sprintf("/var/run/secrets/io.cryostat/cryostat-agent/%s", corev1.TLSCertKey),
@@ -223,7 +230,7 @@ func (r *podMutator) Default(ctx context.Context, obj runtime.Object) error {
 				Name:  "CRYOSTAT_AGENT_WEBSERVER_TLS_KEY_ALIAS",
 				Value: "cryostat",
 			},
-		)*/ // TODO HTTPS
+		)
 	}
 	extended, err := extendJavaToolOptions(container.Env)
 	if err != nil {
@@ -260,13 +267,47 @@ func cryostatURL(cr *operatorv1beta2.Cryostat, tls bool) string {
 		port)
 }
 
-func callbackURL(tls bool) string {
-	//scheme := "https"
-	//if !tls {
-	//	scheme = "http"
-	//}
-	scheme := "http"                                                 // TODO HTTPS
-	return fmt.Sprintf("%s://$(CRYOSTAT_AGENT_POD_IP):9977", scheme) // TODO make port configurable
+func (r *podMutator) callbackEnv(cr *operatorv1beta2.Cryostat, namespace string, tls bool, hostname string) []corev1.EnvVar {
+	scheme := "https"
+	if !tls {
+		scheme = "http"
+	}
+	envs := []corev1.EnvVar{
+		{
+			Name:  "CRYOSTAT_AGENT_KUBERNETES_CALLBACK_SCHEME",
+			Value: scheme,
+		},
+		{
+			Name:  "CRYOSTAT_AGENT_KUBERNETES_CALLBACK_DOMAIN",
+			Value: fmt.Sprintf("%s.%s.svc", common.ClusterUniqueShortName(r.gvk, cr.Name, cr.Namespace), namespace),
+		},
+		{
+			Name:  "CRYOSTAT_AGENT_KUBERNETES_CALLBACK_PORT",
+			Value: "9977",
+		},
+	}
+
+	if len(hostname) > 0 {
+		envs = append(envs,
+			corev1.EnvVar{
+				Name:  "CRYOSTAT_AGENT_KUBERNETES_CALLBACK_HOST_NAME",
+				Value: hostname,
+			},
+		)
+	} else {
+		envs = append(envs,
+			corev1.EnvVar{
+				Name:  "CRYOSTAT_AGENT_KUBERNETES_CALLBACK_POD_NAME",
+				Value: fmt.Sprintf("$(%s)", podNameEnvVar),
+			},
+			corev1.EnvVar{
+				Name:  "CRYOSTAT_AGENT_KUBERNETES_CALLBACK_IP",
+				Value: fmt.Sprintf("$(%s)", podIPEnvVar),
+			},
+		)
+	}
+
+	return envs
 }
 
 func extendJavaToolOptions(envs []corev1.EnvVar) ([]corev1.EnvVar, error) {

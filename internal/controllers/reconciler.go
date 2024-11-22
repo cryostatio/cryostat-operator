@@ -171,6 +171,12 @@ func (r *Reconciler) reconcileCryostat(ctx context.Context, cr *model.CryostatIn
 				return reconcile.Result{}, err
 			}
 
+			// Delete headless services in target namespaces
+			err = r.finalizeAgentHeadlessServices(ctx, cr)
+			if err != nil {
+				return reconcile.Result{}, err
+			}
+
 			// Finalizer for certificates and associated secrets
 			if r.IsCertManagerEnabled(cr) {
 				err = r.finalizeTLS(ctx, cr)
@@ -270,6 +276,10 @@ func (r *Reconciler) reconcileCryostat(ctx context.Context, cr *model.CryostatIn
 		return requeueIfIngressNotReady(reqLogger, err)
 	}
 	err = r.reconcileAgentService(ctx, cr)
+	if err != nil {
+		return reconcile.Result{}, err
+	}
+	err = r.reconcileAgentHeadlessServices(ctx, cr)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
