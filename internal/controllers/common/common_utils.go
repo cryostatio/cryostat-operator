@@ -77,21 +77,46 @@ func ClusterUniqueNameWithPrefix(gvk *schema.GroupVersionKind, prefix string, na
 	return ClusterUniqueNameWithPrefixTargetNS(gvk, prefix, name, namespace, "")
 }
 
+// ClusterUniqueShortName returns a name for cluster-scoped objects that is
+// uniquely identified by a namespace and name. The total length should be
+// at most 63 characters.
+func ClusterUniqueShortName(gvk *schema.GroupVersionKind, name string, namespace string) string {
+	return clusterUniqueName(gvk, "", name, namespace, "", true)
+}
+
 // ClusterUniqueNameWithPrefixTargetNS returns a name for cluster-scoped objects that is
 // uniquely identified by a namespace and name, and a target namespace.
 // Appends the prefix to the provided Kind.
 func ClusterUniqueNameWithPrefixTargetNS(gvk *schema.GroupVersionKind, prefix string, name string, namespace string,
 	targetNS string) string {
+	return clusterUniqueName(gvk, prefix, name, namespace, targetNS, false)
+}
+
+func clusterUniqueName(gvk *schema.GroupVersionKind, prefix string, name string, namespace string, targetNS string,
+	short bool) string {
 	prefixWithKind := strings.ToLower(gvk.Kind)
+	if short {
+		// Prefix is 5 characters: 4 from kind, and hyphen
+		prefixWithKind = prefixWithKind[:4] // TODO can we use a weaker and shorter hash and keep the full kind?
+	}
 	if len(prefix) > 0 {
 		prefixWithKind += "-" + prefix
 	}
+
 	toHash := namespace + "/" + name
 	if len(targetNS) > 0 {
 		toHash += "/" + targetNS
 	}
-	// Use the SHA256 checksum of the namespaced name as a suffix
-	suffix := fmt.Sprintf("%x", sha256.Sum256([]byte(toHash)))
+
+	var suffix string
+	if short {
+		// Use the SHA224 checksum of the namespaced name as a suffix.
+		// Suffix is 56 bytes
+		suffix = fmt.Sprintf("%x", sha256.Sum224([]byte(toHash)))
+	} else {
+		// Use the SHA256 checksum of the namespaced name as a suffix
+		suffix = fmt.Sprintf("%x", sha256.Sum256([]byte(toHash)))
+	}
 	return prefixWithKind + "-" + suffix
 }
 

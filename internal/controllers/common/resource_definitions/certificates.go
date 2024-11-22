@@ -134,6 +134,7 @@ func NewReportsCert(cr *model.CryostatInstance) *certv1.Certificate {
 }
 
 func NewAgentCert(cr *model.CryostatInstance, namespace string, gvk *schema.GroupVersionKind) *certv1.Certificate {
+	svcName := common.ClusterUniqueShortName(gvk, cr.Name, cr.InstallNamespace) // TODO abstract
 	name := common.ClusterUniqueNameWithPrefixTargetNS(gvk, "agent", cr.Name, cr.InstallNamespace, namespace)
 	return &certv1.Certificate{
 		ObjectMeta: metav1.ObjectMeta{
@@ -143,7 +144,7 @@ func NewAgentCert(cr *model.CryostatInstance, namespace string, gvk *schema.Grou
 		Spec: certv1.CertificateSpec{
 			CommonName: constants.AgentsTLSCommonName,
 			DNSNames: []string{
-				fmt.Sprintf("*.%s.pod", namespace),
+				fmt.Sprintf("*.%s.%s.svc", svcName, namespace),
 			},
 			SecretName: name,
 			IssuerRef: certMeta.ObjectReference{
