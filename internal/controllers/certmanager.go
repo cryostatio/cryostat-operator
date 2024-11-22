@@ -402,7 +402,7 @@ func (r *Reconciler) reconcileAgentCertificate(ctx context.Context, cert *certv1
 var errCertificateModified error = errors.New("certificate has been modified")
 
 func (r *Reconciler) createOrUpdateCertificate(ctx context.Context, cert *certv1.Certificate, owner metav1.Object) error {
-	specCopy := cert.Spec.DeepCopy()
+	certCopy := cert.DeepCopy()
 	op, err := controllerutil.CreateOrUpdate(ctx, r.Client, cert, func() error {
 		if owner != nil {
 			if err := controllerutil.SetControllerReference(owner, cert, r.Scheme); err != nil {
@@ -410,21 +410,9 @@ func (r *Reconciler) createOrUpdateCertificate(ctx context.Context, cert *certv1
 			}
 		}
 
-		if !cmp.Equal(cert.Spec.CommonName, specCopy.CommonName) &&
-			!cmp.Equal(cert.Spec.DNSNames, specCopy.DNSNames) &&
-			!cmp.Equal(cert.Spec.Duration, specCopy.Duration) &&
-			!cmp.Equal(cert.Spec.RenewBefore, specCopy.RenewBefore) &&
-			!cmp.Equal(cert.Spec.IPAddresses, specCopy.IPAddresses) &&
-			!cmp.Equal(cert.Spec.URIs, specCopy.URIs) &&
-			!cmp.Equal(cert.Spec.EmailAddresses, specCopy.EmailAddresses) &&
-			!cmp.Equal(cert.Spec.SecretName, specCopy.SecretName) &&
-			!cmp.Equal(cert.Spec.SecretTemplate, specCopy.SecretTemplate) &&
-			!cmp.Equal(cert.Spec.IssuerRef, specCopy.IssuerRef) &&
-			!cmp.Equal(cert.Spec.IsCA, specCopy.IsCA) &&
-			!cmp.Equal(cert.Spec.Keystores, specCopy.Keystores) &&
-			!cmp.Equal(cert.Spec.PrivateKey, specCopy.PrivateKey) &&
-			!cmp.Equal(cert.Spec.EncodeUsagesInRequest, specCopy.EncodeUsagesInRequest) &&
-			!cmp.Equal(cert.Spec.Usages, specCopy.Usages) {
+		if cert.CreationTimestamp.IsZero() {
+			cert.Spec = certCopy.Spec
+		} else if !cmp.Equal(cert.Spec, certCopy.Spec) {
 			return errCertificateModified
 		}
 
@@ -432,7 +420,7 @@ func (r *Reconciler) createOrUpdateCertificate(ctx context.Context, cert *certv1
 	})
 	if err != nil {
 		if err == errCertificateModified {
-			return r.recreateCertificate(ctx, cert, owner)
+			return r.recreateCertificate(ctx, certCopy, owner)
 		}
 		return err
 	}
