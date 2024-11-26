@@ -1058,6 +1058,12 @@ func (r *TestResources) NewCryostatCert() *certv1.Certificate {
 	}
 }
 
+func (r *TestResources) OtherCryostatCert() *certv1.Certificate {
+	cert := r.NewCryostatCert()
+	cert.Spec.CommonName = fmt.Sprintf("%s.%s.svc", r.Name, r.Namespace)
+	return cert
+}
+
 func (r *TestResources) NewReportsCert() *certv1.Certificate {
 	return &certv1.Certificate{
 		ObjectMeta: metav1.ObjectMeta{
@@ -1082,6 +1088,12 @@ func (r *TestResources) NewReportsCert() *certv1.Certificate {
 			},
 		},
 	}
+}
+
+func (r *TestResources) OtherReportsCert() *certv1.Certificate {
+	cert := r.NewReportsCert()
+	cert.Spec.CommonName = fmt.Sprintf("%s-reports.%s.svc", r.Name, r.Namespace)
+	return cert
 }
 
 func (r *TestResources) NewAgentProxyCert() *certv1.Certificate {
@@ -1110,6 +1122,12 @@ func (r *TestResources) NewAgentProxyCert() *certv1.Certificate {
 	}
 }
 
+func (r *TestResources) OtherAgentProxyCert() *certv1.Certificate {
+	cert := r.NewAgentProxyCert()
+	cert.Spec.CommonName = fmt.Sprintf("%s-agent.%s.svc", r.Name, r.Namespace)
+	return cert
+}
+
 func (r *TestResources) NewCACert() *certv1.Certificate {
 	return &certv1.Certificate{
 		ObjectMeta: metav1.ObjectMeta{
@@ -1125,6 +1143,13 @@ func (r *TestResources) NewCACert() *certv1.Certificate {
 			IsCA: true,
 		},
 	}
+}
+
+func (r *TestResources) OtherCACert() *certv1.Certificate {
+	cert := r.NewCACert()
+	cert.Spec.CommonName = fmt.Sprintf("ca.%s.cert-manager", r.Name)
+	cert.Spec.SecretName = r.Name + "-ca"
+	return cert
 }
 
 func (r *TestResources) NewAgentCert(namespace string) *certv1.Certificate {
