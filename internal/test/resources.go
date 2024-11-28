@@ -830,10 +830,10 @@ func (r *TestResources) NewAgentProxyService() *corev1.Service {
 			Namespace: r.Namespace,
 			Labels: map[string]string{
 				"app":                         r.Name,
-				"component":                   "cryostat",
+				"component":                   "cryostat-agent-gateway",
 				"app.kubernetes.io/name":      "cryostat",
 				"app.kubernetes.io/instance":  r.Name,
-				"app.kubernetes.io/component": "cryostat",
+				"app.kubernetes.io/component": "cryostat-agent-gateway",
 				"app.kubernetes.io/part-of":   "cryostat",
 			},
 		},
@@ -901,11 +901,11 @@ func (r *TestResources) NewCustomizedAgentService() *corev1.Service {
 	}
 	svc.Labels = map[string]string{
 		"app":                         r.Name,
-		"component":                   "cryostat",
+		"component":                   "cryostat-agent-gateway",
 		"my":                          "label",
 		"app.kubernetes.io/name":      "cryostat",
 		"app.kubernetes.io/instance":  r.Name,
-		"app.kubernetes.io/component": "cryostat",
+		"app.kubernetes.io/component": "cryostat-agent-gateway",
 		"app.kubernetes.io/part-of":   "cryostat",
 	}
 	return svc

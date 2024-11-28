@@ -190,7 +190,7 @@ func configureAgentService(cr *model.CryostatInstance) *operatorv1beta2.AgentSer
 	}
 
 	// Apply common service defaults
-	configureService(&config.ServiceConfig, cr.Name, "cryostat")
+	configureService(&config.ServiceConfig, cr.Name, "cryostat-agent-gateway")
 
 	// Apply default HTTP port if not provided
 	if config.HTTPPort == nil {
