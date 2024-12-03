@@ -46,36 +46,14 @@ you may use the Cryostat web UI to define a Custom Target with the connection UR
 This is a special value which tells Cryostat's JVM that it should connect to itself directly, without
 the need to expose a JMX port over the network.
 
-## BUILDING
+## INSTALLATION
 
-### Requirements
-- `go` v1.21+
-- [`operator-sdk`](https://github.com/operator-framework/operator-sdk) v1.31.0
-- `podman` or `docker`
-- [`jq`](https://stedolan.github.io/jq/) v1.6+
-- [`yq`](https://github.com/mikefarah/yq/) v4.35+
-- `ginkgo` (Optional)
+### OperatorHub
 
-### Instructions
-`make generate manifests manager` will trigger code/YAML generation and compile
-the operator controller manager, along with running some code quality checks.
-
-`make oci-build` will build an OCI image from the generated YAML and compiled
-binary to the local registry, tagged as
-`quay.io/crystatio/cryostat-operator`. This tag can be overridden by
-setting the environment variables `IMAGE_NAMESPACE` and `OPERATOR_NAME`.
-`IMAGE_VERSION` can also be set to override the tagged version.
-
-`make bundle` will create an OLM bundle. This will generate a CSV, CRDs and
-other manifests, and other required configurations for an OLM bundle versioned
-with version `$IMAGE_VERSION` in the `bundle/` directory. `make bundle-build`
-will create an OCI image of this bundle, which can then be pushed to an image
-repository such as `quay.io`.
-
-`make catalog-build` will build an OCI image of the operator catalog (i.e. index)
-with version `$IMAGE_VERSION` that includes the bundle image of the same version.
-
-## SETUP / DEPLOYMENT
+The operator's primary installation method is via [OperatorHub](https://operatorhub.io/).
+A more detailed installation guide is available [here](https://cryostat.io/get-started/#install-via-operatorhub).
+Installation of the Operator without OLM/OperatorHub is intended for development purposes and is
+not a supported release configuration.
 
 ### Bundle Deployment
 
@@ -190,6 +168,35 @@ or more briefly:
 $ oc get -o jsonpath='{.data.token}' secret cryostat-operator-service-account-token-7tt7l | base64 -d
 eyJhbGciOiJSUzI1NiIsImtpZCI6IkhYZC13eDdGVGwyQzdGNVpZVndScEZ2VmRxWTlzbnBUUG9HRkJpejJkV3cifQ.eyJpc3MiOiJrdWJlcm5ldGVzL3NlcnZpY2VhY2NvdW50Iiwia3ViZXJuZXRlcy5pby9zZXJ2aWNlYWNjb3VudC9uYW1lc3BhY2UiOiJkZWZhdWx0Iiwia3ViZXJuZXRlcy5pby9zZXJ2aWNlYWNjb3VudC9zZWNyZXQubmFtZSI6ImNyeW9zdGF0LW9wZXJhdG9yLXNlcnZpY2UtYWNjb3VudC10b2tlbi03dHQ3bCIsImt1YmVybmV0ZXMuaW8vc2VydmljZWFjY291bnQvc2VydmljZS1hY2NvdW50Lm5hbWUiOiJjcnlvc3RhdC1vcGVyYXRvci1zZXJ2aWNlLWFjY291bnQiLCJrdWJlcm5ldGVzLmlvL3NlcnZpY2VhY2NvdW50L3NlcnZpY2UtYWNjb3VudC51aWQiOiI2OTJhYThjNy0wODFlLTRhNTEtOTM1NS1iZTNlYWE4ZjlmYTYiLCJzdWIiOiJzeXN0ZW06c2VydmljZWFjY291bnQ6ZGVmYXVsdDpjcnlvc3RhdC1vcGVyYXRvci1zZXJ2aWNlLWFjY291bnQifQ.M7C1V0bN3aILBflO7TTOTikw7wLGRJ79-OkCDQIZbu71QLdX05jyCxxtlH32lr8jz6HwxfXXweh3ifG_2lbe7_TbM8jxmBoMdLuc4Q_akpmA-GQuDPrRxfHGJApYGQ6CVug3KHSrQwj2M4QrSUz7FoeQGaOH9BnWj1TrHGmOZUPJ6u7JSu2OwoLBda6rF-M4Bl72DmkyMAzikreRgPEk4D7gTCY0yNvsQDuUAwpFwmEukRC2WyTAVTpKPgThZUk-UJ-dXufbhAcqIRt6jeCQ19_Bo0zXc_ELgQydxuTack1ndT3HwRmwwNuZDFv-G3Y0YdjfRh00DqEvSn9ynZzwueDCJUxlHdznytfUWk9PA712JENpFC7b-zSHnjymIcFeUd8s_Zq_-JKrDIPnH0oZDRO_MUpKEC7Jz_8SeFJHLLGfBZt_aP4VwQHEUThiFQPwrfbd8tppUG2TKcekPScKcauy-BCI52odBzapP6meilMQVrmRtu7i30L05vgQiST_OsmSP8CuKW13a-leCCtN_aNQGqlWvLhP81H95ui-PvMzwMIDlfDZ03ycuYg4R4eUG3nUq7-42wrSdFLo8gm9wsl7y1ZRMQwHR1DCVBbHYS0iFOcmwto2Ejlrgvn3Cs0pDS7pDVoFkH2FsTopEw3jXtnkMs15mSmBnHz-UjF-l08
 ```
+
+## BUILDING
+
+### Requirements
+- `go` v1.21+
+- [`operator-sdk`](https://github.com/operator-framework/operator-sdk) v1.31.0
+- `podman` or `docker`
+- [`jq`](https://stedolan.github.io/jq/) v1.6+
+- [`yq`](https://github.com/mikefarah/yq/) v4.35+
+- `ginkgo` (Optional)
+
+### Instructions
+`make generate manifests manager` will trigger code/YAML generation and compile
+the operator controller manager, along with running some code quality checks.
+
+`make oci-build` will build an OCI image from the generated YAML and compiled
+binary to the local registry, tagged as
+`quay.io/crystatio/cryostat-operator`. This tag can be overridden by
+setting the environment variables `IMAGE_NAMESPACE` and `OPERATOR_NAME`.
+`IMAGE_VERSION` can also be set to override the tagged version.
+
+`make bundle` will create an OLM bundle. This will generate a CSV, CRDs and
+other manifests, and other required configurations for an OLM bundle versioned
+with version `$IMAGE_VERSION` in the `bundle/` directory. `make bundle-build`
+will create an OCI image of this bundle, which can then be pushed to an image
+repository such as `quay.io`.
+
+`make catalog-build` will build an OCI image of the operator catalog (i.e. index)
+with version `$IMAGE_VERSION` that includes the bundle image of the same version.
 
 ## DEVELOPMENT
 
