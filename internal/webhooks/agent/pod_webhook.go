@@ -15,12 +15,15 @@
 package agent
 
 import (
+	"context"
+
 	operatorv1beta2 "github.com/cryostatio/cryostat-operator/api/v1beta2"
 	"github.com/cryostatio/cryostat-operator/internal/controllers/common"
 	corev1 "k8s.io/api/core/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
+	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 )
 
 // log is for logging in this package.
@@ -33,15 +36,36 @@ func SetupWebhookWithManager(mgr ctrl.Manager) error {
 	if err != nil {
 		return err
 	}
-	return ctrl.NewWebhookManagedBy(mgr).
-		For(&corev1.Pod{}).
-		WithDefaulter(&podMutator{
-			client: mgr.GetClient(),
-			log:    &podWebhookLog,
-			gvk:    &gvk,
-			ReconcilerTLS: common.NewReconcilerTLS(&common.ReconcilerTLSConfig{
-				Client: mgr.GetClient(),
-			}),
-		}).
-		Complete()
+	webhook := admission.WithCustomDefaulter(mgr.GetScheme(), &corev1.Pod{}, &podMutator{
+		client: mgr.GetClient(),
+		log:    &podWebhookLog,
+		gvk:    &gvk,
+		ReconcilerTLS: common.NewReconcilerTLS(&common.ReconcilerTLSConfig{
+			Client: mgr.GetClient(),
+		}),
+	})
+	// Modify the webhook to never deny the pod from being admitted
+	webhook.Handler = allowAllRequests(webhook.Handler)
+	mgr.GetWebhookServer().Register("/mutate--v1-pod", webhook)
+	return nil
+}
+
+type allowAllHandlerWrapper struct {
+	impl admission.Handler
+}
+
+func (r *allowAllHandlerWrapper) Handle(ctx context.Context, req admission.Request) admission.Response {
+	// Call the handler implementation
+	result := r.impl.Handle(ctx, req)
+	// Modify the result to always permit the request
+	result.Allowed = true
+	return result
+}
+
+var _ admission.Handler = &allowAllHandlerWrapper{}
+
+func allowAllRequests(handler admission.Handler) admission.Handler {
+	return &allowAllHandlerWrapper{
+		impl: handler,
+	}
 }
