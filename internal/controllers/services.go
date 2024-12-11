@@ -159,7 +159,7 @@ func (r *Reconciler) reconcileAgentHeadlessServices(ctx context.Context, cr *mod
 	for _, ns := range cr.TargetNamespaces {
 		svc := r.newAgentHeadlessService(cr, ns)
 
-		err := r.createOrUpdateService(ctx, svc, cr.Object, config, func() error {
+		err := r.createOrUpdateService(ctx, svc, nil, config, func() error {
 			// Select agent auto-configuration labels
 			svc.Spec.Selector = map[string]string{
 				agent.LabelCryostatName:      cr.Name,
@@ -294,8 +294,10 @@ func (r *Reconciler) createOrUpdateService(ctx context.Context, svc *corev1.Serv
 		common.MergeLabelsAndAnnotations(&svc.ObjectMeta, config.Labels, config.Annotations)
 
 		// Set the Cryostat CR as controller
-		if err := controllerutil.SetControllerReference(owner, svc, r.Scheme); err != nil {
-			return err
+		if owner != nil {
+			if err := controllerutil.SetControllerReference(owner, svc, r.Scheme); err != nil {
+				return err
+			}
 		}
 		// Update the service type
 		svc.Spec.Type = *config.ServiceType
