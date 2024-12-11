@@ -27,25 +27,25 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 )
 
-type CryostatValidator struct {
-	Client client.Client
-	Log    *logr.Logger
+type cryostatValidator struct {
+	client client.Client
+	log    *logr.Logger
 }
 
-var _ admission.CustomValidator = &CryostatValidator{}
+var _ admission.CustomValidator = &cryostatValidator{}
 
 // ValidateCreate validates a Create operation on a Cryostat
-func (r *CryostatValidator) ValidateCreate(ctx context.Context, obj runtime.Object) (admission.Warnings, error) {
+func (r *cryostatValidator) ValidateCreate(ctx context.Context, obj runtime.Object) (admission.Warnings, error) {
 	return r.validate(ctx, obj, "create")
 }
 
 // ValidateCreate validates an Update operation on a Cryostat
-func (r *CryostatValidator) ValidateUpdate(ctx context.Context, oldObj, newObj runtime.Object) (admission.Warnings, error) {
+func (r *cryostatValidator) ValidateUpdate(ctx context.Context, oldObj, newObj runtime.Object) (admission.Warnings, error) {
 	return r.validate(ctx, newObj, "update")
 }
 
 // ValidateCreate validates a Delete operation on a Cryostat
-func (r *CryostatValidator) ValidateDelete(ctx context.Context, obj runtime.Object) (admission.Warnings, error) {
+func (r *cryostatValidator) ValidateDelete(ctx context.Context, obj runtime.Object) (admission.Warnings, error) {
 	// Nothing to validate on deletion
 	return nil, nil
 }
@@ -68,12 +68,12 @@ func (e *ErrNotPermitted) Error() string {
 
 var _ error = &ErrNotPermitted{}
 
-func (r *CryostatValidator) validate(ctx context.Context, obj runtime.Object, op string) (admission.Warnings, error) {
+func (r *cryostatValidator) validate(ctx context.Context, obj runtime.Object, op string) (admission.Warnings, error) {
 	cr, ok := obj.(*operatorv1beta2.Cryostat)
 	if !ok {
 		return nil, fmt.Errorf("expected a Cryostat, but received a %T", obj)
 	}
-	r.Log.Info(fmt.Sprintf("validate %s", op), "name", cr.Name, "namespace", cr.Namespace)
+	r.log.Info(fmt.Sprintf("validate %s", op), "name", cr.Name, "namespace", cr.Namespace)
 
 	// Look up the user who made this request
 	req, err := admission.RequestFromContext(ctx)
@@ -101,7 +101,7 @@ func (r *CryostatValidator) validate(ctx context.Context, obj runtime.Object, op
 			},
 		}
 
-		err := r.Client.Create(ctx, sar)
+		err := r.client.Create(ctx, sar)
 		if err != nil {
 			return nil, fmt.Errorf("failed to check permissions: %w", err)
 		}

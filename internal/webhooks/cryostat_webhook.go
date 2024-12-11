@@ -33,9 +33,9 @@ var cryostatlog = logf.Log.WithName("cryostat-resource")
 func SetupWebhookWithManager(mgr ctrl.Manager, apiType runtime.Object) error {
 	return ctrl.NewWebhookManagedBy(mgr).
 		For(apiType).
-		WithValidator(&CryostatValidator{
-			Client: mgr.GetClient(),
-			Log:    &cryostatlog,
+		WithValidator(&cryostatValidator{
+			client: mgr.GetClient(),
+			log:    &cryostatlog,
 		}).
 		WithDefaulter(&cryostatDefaulter{
 			log: &cryostatlog,
