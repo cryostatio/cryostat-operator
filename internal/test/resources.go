@@ -1188,7 +1188,7 @@ func (r *TestResources) NewAgentCert(namespace string) *certv1.Certificate {
 		Spec: certv1.CertificateSpec{
 			CommonName: "cryostat-agent",
 			DNSNames: []string{
-				fmt.Sprintf("*.%s.pod", namespace),
+				fmt.Sprintf("*.%s.%s.svc", r.GetAgentServiceName(), namespace),
 			},
 			SecretName: name,
 			IssuerRef: certMeta.ObjectReference{
@@ -3007,6 +3007,11 @@ func (r *TestResources) clusterUniqueSuffix(namespace string) string {
 	return fmt.Sprintf("%x", sha256.Sum256([]byte(toEncode)))
 }
 
+func (r *TestResources) clusterUniqueShortSuffix() string {
+	toEncode := r.Namespace + "/" + r.Name
+	return fmt.Sprintf("%x", sha256.Sum224([]byte(toEncode)))
+}
+
 func (r *TestResources) NewClusterRoleBinding() *rbacv1.ClusterRoleBinding {
 	return &rbacv1.ClusterRoleBinding{
 		ObjectMeta: metav1.ObjectMeta{
@@ -3586,6 +3591,10 @@ func (r *TestResources) getClusterUniqueNameForAgent(namespace string) string {
 
 func (r *TestResources) GetAgentCertPrefix() string {
 	return "cryostat-agent-"
+}
+
+func (r *TestResources) GetAgentServiceName() string {
+	return "cryo-" + r.clusterUniqueShortSuffix()
 }
 
 func (r *TestResources) NewCreateEvent(obj ctrlclient.Object) event.CreateEvent {

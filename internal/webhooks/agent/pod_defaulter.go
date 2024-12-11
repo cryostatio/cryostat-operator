@@ -119,9 +119,6 @@ func (r *podMutator) Default(ctx context.Context, obj runtime.Object) error {
 		ReadOnly:  true,
 	})
 
-	// TODO check for existing hostname
-	hostname := pod.Spec.Hostname
-
 	container.Env = append(container.Env,
 		corev1.EnvVar{
 			Name:  "CRYOSTAT_AGENT_BASEURI",
@@ -154,7 +151,7 @@ func (r *podMutator) Default(ctx context.Context, obj runtime.Object) error {
 	)
 
 	// Append callback environment variables
-	container.Env = append(container.Env, r.callbackEnv(cr, pod.Namespace, tlsEnabled, hostname)...)
+	container.Env = append(container.Env, r.callbackEnv(cr, pod.Namespace, tlsEnabled)...)
 
 	if tlsEnabled {
 		// Mount the certificate volume
@@ -267,44 +264,28 @@ func cryostatURL(cr *operatorv1beta2.Cryostat, tls bool) string {
 		port)
 }
 
-func (r *podMutator) callbackEnv(cr *operatorv1beta2.Cryostat, namespace string, tls bool, hostname string) []corev1.EnvVar {
+func (r *podMutator) callbackEnv(cr *operatorv1beta2.Cryostat, namespace string, tls bool) []corev1.EnvVar {
 	scheme := "https"
 	if !tls {
 		scheme = "http"
 	}
 	envs := []corev1.EnvVar{
 		{
-			Name:  "CRYOSTAT_AGENT_KUBERNETES_CALLBACK_SCHEME",
+			Name:  "CRYOSTAT_AGENT_CALLBACK_SCHEME",
 			Value: scheme,
 		},
 		{
-			Name:  "CRYOSTAT_AGENT_KUBERNETES_CALLBACK_DOMAIN",
+			Name:  "CRYOSTAT_AGENT_CALLBACK_HOST_NAME",
+			Value: fmt.Sprintf("$(%s), $(%s)[replace(\".\"\\, \"-\")]", podNameEnvVar, podIPEnvVar),
+		},
+		{
+			Name:  "CRYOSTAT_AGENT_CALLBACK_DOMAIN_NAME",
 			Value: fmt.Sprintf("%s.%s.svc", common.ClusterUniqueShortName(r.gvk, cr.Name, cr.Namespace), namespace),
 		},
 		{
-			Name:  "CRYOSTAT_AGENT_KUBERNETES_CALLBACK_PORT",
+			Name:  "CRYOSTAT_AGENT_CALLBACK_PORT",
 			Value: "9977",
 		},
-	}
-
-	if len(hostname) > 0 {
-		envs = append(envs,
-			corev1.EnvVar{
-				Name:  "CRYOSTAT_AGENT_KUBERNETES_CALLBACK_HOST_NAME",
-				Value: hostname,
-			},
-		)
-	} else {
-		envs = append(envs,
-			corev1.EnvVar{
-				Name:  "CRYOSTAT_AGENT_KUBERNETES_CALLBACK_POD_NAME",
-				Value: fmt.Sprintf("$(%s)", podNameEnvVar),
-			},
-			corev1.EnvVar{
-				Name:  "CRYOSTAT_AGENT_KUBERNETES_CALLBACK_IP",
-				Value: fmt.Sprintf("$(%s)", podIPEnvVar),
-			},
-		)
 	}
 
 	return envs
