@@ -15,10 +15,11 @@ spec:
       labels:
         app: quarkus-cryostat-agent
     spec:
+      serviceAccountName: quarkus-cryostat-agent-serviceaccount
       containers:
       - env:
         - name: CRYOSTAT_AGENT_APP_NAME
-          value: agent-test
+          value: quarkus-cryostat-agent
         - name: NAMESPACE
           valueFrom:
             fieldRef:
@@ -28,6 +29,8 @@ spec:
           value: "true"
         - name: CRYOSTAT_AGENT_BASEURI
           value: https://cryostat-sample.$(NAMESPACE).svc:4180
+        - name: CRYOSTAT_AGENT_AUTHORIZATION_TYPE
+          value: kubernetes
         - name: POD_IP
           valueFrom:
             fieldRef:
@@ -35,12 +38,11 @@ spec:
               fieldPath: status.podIP
         - name: CRYOSTAT_AGENT_CALLBACK
           value: http://$(POD_IP):9977
-        - name: CRYOSTAT_AGENT_AUTHORIZATION
-          value: Bearer abcd1234
         - name: JAVA_OPTS_APPEND
           value: |-
             -Dquarkus.http.host=0.0.0.0
             -Djava.util.logging.manager=org.jboss.logmanager.LogManager
+            -Dio.cryostat.agent.shaded.org.slf4j.simpleLogger.defaultLogLevel=info
             -Dcom.sun.management.jmxremote.port=9097
             -Dcom.sun.management.jmxremote.ssl=false
             -Dcom.sun.management.jmxremote.authenticate=false
@@ -102,3 +104,32 @@ spec:
     port: 10010
     protocol: TCP
     targetPort: 10010
+---
+kind: ServiceAccount
+apiVersion: v1
+metadata:
+  name: quarkus-cryostat-agent-serviceaccount
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: quarkus-cryostat-agent-role
+rules:
+- apiGroups:
+  - ""
+  verbs:
+  - create
+  resources:
+  - pods/exec
+---
+kind: RoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: quarkus-cryostat-agent-role-binding
+subjects:
+- kind: ServiceAccount
+  name: quarkus-cryostat-agent-serviceaccount
+roleRef:
+  kind: Role
+  name: quarkus-cryostat-agent-role
+  apiGroup: rbac.authorization.k8s.io
