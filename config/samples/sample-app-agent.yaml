@@ -29,8 +29,6 @@ spec:
           value: "true"
         - name: CRYOSTAT_AGENT_BASEURI
           value: https://cryostat-sample.$(NAMESPACE).svc:4180
-        - name: CRYOSTAT_AGENT_AUTHORIZATION_TYPE
-          value: kubernetes
         - name: POD_IP
           valueFrom:
             fieldRef:
