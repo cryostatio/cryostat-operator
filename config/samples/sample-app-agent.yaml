@@ -19,7 +19,10 @@ spec:
       containers:
       - env:
         - name: CRYOSTAT_AGENT_APP_NAME
-          value: quarkus-cryostat-agent
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: metadata.name
         - name: NAMESPACE
           valueFrom:
             fieldRef:
