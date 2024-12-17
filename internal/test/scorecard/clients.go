@@ -422,7 +422,7 @@ func (client *RecordingClient) Delete(ctx context.Context, target *Target, recor
 	return nil
 }
 
-func (client *RecordingClient) RequestReportGeneration(ctx context.Context, target *Target, recording *Recording) (*string, error) {
+func (client *RecordingClient) GenerateReport(ctx context.Context, target *Target, recording *Recording) (map[string]interface{}, error) {
 	if len(recording.ReportURL) < 1 {
 		return nil, fmt.Errorf("report URL is not available")
 	}
@@ -430,6 +430,7 @@ func (client *RecordingClient) RequestReportGeneration(ctx context.Context, targ
 	reportURL := client.Base.JoinPath(recording.ReportURL)
 
 	header := make(http.Header)
+	header.Add("Accept", "application/json")
 
 	resp, err := SendRequest(ctx, client.Client, http.MethodGet, reportURL.String(), nil, header)
 	if err != nil {
@@ -441,12 +442,13 @@ func (client *RecordingClient) RequestReportGeneration(ctx context.Context, targ
 		return nil, fmt.Errorf("API request failed with status code: %d, response body: %s, and headers:\n%s", resp.StatusCode, ReadError(resp), ReadHeader(resp))
 	}
 
-	report, err := ReadString(resp)
+	report := make(map[string]interface{}, 0)
+	err = ReadJSON(resp, &report)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read response body: %s", err.Error())
 	}
 
-	return &report, nil
+	return report, nil
 }
 
 func (client *RecordingClient) ListArchives(ctx context.Context, target *Target) ([]Archive, error) {
