@@ -947,7 +947,7 @@ func (r *TestResources) NewCACertSecret(ns string) *corev1.Secret {
 }
 
 func (r *TestResources) NewAgentCertSecret(ns string) *corev1.Secret {
-	name := r.getClusterUniqueNameForAgent(ns)
+	name := r.GetClusterUniqueNameForAgent(ns)
 	return &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
@@ -1179,7 +1179,7 @@ func (r *TestResources) OtherCACert() *certv1.Certificate {
 }
 
 func (r *TestResources) NewAgentCert(namespace string) *certv1.Certificate {
-	name := r.getClusterUniqueNameForAgent(namespace)
+	name := r.GetClusterUniqueNameForAgent(namespace)
 	return &certv1.Certificate{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
@@ -3585,7 +3585,7 @@ func (r *TestResources) getClusterUniqueNameForCA() string {
 	return "cryostat-ca-" + r.clusterUniqueSuffix("")
 }
 
-func (r *TestResources) getClusterUniqueNameForAgent(namespace string) string {
+func (r *TestResources) GetClusterUniqueNameForAgent(namespace string) string {
 	return r.GetAgentCertPrefix() + r.clusterUniqueSuffix(namespace)
 }
 

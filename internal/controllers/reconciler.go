@@ -65,6 +65,7 @@ type ReconcilerConfig struct {
 	InsightsProxy          *url.URL // Only defined if Insights is enabled
 	NewControllerBuilder   func(ctrl.Manager) common.ControllerBuilder
 	common.ReconcilerTLS
+	common.OSUtils
 }
 
 // CommonReconciler is an interface for behaviour of the Cryostat reconciler
@@ -144,6 +145,9 @@ func newReconciler(config *ReconcilerConfig, objType client.Object, isNamespaced
 	gvk, err := apiutil.GVKForObject(objType, config.Scheme)
 	if err != nil {
 		return nil, err
+	}
+	if config.OSUtils == nil {
+		config.OSUtils = &common.DefaultOSUtils{}
 	}
 	return &Reconciler{
 		ReconcilerConfig: config,
@@ -405,24 +409,16 @@ func (r *Reconciler) reconcileReports(ctx context.Context, reqLogger logr.Logger
 
 func (r *Reconciler) getImageTags() *resources.ImageTags {
 	return &resources.ImageTags{
-		OAuth2ProxyImageTag:         r.getEnvOrDefault(oauth2ProxyImageTagEnv, DefaultOAuth2ProxyImageTag),
-		OpenShiftOAuthProxyImageTag: r.getEnvOrDefault(openshiftOauthProxyImageTagEnv, DefaultOpenShiftOAuthProxyImageTag),
-		CoreImageTag:                r.getEnvOrDefault(coreImageTagEnv, DefaultCoreImageTag),
-		DatasourceImageTag:          r.getEnvOrDefault(datasourceImageTagEnv, DefaultDatasourceImageTag),
-		GrafanaImageTag:             r.getEnvOrDefault(grafanaImageTagEnv, DefaultGrafanaImageTag),
-		ReportsImageTag:             r.getEnvOrDefault(reportsImageTagEnv, DefaultReportsImageTag),
-		StorageImageTag:             r.getEnvOrDefault(storageImageTagEnv, DefaultStorageImageTag),
-		DatabaseImageTag:            r.getEnvOrDefault(databaseImageTagEnv, DefaultDatabaseImageTag),
-		AgentProxyImageTag:          r.getEnvOrDefault(agentProxyImageTagEnv, DefaultAgentProxyImageTag),
+		OAuth2ProxyImageTag:         r.GetEnvOrDefault(oauth2ProxyImageTagEnv, constants.DefaultOAuth2ProxyImageTag),
+		OpenShiftOAuthProxyImageTag: r.GetEnvOrDefault(openshiftOauthProxyImageTagEnv, constants.DefaultOpenShiftOAuthProxyImageTag),
+		CoreImageTag:                r.GetEnvOrDefault(coreImageTagEnv, constants.DefaultCoreImageTag),
+		DatasourceImageTag:          r.GetEnvOrDefault(datasourceImageTagEnv, constants.DefaultDatasourceImageTag),
+		GrafanaImageTag:             r.GetEnvOrDefault(grafanaImageTagEnv, constants.DefaultGrafanaImageTag),
+		ReportsImageTag:             r.GetEnvOrDefault(reportsImageTagEnv, constants.DefaultReportsImageTag),
+		StorageImageTag:             r.GetEnvOrDefault(storageImageTagEnv, constants.DefaultStorageImageTag),
+		DatabaseImageTag:            r.GetEnvOrDefault(databaseImageTagEnv, constants.DefaultDatabaseImageTag),
+		AgentProxyImageTag:          r.GetEnvOrDefault(agentProxyImageTagEnv, constants.DefaultAgentProxyImageTag),
 	}
-}
-
-func (r *Reconciler) getEnvOrDefault(name string, defaultVal string) string {
-	val := r.GetEnv(name)
-	if len(val) > 0 {
-		return val
-	}
-	return defaultVal
 }
 
 // fsGroup to use when not constrained
