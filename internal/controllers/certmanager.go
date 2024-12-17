@@ -24,6 +24,7 @@ import (
 	"github.com/cryostatio/cryostat-operator/internal/controllers/common"
 	resources "github.com/cryostatio/cryostat-operator/internal/controllers/common/resource_definitions"
 	"github.com/cryostatio/cryostat-operator/internal/controllers/model"
+	"github.com/google/go-cmp/cmp"
 	corev1 "k8s.io/api/core/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -398,23 +399,41 @@ func (r *Reconciler) reconcileAgentCertificate(ctx context.Context, cert *certv1
 	return nil
 }
 
+var errCertificateModified error = errors.New("certificate has been modified")
+
 func (r *Reconciler) createOrUpdateCertificate(ctx context.Context, cert *certv1.Certificate, owner metav1.Object) error {
-	certSpec := cert.Spec.DeepCopy()
+	certCopy := cert.DeepCopy()
 	op, err := controllerutil.CreateOrUpdate(ctx, r.Client, cert, func() error {
 		if owner != nil {
 			if err := controllerutil.SetControllerReference(owner, cert, r.Scheme); err != nil {
 				return err
 			}
 		}
-		// Update Certificate spec
-		cert.Spec = *certSpec
+
+		if cert.CreationTimestamp.IsZero() {
+			cert.Spec = certCopy.Spec
+		} else if !cmp.Equal(cert.Spec, certCopy.Spec) {
+			return errCertificateModified
+		}
+
 		return nil
 	})
 	if err != nil {
+		if err == errCertificateModified {
+			return r.recreateCertificate(ctx, certCopy, owner)
+		}
 		return err
 	}
 	r.Log.Info(fmt.Sprintf("Certificate %s", op), "name", cert.Name, "namespace", cert.Namespace)
 	return nil
+}
+
+func (r *Reconciler) recreateCertificate(ctx context.Context, cert *certv1.Certificate, owner metav1.Object) error {
+	err := r.deleteCertWithSecret(ctx, cert)
+	if err != nil {
+		return err
+	}
+	return r.createOrUpdateCertificate(ctx, cert, owner)
 }
 
 func newKeystoreSecret(cr *model.CryostatInstance) *corev1.Secret {
