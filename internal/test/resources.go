@@ -760,13 +760,18 @@ func (r *TestResources) NewCryostatWithAdditionalMetadata() *model.CryostatInsta
 }
 
 func (r *TestResources) NewCryostatService() *corev1.Service {
+	appProtocol := "http"
 	return &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      r.Name,
 			Namespace: r.Namespace,
 			Labels: map[string]string{
-				"app":       r.Name,
-				"component": "cryostat",
+				"app":                         r.Name,
+				"component":                   "cryostat",
+				"app.kubernetes.io/name":      "cryostat",
+				"app.kubernetes.io/instance":  r.Name,
+				"app.kubernetes.io/component": "cryostat",
+				"app.kubernetes.io/part-of":   "cryostat",
 			},
 		},
 		Spec: corev1.ServiceSpec{
@@ -777,9 +782,10 @@ func (r *TestResources) NewCryostatService() *corev1.Service {
 			},
 			Ports: []corev1.ServicePort{
 				{
-					Name:       "http",
-					Port:       4180,
-					TargetPort: intstr.FromInt(4180),
+					Name:        "http",
+					Port:        4180,
+					TargetPort:  intstr.FromInt(4180),
+					AppProtocol: &appProtocol,
 				},
 			},
 		},
@@ -792,8 +798,12 @@ func (r *TestResources) NewReportsService() *corev1.Service {
 			Name:      r.Name + "-reports",
 			Namespace: r.Namespace,
 			Labels: map[string]string{
-				"app":       r.Name,
-				"component": "reports",
+				"app":                         r.Name,
+				"component":                   "reports",
+				"app.kubernetes.io/name":      "cryostat",
+				"app.kubernetes.io/instance":  r.Name,
+				"app.kubernetes.io/component": "reports",
+				"app.kubernetes.io/part-of":   "cryostat",
 			},
 		},
 		Spec: corev1.ServiceSpec{
@@ -819,8 +829,12 @@ func (r *TestResources) NewAgentProxyService() *corev1.Service {
 			Name:      r.Name + "-agent",
 			Namespace: r.Namespace,
 			Labels: map[string]string{
-				"app":       r.Name,
-				"component": "cryostat",
+				"app":                         r.Name,
+				"component":                   "cryostat-agent-gateway",
+				"app.kubernetes.io/name":      "cryostat",
+				"app.kubernetes.io/instance":  r.Name,
+				"app.kubernetes.io/component": "cryostat-agent-gateway",
+				"app.kubernetes.io/part-of":   "cryostat",
 			},
 		},
 		Spec: corev1.ServiceSpec{
@@ -848,9 +862,13 @@ func (r *TestResources) NewCustomizedCoreService() *corev1.Service {
 		"my/custom": "annotation",
 	}
 	svc.Labels = map[string]string{
-		"app":       r.Name,
-		"component": "cryostat",
-		"my":        "label",
+		"app":                         r.Name,
+		"component":                   "cryostat",
+		"my":                          "label",
+		"app.kubernetes.io/name":      "cryostat",
+		"app.kubernetes.io/instance":  r.Name,
+		"app.kubernetes.io/component": "cryostat",
+		"app.kubernetes.io/part-of":   "cryostat",
 	}
 	return svc
 }
@@ -863,9 +881,13 @@ func (r *TestResources) NewCustomizedReportsService() *corev1.Service {
 		"my/custom": "annotation",
 	}
 	svc.Labels = map[string]string{
-		"app":       r.Name,
-		"component": "reports",
-		"my":        "label",
+		"app":                         r.Name,
+		"component":                   "reports",
+		"my":                          "label",
+		"app.kubernetes.io/name":      "cryostat",
+		"app.kubernetes.io/instance":  r.Name,
+		"app.kubernetes.io/component": "reports",
+		"app.kubernetes.io/part-of":   "cryostat",
 	}
 	return svc
 }
@@ -878,9 +900,13 @@ func (r *TestResources) NewCustomizedAgentService() *corev1.Service {
 		"my/custom": "annotation",
 	}
 	svc.Labels = map[string]string{
-		"app":       r.Name,
-		"component": "cryostat",
-		"my":        "label",
+		"app":                         r.Name,
+		"component":                   "cryostat-agent-gateway",
+		"my":                          "label",
+		"app.kubernetes.io/name":      "cryostat",
+		"app.kubernetes.io/instance":  r.Name,
+		"app.kubernetes.io/component": "cryostat-agent-gateway",
+		"app.kubernetes.io/part-of":   "cryostat",
 	}
 	return svc
 }

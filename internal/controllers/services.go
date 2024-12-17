@@ -47,11 +47,13 @@ func (r *Reconciler) reconcileCoreService(ctx context.Context, cr *model.Cryosta
 			"app":       cr.Name,
 			"component": "cryostat",
 		}
+		appProtocol := "http"
 		svc.Spec.Ports = []corev1.ServicePort{
 			{
-				Name:       "http",
-				Port:       *config.HTTPPort,
-				TargetPort: intstr.IntOrString{IntVal: constants.AuthProxyHttpContainerPort},
+				Name:        "http",
+				Port:        *config.HTTPPort,
+				TargetPort:  intstr.IntOrString{IntVal: constants.AuthProxyHttpContainerPort},
+				AppProtocol: &appProtocol,
 			},
 		}
 		return nil
@@ -188,7 +190,7 @@ func configureAgentService(cr *model.CryostatInstance) *operatorv1beta2.AgentSer
 	}
 
 	// Apply common service defaults
-	configureService(&config.ServiceConfig, cr.Name, "cryostat")
+	configureService(&config.ServiceConfig, cr.Name, "cryostat-agent-gateway")
 
 	// Apply default HTTP port if not provided
 	if config.HTTPPort == nil {
@@ -214,6 +216,10 @@ func configureService(config *operatorv1beta2.ServiceConfig, appLabel string, co
 	// Add required labels, overriding any user-specified labels with the same keys
 	config.Labels["app"] = appLabel
 	config.Labels["component"] = componentLabel
+	config.Labels["app.kubernetes.io/name"] = "cryostat"
+	config.Labels["app.kubernetes.io/instance"] = appLabel
+	config.Labels["app.kubernetes.io/component"] = componentLabel
+	config.Labels["app.kubernetes.io/part-of"] = "cryostat"
 }
 
 func (r *Reconciler) createOrUpdateService(ctx context.Context, svc *corev1.Service, owner metav1.Object,
