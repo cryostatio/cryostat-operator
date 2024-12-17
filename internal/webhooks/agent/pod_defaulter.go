@@ -37,6 +37,7 @@ type podMutator struct {
 	client client.Client
 	log    *logr.Logger
 	gvk    *schema.GroupVersionKind
+	config *AgentWebhookConfig
 	common.ReconcilerTLS
 }
 
@@ -50,18 +51,15 @@ const (
 
 // Default optionally mutates a pod to inject the Cryostat agent
 func (r *podMutator) Default(ctx context.Context, obj runtime.Object) error {
-	// FIXME Do not return error, it blocks pod creation. Use this:
-	// https://github.com/kubernetes-sigs/controller-runtime/blob/3b032e16c0dc19d656626a288cd417d36beaebad/pkg/webhook/admission/defaulter_custom.go#L39
 	pod, ok := obj.(*corev1.Pod)
 	if !ok {
 		return fmt.Errorf("expected a Pod, but received a %T", obj)
 	}
-	// TODO could get very chatty (also name is blank for GenerateName)
-	r.log.Info("checking for Cryostat labels", "name", pod.Name, "namespace", pod.Namespace)
 
 	// TODO do this with objectSelector: https://github.com/kubernetes-sigs/controller-tools/issues/553
 	// Check for required labels and return early if missing
 	if !metav1.HasLabel(pod.ObjectMeta, LabelCryostatName) || !metav1.HasLabel(pod.ObjectMeta, LabelCryostatNamespace) {
+		fmt.Println(pod.Labels)
 		return nil
 	}
 
@@ -86,21 +84,32 @@ func (r *podMutator) Default(ctx context.Context, obj runtime.Object) error {
 
 	// Select target container
 	if len(pod.Spec.Containers) == 0 {
-		return nil
+		// Should never happen, Kubernetes doesn't allow this
+		return errors.New("pod has no containers")
 	}
 	// TODO make configurable
 	container := &pod.Spec.Containers[0]
 
 	// Add init container
+	nonRoot := true
+	imageTag := r.getImageTag()
 	pod.Spec.InitContainers = append(pod.Spec.InitContainers, corev1.Container{
 		Name:            "cryostat-agent-init",
-		Image:           "quay.io/cryostat/cryostat-agent-init:latest", // TODO related images
-		ImagePullPolicy: corev1.PullAlways,                             // TODO change this
+		Image:           imageTag,
+		ImagePullPolicy: common.GetPullPolicy(imageTag),
 		Command:         []string{"cp", "-v", "/cryostat/agent/cryostat-agent-shaded.jar", "/tmp/cryostat-agent/cryostat-agent-shaded.jar"},
 		VolumeMounts: []corev1.VolumeMount{
 			{
 				Name:      "cryostat-agent-init",
 				MountPath: "/tmp/cryostat-agent",
+			},
+		},
+		SecurityContext: &corev1.SecurityContext{
+			RunAsNonRoot: &nonRoot,
+			Capabilities: &corev1.Capabilities{
+				Drop: []corev1.Capability{
+					constants.CapabilityAll,
+				},
 			},
 		}, // TODO Resources?
 	})
@@ -247,6 +256,12 @@ func (r *podMutator) Default(ctx context.Context, obj runtime.Object) error {
 	// could do an authz check on webhook user. if they have pod/exec permissions, then create the sa and/or secret.
 	// this would count as a side effect of the webhook. this could still allow other ns users to escalate though.
 
+	podName := pod.Name
+	if len(podName) == 0 {
+		podName = pod.GenerateName
+	}
+	r.log.Info("configured Cryostat agent for pod", "name", podName, "namespace", pod.Namespace)
+
 	return nil
 }
 
@@ -289,6 +304,15 @@ func (r *podMutator) callbackEnv(cr *operatorv1beta2.Cryostat, namespace string,
 	}
 
 	return envs
+}
+
+func (r *podMutator) getImageTag() string {
+	// Lazily look up image tag
+	if r.config.InitImageTag == nil {
+		agentInitImage := r.config.GetEnvOrDefault(agentInitImageTagEnv, constants.DefaultAgentInitImageTag)
+		r.config.InitImageTag = &agentInitImage
+	}
+	return *r.config.InitImageTag
 }
 
 func extendJavaToolOptions(envs []corev1.EnvVar) ([]corev1.EnvVar, error) {

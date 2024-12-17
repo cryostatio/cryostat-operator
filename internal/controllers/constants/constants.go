@@ -19,6 +19,9 @@ import (
 	corev1 "k8s.io/api/core/v1"
 )
 
+// Generates constants from environment variables at build time
+//go:generate go run ../../tools/const_generator.go
+
 const (
 	AuthProxyHttpContainerPort int32  = 4180
 	CryostatHTTPContainerPort  int32  = 8181

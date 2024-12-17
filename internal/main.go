@@ -44,6 +44,7 @@ import (
 	operatorv1beta2 "github.com/cryostatio/cryostat-operator/api/v1beta2"
 	"github.com/cryostatio/cryostat-operator/internal/controllers"
 	"github.com/cryostatio/cryostat-operator/internal/controllers/common"
+	"github.com/cryostatio/cryostat-operator/internal/controllers/constants"
 	"github.com/cryostatio/cryostat-operator/internal/webhooks"
 	"github.com/cryostatio/cryostat-operator/internal/webhooks/agent"
 	// +kubebuilder:scaffold:imports
@@ -193,7 +194,8 @@ func main() {
 		setupLog.Error(err, "unable to create webhook", "webhook", "Cryostat")
 		os.Exit(1)
 	}
-	if err = agent.SetupWebhookWithManager(mgr); err != nil {
+	agentWebhook := agent.NewAgentWebhook(&agent.AgentWebhookConfig{})
+	if err = agentWebhook.SetupWebhookWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create webhook", "webhook", "Pod")
 		os.Exit(1)
 	}
@@ -208,7 +210,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	setupLog.Info("starting manager", "version", controllers.OperatorVersion)
+	setupLog.Info("starting manager", "version", constants.OperatorVersion)
 	if err := mgr.Start(ctrl.SetupSignalHandler()); err != nil {
 		setupLog.Error(err, "problem running manager")
 		os.Exit(1)

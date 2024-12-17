@@ -36,6 +36,7 @@ type TestReconcilerConfig struct {
 	EnvGrafanaImageTag             *string
 	EnvReportsImageTag             *string
 	EnvAgentProxyImageTag          *string
+	EnvAgentInitImageTag           *string
 	GeneratedPasswords             []string
 	ControllerBuilder              *TestCtrlBuilder
 	CertManagerMissing             bool
@@ -43,8 +44,8 @@ type TestReconcilerConfig struct {
 
 func NewTestReconcilerTLS(config *TestReconcilerConfig) common.ReconcilerTLS {
 	return common.NewReconcilerTLS(&common.ReconcilerTLSConfig{
-		Client:  config.Client,
-		OSUtils: newTestOSUtils(config),
+		Client: config.Client,
+		OS:     NewTestOSUtils(config),
 	})
 }
 
@@ -54,7 +55,7 @@ type testOSUtils struct {
 	numPassGen int
 }
 
-func newTestOSUtils(config *TestReconcilerConfig) *testOSUtils {
+func NewTestOSUtils(config *TestReconcilerConfig) common.OSUtils {
 	envs := map[string]string{}
 	if config.EnvDisableTLS != nil {
 		envs["DISABLE_SERVICE_TLS"] = strconv.FormatBool(*config.EnvDisableTLS)
@@ -86,6 +87,9 @@ func newTestOSUtils(config *TestReconcilerConfig) *testOSUtils {
 	if config.EnvAgentProxyImageTag != nil {
 		envs["RELATED_IMAGE_AGENT_PROXY"] = *config.EnvAgentProxyImageTag
 	}
+	if config.EnvAgentInitImageTag != nil {
+		envs["RELATED_IMAGE_AGENT_INIT"] = *config.EnvAgentInitImageTag
+	}
 	return &testOSUtils{envs: envs, passwords: config.GeneratedPasswords}
 }
 
@@ -96,6 +100,14 @@ func (o *testOSUtils) GetFileContents(path string) ([]byte, error) {
 
 func (o *testOSUtils) GetEnv(name string) string {
 	return o.envs[name]
+}
+
+func (o *testOSUtils) GetEnvOrDefault(name string, defaultVal string) string {
+	val := o.GetEnv(name)
+	if len(val) > 0 {
+		return val
+	}
+	return defaultVal
 }
 
 func (o *testOSUtils) GenPasswd(length int) string {

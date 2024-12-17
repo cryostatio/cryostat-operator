@@ -20,6 +20,7 @@ import (
 	"io/ioutil"
 	"math/rand"
 	"os"
+	"regexp"
 	"strings"
 	"time"
 
@@ -36,6 +37,7 @@ var log = logf.Log.WithName("common")
 // OSUtils is an abstraction on functionality that interacts with the operating system
 type OSUtils interface {
 	GetEnv(name string) string
+	GetEnvOrDefault(name string, defaultVal string) string
 	GetFileContents(path string) ([]byte, error)
 	GenPasswd(length int) string
 }
@@ -46,6 +48,16 @@ type DefaultOSUtils struct{}
 // variable exists, the empty string is returned.
 func (o *DefaultOSUtils) GetEnv(name string) string {
 	return os.Getenv(name)
+}
+
+// GetEnvOrDefault returns the value of the environment variable with the provided name.
+// If no such variable exists, the provided default value is returned.
+func (o *DefaultOSUtils) GetEnvOrDefault(name string, defaultVal string) string {
+	val := o.GetEnv(name)
+	if len(val) > 0 {
+		return val
+	}
+	return defaultVal
 }
 
 // GetFileContents reads and returns the entire file contents specified by the path
@@ -148,6 +160,19 @@ func LabelsForTargetNamespaceObject(cr *model.CryostatInstance) map[string]strin
 		constants.TargetNamespaceCRNameLabel:      cr.Name,
 		constants.TargetNamespaceCRNamespaceLabel: cr.InstallNamespace,
 	}
+}
+
+// Matches image tags of the form "major.minor.patch"
+var develVerRegexp = regexp.MustCompile(`(?i)(:latest|SNAPSHOT|dev|BETA\d+)$`)
+
+// GetPullPolicy returns an image pull policy based on the image tag provided.
+func GetPullPolicy(imageTag string) corev1.PullPolicy {
+	// Use Always for tags that have a known development suffix
+	if develVerRegexp.MatchString(imageTag) {
+		return corev1.PullAlways
+	}
+	// Likely a release, use IfNotPresent
+	return corev1.PullIfNotPresent
 }
 
 // SeccompProfile returns a SeccompProfile for the restricted

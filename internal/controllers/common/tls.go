@@ -32,7 +32,6 @@ import (
 type ReconcilerTLS interface {
 	IsCertManagerEnabled(cr *model.CryostatInstance) bool
 	GetCertificateSecret(ctx context.Context, cert *certv1.Certificate) (*corev1.Secret, error)
-	OSUtils
 }
 
 // ReconcilerTLSConfig contains parameters used to create a ReconcilerTLS
@@ -42,7 +41,7 @@ type ReconcilerTLSConfig struct {
 	Client client.Client
 	// Optional field to override the default behaviour when interacting
 	// with the operating system
-	OSUtils
+	OS OSUtils
 }
 
 type reconcilerTLS struct {
@@ -58,8 +57,8 @@ const disableServiceTLS = "DISABLE_SERVICE_TLS"
 // NewReconcilerTLS creates a new ReconcilerTLS using the provided configuration
 func NewReconcilerTLS(config *ReconcilerTLSConfig) ReconcilerTLS {
 	configCopy := *config
-	if config.OSUtils == nil {
-		configCopy.OSUtils = &DefaultOSUtils{}
+	if config.OS == nil {
+		configCopy.OS = &DefaultOSUtils{}
 	}
 	return &reconcilerTLS{
 		ReconcilerTLSConfig: &configCopy,
@@ -75,12 +74,12 @@ func (r *reconcilerTLS) IsCertManagerEnabled(cr *model.CryostatInstance) bool {
 	}
 
 	// Otherwise, fall back to DISABLE_SERVICE_TLS environment variable
-	return strings.ToLower(r.GetEnv(disableServiceTLS)) != "true"
+	return strings.ToLower(r.OS.GetEnv(disableServiceTLS)) != "true"
 }
 
 // ErrCertNotReady is returned when cert-manager has not marked the certificate
 // as ready, and no TLS secret has been populated yet.
-var ErrCertNotReady error = errors.New("Certificate secret not yet ready")
+var ErrCertNotReady error = errors.New("certificate secret not yet ready")
 
 // GetCertificateSecret returns the Secret corresponding to the named
 // cert-manager Certificate. This can return ErrCertNotReady if the

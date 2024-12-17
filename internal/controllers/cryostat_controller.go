@@ -26,9 +26,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
-// Generates constants from environment variables at build time
-//go:generate go run ../tools/const_generator.go
-
 // Verify that *CryostatReconciler implements CommonReconciler.
 var _ CommonReconciler = (*CryostatReconciler)(nil)
 
