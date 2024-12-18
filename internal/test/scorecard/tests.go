@@ -226,11 +226,11 @@ func CryostatRecordingTest(bundle *apimanifests.Bundle, namespace string, openSh
 	}
 	r.Log += fmt.Sprintf("current list of archives: %+v\n", archives)
 
-	reportJobId, err := apiClient.Recordings().RequestReportGeneration(context.Background(), target, rec)
+	report, err := apiClient.Recordings().GenerateReport(context.Background(), target, rec)
 	if err != nil {
 		return r.fail(fmt.Sprintf("failed to generate report for the recording: %s", err.Error()))
 	}
-	r.Log += fmt.Sprintf("report generation job ID for the recording %s: %+v\n", rec.Name, *reportJobId)
+	r.Log += fmt.Sprintf("generated report for the recording %s: %+v\n", rec.Name, report)
 
 	// Stop the recording
 	err = apiClient.Recordings().Stop(context.Background(), target, rec.Id)
