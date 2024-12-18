@@ -19,6 +19,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"golang.org/x/net/websocket"
 	"io"
 	"net/http"
 	"net/url"
@@ -427,11 +428,38 @@ func (client *RecordingClient) GenerateReport(ctx context.Context, target *Targe
 		return nil, fmt.Errorf("report URL is not available")
 	}
 
-	reportURL := client.Base.JoinPath(recording.ReportURL)
+	fmt.Printf("Client Base URL: %s\n", client.Base.String())
+	wsURL := client.Base.JoinPath("/api/notifications")
+	wsURL.Scheme = "wss"
+	fmt.Printf("WebSocket notifications URL: %s\n", wsURL.String())
+
+	// Authentication for OpenShift SSO
+	config, err := config.GetConfig()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get in-cluster configurations: %s", err.Error())
+	}
+
+	wsHeader := make(http.Header)
+	wsHeader.Add("Authorization", fmt.Sprintf("Bearer %s", config.BearerToken))
+	wsOrigin, err := url.Parse("http://localhost/")
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse WebSocket-Origin: %s", err.Error())
+	}
+	wsCfg := websocket.Config{
+		Origin:   wsOrigin,
+		Location: wsURL,
+		Header:   wsHeader,
+		Version:  websocket.ProtocolVersionHybi13,
+	}
+	ws, err := wsCfg.DialContext(ctx)
+	// defer ws.Close()
+	if err != nil {
+		return nil, fmt.Errorf("WebSocket connection failed: %s", err.Error())
+	}
 
 	header := make(http.Header)
-	header.Add("Accept", "application/json")
 
+	reportURL := client.Base.JoinPath(recording.ReportURL)
 	resp, err := SendRequest(ctx, client.Client, http.MethodGet, reportURL.String(), nil, header)
 	if err != nil {
 		return nil, err
@@ -441,14 +469,64 @@ func (client *RecordingClient) GenerateReport(ctx context.Context, target *Targe
 	if !StatusOK(resp.StatusCode) {
 		return nil, fmt.Errorf("API request failed with status code: %d, response body: %s, and headers:\n%s", resp.StatusCode, ReadError(resp), ReadHeader(resp))
 	}
+	// TODO refactor
+	if resp.StatusCode == 200 {
+		report := make(map[string]interface{}, 0)
+		err = ReadJSON(resp, &report)
+		if err != nil {
+			return nil, fmt.Errorf("failed to read response body: %s", err.Error())
+		}
 
-	report := make(map[string]interface{}, 0)
-	err = ReadJSON(resp, &report)
-	if err != nil {
-		return nil, fmt.Errorf("failed to read response body: %s", err.Error())
+		return report, nil
+	} else if resp.StatusCode == 202 {
+		asyncJobId, err := ReadString(resp)
+		if err != nil {
+			return nil, fmt.Errorf("failed to read async job ID: %s", err.Error())
+		}
+
+		asyncMsg := AsyncJobNotification{}
+		err = websocket.JSON.Receive(ws, &asyncMsg)
+		if err != nil {
+			return nil, fmt.Errorf("failed to read JSON notification: %s", err.Error())
+		}
+		expectedCategory := "ReportSuccess"
+		if asyncMsg.Meta.Category != expectedCategory {
+			// TODO loop on notifications for some time until this is observed?
+			return nil, fmt.Errorf("Notification received had the wrong category. Expected: %s . Got: %s", expectedCategory, asyncMsg.Meta.Category)
+		}
+		if asyncJobId != asyncMsg.Message.JobID {
+			return nil, fmt.Errorf("Notification received had the wrong job ID. Expected: %s . Got: %s", asyncJobId, asyncMsg.Message.JobID)
+		}
+		resp2, err := SendRequest(ctx, client.Client, http.MethodGet, reportURL.String(), nil, header)
+		if err != nil {
+			return nil, err
+		}
+		defer resp2.Body.Close()
+
+		report := make(map[string]interface{}, 0)
+		err = ReadJSON(resp2, &report)
+		if err != nil {
+			return nil, fmt.Errorf("failed to read response body: %s", err.Error())
+		}
+
+		return report, nil
+	} else {
+		return nil, fmt.Errorf("Unexpected status code: %d", resp.StatusCode)
 	}
+}
 
-	return report, nil
+// {"meta":{"category":"ReportSuccess"},"message":{"jobId":"be321b87-55fb-4812-8eef-ced46eed8795"}}
+type AsyncJobNotification struct {
+	Meta    MessageMeta     `json:"meta"`
+	Message AsyncJobMessage `json:"message"`
+}
+
+type MessageMeta struct {
+	Category string `json:"category"`
+}
+
+type AsyncJobMessage struct {
+	JobID string `json:"jobId"`
 }
 
 func (client *RecordingClient) ListArchives(ctx context.Context, target *Target) ([]Archive, error) {
