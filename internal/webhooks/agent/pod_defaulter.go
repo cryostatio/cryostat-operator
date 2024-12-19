@@ -26,6 +26,7 @@ import (
 	"github.com/cryostatio/cryostat-operator/internal/controllers/model"
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -45,9 +46,10 @@ type podMutator struct {
 var _ admission.CustomDefaulter = &podMutator{}
 
 const (
-	agentArg      = "-javaagent:/tmp/cryostat-agent/cryostat-agent-shaded.jar"
-	podNameEnvVar = "CRYOSTAT_AGENT_POD_NAME"
-	podIPEnvVar   = "CRYOSTAT_AGENT_POD_IP"
+	agentArg          = "-javaagent:/tmp/cryostat-agent/cryostat-agent-shaded.jar"
+	podNameEnvVar     = "CRYOSTAT_AGENT_POD_NAME"
+	podIPEnvVar       = "CRYOSTAT_AGENT_POD_IP"
+	agentMaxSizeBytes = 50 * 1024 * 1024
 )
 
 // Default optionally mutates a pod to inject the Cryostat agent
@@ -120,7 +122,9 @@ func (r *podMutator) Default(ctx context.Context, obj runtime.Object) error {
 	pod.Spec.Volumes = append(pod.Spec.Volumes, corev1.Volume{
 		Name: "cryostat-agent-init",
 		VolumeSource: corev1.VolumeSource{
-			EmptyDir: &corev1.EmptyDirVolumeSource{}, // TODO size limit?
+			EmptyDir: &corev1.EmptyDirVolumeSource{
+				SizeLimit: resource.NewQuantity(agentMaxSizeBytes, resource.BinarySI),
+			},
 		},
 	})
 
