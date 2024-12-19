@@ -112,27 +112,67 @@ func (r *AgentWebhookTestResources) NewPodNoNamespaceLabel() *corev1.Pod {
 	return pod
 }
 
+type mutatedPodOptions struct {
+	javaToolOptions string
+	namespace       string
+	image           string
+	pullPolicy      corev1.PullPolicy
+	proxyPort       int32
+}
+
+func (r *AgentWebhookTestResources) setDefaultMutatedPodOptions(options *mutatedPodOptions) {
+	if len(options.namespace) == 0 {
+		options.namespace = r.Namespace
+	}
+	if len(options.image) == 0 {
+		options.image = "quay.io/cryostat/cryostat-agent-init:latest"
+	}
+	if len(options.pullPolicy) == 0 {
+		options.pullPolicy = corev1.PullAlways
+	}
+	if options.proxyPort == 0 {
+		options.proxyPort = 8282
+	}
+}
+
 func (r *AgentWebhookTestResources) NewMutatedPod() *corev1.Pod {
-	return r.newMutatedPod("", r.Namespace, "quay.io/cryostat/cryostat-agent-init:latest", corev1.PullAlways)
+	return r.newMutatedPod(&mutatedPodOptions{})
 }
 
 func (r *AgentWebhookTestResources) NewMutatedPodJavaToolOptions() *corev1.Pod {
-	return r.newMutatedPod("-Dexisting=var ", r.Namespace, "quay.io/cryostat/cryostat-agent-init:latest", corev1.PullAlways)
+	return r.newMutatedPod(&mutatedPodOptions{
+		javaToolOptions: "-Dexisting=var ",
+	})
 }
 
 func (r *AgentWebhookTestResources) NewMutatedPodOtherNamespace(namespace string) *corev1.Pod {
-	return r.newMutatedPod("", namespace, "quay.io/cryostat/cryostat-agent-init:latest", corev1.PullAlways)
+	return r.newMutatedPod(&mutatedPodOptions{
+		namespace: namespace,
+	})
 }
 
 func (r *AgentWebhookTestResources) NewMutatedPodCustomImage() *corev1.Pod {
-	return r.newMutatedPod("", r.Namespace, "example.com/agent-init:2.0.0", corev1.PullIfNotPresent)
+	return r.newMutatedPod(&mutatedPodOptions{
+		image:      "example.com/agent-init:2.0.0",
+		pullPolicy: corev1.PullIfNotPresent,
+	})
 }
 
 func (r *AgentWebhookTestResources) NewMutatedPodCustomDevImage() *corev1.Pod {
-	return r.newMutatedPod("", r.Namespace, "example.com/agent-init:latest", corev1.PullAlways)
+	return r.newMutatedPod(&mutatedPodOptions{
+		image:      "example.com/agent-init:latest",
+		pullPolicy: corev1.PullAlways,
+	})
 }
 
-func (r *AgentWebhookTestResources) newMutatedPod(javaToolOptions string, podNS string, image string, pullPolicy corev1.PullPolicy) *corev1.Pod {
+func (r *AgentWebhookTestResources) NewMutatedPodProxyPort() *corev1.Pod {
+	return r.newMutatedPod(&mutatedPodOptions{
+		proxyPort: 8080,
+	})
+}
+
+func (r *AgentWebhookTestResources) newMutatedPod(options *mutatedPodOptions) *corev1.Pod {
+	r.setDefaultMutatedPodOptions(options)
 	scheme := "https"
 	if !r.TLS {
 		scheme = "http"
@@ -140,7 +180,7 @@ func (r *AgentWebhookTestResources) newMutatedPod(javaToolOptions string, podNS 
 	pod := &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      r.Name + "-webhook-test",
-			Namespace: podNS,
+			Namespace: options.namespace,
 			Labels: map[string]string{
 				"cryostat.io/name":      r.Name,
 				"cryostat.io/namespace": r.Namespace,
@@ -150,8 +190,8 @@ func (r *AgentWebhookTestResources) newMutatedPod(javaToolOptions string, podNS 
 			InitContainers: []corev1.Container{
 				{
 					Name:            "cryostat-agent-init",
-					Image:           image,
-					ImagePullPolicy: pullPolicy,
+					Image:           options.image,
+					ImagePullPolicy: options.pullPolicy,
 					Command:         []string{"cp", "-v", "/cryostat/agent/cryostat-agent-shaded.jar", "/tmp/cryostat-agent/cryostat-agent-shaded.jar"},
 					VolumeMounts: []corev1.VolumeMount{
 						{
@@ -180,7 +220,7 @@ func (r *AgentWebhookTestResources) newMutatedPod(javaToolOptions string, podNS 
 						},
 						{
 							Name:  "CRYOSTAT_AGENT_BASEURI",
-							Value: fmt.Sprintf("%s://%s-agent.%s.svc:8282", scheme, r.Name, r.Namespace),
+							Value: fmt.Sprintf("%s://%s-agent.%s.svc:%d", scheme, r.Name, r.Namespace, options.proxyPort),
 						},
 						{
 							Name: "CRYOSTAT_AGENT_POD_NAME",
@@ -219,7 +259,7 @@ func (r *AgentWebhookTestResources) newMutatedPod(javaToolOptions string, podNS 
 						},
 						{
 							Name:  "CRYOSTAT_AGENT_CALLBACK_DOMAIN_NAME",
-							Value: fmt.Sprintf("%s.%s.svc", r.GetAgentServiceName(), podNS),
+							Value: fmt.Sprintf("%s.%s.svc", r.GetAgentServiceName(), options.namespace),
 						},
 						{
 							Name:  "CRYOSTAT_AGENT_CALLBACK_PORT",
@@ -227,7 +267,7 @@ func (r *AgentWebhookTestResources) newMutatedPod(javaToolOptions string, podNS 
 						},
 						{
 							Name:  "JAVA_TOOL_OPTIONS",
-							Value: javaToolOptions + "-javaagent:/tmp/cryostat-agent/cryostat-agent-shaded.jar",
+							Value: options.javaToolOptions + "-javaagent:/tmp/cryostat-agent/cryostat-agent-shaded.jar",
 						},
 					},
 					SecurityContext: &corev1.SecurityContext{
@@ -321,7 +361,7 @@ func (r *AgentWebhookTestResources) newMutatedPod(javaToolOptions string, podNS 
 				Name: "cryostat-agent-tls",
 				VolumeSource: corev1.VolumeSource{
 					Secret: &corev1.SecretVolumeSource{
-						SecretName:  r.GetClusterUniqueNameForAgent(podNS),
+						SecretName:  r.GetClusterUniqueNameForAgent(options.namespace),
 						DefaultMode: &[]int32{0440}[0],
 					},
 				},

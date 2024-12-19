@@ -18,14 +18,12 @@ import (
 	"context"
 	"fmt"
 	"net/url"
-	"strconv"
 
 	operatorv1beta2 "github.com/cryostatio/cryostat-operator/api/v1beta2"
 	common "github.com/cryostatio/cryostat-operator/internal/controllers/common"
 	"github.com/cryostatio/cryostat-operator/internal/controllers/common/resource_definitions"
 	"github.com/cryostatio/cryostat-operator/internal/controllers/constants"
 	"github.com/cryostatio/cryostat-operator/internal/controllers/model"
-	"github.com/cryostatio/cryostat-operator/internal/webhooks/agent"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -51,7 +49,7 @@ func (r *Reconciler) reconcileCoreService(ctx context.Context, cr *model.Cryosta
 		appProtocol := "http"
 		svc.Spec.Ports = []corev1.ServicePort{
 			{
-				Name:        "http",
+				Name:        constants.HttpPortName,
 				Port:        *config.HTTPPort,
 				TargetPort:  intstr.IntOrString{IntVal: constants.AuthProxyHttpContainerPort},
 				AppProtocol: &appProtocol,
@@ -91,7 +89,7 @@ func (r *Reconciler) reconcileReportsService(ctx context.Context, cr *model.Cryo
 		}
 		svc.Spec.Ports = []corev1.ServicePort{
 			{
-				Name:       "http",
+				Name:       constants.HttpPortName,
 				Port:       *config.HTTPPort,
 				TargetPort: intstr.IntOrString{IntVal: constants.ReportsContainerPort},
 			},
@@ -109,19 +107,23 @@ func (r *Reconciler) reconcileReportsService(ctx context.Context, cr *model.Cryo
 	}
 	specs.ReportsURL = &url.URL{
 		Scheme: scheme,
-		Host:   svc.Name + ":" + strconv.Itoa(int(svc.Spec.Ports[0].Port)), // TODO use getHTTPPort?
+		Host:   fmt.Sprintf("%s:%d", svc.Name, *config.HTTPPort),
 	}
 	return nil
 }
 
-func (r *Reconciler) reconcileAgentService(ctx context.Context, cr *model.CryostatInstance) error {
-	config := configureAgentService(cr)
-	svc := &corev1.Service{
+func NewAgentService(cr *model.CryostatInstance) *corev1.Service {
+	return &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      cr.Name + "-agent",
 			Namespace: cr.InstallNamespace,
 		},
 	}
+}
+
+func (r *Reconciler) reconcileAgentService(ctx context.Context, cr *model.CryostatInstance) error {
+	svc := NewAgentService(cr)
+	config := GetAgentServiceConfig(cr)
 
 	return r.createOrUpdateService(ctx, svc, cr.Object, &config.ServiceConfig, func() error {
 		svc.Spec.Selector = map[string]string{
@@ -130,7 +132,7 @@ func (r *Reconciler) reconcileAgentService(ctx context.Context, cr *model.Cryost
 		}
 		svc.Spec.Ports = []corev1.ServicePort{
 			{
-				Name:       "http",
+				Name:       constants.HttpPortName,
 				Port:       *config.HTTPPort,
 				TargetPort: intstr.IntOrString{IntVal: constants.AgentProxyContainerPort},
 			},
@@ -162,12 +164,12 @@ func (r *Reconciler) reconcileAgentHeadlessServices(ctx context.Context, cr *mod
 		err := r.createOrUpdateService(ctx, svc, nil, config, func() error {
 			// Select agent auto-configuration labels
 			svc.Spec.Selector = map[string]string{
-				agent.LabelCryostatName:      cr.Name,
-				agent.LabelCryostatNamespace: cr.InstallNamespace,
+				constants.AgentLabelCryostatName:      cr.Name,
+				constants.AgentLabelCryostatNamespace: cr.InstallNamespace,
 			}
 			svc.Spec.Ports = []corev1.ServicePort{
 				{
-					Name:       "http",
+					Name:       constants.HttpPortName,
 					Port:       9977, // TODO make configurable
 					TargetPort: intstr.IntOrString{IntVal: 9977},
 				},
@@ -245,7 +247,7 @@ func configureReportsService(cr *model.CryostatInstance) *operatorv1beta2.Report
 	return config
 }
 
-func configureAgentService(cr *model.CryostatInstance) *operatorv1beta2.AgentServiceConfig {
+func GetAgentServiceConfig(cr *model.CryostatInstance) *operatorv1beta2.AgentServiceConfig {
 	// Check CR for config
 	var config *operatorv1beta2.AgentServiceConfig
 	if cr.Spec.ServiceOptions == nil || cr.Spec.ServiceOptions.AgentConfig == nil {

@@ -255,7 +255,9 @@ var _ = Describe("PodDefaulter", func() {
 				}
 
 				JustAfterEach(func() {
+					// Reset state
 					agentWebhookConfig.OSUtils = saveOSUtils
+					agentWebhookConfig.InitImageTag = nil
 				})
 
 				Context("for development", func() {
@@ -275,6 +277,16 @@ var _ = Describe("PodDefaulter", func() {
 
 					ExpectPod()
 				})
+			})
+
+			Context("with a custom proxy port", func() {
+				BeforeEach(func() {
+					t.objs = append(t.objs, t.NewCryostatWithAgentSvc().Object)
+					originalPod = t.NewPod()
+					expectedPod = t.NewMutatedPodProxyPort()
+				})
+
+				ExpectPod()
 			})
 		})
 

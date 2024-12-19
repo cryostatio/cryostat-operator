@@ -15,7 +15,7 @@
 package agent
 
 const (
-	labelprefix            = "cryostat.io/"
-	LabelCryostatName      = labelprefix + "name"
-	LabelCryostatNamespace = labelprefix + "namespace"
+	agentLabelPrefix            = "cryostat.io/"
+	AgentLabelCryostatName      = agentLabelPrefix + "name"
+	AgentLabelCryostatNamespace = agentLabelPrefix + "namespace"
 )
