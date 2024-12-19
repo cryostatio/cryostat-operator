@@ -19,6 +19,7 @@ import (
 
 	"github.com/cryostatio/cryostat-operator/internal/test"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -294,7 +295,9 @@ func (r *AgentWebhookTestResources) newMutatedPod(options *mutatedPodOptions) *c
 				{
 					Name: "cryostat-agent-init",
 					VolumeSource: corev1.VolumeSource{
-						EmptyDir: &corev1.EmptyDirVolumeSource{},
+						EmptyDir: &corev1.EmptyDirVolumeSource{
+							SizeLimit: &[]resource.Quantity{resource.MustParse("50Mi")}[0],
+						},
 					},
 				},
 			},
