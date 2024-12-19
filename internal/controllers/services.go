@@ -112,7 +112,7 @@ func (r *Reconciler) reconcileReportsService(ctx context.Context, cr *model.Cryo
 	return nil
 }
 
-func NewAgentService(cr *model.CryostatInstance) *corev1.Service {
+func newAgentService(cr *model.CryostatInstance) *corev1.Service {
 	return &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      cr.Name + "-agent",
@@ -122,8 +122,8 @@ func NewAgentService(cr *model.CryostatInstance) *corev1.Service {
 }
 
 func (r *Reconciler) reconcileAgentService(ctx context.Context, cr *model.CryostatInstance) error {
-	svc := NewAgentService(cr)
-	config := GetAgentServiceConfig(cr)
+	svc := newAgentService(cr)
+	config := configureAgentService(cr)
 
 	return r.createOrUpdateService(ctx, svc, cr.Object, &config.ServiceConfig, func() error {
 		svc.Spec.Selector = map[string]string{
@@ -144,7 +144,7 @@ func (r *Reconciler) reconcileAgentService(ctx context.Context, cr *model.Cryost
 func (r *Reconciler) newAgentHeadlessService(cr *model.CryostatInstance, namespace string) *corev1.Service {
 	return &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      common.ClusterUniqueShortName(r.gvk, cr.Name, cr.InstallNamespace),
+			Name:      common.AgentHeadlessServiceName(r.gvk, cr),
 			Namespace: namespace,
 		},
 	}
@@ -247,7 +247,7 @@ func configureReportsService(cr *model.CryostatInstance) *operatorv1beta2.Report
 	return config
 }
 
-func GetAgentServiceConfig(cr *model.CryostatInstance) *operatorv1beta2.AgentServiceConfig {
+func configureAgentService(cr *model.CryostatInstance) *operatorv1beta2.AgentServiceConfig {
 	// Check CR for config
 	var config *operatorv1beta2.AgentServiceConfig
 	if cr.Spec.ServiceOptions == nil || cr.Spec.ServiceOptions.AgentConfig == nil {
