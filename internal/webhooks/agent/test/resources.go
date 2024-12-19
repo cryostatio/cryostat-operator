@@ -247,7 +247,7 @@ func (r *AgentWebhookTestResources) newMutatedPod(options *mutatedPodOptions) *c
 						},
 						{
 							Name:  "CRYOSTAT_AGENT_API_WRITES_ENABLED",
-							Value: "true", // TODO default to writes enabled, separate label?
+							Value: "true",
 						},
 
 						{
@@ -284,6 +284,12 @@ func (r *AgentWebhookTestResources) newMutatedPod(options *mutatedPodOptions) *c
 							Name:      "cryostat-agent-init",
 							MountPath: "/tmp/cryostat-agent",
 							ReadOnly:  true,
+						},
+					},
+					Resources: corev1.ResourceRequirements{
+						Requests: corev1.ResourceList{
+							corev1.ResourceCPU:    resource.MustParse("10m"),
+							corev1.ResourceMemory: resource.MustParse("32Mi"),
 						},
 					},
 				},

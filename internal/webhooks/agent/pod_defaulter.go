@@ -20,7 +20,6 @@ import (
 	"fmt"
 
 	operatorv1beta2 "github.com/cryostatio/cryostat-operator/api/v1beta2"
-	"github.com/cryostatio/cryostat-operator/internal/controllers"
 	"github.com/cryostatio/cryostat-operator/internal/controllers/common"
 	"github.com/cryostatio/cryostat-operator/internal/controllers/constants"
 	"github.com/cryostatio/cryostat-operator/internal/controllers/model"
@@ -46,10 +45,12 @@ type podMutator struct {
 var _ admission.CustomDefaulter = &podMutator{}
 
 const (
-	agentArg          = "-javaagent:/tmp/cryostat-agent/cryostat-agent-shaded.jar"
-	podNameEnvVar     = "CRYOSTAT_AGENT_POD_NAME"
-	podIPEnvVar       = "CRYOSTAT_AGENT_POD_IP"
-	agentMaxSizeBytes = 50 * 1024 * 1024
+	agentArg               = "-javaagent:/tmp/cryostat-agent/cryostat-agent-shaded.jar"
+	podNameEnvVar          = "CRYOSTAT_AGENT_POD_NAME"
+	podIPEnvVar            = "CRYOSTAT_AGENT_POD_IP"
+	agentMaxSizeBytes      = "50Mi"
+	agentInitCpuRequest    = "10m"
+	agentInitMemoryRequest = "32Mi"
 )
 
 // Default optionally mutates a pod to inject the Cryostat agent
@@ -62,7 +63,6 @@ func (r *podMutator) Default(ctx context.Context, obj runtime.Object) error {
 	// TODO do this with objectSelector: https://github.com/kubernetes-sigs/controller-tools/issues/553
 	// Check for required labels and return early if missing
 	if !metav1.HasLabel(pod.ObjectMeta, constants.AgentLabelCryostatName) || !metav1.HasLabel(pod.ObjectMeta, constants.AgentLabelCryostatNamespace) {
-		fmt.Println(pod.Labels)
 		return nil
 	}
 
@@ -91,7 +91,7 @@ func (r *podMutator) Default(ctx context.Context, obj runtime.Object) error {
 		// Should never happen, Kubernetes doesn't allow this
 		return errors.New("pod has no containers")
 	}
-	// TODO make configurable
+	// TODO make configurable with label
 	container := &pod.Spec.Containers[0]
 
 	// Add init container
@@ -115,15 +115,22 @@ func (r *podMutator) Default(ctx context.Context, obj runtime.Object) error {
 					constants.CapabilityAll,
 				},
 			},
-		}, // TODO Resources?
+		},
+		Resources: corev1.ResourceRequirements{ // TODO allow customization with CRD
+			Requests: corev1.ResourceList{
+				corev1.ResourceCPU:    resource.MustParse(agentInitCpuRequest),
+				corev1.ResourceMemory: resource.MustParse(agentInitMemoryRequest),
+			},
+		},
 	})
 
 	// Add emptyDir volume to copy agent into, and mount it
+	sizeLimit := resource.MustParse(agentMaxSizeBytes)
 	pod.Spec.Volumes = append(pod.Spec.Volumes, corev1.Volume{
 		Name: "cryostat-agent-init",
 		VolumeSource: corev1.VolumeSource{
 			EmptyDir: &corev1.EmptyDirVolumeSource{
-				SizeLimit: resource.NewQuantity(agentMaxSizeBytes, resource.BinarySI),
+				SizeLimit: &sizeLimit,
 			},
 		},
 	})
@@ -166,7 +173,7 @@ func (r *podMutator) Default(ctx context.Context, obj runtime.Object) error {
 	)
 
 	// Append callback environment variables
-	container.Env = append(container.Env, r.callbackEnv(cr, pod.Namespace, tlsEnabled)...)
+	container.Env = append(container.Env, r.callbackEnv(crModel, pod.Namespace, tlsEnabled)...)
 
 	if tlsEnabled {
 		// Mount the certificate volume
@@ -175,8 +182,7 @@ func (r *podMutator) Default(ctx context.Context, obj runtime.Object) error {
 			Name: "cryostat-agent-tls",
 			VolumeSource: corev1.VolumeSource{
 				Secret: &corev1.SecretVolumeSource{
-					// TODO abstract implementation
-					SecretName:  common.ClusterUniqueNameWithPrefixTargetNS(r.gvk, "agent", cr.Name, cr.Namespace, pod.Namespace),
+					SecretName:  common.AgentCertificateName(r.gvk, crModel, pod.Namespace),
 					DefaultMode: &readOnlyMode,
 				},
 			},
@@ -244,24 +250,14 @@ func (r *podMutator) Default(ctx context.Context, obj runtime.Object) error {
 			},
 		)
 	}
+	// Inject agent using JAVA_TOOL_OPTIONS, appending to any existing value
 	extended, err := extendJavaToolOptions(container.Env)
 	if err != nil {
 		return err
 	}
 	container.Env = extended
 
-	// TODO JAVA_TOOL_OPTIONS for -javaagent?
-
-	// TODO figure out authz. may not be suitable to create a service account in each target ns with pod/exec perms.
-	// someone with access to the namespace should not necessarily have access to that permission.
-	//
-	// TokenRequest API, can we autorenew? Non-expiring token would work but security warns against using it. If
-	// using non-expiring token. Remember RBAC is validated against install namespace. Need SA per target namespace,
-	// with a RoleBinding in install namespace.
-	//
-	// could do an authz check on webhook user. if they have pod/exec permissions, then create the sa and/or secret.
-	// this would count as a side effect of the webhook. this could still allow other ns users to escalate though.
-
+	// Use GenerateName for logging if no explicit Name is given
 	podName := pod.Name
 	if len(podName) == 0 {
 		podName = pod.GenerateName
@@ -277,13 +273,19 @@ func cryostatURL(cr *model.CryostatInstance, tls bool) string {
 	if !tls {
 		scheme = "http"
 	}
-	svc := controllers.NewAgentService(cr)
-	config := controllers.GetAgentServiceConfig(cr)
-	return fmt.Sprintf("%s://%s.%s.svc:%d", scheme, svc.Name, svc.Namespace,
-		*config.HTTPPort)
+	return fmt.Sprintf("%s://%s.%s.svc:%d", scheme, common.AgentProxyServiceName(cr), cr.InstallNamespace,
+		getAgentProxyHTTPPort(cr))
 }
 
-func (r *podMutator) callbackEnv(cr *operatorv1beta2.Cryostat, namespace string, tls bool) []corev1.EnvVar {
+func getAgentProxyHTTPPort(cr *model.CryostatInstance) int32 {
+	port := constants.AgentProxyContainerPort
+	if cr.Spec.ServiceOptions != nil && cr.Spec.ServiceOptions.AgentConfig != nil && cr.Spec.ServiceOptions.AgentConfig.HTTPPort != nil {
+		port = *cr.Spec.ServiceOptions.AgentConfig.HTTPPort
+	}
+	return port
+}
+
+func (r *podMutator) callbackEnv(cr *model.CryostatInstance, namespace string, tls bool) []corev1.EnvVar {
 	scheme := "https"
 	if !tls {
 		scheme = "http"
@@ -299,7 +301,7 @@ func (r *podMutator) callbackEnv(cr *operatorv1beta2.Cryostat, namespace string,
 		},
 		{
 			Name:  "CRYOSTAT_AGENT_CALLBACK_DOMAIN_NAME",
-			Value: fmt.Sprintf("%s.%s.svc", common.ClusterUniqueShortName(r.gvk, cr.Name, cr.Namespace), namespace),
+			Value: fmt.Sprintf("%s.%s.svc", common.AgentHeadlessServiceName(r.gvk, cr), namespace),
 		},
 		{
 			Name:  "CRYOSTAT_AGENT_CALLBACK_PORT",

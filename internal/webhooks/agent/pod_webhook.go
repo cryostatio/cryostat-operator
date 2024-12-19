@@ -26,7 +26,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 )
 
-// log is for logging in this package.
+// podWebhookLog is for logging in this package.
 var podWebhookLog = logf.Log.WithName("pod-webhook")
 
 // Environment variable to override the agent init container image

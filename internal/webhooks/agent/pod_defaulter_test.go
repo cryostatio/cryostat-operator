@@ -16,7 +16,6 @@ package agent_test
 
 import (
 	"context"
-	"fmt"
 	"strconv"
 	"strings"
 
@@ -107,7 +106,6 @@ var _ = Describe("PodDefaulter", func() {
 					Expect(container.Args).To(Equal(expected.Args))
 					Expect(container.Env).To(Equal(expected.Env))
 					Expect(container.EnvFrom).To(Equal(expected.EnvFrom))
-					fmt.Println(expected.Image[:strings.Index(expected.Image, ":")]) // XXX
 					Expect(container.Image).To(HavePrefix(expected.Image[:strings.Index(expected.Image, ":")]))
 					Expect(container.ImagePullPolicy).To(Equal(expected.ImagePullPolicy))
 					Expect(container.VolumeMounts).To(Equal(expected.VolumeMounts))
