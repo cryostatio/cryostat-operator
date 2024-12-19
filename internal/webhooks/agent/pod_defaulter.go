@@ -20,6 +20,7 @@ import (
 	"fmt"
 
 	operatorv1beta2 "github.com/cryostatio/cryostat-operator/api/v1beta2"
+	"github.com/cryostatio/cryostat-operator/internal/controllers"
 	"github.com/cryostatio/cryostat-operator/internal/controllers/common"
 	"github.com/cryostatio/cryostat-operator/internal/controllers/constants"
 	"github.com/cryostatio/cryostat-operator/internal/controllers/model"
@@ -58,7 +59,7 @@ func (r *podMutator) Default(ctx context.Context, obj runtime.Object) error {
 
 	// TODO do this with objectSelector: https://github.com/kubernetes-sigs/controller-tools/issues/553
 	// Check for required labels and return early if missing
-	if !metav1.HasLabel(pod.ObjectMeta, LabelCryostatName) || !metav1.HasLabel(pod.ObjectMeta, LabelCryostatNamespace) {
+	if !metav1.HasLabel(pod.ObjectMeta, constants.AgentLabelCryostatName) || !metav1.HasLabel(pod.ObjectMeta, constants.AgentLabelCryostatNamespace) {
 		fmt.Println(pod.Labels)
 		return nil
 	}
@@ -66,8 +67,8 @@ func (r *podMutator) Default(ctx context.Context, obj runtime.Object) error {
 	// Look up Cryostat
 	cr := &operatorv1beta2.Cryostat{}
 	err := r.client.Get(ctx, types.NamespacedName{
-		Name:      pod.Labels[LabelCryostatName],
-		Namespace: pod.Labels[LabelCryostatNamespace],
+		Name:      pod.Labels[constants.AgentLabelCryostatName],
+		Namespace: pod.Labels[constants.AgentLabelCryostatNamespace],
 	}, cr)
 	if err != nil {
 		return err
@@ -80,7 +81,8 @@ func (r *podMutator) Default(ctx context.Context, obj runtime.Object) error {
 	}
 
 	// Check whether TLS is enabled for this CR
-	tlsEnabled := r.IsCertManagerEnabled(model.FromCryostat(cr))
+	crModel := model.FromCryostat(cr)
+	tlsEnabled := r.IsCertManagerEnabled(crModel)
 
 	// Select target container
 	if len(pod.Spec.Containers) == 0 {
@@ -131,7 +133,7 @@ func (r *podMutator) Default(ctx context.Context, obj runtime.Object) error {
 	container.Env = append(container.Env,
 		corev1.EnvVar{
 			Name:  "CRYOSTAT_AGENT_BASEURI",
-			Value: cryostatURL(cr, tlsEnabled),
+			Value: cryostatURL(crModel, tlsEnabled),
 		},
 		corev1.EnvVar{
 			Name: podNameEnvVar,
@@ -265,18 +267,16 @@ func (r *podMutator) Default(ctx context.Context, obj runtime.Object) error {
 	return nil
 }
 
-func cryostatURL(cr *operatorv1beta2.Cryostat, tls bool) string {
+func cryostatURL(cr *model.CryostatInstance, tls bool) string {
+	// Build the URL to the agent proxy service
 	scheme := "https"
 	if !tls {
 		scheme = "http"
 	}
-	// TODO see if this can be easily refactored
-	port := constants.AgentProxyContainerPort
-	if cr.Spec.ServiceOptions != nil && cr.Spec.ServiceOptions.AgentConfig != nil && cr.Spec.ServiceOptions.AgentConfig.HTTPPort != nil {
-		port = *cr.Spec.ServiceOptions.AgentConfig.HTTPPort
-	}
-	return fmt.Sprintf("%s://%s-agent.%s.svc:%d", scheme, cr.Name, cr.Namespace, // TODO maybe use agent service instead of CR meta
-		port)
+	svc := controllers.NewAgentService(cr)
+	config := controllers.GetAgentServiceConfig(cr)
+	return fmt.Sprintf("%s://%s.%s.svc:%d", scheme, svc.Name, svc.Namespace,
+		*config.HTTPPort)
 }
 
 func (r *podMutator) callbackEnv(cr *operatorv1beta2.Cryostat, namespace string, tls bool) []corev1.EnvVar {
