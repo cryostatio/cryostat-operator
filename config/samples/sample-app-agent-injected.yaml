@@ -14,6 +14,8 @@ spec:
     metadata:
       labels:
         app: quarkus-cryostat-agent
+        cryostat.io/name: cryostat-sample
+        cryostat.io/namespace: cryostat-operator-system
     spec:
       serviceAccountName: quarkus-cryostat-agent-serviceaccount
       containers:
@@ -43,21 +45,12 @@ spec:
           value: |-
             -Dquarkus.http.host=0.0.0.0
             -Djava.util.logging.manager=org.jboss.logmanager.LogManager
-            -Dio.cryostat.agent.shaded.org.slf4j.simpleLogger.defaultLogLevel=info
-            -Dcom.sun.management.jmxremote.port=9097
-            -Dcom.sun.management.jmxremote.ssl=false
-            -Dcom.sun.management.jmxremote.authenticate=false
-            -javaagent:/deployments/app/cryostat-agent.jar
-            -Dcryostat.agent.webclient.tls.truststore.cert[0].path=/var/run/secrets/myapp/ca.crt
-            -Dcryostat.agent.webclient.tls.truststore.cert[0].type=X.509
-            -Dcryostat.agent.webclient.tls.truststore.cert[0].alias=cryostat-sample
+            -Dio.cryostat.agent.shaded.org.slf4j.simpleLogger.defaultLogLevel=debug
         image: quay.io/redhat-java-monitoring/quarkus-cryostat-agent:latest
         imagePullPolicy: Always
         name: quarkus-cryostat-agent
         ports:
         - containerPort: 10010
-          protocol: TCP
-        - containerPort: 9097
           protocol: TCP
         resources:
           limits:
@@ -90,10 +83,6 @@ spec:
   selector:
     app: quarkus-cryostat-agent
   ports:
-  - name: jfr-jmx
-    port: 9097
-    protocol: TCP
-    targetPort: 9097
   - name: agent-http
     port: 9977
     protocol: TCP
