@@ -1,8 +1,6 @@
 module github.com/cryostatio/cryostat-operator
 
-// Increment to go 1.22 once downstream is compatible
-go 1.21
-toolchain go1.22.5
+go 1.22.0
 
 require (
 	github.com/blang/semver/v4 v4.0.0
@@ -11,12 +9,12 @@ require (
 	github.com/google/go-cmp v0.6.0
 	github.com/onsi/ginkgo/v2 v2.17.3
 	github.com/onsi/gomega v1.33.1
-	github.com/openshift/api v0.0.0-20240228005710-4511c790cc60 // release-4.15
-	github.com/operator-framework/api v0.22.0
-	k8s.io/api v0.30.1
-	k8s.io/apimachinery v0.30.1
-	k8s.io/client-go v0.30.1
-	sigs.k8s.io/controller-runtime v0.18.2
+	github.com/openshift/api v0.0.0-20240912201240-0a8800162826 // release-4.17
+	github.com/operator-framework/api v0.26.0
+	k8s.io/api v0.30.8
+	k8s.io/apimachinery v0.30.8
+	k8s.io/client-go v0.30.8
+	sigs.k8s.io/controller-runtime v0.18.6
 )
 
 require (
@@ -26,7 +24,6 @@ require (
 	github.com/emicklei/go-restful/v3 v3.12.0 // indirect
 	github.com/evanphx/json-patch v5.9.0+incompatible // indirect
 	github.com/evanphx/json-patch/v5 v5.9.0 // indirect
-	github.com/fsnotify/fsnotify v1.7.0 // indirect
 	github.com/go-logr/zapr v1.3.0 // indirect
 	github.com/go-openapi/jsonpointer v0.21.0 // indirect
 	github.com/go-openapi/jsonreference v0.21.0 // indirect
@@ -49,7 +46,7 @@ require (
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/prometheus/client_golang v1.18.0 // indirect
 	github.com/prometheus/client_model v0.6.1 // indirect
-	github.com/prometheus/common v0.46.0 // indirect
+	github.com/prometheus/common v0.47.0 // indirect
 	github.com/prometheus/procfs v0.15.0 // indirect
 	github.com/sirupsen/logrus v1.9.3 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect

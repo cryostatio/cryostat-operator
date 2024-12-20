@@ -527,7 +527,7 @@ func (r *TestResources) updateStorageOptions(ctx context.Context, cr *operatorv1
 			PVC: &operatorv1beta2.PersistentVolumeClaimConfig{
 				Spec: &corev1.PersistentVolumeClaimSpec{
 					StorageClassName: nil,
-					Resources: corev1.ResourceRequirements{
+					Resources: corev1.VolumeResourceRequirements{
 						Requests: corev1.ResourceList{
 							corev1.ResourceStorage: resource.MustParse("1Gi"),
 						},
