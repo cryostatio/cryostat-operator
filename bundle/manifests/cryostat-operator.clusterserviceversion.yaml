@@ -29,8 +29,18 @@ metadata:
       ]
     capabilities: Seamless Upgrades
     categories: Monitoring, Developer Tools
+<<<<<<< HEAD
     containerImage: quay.io/cryostat/cryostat-operator:3.0.2-dev
     createdAt: "2024-09-20T19:04:07Z"
+=======
+<<<<<<< HEAD
+    containerImage: quay.io/cryostat/cryostat-operator:3.0.1
+    createdAt: "2024-09-20T18:43:56Z"
+=======
+    containerImage: quay.io/cryostat/cryostat-operator:4.0.0-dev
+    createdAt: "2024-12-20T16:25:35Z"
+>>>>>>> ae41d03 (build(deps): bump github.com/cert-manager/cert-manager from 1.13.6 to 1.15.4 (#972))
+>>>>>>> 338db338 (build(deps): bump github.com/cert-manager/cert-manager from 1.13.6 to 1.15.4 (#972))
     description: JVM monitoring and profiling tool
     operatorframework.io/initialization-resource: |-
       {

@@ -8,7 +8,15 @@
     entrypoint:
     - cryostat-scorecard-tests
     - operator-install
+<<<<<<< HEAD
     image: "quay.io/cryostat/cryostat-operator-scorecard:3.0.2-20240920190349"
+=======
+<<<<<<< HEAD
+    image: "quay.io/cryostat/cryostat-operator-scorecard:3.0.1-20240911181749"
+=======
+    image: "quay.io/cryostat/cryostat-operator-scorecard:4.0.0-20241220000429"
+>>>>>>> ae41d03 (build(deps): bump github.com/cert-manager/cert-manager from 1.13.6 to 1.15.4 (#972))
+>>>>>>> 338db338 (build(deps): bump github.com/cert-manager/cert-manager from 1.13.6 to 1.15.4 (#972))
     labels:
       suite: cryostat
       test: operator-install
@@ -18,7 +26,15 @@
     entrypoint:
     - cryostat-scorecard-tests
     - cryostat-cr
+<<<<<<< HEAD
     image: "quay.io/cryostat/cryostat-operator-scorecard:3.0.2-20240920190349"
+=======
+<<<<<<< HEAD
+    image: "quay.io/cryostat/cryostat-operator-scorecard:3.0.1-20240911181749"
+=======
+    image: "quay.io/cryostat/cryostat-operator-scorecard:4.0.0-20241220000429"
+>>>>>>> ae41d03 (build(deps): bump github.com/cert-manager/cert-manager from 1.13.6 to 1.15.4 (#972))
+>>>>>>> 338db338 (build(deps): bump github.com/cert-manager/cert-manager from 1.13.6 to 1.15.4 (#972))
     labels:
       suite: cryostat
       test: cryostat-cr
@@ -28,7 +44,15 @@
     entrypoint:
     - cryostat-scorecard-tests
     - cryostat-multi-namespace
+<<<<<<< HEAD
     image: "quay.io/cryostat/cryostat-operator-scorecard:3.0.2-20240920190349"
+=======
+<<<<<<< HEAD
+    image: "quay.io/cryostat/cryostat-operator-scorecard:3.0.1-20240911181749"
+=======
+    image: "quay.io/cryostat/cryostat-operator-scorecard:4.0.0-20241220000429"
+>>>>>>> ae41d03 (build(deps): bump github.com/cert-manager/cert-manager from 1.13.6 to 1.15.4 (#972))
+>>>>>>> 338db338 (build(deps): bump github.com/cert-manager/cert-manager from 1.13.6 to 1.15.4 (#972))
     labels:
       suite: cryostat
       test: cryostat-multi-namespace
@@ -38,7 +62,15 @@
     entrypoint:
     - cryostat-scorecard-tests
     - cryostat-recording
+<<<<<<< HEAD
     image: "quay.io/cryostat/cryostat-operator-scorecard:3.0.2-20240920190349"
+=======
+<<<<<<< HEAD
+    image: "quay.io/cryostat/cryostat-operator-scorecard:3.0.1-20240911181749"
+=======
+    image: "quay.io/cryostat/cryostat-operator-scorecard:4.0.0-20241220000429"
+>>>>>>> ae41d03 (build(deps): bump github.com/cert-manager/cert-manager from 1.13.6 to 1.15.4 (#972))
+>>>>>>> 338db338 (build(deps): bump github.com/cert-manager/cert-manager from 1.13.6 to 1.15.4 (#972))
     labels:
       suite: cryostat
       test: cryostat-recording
@@ -48,7 +80,15 @@
     entrypoint:
     - cryostat-scorecard-tests
     - cryostat-config-change
+<<<<<<< HEAD
     image: "quay.io/cryostat/cryostat-operator-scorecard:3.0.2-20240920190349"
+=======
+<<<<<<< HEAD
+    image: "quay.io/cryostat/cryostat-operator-scorecard:3.0.1-20240911181749"
+=======
+    image: "quay.io/cryostat/cryostat-operator-scorecard:4.0.0-20241220000429"
+>>>>>>> ae41d03 (build(deps): bump github.com/cert-manager/cert-manager from 1.13.6 to 1.15.4 (#972))
+>>>>>>> 338db338 (build(deps): bump github.com/cert-manager/cert-manager from 1.13.6 to 1.15.4 (#972))
     labels:
       suite: cryostat
       test: cryostat-config-change
@@ -58,7 +98,15 @@
     entrypoint:
     - cryostat-scorecard-tests
     - cryostat-report
+<<<<<<< HEAD
     image: "quay.io/cryostat/cryostat-operator-scorecard:3.0.2-20240920190349"
+=======
+<<<<<<< HEAD
+    image: "quay.io/cryostat/cryostat-operator-scorecard:3.0.1-20240911181749"
+=======
+    image: "quay.io/cryostat/cryostat-operator-scorecard:4.0.0-20241220000429"
+>>>>>>> ae41d03 (build(deps): bump github.com/cert-manager/cert-manager from 1.13.6 to 1.15.4 (#972))
+>>>>>>> 338db338 (build(deps): bump github.com/cert-manager/cert-manager from 1.13.6 to 1.15.4 (#972))
     labels:
       suite: cryostat
       test: cryostat-report

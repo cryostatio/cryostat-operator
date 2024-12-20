@@ -94,7 +94,7 @@ STORAGE_NAME ?= cryostat-storage
 STORAGE_VERSION ?= 3.0
 export STORAGE_IMG ?= $(STORAGE_NAMESPACE)/$(STORAGE_NAME):$(STORAGE_VERSION)
 
-CERT_MANAGER_VERSION ?= 1.11.5
+CERT_MANAGER_VERSION ?= 1.12.14
 CERT_MANAGER_MANIFEST ?= \
 	https://github.com/cert-manager/cert-manager/releases/download/v$(CERT_MANAGER_VERSION)/cert-manager.yaml
 

@@ -160,10 +160,20 @@ eyJhbGciOiJSUzI1NiIsImtpZCI6IkhYZC13eDdGVGwyQzdGNVpZVndScEZ2VmRxWTlzbnBUUG9HRkJp
 
 ## Manual Deployment
 
+<<<<<<< HEAD
 `make install` will create CustomResourceDefinitions and do other setup
 required to prepare the cluster for deploying the operator, using `oc` or
 `kubectl` on whichever OpenShift cluster is configured with the local client.
 `make uninstall` destroys the CRDs and undoes the setup.
+=======
+### Requirements
+- `go` v1.22+
+- [`operator-sdk`](https://github.com/operator-framework/operator-sdk) v1.31.0
+- `podman` or `docker`
+- [`jq`](https://stedolan.github.io/jq/) v1.6+
+- [`yq`](https://github.com/mikefarah/yq/) v4.35+
+- `ginkgo` (Optional)
+>>>>>>> ae41d03 (build(deps): bump github.com/cert-manager/cert-manager from 1.13.6 to 1.15.4 (#972))
 
 `make deploy` will deploy the operator in the default namespace
 (`cryostat-operator-system`). `make DEPLOY_NAMESPACE=foo-namespace deploy`
