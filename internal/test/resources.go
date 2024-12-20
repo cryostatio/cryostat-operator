@@ -592,7 +592,7 @@ func newPVCSpec(storageClass string, storageRequest string,
 	return &corev1.PersistentVolumeClaimSpec{
 		StorageClassName: &storageClass,
 		AccessModes:      accessModes,
-		Resources: corev1.ResourceRequirements{
+		Resources: corev1.VolumeResourceRequirements{
 			Requests: corev1.ResourceList{
 				corev1.ResourceStorage: resource.MustParse(storageRequest),
 			},
@@ -1241,7 +1241,7 @@ func (r *TestResources) newPVC(spec *corev1.PersistentVolumeClaimSpec, labels ma
 func (r *TestResources) NewDefaultPVC() *corev1.PersistentVolumeClaim {
 	return r.newPVC(&corev1.PersistentVolumeClaimSpec{
 		AccessModes: []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce},
-		Resources: corev1.ResourceRequirements{
+		Resources: corev1.VolumeResourceRequirements{
 			Requests: corev1.ResourceList{
 				corev1.ResourceStorage: resource.MustParse("500Mi"),
 			},
@@ -1256,7 +1256,7 @@ func (r *TestResources) NewCustomPVC() *corev1.PersistentVolumeClaim {
 	return r.newPVC(&corev1.PersistentVolumeClaimSpec{
 		StorageClassName: &storageClass,
 		AccessModes:      []corev1.PersistentVolumeAccessMode{corev1.ReadWriteMany},
-		Resources: corev1.ResourceRequirements{
+		Resources: corev1.VolumeResourceRequirements{
 			Requests: corev1.ResourceList{
 				corev1.ResourceStorage: resource.MustParse("10Gi"),
 			},
@@ -1274,7 +1274,7 @@ func (r *TestResources) NewCustomPVCSomeDefault() *corev1.PersistentVolumeClaim 
 	return r.newPVC(&corev1.PersistentVolumeClaimSpec{
 		StorageClassName: &storageClass,
 		AccessModes:      []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce},
-		Resources: corev1.ResourceRequirements{
+		Resources: corev1.VolumeResourceRequirements{
 			Requests: corev1.ResourceList{
 				corev1.ResourceStorage: resource.MustParse("1Gi"),
 			},
@@ -1287,7 +1287,7 @@ func (r *TestResources) NewCustomPVCSomeDefault() *corev1.PersistentVolumeClaim 
 func (r *TestResources) NewDefaultPVCWithLabel() *corev1.PersistentVolumeClaim {
 	return r.newPVC(&corev1.PersistentVolumeClaimSpec{
 		AccessModes: []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce},
-		Resources: corev1.ResourceRequirements{
+		Resources: corev1.VolumeResourceRequirements{
 			Requests: corev1.ResourceList{
 				corev1.ResourceStorage: resource.MustParse("500Mi"),
 			},
