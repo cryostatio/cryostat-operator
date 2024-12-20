@@ -10,21 +10,12 @@ require (
 	github.com/google/go-cmp v0.6.0
 	github.com/onsi/ginkgo/v2 v2.17.3
 	github.com/onsi/gomega v1.33.1
-<<<<<<< HEAD
-	github.com/openshift/api v0.0.0-20240228005710-4511c790cc60 // release-4.15
-	github.com/operator-framework/api v0.22.0
-	k8s.io/api v0.28.13
-	k8s.io/apimachinery v0.28.13
-	k8s.io/client-go v0.28.13
-	sigs.k8s.io/controller-runtime v0.16.6
-=======
 	github.com/openshift/api v0.0.0-20240912201240-0a8800162826 // release-4.17
 	github.com/operator-framework/api v0.26.0
 	k8s.io/api v0.30.8
 	k8s.io/apimachinery v0.30.8
 	k8s.io/client-go v0.30.8
 	sigs.k8s.io/controller-runtime v0.18.6
->>>>>>> ae41d03 (build(deps): bump github.com/cert-manager/cert-manager from 1.13.6 to 1.15.4 (#972))
 )
 
 require (
