@@ -98,7 +98,7 @@ AGENT_PROXY_NAME ?= nginx-124
 AGENT_PROXY_VERSION ?= latest
 export AGENT_PROXY_IMG = $(AGENT_PROXY_NAMESPACE)/$(AGENT_PROXY_NAME):$(AGENT_PROXY_VERSION)
 
-CERT_MANAGER_VERSION ?= 1.11.5
+CERT_MANAGER_VERSION ?= 1.12.14
 CERT_MANAGER_MANIFEST ?= \
 	https://github.com/cert-manager/cert-manager/releases/download/v$(CERT_MANAGER_VERSION)/cert-manager.yaml
 
