@@ -20,6 +20,7 @@ import (
 	"regexp"
 
 	"github.com/cryostatio/cryostat-operator/internal/controllers/common"
+	"github.com/cryostatio/cryostat-operator/internal/controllers/constants"
 	"github.com/cryostatio/cryostat-operator/internal/controllers/model"
 	"github.com/go-logr/logr"
 	configv1 "github.com/openshift/api/config/v1"
@@ -78,7 +79,7 @@ func (r *Reconciler) reconcileConsoleLink(ctx context.Context, cr *model.Cryosta
 	}
 	op, err := controllerutil.CreateOrUpdate(ctx, r.Client, link, func() error {
 		link.Spec.Link = consolev1.Link{
-			Text: AppName,
+			Text: constants.AppName,
 			Href: url,
 		}
 		link.Spec.Location = consolev1.NamespaceDashboard

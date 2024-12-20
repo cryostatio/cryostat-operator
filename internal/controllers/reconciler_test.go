@@ -131,6 +131,7 @@ func (t *cryostatTestInput) newReconcilerConfig(scheme *runtime.Scheme, client c
 		InsightsProxy:          insightsURL,
 		IsCertManagerInstalled: !t.CertManagerMissing,
 		NewControllerBuilder:   test.NewControllerBuilder(&t.TestReconcilerConfig),
+		OSUtils:                test.NewTestOSUtils(&t.TestReconcilerConfig),
 	}
 }
 
