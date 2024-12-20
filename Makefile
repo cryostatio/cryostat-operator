@@ -400,25 +400,13 @@ ifneq ($(origin SAMPLE_APP_NAMESPACE), undefined)
 SAMPLE_APP_FLAGS += -n $(SAMPLE_APP_NAMESPACE)
 endif
 
-.PHONY: sample_app
-sample_app: undeploy_sample_app ## Deploy sample app.
-	$(CLUSTER_CLIENT) apply $(SAMPLE_APP_FLAGS) -f config/samples/sample-app.yaml
-
 .PHONY: undeploy_sample_app
 undeploy_sample_app: ## Undeploy sample app.
 	- $(CLUSTER_CLIENT) delete $(SAMPLE_APP_FLAGS) --ignore-not-found=$(ignore-not-found) -f config/samples/sample-app.yaml
 
-.PHONY: sample_app_agent
-sample_app_agent: undeploy_sample_app_agent ## Deploy sample app with Cryostat Agent.
-	@if [ -z "${AUTH_TOKEN}" ]; then \
-		if [ "${CLUSTER_CLIENT}" = "oc" ]; then\
-			AUTH_TOKEN=`oc whoami -t`; \
-		else \
-			echo "'AUTH_TOKEN' must be specified."; \
-			exit 1; \
-		fi; \
-	fi; \
-	$(CLUSTER_CLIENT) apply $(SAMPLE_APP_FLAGS) -f config/samples/sample-app-agent.yaml; \
+.PHONY: sample_app
+sample_app: undeploy_sample_app ## Deploy sample app.
+	$(CLUSTER_CLIENT) apply $(SAMPLE_APP_FLAGS) -f config/samples/sample-app.yaml
 
 .PHONY: undeploy_sample_app_agent_proxy
 undeploy_sample_app_agent_proxy: ## Undeploy sample app with Cryostat Agent configured for TLS client auth on nginx proxy.
@@ -440,6 +428,19 @@ sample_app_agent_proxy: undeploy_sample_app_agent_proxy ## Deploy sample app wit
 .PHONY: undeploy_sample_app_agent
 undeploy_sample_app_agent: ## Undeploy sample app with Cryostat Agent.
 	- $(CLUSTER_CLIENT) delete $(SAMPLE_APP_FLAGS) --ignore-not-found=$(ignore-not-found) -f config/samples/sample-app-agent.yaml
+
+.PHONY: sample_app_agent
+sample_app_agent: undeploy_sample_app_agent ## Deploy sample app with Cryostat Agent.
+	$(CLUSTER_CLIENT) apply $(SAMPLE_APP_FLAGS) -f config/samples/sample-app-agent.yaml
+
+.PHONY: undeploy_sample_app_agent_injected
+undeploy_sample_app_agent_injected: ## Undeploy sample app with Cryostat Agent deployed by Operator injection.
+	- $(CLUSTER_CLIENT) delete $(SAMPLE_APP_FLAGS) --ignore-not-found=$(ignore-not-found) -f config/samples/sample-app-agent-injected.yaml
+
+.PHONY: sample_app_agent_injected
+sample_app_agent_injected: undeploy_sample_app_agent_injected ## Deploy sample app with Cryostat Agent deployed by Operator injection.
+	$(CLUSTER_CLIENT) apply $(SAMPLE_APP_FLAGS) -f config/samples/sample-app-agent-injected.yaml
+	$(CLUSTER_CLIENT) patch --type=merge -p "{\"spec\":{\"template\":{\"metadata\":{\"labels\":{\"cryostat.io/namespace\":\"${DEPLOY_NAMESPACE}\"}}}}}" deployment/quarkus-cryostat-agent
 
 .PHONY: cert_manager
 cert_manager: remove_cert_manager ## Install cert manager.
