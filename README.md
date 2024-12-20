@@ -29,7 +29,7 @@ for the Grafana dashboard.
 
 ## Requirements
 
-- `kubernetes` v1.25+ with [`Operator Lifecycle Manager`](https://olm.operatorframework.io/)
+- `kubernetes` v1.21+ with [`Operator Lifecycle Manager`](https://olm.operatorframework.io/)
 - [`cert-manager`](https://github.com/cert-manager/cert-manager) v1.11.5+ (Recommended)
 
 ## Instructions
@@ -47,7 +47,7 @@ the need to expose a JMX port over the network.
 
 # Building
 ## Requirements
-- `go` v1.21+
+- `go` v1.22+
 - [`operator-sdk`](https://github.com/operator-framework/operator-sdk) v1.31.0
 - `podman` or `docker`
 - [`jq`](https://stedolan.github.io/jq/) v1.6+
