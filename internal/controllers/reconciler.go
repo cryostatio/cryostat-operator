@@ -134,6 +134,16 @@ var mainDeploymentConditions = deploymentConditionTypeMap{
 	operatorv1beta2.ConditionTypeMainDeploymentProgressing:    appsv1.DeploymentProgressing,
 	operatorv1beta2.ConditionTypeMainDeploymentReplicaFailure: appsv1.DeploymentReplicaFailure,
 }
+var databaseDeploymentConditions = deploymentConditionTypeMap{
+	operatorv1beta2.ConditionTypeDatabaseDeploymentAvailable:      appsv1.DeploymentAvailable,
+	operatorv1beta2.ConditionTypeDatabaseDeploymentProgressing:    appsv1.DeploymentProgressing,
+	operatorv1beta2.ConditionTypeDatabaseDeploymentReplicaFailure: appsv1.DeploymentReplicaFailure,
+}
+var storageDeploymentConditions = deploymentConditionTypeMap{
+	operatorv1beta2.ConditionTypeStorageDeploymentAvailable:      appsv1.DeploymentAvailable,
+	operatorv1beta2.ConditionTypeStorageDeploymentProgressing:    appsv1.DeploymentProgressing,
+	operatorv1beta2.ConditionTypeStorageDeploymentReplicaFailure: appsv1.DeploymentReplicaFailure,
+}
 var reportsDeploymentConditions = deploymentConditionTypeMap{
 	operatorv1beta2.ConditionTypeReportsDeploymentAvailable:      appsv1.DeploymentAvailable,
 	operatorv1beta2.ConditionTypeReportsDeploymentProgressing:    appsv1.DeploymentProgressing,
@@ -202,7 +212,7 @@ func (r *Reconciler) reconcileCryostat(ctx context.Context, cr *model.CryostatIn
 		return reconcile.Result{}, err
 	}
 
-	err = r.reconcilePVC(ctx, cr)
+	err = r.reconcileCorePVC(ctx, cr)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
@@ -283,6 +293,16 @@ func (r *Reconciler) reconcileCryostat(ctx context.Context, cr *model.CryostatIn
 	reportsResult, err := r.reconcileReports(ctx, reqLogger, cr, tlsConfig, imageTags, serviceSpecs)
 	if err != nil {
 		return reportsResult, err
+	}
+
+	databaseResult, err := r.reconcileDatabase(ctx, reqLogger, cr, tlsConfig, imageTags, serviceSpecs, *fsGroup)
+	if err != nil {
+		return databaseResult, err
+	}
+
+	storageResult, err := r.reconcileStorage(ctx, reqLogger, cr, tlsConfig, imageTags, serviceSpecs, *fsGroup)
+	if err != nil {
+		return storageResult, err
 	}
 
 	deployment, err := resources.NewDeploymentForCR(cr, serviceSpecs, imageTags, tlsConfig, *fsGroup, r.IsOpenShift)
@@ -389,6 +409,61 @@ func (r *Reconciler) reconcileReports(ctx context.Context, reqLogger logr.Logger
 		if err != nil {
 			return reconcile.Result{}, err
 		}
+	}
+	return reconcile.Result{}, nil
+}
+
+func (r *Reconciler) reconcileDatabase(ctx context.Context, reqLogger logr.Logger, cr *model.CryostatInstance, tls *resources.TLSConfig, imageTags *resources.ImageTags, serviceSpecs *resources.ServiceSpecs, fsGroup int64) (reconcile.Result, error) {
+	reqLogger.Info("Spec", "Database", cr.Spec.DatabaseOptions)
+
+	err := r.reconcileDatabasePVC(ctx, cr)
+	if err != nil {
+		return reconcile.Result{}, err
+	}
+	err = r.reconcileDatabaseService(ctx, cr, tls, serviceSpecs)
+	if err != nil {
+		return reconcile.Result{}, err
+	}
+	deployment := resources.NewDeploymentForDatabase(cr, imageTags, tls, r.IsOpenShift, fsGroup)
+
+	err = r.createOrUpdateDeployment(ctx, deployment, cr.Object)
+	if err != nil {
+		return reconcile.Result{}, err
+	}
+
+	// Check deployment status and update conditions
+	err = r.updateConditionsFromDeployment(ctx, cr, types.NamespacedName{Name: deployment.Name, Namespace: deployment.Namespace},
+		databaseDeploymentConditions)
+	if err != nil {
+		return reconcile.Result{}, err
+	}
+	return reconcile.Result{}, nil
+}
+
+func (r *Reconciler) reconcileStorage(ctx context.Context, reqLogger logr.Logger, cr *model.CryostatInstance, tls *resources.TLSConfig,
+	imageTags *resources.ImageTags, serviceSpecs *resources.ServiceSpecs, fsGroup int64) (reconcile.Result, error) {
+	reqLogger.Info("Spec", "Storage", cr.Spec.StorageOptions)
+
+	err := r.reconcileStoragePVC(ctx, cr)
+	if err != nil {
+		return reconcile.Result{}, err
+	}
+	err = r.reconcileStorageService(ctx, cr, tls, serviceSpecs)
+	if err != nil {
+		return reconcile.Result{}, err
+	}
+	deployment := resources.NewDeploymentForStorage(cr, imageTags, tls, r.IsOpenShift, fsGroup)
+
+	err = r.createOrUpdateDeployment(ctx, deployment, cr.Object)
+	if err != nil {
+		return reconcile.Result{}, err
+	}
+
+	// Check deployment status and update conditions
+	err = r.updateConditionsFromDeployment(ctx, cr, types.NamespacedName{Name: deployment.Name, Namespace: deployment.Namespace},
+		storageDeploymentConditions)
+	if err != nil {
+		return reconcile.Result{}, err
 	}
 	return reconcile.Result{}, nil
 }
@@ -522,6 +597,7 @@ func (r *Reconciler) createOrUpdateDeployment(ctx context.Context, deploy *appsv
 
 		// Update pod template spec to propagate any changes from Cryostat CR
 		deploy.Spec.Template.Spec = deployCopy.Spec.Template.Spec
+
 		// Update pod template metadata
 		common.MergeLabelsAndAnnotations(&deploy.Spec.Template.ObjectMeta, deployCopy.Spec.Template.Labels,
 			deployCopy.Spec.Template.Annotations)
