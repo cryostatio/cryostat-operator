@@ -34,9 +34,8 @@ import (
 )
 
 type validatorTestInput struct {
-	client    ctrlclient.Client
-	validator *webhooks.CryostatValidator
-	objs      []ctrlclient.Object
+	client ctrlclient.Client
+	objs   []ctrlclient.Object
 	*webhooktests.WebhookTestResources
 }
 
@@ -46,7 +45,7 @@ var _ = Describe("CryostatValidator", func() {
 	count := 0
 
 	namespaceWithSuffix := func(name string) string {
-		return name + "-" + strconv.Itoa(count)
+		return name + "-validator-" + strconv.Itoa(count)
 	}
 
 	BeforeEach(func() {
@@ -73,11 +72,6 @@ var _ = Describe("CryostatValidator", func() {
 		logf.SetLogger(logger)
 
 		t.client = k8sClient
-		t.validator = &webhooks.CryostatValidator{
-			Client: k8sClient,
-			Log:    &logger,
-		}
-
 		for _, obj := range t.objs {
 			err := t.client.Create(ctx, obj)
 			Expect(err).ToNot(HaveOccurred())
