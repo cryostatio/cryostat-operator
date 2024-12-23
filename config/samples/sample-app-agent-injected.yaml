@@ -20,27 +20,6 @@ spec:
       serviceAccountName: quarkus-cryostat-agent-serviceaccount
       containers:
       - env:
-        - name: CRYOSTAT_AGENT_APP_NAME
-          valueFrom:
-            fieldRef:
-              apiVersion: v1
-              fieldPath: metadata.name
-        - name: NAMESPACE
-          valueFrom:
-            fieldRef:
-              apiVersion: v1
-              fieldPath: metadata.namespace
-        - name: CRYOSTAT_AGENT_API_WRITES_ENABLED
-          value: "true"
-        - name: CRYOSTAT_AGENT_BASEURI
-          value: https://cryostat-sample.$(NAMESPACE).svc:4180
-        - name: POD_IP
-          valueFrom:
-            fieldRef:
-              apiVersion: v1
-              fieldPath: status.podIP
-        - name: CRYOSTAT_AGENT_CALLBACK
-          value: http://$(POD_IP):9977
         - name: JAVA_OPTS_APPEND
           value: |-
             -Dquarkus.http.host=0.0.0.0
@@ -61,17 +40,9 @@ spec:
           capabilities:
             drop:
             - ALL
-        volumeMounts:
-        - mountPath: /var/run/secrets/myapp/ca.crt
-          name: truststore
-          subPath: ca.crt
       restartPolicy: Always
       securityContext:
         runAsNonRoot: true
-      volumes:
-      - name: truststore
-        secret:
-          secretName: cryostat-sample-tls
 ---
 apiVersion: v1
 kind: Service
