@@ -29,12 +29,14 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v4
+    - name: Add CRIU PPA
+      run: sudo add-apt-repository ppa:criu/ppa && sudo apt update
     - name: Install podman v4
       run: |
         echo "deb $OPENSUSE_UNOFFICIAL_LIBCONTAINERS_SOURCE_URL/ /" | sudo tee /etc/apt/sources.list.d/devel:kubic:libcontainers:unstable.list
         curl -fsSL $OPENSUSE_UNOFFICIAL_LIBCONTAINERS_KEY_URL | gpg --dearmor | sudo tee /etc/apt/trusted.gpg.d/devel_kubic_libcontainers_unstable.gpg > /dev/null
-        sudo apt update
-        sudo apt install podman
+        sudo apt -y update
+        sudo apt -y satisfy "podman (>= 4.0)"
     - name: Build operator image
       run: |
         IMAGE_NAMESPACE=${{ env.CI_REGISTRY }} SKIP_TESTS=true PLATFORMS=${{ env.CI_PLATFORMS }} MANIFEST_PUSH=false make oci-buildx
@@ -116,12 +118,14 @@ jobs:
         fi
         echo "${CI_SCORECARD_IMG}:${{ steps.get-image-tag.outputs.tag }} exists: $EXIST"
         echo "exist=$EXIST" >> $GITHUB_OUTPUT
+    - name: Add CRIU PPA
+      run: sudo add-apt-repository ppa:criu/ppa && sudo apt update
     - name: Install podman v4
       run: |
         echo "deb $OPENSUSE_UNOFFICIAL_LIBCONTAINERS_SOURCE_URL/ /" | sudo tee /etc/apt/sources.list.d/devel:kubic:libcontainers:unstable.list
         curl -fsSL $OPENSUSE_UNOFFICIAL_LIBCONTAINERS_KEY_URL | gpg --dearmor | sudo tee /etc/apt/trusted.gpg.d/devel_kubic_libcontainers_unstable.gpg > /dev/null
-        sudo apt update
-        sudo apt install podman
+        sudo apt -y update
+        sudo apt -y satisfy "podman (>= 4.0)"
     - name: Build scorecard image
       run: |
         CUSTOM_SCORECARD_IMG=${CI_SCORECARD_IMG}:${{ steps.get-image-tag.outputs.tag }} \
