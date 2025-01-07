@@ -1,9 +1,8 @@
 # Build the manager binary
-FROM docker.io/library/golang:1.22 as builder
+FROM registry.access.redhat.com/ubi9/go-toolset:1.22.9 as builder
 ARG TARGETOS
 ARG TARGETARCH
 
-WORKDIR /workspace
 # Copy the Go Modules manifests
 COPY go.mod go.mod
 COPY go.sum go.sum
@@ -26,7 +25,7 @@ RUN CGO_ENABLED=0 GOOS=${TARGETOS:-linux} GOARCH=${TARGETARCH} GO111MODULE=on go
 
 FROM registry.access.redhat.com/ubi8/ubi-minimal:latest
 WORKDIR /
-COPY --from=builder /workspace/manager .
+COPY --from=builder /opt/app-root/src/manager .
 USER 65532:65532
 
 ENTRYPOINT ["/manager"]
