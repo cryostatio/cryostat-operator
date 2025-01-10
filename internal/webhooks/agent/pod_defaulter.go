@@ -18,6 +18,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"slices"
 
 	operatorv1beta2 "github.com/cryostatio/cryostat-operator/api/v1beta2"
 	"github.com/cryostatio/cryostat-operator/internal/controllers/common"
@@ -77,7 +78,7 @@ func (r *podMutator) Default(ctx context.Context, obj runtime.Object) error {
 	}
 
 	// Check if this pod is within a target namespace of the CR
-	if !isTargetNamespace(cr.Status.TargetNamespaces, pod.Namespace) {
+	if !slices.Contains(cr.Status.TargetNamespaces, pod.Namespace) {
 		return fmt.Errorf("pod's namespace \"%s\" is not a target namespace of Cryostat \"%s\" in \"%s\"",
 			pod.Namespace, cr.Name, cr.Namespace)
 	}
@@ -351,13 +352,4 @@ func findJavaToolOptions(envs []corev1.EnvVar) (*corev1.EnvVar, error) {
 		}
 	}
 	return nil, nil
-}
-
-func isTargetNamespace(targetNamespaces []string, podNamespace string) bool {
-	for _, ns := range targetNamespaces {
-		if ns == podNamespace {
-			return true
-		}
-	}
-	return false
 }
