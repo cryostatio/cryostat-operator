@@ -182,6 +182,24 @@ func NewDeploymentForCR(cr *model.CryostatInstance, specs *ServiceSpecs, imageTa
 	}, nil
 }
 
+func createMapCopy(in map[string]string) map[string]string {
+	copy := make(map[string]string)
+	for k, v := range in {
+		copy[k] = v
+	}
+	return copy
+}
+
+func createMetadataCopy(in *operatorv1beta2.ResourceMetadata) operatorv1beta2.ResourceMetadata {
+	if in == nil {
+		return operatorv1beta2.ResourceMetadata{}
+	}
+	return operatorv1beta2.ResourceMetadata{
+		Labels:      createMapCopy(in.Labels),
+		Annotations: createMapCopy(in.Annotations),
+	}
+}
+
 func NewDeploymentForDatabase(cr *model.CryostatInstance, imageTags *ImageTags, tls *TLSConfig,
 	openshift bool, fsGroup int64) *appsv1.Deployment {
 	replicas := int32(1)
@@ -200,43 +218,28 @@ func NewDeploymentForDatabase(cr *model.CryostatInstance, imageTags *ImageTags, 
 		"kind":      "cryostat",
 		"component": "database",
 	}
-	userDefinedDeploymentLabels := make(map[string]string)
-	userDefinedDeploymentAnnotations := make(map[string]string)
-	userDefinedPodTemplateLabels := make(map[string]string)
-	userDefinedPodTemplateAnnotations := make(map[string]string)
+	operandMeta := operatorv1beta2.OperandMetadata{}
 	if cr.Spec.OperandMetadata != nil {
-		if cr.Spec.OperandMetadata.DeploymentMetadata != nil {
-			for k, v := range cr.Spec.OperandMetadata.DeploymentMetadata.Labels {
-				userDefinedDeploymentLabels[k] = v
-			}
-			for k, v := range cr.Spec.OperandMetadata.DeploymentMetadata.Annotations {
-				userDefinedDeploymentAnnotations[k] = v
-			}
-		}
-		if cr.Spec.OperandMetadata.PodMetadata != nil {
-			for k, v := range cr.Spec.OperandMetadata.PodMetadata.Labels {
-				userDefinedPodTemplateLabels[k] = v
-			}
-			for k, v := range cr.Spec.OperandMetadata.PodMetadata.Annotations {
-				userDefinedPodTemplateAnnotations[k] = v
-			}
-		}
+		deploymentCopy := createMetadataCopy(cr.Spec.OperandMetadata.DeploymentMetadata)
+		operandMeta.DeploymentMetadata = &deploymentCopy
+		podCopy := createMetadataCopy(cr.Spec.OperandMetadata.PodMetadata)
+		operandMeta.PodMetadata = &podCopy
 	}
 
 	// First set the user defined labels and annotation in the meta, so that the default ones can override them
 	deploymentMeta := metav1.ObjectMeta{
 		Name:        cr.Name + "-database",
 		Namespace:   cr.InstallNamespace,
-		Labels:      userDefinedDeploymentLabels,
-		Annotations: userDefinedDeploymentAnnotations,
+		Labels:      operandMeta.DeploymentMetadata.Labels,
+		Annotations: operandMeta.DeploymentMetadata.Annotations,
 	}
 	common.MergeLabelsAndAnnotations(&deploymentMeta, defaultDeploymentLabels, defaultDeploymentAnnotations)
 
 	podTemplateMeta := metav1.ObjectMeta{
 		Name:        cr.Name + "-database",
 		Namespace:   cr.InstallNamespace,
-		Labels:      userDefinedPodTemplateLabels,
-		Annotations: userDefinedPodTemplateAnnotations,
+		Labels:      operandMeta.PodMetadata.Labels,
+		Annotations: operandMeta.PodMetadata.Annotations,
 	}
 	common.MergeLabelsAndAnnotations(&podTemplateMeta, defaultPodLabels, nil)
 
