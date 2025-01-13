@@ -328,7 +328,7 @@ type DatabaseServiceConfig struct {
 	// DatabasePort number for the cryostat application's database.
 	// Defaults to 5432.
 	// +optional
-	DatabasePort          *int32 `json:"databasePort,omitempty"`
+	DatabasePort  *int32 `json:"databasePort,omitempty"`
 	ServiceConfig `json:",inline"`
 }
 
