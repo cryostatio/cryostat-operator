@@ -148,7 +148,7 @@ func (r *Reconciler) reconcileDatabaseService(ctx context.Context, cr *model.Cry
 		},
 	}
 
-	port := *config.Port
+	port := *config.DatabasePort
 	err := r.createOrUpdateService(ctx, svc, cr.Object, &config.ServiceConfig, func() error {
 		svc.Spec.Selector = map[string]string{
 			"app":       cr.Name,
@@ -272,9 +272,9 @@ func configureDatabaseService(cr *model.CryostatInstance) *operatorv1beta2.Datab
 	configureService(&config.ServiceConfig, cr.Name, "database")
 
 	// Apply default HTTP port if not provided
-	if config.Port == nil {
-		httpPort := constants.DatabasePort
-		config.Port = &httpPort
+	if config.DatabasePort == nil {
+		dbPort := constants.DatabasePort
+		config.DatabasePort = &dbPort
 	}
 
 	return config

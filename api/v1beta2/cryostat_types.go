@@ -325,10 +325,10 @@ type ReportsServiceConfig struct {
 // DatabaseServiceConfig provides customization for the service handling
 // traffic for the cryostat application's database.
 type DatabaseServiceConfig struct {
-	// Port number for the cryostat application's database.
+	// DatabasePort number for the cryostat application's database.
 	// Defaults to 5432.
 	// +optional
-	Port          *int32 `json:"httpPort,omitempty"`
+	DatabasePort          *int32 `json:"databasePort,omitempty"`
 	ServiceConfig `json:",inline"`
 }
 
