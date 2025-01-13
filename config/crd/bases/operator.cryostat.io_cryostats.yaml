@@ -9184,7 +9184,7 @@ spec:
                         type: object
                       httpPort:
                         description: |-
-                          HTTP port number for the cryostat application's database.
+                          Port number for the cryostat application's database.
                           Defaults to 5432.
                         format: int32
                         type: integer
