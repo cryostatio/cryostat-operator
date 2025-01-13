@@ -219,9 +219,11 @@ func NewDeploymentForDatabase(cr *model.CryostatInstance, imageTags *ImageTags, 
 		"component": "database",
 	}
 	operandMeta := operatorv1beta2.OperandMetadata{}
-	if cr.Spec.OperandMetadata != nil {
+	if cr.Spec.OperandMetadata != nil && cr.Spec.OperandMetadata.DeploymentMetadata != nil {
 		deploymentCopy := createMetadataCopy(cr.Spec.OperandMetadata.DeploymentMetadata)
 		operandMeta.DeploymentMetadata = &deploymentCopy
+	}
+	if cr.Spec.OperandMetadata != nil && cr.Spec.OperandMetadata.PodMetadata != nil {
 		podCopy := createMetadataCopy(cr.Spec.OperandMetadata.PodMetadata)
 		operandMeta.PodMetadata = &podCopy
 	}
