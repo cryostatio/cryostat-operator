@@ -960,7 +960,6 @@ func NewOpenShiftAuthProxyContainer(cr *model.CryostatInstance, specs *ServiceSp
 		"--pass-basic-auth=false",
 		fmt.Sprintf("--upstream=http://localhost:%d/", constants.CryostatHTTPContainerPort),
 		fmt.Sprintf("--upstream=http://localhost:%d/grafana/", constants.GrafanaContainerPort),
-		// fmt.Sprintf("--upstream=http://localhost:%d/storage/", constants.StoragePort),
 		fmt.Sprintf("--openshift-service-account=%s", cr.Name),
 		"--proxy-websockets=true",
 		"--proxy-prefix=/oauth2",
