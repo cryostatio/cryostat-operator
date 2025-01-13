@@ -148,6 +148,7 @@ func (r *Reconciler) reconcileDatabaseService(ctx context.Context, cr *model.Cry
 		},
 	}
 
+	port := *config.Port
 	err := r.createOrUpdateService(ctx, svc, cr.Object, &config.ServiceConfig, func() error {
 		svc.Spec.Selector = map[string]string{
 			"app":       cr.Name,
@@ -155,9 +156,8 @@ func (r *Reconciler) reconcileDatabaseService(ctx context.Context, cr *model.Cry
 		}
 		svc.Spec.Ports = []corev1.ServicePort{
 			{
-				// TODO rename, this is JDBC not HTTP
-				Name:       "http",
-				Port:       *config.HTTPPort,
+				Name:       "jdbc",
+				Port:       port,
 				TargetPort: intstr.IntOrString{IntVal: constants.DatabasePort},
 			},
 		}
@@ -168,13 +168,11 @@ func (r *Reconciler) reconcileDatabaseService(ctx context.Context, cr *model.Cry
 	}
 
 	// Set database URL for deployment to use
-	scheme := "https"
-	if tls == nil {
-		scheme = "http"
-	}
+	scheme := "jdbc:posgtresql"
 	specs.DatabaseURL = &url.URL{
 		Scheme: scheme,
-		Host:   svc.Name + ":" + strconv.Itoa(int(svc.Spec.Ports[0].Port)), // TODO use getHTTPPort?
+		Host:   fmt.Sprintf("%s:%d", svc.Name, port),
+		Path:   resource_definitions.DatabaseName,
 	}
 	return nil
 }
@@ -274,9 +272,9 @@ func configureDatabaseService(cr *model.CryostatInstance) *operatorv1beta2.Datab
 	configureService(&config.ServiceConfig, cr.Name, "database")
 
 	// Apply default HTTP port if not provided
-	if config.HTTPPort == nil {
+	if config.Port == nil {
 		httpPort := constants.DatabasePort
-		config.HTTPPort = &httpPort
+		config.Port = &httpPort
 	}
 
 	return config

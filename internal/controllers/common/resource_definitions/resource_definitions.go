@@ -93,6 +93,7 @@ const (
 	defaultAgentProxyMemoryRequest    string = "64Mi"
 	OAuth2ConfigFileName              string = "alpha_config.json"
 	OAuth2ConfigFilePath              string = "/etc/oauth2_proxy/alpha_config"
+	DatabaseName                      string = "cryostat"
 )
 
 func NewDeploymentForCR(cr *model.CryostatInstance, specs *ServiceSpecs, imageTags *ImageTags,
@@ -1213,7 +1214,7 @@ func NewCoreContainer(cr *model.CryostatInstance, specs *ServiceSpecs, imageTag 
 	storageProtocol := "http"
 	// TODO
 	// if tls != nil {
-	// 	storageProtocol = "https"
+	//	storageProtocol = "https"
 	// }
 	envs := []corev1.EnvVar{
 		{
