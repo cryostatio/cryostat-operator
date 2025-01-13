@@ -30,7 +30,7 @@ metadata:
     capabilities: Seamless Upgrades
     categories: Monitoring, Developer Tools
     containerImage: quay.io/cryostat/cryostat-operator:4.0.0-dev
-    createdAt: "2025-01-07T19:12:00Z"
+    createdAt: "2025-01-13T22:29:31Z"
     description: JVM monitoring and profiling tool
     operatorframework.io/initialization-resource: |-
       {
@@ -1220,6 +1220,25 @@ spec:
       targetPort: 9443
       type: MutatingAdmissionWebhook
       webhookPath: /mutate-operator-cryostat-io-v1beta2-cryostat
+    - admissionReviewVersions:
+        - v1
+      containerPort: 443
+      deploymentName: cryostat-operator-controller
+      failurePolicy: Ignore
+      generateName: mpod.cryostat.io
+      rules:
+        - apiGroups:
+            - ""
+          apiVersions:
+            - v1
+          operations:
+            - CREATE
+          resources:
+            - pods
+      sideEffects: None
+      targetPort: 9443
+      type: MutatingAdmissionWebhook
+      webhookPath: /mutate--v1-pod
     - admissionReviewVersions:
         - v1
       containerPort: 443
