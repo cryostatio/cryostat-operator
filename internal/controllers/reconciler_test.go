@@ -161,6 +161,7 @@ func resourceChecks() []resourceCheck {
 		{(*cryostatTestInput).expectLockConfigMap, "lock config map"},
 		{(*cryostatTestInput).expectAgentProxyConfigMap, "agent proxy config map"},
 		{(*cryostatTestInput).expectAgentProxyService, "agent proxy service"},
+		{(*cryostatTestInput).expectAgentHeadlessService, "agent headless service"},
 	}
 }
 
@@ -1931,6 +1932,27 @@ func (c *controllerTest) commonTests() {
 							t.expectNoCryostat()
 						})
 					})
+					Context("Agent headless service exists", func() {
+						JustBeforeEach(func() {
+							t.reconcileDeletedCryostat()
+						})
+						It("should delete the service", func() {
+							t.checkAgentHeadlessServiceDeleted()
+						})
+						It("should delete Cryostat", func() {
+							t.expectNoCryostat()
+						})
+					})
+					Context("Agent headless service does not exist", func() {
+						JustBeforeEach(func() {
+							err := t.Client.Delete(context.Background(), t.NewAgentHeadlessService(targetNamespaces[0]))
+							Expect(err).ToNot(HaveOccurred())
+							t.reconcileDeletedCryostat()
+						})
+						It("should delete Cryostat", func() {
+							t.expectNoCryostat()
+						})
+					})
 				})
 			})
 
@@ -2751,6 +2773,15 @@ func (t *cryostatTestInput) checkRoleBindingsDeleted() {
 	}
 }
 
+func (t *cryostatTestInput) checkAgentHeadlessServiceDeleted() {
+	for _, ns := range t.TargetNamespaces {
+		expected := t.NewAgentHeadlessService(ns)
+		svc := &corev1.Service{}
+		err := t.Client.Get(context.Background(), types.NamespacedName{Name: expected.Name, Namespace: expected.Namespace}, svc)
+		Expect(kerrors.IsNotFound(err)).To(BeTrue())
+	}
+}
+
 func (t *cryostatTestInput) checkCASecretsDeleted() {
 	for _, ns := range t.TargetNamespaces {
 		expected := t.NewCACertSecret(ns)
@@ -2877,6 +2908,10 @@ func (t *cryostatTestInput) expectAgentProxyService() {
 	t.checkService(t.NewAgentProxyService())
 }
 
+func (t *cryostatTestInput) expectAgentHeadlessService() {
+	t.checkServiceNoOwner(t.NewAgentHeadlessService(t.Namespace))
+}
+
 func (t *cryostatTestInput) expectStatusApplicationURL() {
 	instance := t.getCryostatInstance()
 	Expect(instance.Status.ApplicationURL).To(Equal(fmt.Sprintf("https://%s.example.com", t.Name)))
@@ -2928,9 +2963,23 @@ func (t *cryostatTestInput) checkService(expected *corev1.Service) {
 	Expect(err).ToNot(HaveOccurred())
 
 	t.checkMetadata(service, expected)
+	t.checkServiceSpec(service, expected)
+}
+
+func (t *cryostatTestInput) checkServiceNoOwner(expected *corev1.Service) {
+	service := &corev1.Service{}
+	err := t.Client.Get(context.Background(), types.NamespacedName{Name: expected.Name, Namespace: expected.Namespace}, service)
+	Expect(err).ToNot(HaveOccurred())
+
+	t.checkMetadataNoOwner(service, expected)
+	t.checkServiceSpec(service, expected)
+}
+
+func (t *cryostatTestInput) checkServiceSpec(service *corev1.Service, expected *corev1.Service) {
 	Expect(service.Spec.Type).To(Equal(expected.Spec.Type))
 	Expect(service.Spec.Selector).To(Equal(expected.Spec.Selector))
 	Expect(service.Spec.Ports).To(Equal(expected.Spec.Ports))
+	Expect(service.Spec.ClusterIP).To(Equal(expected.Spec.ClusterIP))
 }
 
 func (t *cryostatTestInput) expectNoService(svcName string) {

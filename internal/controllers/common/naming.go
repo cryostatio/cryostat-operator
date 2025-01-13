@@ -20,7 +20,7 @@ import (
 )
 
 func AgentHeadlessServiceName(gvk *schema.GroupVersionKind, cr *model.CryostatInstance) string {
-	return ClusterUniqueShortName(gvk, cr.Name, cr.InstallNamespace)
+	return ClusterUniqueShortNameWithPrefix(gvk, "agent", cr.Name, cr.InstallNamespace)
 }
 
 func AgentProxyServiceName(cr *model.CryostatInstance) string {

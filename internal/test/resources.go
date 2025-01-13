@@ -18,6 +18,7 @@ import (
 	"crypto/sha256"
 	"encoding/json"
 	"fmt"
+	"hash/fnv"
 	"strings"
 
 	certv1 "github.com/cert-manager/cert-manager/pkg/apis/certmanager/v1"
@@ -848,6 +849,40 @@ func (r *TestResources) NewAgentProxyService() *corev1.Service {
 					Name:       "http",
 					Port:       8282,
 					TargetPort: intstr.FromInt(8282),
+				},
+			},
+		},
+	}
+}
+
+func (r *TestResources) NewAgentHeadlessService(namespace string) *corev1.Service {
+	return &corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      r.GetAgentServiceName(),
+			Namespace: namespace,
+			Labels: map[string]string{
+				"app":                            r.Name,
+				"component":                      "agent",
+				"app.kubernetes.io/name":         "cryostat",
+				"app.kubernetes.io/instance":     r.Name,
+				"app.kubernetes.io/component":    "agent",
+				"app.kubernetes.io/part-of":      "cryostat",
+				"operator.cryostat.io/name":      r.Name,
+				"operator.cryostat.io/namespace": r.Namespace,
+			},
+		},
+		Spec: corev1.ServiceSpec{
+			Type:      corev1.ServiceTypeClusterIP,
+			ClusterIP: corev1.ClusterIPNone,
+			Selector: map[string]string{
+				"cryostat.io/name":      r.Name,
+				"cryostat.io/namespace": r.Namespace,
+			},
+			Ports: []corev1.ServicePort{
+				{
+					Name:       "http",
+					Port:       9977,
+					TargetPort: intstr.FromInt(9977),
 				},
 			},
 		},
@@ -3009,7 +3044,9 @@ func (r *TestResources) clusterUniqueSuffix(namespace string) string {
 
 func (r *TestResources) clusterUniqueShortSuffix() string {
 	toEncode := r.Namespace + "/" + r.Name
-	return fmt.Sprintf("%x", sha256.Sum224([]byte(toEncode)))
+	hash := fnv.New128()
+	hash.Write([]byte(toEncode))
+	return fmt.Sprintf("%x", hash.Sum([]byte{}))
 }
 
 func (r *TestResources) NewClusterRoleBinding() *rbacv1.ClusterRoleBinding {
@@ -3594,7 +3631,7 @@ func (r *TestResources) GetAgentCertPrefix() string {
 }
 
 func (r *TestResources) GetAgentServiceName() string {
-	return "cryo-" + r.clusterUniqueShortSuffix()
+	return "cryostat-agent-" + r.clusterUniqueShortSuffix()
 }
 
 func (r *TestResources) NewCreateEvent(obj ctrlclient.Object) event.CreateEvent {

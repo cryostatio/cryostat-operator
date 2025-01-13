@@ -152,10 +152,12 @@ func (r *Reconciler) newAgentHeadlessService(cr *model.CryostatInstance, namespa
 
 func (r *Reconciler) reconcileAgentHeadlessServices(ctx context.Context, cr *model.CryostatInstance) error {
 	svcType := corev1.ServiceTypeClusterIP
+	// TODO make configurable through CRD
 	config := &operatorv1beta2.ServiceConfig{
 		ServiceType: &svcType,
 		Labels:      common.LabelsForTargetNamespaceObject(cr),
 	}
+	configureService(config, cr.Name, "agent")
 
 	// Create a headless Service in each target namespace
 	for _, ns := range cr.TargetNamespaces {

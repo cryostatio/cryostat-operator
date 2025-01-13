@@ -17,6 +17,7 @@ package common
 import (
 	"crypto/sha256"
 	"fmt"
+	"hash/fnv"
 	"io/ioutil"
 	"math/rand"
 	"os"
@@ -90,10 +91,10 @@ func ClusterUniqueNameWithPrefix(gvk *schema.GroupVersionKind, prefix string, na
 }
 
 // ClusterUniqueShortName returns a name for cluster-scoped objects that is
-// uniquely identified by a namespace and name. The total length should be
-// at most 63 characters.
-func ClusterUniqueShortName(gvk *schema.GroupVersionKind, name string, namespace string) string {
-	return clusterUniqueName(gvk, "", name, namespace, "", true)
+// uniquely identified by a namespace and name. Appends the prefix to the
+// provided Kind. The total length should be at most 63 characters.
+func ClusterUniqueShortNameWithPrefix(gvk *schema.GroupVersionKind, prefix string, name string, namespace string) string {
+	return clusterUniqueName(gvk, prefix, name, namespace, "", true)
 }
 
 // ClusterUniqueNameWithPrefixTargetNS returns a name for cluster-scoped objects that is
@@ -107,10 +108,6 @@ func ClusterUniqueNameWithPrefixTargetNS(gvk *schema.GroupVersionKind, prefix st
 func clusterUniqueName(gvk *schema.GroupVersionKind, prefix string, name string, namespace string, targetNS string,
 	short bool) string {
 	prefixWithKind := strings.ToLower(gvk.Kind)
-	if short {
-		// Prefix is 5 characters: 4 from kind, and hyphen
-		prefixWithKind = prefixWithKind[:4] // TODO can we use a weaker and shorter hash and keep the full kind?
-	}
 	if len(prefix) > 0 {
 		prefixWithKind += "-" + prefix
 	}
@@ -122,9 +119,11 @@ func clusterUniqueName(gvk *schema.GroupVersionKind, prefix string, name string,
 
 	var suffix string
 	if short {
-		// Use the SHA224 checksum of the namespaced name as a suffix.
-		// Suffix is 56 bytes
-		suffix = fmt.Sprintf("%x", sha256.Sum224([]byte(toHash)))
+		// Use the 128-bit FNV-1 checksum of the namespaced name as a suffix.
+		// Suffix is 32 bytes
+		hash := fnv.New128()
+		hash.Write([]byte(toHash))
+		suffix = fmt.Sprintf("%x", hash.Sum([]byte{}))
 	} else {
 		// Use the SHA256 checksum of the namespaced name as a suffix
 		suffix = fmt.Sprintf("%x", sha256.Sum256([]byte(toHash)))
