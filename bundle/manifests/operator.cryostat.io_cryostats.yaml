@@ -10281,9 +10281,9 @@ spec:
                         description: Annotations to add to the service during its
                           creation.
                         type: object
-                      httpPort:
+                      databasePort:
                         description: |-
-                          Port number for the cryostat application's database.
+                          DatabasePort number for the cryostat application's database.
                           Defaults to 5432.
                         format: int32
                         type: integer
