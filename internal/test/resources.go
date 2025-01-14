@@ -177,25 +177,25 @@ func (r *TestResources) NewCryostatWithPVCSpec() *model.CryostatInstance {
 		Database: &operatorv1beta2.StorageConfiguration{
 			PVC: &operatorv1beta2.PersistentVolumeClaimConfig{
 				Annotations: map[string]string{
-					"my/custom": "annotation1",
+					"my/custom": "annotation",
 				},
 				Labels: map[string]string{
 					"my":  "label",
-					"app": "somethingelse1",
+					"app": "somethingelse",
 				},
-				Spec: newPVCSpec("db-storage", "1Gi", corev1.ReadWriteMany),
+				Spec: newPVCSpec("cool-storage", "10Gi", corev1.ReadWriteMany),
 			},
 		},
 		ObjectStorage: &operatorv1beta2.StorageConfiguration{
 			PVC: &operatorv1beta2.PersistentVolumeClaimConfig{
 				Annotations: map[string]string{
-					"my/custom": "annotation2",
+					"my/custom": "annotation",
 				},
 				Labels: map[string]string{
 					"my":  "label",
-					"app": "somethingelse2",
+					"app": "somethingelse",
 				},
-				Spec: newPVCSpec("object-storage", "10Gi", corev1.ReadWriteMany),
+				Spec: newPVCSpec("cool-storage", "10Gi", corev1.ReadWriteMany),
 			},
 		},
 	}
@@ -206,6 +206,11 @@ func (r *TestResources) NewCryostatWithPVCSpecSomeDefault() *model.CryostatInsta
 	cr := r.NewCryostat()
 	cr.Spec.StorageConfigurations = &operatorv1beta2.StorageConfigurations{
 		Database: &operatorv1beta2.StorageConfiguration{
+			PVC: &operatorv1beta2.PersistentVolumeClaimConfig{
+				Spec: newPVCSpec("", "1Gi"),
+			},
+		},
+		ObjectStorage: &operatorv1beta2.StorageConfiguration{
 			PVC: &operatorv1beta2.PersistentVolumeClaimConfig{
 				Spec: newPVCSpec("", "1Gi"),
 			},
@@ -224,6 +229,13 @@ func (r *TestResources) NewCryostatWithPVCLabelsOnly() *model.CryostatInstance {
 				},
 			},
 		},
+		ObjectStorage: &operatorv1beta2.StorageConfiguration{
+			PVC: &operatorv1beta2.PersistentVolumeClaimConfig{
+				Labels: map[string]string{
+					"my": "label",
+				},
+			},
+		},
 	}
 	return cr
 }
@@ -236,6 +248,11 @@ func (r *TestResources) NewCryostatWithDefaultEmptyDir() *model.CryostatInstance
 				Enabled: true,
 			},
 		},
+		ObjectStorage: &operatorv1beta2.StorageConfiguration{
+			EmptyDir: &operatorv1beta2.EmptyDirConfig{
+				Enabled: true,
+			},
+		},
 	}
 	return cr
 }
@@ -244,6 +261,13 @@ func (r *TestResources) NewCryostatWithEmptyDirSpec() *model.CryostatInstance {
 	cr := r.NewCryostat()
 	cr.Spec.StorageConfigurations = &operatorv1beta2.StorageConfigurations{
 		Database: &operatorv1beta2.StorageConfiguration{
+			EmptyDir: &operatorv1beta2.EmptyDirConfig{
+				Enabled:   true,
+				Medium:    "Memory",
+				SizeLimit: "200Mi",
+			},
+		},
+		ObjectStorage: &operatorv1beta2.StorageConfiguration{
 			EmptyDir: &operatorv1beta2.EmptyDirConfig{
 				Enabled:   true,
 				Medium:    "Memory",
@@ -1698,7 +1722,7 @@ func (r *TestResources) NewDefaultPVC() *corev1.PersistentVolumeClaim {
 		},
 	}, map[string]string{
 		"app": r.Name,
-	}, nil, r.Name)
+	}, nil, r.Name+"-database")
 }
 
 func (r *TestResources) NewDatabasePVC() *corev1.PersistentVolumeClaim {
@@ -1727,7 +1751,7 @@ func (r *TestResources) NewStoragePVC() *corev1.PersistentVolumeClaim {
 	}, nil, r.Name+"-storage")
 }
 
-func (r *TestResources) NewCustomPVC() *corev1.PersistentVolumeClaim {
+func (r *TestResources) NewCustomDatabasePVC() *corev1.PersistentVolumeClaim {
 	storageClass := "cool-storage"
 	return r.newPVC(&corev1.PersistentVolumeClaimSpec{
 		StorageClassName: &storageClass,
@@ -1742,10 +1766,10 @@ func (r *TestResources) NewCustomPVC() *corev1.PersistentVolumeClaim {
 		"app": r.Name,
 	}, map[string]string{
 		"my/custom": "annotation",
-	}, r.Name)
+	}, r.Name+"-database")
 }
 
-func (r *TestResources) NewCustomPVCSomeDefault() *corev1.PersistentVolumeClaim {
+func (r *TestResources) NewCustomDatabasePVCSomeDefault() *corev1.PersistentVolumeClaim {
 	storageClass := ""
 	return r.newPVC(&corev1.PersistentVolumeClaimSpec{
 		StorageClassName: &storageClass,
@@ -1757,10 +1781,10 @@ func (r *TestResources) NewCustomPVCSomeDefault() *corev1.PersistentVolumeClaim 
 		},
 	}, map[string]string{
 		"app": r.Name,
-	}, nil, r.Name)
+	}, nil, r.Name+"-database")
 }
 
-func (r *TestResources) NewDefaultPVCWithLabel() *corev1.PersistentVolumeClaim {
+func (r *TestResources) NewDefaultDatabasePVCWithLabel() *corev1.PersistentVolumeClaim {
 	return r.newPVC(&corev1.PersistentVolumeClaimSpec{
 		AccessModes: []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce},
 		Resources: corev1.VolumeResourceRequirements{
@@ -1771,7 +1795,7 @@ func (r *TestResources) NewDefaultPVCWithLabel() *corev1.PersistentVolumeClaim {
 	}, map[string]string{
 		"app": r.Name,
 		"my":  "label",
-	}, nil, r.Name)
+	}, nil, r.Name+"-database")
 }
 
 func (r *TestResources) NewDefaultEmptyDir() *corev1.EmptyDirVolumeSource {
@@ -1857,7 +1881,7 @@ func (r *TestResources) NewAgentProxyPorts() []corev1.ContainerPort {
 }
 
 func (r *TestResources) NewCoreEnvironmentVariables(reportsUrl string, ingress bool,
-	emptyDir bool, hasPortConfig bool, builtInDiscoveryDisabled bool, builtInPortConfigDisabled bool, dbSecretProvided bool) []corev1.EnvVar {
+	hasPortConfig bool, builtInDiscoveryDisabled bool, builtInPortConfigDisabled bool, dbSecretProvided bool) []corev1.EnvVar {
 	storageProtocol := "http"
 	// TODO
 	// if r.TLS {
@@ -2457,24 +2481,6 @@ func (r *TestResources) NewAgentProxyCommand() []string {
 func (r *TestResources) NewCoreVolumeMounts() []corev1.VolumeMount {
 	mounts := []corev1.VolumeMount{
 		{
-			Name:      r.Name,
-			ReadOnly:  false,
-			MountPath: "/opt/cryostat.d/conf.d",
-			SubPath:   "config",
-		},
-		{
-			Name:      r.Name,
-			ReadOnly:  false,
-			MountPath: "/opt/cryostat.d/templates.d",
-			SubPath:   "templates",
-		},
-		{
-			Name:      r.Name,
-			ReadOnly:  false,
-			MountPath: "truststore",
-			SubPath:   "truststore",
-		},
-		{
 			Name:      "cert-secrets",
 			ReadOnly:  true,
 			MountPath: "/truststore/operator",
@@ -2931,15 +2937,6 @@ func (r *TestResources) NewAuthPropertiesVolume() corev1.Volume {
 func (r *TestResources) newVolumes(certProjections []corev1.VolumeProjection) []corev1.Volume {
 	readOnlymode := int32(0440)
 	volumes := []corev1.Volume{
-		{
-			Name: r.Name,
-			VolumeSource: corev1.VolumeSource{
-				PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
-					ClaimName: r.Name,
-					ReadOnly:  false,
-				},
-			},
-		},
 		{
 			Name: "agent-proxy-config",
 			VolumeSource: corev1.VolumeSource{
