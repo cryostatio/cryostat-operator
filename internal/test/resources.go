@@ -1514,7 +1514,7 @@ func (r *TestResources) NewDefaultPVC() *corev1.PersistentVolumeClaim {
 func (r *TestResources) NewDatabasePVC() *corev1.PersistentVolumeClaim {
 	return r.newPVC(&corev1.PersistentVolumeClaimSpec{
 		AccessModes: []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce},
-		Resources: corev1.ResourceRequirements{
+		Resources: corev1.VolumeResourceRequirements{
 			Requests: corev1.ResourceList{
 				corev1.ResourceStorage: resource.MustParse("500Mi"),
 			},
@@ -1527,7 +1527,7 @@ func (r *TestResources) NewDatabasePVC() *corev1.PersistentVolumeClaim {
 func (r *TestResources) NewStoragePVC() *corev1.PersistentVolumeClaim {
 	return r.newPVC(&corev1.PersistentVolumeClaimSpec{
 		AccessModes: []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce},
-		Resources: corev1.ResourceRequirements{
+		Resources: corev1.VolumeResourceRequirements{
 			Requests: corev1.ResourceList{
 				corev1.ResourceStorage: resource.MustParse("500Mi"),
 			},
