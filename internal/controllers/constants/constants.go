@@ -55,6 +55,10 @@ const (
 	TargetNamespaceCRNameLabel      = targetNamespaceCRLabelPrefix + "name"
 	TargetNamespaceCRNamespaceLabel = targetNamespaceCRLabelPrefix + "namespace"
 
+	// Labels for agent auto-configuration
+	agentLabelPrefix            = "cryostat.io/"
+	AgentLabelCryostatName      = agentLabelPrefix + "name"
+	AgentLabelCryostatNamespace = agentLabelPrefix + "namespace"
 
 	CryostatCATLSCommonName     = "cryostat-ca-cert-manager"
 	CryostatTLSCommonName       = "cryostat"
@@ -63,9 +67,4 @@ const (
 	ReportsTLSCommonName        = "cryostat-reports"
 	AgentsTLSCommonName         = "cryostat-agent"
 	AgentAuthProxyTLSCommonName = "cryostat-agent-proxy"
-
-	// Labels for agent auto-configuration
-	agentLabelPrefix            = "cryostat.io/"
-	AgentLabelCryostatName      = agentLabelPrefix + "name"
-	AgentLabelCryostatNamespace = agentLabelPrefix + "namespace"
 )
