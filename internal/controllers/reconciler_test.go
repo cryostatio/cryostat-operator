@@ -151,9 +151,6 @@ func resourceChecks() []resourceCheck {
 		{(*cryostatTestInput).expectRBAC, "RBAC"},
 		{(*cryostatTestInput).expectRoutes, "routes"},
 		{func(t *cryostatTestInput) {
-			t.expectPVC(t.NewDefaultPVC(), t.Name)
-		}, "cryostat persistent volume claim"},
-		{func(t *cryostatTestInput) {
 			t.expectPVC(t.NewDatabasePVC(), t.Name+"-database")
 		}, "database persistent volume claim"},
 		{func(t *cryostatTestInput) {
@@ -829,7 +826,7 @@ func (c *controllerTest) commonTests() {
 				t.checkDeploymentHasTemplates()
 			})
 		})
-		Context("with custom PVC spec overriding all defaults", func() {
+		Context("with custom DB PVC spec overriding all defaults", func() {
 			BeforeEach(func() {
 				t.objs = append(t.objs, t.NewCryostatWithPVCSpec().Object)
 			})
@@ -837,10 +834,10 @@ func (c *controllerTest) commonTests() {
 				t.reconcileCryostatFully()
 			})
 			It("should create the PVC with requested spec", func() {
-				t.expectPVC(t.NewCustomPVC(), t.Name)
+				t.expectPVC(t.NewCustomDatabasePVC(), t.Name+"-database")
 			})
 		})
-		Context("with custom PVC spec overriding some defaults", func() {
+		Context("with custom DB PVC spec overriding some defaults", func() {
 			BeforeEach(func() {
 				t.objs = append(t.objs, t.NewCryostatWithPVCSpecSomeDefault().Object)
 			})
@@ -848,10 +845,10 @@ func (c *controllerTest) commonTests() {
 				t.reconcileCryostatFully()
 			})
 			It("should create the PVC with requested spec", func() {
-				t.expectPVC(t.NewCustomPVCSomeDefault(), t.Name)
+				t.expectPVC(t.NewCustomDatabasePVCSomeDefault(), t.Name+"-database")
 			})
 		})
-		Context("with custom PVC config with no spec", func() {
+		Context("with custom DB PVC config with no spec", func() {
 			BeforeEach(func() {
 				t.objs = append(t.objs, t.NewCryostatWithPVCLabelsOnly().Object)
 			})
@@ -859,10 +856,10 @@ func (c *controllerTest) commonTests() {
 				t.reconcileCryostatFully()
 			})
 			It("should create the PVC with requested label", func() {
-				t.expectPVC(t.NewDefaultPVCWithLabel(), t.Name)
+				t.expectPVC(t.NewDefaultDatabasePVCWithLabel(), t.Name+"-database")
 			})
 		})
-		Context("with an existing PVC", func() {
+		Context("with an existing DB PVC", func() {
 			var oldPVC *corev1.PersistentVolumeClaim
 			BeforeEach(func() {
 				oldPVC = t.NewDefaultPVC()
@@ -887,7 +884,7 @@ func (c *controllerTest) commonTests() {
 					metav1.SetMetaDataAnnotation(&expected.ObjectMeta, "my/custom", "annotation")
 					metav1.SetMetaDataAnnotation(&expected.ObjectMeta, "another/custom", "annotation")
 					expected.Spec.Resources.Requests[corev1.ResourceStorage] = resource.MustParse("10Gi")
-					t.expectPVC(expected, t.Name)
+					t.expectPVC(expected, t.Name+"-database")
 				})
 			})
 			/**Context("that fails to update", func() {
@@ -3195,7 +3192,6 @@ func (t *cryostatTestInput) checkMainPodTemplate(deployment *appsv1.Deployment, 
 	}
 	ingress := !t.OpenShift &&
 		cr.Spec.NetworkOptions != nil && cr.Spec.NetworkOptions.CoreConfig != nil && cr.Spec.NetworkOptions.CoreConfig.IngressSpec != nil
-	emptyDir := cr.Spec.StorageConfigurations != nil && cr.Spec.StorageConfigurations.Database.EmptyDir != nil && cr.Spec.StorageConfigurations.Database.EmptyDir.Enabled
 	hasPortConfig := cr.Spec.TargetDiscoveryOptions != nil &&
 		len(cr.Spec.TargetDiscoveryOptions.DiscoveryPortNames) > 0 &&
 		len(cr.Spec.TargetDiscoveryOptions.DiscoveryPortNumbers) > 0
@@ -3206,7 +3202,6 @@ func (t *cryostatTestInput) checkMainPodTemplate(deployment *appsv1.Deployment, 
 	dbSecretProvided := cr.Spec.DatabaseOptions != nil && cr.Spec.DatabaseOptions.SecretName != nil
 
 	t.checkCoreContainer(&coreContainer, ingress, reportsUrl,
-		emptyDir,
 		hasPortConfig,
 		builtInDiscoveryDisabled,
 		builtInPortConfigDisabled,
@@ -3465,7 +3460,6 @@ func (t *cryostatTestInput) checkDeploymentHasTemplates() {
 
 func (t *cryostatTestInput) checkCoreContainer(container *corev1.Container, ingress bool,
 	reportsUrl string,
-	emptyDir bool,
 	hasPortConfig bool, builtInDiscoveryDisabled bool, builtInPortConfigDisabled bool,
 	dbSecretProvided bool,
 	resources *corev1.ResourceRequirements,
@@ -3477,7 +3471,7 @@ func (t *cryostatTestInput) checkCoreContainer(container *corev1.Container, ingr
 		Expect(container.Image).To(Equal(*t.EnvCoreImageTag))
 	}
 	Expect(container.Ports).To(ConsistOf(t.NewCorePorts()))
-	Expect(container.Env).To(ConsistOf(t.NewCoreEnvironmentVariables(reportsUrl, ingress, emptyDir, hasPortConfig, builtInDiscoveryDisabled, builtInPortConfigDisabled, dbSecretProvided)))
+	Expect(container.Env).To(ConsistOf(t.NewCoreEnvironmentVariables(reportsUrl, ingress, hasPortConfig, builtInDiscoveryDisabled, builtInPortConfigDisabled, dbSecretProvided)))
 	Expect(container.EnvFrom).To(ConsistOf(t.NewCoreEnvFromSource()))
 	Expect(container.VolumeMounts).To(ConsistOf(t.NewCoreVolumeMounts()))
 	Expect(container.LivenessProbe).To(Equal(t.NewCoreLivenessProbe()))
