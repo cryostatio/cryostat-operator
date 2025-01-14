@@ -286,6 +286,17 @@ var _ = Describe("PodDefaulter", func() {
 
 				ExpectPod()
 			})
+
+			Context("with hostname verification disabled", func() {
+				BeforeEach(func() {
+					t.DisableAgentHostnameVerify = true
+					t.objs = append(t.objs, t.NewCryostatWithAgentHostnameVerifyDisabled().Object)
+					originalPod = t.NewPod()
+					expectedPod = t.NewMutatedPod()
+				})
+
+				ExpectPod()
+			})
 		})
 
 		Context("with a missing Cryostat CR", func() {

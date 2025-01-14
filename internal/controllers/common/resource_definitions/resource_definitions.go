@@ -1176,6 +1176,14 @@ func NewCoreContainer(cr *model.CryostatInstance, specs *ServiceSpecs, imageTag 
 	}
 	envs = append(envs, grafanaVars...)
 
+	if cr.Spec.AgentOptions != nil && cr.Spec.AgentOptions.DisableHostnameVerification {
+		envs = append(envs,
+			corev1.EnvVar{
+				Name:  "CRYOSTAT_AGENT_DISABLE_HOSTNAME_VERIFICATION",
+				Value: "true",
+			})
+	}
+
 	// Mount the templates specified in Cryostat CR under /opt/cryostat.d/templates.d
 	for _, template := range cr.Spec.EventTemplates {
 		mount := corev1.VolumeMount{

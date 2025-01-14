@@ -19,6 +19,7 @@ import (
 	"errors"
 	"fmt"
 	"slices"
+	"strconv"
 
 	operatorv1beta2 "github.com/cryostatio/cryostat-operator/api/v1beta2"
 	"github.com/cryostatio/cryostat-operator/internal/controllers/common"
@@ -291,23 +292,37 @@ func (r *podMutator) callbackEnv(cr *model.CryostatInstance, namespace string, t
 	if !tls {
 		scheme = "http"
 	}
-	envs := []corev1.EnvVar{
-		{
-			Name:  "CRYOSTAT_AGENT_CALLBACK_SCHEME",
-			Value: scheme,
-		},
-		{
-			Name:  "CRYOSTAT_AGENT_CALLBACK_HOST_NAME",
-			Value: fmt.Sprintf("$(%s), $(%s)[replace(\".\"\\, \"-\")]", podNameEnvVar, podIPEnvVar),
-		},
-		{
-			Name:  "CRYOSTAT_AGENT_CALLBACK_DOMAIN_NAME",
-			Value: fmt.Sprintf("%s.%s.svc", common.AgentHeadlessServiceName(r.gvk, cr), namespace),
-		},
-		{
-			Name:  "CRYOSTAT_AGENT_CALLBACK_PORT",
-			Value: "9977",
-		},
+
+	// TODO make customizable
+	port := 9977
+
+	var envs []corev1.EnvVar
+	if cr.Spec.AgentOptions != nil && cr.Spec.AgentOptions.DisableHostnameVerification {
+		envs = []corev1.EnvVar{
+			{
+				Name:  "CRYOSTAT_AGENT_CALLBACK",
+				Value: fmt.Sprintf("%s://$(%s):%d", scheme, podIPEnvVar, port),
+			},
+		}
+	} else {
+		envs = []corev1.EnvVar{
+			{
+				Name:  "CRYOSTAT_AGENT_CALLBACK_SCHEME",
+				Value: scheme,
+			},
+			{
+				Name:  "CRYOSTAT_AGENT_CALLBACK_HOST_NAME",
+				Value: fmt.Sprintf("$(%s), $(%s)[replace(\".\"\\, \"-\")]", podNameEnvVar, podIPEnvVar),
+			},
+			{
+				Name:  "CRYOSTAT_AGENT_CALLBACK_DOMAIN_NAME",
+				Value: fmt.Sprintf("%s.%s.svc", common.AgentHeadlessServiceName(r.gvk, cr), namespace),
+			},
+			{
+				Name:  "CRYOSTAT_AGENT_CALLBACK_PORT",
+				Value: strconv.Itoa(port),
+			},
+		}
 	}
 
 	return envs

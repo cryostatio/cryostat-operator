@@ -94,6 +94,11 @@ type CryostatSpec struct {
 	// +optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Operand metadata"
 	OperandMetadata *OperandMetadata `json:"operandMetadata,omitempty"`
+	// Options to control how the operator configures Cryostat Agents
+	// to communicate with this Cryostat instance.
+	// +optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Agent Options"
+	AgentOptions *AgentOptions `json:"agentOptions,omitempty"`
 }
 
 type OperandMetadata struct {
@@ -637,4 +642,13 @@ type DatabaseOptions struct {
 	// +optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:io.kubernetes:Secret"}
 	SecretName *string `json:"secretName,omitempty"`
+}
+
+// AgentOptions provides customization for how the operator configures Cryostat Agents.
+type AgentOptions struct {
+	// Disables hostname verification when Cryostat connects to Agents over TLS.
+	// Consider enabling this if the Cryostat Agent fails to determine the hostname of your pod.
+	// +optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Disable Hostname Verification",xDescriptors={"urn:alm:descriptor:com.tectonic.ui:booleanSwitch"}
+	DisableHostnameVerification bool `json:"disableHostnameVerification,omitempty"`
 }
