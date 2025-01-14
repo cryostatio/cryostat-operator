@@ -31,7 +31,7 @@ import (
 // Event type to inform users of invalid PVC specs
 const eventPersistentVolumeClaimInvalidType = "PersistentVolumeClaimInvalid"
 
-func (r *Reconciler) reconcilePVC(ctx context.Context, cr *model.CryostatInstance) error {
+func (r *Reconciler) reconcilePVC(ctx context.Context, cr *model.CryostatInstance, nameSuffix *string) error {
 	emptyDir := cr.Spec.StorageOptions != nil && cr.Spec.StorageOptions.EmptyDir != nil && cr.Spec.StorageOptions.EmptyDir.Enabled
 	if emptyDir {
 		// If user requested an emptyDir volume, then do nothing.
@@ -39,9 +39,15 @@ func (r *Reconciler) reconcilePVC(ctx context.Context, cr *model.CryostatInstanc
 		// depending on the reclaim policy.
 		return nil
 	}
+	var name string
+	if nameSuffix == nil {
+		name = cr.Name
+	} else {
+		name = fmt.Sprintf("%s-%s", cr.Name, *nameSuffix)
+	}
 	pvc := &corev1.PersistentVolumeClaim{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      cr.Name,
+			Name:      name,
 			Namespace: cr.InstallNamespace,
 		},
 	}
@@ -59,6 +65,20 @@ func (r *Reconciler) reconcilePVC(ctx context.Context, cr *model.CryostatInstanc
 		return err
 	}
 	return nil
+}
+
+func (r *Reconciler) reconcileCorePVC(ctx context.Context, cr *model.CryostatInstance) error {
+	return r.reconcilePVC(ctx, cr, nil)
+}
+
+func (r *Reconciler) reconcileDatabasePVC(ctx context.Context, cr *model.CryostatInstance) error {
+	name := "database"
+	return r.reconcilePVC(ctx, cr, &name)
+}
+
+func (r *Reconciler) reconcileStoragePVC(ctx context.Context, cr *model.CryostatInstance) error {
+	name := "storage"
+	return r.reconcilePVC(ctx, cr, &name)
 }
 
 func (r *Reconciler) createOrUpdatePVC(ctx context.Context, pvc *corev1.PersistentVolumeClaim,
