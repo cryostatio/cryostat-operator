@@ -31,8 +31,8 @@ import (
 // Event type to inform users of invalid PVC specs
 const eventPersistentVolumeClaimInvalidType = "PersistentVolumeClaimInvalid"
 
-func (r *Reconciler) reconcilePVC(ctx context.Context, cr *model.CryostatInstance, nameSuffix *string) error {
-	emptyDir := cr.Spec.StorageOptions != nil && cr.Spec.StorageOptions.EmptyDir != nil && cr.Spec.StorageOptions.EmptyDir.Enabled
+func (r *Reconciler) reconcilePVC(ctx context.Context, cr *model.CryostatInstance, storageConfiguration *operatorv1beta2.StorageConfiguration, nameSuffix *string) error {
+	emptyDir := storageConfiguration != nil && storageConfiguration.EmptyDir != nil && storageConfiguration.EmptyDir.Enabled
 	if emptyDir {
 		// If user requested an emptyDir volume, then do nothing.
 		// Don't delete the PVC to prevent accidental data loss
@@ -53,7 +53,7 @@ func (r *Reconciler) reconcilePVC(ctx context.Context, cr *model.CryostatInstanc
 	}
 
 	// Look up PVC configuration, applying defaults where needed
-	config := configurePVC(cr)
+	config := configurePVC(cr.Name, storageConfiguration)
 
 	err := r.createOrUpdatePVC(ctx, pvc, cr.Object, config)
 	if err != nil {
@@ -67,18 +67,22 @@ func (r *Reconciler) reconcilePVC(ctx context.Context, cr *model.CryostatInstanc
 	return nil
 }
 
-func (r *Reconciler) reconcileCorePVC(ctx context.Context, cr *model.CryostatInstance) error {
-	return r.reconcilePVC(ctx, cr, nil)
-}
-
 func (r *Reconciler) reconcileDatabasePVC(ctx context.Context, cr *model.CryostatInstance) error {
 	name := "database"
-	return r.reconcilePVC(ctx, cr, &name)
+	var cfg *operatorv1beta2.StorageConfiguration
+	if cr.Spec.StorageConfigurations != nil {
+		cfg = cr.Spec.StorageConfigurations.Database
+	}
+	return r.reconcilePVC(ctx, cr, cfg, &name)
 }
 
 func (r *Reconciler) reconcileStoragePVC(ctx context.Context, cr *model.CryostatInstance) error {
 	name := "storage"
-	return r.reconcilePVC(ctx, cr, &name)
+	var cfg *operatorv1beta2.StorageConfiguration
+	if cr.Spec.StorageConfigurations != nil {
+		cfg = cr.Spec.StorageConfigurations.ObjectStorage
+	}
+	return r.reconcilePVC(ctx, cr, cfg, &name)
 }
 
 func (r *Reconciler) createOrUpdatePVC(ctx context.Context, pvc *corev1.PersistentVolumeClaim,
@@ -114,13 +118,12 @@ func (r *Reconciler) createOrUpdatePVC(ctx context.Context, pvc *corev1.Persiste
 	return nil
 }
 
-func configurePVC(cr *model.CryostatInstance) *operatorv1beta2.PersistentVolumeClaimConfig {
-	// Check for PVC config within CR
+func configurePVC(name string, cfg *operatorv1beta2.StorageConfiguration) *operatorv1beta2.PersistentVolumeClaimConfig {
 	var config *operatorv1beta2.PersistentVolumeClaimConfig
-	if cr.Spec.StorageOptions == nil || cr.Spec.StorageOptions.PVC == nil {
+	if cfg == nil || cfg.PVC == nil {
 		config = &operatorv1beta2.PersistentVolumeClaimConfig{}
 	} else {
-		config = cr.Spec.StorageOptions.PVC.DeepCopy()
+		config = cfg.PVC.DeepCopy()
 	}
 
 	if config.Labels == nil {
@@ -134,7 +137,7 @@ func configurePVC(cr *model.CryostatInstance) *operatorv1beta2.PersistentVolumeC
 	}
 
 	// Add "app" label. This will override any user-specified "app" label.
-	config.Labels["app"] = cr.Name
+	config.Labels["app"] = name
 
 	// Apply any applicable spec defaults. Don't apply a default storage class name, since nil
 	// may be intentionally specified.

@@ -222,11 +222,6 @@ func (r *Reconciler) reconcileCryostat(ctx context.Context, cr *model.CryostatIn
 		return reconcile.Result{}, err
 	}
 
-	err = r.reconcileCorePVC(ctx, cr)
-	if err != nil {
-		return reconcile.Result{}, err
-	}
-
 	err = r.reconcileSecrets(ctx, cr)
 	if err != nil {
 		return reconcile.Result{}, err
@@ -468,7 +463,7 @@ func (r *Reconciler) reconcileDatabase(ctx context.Context, reqLogger logr.Logge
 
 func (r *Reconciler) reconcileStorage(ctx context.Context, reqLogger logr.Logger, cr *model.CryostatInstance, tls *resources.TLSConfig,
 	imageTags *resources.ImageTags, serviceSpecs *resources.ServiceSpecs, fsGroup int64) (reconcile.Result, error) {
-	reqLogger.Info("Spec", "Storage", cr.Spec.StorageOptions)
+	reqLogger.Info("Spec", "Storage", cr.Spec.StorageConfigurations)
 
 	err := r.reconcileStoragePVC(ctx, cr)
 	if err != nil {

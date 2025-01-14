@@ -370,40 +370,72 @@ spec:
         path: serviceOptions
       - description: Options to customize the storage provisioned for the database
           and object storage.
-        displayName: Storage Options
-        path: storageOptions
+        displayName: Storage Configurations
+        path: storageConfigurations
       - description: Configuration for an EmptyDir to be created by the operator instead
           of a PVC.
         displayName: Empty Dir
-        path: storageOptions.emptyDir
+        path: storageConfigurations.database.emptyDir
       - description: When enabled, Cryostat will use EmptyDir volumes instead of a
           Persistent Volume Claim. Any PVC configurations will be ignored.
         displayName: Enabled
-        path: storageOptions.emptyDir.enabled
+        path: storageConfigurations.database.emptyDir.enabled
         x-descriptors:
         - urn:alm:descriptor:com.tectonic.ui:booleanSwitch
       - description: Unless specified, the emptyDir volume will be mounted on the
           same storage medium backing the node. Setting this field to "Memory" will
           mount the emptyDir on a tmpfs (RAM-backed filesystem).
         displayName: Medium
-        path: storageOptions.emptyDir.medium
+        path: storageConfigurations.database.emptyDir.medium
         x-descriptors:
         - urn:alm:descriptor:com.tectonic.ui:fieldDependency:storageOptions.emptyDir.enabled:true
       - description: The maximum memory limit for the emptyDir. Default is unbounded.
         displayName: Size Limit
-        path: storageOptions.emptyDir.sizeLimit
+        path: storageConfigurations.database.emptyDir.sizeLimit
         x-descriptors:
         - urn:alm:descriptor:com.tectonic.ui:fieldDependency:storageOptions.emptyDir.enabled:true
       - description: Configuration for the Persistent Volume Claim to be created by
           the operator.
         displayName: PVC
-        path: storageOptions.pvc
+        path: storageConfigurations.database.pvc
       - description: Spec for a Persistent Volume Claim, whose options will override
           the defaults used by the operator. Unless overriden, the PVC will be created
           with the default Storage Class and 500MiB of storage. Once the operator
           has created the PVC, changes to this field have no effect.
         displayName: Spec
-        path: storageOptions.pvc.spec
+        path: storageConfigurations.database.pvc.spec
+      - description: Configuration for an EmptyDir to be created by the operator instead
+          of a PVC.
+        displayName: Empty Dir
+        path: storageConfigurations.objectStorage.emptyDir
+      - description: When enabled, Cryostat will use EmptyDir volumes instead of a
+          Persistent Volume Claim. Any PVC configurations will be ignored.
+        displayName: Enabled
+        path: storageConfigurations.objectStorage.emptyDir.enabled
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:booleanSwitch
+      - description: Unless specified, the emptyDir volume will be mounted on the
+          same storage medium backing the node. Setting this field to "Memory" will
+          mount the emptyDir on a tmpfs (RAM-backed filesystem).
+        displayName: Medium
+        path: storageConfigurations.objectStorage.emptyDir.medium
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:fieldDependency:storageOptions.emptyDir.enabled:true
+      - description: The maximum memory limit for the emptyDir. Default is unbounded.
+        displayName: Size Limit
+        path: storageConfigurations.objectStorage.emptyDir.sizeLimit
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:fieldDependency:storageOptions.emptyDir.enabled:true
+      - description: Configuration for the Persistent Volume Claim to be created by
+          the operator.
+        displayName: PVC
+        path: storageConfigurations.objectStorage.pvc
+      - description: Spec for a Persistent Volume Claim, whose options will override
+          the defaults used by the operator. Unless overriden, the PVC will be created
+          with the default Storage Class and 500MiB of storage. Once the operator
+          has created the PVC, changes to this field have no effect.
+        displayName: Spec
+        path: storageConfigurations.objectStorage.pvc.spec
       - description: Options to customize the target connections cache for the Cryostat
           application.
         displayName: Target Connection Cache Options

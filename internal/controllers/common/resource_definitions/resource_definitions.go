@@ -95,6 +95,24 @@ const (
 	DatabaseName                      string = "cryostat"
 )
 
+func createMapCopy(in map[string]string) map[string]string {
+	copy := make(map[string]string)
+	for k, v := range in {
+		copy[k] = v
+	}
+	return copy
+}
+
+func createMetadataCopy(in *operatorv1beta2.ResourceMetadata) operatorv1beta2.ResourceMetadata {
+	if in == nil {
+		return operatorv1beta2.ResourceMetadata{}
+	}
+	return operatorv1beta2.ResourceMetadata{
+		Labels:      createMapCopy(in.Labels),
+		Annotations: createMapCopy(in.Annotations),
+	}
+}
+
 func CorePodLabels(cr *model.CryostatInstance) map[string]string {
 	return map[string]string{
 		"app":       cr.Name,
@@ -118,43 +136,33 @@ func NewDeploymentForCR(cr *model.CryostatInstance, specs *ServiceSpecs, imageTa
 		"app.openshift.io/connects-to": constants.OperatorDeploymentName,
 	}
 	defaultPodLabels := CorePodLabels(cr)
-	userDefinedDeploymentLabels := make(map[string]string)
-	userDefinedDeploymentAnnotations := make(map[string]string)
-	userDefinedPodTemplateLabels := make(map[string]string)
-	userDefinedPodTemplateAnnotations := make(map[string]string)
-	if cr.Spec.OperandMetadata != nil {
-		if cr.Spec.OperandMetadata.DeploymentMetadata != nil {
-			for k, v := range cr.Spec.OperandMetadata.DeploymentMetadata.Labels {
-				userDefinedDeploymentLabels[k] = v
-			}
-			for k, v := range cr.Spec.OperandMetadata.DeploymentMetadata.Annotations {
-				userDefinedDeploymentAnnotations[k] = v
-			}
-		}
-		if cr.Spec.OperandMetadata.PodMetadata != nil {
-			for k, v := range cr.Spec.OperandMetadata.PodMetadata.Labels {
-				userDefinedPodTemplateLabels[k] = v
-			}
-			for k, v := range cr.Spec.OperandMetadata.PodMetadata.Annotations {
-				userDefinedPodTemplateAnnotations[k] = v
-			}
-		}
+	operandMeta := operatorv1beta2.OperandMetadata{
+		DeploymentMetadata: &operatorv1beta2.ResourceMetadata{},
+		PodMetadata:        &operatorv1beta2.ResourceMetadata{},
+	}
+	if cr.Spec.OperandMetadata != nil && cr.Spec.OperandMetadata.DeploymentMetadata != nil {
+		deploymentCopy := createMetadataCopy(cr.Spec.OperandMetadata.DeploymentMetadata)
+		operandMeta.DeploymentMetadata = &deploymentCopy
+	}
+	if cr.Spec.OperandMetadata != nil && cr.Spec.OperandMetadata.PodMetadata != nil {
+		podCopy := createMetadataCopy(cr.Spec.OperandMetadata.PodMetadata)
+		operandMeta.PodMetadata = &podCopy
 	}
 
 	// First set the user defined labels and annotation in the meta, so that the default ones can override them
 	deploymentMeta := metav1.ObjectMeta{
 		Name:        cr.Name,
 		Namespace:   cr.InstallNamespace,
-		Labels:      userDefinedDeploymentLabels,
-		Annotations: userDefinedDeploymentAnnotations,
+		Labels:      operandMeta.DeploymentMetadata.Labels,
+		Annotations: operandMeta.DeploymentMetadata.Annotations,
 	}
 	common.MergeLabelsAndAnnotations(&deploymentMeta, defaultDeploymentLabels, defaultDeploymentAnnotations)
 
 	podTemplateMeta := metav1.ObjectMeta{
 		Name:        cr.Name,
 		Namespace:   cr.InstallNamespace,
-		Labels:      userDefinedPodTemplateLabels,
-		Annotations: userDefinedPodTemplateAnnotations,
+		Labels:      operandMeta.PodMetadata.Labels,
+		Annotations: operandMeta.PodMetadata.Annotations,
 	}
 	common.MergeLabelsAndAnnotations(&podTemplateMeta, defaultPodLabels, nil)
 
@@ -183,24 +191,6 @@ func NewDeploymentForCR(cr *model.CryostatInstance, specs *ServiceSpecs, imageTa
 			},
 		},
 	}, nil
-}
-
-func createMapCopy(in map[string]string) map[string]string {
-	copy := make(map[string]string)
-	for k, v := range in {
-		copy[k] = v
-	}
-	return copy
-}
-
-func createMetadataCopy(in *operatorv1beta2.ResourceMetadata) operatorv1beta2.ResourceMetadata {
-	if in == nil {
-		return operatorv1beta2.ResourceMetadata{}
-	}
-	return operatorv1beta2.ResourceMetadata{
-		Labels:      createMapCopy(in.Labels),
-		Annotations: createMapCopy(in.Annotations),
-	}
 }
 
 func DatabasePodLabels(cr *model.CryostatInstance) map[string]string {
@@ -299,43 +289,33 @@ func NewDeploymentForStorage(cr *model.CryostatInstance, imageTags *ImageTags, t
 		"app.openshift.io/connects-to": cr.Name,
 	}
 	defaultPodLabels := StoragePodLabels(cr)
-	userDefinedDeploymentLabels := make(map[string]string)
-	userDefinedDeploymentAnnotations := make(map[string]string)
-	userDefinedPodTemplateLabels := make(map[string]string)
-	userDefinedPodTemplateAnnotations := make(map[string]string)
-	if cr.Spec.OperandMetadata != nil {
-		if cr.Spec.OperandMetadata.DeploymentMetadata != nil {
-			for k, v := range cr.Spec.OperandMetadata.DeploymentMetadata.Labels {
-				userDefinedDeploymentLabels[k] = v
-			}
-			for k, v := range cr.Spec.OperandMetadata.DeploymentMetadata.Annotations {
-				userDefinedDeploymentAnnotations[k] = v
-			}
-		}
-		if cr.Spec.OperandMetadata.PodMetadata != nil {
-			for k, v := range cr.Spec.OperandMetadata.PodMetadata.Labels {
-				userDefinedPodTemplateLabels[k] = v
-			}
-			for k, v := range cr.Spec.OperandMetadata.PodMetadata.Annotations {
-				userDefinedPodTemplateAnnotations[k] = v
-			}
-		}
+	operandMeta := operatorv1beta2.OperandMetadata{
+		DeploymentMetadata: &operatorv1beta2.ResourceMetadata{},
+		PodMetadata:        &operatorv1beta2.ResourceMetadata{},
+	}
+	if cr.Spec.OperandMetadata != nil && cr.Spec.OperandMetadata.DeploymentMetadata != nil {
+		deploymentCopy := createMetadataCopy(cr.Spec.OperandMetadata.DeploymentMetadata)
+		operandMeta.DeploymentMetadata = &deploymentCopy
+	}
+	if cr.Spec.OperandMetadata != nil && cr.Spec.OperandMetadata.PodMetadata != nil {
+		podCopy := createMetadataCopy(cr.Spec.OperandMetadata.PodMetadata)
+		operandMeta.PodMetadata = &podCopy
 	}
 
 	// First set the user defined labels and annotation in the meta, so that the default ones can override them
 	deploymentMeta := metav1.ObjectMeta{
 		Name:        cr.Name + "-storage",
 		Namespace:   cr.InstallNamespace,
-		Labels:      userDefinedDeploymentLabels,
-		Annotations: userDefinedDeploymentAnnotations,
+		Labels:      operandMeta.DeploymentMetadata.Labels,
+		Annotations: operandMeta.DeploymentMetadata.Annotations,
 	}
 	common.MergeLabelsAndAnnotations(&deploymentMeta, defaultDeploymentLabels, defaultDeploymentAnnotations)
 
 	podTemplateMeta := metav1.ObjectMeta{
 		Name:        cr.Name + "-storage",
 		Namespace:   cr.InstallNamespace,
-		Labels:      userDefinedPodTemplateLabels,
-		Annotations: userDefinedPodTemplateAnnotations,
+		Labels:      operandMeta.PodMetadata.Labels,
+		Annotations: operandMeta.PodMetadata.Annotations,
 	}
 	common.MergeLabelsAndAnnotations(&podTemplateMeta, defaultPodLabels, nil)
 
@@ -387,43 +367,33 @@ func NewDeploymentForReports(cr *model.CryostatInstance, imageTags *ImageTags, t
 		"app.openshift.io/connects-to": cr.Name,
 	}
 	defaultPodLabels := ReportsPodLabels(cr)
-	userDefinedDeploymentLabels := make(map[string]string)
-	userDefinedDeploymentAnnotations := make(map[string]string)
-	userDefinedPodTemplateLabels := make(map[string]string)
-	userDefinedPodTemplateAnnotations := make(map[string]string)
-	if cr.Spec.OperandMetadata != nil {
-		if cr.Spec.OperandMetadata.DeploymentMetadata != nil {
-			for k, v := range cr.Spec.OperandMetadata.DeploymentMetadata.Labels {
-				userDefinedDeploymentLabels[k] = v
-			}
-			for k, v := range cr.Spec.OperandMetadata.DeploymentMetadata.Annotations {
-				userDefinedDeploymentAnnotations[k] = v
-			}
-		}
-		if cr.Spec.OperandMetadata.PodMetadata != nil {
-			for k, v := range cr.Spec.OperandMetadata.PodMetadata.Labels {
-				userDefinedPodTemplateLabels[k] = v
-			}
-			for k, v := range cr.Spec.OperandMetadata.PodMetadata.Annotations {
-				userDefinedPodTemplateAnnotations[k] = v
-			}
-		}
+	operandMeta := operatorv1beta2.OperandMetadata{
+		DeploymentMetadata: &operatorv1beta2.ResourceMetadata{},
+		PodMetadata:        &operatorv1beta2.ResourceMetadata{},
+	}
+	if cr.Spec.OperandMetadata != nil && cr.Spec.OperandMetadata.DeploymentMetadata != nil {
+		deploymentCopy := createMetadataCopy(cr.Spec.OperandMetadata.DeploymentMetadata)
+		operandMeta.DeploymentMetadata = &deploymentCopy
+	}
+	if cr.Spec.OperandMetadata != nil && cr.Spec.OperandMetadata.PodMetadata != nil {
+		podCopy := createMetadataCopy(cr.Spec.OperandMetadata.PodMetadata)
+		operandMeta.PodMetadata = &podCopy
 	}
 
 	// First set the user defined labels and annotation in the meta, so that the default ones can override them
 	deploymentMeta := metav1.ObjectMeta{
 		Name:        cr.Name + "-reports",
 		Namespace:   cr.InstallNamespace,
-		Labels:      userDefinedDeploymentLabels,
-		Annotations: userDefinedDeploymentAnnotations,
+		Labels:      operandMeta.DeploymentMetadata.Labels,
+		Annotations: operandMeta.DeploymentMetadata.Annotations,
 	}
 	common.MergeLabelsAndAnnotations(&deploymentMeta, defaultDeploymentLabels, defaultDeploymentAnnotations)
 
 	podTemplateMeta := metav1.ObjectMeta{
 		Name:        cr.Name + "-reports",
 		Namespace:   cr.InstallNamespace,
-		Labels:      userDefinedPodTemplateLabels,
-		Annotations: userDefinedPodTemplateAnnotations,
+		Labels:      operandMeta.PodMetadata.Labels,
+		Annotations: operandMeta.PodMetadata.Annotations,
 	}
 	common.MergeLabelsAndAnnotations(&podTemplateMeta, defaultPodLabels, nil)
 
@@ -461,7 +431,7 @@ func NewPodForCR(cr *model.CryostatInstance, specs *ServiceSpecs, imageTags *Ima
 		newAgentProxyContainer(cr, imageTags.AgentProxyImageTag, tls),
 	}
 
-	volumes := newVolumeForCR(cr)
+	volumes := []corev1.Volume{}
 	volSources := []corev1.VolumeProjection{}
 	readOnlyMode := int32(0440)
 
@@ -1319,21 +1289,6 @@ func NewCoreContainer(cr *model.CryostatInstance, specs *ServiceSpecs, imageTag 
 
 	mounts := []corev1.VolumeMount{
 		{
-			Name:      cr.Name,
-			MountPath: configPath,
-			SubPath:   "config",
-		},
-		{
-			Name:      cr.Name,
-			MountPath: templatesPath,
-			SubPath:   "templates",
-		},
-		{
-			Name:      cr.Name,
-			MountPath: "truststore",
-			SubPath:   "truststore",
-		},
-		{
 			// Mount the CA cert and user certificates in the expected /truststore location
 			Name:      "cert-secrets",
 			MountPath: "/truststore/operator",
@@ -2025,42 +1980,10 @@ func getInternalDashboardURL() string {
 	return fmt.Sprintf("http://localhost:%d", constants.GrafanaContainerPort)
 }
 
-func newVolumeForCR(cr *model.CryostatInstance) []corev1.Volume {
-	var volumeSource corev1.VolumeSource
-	if useEmptyDir(cr) {
-		emptyDir := cr.Spec.StorageOptions.EmptyDir
-
-		sizeLimit, err := resource.ParseQuantity(emptyDir.SizeLimit)
-		if err != nil {
-			sizeLimit = *resource.NewQuantity(0, resource.BinarySI)
-		}
-
-		volumeSource = corev1.VolumeSource{
-			EmptyDir: &corev1.EmptyDirVolumeSource{
-				Medium:    emptyDir.Medium,
-				SizeLimit: &sizeLimit,
-			},
-		}
-	} else {
-		volumeSource = corev1.VolumeSource{
-			PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
-				ClaimName: cr.Name,
-			},
-		}
-	}
-
-	return []corev1.Volume{
-		{
-			Name:         cr.Name,
-			VolumeSource: volumeSource,
-		},
-	}
-}
-
 func newVolumeForDatabse(cr *model.CryostatInstance) []corev1.Volume {
 	var volumeSource corev1.VolumeSource
-	if useEmptyDir(cr) {
-		emptyDir := cr.Spec.StorageOptions.EmptyDir
+	if cr.Spec.StorageConfigurations != nil && cr.Spec.StorageConfigurations.Database != nil && cr.Spec.StorageConfigurations.Database.EmptyDir != nil && cr.Spec.StorageConfigurations.Database.EmptyDir.Enabled {
+		emptyDir := cr.Spec.StorageConfigurations.Database.EmptyDir
 
 		sizeLimit, err := resource.ParseQuantity(emptyDir.SizeLimit)
 		if err != nil {
@@ -2091,8 +2014,8 @@ func newVolumeForDatabse(cr *model.CryostatInstance) []corev1.Volume {
 
 func newVolumeForStorage(cr *model.CryostatInstance) []corev1.Volume {
 	var volumeSource corev1.VolumeSource
-	if useEmptyDir(cr) {
-		emptyDir := cr.Spec.StorageOptions.EmptyDir
+	if cr.Spec.StorageConfigurations != nil && cr.Spec.StorageConfigurations.ObjectStorage != nil && cr.Spec.StorageConfigurations.ObjectStorage.EmptyDir != nil && cr.Spec.StorageConfigurations.ObjectStorage.EmptyDir.Enabled {
+		emptyDir := cr.Spec.StorageConfigurations.ObjectStorage.EmptyDir
 
 		sizeLimit, err := resource.ParseQuantity(emptyDir.SizeLimit)
 		if err != nil {
@@ -2119,10 +2042,6 @@ func newVolumeForStorage(cr *model.CryostatInstance) []corev1.Volume {
 			VolumeSource: volumeSource,
 		},
 	}
-}
-
-func useEmptyDir(cr *model.CryostatInstance) bool {
-	return cr.Spec.StorageOptions != nil && cr.Spec.StorageOptions.EmptyDir != nil && cr.Spec.StorageOptions.EmptyDir.Enabled
 }
 
 func isBasicAuthEnabled(cr *model.CryostatInstance) bool {

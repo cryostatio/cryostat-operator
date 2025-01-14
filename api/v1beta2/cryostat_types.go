@@ -48,7 +48,7 @@ type CryostatSpec struct {
 	// Options to customize the storage provisioned for the database and object storage.
 	// +optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
-	StorageOptions *StorageConfiguration `json:"storageOptions,omitempty"`
+	StorageConfigurations *StorageConfigurations `json:"storageConfigurations,omitempty"`
 	// Options to customize the services created for the Cryostat application.
 	// +optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
@@ -209,9 +209,16 @@ const (
 	ConditionTypeTLSSetupComplete CryostatConditionType = "TLSSetupComplete"
 )
 
-// StorageConfiguration provides customization to the storage created by
-// the operator to hold Flight Recordings and Recording Templates. If no
-// configurations are specified, a PVC will be created by default.
+// StorageConfigurations provides customization to the storage provisioned for
+// the database and the object storage.
+type StorageConfigurations struct {
+	Database      *StorageConfiguration `json:"database,omitempty"`
+	ObjectStorage *StorageConfiguration `json:"objectStorage,omitempty"`
+}
+
+// StorageConfiguration provides customization to the storage created by the
+// operator to contain persisted data. If no configurations are specified, a
+// PVC will be created by default.
 type StorageConfiguration struct {
 	// Configuration for the Persistent Volume Claim to be created
 	// by the operator.
