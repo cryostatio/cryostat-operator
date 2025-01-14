@@ -173,16 +173,30 @@ func (r *TestResources) addIngressToCryostat(cr *model.CryostatInstance) *model.
 
 func (r *TestResources) NewCryostatWithPVCSpec() *model.CryostatInstance {
 	cr := r.NewCryostat()
-	cr.Spec.StorageOptions = &operatorv1beta2.StorageConfiguration{
-		PVC: &operatorv1beta2.PersistentVolumeClaimConfig{
-			Annotations: map[string]string{
-				"my/custom": "annotation",
+	cr.Spec.StorageConfigurations = &operatorv1beta2.StorageConfigurations{
+		Database: &operatorv1beta2.StorageConfiguration{
+			PVC: &operatorv1beta2.PersistentVolumeClaimConfig{
+				Annotations: map[string]string{
+					"my/custom": "annotation1",
+				},
+				Labels: map[string]string{
+					"my":  "label",
+					"app": "somethingelse1",
+				},
+				Spec: newPVCSpec("db-storage", "1Gi", corev1.ReadWriteMany),
 			},
-			Labels: map[string]string{
-				"my":  "label",
-				"app": "somethingelse",
+		},
+		ObjectStorage: &operatorv1beta2.StorageConfiguration{
+			PVC: &operatorv1beta2.PersistentVolumeClaimConfig{
+				Annotations: map[string]string{
+					"my/custom": "annotation2",
+				},
+				Labels: map[string]string{
+					"my":  "label",
+					"app": "somethingelse2",
+				},
+				Spec: newPVCSpec("object-storage", "10Gi", corev1.ReadWriteMany),
 			},
-			Spec: newPVCSpec("cool-storage", "10Gi", corev1.ReadWriteMany),
 		},
 	}
 	return cr
@@ -190,9 +204,11 @@ func (r *TestResources) NewCryostatWithPVCSpec() *model.CryostatInstance {
 
 func (r *TestResources) NewCryostatWithPVCSpecSomeDefault() *model.CryostatInstance {
 	cr := r.NewCryostat()
-	cr.Spec.StorageOptions = &operatorv1beta2.StorageConfiguration{
-		PVC: &operatorv1beta2.PersistentVolumeClaimConfig{
-			Spec: newPVCSpec("", "1Gi"),
+	cr.Spec.StorageConfigurations = &operatorv1beta2.StorageConfigurations{
+		Database: &operatorv1beta2.StorageConfiguration{
+			PVC: &operatorv1beta2.PersistentVolumeClaimConfig{
+				Spec: newPVCSpec("", "1Gi"),
+			},
 		},
 	}
 	return cr
@@ -200,10 +216,12 @@ func (r *TestResources) NewCryostatWithPVCSpecSomeDefault() *model.CryostatInsta
 
 func (r *TestResources) NewCryostatWithPVCLabelsOnly() *model.CryostatInstance {
 	cr := r.NewCryostat()
-	cr.Spec.StorageOptions = &operatorv1beta2.StorageConfiguration{
-		PVC: &operatorv1beta2.PersistentVolumeClaimConfig{
-			Labels: map[string]string{
-				"my": "label",
+	cr.Spec.StorageConfigurations = &operatorv1beta2.StorageConfigurations{
+		Database: &operatorv1beta2.StorageConfiguration{
+			PVC: &operatorv1beta2.PersistentVolumeClaimConfig{
+				Labels: map[string]string{
+					"my": "label",
+				},
 			},
 		},
 	}
@@ -212,9 +230,11 @@ func (r *TestResources) NewCryostatWithPVCLabelsOnly() *model.CryostatInstance {
 
 func (r *TestResources) NewCryostatWithDefaultEmptyDir() *model.CryostatInstance {
 	cr := r.NewCryostat()
-	cr.Spec.StorageOptions = &operatorv1beta2.StorageConfiguration{
-		EmptyDir: &operatorv1beta2.EmptyDirConfig{
-			Enabled: true,
+	cr.Spec.StorageConfigurations = &operatorv1beta2.StorageConfigurations{
+		Database: &operatorv1beta2.StorageConfiguration{
+			EmptyDir: &operatorv1beta2.EmptyDirConfig{
+				Enabled: true,
+			},
 		},
 	}
 	return cr
@@ -222,11 +242,13 @@ func (r *TestResources) NewCryostatWithDefaultEmptyDir() *model.CryostatInstance
 
 func (r *TestResources) NewCryostatWithEmptyDirSpec() *model.CryostatInstance {
 	cr := r.NewCryostat()
-	cr.Spec.StorageOptions = &operatorv1beta2.StorageConfiguration{
-		EmptyDir: &operatorv1beta2.EmptyDirConfig{
-			Enabled:   true,
-			Medium:    "Memory",
-			SizeLimit: "200Mi",
+	cr.Spec.StorageConfigurations = &operatorv1beta2.StorageConfigurations{
+		Database: &operatorv1beta2.StorageConfiguration{
+			EmptyDir: &operatorv1beta2.EmptyDirConfig{
+				Enabled:   true,
+				Medium:    "Memory",
+				SizeLimit: "200Mi",
+			},
 		},
 	}
 	return cr
