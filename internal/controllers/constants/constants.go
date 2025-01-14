@@ -19,6 +19,9 @@ import (
 	corev1 "k8s.io/api/core/v1"
 )
 
+// Generates constants from environment variables at build time
+//go:generate go run ../../tools/const_generator.go
+
 const (
 	AuthProxyHttpContainerPort int32  = 4180
 	CryostatHTTPContainerPort  int32  = 8181
@@ -47,9 +50,11 @@ const (
 	AgentProxyConfigFilePath string = "/etc/nginx-cryostat"
 	AgentProxyConfigFileName string = "nginx.conf"
 
+	// Labels applied by operator to track cross-namespace ownership
 	targetNamespaceCRLabelPrefix    = "operator.cryostat.io/"
 	TargetNamespaceCRNameLabel      = targetNamespaceCRLabelPrefix + "name"
 	TargetNamespaceCRNamespaceLabel = targetNamespaceCRLabelPrefix + "namespace"
+
 
 	CryostatCATLSCommonName     = "cryostat-ca-cert-manager"
 	CryostatTLSCommonName       = "cryostat"
@@ -58,4 +63,9 @@ const (
 	ReportsTLSCommonName        = "cryostat-reports"
 	AgentsTLSCommonName         = "cryostat-agent"
 	AgentAuthProxyTLSCommonName = "cryostat-agent-proxy"
+
+	// Labels for agent auto-configuration
+	agentLabelPrefix            = "cryostat.io/"
+	AgentLabelCryostatName      = agentLabelPrefix + "name"
+	AgentLabelCryostatNamespace = agentLabelPrefix + "namespace"
 )

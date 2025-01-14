@@ -18,7 +18,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/url"
-	"regexp"
 	"strconv"
 	"strings"
 
@@ -904,7 +903,7 @@ func NewPodForReports(cr *model.CryostatInstance, imageTags *ImageTags, tls *TLS
 			{
 				Name:            cr.Name + "-reports",
 				Image:           imageTags.ReportsImageTag,
-				ImagePullPolicy: getPullPolicy(imageTags.ReportsImageTag),
+				ImagePullPolicy: common.GetPullPolicy(imageTags.ReportsImageTag),
 				Ports: []corev1.ContainerPort{
 					{
 						ContainerPort: constants.ReportsContainerPort,
@@ -1034,7 +1033,7 @@ func NewOpenShiftAuthProxyContainer(cr *model.CryostatInstance, specs *ServiceSp
 	return &corev1.Container{
 		Name:            cr.Name + "-auth-proxy",
 		Image:           imageTag,
-		ImagePullPolicy: getPullPolicy(imageTag),
+		ImagePullPolicy: common.GetPullPolicy(imageTag),
 		VolumeMounts:    volumeMounts,
 		Ports: []corev1.ContainerPort{
 			{
@@ -1169,7 +1168,7 @@ func NewOAuth2ProxyContainer(cr *model.CryostatInstance, specs *ServiceSpecs, im
 	return &corev1.Container{
 		Name:            cr.Name + "-auth-proxy",
 		Image:           imageTag,
-		ImagePullPolicy: getPullPolicy(imageTag),
+		ImagePullPolicy: common.GetPullPolicy(imageTag),
 		VolumeMounts:    volumeMounts,
 		Ports: []corev1.ContainerPort{
 			{
@@ -1502,7 +1501,7 @@ func NewCoreContainer(cr *model.CryostatInstance, specs *ServiceSpecs, imageTag 
 	return corev1.Container{
 		Name:            cr.Name,
 		Image:           imageTag,
-		ImagePullPolicy: getPullPolicy(imageTag),
+		ImagePullPolicy: common.GetPullPolicy(imageTag),
 		VolumeMounts:    mounts,
 		Ports: []corev1.ContainerPort{
 			{
@@ -1572,7 +1571,7 @@ func NewGrafanaContainer(cr *model.CryostatInstance, imageTag string, tls *TLSCo
 	return corev1.Container{
 		Name:            cr.Name + "-grafana",
 		Image:           imageTag,
-		ImagePullPolicy: getPullPolicy(imageTag),
+		ImagePullPolicy: common.GetPullPolicy(imageTag),
 		Ports: []corev1.ContainerPort{
 			{
 				ContainerPort: constants.GrafanaContainerPort,
@@ -1710,7 +1709,7 @@ func NewStorageContainer(cr *model.CryostatInstance, imageTag string, tls *TLSCo
 	return corev1.Container{
 		Name:            cr.Name + "-storage",
 		Image:           imageTag,
-		ImagePullPolicy: getPullPolicy(imageTag),
+		ImagePullPolicy: common.GetPullPolicy(imageTag),
 		VolumeMounts:    mounts,
 		SecurityContext: containerSc,
 		Env:             envs,
@@ -1842,7 +1841,7 @@ func NewDatabaseContainer(cr *model.CryostatInstance, imageTag string, tls *TLSC
 	return corev1.Container{
 		Name:            cr.Name + "-db",
 		Image:           imageTag,
-		ImagePullPolicy: getPullPolicy(imageTag),
+		ImagePullPolicy: common.GetPullPolicy(imageTag),
 		VolumeMounts:    mounts,
 		SecurityContext: containerSc,
 		Env:             envs,
@@ -1891,7 +1890,7 @@ func NewJfrDatasourceContainer(cr *model.CryostatInstance, imageTag string) core
 	return corev1.Container{
 		Name:            cr.Name + "-jfr-datasource",
 		Image:           imageTag,
-		ImagePullPolicy: getPullPolicy(imageTag),
+		ImagePullPolicy: common.GetPullPolicy(imageTag),
 		Ports: []corev1.ContainerPort{
 			{
 				ContainerPort: constants.DatasourceContainerPort,
@@ -1954,7 +1953,7 @@ func newAgentProxyContainer(cr *model.CryostatInstance, imageTag string, tls *TL
 	return corev1.Container{
 		Name:            cr.Name + "-agent-proxy",
 		Image:           imageTag,
-		ImagePullPolicy: getPullPolicy(imageTag),
+		ImagePullPolicy: common.GetPullPolicy(imageTag),
 		Ports: []corev1.ContainerPort{
 			{
 				ContainerPort: constants.AgentProxyContainerPort,
@@ -2008,18 +2007,6 @@ func getPort(url *url.URL) string {
 
 func getInternalDashboardURL() string {
 	return fmt.Sprintf("http://localhost:%d", constants.GrafanaContainerPort)
-}
-
-// Matches image tags of the form "major.minor.patch"
-var develVerRegexp = regexp.MustCompile(`(?i)(:latest|SNAPSHOT|dev|BETA\d+)$`)
-
-func getPullPolicy(imageTag string) corev1.PullPolicy {
-	// Use Always for tags that have a known development suffix
-	if develVerRegexp.MatchString(imageTag) {
-		return corev1.PullAlways
-	}
-	// Likely a release, use IfNotPresent
-	return corev1.PullIfNotPresent
 }
 
 func newVolumeForCR(cr *model.CryostatInstance) []corev1.Volume {

@@ -183,7 +183,8 @@ func NewStorageCert(cr *model.CryostatInstance) *certv1.Certificate {
 }
 
 func NewAgentCert(cr *model.CryostatInstance, namespace string, gvk *schema.GroupVersionKind) *certv1.Certificate {
-	name := common.ClusterUniqueNameWithPrefixTargetNS(gvk, "agent", cr.Name, cr.InstallNamespace, namespace)
+	svcName := common.AgentHeadlessServiceName(gvk, cr)
+	name := common.AgentCertificateName(gvk, cr, namespace)
 	return &certv1.Certificate{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
@@ -192,7 +193,7 @@ func NewAgentCert(cr *model.CryostatInstance, namespace string, gvk *schema.Grou
 		Spec: certv1.CertificateSpec{
 			CommonName: constants.AgentsTLSCommonName,
 			DNSNames: []string{
-				fmt.Sprintf("*.%s.pod", namespace),
+				fmt.Sprintf("*.%s.%s.svc", svcName, namespace),
 			},
 			SecretName: name,
 			IssuerRef: certMeta.ObjectReference{
@@ -207,6 +208,7 @@ func NewAgentCert(cr *model.CryostatInstance, namespace string, gvk *schema.Grou
 }
 
 func NewAgentProxyCert(cr *model.CryostatInstance) *certv1.Certificate {
+	svcName := common.AgentProxyServiceName(cr)
 	return &certv1.Certificate{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      cr.Name + "-agent-proxy",
@@ -215,9 +217,9 @@ func NewAgentProxyCert(cr *model.CryostatInstance) *certv1.Certificate {
 		Spec: certv1.CertificateSpec{
 			CommonName: constants.AgentAuthProxyTLSCommonName,
 			DNSNames: []string{
-				cr.Name + "-agent",
-				fmt.Sprintf("%s-agent.%s.svc", cr.Name, cr.InstallNamespace),
-				fmt.Sprintf("%s-agent.%s.svc.cluster.local", cr.Name, cr.InstallNamespace),
+				svcName,
+				fmt.Sprintf("%s.%s.svc", svcName, cr.InstallNamespace),
+				fmt.Sprintf("%s.%s.svc.cluster.local", svcName, cr.InstallNamespace),
 			},
 			SecretName: cr.Name + "-agent-tls",
 			IssuerRef: certMeta.ObjectReference{

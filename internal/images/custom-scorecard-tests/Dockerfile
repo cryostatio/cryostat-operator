@@ -13,11 +13,10 @@
 # limitations under the License.
 
 # Build the manager binary
-FROM docker.io/library/golang:1.22 as builder
+FROM registry.access.redhat.com/ubi9/go-toolset:1.22.9 as builder
 ARG TARGETOS
 ARG TARGETARCH
 
-WORKDIR /workspace
 # Copy the Go Modules manifests
 COPY go.mod go.mod
 COPY go.sum go.sum
@@ -34,7 +33,7 @@ COPY internal/test/scorecard/ internal/test/scorecard/
 RUN CGO_ENABLED=0 GOOS=${TARGETOS:-linux} GOARCH=${TARGETARCH} GO111MODULE=on go build -a -o cryostat-scorecard-tests \
     internal/images/custom-scorecard-tests/main.go
 
-FROM registry.access.redhat.com/ubi8/ubi-minimal:latest
+FROM registry.access.redhat.com/ubi9/ubi-minimal:latest
 
 ENV TEST=/usr/local/bin/cryostat-scorecard-tests \
     USER_UID=1001 \
@@ -42,7 +41,7 @@ ENV TEST=/usr/local/bin/cryostat-scorecard-tests \
 
 COPY internal/images/custom-scorecard-tests/bin/user_setup /usr/local/bin/
 COPY internal/images/custom-scorecard-tests/bin/entrypoint /usr/local/bin/
-COPY --from=builder /workspace/cryostat-scorecard-tests /usr/local/bin/
+COPY --from=builder /opt/app-root/src/cryostat-scorecard-tests /usr/local/bin/
 RUN  /usr/local/bin/user_setup
 
 ENTRYPOINT ["/usr/local/bin/entrypoint"]

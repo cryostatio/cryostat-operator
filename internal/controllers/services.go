@@ -18,7 +18,6 @@ import (
 	"context"
 	"fmt"
 	"net/url"
-	"strconv"
 
 	operatorv1beta2 "github.com/cryostatio/cryostat-operator/api/v1beta2"
 	common "github.com/cryostatio/cryostat-operator/internal/controllers/common"
@@ -50,7 +49,7 @@ func (r *Reconciler) reconcileCoreService(ctx context.Context, cr *model.Cryosta
 		appProtocol := "http"
 		svc.Spec.Ports = []corev1.ServicePort{
 			{
-				Name:        "http",
+				Name:        constants.HttpPortName,
 				Port:        *config.HTTPPort,
 				TargetPort:  intstr.IntOrString{IntVal: constants.AuthProxyHttpContainerPort},
 				AppProtocol: &appProtocol,
@@ -90,7 +89,7 @@ func (r *Reconciler) reconcileReportsService(ctx context.Context, cr *model.Cryo
 		}
 		svc.Spec.Ports = []corev1.ServicePort{
 			{
-				Name:       "http",
+				Name:       constants.HttpPortName,
 				Port:       *config.HTTPPort,
 				TargetPort: intstr.IntOrString{IntVal: constants.ReportsContainerPort},
 			},
@@ -108,19 +107,23 @@ func (r *Reconciler) reconcileReportsService(ctx context.Context, cr *model.Cryo
 	}
 	specs.ReportsURL = &url.URL{
 		Scheme: scheme,
-		Host:   svc.Name + ":" + strconv.Itoa(int(svc.Spec.Ports[0].Port)), // TODO use getHTTPPort?
+		Host:   fmt.Sprintf("%s:%d", svc.Name, *config.HTTPPort),
 	}
 	return nil
 }
 
-func (r *Reconciler) reconcileAgentService(ctx context.Context, cr *model.CryostatInstance) error {
-	config := configureAgentService(cr)
-	svc := &corev1.Service{
+func newAgentService(cr *model.CryostatInstance) *corev1.Service {
+	return &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      cr.Name + "-agent",
 			Namespace: cr.InstallNamespace,
 		},
 	}
+}
+
+func (r *Reconciler) reconcileAgentService(ctx context.Context, cr *model.CryostatInstance) error {
+	svc := newAgentService(cr)
+	config := configureAgentService(cr)
 
 	return r.createOrUpdateService(ctx, svc, cr.Object, &config.ServiceConfig, func() error {
 		svc.Spec.Selector = map[string]string{
@@ -129,7 +132,7 @@ func (r *Reconciler) reconcileAgentService(ctx context.Context, cr *model.Cryost
 		}
 		svc.Spec.Ports = []corev1.ServicePort{
 			{
-				Name:       "http",
+				Name:       constants.HttpPortName,
 				Port:       *config.HTTPPort,
 				TargetPort: intstr.IntOrString{IntVal: constants.AgentProxyContainerPort},
 			},
@@ -213,6 +216,72 @@ func (r *Reconciler) reconcileStorageService(ctx context.Context, cr *model.Cryo
 	specs.StorageURL = &url.URL{
 		Scheme: scheme,
 		Host:   svc.Name + ":" + strconv.Itoa(int(svc.Spec.Ports[0].Port)), // TODO use getHTTPPort?
+	}
+	return nil
+}
+
+func (r *Reconciler) newAgentHeadlessService(cr *model.CryostatInstance, namespace string) *corev1.Service {
+	return &corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      common.AgentHeadlessServiceName(r.gvk, cr),
+			Namespace: namespace,
+		},
+	}
+}
+
+func (r *Reconciler) reconcileAgentHeadlessServices(ctx context.Context, cr *model.CryostatInstance) error {
+	svcType := corev1.ServiceTypeClusterIP
+	// TODO make configurable through CRD
+	config := &operatorv1beta2.ServiceConfig{
+		ServiceType: &svcType,
+		Labels:      common.LabelsForTargetNamespaceObject(cr),
+	}
+	configureService(config, cr.Name, "agent")
+
+	// Create a headless Service in each target namespace
+	for _, ns := range cr.TargetNamespaces {
+		svc := r.newAgentHeadlessService(cr, ns)
+
+		err := r.createOrUpdateService(ctx, svc, nil, config, func() error {
+			// Select agent auto-configuration labels
+			svc.Spec.Selector = map[string]string{
+				constants.AgentLabelCryostatName:      cr.Name,
+				constants.AgentLabelCryostatNamespace: cr.InstallNamespace,
+			}
+			svc.Spec.Ports = []corev1.ServicePort{
+				{
+					Name:       constants.HttpPortName,
+					Port:       9977, // TODO make configurable
+					TargetPort: intstr.IntOrString{IntVal: 9977},
+				},
+			}
+			svc.Spec.ClusterIP = corev1.ClusterIPNone
+			return nil
+		})
+		if err != nil {
+			return err
+		}
+	}
+
+	// Delete any RoleBindings in target namespaces that are no longer requested
+	for _, ns := range toDelete(cr) {
+		svc := r.newAgentHeadlessService(cr, ns)
+		err := r.deleteService(ctx, svc)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (r *Reconciler) finalizeAgentHeadlessServices(ctx context.Context, cr *model.CryostatInstance) error {
+	for _, ns := range cr.TargetNamespaces {
+		svc := r.newAgentHeadlessService(cr, ns)
+		err := r.deleteService(ctx, svc)
+		if err != nil {
+			return err
+		}
 	}
 	return nil
 }
@@ -350,8 +419,10 @@ func (r *Reconciler) createOrUpdateService(ctx context.Context, svc *corev1.Serv
 		common.MergeLabelsAndAnnotations(&svc.ObjectMeta, config.Labels, config.Annotations)
 
 		// Set the Cryostat CR as controller
-		if err := controllerutil.SetControllerReference(owner, svc, r.Scheme); err != nil {
-			return err
+		if owner != nil {
+			if err := controllerutil.SetControllerReference(owner, svc, r.Scheme); err != nil {
+				return err
+			}
 		}
 		// Update the service type
 		svc.Spec.Type = *config.ServiceType
