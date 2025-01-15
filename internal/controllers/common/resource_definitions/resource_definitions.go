@@ -1179,8 +1179,10 @@ func NewCoreContainer(cr *model.CryostatInstance, specs *ServiceSpecs, imageTag 
 	if cr.Spec.AgentOptions != nil && cr.Spec.AgentOptions.DisableHostnameVerification {
 		envs = append(envs,
 			corev1.EnvVar{
-				Name:  "CRYOSTAT_AGENT_DISABLE_HOSTNAME_VERIFICATION",
-				Value: "true",
+				// TODO This should eventually be replaced by an agent-specific toggle.
+				// See: https://github.com/cryostatio/cryostat/issues/778
+				Name:  "QUARKUS_REST_CLIENT_VERIFY_HOST",
+				Value: "false",
 			})
 	}
 

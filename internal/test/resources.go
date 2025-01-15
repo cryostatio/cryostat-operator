@@ -1605,8 +1605,8 @@ func (r *TestResources) NewCoreEnvironmentVariables(reportsUrl string, ingress b
 	if r.DisableAgentHostnameVerify {
 		envs = append(envs,
 			corev1.EnvVar{
-				Name:  "CRYOSTAT_AGENT_DISABLE_HOSTNAME_VERIFICATION",
-				Value: "true",
+				Name:  "QUARKUS_REST_CLIENT_VERIFY_HOST",
+				Value: "false",
 			})
 	}
 
