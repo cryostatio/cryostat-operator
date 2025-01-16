@@ -167,6 +167,7 @@ func resourceChecks() []resourceCheck {
 		{(*cryostatTestInput).expectDatabaseDeployment, "database deployment"},
 		{(*cryostatTestInput).expectDatabaseNetworkPolicy, "database networkpolicy"},
 		{(*cryostatTestInput).expectStorageDeployment, "storage deployment"},
+		{(*cryostatTestInput).expectStorageNetworkPolicy, "storage networkpolicy"},
 		{(*cryostatTestInput).expectLockConfigMap, "lock config map"},
 		{(*cryostatTestInput).expectAgentProxyConfigMap, "agent proxy config map"},
 		{(*cryostatTestInput).expectAgentProxyService, "agent proxy service"},
@@ -2972,6 +2973,10 @@ func (t *cryostatTestInput) expectCoreNetworkPolicy() {
 
 func (t *cryostatTestInput) expectDatabaseNetworkPolicy() {
 	t.checkNetworkPolicy(t.NewDatabaseNetworkPolicy())
+}
+
+func (t *cryostatTestInput) expectStorageNetworkPolicy() {
+	t.checkNetworkPolicy(t.NewStorageNetworkPolicy())
 }
 
 func (t *cryostatTestInput) expectAgentProxyService() {
