@@ -62,9 +62,10 @@ func (r *podMutator) Default(ctx context.Context, obj runtime.Object) error {
 		return fmt.Errorf("expected a Pod, but received a %T", obj)
 	}
 
-	// TODO do this with objectSelector: https://github.com/kubernetes-sigs/controller-tools/issues/553
-	// Check for required labels and return early if missing
+	// Check for required labels and return early if missing.
+	// This should not happen because such pods are filtered out by Kubernetes server-side due to our object selector.
 	if !metav1.HasLabel(pod.ObjectMeta, constants.AgentLabelCryostatName) || !metav1.HasLabel(pod.ObjectMeta, constants.AgentLabelCryostatNamespace) {
+		r.log.Info("pod is missing required labels")
 		return nil
 	}
 
