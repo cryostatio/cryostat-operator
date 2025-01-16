@@ -162,6 +162,7 @@ func resourceChecks() []resourceCheck {
 		{(*cryostatTestInput).expectDatabaseSecret, "database secret"},
 		{(*cryostatTestInput).expectStorageSecret, "object storage secret"},
 		{(*cryostatTestInput).expectCoreService, "core service"},
+		{(*cryostatTestInput).expectCoreNetworkPolicy, "core networkpolicy"},
 		{(*cryostatTestInput).expectMainDeployment, "main deployment"},
 		{(*cryostatTestInput).expectDatabaseDeployment, "database deployment"},
 		{(*cryostatTestInput).expectStorageDeployment, "storage deployment"},
@@ -2964,6 +2965,10 @@ func (t *cryostatTestInput) expectCoreService() {
 	t.checkService(t.NewCryostatService())
 }
 
+func (t *cryostatTestInput) expectCoreNetworkPolicy() {
+	t.checkNetworkPolicy(t.NewCryostatNetworkPolicy())
+}
+
 func (t *cryostatTestInput) expectAgentProxyService() {
 	t.checkService(t.NewAgentProxyService())
 }
@@ -3026,6 +3031,15 @@ func (t *cryostatTestInput) checkService(expected *corev1.Service) {
 	t.checkServiceSpec(service, expected)
 }
 
+func (t *cryostatTestInput) checkNetworkPolicy(expected *netv1.NetworkPolicy) {
+	policy := &netv1.NetworkPolicy{}
+	err := t.Client.Get(context.Background(), types.NamespacedName{Name: expected.Name, Namespace: expected.Namespace}, policy)
+	Expect(err).ToNot(HaveOccurred())
+
+	t.checkMetadata(policy, expected)
+	t.checkNetworkPolicySpec(policy, expected)
+}
+
 func (t *cryostatTestInput) checkServiceNoOwner(expected *corev1.Service) {
 	service := &corev1.Service{}
 	err := t.Client.Get(context.Background(), types.NamespacedName{Name: expected.Name, Namespace: expected.Namespace}, service)
@@ -3040,6 +3054,11 @@ func (t *cryostatTestInput) checkServiceSpec(service *corev1.Service, expected *
 	Expect(service.Spec.Selector).To(Equal(expected.Spec.Selector))
 	Expect(service.Spec.Ports).To(Equal(expected.Spec.Ports))
 	Expect(service.Spec.ClusterIP).To(Equal(expected.Spec.ClusterIP))
+}
+
+func (t *cryostatTestInput) checkNetworkPolicySpec(policy *netv1.NetworkPolicy, expected *netv1.NetworkPolicy) {
+	Expect(policy.Spec.PodSelector).To(Equal(expected.Spec.PodSelector))
+	Expect(policy.Spec.Ingress).To(Equal(expected.Spec.Ingress))
 }
 
 func (t *cryostatTestInput) expectNoService(svcName string) {
