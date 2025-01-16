@@ -289,6 +289,10 @@ func (r *Reconciler) reconcileCryostat(ctx context.Context, cr *model.CryostatIn
 	if err != nil {
 		return requeueIfIngressNotReady(reqLogger, err)
 	}
+	err = r.reconcileCoreNetworkPolicy(ctx, cr)
+	if err != nil {
+		return reconcile.Result{}, err
+	}
 	err = r.reconcileAgentService(ctx, cr)
 	if err != nil {
 		return reconcile.Result{}, err
@@ -395,6 +399,10 @@ func (r *Reconciler) reconcileReports(ctx context.Context, reqLogger logr.Logger
 	if err != nil {
 		return reconcile.Result{}, err
 	}
+	err = r.reconcileReportsNetworkPolicy(ctx, cr)
+	if err != nil {
+		return reconcile.Result{}, err
+	}
 	deployment := resources.NewDeploymentForReports(cr, imageTags, tls, r.IsOpenShift)
 	if desired == 0 {
 		if err := r.Client.Delete(ctx, deployment); err != nil && !kerrors.IsNotFound(err) {
@@ -438,6 +446,10 @@ func (r *Reconciler) reconcileDatabase(ctx context.Context, reqLogger logr.Logge
 	if err != nil {
 		return reconcile.Result{}, err
 	}
+	err = r.reconcileDatabaseNetworkPolicy(ctx, cr)
+	if err != nil {
+		return reconcile.Result{}, err
+	}
 	deployment := resources.NewDeploymentForDatabase(cr, imageTags, tls, r.IsOpenShift, fsGroup)
 
 	err = r.createOrUpdateDeployment(ctx, deployment, cr.Object)
@@ -463,6 +475,10 @@ func (r *Reconciler) reconcileStorage(ctx context.Context, reqLogger logr.Logger
 		return reconcile.Result{}, err
 	}
 	err = r.reconcileStorageService(ctx, cr, tls, serviceSpecs)
+	if err != nil {
+		return reconcile.Result{}, err
+	}
+	err = r.reconcileStorageNetworkPolicy(ctx, cr)
 	if err != nil {
 		return reconcile.Result{}, err
 	}

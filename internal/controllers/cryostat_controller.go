@@ -64,7 +64,7 @@ func NewCryostatReconciler(config *ReconcilerConfig) (*CryostatReconciler, error
 // +kubebuilder:rbac:namespace=system,groups=monitoring.coreos.com,resources=servicemonitors,verbs=get;create
 // +kubebuilder:rbac:groups=cert-manager.io,resources=issuers;certificates,verbs=create;get;list;update;watch;delete
 // +kubebuilder:rbac:groups=console.openshift.io,resources=consolelinks,verbs=get;create;list;update;delete
-// +kubebuilder:rbac:groups=networking.k8s.io,resources=ingresses,verbs=*
+// +kubebuilder:rbac:groups=networking.k8s.io,resources=ingresses;networkpolicies,verbs=*
 
 // RBAC for Insights controller, remove these when moving to a separate container
 // +kubebuilder:rbac:namespace=system,groups=apps,resources=deployments;deployments/finalizers,verbs=create;update;get;list;watch

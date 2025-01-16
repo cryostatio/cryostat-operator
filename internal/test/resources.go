@@ -793,6 +793,174 @@ func (r *TestResources) NewCryostatService() *corev1.Service {
 	}
 }
 
+func (r *TestResources) NewCryostatNetworkPolicy() *netv1.NetworkPolicy {
+	return &netv1.NetworkPolicy{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      fmt.Sprintf("%s-internal-ingress", r.Name),
+			Namespace: r.Namespace,
+		},
+		Spec: netv1.NetworkPolicySpec{
+			PodSelector: metav1.LabelSelector{
+				MatchLabels: map[string]string{
+					"app":       r.Name,
+					"component": "cryostat",
+					"kind":      "cryostat",
+				},
+			},
+			Ingress: []netv1.NetworkPolicyIngressRule{
+				netv1.NetworkPolicyIngressRule{
+					From: []netv1.NetworkPolicyPeer{
+						netv1.NetworkPolicyPeer{
+							NamespaceSelector: &metav1.LabelSelector{},
+						},
+						netv1.NetworkPolicyPeer{
+							NamespaceSelector: &metav1.LabelSelector{
+								MatchLabels: map[string]string{
+									"policy-group.network.openshift.io/ingress": "",
+								},
+							},
+						},
+					},
+					Ports: []netv1.NetworkPolicyPort{
+						netv1.NetworkPolicyPort{
+							Port: &intstr.IntOrString{IntVal: 4180},
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
+func (r *TestResources) NewDatabaseNetworkPolicy() *netv1.NetworkPolicy {
+	return &netv1.NetworkPolicy{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      fmt.Sprintf("%s-db-internal-ingress", r.Name),
+			Namespace: r.Namespace,
+		},
+		Spec: netv1.NetworkPolicySpec{
+			PodSelector: metav1.LabelSelector{
+				MatchLabels: map[string]string{
+					"app":       r.Name,
+					"component": "database",
+					"kind":      "cryostat",
+				},
+			},
+			Ingress: []netv1.NetworkPolicyIngressRule{
+				netv1.NetworkPolicyIngressRule{
+					From: []netv1.NetworkPolicyPeer{
+						netv1.NetworkPolicyPeer{
+							NamespaceSelector: &metav1.LabelSelector{
+								MatchLabels: map[string]string{
+									"kubernetes.io/metadata.name": r.Namespace,
+								},
+							},
+							PodSelector: &metav1.LabelSelector{
+								MatchLabels: map[string]string{
+									"app":       r.Name,
+									"component": "cryostat",
+									"kind":      "cryostat",
+								},
+							},
+						},
+					},
+					Ports: []netv1.NetworkPolicyPort{
+						netv1.NetworkPolicyPort{
+							Port: &intstr.IntOrString{IntVal: 5432},
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
+func (r *TestResources) NewStorageNetworkPolicy() *netv1.NetworkPolicy {
+	return &netv1.NetworkPolicy{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      fmt.Sprintf("%s-storage-internal-ingress", r.Name),
+			Namespace: r.Namespace,
+		},
+		Spec: netv1.NetworkPolicySpec{
+			PodSelector: metav1.LabelSelector{
+				MatchLabels: map[string]string{
+					"app":       r.Name,
+					"component": "storage",
+					"kind":      "cryostat",
+				},
+			},
+			Ingress: []netv1.NetworkPolicyIngressRule{
+				netv1.NetworkPolicyIngressRule{
+					From: []netv1.NetworkPolicyPeer{
+						netv1.NetworkPolicyPeer{
+							NamespaceSelector: &metav1.LabelSelector{
+								MatchLabels: map[string]string{
+									"kubernetes.io/metadata.name": r.Namespace,
+								},
+							},
+							PodSelector: &metav1.LabelSelector{
+								MatchLabels: map[string]string{
+									"app":       r.Name,
+									"component": "cryostat",
+									"kind":      "cryostat",
+								},
+							},
+						},
+					},
+					Ports: []netv1.NetworkPolicyPort{
+						netv1.NetworkPolicyPort{
+							Port: &intstr.IntOrString{IntVal: 8333},
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
+func (r *TestResources) NewReportsNetworkPolicy() *netv1.NetworkPolicy {
+	return &netv1.NetworkPolicy{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      fmt.Sprintf("%s-reports-internal-ingress", r.Name),
+			Namespace: r.Namespace,
+		},
+		Spec: netv1.NetworkPolicySpec{
+			PodSelector: metav1.LabelSelector{
+				MatchLabels: map[string]string{
+					"app":       r.Name,
+					"component": "reports",
+					"kind":      "cryostat",
+				},
+			},
+			Ingress: []netv1.NetworkPolicyIngressRule{
+				netv1.NetworkPolicyIngressRule{
+					From: []netv1.NetworkPolicyPeer{
+						netv1.NetworkPolicyPeer{
+							NamespaceSelector: &metav1.LabelSelector{
+								MatchLabels: map[string]string{
+									"kubernetes.io/metadata.name": r.Namespace,
+								},
+							},
+							PodSelector: &metav1.LabelSelector{
+								MatchLabels: map[string]string{
+									"app":       r.Name,
+									"component": "cryostat",
+									"kind":      "cryostat",
+								},
+							},
+						},
+					},
+					Ports: []netv1.NetworkPolicyPort{
+						netv1.NetworkPolicyPort{
+							Port: &intstr.IntOrString{IntVal: 10000},
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
 func (r *TestResources) NewGrafanaService() *corev1.Service {
 	c := true
 	return &corev1.Service{

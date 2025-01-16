@@ -95,6 +95,14 @@ const (
 	DatabaseName                      string = "cryostat"
 )
 
+func CorePodLabels(cr *model.CryostatInstance) map[string]string {
+	return map[string]string{
+		"app":       cr.Name,
+		"kind":      "cryostat",
+		"component": "cryostat",
+	}
+}
+
 func NewDeploymentForCR(cr *model.CryostatInstance, specs *ServiceSpecs, imageTags *ImageTags,
 	tls *TLSConfig, fsGroup int64, openshift bool) (*appsv1.Deployment, error) {
 	// Force one replica to avoid lock file and PVC contention
@@ -109,11 +117,7 @@ func NewDeploymentForCR(cr *model.CryostatInstance, specs *ServiceSpecs, imageTa
 	defaultDeploymentAnnotations := map[string]string{
 		"app.openshift.io/connects-to": constants.OperatorDeploymentName,
 	}
-	defaultPodLabels := map[string]string{
-		"app":       cr.Name,
-		"kind":      "cryostat",
-		"component": "cryostat",
-	}
+	defaultPodLabels := CorePodLabels(cr)
 	userDefinedDeploymentLabels := make(map[string]string)
 	userDefinedDeploymentAnnotations := make(map[string]string)
 	userDefinedPodTemplateLabels := make(map[string]string)
@@ -199,6 +203,14 @@ func createMetadataCopy(in *operatorv1beta2.ResourceMetadata) operatorv1beta2.Re
 	}
 }
 
+func DatabasePodLabels(cr *model.CryostatInstance) map[string]string {
+	return map[string]string{
+		"app":       cr.Name,
+		"kind":      "cryostat",
+		"component": "database",
+	}
+}
+
 func NewDeploymentForDatabase(cr *model.CryostatInstance, imageTags *ImageTags, tls *TLSConfig,
 	openshift bool, fsGroup int64) *appsv1.Deployment {
 	replicas := int32(1)
@@ -212,11 +224,7 @@ func NewDeploymentForDatabase(cr *model.CryostatInstance, imageTags *ImageTags, 
 	defaultDeploymentAnnotations := map[string]string{
 		"app.openshift.io/connects-to": cr.Name,
 	}
-	defaultPodLabels := map[string]string{
-		"app":       cr.Name,
-		"kind":      "cryostat",
-		"component": "database",
-	}
+	defaultPodLabels := DatabasePodLabels(cr)
 	operandMeta := operatorv1beta2.OperandMetadata{
 		DeploymentMetadata: &operatorv1beta2.ResourceMetadata{},
 		PodMetadata:        &operatorv1beta2.ResourceMetadata{},
@@ -270,6 +278,14 @@ func NewDeploymentForDatabase(cr *model.CryostatInstance, imageTags *ImageTags, 
 	}
 }
 
+func StoragePodLabels(cr *model.CryostatInstance) map[string]string {
+	return map[string]string{
+		"app":       cr.Name,
+		"kind":      "cryostat",
+		"component": "storage",
+	}
+}
+
 func NewDeploymentForStorage(cr *model.CryostatInstance, imageTags *ImageTags, tls *TLSConfig, openshift bool, fsGroup int64) *appsv1.Deployment {
 	replicas := int32(1)
 
@@ -282,11 +298,7 @@ func NewDeploymentForStorage(cr *model.CryostatInstance, imageTags *ImageTags, t
 	defaultDeploymentAnnotations := map[string]string{
 		"app.openshift.io/connects-to": cr.Name,
 	}
-	defaultPodLabels := map[string]string{
-		"app":       cr.Name,
-		"kind":      "cryostat",
-		"component": "storage",
-	}
+	defaultPodLabels := StoragePodLabels(cr)
 	userDefinedDeploymentLabels := make(map[string]string)
 	userDefinedDeploymentAnnotations := make(map[string]string)
 	userDefinedPodTemplateLabels := make(map[string]string)
@@ -350,6 +362,14 @@ func NewDeploymentForStorage(cr *model.CryostatInstance, imageTags *ImageTags, t
 	}
 }
 
+func ReportsPodLabels(cr *model.CryostatInstance) map[string]string {
+	return map[string]string{
+		"app":       cr.Name,
+		"kind":      "cryostat",
+		"component": "reports",
+	}
+}
+
 func NewDeploymentForReports(cr *model.CryostatInstance, imageTags *ImageTags, tls *TLSConfig,
 	openshift bool) *appsv1.Deployment {
 	replicas := int32(0)
@@ -366,11 +386,7 @@ func NewDeploymentForReports(cr *model.CryostatInstance, imageTags *ImageTags, t
 	defaultDeploymentAnnotations := map[string]string{
 		"app.openshift.io/connects-to": cr.Name,
 	}
-	defaultPodLabels := map[string]string{
-		"app":       cr.Name,
-		"kind":      "cryostat",
-		"component": "reports",
-	}
+	defaultPodLabels := ReportsPodLabels(cr)
 	userDefinedDeploymentLabels := make(map[string]string)
 	userDefinedDeploymentAnnotations := make(map[string]string)
 	userDefinedPodTemplateLabels := make(map[string]string)
