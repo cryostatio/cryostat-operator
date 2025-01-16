@@ -41,6 +41,7 @@ type CryostatSpec struct {
 	// Options to customize the storage for Flight Recordings and Templates.
 	// +optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
+	// +kubebuilder:deprecatedversion:warning="use v1beta2 storageConfigurations version"
 	StorageOptions *StorageConfiguration `json:"storageOptions,omitempty"`
 	// Options to customize the services created for the Cryostat application and Grafana dashboard.
 	// +optional
@@ -169,6 +170,7 @@ const (
 // StorageConfiguration provides customization to the storage created by
 // the operator to hold Flight Recordings and Recording Templates. If no
 // configurations are specified, a PVC will be created by default.
+// +kubebuilder:deprecatedversion:warning="use v1beta2 storageConfigurations version"
 type StorageConfiguration struct {
 	// Configuration for the Persistent Volume Claim to be created
 	// by the operator.
