@@ -562,6 +562,7 @@ func (c *controllerTest) commonTests() {
 					t.expectStorageDeployment()
 					t.checkReportsDeployment()
 					t.checkService(t.NewReportsService())
+					t.checkNetworkPolicy(t.NewReportsNetworkPolicy())
 				})
 			})
 			Context("with Scheduling options", func() {
@@ -583,6 +584,7 @@ func (c *controllerTest) commonTests() {
 						t.expectStorageDeployment()
 						t.checkReportsDeployment()
 						t.checkService(t.NewReportsService())
+						t.checkNetworkPolicy(t.NewReportsNetworkPolicy())
 					})
 				})
 				Context("with low limits", func() {
@@ -593,6 +595,7 @@ func (c *controllerTest) commonTests() {
 						t.expectMainDeployment()
 						t.checkReportsDeployment()
 						t.checkService(t.NewReportsService())
+						t.checkNetworkPolicy(t.NewReportsNetworkPolicy())
 					})
 				})
 			})
@@ -655,6 +658,7 @@ func (c *controllerTest) commonTests() {
 				t.expectMainDeployment()
 				t.checkReportsDeployment()
 				t.checkService(t.NewReportsService())
+				t.checkNetworkPolicy(t.NewReportsNetworkPolicy())
 			})
 		})
 		Context("Switching from 1 report sidecar to 2", func() {
@@ -677,6 +681,7 @@ func (c *controllerTest) commonTests() {
 				t.expectMainDeployment()
 				t.checkReportsDeployment()
 				t.checkService(t.NewReportsService())
+				t.checkNetworkPolicy(t.NewReportsNetworkPolicy())
 			})
 		})
 		Context("Switching from 2 report sidecars to 1", func() {
@@ -699,6 +704,7 @@ func (c *controllerTest) commonTests() {
 				t.expectMainDeployment()
 				t.checkReportsDeployment()
 				t.checkService(t.NewReportsService())
+				t.checkNetworkPolicy(t.NewReportsNetworkPolicy())
 			})
 		})
 		Context("Switching from 1 report sidecar to 0", func() {
@@ -2214,6 +2220,7 @@ func (c *controllerTest) commonTests() {
 			})
 			It("should create the reports service", func() {
 				t.checkService(t.NewReportsService())
+				t.checkNetworkPolicy(t.NewReportsNetworkPolicy())
 			})
 		})
 		Context("with security options", func() {
@@ -2977,6 +2984,10 @@ func (t *cryostatTestInput) expectDatabaseNetworkPolicy() {
 
 func (t *cryostatTestInput) expectStorageNetworkPolicy() {
 	t.checkNetworkPolicy(t.NewStorageNetworkPolicy())
+}
+
+func (t *cryostatTestInput) expectReportsNetworkPolicy() {
+	t.checkNetworkPolicy(t.NewReportsNetworkPolicy())
 }
 
 func (t *cryostatTestInput) expectAgentProxyService() {
