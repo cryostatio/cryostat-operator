@@ -203,6 +203,14 @@ func createMetadataCopy(in *operatorv1beta2.ResourceMetadata) operatorv1beta2.Re
 	}
 }
 
+func DatabasePodLabels(cr *model.CryostatInstance) map[string]string {
+	return map[string]string{
+		"app":       cr.Name,
+		"kind":      "cryostat",
+		"component": "database",
+	}
+}
+
 func NewDeploymentForDatabase(cr *model.CryostatInstance, imageTags *ImageTags, tls *TLSConfig,
 	openshift bool, fsGroup int64) *appsv1.Deployment {
 	replicas := int32(1)
@@ -216,11 +224,7 @@ func NewDeploymentForDatabase(cr *model.CryostatInstance, imageTags *ImageTags, 
 	defaultDeploymentAnnotations := map[string]string{
 		"app.openshift.io/connects-to": cr.Name,
 	}
-	defaultPodLabels := map[string]string{
-		"app":       cr.Name,
-		"kind":      "cryostat",
-		"component": "database",
-	}
+	defaultPodLabels := DatabasePodLabels(cr)
 	operandMeta := operatorv1beta2.OperandMetadata{
 		DeploymentMetadata: &operatorv1beta2.ResourceMetadata{},
 		PodMetadata:        &operatorv1beta2.ResourceMetadata{},

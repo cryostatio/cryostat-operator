@@ -442,6 +442,10 @@ func (r *Reconciler) reconcileDatabase(ctx context.Context, reqLogger logr.Logge
 	if err != nil {
 		return reconcile.Result{}, err
 	}
+	err = r.reconcileDatabaseNetworkPolicy(ctx, cr)
+	if err != nil {
+		return reconcile.Result{}, err
+	}
 	deployment := resources.NewDeploymentForDatabase(cr, imageTags, tls, r.IsOpenShift, fsGroup)
 
 	err = r.createOrUpdateDeployment(ctx, deployment, cr.Object)

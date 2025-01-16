@@ -64,6 +64,45 @@ func (r *Reconciler) reconcileCoreNetworkPolicy(ctx context.Context, cr *model.C
 	})
 }
 
+func (r *Reconciler) reconcileDatabaseNetworkPolicy(ctx context.Context, cr *model.CryostatInstance) error {
+	if cr.Spec.NetworkPolicies != nil && cr.Spec.NetworkPolicies.DatabaseConfig != nil && cr.Spec.NetworkPolicies.DatabaseConfig.Disabled != nil && *cr.Spec.NetworkPolicies.DatabaseConfig.Disabled {
+		return nil
+	}
+
+	networkPolicy := networkingv1.NetworkPolicy{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      fmt.Sprintf("%s-db-internal-ingress", cr.Name),
+			Namespace: cr.InstallNamespace,
+		},
+		Spec: networkingv1.NetworkPolicySpec{
+			PodSelector: metav1.LabelSelector{
+				MatchLabels: resources.DatabasePodLabels(cr),
+			},
+			Ingress: []networkingv1.NetworkPolicyIngressRule{
+				networkingv1.NetworkPolicyIngressRule{
+					From: []networkingv1.NetworkPolicyPeer{
+						networkingv1.NetworkPolicyPeer{
+							NamespaceSelector: &metav1.LabelSelector{
+								MatchLabels: map[string]string{
+									"kubernetes.io/metadata.name": cr.InstallNamespace,
+								},
+							},
+						},
+					},
+					Ports: []networkingv1.NetworkPolicyPort{
+						networkingv1.NetworkPolicyPort{
+							Port: &intstr.IntOrString{IntVal: constants.DatabasePort},
+						},
+					},
+				},
+			},
+		},
+	}
+	return r.createOrUpdatePolicy(ctx, &networkPolicy, cr.Object, func() error {
+		return nil
+	})
+}
+
 func (r *Reconciler) createOrUpdatePolicy(ctx context.Context, networkPolicy *networkingv1.NetworkPolicy, owner metav1.Object,
 	delegate controllerutil.MutateFn) error {
 	op, err := controllerutil.CreateOrUpdate(ctx, r.Client, networkPolicy, func() error {
