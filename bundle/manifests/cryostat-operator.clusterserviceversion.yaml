@@ -13,6 +13,7 @@ metadata:
           "spec": {
             "enableCertManager": true,
             "eventTemplates": [],
+            "networkPolicies": {},
             "reportOptions": {
               "replicas": 0
             },
@@ -30,7 +31,7 @@ metadata:
     capabilities: Seamless Upgrades
     categories: Monitoring, Developer Tools
     containerImage: quay.io/cryostat/cryostat-operator:4.0.0-dev
-    createdAt: "2025-01-14T19:21:36Z"
+    createdAt: "2025-01-15T20:36:21Z"
     description: JVM monitoring and profiling tool
     operatorframework.io/initialization-resource: |-
       {
@@ -160,6 +161,29 @@ spec:
           - description: Labels to add to the Ingress or Route during its creation. The label with key "app" is reserved for use by the operator.
             displayName: Labels
             path: networkOptions.coreConfig.labels
+          - description: Options to customize the NetworkPolicy objects created for Cryostat's various Services.
+            displayName: Network Policies
+            path: networkPolicies
+          - description: Disable the NetworkPolicy for a given service.
+            displayName: Disable NetworkPolicy creation
+            path: networkPolicies.coreConfig.disabled
+            x-descriptors:
+              - urn:alm:descriptor:com.tectonic.ui:booleanSwitch
+          - description: Disable the NetworkPolicy for a given service.
+            displayName: Disable NetworkPolicy creation
+            path: networkPolicies.databaseConfig.disabled
+            x-descriptors:
+              - urn:alm:descriptor:com.tectonic.ui:booleanSwitch
+          - description: Disable the NetworkPolicy for a given service.
+            displayName: Disable NetworkPolicy creation
+            path: networkPolicies.reportsConfig.disabled
+            x-descriptors:
+              - urn:alm:descriptor:com.tectonic.ui:booleanSwitch
+          - description: Disable the NetworkPolicy for a given service.
+            displayName: Disable NetworkPolicy creation
+            path: networkPolicies.storageConfig.disabled
+            x-descriptors:
+              - urn:alm:descriptor:com.tectonic.ui:booleanSwitch
           - description: Options to configure the Cryostat deployments and pods metadata
             displayName: Operand metadata
             path: operandMetadata
