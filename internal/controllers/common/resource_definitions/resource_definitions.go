@@ -95,6 +95,14 @@ const (
 	DatabaseName                      string = "cryostat"
 )
 
+func CorePodLabels(cr *model.CryostatInstance) map[string]string {
+	return map[string]string{
+		"app":       cr.Name,
+		"kind":      "cryostat",
+		"component": "cryostat",
+	}
+}
+
 func NewDeploymentForCR(cr *model.CryostatInstance, specs *ServiceSpecs, imageTags *ImageTags,
 	tls *TLSConfig, fsGroup int64, openshift bool) (*appsv1.Deployment, error) {
 	// Force one replica to avoid lock file and PVC contention
@@ -109,11 +117,7 @@ func NewDeploymentForCR(cr *model.CryostatInstance, specs *ServiceSpecs, imageTa
 	defaultDeploymentAnnotations := map[string]string{
 		"app.openshift.io/connects-to": constants.OperatorDeploymentName,
 	}
-	defaultPodLabels := map[string]string{
-		"app":       cr.Name,
-		"kind":      "cryostat",
-		"component": "cryostat",
-	}
+	defaultPodLabels := CorePodLabels(cr)
 	userDefinedDeploymentLabels := make(map[string]string)
 	userDefinedDeploymentAnnotations := make(map[string]string)
 	userDefinedPodTemplateLabels := make(map[string]string)

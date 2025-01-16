@@ -18,6 +18,7 @@ import (
 	"context"
 	"fmt"
 
+	resources "github.com/cryostatio/cryostat-operator/internal/controllers/common/resource_definitions"
 	"github.com/cryostatio/cryostat-operator/internal/controllers/constants"
 	"github.com/cryostatio/cryostat-operator/internal/controllers/model"
 	networkingv1 "k8s.io/api/networking/v1"
@@ -26,16 +27,11 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
+var AllNamespacesSelector = metav1.LabelSelector{}
+
 func (r *Reconciler) reconcileCoreNetworkPolicy(ctx context.Context, cr *model.CryostatInstance) error {
 	if cr.Spec.NetworkPolicies != nil && cr.Spec.NetworkPolicies.CoreConfig != nil && cr.Spec.NetworkPolicies.CoreConfig.Disabled != nil && *cr.Spec.NetworkPolicies.CoreConfig.Disabled {
 		return nil
-	}
-
-	// FIXME duplicated from resource_definitions. This should at least be extracted to a constant.
-	defaultPodLabels := map[string]string{
-		"app":       cr.Name,
-		"kind":      "cryostat",
-		"component": "cryostat",
 	}
 
 	networkPolicy := networkingv1.NetworkPolicy{
@@ -45,14 +41,13 @@ func (r *Reconciler) reconcileCoreNetworkPolicy(ctx context.Context, cr *model.C
 		},
 		Spec: networkingv1.NetworkPolicySpec{
 			PodSelector: metav1.LabelSelector{
-				MatchLabels: defaultPodLabels,
+				MatchLabels: resources.CorePodLabels(cr),
 			},
 			Ingress: []networkingv1.NetworkPolicyIngressRule{
 				networkingv1.NetworkPolicyIngressRule{
 					From: []networkingv1.NetworkPolicyPeer{
 						networkingv1.NetworkPolicyPeer{
-							// match all namespaces
-							NamespaceSelector: &metav1.LabelSelector{},
+							NamespaceSelector: &AllNamespacesSelector,
 						},
 					},
 					Ports: []networkingv1.NetworkPolicyPort{
