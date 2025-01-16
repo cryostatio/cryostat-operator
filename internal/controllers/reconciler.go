@@ -474,6 +474,10 @@ func (r *Reconciler) reconcileStorage(ctx context.Context, reqLogger logr.Logger
 	if err != nil {
 		return reconcile.Result{}, err
 	}
+	err = r.reconcileStorageNetworkPolicy(ctx, cr)
+	if err != nil {
+		return reconcile.Result{}, err
+	}
 	deployment := resources.NewDeploymentForStorage(cr, imageTags, tls, r.IsOpenShift, fsGroup)
 
 	err = r.createOrUpdateDeployment(ctx, deployment, cr.Object)

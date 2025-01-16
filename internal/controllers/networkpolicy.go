@@ -87,11 +87,56 @@ func (r *Reconciler) reconcileDatabaseNetworkPolicy(ctx context.Context, cr *mod
 									"kubernetes.io/metadata.name": cr.InstallNamespace,
 								},
 							},
+							PodSelector: &metav1.LabelSelector{
+								MatchLabels: resources.CorePodLabels(cr),
+							},
 						},
 					},
 					Ports: []networkingv1.NetworkPolicyPort{
 						networkingv1.NetworkPolicyPort{
 							Port: &intstr.IntOrString{IntVal: constants.DatabasePort},
+						},
+					},
+				},
+			},
+		},
+	}
+	return r.createOrUpdatePolicy(ctx, &networkPolicy, cr.Object, func() error {
+		return nil
+	})
+}
+
+func (r *Reconciler) reconcileStorageNetworkPolicy(ctx context.Context, cr *model.CryostatInstance) error {
+	if cr.Spec.NetworkPolicies != nil && cr.Spec.NetworkPolicies.StorageConfig != nil && cr.Spec.NetworkPolicies.StorageConfig.Disabled != nil && *cr.Spec.NetworkPolicies.StorageConfig.Disabled {
+		return nil
+	}
+
+	networkPolicy := networkingv1.NetworkPolicy{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      fmt.Sprintf("%s-storage-internal-ingress", cr.Name),
+			Namespace: cr.InstallNamespace,
+		},
+		Spec: networkingv1.NetworkPolicySpec{
+			PodSelector: metav1.LabelSelector{
+				MatchLabels: resources.StoragePodLabels(cr),
+			},
+			Ingress: []networkingv1.NetworkPolicyIngressRule{
+				networkingv1.NetworkPolicyIngressRule{
+					From: []networkingv1.NetworkPolicyPeer{
+						networkingv1.NetworkPolicyPeer{
+							NamespaceSelector: &metav1.LabelSelector{
+								MatchLabels: map[string]string{
+									"kubernetes.io/metadata.name": cr.InstallNamespace,
+								},
+							},
+							PodSelector: &metav1.LabelSelector{
+								MatchLabels: resources.CorePodLabels(cr),
+							},
+						},
+					},
+					Ports: []networkingv1.NetworkPolicyPort{
+						networkingv1.NetworkPolicyPort{
+							Port: &intstr.IntOrString{IntVal: constants.StoragePort},
 						},
 					},
 				},
