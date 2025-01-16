@@ -372,6 +372,10 @@ spec:
           and object storage.
         displayName: Storage Configurations
         path: storageConfigurations
+      - description: Configuration for the Persistent Volume Claim to be created by
+          the operator for the database.
+        displayName: Database
+        path: storageConfigurations.database
       - description: Configuration for an EmptyDir to be created by the operator instead
           of a PVC.
         displayName: Empty Dir
@@ -387,13 +391,9 @@ spec:
           mount the emptyDir on a tmpfs (RAM-backed filesystem).
         displayName: Medium
         path: storageConfigurations.database.emptyDir.medium
-        x-descriptors:
-        - urn:alm:descriptor:com.tectonic.ui:fieldDependency:storageOptions.emptyDir.enabled:true
       - description: The maximum memory limit for the emptyDir. Default is unbounded.
         displayName: Size Limit
         path: storageConfigurations.database.emptyDir.sizeLimit
-        x-descriptors:
-        - urn:alm:descriptor:com.tectonic.ui:fieldDependency:storageOptions.emptyDir.enabled:true
       - description: Configuration for the Persistent Volume Claim to be created by
           the operator.
         displayName: PVC
@@ -404,6 +404,10 @@ spec:
           has created the PVC, changes to this field have no effect.
         displayName: Spec
         path: storageConfigurations.database.pvc.spec
+      - description: Configuration for the Persistent Volume Claim to be created by
+          the operator for the object storage.
+        displayName: Object Storage
+        path: storageConfigurations.objectStorage
       - description: Configuration for an EmptyDir to be created by the operator instead
           of a PVC.
         displayName: Empty Dir
@@ -419,13 +423,9 @@ spec:
           mount the emptyDir on a tmpfs (RAM-backed filesystem).
         displayName: Medium
         path: storageConfigurations.objectStorage.emptyDir.medium
-        x-descriptors:
-        - urn:alm:descriptor:com.tectonic.ui:fieldDependency:storageOptions.emptyDir.enabled:true
       - description: The maximum memory limit for the emptyDir. Default is unbounded.
         displayName: Size Limit
         path: storageConfigurations.objectStorage.emptyDir.sizeLimit
-        x-descriptors:
-        - urn:alm:descriptor:com.tectonic.ui:fieldDependency:storageOptions.emptyDir.enabled:true
       - description: Configuration for the Persistent Volume Claim to be created by
           the operator.
         displayName: PVC

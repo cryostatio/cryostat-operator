@@ -10396,10 +10396,8 @@ spec:
                   database and object storage.
                 properties:
                   database:
-                    description: |-
-                      StorageConfiguration provides customization to the storage created by the
-                      operator to contain persisted data. If no configurations are specified, a
-                      PVC will be created by default.
+                    description: Configuration for the Persistent Volume Claim to
+                      be created by the operator for the database.
                     properties:
                       emptyDir:
                         description: |-
@@ -10651,10 +10649,8 @@ spec:
                         type: object
                     type: object
                   objectStorage:
-                    description: |-
-                      StorageConfiguration provides customization to the storage created by the
-                      operator to contain persisted data. If no configurations are specified, a
-                      PVC will be created by default.
+                    description: Configuration for the Persistent Volume Claim to
+                      be created by the operator for the object storage.
                     properties:
                       emptyDir:
                         description: |-

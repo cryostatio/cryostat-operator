@@ -212,7 +212,13 @@ const (
 // StorageConfigurations provides customization to the storage provisioned for
 // the database and the object storage.
 type StorageConfigurations struct {
-	Database      *StorageConfiguration `json:"database,omitempty"`
+	// Configuration for the Persistent Volume Claim to be created by the operator for the database.
+	// +optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec
+	Database *StorageConfiguration `json:"database,omitempty"`
+	// Configuration for the Persistent Volume Claim to be created by the operator for the object storage.
+	// +optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	ObjectStorage *StorageConfiguration `json:"objectStorage,omitempty"`
 }
 
@@ -479,11 +485,11 @@ type EmptyDirConfig struct {
 	// the same storage medium backing the node. Setting this field to
 	// "Memory" will mount the emptyDir on a tmpfs (RAM-backed filesystem).
 	// +optional
-	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:com.tectonic.ui:fieldDependency:storageOptions.emptyDir.enabled:true"}
+	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	Medium corev1.StorageMedium `json:"medium,omitempty"`
 	// The maximum memory limit for the emptyDir. Default is unbounded.
 	// +optional
-	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:com.tectonic.ui:fieldDependency:storageOptions.emptyDir.enabled:true"}
+	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	// +kubebuilder:validation:Pattern=^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
 	SizeLimit string `json:"sizeLimit,omitempty"`
 }
