@@ -540,6 +540,42 @@ func (c *controllerTest) commonTests() {
 				t.checkRoute(expected)
 			})
 		})
+		Context("with networkpolicies disabled", func() {
+			var cr *model.CryostatInstance
+			BeforeEach(func() {
+				cr = t.NewCryostat()
+				disabled := true
+				cr.Spec.NetworkPolicies = &operatorv1beta2.NetworkPoliciesList{
+					CoreConfig: &operatorv1beta2.NetworkPolicyConfig{
+						Disabled: &disabled,
+					},
+					DatabaseConfig: &operatorv1beta2.NetworkPolicyConfig{
+						Disabled: &disabled,
+					},
+					StorageConfig: &operatorv1beta2.NetworkPolicyConfig{
+						Disabled: &disabled,
+					},
+					ReportsConfig: &operatorv1beta2.NetworkPolicyConfig{
+						Disabled: &disabled,
+					},
+				}
+			})
+			JustBeforeEach(func() {
+				t.reconcileCryostatFully()
+			})
+			It("should not create cryostat networkpolicy", func() {
+				t.expectNoNetworkPolicy(t.NewCryostatNetworkPolicy().Name)
+			})
+			It("should not create database networkpolicy", func() {
+				t.expectNoNetworkPolicy(t.NewDatabaseNetworkPolicy().Name)
+			})
+			It("should not create storage networkpolicy", func() {
+				t.expectNoNetworkPolicy(t.NewStorageNetworkPolicy().Name)
+			})
+			It("should not create reports networkpolicy", func() {
+				t.expectNoNetworkPolicy(t.NewReportsNetworkPolicy().Name)
+			})
+		})
 		Context("with report generator service", func() {
 			var cr *model.CryostatInstance
 			BeforeEach(func() {
@@ -3085,6 +3121,12 @@ func (t *cryostatTestInput) checkNetworkPolicySpec(policy *netv1.NetworkPolicy, 
 func (t *cryostatTestInput) expectNoService(svcName string) {
 	service := &corev1.Service{}
 	err := t.Client.Get(context.Background(), types.NamespacedName{Name: svcName, Namespace: t.Namespace}, service)
+	Expect(kerrors.IsNotFound(err)).To(BeTrue())
+}
+
+func (t *cryostatTestInput) expectNoNetworkPolicy(policyName string) {
+	policy := &netv1.NetworkPolicy{}
+	err := t.Client.Get(context.Background(), types.NamespacedName{Name: policyName, Namespace: t.Namespace}, policy)
 	Expect(kerrors.IsNotFound(err)).To(BeTrue())
 }
 
