@@ -242,6 +242,11 @@ func (in *CryostatSpec) DeepCopyInto(out *CryostatSpec) {
 		*out = new(bool)
 		**out = **in
 	}
+	if in.StorageOptions != nil {
+		in, out := &in.StorageOptions, &out.StorageOptions
+		*out = new(StorageConfiguration)
+		(*in).DeepCopyInto(*out)
+	}
 	if in.StorageConfigurations != nil {
 		in, out := &in.StorageConfigurations, &out.StorageConfigurations
 		*out = new(StorageConfigurations)
