@@ -45,6 +45,12 @@ type CryostatSpec struct {
 	// +optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,order=3,displayName="Enable cert-manager Integration",xDescriptors={"urn:alm:descriptor:com.tectonic.ui:booleanSwitch"}
 	EnableCertManager *bool `json:"enableCertManager"`
+	// Options to customize the storage for Flight Recordings and Templates.
+	// Deprecated: use v1beta2 storageConfigurations.
+	// +optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec
+	// +kubebuilder:deprecatedversion:warning="use v1beta2 storageConfigurations"
+	StorageOptions *StorageConfiguration `json:"storageOptions,omitempty"`
 	// Options to customize the storage provisioned for the database and object storage.
 	// +optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
