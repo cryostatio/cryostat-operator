@@ -27,7 +27,25 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
-var AllNamespacesSelector = metav1.LabelSelector{}
+var AllNamespacesSelector = networkingv1.NetworkPolicyPeer{
+	NamespaceSelector: &metav1.LabelSelector{},
+}
+
+var RouteSelector = networkingv1.NetworkPolicyPeer{
+	NamespaceSelector: &metav1.LabelSelector{
+		MatchLabels: map[string]string{
+			"policy-group.network.openshift.io/ingress": "",
+		},
+	},
+}
+
+func installationNamespaceSelector(cr *model.CryostatInstance) *metav1.LabelSelector {
+	return &metav1.LabelSelector{
+		MatchLabels: map[string]string{
+			"kubernetes.io/metadata.name": cr.InstallNamespace,
+		},
+	}
+}
 
 func (r *Reconciler) reconcileCoreNetworkPolicy(ctx context.Context, cr *model.CryostatInstance) error {
 	if cr.Spec.NetworkPolicies != nil && cr.Spec.NetworkPolicies.CoreConfig != nil && cr.Spec.NetworkPolicies.CoreConfig.Disabled != nil && *cr.Spec.NetworkPolicies.CoreConfig.Disabled {
@@ -46,9 +64,8 @@ func (r *Reconciler) reconcileCoreNetworkPolicy(ctx context.Context, cr *model.C
 			Ingress: []networkingv1.NetworkPolicyIngressRule{
 				networkingv1.NetworkPolicyIngressRule{
 					From: []networkingv1.NetworkPolicyPeer{
-						networkingv1.NetworkPolicyPeer{
-							NamespaceSelector: &AllNamespacesSelector,
-						},
+						AllNamespacesSelector,
+						RouteSelector,
 					},
 					Ports: []networkingv1.NetworkPolicyPort{
 						networkingv1.NetworkPolicyPort{
@@ -82,11 +99,7 @@ func (r *Reconciler) reconcileDatabaseNetworkPolicy(ctx context.Context, cr *mod
 				networkingv1.NetworkPolicyIngressRule{
 					From: []networkingv1.NetworkPolicyPeer{
 						networkingv1.NetworkPolicyPeer{
-							NamespaceSelector: &metav1.LabelSelector{
-								MatchLabels: map[string]string{
-									"kubernetes.io/metadata.name": cr.InstallNamespace,
-								},
-							},
+							NamespaceSelector: installationNamespaceSelector(cr),
 							PodSelector: &metav1.LabelSelector{
 								MatchLabels: resources.CorePodLabels(cr),
 							},
@@ -124,11 +137,7 @@ func (r *Reconciler) reconcileStorageNetworkPolicy(ctx context.Context, cr *mode
 				networkingv1.NetworkPolicyIngressRule{
 					From: []networkingv1.NetworkPolicyPeer{
 						networkingv1.NetworkPolicyPeer{
-							NamespaceSelector: &metav1.LabelSelector{
-								MatchLabels: map[string]string{
-									"kubernetes.io/metadata.name": cr.InstallNamespace,
-								},
-							},
+							NamespaceSelector: installationNamespaceSelector(cr),
 							PodSelector: &metav1.LabelSelector{
 								MatchLabels: resources.CorePodLabels(cr),
 							},
