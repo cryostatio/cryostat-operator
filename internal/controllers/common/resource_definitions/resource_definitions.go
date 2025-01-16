@@ -362,6 +362,14 @@ func NewDeploymentForStorage(cr *model.CryostatInstance, imageTags *ImageTags, t
 	}
 }
 
+func ReportsPodLabels(cr *model.CryostatInstance) map[string]string {
+	return map[string]string{
+		"app":       cr.Name,
+		"kind":      "cryostat",
+		"component": "reports",
+	}
+}
+
 func NewDeploymentForReports(cr *model.CryostatInstance, imageTags *ImageTags, tls *TLSConfig,
 	openshift bool) *appsv1.Deployment {
 	replicas := int32(0)
@@ -378,11 +386,7 @@ func NewDeploymentForReports(cr *model.CryostatInstance, imageTags *ImageTags, t
 	defaultDeploymentAnnotations := map[string]string{
 		"app.openshift.io/connects-to": cr.Name,
 	}
-	defaultPodLabels := map[string]string{
-		"app":       cr.Name,
-		"kind":      "cryostat",
-		"component": "reports",
-	}
+	defaultPodLabels := ReportsPodLabels(cr)
 	userDefinedDeploymentLabels := make(map[string]string)
 	userDefinedDeploymentAnnotations := make(map[string]string)
 	userDefinedPodTemplateLabels := make(map[string]string)

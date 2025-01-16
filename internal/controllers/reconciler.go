@@ -399,6 +399,10 @@ func (r *Reconciler) reconcileReports(ctx context.Context, reqLogger logr.Logger
 	if err != nil {
 		return reconcile.Result{}, err
 	}
+	err = r.reconcileReportsNetworkPolicy(ctx, cr)
+	if err != nil {
+		return reconcile.Result{}, err
+	}
 	deployment := resources.NewDeploymentForReports(cr, imageTags, tls, r.IsOpenShift)
 	if desired == 0 {
 		if err := r.Client.Delete(ctx, deployment); err != nil && !kerrors.IsNotFound(err) {
