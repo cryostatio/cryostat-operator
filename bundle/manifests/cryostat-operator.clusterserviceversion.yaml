@@ -30,7 +30,7 @@ metadata:
     capabilities: Seamless Upgrades
     categories: Monitoring, Developer Tools
     containerImage: quay.io/cryostat/cryostat-operator:4.0.0-dev
-    createdAt: "2025-01-13T22:30:07Z"
+    createdAt: "2025-01-14T22:32:19Z"
     description: JVM monitoring and profiling tool
     operatorframework.io/initialization-resource: |-
       {
@@ -93,6 +93,14 @@ spec:
           - description: Use cert-manager to secure in-cluster communication between Cryostat components. Requires cert-manager to be installed.
             displayName: Enable cert-manager Integration
             path: enableCertManager
+            x-descriptors:
+              - urn:alm:descriptor:com.tectonic.ui:booleanSwitch
+          - description: Options to control how the operator configures Cryostat Agents to communicate with this Cryostat instance.
+            displayName: Agent Options
+            path: agentOptions
+          - description: Disables hostname verification when Cryostat connects to Agents over TLS. Consider enabling this if the Cryostat Agent fails to determine the hostname of your pod.
+            displayName: Disable Hostname Verification
+            path: agentOptions.disableHostnameVerification
             x-descriptors:
               - urn:alm:descriptor:com.tectonic.ui:booleanSwitch
           - description: Additional configuration options for the authorization proxy.

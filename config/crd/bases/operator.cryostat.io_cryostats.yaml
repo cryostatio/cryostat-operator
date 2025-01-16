@@ -5375,6 +5375,17 @@ spec:
           spec:
             description: CryostatSpec defines the desired state of Cryostat.
             properties:
+              agentOptions:
+                description: |-
+                  Options to control how the operator configures Cryostat Agents
+                  to communicate with this Cryostat instance.
+                properties:
+                  disableHostnameVerification:
+                    description: |-
+                      Disables hostname verification when Cryostat connects to Agents over TLS.
+                      Consider enabling this if the Cryostat Agent fails to determine the hostname of your pod.
+                    type: boolean
+                type: object
               authorizationOptions:
                 description: Additional configuration options for the authorization
                   proxy.

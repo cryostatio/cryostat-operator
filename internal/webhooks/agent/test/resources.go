@@ -249,23 +249,6 @@ func (r *AgentWebhookTestResources) newMutatedPod(options *mutatedPodOptions) *c
 							Name:  "CRYOSTAT_AGENT_API_WRITES_ENABLED",
 							Value: "true",
 						},
-
-						{
-							Name:  "CRYOSTAT_AGENT_CALLBACK_SCHEME",
-							Value: scheme,
-						},
-						{
-							Name:  "CRYOSTAT_AGENT_CALLBACK_HOST_NAME",
-							Value: "$(CRYOSTAT_AGENT_POD_NAME), $(CRYOSTAT_AGENT_POD_IP)[replace(\".\"\\, \"-\")]",
-						},
-						{
-							Name:  "CRYOSTAT_AGENT_CALLBACK_DOMAIN_NAME",
-							Value: fmt.Sprintf("%s.%s.svc", r.GetAgentServiceName(), options.namespace),
-						},
-						{
-							Name:  "CRYOSTAT_AGENT_CALLBACK_PORT",
-							Value: "9977",
-						},
 						{
 							Name:  "JAVA_TOOL_OPTIONS",
 							Value: options.javaToolOptions + "-javaagent:/tmp/cryostat-agent/cryostat-agent-shaded.jar",
@@ -310,8 +293,8 @@ func (r *AgentWebhookTestResources) newMutatedPod(options *mutatedPodOptions) *c
 		},
 	}
 
+	container := &pod.Spec.Containers[0]
 	if r.TLS {
-		container := &pod.Spec.Containers[0]
 		tlsEnvs := []corev1.EnvVar{
 			{
 				Name:  "CRYOSTAT_AGENT_WEBCLIENT_TLS_CLIENT_AUTH_CERT_PATH",
@@ -376,6 +359,36 @@ func (r *AgentWebhookTestResources) newMutatedPod(options *mutatedPodOptions) *c
 				},
 			})
 	}
+
+	var callbackEnvs []corev1.EnvVar
+	if r.DisableAgentHostnameVerify {
+		callbackEnvs = []corev1.EnvVar{
+			{
+				Name:  "CRYOSTAT_AGENT_CALLBACK",
+				Value: fmt.Sprintf("%s://$(CRYOSTAT_AGENT_POD_IP):9977", scheme),
+			},
+		}
+	} else {
+		callbackEnvs = []corev1.EnvVar{
+			{
+				Name:  "CRYOSTAT_AGENT_CALLBACK_SCHEME",
+				Value: scheme,
+			},
+			{
+				Name:  "CRYOSTAT_AGENT_CALLBACK_HOST_NAME",
+				Value: "$(CRYOSTAT_AGENT_POD_NAME), $(CRYOSTAT_AGENT_POD_IP)[replace(\".\"\\, \"-\")]",
+			},
+			{
+				Name:  "CRYOSTAT_AGENT_CALLBACK_DOMAIN_NAME",
+				Value: fmt.Sprintf("%s.%s.svc", r.GetAgentServiceName(), options.namespace),
+			},
+			{
+				Name:  "CRYOSTAT_AGENT_CALLBACK_PORT",
+				Value: "9977",
+			},
+		}
+	}
+	container.Env = append(container.Env, callbackEnvs...)
 
 	return pod
 }

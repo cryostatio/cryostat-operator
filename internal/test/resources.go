@@ -47,14 +47,15 @@ import (
 )
 
 type TestResources struct {
-	Name             string
-	Namespace        string
-	TLS              bool
-	ExternalTLS      bool
-	OpenShift        bool
-	ReportReplicas   int32
-	TargetNamespaces []string
-	InsightsURL      string
+	Name                       string
+	Namespace                  string
+	TLS                        bool
+	ExternalTLS                bool
+	OpenShift                  bool
+	ReportReplicas             int32
+	TargetNamespaces           []string
+	InsightsURL                string
+	DisableAgentHostnameVerify bool
 }
 
 func NewTestScheme() *runtime.Scheme {
@@ -756,6 +757,14 @@ func (r *TestResources) NewCryostatWithAdditionalMetadata() *model.CryostatInsta
 				"mySecondPodExtraAnnotation": "mySecondPodAnnotation",
 			},
 		},
+	}
+	return cr
+}
+
+func (r *TestResources) NewCryostatWithAgentHostnameVerifyDisabled() *model.CryostatInstance {
+	cr := r.NewCryostat()
+	cr.Spec.AgentOptions = &operatorv1beta2.AgentOptions{
+		DisableHostnameVerification: true,
 	}
 	return cr
 }
@@ -1590,6 +1599,14 @@ func (r *TestResources) NewCoreEnvironmentVariables(reportsUrl string, ingress b
 			corev1.EnvVar{
 				Name:  "CRYOSTAT_SERVICES_REPORTS_URL",
 				Value: reportsUrl,
+			})
+	}
+
+	if r.DisableAgentHostnameVerify {
+		envs = append(envs,
+			corev1.EnvVar{
+				Name:  "QUARKUS_REST_CLIENT_VERIFY_HOST",
+				Value: "false",
 			})
 	}
 

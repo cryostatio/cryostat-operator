@@ -1683,6 +1683,20 @@ func (c *controllerTest) commonTests() {
 				})
 			})
 		})
+		Context("with Agent options", func() {
+			Context("with hostname verification disabled", func() {
+				BeforeEach(func() {
+					t.objs = append(t.objs, t.NewCryostatWithAgentHostnameVerifyDisabled().Object)
+					t.DisableAgentHostnameVerify = true
+				})
+				JustBeforeEach(func() {
+					t.reconcileCryostatFully()
+				})
+				It("should configure deployment appropriately", func() {
+					t.expectMainDeployment()
+				})
+			})
+		})
 		Context("with an existing Cryostat CR", func() {
 			var otherInput *cryostatTestInput
 
