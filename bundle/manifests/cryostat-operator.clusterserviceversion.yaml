@@ -30,7 +30,7 @@ metadata:
     capabilities: Seamless Upgrades
     categories: Monitoring, Developer Tools
     containerImage: quay.io/cryostat/cryostat-operator:4.0.0-dev
-    createdAt: "2025-01-16T19:04:11Z"
+    createdAt: "2025-01-20T20:51:12Z"
     description: JVM monitoring and profiling tool
     operatorframework.io/initialization-resource: |-
       {
@@ -156,7 +156,7 @@ spec:
           - description: Specifications for how to expose the Cryostat service, which serves the Cryostat application.
             displayName: Core Config
             path: networkOptions.coreConfig
-          - description: Annotations to add to the Ingress or Route during its creation.
+          - description: Annotations to add to the object during its creation.
             displayName: Annotations
             path: networkOptions.coreConfig.annotations
           - description: Externally routable host to be used to reach this Cryostat service. Used to define a Route's host on OpenShift when it is first created. On Kubernetes, define this using "spec.ingressSpec".
@@ -165,7 +165,7 @@ spec:
           - description: Configuration for an Ingress object. Currently subpaths are not supported, so unique hosts must be specified (if a single external IP is being used) to differentiate between ingresses/services.
             displayName: Ingress Spec
             path: networkOptions.coreConfig.ingressSpec
-          - description: Labels to add to the Ingress or Route during its creation. The label with key "app" is reserved for use by the operator.
+          - description: 'Labels to add to the object during its creation. The following label keys are reserved for use by the operator: "app", "component", "app.kubernetes.io/name", "app.kubernetes.io/instance", "app.kubernetes.io/component", and "app.kubernetes.io/part-of".'
             displayName: Labels
             path: networkOptions.coreConfig.labels
           - description: Options to configure the Cryostat deployments and pods metadata
@@ -174,9 +174,21 @@ spec:
           - description: Options to configure the Cryostat deployments metadata
             displayName: Deployments metadata
             path: operandMetadata.deploymentMetadata
+          - description: Annotations to add to the object during its creation.
+            displayName: Annotations
+            path: operandMetadata.deploymentMetadata.annotations
+          - description: 'Labels to add to the object during its creation. The following label keys are reserved for use by the operator: "app", "component", "app.kubernetes.io/name", "app.kubernetes.io/instance", "app.kubernetes.io/component", and "app.kubernetes.io/part-of".'
+            displayName: Labels
+            path: operandMetadata.deploymentMetadata.labels
           - description: Options to configure the Cryostat pods metadata
             displayName: Pods metadata
             path: operandMetadata.podMetadata
+          - description: Annotations to add to the object during its creation.
+            displayName: Annotations
+            path: operandMetadata.podMetadata.annotations
+          - description: 'Labels to add to the object during its creation. The following label keys are reserved for use by the operator: "app", "component", "app.kubernetes.io/name", "app.kubernetes.io/instance", "app.kubernetes.io/component", and "app.kubernetes.io/part-of".'
+            displayName: Labels
+            path: operandMetadata.podMetadata.labels
           - description: Options to configure Cryostat Automated Report Analysis.
             displayName: Report Options
             path: reportOptions
@@ -334,6 +346,30 @@ spec:
           - description: Options to customize the services created for the Cryostat application.
             displayName: Service Options
             path: serviceOptions
+          - description: Annotations to add to the object during its creation.
+            displayName: Annotations
+            path: serviceOptions.agentCallbackConfig.annotations
+          - description: 'Labels to add to the object during its creation. The following label keys are reserved for use by the operator: "app", "component", "app.kubernetes.io/name", "app.kubernetes.io/instance", "app.kubernetes.io/component", and "app.kubernetes.io/part-of".'
+            displayName: Labels
+            path: serviceOptions.agentCallbackConfig.labels
+          - description: Annotations to add to the object during its creation.
+            displayName: Annotations
+            path: serviceOptions.agentGatewayConfig.annotations
+          - description: 'Labels to add to the object during its creation. The following label keys are reserved for use by the operator: "app", "component", "app.kubernetes.io/name", "app.kubernetes.io/instance", "app.kubernetes.io/component", and "app.kubernetes.io/part-of".'
+            displayName: Labels
+            path: serviceOptions.agentGatewayConfig.labels
+          - description: Annotations to add to the object during its creation.
+            displayName: Annotations
+            path: serviceOptions.coreConfig.annotations
+          - description: 'Labels to add to the object during its creation. The following label keys are reserved for use by the operator: "app", "component", "app.kubernetes.io/name", "app.kubernetes.io/instance", "app.kubernetes.io/component", and "app.kubernetes.io/part-of".'
+            displayName: Labels
+            path: serviceOptions.coreConfig.labels
+          - description: Annotations to add to the object during its creation.
+            displayName: Annotations
+            path: serviceOptions.reportsConfig.annotations
+          - description: 'Labels to add to the object during its creation. The following label keys are reserved for use by the operator: "app", "component", "app.kubernetes.io/name", "app.kubernetes.io/instance", "app.kubernetes.io/component", and "app.kubernetes.io/part-of".'
+            displayName: Labels
+            path: serviceOptions.reportsConfig.labels
           - description: Options to customize the storage provisioned for the database and object storage.
             displayName: Storage Options
             path: storageOptions
@@ -358,6 +394,12 @@ spec:
           - description: Configuration for the Persistent Volume Claim to be created by the operator.
             displayName: PVC
             path: storageOptions.pvc
+          - description: Annotations to add to the object during its creation.
+            displayName: Annotations
+            path: storageOptions.pvc.annotations
+          - description: 'Labels to add to the object during its creation. The following label keys are reserved for use by the operator: "app", "component", "app.kubernetes.io/name", "app.kubernetes.io/instance", "app.kubernetes.io/component", and "app.kubernetes.io/part-of".'
+            displayName: Labels
+            path: storageOptions.pvc.labels
           - description: Spec for a Persistent Volume Claim, whose options will override the defaults used by the operator. Unless overriden, the PVC will be created with the default Storage Class and 500MiB of storage. Once the operator has created the PVC, changes to this field have no effect.
             displayName: Spec
             path: storageOptions.pvc.spec

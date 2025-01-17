@@ -176,12 +176,14 @@ func (r *TestResources) NewCryostatWithPVCSpec() *model.CryostatInstance {
 	cr := r.NewCryostat()
 	cr.Spec.StorageOptions = &operatorv1beta2.StorageConfiguration{
 		PVC: &operatorv1beta2.PersistentVolumeClaimConfig{
-			Annotations: map[string]string{
-				"my/custom": "annotation",
-			},
-			Labels: map[string]string{
-				"my":  "label",
-				"app": "somethingelse",
+			ResourceMetadata: operatorv1beta2.ResourceMetadata{
+				Annotations: map[string]string{
+					"my/custom": "annotation",
+				},
+				Labels: map[string]string{
+					"my":  "label",
+					"app": "somethingelse",
+				},
 			},
 			Spec: newPVCSpec("cool-storage", "10Gi", corev1.ReadWriteMany),
 		},
@@ -203,8 +205,10 @@ func (r *TestResources) NewCryostatWithPVCLabelsOnly() *model.CryostatInstance {
 	cr := r.NewCryostat()
 	cr.Spec.StorageOptions = &operatorv1beta2.StorageConfiguration{
 		PVC: &operatorv1beta2.PersistentVolumeClaimConfig{
-			Labels: map[string]string{
-				"my": "label",
+			ResourceMetadata: operatorv1beta2.ResourceMetadata{
+				Labels: map[string]string{
+					"my": "label",
+				},
 			},
 		},
 	}
@@ -242,12 +246,14 @@ func (r *TestResources) NewCryostatWithCoreSvc() *model.CryostatInstance {
 			HTTPPort: &httpPort,
 			ServiceConfig: operatorv1beta2.ServiceConfig{
 				ServiceType: &svcType,
-				Annotations: map[string]string{
-					"my/custom": "annotation",
-				},
-				Labels: map[string]string{
-					"my":  "label",
-					"app": "somethingelse",
+				ResourceMetadata: operatorv1beta2.ResourceMetadata{
+					Annotations: map[string]string{
+						"my/custom": "annotation",
+					},
+					Labels: map[string]string{
+						"my":  "label",
+						"app": "somethingelse",
+					},
 				},
 			},
 		},
@@ -264,12 +270,14 @@ func (r *TestResources) NewCryostatWithReportsSvc() *model.CryostatInstance {
 			HTTPPort: &httpPort,
 			ServiceConfig: operatorv1beta2.ServiceConfig{
 				ServiceType: &svcType,
-				Annotations: map[string]string{
-					"my/custom": "annotation",
-				},
-				Labels: map[string]string{
-					"my":  "label",
-					"app": "somethingelse",
+				ResourceMetadata: operatorv1beta2.ResourceMetadata{
+					Annotations: map[string]string{
+						"my/custom": "annotation",
+					},
+					Labels: map[string]string{
+						"my":  "label",
+						"app": "somethingelse",
+					},
 				},
 			},
 		},
@@ -277,15 +285,37 @@ func (r *TestResources) NewCryostatWithReportsSvc() *model.CryostatInstance {
 	return cr
 }
 
-func (r *TestResources) NewCryostatWithAgentSvc() *model.CryostatInstance {
+func (r *TestResources) NewCryostatWithAgentGatewaySvc() *model.CryostatInstance {
 	svcType := corev1.ServiceTypeNodePort
 	httpPort := int32(8080)
 	cr := r.NewCryostat()
 	cr.Spec.ServiceOptions = &operatorv1beta2.ServiceConfigList{
-		AgentConfig: &operatorv1beta2.AgentServiceConfig{
+		AgentGatewayConfig: &operatorv1beta2.AgentGatewayServiceConfig{
 			HTTPPort: &httpPort,
 			ServiceConfig: operatorv1beta2.ServiceConfig{
 				ServiceType: &svcType,
+				ResourceMetadata: operatorv1beta2.ResourceMetadata{
+					Annotations: map[string]string{
+						"my/custom": "annotation",
+					},
+					Labels: map[string]string{
+						"my":  "label",
+						"app": "somethingelse",
+					},
+				},
+			},
+		},
+	}
+	return cr
+}
+
+func (r *TestResources) NewCryostatWithAgentCallbackSvc() *model.CryostatInstance {
+	httpPort := int32(9999)
+	cr := r.NewCryostat()
+	cr.Spec.ServiceOptions = &operatorv1beta2.ServiceConfigList{
+		AgentCallbackConfig: &operatorv1beta2.AgentCallbackServiceConfig{
+			HTTPPort: &httpPort,
+			ResourceMetadata: operatorv1beta2.ResourceMetadata{
 				Annotations: map[string]string{
 					"my/custom": "annotation",
 				},
@@ -303,11 +333,13 @@ func (r *TestResources) NewCryostatWithCoreNetworkOptions() *model.CryostatInsta
 	cr := r.NewCryostat()
 	cr.Spec.NetworkOptions = &operatorv1beta2.NetworkConfigurationList{
 		CoreConfig: &operatorv1beta2.NetworkConfiguration{
-			Annotations: map[string]string{"custom": "annotation"},
-			Labels: map[string]string{
-				"custom":    "label",
-				"app":       "test-app",
-				"component": "test-comp",
+			ResourceMetadata: operatorv1beta2.ResourceMetadata{
+				Annotations: map[string]string{"custom": "annotation"},
+				Labels: map[string]string{
+					"custom":    "label",
+					"app":       "test-app",
+					"component": "test-comp",
+				},
 			},
 		},
 	}
@@ -833,7 +865,7 @@ func (r *TestResources) NewReportsService() *corev1.Service {
 	}
 }
 
-func (r *TestResources) NewAgentProxyService() *corev1.Service {
+func (r *TestResources) NewAgentGatewayService() *corev1.Service {
 	return &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      r.Name + "-agent",
@@ -864,17 +896,17 @@ func (r *TestResources) NewAgentProxyService() *corev1.Service {
 	}
 }
 
-func (r *TestResources) NewAgentHeadlessService(namespace string) *corev1.Service {
+func (r *TestResources) NewAgentCallbackService(namespace string) *corev1.Service {
 	return &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      r.GetAgentServiceName(),
 			Namespace: namespace,
 			Labels: map[string]string{
 				"app":                            r.Name,
-				"component":                      "agent",
+				"component":                      "cryostat-agent-callback",
 				"app.kubernetes.io/name":         "cryostat",
 				"app.kubernetes.io/instance":     r.Name,
-				"app.kubernetes.io/component":    "agent",
+				"app.kubernetes.io/component":    "cryostat-agent-callback",
 				"app.kubernetes.io/part-of":      "cryostat",
 				"operator.cryostat.io/name":      r.Name,
 				"operator.cryostat.io/namespace": r.Namespace,
@@ -936,8 +968,8 @@ func (r *TestResources) NewCustomizedReportsService() *corev1.Service {
 	return svc
 }
 
-func (r *TestResources) NewCustomizedAgentService() *corev1.Service {
-	svc := r.NewAgentProxyService()
+func (r *TestResources) NewCustomizedAgentGatewayService() *corev1.Service {
+	svc := r.NewAgentGatewayService()
 	svc.Spec.Type = corev1.ServiceTypeNodePort
 	svc.Spec.Ports[0].Port = 8080
 	svc.Annotations = map[string]string{
@@ -951,6 +983,27 @@ func (r *TestResources) NewCustomizedAgentService() *corev1.Service {
 		"app.kubernetes.io/instance":  r.Name,
 		"app.kubernetes.io/component": "cryostat-agent-gateway",
 		"app.kubernetes.io/part-of":   "cryostat",
+	}
+	return svc
+}
+
+func (r *TestResources) NewCustomizedAgentCallbackService(namespace string) *corev1.Service {
+	svc := r.NewAgentCallbackService(namespace)
+	svc.Spec.Ports[0].Port = 9999
+	svc.Spec.Ports[0].TargetPort = intstr.FromInt(9999)
+	svc.Annotations = map[string]string{
+		"my/custom": "annotation",
+	}
+	svc.Labels = map[string]string{
+		"app":                            r.Name,
+		"component":                      "cryostat-agent-callback",
+		"my":                             "label",
+		"app.kubernetes.io/name":         "cryostat",
+		"app.kubernetes.io/instance":     r.Name,
+		"app.kubernetes.io/component":    "cryostat-agent-callback",
+		"app.kubernetes.io/part-of":      "cryostat",
+		"operator.cryostat.io/name":      r.Name,
+		"operator.cryostat.io/namespace": r.Namespace,
 	}
 	return svc
 }
@@ -2854,8 +2907,10 @@ func (r *TestResources) newNetworkConfiguration(svcName string, svcPort int32) o
 		ingressTLS = []netv1.IngressTLS{{}}
 	}
 	return operatorv1beta2.NetworkConfiguration{
-		Annotations: map[string]string{"nginx.ingress.kubernetes.io/backend-protocol": "HTTPS"},
-		Labels:      map[string]string{"my": "label"},
+		ResourceMetadata: operatorv1beta2.ResourceMetadata{
+			Annotations: map[string]string{"nginx.ingress.kubernetes.io/backend-protocol": "HTTPS"},
+			Labels:      map[string]string{"my": "label"},
+		},
 		IngressSpec: &netv1.IngressSpec{
 			Rules: []netv1.IngressRule{
 				{

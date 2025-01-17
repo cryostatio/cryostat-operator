@@ -16,6 +16,7 @@ package test
 
 import (
 	"fmt"
+	"strconv"
 
 	"github.com/cryostatio/cryostat-operator/internal/test"
 	corev1 "k8s.io/api/core/v1"
@@ -119,6 +120,7 @@ type mutatedPodOptions struct {
 	image           string
 	pullPolicy      corev1.PullPolicy
 	proxyPort       int32
+	callbackPort    int32
 }
 
 func (r *AgentWebhookTestResources) setDefaultMutatedPodOptions(options *mutatedPodOptions) {
@@ -133,6 +135,9 @@ func (r *AgentWebhookTestResources) setDefaultMutatedPodOptions(options *mutated
 	}
 	if options.proxyPort == 0 {
 		options.proxyPort = 8282
+	}
+	if options.callbackPort == 0 {
+		options.callbackPort = 9977
 	}
 }
 
@@ -169,6 +174,12 @@ func (r *AgentWebhookTestResources) NewMutatedPodCustomDevImage() *corev1.Pod {
 func (r *AgentWebhookTestResources) NewMutatedPodProxyPort() *corev1.Pod {
 	return r.newMutatedPod(&mutatedPodOptions{
 		proxyPort: 8080,
+	})
+}
+
+func (r *AgentWebhookTestResources) NewMutatedPodCallbackPort() *corev1.Pod {
+	return r.newMutatedPod(&mutatedPodOptions{
+		callbackPort: 9999,
 	})
 }
 
@@ -365,7 +376,7 @@ func (r *AgentWebhookTestResources) newMutatedPod(options *mutatedPodOptions) *c
 		callbackEnvs = []corev1.EnvVar{
 			{
 				Name:  "CRYOSTAT_AGENT_CALLBACK",
-				Value: fmt.Sprintf("%s://$(CRYOSTAT_AGENT_POD_IP):9977", scheme),
+				Value: fmt.Sprintf("%s://$(CRYOSTAT_AGENT_POD_IP):%d", scheme, options.callbackPort),
 			},
 		}
 	} else {
@@ -384,7 +395,7 @@ func (r *AgentWebhookTestResources) newMutatedPod(options *mutatedPodOptions) *c
 			},
 			{
 				Name:  "CRYOSTAT_AGENT_CALLBACK_PORT",
-				Value: "9977",
+				Value: strconv.Itoa(int(options.callbackPort)),
 			},
 		}
 	}

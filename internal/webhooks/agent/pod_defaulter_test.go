@@ -277,11 +277,21 @@ var _ = Describe("PodDefaulter", func() {
 				})
 			})
 
-			Context("with a custom proxy port", func() {
+			Context("with a custom gateway port", func() {
 				BeforeEach(func() {
-					t.objs = append(t.objs, t.NewCryostatWithAgentSvc().Object)
+					t.objs = append(t.objs, t.NewCryostatWithAgentGatewaySvc().Object)
 					originalPod = t.NewPod()
 					expectedPod = t.NewMutatedPodProxyPort()
+				})
+
+				ExpectPod()
+			})
+
+			Context("with a custom callback port", func() {
+				BeforeEach(func() {
+					t.objs = append(t.objs, t.NewCryostatWithAgentCallbackSvc().Object)
+					originalPod = t.NewPod()
+					expectedPod = t.NewMutatedPodCallbackPort()
 				})
 
 				ExpectPod()

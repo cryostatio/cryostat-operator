@@ -23,7 +23,7 @@ func AgentHeadlessServiceName(gvk *schema.GroupVersionKind, cr *model.CryostatIn
 	return ClusterUniqueShortNameWithPrefix(gvk, "agent", cr.Name, cr.InstallNamespace)
 }
 
-func AgentProxyServiceName(cr *model.CryostatInstance) string {
+func AgentGatewayServiceName(cr *model.CryostatInstance) string {
 	return cr.Name + "-agent"
 }
 

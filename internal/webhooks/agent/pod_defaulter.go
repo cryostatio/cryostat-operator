@@ -276,14 +276,24 @@ func cryostatURL(cr *model.CryostatInstance, tls bool) string {
 	if !tls {
 		scheme = "http"
 	}
-	return fmt.Sprintf("%s://%s.%s.svc:%d", scheme, common.AgentProxyServiceName(cr), cr.InstallNamespace,
-		getAgentProxyHTTPPort(cr))
+	return fmt.Sprintf("%s://%s.%s.svc:%d", scheme, common.AgentGatewayServiceName(cr), cr.InstallNamespace,
+		getAgentGatewayHTTPPort(cr))
 }
 
-func getAgentProxyHTTPPort(cr *model.CryostatInstance) int32 {
+func getAgentGatewayHTTPPort(cr *model.CryostatInstance) int32 {
 	port := constants.AgentProxyContainerPort
-	if cr.Spec.ServiceOptions != nil && cr.Spec.ServiceOptions.AgentConfig != nil && cr.Spec.ServiceOptions.AgentConfig.HTTPPort != nil {
-		port = *cr.Spec.ServiceOptions.AgentConfig.HTTPPort
+	if cr.Spec.ServiceOptions != nil && cr.Spec.ServiceOptions.AgentGatewayConfig != nil &&
+		cr.Spec.ServiceOptions.AgentGatewayConfig.HTTPPort != nil {
+		port = *cr.Spec.ServiceOptions.AgentGatewayConfig.HTTPPort
+	}
+	return port
+}
+
+func getAgentCallbackHTTPPort(cr *model.CryostatInstance) int32 {
+	port := constants.AgentCallbackContainerPort
+	if cr.Spec.ServiceOptions != nil && cr.Spec.ServiceOptions.AgentCallbackConfig != nil &&
+		cr.Spec.ServiceOptions.AgentCallbackConfig.HTTPPort != nil {
+		port = *cr.Spec.ServiceOptions.AgentCallbackConfig.HTTPPort
 	}
 	return port
 }
@@ -294,8 +304,7 @@ func (r *podMutator) callbackEnv(cr *model.CryostatInstance, namespace string, t
 		scheme = "http"
 	}
 
-	// TODO make customizable
-	port := 9977
+	port := getAgentCallbackHTTPPort(cr)
 
 	var envs []corev1.EnvVar
 	if cr.Spec.AgentOptions != nil && cr.Spec.AgentOptions.DisableHostnameVerification {
@@ -321,7 +330,7 @@ func (r *podMutator) callbackEnv(cr *model.CryostatInstance, namespace string, t
 			},
 			{
 				Name:  "CRYOSTAT_AGENT_CALLBACK_PORT",
-				Value: strconv.Itoa(port),
+				Value: strconv.Itoa(int(port)),
 			},
 		}
 	}

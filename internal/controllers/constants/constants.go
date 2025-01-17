@@ -32,6 +32,7 @@ const (
 	DatabasePort               int32  = 5432
 	AgentProxyContainerPort    int32  = 8282
 	AgentProxyHealthPort       int32  = 8281
+	AgentCallbackContainerPort int32  = 9977
 	LoopbackAddress            string = "127.0.0.1"
 	OperatorNamePrefix         string = "cryostat-operator-"
 	OperatorDeploymentName     string = "cryostat-operator-controller"

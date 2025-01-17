@@ -160,8 +160,8 @@ func resourceChecks() []resourceCheck {
 		{(*cryostatTestInput).expectMainDeployment, "main deployment"},
 		{(*cryostatTestInput).expectLockConfigMap, "lock config map"},
 		{(*cryostatTestInput).expectAgentProxyConfigMap, "agent proxy config map"},
-		{(*cryostatTestInput).expectAgentProxyService, "agent proxy service"},
-		{(*cryostatTestInput).expectAgentHeadlessService, "agent headless service"},
+		{(*cryostatTestInput).expectAgentGatewayService, "agent gateway service"},
+		{(*cryostatTestInput).expectAgentCallbackService, "agent callback service"},
 	}
 }
 
@@ -1455,12 +1455,20 @@ func (c *controllerTest) commonTests() {
 					t.checkService(t.NewCustomizedReportsService())
 				})
 			})
-			Context("containing agent proxy config", func() {
+			Context("containing agent gateway config", func() {
 				BeforeEach(func() {
-					t.objs = append(t.objs, t.NewCryostatWithAgentSvc().Object)
+					t.objs = append(t.objs, t.NewCryostatWithAgentGatewaySvc().Object)
 				})
 				It("should create the service as described", func() {
-					t.checkService(t.NewCustomizedAgentService())
+					t.checkService(t.NewCustomizedAgentGatewayService())
+				})
+			})
+			Context("containing agent callback config", func() {
+				BeforeEach(func() {
+					t.objs = append(t.objs, t.NewCryostatWithAgentCallbackSvc().Object)
+				})
+				It("should create the service as described", func() {
+					t.checkServiceNoOwner(t.NewCustomizedAgentCallbackService(t.Namespace))
 				})
 			})
 			Context("and existing services", func() {
@@ -1495,12 +1503,20 @@ func (c *controllerTest) commonTests() {
 						t.checkService(t.NewCustomizedReportsService())
 					})
 				})
-				Context("containing agent proxy config", func() {
+				Context("containing agent gateway config", func() {
 					BeforeEach(func() {
-						cr = t.NewCryostatWithAgentSvc()
+						cr = t.NewCryostatWithAgentGatewaySvc()
 					})
 					It("should create the service as described", func() {
-						t.checkService(t.NewCustomizedAgentService())
+						t.checkService(t.NewCustomizedAgentGatewayService())
+					})
+				})
+				Context("containing agent callback config", func() {
+					BeforeEach(func() {
+						cr = t.NewCryostatWithAgentCallbackSvc()
+					})
+					It("should create the service as described", func() {
+						t.checkServiceNoOwner(t.NewCustomizedAgentCallbackService(t.Namespace))
 					})
 				})
 			})
@@ -1946,20 +1962,20 @@ func (c *controllerTest) commonTests() {
 							t.expectNoCryostat()
 						})
 					})
-					Context("Agent headless service exists", func() {
+					Context("Agent callback service exists", func() {
 						JustBeforeEach(func() {
 							t.reconcileDeletedCryostat()
 						})
 						It("should delete the service", func() {
-							t.checkAgentHeadlessServiceDeleted()
+							t.checkAgentCallbackServiceDeleted()
 						})
 						It("should delete Cryostat", func() {
 							t.expectNoCryostat()
 						})
 					})
-					Context("Agent headless service does not exist", func() {
+					Context("Agent callback service does not exist", func() {
 						JustBeforeEach(func() {
-							err := t.Client.Delete(context.Background(), t.NewAgentHeadlessService(targetNamespaces[0]))
+							err := t.Client.Delete(context.Background(), t.NewAgentCallbackService(targetNamespaces[0]))
 							Expect(err).ToNot(HaveOccurred())
 							t.reconcileDeletedCryostat()
 						})
@@ -2787,9 +2803,9 @@ func (t *cryostatTestInput) checkRoleBindingsDeleted() {
 	}
 }
 
-func (t *cryostatTestInput) checkAgentHeadlessServiceDeleted() {
+func (t *cryostatTestInput) checkAgentCallbackServiceDeleted() {
 	for _, ns := range t.TargetNamespaces {
-		expected := t.NewAgentHeadlessService(ns)
+		expected := t.NewAgentCallbackService(ns)
 		svc := &corev1.Service{}
 		err := t.Client.Get(context.Background(), types.NamespacedName{Name: expected.Name, Namespace: expected.Namespace}, svc)
 		Expect(kerrors.IsNotFound(err)).To(BeTrue())
@@ -2918,12 +2934,12 @@ func (t *cryostatTestInput) expectCoreService() {
 	t.checkService(t.NewCryostatService())
 }
 
-func (t *cryostatTestInput) expectAgentProxyService() {
-	t.checkService(t.NewAgentProxyService())
+func (t *cryostatTestInput) expectAgentGatewayService() {
+	t.checkService(t.NewAgentGatewayService())
 }
 
-func (t *cryostatTestInput) expectAgentHeadlessService() {
-	t.checkServiceNoOwner(t.NewAgentHeadlessService(t.Namespace))
+func (t *cryostatTestInput) expectAgentCallbackService() {
+	t.checkServiceNoOwner(t.NewAgentCallbackService(t.Namespace))
 }
 
 func (t *cryostatTestInput) expectStatusApplicationURL() {

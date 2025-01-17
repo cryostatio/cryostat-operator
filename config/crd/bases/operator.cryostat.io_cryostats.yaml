@@ -5502,8 +5502,7 @@ spec:
                       annotations:
                         additionalProperties:
                           type: string
-                        description: Annotations to add to the Ingress or Route during
-                          its creation.
+                        description: Annotations to add to the object during its creation.
                         type: object
                       externalHost:
                         description: |-
@@ -5787,8 +5786,10 @@ spec:
                         additionalProperties:
                           type: string
                         description: |-
-                          Labels to add to the Ingress or Route during its creation.
-                          The label with key "app" is reserved for use by the operator.
+                          Labels to add to the object during its creation.
+                          The following label keys are reserved for use by the operator:
+                          "app", "component", "app.kubernetes.io/name", "app.kubernetes.io/instance",
+                          "app.kubernetes.io/component", and "app.kubernetes.io/part-of".
                         type: object
                     type: object
                 type: object
@@ -5802,16 +5803,16 @@ spec:
                       annotations:
                         additionalProperties:
                           type: string
-                        description: Annotations to add to the resources during its
-                          creation.
+                        description: Annotations to add to the object during its creation.
                         type: object
                       labels:
                         additionalProperties:
                           type: string
                         description: |-
-                          Labels to add to the resources during its creation.
-                          The labels with keys "app" and "component" are reserved
-                          for use by the operator.
+                          Labels to add to the object during its creation.
+                          The following label keys are reserved for use by the operator:
+                          "app", "component", "app.kubernetes.io/name", "app.kubernetes.io/instance",
+                          "app.kubernetes.io/component", and "app.kubernetes.io/part-of".
                         type: object
                     type: object
                   podMetadata:
@@ -5820,16 +5821,16 @@ spec:
                       annotations:
                         additionalProperties:
                           type: string
-                        description: Annotations to add to the resources during its
-                          creation.
+                        description: Annotations to add to the object during its creation.
                         type: object
                       labels:
                         additionalProperties:
                           type: string
                         description: |-
-                          Labels to add to the resources during its creation.
-                          The labels with keys "app" and "component" are reserved
-                          for use by the operator.
+                          Labels to add to the object during its creation.
+                          The following label keys are reserved for use by the operator:
+                          "app", "component", "app.kubernetes.io/name", "app.kubernetes.io/instance",
+                          "app.kubernetes.io/component", and "app.kubernetes.io/part-of".
                         type: object
                     type: object
                 type: object
@@ -10213,15 +10214,42 @@ spec:
                 description: Options to customize the services created for the Cryostat
                   application.
                 properties:
-                  agentConfig:
+                  agentCallbackConfig:
+                    description: |-
+                      Specification for the headless services in each target namespace that allow Cryostat
+                      to communicate with agents in those namespaces.
+                    properties:
+                      annotations:
+                        additionalProperties:
+                          type: string
+                        description: Annotations to add to the object during its creation.
+                        type: object
+                      httpPort:
+                        description: |-
+                          HTTP port number for the Cryostat Agent callback server.
+                          Used for the Kubernetes service and also the container port
+                          where the Cryostat Agent is running.
+                          Defaults to 9977.
+                        format: int32
+                        type: integer
+                      labels:
+                        additionalProperties:
+                          type: string
+                        description: |-
+                          Labels to add to the object during its creation.
+                          The following label keys are reserved for use by the operator:
+                          "app", "component", "app.kubernetes.io/name", "app.kubernetes.io/instance",
+                          "app.kubernetes.io/component", and "app.kubernetes.io/part-of".
+                        type: object
+                    type: object
+                  agentGatewayConfig:
                     description: Specification for the service responsible for agents
                       to communicate with Cryostat.
                     properties:
                       annotations:
                         additionalProperties:
                           type: string
-                        description: Annotations to add to the service during its
-                          creation.
+                        description: Annotations to add to the object during its creation.
                         type: object
                       httpPort:
                         description: |-
@@ -10233,9 +10261,10 @@ spec:
                         additionalProperties:
                           type: string
                         description: |-
-                          Labels to add to the service during its creation.
-                          The labels with keys "app" and "component" are reserved
-                          for use by the operator.
+                          Labels to add to the object during its creation.
+                          The following label keys are reserved for use by the operator:
+                          "app", "component", "app.kubernetes.io/name", "app.kubernetes.io/instance",
+                          "app.kubernetes.io/component", and "app.kubernetes.io/part-of".
                         type: object
                       serviceType:
                         description: Type of service to create. Defaults to "ClusterIP".
@@ -10248,8 +10277,7 @@ spec:
                       annotations:
                         additionalProperties:
                           type: string
-                        description: Annotations to add to the service during its
-                          creation.
+                        description: Annotations to add to the object during its creation.
                         type: object
                       httpPort:
                         description: |-
@@ -10261,9 +10289,10 @@ spec:
                         additionalProperties:
                           type: string
                         description: |-
-                          Labels to add to the service during its creation.
-                          The labels with keys "app" and "component" are reserved
-                          for use by the operator.
+                          Labels to add to the object during its creation.
+                          The following label keys are reserved for use by the operator:
+                          "app", "component", "app.kubernetes.io/name", "app.kubernetes.io/instance",
+                          "app.kubernetes.io/component", and "app.kubernetes.io/part-of".
                         type: object
                       serviceType:
                         description: Type of service to create. Defaults to "ClusterIP".
@@ -10276,8 +10305,7 @@ spec:
                       annotations:
                         additionalProperties:
                           type: string
-                        description: Annotations to add to the service during its
-                          creation.
+                        description: Annotations to add to the object during its creation.
                         type: object
                       httpPort:
                         description: |-
@@ -10289,9 +10317,10 @@ spec:
                         additionalProperties:
                           type: string
                         description: |-
-                          Labels to add to the service during its creation.
-                          The labels with keys "app" and "component" are reserved
-                          for use by the operator.
+                          Labels to add to the object during its creation.
+                          The following label keys are reserved for use by the operator:
+                          "app", "component", "app.kubernetes.io/name", "app.kubernetes.io/instance",
+                          "app.kubernetes.io/component", and "app.kubernetes.io/part-of".
                         type: object
                       serviceType:
                         description: Type of service to create. Defaults to "ClusterIP".
@@ -10332,15 +10361,16 @@ spec:
                       annotations:
                         additionalProperties:
                           type: string
-                        description: Annotations to add to the Persistent Volume Claim
-                          during its creation.
+                        description: Annotations to add to the object during its creation.
                         type: object
                       labels:
                         additionalProperties:
                           type: string
                         description: |-
-                          Labels to add to the Persistent Volume Claim during its creation.
-                          The label with key "app" is reserved for use by the operator.
+                          Labels to add to the object during its creation.
+                          The following label keys are reserved for use by the operator:
+                          "app", "component", "app.kubernetes.io/name", "app.kubernetes.io/instance",
+                          "app.kubernetes.io/component", and "app.kubernetes.io/part-of".
                         type: object
                       spec:
                         description: |-

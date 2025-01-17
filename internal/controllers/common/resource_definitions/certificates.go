@@ -159,7 +159,7 @@ func NewAgentCert(cr *model.CryostatInstance, namespace string, gvk *schema.Grou
 }
 
 func NewAgentProxyCert(cr *model.CryostatInstance) *certv1.Certificate {
-	svcName := common.AgentProxyServiceName(cr)
+	svcName := common.AgentGatewayServiceName(cr)
 	return &certv1.Certificate{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      cr.Name + "-agent-proxy",
