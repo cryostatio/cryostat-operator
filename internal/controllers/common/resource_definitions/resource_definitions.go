@@ -1856,7 +1856,7 @@ func NewDatabaseContainer(cr *model.CryostatInstance, imageTag string, tls *TLSC
 		}
 		mounts = append(mounts, tlsSecretMount)
 
-		args = append(args, "-c", "ssl=on", "-c", fmt.Sprintf("ssl_cert_file=%s/tls.crt", tlsPath), "-c", fmt.Sprintf("ssl_key_file=%s/tls.key", tlsPath))
+		args = append(args, "-c", "ssl=on", "-c", fmt.Sprintf("ssl_cert_file=%s/%s", tlsPath, corev1.TLSCertKey), "-c", fmt.Sprintf("ssl_key_file=%s/%s", tlsPath, corev1.TLSPrivateKeyKey))
 	}
 
 	return corev1.Container{

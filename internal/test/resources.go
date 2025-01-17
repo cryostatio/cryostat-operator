@@ -2089,10 +2089,10 @@ func (r *TestResources) NewReportsEnvironmentVariables(resources *corev1.Resourc
 			Value: "10000",
 		}, corev1.EnvVar{
 			Name:  "QUARKUS_HTTP_SSL_CERTIFICATE_KEY_FILES",
-			Value: fmt.Sprintf("/var/run/secrets/operator.cryostat.io/%s-reports-tls/tls.key", r.Name),
+			Value: fmt.Sprintf("/var/run/secrets/operator.cryostat.io/%s-reports-tls/%s", r.Name, corev1.TLSPrivateKeyKey),
 		}, corev1.EnvVar{
 			Name:  "QUARKUS_HTTP_SSL_CERTIFICATE_FILES",
-			Value: fmt.Sprintf("/var/run/secrets/operator.cryostat.io/%s-reports-tls/tls.crt", r.Name),
+			Value: fmt.Sprintf("/var/run/secrets/operator.cryostat.io/%s-reports-tls/%s", r.Name, corev1.TLSCertKey),
 		}, corev1.EnvVar{
 			Name:  "QUARKUS_HTTP_INSECURE_REQUESTS",
 			Value: "disabled",
@@ -2213,9 +2213,9 @@ func (r *TestResources) NewDatabaseArgs() []string {
 			"-c",
 			"ssl=on",
 			"-c",
-			fmt.Sprintf("ssl_cert_file=/var/run/secrets/operator.cryostat.io/%s-database-tls/tls.crt", r.Name),
+			fmt.Sprintf("ssl_cert_file=/var/run/secrets/operator.cryostat.io/%s-database-tls/%s", r.Name, corev1.TLSCertKey),
 			"-c",
-			fmt.Sprintf("ssl_key_file=/var/run/secrets/operator.cryostat.io/%s-database-tls/tls.key", r.Name),
+			fmt.Sprintf("ssl_key_file=/var/run/secrets/operator.cryostat.io/%s-database-tls/%s", r.Name, corev1.TLSPrivateKeyKey),
 		)
 	}
 
