@@ -142,43 +142,36 @@ func (r *Reconciler) reconcileAgentGatewayService(ctx context.Context, cr *model
 	})
 }
 
-func (r *Reconciler) newAgentHeadlessService(cr *model.CryostatInstance, namespace string) *corev1.Service {
+func (r *Reconciler) newAgentCallbackService(cr *model.CryostatInstance, namespace string) *corev1.Service {
 	return &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      common.AgentHeadlessServiceName(r.gvk, cr),
+			Name:      common.AgentCallbackServiceName(r.gvk, cr),
 			Namespace: namespace,
 		},
 	}
 }
 
-func (r *Reconciler) reconcileAgentHeadlessServices(ctx context.Context, cr *model.CryostatInstance) error {
+func (r *Reconciler) reconcileAgentCallbackServices(ctx context.Context, cr *model.CryostatInstance) error {
 	config := configureAgentCallbackService(cr)
 
 	// Create a headless Service in each target namespace
 	for _, ns := range cr.TargetNamespaces {
-		svc := r.newAgentHeadlessService(cr, ns)
+		svc := r.newAgentCallbackService(cr, ns)
 
 		op, err := controllerutil.CreateOrUpdate(ctx, r.Client, svc, func() error {
 			// Update labels and annotations
 			common.MergeLabelsAndAnnotations(&svc.ObjectMeta, config.Labels, config.Annotations)
-
-			// Update the service type
-			svc.Spec.Type = corev1.ServiceTypeClusterIP
 
 			// Select agent auto-configuration labels
 			svc.Spec.Selector = map[string]string{
 				constants.AgentLabelCryostatName:      cr.Name,
 				constants.AgentLabelCryostatNamespace: cr.InstallNamespace,
 			}
-			svc.Spec.Ports = []corev1.ServicePort{
-				{
-					Name:       constants.HttpPortName,
-					Port:       *config.HTTPPort,
-					TargetPort: intstr.IntOrString{IntVal: *config.HTTPPort},
-				},
-			}
+			// No Ports. We contact the pods directly using their container ports.
+			svc.Spec.Ports = nil
 
 			// Headless service
+			svc.Spec.Type = corev1.ServiceTypeClusterIP
 			svc.Spec.ClusterIP = corev1.ClusterIPNone
 			return nil
 		})
@@ -190,7 +183,7 @@ func (r *Reconciler) reconcileAgentHeadlessServices(ctx context.Context, cr *mod
 
 	// Delete any RoleBindings in target namespaces that are no longer requested
 	for _, ns := range toDelete(cr) {
-		svc := r.newAgentHeadlessService(cr, ns)
+		svc := r.newAgentCallbackService(cr, ns)
 		err := r.deleteService(ctx, svc)
 		if err != nil {
 			return err
@@ -200,9 +193,9 @@ func (r *Reconciler) reconcileAgentHeadlessServices(ctx context.Context, cr *mod
 	return nil
 }
 
-func (r *Reconciler) finalizeAgentHeadlessServices(ctx context.Context, cr *model.CryostatInstance) error {
+func (r *Reconciler) finalizeAgentCallbackServices(ctx context.Context, cr *model.CryostatInstance) error {
 	for _, ns := range cr.TargetNamespaces {
-		svc := r.newAgentHeadlessService(cr, ns)
+		svc := r.newAgentCallbackService(cr, ns)
 		err := r.deleteService(ctx, svc)
 		if err != nil {
 			return err
@@ -285,13 +278,8 @@ func configureAgentCallbackService(cr *model.CryostatInstance) *operatorv1beta2.
 
 	// Apply common service defaults
 	configureMetadata(&config.ResourceMetadata, cr.Name, "cryostat-agent-callback")
+	// Add target namespace labels used by our controller watches
 	maps.Copy(config.ResourceMetadata.Labels, common.LabelsForTargetNamespaceObject(cr))
-
-	// Apply default HTTP port if not provided
-	if config.HTTPPort == nil {
-		httpPort := constants.AgentCallbackContainerPort
-		config.HTTPPort = &httpPort
-	}
 
 	return config
 }

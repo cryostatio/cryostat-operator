@@ -134,7 +134,7 @@ func NewReportsCert(cr *model.CryostatInstance) *certv1.Certificate {
 }
 
 func NewAgentCert(cr *model.CryostatInstance, namespace string, gvk *schema.GroupVersionKind) *certv1.Certificate {
-	svcName := common.AgentHeadlessServiceName(gvk, cr)
+	svcName := common.AgentCallbackServiceName(gvk, cr)
 	name := common.AgentCertificateName(gvk, cr, namespace)
 	return &certv1.Certificate{
 		ObjectMeta: metav1.ObjectMeta{

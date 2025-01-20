@@ -10224,14 +10224,6 @@ spec:
                           type: string
                         description: Annotations to add to the object during its creation.
                         type: object
-                      httpPort:
-                        description: |-
-                          HTTP port number for the Cryostat Agent callback server.
-                          Used for the Kubernetes service and also the container port
-                          where the Cryostat Agent is running.
-                          Defaults to 9977.
-                        format: int32
-                        type: integer
                       labels:
                         additionalProperties:
                           type: string

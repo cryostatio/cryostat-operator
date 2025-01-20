@@ -310,11 +310,9 @@ func (r *TestResources) NewCryostatWithAgentGatewaySvc() *model.CryostatInstance
 }
 
 func (r *TestResources) NewCryostatWithAgentCallbackSvc() *model.CryostatInstance {
-	httpPort := int32(9999)
 	cr := r.NewCryostat()
 	cr.Spec.ServiceOptions = &operatorv1beta2.ServiceConfigList{
 		AgentCallbackConfig: &operatorv1beta2.AgentCallbackServiceConfig{
-			HTTPPort: &httpPort,
 			ResourceMetadata: operatorv1beta2.ResourceMetadata{
 				Annotations: map[string]string{
 					"my/custom": "annotation",
@@ -919,13 +917,6 @@ func (r *TestResources) NewAgentCallbackService(namespace string) *corev1.Servic
 				"cryostat.io/name":      r.Name,
 				"cryostat.io/namespace": r.Namespace,
 			},
-			Ports: []corev1.ServicePort{
-				{
-					Name:       "http",
-					Port:       9977,
-					TargetPort: intstr.FromInt(9977),
-				},
-			},
 		},
 	}
 }
@@ -989,8 +980,6 @@ func (r *TestResources) NewCustomizedAgentGatewayService() *corev1.Service {
 
 func (r *TestResources) NewCustomizedAgentCallbackService(namespace string) *corev1.Service {
 	svc := r.NewAgentCallbackService(namespace)
-	svc.Spec.Ports[0].Port = 9999
-	svc.Spec.Ports[0].TargetPort = intstr.FromInt(9999)
 	svc.Annotations = map[string]string{
 		"my/custom": "annotation",
 	}

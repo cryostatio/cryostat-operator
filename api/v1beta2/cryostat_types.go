@@ -326,12 +326,6 @@ type AgentGatewayServiceConfig struct {
 // in each target namespace handling traffic from Cryostat to agents in those
 // namespaces.
 type AgentCallbackServiceConfig struct {
-	// HTTP port number for the Cryostat Agent callback server.
-	// Used for the Kubernetes service and also the container port
-	// where the Cryostat Agent is running.
-	// Defaults to 9977.
-	// +optional
-	HTTPPort         *int32 `json:"httpPort,omitempty"`
 	ResourceMetadata `json:",inline"`
 }
 

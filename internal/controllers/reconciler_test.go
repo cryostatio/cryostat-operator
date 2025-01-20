@@ -2461,6 +2461,7 @@ func (c *controllerTest) commonTests() {
 				expectedResources = []ctrlclient.Object{
 					&rbacv1.RoleBinding{},
 					&corev1.Secret{},
+					&corev1.Service{},
 				}
 			})
 
