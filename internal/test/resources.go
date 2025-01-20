@@ -2151,25 +2151,21 @@ func (r *TestResources) NewStorageEnvironmentVariables() []corev1.EnvVar {
 			},
 		},
 	}
-	/**
-	if r.TLS {
-		envs = append(envs, corev1.EnvVar{
-			Name:  "S3_PORT_HTTPS",
-			Value: "8333",
-		}, corev1.EnvVar{
-			Name:  "S3_KEY_FILE",
-			Value: fmt.Sprintf("/var/run/secrets/operator.cryostat.io/%s-storage-tls/tls.key", r.Name),
-		}, corev1.EnvVar{
-			Name:  "S3_CERT_FILE",
-			Value: fmt.Sprintf("/var/run/secrets/operator.cryostat.io/%s-storage-tls/tls.crt", r.Name),
-		})
-	} else {
-		envs = append(envs, corev1.EnvVar{
-			Name:  "QUARKUS_HTTP_PORT",
-			Value: "8333",
-		})
-	}**/
 	return envs
+}
+
+func (r *TestResources) NewStorageArgs() []string {
+	args := []string{}
+
+	if r.TLS {
+		args = append(args,
+			"-s3.port.https=8334",
+			fmt.Sprintf("-s3.key.file=/var/run/secrets/operator.cryostat.io/%s-storage-tls/tls.key", r.Name),
+			fmt.Sprintf("-s3.cert.file=/var/run/secrets/operator.cryostat.io/%s-storage-tls/tls.crt", r.Name),
+		)
+	}
+
+	return args
 }
 
 func (r *TestResources) NewDatabaseEnvironmentVariables(dbSecretProvided bool) []corev1.EnvVar {
