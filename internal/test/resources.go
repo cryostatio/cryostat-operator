@@ -1898,14 +1898,12 @@ func (r *TestResources) NewCoreEnvironmentVariables(reportsUrl string, ingress b
 			Value: fmt.Sprintf("%s://%s-storage.%s.svc.cluster.local:%d", storageProtocol, r.Name, r.Namespace, storagePort),
 		},
 		{
-			Name:      "QUARKUS_S3_SYNC_CLIENT_TLS_KEY_MANAGERS_PROVIDER_TYPE",
-			Value:     "none",
-			ValueFrom: nil,
+			Name:  "QUARKUS_S3_SYNC_CLIENT_TLS_KEY_MANAGERS_PROVIDER_TYPE",
+			Value: "none",
 		},
 		{
-			Name:      "QUARKUS_S3_SYNC_CLIENT_TLS_TRUST_MANAGERS_PROVIDER_TYPE",
-			Value:     "trust-all",
-			ValueFrom: nil,
+			Name:  "QUARKUS_S3_SYNC_CLIENT_TLS_TRUST_MANAGERS_PROVIDER_TYPE",
+			Value: "system-property",
 		},
 		{
 			Name:  "QUARKUS_S3_PATH_STYLE_ACCESS",
@@ -2471,6 +2469,13 @@ func (r *TestResources) NewCoreVolumeMounts() []corev1.VolumeMount {
 			MountPath: "/truststore/operator",
 		},
 	}
+	if r.TLS {
+		mounts = append(mounts, corev1.VolumeMount{
+			Name:      "storage-tls-secret",
+			MountPath: "/truststore/storage",
+			ReadOnly:  true,
+		})
+	}
 	return mounts
 }
 
@@ -3004,6 +3009,18 @@ func (r *TestResources) newVolumes(certProjections []corev1.VolumeProjection) []
 					Secret: &corev1.SecretVolumeSource{
 						SecretName:  r.Name + "-storage-tls",
 						DefaultMode: &readOnlymode,
+						Items: []corev1.KeyToPath{
+							{
+								Key:  "tls.crt",
+								Path: "s3/tls.crt",
+								Mode: &readOnlymode,
+							},
+							{
+								Key:  "ca.crt",
+								Path: "s3/ca.crt",
+								Mode: &readOnlymode,
+							},
+						},
 					},
 				},
 			},

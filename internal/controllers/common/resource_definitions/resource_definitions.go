@@ -549,6 +549,18 @@ func NewPodForCR(cr *model.CryostatInstance, specs *ServiceSpecs, imageTags *Ima
 				Secret: &corev1.SecretVolumeSource{
 					SecretName:  tls.StorageSecret,
 					DefaultMode: &readOnlyMode,
+					Items: []corev1.KeyToPath{
+						{
+							Key:  "tls.crt",
+							Path: "s3/tls.crt",
+							Mode: &readOnlyMode,
+						},
+						{
+							Key:  "ca.crt",
+							Path: "s3/ca.crt",
+							Mode: &readOnlyMode,
+						},
+					},
 				},
 			},
 		}
@@ -1301,7 +1313,7 @@ func NewCoreContainer(cr *model.CryostatInstance, specs *ServiceSpecs, imageTag 
 		},
 		{
 			Name:  "QUARKUS_S3_SYNC_CLIENT_TLS_TRUST_MANAGERS_PROVIDER_TYPE",
-			Value: "trust-all", // FIXME trust the certificate from the storage TLS secret
+			Value: "system-property",
 		},
 		{
 			Name:  "QUARKUS_S3_PATH_STYLE_ACCESS",
@@ -1355,6 +1367,13 @@ func NewCoreContainer(cr *model.CryostatInstance, specs *ServiceSpecs, imageTag 
 			MountPath: "/truststore/operator",
 			ReadOnly:  true,
 		},
+	}
+	if tls != nil {
+		mounts = append(mounts, corev1.VolumeMount{
+			Name:      "storage-tls-secret",
+			MountPath: "/truststore/storage",
+			ReadOnly:  true,
+		})
 	}
 
 	optional := false
