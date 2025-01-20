@@ -2998,6 +2998,16 @@ func (r *TestResources) newVolumes(certProjections []corev1.VolumeProjection) []
 					Secret: &corev1.SecretVolumeSource{
 						SecretName:  r.Name + "-database-tls",
 						DefaultMode: &readOnlymode,
+						Items: []corev1.KeyToPath{
+							{
+								Key:  "tls.crt",
+								Path: "tls.crt",
+							},
+							{
+								Key:  "ca.crt",
+								Path: "ca.crt",
+							},
+						},
 					},
 				},
 			},

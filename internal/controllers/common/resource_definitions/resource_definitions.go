@@ -549,6 +549,16 @@ func NewPodForCR(cr *model.CryostatInstance, specs *ServiceSpecs, imageTags *Ima
 				Secret: &corev1.SecretVolumeSource{
 					SecretName:  tls.DatabaseSecret,
 					DefaultMode: &readOnlyMode,
+					Items: []corev1.KeyToPath{
+						{
+							Key:  "tls.crt",
+							Path: "tls.crt",
+						},
+						{
+							Key:  "ca.crt",
+							Path: "ca.crt",
+						},
+					},
 				},
 			},
 		}
