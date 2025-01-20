@@ -542,6 +542,17 @@ func NewPodForCR(cr *model.CryostatInstance, specs *ServiceSpecs, imageTags *Ima
 				},
 			},
 		)
+
+		storageSecretVolume := corev1.Volume{
+			Name: "storage-tls-secret",
+			VolumeSource: corev1.VolumeSource{
+				Secret: &corev1.SecretVolumeSource{
+					SecretName:  tls.StorageSecret,
+					DefaultMode: &readOnlyMode,
+				},
+			},
+		}
+		volumes = append(volumes, storageSecretVolume)
 	}
 
 	// Project certificate secrets into deployment
@@ -730,12 +741,14 @@ func NewPodForStorage(cr *model.CryostatInstance, imageTags *ImageTags, tls *TLS
 
 	volumes := newVolumeForStorage(cr)
 
+	readOnlyMode := int32(0440)
 	if tls != nil {
 		secretVolume := corev1.Volume{
 			Name: "storage-tls-secret",
 			VolumeSource: corev1.VolumeSource{
 				Secret: &corev1.SecretVolumeSource{
-					SecretName: tls.StorageSecret,
+					SecretName:  tls.StorageSecret,
+					DefaultMode: &readOnlyMode,
 				},
 			},
 		}
@@ -1233,11 +1246,6 @@ func NewCoreContainer(cr *model.CryostatInstance, specs *ServiceSpecs, imageTag 
 	configPath := "/opt/cryostat.d/conf.d"
 	templatesPath := "/opt/cryostat.d/templates.d"
 
-	storageProtocol := "http"
-	// TODO
-	// if tls != nil {
-	//	storageProtocol = "https"
-	// }
 	envs := []corev1.EnvVar{
 		{
 			Name:  "QUARKUS_HTTP_HOST",
@@ -1285,7 +1293,15 @@ func NewCoreContainer(cr *model.CryostatInstance, specs *ServiceSpecs, imageTag 
 		},
 		{
 			Name:  "QUARKUS_S3_ENDPOINT_OVERRIDE",
-			Value: fmt.Sprintf("%s://%s-storage.%s.svc.cluster.local:8333", storageProtocol, cr.Name, cr.InstallNamespace),
+			Value: specs.StorageURL.String(),
+		},
+		{
+			Name:  "QUARKUS_S3_SYNC_CLIENT_TLS_KEY_MANAGERS_PROVIDER_TYPE",
+			Value: "none", // do not present a TLS client certificate
+		},
+		{
+			Name:  "QUARKUS_S3_SYNC_CLIENT_TLS_TRUST_MANAGERS_PROVIDER_TYPE",
+			Value: "trust-all", // FIXME trust the certificate from the storage TLS secret
 		},
 		{
 			Name:  "QUARKUS_S3_PATH_STYLE_ACCESS",
@@ -1666,25 +1682,20 @@ func NewStorageContainer(cr *model.CryostatInstance, imageTag string, tls *TLSCo
 	})
 
 	livenessProbeScheme := corev1.URISchemeHTTP
+	livenessProbePort := constants.StoragePort
+	ports := []corev1.ContainerPort{
+		{
+			ContainerPort: constants.StoragePort,
+		},
+	}
 
-	// TODO
-	/**
+	args := []string{}
 	if tls != nil {
-		tlsEnvs := []corev1.EnvVar{
-			{
-				Name:  "S3_PORT_HTTPS",
-				Value: strconv.Itoa(int(constants.StoragePort)),
-			},
-			{
-				Name:  "S3_KEY_FILE",
-				Value: fmt.Sprintf("/var/run/secrets/operator.cryostat.io/%s/%s", tls.StorageSecret, corev1.TLSPrivateKeyKey),
-			},
-			{
-				Name:  "S3_CERT_FILE",
-				Value: fmt.Sprintf("/var/run/secrets/operator.cryostat.io/%s/%s", tls.StorageSecret, corev1.TLSCertKey),
-			},
-		}
-		envs = append(envs, tlsEnvs...)
+		args = append(args,
+			fmt.Sprintf("-s3.port.https=%d", constants.StoragePortTLS),
+			fmt.Sprintf("-s3.key.file=%s", fmt.Sprintf("/var/run/secrets/operator.cryostat.io/%s/%s", tls.StorageSecret, corev1.TLSPrivateKeyKey)),
+			fmt.Sprintf("-s3.cert.file=%s", fmt.Sprintf("/var/run/secrets/operator.cryostat.io/%s/%s", tls.StorageSecret, corev1.TLSCertKey)),
+		)
 
 		tlsSecretMount := corev1.VolumeMount{
 			Name:      "storage-tls-secret",
@@ -1694,13 +1705,11 @@ func NewStorageContainer(cr *model.CryostatInstance, imageTag string, tls *TLSCo
 
 		mounts = append(mounts, tlsSecretMount)
 		livenessProbeScheme = corev1.URISchemeHTTPS
-	} else {
-		envs = append(envs, corev1.EnvVar{
-			Name:  "QUARKUS_HTTP_PORT",
-			Value: strconv.Itoa(int(constants.StoragePort)),
+		livenessProbePort = constants.StoragePortTLS
+		ports = append(ports, corev1.ContainerPort{
+			ContainerPort: constants.StoragePortTLS,
 		})
 	}
-	**/
 
 	if cr.Spec.SecurityOptions != nil && cr.Spec.SecurityOptions.StorageSecurityContext != nil {
 		containerSc = cr.Spec.SecurityOptions.StorageSecurityContext
@@ -1716,7 +1725,7 @@ func NewStorageContainer(cr *model.CryostatInstance, imageTag string, tls *TLSCo
 
 	probeHandler := corev1.ProbeHandler{
 		HTTPGet: &corev1.HTTPGetAction{
-			Port:   intstr.IntOrString{IntVal: 8333},
+			Port:   intstr.IntOrString{IntVal: livenessProbePort},
 			Path:   "/status",
 			Scheme: livenessProbeScheme,
 		},
@@ -1729,11 +1738,8 @@ func NewStorageContainer(cr *model.CryostatInstance, imageTag string, tls *TLSCo
 		VolumeMounts:    mounts,
 		SecurityContext: containerSc,
 		Env:             envs,
-		Ports: []corev1.ContainerPort{
-			{
-				ContainerPort: constants.StoragePort,
-			},
-		},
+		Args:            args,
+		Ports:           ports,
 		LivenessProbe: &corev1.Probe{
 			ProbeHandler:     probeHandler,
 			FailureThreshold: 2,

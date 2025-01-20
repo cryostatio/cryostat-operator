@@ -342,7 +342,12 @@ type StorageServiceConfig struct {
 	// HTTP port number for the storage to be created by the operator.
 	// Defaults to 8333.
 	// +optional
-	HTTPPort      *int32 `json:"httpPort,omitempty"`
+	HTTPPort *int32 `json:"httpPort,omitempty"`
+	// HTTPS port number for the storage to be created by the operator.
+	// Only used if TLS is enabled.
+	// Defaults to 8334.
+	// +optional
+	HTTPSPort     *int32 `json:"httpsPort,omitempty"`
 	ServiceConfig `json:",inline"`
 }
 

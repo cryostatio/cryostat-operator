@@ -23,7 +23,6 @@ import (
 	operatorv1beta2 "github.com/cryostatio/cryostat-operator/api/v1beta2"
 	common "github.com/cryostatio/cryostat-operator/internal/controllers/common"
 	"github.com/cryostatio/cryostat-operator/internal/controllers/common/resource_definitions"
-	"github.com/cryostatio/cryostat-operator/internal/controllers/constants"
 	"github.com/cryostatio/cryostat-operator/internal/controllers/model"
 	routev1 "github.com/openshift/api/route/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -59,7 +58,7 @@ var ErrIngressNotReady = goerrors.New("ingress configuration not yet available")
 
 func (r *Reconciler) reconcileRoute(ctx context.Context, route *routev1.Route, svc *corev1.Service,
 	cr *model.CryostatInstance, tls *resource_definitions.TLSConfig, config *operatorv1beta2.NetworkConfiguration) (*url.URL, error) {
-	port, err := getHTTPPort(svc)
+	port, err := GetHTTPPort(svc)
 	if err != nil {
 		return nil, err
 	}
@@ -129,16 +128,6 @@ func getProtocol(route *routev1.Route) string {
 		return "http"
 	}
 	return "https"
-}
-
-func getHTTPPort(svc *corev1.Service) (*corev1.ServicePort, error) {
-	for _, port := range svc.Spec.Ports {
-		if port.Name == constants.HttpPortName {
-			return &port, nil
-		}
-	}
-	// Shouldn't happen
-	return nil, fmt.Errorf("no \"%s\"port in %s service in %s namespace", constants.HttpPortName, svc.Name, svc.Namespace)
 }
 
 func configureCoreRoute(cr *model.CryostatInstance) *operatorv1beta2.NetworkConfiguration {
