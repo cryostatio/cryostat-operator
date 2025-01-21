@@ -1,0 +1,23 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+    app: cryostat-plugin
+    app.kubernetes.io/instance: cryostat-plugin
+    app.kubernetes.io/name: cryostat-plugin
+    app.kubernetes.io/part-of: cryostat-plugin
+  name: cryostat-plugin
+rules:
+- apiGroups:
+  - operator.cryostat.io
+  resources:
+  - cryostats
+  verbs:
+  - get
+  - list
+- apiGroups:
+  - operator.cryostat.io
+  resources:
+  - cryostats/status
+  verbs:
+  - get
