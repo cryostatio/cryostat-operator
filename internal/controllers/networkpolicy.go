@@ -41,9 +41,13 @@ var RouteSelector = networkingv1.NetworkPolicyPeer{
 }
 
 func installationNamespaceSelector(cr *model.CryostatInstance) *metav1.LabelSelector {
+	return namespaceOriginSelector(cr.InstallNamespace)
+}
+
+func namespaceOriginSelector(namespace string) *metav1.LabelSelector {
 	return &metav1.LabelSelector{
 		MatchLabels: map[string]string{
-			"kubernetes.io/metadata.name": cr.InstallNamespace,
+			"kubernetes.io/metadata.name": namespace,
 		},
 	}
 }
@@ -79,6 +83,50 @@ func (r *Reconciler) reconcileCoreNetworkPolicy(ctx context.Context, cr *model.C
 				},
 			},
 		}
+		return nil
+	})
+}
+
+func (r *Reconciler) reconcileAgentProxyNetworkPolicy(ctx context.Context, cr *model.CryostatInstance) error {
+	if cr.Spec.NetworkPolicies != nil && cr.Spec.NetworkPolicies.AgentProxyConfig != nil && cr.Spec.NetworkPolicies.AgentProxyConfig.Disabled != nil && *cr.Spec.NetworkPolicies.AgentProxyConfig.Disabled {
+		return nil
+	}
+
+	networkPolicy := networkingv1.NetworkPolicy{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      fmt.Sprintf("%s-agent-internal-ingress", cr.Name),
+			Namespace: cr.InstallNamespace,
+		},
+		Spec: networkingv1.NetworkPolicySpec{
+			PodSelector: metav1.LabelSelector{
+				// the agent gateway proxy is a container within the same Pod as Cryostat itself
+				MatchLabels: resources.CorePodLabels(cr),
+			},
+			Ingress: []networkingv1.NetworkPolicyIngressRule{
+				networkingv1.NetworkPolicyIngressRule{
+					From: []networkingv1.NetworkPolicyPeer{
+						{
+							NamespaceSelector: &metav1.LabelSelector{
+								MatchExpressions: []metav1.LabelSelectorRequirement{
+									{
+										Key:      "kubernetes.io/metadata.name",
+										Operator: metav1.LabelSelectorOpIn,
+										Values:   cr.Spec.TargetNamespaces,
+									},
+								},
+							},
+						},
+					},
+					Ports: []networkingv1.NetworkPolicyPort{
+						networkingv1.NetworkPolicyPort{
+							Port: &intstr.IntOrString{IntVal: constants.AgentProxyContainerPort},
+						},
+					},
+				},
+			},
+		},
+	}
+	return r.createOrUpdatePolicy(ctx, &networkPolicy, cr.Object, func() error {
 		return nil
 	})
 }
