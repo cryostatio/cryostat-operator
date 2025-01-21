@@ -13,5 +13,4 @@ roleRef:
   name: cryostat-plugin-patcher
 subjects:
 - kind: ServiceAccount
-  name: cryostat-plugin-patcher
-  namespace: plugin--cryostat-plugin
+  name: service-account
