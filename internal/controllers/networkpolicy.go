@@ -22,6 +22,7 @@ import (
 	"github.com/cryostatio/cryostat-operator/internal/controllers/constants"
 	"github.com/cryostatio/cryostat-operator/internal/controllers/model"
 	networkingv1 "k8s.io/api/networking/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -48,57 +49,60 @@ func installationNamespaceSelector(cr *model.CryostatInstance) *metav1.LabelSele
 }
 
 func (r *Reconciler) reconcileCoreNetworkPolicy(ctx context.Context, cr *model.CryostatInstance) error {
-	if cr.Spec.NetworkPolicies != nil && cr.Spec.NetworkPolicies.CoreConfig != nil && cr.Spec.NetworkPolicies.CoreConfig.Disabled != nil && *cr.Spec.NetworkPolicies.CoreConfig.Disabled {
-		return nil
-	}
-
-	networkPolicy := networkingv1.NetworkPolicy{
+	networkPolicy := &networkingv1.NetworkPolicy{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      fmt.Sprintf("%s-internal-ingress", cr.Name),
 			Namespace: cr.InstallNamespace,
 		},
-		Spec: networkingv1.NetworkPolicySpec{
+	}
+
+	if cr.Spec.NetworkPolicies != nil && cr.Spec.NetworkPolicies.CoreConfig != nil && cr.Spec.NetworkPolicies.CoreConfig.Disabled != nil && *cr.Spec.NetworkPolicies.CoreConfig.Disabled {
+		return r.deletePolicy(ctx, networkPolicy)
+	}
+
+	return r.createOrUpdatePolicy(ctx, networkPolicy, cr.Object, func() error {
+		networkPolicy.Spec = networkingv1.NetworkPolicySpec{
 			PodSelector: metav1.LabelSelector{
 				MatchLabels: resources.CorePodLabels(cr),
 			},
 			Ingress: []networkingv1.NetworkPolicyIngressRule{
-				networkingv1.NetworkPolicyIngressRule{
+				{
 					From: []networkingv1.NetworkPolicyPeer{
 						AllNamespacesSelector,
 						RouteSelector,
 					},
 					Ports: []networkingv1.NetworkPolicyPort{
-						networkingv1.NetworkPolicyPort{
+						{
 							Port: &intstr.IntOrString{IntVal: constants.AuthProxyHttpContainerPort},
 						},
 					},
 				},
 			},
-		},
-	}
-	return r.createOrUpdatePolicy(ctx, &networkPolicy, cr.Object, func() error {
+		}
 		return nil
 	})
 }
 
 func (r *Reconciler) reconcileDatabaseNetworkPolicy(ctx context.Context, cr *model.CryostatInstance) error {
-	if cr.Spec.NetworkPolicies != nil && cr.Spec.NetworkPolicies.DatabaseConfig != nil && cr.Spec.NetworkPolicies.DatabaseConfig.Disabled != nil && *cr.Spec.NetworkPolicies.DatabaseConfig.Disabled {
-		return nil
-	}
-
-	networkPolicy := networkingv1.NetworkPolicy{
+	networkPolicy := &networkingv1.NetworkPolicy{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      fmt.Sprintf("%s-db-internal-ingress", cr.Name),
 			Namespace: cr.InstallNamespace,
 		},
-		Spec: networkingv1.NetworkPolicySpec{
+	}
+	if cr.Spec.NetworkPolicies != nil && cr.Spec.NetworkPolicies.DatabaseConfig != nil && cr.Spec.NetworkPolicies.DatabaseConfig.Disabled != nil && *cr.Spec.NetworkPolicies.DatabaseConfig.Disabled {
+		return r.deletePolicy(ctx, networkPolicy)
+	}
+
+	return r.createOrUpdatePolicy(ctx, networkPolicy, cr.Object, func() error {
+		networkPolicy.Spec = networkingv1.NetworkPolicySpec{
 			PodSelector: metav1.LabelSelector{
 				MatchLabels: resources.DatabasePodLabels(cr),
 			},
 			Ingress: []networkingv1.NetworkPolicyIngressRule{
-				networkingv1.NetworkPolicyIngressRule{
+				{
 					From: []networkingv1.NetworkPolicyPeer{
-						networkingv1.NetworkPolicyPeer{
+						{
 							NamespaceSelector: installationNamespaceSelector(cr),
 							PodSelector: &metav1.LabelSelector{
 								MatchLabels: resources.CorePodLabels(cr),
@@ -106,37 +110,38 @@ func (r *Reconciler) reconcileDatabaseNetworkPolicy(ctx context.Context, cr *mod
 						},
 					},
 					Ports: []networkingv1.NetworkPolicyPort{
-						networkingv1.NetworkPolicyPort{
+						{
 							Port: &intstr.IntOrString{IntVal: constants.DatabasePort},
 						},
 					},
 				},
 			},
-		},
-	}
-	return r.createOrUpdatePolicy(ctx, &networkPolicy, cr.Object, func() error {
+		}
 		return nil
 	})
 }
 
 func (r *Reconciler) reconcileStorageNetworkPolicy(ctx context.Context, cr *model.CryostatInstance) error {
-	if cr.Spec.NetworkPolicies != nil && cr.Spec.NetworkPolicies.StorageConfig != nil && cr.Spec.NetworkPolicies.StorageConfig.Disabled != nil && *cr.Spec.NetworkPolicies.StorageConfig.Disabled {
-		return nil
-	}
-
-	networkPolicy := networkingv1.NetworkPolicy{
+	networkPolicy := &networkingv1.NetworkPolicy{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      fmt.Sprintf("%s-storage-internal-ingress", cr.Name),
 			Namespace: cr.InstallNamespace,
 		},
-		Spec: networkingv1.NetworkPolicySpec{
+	}
+
+	if cr.Spec.NetworkPolicies != nil && cr.Spec.NetworkPolicies.StorageConfig != nil && cr.Spec.NetworkPolicies.StorageConfig.Disabled != nil && *cr.Spec.NetworkPolicies.StorageConfig.Disabled {
+		return r.deletePolicy(ctx, networkPolicy)
+	}
+
+	return r.createOrUpdatePolicy(ctx, networkPolicy, cr.Object, func() error {
+		networkPolicy.Spec = networkingv1.NetworkPolicySpec{
 			PodSelector: metav1.LabelSelector{
 				MatchLabels: resources.StoragePodLabels(cr),
 			},
 			Ingress: []networkingv1.NetworkPolicyIngressRule{
-				networkingv1.NetworkPolicyIngressRule{
+				{
 					From: []networkingv1.NetworkPolicyPeer{
-						networkingv1.NetworkPolicyPeer{
+						{
 							NamespaceSelector: installationNamespaceSelector(cr),
 							PodSelector: &metav1.LabelSelector{
 								MatchLabels: resources.CorePodLabels(cr),
@@ -144,37 +149,38 @@ func (r *Reconciler) reconcileStorageNetworkPolicy(ctx context.Context, cr *mode
 						},
 					},
 					Ports: []networkingv1.NetworkPolicyPort{
-						networkingv1.NetworkPolicyPort{
+						{
 							Port: &intstr.IntOrString{IntVal: constants.StoragePort},
 						},
 					},
 				},
 			},
-		},
-	}
-	return r.createOrUpdatePolicy(ctx, &networkPolicy, cr.Object, func() error {
+		}
 		return nil
 	})
 }
 
 func (r *Reconciler) reconcileReportsNetworkPolicy(ctx context.Context, cr *model.CryostatInstance) error {
-	if cr.Spec.NetworkPolicies != nil && cr.Spec.NetworkPolicies.ReportsConfig != nil && cr.Spec.NetworkPolicies.ReportsConfig.Disabled != nil && *cr.Spec.NetworkPolicies.ReportsConfig.Disabled {
-		return nil
-	}
-
-	networkPolicy := networkingv1.NetworkPolicy{
+	networkPolicy := &networkingv1.NetworkPolicy{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      fmt.Sprintf("%s-reports-internal-ingress", cr.Name),
 			Namespace: cr.InstallNamespace,
 		},
-		Spec: networkingv1.NetworkPolicySpec{
+	}
+
+	if cr.Spec.NetworkPolicies != nil && cr.Spec.NetworkPolicies.ReportsConfig != nil && cr.Spec.NetworkPolicies.ReportsConfig.Disabled != nil && *cr.Spec.NetworkPolicies.ReportsConfig.Disabled {
+		return r.deletePolicy(ctx, networkPolicy)
+	}
+
+	return r.createOrUpdatePolicy(ctx, networkPolicy, cr.Object, func() error {
+		networkPolicy.Spec = networkingv1.NetworkPolicySpec{
 			PodSelector: metav1.LabelSelector{
 				MatchLabels: resources.ReportsPodLabels(cr),
 			},
 			Ingress: []networkingv1.NetworkPolicyIngressRule{
-				networkingv1.NetworkPolicyIngressRule{
+				{
 					From: []networkingv1.NetworkPolicyPeer{
-						networkingv1.NetworkPolicyPeer{
+						{
 							NamespaceSelector: installationNamespaceSelector(cr),
 							PodSelector: &metav1.LabelSelector{
 								MatchLabels: resources.CorePodLabels(cr),
@@ -182,15 +188,13 @@ func (r *Reconciler) reconcileReportsNetworkPolicy(ctx context.Context, cr *mode
 						},
 					},
 					Ports: []networkingv1.NetworkPolicyPort{
-						networkingv1.NetworkPolicyPort{
+						{
 							Port: &intstr.IntOrString{IntVal: constants.ReportsContainerPort},
 						},
 					},
 				},
 			},
-		},
-	}
-	return r.createOrUpdatePolicy(ctx, &networkPolicy, cr.Object, func() error {
+		}
 		return nil
 	})
 }
@@ -210,6 +214,16 @@ func (r *Reconciler) createOrUpdatePolicy(ctx context.Context, networkPolicy *ne
 	if err != nil {
 		return err
 	}
-	r.Log.Info(fmt.Sprintf("Service %s", op), "name", networkPolicy.Name, "namespace", networkPolicy.Namespace)
+	r.Log.Info(fmt.Sprintf("Network policy %s", op), "name", networkPolicy.Name, "namespace", networkPolicy.Namespace)
+	return nil
+}
+
+func (r *Reconciler) deletePolicy(ctx context.Context, networkPolicy *networkingv1.NetworkPolicy) error {
+	err := r.Client.Delete(ctx, networkPolicy)
+	if err != nil && !errors.IsNotFound(err) {
+		r.Log.Error(err, "Could not delete network policy", "name", networkPolicy.Name, "namespace", networkPolicy.Namespace)
+		return err
+	}
+	r.Log.Info("Network policy deleted", "name", networkPolicy.Name, "namespace", networkPolicy.Namespace)
 	return nil
 }
