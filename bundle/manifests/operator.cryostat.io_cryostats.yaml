@@ -5794,6 +5794,41 @@ spec:
                         type: object
                     type: object
                 type: object
+              networkPolicies:
+                description: Options to customize the NetworkPolicy objects created
+                  for Cryostat's various Services.
+                properties:
+                  coreConfig:
+                    description: NetworkPolicy configuration for the Cryostat application
+                      service.
+                    properties:
+                      disabled:
+                        description: Disable the NetworkPolicy for a given service.
+                        type: boolean
+                    type: object
+                  databaseConfig:
+                    description: NetworkPolicy configuration for the database service.
+                    properties:
+                      disabled:
+                        description: Disable the NetworkPolicy for a given service.
+                        type: boolean
+                    type: object
+                  reportsConfig:
+                    description: NetworkPolicy configuration for the cryostat-reports
+                      service.
+                    properties:
+                      disabled:
+                        description: Disable the NetworkPolicy for a given service.
+                        type: boolean
+                    type: object
+                  storageConfig:
+                    description: NetworkPolicy configuration for the storage service.
+                    properties:
+                      disabled:
+                        description: Disable the NetworkPolicy for a given service.
+                        type: boolean
+                    type: object
+                type: object
               operandMetadata:
                 description: Options to configure the Cryostat deployments and pods
                   metadata

@@ -13,3 +13,4 @@ spec:
       spec: {}
   reportOptions:
     replicas: 0
+  networkPolicies: {}

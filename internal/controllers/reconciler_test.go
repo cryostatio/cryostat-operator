@@ -162,9 +162,12 @@ func resourceChecks() []resourceCheck {
 		{(*cryostatTestInput).expectDatabaseSecret, "database secret"},
 		{(*cryostatTestInput).expectStorageSecret, "object storage secret"},
 		{(*cryostatTestInput).expectCoreService, "core service"},
+		{(*cryostatTestInput).expectCoreNetworkPolicy, "core networkpolicy"},
 		{(*cryostatTestInput).expectMainDeployment, "main deployment"},
 		{(*cryostatTestInput).expectDatabaseDeployment, "database deployment"},
+		{(*cryostatTestInput).expectDatabaseNetworkPolicy, "database networkpolicy"},
 		{(*cryostatTestInput).expectStorageDeployment, "storage deployment"},
+		{(*cryostatTestInput).expectStorageNetworkPolicy, "storage networkpolicy"},
 		{(*cryostatTestInput).expectLockConfigMap, "lock config map"},
 		{(*cryostatTestInput).expectAgentProxyConfigMap, "agent proxy config map"},
 		{(*cryostatTestInput).expectAgentProxyService, "agent proxy service"},
@@ -537,6 +540,42 @@ func (c *controllerTest) commonTests() {
 				t.checkRoute(expected)
 			})
 		})
+		Context("with networkpolicies disabled", func() {
+			var cr *model.CryostatInstance
+			BeforeEach(func() {
+				cr = t.NewCryostat()
+				disabled := true
+				cr.Spec.NetworkPolicies = &operatorv1beta2.NetworkPoliciesList{
+					CoreConfig: &operatorv1beta2.NetworkPolicyConfig{
+						Disabled: &disabled,
+					},
+					DatabaseConfig: &operatorv1beta2.NetworkPolicyConfig{
+						Disabled: &disabled,
+					},
+					StorageConfig: &operatorv1beta2.NetworkPolicyConfig{
+						Disabled: &disabled,
+					},
+					ReportsConfig: &operatorv1beta2.NetworkPolicyConfig{
+						Disabled: &disabled,
+					},
+				}
+			})
+			JustBeforeEach(func() {
+				t.reconcileCryostatFully()
+			})
+			It("should not create cryostat networkpolicy", func() {
+				t.expectNoNetworkPolicy(t.NewCryostatNetworkPolicy().Name)
+			})
+			It("should not create database networkpolicy", func() {
+				t.expectNoNetworkPolicy(t.NewDatabaseNetworkPolicy().Name)
+			})
+			It("should not create storage networkpolicy", func() {
+				t.expectNoNetworkPolicy(t.NewStorageNetworkPolicy().Name)
+			})
+			It("should not create reports networkpolicy", func() {
+				t.expectNoNetworkPolicy(t.NewReportsNetworkPolicy().Name)
+			})
+		})
 		Context("with report generator service", func() {
 			var cr *model.CryostatInstance
 			BeforeEach(func() {
@@ -559,6 +598,7 @@ func (c *controllerTest) commonTests() {
 					t.expectStorageDeployment()
 					t.checkReportsDeployment()
 					t.checkService(t.NewReportsService())
+					t.checkNetworkPolicy(t.NewReportsNetworkPolicy())
 				})
 			})
 			Context("with Scheduling options", func() {
@@ -580,6 +620,7 @@ func (c *controllerTest) commonTests() {
 						t.expectStorageDeployment()
 						t.checkReportsDeployment()
 						t.checkService(t.NewReportsService())
+						t.checkNetworkPolicy(t.NewReportsNetworkPolicy())
 					})
 				})
 				Context("with low limits", func() {
@@ -590,6 +631,7 @@ func (c *controllerTest) commonTests() {
 						t.expectMainDeployment()
 						t.checkReportsDeployment()
 						t.checkService(t.NewReportsService())
+						t.checkNetworkPolicy(t.NewReportsNetworkPolicy())
 					})
 				})
 			})
@@ -652,6 +694,7 @@ func (c *controllerTest) commonTests() {
 				t.expectMainDeployment()
 				t.checkReportsDeployment()
 				t.checkService(t.NewReportsService())
+				t.checkNetworkPolicy(t.NewReportsNetworkPolicy())
 			})
 		})
 		Context("Switching from 1 report sidecar to 2", func() {
@@ -674,6 +717,7 @@ func (c *controllerTest) commonTests() {
 				t.expectMainDeployment()
 				t.checkReportsDeployment()
 				t.checkService(t.NewReportsService())
+				t.checkNetworkPolicy(t.NewReportsNetworkPolicy())
 			})
 		})
 		Context("Switching from 2 report sidecars to 1", func() {
@@ -696,6 +740,7 @@ func (c *controllerTest) commonTests() {
 				t.expectMainDeployment()
 				t.checkReportsDeployment()
 				t.checkService(t.NewReportsService())
+				t.checkNetworkPolicy(t.NewReportsNetworkPolicy())
 			})
 		})
 		Context("Switching from 1 report sidecar to 0", func() {
@@ -2211,6 +2256,7 @@ func (c *controllerTest) commonTests() {
 			})
 			It("should create the reports service", func() {
 				t.checkService(t.NewReportsService())
+				t.checkNetworkPolicy(t.NewReportsNetworkPolicy())
 			})
 		})
 		Context("with security options", func() {
@@ -2964,6 +3010,22 @@ func (t *cryostatTestInput) expectCoreService() {
 	t.checkService(t.NewCryostatService())
 }
 
+func (t *cryostatTestInput) expectCoreNetworkPolicy() {
+	t.checkNetworkPolicy(t.NewCryostatNetworkPolicy())
+}
+
+func (t *cryostatTestInput) expectDatabaseNetworkPolicy() {
+	t.checkNetworkPolicy(t.NewDatabaseNetworkPolicy())
+}
+
+func (t *cryostatTestInput) expectStorageNetworkPolicy() {
+	t.checkNetworkPolicy(t.NewStorageNetworkPolicy())
+}
+
+func (t *cryostatTestInput) expectReportsNetworkPolicy() {
+	t.checkNetworkPolicy(t.NewReportsNetworkPolicy())
+}
+
 func (t *cryostatTestInput) expectAgentProxyService() {
 	t.checkService(t.NewAgentProxyService())
 }
@@ -3026,6 +3088,15 @@ func (t *cryostatTestInput) checkService(expected *corev1.Service) {
 	t.checkServiceSpec(service, expected)
 }
 
+func (t *cryostatTestInput) checkNetworkPolicy(expected *netv1.NetworkPolicy) {
+	policy := &netv1.NetworkPolicy{}
+	err := t.Client.Get(context.Background(), types.NamespacedName{Name: expected.Name, Namespace: expected.Namespace}, policy)
+	Expect(err).ToNot(HaveOccurred())
+
+	t.checkMetadata(policy, expected)
+	t.checkNetworkPolicySpec(policy, expected)
+}
+
 func (t *cryostatTestInput) checkServiceNoOwner(expected *corev1.Service) {
 	service := &corev1.Service{}
 	err := t.Client.Get(context.Background(), types.NamespacedName{Name: expected.Name, Namespace: expected.Namespace}, service)
@@ -3042,9 +3113,20 @@ func (t *cryostatTestInput) checkServiceSpec(service *corev1.Service, expected *
 	Expect(service.Spec.ClusterIP).To(Equal(expected.Spec.ClusterIP))
 }
 
+func (t *cryostatTestInput) checkNetworkPolicySpec(policy *netv1.NetworkPolicy, expected *netv1.NetworkPolicy) {
+	Expect(policy.Spec.PodSelector).To(Equal(expected.Spec.PodSelector))
+	Expect(policy.Spec.Ingress).To(Equal(expected.Spec.Ingress))
+}
+
 func (t *cryostatTestInput) expectNoService(svcName string) {
 	service := &corev1.Service{}
 	err := t.Client.Get(context.Background(), types.NamespacedName{Name: svcName, Namespace: t.Namespace}, service)
+	Expect(kerrors.IsNotFound(err)).To(BeTrue())
+}
+
+func (t *cryostatTestInput) expectNoNetworkPolicy(policyName string) {
+	policy := &netv1.NetworkPolicy{}
+	err := t.Client.Get(context.Background(), types.NamespacedName{Name: policyName, Namespace: t.Namespace}, policy)
 	Expect(kerrors.IsNotFound(err)).To(BeTrue())
 }
 

@@ -53,6 +53,10 @@ type CryostatSpec struct {
 	// +optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	ServiceOptions *ServiceConfigList `json:"serviceOptions,omitempty"`
+	// Options to customize the NetworkPolicy objects created for Cryostat's various Services.
+	// +optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec
+	NetworkPolicies *NetworkPoliciesList `json:"networkPolicies,omitempty"`
 	// Options to control how the operator exposes the application outside of the cluster,
 	// such as using an Ingress or Route.
 	// +optional
@@ -370,6 +374,30 @@ type ServiceConfigList struct {
 	// Specification for the service responsible for agents to communicate with Cryostat.
 	// +optional
 	AgentConfig *AgentServiceConfig `json:"agentConfig,omitempty"`
+}
+
+// NetworkPoliciesList holds the configurations for NetworkPolicy
+// objects for each service created by the operator.
+type NetworkPoliciesList struct {
+	// NetworkPolicy configuration for the Cryostat application service.
+	// +optional
+	CoreConfig *NetworkPolicyConfig `json:"coreConfig,omitempty"`
+	// NetworkPolicy configuration for the cryostat-reports service.
+	// +optional
+	ReportsConfig *NetworkPolicyConfig `json:"reportsConfig,omitempty"`
+	// NetworkPolicy configuration for the database service.
+	// +optional
+	DatabaseConfig *NetworkPolicyConfig `json:"databaseConfig,omitempty"`
+	// NetworkPolicy configuration for the storage service.
+	// +optional
+	StorageConfig *NetworkPolicyConfig `json:"storageConfig,omitempty"`
+}
+
+type NetworkPolicyConfig struct {
+	// Disable the NetworkPolicy for a given service.
+	// +optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Disable NetworkPolicy creation",xDescriptors={"urn:alm:descriptor:com.tectonic.ui:booleanSwitch"}
+	Disabled *bool `json:"disabled,omitempty"`
 }
 
 // NetworkConfiguration provides customization for how to expose a Cryostat
