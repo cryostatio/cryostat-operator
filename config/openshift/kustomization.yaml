@@ -7,6 +7,5 @@ resources:
 - console-plugin/consoleplugin-cryostat-plugin.yaml
 - console-plugin/deployment-cryostat-plugin.yaml
 - console-plugin/job-cryostat-plugin-patcher.yaml
-- console-plugin/serviceaccount-cryostat-plugin-patcher.yaml
 - console-plugin/serviceaccount-cryostat-plugin.yaml
 - console-plugin/service-cryostat-plugin.yaml
