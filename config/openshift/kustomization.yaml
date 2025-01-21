@@ -1,3 +1,12 @@
 resources:
 - cryostat-quickstart.yaml
-- console-plugin/*.yaml
+- console-plugin/clusterrolebinding-cryostat-plugin-patcher.yaml
+- console-plugin/clusterrolebinding-cryostat-plugin.yaml
+- console-plugin/clusterrole-cryostat-plugin-patcher.yaml
+- console-plugin/clusterrole-cryostat-plugin.yaml
+- console-plugin/consoleplugin-cryostat-plugin.yaml
+- console-plugin/deployment-cryostat-plugin.yaml
+- console-plugin/job-cryostat-plugin-patcher.yaml
+- console-plugin/serviceaccount-cryostat-plugin-patcher.yaml
+- console-plugin/serviceaccount-cryostat-plugin.yaml
+- console-plugin/service-cryostat-plugin.yaml
