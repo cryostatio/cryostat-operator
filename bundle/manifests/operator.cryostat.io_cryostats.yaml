@@ -5798,9 +5798,9 @@ spec:
                 description: Options to customize the NetworkPolicy objects created
                   for Cryostat's various Services.
                 properties:
-                  agentProxyConfig:
+                  agentGatewayConfig:
                     description: NetworkPolicy configuration for the Cryostat proxy
-                      used for Agent authentication.
+                      gateway used for Agent authentication.
                     properties:
                       disabled:
                         description: Disable the NetworkPolicy for a given service.

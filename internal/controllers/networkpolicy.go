@@ -87,7 +87,7 @@ func (r *Reconciler) reconcileCoreNetworkPolicy(ctx context.Context, cr *model.C
 	})
 }
 
-func (r *Reconciler) reconcileAgentProxyNetworkPolicy(ctx context.Context, cr *model.CryostatInstance) error {
+func (r *Reconciler) reconcileAgentGatewayNetworkPolicy(ctx context.Context, cr *model.CryostatInstance) error {
 	networkPolicy := &networkingv1.NetworkPolicy{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      fmt.Sprintf("%s-agent-internal-ingress", cr.Name),
@@ -95,14 +95,14 @@ func (r *Reconciler) reconcileAgentProxyNetworkPolicy(ctx context.Context, cr *m
 		},
 	}
 
-	if cr.Spec.NetworkPolicies != nil && cr.Spec.NetworkPolicies.AgentProxyConfig != nil && cr.Spec.NetworkPolicies.AgentProxyConfig.Disabled != nil && *cr.Spec.NetworkPolicies.AgentProxyConfig.Disabled {
+	if cr.Spec.NetworkPolicies != nil && cr.Spec.NetworkPolicies.AgentGatewayConfig != nil && cr.Spec.NetworkPolicies.AgentGatewayConfig.Disabled != nil && *cr.Spec.NetworkPolicies.AgentGatewayConfig.Disabled {
 		return r.deletePolicy(ctx, networkPolicy)
 	}
 
 	return r.createOrUpdatePolicy(ctx, networkPolicy, cr.Object, func() error {
 		networkPolicy.Spec = networkingv1.NetworkPolicySpec{
 			PodSelector: metav1.LabelSelector{
-				// the agent gateway proxy is a container within the same Pod as Cryostat itself
+				// the agent gateway is a container within the same Pod as Cryostat itself
 				MatchLabels: resources.CorePodLabels(cr),
 			},
 			Ingress: []networkingv1.NetworkPolicyIngressRule{

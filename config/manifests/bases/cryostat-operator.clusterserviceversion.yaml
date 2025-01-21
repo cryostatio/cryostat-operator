@@ -171,7 +171,7 @@ spec:
         path: networkPolicies
       - description: Disable the NetworkPolicy for a given service.
         displayName: Disable NetworkPolicy creation
-        path: networkPolicies.agentProxyConfig.disabled
+        path: networkPolicies.agentGatewayConfig.disabled
         x-descriptors:
         - urn:alm:descriptor:com.tectonic.ui:booleanSwitch
       - description: Disable the NetworkPolicy for a given service.

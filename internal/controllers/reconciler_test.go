@@ -163,7 +163,7 @@ func resourceChecks() []resourceCheck {
 		{(*cryostatTestInput).expectStorageSecret, "object storage secret"},
 		{(*cryostatTestInput).expectCoreService, "core service"},
 		{(*cryostatTestInput).expectCoreNetworkPolicy, "core networkpolicy"},
-		{(*cryostatTestInput).expectAgentProxyNetworkPolicy, "agentproxy networkpolicy"},
+		{(*cryostatTestInput).expectAgentGatewayNetworkPolicy, "agent gateway networkpolicy"},
 		{(*cryostatTestInput).expectMainDeployment, "main deployment"},
 		{(*cryostatTestInput).expectDatabaseDeployment, "database deployment"},
 		{(*cryostatTestInput).expectDatabaseNetworkPolicy, "database networkpolicy"},
@@ -3015,8 +3015,8 @@ func (t *cryostatTestInput) expectCoreNetworkPolicy() {
 	t.checkNetworkPolicy(t.NewCryostatNetworkPolicy())
 }
 
-func (t *cryostatTestInput) expectAgentProxyNetworkPolicy() {
-	t.checkNetworkPolicy(t.NewAgentProxyNetworkPolicy())
+func (t *cryostatTestInput) expectAgentGatewayNetworkPolicy() {
+	t.checkNetworkPolicy(t.NewAgentGatewayNetworkPolicy())
 }
 
 func (t *cryostatTestInput) expectDatabaseNetworkPolicy() {

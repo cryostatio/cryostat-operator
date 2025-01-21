@@ -832,7 +832,7 @@ func (r *TestResources) NewCryostatNetworkPolicy() *netv1.NetworkPolicy {
 	}
 }
 
-func (r *TestResources) NewAgentProxyNetworkPolicy() *netv1.NetworkPolicy {
+func (r *TestResources) NewAgentGatewayNetworkPolicy() *netv1.NetworkPolicy {
 	return &netv1.NetworkPolicy{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      fmt.Sprintf("%s-agent-internal-ingress", r.Name),
