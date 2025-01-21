@@ -469,6 +469,11 @@ func (in *NetworkPoliciesList) DeepCopyInto(out *NetworkPoliciesList) {
 		*out = new(NetworkPolicyConfig)
 		(*in).DeepCopyInto(*out)
 	}
+	if in.AgentProxyConfig != nil {
+		in, out := &in.AgentProxyConfig, &out.AgentProxyConfig
+		*out = new(NetworkPolicyConfig)
+		(*in).DeepCopyInto(*out)
+	}
 	if in.ReportsConfig != nil {
 		in, out := &in.ReportsConfig, &out.ReportsConfig
 		*out = new(NetworkPolicyConfig)
