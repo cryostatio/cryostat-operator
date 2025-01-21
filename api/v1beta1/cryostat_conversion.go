@@ -97,9 +97,11 @@ func convertStorageOptionsTo(srcOpts *StorageConfiguration) *operatorv1beta2.Sto
 		dstOpts = &operatorv1beta2.StorageConfiguration{}
 		if srcOpts.PVC != nil {
 			dstOpts.PVC = &operatorv1beta2.PersistentVolumeClaimConfig{
-				Annotations: srcOpts.PVC.Annotations,
-				Labels:      srcOpts.PVC.Labels,
-				Spec:        srcOpts.PVC.Spec,
+				Spec: srcOpts.PVC.Spec,
+				ResourceMetadata: operatorv1beta2.ResourceMetadata{
+					Annotations: srcOpts.PVC.Annotations,
+					Labels:      srcOpts.PVC.Labels,
+				},
 			}
 		}
 		if srcOpts.EmptyDir != nil {
@@ -136,8 +138,10 @@ func convertServiceOptionsTo(srcOpts *ServiceConfigList) *operatorv1beta2.Servic
 func convertServiceConfigTo(srcConfig ServiceConfig) operatorv1beta2.ServiceConfig {
 	return operatorv1beta2.ServiceConfig{
 		ServiceType: srcConfig.ServiceType,
-		Annotations: srcConfig.Annotations,
-		Labels:      srcConfig.Labels,
+		ResourceMetadata: operatorv1beta2.ResourceMetadata{
+			Annotations: srcConfig.Annotations,
+			Labels:      srcConfig.Labels,
+		},
 	}
 }
 
@@ -156,8 +160,10 @@ func convertNetworkConfigTo(srcConfig *NetworkConfiguration) *operatorv1beta2.Ne
 	if srcConfig != nil {
 		dstConfig = &operatorv1beta2.NetworkConfiguration{
 			IngressSpec: srcConfig.IngressSpec,
-			Annotations: srcConfig.Annotations,
-			Labels:      srcConfig.Labels,
+			ResourceMetadata: operatorv1beta2.ResourceMetadata{
+				Annotations: srcConfig.Annotations,
+				Labels:      srcConfig.Labels,
+			},
 		}
 	}
 	return dstConfig

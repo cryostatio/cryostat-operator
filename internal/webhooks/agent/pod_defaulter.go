@@ -97,6 +97,12 @@ func (r *podMutator) Default(ctx context.Context, obj runtime.Object) error {
 	// TODO make configurable with label
 	container := &pod.Spec.Containers[0]
 
+	// Determine the callback port number
+	port, err := getAgentCallbackPort(pod.Labels)
+	if err != nil {
+		return err
+	}
+
 	// Add init container
 	nonRoot := true
 	imageTag := r.getImageTag()
@@ -173,10 +179,21 @@ func (r *podMutator) Default(ctx context.Context, obj runtime.Object) error {
 			Name:  "CRYOSTAT_AGENT_API_WRITES_ENABLED",
 			Value: "true", // TODO default to writes enabled, separate label?
 		},
+		corev1.EnvVar{
+			Name:  "CRYOSTAT_AGENT_WEBSERVER_PORT",
+			Value: strconv.Itoa(int(*port)),
+		},
 	)
 
+	// Append a port for the callback server
+	container.Ports = append(container.Ports, corev1.ContainerPort{
+		Name:          constants.AgentCallbackPortName,
+		Protocol:      corev1.ProtocolTCP,
+		ContainerPort: *port,
+	})
+
 	// Append callback environment variables
-	container.Env = append(container.Env, r.callbackEnv(crModel, pod.Namespace, tlsEnabled)...)
+	container.Env = append(container.Env, r.callbackEnv(crModel, pod.Namespace, tlsEnabled, *port)...)
 
 	if tlsEnabled {
 		// Mount the certificate volume
@@ -276,33 +293,45 @@ func cryostatURL(cr *model.CryostatInstance, tls bool) string {
 	if !tls {
 		scheme = "http"
 	}
-	return fmt.Sprintf("%s://%s.%s.svc:%d", scheme, common.AgentProxyServiceName(cr), cr.InstallNamespace,
-		getAgentProxyHTTPPort(cr))
+	return fmt.Sprintf("%s://%s.%s.svc:%d", scheme, common.AgentGatewayServiceName(cr), cr.InstallNamespace,
+		getAgentGatewayHTTPPort(cr))
 }
 
-func getAgentProxyHTTPPort(cr *model.CryostatInstance) int32 {
+func getAgentGatewayHTTPPort(cr *model.CryostatInstance) int32 {
 	port := constants.AgentProxyContainerPort
-	if cr.Spec.ServiceOptions != nil && cr.Spec.ServiceOptions.AgentConfig != nil && cr.Spec.ServiceOptions.AgentConfig.HTTPPort != nil {
-		port = *cr.Spec.ServiceOptions.AgentConfig.HTTPPort
+	if cr.Spec.ServiceOptions != nil && cr.Spec.ServiceOptions.AgentGatewayConfig != nil &&
+		cr.Spec.ServiceOptions.AgentGatewayConfig.HTTPPort != nil {
+		port = *cr.Spec.ServiceOptions.AgentGatewayConfig.HTTPPort
 	}
 	return port
 }
 
-func (r *podMutator) callbackEnv(cr *model.CryostatInstance, namespace string, tls bool) []corev1.EnvVar {
+func getAgentCallbackPort(labels map[string]string) (*int32, error) {
+	result := constants.AgentCallbackContainerPort
+	port, pres := labels[constants.AgentLabelCallbackPort]
+	if pres {
+		// Parse the label value into an int32 and return an error if invalid
+		parsed, err := strconv.ParseInt(port, 10, 32)
+		if err != nil {
+			return nil, fmt.Errorf("invalid label value for \"%s\": %s", constants.AgentLabelCallbackPort, err.Error())
+		}
+		result = int32(parsed)
+	}
+	return &result, nil
+}
+
+func (r *podMutator) callbackEnv(cr *model.CryostatInstance, namespace string, tls bool, containerPort int32) []corev1.EnvVar {
 	scheme := "https"
 	if !tls {
 		scheme = "http"
 	}
-
-	// TODO make customizable
-	port := 9977
 
 	var envs []corev1.EnvVar
 	if cr.Spec.AgentOptions != nil && cr.Spec.AgentOptions.DisableHostnameVerification {
 		envs = []corev1.EnvVar{
 			{
 				Name:  "CRYOSTAT_AGENT_CALLBACK",
-				Value: fmt.Sprintf("%s://$(%s):%d", scheme, podIPEnvVar, port),
+				Value: fmt.Sprintf("%s://$(%s):%d", scheme, podIPEnvVar, containerPort),
 			},
 		}
 	} else {
@@ -317,11 +346,11 @@ func (r *podMutator) callbackEnv(cr *model.CryostatInstance, namespace string, t
 			},
 			{
 				Name:  "CRYOSTAT_AGENT_CALLBACK_DOMAIN_NAME",
-				Value: fmt.Sprintf("%s.%s.svc", common.AgentHeadlessServiceName(r.gvk, cr), namespace),
+				Value: fmt.Sprintf("%s.%s.svc", common.AgentCallbackServiceName(r.gvk, cr), namespace),
 			},
 			{
 				Name:  "CRYOSTAT_AGENT_CALLBACK_PORT",
-				Value: strconv.Itoa(port),
+				Value: strconv.Itoa(int(containerPort)),
 			},
 		}
 	}

@@ -137,6 +137,14 @@ var _ = Describe("PodDefaulter", func() {
 				Expect(container.Env).To(ConsistOf(expected.Env))
 				Expect(container.EnvFrom).To(ConsistOf(expected.EnvFrom))
 			})
+
+			It("should add ports(s)", func() {
+				actual := t.getPod(expectedPod)
+				expected := expectedPod.Spec.Containers[0]
+				Expect(actual.Spec.Containers).To(HaveLen(1))
+				container := actual.Spec.Containers[0]
+				Expect(container.Ports).To(ConsistOf(expected.Ports))
+			})
 		}
 
 		Context("with a Cryostat CR", func() {
@@ -277,14 +285,59 @@ var _ = Describe("PodDefaulter", func() {
 				})
 			})
 
-			Context("with a custom proxy port", func() {
+			Context("with a custom gateway port", func() {
 				BeforeEach(func() {
-					t.objs = append(t.objs, t.NewCryostatWithAgentSvc().Object)
+					t.objs = append(t.objs, t.NewCryostatWithAgentGatewaySvc().Object)
 					originalPod = t.NewPod()
-					expectedPod = t.NewMutatedPodProxyPort()
+					expectedPod = t.NewMutatedPodGatewayPort()
 				})
 
 				ExpectPod()
+			})
+
+			Context("with a custom callback port label", func() {
+				Context("that is valid", func() {
+					BeforeEach(func() {
+						t.objs = append(t.objs, t.NewCryostat().Object)
+						originalPod = t.NewPodPortLabel()
+						expectedPod = t.NewMutatedPodCallbackPort()
+					})
+
+					ExpectPod()
+				})
+
+				Context("that is non-integer", func() {
+					BeforeEach(func() {
+						t.objs = append(t.objs, t.NewCryostat().Object)
+						originalPod = t.NewPodPortLabelInvalid()
+						// Should fail
+						expectedPod = originalPod
+					})
+
+					ExpectPod()
+				})
+
+				Context("that is too large", func() {
+					BeforeEach(func() {
+						t.objs = append(t.objs, t.NewCryostat().Object)
+						originalPod = t.NewPodPortLabelTooBig()
+						// Should fail
+						expectedPod = originalPod
+					})
+
+					ExpectPod()
+				})
+
+				Context("with hostname verification disabled", func() {
+					BeforeEach(func() {
+						t.DisableAgentHostnameVerify = true
+						t.objs = append(t.objs, t.NewCryostatWithAgentHostnameVerifyDisabled().Object)
+						originalPod = t.NewPodPortLabel()
+						expectedPod = t.NewMutatedPodCallbackPort()
+					})
+
+					ExpectPod()
+				})
 			})
 
 			Context("with hostname verification disabled", func() {
