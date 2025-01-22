@@ -17,6 +17,7 @@ package controllers
 import (
 	"context"
 	"fmt"
+	"maps"
 	"net/url"
 	"strconv"
 
@@ -122,9 +123,9 @@ func newAgentService(cr *model.CryostatInstance) *corev1.Service {
 	}
 }
 
-func (r *Reconciler) reconcileAgentService(ctx context.Context, cr *model.CryostatInstance) error {
+func (r *Reconciler) reconcileAgentGatewayService(ctx context.Context, cr *model.CryostatInstance) error {
 	svc := newAgentService(cr)
-	config := configureAgentService(cr)
+	config := configureAgentGatewayService(cr)
 
 	return r.createOrUpdateService(ctx, svc, cr.Object, &config.ServiceConfig, func() error {
 		svc.Spec.Selector = map[string]string{
@@ -221,52 +222,48 @@ func (r *Reconciler) reconcileStorageService(ctx context.Context, cr *model.Cryo
 	return nil
 }
 
-func (r *Reconciler) newAgentHeadlessService(cr *model.CryostatInstance, namespace string) *corev1.Service {
+func (r *Reconciler) newAgentCallbackService(cr *model.CryostatInstance, namespace string) *corev1.Service {
 	return &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      common.AgentHeadlessServiceName(r.gvk, cr),
+			Name:      common.AgentCallbackServiceName(r.gvk, cr),
 			Namespace: namespace,
 		},
 	}
 }
 
-func (r *Reconciler) reconcileAgentHeadlessServices(ctx context.Context, cr *model.CryostatInstance) error {
-	svcType := corev1.ServiceTypeClusterIP
-	// TODO make configurable through CRD
-	config := &operatorv1beta2.ServiceConfig{
-		ServiceType: &svcType,
-		Labels:      common.LabelsForTargetNamespaceObject(cr),
-	}
-	configureService(config, cr.Name, "agent")
+func (r *Reconciler) reconcileAgentCallbackServices(ctx context.Context, cr *model.CryostatInstance) error {
+	config := configureAgentCallbackService(cr)
 
 	// Create a headless Service in each target namespace
 	for _, ns := range cr.TargetNamespaces {
-		svc := r.newAgentHeadlessService(cr, ns)
+		svc := r.newAgentCallbackService(cr, ns)
 
-		err := r.createOrUpdateService(ctx, svc, nil, config, func() error {
+		op, err := controllerutil.CreateOrUpdate(ctx, r.Client, svc, func() error {
+			// Update labels and annotations
+			common.MergeLabelsAndAnnotations(&svc.ObjectMeta, config.Labels, config.Annotations)
+
 			// Select agent auto-configuration labels
 			svc.Spec.Selector = map[string]string{
 				constants.AgentLabelCryostatName:      cr.Name,
 				constants.AgentLabelCryostatNamespace: cr.InstallNamespace,
 			}
-			svc.Spec.Ports = []corev1.ServicePort{
-				{
-					Name:       constants.HttpPortName,
-					Port:       9977, // TODO make configurable
-					TargetPort: intstr.IntOrString{IntVal: 9977},
-				},
-			}
+			// No Ports. We contact the pods directly using their container ports.
+			svc.Spec.Ports = nil
+
+			// Headless service
+			svc.Spec.Type = corev1.ServiceTypeClusterIP
 			svc.Spec.ClusterIP = corev1.ClusterIPNone
 			return nil
 		})
 		if err != nil {
 			return err
 		}
+		r.Log.Info(fmt.Sprintf("Service %s", op), "name", svc.Name, "namespace", svc.Namespace)
 	}
 
 	// Delete any RoleBindings in target namespaces that are no longer requested
 	for _, ns := range toDelete(cr) {
-		svc := r.newAgentHeadlessService(cr, ns)
+		svc := r.newAgentCallbackService(cr, ns)
 		err := r.deleteService(ctx, svc)
 		if err != nil {
 			return err
@@ -276,9 +273,9 @@ func (r *Reconciler) reconcileAgentHeadlessServices(ctx context.Context, cr *mod
 	return nil
 }
 
-func (r *Reconciler) finalizeAgentHeadlessServices(ctx context.Context, cr *model.CryostatInstance) error {
+func (r *Reconciler) finalizeAgentCallbackServices(ctx context.Context, cr *model.CryostatInstance) error {
 	for _, ns := range cr.TargetNamespaces {
-		svc := r.newAgentHeadlessService(cr, ns)
+		svc := r.newAgentCallbackService(cr, ns)
 		err := r.deleteService(ctx, svc)
 		if err != nil {
 			return err
@@ -371,13 +368,13 @@ func configureStorageService(cr *model.CryostatInstance) *operatorv1beta2.Storag
 	return config
 }
 
-func configureAgentService(cr *model.CryostatInstance) *operatorv1beta2.AgentServiceConfig {
+func configureAgentGatewayService(cr *model.CryostatInstance) *operatorv1beta2.AgentGatewayServiceConfig {
 	// Check CR for config
-	var config *operatorv1beta2.AgentServiceConfig
-	if cr.Spec.ServiceOptions == nil || cr.Spec.ServiceOptions.AgentConfig == nil {
-		config = &operatorv1beta2.AgentServiceConfig{}
+	var config *operatorv1beta2.AgentGatewayServiceConfig
+	if cr.Spec.ServiceOptions == nil || cr.Spec.ServiceOptions.AgentGatewayConfig == nil {
+		config = &operatorv1beta2.AgentGatewayServiceConfig{}
 	} else {
-		config = cr.Spec.ServiceOptions.AgentConfig.DeepCopy()
+		config = cr.Spec.ServiceOptions.AgentGatewayConfig.DeepCopy()
 	}
 
 	// Apply common service defaults
@@ -392,11 +389,32 @@ func configureAgentService(cr *model.CryostatInstance) *operatorv1beta2.AgentSer
 	return config
 }
 
+func configureAgentCallbackService(cr *model.CryostatInstance) *operatorv1beta2.AgentCallbackServiceConfig {
+	// Check CR for config
+	var config *operatorv1beta2.AgentCallbackServiceConfig
+	if cr.Spec.ServiceOptions == nil || cr.Spec.ServiceOptions.AgentCallbackConfig == nil {
+		config = &operatorv1beta2.AgentCallbackServiceConfig{}
+	} else {
+		config = cr.Spec.ServiceOptions.AgentCallbackConfig.DeepCopy()
+	}
+
+	// Apply common service defaults
+	configureMetadata(&config.ResourceMetadata, cr.Name, "cryostat-agent-callback")
+	// Add target namespace labels used by our controller watches
+	maps.Copy(config.ResourceMetadata.Labels, common.LabelsForTargetNamespaceObject(cr))
+
+	return config
+}
+
 func configureService(config *operatorv1beta2.ServiceConfig, appLabel string, componentLabel string) {
 	if config.ServiceType == nil {
 		svcType := corev1.ServiceTypeClusterIP
 		config.ServiceType = &svcType
 	}
+	configureMetadata(&config.ResourceMetadata, appLabel, componentLabel)
+}
+
+func configureMetadata(config *operatorv1beta2.ResourceMetadata, appLabel string, componentLabel string) {
 	if config.Labels == nil {
 		config.Labels = map[string]string{}
 	}
@@ -420,11 +438,10 @@ func (r *Reconciler) createOrUpdateService(ctx context.Context, svc *corev1.Serv
 		common.MergeLabelsAndAnnotations(&svc.ObjectMeta, config.Labels, config.Annotations)
 
 		// Set the Cryostat CR as controller
-		if owner != nil {
-			if err := controllerutil.SetControllerReference(owner, svc, r.Scheme); err != nil {
-				return err
-			}
+		if err := controllerutil.SetControllerReference(owner, svc, r.Scheme); err != nil {
+			return err
 		}
+
 		// Update the service type
 		svc.Spec.Type = *config.ServiceType
 		// Call the delegate for service-specific mutations

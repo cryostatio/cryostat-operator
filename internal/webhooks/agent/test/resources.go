@@ -16,6 +16,8 @@ package test
 
 import (
 	"fmt"
+	"math"
+	"strconv"
 
 	"github.com/cryostatio/cryostat-operator/internal/test"
 	corev1 "k8s.io/api/core/v1"
@@ -113,12 +115,31 @@ func (r *AgentWebhookTestResources) NewPodNoNamespaceLabel() *corev1.Pod {
 	return pod
 }
 
+func (r *AgentWebhookTestResources) NewPodPortLabel() *corev1.Pod {
+	pod := r.NewPod()
+	pod.Labels["cryostat.io/callback-port"] = "9998"
+	return pod
+}
+
+func (r *AgentWebhookTestResources) NewPodPortLabelInvalid() *corev1.Pod {
+	pod := r.NewPod()
+	pod.Labels["cryostat.io/callback-port"] = "not-an-int"
+	return pod
+}
+
+func (r *AgentWebhookTestResources) NewPodPortLabelTooBig() *corev1.Pod {
+	pod := r.NewPod()
+	pod.Labels["cryostat.io/callback-port"] = strconv.FormatInt(math.MaxInt32+1, 10)
+	return pod
+}
+
 type mutatedPodOptions struct {
 	javaToolOptions string
 	namespace       string
 	image           string
 	pullPolicy      corev1.PullPolicy
-	proxyPort       int32
+	gatewayPort     int32
+	callbackPort    int32
 }
 
 func (r *AgentWebhookTestResources) setDefaultMutatedPodOptions(options *mutatedPodOptions) {
@@ -131,8 +152,11 @@ func (r *AgentWebhookTestResources) setDefaultMutatedPodOptions(options *mutated
 	if len(options.pullPolicy) == 0 {
 		options.pullPolicy = corev1.PullAlways
 	}
-	if options.proxyPort == 0 {
-		options.proxyPort = 8282
+	if options.gatewayPort == 0 {
+		options.gatewayPort = 8282
+	}
+	if options.callbackPort == 0 {
+		options.callbackPort = 9977
 	}
 }
 
@@ -166,9 +190,15 @@ func (r *AgentWebhookTestResources) NewMutatedPodCustomDevImage() *corev1.Pod {
 	})
 }
 
-func (r *AgentWebhookTestResources) NewMutatedPodProxyPort() *corev1.Pod {
+func (r *AgentWebhookTestResources) NewMutatedPodGatewayPort() *corev1.Pod {
 	return r.newMutatedPod(&mutatedPodOptions{
-		proxyPort: 8080,
+		gatewayPort: 8080,
+	})
+}
+
+func (r *AgentWebhookTestResources) NewMutatedPodCallbackPort() *corev1.Pod {
+	return r.newMutatedPod(&mutatedPodOptions{
+		callbackPort: 9998,
 	})
 }
 
@@ -221,7 +251,7 @@ func (r *AgentWebhookTestResources) newMutatedPod(options *mutatedPodOptions) *c
 						},
 						{
 							Name:  "CRYOSTAT_AGENT_BASEURI",
-							Value: fmt.Sprintf("%s://%s-agent.%s.svc:%d", scheme, r.Name, r.Namespace, options.proxyPort),
+							Value: fmt.Sprintf("%s://%s-agent.%s.svc:%d", scheme, r.Name, r.Namespace, options.gatewayPort),
 						},
 						{
 							Name: "CRYOSTAT_AGENT_POD_NAME",
@@ -249,26 +279,20 @@ func (r *AgentWebhookTestResources) newMutatedPod(options *mutatedPodOptions) *c
 							Name:  "CRYOSTAT_AGENT_API_WRITES_ENABLED",
 							Value: "true",
 						},
-
 						{
-							Name:  "CRYOSTAT_AGENT_CALLBACK_SCHEME",
-							Value: scheme,
-						},
-						{
-							Name:  "CRYOSTAT_AGENT_CALLBACK_HOST_NAME",
-							Value: "$(CRYOSTAT_AGENT_POD_NAME), $(CRYOSTAT_AGENT_POD_IP)[replace(\".\"\\, \"-\")]",
-						},
-						{
-							Name:  "CRYOSTAT_AGENT_CALLBACK_DOMAIN_NAME",
-							Value: fmt.Sprintf("%s.%s.svc", r.GetAgentServiceName(), options.namespace),
-						},
-						{
-							Name:  "CRYOSTAT_AGENT_CALLBACK_PORT",
-							Value: "9977",
+							Name:  "CRYOSTAT_AGENT_WEBSERVER_PORT",
+							Value: strconv.Itoa(int(options.callbackPort)),
 						},
 						{
 							Name:  "JAVA_TOOL_OPTIONS",
 							Value: options.javaToolOptions + "-javaagent:/tmp/cryostat-agent/cryostat-agent-shaded.jar",
+						},
+					},
+					Ports: []corev1.ContainerPort{
+						{
+							Name:          "cryostat-cb",
+							Protocol:      corev1.ProtocolTCP,
+							ContainerPort: options.callbackPort,
 						},
 					},
 					SecurityContext: &corev1.SecurityContext{
@@ -310,8 +334,8 @@ func (r *AgentWebhookTestResources) newMutatedPod(options *mutatedPodOptions) *c
 		},
 	}
 
+	container := &pod.Spec.Containers[0]
 	if r.TLS {
-		container := &pod.Spec.Containers[0]
 		tlsEnvs := []corev1.EnvVar{
 			{
 				Name:  "CRYOSTAT_AGENT_WEBCLIENT_TLS_CLIENT_AUTH_CERT_PATH",
@@ -376,6 +400,36 @@ func (r *AgentWebhookTestResources) newMutatedPod(options *mutatedPodOptions) *c
 				},
 			})
 	}
+
+	var callbackEnvs []corev1.EnvVar
+	if r.DisableAgentHostnameVerify {
+		callbackEnvs = []corev1.EnvVar{
+			{
+				Name:  "CRYOSTAT_AGENT_CALLBACK",
+				Value: fmt.Sprintf("%s://$(CRYOSTAT_AGENT_POD_IP):%d", scheme, options.callbackPort),
+			},
+		}
+	} else {
+		callbackEnvs = []corev1.EnvVar{
+			{
+				Name:  "CRYOSTAT_AGENT_CALLBACK_SCHEME",
+				Value: scheme,
+			},
+			{
+				Name:  "CRYOSTAT_AGENT_CALLBACK_HOST_NAME",
+				Value: "$(CRYOSTAT_AGENT_POD_NAME), $(CRYOSTAT_AGENT_POD_IP)[replace(\".\"\\, \"-\")]",
+			},
+			{
+				Name:  "CRYOSTAT_AGENT_CALLBACK_DOMAIN_NAME",
+				Value: fmt.Sprintf("%s.%s.svc", r.GetAgentServiceName(), options.namespace),
+			},
+			{
+				Name:  "CRYOSTAT_AGENT_CALLBACK_PORT",
+				Value: strconv.Itoa(int(options.callbackPort)),
+			},
+		}
+	}
+	container.Env = append(container.Env, callbackEnvs...)
 
 	return pod
 }
