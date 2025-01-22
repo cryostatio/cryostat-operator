@@ -3726,6 +3726,7 @@ func (t *cryostatTestInput) checkDatabaseContainer(container *corev1.Container, 
 	}
 	Expect(container.Ports).To(ConsistOf(t.NewDatabasePorts()))
 	Expect(container.Env).To(ConsistOf(t.NewDatabaseEnvironmentVariables(dbSecretProvided)))
+	Expect(container.Args).To(ConsistOf(t.NewDatabaseArgs()))
 	Expect(container.EnvFrom).To(BeEmpty())
 	Expect(container.VolumeMounts).To(ConsistOf(t.NewDatabaseVolumeMounts()))
 	Expect(container.ReadinessProbe).To(Equal(t.NewDatabaseReadinessProbe()))
