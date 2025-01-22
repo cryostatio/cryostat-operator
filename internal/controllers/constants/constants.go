@@ -32,6 +32,8 @@ const (
 	DatabasePort               int32  = 5432
 	AgentProxyContainerPort    int32  = 8282
 	AgentProxyHealthPort       int32  = 8281
+	AgentCallbackContainerPort int32  = 9977
+	AgentCallbackPortName      string = "cryostat-cb" // Max 15 characters
 	LoopbackAddress            string = "127.0.0.1"
 	OperatorNamePrefix         string = "cryostat-operator-"
 	OperatorDeploymentName     string = "cryostat-operator-controller"
@@ -59,6 +61,7 @@ const (
 	agentLabelPrefix            = "cryostat.io/"
 	AgentLabelCryostatName      = agentLabelPrefix + "name"
 	AgentLabelCryostatNamespace = agentLabelPrefix + "namespace"
+	AgentLabelCallbackPort      = agentLabelPrefix + "callback-port"
 
 	CryostatCATLSCommonName     = "cryostat-ca-cert-manager"
 	CryostatTLSCommonName       = "cryostat"

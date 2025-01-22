@@ -98,6 +98,11 @@ type CryostatSpec struct {
 	// +optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Operand metadata"
 	OperandMetadata *OperandMetadata `json:"operandMetadata,omitempty"`
+	// Options to control how the operator configures Cryostat Agents
+	// to communicate with this Cryostat instance.
+	// +optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Agent Options"
+	AgentOptions *AgentOptions `json:"agentOptions,omitempty"`
 }
 
 type OperandMetadata struct {
@@ -111,14 +116,18 @@ type OperandMetadata struct {
 	PodMetadata *ResourceMetadata `json:"podMetadata,omitempty"`
 }
 
+// ResourceMetadata contains common metadata options used in several properties.
 type ResourceMetadata struct {
-	// Annotations to add to the resources during its creation.
+	// Annotations to add to the object during its creation.
 	// +optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	Annotations map[string]string `json:"annotations,omitempty"`
-	// Labels to add to the resources during its creation.
-	// The labels with keys "app" and "component" are reserved
-	// for use by the operator.
+	// Labels to add to the object during its creation.
+	// The following label keys are reserved for use by the operator:
+	// "app", "component", "app.kubernetes.io/name", "app.kubernetes.io/instance",
+	// "app.kubernetes.io/component", and "app.kubernetes.io/part-of".
 	// +optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	Labels map[string]string `json:"labels,omitempty"`
 }
 
@@ -295,15 +304,8 @@ type Affinity struct {
 type ServiceConfig struct {
 	// Type of service to create. Defaults to "ClusterIP".
 	// +optional
-	ServiceType *corev1.ServiceType `json:"serviceType,omitempty"`
-	// Annotations to add to the service during its creation.
-	// +optional
-	Annotations map[string]string `json:"annotations,omitempty"`
-	// Labels to add to the service during its creation.
-	// The labels with keys "app" and "component" are reserved
-	// for use by the operator.
-	// +optional
-	Labels map[string]string `json:"labels,omitempty"`
+	ServiceType      *corev1.ServiceType `json:"serviceType,omitempty"`
+	ResourceMetadata `json:",inline"`
 }
 
 // CoreServiceConfig provides customization for the service handling
@@ -346,14 +348,21 @@ type StorageServiceConfig struct {
 	ServiceConfig `json:",inline"`
 }
 
-// AgentServiceConfig provides customization for the service handling
+// AgentGatewayServiceConfig provides customization for the service handling
 // traffic from Cryostat agents to the Cryostat application.
-type AgentServiceConfig struct {
+type AgentGatewayServiceConfig struct {
 	// HTTP port number for the Cryostat agent API service.
 	// Defaults to 8282.
 	// +optional
 	HTTPPort      *int32 `json:"httpPort,omitempty"`
 	ServiceConfig `json:",inline"`
+}
+
+// AgentCallbackServiceConfig provides customization for the headless services
+// in each target namespace handling traffic from Cryostat to agents in those
+// namespaces.
+type AgentCallbackServiceConfig struct {
+	ResourceMetadata `json:",inline"`
 }
 
 // ServiceConfigList holds the service configuration for each
@@ -373,7 +382,11 @@ type ServiceConfigList struct {
 	StorageConfig *StorageServiceConfig `json:"storageConfig,omitempty"`
 	// Specification for the service responsible for agents to communicate with Cryostat.
 	// +optional
-	AgentConfig *AgentServiceConfig `json:"agentConfig,omitempty"`
+	AgentGatewayConfig *AgentGatewayServiceConfig `json:"agentGatewayConfig,omitempty"`
+	// Specification for the headless services in each target namespace that allow Cryostat
+	// to communicate with agents in those namespaces.
+	// +optional
+	AgentCallbackConfig *AgentCallbackServiceConfig `json:"agentCallbackConfig,omitempty"`
 }
 
 // NetworkPoliciesList holds the configurations for NetworkPolicy
@@ -417,16 +430,8 @@ type NetworkConfiguration struct {
 	// (if a single external IP is being used) to differentiate between ingresses/services.
 	// +optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
-	IngressSpec *netv1.IngressSpec `json:"ingressSpec,omitempty"`
-	// Annotations to add to the Ingress or Route during its creation.
-	// +optional
-	// +operator-sdk:csv:customresourcedefinitions:type=spec
-	Annotations map[string]string `json:"annotations,omitempty"`
-	// Labels to add to the Ingress or Route during its creation.
-	// The label with key "app" is reserved for use by the operator.
-	// +optional
-	// +operator-sdk:csv:customresourcedefinitions:type=spec
-	Labels map[string]string `json:"labels,omitempty"`
+	IngressSpec      *netv1.IngressSpec `json:"ingressSpec,omitempty"`
+	ResourceMetadata `json:",inline"`
 }
 
 // NetworkConfigurationList holds NetworkConfiguration objects that specify
@@ -444,13 +449,6 @@ type NetworkConfigurationList struct {
 // configure a Persistent Volume Claim to be created and managed
 // by the operator.
 type PersistentVolumeClaimConfig struct {
-	// Annotations to add to the Persistent Volume Claim during its creation.
-	// +optional
-	Annotations map[string]string `json:"annotations,omitempty"`
-	// Labels to add to the Persistent Volume Claim during its creation.
-	// The label with key "app" is reserved for use by the operator.
-	// +optional
-	Labels map[string]string `json:"labels,omitempty"`
 	// Spec for a Persistent Volume Claim, whose options will override the
 	// defaults used by the operator. Unless overriden, the PVC will be
 	// created with the default Storage Class and 500MiB of storage.
@@ -458,7 +456,8 @@ type PersistentVolumeClaimConfig struct {
 	// no effect.
 	// +optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
-	Spec *corev1.PersistentVolumeClaimSpec `json:"spec,omitempty"`
+	Spec             *corev1.PersistentVolumeClaimSpec `json:"spec,omitempty"`
+	ResourceMetadata `json:",inline"`
 }
 
 // EmptyDirConfig holds all customization options to
@@ -703,4 +702,13 @@ type DatabaseOptions struct {
 	// +optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:io.kubernetes:Secret"}
 	SecretName *string `json:"secretName,omitempty"`
+}
+
+// AgentOptions provides customization for how the operator configures Cryostat Agents.
+type AgentOptions struct {
+	// Disables hostname verification when Cryostat connects to Agents over TLS.
+	// Consider enabling this if the Cryostat Agent fails to determine the hostname of your pod.
+	// +optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Disable Hostname Verification",xDescriptors={"urn:alm:descriptor:com.tectonic.ui:booleanSwitch"}
+	DisableHostnameVerification bool `json:"disableHostnameVerification,omitempty"`
 }
