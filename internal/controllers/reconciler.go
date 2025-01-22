@@ -297,10 +297,6 @@ func (r *Reconciler) reconcileCryostat(ctx context.Context, cr *model.CryostatIn
 	if err != nil {
 		return reconcile.Result{}, err
 	}
-	err = r.reconcileAgentGatewayNetworkPolicy(ctx, cr)
-	if err != nil {
-		return reconcile.Result{}, err
-	}
 	err = r.reconcileAgentHeadlessServices(ctx, cr)
 	if err != nil {
 		return reconcile.Result{}, err

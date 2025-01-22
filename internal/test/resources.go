@@ -827,26 +827,6 @@ func (r *TestResources) NewCryostatNetworkPolicy() *netv1.NetworkPolicy {
 						},
 					},
 				},
-			},
-		},
-	}
-}
-
-func (r *TestResources) NewAgentGatewayNetworkPolicy() *netv1.NetworkPolicy {
-	return &netv1.NetworkPolicy{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      fmt.Sprintf("%s-agent-internal-ingress", r.Name),
-			Namespace: r.Namespace,
-		},
-		Spec: netv1.NetworkPolicySpec{
-			PodSelector: metav1.LabelSelector{
-				MatchLabels: map[string]string{
-					"app":       r.Name,
-					"component": "cryostat",
-					"kind":      "cryostat",
-				},
-			},
-			Ingress: []netv1.NetworkPolicyIngressRule{
 				{
 					From: []netv1.NetworkPolicyPeer{
 						{

@@ -31,7 +31,7 @@ metadata:
     capabilities: Seamless Upgrades
     categories: Monitoring, Developer Tools
     containerImage: quay.io/cryostat/cryostat-operator:4.0.0-dev
-    createdAt: "2025-01-21T21:15:34Z"
+    createdAt: "2025-01-22T18:16:41Z"
     description: JVM monitoring and profiling tool
     operatorframework.io/initialization-resource: |-
       {
@@ -164,11 +164,6 @@ spec:
           - description: Options to customize the NetworkPolicy objects created for Cryostat's various Services.
             displayName: Network Policies
             path: networkPolicies
-          - description: Disable the NetworkPolicy for a given service.
-            displayName: Disable NetworkPolicy creation
-            path: networkPolicies.agentGatewayConfig.disabled
-            x-descriptors:
-              - urn:alm:descriptor:com.tectonic.ui:booleanSwitch
           - description: Disable the NetworkPolicy for a given service.
             displayName: Disable NetworkPolicy creation
             path: networkPolicies.coreConfig.disabled

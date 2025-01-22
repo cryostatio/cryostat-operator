@@ -382,9 +382,6 @@ type NetworkPoliciesList struct {
 	// NetworkPolicy configuration for the Cryostat application service.
 	// +optional
 	CoreConfig *NetworkPolicyConfig `json:"coreConfig,omitempty"`
-	// NetworkPolicy configuration for the Cryostat proxy gateway used for Agent authentication.
-	// +optional
-	AgentGatewayConfig *NetworkPolicyConfig `json:"agentGatewayConfig,omitempty"`
 	// NetworkPolicy configuration for the cryostat-reports service.
 	// +optional
 	ReportsConfig *NetworkPolicyConfig `json:"reportsConfig,omitempty"`

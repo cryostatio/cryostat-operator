@@ -70,6 +70,7 @@ func (r *Reconciler) reconcileCoreNetworkPolicy(ctx context.Context, cr *model.C
 				MatchLabels: resources.CorePodLabels(cr),
 			},
 			Ingress: []networkingv1.NetworkPolicyIngressRule{
+				// allow ingress to the authproxy/cryostat HTTP(S) port from any namespace or from the Route
 				{
 					From: []networkingv1.NetworkPolicyPeer{
 						AllNamespacesSelector,
@@ -81,32 +82,8 @@ func (r *Reconciler) reconcileCoreNetworkPolicy(ctx context.Context, cr *model.C
 						},
 					},
 				},
-			},
-		}
-		return nil
-	})
-}
-
-func (r *Reconciler) reconcileAgentGatewayNetworkPolicy(ctx context.Context, cr *model.CryostatInstance) error {
-	networkPolicy := &networkingv1.NetworkPolicy{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      fmt.Sprintf("%s-agent-internal-ingress", cr.Name),
-			Namespace: cr.InstallNamespace,
-		},
-	}
-
-	if cr.Spec.NetworkPolicies != nil && cr.Spec.NetworkPolicies.AgentGatewayConfig != nil && cr.Spec.NetworkPolicies.AgentGatewayConfig.Disabled != nil && *cr.Spec.NetworkPolicies.AgentGatewayConfig.Disabled {
-		return r.deletePolicy(ctx, networkPolicy)
-	}
-
-	return r.createOrUpdatePolicy(ctx, networkPolicy, cr.Object, func() error {
-		networkPolicy.Spec = networkingv1.NetworkPolicySpec{
-			PodSelector: metav1.LabelSelector{
-				// the agent gateway is a container within the same Pod as Cryostat itself
-				MatchLabels: resources.CorePodLabels(cr),
-			},
-			Ingress: []networkingv1.NetworkPolicyIngressRule{
-				networkingv1.NetworkPolicyIngressRule{
+				// allow ingress to the agent gateway from the target namespaces
+				{
 					From: []networkingv1.NetworkPolicyPeer{
 						{
 							NamespaceSelector: &metav1.LabelSelector{
