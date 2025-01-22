@@ -53,19 +53,18 @@ func namespaceOriginSelector(namespace string) *metav1.LabelSelector {
 }
 
 func (r *Reconciler) reconcileCoreNetworkPolicy(ctx context.Context, cr *model.CryostatInstance) error {
-	networkPolicy := &networkingv1.NetworkPolicy{
+	ingressPolicy := &networkingv1.NetworkPolicy{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      fmt.Sprintf("%s-internal-ingress", cr.Name),
 			Namespace: cr.InstallNamespace,
 		},
 	}
-
 	if cr.Spec.NetworkPolicies != nil && cr.Spec.NetworkPolicies.CoreConfig != nil && cr.Spec.NetworkPolicies.CoreConfig.IngressDisabled != nil && *cr.Spec.NetworkPolicies.CoreConfig.IngressDisabled {
-		return r.deletePolicy(ctx, networkPolicy)
+		return r.deletePolicy(ctx, ingressPolicy)
 	}
 
-	return r.createOrUpdatePolicy(ctx, networkPolicy, cr.Object, func() error {
-		networkPolicy.Spec = networkingv1.NetworkPolicySpec{
+	return r.createOrUpdatePolicy(ctx, ingressPolicy, cr.Object, func() error {
+		ingressPolicy.Spec = networkingv1.NetworkPolicySpec{
 			PodSelector: metav1.LabelSelector{
 				MatchLabels: resources.CorePodLabels(cr),
 			},
@@ -110,18 +109,18 @@ func (r *Reconciler) reconcileCoreNetworkPolicy(ctx context.Context, cr *model.C
 }
 
 func (r *Reconciler) reconcileDatabaseNetworkPolicy(ctx context.Context, cr *model.CryostatInstance) error {
-	networkPolicy := &networkingv1.NetworkPolicy{
+	ingressPolicy := &networkingv1.NetworkPolicy{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      fmt.Sprintf("%s-db-internal-ingress", cr.Name),
 			Namespace: cr.InstallNamespace,
 		},
 	}
 	if cr.Spec.NetworkPolicies != nil && cr.Spec.NetworkPolicies.DatabaseConfig != nil && cr.Spec.NetworkPolicies.DatabaseConfig.IngressDisabled != nil && *cr.Spec.NetworkPolicies.DatabaseConfig.IngressDisabled {
-		return r.deletePolicy(ctx, networkPolicy)
+		return r.deletePolicy(ctx, ingressPolicy)
 	}
 
-	return r.createOrUpdatePolicy(ctx, networkPolicy, cr.Object, func() error {
-		networkPolicy.Spec = networkingv1.NetworkPolicySpec{
+	return r.createOrUpdatePolicy(ctx, ingressPolicy, cr.Object, func() error {
+		ingressPolicy.Spec = networkingv1.NetworkPolicySpec{
 			PodSelector: metav1.LabelSelector{
 				MatchLabels: resources.DatabasePodLabels(cr),
 			},
@@ -148,19 +147,18 @@ func (r *Reconciler) reconcileDatabaseNetworkPolicy(ctx context.Context, cr *mod
 }
 
 func (r *Reconciler) reconcileStorageNetworkPolicy(ctx context.Context, cr *model.CryostatInstance) error {
-	networkPolicy := &networkingv1.NetworkPolicy{
+	ingressPolicy := &networkingv1.NetworkPolicy{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      fmt.Sprintf("%s-storage-internal-ingress", cr.Name),
 			Namespace: cr.InstallNamespace,
 		},
 	}
-
 	if cr.Spec.NetworkPolicies != nil && cr.Spec.NetworkPolicies.StorageConfig != nil && cr.Spec.NetworkPolicies.StorageConfig.IngressDisabled != nil && *cr.Spec.NetworkPolicies.StorageConfig.IngressDisabled {
-		return r.deletePolicy(ctx, networkPolicy)
+		return r.deletePolicy(ctx, ingressPolicy)
 	}
 
-	return r.createOrUpdatePolicy(ctx, networkPolicy, cr.Object, func() error {
-		networkPolicy.Spec = networkingv1.NetworkPolicySpec{
+	return r.createOrUpdatePolicy(ctx, ingressPolicy, cr.Object, func() error {
+		ingressPolicy.Spec = networkingv1.NetworkPolicySpec{
 			PodSelector: metav1.LabelSelector{
 				MatchLabels: resources.StoragePodLabels(cr),
 			},
@@ -187,19 +185,18 @@ func (r *Reconciler) reconcileStorageNetworkPolicy(ctx context.Context, cr *mode
 }
 
 func (r *Reconciler) reconcileReportsNetworkPolicy(ctx context.Context, cr *model.CryostatInstance) error {
-	networkPolicy := &networkingv1.NetworkPolicy{
+	ingressPolicy := &networkingv1.NetworkPolicy{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      fmt.Sprintf("%s-reports-internal-ingress", cr.Name),
 			Namespace: cr.InstallNamespace,
 		},
 	}
-
 	if cr.Spec.NetworkPolicies != nil && cr.Spec.NetworkPolicies.ReportsConfig != nil && cr.Spec.NetworkPolicies.ReportsConfig.IngressDisabled != nil && *cr.Spec.NetworkPolicies.ReportsConfig.IngressDisabled {
-		return r.deletePolicy(ctx, networkPolicy)
+		return r.deletePolicy(ctx, ingressPolicy)
 	}
 
-	return r.createOrUpdatePolicy(ctx, networkPolicy, cr.Object, func() error {
-		networkPolicy.Spec = networkingv1.NetworkPolicySpec{
+	return r.createOrUpdatePolicy(ctx, ingressPolicy, cr.Object, func() error {
+		ingressPolicy.Spec = networkingv1.NetworkPolicySpec{
 			PodSelector: metav1.LabelSelector{
 				MatchLabels: resources.ReportsPodLabels(cr),
 			},
