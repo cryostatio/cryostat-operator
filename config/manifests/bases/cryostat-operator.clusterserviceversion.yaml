@@ -181,10 +181,22 @@ spec:
           various Services.
         displayName: Network Policies
         path: networkPolicies
+      - description: Enable the NetworkPolicy for egress from a given pod. Disabled
+          by default.
+        displayName: Enable egress NetworkPolicy creation
+        path: networkPolicies.coreConfig.egressEnabled
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:booleanSwitch
       - description: Disable the NetworkPolicy for ingress to a given service. Enabled
           by default.
         displayName: Disable ingress NetworkPolicy creation
         path: networkPolicies.coreConfig.ingressDisabled
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:booleanSwitch
+      - description: Enable the NetworkPolicy for egress from a given pod. Disabled
+          by default.
+        displayName: Enable egress NetworkPolicy creation
+        path: networkPolicies.databaseConfig.egressEnabled
         x-descriptors:
         - urn:alm:descriptor:com.tectonic.ui:booleanSwitch
       - description: Disable the NetworkPolicy for ingress to a given service. Enabled
@@ -193,10 +205,22 @@ spec:
         path: networkPolicies.databaseConfig.ingressDisabled
         x-descriptors:
         - urn:alm:descriptor:com.tectonic.ui:booleanSwitch
+      - description: Enable the NetworkPolicy for egress from a given pod. Disabled
+          by default.
+        displayName: Enable egress NetworkPolicy creation
+        path: networkPolicies.reportsConfig.egressEnabled
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:booleanSwitch
       - description: Disable the NetworkPolicy for ingress to a given service. Enabled
           by default.
         displayName: Disable ingress NetworkPolicy creation
         path: networkPolicies.reportsConfig.ingressDisabled
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:booleanSwitch
+      - description: Enable the NetworkPolicy for egress from a given pod. Disabled
+          by default.
+        displayName: Enable egress NetworkPolicy creation
+        path: networkPolicies.storageConfig.egressEnabled
         x-descriptors:
         - urn:alm:descriptor:com.tectonic.ui:booleanSwitch
       - description: Disable the NetworkPolicy for ingress to a given service. Enabled
