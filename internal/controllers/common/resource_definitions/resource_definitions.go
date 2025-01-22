@@ -1330,11 +1330,13 @@ func NewCoreContainer(cr *model.CryostatInstance, specs *ServiceSpecs, imageTag 
 			Value: specs.StorageURL.String(),
 		},
 		{
-			Name:  "QUARKUS_S3_SYNC_CLIENT_TLS_KEY_MANAGERS_PROVIDER_TYPE",
-			Value: "none", // do not present a TLS client certificate
+			Name: "QUARKUS_S3_SYNC_CLIENT_TLS_KEY_MANAGERS_PROVIDER_TYPE",
+			// do not present a TLS client certificate
+			Value: "none",
 		},
 		{
-			Name:  "QUARKUS_S3_SYNC_CLIENT_TLS_TRUST_MANAGERS_PROVIDER_TYPE",
+			Name: "QUARKUS_S3_SYNC_CLIENT_TLS_TRUST_MANAGERS_PROVIDER_TYPE",
+			// cryostat's truststore should include the storage certificate, so the S3 client should be able to load it from the4 system
 			Value: "system-property",
 		},
 		{
