@@ -1501,6 +1501,16 @@ func NewCoreContainer(cr *model.CryostatInstance, specs *ServiceSpecs, imageTag 
 	}
 	envs = append(envs, grafanaVars...)
 
+	if cr.Spec.AgentOptions != nil && cr.Spec.AgentOptions.DisableHostnameVerification {
+		envs = append(envs,
+			corev1.EnvVar{
+				// TODO This should eventually be replaced by an agent-specific toggle.
+				// See: https://github.com/cryostatio/cryostat/issues/778
+				Name:  "QUARKUS_REST_CLIENT_VERIFY_HOST",
+				Value: "false",
+			})
+	}
+
 	// Mount the templates specified in Cryostat CR under /opt/cryostat.d/templates.d
 	for _, template := range cr.Spec.EventTemplates {
 		mount := corev1.VolumeMount{

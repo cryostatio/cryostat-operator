@@ -19,11 +19,11 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
-func AgentHeadlessServiceName(gvk *schema.GroupVersionKind, cr *model.CryostatInstance) string {
+func AgentCallbackServiceName(gvk *schema.GroupVersionKind, cr *model.CryostatInstance) string {
 	return ClusterUniqueShortNameWithPrefix(gvk, "agent", cr.Name, cr.InstallNamespace)
 }
 
-func AgentProxyServiceName(cr *model.CryostatInstance) string {
+func AgentGatewayServiceName(cr *model.CryostatInstance) string {
 	return cr.Name + "-agent"
 }
 
