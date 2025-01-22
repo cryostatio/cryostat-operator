@@ -1957,10 +1957,6 @@ func (r *TestResources) NewCoreEnvironmentVariables(reportsUrl string, ingress b
 			Value: "cryostat",
 		},
 		{
-			Name:  "QUARKUS_DATASOURCE_JDBC_URL",
-			Value: fmt.Sprintf("jdbc:postgresql://%s-database.%s.svc.cluster.local:5432/cryostat", r.Name, r.Namespace),
-		},
-		{
 			Name:  "STORAGE_BUCKETS_ARCHIVE_NAME",
 			Value: "archivedrecordings",
 		},
@@ -2028,6 +2024,17 @@ func (r *TestResources) NewCoreEnvironmentVariables(reportsUrl string, ingress b
 			Name:  "AWS_SECRET_ACCESS_KEY",
 			Value: "$(QUARKUS_S3_AWS_CREDENTIALS_STATIC_PROVIDER_SECRET_ACCESS_KEY)",
 		},
+	}
+	if r.TLS {
+		envs = append(envs, corev1.EnvVar{
+			Name:  "QUARKUS_DATASOURCE_JDBC_URL",
+			Value: fmt.Sprintf("jdbc:postgresql://%s-database.%s.svc.cluster.local:5432/cryostat?ssl=true&sslmode=verify-full&sslcert=&sslrootcert=/var/run/secrets/operator.cryostat.io/%s-database-tls/ca.crt", r.Name, r.Namespace, r.Name),
+		})
+	} else {
+		envs = append(envs, corev1.EnvVar{
+			Name:  "QUARKUS_DATASOURCE_JDBC_URL",
+			Value: fmt.Sprintf("jdbc:postgresql://%s-database.%s.svc.cluster.local:5432/cryostat", r.Name, r.Namespace),
+		})
 	}
 
 	envs = append(envs, r.NewTargetDiscoveryEnvVars(hasPortConfig, builtInDiscoveryDisabled, builtInPortConfigDisabled)...)
@@ -2176,10 +2183,10 @@ func (r *TestResources) NewReportsEnvironmentVariables(resources *corev1.Resourc
 			Value: "10000",
 		}, corev1.EnvVar{
 			Name:  "QUARKUS_HTTP_SSL_CERTIFICATE_KEY_FILES",
-			Value: fmt.Sprintf("/var/run/secrets/operator.cryostat.io/%s-reports-tls/tls.key", r.Name),
+			Value: fmt.Sprintf("/var/run/secrets/operator.cryostat.io/%s-reports-tls/%s", r.Name, corev1.TLSPrivateKeyKey),
 		}, corev1.EnvVar{
 			Name:  "QUARKUS_HTTP_SSL_CERTIFICATE_FILES",
-			Value: fmt.Sprintf("/var/run/secrets/operator.cryostat.io/%s-reports-tls/tls.crt", r.Name),
+			Value: fmt.Sprintf("/var/run/secrets/operator.cryostat.io/%s-reports-tls/%s", r.Name, corev1.TLSCertKey),
 		}, corev1.EnvVar{
 			Name:  "QUARKUS_HTTP_INSECURE_REQUESTS",
 			Value: "disabled",
@@ -2285,28 +2292,24 @@ func (r *TestResources) NewDatabaseEnvironmentVariables(dbSecretProvided bool) [
 			},
 		},
 	}
-	/**
-	if r.TLS {
-		envs = append(envs, corev1.EnvVar{
-			Name:  "QUARKUS_DATASOURCE_REACTIVE_TRUST_ALL",
-			Value: "true",
-		}, corev1.EnvVar{
-			Name:  "QUARKUS_DATASOURCE_REACTIVE_KEY_CERTIFICATE_PEM_KEYS",
-			Value: fmt.Sprintf("/var/run/secrets/operator.cryostat.io/%s-database-tls/tls.key", r.Name),
-		}, corev1.EnvVar{
-			Name:  "QUARKUS_DATASOURCE_REACTIVE_KEY_CERTIFICATE_PEM_CERTS",
-			Value: fmt.Sprintf("/var/run/secrets/operator.cryostat.io/%s-database-tls/tls.crt", r.Name),
-		}, corev1.EnvVar{
-			Name:  "QUARKUS_DATASOURCE_REACTIVE_URL",
-			Value: fmt.Sprintf("https://%s-database:5432", r.Name),
-		})
-	} else {
-		envs = append(envs, corev1.EnvVar{
-			Name:  "QUARKUS_DATASOURCE_REACTIVE_URL",
-			Value: fmt.Sprintf("http://%s-database:5432", r.Name),
-		})
-	}**/
 	return envs
+}
+
+func (r *TestResources) NewDatabaseArgs() []string {
+	args := []string{}
+
+	if r.TLS {
+		args = append(args,
+			"-c",
+			"ssl=on",
+			"-c",
+			fmt.Sprintf("ssl_cert_file=/var/run/secrets/operator.cryostat.io/%s-database-tls/%s", r.Name, corev1.TLSCertKey),
+			"-c",
+			fmt.Sprintf("ssl_key_file=/var/run/secrets/operator.cryostat.io/%s-database-tls/%s", r.Name, corev1.TLSPrivateKeyKey),
+		)
+	}
+
+	return args
 }
 
 func (r *TestResources) NewAuthProxyEnvironmentVariables(authOptions *operatorv1beta2.AuthorizationOptions) []corev1.EnvVar {
@@ -2554,6 +2557,13 @@ func (r *TestResources) NewCoreVolumeMounts() []corev1.VolumeMount {
 			MountPath: "/truststore/storage",
 			ReadOnly:  true,
 		})
+		mounts = append(mounts,
+			corev1.VolumeMount{
+				Name:      "database-tls-secret",
+				ReadOnly:  true,
+				MountPath: fmt.Sprintf("/var/run/secrets/operator.cryostat.io/%s-database-tls", r.Name),
+			},
+		)
 	}
 	return mounts
 }
@@ -2587,15 +2597,14 @@ func (r *TestResources) NewDatabaseVolumeMounts() []corev1.VolumeMount {
 			SubPath:   "postgres",
 		})
 
-	// TODO
-	// if r.TLS {
-	// 	mounts = append(mounts,
-	// 		corev1.VolumeMount{
-	// 			Name:      "database-tls-secret",
-	// 			MountPath: fmt.Sprintf("/var/run/secrets/operator.cryostat.io/%s-database-tls", r.Name),
-	// 			ReadOnly:  true,
-	// 		})
-	// }
+	if r.TLS {
+		mounts = append(mounts,
+			corev1.VolumeMount{
+				Name:      "database-tls-secret",
+				MountPath: fmt.Sprintf("/var/run/secrets/operator.cryostat.io/%s-database-tls", r.Name),
+				ReadOnly:  true,
+			})
+	}
 	return mounts
 }
 
@@ -3079,6 +3088,25 @@ func (r *TestResources) newVolumes(certProjections []corev1.VolumeProjection) []
 					},
 				},
 			},
+			corev1.Volume{
+				Name: "database-tls-secret",
+				VolumeSource: corev1.VolumeSource{
+					Secret: &corev1.SecretVolumeSource{
+						SecretName:  r.Name + "-database-tls",
+						DefaultMode: &readOnlymode,
+						Items: []corev1.KeyToPath{
+							{
+								Key:  "tls.crt",
+								Path: "tls.crt",
+							},
+							{
+								Key:  "ca.crt",
+								Path: "ca.crt",
+							},
+						},
+					},
+				},
+			},
 		)
 
 		volumes = append(volumes,
@@ -3170,11 +3198,13 @@ func (r *TestResources) NewDatabaseVolumes() []corev1.Volume {
 	}
 
 	if r.TLS {
+		readOnlyMode := int32(0440)
 		volumes = append(volumes, corev1.Volume{
 			Name: "database-tls-secret",
 			VolumeSource: corev1.VolumeSource{
 				Secret: &corev1.SecretVolumeSource{
-					SecretName: r.Name + "-database-tls",
+					SecretName:  r.Name + "-database-tls",
+					DefaultMode: &readOnlyMode,
 				},
 			},
 		})
