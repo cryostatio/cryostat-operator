@@ -2183,10 +2183,10 @@ func (r *TestResources) NewReportsEnvironmentVariables(resources *corev1.Resourc
 			Value: "10000",
 		}, corev1.EnvVar{
 			Name:  "QUARKUS_HTTP_SSL_CERTIFICATE_KEY_FILES",
-			Value: fmt.Sprintf("/var/run/secrets/operator.cryostat.io/%s-reports-tls/tls.key", r.Name),
+			Value: fmt.Sprintf("/var/run/secrets/operator.cryostat.io/%s-reports-tls/%s", r.Name, corev1.TLSPrivateKeyKey),
 		}, corev1.EnvVar{
 			Name:  "QUARKUS_HTTP_SSL_CERTIFICATE_FILES",
-			Value: fmt.Sprintf("/var/run/secrets/operator.cryostat.io/%s-reports-tls/tls.crt", r.Name),
+			Value: fmt.Sprintf("/var/run/secrets/operator.cryostat.io/%s-reports-tls/%s", r.Name, corev1.TLSCertKey),
 		}, corev1.EnvVar{
 			Name:  "QUARKUS_HTTP_INSECURE_REQUESTS",
 			Value: "disabled",
@@ -2244,8 +2244,8 @@ func (r *TestResources) NewStorageArgs() []string {
 	if r.TLS {
 		args = append(args,
 			"-s3.port.https=8334",
-			fmt.Sprintf("-s3.key.file=/var/run/secrets/operator.cryostat.io/%s-storage-tls/tls.key", r.Name),
-			fmt.Sprintf("-s3.cert.file=/var/run/secrets/operator.cryostat.io/%s-storage-tls/tls.crt", r.Name),
+			fmt.Sprintf("-s3.key.file=/var/run/secrets/operator.cryostat.io/%s-storage-tls/%s", r.Name, corev1.TLSPrivateKeyKey),
+			fmt.Sprintf("-s3.cert.file=/var/run/secrets/operator.cryostat.io/%s-storage-tls/%s", r.Name, corev1.TLSCertKey),
 		)
 	}
 
@@ -2507,8 +2507,8 @@ func (r *TestResources) NewAuthProxyArguments(authOptions *operatorv1beta2.Autho
 		args = append(args,
 			"--http-address=",
 			"--https-address=0.0.0.0:4180",
-			fmt.Sprintf("--tls-cert=/var/run/secrets/operator.cryostat.io/%s/tls.crt", r.Name+"-tls"),
-			fmt.Sprintf("--tls-key=/var/run/secrets/operator.cryostat.io/%s/tls.key", r.Name+"-tls"),
+			fmt.Sprintf("--tls-cert=/var/run/secrets/operator.cryostat.io/%s/%s", r.Name+"-tls", corev1.TLSCertKey),
+			fmt.Sprintf("--tls-key=/var/run/secrets/operator.cryostat.io/%s/%s", r.Name+"-tls", corev1.TLSPrivateKeyKey),
 		)
 	} else {
 		args = append(args,
