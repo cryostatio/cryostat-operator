@@ -2007,9 +2007,9 @@ func newAgentProxyContainer(cr *model.CryostatInstance, imageTag string, tls *TL
 		// Override the command to run nginx pointed at our config file. See:
 		// https://github.com/sclorg/nginx-container/blob/e7d8db9bc5299a4c4e254f8a82e917c7c136468b/1.24/README.md#direct-usage-with-a-mounted-directory
 		Command: []string{
-			"nginx", "-c",
-			fmt.Sprintf("%s/%s", constants.AgentProxyConfigFilePath, constants.AgentProxyConfigFileName),
-			"-g", "daemon off;"},
+			"nginx", "-c", fmt.Sprintf("%s/%s", constants.AgentProxyConfigFilePath, constants.AgentProxyConfigFileName),
+			"-g", "daemon off;",
+		},
 		LivenessProbe: &corev1.Probe{
 			ProbeHandler: corev1.ProbeHandler{
 				HTTPGet: &corev1.HTTPGetAction{
