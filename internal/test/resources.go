@@ -897,12 +897,12 @@ func (r *TestResources) NewCryostatNetworkPolicy() *netv1.NetworkPolicy {
 				},
 			},
 			Ingress: []netv1.NetworkPolicyIngressRule{
-				netv1.NetworkPolicyIngressRule{
+				{
 					From: []netv1.NetworkPolicyPeer{
-						netv1.NetworkPolicyPeer{
+						{
 							NamespaceSelector: &metav1.LabelSelector{},
 						},
-						netv1.NetworkPolicyPeer{
+						{
 							NamespaceSelector: &metav1.LabelSelector{
 								MatchLabels: map[string]string{
 									"policy-group.network.openshift.io/ingress": "",
@@ -911,8 +911,28 @@ func (r *TestResources) NewCryostatNetworkPolicy() *netv1.NetworkPolicy {
 						},
 					},
 					Ports: []netv1.NetworkPolicyPort{
-						netv1.NetworkPolicyPort{
+						{
 							Port: &intstr.IntOrString{IntVal: 4180},
+						},
+					},
+				},
+				{
+					From: []netv1.NetworkPolicyPeer{
+						{
+							NamespaceSelector: &metav1.LabelSelector{
+								MatchExpressions: []metav1.LabelSelectorRequirement{
+									{
+										Key:      "kubernetes.io/metadata.name",
+										Operator: "In",
+										Values:   r.TargetNamespaces,
+									},
+								},
+							},
+						},
+					},
+					Ports: []netv1.NetworkPolicyPort{
+						{
+							Port: &intstr.IntOrString{IntVal: 8282},
 						},
 					},
 				},
@@ -936,9 +956,9 @@ func (r *TestResources) NewDatabaseNetworkPolicy() *netv1.NetworkPolicy {
 				},
 			},
 			Ingress: []netv1.NetworkPolicyIngressRule{
-				netv1.NetworkPolicyIngressRule{
+				{
 					From: []netv1.NetworkPolicyPeer{
-						netv1.NetworkPolicyPeer{
+						{
 							NamespaceSelector: &metav1.LabelSelector{
 								MatchLabels: map[string]string{
 									"kubernetes.io/metadata.name": r.Namespace,
@@ -954,7 +974,7 @@ func (r *TestResources) NewDatabaseNetworkPolicy() *netv1.NetworkPolicy {
 						},
 					},
 					Ports: []netv1.NetworkPolicyPort{
-						netv1.NetworkPolicyPort{
+						{
 							Port: &intstr.IntOrString{IntVal: 5432},
 						},
 					},
@@ -979,9 +999,9 @@ func (r *TestResources) NewStorageNetworkPolicy() *netv1.NetworkPolicy {
 				},
 			},
 			Ingress: []netv1.NetworkPolicyIngressRule{
-				netv1.NetworkPolicyIngressRule{
+				{
 					From: []netv1.NetworkPolicyPeer{
-						netv1.NetworkPolicyPeer{
+						{
 							NamespaceSelector: &metav1.LabelSelector{
 								MatchLabels: map[string]string{
 									"kubernetes.io/metadata.name": r.Namespace,
@@ -997,7 +1017,7 @@ func (r *TestResources) NewStorageNetworkPolicy() *netv1.NetworkPolicy {
 						},
 					},
 					Ports: []netv1.NetworkPolicyPort{
-						netv1.NetworkPolicyPort{
+						{
 							Port: &intstr.IntOrString{IntVal: 8333},
 						},
 					},
@@ -1022,9 +1042,9 @@ func (r *TestResources) NewReportsNetworkPolicy() *netv1.NetworkPolicy {
 				},
 			},
 			Ingress: []netv1.NetworkPolicyIngressRule{
-				netv1.NetworkPolicyIngressRule{
+				{
 					From: []netv1.NetworkPolicyPeer{
-						netv1.NetworkPolicyPeer{
+						{
 							NamespaceSelector: &metav1.LabelSelector{
 								MatchLabels: map[string]string{
 									"kubernetes.io/metadata.name": r.Namespace,
@@ -1040,7 +1060,7 @@ func (r *TestResources) NewReportsNetworkPolicy() *netv1.NetworkPolicy {
 						},
 					},
 					Ports: []netv1.NetworkPolicyPort{
-						netv1.NetworkPolicyPort{
+						{
 							Port: &intstr.IntOrString{IntVal: 10000},
 						},
 					},

@@ -41,9 +41,13 @@ var RouteSelector = networkingv1.NetworkPolicyPeer{
 }
 
 func installationNamespaceSelector(cr *model.CryostatInstance) *metav1.LabelSelector {
+	return namespaceOriginSelector(cr.InstallNamespace)
+}
+
+func namespaceOriginSelector(namespace string) *metav1.LabelSelector {
 	return &metav1.LabelSelector{
 		MatchLabels: map[string]string{
-			"kubernetes.io/metadata.name": cr.InstallNamespace,
+			"kubernetes.io/metadata.name": namespace,
 		},
 	}
 }
@@ -66,6 +70,7 @@ func (r *Reconciler) reconcileCoreNetworkPolicy(ctx context.Context, cr *model.C
 				MatchLabels: resources.CorePodLabels(cr),
 			},
 			Ingress: []networkingv1.NetworkPolicyIngressRule{
+				// allow ingress to the authproxy/cryostat HTTP(S) port from any namespace or from the Route
 				{
 					From: []networkingv1.NetworkPolicyPeer{
 						AllNamespacesSelector,
@@ -74,6 +79,27 @@ func (r *Reconciler) reconcileCoreNetworkPolicy(ctx context.Context, cr *model.C
 					Ports: []networkingv1.NetworkPolicyPort{
 						{
 							Port: &intstr.IntOrString{IntVal: constants.AuthProxyHttpContainerPort},
+						},
+					},
+				},
+				// allow ingress to the agent gateway from the target namespaces
+				{
+					From: []networkingv1.NetworkPolicyPeer{
+						{
+							NamespaceSelector: &metav1.LabelSelector{
+								MatchExpressions: []metav1.LabelSelectorRequirement{
+									{
+										Key:      "kubernetes.io/metadata.name",
+										Operator: metav1.LabelSelectorOpIn,
+										Values:   cr.Spec.TargetNamespaces,
+									},
+								},
+							},
+						},
+					},
+					Ports: []networkingv1.NetworkPolicyPort{
+						networkingv1.NetworkPolicyPort{
+							Port: &intstr.IntOrString{IntVal: constants.AgentProxyContainerPort},
 						},
 					},
 				},
