@@ -546,16 +546,16 @@ func (c *controllerTest) commonTests() {
 				disabled := true
 				cr.Spec.NetworkPolicies = &operatorv1beta2.NetworkPoliciesList{
 					CoreConfig: &operatorv1beta2.NetworkPolicyConfig{
-						Disabled: &disabled,
+						IngressDisabled: &disabled,
 					},
 					DatabaseConfig: &operatorv1beta2.NetworkPolicyConfig{
-						Disabled: &disabled,
+						IngressDisabled: &disabled,
 					},
 					StorageConfig: &operatorv1beta2.NetworkPolicyConfig{
-						Disabled: &disabled,
+						IngressDisabled: &disabled,
 					},
 					ReportsConfig: &operatorv1beta2.NetworkPolicyConfig{
-						Disabled: &disabled,
+						IngressDisabled: &disabled,
 					},
 				}
 			})
