@@ -2006,38 +2006,6 @@ func getInternalDashboardURL() string {
 	return fmt.Sprintf("http://localhost:%d", constants.GrafanaContainerPort)
 }
 
-func newVolumeForCR(cr *model.CryostatInstance) []corev1.Volume {
-	var volumeSource corev1.VolumeSource
-	if useEmptyDir(cr) {
-		emptyDir := cr.Spec.StorageOptions.EmptyDir
-
-		sizeLimit, err := resource.ParseQuantity(emptyDir.SizeLimit)
-		if err != nil {
-			sizeLimit = *resource.NewQuantity(0, resource.BinarySI)
-		}
-
-		volumeSource = corev1.VolumeSource{
-			EmptyDir: &corev1.EmptyDirVolumeSource{
-				Medium:    emptyDir.Medium,
-				SizeLimit: &sizeLimit,
-			},
-		}
-	} else {
-		volumeSource = corev1.VolumeSource{
-			PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
-				ClaimName: cr.Name,
-			},
-		}
-	}
-
-	return []corev1.Volume{
-		{
-			Name:         cr.Name,
-			VolumeSource: volumeSource,
-		},
-	}
-}
-
 func newVolumeForDatabase(cr *model.CryostatInstance) []corev1.Volume {
 	var volumeSource corev1.VolumeSource
 	if cr.Spec.StorageConfigurations != nil && cr.Spec.StorageConfigurations.Database != nil && cr.Spec.StorageConfigurations.Database.EmptyDir != nil && cr.Spec.StorageConfigurations.Database.EmptyDir.Enabled {
