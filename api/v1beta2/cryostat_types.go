@@ -407,10 +407,10 @@ type NetworkPoliciesList struct {
 }
 
 type NetworkPolicyConfig struct {
-	// Disable the NetworkPolicy for a given service.
+	// Disable the NetworkPolicy for ingress to a given service. Enabled by default.
 	// +optional
-	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Disable NetworkPolicy creation",xDescriptors={"urn:alm:descriptor:com.tectonic.ui:booleanSwitch"}
-	Disabled *bool `json:"disabled,omitempty"`
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Disable ingress NetworkPolicy creation",xDescriptors={"urn:alm:descriptor:com.tectonic.ui:booleanSwitch"}
+	IngressDisabled *bool `json:"ingressDisabled,omitempty"`
 }
 
 // NetworkConfiguration provides customization for how to expose a Cryostat

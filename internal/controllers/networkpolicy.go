@@ -60,7 +60,7 @@ func (r *Reconciler) reconcileCoreNetworkPolicy(ctx context.Context, cr *model.C
 		},
 	}
 
-	if cr.Spec.NetworkPolicies != nil && cr.Spec.NetworkPolicies.CoreConfig != nil && cr.Spec.NetworkPolicies.CoreConfig.Disabled != nil && *cr.Spec.NetworkPolicies.CoreConfig.Disabled {
+	if cr.Spec.NetworkPolicies != nil && cr.Spec.NetworkPolicies.CoreConfig != nil && cr.Spec.NetworkPolicies.CoreConfig.IngressDisabled != nil && *cr.Spec.NetworkPolicies.CoreConfig.IngressDisabled {
 		return r.deletePolicy(ctx, networkPolicy)
 	}
 
@@ -116,7 +116,7 @@ func (r *Reconciler) reconcileDatabaseNetworkPolicy(ctx context.Context, cr *mod
 			Namespace: cr.InstallNamespace,
 		},
 	}
-	if cr.Spec.NetworkPolicies != nil && cr.Spec.NetworkPolicies.DatabaseConfig != nil && cr.Spec.NetworkPolicies.DatabaseConfig.Disabled != nil && *cr.Spec.NetworkPolicies.DatabaseConfig.Disabled {
+	if cr.Spec.NetworkPolicies != nil && cr.Spec.NetworkPolicies.DatabaseConfig != nil && cr.Spec.NetworkPolicies.DatabaseConfig.IngressDisabled != nil && *cr.Spec.NetworkPolicies.DatabaseConfig.IngressDisabled {
 		return r.deletePolicy(ctx, networkPolicy)
 	}
 
@@ -155,7 +155,7 @@ func (r *Reconciler) reconcileStorageNetworkPolicy(ctx context.Context, cr *mode
 		},
 	}
 
-	if cr.Spec.NetworkPolicies != nil && cr.Spec.NetworkPolicies.StorageConfig != nil && cr.Spec.NetworkPolicies.StorageConfig.Disabled != nil && *cr.Spec.NetworkPolicies.StorageConfig.Disabled {
+	if cr.Spec.NetworkPolicies != nil && cr.Spec.NetworkPolicies.StorageConfig != nil && cr.Spec.NetworkPolicies.StorageConfig.IngressDisabled != nil && *cr.Spec.NetworkPolicies.StorageConfig.IngressDisabled {
 		return r.deletePolicy(ctx, networkPolicy)
 	}
 
@@ -194,7 +194,7 @@ func (r *Reconciler) reconcileReportsNetworkPolicy(ctx context.Context, cr *mode
 		},
 	}
 
-	if cr.Spec.NetworkPolicies != nil && cr.Spec.NetworkPolicies.ReportsConfig != nil && cr.Spec.NetworkPolicies.ReportsConfig.Disabled != nil && *cr.Spec.NetworkPolicies.ReportsConfig.Disabled {
+	if cr.Spec.NetworkPolicies != nil && cr.Spec.NetworkPolicies.ReportsConfig != nil && cr.Spec.NetworkPolicies.ReportsConfig.IngressDisabled != nil && *cr.Spec.NetworkPolicies.ReportsConfig.IngressDisabled {
 		return r.deletePolicy(ctx, networkPolicy)
 	}
 

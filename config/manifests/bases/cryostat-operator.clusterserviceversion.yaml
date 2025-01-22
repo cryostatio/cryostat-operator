@@ -181,24 +181,28 @@ spec:
           various Services.
         displayName: Network Policies
         path: networkPolicies
-      - description: Disable the NetworkPolicy for a given service.
-        displayName: Disable NetworkPolicy creation
-        path: networkPolicies.coreConfig.disabled
+      - description: Disable the NetworkPolicy for ingress to a given service. Enabled
+          by default.
+        displayName: Disable ingress NetworkPolicy creation
+        path: networkPolicies.coreConfig.ingressDisabled
         x-descriptors:
         - urn:alm:descriptor:com.tectonic.ui:booleanSwitch
-      - description: Disable the NetworkPolicy for a given service.
-        displayName: Disable NetworkPolicy creation
-        path: networkPolicies.databaseConfig.disabled
+      - description: Disable the NetworkPolicy for ingress to a given service. Enabled
+          by default.
+        displayName: Disable ingress NetworkPolicy creation
+        path: networkPolicies.databaseConfig.ingressDisabled
         x-descriptors:
         - urn:alm:descriptor:com.tectonic.ui:booleanSwitch
-      - description: Disable the NetworkPolicy for a given service.
-        displayName: Disable NetworkPolicy creation
-        path: networkPolicies.reportsConfig.disabled
+      - description: Disable the NetworkPolicy for ingress to a given service. Enabled
+          by default.
+        displayName: Disable ingress NetworkPolicy creation
+        path: networkPolicies.reportsConfig.ingressDisabled
         x-descriptors:
         - urn:alm:descriptor:com.tectonic.ui:booleanSwitch
-      - description: Disable the NetworkPolicy for a given service.
-        displayName: Disable NetworkPolicy creation
-        path: networkPolicies.storageConfig.disabled
+      - description: Disable the NetworkPolicy for ingress to a given service. Enabled
+          by default.
+        displayName: Disable ingress NetworkPolicy creation
+        path: networkPolicies.storageConfig.ingressDisabled
         x-descriptors:
         - urn:alm:descriptor:com.tectonic.ui:booleanSwitch
       - description: Options to configure the Cryostat deployments and pods metadata

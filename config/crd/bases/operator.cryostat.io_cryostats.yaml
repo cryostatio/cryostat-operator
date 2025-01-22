@@ -5801,30 +5801,34 @@ spec:
                     description: NetworkPolicy configuration for the Cryostat application
                       service.
                     properties:
-                      disabled:
-                        description: Disable the NetworkPolicy for a given service.
+                      ingressDisabled:
+                        description: Disable the NetworkPolicy for ingress to a given
+                          service. Enabled by default.
                         type: boolean
                     type: object
                   databaseConfig:
                     description: NetworkPolicy configuration for the database service.
                     properties:
-                      disabled:
-                        description: Disable the NetworkPolicy for a given service.
+                      ingressDisabled:
+                        description: Disable the NetworkPolicy for ingress to a given
+                          service. Enabled by default.
                         type: boolean
                     type: object
                   reportsConfig:
                     description: NetworkPolicy configuration for the cryostat-reports
                       service.
                     properties:
-                      disabled:
-                        description: Disable the NetworkPolicy for a given service.
+                      ingressDisabled:
+                        description: Disable the NetworkPolicy for ingress to a given
+                          service. Enabled by default.
                         type: boolean
                     type: object
                   storageConfig:
                     description: NetworkPolicy configuration for the storage service.
                     properties:
-                      disabled:
-                        description: Disable the NetworkPolicy for a given service.
+                      ingressDisabled:
+                        description: Disable the NetworkPolicy for ingress to a given
+                          service. Enabled by default.
                         type: boolean
                     type: object
                 type: object
