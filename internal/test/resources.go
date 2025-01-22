@@ -2303,9 +2303,9 @@ func (r *TestResources) NewDatabaseArgs() []string {
 			"-c",
 			"ssl=on",
 			"-c",
-			fmt.Sprintf("ssl_cert_file=/var/run/secrets/operator.cryostat.io/%s-database-tls/tls.crt", r.Name),
+			fmt.Sprintf("ssl_cert_file=/var/run/secrets/operator.cryostat.io/%s-database-tls/%s", r.Name, corev1.TLSCertKey),
 			"-c",
-			fmt.Sprintf("ssl_key_file=/var/run/secrets/operator.cryostat.io/%s-database-tls/tls.key", r.Name),
+			fmt.Sprintf("ssl_key_file=/var/run/secrets/operator.cryostat.io/%s-database-tls/%s", r.Name, corev1.TLSPrivateKeyKey),
 		)
 	}
 
