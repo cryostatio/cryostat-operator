@@ -512,6 +512,27 @@ func NewPodForCR(cr *model.CryostatInstance, specs *ServiceSpecs, imageTags *Ima
 				},
 			},
 		)
+
+		dbTlsVolume := corev1.Volume{
+			Name: "database-tls-secret",
+			VolumeSource: corev1.VolumeSource{
+				Secret: &corev1.SecretVolumeSource{
+					SecretName:  tls.DatabaseSecret,
+					DefaultMode: &readOnlyMode,
+					Items: []corev1.KeyToPath{
+						{
+							Key:  corev1.TLSCertKey,
+							Path: corev1.TLSCertKey,
+						},
+						{
+							Key:  constants.CAKey,
+							Path: constants.CAKey,
+						},
+					},
+				},
+			},
+		}
+		volumes = append(volumes, dbTlsVolume)
 	}
 
 	// Project certificate secrets into deployment
@@ -641,14 +662,16 @@ func NewPodForCR(cr *model.CryostatInstance, specs *ServiceSpecs, imageTags *Ima
 func NewPodForDatabase(cr *model.CryostatInstance, imageTags *ImageTags, tls *TLSConfig, openshift bool, fsGroup int64) *corev1.PodSpec {
 	container := []corev1.Container{NewDatabaseContainer(cr, imageTags.DatabaseImageTag, tls)}
 
-	volumes := newVolumeForDatabse(cr)
+	volumes := newVolumeForDatabase(cr)
 
 	if tls != nil {
+		readOnlyMode := int32(0440)
 		secretVolume := corev1.Volume{
 			Name: "database-tls-secret",
 			VolumeSource: corev1.VolumeSource{
 				Secret: &corev1.SecretVolumeSource{
-					SecretName: tls.DatabaseSecret,
+					SecretName:  tls.DatabaseSecret,
+					DefaultMode: &readOnlyMode,
 				},
 			},
 		}
@@ -1246,10 +1269,6 @@ func NewCoreContainer(cr *model.CryostatInstance, specs *ServiceSpecs, imageTag 
 			Value: "cryostat",
 		},
 		{
-			Name:  "QUARKUS_DATASOURCE_JDBC_URL",
-			Value: fmt.Sprintf("jdbc:postgresql://%s-database.%s.svc.cluster.local:5432/cryostat", cr.Name, cr.InstallNamespace),
-		},
-		{
 			Name:  "STORAGE_BUCKETS_ARCHIVE_NAME",
 			Value: "archivedrecordings",
 		},
@@ -1456,6 +1475,25 @@ func NewCoreContainer(cr *model.CryostatInstance, specs *ServiceSpecs, imageTag 
 			ReadOnly:  true,
 		}
 		mounts = append(mounts, mount)
+	}
+	if tls != nil {
+		pathPrefix := "/var/run/secrets/operator.cryostat.io"
+		tlsPath := fmt.Sprintf("%s/%s", pathPrefix, tls.DatabaseSecret)
+		tlsSecretMount := corev1.VolumeMount{
+			Name:      "database-tls-secret",
+			MountPath: tlsPath,
+			ReadOnly:  true,
+		}
+		mounts = append(mounts, tlsSecretMount)
+		envs = append(envs, corev1.EnvVar{
+			Name:  "QUARKUS_DATASOURCE_JDBC_URL",
+			Value: fmt.Sprintf("jdbc:postgresql://%s-database.%s.svc.cluster.local:5432/cryostat?ssl=true&sslmode=verify-full&sslcert=&sslrootcert=%s/ca.crt", cr.Name, cr.InstallNamespace, tlsPath),
+		})
+	} else {
+		envs = append(envs, corev1.EnvVar{
+			Name:  "QUARKUS_DATASOURCE_JDBC_URL",
+			Value: fmt.Sprintf("jdbc:postgresql://%s-database.%s.svc.cluster.local:5432/cryostat", cr.Name, cr.InstallNamespace),
+		})
 	}
 
 	probeHandler := corev1.ProbeHandler{
@@ -1781,43 +1819,20 @@ func NewDatabaseContainer(cr *model.CryostatInstance, imageTag string, tls *TLSC
 		},
 	}
 
-	// TODO
-	/**
-	if tls != nil {
-		tlsEnvs := []corev1.EnvVar{
-			{
-				Name:  "QUARKUS_DATASOURCE_REACTIVE_TRUST_ALL",
-				Value: "true",
-			},
-			{
-				Name:  "QUARKUS_DATASOURCE_REACTIVE_KEY_CERTIFICATE_PEM_KEYS",
-				Value: fmt.Sprintf("/var/run/secrets/operator.cryostat.io/%s-database-tls/tls.key", cr.Name),
-			},
-			{
-				Name:  "QUARKUS_DATASOURCE_REACTIVE_KEY_CERTIFICATE_PEM_CERTS",
-				Value: fmt.Sprintf("/var/run/secrets/operator.cryostat.io/%s-database-tls/tls.crt", cr.Name),
-			},
-			{
-				Name:  "QUARKUS_DATASOURCE_REACTIVE_URL",
-				Value: fmt.Sprintf("https://%s-database:5432", cr.Name),
-			},
-		}
-		envs = append(envs, tlsEnvs...)
+	args := []string{}
 
+	if tls != nil {
+		pathPrefix := "/var/run/secrets/operator.cryostat.io"
+		tlsPath := fmt.Sprintf("%s/%s", pathPrefix, tls.DatabaseSecret)
 		tlsSecretMount := corev1.VolumeMount{
 			Name:      "database-tls-secret",
-			MountPath: "/var/run/secrets/operator.cryostat.io/" + tls.DatabaseSecret,
+			MountPath: tlsPath,
 			ReadOnly:  true,
 		}
-
 		mounts = append(mounts, tlsSecretMount)
-	} else {
-		envs = append(envs, corev1.EnvVar{
-			Name:  "QUARKUS_DATASOURCE_REACTIVE_URL",
-			Value: fmt.Sprintf("http://%s-database:5432", cr.Name),
-		})
+
+		args = append(args, "-c", "ssl=on", "-c", fmt.Sprintf("ssl_cert_file=%s/%s", tlsPath, corev1.TLSCertKey), "-c", fmt.Sprintf("ssl_key_file=%s/%s", tlsPath, corev1.TLSPrivateKeyKey))
 	}
-	**/
 
 	return corev1.Container{
 		Name:            cr.Name + "-db",
@@ -1826,6 +1841,7 @@ func NewDatabaseContainer(cr *model.CryostatInstance, imageTag string, tls *TLSC
 		VolumeMounts:    mounts,
 		SecurityContext: containerSc,
 		Env:             envs,
+		Args:            args,
 		Ports: []corev1.ContainerPort{
 			{
 				ContainerPort: constants.DatabasePort,
@@ -1990,7 +2006,39 @@ func getInternalDashboardURL() string {
 	return fmt.Sprintf("http://localhost:%d", constants.GrafanaContainerPort)
 }
 
-func newVolumeForDatabse(cr *model.CryostatInstance) []corev1.Volume {
+func newVolumeForCR(cr *model.CryostatInstance) []corev1.Volume {
+	var volumeSource corev1.VolumeSource
+	if useEmptyDir(cr) {
+		emptyDir := cr.Spec.StorageOptions.EmptyDir
+
+		sizeLimit, err := resource.ParseQuantity(emptyDir.SizeLimit)
+		if err != nil {
+			sizeLimit = *resource.NewQuantity(0, resource.BinarySI)
+		}
+
+		volumeSource = corev1.VolumeSource{
+			EmptyDir: &corev1.EmptyDirVolumeSource{
+				Medium:    emptyDir.Medium,
+				SizeLimit: &sizeLimit,
+			},
+		}
+	} else {
+		volumeSource = corev1.VolumeSource{
+			PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
+				ClaimName: cr.Name,
+			},
+		}
+	}
+
+	return []corev1.Volume{
+		{
+			Name:         cr.Name,
+			VolumeSource: volumeSource,
+		},
+	}
+}
+
+func newVolumeForDatabase(cr *model.CryostatInstance) []corev1.Volume {
 	var volumeSource corev1.VolumeSource
 	if cr.Spec.StorageConfigurations != nil && cr.Spec.StorageConfigurations.Database != nil && cr.Spec.StorageConfigurations.Database.EmptyDir != nil && cr.Spec.StorageConfigurations.Database.EmptyDir.Enabled {
 		emptyDir := cr.Spec.StorageConfigurations.Database.EmptyDir
