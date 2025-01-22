@@ -24,6 +24,7 @@ import (
 	certv1 "github.com/cert-manager/cert-manager/pkg/apis/certmanager/v1"
 	certMeta "github.com/cert-manager/cert-manager/pkg/apis/meta/v1"
 	operatorv1beta2 "github.com/cryostatio/cryostat-operator/api/v1beta2"
+	"github.com/cryostatio/cryostat-operator/internal/controllers/constants"
 	"github.com/cryostatio/cryostat-operator/internal/controllers/model"
 	"github.com/onsi/gomega"
 	configv1 "github.com/openshift/api/config/v1"
@@ -2244,8 +2245,8 @@ func (r *TestResources) NewStorageArgs() []string {
 	if r.TLS {
 		args = append(args,
 			"-s3.port.https=8334",
-			fmt.Sprintf("-s3.key.file=/var/run/secrets/operator.cryostat.io/%s-storage-tls/tls.key", r.Name),
-			fmt.Sprintf("-s3.cert.file=/var/run/secrets/operator.cryostat.io/%s-storage-tls/tls.crt", r.Name),
+			fmt.Sprintf("-s3.key.file=/var/run/secrets/operator.cryostat.io/%s-storage-tls/%s", r.Name, corev1.TLSPrivateKeyKey),
+			fmt.Sprintf("-s3.cert.file=/var/run/secrets/operator.cryostat.io/%s-storage-tls/%s", r.Name, corev1.TLSCertKey),
 		)
 	}
 
@@ -3096,12 +3097,12 @@ func (r *TestResources) newVolumes(certProjections []corev1.VolumeProjection) []
 						DefaultMode: &readOnlymode,
 						Items: []corev1.KeyToPath{
 							{
-								Key:  "tls.crt",
-								Path: "tls.crt",
+								Key:  corev1.TLSCertKey,
+								Path: corev1.TLSCertKey,
 							},
 							{
-								Key:  "ca.crt",
-								Path: "ca.crt",
+								Key:  constants.CAKey,
+								Path: constants.CAKey,
 							},
 						},
 					},
@@ -3118,13 +3119,13 @@ func (r *TestResources) newVolumes(certProjections []corev1.VolumeProjection) []
 						DefaultMode: &readOnlymode,
 						Items: []corev1.KeyToPath{
 							{
-								Key:  "tls.crt",
-								Path: "s3/tls.crt",
+								Key:  corev1.TLSCertKey,
+								Path: fmt.Sprintf("s3/%s", corev1.TLSCertKey),
 								Mode: &readOnlymode,
 							},
 							{
-								Key:  "ca.crt",
-								Path: "s3/ca.crt",
+								Key:  constants.CAKey,
+								Path: fmt.Sprintf("s3/%s", constants.CAKey),
 								Mode: &readOnlymode,
 							},
 						},

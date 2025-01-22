@@ -500,7 +500,7 @@ func NewPodForCR(cr *model.CryostatInstance, specs *ServiceSpecs, imageTags *Ima
 				Items: []corev1.KeyToPath{
 					{
 						Key:  constants.CAKey,
-						Path: cr.Name + "-ca.crt",
+						Path: fmt.Sprintf("%s-%s", cr.Name, constants.CAKey),
 						Mode: &readOnlyMode,
 					},
 				},
@@ -551,13 +551,13 @@ func NewPodForCR(cr *model.CryostatInstance, specs *ServiceSpecs, imageTags *Ima
 					DefaultMode: &readOnlyMode,
 					Items: []corev1.KeyToPath{
 						{
-							Key:  "tls.crt",
-							Path: "s3/tls.crt",
+							Key:  corev1.TLSCertKey,
+							Path: fmt.Sprintf("s3/%s", corev1.TLSCertKey),
 							Mode: &readOnlyMode,
 						},
 						{
-							Key:  "ca.crt",
-							Path: "s3/ca.crt",
+							Key:  constants.CAKey,
+							Path: fmt.Sprintf("s3/%s", constants.CAKey),
 							Mode: &readOnlyMode,
 						},
 					},
@@ -1567,7 +1567,7 @@ func NewCoreContainer(cr *model.CryostatInstance, specs *ServiceSpecs, imageTag 
 		mounts = append(mounts, tlsSecretMount)
 		envs = append(envs, corev1.EnvVar{
 			Name:  "QUARKUS_DATASOURCE_JDBC_URL",
-			Value: fmt.Sprintf("jdbc:postgresql://%s-database.%s.svc.cluster.local:5432/cryostat?ssl=true&sslmode=verify-full&sslcert=&sslrootcert=%s/ca.crt", cr.Name, cr.InstallNamespace, tlsPath),
+			Value: fmt.Sprintf("jdbc:postgresql://%s-database.%s.svc.cluster.local:5432/cryostat?ssl=true&sslmode=verify-full&sslcert=&sslrootcert=%s/%s", cr.Name, cr.InstallNamespace, tlsPath, constants.CAKey),
 		})
 	} else {
 		envs = append(envs, corev1.EnvVar{
