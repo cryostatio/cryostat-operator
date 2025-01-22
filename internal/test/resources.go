@@ -3098,10 +3098,12 @@ func (r *TestResources) newVolumes(certProjections []corev1.VolumeProjection) []
 							{
 								Key:  "tls.crt",
 								Path: "tls.crt",
+								Mode: &readOnlymode,
 							},
 							{
 								Key:  "ca.crt",
 								Path: "ca.crt",
+								Mode: &readOnlymode,
 							},
 						},
 					},

@@ -579,10 +579,12 @@ func NewPodForCR(cr *model.CryostatInstance, specs *ServiceSpecs, imageTags *Ima
 						{
 							Key:  corev1.TLSCertKey,
 							Path: corev1.TLSCertKey,
+							Mode: &readOnlyMode,
 						},
 						{
 							Key:  constants.CAKey,
 							Path: constants.CAKey,
+							Mode: &readOnlyMode,
 						},
 					},
 				},
