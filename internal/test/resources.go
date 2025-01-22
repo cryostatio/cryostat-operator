@@ -226,11 +226,22 @@ func (r *TestResources) NewCryostatWithPVCSpecSomeDefault() *model.CryostatInsta
 
 func (r *TestResources) NewCryostatWithPVCLabelsOnly() *model.CryostatInstance {
 	cr := r.NewCryostat()
-	cr.Spec.StorageOptions = &operatorv1beta2.StorageConfiguration{
-		PVC: &operatorv1beta2.PersistentVolumeClaimConfig{
-			ResourceMetadata: operatorv1beta2.ResourceMetadata{
-				Labels: map[string]string{
-					"my": "label",
+	cr.Spec.StorageConfigurations = &operatorv1beta2.StorageConfigurations{
+		Database: &operatorv1beta2.StorageConfiguration{
+			PVC: &operatorv1beta2.PersistentVolumeClaimConfig{
+				ResourceMetadata: operatorv1beta2.ResourceMetadata{
+					Labels: map[string]string{
+						"my": "label",
+					},
+				},
+			},
+		},
+		ObjectStorage: &operatorv1beta2.StorageConfiguration{
+			PVC: &operatorv1beta2.PersistentVolumeClaimConfig{
+				ResourceMetadata: operatorv1beta2.ResourceMetadata{
+					Labels: map[string]string{
+						"my": "label",
+					},
 				},
 			},
 		},

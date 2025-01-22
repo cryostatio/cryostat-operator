@@ -10448,15 +10448,17 @@ spec:
                           annotations:
                             additionalProperties:
                               type: string
-                            description: Annotations to add to the Persistent Volume
-                              Claim during its creation.
+                            description: Annotations to add to the object during its
+                              creation.
                             type: object
                           labels:
                             additionalProperties:
                               type: string
                             description: |-
-                              Labels to add to the Persistent Volume Claim during its creation.
-                              The label with key "app" is reserved for use by the operator.
+                              Labels to add to the object during its creation.
+                              The following label keys are reserved for use by the operator:
+                              "app", "component", "app.kubernetes.io/name", "app.kubernetes.io/instance",
+                              "app.kubernetes.io/component", and "app.kubernetes.io/part-of".
                             type: object
                           spec:
                             description: |-
@@ -10701,15 +10703,17 @@ spec:
                           annotations:
                             additionalProperties:
                               type: string
-                            description: Annotations to add to the Persistent Volume
-                              Claim during its creation.
+                            description: Annotations to add to the object during its
+                              creation.
                             type: object
                           labels:
                             additionalProperties:
                               type: string
                             description: |-
-                              Labels to add to the Persistent Volume Claim during its creation.
-                              The label with key "app" is reserved for use by the operator.
+                              Labels to add to the object during its creation.
+                              The following label keys are reserved for use by the operator:
+                              "app", "component", "app.kubernetes.io/name", "app.kubernetes.io/instance",
+                              "app.kubernetes.io/component", and "app.kubernetes.io/part-of".
                             type: object
                           spec:
                             description: |-
