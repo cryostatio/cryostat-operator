@@ -90,12 +90,10 @@ func (r *podMutator) Default(ctx context.Context, obj runtime.Object) error {
 	tlsEnabled := r.IsCertManagerEnabled(crModel)
 
 	// Select target container
-	if len(pod.Spec.Containers) == 0 {
-		// Should never happen, Kubernetes doesn't allow this
-		return errors.New("pod has no containers")
+	container, err := getTargetContainer(pod)
+	if err != nil {
+		return err
 	}
-	// TODO make configurable with label
-	container := &pod.Spec.Containers[0]
 
 	// Determine the callback port number
 	port, err := getAgentCallbackPort(pod.Labels)
@@ -365,6 +363,29 @@ func (r *podMutator) getImageTag() string {
 		r.config.InitImageTag = &agentInitImage
 	}
 	return *r.config.InitImageTag
+}
+
+func getTargetContainer(pod *corev1.Pod) (*corev1.Container, error) {
+	if len(pod.Spec.Containers) == 0 {
+		// Should never happen, Kubernetes doesn't allow this
+		return nil, errors.New("pod has no containers")
+	}
+	label, pres := pod.Labels[constants.AgentLabelContainer]
+	if !pres {
+		// Use the first container by default
+		return &pod.Spec.Containers[0], nil
+	}
+	// Find the container matching the label
+	return findNamedContainer(pod.Spec.Containers, label)
+}
+
+func findNamedContainer(containers []corev1.Container, name string) (*corev1.Container, error) {
+	for i, container := range containers {
+		if container.Name == name {
+			return &containers[i], nil
+		}
+	}
+	return nil, fmt.Errorf("no container found with name \"%s\"", name)
 }
 
 func extendJavaToolOptions(envs []corev1.EnvVar) ([]corev1.EnvVar, error) {
