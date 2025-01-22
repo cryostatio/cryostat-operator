@@ -186,7 +186,7 @@ func (r *Reconciler) reconcileCryostat(ctx context.Context, cr *model.CryostatIn
 			}
 
 			// Delete headless services in target namespaces
-			err = r.finalizeAgentHeadlessServices(ctx, cr)
+			err = r.finalizeAgentCallbackServices(ctx, cr)
 			if err != nil {
 				return reconcile.Result{}, err
 			}
@@ -288,11 +288,11 @@ func (r *Reconciler) reconcileCryostat(ctx context.Context, cr *model.CryostatIn
 	if err != nil {
 		return reconcile.Result{}, err
 	}
-	err = r.reconcileAgentService(ctx, cr)
+	err = r.reconcileAgentGatewayService(ctx, cr)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
-	err = r.reconcileAgentHeadlessServices(ctx, cr)
+	err = r.reconcileAgentCallbackServices(ctx, cr)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
@@ -373,7 +373,7 @@ func (r *Reconciler) setupWithManager(c common.ControllerBuilder, impl reconcile
 	}
 
 	// Watch objects that we create in target namespaces
-	c, err := r.watchTargetNamespaces(c, &rbacv1.RoleBinding{}, &corev1.Secret{})
+	c, err := r.watchTargetNamespaces(c, &rbacv1.RoleBinding{}, &corev1.Secret{}, &corev1.Service{})
 	if err != nil {
 		return err
 	}

@@ -76,6 +76,17 @@ spec:
         path: enableCertManager
         x-descriptors:
         - urn:alm:descriptor:com.tectonic.ui:booleanSwitch
+      - description: Options to control how the operator configures Cryostat Agents
+          to communicate with this Cryostat instance.
+        displayName: Agent Options
+        path: agentOptions
+      - description: Disables hostname verification when Cryostat connects to Agents
+          over TLS. Consider enabling this if the Cryostat Agent fails to determine
+          the hostname of your pod.
+        displayName: Disable Hostname Verification
+        path: agentOptions.disableHostnameVerification
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:booleanSwitch
       - description: Additional configuration options for the authorization proxy.
         displayName: Authorization Options
         path: authorizationOptions
@@ -148,7 +159,7 @@ spec:
           serves the Cryostat application.
         displayName: Core Config
         path: networkOptions.coreConfig
-      - description: Annotations to add to the Ingress or Route during its creation.
+      - description: Annotations to add to the object during its creation.
         displayName: Annotations
         path: networkOptions.coreConfig.annotations
       - description: Externally routable host to be used to reach this Cryostat service.
@@ -161,8 +172,9 @@ spec:
           being used) to differentiate between ingresses/services.
         displayName: Ingress Spec
         path: networkOptions.coreConfig.ingressSpec
-      - description: Labels to add to the Ingress or Route during its creation. The
-          label with key "app" is reserved for use by the operator.
+      - description: 'Labels to add to the object during its creation. The following
+          label keys are reserved for use by the operator: "app", "component", "app.kubernetes.io/name",
+          "app.kubernetes.io/instance", "app.kubernetes.io/component", and "app.kubernetes.io/part-of".'
         displayName: Labels
         path: networkOptions.coreConfig.labels
       - description: Options to customize the NetworkPolicy objects created for Cryostat's
@@ -195,9 +207,25 @@ spec:
       - description: Options to configure the Cryostat deployments metadata
         displayName: Deployments metadata
         path: operandMetadata.deploymentMetadata
+      - description: Annotations to add to the object during its creation.
+        displayName: Annotations
+        path: operandMetadata.deploymentMetadata.annotations
+      - description: 'Labels to add to the object during its creation. The following
+          label keys are reserved for use by the operator: "app", "component", "app.kubernetes.io/name",
+          "app.kubernetes.io/instance", "app.kubernetes.io/component", and "app.kubernetes.io/part-of".'
+        displayName: Labels
+        path: operandMetadata.deploymentMetadata.labels
       - description: Options to configure the Cryostat pods metadata
         displayName: Pods metadata
         path: operandMetadata.podMetadata
+      - description: Annotations to add to the object during its creation.
+        displayName: Annotations
+        path: operandMetadata.podMetadata.annotations
+      - description: 'Labels to add to the object during its creation. The following
+          label keys are reserved for use by the operator: "app", "component", "app.kubernetes.io/name",
+          "app.kubernetes.io/instance", "app.kubernetes.io/component", and "app.kubernetes.io/part-of".'
+        displayName: Labels
+        path: operandMetadata.podMetadata.labels
       - description: Options to configure Cryostat Automated Report Analysis.
         displayName: Report Options
         path: reportOptions
@@ -368,6 +396,54 @@ spec:
       - description: Options to customize the services created for the Cryostat application.
         displayName: Service Options
         path: serviceOptions
+      - description: Annotations to add to the object during its creation.
+        displayName: Annotations
+        path: serviceOptions.agentCallbackConfig.annotations
+      - description: 'Labels to add to the object during its creation. The following
+          label keys are reserved for use by the operator: "app", "component", "app.kubernetes.io/name",
+          "app.kubernetes.io/instance", "app.kubernetes.io/component", and "app.kubernetes.io/part-of".'
+        displayName: Labels
+        path: serviceOptions.agentCallbackConfig.labels
+      - description: Annotations to add to the object during its creation.
+        displayName: Annotations
+        path: serviceOptions.agentGatewayConfig.annotations
+      - description: 'Labels to add to the object during its creation. The following
+          label keys are reserved for use by the operator: "app", "component", "app.kubernetes.io/name",
+          "app.kubernetes.io/instance", "app.kubernetes.io/component", and "app.kubernetes.io/part-of".'
+        displayName: Labels
+        path: serviceOptions.agentGatewayConfig.labels
+      - description: Annotations to add to the object during its creation.
+        displayName: Annotations
+        path: serviceOptions.coreConfig.annotations
+      - description: 'Labels to add to the object during its creation. The following
+          label keys are reserved for use by the operator: "app", "component", "app.kubernetes.io/name",
+          "app.kubernetes.io/instance", "app.kubernetes.io/component", and "app.kubernetes.io/part-of".'
+        displayName: Labels
+        path: serviceOptions.coreConfig.labels
+      - description: Annotations to add to the object during its creation.
+        displayName: Annotations
+        path: serviceOptions.databaseConfig.annotations
+      - description: 'Labels to add to the object during its creation. The following
+          label keys are reserved for use by the operator: "app", "component", "app.kubernetes.io/name",
+          "app.kubernetes.io/instance", "app.kubernetes.io/component", and "app.kubernetes.io/part-of".'
+        displayName: Labels
+        path: serviceOptions.databaseConfig.labels
+      - description: Annotations to add to the object during its creation.
+        displayName: Annotations
+        path: serviceOptions.reportsConfig.annotations
+      - description: 'Labels to add to the object during its creation. The following
+          label keys are reserved for use by the operator: "app", "component", "app.kubernetes.io/name",
+          "app.kubernetes.io/instance", "app.kubernetes.io/component", and "app.kubernetes.io/part-of".'
+        displayName: Labels
+        path: serviceOptions.reportsConfig.labels
+      - description: Annotations to add to the object during its creation.
+        displayName: Annotations
+        path: serviceOptions.storageConfig.annotations
+      - description: 'Labels to add to the object during its creation. The following
+          label keys are reserved for use by the operator: "app", "component", "app.kubernetes.io/name",
+          "app.kubernetes.io/instance", "app.kubernetes.io/component", and "app.kubernetes.io/part-of".'
+        displayName: Labels
+        path: serviceOptions.storageConfig.labels
       - description: Options to customize the storage provisioned for the database
           and object storage.
         displayName: Storage Configurations
@@ -462,6 +538,14 @@ spec:
           the operator.
         displayName: PVC
         path: storageOptions.pvc
+      - description: Annotations to add to the object during its creation.
+        displayName: Annotations
+        path: storageOptions.pvc.annotations
+      - description: 'Labels to add to the object during its creation. The following
+          label keys are reserved for use by the operator: "app", "component", "app.kubernetes.io/name",
+          "app.kubernetes.io/instance", "app.kubernetes.io/component", and "app.kubernetes.io/part-of".'
+        displayName: Labels
+        path: storageOptions.pvc.labels
       - description: Spec for a Persistent Volume Claim, whose options will override
           the defaults used by the operator. Unless overriden, the PVC will be created
           with the default Storage Class and 500MiB of storage. Once the operator

@@ -295,8 +295,10 @@ func configureIngress(name string, cryostatSpec *operatorv1beta2.CryostatSpec) {
 	pathType := netv1.PathTypePrefix
 	cryostatSpec.NetworkOptions = &operatorv1beta2.NetworkConfigurationList{
 		CoreConfig: &operatorv1beta2.NetworkConfiguration{
-			Annotations: map[string]string{
-				"nginx.ingress.kubernetes.io/backend-protocol": "HTTPS",
+			ResourceMetadata: operatorv1beta2.ResourceMetadata{
+				Annotations: map[string]string{
+					"nginx.ingress.kubernetes.io/backend-protocol": "HTTPS",
+				},
 			},
 			IngressSpec: &netv1.IngressSpec{
 				TLS: []netv1.IngressTLS{{}},
