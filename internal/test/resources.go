@@ -24,7 +24,6 @@ import (
 	certv1 "github.com/cert-manager/cert-manager/pkg/apis/certmanager/v1"
 	certMeta "github.com/cert-manager/cert-manager/pkg/apis/meta/v1"
 	operatorv1beta2 "github.com/cryostatio/cryostat-operator/api/v1beta2"
-	"github.com/cryostatio/cryostat-operator/internal/controllers/constants"
 	"github.com/cryostatio/cryostat-operator/internal/controllers/model"
 	"github.com/onsi/gomega"
 	configv1 "github.com/openshift/api/config/v1"
@@ -2184,10 +2183,10 @@ func (r *TestResources) NewReportsEnvironmentVariables(resources *corev1.Resourc
 			Value: "10000",
 		}, corev1.EnvVar{
 			Name:  "QUARKUS_HTTP_SSL_CERTIFICATE_KEY_FILES",
-			Value: fmt.Sprintf("/var/run/secrets/operator.cryostat.io/%s-reports-tls/%s", r.Name, corev1.TLSPrivateKeyKey),
+			Value: fmt.Sprintf("/var/run/secrets/operator.cryostat.io/%s-reports-tls/tls.key", r.Name),
 		}, corev1.EnvVar{
 			Name:  "QUARKUS_HTTP_SSL_CERTIFICATE_FILES",
-			Value: fmt.Sprintf("/var/run/secrets/operator.cryostat.io/%s-reports-tls/%s", r.Name, corev1.TLSCertKey),
+			Value: fmt.Sprintf("/var/run/secrets/operator.cryostat.io/%s-reports-tls/tls.crt", r.Name),
 		}, corev1.EnvVar{
 			Name:  "QUARKUS_HTTP_INSECURE_REQUESTS",
 			Value: "disabled",
@@ -2245,8 +2244,8 @@ func (r *TestResources) NewStorageArgs() []string {
 	if r.TLS {
 		args = append(args,
 			"-s3.port.https=8334",
-			fmt.Sprintf("-s3.key.file=/var/run/secrets/operator.cryostat.io/%s-storage-tls/%s", r.Name, corev1.TLSPrivateKeyKey),
-			fmt.Sprintf("-s3.cert.file=/var/run/secrets/operator.cryostat.io/%s-storage-tls/%s", r.Name, corev1.TLSCertKey),
+			fmt.Sprintf("-s3.key.file=/var/run/secrets/operator.cryostat.io/%s-storage-tls/tls.key", r.Name),
+			fmt.Sprintf("-s3.cert.file=/var/run/secrets/operator.cryostat.io/%s-storage-tls/tls.crt", r.Name),
 		)
 	}
 
@@ -2304,9 +2303,9 @@ func (r *TestResources) NewDatabaseArgs() []string {
 			"-c",
 			"ssl=on",
 			"-c",
-			fmt.Sprintf("ssl_cert_file=/var/run/secrets/operator.cryostat.io/%s-database-tls/%s", r.Name, corev1.TLSCertKey),
+			fmt.Sprintf("ssl_cert_file=/var/run/secrets/operator.cryostat.io/%s-database-tls/tls.crt", r.Name),
 			"-c",
-			fmt.Sprintf("ssl_key_file=/var/run/secrets/operator.cryostat.io/%s-database-tls/%s", r.Name, corev1.TLSPrivateKeyKey),
+			fmt.Sprintf("ssl_key_file=/var/run/secrets/operator.cryostat.io/%s-database-tls/tls.key", r.Name),
 		)
 	}
 
@@ -2508,8 +2507,8 @@ func (r *TestResources) NewAuthProxyArguments(authOptions *operatorv1beta2.Autho
 		args = append(args,
 			"--http-address=",
 			"--https-address=0.0.0.0:4180",
-			fmt.Sprintf("--tls-cert=/var/run/secrets/operator.cryostat.io/%s/%s", r.Name+"-tls", corev1.TLSCertKey),
-			fmt.Sprintf("--tls-key=/var/run/secrets/operator.cryostat.io/%s/%s", r.Name+"-tls", corev1.TLSPrivateKeyKey),
+			fmt.Sprintf("--tls-cert=/var/run/secrets/operator.cryostat.io/%s/tls.crt", r.Name+"-tls"),
+			fmt.Sprintf("--tls-key=/var/run/secrets/operator.cryostat.io/%s/tls.key", r.Name+"-tls"),
 		)
 	} else {
 		args = append(args,
@@ -3097,12 +3096,12 @@ func (r *TestResources) newVolumes(certProjections []corev1.VolumeProjection) []
 						DefaultMode: &readOnlymode,
 						Items: []corev1.KeyToPath{
 							{
-								Key:  corev1.TLSCertKey,
-								Path: corev1.TLSCertKey,
+								Key:  "tls.crt",
+								Path: "tls.crt",
 							},
 							{
-								Key:  constants.CAKey,
-								Path: constants.CAKey,
+								Key:  "ca.crt",
+								Path: "ca.crt",
 							},
 						},
 					},
@@ -3119,13 +3118,13 @@ func (r *TestResources) newVolumes(certProjections []corev1.VolumeProjection) []
 						DefaultMode: &readOnlymode,
 						Items: []corev1.KeyToPath{
 							{
-								Key:  corev1.TLSCertKey,
-								Path: fmt.Sprintf("s3/%s", corev1.TLSCertKey),
+								Key:  "tls.crt",
+								Path: "s3/tls.crt",
 								Mode: &readOnlymode,
 							},
 							{
-								Key:  constants.CAKey,
-								Path: fmt.Sprintf("s3/%s", constants.CAKey),
+								Key:  "ca.crt",
+								Path: "s3/ca.crt",
 								Mode: &readOnlymode,
 							},
 						},

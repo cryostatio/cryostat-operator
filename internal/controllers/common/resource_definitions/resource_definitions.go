@@ -18,6 +18,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/url"
+	"path"
 	"strconv"
 	"strings"
 
@@ -93,6 +94,7 @@ const (
 	OAuth2ConfigFileName              string = "alpha_config.json"
 	OAuth2ConfigFilePath              string = "/etc/oauth2_proxy/alpha_config"
 	DatabaseName                      string = "cryostat"
+	SecretMountPrefix                 string = "/var/run/secrets/operator.cryostat.io"
 )
 
 func CorePodLabels(cr *model.CryostatInstance) map[string]string {
@@ -543,6 +545,7 @@ func NewPodForCR(cr *model.CryostatInstance, specs *ServiceSpecs, imageTags *Ima
 			},
 		)
 
+		storageMountPrefix := "s3"
 		storageSecretVolume := corev1.Volume{
 			Name: "storage-tls-secret",
 			VolumeSource: corev1.VolumeSource{
@@ -552,12 +555,12 @@ func NewPodForCR(cr *model.CryostatInstance, specs *ServiceSpecs, imageTags *Ima
 					Items: []corev1.KeyToPath{
 						{
 							Key:  corev1.TLSCertKey,
-							Path: fmt.Sprintf("s3/%s", corev1.TLSCertKey),
+							Path: path.Join(storageMountPrefix, corev1.TLSCertKey),
 							Mode: &readOnlyMode,
 						},
 						{
 							Key:  constants.CAKey,
-							Path: fmt.Sprintf("s3/%s", constants.CAKey),
+							Path: path.Join(storageMountPrefix, constants.CAKey),
 							Mode: &readOnlyMode,
 						},
 					},
@@ -872,11 +875,11 @@ func NewPodForReports(cr *model.CryostatInstance, imageTags *ImageTags, tls *TLS
 			},
 			{
 				Name:  "QUARKUS_HTTP_SSL_CERTIFICATE_KEY_FILES",
-				Value: fmt.Sprintf("/var/run/secrets/operator.cryostat.io/%s/%s", tls.ReportsSecret, corev1.TLSPrivateKeyKey),
+				Value: path.Join(SecretMountPrefix, tls.ReportsSecret, corev1.TLSPrivateKeyKey),
 			},
 			{
 				Name:  "QUARKUS_HTTP_SSL_CERTIFICATE_FILES",
-				Value: fmt.Sprintf("/var/run/secrets/operator.cryostat.io/%s/%s", tls.ReportsSecret, corev1.TLSCertKey),
+				Value: path.Join(SecretMountPrefix, tls.ReportsSecret, corev1.TLSCertKey),
 			},
 			{
 				Name:  "QUARKUS_HTTP_INSECURE_REQUESTS",
@@ -886,7 +889,7 @@ func NewPodForReports(cr *model.CryostatInstance, imageTags *ImageTags, tls *TLS
 
 		tlsSecretMount := corev1.VolumeMount{
 			Name:      "reports-tls-secret",
-			MountPath: "/var/run/secrets/operator.cryostat.io/" + tls.ReportsSecret,
+			MountPath: path.Join(SecretMountPrefix, tls.ReportsSecret),
 			ReadOnly:  true,
 		}
 
@@ -1058,13 +1061,12 @@ func NewOpenShiftAuthProxyContainer(cr *model.CryostatInstance, specs *ServiceSp
 	volumeMounts := []corev1.VolumeMount{}
 
 	if isBasicAuthEnabled(cr) {
-		mountPath := "/var/run/secrets/operator.cryostat.io"
 		volumeMounts = append(volumeMounts, corev1.VolumeMount{
 			Name:      cr.Name + "-auth-proxy-htpasswd",
-			MountPath: mountPath,
+			MountPath: SecretMountPrefix,
 			ReadOnly:  true,
 		})
-		args = append(args, fmt.Sprintf("--htpasswd-file=%s/%s", mountPath, *cr.Spec.AuthorizationOptions.BasicAuth.Filename))
+		args = append(args, fmt.Sprintf("--htpasswd-file=%s", path.Join(SecretMountPrefix, *cr.Spec.AuthorizationOptions.BasicAuth.Filename)))
 	}
 	args = append(args,
 		fmt.Sprintf("--skip-provider-button=%t", !isBasicAuthEnabled(cr)),
@@ -1075,13 +1077,13 @@ func NewOpenShiftAuthProxyContainer(cr *model.CryostatInstance, specs *ServiceSp
 		args = append(args,
 			fmt.Sprintf("--http-address="),
 			fmt.Sprintf("--https-address=0.0.0.0:%d", constants.AuthProxyHttpContainerPort),
-			fmt.Sprintf("--tls-cert=/var/run/secrets/operator.cryostat.io/%s/%s", tls.CryostatSecret, corev1.TLSCertKey),
-			fmt.Sprintf("--tls-key=/var/run/secrets/operator.cryostat.io/%s/%s", tls.CryostatSecret, corev1.TLSPrivateKeyKey),
+			fmt.Sprintf("--tls-cert=%s", path.Join(SecretMountPrefix, tls.CryostatSecret, corev1.TLSCertKey)),
+			fmt.Sprintf("--tls-key=%s", path.Join(SecretMountPrefix, tls.CryostatSecret, corev1.TLSPrivateKeyKey)),
 		)
 
 		volumeMounts = append(volumeMounts, corev1.VolumeMount{
 			Name:      "auth-proxy-tls-secret",
-			MountPath: "/var/run/secrets/operator.cryostat.io/" + tls.CryostatSecret,
+			MountPath: path.Join(SecretMountPrefix, tls.CryostatSecret),
 			ReadOnly:  true,
 		})
 
@@ -1193,7 +1195,7 @@ func NewOAuth2ProxyContainer(cr *model.CryostatInstance, specs *ServiceSpecs, im
 	if tls != nil {
 		volumeMounts = append(volumeMounts, corev1.VolumeMount{
 			Name:      "auth-proxy-tls-secret",
-			MountPath: "/var/run/secrets/operator.cryostat.io/" + tls.CryostatSecret,
+			MountPath: path.Join(SecretMountPrefix, tls.CryostatSecret),
 			ReadOnly:  true,
 		})
 
@@ -1201,16 +1203,15 @@ func NewOAuth2ProxyContainer(cr *model.CryostatInstance, specs *ServiceSpecs, im
 	}
 
 	if isBasicAuthEnabled(cr) {
-		mountPath := "/var/run/secrets/operator.cryostat.io"
 		volumeMounts = append(volumeMounts, corev1.VolumeMount{
 			Name:      cr.Name + "-auth-proxy-htpasswd",
-			MountPath: mountPath,
+			MountPath: SecretMountPrefix,
 			ReadOnly:  true,
 		})
 		envs = append(envs, []corev1.EnvVar{
 			{
 				Name:  "OAUTH2_PROXY_HTPASSWD_FILE",
-				Value: mountPath + "/" + *cr.Spec.AuthorizationOptions.BasicAuth.Filename,
+				Value: path.Join(SecretMountPrefix, *cr.Spec.AuthorizationOptions.BasicAuth.Filename),
 			},
 			{
 				Name:  "OAUTH2_PROXY_HTPASSWD_USER_GROUP",
@@ -1262,7 +1263,7 @@ func NewOAuth2ProxyContainer(cr *model.CryostatInstance, specs *ServiceSpecs, im
 		},
 		SecurityContext: containerSc,
 		Args: []string{
-			fmt.Sprintf("--alpha-config=%s/%s", OAuth2ConfigFilePath, OAuth2ConfigFileName),
+			fmt.Sprintf("--alpha-config=%s", path.Join(OAuth2ConfigFilePath, OAuth2ConfigFileName)),
 		},
 	}, nil
 }
@@ -1550,15 +1551,14 @@ func NewCoreContainer(cr *model.CryostatInstance, specs *ServiceSpecs, imageTag 
 	for _, template := range cr.Spec.EventTemplates {
 		mount := corev1.VolumeMount{
 			Name:      "template-" + template.ConfigMapName,
-			MountPath: fmt.Sprintf("%s/%s_%s", templatesPath, template.ConfigMapName, template.Filename),
+			MountPath: path.Join(templatesPath, fmt.Sprintf("%s_%s", template.ConfigMapName, template.Filename)),
 			SubPath:   template.Filename,
 			ReadOnly:  true,
 		}
 		mounts = append(mounts, mount)
 	}
 	if tls != nil {
-		pathPrefix := "/var/run/secrets/operator.cryostat.io"
-		tlsPath := fmt.Sprintf("%s/%s", pathPrefix, tls.DatabaseSecret)
+		tlsPath := path.Join(SecretMountPrefix, tls.DatabaseSecret)
 		tlsSecretMount := corev1.VolumeMount{
 			Name:      "database-tls-secret",
 			MountPath: tlsPath,
@@ -1760,13 +1760,13 @@ func NewStorageContainer(cr *model.CryostatInstance, imageTag string, tls *TLSCo
 	if tls != nil {
 		args = append(args,
 			fmt.Sprintf("-s3.port.https=%d", constants.StoragePortTLS),
-			fmt.Sprintf("-s3.key.file=%s", fmt.Sprintf("/var/run/secrets/operator.cryostat.io/%s/%s", tls.StorageSecret, corev1.TLSPrivateKeyKey)),
-			fmt.Sprintf("-s3.cert.file=%s", fmt.Sprintf("/var/run/secrets/operator.cryostat.io/%s/%s", tls.StorageSecret, corev1.TLSCertKey)),
+			fmt.Sprintf("-s3.key.file=%s", path.Join(SecretMountPrefix, tls.StorageSecret, corev1.TLSPrivateKeyKey)),
+			fmt.Sprintf("-s3.cert.file=%s", path.Join(SecretMountPrefix, tls.StorageSecret, corev1.TLSCertKey)),
 		)
 
 		tlsSecretMount := corev1.VolumeMount{
 			Name:      "storage-tls-secret",
-			MountPath: "/var/run/secrets/operator.cryostat.io/" + tls.StorageSecret,
+			MountPath: path.Join(SecretMountPrefix, tls.StorageSecret),
 			ReadOnly:  true,
 		}
 
@@ -1892,8 +1892,7 @@ func NewDatabaseContainer(cr *model.CryostatInstance, imageTag string, tls *TLSC
 	args := []string{}
 
 	if tls != nil {
-		pathPrefix := "/var/run/secrets/operator.cryostat.io"
-		tlsPath := fmt.Sprintf("%s/%s", pathPrefix, tls.DatabaseSecret)
+		tlsPath := path.Join(SecretMountPrefix, tls.DatabaseSecret)
 		tlsSecretMount := corev1.VolumeMount{
 			Name:      "database-tls-secret",
 			MountPath: tlsPath,
@@ -1901,7 +1900,11 @@ func NewDatabaseContainer(cr *model.CryostatInstance, imageTag string, tls *TLSC
 		}
 		mounts = append(mounts, tlsSecretMount)
 
-		args = append(args, "-c", "ssl=on", "-c", fmt.Sprintf("ssl_cert_file=%s/%s", tlsPath, corev1.TLSCertKey), "-c", fmt.Sprintf("ssl_key_file=%s/%s", tlsPath, corev1.TLSPrivateKeyKey))
+		args = append(args,
+			"-c", "ssl=on",
+			"-c", fmt.Sprintf("ssl_cert_file=%s", path.Join(tlsPath, corev1.TLSCertKey)),
+			"-c", fmt.Sprintf("ssl_key_file=%s", path.Join(tlsPath, corev1.TLSPrivateKeyKey)),
+		)
 	}
 
 	return corev1.Container{
@@ -2012,7 +2015,7 @@ func newAgentProxyContainer(cr *model.CryostatInstance, imageTag string, tls *TL
 		// Mount the TLS secret for the agent proxy
 		mounts = append(mounts, corev1.VolumeMount{
 			Name:      "agent-proxy-tls-secret",
-			MountPath: "/var/run/secrets/operator.cryostat.io/" + tls.AgentProxySecret,
+			MountPath: path.Join(SecretMountPrefix, tls.AgentProxySecret),
 			ReadOnly:  true,
 		})
 	}
@@ -2032,7 +2035,8 @@ func newAgentProxyContainer(cr *model.CryostatInstance, imageTag string, tls *TL
 		// Override the command to run nginx pointed at our config file. See:
 		// https://github.com/sclorg/nginx-container/blob/e7d8db9bc5299a4c4e254f8a82e917c7c136468b/1.24/README.md#direct-usage-with-a-mounted-directory
 		Command: []string{
-			"nginx", "-c", fmt.Sprintf("%s/%s", constants.AgentProxyConfigFilePath, constants.AgentProxyConfigFileName),
+			"nginx",
+			"-c", path.Join(constants.AgentProxyConfigFilePath, constants.AgentProxyConfigFileName),
 			"-g", "daemon off;",
 		},
 		LivenessProbe: &corev1.Probe{
