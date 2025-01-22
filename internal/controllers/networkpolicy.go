@@ -124,7 +124,7 @@ func (r *Reconciler) reconcileCoreNetworkPolicy(ctx context.Context, cr *model.C
 							},
 						},
 						Ports: []networkingv1.NetworkPolicyPort{
-							networkingv1.NetworkPolicyPort{
+							{
 								Port: &intstr.IntOrString{IntVal: constants.AgentProxyContainerPort},
 							},
 						},
@@ -158,7 +158,7 @@ func (r *Reconciler) reconcileCoreNetworkPolicy(ctx context.Context, cr *model.C
 		egressDestinations = append(egressDestinations, networkingv1.NetworkPolicyPeer{
 			NamespaceSelector: &metav1.LabelSelector{
 				MatchExpressions: []metav1.LabelSelectorRequirement{
-					metav1.LabelSelectorRequirement{
+					{
 						Key:      NAMESPACE_NAME_LABEL,
 						Operator: metav1.LabelSelectorOpIn,
 						Values:   slices.Compact(egressNamespaces),
