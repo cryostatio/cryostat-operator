@@ -19,6 +19,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"path"
 	"text/template"
 
 	resources "github.com/cryostatio/cryostat-operator/internal/controllers/common/resource_definitions"
@@ -117,10 +118,10 @@ func (r *Reconciler) reconcileOAuth2ProxyConfig(ctx context.Context, cr *model.C
 		cfg.Server.SecureBindAddress = fmt.Sprintf("https://%s:%d", bindHost, constants.AuthProxyHttpContainerPort)
 		cfg.Server.TLS = proxyTLS{
 			Key: tlsSecretSource{
-				FromFile: fmt.Sprintf("/var/run/secrets/operator.cryostat.io/%s/%s", tls.CryostatSecret, corev1.TLSPrivateKeyKey),
+				FromFile: path.Join(resources.SecretMountPrefix, tls.CryostatSecret, corev1.TLSPrivateKeyKey),
 			},
 			Cert: tlsSecretSource{
-				FromFile: fmt.Sprintf("/var/run/secrets/operator.cryostat.io/%s/%s", tls.CryostatSecret, corev1.TLSCertKey),
+				FromFile: path.Join(resources.SecretMountPrefix, tls.CryostatSecret, corev1.TLSCertKey),
 			},
 		}
 	} else {
@@ -310,10 +311,10 @@ func (r *Reconciler) reconcileAgentProxyConfig(ctx context.Context, cr *model.Cr
 	}
 	if tls != nil {
 		params.TLSEnabled = true
-		params.TLSCertFile = fmt.Sprintf("/var/run/secrets/operator.cryostat.io/%s/%s", tls.AgentProxySecret, corev1.TLSCertKey)
-		params.TLSKeyFile = fmt.Sprintf("/var/run/secrets/operator.cryostat.io/%s/%s", tls.AgentProxySecret, corev1.TLSPrivateKeyKey)
-		params.CACertFile = fmt.Sprintf("/var/run/secrets/operator.cryostat.io/%s/%s", tls.AgentProxySecret, constants.CAKey)
-		params.DHParamFile = fmt.Sprintf("%s/%s", constants.AgentProxyConfigFilePath, dhFileName)
+		params.TLSCertFile = path.Join(resources.SecretMountPrefix, tls.AgentProxySecret, corev1.TLSCertKey)
+		params.TLSKeyFile = path.Join(resources.SecretMountPrefix, tls.AgentProxySecret, corev1.TLSPrivateKeyKey)
+		params.CACertFile = path.Join(resources.SecretMountPrefix, tls.AgentProxySecret, constants.CAKey)
+		params.DHParamFile = path.Join(constants.AgentProxyConfigFilePath, dhFileName)
 
 		// Add Diffie-Hellman parameters to config map
 		data[dhFileName] = dhParams

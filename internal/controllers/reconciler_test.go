@@ -3709,6 +3709,7 @@ func (t *cryostatTestInput) checkStorageContainer(container *corev1.Container, r
 	}
 	Expect(container.Ports).To(ConsistOf(t.NewStoragePorts()))
 	Expect(container.Env).To(ConsistOf(t.NewStorageEnvironmentVariables()))
+	Expect(container.Args).To(ConsistOf(t.NewStorageArgs()))
 	Expect(container.EnvFrom).To(BeEmpty())
 	Expect(container.VolumeMounts).To(ConsistOf(t.NewStorageVolumeMounts()))
 	Expect(container.LivenessProbe).To(Equal(t.NewStorageLivenessProbe()))
