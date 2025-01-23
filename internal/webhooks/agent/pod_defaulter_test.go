@@ -123,27 +123,30 @@ var _ = Describe("PodDefaulter", func() {
 
 			It("should add volume mounts(s)", func() {
 				actual := t.getPod(expectedPod)
-				expected := expectedPod.Spec.Containers[0]
-				Expect(actual.Spec.Containers).To(HaveLen(1))
-				container := actual.Spec.Containers[0]
-				Expect(container.VolumeMounts).To(ConsistOf(expected.VolumeMounts))
+				Expect(actual.Spec.Containers).To(HaveLen(len(expectedPod.Spec.Containers)))
+				for i, expected := range expectedPod.Spec.Containers {
+					container := actual.Spec.Containers[i]
+					Expect(container.VolumeMounts).To(ConsistOf(expected.VolumeMounts))
+				}
 			})
 
 			It("should add environment variables", func() {
 				actual := t.getPod(expectedPod)
-				expected := expectedPod.Spec.Containers[0]
-				Expect(actual.Spec.Containers).To(HaveLen(1))
-				container := actual.Spec.Containers[0]
-				Expect(container.Env).To(ConsistOf(expected.Env))
-				Expect(container.EnvFrom).To(ConsistOf(expected.EnvFrom))
+				Expect(actual.Spec.Containers).To(HaveLen(len(expectedPod.Spec.Containers)))
+				for i, expected := range expectedPod.Spec.Containers {
+					container := actual.Spec.Containers[i]
+					Expect(container.Env).To(ConsistOf(expected.Env))
+					Expect(container.EnvFrom).To(ConsistOf(expected.EnvFrom))
+				}
 			})
 
 			It("should add ports(s)", func() {
 				actual := t.getPod(expectedPod)
-				expected := expectedPod.Spec.Containers[0]
-				Expect(actual.Spec.Containers).To(HaveLen(1))
-				container := actual.Spec.Containers[0]
-				Expect(container.Ports).To(ConsistOf(expected.Ports))
+				Expect(actual.Spec.Containers).To(HaveLen(len(expectedPod.Spec.Containers)))
+				for i, expected := range expectedPod.Spec.Containers {
+					container := actual.Spec.Containers[i]
+					Expect(container.Ports).To(ConsistOf(expected.Ports))
+				}
 			})
 		}
 
@@ -349,6 +352,39 @@ var _ = Describe("PodDefaulter", func() {
 				})
 
 				ExpectPod()
+			})
+
+			Context("with multiple containers", func() {
+				BeforeEach(func() {
+					t.objs = append(t.objs, t.NewCryostat().Object)
+					originalPod = t.NewPodMultiContainer()
+					expectedPod = t.NewMutatedPodMultiContainer()
+				})
+
+				ExpectPod()
+			})
+
+			Context("with a custom container label", func() {
+				Context("for a container that exists", func() {
+					BeforeEach(func() {
+						t.objs = append(t.objs, t.NewCryostat().Object)
+						originalPod = t.NewPodContainerLabel()
+						expectedPod = t.NewMutatedPodContainerLabel()
+					})
+
+					ExpectPod()
+				})
+
+				Context("for a container that doesn't exist", func() {
+					BeforeEach(func() {
+						t.objs = append(t.objs, t.NewCryostat().Object)
+						originalPod = t.NewPodContainerBadLabel()
+						// Should fail
+						expectedPod = originalPod
+					})
+
+					ExpectPod()
+				})
 			})
 		})
 

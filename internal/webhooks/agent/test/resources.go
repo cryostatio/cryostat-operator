@@ -67,6 +67,29 @@ func (r *AgentWebhookTestResources) NewPod() *corev1.Pod {
 	}
 }
 
+func (r *AgentWebhookTestResources) NewPodMultiContainer() *corev1.Pod {
+	pod := r.NewPod()
+	pod.Spec.Containers = append(pod.Spec.Containers, corev1.Container{
+		Name:  "other",
+		Image: "example.com/other:latest",
+		Env: []corev1.EnvVar{
+			{
+				Name:  "OTHER",
+				Value: "some-other-value",
+			},
+		},
+		SecurityContext: &corev1.SecurityContext{
+			AllowPrivilegeEscalation: &[]bool{false}[0],
+			Capabilities: &corev1.Capabilities{
+				Drop: []corev1.Capability{
+					"ALL",
+				},
+			},
+		},
+	})
+	return pod
+}
+
 func (r *AgentWebhookTestResources) NewPodJavaToolOptions() *corev1.Pod {
 	pod := r.NewPod()
 	container := &pod.Spec.Containers[0]
@@ -133,6 +156,18 @@ func (r *AgentWebhookTestResources) NewPodPortLabelTooBig() *corev1.Pod {
 	return pod
 }
 
+func (r *AgentWebhookTestResources) NewPodContainerLabel() *corev1.Pod {
+	pod := r.NewPodMultiContainer()
+	pod.Labels["cryostat.io/container"] = "other"
+	return pod
+}
+
+func (r *AgentWebhookTestResources) NewPodContainerBadLabel() *corev1.Pod {
+	pod := r.NewPodMultiContainer()
+	pod.Labels["cryostat.io/container"] = "wrong"
+	return pod
+}
+
 type mutatedPodOptions struct {
 	javaToolOptions string
 	namespace       string
@@ -140,6 +175,9 @@ type mutatedPodOptions struct {
 	pullPolicy      corev1.PullPolicy
 	gatewayPort     int32
 	callbackPort    int32
+	scheme          string
+	// Function to produce mutated container array
+	containersFunc func(*AgentWebhookTestResources, *mutatedPodOptions) []corev1.Container
 }
 
 func (r *AgentWebhookTestResources) setDefaultMutatedPodOptions(options *mutatedPodOptions) {
@@ -157,6 +195,13 @@ func (r *AgentWebhookTestResources) setDefaultMutatedPodOptions(options *mutated
 	}
 	if options.callbackPort == 0 {
 		options.callbackPort = 9977
+	}
+	options.scheme = "https"
+	if !r.TLS {
+		options.scheme = "http"
+	}
+	if options.containersFunc == nil {
+		options.containersFunc = newMutatedContainers
 	}
 }
 
@@ -202,12 +247,20 @@ func (r *AgentWebhookTestResources) NewMutatedPodCallbackPort() *corev1.Pod {
 	})
 }
 
+func (r *AgentWebhookTestResources) NewMutatedPodMultiContainer() *corev1.Pod {
+	return r.newMutatedPod(&mutatedPodOptions{
+		containersFunc: newMutatedMultiContainers,
+	})
+}
+
+func (r *AgentWebhookTestResources) NewMutatedPodContainerLabel() *corev1.Pod {
+	return r.newMutatedPod(&mutatedPodOptions{
+		containersFunc: newMutatedMultiContainersLabel,
+	})
+}
+
 func (r *AgentWebhookTestResources) newMutatedPod(options *mutatedPodOptions) *corev1.Pod {
 	r.setDefaultMutatedPodOptions(options)
-	scheme := "https"
-	if !r.TLS {
-		scheme = "http"
-	}
 	pod := &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      r.Name + "-webhook-test",
@@ -240,84 +293,7 @@ func (r *AgentWebhookTestResources) newMutatedPod(options *mutatedPodOptions) *c
 					},
 				},
 			},
-			Containers: []corev1.Container{
-				{
-					Name:  "test",
-					Image: "example.com/test:latest",
-					Env: []corev1.EnvVar{
-						{
-							Name:  "TEST",
-							Value: "some-value",
-						},
-						{
-							Name:  "CRYOSTAT_AGENT_BASEURI",
-							Value: fmt.Sprintf("%s://%s-agent.%s.svc:%d", scheme, r.Name, r.Namespace, options.gatewayPort),
-						},
-						{
-							Name: "CRYOSTAT_AGENT_POD_NAME",
-							ValueFrom: &corev1.EnvVarSource{
-								FieldRef: &corev1.ObjectFieldSelector{
-									APIVersion: "v1",
-									FieldPath:  "metadata.name",
-								},
-							},
-						},
-						{
-							Name:  "CRYOSTAT_AGENT_APP_NAME",
-							Value: "$(CRYOSTAT_AGENT_POD_NAME)",
-						},
-						{
-							Name: "CRYOSTAT_AGENT_POD_IP",
-							ValueFrom: &corev1.EnvVarSource{
-								FieldRef: &corev1.ObjectFieldSelector{
-									APIVersion: "v1",
-									FieldPath:  "status.podIP",
-								},
-							},
-						},
-						{
-							Name:  "CRYOSTAT_AGENT_API_WRITES_ENABLED",
-							Value: "true",
-						},
-						{
-							Name:  "CRYOSTAT_AGENT_WEBSERVER_PORT",
-							Value: strconv.Itoa(int(options.callbackPort)),
-						},
-						{
-							Name:  "JAVA_TOOL_OPTIONS",
-							Value: options.javaToolOptions + "-javaagent:/tmp/cryostat-agent/cryostat-agent-shaded.jar",
-						},
-					},
-					Ports: []corev1.ContainerPort{
-						{
-							Name:          "cryostat-cb",
-							Protocol:      corev1.ProtocolTCP,
-							ContainerPort: options.callbackPort,
-						},
-					},
-					SecurityContext: &corev1.SecurityContext{
-						AllowPrivilegeEscalation: &[]bool{false}[0],
-						Capabilities: &corev1.Capabilities{
-							Drop: []corev1.Capability{
-								"ALL",
-							},
-						},
-					},
-					VolumeMounts: []corev1.VolumeMount{
-						{
-							Name:      "cryostat-agent-init",
-							MountPath: "/tmp/cryostat-agent",
-							ReadOnly:  true,
-						},
-					},
-					Resources: corev1.ResourceRequirements{
-						Requests: corev1.ResourceList{
-							corev1.ResourceCPU:    resource.MustParse("10m"),
-							corev1.ResourceMemory: resource.MustParse("32Mi"),
-						},
-					},
-				},
-			},
+			Containers: options.containersFunc(r, options),
 			SecurityContext: &corev1.PodSecurityContext{
 				RunAsNonRoot: &[]bool{true}[0],
 			},
@@ -334,7 +310,111 @@ func (r *AgentWebhookTestResources) newMutatedPod(options *mutatedPodOptions) *c
 		},
 	}
 
-	container := &pod.Spec.Containers[0]
+	if r.TLS {
+		pod.Spec.Volumes = append(pod.Spec.Volumes,
+			corev1.Volume{
+				Name: "cryostat-agent-tls",
+				VolumeSource: corev1.VolumeSource{
+					Secret: &corev1.SecretVolumeSource{
+						SecretName:  r.GetClusterUniqueNameForAgent(options.namespace),
+						DefaultMode: &[]int32{0440}[0],
+					},
+				},
+			})
+	}
+
+	return pod
+}
+
+func newMutatedContainers(r *AgentWebhookTestResources, options *mutatedPodOptions) []corev1.Container {
+	containers := r.NewPodMultiContainer().Spec.Containers
+	return []corev1.Container{*r.newMutatedContainer(&containers[0], options)}
+}
+
+func newMutatedMultiContainers(r *AgentWebhookTestResources, options *mutatedPodOptions) []corev1.Container {
+	containers := r.NewPodMultiContainer().Spec.Containers
+	return []corev1.Container{*r.newMutatedContainer(&containers[0], options), containers[1]}
+}
+
+func newMutatedMultiContainersLabel(r *AgentWebhookTestResources, options *mutatedPodOptions) []corev1.Container {
+	containers := r.NewPodMultiContainer().Spec.Containers
+	return []corev1.Container{containers[0], *r.newMutatedContainer(&containers[1], options)}
+}
+
+func (r *AgentWebhookTestResources) newMutatedContainer(original *corev1.Container, options *mutatedPodOptions) *corev1.Container {
+	container := &corev1.Container{
+		Name:  original.Name,
+		Image: original.Image,
+		Env: append(original.Env, []corev1.EnvVar{
+			{
+				Name:  "CRYOSTAT_AGENT_BASEURI",
+				Value: fmt.Sprintf("%s://%s-agent.%s.svc:%d", options.scheme, r.Name, r.Namespace, options.gatewayPort),
+			},
+			{
+				Name: "CRYOSTAT_AGENT_POD_NAME",
+				ValueFrom: &corev1.EnvVarSource{
+					FieldRef: &corev1.ObjectFieldSelector{
+						APIVersion: "v1",
+						FieldPath:  "metadata.name",
+					},
+				},
+			},
+			{
+				Name:  "CRYOSTAT_AGENT_APP_NAME",
+				Value: "$(CRYOSTAT_AGENT_POD_NAME)",
+			},
+			{
+				Name: "CRYOSTAT_AGENT_POD_IP",
+				ValueFrom: &corev1.EnvVarSource{
+					FieldRef: &corev1.ObjectFieldSelector{
+						APIVersion: "v1",
+						FieldPath:  "status.podIP",
+					},
+				},
+			},
+			{
+				Name:  "CRYOSTAT_AGENT_API_WRITES_ENABLED",
+				Value: "true",
+			},
+			{
+				Name:  "CRYOSTAT_AGENT_WEBSERVER_PORT",
+				Value: strconv.Itoa(int(options.callbackPort)),
+			},
+			{
+				Name:  "JAVA_TOOL_OPTIONS",
+				Value: options.javaToolOptions + "-javaagent:/tmp/cryostat-agent/cryostat-agent-shaded.jar",
+			},
+		}...),
+		Ports: []corev1.ContainerPort{
+			{
+				Name:          "cryostat-cb",
+				Protocol:      corev1.ProtocolTCP,
+				ContainerPort: options.callbackPort,
+			},
+		},
+		SecurityContext: &corev1.SecurityContext{
+			AllowPrivilegeEscalation: &[]bool{false}[0],
+			Capabilities: &corev1.Capabilities{
+				Drop: []corev1.Capability{
+					"ALL",
+				},
+			},
+		},
+		VolumeMounts: []corev1.VolumeMount{
+			{
+				Name:      "cryostat-agent-init",
+				MountPath: "/tmp/cryostat-agent",
+				ReadOnly:  true,
+			},
+		},
+		Resources: corev1.ResourceRequirements{
+			Requests: corev1.ResourceList{
+				corev1.ResourceCPU:    resource.MustParse("10m"),
+				corev1.ResourceMemory: resource.MustParse("32Mi"),
+			},
+		},
+	}
+
 	if r.TLS {
 		tlsEnvs := []corev1.EnvVar{
 			{
@@ -389,16 +469,6 @@ func (r *AgentWebhookTestResources) newMutatedPod(options *mutatedPodOptions) *c
 				MountPath: "/var/run/secrets/io.cryostat/cryostat-agent",
 				ReadOnly:  true,
 			})
-		pod.Spec.Volumes = append(pod.Spec.Volumes,
-			corev1.Volume{
-				Name: "cryostat-agent-tls",
-				VolumeSource: corev1.VolumeSource{
-					Secret: &corev1.SecretVolumeSource{
-						SecretName:  r.GetClusterUniqueNameForAgent(options.namespace),
-						DefaultMode: &[]int32{0440}[0],
-					},
-				},
-			})
 	}
 
 	var callbackEnvs []corev1.EnvVar
@@ -406,14 +476,14 @@ func (r *AgentWebhookTestResources) newMutatedPod(options *mutatedPodOptions) *c
 		callbackEnvs = []corev1.EnvVar{
 			{
 				Name:  "CRYOSTAT_AGENT_CALLBACK",
-				Value: fmt.Sprintf("%s://$(CRYOSTAT_AGENT_POD_IP):%d", scheme, options.callbackPort),
+				Value: fmt.Sprintf("%s://$(CRYOSTAT_AGENT_POD_IP):%d", options.scheme, options.callbackPort),
 			},
 		}
 	} else {
 		callbackEnvs = []corev1.EnvVar{
 			{
 				Name:  "CRYOSTAT_AGENT_CALLBACK_SCHEME",
-				Value: scheme,
+				Value: options.scheme,
 			},
 			{
 				Name:  "CRYOSTAT_AGENT_CALLBACK_HOST_NAME",
@@ -431,5 +501,5 @@ func (r *AgentWebhookTestResources) newMutatedPod(options *mutatedPodOptions) *c
 	}
 	container.Env = append(container.Env, callbackEnvs...)
 
-	return pod
+	return container
 }
