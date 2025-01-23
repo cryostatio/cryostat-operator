@@ -933,7 +933,7 @@ func (c *controllerTest) commonTests() {
 					t.expectPVC(expected, t.Name+"-database")
 				})
 			})
-			FContext("that fails to update", func() {
+			Context("that fails to update", func() {
 				JustBeforeEach(func() {
 					// Replace client with one that fails to update the PVC
 					invalidErr := kerrors.NewInvalid(schema.ParseGroupKind("PersistentVolumeClaim"), oldPVC.Name, field.ErrorList{
