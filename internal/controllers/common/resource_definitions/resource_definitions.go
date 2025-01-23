@@ -1798,7 +1798,13 @@ func NewDatabaseContainer(cr *model.CryostatInstance, imageTag string, tls *TLSC
 		}
 	}
 
+	mountPath := "/var/lib/pgsql"
+	dataDir := path.Join(mountPath, "data")
 	envs := []corev1.EnvVar{
+		{
+			Name:  "PGDATA",
+			Value: dataDir,
+		},
 		{
 			Name:  "POSTGRESQL_USER",
 			Value: "cryostat",
@@ -1840,7 +1846,7 @@ func NewDatabaseContainer(cr *model.CryostatInstance, imageTag string, tls *TLSC
 	mounts := []corev1.VolumeMount{
 		{
 			Name:      cr.Name + "-database",
-			MountPath: "/data",
+			MountPath: mountPath,
 		},
 	}
 

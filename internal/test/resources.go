@@ -2305,6 +2305,10 @@ func (r *TestResources) NewDatabaseEnvironmentVariables(dbSecretProvided bool) [
 	}
 	envs := []corev1.EnvVar{
 		{
+			Name:  "PGDATA",
+			Value: "/var/lib/pgsql/data",
+		},
+		{
 			Name:  "POSTGRESQL_USER",
 			Value: "cryostat",
 		},
@@ -2619,7 +2623,7 @@ func (r *TestResources) NewDatabaseVolumeMounts() []corev1.VolumeMount {
 	mounts = append(mounts,
 		corev1.VolumeMount{
 			Name:      r.Name + "-database",
-			MountPath: "/data",
+			MountPath: "/var/lib/pgsql",
 		})
 
 	if r.TLS {
