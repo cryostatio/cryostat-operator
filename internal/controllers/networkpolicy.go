@@ -115,7 +115,7 @@ func (r *Reconciler) reconcileCoreNetworkPolicy(ctx context.Context, cr *model.C
 								NamespaceSelector: &metav1.LabelSelector{
 									MatchExpressions: []metav1.LabelSelectorRequirement{
 										{
-											Key:      "kubernetes.io/metadata.name",
+											Key:      NAMESPACE_NAME_LABEL,
 											Operator: metav1.LabelSelectorOpIn,
 											Values:   cr.Spec.TargetNamespaces,
 										},
