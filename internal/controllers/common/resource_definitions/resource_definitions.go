@@ -2039,9 +2039,17 @@ func getInternalDashboardURL() string {
 
 func newVolumeForDatabase(cr *model.CryostatInstance) []corev1.Volume {
 	var volumeSource corev1.VolumeSource
-	if cr.Spec.StorageConfigurations != nil && cr.Spec.StorageConfigurations.Database != nil && cr.Spec.StorageConfigurations.Database.EmptyDir != nil && cr.Spec.StorageConfigurations.Database.EmptyDir.Enabled {
-		emptyDir := cr.Spec.StorageConfigurations.Database.EmptyDir
 
+	var emptyDir *operatorv1beta2.EmptyDirConfig
+	if cr.Spec.StorageOptions != nil {
+		cfg := cr.Spec.StorageOptions.Database
+		if cfg != nil {
+			emptyDir = cfg.EmptyDir
+		} else {
+			emptyDir = cr.Spec.StorageOptions.EmptyDir
+		}
+	}
+	if emptyDir != nil && emptyDir.Enabled {
 		sizeLimit, err := resource.ParseQuantity(emptyDir.SizeLimit)
 		if err != nil {
 			sizeLimit = *resource.NewQuantity(0, resource.BinarySI)
@@ -2071,9 +2079,17 @@ func newVolumeForDatabase(cr *model.CryostatInstance) []corev1.Volume {
 
 func newVolumeForStorage(cr *model.CryostatInstance) []corev1.Volume {
 	var volumeSource corev1.VolumeSource
-	if cr.Spec.StorageConfigurations != nil && cr.Spec.StorageConfigurations.ObjectStorage != nil && cr.Spec.StorageConfigurations.ObjectStorage.EmptyDir != nil && cr.Spec.StorageConfigurations.ObjectStorage.EmptyDir.Enabled {
-		emptyDir := cr.Spec.StorageConfigurations.ObjectStorage.EmptyDir
 
+	var emptyDir *operatorv1beta2.EmptyDirConfig
+	if cr.Spec.StorageOptions != nil {
+		cfg := cr.Spec.StorageOptions.ObjectStorage
+		if cfg != nil {
+			emptyDir = cfg.EmptyDir
+		} else {
+			emptyDir = cr.Spec.StorageOptions.EmptyDir
+		}
+	}
+	if emptyDir != nil && emptyDir.Enabled {
 		sizeLimit, err := resource.ParseQuantity(emptyDir.SizeLimit)
 		if err != nil {
 			sizeLimit = *resource.NewQuantity(0, resource.BinarySI)

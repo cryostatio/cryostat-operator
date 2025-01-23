@@ -463,7 +463,7 @@ func (r *Reconciler) reconcileDatabase(ctx context.Context, reqLogger logr.Logge
 
 func (r *Reconciler) reconcileStorage(ctx context.Context, reqLogger logr.Logger, cr *model.CryostatInstance, tls *resources.TLSConfig,
 	imageTags *resources.ImageTags, serviceSpecs *resources.ServiceSpecs, fsGroup int64) (reconcile.Result, error) {
-	reqLogger.Info("Spec", "Storage", cr.Spec.StorageConfigurations)
+	reqLogger.Info("Spec", "Storage", cr.Spec.StorageOptions)
 
 	err := r.reconcileStoragePVC(ctx, cr)
 	if err != nil {
