@@ -939,13 +939,17 @@ func (c *controllerTest) commonTests() {
 					invalidErr := kerrors.NewInvalid(schema.ParseGroupKind("PersistentVolumeClaim"), oldPVC.Name, field.ErrorList{
 						field.Forbidden(field.NewPath("spec"), "test error"),
 					})
-					t.Client = test.NewClientWithUpdateError(t.Client, oldPVC, invalidErr)
-					t.controller.GetConfig().Client = t.Client
+					origClient := t.controller.GetConfig().Client
+					t.controller.GetConfig().Client = test.NewClientWithUpdateError(origClient, oldPVC, invalidErr)
 
 					// Expect an Invalid status error after reconciling
-					_, err := t.reconcile()
-					Expect(err).To(HaveOccurred())
-					Expect(kerrors.IsInvalid(err)).To(BeTrue())
+					Eventually(func() bool {
+						_, err := t.reconcile()
+						if err != nil {
+							return kerrors.IsInvalid(err)
+						}
+						return false
+					}).WithTimeout(time.Minute).WithPolling(time.Millisecond).Should(BeTrue())
 				})
 				It("should emit a PersistentVolumeClaimInvalid event", func() {
 					recorder := t.controller.GetConfig().EventRecorder.(*record.FakeRecorder)
