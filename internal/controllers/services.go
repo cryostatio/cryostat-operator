@@ -19,7 +19,6 @@ import (
 	"fmt"
 	"maps"
 	"net/url"
-	"strconv"
 
 	operatorv1beta2 "github.com/cryostatio/cryostat-operator/api/v1beta2"
 	common "github.com/cryostatio/cryostat-operator/internal/controllers/common"
@@ -184,7 +183,7 @@ func (r *Reconciler) reconcileDatabaseService(ctx context.Context, cr *model.Cry
 
 func (r *Reconciler) reconcileStorageService(ctx context.Context, cr *model.CryostatInstance, tls *resource_definitions.TLSConfig,
 	specs *resource_definitions.ServiceSpecs) error {
-	config := configureStorageService(cr)
+	config := configureStorageService(cr, tls)
 	svc := &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      cr.Name + "-storage",
@@ -192,6 +191,10 @@ func (r *Reconciler) reconcileStorageService(ctx context.Context, cr *model.Cryo
 		},
 	}
 
+	scheme := "http"
+	if tls != nil {
+		scheme = "https"
+	}
 	err := r.createOrUpdateService(ctx, svc, cr.Object, &config.ServiceConfig, func() error {
 		svc.Spec.Selector = map[string]string{
 			"app":       cr.Name,
@@ -199,7 +202,7 @@ func (r *Reconciler) reconcileStorageService(ctx context.Context, cr *model.Cryo
 		}
 		svc.Spec.Ports = []corev1.ServicePort{
 			{
-				Name:       "http",
+				Name:       constants.HttpPortName,
 				Port:       *config.HTTPPort,
 				TargetPort: intstr.IntOrString{IntVal: constants.StoragePort},
 			},
@@ -211,13 +214,13 @@ func (r *Reconciler) reconcileStorageService(ctx context.Context, cr *model.Cryo
 	}
 
 	// Set storage URL for deployment to use
-	scheme := "https"
-	if tls == nil {
-		scheme = "http"
+	namedPort, err := GetNamedPort(constants.HttpPortName, svc)
+	if err != nil {
+		return err
 	}
 	specs.StorageURL = &url.URL{
 		Scheme: scheme,
-		Host:   svc.Name + ":" + strconv.Itoa(int(svc.Spec.Ports[0].Port)), // TODO use getHTTPPort?
+		Host:   fmt.Sprintf("%s.%s.svc.cluster.local:%d", svc.Name, svc.Namespace, namedPort.Port),
 	}
 	return nil
 }
@@ -347,7 +350,7 @@ func configureDatabaseService(cr *model.CryostatInstance) *operatorv1beta2.Datab
 	return config
 }
 
-func configureStorageService(cr *model.CryostatInstance) *operatorv1beta2.StorageServiceConfig {
+func configureStorageService(cr *model.CryostatInstance, tls *resource_definitions.TLSConfig) *operatorv1beta2.StorageServiceConfig {
 	// Check CR for config
 	var config *operatorv1beta2.StorageServiceConfig
 	if cr.Spec.ServiceOptions == nil || cr.Spec.ServiceOptions.StorageConfig == nil {
@@ -359,7 +362,7 @@ func configureStorageService(cr *model.CryostatInstance) *operatorv1beta2.Storag
 	// Apply common service defaults
 	configureService(&config.ServiceConfig, cr.Name, "storage")
 
-	// Apply default HTTP port if not providednt
+	// Apply default HTTP port if not provided
 	if config.HTTPPort == nil {
 		httpPort := constants.StoragePort
 		config.HTTPPort = &httpPort
@@ -462,4 +465,18 @@ func (r *Reconciler) deleteService(ctx context.Context, svc *corev1.Service) err
 	}
 	r.Log.Info("Service deleted", "name", svc.Name, "namespace", svc.Namespace)
 	return nil
+}
+
+func GetHTTPPort(svc *corev1.Service) (*corev1.ServicePort, error) {
+	return GetNamedPort("http", svc)
+}
+
+func GetNamedPort(portName string, svc *corev1.Service) (*corev1.ServicePort, error) {
+	for _, port := range svc.Spec.Ports {
+		if port.Name == portName {
+			return &port, nil
+		}
+	}
+	// Shouldn't happen
+	return nil, fmt.Errorf("no \"%s\" port in %s service in %s namespace", constants.HttpPortName, svc.Name, svc.Namespace)
 }

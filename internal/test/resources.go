@@ -1921,11 +1921,12 @@ func (r *TestResources) NewReportsPorts() []corev1.ContainerPort {
 }
 
 func (r *TestResources) NewStoragePorts() []corev1.ContainerPort {
-	return []corev1.ContainerPort{
+	ports := []corev1.ContainerPort{
 		{
 			ContainerPort: 8333,
 		},
 	}
+	return ports
 }
 
 func (r *TestResources) NewDatabasePorts() []corev1.ContainerPort {
@@ -1958,10 +1959,10 @@ func (r *TestResources) NewAgentProxyPorts() []corev1.ContainerPort {
 func (r *TestResources) NewCoreEnvironmentVariables(reportsUrl string, ingress bool,
 	hasPortConfig bool, builtInDiscoveryDisabled bool, builtInPortConfigDisabled bool, dbSecretProvided bool) []corev1.EnvVar {
 	storageProtocol := "http"
-	// TODO
-	// if r.TLS {
-	// 	storageProtocol = "https"
-	// }
+	storagePort := 8333
+	if r.TLS {
+		storageProtocol = "https"
+	}
 	envs := []corev1.EnvVar{
 		{
 			Name:  "QUARKUS_HTTP_HOST",
@@ -2005,7 +2006,15 @@ func (r *TestResources) NewCoreEnvironmentVariables(reportsUrl string, ingress b
 		},
 		{
 			Name:  "QUARKUS_S3_ENDPOINT_OVERRIDE",
-			Value: fmt.Sprintf("%s://%s-storage.%s.svc.cluster.local:8333", storageProtocol, r.Name, r.Namespace),
+			Value: fmt.Sprintf("%s://%s-storage.%s.svc.cluster.local:%d", storageProtocol, r.Name, r.Namespace, storagePort),
+		},
+		{
+			Name:  "QUARKUS_S3_SYNC_CLIENT_TLS_KEY_MANAGERS_PROVIDER_TYPE",
+			Value: "none",
+		},
+		{
+			Name:  "QUARKUS_S3_SYNC_CLIENT_TLS_TRUST_MANAGERS_PROVIDER_TYPE",
+			Value: "system-property",
 		},
 		{
 			Name:  "QUARKUS_S3_PATH_STYLE_ACCESS",
@@ -2270,25 +2279,22 @@ func (r *TestResources) NewStorageEnvironmentVariables() []corev1.EnvVar {
 			},
 		},
 	}
-	/**
-	if r.TLS {
-		envs = append(envs, corev1.EnvVar{
-			Name:  "S3_PORT_HTTPS",
-			Value: "8333",
-		}, corev1.EnvVar{
-			Name:  "S3_KEY_FILE",
-			Value: fmt.Sprintf("/var/run/secrets/operator.cryostat.io/%s-storage-tls/tls.key", r.Name),
-		}, corev1.EnvVar{
-			Name:  "S3_CERT_FILE",
-			Value: fmt.Sprintf("/var/run/secrets/operator.cryostat.io/%s-storage-tls/tls.crt", r.Name),
-		})
-	} else {
-		envs = append(envs, corev1.EnvVar{
-			Name:  "QUARKUS_HTTP_PORT",
-			Value: "8333",
-		})
-	}**/
 	return envs
+}
+
+func (r *TestResources) NewStorageArgs() []string {
+	args := []string{}
+
+	if r.TLS {
+		args = append(args,
+			"-s3.port=8333",
+			"-s3.port.https=0",
+			fmt.Sprintf("-s3.key.file=/var/run/secrets/operator.cryostat.io/%s-storage-tls/%s", r.Name, corev1.TLSPrivateKeyKey),
+			fmt.Sprintf("-s3.cert.file=/var/run/secrets/operator.cryostat.io/%s-storage-tls/%s", r.Name, corev1.TLSCertKey),
+		)
+	}
+
+	return args
 }
 
 func (r *TestResources) NewDatabaseEnvironmentVariables(dbSecretProvided bool) []corev1.EnvVar {
@@ -2573,6 +2579,11 @@ func (r *TestResources) NewCoreVolumeMounts() []corev1.VolumeMount {
 		},
 	}
 	if r.TLS {
+		mounts = append(mounts, corev1.VolumeMount{
+			Name:      "storage-tls-secret",
+			MountPath: "/truststore/storage",
+			ReadOnly:  true,
+		})
 		mounts = append(mounts,
 			corev1.VolumeMount{
 				Name:      "database-tls-secret",
@@ -2593,15 +2604,14 @@ func (r *TestResources) NewStorageVolumeMounts() []corev1.VolumeMount {
 			SubPath:   "seaweed",
 		})
 
-	// TODO
-	// if r.TLS {
-	// 	mounts = append(mounts,
-	// 		corev1.VolumeMount{
-	// 			Name:      "storage-tls-secret",
-	// 			MountPath: fmt.Sprintf("/var/run/secrets/operator.cryostat.io/%s-storage-tls", r.Name),
-	// 			ReadOnly:  true,
-	// 		})
-	// }
+	if r.TLS {
+		mounts = append(mounts,
+			corev1.VolumeMount{
+				Name:      "storage-tls-secret",
+				MountPath: fmt.Sprintf("/var/run/secrets/operator.cryostat.io/%s-storage-tls", r.Name),
+				ReadOnly:  true,
+			})
+	}
 	return mounts
 }
 
@@ -2767,14 +2777,15 @@ func (r *TestResources) NewDatasourceLivenessProbe() *corev1.Probe {
 
 func (r *TestResources) NewStorageLivenessProbe() *corev1.Probe {
 	protocol := corev1.URISchemeHTTP
+	port := int32(8333)
 
-	// if r.TLS {
-	// 	protocol = corev1.URISchemeHTTPS
-	// }
+	if r.TLS {
+		protocol = corev1.URISchemeHTTPS
+	}
 	return &corev1.Probe{
 		ProbeHandler: corev1.ProbeHandler{
 			HTTPGet: &corev1.HTTPGetAction{
-				Port:   intstr.IntOrString{IntVal: 8333},
+				Port:   intstr.IntOrString{IntVal: port},
 				Path:   "/status",
 				Scheme: protocol,
 			},
@@ -3104,10 +3115,36 @@ func (r *TestResources) newVolumes(certProjections []corev1.VolumeProjection) []
 							{
 								Key:  "tls.crt",
 								Path: "tls.crt",
+								Mode: &readOnlymode,
 							},
 							{
 								Key:  "ca.crt",
 								Path: "ca.crt",
+								Mode: &readOnlymode,
+							},
+						},
+					},
+				},
+			},
+		)
+
+		volumes = append(volumes,
+			corev1.Volume{
+				Name: "storage-tls-secret",
+				VolumeSource: corev1.VolumeSource{
+					Secret: &corev1.SecretVolumeSource{
+						SecretName:  r.Name + "-storage-tls",
+						DefaultMode: &readOnlymode,
+						Items: []corev1.KeyToPath{
+							{
+								Key:  "tls.crt",
+								Path: "s3/tls.crt",
+								Mode: &readOnlymode,
+							},
+							{
+								Key:  "ca.crt",
+								Path: "s3/ca.crt",
+								Mode: &readOnlymode,
 							},
 						},
 					},
@@ -3207,12 +3244,14 @@ func (r *TestResources) NewStorageVolumes() []corev1.Volume {
 		},
 	}
 
+	readOnlyMode := int32(0440)
 	if r.TLS {
 		volumes = append(volumes, corev1.Volume{
 			Name: "storage-tls-secret",
 			VolumeSource: corev1.VolumeSource{
 				Secret: &corev1.SecretVolumeSource{
-					SecretName: r.Name + "-storage-tls",
+					SecretName:  r.Name + "-storage-tls",
+					DefaultMode: &readOnlyMode,
 				},
 			},
 		})
