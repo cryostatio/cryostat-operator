@@ -10423,7 +10423,7 @@ spec:
                         type: string
                     type: object
                 type: object
-              storageConfigurations:
+              storageOptions:
                 description: Options to customize the storage provisioned for the
                   database and object storage.
                 properties:
@@ -10461,15 +10461,17 @@ spec:
                           annotations:
                             additionalProperties:
                               type: string
-                            description: Annotations to add to the Persistent Volume
-                              Claim during its creation.
+                            description: Annotations to add to the object during its
+                              creation.
                             type: object
                           labels:
                             additionalProperties:
                               type: string
                             description: |-
-                              Labels to add to the Persistent Volume Claim during its creation.
-                              The label with key "app" is reserved for use by the operator.
+                              Labels to add to the object during its creation.
+                              The following label keys are reserved for use by the operator:
+                              "app", "component", "app.kubernetes.io/name", "app.kubernetes.io/instance",
+                              "app.kubernetes.io/component", and "app.kubernetes.io/part-of".
                             type: object
                           spec:
                             description: |-
@@ -10679,6 +10681,29 @@ spec:
                                 type: string
                             type: object
                         type: object
+                    type: object
+                  emptyDir:
+                    description: |-
+                      Configuration for an EmptyDir to be created
+                      by the operator instead of a PVC.
+                      Deprecated: use storageOptions.database and storageOptions.objectStorage
+                    properties:
+                      enabled:
+                        description: When enabled, Cryostat will use EmptyDir volumes
+                          instead of a Persistent Volume Claim. Any PVC configurations
+                          will be ignored.
+                        type: boolean
+                      medium:
+                        description: |-
+                          Unless specified, the emptyDir volume will be mounted on
+                          the same storage medium backing the node. Setting this field to
+                          "Memory" will mount the emptyDir on a tmpfs (RAM-backed filesystem).
+                        type: string
+                      sizeLimit:
+                        description: The maximum memory limit for the emptyDir. Default
+                          is unbounded.
+                        pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                        type: string
                     type: object
                   objectStorage:
                     description: Configuration for the Persistent Volume Claim to
@@ -10714,15 +10739,17 @@ spec:
                           annotations:
                             additionalProperties:
                               type: string
-                            description: Annotations to add to the Persistent Volume
-                              Claim during its creation.
+                            description: Annotations to add to the object during its
+                              creation.
                             type: object
                           labels:
                             additionalProperties:
                               type: string
                             description: |-
-                              Labels to add to the Persistent Volume Claim during its creation.
-                              The label with key "app" is reserved for use by the operator.
+                              Labels to add to the object during its creation.
+                              The following label keys are reserved for use by the operator:
+                              "app", "component", "app.kubernetes.io/name", "app.kubernetes.io/instance",
+                              "app.kubernetes.io/component", and "app.kubernetes.io/part-of".
                             type: object
                           spec:
                             description: |-
@@ -10933,38 +10960,11 @@ spec:
                             type: object
                         type: object
                     type: object
-                type: object
-              storageOptions:
-                description: |-
-                  Options to customize the storage for Flight Recordings and Templates.
-                  Deprecated: use v1beta2 storageConfigurations.
-                properties:
-                  emptyDir:
-                    description: |-
-                      Configuration for an EmptyDir to be created
-                      by the operator instead of a PVC.
-                    properties:
-                      enabled:
-                        description: When enabled, Cryostat will use EmptyDir volumes
-                          instead of a Persistent Volume Claim. Any PVC configurations
-                          will be ignored.
-                        type: boolean
-                      medium:
-                        description: |-
-                          Unless specified, the emptyDir volume will be mounted on
-                          the same storage medium backing the node. Setting this field to
-                          "Memory" will mount the emptyDir on a tmpfs (RAM-backed filesystem).
-                        type: string
-                      sizeLimit:
-                        description: The maximum memory limit for the emptyDir. Default
-                          is unbounded.
-                        pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
-                        type: string
-                    type: object
                   pvc:
                     description: |-
                       Configuration for the Persistent Volume Claim to be created
                       by the operator.
+                      Deprecated: use storageOptions.database and storageOptions.objectStorage
                     properties:
                       annotations:
                         additionalProperties:

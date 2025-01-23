@@ -45,16 +45,10 @@ type CryostatSpec struct {
 	// +optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,order=3,displayName="Enable cert-manager Integration",xDescriptors={"urn:alm:descriptor:com.tectonic.ui:booleanSwitch"}
 	EnableCertManager *bool `json:"enableCertManager"`
-	// Options to customize the storage for Flight Recordings and Templates.
-	// Deprecated: use v1beta2 storageConfigurations.
-	// +optional
-	// +operator-sdk:csv:customresourcedefinitions:type=spec
-	// +kubebuilder:deprecatedversion:warning="use v1beta2 storageConfigurations"
-	StorageOptions *StorageConfiguration `json:"storageOptions,omitempty"`
 	// Options to customize the storage provisioned for the database and object storage.
 	// +optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
-	StorageConfigurations *StorageConfigurations `json:"storageConfigurations,omitempty"`
+	StorageOptions *StorageConfigurations `json:"storageOptions,omitempty"`
 	// Options to customize the services created for the Cryostat application.
 	// +optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
@@ -234,7 +228,8 @@ type StorageConfigurations struct {
 	// Configuration for the Persistent Volume Claim to be created by the operator for the object storage.
 	// +optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
-	ObjectStorage *StorageConfiguration `json:"objectStorage,omitempty"`
+	ObjectStorage              *StorageConfiguration `json:"objectStorage,omitempty"`
+	LegacyStorageConfiguration `json:",inline"`
 }
 
 // StorageConfiguration provides customization to the storage created by the
@@ -248,6 +243,25 @@ type StorageConfiguration struct {
 	PVC *PersistentVolumeClaimConfig `json:"pvc,omitempty"`
 	// Configuration for an EmptyDir to be created
 	// by the operator instead of a PVC.
+	// +optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec
+	EmptyDir *EmptyDirConfig `json:"emptyDir,omitempty"`
+}
+
+// LegacyStorageConfiguration provides customization to the storage created by the
+// operator to contain persisted data. If no configurations are specified, a
+// PVC will be created by default.
+// Deprecated: use StorageConfiguration instead.
+type LegacyStorageConfiguration struct {
+	// Configuration for the Persistent Volume Claim to be created
+	// by the operator.
+	// Deprecated: use storageOptions.database and storageOptions.objectStorage
+	// +optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec
+	PVC *PersistentVolumeClaimConfig `json:"pvc,omitempty"`
+	// Configuration for an EmptyDir to be created
+	// by the operator instead of a PVC.
+	// Deprecated: use storageOptions.database and storageOptions.objectStorage
 	// +optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	EmptyDir *EmptyDirConfig `json:"emptyDir,omitempty"`

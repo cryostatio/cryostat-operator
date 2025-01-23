@@ -45,7 +45,7 @@ func convertSpecTo(src *CryostatSpec, dst *operatorv1beta2.CryostatSpec) {
 	dst.EnableCertManager = src.EnableCertManager
 	dst.TrustedCertSecrets = convertCertSecretsTo(src.TrustedCertSecrets)
 	dst.EventTemplates = convertEventTemplatesTo(src.EventTemplates)
-	dst.StorageConfigurations = convertStorageOptionsTo(src.StorageOptions)
+	dst.StorageOptions = convertStorageOptionsTo(src.StorageOptions)
 	dst.ServiceOptions = convertServiceOptionsTo(src.ServiceOptions)
 	dst.NetworkOptions = convertNetworkOptionsTo(src.NetworkOptions)
 	dst.ReportOptions = convertReportOptionsTo(src.ReportOptions)
@@ -94,29 +94,22 @@ func convertEventTemplatesTo(srcTemplates []TemplateConfigMap) []operatorv1beta2
 func convertStorageOptionsTo(srcOpts *StorageConfiguration) *operatorv1beta2.StorageConfigurations {
 	var dstOpts *operatorv1beta2.StorageConfigurations
 	if srcOpts != nil {
-		dstOpts = &operatorv1beta2.StorageConfigurations{
-			Database:      &operatorv1beta2.StorageConfiguration{},
-			ObjectStorage: &operatorv1beta2.StorageConfiguration{},
-		}
+		dstOpts = &operatorv1beta2.StorageConfigurations{}
 		if srcOpts.PVC != nil {
-			pvc := &operatorv1beta2.PersistentVolumeClaimConfig{
+			dstOpts.PVC = &operatorv1beta2.PersistentVolumeClaimConfig{
 				Spec: srcOpts.PVC.Spec,
 				ResourceMetadata: operatorv1beta2.ResourceMetadata{
 					Annotations: srcOpts.PVC.Annotations,
 					Labels:      srcOpts.PVC.Labels,
 				},
 			}
-			dstOpts.Database.PVC = pvc
-			dstOpts.ObjectStorage.PVC = pvc
 		}
 		if srcOpts.EmptyDir != nil {
-			emptyDir := &operatorv1beta2.EmptyDirConfig{
+			dstOpts.EmptyDir = &operatorv1beta2.EmptyDirConfig{
 				Enabled:   srcOpts.EmptyDir.Enabled,
 				Medium:    srcOpts.EmptyDir.Medium,
 				SizeLimit: srcOpts.EmptyDir.SizeLimit,
 			}
-			dstOpts.Database.EmptyDir = emptyDir
-			dstOpts.ObjectStorage.EmptyDir = emptyDir
 		}
 	}
 	return dstOpts
@@ -319,7 +312,7 @@ func convertSpecFrom(src *operatorv1beta2.CryostatSpec, dst *CryostatSpec) {
 	dst.EnableCertManager = src.EnableCertManager
 	dst.TrustedCertSecrets = convertCertSecretsFrom(src.TrustedCertSecrets)
 	dst.EventTemplates = convertEventTemplatesFrom(src.EventTemplates)
-	dst.StorageOptions = convertStorageOptionsFrom(src.StorageConfigurations)
+	dst.StorageOptions = convertStorageOptionsFrom(src.StorageOptions)
 	dst.ServiceOptions = convertServiceOptionsFrom(src.ServiceOptions)
 	dst.NetworkOptions = convertNetworkOptionsFrom(src.NetworkOptions)
 	dst.ReportOptions = convertReportOptionsFrom(src.ReportOptions)
@@ -369,18 +362,18 @@ func convertStorageOptionsFrom(srcOpts *operatorv1beta2.StorageConfigurations) *
 	var dstOpts *StorageConfiguration
 	if srcOpts != nil {
 		dstOpts = &StorageConfiguration{}
-		if srcOpts.Database.PVC != nil {
+		if srcOpts.PVC != nil {
 			dstOpts.PVC = &PersistentVolumeClaimConfig{
-				Annotations: srcOpts.Database.PVC.Annotations,
-				Labels:      srcOpts.Database.PVC.Labels,
-				Spec:        srcOpts.Database.PVC.Spec,
+				Annotations: srcOpts.PVC.Annotations,
+				Labels:      srcOpts.PVC.Labels,
+				Spec:        srcOpts.PVC.Spec,
 			}
 		}
-		if srcOpts.Database.EmptyDir != nil {
+		if srcOpts.EmptyDir != nil {
 			dstOpts.EmptyDir = &EmptyDirConfig{
-				Enabled:   srcOpts.Database.EmptyDir.Enabled,
-				Medium:    srcOpts.Database.EmptyDir.Medium,
-				SizeLimit: srcOpts.Database.EmptyDir.SizeLimit,
+				Enabled:   srcOpts.EmptyDir.Enabled,
+				Medium:    srcOpts.EmptyDir.Medium,
+				SizeLimit: srcOpts.EmptyDir.SizeLimit,
 			}
 		}
 	}

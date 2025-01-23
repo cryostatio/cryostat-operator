@@ -76,8 +76,11 @@ func (r *Reconciler) reconcilePVC(ctx context.Context, cr *model.CryostatInstanc
 func (r *Reconciler) reconcileDatabasePVC(ctx context.Context, cr *model.CryostatInstance) error {
 	name := "database"
 	var cfg *operatorv1beta2.StorageConfiguration
-	if cr.Spec.StorageConfigurations != nil {
-		cfg = cr.Spec.StorageConfigurations.Database
+	if cr.Spec.StorageOptions != nil {
+		cfg = cr.Spec.StorageOptions.Database
+		if cfg == nil {
+			cfg = (*operatorv1beta2.StorageConfiguration)(&cr.Spec.StorageOptions.LegacyStorageConfiguration)
+		}
 	}
 	return r.reconcilePVC(ctx, cr, cfg, *resource.NewQuantity(DefaultDatabasePVCSize, resource.BinarySI), &name)
 }
@@ -85,8 +88,11 @@ func (r *Reconciler) reconcileDatabasePVC(ctx context.Context, cr *model.Cryosta
 func (r *Reconciler) reconcileStoragePVC(ctx context.Context, cr *model.CryostatInstance) error {
 	name := "storage"
 	var cfg *operatorv1beta2.StorageConfiguration
-	if cr.Spec.StorageConfigurations != nil {
-		cfg = cr.Spec.StorageConfigurations.ObjectStorage
+	if cr.Spec.StorageOptions != nil {
+		cfg = cr.Spec.StorageOptions.ObjectStorage
+		if cfg == nil {
+			cfg = (*operatorv1beta2.StorageConfiguration)(&cr.Spec.StorageOptions.LegacyStorageConfiguration)
+		}
 	}
 	return r.reconcilePVC(ctx, cr, cfg, *resource.NewQuantity(DefaultStoragePVCSize, resource.BinarySI), &name)
 }

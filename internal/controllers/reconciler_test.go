@@ -38,6 +38,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/validation/field"
 	"k8s.io/client-go/tools/record"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	ctrlclient "sigs.k8s.io/controller-runtime/pkg/client"
@@ -932,13 +933,13 @@ func (c *controllerTest) commonTests() {
 					t.expectPVC(expected, t.Name+"-database")
 				})
 			})
-			/**Context("that fails to update", func() {
+			FContext("that fails to update", func() {
 				JustBeforeEach(func() {
 					// Replace client with one that fails to update the PVC
-					invalidErr := kerrors.NewInvalid(schema.ParseGroupKind("PersistentVolumeClaim"), oldDatabasePVC.Name, field.ErrorList{
+					invalidErr := kerrors.NewInvalid(schema.ParseGroupKind("PersistentVolumeClaim"), oldPVC.Name, field.ErrorList{
 						field.Forbidden(field.NewPath("spec"), "test error"),
 					})
-					t.Client = test.NewClientWithUpdateError(t.Client, oldDatabasePVC, invalidErr)
+					t.Client = test.NewClientWithUpdateError(t.Client, oldPVC, invalidErr)
 					t.controller.GetConfig().Client = t.Client
 
 					// Expect an Invalid status error after reconciling
@@ -952,7 +953,7 @@ func (c *controllerTest) commonTests() {
 					Expect(recorder.Events).To(Receive(&eventMsg))
 					Expect(eventMsg).To(ContainSubstring("PersistentVolumeClaimInvalid"))
 				})
-			})**/
+			})
 		})
 		Context("with custom EmptyDir config", func() {
 			BeforeEach(func() {
