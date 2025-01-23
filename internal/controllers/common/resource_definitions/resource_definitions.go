@@ -1764,6 +1764,7 @@ func NewStorageContainer(cr *model.CryostatInstance, imageTag string, tls *TLSCo
 	if tls != nil {
 		args = append(args,
 			fmt.Sprintf("-s3.port=%d", constants.StoragePort),
+			// when TLS key/cert are provided but port number is not, then the HTTP port number is used for HTTPS instead and plain HTTP is disabled
 			"-s3.port.https=0",
 			fmt.Sprintf("-s3.key.file=%s", path.Join(SecretMountPrefix, tls.StorageSecret, corev1.TLSPrivateKeyKey)),
 			fmt.Sprintf("-s3.cert.file=%s", path.Join(SecretMountPrefix, tls.StorageSecret, corev1.TLSCertKey)),
