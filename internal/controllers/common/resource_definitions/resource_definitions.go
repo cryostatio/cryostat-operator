@@ -1688,7 +1688,6 @@ func NewStorageContainer(cr *model.CryostatInstance, imageTag string, tls *TLSCo
 		{
 			Name:      cr.Name + "-storage",
 			MountPath: "/data",
-			SubPath:   "seaweed",
 		},
 	}
 
@@ -1842,7 +1841,6 @@ func NewDatabaseContainer(cr *model.CryostatInstance, imageTag string, tls *TLSC
 		{
 			Name:      cr.Name + "-database",
 			MountPath: "/data",
-			SubPath:   "postgres",
 		},
 	}
 

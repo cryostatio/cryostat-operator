@@ -2601,7 +2601,6 @@ func (r *TestResources) NewStorageVolumeMounts() []corev1.VolumeMount {
 		corev1.VolumeMount{
 			Name:      r.Name + "-storage",
 			MountPath: "/data",
-			SubPath:   "seaweed",
 		})
 
 	if r.TLS {
@@ -2621,7 +2620,6 @@ func (r *TestResources) NewDatabaseVolumeMounts() []corev1.VolumeMount {
 		corev1.VolumeMount{
 			Name:      r.Name + "-database",
 			MountPath: "/data",
-			SubPath:   "postgres",
 		})
 
 	if r.TLS {
