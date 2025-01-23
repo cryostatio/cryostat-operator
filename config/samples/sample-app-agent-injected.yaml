@@ -17,7 +17,6 @@ spec:
         cryostat.io/name: cryostat-sample
         cryostat.io/namespace: cryostat-operator-system
     spec:
-      serviceAccountName: quarkus-cryostat-agent-serviceaccount
       containers:
       - env:
         - name: JAVA_OPTS_APPEND
@@ -54,40 +53,7 @@ spec:
   selector:
     app: quarkus-cryostat-agent
   ports:
-  - name: agent-http
-    port: 9977
-    protocol: TCP
-    targetPort: 9977
   - name: app-http
     port: 10010
     protocol: TCP
     targetPort: 10010
----
-kind: ServiceAccount
-apiVersion: v1
-metadata:
-  name: quarkus-cryostat-agent-serviceaccount
----
-apiVersion: rbac.authorization.k8s.io/v1
-kind: Role
-metadata:
-  name: quarkus-cryostat-agent-role
-rules:
-- apiGroups:
-  - ""
-  verbs:
-  - create
-  resources:
-  - pods/exec
----
-kind: RoleBinding
-apiVersion: rbac.authorization.k8s.io/v1
-metadata:
-  name: quarkus-cryostat-agent-role-binding
-subjects:
-- kind: ServiceAccount
-  name: quarkus-cryostat-agent-serviceaccount
-roleRef:
-  kind: Role
-  name: quarkus-cryostat-agent-role
-  apiGroup: rbac.authorization.k8s.io
