@@ -191,6 +191,11 @@ func (r *Reconciler) reconcileStorageService(ctx context.Context, cr *model.Cryo
 		},
 	}
 
+	name := "http"
+	scheme := "http"
+	if tls != nil {
+		scheme = "https"
+	}
 	err := r.createOrUpdateService(ctx, svc, cr.Object, &config.ServiceConfig, func() error {
 		svc.Spec.Selector = map[string]string{
 			"app":       cr.Name,
@@ -198,17 +203,10 @@ func (r *Reconciler) reconcileStorageService(ctx context.Context, cr *model.Cryo
 		}
 		svc.Spec.Ports = []corev1.ServicePort{
 			{
-				Name:       "http",
+				Name:       name,
 				Port:       *config.HTTPPort,
 				TargetPort: intstr.IntOrString{IntVal: constants.StoragePort},
 			},
-		}
-		if tls != nil {
-			svc.Spec.Ports = append(svc.Spec.Ports, corev1.ServicePort{
-				Name:       "https",
-				Port:       *config.HTTPSPort,
-				TargetPort: intstr.IntOrString{IntVal: constants.StoragePortTLS},
-			})
 		}
 		return nil
 	})
@@ -217,11 +215,7 @@ func (r *Reconciler) reconcileStorageService(ctx context.Context, cr *model.Cryo
 	}
 
 	// Set storage URL for deployment to use
-	scheme := "https"
-	if tls == nil {
-		scheme = "http"
-	}
-	namedPort, err := GetNamedPort(scheme, svc)
+	namedPort, err := GetNamedPort(name, svc)
 	if err != nil {
 		return err
 	}
@@ -375,11 +369,6 @@ func configureStorageService(cr *model.CryostatInstance, tls *resource_definitio
 		config.HTTPPort = &httpPort
 	}
 
-	if config.HTTPSPort == nil && tls != nil {
-		httpsPort := constants.StoragePortTLS
-		config.HTTPSPort = &httpsPort
-	}
-
 	return config
 }
 
@@ -490,5 +479,5 @@ func GetNamedPort(portName string, svc *corev1.Service) (*corev1.ServicePort, er
 		}
 	}
 	// Shouldn't happen
-	return nil, fmt.Errorf("no \"%s\"port in %s service in %s namespace", constants.HttpPortName, svc.Name, svc.Namespace)
+	return nil, fmt.Errorf("no \"%s\" port in %s service in %s namespace", constants.HttpPortName, svc.Name, svc.Namespace)
 }

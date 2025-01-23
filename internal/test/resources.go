@@ -1876,11 +1876,6 @@ func (r *TestResources) NewStoragePorts() []corev1.ContainerPort {
 			ContainerPort: 8333,
 		},
 	}
-	if r.TLS {
-		ports = append(ports, corev1.ContainerPort{
-			ContainerPort: 8334,
-		})
-	}
 	return ports
 }
 
@@ -1917,7 +1912,6 @@ func (r *TestResources) NewCoreEnvironmentVariables(reportsUrl string, ingress b
 	storagePort := 8333
 	if r.TLS {
 		storageProtocol = "https"
-		storagePort = 8334
 	}
 	envs := []corev1.EnvVar{
 		{
@@ -2243,7 +2237,8 @@ func (r *TestResources) NewStorageArgs() []string {
 
 	if r.TLS {
 		args = append(args,
-			"-s3.port.https=8334",
+			"-s3.port=8333",
+			"-s3.port.https=0",
 			fmt.Sprintf("-s3.key.file=/var/run/secrets/operator.cryostat.io/%s-storage-tls/%s", r.Name, corev1.TLSPrivateKeyKey),
 			fmt.Sprintf("-s3.cert.file=/var/run/secrets/operator.cryostat.io/%s-storage-tls/%s", r.Name, corev1.TLSCertKey),
 		)
@@ -2754,7 +2749,6 @@ func (r *TestResources) NewStorageLivenessProbe() *corev1.Probe {
 
 	if r.TLS {
 		protocol = corev1.URISchemeHTTPS
-		port = 8334
 	}
 	return &corev1.Probe{
 		ProbeHandler: corev1.ProbeHandler{

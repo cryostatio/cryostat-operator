@@ -17,6 +17,8 @@ package controllers
 import (
 	"context"
 	"fmt"
+	"net/url"
+	"strconv"
 
 	resources "github.com/cryostatio/cryostat-operator/internal/controllers/common/resource_definitions"
 	"github.com/cryostatio/cryostat-operator/internal/controllers/constants"
@@ -147,7 +149,7 @@ func (r *Reconciler) reconcileDatabaseNetworkPolicy(ctx context.Context, cr *mod
 	})
 }
 
-func (r *Reconciler) reconcileStorageNetworkPolicy(ctx context.Context, cr *model.CryostatInstance) error {
+func (r *Reconciler) reconcileStorageNetworkPolicy(ctx context.Context, cr *model.CryostatInstance, serviceSpecs *resources.ServiceSpecs) error {
 	networkPolicy := &networkingv1.NetworkPolicy{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      fmt.Sprintf("%s-storage-internal-ingress", cr.Name),
@@ -176,7 +178,9 @@ func (r *Reconciler) reconcileStorageNetworkPolicy(ctx context.Context, cr *mode
 					},
 					Ports: []networkingv1.NetworkPolicyPort{
 						{
-							Port: &intstr.IntOrString{IntVal: constants.StoragePort},
+							Port: &intstr.IntOrString{
+								IntVal: getServicePortOrDefault(*serviceSpecs.StorageURL, constants.StoragePort),
+							},
 						},
 					},
 				},
@@ -223,6 +227,18 @@ func (r *Reconciler) reconcileReportsNetworkPolicy(ctx context.Context, cr *mode
 		}
 		return nil
 	})
+}
+
+func getServicePortOrDefault(url url.URL, def int32) int32 {
+	portStr := url.Port()
+	if portStr == "" {
+		return def
+	}
+	port, err := strconv.Atoi(portStr)
+	if err != nil {
+		return def
+	}
+	return int32(port)
 }
 
 func (r *Reconciler) createOrUpdatePolicy(ctx context.Context, networkPolicy *networkingv1.NetworkPolicy, owner metav1.Object,

@@ -946,11 +946,6 @@ func (in *StorageServiceConfig) DeepCopyInto(out *StorageServiceConfig) {
 		*out = new(int32)
 		**out = **in
 	}
-	if in.HTTPSPort != nil {
-		in, out := &in.HTTPSPort, &out.HTTPSPort
-		*out = new(int32)
-		**out = **in
-	}
 	in.ServiceConfig.DeepCopyInto(&out.ServiceConfig)
 }
 

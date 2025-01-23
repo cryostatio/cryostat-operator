@@ -29,7 +29,6 @@ const (
 	DatasourceContainerPort    int32  = 8989
 	ReportsContainerPort       int32  = 10000
 	StoragePort                int32  = 8333
-	StoragePortTLS             int32  = 8334
 	DatabasePort               int32  = 5432
 	AgentProxyContainerPort    int32  = 8282
 	AgentProxyHealthPort       int32  = 8281

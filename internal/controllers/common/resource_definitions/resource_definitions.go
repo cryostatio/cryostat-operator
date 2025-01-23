@@ -1763,7 +1763,8 @@ func NewStorageContainer(cr *model.CryostatInstance, imageTag string, tls *TLSCo
 	args := []string{}
 	if tls != nil {
 		args = append(args,
-			fmt.Sprintf("-s3.port.https=%d", constants.StoragePortTLS),
+			fmt.Sprintf("-s3.port=%d", constants.StoragePort),
+			"-s3.port.https=0",
 			fmt.Sprintf("-s3.key.file=%s", path.Join(SecretMountPrefix, tls.StorageSecret, corev1.TLSPrivateKeyKey)),
 			fmt.Sprintf("-s3.cert.file=%s", path.Join(SecretMountPrefix, tls.StorageSecret, corev1.TLSCertKey)),
 		)
@@ -1776,10 +1777,6 @@ func NewStorageContainer(cr *model.CryostatInstance, imageTag string, tls *TLSCo
 
 		mounts = append(mounts, tlsSecretMount)
 		livenessProbeScheme = corev1.URISchemeHTTPS
-		livenessProbePort = constants.StoragePortTLS
-		ports = append(ports, corev1.ContainerPort{
-			ContainerPort: constants.StoragePortTLS,
-		})
 	}
 
 	if cr.Spec.SecurityOptions != nil && cr.Spec.SecurityOptions.StorageSecurityContext != nil {

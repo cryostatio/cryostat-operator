@@ -478,7 +478,7 @@ func (r *Reconciler) reconcileStorage(ctx context.Context, reqLogger logr.Logger
 	if err != nil {
 		return reconcile.Result{}, err
 	}
-	err = r.reconcileStorageNetworkPolicy(ctx, cr)
+	err = r.reconcileStorageNetworkPolicy(ctx, cr, serviceSpecs)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
