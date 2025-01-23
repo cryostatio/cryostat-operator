@@ -191,7 +191,6 @@ func (r *Reconciler) reconcileStorageService(ctx context.Context, cr *model.Cryo
 		},
 	}
 
-	name := "http"
 	scheme := "http"
 	if tls != nil {
 		scheme = "https"
@@ -203,7 +202,7 @@ func (r *Reconciler) reconcileStorageService(ctx context.Context, cr *model.Cryo
 		}
 		svc.Spec.Ports = []corev1.ServicePort{
 			{
-				Name:       name,
+				Name:       constants.HttpPortName,
 				Port:       *config.HTTPPort,
 				TargetPort: intstr.IntOrString{IntVal: constants.StoragePort},
 			},
@@ -215,7 +214,7 @@ func (r *Reconciler) reconcileStorageService(ctx context.Context, cr *model.Cryo
 	}
 
 	// Set storage URL for deployment to use
-	namedPort, err := GetNamedPort(name, svc)
+	namedPort, err := GetNamedPort(constants.HttpPortName, svc)
 	if err != nil {
 		return err
 	}
