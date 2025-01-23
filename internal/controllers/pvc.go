@@ -28,10 +28,16 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
-// Event type to inform users of invalid PVC specs
-const eventPersistentVolumeClaimInvalidType = "PersistentVolumeClaimInvalid"
+const (
+	// Event type to inform users of invalid PVC specs
+	eventPersistentVolumeClaimInvalidType = "PersistentVolumeClaimInvalid"
+	mib                                   = 1024 * 1024
+	gib                                   = 1024 * mib
+	DefaultDatabasePVCSize                = 500 * mib
+	DefaultStoragePVCSize                 = 10 * gib
+)
 
-func (r *Reconciler) reconcilePVC(ctx context.Context, cr *model.CryostatInstance, storageConfiguration *operatorv1beta2.StorageConfiguration, nameSuffix *string) error {
+func (r *Reconciler) reconcilePVC(ctx context.Context, cr *model.CryostatInstance, storageConfiguration *operatorv1beta2.StorageConfiguration, defaultSize resource.Quantity, nameSuffix *string) error {
 	emptyDir := storageConfiguration != nil && storageConfiguration.EmptyDir != nil && storageConfiguration.EmptyDir.Enabled
 	if emptyDir {
 		// If user requested an emptyDir volume, then do nothing.
@@ -53,7 +59,7 @@ func (r *Reconciler) reconcilePVC(ctx context.Context, cr *model.CryostatInstanc
 	}
 
 	// Look up PVC configuration, applying defaults where needed
-	config := configurePVC(cr.Name, storageConfiguration)
+	config := configurePVC(cr.Name, storageConfiguration, defaultSize)
 
 	err := r.createOrUpdatePVC(ctx, pvc, cr.Object, config)
 	if err != nil {
@@ -73,7 +79,7 @@ func (r *Reconciler) reconcileDatabasePVC(ctx context.Context, cr *model.Cryosta
 	if cr.Spec.StorageConfigurations != nil {
 		cfg = cr.Spec.StorageConfigurations.Database
 	}
-	return r.reconcilePVC(ctx, cr, cfg, &name)
+	return r.reconcilePVC(ctx, cr, cfg, *resource.NewQuantity(DefaultDatabasePVCSize, resource.BinarySI), &name)
 }
 
 func (r *Reconciler) reconcileStoragePVC(ctx context.Context, cr *model.CryostatInstance) error {
@@ -82,7 +88,7 @@ func (r *Reconciler) reconcileStoragePVC(ctx context.Context, cr *model.Cryostat
 	if cr.Spec.StorageConfigurations != nil {
 		cfg = cr.Spec.StorageConfigurations.ObjectStorage
 	}
-	return r.reconcilePVC(ctx, cr, cfg, &name)
+	return r.reconcilePVC(ctx, cr, cfg, *resource.NewQuantity(DefaultStoragePVCSize, resource.BinarySI), &name)
 }
 
 func (r *Reconciler) createOrUpdatePVC(ctx context.Context, pvc *corev1.PersistentVolumeClaim,
@@ -118,7 +124,7 @@ func (r *Reconciler) createOrUpdatePVC(ctx context.Context, pvc *corev1.Persiste
 	return nil
 }
 
-func configurePVC(name string, cfg *operatorv1beta2.StorageConfiguration) *operatorv1beta2.PersistentVolumeClaimConfig {
+func configurePVC(name string, cfg *operatorv1beta2.StorageConfiguration, defaultSize resource.Quantity) *operatorv1beta2.PersistentVolumeClaimConfig {
 	var config *operatorv1beta2.PersistentVolumeClaimConfig
 	if cfg == nil || cfg.PVC == nil {
 		config = &operatorv1beta2.PersistentVolumeClaimConfig{}
@@ -143,7 +149,7 @@ func configurePVC(name string, cfg *operatorv1beta2.StorageConfiguration) *opera
 	// may be intentionally specified.
 	if config.Spec.Resources.Requests == nil {
 		config.Spec.Resources.Requests = corev1.ResourceList{
-			corev1.ResourceStorage: *resource.NewQuantity(500*1024*1024, resource.BinarySI),
+			corev1.ResourceStorage: defaultSize,
 		}
 	}
 	if config.Spec.AccessModes == nil {

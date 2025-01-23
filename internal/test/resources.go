@@ -1818,7 +1818,7 @@ func (r *TestResources) NewStoragePVC() *corev1.PersistentVolumeClaim {
 		AccessModes: []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce},
 		Resources: corev1.VolumeResourceRequirements{
 			Requests: corev1.ResourceList{
-				corev1.ResourceStorage: resource.MustParse("500Mi"),
+				corev1.ResourceStorage: resource.MustParse("10Gi"),
 			},
 		},
 	}, map[string]string{

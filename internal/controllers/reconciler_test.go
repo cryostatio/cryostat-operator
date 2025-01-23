@@ -2982,7 +2982,7 @@ func (t *cryostatTestInput) expectPVC(expectedPVC *corev1.PersistentVolumeClaim,
 
 	pvcStorage := pvc.Spec.Resources.Requests["storage"]
 	expectedPVCStorage := expectedPVC.Spec.Resources.Requests["storage"]
-	Expect(pvcStorage.Equal(expectedPVCStorage)).To(BeTrue())
+	Expect(pvcStorage).To(Equal(expectedPVCStorage))
 }
 
 func (t *cryostatTestInput) expectDatabaseEmptyDir(expectedEmptyDir *corev1.EmptyDirVolumeSource) {
