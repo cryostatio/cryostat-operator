@@ -6,11 +6,6 @@ spec:
   enableCertManager: true
   trustedCertSecrets: []
   eventTemplates: []
-  storageOptions:
-    pvc:
-      labels: {}
-      annotations: {}
-      spec: {}
   reportOptions:
     replicas: 0
   networkPolicies: {}

@@ -222,11 +222,6 @@ func (r *Reconciler) reconcileCryostat(ctx context.Context, cr *model.CryostatIn
 		return reconcile.Result{}, err
 	}
 
-	err = r.reconcileCorePVC(ctx, cr)
-	if err != nil {
-		return reconcile.Result{}, err
-	}
-
 	err = r.reconcileSecrets(ctx, cr)
 	if err != nil {
 		return reconcile.Result{}, err

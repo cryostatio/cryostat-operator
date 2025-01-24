@@ -48,7 +48,7 @@ type CryostatSpec struct {
 	// Options to customize the storage provisioned for the database and object storage.
 	// +optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
-	StorageOptions *StorageConfiguration `json:"storageOptions,omitempty"`
+	StorageOptions *StorageConfigurations `json:"storageOptions,omitempty"`
 	// Options to customize the services created for the Cryostat application.
 	// +optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
@@ -218,9 +218,23 @@ const (
 	ConditionTypeTLSSetupComplete CryostatConditionType = "TLSSetupComplete"
 )
 
-// StorageConfiguration provides customization to the storage created by
-// the operator to hold Flight Recordings and Recording Templates. If no
-// configurations are specified, a PVC will be created by default.
+// StorageConfigurations provides customization to the storage provisioned for
+// the database and the object storage.
+type StorageConfigurations struct {
+	// Configuration for the Persistent Volume Claim to be created by the operator for the database.
+	// +optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec
+	Database *StorageConfiguration `json:"database,omitempty"`
+	// Configuration for the Persistent Volume Claim to be created by the operator for the object storage.
+	// +optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec
+	ObjectStorage              *StorageConfiguration `json:"objectStorage,omitempty"`
+	LegacyStorageConfiguration `json:",inline"`
+}
+
+// StorageConfiguration provides customization to the storage created by the
+// operator to contain persisted data. If no configurations are specified, a
+// PVC will be created by default.
 type StorageConfiguration struct {
 	// Configuration for the Persistent Volume Claim to be created
 	// by the operator.
@@ -229,6 +243,25 @@ type StorageConfiguration struct {
 	PVC *PersistentVolumeClaimConfig `json:"pvc,omitempty"`
 	// Configuration for an EmptyDir to be created
 	// by the operator instead of a PVC.
+	// +optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec
+	EmptyDir *EmptyDirConfig `json:"emptyDir,omitempty"`
+}
+
+// LegacyStorageConfiguration provides customization to the storage created by the
+// operator to contain persisted data. If no configurations are specified, a
+// PVC will be created by default.
+// Deprecated: use StorageConfiguration instead.
+type LegacyStorageConfiguration struct {
+	// Configuration for the Persistent Volume Claim to be created
+	// by the operator.
+	// Deprecated: use storageOptions.database and storageOptions.objectStorage
+	// +optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec
+	PVC *PersistentVolumeClaimConfig `json:"pvc,omitempty"`
+	// Configuration for an EmptyDir to be created
+	// by the operator instead of a PVC.
+	// Deprecated: use storageOptions.database and storageOptions.objectStorage
 	// +optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	EmptyDir *EmptyDirConfig `json:"emptyDir,omitempty"`
@@ -471,11 +504,11 @@ type EmptyDirConfig struct {
 	// the same storage medium backing the node. Setting this field to
 	// "Memory" will mount the emptyDir on a tmpfs (RAM-backed filesystem).
 	// +optional
-	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:com.tectonic.ui:fieldDependency:storageOptions.emptyDir.enabled:true"}
+	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	Medium corev1.StorageMedium `json:"medium,omitempty"`
 	// The maximum memory limit for the emptyDir. Default is unbounded.
 	// +optional
-	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:com.tectonic.ui:fieldDependency:storageOptions.emptyDir.enabled:true"}
+	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	// +kubebuilder:validation:Pattern=^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
 	SizeLimit string `json:"sizeLimit,omitempty"`
 }

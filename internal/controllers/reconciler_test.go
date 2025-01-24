@@ -38,6 +38,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/validation/field"
 	"k8s.io/client-go/tools/record"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	ctrlclient "sigs.k8s.io/controller-runtime/pkg/client"
@@ -151,13 +152,10 @@ func resourceChecks() []resourceCheck {
 		{(*cryostatTestInput).expectRBAC, "RBAC"},
 		{(*cryostatTestInput).expectRoutes, "routes"},
 		{func(t *cryostatTestInput) {
-			t.expectPVC(t.NewDefaultPVC(), t.Name)
-		}, "cryostat persistent volume claim"},
-		{func(t *cryostatTestInput) {
-			t.expectPVC(t.NewDatabasePVC(), t.Name+"-database")
+			t.expectPVC(t.NewDatabasePVC())
 		}, "database persistent volume claim"},
 		{func(t *cryostatTestInput) {
-			t.expectPVC(t.NewStoragePVC(), t.Name+"-storage")
+			t.expectPVC(t.NewStoragePVC())
 		}, "storage persistent volume claim"},
 		{(*cryostatTestInput).expectDatabaseSecret, "database secret"},
 		{(*cryostatTestInput).expectStorageSecret, "object storage secret"},
@@ -882,7 +880,8 @@ func (c *controllerTest) commonTests() {
 				t.reconcileCryostatFully()
 			})
 			It("should create the PVC with requested spec", func() {
-				t.expectPVC(t.NewCustomPVC(), t.Name)
+				t.expectPVC(t.NewCustomDatabasePVC())
+				t.expectPVC(t.NewCustomStoragePVC())
 			})
 		})
 		Context("with custom PVC spec overriding some defaults", func() {
@@ -893,7 +892,8 @@ func (c *controllerTest) commonTests() {
 				t.reconcileCryostatFully()
 			})
 			It("should create the PVC with requested spec", func() {
-				t.expectPVC(t.NewCustomPVCSomeDefault(), t.Name)
+				t.expectPVC(t.NewCustomDatabasePVCSomeDefault())
+				t.expectPVC(t.NewCustomStoragePVCSomeDefault())
 			})
 		})
 		Context("with custom PVC config with no spec", func() {
@@ -904,10 +904,61 @@ func (c *controllerTest) commonTests() {
 				t.reconcileCryostatFully()
 			})
 			It("should create the PVC with requested label", func() {
-				t.expectPVC(t.NewDefaultPVCWithLabel(), t.Name)
+				t.expectPVC(t.NewDefaultDatabasePVCWithLabel())
+				t.expectPVC(t.NewDefaultStoragePVCWithLabel())
 			})
 		})
-		Context("with an existing PVC", func() {
+		Context("with a legacy PVC spec", func() {
+			Context("with custom PVC spec overriding all defaults", func() {
+				BeforeEach(func() {
+					t.objs = append(t.objs, t.NewCryostatWithPVCSpecLegacy().Object)
+				})
+				JustBeforeEach(func() {
+					t.reconcileCryostatFully()
+				})
+				It("should create the PVC with requested spec", func() {
+					t.expectPVC(t.NewCustomDatabasePVCLegacy())
+					t.expectPVC(t.NewCustomStoragePVCLegacy())
+				})
+			})
+			Context("with custom PVC spec overriding some defaults", func() {
+				BeforeEach(func() {
+					t.objs = append(t.objs, t.NewCryostatWithPVCSpecSomeDefaultLegacy().Object)
+				})
+				JustBeforeEach(func() {
+					t.reconcileCryostatFully()
+				})
+				It("should create the PVC with requested spec", func() {
+					t.expectPVC(t.NewCustomDatabasePVCSomeDefaultLegacy())
+					t.expectPVC(t.NewCustomStoragePVCSomeDefaultLegacy())
+				})
+			})
+			Context("with custom PVC config with no spec", func() {
+				BeforeEach(func() {
+					t.objs = append(t.objs, t.NewCryostatWithPVCLabelsOnlyLegacy().Object)
+				})
+				JustBeforeEach(func() {
+					t.reconcileCryostatFully()
+				})
+				It("should create the PVC with requested label", func() {
+					t.expectPVC(t.NewDefaultDatabasePVCWithLabelLegacy())
+					t.expectPVC(t.NewDefaultStoragePVCWithLabelLegacy())
+				})
+			})
+		})
+		Context("with both custom PVC specs overriding all defaults", func() {
+			BeforeEach(func() {
+				t.objs = append(t.objs, t.NewCryostatWithPVCSpecBoth().Object)
+			})
+			JustBeforeEach(func() {
+				t.reconcileCryostatFully()
+			})
+			It("should create the PVC with requested spec", func() {
+				t.expectPVC(t.NewCustomDatabasePVC())
+				t.expectPVC(t.NewCustomStoragePVC())
+			})
+		})
+		Context("with an existing DB PVC", func() {
 			var oldPVC *corev1.PersistentVolumeClaim
 			BeforeEach(func() {
 				oldPVC = t.NewDefaultPVC()
@@ -926,28 +977,32 @@ func (c *controllerTest) commonTests() {
 				})
 				It("should update metadata and resource requests", func() {
 					expected := t.NewDefaultPVC()
-					metav1.SetMetaDataLabel(&expected.ObjectMeta, "my", "label")
+					metav1.SetMetaDataLabel(&expected.ObjectMeta, "my", "database")
 					metav1.SetMetaDataLabel(&expected.ObjectMeta, "another", "label")
 					metav1.SetMetaDataLabel(&expected.ObjectMeta, "app", t.Name)
-					metav1.SetMetaDataAnnotation(&expected.ObjectMeta, "my/custom", "annotation")
+					metav1.SetMetaDataAnnotation(&expected.ObjectMeta, "my/custom", "database")
 					metav1.SetMetaDataAnnotation(&expected.ObjectMeta, "another/custom", "annotation")
-					expected.Spec.Resources.Requests[corev1.ResourceStorage] = resource.MustParse("10Gi")
-					t.expectPVC(expected, t.Name)
+					expected.Spec.Resources.Requests[corev1.ResourceStorage] = resource.MustParse("5Gi")
+					t.expectPVC(expected)
 				})
 			})
-			/**Context("that fails to update", func() {
+			Context("that fails to update", func() {
 				JustBeforeEach(func() {
 					// Replace client with one that fails to update the PVC
-					invalidErr := kerrors.NewInvalid(schema.ParseGroupKind("PersistentVolumeClaim"), oldDatabasePVC.Name, field.ErrorList{
+					invalidErr := kerrors.NewInvalid(schema.ParseGroupKind("PersistentVolumeClaim"), oldPVC.Name, field.ErrorList{
 						field.Forbidden(field.NewPath("spec"), "test error"),
 					})
-					t.Client = test.NewClientWithUpdateError(t.Client, oldDatabasePVC, invalidErr)
-					t.controller.GetConfig().Client = t.Client
+					origClient := t.controller.GetConfig().Client
+					t.controller.GetConfig().Client = test.NewClientWithUpdateError(origClient, oldPVC, invalidErr)
 
 					// Expect an Invalid status error after reconciling
-					_, err := t.reconcile()
-					Expect(err).To(HaveOccurred())
-					Expect(kerrors.IsInvalid(err)).To(BeTrue())
+					Eventually(func() bool {
+						_, err := t.reconcile()
+						if err != nil {
+							return kerrors.IsInvalid(err)
+						}
+						return false
+					}).WithTimeout(time.Minute).WithPolling(time.Millisecond).Should(BeTrue())
 				})
 				It("should emit a PersistentVolumeClaimInvalid event", func() {
 					recorder := t.controller.GetConfig().EventRecorder.(*record.FakeRecorder)
@@ -955,7 +1010,7 @@ func (c *controllerTest) commonTests() {
 					Expect(recorder.Events).To(Receive(&eventMsg))
 					Expect(eventMsg).To(ContainSubstring("PersistentVolumeClaimInvalid"))
 				})
-			})**/
+			})
 		})
 		Context("with custom EmptyDir config", func() {
 			BeforeEach(func() {
@@ -977,8 +1032,32 @@ func (c *controllerTest) commonTests() {
 				t.reconcileCryostatFully()
 			})
 			It("should create the EmptyDir with requested specs", func() {
-				t.expectDatabaseEmptyDir(t.NewEmptyDirWithSpec())
-				t.expectStorageEmptyDir(t.NewEmptyDirWithSpec())
+				t.expectDatabaseEmptyDir(t.NewCustomDatabaseEmptyDir())
+				t.expectStorageEmptyDir(t.NewCustomStorageEmptyDir())
+			})
+		})
+		Context("with legacy custom EmptyDir config with requested spec", func() {
+			BeforeEach(func() {
+				t.objs = append(t.objs, t.NewCryostatWithEmptyDirSpecLegacy().Object)
+			})
+			JustBeforeEach(func() {
+				t.reconcileCryostatFully()
+			})
+			It("should create the EmptyDir with requested specs", func() {
+				t.expectDatabaseEmptyDir(t.NewCustomEmptyDirLegacy())
+				t.expectStorageEmptyDir(t.NewCustomEmptyDirLegacy())
+			})
+		})
+		Context("with both custom EmptyDir configs with requested spec", func() {
+			BeforeEach(func() {
+				t.objs = append(t.objs, t.NewCryostatWithEmptyDirSpecBoth().Object)
+			})
+			JustBeforeEach(func() {
+				t.reconcileCryostatFully()
+			})
+			It("should create the EmptyDir with requested specs", func() {
+				t.expectDatabaseEmptyDir(t.NewCustomDatabaseEmptyDir())
+				t.expectStorageEmptyDir(t.NewCustomStorageEmptyDir())
 			})
 		})
 		Context("with overriden image tags", func() {
@@ -2968,9 +3047,9 @@ func (t *cryostatTestInput) expectAgentProxyConfigMap() {
 	Expect(cm.Data).To(Equal(expected.Data))
 }
 
-func (t *cryostatTestInput) expectPVC(expectedPVC *corev1.PersistentVolumeClaim, name string) {
+func (t *cryostatTestInput) expectPVC(expectedPVC *corev1.PersistentVolumeClaim) {
 	pvc := &corev1.PersistentVolumeClaim{}
-	err := t.Client.Get(context.Background(), types.NamespacedName{Name: name, Namespace: t.Namespace}, pvc)
+	err := t.Client.Get(context.Background(), types.NamespacedName{Name: expectedPVC.Name, Namespace: t.Namespace}, pvc)
 	Expect(err).ToNot(HaveOccurred())
 
 	// Compare to desired spec
@@ -2985,7 +3064,7 @@ func (t *cryostatTestInput) expectPVC(expectedPVC *corev1.PersistentVolumeClaim,
 
 	pvcStorage := pvc.Spec.Resources.Requests["storage"]
 	expectedPVCStorage := expectedPVC.Spec.Resources.Requests["storage"]
-	Expect(pvcStorage.Equal(expectedPVCStorage)).To(BeTrue())
+	Expect(pvcStorage).To(Equal(expectedPVCStorage))
 }
 
 func (t *cryostatTestInput) expectDatabaseEmptyDir(expectedEmptyDir *corev1.EmptyDirVolumeSource) {
@@ -3308,7 +3387,6 @@ func (t *cryostatTestInput) checkMainPodTemplate(deployment *appsv1.Deployment, 
 	}
 	ingress := !t.OpenShift &&
 		cr.Spec.NetworkOptions != nil && cr.Spec.NetworkOptions.CoreConfig != nil && cr.Spec.NetworkOptions.CoreConfig.IngressSpec != nil
-	emptyDir := cr.Spec.StorageOptions != nil && cr.Spec.StorageOptions.EmptyDir != nil && cr.Spec.StorageOptions.EmptyDir.Enabled
 	hasPortConfig := cr.Spec.TargetDiscoveryOptions != nil &&
 		len(cr.Spec.TargetDiscoveryOptions.DiscoveryPortNames) > 0 &&
 		len(cr.Spec.TargetDiscoveryOptions.DiscoveryPortNumbers) > 0
@@ -3319,7 +3397,6 @@ func (t *cryostatTestInput) checkMainPodTemplate(deployment *appsv1.Deployment, 
 	dbSecretProvided := cr.Spec.DatabaseOptions != nil && cr.Spec.DatabaseOptions.SecretName != nil
 
 	t.checkCoreContainer(&coreContainer, ingress, reportsUrl,
-		emptyDir,
 		hasPortConfig,
 		builtInDiscoveryDisabled,
 		builtInPortConfigDisabled,
@@ -3578,7 +3655,6 @@ func (t *cryostatTestInput) checkDeploymentHasTemplates() {
 
 func (t *cryostatTestInput) checkCoreContainer(container *corev1.Container, ingress bool,
 	reportsUrl string,
-	emptyDir bool,
 	hasPortConfig bool, builtInDiscoveryDisabled bool, builtInPortConfigDisabled bool,
 	dbSecretProvided bool,
 	resources *corev1.ResourceRequirements,
@@ -3590,7 +3666,7 @@ func (t *cryostatTestInput) checkCoreContainer(container *corev1.Container, ingr
 		Expect(container.Image).To(Equal(*t.EnvCoreImageTag))
 	}
 	Expect(container.Ports).To(ConsistOf(t.NewCorePorts()))
-	Expect(container.Env).To(ConsistOf(t.NewCoreEnvironmentVariables(reportsUrl, ingress, emptyDir, hasPortConfig, builtInDiscoveryDisabled, builtInPortConfigDisabled, dbSecretProvided)))
+	Expect(container.Env).To(ConsistOf(t.NewCoreEnvironmentVariables(reportsUrl, ingress, hasPortConfig, builtInDiscoveryDisabled, builtInPortConfigDisabled, dbSecretProvided)))
 	Expect(container.EnvFrom).To(ConsistOf(t.NewCoreEnvFromSource()))
 	Expect(container.VolumeMounts).To(ConsistOf(t.NewCoreVolumeMounts()))
 	Expect(container.LivenessProbe).To(Equal(t.NewCoreLivenessProbe()))

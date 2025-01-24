@@ -17,13 +17,6 @@ metadata:
             "reportOptions": {
               "replicas": 0
             },
-            "storageOptions": {
-              "pvc": {
-                "annotations": {},
-                "labels": {},
-                "spec": {}
-              }
-            },
             "trustedCertSecrets": []
           }
         }
@@ -31,7 +24,7 @@ metadata:
     capabilities: Seamless Upgrades
     categories: Monitoring, Developer Tools
     containerImage: quay.io/cryostat/cryostat-operator:4.0.0-dev
-    createdAt: "2025-01-23T15:05:26Z"
+    createdAt: "2025-01-24T17:22:18Z"
     description: JVM monitoring and profiling tool
     operatorframework.io/initialization-resource: |-
       {
@@ -409,7 +402,36 @@ spec:
           - description: Options to customize the storage provisioned for the database and object storage.
             displayName: Storage Options
             path: storageOptions
+          - description: Configuration for the Persistent Volume Claim to be created by the operator for the database.
+            displayName: Database
+            path: storageOptions.database
           - description: Configuration for an EmptyDir to be created by the operator instead of a PVC.
+            displayName: Empty Dir
+            path: storageOptions.database.emptyDir
+          - description: When enabled, Cryostat will use EmptyDir volumes instead of a Persistent Volume Claim. Any PVC configurations will be ignored.
+            displayName: Enabled
+            path: storageOptions.database.emptyDir.enabled
+            x-descriptors:
+              - urn:alm:descriptor:com.tectonic.ui:booleanSwitch
+          - description: Unless specified, the emptyDir volume will be mounted on the same storage medium backing the node. Setting this field to "Memory" will mount the emptyDir on a tmpfs (RAM-backed filesystem).
+            displayName: Medium
+            path: storageOptions.database.emptyDir.medium
+          - description: The maximum memory limit for the emptyDir. Default is unbounded.
+            displayName: Size Limit
+            path: storageOptions.database.emptyDir.sizeLimit
+          - description: Configuration for the Persistent Volume Claim to be created by the operator.
+            displayName: PVC
+            path: storageOptions.database.pvc
+          - description: Annotations to add to the object during its creation.
+            displayName: Annotations
+            path: storageOptions.database.pvc.annotations
+          - description: 'Labels to add to the object during its creation. The following label keys are reserved for use by the operator: "app", "component", "app.kubernetes.io/name", "app.kubernetes.io/instance", "app.kubernetes.io/component", and "app.kubernetes.io/part-of".'
+            displayName: Labels
+            path: storageOptions.database.pvc.labels
+          - description: Spec for a Persistent Volume Claim, whose options will override the defaults used by the operator. Unless overriden, the PVC will be created with the default Storage Class and 500MiB of storage. Once the operator has created the PVC, changes to this field have no effect.
+            displayName: Spec
+            path: storageOptions.database.pvc.spec
+          - description: 'Configuration for an EmptyDir to be created by the operator instead of a PVC. Deprecated: use storageOptions.database and storageOptions.objectStorage'
             displayName: Empty Dir
             path: storageOptions.emptyDir
           - description: When enabled, Cryostat will use EmptyDir volumes instead of a Persistent Volume Claim. Any PVC configurations will be ignored.
@@ -420,14 +442,39 @@ spec:
           - description: Unless specified, the emptyDir volume will be mounted on the same storage medium backing the node. Setting this field to "Memory" will mount the emptyDir on a tmpfs (RAM-backed filesystem).
             displayName: Medium
             path: storageOptions.emptyDir.medium
-            x-descriptors:
-              - urn:alm:descriptor:com.tectonic.ui:fieldDependency:storageOptions.emptyDir.enabled:true
           - description: The maximum memory limit for the emptyDir. Default is unbounded.
             displayName: Size Limit
             path: storageOptions.emptyDir.sizeLimit
+          - description: Configuration for the Persistent Volume Claim to be created by the operator for the object storage.
+            displayName: Object Storage
+            path: storageOptions.objectStorage
+          - description: Configuration for an EmptyDir to be created by the operator instead of a PVC.
+            displayName: Empty Dir
+            path: storageOptions.objectStorage.emptyDir
+          - description: When enabled, Cryostat will use EmptyDir volumes instead of a Persistent Volume Claim. Any PVC configurations will be ignored.
+            displayName: Enabled
+            path: storageOptions.objectStorage.emptyDir.enabled
             x-descriptors:
-              - urn:alm:descriptor:com.tectonic.ui:fieldDependency:storageOptions.emptyDir.enabled:true
+              - urn:alm:descriptor:com.tectonic.ui:booleanSwitch
+          - description: Unless specified, the emptyDir volume will be mounted on the same storage medium backing the node. Setting this field to "Memory" will mount the emptyDir on a tmpfs (RAM-backed filesystem).
+            displayName: Medium
+            path: storageOptions.objectStorage.emptyDir.medium
+          - description: The maximum memory limit for the emptyDir. Default is unbounded.
+            displayName: Size Limit
+            path: storageOptions.objectStorage.emptyDir.sizeLimit
           - description: Configuration for the Persistent Volume Claim to be created by the operator.
+            displayName: PVC
+            path: storageOptions.objectStorage.pvc
+          - description: Annotations to add to the object during its creation.
+            displayName: Annotations
+            path: storageOptions.objectStorage.pvc.annotations
+          - description: 'Labels to add to the object during its creation. The following label keys are reserved for use by the operator: "app", "component", "app.kubernetes.io/name", "app.kubernetes.io/instance", "app.kubernetes.io/component", and "app.kubernetes.io/part-of".'
+            displayName: Labels
+            path: storageOptions.objectStorage.pvc.labels
+          - description: Spec for a Persistent Volume Claim, whose options will override the defaults used by the operator. Unless overriden, the PVC will be created with the default Storage Class and 500MiB of storage. Once the operator has created the PVC, changes to this field have no effect.
+            displayName: Spec
+            path: storageOptions.objectStorage.pvc.spec
+          - description: 'Configuration for the Persistent Volume Claim to be created by the operator. Deprecated: use storageOptions.database and storageOptions.objectStorage'
             displayName: PVC
             path: storageOptions.pvc
           - description: Annotations to add to the object during its creation.
