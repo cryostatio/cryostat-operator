@@ -152,10 +152,10 @@ func resourceChecks() []resourceCheck {
 		{(*cryostatTestInput).expectRBAC, "RBAC"},
 		{(*cryostatTestInput).expectRoutes, "routes"},
 		{func(t *cryostatTestInput) {
-			t.expectPVC(t.NewDatabasePVC(), t.Name+"-database")
+			t.expectPVC(t.NewDatabasePVC())
 		}, "database persistent volume claim"},
 		{func(t *cryostatTestInput) {
-			t.expectPVC(t.NewStoragePVC(), t.Name+"-storage")
+			t.expectPVC(t.NewStoragePVC())
 		}, "storage persistent volume claim"},
 		{(*cryostatTestInput).expectDatabaseSecret, "database secret"},
 		{(*cryostatTestInput).expectStorageSecret, "object storage secret"},
@@ -872,7 +872,7 @@ func (c *controllerTest) commonTests() {
 				t.checkDeploymentHasTemplates()
 			})
 		})
-		Context("with custom DB PVC spec overriding all defaults", func() {
+		Context("with custom PVC spec overriding all defaults", func() {
 			BeforeEach(func() {
 				t.objs = append(t.objs, t.NewCryostatWithPVCSpec().Object)
 			})
@@ -880,10 +880,11 @@ func (c *controllerTest) commonTests() {
 				t.reconcileCryostatFully()
 			})
 			It("should create the PVC with requested spec", func() {
-				t.expectPVC(t.NewCustomDatabasePVC(), t.Name+"-database")
+				t.expectPVC(t.NewCustomDatabasePVC())
+				t.expectPVC(t.NewCustomStoragePVC())
 			})
 		})
-		Context("with custom DB PVC spec overriding some defaults", func() {
+		Context("with custom PVC spec overriding some defaults", func() {
 			BeforeEach(func() {
 				t.objs = append(t.objs, t.NewCryostatWithPVCSpecSomeDefault().Object)
 			})
@@ -891,10 +892,11 @@ func (c *controllerTest) commonTests() {
 				t.reconcileCryostatFully()
 			})
 			It("should create the PVC with requested spec", func() {
-				t.expectPVC(t.NewCustomDatabasePVCSomeDefault(), t.Name+"-database")
+				t.expectPVC(t.NewCustomDatabasePVCSomeDefault())
+				t.expectPVC(t.NewCustomStoragePVCSomeDefault())
 			})
 		})
-		Context("with custom DB PVC config with no spec", func() {
+		Context("with custom PVC config with no spec", func() {
 			BeforeEach(func() {
 				t.objs = append(t.objs, t.NewCryostatWithPVCLabelsOnly().Object)
 			})
@@ -902,7 +904,58 @@ func (c *controllerTest) commonTests() {
 				t.reconcileCryostatFully()
 			})
 			It("should create the PVC with requested label", func() {
-				t.expectPVC(t.NewDefaultDatabasePVCWithLabel(), t.Name+"-database")
+				t.expectPVC(t.NewDefaultDatabasePVCWithLabel())
+				t.expectPVC(t.NewDefaultStoragePVCWithLabel())
+			})
+		})
+		Context("with a legacy PVC spec", func() {
+			Context("with custom PVC spec overriding all defaults", func() {
+				BeforeEach(func() {
+					t.objs = append(t.objs, t.NewCryostatWithPVCSpecLegacy().Object)
+				})
+				JustBeforeEach(func() {
+					t.reconcileCryostatFully()
+				})
+				It("should create the PVC with requested spec", func() {
+					t.expectPVC(t.NewCustomDatabasePVCLegacy())
+					t.expectPVC(t.NewCustomStoragePVCLegacy())
+				})
+			})
+			Context("with custom PVC spec overriding some defaults", func() {
+				BeforeEach(func() {
+					t.objs = append(t.objs, t.NewCryostatWithPVCSpecSomeDefaultLegacy().Object)
+				})
+				JustBeforeEach(func() {
+					t.reconcileCryostatFully()
+				})
+				It("should create the PVC with requested spec", func() {
+					t.expectPVC(t.NewCustomDatabasePVCSomeDefaultLegacy())
+					t.expectPVC(t.NewCustomStoragePVCSomeDefaultLegacy())
+				})
+			})
+			Context("with custom PVC config with no spec", func() {
+				BeforeEach(func() {
+					t.objs = append(t.objs, t.NewCryostatWithPVCLabelsOnlyLegacy().Object)
+				})
+				JustBeforeEach(func() {
+					t.reconcileCryostatFully()
+				})
+				It("should create the PVC with requested label", func() {
+					t.expectPVC(t.NewDefaultDatabasePVCWithLabelLegacy())
+					t.expectPVC(t.NewDefaultStoragePVCWithLabelLegacy())
+				})
+			})
+		})
+		Context("with both custom PVC specs overriding all defaults", func() {
+			BeforeEach(func() {
+				t.objs = append(t.objs, t.NewCryostatWithPVCSpecBoth().Object)
+			})
+			JustBeforeEach(func() {
+				t.reconcileCryostatFully()
+			})
+			It("should create the PVC with requested spec", func() {
+				t.expectPVC(t.NewCustomDatabasePVC())
+				t.expectPVC(t.NewCustomStoragePVC())
 			})
 		})
 		Context("with an existing DB PVC", func() {
@@ -924,13 +977,13 @@ func (c *controllerTest) commonTests() {
 				})
 				It("should update metadata and resource requests", func() {
 					expected := t.NewDefaultPVC()
-					metav1.SetMetaDataLabel(&expected.ObjectMeta, "my", "label")
+					metav1.SetMetaDataLabel(&expected.ObjectMeta, "my", "database")
 					metav1.SetMetaDataLabel(&expected.ObjectMeta, "another", "label")
 					metav1.SetMetaDataLabel(&expected.ObjectMeta, "app", t.Name)
-					metav1.SetMetaDataAnnotation(&expected.ObjectMeta, "my/custom", "annotation")
+					metav1.SetMetaDataAnnotation(&expected.ObjectMeta, "my/custom", "database")
 					metav1.SetMetaDataAnnotation(&expected.ObjectMeta, "another/custom", "annotation")
-					expected.Spec.Resources.Requests[corev1.ResourceStorage] = resource.MustParse("10Gi")
-					t.expectPVC(expected, t.Name+"-database")
+					expected.Spec.Resources.Requests[corev1.ResourceStorage] = resource.MustParse("5Gi")
+					t.expectPVC(expected)
 				})
 			})
 			Context("that fails to update", func() {
@@ -979,8 +1032,32 @@ func (c *controllerTest) commonTests() {
 				t.reconcileCryostatFully()
 			})
 			It("should create the EmptyDir with requested specs", func() {
-				t.expectDatabaseEmptyDir(t.NewEmptyDirWithSpec())
-				t.expectStorageEmptyDir(t.NewEmptyDirWithSpec())
+				t.expectDatabaseEmptyDir(t.NewCustomDatabaseEmptyDir())
+				t.expectStorageEmptyDir(t.NewCustomStorageEmptyDir())
+			})
+		})
+		Context("with legacy custom EmptyDir config with requested spec", func() {
+			BeforeEach(func() {
+				t.objs = append(t.objs, t.NewCryostatWithEmptyDirSpecLegacy().Object)
+			})
+			JustBeforeEach(func() {
+				t.reconcileCryostatFully()
+			})
+			It("should create the EmptyDir with requested specs", func() {
+				t.expectDatabaseEmptyDir(t.NewCustomEmptyDirLegacy())
+				t.expectStorageEmptyDir(t.NewCustomEmptyDirLegacy())
+			})
+		})
+		Context("with both custom EmptyDir configs with requested spec", func() {
+			BeforeEach(func() {
+				t.objs = append(t.objs, t.NewCryostatWithEmptyDirSpecBoth().Object)
+			})
+			JustBeforeEach(func() {
+				t.reconcileCryostatFully()
+			})
+			It("should create the EmptyDir with requested specs", func() {
+				t.expectDatabaseEmptyDir(t.NewCustomDatabaseEmptyDir())
+				t.expectStorageEmptyDir(t.NewCustomStorageEmptyDir())
 			})
 		})
 		Context("with overriden image tags", func() {
@@ -2970,9 +3047,9 @@ func (t *cryostatTestInput) expectAgentProxyConfigMap() {
 	Expect(cm.Data).To(Equal(expected.Data))
 }
 
-func (t *cryostatTestInput) expectPVC(expectedPVC *corev1.PersistentVolumeClaim, name string) {
+func (t *cryostatTestInput) expectPVC(expectedPVC *corev1.PersistentVolumeClaim) {
 	pvc := &corev1.PersistentVolumeClaim{}
-	err := t.Client.Get(context.Background(), types.NamespacedName{Name: name, Namespace: t.Namespace}, pvc)
+	err := t.Client.Get(context.Background(), types.NamespacedName{Name: expectedPVC.Name, Namespace: t.Namespace}, pvc)
 	Expect(err).ToNot(HaveOccurred())
 
 	// Compare to desired spec
