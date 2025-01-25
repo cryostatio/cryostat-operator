@@ -3,9 +3,7 @@ kind: Kustomization
 
 resources:
 - cryostat-quickstart.yaml
-- console-plugin/clusterrolebinding-cryostat-plugin-patcher.yaml
 - console-plugin/clusterrolebinding-cryostat-plugin.yaml
-- console-plugin/clusterrole-cryostat-plugin-patcher.yaml
 - console-plugin/clusterrole-cryostat-plugin.yaml
 - console-plugin/deployment-cryostat-plugin.yaml
 - console-plugin/serviceaccount-cryostat-plugin.yaml
