@@ -9,15 +9,9 @@ metadata:
   name: cryostat-plugin
 rules:
 - apiGroups:
-  - operator.cryostat.io
+  - ""
   resources:
-  - cryostats
+  - services
   verbs:
   - get
   - list
-- apiGroups:
-  - operator.cryostat.io
-  resources:
-  - cryostats/status
-  verbs:
-  - get
