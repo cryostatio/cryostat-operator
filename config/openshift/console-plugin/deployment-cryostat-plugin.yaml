@@ -6,9 +6,8 @@ metadata:
     app.kubernetes.io/instance: cryostat-plugin
     app.kubernetes.io/name: cryostat-plugin
     app.kubernetes.io/part-of: cryostat-plugin
-    app.openshift.io/runtime-namespace: plugin--cryostat-plugin
   name: cryostat-plugin
-  namespace: plugin--cryostat-plugin
+  namespace: system
 spec:
   progressDeadlineSeconds: 600
   replicas: 1
@@ -38,7 +37,7 @@ spec:
           value: "9443"
         - name: NODE_TLS_REJECT_UNAUTHORIZED
           value: "0"
-        image: quay.io/cryostat/cryostat-openshift-console-plugin:latest
+        image: console-plugin:latest
         imagePullPolicy: Always
         name: cryostat-plugin
         ports:
@@ -66,7 +65,6 @@ spec:
         runAsNonRoot: true
         seccompProfile:
           type: RuntimeDefault
-      serviceAccount: cryostat-plugin
       serviceAccountName: cryostat-plugin
       terminationGracePeriodSeconds: 30
       volumes:

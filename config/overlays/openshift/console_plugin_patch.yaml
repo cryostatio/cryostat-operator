@@ -1,0 +1,11 @@
+# Modifies operator deployment to install console plugin
+- op: add
+  path: /spec/template/spec/containers/0/args/-
+  value: --openshift-console-plugin
+- op: add
+  path: /spec/template/spec/containers/0/env/-
+  value:
+    name: OPERATOR_NAMESPACE
+    valueFrom:
+      fieldRef:
+        fieldPath: metadata.namespace
