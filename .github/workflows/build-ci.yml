@@ -67,22 +67,28 @@ jobs:
 
   build-bundle:
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        bundle_mode: ['k8s', 'ocp']
     steps:
     - uses: actions/checkout@v4
     - name: Build bundle image
-      run: IMAGE_NAMESPACE=${{ env.CI_REGISTRY }} make bundle-build
+      run: IMAGE_NAMESPACE=${{ env.CI_REGISTRY }} BUNDLE_MODE=${{ matrix.bundle_mode }} make bundle-build
     - name: Tag image
       id: tag-image
       run: |
         IMG_TAG="$(make --eval='print-img-ver: ; @echo $(IMAGE_VERSION)' print-img-ver)"
-        if [ "$GITHUB_REF" == "refs/heads/main" ]; then
-          podman tag \
-          ${{ env.CI_BUNDLE_IMG }}:$IMG_TAG \
-          ${{ env.CI_BUNDLE_IMG }}:latest
-          echo "tags=$IMG_TAG latest" >> $GITHUB_OUTPUT
-        else
-          echo "tags=$IMG_TAG" >> $GITHUB_OUTPUT
+        TAGS+=("${IMG_TAG}-${{ matrix.bundle_mode }}")
+        if [ "${GITHUB_REF}" == "refs/heads/main" ] ; then
+          if [ "${{ matrix.bundle_mode }}" == "k8s" ]; then
+            TAGS+=("${IMG_TAG}" "latest")
+          fi
+          TAGS+=("latest-${{ matrix.bundle_mode }}")
         fi
+        for tag in "${TAGS[@]}"; do
+          podman tag "${{ env.CI_BUNDLE_IMG }}:${IMG_TAG}" "${{ env.CI_BUNDLE_IMG }}:${tag}"
+        done
+        echo "tags=${TAGS[@]}" >> $GITHUB_OUTPUT
     - name: Push to quay.io
       id: push-to-quay
       uses: redhat-actions/push-to-registry@v2
