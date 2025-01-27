@@ -48,11 +48,15 @@ type CryostatSpec struct {
 	// Options to customize the storage provisioned for the database and object storage.
 	// +optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
-	StorageOptions *StorageConfiguration `json:"storageOptions,omitempty"`
+	StorageOptions *StorageConfigurations `json:"storageOptions,omitempty"`
 	// Options to customize the services created for the Cryostat application.
 	// +optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	ServiceOptions *ServiceConfigList `json:"serviceOptions,omitempty"`
+	// Options to customize the NetworkPolicy objects created for Cryostat's various Services.
+	// +optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec
+	NetworkPolicies *NetworkPoliciesList `json:"networkPolicies,omitempty"`
 	// Options to control how the operator exposes the application outside of the cluster,
 	// such as using an Ingress or Route.
 	// +optional
@@ -192,6 +196,18 @@ const (
 	ConditionTypeMainDeploymentProgressing CryostatConditionType = "MainDeploymentProgressing"
 	// If pods within the main Cryostat deployment failed to be created or destroyed.
 	ConditionTypeMainDeploymentReplicaFailure CryostatConditionType = "MainDeploymentReplicaFailure"
+	// If enabled, whether the database deployment is available.
+	ConditionTypeDatabaseDeploymentAvailable CryostatConditionType = "DatabaseDeploymentAvailable"
+	// If enabled, whether the database deployment is progressing.
+	ConditionTypeDatabaseDeploymentProgressing CryostatConditionType = "DatabaseDeploymentProgressing"
+	// If enabled, whether pods in the database deployment failed to be created or destroyed.
+	ConditionTypeDatabaseDeploymentReplicaFailure CryostatConditionType = "DatabaseDeploymentReplicaFailure"
+	// If enabled, whether the storage deployment is available.
+	ConditionTypeStorageDeploymentAvailable CryostatConditionType = "StorageDeploymentAvailable"
+	// If enabled, whether the storage deployment is progressing.
+	ConditionTypeStorageDeploymentProgressing CryostatConditionType = "StorageDeploymentProgressing"
+	// If enabled, whether pods in the storage deployment failed to be created or destroyed.
+	ConditionTypeStorageDeploymentReplicaFailure CryostatConditionType = "StorageDeploymentReplicaFailure"
 	// If enabled, whether the reports deployment is available.
 	ConditionTypeReportsDeploymentAvailable CryostatConditionType = "ReportsDeploymentAvailable"
 	// If enabled, whether the reports deployment is progressing.
@@ -202,9 +218,23 @@ const (
 	ConditionTypeTLSSetupComplete CryostatConditionType = "TLSSetupComplete"
 )
 
-// StorageConfiguration provides customization to the storage created by
-// the operator to hold Flight Recordings and Recording Templates. If no
-// configurations are specified, a PVC will be created by default.
+// StorageConfigurations provides customization to the storage provisioned for
+// the database and the object storage.
+type StorageConfigurations struct {
+	// Configuration for the Persistent Volume Claim to be created by the operator for the database.
+	// +optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec
+	Database *StorageConfiguration `json:"database,omitempty"`
+	// Configuration for the Persistent Volume Claim to be created by the operator for the object storage.
+	// +optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec
+	ObjectStorage              *StorageConfiguration `json:"objectStorage,omitempty"`
+	LegacyStorageConfiguration `json:",inline"`
+}
+
+// StorageConfiguration provides customization to the storage created by the
+// operator to contain persisted data. If no configurations are specified, a
+// PVC will be created by default.
 type StorageConfiguration struct {
 	// Configuration for the Persistent Volume Claim to be created
 	// by the operator.
@@ -213,6 +243,25 @@ type StorageConfiguration struct {
 	PVC *PersistentVolumeClaimConfig `json:"pvc,omitempty"`
 	// Configuration for an EmptyDir to be created
 	// by the operator instead of a PVC.
+	// +optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec
+	EmptyDir *EmptyDirConfig `json:"emptyDir,omitempty"`
+}
+
+// LegacyStorageConfiguration provides customization to the storage created by the
+// operator to contain persisted data. If no configurations are specified, a
+// PVC will be created by default.
+// Deprecated: use StorageConfiguration instead.
+type LegacyStorageConfiguration struct {
+	// Configuration for the Persistent Volume Claim to be created
+	// by the operator.
+	// Deprecated: use storageOptions.database and storageOptions.objectStorage
+	// +optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec
+	PVC *PersistentVolumeClaimConfig `json:"pvc,omitempty"`
+	// Configuration for an EmptyDir to be created
+	// by the operator instead of a PVC.
+	// Deprecated: use storageOptions.database and storageOptions.objectStorage
 	// +optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	EmptyDir *EmptyDirConfig `json:"emptyDir,omitempty"`
@@ -312,6 +361,26 @@ type ReportsServiceConfig struct {
 	ServiceConfig `json:",inline"`
 }
 
+// DatabaseServiceConfig provides customization for the service handling
+// traffic for the cryostat application's database.
+type DatabaseServiceConfig struct {
+	// DatabasePort number for the cryostat application's database.
+	// Defaults to 5432.
+	// +optional
+	DatabasePort  *int32 `json:"databasePort,omitempty"`
+	ServiceConfig `json:",inline"`
+}
+
+// DatabaseServiceConfig provides customization for the service handling
+// traffic for the storage to be created by the operator.
+type StorageServiceConfig struct {
+	// HTTP port number for the storage to be created by the operator.
+	// Defaults to 8333.
+	// +optional
+	HTTPPort      *int32 `json:"httpPort,omitempty"`
+	ServiceConfig `json:",inline"`
+}
+
 // AgentGatewayServiceConfig provides customization for the service handling
 // traffic from Cryostat agents to the Cryostat application.
 type AgentGatewayServiceConfig struct {
@@ -338,6 +407,12 @@ type ServiceConfigList struct {
 	// Specification for the service responsible for the cryostat-reports sidecars.
 	// +optional
 	ReportsConfig *ReportsServiceConfig `json:"reportsConfig,omitempty"`
+	// Specification for the service responsible for the cryostat application's database.
+	// +optional
+	DatabaseConfig *DatabaseServiceConfig `json:"databaseConfig,omitempty"`
+	// Specification for the service responsible for the storage to be created by the operator.
+	// +optional
+	StorageConfig *StorageServiceConfig `json:"storageConfig,omitempty"`
 	// Specification for the service responsible for agents to communicate with Cryostat.
 	// +optional
 	AgentGatewayConfig *AgentGatewayServiceConfig `json:"agentGatewayConfig,omitempty"`
@@ -345,6 +420,30 @@ type ServiceConfigList struct {
 	// to communicate with agents in those namespaces.
 	// +optional
 	AgentCallbackConfig *AgentCallbackServiceConfig `json:"agentCallbackConfig,omitempty"`
+}
+
+// NetworkPoliciesList holds the configurations for NetworkPolicy
+// objects for each service created by the operator.
+type NetworkPoliciesList struct {
+	// NetworkPolicy configuration for the Cryostat application service.
+	// +optional
+	CoreConfig *NetworkPolicyConfig `json:"coreConfig,omitempty"`
+	// NetworkPolicy configuration for the cryostat-reports service.
+	// +optional
+	ReportsConfig *NetworkPolicyConfig `json:"reportsConfig,omitempty"`
+	// NetworkPolicy configuration for the database service.
+	// +optional
+	DatabaseConfig *NetworkPolicyConfig `json:"databaseConfig,omitempty"`
+	// NetworkPolicy configuration for the storage service.
+	// +optional
+	StorageConfig *NetworkPolicyConfig `json:"storageConfig,omitempty"`
+}
+
+type NetworkPolicyConfig struct {
+	// Disable the NetworkPolicy for a given service.
+	// +optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Disable NetworkPolicy creation",xDescriptors={"urn:alm:descriptor:com.tectonic.ui:booleanSwitch"}
+	Disabled *bool `json:"disabled,omitempty"`
 }
 
 // NetworkConfiguration provides customization for how to expose a Cryostat
@@ -405,11 +504,11 @@ type EmptyDirConfig struct {
 	// the same storage medium backing the node. Setting this field to
 	// "Memory" will mount the emptyDir on a tmpfs (RAM-backed filesystem).
 	// +optional
-	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:com.tectonic.ui:fieldDependency:storageOptions.emptyDir.enabled:true"}
+	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	Medium corev1.StorageMedium `json:"medium,omitempty"`
 	// The maximum memory limit for the emptyDir. Default is unbounded.
 	// +optional
-	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:com.tectonic.ui:fieldDependency:storageOptions.emptyDir.enabled:true"}
+	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	// +kubebuilder:validation:Pattern=^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
 	SizeLimit string `json:"sizeLimit,omitempty"`
 }

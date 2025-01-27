@@ -525,13 +525,27 @@ func (r *TestResources) updateStorageOptions(ctx context.Context, cr *operatorv1
 			return fmt.Errorf("failed to get Cryostat CR \"%s\": %s", cr.Name, err.Error())
 		}
 
-		cr.Spec.StorageOptions = &operatorv1beta2.StorageConfiguration{
-			PVC: &operatorv1beta2.PersistentVolumeClaimConfig{
-				Spec: &corev1.PersistentVolumeClaimSpec{
-					StorageClassName: nil,
-					Resources: corev1.VolumeResourceRequirements{
-						Requests: corev1.ResourceList{
-							corev1.ResourceStorage: resource.MustParse("1Gi"),
+		cr.Spec.StorageOptions = &operatorv1beta2.StorageConfigurations{
+			Database: &operatorv1beta2.StorageConfiguration{
+				PVC: &operatorv1beta2.PersistentVolumeClaimConfig{
+					Spec: &corev1.PersistentVolumeClaimSpec{
+						StorageClassName: nil,
+						Resources: corev1.VolumeResourceRequirements{
+							Requests: corev1.ResourceList{
+								corev1.ResourceStorage: resource.MustParse("200Mi"),
+							},
+						},
+					},
+				},
+			},
+			ObjectStorage: &operatorv1beta2.StorageConfiguration{
+				PVC: &operatorv1beta2.PersistentVolumeClaimConfig{
+					Spec: &corev1.PersistentVolumeClaimSpec{
+						StorageClassName: nil,
+						Resources: corev1.VolumeResourceRequirements{
+							Requests: corev1.ResourceList{
+								corev1.ResourceStorage: resource.MustParse("1Gi"),
+							},
 						},
 					},
 				},

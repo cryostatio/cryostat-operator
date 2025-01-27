@@ -142,6 +142,89 @@ func (r *Reconciler) reconcileAgentGatewayService(ctx context.Context, cr *model
 	})
 }
 
+func (r *Reconciler) reconcileDatabaseService(ctx context.Context, cr *model.CryostatInstance, tls *resource_definitions.TLSConfig,
+	specs *resource_definitions.ServiceSpecs) error {
+	config := configureDatabaseService(cr)
+	svc := &corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      cr.Name + "-database",
+			Namespace: cr.InstallNamespace,
+		},
+	}
+
+	port := *config.DatabasePort
+	err := r.createOrUpdateService(ctx, svc, cr.Object, &config.ServiceConfig, func() error {
+		svc.Spec.Selector = map[string]string{
+			"app":       cr.Name,
+			"component": "database",
+		}
+		svc.Spec.Ports = []corev1.ServicePort{
+			{
+				Name:       "jdbc",
+				Port:       port,
+				TargetPort: intstr.IntOrString{IntVal: constants.DatabasePort},
+			},
+		}
+		return nil
+	})
+	if err != nil {
+		return err
+	}
+
+	// Set database URL for deployment to use
+	scheme := "jdbc:posgtresql"
+	specs.DatabaseURL = &url.URL{
+		Scheme: scheme,
+		Host:   fmt.Sprintf("%s:%d", svc.Name, port),
+		Path:   resource_definitions.DatabaseName,
+	}
+	return nil
+}
+
+func (r *Reconciler) reconcileStorageService(ctx context.Context, cr *model.CryostatInstance, tls *resource_definitions.TLSConfig,
+	specs *resource_definitions.ServiceSpecs) error {
+	config := configureStorageService(cr, tls)
+	svc := &corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      cr.Name + "-storage",
+			Namespace: cr.InstallNamespace,
+		},
+	}
+
+	scheme := "http"
+	if tls != nil {
+		scheme = "https"
+	}
+	err := r.createOrUpdateService(ctx, svc, cr.Object, &config.ServiceConfig, func() error {
+		svc.Spec.Selector = map[string]string{
+			"app":       cr.Name,
+			"component": "storage",
+		}
+		svc.Spec.Ports = []corev1.ServicePort{
+			{
+				Name:       constants.HttpPortName,
+				Port:       *config.HTTPPort,
+				TargetPort: intstr.IntOrString{IntVal: constants.StoragePort},
+			},
+		}
+		return nil
+	})
+	if err != nil {
+		return err
+	}
+
+	// Set storage URL for deployment to use
+	namedPort, err := GetNamedPort(constants.HttpPortName, svc)
+	if err != nil {
+		return err
+	}
+	specs.StorageURL = &url.URL{
+		Scheme: scheme,
+		Host:   fmt.Sprintf("%s.%s.svc.cluster.local:%d", svc.Name, svc.Namespace, namedPort.Port),
+	}
+	return nil
+}
+
 func (r *Reconciler) newAgentCallbackService(cr *model.CryostatInstance, namespace string) *corev1.Service {
 	return &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
@@ -246,6 +329,48 @@ func configureReportsService(cr *model.CryostatInstance) *operatorv1beta2.Report
 	return config
 }
 
+func configureDatabaseService(cr *model.CryostatInstance) *operatorv1beta2.DatabaseServiceConfig {
+	// Check CR for config
+	var config *operatorv1beta2.DatabaseServiceConfig
+	if cr.Spec.ServiceOptions == nil || cr.Spec.ServiceOptions.DatabaseConfig == nil {
+		config = &operatorv1beta2.DatabaseServiceConfig{}
+	} else {
+		config = cr.Spec.ServiceOptions.DatabaseConfig.DeepCopy()
+	}
+
+	// Apply common service defaults
+	configureService(&config.ServiceConfig, cr.Name, "database")
+
+	// Apply default HTTP port if not provided
+	if config.DatabasePort == nil {
+		dbPort := constants.DatabasePort
+		config.DatabasePort = &dbPort
+	}
+
+	return config
+}
+
+func configureStorageService(cr *model.CryostatInstance, tls *resource_definitions.TLSConfig) *operatorv1beta2.StorageServiceConfig {
+	// Check CR for config
+	var config *operatorv1beta2.StorageServiceConfig
+	if cr.Spec.ServiceOptions == nil || cr.Spec.ServiceOptions.StorageConfig == nil {
+		config = &operatorv1beta2.StorageServiceConfig{}
+	} else {
+		config = cr.Spec.ServiceOptions.StorageConfig.DeepCopy()
+	}
+
+	// Apply common service defaults
+	configureService(&config.ServiceConfig, cr.Name, "storage")
+
+	// Apply default HTTP port if not provided
+	if config.HTTPPort == nil {
+		httpPort := constants.StoragePort
+		config.HTTPPort = &httpPort
+	}
+
+	return config
+}
+
 func configureAgentGatewayService(cr *model.CryostatInstance) *operatorv1beta2.AgentGatewayServiceConfig {
 	// Check CR for config
 	var config *operatorv1beta2.AgentGatewayServiceConfig
@@ -340,4 +465,18 @@ func (r *Reconciler) deleteService(ctx context.Context, svc *corev1.Service) err
 	}
 	r.Log.Info("Service deleted", "name", svc.Name, "namespace", svc.Namespace)
 	return nil
+}
+
+func GetHTTPPort(svc *corev1.Service) (*corev1.ServicePort, error) {
+	return GetNamedPort("http", svc)
+}
+
+func GetNamedPort(portName string, svc *corev1.Service) (*corev1.ServicePort, error) {
+	for _, port := range svc.Spec.Ports {
+		if port.Name == portName {
+			return &port, nil
+		}
+	}
+	// Shouldn't happen
+	return nil, fmt.Errorf("no \"%s\" port in %s service in %s namespace", constants.HttpPortName, svc.Name, svc.Namespace)
 }

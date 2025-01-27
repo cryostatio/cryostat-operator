@@ -174,18 +174,104 @@ func (r *TestResources) addIngressToCryostat(cr *model.CryostatInstance) *model.
 
 func (r *TestResources) NewCryostatWithPVCSpec() *model.CryostatInstance {
 	cr := r.NewCryostat()
-	cr.Spec.StorageOptions = &operatorv1beta2.StorageConfiguration{
-		PVC: &operatorv1beta2.PersistentVolumeClaimConfig{
-			ResourceMetadata: operatorv1beta2.ResourceMetadata{
-				Annotations: map[string]string{
-					"my/custom": "annotation",
+	cr.Spec.StorageOptions = &operatorv1beta2.StorageConfigurations{
+		Database: &operatorv1beta2.StorageConfiguration{
+			PVC: &operatorv1beta2.PersistentVolumeClaimConfig{
+				ResourceMetadata: operatorv1beta2.ResourceMetadata{
+					Annotations: map[string]string{
+						"my/custom": "database",
+					},
+					Labels: map[string]string{
+						"my":  "database",
+						"app": "somethingelse",
+					},
 				},
-				Labels: map[string]string{
-					"my":  "label",
-					"app": "somethingelse",
-				},
+				Spec: newPVCSpec("cool-db-storage", "5Gi", corev1.ReadWriteMany),
 			},
-			Spec: newPVCSpec("cool-storage", "10Gi", corev1.ReadWriteMany),
+		},
+		ObjectStorage: &operatorv1beta2.StorageConfiguration{
+			PVC: &operatorv1beta2.PersistentVolumeClaimConfig{
+				ResourceMetadata: operatorv1beta2.ResourceMetadata{
+					Annotations: map[string]string{
+						"my/custom": "storage",
+					},
+					Labels: map[string]string{
+						"my":  "storage",
+						"app": "somethingelse",
+					},
+				},
+				Spec: newPVCSpec("cool-obj-storage", "20Gi", corev1.ReadWriteMany),
+			},
+		},
+	}
+	return cr
+}
+
+func (r *TestResources) NewCryostatWithPVCSpecLegacy() *model.CryostatInstance {
+	cr := r.NewCryostat()
+	cr.Spec.StorageOptions = &operatorv1beta2.StorageConfigurations{
+		LegacyStorageConfiguration: operatorv1beta2.LegacyStorageConfiguration{
+			PVC: &operatorv1beta2.PersistentVolumeClaimConfig{
+				ResourceMetadata: operatorv1beta2.ResourceMetadata{
+					Annotations: map[string]string{
+						"my/custom": "annotation",
+					},
+					Labels: map[string]string{
+						"my":  "label",
+						"app": "somethingelse",
+					},
+				},
+				Spec: newPVCSpec("cool-storage", "10Gi", corev1.ReadWriteMany),
+			},
+		},
+	}
+	return cr
+}
+
+func (r *TestResources) NewCryostatWithPVCSpecBoth() *model.CryostatInstance {
+	cr := r.NewCryostat()
+	cr.Spec.StorageOptions = &operatorv1beta2.StorageConfigurations{
+		Database: &operatorv1beta2.StorageConfiguration{
+			PVC: &operatorv1beta2.PersistentVolumeClaimConfig{
+				ResourceMetadata: operatorv1beta2.ResourceMetadata{
+					Annotations: map[string]string{
+						"my/custom": "database",
+					},
+					Labels: map[string]string{
+						"my":  "database",
+						"app": "somethingelse",
+					},
+				},
+				Spec: newPVCSpec("cool-db-storage", "5Gi", corev1.ReadWriteMany),
+			},
+		},
+		ObjectStorage: &operatorv1beta2.StorageConfiguration{
+			PVC: &operatorv1beta2.PersistentVolumeClaimConfig{
+				ResourceMetadata: operatorv1beta2.ResourceMetadata{
+					Annotations: map[string]string{
+						"my/custom": "storage",
+					},
+					Labels: map[string]string{
+						"my":  "storage",
+						"app": "somethingelse",
+					},
+				},
+				Spec: newPVCSpec("cool-obj-storage", "20Gi", corev1.ReadWriteMany),
+			},
+		},
+		LegacyStorageConfiguration: operatorv1beta2.LegacyStorageConfiguration{
+			PVC: &operatorv1beta2.PersistentVolumeClaimConfig{
+				ResourceMetadata: operatorv1beta2.ResourceMetadata{
+					Annotations: map[string]string{
+						"my/custom": "annotation",
+					},
+					Labels: map[string]string{
+						"my":  "label",
+						"app": "somethingelse",
+					},
+				},
+				Spec: newPVCSpec("cool-storage", "10Gi", corev1.ReadWriteMany),
+			},
 		},
 	}
 	return cr
@@ -193,9 +279,28 @@ func (r *TestResources) NewCryostatWithPVCSpec() *model.CryostatInstance {
 
 func (r *TestResources) NewCryostatWithPVCSpecSomeDefault() *model.CryostatInstance {
 	cr := r.NewCryostat()
-	cr.Spec.StorageOptions = &operatorv1beta2.StorageConfiguration{
-		PVC: &operatorv1beta2.PersistentVolumeClaimConfig{
-			Spec: newPVCSpec("", "1Gi"),
+	cr.Spec.StorageOptions = &operatorv1beta2.StorageConfigurations{
+		Database: &operatorv1beta2.StorageConfiguration{
+			PVC: &operatorv1beta2.PersistentVolumeClaimConfig{
+				Spec: newPVCSpec("database", "1Gi"),
+			},
+		},
+		ObjectStorage: &operatorv1beta2.StorageConfiguration{
+			PVC: &operatorv1beta2.PersistentVolumeClaimConfig{
+				Spec: newPVCSpec("storage", "1Gi"),
+			},
+		},
+	}
+	return cr
+}
+
+func (r *TestResources) NewCryostatWithPVCSpecSomeDefaultLegacy() *model.CryostatInstance {
+	cr := r.NewCryostat()
+	cr.Spec.StorageOptions = &operatorv1beta2.StorageConfigurations{
+		LegacyStorageConfiguration: operatorv1beta2.LegacyStorageConfiguration{
+			PVC: &operatorv1beta2.PersistentVolumeClaimConfig{
+				Spec: newPVCSpec("", "1Gi"),
+			},
 		},
 	}
 	return cr
@@ -203,11 +308,38 @@ func (r *TestResources) NewCryostatWithPVCSpecSomeDefault() *model.CryostatInsta
 
 func (r *TestResources) NewCryostatWithPVCLabelsOnly() *model.CryostatInstance {
 	cr := r.NewCryostat()
-	cr.Spec.StorageOptions = &operatorv1beta2.StorageConfiguration{
-		PVC: &operatorv1beta2.PersistentVolumeClaimConfig{
-			ResourceMetadata: operatorv1beta2.ResourceMetadata{
-				Labels: map[string]string{
-					"my": "label",
+	cr.Spec.StorageOptions = &operatorv1beta2.StorageConfigurations{
+		Database: &operatorv1beta2.StorageConfiguration{
+			PVC: &operatorv1beta2.PersistentVolumeClaimConfig{
+				ResourceMetadata: operatorv1beta2.ResourceMetadata{
+					Labels: map[string]string{
+						"my": "database",
+					},
+				},
+			},
+		},
+		ObjectStorage: &operatorv1beta2.StorageConfiguration{
+			PVC: &operatorv1beta2.PersistentVolumeClaimConfig{
+				ResourceMetadata: operatorv1beta2.ResourceMetadata{
+					Labels: map[string]string{
+						"my": "storage",
+					},
+				},
+			},
+		},
+	}
+	return cr
+}
+
+func (r *TestResources) NewCryostatWithPVCLabelsOnlyLegacy() *model.CryostatInstance {
+	cr := r.NewCryostat()
+	cr.Spec.StorageOptions = &operatorv1beta2.StorageConfigurations{
+		LegacyStorageConfiguration: operatorv1beta2.LegacyStorageConfiguration{
+			PVC: &operatorv1beta2.PersistentVolumeClaimConfig{
+				ResourceMetadata: operatorv1beta2.ResourceMetadata{
+					Labels: map[string]string{
+						"my": "label",
+					},
 				},
 			},
 		},
@@ -217,9 +349,28 @@ func (r *TestResources) NewCryostatWithPVCLabelsOnly() *model.CryostatInstance {
 
 func (r *TestResources) NewCryostatWithDefaultEmptyDir() *model.CryostatInstance {
 	cr := r.NewCryostat()
-	cr.Spec.StorageOptions = &operatorv1beta2.StorageConfiguration{
-		EmptyDir: &operatorv1beta2.EmptyDirConfig{
-			Enabled: true,
+	cr.Spec.StorageOptions = &operatorv1beta2.StorageConfigurations{
+		Database: &operatorv1beta2.StorageConfiguration{
+			EmptyDir: &operatorv1beta2.EmptyDirConfig{
+				Enabled: true,
+			},
+		},
+		ObjectStorage: &operatorv1beta2.StorageConfiguration{
+			EmptyDir: &operatorv1beta2.EmptyDirConfig{
+				Enabled: true,
+			},
+		},
+	}
+	return cr
+}
+
+func (r *TestResources) NewCryostatWithDefaultEmptyDirLegacy() *model.CryostatInstance {
+	cr := r.NewCryostat()
+	cr.Spec.StorageOptions = &operatorv1beta2.StorageConfigurations{
+		LegacyStorageConfiguration: operatorv1beta2.LegacyStorageConfiguration{
+			EmptyDir: &operatorv1beta2.EmptyDirConfig{
+				Enabled: true,
+			},
 		},
 	}
 	return cr
@@ -227,11 +378,62 @@ func (r *TestResources) NewCryostatWithDefaultEmptyDir() *model.CryostatInstance
 
 func (r *TestResources) NewCryostatWithEmptyDirSpec() *model.CryostatInstance {
 	cr := r.NewCryostat()
-	cr.Spec.StorageOptions = &operatorv1beta2.StorageConfiguration{
-		EmptyDir: &operatorv1beta2.EmptyDirConfig{
-			Enabled:   true,
-			Medium:    "Memory",
-			SizeLimit: "200Mi",
+	cr.Spec.StorageOptions = &operatorv1beta2.StorageConfigurations{
+		Database: &operatorv1beta2.StorageConfiguration{
+			EmptyDir: &operatorv1beta2.EmptyDirConfig{
+				Enabled:   true,
+				Medium:    "Memory",
+				SizeLimit: "100Mi",
+			},
+		},
+		ObjectStorage: &operatorv1beta2.StorageConfiguration{
+			EmptyDir: &operatorv1beta2.EmptyDirConfig{
+				Enabled:   true,
+				Medium:    "HugePages",
+				SizeLimit: "500Mi",
+			},
+		},
+	}
+	return cr
+}
+
+func (r *TestResources) NewCryostatWithEmptyDirSpecLegacy() *model.CryostatInstance {
+	cr := r.NewCryostat()
+	cr.Spec.StorageOptions = &operatorv1beta2.StorageConfigurations{
+		LegacyStorageConfiguration: operatorv1beta2.LegacyStorageConfiguration{
+			EmptyDir: &operatorv1beta2.EmptyDirConfig{
+				Enabled:   true,
+				Medium:    "Memory",
+				SizeLimit: "200Mi",
+			},
+		},
+	}
+	return cr
+}
+
+func (r *TestResources) NewCryostatWithEmptyDirSpecBoth() *model.CryostatInstance {
+	cr := r.NewCryostat()
+	cr.Spec.StorageOptions = &operatorv1beta2.StorageConfigurations{
+		Database: &operatorv1beta2.StorageConfiguration{
+			EmptyDir: &operatorv1beta2.EmptyDirConfig{
+				Enabled:   true,
+				Medium:    "Memory",
+				SizeLimit: "100Mi",
+			},
+		},
+		ObjectStorage: &operatorv1beta2.StorageConfiguration{
+			EmptyDir: &operatorv1beta2.EmptyDirConfig{
+				Enabled:   true,
+				Medium:    "HugePages",
+				SizeLimit: "500Mi",
+			},
+		},
+		LegacyStorageConfiguration: operatorv1beta2.LegacyStorageConfiguration{
+			EmptyDir: &operatorv1beta2.EmptyDirConfig{
+				Enabled:   true,
+				Medium:    "Memory",
+				SizeLimit: "200Mi",
+			},
 		},
 	}
 	return cr
@@ -832,6 +1034,342 @@ func (r *TestResources) NewCryostatService() *corev1.Service {
 	}
 }
 
+func (r *TestResources) NewCryostatNetworkPolicy() *netv1.NetworkPolicy {
+	return &netv1.NetworkPolicy{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      fmt.Sprintf("%s-internal-ingress", r.Name),
+			Namespace: r.Namespace,
+		},
+		Spec: netv1.NetworkPolicySpec{
+			PodSelector: metav1.LabelSelector{
+				MatchLabels: map[string]string{
+					"app":       r.Name,
+					"component": "cryostat",
+					"kind":      "cryostat",
+				},
+			},
+			Ingress: []netv1.NetworkPolicyIngressRule{
+				{
+					From: []netv1.NetworkPolicyPeer{
+						{
+							NamespaceSelector: &metav1.LabelSelector{},
+						},
+						{
+							NamespaceSelector: &metav1.LabelSelector{
+								MatchLabels: map[string]string{
+									"policy-group.network.openshift.io/ingress": "",
+								},
+							},
+						},
+					},
+					Ports: []netv1.NetworkPolicyPort{
+						{
+							Port: &intstr.IntOrString{IntVal: 4180},
+						},
+					},
+				},
+				{
+					From: []netv1.NetworkPolicyPeer{
+						{
+							NamespaceSelector: &metav1.LabelSelector{
+								MatchExpressions: []metav1.LabelSelectorRequirement{
+									{
+										Key:      "kubernetes.io/metadata.name",
+										Operator: "In",
+										Values:   r.TargetNamespaces,
+									},
+								},
+							},
+						},
+					},
+					Ports: []netv1.NetworkPolicyPort{
+						{
+							Port: &intstr.IntOrString{IntVal: 8282},
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
+func (r *TestResources) NewDatabaseNetworkPolicy() *netv1.NetworkPolicy {
+	return &netv1.NetworkPolicy{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      fmt.Sprintf("%s-db-internal-ingress", r.Name),
+			Namespace: r.Namespace,
+		},
+		Spec: netv1.NetworkPolicySpec{
+			PodSelector: metav1.LabelSelector{
+				MatchLabels: map[string]string{
+					"app":       r.Name,
+					"component": "database",
+					"kind":      "cryostat",
+				},
+			},
+			Ingress: []netv1.NetworkPolicyIngressRule{
+				{
+					From: []netv1.NetworkPolicyPeer{
+						{
+							NamespaceSelector: &metav1.LabelSelector{
+								MatchLabels: map[string]string{
+									"kubernetes.io/metadata.name": r.Namespace,
+								},
+							},
+							PodSelector: &metav1.LabelSelector{
+								MatchLabels: map[string]string{
+									"app":       r.Name,
+									"component": "cryostat",
+									"kind":      "cryostat",
+								},
+							},
+						},
+					},
+					Ports: []netv1.NetworkPolicyPort{
+						{
+							Port: &intstr.IntOrString{IntVal: 5432},
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
+func (r *TestResources) NewStorageNetworkPolicy() *netv1.NetworkPolicy {
+	return &netv1.NetworkPolicy{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      fmt.Sprintf("%s-storage-internal-ingress", r.Name),
+			Namespace: r.Namespace,
+		},
+		Spec: netv1.NetworkPolicySpec{
+			PodSelector: metav1.LabelSelector{
+				MatchLabels: map[string]string{
+					"app":       r.Name,
+					"component": "storage",
+					"kind":      "cryostat",
+				},
+			},
+			Ingress: []netv1.NetworkPolicyIngressRule{
+				{
+					From: []netv1.NetworkPolicyPeer{
+						{
+							NamespaceSelector: &metav1.LabelSelector{
+								MatchLabels: map[string]string{
+									"kubernetes.io/metadata.name": r.Namespace,
+								},
+							},
+							PodSelector: &metav1.LabelSelector{
+								MatchLabels: map[string]string{
+									"app":       r.Name,
+									"component": "cryostat",
+									"kind":      "cryostat",
+								},
+							},
+						},
+					},
+					Ports: []netv1.NetworkPolicyPort{
+						{
+							Port: &intstr.IntOrString{IntVal: 8333},
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
+func (r *TestResources) NewReportsNetworkPolicy() *netv1.NetworkPolicy {
+	return &netv1.NetworkPolicy{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      fmt.Sprintf("%s-reports-internal-ingress", r.Name),
+			Namespace: r.Namespace,
+		},
+		Spec: netv1.NetworkPolicySpec{
+			PodSelector: metav1.LabelSelector{
+				MatchLabels: map[string]string{
+					"app":       r.Name,
+					"component": "reports",
+					"kind":      "cryostat",
+				},
+			},
+			Ingress: []netv1.NetworkPolicyIngressRule{
+				{
+					From: []netv1.NetworkPolicyPeer{
+						{
+							NamespaceSelector: &metav1.LabelSelector{
+								MatchLabels: map[string]string{
+									"kubernetes.io/metadata.name": r.Namespace,
+								},
+							},
+							PodSelector: &metav1.LabelSelector{
+								MatchLabels: map[string]string{
+									"app":       r.Name,
+									"component": "cryostat",
+									"kind":      "cryostat",
+								},
+							},
+						},
+					},
+					Ports: []netv1.NetworkPolicyPort{
+						{
+							Port: &intstr.IntOrString{IntVal: 10000},
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
+func (r *TestResources) NewGrafanaService() *corev1.Service {
+	c := true
+	return &corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      r.Name + "-grafana",
+			Namespace: r.Namespace,
+			OwnerReferences: []metav1.OwnerReference{
+				{
+					APIVersion: operatorv1beta2.GroupVersion.String(),
+					Kind:       "Cryostat",
+					Name:       r.Name,
+					UID:        "",
+					Controller: &c,
+				},
+			},
+			Labels: map[string]string{
+				"app":       r.Name,
+				"component": "cryostat",
+			},
+		},
+		Spec: corev1.ServiceSpec{
+			Type: corev1.ServiceTypeClusterIP,
+			Selector: map[string]string{
+				"app":       r.Name,
+				"component": "cryostat",
+			},
+			Ports: []corev1.ServicePort{
+				{
+					Name:       "http",
+					Port:       3000,
+					TargetPort: intstr.FromInt(3000),
+				},
+			},
+		},
+	}
+}
+
+func (r *TestResources) NewCommandService() *corev1.Service {
+	c := true
+	return &corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      r.Name + "-command",
+			Namespace: r.Namespace,
+			OwnerReferences: []metav1.OwnerReference{
+				{
+					APIVersion: operatorv1beta2.GroupVersion.String(),
+					Kind:       "Cryostat",
+					Name:       r.Name,
+					UID:        "",
+					Controller: &c,
+				},
+			},
+			Labels: map[string]string{
+				"app":       r.Name,
+				"component": "cryostat",
+			},
+		},
+		Spec: corev1.ServiceSpec{
+			Type: corev1.ServiceTypeClusterIP,
+			Selector: map[string]string{
+				"app":       r.Name,
+				"component": "cryostat",
+			},
+			Ports: []corev1.ServicePort{
+				{
+					Name:       "http",
+					Port:       10001,
+					TargetPort: intstr.FromInt(10001),
+				},
+			},
+		},
+	}
+}
+
+func (r *TestResources) NewDatabaseService() *corev1.Service {
+	c := true
+	return &corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      r.Name + "-database",
+			Namespace: r.Namespace,
+			OwnerReferences: []metav1.OwnerReference{
+				{
+					APIVersion: operatorv1beta2.GroupVersion.String(),
+					Kind:       "Cryostat",
+					Name:       r.Name + "-database",
+					UID:        "",
+					Controller: &c,
+				},
+			},
+			Labels: map[string]string{
+				"app":       r.Name,
+				"component": "database",
+			},
+		},
+		Spec: corev1.ServiceSpec{
+			Type: corev1.ServiceTypeClusterIP,
+			Selector: map[string]string{
+				"app":       r.Name,
+				"component": "database",
+			},
+			Ports: []corev1.ServicePort{
+				{
+					Name:       "http",
+					Port:       5432,
+					TargetPort: intstr.FromInt(5432),
+				},
+			},
+		},
+	}
+}
+
+func (r *TestResources) NewStorageService() *corev1.Service {
+	c := true
+	return &corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      r.Name + "-storage",
+			Namespace: r.Namespace,
+			OwnerReferences: []metav1.OwnerReference{
+				{
+					APIVersion: operatorv1beta2.GroupVersion.String(),
+					Kind:       "Cryostat",
+					Name:       r.Name + "-storage",
+					UID:        "",
+					Controller: &c,
+				},
+			},
+			Labels: map[string]string{
+				"app":       r.Name,
+				"component": "storage",
+			},
+		},
+		Spec: corev1.ServiceSpec{
+			Type: corev1.ServiceTypeClusterIP,
+			Selector: map[string]string{
+				"app":       r.Name,
+				"component": "storage",
+			},
+			Ports: []corev1.ServicePort{
+				{
+					Name:       "http",
+					Port:       8333,
+					TargetPort: intstr.FromInt(8333),
+				},
+			},
+		},
+	}
+}
+
 func (r *TestResources) NewReportsService() *corev1.Service {
 	return &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
@@ -1202,6 +1740,32 @@ func (r *TestResources) NewReportsCert() *certv1.Certificate {
 	}
 }
 
+func (r *TestResources) NewDatabaseCert() *certv1.Certificate {
+	return &certv1.Certificate{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      r.Name + "-database",
+			Namespace: r.Namespace,
+		},
+		Spec: certv1.CertificateSpec{
+			CommonName: "cryostat-database",
+			DNSNames: []string{
+				r.Name + "-database",
+				fmt.Sprintf(r.Name+"-database.%s.svc", r.Namespace),
+				fmt.Sprintf(r.Name+"-database.%s.svc.cluster.local", r.Namespace),
+			},
+			SecretName: r.Name + "-database-tls",
+			IssuerRef: certMeta.ObjectReference{
+				Name: r.Name + "-ca",
+			},
+			Usages: []certv1.KeyUsage{
+				certv1.UsageDigitalSignature,
+				certv1.UsageKeyEncipherment,
+				certv1.UsageServerAuth,
+			},
+		},
+	}
+}
+
 func (r *TestResources) OtherReportsCert() *certv1.Certificate {
 	cert := r.NewReportsCert()
 	cert.Spec.CommonName = fmt.Sprintf("%s-reports.%s.svc", r.Name, r.Namespace)
@@ -1222,6 +1786,32 @@ func (r *TestResources) NewAgentProxyCert() *certv1.Certificate {
 				fmt.Sprintf(r.Name+"-agent.%s.svc.cluster.local", r.Namespace),
 			},
 			SecretName: r.Name + "-agent-tls",
+			IssuerRef: certMeta.ObjectReference{
+				Name: r.Name + "-ca",
+			},
+			Usages: []certv1.KeyUsage{
+				certv1.UsageDigitalSignature,
+				certv1.UsageKeyEncipherment,
+				certv1.UsageServerAuth,
+			},
+		},
+	}
+}
+
+func (r *TestResources) NewStorageCert() *certv1.Certificate {
+	return &certv1.Certificate{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      r.Name + "-storage",
+			Namespace: r.Namespace,
+		},
+		Spec: certv1.CertificateSpec{
+			CommonName: "cryostat-storage",
+			DNSNames: []string{
+				r.Name + "-storage",
+				fmt.Sprintf(r.Name+"-storage.%s.svc", r.Namespace),
+				fmt.Sprintf(r.Name+"-storage.%s.svc.cluster.local", r.Namespace),
+			},
+			SecretName: r.Name + "-storage-tls",
 			IssuerRef: certMeta.ObjectReference{
 				Name: r.Name + "-ca",
 			},
@@ -1337,10 +1927,10 @@ func (r *TestResources) OtherCAIssuer() *certv1.Issuer {
 }
 
 func (r *TestResources) newPVC(spec *corev1.PersistentVolumeClaimSpec, labels map[string]string,
-	annotations map[string]string) *corev1.PersistentVolumeClaim {
+	annotations map[string]string, name string) *corev1.PersistentVolumeClaim {
 	return &corev1.PersistentVolumeClaim{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:        r.Name,
+			Name:        name,
 			Namespace:   r.Namespace,
 			Annotations: annotations,
 			Labels:      labels,
@@ -1359,10 +1949,54 @@ func (r *TestResources) NewDefaultPVC() *corev1.PersistentVolumeClaim {
 		},
 	}, map[string]string{
 		"app": r.Name,
-	}, nil)
+	}, nil, r.Name+"-database")
 }
 
-func (r *TestResources) NewCustomPVC() *corev1.PersistentVolumeClaim {
+func (r *TestResources) NewDatabasePVC() *corev1.PersistentVolumeClaim {
+	return r.newPVC(&corev1.PersistentVolumeClaimSpec{
+		AccessModes: []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce},
+		Resources: corev1.VolumeResourceRequirements{
+			Requests: corev1.ResourceList{
+				corev1.ResourceStorage: resource.MustParse("500Mi"),
+			},
+		},
+	}, map[string]string{
+		"app": r.Name,
+	}, nil, r.Name+"-database")
+}
+
+func (r *TestResources) NewStoragePVC() *corev1.PersistentVolumeClaim {
+	return r.newPVC(&corev1.PersistentVolumeClaimSpec{
+		AccessModes: []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce},
+		Resources: corev1.VolumeResourceRequirements{
+			Requests: corev1.ResourceList{
+				corev1.ResourceStorage: resource.MustParse("10Gi"),
+			},
+		},
+	}, map[string]string{
+		"app": r.Name,
+	}, nil, r.Name+"-storage")
+}
+
+func (r *TestResources) NewCustomStoragePVC() *corev1.PersistentVolumeClaim {
+	storageClass := "cool-obj-storage"
+	return r.newPVC(&corev1.PersistentVolumeClaimSpec{
+		StorageClassName: &storageClass,
+		AccessModes:      []corev1.PersistentVolumeAccessMode{corev1.ReadWriteMany},
+		Resources: corev1.VolumeResourceRequirements{
+			Requests: corev1.ResourceList{
+				corev1.ResourceStorage: resource.MustParse("20Gi"),
+			},
+		},
+	}, map[string]string{
+		"my":  "storage",
+		"app": r.Name,
+	}, map[string]string{
+		"my/custom": "storage",
+	}, r.Name+"-storage")
+}
+
+func (r *TestResources) NewCustomStoragePVCLegacy() *corev1.PersistentVolumeClaim {
 	storageClass := "cool-storage"
 	return r.newPVC(&corev1.PersistentVolumeClaimSpec{
 		StorageClassName: &storageClass,
@@ -1377,10 +2011,25 @@ func (r *TestResources) NewCustomPVC() *corev1.PersistentVolumeClaim {
 		"app": r.Name,
 	}, map[string]string{
 		"my/custom": "annotation",
-	})
+	}, r.Name+"-storage")
 }
 
-func (r *TestResources) NewCustomPVCSomeDefault() *corev1.PersistentVolumeClaim {
+func (r *TestResources) NewCustomStoragePVCSomeDefault() *corev1.PersistentVolumeClaim {
+	storageClass := "storage"
+	return r.newPVC(&corev1.PersistentVolumeClaimSpec{
+		StorageClassName: &storageClass,
+		AccessModes:      []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce},
+		Resources: corev1.VolumeResourceRequirements{
+			Requests: corev1.ResourceList{
+				corev1.ResourceStorage: resource.MustParse("1Gi"),
+			},
+		},
+	}, map[string]string{
+		"app": r.Name,
+	}, nil, r.Name+"-storage")
+}
+
+func (r *TestResources) NewCustomStoragePVCSomeDefaultLegacy() *corev1.PersistentVolumeClaim {
 	storageClass := ""
 	return r.newPVC(&corev1.PersistentVolumeClaimSpec{
 		StorageClassName: &storageClass,
@@ -1392,10 +2041,118 @@ func (r *TestResources) NewCustomPVCSomeDefault() *corev1.PersistentVolumeClaim 
 		},
 	}, map[string]string{
 		"app": r.Name,
-	}, nil)
+	}, nil, r.Name+"-storage")
 }
 
-func (r *TestResources) NewDefaultPVCWithLabel() *corev1.PersistentVolumeClaim {
+func (r *TestResources) NewDefaultStoragePVCWithLabel() *corev1.PersistentVolumeClaim {
+	return r.newPVC(&corev1.PersistentVolumeClaimSpec{
+		AccessModes: []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce},
+		Resources: corev1.VolumeResourceRequirements{
+			Requests: corev1.ResourceList{
+				corev1.ResourceStorage: resource.MustParse("10Gi"),
+			},
+		},
+	}, map[string]string{
+		"app": r.Name,
+		"my":  "storage",
+	}, nil, r.Name+"-storage")
+}
+
+func (r *TestResources) NewDefaultStoragePVCWithLabelLegacy() *corev1.PersistentVolumeClaim {
+	return r.newPVC(&corev1.PersistentVolumeClaimSpec{
+		AccessModes: []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce},
+		Resources: corev1.VolumeResourceRequirements{
+			Requests: corev1.ResourceList{
+				corev1.ResourceStorage: resource.MustParse("10Gi"),
+			},
+		},
+	}, map[string]string{
+		"app": r.Name,
+		"my":  "label",
+	}, nil, r.Name+"-storage")
+}
+
+func (r *TestResources) NewCustomDatabasePVC() *corev1.PersistentVolumeClaim {
+	storageClass := "cool-db-storage"
+	return r.newPVC(&corev1.PersistentVolumeClaimSpec{
+		StorageClassName: &storageClass,
+		AccessModes:      []corev1.PersistentVolumeAccessMode{corev1.ReadWriteMany},
+		Resources: corev1.VolumeResourceRequirements{
+			Requests: corev1.ResourceList{
+				corev1.ResourceStorage: resource.MustParse("5Gi"),
+			},
+		},
+	}, map[string]string{
+		"my":  "database",
+		"app": r.Name,
+	}, map[string]string{
+		"my/custom": "database",
+	}, r.Name+"-database")
+}
+
+func (r *TestResources) NewCustomDatabasePVCLegacy() *corev1.PersistentVolumeClaim {
+	storageClass := "cool-storage"
+	return r.newPVC(&corev1.PersistentVolumeClaimSpec{
+		StorageClassName: &storageClass,
+		AccessModes:      []corev1.PersistentVolumeAccessMode{corev1.ReadWriteMany},
+		Resources: corev1.VolumeResourceRequirements{
+			Requests: corev1.ResourceList{
+				corev1.ResourceStorage: resource.MustParse("10Gi"),
+			},
+		},
+	}, map[string]string{
+		"my":  "label",
+		"app": r.Name,
+	}, map[string]string{
+		"my/custom": "annotation",
+	}, r.Name+"-database")
+}
+
+func (r *TestResources) NewCustomDatabasePVCSomeDefault() *corev1.PersistentVolumeClaim {
+	storageClass := "database"
+	return r.newPVC(&corev1.PersistentVolumeClaimSpec{
+		StorageClassName: &storageClass,
+		AccessModes:      []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce},
+		Resources: corev1.VolumeResourceRequirements{
+			Requests: corev1.ResourceList{
+				corev1.ResourceStorage: resource.MustParse("1Gi"),
+			},
+		},
+	}, map[string]string{
+		"app": r.Name,
+	}, nil, r.Name+"-database")
+}
+
+func (r *TestResources) NewCustomDatabasePVCSomeDefaultLegacy() *corev1.PersistentVolumeClaim {
+	storageClass := ""
+	return r.newPVC(&corev1.PersistentVolumeClaimSpec{
+		StorageClassName: &storageClass,
+		AccessModes:      []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce},
+		Resources: corev1.VolumeResourceRequirements{
+			Requests: corev1.ResourceList{
+				corev1.ResourceStorage: resource.MustParse("1Gi"),
+			},
+		},
+	}, map[string]string{
+		"app": r.Name,
+	}, nil, r.Name+"-database")
+}
+
+func (r *TestResources) NewDefaultDatabasePVCWithLabel() *corev1.PersistentVolumeClaim {
+	return r.newPVC(&corev1.PersistentVolumeClaimSpec{
+		AccessModes: []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce},
+		Resources: corev1.VolumeResourceRequirements{
+			Requests: corev1.ResourceList{
+				corev1.ResourceStorage: resource.MustParse("500Mi"),
+			},
+		},
+	}, map[string]string{
+		"app": r.Name,
+		"my":  "database",
+	}, nil, r.Name+"-database")
+}
+
+func (r *TestResources) NewDefaultDatabasePVCWithLabelLegacy() *corev1.PersistentVolumeClaim {
 	return r.newPVC(&corev1.PersistentVolumeClaimSpec{
 		AccessModes: []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce},
 		Resources: corev1.VolumeResourceRequirements{
@@ -1406,7 +2163,7 @@ func (r *TestResources) NewDefaultPVCWithLabel() *corev1.PersistentVolumeClaim {
 	}, map[string]string{
 		"app": r.Name,
 		"my":  "label",
-	}, nil)
+	}, nil, r.Name+"-database")
 }
 
 func (r *TestResources) NewDefaultEmptyDir() *corev1.EmptyDirVolumeSource {
@@ -1416,7 +2173,23 @@ func (r *TestResources) NewDefaultEmptyDir() *corev1.EmptyDirVolumeSource {
 	}
 }
 
-func (r *TestResources) NewEmptyDirWithSpec() *corev1.EmptyDirVolumeSource {
+func (r *TestResources) NewCustomDatabaseEmptyDir() *corev1.EmptyDirVolumeSource {
+	sizeLimit := resource.MustParse("100Mi")
+	return &corev1.EmptyDirVolumeSource{
+		Medium:    "Memory",
+		SizeLimit: &sizeLimit,
+	}
+}
+
+func (r *TestResources) NewCustomStorageEmptyDir() *corev1.EmptyDirVolumeSource {
+	sizeLimit := resource.MustParse("500Mi")
+	return &corev1.EmptyDirVolumeSource{
+		Medium:    "HugePages",
+		SizeLimit: &sizeLimit,
+	}
+}
+
+func (r *TestResources) NewCustomEmptyDirLegacy() *corev1.EmptyDirVolumeSource {
 	sizeLimit := resource.MustParse("200Mi")
 	return &corev1.EmptyDirVolumeSource{
 		Medium:    "Memory",
@@ -1457,11 +2230,12 @@ func (r *TestResources) NewReportsPorts() []corev1.ContainerPort {
 }
 
 func (r *TestResources) NewStoragePorts() []corev1.ContainerPort {
-	return []corev1.ContainerPort{
+	ports := []corev1.ContainerPort{
 		{
 			ContainerPort: 8333,
 		},
 	}
+	return ports
 }
 
 func (r *TestResources) NewDatabasePorts() []corev1.ContainerPort {
@@ -1492,7 +2266,12 @@ func (r *TestResources) NewAgentProxyPorts() []corev1.ContainerPort {
 }
 
 func (r *TestResources) NewCoreEnvironmentVariables(reportsUrl string, ingress bool,
-	emptyDir bool, hasPortConfig bool, builtInDiscoveryDisabled bool, builtInPortConfigDisabled bool, dbSecretProvided bool) []corev1.EnvVar {
+	hasPortConfig bool, builtInDiscoveryDisabled bool, builtInPortConfigDisabled bool, dbSecretProvided bool) []corev1.EnvVar {
+	storageProtocol := "http"
+	storagePort := 8333
+	if r.TLS {
+		storageProtocol = "https"
+	}
 	envs := []corev1.EnvVar{
 		{
 			Name:  "QUARKUS_HTTP_HOST",
@@ -1531,16 +2310,20 @@ func (r *TestResources) NewCoreEnvironmentVariables(reportsUrl string, ingress b
 			Value: "cryostat",
 		},
 		{
-			Name:  "QUARKUS_DATASOURCE_JDBC_URL",
-			Value: "jdbc:postgresql://localhost:5432/cryostat",
-		},
-		{
 			Name:  "STORAGE_BUCKETS_ARCHIVE_NAME",
 			Value: "archivedrecordings",
 		},
 		{
 			Name:  "QUARKUS_S3_ENDPOINT_OVERRIDE",
-			Value: "http://localhost:8333",
+			Value: fmt.Sprintf("%s://%s-storage.%s.svc.cluster.local:%d", storageProtocol, r.Name, r.Namespace, storagePort),
+		},
+		{
+			Name:  "QUARKUS_S3_SYNC_CLIENT_TLS_KEY_MANAGERS_PROVIDER_TYPE",
+			Value: "none",
+		},
+		{
+			Name:  "QUARKUS_S3_SYNC_CLIENT_TLS_TRUST_MANAGERS_PROVIDER_TYPE",
+			Value: "system-property",
 		},
 		{
 			Name:  "QUARKUS_S3_PATH_STYLE_ACCESS",
@@ -1594,6 +2377,17 @@ func (r *TestResources) NewCoreEnvironmentVariables(reportsUrl string, ingress b
 			Name:  "AWS_SECRET_ACCESS_KEY",
 			Value: "$(QUARKUS_S3_AWS_CREDENTIALS_STATIC_PROVIDER_SECRET_ACCESS_KEY)",
 		},
+	}
+	if r.TLS {
+		envs = append(envs, corev1.EnvVar{
+			Name:  "QUARKUS_DATASOURCE_JDBC_URL",
+			Value: fmt.Sprintf("jdbc:postgresql://%s-database.%s.svc.cluster.local:5432/cryostat?ssl=true&sslmode=verify-full&sslcert=&sslrootcert=/var/run/secrets/operator.cryostat.io/%s-database-tls/ca.crt", r.Name, r.Namespace, r.Name),
+		})
+	} else {
+		envs = append(envs, corev1.EnvVar{
+			Name:  "QUARKUS_DATASOURCE_JDBC_URL",
+			Value: fmt.Sprintf("jdbc:postgresql://%s-database.%s.svc.cluster.local:5432/cryostat", r.Name, r.Namespace),
+		})
 	}
 
 	envs = append(envs, r.NewTargetDiscoveryEnvVars(hasPortConfig, builtInDiscoveryDisabled, builtInPortConfigDisabled)...)
@@ -1742,10 +2536,10 @@ func (r *TestResources) NewReportsEnvironmentVariables(resources *corev1.Resourc
 			Value: "10000",
 		}, corev1.EnvVar{
 			Name:  "QUARKUS_HTTP_SSL_CERTIFICATE_KEY_FILES",
-			Value: fmt.Sprintf("/var/run/secrets/operator.cryostat.io/%s-reports-tls/tls.key", r.Name),
+			Value: fmt.Sprintf("/var/run/secrets/operator.cryostat.io/%s-reports-tls/%s", r.Name, corev1.TLSPrivateKeyKey),
 		}, corev1.EnvVar{
 			Name:  "QUARKUS_HTTP_SSL_CERTIFICATE_FILES",
-			Value: fmt.Sprintf("/var/run/secrets/operator.cryostat.io/%s-reports-tls/tls.crt", r.Name),
+			Value: fmt.Sprintf("/var/run/secrets/operator.cryostat.io/%s-reports-tls/%s", r.Name, corev1.TLSCertKey),
 		}, corev1.EnvVar{
 			Name:  "QUARKUS_HTTP_INSECURE_REQUESTS",
 			Value: "disabled",
@@ -1760,7 +2554,7 @@ func (r *TestResources) NewReportsEnvironmentVariables(resources *corev1.Resourc
 }
 
 func (r *TestResources) NewStorageEnvironmentVariables() []corev1.EnvVar {
-	return []corev1.EnvVar{
+	envs := []corev1.EnvVar{
 		{
 			Name:  "CRYOSTAT_BUCKETS",
 			Value: "archivedrecordings,archivedreports,eventtemplates,probes",
@@ -1794,6 +2588,22 @@ func (r *TestResources) NewStorageEnvironmentVariables() []corev1.EnvVar {
 			},
 		},
 	}
+	return envs
+}
+
+func (r *TestResources) NewStorageArgs() []string {
+	args := []string{}
+
+	if r.TLS {
+		args = append(args,
+			"-s3.port=8333",
+			"-s3.port.https=0",
+			fmt.Sprintf("-s3.key.file=/var/run/secrets/operator.cryostat.io/%s-storage-tls/%s", r.Name, corev1.TLSPrivateKeyKey),
+			fmt.Sprintf("-s3.cert.file=/var/run/secrets/operator.cryostat.io/%s-storage-tls/%s", r.Name, corev1.TLSCertKey),
+		)
+	}
+
+	return args
 }
 
 func (r *TestResources) NewDatabaseEnvironmentVariables(dbSecretProvided bool) []corev1.EnvVar {
@@ -1802,7 +2612,11 @@ func (r *TestResources) NewDatabaseEnvironmentVariables(dbSecretProvided bool) [
 	if dbSecretProvided {
 		secretName = providedDatabaseSecretName
 	}
-	return []corev1.EnvVar{
+	envs := []corev1.EnvVar{
+		{
+			Name:  "PGDATA",
+			Value: "/var/lib/pgsql/data",
+		},
 		{
 			Name:  "POSTGRESQL_USER",
 			Value: "cryostat",
@@ -1836,6 +2650,24 @@ func (r *TestResources) NewDatabaseEnvironmentVariables(dbSecretProvided bool) [
 			},
 		},
 	}
+	return envs
+}
+
+func (r *TestResources) NewDatabaseArgs() []string {
+	args := []string{}
+
+	if r.TLS {
+		args = append(args,
+			"-c",
+			"ssl=on",
+			"-c",
+			fmt.Sprintf("ssl_cert_file=/var/run/secrets/operator.cryostat.io/%s-database-tls/%s", r.Name, corev1.TLSCertKey),
+			"-c",
+			fmt.Sprintf("ssl_key_file=/var/run/secrets/operator.cryostat.io/%s-database-tls/%s", r.Name, corev1.TLSPrivateKeyKey),
+		)
+	}
+
+	return args
 }
 
 func (r *TestResources) NewAuthProxyEnvironmentVariables(authOptions *operatorv1beta2.AuthorizationOptions) []corev1.EnvVar {
@@ -2010,7 +2842,7 @@ func (r *TestResources) NewAuthProxyArguments(authOptions *operatorv1beta2.Autho
 		"--pass-basic-auth=false",
 		"--upstream=http://localhost:8181/",
 		"--upstream=http://localhost:3000/grafana/",
-		"--upstream=http://localhost:8333/storage/",
+		// "--upstream=http://localhost:8333/storage/",
 		fmt.Sprintf("--openshift-service-account=%s", r.Name),
 		"--proxy-websockets=true",
 		"--proxy-prefix=/oauth2",
@@ -2054,50 +2886,64 @@ func (r *TestResources) NewAgentProxyCommand() []string {
 func (r *TestResources) NewCoreVolumeMounts() []corev1.VolumeMount {
 	mounts := []corev1.VolumeMount{
 		{
-			Name:      r.Name,
-			ReadOnly:  false,
-			MountPath: "/opt/cryostat.d/conf.d",
-			SubPath:   "config",
-		},
-		{
-			Name:      r.Name,
-			ReadOnly:  false,
-			MountPath: "/opt/cryostat.d/templates.d",
-			SubPath:   "templates",
-		},
-		{
-			Name:      r.Name,
-			ReadOnly:  false,
-			MountPath: "truststore",
-			SubPath:   "truststore",
-		},
-		{
 			Name:      "cert-secrets",
 			ReadOnly:  true,
 			MountPath: "/truststore/operator",
 		},
 	}
+	if r.TLS {
+		mounts = append(mounts, corev1.VolumeMount{
+			Name:      "storage-tls-secret",
+			MountPath: "/truststore/storage",
+			ReadOnly:  true,
+		})
+		mounts = append(mounts,
+			corev1.VolumeMount{
+				Name:      "database-tls-secret",
+				ReadOnly:  true,
+				MountPath: fmt.Sprintf("/var/run/secrets/operator.cryostat.io/%s-database-tls", r.Name),
+			},
+		)
+	}
 	return mounts
 }
 
 func (r *TestResources) NewStorageVolumeMounts() []corev1.VolumeMount {
-	return []corev1.VolumeMount{
-		{
-			Name:      r.Name,
+	mounts := []corev1.VolumeMount{}
+	mounts = append(mounts,
+		corev1.VolumeMount{
+			Name:      r.Name + "-storage",
 			MountPath: "/data",
-			SubPath:   "seaweed",
-		},
+		})
+
+	if r.TLS {
+		mounts = append(mounts,
+			corev1.VolumeMount{
+				Name:      "storage-tls-secret",
+				MountPath: fmt.Sprintf("/var/run/secrets/operator.cryostat.io/%s-storage-tls", r.Name),
+				ReadOnly:  true,
+			})
 	}
+	return mounts
 }
 
 func (r *TestResources) NewDatabaseVolumeMounts() []corev1.VolumeMount {
-	return []corev1.VolumeMount{
-		{
-			Name:      r.Name,
-			MountPath: "/data",
-			SubPath:   "postgres",
-		},
+	mounts := []corev1.VolumeMount{}
+	mounts = append(mounts,
+		corev1.VolumeMount{
+			Name:      r.Name + "-database",
+			MountPath: "/var/lib/pgsql",
+		})
+
+	if r.TLS {
+		mounts = append(mounts,
+			corev1.VolumeMount{
+				Name:      "database-tls-secret",
+				MountPath: fmt.Sprintf("/var/run/secrets/operator.cryostat.io/%s-database-tls", r.Name),
+				ReadOnly:  true,
+			})
 	}
+	return mounts
 }
 
 func (r *TestResources) NewAuthProxyVolumeMounts(authOptions *operatorv1beta2.AuthorizationOptions) []corev1.VolumeMount {
@@ -2241,12 +3087,18 @@ func (r *TestResources) NewDatasourceLivenessProbe() *corev1.Probe {
 }
 
 func (r *TestResources) NewStorageLivenessProbe() *corev1.Probe {
+	protocol := corev1.URISchemeHTTP
+	port := int32(8333)
+
+	if r.TLS {
+		protocol = corev1.URISchemeHTTPS
+	}
 	return &corev1.Probe{
 		ProbeHandler: corev1.ProbeHandler{
 			HTTPGet: &corev1.HTTPGetAction{
-				Port:   intstr.IntOrString{IntVal: 8333},
+				Port:   intstr.IntOrString{IntVal: port},
 				Path:   "/status",
-				Scheme: corev1.URISchemeHTTP,
+				Scheme: protocol,
 			},
 		},
 		FailureThreshold: 2,
@@ -2317,6 +3169,26 @@ func (r *TestResources) NewMainDeploymentSelector() *metav1.LabelSelector {
 			"app":       r.Name,
 			"kind":      "cryostat",
 			"component": "cryostat",
+		},
+	}
+}
+
+func (r *TestResources) NewDatabaseDeploymentSelector() *metav1.LabelSelector {
+	return &metav1.LabelSelector{
+		MatchLabels: map[string]string{
+			"app":       r.Name,
+			"kind":      "cryostat",
+			"component": "database",
+		},
+	}
+}
+
+func (r *TestResources) NewStorageDeploymentSelector() *metav1.LabelSelector {
+	return &metav1.LabelSelector{
+		MatchLabels: map[string]string{
+			"app":       r.Name,
+			"kind":      "cryostat",
+			"component": "storage",
 		},
 	}
 }
@@ -2482,15 +3354,6 @@ func (r *TestResources) newVolumes(certProjections []corev1.VolumeProjection) []
 	readOnlymode := int32(0440)
 	volumes := []corev1.Volume{
 		{
-			Name: r.Name,
-			VolumeSource: corev1.VolumeSource{
-				PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
-					ClaimName: r.Name,
-					ReadOnly:  false,
-				},
-			},
-		},
-		{
 			Name: "agent-proxy-config",
 			VolumeSource: corev1.VolumeSource{
 				ConfigMap: &corev1.ConfigMapVolumeSource{
@@ -2553,6 +3416,51 @@ func (r *TestResources) newVolumes(certProjections []corev1.VolumeProjection) []
 					},
 				},
 			},
+			corev1.Volume{
+				Name: "database-tls-secret",
+				VolumeSource: corev1.VolumeSource{
+					Secret: &corev1.SecretVolumeSource{
+						SecretName:  r.Name + "-database-tls",
+						DefaultMode: &readOnlymode,
+						Items: []corev1.KeyToPath{
+							{
+								Key:  "tls.crt",
+								Path: "tls.crt",
+								Mode: &readOnlymode,
+							},
+							{
+								Key:  "ca.crt",
+								Path: "ca.crt",
+								Mode: &readOnlymode,
+							},
+						},
+					},
+				},
+			},
+		)
+
+		volumes = append(volumes,
+			corev1.Volume{
+				Name: "storage-tls-secret",
+				VolumeSource: corev1.VolumeSource{
+					Secret: &corev1.SecretVolumeSource{
+						SecretName:  r.Name + "-storage-tls",
+						DefaultMode: &readOnlymode,
+						Items: []corev1.KeyToPath{
+							{
+								Key:  "tls.crt",
+								Path: "s3/tls.crt",
+								Mode: &readOnlymode,
+							},
+							{
+								Key:  "ca.crt",
+								Path: "s3/ca.crt",
+								Mode: &readOnlymode,
+							},
+						},
+					},
+				},
+			},
 		)
 	}
 
@@ -2604,6 +3512,62 @@ func (r *TestResources) NewReportsVolumes() []corev1.Volume {
 			},
 		},
 	}
+}
+
+func (r *TestResources) NewDatabaseVolumes() []corev1.Volume {
+	volumes := []corev1.Volume{
+		{
+			Name: r.Name + "-database",
+			VolumeSource: corev1.VolumeSource{
+				PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
+					ClaimName: r.Name + "-database",
+					ReadOnly:  false,
+				},
+			},
+		},
+	}
+
+	if r.TLS {
+		readOnlyMode := int32(0440)
+		volumes = append(volumes, corev1.Volume{
+			Name: "database-tls-secret",
+			VolumeSource: corev1.VolumeSource{
+				Secret: &corev1.SecretVolumeSource{
+					SecretName:  r.Name + "-database-tls",
+					DefaultMode: &readOnlyMode,
+				},
+			},
+		})
+	}
+	return volumes
+}
+
+func (r *TestResources) NewStorageVolumes() []corev1.Volume {
+	volumes := []corev1.Volume{
+		{
+			Name: r.Name + "-storage",
+			VolumeSource: corev1.VolumeSource{
+				PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
+					ClaimName: r.Name + "-storage",
+					ReadOnly:  false,
+				},
+			},
+		},
+	}
+
+	readOnlyMode := int32(0440)
+	if r.TLS {
+		volumes = append(volumes, corev1.Volume{
+			Name: "storage-tls-secret",
+			VolumeSource: corev1.VolumeSource{
+				Secret: &corev1.SecretVolumeSource{
+					SecretName:  r.Name + "-storage-tls",
+					DefaultMode: &readOnlyMode,
+				},
+			},
+		})
+	}
+	return volumes
 }
 
 func (r *TestResources) commonDefaultPodSecurityContext(fsGroup *int64) *corev1.PodSecurityContext {
@@ -2669,9 +3633,9 @@ func (r *TestResources) NewDatasourceSecurityContext(cr *model.CryostatInstance)
 	return r.commonDefaultSecurityContext()
 }
 
-func (r *TestResources) NewStorageSecurityContext(cr *model.CryostatInstance) *corev1.SecurityContext {
-	if cr.Spec.SecurityOptions != nil && cr.Spec.SecurityOptions.StorageSecurityContext != nil {
-		return cr.Spec.SecurityOptions.StorageSecurityContext
+func (r *TestResources) NewAuthProxySecurityContext(cr *model.CryostatInstance) *corev1.SecurityContext {
+	if cr.Spec.SecurityOptions != nil && cr.Spec.SecurityOptions.AuthProxySecurityContext != nil {
+		return cr.Spec.SecurityOptions.AuthProxySecurityContext
 	}
 	return r.commonDefaultSecurityContext()
 }
@@ -2683,9 +3647,9 @@ func (r *TestResources) NewDatabaseSecurityContext(cr *model.CryostatInstance) *
 	return r.commonDefaultSecurityContext()
 }
 
-func (r *TestResources) NewAuthProxySecurityContext(cr *model.CryostatInstance) *corev1.SecurityContext {
-	if cr.Spec.SecurityOptions != nil && cr.Spec.SecurityOptions.AuthProxySecurityContext != nil {
-		return cr.Spec.SecurityOptions.AuthProxySecurityContext
+func (r *TestResources) NewStorageSecurityContext(cr *model.CryostatInstance) *corev1.SecurityContext {
+	if cr.Spec.SecurityOptions != nil && cr.Spec.SecurityOptions.StorageSecurityContext != nil {
+		return cr.Spec.SecurityOptions.StorageSecurityContext
 	}
 	return r.commonDefaultSecurityContext()
 }

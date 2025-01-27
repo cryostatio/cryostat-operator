@@ -110,9 +110,16 @@ func CryostatConfigChangeTest(bundle *apimanifests.Bundle, namespace string, ope
 
 	// Create a default Cryostat CR with default empty dir
 	cr := r.newCryostatCR()
-	cr.Spec.StorageOptions = &operatorv1beta2.StorageConfiguration{
-		EmptyDir: &operatorv1beta2.EmptyDirConfig{
-			Enabled: true,
+	cr.Spec.StorageOptions = &operatorv1beta2.StorageConfigurations{
+		Database: &operatorv1beta2.StorageConfiguration{
+			EmptyDir: &operatorv1beta2.EmptyDirConfig{
+				Enabled: true,
+			},
+		},
+		ObjectStorage: &operatorv1beta2.StorageConfiguration{
+			EmptyDir: &operatorv1beta2.EmptyDirConfig{
+				Enabled: true,
+			},
 		},
 	}
 

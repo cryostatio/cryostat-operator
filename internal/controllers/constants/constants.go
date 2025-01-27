@@ -66,6 +66,8 @@ const (
 
 	CryostatCATLSCommonName     = "cryostat-ca-cert-manager"
 	CryostatTLSCommonName       = "cryostat"
+	DatabaseTLSCommonName       = "cryostat-db"
+	StorageTLSCommonName        = "cryostat-storage"
 	ReportsTLSCommonName        = "cryostat-reports"
 	AgentsTLSCommonName         = "cryostat-agent"
 	AgentAuthProxyTLSCommonName = "cryostat-agent-proxy"

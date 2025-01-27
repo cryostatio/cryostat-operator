@@ -91,10 +91,10 @@ func convertEventTemplatesTo(srcTemplates []TemplateConfigMap) []operatorv1beta2
 	return dstTemplates
 }
 
-func convertStorageOptionsTo(srcOpts *StorageConfiguration) *operatorv1beta2.StorageConfiguration {
-	var dstOpts *operatorv1beta2.StorageConfiguration
+func convertStorageOptionsTo(srcOpts *StorageConfiguration) *operatorv1beta2.StorageConfigurations {
+	var dstOpts *operatorv1beta2.StorageConfigurations
 	if srcOpts != nil {
-		dstOpts = &operatorv1beta2.StorageConfiguration{}
+		dstOpts = &operatorv1beta2.StorageConfigurations{}
 		if srcOpts.PVC != nil {
 			dstOpts.PVC = &operatorv1beta2.PersistentVolumeClaimConfig{
 				Spec: srcOpts.PVC.Spec,
@@ -358,7 +358,7 @@ func convertEventTemplatesFrom(srcTemplates []operatorv1beta2.TemplateConfigMap)
 	return dstTemplates
 }
 
-func convertStorageOptionsFrom(srcOpts *operatorv1beta2.StorageConfiguration) *StorageConfiguration {
+func convertStorageOptionsFrom(srcOpts *operatorv1beta2.StorageConfigurations) *StorageConfiguration {
 	var dstOpts *StorageConfiguration
 	if srcOpts != nil {
 		dstOpts = &StorageConfiguration{}
