@@ -30,6 +30,7 @@ import (
 	certv1 "github.com/cert-manager/cert-manager/pkg/apis/certmanager/v1"
 	configv1 "github.com/openshift/api/config/v1"
 	consolev1 "github.com/openshift/api/console/v1"
+	openshiftoperatorv1 "github.com/openshift/api/operator/v1"
 	routev1 "github.com/openshift/api/route/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
@@ -42,6 +43,7 @@ import (
 
 	operatorv1beta1 "github.com/cryostatio/cryostat-operator/api/v1beta1"
 	operatorv1beta2 "github.com/cryostatio/cryostat-operator/api/v1beta2"
+	"github.com/cryostatio/cryostat-operator/internal/console"
 	"github.com/cryostatio/cryostat-operator/internal/controllers"
 	"github.com/cryostatio/cryostat-operator/internal/controllers/common"
 	"github.com/cryostatio/cryostat-operator/internal/controllers/constants"
@@ -65,6 +67,7 @@ func init() {
 	utilruntime.Must(certv1.AddToScheme(scheme))
 	utilruntime.Must(consolev1.AddToScheme(scheme))
 	utilruntime.Must(configv1.AddToScheme(scheme))
+	utilruntime.Must(openshiftoperatorv1.AddToScheme(scheme))
 
 	utilruntime.Must(operatorv1beta2.AddToScheme(scheme))
 	// +kubebuilder:scaffold:scheme
@@ -77,6 +80,7 @@ func main() {
 	var secureMetrics bool
 	var enableHTTP2 bool
 	var forceOpenShift bool
+	var consolePlugin bool
 	flag.StringVar(&metricsAddr, "metrics-bind-address", ":8080", "The address the metric endpoint binds to.")
 	flag.StringVar(&probeAddr, "health-probe-bind-address", ":8081", "The address the probe endpoint binds to.")
 	flag.BoolVar(&enableLeaderElection, "leader-elect", false,
@@ -86,6 +90,7 @@ func main() {
 		"If set the metrics endpoint is served securely")
 	flag.BoolVar(&enableHTTP2, "enable-http2", false, "If HTTP/2 should be enabled for the metrics and webhook servers.")
 	flag.BoolVar(&forceOpenShift, "force-openshift", false, "Force the controller to consider current platform as OpenShift")
+	flag.BoolVar(&consolePlugin, "openshift-console-plugin", false, "Whether the operator should install the OpenShift Console Plugin")
 	opts := zap.Options{
 		Development: true,
 	}
@@ -161,6 +166,27 @@ func main() {
 		setupLog.Info("found cert-manager installation")
 	} else {
 		setupLog.Info("did not find cert-manager installation")
+	}
+
+	// Optionally install OpenShift Console Plugin
+	if consolePlugin {
+		// Look up operator namespace
+		namespace := os.Getenv("OPERATOR_NAMESPACE")
+		if len(namespace) == 0 {
+			setupLog.Error(err, "could not determine operator's namespace")
+			os.Exit(1)
+		}
+		installer := &console.PluginInstaller{
+			Client:    mgr.GetClient(),
+			Namespace: namespace,
+			Scheme:    mgr.GetScheme(),
+			Log:       setupLog,
+		}
+		err := installer.SetupWithManager(mgr)
+		if err != nil {
+			setupLog.Error(err, "failed to install OpenShift Console Plugin")
+			os.Exit(1)
+		}
 	}
 
 	// Optionally enable Insights integration. Will only be enabled if INSIGHTS_ENABLED is true

@@ -1,0 +1,31 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+    app: cryostat-plugin
+    app.kubernetes.io/instance: cryostat-plugin
+    app.kubernetes.io/name: cryostat-plugin
+    app.kubernetes.io/part-of: cryostat-plugin
+  name: cryostat-plugin-patcher
+rules:
+- apiGroups:
+  - console.openshift.io
+  resources:
+  - consoleplugins
+  verbs:
+  - create
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - operator.openshift.io
+  resources:
+  - consoles
+  verbs:
+  - get
+  - list
+  - patch
+  - update
+  - watch
