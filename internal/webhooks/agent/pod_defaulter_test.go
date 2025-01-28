@@ -386,6 +386,29 @@ var _ = Describe("PodDefaulter", func() {
 					ExpectPod()
 				})
 			})
+
+			Context("with a custom read-only label", func() {
+				Context("that is valid", func() {
+					BeforeEach(func() {
+						t.objs = append(t.objs, t.NewCryostat().Object)
+						originalPod = t.NewPodReadOnlyLabel()
+						expectedPod = t.NewMutatedPodReadOnlyLabel()
+					})
+
+					ExpectPod()
+				})
+
+				Context("that is non-boolean", func() {
+					BeforeEach(func() {
+						t.objs = append(t.objs, t.NewCryostat().Object)
+						originalPod = t.NewPodReadOnlyLabelInvalid()
+						// Should fail
+						expectedPod = originalPod
+					})
+
+					ExpectPod()
+				})
+			})
 		})
 
 		Context("with a missing Cryostat CR", func() {

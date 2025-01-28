@@ -168,6 +168,18 @@ func (r *AgentWebhookTestResources) NewPodContainerBadLabel() *corev1.Pod {
 	return pod
 }
 
+func (r *AgentWebhookTestResources) NewPodReadOnlyLabel() *corev1.Pod {
+	pod := r.NewPod()
+	pod.Labels["cryostat.io/read-only"] = "true"
+	return pod
+}
+
+func (r *AgentWebhookTestResources) NewPodReadOnlyLabelInvalid() *corev1.Pod {
+	pod := r.NewPod()
+	pod.Labels["cryostat.io/read-only"] = "banana"
+	return pod
+}
+
 type mutatedPodOptions struct {
 	javaToolOptions string
 	namespace       string
@@ -175,6 +187,7 @@ type mutatedPodOptions struct {
 	pullPolicy      corev1.PullPolicy
 	gatewayPort     int32
 	callbackPort    int32
+	writeAccess     *bool
 	scheme          string
 	// Function to produce mutated container array
 	containersFunc func(*AgentWebhookTestResources, *mutatedPodOptions) []corev1.Container
@@ -195,6 +208,9 @@ func (r *AgentWebhookTestResources) setDefaultMutatedPodOptions(options *mutated
 	}
 	if options.callbackPort == 0 {
 		options.callbackPort = 9977
+	}
+	if options.writeAccess == nil {
+		options.writeAccess = &[]bool{true}[0]
 	}
 	options.scheme = "https"
 	if !r.TLS {
@@ -256,6 +272,12 @@ func (r *AgentWebhookTestResources) NewMutatedPodMultiContainer() *corev1.Pod {
 func (r *AgentWebhookTestResources) NewMutatedPodContainerLabel() *corev1.Pod {
 	return r.newMutatedPod(&mutatedPodOptions{
 		containersFunc: newMutatedMultiContainersLabel,
+	})
+}
+
+func (r *AgentWebhookTestResources) NewMutatedPodReadOnlyLabel() *corev1.Pod {
+	return r.newMutatedPod(&mutatedPodOptions{
+		writeAccess: &[]bool{false}[0],
 	})
 }
 
@@ -374,7 +396,7 @@ func (r *AgentWebhookTestResources) newMutatedContainer(original *corev1.Contain
 			},
 			{
 				Name:  "CRYOSTAT_AGENT_API_WRITES_ENABLED",
-				Value: "true",
+				Value: strconv.FormatBool(*options.writeAccess),
 			},
 			{
 				Name:  "CRYOSTAT_AGENT_WEBSERVER_PORT",
