@@ -20,8 +20,10 @@ import (
 	"fmt"
 	"slices"
 
+	"github.com/blang/semver/v4"
 	"github.com/cryostatio/cryostat-operator/internal/controllers/constants"
 	"github.com/go-logr/logr"
+	configv1 "github.com/openshift/api/config/v1"
 	consolev1 "github.com/openshift/api/console/v1"
 	openshiftoperatorv1 "github.com/openshift/api/operator/v1"
 	appsv1 "k8s.io/api/apps/v1"
@@ -48,6 +50,9 @@ type PluginInstaller struct {
 var _ manager.Runnable = (*PluginInstaller)(nil)
 var _ manager.LeaderElectionRunnable = (*PluginInstaller)(nil)
 
+// Minimum OpenShift version that supports the plugin
+const minOpenShiftVersion = "4.15.0"
+
 // Start implements manager.Runnable.
 func (r *PluginInstaller) Start(ctx context.Context) error {
 	return r.installConsolePlugin(ctx)
@@ -59,7 +64,15 @@ func (r *PluginInstaller) NeedLeaderElection() bool {
 }
 
 func (r *PluginInstaller) installConsolePlugin(ctx context.Context) error {
-	err := r.createConsolePlugin(ctx)
+	compat, err := r.isOpenShiftCompatible(ctx)
+	if err != nil {
+		return err
+	}
+	if !compat {
+		// Return early if this OpenShift cluster is not compatible
+		return nil
+	}
+	err = r.createConsolePlugin(ctx)
 	if err != nil {
 		return err
 	}
@@ -203,4 +216,41 @@ func (r *PluginInstaller) findOwner(ctx context.Context) (*rbacv1.ClusterRoleBin
 		}
 	}
 	return nil, errors.New("could not find console plugin cluster role")
+}
+
+func (r *PluginInstaller) isOpenShiftCompatible(ctx context.Context) (bool, error) {
+	// Build a semver.Version from the minimum version
+	minVersion := semver.MustParse(minOpenShiftVersion)
+
+	// Look up the cluster's version
+	version, err := r.getOpenShiftVersion(ctx)
+	if err != nil {
+		return false, err
+	}
+
+	// Check that the cluster is newer than the minimum
+	result := version.GTE(minVersion)
+	if !result {
+		r.Log.Info(fmt.Sprintf("OpenShift version %s is older than the minimum required (%s) for the Console Plugin. Plugin installation will be skipped.",
+			version.String(), minVersion.String()))
+	}
+	return result, nil
+}
+
+func (r *PluginInstaller) getOpenShiftVersion(ctx context.Context) (*semver.Version, error) {
+	// Look up OpenShift version from the ClusterVersion object
+	clusterVersion := &configv1.ClusterVersion{}
+	err := r.Client.Get(ctx, types.NamespacedName{Name: constants.ClusterVersionName}, clusterVersion)
+	if err != nil {
+		return nil, err
+	}
+
+	// Strip off any suffix from the desired version
+	trimmedVer, err := semver.FinalizeVersion(clusterVersion.Status.Desired.Version)
+	if err != nil {
+		return nil, err
+	}
+	// Parse result back into a semver.Version
+	version := semver.MustParse(trimmedVer)
+	return &version, nil
 }

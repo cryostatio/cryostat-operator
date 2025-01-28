@@ -23,9 +23,11 @@ import (
 	"github.com/cryostatio/cryostat-operator/internal/test"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	configv1 "github.com/openshift/api/config/v1"
 	consolev1 "github.com/openshift/api/console/v1"
 	openshiftoperatorv1 "github.com/openshift/api/operator/v1"
 
+	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
 	ctrlclient "sigs.k8s.io/controller-runtime/pkg/client"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
@@ -96,9 +98,10 @@ var _ = Describe("Plugin", func() {
 	Context("installing plugin", func() {
 		Context("with preconditions met", func() {
 			BeforeEach(func() {
-				t.objs = append(t.objs, t.NewConsole(), t.NewPluginClusterRoleBinding(), t.NewOperatorDeployment())
+				t.objs = append(t.objs, t.NewConsole(), t.NewPluginClusterRoleBinding(), t.NewOperatorDeployment(), t.NewClusterVersion())
 			})
 			JustBeforeEach(func() {
+				t.updateClusterVersionStatus(t.NewClusterVersion())
 				err := installer.Start(context.Background())
 				Expect(err).ToNot(HaveOccurred())
 			})
@@ -119,9 +122,10 @@ var _ = Describe("Plugin", func() {
 		})
 		Context("with plugin already registered", func() {
 			BeforeEach(func() {
-				t.objs = append(t.objs, t.NewConsoleExisting(), t.NewPluginClusterRoleBinding(), t.NewOperatorDeployment())
+				t.objs = append(t.objs, t.NewConsoleExisting(), t.NewPluginClusterRoleBinding(), t.NewOperatorDeployment(), t.NewClusterVersion())
 			})
 			JustBeforeEach(func() {
+				t.updateClusterVersionStatus(t.NewClusterVersion())
 				err := installer.Start(context.Background())
 				Expect(err).ToNot(HaveOccurred())
 			})
@@ -142,47 +146,93 @@ var _ = Describe("Plugin", func() {
 				})
 			}
 			JustBeforeEach(func() {
+				t.updateClusterVersionStatus(t.NewClusterVersion())
 				err := installer.Start(context.Background())
 				Expect(err).ToNot(HaveOccurred())
 			})
 			Context("with missing Deployment", func() {
 				BeforeEach(func() {
-					t.objs = append(t.objs, t.NewConsole(), t.NewPluginClusterRoleBinding())
+					t.objs = append(t.objs, t.NewConsole(), t.NewPluginClusterRoleBinding(), t.NewClusterVersion())
 				})
 				ExpectUnownedPlugin()
 			})
 			Context("with missing Deployment labels", func() {
 				BeforeEach(func() {
-					t.objs = append(t.objs, t.NewConsole(), t.NewOperatorDeploymentMissingLabels(), t.NewPluginClusterRoleBinding())
+					t.objs = append(t.objs, t.NewConsole(), t.NewOperatorDeploymentMissingLabels(), t.NewPluginClusterRoleBinding(), t.NewClusterVersion())
 				})
 				ExpectUnownedPlugin()
 			})
 			Context("with missing ClusterRoleBinding", func() {
 				BeforeEach(func() {
-					t.objs = append(t.objs, t.NewConsole(), t.NewOperatorDeployment())
+					t.objs = append(t.objs, t.NewConsole(), t.NewOperatorDeployment(), t.NewClusterVersion())
 				})
 				ExpectUnownedPlugin()
 			})
 			Context("with missing ClusterRoleBinding labels", func() {
 				BeforeEach(func() {
-					t.objs = append(t.objs, t.NewConsole(), t.NewOperatorDeployment(), t.NewPluginClusterRoleBindingMissingLabels())
+					t.objs = append(t.objs, t.NewConsole(), t.NewOperatorDeployment(), t.NewPluginClusterRoleBindingMissingLabels(), t.NewClusterVersion())
 				})
 				ExpectUnownedPlugin()
 			})
 			Context("with missing ClusterRoleBinding service account", func() {
 				BeforeEach(func() {
-					t.objs = append(t.objs, t.NewConsole(), t.NewOperatorDeployment(), t.NewPluginClusterRoleBindingMissingSA())
+					t.objs = append(t.objs, t.NewConsole(), t.NewOperatorDeployment(), t.NewPluginClusterRoleBindingMissingSA(), t.NewClusterVersion())
 				})
 				ExpectUnownedPlugin()
 			})
 		})
 		Context("with missing Console", func() {
 			BeforeEach(func() {
-				t.objs = append(t.objs, t.NewPluginClusterRoleBinding(), t.NewOperatorDeployment())
+				t.objs = append(t.objs, t.NewPluginClusterRoleBinding(), t.NewOperatorDeployment(), t.NewClusterVersion())
 			})
 			It("should fail to update Console", func() {
 				err := installer.Start(context.Background())
 				Expect(err).To(HaveOccurred())
+			})
+		})
+		Context("with incompatible OpenShift", func() {
+			var startError error
+
+			expectNoChanges := func() {
+				It("should not create ConsolePlugin", func() {
+					plugin := &consolev1.ConsolePlugin{}
+					err := t.client.Get(context.Background(), types.NamespacedName{Name: t.NewConsolePlugin().Name}, plugin)
+					Expect(kerrors.IsNotFound(err)).To(BeTrue())
+				})
+
+				It("should not update Console", func() {
+					console := t.getConsole(t.NewConsole())
+					Expect(console.Spec.Plugins).ToNot(ContainElement(t.NewConsolePlugin().Name))
+				})
+			}
+			BeforeEach(func() {
+				t.objs = append(t.objs, t.NewConsole(), t.NewPluginClusterRoleBinding(), t.NewOperatorDeployment())
+			})
+			Context("that is too old", func() {
+				BeforeEach(func() {
+					t.objs = append(t.objs, t.NewClusterVersionOld())
+				})
+				JustBeforeEach(func() {
+					t.updateClusterVersionStatus(t.NewClusterVersionOld())
+					startError = installer.Start(context.Background())
+				})
+				It("should not return an error", func() {
+					Expect(startError).ToNot(HaveOccurred())
+				})
+				expectNoChanges()
+			})
+			Context("that is too malformed", func() {
+				BeforeEach(func() {
+					t.objs = append(t.objs, t.NewClusterVersionBad())
+				})
+				JustBeforeEach(func() {
+					t.updateClusterVersionStatus(t.NewClusterVersionBad())
+					startError = installer.Start(context.Background())
+				})
+				It("should return an error", func() {
+					Expect(startError).To(HaveOccurred())
+				})
+				expectNoChanges()
 			})
 		})
 	})
@@ -206,4 +256,14 @@ func (t *pluginTestInput) getConsole(expected *openshiftoperatorv1.Console) *ope
 	err := t.client.Get(context.Background(), types.NamespacedName{Name: expected.Name}, console)
 	Expect(err).ToNot(HaveOccurred())
 	return console
+}
+
+func (t *pluginTestInput) updateClusterVersionStatus(expected *configv1.ClusterVersion) {
+	version := &configv1.ClusterVersion{}
+	err := t.client.Get(context.Background(), types.NamespacedName{Name: expected.Name}, version)
+	Expect(err).ToNot(HaveOccurred())
+
+	version.Status = expected.Status
+	err = t.client.Status().Update(context.Background(), version)
+	Expect(err).ToNot(HaveOccurred())
 }

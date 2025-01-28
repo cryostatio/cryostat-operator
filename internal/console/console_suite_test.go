@@ -25,6 +25,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
+	configv1 "github.com/openshift/api/config/v1"
 	consolev1 "github.com/openshift/api/console/v1"
 	openshiftoperatorv1 "github.com/openshift/api/operator/v1"
 
@@ -71,6 +72,7 @@ var _ = BeforeSuite(func() {
 
 	testEnv = &envtest.Environment{
 		CRDDirectoryPaths: []string{
+			filepath.Join(append(openshiftPrefix, "config", "v1", "zz_generated.crd-manifests", "0000_00_cluster-version-operator_01_clusterversions-Default.crd.yaml")...),
 			filepath.Join(append(openshiftPrefix, "console", "v1", "zz_generated.crd-manifests", "90_consoleplugins.crd.yaml")...),
 			filepath.Join(append(openshiftPrefix, "operator", "v1", "zz_generated.crd-manifests", "0000_50_console_01_consoles.crd.yaml")...),
 		},
@@ -86,6 +88,7 @@ var _ = BeforeSuite(func() {
 	k8sScheme = runtime.NewScheme()
 	sb := runtime.NewSchemeBuilder(
 		scheme.AddToScheme,
+		configv1.AddToScheme,
 		consolev1.AddToScheme,
 		openshiftoperatorv1.AddToScheme,
 	)
