@@ -16,6 +16,7 @@ package console
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"slices"
 
@@ -23,13 +24,17 @@ import (
 	"github.com/go-logr/logr"
 	consolev1 "github.com/openshift/api/console/v1"
 	openshiftoperatorv1 "github.com/openshift/api/operator/v1"
+	appsv1 "k8s.io/api/apps/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/util/retry"
+	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+	"sigs.k8s.io/controller-runtime/pkg/manager"
 )
 
 type PluginInstaller struct {
@@ -39,7 +44,21 @@ type PluginInstaller struct {
 	Log       logr.Logger
 }
 
-func (r *PluginInstaller) InstallConsolePlugin(ctx context.Context) error {
+// Verify that *PluginInstaller implements manager.Runnable and manager.LeaderElectionRunnable.
+var _ manager.Runnable = (*PluginInstaller)(nil)
+var _ manager.LeaderElectionRunnable = (*PluginInstaller)(nil)
+
+// Start implements manager.Runnable.
+func (r *PluginInstaller) Start(ctx context.Context) error {
+	return r.installConsolePlugin(ctx)
+}
+
+// NeedLeaderElection implements manager.LeaderElectionRunnable.
+func (r *PluginInstaller) NeedLeaderElection() bool {
+	return true
+}
+
+func (r *PluginInstaller) installConsolePlugin(ctx context.Context) error {
 	err := r.createConsolePlugin(ctx)
 	if err != nil {
 		return err
@@ -54,16 +73,11 @@ func (r *PluginInstaller) createConsolePlugin(ctx context.Context) error {
 		},
 	}
 
-	// Use the plugin's ClusterRoleBinding as an owner.
-	// Since the binding is managed by OLM, this will cause the ConsolePlugin
-	// to be garbage collected when the operator is uninstalled.
-	// We could use any OLM-managed object as owner, but since ConsolePlugin
-	// is cluster-scoped, the owner must also be cluster-scoped.
-	owner := &rbacv1.ClusterRoleBinding{}
-	fmt.Printf("%v\n", r.Client)
-	err := r.Client.Get(ctx, types.NamespacedName{Name: constants.ConsoleClusterRoleBindingName}, owner)
+	owner, err := r.findOwner(ctx)
 	if err != nil {
-		return err
+		// Treat this as a warning, and let the ConsolePlugin be unowned if we can't find
+		// the appropriate owner
+		r.Log.Error(err, "could not locate owner for ConsolePlugin")
 	}
 
 	op, err := controllerutil.CreateOrUpdate(ctx, r.Client, plugin, func() error {
@@ -74,9 +88,11 @@ func (r *PluginInstaller) createConsolePlugin(ctx context.Context) error {
 		metav1.SetMetaDataLabel(&plugin.ObjectMeta, "app.kubernetes.io/name", constants.ConsolePluginName)
 		metav1.SetMetaDataLabel(&plugin.ObjectMeta, "app.kubernetes.io/part-of", constants.ConsolePluginName)
 
-		err := controllerutil.SetOwnerReference(owner, plugin, r.Scheme)
-		if err != nil {
-			return err
+		if owner != nil {
+			err := controllerutil.SetOwnerReference(owner, plugin, r.Scheme)
+			if err != nil {
+				return err
+			}
 		}
 
 		// Configure the Plugin Spec
@@ -115,6 +131,10 @@ func (r *PluginInstaller) createConsolePlugin(ctx context.Context) error {
 	return nil
 }
 
+func (r *PluginInstaller) SetupWithManager(mgr ctrl.Manager) error {
+	return mgr.Add(r)
+}
+
 func (r *PluginInstaller) registerConsolePlugin(ctx context.Context) error {
 	return retry.RetryOnConflict(retry.DefaultBackoff, func() error {
 		console := &openshiftoperatorv1.Console{}
@@ -131,7 +151,56 @@ func (r *PluginInstaller) registerConsolePlugin(ctx context.Context) error {
 			if err != nil {
 				return err
 			}
+			r.Log.Info("Console updated", "name", console.Name)
 		}
 		return nil
 	})
+}
+
+func (r *PluginInstaller) findOwner(ctx context.Context) (*rbacv1.ClusterRoleBinding, error) {
+	// Use the plugin's ClusterRoleBinding as an owner.
+	// Since the binding is managed by OLM, this will cause the ConsolePlugin
+	// to be garbage collected when the operator is uninstalled.
+	// We could use any OLM-managed object as owner, but since ConsolePlugin
+	// is cluster-scoped, the owner must also be cluster-scoped.
+
+	// Look up the operator's deployment, which should have been installed by OLM
+	deploy := &appsv1.Deployment{}
+	err := r.Client.Get(ctx, types.NamespacedName{Name: constants.OperatorDeploymentName, Namespace: r.Namespace}, deploy)
+	if err != nil {
+		return nil, err
+	}
+
+	// OLM should have placed these labels on the deployment, which should have the
+	// same value on the ClusterRoleBindings it installed for our operator.
+	keys := []string{"olm.owner", "olm.owner.kind", "olm.owner.namespace"}
+	selector := labels.Set{}
+	for _, key := range keys {
+		value, pres := deploy.Labels[key]
+		if !pres {
+			return nil, fmt.Errorf("could not find OLM label \"%s\"", key)
+		}
+		selector[key] = value
+	}
+
+	// Get a list of all ClusterRoleBindings whose labels point to
+	// our operator.
+	bindings := &rbacv1.ClusterRoleBindingList{}
+	err = r.Client.List(ctx, bindings, &client.ListOptions{
+		LabelSelector: selector.AsSelector(),
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	// Look for the ClusterRoleBinding that corresponds to the
+	// OpenShift Console plugin.
+	for i, binding := range bindings.Items {
+		for _, subject := range binding.Subjects {
+			if subject.Name == constants.ConsoleServiceAccountName && subject.Kind == "ServiceAccount" {
+				return &bindings.Items[i], nil
+			}
+		}
+	}
+	return nil, errors.New("could not find console plugin cluster role")
 }

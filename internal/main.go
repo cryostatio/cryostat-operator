@@ -15,7 +15,6 @@
 package main
 
 import (
-	"context"
 	"crypto/tls"
 	"flag"
 	"fmt"
@@ -183,7 +182,7 @@ func main() {
 			Scheme:    mgr.GetScheme(),
 			Log:       setupLog,
 		}
-		err := installer.InstallConsolePlugin(context.Background())
+		err := installer.SetupWithManager(mgr)
 		if err != nil {
 			setupLog.Error(err, "failed to install OpenShift Console Plugin")
 			os.Exit(1)

@@ -18,8 +18,11 @@ import (
 	"github.com/cryostatio/cryostat-operator/internal/test"
 	consolev1 "github.com/openshift/api/console/v1"
 	openshiftoperatorv1 "github.com/openshift/api/operator/v1"
+	appsv1 "k8s.io/api/apps/v1"
+	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
 )
 
 type PluginTestResources struct {
@@ -106,6 +109,12 @@ func (r *PluginTestResources) NewPluginClusterRoleBinding() *rbacv1.ClusterRoleB
 	return &rbacv1.ClusterRoleBinding{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "cryostat-plugin",
+			Labels: map[string]string{
+				"olm.owner":           "cryostat-operator.v0.0.0",
+				"olm.owner.kind":      "ClusterServiceVersion",
+				"olm.owner.namespace": r.Namespace,
+				"something":           "else",
+			},
 		},
 		RoleRef: rbacv1.RoleRef{
 			Kind: "ClusterRole",
@@ -119,4 +128,59 @@ func (r *PluginTestResources) NewPluginClusterRoleBinding() *rbacv1.ClusterRoleB
 			},
 		},
 	}
+}
+
+func (r *PluginTestResources) NewPluginClusterRoleBindingMissingLabels() *rbacv1.ClusterRoleBinding {
+	binding := r.NewPluginClusterRoleBinding()
+	delete(binding.Labels, "olm.owner")
+	return binding
+}
+
+func (r *PluginTestResources) NewPluginClusterRoleBindingMissingSA() *rbacv1.ClusterRoleBinding {
+	binding := r.NewPluginClusterRoleBinding()
+	binding.Subjects[0].Name = "not-cryostat-plugin"
+	return binding
+}
+
+func (r *PluginTestResources) NewOperatorDeployment() *appsv1.Deployment {
+	return &appsv1.Deployment{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "cryostat-operator-controller",
+			Namespace: r.Namespace,
+			Labels: map[string]string{
+				"olm.owner":           "cryostat-operator.v0.0.0",
+				"olm.owner.kind":      "ClusterServiceVersion",
+				"olm.owner.namespace": r.Namespace,
+				"something":           "different",
+			},
+		},
+		Spec: appsv1.DeploymentSpec{
+			Selector: metav1.SetAsLabelSelector(labels.Set{
+				"app.kubernetes.io/name": "cryostat-operator",
+				"control-plane":          "controller-manager",
+			}),
+			Template: corev1.PodTemplateSpec{
+				ObjectMeta: metav1.ObjectMeta{
+					Labels: map[string]string{
+						"app.kubernetes.io/name": "cryostat-operator",
+						"control-plane":          "controller-manager",
+					},
+				},
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{
+						{
+							Name:  "manager",
+							Image: "example.com/operator:latest",
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
+func (r *PluginTestResources) NewOperatorDeploymentMissingLabels() *appsv1.Deployment {
+	deploy := r.NewOperatorDeployment()
+	delete(deploy.Labels, "olm.owner")
+	return deploy
 }

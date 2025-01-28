@@ -40,6 +40,7 @@ type pluginTestInput struct {
 
 var _ = Describe("Plugin", func() {
 	var t *pluginTestInput
+	var installer *console.PluginInstaller
 	count := 0
 
 	namespaceWithSuffix := func(name string) string {
@@ -72,10 +73,17 @@ var _ = Describe("Plugin", func() {
 			err := t.client.Create(ctx, obj)
 			Expect(err).ToNot(HaveOccurred())
 		}
+
+		installer = &console.PluginInstaller{
+			Client:    t.client,
+			Namespace: t.Namespace,
+			Scheme:    k8sScheme,
+			Log:       logger,
+		}
 	})
 
 	JustAfterEach(func() {
-		for _, obj := range t.objs {
+		for _, obj := range append(t.objs, t.NewConsolePlugin()) {
 			err := ctrlclient.IgnoreNotFound(t.client.Delete(ctx, obj))
 			Expect(err).ToNot(HaveOccurred())
 		}
@@ -86,22 +94,12 @@ var _ = Describe("Plugin", func() {
 	})
 
 	Context("installing plugin", func() {
-		var installer *console.PluginInstaller
-
-		JustBeforeEach(func() {
-			installer = &console.PluginInstaller{
-				Client:    t.client,
-				Namespace: t.Namespace,
-				Scheme:    k8sScheme,
-				Log:       logger,
-			}
-		})
 		Context("with preconditions met", func() {
 			BeforeEach(func() {
-				t.objs = append(t.objs, t.NewConsole(), t.NewPluginClusterRoleBinding())
+				t.objs = append(t.objs, t.NewConsole(), t.NewPluginClusterRoleBinding(), t.NewOperatorDeployment())
 			})
 			JustBeforeEach(func() {
-				err := installer.InstallConsolePlugin(context.Background())
+				err := installer.Start(context.Background())
 				Expect(err).ToNot(HaveOccurred())
 			})
 			It("should create ConsolePlugin", func() {
@@ -121,10 +119,10 @@ var _ = Describe("Plugin", func() {
 		})
 		Context("with plugin already registered", func() {
 			BeforeEach(func() {
-				t.objs = append(t.objs, t.NewConsoleExisting(), t.NewPluginClusterRoleBinding())
+				t.objs = append(t.objs, t.NewConsoleExisting(), t.NewPluginClusterRoleBinding(), t.NewOperatorDeployment())
 			})
 			JustBeforeEach(func() {
-				err := installer.InstallConsolePlugin(context.Background())
+				err := installer.Start(context.Background())
 				Expect(err).ToNot(HaveOccurred())
 			})
 			It("should do nothing", func() {
@@ -133,23 +131,64 @@ var _ = Describe("Plugin", func() {
 				Expect(actual.Spec.Plugins).To(ConsistOf(expected.Spec.Plugins))
 			})
 		})
-		Context("with missing ClusterRoleBinding", func() {
-			BeforeEach(func() {
-				t.objs = append(t.objs, t.NewConsole())
+		Context("with missing owner", func() {
+			ExpectUnownedPlugin := func() {
+				It("should create ConsolePlugin unowned", func() {
+					expected := t.NewConsolePlugin()
+					actual := t.getConsolePlugin(expected)
+					Expect(actual.Spec).To(Equal(expected.Spec))
+					Expect(actual.OwnerReferences).To(BeEmpty())
+					Expect(actual.Labels).To(Equal(expected.Labels))
+				})
+			}
+			JustBeforeEach(func() {
+				err := installer.Start(context.Background())
+				Expect(err).ToNot(HaveOccurred())
 			})
-			It("should fail to create ConsolePlugin", func() {
-				err := installer.InstallConsolePlugin(context.Background())
-				Expect(err).To(HaveOccurred())
+			Context("with missing Deployment", func() {
+				BeforeEach(func() {
+					t.objs = append(t.objs, t.NewConsole(), t.NewPluginClusterRoleBinding())
+				})
+				ExpectUnownedPlugin()
+			})
+			Context("with missing Deployment labels", func() {
+				BeforeEach(func() {
+					t.objs = append(t.objs, t.NewConsole(), t.NewOperatorDeploymentMissingLabels(), t.NewPluginClusterRoleBinding())
+				})
+				ExpectUnownedPlugin()
+			})
+			Context("with missing ClusterRoleBinding", func() {
+				BeforeEach(func() {
+					t.objs = append(t.objs, t.NewConsole(), t.NewOperatorDeployment())
+				})
+				ExpectUnownedPlugin()
+			})
+			Context("with missing ClusterRoleBinding labels", func() {
+				BeforeEach(func() {
+					t.objs = append(t.objs, t.NewConsole(), t.NewOperatorDeployment(), t.NewPluginClusterRoleBindingMissingLabels())
+				})
+				ExpectUnownedPlugin()
+			})
+			Context("with missing ClusterRoleBinding service account", func() {
+				BeforeEach(func() {
+					t.objs = append(t.objs, t.NewConsole(), t.NewOperatorDeployment(), t.NewPluginClusterRoleBindingMissingSA())
+				})
+				ExpectUnownedPlugin()
 			})
 		})
 		Context("with missing Console", func() {
 			BeforeEach(func() {
-				t.objs = append(t.objs, t.NewPluginClusterRoleBinding())
+				t.objs = append(t.objs, t.NewPluginClusterRoleBinding(), t.NewOperatorDeployment())
 			})
 			It("should fail to update Console", func() {
-				err := installer.InstallConsolePlugin(context.Background())
+				err := installer.Start(context.Background())
 				Expect(err).To(HaveOccurred())
 			})
+		})
+	})
+	Context("as runnable", func() {
+		It("should need leader election", func() {
+			Expect(installer.NeedLeaderElection()).To(BeTrue())
 		})
 	})
 

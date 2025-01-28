@@ -9,6 +9,17 @@ metadata:
   name: cryostat-plugin-patcher
 rules:
 - apiGroups:
+  - console.openshift.io
+  resources:
+  - consoleplugins
+  verbs:
+  - create
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
   - operator.openshift.io
   resources:
   - consoles
@@ -17,3 +28,4 @@ rules:
   - list
   - patch
   - update
+  - watch
