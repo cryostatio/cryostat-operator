@@ -101,6 +101,10 @@ AGENT_INIT_NAMESPACE ?= $(DEFAULT_NAMESPACE)
 AGENT_INIT_NAME ?= cryostat-agent-init
 AGENT_INIT_VERSION ?= latest
 export AGENT_INIT_IMG ?= $(AGENT_INIT_NAMESPACE)/$(AGENT_INIT_NAME):$(AGENT_INIT_VERSION)
+CONSOLE_PLUGIN_NAMESPACE ?= $(DEFAULT_NAMESPACE)
+CONSOLE_PLUGIN_NAME ?= cryostat-openshift-console-plugin
+CONSOLE_PLUGIN_VERSION ?= latest
+CONSOLE_PLUGIN_IMG ?= $(CONSOLE_PLUGIN_NAMESPACE)/$(CONSOLE_PLUGIN_NAME):$(CONSOLE_PLUGIN_VERSION)
 
 CERT_MANAGER_VERSION ?= 1.12.14
 CERT_MANAGER_MANIFEST ?= \
@@ -161,8 +165,13 @@ RUNTIMES_INVENTORY_NAME ?= runtimes-inventory-rhel8-operator
 RUNTIMES_INVENTORY_VERSION ?= latest
 RUNTIMES_INVENTORY_IMG ?= $(RUNTIMES_INVENTORY_NAMESPACE)/$(RUNTIMES_INVENTORY_NAME):$(RUNTIMES_INVENTORY_VERSION)
 BUNDLE_GEN_FLAGS += --extra-service-accounts cryostat-operator-insights
+BUNDLE_MODE=ocp
+else
+ifeq ($(BUNDLE_MODE), ocp)
+KUSTOMIZE_BUNDLE_DIR ?= config/overlays/openshift
 else
 KUSTOMIZE_BUNDLE_DIR ?= config/manifests
+endif
 endif
 
 # Specify which scorecard tests/suites to run
@@ -193,7 +202,9 @@ test: test-envtest test-scorecard
 .PHONY: test-envtest
 test-envtest: generate manifests fmt vet setup-envtest ## Run tests using envtest.
 ifneq ($(SKIP_TESTS), true)
-	KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) --bin-dir $(LOCALBIN) -p path)" $(GO_TEST) -v -coverprofile cover.out ./...
+	KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) --bin-dir $(LOCALBIN) -p path)" \
+	OPENSHIFT_API_MOD_VERSION="$(shell go list -m -f '{{if .Replace}}{{.Replace.Version}}{{else}}{{.Version}}{{end}}' github.com/openshift/api)" \
+	$(GO_TEST) -v -coverprofile cover.out ./...
 endif
 
 .PHONY: test-scorecard
@@ -339,11 +350,11 @@ catalog-build: opm ## Build a catalog image.
 bundle: manifests kustomize operator-sdk ## Generate bundle manifests and metadata, then validate generated files.
 	$(OPERATOR_SDK) generate kustomize manifests -q
 	cd config/manager && $(KUSTOMIZE) edit set image controller=$(OPERATOR_IMG)
+ifeq ($(BUNDLE_MODE), ocp)
+	cd config/openshift && $(KUSTOMIZE) edit set image console-plugin=$(CONSOLE_PLUGIN_IMG)
+endif
 ifeq ($(ENABLE_INSIGHTS), true)
 	cd config/insights && $(KUSTOMIZE) edit set image insights=$(RUNTIMES_INVENTORY_IMG)
-endif
-ifeq ($(BUNDLE_MODE), ocp)
-	cd $(KUSTOMIZE_BUNDLE_DIR) && $(KUSTOMIZE) edit add base ../openshift
 endif
 	$(KUSTOMIZE) build $(KUSTOMIZE_BUNDLE_DIR) | $(OPERATOR_SDK) generate bundle $(BUNDLE_GEN_FLAGS)
 # Workaround for: https://issues.redhat.com/browse/OCPBUGS-34901
@@ -361,6 +372,7 @@ manifests: controller-gen ## Generate manifests e.g. CRD, RBAC, etc.
 	$(CONTROLLER_GEN) rbac:roleName=role crd webhook paths="./..." output:crd:artifacts:config=config/crd/bases
 	envsubst < hack/image_tag_patch.yaml.in > config/default/image_tag_patch.yaml
 	envsubst < hack/image_pull_patch.yaml.in > config/default/image_pull_patch.yaml
+	envsubst < hack/plugin_image_pull_patch.yaml.in > config/openshift/plugin_image_pull_patch.yaml
 ifeq ($(ENABLE_INSIGHTS), true)
 	envsubst < hack/insights_patch.yaml.in > config/overlays/insights/insights_patch.yaml
 endif

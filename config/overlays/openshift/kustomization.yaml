@@ -1,0 +1,12 @@
+resources:
+- ../../manifests
+- ../../openshift
+
+patchesJson6902:
+- path: console_plugin_patch.yaml
+  target:
+    group: apps
+    version: v1
+    kind: Deployment
+    name: controller
+    namespace: system

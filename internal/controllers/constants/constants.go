@@ -71,4 +71,12 @@ const (
 	ReportsTLSCommonName        = "cryostat-reports"
 	AgentsTLSCommonName         = "cryostat-agent"
 	AgentAuthProxyTLSCommonName = "cryostat-agent-proxy"
+
+	// OpenShift Console Plugin constants
+	ConsolePluginName               = "cryostat-plugin"
+	ConsoleServiceAccountName       = "cryostat-plugin"
+	ConsoleServiceName              = "cryostat-plugin"
+	ConsoleServicePort        int32 = 9443
+	ConsoleProxyName                = "cryostat-plugin-proxy"
+	ConsoleCRName                   = "cluster"
 )

@@ -1,5 +1,5 @@
 resources:
-- ../../manifests
+- ../openshift
 - ../../insights
 
 patchesStrategicMerge:

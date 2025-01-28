@@ -1,0 +1,74 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: cryostat-plugin
+    app.kubernetes.io/instance: cryostat-plugin
+    app.kubernetes.io/name: cryostat-plugin
+    app.kubernetes.io/part-of: cryostat-plugin
+  name: cryostat-plugin
+  namespace: system
+spec:
+  progressDeadlineSeconds: 600
+  replicas: 1
+  revisionHistoryLimit: 10
+  selector:
+    matchLabels:
+      app: cryostat-plugin
+      app.kubernetes.io/instance: cryostat-plugin
+      app.kubernetes.io/name: cryostat-plugin
+      app.kubernetes.io/part-of: cryostat-plugin
+  strategy:
+    rollingUpdate:
+      maxSurge: 25%
+      maxUnavailable: 25%
+    type: RollingUpdate
+  template:
+    metadata:
+      labels:
+        app: cryostat-plugin
+        app.kubernetes.io/instance: cryostat-plugin
+        app.kubernetes.io/name: cryostat-plugin
+        app.kubernetes.io/part-of: cryostat-plugin
+    spec:
+      containers:
+      - env:
+        - name: PORT
+          value: "9443"
+        - name: NODE_TLS_REJECT_UNAUTHORIZED
+          value: "0"
+        image: console-plugin:latest
+        imagePullPolicy: Always
+        name: cryostat-plugin
+        ports:
+        - containerPort: 9443
+          protocol: TCP
+        resources:
+          requests:
+            cpu: 10m
+            memory: 50Mi
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+        terminationMessagePath: /dev/termination-log
+        terminationMessagePolicy: File
+        volumeMounts:
+        - mountPath: /var/cert
+          name: cryostat-plugin-cert
+          readOnly: true
+      dnsPolicy: ClusterFirst
+      restartPolicy: Always
+      schedulerName: default-scheduler
+      securityContext:
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
+      serviceAccountName: cryostat-plugin
+      terminationGracePeriodSeconds: 30
+      volumes:
+      - name: cryostat-plugin-cert
+        secret:
+          defaultMode: 420
+          secretName: cryostat-plugin-cert
