@@ -1003,6 +1003,9 @@ func (r *TestResources) NewCryostatWithAgentHostnameVerifyDisabled() *model.Cryo
 
 func (r *TestResources) NewCryostatService() *corev1.Service {
 	appProtocol := "http"
+	if r.TLS {
+		appProtocol = "https"
+	}
 	return &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      r.Name,
