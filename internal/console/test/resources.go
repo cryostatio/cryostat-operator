@@ -194,6 +194,10 @@ func (r *PluginTestResources) NewClusterVersionOld() *configv1.ClusterVersion {
 	return r.newClusterVersion("4.12.0-foo+bar")
 }
 
+func (r *PluginTestResources) NewClusterVersionNew() *configv1.ClusterVersion {
+	return r.newClusterVersion("100.0.0-foo+bar")
+}
+
 func (r *PluginTestResources) NewClusterVersionBad() *configv1.ClusterVersion {
 	return r.newClusterVersion("")
 }

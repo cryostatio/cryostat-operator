@@ -53,6 +53,9 @@ var _ manager.LeaderElectionRunnable = (*PluginInstaller)(nil)
 // Minimum OpenShift version that supports the plugin
 const minOpenShiftVersion = "4.15.0"
 
+// Maximum OpenShift version that supports the plugin
+const maxOpenShiftVersion = "99.99.0" // Placeholder until needed
+
 // Start implements manager.Runnable.
 func (r *PluginInstaller) Start(ctx context.Context) error {
 	return r.installConsolePlugin(ctx)
@@ -219,8 +222,9 @@ func (r *PluginInstaller) findOwner(ctx context.Context) (*rbacv1.ClusterRoleBin
 }
 
 func (r *PluginInstaller) isOpenShiftCompatible(ctx context.Context) (bool, error) {
-	// Build a semver.Version from the minimum version
+	// Build a semver.Version from the minimum/maximum version
 	minVersion := semver.MustParse(minOpenShiftVersion)
+	maxVersion := semver.MustParse(maxOpenShiftVersion)
 
 	// Look up the cluster's version
 	version, err := r.getOpenShiftVersion(ctx)
@@ -229,12 +233,17 @@ func (r *PluginInstaller) isOpenShiftCompatible(ctx context.Context) (bool, erro
 	}
 
 	// Check that the cluster is newer than the minimum
-	result := version.GTE(minVersion)
-	if !result {
+	if version.LT(minVersion) {
 		r.Log.Info(fmt.Sprintf("OpenShift version %s is older than the minimum required (%s) for the Console Plugin. Plugin installation will be skipped.",
 			version.String(), minVersion.String()))
+		return false, nil
 	}
-	return result, nil
+	if version.GT(maxVersion) {
+		r.Log.Info(fmt.Sprintf("OpenShift version %s is newer than the maximum allowed (%s) for the Console Plugin. Plugin installation will be skipped.",
+			version.String(), maxVersion.String()))
+		return false, nil
+	}
+	return true, nil
 }
 
 func (r *PluginInstaller) getOpenShiftVersion(ctx context.Context) (*semver.Version, error) {

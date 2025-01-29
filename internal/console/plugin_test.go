@@ -221,6 +221,19 @@ var _ = Describe("Plugin", func() {
 				})
 				expectNoChanges()
 			})
+			Context("that is too new", func() {
+				BeforeEach(func() {
+					t.objs = append(t.objs, t.NewClusterVersionNew())
+				})
+				JustBeforeEach(func() {
+					t.updateClusterVersionStatus(t.NewClusterVersionNew())
+					startError = installer.Start(context.Background())
+				})
+				It("should not return an error", func() {
+					Expect(startError).ToNot(HaveOccurred())
+				})
+				expectNoChanges()
+			})
 			Context("that is too malformed", func() {
 				BeforeEach(func() {
 					t.objs = append(t.objs, t.NewClusterVersionBad())
