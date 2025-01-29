@@ -53,6 +53,7 @@ const (
 	agentMaxSizeBytes      = "50Mi"
 	agentInitCpuRequest    = "10m"
 	agentInitMemoryRequest = "32Mi"
+	defaultJavaOptsVar     = "JAVA_TOOL_OPTIONS"
 )
 
 // Default optionally mutates a pod to inject the Cryostat agent
@@ -274,8 +275,8 @@ func (r *podMutator) Default(ctx context.Context, obj runtime.Object) error {
 			},
 		)
 	}
-	// Inject agent using JAVA_TOOL_OPTIONS, appending to any existing value
-	extended, err := extendJavaToolOptions(container.Env)
+	// Inject agent using JAVA_TOOL_OPTIONS or specified variable, appending to any existing value
+	extended, err := extendJavaOptsVar(container.Env, getJavaOptionsVar(pod.Labels))
 	if err != nil {
 		return err
 	}
@@ -337,6 +338,15 @@ func hasWriteAccess(labels map[string]string) (*bool, error) {
 		result = !parsed
 	}
 	return &result, nil
+}
+
+func getJavaOptionsVar(labels map[string]string) string {
+	result := defaultJavaOptsVar
+	value, pres := labels[constants.AgentLabelJavaOptionsVar]
+	if pres {
+		result = value
+	}
+	return result
 }
 
 func (r *podMutator) callbackEnv(cr *model.CryostatInstance, namespace string, tls bool, containerPort int32) []corev1.EnvVar {
@@ -409,8 +419,8 @@ func findNamedContainer(containers []corev1.Container, name string) (*corev1.Con
 	return nil, fmt.Errorf("no container found with name \"%s\"", name)
 }
 
-func extendJavaToolOptions(envs []corev1.EnvVar) ([]corev1.EnvVar, error) {
-	existing, err := findJavaToolOptions(envs)
+func extendJavaOptsVar(envs []corev1.EnvVar, javaOptsVar string) ([]corev1.EnvVar, error) {
+	existing, err := findJavaOptsVar(envs, javaOptsVar)
 	if err != nil {
 		return nil, err
 	}
@@ -419,7 +429,7 @@ func extendJavaToolOptions(envs []corev1.EnvVar) ([]corev1.EnvVar, error) {
 		existing.Value += " " + agentArg
 	} else {
 		envs = append(envs, corev1.EnvVar{
-			Name:  "JAVA_TOOL_OPTIONS",
+			Name:  javaOptsVar,
 			Value: agentArg,
 		})
 	}
@@ -427,13 +437,11 @@ func extendJavaToolOptions(envs []corev1.EnvVar) ([]corev1.EnvVar, error) {
 	return envs, nil
 }
 
-var errJavaToolOptionsValueFrom error = errors.New("environment variable JAVA_TOOL_OPTIONS uses \"valueFrom\" and cannot be extended")
-
-func findJavaToolOptions(envs []corev1.EnvVar) (*corev1.EnvVar, error) {
+func findJavaOptsVar(envs []corev1.EnvVar, javaOptsVar string) (*corev1.EnvVar, error) {
 	for i, env := range envs {
-		if env.Name == "JAVA_TOOL_OPTIONS" {
+		if env.Name == javaOptsVar {
 			if env.ValueFrom != nil {
-				return nil, errJavaToolOptionsValueFrom
+				return nil, fmt.Errorf("environment variable %s uses \"valueFrom\" and cannot be extended", javaOptsVar)
 			}
 			return &envs[i], nil
 		}

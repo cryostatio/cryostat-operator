@@ -409,6 +409,16 @@ var _ = Describe("PodDefaulter", func() {
 					ExpectPod()
 				})
 			})
+
+			Context("with a custom java options var label", func() {
+				BeforeEach(func() {
+					t.objs = append(t.objs, t.NewCryostat().Object)
+					originalPod = t.NewPodJavaOptsVar()
+					expectedPod = t.NewMutatedPodJavaOptsVarLabel()
+				})
+
+				ExpectPod()
+			})
 		})
 
 		Context("with a missing Cryostat CR", func() {

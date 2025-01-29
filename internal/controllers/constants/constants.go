@@ -65,6 +65,7 @@ const (
 	AgentLabelCallbackPort      = agentLabelPrefix + "callback-port"
 	AgentLabelContainer         = agentLabelPrefix + "container"
 	AgentLabelReadOnly          = agentLabelPrefix + "read-only"
+	AgentLabelJavaOptionsVar    = agentLabelPrefix + "java-options-var"
 
 	CryostatCATLSCommonName     = "cryostat-ca-cert-manager"
 	CryostatTLSCommonName       = "cryostat"
