@@ -71,7 +71,7 @@ jobs:
     steps:
     - uses: actions/checkout@v4
     - name: Build bundle image
-      run: IMAGE_NAMESPACE=${{ env.CI_REGISTRY }} BUNDLE_MODE=${{ matrix.bundle_mode }} make bundle-build
+      run: IMAGE_NAMESPACE=${{ env.CI_REGISTRY }} BUNDLE_MODE=${{ matrix.bundle_mode }} make bundle bundle-build
     - name: Tag image
       id: tag-image
       run: |
