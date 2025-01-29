@@ -16,6 +16,7 @@ package test
 
 import (
 	"github.com/cryostatio/cryostat-operator/internal/test"
+	configv1 "github.com/openshift/api/config/v1"
 	consolev1 "github.com/openshift/api/console/v1"
 	openshiftoperatorv1 "github.com/openshift/api/operator/v1"
 	appsv1 "k8s.io/api/apps/v1"
@@ -183,4 +184,36 @@ func (r *PluginTestResources) NewOperatorDeploymentMissingLabels() *appsv1.Deplo
 	deploy := r.NewOperatorDeployment()
 	delete(deploy.Labels, "olm.owner")
 	return deploy
+}
+
+func (r *PluginTestResources) NewClusterVersion() *configv1.ClusterVersion {
+	return r.newClusterVersion("4.17.0-foo+bar")
+}
+
+func (r *PluginTestResources) NewClusterVersionOld() *configv1.ClusterVersion {
+	return r.newClusterVersion("4.12.0-foo+bar")
+}
+
+func (r *PluginTestResources) NewClusterVersionNew() *configv1.ClusterVersion {
+	return r.newClusterVersion("100.0.0-foo+bar")
+}
+
+func (r *PluginTestResources) NewClusterVersionBad() *configv1.ClusterVersion {
+	return r.newClusterVersion("")
+}
+
+func (r *PluginTestResources) newClusterVersion(version string) *configv1.ClusterVersion {
+	return &configv1.ClusterVersion{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "version",
+		},
+		Spec: configv1.ClusterVersionSpec{
+			ClusterID: "00000000-0000-0000-0000-000000000000",
+		},
+		Status: configv1.ClusterVersionStatus{
+			Desired: configv1.Release{
+				Version: version,
+			},
+		},
+	}
 }
