@@ -47,7 +47,10 @@ func (r *Reconciler) reconcileCoreService(ctx context.Context, cr *model.Cryosta
 			"app":       cr.Name,
 			"component": "cryostat",
 		}
-		appProtocol := "http"
+		appProtocol := constants.HttpPortName
+		if tls != nil {
+			appProtocol = constants.HttpsPortName
+		}
 		svc.Spec.Ports = []corev1.ServicePort{
 			{
 				Name:        constants.HttpPortName,

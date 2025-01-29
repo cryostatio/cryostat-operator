@@ -38,6 +38,7 @@ const (
 	OperatorNamePrefix         string = "cryostat-operator-"
 	OperatorDeploymentName     string = "cryostat-operator-controller"
 	HttpPortName               string = "http"
+	HttpsPortName              string = "https"
 	// CAKey is the key for a CA certificate within a TLS secret
 	CAKey = certMeta.TLSCAKey
 	// ALL capability to drop for restricted pod security. See:
