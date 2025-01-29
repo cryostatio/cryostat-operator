@@ -101,6 +101,12 @@ func (r *podMutator) Default(ctx context.Context, obj runtime.Object) error {
 		return err
 	}
 
+	// Check whether write access has been disabled
+	write, err := hasWriteAccess(pod.Labels)
+	if err != nil {
+		return err
+	}
+
 	// Add init container
 	nonRoot := true
 	imageTag := r.getImageTag()
@@ -175,7 +181,7 @@ func (r *podMutator) Default(ctx context.Context, obj runtime.Object) error {
 		},
 		corev1.EnvVar{
 			Name:  "CRYOSTAT_AGENT_API_WRITES_ENABLED",
-			Value: "true", // TODO default to writes enabled, separate label?
+			Value: strconv.FormatBool(*write),
 		},
 		corev1.EnvVar{
 			Name:  "CRYOSTAT_AGENT_WEBSERVER_PORT",
@@ -314,6 +320,21 @@ func getAgentCallbackPort(labels map[string]string) (*int32, error) {
 			return nil, fmt.Errorf("invalid label value for \"%s\": %s", constants.AgentLabelCallbackPort, err.Error())
 		}
 		result = int32(parsed)
+	}
+	return &result, nil
+}
+
+func hasWriteAccess(labels map[string]string) (*bool, error) {
+	// Default to true
+	result := true
+	value, pres := labels[constants.AgentLabelReadOnly]
+	if pres {
+		// Parse the label value into a bool and return an error if invalid
+		parsed, err := strconv.ParseBool(value)
+		if err != nil {
+			return nil, fmt.Errorf("invalid label value for \"%s\": %s", constants.AgentLabelReadOnly, err.Error())
+		}
+		result = !parsed
 	}
 	return &result, nil
 }

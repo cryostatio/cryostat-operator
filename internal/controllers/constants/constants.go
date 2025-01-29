@@ -63,6 +63,7 @@ const (
 	AgentLabelCryostatNamespace = agentLabelPrefix + "namespace"
 	AgentLabelCallbackPort      = agentLabelPrefix + "callback-port"
 	AgentLabelContainer         = agentLabelPrefix + "container"
+	AgentLabelReadOnly          = agentLabelPrefix + "read-only"
 
 	CryostatCATLSCommonName     = "cryostat-ca-cert-manager"
 	CryostatTLSCommonName       = "cryostat"
