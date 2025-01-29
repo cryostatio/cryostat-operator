@@ -201,7 +201,7 @@ func (r *PluginTestResources) NewClusterVersionBad() *configv1.ClusterVersion {
 func (r *PluginTestResources) newClusterVersion(version string) *configv1.ClusterVersion {
 	return &configv1.ClusterVersion{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: "cluster",
+			Name: "version",
 		},
 		Spec: configv1.ClusterVersionSpec{
 			ClusterID: "00000000-0000-0000-0000-000000000000",

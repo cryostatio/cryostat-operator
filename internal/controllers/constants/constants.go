@@ -80,5 +80,5 @@ const (
 	ConsoleServicePort        int32 = 9443
 	ConsoleProxyName                = "cryostat-plugin-proxy"
 	ConsoleCRName                   = "cluster"
-	ClusterVersionName              = "cluster"
+	ClusterVersionName              = "version"
 )
