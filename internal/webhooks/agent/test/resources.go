@@ -180,15 +180,22 @@ func (r *AgentWebhookTestResources) NewPodReadOnlyLabelInvalid() *corev1.Pod {
 	return pod
 }
 
+func (r *AgentWebhookTestResources) NewPodJavaOptsVar() *corev1.Pod {
+	pod := r.NewPod()
+	pod.Labels["cryostat.io/java-options-var"] = "SOME_OTHER_VAR"
+	return pod
+}
+
 type mutatedPodOptions struct {
-	javaToolOptions string
-	namespace       string
-	image           string
-	pullPolicy      corev1.PullPolicy
-	gatewayPort     int32
-	callbackPort    int32
-	writeAccess     *bool
-	scheme          string
+	javaOptionsName  string
+	javaOptionsValue string
+	namespace        string
+	image            string
+	pullPolicy       corev1.PullPolicy
+	gatewayPort      int32
+	callbackPort     int32
+	writeAccess      *bool
+	scheme           string
 	// Function to produce mutated container array
 	containersFunc func(*AgentWebhookTestResources, *mutatedPodOptions) []corev1.Container
 }
@@ -212,6 +219,9 @@ func (r *AgentWebhookTestResources) setDefaultMutatedPodOptions(options *mutated
 	if options.writeAccess == nil {
 		options.writeAccess = &[]bool{true}[0]
 	}
+	if len(options.javaOptionsName) == 0 {
+		options.javaOptionsName = "JAVA_TOOL_OPTIONS"
+	}
 	options.scheme = "https"
 	if !r.TLS {
 		options.scheme = "http"
@@ -227,7 +237,7 @@ func (r *AgentWebhookTestResources) NewMutatedPod() *corev1.Pod {
 
 func (r *AgentWebhookTestResources) NewMutatedPodJavaToolOptions() *corev1.Pod {
 	return r.newMutatedPod(&mutatedPodOptions{
-		javaToolOptions: "-Dexisting=var ",
+		javaOptionsValue: "-Dexisting=var ",
 	})
 }
 
@@ -278,6 +288,12 @@ func (r *AgentWebhookTestResources) NewMutatedPodContainerLabel() *corev1.Pod {
 func (r *AgentWebhookTestResources) NewMutatedPodReadOnlyLabel() *corev1.Pod {
 	return r.newMutatedPod(&mutatedPodOptions{
 		writeAccess: &[]bool{false}[0],
+	})
+}
+
+func (r *AgentWebhookTestResources) NewMutatedPodJavaOptsVarLabel() *corev1.Pod {
+	return r.newMutatedPod(&mutatedPodOptions{
+		javaOptionsName: "SOME_OTHER_VAR",
 	})
 }
 
@@ -403,8 +419,8 @@ func (r *AgentWebhookTestResources) newMutatedContainer(original *corev1.Contain
 				Value: strconv.Itoa(int(options.callbackPort)),
 			},
 			{
-				Name:  "JAVA_TOOL_OPTIONS",
-				Value: options.javaToolOptions + "-javaagent:/tmp/cryostat-agent/cryostat-agent-shaded.jar",
+				Name:  options.javaOptionsName,
+				Value: options.javaOptionsValue + "-javaagent:/tmp/cryostat-agent/cryostat-agent-shaded.jar",
 			},
 		}...),
 		Ports: []corev1.ContainerPort{
