@@ -810,7 +810,7 @@ func NewReportContainerResource(cr *model.CryostatInstance) *corev1.ResourceRequ
 	if cr.Spec.ReportOptions != nil {
 		resources = cr.Spec.ReportOptions.Resources.DeepCopy()
 	}
-	populateResourceRequest(resources, defaultReportCpuRequest, defaultReportMemoryRequest)
+	common.PopulateResourceRequest(resources, defaultReportCpuRequest, defaultReportMemoryRequest)
 	return resources
 }
 
@@ -973,7 +973,7 @@ func NewAuthProxyContainerResource(cr *model.CryostatInstance) *corev1.ResourceR
 	if cr.Spec.Resources != nil {
 		resources = cr.Spec.Resources.AuthProxyResources.DeepCopy()
 	}
-	populateResourceRequest(resources, defaultAuthProxyCpuRequest, defaultAuthProxyMemoryRequest)
+	common.PopulateResourceRequest(resources, defaultAuthProxyCpuRequest, defaultAuthProxyMemoryRequest)
 	return resources
 }
 
@@ -1245,7 +1245,7 @@ func NewCoreContainerResource(cr *model.CryostatInstance) *corev1.ResourceRequir
 	if cr.Spec.Resources != nil {
 		resources = cr.Spec.Resources.CoreResources.DeepCopy()
 	}
-	populateResourceRequest(resources, defaultCoreCpuRequest, defaultCoreMemoryRequest)
+	common.PopulateResourceRequest(resources, defaultCoreCpuRequest, defaultCoreMemoryRequest)
 	return resources
 }
 
@@ -1585,7 +1585,7 @@ func NewGrafanaContainerResource(cr *model.CryostatInstance) *corev1.ResourceReq
 	if cr.Spec.Resources != nil {
 		resources = cr.Spec.Resources.GrafanaResources.DeepCopy()
 	}
-	populateResourceRequest(resources, defaultGrafanaCpuRequest, defaultGrafanaMemoryRequest)
+	common.PopulateResourceRequest(resources, defaultGrafanaCpuRequest, defaultGrafanaMemoryRequest)
 	return resources
 }
 
@@ -1655,7 +1655,7 @@ func NewStorageContainerResource(cr *model.CryostatInstance) *corev1.ResourceReq
 	if cr.Spec.Resources != nil {
 		resources = cr.Spec.Resources.ObjectStorageResources.DeepCopy()
 	}
-	populateResourceRequest(resources, defaultStorageCpuRequest, defaultStorageMemoryRequest)
+	common.PopulateResourceRequest(resources, defaultStorageCpuRequest, defaultStorageMemoryRequest)
 	return resources
 }
 
@@ -1780,7 +1780,7 @@ func NewDatabaseContainerResource(cr *model.CryostatInstance) *corev1.ResourceRe
 	if cr.Spec.Resources != nil {
 		resources = cr.Spec.Resources.DatabaseResources.DeepCopy()
 	}
-	populateResourceRequest(resources, defaultDatabaseCpuRequest, defaultDatabaseMemoryRequest)
+	common.PopulateResourceRequest(resources, defaultDatabaseCpuRequest, defaultDatabaseMemoryRequest)
 	return resources
 }
 
@@ -1900,7 +1900,7 @@ func NewJfrDatasourceContainerResource(cr *model.CryostatInstance) *corev1.Resou
 	if cr.Spec.Resources != nil {
 		resources = cr.Spec.Resources.DataSourceResources.DeepCopy()
 	}
-	populateResourceRequest(resources, defaultJfrDatasourceCpuRequest, defaultJfrDatasourceMemoryRequest)
+	common.PopulateResourceRequest(resources, defaultJfrDatasourceCpuRequest, defaultJfrDatasourceMemoryRequest)
 	return resources
 }
 
@@ -2020,21 +2020,8 @@ func newAgentProxyContainerResource(cr *model.CryostatInstance) *corev1.Resource
 	if cr.Spec.Resources != nil {
 		resources = cr.Spec.Resources.AgentProxyResources.DeepCopy()
 	}
-	populateResourceRequest(resources, defaultAgentProxyCpuRequest, defaultAgentProxyMemoryRequest)
+	common.PopulateResourceRequest(resources, defaultAgentProxyCpuRequest, defaultAgentProxyMemoryRequest)
 	return resources
-}
-
-func getPort(url *url.URL) string {
-	// Return port if already defined in URL
-	port := url.Port()
-	if len(port) > 0 {
-		return port
-	}
-	// Otherwise use default HTTP(S) ports
-	if url.Scheme == "https" {
-		return "443"
-	}
-	return "80"
 }
 
 func getInternalDashboardURL() string {
@@ -2123,31 +2110,6 @@ func newVolumeForStorage(cr *model.CryostatInstance) []corev1.Volume {
 
 func isBasicAuthEnabled(cr *model.CryostatInstance) bool {
 	return cr.Spec.AuthorizationOptions != nil && cr.Spec.AuthorizationOptions.BasicAuth != nil && cr.Spec.AuthorizationOptions.BasicAuth.SecretName != nil && cr.Spec.AuthorizationOptions.BasicAuth.Filename != nil
-}
-
-func checkResourceRequestWithLimit(requests, limits corev1.ResourceList) {
-	if limits != nil {
-		if limitCpu, found := limits[corev1.ResourceCPU]; found && limitCpu.Cmp(*requests.Cpu()) < 0 {
-			requests[corev1.ResourceCPU] = limitCpu.DeepCopy()
-		}
-		if limitMemory, found := limits[corev1.ResourceMemory]; found && limitMemory.Cmp(*requests.Memory()) < 0 {
-			requests[corev1.ResourceMemory] = limitMemory.DeepCopy()
-		}
-	}
-}
-
-func populateResourceRequest(resources *corev1.ResourceRequirements, defaultCpu, defaultMemory string) {
-	if resources.Requests == nil {
-		resources.Requests = corev1.ResourceList{}
-	}
-	requests := resources.Requests
-	if _, found := requests[corev1.ResourceCPU]; !found {
-		requests[corev1.ResourceCPU] = resource.MustParse(defaultCpu)
-	}
-	if _, found := requests[corev1.ResourceMemory]; !found {
-		requests[corev1.ResourceMemory] = resource.MustParse(defaultMemory)
-	}
-	checkResourceRequestWithLimit(requests, resources.Limits)
 }
 
 func getDatabaseSecret(cr *model.CryostatInstance) string {

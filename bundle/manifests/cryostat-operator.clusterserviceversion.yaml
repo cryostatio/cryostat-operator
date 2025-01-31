@@ -24,7 +24,7 @@ metadata:
     capabilities: Seamless Upgrades
     categories: Monitoring, Developer Tools
     containerImage: quay.io/cryostat/cryostat-operator:4.0.0-dev
-    createdAt: "2025-01-31T15:55:35Z"
+    createdAt: "2025-01-31T17:19:11Z"
     description: JVM monitoring and profiling tool
     operatorframework.io/initialization-resource: |-
       {
@@ -97,6 +97,11 @@ spec:
             path: agentOptions.disableHostnameVerification
             x-descriptors:
               - urn:alm:descriptor:com.tectonic.ui:booleanSwitch
+          - description: The resources allocated to the init container used to inject the Cryostat agent, when using the operator's agent auto-configuration feature.
+            displayName: Resources
+            path: agentOptions.resources
+            x-descriptors:
+              - urn:alm:descriptor:com.tectonic.ui:resourceRequirements
           - description: Additional configuration options for the authorization proxy.
             displayName: Authorization Options
             path: authorizationOptions

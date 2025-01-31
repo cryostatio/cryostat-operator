@@ -744,4 +744,9 @@ type AgentOptions struct {
 	// +optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Disable Hostname Verification",xDescriptors={"urn:alm:descriptor:com.tectonic.ui:booleanSwitch"}
 	DisableHostnameVerification bool `json:"disableHostnameVerification,omitempty"`
+	// The resources allocated to the init container used to inject the Cryostat agent,
+	// when using the operator's agent auto-configuration feature.
+	// +optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:com.tectonic.ui:resourceRequirements"}
+	Resources corev1.ResourceRequirements `json:"resources,omitempty"`
 }

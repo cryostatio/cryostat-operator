@@ -19,6 +19,8 @@ import (
 	"math"
 	"strconv"
 
+	operatorv1beta2 "github.com/cryostatio/cryostat-operator/api/v1beta2"
+	"github.com/cryostatio/cryostat-operator/internal/controllers/model"
 	"github.com/cryostatio/cryostat-operator/internal/test"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -196,6 +198,7 @@ type mutatedPodOptions struct {
 	callbackPort     int32
 	writeAccess      *bool
 	scheme           string
+	resources        *corev1.ResourceRequirements
 	// Function to produce mutated container array
 	containersFunc func(*AgentWebhookTestResources, *mutatedPodOptions) []corev1.Container
 }
@@ -221,6 +224,14 @@ func (r *AgentWebhookTestResources) setDefaultMutatedPodOptions(options *mutated
 	}
 	if len(options.javaOptionsName) == 0 {
 		options.javaOptionsName = "JAVA_TOOL_OPTIONS"
+	}
+	if options.resources == nil {
+		options.resources = &corev1.ResourceRequirements{
+			Requests: corev1.ResourceList{
+				corev1.ResourceCPU:    resource.MustParse("10m"),
+				corev1.ResourceMemory: resource.MustParse("32Mi"),
+			},
+		}
 	}
 	options.scheme = "https"
 	if !r.TLS {
@@ -297,6 +308,36 @@ func (r *AgentWebhookTestResources) NewMutatedPodJavaOptsVarLabel() *corev1.Pod 
 	})
 }
 
+func (r *AgentWebhookTestResources) NewMutatedPodResources() *corev1.Pod {
+	return r.newMutatedPod(&mutatedPodOptions{
+		resources: &corev1.ResourceRequirements{
+			Limits: corev1.ResourceList{
+				corev1.ResourceCPU:    resource.MustParse("40m"),
+				corev1.ResourceMemory: resource.MustParse("60Mi"),
+			},
+			Requests: corev1.ResourceList{
+				corev1.ResourceCPU:    resource.MustParse("20m"),
+				corev1.ResourceMemory: resource.MustParse("40Mi"),
+			},
+		},
+	})
+}
+
+func (r *AgentWebhookTestResources) NewMutatedPodResourcesLowLimit() *corev1.Pod {
+	return r.newMutatedPod(&mutatedPodOptions{
+		resources: &corev1.ResourceRequirements{
+			Limits: corev1.ResourceList{
+				corev1.ResourceCPU:    resource.MustParse("5m"),
+				corev1.ResourceMemory: resource.MustParse("16Mi"),
+			},
+			Requests: corev1.ResourceList{
+				corev1.ResourceCPU:    resource.MustParse("5m"),
+				corev1.ResourceMemory: resource.MustParse("16Mi"),
+			},
+		},
+	})
+}
+
 func (r *AgentWebhookTestResources) newMutatedPod(options *mutatedPodOptions) *corev1.Pod {
 	r.setDefaultMutatedPodOptions(options)
 	pod := &corev1.Pod{
@@ -329,6 +370,7 @@ func (r *AgentWebhookTestResources) newMutatedPod(options *mutatedPodOptions) *c
 							},
 						},
 					},
+					Resources: *options.resources,
 				},
 			},
 			Containers: options.containersFunc(r, options),
@@ -540,4 +582,34 @@ func (r *AgentWebhookTestResources) newMutatedContainer(original *corev1.Contain
 	container.Env = append(container.Env, callbackEnvs...)
 
 	return container
+}
+
+func (r *AgentWebhookTestResources) NewCryostatWithAgentInitResources() *model.CryostatInstance {
+	cr := r.NewCryostat()
+	cr.Spec.AgentOptions = &operatorv1beta2.AgentOptions{
+		Resources: corev1.ResourceRequirements{
+			Limits: corev1.ResourceList{
+				corev1.ResourceCPU:    resource.MustParse("40m"),
+				corev1.ResourceMemory: resource.MustParse("60Mi"),
+			},
+			Requests: corev1.ResourceList{
+				corev1.ResourceCPU:    resource.MustParse("20m"),
+				corev1.ResourceMemory: resource.MustParse("40Mi"),
+			},
+		},
+	}
+	return cr
+}
+
+func (r *AgentWebhookTestResources) NewCryostatWithAgentInitLowResourceLimit() *model.CryostatInstance {
+	cr := r.NewCryostat()
+	cr.Spec.AgentOptions = &operatorv1beta2.AgentOptions{
+		Resources: corev1.ResourceRequirements{
+			Limits: corev1.ResourceList{
+				corev1.ResourceCPU:    resource.MustParse("5m"),
+				corev1.ResourceMemory: resource.MustParse("16Mi"),
+			},
+		},
+	}
+	return cr
 }
