@@ -16,13 +16,5 @@ rules:
   - authorization.k8s.io
   resources:
   - subjectaccessreviews
-  - selfsubjectaccessreviews
   verbs:
   - create
-- apiGroups:
-  - oauth.openshift.io
-  resources:
-  - oauthaccesstokens
-  verbs:
-  - list
-  - delete
