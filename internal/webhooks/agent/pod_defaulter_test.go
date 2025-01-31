@@ -113,6 +113,7 @@ var _ = Describe("PodDefaulter", func() {
 					Expect(container.Ports).To(Equal(expected.Ports))
 					Expect(container.LivenessProbe).To(Equal(expected.LivenessProbe))
 					Expect(container.ReadinessProbe).To(Equal(expected.ReadinessProbe))
+					test.ExpectResourceRequirements(&container.Resources, &expected.Resources)
 				}
 			})
 
@@ -418,6 +419,28 @@ var _ = Describe("PodDefaulter", func() {
 				})
 
 				ExpectPod()
+			})
+
+			Context("with a custom resource requirements", func() {
+				Context("that are valid", func() {
+					BeforeEach(func() {
+						t.objs = append(t.objs, t.NewCryostatWithAgentInitResources().Object)
+						originalPod = t.NewPod()
+						expectedPod = t.NewMutatedPodResources()
+					})
+
+					ExpectPod()
+				})
+
+				Context("with a low limit", func() {
+					BeforeEach(func() {
+						t.objs = append(t.objs, t.NewCryostatWithAgentInitLowResourceLimit().Object)
+						originalPod = t.NewPod()
+						expectedPod = t.NewMutatedPodResourcesLowLimit()
+					})
+
+					ExpectPod()
+				})
 			})
 		})
 

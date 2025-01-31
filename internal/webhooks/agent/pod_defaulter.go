@@ -130,12 +130,7 @@ func (r *podMutator) Default(ctx context.Context, obj runtime.Object) error {
 				},
 			},
 		},
-		Resources: corev1.ResourceRequirements{ // TODO allow customization with CRD
-			Requests: corev1.ResourceList{
-				corev1.ResourceCPU:    resource.MustParse(agentInitCpuRequest),
-				corev1.ResourceMemory: resource.MustParse(agentInitMemoryRequest),
-			},
-		},
+		Resources: *getResourceRequirements(crModel),
 	})
 
 	// Add emptyDir volume to copy agent into, and mount it
@@ -347,6 +342,15 @@ func getJavaOptionsVar(labels map[string]string) string {
 		result = value
 	}
 	return result
+}
+
+func getResourceRequirements(cr *model.CryostatInstance) *corev1.ResourceRequirements {
+	resources := &corev1.ResourceRequirements{}
+	if cr.Spec.AgentOptions != nil {
+		resources = cr.Spec.AgentOptions.Resources.DeepCopy()
+	}
+	common.PopulateResourceRequest(resources, agentInitCpuRequest, agentInitMemoryRequest)
+	return resources
 }
 
 func (r *podMutator) callbackEnv(cr *model.CryostatInstance, namespace string, tls bool, containerPort int32) []corev1.EnvVar {
