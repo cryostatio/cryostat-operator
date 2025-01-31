@@ -66,12 +66,6 @@ rules:
 - apiGroups:
   - authorization.k8s.io
   resources:
-  - selfsubjectaccessreviews
-  verbs:
-  - create
-- apiGroups:
-  - authorization.k8s.io
-  resources:
   - subjectaccessreviews
   verbs:
   - create
@@ -121,13 +115,6 @@ rules:
   - networkpolicies
   verbs:
   - '*'
-- apiGroups:
-  - oauth.openshift.io
-  resources:
-  - oauthaccesstokens
-  verbs:
-  - delete
-  - list
 - apiGroups:
   - operator.cryostat.io
   resources:

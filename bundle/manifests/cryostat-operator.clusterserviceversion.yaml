@@ -24,7 +24,7 @@ metadata:
     capabilities: Seamless Upgrades
     categories: Monitoring, Developer Tools
     containerImage: quay.io/cryostat/cryostat-operator:4.0.0-dev
-    createdAt: "2025-01-28T00:29:47Z"
+    createdAt: "2025-01-31T15:55:35Z"
     description: JVM monitoring and profiling tool
     operatorframework.io/initialization-resource: |-
       {
@@ -997,12 +997,6 @@ spec:
             - apiGroups:
                 - authorization.k8s.io
               resources:
-                - selfsubjectaccessreviews
-              verbs:
-                - create
-            - apiGroups:
-                - authorization.k8s.io
-              resources:
                 - subjectaccessreviews
               verbs:
                 - create
@@ -1052,13 +1046,6 @@ spec:
                 - networkpolicies
               verbs:
                 - '*'
-            - apiGroups:
-                - oauth.openshift.io
-              resources:
-                - oauthaccesstokens
-              verbs:
-                - delete
-                - list
             - apiGroups:
                 - operator.cryostat.io
               resources:
