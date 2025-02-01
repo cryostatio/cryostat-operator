@@ -18,6 +18,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"path"
 	"text/template"
@@ -26,7 +27,7 @@ import (
 	"github.com/cryostatio/cryostat-operator/internal/controllers/constants"
 	"github.com/cryostatio/cryostat-operator/internal/controllers/model"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
+	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
@@ -38,9 +39,7 @@ func (r *Reconciler) reconcileLockConfigMap(ctx context.Context, cr *model.Cryos
 			Namespace: cr.InstallNamespace,
 		},
 	}
-	return r.createOrUpdateConfigMap(ctx, cm, cr.Object, func() error {
-		return nil
-	})
+	return r.createOrUpdateConfigMap(ctx, cm, cr.Object, nil)
 }
 
 type oauth2ProxyAlphaConfig struct {
@@ -50,9 +49,9 @@ type oauth2ProxyAlphaConfig struct {
 }
 
 type alphaConfigServer struct {
-	BindAddress       string   `json:"BindAddress,omitempty"`
-	SecureBindAddress string   `json:"SecureBindAddress,omitempty"`
-	TLS               proxyTLS `json:"TLS,omitempty"`
+	BindAddress       string    `json:"BindAddress,omitempty"`
+	SecureBindAddress string    `json:"SecureBindAddress,omitempty"`
+	TLS               *proxyTLS `json:"TLS,omitempty"`
 }
 
 type proxyTLS struct {
@@ -82,13 +81,12 @@ type alphaConfigUpstream struct {
 	Path            string `json:"path,omitempty"`
 	RewriteTarget   string `json:"rewriteTarget,omitempty"`
 	Uri             string `json:"uri,omitempty"`
-	PassHostHeader  bool   `json:"passHostHeader,omitempty"`
-	ProxyWebSockets bool   `json:"proxyWebSockets,omitempty"`
+	PassHostHeader  *bool  `json:"passHostHeader,omitempty"`
+	ProxyWebSockets *bool  `json:"proxyWebSockets,omitempty"`
 }
 
 func (r *Reconciler) reconcileOAuth2ProxyConfig(ctx context.Context, cr *model.CryostatInstance, tls *resources.TLSConfig) error {
 	bindHost := "0.0.0.0"
-	immutable := true
 	cfg := &oauth2ProxyAlphaConfig{
 		Server: alphaConfigServer{},
 		UpstreamConfig: alphaConfigUpstreamConfig{ProxyRawPath: true, Upstreams: []alphaConfigUpstream{
@@ -107,8 +105,8 @@ func (r *Reconciler) reconcileOAuth2ProxyConfig(ctx context.Context, cr *model.C
 				Path:            "^/storage/(.*)$",
 				RewriteTarget:   "/$1",
 				Uri:             fmt.Sprintf("http://localhost:%d", constants.StoragePort),
-				PassHostHeader:  false,
-				ProxyWebSockets: false,
+				PassHostHeader:  &[]bool{false}[0],
+				ProxyWebSockets: &[]bool{false}[0],
 			},
 		}},
 		Providers: []alphaConfigProvider{{Id: "dummy", Name: "Unused - Sign In Below", ClientId: "CLIENT_ID", ClientSecret: "CLIENT_SECRET", Provider: "google"}},
@@ -116,7 +114,7 @@ func (r *Reconciler) reconcileOAuth2ProxyConfig(ctx context.Context, cr *model.C
 
 	if tls != nil {
 		cfg.Server.SecureBindAddress = fmt.Sprintf("https://%s:%d", bindHost, constants.AuthProxyHttpContainerPort)
-		cfg.Server.TLS = proxyTLS{
+		cfg.Server.TLS = &proxyTLS{
 			Key: tlsSecretSource{
 				FromFile: path.Join(resources.SecretMountPrefix, tls.CryostatSecret, corev1.TLSPrivateKeyKey),
 			},
@@ -128,27 +126,25 @@ func (r *Reconciler) reconcileOAuth2ProxyConfig(ctx context.Context, cr *model.C
 		cfg.Server.BindAddress = fmt.Sprintf("http://%s:%d", bindHost, constants.AuthProxyHttpContainerPort)
 	}
 
-	data := make(map[string]string)
-	json, err := json.Marshal(cfg)
-	if err != nil {
-		return err
-	}
-	data[resources.OAuth2ConfigFileName] = string(json)
 	cm := &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      cr.Name + "-oauth2-proxy-cfg",
 			Namespace: cr.InstallNamespace,
 		},
-		Immutable: &immutable,
-		Data:      data,
 	}
 
 	if r.IsOpenShift {
 		return r.deleteConfigMap(ctx, cm)
 	} else {
-		return r.createOrUpdateConfigMap(ctx, cm, cr.Object, func() error {
-			return nil
-		})
+		json, err := json.Marshal(cfg)
+		if err != nil {
+			return err
+		}
+		data := map[string]string{
+			resources.OAuth2ConfigFileName: string(json),
+		}
+
+		return r.createOrUpdateConfigMap(ctx, cm, cr.Object, data)
 	}
 }
 
@@ -331,31 +327,52 @@ func (r *Reconciler) reconcileAgentProxyConfig(ctx context.Context, cr *model.Cr
 	// Add generated nginx.conf to config map
 	data[constants.AgentProxyConfigFileName] = buf.String()
 
-	return r.createOrUpdateConfigMap(ctx, cm, cr.Object, func() error {
-		cm.Data = data
-		return nil
-	})
+	return r.createOrUpdateConfigMap(ctx, cm, cr.Object, data)
 }
 
+var errConfigMapImmutableModified error = errors.New("config map is immutable and should not be")
+
 func (r *Reconciler) createOrUpdateConfigMap(ctx context.Context, cm *corev1.ConfigMap, owner metav1.Object,
-	delegate controllerutil.MutateFn) error {
+	data map[string]string) error {
+	cmCopy := cm.DeepCopy()
 	op, err := controllerutil.CreateOrUpdate(ctx, r.Client, cm, func() error {
+		// Check if we need to revert Immutable property
+		if isImmutable(cm) && !isImmutable(cmCopy) {
+			return errConfigMapImmutableModified
+		}
 		// Set the Cryostat CR as controller
 		if err := controllerutil.SetControllerReference(owner, cm, r.Scheme); err != nil {
 			return err
 		}
-		return delegate()
+		cm.Data = data
+		return nil
 	})
 	if err != nil {
+		if err == errConfigMapImmutableModified {
+			return r.recreateConfigMap(ctx, cmCopy, owner, data)
+		}
 		return err
 	}
 	r.Log.Info(fmt.Sprintf("Config Map %s", op), "name", cm.Name, "namespace", cm.Namespace)
 	return nil
 }
 
+func (r *Reconciler) recreateConfigMap(ctx context.Context, cm *corev1.ConfigMap, owner metav1.Object,
+	data map[string]string) error {
+	err := r.deleteConfigMap(ctx, cm)
+	if err != nil {
+		return err
+	}
+	return r.createOrUpdateConfigMap(ctx, cm, owner, data)
+}
+
+func isImmutable(cm *corev1.ConfigMap) bool {
+	return cm.Immutable != nil && *cm.Immutable
+}
+
 func (r *Reconciler) deleteConfigMap(ctx context.Context, cm *corev1.ConfigMap) error {
 	err := r.Client.Delete(ctx, cm)
-	if err != nil && !errors.IsNotFound(err) {
+	if err != nil && !kerrors.IsNotFound(err) {
 		r.Log.Error(err, "Could not delete ConfigMap", "name", cm.Name, "namespace", cm.Namespace)
 		return err
 	}
