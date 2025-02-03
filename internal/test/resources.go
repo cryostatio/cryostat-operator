@@ -4642,6 +4642,112 @@ ssbzSibBsu/6iGtCOGEoXJf//////////wIBAg==
 	}
 }
 
+var alphaConfigTLS = `{
+	"server": {
+		"SecureBindAddress": "https://0.0.0.0:4180",
+		"TLS": {
+			"Key": {
+				"fromFile": "/var/run/secrets/operator.cryostat.io/%s-tls/tls.key"
+			},
+			"Cert": {
+				"fromFile": "/var/run/secrets/operator.cryostat.io/%s-tls/tls.crt"
+			}
+		}
+	},
+	"upstreamConfig": {
+		"proxyRawPath": true,
+		"upstreams": [
+			{
+				"id": "cryostat",
+				"path": "/",
+				"uri": "http://localhost:8181"
+			},
+			{
+				"id": "grafana",
+				"path": "/grafana/",
+				"uri": "http://localhost:3000"
+			},
+			{
+				"id": "storage",
+				"path": "^/storage/(.*)$",
+				"rewriteTarget": "/$1",
+				"uri": "http://localhost:8333",
+				"passHostHeader": false,
+				"proxyWebSockets": false
+			}
+		]
+	},
+	"providers": [
+		{
+			"id": "dummy",
+			"name": "Unused - Sign In Below",
+			"clientId": "CLIENT_ID",
+			"clientSecret": "CLIENT_SECRET",
+			"provider": "google"
+		}
+	]
+}`
+
+var alphaConfigNoTLS = `{
+	"server": {
+		"BindAddress": "http://0.0.0.0:4180"
+	},
+	"upstreamConfig": {
+		"proxyRawPath": true,
+		"upstreams": [
+			{
+				"id": "cryostat",
+				"path": "/",
+				"uri": "http://localhost:8181"
+			},
+			{
+				"id": "grafana",
+				"path": "/grafana/",
+				"uri": "http://localhost:3000"
+			},
+			{
+				"id": "storage",
+				"path": "^/storage/(.*)$",
+				"rewriteTarget": "/$1",
+				"uri": "http://localhost:8333",
+				"passHostHeader": false,
+				"proxyWebSockets": false
+			}
+		]
+	},
+	"providers": [
+		{
+			"id": "dummy",
+			"name": "Unused - Sign In Below",
+			"clientId": "CLIENT_ID",
+			"clientSecret": "CLIENT_SECRET",
+			"provider": "google"
+		}
+	]
+}`
+
+func (r *TestResources) NewOAuth2ProxyConfigMap() *corev1.ConfigMap {
+	alphaConfig := fmt.Sprintf(alphaConfigTLS, r.Name, r.Name)
+	if !r.TLS {
+		alphaConfig = alphaConfigNoTLS
+	}
+	return &corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      r.Name + "-oauth2-proxy-cfg",
+			Namespace: r.Namespace,
+		},
+		Data: map[string]string{
+			"alpha_config.json": alphaConfig,
+		},
+	}
+}
+
+func (r *TestResources) NewOAuth2ProxyConfigMapOld() *corev1.ConfigMap {
+	cm := r.NewOAuth2ProxyConfigMap()
+	cm.Immutable = &[]bool{true}[0]
+	return cm
+}
+
 func (r *TestResources) getClusterUniqueName() string {
 	return "cryostat-" + r.clusterUniqueSuffix("")
 }

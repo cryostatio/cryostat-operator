@@ -2350,6 +2350,36 @@ func (c *controllerTest) commonTests() {
 				Expect(kerrors.IsNotFound(err)).To(BeTrue())
 			})
 		})
+		Context("with OAuth2 proxy", func() {
+			JustBeforeEach(func() {
+				t.reconcileCryostatFully()
+			})
+			Context("with TLS enabled", func() {
+				BeforeEach(func() {
+					t.objs = append(t.objs, t.NewCryostatWithIngress().Object)
+				})
+				It("should create OAuth2 config map", func() {
+					t.expectOAuth2ConfigMap()
+				})
+			})
+			Context("with TLS disabled", func() {
+				BeforeEach(func() {
+					t.objs = append(t.objs, t.NewCryostatWithIngressCertManagerDisabled().Object)
+					t.TLS = false
+				})
+				It("should create OAuth2 config map", func() {
+					t.expectOAuth2ConfigMap()
+				})
+			})
+			Context("with existing config map", func() {
+				BeforeEach(func() {
+					t.objs = append(t.objs, t.NewCryostatWithIngress().Object, t.NewOAuth2ProxyConfigMapOld())
+				})
+				It("should create OAuth2 config map", func() {
+					t.expectOAuth2ConfigMap()
+				})
+			})
+		})
 		Context("with report generator service", func() {
 			BeforeEach(func() {
 				t.ReportReplicas = 1
@@ -3045,6 +3075,20 @@ func (t *cryostatTestInput) expectAgentProxyConfigMap() {
 
 	t.checkMetadata(cm, expected)
 	Expect(cm.Data).To(Equal(expected.Data))
+	Expect(cm.Immutable).To(Equal(expected.Immutable))
+}
+
+func (t *cryostatTestInput) expectOAuth2ConfigMap() {
+	expected := t.NewOAuth2ProxyConfigMap()
+	cm := &corev1.ConfigMap{}
+	err := t.Client.Get(context.Background(), types.NamespacedName{Name: expected.Name, Namespace: expected.Namespace}, cm)
+	Expect(err).ToNot(HaveOccurred())
+
+	t.checkMetadata(cm, expected)
+	Expect(cm.Data).To(HaveLen(1))
+	Expect(cm.Data).To(HaveKey("alpha_config.json"))
+	Expect(cm.Data["alpha_config.json"]).To(MatchJSON(expected.Data["alpha_config.json"]))
+	Expect(cm.Immutable).To(Equal(expected.Immutable))
 }
 
 func (t *cryostatTestInput) expectPVC(expectedPVC *corev1.PersistentVolumeClaim) {
