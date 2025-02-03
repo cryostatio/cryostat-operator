@@ -10,7 +10,7 @@ metadata:
   namespace: system
 spec:
   progressDeadlineSeconds: 600
-  replicas: 1
+  replicas: 2
   revisionHistoryLimit: 10
   selector:
     matchLabels:
@@ -46,7 +46,9 @@ spec:
         resources:
           requests:
             cpu: 10m
-            memory: 50Mi
+            memory: 64Mi
+          limits:
+            memory: 128Mi
         securityContext:
           allowPrivilegeEscalation: false
           capabilities:
