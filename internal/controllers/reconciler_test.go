@@ -3786,7 +3786,7 @@ func (t *cryostatTestInput) checkAgentProxyContainer(container *corev1.Container
 	Expect(container.Name).To(Equal(t.Name + "-agent-proxy"))
 
 	imageTag := t.EnvAgentProxyImageTag
-	defaultPrefix := "registry.access.redhat.com/ubi8/nginx-124:"
+	defaultPrefix := "registry.access.redhat.com/ubi9/nginx-124:"
 	if imageTag != nil {
 		Expect(container.Image).To(Equal(*imageTag))
 	} else {
