@@ -24,7 +24,7 @@ metadata:
     capabilities: Seamless Upgrades
     categories: Monitoring, Developer Tools
     containerImage: quay.io/cryostat/cryostat-operator:4.0.0-dev
-    createdAt: "2025-02-04T23:03:44Z"
+    createdAt: "2025-02-04T23:08:18Z"
     description: JVM monitoring and profiling tool
     operatorframework.io/initialization-resource: |-
       {
@@ -1146,6 +1146,8 @@ spec:
                         value: quay.io/cryostat/cryostat-db:latest
                       - name: RELATED_IMAGE_AGENT_PROXY
                         value: registry.access.redhat.com/ubi9/nginx-124:latest
+                      - name: RELATED_IMAGE_AGENT_INIT
+                        value: quay.io/cryostat/cryostat-agent-init:latest
                       - name: WATCH_NAMESPACE
                         valueFrom:
                           fieldRef:
@@ -1313,6 +1315,8 @@ spec:
       name: database
     - image: registry.access.redhat.com/ubi9/nginx-124:latest
       name: agent-proxy
+    - image: quay.io/cryostat/cryostat-agent-init:latest
+      name: agent-init
   version: 4.0.0-dev
   webhookdefinitions:
     - admissionReviewVersions:
