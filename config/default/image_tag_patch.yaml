@@ -26,4 +26,4 @@ spec:
         - name: RELATED_IMAGE_DATABASE
           value: "quay.io/cryostat/cryostat-db:latest"
         - name: RELATED_IMAGE_AGENT_PROXY
-          value: "registry.access.redhat.com/ubi8/nginx-124:latest"
+          value: "registry.access.redhat.com/ubi9/nginx-124:latest"
