@@ -27,3 +27,5 @@ spec:
           value: "${DATABASE_IMG}"
         - name: RELATED_IMAGE_AGENT_PROXY
           value: "${AGENT_PROXY_IMG}"
+        - name: RELATED_IMAGE_AGENT_INIT
+          value: "${AGENT_INIT_IMG}"
