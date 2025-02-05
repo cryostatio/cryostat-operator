@@ -375,6 +375,7 @@ manifests: controller-gen ## Generate manifests e.g. CRD, RBAC, etc.
 	envsubst < hack/image_pull_patch.yaml.in > config/default/image_pull_patch.yaml
 	envsubst < hack/plugin_image_pull_patch.yaml.in > config/openshift/plugin_image_pull_patch.yaml
 	envsubst < hack/insights_patch.yaml.in > config/overlays/insights/insights_patch.yaml
+	envsubst < hack/insights_image_pull_patch.yaml.in > config/insights/insights_image_pull_patch.yaml
 
 .PHONY: fmt
 fmt: add-license ## Run go fmt against code.
