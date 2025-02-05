@@ -11,7 +11,7 @@ spec:
       - name: insights
         env:
         - name: RELATED_IMAGE_INSIGHTS_PROXY
-          value: "registry.redhat.io/3scale-amp2/apicast-gateway-rhel8:3scale2.14"
+          value: "registry.redhat.io/3scale-amp2/apicast-gateway-rhel8:3scale2.15"
         - name: INSIGHTS_BACKEND_DOMAIN
           value: "console.redhat.com"
         - name: USER_AGENT_PREFIX

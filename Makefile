@@ -71,27 +71,27 @@ export OAUTH2_PROXY_IMG ?= $(OAUTH2_PROXY_NAMESPACE)/$(OAUTH2_PROXY_NAME):$(OAUT
 OPENSHIFT_OAUTH_PROXY_NAMESPACE ?= quay.io/cryostat
 OPENSHIFT_OAUTH_PROXY_NAME ?= openshift-oauth-proxy
 # there is no 'latest' tag for this container
-OPENSHIFT_OAUTH_PROXY_VERSION ?= cryostat-v3.0
+OPENSHIFT_OAUTH_PROXY_VERSION ?= cryostat-v4.0
 export OPENSHIFT_OAUTH_PROXY_IMG ?= $(OPENSHIFT_OAUTH_PROXY_NAMESPACE)/$(OPENSHIFT_OAUTH_PROXY_NAME):$(OPENSHIFT_OAUTH_PROXY_VERSION)
 DATASOURCE_NAMESPACE ?= $(DEFAULT_NAMESPACE)
 DATASOURCE_NAME ?= jfr-datasource
-DATASOURCE_VERSION ?= latest
+DATASOURCE_VERSION ?= 4.0.0-snapshot
 export DATASOURCE_IMG ?= $(DATASOURCE_NAMESPACE)/$(DATASOURCE_NAME):$(DATASOURCE_VERSION)
 GRAFANA_NAMESPACE ?= $(DEFAULT_NAMESPACE)
 GRAFANA_NAME ?= cryostat-grafana-dashboard
-GRAFANA_VERSION ?= latest
+GRAFANA_VERSION ?= 4.0-dev
 export GRAFANA_IMG ?= $(GRAFANA_NAMESPACE)/$(GRAFANA_NAME):$(GRAFANA_VERSION)
 REPORTS_NAMESPACE ?= $(DEFAULT_NAMESPACE)
 REPORTS_NAME ?= cryostat-reports
-REPORTS_VERSION ?= latest
+REPORTS_VERSION ?= 4.0.0-snapshot
 export REPORTS_IMG ?= $(REPORTS_NAMESPACE)/$(REPORTS_NAME):$(REPORTS_VERSION)
 DATABASE_NAMESPACE ?= $(DEFAULT_NAMESPACE)
 DATABASE_NAME ?= cryostat-db
-DATABASE_VERSION ?= latest
+DATABASE_VERSION ?= cryostat-v4.0
 export DATABASE_IMG ?= $(DATABASE_NAMESPACE)/$(DATABASE_NAME):$(DATABASE_VERSION)
 STORAGE_NAMESPACE ?= $(DEFAULT_NAMESPACE)
 STORAGE_NAME ?= cryostat-storage
-STORAGE_VERSION ?= latest
+STORAGE_VERSION ?= cryostat-v4.0
 export STORAGE_IMG ?= $(STORAGE_NAMESPACE)/$(STORAGE_NAME):$(STORAGE_VERSION)
 AGENT_PROXY_NAMESPACE ?= registry.access.redhat.com/ubi9
 AGENT_PROXY_NAME ?= nginx-124
@@ -99,11 +99,11 @@ AGENT_PROXY_VERSION ?= latest
 export AGENT_PROXY_IMG ?= $(AGENT_PROXY_NAMESPACE)/$(AGENT_PROXY_NAME):$(AGENT_PROXY_VERSION)
 AGENT_INIT_NAMESPACE ?= $(DEFAULT_NAMESPACE)
 AGENT_INIT_NAME ?= cryostat-agent-init
-AGENT_INIT_VERSION ?= latest
+AGENT_INIT_VERSION ?= 0.5.0-snapshot
 export AGENT_INIT_IMG ?= $(AGENT_INIT_NAMESPACE)/$(AGENT_INIT_NAME):$(AGENT_INIT_VERSION)
 CONSOLE_PLUGIN_NAMESPACE ?= $(DEFAULT_NAMESPACE)
 CONSOLE_PLUGIN_NAME ?= cryostat-openshift-console-plugin
-CONSOLE_PLUGIN_VERSION ?= latest
+CONSOLE_PLUGIN_VERSION ?= cryostat-v4.0
 CONSOLE_PLUGIN_IMG ?= $(CONSOLE_PLUGIN_NAMESPACE)/$(CONSOLE_PLUGIN_NAME):$(CONSOLE_PLUGIN_VERSION)
 
 CERT_MANAGER_VERSION ?= 1.12.14
@@ -153,17 +153,18 @@ endif
 KUSTOMIZE_DIR ?= config/default
 # Optional Red Hat Insights integration
 ENABLE_INSIGHTS ?= false
-ifeq ($(ENABLE_INSIGHTS), true)
-KUSTOMIZE_BUNDLE_DIR ?= config/overlays/insights
 INSIGHTS_PROXY_NAMESPACE ?= registry.redhat.io/3scale-amp2
 INSIGHTS_PROXY_NAME ?= apicast-gateway-rhel8
-INSIGHTS_PROXY_VERSION ?= 3scale2.14
+INSIGHTS_PROXY_VERSION ?= 3scale2.15
 export INSIGHTS_PROXY_IMG ?= $(INSIGHTS_PROXY_NAMESPACE)/$(INSIGHTS_PROXY_NAME):$(INSIGHTS_PROXY_VERSION)
 export INSIGHTS_BACKEND ?= console.redhat.com
 RUNTIMES_INVENTORY_NAMESPACE ?= registry.redhat.io/insights-runtimes-tech-preview
 RUNTIMES_INVENTORY_NAME ?= runtimes-inventory-rhel8-operator
 RUNTIMES_INVENTORY_VERSION ?= latest
 RUNTIMES_INVENTORY_IMG ?= $(RUNTIMES_INVENTORY_NAMESPACE)/$(RUNTIMES_INVENTORY_NAME):$(RUNTIMES_INVENTORY_VERSION)
+
+ifeq ($(ENABLE_INSIGHTS), true)
+KUSTOMIZE_BUNDLE_DIR ?= config/overlays/insights
 BUNDLE_GEN_FLAGS += --extra-service-accounts cryostat-operator-insights
 BUNDLE_MODE=ocp
 else
@@ -373,9 +374,7 @@ manifests: controller-gen ## Generate manifests e.g. CRD, RBAC, etc.
 	envsubst < hack/image_tag_patch.yaml.in > config/default/image_tag_patch.yaml
 	envsubst < hack/image_pull_patch.yaml.in > config/default/image_pull_patch.yaml
 	envsubst < hack/plugin_image_pull_patch.yaml.in > config/openshift/plugin_image_pull_patch.yaml
-ifeq ($(ENABLE_INSIGHTS), true)
 	envsubst < hack/insights_patch.yaml.in > config/overlays/insights/insights_patch.yaml
-endif
 
 .PHONY: fmt
 fmt: add-license ## Run go fmt against code.
