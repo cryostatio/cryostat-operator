@@ -1,0 +1,11 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: insights
+  namespace: system
+spec:
+  template:
+    spec:
+      containers:
+      - name: insights
+        imagePullPolicy: "Always"

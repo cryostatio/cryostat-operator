@@ -23,6 +23,9 @@ resources:
 - leader_election_role.yaml
 - leader_election_role_binding.yaml
 
+patchesStrategicMerge:
+- insights_image_pull_patch.yaml
+
 replacements:
 - source:
     fieldPath: metadata.name
