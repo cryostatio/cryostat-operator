@@ -6,7 +6,7 @@ pull_request_rules:
     actions:
       backport:
         branches:
-          - cryostat-v3.0
+          - cryostat-v4.0
         assignees:
           - "{{ author }}"
   - name: auto label PRs from reviewers
