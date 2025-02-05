@@ -11,28 +11,28 @@ const OperatorVersion = "4.0.0-dev"
 const DefaultOAuth2ProxyImageTag = "quay.io/oauth2-proxy/oauth2-proxy:latest"
 
 // Default image tag for the OpenShift OAuth Proxy
-const DefaultOpenShiftOAuthProxyImageTag = "quay.io/cryostat/openshift-oauth-proxy:cryostat-v3.0"
+const DefaultOpenShiftOAuthProxyImageTag = "quay.io/cryostat/openshift-oauth-proxy:cryostat-v4.0"
 
 // Default image tag for the core application image
 const DefaultCoreImageTag = "quay.io/cryostat/cryostat:4.0.0-snapshot"
 
 // Default image tag for the JFR datasource image
-const DefaultDatasourceImageTag = "quay.io/cryostat/jfr-datasource:latest"
+const DefaultDatasourceImageTag = "quay.io/cryostat/jfr-datasource:4.0.0-snapshot"
 
 // Default image tag for the Grafana dashboard image
-const DefaultGrafanaImageTag = "quay.io/cryostat/cryostat-grafana-dashboard:latest"
+const DefaultGrafanaImageTag = "quay.io/cryostat/cryostat-grafana-dashboard:4.0-dev"
 
 // Default image tag for the Grafana dashboard image
-const DefaultReportsImageTag = "quay.io/cryostat/cryostat-reports:latest"
+const DefaultReportsImageTag = "quay.io/cryostat/cryostat-reports:4.0.0-snapshot"
 
 // Default image tag for the Storage image
-const DefaultStorageImageTag = "quay.io/cryostat/cryostat-storage:latest"
+const DefaultStorageImageTag = "quay.io/cryostat/cryostat-storage:cryostat-v4.0"
 
 // Default image tag for the Database image
-const DefaultDatabaseImageTag = "quay.io/cryostat/cryostat-db:latest"
+const DefaultDatabaseImageTag = "quay.io/cryostat/cryostat-db:cryostat-v4.0"
 
 // Default image tag for the agent proxy image
 const DefaultAgentProxyImageTag = "registry.access.redhat.com/ubi9/nginx-124:latest"
 
 // Default image tag for the agent init container image
-const DefaultAgentInitImageTag = "quay.io/cryostat/cryostat-agent-init:latest"
+const DefaultAgentInitImageTag = "quay.io/cryostat/cryostat-agent-init:0.5.0-snapshot"
