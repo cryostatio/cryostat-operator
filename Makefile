@@ -153,17 +153,18 @@ endif
 KUSTOMIZE_DIR ?= config/default
 # Optional Red Hat Insights integration
 ENABLE_INSIGHTS ?= false
-ifeq ($(ENABLE_INSIGHTS), true)
-KUSTOMIZE_BUNDLE_DIR ?= config/overlays/insights
 INSIGHTS_PROXY_NAMESPACE ?= registry.redhat.io/3scale-amp2
 INSIGHTS_PROXY_NAME ?= apicast-gateway-rhel8
-INSIGHTS_PROXY_VERSION ?= 3scale2.14
+INSIGHTS_PROXY_VERSION ?= 3scale2.15
 export INSIGHTS_PROXY_IMG ?= $(INSIGHTS_PROXY_NAMESPACE)/$(INSIGHTS_PROXY_NAME):$(INSIGHTS_PROXY_VERSION)
 export INSIGHTS_BACKEND ?= console.redhat.com
 RUNTIMES_INVENTORY_NAMESPACE ?= registry.redhat.io/insights-runtimes-tech-preview
 RUNTIMES_INVENTORY_NAME ?= runtimes-inventory-rhel8-operator
 RUNTIMES_INVENTORY_VERSION ?= latest
 RUNTIMES_INVENTORY_IMG ?= $(RUNTIMES_INVENTORY_NAMESPACE)/$(RUNTIMES_INVENTORY_NAME):$(RUNTIMES_INVENTORY_VERSION)
+
+ifeq ($(ENABLE_INSIGHTS), true)
+KUSTOMIZE_BUNDLE_DIR ?= config/overlays/insights
 BUNDLE_GEN_FLAGS += --extra-service-accounts cryostat-operator-insights
 BUNDLE_MODE=ocp
 else
@@ -373,9 +374,7 @@ manifests: controller-gen ## Generate manifests e.g. CRD, RBAC, etc.
 	envsubst < hack/image_tag_patch.yaml.in > config/default/image_tag_patch.yaml
 	envsubst < hack/image_pull_patch.yaml.in > config/default/image_pull_patch.yaml
 	envsubst < hack/plugin_image_pull_patch.yaml.in > config/openshift/plugin_image_pull_patch.yaml
-ifeq ($(ENABLE_INSIGHTS), true)
 	envsubst < hack/insights_patch.yaml.in > config/overlays/insights/insights_patch.yaml
-endif
 
 .PHONY: fmt
 fmt: add-license ## Run go fmt against code.
