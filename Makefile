@@ -8,7 +8,7 @@ OS = $(shell go env GOOS)
 ARCH = $(shell go env GOARCH)
 
 # Current Operator version
-export OPERATOR_VERSION ?= 4.0.0-dev
+export OPERATOR_VERSION ?= 4.1.0-dev
 IMAGE_VERSION ?= $(OPERATOR_VERSION)
 BUNDLE_VERSION ?= $(IMAGE_VERSION)
 DEFAULT_NAMESPACE ?= quay.io/cryostat
@@ -62,7 +62,7 @@ export APP_NAME ?= Cryostat
 # Images used by the operator
 CORE_NAMESPACE ?= $(DEFAULT_NAMESPACE)
 CORE_NAME ?= cryostat
-CORE_VERSION ?= 4.0.0-snapshot
+CORE_VERSION ?= latest
 export CORE_IMG ?= $(CORE_NAMESPACE)/$(CORE_NAME):$(CORE_VERSION)
 OAUTH2_PROXY_NAMESPACE ?= quay.io/oauth2-proxy
 OAUTH2_PROXY_NAME ?= oauth2-proxy
@@ -71,7 +71,7 @@ export OAUTH2_PROXY_IMG ?= $(OAUTH2_PROXY_NAMESPACE)/$(OAUTH2_PROXY_NAME):$(OAUT
 OPENSHIFT_OAUTH_PROXY_NAMESPACE ?= quay.io/cryostat
 OPENSHIFT_OAUTH_PROXY_NAME ?= openshift-oauth-proxy
 # there is no 'latest' tag for this container
-OPENSHIFT_OAUTH_PROXY_VERSION ?= cryostat-v3.0
+OPENSHIFT_OAUTH_PROXY_VERSION ?= go-1.22
 export OPENSHIFT_OAUTH_PROXY_IMG ?= $(OPENSHIFT_OAUTH_PROXY_NAMESPACE)/$(OPENSHIFT_OAUTH_PROXY_NAME):$(OPENSHIFT_OAUTH_PROXY_VERSION)
 DATASOURCE_NAMESPACE ?= $(DEFAULT_NAMESPACE)
 DATASOURCE_NAME ?= jfr-datasource
@@ -121,7 +121,7 @@ ENVTEST_K8S_VERSION ?= 1.26
 # See: https://github.com/operator-framework/operator-sdk/pull/4762
 #
 # Suffix is the timestamp of the image build, compute with: date -u '+%Y%m%d%H%M%S'
-CUSTOM_SCORECARD_VERSION ?= 4.0.0-$(shell date -u '+%Y%m%d%H%M%S')
+CUSTOM_SCORECARD_VERSION ?= 4.1.0-$(shell date -u '+%Y%m%d%H%M%S')
 export CUSTOM_SCORECARD_IMG ?= $(IMAGE_TAG_BASE)-scorecard:$(CUSTOM_SCORECARD_VERSION)
 
 DEPLOY_NAMESPACE ?= cryostat-operator-system
@@ -153,17 +153,18 @@ endif
 KUSTOMIZE_DIR ?= config/default
 # Optional Red Hat Insights integration
 ENABLE_INSIGHTS ?= false
-ifeq ($(ENABLE_INSIGHTS), true)
-KUSTOMIZE_BUNDLE_DIR ?= config/overlays/insights
 INSIGHTS_PROXY_NAMESPACE ?= registry.redhat.io/3scale-amp2
 INSIGHTS_PROXY_NAME ?= apicast-gateway-rhel8
-INSIGHTS_PROXY_VERSION ?= 3scale2.14
+INSIGHTS_PROXY_VERSION ?= 3scale2.15
 export INSIGHTS_PROXY_IMG ?= $(INSIGHTS_PROXY_NAMESPACE)/$(INSIGHTS_PROXY_NAME):$(INSIGHTS_PROXY_VERSION)
 export INSIGHTS_BACKEND ?= console.redhat.com
 RUNTIMES_INVENTORY_NAMESPACE ?= registry.redhat.io/insights-runtimes-tech-preview
 RUNTIMES_INVENTORY_NAME ?= runtimes-inventory-rhel8-operator
 RUNTIMES_INVENTORY_VERSION ?= latest
 RUNTIMES_INVENTORY_IMG ?= $(RUNTIMES_INVENTORY_NAMESPACE)/$(RUNTIMES_INVENTORY_NAME):$(RUNTIMES_INVENTORY_VERSION)
+
+ifeq ($(ENABLE_INSIGHTS), true)
+KUSTOMIZE_BUNDLE_DIR ?= config/overlays/insights
 BUNDLE_GEN_FLAGS += --extra-service-accounts cryostat-operator-insights
 BUNDLE_MODE=ocp
 else
@@ -373,9 +374,7 @@ manifests: controller-gen ## Generate manifests e.g. CRD, RBAC, etc.
 	envsubst < hack/image_tag_patch.yaml.in > config/default/image_tag_patch.yaml
 	envsubst < hack/image_pull_patch.yaml.in > config/default/image_pull_patch.yaml
 	envsubst < hack/plugin_image_pull_patch.yaml.in > config/openshift/plugin_image_pull_patch.yaml
-ifeq ($(ENABLE_INSIGHTS), true)
 	envsubst < hack/insights_patch.yaml.in > config/overlays/insights/insights_patch.yaml
-endif
 
 .PHONY: fmt
 fmt: add-license ## Run go fmt against code.
