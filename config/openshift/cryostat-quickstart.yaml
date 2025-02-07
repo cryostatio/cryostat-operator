@@ -23,7 +23,8 @@ spec:
 
     - **Note**: The quickstart uses a sample [Quarkus application](https://github.com/quarkusio/quarkus-quickstarts). You can deploy your own Quarkus application or follow the **Get started with Quarkus using s2i** quick start.
   tasks:
-  - description: > 
+  - title: Enable **Remote Java Management Extensions (JMX) connections** on your Java Application
+    description: >
       To enable remote JMX connections:
 
       1. In the main navigation, click the dropdown menu and select **Administrator**.
@@ -46,7 +47,6 @@ spec:
           Note: This method enables remote JMX without authentication. For details on configuring authentication with SSL/TLS for Remote JMX, see [Configuring Java applications](https://docs.redhat.com/en/documentation/red_hat_build_of_cryostat/4/html/getting_started_with_cryostat/configuring_java_applications).
 
       1. Click **Save.**
-    title: Enable **Remote Java Management Extensions (JMX) connections** on your Java Application
     review:
       failedTaskHelp: >-
         This task isn't verified yet. Try the task again, or [read more](https://docs.redhat.com/en/documentation/red_hat_build_of_cryostat/4/html/getting_started_with_cryostat/configuring_java_applications)
@@ -55,7 +55,8 @@ spec:
         #### Click **Reload** at the bottom of the **Environment** tab.
 
         Do you see a **single values entry** for **`JAVA_OPTS_APPEND`**?
-  - description: >
+  - title: Updating Red Hat OpenShift Service with the remote JMX port
+    description: >
       To update Red Hat OpenShift Service with the remote JMX port:
 
       1. In the main navigation, click the dropdown menu and select **Administrator**.
@@ -75,7 +76,6 @@ spec:
           ```
 
       1. Click **Save**.
-    title: Updating Red Hat OpenShift Service with the remote JMX port
     review:
       failedTaskHelp: >-
         This task isn't verified yet. Try the task again, or [read more](https://docs.redhat.com/en/documentation/red_hat_build_of_cryostat/4/html/getting_started_with_cryostat/configuring_java_applications)
@@ -93,7 +93,8 @@ spec:
 
 
         Do you see **Service port: jfr-jmx -> Pod port: 9091** in the quarkus-quickstarts service?
-  - description: >
+  - title: View your Java Application as a target in Cryostat
+    description: >
       View your Java application as a target in the Red Hat build of Cryostat web application:
 
       1. In the main navigation, click the dropdown menu and select **Developer**.
@@ -109,7 +110,6 @@ spec:
       1. In the web application, click **Recordings** in the navigation menu.
 
       1. View quarkus-quickstarts (or your deployed application) in the **Targets** list.
-    title: View your Java Application as a target in Cryostat
     review:
       failedTaskHelp: >-
         This task isn't verified yet. Try the task again, or [read more](https://docs.redhat.com/en/documentation/red_hat_build_of_cryostat/4/html/getting_started_with_cryostat/configuring_java_applications)
