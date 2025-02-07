@@ -3,6 +3,7 @@ kind: Kustomization
 
 resources:
 - cryostat-quickstart-jmx.yaml
+- cryostat-quickstart-autoconfig.yaml
 - console-plugin/clusterrolebinding-cryostat-plugin-patcher.yaml
 - console-plugin/clusterrolebinding-cryostat-plugin.yaml
 - console-plugin/clusterrole-cryostat-plugin-patcher.yaml
