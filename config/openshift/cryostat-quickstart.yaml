@@ -43,14 +43,13 @@ spec:
               -Dcom.sun.management.jmxremote.ssl=false
               ```
 
-          Note: This method enables remote JMX without authentication. For details on configuring authentication with SSL/TLS for Remote JMX, see [Configuring Java applications](https://access.redhat.com/documentation/en-us/red_hat_build_of_cryostat/2/html/getting_started_with_cryostat/assembly_configuing-java-applications_cryostat).
+          Note: This method enables remote JMX without authentication. For details on configuring authentication with SSL/TLS for Remote JMX, see [Configuring Java applications](https://docs.redhat.com/en/documentation/red_hat_build_of_cryostat/4/html/getting_started_with_cryostat/configuring_java_applications).
 
       1. Click **Save.**
     title: Enable **Remote Java Management Extensions (JMX) connections** on your Java Application
     review:
       failedTaskHelp: >-
-        This task isn't verified yet. Try the task again, or [read
-        more](https://access.redhat.com/documentation/en-us/red_hat_build_of_cryostat/2/html/getting_started_with_cryostat/assembly_configuing-java-applications_cryostat)
+        This task isn't verified yet. Try the task again, or [read more](https://docs.redhat.com/en/documentation/red_hat_build_of_cryostat/4/html/getting_started_with_cryostat/configuring_java_applications)
         about this topic.
       instructions: >
         #### Click **Reload** at the bottom of the **Environment** tab.
@@ -79,8 +78,7 @@ spec:
     title: Updating Red Hat OpenShift Service with the remote JMX port
     review:
       failedTaskHelp: >-
-        This task isn't verified yet. Try the task again, or [read
-        more](https://access.redhat.com/documentation/en-us/red_hat_build_of_cryostat/2/html/getting_started_with_cryostat/assembly_configuing-java-applications_cryostat)
+        This task isn't verified yet. Try the task again, or [read more](https://docs.redhat.com/en/documentation/red_hat_build_of_cryostat/4/html/getting_started_with_cryostat/configuring_java_applications)
         about this topic.
       instructions: >
         #### Verify that the service port is added to the sample resource:
@@ -114,12 +112,11 @@ spec:
     title: View your Java Application as a target in Cryostat
     review:
       failedTaskHelp: >-
-        This task isn't verified yet. Try the task again, or [read
-        more](https://access.redhat.com/documentation/en-us/red_hat_build_of_cryostat/2/html/getting_started_with_cryostat/assembly_configuing-java-applications_cryostat)
+        This task isn't verified yet. Try the task again, or [read more](https://docs.redhat.com/en/documentation/red_hat_build_of_cryostat/4/html/getting_started_with_cryostat/configuring_java_applications)
         about this topic.
       instructions: |-
         #### Verify your Java application is running on Red Hat build of Cryostat web application:
 
         Did the Cryostat web application open in a separate browser window?
   conclusion: >-
-      Your Java application has now been configured to be detected by Cryostat. To profile your Java applications with Cryostat, please follow [this documentation](https://access.redhat.com/documentation/en-us/red_hat_build_of_cryostat/2/html/getting_started_with_cryostat/assembly_creating-recordings_assembly_configuing-java-applications).
+      Your Java application has now been configured to be detected by Cryostat. To profile your Java applications with Cryostat, please follow [this documentation](https://docs.redhat.com/en/documentation/red_hat_build_of_cryostat/4/html/using_cryostat_to_manage_a_jfr_recording/index).
