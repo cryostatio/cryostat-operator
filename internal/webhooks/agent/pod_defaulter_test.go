@@ -422,13 +422,61 @@ var _ = Describe("PodDefaulter", func() {
 			})
 
 			Context("with harvester enabled", func() {
-				BeforeEach(func() {
-					t.objs = append(t.objs, t.NewCryostat().Object)
-					originalPod = t.NewPodHarvesterTemplate()
-					expectedPod = t.NewMutatedPodHarvesterTemplate()
+				Context("with default exit settings", func() {
+					BeforeEach(func() {
+						t.objs = append(t.objs, t.NewCryostat().Object)
+						originalPod = t.NewPodHarvesterTemplate()
+						expectedPod = t.NewMutatedPodHarvesterTemplate()
+					})
+
+					ExpectPod()
 				})
 
-				ExpectPod()
+				Context("with exit age setting", func() {
+					Context("that is valid", func() {
+						BeforeEach(func() {
+							t.objs = append(t.objs, t.NewCryostat().Object)
+							originalPod = t.NewPodHarvesterTemplateAge()
+							expectedPod = t.NewMutatedPodHarvesterTemplateAge()
+						})
+
+						ExpectPod()
+					})
+
+					Context("that is invalid", func() {
+						BeforeEach(func() {
+							t.objs = append(t.objs, t.NewCryostat().Object)
+							originalPod = t.NewPodHarvesterTemplateInvalidAge()
+							// Should fail
+							expectedPod = originalPod
+						})
+
+						ExpectPod()
+					})
+				})
+
+				Context("with exit size setting", func() {
+					Context("that is valid", func() {
+						BeforeEach(func() {
+							t.objs = append(t.objs, t.NewCryostat().Object)
+							originalPod = t.NewPodHarvesterTemplateSize()
+							expectedPod = t.NewMutatedPodHarvesterTemplateSize()
+						})
+
+						ExpectPod()
+					})
+
+					Context("that is invalid", func() {
+						BeforeEach(func() {
+							t.objs = append(t.objs, t.NewCryostat().Object)
+							originalPod = t.NewPodHarvesterTemplateInvalidSize()
+							// Should fail
+							expectedPod = originalPod
+						})
+
+						ExpectPod()
+					})
+				})
 			})
 
 			Context("with a custom resource requirements", func() {
