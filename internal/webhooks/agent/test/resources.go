@@ -188,17 +188,50 @@ func (r *AgentWebhookTestResources) NewPodJavaOptsVar() *corev1.Pod {
 	return pod
 }
 
+func (r *AgentWebhookTestResources) NewPodHarvesterTemplate() *corev1.Pod {
+	pod := r.NewPod()
+	pod.Labels["cryostat.io/harvester-template"] = "default.jfc"
+	return pod
+}
+
+func (r *AgentWebhookTestResources) NewPodHarvesterTemplateAge() *corev1.Pod {
+	pod := r.NewPod()
+	pod.Labels["cryostat.io/harvester-exit-max-age"] = "10s"
+	return pod
+}
+
+func (r *AgentWebhookTestResources) NewPodHarvesterTemplateInvalidAge() *corev1.Pod {
+	pod := r.NewPod()
+	pod.Labels["cryostat.io/harvester-exit-max-age"] = "tenseconds"
+	return pod
+}
+
+func (r *AgentWebhookTestResources) NewPodHarvesterTemplateSize() *corev1.Pod {
+	pod := r.NewPod()
+	pod.Labels["cryostat.io/harvester-exit-max-size"] = "10Mi"
+	return pod
+}
+
+func (r *AgentWebhookTestResources) NewPodHarvesterTemplateInvalidSize() *corev1.Pod {
+	pod := r.NewPod()
+	pod.Labels["cryostat.io/harvester-exit-max-size"] = "tenmib"
+	return pod
+}
+
 type mutatedPodOptions struct {
-	javaOptionsName  string
-	javaOptionsValue string
-	namespace        string
-	image            string
-	pullPolicy       corev1.PullPolicy
-	gatewayPort      int32
-	callbackPort     int32
-	writeAccess      *bool
-	scheme           string
-	resources        *corev1.ResourceRequirements
+	javaOptionsName   string
+	javaOptionsValue  string
+	namespace         string
+	image             string
+	pullPolicy        corev1.PullPolicy
+	gatewayPort       int32
+	callbackPort      int32
+	writeAccess       *bool
+	harvesterTemplate string
+	harvesterExitAge  int32
+	harvesterExitSize int32
+	scheme            string
+	resources         *corev1.ResourceRequirements
 	// Function to produce mutated container array
 	containersFunc func(*AgentWebhookTestResources, *mutatedPodOptions) []corev1.Container
 }
@@ -218,6 +251,12 @@ func (r *AgentWebhookTestResources) setDefaultMutatedPodOptions(options *mutated
 	}
 	if options.callbackPort == 0 {
 		options.callbackPort = 9977
+	}
+	if options.harvesterExitAge == 0 {
+		options.harvesterExitAge = 30000
+	}
+	if options.harvesterExitSize == 0 {
+		options.harvesterExitSize = 20971520
 	}
 	if options.writeAccess == nil {
 		options.writeAccess = &[]bool{true}[0]
@@ -305,6 +344,24 @@ func (r *AgentWebhookTestResources) NewMutatedPodReadOnlyLabel() *corev1.Pod {
 func (r *AgentWebhookTestResources) NewMutatedPodJavaOptsVarLabel() *corev1.Pod {
 	return r.newMutatedPod(&mutatedPodOptions{
 		javaOptionsName: "SOME_OTHER_VAR",
+	})
+}
+
+func (r *AgentWebhookTestResources) NewMutatedPodHarvesterTemplate() *corev1.Pod {
+	return r.newMutatedPod(&mutatedPodOptions{
+		harvesterTemplate: "default.jfc",
+	})
+}
+
+func (r *AgentWebhookTestResources) NewMutatedPodHarvesterTemplateAge() *corev1.Pod {
+	return r.newMutatedPod(&mutatedPodOptions{
+		harvesterExitAge: 10000,
+	})
+}
+
+func (r *AgentWebhookTestResources) NewMutatedPodHarvesterTemplateSize() *corev1.Pod {
+	return r.newMutatedPod(&mutatedPodOptions{
+		harvesterExitSize: 123456,
 	})
 }
 
@@ -580,6 +637,23 @@ func (r *AgentWebhookTestResources) newMutatedContainer(original *corev1.Contain
 		}
 	}
 	container.Env = append(container.Env, callbackEnvs...)
+
+	if len(options.harvesterTemplate) > 0 {
+		container.Env = append(container.Env,
+			corev1.EnvVar{
+				Name:  "CRYOSTAT_AGENT_HARVESTER_TEMPLATE",
+				Value: options.harvesterTemplate,
+			},
+			corev1.EnvVar{
+				Name:  "CRYOSTAT_AGENT_HARVESTER_EXIT_MAX_AGE_MS",
+				Value: strconv.Itoa(int(options.harvesterExitAge)),
+			},
+			corev1.EnvVar{
+				Name:  "CRYOSTAT_AGENT_HARVESTER_EXIT_MAX_SIZE_B",
+				Value: strconv.Itoa(int(options.harvesterExitSize)),
+			},
+		)
+	}
 
 	return container
 }
