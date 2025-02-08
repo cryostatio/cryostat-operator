@@ -200,19 +200,21 @@ func (r *podMutator) Default(ctx context.Context, obj runtime.Object) error {
 	)
 
 	if len(harvesterTemplate) > 0 {
-		container.Env = append(container.Env, corev1.EnvVar{
-			Name:  "CRYOSTAT_AGENT_HARVESTER_TEMPLATE",
-			Value: harvesterTemplate,
-		})
+		container.Env = append(container.Env,
+			corev1.EnvVar{
+				Name:  "CRYOSTAT_AGENT_HARVESTER_TEMPLATE",
+				Value: harvesterTemplate,
+			},
+			corev1.EnvVar{
+				Name:  "CRYOSTAT_AGENT_HARVESTER_EXIT_MAX_AGE_MS",
+				Value: strconv.Itoa(int(*harvesterExitMaxAge)),
+			},
+			corev1.EnvVar{
+				Name:  "CRYOSTAT_AGENT_HARVESTER_EXIT_MAX_SIZE_B",
+				Value: strconv.Itoa(int(*harvesterExitMaxSize)),
+			},
+		)
 	}
-	container.Env = append(container.Env,
-		corev1.EnvVar{
-			Name:  "CRYOSTAT_AGENT_HARVESTER_EXIT_MAX_AGE_MS",
-			Value: strconv.Itoa(int(*harvesterExitMaxAge)),
-		}, corev1.EnvVar{
-			Name:  "CRYOSTAT_AGENT_HARVESTER_EXIT_MAX_SIZE_B",
-			Value: strconv.Itoa(int(*harvesterExitMaxSize)),
-		})
 
 	// Append a port for the callback server
 	container.Ports = append(container.Ports, corev1.ContainerPort{
