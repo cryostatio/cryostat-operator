@@ -196,25 +196,25 @@ func (r *AgentWebhookTestResources) NewPodHarvesterTemplate() *corev1.Pod {
 
 func (r *AgentWebhookTestResources) NewPodHarvesterTemplateAge() *corev1.Pod {
 	pod := r.NewPod()
-	pod.Labels["cryostat.io/harvester-exit-max-age"] = "10000"
+	pod.Labels["cryostat.io/harvester-exit-max-age"] = "10s"
 	return pod
 }
 
 func (r *AgentWebhookTestResources) NewPodHarvesterTemplateInvalidAge() *corev1.Pod {
 	pod := r.NewPod()
-	pod.Labels["cryostat.io/harvester-exit-max-age"] = "5m"
+	pod.Labels["cryostat.io/harvester-exit-max-age"] = "tenseconds"
 	return pod
 }
 
 func (r *AgentWebhookTestResources) NewPodHarvesterTemplateSize() *corev1.Pod {
 	pod := r.NewPod()
-	pod.Labels["cryostat.io/harvester-exit-max-size"] = "123456"
+	pod.Labels["cryostat.io/harvester-exit-max-size"] = "10Mi"
 	return pod
 }
 
 func (r *AgentWebhookTestResources) NewPodHarvesterTemplateInvalidSize() *corev1.Pod {
 	pod := r.NewPod()
-	pod.Labels["cryostat.io/harvester-exit-max-size"] = "50MiB"
+	pod.Labels["cryostat.io/harvester-exit-max-size"] = "tenmib"
 	return pod
 }
 

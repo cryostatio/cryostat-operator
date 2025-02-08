@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"slices"
 	"strconv"
+	"time"
 
 	operatorv1beta2 "github.com/cryostatio/cryostat-operator/api/v1beta2"
 	"github.com/cryostatio/cryostat-operator/internal/controllers/common"
@@ -386,14 +387,14 @@ func getHarvesterTemplate(labels map[string]string) string {
 
 func getHarvesterExitMaxAge(labels map[string]string) (*int32, error) {
 	value := defaultHarvesterExitMaxAge
-	size, pres := labels[constants.AgentLabelHarvesterExitMaxAge]
+	age, pres := labels[constants.AgentLabelHarvesterExitMaxAge]
 	if pres {
 		// Parse the label value into an int32 and return an error if invalid
-		parsed, err := strconv.ParseInt(size, 10, 32)
+		parsed, err := time.ParseDuration(age)
 		if err != nil {
 			return nil, fmt.Errorf("invalid label value for \"%s\": %s", constants.AgentLabelHarvesterExitMaxAge, err.Error())
 		}
-		value = int32(parsed)
+		value = int32(parsed.Milliseconds())
 	}
 	return &value, nil
 }
@@ -402,12 +403,11 @@ func getHarvesterExitMaxSize(labels map[string]string) (*int32, error) {
 	value := defaultHarvesterExitMaxSize
 	size, pres := labels[constants.AgentLabelHarvesterExitMaxSize]
 	if pres {
-		// Parse the label value into an int32 and return an error if invalid
-		parsed, err := strconv.ParseInt(size, 10, 32)
+		parsed, err := resource.ParseQuantity(size)
 		if err != nil {
 			return nil, fmt.Errorf("invalid label value for \"%s\": %s", constants.AgentLabelHarvesterExitMaxSize, err.Error())
 		}
-		value = int32(parsed)
+		value = int32(parsed.Value())
 	}
 	return &value, nil
 }
