@@ -47,13 +47,17 @@ type podMutator struct {
 var _ admission.CustomDefaulter = &podMutator{}
 
 const (
-	agentArg               = "-javaagent:/tmp/cryostat-agent/cryostat-agent-shaded.jar"
-	podNameEnvVar          = "CRYOSTAT_AGENT_POD_NAME"
-	podIPEnvVar            = "CRYOSTAT_AGENT_POD_IP"
-	agentMaxSizeBytes      = "50Mi"
-	agentInitCpuRequest    = "10m"
-	agentInitMemoryRequest = "32Mi"
-	defaultJavaOptsVar     = "JAVA_TOOL_OPTIONS"
+	agentArg                    = "-javaagent:/tmp/cryostat-agent/cryostat-agent-shaded.jar"
+	podNameEnvVar               = "CRYOSTAT_AGENT_POD_NAME"
+	podIPEnvVar                 = "CRYOSTAT_AGENT_POD_IP"
+	agentMaxSizeBytes           = "50Mi"
+	agentInitCpuRequest         = "10m"
+	agentInitMemoryRequest      = "32Mi"
+	defaultJavaOptsVar          = "JAVA_TOOL_OPTIONS"
+	defaultHarvesterExitMaxAge  = int32(30000)
+	kib                         = int32(1024)
+	mib                         = 1024 * kib
+	defaultHarvesterExitMaxSize = 20 * mib
 )
 
 // Default optionally mutates a pod to inject the Cryostat agent
@@ -104,6 +108,16 @@ func (r *podMutator) Default(ctx context.Context, obj runtime.Object) error {
 
 	// Check whether write access has been disabled
 	write, err := hasWriteAccess(pod.Labels)
+	if err != nil {
+		return err
+	}
+
+	harvesterTemplate := getHarvesterTemplate(pod.Labels)
+	harvesterExitMaxAge, err := getHarvesterExitMaxAge(pod.Labels)
+	if err != nil {
+		return err
+	}
+	harvesterExitMaxSize, err := getHarvesterExitMaxSize(pod.Labels)
 	if err != nil {
 		return err
 	}
@@ -184,6 +198,21 @@ func (r *podMutator) Default(ctx context.Context, obj runtime.Object) error {
 			Value: strconv.Itoa(int(*port)),
 		},
 	)
+
+	if len(harvesterTemplate) > 0 {
+		container.Env = append(container.Env, corev1.EnvVar{
+			Name:  "CRYOSTAT_AGENT_HARVESTER_TEMPLATE",
+			Value: harvesterTemplate,
+		})
+	}
+	container.Env = append(container.Env,
+		corev1.EnvVar{
+			Name:  "CRYOSTAT_AGENT_HARVESTER_EXIT_MAX_AGE_MS",
+			Value: strconv.Itoa(int(*harvesterExitMaxAge)),
+		}, corev1.EnvVar{
+			Name:  "CRYOSTAT_AGENT_HARVESTER_EXIT_MAX_SIZE_B",
+			Value: strconv.Itoa(int(*harvesterExitMaxSize)),
+		})
 
 	// Append a port for the callback server
 	container.Ports = append(container.Ports, corev1.ContainerPort{
@@ -342,6 +371,43 @@ func getJavaOptionsVar(labels map[string]string) string {
 		result = value
 	}
 	return result
+}
+
+func getHarvesterTemplate(labels map[string]string) string {
+	result := ""
+	value, pres := labels[constants.AgentLabelHarvesterTemplate]
+	if pres {
+		result = value
+	}
+	return result
+}
+
+func getHarvesterExitMaxAge(labels map[string]string) (*int32, error) {
+	value := defaultHarvesterExitMaxAge
+	size, pres := labels[constants.AgentLabelHarvesterExitMaxAge]
+	if pres {
+		// Parse the label value into an int32 and return an error if invalid
+		parsed, err := strconv.ParseInt(size, 10, 32)
+		if err != nil {
+			return nil, fmt.Errorf("invalid label value for \"%s\": %s", constants.AgentLabelHarvesterExitMaxAge, err.Error())
+		}
+		value = int32(parsed)
+	}
+	return &value, nil
+}
+
+func getHarvesterExitMaxSize(labels map[string]string) (*int32, error) {
+	value := defaultHarvesterExitMaxSize
+	size, pres := labels[constants.AgentLabelHarvesterExitMaxSize]
+	if pres {
+		// Parse the label value into an int32 and return an error if invalid
+		parsed, err := strconv.ParseInt(size, 10, 32)
+		if err != nil {
+			return nil, fmt.Errorf("invalid label value for \"%s\": %s", constants.AgentLabelHarvesterExitMaxSize, err.Error())
+		}
+		value = int32(parsed)
+	}
+	return &value, nil
 }
 
 func getResourceRequirements(cr *model.CryostatInstance) *corev1.ResourceRequirements {
