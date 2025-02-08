@@ -421,6 +421,16 @@ var _ = Describe("PodDefaulter", func() {
 				ExpectPod()
 			})
 
+			Context("with harvester enabled", func() {
+				BeforeEach(func() {
+					t.objs = append(t.objs, t.NewCryostat().Object)
+					originalPod = t.NewPodHarvesterTemplate()
+					expectedPod = t.NewMutatedPodHarvesterTemplate()
+				})
+
+				ExpectPod()
+			})
+
 			Context("with a custom resource requirements", func() {
 				Context("that are valid", func() {
 					BeforeEach(func() {

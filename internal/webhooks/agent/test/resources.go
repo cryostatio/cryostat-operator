@@ -188,17 +188,24 @@ func (r *AgentWebhookTestResources) NewPodJavaOptsVar() *corev1.Pod {
 	return pod
 }
 
+func (r *AgentWebhookTestResources) NewPodHarvesterTemplate() *corev1.Pod {
+	pod := r.NewPod()
+	pod.Labels["cryostat.io/harvester-template"] = "default.jfc"
+	return pod
+}
+
 type mutatedPodOptions struct {
-	javaOptionsName  string
-	javaOptionsValue string
-	namespace        string
-	image            string
-	pullPolicy       corev1.PullPolicy
-	gatewayPort      int32
-	callbackPort     int32
-	writeAccess      *bool
-	scheme           string
-	resources        *corev1.ResourceRequirements
+	javaOptionsName   string
+	javaOptionsValue  string
+	namespace         string
+	image             string
+	pullPolicy        corev1.PullPolicy
+	gatewayPort       int32
+	callbackPort      int32
+	writeAccess       *bool
+	harvesterTemplate string
+	scheme            string
+	resources         *corev1.ResourceRequirements
 	// Function to produce mutated container array
 	containersFunc func(*AgentWebhookTestResources, *mutatedPodOptions) []corev1.Container
 }
@@ -305,6 +312,12 @@ func (r *AgentWebhookTestResources) NewMutatedPodReadOnlyLabel() *corev1.Pod {
 func (r *AgentWebhookTestResources) NewMutatedPodJavaOptsVarLabel() *corev1.Pod {
 	return r.newMutatedPod(&mutatedPodOptions{
 		javaOptionsName: "SOME_OTHER_VAR",
+	})
+}
+
+func (r *AgentWebhookTestResources) NewMutatedPodHarvesterTemplate() *corev1.Pod {
+	return r.newMutatedPod(&mutatedPodOptions{
+		harvesterTemplate: "default.jfc",
 	})
 }
 
