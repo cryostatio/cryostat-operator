@@ -19,6 +19,8 @@ spec:
     - Alternatively, you can configure your Java applications to allow Java Management Extensions (JMX) connections and use an OpenShift Service for detection and JMX for connectivity. JMX is a standard feature on a JVM with which you can monitor and manage target applications that run on the JVM. You may enable and configure JMX when you start the target application JVM so that Red Hat build of Cryostat can communicate with your JVM over the network using built-in JDK functionality. This quick start will explain this JMX-based setup.
     - If you have not yet installed the Red Hat Build of Cryostat Operator, start with the **Get started with the Red Hat build of Cryostat** quick start.
     - **Note**: The quickstart uses a sample [Quarkus application](https://github.com/quarkusio/quarkus-quickstarts). You can deploy your own application or follow the **Get started with Quarkus using s2i** quick start.
+  nextQuickStart:
+  - configuring-cryostat-autoconfig
   tasks:
   - description: |
       To enable remote JMX connections:
