@@ -10,6 +10,8 @@ spec:
   description: Configure your JMX-based Java applications on OpenShift to be profiled and monitored using the Red Hat build of Cryostat.
   durationMinutes: 10
   displayName: Configure JMX-based Java applications with the Red Hat build of Cryostat
+  nextQuickStart:
+    - configuring-cryostat-autoconfig
   introduction: >-
     Red Hat build of Cryostat is a container-native Java application based on JDK Flight Recorder (JFR). You can use it to monitor the performance of the Java Virtual Machine (JVM) for containerized workloads that run on an OpenShift cluster.
 
