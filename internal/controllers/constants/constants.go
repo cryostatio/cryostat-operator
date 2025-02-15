@@ -59,13 +59,16 @@ const (
 	TargetNamespaceCRNamespaceLabel = targetNamespaceCRLabelPrefix + "namespace"
 
 	// Labels for agent auto-configuration
-	agentLabelPrefix            = "cryostat.io/"
-	AgentLabelCryostatName      = agentLabelPrefix + "name"
-	AgentLabelCryostatNamespace = agentLabelPrefix + "namespace"
-	AgentLabelCallbackPort      = agentLabelPrefix + "callback-port"
-	AgentLabelContainer         = agentLabelPrefix + "container"
-	AgentLabelReadOnly          = agentLabelPrefix + "read-only"
-	AgentLabelJavaOptionsVar    = agentLabelPrefix + "java-options-var"
+	agentLabelPrefix               = "cryostat.io/"
+	AgentLabelCryostatName         = agentLabelPrefix + "name"
+	AgentLabelCryostatNamespace    = agentLabelPrefix + "namespace"
+	AgentLabelCallbackPort         = agentLabelPrefix + "callback-port"
+	AgentLabelContainer            = agentLabelPrefix + "container"
+	AgentLabelReadOnly             = agentLabelPrefix + "read-only"
+	AgentLabelJavaOptionsVar       = agentLabelPrefix + "java-options-var"
+	AgentLabelHarvesterTemplate    = agentLabelPrefix + "harvester-template"
+	AgentLabelHarvesterExitMaxAge  = agentLabelPrefix + "harvester-exit-max-age"
+	AgentLabelHarvesterExitMaxSize = agentLabelPrefix + "harvester-exit-max-size"
 
 	CryostatCATLSCommonName     = "cryostat-ca-cert-manager"
 	CryostatTLSCommonName       = "cryostat"
