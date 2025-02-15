@@ -2,7 +2,8 @@ apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 
 resources:
-- cryostat-quickstart.yaml
+- cryostat-quickstart-jmx.yaml
+- cryostat-quickstart-autoconfig.yaml
 - console-plugin/clusterrolebinding-cryostat-plugin-patcher.yaml
 - console-plugin/clusterrolebinding-cryostat-plugin.yaml
 - console-plugin/clusterrole-cryostat-plugin-patcher.yaml
