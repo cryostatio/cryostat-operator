@@ -60,7 +60,7 @@ spec:
       1. Click **Save.**
     review:
       failedTaskHelp: >-
-        This task isn't verified yet. Try the task again, or [read more](https://docs.redhat.com/en/documentation/red_hat_build_of_cryostat/3/html/getting_started_with_cryostat/configuring_java_applications#working_with_cryostat_agent)
+        This task isn't verified yet. Try the task again, or [read more](https://docs.redhat.com/en/documentation/red_hat_build_of_cryostat/4/html/getting_started_with_cryostat/configuring_java_applications#working_with_cryostat_agent)
         about this topic.
       instructions: >
         #### Click **Reload** at the bottom of the **YAML** tab.
