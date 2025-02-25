@@ -257,6 +257,10 @@ func (r *TestResources) setupTargetNamespace() error {
 }
 
 func (r *TestResources) newCryostatCR() *operatorv1beta2.Cryostat {
+	disabled := true
+	disabledPolicyConfig := operatorv1beta2.NetworkPolicyConfig{
+		Disabled: &disabled,
+	}
 	cr := &operatorv1beta2.Cryostat{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      r.Name,
@@ -264,6 +268,12 @@ func (r *TestResources) newCryostatCR() *operatorv1beta2.Cryostat {
 		},
 		Spec: operatorv1beta2.CryostatSpec{
 			EnableCertManager: &[]bool{true}[0],
+			NetworkPolicies: &operatorv1beta2.NetworkPoliciesList{
+				CoreConfig:     &disabledPolicyConfig,
+				ReportsConfig:  &disabledPolicyConfig,
+				DatabaseConfig: &disabledPolicyConfig,
+				StorageConfig:  &disabledPolicyConfig,
+			},
 		},
 	}
 	if !r.OpenShift {
@@ -274,6 +284,10 @@ func (r *TestResources) newCryostatCR() *operatorv1beta2.Cryostat {
 }
 
 func (r *TestResources) newMultiNamespaceCryostatCR() *operatorv1beta2.Cryostat {
+	disabled := true
+	disabledPolicyConfig := operatorv1beta2.NetworkPolicyConfig{
+		Disabled: &disabled,
+	}
 	cr := &operatorv1beta2.Cryostat{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      r.Name,
@@ -282,6 +296,12 @@ func (r *TestResources) newMultiNamespaceCryostatCR() *operatorv1beta2.Cryostat 
 		Spec: operatorv1beta2.CryostatSpec{
 			TargetNamespaces:  r.TargetNamespaces,
 			EnableCertManager: &[]bool{true}[0],
+			NetworkPolicies: &operatorv1beta2.NetworkPoliciesList{
+				CoreConfig:     &disabledPolicyConfig,
+				ReportsConfig:  &disabledPolicyConfig,
+				DatabaseConfig: &disabledPolicyConfig,
+				StorageConfig:  &disabledPolicyConfig,
+			},
 		},
 	}
 	if !r.OpenShift {
