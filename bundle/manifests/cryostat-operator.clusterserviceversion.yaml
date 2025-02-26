@@ -23,8 +23,13 @@ metadata:
       ]
     capabilities: Seamless Upgrades
     categories: Monitoring, Developer Tools
+<<<<<<< HEAD
     containerImage: quay.io/cryostat/cryostat-operator:4.0.0-dev
     createdAt: "2025-02-05T19:59:37Z"
+=======
+    containerImage: quay.io/cryostat/cryostat-operator:4.1.0-dev
+    createdAt: "2025-02-26T19:38:08Z"
+>>>>>>> 50f1eb3 (chore(scorecard): bump Scorecard tag (#1063))
     description: JVM monitoring and profiling tool
     operatorframework.io/initialization-resource: |-
       {
