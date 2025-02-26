@@ -8,11 +8,7 @@
     entrypoint:
     - cryostat-scorecard-tests
     - operator-install
-<<<<<<< HEAD
-    image: "quay.io/cryostat/cryostat-operator-scorecard:4.0.0-20250124171955"
-=======
-    image: "quay.io/cryostat/cryostat-operator-scorecard:4.1.0-20250226193258"
->>>>>>> 50f1eb3 (chore(scorecard): bump Scorecard tag (#1063))
+    image: "quay.io/cryostat/cryostat-operator-scorecard:4.0.0-20250226200907"
     labels:
       suite: cryostat
       test: operator-install
@@ -22,11 +18,7 @@
     entrypoint:
     - cryostat-scorecard-tests
     - cryostat-cr
-<<<<<<< HEAD
-    image: "quay.io/cryostat/cryostat-operator-scorecard:4.0.0-20250124171955"
-=======
-    image: "quay.io/cryostat/cryostat-operator-scorecard:4.1.0-20250226193258"
->>>>>>> 50f1eb3 (chore(scorecard): bump Scorecard tag (#1063))
+    image: "quay.io/cryostat/cryostat-operator-scorecard:4.0.0-20250226200907"
     labels:
       suite: cryostat
       test: cryostat-cr
@@ -36,11 +28,7 @@
     entrypoint:
     - cryostat-scorecard-tests
     - cryostat-multi-namespace
-<<<<<<< HEAD
-    image: "quay.io/cryostat/cryostat-operator-scorecard:4.0.0-20250124171955"
-=======
-    image: "quay.io/cryostat/cryostat-operator-scorecard:4.1.0-20250226193258"
->>>>>>> 50f1eb3 (chore(scorecard): bump Scorecard tag (#1063))
+    image: "quay.io/cryostat/cryostat-operator-scorecard:4.0.0-20250226200907"
     labels:
       suite: cryostat
       test: cryostat-multi-namespace
@@ -50,11 +38,7 @@
     entrypoint:
     - cryostat-scorecard-tests
     - cryostat-recording
-<<<<<<< HEAD
-    image: "quay.io/cryostat/cryostat-operator-scorecard:4.0.0-20250124171955"
-=======
-    image: "quay.io/cryostat/cryostat-operator-scorecard:4.1.0-20250226193258"
->>>>>>> 50f1eb3 (chore(scorecard): bump Scorecard tag (#1063))
+    image: "quay.io/cryostat/cryostat-operator-scorecard:4.0.0-20250226200907"
     labels:
       suite: cryostat
       test: cryostat-recording
@@ -64,11 +48,7 @@
     entrypoint:
     - cryostat-scorecard-tests
     - cryostat-config-change
-<<<<<<< HEAD
-    image: "quay.io/cryostat/cryostat-operator-scorecard:4.0.0-20250124171955"
-=======
-    image: "quay.io/cryostat/cryostat-operator-scorecard:4.1.0-20250226193258"
->>>>>>> 50f1eb3 (chore(scorecard): bump Scorecard tag (#1063))
+    image: "quay.io/cryostat/cryostat-operator-scorecard:4.0.0-20250226200907"
     labels:
       suite: cryostat
       test: cryostat-config-change
@@ -78,11 +58,7 @@
     entrypoint:
     - cryostat-scorecard-tests
     - cryostat-report
-<<<<<<< HEAD
-    image: "quay.io/cryostat/cryostat-operator-scorecard:4.0.0-20250124171955"
-=======
-    image: "quay.io/cryostat/cryostat-operator-scorecard:4.1.0-20250226193258"
->>>>>>> 50f1eb3 (chore(scorecard): bump Scorecard tag (#1063))
+    image: "quay.io/cryostat/cryostat-operator-scorecard:4.0.0-20250226200907"
     labels:
       suite: cryostat
       test: cryostat-report
