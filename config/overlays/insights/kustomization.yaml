@@ -4,3 +4,12 @@ resources:
 
 patchesStrategicMerge:
 - insights_patch.yaml
+
+patchesJson6902:
+- path: insights_manager_patch.yaml
+  target:
+    group: apps
+    version: v1
+    kind: Deployment
+    name: controller
+    namespace: system

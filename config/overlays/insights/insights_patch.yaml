@@ -15,6 +15,7 @@ spec:
         - name: INSIGHTS_BACKEND_DOMAIN
           value: "console.redhat.com"
         - name: USER_AGENT_PREFIX
+<<<<<<< HEAD
           value: "cryostat-operator/4.0.0-dev"
 ---
 apiVersion: apps/v1
@@ -32,3 +33,6 @@ spec:
           value: "true"
         - name: INSIGHTS_URL
           value: "http://insights-proxy.$(OPERATOR_NAMESPACE).svc.cluster.local:8080"
+=======
+          value: "cryostat-operator/4.1.0-dev"
+>>>>>>> ecfc6f3 (fix(insights): correct environment variable order in overlay (#1073))
