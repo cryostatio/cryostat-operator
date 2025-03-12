@@ -16,19 +16,3 @@ spec:
           value: "console.redhat.com"
         - name: USER_AGENT_PREFIX
           value: "cryostat-operator/4.1.0-dev"
----
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: controller
-  namespace: system
-spec:
-  template:
-    spec:
-      containers:
-      - name: manager
-        env:
-        - name: INSIGHTS_ENABLED
-          value: "true"
-        - name: INSIGHTS_URL
-          value: "http://insights-proxy.$(OPERATOR_NAMESPACE).svc.cluster.local:8080"
