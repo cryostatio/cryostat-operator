@@ -1883,6 +1883,18 @@ func (c *controllerTest) commonTests() {
 					t.expectMainDeployment()
 				})
 			})
+			Context("with insecure connections allowed", func() {
+				BeforeEach(func() {
+					t.objs = append(t.objs, t.NewCryostatWithAgentInsecureAllowed().Object)
+					t.DisableAgentHostnameVerify = true
+				})
+				JustBeforeEach(func() {
+					t.reconcileCryostatFully()
+				})
+				It("should configure deployment appropriately", func() {
+					t.expectMainDeployment()
+				})
+			})
 		})
 		Context("with an existing Cryostat CR", func() {
 			var otherInput *cryostatTestInput

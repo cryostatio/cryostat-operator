@@ -5380,6 +5380,10 @@ spec:
                   Options to control how the operator configures Cryostat Agents
                   to communicate with this Cryostat instance.
                 properties:
+                  allowInsecure:
+                    description: Allow insecure (non-TLS) HTTP connections to Cryostat
+                      Agents.
+                    type: boolean
                   disableHostnameVerification:
                     description: |-
                       Disables hostname verification when Cryostat connects to Agents over TLS.
