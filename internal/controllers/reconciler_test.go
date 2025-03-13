@@ -1886,7 +1886,7 @@ func (c *controllerTest) commonTests() {
 			Context("with insecure connections allowed", func() {
 				BeforeEach(func() {
 					t.objs = append(t.objs, t.NewCryostatWithAgentInsecureAllowed().Object)
-					t.DisableAgentHostnameVerify = true
+					t.AllowAgentInsecure = true
 				})
 				JustBeforeEach(func() {
 					t.reconcileCryostatFully()
