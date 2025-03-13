@@ -606,6 +606,13 @@ func (r *AgentWebhookTestResources) newMutatedContainer(original *corev1.Contain
 				MountPath: "/var/run/secrets/io.cryostat/cryostat-agent",
 				ReadOnly:  true,
 			})
+	} else {
+		container.Env = append(container.Env,
+			corev1.EnvVar{
+				Name:  "CRYOSTAT_AGENT_WEBCLIENT_TLS_REQUIRED",
+				Value: "false",
+			},
+		)
 	}
 
 	var callbackEnvs []corev1.EnvVar
