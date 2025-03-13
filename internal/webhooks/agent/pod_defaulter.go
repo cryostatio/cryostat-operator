@@ -301,7 +301,15 @@ func (r *podMutator) Default(ctx context.Context, obj runtime.Object) error {
 				Value: "cryostat",
 			},
 		)
+	} else {
+		// Allow the agent to connect to non-HTTPS Cryostat server
+		container.Env = append(container.Env,
+			corev1.EnvVar{
+				Name:  "CRYOSTAT_AGENT_WEBCLIENT_TLS_REQUIRED",
+				Value: "false",
+			})
 	}
+
 	// Inject agent using JAVA_TOOL_OPTIONS or specified variable, appending to any existing value
 	extended, err := extendJavaOptsVar(container.Env, getJavaOptionsVar(pod.Labels))
 	if err != nil {
