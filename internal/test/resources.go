@@ -56,6 +56,7 @@ type TestResources struct {
 	TargetNamespaces           []string
 	InsightsURL                string
 	DisableAgentHostnameVerify bool
+	AllowAgentInsecure         bool
 }
 
 func NewTestScheme() *runtime.Scheme {
@@ -997,6 +998,14 @@ func (r *TestResources) NewCryostatWithAgentHostnameVerifyDisabled() *model.Cryo
 	cr := r.NewCryostat()
 	cr.Spec.AgentOptions = &operatorv1beta2.AgentOptions{
 		DisableHostnameVerification: true,
+	}
+	return cr
+}
+
+func (r *TestResources) NewCryostatWithAgentInsecureAllowed() *model.CryostatInstance {
+	cr := r.NewCryostat()
+	cr.Spec.AgentOptions = &operatorv1beta2.AgentOptions{
+		AllowInsecure: true,
 	}
 	return cr
 }
@@ -2445,6 +2454,14 @@ func (r *TestResources) NewCoreEnvironmentVariables(reportsUrl string, ingress b
 		envs = append(envs,
 			corev1.EnvVar{
 				Name:  "QUARKUS_REST_CLIENT_VERIFY_HOST",
+				Value: "false",
+			})
+	}
+
+	if r.AllowAgentInsecure {
+		envs = append(envs,
+			corev1.EnvVar{
+				Name:  "CRYOSTAT_AGENT_TLS_REQUIRED",
 				Value: "false",
 			})
 	}
