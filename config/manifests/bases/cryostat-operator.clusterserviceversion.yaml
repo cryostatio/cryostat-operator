@@ -80,6 +80,11 @@ spec:
           to communicate with this Cryostat instance.
         displayName: Agent Options
         path: agentOptions
+      - description: Allow insecure (non-TLS) HTTP connections to Cryostat Agents.
+        displayName: Allow Insecure Connections
+        path: agentOptions.allowInsecure
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:booleanSwitch
       - description: Disables hostname verification when Cryostat connects to Agents
           over TLS. Consider enabling this if the Cryostat Agent fails to determine
           the hostname of your pod.

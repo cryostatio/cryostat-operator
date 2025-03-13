@@ -744,6 +744,10 @@ type AgentOptions struct {
 	// +optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Disable Hostname Verification",xDescriptors={"urn:alm:descriptor:com.tectonic.ui:booleanSwitch"}
 	DisableHostnameVerification bool `json:"disableHostnameVerification,omitempty"`
+	// Allow insecure (non-TLS) HTTP connections to Cryostat Agents.
+	// +optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Allow Insecure Connections",xDescriptors={"urn:alm:descriptor:com.tectonic.ui:booleanSwitch"}
+	AllowInsecure bool `json:"allowInsecure,omitempty"`
 	// The resources allocated to the init container used to inject the Cryostat agent,
 	// when using the operator's agent auto-configuration feature.
 	// +optional
