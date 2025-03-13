@@ -23,8 +23,13 @@ metadata:
       ]
     capabilities: Seamless Upgrades
     categories: Monitoring, Developer Tools
+<<<<<<< HEAD
     containerImage: quay.io/cryostat/cryostat-operator:4.0.0-dev
     createdAt: "2025-02-26T22:23:46Z"
+=======
+    containerImage: quay.io/cryostat/cryostat-operator:4.1.0-dev
+    createdAt: "2025-03-13T17:39:42Z"
+>>>>>>> 3e369f3 (feat(agent): add toggle to allow insecure connections (#1076))
     description: JVM monitoring and profiling tool
     operatorframework.io/initialization-resource: |-
       {
@@ -92,6 +97,11 @@ spec:
           - description: Options to control how the operator configures Cryostat Agents to communicate with this Cryostat instance.
             displayName: Agent Options
             path: agentOptions
+          - description: Allow insecure (non-TLS) HTTP connections to Cryostat Agents.
+            displayName: Allow Insecure Connections
+            path: agentOptions.allowInsecure
+            x-descriptors:
+              - urn:alm:descriptor:com.tectonic.ui:booleanSwitch
           - description: Disables hostname verification when Cryostat connects to Agents over TLS. Consider enabling this if the Cryostat Agent fails to determine the hostname of your pod.
             displayName: Disable Hostname Verification
             path: agentOptions.disableHostnameVerification
