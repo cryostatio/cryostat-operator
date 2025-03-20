@@ -76,12 +76,15 @@ jobs:
       id: tag-image
       run: |
         IMG_TAG="$(make --eval='print-img-ver: ; @echo $(IMAGE_VERSION)' print-img-ver)"
-        TAGS+=("${IMG_TAG}-${{ matrix.bundle_mode }}")
+        TAGS+=("${IMG_TAG}-${{ matrix.bundle_mode }}") # ex 4.0.0-dev-k8s
+        if [ "${{ matrix.bundle_mode }}" == "k8s" ]; then
+          TAGS+=("${IMG_TAG}") # ex 4.0.0-dev
+        fi
         if [ "${GITHUB_REF}" == "refs/heads/main" ] ; then
           if [ "${{ matrix.bundle_mode }}" == "k8s" ]; then
-            TAGS+=("${IMG_TAG}" "latest")
+            TAGS+=("latest") # builds from main are called latest, and alias to the k8s bundle
           fi
-          TAGS+=("latest-${{ matrix.bundle_mode }}")
+          TAGS+=("latest-${{ matrix.bundle_mode }}") # ex latest-k8s, aliased as latest
         fi
         for tag in "${TAGS[@]}"; do
           podman tag "${{ env.CI_BUNDLE_IMG }}:${IMG_TAG}" "${{ env.CI_BUNDLE_IMG }}:${tag}"
