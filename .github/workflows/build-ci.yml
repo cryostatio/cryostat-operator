@@ -84,7 +84,7 @@ jobs:
           if [ "${{ matrix.bundle_mode }}" == "k8s" ]; then
             TAGS+=("latest") # builds from main are called latest, and alias to the k8s bundle
           fi
-          TAGS+=("latest-${{ matrix.bundle_mode }}") # ex latest-k8s, aliased as latest
+          TAGS+=("latest-${{ matrix.bundle_mode }}") # ex latest-k8s
         fi
         for tag in "${TAGS[@]}"; do
           podman tag "${{ env.CI_BUNDLE_IMG }}:${IMG_TAG}" "${{ env.CI_BUNDLE_IMG }}:${tag}"
