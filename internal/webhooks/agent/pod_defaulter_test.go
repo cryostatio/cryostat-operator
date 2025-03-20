@@ -107,7 +107,6 @@ var _ = Describe("PodDefaulter", func() {
 					Expect(container.Env).To(Equal(expected.Env))
 					Expect(container.EnvFrom).To(Equal(expected.EnvFrom))
 					Expect(container.Image).To(HavePrefix(expected.Image[:strings.Index(expected.Image, ":")]))
-					Expect(container.ImagePullPolicy).To(Equal(expected.ImagePullPolicy))
 					Expect(container.VolumeMounts).To(Equal(expected.VolumeMounts))
 					Expect(container.SecurityContext).To(Equal(expected.SecurityContext))
 					Expect(container.Ports).To(Equal(expected.Ports))
@@ -277,6 +276,16 @@ var _ = Describe("PodDefaulter", func() {
 					})
 
 					ExpectPod()
+
+					It("should use Always pull policy", func() {
+						actual := t.getPod(expectedPod)
+						expectedInitContainers := expectedPod.Spec.InitContainers
+						Expect(actual.Spec.InitContainers).To(HaveLen(len(expectedInitContainers)))
+						for idx := range expectedInitContainers {
+							container := actual.Spec.InitContainers[idx]
+							Expect(container.ImagePullPolicy).To(Equal(corev1.PullAlways))
+						}
+					})
 				})
 
 				Context("for release", func() {
@@ -286,6 +295,16 @@ var _ = Describe("PodDefaulter", func() {
 					})
 
 					ExpectPod()
+
+					It("should use IfNotPresent pull policy", func() {
+						actual := t.getPod(expectedPod)
+						expectedInitContainers := expectedPod.Spec.InitContainers
+						Expect(actual.Spec.InitContainers).To(HaveLen(len(expectedInitContainers)))
+						for idx := range expectedInitContainers {
+							container := actual.Spec.InitContainers[idx]
+							Expect(container.ImagePullPolicy).To(Equal(corev1.PullIfNotPresent))
+						}
+					})
 				})
 			})
 
