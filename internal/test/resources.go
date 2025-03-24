@@ -161,6 +161,21 @@ func (r *TestResources) NewCryostatWithTemplates() *model.CryostatInstance {
 	return cr
 }
 
+func (r *TestResources) NewCryostatWithDeclarativeCredentials() *model.CryostatInstance {
+	cr := r.NewCryostat()
+	cr.Spec.DeclarativeCredentials = []operatorv1beta2.DeclarativeCredential{
+		{
+			SecretName: "a",
+			Credential: "dummy credential a",
+		},
+		{
+			SecretName: "b",
+			Credential: "dummy credential b",
+		},
+	}
+	return cr
+}
+
 func (r *TestResources) NewCryostatWithIngress() *model.CryostatInstance {
 	return r.addIngressToCryostat(r.NewCryostat())
 }
@@ -4290,6 +4305,30 @@ func (r *TestResources) NewTemplateConfigMap() *corev1.ConfigMap {
 		},
 		Data: map[string]string{
 			"template.jfc": "XML template data",
+		},
+	}
+}
+
+func (r *TestResources) NewDeclarativeCredentialSecret() *corev1.Secret {
+	return &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "a",
+			Namespace: r.Namespace,
+		},
+		StringData: map[string]string{
+			"Credential": "dummy credential a",
+		},
+	}
+}
+
+func (r *TestResources) NewAnotherDeclarativeCredentialSecret() *corev1.Secret {
+	return &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "b",
+			Namespace: r.Namespace,
+		},
+		StringData: map[string]string{
+			"Credential": "dummy credential b",
 		},
 	}
 }
