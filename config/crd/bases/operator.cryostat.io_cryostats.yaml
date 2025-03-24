@@ -75,6 +75,20 @@ spec:
                 - configMapName
                 - filename
                 type: object
+              declarativeCredentials:
+                description: List of Stored Credentials to preconfigure in Cryostat.
+                items:
+                  properties:
+                    credential:
+                      description: Key within secret containing the stored credential
+                      type: string
+                    secretName:
+                      description: Name of secret in the local namespace
+                      type: string
+                  required:
+                  - secretName
+                  type: object
+                type: array
               enableCertManager:
                 description: |-
                   Use cert-manager to secure in-cluster communication between Cryostat components.
@@ -5527,6 +5541,20 @@ spec:
                       More details: https://kubernetes.io/docs/concepts/configuration/secret/#secret-immutable
                     type: string
                 type: object
+              declarativeCredentials:
+                description: List of Stored Credentials to preconfigure in Cryostat.
+                items:
+                  properties:
+                    credential:
+                      description: Key within secret containing the stored credential
+                      type: string
+                    secretName:
+                      description: Name of secret in the local namespace
+                      type: string
+                  required:
+                  - secretName
+                  type: object
+                type: array
               enableCertManager:
                 description: |-
                   Use cert-manager to secure in-cluster communication between Cryostat components.

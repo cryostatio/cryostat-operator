@@ -3738,6 +3738,20 @@ func (t *cryostatTestInput) checkDeploymentHasTemplates() {
 	Expect(volumeMounts).To(ConsistOf(expectedVolumeMounts))
 }
 
+func (t *cryostatTestInput) checkDeploymentHasCredentials() {
+	deployment := &appsv1.Deployment{}
+	err := t.Client.Get(context.Background(), types.NamespacedName{Name: t.Name, Namespace: t.Namespace}, deployment)
+	Expect(err).ToNot(HaveOccurred())
+
+	volumes := deployment.Spec.Template.Spec.Volumes
+	expectedVolumes := t.NewVolumesWithCredentials()
+	Expect(volumes).To(ConsistOf(expectedVolumes))
+
+	volumeMounts := deployment.Spec.Template.Spec.Containers[0].VolumeMounts
+	expectedVolumeMounts := t.NewVolumeMountsWithCredentials()
+	Expect(volumeMounts).To(ConsistOf(expectedVolumeMounts))
+}
+
 func (t *cryostatTestInput) checkCoreContainer(container *corev1.Container, ingress bool,
 	reportsUrl string,
 	hasPortConfig bool, builtInDiscoveryDisabled bool, builtInPortConfigDisabled bool,
