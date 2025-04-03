@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"slices"
 	"strconv"
+	"strings"
 	"time"
 
 	operatorv1beta2 "github.com/cryostatio/cryostat-operator/api/v1beta2"
@@ -49,11 +50,13 @@ var _ admission.CustomDefaulter = &podMutator{}
 
 const (
 	agentArg                    = "-javaagent:/tmp/cryostat-agent/cryostat-agent-shaded.jar"
+	agentLogLevelProp           = "-Dio.cryostat.agent.shaded.org.slf4j.simpleLogger.defaultLogLevel"
 	podNameEnvVar               = "CRYOSTAT_AGENT_POD_NAME"
 	podIPEnvVar                 = "CRYOSTAT_AGENT_POD_IP"
 	agentMaxSizeBytes           = "50Mi"
 	agentInitCpuRequest         = "10m"
 	agentInitMemoryRequest      = "32Mi"
+	defaultLogLevel             = "off"
 	defaultJavaOptsVar          = "JAVA_TOOL_OPTIONS"
 	defaultHarvesterExitMaxAge  = int32(30000)
 	kib                         = int32(1024)
@@ -311,7 +314,7 @@ func (r *podMutator) Default(ctx context.Context, obj runtime.Object) error {
 	}
 
 	// Inject agent using JAVA_TOOL_OPTIONS or specified variable, appending to any existing value
-	extended, err := extendJavaOptsVar(container.Env, getJavaOptionsVar(pod.Labels))
+	extended, err := extendJavaOptsVar(container.Env, getJavaOptionsVar(pod.Labels), getLogLevel(pod.Labels))
 	if err != nil {
 		return err
 	}
@@ -373,6 +376,15 @@ func hasWriteAccess(labels map[string]string) (*bool, error) {
 		result = !parsed
 	}
 	return &result, nil
+}
+
+func getLogLevel(labels map[string]string) string {
+	result := defaultLogLevel
+	value, pres := labels[constants.AgentLabelLogLevel]
+	if pres {
+		result = value
+	}
+	return result
 }
 
 func getJavaOptionsVar(labels map[string]string) string {
@@ -499,18 +511,23 @@ func findNamedContainer(containers []corev1.Container, name string) (*corev1.Con
 	return nil, fmt.Errorf("no container found with name \"%s\"", name)
 }
 
-func extendJavaOptsVar(envs []corev1.EnvVar, javaOptsVar string) ([]corev1.EnvVar, error) {
+func extendJavaOptsVar(envs []corev1.EnvVar, javaOptsVar string, logLevel string) ([]corev1.EnvVar, error) {
 	existing, err := findJavaOptsVar(envs, javaOptsVar)
 	if err != nil {
 		return nil, err
 	}
 
+	agentArgLine :=
+		strings.Join([]string{
+			agentArg,
+			fmt.Sprintf("%s=%s", agentLogLevelProp, logLevel),
+		}, " ")
 	if existing != nil {
-		existing.Value += " " + agentArg
+		existing.Value += agentArgLine
 	} else {
 		envs = append(envs, corev1.EnvVar{
 			Name:  javaOptsVar,
-			Value: agentArg,
+			Value: agentArgLine,
 		})
 	}
 
