@@ -523,7 +523,7 @@ func extendJavaOptsVar(envs []corev1.EnvVar, javaOptsVar string, logLevel string
 			fmt.Sprintf("%s=%s", agentLogLevelProp, logLevel),
 		}, " ")
 	if existing != nil {
-		existing.Value += agentArgLine
+		existing.Value += " " + agentArgLine
 	} else {
 		envs = append(envs, corev1.EnvVar{
 			Name:  javaOptsVar,

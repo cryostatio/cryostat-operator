@@ -519,7 +519,7 @@ func (r *AgentWebhookTestResources) newMutatedContainer(original *corev1.Contain
 			},
 			{
 				Name:  options.javaOptionsName,
-				Value: options.javaOptionsValue + "-javaagent:/tmp/cryostat-agent/cryostat-agent-shaded.jar",
+				Value: options.javaOptionsValue + "-javaagent:/tmp/cryostat-agent/cryostat-agent-shaded.jar -Dio.cryostat.agent.shaded.org.slf4j.simpleLogger.defaultLogLevel=off",
 			},
 		}...),
 		Ports: []corev1.ContainerPort{
