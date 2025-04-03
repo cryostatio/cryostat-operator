@@ -140,6 +140,12 @@ func (r *AgentWebhookTestResources) NewPodNoNamespaceLabel() *corev1.Pod {
 	return pod
 }
 
+func (r *AgentWebhookTestResources) NewPodLogLevelLabel() *corev1.Pod {
+	pod := r.NewPod()
+	pod.Labels["cryostat.io/log-level"] = "trace"
+	return pod
+}
+
 func (r *AgentWebhookTestResources) NewPodPortLabel() *corev1.Pod {
 	pod := r.NewPod()
 	pod.Labels["cryostat.io/callback-port"] = "9998"
@@ -219,6 +225,7 @@ func (r *AgentWebhookTestResources) NewPodHarvesterTemplateInvalidSize() *corev1
 }
 
 type mutatedPodOptions struct {
+	logLevel          string
 	javaOptionsName   string
 	javaOptionsValue  string
 	namespace         string
@@ -237,6 +244,9 @@ type mutatedPodOptions struct {
 }
 
 func (r *AgentWebhookTestResources) setDefaultMutatedPodOptions(options *mutatedPodOptions) {
+	if len(options.logLevel) == 0 {
+		options.logLevel = "off"
+	}
 	if len(options.namespace) == 0 {
 		options.namespace = r.Namespace
 	}
@@ -314,6 +324,12 @@ func (r *AgentWebhookTestResources) NewMutatedPodCustomDevImage() *corev1.Pod {
 func (r *AgentWebhookTestResources) NewMutatedPodGatewayPort() *corev1.Pod {
 	return r.newMutatedPod(&mutatedPodOptions{
 		gatewayPort: 8080,
+	})
+}
+
+func (r *AgentWebhookTestResources) NewMutatedPodLogLevel() *corev1.Pod {
+	return r.newMutatedPod(&mutatedPodOptions{
+		logLevel: "trace",
 	})
 }
 
@@ -519,7 +535,7 @@ func (r *AgentWebhookTestResources) newMutatedContainer(original *corev1.Contain
 			},
 			{
 				Name:  options.javaOptionsName,
-				Value: options.javaOptionsValue + "-javaagent:/tmp/cryostat-agent/cryostat-agent-shaded.jar -Dio.cryostat.agent.shaded.org.slf4j.simpleLogger.defaultLogLevel=off",
+				Value: options.javaOptionsValue + fmt.Sprintf("-javaagent:/tmp/cryostat-agent/cryostat-agent-shaded.jar -Dio.cryostat.agent.shaded.org.slf4j.simpleLogger.defaultLogLevel=%s", options.logLevel),
 			},
 		}...),
 		Ports: []corev1.ContainerPort{
