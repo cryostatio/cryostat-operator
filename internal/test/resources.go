@@ -166,11 +166,9 @@ func (r *TestResources) NewCryostatWithDeclarativeCredentials() *model.CryostatI
 	cr.Spec.DeclarativeCredentials = []operatorv1beta2.DeclarativeCredential{
 		{
 			SecretName: "a",
-			Credential: "dummy credential a",
 		},
 		{
 			SecretName: "b",
-			Credential: "dummy credential b",
 		},
 	}
 	return cr
@@ -4352,9 +4350,6 @@ func (r *TestResources) NewDeclarativeCredentialSecret() *corev1.Secret {
 			Name:      "a",
 			Namespace: r.Namespace,
 		},
-		StringData: map[string]string{
-			"Credential": "dummy credential a",
-		},
 	}
 }
 
@@ -4363,9 +4358,6 @@ func (r *TestResources) NewAnotherDeclarativeCredentialSecret() *corev1.Secret {
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "b",
 			Namespace: r.Namespace,
-		},
-		StringData: map[string]string{
-			"Credential": "dummy credential b",
 		},
 	}
 }
