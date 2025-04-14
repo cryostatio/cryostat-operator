@@ -79,9 +79,6 @@ spec:
                 description: List of Stored Credentials to preconfigure in Cryostat.
                 items:
                   properties:
-                    credential:
-                      description: Key within secret containing the stored credential
-                      type: string
                     secretName:
                       description: Name of secret in the local namespace
                       type: string
