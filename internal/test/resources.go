@@ -159,6 +159,19 @@ func (r *TestResources) NewCryostatWithTemplates() *model.CryostatInstance {
 	return cr
 }
 
+func (r *TestResources) NewCryostatWithDeclarativeCredentials() *model.CryostatInstance {
+	cr := r.NewCryostat()
+	cr.Spec.DeclarativeCredentials = []operatorv1beta2.DeclarativeCredential{
+		{
+			SecretName: "a",
+		},
+		{
+			SecretName: "b",
+		},
+	}
+	return cr
+}
+
 func (r *TestResources) NewCryostatWithIngress() *model.CryostatInstance {
 	return r.addIngressToCryostat(r.NewCryostat())
 }
@@ -3048,6 +3061,22 @@ func (r *TestResources) NewVolumeMountsWithTemplates() []corev1.VolumeMount {
 		})
 }
 
+func (r *TestResources) NewVolumeMountsWithCredentials() []corev1.VolumeMount {
+	return append(r.NewCoreVolumeMounts(),
+		corev1.VolumeMount{
+			Name:      "a",
+			MountPath: "/opt/cryostat.d/credentials.d/a",
+			SubPath:   "a",
+			ReadOnly:  true,
+		},
+		corev1.VolumeMount{
+			Name:      "b",
+			MountPath: "/opt/cryostat.d/credentials.d/b",
+			SubPath:   "b",
+			ReadOnly:  true,
+		})
+}
+
 func (r *TestResources) NewVolumeMountsWithAuthProperties() []corev1.VolumeMount {
 	return append(r.NewCoreVolumeMounts(), r.NewAuthPropertiesVolumeMount())
 }
@@ -3270,6 +3299,27 @@ func (r *TestResources) OtherDeployment() *appsv1.Deployment {
 
 func (r *TestResources) NewVolumes() []corev1.Volume {
 	return r.newVolumes(nil)
+}
+
+func (r *TestResources) NewVolumesWithCredentials() []corev1.Volume {
+	return append(r.NewVolumes(),
+		corev1.Volume{
+			Name: "a",
+			VolumeSource: corev1.VolumeSource{
+				Secret: &corev1.SecretVolumeSource{
+					SecretName: "a",
+				},
+			},
+		},
+		corev1.Volume{
+			Name: "b",
+			VolumeSource: corev1.VolumeSource{
+				Secret: &corev1.SecretVolumeSource{
+					SecretName: "b",
+				},
+			},
+		},
+	)
 }
 
 func (r *TestResources) NewVolumesWithSecrets() []corev1.Volume {
@@ -4145,6 +4195,24 @@ func (r *TestResources) NewTemplateConfigMap() *corev1.ConfigMap {
 		},
 		Data: map[string]string{
 			"template.jfc": "XML template data",
+		},
+	}
+}
+
+func (r *TestResources) NewDeclarativeCredentialSecret() *corev1.Secret {
+	return &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "a",
+			Namespace: r.Namespace,
+		},
+	}
+}
+
+func (r *TestResources) NewAnotherDeclarativeCredentialSecret() *corev1.Secret {
+	return &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "b",
+			Namespace: r.Namespace,
 		},
 	}
 }
