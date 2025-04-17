@@ -75,17 +75,6 @@ spec:
                 - configMapName
                 - filename
                 type: object
-              declarativeCredentials:
-                description: List of Stored Credentials to preconfigure in Cryostat.
-                items:
-                  properties:
-                    secretName:
-                      description: Name of secret in the local namespace
-                      type: string
-                  required:
-                  - secretName
-                  type: object
-                type: array
               enableCertManager:
                 description: |-
                   Use cert-manager to secure in-cluster communication between Cryostat components.
