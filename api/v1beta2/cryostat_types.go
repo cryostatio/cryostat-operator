@@ -591,19 +591,10 @@ type CertificateSecret struct {
 	CertificateKey *string `json:"certificateKey,omitempty"`
 }
 
-type Credential struct {
-	UserName        string
-	Password        string
-	MatchExpression string
-}
-
 type DeclarativeCredential struct {
 	// Name of secret in the local namespace
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:io.kubernetes:Secret"}
 	SecretName string `json:"secretName"`
-	// Key within secret containing the stored credential
-	// +optional
-	Credential string `json:"credential,omitempty"`
 }
 
 // A ConfigMap containing a .jfc template file.
