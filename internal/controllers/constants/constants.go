@@ -62,6 +62,7 @@ const (
 	agentLabelPrefix               = "cryostat.io/"
 	AgentLabelCryostatName         = agentLabelPrefix + "name"
 	AgentLabelCryostatNamespace    = agentLabelPrefix + "namespace"
+	AgentLabelLogLevel             = agentLabelPrefix + "log-level"
 	AgentLabelCallbackPort         = agentLabelPrefix + "callback-port"
 	AgentLabelContainer            = agentLabelPrefix + "container"
 	AgentLabelReadOnly             = agentLabelPrefix + "read-only"

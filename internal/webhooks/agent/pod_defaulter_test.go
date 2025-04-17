@@ -318,6 +318,16 @@ var _ = Describe("PodDefaulter", func() {
 				ExpectPod()
 			})
 
+			Context("with a log level label", func() {
+				BeforeEach(func() {
+					t.objs = append(t.objs, t.NewCryostat().Object)
+					originalPod = t.NewPodLogLevelLabel()
+					expectedPod = t.NewMutatedPodLogLevel()
+				})
+
+				ExpectPod()
+			})
+
 			Context("with a custom callback port label", func() {
 				Context("that is valid", func() {
 					BeforeEach(func() {
