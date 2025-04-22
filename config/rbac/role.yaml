@@ -8,7 +8,6 @@ rules:
   - ""
   resources:
   - configmaps
-  - endpoints
   - events
   - persistentvolumeclaims
   - pods
@@ -108,6 +107,14 @@ rules:
   - get
   - list
   - update
+- apiGroups:
+  - discovery.k8s.io
+  resources:
+  - endpointslices
+  verbs:
+  - get
+  - list
+  - watch
 - apiGroups:
   - networking.k8s.io
   resources:
