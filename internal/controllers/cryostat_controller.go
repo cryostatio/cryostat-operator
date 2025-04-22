@@ -49,7 +49,8 @@ func NewCryostatReconciler(config *ReconcilerConfig) (*CryostatReconciler, error
 // +kubebuilder:rbac:groups=operator.cryostat.io,resources=cryostats,verbs=*
 // +kubebuilder:rbac:groups=operator.cryostat.io,resources=cryostats/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=operator.cryostat.io,resources=cryostats/finalizers,verbs=update
-// +kubebuilder:rbac:groups="",resources=pods;services;services/finalizers;endpoints;persistentvolumeclaims;events;configmaps;secrets;serviceaccounts,verbs=*
+// +kubebuilder:rbac:groups="",resources=pods;services;services/finalizers;persistentvolumeclaims;events;configmaps;secrets;serviceaccounts,verbs=*
+// +kubebuilder:rbac:groups=discovery.k8s.io,resources=endpointslices,verbs=get;list;watch
 // +kubebuilder:rbac:groups="",resources=replicationcontrollers,verbs=get
 // +kubebuilder:rbac:groups=rbac.authorization.k8s.io,resources=roles;rolebindings,verbs=create;get;list;update;watch;delete
 // +kubebuilder:rbac:groups=rbac.authorization.k8s.io,resources=clusterrolebindings,verbs=create;get;list;update;watch;delete

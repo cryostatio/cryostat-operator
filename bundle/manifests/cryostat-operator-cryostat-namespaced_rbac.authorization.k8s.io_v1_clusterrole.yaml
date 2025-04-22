@@ -7,9 +7,9 @@ metadata:
   name: cryostat-operator-cryostat-namespaced
 rules:
 - apiGroups:
-  - ""
+  - discovery.k8s.io
   resources:
-  - endpoints
+  - endpointslices
   verbs:
   - get
   - list

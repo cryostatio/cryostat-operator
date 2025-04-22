@@ -133,7 +133,7 @@ interacting with the deployed Cryostat instance(s).
 When using the web-client, users can login with their username and password associated with their OpenShift account. User credentials will be remembered for the duration of the session.
 
 If the current user account does not have sufficient permissions to list
-routes, list endpoints, or perform other actions that Cryostat requires,
+routes, list endpointslices, or perform other actions that Cryostat requires,
 then the user may also try to authenticate using the Operator's service
 account. This, of course, assumes that the user has permission to view this
 service account's secrets.
