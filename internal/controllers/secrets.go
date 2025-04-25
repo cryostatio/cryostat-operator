@@ -145,7 +145,7 @@ func (r *Reconciler) reconcileStorageSecret(ctx context.Context, cr *model.Cryos
 			passwd := r.GenPasswd(32)
 			secret.StringData[storageSecretAccessKey] = accessKey
 			secret.StringData[storageSecretPassKey] = passwd
-			secret.StringData[storageSecretBasicAuthKey] = b64.StdEncoding.EncodeToString([]byte(fmt.Sprintf("%s:%s", accessKey, passwd)))
+			secret.StringData[storageSecretBasicAuthKey] = b64.StdEncoding.EncodeToString(fmt.Appendf(nil, "%s:%s", accessKey, passwd))
 		}
 		return nil
 	})
