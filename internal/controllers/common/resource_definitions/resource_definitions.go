@@ -352,7 +352,7 @@ func ReportsPodLabels(cr *model.CryostatInstance) map[string]string {
 	}
 }
 
-func NewDeploymentForReports(cr *model.CryostatInstance, imageTags *ImageTags, tls *TLSConfig,
+func NewDeploymentForReports(cr *model.CryostatInstance, imageTags *ImageTags, serviceSpecs *ServiceSpecs, tls *TLSConfig,
 	openshift bool) *appsv1.Deployment {
 	replicas := int32(0)
 	if cr.Spec.ReportOptions != nil {
@@ -412,7 +412,7 @@ func NewDeploymentForReports(cr *model.CryostatInstance, imageTags *ImageTags, t
 			},
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: podTemplateMeta,
-				Spec:       *NewPodForReports(cr, imageTags, tls, openshift),
+				Spec:       *NewPodForReports(cr, imageTags, serviceSpecs, tls, openshift),
 			},
 			Replicas: &replicas,
 		},
@@ -814,7 +814,7 @@ func NewReportContainerResource(cr *model.CryostatInstance) *corev1.ResourceRequ
 	return resources
 }
 
-func NewPodForReports(cr *model.CryostatInstance, imageTags *ImageTags, tls *TLSConfig, openshift bool) *corev1.PodSpec {
+func NewPodForReports(cr *model.CryostatInstance, imageTags *ImageTags, serviceSpecs *ServiceSpecs, tls *TLSConfig, openshift bool) *corev1.PodSpec {
 	resources := NewReportContainerResource(cr)
 	cpus := resources.Requests.Cpu().Value() // Round to 1 if cpu request < 1000m
 	if limits := resources.Limits; limits != nil {
@@ -832,6 +832,10 @@ func NewPodForReports(cr *model.CryostatInstance, imageTags *ImageTags, tls *TLS
 		{
 			Name:  "JAVA_OPTS",
 			Value: javaOpts,
+		},
+		{
+			Name:  "CRYOSTAT_STORAGE_BASE_URI",
+			Value: serviceSpecs.StorageURL.String(),
 		},
 	}
 	mounts := []corev1.VolumeMount{}
