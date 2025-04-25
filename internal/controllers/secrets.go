@@ -111,17 +111,20 @@ func (r *Reconciler) reconcileDatabaseConnectionSecret(ctx context.Context, cr *
 	return r.Client.Status().Update(ctx, cr.Object)
 }
 
-// storageSecretNameSuffix is the suffix to be appended to the name of a
+// StorageSecretNameSuffix is the suffix to be appended to the name of a
 // Cryostat CR to name its object storage secret
-const storageSecretNameSuffix = "-storage"
+const StorageSecretNameSuffix = "-storage"
+
+// storageSecretAccessKey indexes the username within the Cryostat storage Secret
+const StorageSecretAccessKey = "ACCESS_KEY"
 
 // storageSecretUserKey indexes the password within the Cryostat storage Secret
-const storageSecretPassKey = "SECRET_KEY"
+const StorageSecretPassKey = "SECRET_KEY"
 
 func (r *Reconciler) reconcileStorageSecret(ctx context.Context, cr *model.CryostatInstance) error {
 	secret := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      cr.Name + storageSecretNameSuffix,
+			Name:      cr.Name + StorageSecretNameSuffix,
 			Namespace: cr.InstallNamespace,
 		},
 	}
@@ -133,7 +136,8 @@ func (r *Reconciler) reconcileStorageSecret(ctx context.Context, cr *model.Cryos
 
 		// Password is generated, so don't regenerate it when updating
 		if secret.CreationTimestamp.IsZero() {
-			secret.StringData[storageSecretPassKey] = r.GenPasswd(32)
+			secret.StringData[StorageSecretAccessKey] = "cryostat"
+			secret.StringData[StorageSecretPassKey] = r.GenPasswd(32)
 		}
 		return nil
 	})
