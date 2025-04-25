@@ -23,7 +23,6 @@ import (
 	"strings"
 
 	operatorv1beta2 "github.com/cryostatio/cryostat-operator/api/v1beta2"
-	"github.com/cryostatio/cryostat-operator/internal/controllers"
 	common "github.com/cryostatio/cryostat-operator/internal/controllers/common"
 	"github.com/cryostatio/cryostat-operator/internal/controllers/constants"
 	"github.com/cryostatio/cryostat-operator/internal/controllers/model"
@@ -843,7 +842,7 @@ func NewPodForReports(cr *model.CryostatInstance, imageTags *ImageTags, serviceS
 	volumes := []corev1.Volume{}
 
 	optional := false
-	secretName := cr.Name + controllers.StorageSecretNameSuffix
+	secretName := cr.Name + "-storage"
 	envs = append(envs,
 		corev1.EnvVar{
 			Name:  "CRYOSTAT_STORAGE_AUTH_METHOD",
@@ -856,7 +855,7 @@ func NewPodForReports(cr *model.CryostatInstance, imageTags *ImageTags, serviceS
 					LocalObjectReference: corev1.LocalObjectReference{
 						Name: secretName,
 					},
-					Key:      controllers.StorageSecretBasicAuthKeyKey,
+					Key:      "BASIC_AUTH_KEY",
 					Optional: &optional,
 				},
 			},
@@ -1388,7 +1387,7 @@ func NewCoreContainer(cr *model.CryostatInstance, specs *ServiceSpecs, imageTag 
 		},
 	})
 
-	secretName = cr.Name + controllers.StorageSecretNameSuffix
+	secretName = cr.Name + "-storage"
 	envs = append(envs,
 		corev1.EnvVar{
 			Name: "QUARKUS_S3_AWS_CREDENTIALS_STATIC_PROVIDER_ACCESS_KEY_ID",
@@ -1397,7 +1396,7 @@ func NewCoreContainer(cr *model.CryostatInstance, specs *ServiceSpecs, imageTag 
 					LocalObjectReference: corev1.LocalObjectReference{
 						Name: secretName,
 					},
-					Key:      controllers.StorageSecretAccessKey,
+					Key:      "ACCESS_KEY",
 					Optional: &optional,
 				},
 			},
@@ -1409,7 +1408,7 @@ func NewCoreContainer(cr *model.CryostatInstance, specs *ServiceSpecs, imageTag 
 					LocalObjectReference: corev1.LocalObjectReference{
 						Name: secretName,
 					},
-					Key:      controllers.StorageSecretPassKey,
+					Key:      "SECRET_KEY",
 					Optional: &optional,
 				},
 			},
@@ -1734,7 +1733,7 @@ func NewStorageContainer(cr *model.CryostatInstance, imageTag string, tls *TLSCo
 		},
 	}
 
-	secretName := cr.Name + controllers.StorageSecretNameSuffix
+	secretName := cr.Name + "-storage"
 	optional := false
 	envs = append(envs, corev1.EnvVar{
 		Name: "CRYOSTAT_SECRET_KEY",
@@ -1743,7 +1742,7 @@ func NewStorageContainer(cr *model.CryostatInstance, imageTag string, tls *TLSCo
 				LocalObjectReference: corev1.LocalObjectReference{
 					Name: secretName,
 				},
-				Key:      controllers.StorageSecretPassKey,
+				Key:      "SECRET_KEY",
 				Optional: &optional,
 			},
 		},

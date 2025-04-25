@@ -113,23 +113,23 @@ func (r *Reconciler) reconcileDatabaseConnectionSecret(ctx context.Context, cr *
 	return r.Client.Status().Update(ctx, cr.Object)
 }
 
-// StorageSecretNameSuffix is the suffix to be appended to the name of a
+// storageSecretNameSuffix is the suffix to be appended to the name of a
 // Cryostat CR to name its object storage secret
-const StorageSecretNameSuffix = "-storage"
+const storageSecretNameSuffix = "-storage"
 
 // storageSecretAccessKey indexes the username within the Cryostat storage Secret
-const StorageSecretAccessKey = "ACCESS_KEY"
+const storageSecretAccessKey = "ACCESS_KEY"
 
 // storageSecretUserKey indexes the password within the Cryostat storage Secret
-const StorageSecretPassKey = "SECRET_KEY"
+const storageSecretPassKey = "SECRET_KEY"
 
 // storageSecretBasicAuthKey indexes the Basic auth credentials (Base64-encoded) within the Cryostat storage Secret
-const StorageSecretBasicAuthKey = "BASIC_AUTH_KEY"
+const storageSecretBasicAuthKey = "BASIC_AUTH_KEY"
 
 func (r *Reconciler) reconcileStorageSecret(ctx context.Context, cr *model.CryostatInstance) error {
 	secret := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      cr.Name + StorageSecretNameSuffix,
+			Name:      cr.Name + storageSecretNameSuffix,
 			Namespace: cr.InstallNamespace,
 		},
 	}
@@ -143,9 +143,9 @@ func (r *Reconciler) reconcileStorageSecret(ctx context.Context, cr *model.Cryos
 		if secret.CreationTimestamp.IsZero() {
 			accessKey := "cryostat"
 			passwd := r.GenPasswd(32)
-			secret.StringData[StorageSecretAccessKey] = accessKey
-			secret.StringData[StorageSecretPassKey] = passwd
-			secret.StringData[StorageSecretBasicAuthKey] = b64.StdEncoding.EncodeToString([]byte(fmt.Sprintf("%s:%s", accessKey, passwd)))
+			secret.StringData[storageSecretAccessKey] = accessKey
+			secret.StringData[storageSecretPassKey] = passwd
+			secret.StringData[storageSecretBasicAuthKey] = b64.StdEncoding.EncodeToString([]byte(fmt.Sprintf("%s:%s", accessKey, passwd)))
 		}
 		return nil
 	})
