@@ -70,6 +70,10 @@ type TLSConfig struct {
 	AgentProxySecret string
 	// Name of the secret containing the password for the keystore in CryostatSecret
 	KeystorePassSecret string
+	// Name of the secret containing the password for the keystore in StorageSecret
+	StorageKeystorePassSecret string
+	// Key indexing the keystore password within the StorageSecret
+	StorageKeystorePassKey string
 	// PEM-encoded X.509 certificate for the Cryostat CA
 	CACert []byte
 }
@@ -834,21 +838,8 @@ func NewPodForReports(cr *model.CryostatInstance, imageTags *ImageTags, serviceS
 			Value: "ALL",
 		},
 		{
-			Name:  "JAVA_OPTS_APPEND",
-			Value: javaOpts,
-		},
-		{
 			Name:  "CRYOSTAT_STORAGE_BASE_URI",
 			Value: serviceSpecs.StorageURL.String(),
-		},
-		// TODO remove these and install TLS truststore (for storage certs) properly
-		{
-			Name:  "CRYOSTAT_STORAGE_IGNORE_SSL",
-			Value: "true",
-		},
-		{
-			Name:  "CRYOSTAT_STORAGE_VERIFY_HOSTNAME",
-			Value: "false",
 		},
 	}
 	mounts := []corev1.VolumeMount{}
@@ -878,22 +869,74 @@ func NewPodForReports(cr *model.CryostatInstance, imageTags *ImageTags, serviceS
 	// Configure TLS key/cert if enabled
 	livenessProbeScheme := corev1.URISchemeHTTP
 	if tls != nil {
+		readOnlyMode := int32(0440)
+		volumes = append(volumes,
+			corev1.Volume{
+				Name: "storage-tls-truststore",
+				VolumeSource: corev1.VolumeSource{
+					Secret: &corev1.SecretVolumeSource{
+						SecretName: tls.StorageSecret,
+						Items: []corev1.KeyToPath{
+							{
+								Key:  "truststore.p12",
+								Path: "truststore.p12",
+								Mode: &readOnlyMode,
+							},
+						},
+					},
+				},
+			},
+		)
+		mounts = append(mounts, corev1.VolumeMount{
+			Name:      "storage-tls-truststore",
+			MountPath: path.Join(SecretMountPrefix, tls.StorageSecret),
+			ReadOnly:  true,
+		})
+
 		tlsEnvs := []corev1.EnvVar{
+			{
+				Name:  "QUARKUS_HTTP_TLS_CONFIGURATION_NAME",
+				Value: "https",
+			},
 			{
 				Name:  "QUARKUS_HTTP_SSL_PORT",
 				Value: strconv.Itoa(int(constants.ReportsContainerPort)),
 			},
 			{
-				Name:  "QUARKUS_HTTP_SSL_CERTIFICATE_KEY_FILES",
+				Name:  "QUARKUS_TLS_HTTPS_KEY_STORE_PEM_0_KEY",
 				Value: path.Join(SecretMountPrefix, tls.ReportsSecret, corev1.TLSPrivateKeyKey),
 			},
 			{
-				Name:  "QUARKUS_HTTP_SSL_CERTIFICATE_FILES",
+				Name:  "QUARKUS_TLS_HTTPS_KEY_STORE_PEM_0_CERT",
 				Value: path.Join(SecretMountPrefix, tls.ReportsSecret, corev1.TLSCertKey),
 			},
+			// {
+			// 	Name:  "QUARKUS_HTTP_SSL_CERTIFICATE_KEY_FILES",
+			// 	Value: path.Join(SecretMountPrefix, tls.ReportsSecret, corev1.TLSPrivateKeyKey),
+			// },
+			// {
+			// 	Name:  "QUARKUS_HTTP_SSL_CERTIFICATE_FILES",
+			// 	Value: path.Join(SecretMountPrefix, tls.ReportsSecret, corev1.TLSCertKey),
+			// },
 			{
 				Name:  "QUARKUS_HTTP_INSECURE_REQUESTS",
 				Value: "disabled",
+			},
+			{
+				Name:  "QUARKUS_TLS_TRUST_STORE_P12_PATH",
+				Value: path.Join(SecretMountPrefix, tls.StorageSecret, "truststore.p12"),
+			},
+			{
+				Name: "QUARKUS_TLS_TRUST_STORE_P12_PASSWORD",
+				ValueFrom: &corev1.EnvVarSource{
+					SecretKeyRef: &corev1.SecretKeySelector{
+						LocalObjectReference: corev1.LocalObjectReference{
+							Name: tls.StorageKeystorePassSecret,
+						},
+						Key:      tls.StorageKeystorePassKey,
+						Optional: &optional,
+					},
+				},
 			},
 		}
 
@@ -974,6 +1017,11 @@ func NewPodForReports(cr *model.CryostatInstance, imageTags *ImageTags, serviceS
 		}
 		tolerations = schedulingOptions.Tolerations
 	}
+
+	envs = append(envs, corev1.EnvVar{
+		Name:  "JAVA_OPTS_APPEND",
+		Value: javaOpts,
+	})
 
 	return &corev1.PodSpec{
 		Containers: []corev1.Container{

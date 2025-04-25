@@ -72,14 +72,14 @@ func (r *Reconciler) setupTLS(ctx context.Context, cr *model.CryostatInstance) (
 	}
 
 	// Create secret to hold keystore password
-	keystoreSecret := newKeystoreSecret(cr)
-	err = r.createOrUpdateKeystoreSecret(ctx, keystoreSecret, cr.Object)
+	coreKeystoreSecret := newCoreKeystoreSecret(cr)
+	err = r.createOrUpdateKeystoreSecret(ctx, coreKeystoreSecret, cr.Object)
 	if err != nil {
 		return nil, err
 	}
 
 	// Create a certificate for Cryostat signed by the CA just created
-	cryostatCert := resources.NewCryostatCert(cr, keystoreSecret.Name)
+	cryostatCert := resources.NewCryostatCert(cr, coreKeystoreSecret.Name)
 	err = r.createOrUpdateCertificate(ctx, cryostatCert, cr.Object)
 	if err != nil {
 		return nil, err
@@ -99,8 +99,16 @@ func (r *Reconciler) setupTLS(ctx context.Context, cr *model.CryostatInstance) (
 		return nil, err
 	}
 
+	// Create secret to hold keystore password
+	storageKeystoreSecretComponent := "storage"
+	storageKeystoreSecret := newKeystoreSecret(cr, &storageKeystoreSecretComponent)
+	err = r.createOrUpdateKeystoreSecret(ctx, storageKeystoreSecret, cr.Object)
+	if err != nil {
+		return nil, err
+	}
+
 	// Create a certificate for Cryostat storage signed by the Cryostat CA
-	storageCert := resources.NewStorageCert(cr)
+	storageCert := resources.NewStorageCert(cr, storageKeystoreSecret.Name)
 	err = r.createOrUpdateCertificate(ctx, storageCert, cr.Object)
 	if err != nil {
 		return nil, err
@@ -123,13 +131,15 @@ func (r *Reconciler) setupTLS(ctx context.Context, cr *model.CryostatInstance) (
 	}
 
 	tlsConfig := &resources.TLSConfig{
-		CryostatSecret:     cryostatCert.Spec.SecretName,
-		DatabaseSecret:     databaseCert.Spec.SecretName,
-		StorageSecret:      storageCert.Spec.SecretName,
-		ReportsSecret:      reportsCert.Spec.SecretName,
-		AgentProxySecret:   agentProxyCert.Spec.SecretName,
-		KeystorePassSecret: cryostatCert.Spec.Keystores.PKCS12.PasswordSecretRef.Name,
-		CACert:             caBytes,
+		CryostatSecret:            cryostatCert.Spec.SecretName,
+		DatabaseSecret:            databaseCert.Spec.SecretName,
+		StorageSecret:             storageCert.Spec.SecretName,
+		ReportsSecret:             reportsCert.Spec.SecretName,
+		AgentProxySecret:          agentProxyCert.Spec.SecretName,
+		KeystorePassSecret:        cryostatCert.Spec.Keystores.PKCS12.PasswordSecretRef.Name,
+		StorageKeystorePassSecret: storageCert.Spec.Keystores.PKCS12.PasswordSecretRef.Name,
+		StorageKeystorePassKey:    storageCert.Spec.Keystores.PKCS12.PasswordSecretRef.Key,
+		CACert:                    caBytes,
 	}
 
 	agentCertsNotReady := []string{}
@@ -452,10 +462,18 @@ func (r *Reconciler) recreateCertificate(ctx context.Context, cert *certv1.Certi
 	return r.createOrUpdateCertificate(ctx, cert, owner)
 }
 
-func newKeystoreSecret(cr *model.CryostatInstance) *corev1.Secret {
+func newCoreKeystoreSecret(cr *model.CryostatInstance) *corev1.Secret {
+	return newKeystoreSecret(cr, nil)
+}
+
+func newKeystoreSecret(cr *model.CryostatInstance, component *string) *corev1.Secret {
+	tag := ""
+	if component != nil {
+		tag = fmt.Sprintf("-%s", *component)
+	}
 	return &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      cr.Name + "-keystore",
+			Name:      cr.Name + tag + "-keystore",
 			Namespace: cr.InstallNamespace,
 		},
 	}
