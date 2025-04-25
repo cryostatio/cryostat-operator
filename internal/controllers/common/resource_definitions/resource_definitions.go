@@ -842,6 +842,27 @@ func NewPodForReports(cr *model.CryostatInstance, imageTags *ImageTags, serviceS
 	mounts := []corev1.VolumeMount{}
 	volumes := []corev1.Volume{}
 
+	optional := false
+	secretName := cr.Name + controllers.StorageSecretNameSuffix
+	envs = append(envs,
+		corev1.EnvVar{
+			Name:  "CRYOSTAT_STORAGE_AUTH_METHOD",
+			Value: "Basic",
+		},
+		corev1.EnvVar{
+			Name: "CRYOSTAT_STORAGE_AUTH",
+			ValueFrom: &corev1.EnvVarSource{
+				SecretKeyRef: &corev1.SecretKeySelector{
+					LocalObjectReference: corev1.LocalObjectReference{
+						Name: secretName,
+					},
+					Key:      controllers.StorageSecretBasicAuthKeyKey,
+					Optional: &optional,
+				},
+			},
+		},
+	)
+
 	// Configure TLS key/cert if enabled
 	livenessProbeScheme := corev1.URISchemeHTTP
 	if tls != nil {
