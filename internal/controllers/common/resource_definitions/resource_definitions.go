@@ -830,12 +830,25 @@ func NewPodForReports(cr *model.CryostatInstance, imageTags *ImageTags, serviceS
 			Value: "0.0.0.0",
 		},
 		{
-			Name:  "JAVA_OPTS",
+			Name:  "QUARKUS_LOG_LEVEL",
+			Value: "ALL",
+		},
+		{
+			Name:  "JAVA_OPTS_APPEND",
 			Value: javaOpts,
 		},
 		{
 			Name:  "CRYOSTAT_STORAGE_BASE_URI",
 			Value: serviceSpecs.StorageURL.String(),
+		},
+		// TODO remove these and install TLS truststore (for storage certs) properly
+		{
+			Name:  "CRYOSTAT_STORAGE_IGNORE_SSL",
+			Value: "true",
+		},
+		{
+			Name:  "CRYOSTAT_STORAGE_VERIFY_HOSTNAME",
+			Value: "false",
 		},
 	}
 	mounts := []corev1.VolumeMount{}
