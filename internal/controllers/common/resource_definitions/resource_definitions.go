@@ -70,10 +70,6 @@ type TLSConfig struct {
 	AgentProxySecret string
 	// Name of the secret containing the password for the keystore in CryostatSecret
 	KeystorePassSecret string
-	// Name of the secret containing the password for the keystore in StorageSecret
-	StorageKeystorePassSecret string
-	// Key indexing the keystore password within the StorageSecret
-	StorageKeystorePassKey string
 	// PEM-encoded X.509 certificate for the Cryostat CA
 	CACert []byte
 }
