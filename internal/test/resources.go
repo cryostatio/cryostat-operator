@@ -2576,6 +2576,7 @@ func (r *TestResources) NewReportsEnvironmentVariables(resources *corev1.Resourc
 	var storageProtocol string
 	if r.TLS {
 		storageProtocol = "https"
+		opts += " -Dquarkus.http.tls-configuration-name=https -Dquarkus.tls.https.reload-period=1h -Dquarkus.tls.https.key-store.pem.0.cert=/var/run/secrets/operator.cryostat.io/cryostat-reports-tls/tls.crt -Dquarkus.tls.https.key-store.pem.0.key=/var/run/secrets/operator.cryostat.io/cryostat-reports-tls/tls.key"
 	} else {
 		storageProtocol = "http"
 	}
@@ -2617,28 +2618,11 @@ func (r *TestResources) NewReportsEnvironmentVariables(resources *corev1.Resourc
 			Name:  "QUARKUS_HTTP_INSECURE_REQUESTS",
 			Value: "disabled",
 		}, corev1.EnvVar{
-			Name:  "QUARKUS_HTTP_TLS_CONFIGURATION_NAME",
-			Value: "https",
+			Name:  "CRYOSTAT_STORAGE_TLS_CA_PATH",
+			Value: fmt.Sprintf("/var/run/secrets/operator.cryostat.io/%s-storage-tls/ca.crt", r.Name),
 		}, corev1.EnvVar{
-			Name:  "QUARKUS_TLS_HTTPS_KEY_STORE_PEM_0_KEY",
-			Value: fmt.Sprintf("/var/run/secrets/operator.cryostat.io/%s-reports-tls/%s", r.Name, corev1.TLSPrivateKeyKey),
-		}, corev1.EnvVar{
-			Name:  "QUARKUS_TLS_HTTPS_KEY_STORE_PEM_0_CERT",
-			Value: fmt.Sprintf("/var/run/secrets/operator.cryostat.io/%s-reports-tls/%s", r.Name, corev1.TLSCertKey),
-		}, corev1.EnvVar{
-			Name:  "QUARKUS_TLS_STORAGE_TRUST_STORE_P12_PATH",
-			Value: "/var/run/secrets/operator.cryostat.io/cryostat-storage-tls/truststore.p12",
-		}, corev1.EnvVar{
-			Name: "QUARKUS_TLS_STORAGE_TRUST_STORE_P12_PASSWORD",
-			ValueFrom: &corev1.EnvVarSource{
-				SecretKeyRef: &corev1.SecretKeySelector{
-					LocalObjectReference: corev1.LocalObjectReference{
-						Name: "cryostat-storage-keystore",
-					},
-					Key:      "KEYSTORE_PASS",
-					Optional: &optional,
-				},
-			},
+			Name:  "CRYOSTAT_STORAGE_TLS_CERT_PATH",
+			Value: fmt.Sprintf("/var/run/secrets/operator.cryostat.io/%s-storage-tls/tls.crt", r.Name),
 		},
 		)
 	} else {
@@ -3622,8 +3606,13 @@ func (r *TestResources) NewReportsVolumes() []corev1.Volume {
 					SecretName: r.Name + "-storage-tls",
 					Items: []corev1.KeyToPath{
 						{
-							Key:  "truststore.p12",
-							Path: "truststore.p12",
+							Key:  "ca.crt",
+							Path: "ca.crt",
+							Mode: &readOnlyMode,
+						},
+						{
+							Key:  "tls.crt",
+							Path: "tls.crt",
 							Mode: &readOnlyMode,
 						},
 					},

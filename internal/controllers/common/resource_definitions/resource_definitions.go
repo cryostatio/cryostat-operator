@@ -833,10 +833,6 @@ func NewPodForReports(cr *model.CryostatInstance, imageTags *ImageTags, serviceS
 			Name:  "QUARKUS_HTTP_HOST",
 			Value: "0.0.0.0",
 		},
-		// {
-		// 	Name:  "QUARKUS_LOG_LEVEL",
-		// 	Value: "ALL",
-		// },
 		{
 			Name:  "CRYOSTAT_STORAGE_BASE_URI",
 			Value: serviceSpecs.StorageURL.String(),
@@ -878,8 +874,13 @@ func NewPodForReports(cr *model.CryostatInstance, imageTags *ImageTags, serviceS
 						SecretName: tls.StorageSecret,
 						Items: []corev1.KeyToPath{
 							{
-								Key:  "truststore.p12",
-								Path: "truststore.p12",
+								Key:  "ca.crt",
+								Path: "ca.crt",
+								Mode: &readOnlyMode,
+							},
+							{
+								Key:  "tls.crt",
+								Path: "tls.crt",
 								Mode: &readOnlyMode,
 							},
 						},
@@ -895,50 +896,34 @@ func NewPodForReports(cr *model.CryostatInstance, imageTags *ImageTags, serviceS
 
 		tlsEnvs := []corev1.EnvVar{
 			{
-				Name:  "QUARKUS_HTTP_TLS_CONFIGURATION_NAME",
-				Value: "https",
-			},
-			{
 				Name:  "QUARKUS_HTTP_SSL_PORT",
 				Value: strconv.Itoa(int(constants.ReportsContainerPort)),
 			},
-			{
-				Name:  "QUARKUS_TLS_HTTPS_KEY_STORE_PEM_0_KEY",
-				Value: path.Join(SecretMountPrefix, tls.ReportsSecret, corev1.TLSPrivateKeyKey),
-			},
-			{
-				Name:  "QUARKUS_TLS_HTTPS_KEY_STORE_PEM_0_CERT",
-				Value: path.Join(SecretMountPrefix, tls.ReportsSecret, corev1.TLSCertKey),
-			},
-			// {
-			// 	Name:  "QUARKUS_HTTP_SSL_CERTIFICATE_KEY_FILES",
-			// 	Value: path.Join(SecretMountPrefix, tls.ReportsSecret, corev1.TLSPrivateKeyKey),
-			// },
-			// {
-			// 	Name:  "QUARKUS_HTTP_SSL_CERTIFICATE_FILES",
-			// 	Value: path.Join(SecretMountPrefix, tls.ReportsSecret, corev1.TLSCertKey),
-			// },
 			{
 				Name:  "QUARKUS_HTTP_INSECURE_REQUESTS",
 				Value: "disabled",
 			},
 			{
-				Name:  "QUARKUS_TLS_STORAGE_TRUST_STORE_P12_PATH",
-				Value: path.Join(SecretMountPrefix, tls.StorageSecret, "truststore.p12"),
+				Name:  "CRYOSTAT_STORAGE_TLS_CA_PATH",
+				Value: path.Join(SecretMountPrefix, tls.StorageSecret, "ca.crt"),
 			},
 			{
-				Name: "QUARKUS_TLS_STORAGE_TRUST_STORE_P12_PASSWORD",
-				ValueFrom: &corev1.EnvVarSource{
-					SecretKeyRef: &corev1.SecretKeySelector{
-						LocalObjectReference: corev1.LocalObjectReference{
-							Name: tls.StorageKeystorePassSecret,
-						},
-						Key:      tls.StorageKeystorePassKey,
-						Optional: &optional,
-					},
-				},
+				Name:  "CRYOSTAT_STORAGE_TLS_CERT_PATH",
+				Value: path.Join(SecretMountPrefix, tls.StorageSecret, "tls.crt"),
 			},
 		}
+
+		tlsConfigName := "https"
+		javaOpts += fmt.Sprintf(" -Dquarkus.http.tls-configuration-name=%s", tlsConfigName)
+		javaOpts += fmt.Sprintf(" -Dquarkus.tls.%s.reload-period=%s", tlsConfigName, "1h")
+		javaOpts += fmt.Sprintf(" -Dquarkus.tls.%s.key-store.pem.0.cert=%s",
+			tlsConfigName,
+			path.Join(SecretMountPrefix, tls.ReportsSecret, corev1.TLSCertKey),
+		)
+		javaOpts += fmt.Sprintf(" -Dquarkus.tls.%s.key-store.pem.0.key=%s",
+			tlsConfigName,
+			path.Join(SecretMountPrefix, tls.ReportsSecret, corev1.TLSPrivateKeyKey),
+		)
 
 		tlsSecretMount := corev1.VolumeMount{
 			Name:      "reports-tls-secret",
@@ -961,7 +946,6 @@ func NewPodForReports(cr *model.CryostatInstance, imageTags *ImageTags, serviceS
 
 		// Use HTTPS for liveness probe
 		livenessProbeScheme = corev1.URISchemeHTTPS
-
 	} else {
 		envs = append(envs, corev1.EnvVar{
 			Name:  "QUARKUS_HTTP_PORT",
