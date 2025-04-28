@@ -71,7 +71,7 @@ type cryostatTestInput struct {
 func (c *controllerTest) commonBeforeEach() *cryostatTestInput {
 	t := &cryostatTestInput{
 		TestReconcilerConfig: test.TestReconcilerConfig{
-			GeneratedPasswords: []string{"auth_cookie_secret", "connection_key", "encryption_key", "object_storage", "storage_keystore", "storage_truststore"},
+			GeneratedPasswords: []string{"auth_cookie_secret", "connection_key", "encryption_key", "object_storage", "keystore"},
 			ControllerBuilder:  &test.TestCtrlBuilder{},
 		},
 		TestResources: &test.TestResources{
@@ -2921,14 +2921,6 @@ func (t *cryostatTestInput) expectCertificates() {
 	Expect(err).ToNot(HaveOccurred())
 	t.checkMetadata(secret, expectedKeystoreSecret)
 	Expect(secret.StringData).To(Equal(expectedKeystoreSecret.StringData))
-
-	// Check truststore secret
-	expectedTruststoreSecret := t.NewStorageTruststoreSecret()
-	secret = &corev1.Secret{}
-	err = t.Client.Get(context.Background(), types.NamespacedName{Name: expectedTruststoreSecret.Name, Namespace: expectedTruststoreSecret.Namespace}, secret)
-	Expect(err).ToNot(HaveOccurred())
-	t.checkMetadata(secret, expectedTruststoreSecret)
-	Expect(secret.StringData).To(Equal(expectedTruststoreSecret.StringData))
 
 	// Check CA Cert secrets in each target namespace
 	Expect(t.TargetNamespaces).ToNot(BeEmpty())

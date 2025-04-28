@@ -157,7 +157,7 @@ func NewDatabaseCert(cr *model.CryostatInstance) *certv1.Certificate {
 	}
 }
 
-func NewStorageCert(cr *model.CryostatInstance, keystoreSecretName string) *certv1.Certificate {
+func NewStorageCert(cr *model.CryostatInstance) *certv1.Certificate {
 	return &certv1.Certificate{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      cr.Name + "-storage",
@@ -171,17 +171,6 @@ func NewStorageCert(cr *model.CryostatInstance, keystoreSecretName string) *cert
 				fmt.Sprintf("%s-storage.%s.svc.cluster.local", cr.Name, cr.InstallNamespace),
 			},
 			SecretName: cr.Name + "-storage-tls",
-			Keystores: &certv1.CertificateKeystores{
-				PKCS12: &certv1.PKCS12Keystore{
-					Create: true,
-					PasswordSecretRef: certMeta.SecretKeySelector{
-						LocalObjectReference: certMeta.LocalObjectReference{
-							Name: keystoreSecretName,
-						},
-						Key: "KEYSTORE_PASS",
-					},
-				},
-			},
 			IssuerRef: certMeta.ObjectReference{
 				Name: cr.Name + "-ca",
 			},
