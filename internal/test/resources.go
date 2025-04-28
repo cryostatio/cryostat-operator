@@ -1674,7 +1674,7 @@ func (r *TestResources) OtherDatabaseSecret() *corev1.Secret {
 	}
 }
 
-func (r *TestResources) NewKeystoreSecret() *corev1.Secret {
+func (r *TestResources) NewStorageKeystoreSecret() *corev1.Secret {
 	return &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      r.Name + "-keystore",
@@ -1682,6 +1682,18 @@ func (r *TestResources) NewKeystoreSecret() *corev1.Secret {
 		},
 		StringData: map[string]string{
 			"KEYSTORE_PASS": "storage_keystore",
+		},
+	}
+}
+
+func (r *TestResources) NewStorageTruststoreSecret() *corev1.Secret {
+	return &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      r.Name + "-storage-keystore",
+			Namespace: r.Namespace,
+		},
+		StringData: map[string]string{
+			"KEYSTORE_PASS": "storage_truststore",
 		},
 	}
 }

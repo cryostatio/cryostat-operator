@@ -2915,12 +2915,20 @@ func (t *cryostatTestInput) expectCertificates() {
 		Expect(actual.Spec).To(Equal(expected.Spec))
 	}
 	// Check keystore secret
-	expectedSecret := t.NewKeystoreSecret()
+	expectedKeystoreSecret := t.NewStorageKeystoreSecret()
 	secret := &corev1.Secret{}
-	err := t.Client.Get(context.Background(), types.NamespacedName{Name: expectedSecret.Name, Namespace: expectedSecret.Namespace}, secret)
+	err := t.Client.Get(context.Background(), types.NamespacedName{Name: expectedKeystoreSecret.Name, Namespace: expectedKeystoreSecret.Namespace}, secret)
 	Expect(err).ToNot(HaveOccurred())
-	t.checkMetadata(secret, expectedSecret)
-	Expect(secret.StringData).To(Equal(expectedSecret.StringData))
+	t.checkMetadata(secret, expectedKeystoreSecret)
+	Expect(secret.StringData).To(Equal(expectedKeystoreSecret.StringData))
+
+	// Check truststore secret
+	expectedTruststoreSecret := t.NewStorageTruststoreSecret()
+	secret = &corev1.Secret{}
+	err = t.Client.Get(context.Background(), types.NamespacedName{Name: expectedTruststoreSecret.Name, Namespace: expectedTruststoreSecret.Namespace}, secret)
+	Expect(err).ToNot(HaveOccurred())
+	t.checkMetadata(secret, expectedTruststoreSecret)
+	Expect(secret.StringData).To(Equal(expectedTruststoreSecret.StringData))
 
 	// Check CA Cert secrets in each target namespace
 	Expect(t.TargetNamespaces).ToNot(BeEmpty())
