@@ -833,10 +833,10 @@ func NewPodForReports(cr *model.CryostatInstance, imageTags *ImageTags, serviceS
 			Name:  "QUARKUS_HTTP_HOST",
 			Value: "0.0.0.0",
 		},
-		{
-			Name:  "QUARKUS_LOG_LEVEL",
-			Value: "ALL",
-		},
+		// {
+		// 	Name:  "QUARKUS_LOG_LEVEL",
+		// 	Value: "ALL",
+		// },
 		{
 			Name:  "CRYOSTAT_STORAGE_BASE_URI",
 			Value: serviceSpecs.StorageURL.String(),
@@ -923,11 +923,11 @@ func NewPodForReports(cr *model.CryostatInstance, imageTags *ImageTags, serviceS
 				Value: "disabled",
 			},
 			{
-				Name:  "QUARKUS_TLS_TRUST_STORE_P12_PATH",
+				Name:  "QUARKUS_TLS_STORAGE_TRUST_STORE_P12_PATH",
 				Value: path.Join(SecretMountPrefix, tls.StorageSecret, "truststore.p12"),
 			},
 			{
-				Name: "QUARKUS_TLS_TRUST_STORE_P12_PASSWORD",
+				Name: "QUARKUS_TLS_STORAGE_TRUST_STORE_P12_PASSWORD",
 				ValueFrom: &corev1.EnvVarSource{
 					SecretKeyRef: &corev1.SecretKeySelector{
 						LocalObjectReference: corev1.LocalObjectReference{
