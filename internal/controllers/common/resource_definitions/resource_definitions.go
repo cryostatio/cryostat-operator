@@ -1397,7 +1397,7 @@ func NewCoreContainer(cr *model.CryostatInstance, specs *ServiceSpecs, imageTag 
 	if specs.ReportsURL != nil {
 		reportsEnvs := []corev1.EnvVar{
 			{
-				Name:  "CRYOSTAT_SERVICES_REPORTS_URL",
+				Name:  "QUARKUS_REST_CLIENT_REPORTS_URL",
 				Value: specs.ReportsURL.String(),
 			},
 		}
