@@ -2445,7 +2445,7 @@ func (r *TestResources) NewCoreEnvironmentVariables(reportsUrl string, ingress b
 	if reportsUrl != "" {
 		envs = append(envs,
 			corev1.EnvVar{
-				Name:  "CRYOSTAT_SERVICES_REPORTS_URL",
+				Name:  "QUARKUS_REST_CLIENT_REPORTS_URL",
 				Value: reportsUrl,
 			})
 	}
