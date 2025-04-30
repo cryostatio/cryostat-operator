@@ -222,6 +222,7 @@ test-scorecard-local: check_cert_manager kustomize operator-sdk ## Run scorecard
 ifneq ($(SKIP_TESTS), true)
 ifeq ($(SCORECARD_TEST_SELECTION),)
 	@echo "No test selected. Use SCORECARD_TEST_SELECTION to specify tests. For example: SCORECARD_TEST_SELECTION=cryostat-recording make test-scorecard-local"
+	@go run internal/images/custom-scorecard-tests/main.go -list
 else ifeq ($(SCORECARD_TEST_ONLY), true)
 	@$(call scorecard-local)
 else
@@ -268,10 +269,7 @@ function cleanup { \
 endef
 
 define scorecard-local
-for test in $${SCORECARD_TEST_SELECTION//,/ }; do \
-	echo "Running scorecard test \"$${test}\""; \
-	SCORECARD_NAMESPACE=$(SCORECARD_NAMESPACE) BUNDLE_DIR=./bundle go run internal/images/custom-scorecard-tests/main.go $${test} | sed 's/\\n/\n/g'; \
-done
+	SCORECARD_NAMESPACE=$(SCORECARD_NAMESPACE) BUNDLE_DIR=./bundle go run internal/images/custom-scorecard-tests/main.go $${SCORECARD_TEST_SELECTION} | sed 's/\\n/\n/g'
 endef
 
 ##@ Build
