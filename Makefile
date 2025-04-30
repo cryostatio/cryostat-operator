@@ -269,10 +269,7 @@ function cleanup { \
 endef
 
 define scorecard-local
-for test in $${SCORECARD_TEST_SELECTION//,/ }; do \
-	echo "Running scorecard test \"$${test}\""; \
-	SCORECARD_NAMESPACE=$(SCORECARD_NAMESPACE) BUNDLE_DIR=./bundle go run internal/images/custom-scorecard-tests/main.go $${test} | sed 's/\\n/\n/g'; \
-done
+	SCORECARD_NAMESPACE=$(SCORECARD_NAMESPACE) BUNDLE_DIR=./bundle go run internal/images/custom-scorecard-tests/main.go $${SCORECARD_TEST_SELECTION} | sed 's/\\n/\n/g'
 endef
 
 ##@ Build
