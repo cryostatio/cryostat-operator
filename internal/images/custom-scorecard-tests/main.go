@@ -90,15 +90,26 @@ func main() {
 	printJSONResults(results)
 }
 
+type testFn func(*apimanifests.Bundle, string, bool) *scapiv1alpha3.TestResult
+
+func testLookup() map[string]testFn {
+	m := make(map[string]testFn)
+	m[tests.OperatorInstallTestName] = tests.OperatorInstallTest
+	m[tests.CryostatCRTestName] = tests.CryostatCRTest
+	m[tests.CryostatMultiNamespaceTestName] = tests.CryostatMultiNamespaceTest
+	m[tests.CryostatRecordingTestName] = tests.CryostatRecordingTest
+	m[tests.CryostatConfigChangeTestName] = tests.CryostatConfigChangeTest
+	m[tests.CryostatReportTestName] = tests.CryostatReportTest
+	return m
+}
+
 func validTests() []string {
-	return []string{
-		tests.OperatorInstallTestName,
-		tests.CryostatCRTestName,
-		tests.CryostatMultiNamespaceTestName,
-		tests.CryostatRecordingTestName,
-		tests.CryostatConfigChangeTestName,
-		tests.CryostatReportTestName,
+	tests := testLookup()
+	keys := []string{}
+	for k := range tests {
+		keys = append(keys, k)
 	}
+	return keys
 }
 
 func printValidTests() []scapiv1alpha3.TestResult {
@@ -122,28 +133,21 @@ func validateTests(testNames []string) bool {
 	return true
 }
 
+func testNamed(testName string) testFn {
+	fn, ok := testLookup()[testName]
+	if !ok {
+		panic(fmt.Sprintf("test name \"%s\" could not be resolved", testName))
+	}
+	return fn
+}
+
 func runTests(testNames []string, bundle *apimanifests.Bundle, namespace string,
 	openShiftCertManager bool) []scapiv1alpha3.TestResult {
 	results := []scapiv1alpha3.TestResult{}
 
 	// Run tests
 	for _, testName := range testNames {
-		switch testName {
-		case tests.OperatorInstallTestName:
-			results = append(results, *tests.OperatorInstallTest(bundle, namespace, openShiftCertManager))
-		case tests.CryostatCRTestName:
-			results = append(results, *tests.CryostatCRTest(bundle, namespace, openShiftCertManager))
-		case tests.CryostatMultiNamespaceTestName:
-			results = append(results, *tests.CryostatMultiNamespaceTest(bundle, namespace, openShiftCertManager))
-		case tests.CryostatRecordingTestName:
-			results = append(results, *tests.CryostatRecordingTest(bundle, namespace, openShiftCertManager))
-		case tests.CryostatConfigChangeTestName:
-			results = append(results, *tests.CryostatConfigChangeTest(bundle, namespace, openShiftCertManager))
-		case tests.CryostatReportTestName:
-			results = append(results, *tests.CryostatReportTest(bundle, namespace, openShiftCertManager))
-		default:
-			log.Fatalf("unknown test found: %s", testName)
-		}
+		results = append(results, *testNamed(testName)(bundle, namespace, openShiftCertManager))
 	}
 	return results
 }
