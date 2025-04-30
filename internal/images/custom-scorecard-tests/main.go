@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"slices"
 	"strings"
 
 	scapiv1alpha3 "github.com/operator-framework/api/pkg/apis/scorecard/v1alpha3"
@@ -32,17 +33,29 @@ const podBundleRoot = "/bundle"
 
 const argInstallOpenShiftCertManager = "installOpenShiftCertManager"
 
+const argListTests = "list"
+
 func main() {
 	openShiftCertManager := flag.Bool(argInstallOpenShiftCertManager, false, "installs the cert-manager Operator for Red Hat OpenShift")
+	listTests := flag.Bool(argListTests, false, "list available test names")
 	flag.Parse()
 	if openShiftCertManager == nil {
 		// Default to false
 		openShiftCertManager = &[]bool{false}[0]
 	}
+	if listTests == nil {
+		listTests = &[]bool{false}[0]
+	}
+
+	if *listTests {
+		log.Printf("available tests: %s\nuse '*' or 'ALL' to select all", strings.Join(validTests(), ","))
+	}
 
 	entrypoint := flag.Args()
 	if len(entrypoint) == 0 {
-		log.Fatal("specify one or more test name arguments")
+		log.Fatal("specify one or more test name arguments, or '*' or 'ALL' to select all")
+	} else if len(entrypoint) == 1 && (entrypoint[0] == "*" || entrypoint[0] == "ALL") {
+		entrypoint = validTests()
 	}
 
 	// Get namespace from SCORECARD_NAMESPACE environment variable
@@ -77,20 +90,24 @@ func main() {
 	printJSONResults(results)
 }
 
-func printValidTests() []scapiv1alpha3.TestResult {
-	result := scapiv1alpha3.TestResult{}
-	result.State = scapiv1alpha3.FailState
-	result.Errors = make([]string, 0)
-	result.Suggestions = make([]string, 0)
-
-	str := fmt.Sprintf("valid tests for this image include: %s", strings.Join([]string{
+func validTests() []string {
+	return []string{
 		tests.OperatorInstallTestName,
 		tests.CryostatCRTestName,
 		tests.CryostatMultiNamespaceTestName,
 		tests.CryostatRecordingTestName,
 		tests.CryostatConfigChangeTestName,
 		tests.CryostatReportTestName,
-	}, ","))
+	}
+}
+
+func printValidTests() []scapiv1alpha3.TestResult {
+	result := scapiv1alpha3.TestResult{}
+	result.State = scapiv1alpha3.FailState
+	result.Errors = make([]string, 0)
+	result.Suggestions = make([]string, 0)
+
+	str := fmt.Sprintf("valid tests for this image include: %s", strings.Join(validTests(), ","))
 	result.Errors = append(result.Errors, str)
 
 	return []scapiv1alpha3.TestResult{result}
@@ -98,14 +115,7 @@ func printValidTests() []scapiv1alpha3.TestResult {
 
 func validateTests(testNames []string) bool {
 	for _, testName := range testNames {
-		switch testName {
-		case tests.OperatorInstallTestName:
-		case tests.CryostatCRTestName:
-		case tests.CryostatMultiNamespaceTestName:
-		case tests.CryostatRecordingTestName:
-		case tests.CryostatConfigChangeTestName:
-		case tests.CryostatReportTestName:
-		default:
+		if !slices.Contains(validTests(), testName) {
 			return false
 		}
 	}
