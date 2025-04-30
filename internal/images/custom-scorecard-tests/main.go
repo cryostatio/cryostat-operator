@@ -48,12 +48,12 @@ func main() {
 	}
 
 	if *listTests {
-		log.Printf("available tests: %s\nuse '*' or 'ALL' to select all", strings.Join(validTests(), ","))
+		log.Printf("available tests: %s\nuse '*' or 'ALL' to select all", strings.Join(validTests(), ", "))
 	}
 
 	entrypoint := flag.Args()
 	if len(entrypoint) == 0 {
-		log.Fatal("specify one or more test name arguments, or '*' or 'ALL' to select all")
+		log.Fatal("specify one or more test name arguments (separated by whitespace), or '*' or 'ALL' to select all")
 	} else if len(entrypoint) == 1 && (entrypoint[0] == "*" || entrypoint[0] == "ALL") {
 		entrypoint = validTests()
 	}
@@ -81,7 +81,7 @@ func main() {
 
 	// Check that test arguments are valid
 	if !validateTests(entrypoint) {
-		results = printValidTests()
+		results = printValidTests(entrypoint)
 	} else {
 		results = runTests(entrypoint, bundle, namespace, *openShiftCertManager)
 	}
@@ -112,13 +112,17 @@ func validTests() []string {
 	return keys
 }
 
-func printValidTests() []scapiv1alpha3.TestResult {
+func printValidTests(requests []string) []scapiv1alpha3.TestResult {
 	result := scapiv1alpha3.TestResult{}
 	result.State = scapiv1alpha3.FailState
 	result.Errors = make([]string, 0)
 	result.Suggestions = make([]string, 0)
 
-	str := fmt.Sprintf("valid tests for this image include: %s", strings.Join(validTests(), ","))
+	str := fmt.Sprintf(
+		"invalid tests requested: %s. valid tests for this image include: %s",
+		strings.Join(requests, ","),
+		strings.Join(validTests(), ","),
+	)
 	result.Errors = append(result.Errors, str)
 
 	return []scapiv1alpha3.TestResult{result}
