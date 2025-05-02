@@ -651,7 +651,8 @@ func NewPodForCR(cr *model.CryostatInstance, specs *ServiceSpecs, imageTags *Ima
 				Name: credential.SecretName,
 				VolumeSource: corev1.VolumeSource{
 					Secret: &corev1.SecretVolumeSource{
-						SecretName: credential.SecretName,
+						SecretName:  credential.SecretName,
+						DefaultMode: &readOnlyMode,
 					},
 				},
 			},
@@ -1547,7 +1548,6 @@ func NewCoreContainer(cr *model.CryostatInstance, specs *ServiceSpecs, imageTag 
 		mount := corev1.VolumeMount{
 			Name:      credential.SecretName,
 			MountPath: path.Join(credentialsPath, credential.SecretName),
-			SubPath:   credential.SecretName,
 			ReadOnly:  true,
 		}
 		mounts = append(mounts, mount)
