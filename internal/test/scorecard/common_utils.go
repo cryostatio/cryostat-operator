@@ -360,6 +360,21 @@ func (r *TestResources) createAndWaitTillCryostatAvailable(cr *operatorv1beta2.C
 	// Poll the deployment until it becomes available or we timeout
 	ctx, cancel := context.WithTimeout(context.Background(), testTimeout)
 	defer cancel()
+
+	// The database component should be available
+	err = r.waitForDeploymentAvailability(ctx, r.Name+"-database", r.Namespace)
+	if err != nil {
+		r.logError(fmt.Sprintf("Cryostat database deployment did not become available: %s", err.Error()))
+		return nil, err
+	}
+
+	// The storage component should be available
+	err = r.waitForDeploymentAvailability(ctx, r.Name+"-storage", r.Namespace)
+	if err != nil {
+		r.logError(fmt.Sprintf("Cryostat storage deployment did not become available: %s", err.Error()))
+		return nil, err
+	}
+
 	err = r.waitForDeploymentAvailability(ctx, r.Name, r.Namespace)
 	if err != nil {
 		r.logError(fmt.Sprintf("Cryostat main deployment did not become available: %s", err.Error()))
