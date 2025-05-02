@@ -467,7 +467,7 @@ func (r *Reconciler) createOrUpdateKeystoreSecret(ctx context.Context, secret *c
 			return err
 		}
 
-		// Don't modify secret data, since the password is psuedorandomly generated
+		// Don't modify secret data, since the password is pseudorandomly generated
 		if secret.CreationTimestamp.IsZero() {
 			secret.StringData = map[string]string{
 				"KEYSTORE_PASS": r.GenPasswd(20),

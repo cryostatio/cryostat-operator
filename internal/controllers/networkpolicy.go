@@ -173,6 +173,12 @@ func (r *Reconciler) reconcileStorageNetworkPolicy(ctx context.Context, cr *mode
 								MatchLabels: resources.CorePodLabels(cr),
 							},
 						},
+						{
+							NamespaceSelector: installationNamespaceSelector(cr),
+							PodSelector: &metav1.LabelSelector{
+								MatchLabels: resources.ReportsPodLabels(cr),
+							},
+						},
 					},
 					Ports: []networkingv1.NetworkPolicyPort{
 						{
