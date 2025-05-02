@@ -221,12 +221,13 @@ func CryostatRecordingTest(bundle *apimanifests.Bundle, namespace string, openSh
 	time.Sleep(30 * time.Second)
 
 	// Archive the recording
-	archiveName, err := apiClient.Recordings().Archive(context.Background(), target, rec.Id)
+	archiveJobID, err := apiClient.Recordings().Archive(context.Background(), target, rec.Id)
 	if err != nil {
 		return r.fail(fmt.Sprintf("failed to archive the recording: %s", err.Error()))
 	}
-	r.Log += fmt.Sprintf("archived the recording %s at: %s\n", rec.Name, archiveName)
+	r.Log += fmt.Sprintf("recording archival job ID for the recording %s at: %s\n", rec.Name, archiveJobID)
 
+	// The archive list might be empty (not yet available) but we are not verifying anything here.
 	archives, err := apiClient.Recordings().ListArchives(context.Background(), target)
 	if err != nil {
 		return r.fail(fmt.Sprintf("failed to list archives: %s", err.Error()))
@@ -267,6 +268,13 @@ func CryostatRecordingTest(bundle *apimanifests.Bundle, namespace string, openSh
 		return r.fail(fmt.Sprintf("failed to list recordings: %s", err.Error()))
 	}
 	r.Log += fmt.Sprintf("current list of recordings: %+v\n", recs)
+
+	// Verify that the recording is deleted
+	for _, recording := range recs {
+		if recording.Id == rec.Id {
+			return r.fail(fmt.Sprintf("expect recording %s to be deleted but found %+v", rec.Name, recording))
+		}
+	}
 
 	return r.TestResult
 }
