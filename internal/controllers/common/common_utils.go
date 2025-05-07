@@ -15,13 +15,17 @@
 package common
 
 import (
+	"cmp"
+	"context"
 	"crypto/sha256"
+	"encoding/json"
 	"fmt"
 	"hash/fnv"
 	"io/ioutil"
 	"math/rand"
 	"os"
 	"regexp"
+	"slices"
 	"strings"
 	"time"
 
@@ -31,6 +35,8 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/types"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 )
 
@@ -202,6 +208,123 @@ func checkResourceRequestWithLimit(requests, limits corev1.ResourceList) {
 	}
 }
 
+const annotationSecretHash = "io.cryostat/secret-hash"
+const annotationConfigMapHash = "io.cryostat/config-map-hash"
+
+// AnnotateWithObjRefHashes annotates the provided pod template with hashes of the secret and config map data used
+// by this pod template. This allows the pod template parent to automatically roll out a new revision when
+// the hashed data changes.
+func AnnotateWithObjRefHashes(ctx context.Context, client client.Client, namespace string, template *corev1.PodTemplateSpec) error {
+	if template.Annotations == nil {
+		template.Annotations = map[string]string{}
+	}
+
+	// Collect names of secrets and config maps used by this pod template
+	secrets := newObjectSet[string]()
+	configMaps := newObjectSet[string]()
+
+	// Look for secrets and config maps references in environment variables
+	for _, container := range template.Spec.Containers {
+		// Look through Env[].ValueFrom for secret/config map refs
+		for _, env := range container.Env {
+			if env.ValueFrom != nil {
+				if env.ValueFrom.SecretKeyRef != nil {
+					secrets.add(env.ValueFrom.SecretKeyRef.Name)
+				} else if env.ValueFrom.ConfigMapKeyRef != nil {
+					configMaps.add(env.ValueFrom.ConfigMapKeyRef.Name)
+				}
+			}
+		}
+		// Look through EnvFrom for secret/config map refs
+		for _, envFrom := range container.EnvFrom {
+			if envFrom.SecretRef != nil {
+				secrets.add(envFrom.SecretRef.Name)
+			} else if envFrom.ConfigMapRef != nil {
+				configMaps.add(envFrom.ConfigMapRef.Name)
+			}
+		}
+	}
+
+	// Look for secrets and config maps references in volumes
+	for _, vol := range template.Spec.Volumes {
+		if vol.Secret != nil {
+			// Look for secret volumes
+			secrets.add(vol.Secret.SecretName)
+		} else if vol.ConfigMap != nil {
+			// Look for config map volumes
+			configMaps.add(vol.ConfigMap.Name)
+		} else if vol.Projected != nil {
+			// Also look for secret/config map sources in projected volumes
+			for _, source := range vol.Projected.Sources {
+				if source.Secret != nil {
+					secrets.add(source.Secret.Name)
+				} else if source.ConfigMap != nil {
+					configMaps.add(source.ConfigMap.Name)
+				}
+			}
+		}
+	}
+
+	// Hash the discovered secrets and config maps
+	secretHash, err := hashSecrets(ctx, client, namespace, secrets)
+	if err != nil {
+		return err
+	}
+	configMapHash, err := hashConfigMaps(ctx, client, namespace, configMaps)
+	if err != nil {
+		return err
+	}
+
+	// Apply the hashes as annotations to the pod template
+	template.Annotations[annotationSecretHash] = *secretHash
+	template.Annotations[annotationConfigMapHash] = *configMapHash
+	return nil
+}
+
+func hashSecrets(ctx context.Context, client client.Client, namespace string, secrets *objectSet[string]) (*string, error) {
+	// Collect the JSON of all secret data, sorted by object name
+	combinedJSON := []byte{}
+	for _, name := range secrets.toSortedSlice() {
+		secret := &corev1.Secret{}
+		err := client.Get(ctx, types.NamespacedName{Name: name, Namespace: namespace}, secret)
+		if err != nil {
+			return nil, err
+		}
+		// Marshal secret data as JSON. Keys are sorted, see: [json.Marshal]
+		buf, err := json.Marshal(secret.Data)
+		if err != nil {
+			return nil, err
+		}
+		combinedJSON = append(combinedJSON, buf...)
+	}
+	// Hash the JSON with SHA256
+	hashed := fmt.Sprintf("%x", sha256.Sum256(combinedJSON))
+	return &hashed, nil
+}
+
+func hashConfigMaps(ctx context.Context, client client.Client, namespace string, configMaps *objectSet[string]) (*string, error) {
+	// Collect the JSON of all config map data, sorted by object name
+	combinedJSON := []byte{}
+	for _, name := range configMaps.toSortedSlice() {
+		cm := &corev1.ConfigMap{}
+		err := client.Get(ctx, types.NamespacedName{Name: name, Namespace: namespace}, cm)
+		if err != nil {
+			return nil, err
+		}
+		// Marshal config map data as JSON. Keys are sorted, see: [json.Marshal]
+		buf, err := json.Marshal(cm.Data)
+		if err != nil {
+			return nil, err
+		}
+		combinedJSON = append(combinedJSON, buf...)
+	}
+	// Hash the JSON with FNV-1
+	hash := fnv.New128()
+	hash.Write([]byte(combinedJSON))
+	hashed := fmt.Sprintf("%x", hash.Sum([]byte{}))
+	return &hashed, nil
+}
+
 // SeccompProfile returns a SeccompProfile for the restricted
 // Pod Security Standard that, on OpenShift, is backwards-compatible
 // with OpenShift < 4.11.
@@ -216,4 +339,29 @@ func SeccompProfile(openshift bool) *corev1.SeccompProfile {
 	return &corev1.SeccompProfile{
 		Type: corev1.SeccompProfileTypeRuntimeDefault,
 	}
+}
+
+// Set abstraction for collecting names of secrets and config maps used by a pod
+type objectSet[T cmp.Ordered] struct {
+	impl map[T]struct{}
+}
+
+func newObjectSet[T cmp.Ordered]() *objectSet[T] {
+	return &objectSet[T]{
+		impl: map[T]struct{}{},
+	}
+}
+
+func (s *objectSet[T]) add(obj T) {
+	s.impl[obj] = struct{}{}
+}
+
+func (s *objectSet[T]) toSortedSlice() []T {
+	// Convert set to a sorted slice
+	slice := make([]T, 0, len(s.impl))
+	for k := range s.impl {
+		slice = append(slice, k)
+	}
+	slices.Sort(slice)
+	return slice
 }

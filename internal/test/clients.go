@@ -67,6 +67,17 @@ func (c *testClient) Get(ctx context.Context, key ctrlclient.ObjectKey, obj ctrl
 	return nil
 }
 
+func (c *testClient) Create(ctx context.Context, obj ctrlclient.Object, opts ...ctrlclient.CreateOption) error {
+	c.migrateStringData(obj)
+	return c.Client.Create(ctx, obj, opts...)
+}
+
+func (c *testClient) Update(ctx context.Context, obj ctrlclient.Object,
+	opts ...ctrlclient.UpdateOption) error {
+	c.migrateStringData(obj)
+	return c.Client.Update(ctx, obj, opts...)
+}
+
 func (c *testClient) makeCertificatesReady(ctx context.Context, obj runtime.Object) {
 	// If this object is one of the operator-managed certificates, mock the behaviour
 	// of cert-manager processing those certificates
@@ -85,18 +96,7 @@ func (c *testClient) makeCertificatesReady(ctx context.Context, obj runtime.Obje
 }
 
 func (c *testClient) createCertSecret(ctx context.Context, cert *certv1.Certificate) {
-	// The secret's data isn't important, we simply need it to exist
-	secret := &corev1.Secret{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      cert.Spec.SecretName,
-			Namespace: cert.Namespace,
-		},
-		Data: map[string][]byte{
-			corev1.TLSCertKey:       []byte(cert.Name + "-bytes"),
-			corev1.TLSPrivateKeyKey: []byte(cert.Name + "-key"),
-		},
-	}
-	err := c.Create(ctx, secret)
+	err := c.Create(ctx, c.NewCertSecret(cert))
 	gomega.Expect(err).ToNot(gomega.HaveOccurred())
 }
 
@@ -115,8 +115,21 @@ func (c *testClient) updateRouteStatus(ctx context.Context, obj runtime.Object) 
 }
 
 func (c *testClient) matchesCert(cert *certv1.Certificate) bool {
-	return c.matchesName(cert, c.NewCryostatCert(), c.NewCACert(), c.NewReportsCert(), c.NewAgentProxyCert()) ||
-		c.matchesPrefix(cert, c.GetAgentCertPrefix())
+	return c.matchesName(cert, c.NewCryostatCert(), c.NewCACert(), c.NewReportsCert(), c.NewAgentProxyCert(),
+		c.NewDatabaseCert(), c.NewStorageCert()) || c.matchesPrefix(cert, c.GetAgentCertPrefix())
+}
+
+func (c *testClient) migrateStringData(obj runtime.Object) {
+	// If this is a secret, migrate the write-only "stringData" property to "data"
+	secret, ok := obj.(*corev1.Secret)
+	if ok && secret.StringData != nil {
+		if secret.Data == nil {
+			secret.Data = map[string][]byte{}
+		}
+		for k, v := range secret.StringData {
+			secret.Data[k] = []byte(v)
+		}
+	}
 }
 
 // TODO When using envtest instead of fake client, this is probably no longer needed
