@@ -450,7 +450,7 @@ undeploy_sample_app_agent_injected: ## Undeploy sample app with Cryostat Agent d
 .PHONY: sample_app_agent_injected
 sample_app_agent_injected: undeploy_sample_app_agent_injected ## Deploy sample app with Cryostat Agent deployed by Operator injection.
 	$(CLUSTER_CLIENT) apply $(SAMPLE_APP_FLAGS) -f config/samples/sample-app-agent-injected.yaml
-	$(CLUSTER_CLIENT) patch --type=merge -p "{\"spec\":{\"template\":{\"metadata\":{\"labels\":{\"cryostat.io/namespace\":\"${DEPLOY_NAMESPACE}\"}}}}}" deployment/quarkus-cryostat-agent
+	$(CLUSTER_CLIENT) patch --type=merge -p "{\"spec\":{\"template\":{\"metadata\":{\"labels\":{\"cryostat.io/namespace\":\"${DEPLOY_NAMESPACE}\"}}}}}" deployment/quarkus-cryostat-agent-injected
 
 .PHONY: cert_manager
 cert_manager: remove_cert_manager ## Install cert manager.

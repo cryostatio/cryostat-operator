@@ -22,8 +22,10 @@ spec:
           ports:
           - containerPort: 10010
             protocol: TCP
+            name: app-http
           - containerPort: 9097
             protocol: TCP
+            name: jfr-jmx
           resources:
             requests:
               cpu: 200m
@@ -36,6 +38,16 @@ spec:
             capabilities:
               drop:
               - ALL
+          livenessProbe:
+            httpGet:
+              path: /hello-resteasy
+              port: app-http
+            initialDelaySeconds: 3
+          readinessProbe:
+            httpGet:
+              path: /hello-resteasy
+              port: app-http
+            initialDelaySeconds: 3
       restartPolicy: Always
       securityContext:
         runAsNonRoot: true
