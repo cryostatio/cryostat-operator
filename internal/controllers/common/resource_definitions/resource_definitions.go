@@ -644,6 +644,21 @@ func NewPodForCR(cr *model.CryostatInstance, specs *ServiceSpecs, imageTags *Ima
 		volumes = append(volumes, eventTemplateVolume)
 	}
 
+	// Add Declarative Credentials as volumes
+	for _, credential := range cr.Spec.DeclarativeCredentials {
+		volumes = append(volumes,
+			corev1.Volume{
+				Name: credential.SecretName,
+				VolumeSource: corev1.VolumeSource{
+					Secret: &corev1.SecretVolumeSource{
+						SecretName:  credential.SecretName,
+						DefaultMode: &readOnlyMode,
+					},
+				},
+			},
+		)
+	}
+
 	var podSc *corev1.PodSecurityContext
 	if cr.Spec.SecurityOptions != nil && cr.Spec.SecurityOptions.PodSecurityContext != nil {
 		podSc = cr.Spec.SecurityOptions.PodSecurityContext
@@ -1253,6 +1268,7 @@ func NewCoreContainer(cr *model.CryostatInstance, specs *ServiceSpecs, imageTag 
 	tls *TLSConfig, openshift bool) corev1.Container {
 	configPath := "/opt/cryostat.d/conf.d"
 	templatesPath := "/opt/cryostat.d/templates.d"
+	credentialsPath := "/opt/cryostat.d/credentials.d"
 
 	envs := []corev1.EnvVar{
 		{
@@ -1526,6 +1542,17 @@ func NewCoreContainer(cr *model.CryostatInstance, specs *ServiceSpecs, imageTag 
 		}
 		mounts = append(mounts, mount)
 	}
+
+	// Mount the declarative credentials specified under /opt/cryostat.d/credentials.d
+	for _, credential := range cr.Spec.DeclarativeCredentials {
+		mount := corev1.VolumeMount{
+			Name:      credential.SecretName,
+			MountPath: path.Join(credentialsPath, credential.SecretName),
+			ReadOnly:  true,
+		}
+		mounts = append(mounts, mount)
+	}
+
 	if tls != nil {
 		tlsPath := path.Join(SecretMountPrefix, tls.DatabaseSecret)
 		tlsSecretMount := corev1.VolumeMount{
