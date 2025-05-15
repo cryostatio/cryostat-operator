@@ -70,7 +70,11 @@ stages:
   - entrypoint:
     - cryostat-scorecard-tests
     - operator-install
+<<<<<<< HEAD
     image: quay.io/cryostat/cryostat-operator-scorecard:4.0.1-20250502172906
+=======
+    image: quay.io/cryostat/cryostat-operator-scorecard:4.1.0-20250514181905
+>>>>>>> 6413438 (build(deps): bump golang.org/x/net from 0.34.0 to 0.38.0 (#1093))
     labels:
       suite: cryostat
       test: operator-install
@@ -80,7 +84,11 @@ stages:
   - entrypoint:
     - cryostat-scorecard-tests
     - cryostat-cr
+<<<<<<< HEAD
     image: quay.io/cryostat/cryostat-operator-scorecard:4.0.1-20250502172906
+=======
+    image: quay.io/cryostat/cryostat-operator-scorecard:4.1.0-20250514181905
+>>>>>>> 6413438 (build(deps): bump golang.org/x/net from 0.34.0 to 0.38.0 (#1093))
     labels:
       suite: cryostat
       test: cryostat-cr
@@ -90,7 +98,11 @@ stages:
   - entrypoint:
     - cryostat-scorecard-tests
     - cryostat-multi-namespace
+<<<<<<< HEAD
     image: quay.io/cryostat/cryostat-operator-scorecard:4.0.1-20250502172906
+=======
+    image: quay.io/cryostat/cryostat-operator-scorecard:4.1.0-20250514181905
+>>>>>>> 6413438 (build(deps): bump golang.org/x/net from 0.34.0 to 0.38.0 (#1093))
     labels:
       suite: cryostat
       test: cryostat-multi-namespace
@@ -100,7 +112,11 @@ stages:
   - entrypoint:
     - cryostat-scorecard-tests
     - cryostat-recording
+<<<<<<< HEAD
     image: quay.io/cryostat/cryostat-operator-scorecard:4.0.1-20250502172906
+=======
+    image: quay.io/cryostat/cryostat-operator-scorecard:4.1.0-20250514181905
+>>>>>>> 6413438 (build(deps): bump golang.org/x/net from 0.34.0 to 0.38.0 (#1093))
     labels:
       suite: cryostat
       test: cryostat-recording
@@ -110,7 +126,11 @@ stages:
   - entrypoint:
     - cryostat-scorecard-tests
     - cryostat-config-change
+<<<<<<< HEAD
     image: quay.io/cryostat/cryostat-operator-scorecard:4.0.1-20250502172906
+=======
+    image: quay.io/cryostat/cryostat-operator-scorecard:4.1.0-20250514181905
+>>>>>>> 6413438 (build(deps): bump golang.org/x/net from 0.34.0 to 0.38.0 (#1093))
     labels:
       suite: cryostat
       test: cryostat-config-change
@@ -120,7 +140,11 @@ stages:
   - entrypoint:
     - cryostat-scorecard-tests
     - cryostat-report
+<<<<<<< HEAD
     image: quay.io/cryostat/cryostat-operator-scorecard:4.0.1-20250502172906
+=======
+    image: quay.io/cryostat/cryostat-operator-scorecard:4.1.0-20250514181905
+>>>>>>> 6413438 (build(deps): bump golang.org/x/net from 0.34.0 to 0.38.0 (#1093))
     labels:
       suite: cryostat
       test: cryostat-report

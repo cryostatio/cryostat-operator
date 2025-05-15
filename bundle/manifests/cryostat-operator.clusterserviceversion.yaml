@@ -23,8 +23,13 @@ metadata:
       ]
     capabilities: Seamless Upgrades
     categories: Monitoring, Developer Tools
+<<<<<<< HEAD
     containerImage: quay.io/cryostat/cryostat-operator:4.0.1-dev
     createdAt: "2025-05-02T17:31:38Z"
+=======
+    containerImage: quay.io/cryostat/cryostat-operator:4.1.0-dev
+    createdAt: "2025-05-14T20:50:18Z"
+>>>>>>> 6413438 (build(deps): bump golang.org/x/net from 0.34.0 to 0.38.0 (#1093))
     description: JVM monitoring and profiling tool
     operatorframework.io/initialization-resource: |-
       {
