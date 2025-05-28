@@ -535,7 +535,7 @@ func (r *AgentWebhookTestResources) newMutatedContainer(original *corev1.Contain
 			},
 			{
 				Name:  options.javaOptionsName,
-				Value: options.javaOptionsValue + fmt.Sprintf("-javaagent:/tmp/cryostat-agent/cryostat-agent-shaded.jar -Dio.cryostat.agent.shaded.org.slf4j.simpleLogger.defaultLogLevel=%s", options.logLevel),
+				Value: options.javaOptionsValue + fmt.Sprintf("-javaagent:/tmp/cryostat-agent/cryostat-agent-shaded.jar=io.cryostat.agent.shaded.org.slf4j.simpleLogger.defaultLogLevel=%s", options.logLevel),
 			},
 		}...),
 		Ports: []corev1.ContainerPort{
