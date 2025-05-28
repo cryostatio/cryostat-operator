@@ -20,7 +20,6 @@ import (
 	"fmt"
 	"slices"
 	"strconv"
-	"strings"
 	"time"
 
 	operatorv1beta2 "github.com/cryostatio/cryostat-operator/api/v1beta2"
@@ -50,7 +49,7 @@ var _ admission.CustomDefaulter = &podMutator{}
 
 const (
 	agentArg                    = "-javaagent:/tmp/cryostat-agent/cryostat-agent-shaded.jar"
-	agentLogLevelProp           = "-Dio.cryostat.agent.shaded.org.slf4j.simpleLogger.defaultLogLevel"
+	agentLogLevelProp           = "io.cryostat.agent.shaded.org.slf4j.simpleLogger.defaultLogLevel"
 	podNameEnvVar               = "CRYOSTAT_AGENT_POD_NAME"
 	podIPEnvVar                 = "CRYOSTAT_AGENT_POD_IP"
 	agentMaxSizeBytes           = "50Mi"
@@ -517,11 +516,7 @@ func extendJavaOptsVar(envs []corev1.EnvVar, javaOptsVar string, logLevel string
 		return nil, err
 	}
 
-	agentArgLine :=
-		strings.Join([]string{
-			agentArg,
-			fmt.Sprintf("%s=%s", agentLogLevelProp, logLevel),
-		}, " ")
+	agentArgLine := fmt.Sprintf("%s=%s=%s", agentArg, agentLogLevelProp, logLevel)
 	if existing != nil {
 		existing.Value += " " + agentArgLine
 	} else {
