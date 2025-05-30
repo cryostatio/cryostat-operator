@@ -592,7 +592,9 @@ type CertificateSecret struct {
 }
 
 type DeclarativeCredential struct {
-	// Name of secret in the local namespace
+	// Name of secret in the local namespace. The contents of that secret are expected to be a list of json
+	// representations of stored credentials in the format
+	// { "username": "$USERNAME", "password": "$PASSWORD", "matchExpression": "$MATCHEXPRESSION" }
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:io.kubernetes:Secret"}
 	SecretName string `json:"secretName"`
 }
