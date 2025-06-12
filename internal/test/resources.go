@@ -4113,8 +4113,8 @@ func (r *TestResources) NewRole() *rbacv1.Role {
 	rules := []rbacv1.PolicyRule{
 		{
 			Verbs:     []string{"get", "list", "watch"},
-			APIGroups: []string{""},
-			Resources: []string{"endpoints"},
+			APIGroups: []string{"discovery.k8s.io"},
+			Resources: []string{"endpointslices"},
 		},
 		{
 			Verbs:     []string{"get"},
