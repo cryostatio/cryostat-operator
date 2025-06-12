@@ -136,7 +136,7 @@ func (r *Reconciler) reconcileOAuth2ProxyConfig(ctx context.Context, cr *model.C
 	if r.IsOpenShift {
 		return r.deleteConfigMap(ctx, cm)
 	} else {
-		json, err := json.Marshal(cfg)
+		json, err := json.MarshalIndent(cfg, "", "  ")
 		if err != nil {
 			return err
 		}
