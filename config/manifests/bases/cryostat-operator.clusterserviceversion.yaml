@@ -154,6 +154,17 @@ spec:
         path: databaseOptions.secretName
         x-descriptors:
         - urn:alm:descriptor:io.kubernetes:Secret
+      - description: List of Stored Credentials to preconfigure in Cryostat.
+        displayName: Stored Credentials
+        path: declarativeCredentials
+      - description: 'Name of secret in the local namespace. The contents of that
+          secret are expected to be a list of json representations of stored credentials
+          in the format { "username": "$USERNAME", "password": "$PASSWORD", "matchExpression":
+          "$MATCHEXPRESSION" }'
+        displayName: Secret Name
+        path: declarativeCredentials[0].secretName
+        x-descriptors:
+        - urn:alm:descriptor:io.kubernetes:Secret
       - description: List of Flight Recorder Event Templates to preconfigure in Cryostat.
         displayName: Event Templates
         path: eventTemplates

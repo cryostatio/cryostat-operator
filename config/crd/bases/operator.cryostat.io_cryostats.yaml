@@ -5532,7 +5532,10 @@ spec:
                 items:
                   properties:
                     secretName:
-                      description: Name of secret in the local namespace
+                      description: |-
+                        Name of secret in the local namespace. The contents of that secret are expected to be a list of json
+                        representations of stored credentials in the format
+                        { "username": "$USERNAME", "password": "$PASSWORD", "matchExpression": "$MATCHEXPRESSION" }
                       type: string
                   required:
                   - secretName
