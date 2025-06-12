@@ -3211,13 +3211,11 @@ func (r *TestResources) NewVolumeMountsWithCredentials() []corev1.VolumeMount {
 		corev1.VolumeMount{
 			Name:      "a",
 			MountPath: "/opt/cryostat.d/credentials.d/a",
-			SubPath:   "a",
 			ReadOnly:  true,
 		},
 		corev1.VolumeMount{
 			Name:      "b",
 			MountPath: "/opt/cryostat.d/credentials.d/b",
-			SubPath:   "b",
 			ReadOnly:  true,
 		})
 }
@@ -3447,12 +3445,14 @@ func (r *TestResources) NewVolumes() []corev1.Volume {
 }
 
 func (r *TestResources) NewVolumesWithCredentials() []corev1.Volume {
+	readOnlyMode := int32(0440)
 	return append(r.NewVolumes(),
 		corev1.Volume{
 			Name: "a",
 			VolumeSource: corev1.VolumeSource{
 				Secret: &corev1.SecretVolumeSource{
-					SecretName: "a",
+					SecretName:  "a",
+					DefaultMode: &readOnlyMode,
 				},
 			},
 		},
@@ -3460,7 +3460,8 @@ func (r *TestResources) NewVolumesWithCredentials() []corev1.Volume {
 			Name: "b",
 			VolumeSource: corev1.VolumeSource{
 				Secret: &corev1.SecretVolumeSource{
-					SecretName: "b",
+					SecretName:  "b",
+					DefaultMode: &readOnlyMode,
 				},
 			},
 		},
