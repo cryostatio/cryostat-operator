@@ -1048,13 +1048,14 @@ func (r *TestResources) NewCryostatService() *corev1.Service {
 	}
 }
 
-func (r *TestResources) NewCryostatNetworkPolicy() *netv1.NetworkPolicy {
+func (r *TestResources) NewCryostatIngressNetworkPolicy() *netv1.NetworkPolicy {
 	return &netv1.NetworkPolicy{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      fmt.Sprintf("%s-internal-ingress", r.Name),
 			Namespace: r.Namespace,
 		},
 		Spec: netv1.NetworkPolicySpec{
+			PolicyTypes: []netv1.PolicyType{netv1.PolicyTypeIngress},
 			PodSelector: metav1.LabelSelector{
 				MatchLabels: map[string]string{
 					"app":       r.Name,
@@ -1107,13 +1108,60 @@ func (r *TestResources) NewCryostatNetworkPolicy() *netv1.NetworkPolicy {
 	}
 }
 
-func (r *TestResources) NewDatabaseNetworkPolicy() *netv1.NetworkPolicy {
+func (r *TestResources) NewCryostatEgressNetworkPolicy() *netv1.NetworkPolicy {
+	return &netv1.NetworkPolicy{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      fmt.Sprintf("%s-internal-egress", r.Name),
+			Namespace: r.Namespace,
+		},
+		Spec: netv1.NetworkPolicySpec{
+			PolicyTypes: []netv1.PolicyType{netv1.PolicyTypeEgress},
+			PodSelector: metav1.LabelSelector{
+				MatchLabels: map[string]string{
+					"app":       r.Name,
+					"component": "cryostat",
+					"kind":      "cryostat",
+				},
+			},
+			Egress: []netv1.NetworkPolicyEgressRule{
+				{
+					To: []netv1.NetworkPolicyPeer{
+						{
+							NamespaceSelector: &metav1.LabelSelector{
+								MatchExpressions: []metav1.LabelSelectorRequirement{
+									{
+										Key:      "kubernetes.io/metadata.name",
+										Operator: "In",
+										Values: []string{
+											"default",
+											"kube-system",
+											"openshift",
+											r.Namespace,
+										},
+									},
+								},
+							},
+						},
+						{
+							IPBlock: &netv1.IPBlock{
+								CIDR: "127.0.0.1/32",
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
+func (r *TestResources) NewDatabaseIngressNetworkPolicy() *netv1.NetworkPolicy {
 	return &netv1.NetworkPolicy{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      fmt.Sprintf("%s-db-internal-ingress", r.Name),
 			Namespace: r.Namespace,
 		},
 		Spec: netv1.NetworkPolicySpec{
+			PolicyTypes: []netv1.PolicyType{netv1.PolicyTypeIngress},
 			PodSelector: metav1.LabelSelector{
 				MatchLabels: map[string]string{
 					"app":       r.Name,
@@ -1150,13 +1198,14 @@ func (r *TestResources) NewDatabaseNetworkPolicy() *netv1.NetworkPolicy {
 	}
 }
 
-func (r *TestResources) NewStorageNetworkPolicy() *netv1.NetworkPolicy {
+func (r *TestResources) NewStorageIngressNetworkPolicy() *netv1.NetworkPolicy {
 	return &netv1.NetworkPolicy{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      fmt.Sprintf("%s-storage-internal-ingress", r.Name),
 			Namespace: r.Namespace,
 		},
 		Spec: netv1.NetworkPolicySpec{
+			PolicyTypes: []netv1.PolicyType{netv1.PolicyTypeIngress},
 			PodSelector: metav1.LabelSelector{
 				MatchLabels: map[string]string{
 					"app":       r.Name,
@@ -1193,13 +1242,14 @@ func (r *TestResources) NewStorageNetworkPolicy() *netv1.NetworkPolicy {
 	}
 }
 
-func (r *TestResources) NewReportsNetworkPolicy() *netv1.NetworkPolicy {
+func (r *TestResources) NewReportsIngressNetworkPolicy() *netv1.NetworkPolicy {
 	return &netv1.NetworkPolicy{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      fmt.Sprintf("%s-reports-internal-ingress", r.Name),
 			Namespace: r.Namespace,
 		},
 		Spec: netv1.NetworkPolicySpec{
+			PolicyTypes: []netv1.PolicyType{netv1.PolicyTypeIngress},
 			PodSelector: metav1.LabelSelector{
 				MatchLabels: map[string]string{
 					"app":       r.Name,
