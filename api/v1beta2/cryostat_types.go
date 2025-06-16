@@ -40,6 +40,10 @@ type CryostatSpec struct {
 	// +optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Event Templates"
 	EventTemplates []TemplateConfigMap `json:"eventTemplates,omitempty"`
+	// List of Stored Credentials to preconfigure in Cryostat.
+	// +optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Stored Credentials"
+	DeclarativeCredentials []DeclarativeCredential `json:"declarativeCredentials,omitempty"`
 	// Use cert-manager to secure in-cluster communication between Cryostat components.
 	// Requires cert-manager to be installed.
 	// +optional
@@ -585,6 +589,14 @@ type CertificateSecret struct {
 	// Key within secret containing the certificate.
 	// +optional
 	CertificateKey *string `json:"certificateKey,omitempty"`
+}
+
+type DeclarativeCredential struct {
+	// Name of secret in the local namespace. The contents of that secret are expected to be a list of json
+	// representations of stored credentials in the format
+	// { "username": "$USERNAME", "password": "$PASSWORD", "matchExpression": "$MATCHEXPRESSION" }
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:io.kubernetes:Secret"}
+	SecretName string `json:"secretName"`
 }
 
 // A ConfigMap containing a .jfc template file.

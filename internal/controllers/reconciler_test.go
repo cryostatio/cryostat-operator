@@ -837,6 +837,18 @@ func (c *controllerTest) commonTests() {
 				t.checkDeploymentHasTemplates()
 			})
 		})
+		Context("Cryostat CR has a list of stored credentials", func() {
+			BeforeEach(func() {
+				t.objs = append(t.objs, t.NewCryostatWithDeclarativeCredentials().Object, t.NewDeclarativeCredentialSecret(),
+					t.NewAnotherDeclarativeCredentialSecret())
+			})
+			JustBeforeEach(func() {
+				t.reconcileCryostatFully()
+			})
+			It("Should mount credentials to the deployment", func() {
+				t.checkDeploymentHasCredentials()
+			})
+		})
 		Context("Cryostat CR has list of event templates with TLS disabled", func() {
 			BeforeEach(func() {
 				t.TLS = false
@@ -3723,6 +3735,20 @@ func (t *cryostatTestInput) checkDeploymentHasTemplates() {
 
 	volumeMounts := deployment.Spec.Template.Spec.Containers[0].VolumeMounts
 	expectedVolumeMounts := t.NewVolumeMountsWithTemplates()
+	Expect(volumeMounts).To(ConsistOf(expectedVolumeMounts))
+}
+
+func (t *cryostatTestInput) checkDeploymentHasCredentials() {
+	deployment := &appsv1.Deployment{}
+	err := t.Client.Get(context.Background(), types.NamespacedName{Name: t.Name, Namespace: t.Namespace}, deployment)
+	Expect(err).ToNot(HaveOccurred())
+
+	volumes := deployment.Spec.Template.Spec.Volumes
+	expectedVolumes := t.NewVolumesWithCredentials()
+	Expect(volumes).To(ConsistOf(expectedVolumes))
+
+	volumeMounts := deployment.Spec.Template.Spec.Containers[0].VolumeMounts
+	expectedVolumeMounts := t.NewVolumeMountsWithCredentials()
 	Expect(volumeMounts).To(ConsistOf(expectedVolumeMounts))
 }
 
