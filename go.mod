@@ -1,19 +1,19 @@
 module github.com/cryostatio/cryostat-operator
 
-go 1.22.0
+go 1.23.0
 
 require (
 	github.com/blang/semver/v4 v4.0.0
 	github.com/cert-manager/cert-manager v1.15.5
-	github.com/go-logr/logr v1.4.2
+	github.com/go-logr/logr v1.4.3
 	github.com/google/go-cmp v0.6.0
 	github.com/onsi/ginkgo/v2 v2.17.3
 	github.com/onsi/gomega v1.33.1
 	github.com/openshift/api v0.0.0-20240912201240-0a8800162826 // release-4.17
 	github.com/operator-framework/api v0.26.0
-	k8s.io/api v0.30.12
-	k8s.io/apimachinery v0.30.12
-	k8s.io/client-go v0.30.12
+	k8s.io/api v0.30.13
+	k8s.io/apimachinery v0.30.13
+	k8s.io/client-go v0.30.13
 	sigs.k8s.io/controller-runtime v0.18.7
 )
 
@@ -54,11 +54,11 @@ require (
 	go.uber.org/multierr v1.11.0 // indirect
 	go.uber.org/zap v1.27.0 // indirect
 	golang.org/x/exp v0.0.0-20240506185415-9bf2ced13842 // indirect
-	golang.org/x/net v0.34.0 // indirect
+	golang.org/x/net v0.38.0 // indirect
 	golang.org/x/oauth2 v0.20.0 // indirect
-	golang.org/x/sys v0.29.0 // indirect
-	golang.org/x/term v0.28.0 // indirect
-	golang.org/x/text v0.21.0 // indirect
+	golang.org/x/sys v0.31.0 // indirect
+	golang.org/x/term v0.30.0 // indirect
+	golang.org/x/text v0.23.0 // indirect
 	golang.org/x/time v0.5.0 // indirect
 	golang.org/x/tools v0.21.1-0.20240508182429-e35e4ccd0d2d // indirect
 	gomodules.xyz/jsonpatch/v2 v2.4.0 // indirect

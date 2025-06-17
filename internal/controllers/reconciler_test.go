@@ -170,6 +170,7 @@ func resourceChecks() []resourceCheck {
 		{(*cryostatTestInput).expectAgentProxyConfigMap, "agent proxy config map"},
 		{(*cryostatTestInput).expectAgentGatewayService, "agent gateway service"},
 		{(*cryostatTestInput).expectAgentCallbackService, "agent callback service"},
+		{(*cryostatTestInput).expectOAuthCookieSecret, "OAuth2 cookie secret"},
 	}
 }
 
@@ -517,7 +518,7 @@ func (c *controllerTest) commonTests() {
 				Expect(err).ToNot(HaveOccurred())
 
 				Expect(metav1.IsControlledBy(secret, cr.Object)).To(BeTrue())
-				Expect(secret.StringData["CONNECTION_KEY"]).To(Equal(oldSecret.StringData["CONNECTION_KEY"]))
+				Expect(secret.Data["CONNECTION_KEY"]).To(Equal(oldSecret.Data["CONNECTION_KEY"]))
 			})
 		})
 		Context("with existing Routes", func() {
@@ -834,6 +835,18 @@ func (c *controllerTest) commonTests() {
 			})
 			It("Should add volumes and volumeMounts to deployment", func() {
 				t.checkDeploymentHasTemplates()
+			})
+		})
+		Context("Cryostat CR has a list of stored credentials", func() {
+			BeforeEach(func() {
+				t.objs = append(t.objs, t.NewCryostatWithDeclarativeCredentials().Object, t.NewDeclarativeCredentialSecret(),
+					t.NewAnotherDeclarativeCredentialSecret())
+			})
+			JustBeforeEach(func() {
+				t.reconcileCryostatFully()
+			})
+			It("Should mount credentials to the deployment", func() {
+				t.checkDeploymentHasCredentials()
 			})
 		})
 		Context("Cryostat CR has list of event templates with TLS disabled", func() {
@@ -1839,20 +1852,21 @@ func (c *controllerTest) commonTests() {
 			})
 		})
 		Context("with secret provided for database", func() {
-			var customSecret *corev1.Secret
 			BeforeEach(func() {
-				customSecret = t.NewCustomDatabaseSecret()
-				t.objs = append(t.objs, t.NewCryostatWithDatabaseSecretProvided().Object, customSecret)
+				t.GeneratedPasswords = []string{"auth_cookie_secret", "object_storage", "keystore"}
+				t.DatabaseSecret = t.NewCustomDatabaseSecret()
+				t.objs = append(t.objs, t.NewCryostatWithDatabaseSecretProvided().Object, t.DatabaseSecret)
 			})
 			JustBeforeEach(func() {
 				t.reconcileCryostatFully()
 			})
 			It("should configure deployment appropriately", func() {
 				t.expectMainDeployment()
+				t.expectDatabaseDeployment()
 			})
 			It("should set Database Secret in CR Status", func() {
 				instance := t.getCryostatInstance()
-				Expect(instance.Status.DatabaseSecret).To(Equal(customSecret.Name))
+				Expect(instance.Status.DatabaseSecret).To(Equal(t.DatabaseSecret.Name))
 			})
 			It("should not generate default secret", func() {
 				secret := &corev1.Secret{}
@@ -2558,7 +2572,7 @@ func (c *controllerTest) commonTests() {
 				Expect(binding.RoleRef).To(Equal(expected.RoleRef))
 			})
 		})
-		Context("with additionnal label and annotation", func() {
+		Context("with additional label and annotation", func() {
 			BeforeEach(func() {
 				t.ReportReplicas = 1
 				t.objs = append(t.objs, t.NewCryostatWithAdditionalMetadata().Object)
@@ -2897,7 +2911,7 @@ func (t *cryostatTestInput) expectWaitingForCertificate() {
 
 func (t *cryostatTestInput) expectCertificates() {
 	// Check certificates
-	certs := []*certv1.Certificate{t.NewCryostatCert(), t.NewCACert(), t.NewReportsCert(), t.NewAgentProxyCert()}
+	certs := []*certv1.Certificate{t.NewCryostatCert(), t.NewCACert(), t.NewReportsCert(), t.NewAgentProxyCert(), t.NewDatabaseCert(), t.NewStorageCert()}
 	for _, expected := range certs {
 		actual := &certv1.Certificate{}
 		err := t.Client.Get(context.Background(), types.NamespacedName{Name: expected.Name, Namespace: expected.Namespace}, actual)
@@ -2920,7 +2934,7 @@ func (t *cryostatTestInput) expectCertificates() {
 	err := t.Client.Get(context.Background(), types.NamespacedName{Name: expectedKeystoreSecret.Name, Namespace: expectedKeystoreSecret.Namespace}, secret)
 	Expect(err).ToNot(HaveOccurred())
 	t.checkMetadata(secret, expectedKeystoreSecret)
-	Expect(secret.StringData).To(Equal(expectedKeystoreSecret.StringData))
+	Expect(secret.StringData).To(Equal(expectedKeystoreSecret.Data))
 
 	// Check CA Cert secrets in each target namespace
 	Expect(t.TargetNamespaces).ToNot(BeEmpty())
@@ -3099,7 +3113,7 @@ func (t *cryostatTestInput) expectOAuth2ConfigMap() {
 	t.checkMetadata(cm, expected)
 	Expect(cm.Data).To(HaveLen(1))
 	Expect(cm.Data).To(HaveKey("alpha_config.json"))
-	Expect(cm.Data["alpha_config.json"]).To(MatchJSON(expected.Data["alpha_config.json"]))
+	Expect(cm.Data["alpha_config.json"]).To(Equal(expected.Data["alpha_config.json"]))
 	Expect(cm.Immutable).To(Equal(expected.Immutable))
 }
 
@@ -3157,7 +3171,7 @@ func (t *cryostatTestInput) expectDatabaseSecret() {
 	// Compare to desired spec
 	expectedSecret := t.NewDatabaseSecret()
 	t.checkMetadata(secret, expectedSecret)
-	Expect(secret.StringData).To(Equal(expectedSecret.StringData))
+	Expect(secret.Data).To(Equal(expectedSecret.Data))
 	Expect(secret.Immutable).To(Equal(expectedSecret.Immutable))
 }
 
@@ -3169,7 +3183,18 @@ func (t *cryostatTestInput) expectStorageSecret() {
 	// Compare to desired spec
 	expectedSecret := t.NewStorageSecret()
 	t.checkMetadata(secret, expectedSecret)
-	Expect(secret.StringData).To(Equal(expectedSecret.StringData))
+	Expect(secret.Data).To(Equal(expectedSecret.Data))
+}
+
+func (t *cryostatTestInput) expectOAuthCookieSecret() {
+	expectedSecret := t.NewAuthProxyCookieSecret()
+	secret := &corev1.Secret{}
+	err := t.Client.Get(context.Background(), types.NamespacedName{Name: expectedSecret.Name, Namespace: expectedSecret.Namespace}, secret)
+	Expect(err).ToNot(HaveOccurred())
+
+	// Compare to desired spec
+	t.checkMetadata(secret, expectedSecret)
+	Expect(secret.Data).To(Equal(expectedSecret.Data))
 }
 
 func (t *cryostatTestInput) expectCoreService() {
@@ -3421,6 +3446,7 @@ func (t *cryostatTestInput) checkMainPodTemplate(deployment *appsv1.Deployment, 
 		"kind":      "cryostat",
 		"component": "cryostat",
 	}))
+	Expect(template.Annotations).To(Equal(t.NewMainPodAnnotations()))
 	Expect(template.Spec.Volumes).To(ConsistOf(t.NewVolumes()))
 	Expect(template.Spec.SecurityContext).To(Equal(t.NewPodSecurityContext(cr)))
 
@@ -3499,10 +3525,10 @@ func (t *cryostatTestInput) expectMainPodTemplateHasExtraMetadata(deployment *ap
 		"myPodExtraLabel":       "myPodLabel",
 		"myPodSecondExtraLabel": "myPodSecondLabel",
 	}))
-	Expect(template.Annotations).To(Equal(map[string]string{
-		"myPodExtraAnnotation":       "myPodAnnotation",
-		"mySecondPodExtraAnnotation": "mySecondPodAnnotation",
-	}))
+	annotations := t.NewMainPodAnnotations()
+	annotations["myPodExtraAnnotation"] = "myPodAnnotation"
+	annotations["mySecondPodExtraAnnotation"] = "mySecondPodAnnotation"
+	Expect(template.Annotations).To(Equal(annotations))
 }
 
 func (t *cryostatTestInput) expectDatabaseDeployment() {
@@ -3534,6 +3560,7 @@ func (t *cryostatTestInput) expectDatabaseDeployment() {
 		"kind":      "cryostat",
 		"component": "database",
 	}))
+	Expect(template.Annotations).To(Equal(t.NewDatabasePodAnnotations()))
 	Expect(template.Spec.Volumes).To(ConsistOf(t.NewDatabaseVolumes()))
 	Expect(template.Spec.SecurityContext).To(Equal(t.NewPodSecurityContext(cr)))
 
@@ -3587,6 +3614,7 @@ func (t *cryostatTestInput) expectStorageDeployment() {
 		"kind":      "cryostat",
 		"component": "storage",
 	}))
+	Expect(template.Annotations).To(Equal(t.NewStoragePodAnnotations()))
 	Expect(template.Spec.Volumes).To(ConsistOf(t.NewStorageVolumes()))
 	Expect(template.Spec.SecurityContext).To(Equal(t.NewPodSecurityContext(cr)))
 
@@ -3643,6 +3671,7 @@ func (t *cryostatTestInput) checkReportsDeployment() {
 		"kind":      "cryostat",
 		"component": "reports",
 	}))
+	Expect(template.Annotations).To(Equal(t.NewReportsPodAnnotations()))
 	Expect(template.Spec.Volumes).To(ConsistOf(t.NewReportsVolumes()))
 	Expect(template.Spec.SecurityContext).To(Equal(t.NewReportPodSecurityContext(cr)))
 
@@ -3689,10 +3718,10 @@ func (t *cryostatTestInput) expectReportsDeploymentHasExtraMetadata() {
 		"myPodExtraLabel":       "myPodLabel",
 		"myPodSecondExtraLabel": "myPodSecondLabel",
 	}))
-	Expect(template.Annotations).To(Equal(map[string]string{
-		"myPodExtraAnnotation":       "myPodAnnotation",
-		"mySecondPodExtraAnnotation": "mySecondPodAnnotation",
-	}))
+	annotations := t.NewReportsPodAnnotations()
+	annotations["myPodExtraAnnotation"] = "myPodAnnotation"
+	annotations["mySecondPodExtraAnnotation"] = "mySecondPodAnnotation"
+	Expect(template.Annotations).To(Equal(annotations))
 }
 
 func (t *cryostatTestInput) checkDeploymentHasTemplates() {
@@ -3706,6 +3735,20 @@ func (t *cryostatTestInput) checkDeploymentHasTemplates() {
 
 	volumeMounts := deployment.Spec.Template.Spec.Containers[0].VolumeMounts
 	expectedVolumeMounts := t.NewVolumeMountsWithTemplates()
+	Expect(volumeMounts).To(ConsistOf(expectedVolumeMounts))
+}
+
+func (t *cryostatTestInput) checkDeploymentHasCredentials() {
+	deployment := &appsv1.Deployment{}
+	err := t.Client.Get(context.Background(), types.NamespacedName{Name: t.Name, Namespace: t.Namespace}, deployment)
+	Expect(err).ToNot(HaveOccurred())
+
+	volumes := deployment.Spec.Template.Spec.Volumes
+	expectedVolumes := t.NewVolumesWithCredentials()
+	Expect(volumes).To(ConsistOf(expectedVolumes))
+
+	volumeMounts := deployment.Spec.Template.Spec.Containers[0].VolumeMounts
+	expectedVolumeMounts := t.NewVolumeMountsWithCredentials()
 	Expect(volumeMounts).To(ConsistOf(expectedVolumeMounts))
 }
 

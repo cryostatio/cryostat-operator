@@ -24,7 +24,7 @@ metadata:
     capabilities: Seamless Upgrades
     categories: Monitoring, Developer Tools
     containerImage: quay.io/cryostat/cryostat-operator:4.1.0-dev
-    createdAt: "2025-04-25T12:49:59Z"
+    createdAt: "2025-06-12T15:56:01Z"
     description: JVM monitoring and profiling tool
     operatorframework.io/initialization-resource: |-
       {
@@ -144,6 +144,14 @@ spec:
           - description: 'Name of the secret containing database keys. This secret must contain a CONNECTION_KEY secret which is the database connection password, and an ENCRYPTION_KEY secret which is the key used to encrypt sensitive data stored within the database, such as the target credentials keyring. This field cannot be updated. It is recommended that the secret should be marked as immutable to avoid accidental changes to secret''s data. More details: https://kubernetes.io/docs/concepts/configuration/secret/#secret-immutable'
             displayName: Secret Name
             path: databaseOptions.secretName
+            x-descriptors:
+              - urn:alm:descriptor:io.kubernetes:Secret
+          - description: List of Stored Credentials to preconfigure in Cryostat.
+            displayName: Stored Credentials
+            path: declarativeCredentials
+          - description: 'Name of secret in the local namespace. The contents of that secret are expected to be a list of json representations of stored credentials in the format { "username": "$USERNAME", "password": "$PASSWORD", "matchExpression": "$MATCHEXPRESSION" }'
+            displayName: Secret Name
+            path: declarativeCredentials[0].secretName
             x-descriptors:
               - urn:alm:descriptor:io.kubernetes:Secret
           - description: List of Flight Recorder Event Templates to preconfigure in Cryostat.
@@ -949,7 +957,6 @@ spec:
                 - ""
               resources:
                 - configmaps
-                - endpoints
                 - events
                 - persistentvolumeclaims
                 - pods
@@ -1049,6 +1056,14 @@ spec:
                 - get
                 - list
                 - update
+            - apiGroups:
+                - discovery.k8s.io
+              resources:
+                - endpointslices
+              verbs:
+                - get
+                - list
+                - watch
             - apiGroups:
                 - networking.k8s.io
               resources:

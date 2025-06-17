@@ -81,10 +81,17 @@ rules:
   - delete
   - get
 - apiGroups:
+  - discovery.k8s.io
+  resources:
+  - endpointslices
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
   - ""
   resources:
   - replicationcontrollers
-  - endpoints
   verbs:
   - get
 - apiGroups:

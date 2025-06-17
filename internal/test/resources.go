@@ -19,6 +19,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"hash/fnv"
+	"slices"
 	"strings"
 
 	certv1 "github.com/cert-manager/cert-manager/pkg/apis/certmanager/v1"
@@ -57,6 +58,7 @@ type TestResources struct {
 	InsightsURL                string
 	DisableAgentHostnameVerify bool
 	AllowAgentInsecure         bool
+	DatabaseSecret             *corev1.Secret
 }
 
 func NewTestScheme() *runtime.Scheme {
@@ -154,6 +156,19 @@ func (r *TestResources) NewCryostatWithTemplates() *model.CryostatInstance {
 		{
 			ConfigMapName: "templateCM2",
 			Filename:      "other-template.jfc",
+		},
+	}
+	return cr
+}
+
+func (r *TestResources) NewCryostatWithDeclarativeCredentials() *model.CryostatInstance {
+	cr := r.NewCryostat()
+	cr.Spec.DeclarativeCredentials = []operatorv1beta2.DeclarativeCredential{
+		{
+			SecretName: "a",
+		},
+		{
+			SecretName: "b",
 		},
 	}
 	return cr
@@ -1626,9 +1641,9 @@ func (r *TestResources) NewDatabaseSecret() *corev1.Secret {
 			Name:      r.Name + "-db",
 			Namespace: r.Namespace,
 		},
-		StringData: map[string]string{
-			"CONNECTION_KEY": "connection_key",
-			"ENCRYPTION_KEY": "encryption_key",
+		Data: map[string][]byte{
+			"CONNECTION_KEY": []byte("connection_key"),
+			"ENCRYPTION_KEY": []byte("encryption_key"),
 		},
 		Immutable: &[]bool{true}[0],
 	}
@@ -1640,9 +1655,9 @@ func (r *TestResources) NewCustomDatabaseSecret() *corev1.Secret {
 			Name:      providedDatabaseSecretName,
 			Namespace: r.Namespace,
 		},
-		StringData: map[string]string{
-			"CONNECTION_KEY": "custom-connection_database",
-			"ENCRYPTION_KEY": "custom-encryption_key",
+		Data: map[string][]byte{
+			"CONNECTION_KEY": []byte("custom-connection_database"),
+			"ENCRYPTION_KEY": []byte("custom-encryption_key"),
 		},
 	}
 }
@@ -1653,10 +1668,10 @@ func (r *TestResources) NewStorageSecret() *corev1.Secret {
 			Name:      r.Name + "-storage",
 			Namespace: r.Namespace,
 		},
-		StringData: map[string]string{
-			"ACCESS_KEY":     "cryostat",
-			"SECRET_KEY":     "object_storage",
-			"BASIC_AUTH_KEY": "Y3J5b3N0YXQ6b2JqZWN0X3N0b3JhZ2U=",
+		Data: map[string][]byte{
+			"SECRET_KEY":     []byte("object_storage"),
+			"ACCESS_KEY":     []byte("cryostat"),
+			"BASIC_AUTH_KEY": []byte("Y3J5b3N0YXQ6b2JqZWN0X3N0b3JhZ2U="),
 		},
 	}
 }
@@ -1667,9 +1682,9 @@ func (r *TestResources) OtherDatabaseSecret() *corev1.Secret {
 			Name:      r.Name + "-db",
 			Namespace: r.Namespace,
 		},
-		StringData: map[string]string{
-			"CONNECTION_KEY": "other-pass",
-			"ENCRYPTION_KEY": "other-key",
+		Data: map[string][]byte{
+			"CONNECTION_KEY": []byte("other-pass"),
+			"ENCRYPTION_KEY": []byte("other-key"),
 		},
 	}
 }
@@ -1680,8 +1695,8 @@ func (r *TestResources) NewStorageKeystoreSecret() *corev1.Secret {
 			Name:      r.Name + "-keystore",
 			Namespace: r.Namespace,
 		},
-		StringData: map[string]string{
-			"KEYSTORE_PASS": "keystore",
+		Data: map[string][]byte{
+			"KEYSTORE_PASS": []byte("keystore"),
 		},
 	}
 }
@@ -1775,7 +1790,7 @@ func (r *TestResources) NewDatabaseCert() *certv1.Certificate {
 			Namespace: r.Namespace,
 		},
 		Spec: certv1.CertificateSpec{
-			CommonName: "cryostat-database",
+			CommonName: "cryostat-db",
 			DNSNames: []string{
 				r.Name + "-database",
 				fmt.Sprintf(r.Name+"-database.%s.svc", r.Namespace),
@@ -1847,6 +1862,7 @@ func (r *TestResources) NewStorageCert() *certv1.Certificate {
 				certv1.UsageDigitalSignature,
 				certv1.UsageKeyEncipherment,
 				certv1.UsageServerAuth,
+				certv1.UsageClientAuth,
 			},
 		},
 	}
@@ -1904,6 +1920,20 @@ func (r *TestResources) NewAgentCert(namespace string) *certv1.Certificate {
 				certv1.UsageServerAuth,
 				certv1.UsageClientAuth,
 			},
+		},
+	}
+}
+
+func (r *TestResources) NewCertSecret(cert *certv1.Certificate) *corev1.Secret {
+	// The secret's data isn't important, we simply need it to exist
+	return &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      cert.Spec.SecretName,
+			Namespace: cert.Namespace,
+		},
+		Data: map[string][]byte{
+			corev1.TLSCertKey:       []byte(cert.Name + "-bytes"),
+			corev1.TLSPrivateKeyKey: []byte(cert.Name + "-key"),
 		},
 	}
 }
@@ -2291,6 +2321,122 @@ func (r *TestResources) NewAgentProxyPorts() []corev1.ContainerPort {
 			ContainerPort: 8282,
 		},
 	}
+}
+
+func (r *TestResources) NewMainPodAnnotations() map[string]string {
+	annotations := map[string]string{}
+
+	secrets := []*corev1.Secret{
+		r.NewStorageSecret(),
+		r.NewAuthProxyCookieSecret(),
+	}
+	if r.DatabaseSecret != nil {
+		secrets = append(secrets, r.DatabaseSecret)
+	} else {
+		secrets = append(secrets, r.NewDatabaseSecret())
+	}
+	if r.TLS {
+		secrets = append(secrets,
+			r.NewCertSecret(r.NewCryostatCert()),
+			r.NewCertSecret(r.NewDatabaseCert()),
+			r.NewCertSecret(r.NewStorageCert()),
+			r.NewCertSecret(r.NewAgentProxyCert()),
+		)
+	}
+
+	configMaps := []*corev1.ConfigMap{
+		r.NewAgentProxyConfigMap(),
+	}
+
+	if !r.OpenShift {
+		configMaps = append(configMaps, r.NewOAuth2ProxyConfigMap())
+	}
+
+	hashAnnotations(secrets, configMaps, annotations)
+	return annotations
+}
+
+func (r *TestResources) NewDatabasePodAnnotations() map[string]string {
+	annotations := map[string]string{}
+
+	secrets := []*corev1.Secret{}
+	if r.DatabaseSecret != nil {
+		secrets = append(secrets, r.DatabaseSecret)
+	} else {
+		secrets = append(secrets, r.NewDatabaseSecret())
+	}
+	if r.TLS {
+		secrets = append(secrets,
+			r.NewCertSecret(r.NewDatabaseCert()),
+		)
+	}
+
+	configMaps := []*corev1.ConfigMap{}
+
+	hashAnnotations(secrets, configMaps, annotations)
+	return annotations
+}
+
+func (r *TestResources) NewStoragePodAnnotations() map[string]string {
+	annotations := map[string]string{}
+
+	secrets := []*corev1.Secret{
+		r.NewStorageSecret(),
+	}
+	if r.TLS {
+		secrets = append(secrets,
+			r.NewCertSecret(r.NewStorageCert()),
+		)
+	}
+
+	configMaps := []*corev1.ConfigMap{}
+
+	hashAnnotations(secrets, configMaps, annotations)
+	return annotations
+}
+
+func (r *TestResources) NewReportsPodAnnotations() map[string]string {
+	annotations := map[string]string{}
+
+	secrets := []*corev1.Secret{}
+	if r.TLS {
+		secrets = append(secrets,
+			r.NewCertSecret(r.NewReportsCert()),
+		)
+	}
+
+	configMaps := []*corev1.ConfigMap{}
+
+	hashAnnotations(secrets, configMaps, annotations)
+	return annotations
+}
+
+func hashAnnotations(secrets []*corev1.Secret, configMaps []*corev1.ConfigMap, annotations map[string]string) {
+	// Build the secret-hash annotation
+	slices.SortFunc(secrets, func(s1, s2 *corev1.Secret) int {
+		return strings.Compare(s1.Name, s2.Name)
+	})
+	secretData := []byte{}
+	for _, secret := range secrets {
+		buf, err := json.Marshal(secret.Data)
+		gomega.Expect(err).ToNot(gomega.HaveOccurred())
+		secretData = append(secretData, buf...)
+	}
+	annotations["io.cryostat/secret-hash"] = fmt.Sprintf("%x", sha256.Sum256(secretData))
+
+	// Build the config-map-hash annotation
+	slices.SortFunc(configMaps, func(c1, c2 *corev1.ConfigMap) int {
+		return strings.Compare(c1.Name, c2.Name)
+	})
+	configData := []byte{}
+	for _, cm := range configMaps {
+		buf, err := json.Marshal(cm.Data)
+		gomega.Expect(err).ToNot(gomega.HaveOccurred())
+		configData = append(configData, buf...)
+	}
+	hash := fnv.New128()
+	hash.Write(configData)
+	annotations["io.cryostat/config-map-hash"] = fmt.Sprintf("%x", hash.Sum([]byte{}))
 }
 
 func (r *TestResources) NewCoreEnvironmentVariables(reportsUrl string, ingress bool,
@@ -2800,6 +2946,18 @@ func (r *TestResources) NewAuthProxyEnvFromSource() []corev1.EnvFromSource {
 	}
 }
 
+func (r *TestResources) NewAuthProxyCookieSecret() *corev1.Secret {
+	return &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      r.Name + "-oauth2-cookie",
+			Namespace: r.Namespace,
+		},
+		Data: map[string][]byte{
+			"OAUTH2_PROXY_COOKIE_SECRET": []byte("auth_cookie_secret"),
+		},
+	}
+}
+
 func (r *TestResources) NewAgentProxyEnvFromSource() []corev1.EnvFromSource {
 	return []corev1.EnvFromSource{}
 }
@@ -3103,6 +3261,20 @@ func (r *TestResources) NewVolumeMountsWithTemplates() []corev1.VolumeMount {
 		})
 }
 
+func (r *TestResources) NewVolumeMountsWithCredentials() []corev1.VolumeMount {
+	return append(r.NewCoreVolumeMounts(),
+		corev1.VolumeMount{
+			Name:      "a",
+			MountPath: "/opt/cryostat.d/credentials.d/a",
+			ReadOnly:  true,
+		},
+		corev1.VolumeMount{
+			Name:      "b",
+			MountPath: "/opt/cryostat.d/credentials.d/b",
+			ReadOnly:  true,
+		})
+}
+
 func (r *TestResources) NewVolumeMountsWithAuthProperties() []corev1.VolumeMount {
 	return append(r.NewCoreVolumeMounts(), r.NewAuthPropertiesVolumeMount())
 }
@@ -3325,6 +3497,30 @@ func (r *TestResources) OtherDeployment() *appsv1.Deployment {
 
 func (r *TestResources) NewVolumes() []corev1.Volume {
 	return r.newVolumes(nil)
+}
+
+func (r *TestResources) NewVolumesWithCredentials() []corev1.Volume {
+	readOnlyMode := int32(0440)
+	return append(r.NewVolumes(),
+		corev1.Volume{
+			Name: "a",
+			VolumeSource: corev1.VolumeSource{
+				Secret: &corev1.SecretVolumeSource{
+					SecretName:  "a",
+					DefaultMode: &readOnlyMode,
+				},
+			},
+		},
+		corev1.Volume{
+			Name: "b",
+			VolumeSource: corev1.VolumeSource{
+				Secret: &corev1.SecretVolumeSource{
+					SecretName:  "b",
+					DefaultMode: &readOnlyMode,
+				},
+			},
+		},
+	)
 }
 
 func (r *TestResources) NewVolumesWithSecrets() []corev1.Volume {
@@ -4044,8 +4240,8 @@ func (r *TestResources) NewRole() *rbacv1.Role {
 	rules := []rbacv1.PolicyRule{
 		{
 			Verbs:     []string{"get", "list", "watch"},
-			APIGroups: []string{""},
-			Resources: []string{"endpoints"},
+			APIGroups: []string{"discovery.k8s.io"},
+			Resources: []string{"endpointslices"},
 		},
 		{
 			Verbs:     []string{"get"},
@@ -4221,6 +4417,24 @@ func (r *TestResources) NewTemplateConfigMap() *corev1.ConfigMap {
 		},
 		Data: map[string]string{
 			"template.jfc": "XML template data",
+		},
+	}
+}
+
+func (r *TestResources) NewDeclarativeCredentialSecret() *corev1.Secret {
+	return &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "a",
+			Namespace: r.Namespace,
+		},
+	}
+}
+
+func (r *TestResources) NewAnotherDeclarativeCredentialSecret() *corev1.Secret {
+	return &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "b",
+			Namespace: r.Namespace,
 		},
 	}
 }
@@ -4736,87 +4950,87 @@ ssbzSibBsu/6iGtCOGEoXJf//////////wIBAg==
 }
 
 var alphaConfigTLS = `{
-	"server": {
-		"SecureBindAddress": "https://0.0.0.0:4180",
-		"TLS": {
-			"Key": {
-				"fromFile": "/var/run/secrets/operator.cryostat.io/%s-tls/tls.key"
-			},
-			"Cert": {
-				"fromFile": "/var/run/secrets/operator.cryostat.io/%s-tls/tls.crt"
-			}
-		}
-	},
-	"upstreamConfig": {
-		"proxyRawPath": true,
-		"upstreams": [
-			{
-				"id": "cryostat",
-				"path": "/",
-				"uri": "http://localhost:8181"
-			},
-			{
-				"id": "grafana",
-				"path": "/grafana/",
-				"uri": "http://localhost:3000"
-			},
-			{
-				"id": "storage",
-				"path": "^/storage/(.*)$",
-				"rewriteTarget": "/$1",
-				"uri": "http://localhost:8333",
-				"passHostHeader": false,
-				"proxyWebSockets": false
-			}
-		]
-	},
-	"providers": [
-		{
-			"id": "dummy",
-			"name": "Unused - Sign In Below",
-			"clientId": "CLIENT_ID",
-			"clientSecret": "CLIENT_SECRET",
-			"provider": "google"
-		}
-	]
+  "server": {
+    "SecureBindAddress": "https://0.0.0.0:4180",
+    "TLS": {
+      "Key": {
+        "fromFile": "/var/run/secrets/operator.cryostat.io/%s-tls/tls.key"
+      },
+      "Cert": {
+        "fromFile": "/var/run/secrets/operator.cryostat.io/%s-tls/tls.crt"
+      }
+    }
+  },
+  "upstreamConfig": {
+    "proxyRawPath": true,
+    "upstreams": [
+      {
+        "id": "cryostat",
+        "path": "/",
+        "uri": "http://localhost:8181"
+      },
+      {
+        "id": "grafana",
+        "path": "/grafana/",
+        "uri": "http://localhost:3000"
+      },
+      {
+        "id": "storage",
+        "path": "^/storage/(.*)$",
+        "rewriteTarget": "/$1",
+        "uri": "http://localhost:8333",
+        "passHostHeader": false,
+        "proxyWebSockets": false
+      }
+    ]
+  },
+  "providers": [
+    {
+      "id": "dummy",
+      "name": "Unused - Sign In Below",
+      "clientId": "CLIENT_ID",
+      "clientSecret": "CLIENT_SECRET",
+      "provider": "google"
+    }
+  ]
 }`
 
 var alphaConfigNoTLS = `{
-	"server": {
-		"BindAddress": "http://0.0.0.0:4180"
-	},
-	"upstreamConfig": {
-		"proxyRawPath": true,
-		"upstreams": [
-			{
-				"id": "cryostat",
-				"path": "/",
-				"uri": "http://localhost:8181"
-			},
-			{
-				"id": "grafana",
-				"path": "/grafana/",
-				"uri": "http://localhost:3000"
-			},
-			{
-				"id": "storage",
-				"path": "^/storage/(.*)$",
-				"rewriteTarget": "/$1",
-				"uri": "http://localhost:8333",
-				"passHostHeader": false,
-				"proxyWebSockets": false
-			}
-		]
-	},
-	"providers": [
-		{
-			"id": "dummy",
-			"name": "Unused - Sign In Below",
-			"clientId": "CLIENT_ID",
-			"clientSecret": "CLIENT_SECRET",
-			"provider": "google"
-		}
-	]
+  "server": {
+    "BindAddress": "http://0.0.0.0:4180"
+  },
+  "upstreamConfig": {
+    "proxyRawPath": true,
+    "upstreams": [
+      {
+        "id": "cryostat",
+        "path": "/",
+        "uri": "http://localhost:8181"
+      },
+      {
+        "id": "grafana",
+        "path": "/grafana/",
+        "uri": "http://localhost:3000"
+      },
+      {
+        "id": "storage",
+        "path": "^/storage/(.*)$",
+        "rewriteTarget": "/$1",
+        "uri": "http://localhost:8333",
+        "passHostHeader": false,
+        "proxyWebSockets": false
+      }
+    ]
+  },
+  "providers": [
+    {
+      "id": "dummy",
+      "name": "Unused - Sign In Below",
+      "clientId": "CLIENT_ID",
+      "clientSecret": "CLIENT_SECRET",
+      "provider": "google"
+    }
+  ]
 }`
 
 func (r *TestResources) NewOAuth2ProxyConfigMap() *corev1.ConfigMap {

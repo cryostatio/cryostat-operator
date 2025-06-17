@@ -593,6 +593,12 @@ func (r *Reconciler) updateConditionsFromDeployment(ctx context.Context, cr *mod
 var errSelectorModified error = errors.New("deployment selector has been modified")
 
 func (r *Reconciler) createOrUpdateDeployment(ctx context.Context, deploy *appsv1.Deployment, owner metav1.Object) error {
+	// Annotate the deployment with hashes for any referenced secrets/config maps
+	err := common.AnnotateWithObjRefHashes(ctx, r.Client, deploy.Namespace, &deploy.Spec.Template)
+	if err != nil {
+		return err
+	}
+	// Make a copy of the new desired deployment
 	deployCopy := deploy.DeepCopy()
 	op, err := controllerutil.CreateOrUpdate(ctx, r.Client, deploy, func() error {
 		// Merge any required labels and annotations

@@ -29,9 +29,16 @@ rules:
   - ""
   resources:
   - replicationcontrollers
-  - endpoints
   verbs:
   - get
+- apiGroups:
+  - discovery.k8s.io
+  resources:
+  - endpointslices
+  verbs:
+  - get
+  - list
+  - watch
 - apiGroups:
   - apps
   resources:
