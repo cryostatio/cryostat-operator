@@ -19,6 +19,8 @@ import (
 	"errors"
 	"fmt"
 
+	b64 "encoding/base64"
+
 	"github.com/cryostatio/cryostat-operator/internal/controllers/constants"
 	"github.com/cryostatio/cryostat-operator/internal/controllers/model"
 	corev1 "k8s.io/api/core/v1"
@@ -115,8 +117,14 @@ func (r *Reconciler) reconcileDatabaseConnectionSecret(ctx context.Context, cr *
 // Cryostat CR to name its object storage secret
 const storageSecretNameSuffix = "-storage"
 
+// storageSecretAccessKey indexes the username within the Cryostat storage Secret
+const storageSecretAccessKey = "ACCESS_KEY"
+
 // storageSecretUserKey indexes the password within the Cryostat storage Secret
 const storageSecretPassKey = "SECRET_KEY"
+
+// storageSecretBasicAuthKey indexes the Basic auth credentials (Base64-encoded) within the Cryostat storage Secret
+const storageSecretBasicAuthKey = "BASIC_AUTH_KEY"
 
 func (r *Reconciler) reconcileStorageSecret(ctx context.Context, cr *model.CryostatInstance) error {
 	secret := &corev1.Secret{
@@ -133,7 +141,11 @@ func (r *Reconciler) reconcileStorageSecret(ctx context.Context, cr *model.Cryos
 
 		// Password is generated, so don't regenerate it when updating
 		if secret.CreationTimestamp.IsZero() {
-			secret.StringData[storageSecretPassKey] = r.GenPasswd(32)
+			accessKey := "cryostat"
+			passwd := r.GenPasswd(32)
+			secret.StringData[storageSecretAccessKey] = accessKey
+			secret.StringData[storageSecretPassKey] = passwd
+			secret.StringData[storageSecretBasicAuthKey] = b64.StdEncoding.EncodeToString(fmt.Appendf(nil, "%s:%s", accessKey, passwd))
 		}
 		return nil
 	})

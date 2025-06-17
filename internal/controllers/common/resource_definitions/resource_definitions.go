@@ -352,7 +352,7 @@ func ReportsPodLabels(cr *model.CryostatInstance) map[string]string {
 	}
 }
 
-func NewDeploymentForReports(cr *model.CryostatInstance, imageTags *ImageTags, tls *TLSConfig,
+func NewDeploymentForReports(cr *model.CryostatInstance, imageTags *ImageTags, serviceSpecs *ServiceSpecs, tls *TLSConfig,
 	openshift bool) *appsv1.Deployment {
 	replicas := int32(0)
 	if cr.Spec.ReportOptions != nil {
@@ -412,7 +412,7 @@ func NewDeploymentForReports(cr *model.CryostatInstance, imageTags *ImageTags, t
 			},
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: podTemplateMeta,
-				Spec:       *NewPodForReports(cr, imageTags, tls, openshift),
+				Spec:       *NewPodForReports(cr, imageTags, serviceSpecs, tls, openshift),
 			},
 			Replicas: &replicas,
 		},
@@ -829,7 +829,7 @@ func NewReportContainerResource(cr *model.CryostatInstance) *corev1.ResourceRequ
 	return resources
 }
 
-func NewPodForReports(cr *model.CryostatInstance, imageTags *ImageTags, tls *TLSConfig, openshift bool) *corev1.PodSpec {
+func NewPodForReports(cr *model.CryostatInstance, imageTags *ImageTags, serviceSpecs *ServiceSpecs, tls *TLSConfig, openshift bool) *corev1.PodSpec {
 	resources := NewReportContainerResource(cr)
 	cpus := resources.Requests.Cpu().Value() // Round to 1 if cpu request < 1000m
 	if limits := resources.Limits; limits != nil {
@@ -845,34 +845,96 @@ func NewPodForReports(cr *model.CryostatInstance, imageTags *ImageTags, tls *TLS
 			Value: "0.0.0.0",
 		},
 		{
-			Name:  "JAVA_OPTS",
-			Value: javaOpts,
+			Name:  "CRYOSTAT_STORAGE_BASE_URI",
+			Value: serviceSpecs.StorageURL.String(),
 		},
 	}
 	mounts := []corev1.VolumeMount{}
 	volumes := []corev1.Volume{}
 
+	optional := false
+	secretName := cr.Name + "-storage"
+	envs = append(envs,
+		corev1.EnvVar{
+			Name:  "CRYOSTAT_STORAGE_AUTH_METHOD",
+			Value: "Basic",
+		},
+		corev1.EnvVar{
+			Name: "CRYOSTAT_STORAGE_AUTH",
+			ValueFrom: &corev1.EnvVarSource{
+				SecretKeyRef: &corev1.SecretKeySelector{
+					LocalObjectReference: corev1.LocalObjectReference{
+						Name: secretName,
+					},
+					Key:      "BASIC_AUTH_KEY",
+					Optional: &optional,
+				},
+			},
+		},
+	)
+
 	// Configure TLS key/cert if enabled
 	livenessProbeScheme := corev1.URISchemeHTTP
 	if tls != nil {
+		readOnlyMode := int32(0440)
+		volumes = append(volumes,
+			corev1.Volume{
+				Name: "storage-tls-truststore",
+				VolumeSource: corev1.VolumeSource{
+					Secret: &corev1.SecretVolumeSource{
+						SecretName: tls.StorageSecret,
+						Items: []corev1.KeyToPath{
+							{
+								Key:  "ca.crt",
+								Path: "ca.crt",
+								Mode: &readOnlyMode,
+							},
+							{
+								Key:  "tls.crt",
+								Path: "tls.crt",
+								Mode: &readOnlyMode,
+							},
+						},
+					},
+				},
+			},
+		)
+		mounts = append(mounts, corev1.VolumeMount{
+			Name:      "storage-tls-truststore",
+			MountPath: path.Join(SecretMountPrefix, tls.StorageSecret),
+			ReadOnly:  true,
+		})
+
 		tlsEnvs := []corev1.EnvVar{
 			{
 				Name:  "QUARKUS_HTTP_SSL_PORT",
 				Value: strconv.Itoa(int(constants.ReportsContainerPort)),
 			},
 			{
-				Name:  "QUARKUS_HTTP_SSL_CERTIFICATE_KEY_FILES",
-				Value: path.Join(SecretMountPrefix, tls.ReportsSecret, corev1.TLSPrivateKeyKey),
-			},
-			{
-				Name:  "QUARKUS_HTTP_SSL_CERTIFICATE_FILES",
-				Value: path.Join(SecretMountPrefix, tls.ReportsSecret, corev1.TLSCertKey),
-			},
-			{
 				Name:  "QUARKUS_HTTP_INSECURE_REQUESTS",
 				Value: "disabled",
 			},
+			{
+				Name:  "CRYOSTAT_STORAGE_TLS_CA_PATH",
+				Value: path.Join(SecretMountPrefix, tls.StorageSecret, "ca.crt"),
+			},
+			{
+				Name:  "CRYOSTAT_STORAGE_TLS_CERT_PATH",
+				Value: path.Join(SecretMountPrefix, tls.StorageSecret, "tls.crt"),
+			},
 		}
+
+		tlsConfigName := "https"
+		javaOpts += fmt.Sprintf(" -Dquarkus.http.tls-configuration-name=%s", tlsConfigName)
+		javaOpts += fmt.Sprintf(" -Dquarkus.tls.%s.reload-period=%s", tlsConfigName, "1h")
+		javaOpts += fmt.Sprintf(" -Dquarkus.tls.%s.key-store.pem.0.cert=%s",
+			tlsConfigName,
+			path.Join(SecretMountPrefix, tls.ReportsSecret, corev1.TLSCertKey),
+		)
+		javaOpts += fmt.Sprintf(" -Dquarkus.tls.%s.key-store.pem.0.key=%s",
+			tlsConfigName,
+			path.Join(SecretMountPrefix, tls.ReportsSecret, corev1.TLSPrivateKeyKey),
+		)
 
 		tlsSecretMount := corev1.VolumeMount{
 			Name:      "reports-tls-secret",
@@ -895,7 +957,6 @@ func NewPodForReports(cr *model.CryostatInstance, imageTags *ImageTags, tls *TLS
 
 		// Use HTTPS for liveness probe
 		livenessProbeScheme = corev1.URISchemeHTTPS
-
 	} else {
 		envs = append(envs, corev1.EnvVar{
 			Name:  "QUARKUS_HTTP_PORT",
@@ -951,6 +1012,11 @@ func NewPodForReports(cr *model.CryostatInstance, imageTags *ImageTags, tls *TLS
 		}
 		tolerations = schedulingOptions.Tolerations
 	}
+
+	envs = append(envs, corev1.EnvVar{
+		Name:  "JAVA_OPTS_APPEND",
+		Value: javaOpts,
+	})
 
 	return &corev1.PodSpec{
 		Containers: []corev1.Container{
@@ -1338,14 +1404,6 @@ func NewCoreContainer(cr *model.CryostatInstance, specs *ServiceSpecs, imageTag 
 			Value: "static",
 		},
 		{
-			Name:  "QUARKUS_S3_CREDENTIALS_STATIC_PROVIDER_ACCESS_KEY_ID",
-			Value: "cryostat",
-		},
-		{
-			Name:  "AWS_ACCESS_KEY_ID",
-			Value: "$(QUARKUS_S3_AWS_CREDENTIALS_STATIC_PROVIDER_ACCESS_KEY_ID)",
-		},
-		{
 			Name:  "CRYOSTAT_CONFIG_PATH",
 			Value: configPath,
 		},
@@ -1386,29 +1444,44 @@ func NewCoreContainer(cr *model.CryostatInstance, specs *ServiceSpecs, imageTag 
 		},
 	})
 
-	envs = append(envs, corev1.EnvVar{
-		Name:  "QUARKUS_S3_AWS_CREDENTIALS_STATIC_PROVIDER_ACCESS_KEY_ID",
-		Value: "cryostat",
-	})
-
 	secretName = cr.Name + "-storage"
-	envs = append(envs, corev1.EnvVar{
-		Name: "QUARKUS_S3_AWS_CREDENTIALS_STATIC_PROVIDER_SECRET_ACCESS_KEY",
-		ValueFrom: &corev1.EnvVarSource{
-			SecretKeyRef: &corev1.SecretKeySelector{
-				LocalObjectReference: corev1.LocalObjectReference{
-					Name: secretName,
+	envs = append(envs,
+		corev1.EnvVar{
+			Name: "QUARKUS_S3_AWS_CREDENTIALS_STATIC_PROVIDER_ACCESS_KEY_ID",
+			ValueFrom: &corev1.EnvVarSource{
+				SecretKeyRef: &corev1.SecretKeySelector{
+					LocalObjectReference: corev1.LocalObjectReference{
+						Name: secretName,
+					},
+					Key:      "ACCESS_KEY",
+					Optional: &optional,
 				},
-				Key:      "SECRET_KEY",
-				Optional: &optional,
 			},
 		},
-	})
+		corev1.EnvVar{
+			Name: "QUARKUS_S3_AWS_CREDENTIALS_STATIC_PROVIDER_SECRET_ACCESS_KEY",
+			ValueFrom: &corev1.EnvVarSource{
+				SecretKeyRef: &corev1.SecretKeySelector{
+					LocalObjectReference: corev1.LocalObjectReference{
+						Name: secretName,
+					},
+					Key:      "SECRET_KEY",
+					Optional: &optional,
+				},
+			},
+		},
+	)
 
-	envs = append(envs, corev1.EnvVar{
-		Name:  "AWS_SECRET_ACCESS_KEY",
-		Value: "$(QUARKUS_S3_AWS_CREDENTIALS_STATIC_PROVIDER_SECRET_ACCESS_KEY)",
-	})
+	envs = append(envs,
+		corev1.EnvVar{
+			Name:  "AWS_ACCESS_KEY_ID",
+			Value: "$(QUARKUS_S3_AWS_CREDENTIALS_STATIC_PROVIDER_ACCESS_KEY_ID)",
+		},
+		corev1.EnvVar{
+			Name:  "AWS_SECRET_ACCESS_KEY",
+			Value: "$(QUARKUS_S3_AWS_CREDENTIALS_STATIC_PROVIDER_SECRET_ACCESS_KEY)",
+		},
+	)
 
 	if specs.ReportsURL != nil {
 		reportsEnvs := []corev1.EnvVar{

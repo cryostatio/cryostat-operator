@@ -303,11 +303,6 @@ func (r *Reconciler) reconcileCryostat(ctx context.Context, cr *model.CryostatIn
 		return reconcile.Result{}, err
 	}
 
-	reportsResult, err := r.reconcileReports(ctx, reqLogger, cr, tlsConfig, imageTags, serviceSpecs)
-	if err != nil {
-		return reportsResult, err
-	}
-
 	databaseResult, err := r.reconcileDatabase(ctx, reqLogger, cr, tlsConfig, imageTags, serviceSpecs, *fsGroup)
 	if err != nil {
 		return databaseResult, err
@@ -316,6 +311,11 @@ func (r *Reconciler) reconcileCryostat(ctx context.Context, cr *model.CryostatIn
 	storageResult, err := r.reconcileStorage(ctx, reqLogger, cr, tlsConfig, imageTags, serviceSpecs, *fsGroup)
 	if err != nil {
 		return storageResult, err
+	}
+
+	reportsResult, err := r.reconcileReports(ctx, reqLogger, cr, tlsConfig, imageTags, serviceSpecs)
+	if err != nil {
+		return reportsResult, err
 	}
 
 	deployment, err := resources.NewDeploymentForCR(cr, serviceSpecs, imageTags, tlsConfig, *fsGroup, r.IsOpenShift)
@@ -398,7 +398,7 @@ func (r *Reconciler) reconcileReports(ctx context.Context, reqLogger logr.Logger
 	if err != nil {
 		return reconcile.Result{}, err
 	}
-	deployment := resources.NewDeploymentForReports(cr, imageTags, tls, r.IsOpenShift)
+	deployment := resources.NewDeploymentForReports(cr, imageTags, serviceSpecs, tls, r.IsOpenShift)
 	if desired == 0 {
 		if err := r.Client.Delete(ctx, deployment); err != nil && !kerrors.IsNotFound(err) {
 			return reconcile.Result{}, err
