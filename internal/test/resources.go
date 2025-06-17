@@ -2398,10 +2398,13 @@ func (r *TestResources) NewStoragePodAnnotations() map[string]string {
 func (r *TestResources) NewReportsPodAnnotations() map[string]string {
 	annotations := map[string]string{}
 
-	secrets := []*corev1.Secret{}
+	secrets := []*corev1.Secret{
+		r.NewStorageSecret(),
+	}
 	if r.TLS {
 		secrets = append(secrets,
 			r.NewCertSecret(r.NewReportsCert()),
+			r.NewCertSecret(r.NewStorageCert()),
 		)
 	}
 
