@@ -2453,7 +2453,7 @@ func (r *TestResources) NewCoreEnvironmentVariables(reportsUrl string, ingress b
 	envs := []corev1.EnvVar{
 		{
 			Name:  "QUARKUS_HTTP_HOST",
-			Value: "localhost",
+			Value: "0.0.0.0",
 		},
 		{
 			Name:  "QUARKUS_HTTP_PORT",
