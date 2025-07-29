@@ -1646,10 +1646,12 @@ func NewCoreContainer(cr *model.CryostatInstance, specs *ServiceSpecs, imageTag 
 	}
 
 	probeHandler := corev1.ProbeHandler{
-		HTTPGet: &corev1.HTTPGetAction{
-			Port:   intstr.IntOrString{IntVal: constants.CryostatHTTPContainerPort},
-			Path:   "/health/liveness",
-			Scheme: corev1.URISchemeHTTP,
+		Exec: &corev1.ExecAction{
+			Command: []string{
+				"curl",
+				"--fail",
+				fmt.Sprintf("http://localhost:%d/health/livesness", constants.CryostatHTTPContainerPort),
+			},
 		},
 	}
 
