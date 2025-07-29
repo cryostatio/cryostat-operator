@@ -3221,10 +3221,12 @@ func (r *TestResources) NewCoreStartupProbe() *corev1.Probe {
 
 func (r *TestResources) newCoreProbeHandler() corev1.ProbeHandler {
 	return corev1.ProbeHandler{
-		HTTPGet: &corev1.HTTPGetAction{
-			Port:   intstr.IntOrString{IntVal: 8181},
-			Path:   "/health/liveness",
-			Scheme: corev1.URISchemeHTTP,
+		Exec: &corev1.ExecAction{
+			Command: []string{
+				"curl",
+				"--fail",
+				"http://localhost:8181/health/liveness",
+			},
 		},
 	}
 }
