@@ -1650,7 +1650,7 @@ func NewCoreContainer(cr *model.CryostatInstance, specs *ServiceSpecs, imageTag 
 			Command: []string{
 				"curl",
 				"--fail",
-				fmt.Sprintf("http://localhost:%d/health/livesness", constants.CryostatHTTPContainerPort),
+				fmt.Sprintf("http://localhost:%d/health/liveness", constants.CryostatHTTPContainerPort),
 			},
 		},
 	}
