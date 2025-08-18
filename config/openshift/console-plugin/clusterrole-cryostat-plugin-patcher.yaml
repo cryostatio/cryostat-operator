@@ -19,6 +19,7 @@ rules:
   - patch
   - update
   - watch
+  - delete
 - apiGroups:
   - operator.openshift.io
   resources:
