@@ -769,9 +769,9 @@ type DatabaseOptions struct {
 // ObjectStorageOptions provides configuration options to the Cryostat application's object storage.
 type ObjectStorageOptions struct {
 	// Name of the secret containing the object storage secret access key. This secret must contain a
-	// STORAGE_ACCESS_KEY secret which is the object storage secret access key. If using an external S3 provider requiring
-	// authentication then this must be provided. It is recommended that the secret should be marked as immutable to avoid
-	// accidental changes to secret's data.
+	// ACCESS_KEY secret which is the object storage access key ID, and a SECRET_KEY secret which is the object storage secret access key.
+	// If using an external S3 provider requiring authentication then this must be provided.
+	// It is recommended that the secret should be marked as immutable to avoid accidental changes to secret's data.
 	// More details: [Kubernetes Secrets](https://kubernetes.io/docs/concepts/configuration/secret/#secret-immutable)
 	// +optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:io.kubernetes:Secret"}
@@ -787,16 +787,14 @@ type ObjectStorageOptions struct {
 // ObjectStorageProviderOptions provides configuration options to the Cryostat application's external object storage.
 type ObjectStorageProviderOptions struct {
 	// The complete URL (not including authentication information) to the external object storage provider.
-	// +optional
 	URL *string `json:"url,omitempty"`
-	// Whether path-style access should be used, as opposed to subdomain access.
+	// Whether path-style access should be used, as opposed to subdomain access. Defaults to true for compatibility.
 	// +optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Use Path-Style Access",xDescriptors={"urn:alm:descriptor:com.tectonic.ui:booleanSwitch"}
 	UsePathStyleAccess *bool `json:"usePathStyleAccess,omitempty"`
 	// The object storage provider region.
-	// +optional
 	Region *string `json:"region,omitempty"`
-	// Whether Cryostat should trust all TLS certificates presented by the external object storage provider.
+	// Whether Cryostat should trust all TLS certificates presented by the external object storage provider. Defaults to false.
 	// +optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="TLS Trust All",xDescriptors={"urn:alm:descriptor:com.tectonic.ui:booleanSwitch"}
 	TLSTrustAll *bool `json:"tlsTrustAll,omitempty"`
