@@ -425,8 +425,12 @@ func NewPodForCR(cr *model.CryostatInstance, specs *ServiceSpecs, imageTags *Ima
 	if err != nil {
 		return nil, err
 	}
+	coreContainer, err := NewCoreContainer(cr, specs, imageTags.CoreImageTag, tls, openshift)
+	if err != nil {
+		return nil, err
+	}
 	containers := []corev1.Container{
-		NewCoreContainer(cr, specs, imageTags.CoreImageTag, tls, openshift),
+		*coreContainer,
 		NewGrafanaContainer(cr, imageTags.GrafanaImageTag, tls),
 		NewJfrDatasourceContainer(cr, imageTags.DatasourceImageTag),
 		*authProxy,
@@ -1331,7 +1335,7 @@ func NewCoreContainerResource(cr *model.CryostatInstance) *corev1.ResourceRequir
 }
 
 func NewCoreContainer(cr *model.CryostatInstance, specs *ServiceSpecs, imageTag string,
-	tls *TLSConfig, openshift bool) corev1.Container {
+	tls *TLSConfig, openshift bool) (*corev1.Container, error) {
 	configPath := "/opt/cryostat.d/conf.d"
 	templatesPath := "/opt/cryostat.d/templates.d"
 	credentialsPath := "/opt/cryostat.d/credentials.d"
@@ -1419,10 +1423,10 @@ func NewCoreContainer(cr *model.CryostatInstance, specs *ServiceSpecs, imageTag 
 		}...)
 	} else {
 		if cr.Spec.ObjectStorageOptions.Provider.URL == nil {
-			// FIXME this is an invalid configuration - we should either return an error here, or there should be a check earlier that can do that
+			return nil, fmt.Errorf("cr.Spec.ObjectStorageOptions was not nil, but cr.Spec.ObjectStorageOptions.Provider.URL was nil")
 		}
 		if cr.Spec.ObjectStorageOptions.Provider.Region == nil {
-			// FIXME this is an invalid configuration - we should either return an error here, or there should be a check earlier that can do that
+			return nil, fmt.Errorf("cr.Spec.ObjectStorageOptions was not nil, but cr.Spec.ObjectStorageOptions.Provider.Region was nil")
 		}
 		envs = append(envs, []corev1.EnvVar{
 			{
@@ -1720,7 +1724,7 @@ func NewCoreContainer(cr *model.CryostatInstance, specs *ServiceSpecs, imageTag 
 		}
 	}
 
-	return corev1.Container{
+	return &corev1.Container{
 		Name:            cr.Name,
 		Image:           imageTag,
 		ImagePullPolicy: common.GetPullPolicy(imageTag),
@@ -1741,7 +1745,7 @@ func NewCoreContainer(cr *model.CryostatInstance, specs *ServiceSpecs, imageTag 
 			FailureThreshold: 18,
 		},
 		SecurityContext: containerSc,
-	}
+	}, nil
 }
 
 func NewGrafanaContainerResource(cr *model.CryostatInstance) *corev1.ResourceRequirements {
