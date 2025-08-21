@@ -100,6 +100,10 @@ type CryostatSpec struct {
 	// +optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Database Options"
 	DatabaseOptions *DatabaseOptions `json:"databaseOptions,omitempty"`
+	// Options to configure the Cryostat application's object storage. If not provided, a managed instance will be automatically provisioned.
+	// +optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Object Storage Options"
+	ObjectStorageOptions *ObjectStorageOptions `json:"objectStorageOptions,omitempty"`
 	// Options to configure the Cryostat deployments and pods metadata
 	// +optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Operand metadata"
@@ -760,6 +764,48 @@ type DatabaseOptions struct {
 	// +optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:io.kubernetes:Secret"}
 	SecretName *string `json:"secretName,omitempty"`
+}
+
+// ObjectStorageOptions provides configuration options to the Cryostat application's object storage.
+type ObjectStorageOptions struct {
+	// Name of the secret containing the object storage secret access key. This secret must contain a
+	// STORAGE_ACCESS_KEY secret which is the object storage secret access key. If using an external S3 provider requiring
+	// authentication then this must be provided. It is recommended that the secret should be marked as immutable to avoid
+	// accidental changes to secret's data.
+	// More details: [Kubernetes Secrets](https://kubernetes.io/docs/concepts/configuration/secret/#secret-immutable)
+	// +optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:io.kubernetes:Secret"}
+	SecretName *string `json:"secretName,omitempty"`
+	// Configuration for external object storage providers.
+	// +optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Object Storage Provider Options"
+	Provider *ObjectStorageProviderOptions `json:"provider,omitempty"`
+
+	// TODO add configuration to override default bucket names
+}
+
+// ObjectStorageProviderOptions provides configuration options to the Cryostat application's external object storage.
+type ObjectStorageProviderOptions struct {
+	// The complete URL (not including authentication information) to the external object storage provider.
+	// +optional
+	URL *string `json:"url,omitempty"`
+	// Whether path-style access should be used, as opposed to subdomain access.
+	// +optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Use Path-Style Access",xDescriptors={"urn:alm:descriptor:com.tectonic.ui:booleanSwitch"}
+	UsePathStyleAccess *bool `json:"usePathStyleAccess,omitempty"`
+	// The object storage provider region.
+	// +optional
+	Region *string `json:"region,omitempty"`
+	// Whether Cryostat should trust all TLS certificates presented by the external object storage provider.
+	// +optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="TLS Trust All",xDescriptors={"urn:alm:descriptor:com.tectonic.ui:booleanSwitch"}
+	TLSTrustAll *bool `json:"tlsTrustAll,omitempty"`
+	// The strategy Cryostat will use for storing files' metadata. The default 'tagging' strategy stores all metadata as object Tags.
+	// The 'metadata' strategy stores metadata as object Metadata, which is immutable but allows for more entries than Tags.
+	// The 'bucket' strategy stores metadata as separate files (ex. JSON object maps) in a dedicated bucket,
+	// with prefixes to differentiate the kind of object the metadata belongs to.
+	// +optional
+	MetadataMode *string `json:"metadataMode,omitempty"`
 }
 
 // AgentOptions provides customization for how the operator configures Cryostat Agents.
