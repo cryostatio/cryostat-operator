@@ -278,6 +278,36 @@ spec:
         path: networkPolicies.storageConfig.ingressDisabled
         x-descriptors:
         - urn:alm:descriptor:com.tectonic.ui:booleanSwitch
+      - description: Options to configure the Cryostat application's object storage.
+          If not provided, a managed instance will be automatically provisioned.
+        displayName: Object Storage Options
+        path: objectStorageOptions
+      - description: Configuration for external object storage providers.
+        displayName: Object Storage Provider Options
+        path: objectStorageOptions.provider
+      - description: Whether Cryostat should trust all TLS certificates presented
+          by the external object storage provider. Defaults to false.
+        displayName: TLS Trust All
+        path: objectStorageOptions.provider.tlsTrustAll
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:booleanSwitch
+      - description: Whether path-style access should be used, as opposed to subdomain
+          access. Defaults to true for compatibility.
+        displayName: Use Path-Style Access
+        path: objectStorageOptions.provider.usePathStyleAccess
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:booleanSwitch
+      - description: 'Name of the secret containing the object storage secret access
+          key. This secret must contain a ACCESS_KEY secret which is the object storage
+          access key ID, and a SECRET_KEY secret which is the object storage secret
+          access key. If using an external S3 provider requiring authentication then
+          this must be provided. It is recommended that the secret should be marked
+          as immutable to avoid accidental changes to secret''s data. More details:
+          [Kubernetes Secrets](https://kubernetes.io/docs/concepts/configuration/secret/#secret-immutable)'
+        displayName: Secret Name
+        path: objectStorageOptions.secretName
+        x-descriptors:
+        - urn:alm:descriptor:io.kubernetes:Secret
       - description: Options to configure the Cryostat deployments and pods metadata
         displayName: Operand metadata
         path: operandMetadata

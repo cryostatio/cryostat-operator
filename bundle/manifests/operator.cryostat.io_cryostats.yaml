@@ -5958,6 +5958,47 @@ spec:
                         type: boolean
                     type: object
                 type: object
+              objectStorageOptions:
+                description: Options to configure the Cryostat application's object
+                  storage. If not provided, a managed instance will be automatically
+                  provisioned.
+                properties:
+                  provider:
+                    description: Configuration for external object storage providers.
+                    properties:
+                      metadataMode:
+                        description: |-
+                          The strategy Cryostat will use for storing files' metadata. The default 'tagging' strategy stores all metadata as object Tags.
+                          The 'metadata' strategy stores metadata as object Metadata, which is immutable but allows for more entries than Tags.
+                          The 'bucket' strategy stores metadata as separate files (ex. JSON object maps) in a dedicated bucket,
+                          with prefixes to differentiate the kind of object the metadata belongs to.
+                        type: string
+                      region:
+                        description: The object storage provider region.
+                        type: string
+                      tlsTrustAll:
+                        description: Whether Cryostat should trust all TLS certificates
+                          presented by the external object storage provider. Defaults
+                          to false.
+                        type: boolean
+                      url:
+                        description: The complete URL (not including authentication
+                          information) to the external object storage provider.
+                        type: string
+                      usePathStyleAccess:
+                        description: Whether path-style access should be used, as
+                          opposed to subdomain access. Defaults to true for compatibility.
+                        type: boolean
+                    type: object
+                  secretName:
+                    description: |-
+                      Name of the secret containing the object storage secret access key. This secret must contain a
+                      ACCESS_KEY secret which is the object storage access key ID, and a SECRET_KEY secret which is the object storage secret access key.
+                      If using an external S3 provider requiring authentication then this must be provided.
+                      It is recommended that the secret should be marked as immutable to avoid accidental changes to secret's data.
+                      More details: [Kubernetes Secrets](https://kubernetes.io/docs/concepts/configuration/secret/#secret-immutable)
+                    type: string
+                type: object
               operandMetadata:
                 description: Options to configure the Cryostat deployments and pods
                   metadata
