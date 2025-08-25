@@ -1483,7 +1483,7 @@ func NewCoreContainer(cr *model.CryostatInstance, specs *ServiceSpecs, imageTag 
 		if tlsTrustAll {
 			envs = append(envs, corev1.EnvVar{
 				Name:  "QUARKUS_S3_SYNC_CLIENT_TLS_TRUST_MANAGERS_PROVIDER_TYPE",
-				Value: strconv.FormatBool(tlsTrustAll),
+				Value: "trust-all",
 			})
 		}
 	}
