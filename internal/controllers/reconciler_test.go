@@ -958,6 +958,71 @@ func (c *controllerTest) commonTests() {
 				t.checkDeploymentHasTemplates()
 			})
 		})
+		Context("with external S3 object storage configuration", func() {
+			BeforeEach(func() {
+				secretName := "external-s3-creds"
+				t.StorageSecret = t.NewExternalStorageSecret(secretName)
+				t.objs = append(t.objs, t.NewCryostatWithExternalS3(secretName).Object, t.StorageSecret)
+			})
+			JustBeforeEach(func() {
+				t.reconcileCryostatFully()
+			})
+			It("Should update the core deployment", func() {
+				secretOptional := false
+				t.checkCoreHasEnvironmentVariables([]corev1.EnvVar{
+					corev1.EnvVar{
+						Name: "QUARKUS_S3_AWS_CREDENTIALS_STATIC_PROVIDER_ACCESS_KEY_ID",
+						ValueFrom: &corev1.EnvVarSource{
+							FieldRef:         nil,
+							ResourceFieldRef: nil,
+							ConfigMapKeyRef:  nil,
+							SecretKeyRef: &corev1.SecretKeySelector{
+								LocalObjectReference: corev1.LocalObjectReference{
+									Name: "external-s3-creds",
+								},
+								Key:      "ACCESS_KEY",
+								Optional: &secretOptional,
+							},
+						},
+					},
+					corev1.EnvVar{
+						Name: "QUARKUS_S3_AWS_CREDENTIALS_STATIC_PROVIDER_SECRET_ACCESS_KEY",
+						ValueFrom: &corev1.EnvVarSource{
+							FieldRef:         nil,
+							ResourceFieldRef: nil,
+							ConfigMapKeyRef:  nil,
+							SecretKeyRef: &corev1.SecretKeySelector{
+								LocalObjectReference: corev1.LocalObjectReference{
+									Name: "external-s3-creds",
+								},
+								Key:      "SECRET_KEY",
+								Optional: &secretOptional,
+							},
+						},
+					},
+					corev1.EnvVar{
+						Name:  "QUARKUS_S3_ENDPOINT_OVERRIDE",
+						Value: "https://example.com:1234",
+					},
+					corev1.EnvVar{
+						Name:  "QUARKUS_S3_PATH_STYLE_ACCESS",
+						Value: "true",
+					},
+					corev1.EnvVar{
+						Name:  "QUARKUS_S3_AWS_REGION",
+						Value: "region-east-1",
+					},
+					corev1.EnvVar{
+						Name:  "QUARKUS_S3_SYNC_CLIENT_TLS_TRUST_MANAGERS_PROVIDER_TYPE",
+						Value: "trust-all",
+					},
+					corev1.EnvVar{
+						Name:  "STORAGE_METADATA_STORAGE_MODE",
+						Value: "tagging",
+					},
+				})
+			})
+		})
 		Context("with custom PVC spec overriding all defaults", func() {
 			BeforeEach(func() {
 				t.objs = append(t.objs, t.NewCryostatWithPVCSpec().Object)

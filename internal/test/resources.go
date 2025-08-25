@@ -59,6 +59,7 @@ type TestResources struct {
 	DisableAgentHostnameVerify bool
 	AllowAgentInsecure         bool
 	DatabaseSecret             *corev1.Secret
+	StorageSecret              *corev1.Secret
 }
 
 func NewTestScheme() *runtime.Scheme {
@@ -218,6 +219,26 @@ func (r *TestResources) NewCryostatWithPVCSpec() *model.CryostatInstance {
 				},
 				Spec: newPVCSpec("cool-obj-storage", "20Gi", corev1.ReadWriteMany),
 			},
+		},
+	}
+	return cr
+}
+
+func (r *TestResources) NewCryostatWithExternalS3(secretName string) *model.CryostatInstance {
+	cr := r.NewCryostat()
+	providerUrl := "https://example.com:1234"
+	region := "region-east-1"
+	usePathStyleAccess := true
+	tlsTrustAll := true
+	metadataMode := "tagging"
+	cr.Spec.ObjectStorageOptions = &operatorv1beta2.ObjectStorageOptions{
+		SecretName: &secretName,
+		Provider: &operatorv1beta2.ObjectStorageProviderOptions{
+			URL:                &providerUrl,
+			Region:             &region,
+			UsePathStyleAccess: &usePathStyleAccess,
+			TLSTrustAll:        &tlsTrustAll,
+			MetadataMode:       &metadataMode,
 		},
 	}
 	return cr
@@ -1764,6 +1785,19 @@ func (r *TestResources) NewCustomDatabaseSecret() *corev1.Secret {
 	}
 }
 
+func (r *TestResources) NewExternalStorageSecret(name string) *corev1.Secret {
+	return &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: r.Namespace,
+		},
+		Data: map[string][]byte{
+			"SECRET_KEY": []byte("external-s3-secret"),
+			"ACCESS_KEY": []byte("external-s3-access"),
+		},
+	}
+}
+
 func (r *TestResources) NewStorageSecret() *corev1.Secret {
 	return &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
@@ -2482,8 +2516,11 @@ func (r *TestResources) NewDatabasePodAnnotations() map[string]string {
 func (r *TestResources) NewStoragePodAnnotations() map[string]string {
 	annotations := map[string]string{}
 
-	secrets := []*corev1.Secret{
-		r.NewStorageSecret(),
+	secrets := []*corev1.Secret{}
+	if r.StorageSecret != nil {
+		secrets = append(secrets, r.StorageSecret)
+	} else {
+		secrets = append(secrets, r.NewStorageSecret())
 	}
 	if r.TLS {
 		secrets = append(secrets,
