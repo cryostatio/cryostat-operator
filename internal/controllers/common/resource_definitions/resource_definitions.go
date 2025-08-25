@@ -425,8 +425,12 @@ func NewPodForCR(cr *model.CryostatInstance, specs *ServiceSpecs, imageTags *Ima
 	if err != nil {
 		return nil, err
 	}
+	coreContainer, err := NewCoreContainer(cr, specs, imageTags.CoreImageTag, tls, openshift)
+	if err != nil {
+		return nil, err
+	}
 	containers := []corev1.Container{
-		NewCoreContainer(cr, specs, imageTags.CoreImageTag, tls, openshift),
+		*coreContainer,
 		NewGrafanaContainer(cr, imageTags.GrafanaImageTag, tls),
 		NewJfrDatasourceContainer(cr, imageTags.DatasourceImageTag),
 		*authProxy,
@@ -1331,7 +1335,7 @@ func NewCoreContainerResource(cr *model.CryostatInstance) *corev1.ResourceRequir
 }
 
 func NewCoreContainer(cr *model.CryostatInstance, specs *ServiceSpecs, imageTag string,
-	tls *TLSConfig, openshift bool) corev1.Container {
+	tls *TLSConfig, openshift bool) (*corev1.Container, error) {
 	configPath := "/opt/cryostat.d/conf.d"
 	templatesPath := "/opt/cryostat.d/templates.d"
 	credentialsPath := "/opt/cryostat.d/credentials.d"
@@ -1378,8 +1382,12 @@ func NewCoreContainer(cr *model.CryostatInstance, specs *ServiceSpecs, imageTag 
 			Value: "archivedrecordings",
 		},
 		{
-			Name:  "QUARKUS_S3_ENDPOINT_OVERRIDE",
-			Value: specs.StorageURL.String(),
+			Name:  "CRYOSTAT_CONFIG_PATH",
+			Value: configPath,
+		},
+		{
+			Name:  "CRYOSTAT_TEMPLATE_PATH",
+			Value: templatesPath,
 		},
 		{
 			Name: "QUARKUS_S3_SYNC_CLIENT_TLS_KEY_MANAGERS_PROVIDER_TYPE",
@@ -1392,25 +1400,73 @@ func NewCoreContainer(cr *model.CryostatInstance, specs *ServiceSpecs, imageTag 
 			Value: "system-property",
 		},
 		{
-			Name:  "QUARKUS_S3_PATH_STYLE_ACCESS",
-			Value: "true",
-		},
-		{
-			Name:  "QUARKUS_S3_AWS_REGION",
-			Value: "us-east-1",
-		},
-		{
 			Name:  "QUARKUS_S3_AWS_CREDENTIALS_TYPE",
 			Value: "static",
 		},
-		{
-			Name:  "CRYOSTAT_CONFIG_PATH",
-			Value: configPath,
-		},
-		{
-			Name:  "CRYOSTAT_TEMPLATE_PATH",
-			Value: templatesPath,
-		},
+	}
+
+	if cr.Spec.ObjectStorageOptions == nil {
+		// default environment variable settings for managed/provisioned cryostat-storage instance
+		envs = append(envs, []corev1.EnvVar{
+			{
+				Name:  "QUARKUS_S3_ENDPOINT_OVERRIDE",
+				Value: specs.StorageURL.String(),
+			},
+			{
+				Name:  "QUARKUS_S3_PATH_STYLE_ACCESS",
+				Value: "true",
+			},
+			{
+				Name:  "QUARKUS_S3_AWS_REGION",
+				Value: "us-east-1",
+			},
+		}...)
+	} else {
+		if cr.Spec.ObjectStorageOptions.Provider.URL == nil {
+			return nil, fmt.Errorf("cr.Spec.ObjectStorageOptions was not nil, but cr.Spec.ObjectStorageOptions.Provider.URL was nil")
+		}
+		if cr.Spec.ObjectStorageOptions.Provider.Region == nil {
+			return nil, fmt.Errorf("cr.Spec.ObjectStorageOptions was not nil, but cr.Spec.ObjectStorageOptions.Provider.Region was nil")
+		}
+		envs = append(envs, []corev1.EnvVar{
+			{
+				Name:  "QUARKUS_S3_ENDPOINT_OVERRIDE",
+				Value: *cr.Spec.ObjectStorageOptions.Provider.URL,
+			},
+			{
+				Name:  "QUARKUS_S3_AWS_REGION",
+				Value: *cr.Spec.ObjectStorageOptions.Provider.Region,
+			},
+		}...)
+
+		usePathStyleAccess := true
+		if cr.Spec.ObjectStorageOptions.Provider != nil && cr.Spec.ObjectStorageOptions.Provider.UsePathStyleAccess != nil {
+			usePathStyleAccess = *cr.Spec.ObjectStorageOptions.Provider.UsePathStyleAccess
+		}
+		envs = append(envs, corev1.EnvVar{
+			Name:  "QUARKUS_S3_PATH_STYLE_ACCESS",
+			Value: strconv.FormatBool(usePathStyleAccess),
+		})
+
+		metadataMode := "tagging"
+		if cr.Spec.ObjectStorageOptions.Provider != nil && cr.Spec.ObjectStorageOptions.Provider.MetadataMode != nil {
+			metadataMode = *cr.Spec.ObjectStorageOptions.Provider.MetadataMode
+		}
+		envs = append(envs, corev1.EnvVar{
+			Name:  "STORAGE_METADATA_STORAGE_MODE",
+			Value: metadataMode,
+		})
+
+		tlsTrustAll := false
+		if cr.Spec.ObjectStorageOptions.Provider != nil && cr.Spec.ObjectStorageOptions.Provider.TLSTrustAll != nil {
+			tlsTrustAll = *cr.Spec.ObjectStorageOptions.Provider.TLSTrustAll
+		}
+		if tlsTrustAll {
+			envs = append(envs, corev1.EnvVar{
+				Name:  "QUARKUS_S3_SYNC_CLIENT_TLS_TRUST_MANAGERS_PROVIDER_TYPE",
+				Value: strconv.FormatBool(tlsTrustAll),
+			})
+		}
 	}
 
 	mounts := []corev1.VolumeMount{
@@ -1444,7 +1500,7 @@ func NewCoreContainer(cr *model.CryostatInstance, specs *ServiceSpecs, imageTag 
 		},
 	})
 
-	secretName = cr.Name + "-storage"
+	secretName = getStorageSecret(cr)
 	envs = append(envs,
 		corev1.EnvVar{
 			Name: "QUARKUS_S3_AWS_CREDENTIALS_STATIC_PROVIDER_ACCESS_KEY_ID",
@@ -1668,7 +1724,7 @@ func NewCoreContainer(cr *model.CryostatInstance, specs *ServiceSpecs, imageTag 
 		}
 	}
 
-	return corev1.Container{
+	return &corev1.Container{
 		Name:            cr.Name,
 		Image:           imageTag,
 		ImagePullPolicy: common.GetPullPolicy(imageTag),
@@ -1689,7 +1745,7 @@ func NewCoreContainer(cr *model.CryostatInstance, specs *ServiceSpecs, imageTag 
 			FailureThreshold: 18,
 		},
 		SecurityContext: containerSc,
-	}
+	}, nil
 }
 
 func NewGrafanaContainerResource(cr *model.CryostatInstance) *corev1.ResourceRequirements {
@@ -2229,4 +2285,11 @@ func getDatabaseSecret(cr *model.CryostatInstance) string {
 		return *cr.Spec.DatabaseOptions.SecretName
 	}
 	return cr.Name + "-db"
+}
+
+func getStorageSecret(cr *model.CryostatInstance) string {
+	if cr.Spec.ObjectStorageOptions != nil && cr.Spec.ObjectStorageOptions.SecretName != nil {
+		return *cr.Spec.ObjectStorageOptions.SecretName
+	}
+	return cr.Name + "-storage"
 }
