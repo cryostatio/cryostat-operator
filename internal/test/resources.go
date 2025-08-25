@@ -2871,7 +2871,6 @@ func (r *TestResources) NewReportsEnvironmentVariables(resources *corev1.Resourc
 		}
 	}
 	opts := fmt.Sprintf("-XX:+PrintCommandLineFlags -XX:ActiveProcessorCount=%d -Dorg.openjdk.jmc.flightrecorder.parser.singlethreaded=%t", cpus, cpus < 2)
-	optional := false
 	var storageProtocol string
 	if r.TLS {
 		storageProtocol = "https"
@@ -2891,22 +2890,6 @@ func (r *TestResources) NewReportsEnvironmentVariables(resources *corev1.Resourc
 		{
 			Name:  "CRYOSTAT_STORAGE_BASE_URI",
 			Value: fmt.Sprintf("%s://%s-storage.%s.svc.cluster.local:8333", storageProtocol, r.Name, r.Namespace),
-		},
-		{
-			Name:  "CRYOSTAT_STORAGE_AUTH_METHOD",
-			Value: "Basic",
-		},
-		{
-			Name: "CRYOSTAT_STORAGE_AUTH",
-			ValueFrom: &corev1.EnvVarSource{
-				SecretKeyRef: &corev1.SecretKeySelector{
-					LocalObjectReference: corev1.LocalObjectReference{
-						Name: "cryostat-storage",
-					},
-					Key:      "BASIC_AUTH_KEY",
-					Optional: &optional,
-				},
-			},
 		},
 	}
 	if r.TLS {
