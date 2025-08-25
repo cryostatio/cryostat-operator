@@ -1805,9 +1805,8 @@ func (r *TestResources) NewStorageSecret() *corev1.Secret {
 			Namespace: r.Namespace,
 		},
 		Data: map[string][]byte{
-			"SECRET_KEY":     []byte("object_storage"),
-			"ACCESS_KEY":     []byte("cryostat"),
-			"BASIC_AUTH_KEY": []byte("Y3J5b3N0YXQ6b2JqZWN0X3N0b3JhZ2U="),
+			"SECRET_KEY": []byte("object_storage"),
+			"ACCESS_KEY": []byte("cryostat"),
 		},
 	}
 }
