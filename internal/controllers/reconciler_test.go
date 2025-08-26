@@ -539,6 +539,43 @@ func (c *controllerTest) commonTests() {
 				t.checkRoute(expected)
 			})
 		})
+		Context("with all networkpolicies disabled", func() {
+			var cr *model.CryostatInstance
+			BeforeEach(func() {
+				cr = t.NewCryostat()
+				disabled := true
+				cr.Spec.NetworkPolicies = &operatorv1beta2.NetworkPoliciesList{
+					CoreConfig: &operatorv1beta2.NetworkPolicyConfig{
+						Disabled: &disabled,
+					},
+					DatabaseConfig: &operatorv1beta2.NetworkPolicyConfig{
+						Disabled: &disabled,
+					},
+					StorageConfig: &operatorv1beta2.NetworkPolicyConfig{
+						Disabled: &disabled,
+					},
+					ReportsConfig: &operatorv1beta2.NetworkPolicyConfig{
+						Disabled: &disabled,
+					},
+				}
+			})
+			JustBeforeEach(func() {
+				t.reconcileCryostatFully()
+			})
+			It("should not create cryostat networkpolicy", func() {
+				t.expectNoNetworkPolicy(t.NewCryostatIngressNetworkPolicy().Name)
+				t.expectNoNetworkPolicy(t.NewCryostatEgressNetworkPolicy().Name)
+			})
+			It("should not create database networkpolicy", func() {
+				t.expectNoNetworkPolicy(t.NewDatabaseIngressNetworkPolicy().Name)
+			})
+			It("should not create storage networkpolicy", func() {
+				t.expectNoNetworkPolicy(t.NewStorageIngressNetworkPolicy().Name)
+			})
+			It("should not create reports networkpolicy", func() {
+				t.expectNoNetworkPolicy(t.NewReportsIngressNetworkPolicy().Name)
+			})
+		})
 		Context("with ingress networkpolicies disabled", func() {
 			var cr *model.CryostatInstance
 			BeforeEach(func() {

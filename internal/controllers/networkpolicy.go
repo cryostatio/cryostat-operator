@@ -66,7 +66,8 @@ func (r *Reconciler) reconcileCoreNetworkPolicy(ctx context.Context, cr *model.C
 			Namespace: cr.InstallNamespace,
 		},
 	}
-	ingressDisabled := cr.Spec.NetworkPolicies != nil && cr.Spec.NetworkPolicies.CoreConfig != nil && cr.Spec.NetworkPolicies.CoreConfig.IngressDisabled != nil && *cr.Spec.NetworkPolicies.CoreConfig.IngressDisabled
+	allDisabled := cr.Spec.NetworkPolicies != nil && cr.Spec.NetworkPolicies.CoreConfig != nil && cr.Spec.NetworkPolicies.CoreConfig.Disabled != nil && *cr.Spec.NetworkPolicies.CoreConfig.Disabled
+	ingressDisabled := allDisabled || (cr.Spec.NetworkPolicies != nil && cr.Spec.NetworkPolicies.CoreConfig != nil && cr.Spec.NetworkPolicies.CoreConfig.IngressDisabled != nil && *cr.Spec.NetworkPolicies.CoreConfig.IngressDisabled)
 	if ingressDisabled {
 		err = r.deletePolicy(ctx, ingressPolicy)
 	}
@@ -80,7 +81,7 @@ func (r *Reconciler) reconcileCoreNetworkPolicy(ctx context.Context, cr *model.C
 			Namespace: cr.InstallNamespace,
 		},
 	}
-	egressEnabled := cr.Spec.NetworkPolicies != nil && cr.Spec.NetworkPolicies.CoreConfig != nil && cr.Spec.NetworkPolicies.CoreConfig.EgressEnabled != nil && *cr.Spec.NetworkPolicies.CoreConfig.EgressEnabled
+	egressEnabled := !allDisabled && (cr.Spec.NetworkPolicies != nil && cr.Spec.NetworkPolicies.CoreConfig != nil && cr.Spec.NetworkPolicies.CoreConfig.EgressEnabled != nil && *cr.Spec.NetworkPolicies.CoreConfig.EgressEnabled)
 	if !egressEnabled {
 		err = r.deletePolicy(ctx, egressPolicy)
 	}
@@ -208,7 +209,8 @@ func (r *Reconciler) reconcileDatabaseNetworkPolicy(ctx context.Context, cr *mod
 			Namespace: cr.InstallNamespace,
 		},
 	}
-	if cr.Spec.NetworkPolicies != nil && cr.Spec.NetworkPolicies.DatabaseConfig != nil && cr.Spec.NetworkPolicies.DatabaseConfig.IngressDisabled != nil && *cr.Spec.NetworkPolicies.DatabaseConfig.IngressDisabled {
+	allDisabled := cr.Spec.NetworkPolicies != nil && cr.Spec.NetworkPolicies.DatabaseConfig != nil && cr.Spec.NetworkPolicies.DatabaseConfig.Disabled != nil && *cr.Spec.NetworkPolicies.DatabaseConfig.Disabled
+	if allDisabled || (cr.Spec.NetworkPolicies != nil && cr.Spec.NetworkPolicies.DatabaseConfig != nil && cr.Spec.NetworkPolicies.DatabaseConfig.IngressDisabled != nil && *cr.Spec.NetworkPolicies.DatabaseConfig.IngressDisabled) {
 		return r.deletePolicy(ctx, ingressPolicy)
 	}
 
@@ -247,7 +249,8 @@ func (r *Reconciler) reconcileStorageNetworkPolicy(ctx context.Context, cr *mode
 			Namespace: cr.InstallNamespace,
 		},
 	}
-	if cr.Spec.NetworkPolicies != nil && cr.Spec.NetworkPolicies.StorageConfig != nil && cr.Spec.NetworkPolicies.StorageConfig.IngressDisabled != nil && *cr.Spec.NetworkPolicies.StorageConfig.IngressDisabled {
+	allDisabled := cr.Spec.NetworkPolicies != nil && cr.Spec.NetworkPolicies.StorageConfig != nil && cr.Spec.NetworkPolicies.StorageConfig.Disabled != nil && *cr.Spec.NetworkPolicies.StorageConfig.Disabled
+	if allDisabled || (cr.Spec.NetworkPolicies != nil && cr.Spec.NetworkPolicies.StorageConfig != nil && cr.Spec.NetworkPolicies.StorageConfig.IngressDisabled != nil && *cr.Spec.NetworkPolicies.StorageConfig.IngressDisabled) {
 		return r.deletePolicy(ctx, ingressPolicy)
 	}
 
@@ -292,7 +295,8 @@ func (r *Reconciler) reconcileReportsNetworkPolicy(ctx context.Context, cr *mode
 			Namespace: cr.InstallNamespace,
 		},
 	}
-	if cr.Spec.NetworkPolicies != nil && cr.Spec.NetworkPolicies.ReportsConfig != nil && cr.Spec.NetworkPolicies.ReportsConfig.IngressDisabled != nil && *cr.Spec.NetworkPolicies.ReportsConfig.IngressDisabled {
+	allDisabled := cr.Spec.NetworkPolicies != nil && cr.Spec.NetworkPolicies.ReportsConfig != nil && cr.Spec.NetworkPolicies.ReportsConfig.Disabled != nil && *cr.Spec.NetworkPolicies.ReportsConfig.Disabled
+	if allDisabled || (cr.Spec.NetworkPolicies != nil && cr.Spec.NetworkPolicies.ReportsConfig != nil && cr.Spec.NetworkPolicies.ReportsConfig.IngressDisabled != nil && *cr.Spec.NetworkPolicies.ReportsConfig.IngressDisabled) {
 		return r.deletePolicy(ctx, ingressPolicy)
 	}
 
