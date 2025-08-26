@@ -5877,8 +5877,9 @@ spec:
                       service.
                     properties:
                       disabled:
-                        description: Disable the NetworkPolicies (Ingress and Egress)
-                          for a given service.
+                        description: |-
+                          Disable the NetworkPolicies (Ingress and Egress) for a given service.
+                          Deprecated: use IngressDisabled and EgressEnabled instead.
                         type: boolean
                       egressEnabled:
                         description: Enable the NetworkPolicy for egress from a given
@@ -5893,8 +5894,9 @@ spec:
                     description: NetworkPolicy configuration for the database service.
                     properties:
                       disabled:
-                        description: Disable the NetworkPolicies (Ingress and Egress)
-                          for a given service.
+                        description: |-
+                          Disable the NetworkPolicies (Ingress and Egress) for a given service.
+                          Deprecated: use IngressDisabled and EgressEnabled instead.
                         type: boolean
                       egressEnabled:
                         description: Enable the NetworkPolicy for egress from a given
@@ -5910,8 +5912,9 @@ spec:
                       service.
                     properties:
                       disabled:
-                        description: Disable the NetworkPolicies (Ingress and Egress)
-                          for a given service.
+                        description: |-
+                          Disable the NetworkPolicies (Ingress and Egress) for a given service.
+                          Deprecated: use IngressDisabled and EgressEnabled instead.
                         type: boolean
                       egressEnabled:
                         description: Enable the NetworkPolicy for egress from a given
@@ -5926,8 +5929,9 @@ spec:
                     description: NetworkPolicy configuration for the storage service.
                     properties:
                       disabled:
-                        description: Disable the NetworkPolicies (Ingress and Egress)
-                          for a given service.
+                        description: |-
+                          Disable the NetworkPolicies (Ingress and Egress) for a given service.
+                          Deprecated: use IngressDisabled and EgressEnabled instead.
                         type: boolean
                       egressEnabled:
                         description: Enable the NetworkPolicy for egress from a given

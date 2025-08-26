@@ -445,6 +445,7 @@ type NetworkPoliciesList struct {
 
 type NetworkPolicyConfig struct {
 	// Disable the NetworkPolicies (Ingress and Egress) for a given service.
+	// Deprecated: use IngressDisabled and EgressEnabled instead.
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Disable NetworkPolicy creation",xDescriptors={"urn:alm:descriptor:com.tectonic.ui:booleanSwitch"}
 	Disabled *bool `json:"disabled,omitempty"`
 	// Disable the NetworkPolicy for ingress to a given pod. Enabled by default.
