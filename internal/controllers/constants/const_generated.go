@@ -11,7 +11,7 @@ const OperatorVersion = "4.1.0-dev"
 const DefaultOAuth2ProxyImageTag = "quay.io/oauth2-proxy/oauth2-proxy:latest"
 
 // Default image tag for the OpenShift OAuth Proxy
-const DefaultOpenShiftOAuthProxyImageTag = "quay.io/cryostat/openshift-oauth-proxy:go-1.22"
+const DefaultOpenShiftOAuthProxyImageTag = "quay.io/openshift/origin-oauth-proxy:latest"
 
 // Default image tag for the core application image
 const DefaultCoreImageTag = "quay.io/cryostat/cryostat:latest"

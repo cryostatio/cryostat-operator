@@ -3891,7 +3891,7 @@ func (t *cryostatTestInput) checkAuthProxyContainer(container *corev1.Container,
 	defaultPrefix := "quay.io/oauth2-proxy/oauth2-proxy:"
 	if t.OpenShift {
 		imageTag = t.EnvOpenShiftOAuthProxyImageTag
-		defaultPrefix = "quay.io/cryostat/openshift-oauth-proxy:"
+		defaultPrefix = "quay.io/openshift/origin-oauth-proxy:"
 	}
 	if imageTag != nil {
 		Expect(container.Image).To(Equal(*imageTag))
