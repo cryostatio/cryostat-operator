@@ -182,7 +182,7 @@ func (r *Reconciler) reconcileCoreNetworkPolicy(ctx context.Context, cr *model.C
 				},
 			)
 		} else {
-			return fmt.Errorf("Endpoints 'kubernetes' had no .Subsets or subset .Addresses")
+			return fmt.Errorf("EndpointSlice 'kubernetes' had no .Endpoints or endpoint .Addresses")
 		}
 		egressRules := []networkingv1.NetworkPolicyEgressRule{}
 		for _, rule := range egressDestinations {
