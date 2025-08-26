@@ -22,7 +22,7 @@ import (
 	resources "github.com/cryostatio/cryostat-operator/internal/controllers/common/resource_definitions"
 	"github.com/cryostatio/cryostat-operator/internal/controllers/constants"
 	"github.com/cryostatio/cryostat-operator/internal/controllers/model"
-	corev1 "k8s.io/api/core/v1"
+	discoveryv1 "k8s.io/api/discovery/v1"
 	networkingv1 "k8s.io/api/networking/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -167,17 +167,17 @@ func (r *Reconciler) reconcileCoreNetworkPolicy(ctx context.Context, cr *model.C
 				},
 			},
 		})
-		k8sApiEndpoint := corev1.Endpoints{}
+		k8sApiEndpoint := discoveryv1.EndpointSlice{}
 		err = r.Client.Get(ctx, types.NamespacedName{Namespace: "default", Name: "kubernetes"}, &k8sApiEndpoint)
 		if err != nil {
 			return err
 		}
-		if len(k8sApiEndpoint.Subsets) > 0 && len(k8sApiEndpoint.Subsets[0].Addresses) > 0 {
+		if len(k8sApiEndpoint.Endpoints) > 0 && len(k8sApiEndpoint.Endpoints[0].Addresses) > 0 {
 			// allow outgoing connections to the Kubernetes API server
 			egressDestinations = append(egressDestinations,
 				networkingv1.NetworkPolicyPeer{
 					IPBlock: &networkingv1.IPBlock{
-						CIDR: fmt.Sprintf("%s/32", k8sApiEndpoint.Subsets[0].Addresses[0].IP),
+						CIDR: fmt.Sprintf("%s/32", k8sApiEndpoint.Endpoints[0].Addresses[0]),
 					},
 				},
 			)

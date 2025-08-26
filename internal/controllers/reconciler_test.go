@@ -29,6 +29,7 @@ import (
 	openshiftv1 "github.com/openshift/api/route/v1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	discoveryv1 "k8s.io/api/discovery/v1"
 	netv1 "k8s.io/api/networking/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
@@ -625,17 +626,15 @@ func (c *controllerTest) commonTests() {
 					},
 				}
 
-				endpoints := &corev1.Endpoints{
+				endpoints := &discoveryv1.EndpointSlice{
 					ObjectMeta: metav1.ObjectMeta{
 						Namespace: "default",
 						Name:      "kubernetes",
 					},
-					Subsets: []corev1.EndpointSubset{
+					Endpoints: []discoveryv1.Endpoint{
 						{
-							Addresses: []corev1.EndpointAddress{
-								corev1.EndpointAddress{
-									IP: "127.0.0.1",
-								},
+							Addresses: []string{
+								"127.0.0.1",
 							},
 						},
 					},
