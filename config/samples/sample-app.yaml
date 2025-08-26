@@ -19,6 +19,11 @@ spec:
         - image: quay.io/redhat-java-monitoring/quarkus-cryostat-agent:latest
           imagePullPolicy: Always
           name: quarkus-test
+          env:
+            - name: JAVA_OPTS_APPEND
+              value: -Djava.util.logging.manager=org.jboss.logmanager.LogManager -Dcom.sun.management.jmxremote.port=9097 -Dcom.sun.management.jmxremote.ssl=false -Dcom.sun.management.jmxremote.authenticate=false
+            - name: QUARKUS_HTTP_HOST
+              value: 0.0.0.0
           ports:
           - containerPort: 10010
             protocol: TCP
@@ -27,12 +32,9 @@ spec:
             protocol: TCP
             name: jfr-jmx
           resources:
-            requests:
-              cpu: 200m
-              memory: 96Mi
             limits:
               cpu: 500m
-              memory: 192Mi
+              memory: 256Mi
           securityContext:
             allowPrivilegeEscalation: false
             capabilities:
