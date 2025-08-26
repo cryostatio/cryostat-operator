@@ -1155,6 +1155,10 @@ func (r *TestResources) NewCryostatEgressNetworkPolicy() *netv1.NetworkPolicy {
 								},
 							},
 						},
+					},
+				},
+				{
+					To: []netv1.NetworkPolicyPeer{
 						{
 							IPBlock: &netv1.IPBlock{
 								CIDR: "127.0.0.1/32",

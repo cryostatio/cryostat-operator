@@ -184,17 +184,21 @@ func (r *Reconciler) reconcileCoreNetworkPolicy(ctx context.Context, cr *model.C
 		} else {
 			return fmt.Errorf("Endpoints 'kubernetes' had no .Subsets or subset .Addresses")
 		}
+		egressRules := []networkingv1.NetworkPolicyEgressRule{}
+		for _, rule := range egressDestinations {
+			egressRules = append(egressRules, networkingv1.NetworkPolicyEgressRule{
+				To: []networkingv1.NetworkPolicyPeer{
+					rule,
+				},
+			})
+		}
 		err = r.createOrUpdatePolicy(ctx, egressPolicy, cr.Object, func() error {
 			egressPolicy.Spec = networkingv1.NetworkPolicySpec{
 				PolicyTypes: []networkingv1.PolicyType{networkingv1.PolicyTypeEgress},
 				PodSelector: metav1.LabelSelector{
 					MatchLabels: resources.CorePodLabels(cr),
 				},
-				Egress: []networkingv1.NetworkPolicyEgressRule{
-					{
-						To: egressDestinations,
-					},
-				},
+				Egress: egressRules,
 			}
 			return nil
 		})
