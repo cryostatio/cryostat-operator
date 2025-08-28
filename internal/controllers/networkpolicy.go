@@ -47,12 +47,12 @@ func installationNamespaceSelector(cr *model.CryostatInstance) *metav1.LabelSele
 	return namespaceOriginSelector(cr.InstallNamespace)
 }
 
-const NAMESPACE_NAME_LABEL = "kubernetes.io/metadata.name"
+const namespaceNameLabel = "kubernetes.io/metadata.name"
 
 func namespaceOriginSelector(namespace string) *metav1.LabelSelector {
 	return &metav1.LabelSelector{
 		MatchLabels: map[string]string{
-			NAMESPACE_NAME_LABEL: namespace,
+			namespaceNameLabel: namespace,
 		},
 	}
 }
@@ -116,7 +116,7 @@ func (r *Reconciler) reconcileCoreNetworkPolicy(ctx context.Context, cr *model.C
 								NamespaceSelector: &metav1.LabelSelector{
 									MatchExpressions: []metav1.LabelSelectorRequirement{
 										{
-											Key:      NAMESPACE_NAME_LABEL,
+											Key:      namespaceNameLabel,
 											Operator: metav1.LabelSelectorOpIn,
 											Values:   cr.Spec.TargetNamespaces,
 										},
@@ -160,7 +160,7 @@ func (r *Reconciler) reconcileCoreNetworkPolicy(ctx context.Context, cr *model.C
 			NamespaceSelector: &metav1.LabelSelector{
 				MatchExpressions: []metav1.LabelSelectorRequirement{
 					{
-						Key:      NAMESPACE_NAME_LABEL,
+						Key:      namespaceNameLabel,
 						Operator: metav1.LabelSelectorOpIn,
 						Values:   slices.Compact(egressNamespaces),
 					},
