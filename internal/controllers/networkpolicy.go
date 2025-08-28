@@ -17,13 +17,16 @@ package controllers
 import (
 	"context"
 	"fmt"
+	"slices"
 
 	resources "github.com/cryostatio/cryostat-operator/internal/controllers/common/resource_definitions"
 	"github.com/cryostatio/cryostat-operator/internal/controllers/constants"
 	"github.com/cryostatio/cryostat-operator/internal/controllers/model"
+	discoveryv1 "k8s.io/api/discovery/v1"
 	networkingv1 "k8s.io/api/networking/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
@@ -44,84 +47,182 @@ func installationNamespaceSelector(cr *model.CryostatInstance) *metav1.LabelSele
 	return namespaceOriginSelector(cr.InstallNamespace)
 }
 
+const namespaceNameLabel = "kubernetes.io/metadata.name"
+
 func namespaceOriginSelector(namespace string) *metav1.LabelSelector {
 	return &metav1.LabelSelector{
 		MatchLabels: map[string]string{
-			"kubernetes.io/metadata.name": namespace,
+			namespaceNameLabel: namespace,
 		},
 	}
 }
 
 func (r *Reconciler) reconcileCoreNetworkPolicy(ctx context.Context, cr *model.CryostatInstance) error {
-	networkPolicy := &networkingv1.NetworkPolicy{
+	var err error
+
+	ingressPolicy := &networkingv1.NetworkPolicy{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      fmt.Sprintf("%s-internal-ingress", cr.Name),
 			Namespace: cr.InstallNamespace,
 		},
 	}
-
-	if cr.Spec.NetworkPolicies != nil && cr.Spec.NetworkPolicies.CoreConfig != nil && cr.Spec.NetworkPolicies.CoreConfig.Disabled != nil && *cr.Spec.NetworkPolicies.CoreConfig.Disabled {
-		return r.deletePolicy(ctx, networkPolicy)
+	allDisabled := cr.Spec.NetworkPolicies != nil && cr.Spec.NetworkPolicies.CoreConfig != nil && cr.Spec.NetworkPolicies.CoreConfig.Disabled != nil && *cr.Spec.NetworkPolicies.CoreConfig.Disabled
+	ingressDisabled := allDisabled || (cr.Spec.NetworkPolicies != nil && cr.Spec.NetworkPolicies.CoreConfig != nil && cr.Spec.NetworkPolicies.CoreConfig.IngressDisabled != nil && *cr.Spec.NetworkPolicies.CoreConfig.IngressDisabled)
+	if ingressDisabled {
+		err = r.deletePolicy(ctx, ingressPolicy)
+	}
+	if err != nil {
+		return err
 	}
 
-	return r.createOrUpdatePolicy(ctx, networkPolicy, cr.Object, func() error {
-		networkPolicy.Spec = networkingv1.NetworkPolicySpec{
-			PodSelector: metav1.LabelSelector{
-				MatchLabels: resources.CorePodLabels(cr),
-			},
-			Ingress: []networkingv1.NetworkPolicyIngressRule{
-				// allow ingress to the authproxy/cryostat HTTP(S) port from any namespace or from the Route
-				{
-					From: []networkingv1.NetworkPolicyPeer{
-						AllNamespacesSelector,
-						RouteSelector,
-					},
-					Ports: []networkingv1.NetworkPolicyPort{
-						{
-							Port: &intstr.IntOrString{IntVal: constants.AuthProxyHttpContainerPort},
+	egressPolicy := &networkingv1.NetworkPolicy{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      fmt.Sprintf("%s-internal-egress", cr.Name),
+			Namespace: cr.InstallNamespace,
+		},
+	}
+	egressEnabled := !allDisabled && (cr.Spec.NetworkPolicies != nil && cr.Spec.NetworkPolicies.CoreConfig != nil && cr.Spec.NetworkPolicies.CoreConfig.EgressEnabled != nil && *cr.Spec.NetworkPolicies.CoreConfig.EgressEnabled)
+	if !egressEnabled {
+		err = r.deletePolicy(ctx, egressPolicy)
+	}
+	if err != nil {
+		return err
+	}
+
+	if !ingressDisabled {
+		err = r.createOrUpdatePolicy(ctx, ingressPolicy, cr.Object, func() error {
+			ingressPolicy.Spec = networkingv1.NetworkPolicySpec{
+				PolicyTypes: []networkingv1.PolicyType{networkingv1.PolicyTypeIngress},
+				PodSelector: metav1.LabelSelector{
+					MatchLabels: resources.CorePodLabels(cr),
+				},
+				Ingress: []networkingv1.NetworkPolicyIngressRule{
+					// allow ingress to the authproxy/cryostat HTTP(S) port from any namespace or from the Route
+					{
+						From: []networkingv1.NetworkPolicyPeer{
+							AllNamespacesSelector,
+							RouteSelector,
+						},
+						Ports: []networkingv1.NetworkPolicyPort{
+							{
+								Port: &intstr.IntOrString{IntVal: constants.AuthProxyHttpContainerPort},
+							},
 						},
 					},
-				},
-				// allow ingress to the agent gateway from the target namespaces
-				{
-					From: []networkingv1.NetworkPolicyPeer{
-						{
-							NamespaceSelector: &metav1.LabelSelector{
-								MatchExpressions: []metav1.LabelSelectorRequirement{
-									{
-										Key:      "kubernetes.io/metadata.name",
-										Operator: metav1.LabelSelectorOpIn,
-										Values:   cr.Spec.TargetNamespaces,
+					// allow ingress to the agent gateway from the target namespaces
+					{
+						From: []networkingv1.NetworkPolicyPeer{
+							{
+								NamespaceSelector: &metav1.LabelSelector{
+									MatchExpressions: []metav1.LabelSelectorRequirement{
+										{
+											Key:      namespaceNameLabel,
+											Operator: metav1.LabelSelectorOpIn,
+											Values:   cr.Spec.TargetNamespaces,
+										},
 									},
 								},
 							},
 						},
-					},
-					Ports: []networkingv1.NetworkPolicyPort{
-						networkingv1.NetworkPolicyPort{
-							Port: &intstr.IntOrString{IntVal: constants.AgentProxyContainerPort},
+						Ports: []networkingv1.NetworkPolicyPort{
+							{
+								Port: &intstr.IntOrString{IntVal: constants.AgentProxyContainerPort},
+							},
 						},
 					},
 				},
-			},
+			}
+			return nil
+		})
+	}
+	if err != nil {
+		return err
+	}
+
+	if egressEnabled {
+		egressDestinations := []networkingv1.NetworkPolicyPeer{}
+		egressNamespaces := []string{
+			// allow outgoing connections to Pods in the InstallNamespace so Cryostat can connect to its database, storage, etc.
+			cr.InstallNamespace,
 		}
-		return nil
-	})
+
+		// allow outgoing connections to cluster infrastructure namespaces for discovery, auth, etc.
+		egressNamespaces = append(egressNamespaces, "kube-system")
+		if r.IsOpenShift {
+			egressNamespaces = append(egressNamespaces, "openshift")
+		}
+
+		for _, ns := range cr.TargetNamespaces {
+			// allow outgoing connections to Pods in the TargetNamespaces
+			egressNamespaces = append(egressNamespaces, ns)
+		}
+
+		slices.Sort(egressNamespaces)
+		egressDestinations = append(egressDestinations, networkingv1.NetworkPolicyPeer{
+			NamespaceSelector: &metav1.LabelSelector{
+				MatchExpressions: []metav1.LabelSelectorRequirement{
+					{
+						Key:      namespaceNameLabel,
+						Operator: metav1.LabelSelectorOpIn,
+						Values:   slices.Compact(egressNamespaces),
+					},
+				},
+			},
+		})
+		k8sApiEndpoint := discoveryv1.EndpointSlice{}
+		err = r.Client.Get(ctx, types.NamespacedName{Namespace: "default", Name: "kubernetes"}, &k8sApiEndpoint)
+		if err != nil {
+			return err
+		}
+		if len(k8sApiEndpoint.Endpoints) > 0 && len(k8sApiEndpoint.Endpoints[0].Addresses) > 0 {
+			// allow outgoing connections to the Kubernetes API server
+			egressDestinations = append(egressDestinations,
+				networkingv1.NetworkPolicyPeer{
+					IPBlock: &networkingv1.IPBlock{
+						CIDR: fmt.Sprintf("%s/32", k8sApiEndpoint.Endpoints[0].Addresses[0]),
+					},
+				},
+			)
+		} else {
+			return fmt.Errorf("EndpointSlice 'kubernetes' had no .Endpoints or endpoint .Addresses")
+		}
+		egressRules := []networkingv1.NetworkPolicyEgressRule{}
+		for _, rule := range egressDestinations {
+			egressRules = append(egressRules, networkingv1.NetworkPolicyEgressRule{
+				To: []networkingv1.NetworkPolicyPeer{
+					rule,
+				},
+			})
+		}
+		err = r.createOrUpdatePolicy(ctx, egressPolicy, cr.Object, func() error {
+			egressPolicy.Spec = networkingv1.NetworkPolicySpec{
+				PolicyTypes: []networkingv1.PolicyType{networkingv1.PolicyTypeEgress},
+				PodSelector: metav1.LabelSelector{
+					MatchLabels: resources.CorePodLabels(cr),
+				},
+				Egress: egressRules,
+			}
+			return nil
+		})
+	}
+	return err
 }
 
 func (r *Reconciler) reconcileDatabaseNetworkPolicy(ctx context.Context, cr *model.CryostatInstance) error {
-	networkPolicy := &networkingv1.NetworkPolicy{
+	ingressPolicy := &networkingv1.NetworkPolicy{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      fmt.Sprintf("%s-db-internal-ingress", cr.Name),
 			Namespace: cr.InstallNamespace,
 		},
 	}
-	if cr.Spec.NetworkPolicies != nil && cr.Spec.NetworkPolicies.DatabaseConfig != nil && cr.Spec.NetworkPolicies.DatabaseConfig.Disabled != nil && *cr.Spec.NetworkPolicies.DatabaseConfig.Disabled {
-		return r.deletePolicy(ctx, networkPolicy)
+	allDisabled := cr.Spec.NetworkPolicies != nil && cr.Spec.NetworkPolicies.DatabaseConfig != nil && cr.Spec.NetworkPolicies.DatabaseConfig.Disabled != nil && *cr.Spec.NetworkPolicies.DatabaseConfig.Disabled
+	if allDisabled || (cr.Spec.NetworkPolicies != nil && cr.Spec.NetworkPolicies.DatabaseConfig != nil && cr.Spec.NetworkPolicies.DatabaseConfig.IngressDisabled != nil && *cr.Spec.NetworkPolicies.DatabaseConfig.IngressDisabled) {
+		return r.deletePolicy(ctx, ingressPolicy)
 	}
 
-	return r.createOrUpdatePolicy(ctx, networkPolicy, cr.Object, func() error {
-		networkPolicy.Spec = networkingv1.NetworkPolicySpec{
+	return r.createOrUpdatePolicy(ctx, ingressPolicy, cr.Object, func() error {
+		ingressPolicy.Spec = networkingv1.NetworkPolicySpec{
+			PolicyTypes: []networkingv1.PolicyType{networkingv1.PolicyTypeIngress},
 			PodSelector: metav1.LabelSelector{
 				MatchLabels: resources.DatabasePodLabels(cr),
 			},
@@ -148,19 +249,20 @@ func (r *Reconciler) reconcileDatabaseNetworkPolicy(ctx context.Context, cr *mod
 }
 
 func (r *Reconciler) reconcileStorageNetworkPolicy(ctx context.Context, cr *model.CryostatInstance) error {
-	networkPolicy := &networkingv1.NetworkPolicy{
+	ingressPolicy := &networkingv1.NetworkPolicy{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      fmt.Sprintf("%s-storage-internal-ingress", cr.Name),
 			Namespace: cr.InstallNamespace,
 		},
 	}
-
-	if cr.Spec.NetworkPolicies != nil && cr.Spec.NetworkPolicies.StorageConfig != nil && cr.Spec.NetworkPolicies.StorageConfig.Disabled != nil && *cr.Spec.NetworkPolicies.StorageConfig.Disabled {
-		return r.deletePolicy(ctx, networkPolicy)
+	allDisabled := cr.Spec.NetworkPolicies != nil && cr.Spec.NetworkPolicies.StorageConfig != nil && cr.Spec.NetworkPolicies.StorageConfig.Disabled != nil && *cr.Spec.NetworkPolicies.StorageConfig.Disabled
+	if allDisabled || (cr.Spec.NetworkPolicies != nil && cr.Spec.NetworkPolicies.StorageConfig != nil && cr.Spec.NetworkPolicies.StorageConfig.IngressDisabled != nil && *cr.Spec.NetworkPolicies.StorageConfig.IngressDisabled) {
+		return r.deletePolicy(ctx, ingressPolicy)
 	}
 
-	return r.createOrUpdatePolicy(ctx, networkPolicy, cr.Object, func() error {
-		networkPolicy.Spec = networkingv1.NetworkPolicySpec{
+	return r.createOrUpdatePolicy(ctx, ingressPolicy, cr.Object, func() error {
+		ingressPolicy.Spec = networkingv1.NetworkPolicySpec{
+			PolicyTypes: []networkingv1.PolicyType{networkingv1.PolicyTypeIngress},
 			PodSelector: metav1.LabelSelector{
 				MatchLabels: resources.StoragePodLabels(cr),
 			},
@@ -193,19 +295,20 @@ func (r *Reconciler) reconcileStorageNetworkPolicy(ctx context.Context, cr *mode
 }
 
 func (r *Reconciler) reconcileReportsNetworkPolicy(ctx context.Context, cr *model.CryostatInstance) error {
-	networkPolicy := &networkingv1.NetworkPolicy{
+	ingressPolicy := &networkingv1.NetworkPolicy{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      fmt.Sprintf("%s-reports-internal-ingress", cr.Name),
 			Namespace: cr.InstallNamespace,
 		},
 	}
-
-	if cr.Spec.NetworkPolicies != nil && cr.Spec.NetworkPolicies.ReportsConfig != nil && cr.Spec.NetworkPolicies.ReportsConfig.Disabled != nil && *cr.Spec.NetworkPolicies.ReportsConfig.Disabled {
-		return r.deletePolicy(ctx, networkPolicy)
+	allDisabled := cr.Spec.NetworkPolicies != nil && cr.Spec.NetworkPolicies.ReportsConfig != nil && cr.Spec.NetworkPolicies.ReportsConfig.Disabled != nil && *cr.Spec.NetworkPolicies.ReportsConfig.Disabled
+	if allDisabled || (cr.Spec.NetworkPolicies != nil && cr.Spec.NetworkPolicies.ReportsConfig != nil && cr.Spec.NetworkPolicies.ReportsConfig.IngressDisabled != nil && *cr.Spec.NetworkPolicies.ReportsConfig.IngressDisabled) {
+		return r.deletePolicy(ctx, ingressPolicy)
 	}
 
-	return r.createOrUpdatePolicy(ctx, networkPolicy, cr.Object, func() error {
-		networkPolicy.Spec = networkingv1.NetworkPolicySpec{
+	return r.createOrUpdatePolicy(ctx, ingressPolicy, cr.Object, func() error {
+		ingressPolicy.Spec = networkingv1.NetworkPolicySpec{
+			PolicyTypes: []networkingv1.PolicyType{networkingv1.PolicyTypeIngress},
 			PodSelector: metav1.LabelSelector{
 				MatchLabels: resources.ReportsPodLabels(cr),
 			},

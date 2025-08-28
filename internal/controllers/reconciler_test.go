@@ -29,6 +29,7 @@ import (
 	openshiftv1 "github.com/openshift/api/route/v1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	discoveryv1 "k8s.io/api/discovery/v1"
 	netv1 "k8s.io/api/networking/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
@@ -160,12 +161,12 @@ func resourceChecks() []resourceCheck {
 		{(*cryostatTestInput).expectDatabaseSecret, "database secret"},
 		{(*cryostatTestInput).expectStorageSecret, "object storage secret"},
 		{(*cryostatTestInput).expectCoreService, "core service"},
-		{(*cryostatTestInput).expectCoreNetworkPolicy, "core networkpolicy"},
+		{(*cryostatTestInput).expectCoreIngessNetworkPolicy, "core networkpolicy"},
 		{(*cryostatTestInput).expectMainDeployment, "main deployment"},
 		{(*cryostatTestInput).expectDatabaseDeployment, "database deployment"},
-		{(*cryostatTestInput).expectDatabaseNetworkPolicy, "database networkpolicy"},
+		{(*cryostatTestInput).expectDatabaseIngressNetworkPolicy, "database networkpolicy"},
 		{(*cryostatTestInput).expectStorageDeployment, "storage deployment"},
-		{(*cryostatTestInput).expectStorageNetworkPolicy, "storage networkpolicy"},
+		{(*cryostatTestInput).expectStorageIngressNetworkPolicy, "storage networkpolicy"},
 		{(*cryostatTestInput).expectLockConfigMap, "lock config map"},
 		{(*cryostatTestInput).expectAgentProxyConfigMap, "agent proxy config map"},
 		{(*cryostatTestInput).expectAgentGatewayService, "agent gateway service"},
@@ -539,7 +540,7 @@ func (c *controllerTest) commonTests() {
 				t.checkRoute(expected)
 			})
 		})
-		Context("with networkpolicies disabled", func() {
+		Context("with all networkpolicies disabled", func() {
 			var cr *model.CryostatInstance
 			BeforeEach(func() {
 				cr = t.NewCryostat()
@@ -563,16 +564,88 @@ func (c *controllerTest) commonTests() {
 				t.reconcileCryostatFully()
 			})
 			It("should not create cryostat networkpolicy", func() {
-				t.expectNoNetworkPolicy(t.NewCryostatNetworkPolicy().Name)
+				t.expectNoNetworkPolicy(t.NewCryostatIngressNetworkPolicy().Name)
+				t.expectNoNetworkPolicy(t.NewCryostatEgressNetworkPolicy().Name)
 			})
 			It("should not create database networkpolicy", func() {
-				t.expectNoNetworkPolicy(t.NewDatabaseNetworkPolicy().Name)
+				t.expectNoNetworkPolicy(t.NewDatabaseIngressNetworkPolicy().Name)
 			})
 			It("should not create storage networkpolicy", func() {
-				t.expectNoNetworkPolicy(t.NewStorageNetworkPolicy().Name)
+				t.expectNoNetworkPolicy(t.NewStorageIngressNetworkPolicy().Name)
 			})
 			It("should not create reports networkpolicy", func() {
-				t.expectNoNetworkPolicy(t.NewReportsNetworkPolicy().Name)
+				t.expectNoNetworkPolicy(t.NewReportsIngressNetworkPolicy().Name)
+			})
+		})
+		Context("with ingress networkpolicies disabled", func() {
+			var cr *model.CryostatInstance
+			BeforeEach(func() {
+				cr = t.NewCryostat()
+				disabled := true
+				cr.Spec.NetworkPolicies = &operatorv1beta2.NetworkPoliciesList{
+					CoreConfig: &operatorv1beta2.NetworkPolicyConfig{
+						IngressDisabled: &disabled,
+					},
+					DatabaseConfig: &operatorv1beta2.NetworkPolicyConfig{
+						IngressDisabled: &disabled,
+					},
+					StorageConfig: &operatorv1beta2.NetworkPolicyConfig{
+						IngressDisabled: &disabled,
+					},
+					ReportsConfig: &operatorv1beta2.NetworkPolicyConfig{
+						IngressDisabled: &disabled,
+					},
+				}
+			})
+			JustBeforeEach(func() {
+				t.reconcileCryostatFully()
+			})
+			It("should not create cryostat networkpolicy", func() {
+				t.expectNoNetworkPolicy(t.NewCryostatIngressNetworkPolicy().Name)
+			})
+			It("should not create database networkpolicy", func() {
+				t.expectNoNetworkPolicy(t.NewDatabaseIngressNetworkPolicy().Name)
+			})
+			It("should not create storage networkpolicy", func() {
+				t.expectNoNetworkPolicy(t.NewStorageIngressNetworkPolicy().Name)
+			})
+			It("should not create reports networkpolicy", func() {
+				t.expectNoNetworkPolicy(t.NewReportsIngressNetworkPolicy().Name)
+			})
+		})
+		Context("with egress networkpolicies enabled", func() {
+			var cr *model.CryostatInstance
+			BeforeEach(func() {
+				cr = t.NewCryostat()
+				enabled := true
+				disabled := false
+				cr.Spec.NetworkPolicies = &operatorv1beta2.NetworkPoliciesList{
+					CoreConfig: &operatorv1beta2.NetworkPolicyConfig{
+						EgressEnabled:   &enabled,
+						IngressDisabled: &disabled,
+					},
+				}
+
+				endpoints := &discoveryv1.EndpointSlice{
+					ObjectMeta: metav1.ObjectMeta{
+						Namespace: "default",
+						Name:      "kubernetes",
+					},
+					Endpoints: []discoveryv1.Endpoint{
+						{
+							Addresses: []string{
+								"127.0.0.1",
+							},
+						},
+					},
+				}
+				t.objs = append(t.objs, cr.Object, endpoints)
+			})
+			JustBeforeEach(func() {
+				t.reconcileCryostatFully()
+			})
+			It("should create cryostat networkpolicy", func() {
+				t.checkNetworkPolicy(t.NewCryostatEgressNetworkPolicy())
 			})
 		})
 		Context("with report generator service", func() {
@@ -597,7 +670,7 @@ func (c *controllerTest) commonTests() {
 					t.expectStorageDeployment()
 					t.checkReportsDeployment()
 					t.checkService(t.NewReportsService())
-					t.checkNetworkPolicy(t.NewReportsNetworkPolicy())
+					t.checkNetworkPolicy(t.NewReportsIngressNetworkPolicy())
 				})
 			})
 			Context("with Scheduling options", func() {
@@ -619,7 +692,7 @@ func (c *controllerTest) commonTests() {
 						t.expectStorageDeployment()
 						t.checkReportsDeployment()
 						t.checkService(t.NewReportsService())
-						t.checkNetworkPolicy(t.NewReportsNetworkPolicy())
+						t.checkNetworkPolicy(t.NewReportsIngressNetworkPolicy())
 					})
 				})
 				Context("with low limits", func() {
@@ -630,7 +703,7 @@ func (c *controllerTest) commonTests() {
 						t.expectMainDeployment()
 						t.checkReportsDeployment()
 						t.checkService(t.NewReportsService())
-						t.checkNetworkPolicy(t.NewReportsNetworkPolicy())
+						t.checkNetworkPolicy(t.NewReportsIngressNetworkPolicy())
 					})
 				})
 			})
@@ -693,7 +766,7 @@ func (c *controllerTest) commonTests() {
 				t.expectMainDeployment()
 				t.checkReportsDeployment()
 				t.checkService(t.NewReportsService())
-				t.checkNetworkPolicy(t.NewReportsNetworkPolicy())
+				t.checkNetworkPolicy(t.NewReportsIngressNetworkPolicy())
 			})
 		})
 		Context("Switching from 1 report sidecar to 2", func() {
@@ -716,7 +789,7 @@ func (c *controllerTest) commonTests() {
 				t.expectMainDeployment()
 				t.checkReportsDeployment()
 				t.checkService(t.NewReportsService())
-				t.checkNetworkPolicy(t.NewReportsNetworkPolicy())
+				t.checkNetworkPolicy(t.NewReportsIngressNetworkPolicy())
 			})
 		})
 		Context("Switching from 2 report sidecars to 1", func() {
@@ -739,7 +812,7 @@ func (c *controllerTest) commonTests() {
 				t.expectMainDeployment()
 				t.checkReportsDeployment()
 				t.checkService(t.NewReportsService())
-				t.checkNetworkPolicy(t.NewReportsNetworkPolicy())
+				t.checkNetworkPolicy(t.NewReportsIngressNetworkPolicy())
 			})
 		})
 		Context("Switching from 1 report sidecar to 0", func() {
@@ -2421,7 +2494,7 @@ func (c *controllerTest) commonTests() {
 			})
 			It("should create the reports service", func() {
 				t.checkService(t.NewReportsService())
-				t.checkNetworkPolicy(t.NewReportsNetworkPolicy())
+				t.checkNetworkPolicy(t.NewReportsIngressNetworkPolicy())
 			})
 		})
 		Context("with security options", func() {
@@ -3201,20 +3274,20 @@ func (t *cryostatTestInput) expectCoreService() {
 	t.checkService(t.NewCryostatService())
 }
 
-func (t *cryostatTestInput) expectCoreNetworkPolicy() {
-	t.checkNetworkPolicy(t.NewCryostatNetworkPolicy())
+func (t *cryostatTestInput) expectCoreIngessNetworkPolicy() {
+	t.checkNetworkPolicy(t.NewCryostatIngressNetworkPolicy())
 }
 
-func (t *cryostatTestInput) expectDatabaseNetworkPolicy() {
-	t.checkNetworkPolicy(t.NewDatabaseNetworkPolicy())
+func (t *cryostatTestInput) expectDatabaseIngressNetworkPolicy() {
+	t.checkNetworkPolicy(t.NewDatabaseIngressNetworkPolicy())
 }
 
-func (t *cryostatTestInput) expectStorageNetworkPolicy() {
-	t.checkNetworkPolicy(t.NewStorageNetworkPolicy())
+func (t *cryostatTestInput) expectStorageIngressNetworkPolicy() {
+	t.checkNetworkPolicy(t.NewStorageIngressNetworkPolicy())
 }
 
-func (t *cryostatTestInput) expectReportsNetworkPolicy() {
-	t.checkNetworkPolicy(t.NewReportsNetworkPolicy())
+func (t *cryostatTestInput) expectReportsIngressNetworkPolicy() {
+	t.checkNetworkPolicy(t.NewReportsIngressNetworkPolicy())
 }
 
 func (t *cryostatTestInput) expectAgentGatewayService() {
@@ -3306,7 +3379,10 @@ func (t *cryostatTestInput) checkServiceSpec(service *corev1.Service, expected *
 
 func (t *cryostatTestInput) checkNetworkPolicySpec(policy *netv1.NetworkPolicy, expected *netv1.NetworkPolicy) {
 	Expect(policy.Spec.PodSelector).To(Equal(expected.Spec.PodSelector))
+	Expect(policy.Spec.PolicyTypes).To(Equal(expected.Spec.PolicyTypes))
+	Expect(policy.Spec.PodSelector).To(Equal(expected.Spec.PodSelector))
 	Expect(policy.Spec.Ingress).To(Equal(expected.Spec.Ingress))
+	Expect(policy.Spec.Egress).To(Equal(expected.Spec.Egress))
 }
 
 func (t *cryostatTestInput) expectNoService(svcName string) {

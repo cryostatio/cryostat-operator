@@ -259,7 +259,7 @@ func (r *TestResources) setupTargetNamespace() error {
 func (r *TestResources) newCryostatCR() *operatorv1beta2.Cryostat {
 	disabled := true
 	disabledPolicyConfig := operatorv1beta2.NetworkPolicyConfig{
-		Disabled: &disabled,
+		IngressDisabled: &disabled,
 	}
 	cr := &operatorv1beta2.Cryostat{
 		ObjectMeta: metav1.ObjectMeta{
@@ -286,7 +286,7 @@ func (r *TestResources) newCryostatCR() *operatorv1beta2.Cryostat {
 func (r *TestResources) newMultiNamespaceCryostatCR() *operatorv1beta2.Cryostat {
 	disabled := true
 	disabledPolicyConfig := operatorv1beta2.NetworkPolicyConfig{
-		Disabled: &disabled,
+		IngressDisabled: &disabled,
 	}
 	cr := &operatorv1beta2.Cryostat{
 		ObjectMeta: metav1.ObjectMeta{
