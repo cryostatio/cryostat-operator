@@ -142,19 +142,21 @@ func (r *Reconciler) reconcileCoreNetworkPolicy(ctx context.Context, cr *model.C
 	if egressEnabled {
 		egressDestinations := []networkingv1.NetworkPolicyPeer{}
 		egressNamespaces := []string{
-			// allow outgoing connections to Pods in infrastructure namespaces for discovery and auth
-			"default",
-			"kube-system",
-			// allow outgoing connections to Pods in the InstallNamespace, so Cryostat can connect to its database, storage, etc.
+			// allow outgoing connections to Pods in the InstallNamespace so Cryostat can connect to its database, storage, etc.
 			cr.InstallNamespace,
 		}
+
+		// allow outgoing connections to cluster infrastructure namespaces for discovery, auth, etc.
+		egressNamespaces = append(egressNamespaces, "kube-system")
 		if r.IsOpenShift {
 			egressNamespaces = append(egressNamespaces, "openshift")
 		}
+
 		for _, ns := range cr.TargetNamespaces {
-			// allow outgoing connections to any Pod in the TargetNamespaces
+			// allow outgoing connections to Pods in the TargetNamespaces
 			egressNamespaces = append(egressNamespaces, ns)
 		}
+
 		slices.Sort(egressNamespaces)
 		egressDestinations = append(egressDestinations, networkingv1.NetworkPolicyPeer{
 			NamespaceSelector: &metav1.LabelSelector{

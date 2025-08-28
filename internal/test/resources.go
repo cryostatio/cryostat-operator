@@ -1146,7 +1146,6 @@ func (r *TestResources) NewCryostatEgressNetworkPolicy() *netv1.NetworkPolicy {
 										Key:      "kubernetes.io/metadata.name",
 										Operator: "In",
 										Values: []string{
-											"default",
 											"kube-system",
 											"openshift",
 											r.Namespace,
