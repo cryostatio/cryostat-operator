@@ -589,7 +589,7 @@ func NewPodForCR(cr *model.CryostatInstance, specs *ServiceSpecs, imageTags *Ima
 	volumes = append(volumes, certVolume, agentProxyVolume)
 
 	if !openshift {
-		// if not deploying openshift-oauth-proxy then we must be deploying oauth2_proxy instead
+		// if not deploying openshift oauth-proxy then we must be deploying oauth2_proxy instead
 		volumes = append(volumes, corev1.Volume{
 			Name: cr.Name + "-oauth2-proxy-cfg",
 			VolumeSource: corev1.VolumeSource{
