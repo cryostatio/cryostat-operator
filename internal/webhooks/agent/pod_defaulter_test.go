@@ -529,6 +529,23 @@ var _ = Describe("PodDefaulter", func() {
 					ExpectPod()
 				})
 			})
+
+			Context("on a FIPS cluster", func() {
+				BeforeEach(func() {
+					agentWebhookConfig.FIPSEnabled = true
+					t.IsFIPS = true
+
+					t.objs = append(t.objs, t.NewCryostat().Object)
+					originalPod = t.NewPod()
+					expectedPod = t.NewMutatedPod()
+				})
+
+				AfterEach(func() {
+					agentWebhookConfig.FIPSEnabled = false
+				})
+
+				ExpectPod()
+			})
 		})
 
 		Context("with a missing Cryostat CR", func() {

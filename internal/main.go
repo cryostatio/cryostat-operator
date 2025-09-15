@@ -32,6 +32,7 @@ import (
 	consolev1 "github.com/openshift/api/console/v1"
 	openshiftoperatorv1 "github.com/openshift/api/operator/v1"
 	routev1 "github.com/openshift/api/route/v1"
+
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
@@ -47,6 +48,7 @@ import (
 	"github.com/cryostatio/cryostat-operator/internal/controllers"
 	"github.com/cryostatio/cryostat-operator/internal/controllers/common"
 	"github.com/cryostatio/cryostat-operator/internal/controllers/constants"
+	"github.com/cryostatio/cryostat-operator/internal/fips"
 	"github.com/cryostatio/cryostat-operator/internal/webhooks"
 	"github.com/cryostatio/cryostat-operator/internal/webhooks/agent"
 	// +kubebuilder:scaffold:imports
@@ -168,6 +170,20 @@ func main() {
 		setupLog.Info("did not find cert-manager installation")
 	}
 
+	// If this is an OpenShift cluster, check if it's running in FIPS mode
+	fipsEnabled := false
+	if openShift {
+		result, err := fips.IsFIPS(mgr.GetAPIReader())
+		if err != nil {
+			setupLog.Error(err, "could not determine whether FIPS is enabled, assuming disabled")
+		} else {
+			fipsEnabled = result
+			if fipsEnabled {
+				setupLog.Info("detected FIPS mode for this cluster")
+			}
+		}
+	}
+
 	// Optionally install OpenShift Console Plugin
 	if consolePlugin {
 		// Look up operator namespace
@@ -220,7 +236,9 @@ func main() {
 		setupLog.Error(err, "unable to create webhook", "webhook", "Cryostat")
 		os.Exit(1)
 	}
-	agentWebhook := agent.NewAgentWebhook(&agent.AgentWebhookConfig{})
+	agentWebhook := agent.NewAgentWebhook(&agent.AgentWebhookConfig{
+		FIPSEnabled: fipsEnabled,
+	})
 	if err = agentWebhook.SetupWebhookWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create webhook", "webhook", "Pod")
 		os.Exit(1)

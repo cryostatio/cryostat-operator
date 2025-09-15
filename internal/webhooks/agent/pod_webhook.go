@@ -40,6 +40,7 @@ type AgentWebhook interface {
 
 type AgentWebhookConfig struct {
 	InitImageTag *string
+	FIPSEnabled  bool
 	common.OSUtils
 }
 

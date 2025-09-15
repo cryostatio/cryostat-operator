@@ -63,6 +63,7 @@ type ReconcilerConfig struct {
 	EventRecorder          record.EventRecorder
 	RESTMapper             meta.RESTMapper
 	InsightsProxy          *url.URL // Only defined if Insights is enabled
+	FIPSEnabled            bool
 	NewControllerBuilder   func(ctrl.Manager) common.ControllerBuilder
 	common.ReconcilerTLS
 	common.OSUtils

@@ -28,6 +28,7 @@ import (
 )
 
 type AgentWebhookTestResources struct {
+	IsFIPS bool
 	*test.TestResources
 }
 
@@ -629,6 +630,20 @@ func (r *AgentWebhookTestResources) newMutatedContainer(original *corev1.Contain
 				Value: "false",
 			},
 		)
+	}
+
+	if r.IsFIPS {
+		fipsEnvs := []corev1.EnvVar{
+			{
+				Name:  "CRYOSTAT_AGENT_WEBCLIENT_TLS_VERSION",
+				Value: "TLSv1.3",
+			},
+			{
+				Name:  "CRYOSTAT_AGENT_WEBSERVER_TLS_VERSION",
+				Value: "TLSv1.3",
+			},
+		}
+		container.Env = append(container.Env, fipsEnvs...)
 	}
 
 	var callbackEnvs []corev1.EnvVar

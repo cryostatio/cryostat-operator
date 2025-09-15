@@ -312,6 +312,20 @@ func (r *podMutator) Default(ctx context.Context, obj runtime.Object) error {
 			})
 	}
 
+	if r.config.FIPSEnabled {
+		// Force usage for TLSv1.3 for FIPS compatibility
+		container.Env = append(container.Env,
+			corev1.EnvVar{
+				Name:  "CRYOSTAT_AGENT_WEBCLIENT_TLS_VERSION",
+				Value: "TLSv1.3",
+			},
+			corev1.EnvVar{
+				Name:  "CRYOSTAT_AGENT_WEBSERVER_TLS_VERSION",
+				Value: "TLSv1.3",
+			},
+		)
+	}
+
 	// Inject agent using JAVA_TOOL_OPTIONS or specified variable, appending to any existing value
 	extended, err := extendJavaOptsVar(container.Env, getJavaOptionsVar(pod.Labels), getLogLevel(pod.Labels))
 	if err != nil {
