@@ -281,6 +281,10 @@ func (r *AgentWebhookTestResources) setDefaultMutatedPodOptions(options *mutated
 				corev1.ResourceCPU:    resource.MustParse("10m"),
 				corev1.ResourceMemory: resource.MustParse("32Mi"),
 			},
+			Limits: corev1.ResourceList{
+				corev1.ResourceCPU:    resource.MustParse("20m"),
+				corev1.ResourceMemory: resource.MustParse("64Mi"),
+			},
 		}
 	}
 	options.scheme = "https"
@@ -407,6 +411,17 @@ func (r *AgentWebhookTestResources) NewMutatedPodResourcesLowLimit() *corev1.Pod
 			Requests: corev1.ResourceList{
 				corev1.ResourceCPU:    resource.MustParse("5m"),
 				corev1.ResourceMemory: resource.MustParse("16Mi"),
+			},
+		},
+	})
+}
+
+func (r *AgentWebhookTestResources) NewMutatedPodResourcesNoLimit() *corev1.Pod {
+	return r.newMutatedPod(&mutatedPodOptions{
+		resources: &corev1.ResourceRequirements{
+			Requests: corev1.ResourceList{
+				corev1.ResourceCPU:    resource.MustParse("20m"),
+				corev1.ResourceMemory: resource.MustParse("40Mi"),
 			},
 		},
 	})
@@ -720,6 +735,19 @@ func (r *AgentWebhookTestResources) NewCryostatWithAgentInitLowResourceLimit() *
 			Limits: corev1.ResourceList{
 				corev1.ResourceCPU:    resource.MustParse("5m"),
 				corev1.ResourceMemory: resource.MustParse("16Mi"),
+			},
+		},
+	}
+	return cr
+}
+
+func (r *AgentWebhookTestResources) NewCryostatWithAgentInitResourcesNoLimit() *model.CryostatInstance {
+	cr := r.NewCryostat()
+	cr.Spec.AgentOptions = &operatorv1beta2.AgentOptions{
+		Resources: corev1.ResourceRequirements{
+			Requests: corev1.ResourceList{
+				corev1.ResourceCPU:    resource.MustParse("20m"),
+				corev1.ResourceMemory: resource.MustParse("40Mi"),
 			},
 		},
 	}

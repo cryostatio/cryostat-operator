@@ -528,6 +528,16 @@ var _ = Describe("PodDefaulter", func() {
 
 					ExpectPod()
 				})
+
+				Context("with a no limit", func() {
+					BeforeEach(func() {
+						t.objs = append(t.objs, t.NewCryostatWithAgentInitResourcesNoLimit().Object)
+						originalPod = t.NewPod()
+						expectedPod = t.NewMutatedPodResourcesNoLimit()
+					})
+
+					ExpectPod()
+				})
 			})
 
 			Context("on a FIPS cluster", func() {
