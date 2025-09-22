@@ -1811,6 +1811,14 @@ func (c *controllerTest) commonTests() {
 					t.expectMainDeployment()
 				})
 			})
+			Context("with no limits", func() {
+				BeforeEach(func() {
+					t.objs = append(t.objs, t.NewCryostatWithResourcesNoLimit().Object)
+				})
+				It("should create expected deployment", func() {
+					t.expectMainDeployment()
+				})
+			})
 		})
 		Context("with network options", func() {
 			JustBeforeEach(func() {

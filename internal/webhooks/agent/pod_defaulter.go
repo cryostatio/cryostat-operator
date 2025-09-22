@@ -55,6 +55,8 @@ const (
 	agentMaxSizeBytes           = "50Mi"
 	agentInitCpuRequest         = "10m"
 	agentInitMemoryRequest      = "32Mi"
+	agentInitCpuLimit           = "20m"
+	agentInitMemoryLimit        = "64Mi"
 	defaultLogLevel             = "off"
 	defaultJavaOptsVar          = "JAVA_TOOL_OPTIONS"
 	defaultHarvesterExitMaxAge  = int32(30000)
@@ -450,7 +452,8 @@ func getResourceRequirements(cr *model.CryostatInstance) *corev1.ResourceRequire
 	if cr.Spec.AgentOptions != nil {
 		resources = cr.Spec.AgentOptions.Resources.DeepCopy()
 	}
-	common.PopulateResourceRequest(resources, agentInitCpuRequest, agentInitMemoryRequest)
+	common.PopulateResourceRequest(resources, agentInitCpuRequest, agentInitMemoryRequest,
+		agentInitCpuLimit, agentInitMemoryLimit)
 	return resources
 }
 

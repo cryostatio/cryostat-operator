@@ -74,7 +74,9 @@ type CryostatSpec struct {
 	// +optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Target Connection Cache Options"
 	TargetConnectionCacheOptions *TargetConnectionCacheOptions `json:"targetConnectionCacheOptions,omitempty"`
-	// Resource requirements for the Cryostat deployment.
+	// Resource requirements for the Cryostat deployment. Default resource requests will be added to each
+	// container unless specified. Default resource limits will be added to each container if neither
+	// resource requests or limits are specified.
 	// +optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	Resources *ResourceConfigList `json:"resources,omitempty"`
@@ -285,6 +287,8 @@ type ReportConfiguration struct {
 	Replicas int32 `json:"replicas,omitempty"`
 	// The resources allocated to each sidecar replica.
 	// A replica with more resources can handle larger input recordings and will process them faster.
+	// Default resource requests will be added to the container unless specified.
+	// Default resource limits will be added to each container if neither resource requests or limits are specified.
 	// +optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:com.tectonic.ui:resourceRequirements"}
 	Resources corev1.ResourceRequirements `json:"resources,omitempty"`
@@ -771,6 +775,8 @@ type AgentOptions struct {
 	AllowInsecure bool `json:"allowInsecure,omitempty"`
 	// The resources allocated to the init container used to inject the Cryostat agent,
 	// when using the operator's agent auto-configuration feature.
+	// Default resource requests will be added to the init container unless specified.
+	// Default resource limits will be added to the init container if neither resource requests or limits are specified.
 	// +optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:com.tectonic.ui:resourceRequirements"}
 	Resources corev1.ResourceRequirements `json:"resources,omitempty"`

@@ -152,33 +152,36 @@ spec:
     subProcessMaxHeapSize: 200
 ```
 
-If the sidecar's resource requests are not specified, they are set with the following defaults:
+If the sidecar's resource requests/limits are not specified, they are set with the following defaults:
 
-| Request | Quantity |
-|---------|----------|
-| Reports Container CPU | 500m |
-| Reports Container Memory | 512Mi |
+| Resource | Requests | Limits |
+|---------|----------|--------|
+| Reports Container CPU | 500m | 1000m |
+| Reports Container Memory | 512Mi | 1Gi |
 
 
 ### Resource Requirements
-By default, the operator deploys Cryostat with pre-configured resource requests:
+By default, the operator deploys Cryostat with pre-configured resource requests/limits:
 
-| Request | Quantity |
-|---------|----------|
-| Auth Proxy container CPU | 25m |
-| Auth Proxy container Memory | 64Mi |
-| Cryostat container CPU | 500m |
-| Cryostat container Memory | 384Mi |
-| JFR Data Source container CPU | 200m |
-| JFR Data Source container Memory | 200Mi |
-| Grafana container CPU | 25m |
-| Grafana container Memory | 80Mi |
-| Database container CPU | 25m |
-| Database container Memory | 64Mi |
-| Storage container CPU | 50m |
-| Storage container Memory | 256Mi |
+| Resource | Requests | Limits |
+|---------|----------|--------|
+| Agent Proxy container CPU | 25m | 50m |
+| Agent Proxy container Memory | 64Mi | 200Mi |
+| Auth Proxy container CPU | 25m | 50m |
+| Auth Proxy container Memory | 64Mi | 128Mi |
+| Cryostat container CPU | 500m | 1000m |
+| Cryostat container Memory | 384Mi | 1Gi |
+| JFR Data Source container CPU | 200m | 400m |
+| JFR Data Source container Memory | 200Mi | 500Mi |
+| Grafana container CPU | 25m | 50m |
+| Grafana container Memory | 80Mi | 200Mi |
+| Database container CPU | 25m | 50m |
+| Database container Memory | 64Mi | 200Mi |
+| Storage container CPU | 50m | 100m |
+| Storage container Memory | 256Mi | 512Mi |
 
 Using the Cryostat custom resource, you can define resources requests and/or limits for each of the containers in Cryostat's main pod:
+- the `agent-proxy` container running the nginx reverse proxy, which allows agents to communicate with Cryostat.
 - the `auth-proxy` container running the oauth2-proxy, which performs authorization checks, and is placed in front of the operand containers.
 - the `core` container running the Cryostat backend and web application. If setting a memory limit for this container, we recommend at least 768MiB.
 - the `datasource` container running JFR Data Source, which converts recordings into a Grafana-compatible format.
@@ -192,6 +195,13 @@ metadata:
   name: cryostat-sample
 spec:
   resources:
+    agentProxyResources:
+      requests:
+        cpu: 800m
+        memory: 256Mi
+      limits:
+        cpu: 1000m
+        memory: 512Mi
     authProxyResources:
       requests:
         cpu: 800m
@@ -233,7 +243,7 @@ spec:
         memory: 512Mi
       limits:
         cpu: 1000m
-        memory: 768 Mi
+        memory: 768Mi
 ```
 This example sets CPU and memory requests and limits for each container, but you may choose to define any combination of requests and limits that suits your use case.
 

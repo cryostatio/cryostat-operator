@@ -811,6 +811,55 @@ func (r *TestResources) NewCryostatWithLowResourceLimit() *model.CryostatInstanc
 	return cr
 }
 
+func (r *TestResources) NewCryostatWithResourcesNoLimit() *model.CryostatInstance {
+	cr := r.NewCryostat()
+	cr.Spec.Resources = &operatorv1beta2.ResourceConfigList{
+		CoreResources: corev1.ResourceRequirements{
+			Requests: corev1.ResourceList{
+				corev1.ResourceCPU:    resource.MustParse("250m"),
+				corev1.ResourceMemory: resource.MustParse("128Mi"),
+			},
+		},
+		GrafanaResources: corev1.ResourceRequirements{
+			Requests: corev1.ResourceList{
+				corev1.ResourceCPU:    resource.MustParse("128m"),
+				corev1.ResourceMemory: resource.MustParse("256Mi"),
+			},
+		},
+		DataSourceResources: corev1.ResourceRequirements{
+			Requests: corev1.ResourceList{
+				corev1.ResourceCPU:    resource.MustParse("300m"),
+				corev1.ResourceMemory: resource.MustParse("64Mi"),
+			},
+		},
+		ObjectStorageResources: corev1.ResourceRequirements{
+			Requests: corev1.ResourceList{
+				corev1.ResourceCPU:    resource.MustParse("300m"),
+				corev1.ResourceMemory: resource.MustParse("512Mi"),
+			},
+		},
+		DatabaseResources: corev1.ResourceRequirements{
+			Requests: corev1.ResourceList{
+				corev1.ResourceCPU:    resource.MustParse("50m"),
+				corev1.ResourceMemory: resource.MustParse("128Mi"),
+			},
+		},
+		AuthProxyResources: corev1.ResourceRequirements{
+			Requests: corev1.ResourceList{
+				corev1.ResourceCPU:    resource.MustParse("40m"),
+				corev1.ResourceMemory: resource.MustParse("100Mi"),
+			},
+		},
+		AgentProxyResources: corev1.ResourceRequirements{
+			Requests: corev1.ResourceList{
+				corev1.ResourceCPU:    resource.MustParse("30m"),
+				corev1.ResourceMemory: resource.MustParse("80Mi"),
+			},
+		},
+	}
+	return cr
+}
+
 func (r *TestResources) NewCryostatWithBuiltInDiscoveryDisabled() *model.CryostatInstance {
 	cr := r.NewCryostat()
 	cr.Spec.TargetDiscoveryOptions = &operatorv1beta2.TargetDiscoveryOptions{
@@ -4606,15 +4655,14 @@ func (r *TestResources) NewCoreContainerResource(cr *model.CryostatInstance) *co
 			corev1.ResourceCPU:    resource.MustParse("500m"),
 			corev1.ResourceMemory: resource.MustParse("384Mi"),
 		},
+		Limits: corev1.ResourceList{
+			corev1.ResourceCPU:    resource.MustParse("1000m"),
+			corev1.ResourceMemory: resource.MustParse("1Gi"),
+		},
 	}
 
-	if cr.Spec.Resources != nil && cr.Spec.Resources.CoreResources.Requests != nil {
-		resources.Requests = cr.Spec.Resources.CoreResources.Requests
-	}
-
-	if cr.Spec.Resources != nil && cr.Spec.Resources.CoreResources.Limits != nil {
-		resources.Limits = cr.Spec.Resources.CoreResources.Limits
-		checkWithLimit(resources.Requests, resources.Limits)
+	if cr.Spec.Resources != nil {
+		applyResourceCustomization(cr.Spec.Resources.CoreResources, resources)
 	}
 
 	return resources
@@ -4626,15 +4674,14 @@ func (r *TestResources) NewDatasourceContainerResource(cr *model.CryostatInstanc
 			corev1.ResourceCPU:    resource.MustParse("200m"),
 			corev1.ResourceMemory: resource.MustParse("200Mi"),
 		},
+		Limits: corev1.ResourceList{
+			corev1.ResourceCPU:    resource.MustParse("400m"),
+			corev1.ResourceMemory: resource.MustParse("500Mi"),
+		},
 	}
 
-	if cr.Spec.Resources != nil && cr.Spec.Resources.DataSourceResources.Requests != nil {
-		resources.Requests = cr.Spec.Resources.DataSourceResources.Requests
-	}
-
-	if cr.Spec.Resources != nil && cr.Spec.Resources.DataSourceResources.Limits != nil {
-		resources.Limits = cr.Spec.Resources.DataSourceResources.Limits
-		checkWithLimit(resources.Requests, resources.Limits)
+	if cr.Spec.Resources != nil {
+		applyResourceCustomization(cr.Spec.Resources.DataSourceResources, resources)
 	}
 
 	return resources
@@ -4646,15 +4693,14 @@ func (r *TestResources) NewGrafanaContainerResource(cr *model.CryostatInstance) 
 			corev1.ResourceCPU:    resource.MustParse("25m"),
 			corev1.ResourceMemory: resource.MustParse("80Mi"),
 		},
+		Limits: corev1.ResourceList{
+			corev1.ResourceCPU:    resource.MustParse("50m"),
+			corev1.ResourceMemory: resource.MustParse("200Mi"),
+		},
 	}
 
-	if cr.Spec.Resources != nil && cr.Spec.Resources.GrafanaResources.Requests != nil {
-		resources.Requests = cr.Spec.Resources.GrafanaResources.Requests
-	}
-
-	if cr.Spec.Resources != nil && cr.Spec.Resources.GrafanaResources.Limits != nil {
-		resources.Limits = cr.Spec.Resources.GrafanaResources.Limits
-		checkWithLimit(resources.Requests, resources.Limits)
+	if cr.Spec.Resources != nil {
+		applyResourceCustomization(cr.Spec.Resources.GrafanaResources, resources)
 	}
 
 	return resources
@@ -4666,15 +4712,14 @@ func (r *TestResources) NewStorageContainerResource(cr *model.CryostatInstance) 
 			corev1.ResourceCPU:    resource.MustParse("50m"),
 			corev1.ResourceMemory: resource.MustParse("256Mi"),
 		},
+		Limits: corev1.ResourceList{
+			corev1.ResourceCPU:    resource.MustParse("100m"),
+			corev1.ResourceMemory: resource.MustParse("512Mi"),
+		},
 	}
 
-	if cr.Spec.Resources != nil && cr.Spec.Resources.ObjectStorageResources.Requests != nil {
-		resources.Requests = cr.Spec.Resources.ObjectStorageResources.Requests
-	}
-
-	if cr.Spec.Resources != nil && cr.Spec.Resources.ObjectStorageResources.Limits != nil {
-		resources.Limits = cr.Spec.Resources.ObjectStorageResources.Limits
-		checkWithLimit(resources.Requests, resources.Limits)
+	if cr.Spec.Resources != nil {
+		applyResourceCustomization(cr.Spec.Resources.CoreResources, resources)
 	}
 
 	return resources
@@ -4686,15 +4731,14 @@ func (r *TestResources) NewDatabaseContainerResource(cr *model.CryostatInstance)
 			corev1.ResourceCPU:    resource.MustParse("25m"),
 			corev1.ResourceMemory: resource.MustParse("64Mi"),
 		},
+		Limits: corev1.ResourceList{
+			corev1.ResourceCPU:    resource.MustParse("50m"),
+			corev1.ResourceMemory: resource.MustParse("200Mi"),
+		},
 	}
 
-	if cr.Spec.Resources != nil && cr.Spec.Resources.DatabaseResources.Requests != nil {
-		resources.Requests = cr.Spec.Resources.DatabaseResources.Requests
-	}
-
-	if cr.Spec.Resources != nil && cr.Spec.Resources.DatabaseResources.Limits != nil {
-		resources.Limits = cr.Spec.Resources.DatabaseResources.Limits
-		checkWithLimit(resources.Requests, resources.Limits)
+	if cr.Spec.Resources != nil {
+		applyResourceCustomization(cr.Spec.Resources.DatabaseResources, resources)
 	}
 
 	return resources
@@ -4706,15 +4750,14 @@ func (r *TestResources) NewAuthProxyContainerResource(cr *model.CryostatInstance
 			corev1.ResourceCPU:    resource.MustParse("25m"),
 			corev1.ResourceMemory: resource.MustParse("64Mi"),
 		},
+		Limits: corev1.ResourceList{
+			corev1.ResourceCPU:    resource.MustParse("50m"),
+			corev1.ResourceMemory: resource.MustParse("128Mi"),
+		},
 	}
 
-	if cr.Spec.Resources != nil && cr.Spec.Resources.AuthProxyResources.Requests != nil {
-		resources.Requests = cr.Spec.Resources.AuthProxyResources.Requests
-	}
-
-	if cr.Spec.Resources != nil && cr.Spec.Resources.AuthProxyResources.Limits != nil {
-		resources.Limits = cr.Spec.Resources.AuthProxyResources.Limits
-		checkWithLimit(resources.Requests, resources.Limits)
+	if cr.Spec.Resources != nil {
+		applyResourceCustomization(cr.Spec.Resources.AuthProxyResources, resources)
 	}
 
 	return resources
@@ -4726,15 +4769,14 @@ func (r *TestResources) NewAgentProxyContainerResource(cr *model.CryostatInstanc
 			corev1.ResourceCPU:    resource.MustParse("25m"),
 			corev1.ResourceMemory: resource.MustParse("64Mi"),
 		},
+		Limits: corev1.ResourceList{
+			corev1.ResourceCPU:    resource.MustParse("50m"),
+			corev1.ResourceMemory: resource.MustParse("200Mi"),
+		},
 	}
 
-	if cr.Spec.Resources != nil && cr.Spec.Resources.AgentProxyResources.Requests != nil {
-		resources.Requests = cr.Spec.Resources.AgentProxyResources.Requests
-	}
-
-	if cr.Spec.Resources != nil && cr.Spec.Resources.AgentProxyResources.Limits != nil {
-		resources.Limits = cr.Spec.Resources.AgentProxyResources.Limits
-		checkWithLimit(resources.Requests, resources.Limits)
+	if cr.Spec.Resources != nil {
+		applyResourceCustomization(cr.Spec.Resources.AgentProxyResources, resources)
 	}
 
 	return resources
@@ -4746,21 +4788,28 @@ func (r *TestResources) NewReportContainerResource(cr *model.CryostatInstance) *
 			corev1.ResourceCPU:    resource.MustParse("500m"),
 			corev1.ResourceMemory: resource.MustParse("512Mi"),
 		},
+		Limits: corev1.ResourceList{
+			corev1.ResourceCPU:    resource.MustParse("1000m"),
+			corev1.ResourceMemory: resource.MustParse("1Gi"),
+		},
 	}
 
 	if cr.Spec.ReportOptions != nil {
-		reportOptions := cr.Spec.ReportOptions
-		if reportOptions.Resources.Requests != nil {
-			resources.Requests = reportOptions.Resources.Requests
-		}
-
-		if reportOptions.Resources.Limits != nil {
-			resources.Limits = reportOptions.Resources.Limits
-			checkWithLimit(resources.Requests, resources.Limits)
-		}
+		applyResourceCustomization(cr.Spec.ReportOptions.Resources, resources)
 	}
 
 	return resources
+}
+
+func applyResourceCustomization(resources corev1.ResourceRequirements, result *corev1.ResourceRequirements) {
+	if resources.Requests != nil {
+		result.Requests = resources.Requests
+	}
+
+	if resources.Requests != nil || resources.Limits != nil {
+		result.Limits = resources.Limits
+		checkWithLimit(result.Requests, result.Limits)
+	}
 }
 
 func checkWithLimit(requests, limits corev1.ResourceList) {

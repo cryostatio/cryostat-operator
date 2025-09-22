@@ -183,17 +183,31 @@ func GetPullPolicy(imageTag string) corev1.PullPolicy {
 
 // PopulateResourceRequest configures ResourceRequirements, applying defaults and checking that
 // requests are not larger than limits
-func PopulateResourceRequest(resources *corev1.ResourceRequirements, defaultCpu, defaultMemory string) {
+func PopulateResourceRequest(resources *corev1.ResourceRequirements, defaultCpuRequest, defaultMemoryRequest,
+	defaultCpuLimit, defaultMemoryLimit string) {
+	// Check if the resources have already been customized
+	custom := resources.Requests != nil || resources.Limits != nil
+
 	if resources.Requests == nil {
 		resources.Requests = corev1.ResourceList{}
 	}
 	requests := resources.Requests
 	if _, found := requests[corev1.ResourceCPU]; !found {
-		requests[corev1.ResourceCPU] = resource.MustParse(defaultCpu)
+		requests[corev1.ResourceCPU] = resource.MustParse(defaultCpuRequest)
 	}
 	if _, found := requests[corev1.ResourceMemory]; !found {
-		requests[corev1.ResourceMemory] = resource.MustParse(defaultMemory)
+		requests[corev1.ResourceMemory] = resource.MustParse(defaultMemoryRequest)
 	}
+
+	// Only add default limits if resources have not been customized
+	if !custom {
+		resources.Limits = corev1.ResourceList{
+			corev1.ResourceCPU:    resource.MustParse(defaultCpuLimit),
+			corev1.ResourceMemory: resource.MustParse(defaultMemoryLimit),
+		}
+	}
+
+	// Ensure resource requests do not exceed limits
 	checkResourceRequestWithLimit(requests, resources.Limits)
 }
 

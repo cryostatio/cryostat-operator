@@ -77,20 +77,36 @@ type TLSConfig struct {
 const (
 	defaultAuthProxyCpuRequest        string = "25m"
 	defaultAuthProxyMemoryRequest     string = "64Mi"
+	defaultAuthProxyCpuLimit          string = "50m"
+	defaultAuthProxyMemoryLimit       string = "128Mi"
 	defaultCoreCpuRequest             string = "500m"
 	defaultCoreMemoryRequest          string = "384Mi"
+	defaultCoreCpuLimit               string = "1000m"
+	defaultCoreMemoryLimit            string = "1Gi"
 	defaultJfrDatasourceCpuRequest    string = "200m"
 	defaultJfrDatasourceMemoryRequest string = "200Mi"
+	defaultJfrDatasourceCpuLimit      string = "400m"
+	defaultJfrDatasourceMemoryLimit   string = "500Mi"
 	defaultGrafanaCpuRequest          string = "25m"
 	defaultGrafanaMemoryRequest       string = "80Mi"
+	defaultGrafanaCpuLimit            string = "50m"
+	defaultGrafanaMemoryLimit         string = "200Mi"
 	defaultDatabaseCpuRequest         string = "25m"
 	defaultDatabaseMemoryRequest      string = "64Mi"
+	defaultDatabaseCpuLimit           string = "50m"
+	defaultDatabaseMemoryLimit        string = "200Mi"
 	defaultStorageCpuRequest          string = "50m"
 	defaultStorageMemoryRequest       string = "256Mi"
+	defaultStorageCpuLimit            string = "100m"
+	defaultStorageMemoryLimit         string = "512Mi"
 	defaultReportCpuRequest           string = "500m"
 	defaultReportMemoryRequest        string = "512Mi"
+	defaultReportCpuLimit             string = "1000m"
+	defaultReportMemoryLimit          string = "1Gi"
 	defaultAgentProxyCpuRequest       string = "25m"
 	defaultAgentProxyMemoryRequest    string = "64Mi"
+	defaultAgentProxyCpuLimit         string = "50m"
+	defaultAgentProxyMemoryLimit      string = "200Mi"
 	OAuth2ConfigFileName              string = "alpha_config.json"
 	OAuth2ConfigFilePath              string = "/etc/oauth2_proxy/alpha_config"
 	DatabaseName                      string = "cryostat"
@@ -825,7 +841,8 @@ func NewReportContainerResource(cr *model.CryostatInstance) *corev1.ResourceRequ
 	if cr.Spec.ReportOptions != nil {
 		resources = cr.Spec.ReportOptions.Resources.DeepCopy()
 	}
-	common.PopulateResourceRequest(resources, defaultReportCpuRequest, defaultReportMemoryRequest)
+	common.PopulateResourceRequest(resources, defaultReportCpuRequest, defaultReportMemoryRequest,
+		defaultReportCpuLimit, defaultReportMemoryLimit)
 	return resources
 }
 
@@ -1054,7 +1071,8 @@ func NewAuthProxyContainerResource(cr *model.CryostatInstance) *corev1.ResourceR
 	if cr.Spec.Resources != nil {
 		resources = cr.Spec.Resources.AuthProxyResources.DeepCopy()
 	}
-	common.PopulateResourceRequest(resources, defaultAuthProxyCpuRequest, defaultAuthProxyMemoryRequest)
+	common.PopulateResourceRequest(resources, defaultAuthProxyCpuRequest, defaultAuthProxyMemoryRequest,
+		defaultAuthProxyCpuLimit, defaultAuthProxyMemoryLimit)
 	return resources
 }
 
@@ -1326,7 +1344,8 @@ func NewCoreContainerResource(cr *model.CryostatInstance) *corev1.ResourceRequir
 	if cr.Spec.Resources != nil {
 		resources = cr.Spec.Resources.CoreResources.DeepCopy()
 	}
-	common.PopulateResourceRequest(resources, defaultCoreCpuRequest, defaultCoreMemoryRequest)
+	common.PopulateResourceRequest(resources, defaultCoreCpuRequest, defaultCoreMemoryRequest,
+		defaultCoreCpuLimit, defaultCoreMemoryLimit)
 	return resources
 }
 
@@ -1697,7 +1716,8 @@ func NewGrafanaContainerResource(cr *model.CryostatInstance) *corev1.ResourceReq
 	if cr.Spec.Resources != nil {
 		resources = cr.Spec.Resources.GrafanaResources.DeepCopy()
 	}
-	common.PopulateResourceRequest(resources, defaultGrafanaCpuRequest, defaultGrafanaMemoryRequest)
+	common.PopulateResourceRequest(resources, defaultGrafanaCpuRequest, defaultGrafanaMemoryRequest,
+		defaultGrafanaCpuLimit, defaultGrafanaMemoryLimit)
 	return resources
 }
 
@@ -1767,7 +1787,8 @@ func NewStorageContainerResource(cr *model.CryostatInstance) *corev1.ResourceReq
 	if cr.Spec.Resources != nil {
 		resources = cr.Spec.Resources.ObjectStorageResources.DeepCopy()
 	}
-	common.PopulateResourceRequest(resources, defaultStorageCpuRequest, defaultStorageMemoryRequest)
+	common.PopulateResourceRequest(resources, defaultStorageCpuRequest, defaultStorageMemoryRequest,
+		defaultStorageCpuLimit, defaultStorageMemoryLimit)
 	return resources
 }
 
@@ -1892,7 +1913,8 @@ func NewDatabaseContainerResource(cr *model.CryostatInstance) *corev1.ResourceRe
 	if cr.Spec.Resources != nil {
 		resources = cr.Spec.Resources.DatabaseResources.DeepCopy()
 	}
-	common.PopulateResourceRequest(resources, defaultDatabaseCpuRequest, defaultDatabaseMemoryRequest)
+	common.PopulateResourceRequest(resources, defaultDatabaseCpuRequest, defaultDatabaseMemoryRequest,
+		defaultDatabaseCpuLimit, defaultDatabaseMemoryLimit)
 	return resources
 }
 
@@ -2012,7 +2034,8 @@ func NewJfrDatasourceContainerResource(cr *model.CryostatInstance) *corev1.Resou
 	if cr.Spec.Resources != nil {
 		resources = cr.Spec.Resources.DataSourceResources.DeepCopy()
 	}
-	common.PopulateResourceRequest(resources, defaultJfrDatasourceCpuRequest, defaultJfrDatasourceMemoryRequest)
+	common.PopulateResourceRequest(resources, defaultJfrDatasourceCpuRequest, defaultJfrDatasourceMemoryRequest,
+		defaultJfrDatasourceCpuLimit, defaultJfrDatasourceMemoryLimit)
 	return resources
 }
 
@@ -2132,7 +2155,8 @@ func newAgentProxyContainerResource(cr *model.CryostatInstance) *corev1.Resource
 	if cr.Spec.Resources != nil {
 		resources = cr.Spec.Resources.AgentProxyResources.DeepCopy()
 	}
-	common.PopulateResourceRequest(resources, defaultAgentProxyCpuRequest, defaultAgentProxyMemoryRequest)
+	common.PopulateResourceRequest(resources, defaultAgentProxyCpuRequest, defaultAgentProxyMemoryRequest,
+		defaultAgentProxyCpuLimit, defaultAgentProxyMemoryLimit)
 	return resources
 }
 

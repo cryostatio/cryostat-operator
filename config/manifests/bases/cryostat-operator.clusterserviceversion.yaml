@@ -94,6 +94,9 @@ spec:
         - urn:alm:descriptor:com.tectonic.ui:booleanSwitch
       - description: The resources allocated to the init container used to inject
           the Cryostat agent, when using the operator's agent auto-configuration feature.
+          Default resource requests will be added to the init container unless specified.
+          Default resource limits will be added to the init container if neither resource
+          requests or limits are specified.
         displayName: Resources
         path: agentOptions.resources
         x-descriptors:
@@ -311,7 +314,9 @@ spec:
         - urn:alm:descriptor:com.tectonic.ui:podCount
       - description: The resources allocated to each sidecar replica. A replica with
           more resources can handle larger input recordings and will process them
-          faster.
+          faster. Default resource requests will be added to the container unless
+          specified. Default resource limits will be added to each container if neither
+          resource requests or limits are specified.
         displayName: Resources
         path: reportOptions.resources
         x-descriptors:
@@ -367,7 +372,10 @@ spec:
         path: reportOptions.subProcessMaxHeapSize
         x-descriptors:
         - urn:alm:descriptor:com.tectonic.ui:number
-      - description: Resource requirements for the Cryostat deployment.
+      - description: Resource requirements for the Cryostat deployment. Default resource
+          requests will be added to each container unless specified. Default resource
+          limits will be added to each container if neither resource requests or limits
+          are specified.
         displayName: Resources
         path: resources
       - description: Resource requirements for the agent proxy container.
