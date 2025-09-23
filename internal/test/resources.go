@@ -4656,7 +4656,7 @@ func (r *TestResources) NewCoreContainerResource(cr *model.CryostatInstance) *co
 			corev1.ResourceMemory: resource.MustParse("384Mi"),
 		},
 		Limits: corev1.ResourceList{
-			corev1.ResourceCPU:    resource.MustParse("1000m"),
+			corev1.ResourceCPU:    resource.MustParse("2000m"),
 			corev1.ResourceMemory: resource.MustParse("1Gi"),
 		},
 	}
@@ -4675,7 +4675,7 @@ func (r *TestResources) NewDatasourceContainerResource(cr *model.CryostatInstanc
 			corev1.ResourceMemory: resource.MustParse("200Mi"),
 		},
 		Limits: corev1.ResourceList{
-			corev1.ResourceCPU:    resource.MustParse("400m"),
+			corev1.ResourceCPU:    resource.MustParse("500m"),
 			corev1.ResourceMemory: resource.MustParse("500Mi"),
 		},
 	}
@@ -4690,12 +4690,12 @@ func (r *TestResources) NewDatasourceContainerResource(cr *model.CryostatInstanc
 func (r *TestResources) NewGrafanaContainerResource(cr *model.CryostatInstance) *corev1.ResourceRequirements {
 	resources := &corev1.ResourceRequirements{
 		Requests: corev1.ResourceList{
-			corev1.ResourceCPU:    resource.MustParse("25m"),
-			corev1.ResourceMemory: resource.MustParse("256Mi"),
+			corev1.ResourceCPU:    resource.MustParse("50m"),
+			corev1.ResourceMemory: resource.MustParse("128Mi"),
 		},
 		Limits: corev1.ResourceList{
-			corev1.ResourceCPU:    resource.MustParse("50m"),
-			corev1.ResourceMemory: resource.MustParse("512Mi"),
+			corev1.ResourceCPU:    resource.MustParse("500m"),
+			corev1.ResourceMemory: resource.MustParse("256Mi"),
 		},
 	}
 
@@ -4713,7 +4713,7 @@ func (r *TestResources) NewStorageContainerResource(cr *model.CryostatInstance) 
 			corev1.ResourceMemory: resource.MustParse("256Mi"),
 		},
 		Limits: corev1.ResourceList{
-			corev1.ResourceCPU:    resource.MustParse("100m"),
+			corev1.ResourceCPU:    resource.MustParse("500m"),
 			corev1.ResourceMemory: resource.MustParse("512Mi"),
 		},
 	}
@@ -4728,11 +4728,11 @@ func (r *TestResources) NewStorageContainerResource(cr *model.CryostatInstance) 
 func (r *TestResources) NewDatabaseContainerResource(cr *model.CryostatInstance) *corev1.ResourceRequirements {
 	resources := &corev1.ResourceRequirements{
 		Requests: corev1.ResourceList{
-			corev1.ResourceCPU:    resource.MustParse("25m"),
+			corev1.ResourceCPU:    resource.MustParse("50m"),
 			corev1.ResourceMemory: resource.MustParse("64Mi"),
 		},
 		Limits: corev1.ResourceList{
-			corev1.ResourceCPU:    resource.MustParse("50m"),
+			corev1.ResourceCPU:    resource.MustParse("500m"),
 			corev1.ResourceMemory: resource.MustParse("200Mi"),
 		},
 	}
@@ -4747,11 +4747,11 @@ func (r *TestResources) NewDatabaseContainerResource(cr *model.CryostatInstance)
 func (r *TestResources) NewAuthProxyContainerResource(cr *model.CryostatInstance) *corev1.ResourceRequirements {
 	resources := &corev1.ResourceRequirements{
 		Requests: corev1.ResourceList{
-			corev1.ResourceCPU:    resource.MustParse("25m"),
+			corev1.ResourceCPU:    resource.MustParse("50m"),
 			corev1.ResourceMemory: resource.MustParse("64Mi"),
 		},
 		Limits: corev1.ResourceList{
-			corev1.ResourceCPU:    resource.MustParse("50m"),
+			corev1.ResourceCPU:    resource.MustParse("500m"),
 			corev1.ResourceMemory: resource.MustParse("128Mi"),
 		},
 	}
@@ -4766,11 +4766,11 @@ func (r *TestResources) NewAuthProxyContainerResource(cr *model.CryostatInstance
 func (r *TestResources) NewAgentProxyContainerResource(cr *model.CryostatInstance) *corev1.ResourceRequirements {
 	resources := &corev1.ResourceRequirements{
 		Requests: corev1.ResourceList{
-			corev1.ResourceCPU:    resource.MustParse("25m"),
+			corev1.ResourceCPU:    resource.MustParse("50m"),
 			corev1.ResourceMemory: resource.MustParse("64Mi"),
 		},
 		Limits: corev1.ResourceList{
-			corev1.ResourceCPU:    resource.MustParse("50m"),
+			corev1.ResourceCPU:    resource.MustParse("500m"),
 			corev1.ResourceMemory: resource.MustParse("200Mi"),
 		},
 	}
