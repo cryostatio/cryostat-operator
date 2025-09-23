@@ -174,7 +174,7 @@ By default, the operator deploys Cryostat with pre-configured resource requests/
 | JFR Data Source container CPU | 200m | 400m |
 | JFR Data Source container Memory | 200Mi | 500Mi |
 | Grafana container CPU | 25m | 50m |
-| Grafana container Memory | 80Mi | 200Mi |
+| Grafana container Memory | 256Mi | 512Mi |
 | Database container CPU | 25m | 50m |
 | Database container Memory | 64Mi | 200Mi |
 | Storage container CPU | 50m | 100m |

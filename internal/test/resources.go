@@ -4691,11 +4691,11 @@ func (r *TestResources) NewGrafanaContainerResource(cr *model.CryostatInstance) 
 	resources := &corev1.ResourceRequirements{
 		Requests: corev1.ResourceList{
 			corev1.ResourceCPU:    resource.MustParse("25m"),
-			corev1.ResourceMemory: resource.MustParse("80Mi"),
+			corev1.ResourceMemory: resource.MustParse("256Mi"),
 		},
 		Limits: corev1.ResourceList{
 			corev1.ResourceCPU:    resource.MustParse("50m"),
-			corev1.ResourceMemory: resource.MustParse("200Mi"),
+			corev1.ResourceMemory: resource.MustParse("512Mi"),
 		},
 	}
 
