@@ -444,7 +444,7 @@ func NewPodForCR(cr *model.CryostatInstance, specs *ServiceSpecs, imageTags *Ima
 	containers := []corev1.Container{
 		NewCoreContainer(cr, specs, imageTags.CoreImageTag, tls, openshift),
 		NewGrafanaContainer(cr, imageTags.GrafanaImageTag, tls),
-		NewJfrDatasourceContainer(cr, imageTags.DatasourceImageTag),
+		NewJfrDatasourceContainer(cr, imageTags.DatasourceImageTag, specs, tls),
 		*authProxy,
 		newAgentProxyContainer(cr, imageTags.AgentProxyImageTag, tls),
 	}
@@ -2049,7 +2049,7 @@ func NewJfrDatasourceContainerResource(cr *model.CryostatInstance) *corev1.Resou
 	return resources
 }
 
-func NewJfrDatasourceContainer(cr *model.CryostatInstance, imageTag string) corev1.Container {
+func NewJfrDatasourceContainer(cr *model.CryostatInstance, imageTag string, serviceSpecs *ServiceSpecs, tls *TLSConfig) corev1.Container {
 	var containerSc *corev1.SecurityContext
 	if cr.Spec.SecurityOptions != nil && cr.Spec.SecurityOptions.DataSourceSecurityContext != nil {
 		containerSc = cr.Spec.SecurityOptions.DataSourceSecurityContext
@@ -2063,6 +2063,42 @@ func NewJfrDatasourceContainer(cr *model.CryostatInstance, imageTag string) core
 		}
 	}
 
+	envs := []corev1.EnvVar{
+		{
+			Name:  "QUARKUS_HTTP_HOST",
+			Value: constants.LoopbackAddress,
+		},
+		{
+			Name:  "QUARKUS_HTTP_PORT",
+			Value: strconv.Itoa(int(constants.DatasourceContainerPort)),
+		},
+		{
+			Name:  "CRYOSTAT_STORAGE_BASE_URI",
+			Value: serviceSpecs.StorageURL.String(),
+		},
+	}
+
+	mounts := []corev1.VolumeMount{}
+	if tls != nil {
+		tlsPath := path.Join(SecretMountPrefix, tls.StorageSecret)
+		tlsSecretMount := corev1.VolumeMount{
+			Name:      "storage-tls-secret",
+			MountPath: tlsPath,
+			ReadOnly:  true,
+		}
+		mounts = append(mounts, tlsSecretMount)
+		envs = append(envs,
+			corev1.EnvVar{
+				Name:  "CRYOSTAT_STORAGE_TLS_CA_PATH",
+				Value: path.Join(SecretMountPrefix, tls.StorageSecret, "s3", "ca.crt"),
+			},
+			corev1.EnvVar{
+				Name:  "CRYOSTAT_STORAGE_TLS_CERT_PATH",
+				Value: path.Join(SecretMountPrefix, tls.StorageSecret, "s3", "tls.crt"),
+			},
+		)
+	}
+
 	return corev1.Container{
 		Name:            cr.Name + "-jfr-datasource",
 		Image:           imageTag,
@@ -2072,16 +2108,8 @@ func NewJfrDatasourceContainer(cr *model.CryostatInstance, imageTag string) core
 				ContainerPort: constants.DatasourceContainerPort,
 			},
 		},
-		Env: []corev1.EnvVar{
-			{
-				Name:  "QUARKUS_HTTP_HOST",
-				Value: constants.LoopbackAddress,
-			},
-			{
-				Name:  "QUARKUS_HTTP_PORT",
-				Value: strconv.Itoa(int(constants.DatasourceContainerPort)),
-			},
-		},
+		Env:          envs,
+		VolumeMounts: mounts,
 		// Can't use HTTP probe since the port is not exposed over the network
 		LivenessProbe: &corev1.Probe{
 			ProbeHandler: corev1.ProbeHandler{
