@@ -5959,6 +5959,10 @@ spec:
                           The 'metadata' strategy stores metadata as object Metadata, which is immutable but allows for more entries than Tags.
                           The 'bucket' strategy stores metadata as separate files (ex. JSON object maps) in a dedicated bucket,
                           with prefixes to differentiate the kind of object the metadata belongs to.
+                        enum:
+                        - tagging
+                        - metadata
+                        - bucket
                         type: string
                       region:
                         description: The object storage provider region.
