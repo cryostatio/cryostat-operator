@@ -787,12 +787,14 @@ type ObjectStorageOptions struct {
 // ObjectStorageProviderOptions provides configuration options to the Cryostat application's external object storage.
 type ObjectStorageProviderOptions struct {
 	// The complete URL (not including authentication information) to the external object storage provider.
+	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	URL *string `json:"url,omitempty"`
 	// Whether path-style access should be used, as opposed to subdomain access. Defaults to true for compatibility.
 	// +optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Use Path-Style Access",xDescriptors={"urn:alm:descriptor:com.tectonic.ui:booleanSwitch"}
 	UsePathStyleAccess *bool `json:"usePathStyleAccess,omitempty"`
 	// The object storage provider region.
+	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	Region *string `json:"region,omitempty"`
 	// Whether Cryostat should trust all TLS certificates presented by the external object storage provider. Defaults to false.
 	// +optional
@@ -803,6 +805,8 @@ type ObjectStorageProviderOptions struct {
 	// The 'bucket' strategy stores metadata as separate files (ex. JSON object maps) in a dedicated bucket,
 	// with prefixes to differentiate the kind of object the metadata belongs to.
 	// +optional
+	// +kubebuilder:validation:Enum=tagging;metadata;bucket
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:com.tectonic.ui:select:tagging","urn:alm:descriptor:com.tectonic.ui:select:metadata","urn:alm:descriptor:com.tectonic.ui:select:bucket"}
 	MetadataMode *string `json:"metadataMode,omitempty"`
 }
 
