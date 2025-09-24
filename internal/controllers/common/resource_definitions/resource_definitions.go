@@ -914,14 +914,23 @@ func NewPodForReports(cr *model.CryostatInstance, imageTags *ImageTags, serviceS
 				Name:  "QUARKUS_HTTP_INSECURE_REQUESTS",
 				Value: "disabled",
 			},
-			{
-				Name:  "CRYOSTAT_STORAGE_TLS_CA_PATH",
-				Value: path.Join(SecretMountPrefix, tls.StorageSecret, "ca.crt"),
-			},
-			{
-				Name:  "CRYOSTAT_STORAGE_TLS_CERT_PATH",
-				Value: path.Join(SecretMountPrefix, tls.StorageSecret, "tls.crt"),
-			},
+		}
+
+		// if we are deploying our own managed storage container with a TLS cert that we issued for it,
+		// configure that here. Otherwise if we are configured to talk to an external object storage
+		// provider, assume that it is using a well-known certificate signed by a root trust.
+		// TODO allow additional configuration via the CR to configure TLS for external providers
+		if cr.Spec.ObjectStorageOptions == nil || cr.Spec.ObjectStorageOptions.Provider == nil {
+			tlsEnvs = append(tlsEnvs,
+				corev1.EnvVar{
+					Name:  "CRYOSTAT_STORAGE_TLS_CA_PATH",
+					Value: path.Join(SecretMountPrefix, tls.StorageSecret, "ca.crt"),
+				},
+				corev1.EnvVar{
+					Name:  "CRYOSTAT_STORAGE_TLS_CERT_PATH",
+					Value: path.Join(SecretMountPrefix, tls.StorageSecret, "tls.crt"),
+				},
+			)
 		}
 
 		tlsConfigName := "https"
@@ -935,7 +944,6 @@ func NewPodForReports(cr *model.CryostatInstance, imageTags *ImageTags, serviceS
 			tlsConfigName,
 			path.Join(SecretMountPrefix, tls.ReportsSecret, corev1.TLSPrivateKeyKey),
 		)
-
 		tlsSecretMount := corev1.VolumeMount{
 			Name:      "reports-tls-secret",
 			MountPath: path.Join(SecretMountPrefix, tls.ReportsSecret),
