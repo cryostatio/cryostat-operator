@@ -165,19 +165,19 @@ By default, the operator deploys Cryostat with pre-configured resource requests/
 
 | Resource | Requests | Limits |
 |---------|----------|--------|
-| Agent Proxy container CPU | 25m | 50m |
+| Agent Proxy container CPU | 50m | 500m |
 | Agent Proxy container Memory | 64Mi | 200Mi |
-| Auth Proxy container CPU | 25m | 50m |
+| Auth Proxy container CPU | 50m | 500m |
 | Auth Proxy container Memory | 64Mi | 128Mi |
-| Cryostat container CPU | 500m | 1000m |
+| Cryostat container CPU | 500m | 2000m |
 | Cryostat container Memory | 384Mi | 1Gi |
-| JFR Data Source container CPU | 200m | 400m |
+| JFR Data Source container CPU | 200m | 500m |
 | JFR Data Source container Memory | 200Mi | 500Mi |
-| Grafana container CPU | 25m | 50m |
-| Grafana container Memory | 80Mi | 200Mi |
-| Database container CPU | 25m | 50m |
+| Grafana container CPU | 50m | 500m |
+| Grafana container Memory | 128Mi | 256Mi |
+| Database container CPU | 50m | 500m |
 | Database container Memory | 64Mi | 200Mi |
-| Storage container CPU | 50m | 100m |
+| Storage container CPU | 50m | 500m |
 | Storage container Memory | 256Mi | 512Mi |
 
 Using the Cryostat custom resource, you can define resources requests and/or limits for each of the containers in Cryostat's main pod:

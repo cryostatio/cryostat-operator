@@ -75,37 +75,37 @@ type TLSConfig struct {
 }
 
 const (
-	defaultAuthProxyCpuRequest        string = "25m"
+	defaultAuthProxyCpuRequest        string = "50m"
 	defaultAuthProxyMemoryRequest     string = "64Mi"
-	defaultAuthProxyCpuLimit          string = "50m"
+	defaultAuthProxyCpuLimit          string = "500m"
 	defaultAuthProxyMemoryLimit       string = "128Mi"
 	defaultCoreCpuRequest             string = "500m"
 	defaultCoreMemoryRequest          string = "384Mi"
-	defaultCoreCpuLimit               string = "1000m"
+	defaultCoreCpuLimit               string = "2000m"
 	defaultCoreMemoryLimit            string = "1Gi"
 	defaultJfrDatasourceCpuRequest    string = "200m"
 	defaultJfrDatasourceMemoryRequest string = "200Mi"
-	defaultJfrDatasourceCpuLimit      string = "400m"
+	defaultJfrDatasourceCpuLimit      string = "500m"
 	defaultJfrDatasourceMemoryLimit   string = "500Mi"
-	defaultGrafanaCpuRequest          string = "25m"
-	defaultGrafanaMemoryRequest       string = "80Mi"
-	defaultGrafanaCpuLimit            string = "50m"
-	defaultGrafanaMemoryLimit         string = "200Mi"
-	defaultDatabaseCpuRequest         string = "25m"
+	defaultGrafanaCpuRequest          string = "50m"
+	defaultGrafanaMemoryRequest       string = "128Mi"
+	defaultGrafanaCpuLimit            string = "500m"
+	defaultGrafanaMemoryLimit         string = "256Mi"
+	defaultDatabaseCpuRequest         string = "50m"
 	defaultDatabaseMemoryRequest      string = "64Mi"
-	defaultDatabaseCpuLimit           string = "50m"
+	defaultDatabaseCpuLimit           string = "500m"
 	defaultDatabaseMemoryLimit        string = "200Mi"
 	defaultStorageCpuRequest          string = "50m"
 	defaultStorageMemoryRequest       string = "256Mi"
-	defaultStorageCpuLimit            string = "100m"
+	defaultStorageCpuLimit            string = "500m"
 	defaultStorageMemoryLimit         string = "512Mi"
 	defaultReportCpuRequest           string = "500m"
 	defaultReportMemoryRequest        string = "512Mi"
 	defaultReportCpuLimit             string = "1000m"
 	defaultReportMemoryLimit          string = "1Gi"
-	defaultAgentProxyCpuRequest       string = "25m"
+	defaultAgentProxyCpuRequest       string = "50m"
 	defaultAgentProxyMemoryRequest    string = "64Mi"
-	defaultAgentProxyCpuLimit         string = "50m"
+	defaultAgentProxyCpuLimit         string = "500m"
 	defaultAgentProxyMemoryLimit      string = "200Mi"
 	OAuth2ConfigFileName              string = "alpha_config.json"
 	OAuth2ConfigFilePath              string = "/etc/oauth2_proxy/alpha_config"
@@ -1768,6 +1768,16 @@ func NewGrafanaContainer(cr *model.CryostatInstance, imageTag string, tls *TLSCo
 			},
 		},
 		Env: envs,
+		StartupProbe: &corev1.Probe{
+			ProbeHandler: corev1.ProbeHandler{
+				HTTPGet: &corev1.HTTPGetAction{
+					Port:   intstr.IntOrString{IntVal: 3000},
+					Path:   "/api/health",
+					Scheme: corev1.URISchemeHTTP,
+				},
+			},
+			FailureThreshold: 30,
+		},
 		LivenessProbe: &corev1.Probe{
 			ProbeHandler: corev1.ProbeHandler{
 				HTTPGet: &corev1.HTTPGetAction{
