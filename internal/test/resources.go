@@ -2791,7 +2791,13 @@ func (r *TestResources) NewGrafanaEnvironmentVariables() []corev1.EnvVar {
 }
 
 func (r *TestResources) NewDatasourceEnvironmentVariables() []corev1.EnvVar {
-	return []corev1.EnvVar{
+	var storageProtocol string
+	if r.TLS {
+		storageProtocol = "https"
+	} else {
+		storageProtocol = "http"
+	}
+	envs := []corev1.EnvVar{
 		{
 			Name:  "QUARKUS_HTTP_HOST",
 			Value: "127.0.0.1",
@@ -2800,7 +2806,24 @@ func (r *TestResources) NewDatasourceEnvironmentVariables() []corev1.EnvVar {
 			Name:  "QUARKUS_HTTP_PORT",
 			Value: "8989",
 		},
+		{
+			Name:  "CRYOSTAT_STORAGE_BASE_URI",
+			Value: fmt.Sprintf("%s://%s-storage.%s.svc.cluster.local:8333", storageProtocol, r.Name, r.Namespace),
+		},
 	}
+	if r.TLS {
+		envs = append(envs,
+			corev1.EnvVar{
+				Name:  "CRYOSTAT_STORAGE_TLS_CA_PATH",
+				Value: fmt.Sprintf("/var/run/secrets/operator.cryostat.io/%s-storage-tls/s3/ca.crt", r.Name),
+			},
+			corev1.EnvVar{
+				Name:  "CRYOSTAT_STORAGE_TLS_CERT_PATH",
+				Value: fmt.Sprintf("/var/run/secrets/operator.cryostat.io/%s-storage-tls/s3/tls.crt", r.Name),
+			},
+		)
+	}
+	return envs
 }
 
 func (r *TestResources) NewReportsEnvironmentVariables(resources *corev1.ResourceRequirements) []corev1.EnvVar {
@@ -3236,6 +3259,19 @@ func (r *TestResources) NewCoreVolumeMounts() []corev1.VolumeMount {
 				MountPath: fmt.Sprintf("/var/run/secrets/operator.cryostat.io/%s-database-tls", r.Name),
 			},
 		)
+	}
+	return mounts
+}
+
+func (r *TestResources) NewDatasourceVolumeMounts() []corev1.VolumeMount {
+	mounts := []corev1.VolumeMount{}
+	if r.TLS {
+		mounts = append(mounts,
+			corev1.VolumeMount{
+				Name:      "storage-tls-secret",
+				MountPath: fmt.Sprintf("/var/run/secrets/operator.cryostat.io/%s-storage-tls", r.Name),
+				ReadOnly:  true,
+			})
 	}
 	return mounts
 }

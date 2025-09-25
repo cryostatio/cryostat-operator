@@ -3885,7 +3885,7 @@ func (t *cryostatTestInput) checkDatasourceContainer(container *corev1.Container
 	Expect(container.Ports).To(ConsistOf(t.NewDatasourcePorts()))
 	Expect(container.Env).To(ConsistOf(t.NewDatasourceEnvironmentVariables()))
 	Expect(container.EnvFrom).To(BeEmpty())
-	Expect(container.VolumeMounts).To(BeEmpty())
+	Expect(container.VolumeMounts).To(ConsistOf(t.NewDatasourceVolumeMounts()))
 	Expect(container.LivenessProbe).To(Equal(t.NewDatasourceLivenessProbe()))
 	Expect(container.SecurityContext).To(Equal(securityContext))
 
