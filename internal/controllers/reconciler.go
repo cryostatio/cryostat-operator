@@ -309,9 +309,16 @@ func (r *Reconciler) reconcileCryostat(ctx context.Context, cr *model.CryostatIn
 		return databaseResult, err
 	}
 
-	storageResult, err := r.reconcileStorage(ctx, reqLogger, cr, tlsConfig, imageTags, serviceSpecs, *fsGroup)
-	if err != nil {
-		return storageResult, err
+	if cr.Spec.ObjectStorageOptions == nil {
+		storageResult, err := r.reconcileStorage(ctx, reqLogger, cr, tlsConfig, imageTags, serviceSpecs, *fsGroup)
+		if err != nil {
+			return storageResult, err
+		}
+	} else {
+		serviceSpecs.StorageURL, err = url.Parse(*cr.Spec.ObjectStorageOptions.Provider.URL)
+		if err != nil {
+			return reconcile.Result{}, err
+		}
 	}
 
 	reportsResult, err := r.reconcileReports(ctx, reqLogger, cr, tlsConfig, imageTags, serviceSpecs)
