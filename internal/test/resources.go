@@ -2851,12 +2851,6 @@ func (r *TestResources) NewGrafanaEnvironmentVariables() []corev1.EnvVar {
 }
 
 func (r *TestResources) NewDatasourceEnvironmentVariables() []corev1.EnvVar {
-	var storageProtocol string
-	if r.TLS {
-		storageProtocol = "https"
-	} else {
-		storageProtocol = "http"
-	}
 	envs := []corev1.EnvVar{
 		{
 			Name:  "QUARKUS_HTTP_HOST",
@@ -2865,10 +2859,6 @@ func (r *TestResources) NewDatasourceEnvironmentVariables() []corev1.EnvVar {
 		{
 			Name:  "QUARKUS_HTTP_PORT",
 			Value: "8989",
-		},
-		{
-			Name:  "CRYOSTAT_STORAGE_BASE_URI",
-			Value: fmt.Sprintf("%s://%s-storage.%s.svc.cluster.local:8333", storageProtocol, r.Name, r.Namespace),
 		},
 	}
 	if r.TLS {
@@ -2894,12 +2884,8 @@ func (r *TestResources) NewReportsEnvironmentVariables(resources *corev1.Resourc
 		}
 	}
 	opts := fmt.Sprintf("-XX:+PrintCommandLineFlags -XX:ActiveProcessorCount=%d -Dorg.openjdk.jmc.flightrecorder.parser.singlethreaded=%t", cpus, cpus < 2)
-	var storageProtocol string
 	if r.TLS {
-		storageProtocol = "https"
 		opts += " -Dquarkus.http.tls-configuration-name=https -Dquarkus.tls.https.reload-period=1h -Dquarkus.tls.https.key-store.pem.0.cert=/var/run/secrets/operator.cryostat.io/cryostat-reports-tls/tls.crt -Dquarkus.tls.https.key-store.pem.0.key=/var/run/secrets/operator.cryostat.io/cryostat-reports-tls/tls.key"
-	} else {
-		storageProtocol = "http"
 	}
 	envs := []corev1.EnvVar{
 		{
@@ -2909,10 +2895,6 @@ func (r *TestResources) NewReportsEnvironmentVariables(resources *corev1.Resourc
 		{
 			Name:  "JAVA_OPTS_APPEND",
 			Value: opts,
-		},
-		{
-			Name:  "CRYOSTAT_STORAGE_BASE_URI",
-			Value: fmt.Sprintf("%s://%s-storage.%s.svc.cluster.local:8333", storageProtocol, r.Name, r.Namespace),
 		},
 	}
 	if r.TLS {

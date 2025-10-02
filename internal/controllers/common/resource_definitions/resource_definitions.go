@@ -865,10 +865,6 @@ func NewPodForReports(cr *model.CryostatInstance, imageTags *ImageTags, serviceS
 			Name:  "QUARKUS_HTTP_HOST",
 			Value: "0.0.0.0",
 		},
-		{
-			Name:  "CRYOSTAT_STORAGE_BASE_URI",
-			Value: serviceSpecs.StorageURL.String(),
-		},
 	}
 	mounts := []corev1.VolumeMount{}
 	volumes := []corev1.Volume{}
@@ -2156,10 +2152,6 @@ func NewJfrDatasourceContainer(cr *model.CryostatInstance, imageTag string, serv
 		{
 			Name:  "QUARKUS_HTTP_PORT",
 			Value: strconv.Itoa(int(constants.DatasourceContainerPort)),
-		},
-		{
-			Name:  "CRYOSTAT_STORAGE_BASE_URI",
-			Value: serviceSpecs.StorageURL.String(),
 		},
 	}
 
