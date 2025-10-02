@@ -1384,10 +1384,6 @@ func NewCoreContainer(cr *model.CryostatInstance, specs *ServiceSpecs, imageTag 
 			Value: "cryostat",
 		},
 		{
-			Name:  "STORAGE_BUCKETS_ARCHIVE_NAME",
-			Value: "archivedrecordings",
-		},
-		{
 			Name:  "CRYOSTAT_CONFIG_PATH",
 			Value: configPath,
 		},
@@ -1462,6 +1458,45 @@ func NewCoreContainer(cr *model.CryostatInstance, specs *ServiceSpecs, imageTag 
 			Name:  "STORAGE_METADATA_STORAGE_MODE",
 			Value: metadataMode,
 		})
+
+		if cr.Spec.ObjectStorageOptions.StorageBucketNameOptions != nil {
+			if cr.Spec.ObjectStorageOptions.StorageBucketNameOptions.ArchivedRecordings != nil {
+				envs = append(envs, corev1.EnvVar{
+					Name:  "STORAGE_BUCKETS_ARCHIVES_NAME",
+					Value: *cr.Spec.ObjectStorageOptions.StorageBucketNameOptions.ArchivedRecordings,
+				})
+			}
+			if cr.Spec.ObjectStorageOptions.StorageBucketNameOptions.EventTemplates != nil {
+				envs = append(envs, corev1.EnvVar{
+					Name:  "STORAGE_BUCKETS_EVENT_TEMPLATES_NAME",
+					Value: *cr.Spec.ObjectStorageOptions.StorageBucketNameOptions.EventTemplates,
+				})
+			}
+			if cr.Spec.ObjectStorageOptions.StorageBucketNameOptions.JMCAgentProbeTemplates != nil {
+				envs = append(envs, corev1.EnvVar{
+					Name:  "STORAGE_BUCKETS_PROBE_TEMPLATES_NAME",
+					Value: *cr.Spec.ObjectStorageOptions.StorageBucketNameOptions.JMCAgentProbeTemplates,
+				})
+			}
+			if cr.Spec.ObjectStorageOptions.StorageBucketNameOptions.HeapDumps != nil {
+				envs = append(envs, corev1.EnvVar{
+					Name:  "STORAGE_BUCKETS_HEAP_DUMPS_NAME",
+					Value: *cr.Spec.ObjectStorageOptions.StorageBucketNameOptions.HeapDumps,
+				})
+			}
+			if cr.Spec.ObjectStorageOptions.StorageBucketNameOptions.ThreadDumps != nil {
+				envs = append(envs, corev1.EnvVar{
+					Name:  "STORAGE_BUCKETS_THREAD_DUMPS_NAME",
+					Value: *cr.Spec.ObjectStorageOptions.StorageBucketNameOptions.ThreadDumps,
+				})
+			}
+			if cr.Spec.ObjectStorageOptions.StorageBucketNameOptions.Metadata != nil {
+				envs = append(envs, corev1.EnvVar{
+					Name:  "STORAGE_BUCKETS_METADATA_NAME",
+					Value: *cr.Spec.ObjectStorageOptions.StorageBucketNameOptions.Metadata,
+				})
+			}
+		}
 
 		tlsTrustAll := false
 		if cr.Spec.ObjectStorageOptions.Provider != nil && cr.Spec.ObjectStorageOptions.Provider.TLSTrustAll != nil {
@@ -1849,7 +1884,8 @@ func NewStorageContainer(cr *model.CryostatInstance, imageTag string, tls *TLSCo
 	var containerSc *corev1.SecurityContext
 	envs := []corev1.EnvVar{
 		{
-			Name:  "CRYOSTAT_BUCKETS",
+			Name: "CRYOSTAT_BUCKETS",
+			// TODO use cr.Spec.ObjectStorageOptions.StorageBucketNameOptions if specified, with the list below as default values
 			Value: "archivedrecordings,archivedreports,eventtemplates,probes,heapdumps,threaddumps",
 		},
 		{

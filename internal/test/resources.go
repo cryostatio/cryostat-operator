@@ -2624,10 +2624,6 @@ func (r *TestResources) NewCoreEnvironmentVariables(reportsUrl string, ingress b
 			Value: "cryostat",
 		},
 		{
-			Name:  "STORAGE_BUCKETS_ARCHIVE_NAME",
-			Value: "archivedrecordings",
-		},
-		{
 			Name:  "QUARKUS_S3_ENDPOINT_OVERRIDE",
 			Value: fmt.Sprintf("%s://%s-storage.%s.svc.cluster.local:%d", storageProtocol, r.Name, r.Namespace, storagePort),
 		},
