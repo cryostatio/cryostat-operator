@@ -780,8 +780,10 @@ type ObjectStorageOptions struct {
 	// +optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Object Storage Provider Options"
 	Provider *ObjectStorageProviderOptions `json:"provider,omitempty"`
-
-	// TODO add configuration to override default bucket names
+	// Configuration for object storage buckets.
+	// +optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Storage Bucket Names"
+	StorageBucketNameOptions *StorageBucketNameOptions `json:"storageBucketNameOptions,omitempty"`
 }
 
 // ObjectStorageProviderOptions provides configuration options to the Cryostat application's external object storage.
@@ -808,6 +810,37 @@ type ObjectStorageProviderOptions struct {
 	// +kubebuilder:validation:Enum=tagging;metadata;bucket
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:com.tectonic.ui:select:tagging","urn:alm:descriptor:com.tectonic.ui:select:metadata","urn:alm:descriptor:com.tectonic.ui:select:bucket"}
 	MetadataMode *string `json:"metadataMode,omitempty"`
+}
+
+type StorageBucketNameOptions struct {
+	// The name of the bucket used to store Archived JFR files.
+	// +optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec
+	ArchivedRecordings *string `json:"archivedRecordings,omitempty"`
+	// The name of the bucket used to store a cache of Automated Analysis reports attached to Archived JFR files.
+	// +optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec
+	ArchivedReports *string `json:"archivedReports,omitempty"`
+	// The name of the bucket used to store custom Event Templates.
+	// +optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec
+	EventTemplates *string `json:"eventTemplates,omitempty"`
+	// The name of the bucket used to store JMC Agent Probe templates.
+	// +optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec
+	JMCAgentProbeTemplates *string `json:"jmcAgentProbeTemplates,omitempty"`
+	// The name of the bucket used to store JVM heap dumps.
+	// +optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec
+	HeapDumps *string `json:"heapDumps,omitempty"`
+	// The name of the bucket used to storage JVM thread dumps.
+	// +optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec
+	ThreadDumps *string `json:"threadDumps,omitempty"`
+	// The name of the bucket used to storage metadata for other objects (ex. archived recordings). This is only used if the .spec.objectStorageOptions.provider.metadataMode is set to 'bucket'.
+	// +optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec
+	Metadata *string `json:"metadata,omitempty"`
 }
 
 // AgentOptions provides customization for how the operator configures Cryostat Agents.

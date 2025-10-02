@@ -5989,6 +5989,40 @@ spec:
                       It is recommended that the secret should be marked as immutable to avoid accidental changes to secret's data.
                       More details: [Kubernetes Secrets](https://kubernetes.io/docs/concepts/configuration/secret/#secret-immutable)
                     type: string
+                  storageBucketNameOptions:
+                    description: Configuration for object storage buckets.
+                    properties:
+                      archivedRecordings:
+                        description: The name of the bucket used to store Archived
+                          JFR files.
+                        type: string
+                      archivedReports:
+                        description: The name of the bucket used to store a cache
+                          of Automated Analysis reports attached to Archived JFR files.
+                        type: string
+                      eventTemplates:
+                        description: The name of the bucket used to store custom Event
+                          Templates.
+                        type: string
+                      heapDumps:
+                        description: The name of the bucket used to store JVM heap
+                          dumps.
+                        type: string
+                      jmcAgentProbeTemplates:
+                        description: The name of the bucket used to store JMC Agent
+                          Probe templates.
+                        type: string
+                      metadata:
+                        description: The name of the bucket used to storage metadata
+                          for other objects (ex. archived recordings). This is only
+                          used if the .spec.objectStorageOptions.provider.metadataMode
+                          is set to 'bucket'.
+                        type: string
+                      threadDumps:
+                        description: The name of the bucket used to storage JVM thread
+                          dumps.
+                        type: string
+                    type: object
                 type: object
               operandMetadata:
                 description: Options to configure the Cryostat deployments and pods
