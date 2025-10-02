@@ -2164,16 +2164,23 @@ func NewJfrDatasourceContainer(cr *model.CryostatInstance, imageTag string, serv
 			ReadOnly:  true,
 		}
 		mounts = append(mounts, tlsSecretMount)
-		envs = append(envs,
-			corev1.EnvVar{
-				Name:  "CRYOSTAT_STORAGE_TLS_CA_PATH",
-				Value: path.Join(SecretMountPrefix, tls.StorageSecret, "s3", "ca.crt"),
-			},
-			corev1.EnvVar{
-				Name:  "CRYOSTAT_STORAGE_TLS_CERT_PATH",
-				Value: path.Join(SecretMountPrefix, tls.StorageSecret, "s3", "tls.crt"),
-			},
-		)
+
+		// if we are deploying our own managed storage container with a TLS cert that we issued for it,
+		// configure that here. Otherwise if we are configured to talk to an external object storage
+		// provider, assume that it is using a well-known certificate signed by a root trust.
+		// TODO allow additional configuration via the CR to configure TLS for external providers
+		if cr.Spec.ObjectStorageOptions == nil || cr.Spec.ObjectStorageOptions.Provider == nil {
+			envs = append(envs,
+				corev1.EnvVar{
+					Name:  "CRYOSTAT_STORAGE_TLS_CA_PATH",
+					Value: path.Join(SecretMountPrefix, tls.StorageSecret, "s3", "ca.crt"),
+				},
+				corev1.EnvVar{
+					Name:  "CRYOSTAT_STORAGE_TLS_CERT_PATH",
+					Value: path.Join(SecretMountPrefix, tls.StorageSecret, "s3", "tls.crt"),
+				},
+			)
+		}
 	}
 
 	return corev1.Container{
