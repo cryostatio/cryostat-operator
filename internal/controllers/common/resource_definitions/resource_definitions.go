@@ -1466,6 +1466,12 @@ func NewCoreContainer(cr *model.CryostatInstance, specs *ServiceSpecs, imageTag 
 					Value: *cr.Spec.ObjectStorageOptions.StorageBucketNameOptions.ArchivedRecordings,
 				})
 			}
+			if cr.Spec.ObjectStorageOptions.StorageBucketNameOptions.ArchivedReports != nil {
+				envs = append(envs, corev1.EnvVar{
+					Name:  "CRYOSTAT_SERVICES_REPORTS_STORAGE_CACHE_NAME",
+					Value: *cr.Spec.ObjectStorageOptions.StorageBucketNameOptions.ArchivedReports,
+				})
+			}
 			if cr.Spec.ObjectStorageOptions.StorageBucketNameOptions.EventTemplates != nil {
 				envs = append(envs, corev1.EnvVar{
 					Name:  "STORAGE_BUCKETS_EVENT_TEMPLATES_NAME",

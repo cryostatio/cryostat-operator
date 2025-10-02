@@ -244,6 +244,36 @@ func (r *TestResources) NewCryostatWithExternalS3(secretName string) *model.Cryo
 	return cr
 }
 
+func (r *TestResources) NewCryostatWithCustomizedStorageBucketNames() *model.CryostatInstance {
+	cr := r.NewCryostat()
+	providerUrl := "https://example.com:1234"
+	region := "region-east-1"
+
+	archivedRecordings := "a"
+	archivedReports := "b"
+	eventTemplates := "c"
+	probeTemplates := "d"
+	heapDumps := "e"
+	threadDumps := "f"
+	metadata := "z"
+	cr.Spec.ObjectStorageOptions = &operatorv1beta2.ObjectStorageOptions{
+		Provider: &operatorv1beta2.ObjectStorageProviderOptions{
+			URL:    &providerUrl,
+			Region: &region,
+		},
+		StorageBucketNameOptions: &operatorv1beta2.StorageBucketNameOptions{
+			ArchivedRecordings:     &archivedRecordings,
+			ArchivedReports:        &archivedReports,
+			EventTemplates:         &eventTemplates,
+			JMCAgentProbeTemplates: &probeTemplates,
+			HeapDumps:              &heapDumps,
+			ThreadDumps:            &threadDumps,
+			Metadata:               &metadata,
+		},
+	}
+	return cr
+}
+
 func (r *TestResources) NewCryostatWithPVCSpecLegacy() *model.CryostatInstance {
 	cr := r.NewCryostat()
 	cr.Spec.StorageOptions = &operatorv1beta2.StorageConfigurations{

@@ -970,7 +970,7 @@ func (c *controllerTest) commonTests() {
 			It("Should update the core deployment", func() {
 				secretOptional := false
 				t.checkCoreHasEnvironmentVariables([]corev1.EnvVar{
-					corev1.EnvVar{
+					{
 						Name: "QUARKUS_S3_AWS_CREDENTIALS_STATIC_PROVIDER_ACCESS_KEY_ID",
 						ValueFrom: &corev1.EnvVarSource{
 							FieldRef:         nil,
@@ -985,7 +985,7 @@ func (c *controllerTest) commonTests() {
 							},
 						},
 					},
-					corev1.EnvVar{
+					{
 						Name: "QUARKUS_S3_AWS_CREDENTIALS_STATIC_PROVIDER_SECRET_ACCESS_KEY",
 						ValueFrom: &corev1.EnvVarSource{
 							FieldRef:         nil,
@@ -1000,25 +1000,67 @@ func (c *controllerTest) commonTests() {
 							},
 						},
 					},
-					corev1.EnvVar{
+					{
 						Name:  "QUARKUS_S3_ENDPOINT_OVERRIDE",
 						Value: "https://example.com:1234",
 					},
-					corev1.EnvVar{
+					{
 						Name:  "QUARKUS_S3_PATH_STYLE_ACCESS",
 						Value: "true",
 					},
-					corev1.EnvVar{
+					{
 						Name:  "QUARKUS_S3_AWS_REGION",
 						Value: "region-east-1",
 					},
-					corev1.EnvVar{
+					{
 						Name:  "QUARKUS_S3_SYNC_CLIENT_TLS_TRUST_MANAGERS_PROVIDER_TYPE",
 						Value: "trust-all",
 					},
-					corev1.EnvVar{
+					{
 						Name:  "STORAGE_METADATA_STORAGE_MODE",
 						Value: "tagging",
+					},
+				})
+			})
+		})
+		Context("with S3 storage bucket names configuration", func() {
+			BeforeEach(func() {
+				secretName := "external-s3-creds"
+				t.StorageSecret = t.NewExternalStorageSecret(secretName)
+				t.objs = append(t.objs, t.NewCryostatWithCustomizedStorageBucketNames().Object, t.StorageSecret)
+			})
+			JustBeforeEach(func() {
+				t.reconcileCryostatFully()
+			})
+			It("Should update the core deployment", func() {
+				t.checkCoreHasEnvironmentVariables([]corev1.EnvVar{
+					{
+						Name:  "STORAGE_BUCKETS_ARCHIVES_NAME",
+						Value: "a",
+					},
+					{
+						Name:  "CRYOSTAT_SERVICES_REPORTS_STORAGE_CACHE_NAME",
+						Value: "b",
+					},
+					{
+						Name:  "STORAGE_BUCKETS_EVENT_TEMPLATES_NAME",
+						Value: "c",
+					},
+					{
+						Name:  "STORAGE_BUCKETS_PROBE_TEMPLATES_NAME",
+						Value: "d",
+					},
+					{
+						Name:  "STORAGE_BUCKETS_HEAP_DUMPS_NAME",
+						Value: "e",
+					},
+					{
+						Name:  "STORAGE_BUCKETS_THREAD_DUMPS_NAME",
+						Value: "f",
+					},
+					{
+						Name:  "STORAGE_BUCKETS_METADATA_NAME",
+						Value: "z",
 					},
 				})
 			})
