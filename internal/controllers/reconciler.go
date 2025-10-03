@@ -309,16 +309,9 @@ func (r *Reconciler) reconcileCryostat(ctx context.Context, cr *model.CryostatIn
 		return databaseResult, err
 	}
 
-	if cr.Spec.ObjectStorageOptions == nil {
-		storageResult, err := r.reconcileStorage(ctx, reqLogger, cr, tlsConfig, imageTags, serviceSpecs, *fsGroup)
-		if err != nil {
-			return storageResult, err
-		}
-	} else {
-		serviceSpecs.StorageURL, err = url.Parse(*cr.Spec.ObjectStorageOptions.Provider.URL)
-		if err != nil {
-			return reconcile.Result{}, err
-		}
+	storageResult, err := r.reconcileStorage(ctx, reqLogger, cr, tlsConfig, imageTags, serviceSpecs, *fsGroup)
+	if err != nil {
+		return storageResult, err
 	}
 
 	reportsResult, err := r.reconcileReports(ctx, reqLogger, cr, tlsConfig, imageTags, serviceSpecs)
@@ -481,11 +474,29 @@ func (r *Reconciler) reconcileStorage(ctx context.Context, reqLogger logr.Logger
 	if err != nil {
 		return reconcile.Result{}, err
 	}
+
 	err = r.reconcileStorageNetworkPolicy(ctx, cr)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
+
 	deployment := resources.NewDeploymentForStorage(cr, imageTags, tls, r.IsOpenShift, fsGroup)
+	deployManagedStorage := cr.Spec.ObjectStorageOptions == nil || cr.Spec.ObjectStorageOptions.Provider == nil
+	if !deployManagedStorage {
+		serviceSpecs.StorageURL, err = url.Parse(*cr.Spec.ObjectStorageOptions.Provider.URL)
+		if err := r.Client.Delete(ctx, deployment); err != nil && !kerrors.IsNotFound(err) {
+			return reconcile.Result{}, err
+		}
+
+		removeConditionIfPresent(cr, operatorv1beta2.ConditionTypeStorageDeploymentAvailable,
+			operatorv1beta2.ConditionTypeStorageDeploymentProgressing,
+			operatorv1beta2.ConditionTypeStorageDeploymentReplicaFailure)
+		err := r.Client.Status().Update(ctx, cr.Object)
+		if err != nil {
+			return reconcile.Result{}, err
+		}
+		return reconcile.Result{}, nil
+	}
 
 	err = r.createOrUpdateDeployment(ctx, deployment, cr.Object)
 	if err != nil {

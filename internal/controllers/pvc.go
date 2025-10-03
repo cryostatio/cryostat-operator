@@ -94,6 +94,15 @@ func (r *Reconciler) reconcileStoragePVC(ctx context.Context, cr *model.Cryostat
 			cfg = (*operatorv1beta2.StorageConfiguration)(&cr.Spec.StorageOptions.LegacyStorageConfiguration)
 		}
 	}
+	deployManagedStorage := cr.Spec.ObjectStorageOptions == nil || cr.Spec.ObjectStorageOptions.Provider == nil
+	if !deployManagedStorage {
+		// If using external storage, do nothing.
+		// Don't delete the PVC to prevent accidental data loss
+		// depending on the reclaim policy. The user may be transitioning
+		// from a managed cryostat-storage instance to external storage,
+		// but the pre-existing cryostat-storage PVC may still contain data the user wants to retain.
+		return nil
+	}
 	return r.reconcilePVC(ctx, cr, cfg, *resource.NewQuantity(DefaultStoragePVCSize, resource.BinarySI), &name)
 }
 
