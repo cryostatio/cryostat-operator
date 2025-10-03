@@ -2900,7 +2900,7 @@ func (r *TestResources) NewStorageEnvironmentVariables() []corev1.EnvVar {
 	envs := []corev1.EnvVar{
 		{
 			Name:  "CRYOSTAT_BUCKETS",
-			Value: "archivedrecordings,archivedreports,eventtemplates,probes",
+			Value: "archivedrecordings,archivedreports,eventtemplates,probes,threaddumps,heapdumps",
 		},
 		{
 			Name:  "CRYOSTAT_ACCESS_KEY",
