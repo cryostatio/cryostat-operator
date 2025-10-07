@@ -780,7 +780,7 @@ type ObjectStorageOptions struct {
 	// +optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Object Storage Provider Options"
 	Provider *ObjectStorageProviderOptions `json:"provider,omitempty"`
-	// Configuration for object storage buckets.
+	// Configuration for object storage buckets. Only applies when external storage is configured, ie. .spec.ObjectStorageProviderOptions is non-nil.
 	// +optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Storage Bucket Names"
 	StorageBucketNameOptions *StorageBucketNameOptions `json:"storageBucketNameOptions,omitempty"`

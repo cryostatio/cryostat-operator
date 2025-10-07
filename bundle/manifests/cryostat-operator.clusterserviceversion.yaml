@@ -24,7 +24,7 @@ metadata:
     capabilities: Seamless Upgrades
     categories: Monitoring, Developer Tools
     containerImage: quay.io/cryostat/cryostat-operator:4.1.0-dev
-    createdAt: "2025-09-24T18:47:41Z"
+    createdAt: "2025-10-07T18:40:23Z"
     description: JVM monitoring and profiling tool
     operatorframework.io/initialization-resource: |-
       {
@@ -249,11 +249,24 @@ spec:
           - description: Configuration for external object storage providers.
             displayName: Object Storage Provider Options
             path: objectStorageOptions.provider
+          - description: The strategy Cryostat will use for storing files' metadata. The default 'tagging' strategy stores all metadata as object Tags. The 'metadata' strategy stores metadata as object Metadata, which is immutable but allows for more entries than Tags. The 'bucket' strategy stores metadata as separate files (ex. JSON object maps) in a dedicated bucket, with prefixes to differentiate the kind of object the metadata belongs to.
+            displayName: Metadata Mode
+            path: objectStorageOptions.provider.metadataMode
+            x-descriptors:
+              - urn:alm:descriptor:com.tectonic.ui:select:tagging
+              - urn:alm:descriptor:com.tectonic.ui:select:metadata
+              - urn:alm:descriptor:com.tectonic.ui:select:bucket
+          - description: The object storage provider region.
+            displayName: Region
+            path: objectStorageOptions.provider.region
           - description: Whether Cryostat should trust all TLS certificates presented by the external object storage provider. Defaults to false.
             displayName: TLS Trust All
             path: objectStorageOptions.provider.tlsTrustAll
             x-descriptors:
               - urn:alm:descriptor:com.tectonic.ui:booleanSwitch
+          - description: The complete URL (not including authentication information) to the external object storage provider.
+            displayName: URL
+            path: objectStorageOptions.provider.url
           - description: Whether path-style access should be used, as opposed to subdomain access. Defaults to true for compatibility.
             displayName: Use Path-Style Access
             path: objectStorageOptions.provider.usePathStyleAccess
@@ -264,6 +277,30 @@ spec:
             path: objectStorageOptions.secretName
             x-descriptors:
               - urn:alm:descriptor:io.kubernetes:Secret
+          - description: Configuration for object storage buckets. Only applies when external storage is configured, ie. .spec.ObjectStorageProviderOptions is non-nil.
+            displayName: Storage Bucket Names
+            path: objectStorageOptions.storageBucketNameOptions
+          - description: The name of the bucket used to store Archived JFR files.
+            displayName: Archived Recordings
+            path: objectStorageOptions.storageBucketNameOptions.archivedRecordings
+          - description: The name of the bucket used to store a cache of Automated Analysis reports attached to Archived JFR files.
+            displayName: Archived Reports
+            path: objectStorageOptions.storageBucketNameOptions.archivedReports
+          - description: The name of the bucket used to store custom Event Templates.
+            displayName: Event Templates
+            path: objectStorageOptions.storageBucketNameOptions.eventTemplates
+          - description: The name of the bucket used to store JVM heap dumps.
+            displayName: Heap Dumps
+            path: objectStorageOptions.storageBucketNameOptions.heapDumps
+          - description: The name of the bucket used to store JMC Agent Probe templates.
+            displayName: JMCAgent Probe Templates
+            path: objectStorageOptions.storageBucketNameOptions.jmcAgentProbeTemplates
+          - description: The name of the bucket used to storage metadata for other objects (ex. archived recordings). This is only used if the .spec.objectStorageOptions.provider.metadataMode is set to 'bucket'.
+            displayName: Metadata
+            path: objectStorageOptions.storageBucketNameOptions.metadata
+          - description: The name of the bucket used to storage JVM thread dumps.
+            displayName: Thread Dumps
+            path: objectStorageOptions.storageBucketNameOptions.threadDumps
           - description: Options to configure the Cryostat deployments and pods metadata
             displayName: Operand metadata
             path: operandMetadata

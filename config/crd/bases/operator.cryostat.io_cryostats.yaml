@@ -5990,7 +5990,9 @@ spec:
                       More details: [Kubernetes Secrets](https://kubernetes.io/docs/concepts/configuration/secret/#secret-immutable)
                     type: string
                   storageBucketNameOptions:
-                    description: Configuration for object storage buckets.
+                    description: Configuration for object storage buckets. Only applies
+                      when external storage is configured, ie. .spec.ObjectStorageProviderOptions
+                      is non-nil.
                     properties:
                       archivedRecordings:
                         description: The name of the bucket used to store Archived

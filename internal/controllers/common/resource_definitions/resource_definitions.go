@@ -1886,8 +1886,7 @@ func NewStorageContainer(cr *model.CryostatInstance, imageTag string, tls *TLSCo
 	var containerSc *corev1.SecurityContext
 	envs := []corev1.EnvVar{
 		{
-			Name: "CRYOSTAT_BUCKETS",
-			// TODO use cr.Spec.ObjectStorageOptions.StorageBucketNameOptions if specified, with the list below as default values
+			Name:  "CRYOSTAT_BUCKETS",
 			Value: "archivedrecordings,archivedreports,eventtemplates,probes,heapdumps,threaddumps",
 		},
 		{
