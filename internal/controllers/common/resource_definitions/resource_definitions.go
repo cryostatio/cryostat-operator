@@ -1463,6 +1463,12 @@ func NewCoreContainer(cr *model.CryostatInstance, specs *ServiceSpecs, imageTag 
 			Name:  "STORAGE_PRESIGNED_TRANSFERS_ENABLED",
 			Value: strconv.FormatBool(!disablePresignedFileTransfers),
 		})
+		if cr.Spec.ObjectStorageOptions.Provider != nil && cr.Spec.ObjectStorageOptions.Provider.DisablePresignedDownloads != nil {
+			envs = append(envs, corev1.EnvVar{
+				Name:  "STORAGE_PRESIGNED_DOWNLOADS_ENABLED",
+				Value: strconv.FormatBool(!*cr.Spec.ObjectStorageOptions.Provider.DisablePresignedDownloads),
+			})
+		}
 
 		metadataMode := "tagging"
 		if cr.Spec.ObjectStorageOptions.Provider != nil && cr.Spec.ObjectStorageOptions.Provider.MetadataMode != nil {

@@ -285,6 +285,16 @@ spec:
       - description: Configuration for external object storage providers.
         displayName: Object Storage Provider Options
         path: objectStorageOptions.provider
+      - description: Whether file downloads from storage to the user's browser should
+          be performed using presigned URLs, or by Cryostat acting as a "network pipe."
+          Enabling this reduces network utilization and latency and removes some I/O
+          from Cryostat, but requires that the object storage container URLs are accessible
+          to the user's browser. Defaults to inheriting the .spec.objectStorageProviderOptions.disablePresignedFileTransfers
+          value.
+        displayName: Disable Presigned File Downloads
+        path: objectStorageOptions.provider.disablePresignedDownloads
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:booleanSwitch
       - description: Whether file transfers should be performed using presigned URLs,
           or by Cryostat acting as a "network pipe" to the other containers. Defaults
           to true for performance.

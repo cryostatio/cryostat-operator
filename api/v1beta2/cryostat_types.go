@@ -799,6 +799,10 @@ type ObjectStorageProviderOptions struct {
 	// +optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Disable Presigned File Transfers",xDescriptors={"urn:alm:descriptor:com.tectonic.ui:booleanSwitch"}
 	DisablePresignedFileTransfers *bool `json:"disablePresignedFileTransfers,omitempty"`
+	// Whether file downloads from storage to the user's browser should be performed using presigned URLs, or by Cryostat acting as a "network pipe." Enabling this reduces network utilization and latency and removes some I/O from Cryostat, but requires that the object storage container URLs are accessible to the user's browser. Defaults to inheriting the .spec.objectStorageProviderOptions.disablePresignedFileTransfers value.
+	// +optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Disable Presigned File Downloads",xDescriptors={"urn:alm:descriptor:com.tectonic.ui:booleanSwitch"}
+	DisablePresignedDownloads *bool `json:"disablePresignedDownloads,omitempty"`
 	// The object storage provider region.
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	Region *string `json:"region,omitempty"`

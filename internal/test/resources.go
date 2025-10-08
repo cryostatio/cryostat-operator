@@ -230,6 +230,7 @@ func (r *TestResources) NewCryostatWithExternalS3(secretName string) *model.Cryo
 	region := "region-east-1"
 	useVirtualHostAccess := false
 	disablePresignedFileTransfers := true
+	disablePresignedDownloads := true
 	tlsTrustAll := true
 	metadataMode := "tagging"
 	cr.Spec.ObjectStorageOptions = &operatorv1beta2.ObjectStorageOptions{
@@ -239,6 +240,7 @@ func (r *TestResources) NewCryostatWithExternalS3(secretName string) *model.Cryo
 			Region:                        &region,
 			UseVirtualHostAccess:          &useVirtualHostAccess,
 			DisablePresignedFileTransfers: &disablePresignedFileTransfers,
+			DisablePresignedDownloads:     &disablePresignedDownloads,
 			TLSTrustAll:                   &tlsTrustAll,
 			MetadataMode:                  &metadataMode,
 		},
