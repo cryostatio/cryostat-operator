@@ -795,6 +795,10 @@ type ObjectStorageProviderOptions struct {
 	// +optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Use Virtual Host Subdomain Access",xDescriptors={"urn:alm:descriptor:com.tectonic.ui:booleanSwitch"}
 	UseVirtualHostAccess *bool `json:"useVirtualHostAccess,omitempty"`
+	// Whether file transfers should be performed using presigned URLs, or by Cryostat acting as a "network pipe" to the other containers. Defaults to true for performance.
+	// +optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Disable Presigned File Transfers",xDescriptors={"urn:alm:descriptor:com.tectonic.ui:booleanSwitch"}
+	DisablePresignedFileTransfers *bool `json:"disablePresignedFileTransfers,omitempty"`
 	// The object storage provider region.
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	Region *string `json:"region,omitempty"`

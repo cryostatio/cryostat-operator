@@ -285,6 +285,13 @@ spec:
       - description: Configuration for external object storage providers.
         displayName: Object Storage Provider Options
         path: objectStorageOptions.provider
+      - description: Whether file transfers should be performed using presigned URLs,
+          or by Cryostat acting as a "network pipe" to the other containers. Defaults
+          to true for performance.
+        displayName: Disable Presigned File Transfers
+        path: objectStorageOptions.provider.disablePresignedFileTransfers
+        x-descriptors:
+        - urn:alm:descriptor:com.tectonic.ui:booleanSwitch
       - description: The strategy Cryostat will use for storing files' metadata. The
           default 'tagging' strategy stores all metadata as object Tags. The 'metadata'
           strategy stores metadata as object Metadata, which is immutable but allows

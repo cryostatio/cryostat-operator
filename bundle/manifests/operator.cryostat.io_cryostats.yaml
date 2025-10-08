@@ -5966,6 +5966,11 @@ spec:
                   provider:
                     description: Configuration for external object storage providers.
                     properties:
+                      disablePresignedFileTransfers:
+                        description: Whether file transfers should be performed using
+                          presigned URLs, or by Cryostat acting as a "network pipe"
+                          to the other containers. Defaults to true for performance.
+                        type: boolean
                       metadataMode:
                         description: |-
                           The strategy Cryostat will use for storing files' metadata. The default 'tagging' strategy stores all metadata as object Tags.

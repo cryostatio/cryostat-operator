@@ -24,7 +24,7 @@ metadata:
     capabilities: Seamless Upgrades
     categories: Monitoring, Developer Tools
     containerImage: quay.io/cryostat/cryostat-operator:4.1.0-dev
-    createdAt: "2025-10-08T20:21:35Z"
+    createdAt: "2025-10-08T20:48:33Z"
     description: JVM monitoring and profiling tool
     operatorframework.io/initialization-resource: |-
       {
@@ -249,6 +249,11 @@ spec:
           - description: Configuration for external object storage providers.
             displayName: Object Storage Provider Options
             path: objectStorageOptions.provider
+          - description: Whether file transfers should be performed using presigned URLs, or by Cryostat acting as a "network pipe" to the other containers. Defaults to true for performance.
+            displayName: Disable Presigned File Transfers
+            path: objectStorageOptions.provider.disablePresignedFileTransfers
+            x-descriptors:
+              - urn:alm:descriptor:com.tectonic.ui:booleanSwitch
           - description: The strategy Cryostat will use for storing files' metadata. The default 'tagging' strategy stores all metadata as object Tags. The 'metadata' strategy stores metadata as object Metadata, which is immutable but allows for more entries than Tags. The 'bucket' strategy stores metadata as separate files (ex. JSON object maps) in a dedicated bucket, with prefixes to differentiate the kind of object the metadata belongs to.
             displayName: Metadata Mode
             path: objectStorageOptions.provider.metadataMode
