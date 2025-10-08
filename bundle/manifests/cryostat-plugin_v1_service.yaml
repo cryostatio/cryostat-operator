@@ -1,0 +1,27 @@
+apiVersion: v1
+kind: Service
+metadata:
+  annotations:
+    service.beta.openshift.io/serving-cert-secret-name: cryostat-plugin-cert
+  creationTimestamp: null
+  labels:
+    app: cryostat-plugin
+    app.kubernetes.io/instance: cryostat-plugin
+    app.kubernetes.io/name: cryostat-plugin
+    app.kubernetes.io/part-of: cryostat-plugin
+  name: cryostat-plugin
+spec:
+  ports:
+  - name: 9443-tcp
+    port: 9443
+    protocol: TCP
+    targetPort: 9443
+  selector:
+    app: cryostat-plugin
+    app.kubernetes.io/instance: cryostat-plugin
+    app.kubernetes.io/name: cryostat-plugin
+    app.kubernetes.io/part-of: cryostat-plugin
+  sessionAffinity: None
+  type: ClusterIP
+status:
+  loadBalancer: {}

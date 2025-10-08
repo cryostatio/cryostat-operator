@@ -1,0 +1,96 @@
+apiVersion: console.openshift.io/v1
+kind: ConsoleQuickStart
+metadata:
+  annotations:
+    capability.openshift.io/name: Console
+  name: configuring-cryostat-jmx
+spec:
+  conclusion: Your Java application has now been configured to be detected by Cryostat.
+    To profile your Java applications with Cryostat, please follow [this documentation](https://docs.redhat.com/en/documentation/red_hat_build_of_cryostat/4/html/using_cryostat_to_manage_a_jfr_recording/index).
+  description: Configure your JMX-based Java applications on OpenShift to be profiled
+    and monitored using the Red Hat build of Cryostat.
+  displayName: Configure JMX-based Java applications with the Red Hat build of Cryostat
+  durationMinutes: 10
+  icon: data:image/svg+xml;base64,PD94bWwgdmVyc2lvbj0iMS4wIiBlbmNvZGluZz0iVVRGLTgiPz48c3ZnIGlkPSJMYXllcl8xIiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxMDI0IDEwMjQiPjxkZWZzPjxzdHlsZT4uY2xzLTF7ZmlsbDojZmZmO30uY2xzLTJ7ZmlsbDojMWI0OTY1O30uY2xzLTN7ZmlsbDojOTVjOWU5O30uY2xzLTR7ZmlsbDojNWZhOGQzO308L3N0eWxlPjwvZGVmcz48cG9seWdvbiBjbGFzcz0iY2xzLTQiIHBvaW50cz0iNjYxLjc2IDEzOS40OSA2MDcuMzggODUuMTEgNTUwLjQ1IDE0Mi4wNCA1NTAuNDUgMCA0NzMuNTUgMCA0NzMuNTUgMTQyLjA0IDQxNi42MiA4NS4xMSAzNjIuMjQgMTM5LjQ5IDUxMiAyODkuMjYgNjYxLjc2IDEzOS40OSIvPjxwb2x5Z29uIGNsYXNzPSJjbHMtMiIgcG9pbnRzPSI1OTcuMzQgNjU5LjgyIDY5OC45MiA2ODcuMDQgNjc3LjY0IDYwNy42MyA3NTcuMDQgNTg2LjM1IDY4Mi42OSA1MTIgNzU3LjA0IDQzNy42NSA2NzcuNjQgNDE2LjM3IDY5OC45MSAzMzYuOTYgNTk3LjM0IDM2NC4xOCA1NzAuMTMgMjYyLjYxIDUxMiAzMjAuNzQgNDUzLjg3IDI2Mi42MSA0MjYuNjYgMzY0LjE4IDMyNS4wOSAzMzYuOTYgMzQ2LjM2IDQxNi4zNyAyNjYuOTYgNDM3LjY1IDM0MS4zMSA1MTIgMjY2Ljk2IDU4Ni4zNSAzNDYuMzYgNjA3LjYzIDMyNS4wOSA2ODcuMDQgNDI2LjY2IDY1OS44MiA0NTMuODcgNzYxLjM5IDUxMiA3MDMuMjYgNTcwLjEzIDc2MS4zOSA1OTcuMzQgNjU5LjgyIi8+PHBvbHlnb24gY2xhc3M9ImNscy0zIiBwb2ludHM9IjI0Ni4yMyA0NTIuMSAyMTcuMzkgNDgwLjk0IDI0OC43NCA1MTIuMjkgMjE3LjM5IDU0My42NCAyNDYuMjMgNTcyLjQ4IDMwNi40MiA1MTIuMjkgMjQ2LjIzIDQ1Mi4xIi8+PHBvbHlnb24gY2xhc3M9ImNscy0zIiBwb2ludHM9Ijc3Ny43NyA0NTEuNTIgODA2LjYxIDQ4MC4zNiA3NzUuMjYgNTExLjcxIDgwNi42MSA1NDMuMDYgNzc3Ljc3IDU3MS45IDcxNy41OCA1MTEuNzEgNzc3Ljc3IDQ1MS41MiIvPjxwb2x5Z29uIGNsYXNzPSJjbHMtMyIgcG9pbnRzPSI0MzEuNDkgNzcyLjQgMzkyLjA5IDc4Mi45NiAzODAuNjIgNzQwLjE0IDMzNy44IDc1MS42MSAzMjcuMjQgNzEyLjIyIDQwOS40NiA2OTAuMTkgNDMxLjQ5IDc3Mi40Ii8+PHBvbHlnb24gY2xhc3M9ImNscy0zIiBwb2ludHM9IjY5Ny4yNiA3MTEuOTMgNjg2LjcxIDc1MS4zMiA2NDMuODggNzM5Ljg1IDYzMi40MSA3ODIuNjcgNTkzLjAxIDc3Mi4xMSA2MTUuMDQgNjg5LjkgNjk3LjI2IDcxMS45MyIvPjxwb2x5Z29uIGNsYXNzPSJjbHMtMyIgcG9pbnRzPSI1OTIuNTEgMjUxLjYgNjMxLjkxIDI0MS4wNCA2NDMuMzggMjgzLjg2IDY4Ni4yIDI3Mi4zOSA2OTYuNzYgMzExLjc4IDYxNC41NCAzMzMuODEgNTkyLjUxIDI1MS42Ii8+PHBvbHlnb24gY2xhc3M9ImNscy0zIiBwb2ludHM9IjMyNi43NCAzMTIuMDcgMzM3LjI5IDI3Mi42OCAzODAuMTIgMjg0LjE1IDM5MS41OSAyNDEuMzMgNDMwLjk5IDI1MS44OSA0MDguOTYgMzM0LjEgMzI2Ljc0IDMxMi4wNyIvPjxwb2x5Z29uIGNsYXNzPSJjbHMtNCIgcG9pbnRzPSIyNjQuMjggMTk2LjA1IDE5MCAyMTUuOTUgMjEwLjgzIDI5My43MiA4Ny44MiAyMjIuNyA0OS4zNyAyODkuMyAxNzIuMzggMzYwLjMyIDk0LjYxIDM4MS4xNiAxMTQuNTIgNDU1LjQ1IDMxOS4xIDQwMC42MyAyNjQuMjggMTk2LjA1Ii8+PHBvbHlnb24gY2xhc3M9ImNscy00IiBwb2ludHM9IjExNC41MiA1NjguNTYgOTQuNjEgNjQyLjg0IDE3Mi4zOCA2NjMuNjggNDkuMzcgNzM0LjcgODcuODIgODAxLjMgMjEwLjgzIDczMC4yOCAxOTAgODA4LjA1IDI2NC4yOCA4MjcuOTUgMzE5LjEgNjIzLjM3IDExNC41MiA1NjguNTYiLz48cG9seWdvbiBjbGFzcz0iY2xzLTQiIHBvaW50cz0iMzYyLjI0IDg4NC41MSA0MTYuNjIgOTM4Ljg5IDQ3My41NSA4ODEuOTYgNDczLjU1IDEwMjQgNTUwLjQ1IDEwMjQgNTUwLjQ1IDg4MS45NiA2MDcuMzggOTM4Ljg5IDY2MS43NiA4ODQuNTEgNTEyIDczNC43NCAzNjIuMjQgODg0LjUxIi8+PHBvbHlnb24gY2xhc3M9ImNscy00IiBwb2ludHM9Ijc1OS43MiA4MjcuOTUgODM0IDgwOC4wNSA4MTMuMTcgNzMwLjI4IDkzNi4xOCA4MDEuMyA5NzQuNjMgNzM0LjcgODUxLjYyIDY2My42OCA5MjkuMzkgNjQyLjg0IDkwOS40OCA1NjguNTUgNzA0LjkgNjIzLjM3IDc1OS43MiA4MjcuOTUiLz48cG9seWdvbiBjbGFzcz0iY2xzLTQiIHBvaW50cz0iOTA5LjQ4IDQ1NS40NCA5MjkuMzkgMzgxLjE2IDg1MS42MiAzNjAuMzIgOTc0LjYzIDI4OS4zIDkzNi4xOCAyMjIuNyA4MTMuMTcgMjkzLjcyIDgzNCAyMTUuOTUgNzU5LjcyIDE5Ni4wNSA3MDQuOSA0MDAuNjMgOTA5LjQ4IDQ1NS40NCIvPjxwYXRoIGNsYXNzPSJjbHMtMSIgZD0iTTUxMi41NCw1NzkuNDdjLTM3LjQ3LDAtNjcuOTYtMzAuNDktNjcuOTYtNjcuOTZzMzAuNDktNjcuOTYsNjcuOTYtNjcuOTZjMjUuMTEsMCw0Ny4wNiwxMy42OSw1OC44MiwzNGw2OS4xNy0zOS43Ni0xMjguNTMtNzQuMjEtMTI4LjUzLDc0LjIxdjE0OC40MmwxMjguNTMsNzQuMjEsMTI4LjUzLTc0LjIxLTY5LjE3LTQwLjczYy0xMS43NywyMC4zLTMzLjcyLDMzLjk5LTU4LjgyLDMzLjk5WiIvPjwvc3ZnPgo=
+  introduction: |-
+    Red Hat build of Cryostat is a container-native Java application based on JDK Flight Recorder (JFR). You can use it to monitor the performance of the Java Virtual Machine (JVM) for containerized workloads that run on an OpenShift cluster.
+    - To enable Cryostat to gather, store, and analyze Java Flight Recorder (JFR) data about target applications that run on Java Virtual Machine (JVM)s, you must configure the applications so that Cryostat can detect and connect to them.
+    - You can use Red Hat build of Cryostat Operator to automatically configure your target application to use the Cryostat Agent to register with a specific Cryostat instance and provide HTTP-based connectivity by following the **Auto-configure Java applications with the Red Hat build of Cryostat** quick start.
+    - Alternatively, you can configure your Java applications to allow Java Management Extensions (JMX) connections and use an OpenShift Service for detection and JMX for connectivity. JMX is a standard feature on a JVM with which you can monitor and manage target applications that run on the JVM. You may enable and configure JMX when you start the target application JVM so that Red Hat build of Cryostat can communicate with your JVM over the network using built-in JDK functionality. This quick start will explain this JMX-based setup.
+    - If you have not yet installed the Red Hat Build of Cryostat Operator, start with the **Get started with the Red Hat build of Cryostat** quick start.
+    - **Note**: The quickstart uses a sample [Quarkus application](https://github.com/quarkusio/quarkus-quickstarts). You can deploy your own application or follow the **Get started with Quarkus using s2i** quick start.
+  nextQuickStart:
+  - configuring-cryostat-autoconfig
+  tasks:
+  - description: |
+      To enable remote JMX connections:
+      1. In the main navigation, click the dropdown menu and select **Administrator**.
+      1. In the navigation menu, click **Workloads > Deployments**.
+      1. Click on the quarkus-quickstarts deployment name (or your application's deployment name).
+      1. Click **Environment.**
+      1. In the **Single values (env)** section, add the following environment variable:
+
+          - **Name**: `JAVA_OPTS_APPEND`
+          - **Value**:
+              ```
+              -Dcom.sun.management.jmxremote.port=9091
+              -Dcom.sun.management.jmxremote.authenticate=false
+              -Dcom.sun.management.jmxremote.ssl=false
+              ```
+
+          Note: This method enables remote JMX without authentication. For details on configuring authentication with SSL/TLS for Remote JMX, see [Configuring Java applications](https://docs.redhat.com/en/documentation/red_hat_build_of_cryostat/4/html/getting_started_with_cryostat/configuring_java_applications).
+
+      1. Click **Save.**
+    review:
+      failedTaskHelp: This task isn't verified yet. Try the task again, or [read more](https://docs.redhat.com/en/documentation/red_hat_build_of_cryostat/4/html/getting_started_with_cryostat/configuring_java_applications)
+        about this topic.
+      instructions: |
+        #### Click **Reload** at the bottom of the **Environment** tab.
+        Do you see a **single values entry** for **`JAVA_OPTS_APPEND`**?
+    title: Enable **Remote Java Management Extensions (JMX) connections** on your
+      Java Application
+  - description: |
+      To update Red Hat OpenShift Service with the remote JMX port:
+      1. In the main navigation, click the dropdown menu and select **Administrator**.
+      1. In the navigation menu, click **Networking > Services**.
+      1. Click on the quarkus-quickstarts service name (or your application's service name).
+      1. Click the “YAML” tab to open the YAML editor.
+      1. In the **spec > ports** section, add a new port for jfr-jmx
+
+          ```
+          - name: jfr-jmx
+            protocol: TCP
+            port: 9091
+            targetPort: 9091
+          ```
+
+      1. Click **Save**.
+    review:
+      failedTaskHelp: This task isn't verified yet. Try the task again, or [read more](https://docs.redhat.com/en/documentation/red_hat_build_of_cryostat/4/html/getting_started_with_cryostat/configuring_java_applications)
+        about this topic.
+      instructions: |
+        #### Verify that the service port is added to the sample resource:
+        1. In the main navigation, click the dropdown menu and select **Developer**.
+        1. In the navigation menu, click **Topology**.
+        1. Click on the quarkus-quickstarts deployment name (or your application's service name).
+        1. Click on the **Resources** tab.
+
+        Do you see **Service port: jfr-jmx -> Pod port: 9091** in the quarkus-quickstarts service?
+    title: Updating Red Hat OpenShift Service with the remote JMX port
+  - description: |
+      View your Java application as a target in the Red Hat build of Cryostat web application:
+      1. In the main navigation, click the dropdown menu and select **Developer**.
+      1. In the navigation menu, click **Topology**.
+      1. The external link icon on **cryostat-sample deployment** represents the route URL.
+      1. Click the external link icon to open the URL and run the Cryostat web application in a new browser tab.
+      1. Enter your Red Hat OpenShift credentials to log in to the Cryostat web application.
+      1. In the web application, click **Recordings** in the navigation menu.
+      1. View quarkus-quickstarts (or your deployed application) in the **Targets** list.
+    review:
+      failedTaskHelp: This task isn't verified yet. Try the task again, or [read more](https://docs.redhat.com/en/documentation/red_hat_build_of_cryostat/4/html/getting_started_with_cryostat/configuring_java_applications)
+        about this topic.
+      instructions: |-
+        #### Verify your Java application is running on Red Hat build of Cryostat web application:
+
+        Did the Cryostat web application open in a separate browser window?
+    title: View your Java Application as a target in Cryostat
