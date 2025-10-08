@@ -5,7 +5,7 @@ package constants
 const AppName = "Cryostat"
 
 // Version of the Cryostat Operator
-const OperatorVersion = "4.0.3"
+const OperatorVersion = "4.0.4-dev"
 
 // Default image tag for the OAuth2 Proxy
 const DefaultOAuth2ProxyImageTag = "quay.io/oauth2-proxy/oauth2-proxy:latest"
