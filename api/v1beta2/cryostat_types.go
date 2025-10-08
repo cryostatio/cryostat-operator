@@ -791,10 +791,10 @@ type ObjectStorageProviderOptions struct {
 	// The complete URL (not including authentication information) to the external object storage provider.
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	URL *string `json:"url,omitempty"`
-	// Whether path-style access should be used, as opposed to subdomain access. Defaults to true for compatibility.
+	// Whether virtual host subdomain access should be used, as opposed to path-style access. Defaults to false for compatibility.
 	// +optional
-	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Use Path-Style Access",xDescriptors={"urn:alm:descriptor:com.tectonic.ui:booleanSwitch"}
-	UsePathStyleAccess *bool `json:"usePathStyleAccess,omitempty"`
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Use Virtual Host Subdomain Access",xDescriptors={"urn:alm:descriptor:com.tectonic.ui:booleanSwitch"}
+	UseVirtualHostAccess *bool `json:"useVirtualHostAccess,omitempty"`
 	// The object storage provider region.
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	Region *string `json:"region,omitempty"`

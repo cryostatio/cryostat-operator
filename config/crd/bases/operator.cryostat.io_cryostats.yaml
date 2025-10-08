@@ -5976,9 +5976,10 @@ spec:
                         description: The complete URL (not including authentication
                           information) to the external object storage provider.
                         type: string
-                      usePathStyleAccess:
-                        description: Whether path-style access should be used, as
-                          opposed to subdomain access. Defaults to true for compatibility.
+                      useVirtualHostAccess:
+                        description: Whether virtual host subdomain access should
+                          be used, as opposed to path-style access. Defaults to false
+                          for compatibility.
                         type: boolean
                     type: object
                   secretName:

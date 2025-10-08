@@ -24,7 +24,7 @@ metadata:
     capabilities: Seamless Upgrades
     categories: Monitoring, Developer Tools
     containerImage: quay.io/cryostat/cryostat-operator:4.1.0-dev
-    createdAt: "2025-10-07T18:40:23Z"
+    createdAt: "2025-10-08T20:21:35Z"
     description: JVM monitoring and profiling tool
     operatorframework.io/initialization-resource: |-
       {
@@ -267,9 +267,9 @@ spec:
           - description: The complete URL (not including authentication information) to the external object storage provider.
             displayName: URL
             path: objectStorageOptions.provider.url
-          - description: Whether path-style access should be used, as opposed to subdomain access. Defaults to true for compatibility.
-            displayName: Use Path-Style Access
-            path: objectStorageOptions.provider.usePathStyleAccess
+          - description: Whether virtual host subdomain access should be used, as opposed to path-style access. Defaults to false for compatibility.
+            displayName: Use Virtual Host Subdomain Access
+            path: objectStorageOptions.provider.useVirtualHostAccess
             x-descriptors:
               - urn:alm:descriptor:com.tectonic.ui:booleanSwitch
           - description: 'Name of the secret containing the object storage secret access key. This secret must contain a ACCESS_KEY secret which is the object storage access key ID, and a SECRET_KEY secret which is the object storage secret access key. If using an external S3 provider requiring authentication then this must be provided. It is recommended that the secret should be marked as immutable to avoid accidental changes to secret''s data. More details: [Kubernetes Secrets](https://kubernetes.io/docs/concepts/configuration/secret/#secret-immutable)'

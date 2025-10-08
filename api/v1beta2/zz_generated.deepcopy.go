@@ -638,8 +638,8 @@ func (in *ObjectStorageProviderOptions) DeepCopyInto(out *ObjectStorageProviderO
 		*out = new(string)
 		**out = **in
 	}
-	if in.UsePathStyleAccess != nil {
-		in, out := &in.UsePathStyleAccess, &out.UsePathStyleAccess
+	if in.UseVirtualHostAccess != nil {
+		in, out := &in.UseVirtualHostAccess, &out.UseVirtualHostAccess
 		*out = new(bool)
 		**out = **in
 	}

@@ -1437,13 +1437,13 @@ func NewCoreContainer(cr *model.CryostatInstance, specs *ServiceSpecs, imageTag 
 			},
 		}...)
 
-		usePathStyleAccess := true
-		if cr.Spec.ObjectStorageOptions.Provider != nil && cr.Spec.ObjectStorageOptions.Provider.UsePathStyleAccess != nil {
-			usePathStyleAccess = *cr.Spec.ObjectStorageOptions.Provider.UsePathStyleAccess
+		useVirtualHostAccess := false
+		if cr.Spec.ObjectStorageOptions.Provider != nil && cr.Spec.ObjectStorageOptions.Provider.UseVirtualHostAccess != nil {
+			useVirtualHostAccess = *cr.Spec.ObjectStorageOptions.Provider.UseVirtualHostAccess
 		}
 		envs = append(envs, corev1.EnvVar{
 			Name:  "QUARKUS_S3_PATH_STYLE_ACCESS",
-			Value: strconv.FormatBool(usePathStyleAccess),
+			Value: strconv.FormatBool(!useVirtualHostAccess),
 		})
 
 		metadataMode := "tagging"

@@ -310,10 +310,10 @@ spec:
           the external object storage provider.
         displayName: URL
         path: objectStorageOptions.provider.url
-      - description: Whether path-style access should be used, as opposed to subdomain
-          access. Defaults to true for compatibility.
-        displayName: Use Path-Style Access
-        path: objectStorageOptions.provider.usePathStyleAccess
+      - description: Whether virtual host subdomain access should be used, as opposed
+          to path-style access. Defaults to false for compatibility.
+        displayName: Use Virtual Host Subdomain Access
+        path: objectStorageOptions.provider.useVirtualHostAccess
         x-descriptors:
         - urn:alm:descriptor:com.tectonic.ui:booleanSwitch
       - description: 'Name of the secret containing the object storage secret access
