@@ -59,6 +59,7 @@ type TestResources struct {
 	DisableAgentHostnameVerify bool
 	AllowAgentInsecure         bool
 	DatabaseSecret             *corev1.Secret
+	StorageSecret              *corev1.Secret
 }
 
 func NewTestScheme() *runtime.Scheme {
@@ -218,6 +219,56 @@ func (r *TestResources) NewCryostatWithPVCSpec() *model.CryostatInstance {
 				},
 				Spec: newPVCSpec("cool-obj-storage", "20Gi", corev1.ReadWriteMany),
 			},
+		},
+	}
+	return cr
+}
+
+func (r *TestResources) NewCryostatWithExternalS3(secretName string) *model.CryostatInstance {
+	cr := r.NewCryostat()
+	providerUrl := "https://example.com:1234"
+	region := "region-east-1"
+	useVirtualHostAccess := false
+	tlsTrustAll := true
+	metadataMode := "tagging"
+	cr.Spec.ObjectStorageOptions = &operatorv1beta2.ObjectStorageOptions{
+		SecretName: &secretName,
+		Provider: &operatorv1beta2.ObjectStorageProviderOptions{
+			URL:                  &providerUrl,
+			Region:               &region,
+			UseVirtualHostAccess: &useVirtualHostAccess,
+			TLSTrustAll:          &tlsTrustAll,
+			MetadataMode:         &metadataMode,
+		},
+	}
+	return cr
+}
+
+func (r *TestResources) NewCryostatWithCustomizedStorageBucketNames() *model.CryostatInstance {
+	cr := r.NewCryostat()
+	providerUrl := "https://example.com:1234"
+	region := "region-east-1"
+
+	archivedRecordings := "a"
+	archivedReports := "b"
+	eventTemplates := "c"
+	probeTemplates := "d"
+	heapDumps := "e"
+	threadDumps := "f"
+	metadata := "z"
+	cr.Spec.ObjectStorageOptions = &operatorv1beta2.ObjectStorageOptions{
+		Provider: &operatorv1beta2.ObjectStorageProviderOptions{
+			URL:    &providerUrl,
+			Region: &region,
+		},
+		StorageBucketNameOptions: &operatorv1beta2.StorageBucketNameOptions{
+			ArchivedRecordings:     &archivedRecordings,
+			ArchivedReports:        &archivedReports,
+			EventTemplates:         &eventTemplates,
+			JMCAgentProbeTemplates: &probeTemplates,
+			HeapDumps:              &heapDumps,
+			ThreadDumps:            &threadDumps,
+			Metadata:               &metadata,
 		},
 	}
 	return cr
@@ -1764,6 +1815,19 @@ func (r *TestResources) NewCustomDatabaseSecret() *corev1.Secret {
 	}
 }
 
+func (r *TestResources) NewExternalStorageSecret(name string) *corev1.Secret {
+	return &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: r.Namespace,
+		},
+		Data: map[string][]byte{
+			"SECRET_KEY": []byte("external-s3-secret"),
+			"ACCESS_KEY": []byte("external-s3-access"),
+		},
+	}
+}
+
 func (r *TestResources) NewStorageSecret() *corev1.Secret {
 	return &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
@@ -1771,9 +1835,8 @@ func (r *TestResources) NewStorageSecret() *corev1.Secret {
 			Namespace: r.Namespace,
 		},
 		Data: map[string][]byte{
-			"SECRET_KEY":     []byte("object_storage"),
-			"ACCESS_KEY":     []byte("cryostat"),
-			"BASIC_AUTH_KEY": []byte("Y3J5b3N0YXQ6b2JqZWN0X3N0b3JhZ2U="),
+			"SECRET_KEY": []byte("object_storage"),
+			"ACCESS_KEY": []byte("cryostat"),
 		},
 	}
 }
@@ -2482,8 +2545,11 @@ func (r *TestResources) NewDatabasePodAnnotations() map[string]string {
 func (r *TestResources) NewStoragePodAnnotations() map[string]string {
 	annotations := map[string]string{}
 
-	secrets := []*corev1.Secret{
-		r.NewStorageSecret(),
+	secrets := []*corev1.Secret{}
+	if r.StorageSecret != nil {
+		secrets = append(secrets, r.StorageSecret)
+	} else {
+		secrets = append(secrets, r.NewStorageSecret())
 	}
 	if r.TLS {
 		secrets = append(secrets,
@@ -2500,9 +2566,7 @@ func (r *TestResources) NewStoragePodAnnotations() map[string]string {
 func (r *TestResources) NewReportsPodAnnotations() map[string]string {
 	annotations := map[string]string{}
 
-	secrets := []*corev1.Secret{
-		r.NewStorageSecret(),
-	}
+	secrets := []*corev1.Secret{}
 	if r.TLS {
 		secrets = append(secrets,
 			r.NewCertSecret(r.NewReportsCert()),
@@ -2588,10 +2652,6 @@ func (r *TestResources) NewCoreEnvironmentVariables(reportsUrl string, ingress b
 		{
 			Name:  "QUARKUS_DATASOURCE_USERNAME",
 			Value: "cryostat",
-		},
-		{
-			Name:  "STORAGE_BUCKETS_ARCHIVE_NAME",
-			Value: "archivedrecordings",
 		},
 		{
 			Name:  "QUARKUS_S3_ENDPOINT_OVERRIDE",
@@ -2791,12 +2851,6 @@ func (r *TestResources) NewGrafanaEnvironmentVariables() []corev1.EnvVar {
 }
 
 func (r *TestResources) NewDatasourceEnvironmentVariables() []corev1.EnvVar {
-	var storageProtocol string
-	if r.TLS {
-		storageProtocol = "https"
-	} else {
-		storageProtocol = "http"
-	}
 	envs := []corev1.EnvVar{
 		{
 			Name:  "QUARKUS_HTTP_HOST",
@@ -2805,10 +2859,6 @@ func (r *TestResources) NewDatasourceEnvironmentVariables() []corev1.EnvVar {
 		{
 			Name:  "QUARKUS_HTTP_PORT",
 			Value: "8989",
-		},
-		{
-			Name:  "CRYOSTAT_STORAGE_BASE_URI",
-			Value: fmt.Sprintf("%s://%s-storage.%s.svc.cluster.local:8333", storageProtocol, r.Name, r.Namespace),
 		},
 	}
 	if r.TLS {
@@ -2834,13 +2884,8 @@ func (r *TestResources) NewReportsEnvironmentVariables(resources *corev1.Resourc
 		}
 	}
 	opts := fmt.Sprintf("-XX:+PrintCommandLineFlags -XX:ActiveProcessorCount=%d -Dorg.openjdk.jmc.flightrecorder.parser.singlethreaded=%t", cpus, cpus < 2)
-	optional := false
-	var storageProtocol string
 	if r.TLS {
-		storageProtocol = "https"
 		opts += " -Dquarkus.http.tls-configuration-name=https -Dquarkus.tls.https.reload-period=1h -Dquarkus.tls.https.key-store.pem.0.cert=/var/run/secrets/operator.cryostat.io/cryostat-reports-tls/tls.crt -Dquarkus.tls.https.key-store.pem.0.key=/var/run/secrets/operator.cryostat.io/cryostat-reports-tls/tls.key"
-	} else {
-		storageProtocol = "http"
 	}
 	envs := []corev1.EnvVar{
 		{
@@ -2850,26 +2895,6 @@ func (r *TestResources) NewReportsEnvironmentVariables(resources *corev1.Resourc
 		{
 			Name:  "JAVA_OPTS_APPEND",
 			Value: opts,
-		},
-		{
-			Name:  "CRYOSTAT_STORAGE_BASE_URI",
-			Value: fmt.Sprintf("%s://%s-storage.%s.svc.cluster.local:8333", storageProtocol, r.Name, r.Namespace),
-		},
-		{
-			Name:  "CRYOSTAT_STORAGE_AUTH_METHOD",
-			Value: "Basic",
-		},
-		{
-			Name: "CRYOSTAT_STORAGE_AUTH",
-			ValueFrom: &corev1.EnvVarSource{
-				SecretKeyRef: &corev1.SecretKeySelector{
-					LocalObjectReference: corev1.LocalObjectReference{
-						Name: "cryostat-storage",
-					},
-					Key:      "BASIC_AUTH_KEY",
-					Optional: &optional,
-				},
-			},
 		},
 	}
 	if r.TLS {
@@ -2900,7 +2925,7 @@ func (r *TestResources) NewStorageEnvironmentVariables() []corev1.EnvVar {
 	envs := []corev1.EnvVar{
 		{
 			Name:  "CRYOSTAT_BUCKETS",
-			Value: "archivedrecordings,archivedreports,eventtemplates,probes",
+			Value: "archivedrecordings,archivedreports,eventtemplates,probes,heapdumps,threaddumps",
 		},
 		{
 			Name:  "CRYOSTAT_ACCESS_KEY",

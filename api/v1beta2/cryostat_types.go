@@ -100,6 +100,10 @@ type CryostatSpec struct {
 	// +optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Database Options"
 	DatabaseOptions *DatabaseOptions `json:"databaseOptions,omitempty"`
+	// Options to configure the Cryostat application's object storage. If not provided, a managed instance will be automatically provisioned.
+	// +optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Object Storage Options"
+	ObjectStorageOptions *ObjectStorageOptions `json:"objectStorageOptions,omitempty"`
 	// Options to configure the Cryostat deployments and pods metadata
 	// +optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Operand metadata"
@@ -760,6 +764,83 @@ type DatabaseOptions struct {
 	// +optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:io.kubernetes:Secret"}
 	SecretName *string `json:"secretName,omitempty"`
+}
+
+// ObjectStorageOptions provides configuration options to the Cryostat application's object storage.
+type ObjectStorageOptions struct {
+	// Name of the secret containing the object storage secret access key. This secret must contain a
+	// ACCESS_KEY secret which is the object storage access key ID, and a SECRET_KEY secret which is the object storage secret access key.
+	// If using an external S3 provider requiring authentication then this must be provided.
+	// It is recommended that the secret should be marked as immutable to avoid accidental changes to secret's data.
+	// More details: [Kubernetes Secrets](https://kubernetes.io/docs/concepts/configuration/secret/#secret-immutable)
+	// +optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:io.kubernetes:Secret"}
+	SecretName *string `json:"secretName,omitempty"`
+	// Configuration for external object storage providers.
+	// +optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Object Storage Provider Options"
+	Provider *ObjectStorageProviderOptions `json:"provider,omitempty"`
+	// Configuration for object storage buckets. Only applies when external storage is configured, ie. .spec.ObjectStorageProviderOptions is non-nil.
+	// +optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Storage Bucket Names"
+	StorageBucketNameOptions *StorageBucketNameOptions `json:"storageBucketNameOptions,omitempty"`
+}
+
+// ObjectStorageProviderOptions provides configuration options to the Cryostat application's external object storage.
+type ObjectStorageProviderOptions struct {
+	// The complete URL (not including authentication information) to the external object storage provider.
+	// +operator-sdk:csv:customresourcedefinitions:type=spec
+	URL *string `json:"url,omitempty"`
+	// Whether virtual host subdomain access should be used, as opposed to path-style access. Defaults to false for compatibility.
+	// +optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Use Virtual Host Subdomain Access",xDescriptors={"urn:alm:descriptor:com.tectonic.ui:booleanSwitch"}
+	UseVirtualHostAccess *bool `json:"useVirtualHostAccess,omitempty"`
+	// The object storage provider region.
+	// +operator-sdk:csv:customresourcedefinitions:type=spec
+	Region *string `json:"region,omitempty"`
+	// Whether Cryostat should trust all TLS certificates presented by the external object storage provider. Defaults to false.
+	// +optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="TLS Trust All",xDescriptors={"urn:alm:descriptor:com.tectonic.ui:booleanSwitch"}
+	TLSTrustAll *bool `json:"tlsTrustAll,omitempty"`
+	// The strategy Cryostat will use for storing files' metadata. The default 'tagging' strategy stores all metadata as object Tags.
+	// The 'metadata' strategy stores metadata as object Metadata, which is immutable but allows for more entries than Tags.
+	// The 'bucket' strategy stores metadata as separate files (ex. JSON object maps) in a dedicated bucket,
+	// with prefixes to differentiate the kind of object the metadata belongs to.
+	// +optional
+	// +kubebuilder:validation:Enum=tagging;metadata;bucket
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:com.tectonic.ui:select:tagging","urn:alm:descriptor:com.tectonic.ui:select:metadata","urn:alm:descriptor:com.tectonic.ui:select:bucket"}
+	MetadataMode *string `json:"metadataMode,omitempty"`
+}
+
+type StorageBucketNameOptions struct {
+	// The name of the bucket used to store Archived JFR files.
+	// +optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec
+	ArchivedRecordings *string `json:"archivedRecordings,omitempty"`
+	// The name of the bucket used to store a cache of Automated Analysis reports attached to Archived JFR files.
+	// +optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec
+	ArchivedReports *string `json:"archivedReports,omitempty"`
+	// The name of the bucket used to store custom Event Templates.
+	// +optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec
+	EventTemplates *string `json:"eventTemplates,omitempty"`
+	// The name of the bucket used to store JMC Agent Probe templates.
+	// +optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec
+	JMCAgentProbeTemplates *string `json:"jmcAgentProbeTemplates,omitempty"`
+	// The name of the bucket used to store JVM heap dumps.
+	// +optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec
+	HeapDumps *string `json:"heapDumps,omitempty"`
+	// The name of the bucket used to storage JVM thread dumps.
+	// +optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec
+	ThreadDumps *string `json:"threadDumps,omitempty"`
+	// The name of the bucket used to storage metadata for other objects (ex. archived recordings). This is only used if the .spec.objectStorageOptions.provider.metadataMode is set to 'bucket'.
+	// +optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec
+	Metadata *string `json:"metadata,omitempty"`
 }
 
 // AgentOptions provides customization for how the operator configures Cryostat Agents.

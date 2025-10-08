@@ -194,6 +194,10 @@ func (r *Reconciler) reconcileStorageService(ctx context.Context, cr *model.Cryo
 		},
 	}
 
+	deployManagedStorage := cr.Spec.ObjectStorageOptions == nil || cr.Spec.ObjectStorageOptions.Provider == nil
+	if !deployManagedStorage {
+		return r.deleteService(ctx, svc)
+	}
 	scheme := "http"
 	if tls != nil {
 		scheme = "https"
