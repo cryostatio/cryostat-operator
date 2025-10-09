@@ -2739,6 +2739,14 @@ func (r *TestResources) NewCoreEnvironmentVariables(reportsUrl string, ingress b
 			Name:  "AWS_SECRET_ACCESS_KEY",
 			Value: "$(QUARKUS_S3_AWS_CREDENTIALS_STATIC_PROVIDER_SECRET_ACCESS_KEY)",
 		},
+		{
+			Name:  "STORAGE_PRESIGNED_TRANSFERS_ENABLED",
+			Value: "true",
+		},
+		{
+			Name:  "STORAGE_PRESIGNED_DOWNLOADS_ENABLED",
+			Value: "false",
+		},
 	}
 	if r.TLS {
 		envs = append(envs,

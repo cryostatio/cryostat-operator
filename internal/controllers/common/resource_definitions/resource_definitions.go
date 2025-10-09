@@ -1427,6 +1427,14 @@ func NewCoreContainer(cr *model.CryostatInstance, specs *ServiceSpecs, imageTag 
 				Name:  "QUARKUS_S3_AWS_REGION",
 				Value: "us-east-1",
 			},
+			{
+				Name:  "STORAGE_PRESIGNED_TRANSFERS_ENABLED",
+				Value: "true",
+			},
+			{
+				Name:  "STORAGE_PRESIGNED_DOWNLOADS_ENABLED",
+				Value: "false",
+			},
 		}...)
 	} else {
 		if cr.Spec.ObjectStorageOptions.Provider.URL == nil {
