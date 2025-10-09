@@ -216,7 +216,8 @@ func (r *Reconciler) reconcileDatabaseNetworkPolicy(ctx context.Context, cr *mod
 		},
 	}
 	allDisabled := cr.Spec.NetworkPolicies != nil && cr.Spec.NetworkPolicies.DatabaseConfig != nil && cr.Spec.NetworkPolicies.DatabaseConfig.Disabled != nil && *cr.Spec.NetworkPolicies.DatabaseConfig.Disabled
-	if allDisabled || (cr.Spec.NetworkPolicies != nil && cr.Spec.NetworkPolicies.DatabaseConfig != nil && cr.Spec.NetworkPolicies.DatabaseConfig.IngressDisabled != nil && *cr.Spec.NetworkPolicies.DatabaseConfig.IngressDisabled) {
+	ingressDisabled := cr.Spec.NetworkPolicies != nil && cr.Spec.NetworkPolicies.DatabaseConfig != nil && cr.Spec.NetworkPolicies.DatabaseConfig.IngressDisabled != nil && *cr.Spec.NetworkPolicies.DatabaseConfig.IngressDisabled
+	if allDisabled || ingressDisabled {
 		return r.deletePolicy(ctx, ingressPolicy)
 	}
 
@@ -256,7 +257,9 @@ func (r *Reconciler) reconcileStorageNetworkPolicy(ctx context.Context, cr *mode
 		},
 	}
 	allDisabled := cr.Spec.NetworkPolicies != nil && cr.Spec.NetworkPolicies.StorageConfig != nil && cr.Spec.NetworkPolicies.StorageConfig.Disabled != nil && *cr.Spec.NetworkPolicies.StorageConfig.Disabled
-	if allDisabled || (cr.Spec.NetworkPolicies != nil && cr.Spec.NetworkPolicies.StorageConfig != nil && cr.Spec.NetworkPolicies.StorageConfig.IngressDisabled != nil && *cr.Spec.NetworkPolicies.StorageConfig.IngressDisabled) {
+	deployManagedStorage := cr.Spec.ObjectStorageOptions == nil || cr.Spec.ObjectStorageOptions.Provider == nil
+	ingressDisabled := cr.Spec.NetworkPolicies != nil && cr.Spec.NetworkPolicies.StorageConfig != nil && cr.Spec.NetworkPolicies.StorageConfig.IngressDisabled != nil && *cr.Spec.NetworkPolicies.StorageConfig.IngressDisabled
+	if allDisabled || !deployManagedStorage || ingressDisabled {
 		return r.deletePolicy(ctx, ingressPolicy)
 	}
 
@@ -302,7 +305,8 @@ func (r *Reconciler) reconcileReportsNetworkPolicy(ctx context.Context, cr *mode
 		},
 	}
 	allDisabled := cr.Spec.NetworkPolicies != nil && cr.Spec.NetworkPolicies.ReportsConfig != nil && cr.Spec.NetworkPolicies.ReportsConfig.Disabled != nil && *cr.Spec.NetworkPolicies.ReportsConfig.Disabled
-	if allDisabled || (cr.Spec.NetworkPolicies != nil && cr.Spec.NetworkPolicies.ReportsConfig != nil && cr.Spec.NetworkPolicies.ReportsConfig.IngressDisabled != nil && *cr.Spec.NetworkPolicies.ReportsConfig.IngressDisabled) {
+	ingressDisabled := cr.Spec.NetworkPolicies != nil && cr.Spec.NetworkPolicies.ReportsConfig != nil && cr.Spec.NetworkPolicies.ReportsConfig.IngressDisabled != nil && *cr.Spec.NetworkPolicies.ReportsConfig.IngressDisabled
+	if allDisabled || ingressDisabled {
 		return r.deletePolicy(ctx, ingressPolicy)
 	}
 

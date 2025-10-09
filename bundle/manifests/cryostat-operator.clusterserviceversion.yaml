@@ -24,7 +24,7 @@ metadata:
     capabilities: Seamless Upgrades
     categories: Monitoring, Developer Tools
     containerImage: quay.io/cryostat/cryostat-operator:4.1.0-dev
-    createdAt: "2025-09-22T20:35:39Z"
+    createdAt: "2025-10-08T20:21:35Z"
     description: JVM monitoring and profiling tool
     operatorframework.io/initialization-resource: |-
       {
@@ -243,6 +243,64 @@ spec:
             path: networkPolicies.storageConfig.ingressDisabled
             x-descriptors:
               - urn:alm:descriptor:com.tectonic.ui:booleanSwitch
+          - description: Options to configure the Cryostat application's object storage. If not provided, a managed instance will be automatically provisioned.
+            displayName: Object Storage Options
+            path: objectStorageOptions
+          - description: Configuration for external object storage providers.
+            displayName: Object Storage Provider Options
+            path: objectStorageOptions.provider
+          - description: The strategy Cryostat will use for storing files' metadata. The default 'tagging' strategy stores all metadata as object Tags. The 'metadata' strategy stores metadata as object Metadata, which is immutable but allows for more entries than Tags. The 'bucket' strategy stores metadata as separate files (ex. JSON object maps) in a dedicated bucket, with prefixes to differentiate the kind of object the metadata belongs to.
+            displayName: Metadata Mode
+            path: objectStorageOptions.provider.metadataMode
+            x-descriptors:
+              - urn:alm:descriptor:com.tectonic.ui:select:tagging
+              - urn:alm:descriptor:com.tectonic.ui:select:metadata
+              - urn:alm:descriptor:com.tectonic.ui:select:bucket
+          - description: The object storage provider region.
+            displayName: Region
+            path: objectStorageOptions.provider.region
+          - description: Whether Cryostat should trust all TLS certificates presented by the external object storage provider. Defaults to false.
+            displayName: TLS Trust All
+            path: objectStorageOptions.provider.tlsTrustAll
+            x-descriptors:
+              - urn:alm:descriptor:com.tectonic.ui:booleanSwitch
+          - description: The complete URL (not including authentication information) to the external object storage provider.
+            displayName: URL
+            path: objectStorageOptions.provider.url
+          - description: Whether virtual host subdomain access should be used, as opposed to path-style access. Defaults to false for compatibility.
+            displayName: Use Virtual Host Subdomain Access
+            path: objectStorageOptions.provider.useVirtualHostAccess
+            x-descriptors:
+              - urn:alm:descriptor:com.tectonic.ui:booleanSwitch
+          - description: 'Name of the secret containing the object storage secret access key. This secret must contain a ACCESS_KEY secret which is the object storage access key ID, and a SECRET_KEY secret which is the object storage secret access key. If using an external S3 provider requiring authentication then this must be provided. It is recommended that the secret should be marked as immutable to avoid accidental changes to secret''s data. More details: [Kubernetes Secrets](https://kubernetes.io/docs/concepts/configuration/secret/#secret-immutable)'
+            displayName: Secret Name
+            path: objectStorageOptions.secretName
+            x-descriptors:
+              - urn:alm:descriptor:io.kubernetes:Secret
+          - description: Configuration for object storage buckets. Only applies when external storage is configured, ie. .spec.ObjectStorageProviderOptions is non-nil.
+            displayName: Storage Bucket Names
+            path: objectStorageOptions.storageBucketNameOptions
+          - description: The name of the bucket used to store Archived JFR files.
+            displayName: Archived Recordings
+            path: objectStorageOptions.storageBucketNameOptions.archivedRecordings
+          - description: The name of the bucket used to store a cache of Automated Analysis reports attached to Archived JFR files.
+            displayName: Archived Reports
+            path: objectStorageOptions.storageBucketNameOptions.archivedReports
+          - description: The name of the bucket used to store custom Event Templates.
+            displayName: Event Templates
+            path: objectStorageOptions.storageBucketNameOptions.eventTemplates
+          - description: The name of the bucket used to store JVM heap dumps.
+            displayName: Heap Dumps
+            path: objectStorageOptions.storageBucketNameOptions.heapDumps
+          - description: The name of the bucket used to store JMC Agent Probe templates.
+            displayName: JMCAgent Probe Templates
+            path: objectStorageOptions.storageBucketNameOptions.jmcAgentProbeTemplates
+          - description: The name of the bucket used to storage metadata for other objects (ex. archived recordings). This is only used if the .spec.objectStorageOptions.provider.metadataMode is set to 'bucket'.
+            displayName: Metadata
+            path: objectStorageOptions.storageBucketNameOptions.metadata
+          - description: The name of the bucket used to storage JVM thread dumps.
+            displayName: Thread Dumps
+            path: objectStorageOptions.storageBucketNameOptions.threadDumps
           - description: Options to configure the Cryostat deployments and pods metadata
             displayName: Operand metadata
             path: operandMetadata
