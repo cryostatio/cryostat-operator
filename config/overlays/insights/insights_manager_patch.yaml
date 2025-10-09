@@ -8,4 +8,4 @@
   path: /spec/template/spec/containers/0/env/-
   value:
     name: INSIGHTS_URL
-    value: "http://insights-proxy.$(OPERATOR_NAMESPACE).svc.cluster.local:8080"
+    value: "http://insights-proxy-1ab6bbc001dab04736acc928299ff059.$(OPERATOR_NAMESPACE).svc:8080"
