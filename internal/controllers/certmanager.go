@@ -23,6 +23,7 @@ import (
 	certv1 "github.com/cert-manager/cert-manager/pkg/apis/certmanager/v1"
 	"github.com/cryostatio/cryostat-operator/internal/controllers/common"
 	resources "github.com/cryostatio/cryostat-operator/internal/controllers/common/resource_definitions"
+	"github.com/cryostatio/cryostat-operator/internal/controllers/constants"
 	"github.com/cryostatio/cryostat-operator/internal/controllers/model"
 	"github.com/google/go-cmp/cmp"
 	corev1 "k8s.io/api/core/v1"
@@ -470,7 +471,7 @@ func (r *Reconciler) createOrUpdateKeystoreSecret(ctx context.Context, secret *c
 		// Don't modify secret data, since the password is pseudorandomly generated
 		if secret.CreationTimestamp.IsZero() {
 			secret.StringData = map[string]string{
-				"KEYSTORE_PASS": r.GenPasswd(20),
+				constants.KeystorePassSecretKey: r.GenPasswd(20),
 			}
 		}
 		return nil
