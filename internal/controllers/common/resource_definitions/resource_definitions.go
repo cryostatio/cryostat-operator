@@ -1538,12 +1538,12 @@ func NewCoreContainer(cr *model.CryostatInstance, specs *ServiceSpecs, imageTag 
 			},
 			corev1.VolumeMount{
 				Name:      "keystore",
-				MountPath: path.Join(SecretMountPrefix, tls.CryostatSecret),
+				MountPath: path.Join(SecretMountPrefix, "client-tls", tls.CryostatSecret),
 				ReadOnly:  true,
 			},
 			corev1.VolumeMount{
 				Name:      "keystore-pass",
-				MountPath: path.Join(SecretMountPrefix, tls.KeystorePassSecret),
+				MountPath: path.Join(SecretMountPrefix, "client-tls", tls.KeystorePassSecret),
 				ReadOnly:  true,
 			},
 		)
@@ -1551,11 +1551,11 @@ func NewCoreContainer(cr *model.CryostatInstance, specs *ServiceSpecs, imageTag 
 		envs = append(envs,
 			corev1.EnvVar{
 				Name:  "SSL_KEYSTORE",
-				Value: path.Join(SecretMountPrefix, tls.CryostatSecret),
+				Value: path.Join(SecretMountPrefix, "client-tls", tls.CryostatSecret, constants.KeyStoreFile),
 			},
 			corev1.EnvVar{
 				Name:  "SSL_KEYSTORE_PASS_FILE",
-				Value: path.Join(SecretMountPrefix, tls.KeystorePassSecret, constants.KeystorePassSecretKey),
+				Value: path.Join(SecretMountPrefix, "client-tls", tls.KeystorePassSecret, constants.KeystorePassSecretKey),
 			},
 		)
 	}
