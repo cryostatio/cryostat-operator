@@ -1521,10 +1521,21 @@ func NewCoreContainer(cr *model.CryostatInstance, specs *ServiceSpecs, imageTag 
 		},
 	}
 	if tls != nil {
-		mounts = append(mounts, corev1.VolumeMount{
-			Name:      "storage-tls-secret",
-			MountPath: "/truststore/storage",
-			ReadOnly:  true,
+		mounts = append(mounts,
+			corev1.VolumeMount{
+				Name:      "storage-tls-secret",
+				MountPath: "/truststore/storage",
+				ReadOnly:  true,
+			},
+			corev1.VolumeMount{
+				Name:      "keystore",
+				MountPath: "/keystore/tls",
+				ReadOnly:  true,
+			},
+		)
+		envs = append(envs, corev1.EnvVar{
+			Name:  "TLS_CLIENT_CERT_DIR",
+			Value: "/keystore/tls",
 		})
 	}
 
