@@ -1552,7 +1552,7 @@ func NewCoreContainer(cr *model.CryostatInstance, specs *ServiceSpecs, imageTag 
 		})
 		envs = append(envs, corev1.EnvVar{
 			Name:  "SSL_KEYSTORE_PASS_FILE",
-			Value: path.Join(SecretMountPrefix, tls.KeystorePassSecret),
+			Value: path.Join(SecretMountPrefix, tls.KeystorePassSecret, constants.KeystorePassSecretKey),
 		})
 	}
 
