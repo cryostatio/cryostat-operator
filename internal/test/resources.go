@@ -2744,11 +2744,11 @@ func (r *TestResources) NewCoreEnvironmentVariables(reportsUrl string, ingress b
 			},
 			corev1.EnvVar{
 				Name:  "SSL_KEYSTORE",
-				Value: "/var/run/secrets/operator.cryostat.io/client-tls/" + r.Name + "-tls/keystore.p12",
+				Value: fmt.Sprintf("/var/run/secrets/operator.cryostat.io/client-tls/%s-tls/keystore.p12", r.Name),
 			},
 			corev1.EnvVar{
 				Name:  "SSL_KEYSTORE_PASS_FILE",
-				Value: "/var/run/secrets/operator.cryostat.io/client-tls/" + r.Name + "-keystore/keystore.pass",
+				Value: fmt.Sprintf("/var/run/secrets/operator.cryostat.io/client-tls/%s-keystore/keystore.pass", r.Name),
 			},
 		)
 
@@ -3310,12 +3310,12 @@ func (r *TestResources) NewCoreVolumeMounts() []corev1.VolumeMount {
 			},
 			corev1.VolumeMount{
 				Name:      "keystore",
-				MountPath: "/var/run/secrets/operator.cryostat.io/client-tls/" + r.Name + "-tls",
+				MountPath: fmt.Sprintf("/var/run/secrets/operator.cryostat.io/client-tls/%s-tls", r.Name),
 				ReadOnly:  true,
 			},
 			corev1.VolumeMount{
 				Name:      "keystore-pass",
-				MountPath: "/var/run/secrets/operator.cryostat.io/client-tls/" + r.Name + "-keystore",
+				MountPath: fmt.Sprintf("/var/run/secrets/operator.cryostat.io/client-tls/%s-keystore", r.Name),
 				ReadOnly:  true,
 			},
 		)
