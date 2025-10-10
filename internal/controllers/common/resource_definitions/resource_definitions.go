@@ -533,6 +533,15 @@ func NewPodForCR(cr *model.CryostatInstance, specs *ServiceSpecs, imageTags *Ima
 					},
 				},
 			},
+			corev1.Volume{
+				Name: "keystore-pass",
+				VolumeSource: corev1.VolumeSource{
+					Secret: &corev1.SecretVolumeSource{
+						SecretName:  tls.KeystorePassSecret,
+						DefaultMode: &readOnlyMode,
+					},
+				},
+			},
 		)
 
 		storageMountPrefix := "s3"
@@ -1529,14 +1538,26 @@ func NewCoreContainer(cr *model.CryostatInstance, specs *ServiceSpecs, imageTag 
 			},
 			corev1.VolumeMount{
 				Name:      "keystore",
-				MountPath: "/keystore/tls",
+				MountPath: path.Join(SecretMountPrefix, tls.CryostatSecret),
+				ReadOnly:  true,
+			},
+			corev1.VolumeMount{
+				Name:      "keystore-pass",
+				MountPath: path.Join(SecretMountPrefix, tls.KeystorePassSecret),
 				ReadOnly:  true,
 			},
 		)
-		envs = append(envs, corev1.EnvVar{
-			Name:  "SSL_KEYSTORE",
-			Value: "/keystore/tls/keystore.p12",
-		})
+
+		envs = append(envs,
+			corev1.EnvVar{
+				Name:  "SSL_KEYSTORE",
+				Value: path.Join(SecretMountPrefix, tls.CryostatSecret),
+			},
+			corev1.EnvVar{
+				Name:  "SSL_KEYSTORE_PASS_FILE",
+				Value: path.Join(SecretMountPrefix, tls.KeystorePassSecret, constants.KeystorePassSecretKey),
+			},
+		)
 	}
 
 	optional := false

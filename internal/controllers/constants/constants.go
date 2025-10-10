@@ -49,6 +49,8 @@ const (
 	DatabaseSecretConnectionKey = "CONNECTION_KEY"
 	// DatabaseSecretEncryptionKey indexes the database encryption key within the Cryostat database Secret
 	DatabaseSecretEncryptionKey = "ENCRYPTION_KEY"
+	// KeystorePassSecretKey indexes the keystore password within the Cryostat keystore Secret
+	KeystorePassSecretKey = "keystore.pass"
 
 	AgentProxyConfigFilePath string = "/etc/nginx-cryostat"
 	AgentProxyConfigFileName string = "nginx.conf"

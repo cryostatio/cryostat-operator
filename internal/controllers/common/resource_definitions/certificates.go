@@ -94,7 +94,7 @@ func NewCryostatCert(cr *model.CryostatInstance, keystoreSecretName string) *cer
 						LocalObjectReference: certMeta.LocalObjectReference{
 							Name: keystoreSecretName,
 						},
-						Key: "KEYSTORE_PASS",
+						Key: constants.KeystorePassSecretKey,
 					},
 				},
 			},
