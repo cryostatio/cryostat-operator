@@ -1534,8 +1534,8 @@ func NewCoreContainer(cr *model.CryostatInstance, specs *ServiceSpecs, imageTag 
 			},
 		)
 		envs = append(envs, corev1.EnvVar{
-			Name:  "TLS_CLIENT_CERT_DIR",
-			Value: "/keystore/tls",
+			Name:  "SSL_KEYSTORE",
+			Value: "/keystore/tls/keystore.p12",
 		})
 	}
 
