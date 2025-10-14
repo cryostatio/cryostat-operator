@@ -297,7 +297,7 @@ spec:
         - urn:alm:descriptor:com.tectonic.ui:booleanSwitch
       - description: Whether file transfers should be performed using presigned URLs,
           or by Cryostat acting as a "network pipe" to the other containers. Defaults
-          to true for performance.
+          to false (presigned transfers enabled) for performance.
         displayName: Disable Presigned File Transfers
         path: objectStorageOptions.provider.disablePresignedFileTransfers
         x-descriptors:

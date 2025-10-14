@@ -5966,7 +5966,8 @@ spec:
                       disablePresignedFileTransfers:
                         description: Whether file transfers should be performed using
                           presigned URLs, or by Cryostat acting as a "network pipe"
-                          to the other containers. Defaults to true for performance.
+                          to the other containers. Defaults to false (presigned transfers
+                          enabled) for performance.
                         type: boolean
                       metadataMode:
                         description: |-

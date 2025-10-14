@@ -24,7 +24,7 @@ metadata:
     capabilities: Seamless Upgrades
     categories: Monitoring, Developer Tools
     containerImage: quay.io/cryostat/cryostat-operator:4.1.0-dev
-    createdAt: "2025-10-08T21:31:06Z"
+    createdAt: "2025-10-14T18:20:47Z"
     description: JVM monitoring and profiling tool
     operatorframework.io/initialization-resource: |-
       {
@@ -254,7 +254,7 @@ spec:
             path: objectStorageOptions.provider.disablePresignedDownloads
             x-descriptors:
               - urn:alm:descriptor:com.tectonic.ui:booleanSwitch
-          - description: Whether file transfers should be performed using presigned URLs, or by Cryostat acting as a "network pipe" to the other containers. Defaults to true for performance.
+          - description: Whether file transfers should be performed using presigned URLs, or by Cryostat acting as a "network pipe" to the other containers. Defaults to false (presigned transfers enabled) for performance.
             displayName: Disable Presigned File Transfers
             path: objectStorageOptions.provider.disablePresignedFileTransfers
             x-descriptors:
