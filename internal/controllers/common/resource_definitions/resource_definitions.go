@@ -1412,7 +1412,9 @@ func NewCoreContainer(cr *model.CryostatInstance, specs *ServiceSpecs, imageTag 
 		},
 	}
 
-	if cr.Spec.ObjectStorageOptions == nil {
+	if cr.Spec.ObjectStorageOptions == nil ||
+		cr.Spec.ObjectStorageOptions.Provider == nil ||
+		cr.Spec.ObjectStorageOptions.Provider.URL == nil {
 		// default environment variable settings for managed/provisioned cryostat-storage instance
 		envs = append(envs, []corev1.EnvVar{
 			{

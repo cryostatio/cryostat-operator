@@ -767,6 +767,8 @@ type DatabaseOptions struct {
 }
 
 // ObjectStorageOptions provides configuration options to the Cryostat application's object storage.
+// If used, the .spec.objectStorageOptions section should always contain the .provider subsection, and
+// this subsection must contain the .url and .region properties.
 type ObjectStorageOptions struct {
 	// Name of the secret containing the object storage secret access key. This secret must contain a
 	// ACCESS_KEY secret which is the object storage access key ID, and a SECRET_KEY secret which is the object storage secret access key.

@@ -248,18 +248,6 @@ func (r *TestResources) NewCryostatWithExternalS3(secretName string) *model.Cryo
 	return cr
 }
 
-func (r *TestResources) NewCryostatWithCustomizedInternalStorage(secretName string) *model.CryostatInstance {
-	cr := r.NewCryostat()
-	disablePresignedDownloads := true
-	cr.Spec.ObjectStorageOptions = &operatorv1beta2.ObjectStorageOptions{
-		SecretName: &secretName,
-		Provider: &operatorv1beta2.ObjectStorageProviderOptions{
-			DisablePresignedDownloads: &disablePresignedDownloads,
-		},
-	}
-	return cr
-}
-
 func (r *TestResources) NewCryostatWithCustomizedStorageBucketNames() *model.CryostatInstance {
 	cr := r.NewCryostat()
 	providerUrl := "https://example.com:1234"

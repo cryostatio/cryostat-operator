@@ -1031,24 +1031,6 @@ func (c *controllerTest) commonTests() {
 				})
 			})
 		})
-		Context("with internal S3 object storage configuration", func() {
-			BeforeEach(func() {
-				secretName := "external-s3-creds"
-				t.StorageSecret = t.NewExternalStorageSecret(secretName)
-				t.objs = append(t.objs, t.NewCryostatWithCustomizedInternalStorage(secretName).Object, t.StorageSecret)
-			})
-			JustBeforeEach(func() {
-				t.reconcileCryostatFully()
-			})
-			It("Should update the core deployment", func() {
-				t.checkCoreHasEnvironmentVariables([]corev1.EnvVar{
-					{
-						Name:  "STORAGE_PRESIGNED_DOWNLOADS_ENABLED",
-						Value: "false",
-					},
-				})
-			})
-		})
 		Context("with S3 storage bucket names configuration", func() {
 			BeforeEach(func() {
 				secretName := "external-s3-creds"
