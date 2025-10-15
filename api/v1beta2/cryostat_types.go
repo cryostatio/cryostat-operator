@@ -767,6 +767,8 @@ type DatabaseOptions struct {
 }
 
 // ObjectStorageOptions provides configuration options to the Cryostat application's object storage.
+// If used, the .spec.objectStorageOptions section should always contain the .provider subsection, and
+// this subsection must contain the .url and .region properties.
 type ObjectStorageOptions struct {
 	// Name of the secret containing the object storage secret access key. This secret must contain a
 	// ACCESS_KEY secret which is the object storage access key ID, and a SECRET_KEY secret which is the object storage secret access key.
@@ -795,6 +797,14 @@ type ObjectStorageProviderOptions struct {
 	// +optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Use Virtual Host Subdomain Access",xDescriptors={"urn:alm:descriptor:com.tectonic.ui:booleanSwitch"}
 	UseVirtualHostAccess *bool `json:"useVirtualHostAccess,omitempty"`
+	// Whether file transfers should be performed using presigned URLs, or by Cryostat acting as a "network pipe" to the other containers. Defaults to false (presigned transfers enabled) for performance.
+	// +optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Disable Presigned File Transfers",xDescriptors={"urn:alm:descriptor:com.tectonic.ui:booleanSwitch"}
+	DisablePresignedFileTransfers *bool `json:"disablePresignedFileTransfers,omitempty"`
+	// Whether file downloads from storage to the user's browser should be performed using presigned URLs, or by Cryostat acting as a "network pipe." Enabling this reduces network utilization and latency and removes some I/O from Cryostat, but requires that the object storage container URLs are accessible to the user's browser. Defaults to inheriting the .spec.objectStorageProviderOptions.disablePresignedFileTransfers value.
+	// +optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Disable Presigned File Downloads",xDescriptors={"urn:alm:descriptor:com.tectonic.ui:booleanSwitch"}
+	DisablePresignedDownloads *bool `json:"disablePresignedDownloads,omitempty"`
 	// The object storage provider region.
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	Region *string `json:"region,omitempty"`

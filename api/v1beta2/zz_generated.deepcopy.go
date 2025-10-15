@@ -643,6 +643,16 @@ func (in *ObjectStorageProviderOptions) DeepCopyInto(out *ObjectStorageProviderO
 		*out = new(bool)
 		**out = **in
 	}
+	if in.DisablePresignedFileTransfers != nil {
+		in, out := &in.DisablePresignedFileTransfers, &out.DisablePresignedFileTransfers
+		*out = new(bool)
+		**out = **in
+	}
+	if in.DisablePresignedDownloads != nil {
+		in, out := &in.DisablePresignedDownloads, &out.DisablePresignedDownloads
+		*out = new(bool)
+		**out = **in
+	}
 	if in.Region != nil {
 		in, out := &in.Region, &out.Region
 		*out = new(string)

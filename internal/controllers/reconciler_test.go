@@ -1009,6 +1009,14 @@ func (c *controllerTest) commonTests() {
 						Value: "true",
 					},
 					{
+						Name:  "STORAGE_PRESIGNED_TRANSFERS_ENABLED",
+						Value: "false",
+					},
+					{
+						Name:  "STORAGE_PRESIGNED_DOWNLOADS_ENABLED",
+						Value: "false",
+					},
+					{
 						Name:  "QUARKUS_S3_AWS_REGION",
 						Value: "region-east-1",
 					},

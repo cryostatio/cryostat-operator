@@ -229,16 +229,20 @@ func (r *TestResources) NewCryostatWithExternalS3(secretName string) *model.Cryo
 	providerUrl := "https://example.com:1234"
 	region := "region-east-1"
 	useVirtualHostAccess := false
+	disablePresignedFileTransfers := true
+	disablePresignedDownloads := true
 	tlsTrustAll := true
 	metadataMode := "tagging"
 	cr.Spec.ObjectStorageOptions = &operatorv1beta2.ObjectStorageOptions{
 		SecretName: &secretName,
 		Provider: &operatorv1beta2.ObjectStorageProviderOptions{
-			URL:                  &providerUrl,
-			Region:               &region,
-			UseVirtualHostAccess: &useVirtualHostAccess,
-			TLSTrustAll:          &tlsTrustAll,
-			MetadataMode:         &metadataMode,
+			URL:                           &providerUrl,
+			Region:                        &region,
+			UseVirtualHostAccess:          &useVirtualHostAccess,
+			DisablePresignedFileTransfers: &disablePresignedFileTransfers,
+			DisablePresignedDownloads:     &disablePresignedDownloads,
+			TLSTrustAll:                   &tlsTrustAll,
+			MetadataMode:                  &metadataMode,
 		},
 	}
 	return cr
@@ -2734,6 +2738,14 @@ func (r *TestResources) NewCoreEnvironmentVariables(reportsUrl string, ingress b
 		{
 			Name:  "AWS_SECRET_ACCESS_KEY",
 			Value: "$(QUARKUS_S3_AWS_CREDENTIALS_STATIC_PROVIDER_SECRET_ACCESS_KEY)",
+		},
+		{
+			Name:  "STORAGE_PRESIGNED_TRANSFERS_ENABLED",
+			Value: "true",
+		},
+		{
+			Name:  "STORAGE_PRESIGNED_DOWNLOADS_ENABLED",
+			Value: "false",
 		},
 	}
 	if r.TLS {
