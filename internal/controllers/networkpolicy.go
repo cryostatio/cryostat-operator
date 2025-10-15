@@ -257,7 +257,7 @@ func (r *Reconciler) reconcileStorageNetworkPolicy(ctx context.Context, cr *mode
 		},
 	}
 	allDisabled := cr.Spec.NetworkPolicies != nil && cr.Spec.NetworkPolicies.StorageConfig != nil && cr.Spec.NetworkPolicies.StorageConfig.Disabled != nil && *cr.Spec.NetworkPolicies.StorageConfig.Disabled
-	deployManagedStorage := cr.Spec.ObjectStorageOptions == nil || cr.Spec.ObjectStorageOptions.Provider == nil
+	deployManagedStorage := resources.DeployManagedStorage(cr)
 	ingressDisabled := cr.Spec.NetworkPolicies != nil && cr.Spec.NetworkPolicies.StorageConfig != nil && cr.Spec.NetworkPolicies.StorageConfig.IngressDisabled != nil && *cr.Spec.NetworkPolicies.StorageConfig.IngressDisabled
 	if allDisabled || !deployManagedStorage || ingressDisabled {
 		return r.deletePolicy(ctx, ingressPolicy)

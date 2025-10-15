@@ -790,6 +790,12 @@ func NewPodForDatabase(cr *model.CryostatInstance, imageTags *ImageTags, tls *TL
 	}
 }
 
+func DeployManagedStorage(cr *model.CryostatInstance) bool {
+	return cr.Spec.ObjectStorageOptions == nil ||
+		cr.Spec.ObjectStorageOptions.Provider == nil ||
+		cr.Spec.ObjectStorageOptions.Provider.URL == nil
+}
+
 func NewPodForStorage(cr *model.CryostatInstance, imageTags *ImageTags, tls *TLSConfig, openshift bool, fsGroup int64) *corev1.PodSpec {
 	container := []corev1.Container{NewStorageContainer(cr, imageTags.StorageImageTag, tls)}
 
@@ -925,7 +931,7 @@ func NewPodForReports(cr *model.CryostatInstance, imageTags *ImageTags, serviceS
 		// configure that here. Otherwise if we are configured to talk to an external object storage
 		// provider, assume that it is using a well-known certificate signed by a root trust.
 		// TODO allow additional configuration via the CR to configure TLS for external providers
-		if cr.Spec.ObjectStorageOptions == nil || cr.Spec.ObjectStorageOptions.Provider == nil {
+		if DeployManagedStorage(cr) {
 			tlsEnvs = append(tlsEnvs,
 				corev1.EnvVar{
 					Name:  "CRYOSTAT_STORAGE_TLS_CA_PATH",
@@ -1412,9 +1418,7 @@ func NewCoreContainer(cr *model.CryostatInstance, specs *ServiceSpecs, imageTag 
 		},
 	}
 
-	if cr.Spec.ObjectStorageOptions == nil ||
-		cr.Spec.ObjectStorageOptions.Provider == nil ||
-		cr.Spec.ObjectStorageOptions.Provider.URL == nil {
+	if DeployManagedStorage(cr) {
 		// default environment variable settings for managed/provisioned cryostat-storage instance
 		envs = append(envs, []corev1.EnvVar{
 			{
@@ -2225,7 +2229,7 @@ func NewJfrDatasourceContainer(cr *model.CryostatInstance, imageTag string, serv
 		// configure that here. Otherwise if we are configured to talk to an external object storage
 		// provider, assume that it is using a well-known certificate signed by a root trust.
 		// TODO allow additional configuration via the CR to configure TLS for external providers
-		if cr.Spec.ObjectStorageOptions == nil || cr.Spec.ObjectStorageOptions.Provider == nil {
+		if DeployManagedStorage(cr) {
 			envs = append(envs,
 				corev1.EnvVar{
 					Name:  "CRYOSTAT_STORAGE_TLS_CA_PATH",

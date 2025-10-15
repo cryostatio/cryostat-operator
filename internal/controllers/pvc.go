@@ -20,6 +20,7 @@ import (
 
 	operatorv1beta2 "github.com/cryostatio/cryostat-operator/api/v1beta2"
 	"github.com/cryostatio/cryostat-operator/internal/controllers/common"
+	resources "github.com/cryostatio/cryostat-operator/internal/controllers/common/resource_definitions"
 	"github.com/cryostatio/cryostat-operator/internal/controllers/model"
 	corev1 "k8s.io/api/core/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
@@ -94,7 +95,7 @@ func (r *Reconciler) reconcileStoragePVC(ctx context.Context, cr *model.Cryostat
 			cfg = (*operatorv1beta2.StorageConfiguration)(&cr.Spec.StorageOptions.LegacyStorageConfiguration)
 		}
 	}
-	deployManagedStorage := cr.Spec.ObjectStorageOptions == nil || cr.Spec.ObjectStorageOptions.Provider == nil
+	deployManagedStorage := resources.DeployManagedStorage(cr)
 	if !deployManagedStorage {
 		// If using external storage, do nothing.
 		// Don't delete the PVC to prevent accidental data loss

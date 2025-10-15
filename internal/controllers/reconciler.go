@@ -481,9 +481,7 @@ func (r *Reconciler) reconcileStorage(ctx context.Context, reqLogger logr.Logger
 	}
 
 	deployment := resources.NewDeploymentForStorage(cr, imageTags, tls, r.IsOpenShift, fsGroup)
-	deployManagedStorage := cr.Spec.ObjectStorageOptions == nil ||
-		cr.Spec.ObjectStorageOptions.Provider == nil ||
-		cr.Spec.ObjectStorageOptions.Provider.URL == nil
+	deployManagedStorage := resources.DeployManagedStorage(cr)
 	if !deployManagedStorage {
 		serviceSpecs.StorageURL, err = url.Parse(*cr.Spec.ObjectStorageOptions.Provider.URL)
 		if err := r.Client.Delete(ctx, deployment); err != nil && !kerrors.IsNotFound(err) {

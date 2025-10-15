@@ -23,6 +23,7 @@ import (
 	operatorv1beta2 "github.com/cryostatio/cryostat-operator/api/v1beta2"
 	common "github.com/cryostatio/cryostat-operator/internal/controllers/common"
 	"github.com/cryostatio/cryostat-operator/internal/controllers/common/resource_definitions"
+	resources "github.com/cryostatio/cryostat-operator/internal/controllers/common/resource_definitions"
 	"github.com/cryostatio/cryostat-operator/internal/controllers/constants"
 	"github.com/cryostatio/cryostat-operator/internal/controllers/model"
 	corev1 "k8s.io/api/core/v1"
@@ -194,7 +195,7 @@ func (r *Reconciler) reconcileStorageService(ctx context.Context, cr *model.Cryo
 		},
 	}
 
-	deployManagedStorage := cr.Spec.ObjectStorageOptions == nil || cr.Spec.ObjectStorageOptions.Provider == nil
+	deployManagedStorage := resources.DeployManagedStorage(cr)
 	if !deployManagedStorage {
 		return r.deleteService(ctx, svc)
 	}
