@@ -96,6 +96,7 @@ func NewCryostatCert(cr *model.CryostatInstance, keystoreSecretName string) *cer
 						},
 						Key: constants.KeystorePassSecretKey,
 					},
+					Profile: certv1.Modern2023PKCS12Profile,
 				},
 			},
 			IssuerRef: certMeta.ObjectReference{

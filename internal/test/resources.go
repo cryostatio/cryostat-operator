@@ -1905,6 +1905,7 @@ func (r *TestResources) NewCryostatCert() *certv1.Certificate {
 						},
 						Key: "keystore.pass",
 					},
+					Profile: certv1.Modern2023PKCS12Profile,
 				},
 			},
 			IssuerRef: certMeta.ObjectReference{

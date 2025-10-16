@@ -419,8 +419,11 @@ func (r *Reconciler) reconcileAgentCertificate(ctx context.Context, cert *certv1
 var errCertificateModified error = errors.New("certificate has been modified")
 
 func (r *Reconciler) createOrUpdateCertificate(ctx context.Context, cert *certv1.Certificate, owner metav1.Object) error {
+	client := client.WithFieldValidation(r.Client, metav1.FieldValidationStrict)
 	certCopy := cert.DeepCopy()
-	op, err := controllerutil.CreateOrUpdate(ctx, r.Client, cert, func() error {
+	op, err := controllerutil.CreateOrUpdate(ctx, client, cert, func() error {
+		common.MergeLabelsAndAnnotations(&cert.ObjectMeta, certCopy.Labels, certCopy.Annotations)
+
 		if owner != nil {
 			if err := controllerutil.SetControllerReference(owner, cert, r.Scheme); err != nil {
 				return err
@@ -429,8 +432,15 @@ func (r *Reconciler) createOrUpdateCertificate(ctx context.Context, cert *certv1
 
 		if cert.CreationTimestamp.IsZero() {
 			cert.Spec = certCopy.Spec
-		} else if !cmp.Equal(cert.Spec, certCopy.Spec) {
-			return errCertificateModified
+		} else {
+			// Check whether we're comparing against a legacy certificate
+			compareCert := certCopy
+			if metav1.HasAnnotation(cert.ObjectMeta, legacyCertificateAnnotation) {
+				compareCert = legacyCertificate(certCopy)
+			}
+			if !cmp.Equal(cert.Spec, compareCert.Spec) {
+				return errCertificateModified
+			}
 		}
 
 		return nil
@@ -438,11 +448,32 @@ func (r *Reconciler) createOrUpdateCertificate(ctx context.Context, cert *certv1
 	if err != nil {
 		if err == errCertificateModified {
 			return r.recreateCertificate(ctx, certCopy, owner)
+		} else if kerrors.IsBadRequest(err) { // TODO not sure if we can get more specific than this
+			r.Log.Info("Certificate update failed, trying again with legacy certificate",
+				"name", cert.Name, "namespace", cert.Namespace)
+			fmt.Printf("%+v\n", err) // XXX
+			// Retry with a legacy certificate
+			return r.createOrUpdateCertificate(ctx, legacyCertificate(certCopy), owner)
 		}
 		return err
 	}
 	r.Log.Info(fmt.Sprintf("Certificate %s", op), "name", cert.Name, "namespace", cert.Namespace)
 	return nil
+}
+
+const legacyCertificateAnnotation string = "cryostat.io/legacy-certificate"
+
+func legacyCertificate(cert *certv1.Certificate) *certv1.Certificate {
+	// This field is not available on cert-manager < 1.14
+	if cert.Spec.Keystores != nil && cert.Spec.Keystores.PKCS12 != nil {
+		cert.Spec.Keystores.PKCS12.Profile = ""
+	}
+	// Add an annotation to distinguish this from an old, but updateable certificate
+	if cert.Annotations == nil {
+		cert.Annotations = map[string]string{}
+	}
+	cert.Annotations[legacyCertificateAnnotation] = "true"
+	return cert
 }
 
 func (r *Reconciler) recreateCertificate(ctx context.Context, cert *certv1.Certificate, owner metav1.Object) error {
