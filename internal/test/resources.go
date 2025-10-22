@@ -5032,7 +5032,11 @@ http {
 			proxy_pass http://127.0.0.1:8181$request_uri;
 		}
 
-		location = /api/beta/diagnostics/heapdump/upload/ {
+		location /api/beta/diagnostics/heapdump/upload/ {
+			proxy_pass http://127.0.0.1:8181$request_uri;
+		}
+
+		location = /api/beta/diagnostics/heapdump/upload {
 			proxy_pass http://127.0.0.1:8181$request_uri;
 		}
 
@@ -5120,7 +5124,11 @@ http {
 			proxy_pass http://127.0.0.1:8181$request_uri;
 		}
 
-		location = /api/beta/diagnostics/heapdump/upload/ {
+		location /api/beta/diagnostics/heapdump/upload/ {
+			proxy_pass http://127.0.0.1:8181$request_uri;
+		}
+
+		location = /api/beta/diagnostics/heapdump/upload {
 			proxy_pass http://127.0.0.1:8181$request_uri;
 		}
 
