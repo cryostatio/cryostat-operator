@@ -143,6 +143,14 @@ spec:
         path: authorizationOptions.openShiftSSO.disable
         x-descriptors:
         - urn:alm:descriptor:com.tectonic.ui:booleanSwitch
+      - description: List of Automated Rule Json Files to preconfigure in Cryostat.
+        displayName: Automated Rules
+        path: automatedRules
+      - description: Name of config map in the local namespace.
+        displayName: Config Map Name
+        path: automatedRules[0].configMapName
+        x-descriptors:
+        - urn:alm:descriptor:io.kubernetes:ConfigMap
       - description: Options to configure the Cryostat application's database.
         displayName: Database Options
         path: databaseOptions

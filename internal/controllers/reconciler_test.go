@@ -910,6 +910,18 @@ func (c *controllerTest) commonTests() {
 				t.checkDeploymentHasTemplates()
 			})
 		})
+		Context("Cryostat CR has list of automated rules", func() {
+			BeforeEach(func() {
+				t.objs = append(t.objs, t.NewCryostatWithAutomatedRules().Object, t.NewRuleConfigMap(),
+					t.NewOtherRuleConfigMap())
+			})
+			JustBeforeEach(func() {
+				t.reconcileCryostatFully()
+			})
+			It("Should add volumes and volumeMounts to deployment", func() {
+				t.checkDeploymentHasRules()
+			})
+		})
 		Context("Cryostat CR has a list of stored credentials", func() {
 			BeforeEach(func() {
 				t.objs = append(t.objs, t.NewCryostatWithDeclarativeCredentials().Object, t.NewDeclarativeCredentialSecret(),
@@ -3934,6 +3946,20 @@ func (t *cryostatTestInput) checkDeploymentHasTemplates() {
 
 	volumeMounts := deployment.Spec.Template.Spec.Containers[0].VolumeMounts
 	expectedVolumeMounts := t.NewVolumeMountsWithTemplates()
+	Expect(volumeMounts).To(ConsistOf(expectedVolumeMounts))
+}
+
+func (t *cryostatTestInput) checkDeploymentHasRules() {
+	deployment := &appsv1.Deployment{}
+	err := t.Client.Get(context.Background(), types.NamespacedName{Name: t.Name, Namespace: t.Namespace}, deployment)
+	Expect(err).ToNot(HaveOccurred())
+
+	volumes := deployment.Spec.Template.Spec.Volumes
+	expectedVolumes := t.NewVolumesWithRules()
+	Expect(volumes).To(ConsistOf(expectedVolumes))
+
+	volumeMounts := deployment.Spec.Template.Spec.Containers[0].VolumeMounts
+	expectedVolumeMounts := t.NewVolumeMountsWithRules()
 	Expect(volumeMounts).To(ConsistOf(expectedVolumeMounts))
 }
 

@@ -5517,6 +5517,24 @@ spec:
                         type: boolean
                     type: object
                 type: object
+              automatedRules:
+                description: List of Automated Rule Json Files to preconfigure in
+                  Cryostat.
+                items:
+                  description: A ConfigMap containing a .json automated rule file.
+                  properties:
+                    configMapName:
+                      description: Name of config map in the local namespace.
+                      type: string
+                    filename:
+                      description: Filename within config map containing the automated
+                        rule file.
+                      type: string
+                  required:
+                  - configMapName
+                  - filename
+                  type: object
+                type: array
               databaseOptions:
                 description: Options to configure the Cryostat application's database.
                 properties:

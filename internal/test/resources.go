@@ -162,6 +162,21 @@ func (r *TestResources) NewCryostatWithTemplates() *model.CryostatInstance {
 	return cr
 }
 
+func (r *TestResources) NewCryostatWithAutomatedRules() *model.CryostatInstance {
+	cr := r.NewCryostat()
+	cr.Spec.AutomatedRules = []operatorv1beta2.AutomatedRuleConfigMap{
+		{
+			ConfigMapName: "ruleCM1",
+			Filename:      "rule.json",
+		},
+		{
+			ConfigMapName: "ruleCM2",
+			Filename:      "other-rule.json",
+		},
+	}
+	return cr
+}
+
 func (r *TestResources) NewCryostatWithDeclarativeCredentials() *model.CryostatInstance {
 	cr := r.NewCryostat()
 	cr.Spec.DeclarativeCredentials = []operatorv1beta2.DeclarativeCredential{
@@ -3474,6 +3489,22 @@ func (r *TestResources) NewVolumeMountsWithTemplates() []corev1.VolumeMount {
 		})
 }
 
+func (r *TestResources) NewVolumeMountsWithRules() []corev1.VolumeMount {
+	return append(r.NewCoreVolumeMounts(),
+		corev1.VolumeMount{
+			Name:      "rule-ruleCM1",
+			ReadOnly:  true,
+			MountPath: "/opt/cryostat.d/rules.d/ruleCM1_rule.json",
+			SubPath:   "rule.json",
+		},
+		corev1.VolumeMount{
+			Name:      "rule-ruleCM2",
+			ReadOnly:  true,
+			MountPath: "/opt/cryostat.d/rules.d/ruleCM2_other-rule.json",
+			SubPath:   "other-rule.json",
+		})
+}
+
 func (r *TestResources) NewVolumeMountsWithCredentials() []corev1.VolumeMount {
 	return append(r.NewCoreVolumeMounts(),
 		corev1.VolumeMount{
@@ -3803,6 +3834,45 @@ func (r *TestResources) NewVolumesWithTemplates() []corev1.Volume {
 						{
 							Key:  "other-template.jfc",
 							Path: "other-template.jfc",
+							Mode: &mode,
+						},
+					},
+				},
+			},
+		})
+}
+
+func (r *TestResources) NewVolumesWithRules() []corev1.Volume {
+	mode := int32(0440)
+	return append(r.NewVolumes(),
+		corev1.Volume{
+			Name: "rule-ruleCM1",
+			VolumeSource: corev1.VolumeSource{
+				ConfigMap: &corev1.ConfigMapVolumeSource{
+					LocalObjectReference: corev1.LocalObjectReference{
+						Name: "ruleCM1",
+					},
+					Items: []corev1.KeyToPath{
+						{
+							Key:  "rule.json",
+							Path: "rule.json",
+							Mode: &mode,
+						},
+					},
+				},
+			},
+		},
+		corev1.Volume{
+			Name: "rule-ruleCM2",
+			VolumeSource: corev1.VolumeSource{
+				ConfigMap: &corev1.ConfigMapVolumeSource{
+					LocalObjectReference: corev1.LocalObjectReference{
+						Name: "ruleCM2",
+					},
+					Items: []corev1.KeyToPath{
+						{
+							Key:  "other-rule.json",
+							Path: "other-rule.json",
 							Mode: &mode,
 						},
 					},
@@ -4671,6 +4741,30 @@ func (r *TestResources) NewOtherTemplateConfigMap() *corev1.ConfigMap {
 		},
 		Data: map[string]string{
 			"other-template.jfc": "more XML template data",
+		},
+	}
+}
+
+func (r *TestResources) NewRuleConfigMap() *corev1.ConfigMap {
+	return &corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "ruleCM1",
+			Namespace: r.Namespace,
+		},
+		Data: map[string]string{
+			"rule.json": "JSON rule data",
+		},
+	}
+}
+
+func (r *TestResources) NewOtherRuleConfigMap() *corev1.ConfigMap {
+	return &corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "ruleCM2",
+			Namespace: r.Namespace,
+		},
+		Data: map[string]string{
+			"other-rule.jfc": "more JSON rule data",
 		},
 	}
 }
