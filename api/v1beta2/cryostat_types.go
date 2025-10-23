@@ -624,7 +624,7 @@ type DeclarativeCredential struct {
 type ProbeTemplateConfigMap struct {
 	// Name of config map in the local namespace.
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:io.kubernetes:ConfigMap"}
-	ConfigMapName string `json:"ocnfigMapName"`
+	ConfigMapName string `json:"configMapName"`
 	// Filename within config map containing the automated rule file.
 	Filename string `json:"filename"`
 }

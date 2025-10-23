@@ -6091,16 +6091,16 @@ spec:
                   description: A ConfigMap containing a .xml JMC Agent probe template
                     file.
                   properties:
+                    configMapName:
+                      description: Name of config map in the local namespace.
+                      type: string
                     filename:
                       description: Filename within config map containing the automated
                         rule file.
                       type: string
-                    ocnfigMapName:
-                      description: Name of config map in the local namespace.
-                      type: string
                   required:
+                  - configMapName
                   - filename
-                  - ocnfigMapName
                   type: object
                 type: array
               reportOptions:
