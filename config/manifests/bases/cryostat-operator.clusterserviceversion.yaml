@@ -402,7 +402,7 @@ spec:
         path: probeTemplates
       - description: Name of config map in the local namespace.
         displayName: Config Map Name
-        path: probeTemplates[0].ocnfigMapName
+        path: probeTemplates[0].configMapName
         x-descriptors:
         - urn:alm:descriptor:io.kubernetes:ConfigMap
       - description: Options to configure Cryostat Automated Report Analysis.

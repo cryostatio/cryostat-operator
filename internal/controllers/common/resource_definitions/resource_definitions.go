@@ -676,7 +676,7 @@ func NewPodForCR(cr *model.CryostatInstance, specs *ServiceSpecs, imageTags *Ima
 	// Add any ProbeTemplates as volumes
 	for _, template := range cr.Spec.ProbeTemplates {
 		probeTemplateVolume := corev1.Volume{
-			Name: "template-" + template.ConfigMapName,
+			Name: "probe-template-" + template.ConfigMapName,
 			VolumeSource: corev1.VolumeSource{
 				ConfigMap: &corev1.ConfigMapVolumeSource{
 					LocalObjectReference: corev1.LocalObjectReference{
@@ -1802,7 +1802,7 @@ func NewCoreContainer(cr *model.CryostatInstance, specs *ServiceSpecs, imageTag 
 	// Mount the templates specified in Cryostat CR under /opt/cryostat.d/probes.d
 	for _, template := range cr.Spec.ProbeTemplates {
 		mount := corev1.VolumeMount{
-			Name:      "template-" + template.ConfigMapName,
+			Name:      "probe-template-" + template.ConfigMapName,
 			MountPath: path.Join(probeTemplatesPath, fmt.Sprintf("%s_%s", template.ConfigMapName, template.Filename)),
 			SubPath:   template.Filename,
 			ReadOnly:  true,

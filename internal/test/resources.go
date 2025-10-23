@@ -3476,13 +3476,13 @@ func (r *TestResources) NewReportsVolumeMounts() []corev1.VolumeMount {
 func (r *TestResources) NewVolumeMountsWithProbeTemplates() []corev1.VolumeMount {
 	return append(r.NewCoreVolumeMounts(),
 		corev1.VolumeMount{
-			Name:      "template-probeTemplateCM1",
+			Name:      "probe-template-probeTemplateCM1",
 			ReadOnly:  true,
 			MountPath: "/opt/cryostat.d/probes.d/probeTemplateCM1_template.xml",
 			SubPath:   "template.xml",
 		},
 		corev1.VolumeMount{
-			Name:      "template-probeTemplateCM2",
+			Name:      "probe-template-probeTemplateCM2",
 			ReadOnly:  true,
 			MountPath: "/opt/cryostat.d/probes.d/probeTemplateCM2_other-template.xml",
 			SubPath:   "other-template.xml",
@@ -3846,7 +3846,7 @@ func (r *TestResources) NewVolumesWithProbeTemplates() []corev1.Volume {
 	mode := int32(0440)
 	return append(r.NewVolumes(),
 		corev1.Volume{
-			Name: "template-probeTemplateCM1",
+			Name: "probe-template-probeTemplateCM1",
 			VolumeSource: corev1.VolumeSource{
 				ConfigMap: &corev1.ConfigMapVolumeSource{
 					LocalObjectReference: corev1.LocalObjectReference{
@@ -3863,7 +3863,7 @@ func (r *TestResources) NewVolumesWithProbeTemplates() []corev1.Volume {
 			},
 		},
 		corev1.Volume{
-			Name: "template-probeTemplateCM2",
+			Name: "probe-template-probeTemplateCM2",
 			VolumeSource: corev1.VolumeSource{
 				ConfigMap: &corev1.ConfigMapVolumeSource{
 					LocalObjectReference: corev1.LocalObjectReference{
