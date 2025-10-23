@@ -4764,7 +4764,7 @@ func (r *TestResources) NewOtherRuleConfigMap() *corev1.ConfigMap {
 			Namespace: r.Namespace,
 		},
 		Data: map[string]string{
-			"other-rule.jfc": "more JSON rule data",
+			"other-rule.json": "more JSON rule data",
 		},
 	}
 }
