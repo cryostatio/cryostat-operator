@@ -4971,6 +4971,7 @@ http {
 	tcp_nopush          on;
 	keepalive_timeout   65;
 	types_hash_max_size 4096;
+	client_max_body_size 0;
 
 	include             /etc/nginx/mime.types;
 	default_type        application/octet-stream;
@@ -5032,6 +5033,14 @@ http {
 			proxy_pass http://127.0.0.1:8181$request_uri;
 		}
 
+		location /api/beta/diagnostics/heapdump/upload/ {
+			proxy_pass http://127.0.0.1:8181$request_uri;
+		}
+
+		location = /api/beta/diagnostics/heapdump/upload {
+			proxy_pass http://127.0.0.1:8181$request_uri;
+		}
+
 		location /health/ {
 			proxy_pass http://127.0.0.1:8181$request_uri;
 		}
@@ -5082,6 +5091,7 @@ http {
 	tcp_nopush          on;
 	keepalive_timeout   65;
 	types_hash_max_size 4096;
+	client_max_body_size 0;
 
 	include             /etc/nginx/mime.types;
 	default_type        application/octet-stream;
@@ -5113,6 +5123,14 @@ http {
 		}
 
 		location = /api/beta/recordings {
+			proxy_pass http://127.0.0.1:8181$request_uri;
+		}
+
+		location /api/beta/diagnostics/heapdump/upload/ {
+			proxy_pass http://127.0.0.1:8181$request_uri;
+		}
+
+		location = /api/beta/diagnostics/heapdump/upload {
 			proxy_pass http://127.0.0.1:8181$request_uri;
 		}
 
