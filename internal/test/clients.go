@@ -164,45 +164,83 @@ func SetCreationTimestamp(objs ...ctrlclient.Object) error {
 	return nil
 }
 
-type clientUpdateError struct {
+type clientWithError struct {
 	*commonTestClient
-	failObj ctrlclient.Object
 	err     *kerrors.StatusError
+	matchFn FailClientMatchFn
+}
+
+type FailClientMatchFn = func(obj ctrlclient.Object) bool
+
+func FailOnMatch(actual, expected ctrlclient.Object, scheme *runtime.Scheme) bool {
+	if actual.GetName() == expected.GetName() && actual.GetNamespace() == expected.GetNamespace() &&
+		actual.GetGenerateName() == expected.GetGenerateName() {
+		// Look up Kind and compare against object to fail on
+		match, err := matchesKind(actual, expected, scheme)
+		gomega.Expect(err).ToNot(gomega.HaveOccurred())
+		if *match {
+			return true
+		}
+	}
+	return false
+}
+
+type clientCreateError struct {
+	*clientWithError
+}
+
+// NewClientWithCreateError wraps a Client by returning an error when creating
+// a matching object
+func NewClientWithCreateError(client ctrlclient.Client, err *kerrors.StatusError,
+	matchFn FailClientMatchFn) ctrlclient.Client {
+	return &clientCreateError{
+		clientWithError: &clientWithError{
+			commonTestClient: newCommonTestClient(client),
+			err:              err,
+			matchFn:          matchFn,
+		},
+	}
+}
+
+func (c *clientCreateError) Create(ctx context.Context, obj ctrlclient.Object, opts ...ctrlclient.CreateOption) error {
+	if c.matchFn(obj) {
+		return c.err
+	}
+	return c.Client.Create(ctx, obj, opts...)
+}
+
+type clientUpdateError struct {
+	*clientWithError
 }
 
 // NewClientWithUpdateError wraps a Client by returning an error when updating
 // a specified object
-func NewClientWithUpdateError(client ctrlclient.Client, failObj ctrlclient.Object,
-	err *kerrors.StatusError) ctrlclient.Client {
+func NewClientWithUpdateError(client ctrlclient.Client, err *kerrors.StatusError,
+	matchFn FailClientMatchFn) ctrlclient.Client {
 	return &clientUpdateError{
-		commonTestClient: newCommonTestClient(client),
-		failObj:          failObj,
-		err:              err,
+		clientWithError: &clientWithError{
+			commonTestClient: newCommonTestClient(client),
+			err:              err,
+			matchFn:          matchFn,
+		},
 	}
 }
 
 func (c *clientUpdateError) Update(ctx context.Context, obj ctrlclient.Object,
 	opts ...ctrlclient.UpdateOption) error {
-	if obj.GetName() == c.failObj.GetName() && obj.GetNamespace() == c.failObj.GetNamespace() {
-		// Look up Kind and compare against object to fail on
-		match, err := c.matchesKind(obj, c.failObj)
-		if err != nil {
-			return err
-		}
-		if *match {
-			return c.err
-		}
+	if c.matchFn(obj) {
+		return c.err
 	}
 	return c.Client.Update(ctx, obj, opts...)
 }
 
-func (c *commonTestClient) matchesKind(obj, expected ctrlclient.Object) (*bool, error) {
+func matchesKind(obj, expected ctrlclient.Object, scheme *runtime.Scheme) (*bool, error) {
 	match := false
-	expectKinds, _, err := c.Scheme().ObjectKinds(expected)
+	expectKinds, _, err := scheme.ObjectKinds(expected)
 	if err != nil {
 		return nil, err
 	}
-	kinds, _, err := c.Scheme().ObjectKinds(obj)
+	kinds, _, err := scheme.ObjectKinds(obj)
 	if err != nil {
 		return nil, err
 	}

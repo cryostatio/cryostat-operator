@@ -370,16 +370,17 @@ func (r *Reconciler) deleteCertWithSecret(ctx context.Context, cert *certv1.Cert
 			Namespace: cert.Namespace,
 		},
 	}
-	err := r.deleteSecret(ctx, secret)
+
+	// Delete the certificate first to prevent cert-manager from reissuing it
+	err := r.deleteCertificate(ctx, cert)
+	if err != nil {
+		return err
+	}
+	err = r.deleteSecret(ctx, secret)
 	if err != nil {
 		return err
 	}
 
-	// Delete the certificate
-	err = r.deleteCertificate(ctx, cert)
-	if err != nil {
-		return err
-	}
 	return nil
 }
 
@@ -419,9 +420,15 @@ func (r *Reconciler) reconcileAgentCertificate(ctx context.Context, cert *certv1
 var errCertificateModified error = errors.New("certificate has been modified")
 
 func (r *Reconciler) createOrUpdateCertificate(ctx context.Context, cert *certv1.Certificate, owner metav1.Object) error {
-	client := client.WithFieldValidation(r.Client, metav1.FieldValidationStrict)
+	supportsFields, err := r.supportsPKCS12Profile(ctx, cert)
+	if err != nil {
+		return err
+	}
+	if !supportsFields {
+		cert = legacyCertificate(cert)
+	}
 	certCopy := cert.DeepCopy()
-	op, err := controllerutil.CreateOrUpdate(ctx, client, cert, func() error {
+	op, err := controllerutil.CreateOrUpdate(ctx, r.Client, cert, func() error {
 		common.MergeLabelsAndAnnotations(&cert.ObjectMeta, certCopy.Labels, certCopy.Annotations)
 
 		if owner != nil {
@@ -433,12 +440,7 @@ func (r *Reconciler) createOrUpdateCertificate(ctx context.Context, cert *certv1
 		if cert.CreationTimestamp.IsZero() {
 			cert.Spec = certCopy.Spec
 		} else {
-			// Check whether we're comparing against a legacy certificate
-			compareCert := certCopy
-			if metav1.HasAnnotation(cert.ObjectMeta, legacyCertificateAnnotation) {
-				compareCert = legacyCertificate(certCopy)
-			}
-			if !cmp.Equal(cert.Spec, compareCert.Spec) {
+			if !cmp.Equal(cert.Spec, certCopy.Spec) {
 				return errCertificateModified
 			}
 		}
@@ -448,12 +450,6 @@ func (r *Reconciler) createOrUpdateCertificate(ctx context.Context, cert *certv1
 	if err != nil {
 		if err == errCertificateModified {
 			return r.recreateCertificate(ctx, certCopy, owner)
-		} else if kerrors.IsBadRequest(err) { // TODO not sure if we can get more specific than this
-			r.Log.Info("Certificate update failed, trying again with legacy certificate",
-				"name", cert.Name, "namespace", cert.Namespace)
-			fmt.Printf("%+v\n", err) // XXX
-			// Retry with a legacy certificate
-			return r.createOrUpdateCertificate(ctx, legacyCertificate(certCopy), owner)
 		}
 		return err
 	}
@@ -461,18 +457,33 @@ func (r *Reconciler) createOrUpdateCertificate(ctx context.Context, cert *certv1
 	return nil
 }
 
-const legacyCertificateAnnotation string = "cryostat.io/legacy-certificate"
+func (r *Reconciler) supportsPKCS12Profile(ctx context.Context, cert *certv1.Certificate) (bool, error) {
+	// Use a generated name to prevent AlreadyExists errors
+	certCopy := cert.DeepCopy()
+	certCopy.GenerateName = cert.Name
+	certCopy.Name = ""
+
+	// Test the API server using strict field validation in dry-run mode
+	client := client.NewDryRunClient(client.WithFieldValidation(r.Client, metav1.FieldValidationStrict))
+	err := client.Create(ctx, certCopy)
+	if err != nil {
+		// The CRD version installed is missing some fields we're trying to set
+		if kerrors.IsBadRequest(err) {
+			r.Log.Info("Certificate CRD does not support all fields, trying again with legacy certificate",
+				"name", cert.Name, "namespace", cert.Namespace)
+			return false, nil
+		}
+		return false, err
+	}
+	// The API server recognizes all fields in the CR
+	return true, nil
+}
 
 func legacyCertificate(cert *certv1.Certificate) *certv1.Certificate {
 	// This field is not available on cert-manager < 1.14
 	if cert.Spec.Keystores != nil && cert.Spec.Keystores.PKCS12 != nil {
 		cert.Spec.Keystores.PKCS12.Profile = ""
 	}
-	// Add an annotation to distinguish this from an old, but updateable certificate
-	if cert.Annotations == nil {
-		cert.Annotations = map[string]string{}
-	}
-	cert.Annotations[legacyCertificateAnnotation] = "true"
 	return cert
 }
 

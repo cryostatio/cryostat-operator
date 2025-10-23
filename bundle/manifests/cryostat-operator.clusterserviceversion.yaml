@@ -24,7 +24,7 @@ metadata:
     capabilities: Seamless Upgrades
     categories: Monitoring, Developer Tools
     containerImage: quay.io/cryostat/cryostat-operator:4.1.0-dev
-    createdAt: "2025-10-14T20:24:45Z"
+    createdAt: "2025-10-23T15:31:04Z"
     description: JVM monitoring and profiling tool
     operatorframework.io/initialization-resource: |-
       {
@@ -40,7 +40,7 @@ metadata:
           }
         }
       }
-    operators.operatorframework.io/builder: operator-sdk-v1.31.0
+    operators.operatorframework.io/builder: operator-sdk-v1.33.0
     operators.operatorframework.io/project_layout: go.kubebuilder.io/v3
     repository: github.com/cryostatio/cryostat-operator
     support: Cryostat Community
@@ -1203,16 +1203,6 @@ spec:
                 - rbac.authorization.k8s.io
               resources:
                 - clusterrolebindings
-              verbs:
-                - create
-                - delete
-                - get
-                - list
-                - update
-                - watch
-            - apiGroups:
-                - rbac.authorization.k8s.io
-              resources:
                 - rolebindings
                 - roles
               verbs:

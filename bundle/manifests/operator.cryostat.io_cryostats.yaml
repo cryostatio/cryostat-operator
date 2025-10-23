@@ -3,7 +3,7 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     cert-manager.io/inject-ca-from: cryostat-operator-system/cryostat-operator-serving-cert
-    controller-gen.kubebuilder.io/version: v0.14.0
+    controller-gen.kubebuilder.io/version: v0.16.5
   creationTimestamp: null
   labels:
     app.kubernetes.io/name: cryostat-operator
@@ -158,7 +158,6 @@ spec:
                       Specifications for how to expose the Cryostat command service,
                       which serves the WebSocket command channel.
 
-
                       Deprecated: CommandConfig is no longer used.
                     properties:
                       annotations:
@@ -233,6 +232,7 @@ spec:
                                         format: int32
                                         type: integer
                                     type: object
+                                    x-kubernetes-map-type: atomic
                                 required:
                                 - name
                                 type: object
@@ -274,7 +274,7 @@ spec:
                                     in the future.\nIncoming requests are matched
                                     against the host before the\nIngressRuleValue.
                                     If the host is unspecified, the Ingress routes
-                                    all\ntraffic based on the specified IngressRuleValue.\n\n\nhost
+                                    all\ntraffic based on the specified IngressRuleValue.\n\nhost
                                     can be \"precise\" which is a domain name without
                                     the terminating dot of\na network host (e.g. \"foo.bar.com\")
                                     or \"wildcard\", which is a domain name\nprefixed
@@ -365,6 +365,7 @@ spec:
                                                         format: int32
                                                         type: integer
                                                     type: object
+                                                    x-kubernetes-map-type: atomic
                                                 required:
                                                 - name
                                                 type: object
@@ -523,6 +524,7 @@ spec:
                                         format: int32
                                         type: integer
                                     type: object
+                                    x-kubernetes-map-type: atomic
                                 required:
                                 - name
                                 type: object
@@ -564,7 +566,7 @@ spec:
                                     in the future.\nIncoming requests are matched
                                     against the host before the\nIngressRuleValue.
                                     If the host is unspecified, the Ingress routes
-                                    all\ntraffic based on the specified IngressRuleValue.\n\n\nhost
+                                    all\ntraffic based on the specified IngressRuleValue.\n\nhost
                                     can be \"precise\" which is a domain name without
                                     the terminating dot of\na network host (e.g. \"foo.bar.com\")
                                     or \"wildcard\", which is a domain name\nprefixed
@@ -655,6 +657,7 @@ spec:
                                                         format: int32
                                                         type: integer
                                                     type: object
+                                                    x-kubernetes-map-type: atomic
                                                 required:
                                                 - name
                                                 type: object
@@ -813,6 +816,7 @@ spec:
                                         format: int32
                                         type: integer
                                     type: object
+                                    x-kubernetes-map-type: atomic
                                 required:
                                 - name
                                 type: object
@@ -854,7 +858,7 @@ spec:
                                     in the future.\nIncoming requests are matched
                                     against the host before the\nIngressRuleValue.
                                     If the host is unspecified, the Ingress routes
-                                    all\ntraffic based on the specified IngressRuleValue.\n\n\nhost
+                                    all\ntraffic based on the specified IngressRuleValue.\n\nhost
                                     can be \"precise\" which is a domain name without
                                     the terminating dot of\na network host (e.g. \"foo.bar.com\")
                                     or \"wildcard\", which is a domain name\nprefixed
@@ -945,6 +949,7 @@ spec:
                                                         format: int32
                                                         type: integer
                                                     type: object
+                                                    x-kubernetes-map-type: atomic
                                                 required:
                                                 - name
                                                 type: object
@@ -1087,10 +1092,8 @@ spec:
                           Claims lists the names of resources, defined in spec.resourceClaims,
                           that are used by this container.
 
-
                           This is an alpha field and requires enabling the
                           DynamicResourceAllocation feature gate.
-
 
                           This field is immutable. It can only be set for containers.
                         items:
@@ -1101,6 +1104,12 @@ spec:
                                 Name must match the name of one entry in pod.spec.resourceClaims of
                                 the Pod where this field is used. It makes that resource available
                                 inside a container.
+                              type: string
+                            request:
+                              description: |-
+                                Request is the name chosen for a request in the referenced claim.
+                                If empty, everything from the claim is made available, otherwise
+                                only the result of this request.
                               type: string
                           required:
                           - name
@@ -1424,7 +1433,7 @@ spec:
                                             pod labels will be ignored. The default value is empty.
                                             The same key is forbidden to exist in both matchLabelKeys and labelSelector.
                                             Also, matchLabelKeys cannot be set when labelSelector isn't set.
-                                            This is an alpha field and requires enabling MatchLabelKeysInPodAffinity feature gate.
+                                            This is a beta field and requires enabling MatchLabelKeysInPodAffinity feature gate (enabled by default).
                                           items:
                                             type: string
                                           type: array
@@ -1439,7 +1448,7 @@ spec:
                                             pod labels will be ignored. The default value is empty.
                                             The same key is forbidden to exist in both mismatchLabelKeys and labelSelector.
                                             Also, mismatchLabelKeys cannot be set when labelSelector isn't set.
-                                            This is an alpha field and requires enabling MatchLabelKeysInPodAffinity feature gate.
+                                            This is a beta field and requires enabling MatchLabelKeysInPodAffinity feature gate (enabled by default).
                                           items:
                                             type: string
                                           type: array
@@ -1607,7 +1616,7 @@ spec:
                                         pod labels will be ignored. The default value is empty.
                                         The same key is forbidden to exist in both matchLabelKeys and labelSelector.
                                         Also, matchLabelKeys cannot be set when labelSelector isn't set.
-                                        This is an alpha field and requires enabling MatchLabelKeysInPodAffinity feature gate.
+                                        This is a beta field and requires enabling MatchLabelKeysInPodAffinity feature gate (enabled by default).
                                       items:
                                         type: string
                                       type: array
@@ -1622,7 +1631,7 @@ spec:
                                         pod labels will be ignored. The default value is empty.
                                         The same key is forbidden to exist in both mismatchLabelKeys and labelSelector.
                                         Also, mismatchLabelKeys cannot be set when labelSelector isn't set.
-                                        This is an alpha field and requires enabling MatchLabelKeysInPodAffinity feature gate.
+                                        This is a beta field and requires enabling MatchLabelKeysInPodAffinity feature gate (enabled by default).
                                       items:
                                         type: string
                                       type: array
@@ -1787,7 +1796,7 @@ spec:
                                             pod labels will be ignored. The default value is empty.
                                             The same key is forbidden to exist in both matchLabelKeys and labelSelector.
                                             Also, matchLabelKeys cannot be set when labelSelector isn't set.
-                                            This is an alpha field and requires enabling MatchLabelKeysInPodAffinity feature gate.
+                                            This is a beta field and requires enabling MatchLabelKeysInPodAffinity feature gate (enabled by default).
                                           items:
                                             type: string
                                           type: array
@@ -1802,7 +1811,7 @@ spec:
                                             pod labels will be ignored. The default value is empty.
                                             The same key is forbidden to exist in both mismatchLabelKeys and labelSelector.
                                             Also, mismatchLabelKeys cannot be set when labelSelector isn't set.
-                                            This is an alpha field and requires enabling MatchLabelKeysInPodAffinity feature gate.
+                                            This is a beta field and requires enabling MatchLabelKeysInPodAffinity feature gate (enabled by default).
                                           items:
                                             type: string
                                           type: array
@@ -1970,7 +1979,7 @@ spec:
                                         pod labels will be ignored. The default value is empty.
                                         The same key is forbidden to exist in both matchLabelKeys and labelSelector.
                                         Also, matchLabelKeys cannot be set when labelSelector isn't set.
-                                        This is an alpha field and requires enabling MatchLabelKeysInPodAffinity feature gate.
+                                        This is a beta field and requires enabling MatchLabelKeysInPodAffinity feature gate (enabled by default).
                                       items:
                                         type: string
                                       type: array
@@ -1985,7 +1994,7 @@ spec:
                                         pod labels will be ignored. The default value is empty.
                                         The same key is forbidden to exist in both mismatchLabelKeys and labelSelector.
                                         Also, mismatchLabelKeys cannot be set when labelSelector isn't set.
-                                        This is an alpha field and requires enabling MatchLabelKeysInPodAffinity feature gate.
+                                        This is a beta field and requires enabling MatchLabelKeysInPodAffinity feature gate (enabled by default).
                                       items:
                                         type: string
                                       type: array
@@ -2151,11 +2160,9 @@ spec:
                               Some volume types allow the Kubelet to change the ownership of that volume
                               to be owned by the pod:
 
-
                               1. The owning GID will be the FSGroup
                               2. The setgid bit is set (new files created in the volume will be owned by FSGroup)
                               3. The permission bits are OR'd with rw-rw----
-
 
                               If unset, the Kubelet will not modify the ownership and permissions of any volume.
                               Note that this field cannot be set when spec.os.name is windows.
@@ -2243,7 +2250,6 @@ spec:
                                   type indicates which kind of seccomp profile will be applied.
                                   Valid options are:
 
-
                                   Localhost - a profile defined in a file on the node should be used.
                                   RuntimeDefault - the container runtime default profile should be used.
                                   Unconfined - no profile should be applied.
@@ -2253,18 +2259,28 @@ spec:
                             type: object
                           supplementalGroups:
                             description: |-
-                              A list of groups applied to the first process run in each container, in addition
-                              to the container's primary GID, the fsGroup (if specified), and group memberships
-                              defined in the container image for the uid of the container process. If unspecified,
-                              no additional groups are added to any container. Note that group memberships
-                              defined in the container image for the uid of the container process are still effective,
-                              even if they are not included in this list.
+                              A list of groups applied to the first process run in each container, in
+                              addition to the container's primary GID and fsGroup (if specified).  If
+                              the SupplementalGroupsPolicy feature is enabled, the
+                              supplementalGroupsPolicy field determines whether these are in addition
+                              to or instead of any group memberships defined in the container image.
+                              If unspecified, no additional groups are added, though group memberships
+                              defined in the container image may still be used, depending on the
+                              supplementalGroupsPolicy field.
                               Note that this field cannot be set when spec.os.name is windows.
                             items:
                               format: int64
                               type: integer
                             type: array
                             x-kubernetes-list-type: atomic
+                          supplementalGroupsPolicy:
+                            description: |-
+                              Defines how supplemental groups of the first container processes are calculated.
+                              Valid values are "Merge" and "Strict". If not specified, "Merge" is used.
+                              (Alpha) Using the field requires the SupplementalGroupsPolicy feature gate to be enabled
+                              and the container runtime must implement support for this feature.
+                              Note that this field cannot be set when spec.os.name is windows.
+                            type: string
                           sysctls:
                             description: |-
                               Sysctls hold a list of namespaced sysctls used for the pod. Pods with unsupported
@@ -2390,7 +2406,7 @@ spec:
                           procMount:
                             description: |-
                               procMount denotes the type of proc mount to use for the containers.
-                              The default is DefaultProcMount which uses the container runtime defaults for
+                              The default value is Default which uses the container runtime defaults for
                               readonly paths and masked paths.
                               This requires the ProcMountType feature flag to be enabled.
                               Note that this field cannot be set when spec.os.name is windows.
@@ -2472,7 +2488,6 @@ spec:
                                   type indicates which kind of seccomp profile will be applied.
                                   Valid options are:
 
-
                                   Localhost - a profile defined in a file on the node should be used.
                                   RuntimeDefault - the container runtime default profile should be used.
                                   Unconfined - no profile should be applied.
@@ -2534,10 +2549,8 @@ spec:
                           Claims lists the names of resources, defined in spec.resourceClaims,
                           that are used by this container.
 
-
                           This is an alpha field and requires enabling the
                           DynamicResourceAllocation feature gate.
-
 
                           This field is immutable. It can only be set for containers.
                         items:
@@ -2548,6 +2561,12 @@ spec:
                                 Name must match the name of one entry in pod.spec.resourceClaims of
                                 the Pod where this field is used. It makes that resource available
                                 inside a container.
+                              type: string
+                            request:
+                              description: |-
+                                Request is the name chosen for a request in the referenced claim.
+                                If empty, everything from the claim is made available, otherwise
+                                only the result of this request.
                               type: string
                           required:
                           - name
@@ -2589,10 +2608,8 @@ spec:
                           Claims lists the names of resources, defined in spec.resourceClaims,
                           that are used by this container.
 
-
                           This is an alpha field and requires enabling the
                           DynamicResourceAllocation feature gate.
-
 
                           This field is immutable. It can only be set for containers.
                         items:
@@ -2603,6 +2620,12 @@ spec:
                                 Name must match the name of one entry in pod.spec.resourceClaims of
                                 the Pod where this field is used. It makes that resource available
                                 inside a container.
+                              type: string
+                            request:
+                              description: |-
+                                Request is the name chosen for a request in the referenced claim.
+                                If empty, everything from the claim is made available, otherwise
+                                only the result of this request.
                               type: string
                           required:
                           - name
@@ -2644,10 +2667,8 @@ spec:
                           Claims lists the names of resources, defined in spec.resourceClaims,
                           that are used by this container.
 
-
                           This is an alpha field and requires enabling the
                           DynamicResourceAllocation feature gate.
-
 
                           This field is immutable. It can only be set for containers.
                         items:
@@ -2658,6 +2679,12 @@ spec:
                                 Name must match the name of one entry in pod.spec.resourceClaims of
                                 the Pod where this field is used. It makes that resource available
                                 inside a container.
+                              type: string
+                            request:
+                              description: |-
+                                Request is the name chosen for a request in the referenced claim.
+                                If empty, everything from the claim is made available, otherwise
+                                only the result of this request.
                               type: string
                           required:
                           - name
@@ -2980,7 +3007,7 @@ spec:
                                         pod labels will be ignored. The default value is empty.
                                         The same key is forbidden to exist in both matchLabelKeys and labelSelector.
                                         Also, matchLabelKeys cannot be set when labelSelector isn't set.
-                                        This is an alpha field and requires enabling MatchLabelKeysInPodAffinity feature gate.
+                                        This is a beta field and requires enabling MatchLabelKeysInPodAffinity feature gate (enabled by default).
                                       items:
                                         type: string
                                       type: array
@@ -2995,7 +3022,7 @@ spec:
                                         pod labels will be ignored. The default value is empty.
                                         The same key is forbidden to exist in both mismatchLabelKeys and labelSelector.
                                         Also, mismatchLabelKeys cannot be set when labelSelector isn't set.
-                                        This is an alpha field and requires enabling MatchLabelKeysInPodAffinity feature gate.
+                                        This is a beta field and requires enabling MatchLabelKeysInPodAffinity feature gate (enabled by default).
                                       items:
                                         type: string
                                       type: array
@@ -3162,7 +3189,7 @@ spec:
                                     pod labels will be ignored. The default value is empty.
                                     The same key is forbidden to exist in both matchLabelKeys and labelSelector.
                                     Also, matchLabelKeys cannot be set when labelSelector isn't set.
-                                    This is an alpha field and requires enabling MatchLabelKeysInPodAffinity feature gate.
+                                    This is a beta field and requires enabling MatchLabelKeysInPodAffinity feature gate (enabled by default).
                                   items:
                                     type: string
                                   type: array
@@ -3177,7 +3204,7 @@ spec:
                                     pod labels will be ignored. The default value is empty.
                                     The same key is forbidden to exist in both mismatchLabelKeys and labelSelector.
                                     Also, mismatchLabelKeys cannot be set when labelSelector isn't set.
-                                    This is an alpha field and requires enabling MatchLabelKeysInPodAffinity feature gate.
+                                    This is a beta field and requires enabling MatchLabelKeysInPodAffinity feature gate (enabled by default).
                                   items:
                                     type: string
                                   type: array
@@ -3341,7 +3368,7 @@ spec:
                                         pod labels will be ignored. The default value is empty.
                                         The same key is forbidden to exist in both matchLabelKeys and labelSelector.
                                         Also, matchLabelKeys cannot be set when labelSelector isn't set.
-                                        This is an alpha field and requires enabling MatchLabelKeysInPodAffinity feature gate.
+                                        This is a beta field and requires enabling MatchLabelKeysInPodAffinity feature gate (enabled by default).
                                       items:
                                         type: string
                                       type: array
@@ -3356,7 +3383,7 @@ spec:
                                         pod labels will be ignored. The default value is empty.
                                         The same key is forbidden to exist in both mismatchLabelKeys and labelSelector.
                                         Also, mismatchLabelKeys cannot be set when labelSelector isn't set.
-                                        This is an alpha field and requires enabling MatchLabelKeysInPodAffinity feature gate.
+                                        This is a beta field and requires enabling MatchLabelKeysInPodAffinity feature gate (enabled by default).
                                       items:
                                         type: string
                                       type: array
@@ -3523,7 +3550,7 @@ spec:
                                     pod labels will be ignored. The default value is empty.
                                     The same key is forbidden to exist in both matchLabelKeys and labelSelector.
                                     Also, matchLabelKeys cannot be set when labelSelector isn't set.
-                                    This is an alpha field and requires enabling MatchLabelKeysInPodAffinity feature gate.
+                                    This is a beta field and requires enabling MatchLabelKeysInPodAffinity feature gate (enabled by default).
                                   items:
                                     type: string
                                   type: array
@@ -3538,7 +3565,7 @@ spec:
                                     pod labels will be ignored. The default value is empty.
                                     The same key is forbidden to exist in both mismatchLabelKeys and labelSelector.
                                     Also, mismatchLabelKeys cannot be set when labelSelector isn't set.
-                                    This is an alpha field and requires enabling MatchLabelKeysInPodAffinity feature gate.
+                                    This is a beta field and requires enabling MatchLabelKeysInPodAffinity feature gate (enabled by default).
                                   items:
                                     type: string
                                   type: array
@@ -3742,7 +3769,7 @@ spec:
                       procMount:
                         description: |-
                           procMount denotes the type of proc mount to use for the containers.
-                          The default is DefaultProcMount which uses the container runtime defaults for
+                          The default value is Default which uses the container runtime defaults for
                           readonly paths and masked paths.
                           This requires the ProcMountType feature flag to be enabled.
                           Note that this field cannot be set when spec.os.name is windows.
@@ -3823,7 +3850,6 @@ spec:
                             description: |-
                               type indicates which kind of seccomp profile will be applied.
                               Valid options are:
-
 
                               Localhost - a profile defined in a file on the node should be used.
                               RuntimeDefault - the container runtime default profile should be used.
@@ -3936,7 +3962,7 @@ spec:
                       procMount:
                         description: |-
                           procMount denotes the type of proc mount to use for the containers.
-                          The default is DefaultProcMount which uses the container runtime defaults for
+                          The default value is Default which uses the container runtime defaults for
                           readonly paths and masked paths.
                           This requires the ProcMountType feature flag to be enabled.
                           Note that this field cannot be set when spec.os.name is windows.
@@ -4017,7 +4043,6 @@ spec:
                             description: |-
                               type indicates which kind of seccomp profile will be applied.
                               Valid options are:
-
 
                               Localhost - a profile defined in a file on the node should be used.
                               RuntimeDefault - the container runtime default profile should be used.
@@ -4129,7 +4154,7 @@ spec:
                       procMount:
                         description: |-
                           procMount denotes the type of proc mount to use for the containers.
-                          The default is DefaultProcMount which uses the container runtime defaults for
+                          The default value is Default which uses the container runtime defaults for
                           readonly paths and masked paths.
                           This requires the ProcMountType feature flag to be enabled.
                           Note that this field cannot be set when spec.os.name is windows.
@@ -4210,7 +4235,6 @@ spec:
                             description: |-
                               type indicates which kind of seccomp profile will be applied.
                               Valid options are:
-
 
                               Localhost - a profile defined in a file on the node should be used.
                               RuntimeDefault - the container runtime default profile should be used.
@@ -4322,7 +4346,7 @@ spec:
                       procMount:
                         description: |-
                           procMount denotes the type of proc mount to use for the containers.
-                          The default is DefaultProcMount which uses the container runtime defaults for
+                          The default value is Default which uses the container runtime defaults for
                           readonly paths and masked paths.
                           This requires the ProcMountType feature flag to be enabled.
                           Note that this field cannot be set when spec.os.name is windows.
@@ -4404,7 +4428,6 @@ spec:
                               type indicates which kind of seccomp profile will be applied.
                               Valid options are:
 
-
                               Localhost - a profile defined in a file on the node should be used.
                               RuntimeDefault - the container runtime default profile should be used.
                               Unconfined - no profile should be applied.
@@ -4477,11 +4500,9 @@ spec:
                           Some volume types allow the Kubelet to change the ownership of that volume
                           to be owned by the pod:
 
-
                           1. The owning GID will be the FSGroup
                           2. The setgid bit is set (new files created in the volume will be owned by FSGroup)
                           3. The permission bits are OR'd with rw-rw----
-
 
                           If unset, the Kubelet will not modify the ownership and permissions of any volume.
                           Note that this field cannot be set when spec.os.name is windows.
@@ -4569,7 +4590,6 @@ spec:
                               type indicates which kind of seccomp profile will be applied.
                               Valid options are:
 
-
                               Localhost - a profile defined in a file on the node should be used.
                               RuntimeDefault - the container runtime default profile should be used.
                               Unconfined - no profile should be applied.
@@ -4579,18 +4599,28 @@ spec:
                         type: object
                       supplementalGroups:
                         description: |-
-                          A list of groups applied to the first process run in each container, in addition
-                          to the container's primary GID, the fsGroup (if specified), and group memberships
-                          defined in the container image for the uid of the container process. If unspecified,
-                          no additional groups are added to any container. Note that group memberships
-                          defined in the container image for the uid of the container process are still effective,
-                          even if they are not included in this list.
+                          A list of groups applied to the first process run in each container, in
+                          addition to the container's primary GID and fsGroup (if specified).  If
+                          the SupplementalGroupsPolicy feature is enabled, the
+                          supplementalGroupsPolicy field determines whether these are in addition
+                          to or instead of any group memberships defined in the container image.
+                          If unspecified, no additional groups are added, though group memberships
+                          defined in the container image may still be used, depending on the
+                          supplementalGroupsPolicy field.
                           Note that this field cannot be set when spec.os.name is windows.
                         items:
                           format: int64
                           type: integer
                         type: array
                         x-kubernetes-list-type: atomic
+                      supplementalGroupsPolicy:
+                        description: |-
+                          Defines how supplemental groups of the first container processes are calculated.
+                          Valid values are "Merge" and "Strict". If not specified, "Merge" is used.
+                          (Alpha) Using the field requires the SupplementalGroupsPolicy feature gate to be enabled
+                          and the container runtime must implement support for this feature.
+                          Note that this field cannot be set when spec.os.name is windows.
+                        type: string
                       sysctls:
                         description: |-
                           Sysctls hold a list of namespaced sysctls used for the pod. Pods with unsupported
@@ -4714,7 +4744,7 @@ spec:
                       procMount:
                         description: |-
                           procMount denotes the type of proc mount to use for the containers.
-                          The default is DefaultProcMount which uses the container runtime defaults for
+                          The default value is Default which uses the container runtime defaults for
                           readonly paths and masked paths.
                           This requires the ProcMountType feature flag to be enabled.
                           Note that this field cannot be set when spec.os.name is windows.
@@ -4795,7 +4825,6 @@ spec:
                             description: |-
                               type indicates which kind of seccomp profile will be applied.
                               Valid options are:
-
 
                               Localhost - a profile defined in a file on the node should be used.
                               RuntimeDefault - the container runtime default profile should be used.
@@ -5195,7 +5224,7 @@ spec:
                               set to a Pending state, as reflected by the modifyVolumeStatus field, until such as a resource
                               exists.
                               More info: https://kubernetes.io/docs/concepts/storage/volume-attributes-classes/
-                              (Alpha) Using this field requires the VolumeAttributesClass feature gate to be enabled.
+                              (Beta) Using this field requires the VolumeAttributesClass feature gate to be enabled (off by default).
                             type: string
                           volumeMode:
                             description: |-
@@ -5267,16 +5296,8 @@ spec:
                 description: Conditions of the components managed by the Cryostat
                   Operator.
                 items:
-                  description: "Condition contains details for one aspect of the current
-                    state of this API Resource.\n---\nThis struct is intended for
-                    direct use as an array at the field path .status.conditions.  For
-                    example,\n\n\n\ttype FooStatus struct{\n\t    // Represents the
-                    observations of a foo's current state.\n\t    // Known .status.conditions.type
-                    are: \"Available\", \"Progressing\", and \"Degraded\"\n\t    //
-                    +patchMergeKey=type\n\t    // +patchStrategy=merge\n\t    // +listType=map\n\t
-                    \   // +listMapKey=type\n\t    Conditions []metav1.Condition `json:\"conditions,omitempty\"
-                    patchStrategy:\"merge\" patchMergeKey:\"type\" protobuf:\"bytes,1,rep,name=conditions\"`\n\n\n\t
-                    \   // other fields\n\t}"
+                  description: Condition contains details for one aspect of the current
+                    state of this API Resource.
                   properties:
                     lastTransitionTime:
                       description: |-
@@ -5317,12 +5338,7 @@ spec:
                       - Unknown
                       type: string
                     type:
-                      description: |-
-                        type of condition in CamelCase or in foo.example.com/CamelCase.
-                        ---
-                        Many .condition.type values are consistent across resources like Available, but because arbitrary conditions can be
-                        useful (see .node.status.conditions), the ability to deconflict is important.
-                        The regex it matches is (dns1123SubdomainFmt/)?(qualifiedNameFmt)
+                      description: type of condition in CamelCase or in foo.example.com/CamelCase.
                       maxLength: 316
                       pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$
                       type: string
@@ -5414,10 +5430,8 @@ spec:
                           Claims lists the names of resources, defined in spec.resourceClaims,
                           that are used by this container.
 
-
                           This is an alpha field and requires enabling the
                           DynamicResourceAllocation feature gate.
-
 
                           This field is immutable. It can only be set for containers.
                         items:
@@ -5428,6 +5442,12 @@ spec:
                                 Name must match the name of one entry in pod.spec.resourceClaims of
                                 the Pod where this field is used. It makes that resource available
                                 inside a container.
+                              type: string
+                            request:
+                              description: |-
+                                Request is the name chosen for a request in the referenced claim.
+                                If empty, everything from the claim is made available, otherwise
+                                only the result of this request.
                               type: string
                           required:
                           - name
@@ -5489,10 +5509,112 @@ spec:
                           as CLI utilities and other programs presenting Bearer auth tokens) must pass in order to access the application.
                           If not specified, the default role required is "create pods/exec" in the Cryostat application's installation namespace.
                         properties:
+                          fieldSelector:
+                            description: |-
+                              fieldSelector describes the limitation on access based on field.  It can only limit access, not broaden it.
+
+                              This field  is alpha-level. To use this field, you must enable the
+                              `AuthorizeWithSelectors` feature gate (disabled by default).
+                            properties:
+                              rawSelector:
+                                description: |-
+                                  rawSelector is the serialization of a field selector that would be included in a query parameter.
+                                  Webhook implementations are encouraged to ignore rawSelector.
+                                  The kube-apiserver's *SubjectAccessReview will parse the rawSelector as long as the requirements are not present.
+                                type: string
+                              requirements:
+                                description: |-
+                                  requirements is the parsed interpretation of a field selector.
+                                  All requirements must be met for a resource instance to match the selector.
+                                  Webhook implementations should handle requirements, but how to handle them is up to the webhook.
+                                  Since requirements can only limit the request, it is safe to authorize as unlimited request if the requirements
+                                  are not understood.
+                                items:
+                                  description: |-
+                                    FieldSelectorRequirement is a selector that contains values, a key, and an operator that
+                                    relates the key and values.
+                                  properties:
+                                    key:
+                                      description: key is the field selector key that
+                                        the requirement applies to.
+                                      type: string
+                                    operator:
+                                      description: |-
+                                        operator represents a key's relationship to a set of values.
+                                        Valid operators are In, NotIn, Exists, DoesNotExist.
+                                        The list of operators may grow in the future.
+                                      type: string
+                                    values:
+                                      description: |-
+                                        values is an array of string values.
+                                        If the operator is In or NotIn, the values array must be non-empty.
+                                        If the operator is Exists or DoesNotExist, the values array must be empty.
+                                      items:
+                                        type: string
+                                      type: array
+                                      x-kubernetes-list-type: atomic
+                                  required:
+                                  - key
+                                  - operator
+                                  type: object
+                                type: array
+                                x-kubernetes-list-type: atomic
+                            type: object
                           group:
                             description: Group is the API Group of the Resource.  "*"
                               means all.
                             type: string
+                          labelSelector:
+                            description: |-
+                              labelSelector describes the limitation on access based on labels.  It can only limit access, not broaden it.
+
+                              This field  is alpha-level. To use this field, you must enable the
+                              `AuthorizeWithSelectors` feature gate (disabled by default).
+                            properties:
+                              rawSelector:
+                                description: |-
+                                  rawSelector is the serialization of a field selector that would be included in a query parameter.
+                                  Webhook implementations are encouraged to ignore rawSelector.
+                                  The kube-apiserver's *SubjectAccessReview will parse the rawSelector as long as the requirements are not present.
+                                type: string
+                              requirements:
+                                description: |-
+                                  requirements is the parsed interpretation of a label selector.
+                                  All requirements must be met for a resource instance to match the selector.
+                                  Webhook implementations should handle requirements, but how to handle them is up to the webhook.
+                                  Since requirements can only limit the request, it is safe to authorize as unlimited request if the requirements
+                                  are not understood.
+                                items:
+                                  description: |-
+                                    A label selector requirement is a selector that contains values, a key, and an operator that
+                                    relates the key and values.
+                                  properties:
+                                    key:
+                                      description: key is the label key that the selector
+                                        applies to.
+                                      type: string
+                                    operator:
+                                      description: |-
+                                        operator represents a key's relationship to a set of values.
+                                        Valid operators are In, NotIn, Exists and DoesNotExist.
+                                      type: string
+                                    values:
+                                      description: |-
+                                        values is an array of string values. If the operator is In or NotIn,
+                                        the values array must be non-empty. If the operator is Exists or DoesNotExist,
+                                        the values array must be empty. This array is replaced during a strategic
+                                        merge patch.
+                                      items:
+                                        type: string
+                                      type: array
+                                      x-kubernetes-list-type: atomic
+                                  required:
+                                  - key
+                                  - operator
+                                  type: object
+                                type: array
+                                x-kubernetes-list-type: atomic
+                            type: object
                           name:
                             description: Name is the name of the resource being requested
                               for a "get" or deleted for a "delete". "" (empty) means
@@ -5667,6 +5789,7 @@ spec:
                                         format: int32
                                         type: integer
                                     type: object
+                                    x-kubernetes-map-type: atomic
                                 required:
                                 - name
                                 type: object
@@ -5708,7 +5831,7 @@ spec:
                                     in the future.\nIncoming requests are matched
                                     against the host before the\nIngressRuleValue.
                                     If the host is unspecified, the Ingress routes
-                                    all\ntraffic based on the specified IngressRuleValue.\n\n\nhost
+                                    all\ntraffic based on the specified IngressRuleValue.\n\nhost
                                     can be \"precise\" which is a domain name without
                                     the terminating dot of\na network host (e.g. \"foo.bar.com\")
                                     or \"wildcard\", which is a domain name\nprefixed
@@ -5799,6 +5922,7 @@ spec:
                                                         format: int32
                                                         type: integer
                                                     type: object
+                                                    x-kubernetes-map-type: atomic
                                                 required:
                                                 - name
                                                 type: object
@@ -6118,10 +6242,8 @@ spec:
                           Claims lists the names of resources, defined in spec.resourceClaims,
                           that are used by this container.
 
-
                           This is an alpha field and requires enabling the
                           DynamicResourceAllocation feature gate.
-
 
                           This field is immutable. It can only be set for containers.
                         items:
@@ -6132,6 +6254,12 @@ spec:
                                 Name must match the name of one entry in pod.spec.resourceClaims of
                                 the Pod where this field is used. It makes that resource available
                                 inside a container.
+                              type: string
+                            request:
+                              description: |-
+                                Request is the name chosen for a request in the referenced claim.
+                                If empty, everything from the claim is made available, otherwise
+                                only the result of this request.
                               type: string
                           required:
                           - name
@@ -6455,7 +6583,7 @@ spec:
                                             pod labels will be ignored. The default value is empty.
                                             The same key is forbidden to exist in both matchLabelKeys and labelSelector.
                                             Also, matchLabelKeys cannot be set when labelSelector isn't set.
-                                            This is an alpha field and requires enabling MatchLabelKeysInPodAffinity feature gate.
+                                            This is a beta field and requires enabling MatchLabelKeysInPodAffinity feature gate (enabled by default).
                                           items:
                                             type: string
                                           type: array
@@ -6470,7 +6598,7 @@ spec:
                                             pod labels will be ignored. The default value is empty.
                                             The same key is forbidden to exist in both mismatchLabelKeys and labelSelector.
                                             Also, mismatchLabelKeys cannot be set when labelSelector isn't set.
-                                            This is an alpha field and requires enabling MatchLabelKeysInPodAffinity feature gate.
+                                            This is a beta field and requires enabling MatchLabelKeysInPodAffinity feature gate (enabled by default).
                                           items:
                                             type: string
                                           type: array
@@ -6638,7 +6766,7 @@ spec:
                                         pod labels will be ignored. The default value is empty.
                                         The same key is forbidden to exist in both matchLabelKeys and labelSelector.
                                         Also, matchLabelKeys cannot be set when labelSelector isn't set.
-                                        This is an alpha field and requires enabling MatchLabelKeysInPodAffinity feature gate.
+                                        This is a beta field and requires enabling MatchLabelKeysInPodAffinity feature gate (enabled by default).
                                       items:
                                         type: string
                                       type: array
@@ -6653,7 +6781,7 @@ spec:
                                         pod labels will be ignored. The default value is empty.
                                         The same key is forbidden to exist in both mismatchLabelKeys and labelSelector.
                                         Also, mismatchLabelKeys cannot be set when labelSelector isn't set.
-                                        This is an alpha field and requires enabling MatchLabelKeysInPodAffinity feature gate.
+                                        This is a beta field and requires enabling MatchLabelKeysInPodAffinity feature gate (enabled by default).
                                       items:
                                         type: string
                                       type: array
@@ -6818,7 +6946,7 @@ spec:
                                             pod labels will be ignored. The default value is empty.
                                             The same key is forbidden to exist in both matchLabelKeys and labelSelector.
                                             Also, matchLabelKeys cannot be set when labelSelector isn't set.
-                                            This is an alpha field and requires enabling MatchLabelKeysInPodAffinity feature gate.
+                                            This is a beta field and requires enabling MatchLabelKeysInPodAffinity feature gate (enabled by default).
                                           items:
                                             type: string
                                           type: array
@@ -6833,7 +6961,7 @@ spec:
                                             pod labels will be ignored. The default value is empty.
                                             The same key is forbidden to exist in both mismatchLabelKeys and labelSelector.
                                             Also, mismatchLabelKeys cannot be set when labelSelector isn't set.
-                                            This is an alpha field and requires enabling MatchLabelKeysInPodAffinity feature gate.
+                                            This is a beta field and requires enabling MatchLabelKeysInPodAffinity feature gate (enabled by default).
                                           items:
                                             type: string
                                           type: array
@@ -7001,7 +7129,7 @@ spec:
                                         pod labels will be ignored. The default value is empty.
                                         The same key is forbidden to exist in both matchLabelKeys and labelSelector.
                                         Also, matchLabelKeys cannot be set when labelSelector isn't set.
-                                        This is an alpha field and requires enabling MatchLabelKeysInPodAffinity feature gate.
+                                        This is a beta field and requires enabling MatchLabelKeysInPodAffinity feature gate (enabled by default).
                                       items:
                                         type: string
                                       type: array
@@ -7016,7 +7144,7 @@ spec:
                                         pod labels will be ignored. The default value is empty.
                                         The same key is forbidden to exist in both mismatchLabelKeys and labelSelector.
                                         Also, mismatchLabelKeys cannot be set when labelSelector isn't set.
-                                        This is an alpha field and requires enabling MatchLabelKeysInPodAffinity feature gate.
+                                        This is a beta field and requires enabling MatchLabelKeysInPodAffinity feature gate (enabled by default).
                                       items:
                                         type: string
                                       type: array
@@ -7182,11 +7310,9 @@ spec:
                               Some volume types allow the Kubelet to change the ownership of that volume
                               to be owned by the pod:
 
-
                               1. The owning GID will be the FSGroup
                               2. The setgid bit is set (new files created in the volume will be owned by FSGroup)
                               3. The permission bits are OR'd with rw-rw----
-
 
                               If unset, the Kubelet will not modify the ownership and permissions of any volume.
                               Note that this field cannot be set when spec.os.name is windows.
@@ -7274,7 +7400,6 @@ spec:
                                   type indicates which kind of seccomp profile will be applied.
                                   Valid options are:
 
-
                                   Localhost - a profile defined in a file on the node should be used.
                                   RuntimeDefault - the container runtime default profile should be used.
                                   Unconfined - no profile should be applied.
@@ -7284,18 +7409,28 @@ spec:
                             type: object
                           supplementalGroups:
                             description: |-
-                              A list of groups applied to the first process run in each container, in addition
-                              to the container's primary GID, the fsGroup (if specified), and group memberships
-                              defined in the container image for the uid of the container process. If unspecified,
-                              no additional groups are added to any container. Note that group memberships
-                              defined in the container image for the uid of the container process are still effective,
-                              even if they are not included in this list.
+                              A list of groups applied to the first process run in each container, in
+                              addition to the container's primary GID and fsGroup (if specified).  If
+                              the SupplementalGroupsPolicy feature is enabled, the
+                              supplementalGroupsPolicy field determines whether these are in addition
+                              to or instead of any group memberships defined in the container image.
+                              If unspecified, no additional groups are added, though group memberships
+                              defined in the container image may still be used, depending on the
+                              supplementalGroupsPolicy field.
                               Note that this field cannot be set when spec.os.name is windows.
                             items:
                               format: int64
                               type: integer
                             type: array
                             x-kubernetes-list-type: atomic
+                          supplementalGroupsPolicy:
+                            description: |-
+                              Defines how supplemental groups of the first container processes are calculated.
+                              Valid values are "Merge" and "Strict". If not specified, "Merge" is used.
+                              (Alpha) Using the field requires the SupplementalGroupsPolicy feature gate to be enabled
+                              and the container runtime must implement support for this feature.
+                              Note that this field cannot be set when spec.os.name is windows.
+                            type: string
                           sysctls:
                             description: |-
                               Sysctls hold a list of namespaced sysctls used for the pod. Pods with unsupported
@@ -7421,7 +7556,7 @@ spec:
                           procMount:
                             description: |-
                               procMount denotes the type of proc mount to use for the containers.
-                              The default is DefaultProcMount which uses the container runtime defaults for
+                              The default value is Default which uses the container runtime defaults for
                               readonly paths and masked paths.
                               This requires the ProcMountType feature flag to be enabled.
                               Note that this field cannot be set when spec.os.name is windows.
@@ -7503,7 +7638,6 @@ spec:
                                   type indicates which kind of seccomp profile will be applied.
                                   Valid options are:
 
-
                                   Localhost - a profile defined in a file on the node should be used.
                                   RuntimeDefault - the container runtime default profile should be used.
                                   Unconfined - no profile should be applied.
@@ -7567,10 +7701,8 @@ spec:
                           Claims lists the names of resources, defined in spec.resourceClaims,
                           that are used by this container.
 
-
                           This is an alpha field and requires enabling the
                           DynamicResourceAllocation feature gate.
-
 
                           This field is immutable. It can only be set for containers.
                         items:
@@ -7581,6 +7713,12 @@ spec:
                                 Name must match the name of one entry in pod.spec.resourceClaims of
                                 the Pod where this field is used. It makes that resource available
                                 inside a container.
+                              type: string
+                            request:
+                              description: |-
+                                Request is the name chosen for a request in the referenced claim.
+                                If empty, everything from the claim is made available, otherwise
+                                only the result of this request.
                               type: string
                           required:
                           - name
@@ -7622,10 +7760,8 @@ spec:
                           Claims lists the names of resources, defined in spec.resourceClaims,
                           that are used by this container.
 
-
                           This is an alpha field and requires enabling the
                           DynamicResourceAllocation feature gate.
-
 
                           This field is immutable. It can only be set for containers.
                         items:
@@ -7636,6 +7772,12 @@ spec:
                                 Name must match the name of one entry in pod.spec.resourceClaims of
                                 the Pod where this field is used. It makes that resource available
                                 inside a container.
+                              type: string
+                            request:
+                              description: |-
+                                Request is the name chosen for a request in the referenced claim.
+                                If empty, everything from the claim is made available, otherwise
+                                only the result of this request.
                               type: string
                           required:
                           - name
@@ -7678,10 +7820,8 @@ spec:
                           Claims lists the names of resources, defined in spec.resourceClaims,
                           that are used by this container.
 
-
                           This is an alpha field and requires enabling the
                           DynamicResourceAllocation feature gate.
-
 
                           This field is immutable. It can only be set for containers.
                         items:
@@ -7692,6 +7832,12 @@ spec:
                                 Name must match the name of one entry in pod.spec.resourceClaims of
                                 the Pod where this field is used. It makes that resource available
                                 inside a container.
+                              type: string
+                            request:
+                              description: |-
+                                Request is the name chosen for a request in the referenced claim.
+                                If empty, everything from the claim is made available, otherwise
+                                only the result of this request.
                               type: string
                           required:
                           - name
@@ -7733,10 +7879,8 @@ spec:
                           Claims lists the names of resources, defined in spec.resourceClaims,
                           that are used by this container.
 
-
                           This is an alpha field and requires enabling the
                           DynamicResourceAllocation feature gate.
-
 
                           This field is immutable. It can only be set for containers.
                         items:
@@ -7747,6 +7891,12 @@ spec:
                                 Name must match the name of one entry in pod.spec.resourceClaims of
                                 the Pod where this field is used. It makes that resource available
                                 inside a container.
+                              type: string
+                            request:
+                              description: |-
+                                Request is the name chosen for a request in the referenced claim.
+                                If empty, everything from the claim is made available, otherwise
+                                only the result of this request.
                               type: string
                           required:
                           - name
@@ -7788,10 +7938,8 @@ spec:
                           Claims lists the names of resources, defined in spec.resourceClaims,
                           that are used by this container.
 
-
                           This is an alpha field and requires enabling the
                           DynamicResourceAllocation feature gate.
-
 
                           This field is immutable. It can only be set for containers.
                         items:
@@ -7802,6 +7950,12 @@ spec:
                                 Name must match the name of one entry in pod.spec.resourceClaims of
                                 the Pod where this field is used. It makes that resource available
                                 inside a container.
+                              type: string
+                            request:
+                              description: |-
+                                Request is the name chosen for a request in the referenced claim.
+                                If empty, everything from the claim is made available, otherwise
+                                only the result of this request.
                               type: string
                           required:
                           - name
@@ -7843,10 +7997,8 @@ spec:
                           Claims lists the names of resources, defined in spec.resourceClaims,
                           that are used by this container.
 
-
                           This is an alpha field and requires enabling the
                           DynamicResourceAllocation feature gate.
-
 
                           This field is immutable. It can only be set for containers.
                         items:
@@ -7857,6 +8009,12 @@ spec:
                                 Name must match the name of one entry in pod.spec.resourceClaims of
                                 the Pod where this field is used. It makes that resource available
                                 inside a container.
+                              type: string
+                            request:
+                              description: |-
+                                Request is the name chosen for a request in the referenced claim.
+                                If empty, everything from the claim is made available, otherwise
+                                only the result of this request.
                               type: string
                           required:
                           - name
@@ -7898,10 +8056,8 @@ spec:
                           Claims lists the names of resources, defined in spec.resourceClaims,
                           that are used by this container.
 
-
                           This is an alpha field and requires enabling the
                           DynamicResourceAllocation feature gate.
-
 
                           This field is immutable. It can only be set for containers.
                         items:
@@ -7912,6 +8068,12 @@ spec:
                                 Name must match the name of one entry in pod.spec.resourceClaims of
                                 the Pod where this field is used. It makes that resource available
                                 inside a container.
+                              type: string
+                            request:
+                              description: |-
+                                Request is the name chosen for a request in the referenced claim.
+                                If empty, everything from the claim is made available, otherwise
+                                only the result of this request.
                               type: string
                           required:
                           - name
@@ -8234,7 +8396,7 @@ spec:
                                         pod labels will be ignored. The default value is empty.
                                         The same key is forbidden to exist in both matchLabelKeys and labelSelector.
                                         Also, matchLabelKeys cannot be set when labelSelector isn't set.
-                                        This is an alpha field and requires enabling MatchLabelKeysInPodAffinity feature gate.
+                                        This is a beta field and requires enabling MatchLabelKeysInPodAffinity feature gate (enabled by default).
                                       items:
                                         type: string
                                       type: array
@@ -8249,7 +8411,7 @@ spec:
                                         pod labels will be ignored. The default value is empty.
                                         The same key is forbidden to exist in both mismatchLabelKeys and labelSelector.
                                         Also, mismatchLabelKeys cannot be set when labelSelector isn't set.
-                                        This is an alpha field and requires enabling MatchLabelKeysInPodAffinity feature gate.
+                                        This is a beta field and requires enabling MatchLabelKeysInPodAffinity feature gate (enabled by default).
                                       items:
                                         type: string
                                       type: array
@@ -8416,7 +8578,7 @@ spec:
                                     pod labels will be ignored. The default value is empty.
                                     The same key is forbidden to exist in both matchLabelKeys and labelSelector.
                                     Also, matchLabelKeys cannot be set when labelSelector isn't set.
-                                    This is an alpha field and requires enabling MatchLabelKeysInPodAffinity feature gate.
+                                    This is a beta field and requires enabling MatchLabelKeysInPodAffinity feature gate (enabled by default).
                                   items:
                                     type: string
                                   type: array
@@ -8431,7 +8593,7 @@ spec:
                                     pod labels will be ignored. The default value is empty.
                                     The same key is forbidden to exist in both mismatchLabelKeys and labelSelector.
                                     Also, mismatchLabelKeys cannot be set when labelSelector isn't set.
-                                    This is an alpha field and requires enabling MatchLabelKeysInPodAffinity feature gate.
+                                    This is a beta field and requires enabling MatchLabelKeysInPodAffinity feature gate (enabled by default).
                                   items:
                                     type: string
                                   type: array
@@ -8595,7 +8757,7 @@ spec:
                                         pod labels will be ignored. The default value is empty.
                                         The same key is forbidden to exist in both matchLabelKeys and labelSelector.
                                         Also, matchLabelKeys cannot be set when labelSelector isn't set.
-                                        This is an alpha field and requires enabling MatchLabelKeysInPodAffinity feature gate.
+                                        This is a beta field and requires enabling MatchLabelKeysInPodAffinity feature gate (enabled by default).
                                       items:
                                         type: string
                                       type: array
@@ -8610,7 +8772,7 @@ spec:
                                         pod labels will be ignored. The default value is empty.
                                         The same key is forbidden to exist in both mismatchLabelKeys and labelSelector.
                                         Also, mismatchLabelKeys cannot be set when labelSelector isn't set.
-                                        This is an alpha field and requires enabling MatchLabelKeysInPodAffinity feature gate.
+                                        This is a beta field and requires enabling MatchLabelKeysInPodAffinity feature gate (enabled by default).
                                       items:
                                         type: string
                                       type: array
@@ -8777,7 +8939,7 @@ spec:
                                     pod labels will be ignored. The default value is empty.
                                     The same key is forbidden to exist in both matchLabelKeys and labelSelector.
                                     Also, matchLabelKeys cannot be set when labelSelector isn't set.
-                                    This is an alpha field and requires enabling MatchLabelKeysInPodAffinity feature gate.
+                                    This is a beta field and requires enabling MatchLabelKeysInPodAffinity feature gate (enabled by default).
                                   items:
                                     type: string
                                   type: array
@@ -8792,7 +8954,7 @@ spec:
                                     pod labels will be ignored. The default value is empty.
                                     The same key is forbidden to exist in both mismatchLabelKeys and labelSelector.
                                     Also, mismatchLabelKeys cannot be set when labelSelector isn't set.
-                                    This is an alpha field and requires enabling MatchLabelKeysInPodAffinity feature gate.
+                                    This is a beta field and requires enabling MatchLabelKeysInPodAffinity feature gate (enabled by default).
                                   items:
                                     type: string
                                   type: array
@@ -8995,7 +9157,7 @@ spec:
                       procMount:
                         description: |-
                           procMount denotes the type of proc mount to use for the containers.
-                          The default is DefaultProcMount which uses the container runtime defaults for
+                          The default value is Default which uses the container runtime defaults for
                           readonly paths and masked paths.
                           This requires the ProcMountType feature flag to be enabled.
                           Note that this field cannot be set when spec.os.name is windows.
@@ -9076,7 +9238,6 @@ spec:
                             description: |-
                               type indicates which kind of seccomp profile will be applied.
                               Valid options are:
-
 
                               Localhost - a profile defined in a file on the node should be used.
                               RuntimeDefault - the container runtime default profile should be used.
@@ -9188,7 +9349,7 @@ spec:
                       procMount:
                         description: |-
                           procMount denotes the type of proc mount to use for the containers.
-                          The default is DefaultProcMount which uses the container runtime defaults for
+                          The default value is Default which uses the container runtime defaults for
                           readonly paths and masked paths.
                           This requires the ProcMountType feature flag to be enabled.
                           Note that this field cannot be set when spec.os.name is windows.
@@ -9269,7 +9430,6 @@ spec:
                             description: |-
                               type indicates which kind of seccomp profile will be applied.
                               Valid options are:
-
 
                               Localhost - a profile defined in a file on the node should be used.
                               RuntimeDefault - the container runtime default profile should be used.
@@ -9382,7 +9542,7 @@ spec:
                       procMount:
                         description: |-
                           procMount denotes the type of proc mount to use for the containers.
-                          The default is DefaultProcMount which uses the container runtime defaults for
+                          The default value is Default which uses the container runtime defaults for
                           readonly paths and masked paths.
                           This requires the ProcMountType feature flag to be enabled.
                           Note that this field cannot be set when spec.os.name is windows.
@@ -9463,7 +9623,6 @@ spec:
                             description: |-
                               type indicates which kind of seccomp profile will be applied.
                               Valid options are:
-
 
                               Localhost - a profile defined in a file on the node should be used.
                               RuntimeDefault - the container runtime default profile should be used.
@@ -9576,7 +9735,7 @@ spec:
                       procMount:
                         description: |-
                           procMount denotes the type of proc mount to use for the containers.
-                          The default is DefaultProcMount which uses the container runtime defaults for
+                          The default value is Default which uses the container runtime defaults for
                           readonly paths and masked paths.
                           This requires the ProcMountType feature flag to be enabled.
                           Note that this field cannot be set when spec.os.name is windows.
@@ -9657,7 +9816,6 @@ spec:
                             description: |-
                               type indicates which kind of seccomp profile will be applied.
                               Valid options are:
-
 
                               Localhost - a profile defined in a file on the node should be used.
                               RuntimeDefault - the container runtime default profile should be used.
@@ -9769,7 +9927,7 @@ spec:
                       procMount:
                         description: |-
                           procMount denotes the type of proc mount to use for the containers.
-                          The default is DefaultProcMount which uses the container runtime defaults for
+                          The default value is Default which uses the container runtime defaults for
                           readonly paths and masked paths.
                           This requires the ProcMountType feature flag to be enabled.
                           Note that this field cannot be set when spec.os.name is windows.
@@ -9850,7 +10008,6 @@ spec:
                             description: |-
                               type indicates which kind of seccomp profile will be applied.
                               Valid options are:
-
 
                               Localhost - a profile defined in a file on the node should be used.
                               RuntimeDefault - the container runtime default profile should be used.
@@ -9962,7 +10119,7 @@ spec:
                       procMount:
                         description: |-
                           procMount denotes the type of proc mount to use for the containers.
-                          The default is DefaultProcMount which uses the container runtime defaults for
+                          The default value is Default which uses the container runtime defaults for
                           readonly paths and masked paths.
                           This requires the ProcMountType feature flag to be enabled.
                           Note that this field cannot be set when spec.os.name is windows.
@@ -10044,7 +10201,6 @@ spec:
                               type indicates which kind of seccomp profile will be applied.
                               Valid options are:
 
-
                               Localhost - a profile defined in a file on the node should be used.
                               RuntimeDefault - the container runtime default profile should be used.
                               Unconfined - no profile should be applied.
@@ -10117,11 +10273,9 @@ spec:
                           Some volume types allow the Kubelet to change the ownership of that volume
                           to be owned by the pod:
 
-
                           1. The owning GID will be the FSGroup
                           2. The setgid bit is set (new files created in the volume will be owned by FSGroup)
                           3. The permission bits are OR'd with rw-rw----
-
 
                           If unset, the Kubelet will not modify the ownership and permissions of any volume.
                           Note that this field cannot be set when spec.os.name is windows.
@@ -10209,7 +10363,6 @@ spec:
                               type indicates which kind of seccomp profile will be applied.
                               Valid options are:
 
-
                               Localhost - a profile defined in a file on the node should be used.
                               RuntimeDefault - the container runtime default profile should be used.
                               Unconfined - no profile should be applied.
@@ -10219,18 +10372,28 @@ spec:
                         type: object
                       supplementalGroups:
                         description: |-
-                          A list of groups applied to the first process run in each container, in addition
-                          to the container's primary GID, the fsGroup (if specified), and group memberships
-                          defined in the container image for the uid of the container process. If unspecified,
-                          no additional groups are added to any container. Note that group memberships
-                          defined in the container image for the uid of the container process are still effective,
-                          even if they are not included in this list.
+                          A list of groups applied to the first process run in each container, in
+                          addition to the container's primary GID and fsGroup (if specified).  If
+                          the SupplementalGroupsPolicy feature is enabled, the
+                          supplementalGroupsPolicy field determines whether these are in addition
+                          to or instead of any group memberships defined in the container image.
+                          If unspecified, no additional groups are added, though group memberships
+                          defined in the container image may still be used, depending on the
+                          supplementalGroupsPolicy field.
                           Note that this field cannot be set when spec.os.name is windows.
                         items:
                           format: int64
                           type: integer
                         type: array
                         x-kubernetes-list-type: atomic
+                      supplementalGroupsPolicy:
+                        description: |-
+                          Defines how supplemental groups of the first container processes are calculated.
+                          Valid values are "Merge" and "Strict". If not specified, "Merge" is used.
+                          (Alpha) Using the field requires the SupplementalGroupsPolicy feature gate to be enabled
+                          and the container runtime must implement support for this feature.
+                          Note that this field cannot be set when spec.os.name is windows.
+                        type: string
                       sysctls:
                         description: |-
                           Sysctls hold a list of namespaced sysctls used for the pod. Pods with unsupported
@@ -10354,7 +10517,7 @@ spec:
                       procMount:
                         description: |-
                           procMount denotes the type of proc mount to use for the containers.
-                          The default is DefaultProcMount which uses the container runtime defaults for
+                          The default value is Default which uses the container runtime defaults for
                           readonly paths and masked paths.
                           This requires the ProcMountType feature flag to be enabled.
                           Note that this field cannot be set when spec.os.name is windows.
@@ -10435,7 +10598,6 @@ spec:
                             description: |-
                               type indicates which kind of seccomp profile will be applied.
                               Valid options are:
-
 
                               Localhost - a profile defined in a file on the node should be used.
                               RuntimeDefault - the container runtime default profile should be used.
@@ -10888,7 +11050,7 @@ spec:
                                   set to a Pending state, as reflected by the modifyVolumeStatus field, until such as a resource
                                   exists.
                                   More info: https://kubernetes.io/docs/concepts/storage/volume-attributes-classes/
-                                  (Alpha) Using this field requires the VolumeAttributesClass feature gate to be enabled.
+                                  (Beta) Using this field requires the VolumeAttributesClass feature gate to be enabled (off by default).
                                 type: string
                               volumeMode:
                                 description: |-
@@ -11166,7 +11328,7 @@ spec:
                                   set to a Pending state, as reflected by the modifyVolumeStatus field, until such as a resource
                                   exists.
                                   More info: https://kubernetes.io/docs/concepts/storage/volume-attributes-classes/
-                                  (Alpha) Using this field requires the VolumeAttributesClass feature gate to be enabled.
+                                  (Beta) Using this field requires the VolumeAttributesClass feature gate to be enabled (off by default).
                                 type: string
                               volumeMode:
                                 description: |-
@@ -11390,7 +11552,7 @@ spec:
                               set to a Pending state, as reflected by the modifyVolumeStatus field, until such as a resource
                               exists.
                               More info: https://kubernetes.io/docs/concepts/storage/volume-attributes-classes/
-                              (Alpha) Using this field requires the VolumeAttributesClass feature gate to be enabled.
+                              (Beta) Using this field requires the VolumeAttributesClass feature gate to be enabled (off by default).
                             type: string
                           volumeMode:
                             description: |-
@@ -11490,16 +11652,8 @@ spec:
                 description: Conditions of the components managed by the Cryostat
                   Operator.
                 items:
-                  description: "Condition contains details for one aspect of the current
-                    state of this API Resource.\n---\nThis struct is intended for
-                    direct use as an array at the field path .status.conditions.  For
-                    example,\n\n\n\ttype FooStatus struct{\n\t    // Represents the
-                    observations of a foo's current state.\n\t    // Known .status.conditions.type
-                    are: \"Available\", \"Progressing\", and \"Degraded\"\n\t    //
-                    +patchMergeKey=type\n\t    // +patchStrategy=merge\n\t    // +listType=map\n\t
-                    \   // +listMapKey=type\n\t    Conditions []metav1.Condition `json:\"conditions,omitempty\"
-                    patchStrategy:\"merge\" patchMergeKey:\"type\" protobuf:\"bytes,1,rep,name=conditions\"`\n\n\n\t
-                    \   // other fields\n\t}"
+                  description: Condition contains details for one aspect of the current
+                    state of this API Resource.
                   properties:
                     lastTransitionTime:
                       description: |-
@@ -11540,12 +11694,7 @@ spec:
                       - Unknown
                       type: string
                     type:
-                      description: |-
-                        type of condition in CamelCase or in foo.example.com/CamelCase.
-                        ---
-                        Many .condition.type values are consistent across resources like Available, but because arbitrary conditions can be
-                        useful (see .node.status.conditions), the ability to deconflict is important.
-                        The regex it matches is (dns1123SubdomainFmt/)?(qualifiedNameFmt)
+                      description: type of condition in CamelCase or in foo.example.com/CamelCase.
                       maxLength: 316
                       pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$
                       type: string
