@@ -73,7 +73,7 @@ var _ = BeforeSuite(func() {
 	testEnv = &envtest.Environment{
 		CRDDirectoryPaths: []string{
 			filepath.Join(append(openshiftPrefix, "config", "v1", "zz_generated.crd-manifests", "0000_00_cluster-version-operator_01_clusterversions-Default.crd.yaml")...),
-			filepath.Join(append(openshiftPrefix, "console", "v1", "zz_generated.crd-manifests", "90_consoleplugins.crd.yaml")...),
+			filepath.Join(append(openshiftPrefix, "console", "v1", "zz_generated.crd-manifests", "90_consoleplugins-Default.crd.yaml")...),
 			filepath.Join(append(openshiftPrefix, "operator", "v1", "zz_generated.crd-manifests", "0000_50_console_01_consoles.crd.yaml")...),
 		},
 		ErrorIfCRDPathMissing: true,
