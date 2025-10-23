@@ -194,6 +194,7 @@ http {
 	tcp_nopush          on;
 	keepalive_timeout   65;
 	types_hash_max_size 4096;
+	client_max_body_size 0;
 
 	include             /etc/nginx/mime.types;
 	default_type        application/octet-stream;
