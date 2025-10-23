@@ -40,6 +40,10 @@ type CryostatSpec struct {
 	// +optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Event Templates"
 	EventTemplates []TemplateConfigMap `json:"eventTemplates,omitempty"`
+	// List of JMC Agent Probe Templates to preconfigure in Cryostat.
+	// +optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Probe Templates"
+	ProbeTemplates []ProbeTemplateConfigMap `json:"probeTemplates,omitempty"`
 	// List of Stored Credentials to preconfigure in Cryostat.
 	// +optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Stored Credentials"
@@ -614,6 +618,15 @@ type DeclarativeCredential struct {
 	// { "username": "$USERNAME", "password": "$PASSWORD", "matchExpression": "$MATCHEXPRESSION" }
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:io.kubernetes:Secret"}
 	SecretName string `json:"secretName"`
+}
+
+// A ConfigMap containing a .xml JMC Agent probe template file.
+type ProbeTemplateConfigMap struct {
+	// Name of config map in the local namespace.
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:io.kubernetes:ConfigMap"}
+	ConfigMapName string `json:"ocnfigMapName"`
+	// Filename within config map containing the automated rule file.
+	Filename string `json:"filename"`
 }
 
 // A ConfigMap containing a .jfc template file.

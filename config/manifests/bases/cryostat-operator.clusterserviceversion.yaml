@@ -397,6 +397,14 @@ spec:
           "app.kubernetes.io/instance", "app.kubernetes.io/component", and "app.kubernetes.io/part-of".'
         displayName: Labels
         path: operandMetadata.podMetadata.labels
+      - description: List of JMC Agent Probe Templates to preconfigure in Cryostat.
+        displayName: Probe Templates
+        path: probeTemplates
+      - description: Name of config map in the local namespace.
+        displayName: Config Map Name
+        path: probeTemplates[0].ocnfigMapName
+        x-descriptors:
+        - urn:alm:descriptor:io.kubernetes:ConfigMap
       - description: Options to configure Cryostat Automated Report Analysis.
         displayName: Report Options
         path: reportOptions

@@ -6084,6 +6084,25 @@ spec:
                         type: object
                     type: object
                 type: object
+              probeTemplates:
+                description: List of JMC Agent Probe Templates to preconfigure in
+                  Cryostat.
+                items:
+                  description: A ConfigMap containing a .xml JMC Agent probe template
+                    file.
+                  properties:
+                    filename:
+                      description: Filename within config map containing the automated
+                        rule file.
+                      type: string
+                    ocnfigMapName:
+                      description: Name of config map in the local namespace.
+                      type: string
+                  required:
+                  - filename
+                  - ocnfigMapName
+                  type: object
+                type: array
               reportOptions:
                 description: Options to configure Cryostat Automated Report Analysis.
                 properties:
