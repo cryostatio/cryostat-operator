@@ -695,6 +695,28 @@ func NewPodForCR(cr *model.CryostatInstance, specs *ServiceSpecs, imageTags *Ima
 		volumes = append(volumes, ruleVolume)
 	}
 
+	// Add any ProbeTemplates as volumes
+	for _, template := range cr.Spec.ProbeTemplates {
+		probeTemplateVolume := corev1.Volume{
+			Name: "probe-template-" + template.ConfigMapName,
+			VolumeSource: corev1.VolumeSource{
+				ConfigMap: &corev1.ConfigMapVolumeSource{
+					LocalObjectReference: corev1.LocalObjectReference{
+						Name: template.ConfigMapName,
+					},
+					Items: []corev1.KeyToPath{
+						{
+							Key:  template.Filename,
+							Path: template.Filename,
+							Mode: &readOnlyMode,
+						},
+					},
+				},
+			},
+		}
+		volumes = append(volumes, probeTemplateVolume)
+	}
+
 	// Add Declarative Credentials as volumes
 	for _, credential := range cr.Spec.DeclarativeCredentials {
 		volumes = append(volumes,
@@ -1378,6 +1400,7 @@ func NewCoreContainer(cr *model.CryostatInstance, specs *ServiceSpecs, imageTag 
 	configPath := "/opt/cryostat.d/conf.d"
 	templatesPath := "/opt/cryostat.d/templates.d"
 	rulesPath := "/opt/cryostat.d/rules.d"
+	probeTemplatesPath := "/opt/cryostat.d/probes.d"
 	credentialsPath := "/opt/cryostat.d/credentials.d"
 
 	envs := []corev1.EnvVar{
@@ -1805,6 +1828,17 @@ func NewCoreContainer(cr *model.CryostatInstance, specs *ServiceSpecs, imageTag 
 			Name:      "rule-" + rule.ConfigMapName,
 			MountPath: path.Join(rulesPath, fmt.Sprintf("%s_%s", rule.ConfigMapName, rule.Filename)),
 			SubPath:   rule.Filename,
+			ReadOnly:  true,
+		}
+		mounts = append(mounts, mount)
+	}
+
+	// Mount the templates specified in Cryostat CR under /opt/cryostat.d/probes.d
+	for _, template := range cr.Spec.ProbeTemplates {
+		mount := corev1.VolumeMount{
+			Name:      "probe-template-" + template.ConfigMapName,
+			MountPath: path.Join(probeTemplatesPath, fmt.Sprintf("%s_%s", template.ConfigMapName, template.Filename)),
+			SubPath:   template.Filename,
 			ReadOnly:  true,
 		}
 		mounts = append(mounts, mount)

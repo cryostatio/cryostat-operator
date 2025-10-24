@@ -177,6 +177,21 @@ func (r *TestResources) NewCryostatWithAutomatedRules() *model.CryostatInstance 
 	return cr
 }
 
+func (r *TestResources) NewCryostatWithProbeTemplates() *model.CryostatInstance {
+	cr := r.NewCryostat()
+	cr.Spec.ProbeTemplates = []operatorv1beta2.ProbeTemplateConfigMap{
+		{
+			ConfigMapName: "probeTemplateCM1",
+			Filename:      "template.xml",
+		},
+		{
+			ConfigMapName: "probeTemplateCM2",
+			Filename:      "other-template.xml",
+		},
+	}
+	return cr
+}
+
 func (r *TestResources) NewCryostatWithDeclarativeCredentials() *model.CryostatInstance {
 	cr := r.NewCryostat()
 	cr.Spec.DeclarativeCredentials = []operatorv1beta2.DeclarativeCredential{
@@ -3473,6 +3488,22 @@ func (r *TestResources) NewReportsVolumeMounts() []corev1.VolumeMount {
 	return mounts
 }
 
+func (r *TestResources) NewVolumeMountsWithProbeTemplates() []corev1.VolumeMount {
+	return append(r.NewCoreVolumeMounts(),
+		corev1.VolumeMount{
+			Name:      "probe-template-probeTemplateCM1",
+			ReadOnly:  true,
+			MountPath: "/opt/cryostat.d/probes.d/probeTemplateCM1_template.xml",
+			SubPath:   "template.xml",
+		},
+		corev1.VolumeMount{
+			Name:      "probe-template-probeTemplateCM2",
+			ReadOnly:  true,
+			MountPath: "/opt/cryostat.d/probes.d/probeTemplateCM2_other-template.xml",
+			SubPath:   "other-template.xml",
+		})
+}
+
 func (r *TestResources) NewVolumeMountsWithTemplates() []corev1.VolumeMount {
 	return append(r.NewCoreVolumeMounts(),
 		corev1.VolumeMount{
@@ -3873,6 +3904,45 @@ func (r *TestResources) NewVolumesWithRules() []corev1.Volume {
 						{
 							Key:  "other-rule.json",
 							Path: "other-rule.json",
+							Mode: &mode,
+						},
+					},
+				},
+			},
+		})
+}
+
+func (r *TestResources) NewVolumesWithProbeTemplates() []corev1.Volume {
+	mode := int32(0440)
+	return append(r.NewVolumes(),
+		corev1.Volume{
+			Name: "probe-template-probeTemplateCM1",
+			VolumeSource: corev1.VolumeSource{
+				ConfigMap: &corev1.ConfigMapVolumeSource{
+					LocalObjectReference: corev1.LocalObjectReference{
+						Name: "probeTemplateCM1",
+					},
+					Items: []corev1.KeyToPath{
+						{
+							Key:  "template.xml",
+							Path: "template.xml",
+							Mode: &mode,
+						},
+					},
+				},
+			},
+		},
+		corev1.Volume{
+			Name: "probe-template-probeTemplateCM2",
+			VolumeSource: corev1.VolumeSource{
+				ConfigMap: &corev1.ConfigMapVolumeSource{
+					LocalObjectReference: corev1.LocalObjectReference{
+						Name: "probeTemplateCM2",
+					},
+					Items: []corev1.KeyToPath{
+						{
+							Key:  "other-template.xml",
+							Path: "other-template.xml",
 							Mode: &mode,
 						},
 					},
@@ -4700,6 +4770,30 @@ func (r *TestResources) OtherClusterRoleBinding() *rbacv1.ClusterRoleBinding {
 			},
 		},
 		RoleRef: r.NewClusterRoleBinding().RoleRef,
+	}
+}
+
+func (r *TestResources) NewProbeTemplateConfigMap() *corev1.ConfigMap {
+	return &corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "probeTemplateCM1",
+			Namespace: r.Namespace,
+		},
+		Data: map[string]string{
+			"template.xml": "XML template data",
+		},
+	}
+}
+
+func (r *TestResources) NewOtherProbeTemplateConfigMap() *corev1.ConfigMap {
+	return &corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "probeTemplateCM2",
+			Namespace: r.Namespace,
+		},
+		Data: map[string]string{
+			"other-template.xml": "more XML template data",
+		},
 	}
 }
 
