@@ -143,6 +143,17 @@ spec:
         path: authorizationOptions.openShiftSSO.disable
         x-descriptors:
         - urn:alm:descriptor:com.tectonic.ui:booleanSwitch
+      - description: List of Automated Rule Json Files to preconfigure in Cryostat.
+        displayName: Automated Rules
+        path: automatedRules
+      - description: Name of config map in the local namespace.
+        displayName: Config Map Name
+        path: automatedRules[0].configMapName
+        x-descriptors:
+        - urn:alm:descriptor:io.kubernetes:ConfigMap
+      - description: Filename within config map containing the automated rule file.
+        displayName: Filename
+        path: automatedRules[0].filename
       - description: Options to configure the Cryostat application's database.
         displayName: Database Options
         path: databaseOptions
@@ -176,6 +187,9 @@ spec:
         path: eventTemplates[0].configMapName
         x-descriptors:
         - urn:alm:descriptor:io.kubernetes:ConfigMap
+      - description: Filename within config map containing the template file.
+        displayName: Filename
+        path: eventTemplates[0].filename
       - description: Options to control how the operator exposes the application outside
           of the cluster, such as using an Ingress or Route.
         displayName: Network Options

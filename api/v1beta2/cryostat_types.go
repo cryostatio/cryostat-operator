@@ -36,6 +36,10 @@ type CryostatSpec struct {
 	// +optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Trusted TLS Certificates"
 	TrustedCertSecrets []CertificateSecret `json:"trustedCertSecrets,omitempty"`
+	// List of Automated Rule Json Files to preconfigure in Cryostat.
+	// +optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Automated Rules"
+	AutomatedRules []AutomatedRuleConfigMap `json:"automatedRules,omitempty"`
 	// List of Flight Recorder Event Templates to preconfigure in Cryostat.
 	// +optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Event Templates"
@@ -636,6 +640,17 @@ type TemplateConfigMap struct {
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:io.kubernetes:ConfigMap"}
 	ConfigMapName string `json:"configMapName"`
 	// Filename within config map containing the template file.
+	// +operator-sdk:csv:customresourcedefinitions:type=spec
+	Filename string `json:"filename"`
+}
+
+// A ConfigMap containing a .json automated rule file.
+type AutomatedRuleConfigMap struct {
+	// Name of config map in the local namespace.
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:io.kubernetes:ConfigMap"}
+	ConfigMapName string `json:"configMapName"`
+	// Filename within config map containing the automated rule file.
+	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	Filename string `json:"filename"`
 }
 
