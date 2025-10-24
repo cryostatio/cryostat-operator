@@ -626,6 +626,7 @@ type ProbeTemplateConfigMap struct {
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:io.kubernetes:ConfigMap"}
 	ConfigMapName string `json:"configMapName"`
 	// Filename within config map containing the automated rule file.
+	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	Filename string `json:"filename"`
 }
 
