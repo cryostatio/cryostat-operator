@@ -370,16 +370,17 @@ func (r *Reconciler) deleteCertWithSecret(ctx context.Context, cert *certv1.Cert
 			Namespace: cert.Namespace,
 		},
 	}
-	err := r.deleteSecret(ctx, secret)
+
+	// Delete the certificate first to prevent cert-manager from reissuing it
+	err := r.deleteCertificate(ctx, cert)
+	if err != nil {
+		return err
+	}
+	err = r.deleteSecret(ctx, secret)
 	if err != nil {
 		return err
 	}
 
-	// Delete the certificate
-	err = r.deleteCertificate(ctx, cert)
-	if err != nil {
-		return err
-	}
 	return nil
 }
 
@@ -419,8 +420,17 @@ func (r *Reconciler) reconcileAgentCertificate(ctx context.Context, cert *certv1
 var errCertificateModified error = errors.New("certificate has been modified")
 
 func (r *Reconciler) createOrUpdateCertificate(ctx context.Context, cert *certv1.Certificate, owner metav1.Object) error {
+	supportsFields, err := r.supportsPKCS12Profile(ctx, cert)
+	if err != nil {
+		return err
+	}
+	if !supportsFields {
+		cert = legacyCertificate(cert)
+	}
 	certCopy := cert.DeepCopy()
 	op, err := controllerutil.CreateOrUpdate(ctx, r.Client, cert, func() error {
+		common.MergeLabelsAndAnnotations(&cert.ObjectMeta, certCopy.Labels, certCopy.Annotations)
+
 		if owner != nil {
 			if err := controllerutil.SetControllerReference(owner, cert, r.Scheme); err != nil {
 				return err
@@ -429,8 +439,10 @@ func (r *Reconciler) createOrUpdateCertificate(ctx context.Context, cert *certv1
 
 		if cert.CreationTimestamp.IsZero() {
 			cert.Spec = certCopy.Spec
-		} else if !cmp.Equal(cert.Spec, certCopy.Spec) {
-			return errCertificateModified
+		} else {
+			if !cmp.Equal(cert.Spec, certCopy.Spec) {
+				return errCertificateModified
+			}
 		}
 
 		return nil
@@ -443,6 +455,36 @@ func (r *Reconciler) createOrUpdateCertificate(ctx context.Context, cert *certv1
 	}
 	r.Log.Info(fmt.Sprintf("Certificate %s", op), "name", cert.Name, "namespace", cert.Namespace)
 	return nil
+}
+
+func (r *Reconciler) supportsPKCS12Profile(ctx context.Context, cert *certv1.Certificate) (bool, error) {
+	// Use a generated name to prevent AlreadyExists errors
+	certCopy := cert.DeepCopy()
+	certCopy.GenerateName = cert.Name
+	certCopy.Name = ""
+
+	// Test the API server using strict field validation in dry-run mode
+	client := client.NewDryRunClient(client.WithFieldValidation(r.Client, metav1.FieldValidationStrict))
+	err := client.Create(ctx, certCopy)
+	if err != nil {
+		// The CRD version installed is missing some fields we're trying to set
+		if kerrors.IsBadRequest(err) {
+			r.Log.Info("Certificate CRD does not support all fields, trying again with legacy certificate",
+				"name", cert.Name, "namespace", cert.Namespace)
+			return false, nil
+		}
+		return false, err
+	}
+	// The API server recognizes all fields in the CR
+	return true, nil
+}
+
+func legacyCertificate(cert *certv1.Certificate) *certv1.Certificate {
+	// This field is not available on cert-manager < 1.14
+	if cert.Spec.Keystores != nil && cert.Spec.Keystores.PKCS12 != nil {
+		cert.Spec.Keystores.PKCS12.Profile = ""
+	}
+	return cert
 }
 
 func (r *Reconciler) recreateCertificate(ctx context.Context, cert *certv1.Certificate, owner metav1.Object) error {

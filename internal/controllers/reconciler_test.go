@@ -1219,7 +1219,9 @@ func (c *controllerTest) commonTests() {
 						field.Forbidden(field.NewPath("spec"), "test error"),
 					})
 					origClient := t.controller.GetConfig().Client
-					t.controller.GetConfig().Client = test.NewClientWithUpdateError(origClient, oldPVC, invalidErr)
+					t.controller.GetConfig().Client = test.NewClientWithUpdateError(origClient, invalidErr, func(obj ctrlclient.Object) bool {
+						return test.FailOnMatch(obj, oldPVC, t.Client.Scheme())
+					})
 
 					// Expect an Invalid status error after reconciling
 					Eventually(func() bool {
@@ -2303,6 +2305,43 @@ func (c *controllerTest) commonTests() {
 			})
 			It("should recreate certificates", func() {
 				t.expectCertificates()
+			})
+		})
+
+		Context("with an outdated cert-manager", func() {
+			BeforeEach(func() {
+				t.objs = append(t.objs, t.NewCryostat().Object)
+			})
+			JustBeforeEach(func() {
+				// Replace client with one that doesn't know about the PKCS12 Profile field
+				invalidErr := kerrors.NewBadRequest("test error")
+				origClient := t.controller.GetConfig().Client
+				t.controller.GetConfig().Client = test.NewClientWithCreateError(origClient, invalidErr, func(obj ctrlclient.Object) bool {
+					dryRunCert := t.NewCryostatCert()
+					dryRunCert.GenerateName = dryRunCert.Name
+					dryRunCert.Name = ""
+
+					if test.FailOnMatch(obj, dryRunCert, t.Client.Scheme()) {
+						cert := obj.(*certv1.Certificate)
+						if cert.Spec.Keystores != nil && cert.Spec.Keystores.PKCS12 != nil && len(cert.Spec.Keystores.PKCS12.Profile) > 0 {
+							return true
+						}
+					}
+					return false
+				})
+
+				t.reconcileCryostatFully()
+			})
+
+			It("should create legacy certificate", func() {
+				expected := t.NewCryostatCert()
+				expected.Spec.Keystores.PKCS12.Profile = ""
+
+				actual := &certv1.Certificate{}
+				err := t.Client.Get(context.Background(), types.NamespacedName{Name: expected.Name, Namespace: expected.Namespace}, actual)
+				Expect(err).ToNot(HaveOccurred())
+
+				Expect(actual.Spec).To(Equal(expected.Spec))
 			})
 		})
 
