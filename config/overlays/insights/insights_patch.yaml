@@ -15,4 +15,4 @@ spec:
         - name: INSIGHTS_BACKEND_DOMAIN
           value: "console.redhat.com"
         - name: USER_AGENT_PREFIX
-          value: "cryostat-operator/4.1.0-dev"
+          value: "cryostat-operator/4.2.0-dev"
