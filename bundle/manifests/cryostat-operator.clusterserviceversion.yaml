@@ -24,7 +24,7 @@ metadata:
     capabilities: Seamless Upgrades
     categories: Monitoring, Developer Tools
     containerImage: quay.io/cryostat/cryostat-operator:4.1.0-dev
-    createdAt: "2025-10-23T15:31:04Z"
+    createdAt: "2025-10-28T23:56:46Z"
     description: JVM monitoring and profiling tool
     operatorframework.io/initialization-resource: |-
       {
@@ -138,6 +138,17 @@ spec:
             path: authorizationOptions.openShiftSSO.disable
             x-descriptors:
               - urn:alm:descriptor:com.tectonic.ui:booleanSwitch
+          - description: List of Automated Rule Json Files to preconfigure in Cryostat.
+            displayName: Automated Rules
+            path: automatedRules
+          - description: Name of config map in the local namespace.
+            displayName: Config Map Name
+            path: automatedRules[0].configMapName
+            x-descriptors:
+              - urn:alm:descriptor:io.kubernetes:ConfigMap
+          - description: Filename within config map containing the automated rule file.
+            displayName: Filename
+            path: automatedRules[0].filename
           - description: Options to configure the Cryostat application's database.
             displayName: Database Options
             path: databaseOptions
@@ -162,6 +173,9 @@ spec:
             path: eventTemplates[0].configMapName
             x-descriptors:
               - urn:alm:descriptor:io.kubernetes:ConfigMap
+          - description: Filename within config map containing the template file.
+            displayName: Filename
+            path: eventTemplates[0].filename
           - description: Options to control how the operator exposes the application outside of the cluster, such as using an Ingress or Route.
             displayName: Network Options
             path: networkOptions
@@ -332,6 +346,17 @@ spec:
           - description: 'Labels to add to the object during its creation. The following label keys are reserved for use by the operator: "app", "component", "app.kubernetes.io/name", "app.kubernetes.io/instance", "app.kubernetes.io/component", and "app.kubernetes.io/part-of".'
             displayName: Labels
             path: operandMetadata.podMetadata.labels
+          - description: List of JMC Agent Probe Templates to preconfigure in Cryostat.
+            displayName: Probe Templates
+            path: probeTemplates
+          - description: Name of config map in the local namespace.
+            displayName: Config Map Name
+            path: probeTemplates[0].configMapName
+            x-descriptors:
+              - urn:alm:descriptor:io.kubernetes:ConfigMap
+          - description: Filename within config map containing the automated rule file.
+            displayName: Filename
+            path: probeTemplates[0].filename
           - description: Options to configure Cryostat Automated Report Analysis.
             displayName: Report Options
             path: reportOptions
@@ -1251,21 +1276,21 @@ spec:
                       - name: RELATED_IMAGE_OPENSHIFT_OAUTH_PROXY
                         value: quay.io/openshift/origin-oauth-proxy:latest
                       - name: RELATED_IMAGE_CORE
-                        value: quay.io/cryostat/cryostat:latest
+                        value: quay.io/cryostat/cryostat:4.1.0-snapshot
                       - name: RELATED_IMAGE_DATASOURCE
-                        value: quay.io/cryostat/jfr-datasource:latest
+                        value: quay.io/cryostat/jfr-datasource:4.1.0-snapshot
                       - name: RELATED_IMAGE_GRAFANA
-                        value: quay.io/cryostat/cryostat-grafana-dashboard:latest
+                        value: quay.io/cryostat/cryostat-grafana-dashboard:4.1-dev
                       - name: RELATED_IMAGE_REPORTS
-                        value: quay.io/cryostat/cryostat-reports:latest
+                        value: quay.io/cryostat/cryostat-reports:4.1.0-snapshot
                       - name: RELATED_IMAGE_STORAGE
-                        value: quay.io/cryostat/cryostat-storage:latest
+                        value: quay.io/cryostat/cryostat-storage:cryostat-v4.1
                       - name: RELATED_IMAGE_DATABASE
-                        value: quay.io/cryostat/cryostat-db:latest
+                        value: quay.io/cryostat/cryostat-db:cryostat-v4.1
                       - name: RELATED_IMAGE_AGENT_PROXY
                         value: registry.access.redhat.com/ubi9/nginx-124:latest
                       - name: RELATED_IMAGE_AGENT_INIT
-                        value: quay.io/cryostat/cryostat-agent-init:latest
+                        value: quay.io/cryostat/cryostat-agent-init:0.6.0-snapshot
                       - name: WATCH_NAMESPACE
                         valueFrom:
                           fieldRef:
@@ -1419,21 +1444,21 @@ spec:
       name: oauth2-proxy
     - image: quay.io/openshift/origin-oauth-proxy:latest
       name: openshift-oauth-proxy
-    - image: quay.io/cryostat/cryostat:latest
+    - image: quay.io/cryostat/cryostat:4.1.0-snapshot
       name: core
-    - image: quay.io/cryostat/jfr-datasource:latest
+    - image: quay.io/cryostat/jfr-datasource:4.1.0-snapshot
       name: datasource
-    - image: quay.io/cryostat/cryostat-grafana-dashboard:latest
+    - image: quay.io/cryostat/cryostat-grafana-dashboard:4.1-dev
       name: grafana
-    - image: quay.io/cryostat/cryostat-reports:latest
+    - image: quay.io/cryostat/cryostat-reports:4.1.0-snapshot
       name: reports
-    - image: quay.io/cryostat/cryostat-storage:latest
+    - image: quay.io/cryostat/cryostat-storage:cryostat-v4.1
       name: storage
-    - image: quay.io/cryostat/cryostat-db:latest
+    - image: quay.io/cryostat/cryostat-db:cryostat-v4.1
       name: database
     - image: registry.access.redhat.com/ubi9/nginx-124:latest
       name: agent-proxy
-    - image: quay.io/cryostat/cryostat-agent-init:latest
+    - image: quay.io/cryostat/cryostat-agent-init:0.6.0-snapshot
       name: agent-init
   version: 4.1.0-dev
   webhookdefinitions:
