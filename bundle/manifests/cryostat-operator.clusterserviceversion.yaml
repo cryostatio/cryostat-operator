@@ -23,8 +23,8 @@ metadata:
       ]
     capabilities: Seamless Upgrades
     categories: Monitoring, Developer Tools
-    containerImage: quay.io/cryostat/cryostat-operator:4.1.0-dev
-    createdAt: "2025-10-23T15:31:04Z"
+    containerImage: quay.io/cryostat/cryostat-operator:4.2.0-dev
+    createdAt: "2025-10-28T23:50:44Z"
     description: JVM monitoring and profiling tool
     operatorframework.io/initialization-resource: |-
       {
@@ -48,7 +48,7 @@ metadata:
     operatorframework.io/arch.amd64: supported
     operatorframework.io/arch.arm64: supported
     operatorframework.io/os.linux: supported
-  name: cryostat-operator.v4.1.0-dev
+  name: cryostat-operator.v4.2.0-dev
   namespace: placeholder
 spec:
   apiservicedefinitions: {}
@@ -138,6 +138,17 @@ spec:
             path: authorizationOptions.openShiftSSO.disable
             x-descriptors:
               - urn:alm:descriptor:com.tectonic.ui:booleanSwitch
+          - description: List of Automated Rule Json Files to preconfigure in Cryostat.
+            displayName: Automated Rules
+            path: automatedRules
+          - description: Name of config map in the local namespace.
+            displayName: Config Map Name
+            path: automatedRules[0].configMapName
+            x-descriptors:
+              - urn:alm:descriptor:io.kubernetes:ConfigMap
+          - description: Filename within config map containing the automated rule file.
+            displayName: Filename
+            path: automatedRules[0].filename
           - description: Options to configure the Cryostat application's database.
             displayName: Database Options
             path: databaseOptions
@@ -162,6 +173,9 @@ spec:
             path: eventTemplates[0].configMapName
             x-descriptors:
               - urn:alm:descriptor:io.kubernetes:ConfigMap
+          - description: Filename within config map containing the template file.
+            displayName: Filename
+            path: eventTemplates[0].filename
           - description: Options to control how the operator exposes the application outside of the cluster, such as using an Ingress or Route.
             displayName: Network Options
             path: networkOptions
@@ -332,6 +346,17 @@ spec:
           - description: 'Labels to add to the object during its creation. The following label keys are reserved for use by the operator: "app", "component", "app.kubernetes.io/name", "app.kubernetes.io/instance", "app.kubernetes.io/component", and "app.kubernetes.io/part-of".'
             displayName: Labels
             path: operandMetadata.podMetadata.labels
+          - description: List of JMC Agent Probe Templates to preconfigure in Cryostat.
+            displayName: Probe Templates
+            path: probeTemplates
+          - description: Name of config map in the local namespace.
+            displayName: Config Map Name
+            path: probeTemplates[0].configMapName
+            x-descriptors:
+              - urn:alm:descriptor:io.kubernetes:ConfigMap
+          - description: Filename within config map containing the automated rule file.
+            displayName: Filename
+            path: probeTemplates[0].filename
           - description: Options to configure Cryostat Automated Report Analysis.
             displayName: Report Options
             path: reportOptions
@@ -1270,7 +1295,7 @@ spec:
                         valueFrom:
                           fieldRef:
                             fieldPath: metadata.annotations['olm.targetNamespaces']
-                    image: quay.io/cryostat/cryostat-operator:4.1.0-dev
+                    image: quay.io/cryostat/cryostat-operator:4.2.0-dev
                     imagePullPolicy: Always
                     livenessProbe:
                       httpGet:
@@ -1435,7 +1460,7 @@ spec:
       name: agent-proxy
     - image: quay.io/cryostat/cryostat-agent-init:latest
       name: agent-init
-  version: 4.1.0-dev
+  version: 4.2.0-dev
   webhookdefinitions:
     - admissionReviewVersions:
         - v1
