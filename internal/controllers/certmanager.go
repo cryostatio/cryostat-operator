@@ -115,7 +115,7 @@ func (r *Reconciler) setupTLS(ctx context.Context, cr *model.CryostatInstance) (
 	}
 
 	// List of certificates whose secrets should be owned by this CR
-	certificates := []*certv1.Certificate{caCert, cryostatCert, reportsCert, agentProxyCert}
+	certificates := []*certv1.Certificate{caCert, cryostatCert, reportsCert, databaseCert, storageCert, agentProxyCert}
 
 	// Get the Cryostat CA certificate bytes from certificate secret
 	caBytes, err := r.getCertficateBytes(ctx, caCert)
@@ -172,7 +172,7 @@ func (r *Reconciler) setupTLS(ctx context.Context, cr *model.CryostatInstance) (
 	}
 
 	// Update owner references of TLS secrets created by cert-manager to ensure proper cleanup
-	err = r.setCertSecretOwner(ctx, cr.Object, certificates...)
+	err = r.setCertSecretOwner(ctx, cr, certificates...)
 	if err != nil {
 		return nil, err
 	}
@@ -253,8 +253,8 @@ func (r *Reconciler) finalizeTLS(ctx context.Context, cr *model.CryostatInstance
 	return nil
 }
 
-func (r *Reconciler) setCertSecretOwner(ctx context.Context, owner metav1.Object, certs ...*certv1.Certificate) error {
-	// Make Cryostat CR controller of secrets created by cert-manager
+func (r *Reconciler) setCertSecretOwner(ctx context.Context, cr *model.CryostatInstance, certs ...*certv1.Certificate) error {
+	// Make the Certificate the controller of secrets created by cert-manager
 	for _, cert := range certs {
 		secret, err := r.GetCertificateSecret(ctx, cert)
 		if err != nil {
@@ -263,8 +263,10 @@ func (r *Reconciler) setCertSecretOwner(ctx context.Context, owner metav1.Object
 			}
 			return err
 		}
-		if !metav1.IsControlledBy(secret, owner) {
-			err = controllerutil.SetControllerReference(owner, secret, r.Scheme)
+		if !metav1.IsControlledBy(secret, cert) {
+			// Clean up any different owner we previously set
+			r.removeCRFromOwnerReferences(secret, cr)
+			err = controllerutil.SetControllerReference(cert, secret, r.Scheme)
 			if err != nil {
 				return err
 			}
@@ -272,10 +274,30 @@ func (r *Reconciler) setCertSecretOwner(ctx context.Context, owner metav1.Object
 			if err != nil {
 				return err
 			}
-			r.Log.Info("Set Cryostat CR as owner reference of secret", "name", secret.Name, "namespace", secret.Namespace)
+			r.Log.Info("Set Certificate as owner reference of secret", "secret", secret.Name,
+				"certificate", cert.Name, "namespace", secret.Namespace)
 		}
 	}
 	return nil
+}
+
+func (r *Reconciler) removeCRFromOwnerReferences(secret *corev1.Secret, cr *model.CryostatInstance) {
+	ref := metav1.GetControllerOf(secret)
+	if ref != nil {
+		// If this is owned by the CR, re-parent it to be owned by the cert to not conflict with cert-manager
+		if ref.Kind == r.gvk.Kind && ref.Name == cr.Name {
+			secret.OwnerReferences = deleteControllerRefrerence(secret.OwnerReferences)
+		}
+	}
+}
+
+func deleteControllerRefrerence(refs []metav1.OwnerReference) []metav1.OwnerReference {
+	for i, ref := range refs {
+		if ref.Controller != nil && *ref.Controller {
+			return append(refs[:i], refs[i+1:]...)
+		}
+	}
+	return refs
 }
 
 func (r *Reconciler) certManagerAvailable() (bool, error) {
