@@ -95,7 +95,7 @@ func (c *controllerTest) commonJustBeforeEach(t *cryostatTestInput) {
 
 	// Set a CreationTimestamp for created objects to match a real API server
 	// TODO When using envtest instead of fake client, this is probably no longer needed
-	err := test.SetCreationTimestamp(t.objs...)
+	err := test.SetCreationTimestampAndUUID(t.objs...)
 	Expect(err).ToNot(HaveOccurred())
 	t.Client = fake.NewClientBuilder().WithScheme(s).WithObjects(t.objs...).
 		WithStatusSubresource(&operatorv1beta2.Cryostat{}, &certv1.Certificate{}, &openshiftv1.Route{}).Build()
@@ -404,11 +404,16 @@ func (c *controllerTest) commonTests() {
 				BeforeEach(func() {
 					cr := t.NewCryostat()
 					role = t.NewRole()
-					err := controllerutil.SetControllerReference(cr.Object, role, test.NewTestScheme())
-					Expect(err).ToNot(HaveOccurred())
 					t.objs = append(t.objs, cr.Object, role)
 				})
 				JustBeforeEach(func() {
+					cr := t.getCryostatInstance()
+					// Make the existing Role owned by the Cryostat CR
+					err := controllerutil.SetControllerReference(cr.Object, role, t.Client.Scheme())
+					Expect(err).ToNot(HaveOccurred())
+					err = t.Client.Update(context.Background(), role)
+					Expect(err).ToNot(HaveOccurred())
+
 					t.reconcileCryostatFully()
 				})
 				It("should delete the Role", func() {
@@ -2345,6 +2350,75 @@ func (c *controllerTest) commonTests() {
 			})
 		})
 
+		Context("with an already owned certificate secret", func() {
+			var secret *corev1.Secret
+			var owner ctrlclient.Object
+
+			JustBeforeEach(func() {
+				err := controllerutil.SetControllerReference(owner, secret, test.NewTestScheme())
+				Expect(err).ToNot(HaveOccurred())
+				err = t.Client.Update(context.Background(), secret)
+				Expect(err).ToNot(HaveOccurred())
+			})
+
+			Context("owned by Cryostat CR", func() {
+				BeforeEach(func() {
+					cr := t.NewCryostat().Object
+					cert := t.NewCryostatCert()
+					secret = t.NewCertSecret(cert)
+					owner = cr
+					t.objs = append(t.objs, cr, cert, secret)
+				})
+
+				JustBeforeEach(func() {
+					t.reconcileCryostatFully()
+				})
+
+				It("should replace the owner reference", func() {
+					t.expectCertificates()
+				})
+			})
+
+			Context("owned by Certificate", func() {
+				BeforeEach(func() {
+					cert := t.NewCryostatCert()
+					secret = t.NewCertSecret(cert)
+					owner = cert
+					t.objs = append(t.objs, t.NewCryostat().Object, cert, secret)
+				})
+
+				JustBeforeEach(func() {
+					t.reconcileCryostatFully()
+				})
+
+				It("should do nothing", func() {
+					t.expectCertificates()
+				})
+			})
+
+			Context("owned by a different Certificate", func() {
+				BeforeEach(func() {
+					cert := t.NewCryostatCert()
+					otherCert := t.NewReportsCert()
+					secret = t.NewCertSecret(cert)
+					owner = otherCert
+					t.objs = append(t.objs, t.NewCryostat().Object, cert, otherCert, secret)
+				})
+
+				It("should fail", func() {
+					Eventually(func() error {
+						result, err := t.reconcile()
+						if err != nil {
+							return err
+						}
+						// Fail if it reconciles successfully
+						Expect(result).ToNot(Equal(reconcile.Result{}))
+						return nil
+					}).WithTimeout(time.Minute).WithPolling(time.Millisecond).Should(BeAssignableToTypeOf(&controllerutil.AlreadyOwnedError{}))
+				})
+			})
+		})
+
 		Context("reconciling a multi-namespace request", func() {
 			targetNamespaces := []string{"multi-test-one", "multi-test-two"}
 
@@ -2754,13 +2828,19 @@ func (c *controllerTest) commonTests() {
 				BeforeEach(func() {
 					cr := t.NewCryostat()
 					role = t.NewRole()
-					err := controllerutil.SetControllerReference(cr.Object, role, test.NewTestScheme())
-					Expect(err).ToNot(HaveOccurred())
 					t.objs = append(t.objs, cr.Object, role)
 				})
-				It("should delete the Role", func() {
-					t.reconcileCryostatFully()
+				JustBeforeEach(func() {
+					cr := t.getCryostatInstance()
+					// Make the existing Role owned by the Cryostat CR
+					err := controllerutil.SetControllerReference(cr.Object, role, t.Client.Scheme())
+					Expect(err).ToNot(HaveOccurred())
+					err = t.Client.Update(context.Background(), role)
+					Expect(err).ToNot(HaveOccurred())
 
+					t.reconcileCryostatFully()
+				})
+				It("should delete the Role", func() {
 					err := t.Client.Get(context.Background(), types.NamespacedName{Name: role.Name, Namespace: role.Namespace}, role)
 					Expect(err).To(HaveOccurred())
 					Expect(kerrors.IsNotFound(err)).To(BeTrue())
@@ -3178,6 +3258,13 @@ func (t *cryostatTestInput) expectCertificates() {
 		Expect(err).ToNot(HaveOccurred())
 		t.checkMetadata(actual, expected)
 		Expect(actual.Spec).To(Equal(expected.Spec))
+
+		// Check that certificate secrets are owned by the Certificate CR
+		secret := &corev1.Secret{}
+		err = t.Client.Get(context.Background(), types.NamespacedName{Name: expected.Spec.SecretName, Namespace: expected.Namespace}, secret)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(secret.GetOwnerReferences()).To(HaveLen(1))
+		Expect(metav1.IsControlledBy(secret, actual))
 	}
 	// Check issuers as well
 	issuers := []*certv1.Issuer{t.NewSelfSignedIssuer(), t.NewCryostatCAIssuer()}
