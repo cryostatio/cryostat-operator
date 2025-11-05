@@ -28,6 +28,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/util/uuid"
 	ctrlclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -97,7 +98,8 @@ func (c *testClient) makeCertificatesReady(ctx context.Context, obj runtime.Obje
 
 func (c *testClient) createCertSecret(ctx context.Context, cert *certv1.Certificate) {
 	err := c.Create(ctx, c.NewCertSecret(cert))
-	gomega.Expect(err).ToNot(gomega.HaveOccurred())
+	// Some tests may want the secret to already exist as a precondition
+	gomega.Expect(ctrlclient.IgnoreAlreadyExists(err)).ToNot(gomega.HaveOccurred())
 }
 
 func (c *testClient) updateRouteStatus(ctx context.Context, obj runtime.Object) {
@@ -144,7 +146,7 @@ func NewClientWithTimestamp(client ctrlclient.Client) ctrlclient.Client {
 }
 
 func (c *timestampClient) Create(ctx context.Context, obj ctrlclient.Object, opts ...ctrlclient.CreateOption) error {
-	err := SetCreationTimestamp(obj)
+	err := SetCreationTimestampAndUUID(obj)
 	if err != nil {
 		return err
 	}
@@ -153,13 +155,14 @@ func (c *timestampClient) Create(ctx context.Context, obj ctrlclient.Object, opt
 
 var creationTimestamp = metav1.NewTime(time.Unix(1664573254, 0))
 
-func SetCreationTimestamp(objs ...ctrlclient.Object) error {
+func SetCreationTimestampAndUUID(objs ...ctrlclient.Object) error {
 	for _, obj := range objs {
 		metaObj, err := meta.Accessor(obj)
 		if err != nil {
 			return err
 		}
 		metaObj.SetCreationTimestamp(creationTimestamp)
+		metaObj.SetUID(uuid.NewUUID())
 	}
 	return nil
 }
