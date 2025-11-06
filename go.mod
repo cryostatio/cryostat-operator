@@ -7,8 +7,8 @@ require (
 	github.com/cert-manager/cert-manager v1.16.5
 	github.com/go-logr/logr v1.4.3
 	github.com/google/go-cmp v0.7.0
-	github.com/onsi/ginkgo/v2 v2.19.0
-	github.com/onsi/gomega v1.33.1
+	github.com/onsi/ginkgo/v2 v2.19.1
+	github.com/onsi/gomega v1.34.0
 	github.com/openshift/api v0.0.0-20251023135607-98e18dae8c7a // release-4.18
 	github.com/operator-framework/api v0.28.0
 	k8s.io/api v0.31.13
