@@ -53,6 +53,8 @@ const (
 	KeyStoreFile = "keystore.p12"
 	// KeystorePassSecretKey indexes the keystore password within the Cryostat keystore Secret
 	KeystorePassSecretKey = "KEYSTORE_PASS"
+	// KeystorePassFile is the name of the file to mount the keystore password
+	KeystorePassFile = "keystore.pass"
 
 	AgentProxyConfigFilePath string = "/etc/nginx-cryostat"
 	AgentProxyConfigFileName string = "nginx.conf"
