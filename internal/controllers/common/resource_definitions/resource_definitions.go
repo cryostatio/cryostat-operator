@@ -537,8 +537,14 @@ func NewPodForCR(cr *model.CryostatInstance, specs *ServiceSpecs, imageTags *Ima
 				Name: "keystore-pass",
 				VolumeSource: corev1.VolumeSource{
 					Secret: &corev1.SecretVolumeSource{
-						SecretName:  tls.KeystorePassSecret,
-						DefaultMode: &readOnlyMode,
+						SecretName: tls.KeystorePassSecret,
+						Items: []corev1.KeyToPath{
+							{
+								Key:  constants.KeystorePassSecretKey,
+								Path: "keystore.pass",
+								Mode: &readOnlyMode,
+							},
+						},
 					},
 				},
 			},
@@ -1630,7 +1636,7 @@ func NewCoreContainer(cr *model.CryostatInstance, specs *ServiceSpecs, imageTag 
 			},
 			corev1.EnvVar{
 				Name:  "SSL_KEYSTORE_PASS_FILE",
-				Value: path.Join(SecretMountPrefix, "client-tls", tls.KeystorePassSecret, constants.KeystorePassSecretKey),
+				Value: path.Join(SecretMountPrefix, "client-tls", tls.KeystorePassSecret, "keystore.pass"),
 			},
 		)
 	}
