@@ -527,6 +527,32 @@ func (c *controllerTest) commonTests() {
 				Expect(secret.Data["CONNECTION_KEY"]).To(Equal(oldSecret.Data["CONNECTION_KEY"]))
 			})
 		})
+		Context("with an existing Storage Secret", func() {
+			var cr *model.CryostatInstance
+			var oldSecret, secret *corev1.Secret
+			BeforeEach(func() {
+				cr = t.NewCryostat()
+				oldSecret = t.OtherStorageSecret()
+				t.objs = append(t.objs, cr.Object, oldSecret)
+			})
+			JustBeforeEach(func() {
+				t.reconcileCryostatFully()
+
+				secret = &corev1.Secret{}
+				err := t.Client.Get(context.Background(), types.NamespacedName{Name: oldSecret.Name, Namespace: t.Namespace}, secret)
+				Expect(err).ToNot(HaveOccurred())
+			})
+			It("should be controlled by the CR", func() {
+				Expect(metav1.IsControlledBy(secret, cr.Object)).To(BeTrue())
+			})
+			It("should not update password", func() {
+				Expect(secret.Data["SECRET_KEY"]).To(Equal(oldSecret.Data["SECRET_KEY"]))
+			})
+			It("should add the access key", func() {
+				expected := t.NewStorageSecret()
+				Expect(secret.Data["ACCESS_KEY"]).To(Equal(expected.Data["ACCESS_KEY"]))
+			})
+		})
 		Context("with existing Routes", func() {
 			var cr *model.CryostatInstance
 			var oldCoreRoute *openshiftv1.Route
