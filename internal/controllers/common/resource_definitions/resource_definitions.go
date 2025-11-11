@@ -1473,6 +1473,13 @@ func NewCoreContainer(cr *model.CryostatInstance, specs *ServiceSpecs, imageTag 
 	if DeployManagedStorage(cr) {
 		// default environment variable settings for managed/provisioned cryostat-storage instance
 		envs = append(envs, []corev1.EnvVar{
+			// FIXME since Quarkus 3.20 / S3 SDK 2.30.36 leaving this enabled results in junk 'chunk-signature' data
+			// being inserted to PutObjectRequests when the object storage instance is SeaweedFS/cryostat-storage
+			// See https://github.com/cryostatio/cryostat/issues/948
+			{
+				Name:  "QUARKUS_S3_CHECKSUM_VALIDATION",
+				Value: "false",
+			},
 			{
 				Name:  "QUARKUS_S3_ENDPOINT_OVERRIDE",
 				Value: specs.StorageURL.String(),

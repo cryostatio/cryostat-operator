@@ -2703,6 +2703,10 @@ func (r *TestResources) NewCoreEnvironmentVariables(reportsUrl string, ingress b
 			Value: "cryostat",
 		},
 		{
+			Name:  "QUARKUS_S3_CHECKSUM_VALIDATION",
+			Value: "false",
+		},
+		{
 			Name:  "QUARKUS_S3_ENDPOINT_OVERRIDE",
 			Value: fmt.Sprintf("%s://%s-storage.%s.svc.cluster.local:%d", storageProtocol, r.Name, r.Namespace, storagePort),
 		},
