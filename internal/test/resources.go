@@ -1907,7 +1907,7 @@ func (r *TestResources) NewStorageKeystoreSecret() *corev1.Secret {
 			Namespace: r.Namespace,
 		},
 		Data: map[string][]byte{
-			"keystore.pass": []byte("keystore"),
+			"KEYSTORE_PASS": []byte("keystore"),
 		},
 	}
 }
@@ -1945,7 +1945,7 @@ func (r *TestResources) NewCryostatCert() *certv1.Certificate {
 						LocalObjectReference: certMeta.LocalObjectReference{
 							Name: r.Name + "-keystore",
 						},
-						Key: "keystore.pass",
+						Key: "KEYSTORE_PASS",
 					},
 					Profile: certv1.Modern2023PKCS12Profile,
 				},
@@ -1971,7 +1971,7 @@ func (r *TestResources) NewCryostatKeystorePassSecret() *corev1.Secret {
 		},
 		Type: corev1.SecretTypeOpaque,
 		Data: map[string][]byte{
-			"keystore.pass": []byte("keystore"),
+			"KEYSTORE_PASS": []byte("keystore"),
 		},
 	}
 }
@@ -2713,6 +2713,10 @@ func (r *TestResources) NewCoreEnvironmentVariables(reportsUrl string, ingress b
 		{
 			Name:  "QUARKUS_DATASOURCE_USERNAME",
 			Value: "cryostat",
+		},
+		{
+			Name:  "QUARKUS_S3_CHECKSUM_VALIDATION",
+			Value: "false",
 		},
 		{
 			Name:  "QUARKUS_S3_ENDPOINT_OVERRIDE",
@@ -4041,8 +4045,14 @@ func (r *TestResources) newVolumes(certProjections []corev1.VolumeProjection) []
 				Name: "keystore-pass",
 				VolumeSource: corev1.VolumeSource{
 					Secret: &corev1.SecretVolumeSource{
-						SecretName:  r.Name + "-keystore",
-						DefaultMode: &readOnlymode,
+						SecretName: r.Name + "-keystore",
+						Items: []corev1.KeyToPath{
+							{
+								Key:  "KEYSTORE_PASS",
+								Path: "keystore.pass",
+								Mode: &readOnlymode,
+							},
+						},
 					},
 				},
 			},
