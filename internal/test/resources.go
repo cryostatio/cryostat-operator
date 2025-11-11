@@ -1875,6 +1875,18 @@ func (r *TestResources) NewStorageSecret() *corev1.Secret {
 	}
 }
 
+func (r *TestResources) OtherStorageSecret() *corev1.Secret {
+	return &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      r.Name + "-storage",
+			Namespace: r.Namespace,
+		},
+		Data: map[string][]byte{
+			"SECRET_KEY": []byte("old_storage"),
+		},
+	}
+}
+
 func (r *TestResources) OtherDatabaseSecret() *corev1.Secret {
 	return &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{

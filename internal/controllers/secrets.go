@@ -135,12 +135,12 @@ func (r *Reconciler) reconcileStorageSecret(ctx context.Context, cr *model.Cryos
 		}
 
 		// Password is generated, so don't regenerate it when updating
-		if secret.CreationTimestamp.IsZero() {
-			accessKey := "cryostat"
-			passwd := r.GenPasswd(32)
-			secret.StringData[storageSecretAccessKey] = accessKey
-			secret.StringData[storageSecretPassKey] = passwd
-		}
+		r.setDataIfNotPresent(secret, storageSecretAccessKey, func() string {
+			return "cryostat"
+		})
+		r.setDataIfNotPresent(secret, storageSecretPassKey, func() string {
+			return r.GenPasswd(32)
+		})
 		return nil
 	})
 
@@ -150,6 +150,12 @@ func (r *Reconciler) reconcileStorageSecret(ctx context.Context, cr *model.Cryos
 
 	cr.Status.StorageSecret = secret.Name
 	return r.Client.Status().Update(ctx, cr.Object)
+}
+
+func (r *Reconciler) setDataIfNotPresent(secret *corev1.Secret, key string, valueFunc func() string) {
+	if _, pres := secret.Data[key]; !pres {
+		secret.StringData[key] = valueFunc()
+	}
 }
 
 func (r *Reconciler) createOrUpdateSecret(ctx context.Context, secret *corev1.Secret, owner metav1.Object,
