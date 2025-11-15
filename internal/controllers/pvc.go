@@ -35,7 +35,7 @@ const (
 	mib                                   = 1024 * 1024
 	gib                                   = 1024 * mib
 	DefaultDatabasePVCSize                = 500 * mib
-	DefaultStoragePVCSize                 = 10 * gib
+	DefaultStoragePVCSize                 = 32 * gib
 )
 
 func (r *Reconciler) reconcilePVC(ctx context.Context, cr *model.CryostatInstance, storageConfiguration *operatorv1beta2.StorageConfiguration, defaultSize resource.Quantity, nameSuffix *string) error {
