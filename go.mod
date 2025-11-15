@@ -12,7 +12,7 @@ require (
 	github.com/openshift/api v0.0.0-20251023135607-98e18dae8c7a // release-4.18
 	github.com/operator-framework/api v0.28.0
 	k8s.io/api v0.31.13
-	k8s.io/apimachinery v0.31.13
+	k8s.io/apimachinery v0.31.14
 	k8s.io/client-go v0.31.13
 	sigs.k8s.io/controller-runtime v0.19.7
 )
