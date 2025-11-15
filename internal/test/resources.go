@@ -2253,7 +2253,7 @@ func (r *TestResources) NewStoragePVC() *corev1.PersistentVolumeClaim {
 		AccessModes: []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce},
 		Resources: corev1.VolumeResourceRequirements{
 			Requests: corev1.ResourceList{
-				corev1.ResourceStorage: resource.MustParse("10Gi"),
+				corev1.ResourceStorage: resource.MustParse("32Gi"),
 			},
 		},
 	}, map[string]string{
@@ -2332,7 +2332,7 @@ func (r *TestResources) NewDefaultStoragePVCWithLabel() *corev1.PersistentVolume
 		AccessModes: []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce},
 		Resources: corev1.VolumeResourceRequirements{
 			Requests: corev1.ResourceList{
-				corev1.ResourceStorage: resource.MustParse("10Gi"),
+				corev1.ResourceStorage: resource.MustParse("32Gi"),
 			},
 		},
 	}, map[string]string{
@@ -2346,7 +2346,7 @@ func (r *TestResources) NewDefaultStoragePVCWithLabelLegacy() *corev1.Persistent
 		AccessModes: []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce},
 		Resources: corev1.VolumeResourceRequirements{
 			Requests: corev1.ResourceList{
-				corev1.ResourceStorage: resource.MustParse("10Gi"),
+				corev1.ResourceStorage: resource.MustParse("32Gi"),
 			},
 		},
 	}, map[string]string{
