@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"slices"
 	"strconv"
+	"strings"
 	"time"
 
 	operatorv1beta2 "github.com/cryostatio/cryostat-operator/api/v1beta2"
@@ -162,6 +163,41 @@ func (r *podMutator) Default(ctx context.Context, obj runtime.Object) error {
 			},
 		},
 	})
+
+	if metav1.HasLabel(pod.ObjectMeta, constants.AgentLabelSmartTriggersConfigMaps) {
+		// Mount the Smart Triggers colume
+		readOnlyMode := int32(0440)
+		smartTriggersConfigMapNames := getSmartTriggersConfigMapNames(pod.Labels)
+		for _, triggerMap := range smartTriggersConfigMapNames {
+			pod.Spec.Volumes = append(pod.Spec.Volumes, corev1.Volume{
+				Name: "trigger-" + triggerMap,
+				VolumeSource: corev1.VolumeSource{
+					ConfigMap: &corev1.ConfigMapVolumeSource{
+						LocalObjectReference: corev1.LocalObjectReference{
+							Name: triggerMap,
+						},
+						DefaultMode: &readOnlyMode,
+					},
+				},
+			})
+		}
+
+		// Mount the triggers specified in the pod labels under /tmp/smart-triggers
+		for _, triggerMap := range getSmartTriggersConfigMapNames(pod.Labels) {
+			container.VolumeMounts = append(container.VolumeMounts, corev1.VolumeMount{
+				Name:      "trigger-" + triggerMap,
+				MountPath: "/tmp/smart-triggers",
+				ReadOnly:  true,
+			})
+		}
+
+		container.Env = append(container.Env,
+			corev1.EnvVar{
+				Name:  "CRYOSTAT_AGENT_SMART_TRIGGER_CONFIG_PATH",
+				Value: "/tmp/smart-triggers/",
+			},
+		)
+	}
 
 	container.VolumeMounts = append(container.VolumeMounts, corev1.VolumeMount{
 		Name:      "cryostat-agent-init",
@@ -418,6 +454,15 @@ func getHarvesterTemplate(labels map[string]string) string {
 		result = value
 	}
 	return result
+}
+
+func getSmartTriggersConfigMapNames(labels map[string]string) []string {
+	result := ""
+	value, pres := labels[constants.AgentLabelSmartTriggersConfigMaps]
+	if pres {
+		result = value
+	}
+	return strings.Split(result, ",")
 }
 
 func getHarvesterExitMaxAge(labels map[string]string) (*int32, error) {
