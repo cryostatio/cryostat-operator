@@ -5,34 +5,34 @@ package constants
 const AppName = "Cryostat"
 
 // Version of the Cryostat Operator
-const OperatorVersion = "4.1.0-dev"
+const OperatorVersion = "4.1.0"
 
 // Default image tag for the OAuth2 Proxy
 const DefaultOAuth2ProxyImageTag = "quay.io/oauth2-proxy/oauth2-proxy:latest"
 
 // Default image tag for the OpenShift OAuth Proxy
-const DefaultOpenShiftOAuthProxyImageTag = "quay.io/openshift/origin-oauth-proxy:latest"
+const DefaultOpenShiftOAuthProxyImageTag = "quay.io/openshift/origin-oauth-proxy:4.20.0"
 
 // Default image tag for the core application image
-const DefaultCoreImageTag = "quay.io/cryostat/cryostat:4.1.0-snapshot"
+const DefaultCoreImageTag = "quay.io/cryostat/cryostat:4.1.0"
 
 // Default image tag for the JFR datasource image
-const DefaultDatasourceImageTag = "quay.io/cryostat/jfr-datasource:4.1.0-snapshot"
+const DefaultDatasourceImageTag = "quay.io/cryostat/jfr-datasource:4.1.0"
 
 // Default image tag for the Grafana dashboard image
-const DefaultGrafanaImageTag = "quay.io/cryostat/cryostat-grafana-dashboard:4.1-dev"
+const DefaultGrafanaImageTag = "quay.io/cryostat/cryostat-grafana-dashboard:4.1.0"
 
 // Default image tag for the Grafana dashboard image
-const DefaultReportsImageTag = "quay.io/cryostat/cryostat-reports:4.1.0-snapshot"
+const DefaultReportsImageTag = "quay.io/cryostat/cryostat-reports:4.1.0"
 
 // Default image tag for the Storage image
-const DefaultStorageImageTag = "quay.io/cryostat/cryostat-storage:cryostat-v4.1"
+const DefaultStorageImageTag = "quay.io/cryostat/cryostat-storage:4.1.0"
 
 // Default image tag for the Database image
-const DefaultDatabaseImageTag = "quay.io/cryostat/cryostat-db:cryostat-v4.1"
+const DefaultDatabaseImageTag = "quay.io/cryostat/cryostat-db:4.1.0"
 
 // Default image tag for the agent proxy image
 const DefaultAgentProxyImageTag = "registry.access.redhat.com/ubi9/nginx-124:latest"
 
 // Default image tag for the agent init container image
-const DefaultAgentInitImageTag = "quay.io/cryostat/cryostat-agent-init:0.6.0-snapshot"
+const DefaultAgentInitImageTag = "quay.io/cryostat/cryostat-agent-init:0.6.0"

@@ -4,7 +4,7 @@ metadata:
   annotations:
     capabilities: Seamless Upgrades
     categories: Monitoring, Developer Tools
-    containerImage: quay.io/cryostat/cryostat-operator:4.1.0-dev
+    containerImage: quay.io/cryostat/cryostat-operator:4.1.0
     description: JVM monitoring and profiling tool
     operatorframework.io/initialization-resource: |-
       {
@@ -1300,7 +1300,7 @@ spec:
   - email: cryostat-development@googlegroups.com
     name: The Cryostat Authors
   maturity: stable
-  minKubeVersion: 1.25.0
+  minKubeVersion: 1.29.0
   provider:
     name: The Cryostat Community
   version: 0.0.0
