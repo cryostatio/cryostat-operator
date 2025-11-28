@@ -60,6 +60,7 @@ const (
 	agentInitMemoryLimit        = "64Mi"
 	defaultLogLevel             = "off"
 	defaultJavaOptsVar          = "JAVA_TOOL_OPTIONS"
+	defaultSmartTriggersMount   = "/tmp/smart-triggers"
 	defaultHarvesterExitMaxAge  = int32(30000)
 	kib                         = int32(1024)
 	mib                         = 1024 * kib
@@ -165,8 +166,9 @@ func (r *podMutator) Default(ctx context.Context, obj runtime.Object) error {
 	})
 
 	if metav1.HasLabel(pod.ObjectMeta, constants.AgentLabelSmartTriggersConfigMaps) {
-		// Mount the Smart Triggers colume
+		// Mount the Smart Triggers volume
 		readOnlyMode := int32(0440)
+		smartTriggersMountDestination := getSmartTriggersMountDestination(pod.Labels)
 		smartTriggersConfigMapNames := getSmartTriggersConfigMapNames(pod.Labels)
 		for _, triggerMap := range smartTriggersConfigMapNames {
 			pod.Spec.Volumes = append(pod.Spec.Volumes, corev1.Volume{
@@ -186,7 +188,7 @@ func (r *podMutator) Default(ctx context.Context, obj runtime.Object) error {
 		for _, triggerMap := range getSmartTriggersConfigMapNames(pod.Labels) {
 			container.VolumeMounts = append(container.VolumeMounts, corev1.VolumeMount{
 				Name:      "trigger-" + triggerMap,
-				MountPath: "/tmp/smart-triggers",
+				MountPath: smartTriggersMountDestination,
 				ReadOnly:  true,
 			})
 		}
@@ -194,7 +196,7 @@ func (r *podMutator) Default(ctx context.Context, obj runtime.Object) error {
 		container.Env = append(container.Env,
 			corev1.EnvVar{
 				Name:  "CRYOSTAT_AGENT_SMART_TRIGGER_CONFIG_PATH",
-				Value: "/tmp/smart-triggers/",
+				Value: smartTriggersMountDestination,
 			},
 		)
 	}
@@ -463,6 +465,15 @@ func getSmartTriggersConfigMapNames(labels map[string]string) []string {
 		result = value
 	}
 	return strings.Split(result, ",")
+}
+
+func getSmartTriggersMountDestination(labels map[string]string) string {
+	result := defaultSmartTriggersMount
+	value, pres := labels[constants.AgentLabelSmartTriggersMountDestination]
+	if pres {
+		result = value
+	}
+	return result
 }
 
 func getHarvesterExitMaxAge(labels map[string]string) (*int32, error) {
