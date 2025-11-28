@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"slices"
 	"strconv"
+	"strings"
 	"time"
 
 	operatorv1beta2 "github.com/cryostatio/cryostat-operator/api/v1beta2"
@@ -59,6 +60,7 @@ const (
 	agentInitMemoryLimit        = "64Mi"
 	defaultLogLevel             = "off"
 	defaultJavaOptsVar          = "JAVA_TOOL_OPTIONS"
+	defaultSmartTriggersMount   = "/tmp/smart-triggers"
 	defaultHarvesterExitMaxAge  = int32(30000)
 	kib                         = int32(1024)
 	mib                         = 1024 * kib
@@ -162,6 +164,42 @@ func (r *podMutator) Default(ctx context.Context, obj runtime.Object) error {
 			},
 		},
 	})
+
+	if metav1.HasLabel(pod.ObjectMeta, constants.AgentLabelSmartTriggersConfigMaps) {
+		// Mount the Smart Triggers volume
+		readOnlyMode := int32(0440)
+		smartTriggersMountDestination := getSmartTriggersMountDestination(pod.Labels)
+		smartTriggersConfigMapNames := getSmartTriggersConfigMapNames(pod.Labels)
+		for _, triggerMap := range smartTriggersConfigMapNames {
+			pod.Spec.Volumes = append(pod.Spec.Volumes, corev1.Volume{
+				Name: "trigger-" + triggerMap,
+				VolumeSource: corev1.VolumeSource{
+					ConfigMap: &corev1.ConfigMapVolumeSource{
+						LocalObjectReference: corev1.LocalObjectReference{
+							Name: triggerMap,
+						},
+						DefaultMode: &readOnlyMode,
+					},
+				},
+			})
+		}
+
+		// Mount the triggers specified in the pod labels under /tmp/smart-triggers
+		for _, triggerMap := range getSmartTriggersConfigMapNames(pod.Labels) {
+			container.VolumeMounts = append(container.VolumeMounts, corev1.VolumeMount{
+				Name:      "trigger-" + triggerMap,
+				MountPath: smartTriggersMountDestination,
+				ReadOnly:  true,
+			})
+		}
+
+		container.Env = append(container.Env,
+			corev1.EnvVar{
+				Name:  "CRYOSTAT_AGENT_SMART_TRIGGER_CONFIG_PATH",
+				Value: smartTriggersMountDestination,
+			},
+		)
+	}
 
 	container.VolumeMounts = append(container.VolumeMounts, corev1.VolumeMount{
 		Name:      "cryostat-agent-init",
@@ -414,6 +452,24 @@ func getJavaOptionsVar(labels map[string]string) string {
 func getHarvesterTemplate(labels map[string]string) string {
 	result := ""
 	value, pres := labels[constants.AgentLabelHarvesterTemplate]
+	if pres {
+		result = value
+	}
+	return result
+}
+
+func getSmartTriggersConfigMapNames(labels map[string]string) []string {
+	result := ""
+	value, pres := labels[constants.AgentLabelSmartTriggersConfigMaps]
+	if pres {
+		result = value
+	}
+	return strings.Split(result, ",")
+}
+
+func getSmartTriggersMountDestination(labels map[string]string) string {
+	result := defaultSmartTriggersMount
+	value, pres := labels[constants.AgentLabelSmartTriggersMountDestination]
 	if pres {
 		result = value
 	}
