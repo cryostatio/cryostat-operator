@@ -1,0 +1,2 @@
+release-name-template: "cryostat-operator-v{{ .Version }}"
+release-notes-file: release-notes.md
