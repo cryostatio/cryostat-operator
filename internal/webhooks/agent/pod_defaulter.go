@@ -60,7 +60,7 @@ const (
 	agentInitMemoryLimit        = "64Mi"
 	defaultLogLevel             = "off"
 	defaultJavaOptsVar          = "JAVA_TOOL_OPTIONS"
-	defaultSmartTriggersMount   = "/tmp/smart-triggers"
+	defaultSmartTriggersMount   = "/tmp/cryostat-agent/smart-triggers"
 	defaultHarvesterExitMaxAge  = int32(30000)
 	kib                         = int32(1024)
 	mib                         = 1024 * kib
