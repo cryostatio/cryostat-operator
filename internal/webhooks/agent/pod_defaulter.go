@@ -49,7 +49,7 @@ type podMutator struct {
 var _ admission.CustomDefaulter = &podMutator{}
 
 const (
-	agentArg                    = "-javaagent:/tmp/cryostat-agent/cryostat-agent-shaded.jar"
+	agentArg                    = "-javaagent:" + constants.AgentJarPath
 	agentLogLevelProp           = "io.cryostat.agent.shaded.org.slf4j.simpleLogger.defaultLogLevel"
 	podNameEnvVar               = "CRYOSTAT_AGENT_POD_NAME"
 	podIPEnvVar                 = "CRYOSTAT_AGENT_POD_IP"
@@ -60,7 +60,7 @@ const (
 	agentInitMemoryLimit        = "64Mi"
 	defaultLogLevel             = "off"
 	defaultJavaOptsVar          = "JAVA_TOOL_OPTIONS"
-	defaultSmartTriggersMount   = "/tmp/cryostat-agent/smart-triggers"
+	defaultSmartTriggersMount   = constants.AgentEmptyDirBasePath + "/smart-triggers"
 	defaultHarvesterExitMaxAge  = int32(30000)
 	kib                         = int32(1024)
 	mib                         = 1024 * kib
@@ -136,11 +136,11 @@ func (r *podMutator) Default(ctx context.Context, obj runtime.Object) error {
 		Name:            "cryostat-agent-init",
 		Image:           imageTag,
 		ImagePullPolicy: common.GetPullPolicy(imageTag),
-		Command:         []string{"cp", "-v", "/cryostat/agent/cryostat-agent-shaded.jar", "/tmp/cryostat-agent/cryostat-agent-shaded.jar"},
+		Command:         []string{"cp", "-v", "/cryostat/agent/cryostat-agent-shaded.jar", constants.AgentJarPath},
 		VolumeMounts: []corev1.VolumeMount{
 			{
 				Name:      "cryostat-agent-init",
-				MountPath: "/tmp/cryostat-agent",
+				MountPath: constants.AgentEmptyDirBasePath,
 			},
 		},
 		SecurityContext: &corev1.SecurityContext{
@@ -203,7 +203,7 @@ func (r *podMutator) Default(ctx context.Context, obj runtime.Object) error {
 
 	container.VolumeMounts = append(container.VolumeMounts, corev1.VolumeMount{
 		Name:      "cryostat-agent-init",
-		MountPath: "/tmp/cryostat-agent",
+		MountPath: constants.AgentEmptyDirBasePath,
 		ReadOnly:  true,
 	})
 

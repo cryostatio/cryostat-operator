@@ -59,6 +59,9 @@ const (
 	AgentProxyConfigFilePath string = "/etc/nginx-cryostat"
 	AgentProxyConfigFileName string = "nginx.conf"
 
+	AgentEmptyDirBasePath = "/tmp/cryostat-agent"
+	AgentJarPath          = AgentEmptyDirBasePath + "/cryostat-agent-shaded.jar"
+
 	// Labels applied by operator to track cross-namespace ownership
 	targetNamespaceCRLabelPrefix    = "operator.cryostat.io/"
 	TargetNamespaceCRNameLabel      = targetNamespaceCRLabelPrefix + "name"
