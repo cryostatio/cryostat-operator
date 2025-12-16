@@ -156,11 +156,11 @@ KUSTOMIZE_DIR ?= config/default
 ENABLE_INSIGHTS ?= false
 INSIGHTS_PROXY_NAMESPACE ?= registry.redhat.io/3scale-amp2
 INSIGHTS_PROXY_NAME ?= apicast-gateway-rhel8
-INSIGHTS_PROXY_VERSION ?= 3scale2.15
+INSIGHTS_PROXY_VERSION ?= 3scale2.16
 export INSIGHTS_PROXY_IMG ?= $(INSIGHTS_PROXY_NAMESPACE)/$(INSIGHTS_PROXY_NAME):$(INSIGHTS_PROXY_VERSION)
 export INSIGHTS_BACKEND ?= console.redhat.com
-RUNTIMES_INVENTORY_NAMESPACE ?= registry.redhat.io/insights-runtimes-tech-preview
-RUNTIMES_INVENTORY_NAME ?= runtimes-inventory-rhel8-operator
+RUNTIMES_INVENTORY_NAMESPACE ?= registry.redhat.io/rh-lightspeed-runtimes
+RUNTIMES_INVENTORY_NAME ?= runtimes-inventory-rhel9-operator
 RUNTIMES_INVENTORY_VERSION ?= latest
 RUNTIMES_INVENTORY_IMG ?= $(RUNTIMES_INVENTORY_NAMESPACE)/$(RUNTIMES_INVENTORY_NAME):$(RUNTIMES_INVENTORY_VERSION)
 
