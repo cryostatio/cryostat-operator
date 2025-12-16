@@ -28,7 +28,7 @@ spec:
         - "--health-probe-bind-address=:8081"
         - "--metrics-bind-address=0" # Metrics disabled
         - "--leader-elect"
-        image: registry.redhat.io/insights-runtimes-tech-preview/runtimes-inventory-rhel8-operator:latest
+        image: insights:latest
         securityContext:
           allowPrivilegeEscalation: false
           capabilities:
