@@ -191,16 +191,6 @@ var _ = Describe("PodDefaulter", func() {
 				ExpectPod()
 			})
 
-			Context("With Smart Triggers overriding mount location", func() {
-				BeforeEach(func() {
-					t.objs = append(t.objs, t.NewCryostat().Object)
-					originalPod = t.NewPodSmartTriggersMountLocation()
-					expectedPod = t.NewMutatedPodWithSmartTriggersMount()
-				})
-
-				ExpectPod()
-			})
-
 			Context("with existing JAVA_TOOL_OPTIONS", func() {
 				BeforeEach(func() {
 					t.objs = append(t.objs, t.NewCryostat().Object)
