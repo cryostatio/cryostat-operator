@@ -239,6 +239,22 @@ func (r *podMutator) Default(ctx context.Context, obj runtime.Object) error {
 			Name:  "CRYOSTAT_AGENT_WEBSERVER_PORT",
 			Value: strconv.Itoa(int(*port)),
 		},
+		corev1.EnvVar{
+			Name:  "CRYOSTAT_AGENT_PUBLISH_FILL_STRATEGY",
+			Value: "KUBERNETES",
+		},
+		corev1.EnvVar{
+			Name:  "CRYOSTAT_AGENT_PUBLISH_CONTEXT_NAMESPACE",
+			Value: pod.Namespace,
+		},
+		corev1.EnvVar{
+			Name:  "CRYOSTAT_AGENT_PUBLISH_CONTEXT_NODETYPE",
+			Value: "Pod",
+		},
+		corev1.EnvVar{
+			Name:  "CRYOSTAT_AGENT_PUBLISH_CONTEXT_NAME",
+			Value: fmt.Sprintf("$(%s)", podNameEnvVar),
+		},
 	)
 
 	if len(harvesterTemplate) > 0 {
