@@ -1,0 +1,18 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": [
+    "config:recommended",
+    ":dependencyDashboard"
+  ],
+  "reviewersFromCodeOwners": true,
+  "labels": [
+    "dependencies",
+    "chore",
+    "safe-to-test"
+  ],
+  "semanticCommits": "enabled",
+  "major": {
+    "dependencyDashboardApproval": true
+  },
+  "stopUpdatingLabel": "blocked"
+}
