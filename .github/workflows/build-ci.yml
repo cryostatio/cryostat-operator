@@ -26,7 +26,7 @@ jobs:
   build-operator:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v6
     - name: Add CRIU PPA
       run: sudo add-apt-repository ppa:criu/ppa && sudo apt update
     - name: Install podman v4
@@ -69,7 +69,7 @@ jobs:
       matrix:
         bundle_mode: ['k8s', 'ocp']
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v6
     - name: Build bundle image
       run: IMAGE_NAMESPACE=${{ env.CI_REGISTRY }} BUNDLE_MODE=${{ matrix.bundle_mode }} make bundle bundle-build
     - name: Tag image
@@ -106,7 +106,7 @@ jobs:
   build-scorecard:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v6
     - name: Get scorecard image tag
       id: get-image-tag
       run: |
