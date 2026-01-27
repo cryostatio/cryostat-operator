@@ -46,7 +46,7 @@ jobs:
       with:
         repository: ${{ inputs.repository }}
         ref: ${{ inputs.ref }}
-    - uses: actions/setup-go@v4
+    - uses: actions/setup-go@v6
       with:
         go-version: '1.24.*'
     - name: Run controller tests
