@@ -34,7 +34,7 @@ jobs:
         && (!contains(github.event.issue.labels.*.name, 'safe-to-test') || github.event.issue.user.name != github.event.comment.user.name)
       run: exit 1
     - name: React to comment
-      uses: actions/github-script@v6
+      uses: actions/github-script@v8
       with:
         script: |
             const {owner, repo} = context.issue
@@ -56,7 +56,7 @@ jobs:
       PR_repo: ${{ fromJSON(steps.comment-branch.outputs.result).repo }}
       PR_head_sha: ${{ fromJSON(steps.comment-branch.outputs.result).head_sha }}
     steps:
-    - uses: actions/github-script@v6
+    - uses: actions/github-script@v8
       id: comment-branch
       with:
         script: |
@@ -103,7 +103,7 @@ jobs:
       pull-requests: write
     steps:
     - name: Leave Actions Run Comment
-      uses: actions/github-script@v6
+      uses: actions/github-script@v8
       with:
         script: |
           const runURL = `https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${{ github.run_id }}`;
@@ -123,7 +123,7 @@ jobs:
       pull-requests: write
     steps:
     - name: Leave Actions Run Comment
-      uses: actions/github-script@v6
+      uses: actions/github-script@v8
       with:
         script: |
           const runURL = `https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${{ github.run_id }}`;
