@@ -25,7 +25,7 @@ import (
 	certv1 "github.com/cert-manager/cert-manager/pkg/apis/certmanager/v1"
 	certMeta "github.com/cert-manager/cert-manager/pkg/apis/meta/v1"
 	operatorv1beta2 "github.com/cryostatio/cryostat-operator/api/v1beta2"
-	"github.com/cryostatio/cryostat-operator/internal/controllers/model"
+	"github.com/cryostatio/cryostat-operator/internal/controller/model"
 	"github.com/onsi/gomega"
 	configv1 "github.com/openshift/api/config/v1"
 	consolev1 "github.com/openshift/api/console/v1"

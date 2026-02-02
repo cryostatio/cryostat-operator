@@ -277,11 +277,11 @@ endef
 
 .PHONY: manager
 manager: manifests generate fmt vet ## Build the manager binary.
-	go build -o bin/manager internal/main.go
+	go build -o bin/manager cmd/main.go
 
 .PHONY: run
 run: manifests generate fmt vet ## Run against the configured Kubernetes cluster in ~/.kube/config
-	go run ./internal/main.go
+	go run ./cmd/main.go
 
 ifndef ignore-not-found
 ignore-not-found = false
