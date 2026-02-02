@@ -4,20 +4,20 @@ resources:
 - ../samples
 - ../scorecard
 
-patchesJson6902:
+    # Remove the manager container's "cert" volumeMount, since OLM will create and mount a set of certs.
+    # Update the indices in this path if adding or removing containers/volumeMounts in the manager's Deployment.
+    # Remove the "cert" volume, since OLM will create and mount a set of certs.
+    # Update the indices in this path if adding or removing volumes in the manager's Deployment.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+patches:
 - path: targetNamespaces_patch.yaml
   target:
     group: operators.coreos.com
-    version: v1alpha1
     kind: ClusterServiceVersion
     name: cryostat-operator.v0.0.0
-- target:
-    group: apps
-    version: v1
-    kind: Deployment
-    name: controller
-    namespace: system
-  patch: |-
+    version: v1alpha1
+- patch: |-
     # Remove the manager container's "cert" volumeMount, since OLM will create and mount a set of certs.
     # Update the indices in this path if adding or removing containers/volumeMounts in the manager's Deployment.
     - op: remove
@@ -26,3 +26,9 @@ patchesJson6902:
     # Update the indices in this path if adding or removing volumes in the manager's Deployment.
     - op: remove
       path: /spec/template/spec/volumes/0
+  target:
+    group: apps
+    kind: Deployment
+    name: controller
+    namespace: system
+    version: v1
