@@ -4,7 +4,7 @@ resources:
 generatorOptions:
   disableNameSuffixHash: true
 
-# patchesJson6902:
+# patches:
 # - path: patches/force_openshift_patch.yaml
 #   target:
 #     group: apps
