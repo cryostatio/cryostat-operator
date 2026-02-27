@@ -20,16 +20,16 @@ const DefaultCoreImageTag = "quay.io/cryostat/cryostat:4.1.1"
 const DefaultDatasourceImageTag = "quay.io/cryostat/jfr-datasource:4.1.1"
 
 // Default image tag for the Grafana dashboard image
-const DefaultGrafanaImageTag = "quay.io/cryostat/cryostat-grafana-dashboard:4.1"
+const DefaultGrafanaImageTag = "quay.io/cryostat/cryostat-grafana-dashboard:4.1.1"
 
 // Default image tag for the Grafana dashboard image
 const DefaultReportsImageTag = "quay.io/cryostat/cryostat-reports:4.1.1"
 
 // Default image tag for the Storage image
-const DefaultStorageImageTag = "quay.io/cryostat/cryostat-storage:4.1"
+const DefaultStorageImageTag = "quay.io/cryostat/cryostat-storage:4.1.1"
 
 // Default image tag for the Database image
-const DefaultDatabaseImageTag = "quay.io/cryostat/cryostat-db:4.1"
+const DefaultDatabaseImageTag = "quay.io/cryostat/cryostat-db:4.1.1"
 
 // Default image tag for the agent proxy image
 const DefaultAgentProxyImageTag = "registry.access.redhat.com/ubi9/nginx-124:latest"

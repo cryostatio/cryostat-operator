@@ -24,7 +24,7 @@ metadata:
     capabilities: Seamless Upgrades
     categories: Monitoring, Developer Tools
     containerImage: quay.io/cryostat/cryostat-operator:4.1.1
-    createdAt: "2026-02-27T15:11:34Z"
+    createdAt: "2026-02-27T16:22:09Z"
     description: JVM monitoring and profiling tool
     operatorframework.io/initialization-resource: |-
       {
@@ -1286,13 +1286,13 @@ spec:
                       - name: RELATED_IMAGE_DATASOURCE
                         value: quay.io/cryostat/jfr-datasource:4.1.1
                       - name: RELATED_IMAGE_GRAFANA
-                        value: quay.io/cryostat/cryostat-grafana-dashboard:4.1
+                        value: quay.io/cryostat/cryostat-grafana-dashboard:4.1.1
                       - name: RELATED_IMAGE_REPORTS
                         value: quay.io/cryostat/cryostat-reports:4.1.1
                       - name: RELATED_IMAGE_STORAGE
-                        value: quay.io/cryostat/cryostat-storage:4.1
+                        value: quay.io/cryostat/cryostat-storage:4.1.1
                       - name: RELATED_IMAGE_DATABASE
-                        value: quay.io/cryostat/cryostat-db:4.1
+                        value: quay.io/cryostat/cryostat-db:4.1.1
                       - name: RELATED_IMAGE_AGENT_PROXY
                         value: registry.access.redhat.com/ubi9/nginx-124:latest
                       - name: RELATED_IMAGE_AGENT_INIT
@@ -1454,13 +1454,13 @@ spec:
       name: core
     - image: quay.io/cryostat/jfr-datasource:4.1.1
       name: datasource
-    - image: quay.io/cryostat/cryostat-grafana-dashboard:4.1
+    - image: quay.io/cryostat/cryostat-grafana-dashboard:4.1.1
       name: grafana
     - image: quay.io/cryostat/cryostat-reports:4.1.1
       name: reports
-    - image: quay.io/cryostat/cryostat-storage:4.1
+    - image: quay.io/cryostat/cryostat-storage:4.1.1
       name: storage
-    - image: quay.io/cryostat/cryostat-db:4.1
+    - image: quay.io/cryostat/cryostat-db:4.1.1
       name: database
     - image: registry.access.redhat.com/ubi9/nginx-124:latest
       name: agent-proxy
