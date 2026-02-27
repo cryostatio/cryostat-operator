@@ -23,8 +23,8 @@ metadata:
       ]
     capabilities: Seamless Upgrades
     categories: Monitoring, Developer Tools
-    containerImage: quay.io/cryostat/cryostat-operator:4.1.1-dev
-    createdAt: "2026-01-21T16:55:45Z"
+    containerImage: quay.io/cryostat/cryostat-operator:4.1.1
+    createdAt: "2026-02-27T15:11:34Z"
     description: JVM monitoring and profiling tool
     operatorframework.io/initialization-resource: |-
       {
@@ -40,7 +40,7 @@ metadata:
           }
         }
       }
-    operators.operatorframework.io/builder: operator-sdk-v1.33.0
+    operators.operatorframework.io/builder: operator-sdk-v1.31.0
     operators.operatorframework.io/project_layout: go.kubebuilder.io/v3
     repository: github.com/cryostatio/cryostat-operator
     support: Cryostat Community
@@ -48,7 +48,7 @@ metadata:
     operatorframework.io/arch.amd64: supported
     operatorframework.io/arch.arm64: supported
     operatorframework.io/os.linux: supported
-  name: cryostat-operator.v4.1.1-dev
+  name: cryostat-operator.v4.1.1
   namespace: placeholder
 spec:
   apiservicedefinitions: {}
@@ -1278,17 +1278,17 @@ spec:
                       - /manager
                     env:
                       - name: RELATED_IMAGE_OAUTH2_PROXY
-                        value: quay.io/oauth2-proxy/oauth2-proxy:v7.13.0
+                        value: quay.io/oauth2-proxy/oauth2-proxy:v7.14.3
                       - name: RELATED_IMAGE_OPENSHIFT_OAUTH_PROXY
-                        value: quay.io/openshift/origin-oauth-proxy:latest
+                        value: quay.io/openshift/origin-oauth-proxy:4.20
                       - name: RELATED_IMAGE_CORE
-                        value: quay.io/cryostat/cryostat:4.1.1-snapshot
+                        value: quay.io/cryostat/cryostat:4.1.1
                       - name: RELATED_IMAGE_DATASOURCE
-                        value: quay.io/cryostat/jfr-datasource:4.1.1-snapshot
+                        value: quay.io/cryostat/jfr-datasource:4.1.1
                       - name: RELATED_IMAGE_GRAFANA
                         value: quay.io/cryostat/cryostat-grafana-dashboard:4.1
                       - name: RELATED_IMAGE_REPORTS
-                        value: quay.io/cryostat/cryostat-reports:4.1.1-snapshot
+                        value: quay.io/cryostat/cryostat-reports:4.1.1
                       - name: RELATED_IMAGE_STORAGE
                         value: quay.io/cryostat/cryostat-storage:4.1
                       - name: RELATED_IMAGE_DATABASE
@@ -1296,13 +1296,13 @@ spec:
                       - name: RELATED_IMAGE_AGENT_PROXY
                         value: registry.access.redhat.com/ubi9/nginx-124:latest
                       - name: RELATED_IMAGE_AGENT_INIT
-                        value: quay.io/cryostat/cryostat-agent-init:0.6.1-snapshot
+                        value: quay.io/cryostat/cryostat-agent-init:0.6.1
                       - name: WATCH_NAMESPACE
                         valueFrom:
                           fieldRef:
                             fieldPath: metadata.annotations['olm.targetNamespaces']
-                    image: quay.io/cryostat/cryostat-operator:4.1.1-dev
-                    imagePullPolicy: Always
+                    image: quay.io/cryostat/cryostat-operator:4.1.1
+                    imagePullPolicy: IfNotPresent
                     livenessProbe:
                       httpGet:
                         path: /healthz
@@ -1446,17 +1446,17 @@ spec:
   provider:
     name: The Cryostat Community
   relatedImages:
-    - image: quay.io/oauth2-proxy/oauth2-proxy:v7.13.0
+    - image: quay.io/oauth2-proxy/oauth2-proxy:v7.14.3
       name: oauth2-proxy
-    - image: quay.io/openshift/origin-oauth-proxy:latest
+    - image: quay.io/openshift/origin-oauth-proxy:4.20
       name: openshift-oauth-proxy
-    - image: quay.io/cryostat/cryostat:4.1.1-snapshot
+    - image: quay.io/cryostat/cryostat:4.1.1
       name: core
-    - image: quay.io/cryostat/jfr-datasource:4.1.1-snapshot
+    - image: quay.io/cryostat/jfr-datasource:4.1.1
       name: datasource
     - image: quay.io/cryostat/cryostat-grafana-dashboard:4.1
       name: grafana
-    - image: quay.io/cryostat/cryostat-reports:4.1.1-snapshot
+    - image: quay.io/cryostat/cryostat-reports:4.1.1
       name: reports
     - image: quay.io/cryostat/cryostat-storage:4.1
       name: storage
@@ -1464,9 +1464,9 @@ spec:
       name: database
     - image: registry.access.redhat.com/ubi9/nginx-124:latest
       name: agent-proxy
-    - image: quay.io/cryostat/cryostat-agent-init:0.6.1-snapshot
+    - image: quay.io/cryostat/cryostat-agent-init:0.6.1
       name: agent-init
-  version: 4.1.1-dev
+  version: 4.1.1
   webhookdefinitions:
     - admissionReviewVersions:
         - v1
