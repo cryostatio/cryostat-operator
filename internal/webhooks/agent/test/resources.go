@@ -579,6 +579,22 @@ func (r *AgentWebhookTestResources) newMutatedContainer(original *corev1.Contain
 				Value: strconv.Itoa(int(options.callbackPort)),
 			},
 			{
+				Name:  "CRYOSTAT_AGENT_PUBLISH_FILL_STRATEGY",
+				Value: "KUBERNETES",
+			},
+			{
+				Name:  "CRYOSTAT_AGENT_PUBLISH_CONTEXT_NAMESPACE",
+				Value: options.namespace,
+			},
+			{
+				Name:  "CRYOSTAT_AGENT_PUBLISH_CONTEXT_NODETYPE",
+				Value: "Pod",
+			},
+			{
+				Name:  "CRYOSTAT_AGENT_PUBLISH_CONTEXT_NAME",
+				Value: "$(CRYOSTAT_AGENT_POD_NAME)",
+			},
+			{
 				Name:  options.javaOptionsName,
 				Value: options.javaOptionsValue + fmt.Sprintf("-javaagent:"+constants.AgentJarPath+"=io.cryostat.agent.shaded.org.slf4j.simpleLogger.defaultLogLevel=%s", options.logLevel),
 			},

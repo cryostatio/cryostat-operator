@@ -5224,6 +5224,14 @@ http {
 			proxy_pass http://127.0.0.1:8181$request_uri;
 		}
 
+		location /api/v4.2/discovery/ {
+			proxy_pass http://127.0.0.1:8181$request_uri;
+		}
+
+		location = /api/v4.2/discovery {
+			proxy_pass http://127.0.0.1:8181$request_uri;
+		}
+
 		location /api/v4/credentials/ {
 			proxy_pass http://127.0.0.1:8181$request_uri;
 		}
@@ -5314,6 +5322,14 @@ http {
 		}
 
 		location = /api/v4/discovery {
+			proxy_pass http://127.0.0.1:8181$request_uri;
+		}
+
+		location /api/v4.2/discovery/ {
+			proxy_pass http://127.0.0.1:8181$request_uri;
+		}
+
+		location = /api/v4.2/discovery {
 			proxy_pass http://127.0.0.1:8181$request_uri;
 		}
 
