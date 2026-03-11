@@ -1,3 +1,6 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
 # Adds namespace to all resources.
 namespace: cryostat-operator-system
 
@@ -9,184 +12,187 @@ namespace: cryostat-operator-system
 namePrefix: cryostat-operator-
 
 # Labels to add to all resources and selectors.
+labels:
+- includeSelectors: true
+  pairs:
+    app.kubernetes.io/name: cryostat-operator
 
-# Protect the /metrics endpoint by putting it behind auth.
-# If you want your controller-manager to expose the /metrics
-# endpoint w/o any authn/z, please comment the following line.
-#
-# FIXME uncomment when this issue is resolved:
-# https://github.com/operator-framework/operator-sdk/issues/4684
-#- manager_auth_proxy_patch.yaml
-
-# Mount the controller config file for loading manager configurations
-# through a ComponentConfig type
-#- manager_config_patch.yaml
-
-# [WEBHOOK] To enable webhook, uncomment all the sections with [WEBHOOK] prefix including the one in
-# crd/kustomization.yaml
-
-# [CERTMANAGER] To enable cert-manager, uncomment all sections with 'CERTMANAGER'.
-# Uncomment 'CERTMANAGER' sections in crd/kustomization.yaml to enable the CA injection in the admission webhooks.
-# 'CERTMANAGER' needs to be enabled to use ca injection
-
-# the following config is for teaching kustomize how to do var substitution
-apiVersion: kustomize.config.k8s.io/v1beta1
-kind: Kustomization
 # [WEBHOOK] To enable webhook, uncomment all the sections with [WEBHOOK] prefix including the one in
 # crd/kustomization.yaml
 # [CERTMANAGER] To enable cert-manager, uncomment all sections with 'CERTMANAGER'. 'WEBHOOK' components are required.
+# [WEBHOOK] To enable webhook, uncomment all the sections with [WEBHOOK] prefix including the one in
+# crd/kustomization.yaml
+# [CERTMANAGER] To enable cert-manager, uncomment all sections with 'CERTMANAGER'. 'WEBHOOK' components are required.
+# [PROMETHEUS] To enable prometheus monitor, uncomment all sections with 'PROMETHEUS'.
+# [METRICS] Expose the controller manager metrics service.
 resources:
 - ../crd
 - ../rbac
 - ../manager
 - ../webhook
 - ../certmanager
+- ../prometheus
+- metrics_service.yaml
+# [NETWORK POLICY] Protect the /metrics endpoint and Webhook Server with NetworkPolicy.
+# Only Pod(s) running a namespace labeled with 'metrics: enabled' will be able to gather the metrics.
+# Only CR(s) which requires webhooks and are applied on namespaces labeled with 'webhooks: enabled' will
+# be able to communicate with the Webhook Server.
+#- ../network-policy
 
-# [CERTMANAGER] To enable cert-manager, uncomment all sections with 'CERTMANAGER' prefix.
-# Replacements for cert-manager certificate injection
-replacements:
-# Replace SERVICE_NAME in Certificate dnsNames
-- source:
-    kind: Service
-    version: v1
-    name: webhook-service
-    fieldPath: .metadata.name
-  targets:
-  - select:
-      kind: Certificate
-      group: cert-manager.io
-      version: v1
-      name: serving-cert
-    fieldPaths:
-    - .spec.dnsNames.0
-    - .spec.dnsNames.1
-    options:
-      delimiter: '.'
-      index: 0
-      create: true
-# Replace SERVICE_NAMESPACE in Certificate dnsNames
-- source:
-    kind: Service
-    version: v1
-    name: webhook-service
-    fieldPath: .metadata.namespace
-  targets:
-  - select:
-      kind: Certificate
-      group: cert-manager.io
-      version: v1
-      name: serving-cert
-    fieldPaths:
-    - .spec.dnsNames.0
-    - .spec.dnsNames.1
-    options:
-      delimiter: '.'
-      index: 1
-      create: true
-# Replace CERTIFICATE_NAMESPACE in MutatingWebhookConfiguration CA injection annotation
-- source:
-    kind: Certificate
-    group: cert-manager.io
-    version: v1
-    name: serving-cert
-    fieldPath: .metadata.namespace
-  targets:
-  - select:
-      kind: MutatingWebhookConfiguration
-    fieldPaths:
-    - .metadata.annotations.[cert-manager.io/inject-ca-from]
-    options:
-      delimiter: '/'
-      index: 0
-      create: true
-# Replace CERTIFICATE_NAME in MutatingWebhookConfiguration CA injection annotation
-- source:
-    kind: Certificate
-    group: cert-manager.io
-    version: v1
-    name: serving-cert
-    fieldPath: .metadata.name
-  targets:
-  - select:
-      kind: MutatingWebhookConfiguration
-    fieldPaths:
-    - .metadata.annotations.[cert-manager.io/inject-ca-from]
-    options:
-      delimiter: '/'
-      index: 1
-      create: true
-# Replace CERTIFICATE_NAMESPACE in ValidatingWebhookConfiguration CA injection annotation
-- source:
-    kind: Certificate
-    group: cert-manager.io
-    version: v1
-    name: serving-cert
-    fieldPath: .metadata.namespace
-  targets:
-  - select:
-      kind: ValidatingWebhookConfiguration
-    fieldPaths:
-    - .metadata.annotations.[cert-manager.io/inject-ca-from]
-    options:
-      delimiter: '/'
-      index: 0
-      create: true
-# Replace CERTIFICATE_NAME in ValidatingWebhookConfiguration CA injection annotation
-- source:
-    kind: Certificate
-    group: cert-manager.io
-    version: v1
-    name: serving-cert
-    fieldPath: .metadata.name
-  targets:
-  - select:
-      kind: ValidatingWebhookConfiguration
-    fieldPaths:
-    - .metadata.annotations.[cert-manager.io/inject-ca-from]
-    options:
-      delimiter: '/'
-      index: 1
-      create: true
-# Replace CERTIFICATE_NAMESPACE in CRD CA injection annotation
-- source:
-    kind: Certificate
-    group: cert-manager.io
-    version: v1
-    name: serving-cert
-    fieldPath: .metadata.namespace
-  targets:
-  - select:
-      kind: CustomResourceDefinition
-    fieldPaths:
-    - .metadata.annotations.[cert-manager.io/inject-ca-from]
-    options:
-      delimiter: '/'
-      index: 0
-      create: true
-# Replace CERTIFICATE_NAME in CRD CA injection annotation
-- source:
-    kind: Certificate
-    group: cert-manager.io
-    version: v1
-    name: serving-cert
-    fieldPath: .metadata.name
-  targets:
-  - select:
-      kind: CustomResourceDefinition
-    fieldPaths:
-    - .metadata.annotations.[cert-manager.io/inject-ca-from]
-    options:
-      delimiter: '/'
-      index: 1
-      create: true
+# Uncomment the patches line if you enable Metrics
+# [METRICS] The following patch will enable the metrics endpoint using HTTPS and the port :8443.
+# More info: https://book.kubebuilder.io/reference/metrics
 
-labels:
-- includeSelectors: true
-  pairs:
-    app.kubernetes.io/name: cryostat-operator
+# Uncomment the patches line if you enable Metrics and CertManager
+# [METRICS-WITH-CERTS] To enable metrics protected with certManager, uncomment the following line.
+# This patch will protect the metrics with certManager self-signed certs.
+
+# [WEBHOOK] To enable webhook, uncomment all the sections with [WEBHOOK] prefix including the one in
+# crd/kustomization.yaml
+
 patches:
+- path: manager_metrics_patch.yaml
+  target:
+    kind: Deployment
+- path: cert_metrics_manager_patch.yaml
+  target:
+    kind: Deployment
+- path: manager_webhook_patch.yaml
+  target:
+    kind: Deployment
 - path: image_tag_patch.yaml
 - path: image_pull_patch.yaml
-- path: manager_webhook_patch.yaml
-- path: webhookcainjection_patch.yaml
 - path: webhook_object_selector_patch.yaml
+
+# Replacements for cert-manager certificate injection
+# Replace SERVICE_NAME in Certificate dnsNames
+# Replace SERVICE_NAMESPACE in Certificate dnsNames
+# Replace CERTIFICATE_NAMESPACE in MutatingWebhookConfiguration CA injection annotation
+# Replace CERTIFICATE_NAME in MutatingWebhookConfiguration CA injection annotation
+# Replace CERTIFICATE_NAMESPACE in ValidatingWebhookConfiguration CA injection annotation
+# Replace CERTIFICATE_NAME in ValidatingWebhookConfiguration CA injection annotation
+# Replace CERTIFICATE_NAMESPACE in CRD CA injection annotation
+# Replace CERTIFICATE_NAME in CRD CA injection annotation
+replacements:
+- source:
+    fieldPath: .metadata.name
+    kind: Service
+    name: webhook-service
+    version: v1
+  targets:
+  - fieldPaths:
+    - .spec.dnsNames.0
+    - .spec.dnsNames.1
+    options:
+      create: true
+      delimiter: .
+    select:
+      group: cert-manager.io
+      kind: Certificate
+      name: serving-cert
+      version: v1
+- source:
+    fieldPath: .metadata.namespace
+    kind: Service
+    name: webhook-service
+    version: v1
+  targets:
+  - fieldPaths:
+    - .spec.dnsNames.0
+    - .spec.dnsNames.1
+    options:
+      create: true
+      delimiter: .
+      index: 1
+    select:
+      group: cert-manager.io
+      kind: Certificate
+      name: serving-cert
+      version: v1
+- source:
+    fieldPath: .metadata.namespace
+    group: cert-manager.io
+    kind: Certificate
+    name: serving-cert
+    version: v1
+  targets:
+  - fieldPaths:
+    - .metadata.annotations.[cert-manager.io/inject-ca-from]
+    options:
+      create: true
+      delimiter: /
+    select:
+      kind: MutatingWebhookConfiguration
+- source:
+    fieldPath: .metadata.name
+    group: cert-manager.io
+    kind: Certificate
+    name: serving-cert
+    version: v1
+  targets:
+  - fieldPaths:
+    - .metadata.annotations.[cert-manager.io/inject-ca-from]
+    options:
+      create: true
+      delimiter: /
+      index: 1
+    select:
+      kind: MutatingWebhookConfiguration
+- source:
+    fieldPath: .metadata.namespace
+    group: cert-manager.io
+    kind: Certificate
+    name: serving-cert
+    version: v1
+  targets:
+  - fieldPaths:
+    - .metadata.annotations.[cert-manager.io/inject-ca-from]
+    options:
+      create: true
+      delimiter: /
+    select:
+      kind: ValidatingWebhookConfiguration
+- source:
+    fieldPath: .metadata.name
+    group: cert-manager.io
+    kind: Certificate
+    name: serving-cert
+    version: v1
+  targets:
+  - fieldPaths:
+    - .metadata.annotations.[cert-manager.io/inject-ca-from]
+    options:
+      create: true
+      delimiter: /
+      index: 1
+    select:
+      kind: ValidatingWebhookConfiguration
+- source:
+    fieldPath: .metadata.namespace
+    group: cert-manager.io
+    kind: Certificate
+    name: serving-cert
+    version: v1
+  targets:
+  - fieldPaths:
+    - .metadata.annotations.[cert-manager.io/inject-ca-from]
+    options:
+      create: true
+      delimiter: /
+    select:
+      kind: CustomResourceDefinition
+- source:
+    fieldPath: .metadata.name
+    group: cert-manager.io
+    kind: Certificate
+    name: serving-cert
+    version: v1
+  targets:
+  - fieldPaths:
+    - .metadata.annotations.[cert-manager.io/inject-ca-from]
+    options:
+      create: true
+      delimiter: /
+      index: 1
+    select:
+      kind: CustomResourceDefinition

@@ -1,135 +1,230 @@
 # cryostat-operator
-// TODO(user): Add simple overview of use/purpose
 
-## Description
-// TODO(user): An in-depth paragraph about your project and overview of use
+[![CI build](https://github.com/cryostatio/cryostat-operator/actions/workflows/build-ci.yml/badge.svg)](https://github.com/cryostatio/cryostat-operator/actions/workflows/build-ci.yml)
+[![Test CI push](https://github.com/cryostatio/cryostat-operator/actions/workflows/test-ci-push.yml/badge.svg)](https://github.com/cryostatio/cryostat-operator/actions/workflows/test-ci-push.yml)
+[![Google Group : Cryostat Development](https://img.shields.io/badge/Google%20Group-Cryostat%20Development-blue.svg)](https://groups.google.com/g/cryostat-development)
 
-## Getting Started
+A Kubernetes Operator to automate deployment of
+[Cryostat](https://github.com/cryostatio/cryostat).
 
-### Prerequisites
-- go version v1.24.0+
-- docker version 17.03+.
-- kubectl version v1.11.3+.
-- Access to a Kubernetes v1.11.3+ cluster.
+## SEE ALSO
 
-### To Deploy on the cluster
-**Build and push your image to the location specified by `IMG`:**
+* [cryostat-core](https://github.com/cryostatio/cryostat-core) for
+the core library providing a convenience wrapper and headless stubs for use of
+JFR using JDK Mission Control internals.
 
-```sh
-make docker-build docker-push IMG=<some-registry>/cryostat-operator:tag
+* [cryostat](https://github.com/cryostatio/cryostat) for the main API
+backend to detect JVMs and manage JFR.
+
+* [cryostat-web](https://github.com/cryostatio/cryostat-web) for the React
+graphical frontend included as a submodule in Cryostat and built into
+Cryostat's OCI images.
+
+* [jfr-datasource](https://github.com/cryostatio/jfr-datasource) for
+the JFR datasource for Grafana.
+
+* [cryostat-grafana-dashboard](https://github.com/cryostatio/cryostat-grafana-dashboard)
+for the Grafana dashboard.
+
+## USING
+
+### Requirements
+
+- `kubernetes` v1.25+ with [`Operator Lifecycle Manager`](https://olm.operatorframework.io/)
+- [`cert-manager`](https://github.com/cert-manager/cert-manager) v1.11.5+ (Recommended)
+
+### Instructions
+
+Once deployed, the `cryostat` instance can be accessed via web browser
+at the URL provided by:
+```
+kubectl get cryostat -o jsonpath='{$.items[0].status.applicationUrl}'
 ```
 
-**NOTE:** This image ought to be published in the personal registry you specified.
-And it is required to have access to pull the image from the working environment.
-Make sure you have the proper permission to the registry if the above commands don’t work.
+To use Cryostat to monitor or profile Cryostat itself - since it is also an available JVM target -
+you may use the Cryostat web UI to define a Custom Target with the connection URL `localhost:0`.
+This is a special value which tells Cryostat's JVM that it should connect to itself directly, without
+the need to expose a JMX port over the network.
 
-**Install the CRDs into the cluster:**
+## INSTALLATION
 
-```sh
-make install
+### OperatorHub
+
+The operator's primary installation method is via [OperatorHub](https://operatorhub.io/).
+A more detailed installation guide is available [here](https://cryostat.io/get-started/#install-via-operatorhub).
+Installation of the Operator without OLM/OperatorHub is intended for development purposes and is
+not a supported release configuration.
+
+### Bundle Deployment
+
+The operator can be deployed using OLM using `make deploy_bundle`. This will
+deploy `quay.io/cryostat/cryostat-operator-bundle:$IMAGE_VERSION` to
+your configured cluster using `oc` or `kubectl` (`kubeconfig`). You can set the
+variables `IMAGE_NAMESPACE` or `IMAGE_VERSION` to deploy different builds of
+the bundle. Once this is complete, the Cryostat Operator will be deployed
+and running in your cluster.
+
+### Manual Deployment
+
+`make install` will create CustomResourceDefinitions and do other setup
+required to prepare the cluster for deploying the operator, using `oc` or
+`kubectl` on whichever OpenShift/Kubernetes cluster is configured with the local client.
+`make uninstall` destroys the CRDs and undoes the setup.
+
+`make run` can be used to run the operator controller manager as a process on
+your local development machine and observing/interacting with your cluster.
+This may be useful in some development scenarios, however in this case the
+operator process will not have access to certain in-cluster resources such as
+environment variables or service account token files.
+
+`make deploy` will deploy the operator using static manifests to an arbitrary namespace (default to `cryostat-operator-system`).
+- `make DEPLOY_NAMESPACE=foo-namespace deploy`
+can be used to deploy to a namespace named `foo-namespace`. For
+a convenient shorthand, use
+`make DEPLOY_NAMESPACE=$(kubectl config view --minify -o 'jsonpath={.contexts[0].context.namespace}') deploy`
+to deploy to the currently active OpenShift/Kubernetes namespace.
+- `make undeploy` will likewise remove the operator, and also uses the
+`DEPLOY_NAMESPACE` variable.
+This also respects the `IMAGE_TAG` environment variable, so that different
+versions of the operator can be easily deployed.
+- To obtain such static manifests remotely without further customizations, use:
+    ```bash
+    # Replace ref with any version tag or branch
+    kubectl kustomize "https://github.com/cryostatio/cryostat-operator.git/config/default?ref=v2.4.0"
+    ```
+
+
+### Configuration
+
+Once deployed, the operator deployment will be active in the cluster, but no
+Cryostat instance will be created. To trigger its creation, add a
+Cryostat CR using the UI for operator "provided APIs". Full details on the
+configuration options in the Cryostat CRD can be found in
+[Configuring Cryostat](docs/config.md). When running on Kubernetes, see
+[Network Options](docs/config.md#network-options) for additional
+mandatory configuration in order to access Cryostat outside of the cluster.
+
+For convenience, a full deployment can be created using
+`kubectl create -f config/samples/operator_v1beta2_cryostat.yaml`, or more
+simply, `make create_cryostat_cr`.
+
+The container images used by the operator for the core application,
+jfr-datasource, and the Grafana dashboard can be overridden by setting the
+`RELATED_IMAGE_CORE`, `RELATED_IMAGE_DATASOURCE`, and `RELATED_IMAGE_GRAFANA`
+environment variables, respectively, in the operator deployment.
+
+## SECURITY
+
+By default, the operator expects cert-manager to be available in the cluster.
+This allows the operator to deploy Cryostat with all communication
+between its internal services done over HTTPS. If you wish to disable this
+feature and not use cert-manager, you can set the environment variable
+`DISABLE_SERVICE_TLS=true` when you deploy the operator. We provide
+`make cert_manager` and `make remove_cert_manager` targets to easily
+install/remove cert-manager from your cluster.
+
+
+### User Authentication
+
+Users can use `oc whoami --show-token` to retrieve their OpenShift OAuth token
+for the currently logged in user account. This token can be used when directly
+interacting with the deployed Cryostat instance(s).
+
+When using the web-client, users can login with their username and password associated with their OpenShift account. User credentials will be remembered for the duration of the session.
+
+If the current user account does not have sufficient permissions to list
+routes, list endpointslices, or perform other actions that Cryostat requires,
+then the user may also try to authenticate using the Operator's service
+account. This, of course, assumes that the user has permission to view this
+service account's secrets.
+
+`oc get secrets | grep cryostat-operator-service-account-token` will provide at least one
+such operator service account token secret name which can be used - for
+example, `cryostat-operator-service-account-token-7tt7l`. The token can then be retrieved
+for use in authenticating as the operator service account:
+
+```
+$ oc describe secret cryostat-operator-service-account-token-7tt7l
+Name:         cryostat-operator-service-account-token-7tt7l
+Namespace:    default
+Labels:       <none>
+Annotations:  kubernetes.io/created-by: openshift.io/create-dockercfg-secrets
+              kubernetes.io/service-account.name: cryostat-operator-service-account
+              kubernetes.io/service-account.uid: 692aa8c7-081e-4a51-9355-be3eaa8f9fa6
+
+Type:  kubernetes.io/service-account-token
+
+Data
+====
+ca.crt:          7209 bytes
+namespace:       7 bytes
+service-ca.crt:  8422 bytes
+token:           eyJhbGciOiJSUzI1NiIsImtpZCI6IkhYZC13eDdGVGwyQzdGNVpZVndScEZ2VmRxWTlzbnBUUG9HRkJpejJkV3cifQ.eyJpc3MiOiJrdWJlcm5ldGVzL3NlcnZpY2VhY2NvdW50Iiwia3ViZXJuZXRlcy5pby9zZXJ2aWNlYWNjb3VudC9uYW1lc3BhY2UiOiJkZWZhdWx0Iiwia3ViZXJuZXRlcy5pby9zZXJ2aWNlYWNjb3VudC9zZWNyZXQubmFtZSI6ImNyeW9zdGF0LW9wZXJhdG9yLXNlcnZpY2UtYWNjb3VudC10b2tlbi03dHQ3bCIsImt1YmVybmV0ZXMuaW8vc2VydmljZWFjY291bnQvc2VydmljZS1hY2NvdW50Lm5hbWUiOiJjcnlvc3RhdC1vcGVyYXRvci1zZXJ2aWNlLWFjY291bnQiLCJrdWJlcm5ldGVzLmlvL3NlcnZpY2VhY2NvdW50L3NlcnZpY2UtYWNjb3VudC51aWQiOiI2OTJhYThjNy0wODFlLTRhNTEtOTM1NS1iZTNlYWE4ZjlmYTYiLCJzdWIiOiJzeXN0ZW06c2VydmljZWFjY291bnQ6ZGVmYXVsdDpjcnlvc3RhdC1vcGVyYXRvci1zZXJ2aWNlLWFjY291bnQifQ.M7C1V0bN3aILBflO7TTOTikw7wLGRJ79-OkCDQIZbu71QLdX05jyCxxtlH32lr8jz6HwxfXXweh3ifG_2lbe7_TbM8jxmBoMdLuc4Q_akpmA-GQuDPrRxfHGJApYGQ6CVug3KHSrQwj2M4QrSUz7FoeQGaOH9BnWj1TrHGmOZUPJ6u7JSu2OwoLBda6rF-M4Bl72DmkyMAzikreRgPEk4D7gTCY0yNvsQDuUAwpFwmEukRC2WyTAVTpKPgThZUk-UJ-dXufbhAcqIRt6jeCQ19_Bo0zXc_ELgQydxuTack1ndT3HwRmwwNuZDFv-G3Y0YdjfRh00DqEvSn9ynZzwueDCJUxlHdznytfUWk9PA712JENpFC7b-zSHnjymIcFeUd8s_Zq_-JKrDIPnH0oZDRO_MUpKEC7Jz_8SeFJHLLGfBZt_aP4VwQHEUThiFQPwrfbd8tppUG2TKcekPScKcauy-BCI52odBzapP6meilMQVrmRtu7i30L05vgQiST_OsmSP8CuKW13a-leCCtN_aNQGqlWvLhP81H95ui-PvMzwMIDlfDZ03ycuYg4R4eUG3nUq7-42wrSdFLo8gm9wsl7y1ZRMQwHR1DCVBbHYS0iFOcmwto2Ejlrgvn3Cs0pDS7pDVoFkH2FsTopEw3jXtnkMs15mSmBnHz-UjF-l08
 ```
 
-**Deploy the Manager to the cluster with the image specified by `IMG`:**
+or more briefly:
 
-```sh
-make deploy IMG=<some-registry>/cryostat-operator:tag
+```
+$ oc get -o jsonpath='{.data.token}' secret cryostat-operator-service-account-token-7tt7l | base64 -d
+eyJhbGciOiJSUzI1NiIsImtpZCI6IkhYZC13eDdGVGwyQzdGNVpZVndScEZ2VmRxWTlzbnBUUG9HRkJpejJkV3cifQ.eyJpc3MiOiJrdWJlcm5ldGVzL3NlcnZpY2VhY2NvdW50Iiwia3ViZXJuZXRlcy5pby9zZXJ2aWNlYWNjb3VudC9uYW1lc3BhY2UiOiJkZWZhdWx0Iiwia3ViZXJuZXRlcy5pby9zZXJ2aWNlYWNjb3VudC9zZWNyZXQubmFtZSI6ImNyeW9zdGF0LW9wZXJhdG9yLXNlcnZpY2UtYWNjb3VudC10b2tlbi03dHQ3bCIsImt1YmVybmV0ZXMuaW8vc2VydmljZWFjY291bnQvc2VydmljZS1hY2NvdW50Lm5hbWUiOiJjcnlvc3RhdC1vcGVyYXRvci1zZXJ2aWNlLWFjY291bnQiLCJrdWJlcm5ldGVzLmlvL3NlcnZpY2VhY2NvdW50L3NlcnZpY2UtYWNjb3VudC51aWQiOiI2OTJhYThjNy0wODFlLTRhNTEtOTM1NS1iZTNlYWE4ZjlmYTYiLCJzdWIiOiJzeXN0ZW06c2VydmljZWFjY291bnQ6ZGVmYXVsdDpjcnlvc3RhdC1vcGVyYXRvci1zZXJ2aWNlLWFjY291bnQifQ.M7C1V0bN3aILBflO7TTOTikw7wLGRJ79-OkCDQIZbu71QLdX05jyCxxtlH32lr8jz6HwxfXXweh3ifG_2lbe7_TbM8jxmBoMdLuc4Q_akpmA-GQuDPrRxfHGJApYGQ6CVug3KHSrQwj2M4QrSUz7FoeQGaOH9BnWj1TrHGmOZUPJ6u7JSu2OwoLBda6rF-M4Bl72DmkyMAzikreRgPEk4D7gTCY0yNvsQDuUAwpFwmEukRC2WyTAVTpKPgThZUk-UJ-dXufbhAcqIRt6jeCQ19_Bo0zXc_ELgQydxuTack1ndT3HwRmwwNuZDFv-G3Y0YdjfRh00DqEvSn9ynZzwueDCJUxlHdznytfUWk9PA712JENpFC7b-zSHnjymIcFeUd8s_Zq_-JKrDIPnH0oZDRO_MUpKEC7Jz_8SeFJHLLGfBZt_aP4VwQHEUThiFQPwrfbd8tppUG2TKcekPScKcauy-BCI52odBzapP6meilMQVrmRtu7i30L05vgQiST_OsmSP8CuKW13a-leCCtN_aNQGqlWvLhP81H95ui-PvMzwMIDlfDZ03ycuYg4R4eUG3nUq7-42wrSdFLo8gm9wsl7y1ZRMQwHR1DCVBbHYS0iFOcmwto2Ejlrgvn3Cs0pDS7pDVoFkH2FsTopEw3jXtnkMs15mSmBnHz-UjF-l08
 ```
 
-> **NOTE**: If you encounter RBAC errors, you may need to grant yourself cluster-admin
-privileges or be logged in as admin.
+## BUILDING
 
-**Create instances of your solution**
-You can apply the samples (examples) from the config/sample:
+### Requirements
+- `go` v1.24+
+- [`operator-sdk`](https://github.com/operator-framework/operator-sdk) v1.33.0
+- `podman` or `docker`
+- [`jq`](https://stedolan.github.io/jq/) v1.6+
+- [`yq`](https://github.com/mikefarah/yq/) v4.35+
+- `ginkgo` (Optional)
 
-```sh
-kubectl apply -k config/samples/
-```
+### Instructions
+`make generate manifests manager` will trigger code/YAML generation and compile
+the operator controller manager, along with running some code quality checks.
 
->**NOTE**: Ensure that the samples has default values to test it out.
+`make oci-build` will build an OCI image from the generated YAML and compiled
+binary to the local registry, tagged as
+`quay.io/crystatio/cryostat-operator`. This tag can be overridden by
+setting the environment variables `IMAGE_NAMESPACE` and `OPERATOR_NAME`.
+`IMAGE_VERSION` can also be set to override the tagged version.
 
-### To Uninstall
-**Delete the instances (CRs) from the cluster:**
+`make bundle` will create an OLM bundle. This will generate a CSV, CRDs and
+other manifests, and other required configurations for an OLM bundle versioned
+with version `$IMAGE_VERSION` in the `bundle/` directory. `make bundle-build`
+will create an OCI image of this bundle, which can then be pushed to an image
+repository such as `quay.io`.
 
-```sh
-kubectl delete -k config/samples/
-```
+`make catalog-build` will build an OCI image of the operator catalog (i.e. index)
+with version `$IMAGE_VERSION` that includes the bundle image of the same version.
 
-**Delete the APIs(CRDs) from the cluster:**
+## DEVELOPMENT
 
-```sh
-make uninstall
-```
+An invocation like
+`export IMAGE_NAMESPACE=quay.io/some-user` `export IMAGE_VERSION=test-version`
+`make generate manifests manager oci-build bundle bundle-build`
+`podman image prune -f && podman push $IMAGE_NAMESPACE/cryostat-operator:$IMAGE_VERSION && podman push $IMAGE_NAMESPACE/cryostat-operator-bundle:$IMAGE_VERSION`
+`make deploy_bundle`
+is handy for local development testing using ex. CodeReady Containers. This
+exercises a similar build and deployment path as what end users using OLM and
+OperatorHub will eventually receive.
 
-**UnDeploy the controller from the cluster:**
+## TESTING
 
-```sh
-make undeploy
-```
+### Requirements
+- (optional) [oc](https://www.okd.io/download.html)
+- (optional) [crc](https://github.com/code-ready/crc)
 
-## Project Distribution
+### Instructions
 
-Following the options to release and provide this solution to the users.
+`make test-envtest` will run controller tests using ginkgo if installed, or go test if
+not, requiring no cluster connection.
 
-### By providing a bundle with all YAML files
+`make test-scorecard` will run the Operator SDK's scorecard test suite. This requires a
+Kubernetes or OpenShift cluster to be available and logged in with your `kubectl` or `oc`
+client. The recommended setup for development testing is CodeReady Containers (`crc`).
 
-1. Build the installer for the image built and published in the registry:
+Before the scorecard tests are run, all cryostat and cryostat-operator
+resources will be deleted to ensure a clean slate.
 
-```sh
-make build-installer IMG=<some-registry>/cryostat-operator:tag
-```
-
-**NOTE:** The makefile target mentioned above generates an 'install.yaml'
-file in the dist directory. This file contains all the resources built
-with Kustomize, which are necessary to install this project without its
-dependencies.
-
-2. Using the installer
-
-Users can just run 'kubectl apply -f <URL for YAML BUNDLE>' to install
-the project, i.e.:
-
-```sh
-kubectl apply -f https://raw.githubusercontent.com/<org>/cryostat-operator/<tag or branch>/dist/install.yaml
-```
-
-### By providing a Helm Chart
-
-1. Build the chart using the optional helm plugin
-
-```sh
-operator-sdk edit --plugins=helm/v1-alpha
-```
-
-2. See that a chart was generated under 'dist/chart', and users
-can obtain this solution from there.
-
-**NOTE:** If you change the project, you need to update the Helm Chart
-using the same command above to sync the latest changes. Furthermore,
-if you create webhooks, you need to use the above command with
-the '--force' flag and manually ensure that any custom configuration
-previously added to 'dist/chart/values.yaml' or 'dist/chart/manager/manager.yaml'
-is manually re-applied afterwards.
-
-## Contributing
-// TODO(user): Add detailed information on how you would like others to contribute to this project
-
-**NOTE:** Run `make help` for more information on all potential `make` targets
-
-More information can be found via the [Kubebuilder Documentation](https://book.kubebuilder.io/introduction.html)
-
-## License
-
-Copyright 2026.
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-
+`make test` will run all tests.

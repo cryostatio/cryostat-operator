@@ -24,7 +24,7 @@ metadata:
     capabilities: Seamless Upgrades
     categories: Monitoring, Developer Tools
     containerImage: quay.io/cryostat/cryostat-operator:4.2.0-dev
-    createdAt: "2026-02-06T20:08:01Z"
+    createdAt: "2026-03-11T18:31:59Z"
     description: JVM monitoring and profiling tool
     operatorframework.io/initialization-resource: |-
       {
@@ -1491,7 +1491,11 @@ spec:
               spec:
                 containers:
                   - args:
+                      - --metrics-bind-address=:8443
                       - --leader-elect
+                      - --health-probe-bind-address=:8081
+                      - --metrics-cert-path=/tmp/k8s-metrics-server/metrics-certs
+                      - --webhook-cert-path=/tmp/k8s-webhook-server/serving-certs
                     command:
                       - /manager
                     env:
@@ -1515,10 +1519,6 @@ spec:
                         value: registry.access.redhat.com/ubi9/nginx-124:latest
                       - name: RELATED_IMAGE_AGENT_INIT
                         value: quay.io/cryostat/cryostat-agent-init:latest
-                      - name: WATCH_NAMESPACE
-                        valueFrom:
-                          fieldRef:
-                            fieldPath: metadata.annotations['olm.targetNamespaces']
                     image: quay.io/cryostat/cryostat-operator:4.2.0-dev
                     imagePullPolicy: Always
                     livenessProbe:
@@ -1550,12 +1550,20 @@ spec:
                       capabilities:
                         drop:
                           - ALL
+                    volumeMounts:
+                      - mountPath: /tmp/k8s-webhook-server/serving-certs
+                        name: webhook-certs
+                        readOnly: true
                 securityContext:
                   runAsNonRoot: true
                   seccompProfile:
                     type: RuntimeDefault
                 serviceAccountName: cryostat-operator-service-account
                 terminationGracePeriodSeconds: 10
+                volumes:
+                  - name: webhook-certs
+                    secret:
+                      secretName: webhook-server-cert
       permissions:
         - rules:
             - apiGroups:
