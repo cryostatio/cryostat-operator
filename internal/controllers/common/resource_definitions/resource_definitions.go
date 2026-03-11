@@ -1469,6 +1469,12 @@ func NewCoreContainer(cr *model.CryostatInstance, specs *ServiceSpecs, imageTag 
 			Value: "static",
 		},
 	}
+	if cr.Spec.EnableAudit != nil {
+		envs = append(envs, corev1.EnvVar{
+			Name:  "CRYOSTAT_AUDIT_ENABLED",
+			Value: strconv.FormatBool(*cr.Spec.EnableAudit),
+		})
+	}
 
 	if DeployManagedStorage(cr) {
 		// default environment variable settings for managed/provisioned cryostat-storage instance

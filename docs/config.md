@@ -300,6 +300,21 @@ spec:
     targetCacheTTL: 10
 ```
 
+### Audit Logging
+
+Cryostat can persist audit history in its database, which enables historical features such as looking back at information about targets after they have been lost. For newly created Cryostat CRs, the operator defaults `spec.enableAudit` to `true`. Existing Cryostat CRs that predate this field keep their previous behavior until you explicitly set the property.
+
+When audit logging is enabled, the Cryostat database will grow over time and may require additional storage.
+
+```yaml
+apiVersion: operator.cryostat.io/v1beta2
+kind: Cryostat
+metadata:
+  name: cryostat-sample
+spec:
+  enableAudit: false
+```
+
 ### Application Database
 
 Cryostat stores various pieces of information in a database. This can also include target application connection credentials, such as target applications' JMX credentials, which are stored in an encrypted database table. By default, the Operator will generate both a random database connection key and a random table encryption key and configure Cryostat and the database to use these. You may also specify these keys yourself by creating a Secret containing the keys `CONNECTION_KEY` and `ENCRYPTION_KEY`.

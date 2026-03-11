@@ -4,6 +4,7 @@ metadata:
   name: cryostat-sample
 spec:
   enableCertManager: true
+  enableAudit: true
   trustedCertSecrets: []
   eventTemplates: []
   reportOptions:
