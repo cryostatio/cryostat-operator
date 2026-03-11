@@ -24,7 +24,7 @@ metadata:
     capabilities: Seamless Upgrades
     categories: Monitoring, Developer Tools
     containerImage: quay.io/cryostat/cryostat-operator:4.2.0-dev
-    createdAt: "2026-03-11T18:31:59Z"
+    createdAt: "2026-03-11T19:27:40Z"
     description: JVM monitoring and profiling tool
     operatorframework.io/initialization-resource: |-
       {
@@ -1494,8 +1494,8 @@ spec:
                       - --metrics-bind-address=:8443
                       - --leader-elect
                       - --health-probe-bind-address=:8081
-                      - --metrics-cert-path=/tmp/k8s-metrics-server/metrics-certs
                       - --webhook-cert-path=/tmp/k8s-webhook-server/serving-certs
+                      - --metrics-cert-path=/tmp/k8s-metrics-server/metrics-certs
                     command:
                       - /manager
                     env:
@@ -1551,8 +1551,8 @@ spec:
                         drop:
                           - ALL
                     volumeMounts:
-                      - mountPath: /tmp/k8s-webhook-server/serving-certs
-                        name: webhook-certs
+                      - mountPath: /tmp/k8s-metrics-server/metrics-certs
+                        name: metrics-certs
                         readOnly: true
                 securityContext:
                   runAsNonRoot: true
@@ -1561,9 +1561,17 @@ spec:
                 serviceAccountName: cryostat-operator-service-account
                 terminationGracePeriodSeconds: 10
                 volumes:
-                  - name: webhook-certs
+                  - name: metrics-certs
                     secret:
-                      secretName: webhook-server-cert
+                      items:
+                        - key: ca.crt
+                          path: ca.crt
+                        - key: tls.crt
+                          path: tls.crt
+                        - key: tls.key
+                          path: tls.key
+                      optional: false
+                      secretName: metrics-server-cert
       permissions:
         - rules:
             - apiGroups:
