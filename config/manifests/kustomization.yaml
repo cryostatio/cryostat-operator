@@ -14,9 +14,9 @@ patches:
 - path: targetNamespaces_patch.yaml
   target:
     group: operators.coreos.com
+    version: v1alpha1
     kind: ClusterServiceVersion
     name: cryostat-operator.v0.0.0
-    version: v1alpha1
 - target:
     group: apps
     version: v1
