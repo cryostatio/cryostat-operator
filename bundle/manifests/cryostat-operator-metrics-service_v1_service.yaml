@@ -6,7 +6,7 @@ metadata:
     app.kubernetes.io/managed-by: kustomize
     app.kubernetes.io/name: cryostat-operator
     control-plane: controller-manager
-  name: cryostat-operator-controller-manager-metrics-service
+  name: cryostat-operator-metrics-service
 spec:
   ports:
   - name: https

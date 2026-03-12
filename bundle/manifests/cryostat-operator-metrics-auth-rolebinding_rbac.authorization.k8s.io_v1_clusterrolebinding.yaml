@@ -1,11 +1,14 @@
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
-  name: proxy-rolebinding
+  creationTimestamp: null
+  labels:
+    app.kubernetes.io/name: cryostat-operator
+  name: cryostat-operator-metrics-auth-rolebinding
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
-  name: proxy-role
+  name: cryostat-operator-metrics-auth-role
 subjects:
 - kind: ServiceAccount
   name: service-account
