@@ -329,6 +329,11 @@ func (in *CryostatSpec) DeepCopyInto(out *CryostatSpec) {
 		*out = new(ReportConfiguration)
 		(*in).DeepCopyInto(*out)
 	}
+	if in.EnableAudit != nil {
+		in, out := &in.EnableAudit, &out.EnableAudit
+		*out = new(bool)
+		**out = **in
+	}
 	if in.TargetConnectionCacheOptions != nil {
 		in, out := &in.TargetConnectionCacheOptions, &out.TargetConnectionCacheOptions
 		*out = new(TargetConnectionCacheOptions)

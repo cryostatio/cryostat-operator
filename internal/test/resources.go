@@ -55,6 +55,7 @@ type TestResources struct {
 	OpenShift                  bool
 	ReportReplicas             int32
 	TargetNamespaces           []string
+	EnableAudit                *bool
 	InsightsURL                string
 	DisableAgentHostnameVerify bool
 	AllowAgentInsecure         bool
@@ -113,11 +114,15 @@ func (r *TestResources) newCryostatSpec() operatorv1beta2.CryostatSpec {
 			Replicas: r.ReportReplicas,
 		}
 	}
-	return operatorv1beta2.CryostatSpec{
+	spec := operatorv1beta2.CryostatSpec{
 		TargetNamespaces:  r.TargetNamespaces,
 		EnableCertManager: &certManager,
 		ReportOptions:     reportOptions,
 	}
+	if r.EnableAudit != nil {
+		spec.EnableAudit = r.EnableAudit
+	}
+	return spec
 }
 
 func (r *TestResources) ConvertNamespacedToModel(cr *operatorv1beta2.Cryostat) *model.CryostatInstance {
@@ -2750,6 +2755,14 @@ func (r *TestResources) NewCoreEnvironmentVariables(reportsUrl string, ingress b
 			Name:  "CRYOSTAT_TEMPLATE_PATH",
 			Value: "/opt/cryostat.d/templates.d",
 		},
+	}
+	if r.EnableAudit != nil {
+		envs = append(envs, corev1.EnvVar{
+			Name:  "CRYOSTAT_AUDIT_ENABLED",
+			Value: fmt.Sprintf("%t", *r.EnableAudit),
+		})
+	}
+	envs = append(envs, []corev1.EnvVar{
 		{
 			Name:  "CRYOSTAT_CONNECTIONS_MAX_OPEN",
 			Value: "-1",
@@ -2790,7 +2803,7 @@ func (r *TestResources) NewCoreEnvironmentVariables(reportsUrl string, ingress b
 			Name:  "STORAGE_PRESIGNED_DOWNLOADS_ENABLED",
 			Value: "false",
 		},
-	}
+	}...)
 	if r.TLS {
 		envs = append(envs,
 			corev1.EnvVar{

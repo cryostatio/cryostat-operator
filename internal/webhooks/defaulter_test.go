@@ -107,11 +107,61 @@ var _ = Describe("CryostatDefaulter", func() {
 		})
 	})
 
+	Context("without audit setting", func() {
+		BeforeEach(func() {
+			t.objs = append(t.objs, t.NewCryostat().Object)
+		})
+
+		It("should enable audit logging by default", func() {
+			result := t.getCryostat()
+			Expect(result.Spec.EnableAudit).ToNot(BeNil())
+			Expect(*result.Spec.EnableAudit).To(BeTrue())
+		})
+	})
+
+	Context("with audit disabled", func() {
+		BeforeEach(func() {
+			auditDisabled := false
+			cr := t.NewCryostat()
+			cr.Spec.EnableAudit = &auditDisabled
+			t.objs = append(t.objs, cr.Object)
+		})
+
+		It("should preserve the user setting", func() {
+			result := t.getCryostat()
+			Expect(result.Spec.EnableAudit).ToNot(BeNil())
+			Expect(*result.Spec.EnableAudit).To(BeFalse())
+		})
+	})
+
+	Context("updating an existing Cryostat with unset audit setting", func() {
+		BeforeEach(func() {
+			auditEnabled := true
+			cr := t.NewCryostat()
+			cr.Spec.EnableAudit = &auditEnabled
+			t.objs = append(t.objs, cr.Object)
+		})
+
+		It("should not re-default audit logging", func() {
+			cr := t.getCryostat()
+			cr.Spec.EnableAudit = nil
+			err := t.client.Update(context.Background(), cr)
+			Expect(err).ToNot(HaveOccurred())
+
+			result := t.getCryostat()
+			Expect(result.Spec.EnableAudit).To(BeNil())
+		})
+	})
+
 })
 
 func (t *defaulterTestInput) getCryostatInstance() *model.CryostatInstance {
+	return t.ConvertNamespacedToModel(t.getCryostat())
+}
+
+func (t *defaulterTestInput) getCryostat() *operatorv1beta2.Cryostat {
 	cr := &operatorv1beta2.Cryostat{}
 	err := t.client.Get(context.Background(), types.NamespacedName{Name: t.Name, Namespace: t.Namespace}, cr)
 	Expect(err).ToNot(HaveOccurred())
-	return t.ConvertNamespacedToModel(cr)
+	return cr
 }
