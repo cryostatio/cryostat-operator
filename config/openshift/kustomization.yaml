@@ -12,8 +12,8 @@ resources:
 - console-plugin/serviceaccount-cryostat-plugin.yaml
 - console-plugin/service-cryostat-plugin.yaml
 
-patchesStrategicMerge:
-- plugin_image_pull_patch.yaml
+patches:
+- path: plugin_image_pull_patch.yaml
 
 images:
 - name: console-plugin

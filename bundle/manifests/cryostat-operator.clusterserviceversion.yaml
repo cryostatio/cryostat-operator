@@ -24,7 +24,7 @@ metadata:
     capabilities: Seamless Upgrades
     categories: Monitoring, Developer Tools
     containerImage: quay.io/cryostat/cryostat-operator:4.2.0-dev
-    createdAt: "2025-10-30T18:47:04Z"
+    createdAt: "2026-03-12T21:46:54Z"
     description: JVM monitoring and profiling tool
     operatorframework.io/initialization-resource: |-
       {
@@ -40,8 +40,8 @@ metadata:
           }
         }
       }
-    operators.operatorframework.io/builder: operator-sdk-v1.33.0
-    operators.operatorframework.io/project_layout: go.kubebuilder.io/v3
+    operators.operatorframework.io/builder: operator-sdk-v1.42.0
+    operators.operatorframework.io/project_layout: go.kubebuilder.io/v4
     repository: github.com/cryostatio/cryostat-operator
     support: Cryostat Community
   labels:
@@ -54,7 +54,12 @@ spec:
   apiservicedefinitions: {}
   customresourcedefinitions:
     owned:
-      - description: Cryostat allows you to install Cryostat for a single namespace, or multiple namespaces. It contains configuration options for controlling the Deployment of the Cryostat application and its related components. A Cryostat instance must be created to instruct the operator to deploy the Cryostat application.
+      - description: |-
+          Cryostat allows you to install Cryostat for a single namespace, or multiple namespaces.
+          It contains configuration options for controlling the Deployment of the Cryostat
+          application and its related components.
+          A Cryostat instance must be created to instruct the operator
+          to deploy the Cryostat application.
         displayName: Cryostat
         kind: Cryostat
         name: cryostats.operator.cryostat.io
@@ -81,15 +86,24 @@ spec:
             name: ""
             version: v1
         specDescriptors:
-          - description: 'List of namespaces whose workloads Cryostat should be permitted to access and profile. Defaults to this Cryostat''s namespace. Warning: All Cryostat users will be able to create and manage recordings for workloads in the listed namespaces. More details: https://github.com/cryostatio/cryostat-operator/blob/v4.0.0/docs/config.md#data-isolation'
+          - description: |-
+              List of namespaces whose workloads Cryostat should be
+              permitted to access and profile. Defaults to this Cryostat's namespace.
+              Warning: All Cryostat users will be able to create and manage
+              recordings for workloads in the listed namespaces.
+              More details: https://github.com/cryostatio/cryostat-operator/blob/v4.0.0/docs/config.md#data-isolation
             displayName: Target Namespaces
             path: targetNamespaces
-          - description: Use cert-manager to secure in-cluster communication between Cryostat components. Requires cert-manager to be installed.
+          - description: |-
+              Use cert-manager to secure in-cluster communication between Cryostat components.
+              Requires cert-manager to be installed.
             displayName: Enable cert-manager Integration
             path: enableCertManager
             x-descriptors:
               - urn:alm:descriptor:com.tectonic.ui:booleanSwitch
-          - description: Options to control how the operator configures Cryostat Agents to communicate with this Cryostat instance.
+          - description: |-
+              Options to control how the operator configures Cryostat Agents
+              to communicate with this Cryostat instance.
             displayName: Agent Options
             path: agentOptions
           - description: Allow insecure (non-TLS) HTTP connections to Cryostat Agents.
@@ -97,12 +111,18 @@ spec:
             path: agentOptions.allowInsecure
             x-descriptors:
               - urn:alm:descriptor:com.tectonic.ui:booleanSwitch
-          - description: Disables hostname verification when Cryostat connects to Agents over TLS. Consider enabling this if the Cryostat Agent fails to determine the hostname of your pod.
+          - description: |-
+              Disables hostname verification when Cryostat connects to Agents over TLS.
+              Consider enabling this if the Cryostat Agent fails to determine the hostname of your pod.
             displayName: Disable Hostname Verification
             path: agentOptions.disableHostnameVerification
             x-descriptors:
               - urn:alm:descriptor:com.tectonic.ui:booleanSwitch
-          - description: The resources allocated to the init container used to inject the Cryostat agent, when using the operator's agent auto-configuration feature. Default resource requests will be added to the init container unless specified. Default resource limits will be added to the init container if neither resource requests or limits are specified.
+          - description: |-
+              The resources allocated to the init container used to inject the Cryostat agent,
+              when using the operator's agent auto-configuration feature.
+              Default resource requests will be added to the init container unless specified.
+              Default resource limits will be added to the init container if neither resource requests or limits are specified.
             displayName: Resources
             path: agentOptions.resources
             x-descriptors:
@@ -112,7 +132,10 @@ spec:
             path: authorizationOptions
             x-descriptors:
               - urn:alm:descriptor:com.tectonic.ui:advanced
-          - description: Reference to a secret and file name containing the Basic authentication htpasswd file. If deploying on OpenShift this defines additional user accounts that can access the Cryostat application, on top of the OpenShift user accounts which pass the OpenShift SSO Roles checks. If not on OpenShift then this defines the only user accounts that have access.
+          - description: |-
+              Reference to a secret and file name containing the Basic authentication htpasswd file. If deploying on OpenShift this
+              defines additional user accounts that can access the Cryostat application, on top of the OpenShift user accounts which
+              pass the OpenShift SSO Roles checks. If not on OpenShift then this defines the only user accounts that have access.
             displayName: Basic Auth
             path: authorizationOptions.basicAuth
             x-descriptors:
@@ -130,10 +153,15 @@ spec:
           - description: Configuration for OpenShift RBAC to define which OpenShift user accounts may access the Cryostat application.
             displayName: OpenShift SSO
             path: authorizationOptions.openShiftSSO
-          - description: The SubjectAccessReview or TokenAccessReview that all clients (users visiting the application via web browser as well as CLI utilities and other programs presenting Bearer auth tokens) must pass in order to access the application. If not specified, the default role required is "create pods/exec" in the Cryostat application's installation namespace.
+          - description: |-
+              The SubjectAccessReview or TokenAccessReview that all clients (users visiting the application via web browser as well
+              as CLI utilities and other programs presenting Bearer auth tokens) must pass in order to access the application.
+              If not specified, the default role required is "create pods/exec" in the Cryostat application's installation namespace.
             displayName: Access Review
             path: authorizationOptions.openShiftSSO.accessReview
-          - description: Disable OpenShift SSO integration and allow all users to access the application without authentication. This will also bypass the BasicAuth, if specified.
+          - description: |-
+              Disable OpenShift SSO integration and allow all users to access the application without authentication. This
+              will also bypass the BasicAuth, if specified.
             displayName: Disable OpenShift SSO
             path: authorizationOptions.openShiftSSO.disable
             x-descriptors:
@@ -152,7 +180,12 @@ spec:
           - description: Options to configure the Cryostat application's database.
             displayName: Database Options
             path: databaseOptions
-          - description: 'Name of the secret containing database keys. This secret must contain a CONNECTION_KEY secret which is the database connection password, and an ENCRYPTION_KEY secret which is the key used to encrypt sensitive data stored within the database, such as the target credentials keyring. This field cannot be updated. It is recommended that the secret should be marked as immutable to avoid accidental changes to secret''s data. More details: https://kubernetes.io/docs/concepts/configuration/secret/#secret-immutable'
+          - description: |-
+              Name of the secret containing database keys. This secret must contain a CONNECTION_KEY secret which is the
+              database connection password, and an ENCRYPTION_KEY secret which is the key used to encrypt sensitive data
+              stored within the database, such as the target credentials keyring. This field cannot be updated.
+              It is recommended that the secret should be marked as immutable to avoid accidental changes to secret's data.
+              More details: https://kubernetes.io/docs/concepts/configuration/secret/#secret-immutable
             displayName: Secret Name
             path: databaseOptions.secretName
             x-descriptors:
@@ -160,7 +193,10 @@ spec:
           - description: List of Stored Credentials to preconfigure in Cryostat.
             displayName: Stored Credentials
             path: declarativeCredentials
-          - description: 'Name of secret in the local namespace. The contents of that secret are expected to be a list of json representations of stored credentials in the format { "username": "$USERNAME", "password": "$PASSWORD", "matchExpression": "$MATCHEXPRESSION" }'
+          - description: |-
+              Name of secret in the local namespace. The contents of that secret are expected to be a list of json
+              representations of stored credentials in the format
+              { "username": "$USERNAME", "password": "$PASSWORD", "matchExpression": "$MATCHEXPRESSION" }
             displayName: Secret Name
             path: declarativeCredentials[0].secretName
             x-descriptors:
@@ -176,28 +212,45 @@ spec:
           - description: Filename within config map containing the template file.
             displayName: Filename
             path: eventTemplates[0].filename
-          - description: Options to control how the operator exposes the application outside of the cluster, such as using an Ingress or Route.
+          - description: |-
+              Options to control how the operator exposes the application outside of the cluster,
+              such as using an Ingress or Route.
             displayName: Network Options
             path: networkOptions
-          - description: Specifications for how to expose the Cryostat service, which serves the Cryostat application.
+          - description: |-
+              Specifications for how to expose the Cryostat service,
+              which serves the Cryostat application.
             displayName: Core Config
             path: networkOptions.coreConfig
           - description: Annotations to add to the object during its creation.
             displayName: Annotations
             path: networkOptions.coreConfig.annotations
-          - description: Externally routable host to be used to reach this Cryostat service. Used to define a Route's host on OpenShift when it is first created. On Kubernetes, define this using "spec.ingressSpec".
+          - description: |-
+              Externally routable host to be used to reach this
+              Cryostat service. Used to define a Route's host on
+              OpenShift when it is first created.
+              On Kubernetes, define this using "spec.ingressSpec".
             displayName: External Host
             path: networkOptions.coreConfig.externalHost
-          - description: Configuration for an Ingress object. Currently subpaths are not supported, so unique hosts must be specified (if a single external IP is being used) to differentiate between ingresses/services.
+          - description: |-
+              Configuration for an Ingress object.
+              Currently subpaths are not supported, so unique hosts must be specified
+              (if a single external IP is being used) to differentiate between ingresses/services.
             displayName: Ingress Spec
             path: networkOptions.coreConfig.ingressSpec
-          - description: 'Labels to add to the object during its creation. The following label keys are reserved for use by the operator: "app", "component", "app.kubernetes.io/name", "app.kubernetes.io/instance", "app.kubernetes.io/component", and "app.kubernetes.io/part-of".'
+          - description: |-
+              Labels to add to the object during its creation.
+              The following label keys are reserved for use by the operator:
+              "app", "component", "app.kubernetes.io/name", "app.kubernetes.io/instance",
+              "app.kubernetes.io/component", and "app.kubernetes.io/part-of".
             displayName: Labels
             path: networkOptions.coreConfig.labels
           - description: Options to customize the NetworkPolicy objects created for Cryostat's various Services.
             displayName: Network Policies
             path: networkPolicies
-          - description: 'Disable the NetworkPolicies (Ingress and Egress) for a given service. Deprecated: use IngressDisabled and EgressEnabled instead.'
+          - description: |-
+              Disable the NetworkPolicies (Ingress and Egress) for a given service.
+              Deprecated: use IngressDisabled and EgressEnabled instead.
             displayName: Disable NetworkPolicy creation
             path: networkPolicies.coreConfig.disabled
             x-descriptors:
@@ -212,7 +265,9 @@ spec:
             path: networkPolicies.coreConfig.ingressDisabled
             x-descriptors:
               - urn:alm:descriptor:com.tectonic.ui:booleanSwitch
-          - description: 'Disable the NetworkPolicies (Ingress and Egress) for a given service. Deprecated: use IngressDisabled and EgressEnabled instead.'
+          - description: |-
+              Disable the NetworkPolicies (Ingress and Egress) for a given service.
+              Deprecated: use IngressDisabled and EgressEnabled instead.
             displayName: Disable NetworkPolicy creation
             path: networkPolicies.databaseConfig.disabled
             x-descriptors:
@@ -227,7 +282,9 @@ spec:
             path: networkPolicies.databaseConfig.ingressDisabled
             x-descriptors:
               - urn:alm:descriptor:com.tectonic.ui:booleanSwitch
-          - description: 'Disable the NetworkPolicies (Ingress and Egress) for a given service. Deprecated: use IngressDisabled and EgressEnabled instead.'
+          - description: |-
+              Disable the NetworkPolicies (Ingress and Egress) for a given service.
+              Deprecated: use IngressDisabled and EgressEnabled instead.
             displayName: Disable NetworkPolicy creation
             path: networkPolicies.reportsConfig.disabled
             x-descriptors:
@@ -242,7 +299,9 @@ spec:
             path: networkPolicies.reportsConfig.ingressDisabled
             x-descriptors:
               - urn:alm:descriptor:com.tectonic.ui:booleanSwitch
-          - description: 'Disable the NetworkPolicies (Ingress and Egress) for a given service. Deprecated: use IngressDisabled and EgressEnabled instead.'
+          - description: |-
+              Disable the NetworkPolicies (Ingress and Egress) for a given service.
+              Deprecated: use IngressDisabled and EgressEnabled instead.
             displayName: Disable NetworkPolicy creation
             path: networkPolicies.storageConfig.disabled
             x-descriptors:
@@ -273,7 +332,11 @@ spec:
             path: objectStorageOptions.provider.disablePresignedFileTransfers
             x-descriptors:
               - urn:alm:descriptor:com.tectonic.ui:booleanSwitch
-          - description: The strategy Cryostat will use for storing files' metadata. The default 'tagging' strategy stores all metadata as object Tags. The 'metadata' strategy stores metadata as object Metadata, which is immutable but allows for more entries than Tags. The 'bucket' strategy stores metadata as separate files (ex. JSON object maps) in a dedicated bucket, with prefixes to differentiate the kind of object the metadata belongs to.
+          - description: |-
+              The strategy Cryostat will use for storing files' metadata. The default 'tagging' strategy stores all metadata as object Tags.
+              The 'metadata' strategy stores metadata as object Metadata, which is immutable but allows for more entries than Tags.
+              The 'bucket' strategy stores metadata as separate files (ex. JSON object maps) in a dedicated bucket,
+              with prefixes to differentiate the kind of object the metadata belongs to.
             displayName: Metadata Mode
             path: objectStorageOptions.provider.metadataMode
             x-descriptors:
@@ -296,7 +359,12 @@ spec:
             path: objectStorageOptions.provider.useVirtualHostAccess
             x-descriptors:
               - urn:alm:descriptor:com.tectonic.ui:booleanSwitch
-          - description: 'Name of the secret containing the object storage secret access key. This secret must contain a ACCESS_KEY secret which is the object storage access key ID, and a SECRET_KEY secret which is the object storage secret access key. If using an external S3 provider requiring authentication then this must be provided. It is recommended that the secret should be marked as immutable to avoid accidental changes to secret''s data. More details: [Kubernetes Secrets](https://kubernetes.io/docs/concepts/configuration/secret/#secret-immutable)'
+          - description: |-
+              Name of the secret containing the object storage secret access key. This secret must contain a
+              ACCESS_KEY secret which is the object storage access key ID, and a SECRET_KEY secret which is the object storage secret access key.
+              If using an external S3 provider requiring authentication then this must be provided.
+              It is recommended that the secret should be marked as immutable to avoid accidental changes to secret's data.
+              More details: [Kubernetes Secrets](https://kubernetes.io/docs/concepts/configuration/secret/#secret-immutable)
             displayName: Secret Name
             path: objectStorageOptions.secretName
             x-descriptors:
@@ -334,7 +402,11 @@ spec:
           - description: Annotations to add to the object during its creation.
             displayName: Annotations
             path: operandMetadata.deploymentMetadata.annotations
-          - description: 'Labels to add to the object during its creation. The following label keys are reserved for use by the operator: "app", "component", "app.kubernetes.io/name", "app.kubernetes.io/instance", "app.kubernetes.io/component", and "app.kubernetes.io/part-of".'
+          - description: |-
+              Labels to add to the object during its creation.
+              The following label keys are reserved for use by the operator:
+              "app", "component", "app.kubernetes.io/name", "app.kubernetes.io/instance",
+              "app.kubernetes.io/component", and "app.kubernetes.io/part-of".
             displayName: Labels
             path: operandMetadata.deploymentMetadata.labels
           - description: Options to configure the Cryostat pods metadata
@@ -343,7 +415,11 @@ spec:
           - description: Annotations to add to the object during its creation.
             displayName: Annotations
             path: operandMetadata.podMetadata.annotations
-          - description: 'Labels to add to the object during its creation. The following label keys are reserved for use by the operator: "app", "component", "app.kubernetes.io/name", "app.kubernetes.io/instance", "app.kubernetes.io/component", and "app.kubernetes.io/part-of".'
+          - description: |-
+              Labels to add to the object during its creation.
+              The following label keys are reserved for use by the operator:
+              "app", "component", "app.kubernetes.io/name", "app.kubernetes.io/instance",
+              "app.kubernetes.io/component", and "app.kubernetes.io/part-of".
             displayName: Labels
             path: operandMetadata.podMetadata.labels
           - description: List of JMC Agent Probe Templates to preconfigure in Cryostat.
@@ -360,12 +436,18 @@ spec:
           - description: Options to configure Cryostat Automated Report Analysis.
             displayName: Report Options
             path: reportOptions
-          - description: The number of report sidecar replica containers to deploy. Each replica can service one report generation request at a time.
+          - description: |-
+              The number of report sidecar replica containers to deploy.
+              Each replica can service one report generation request at a time.
             displayName: Replicas
             path: reportOptions.replicas
             x-descriptors:
               - urn:alm:descriptor:com.tectonic.ui:podCount
-          - description: The resources allocated to each sidecar replica. A replica with more resources can handle larger input recordings and will process them faster. Default resource requests will be added to the container unless specified. Default resource limits will be added to each container if neither resource requests or limits are specified.
+          - description: |-
+              The resources allocated to each sidecar replica.
+              A replica with more resources can handle larger input recordings and will process them faster.
+              Default resource requests will be added to the container unless specified.
+              Default resource limits will be added to each container if neither resource requests or limits are specified.
             displayName: Resources
             path: reportOptions.resources
             x-descriptors:
@@ -410,12 +492,18 @@ spec:
           - description: Security Context to apply to the Cryostat report generator container.
             displayName: Reports Security Context
             path: reportOptions.securityOptions.reportsSecurityContext
-          - description: When zero report sidecar replicas are requested, SubProcessMaxHeapSize configures the maximum heap size of the basic subprocess report generator in MiB. The default heap size is `200` (MiB).
+          - description: |-
+              When zero report sidecar replicas are requested, SubProcessMaxHeapSize configures
+              the maximum heap size of the basic subprocess report generator in MiB.
+              The default heap size is `200` (MiB).
             displayName: Sub Process Max Heap Size
             path: reportOptions.subProcessMaxHeapSize
             x-descriptors:
               - urn:alm:descriptor:com.tectonic.ui:number
-          - description: Resource requirements for the Cryostat deployment. Default resource requests will be added to each container unless specified. Default resource limits will be added to each container if neither resource requests or limits are specified.
+          - description: |-
+              Resource requirements for the Cryostat deployment. Default resource requests will be added to each
+              container unless specified. Default resource limits will be added to each container if neither
+              resource requests or limits are specified.
             displayName: Resources
             path: resources
           - description: Resource requirements for the agent proxy container.
@@ -517,37 +605,61 @@ spec:
           - description: Annotations to add to the object during its creation.
             displayName: Annotations
             path: serviceOptions.agentCallbackConfig.annotations
-          - description: 'Labels to add to the object during its creation. The following label keys are reserved for use by the operator: "app", "component", "app.kubernetes.io/name", "app.kubernetes.io/instance", "app.kubernetes.io/component", and "app.kubernetes.io/part-of".'
+          - description: |-
+              Labels to add to the object during its creation.
+              The following label keys are reserved for use by the operator:
+              "app", "component", "app.kubernetes.io/name", "app.kubernetes.io/instance",
+              "app.kubernetes.io/component", and "app.kubernetes.io/part-of".
             displayName: Labels
             path: serviceOptions.agentCallbackConfig.labels
           - description: Annotations to add to the object during its creation.
             displayName: Annotations
             path: serviceOptions.agentGatewayConfig.annotations
-          - description: 'Labels to add to the object during its creation. The following label keys are reserved for use by the operator: "app", "component", "app.kubernetes.io/name", "app.kubernetes.io/instance", "app.kubernetes.io/component", and "app.kubernetes.io/part-of".'
+          - description: |-
+              Labels to add to the object during its creation.
+              The following label keys are reserved for use by the operator:
+              "app", "component", "app.kubernetes.io/name", "app.kubernetes.io/instance",
+              "app.kubernetes.io/component", and "app.kubernetes.io/part-of".
             displayName: Labels
             path: serviceOptions.agentGatewayConfig.labels
           - description: Annotations to add to the object during its creation.
             displayName: Annotations
             path: serviceOptions.coreConfig.annotations
-          - description: 'Labels to add to the object during its creation. The following label keys are reserved for use by the operator: "app", "component", "app.kubernetes.io/name", "app.kubernetes.io/instance", "app.kubernetes.io/component", and "app.kubernetes.io/part-of".'
+          - description: |-
+              Labels to add to the object during its creation.
+              The following label keys are reserved for use by the operator:
+              "app", "component", "app.kubernetes.io/name", "app.kubernetes.io/instance",
+              "app.kubernetes.io/component", and "app.kubernetes.io/part-of".
             displayName: Labels
             path: serviceOptions.coreConfig.labels
           - description: Annotations to add to the object during its creation.
             displayName: Annotations
             path: serviceOptions.databaseConfig.annotations
-          - description: 'Labels to add to the object during its creation. The following label keys are reserved for use by the operator: "app", "component", "app.kubernetes.io/name", "app.kubernetes.io/instance", "app.kubernetes.io/component", and "app.kubernetes.io/part-of".'
+          - description: |-
+              Labels to add to the object during its creation.
+              The following label keys are reserved for use by the operator:
+              "app", "component", "app.kubernetes.io/name", "app.kubernetes.io/instance",
+              "app.kubernetes.io/component", and "app.kubernetes.io/part-of".
             displayName: Labels
             path: serviceOptions.databaseConfig.labels
           - description: Annotations to add to the object during its creation.
             displayName: Annotations
             path: serviceOptions.reportsConfig.annotations
-          - description: 'Labels to add to the object during its creation. The following label keys are reserved for use by the operator: "app", "component", "app.kubernetes.io/name", "app.kubernetes.io/instance", "app.kubernetes.io/component", and "app.kubernetes.io/part-of".'
+          - description: |-
+              Labels to add to the object during its creation.
+              The following label keys are reserved for use by the operator:
+              "app", "component", "app.kubernetes.io/name", "app.kubernetes.io/instance",
+              "app.kubernetes.io/component", and "app.kubernetes.io/part-of".
             displayName: Labels
             path: serviceOptions.reportsConfig.labels
           - description: Annotations to add to the object during its creation.
             displayName: Annotations
             path: serviceOptions.storageConfig.annotations
-          - description: 'Labels to add to the object during its creation. The following label keys are reserved for use by the operator: "app", "component", "app.kubernetes.io/name", "app.kubernetes.io/instance", "app.kubernetes.io/component", and "app.kubernetes.io/part-of".'
+          - description: |-
+              Labels to add to the object during its creation.
+              The following label keys are reserved for use by the operator:
+              "app", "component", "app.kubernetes.io/name", "app.kubernetes.io/instance",
+              "app.kubernetes.io/component", and "app.kubernetes.io/part-of".
             displayName: Labels
             path: serviceOptions.storageConfig.labels
           - description: Options to customize the storage provisioned for the database and object storage.
@@ -556,7 +668,9 @@ spec:
           - description: Configuration for the Persistent Volume Claim to be created by the operator for the database.
             displayName: Database
             path: storageOptions.database
-          - description: Configuration for an EmptyDir to be created by the operator instead of a PVC.
+          - description: |-
+              Configuration for an EmptyDir to be created
+              by the operator instead of a PVC.
             displayName: Empty Dir
             path: storageOptions.database.emptyDir
           - description: When enabled, Cryostat will use EmptyDir volumes instead of a Persistent Volume Claim. Any PVC configurations will be ignored.
@@ -564,25 +678,42 @@ spec:
             path: storageOptions.database.emptyDir.enabled
             x-descriptors:
               - urn:alm:descriptor:com.tectonic.ui:booleanSwitch
-          - description: Unless specified, the emptyDir volume will be mounted on the same storage medium backing the node. Setting this field to "Memory" will mount the emptyDir on a tmpfs (RAM-backed filesystem).
+          - description: |-
+              Unless specified, the emptyDir volume will be mounted on
+              the same storage medium backing the node. Setting this field to
+              "Memory" will mount the emptyDir on a tmpfs (RAM-backed filesystem).
             displayName: Medium
             path: storageOptions.database.emptyDir.medium
           - description: The maximum memory limit for the emptyDir. Default is unbounded.
             displayName: Size Limit
             path: storageOptions.database.emptyDir.sizeLimit
-          - description: Configuration for the Persistent Volume Claim to be created by the operator.
+          - description: |-
+              Configuration for the Persistent Volume Claim to be created
+              by the operator.
             displayName: PVC
             path: storageOptions.database.pvc
           - description: Annotations to add to the object during its creation.
             displayName: Annotations
             path: storageOptions.database.pvc.annotations
-          - description: 'Labels to add to the object during its creation. The following label keys are reserved for use by the operator: "app", "component", "app.kubernetes.io/name", "app.kubernetes.io/instance", "app.kubernetes.io/component", and "app.kubernetes.io/part-of".'
+          - description: |-
+              Labels to add to the object during its creation.
+              The following label keys are reserved for use by the operator:
+              "app", "component", "app.kubernetes.io/name", "app.kubernetes.io/instance",
+              "app.kubernetes.io/component", and "app.kubernetes.io/part-of".
             displayName: Labels
             path: storageOptions.database.pvc.labels
-          - description: Spec for a Persistent Volume Claim, whose options will override the defaults used by the operator. Unless overriden, the PVC will be created with the default Storage Class and 500MiB of storage. Once the operator has created the PVC, changes to this field have no effect.
+          - description: |-
+              Spec for a Persistent Volume Claim, whose options will override the
+              defaults used by the operator. Unless overriden, the PVC will be
+              created with the default Storage Class and 500MiB of storage.
+              Once the operator has created the PVC, changes to this field have
+              no effect.
             displayName: Spec
             path: storageOptions.database.pvc.spec
-          - description: 'Configuration for an EmptyDir to be created by the operator instead of a PVC. Deprecated: use storageOptions.database and storageOptions.objectStorage'
+          - description: |-
+              Configuration for an EmptyDir to be created
+              by the operator instead of a PVC.
+              Deprecated: use storageOptions.database and storageOptions.objectStorage
             displayName: Empty Dir
             path: storageOptions.emptyDir
           - description: When enabled, Cryostat will use EmptyDir volumes instead of a Persistent Volume Claim. Any PVC configurations will be ignored.
@@ -590,7 +721,10 @@ spec:
             path: storageOptions.emptyDir.enabled
             x-descriptors:
               - urn:alm:descriptor:com.tectonic.ui:booleanSwitch
-          - description: Unless specified, the emptyDir volume will be mounted on the same storage medium backing the node. Setting this field to "Memory" will mount the emptyDir on a tmpfs (RAM-backed filesystem).
+          - description: |-
+              Unless specified, the emptyDir volume will be mounted on
+              the same storage medium backing the node. Setting this field to
+              "Memory" will mount the emptyDir on a tmpfs (RAM-backed filesystem).
             displayName: Medium
             path: storageOptions.emptyDir.medium
           - description: The maximum memory limit for the emptyDir. Default is unbounded.
@@ -599,7 +733,9 @@ spec:
           - description: Configuration for the Persistent Volume Claim to be created by the operator for the object storage.
             displayName: Object Storage
             path: storageOptions.objectStorage
-          - description: Configuration for an EmptyDir to be created by the operator instead of a PVC.
+          - description: |-
+              Configuration for an EmptyDir to be created
+              by the operator instead of a PVC.
             displayName: Empty Dir
             path: storageOptions.objectStorage.emptyDir
           - description: When enabled, Cryostat will use EmptyDir volumes instead of a Persistent Volume Claim. Any PVC configurations will be ignored.
@@ -607,34 +743,60 @@ spec:
             path: storageOptions.objectStorage.emptyDir.enabled
             x-descriptors:
               - urn:alm:descriptor:com.tectonic.ui:booleanSwitch
-          - description: Unless specified, the emptyDir volume will be mounted on the same storage medium backing the node. Setting this field to "Memory" will mount the emptyDir on a tmpfs (RAM-backed filesystem).
+          - description: |-
+              Unless specified, the emptyDir volume will be mounted on
+              the same storage medium backing the node. Setting this field to
+              "Memory" will mount the emptyDir on a tmpfs (RAM-backed filesystem).
             displayName: Medium
             path: storageOptions.objectStorage.emptyDir.medium
           - description: The maximum memory limit for the emptyDir. Default is unbounded.
             displayName: Size Limit
             path: storageOptions.objectStorage.emptyDir.sizeLimit
-          - description: Configuration for the Persistent Volume Claim to be created by the operator.
+          - description: |-
+              Configuration for the Persistent Volume Claim to be created
+              by the operator.
             displayName: PVC
             path: storageOptions.objectStorage.pvc
           - description: Annotations to add to the object during its creation.
             displayName: Annotations
             path: storageOptions.objectStorage.pvc.annotations
-          - description: 'Labels to add to the object during its creation. The following label keys are reserved for use by the operator: "app", "component", "app.kubernetes.io/name", "app.kubernetes.io/instance", "app.kubernetes.io/component", and "app.kubernetes.io/part-of".'
+          - description: |-
+              Labels to add to the object during its creation.
+              The following label keys are reserved for use by the operator:
+              "app", "component", "app.kubernetes.io/name", "app.kubernetes.io/instance",
+              "app.kubernetes.io/component", and "app.kubernetes.io/part-of".
             displayName: Labels
             path: storageOptions.objectStorage.pvc.labels
-          - description: Spec for a Persistent Volume Claim, whose options will override the defaults used by the operator. Unless overriden, the PVC will be created with the default Storage Class and 500MiB of storage. Once the operator has created the PVC, changes to this field have no effect.
+          - description: |-
+              Spec for a Persistent Volume Claim, whose options will override the
+              defaults used by the operator. Unless overriden, the PVC will be
+              created with the default Storage Class and 500MiB of storage.
+              Once the operator has created the PVC, changes to this field have
+              no effect.
             displayName: Spec
             path: storageOptions.objectStorage.pvc.spec
-          - description: 'Configuration for the Persistent Volume Claim to be created by the operator. Deprecated: use storageOptions.database and storageOptions.objectStorage'
+          - description: |-
+              Configuration for the Persistent Volume Claim to be created
+              by the operator.
+              Deprecated: use storageOptions.database and storageOptions.objectStorage
             displayName: PVC
             path: storageOptions.pvc
           - description: Annotations to add to the object during its creation.
             displayName: Annotations
             path: storageOptions.pvc.annotations
-          - description: 'Labels to add to the object during its creation. The following label keys are reserved for use by the operator: "app", "component", "app.kubernetes.io/name", "app.kubernetes.io/instance", "app.kubernetes.io/component", and "app.kubernetes.io/part-of".'
+          - description: |-
+              Labels to add to the object during its creation.
+              The following label keys are reserved for use by the operator:
+              "app", "component", "app.kubernetes.io/name", "app.kubernetes.io/instance",
+              "app.kubernetes.io/component", and "app.kubernetes.io/part-of".
             displayName: Labels
             path: storageOptions.pvc.labels
-          - description: Spec for a Persistent Volume Claim, whose options will override the defaults used by the operator. Unless overriden, the PVC will be created with the default Storage Class and 500MiB of storage. Once the operator has created the PVC, changes to this field have no effect.
+          - description: |-
+              Spec for a Persistent Volume Claim, whose options will override the
+              defaults used by the operator. Unless overriden, the PVC will be
+              created with the default Storage Class and 500MiB of storage.
+              Once the operator has created the PVC, changes to this field have
+              no effect.
             displayName: Spec
             path: storageOptions.pvc.spec
           - description: Options to customize the target connections cache for the Cryostat application.
@@ -707,7 +869,9 @@ spec:
             path: storageSecret
             x-descriptors:
               - urn:alm:descriptor:io.kubernetes:Secret
-          - description: List of namespaces that Cryostat has been configured and authorized to access and profile.
+          - description: |-
+              List of namespaces that Cryostat has been configured
+              and authorized to access and profile.
             displayName: Target Namespaces
             path: targetNamespaces
           - description: Conditions of the components managed by the Cryostat Operator.
@@ -721,7 +885,12 @@ spec:
             x-descriptors:
               - urn:alm:descriptor:io.kubernetes:Namespace
         version: v1beta2
-      - description: Cryostat allows you to install Cryostat for a single namespace. It contains configuration options for controlling the Deployment of the Cryostat application and its related components. A Cryostat instance must be created to instruct the operator to deploy the Cryostat application.
+      - description: |-
+          Cryostat allows you to install Cryostat for a single namespace.
+          It contains configuration options for controlling the Deployment of the Cryostat
+          application and its related components.
+          A Cryostat instance must be created to instruct the operator
+          to deploy the Cryostat application.
         displayName: Cryostat
         kind: Cryostat
         name: cryostats.operator.cryostat.io
@@ -748,7 +917,9 @@ spec:
             name: ""
             version: v1
         specDescriptors:
-          - description: Use cert-manager to secure in-cluster communication between Cryostat components. Requires cert-manager to be installed.
+          - description: |-
+              Use cert-manager to secure in-cluster communication between Cryostat components.
+              Requires cert-manager to be installed.
             displayName: Enable cert-manager Integration
             path: enableCertManager
             x-descriptors:
@@ -763,7 +934,10 @@ spec:
             path: authProperties
             x-descriptors:
               - urn:alm:descriptor:com.tectonic.ui:advanced
-          - description: 'Name of the ClusterRole to use when Cryostat requests a role-scoped OAuth token. This ClusterRole should contain permissions for all Kubernetes objects listed in custom permission mapping. More details: https://docs.openshift.com/container-platform/4.11/authentication/tokens-scoping.html#scoping-tokens-role-scope_configuring-internal-oauth'
+          - description: |-
+              Name of the ClusterRole to use when Cryostat requests a role-scoped OAuth token.
+              This ClusterRole should contain permissions for all Kubernetes objects listed in custom permission mapping.
+              More details: https://docs.openshift.com/container-platform/4.11/authentication/tokens-scoping.html#scoping-tokens-role-scope_configuring-internal-oauth
             displayName: ClusterRole Name
             path: authProperties.clusterRoleName
             x-descriptors:
@@ -812,10 +986,16 @@ spec:
             path: maxWsConnections
             x-descriptors:
               - urn:alm:descriptor:com.tectonic.ui:number
-          - description: Options to control how the operator exposes the application outside of the cluster, such as using an Ingress or Route.
+          - description: |-
+              Options to control how the operator exposes the application outside of the cluster,
+              such as using an Ingress or Route.
             displayName: Network Options
             path: networkOptions
-          - description: "Specifications for how to expose the Cryostat command service, which serves the WebSocket command channel. \n Deprecated: CommandConfig is no longer used."
+          - description: |-
+              Specifications for how to expose the Cryostat command service,
+              which serves the WebSocket command channel.
+
+              Deprecated: CommandConfig is no longer used.
             displayName: Command Config
             path: networkOptions.commandConfig
             x-descriptors:
@@ -823,34 +1003,53 @@ spec:
           - description: Annotations to add to the Ingress or Route during its creation.
             displayName: Annotations
             path: networkOptions.commandConfig.annotations
-          - description: Configuration for an Ingress object. Currently subpaths are not supported, so unique hosts must be specified (if a single external IP is being used) to differentiate between ingresses/services.
+          - description: |-
+              Configuration for an Ingress object.
+              Currently subpaths are not supported, so unique hosts must be specified
+              (if a single external IP is being used) to differentiate between ingresses/services.
             displayName: Ingress Spec
             path: networkOptions.commandConfig.ingressSpec
-          - description: Labels to add to the Ingress or Route during its creation. The label with key "app" is reserved for use by the operator.
+          - description: |-
+              Labels to add to the Ingress or Route during its creation.
+              The label with key "app" is reserved for use by the operator.
             displayName: Labels
             path: networkOptions.commandConfig.labels
-          - description: Specifications for how to expose the Cryostat service, which serves the Cryostat application.
+          - description: |-
+              Specifications for how to expose the Cryostat service,
+              which serves the Cryostat application.
             displayName: Core Config
             path: networkOptions.coreConfig
           - description: Annotations to add to the Ingress or Route during its creation.
             displayName: Annotations
             path: networkOptions.coreConfig.annotations
-          - description: Configuration for an Ingress object. Currently subpaths are not supported, so unique hosts must be specified (if a single external IP is being used) to differentiate between ingresses/services.
+          - description: |-
+              Configuration for an Ingress object.
+              Currently subpaths are not supported, so unique hosts must be specified
+              (if a single external IP is being used) to differentiate between ingresses/services.
             displayName: Ingress Spec
             path: networkOptions.coreConfig.ingressSpec
-          - description: Labels to add to the Ingress or Route during its creation. The label with key "app" is reserved for use by the operator.
+          - description: |-
+              Labels to add to the Ingress or Route during its creation.
+              The label with key "app" is reserved for use by the operator.
             displayName: Labels
             path: networkOptions.coreConfig.labels
-          - description: Specifications for how to expose Cryostat's Grafana service, which serves the Grafana dashboard.
+          - description: |-
+              Specifications for how to expose Cryostat's Grafana service,
+              which serves the Grafana dashboard.
             displayName: Grafana Config
             path: networkOptions.grafanaConfig
           - description: Annotations to add to the Ingress or Route during its creation.
             displayName: Annotations
             path: networkOptions.grafanaConfig.annotations
-          - description: Configuration for an Ingress object. Currently subpaths are not supported, so unique hosts must be specified (if a single external IP is being used) to differentiate between ingresses/services.
+          - description: |-
+              Configuration for an Ingress object.
+              Currently subpaths are not supported, so unique hosts must be specified
+              (if a single external IP is being used) to differentiate between ingresses/services.
             displayName: Ingress Spec
             path: networkOptions.grafanaConfig.ingressSpec
-          - description: Labels to add to the Ingress or Route during its creation. The label with key "app" is reserved for use by the operator.
+          - description: |-
+              Labels to add to the Ingress or Route during its creation.
+              The label with key "app" is reserved for use by the operator.
             displayName: Labels
             path: networkOptions.grafanaConfig.labels
           - description: Options to configure the Cryostat deployments and pods metadata
@@ -865,12 +1064,16 @@ spec:
           - description: Options to configure Cryostat Automated Report Analysis.
             displayName: Report Options
             path: reportOptions
-          - description: The number of report sidecar replica containers to deploy. Each replica can service one report generation request at a time.
+          - description: |-
+              The number of report sidecar replica containers to deploy.
+              Each replica can service one report generation request at a time.
             displayName: Replicas
             path: reportOptions.replicas
             x-descriptors:
               - urn:alm:descriptor:com.tectonic.ui:podCount
-          - description: The resources allocated to each sidecar replica. A replica with more resources can handle larger input recordings and will process them faster.
+          - description: |-
+              The resources allocated to each sidecar replica.
+              A replica with more resources can handle larger input recordings and will process them faster.
             displayName: Resources
             path: reportOptions.resources
             x-descriptors:
@@ -915,7 +1118,10 @@ spec:
           - description: Security Context to apply to the Cryostat report generator container.
             displayName: Reports Security Context
             path: reportOptions.securityOptions.reportsSecurityContext
-          - description: When zero report sidecar replicas are requested, SubProcessMaxHeapSize configures the maximum heap size of the basic subprocess report generator in MiB. The default heap size is `200` (MiB).
+          - description: |-
+              When zero report sidecar replicas are requested, SubProcessMaxHeapSize configures
+              the maximum heap size of the basic subprocess report generator in MiB.
+              The default heap size is `200` (MiB).
             displayName: Sub Process Max Heap Size
             path: reportOptions.subProcessMaxHeapSize
             x-descriptors:
@@ -996,7 +1202,9 @@ spec:
           - description: Options to customize the storage for Flight Recordings and Templates.
             displayName: Storage Options
             path: storageOptions
-          - description: Configuration for an EmptyDir to be created by the operator instead of a PVC.
+          - description: |-
+              Configuration for an EmptyDir to be created
+              by the operator instead of a PVC.
             displayName: Empty Dir
             path: storageOptions.emptyDir
           - description: When enabled, Cryostat will use EmptyDir volumes instead of a Persistent Volume Claim. Any PVC configurations will be ignored.
@@ -1004,7 +1212,10 @@ spec:
             path: storageOptions.emptyDir.enabled
             x-descriptors:
               - urn:alm:descriptor:com.tectonic.ui:booleanSwitch
-          - description: Unless specified, the emptyDir volume will be mounted on the same storage medium backing the node. Setting this field to "Memory" will mount the emptyDir on a tmpfs (RAM-backed filesystem).
+          - description: |-
+              Unless specified, the emptyDir volume will be mounted on
+              the same storage medium backing the node. Setting this field to
+              "Memory" will mount the emptyDir on a tmpfs (RAM-backed filesystem).
             displayName: Medium
             path: storageOptions.emptyDir.medium
             x-descriptors:
@@ -1014,10 +1225,17 @@ spec:
             path: storageOptions.emptyDir.sizeLimit
             x-descriptors:
               - urn:alm:descriptor:com.tectonic.ui:fieldDependency:storageOptions.emptyDir.enabled:true
-          - description: Configuration for the Persistent Volume Claim to be created by the operator.
+          - description: |-
+              Configuration for the Persistent Volume Claim to be created
+              by the operator.
             displayName: PVC
             path: storageOptions.pvc
-          - description: Spec for a Persistent Volume Claim, whose options will override the defaults used by the operator. Unless overriden, the PVC will be created with the default Storage Class and 500MiB of storage. Once the operator has created the PVC, changes to this field have no effect.
+          - description: |-
+              Spec for a Persistent Volume Claim, whose options will override the
+              defaults used by the operator. Unless overriden, the PVC will be
+              created with the default Storage Class and 500MiB of storage.
+              Once the operator has created the PVC, changes to this field have
+              no effect.
             displayName: Spec
             path: storageOptions.pvc.spec
           - description: Options to configure the Cryostat application's target discovery mechanisms.
@@ -1273,7 +1491,11 @@ spec:
               spec:
                 containers:
                   - args:
+                      - --metrics-bind-address=:8443
                       - --leader-elect
+                      - --health-probe-bind-address=:8081
+                      - --webhook-cert-path=/tmp/k8s-webhook-server/serving-certs
+                      - --metrics-cert-path=/tmp/k8s-metrics-server/metrics-certs
                     command:
                       - /manager
                     env:
@@ -1297,10 +1519,6 @@ spec:
                         value: registry.access.redhat.com/ubi9/nginx-124:latest
                       - name: RELATED_IMAGE_AGENT_INIT
                         value: quay.io/cryostat/cryostat-agent-init:latest
-                      - name: WATCH_NAMESPACE
-                        valueFrom:
-                          fieldRef:
-                            fieldPath: metadata.annotations['olm.targetNamespaces']
                     image: quay.io/cryostat/cryostat-operator:4.2.0-dev
                     imagePullPolicy: Always
                     livenessProbe:
@@ -1332,12 +1550,28 @@ spec:
                       capabilities:
                         drop:
                           - ALL
+                    volumeMounts:
+                      - mountPath: /tmp/k8s-metrics-server/metrics-certs
+                        name: metrics-certs
+                        readOnly: true
                 securityContext:
                   runAsNonRoot: true
                   seccompProfile:
                     type: RuntimeDefault
                 serviceAccountName: cryostat-operator-service-account
                 terminationGracePeriodSeconds: 10
+                volumes:
+                  - name: metrics-certs
+                    secret:
+                      items:
+                        - key: ca.crt
+                          path: ca.crt
+                        - key: tls.crt
+                          path: tls.crt
+                        - key: tls.key
+                          path: tls.key
+                      optional: false
+                      secretName: metrics-server-cert
       permissions:
         - rules:
             - apiGroups:

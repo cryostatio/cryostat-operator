@@ -2,10 +2,11 @@ resources:
 - ../openshift
 - ../../insights
 
-patchesStrategicMerge:
-- insights_patch.yaml
 
-patchesJson6902:
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+patches:
+- path: insights_patch.yaml
 - path: insights_manager_patch.yaml
   target:
     group: apps

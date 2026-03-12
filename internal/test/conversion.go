@@ -16,7 +16,7 @@ package test
 
 import (
 	operatorv1beta1 "github.com/cryostatio/cryostat-operator/api/v1beta1"
-	"github.com/cryostatio/cryostat-operator/internal/controllers/model"
+	"github.com/cryostatio/cryostat-operator/internal/controller/model"
 	corev1 "k8s.io/api/core/v1"
 	netv1 "k8s.io/api/networking/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
