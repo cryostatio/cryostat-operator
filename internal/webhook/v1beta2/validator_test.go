@@ -20,8 +20,8 @@ import (
 
 	"github.com/cryostatio/cryostat-operator/internal/controller/model"
 	"github.com/cryostatio/cryostat-operator/internal/test"
-	"github.com/cryostatio/cryostat-operator/internal/webhook"
 	webhooktests "github.com/cryostatio/cryostat-operator/internal/webhook/test"
+	webhook "github.com/cryostatio/cryostat-operator/internal/webhook/v1beta2"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 

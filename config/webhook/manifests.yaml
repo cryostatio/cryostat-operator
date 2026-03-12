@@ -10,26 +10,6 @@ webhooks:
     service:
       name: webhook-service
       namespace: system
-      path: /mutate-operator-cryostat-io-v1beta2-cryostat
-  failurePolicy: Fail
-  name: mcryostat.kb.io
-  rules:
-  - apiGroups:
-    - operator.cryostat.io
-    apiVersions:
-    - v1beta2
-    operations:
-    - CREATE
-    - UPDATE
-    resources:
-    - cryostats
-  sideEffects: None
-- admissionReviewVersions:
-  - v1
-  clientConfig:
-    service:
-      name: webhook-service
-      namespace: system
       path: /mutate--v1-pod
   failurePolicy: Ignore
   name: mpod.cryostat.io
@@ -51,7 +31,7 @@ webhooks:
       namespace: system
       path: /mutate-operator-cryostat-io-v1beta2-cryostat
   failurePolicy: Fail
-  name: mcryostat-v1beta2.kb.io
+  name: mcryostat.kb.io
   rules:
   - apiGroups:
     - operator.cryostat.io
@@ -78,26 +58,6 @@ webhooks:
       path: /validate-operator-cryostat-io-v1beta2-cryostat
   failurePolicy: Fail
   name: vcryostat.kb.io
-  rules:
-  - apiGroups:
-    - operator.cryostat.io
-    apiVersions:
-    - v1beta2
-    operations:
-    - CREATE
-    - UPDATE
-    resources:
-    - cryostats
-  sideEffects: None
-- admissionReviewVersions:
-  - v1
-  clientConfig:
-    service:
-      name: webhook-service
-      namespace: system
-      path: /validate-operator-cryostat-io-v1beta2-cryostat
-  failurePolicy: Fail
-  name: vcryostat-v1beta2.kb.io
   rules:
   - apiGroups:
     - operator.cryostat.io

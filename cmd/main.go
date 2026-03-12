@@ -52,8 +52,8 @@ import (
 	"github.com/cryostatio/cryostat-operator/internal/controller/common"
 	"github.com/cryostatio/cryostat-operator/internal/controller/constants"
 	"github.com/cryostatio/cryostat-operator/internal/fips"
-	"github.com/cryostatio/cryostat-operator/internal/webhook"
 	"github.com/cryostatio/cryostat-operator/internal/webhook/agent"
+	webhook "github.com/cryostatio/cryostat-operator/internal/webhook/v1beta2"
 	// +kubebuilder:scaffold:imports
 )
 

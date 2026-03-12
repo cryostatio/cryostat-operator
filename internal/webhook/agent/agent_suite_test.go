@@ -28,8 +28,8 @@ import (
 
 	operatorv1beta2 "github.com/cryostatio/cryostat-operator/api/v1beta2"
 	"github.com/cryostatio/cryostat-operator/internal/test"
-	"github.com/cryostatio/cryostat-operator/internal/webhook"
 	"github.com/cryostatio/cryostat-operator/internal/webhook/agent"
+	webhook "github.com/cryostatio/cryostat-operator/internal/webhook/v1beta2"
 	admissionv1beta1 "k8s.io/api/admission/v1beta1"
 
 	//+kubebuilder:scaffold:imports
