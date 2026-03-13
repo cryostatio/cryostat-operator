@@ -809,7 +809,7 @@ type ObjectStorageOptions struct {
 	// ACCESS_KEY secret which is the object storage access key ID, and a SECRET_KEY secret which is the object storage secret access key.
 	// If using an external S3 provider requiring authentication then this must be provided.
 	// It is recommended that the secret should be marked as immutable to avoid accidental changes to secret's data.
-	// More details: [Kubernetes Secrets](https://kubernetes.io/docs/concepts/configuration/secret/#secret-immutable)
+	// More details: https://kubernetes.io/docs/concepts/configuration/secret/#secret-immutable
 	// +optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:io.kubernetes:Secret"}
 	SecretName *string `json:"secretName,omitempty"`
