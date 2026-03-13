@@ -296,7 +296,7 @@ spec:
             path: objectStorageOptions.provider.useVirtualHostAccess
             x-descriptors:
               - urn:alm:descriptor:com.tectonic.ui:booleanSwitch
-          - description: 'Name of the secret containing the object storage secret access key. This secret must contain a ACCESS_KEY secret which is the object storage access key ID, and a SECRET_KEY secret which is the object storage secret access key. If using an external S3 provider requiring authentication then this must be provided. It is recommended that the secret should be marked as immutable to avoid accidental changes to secret''s data. More details: [Kubernetes Secrets](https://kubernetes.io/docs/concepts/configuration/secret/#secret-immutable)'
+          - description: 'Name of the secret containing the object storage secret access key. This secret must contain a ACCESS_KEY secret which is the object storage access key ID, and a SECRET_KEY secret which is the object storage secret access key. If using an external S3 provider requiring authentication then this must be provided. It is recommended that the secret should be marked as immutable to avoid accidental changes to secret''s data. More details: https://kubernetes.io/docs/concepts/configuration/secret/#secret-immutable'
             displayName: Secret Name
             path: objectStorageOptions.secretName
             x-descriptors:

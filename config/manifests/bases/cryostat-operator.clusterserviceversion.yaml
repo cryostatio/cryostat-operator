@@ -353,7 +353,7 @@ spec:
           access key. If using an external S3 provider requiring authentication then
           this must be provided. It is recommended that the secret should be marked
           as immutable to avoid accidental changes to secret''s data. More details:
-          [Kubernetes Secrets](https://kubernetes.io/docs/concepts/configuration/secret/#secret-immutable)'
+          https://kubernetes.io/docs/concepts/configuration/secret/#secret-immutable'
         displayName: Secret Name
         path: objectStorageOptions.secretName
         x-descriptors:
