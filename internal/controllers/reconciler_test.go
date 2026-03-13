@@ -70,6 +70,7 @@ type cryostatTestInput struct {
 }
 
 func (c *controllerTest) commonBeforeEach() *cryostatTestInput {
+	auditEnabled := true
 	t := &cryostatTestInput{
 		TestReconcilerConfig: test.TestReconcilerConfig{
 			GeneratedPasswords: []string{"auth_cookie_secret", "connection_key", "encryption_key", "object_storage", "keystore"},
@@ -81,6 +82,7 @@ func (c *controllerTest) commonBeforeEach() *cryostatTestInput {
 			TLS:         true,
 			ExternalTLS: true,
 			OpenShift:   true,
+			EnableAudit: &auditEnabled,
 		},
 	}
 	t.objs = []ctrlclient.Object{
@@ -1954,6 +1956,30 @@ func (c *controllerTest) commonTests() {
 		Context("configuring environment variables with non-default spec values", func() {
 			JustBeforeEach(func() {
 				t.reconcileCryostatFully()
+			})
+			Context("containing EnableAudit=false", func() {
+				BeforeEach(func() {
+					auditDisabled := false
+					t.EnableAudit = &auditDisabled
+					t.objs = append(t.objs, t.NewCryostat().Object)
+				})
+				It("should disable audit logging", func() {
+					t.checkCoreHasEnvironmentVariables([]corev1.EnvVar{
+						{
+							Name:  "CRYOSTAT_AUDIT_ENABLED",
+							Value: "false",
+						},
+					})
+				})
+			})
+			Context("without EnableAudit configured", func() {
+				BeforeEach(func() {
+					t.EnableAudit = nil
+					t.objs = append(t.objs, t.NewCryostat().Object)
+				})
+				It("should leave audit logging unset", func() {
+					t.checkCoreDoesNotHaveEnvironmentVariable("CRYOSTAT_AUDIT_ENABLED")
+				})
 			})
 			Context("containing JmxCacheOptions", func() {
 				BeforeEach(func() {
@@ -4324,6 +4350,17 @@ func (t *cryostatTestInput) checkCoreHasEnvironmentVariables(expectedEnvVars []c
 	coreContainer := template.Spec.Containers[0]
 
 	Expect(coreContainer.Env).To(ContainElements(expectedEnvVars))
+}
+
+func (t *cryostatTestInput) checkCoreDoesNotHaveEnvironmentVariable(name string) {
+	deployment := &appsv1.Deployment{}
+	err := t.Client.Get(context.Background(), types.NamespacedName{Name: t.Name, Namespace: t.Namespace}, deployment)
+	Expect(err).ToNot(HaveOccurred())
+
+	coreContainer := deployment.Spec.Template.Spec.Containers[0]
+	for _, envVar := range coreContainer.Env {
+		Expect(envVar.Name).ToNot(Equal(name))
+	}
 }
 
 func (t *cryostatTestInput) getCryostatInstance() *model.CryostatInstance {

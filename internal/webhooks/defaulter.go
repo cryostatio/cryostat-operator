@@ -42,5 +42,9 @@ func (r *cryostatDefaulter) Default(ctx context.Context, obj runtime.Object) err
 		r.log.Info("defaulting target namespaces", "name", cr.Name, "namespace", cr.Namespace)
 		cr.Spec.TargetNamespaces = []string{cr.Namespace}
 	}
+	if cr.Spec.EnableAudit == nil && cr.CreationTimestamp.IsZero() && cr.ResourceVersion == "" {
+		r.log.Info("defaulting audit logging", "name", cr.Name, "namespace", cr.Namespace)
+		cr.Spec.EnableAudit = &[]bool{true}[0]
+	}
 	return nil
 }

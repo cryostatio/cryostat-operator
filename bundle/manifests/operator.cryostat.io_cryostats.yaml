@@ -5696,6 +5696,12 @@ spec:
                   - secretName
                   type: object
                 type: array
+              enableAudit:
+                description: |-
+                  Enable Cryostat audit logging.
+                  New Cryostat CRs default to true, but existing CRs created before this field was
+                  introduced remain unchanged until this property is explicitly set.
+                type: boolean
               enableCertManager:
                 description: |-
                   Use cert-manager to secure in-cluster communication between Cryostat components.

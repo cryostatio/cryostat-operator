@@ -78,6 +78,12 @@ type CryostatSpec struct {
 	// +optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	ReportOptions *ReportConfiguration `json:"reportOptions,omitempty"`
+	// Enable Cryostat audit logging.
+	// New Cryostat CRs default to true, but existing CRs created before this field was
+	// introduced remain unchanged until this property is explicitly set.
+	// +optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Enable Audit Logging",xDescriptors={"urn:alm:descriptor:com.tectonic.ui:booleanSwitch"}
+	EnableAudit *bool `json:"enableAudit,omitempty"`
 	// Options to customize the target connections cache for the Cryostat application.
 	// +optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Target Connection Cache Options"
