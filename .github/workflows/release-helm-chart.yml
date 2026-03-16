@@ -1,0 +1,59 @@
+name: Release Helm Chart
+
+on:
+  push:
+    paths:
+      - 'helm/charts/**'
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  helm-release:
+    permissions:
+      contents: write
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Configure Git
+        run: |
+          git config user.name "$GITHUB_ACTOR"
+          git config user.email "$GITHUB_ACTOR@users.noreply.github.com"
+      
+      - name: Get release version
+        id: release-version
+        run: |
+          version=$(yq .version helm/charts/cryostat-operator/Chart.yaml)
+          echo "tag=cryostat-operator-v${version}" >> $GITHUB_OUTPUT
+
+      - name: Get previous version
+        id: previous-version
+        run: |
+          chart_version="${{ steps.release-version.outputs.tag }}"
+          previous_version="$({ echo ${chart_version}; git tag -l | grep -E '^cryostat-operator-v[0-9]+\.[0-9]+\.[0-9]+$'; } | sort -V | grep -B1 "${chart_version}" | head -n1)"
+          echo "tag=${previous_version}" >> $GITHUB_OUTPUT
+
+      
+      - name: Generate release notes
+        env:
+          GITHUB_TOKEN: "${{ secrets.GITHUB_TOKEN }}"
+        run: |
+          gh api --method POST \
+            -H "Accept: application/vnd.github+json" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            /repos/${GITHUB_REPOSITORY}/releases/generate-notes \
+            -f tag_name="${{ steps.release-version.outputs.tag }}" \
+            -f target_commitish="${GITHUB_REF_NAME}" \
+            -f previous_tag_name="${{ steps.previous-version.outputs.tag }}" | jq -r .body > helm/charts/cryostat-operator/release-notes.md
+
+      - name: Run chart-releaser
+        uses: helm/chart-releaser-action@v1.7.0
+        env:
+          CR_TOKEN: "${{ secrets.GITHUB_TOKEN }}"
+        with:
+          charts_dir: helm/charts
+          config: .github/helm-release-config.yml
