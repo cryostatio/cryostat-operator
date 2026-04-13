@@ -20,6 +20,7 @@ import (
 	operatorv1beta2 "github.com/cryostatio/cryostat-operator/api/v1beta2"
 	"github.com/cryostatio/cryostat-operator/internal/controllers/common"
 	corev1 "k8s.io/api/core/v1"
+	appsv1 "k8s.io/api/apps/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
@@ -28,11 +29,13 @@ import (
 
 // podWebhookLog is for logging in this package.
 var podWebhookLog = logf.Log.WithName("pod-webhook")
+var deploymentWebhookLog = logf.Log.WithName("deployment-webhook")
 
 // Environment variable to override the agent init container image
 const agentInitImageTagEnv = "RELATED_IMAGE_AGENT_INIT"
 
 //+kubebuilder:webhook:path=/mutate--v1-pod,mutating=true,failurePolicy=ignore,sideEffects=None,groups="",resources=pods,verbs=create,versions=v1,name=mpod.cryostat.io,admissionReviewVersions=v1
+//+kubebuilder:webhook:path=/mutate--v1-deployment,mutating=true,failurePolicy=ignore,sideEffects=None,groups="",resources=deployments,verbs=create,versions=v1,name=mdeployment.cryostat.io,admissionReviewVersions=v1
 
 type AgentWebhook interface {
 	SetupWebhookWithManager(mgr ctrl.Manager) error
@@ -65,6 +68,17 @@ func (r *agentWebhook) SetupWebhookWithManager(mgr ctrl.Manager) error {
 		return err
 	}
 
+	deploymentWebhook := admission.WithCustomDefaulter(mgr.GetScheme(), &appsv1.Deployment{}, &deploymentMutator{
+		client: mgr.GetClient(),
+		config: r.AgentWebhookConfig,
+		log:    &deploymentWebhookLog,
+		gvk:    &gvk,
+		ReconcilerTLS: common.NewReconcilerTLS(&common.ReconcilerTLSConfig{
+			Client: mgr.GetClient(),
+			OS:     r.OSUtils,
+		}),
+	}).WithRecoverPanic(true)
+
 	webhook := admission.WithCustomDefaulter(mgr.GetScheme(), &corev1.Pod{}, &podMutator{
 		client: mgr.GetClient(),
 		config: r.AgentWebhookConfig,
@@ -77,7 +91,9 @@ func (r *agentWebhook) SetupWebhookWithManager(mgr ctrl.Manager) error {
 	}).WithRecoverPanic(true)
 	// Modify the webhook to never deny the pod from being admitted
 	webhook.Handler = allowAllRequests(webhook.Handler)
+	deploymentWebhook.Handler = allowAllRequests(deploymentWebhook.Handler)
 	mgr.GetWebhookServer().Register("/mutate--v1-pod", webhook)
+	mgr.GetWebhookServer().Register("/mutate--v1-deployment", deploymentWebhook)
 	return nil
 }
 

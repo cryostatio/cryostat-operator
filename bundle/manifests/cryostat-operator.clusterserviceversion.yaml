@@ -1510,6 +1510,31 @@ spec:
       containerPort: 443
       deploymentName: cryostat-operator-controller
       failurePolicy: Ignore
+      generateName: mdeployment.cryostat.io
+      objectSelector:
+        matchExpressions:
+          - key: cryostat.io/name
+            operator: Exists
+          - key: cryostat.io/namespace
+            operator: Exists
+      rules:
+        - apiGroups:
+            - ""
+          apiVersions:
+            - v1
+          operations:
+            - CREATE
+          resources:
+            - deployments
+      sideEffects: None
+      targetPort: 9443
+      type: MutatingAdmissionWebhook
+      webhookPath: /mutate--v1-deployment
+    - admissionReviewVersions:
+        - v1
+      containerPort: 443
+      deploymentName: cryostat-operator-controller
+      failurePolicy: Ignore
       generateName: mpod.cryostat.io
       objectSelector:
         matchExpressions:
