@@ -23,6 +23,7 @@ import (
 	"github.com/cryostatio/cryostat-operator/internal/controllers/constants"
 	"github.com/cryostatio/cryostat-operator/internal/controllers/model"
 	"github.com/cryostatio/cryostat-operator/internal/test"
+	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -67,6 +68,98 @@ func (r *AgentWebhookTestResources) NewPod() *corev1.Pod {
 			SecurityContext: &corev1.PodSecurityContext{
 				RunAsNonRoot: &[]bool{true}[0],
 			},
+		},
+	}
+}
+
+func (r *AgentWebhookTestResources) NewDeployment() *appsv1.Deployment {
+	replicas := int32(2)
+	return &appsv1.Deployment{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      r.Name,
+			Namespace: r.Namespace,
+			Labels: map[string]string{
+				"app":                   r.Name,
+				"other":                 "label",
+				"cryostat.io/namespace": r.Namespace,
+				"cryostat.io/name":      "cryostat",
+			},
+			Annotations: map[string]string{
+				"app.openshift.io/connects-to": "something-else",
+				"other":                        "annotation",
+			},
+		},
+		Spec: appsv1.DeploymentSpec{
+			Template: corev1.PodTemplateSpec{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      r.Name,
+					Namespace: r.Namespace,
+					Labels: map[string]string{
+						"app": r.Name,
+					},
+				},
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{
+						{
+							Name:  "other-container",
+							Image: "incorrect/image:latest",
+						},
+					},
+				},
+			},
+			Selector: &metav1.LabelSelector{
+				MatchLabels: map[string]string{
+					"app": r.Name,
+				},
+			},
+			Replicas: &replicas,
+		},
+	}
+}
+
+func (r *AgentWebhookTestResources) NewMutatedDeployment() *appsv1.Deployment {
+	replicas := int32(2)
+	return &appsv1.Deployment{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      r.Name,
+			Namespace: r.Namespace,
+			Labels: map[string]string{
+				"app":                   "something-else",
+				"other":                 "label",
+				"cryostat.io/namespace": r.Namespace,
+				"cryostat.io/name":      "cryostat",
+			},
+			Annotations: map[string]string{
+				"app.openshift.io/connects-to": "something-else",
+				"other":                        "annotation",
+			},
+		},
+		Spec: appsv1.DeploymentSpec{
+			Template: corev1.PodTemplateSpec{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      r.Name,
+					Namespace: r.Namespace,
+					Labels: map[string]string{
+						"app":                   "something-app",
+						"cryostat.io/namespace": r.Namespace,
+						"cryostat.io/name":      "cryostat",
+					},
+				},
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{
+						{
+							Name:  "other-container",
+							Image: "incorrect/image:latest",
+						},
+					},
+				},
+			},
+			Selector: &metav1.LabelSelector{
+				MatchLabels: map[string]string{
+					"app": r.Name,
+				},
+			},
+			Replicas: &replicas,
 		},
 	}
 }

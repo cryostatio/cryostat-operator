@@ -40,8 +40,9 @@ webhooks:
     - v1
     operations:
     - CREATE
+    - UPDATE
     resources:
-    - pods
+    - deployments
   sideEffects: None
 - admissionReviewVersions:
   - v1

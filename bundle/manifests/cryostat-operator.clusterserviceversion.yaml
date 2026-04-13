@@ -25,7 +25,7 @@ metadata:
     capabilities: Seamless Upgrades
     categories: Monitoring, Developer Tools
     containerImage: quay.io/cryostat/cryostat-operator:4.2.0-dev
-    createdAt: "2025-10-30T18:47:04Z"
+    createdAt: "2026-04-13T08:40:23Z"
     description: JVM monitoring and profiling tool
     operatorframework.io/initialization-resource: |-
       {
@@ -41,7 +41,7 @@ metadata:
           }
         }
       }
-    operators.operatorframework.io/builder: operator-sdk-v1.33.0
+    operators.operatorframework.io/builder: operator-sdk-v1.32.0
     operators.operatorframework.io/project_layout: go.kubebuilder.io/v3
     repository: github.com/cryostatio/cryostat-operator
     support: Cryostat Community
@@ -166,7 +166,7 @@ spec:
             path: declarativeCredentials[0].secretName
             x-descriptors:
               - urn:alm:descriptor:io.kubernetes:Secret
-          - description: 'Enable Cryostat audit logging. New Cryostat CRs default to true, but existing CRs created before this field was introduced remain unchanged until this property is explicitly set. Warning: enabling audit logging increases database storage usage over time.'
+          - description: Enable Cryostat audit logging. New Cryostat CRs default to true, but existing CRs created before this field was introduced remain unchanged until this property is explicitly set.
             displayName: Enable Audit Logging
             path: enableAudit
             x-descriptors:
@@ -1307,7 +1307,7 @@ spec:
                         valueFrom:
                           fieldRef:
                             fieldPath: metadata.annotations['olm.targetNamespaces']
-                    image: quay.io/cryostat/cryostat-operator:4.2.0-dev
+                    image: quay.io/jmatsuok/cryostat-operator:4.2.0-dev
                     imagePullPolicy: Always
                     livenessProbe:
                       httpGet:
@@ -1524,6 +1524,7 @@ spec:
             - v1
           operations:
             - CREATE
+            - UPDATE
           resources:
             - deployments
       sideEffects: None

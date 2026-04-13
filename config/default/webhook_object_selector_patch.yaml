@@ -10,3 +10,10 @@ webhooks:
         operator: Exists
       - key: cryostat.io/namespace
         operator: Exists
+- name: mdeployment.cryostat.io
+  objectSelector:
+    matchExpressions:
+      - key: cryostat.io/name
+        operator: Exists
+      - key: cryostat.io/namespace
+        operator: Exists

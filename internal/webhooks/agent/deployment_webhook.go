@@ -15,11 +15,9 @@
 package agent
 
 import (
-	"context"
-
 	operatorv1beta2 "github.com/cryostatio/cryostat-operator/api/v1beta2"
 	"github.com/cryostatio/cryostat-operator/internal/controllers/common"
-	corev1 "k8s.io/api/core/v1"
+	appsv1 "k8s.io/api/apps/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
@@ -27,83 +25,56 @@ import (
 )
 
 // podWebhookLog is for logging in this package.
-var podWebhookLog = logf.Log.WithName("pod-webhook")
+var deploymentWebhookLog = logf.Log.WithName("deployment-webhook")
 
-// Environment variable to override the agent init container image
-const agentInitImageTagEnv = "RELATED_IMAGE_AGENT_INIT"
+//+kubebuilder:webhook:path=/mutate--v1-deployment,mutating=true,failurePolicy=ignore,sideEffects=None,groups="",resources=deployments,verbs=create;update,versions=v1,name=mdeployment.cryostat.io,admissionReviewVersions=v1
 
-//+kubebuilder:webhook:path=/mutate--v1-pod,mutating=true,failurePolicy=ignore,sideEffects=None,groups="",resources=pods,verbs=create,versions=v1,name=mpod.cryostat.io,admissionReviewVersions=v1
-
-type AgentWebhook interface {
+type AgentDeploymentWebhook interface {
 	SetupWebhookWithManager(mgr ctrl.Manager) error
 }
 
-type AgentWebhookConfig struct {
+type AgentDeploymentWebhookConfig struct {
 	InitImageTag *string
 	FIPSEnabled  bool
 	common.OSUtils
 }
 
-type agentWebhook struct {
-	*AgentWebhookConfig
+type agentDeploymentWebhook struct {
+	*AgentDeploymentWebhookConfig
 }
 
-var _ AgentWebhook = &agentWebhook{}
+var _ AgentDeploymentWebhook = &agentDeploymentWebhook{}
 
-func NewAgentWebhook(config *AgentWebhookConfig) AgentWebhook {
+func NewAgentDeploymentWebhook(config *AgentDeploymentWebhookConfig) AgentWebhook {
 	if config.OSUtils == nil {
 		config.OSUtils = &common.DefaultOSUtils{}
 	}
-	return &agentWebhook{
-		AgentWebhookConfig: config,
+	return &agentDeploymentWebhook{
+		AgentDeploymentWebhookConfig: config,
 	}
 }
 
-func (r *agentWebhook) SetupWebhookWithManager(mgr ctrl.Manager) error {
+func (r *agentDeploymentWebhook) SetupWebhookWithManager(mgr ctrl.Manager) error {
 	gvk, err := apiutil.GVKForObject(&operatorv1beta2.Cryostat{}, mgr.GetScheme())
 	if err != nil {
 		return err
 	}
 
-	webhook := admission.WithCustomDefaulter(mgr.GetScheme(), &corev1.Pod{}, &podMutator{
+	deploymentWebhook := admission.WithCustomDefaulter(mgr.GetScheme(), &appsv1.Deployment{}, &deploymentMutator{
 		client: mgr.GetClient(),
-		config: r.AgentWebhookConfig,
-		log:    &podWebhookLog,
+		config: r.AgentDeploymentWebhookConfig,
+		log:    &deploymentWebhookLog,
 		gvk:    &gvk,
 		ReconcilerTLS: common.NewReconcilerTLS(&common.ReconcilerTLSConfig{
 			Client: mgr.GetClient(),
 			OS:     r.OSUtils,
 		}),
 	}).WithRecoverPanic(true)
+
 	// Modify the webhook to never deny the pod from being admitted
-	webhook.Handler = allowAllRequests(webhook.Handler)
-	mgr.GetWebhookServer().Register("/mutate--v1-pod", webhook)
+	deploymentWebhook.Handler = allowAllRequests(deploymentWebhook.Handler)
+	mgr.GetWebhookServer().Register("/mutate--v1-deployment", deploymentWebhook)
 	return nil
 }
 
-type allowAllHandlerWrapper struct {
-	impl admission.Handler
-}
-
-func (r *allowAllHandlerWrapper) Handle(ctx context.Context, req admission.Request) admission.Response {
-	// Call the handler implementation
-	result := r.impl.Handle(ctx, req)
-	if !result.Allowed {
-		msg := ""
-		if result.Result != nil {
-			msg = result.Result.Message
-		}
-		podWebhookLog.Info("pod mutation failed", "result", msg)
-	}
-	// Modify the result to always permit the request
-	result.Allowed = true
-	return result
-}
-
 var _ admission.Handler = &allowAllHandlerWrapper{}
-
-func allowAllRequests(handler admission.Handler) admission.Handler {
-	return &allowAllHandlerWrapper{
-		impl: handler,
-	}
-}

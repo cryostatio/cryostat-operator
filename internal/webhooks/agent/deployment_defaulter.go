@@ -16,22 +16,14 @@ package agent
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"slices"
-	"strconv"
-	"strings"
-	"time"
 
 	operatorv1beta2 "github.com/cryostatio/cryostat-operator/api/v1beta2"
 	"github.com/cryostatio/cryostat-operator/internal/controllers/common"
 	"github.com/cryostatio/cryostat-operator/internal/controllers/constants"
-	"github.com/cryostatio/cryostat-operator/internal/controllers/model"
 	"github.com/go-logr/logr"
-	corev1 "k8s.io/api/core/v1"
 	appsv1 "k8s.io/api/apps/v1"
-	"k8s.io/apimachinery/pkg/api/resource"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
@@ -43,7 +35,7 @@ type deploymentMutator struct {
 	client client.Client
 	log    *logr.Logger
 	gvk    *schema.GroupVersionKind
-	config *AgentWebhookConfig
+	config *AgentDeploymentWebhookConfig
 	common.ReconcilerTLS
 }
 
@@ -70,42 +62,17 @@ func (r *deploymentMutator) Default(ctx context.Context, obj runtime.Object) err
 	// Check if this deployment is within a target namespace of the CR
 	if !slices.Contains(cr.Status.TargetNamespaces, deployment.Namespace) {
 		return fmt.Errorf("pod's namespace \"%s\" is not a target namespace of Cryostat \"%s\" in \"%s\"",
-			pod.Namespace, cr.Name, cr.Namespace)
+			deployment.Namespace, cr.Name, cr.Namespace)
 	}
 
-	template, err := getTargetPodTemplate(&deployment)
-	if err != nil {
-		return err
-	}
-	
-	targetCryostat, err := getCryostatName(template.ObjectMeta.Labels)
-	if err != nil {
-		return err
-	}
-
-	targetNamespace, err := getCryostatNamespace(template.ObjectMeta.Labels)
-	if err != nil {
-		return err
-	}
-
-	metav1.SetMetaDataLabel(&template.ObjectMeta, AgentLabelCryostatName, targetCryostat)
-	metav1.SetMetaDataLabel(&template.ObjectMeta, AgentLabelCryostatNamespace, targetNamespace)
-
-	r.log.Info("configured Cryostat agent for pod", "name", podName, "namespace", pod.Namespace)
+	template := &deployment.Spec.Template
+	targetCryostat := getCryostatName(deployment.Labels)
+	targetNamespace := getCryostatNamespace(deployment.Labels)
+	template.Labels[constants.AgentLabelCryostatName] = targetCryostat
+	template.Labels[constants.AgentLabelCryostatNamespace] = targetNamespace
 
 	return nil
 }
-
-func getTargetPodTemplate(deployment *appsv1.Deployment) (*corev1.PodTemplate, error) {
-	if !deployment.Spec.Template {
-		// Should never happen, Kubernetes doesn't allow this
-		return nil, errors.New("Deployment has no Template.")
-	}
-	template := deployment.Spec.Template
-	
-	return template
-}
-
 
 func getCryostatName(labels map[string]string) string {
 	result := ""
