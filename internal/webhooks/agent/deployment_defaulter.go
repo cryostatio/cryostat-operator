@@ -35,7 +35,7 @@ type deploymentMutator struct {
 	client client.Client
 	log    *logr.Logger
 	gvk    *schema.GroupVersionKind
-	config *AgentDeploymentWebhookConfig
+	config *AgentWebhookConfig
 	common.ReconcilerTLS
 }
 

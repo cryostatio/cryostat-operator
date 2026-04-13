@@ -121,13 +121,6 @@ var _ = BeforeSuite(func() {
 	err = agentWebhook.SetupWebhookWithManager(mgr)
 	Expect(err).NotTo(HaveOccurred())
 
-	agentWebhookDeploymentConfig := &agent.AgentDeploymentWebhookConfig{
-		OSUtils: test.NewTestOSUtils(&test.TestReconcilerConfig{}),
-	}
-	agentDeploymentWebhook := agent.NewAgentDeploymentWebhook(agentWebhookDeploymentConfig)
-	err = agentDeploymentWebhook.SetupWebhookWithManager(mgr)
-	Expect(err).NotTo(HaveOccurred())
-
 	//+kubebuilder:scaffold:webhook
 
 	go func() {
