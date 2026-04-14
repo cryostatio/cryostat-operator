@@ -14,7 +14,7 @@ BUNDLE_VERSION ?= $(IMAGE_VERSION)
 DEFAULT_NAMESPACE ?= quay.io/cryostat
 
 # Minimum OpenShift version for Console Plugin support
-export MIN_OPENSHIFT_VERSION ?= 4.15.0
+export MIN_OPENSHIFT_VERSION ?= 4.19.0
 IMAGE_NAMESPACE ?= $(DEFAULT_NAMESPACE)
 OPERATOR_NAME ?= cryostat-operator
 OPERATOR_SDK_VERSION ?= v1.31.0

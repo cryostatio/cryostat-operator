@@ -53,7 +53,7 @@ var _ manager.Runnable = (*PluginInstaller)(nil)
 var _ manager.LeaderElectionRunnable = (*PluginInstaller)(nil)
 
 // Default minimum OpenShift version that supports the plugin
-const defaultMinOpenShiftVersion = "4.15.0"
+const defaultMinOpenShiftVersion = "4.19.0"
 
 // Maximum OpenShift version that supports the plugin
 const maxOpenShiftVersion = "99.99.0" // Placeholder until needed
