@@ -33,6 +33,7 @@ commonLabels:
 patchesStrategicMerge:
 - image_tag_patch.yaml
 - image_pull_patch.yaml
+- openshift_version_patch.yaml
 - manager_webhook_patch.yaml
 - webhookcainjection_patch.yaml
 - webhook_object_selector_patch.yaml

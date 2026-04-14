@@ -376,6 +376,7 @@ manifests: controller-gen ## Generate manifests e.g. CRD, RBAC, etc.
 	$(CONTROLLER_GEN) rbac:roleName=role crd webhook paths="./..." output:crd:artifacts:config=config/crd/bases
 	envsubst < hack/image_tag_patch.yaml.in > config/default/image_tag_patch.yaml
 	envsubst < hack/image_pull_patch.yaml.in > config/default/image_pull_patch.yaml
+	envsubst < hack/openshift_version_patch.yaml.in > config/default/openshift_version_patch.yaml
 	envsubst < hack/plugin_image_pull_patch.yaml.in > config/openshift/plugin_image_pull_patch.yaml
 	envsubst < hack/insights_patch.yaml.in > config/overlays/insights/insights_patch.yaml
 	envsubst < hack/insights_image_pull_patch.yaml.in > config/insights/insights_image_pull_patch.yaml

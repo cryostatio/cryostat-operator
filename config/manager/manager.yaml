@@ -49,8 +49,6 @@ spec:
         env:
         - name: WATCH_NAMESPACE
           value: ""
-        - name: MIN_OPENSHIFT_VERSION
-          value: "4.19.0"
         resources:
           limits:
             cpu: 1000m
