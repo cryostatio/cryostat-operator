@@ -81,8 +81,9 @@ var _ = Describe("Plugin", func() {
 			Namespace:           t.Namespace,
 			Scheme:              k8sScheme,
 			Log:                 logger,
-			MinOpenShiftVersion: "", // Use default in tests
-			MaxOpenShiftVersion: "", // Use default in tests
+-			// Hardcode test bounds
+			MinOpenShiftVersion: "4.19.0",
+			MaxOpenShiftVersion: "99.99.0",
 		}
 	})
 
