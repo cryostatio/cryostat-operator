@@ -28,6 +28,7 @@ import (
 	openshiftoperatorv1 "github.com/openshift/api/operator/v1"
 	appsv1 "k8s.io/api/apps/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
+	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -72,8 +73,8 @@ func (r *PluginInstaller) installConsolePlugin(ctx context.Context) error {
 		return err
 	}
 	if !compat {
-		// Return early if this OpenShift cluster is not compatible
-		return nil
+		// Uninstall plugin if it exists on incompatible cluster
+		return r.uninstallConsolePlugin(ctx)
 	}
 	err = r.createConsolePlugin(ctx)
 	if err != nil {
@@ -262,4 +263,68 @@ func (r *PluginInstaller) getOpenShiftVersion(ctx context.Context) (*semver.Vers
 	// Parse result back into a semver.Version
 	version := semver.MustParse(trimmedVer)
 	return &version, nil
+}
+
+func (r *PluginInstaller) uninstallConsolePlugin(ctx context.Context) error {
+	r.Log.Info("Uninstalling Console Plugin due to incompatible OpenShift version")
+
+	err := r.unregisterConsolePlugin(ctx)
+	if err != nil {
+		return err
+	}
+
+	err = r.deleteConsolePlugin(ctx)
+	if err != nil {
+		return err
+	}
+
+	r.Log.Info("Console Plugin uninstalled successfully")
+	return nil
+}
+
+func (r *PluginInstaller) unregisterConsolePlugin(ctx context.Context) error {
+	return retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+		console := &openshiftoperatorv1.Console{}
+		err := r.Client.Get(ctx, types.NamespacedName{Name: constants.ConsoleCRName}, console)
+		if err != nil {
+			if kerrors.IsNotFound(err) {
+				return nil
+			}
+			return err
+		}
+
+		idx := slices.Index(console.Spec.Plugins, constants.ConsolePluginName)
+		if idx == -1 {
+			return nil
+		}
+
+		console.Spec.Plugins = slices.Delete(console.Spec.Plugins, idx, idx+1)
+
+		err = r.Client.Update(ctx, console)
+		if err != nil {
+			return err
+		}
+
+		r.Log.Info("Console Plugin unregistered from Console", "name", console.Name)
+		return nil
+	})
+}
+
+func (r *PluginInstaller) deleteConsolePlugin(ctx context.Context) error {
+	plugin := &consolev1.ConsolePlugin{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: constants.ConsolePluginName,
+		},
+	}
+
+	err := r.Client.Delete(ctx, plugin)
+	if err != nil {
+		if kerrors.IsNotFound(err) {
+			return nil
+		}
+		return err
+	}
+
+	r.Log.Info("ConsolePlugin deleted", "name", plugin.Name)
+	return nil
 }
