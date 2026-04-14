@@ -77,11 +77,11 @@ var _ = Describe("Plugin", func() {
 		}
 
 		installer = &console.PluginInstaller{
-			Client:              t.client,
-			Namespace:           t.Namespace,
-			Scheme:              k8sScheme,
-			Log:                 logger,
--			// Hardcode test bounds
+			Client:    t.client,
+			Namespace: t.Namespace,
+			Scheme:    k8sScheme,
+			Log:       logger,
+			// Hardcode test bounds
 			MinOpenShiftVersion: "4.19.0",
 			MaxOpenShiftVersion: "99.99.0",
 		}
