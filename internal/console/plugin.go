@@ -46,17 +46,18 @@ type PluginInstaller struct {
 	Scheme              *runtime.Scheme
 	Log                 logr.Logger
 	MinOpenShiftVersion string
+	MaxOpenShiftVersion string
 }
 
 // Verify that *PluginInstaller implements manager.Runnable and manager.LeaderElectionRunnable.
 var _ manager.Runnable = (*PluginInstaller)(nil)
 var _ manager.LeaderElectionRunnable = (*PluginInstaller)(nil)
 
-// Default minimum OpenShift version that supports the plugin
-const defaultMinOpenShiftVersion = "4.19.0"
+// Default minimum OpenShift version that supports the plugin (0.0.0 = accept any version if not set)
+const defaultMinOpenShiftVersion = "0.0.0"
 
-// Maximum OpenShift version that supports the plugin
-const maxOpenShiftVersion = "99.99.0" // Placeholder until needed
+// Default maximum OpenShift version that supports the plugin
+const defaultMaxOpenShiftVersion = "99.99.0"
 
 // Start implements manager.Runnable.
 func (r *PluginInstaller) Start(ctx context.Context) error {
@@ -229,13 +230,22 @@ func (r *PluginInstaller) isOpenShiftCompatible(ctx context.Context) (bool, erro
 		minVersionStr = defaultMinOpenShiftVersion
 	}
 
+	maxVersionStr := r.MaxOpenShiftVersion
+	if maxVersionStr == "" {
+		maxVersionStr = defaultMaxOpenShiftVersion
+	}
+
 	// Build a semver.Version from the minimum/maximum version
 	minVersion, err := semver.Parse(minVersionStr)
 	if err != nil {
 		r.Log.Error(err, "Invalid MIN_OPENSHIFT_VERSION, using default", "value", minVersionStr, "default", defaultMinOpenShiftVersion)
 		minVersion = semver.MustParse(defaultMinOpenShiftVersion)
 	}
-	maxVersion := semver.MustParse(maxOpenShiftVersion)
+	maxVersion, err := semver.Parse(maxVersionStr)
+	if err != nil {
+		r.Log.Error(err, "Invalid MAX_OPENSHIFT_VERSION, using default", "value", maxVersionStr, "default", defaultMaxOpenShiftVersion)
+		maxVersion = semver.MustParse(defaultMaxOpenShiftVersion)
+	}
 
 	// Look up the cluster's version
 	version, err := r.getOpenShiftVersion(ctx)
