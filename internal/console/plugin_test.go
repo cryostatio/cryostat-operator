@@ -77,10 +77,11 @@ var _ = Describe("Plugin", func() {
 		}
 
 		installer = &console.PluginInstaller{
-			Client:    t.client,
-			Namespace: t.Namespace,
-			Scheme:    k8sScheme,
-			Log:       logger,
+			Client:              t.client,
+			Namespace:           t.Namespace,
+			Scheme:              k8sScheme,
+			Log:                 logger,
+			MinOpenShiftVersion: "",
 		}
 	})
 

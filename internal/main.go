@@ -192,11 +192,13 @@ func main() {
 			setupLog.Error(err, "could not determine operator's namespace")
 			os.Exit(1)
 		}
+		minOpenShiftVersion := os.Getenv("MIN_OPENSHIFT_VERSION")
 		installer := &console.PluginInstaller{
-			Client:    mgr.GetClient(),
-			Namespace: namespace,
-			Scheme:    mgr.GetScheme(),
-			Log:       setupLog,
+			Client:              mgr.GetClient(),
+			Namespace:           namespace,
+			Scheme:              mgr.GetScheme(),
+			Log:                 setupLog,
+			MinOpenShiftVersion: minOpenShiftVersion,
 		}
 		err := installer.SetupWithManager(mgr)
 		if err != nil {
