@@ -232,6 +232,45 @@ func (r *AgentWebhookTestResources) NewPodHarvesterTemplateInvalidSize() *corev1
 	return pod
 }
 
+func (r *AgentWebhookTestResources) NewPodHarvesterTemplatePeriod() *corev1.Pod {
+	pod := r.NewPodHarvesterTemplate()
+	pod.Labels["cryostat.io/harvester-period"] = "30s"
+	return pod
+}
+
+func (r *AgentWebhookTestResources) NewPodHarvesterTemplateInvalidPeriod() *corev1.Pod {
+	pod := r.NewPodHarvesterTemplate()
+	pod.Labels["cryostat.io/harvester-period"] = "thirtyseconds"
+	return pod
+}
+
+func (r *AgentWebhookTestResources) NewPodHarvesterTemplateMaxFiles() *corev1.Pod {
+	pod := r.NewPodHarvesterTemplate()
+	pod.Labels["cryostat.io/harvester-max-files"] = "5"
+	return pod
+}
+
+func (r *AgentWebhookTestResources) NewPodHarvesterTemplateInvalidMaxFiles() *corev1.Pod {
+	pod := r.NewPodHarvesterTemplate()
+	pod.Labels["cryostat.io/harvester-max-files"] = "five"
+	return pod
+}
+
+func (r *AgentWebhookTestResources) NewPodHarvesterTemplateNegativeMaxFiles() *corev1.Pod {
+	pod := r.NewPodHarvesterTemplate()
+	pod.Labels["cryostat.io/harvester-max-files"] = "-1"
+	return pod
+}
+
+func (r *AgentWebhookTestResources) NewPodHarvesterTemplateAllSettings() *corev1.Pod {
+	pod := r.NewPodHarvesterTemplate()
+	pod.Labels["cryostat.io/harvester-period"] = "45s"
+	pod.Labels["cryostat.io/harvester-max-files"] = "10"
+	pod.Labels["cryostat.io/harvester-exit-max-age"] = "60s"
+	pod.Labels["cryostat.io/harvester-exit-max-size"] = "50Mi"
+	return pod
+}
+
 type mutatedPodOptions struct {
 	logLevel          string
 	javaOptionsName   string
@@ -243,6 +282,8 @@ type mutatedPodOptions struct {
 	callbackPort      int32
 	writeAccess       *bool
 	harvesterTemplate string
+	harvesterPeriod   *int32
+	harvesterMaxFiles *int32
 	harvesterExitAge  int32
 	harvesterExitSize int32
 	smartTriggers     string
@@ -391,6 +432,34 @@ func (r *AgentWebhookTestResources) NewMutatedPodHarvesterTemplateAge() *corev1.
 func (r *AgentWebhookTestResources) NewMutatedPodHarvesterTemplateSize() *corev1.Pod {
 	return r.newMutatedPod(&mutatedPodOptions{
 		harvesterExitSize: 123456,
+	})
+}
+
+func (r *AgentWebhookTestResources) NewMutatedPodHarvesterTemplatePeriod() *corev1.Pod {
+	period := int32(30000)
+	return r.newMutatedPod(&mutatedPodOptions{
+		harvesterTemplate: "default.jfc",
+		harvesterPeriod:   &period,
+	})
+}
+
+func (r *AgentWebhookTestResources) NewMutatedPodHarvesterTemplateMaxFiles() *corev1.Pod {
+	maxFiles := int32(5)
+	return r.newMutatedPod(&mutatedPodOptions{
+		harvesterTemplate: "default.jfc",
+		harvesterMaxFiles: &maxFiles,
+	})
+}
+
+func (r *AgentWebhookTestResources) NewMutatedPodHarvesterTemplateAllSettings() *corev1.Pod {
+	period := int32(45000)
+	maxFiles := int32(10)
+	return r.newMutatedPod(&mutatedPodOptions{
+		harvesterTemplate: "default.jfc",
+		harvesterPeriod:   &period,
+		harvesterMaxFiles: &maxFiles,
+		harvesterExitAge:  60000,
+		harvesterExitSize: 52428800,
 	})
 }
 
@@ -757,6 +826,27 @@ func (r *AgentWebhookTestResources) newMutatedContainer(original *corev1.Contain
 				Name:  "CRYOSTAT_AGENT_HARVESTER_TEMPLATE",
 				Value: options.harvesterTemplate,
 			},
+		)
+
+		if options.harvesterPeriod != nil {
+			container.Env = append(container.Env,
+				corev1.EnvVar{
+					Name:  "CRYOSTAT_AGENT_HARVESTER_PERIOD_MS",
+					Value: strconv.Itoa(int(*options.harvesterPeriod)),
+				},
+			)
+		}
+
+		if options.harvesterMaxFiles != nil {
+			container.Env = append(container.Env,
+				corev1.EnvVar{
+					Name:  "CRYOSTAT_AGENT_HARVESTER_MAX_FILES",
+					Value: strconv.Itoa(int(*options.harvesterMaxFiles)),
+				},
+			)
+		}
+
+		container.Env = append(container.Env,
 			corev1.EnvVar{
 				Name:  "CRYOSTAT_AGENT_HARVESTER_EXIT_MAX_AGE_MS",
 				Value: strconv.Itoa(int(options.harvesterExitAge)),

@@ -120,6 +120,14 @@ func (r *podMutator) Default(ctx context.Context, obj runtime.Object) error {
 	}
 
 	harvesterTemplate := getHarvesterTemplate(pod.Labels)
+	harvesterPeriod, err := getHarvesterPeriod(pod.Labels)
+	if err != nil {
+		return err
+	}
+	harvesterMaxFiles, err := getHarvesterMaxFiles(pod.Labels)
+	if err != nil {
+		return err
+	}
 	harvesterExitMaxAge, err := getHarvesterExitMaxAge(pod.Labels)
 	if err != nil {
 		return err
@@ -263,6 +271,27 @@ func (r *podMutator) Default(ctx context.Context, obj runtime.Object) error {
 				Name:  "CRYOSTAT_AGENT_HARVESTER_TEMPLATE",
 				Value: harvesterTemplate,
 			},
+		)
+
+		if harvesterPeriod != nil {
+			container.Env = append(container.Env,
+				corev1.EnvVar{
+					Name:  "CRYOSTAT_AGENT_HARVESTER_PERIOD_MS",
+					Value: strconv.Itoa(int(*harvesterPeriod)),
+				},
+			)
+		}
+
+		if harvesterMaxFiles != nil {
+			container.Env = append(container.Env,
+				corev1.EnvVar{
+					Name:  "CRYOSTAT_AGENT_HARVESTER_MAX_FILES",
+					Value: strconv.Itoa(int(*harvesterMaxFiles)),
+				},
+			)
+		}
+
+		container.Env = append(container.Env,
 			corev1.EnvVar{
 				Name:  "CRYOSTAT_AGENT_HARVESTER_EXIT_MAX_AGE_MS",
 				Value: strconv.Itoa(int(*harvesterExitMaxAge)),
@@ -480,6 +509,36 @@ func getSmartTriggersConfigMapNames(labels map[string]string) []string {
 		result = value
 	}
 	return strings.Split(result, ",")
+}
+func getHarvesterPeriod(labels map[string]string) (*int32, error) {
+	period, pres := labels[constants.AgentLabelHarvesterPeriod]
+	if !pres {
+		return nil, nil
+	}
+
+	parsed, err := time.ParseDuration(period)
+	if err != nil {
+		return nil, fmt.Errorf("invalid label value for \"%s\": %s", constants.AgentLabelHarvesterPeriod, err.Error())
+	}
+	value := int32(parsed.Milliseconds())
+	return &value, nil
+}
+
+func getHarvesterMaxFiles(labels map[string]string) (*int32, error) {
+	maxFiles, pres := labels[constants.AgentLabelHarvesterMaxFiles]
+	if !pres {
+		return nil, nil
+	}
+
+	parsed, err := strconv.ParseInt(maxFiles, 10, 32)
+	if err != nil {
+		return nil, fmt.Errorf("invalid label value for \"%s\": %s", constants.AgentLabelHarvesterMaxFiles, err.Error())
+	}
+	if parsed <= 0 {
+		return nil, fmt.Errorf("invalid label value for \"%s\": must be positive", constants.AgentLabelHarvesterMaxFiles)
+	}
+	value := int32(parsed)
+	return &value, nil
 }
 
 func getHarvesterExitMaxAge(labels map[string]string) (*int32, error) {

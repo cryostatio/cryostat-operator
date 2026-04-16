@@ -77,6 +77,8 @@ const (
 	AgentLabelReadOnly                = agentLabelPrefix + "read-only"
 	AgentLabelJavaOptionsVar          = agentLabelPrefix + "java-options-var"
 	AgentLabelHarvesterTemplate       = agentLabelPrefix + "harvester-template"
+	AgentLabelHarvesterPeriod         = agentLabelPrefix + "harvester-period"
+	AgentLabelHarvesterMaxFiles       = agentLabelPrefix + "harvester-max-files"
 	AgentLabelHarvesterExitMaxAge     = agentLabelPrefix + "harvester-exit-max-age"
 	AgentLabelHarvesterExitMaxSize    = agentLabelPrefix + "harvester-exit-max-size"
 	AgentLabelSmartTriggersConfigMaps = agentLabelPrefix + "smart-triggers"
