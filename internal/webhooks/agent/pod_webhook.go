@@ -35,6 +35,7 @@ var deploymentWebhookLog = logf.Log.WithName("deployment-webhook")
 const agentInitImageTagEnv = "RELATED_IMAGE_AGENT_INIT"
 
 //+kubebuilder:webhook:path=/mutate--v1-pod,mutating=true,failurePolicy=ignore,sideEffects=None,groups="",resources=pods,verbs=create,versions=v1,name=mpod.cryostat.io,admissionReviewVersions=v1
+//+kubebuilder:webhook:path=/mutate--v1-deployment,mutating=true,failurePolicy=ignore,sideEffects=None,groups="apps",resources=deployments,verbs=create;update,versions=v1,name=mdeployment.cryostat.io,admissionReviewVersions=v1
 
 type AgentWebhook interface {
 	SetupWebhookWithManager(mgr ctrl.Manager) error
@@ -89,11 +90,11 @@ func (r *agentWebhook) SetupWebhookWithManager(mgr ctrl.Manager) error {
 		}),
 	}).WithRecoverPanic(true)
 	// Modify the webhook to never deny the pod from being admitted
-	deploymentWebhook.Handler = allowAllRequests(deploymentWebhook.Handler)
-	mgr.GetWebhookServer().Register("/mutate--v1-deployment", deploymentWebhook)
-
 	webhook.Handler = allowAllRequests(webhook.Handler)
 	mgr.GetWebhookServer().Register("/mutate--v1-pod", webhook)
+
+	deploymentWebhook.Handler = allowAllRequests(deploymentWebhook.Handler)
+	mgr.GetWebhookServer().Register("/mutate--v1-deployment", deploymentWebhook)
 	return nil
 }
 

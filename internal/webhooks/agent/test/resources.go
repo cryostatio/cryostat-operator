@@ -95,7 +95,7 @@ func (r *AgentWebhookTestResources) NewDeployment() *appsv1.Deployment {
 					Name:      r.Name,
 					Namespace: r.Namespace,
 					Labels: map[string]string{
-						"app": r.Name,
+						"app": "someApplication",
 					},
 				},
 				Spec: corev1.PodSpec{
@@ -109,7 +109,7 @@ func (r *AgentWebhookTestResources) NewDeployment() *appsv1.Deployment {
 			},
 			Selector: &metav1.LabelSelector{
 				MatchLabels: map[string]string{
-					"app": r.Name,
+					"app": "someApplication",
 				},
 			},
 			Replicas: &replicas,
@@ -140,7 +140,7 @@ func (r *AgentWebhookTestResources) NewMutatedDeployment() *appsv1.Deployment {
 					Name:      r.Name,
 					Namespace: r.Namespace,
 					Labels: map[string]string{
-						"app":                   "something-app",
+						"app":                   "someApplication",
 						"cryostat.io/namespace": r.Namespace,
 						"cryostat.io/name":      "cryostat",
 					},
@@ -156,7 +156,7 @@ func (r *AgentWebhookTestResources) NewMutatedDeployment() *appsv1.Deployment {
 			},
 			Selector: &metav1.LabelSelector{
 				MatchLabels: map[string]string{
-					"app": r.Name,
+					"app": "someApplication",
 				},
 			},
 			Replicas: &replicas,

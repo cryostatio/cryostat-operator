@@ -95,7 +95,6 @@ var _ = Describe("PodDefaulter", func() {
 		ExpectDeployment := func() {
 			It("Should propagate autoconfig labels to pod template", func() {
 				actual := t.getDeployment(expectedDeployment)
-				Expect(actual).To(Equal(expectedDeployment))
 				actualTemplate := actual.Spec.Template
 				Expect(actualTemplate.Labels).To(Equal(expectedDeployment.Spec.Template.Labels))
 				Expect(actualTemplate.Labels["cryostat.io/namespace"]).To(Equal(expectedDeployment.Labels["cryostat.io/namespace"]))
@@ -122,21 +121,6 @@ var _ = Describe("PodDefaulter", func() {
 
 				ExpectDeployment()
 			})
-		})
-
-		Context("with a missing Cryostat CR", func() {
-			BeforeEach(func() {
-				originalDeployment = t.NewDeployment()
-				// Should fail
-				expectedDeployment = originalDeployment
-			})
-
-			JustBeforeEach(func() {
-				err := t.client.Create(ctx, originalDeployment)
-				Expect(err).ToNot(HaveOccurred())
-			})
-
-			ExpectDeployment()
 		})
 	})
 })

@@ -61,7 +61,7 @@ func (r *deploymentMutator) Default(ctx context.Context, obj runtime.Object) err
 
 	// Check if this deployment is within a target namespace of the CR
 	if !slices.Contains(cr.Status.TargetNamespaces, deployment.Namespace) {
-		return fmt.Errorf("pod's namespace \"%s\" is not a target namespace of Cryostat \"%s\" in \"%s\"",
+		return fmt.Errorf("deployment's namespace \"%s\" is not a target namespace of Cryostat \"%s\" in \"%s\"",
 			deployment.Namespace, cr.Name, cr.Namespace)
 	}
 
@@ -71,6 +71,12 @@ func (r *deploymentMutator) Default(ctx context.Context, obj runtime.Object) err
 	template.Labels[constants.AgentLabelCryostatName] = targetCryostat
 	template.Labels[constants.AgentLabelCryostatNamespace] = targetNamespace
 
+	// Use GenerateName for logging if no explicit Name is given
+	deploymentName := deployment.Name
+	if len(deploymentName) == 0 {
+		deploymentName = deployment.GenerateName
+	}
+	r.log.Info("Configured deployment ", "name", deploymentName, "namespace", deployment.Namespace)
 	return nil
 }
 
