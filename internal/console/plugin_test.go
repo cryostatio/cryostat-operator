@@ -81,6 +81,9 @@ var _ = Describe("Plugin", func() {
 			Namespace: t.Namespace,
 			Scheme:    k8sScheme,
 			Log:       logger,
+			// Hardcode test bounds
+			MinOpenShiftVersion: "4.19.0",
+			MaxOpenShiftVersion: "99.99.0",
 		}
 	})
 
@@ -246,6 +249,120 @@ var _ = Describe("Plugin", func() {
 					Expect(startError).To(HaveOccurred())
 				})
 				expectNoChanges()
+			})
+		})
+		Context("uninstalling plugin", func() {
+			Context("with existing plugin on incompatible OpenShift (too old)", func() {
+				BeforeEach(func() {
+					t.objs = append(t.objs, t.NewConsoleExisting(), t.NewConsolePlugin(), t.NewPluginClusterRoleBinding(), t.NewOperatorDeployment(), t.NewClusterVersionOld())
+				})
+				JustBeforeEach(func() {
+					t.updateClusterVersionStatus(t.NewClusterVersionOld())
+					err := installer.Start(context.Background())
+					Expect(err).ToNot(HaveOccurred())
+				})
+				It("should delete ConsolePlugin", func() {
+					plugin := &consolev1.ConsolePlugin{}
+					err := t.client.Get(context.Background(), types.NamespacedName{Name: t.NewConsolePlugin().Name}, plugin)
+					Expect(kerrors.IsNotFound(err)).To(BeTrue())
+				})
+				It("should unregister from Console", func() {
+					console := t.getConsole(t.NewConsole())
+					Expect(console.Spec.Plugins).ToNot(ContainElement("cryostat-plugin"))
+					Expect(console.Spec.Plugins).To(ContainElement("other-plugin"))
+				})
+			})
+			Context("with existing plugin on incompatible OpenShift (too new)", func() {
+				BeforeEach(func() {
+					t.objs = append(t.objs, t.NewConsoleExisting(), t.NewConsolePlugin(), t.NewPluginClusterRoleBinding(), t.NewOperatorDeployment(), t.NewClusterVersionNew())
+				})
+				JustBeforeEach(func() {
+					t.updateClusterVersionStatus(t.NewClusterVersionNew())
+					err := installer.Start(context.Background())
+					Expect(err).ToNot(HaveOccurred())
+				})
+				It("should delete ConsolePlugin", func() {
+					plugin := &consolev1.ConsolePlugin{}
+					err := t.client.Get(context.Background(), types.NamespacedName{Name: t.NewConsolePlugin().Name}, plugin)
+					Expect(kerrors.IsNotFound(err)).To(BeTrue())
+				})
+				It("should unregister from Console", func() {
+					console := t.getConsole(t.NewConsole())
+					Expect(console.Spec.Plugins).ToNot(ContainElement("cryostat-plugin"))
+					Expect(console.Spec.Plugins).To(ContainElement("other-plugin"))
+				})
+			})
+			Context("with no existing plugin on incompatible OpenShift", func() {
+				BeforeEach(func() {
+					t.objs = append(t.objs, t.NewConsole(), t.NewPluginClusterRoleBinding(), t.NewOperatorDeployment(), t.NewClusterVersionOld())
+				})
+				JustBeforeEach(func() {
+					t.updateClusterVersionStatus(t.NewClusterVersionOld())
+					err := installer.Start(context.Background())
+					Expect(err).ToNot(HaveOccurred())
+				})
+				It("should not error when plugin already uninstalled", func() {
+					// Test passes if no error in JustBeforeEach
+				})
+				It("should not create ConsolePlugin", func() {
+					plugin := &consolev1.ConsolePlugin{}
+					err := t.client.Get(context.Background(), types.NamespacedName{Name: t.NewConsolePlugin().Name}, plugin)
+					Expect(kerrors.IsNotFound(err)).To(BeTrue())
+				})
+			})
+			Context("with ConsolePlugin CR but not registered in Console", func() {
+				BeforeEach(func() {
+					t.objs = append(t.objs, t.NewConsole(), t.NewConsolePlugin(), t.NewPluginClusterRoleBinding(), t.NewOperatorDeployment(), t.NewClusterVersionOld())
+				})
+				JustBeforeEach(func() {
+					t.updateClusterVersionStatus(t.NewClusterVersionOld())
+					err := installer.Start(context.Background())
+					Expect(err).ToNot(HaveOccurred())
+				})
+				It("should delete ConsolePlugin", func() {
+					plugin := &consolev1.ConsolePlugin{}
+					err := t.client.Get(context.Background(), types.NamespacedName{Name: t.NewConsolePlugin().Name}, plugin)
+					Expect(kerrors.IsNotFound(err)).To(BeTrue())
+				})
+				It("should not error when plugin not registered", func() {
+					// Test passes if no error in JustBeforeEach
+				})
+			})
+			Context("with plugin registered in Console but no CR", func() {
+				BeforeEach(func() {
+					t.objs = append(t.objs, t.NewConsoleExisting(), t.NewPluginClusterRoleBinding(), t.NewOperatorDeployment(), t.NewClusterVersionOld())
+				})
+				JustBeforeEach(func() {
+					t.updateClusterVersionStatus(t.NewClusterVersionOld())
+					err := installer.Start(context.Background())
+					Expect(err).ToNot(HaveOccurred())
+				})
+				It("should unregister from Console", func() {
+					console := t.getConsole(t.NewConsole())
+					Expect(console.Spec.Plugins).ToNot(ContainElement("cryostat-plugin"))
+					Expect(console.Spec.Plugins).To(ContainElement("other-plugin"))
+				})
+				It("should not error when ConsolePlugin CR missing", func() {
+					// Test passes if no error in JustBeforeEach
+				})
+			})
+			Context("with missing Console CR during uninstall", func() {
+				BeforeEach(func() {
+					t.objs = append(t.objs, t.NewConsolePlugin(), t.NewPluginClusterRoleBinding(), t.NewOperatorDeployment(), t.NewClusterVersionOld())
+				})
+				JustBeforeEach(func() {
+					t.updateClusterVersionStatus(t.NewClusterVersionOld())
+					err := installer.Start(context.Background())
+					Expect(err).ToNot(HaveOccurred())
+				})
+				It("should still delete ConsolePlugin", func() {
+					plugin := &consolev1.ConsolePlugin{}
+					err := t.client.Get(context.Background(), types.NamespacedName{Name: t.NewConsolePlugin().Name}, plugin)
+					Expect(kerrors.IsNotFound(err)).To(BeTrue())
+				})
+				It("should not error when Console CR missing", func() {
+					// Test passes if no error in JustBeforeEach
+				})
 			})
 		})
 	})

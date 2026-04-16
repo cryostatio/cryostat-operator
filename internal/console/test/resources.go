@@ -187,7 +187,7 @@ func (r *PluginTestResources) NewOperatorDeploymentMissingLabels() *appsv1.Deplo
 }
 
 func (r *PluginTestResources) NewClusterVersion() *configv1.ClusterVersion {
-	return r.newClusterVersion("4.17.0-foo+bar")
+	return r.newClusterVersion("4.19.0-foo+bar")
 }
 
 func (r *PluginTestResources) NewClusterVersionOld() *configv1.ClusterVersion {

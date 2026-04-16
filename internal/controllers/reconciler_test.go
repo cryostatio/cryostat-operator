@@ -895,9 +895,9 @@ func (c *controllerTest) commonTests() {
 					cr.Spec.EnableCertManager = &disable
 					t.TLS = false
 				})
-			})
-			It("Should add volumes and volumeMounts to deployment", func() {
-				t.expectDeploymentHasCertSecrets()
+				It("Should add volumes and volumeMounts to deployment", func() {
+					t.expectDeploymentHasCertSecrets()
+				})
 			})
 		})
 		Context("Adding a certificate to the TrustedCertSecrets list", func() {
@@ -924,6 +924,61 @@ func (c *controllerTest) commonTests() {
 
 				volumes := deployment.Spec.Template.Spec.Volumes
 				expectedVolumes := t.NewVolumesWithSecrets()
+				Expect(volumes).To(ConsistOf(expectedVolumes))
+
+				volumeMounts := deployment.Spec.Template.Spec.Containers[0].VolumeMounts
+				expectedVolumeMounts := t.NewCoreVolumeMounts()
+				Expect(volumeMounts).To(ConsistOf(expectedVolumeMounts))
+			})
+		})
+		Context("Cryostat CR has list of trusted certificate config maps", func() {
+			var cr *model.CryostatInstance
+			BeforeEach(func() {
+				cr = t.NewCryostatWithTrustedCertConfigMaps()
+				t.objs = append(t.objs, cr.Object, t.NewTestCertConfigMap("testCertCM1"),
+					t.NewTestCertConfigMap("testCertCM2"))
+			})
+			JustBeforeEach(func() {
+				t.reconcileCryostatFully()
+			})
+			It("Should add volumes and volumeMounts to deployment", func() {
+				t.expectDeploymentHasTrustedCertConfigMaps()
+			})
+			Context("with cert-manager disabled", func() {
+				BeforeEach(func() {
+					disable := false
+					cr.Spec.EnableCertManager = &disable
+					t.TLS = false
+				})
+				It("Should add volumes and volumeMounts to deployment", func() {
+					t.expectDeploymentHasTrustedCertConfigMaps()
+				})
+			})
+		})
+		Context("Adding a config map certificate to the TrustedCertSecrets list", func() {
+			BeforeEach(func() {
+				t.objs = append(t.objs, t.NewCryostat().Object, t.NewTestCertConfigMap("testCertCM1"),
+					t.NewTestCertConfigMap("testCertCM2"))
+			})
+			JustBeforeEach(func() {
+				t.reconcileCryostatFully()
+			})
+			It("Should update the corresponding deployment", func() {
+				// Get Cryostat CR after reconciling
+				cr := t.getCryostatInstance()
+
+				// Update it with config map-backed TrustedCertSecrets
+				cr.Spec.TrustedCertSecrets = t.NewCryostatWithTrustedCertConfigMaps().Spec.TrustedCertSecrets
+				t.updateCryostatInstance(cr)
+
+				t.reconcileCryostatFully()
+
+				deployment := &appsv1.Deployment{}
+				err := t.Client.Get(context.Background(), types.NamespacedName{Name: t.Name, Namespace: t.Namespace}, deployment)
+				Expect(err).ToNot(HaveOccurred())
+
+				volumes := deployment.Spec.Template.Spec.Volumes
+				expectedVolumes := t.NewVolumesWithTrustedCertConfigMaps()
 				Expect(volumes).To(ConsistOf(expectedVolumes))
 
 				volumeMounts := deployment.Spec.Template.Spec.Containers[0].VolumeMounts
@@ -3646,6 +3701,20 @@ func (t *cryostatTestInput) expectDeploymentHasCertSecrets() {
 
 	volumes := deployment.Spec.Template.Spec.Volumes
 	expectedVolumes := t.NewVolumesWithSecrets()
+	Expect(volumes).To(ConsistOf(expectedVolumes))
+
+	volumeMounts := deployment.Spec.Template.Spec.Containers[0].VolumeMounts
+	expectedVolumeMounts := t.NewCoreVolumeMounts()
+	Expect(volumeMounts).To(ConsistOf(expectedVolumeMounts))
+}
+
+func (t *cryostatTestInput) expectDeploymentHasTrustedCertConfigMaps() {
+	deployment := &appsv1.Deployment{}
+	err := t.Client.Get(context.Background(), types.NamespacedName{Name: t.Name, Namespace: t.Namespace}, deployment)
+	Expect(err).ToNot(HaveOccurred())
+
+	volumes := deployment.Spec.Template.Spec.Volumes
+	expectedVolumes := t.NewVolumesWithTrustedCertConfigMaps()
 	Expect(volumes).To(ConsistOf(expectedVolumes))
 
 	volumeMounts := deployment.Spec.Template.Spec.Containers[0].VolumeMounts

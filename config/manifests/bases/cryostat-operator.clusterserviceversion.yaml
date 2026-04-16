@@ -179,9 +179,9 @@ spec:
         path: declarativeCredentials[0].secretName
         x-descriptors:
         - urn:alm:descriptor:io.kubernetes:Secret
-      - description: 'Enable Cryostat audit logging. New Cryostat CRs default to true,
+      - description: Enable Cryostat audit logging. New Cryostat CRs default to true,
           but existing CRs created before this field was introduced remain unchanged
-          until this property is explicitly set.'
+          until this property is explicitly set.
         displayName: Enable Audit Logging
         path: enableAudit
         x-descriptors:
@@ -825,9 +825,16 @@ spec:
         x-descriptors:
         - urn:alm:descriptor:com.tectonic.ui:fieldDependency:targetDiscoveryOptions.disableBuiltInPortNumbers:true
       - description: List of TLS certificates to trust when connecting to targets.
+          Each entry may reference either a Secret or a ConfigMap in the local namespace.
         displayName: Trusted TLS Certificates
         path: trustedCertSecrets
-      - description: Name of secret in the local namespace.
+      - description: Name of config map in the local namespace. Specify this or secretName.
+          On OpenShift, service CA bundles typically use the default key `service-ca.crt`.
+        displayName: Config Map Name
+        path: trustedCertSecrets[0].configMapName
+        x-descriptors:
+        - urn:alm:descriptor:io.kubernetes:ConfigMap
+      - description: Name of secret in the local namespace. Specify this or configMapName.
         displayName: Secret Name
         path: trustedCertSecrets[0].secretName
         x-descriptors:

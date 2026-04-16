@@ -48,7 +48,7 @@ spec:
 Multiple templates can be specified in the `eventTemplates` array. Each `configMapName` must refer to the name of a Config Map in the same namespace as Cryostat. The corresponding `filename` must be a key within that Config Map containting the template file.
 
 ### Trusted TLS Certificates
-By default, Cryostat uses TLS when connecting to the user's applications over JMX. In order to verify the identity of the applications Cryostat connects to, it should be configured to trust the TLS certificates presented by those applications. One way to do that is to specify certificates that Cryostat should trust in the `spec.trustedCertSecrets` property.
+By default, Cryostat uses TLS when connecting to the user's applications over JMX. In order to verify the identity of the applications Cryostat connects to, it should be configured to trust the TLS certificates presented by those applications. Certificates can be provided through the `spec.trustedCertSecrets` property, and each entry may reference either a Secret or a ConfigMap.
 ```yaml
 apiVersion: operator.cryostat.io/v1beta2
 kind: Cryostat
@@ -58,8 +58,10 @@ spec:
   trustedCertSecrets:
   - secretName: my-tls-secret
     certificateKey: ca.crt
+  - configMapName: my-service-ca
+    certificateKey: service-ca.crt
 ```
-Multiple TLS secrets may be specified in the `trustedCertSecrets` array. The `secretName` property is mandatory, and must refer to the name of a Secret within the same namespace as the `Cryostat` object. The `certificateKey` must point to the X.509 certificate file to be trusted. If `certificateKey` is omitted, the default key name of `tls.crt` will be used.
+Multiple certificate entries may be specified in the `trustedCertSecrets` array. Each entry must specify either `secretName` or `configMapName`, and must refer to an object in the same namespace as the `Cryostat` object. The `certificateKey` must point to the X.509 certificate or CA bundle file to be trusted. If `certificateKey` is omitted, the default key name is `tls.crt` for Secrets and `service-ca.crt` for ConfigMaps. The ConfigMap default matches the OpenShift service CA injection pattern described in the [OpenShift service serving certificates documentation](https://docs.redhat.com/en/documentation/openshift_container_platform/4.8/html/security_and_compliance/configuring-certificates#add-service-serving).
 
 ### Storage Options
 Cryostat uses storage volumes to persist data in its database and object storage. In the interest of persisting these files across redeployments, Cryostat uses a Persistent Volume Claim by default. Unless overidden, the operator will create a Persistent Volume Claim with the default Storage Class and 500MiB of storage capacity.

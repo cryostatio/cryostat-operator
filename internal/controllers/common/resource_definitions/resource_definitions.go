@@ -457,29 +457,49 @@ func NewPodForCR(cr *model.CryostatInstance, specs *ServiceSpecs, imageTags *Ima
 	volSources := []corev1.VolumeProjection{}
 	readOnlyMode := int32(0440)
 
-	// Add any TrustedCertSecrets as volumes
-	for _, secret := range cr.Spec.TrustedCertSecrets {
-		var key string
-		if secret.CertificateKey != nil {
-			key = *secret.CertificateKey
-		} else {
-			key = operatorv1beta2.DefaultCertificateKey
-		}
-		source := corev1.VolumeProjection{
-			Secret: &corev1.SecretProjection{
-				LocalObjectReference: corev1.LocalObjectReference{
-					Name: secret.SecretName,
-				},
-				Items: []corev1.KeyToPath{
-					{
-						Key:  key,
-						Path: fmt.Sprintf("%s_%s", secret.SecretName, key),
-						Mode: &readOnlyMode,
+	// Add any trusted certificates as projected volumes. Each entry may point to
+	// either a secret or a config map.
+	for _, cert := range cr.Spec.TrustedCertSecrets {
+		switch {
+		case cert.SecretName != "":
+			key := operatorv1beta2.DefaultCertificateKey
+			if cert.CertificateKey != nil {
+				key = *cert.CertificateKey
+			}
+			volSources = append(volSources, corev1.VolumeProjection{
+				Secret: &corev1.SecretProjection{
+					LocalObjectReference: corev1.LocalObjectReference{
+						Name: cert.SecretName,
+					},
+					Items: []corev1.KeyToPath{
+						{
+							Key:  key,
+							Path: fmt.Sprintf("secret_%s_%s", cert.SecretName, key),
+							Mode: &readOnlyMode,
+						},
 					},
 				},
-			},
+			})
+		case cert.ConfigMapName != "":
+			key := operatorv1beta2.DefaultConfigMapCertificateKey
+			if cert.CertificateKey != nil {
+				key = *cert.CertificateKey
+			}
+			volSources = append(volSources, corev1.VolumeProjection{
+				ConfigMap: &corev1.ConfigMapProjection{
+					LocalObjectReference: corev1.LocalObjectReference{
+						Name: cert.ConfigMapName,
+					},
+					Items: []corev1.KeyToPath{
+						{
+							Key:  key,
+							Path: fmt.Sprintf("configmap_%s_%s", cert.ConfigMapName, key),
+							Mode: &readOnlyMode,
+						},
+					},
+				},
+			})
 		}
-		volSources = append(volSources, source)
 	}
 
 	if tls != nil {

@@ -1,0 +1,15 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: controller
+  namespace: system
+spec:
+  template:
+    spec:
+      containers:
+      - name: manager
+        env:
+        - name: MIN_OPENSHIFT_VERSION
+          value: "4.19.0"
+        - name: MAX_OPENSHIFT_VERSION
+          value: "99.99.0"

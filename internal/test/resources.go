@@ -152,6 +152,21 @@ func (r *TestResources) NewCryostatWithSecrets() *model.CryostatInstance {
 	return cr
 }
 
+func (r *TestResources) NewCryostatWithTrustedCertConfigMaps() *model.CryostatInstance {
+	cr := r.NewCryostat()
+	key := "test.crt"
+	cr.Spec.TrustedCertSecrets = []operatorv1beta2.CertificateSecret{
+		{
+			ConfigMapName:  "testCertCM1",
+			CertificateKey: &key,
+		},
+		{
+			ConfigMapName: "testCertCM2",
+		},
+	}
+	return cr
+}
+
 func (r *TestResources) NewCryostatWithTemplates() *model.CryostatInstance {
 	cr := r.NewCryostat()
 	cr.Spec.EventTemplates = []operatorv1beta2.TemplateConfigMap{
@@ -1925,6 +1940,19 @@ func (r *TestResources) NewTestCertSecret(name string) *corev1.Secret {
 		},
 		Data: map[string][]byte{
 			corev1.TLSCertKey: []byte(name + "-bytes"),
+		},
+	}
+}
+
+func (r *TestResources) NewTestCertConfigMap(name string) *corev1.ConfigMap {
+	return &corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: r.Namespace,
+		},
+		Data: map[string]string{
+			operatorv1beta2.DefaultConfigMapCertificateKey: name + "-service-ca-bytes",
+			"test.crt": name + "-test-bytes",
 		},
 	}
 }
@@ -3837,7 +3865,7 @@ func (r *TestResources) NewVolumesWithSecrets() []corev1.Volume {
 				Items: []corev1.KeyToPath{
 					{
 						Key:  "test.crt",
-						Path: "testCert1_test.crt",
+						Path: "secret_testCert1_test.crt",
 						Mode: &mode,
 					},
 				},
@@ -3851,7 +3879,41 @@ func (r *TestResources) NewVolumesWithSecrets() []corev1.Volume {
 				Items: []corev1.KeyToPath{
 					{
 						Key:  "tls.crt",
-						Path: "testCert2_tls.crt",
+						Path: "secret_testCert2_tls.crt",
+						Mode: &mode,
+					},
+				},
+			},
+		},
+	})
+}
+
+func (r *TestResources) NewVolumesWithTrustedCertConfigMaps() []corev1.Volume {
+	mode := int32(0440)
+	return r.newVolumes([]corev1.VolumeProjection{
+		{
+			ConfigMap: &corev1.ConfigMapProjection{
+				LocalObjectReference: corev1.LocalObjectReference{
+					Name: "testCertCM1",
+				},
+				Items: []corev1.KeyToPath{
+					{
+						Key:  "test.crt",
+						Path: "configmap_testCertCM1_test.crt",
+						Mode: &mode,
+					},
+				},
+			},
+		},
+		{
+			ConfigMap: &corev1.ConfigMapProjection{
+				LocalObjectReference: corev1.LocalObjectReference{
+					Name: "testCertCM2",
+				},
+				Items: []corev1.KeyToPath{
+					{
+						Key:  operatorv1beta2.DefaultConfigMapCertificateKey,
+						Path: "configmap_testCertCM2_service-ca.crt",
 						Mode: &mode,
 					},
 				},

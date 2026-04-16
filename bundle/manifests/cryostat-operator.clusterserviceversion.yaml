@@ -25,7 +25,7 @@ metadata:
     capabilities: Seamless Upgrades
     categories: Monitoring, Developer Tools
     containerImage: quay.io/cryostat/cryostat-operator:4.2.0-dev
-    createdAt: "2025-10-30T18:47:04Z"
+    createdAt: "2026-04-01T21:25:46Z"
     description: JVM monitoring and profiling tool
     operatorframework.io/initialization-resource: |-
       {
@@ -684,10 +684,15 @@ spec:
             path: targetDiscoveryOptions.discoveryPortNumbers
             x-descriptors:
               - urn:alm:descriptor:com.tectonic.ui:fieldDependency:targetDiscoveryOptions.disableBuiltInPortNumbers:true
-          - description: List of TLS certificates to trust when connecting to targets.
+          - description: List of TLS certificates to trust when connecting to targets. Each entry may reference either a Secret or a ConfigMap in the local namespace.
             displayName: Trusted TLS Certificates
             path: trustedCertSecrets
-          - description: Name of secret in the local namespace.
+          - description: Name of config map in the local namespace. Specify this or secretName. On OpenShift, service CA bundles typically use the default key `service-ca.crt`.
+            displayName: Config Map Name
+            path: trustedCertSecrets[0].configMapName
+            x-descriptors:
+              - urn:alm:descriptor:io.kubernetes:ConfigMap
+          - description: Name of secret in the local namespace. Specify this or configMapName.
             displayName: Secret Name
             path: trustedCertSecrets[0].secretName
             x-descriptors:

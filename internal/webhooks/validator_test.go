@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"strconv"
 
+	operatorv1beta2 "github.com/cryostatio/cryostat-operator/api/v1beta2"
 	"github.com/cryostatio/cryostat-operator/internal/controllers/model"
 	"github.com/cryostatio/cryostat-operator/internal/test"
 	"github.com/cryostatio/cryostat-operator/internal/webhooks"
@@ -124,6 +125,35 @@ var _ = Describe("CryostatValidator", func() {
 				Expect(err).ToNot(HaveOccurred())
 			})
 		})
+
+		Context("creates a Cryostat with invalid trusted certificate entries", func() {
+			BeforeEach(func() {
+				cr.Spec.TrustedCertSecrets = []operatorv1beta2.CertificateSecret{
+					{},
+				}
+			})
+
+			It("should reject an entry without a secret or config map", func() {
+				err := t.client.Create(ctx, cr.Object)
+				expectErrInvalidTrustedCertEntry(err)
+			})
+		})
+
+		Context("creates a Cryostat with ambiguous trusted certificate entries", func() {
+			BeforeEach(func() {
+				cr.Spec.TrustedCertSecrets = []operatorv1beta2.CertificateSecret{
+					{
+						SecretName:    "test-secret",
+						ConfigMapName: "test-configmap",
+					},
+				}
+			})
+
+			It("should reject an entry with both a secret and config map", func() {
+				err := t.client.Create(ctx, cr.Object)
+				expectErrInvalidTrustedCertEntry(err)
+			})
+		})
 	})
 
 	Context("unauthorized user", func() {
@@ -189,4 +219,10 @@ func expectErrNotPermitted(actual error, op string, namespace string) {
 	expectedErr := webhooks.NewErrNotPermitted(op, namespace)
 	Expect(kerrors.IsForbidden(actual)).To(BeTrue(), "expected Forbidden API error")
 	Expect(actual.Error()).To(ContainSubstring(expectedErr.Error()))
+}
+
+func expectErrInvalidTrustedCertEntry(actual error) {
+	Expect(kerrors.IsInvalid(actual)).To(BeTrue(), "expected Invalid API error")
+	Expect(actual.Error()).To(ContainSubstring("spec.trustedCertSecrets[0]"))
+	Expect(actual.Error()).To(ContainSubstring("exactly one of secretName or configMapName must be specified"))
 }

@@ -11657,19 +11657,32 @@ spec:
                   type: string
                 type: array
               trustedCertSecrets:
-                description: List of TLS certificates to trust when connecting to
-                  targets.
+                description: |-
+                  List of TLS certificates to trust when connecting to targets.
+                  Each entry may reference either a Secret or a ConfigMap in the local namespace.
                 items:
                   properties:
                     certificateKey:
-                      description: Key within secret containing the certificate.
+                      description: Key within secret or config map containing the
+                        certificate or CA bundle.
+                      type: string
+                    configMapName:
+                      description: |-
+                        Name of config map in the local namespace.
+                        Specify this or secretName. On OpenShift, service CA bundles typically use the
+                        default key `service-ca.crt`.
+                      minLength: 1
                       type: string
                     secretName:
-                      description: Name of secret in the local namespace.
+                      description: |-
+                        Name of secret in the local namespace.
+                        Specify this or configMapName.
+                      minLength: 1
                       type: string
-                  required:
-                  - secretName
                   type: object
+                  x-kubernetes-validations:
+                  - message: exactly one of secretName or configMapName must be specified
+                    rule: has(self.secretName) != has(self.configMapName)
                 type: array
             type: object
           status:

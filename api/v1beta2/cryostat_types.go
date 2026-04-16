@@ -33,6 +33,7 @@ type CryostatSpec struct {
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,order=2
 	TargetNamespaces []string `json:"targetNamespaces,omitempty"`
 	// List of TLS certificates to trust when connecting to targets.
+	// Each entry may reference either a Secret or a ConfigMap in the local namespace.
 	// +optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Trusted TLS Certificates"
 	TrustedCertSecrets []CertificateSecret `json:"trustedCertSecrets,omitempty"`
@@ -613,11 +614,26 @@ func init() {
 // if a key is not manually specified.
 const DefaultCertificateKey = corev1.TLSCertKey
 
+// DefaultConfigMapCertificateKey will be used when looking up the certificate within a config map,
+// if a key is not manually specified.
+const DefaultConfigMapCertificateKey = "service-ca.crt"
+
+// +kubebuilder:validation:XValidation:rule="has(self.secretName) != has(self.configMapName)",message="exactly one of secretName or configMapName must be specified"
 type CertificateSecret struct {
 	// Name of secret in the local namespace.
+	// Specify this or configMapName.
+	// +kubebuilder:validation:MinLength=1
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:io.kubernetes:Secret"}
-	SecretName string `json:"secretName"`
-	// Key within secret containing the certificate.
+	// +optional
+	SecretName string `json:"secretName,omitempty"`
+	// Name of config map in the local namespace.
+	// Specify this or secretName. On OpenShift, service CA bundles typically use the
+	// default key `service-ca.crt`.
+	// +kubebuilder:validation:MinLength=1
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:io.kubernetes:ConfigMap"}
+	// +optional
+	ConfigMapName string `json:"configMapName,omitempty"`
+	// Key within secret or config map containing the certificate or CA bundle.
 	// +optional
 	CertificateKey *string `json:"certificateKey,omitempty"`
 }

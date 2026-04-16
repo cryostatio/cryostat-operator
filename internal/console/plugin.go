@@ -28,6 +28,7 @@ import (
 	openshiftoperatorv1 "github.com/openshift/api/operator/v1"
 	appsv1 "k8s.io/api/apps/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
+	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -40,21 +41,23 @@ import (
 )
 
 type PluginInstaller struct {
-	Client    client.Client
-	Namespace string
-	Scheme    *runtime.Scheme
-	Log       logr.Logger
+	Client              client.Client
+	Namespace           string
+	Scheme              *runtime.Scheme
+	Log                 logr.Logger
+	MinOpenShiftVersion string
+	MaxOpenShiftVersion string
 }
 
 // Verify that *PluginInstaller implements manager.Runnable and manager.LeaderElectionRunnable.
 var _ manager.Runnable = (*PluginInstaller)(nil)
 var _ manager.LeaderElectionRunnable = (*PluginInstaller)(nil)
 
-// Minimum OpenShift version that supports the plugin
-const minOpenShiftVersion = "4.15.0"
+// Default minimum OpenShift version that supports the plugin (0.0.0 = accept any version if not set)
+const defaultMinOpenShiftVersion = "0.0.0"
 
-// Maximum OpenShift version that supports the plugin
-const maxOpenShiftVersion = "99.99.0" // Placeholder until needed
+// Default maximum OpenShift version that supports the plugin
+const defaultMaxOpenShiftVersion = "99.99.0"
 
 // Start implements manager.Runnable.
 func (r *PluginInstaller) Start(ctx context.Context) error {
@@ -72,8 +75,8 @@ func (r *PluginInstaller) installConsolePlugin(ctx context.Context) error {
 		return err
 	}
 	if !compat {
-		// Return early if this OpenShift cluster is not compatible
-		return nil
+		// Uninstall plugin if it exists on incompatible cluster
+		return r.uninstallConsolePlugin(ctx)
 	}
 	err = r.createConsolePlugin(ctx)
 	if err != nil {
@@ -222,9 +225,27 @@ func (r *PluginInstaller) findOwner(ctx context.Context) (*rbacv1.ClusterRoleBin
 }
 
 func (r *PluginInstaller) isOpenShiftCompatible(ctx context.Context) (bool, error) {
+	minVersionStr := r.MinOpenShiftVersion
+	if minVersionStr == "" {
+		minVersionStr = defaultMinOpenShiftVersion
+	}
+
+	maxVersionStr := r.MaxOpenShiftVersion
+	if maxVersionStr == "" {
+		maxVersionStr = defaultMaxOpenShiftVersion
+	}
+
 	// Build a semver.Version from the minimum/maximum version
-	minVersion := semver.MustParse(minOpenShiftVersion)
-	maxVersion := semver.MustParse(maxOpenShiftVersion)
+	minVersion, err := semver.Parse(minVersionStr)
+	if err != nil {
+		r.Log.Error(err, "Invalid MIN_OPENSHIFT_VERSION, using default", "value", minVersionStr, "default", defaultMinOpenShiftVersion)
+		minVersion = semver.MustParse(defaultMinOpenShiftVersion)
+	}
+	maxVersion, err := semver.Parse(maxVersionStr)
+	if err != nil {
+		r.Log.Error(err, "Invalid MAX_OPENSHIFT_VERSION, using default", "value", maxVersionStr, "default", defaultMaxOpenShiftVersion)
+		maxVersion = semver.MustParse(defaultMaxOpenShiftVersion)
+	}
 
 	// Look up the cluster's version
 	version, err := r.getOpenShiftVersion(ctx)
@@ -262,4 +283,68 @@ func (r *PluginInstaller) getOpenShiftVersion(ctx context.Context) (*semver.Vers
 	// Parse result back into a semver.Version
 	version := semver.MustParse(trimmedVer)
 	return &version, nil
+}
+
+func (r *PluginInstaller) uninstallConsolePlugin(ctx context.Context) error {
+	r.Log.Info("Uninstalling Console Plugin due to incompatible OpenShift version")
+
+	err := r.unregisterConsolePlugin(ctx)
+	if err != nil {
+		return err
+	}
+
+	err = r.deleteConsolePlugin(ctx)
+	if err != nil {
+		return err
+	}
+
+	r.Log.Info("Console Plugin uninstalled successfully")
+	return nil
+}
+
+func (r *PluginInstaller) unregisterConsolePlugin(ctx context.Context) error {
+	return retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+		console := &openshiftoperatorv1.Console{}
+		err := r.Client.Get(ctx, types.NamespacedName{Name: constants.ConsoleCRName}, console)
+		if err != nil {
+			if kerrors.IsNotFound(err) {
+				return nil
+			}
+			return err
+		}
+
+		idx := slices.Index(console.Spec.Plugins, constants.ConsolePluginName)
+		if idx == -1 {
+			return nil
+		}
+
+		console.Spec.Plugins = slices.Delete(console.Spec.Plugins, idx, idx+1)
+
+		err = r.Client.Update(ctx, console)
+		if err != nil {
+			return err
+		}
+
+		r.Log.Info("Console Plugin unregistered from Console", "name", console.Name)
+		return nil
+	})
+}
+
+func (r *PluginInstaller) deleteConsolePlugin(ctx context.Context) error {
+	plugin := &consolev1.ConsolePlugin{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: constants.ConsolePluginName,
+		},
+	}
+
+	err := r.Client.Delete(ctx, plugin)
+	if err != nil {
+		if kerrors.IsNotFound(err) {
+			return nil
+		}
+		return err
+	}
+
+	r.Log.Info("ConsolePlugin deleted", "name", plugin.Name)
+	return nil
 }
