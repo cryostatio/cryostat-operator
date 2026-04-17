@@ -95,7 +95,7 @@ func (r *deploymentMutator) Default(ctx context.Context, obj runtime.Object) err
 	// Propagate labels that exist. If they don't the pod defaulter will
 	// set default values itself.
 	for label := range deployment.Labels {
-		if strings.HasPrefix(label, "cryostat.io") {
+		if strings.HasPrefix(label, constants.AgentLabelPrefix) {
 			copyLabelIfExists(template, deployment, label)
 		}
 	}
