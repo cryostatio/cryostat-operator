@@ -99,6 +99,18 @@ var _ = Describe("PodDefaulter", func() {
 				Expect(actualTemplate.Labels).To(Equal(expectedDeployment.Spec.Template.Labels))
 				Expect(actualTemplate.Labels["cryostat.io/namespace"]).To(Equal(expectedDeployment.Labels["cryostat.io/namespace"]))
 				Expect(actualTemplate.Labels["cryostat.io/name"]).To(Equal(expectedDeployment.Labels["cryostat.io/name"]))
+				Expect(actualTemplate.Labels["cryostat.io/log-level"]).To(Equal(expectedDeployment.Labels["cryostat.io/log-level"]))
+				Expect(actualTemplate.Labels["cryostat.io/callback-port"]).To(Equal(expectedDeployment.Labels["cryostat.io/callback-port"]))
+				Expect(actualTemplate.Labels["cryostat.io/container"]).To(Equal(expectedDeployment.Labels["cryostat.io/container"]))
+				Expect(actualTemplate.Labels["cryostat.io/read-only"]).To(Equal(expectedDeployment.Labels["cryostat.io/read-only"]))
+				Expect(actualTemplate.Labels["cryostat.io/java-options-var"]).To(Equal(expectedDeployment.Labels["cryostat.io/java-options-var"]))
+				Expect(actualTemplate.Labels["cryostat.io/harvester-template"]).To(Equal(expectedDeployment.Labels["cryostat.io/harvester-template"]))
+				Expect(actualTemplate.Labels["cryostat.io/harvester-max-age"]).To(Equal(expectedDeployment.Labels["cryostat.io/harvester-max-age"]))
+				Expect(actualTemplate.Labels["cryostat.io/harvester-max-size"]).To(Equal(expectedDeployment.Labels["cryostat.io/harvester-max-size"]))
+				Expect(actualTemplate.Labels["cryostat.io/smart-triggers"]).To(Equal(expectedDeployment.Labels["cryostat.io/smart-triggers"]))
+				// Non Agent Autoconfig Labels should not be propagated
+				_, exists := actualTemplate.Labels["other"]
+				Expect(exists).To(Equal(false))
 			})
 		}
 

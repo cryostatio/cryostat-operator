@@ -24,6 +24,7 @@ import (
 	"github.com/cryostatio/cryostat-operator/internal/controllers/constants"
 	"github.com/go-logr/logr"
 	appsv1 "k8s.io/api/apps/v1"
+	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
@@ -66,10 +67,43 @@ func (r *deploymentMutator) Default(ctx context.Context, obj runtime.Object) err
 	}
 
 	template := &deployment.Spec.Template
-	targetCryostat := getCryostatName(deployment.Labels)
-	targetNamespace := getCryostatNamespace(deployment.Labels)
-	template.Labels[constants.AgentLabelCryostatName] = targetCryostat
-	template.Labels[constants.AgentLabelCryostatNamespace] = targetNamespace
+
+	// Sanity check the non-string labels
+	// Callback Port
+	_, err = getAgentCallbackPort(deployment.Labels)
+	if err != nil {
+		return err
+	}
+
+	// Write access
+	_, err = hasWriteAccess(deployment.Labels)
+	if err != nil {
+		return err
+	}
+
+	// Harvester labels
+	_, err = getHarvesterExitMaxAge(deployment.Labels)
+	if err != nil {
+		return err
+	}
+	_, err = getHarvesterExitMaxSize(deployment.Labels)
+	if err != nil {
+		return err
+	}
+
+	// Propagate labels that exist. If they don't the pod defaulter will
+	// set default values itself.
+	copyLabelIfExists(template, deployment, constants.AgentLabelCryostatName)
+	copyLabelIfExists(template, deployment, constants.AgentLabelCryostatNamespace)
+	copyLabelIfExists(template, deployment, constants.AgentLabelLogLevel)
+	copyLabelIfExists(template, deployment, constants.AgentLabelCallbackPort)
+	copyLabelIfExists(template, deployment, constants.AgentLabelReadOnly)
+	copyLabelIfExists(template, deployment, constants.AgentLabelContainer)
+	copyLabelIfExists(template, deployment, constants.AgentLabelJavaOptionsVar)
+	copyLabelIfExists(template, deployment, constants.AgentLabelHarvesterTemplate)
+	copyLabelIfExists(template, deployment, constants.AgentLabelHarvesterExitMaxAge)
+	copyLabelIfExists(template, deployment, constants.AgentLabelHarvesterExitMaxSize)
+	copyLabelIfExists(template, deployment, constants.AgentLabelSmartTriggersConfigMaps)
 
 	// Use GenerateName for logging if no explicit Name is given
 	deploymentName := deployment.Name
@@ -80,20 +114,10 @@ func (r *deploymentMutator) Default(ctx context.Context, obj runtime.Object) err
 	return nil
 }
 
-func getCryostatName(labels map[string]string) string {
-	result := ""
-	value, pres := labels[constants.AgentLabelCryostatName]
-	if pres {
-		result = value
+// Pod defaulter will handle setting default values for missing labels
+func copyLabelIfExists(spec *v1.PodTemplateSpec, deployment *appsv1.Deployment, key string) {
+	_, exists := deployment.Labels[key]
+	if exists {
+		spec.Labels[key] = deployment.Labels[key]
 	}
-	return result
-}
-
-func getCryostatNamespace(labels map[string]string) string {
-	result := ""
-	value, pres := labels[constants.AgentLabelCryostatNamespace]
-	if pres {
-		result = value
-	}
-	return result
 }

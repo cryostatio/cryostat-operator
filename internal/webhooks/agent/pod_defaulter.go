@@ -16,12 +16,9 @@ package agent
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"slices"
 	"strconv"
-	"strings"
-	"time"
 
 	operatorv1beta2 "github.com/cryostatio/cryostat-operator/api/v1beta2"
 	"github.com/cryostatio/cryostat-operator/internal/controllers/common"
@@ -398,127 +395,6 @@ func (r *podMutator) Default(ctx context.Context, obj runtime.Object) error {
 	return nil
 }
 
-func cryostatURL(cr *model.CryostatInstance, tls bool) string {
-	// Build the URL to the agent proxy service
-	scheme := "https"
-	if !tls {
-		scheme = "http"
-	}
-	return fmt.Sprintf("%s://%s.%s.svc:%d", scheme, common.AgentGatewayServiceName(cr), cr.InstallNamespace,
-		getAgentGatewayHTTPPort(cr))
-}
-
-func getAgentGatewayHTTPPort(cr *model.CryostatInstance) int32 {
-	port := constants.AgentProxyContainerPort
-	if cr.Spec.ServiceOptions != nil && cr.Spec.ServiceOptions.AgentGatewayConfig != nil &&
-		cr.Spec.ServiceOptions.AgentGatewayConfig.HTTPPort != nil {
-		port = *cr.Spec.ServiceOptions.AgentGatewayConfig.HTTPPort
-	}
-	return port
-}
-
-func getAgentCallbackPort(labels map[string]string) (*int32, error) {
-	result := constants.AgentCallbackContainerPort
-	port, pres := labels[constants.AgentLabelCallbackPort]
-	if pres {
-		// Parse the label value into an int32 and return an error if invalid
-		parsed, err := strconv.ParseInt(port, 10, 32)
-		if err != nil {
-			return nil, fmt.Errorf("invalid label value for \"%s\": %s", constants.AgentLabelCallbackPort, err.Error())
-		}
-		result = int32(parsed)
-	}
-	return &result, nil
-}
-
-func hasWriteAccess(labels map[string]string) (*bool, error) {
-	// Default to true
-	result := true
-	value, pres := labels[constants.AgentLabelReadOnly]
-	if pres {
-		// Parse the label value into a bool and return an error if invalid
-		parsed, err := strconv.ParseBool(value)
-		if err != nil {
-			return nil, fmt.Errorf("invalid label value for \"%s\": %s", constants.AgentLabelReadOnly, err.Error())
-		}
-		result = !parsed
-	}
-	return &result, nil
-}
-
-func getLogLevel(labels map[string]string) string {
-	result := defaultLogLevel
-	value, pres := labels[constants.AgentLabelLogLevel]
-	if pres {
-		result = value
-	}
-	return result
-}
-
-func getJavaOptionsVar(labels map[string]string) string {
-	result := defaultJavaOptsVar
-	value, pres := labels[constants.AgentLabelJavaOptionsVar]
-	if pres {
-		result = value
-	}
-	return result
-}
-
-func getHarvesterTemplate(labels map[string]string) string {
-	result := ""
-	value, pres := labels[constants.AgentLabelHarvesterTemplate]
-	if pres {
-		result = value
-	}
-	return result
-}
-
-func getSmartTriggersConfigMapNames(labels map[string]string) []string {
-	result := ""
-	value, pres := labels[constants.AgentLabelSmartTriggersConfigMaps]
-	if pres {
-		result = value
-	}
-	return strings.Split(result, ",")
-}
-
-func getHarvesterExitMaxAge(labels map[string]string) (*int32, error) {
-	value := defaultHarvesterExitMaxAge
-	age, pres := labels[constants.AgentLabelHarvesterExitMaxAge]
-	if pres {
-		// Parse the label value into an int32 and return an error if invalid
-		parsed, err := time.ParseDuration(age)
-		if err != nil {
-			return nil, fmt.Errorf("invalid label value for \"%s\": %s", constants.AgentLabelHarvesterExitMaxAge, err.Error())
-		}
-		value = int32(parsed.Milliseconds())
-	}
-	return &value, nil
-}
-
-func getHarvesterExitMaxSize(labels map[string]string) (*int32, error) {
-	value := defaultHarvesterExitMaxSize
-	size, pres := labels[constants.AgentLabelHarvesterExitMaxSize]
-	if pres {
-		parsed, err := resource.ParseQuantity(size)
-		if err != nil {
-			return nil, fmt.Errorf("invalid label value for \"%s\": %s", constants.AgentLabelHarvesterExitMaxSize, err.Error())
-		}
-		value = int32(parsed.Value())
-	}
-	return &value, nil
-}
-
-func getResourceRequirements(cr *model.CryostatInstance) *corev1.ResourceRequirements {
-	resources := &corev1.ResourceRequirements{}
-	if cr.Spec.AgentOptions != nil {
-		resources = cr.Spec.AgentOptions.Resources.DeepCopy()
-	}
-	common.PopulateResourceRequest(resources, agentInitCpuRequest, agentInitMemoryRequest,
-		agentInitCpuLimit, agentInitMemoryLimit)
-	return resources
-}
-
 func (r *podMutator) callbackEnv(cr *model.CryostatInstance, namespace string, tls bool, containerPort int32) []corev1.EnvVar {
 	scheme := "https"
 	if !tls {
@@ -564,29 +440,6 @@ func (r *podMutator) getImageTag() string {
 		r.config.InitImageTag = &agentInitImage
 	}
 	return *r.config.InitImageTag
-}
-
-func getTargetContainer(pod *corev1.Pod) (*corev1.Container, error) {
-	if len(pod.Spec.Containers) == 0 {
-		// Should never happen, Kubernetes doesn't allow this
-		return nil, errors.New("pod has no containers")
-	}
-	label, pres := pod.Labels[constants.AgentLabelContainer]
-	if !pres {
-		// Use the first container by default
-		return &pod.Spec.Containers[0], nil
-	}
-	// Find the container matching the label
-	return findNamedContainer(pod.Spec.Containers, label)
-}
-
-func findNamedContainer(containers []corev1.Container, name string) (*corev1.Container, error) {
-	for i, container := range containers {
-		if container.Name == name {
-			return &containers[i], nil
-		}
-	}
-	return nil, fmt.Errorf("no container found with name \"%s\"", name)
 }
 
 func extendJavaOptsVar(envs []corev1.EnvVar, javaOptsVar string, logLevel string) ([]corev1.EnvVar, error) {
