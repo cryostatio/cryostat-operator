@@ -18,6 +18,7 @@ import (
 	"context"
 	"fmt"
 	"slices"
+	"strings"
 
 	operatorv1beta2 "github.com/cryostatio/cryostat-operator/api/v1beta2"
 	"github.com/cryostatio/cryostat-operator/internal/controllers/common"
@@ -93,17 +94,11 @@ func (r *deploymentMutator) Default(ctx context.Context, obj runtime.Object) err
 
 	// Propagate labels that exist. If they don't the pod defaulter will
 	// set default values itself.
-	copyLabelIfExists(template, deployment, constants.AgentLabelCryostatName)
-	copyLabelIfExists(template, deployment, constants.AgentLabelCryostatNamespace)
-	copyLabelIfExists(template, deployment, constants.AgentLabelLogLevel)
-	copyLabelIfExists(template, deployment, constants.AgentLabelCallbackPort)
-	copyLabelIfExists(template, deployment, constants.AgentLabelReadOnly)
-	copyLabelIfExists(template, deployment, constants.AgentLabelContainer)
-	copyLabelIfExists(template, deployment, constants.AgentLabelJavaOptionsVar)
-	copyLabelIfExists(template, deployment, constants.AgentLabelHarvesterTemplate)
-	copyLabelIfExists(template, deployment, constants.AgentLabelHarvesterExitMaxAge)
-	copyLabelIfExists(template, deployment, constants.AgentLabelHarvesterExitMaxSize)
-	copyLabelIfExists(template, deployment, constants.AgentLabelSmartTriggersConfigMaps)
+	for label := range deployment.Labels {
+		if strings.HasPrefix(label, "cryostat.io") {
+			copyLabelIfExists(template, deployment, label)
+		}
+	}
 
 	// Use GenerateName for logging if no explicit Name is given
 	deploymentName := deployment.Name

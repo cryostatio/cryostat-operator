@@ -39,24 +39,6 @@ func cryostatURL(cr *model.CryostatInstance, tls bool) string {
 		getAgentGatewayHTTPPort(cr))
 }
 
-func getCryostatName(labels map[string]string) string {
-	result := ""
-	value, pres := labels[constants.AgentLabelCryostatName]
-	if pres {
-		result = value
-	}
-	return result
-}
-
-func getCryostatNamespace(labels map[string]string) string {
-	result := ""
-	value, pres := labels[constants.AgentLabelCryostatNamespace]
-	if pres {
-		result = value
-	}
-	return result
-}
-
 func getAgentGatewayHTTPPort(cr *model.CryostatInstance) int32 {
 	port := constants.AgentProxyContainerPort
 	if cr.Spec.ServiceOptions != nil && cr.Spec.ServiceOptions.AgentGatewayConfig != nil &&
