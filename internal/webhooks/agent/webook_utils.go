@@ -140,6 +140,37 @@ func getHarvesterExitMaxSize(labels map[string]string) (*int32, error) {
 	return &value, nil
 }
 
+func getHarvesterPeriod(labels map[string]string) (*int32, error) {
+	period, pres := labels[constants.AgentLabelHarvesterPeriod]
+	if !pres {
+		return nil, nil
+	}
+
+	parsed, err := time.ParseDuration(period)
+	if err != nil {
+		return nil, fmt.Errorf("invalid label value for \"%s\": %s", constants.AgentLabelHarvesterPeriod, err.Error())
+	}
+	value := int32(parsed.Milliseconds())
+	return &value, nil
+}
+
+func getHarvesterMaxFiles(labels map[string]string) (*int32, error) {
+	maxFiles, pres := labels[constants.AgentLabelHarvesterMaxFiles]
+	if !pres {
+		return nil, nil
+	}
+
+	parsed, err := strconv.ParseInt(maxFiles, 10, 32)
+	if err != nil {
+		return nil, fmt.Errorf("invalid label value for \"%s\": %s", constants.AgentLabelHarvesterMaxFiles, err.Error())
+	}
+	if parsed <= 0 {
+		return nil, fmt.Errorf("invalid label value for \"%s\": must be positive", constants.AgentLabelHarvesterMaxFiles)
+	}
+	value := int32(parsed)
+	return &value, nil
+}
+
 func getResourceRequirements(cr *model.CryostatInstance) *corev1.ResourceRequirements {
 	resources := &corev1.ResourceRequirements{}
 	if cr.Spec.AgentOptions != nil {

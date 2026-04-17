@@ -117,6 +117,14 @@ func (r *podMutator) Default(ctx context.Context, obj runtime.Object) error {
 	}
 
 	harvesterTemplate := getHarvesterTemplate(pod.Labels)
+	harvesterPeriod, err := getHarvesterPeriod(pod.Labels)
+	if err != nil {
+		return err
+	}
+	harvesterMaxFiles, err := getHarvesterMaxFiles(pod.Labels)
+	if err != nil {
+		return err
+	}
 	harvesterExitMaxAge, err := getHarvesterExitMaxAge(pod.Labels)
 	if err != nil {
 		return err
@@ -260,6 +268,27 @@ func (r *podMutator) Default(ctx context.Context, obj runtime.Object) error {
 				Name:  "CRYOSTAT_AGENT_HARVESTER_TEMPLATE",
 				Value: harvesterTemplate,
 			},
+		)
+
+		if harvesterPeriod != nil {
+			container.Env = append(container.Env,
+				corev1.EnvVar{
+					Name:  "CRYOSTAT_AGENT_HARVESTER_PERIOD_MS",
+					Value: strconv.Itoa(int(*harvesterPeriod)),
+				},
+			)
+		}
+
+		if harvesterMaxFiles != nil {
+			container.Env = append(container.Env,
+				corev1.EnvVar{
+					Name:  "CRYOSTAT_AGENT_HARVESTER_MAX_FILES",
+					Value: strconv.Itoa(int(*harvesterMaxFiles)),
+				},
+			)
+		}
+
+		container.Env = append(container.Env,
 			corev1.EnvVar{
 				Name:  "CRYOSTAT_AGENT_HARVESTER_EXIT_MAX_AGE_MS",
 				Value: strconv.Itoa(int(*harvesterExitMaxAge)),
