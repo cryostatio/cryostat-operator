@@ -108,8 +108,10 @@ func main() {
 	flag.StringVar(&metricsCertKey, "metrics-cert-key", "tls.key", "The name of the metrics server key file.")
 	flag.BoolVar(&enableHTTP2, "enable-http2", false,
 		"If set, HTTP/2 will be enabled for the metrics and webhook servers")
-	flag.BoolVar(&forceOpenShift, "force-openshift", false, "Force the controller to consider current platform as OpenShift")
-	flag.BoolVar(&consolePlugin, "openshift-console-plugin", false, "Whether the operator should install the OpenShift Console Plugin")
+	flag.BoolVar(&forceOpenShift, "force-openshift", false,
+		"Force the controller to consider current platform as OpenShift")
+	flag.BoolVar(&consolePlugin, "openshift-console-plugin", false,
+		"Whether the operator should install the OpenShift Console Plugin")
 
 	opts := zap.Options{
 		Development: true,

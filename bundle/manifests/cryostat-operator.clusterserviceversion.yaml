@@ -25,7 +25,7 @@ metadata:
     capabilities: Seamless Upgrades
     categories: Monitoring, Developer Tools
     containerImage: quay.io/cryostat/cryostat-operator:4.2.0-dev
-    createdAt: "2026-04-21T14:14:46Z"
+    createdAt: "2026-04-23T23:25:39Z"
     description: JVM monitoring and profiling tool
     operatorframework.io/initialization-resource: |-
       {
@@ -713,7 +713,7 @@ spec:
             path: storageOptions.database.pvc.labels
           - description: |-
               Spec for a Persistent Volume Claim, whose options will override the
-              defaults used by the operator. Unless overriden, the PVC will be
+              defaults used by the operator. Unless overridden, the PVC will be
               created with the default Storage Class and 500MiB of storage.
               Once the operator has created the PVC, changes to this field have
               no effect.
@@ -778,7 +778,7 @@ spec:
             path: storageOptions.objectStorage.pvc.labels
           - description: |-
               Spec for a Persistent Volume Claim, whose options will override the
-              defaults used by the operator. Unless overriden, the PVC will be
+              defaults used by the operator. Unless overridden, the PVC will be
               created with the default Storage Class and 500MiB of storage.
               Once the operator has created the PVC, changes to this field have
               no effect.
@@ -802,7 +802,7 @@ spec:
             path: storageOptions.pvc.labels
           - description: |-
               Spec for a Persistent Volume Claim, whose options will override the
-              defaults used by the operator. Unless overriden, the PVC will be
+              defaults used by the operator. Unless overridden, the PVC will be
               created with the default Storage Class and 500MiB of storage.
               Once the operator has created the PVC, changes to this field have
               no effect.
@@ -1253,7 +1253,7 @@ spec:
             path: storageOptions.pvc
           - description: |-
               Spec for a Persistent Volume Claim, whose options will override the
-              defaults used by the operator. Unless overriden, the PVC will be
+              defaults used by the operator. Unless overridden, the PVC will be
               created with the default Storage Class and 500MiB of storage.
               Once the operator has created the PVC, changes to this field have
               no effect.

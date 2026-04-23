@@ -37,8 +37,11 @@ const (
 	LoopbackAddress            string = "127.0.0.1"
 	OperatorNamePrefix         string = "cryostat-operator-"
 	OperatorDeploymentName     string = "cryostat-operator-controller"
-	HttpPortName               string = "http"
-	HttpsPortName              string = "https"
+	HttpScheme                 string = "http"
+	HttpPortName               string = HttpScheme
+	HttpsScheme                string = "https"
+	HttpsPortName              string = HttpsScheme
+	LabelAppName               string = "cryostat"
 	// CAKey is the key for a CA certificate within a TLS secret
 	CAKey = certMeta.TLSCAKey
 	// ALL capability to drop for restricted pod security. See:
@@ -49,7 +52,7 @@ const (
 	DatabaseSecretConnectionKey = "CONNECTION_KEY"
 	// DatabaseSecretEncryptionKey indexes the database encryption key within the Cryostat database Secret
 	DatabaseSecretEncryptionKey = "ENCRYPTION_KEY"
-	//KeyStoreFile indexes the keystore file within the Cryostat keystore Secret
+	// KeyStoreFile indexes the keystore file within the Cryostat keystore Secret
 	KeyStoreFile = "keystore.p12"
 	// KeystorePassSecretKey indexes the keystore password within the Cryostat keystore Secret
 	KeystorePassSecretKey = "KEYSTORE_PASS"

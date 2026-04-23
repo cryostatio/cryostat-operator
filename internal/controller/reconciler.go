@@ -174,33 +174,7 @@ func (r *Reconciler) reconcileCryostat(ctx context.Context, cr *model.CryostatIn
 	// Check if this Cryostat is being deleted
 	if cr.Object.GetDeletionTimestamp() != nil {
 		if controllerutil.ContainsFinalizer(cr.Object, cryostatFinalizer) {
-			// Perform finalizer logic related to RBAC objects
-			err := r.finalizeRBAC(ctx, cr)
-			if err != nil {
-				return reconcile.Result{}, err
-			}
-
-			// OpenShift-specific
-			err = r.finalizeOpenShift(ctx, cr)
-			if err != nil {
-				return reconcile.Result{}, err
-			}
-
-			// Delete headless services in target namespaces
-			err = r.finalizeAgentCallbackServices(ctx, cr)
-			if err != nil {
-				return reconcile.Result{}, err
-			}
-
-			// Finalizer for certificates and associated secrets
-			if r.IsCertManagerEnabled(cr) {
-				err = r.finalizeTLS(ctx, cr)
-				if err != nil {
-					return reconcile.Result{}, err
-				}
-			}
-
-			err = common.RemoveFinalizer(ctx, r.Client, cr.Object, cryostatFinalizer)
+			err := r.finalizeCryostat(ctx, cr)
 			if err != nil {
 				return reconcile.Result{}, err
 			}
@@ -235,38 +209,14 @@ func (r *Reconciler) reconcileCryostat(ctx context.Context, cr *model.CryostatIn
 	}
 
 	// Set up TLS using cert-manager, if available
-	var tlsConfig *resources.TLSConfig
-
-	if r.IsCertManagerEnabled(cr) {
-		tlsConfig, err = r.setupTLS(ctx, cr)
-		if err != nil {
-			if err == common.ErrCertNotReady {
-				condErr := r.updateCondition(ctx, cr, operatorv1beta2.ConditionTypeTLSSetupComplete, metav1.ConditionFalse,
-					reasonWaitingForCert, "Waiting for certificates to become ready.")
-				if condErr != nil {
-					return reconcile.Result{}, err
-				}
-				return reconcile.Result{RequeueAfter: 5 * time.Second}, nil
-			}
-			if err == errCertManagerMissing {
-				r.updateCondition(ctx, cr, operatorv1beta2.ConditionTypeTLSSetupComplete, metav1.ConditionFalse,
-					reasonCertManagerUnavailable, eventCertManagerUnavailableMsg)
-			}
-			reqLogger.Error(err, "Failed to set up TLS for Cryostat")
-			return reconcile.Result{}, err
+	tlsConfig, err := r.configureTLS(ctx, cr)
+	if err != nil {
+		if err == common.ErrCertNotReady {
+			// Not an error condition, just retry
+			return reconcile.Result{RequeueAfter: 5 * time.Second}, nil
 		}
-
-		err = r.updateCondition(ctx, cr, operatorv1beta2.ConditionTypeTLSSetupComplete, metav1.ConditionTrue,
-			reasonAllCertsReady, "All certificates for Cryostat components are ready.")
-		if err != nil {
-			return reconcile.Result{}, err
-		}
-	} else {
-		err = r.updateCondition(ctx, cr, operatorv1beta2.ConditionTypeTLSSetupComplete, metav1.ConditionTrue,
-			reasonCertManagerDisabled, "TLS setup has been disabled.")
-		if err != nil {
-			return reconcile.Result{}, err
-		}
+		reqLogger.Error(err, "Failed to set up TLS for Cryostat")
+		return reconcile.Result{}, err
 	}
 
 	err = r.reconcileOAuth2ProxyConfig(ctx, cr, tlsConfig)
@@ -283,7 +233,7 @@ func (r *Reconciler) reconcileCryostat(ctx context.Context, cr *model.CryostatIn
 	}
 	err = r.reconcileCoreService(ctx, cr, tlsConfig, serviceSpecs)
 	if err != nil {
-		return requeueIfIngressNotReady(reqLogger, err)
+		return requeueIfIngressNotReady(err)
 	}
 	err = r.reconcileCoreNetworkPolicy(ctx, cr)
 	if err != nil {
@@ -304,19 +254,19 @@ func (r *Reconciler) reconcileCryostat(ctx context.Context, cr *model.CryostatIn
 		return reconcile.Result{}, err
 	}
 
-	databaseResult, err := r.reconcileDatabase(ctx, reqLogger, cr, tlsConfig, imageTags, serviceSpecs, *fsGroup)
+	err = r.reconcileDatabase(ctx, reqLogger, cr, tlsConfig, imageTags, serviceSpecs, *fsGroup)
 	if err != nil {
-		return databaseResult, err
+		return reconcile.Result{}, err
 	}
 
-	storageResult, err := r.reconcileStorage(ctx, reqLogger, cr, tlsConfig, imageTags, serviceSpecs, *fsGroup)
+	err = r.reconcileStorage(ctx, reqLogger, cr, tlsConfig, imageTags, serviceSpecs, *fsGroup)
 	if err != nil {
-		return storageResult, err
+		return reconcile.Result{}, err
 	}
 
-	reportsResult, err := r.reconcileReports(ctx, reqLogger, cr, tlsConfig, imageTags, serviceSpecs)
+	err = r.reconcileReports(ctx, reqLogger, cr, tlsConfig, imageTags, serviceSpecs)
 	if err != nil {
-		return reportsResult, err
+		return reconcile.Result{}, err
 	}
 
 	deployment, err := resources.NewDeploymentForCR(cr, serviceSpecs, imageTags, tlsConfig, *fsGroup, r.IsOpenShift)
@@ -333,7 +283,7 @@ func (r *Reconciler) reconcileCryostat(ctx context.Context, cr *model.CryostatIn
 		cr.Status.ApplicationURL = serviceSpecs.CoreURL.String()
 	}
 	*cr.TargetNamespaceStatus = cr.TargetNamespaces
-	err = r.Client.Status().Update(ctx, cr.Object)
+	err = r.Status().Update(ctx, cr.Object)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
@@ -359,18 +309,18 @@ func (r *Reconciler) setupWithManager(c common.ControllerBuilder, impl reconcile
 	c = c.For(r.objectType)
 
 	// Watch for changes to secondary resources and requeue the owner Cryostat
-	resources := []client.Object{&appsv1.Deployment{}, &corev1.Service{}, &corev1.ConfigMap{}, &corev1.Secret{},
+	objTypes := []client.Object{&appsv1.Deployment{}, &corev1.Service{}, &corev1.ConfigMap{}, &corev1.Secret{},
 		&corev1.PersistentVolumeClaim{}, &corev1.ServiceAccount{}, &rbacv1.Role{}, &rbacv1.RoleBinding{}, &netv1.Ingress{}}
 	if r.IsOpenShift {
-		resources = append(resources, &openshiftv1.Route{})
+		objTypes = append(objTypes, &openshiftv1.Route{})
 	}
 	// Can only check this at startup
 	if r.IsCertManagerInstalled {
-		resources = append(resources, &certv1.Issuer{}, &certv1.Certificate{})
+		objTypes = append(objTypes, &certv1.Issuer{}, &certv1.Certificate{})
 	}
 
-	for _, resource := range resources {
-		c = c.Owns(resource)
+	for _, objType := range objTypes {
+		c = c.Owns(objType)
 	}
 
 	// Watch objects that we create in target namespaces
@@ -382,8 +332,81 @@ func (r *Reconciler) setupWithManager(c common.ControllerBuilder, impl reconcile
 	return c.Complete(impl)
 }
 
+func (r *Reconciler) finalizeCryostat(ctx context.Context, cr *model.CryostatInstance) error {
+	// Perform finalizer logic related to RBAC objects
+	err := r.finalizeRBAC(ctx, cr)
+	if err != nil {
+		return err
+	}
+
+	// OpenShift-specific
+	err = r.finalizeOpenShift(ctx, cr)
+	if err != nil {
+		return err
+	}
+
+	// Delete headless services in target namespaces
+	err = r.finalizeAgentCallbackServices(ctx, cr)
+	if err != nil {
+		return err
+	}
+
+	// Finalizer for certificates and associated secrets
+	if r.IsCertManagerEnabled(cr) {
+		err = r.finalizeTLS(ctx, cr)
+		if err != nil {
+			return err
+		}
+	}
+
+	err = common.RemoveFinalizer(ctx, r.Client, cr.Object, cryostatFinalizer)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (r *Reconciler) configureTLS(ctx context.Context, cr *model.CryostatInstance) (*resources.TLSConfig, error) {
+	var tlsConfig *resources.TLSConfig
+	var err error
+	if r.IsCertManagerEnabled(cr) {
+		tlsConfig, err = r.setupTLS(ctx, cr)
+		if err != nil {
+			if err == common.ErrCertNotReady {
+				condErr := r.updateCondition(ctx, cr, operatorv1beta2.ConditionTypeTLSSetupComplete, metav1.ConditionFalse,
+					reasonWaitingForCert, "Waiting for certificates to become ready.")
+				if condErr != nil {
+					return nil, err
+				}
+
+			}
+			if err == errCertManagerMissing {
+				condErr := r.updateCondition(ctx, cr, operatorv1beta2.ConditionTypeTLSSetupComplete, metav1.ConditionFalse,
+					reasonCertManagerUnavailable, eventCertManagerUnavailableMsg)
+				if condErr != nil {
+					return nil, condErr
+				}
+			}
+			return nil, err
+		}
+
+		err = r.updateCondition(ctx, cr, operatorv1beta2.ConditionTypeTLSSetupComplete, metav1.ConditionTrue,
+			reasonAllCertsReady, "All certificates for Cryostat components are ready.")
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		err = r.updateCondition(ctx, cr, operatorv1beta2.ConditionTypeTLSSetupComplete, metav1.ConditionTrue,
+			reasonCertManagerDisabled, "TLS setup has been disabled.")
+		if err != nil {
+			return nil, err
+		}
+	}
+	return tlsConfig, err
+}
+
 func (r *Reconciler) reconcileReports(ctx context.Context, reqLogger logr.Logger, cr *model.CryostatInstance,
-	tls *resources.TLSConfig, imageTags *resources.ImageTags, serviceSpecs *resources.ServiceSpecs) (reconcile.Result, error) {
+	tls *resources.TLSConfig, imageTags *resources.ImageTags, serviceSpecs *resources.ServiceSpecs) error {
 	reqLogger.Info("Spec", "Reports", cr.Spec.ReportOptions)
 
 	desired := int32(0)
@@ -393,123 +416,126 @@ func (r *Reconciler) reconcileReports(ctx context.Context, reqLogger logr.Logger
 
 	err := r.reconcileReportsService(ctx, cr, tls, serviceSpecs)
 	if err != nil {
-		return reconcile.Result{}, err
+		return err
 	}
 	err = r.reconcileReportsNetworkPolicy(ctx, cr)
 	if err != nil {
-		return reconcile.Result{}, err
+		return err
 	}
 	deployment := resources.NewDeploymentForReports(cr, imageTags, serviceSpecs, tls, r.IsOpenShift)
 	if desired == 0 {
-		if err := r.Client.Delete(ctx, deployment); err != nil && !kerrors.IsNotFound(err) {
-			return reconcile.Result{}, err
+		if err := r.Delete(ctx, deployment); err != nil && !kerrors.IsNotFound(err) {
+			return err
 		}
 
 		removeConditionIfPresent(cr, operatorv1beta2.ConditionTypeReportsDeploymentAvailable,
 			operatorv1beta2.ConditionTypeReportsDeploymentProgressing,
 			operatorv1beta2.ConditionTypeReportsDeploymentReplicaFailure)
-		err := r.Client.Status().Update(ctx, cr.Object)
+		err := r.Status().Update(ctx, cr.Object)
 		if err != nil {
-			return reconcile.Result{}, err
+			return err
 		}
-		return reconcile.Result{}, nil
+		return nil
 	}
 
 	if desired > 0 {
 		err = r.createOrUpdateDeployment(ctx, deployment, cr.Object)
 		if err != nil {
-			return reconcile.Result{}, err
+			return err
 		}
 
 		// Check deployment status and update conditions
 		err = r.updateConditionsFromDeployment(ctx, cr, types.NamespacedName{Name: deployment.Name, Namespace: deployment.Namespace},
 			reportsDeploymentConditions)
 		if err != nil {
-			return reconcile.Result{}, err
+			return err
 		}
 	}
-	return reconcile.Result{}, nil
+	return nil
 }
 
-func (r *Reconciler) reconcileDatabase(ctx context.Context, reqLogger logr.Logger, cr *model.CryostatInstance, tls *resources.TLSConfig, imageTags *resources.ImageTags, serviceSpecs *resources.ServiceSpecs, fsGroup int64) (reconcile.Result, error) {
+func (r *Reconciler) reconcileDatabase(ctx context.Context, reqLogger logr.Logger, cr *model.CryostatInstance, tls *resources.TLSConfig, imageTags *resources.ImageTags, serviceSpecs *resources.ServiceSpecs, fsGroup int64) error {
 	reqLogger.Info("Spec", "Database", cr.Spec.DatabaseOptions)
 
 	err := r.reconcileDatabasePVC(ctx, cr)
 	if err != nil {
-		return reconcile.Result{}, err
+		return err
 	}
-	err = r.reconcileDatabaseService(ctx, cr, tls, serviceSpecs)
+	err = r.reconcileDatabaseService(ctx, cr, serviceSpecs)
 	if err != nil {
-		return reconcile.Result{}, err
+		return err
 	}
 	err = r.reconcileDatabaseNetworkPolicy(ctx, cr)
 	if err != nil {
-		return reconcile.Result{}, err
+		return err
 	}
 	deployment := resources.NewDeploymentForDatabase(cr, imageTags, tls, r.IsOpenShift, fsGroup)
 
 	err = r.createOrUpdateDeployment(ctx, deployment, cr.Object)
 	if err != nil {
-		return reconcile.Result{}, err
+		return err
 	}
 
 	// Check deployment status and update conditions
 	err = r.updateConditionsFromDeployment(ctx, cr, types.NamespacedName{Name: deployment.Name, Namespace: deployment.Namespace},
 		databaseDeploymentConditions)
 	if err != nil {
-		return reconcile.Result{}, err
+		return err
 	}
-	return reconcile.Result{}, nil
+	return nil
 }
 
 func (r *Reconciler) reconcileStorage(ctx context.Context, reqLogger logr.Logger, cr *model.CryostatInstance, tls *resources.TLSConfig,
-	imageTags *resources.ImageTags, serviceSpecs *resources.ServiceSpecs, fsGroup int64) (reconcile.Result, error) {
+	imageTags *resources.ImageTags, serviceSpecs *resources.ServiceSpecs, fsGroup int64) error {
 	reqLogger.Info("Spec", "Storage", cr.Spec.StorageOptions)
 
 	err := r.reconcileStoragePVC(ctx, cr)
 	if err != nil {
-		return reconcile.Result{}, err
+		return err
 	}
 	err = r.reconcileStorageService(ctx, cr, tls, serviceSpecs)
 	if err != nil {
-		return reconcile.Result{}, err
+		return err
 	}
 
 	err = r.reconcileStorageNetworkPolicy(ctx, cr)
 	if err != nil {
-		return reconcile.Result{}, err
+		return err
 	}
 
 	deployment := resources.NewDeploymentForStorage(cr, imageTags, tls, r.IsOpenShift, fsGroup)
 	deployManagedStorage := resources.DeployManagedStorage(cr)
 	if !deployManagedStorage {
 		serviceSpecs.StorageURL, err = url.Parse(*cr.Spec.ObjectStorageOptions.Provider.URL)
-		if err := r.Client.Delete(ctx, deployment); err != nil && !kerrors.IsNotFound(err) {
-			return reconcile.Result{}, err
+		if err != nil {
+			return err
+		}
+		if err := r.Delete(ctx, deployment); err != nil && !kerrors.IsNotFound(err) {
+			return err
 		}
 
 		removeConditionIfPresent(cr, operatorv1beta2.ConditionTypeStorageDeploymentAvailable,
 			operatorv1beta2.ConditionTypeStorageDeploymentProgressing,
 			operatorv1beta2.ConditionTypeStorageDeploymentReplicaFailure)
-		err := r.Client.Status().Update(ctx, cr.Object)
+		err := r.Status().Update(ctx, cr.Object)
 		if err != nil {
-			return reconcile.Result{}, err
+			return err
 		}
-		return reconcile.Result{}, nil
+		return nil
 	}
 
 	err = r.createOrUpdateDeployment(ctx, deployment, cr.Object)
 	if err != nil {
-		return reconcile.Result{}, err
+		return err
 	}
 
 	// Check deployment status and update conditions
 	err = r.updateConditionsFromDeployment(ctx, cr, types.NamespacedName{Name: deployment.Name, Namespace: deployment.Namespace},
 		storageDeploymentConditions)
 	if err != nil {
-		return reconcile.Result{}, err
+		return err
 	}
-	return reconcile.Result{}, nil
+	return nil
 }
 
 func (r *Reconciler) getImageTags() *resources.ImageTags {
@@ -533,7 +559,7 @@ func (r *Reconciler) getFSGroup(ctx context.Context, namespace string) (*int64, 
 	if r.IsOpenShift {
 		// Check namespace for supplemental groups annotation
 		ns := &corev1.Namespace{}
-		err := r.Client.Get(ctx, types.NamespacedName{Name: namespace}, ns)
+		err := r.Get(ctx, types.NamespacedName{Name: namespace}, ns)
 		if err != nil {
 			return nil, err
 		}
@@ -562,7 +588,7 @@ func parseSupGroups(supGroups string) (*int64, error) {
 }
 
 func (r *Reconciler) updateCondition(ctx context.Context, cr *model.CryostatInstance,
-	condType operatorv1beta2.CryostatConditionType, status metav1.ConditionStatus, reason string, message string) error {
+	condType operatorv1beta2.CryostatConditionType, status metav1.ConditionStatus, reason string, message string) error { // nolint:unparam
 	reqLogger := r.Log.WithValues("Request.Namespace", cr.InstallNamespace, "Request.Name", cr.Name)
 	meta.SetStatusCondition(&cr.Status.Conditions, metav1.Condition{
 		Type:    string(condType),
@@ -570,7 +596,7 @@ func (r *Reconciler) updateCondition(ctx context.Context, cr *model.CryostatInst
 		Reason:  reason,
 		Message: message,
 	})
-	err := r.Client.Status().Update(ctx, cr.Object)
+	err := r.Status().Update(ctx, cr.Object)
 	if err != nil {
 		reqLogger.Error(err, "failed to update condition", "type", condType)
 	}
@@ -583,7 +609,7 @@ func (r *Reconciler) updateConditionsFromDeployment(ctx context.Context, cr *mod
 
 	// Get deployment's latest conditions
 	deploy := &appsv1.Deployment{}
-	err := r.Client.Get(ctx, types.NamespacedName{Name: deployKey.Name, Namespace: deployKey.Namespace}, deploy)
+	err := r.Get(ctx, types.NamespacedName{Name: deployKey.Name, Namespace: deployKey.Namespace}, deploy)
 	if err != nil {
 		return err
 	}
@@ -602,7 +628,7 @@ func (r *Reconciler) updateConditionsFromDeployment(ctx context.Context, cr *mod
 			})
 		}
 	}
-	err = r.Client.Status().Update(ctx, cr.Object)
+	err = r.Status().Update(ctx, cr.Object)
 	if err != nil {
 		reqLogger.Error(err, "failed to update conditions for deployment", "deployment", deploy.Name)
 	}
@@ -665,7 +691,7 @@ func (r *Reconciler) recreateDeployment(ctx context.Context, deploy *appsv1.Depl
 }
 
 func (r *Reconciler) deleteDeployment(ctx context.Context, deploy *appsv1.Deployment) error {
-	err := r.Client.Delete(ctx, deploy)
+	err := r.Delete(ctx, deploy)
 	if err != nil && !kerrors.IsNotFound(err) {
 		r.Log.Error(err, "Could not delete deployment", "name", deploy.Name, "namespace", deploy.Namespace)
 		return err
@@ -675,7 +701,7 @@ func (r *Reconciler) deleteDeployment(ctx context.Context, deploy *appsv1.Deploy
 }
 
 func (r *Reconciler) watchTargetNamespaces(c common.ControllerBuilder,
-	resources ...client.Object) (common.ControllerBuilder, error) {
+	objTypes ...client.Object) (common.ControllerBuilder, error) {
 	// Create a controller watch for resources we create in target namespaces.
 	// The watch filters objects for those that have our labels that identify their CR,
 	// and then enqueues that CR.
@@ -683,8 +709,8 @@ func (r *Reconciler) watchTargetNamespaces(c common.ControllerBuilder,
 	if err != nil {
 		return nil, err
 	}
-	for _, resource := range resources {
-		c = c.Watches(resource, c.EnqueueRequestsFromMapFunc(r.mapFromTargetNamespace()),
+	for _, objType := range objTypes {
+		c = c.Watches(objType, c.EnqueueRequestsFromMapFunc(r.mapFromTargetNamespace()),
 			c.WithPredicates(pred))
 	}
 	return c, nil
@@ -732,7 +758,7 @@ func (r *Reconciler) mapFromTargetNamespace() func(ctx context.Context, obj clie
 	}
 }
 
-func requeueIfIngressNotReady(log logr.Logger, err error) (reconcile.Result, error) {
+func requeueIfIngressNotReady(err error) (reconcile.Result, error) {
 	if err == ErrIngressNotReady {
 		return reconcile.Result{RequeueAfter: 5 * time.Second}, nil
 	}

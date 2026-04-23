@@ -152,10 +152,8 @@ func (r *Reconciler) reconcileCoreNetworkPolicy(ctx context.Context, cr *model.C
 			egressNamespaces = append(egressNamespaces, "openshift")
 		}
 
-		for _, ns := range cr.TargetNamespaces {
-			// allow outgoing connections to Pods in the TargetNamespaces
-			egressNamespaces = append(egressNamespaces, ns)
-		}
+		// allow outgoing connections to Pods in the TargetNamespaces
+		egressNamespaces = append(egressNamespaces, cr.TargetNamespaces...)
 
 		slices.Sort(egressNamespaces)
 		egressDestinations = append(egressDestinations, networkingv1.NetworkPolicyPeer{
@@ -170,7 +168,7 @@ func (r *Reconciler) reconcileCoreNetworkPolicy(ctx context.Context, cr *model.C
 			},
 		})
 		k8sApiEndpoint := discoveryv1.EndpointSlice{}
-		err = r.Client.Get(ctx, types.NamespacedName{Namespace: "default", Name: "kubernetes"}, &k8sApiEndpoint)
+		err = r.Get(ctx, types.NamespacedName{Namespace: "default", Name: "kubernetes"}, &k8sApiEndpoint)
 		if err != nil {
 			return err
 		}
@@ -358,7 +356,7 @@ func (r *Reconciler) createOrUpdatePolicy(ctx context.Context, networkPolicy *ne
 }
 
 func (r *Reconciler) deletePolicy(ctx context.Context, networkPolicy *networkingv1.NetworkPolicy) error {
-	err := r.Client.Delete(ctx, networkPolicy)
+	err := r.Delete(ctx, networkPolicy)
 	if err != nil && !errors.IsNotFound(err) {
 		r.Log.Error(err, "Could not delete network policy", "name", networkPolicy.Name, "namespace", networkPolicy.Namespace)
 		return err

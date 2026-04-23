@@ -44,12 +44,12 @@ func (r *Reconciler) reconcileCoreIngress(ctx context.Context, cr *model.Cryosta
 		return r.deleteIngress(ctx, ingress)
 	}
 	coreConfig := configureCoreIngress(cr)
-	url, err := r.reconcileIngress(ctx, ingress, cr, coreConfig)
+	ingressURL, err := r.reconcileIngress(ctx, ingress, cr, coreConfig)
 	if err != nil {
 		return err
 	}
-	specs.AuthProxyURL = url
-	specs.CoreURL = url
+	specs.AuthProxyURL = ingressURL
+	specs.CoreURL = ingressURL
 	return nil
 }
 
@@ -122,7 +122,7 @@ func configureIngress(config *operatorv1beta2.NetworkConfiguration, appLabel str
 }
 
 func (r *Reconciler) deleteIngress(ctx context.Context, ingress *netv1.Ingress) error {
-	err := r.Client.Delete(ctx, ingress)
+	err := r.Delete(ctx, ingress)
 	if err != nil && !errors.IsNotFound(err) {
 		r.Log.Error(err, "Could not delete ingress", "name", ingress.Name, "namespace", ingress.Namespace)
 		return err

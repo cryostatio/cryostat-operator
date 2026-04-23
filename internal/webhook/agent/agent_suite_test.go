@@ -32,7 +32,7 @@ import (
 	webhook "github.com/cryostatio/cryostat-operator/internal/webhook/v1beta2"
 	admissionv1beta1 "k8s.io/api/admission/v1beta1"
 
-	//+kubebuilder:scaffold:imports
+	// +kubebuilder:scaffold:imports
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
@@ -91,7 +91,7 @@ var _ = BeforeSuite(func() {
 	err = admissionv1beta1.AddToScheme(k8sScheme)
 	Expect(err).NotTo(HaveOccurred())
 
-	//+kubebuilder:scaffold:scheme
+	// +kubebuilder:scaffold:scheme
 
 	k8sClient, err = client.New(cfg, client.Options{Scheme: k8sScheme})
 	Expect(err).NotTo(HaveOccurred())
@@ -121,7 +121,7 @@ var _ = BeforeSuite(func() {
 	err = agentWebhook.SetupWebhookWithManager(mgr)
 	Expect(err).NotTo(HaveOccurred())
 
-	//+kubebuilder:scaffold:webhook
+	// +kubebuilder:scaffold:webhook
 
 	go func() {
 		defer GinkgoRecover()
@@ -137,8 +137,8 @@ var _ = BeforeSuite(func() {
 		if err != nil {
 			return err
 		}
-		conn.Close()
-		return nil
+
+		return conn.Close()
 	}).Should(Succeed())
 
 })

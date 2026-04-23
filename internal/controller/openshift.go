@@ -96,7 +96,7 @@ func (r *Reconciler) reconcileConsoleLink(ctx context.Context, cr *model.Cryosta
 }
 
 func (r *Reconciler) deleteConsoleLink(ctx context.Context, link *consolev1.ConsoleLink, logger logr.Logger) error {
-	err := r.Client.Delete(ctx, link)
+	err := r.Delete(ctx, link)
 	if err != nil {
 		if kerrors.IsNotFound(err) {
 			logger.Info("ConsoleLink not found, proceeding with deletion", "name", link.Name)
@@ -119,7 +119,7 @@ func (r *Reconciler) deleteCorsAllowedOrigins(ctx context.Context, cr *model.Cry
 	}
 
 	apiServer := &configv1.APIServer{}
-	err := r.Client.Get(ctx, types.NamespacedName{Name: apiServerName}, apiServer)
+	err := r.Get(ctx, types.NamespacedName{Name: apiServerName}, apiServer)
 	if err != nil {
 		reqLogger.Error(err, "Failed to get APIServer config")
 		return err
@@ -132,7 +132,7 @@ func (r *Reconciler) deleteCorsAllowedOrigins(ctx context.Context, cr *model.Cry
 			apiServer.Spec.AdditionalCORSAllowedOrigins = append(
 				apiServer.Spec.AdditionalCORSAllowedOrigins[:i],
 				apiServer.Spec.AdditionalCORSAllowedOrigins[i+1:]...)
-			err = r.Client.Update(ctx, apiServer)
+			err = r.Update(ctx, apiServer)
 			if err != nil {
 				reqLogger.Error(err, "Failed to remove Cryostat origin from APIServer CORS allowed origins")
 				return err

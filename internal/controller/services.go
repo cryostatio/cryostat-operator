@@ -22,7 +22,6 @@ import (
 
 	operatorv1beta2 "github.com/cryostatio/cryostat-operator/api/v1beta2"
 	common "github.com/cryostatio/cryostat-operator/internal/controller/common"
-	"github.com/cryostatio/cryostat-operator/internal/controller/common/resource_definitions"
 	resources "github.com/cryostatio/cryostat-operator/internal/controller/common/resource_definitions"
 	"github.com/cryostatio/cryostat-operator/internal/controller/constants"
 	"github.com/cryostatio/cryostat-operator/internal/controller/model"
@@ -34,7 +33,7 @@ import (
 )
 
 func (r *Reconciler) reconcileCoreService(ctx context.Context, cr *model.CryostatInstance,
-	tls *resource_definitions.TLSConfig, specs *resource_definitions.ServiceSpecs) error {
+	tls *resources.TLSConfig, specs *resources.ServiceSpecs) error {
 	svc := &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      cr.Name,
@@ -74,7 +73,7 @@ func (r *Reconciler) reconcileCoreService(ctx context.Context, cr *model.Cryosta
 }
 
 func (r *Reconciler) reconcileReportsService(ctx context.Context, cr *model.CryostatInstance,
-	tls *resource_definitions.TLSConfig, specs *resource_definitions.ServiceSpecs) error {
+	tls *resources.TLSConfig, specs *resources.ServiceSpecs) error {
 	config := configureReportsService(cr)
 	svc := &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
@@ -106,9 +105,9 @@ func (r *Reconciler) reconcileReportsService(ctx context.Context, cr *model.Cryo
 	}
 
 	// Set reports URL for deployment to use
-	scheme := "https"
+	scheme := constants.HttpsScheme
 	if tls == nil {
-		scheme = "http"
+		scheme = constants.HttpScheme
 	}
 	specs.ReportsURL = &url.URL{
 		Scheme: scheme,
@@ -146,8 +145,8 @@ func (r *Reconciler) reconcileAgentGatewayService(ctx context.Context, cr *model
 	})
 }
 
-func (r *Reconciler) reconcileDatabaseService(ctx context.Context, cr *model.CryostatInstance, tls *resource_definitions.TLSConfig,
-	specs *resource_definitions.ServiceSpecs) error {
+func (r *Reconciler) reconcileDatabaseService(ctx context.Context, cr *model.CryostatInstance,
+	specs *resources.ServiceSpecs) error {
 	config := configureDatabaseService(cr)
 	svc := &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
@@ -180,14 +179,14 @@ func (r *Reconciler) reconcileDatabaseService(ctx context.Context, cr *model.Cry
 	specs.DatabaseURL = &url.URL{
 		Scheme: scheme,
 		Host:   fmt.Sprintf("%s:%d", svc.Name, port),
-		Path:   resource_definitions.DatabaseName,
+		Path:   resources.DatabaseName,
 	}
 	return nil
 }
 
-func (r *Reconciler) reconcileStorageService(ctx context.Context, cr *model.CryostatInstance, tls *resource_definitions.TLSConfig,
-	specs *resource_definitions.ServiceSpecs) error {
-	config := configureStorageService(cr, tls)
+func (r *Reconciler) reconcileStorageService(ctx context.Context, cr *model.CryostatInstance, tls *resources.TLSConfig,
+	specs *resources.ServiceSpecs) error {
+	config := configureStorageService(cr)
 	svc := &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      cr.Name + "-storage",
@@ -199,9 +198,9 @@ func (r *Reconciler) reconcileStorageService(ctx context.Context, cr *model.Cryo
 	if !deployManagedStorage {
 		return r.deleteService(ctx, svc)
 	}
-	scheme := "http"
+	scheme := constants.HttpScheme
 	if tls != nil {
-		scheme = "https"
+		scheme = constants.HttpsScheme
 	}
 	err := r.createOrUpdateService(ctx, svc, cr.Object, &config.ServiceConfig, func() error {
 		svc.Spec.Selector = map[string]string{
@@ -358,7 +357,7 @@ func configureDatabaseService(cr *model.CryostatInstance) *operatorv1beta2.Datab
 	return config
 }
 
-func configureStorageService(cr *model.CryostatInstance, tls *resource_definitions.TLSConfig) *operatorv1beta2.StorageServiceConfig {
+func configureStorageService(cr *model.CryostatInstance) *operatorv1beta2.StorageServiceConfig {
 	// Check CR for config
 	var config *operatorv1beta2.StorageServiceConfig
 	if cr.Spec.ServiceOptions == nil || cr.Spec.ServiceOptions.StorageConfig == nil {
@@ -412,7 +411,7 @@ func configureAgentCallbackService(cr *model.CryostatInstance) *operatorv1beta2.
 	// Apply common service defaults
 	configureMetadata(&config.ResourceMetadata, cr.Name, "cryostat-agent-callback")
 	// Add target namespace labels used by our controller watches
-	maps.Copy(config.ResourceMetadata.Labels, common.LabelsForTargetNamespaceObject(cr))
+	maps.Copy(config.Labels, common.LabelsForTargetNamespaceObject(cr))
 
 	return config
 }
@@ -436,10 +435,10 @@ func configureMetadata(config *operatorv1beta2.ResourceMetadata, appLabel string
 	// Add required labels, overriding any user-specified labels with the same keys
 	config.Labels["app"] = appLabel
 	config.Labels["component"] = componentLabel
-	config.Labels["app.kubernetes.io/name"] = "cryostat"
+	config.Labels["app.kubernetes.io/name"] = constants.LabelAppName
 	config.Labels["app.kubernetes.io/instance"] = appLabel
 	config.Labels["app.kubernetes.io/component"] = componentLabel
-	config.Labels["app.kubernetes.io/part-of"] = "cryostat"
+	config.Labels["app.kubernetes.io/part-of"] = constants.LabelAppName
 }
 
 func (r *Reconciler) createOrUpdateService(ctx context.Context, svc *corev1.Service, owner metav1.Object,
@@ -466,7 +465,7 @@ func (r *Reconciler) createOrUpdateService(ctx context.Context, svc *corev1.Serv
 }
 
 func (r *Reconciler) deleteService(ctx context.Context, svc *corev1.Service) error {
-	err := r.Client.Delete(ctx, svc)
+	err := r.Delete(ctx, svc)
 	if err != nil && !errors.IsNotFound(err) {
 		r.Log.Error(err, "Could not delete service", "name", svc.Name, "namespace", svc.Namespace)
 		return err

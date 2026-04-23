@@ -136,12 +136,12 @@ func (r *Reconciler) reconcileOAuth2ProxyConfig(ctx context.Context, cr *model.C
 	if r.IsOpenShift {
 		return r.deleteConfigMap(ctx, cm)
 	} else {
-		json, err := json.MarshalIndent(cfg, "", "  ")
+		encoded, err := json.MarshalIndent(cfg, "", "  ")
 		if err != nil {
 			return err
 		}
 		data := map[string]string{
-			resources.OAuth2ConfigFileName: string(json),
+			resources.OAuth2ConfigFileName: string(encoded),
 		}
 
 		return r.createOrUpdateConfigMap(ctx, cm, cr.Object, data)
@@ -374,7 +374,7 @@ func isImmutable(cm *corev1.ConfigMap) bool {
 }
 
 func (r *Reconciler) deleteConfigMap(ctx context.Context, cm *corev1.ConfigMap) error {
-	err := r.Client.Delete(ctx, cm)
+	err := r.Delete(ctx, cm)
 	if err != nil && !kerrors.IsNotFound(err) {
 		r.Log.Error(err, "Could not delete ConfigMap", "name", cm.Name, "namespace", cm.Namespace)
 		return err

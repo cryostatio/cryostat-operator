@@ -378,7 +378,7 @@ type PersistentVolumeClaimConfig struct {
 	// +optional
 	Labels map[string]string `json:"labels,omitempty"`
 	// Spec for a Persistent Volume Claim, whose options will override the
-	// defaults used by the operator. Unless overriden, the PVC will be
+	// defaults used by the operator. Unless overridden, the PVC will be
 	// created with the default Storage Class and 500MiB of storage.
 	// Once the operator has created the PVC, changes to this field have
 	// no effect.

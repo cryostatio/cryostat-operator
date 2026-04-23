@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"net/url"
 	"path"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -1218,7 +1219,7 @@ func NewOpenShiftAuthProxyContainer(cr *model.CryostatInstance, specs *ServiceSp
 	livenessProbeScheme := corev1.URISchemeHTTP
 	if tls != nil {
 		args = append(args,
-			fmt.Sprintf("--http-address="),
+			"--http-address=",
 			fmt.Sprintf("--https-address=0.0.0.0:%d", constants.AuthProxyHttpContainerPort),
 			fmt.Sprintf("--tls-cert=%s", path.Join(SecretMountPrefix, tls.CryostatSecret, corev1.TLSCertKey)),
 			fmt.Sprintf("--tls-key=%s", path.Join(SecretMountPrefix, tls.CryostatSecret, corev1.TLSPrivateKeyKey)),
@@ -1421,14 +1422,151 @@ func NewCoreContainerResource(cr *model.CryostatInstance) *corev1.ResourceRequir
 	return resources
 }
 
+const (
+	configPath         string = "/opt/cryostat.d/conf.d"
+	templatesPath      string = "/opt/cryostat.d/templates.d"
+	rulesPath          string = "/opt/cryostat.d/rules.d"
+	probeTemplatesPath string = "/opt/cryostat.d/probes.d"
+	credentialsPath    string = "/opt/cryostat.d/credentials.d"
+)
+
 func NewCoreContainer(cr *model.CryostatInstance, specs *ServiceSpecs, imageTag string,
 	tls *TLSConfig, openshift bool) (*corev1.Container, error) {
-	configPath := "/opt/cryostat.d/conf.d"
-	templatesPath := "/opt/cryostat.d/templates.d"
-	rulesPath := "/opt/cryostat.d/rules.d"
-	probeTemplatesPath := "/opt/cryostat.d/probes.d"
-	credentialsPath := "/opt/cryostat.d/credentials.d"
 
+	mounts := []corev1.VolumeMount{
+		{
+			// Mount the CA cert and user certificates in the expected /truststore location
+			Name:      "cert-secrets",
+			MountPath: "/truststore/operator",
+			ReadOnly:  true,
+		},
+	}
+	if tls != nil {
+		mounts = append(mounts,
+			corev1.VolumeMount{
+				Name:      "storage-tls-secret",
+				MountPath: "/truststore/storage",
+				ReadOnly:  true,
+			},
+			corev1.VolumeMount{
+				Name:      "keystore",
+				MountPath: path.Join(SecretMountPrefix, "client-tls", tls.CryostatSecret),
+				ReadOnly:  true,
+			},
+			corev1.VolumeMount{
+				Name:      "keystore-pass",
+				MountPath: path.Join(SecretMountPrefix, "client-tls", tls.KeystorePassSecret),
+				ReadOnly:  true,
+			},
+		)
+	}
+
+	// Mount the templates specified in Cryostat CR under /opt/cryostat.d/templates.d
+	for _, template := range cr.Spec.EventTemplates {
+		mount := corev1.VolumeMount{
+			Name:      "template-" + template.ConfigMapName,
+			MountPath: path.Join(templatesPath, fmt.Sprintf("%s_%s", template.ConfigMapName, template.Filename)),
+			SubPath:   template.Filename,
+			ReadOnly:  true,
+		}
+		mounts = append(mounts, mount)
+	}
+
+	// Mount the automated rules specified in Cryostat CR under /opt/cryostat.d/rules.d
+	for _, rule := range cr.Spec.AutomatedRules {
+		mount := corev1.VolumeMount{
+			Name:      "rule-" + rule.ConfigMapName,
+			MountPath: path.Join(rulesPath, fmt.Sprintf("%s_%s", rule.ConfigMapName, rule.Filename)),
+			SubPath:   rule.Filename,
+			ReadOnly:  true,
+		}
+		mounts = append(mounts, mount)
+	}
+
+	// Mount the templates specified in Cryostat CR under /opt/cryostat.d/probes.d
+	for _, template := range cr.Spec.ProbeTemplates {
+		mount := corev1.VolumeMount{
+			Name:      "probe-template-" + template.ConfigMapName,
+			MountPath: path.Join(probeTemplatesPath, fmt.Sprintf("%s_%s", template.ConfigMapName, template.Filename)),
+			SubPath:   template.Filename,
+			ReadOnly:  true,
+		}
+		mounts = append(mounts, mount)
+	}
+
+	// Mount the declarative credentials specified under /opt/cryostat.d/credentials.d
+	for _, credential := range cr.Spec.DeclarativeCredentials {
+		mount := corev1.VolumeMount{
+			Name:      credential.SecretName,
+			MountPath: path.Join(credentialsPath, credential.SecretName),
+			ReadOnly:  true,
+		}
+		mounts = append(mounts, mount)
+	}
+
+	if tls != nil {
+		tlsPath := path.Join(SecretMountPrefix, tls.DatabaseSecret)
+		tlsSecretMount := corev1.VolumeMount{
+			Name:      "database-tls-secret",
+			MountPath: tlsPath,
+			ReadOnly:  true,
+		}
+		mounts = append(mounts, tlsSecretMount)
+	}
+
+	probeHandler := corev1.ProbeHandler{
+		Exec: &corev1.ExecAction{
+			Command: []string{
+				"curl",
+				"--fail",
+				fmt.Sprintf("http://localhost:%d/health/liveness", constants.CryostatHTTPContainerPort),
+			},
+		},
+	}
+
+	var containerSc *corev1.SecurityContext
+	if cr.Spec.SecurityOptions != nil && cr.Spec.SecurityOptions.CoreSecurityContext != nil {
+		containerSc = cr.Spec.SecurityOptions.CoreSecurityContext
+	} else {
+		privEscalation := false
+		containerSc = &corev1.SecurityContext{
+			AllowPrivilegeEscalation: &privEscalation,
+			Capabilities: &corev1.Capabilities{
+				Drop: []corev1.Capability{constants.CapabilityAll},
+			},
+		}
+	}
+
+	envs, err := newEnvForCoreContainer(cr, specs, tls)
+	if err != nil {
+		return nil, err
+	}
+
+	return &corev1.Container{
+		Name:            cr.Name,
+		Image:           imageTag,
+		ImagePullPolicy: common.GetPullPolicy(imageTag),
+		VolumeMounts:    mounts,
+		Ports: []corev1.ContainerPort{
+			{
+				ContainerPort: constants.CryostatHTTPContainerPort,
+			},
+		},
+		Env:       envs,
+		Resources: *NewCoreContainerResource(cr),
+		LivenessProbe: &corev1.Probe{
+			ProbeHandler: probeHandler,
+		},
+		// Expect probe to succeed within 3 minutes
+		StartupProbe: &corev1.Probe{
+			ProbeHandler:     probeHandler,
+			FailureThreshold: 18,
+		},
+		SecurityContext: containerSc,
+	}, nil
+}
+
+func newEnvForCoreContainer(cr *model.CryostatInstance, specs *ServiceSpecs, tls *TLSConfig) ([]corev1.EnvVar, error) {
 	envs := []corev1.EnvVar{
 		{
 			Name:  "QUARKUS_HTTP_HOST",
@@ -1494,6 +1632,108 @@ func NewCoreContainer(cr *model.CryostatInstance, specs *ServiceSpecs, imageTag 
 			Name:  "CRYOSTAT_AUDIT_ENABLED",
 			Value: strconv.FormatBool(*cr.Spec.EnableAudit),
 		})
+	}
+
+	if tls != nil {
+		envs = append(envs,
+			corev1.EnvVar{
+				Name:  "SSL_KEYSTORE",
+				Value: path.Join(SecretMountPrefix, "client-tls", tls.CryostatSecret, constants.KeyStoreFile),
+			},
+			corev1.EnvVar{
+				Name:  "SSL_KEYSTORE_PASS_FILE",
+				Value: path.Join(SecretMountPrefix, "client-tls", tls.KeystorePassSecret, constants.KeystorePassFile),
+			},
+		)
+	}
+
+	storageEnv, err := newStorageEnvForCoreContainer(cr, specs)
+	if err != nil {
+		return nil, err
+	}
+
+	return slices.Concat(envs,
+		newDatabaseEnvForCoreContainer(cr, tls),
+		storageEnv,
+		newReportsEnvForCoreContainer(specs),
+		newInsightsEnvForCoreContainer(specs),
+		newTargetConnectionCacheEnvForCoreContainer(cr),
+		newK8SDiscoveryEnvForCoreContainer(cr),
+		newGrafanaEnvForCoreContainer(specs),
+		newAgentEnvForCoreContainer(cr),
+	), nil
+}
+
+func newDatabaseEnvForCoreContainer(cr *model.CryostatInstance, tls *TLSConfig) []corev1.EnvVar {
+	optional := false
+	secretName := getDatabaseSecret(cr)
+
+	envs := []corev1.EnvVar{
+		{
+			Name: "QUARKUS_DATASOURCE_PASSWORD",
+			ValueFrom: &corev1.EnvVarSource{
+				SecretKeyRef: &corev1.SecretKeySelector{
+					LocalObjectReference: corev1.LocalObjectReference{
+						Name: secretName,
+					},
+					Key:      constants.DatabaseSecretConnectionKey,
+					Optional: &optional,
+				},
+			},
+		},
+	}
+	if tls != nil {
+		tlsPath := path.Join(SecretMountPrefix, tls.DatabaseSecret)
+		envs = append(envs, corev1.EnvVar{
+			Name:  "QUARKUS_DATASOURCE_JDBC_URL",
+			Value: fmt.Sprintf("jdbc:postgresql://%s-database.%s.svc.cluster.local:5432/cryostat?ssl=true&sslmode=verify-full&sslcert=&sslrootcert=%s/%s", cr.Name, cr.InstallNamespace, tlsPath, constants.CAKey),
+		})
+	} else {
+		envs = append(envs, corev1.EnvVar{
+			Name:  "QUARKUS_DATASOURCE_JDBC_URL",
+			Value: fmt.Sprintf("jdbc:postgresql://%s-database.%s.svc.cluster.local:5432/cryostat", cr.Name, cr.InstallNamespace),
+		})
+	}
+
+	return envs
+}
+
+func newStorageEnvForCoreContainer(cr *model.CryostatInstance, specs *ServiceSpecs) ([]corev1.EnvVar, error) {
+	optional := false
+	secretName := getStorageSecret(cr)
+	envs := []corev1.EnvVar{
+		{
+			Name: "QUARKUS_S3_AWS_CREDENTIALS_STATIC_PROVIDER_ACCESS_KEY_ID",
+			ValueFrom: &corev1.EnvVarSource{
+				SecretKeyRef: &corev1.SecretKeySelector{
+					LocalObjectReference: corev1.LocalObjectReference{
+						Name: secretName,
+					},
+					Key:      "ACCESS_KEY",
+					Optional: &optional,
+				},
+			},
+		},
+		{
+			Name: "QUARKUS_S3_AWS_CREDENTIALS_STATIC_PROVIDER_SECRET_ACCESS_KEY",
+			ValueFrom: &corev1.EnvVarSource{
+				SecretKeyRef: &corev1.SecretKeySelector{
+					LocalObjectReference: corev1.LocalObjectReference{
+						Name: secretName,
+					},
+					Key:      "SECRET_KEY",
+					Optional: &optional,
+				},
+			},
+		},
+		{
+			Name:  "AWS_ACCESS_KEY_ID",
+			Value: "$(QUARKUS_S3_AWS_CREDENTIALS_STATIC_PROVIDER_ACCESS_KEY_ID)",
+		},
+		{
+			Name:  "AWS_SECRET_ACCESS_KEY",
+			Value: "$(QUARKUS_S3_AWS_CREDENTIALS_STATIC_PROVIDER_SECRET_ACCESS_KEY)",
+		},
 	}
 
 	if DeployManagedStorage(cr) {
@@ -1628,99 +1868,11 @@ func NewCoreContainer(cr *model.CryostatInstance, specs *ServiceSpecs, imageTag 
 		}
 	}
 
-	mounts := []corev1.VolumeMount{
-		{
-			// Mount the CA cert and user certificates in the expected /truststore location
-			Name:      "cert-secrets",
-			MountPath: "/truststore/operator",
-			ReadOnly:  true,
-		},
-	}
-	if tls != nil {
-		mounts = append(mounts,
-			corev1.VolumeMount{
-				Name:      "storage-tls-secret",
-				MountPath: "/truststore/storage",
-				ReadOnly:  true,
-			},
-			corev1.VolumeMount{
-				Name:      "keystore",
-				MountPath: path.Join(SecretMountPrefix, "client-tls", tls.CryostatSecret),
-				ReadOnly:  true,
-			},
-			corev1.VolumeMount{
-				Name:      "keystore-pass",
-				MountPath: path.Join(SecretMountPrefix, "client-tls", tls.KeystorePassSecret),
-				ReadOnly:  true,
-			},
-		)
+	return envs, nil
+}
 
-		envs = append(envs,
-			corev1.EnvVar{
-				Name:  "SSL_KEYSTORE",
-				Value: path.Join(SecretMountPrefix, "client-tls", tls.CryostatSecret, constants.KeyStoreFile),
-			},
-			corev1.EnvVar{
-				Name:  "SSL_KEYSTORE_PASS_FILE",
-				Value: path.Join(SecretMountPrefix, "client-tls", tls.KeystorePassSecret, constants.KeystorePassFile),
-			},
-		)
-	}
-
-	optional := false
-	secretName := getDatabaseSecret(cr)
-	envs = append(envs, corev1.EnvVar{
-		Name: "QUARKUS_DATASOURCE_PASSWORD",
-		ValueFrom: &corev1.EnvVarSource{
-			SecretKeyRef: &corev1.SecretKeySelector{
-				LocalObjectReference: corev1.LocalObjectReference{
-					Name: secretName,
-				},
-				Key:      constants.DatabaseSecretConnectionKey,
-				Optional: &optional,
-			},
-		},
-	})
-
-	secretName = getStorageSecret(cr)
-	envs = append(envs,
-		corev1.EnvVar{
-			Name: "QUARKUS_S3_AWS_CREDENTIALS_STATIC_PROVIDER_ACCESS_KEY_ID",
-			ValueFrom: &corev1.EnvVarSource{
-				SecretKeyRef: &corev1.SecretKeySelector{
-					LocalObjectReference: corev1.LocalObjectReference{
-						Name: secretName,
-					},
-					Key:      "ACCESS_KEY",
-					Optional: &optional,
-				},
-			},
-		},
-		corev1.EnvVar{
-			Name: "QUARKUS_S3_AWS_CREDENTIALS_STATIC_PROVIDER_SECRET_ACCESS_KEY",
-			ValueFrom: &corev1.EnvVarSource{
-				SecretKeyRef: &corev1.SecretKeySelector{
-					LocalObjectReference: corev1.LocalObjectReference{
-						Name: secretName,
-					},
-					Key:      "SECRET_KEY",
-					Optional: &optional,
-				},
-			},
-		},
-	)
-
-	envs = append(envs,
-		corev1.EnvVar{
-			Name:  "AWS_ACCESS_KEY_ID",
-			Value: "$(QUARKUS_S3_AWS_CREDENTIALS_STATIC_PROVIDER_ACCESS_KEY_ID)",
-		},
-		corev1.EnvVar{
-			Name:  "AWS_SECRET_ACCESS_KEY",
-			Value: "$(QUARKUS_S3_AWS_CREDENTIALS_STATIC_PROVIDER_SECRET_ACCESS_KEY)",
-		},
-	)
-
+func newReportsEnvForCoreContainer(specs *ServiceSpecs) []corev1.EnvVar {
+	envs := []corev1.EnvVar{}
 	if specs.ReportsURL != nil {
 		reportsEnvs := []corev1.EnvVar{
 			{
@@ -1730,7 +1882,11 @@ func NewCoreContainer(cr *model.CryostatInstance, specs *ServiceSpecs, imageTag 
 		}
 		envs = append(envs, reportsEnvs...)
 	}
+	return envs
+}
 
+func newInsightsEnvForCoreContainer(specs *ServiceSpecs) []corev1.EnvVar {
+	envs := []corev1.EnvVar{}
 	// Define INSIGHTS_PROXY URL if Insights integration is enabled
 	if specs.InsightsURL != nil {
 		insightsEnvs := []corev1.EnvVar{
@@ -1741,9 +1897,17 @@ func NewCoreContainer(cr *model.CryostatInstance, specs *ServiceSpecs, imageTag 
 		}
 		envs = append(envs, insightsEnvs...)
 	}
+	return envs
+}
 
-	targetCacheSize := "-1"
-	targetCacheTTL := "10"
+const (
+	defaultTargetCacheSize string = "-1"
+	defaultTargetCacheTTL  string = "10"
+)
+
+func newTargetConnectionCacheEnvForCoreContainer(cr *model.CryostatInstance) []corev1.EnvVar {
+	targetCacheSize := defaultTargetCacheSize
+	targetCacheTTL := defaultTargetCacheTTL
 	if cr.Spec.TargetConnectionCacheOptions != nil {
 		if cr.Spec.TargetConnectionCacheOptions.TargetCacheSize != 0 {
 			targetCacheSize = strconv.Itoa(int(cr.Spec.TargetConnectionCacheOptions.TargetCacheSize))
@@ -1753,7 +1917,8 @@ func NewCoreContainer(cr *model.CryostatInstance, specs *ServiceSpecs, imageTag 
 			targetCacheTTL = strconv.Itoa(int(cr.Spec.TargetConnectionCacheOptions.TargetCacheTTL))
 		}
 	}
-	connectionCacheEnvs := []corev1.EnvVar{
+
+	return []corev1.EnvVar{
 		{
 			Name:  "CRYOSTAT_CONNECTIONS_MAX_OPEN",
 			Value: targetCacheSize,
@@ -1763,11 +1928,18 @@ func NewCoreContainer(cr *model.CryostatInstance, specs *ServiceSpecs, imageTag 
 			Value: targetCacheTTL,
 		},
 	}
-	envs = append(envs, connectionCacheEnvs...)
+}
 
-	k8sDiscoveryEnabled := true
-	k8sDiscoveryPortNames := "jfr-jmx"
-	k8sDiscoveryPortNumbers := "9091"
+const (
+	defaultK8SDiscoveryEnabled     bool   = true
+	defaultK8SDiscoveryPortNames   string = "jfr-jmx"
+	defaultK8SDiscoveryPortNumbers string = "9091"
+)
+
+func newK8SDiscoveryEnvForCoreContainer(cr *model.CryostatInstance) []corev1.EnvVar {
+	k8sDiscoveryEnabled := defaultK8SDiscoveryEnabled
+	k8sDiscoveryPortNames := defaultK8SDiscoveryPortNames
+	k8sDiscoveryPortNumbers := defaultK8SDiscoveryPortNumbers
 	if cr.Spec.TargetDiscoveryOptions != nil {
 		k8sDiscoveryEnabled = !cr.Spec.TargetDiscoveryOptions.DisableBuiltInDiscovery
 
@@ -1783,7 +1955,7 @@ func NewCoreContainer(cr *model.CryostatInstance, specs *ServiceSpecs, imageTag 
 			k8sDiscoveryPortNumbers = ""
 		}
 	}
-	envs = append(envs, []corev1.EnvVar{
+	return []corev1.EnvVar{
 		{
 			Name:  "CRYOSTAT_DISCOVERY_KUBERNETES_ENABLED",
 			Value: fmt.Sprintf("%t", k8sDiscoveryEnabled),
@@ -1800,17 +1972,18 @@ func NewCoreContainer(cr *model.CryostatInstance, specs *ServiceSpecs, imageTag 
 			Name:  "CRYOSTAT_DISCOVERY_KUBERNETES_PORT_NUMBERS",
 			Value: k8sDiscoveryPortNumbers,
 		},
-	}...,
-	)
+	}
+}
 
-	grafanaVars := []corev1.EnvVar{
+func newGrafanaEnvForCoreContainer(specs *ServiceSpecs) []corev1.EnvVar {
+	envs := []corev1.EnvVar{
 		{
 			Name:  "GRAFANA_DATASOURCE_URL",
 			Value: datasourceURL,
 		},
 	}
 	if specs.AuthProxyURL != nil {
-		grafanaVars = append(grafanaVars,
+		envs = append(envs,
 			corev1.EnvVar{
 				Name:  "GRAFANA_DASHBOARD_EXT_URL",
 				Value: "/grafana/",
@@ -1821,8 +1994,11 @@ func NewCoreContainer(cr *model.CryostatInstance, specs *ServiceSpecs, imageTag 
 			},
 		)
 	}
-	envs = append(envs, grafanaVars...)
+	return envs
+}
 
+func newAgentEnvForCoreContainer(cr *model.CryostatInstance) []corev1.EnvVar {
+	envs := []corev1.EnvVar{}
 	if cr.Spec.AgentOptions != nil {
 		if cr.Spec.AgentOptions.DisableHostnameVerification {
 			envs = append(envs,
@@ -1842,114 +2018,7 @@ func NewCoreContainer(cr *model.CryostatInstance, specs *ServiceSpecs, imageTag 
 			)
 		}
 	}
-
-	// Mount the templates specified in Cryostat CR under /opt/cryostat.d/templates.d
-	for _, template := range cr.Spec.EventTemplates {
-		mount := corev1.VolumeMount{
-			Name:      "template-" + template.ConfigMapName,
-			MountPath: path.Join(templatesPath, fmt.Sprintf("%s_%s", template.ConfigMapName, template.Filename)),
-			SubPath:   template.Filename,
-			ReadOnly:  true,
-		}
-		mounts = append(mounts, mount)
-	}
-
-	// Mount the automated rules specified in Cryostat CR under /opt/cryostat.d/rules.d
-	for _, rule := range cr.Spec.AutomatedRules {
-		mount := corev1.VolumeMount{
-			Name:      "rule-" + rule.ConfigMapName,
-			MountPath: path.Join(rulesPath, fmt.Sprintf("%s_%s", rule.ConfigMapName, rule.Filename)),
-			SubPath:   rule.Filename,
-			ReadOnly:  true,
-		}
-		mounts = append(mounts, mount)
-	}
-
-	// Mount the templates specified in Cryostat CR under /opt/cryostat.d/probes.d
-	for _, template := range cr.Spec.ProbeTemplates {
-		mount := corev1.VolumeMount{
-			Name:      "probe-template-" + template.ConfigMapName,
-			MountPath: path.Join(probeTemplatesPath, fmt.Sprintf("%s_%s", template.ConfigMapName, template.Filename)),
-			SubPath:   template.Filename,
-			ReadOnly:  true,
-		}
-		mounts = append(mounts, mount)
-	}
-
-	// Mount the declarative credentials specified under /opt/cryostat.d/credentials.d
-	for _, credential := range cr.Spec.DeclarativeCredentials {
-		mount := corev1.VolumeMount{
-			Name:      credential.SecretName,
-			MountPath: path.Join(credentialsPath, credential.SecretName),
-			ReadOnly:  true,
-		}
-		mounts = append(mounts, mount)
-	}
-
-	if tls != nil {
-		tlsPath := path.Join(SecretMountPrefix, tls.DatabaseSecret)
-		tlsSecretMount := corev1.VolumeMount{
-			Name:      "database-tls-secret",
-			MountPath: tlsPath,
-			ReadOnly:  true,
-		}
-		mounts = append(mounts, tlsSecretMount)
-		envs = append(envs, corev1.EnvVar{
-			Name:  "QUARKUS_DATASOURCE_JDBC_URL",
-			Value: fmt.Sprintf("jdbc:postgresql://%s-database.%s.svc.cluster.local:5432/cryostat?ssl=true&sslmode=verify-full&sslcert=&sslrootcert=%s/%s", cr.Name, cr.InstallNamespace, tlsPath, constants.CAKey),
-		})
-	} else {
-		envs = append(envs, corev1.EnvVar{
-			Name:  "QUARKUS_DATASOURCE_JDBC_URL",
-			Value: fmt.Sprintf("jdbc:postgresql://%s-database.%s.svc.cluster.local:5432/cryostat", cr.Name, cr.InstallNamespace),
-		})
-	}
-
-	probeHandler := corev1.ProbeHandler{
-		Exec: &corev1.ExecAction{
-			Command: []string{
-				"curl",
-				"--fail",
-				fmt.Sprintf("http://localhost:%d/health/liveness", constants.CryostatHTTPContainerPort),
-			},
-		},
-	}
-
-	var containerSc *corev1.SecurityContext
-	if cr.Spec.SecurityOptions != nil && cr.Spec.SecurityOptions.CoreSecurityContext != nil {
-		containerSc = cr.Spec.SecurityOptions.CoreSecurityContext
-	} else {
-		privEscalation := false
-		containerSc = &corev1.SecurityContext{
-			AllowPrivilegeEscalation: &privEscalation,
-			Capabilities: &corev1.Capabilities{
-				Drop: []corev1.Capability{constants.CapabilityAll},
-			},
-		}
-	}
-
-	return &corev1.Container{
-		Name:            cr.Name,
-		Image:           imageTag,
-		ImagePullPolicy: common.GetPullPolicy(imageTag),
-		VolumeMounts:    mounts,
-		Ports: []corev1.ContainerPort{
-			{
-				ContainerPort: constants.CryostatHTTPContainerPort,
-			},
-		},
-		Env:       envs,
-		Resources: *NewCoreContainerResource(cr),
-		LivenessProbe: &corev1.Probe{
-			ProbeHandler: probeHandler,
-		},
-		// Expect probe to succeed within 3 minutes
-		StartupProbe: &corev1.Probe{
-			ProbeHandler:     probeHandler,
-			FailureThreshold: 18,
-		},
-		SecurityContext: containerSc,
-	}, nil
+	return envs
 }
 
 func NewGrafanaContainerResource(cr *model.CryostatInstance) *corev1.ResourceRequirements {
@@ -2045,6 +2114,8 @@ func NewStorageContainerResource(cr *model.CryostatInstance) *corev1.ResourceReq
 
 func NewStorageContainer(cr *model.CryostatInstance, imageTag string, tls *TLSConfig) corev1.Container {
 	var containerSc *corev1.SecurityContext
+	secretName := cr.Name + "-storage"
+	optional := false
 	envs := []corev1.EnvVar{
 		{
 			Name:  "CRYOSTAT_BUCKETS",
@@ -2066,6 +2137,18 @@ func NewStorageContainer(cr *model.CryostatInstance, imageTag string, tls *TLSCo
 			Name:  "REST_ENCRYPTION_ENABLE",
 			Value: "1",
 		},
+		{
+			Name: "CRYOSTAT_SECRET_KEY",
+			ValueFrom: &corev1.EnvVarSource{
+				SecretKeyRef: &corev1.SecretKeySelector{
+					LocalObjectReference: corev1.LocalObjectReference{
+						Name: secretName,
+					},
+					Key:      "SECRET_KEY",
+					Optional: &optional,
+				},
+			},
+		},
 	}
 
 	mounts := []corev1.VolumeMount{
@@ -2074,21 +2157,6 @@ func NewStorageContainer(cr *model.CryostatInstance, imageTag string, tls *TLSCo
 			MountPath: "/data",
 		},
 	}
-
-	secretName := cr.Name + "-storage"
-	optional := false
-	envs = append(envs, corev1.EnvVar{
-		Name: "CRYOSTAT_SECRET_KEY",
-		ValueFrom: &corev1.EnvVarSource{
-			SecretKeyRef: &corev1.SecretKeySelector{
-				LocalObjectReference: corev1.LocalObjectReference{
-					Name: secretName,
-				},
-				Key:      "SECRET_KEY",
-				Optional: &optional,
-			},
-		},
-	})
 
 	livenessProbeScheme := corev1.URISchemeHTTP
 	livenessProbePort := constants.StoragePort
@@ -2183,6 +2251,8 @@ func NewDatabaseContainer(cr *model.CryostatInstance, imageTag string, tls *TLSC
 		}
 	}
 
+	optional := false
+	secretName := getDatabaseSecret(cr)
 	mountPath := "/var/lib/pgsql"
 	dataDir := path.Join(mountPath, "data")
 	envs := []corev1.EnvVar{
@@ -2198,35 +2268,31 @@ func NewDatabaseContainer(cr *model.CryostatInstance, imageTag string, tls *TLSC
 			Name:  "POSTGRESQL_DATABASE",
 			Value: "cryostat",
 		},
+		{
+			Name: "POSTGRESQL_PASSWORD",
+			ValueFrom: &corev1.EnvVarSource{
+				SecretKeyRef: &corev1.SecretKeySelector{
+					LocalObjectReference: corev1.LocalObjectReference{
+						Name: secretName,
+					},
+					Key:      constants.DatabaseSecretConnectionKey,
+					Optional: &optional,
+				},
+			},
+		},
+		{
+			Name: "PG_ENCRYPT_KEY",
+			ValueFrom: &corev1.EnvVarSource{
+				SecretKeyRef: &corev1.SecretKeySelector{
+					LocalObjectReference: corev1.LocalObjectReference{
+						Name: secretName,
+					},
+					Key:      constants.DatabaseSecretEncryptionKey,
+					Optional: &optional,
+				},
+			},
+		},
 	}
-
-	optional := false
-	secretName := getDatabaseSecret(cr)
-	envs = append(envs, corev1.EnvVar{
-		Name: "POSTGRESQL_PASSWORD",
-		ValueFrom: &corev1.EnvVarSource{
-			SecretKeyRef: &corev1.SecretKeySelector{
-				LocalObjectReference: corev1.LocalObjectReference{
-					Name: secretName,
-				},
-				Key:      constants.DatabaseSecretConnectionKey,
-				Optional: &optional,
-			},
-		},
-	})
-
-	envs = append(envs, corev1.EnvVar{
-		Name: "PG_ENCRYPT_KEY",
-		ValueFrom: &corev1.EnvVarSource{
-			SecretKeyRef: &corev1.SecretKeySelector{
-				LocalObjectReference: corev1.LocalObjectReference{
-					Name: secretName,
-				},
-				Key:      constants.DatabaseSecretEncryptionKey,
-				Optional: &optional,
-			},
-		},
-	})
 
 	mounts := []corev1.VolumeMount{
 		{

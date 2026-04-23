@@ -170,8 +170,9 @@ func (r *TestResources) logWorkloadEvents(name string) error {
 	return nil
 }
 
-func (r *TestResources) logEvents(scheme *runtime.Scheme, obj runtime.Object) error {
-	events, err := r.Client.CoreV1().Events(r.Namespace).Search(scheme, obj)
+func (r *TestResources) logEvents(s *runtime.Scheme, obj runtime.Object) error {
+	ctx := context.Background()
+	events, err := r.Client.CoreV1().Events(r.Namespace).SearchWithContext(ctx, s, obj)
 	if err != nil {
 		return err
 	}
@@ -473,7 +474,7 @@ func (r *TestResources) sendHealthRequest(base *url.URL, healthCheck func(resp *
 			}
 			return false, err
 		}
-		defer resp.Body.Close()
+		defer r.closeStream(resp.Body)
 
 		if !StatusOK(resp.StatusCode) {
 			if resp.StatusCode == http.StatusServiceUnavailable {
@@ -511,11 +512,11 @@ func (r *TestResources) updateAndWaitTillCryostatAvailable(cr *operatorv1beta2.C
 
 		// Wait for deployment to update by verifying Cryostat has PVC configured
 		for _, volume := range deploy.Spec.Template.Spec.Volumes {
-			if volume.VolumeSource.EmptyDir != nil {
-				r.Log += fmt.Sprintf("Cryostat deployment is still updating. Storage: %s\n", volume.VolumeSource.EmptyDir)
+			if volume.EmptyDir != nil {
+				r.Log += fmt.Sprintf("Cryostat deployment is still updating. Storage: %s\n", volume.EmptyDir)
 				return false, nil // Retry
 			}
-			if volume.VolumeSource.PersistentVolumeClaim != nil {
+			if volume.PersistentVolumeClaim != nil {
 				break
 			}
 		}
@@ -635,7 +636,7 @@ func (r *TestResources) getCryostatPodNameForCR(cr *operatorv1beta2.Cryostat) (s
 	if len(names) == 0 {
 		return "", fmt.Errorf("no matching cryostat pods for cr: %s", cr.Name)
 	}
-	return names[0].ObjectMeta.Name, nil
+	return names[0].Name, nil
 }
 
 func (r *TestResources) getReportPodNameForCR(cr *operatorv1beta2.Cryostat) (string, error) {
@@ -655,7 +656,7 @@ func (r *TestResources) getReportPodNameForCR(cr *operatorv1beta2.Cryostat) (str
 	if len(names) == 0 {
 		return "", fmt.Errorf("no matching report sidecar pods for cr: %s", cr.Name)
 	}
-	return names[0].ObjectMeta.Name, nil
+	return names[0].Name, nil
 }
 
 func (r *TestResources) getPodnamesForSelector(namespace string, selector metav1.LabelSelector) ([]corev1.Pod, error) {
@@ -668,4 +669,11 @@ func (r *TestResources) getPodnamesForSelector(namespace string, selector metav1
 		LabelSelector: labelSelector,
 	})
 	return pods.Items, err
+}
+
+func (r *TestResources) closeStream(closer io.Closer) {
+	err := closer.Close()
+	if err != nil {
+		r.Log += fmt.Sprintf("failed to close stream: %s", err.Error())
+	}
 }

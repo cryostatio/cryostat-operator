@@ -43,12 +43,12 @@ func (r *Reconciler) reconcileCoreRoute(ctx context.Context, svc *corev1.Service
 	tls *resource_definitions.TLSConfig, specs *resource_definitions.ServiceSpecs) error {
 	route := newCoreRoute(cr)
 	coreConfig := configureCoreRoute(cr)
-	url, err := r.reconcileRoute(ctx, route, svc, cr, tls, coreConfig)
+	routeURL, err := r.reconcileRoute(ctx, route, svc, cr, tls, coreConfig)
 	if err != nil {
 		return err
 	}
-	specs.AuthProxyURL = url
-	specs.CoreURL = url
+	specs.AuthProxyURL = routeURL
+	specs.CoreURL = routeURL
 	return nil
 }
 

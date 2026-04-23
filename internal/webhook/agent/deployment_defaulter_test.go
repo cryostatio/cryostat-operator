@@ -109,8 +109,7 @@ var _ = Describe("PodDefaulter", func() {
 				Expect(actualTemplate.Labels["cryostat.io/harvester-max-size"]).To(Equal(expectedDeployment.Labels["cryostat.io/harvester-max-size"]))
 				Expect(actualTemplate.Labels["cryostat.io/smart-triggers"]).To(Equal(expectedDeployment.Labels["cryostat.io/smart-triggers"]))
 				// Non Agent Autoconfig Labels should not be propagated
-				_, exists := actualTemplate.Labels["other"]
-				Expect(exists).To(Equal(false))
+				Expect(actualTemplate.Labels).ToNot(ContainElement("other"))
 			})
 		}
 

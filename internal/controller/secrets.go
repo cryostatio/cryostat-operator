@@ -108,7 +108,7 @@ func (r *Reconciler) reconcileDatabaseConnectionSecret(ctx context.Context, cr *
 	}
 
 	cr.Status.DatabaseSecret = secretName
-	return r.Client.Status().Update(ctx, cr.Object)
+	return r.Status().Update(ctx, cr.Object)
 }
 
 // storageSecretNameSuffix is the suffix to be appended to the name of a
@@ -149,7 +149,7 @@ func (r *Reconciler) reconcileStorageSecret(ctx context.Context, cr *model.Cryos
 	}
 
 	cr.Status.StorageSecret = secret.Name
-	return r.Client.Status().Update(ctx, cr.Object)
+	return r.Status().Update(ctx, cr.Object)
 }
 
 func (r *Reconciler) setDataIfNotPresent(secret *corev1.Secret, key string, valueFunc func() string) {
@@ -178,7 +178,7 @@ func (r *Reconciler) createOrUpdateSecret(ctx context.Context, secret *corev1.Se
 }
 
 func (r *Reconciler) deleteSecret(ctx context.Context, secret *corev1.Secret) error {
-	err := r.Client.Delete(ctx, secret)
+	err := r.Delete(ctx, secret)
 	if err != nil {
 		if kerrors.IsNotFound(err) {
 			return nil

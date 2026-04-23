@@ -34,8 +34,8 @@ var deploymentWebhookLog = logf.Log.WithName("deployment-webhook")
 // Environment variable to override the agent init container image
 const agentInitImageTagEnv = "RELATED_IMAGE_AGENT_INIT"
 
-//+kubebuilder:webhook:path=/mutate--v1-pod,mutating=true,failurePolicy=ignore,sideEffects=None,groups="",resources=pods,verbs=create,versions=v1,name=mpod.cryostat.io,admissionReviewVersions=v1
-//+kubebuilder:webhook:path=/mutate--v1-deployment,mutating=true,failurePolicy=ignore,sideEffects=None,groups="apps",resources=deployments,verbs=create;update,versions=v1,name=mdeployment.cryostat.io,admissionReviewVersions=v1
+// +kubebuilder:webhook:path=/mutate--v1-pod,mutating=true,failurePolicy=ignore,sideEffects=None,groups="",resources=pods,verbs=create,versions=v1,name=mpod.cryostat.io,admissionReviewVersions=v1
+// +kubebuilder:webhook:path=/mutate--v1-deployment,mutating=true,failurePolicy=ignore,sideEffects=None,groups="apps",resources=deployments,verbs=create;update,versions=v1,name=mdeployment.cryostat.io,admissionReviewVersions=v1
 
 type AgentWebhook interface {
 	SetupWebhookWithManager(mgr ctrl.Manager) error

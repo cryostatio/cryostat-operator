@@ -41,7 +41,7 @@ func (r *TestResources) logContainer(namespace, podName, containerName string) {
 
 	err := r.GetContainerLogs(namespace, podName, containerName, buf)
 	if err != nil {
-		buf.WriteString(fmt.Sprintf("%s\n", err.Error()))
+		fmt.Fprintf(buf, "%s\n", err.Error())
 	}
 
 	containerLog.Log = buf.String()
@@ -60,7 +60,7 @@ func (r *TestResources) GetContainerLogs(namespace, podName, containerName strin
 	if err != nil {
 		return fmt.Errorf("failed to get logs for container %s in pod %s: %s", containerName, podName, err.Error())
 	}
-	defer stream.Close()
+	defer r.closeStream(stream)
 
 	_, err = io.Copy(dest, stream)
 	if err != nil {

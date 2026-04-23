@@ -228,12 +228,12 @@ func (r *Reconciler) createOrUpdateServiceAccount(ctx context.Context, sa *corev
 }
 
 func (r *Reconciler) cleanUpRole(ctx context.Context, cr *model.CryostatInstance, role *rbacv1.Role) error {
-	err := r.Client.Get(ctx, types.NamespacedName{Name: role.Name, Namespace: role.Namespace}, role)
+	err := r.Get(ctx, types.NamespacedName{Name: role.Name, Namespace: role.Namespace}, role)
 	if err != nil && !kerrors.IsNotFound(err) {
 		r.Log.Error(err, "Could not look up role", "name", role.Name, "namespace", role.Namespace)
 		return err
 	} else if metav1.IsControlledBy(role, cr.Object) {
-		err := r.Client.Delete(ctx, role)
+		err := r.Delete(ctx, role)
 		if err != nil {
 			r.Log.Info("Failed to delete role", "name", role.Name, "namespace", role.Namespace)
 		}
@@ -295,7 +295,7 @@ func (r *Reconciler) recreateRoleBinding(ctx context.Context, binding *rbacv1.Ro
 }
 
 func (r *Reconciler) deleteRoleBinding(ctx context.Context, binding *rbacv1.RoleBinding) error {
-	err := r.Client.Delete(ctx, binding)
+	err := r.Delete(ctx, binding)
 	if err != nil {
 		if kerrors.IsNotFound(err) {
 			r.Log.Info("No role binding to delete", "name", binding.Name, "namespace", binding.Namespace)

@@ -29,7 +29,7 @@ import (
 	consolev1 "github.com/openshift/api/console/v1"
 	openshiftoperatorv1 "github.com/openshift/api/operator/v1"
 
-	//+kubebuilder:scaffold:imports
+	// +kubebuilder:scaffold:imports
 
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes/scheme"

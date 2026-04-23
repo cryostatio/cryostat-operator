@@ -137,13 +137,14 @@ func (r *TestResources) ConvertNamespacedToModel(cr *operatorv1beta2.Cryostat) *
 	}
 }
 
+const testCertKey = "test.crt"
+
 func (r *TestResources) NewCryostatWithSecrets() *model.CryostatInstance {
 	cr := r.NewCryostat()
-	key := "test.crt"
 	cr.Spec.TrustedCertSecrets = []operatorv1beta2.CertificateSecret{
 		{
 			SecretName:     "testCert1",
-			CertificateKey: &key,
+			CertificateKey: &[]string{testCertKey}[0],
 		},
 		{
 			SecretName: "testCert2",
@@ -154,11 +155,10 @@ func (r *TestResources) NewCryostatWithSecrets() *model.CryostatInstance {
 
 func (r *TestResources) NewCryostatWithTrustedCertConfigMaps() *model.CryostatInstance {
 	cr := r.NewCryostat()
-	key := "test.crt"
 	cr.Spec.TrustedCertSecrets = []operatorv1beta2.CertificateSecret{
 		{
 			ConfigMapName:  "testCertCM1",
-			CertificateKey: &key,
+			CertificateKey: &[]string{testCertKey}[0],
 		},
 		{
 			ConfigMapName: "testCertCM2",
@@ -328,6 +328,9 @@ func (r *TestResources) NewCryostatWithCustomizedStorageBucketNames() *model.Cry
 	return cr
 }
 
+const customAnnotationValue = "annotation"
+const customLabelValue = "label"
+
 func (r *TestResources) NewCryostatWithPVCSpecLegacy() *model.CryostatInstance {
 	cr := r.NewCryostat()
 	cr.Spec.StorageOptions = &operatorv1beta2.StorageConfigurations{
@@ -335,10 +338,10 @@ func (r *TestResources) NewCryostatWithPVCSpecLegacy() *model.CryostatInstance {
 			PVC: &operatorv1beta2.PersistentVolumeClaimConfig{
 				ResourceMetadata: operatorv1beta2.ResourceMetadata{
 					Annotations: map[string]string{
-						"my/custom": "annotation",
+						"my/custom": customAnnotationValue,
 					},
 					Labels: map[string]string{
-						"my":  "label",
+						"my":  customLabelValue,
 						"app": "somethingelse",
 					},
 				},
@@ -384,10 +387,10 @@ func (r *TestResources) NewCryostatWithPVCSpecBoth() *model.CryostatInstance {
 			PVC: &operatorv1beta2.PersistentVolumeClaimConfig{
 				ResourceMetadata: operatorv1beta2.ResourceMetadata{
 					Annotations: map[string]string{
-						"my/custom": "annotation",
+						"my/custom": customAnnotationValue,
 					},
 					Labels: map[string]string{
-						"my":  "label",
+						"my":  customLabelValue,
 						"app": "somethingelse",
 					},
 				},
@@ -459,7 +462,7 @@ func (r *TestResources) NewCryostatWithPVCLabelsOnlyLegacy() *model.CryostatInst
 			PVC: &operatorv1beta2.PersistentVolumeClaimConfig{
 				ResourceMetadata: operatorv1beta2.ResourceMetadata{
 					Labels: map[string]string{
-						"my": "label",
+						"my": customLabelValue,
 					},
 				},
 			},
@@ -571,10 +574,10 @@ func (r *TestResources) NewCryostatWithCoreSvc() *model.CryostatInstance {
 				ServiceType: &svcType,
 				ResourceMetadata: operatorv1beta2.ResourceMetadata{
 					Annotations: map[string]string{
-						"my/custom": "annotation",
+						"my/custom": customAnnotationValue,
 					},
 					Labels: map[string]string{
-						"my":  "label",
+						"my":  customLabelValue,
 						"app": "somethingelse",
 					},
 				},
@@ -595,10 +598,10 @@ func (r *TestResources) NewCryostatWithReportsSvc() *model.CryostatInstance {
 				ServiceType: &svcType,
 				ResourceMetadata: operatorv1beta2.ResourceMetadata{
 					Annotations: map[string]string{
-						"my/custom": "annotation",
+						"my/custom": customAnnotationValue,
 					},
 					Labels: map[string]string{
-						"my":  "label",
+						"my":  customLabelValue,
 						"app": "somethingelse",
 					},
 				},
@@ -619,10 +622,10 @@ func (r *TestResources) NewCryostatWithAgentGatewaySvc() *model.CryostatInstance
 				ServiceType: &svcType,
 				ResourceMetadata: operatorv1beta2.ResourceMetadata{
 					Annotations: map[string]string{
-						"my/custom": "annotation",
+						"my/custom": customAnnotationValue,
 					},
 					Labels: map[string]string{
-						"my":  "label",
+						"my":  customLabelValue,
 						"app": "somethingelse",
 					},
 				},
@@ -638,10 +641,10 @@ func (r *TestResources) NewCryostatWithAgentCallbackSvc() *model.CryostatInstanc
 		AgentCallbackConfig: &operatorv1beta2.AgentCallbackServiceConfig{
 			ResourceMetadata: operatorv1beta2.ResourceMetadata{
 				Annotations: map[string]string{
-					"my/custom": "annotation",
+					"my/custom": customAnnotationValue,
 				},
 				Labels: map[string]string{
-					"my":  "label",
+					"my":  customLabelValue,
 					"app": "somethingelse",
 				},
 			},
@@ -655,9 +658,9 @@ func (r *TestResources) NewCryostatWithCoreNetworkOptions() *model.CryostatInsta
 	cr.Spec.NetworkOptions = &operatorv1beta2.NetworkConfigurationList{
 		CoreConfig: &operatorv1beta2.NetworkConfiguration{
 			ResourceMetadata: operatorv1beta2.ResourceMetadata{
-				Annotations: map[string]string{"custom": "annotation"},
+				Annotations: map[string]string{"custom": customAnnotationValue},
 				Labels: map[string]string{
-					"custom":    "label",
+					"custom":    customLabelValue,
 					"app":       "test-app",
 					"component": "test-comp",
 				},
@@ -1132,7 +1135,7 @@ func (r *TestResources) NewCryostatWithAdditionalMetadata() *model.CryostatInsta
 			Labels: map[string]string{
 				"myDeploymentExtraLabel":       "myDeploymentLabel",
 				"mySecondDeploymentExtraLabel": "mySecondDeploymentLabel",
-				// below, labels that should be discarded as overriden by the default
+				// below, labels that should be discarded as overridden by the default
 				"app":                    "myApp",
 				"component":              "myComponent",
 				"kind":                   "myKind",
@@ -1141,7 +1144,7 @@ func (r *TestResources) NewCryostatWithAdditionalMetadata() *model.CryostatInsta
 			Annotations: map[string]string{
 				"myDeploymentExtraAnnotation":       "myDeploymentAnnotation",
 				"mySecondDeploymentExtraAnnotation": "mySecondDeploymentAnnotation",
-				// below, annotation that should be discarded as overriden by the default
+				// below, annotation that should be discarded as overridden by the default
 				"app.openshift.io/connects-to": "connectToMe",
 			},
 		},
@@ -1149,7 +1152,7 @@ func (r *TestResources) NewCryostatWithAdditionalMetadata() *model.CryostatInsta
 			Labels: map[string]string{
 				"myPodExtraLabel":       "myPodLabel",
 				"myPodSecondExtraLabel": "myPodSecondLabel",
-				// below, labels that should be discarded as overriden by the default
+				// below, labels that should be discarded as overridden by the default
 				"app":       "myApp",
 				"component": "myComponent",
 				"kind":      "myKind",
@@ -1712,12 +1715,12 @@ func (r *TestResources) NewCustomizedCoreService() *corev1.Service {
 	svc.Spec.Type = corev1.ServiceTypeNodePort
 	svc.Spec.Ports[0].Port = 8080
 	svc.Annotations = map[string]string{
-		"my/custom": "annotation",
+		"my/custom": customAnnotationValue,
 	}
 	svc.Labels = map[string]string{
 		"app":                         r.Name,
 		"component":                   "cryostat",
-		"my":                          "label",
+		"my":                          customLabelValue,
 		"app.kubernetes.io/name":      "cryostat",
 		"app.kubernetes.io/instance":  r.Name,
 		"app.kubernetes.io/component": "cryostat",
@@ -1731,12 +1734,12 @@ func (r *TestResources) NewCustomizedReportsService() *corev1.Service {
 	svc.Spec.Type = corev1.ServiceTypeNodePort
 	svc.Spec.Ports[0].Port = 13161
 	svc.Annotations = map[string]string{
-		"my/custom": "annotation",
+		"my/custom": customAnnotationValue,
 	}
 	svc.Labels = map[string]string{
 		"app":                         r.Name,
 		"component":                   "reports",
-		"my":                          "label",
+		"my":                          customLabelValue,
 		"app.kubernetes.io/name":      "cryostat",
 		"app.kubernetes.io/instance":  r.Name,
 		"app.kubernetes.io/component": "reports",
@@ -1750,12 +1753,12 @@ func (r *TestResources) NewCustomizedAgentGatewayService() *corev1.Service {
 	svc.Spec.Type = corev1.ServiceTypeNodePort
 	svc.Spec.Ports[0].Port = 8080
 	svc.Annotations = map[string]string{
-		"my/custom": "annotation",
+		"my/custom": customAnnotationValue,
 	}
 	svc.Labels = map[string]string{
 		"app":                         r.Name,
 		"component":                   "cryostat-agent-gateway",
-		"my":                          "label",
+		"my":                          customLabelValue,
 		"app.kubernetes.io/name":      "cryostat",
 		"app.kubernetes.io/instance":  r.Name,
 		"app.kubernetes.io/component": "cryostat-agent-gateway",
@@ -1767,12 +1770,12 @@ func (r *TestResources) NewCustomizedAgentGatewayService() *corev1.Service {
 func (r *TestResources) NewCustomizedAgentCallbackService(namespace string) *corev1.Service {
 	svc := r.NewAgentCallbackService(namespace)
 	svc.Annotations = map[string]string{
-		"my/custom": "annotation",
+		"my/custom": customAnnotationValue,
 	}
 	svc.Labels = map[string]string{
 		"app":                            r.Name,
 		"component":                      "cryostat-agent-callback",
-		"my":                             "label",
+		"my":                             customLabelValue,
 		"app.kubernetes.io/name":         "cryostat",
 		"app.kubernetes.io/instance":     r.Name,
 		"app.kubernetes.io/component":    "cryostat-agent-callback",
@@ -1952,7 +1955,7 @@ func (r *TestResources) NewTestCertConfigMap(name string) *corev1.ConfigMap {
 		},
 		Data: map[string]string{
 			operatorv1beta2.DefaultConfigMapCertificateKey: name + "-service-ca-bytes",
-			"test.crt": name + "-test-bytes",
+			testCertKey: name + "-test-bytes",
 		},
 	}
 }
@@ -2323,10 +2326,10 @@ func (r *TestResources) NewCustomStoragePVCLegacy() *corev1.PersistentVolumeClai
 			},
 		},
 	}, map[string]string{
-		"my":  "label",
+		"my":  customLabelValue,
 		"app": r.Name,
 	}, map[string]string{
-		"my/custom": "annotation",
+		"my/custom": customAnnotationValue,
 	}, r.Name+"-storage")
 }
 
@@ -2384,7 +2387,7 @@ func (r *TestResources) NewDefaultStoragePVCWithLabelLegacy() *corev1.Persistent
 		},
 	}, map[string]string{
 		"app": r.Name,
-		"my":  "label",
+		"my":  customLabelValue,
 	}, nil, r.Name+"-storage")
 }
 
@@ -2417,10 +2420,10 @@ func (r *TestResources) NewCustomDatabasePVCLegacy() *corev1.PersistentVolumeCla
 			},
 		},
 	}, map[string]string{
-		"my":  "label",
+		"my":  customLabelValue,
 		"app": r.Name,
 	}, map[string]string{
-		"my/custom": "annotation",
+		"my/custom": customAnnotationValue,
 	}, r.Name+"-database")
 }
 
@@ -2478,7 +2481,7 @@ func (r *TestResources) NewDefaultDatabasePVCWithLabelLegacy() *corev1.Persisten
 		},
 	}, map[string]string{
 		"app": r.Name,
-		"my":  "label",
+		"my":  customLabelValue,
 	}, nil, r.Name+"-database")
 }
 
@@ -3795,11 +3798,11 @@ func (r *TestResources) OtherDeployment() *appsv1.Deployment {
 			Namespace: r.Namespace,
 			Labels: map[string]string{
 				"app":   "something-else",
-				"other": "label",
+				"other": customLabelValue,
 			},
 			Annotations: map[string]string{
 				"app.openshift.io/connects-to": "something-else",
-				"other":                        "annotation",
+				"other":                        customAnnotationValue,
 			},
 		},
 		Spec: appsv1.DeploymentSpec{
@@ -3864,7 +3867,7 @@ func (r *TestResources) NewVolumesWithSecrets() []corev1.Volume {
 				},
 				Items: []corev1.KeyToPath{
 					{
-						Key:  "test.crt",
+						Key:  testCertKey,
 						Path: "secret_testCert1_test.crt",
 						Mode: &mode,
 					},
@@ -3898,7 +3901,7 @@ func (r *TestResources) NewVolumesWithTrustedCertConfigMaps() []corev1.Volume {
 				},
 				Items: []corev1.KeyToPath{
 					{
-						Key:  "test.crt",
+						Key:  testCertKey,
 						Path: "configmap_testCertCM1_test.crt",
 						Mode: &mode,
 					},
@@ -4424,9 +4427,9 @@ func (r *TestResources) NewCoreRoute() *routev1.Route {
 
 func (r *TestResources) NewCustomCoreRoute() *routev1.Route {
 	route := r.NewCoreRoute()
-	route.Annotations = map[string]string{"custom": "annotation"}
+	route.Annotations = map[string]string{"custom": customAnnotationValue}
 	route.Labels = map[string]string{
-		"custom":    "label",
+		"custom":    customLabelValue,
 		"app":       r.Name,
 		"component": "cryostat",
 	}
@@ -4480,8 +4483,8 @@ func (r *TestResources) OtherCoreRoute() *routev1.Route {
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        r.Name,
 			Namespace:   r.Namespace,
-			Annotations: map[string]string{"custom": "annotation"},
-			Labels:      map[string]string{"custom": "label"},
+			Annotations: map[string]string{"custom": customAnnotationValue},
+			Labels:      map[string]string{"custom": customLabelValue},
 		},
 		Spec: routev1.RouteSpec{
 			To: routev1.RouteTargetReference{
@@ -4502,8 +4505,8 @@ func (r *TestResources) OtherCoreRoute() *routev1.Route {
 }
 
 func (r *TestResources) NewCoreIngress() *netv1.Ingress {
-	return r.newIngress(r.Name, 4180, map[string]string{"custom": "annotation"},
-		map[string]string{"my": "label", "custom": "label"})
+	return r.newIngress(r.Name, 4180, map[string]string{"custom": customAnnotationValue},
+		map[string]string{"my": customLabelValue, "custom": customLabelValue})
 }
 
 func (r *TestResources) newIngress(name string, svcPort int32, annotations, labels map[string]string) *netv1.Ingress {
@@ -4559,8 +4562,8 @@ func (r *TestResources) OtherCoreIngress() *netv1.Ingress {
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        r.Name,
 			Namespace:   r.Namespace,
-			Annotations: map[string]string{"other": "annotation"},
-			Labels:      map[string]string{"other": "label", "app": "not-cryostat"},
+			Annotations: map[string]string{"other": customAnnotationValue},
+			Labels:      map[string]string{"other": customLabelValue, "app": "not-cryostat"},
 		},
 		Spec: netv1.IngressSpec{
 			Rules: []netv1.IngressRule{
@@ -4593,8 +4596,8 @@ func (r *TestResources) OtherCoreIngress() *netv1.Ingress {
 func (r *TestResources) newNetworkConfigurationList() operatorv1beta2.NetworkConfigurationList {
 	coreSVC := r.NewCryostatService()
 	coreIng := r.newNetworkConfiguration(coreSVC.Name, coreSVC.Spec.Ports[0].Port)
-	coreIng.Annotations["custom"] = "annotation"
-	coreIng.Labels["custom"] = "label"
+	coreIng.Annotations["custom"] = customAnnotationValue
+	coreIng.Labels["custom"] = customLabelValue
 
 	return operatorv1beta2.NetworkConfigurationList{
 		CoreConfig: &coreIng,
@@ -4612,7 +4615,7 @@ func (r *TestResources) newNetworkConfiguration(svcName string, svcPort int32) o
 	return operatorv1beta2.NetworkConfiguration{
 		ResourceMetadata: operatorv1beta2.ResourceMetadata{
 			Annotations: map[string]string{"nginx.ingress.kubernetes.io/backend-protocol": "HTTPS"},
-			Labels:      map[string]string{"my": "label"},
+			Labels:      map[string]string{"my": customLabelValue},
 		},
 		IngressSpec: &netv1.IngressSpec{
 			Rules: []netv1.IngressRule{
@@ -4671,7 +4674,7 @@ func (r *TestResources) OtherServiceAccount() *corev1.ServiceAccount {
 			Namespace: r.Namespace,
 			Labels: map[string]string{
 				"app":   "not-cryostat",
-				"other": "label",
+				"other": customLabelValue,
 			},
 			Annotations: map[string]string{
 				"hello": "world",
@@ -4737,7 +4740,7 @@ func (r *TestResources) OtherRole() *rbacv1.Role {
 			Name:      r.Name,
 			Namespace: r.Namespace,
 			Labels: map[string]string{
-				"test": "label",
+				"test": customLabelValue,
 			},
 		},
 		Rules: []rbacv1.PolicyRule{
@@ -4781,7 +4784,7 @@ func (r *TestResources) OtherRoleBinding(ns string) *rbacv1.RoleBinding {
 			Name:      r.getClusterUniqueName(),
 			Namespace: ns,
 			Labels: map[string]string{
-				"test": "label",
+				"test": customLabelValue,
 			},
 		},
 		Subjects: []rbacv1.Subject{
@@ -4849,7 +4852,7 @@ func (r *TestResources) OtherClusterRoleBinding() *rbacv1.ClusterRoleBinding {
 		ObjectMeta: metav1.ObjectMeta{
 			Name: r.getClusterUniqueName(),
 			Labels: map[string]string{
-				"test": "label",
+				"test": customLabelValue,
 			},
 		},
 		Subjects: []rbacv1.Subject{
@@ -5004,10 +5007,10 @@ func (r *TestResources) OtherConsoleLink() *consolev1.ConsoleLink {
 		ObjectMeta: metav1.ObjectMeta{
 			Name: r.getClusterUniqueName(),
 			Labels: map[string]string{
-				"my": "label",
+				"my": customLabelValue,
 			},
 			Annotations: map[string]string{
-				"my": "annotation",
+				"my": customAnnotationValue,
 			},
 		},
 		Spec: consolev1.ConsoleLinkSpec{

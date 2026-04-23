@@ -82,7 +82,7 @@ func (r *CryostatReconciler) Reconcile(ctx context.Context, request ctrl.Request
 
 	// Fetch the Cryostat instance
 	cr := &operatorv1beta2.Cryostat{}
-	err := r.Client.Get(ctx, request.NamespacedName, cr)
+	err := r.Get(ctx, request.NamespacedName, cr)
 	if err != nil {
 		if kerrors.IsNotFound(err) {
 			// Request object not found, could have been deleted after reconcile request.

@@ -21,13 +21,11 @@ import (
 	"encoding/json"
 	"fmt"
 	"hash/fnv"
-	"io/ioutil"
 	"math/rand"
 	"os"
 	"regexp"
 	"slices"
 	"strings"
-	"time"
 
 	"github.com/cryostatio/cryostat-operator/internal/controller/constants"
 	"github.com/cryostatio/cryostat-operator/internal/controller/model"
@@ -36,7 +34,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
-	"sigs.k8s.io/controller-runtime/pkg/client"
+	ctrlclient "sigs.k8s.io/controller-runtime/pkg/client"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 )
 
@@ -70,12 +68,11 @@ func (o *DefaultOSUtils) GetEnvOrDefault(name string, defaultVal string) string 
 
 // GetFileContents reads and returns the entire file contents specified by the path
 func (o *DefaultOSUtils) GetFileContents(path string) ([]byte, error) {
-	return ioutil.ReadFile(path)
+	return os.ReadFile(path)
 }
 
 // GenPasswd generates a psuedorandom password of a given length.
 func (o *DefaultOSUtils) GenPasswd(length int) string {
-	rand.Seed(time.Now().UnixNano())
 	chars := "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_"
 	b := make([]byte, length)
 	for i := range b {
@@ -228,7 +225,7 @@ const annotationConfigMapHash = "io.cryostat/config-map-hash"
 // AnnotateWithObjRefHashes annotates the provided pod template with hashes of the secret and config map data used
 // by this pod template. This allows the pod template parent to automatically roll out a new revision when
 // the hashed data changes.
-func AnnotateWithObjRefHashes(ctx context.Context, client client.Client, namespace string, template *corev1.PodTemplateSpec) error {
+func AnnotateWithObjRefHashes(ctx context.Context, client ctrlclient.Client, namespace string, template *corev1.PodTemplateSpec) error {
 	if template.Annotations == nil {
 		template.Annotations = map[string]string{}
 	}
@@ -295,7 +292,7 @@ func AnnotateWithObjRefHashes(ctx context.Context, client client.Client, namespa
 	return nil
 }
 
-func hashSecrets(ctx context.Context, client client.Client, namespace string, secrets *objectSet[string]) (*string, error) {
+func hashSecrets(ctx context.Context, client ctrlclient.Client, namespace string, secrets *objectSet[string]) (*string, error) {
 	// Collect the JSON of all secret data, sorted by object name
 	combinedJSON := []byte{}
 	for _, name := range secrets.toSortedSlice() {
@@ -316,7 +313,7 @@ func hashSecrets(ctx context.Context, client client.Client, namespace string, se
 	return &hashed, nil
 }
 
-func hashConfigMaps(ctx context.Context, client client.Client, namespace string, configMaps *objectSet[string]) (*string, error) {
+func hashConfigMaps(ctx context.Context, client ctrlclient.Client, namespace string, configMaps *objectSet[string]) (*string, error) {
 	// Collect the JSON of all config map data, sorted by object name
 	combinedJSON := []byte{}
 	for _, name := range configMaps.toSortedSlice() {
@@ -334,7 +331,7 @@ func hashConfigMaps(ctx context.Context, client client.Client, namespace string,
 	}
 	// Hash the JSON with FNV-1
 	hash := fnv.New128()
-	hash.Write([]byte(combinedJSON))
+	hash.Write(combinedJSON)
 	hashed := fmt.Sprintf("%x", hash.Sum([]byte{}))
 	return &hashed, nil
 }

@@ -119,9 +119,9 @@ func (t *cryostatTestInput) newReconcilerConfig(scheme *runtime.Scheme, client c
 	// Set InsightsURL in config, if provided
 	var insightsURL *url.URL
 	if len(t.InsightsURL) > 0 {
-		url, err := url.Parse(t.InsightsURL)
+		parsed, err := url.Parse(t.InsightsURL)
 		Expect(err).ToNot(HaveOccurred())
-		insightsURL = url
+		insightsURL = parsed
 	}
 	return &controller.ReconcilerConfig{
 		Client:                 test.NewClientWithTimestamp(test.NewTestClient(client, t.TestResources)),
@@ -179,7 +179,6 @@ func resourceChecks() []resourceCheck {
 
 func expectSuccessful(t **cryostatTestInput) {
 	for _, check := range resourceChecks() {
-		check := check
 		It(fmt.Sprintf("should create %s", check.resourceName), func() {
 			check.expectFunc(*t)
 		})
@@ -703,7 +702,7 @@ func (c *controllerTest) commonTests() {
 					t.expectStorageDeployment()
 					t.checkReportsDeployment()
 					t.checkService(t.NewReportsService())
-					t.checkNetworkPolicy(t.NewReportsIngressNetworkPolicy())
+					t.expectReportsIngressNetworkPolicy()
 				})
 			})
 			Context("with Scheduling options", func() {
@@ -725,7 +724,7 @@ func (c *controllerTest) commonTests() {
 						t.expectStorageDeployment()
 						t.checkReportsDeployment()
 						t.checkService(t.NewReportsService())
-						t.checkNetworkPolicy(t.NewReportsIngressNetworkPolicy())
+						t.expectReportsIngressNetworkPolicy()
 					})
 				})
 				Context("with low limits", func() {
@@ -736,7 +735,7 @@ func (c *controllerTest) commonTests() {
 						t.expectMainDeployment()
 						t.checkReportsDeployment()
 						t.checkService(t.NewReportsService())
-						t.checkNetworkPolicy(t.NewReportsIngressNetworkPolicy())
+						t.expectReportsIngressNetworkPolicy()
 					})
 				})
 			})
@@ -799,7 +798,7 @@ func (c *controllerTest) commonTests() {
 				t.expectMainDeployment()
 				t.checkReportsDeployment()
 				t.checkService(t.NewReportsService())
-				t.checkNetworkPolicy(t.NewReportsIngressNetworkPolicy())
+				t.expectReportsIngressNetworkPolicy()
 			})
 		})
 		Context("Switching from 1 report sidecar to 2", func() {
@@ -822,7 +821,7 @@ func (c *controllerTest) commonTests() {
 				t.expectMainDeployment()
 				t.checkReportsDeployment()
 				t.checkService(t.NewReportsService())
-				t.checkNetworkPolicy(t.NewReportsIngressNetworkPolicy())
+				t.expectReportsIngressNetworkPolicy()
 			})
 		})
 		Context("Switching from 2 report sidecars to 1", func() {
@@ -845,7 +844,7 @@ func (c *controllerTest) commonTests() {
 				t.expectMainDeployment()
 				t.checkReportsDeployment()
 				t.checkService(t.NewReportsService())
-				t.checkNetworkPolicy(t.NewReportsIngressNetworkPolicy())
+				t.expectReportsIngressNetworkPolicy()
 			})
 		})
 		Context("Switching from 1 report sidecar to 0", func() {
@@ -1376,7 +1375,7 @@ func (c *controllerTest) commonTests() {
 				t.expectStorageEmptyDir(t.NewCustomStorageEmptyDir())
 			})
 		})
-		Context("with overriden image tags", func() {
+		Context("with overridden image tags", func() {
 			var mainDeploy, databaseDeploy, storageDeploy, reportsDeploy *appsv1.Deployment
 			BeforeEach(func() {
 				t.ReportReplicas = 1
@@ -1745,9 +1744,10 @@ func (c *controllerTest) commonTests() {
 			})
 			It("should not create certificates", func() {
 				certs := &certv1.CertificateList{}
-				t.Client.List(context.Background(), certs, &ctrlclient.ListOptions{
+				err := t.Client.List(context.Background(), certs, &ctrlclient.ListOptions{
 					Namespace: t.Namespace,
 				})
+				Expect(err).ToNot(HaveOccurred())
 				Expect(certs.Items).To(BeEmpty())
 			})
 			It("should create routes with edge TLS termination", func() {
@@ -1797,9 +1797,10 @@ func (c *controllerTest) commonTests() {
 			})
 			It("should not create certificates", func() {
 				certs := &certv1.CertificateList{}
-				t.Client.List(context.Background(), certs, &ctrlclient.ListOptions{
+				err := t.Client.List(context.Background(), certs, &ctrlclient.ListOptions{
 					Namespace: t.Namespace,
 				})
+				Expect(err).ToNot(HaveOccurred())
 				Expect(certs.Items).To(BeEmpty())
 			})
 			It("should create routes with edge TLS termination", func() {
@@ -2649,7 +2650,7 @@ func (c *controllerTest) commonTests() {
 				It("should remove RBAC from the second namespace", func() {
 					binding := t.NewRoleBinding(targetNamespaces[1])
 					err := t.Client.Get(context.Background(), types.NamespacedName{Name: binding.Name, Namespace: binding.Namespace}, binding)
-					Expect(err).ToNot(BeNil())
+					Expect(err).To(HaveOccurred())
 					Expect(kerrors.IsNotFound(err)).To(BeTrue())
 				})
 				It("leave certificate secrets for the first namespace", func() {
@@ -2658,25 +2659,25 @@ func (c *controllerTest) commonTests() {
 				It("should remove CA cert secret from the second namespace", func() {
 					secret := t.NewCACertSecret(targetNamespaces[1])
 					err := t.Client.Get(context.Background(), types.NamespacedName{Name: secret.Name, Namespace: secret.Namespace}, secret)
-					Expect(err).ToNot(BeNil())
+					Expect(err).To(HaveOccurred())
 					Expect(kerrors.IsNotFound(err)).To(BeTrue())
 				})
 				It("should remove agent certificate for the second namespace", func() {
 					cert := t.NewAgentCert(targetNamespaces[1])
 					err := t.Client.Get(context.Background(), types.NamespacedName{Name: cert.Name, Namespace: cert.Namespace}, cert)
-					Expect(err).ToNot(BeNil())
+					Expect(err).To(HaveOccurred())
 					Expect(kerrors.IsNotFound(err)).To(BeTrue())
 				})
 				It("should remove agent cert secret for the second namespace", func() {
 					secret := t.NewAgentCertSecret(targetNamespaces[1])
 					err := t.Client.Get(context.Background(), types.NamespacedName{Name: secret.Name, Namespace: secret.Namespace}, secret)
-					Expect(err).ToNot(BeNil())
+					Expect(err).To(HaveOccurred())
 					Expect(kerrors.IsNotFound(err)).To(BeTrue())
 				})
 				It("should remove agent cert secret copy from the second namespace", func() {
 					secret := t.NewAgentCertSecretCopy(targetNamespaces[1])
 					err := t.Client.Get(context.Background(), types.NamespacedName{Name: secret.Name, Namespace: secret.Namespace}, secret)
-					Expect(err).ToNot(BeNil())
+					Expect(err).To(HaveOccurred())
 					Expect(kerrors.IsNotFound(err)).To(BeTrue())
 				})
 				It("should update the target namespaces in Status", func() {
@@ -2862,7 +2863,7 @@ func (c *controllerTest) commonTests() {
 			})
 			It("should create the reports service", func() {
 				t.checkService(t.NewReportsService())
-				t.checkNetworkPolicy(t.NewReportsIngressNetworkPolicy())
+				t.expectReportsIngressNetworkPolicy()
 			})
 		})
 		Context("with security options", func() {
@@ -3045,7 +3046,8 @@ func (c *controllerTest) commonTests() {
 			// Create a default manager, not called
 			mgr, err := manager.New(cfg, manager.Options{})
 			Expect(err).ToNot(HaveOccurred())
-			t.reconciler.SetupWithManager(mgr)
+			err = t.reconciler.SetupWithManager(mgr)
+			Expect(err).ToNot(HaveOccurred())
 		})
 
 		JustAfterEach(func() {
@@ -3083,7 +3085,7 @@ func (c *controllerTest) commonTests() {
 			expectOwnedResources := func() {
 				It("should watch objects owned by Cryostat CRs", func() {
 					Expect(t.ControllerBuilder.OwnsCalls).To(HaveLen(len(ownsResources)))
-					resources := []ctrlclient.Object{}
+					resources := make([]ctrlclient.Object, 0, len(ownsResources))
 					for _, call := range t.ControllerBuilder.OwnsCalls {
 						resources = append(resources, call.Object)
 						Expect(call.Opts).To(BeEmpty())
@@ -3142,7 +3144,7 @@ func (c *controllerTest) commonTests() {
 
 			It("should watch specified resources", func() {
 				Expect(t.ControllerBuilder.WatchesCalls).To(HaveLen(len(expectedResources)))
-				resources := []ctrlclient.Object{}
+				resources := make([]ctrlclient.Object, 0, len(expectedResources))
 				for _, watch := range t.ControllerBuilder.WatchesCalls {
 					resources = append(resources, watch.Object)
 				}
@@ -3279,7 +3281,7 @@ func (t *cryostatTestInput) expectRoutes() {
 	t.checkRoute(t.NewCoreRoute())
 }
 
-func (t *cryostatTestInput) checkRoute(expected *openshiftv1.Route) *openshiftv1.Route {
+func (t *cryostatTestInput) checkRoute(expected *openshiftv1.Route) {
 	route := &openshiftv1.Route{}
 	err := t.Client.Get(context.Background(), types.NamespacedName{Name: expected.Name, Namespace: expected.Namespace}, route)
 	Expect(err).ToNot(HaveOccurred())
@@ -3289,7 +3291,6 @@ func (t *cryostatTestInput) checkRoute(expected *openshiftv1.Route) *openshiftv1
 	Expect(route.Spec.To).To(Equal(expected.Spec.To))
 	Expect(route.Spec.Port).To(Equal(expected.Spec.Port))
 	Expect(route.Spec.TLS).To(Equal(expected.Spec.TLS))
-	return route
 }
 
 func (t *cryostatTestInput) checkConditionPresent(condType operatorv1beta2.CryostatConditionType, status metav1.ConditionStatus, reason string) {
@@ -3320,7 +3321,7 @@ func (t *cryostatTestInput) reconcileDeletedCryostat() {
 	cr := t.getCryostatInstance()
 
 	// Check that the finalizer is set, then delete
-	Expect(controllerutil.ContainsFinalizer(cr.Object, "operator.cryostat.io/cryostat.finalizer"))
+	Expect(controllerutil.ContainsFinalizer(cr.Object, "operator.cryostat.io/cryostat.finalizer")).To(BeTrue())
 	err := t.Client.Delete(context.Background(), cr.Object)
 	Expect(err).ToNot(HaveOccurred())
 
@@ -3331,7 +3332,7 @@ func (t *cryostatTestInput) reconcileDeletedCryostat() {
 func (t *cryostatTestInput) checkMetadata(object metav1.Object, expected metav1.Object) {
 	t.checkMetadataNoOwner(object, expected)
 	Expect(object.GetOwnerReferences()).To(HaveLen(1))
-	Expect(metav1.IsControlledBy(object, t.getCryostatInstance().Object))
+	Expect(metav1.IsControlledBy(object, t.getCryostatInstance().Object)).To(BeTrue(), fmt.Sprintf("bad owner: %v", object))
 }
 
 func (t *cryostatTestInput) checkMetadataNoOwner(object metav1.Object, expected metav1.Object) {
@@ -3371,7 +3372,7 @@ func (t *cryostatTestInput) expectCertificates() {
 		err = t.Client.Get(context.Background(), types.NamespacedName{Name: expected.Spec.SecretName, Namespace: expected.Namespace}, secret)
 		Expect(err).ToNot(HaveOccurred())
 		Expect(secret.GetOwnerReferences()).To(HaveLen(1))
-		Expect(metav1.IsControlledBy(secret, actual))
+		Expect(metav1.IsControlledBy(secret, actual)).To(BeTrue())
 	}
 	// Check issuers as well
 	issuers := []*certv1.Issuer{t.NewSelfSignedIssuer(), t.NewCryostatCAIssuer()}
@@ -3415,12 +3416,14 @@ func (t *cryostatTestInput) expectCertificates() {
 		t.checkMetadata(cert, expectedCert)
 		Expect(cert.Spec).To(Equal(expectedCert.Spec))
 
-		// Check certificate secret is created and owned by CR
+		// Check certificate secret is created and owned by the Certificate
 		expectedSecret := t.NewAgentCertSecret(ns)
 		secret := &corev1.Secret{}
 		err = t.Client.Get(context.Background(), types.NamespacedName{Name: expectedSecret.Name, Namespace: expectedSecret.Namespace}, secret)
 		Expect(err).ToNot(HaveOccurred())
-		t.checkMetadata(secret, expectedSecret)
+		t.checkMetadataNoOwner(secret, expectedSecret)
+		Expect(secret.GetOwnerReferences()).To(HaveLen(1))
+		Expect(metav1.IsControlledBy(secret, cert)).To(BeTrue())
 		Expect(secret.Data).To(Equal(expectedSecret.Data))
 
 		if ns != t.Namespace {
@@ -3889,8 +3892,6 @@ func (t *cryostatTestInput) expectMainDeploymentHasExtraMetadata() {
 	err := t.Client.Get(context.Background(), types.NamespacedName{Name: t.Name, Namespace: t.Namespace}, deployment)
 	Expect(err).ToNot(HaveOccurred())
 
-	cr := t.getCryostatInstance()
-
 	Expect(deployment.Annotations).To(Equal(map[string]string{
 		"app.openshift.io/connects-to":      "cryostat-operator-controller",
 		"myDeploymentExtraAnnotation":       "myDeploymentAnnotation",
@@ -3905,7 +3906,7 @@ func (t *cryostatTestInput) expectMainDeploymentHasExtraMetadata() {
 		"mySecondDeploymentExtraLabel": "mySecondDeploymentLabel",
 	}))
 	// compare Pod template
-	t.expectMainPodTemplateHasExtraMetadata(deployment, cr)
+	t.expectMainPodTemplateHasExtraMetadata(deployment)
 }
 
 func (t *cryostatTestInput) checkMainPodTemplate(deployment *appsv1.Deployment, cr *model.CryostatInstance) {
@@ -3922,7 +3923,7 @@ func (t *cryostatTestInput) checkMainPodTemplate(deployment *appsv1.Deployment, 
 	Expect(template.Spec.SecurityContext).To(Equal(t.NewPodSecurityContext(cr)))
 
 	// Check that the networking environment variables are set correctly
-	Expect(len(template.Spec.Containers)).To(Equal(5))
+	Expect(template.Spec.Containers).To(HaveLen(5))
 	coreContainer := template.Spec.Containers[0]
 	reportPort := int32(10000)
 	if cr.Spec.ServiceOptions != nil {
@@ -3987,7 +3988,7 @@ func (t *cryostatTestInput) checkMainPodTemplate(deployment *appsv1.Deployment, 
 	}
 }
 
-func (t *cryostatTestInput) expectMainPodTemplateHasExtraMetadata(deployment *appsv1.Deployment, cr *model.CryostatInstance) {
+func (t *cryostatTestInput) expectMainPodTemplateHasExtraMetadata(deployment *appsv1.Deployment) {
 	template := deployment.Spec.Template
 	Expect(template.Labels).To(Equal(map[string]string{
 		"app":                   t.Name,

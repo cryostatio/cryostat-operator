@@ -64,7 +64,7 @@ func (c *testClient) Get(ctx context.Context, key ctrlclient.ObjectKey, obj ctrl
 	}
 	// If this is a certificate or route, update the status after the first successful Get operation
 	c.makeCertificatesReady(ctx, obj)
-	c.updateRouteStatus(ctx, obj)
+	c.updateRouteStatus(obj)
 	return nil
 }
 
@@ -102,7 +102,7 @@ func (c *testClient) createCertSecret(ctx context.Context, cert *certv1.Certific
 	gomega.Expect(ctrlclient.IgnoreAlreadyExists(err)).ToNot(gomega.HaveOccurred())
 }
 
-func (c *testClient) updateRouteStatus(ctx context.Context, obj runtime.Object) {
+func (c *testClient) updateRouteStatus(obj runtime.Object) {
 	// If this object is an operator-managed route, mock the behaviour
 	// of OpenShift's router by setting a dummy hostname in its Status
 	route, ok := obj.(*routev1.Route)

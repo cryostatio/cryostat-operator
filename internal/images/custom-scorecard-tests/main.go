@@ -104,9 +104,9 @@ func testLookup() map[string]testFn {
 }
 
 func validTests() []string {
-	tests := testLookup()
-	keys := []string{}
-	for k := range tests {
+	testCases := testLookup()
+	keys := make([]string, 0, len(testCases))
+	for k := range testCases {
 		keys = append(keys, k)
 	}
 	return keys
@@ -147,7 +147,7 @@ func testNamed(testName string) testFn {
 
 func runTests(testNames []string, bundle *apimanifests.Bundle, namespace string,
 	openShiftCertManager bool) []scapiv1alpha3.TestResult {
-	results := []scapiv1alpha3.TestResult{}
+	results := make([]scapiv1alpha3.TestResult, 0, len(testNames))
 
 	// Run tests
 	for _, testName := range testNames {

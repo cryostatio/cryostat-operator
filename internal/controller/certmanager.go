@@ -31,7 +31,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	"sigs.k8s.io/controller-runtime/pkg/client"
+	ctrlclient "sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
@@ -270,7 +270,7 @@ func (r *Reconciler) setCertSecretOwner(ctx context.Context, cr *model.CryostatI
 			if err != nil {
 				return err
 			}
-			err = r.Client.Update(ctx, secret)
+			err = r.Update(ctx, secret)
 			if err != nil {
 				return err
 			}
@@ -364,7 +364,7 @@ func (r *Reconciler) issuerCAChanged(current *certv1.CAIssuer, updated *certv1.C
 func (r *Reconciler) deleteCertChain(ctx context.Context, namespace string, caSecretName string, owner metav1.Object) error {
 	// Look up all certificates in this namespace
 	certs := &certv1.CertificateList{}
-	err := r.Client.List(ctx, certs, &client.ListOptions{
+	err := r.List(ctx, certs, &ctrlclient.ListOptions{
 		Namespace: namespace,
 	})
 	if err != nil {
@@ -486,7 +486,7 @@ func (r *Reconciler) supportsPKCS12Profile(ctx context.Context, cert *certv1.Cer
 	certCopy.Name = ""
 
 	// Test the API server using strict field validation in dry-run mode
-	client := client.NewDryRunClient(client.WithFieldValidation(r.Client, metav1.FieldValidationStrict))
+	client := ctrlclient.NewDryRunClient(ctrlclient.WithFieldValidation(r.Client, metav1.FieldValidationStrict))
 	err := client.Create(ctx, certCopy)
 	if err != nil {
 		// The CRD version installed is missing some fields we're trying to set
@@ -573,7 +573,7 @@ func (r *Reconciler) getCertficateBytes(ctx context.Context, cert *certv1.Certif
 }
 
 func (r *Reconciler) deleteCertificate(ctx context.Context, cert *certv1.Certificate) error {
-	err := r.Client.Delete(ctx, cert)
+	err := r.Delete(ctx, cert)
 	if err != nil {
 		if kerrors.IsNotFound(err) {
 			return nil
