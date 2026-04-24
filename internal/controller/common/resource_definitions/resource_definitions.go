@@ -1567,7 +1567,17 @@ func NewCoreContainer(cr *model.CryostatInstance, specs *ServiceSpecs, imageTag 
 }
 
 func newEnvForCoreContainer(cr *model.CryostatInstance, specs *ServiceSpecs, tls *TLSConfig) ([]corev1.EnvVar, error) {
+	// Default log level to INFO if not specified
+	logLevel := "INFO"
+	if cr.Spec.LoggingOptions != nil && cr.Spec.LoggingOptions.CoreLogLevel != nil {
+		logLevel = *cr.Spec.LoggingOptions.CoreLogLevel
+	}
+
 	envs := []corev1.EnvVar{
+		{
+			Name:  "QUARKUS_LOG_LEVEL",
+			Value: logLevel,
+		},
 		{
 			Name:  "QUARKUS_HTTP_HOST",
 			Value: "localhost",
