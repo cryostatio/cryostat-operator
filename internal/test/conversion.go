@@ -16,7 +16,7 @@ package test
 
 import (
 	operatorv1beta1 "github.com/cryostatio/cryostat-operator/api/v1beta1"
-	"github.com/cryostatio/cryostat-operator/internal/controllers/model"
+	"github.com/cryostatio/cryostat-operator/internal/controller/model"
 	corev1 "k8s.io/api/core/v1"
 	netv1 "k8s.io/api/networking/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -111,10 +111,10 @@ func (r *TestResources) NewCryostatWithPVCSpecV1Beta1() *operatorv1beta1.Cryosta
 	cr.Spec.StorageOptions = &operatorv1beta1.StorageConfiguration{
 		PVC: &operatorv1beta1.PersistentVolumeClaimConfig{
 			Annotations: map[string]string{
-				"my/custom": "annotation",
+				"my/custom": customAnnotationValue,
 			},
 			Labels: map[string]string{
-				"my":  "label",
+				"my":  customLabelValue,
 				"app": "somethingelse",
 			},
 			Spec: newPVCSpec("cool-storage", "10Gi", corev1.ReadWriteMany),
@@ -138,7 +138,7 @@ func (r *TestResources) NewCryostatWithPVCLabelsOnlyV1Beta1() *operatorv1beta1.C
 	cr.Spec.StorageOptions = &operatorv1beta1.StorageConfiguration{
 		PVC: &operatorv1beta1.PersistentVolumeClaimConfig{
 			Labels: map[string]string{
-				"my": "label",
+				"my": customLabelValue,
 			},
 		},
 	}
@@ -177,10 +177,10 @@ func (r *TestResources) NewCryostatWithCoreSvcV1Beta1() *operatorv1beta1.Cryosta
 			ServiceConfig: operatorv1beta1.ServiceConfig{
 				ServiceType: &svcType,
 				Annotations: map[string]string{
-					"my/custom": "annotation",
+					"my/custom": customAnnotationValue,
 				},
 				Labels: map[string]string{
-					"my":  "label",
+					"my":  customLabelValue,
 					"app": "somethingelse",
 				},
 			},
@@ -206,10 +206,10 @@ func (r *TestResources) NewCryostatWithGrafanaSvcV1Beta1() *operatorv1beta1.Cryo
 			ServiceConfig: operatorv1beta1.ServiceConfig{
 				ServiceType: &svcType,
 				Annotations: map[string]string{
-					"my/custom": "annotation",
+					"my/custom": customAnnotationValue,
 				},
 				Labels: map[string]string{
-					"my":  "label",
+					"my":  customLabelValue,
 					"app": "somethingelse",
 				},
 			},
@@ -228,10 +228,10 @@ func (r *TestResources) NewCryostatWithReportsSvcV1Beta1() *operatorv1beta1.Cryo
 			ServiceConfig: operatorv1beta1.ServiceConfig{
 				ServiceType: &svcType,
 				Annotations: map[string]string{
-					"my/custom": "annotation",
+					"my/custom": customAnnotationValue,
 				},
 				Labels: map[string]string{
-					"my":  "label",
+					"my":  customLabelValue,
 					"app": "somethingelse",
 				},
 			},
@@ -244,9 +244,9 @@ func (r *TestResources) NewCryostatWithCoreNetworkOptionsV1Beta1() *operatorv1be
 	cr := r.NewCryostatV1Beta1()
 	cr.Spec.NetworkOptions = &operatorv1beta1.NetworkConfigurationList{
 		CoreConfig: &operatorv1beta1.NetworkConfiguration{
-			Annotations: map[string]string{"custom": "annotation"},
+			Annotations: map[string]string{"custom": customAnnotationValue},
 			Labels: map[string]string{
-				"custom":    "label",
+				"custom":    customLabelValue,
 				"app":       "test-app",
 				"component": "test-comp",
 			},
@@ -259,9 +259,9 @@ func (r *TestResources) NewCryostatWithGrafanaNetworkOptionsV1Beta1() *operatorv
 	cr := r.NewCryostatV1Beta1()
 	cr.Spec.NetworkOptions = &operatorv1beta1.NetworkConfigurationList{
 		GrafanaConfig: &operatorv1beta1.NetworkConfiguration{
-			Annotations: map[string]string{"grafana": "annotation"},
+			Annotations: map[string]string{"grafana": customAnnotationValue},
 			Labels: map[string]string{
-				"grafana":   "label",
+				"grafana":   customLabelValue,
 				"component": "test-comp",
 				"app":       "test-app",
 			},
@@ -546,8 +546,8 @@ func (r *TestResources) newCommandService() *corev1.Service {
 func (r *TestResources) NewCryostatWithCommandConfigV1Beta1() *operatorv1beta1.Cryostat {
 	commandSVC := r.newCommandService()
 	commandIng := r.newNetworkConfigurationV1Beta1(commandSVC.Name, commandSVC.Spec.Ports[0].Port)
-	commandIng.Annotations["command"] = "annotation"
-	commandIng.Labels["command"] = "label"
+	commandIng.Annotations["command"] = customAnnotationValue
+	commandIng.Labels["command"] = customLabelValue
 
 	cr := r.NewCryostatWithIngressV1Beta1()
 	cr.Spec.NetworkOptions = &operatorv1beta1.NetworkConfigurationList{
@@ -588,8 +588,8 @@ func (r *TestResources) newGrafanaService() *corev1.Service {
 func (r *TestResources) NewCryostatWithGrafanaConfigV1Beta1() *operatorv1beta1.Cryostat {
 	grafanaSVC := r.newGrafanaService()
 	grafanaIng := r.newNetworkConfigurationV1Beta1(grafanaSVC.Name, grafanaSVC.Spec.Ports[0].Port)
-	grafanaIng.Annotations["command"] = "annotation"
-	grafanaIng.Labels["command"] = "label"
+	grafanaIng.Annotations["command"] = customAnnotationValue
+	grafanaIng.Labels["command"] = customLabelValue
 
 	cr := r.NewCryostatWithIngressV1Beta1()
 	cr.Spec.NetworkOptions = &operatorv1beta1.NetworkConfigurationList{
@@ -698,7 +698,7 @@ func (r *TestResources) NewCryostatWithAdditionalMetadataV1Beta1() *operatorv1be
 			Labels: map[string]string{
 				"myDeploymentExtraLabel":       "myDeploymentLabel",
 				"mySecondDeploymentExtraLabel": "mySecondDeploymentLabel",
-				// below, labels that should be discarded as overriden by the default
+				// below, labels that should be discarded as overridden by the default
 				"app":                    "myApp",
 				"component":              "myComponent",
 				"kind":                   "myKind",
@@ -707,7 +707,7 @@ func (r *TestResources) NewCryostatWithAdditionalMetadataV1Beta1() *operatorv1be
 			Annotations: map[string]string{
 				"myDeploymentExtraAnnotation":       "myDeploymentAnnotation",
 				"mySecondDeploymentExtraAnnotation": "mySecondDeploymentAnnotation",
-				// below, annotation that should be discarded as overriden by the default
+				// below, annotation that should be discarded as overridden by the default
 				"app.openshift.io/connects-to": "connectToMe",
 			},
 		},
@@ -715,7 +715,7 @@ func (r *TestResources) NewCryostatWithAdditionalMetadataV1Beta1() *operatorv1be
 			Labels: map[string]string{
 				"myPodExtraLabel":       "myPodLabel",
 				"myPodSecondExtraLabel": "myPodSecondLabel",
-				// below, labels that should be discarded as overriden by the default
+				// below, labels that should be discarded as overridden by the default
 				"app":       "myApp",
 				"component": "myComponent",
 				"kind":      "myKind",
@@ -732,8 +732,8 @@ func (r *TestResources) NewCryostatWithAdditionalMetadataV1Beta1() *operatorv1be
 func (r *TestResources) newNetworkConfigurationListV1Beta1() operatorv1beta1.NetworkConfigurationList {
 	coreSVC := r.NewCryostatService()
 	coreIng := r.newNetworkConfigurationV1Beta1(coreSVC.Name, coreSVC.Spec.Ports[0].Port)
-	coreIng.Annotations["custom"] = "annotation"
-	coreIng.Labels["custom"] = "label"
+	coreIng.Annotations["custom"] = customAnnotationValue
+	coreIng.Labels["custom"] = customLabelValue
 
 	return operatorv1beta1.NetworkConfigurationList{
 		CoreConfig: &coreIng,
@@ -750,7 +750,7 @@ func (r *TestResources) newNetworkConfigurationV1Beta1(svcName string, svcPort i
 	}
 	return operatorv1beta1.NetworkConfiguration{
 		Annotations: map[string]string{"nginx.ingress.kubernetes.io/backend-protocol": "HTTPS"},
-		Labels:      map[string]string{"my": "label"},
+		Labels:      map[string]string{"my": customLabelValue},
 		IngressSpec: &netv1.IngressSpec{
 			Rules: []netv1.IngressRule{
 				{

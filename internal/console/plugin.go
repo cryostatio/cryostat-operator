@@ -21,7 +21,7 @@ import (
 	"slices"
 
 	"github.com/blang/semver/v4"
-	"github.com/cryostatio/cryostat-operator/internal/controllers/constants"
+	"github.com/cryostatio/cryostat-operator/internal/controller/constants"
 	"github.com/go-logr/logr"
 	configv1 "github.com/openshift/api/config/v1"
 	consolev1 "github.com/openshift/api/console/v1"

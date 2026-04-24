@@ -1,0 +1,503 @@
+// Copyright The Cryostat Authors.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+package agent
+
+import (
+	"context"
+	"fmt"
+	"slices"
+	"strconv"
+
+	operatorv1beta2 "github.com/cryostatio/cryostat-operator/api/v1beta2"
+	"github.com/cryostatio/cryostat-operator/internal/controller/common"
+	"github.com/cryostatio/cryostat-operator/internal/controller/constants"
+	"github.com/cryostatio/cryostat-operator/internal/controller/model"
+	"github.com/go-logr/logr"
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/types"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
+)
+
+type podMutator struct {
+	client client.Client
+	log    *logr.Logger
+	gvk    *schema.GroupVersionKind
+	config *AgentWebhookConfig
+	common.ReconcilerTLS
+}
+
+var _ admission.CustomDefaulter = &podMutator{}
+
+const (
+	agentArg                    = "-javaagent:" + constants.AgentJarPath
+	agentLogLevelProp           = "io.cryostat.agent.shaded.org.slf4j.simpleLogger.defaultLogLevel"
+	podNameEnvVar               = "CRYOSTAT_AGENT_POD_NAME"
+	podIPEnvVar                 = "CRYOSTAT_AGENT_POD_IP"
+	agentMaxSizeBytes           = "50Mi"
+	agentInitCpuRequest         = "10m"
+	agentInitMemoryRequest      = "32Mi"
+	agentInitCpuLimit           = "20m"
+	agentInitMemoryLimit        = "64Mi"
+	defaultLogLevel             = "off"
+	defaultJavaOptsVar          = "JAVA_TOOL_OPTIONS"
+	defaultSmartTriggersMount   = constants.AgentEmptyDirBasePath + "/smart-triggers"
+	defaultHarvesterExitMaxAge  = int32(30000)
+	kib                         = int32(1024)
+	mib                         = 1024 * kib
+	defaultHarvesterExitMaxSize = 20 * mib
+)
+
+// Default optionally mutates a pod to inject the Cryostat agent
+func (r *podMutator) Default(ctx context.Context, obj runtime.Object) error {
+	pod, ok := obj.(*corev1.Pod)
+	if !ok {
+		return fmt.Errorf("expected a Pod, but received a %T", obj)
+	}
+
+	// Check for required labels and return early if missing.
+	// This should not happen because such pods are filtered out by Kubernetes server-side due to our object selector.
+	if !metav1.HasLabel(pod.ObjectMeta, constants.AgentLabelCryostatName) || !metav1.HasLabel(pod.ObjectMeta, constants.AgentLabelCryostatNamespace) {
+		r.log.Info("pod is missing required labels")
+		return nil
+	}
+
+	// Look up Cryostat
+	cr := &operatorv1beta2.Cryostat{}
+	err := r.client.Get(ctx, types.NamespacedName{
+		Name:      pod.Labels[constants.AgentLabelCryostatName],
+		Namespace: pod.Labels[constants.AgentLabelCryostatNamespace],
+	}, cr)
+	if err != nil {
+		return err
+	}
+
+	// Check if this pod is within a target namespace of the CR
+	if !slices.Contains(cr.Status.TargetNamespaces, pod.Namespace) {
+		return fmt.Errorf("pod's namespace \"%s\" is not a target namespace of Cryostat \"%s\" in \"%s\"",
+			pod.Namespace, cr.Name, cr.Namespace)
+	}
+
+	// Check whether TLS is enabled for this CR
+	crModel := model.FromCryostat(cr)
+	tlsEnabled := r.IsCertManagerEnabled(crModel)
+
+	// Select target container
+	container, err := getTargetContainer(pod)
+	if err != nil {
+		return err
+	}
+
+	// Determine the callback port number
+	port, err := getAgentCallbackPort(pod.Labels)
+	if err != nil {
+		return err
+	}
+
+	// Check whether write access has been disabled
+	write, err := hasWriteAccess(pod.Labels)
+	if err != nil {
+		return err
+	}
+
+	harvesterTemplate := getHarvesterTemplate(pod.Labels)
+	harvesterPeriod, err := getHarvesterPeriod(pod.Labels)
+	if err != nil {
+		return err
+	}
+	harvesterMaxFiles, err := getHarvesterMaxFiles(pod.Labels)
+	if err != nil {
+		return err
+	}
+	harvesterExitMaxAge, err := getHarvesterExitMaxAge(pod.Labels)
+	if err != nil {
+		return err
+	}
+	harvesterExitMaxSize, err := getHarvesterExitMaxSize(pod.Labels)
+	if err != nil {
+		return err
+	}
+
+	// Add init container
+	nonRoot := true
+	imageTag := r.getImageTag()
+	pod.Spec.InitContainers = append(pod.Spec.InitContainers, corev1.Container{
+		Name:            "cryostat-agent-init",
+		Image:           imageTag,
+		ImagePullPolicy: common.GetPullPolicy(imageTag),
+		Command:         []string{"cp", "-v", "/cryostat/agent/cryostat-agent-shaded.jar", constants.AgentJarPath},
+		VolumeMounts: []corev1.VolumeMount{
+			{
+				Name:      "cryostat-agent-init",
+				MountPath: constants.AgentEmptyDirBasePath,
+			},
+		},
+		SecurityContext: &corev1.SecurityContext{
+			RunAsNonRoot: &nonRoot,
+			Capabilities: &corev1.Capabilities{
+				Drop: []corev1.Capability{
+					constants.CapabilityAll,
+				},
+			},
+		},
+		Resources: *getResourceRequirements(crModel),
+	})
+
+	// Add emptyDir volume to copy agent into, and mount it
+	sizeLimit := resource.MustParse(agentMaxSizeBytes)
+	pod.Spec.Volumes = append(pod.Spec.Volumes, corev1.Volume{
+		Name: "cryostat-agent-init",
+		VolumeSource: corev1.VolumeSource{
+			EmptyDir: &corev1.EmptyDirVolumeSource{
+				SizeLimit: &sizeLimit,
+			},
+		},
+	})
+
+	if metav1.HasLabel(pod.ObjectMeta, constants.AgentLabelSmartTriggersConfigMaps) {
+		// Mount the Smart Triggers volume
+		readOnlyMode := int32(0440)
+		smartTriggersConfigMapNames := getSmartTriggersConfigMapNames(pod.Labels)
+		for _, triggerMap := range smartTriggersConfigMapNames {
+			pod.Spec.Volumes = append(pod.Spec.Volumes, corev1.Volume{
+				Name: "trigger-" + triggerMap,
+				VolumeSource: corev1.VolumeSource{
+					ConfigMap: &corev1.ConfigMapVolumeSource{
+						LocalObjectReference: corev1.LocalObjectReference{
+							Name: triggerMap,
+						},
+						DefaultMode: &readOnlyMode,
+					},
+				},
+			})
+		}
+
+		// Mount the triggers specified in the pod labels under /tmp/smart-triggers
+		for _, triggerMap := range getSmartTriggersConfigMapNames(pod.Labels) {
+			container.VolumeMounts = append(container.VolumeMounts, corev1.VolumeMount{
+				Name:      "trigger-" + triggerMap,
+				MountPath: defaultSmartTriggersMount,
+				ReadOnly:  true,
+			})
+		}
+
+		container.Env = append(container.Env,
+			corev1.EnvVar{
+				Name:  "CRYOSTAT_AGENT_SMART_TRIGGER_CONFIG_PATH",
+				Value: defaultSmartTriggersMount,
+			},
+		)
+	}
+
+	container.VolumeMounts = append(container.VolumeMounts, corev1.VolumeMount{
+		Name:      "cryostat-agent-init",
+		MountPath: constants.AgentEmptyDirBasePath,
+		ReadOnly:  true,
+	})
+
+	container.Env = append(container.Env,
+		corev1.EnvVar{
+			Name:  "CRYOSTAT_AGENT_BASEURI",
+			Value: cryostatURL(crModel, tlsEnabled),
+		},
+		corev1.EnvVar{
+			Name: podNameEnvVar,
+			ValueFrom: &corev1.EnvVarSource{
+				FieldRef: &corev1.ObjectFieldSelector{
+					FieldPath: "metadata.name",
+				},
+			},
+		},
+		corev1.EnvVar{
+			Name:  "CRYOSTAT_AGENT_APP_NAME",
+			Value: fmt.Sprintf("$(%s)", podNameEnvVar),
+		},
+		corev1.EnvVar{
+			Name: podIPEnvVar,
+			ValueFrom: &corev1.EnvVarSource{
+				FieldRef: &corev1.ObjectFieldSelector{
+					FieldPath: "status.podIP",
+				},
+			},
+		},
+		corev1.EnvVar{
+			Name:  "CRYOSTAT_AGENT_API_WRITES_ENABLED",
+			Value: strconv.FormatBool(*write),
+		},
+		corev1.EnvVar{
+			Name:  "CRYOSTAT_AGENT_WEBSERVER_PORT",
+			Value: strconv.Itoa(int(*port)),
+		},
+		corev1.EnvVar{
+			Name:  "CRYOSTAT_AGENT_PUBLISH_FILL_STRATEGY",
+			Value: "KUBERNETES",
+		},
+		corev1.EnvVar{
+			Name:  "CRYOSTAT_AGENT_PUBLISH_CONTEXT_NAMESPACE",
+			Value: pod.Namespace,
+		},
+		corev1.EnvVar{
+			Name:  "CRYOSTAT_AGENT_PUBLISH_CONTEXT_NODETYPE",
+			Value: "Pod",
+		},
+		corev1.EnvVar{
+			Name:  "CRYOSTAT_AGENT_PUBLISH_CONTEXT_NAME",
+			Value: fmt.Sprintf("$(%s)", podNameEnvVar),
+		},
+	)
+
+	if len(harvesterTemplate) > 0 {
+		container.Env = append(container.Env,
+			corev1.EnvVar{
+				Name:  "CRYOSTAT_AGENT_HARVESTER_TEMPLATE",
+				Value: harvesterTemplate,
+			},
+		)
+
+		if harvesterPeriod != nil {
+			container.Env = append(container.Env,
+				corev1.EnvVar{
+					Name:  "CRYOSTAT_AGENT_HARVESTER_PERIOD_MS",
+					Value: strconv.Itoa(int(*harvesterPeriod)),
+				},
+			)
+		}
+
+		if harvesterMaxFiles != nil {
+			container.Env = append(container.Env,
+				corev1.EnvVar{
+					Name:  "CRYOSTAT_AGENT_HARVESTER_MAX_FILES",
+					Value: strconv.Itoa(int(*harvesterMaxFiles)),
+				},
+			)
+		}
+
+		container.Env = append(container.Env,
+			corev1.EnvVar{
+				Name:  "CRYOSTAT_AGENT_HARVESTER_EXIT_MAX_AGE_MS",
+				Value: strconv.Itoa(int(*harvesterExitMaxAge)),
+			},
+			corev1.EnvVar{
+				Name:  "CRYOSTAT_AGENT_HARVESTER_EXIT_MAX_SIZE_B",
+				Value: strconv.Itoa(int(*harvesterExitMaxSize)),
+			},
+		)
+	}
+
+	// Append a port for the callback server
+	container.Ports = append(container.Ports, corev1.ContainerPort{
+		Name:          constants.AgentCallbackPortName,
+		Protocol:      corev1.ProtocolTCP,
+		ContainerPort: *port,
+	})
+
+	// Append callback environment variables
+	container.Env = append(container.Env, r.callbackEnv(crModel, pod.Namespace, tlsEnabled, *port)...)
+
+	if tlsEnabled {
+		// Mount the certificate volume
+		readOnlyMode := int32(0440)
+		pod.Spec.Volumes = append(pod.Spec.Volumes, corev1.Volume{
+			Name: "cryostat-agent-tls",
+			VolumeSource: corev1.VolumeSource{
+				Secret: &corev1.SecretVolumeSource{
+					SecretName:  common.AgentCertificateName(r.gvk, crModel, pod.Namespace),
+					DefaultMode: &readOnlyMode,
+				},
+			},
+		})
+
+		container.VolumeMounts = append(container.VolumeMounts, corev1.VolumeMount{
+			Name:      "cryostat-agent-tls",
+			MountPath: "/var/run/secrets/io.cryostat/cryostat-agent",
+			ReadOnly:  true,
+		})
+
+		// Configure the Cryostat agent to use client certificate authentication
+		container.Env = append(container.Env,
+			corev1.EnvVar{
+				Name:  "CRYOSTAT_AGENT_WEBCLIENT_TLS_CLIENT_AUTH_CERT_PATH",
+				Value: fmt.Sprintf("/var/run/secrets/io.cryostat/cryostat-agent/%s", corev1.TLSCertKey),
+			},
+			corev1.EnvVar{
+				Name:  "CRYOSTAT_AGENT_WEBCLIENT_TLS_CLIENT_AUTH_KEY_PATH",
+				Value: fmt.Sprintf("/var/run/secrets/io.cryostat/cryostat-agent/%s", corev1.TLSPrivateKeyKey),
+			},
+		)
+
+		// Configure the Cryostat agent to trust the Cryostat CA
+		container.Env = append(container.Env,
+			corev1.EnvVar{
+				Name:  "CRYOSTAT_AGENT_WEBCLIENT_TLS_TRUSTSTORE_CERT_0__PATH",
+				Value: fmt.Sprintf("/var/run/secrets/io.cryostat/cryostat-agent/%s", constants.CAKey),
+			},
+			corev1.EnvVar{
+				Name:  "CRYOSTAT_AGENT_WEBCLIENT_TLS_TRUSTSTORE_CERT_0__TYPE",
+				Value: "X.509",
+			},
+			corev1.EnvVar{
+				Name:  "CRYOSTAT_AGENT_WEBCLIENT_TLS_TRUSTSTORE_CERT_0__ALIAS",
+				Value: "cryostat",
+			},
+		)
+
+		// Configure the Cryostat agent to use HTTPS for its callback server
+		container.Env = append(container.Env,
+			corev1.EnvVar{
+				Name:  "CRYOSTAT_AGENT_WEBSERVER_TLS_CERT_FILE",
+				Value: fmt.Sprintf("/var/run/secrets/io.cryostat/cryostat-agent/%s", corev1.TLSCertKey),
+			},
+			corev1.EnvVar{
+				Name:  "CRYOSTAT_AGENT_WEBSERVER_TLS_CERT_TYPE",
+				Value: "X.509",
+			},
+			corev1.EnvVar{
+				Name:  "CRYOSTAT_AGENT_WEBSERVER_TLS_CERT_ALIAS",
+				Value: "cryostat",
+			},
+			corev1.EnvVar{
+				Name:  "CRYOSTAT_AGENT_WEBSERVER_TLS_KEY_PATH",
+				Value: fmt.Sprintf("/var/run/secrets/io.cryostat/cryostat-agent/%s", corev1.TLSPrivateKeyKey),
+			},
+			corev1.EnvVar{
+				Name:  "CRYOSTAT_AGENT_WEBSERVER_TLS_KEY_TYPE",
+				Value: "RSA",
+			},
+			corev1.EnvVar{
+				Name:  "CRYOSTAT_AGENT_WEBSERVER_TLS_KEY_ALIAS",
+				Value: "cryostat",
+			},
+		)
+	} else {
+		// Allow the agent to connect to non-HTTPS Cryostat server
+		container.Env = append(container.Env,
+			corev1.EnvVar{
+				Name:  "CRYOSTAT_AGENT_WEBCLIENT_TLS_REQUIRED",
+				Value: "false",
+			})
+	}
+
+	if r.config.FIPSEnabled {
+		// Force usage for TLSv1.3 for FIPS compatibility
+		container.Env = append(container.Env,
+			corev1.EnvVar{
+				Name:  "CRYOSTAT_AGENT_WEBCLIENT_TLS_VERSION",
+				Value: "TLSv1.3",
+			},
+			corev1.EnvVar{
+				Name:  "CRYOSTAT_AGENT_WEBSERVER_TLS_VERSION",
+				Value: "TLSv1.3",
+			},
+		)
+	}
+
+	// Inject agent using JAVA_TOOL_OPTIONS or specified variable, appending to any existing value
+	extended, err := extendJavaOptsVar(container.Env, getJavaOptionsVar(pod.Labels), getLogLevel(pod.Labels))
+	if err != nil {
+		return err
+	}
+	container.Env = extended
+
+	// Use GenerateName for logging if no explicit Name is given
+	podName := pod.Name
+	if len(podName) == 0 {
+		podName = pod.GenerateName
+	}
+	r.log.Info("configured Cryostat agent for pod", "name", podName, "namespace", pod.Namespace)
+
+	return nil
+}
+
+func (r *podMutator) callbackEnv(cr *model.CryostatInstance, namespace string, tls bool, containerPort int32) []corev1.EnvVar {
+	scheme := "https"
+	if !tls {
+		scheme = "http"
+	}
+
+	var envs []corev1.EnvVar
+	if cr.Spec.AgentOptions != nil && cr.Spec.AgentOptions.DisableHostnameVerification {
+		envs = []corev1.EnvVar{
+			{
+				Name:  "CRYOSTAT_AGENT_CALLBACK",
+				Value: fmt.Sprintf("%s://$(%s):%d", scheme, podIPEnvVar, containerPort),
+			},
+		}
+	} else {
+		envs = []corev1.EnvVar{
+			{
+				Name:  "CRYOSTAT_AGENT_CALLBACK_SCHEME",
+				Value: scheme,
+			},
+			{
+				Name:  "CRYOSTAT_AGENT_CALLBACK_HOST_NAME",
+				Value: fmt.Sprintf("$(%s), $(%s)[replace(\".\"\\, \"-\")]", podNameEnvVar, podIPEnvVar),
+			},
+			{
+				Name:  "CRYOSTAT_AGENT_CALLBACK_DOMAIN_NAME",
+				Value: fmt.Sprintf("%s.%s.svc", common.AgentCallbackServiceName(r.gvk, cr), namespace),
+			},
+			{
+				Name:  "CRYOSTAT_AGENT_CALLBACK_PORT",
+				Value: strconv.Itoa(int(containerPort)),
+			},
+		}
+	}
+
+	return envs
+}
+
+func (r *podMutator) getImageTag() string {
+	// Lazily look up image tag
+	if r.config.InitImageTag == nil {
+		agentInitImage := r.config.GetEnvOrDefault(agentInitImageTagEnv, constants.DefaultAgentInitImageTag)
+		r.config.InitImageTag = &agentInitImage
+	}
+	return *r.config.InitImageTag
+}
+
+func extendJavaOptsVar(envs []corev1.EnvVar, javaOptsVar string, logLevel string) ([]corev1.EnvVar, error) {
+	existing, err := findJavaOptsVar(envs, javaOptsVar)
+	if err != nil {
+		return nil, err
+	}
+
+	agentArgLine := fmt.Sprintf("%s=%s=%s", agentArg, agentLogLevelProp, logLevel)
+	if existing != nil {
+		existing.Value += " " + agentArgLine
+	} else {
+		envs = append(envs, corev1.EnvVar{
+			Name:  javaOptsVar,
+			Value: agentArgLine,
+		})
+	}
+
+	return envs, nil
+}
+
+func findJavaOptsVar(envs []corev1.EnvVar, javaOptsVar string) (*corev1.EnvVar, error) {
+	for i, env := range envs {
+		if env.Name == javaOptsVar {
+			if env.ValueFrom != nil {
+				return nil, fmt.Errorf("environment variable %s uses \"valueFrom\" and cannot be extended", javaOptsVar)
+			}
+			return &envs[i], nil
+		}
+	}
+	return nil, nil
+}

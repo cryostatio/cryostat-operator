@@ -1,10 +1,16 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
 resources:
 - bases/cryostat-operator.clusterserviceversion.yaml
 - ../default
 - ../samples
 - ../scorecard
 
-patchesJson6902:
+# [WEBHOOK] To enable webhooks, uncomment all the sections with [WEBHOOK] prefix.
+# Do NOT uncomment sections with prefix [CERTMANAGER], as OLM does not support cert-manager.
+# These patches remove the unnecessary "cert" volume and its manager container volumeMount.
+patches:
 - path: targetNamespaces_patch.yaml
   target:
     group: operators.coreos.com
@@ -21,6 +27,7 @@ patchesJson6902:
     # Remove the manager container's "cert" volumeMount, since OLM will create and mount a set of certs.
     # Update the indices in this path if adding or removing containers/volumeMounts in the manager's Deployment.
     - op: remove
+
       path: /spec/template/spec/containers/0/volumeMounts/0
     # Remove the "cert" volume, since OLM will create and mount a set of certs.
     # Update the indices in this path if adding or removing volumes in the manager's Deployment.

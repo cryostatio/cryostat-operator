@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Package v1beta2 contains API Schema definitions for the operator v1beta2 API group
+// Package v1beta2 contains API Schema definitions for the operator v1beta2 API group.
 // +kubebuilder:object:generate=true
 // +groupName=operator.cryostat.io
 package v1beta2
@@ -23,10 +23,10 @@ import (
 )
 
 var (
-	// GroupVersion is group version used to register these objects
+	// GroupVersion is group version used to register these objects.
 	GroupVersion = schema.GroupVersion{Group: "operator.cryostat.io", Version: "v1beta2"}
 
-	// SchemeBuilder is used to add go types to the GroupVersionKind scheme
+	// SchemeBuilder is used to add go types to the GroupVersionKind scheme.
 	SchemeBuilder = &scheme.Builder{GroupVersion: GroupVersion}
 
 	// AddToScheme adds the types in this group-version to the given scheme.

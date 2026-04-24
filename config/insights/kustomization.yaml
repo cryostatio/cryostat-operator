@@ -12,8 +12,10 @@ namespace: cryostat-operator-system
 namePrefix: cryostat-operator-
 
 # Labels to add to all resources and selectors.
-commonLabels:
-  app.kubernetes.io/name: cryostat-operator-insights
+labels:
+- includeSelectors: true
+  pairs:
+    app.kubernetes.io/name: cryostat-operator-insights
 
 resources:
 - deployment.yaml
@@ -23,8 +25,8 @@ resources:
 - leader_election_role.yaml
 - leader_election_role_binding.yaml
 
-patchesStrategicMerge:
-- insights_image_pull_patch.yaml
+patches:
+- path: insights_image_pull_patch.yaml
 
 replacements:
 - source:

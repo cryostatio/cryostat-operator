@@ -18,7 +18,7 @@ export MIN_OPENSHIFT_VERSION ?= 4.19.0
 export MAX_OPENSHIFT_VERSION ?= 99.99.0
 IMAGE_NAMESPACE ?= $(DEFAULT_NAMESPACE)
 OPERATOR_NAME ?= cryostat-operator
-OPERATOR_SDK_VERSION ?= v1.31.0
+OPERATOR_SDK_VERSION ?= v1.42.0
 CLUSTER_CLIENT ?= kubectl
 IMAGE_TAG_BASE ?= $(IMAGE_NAMESPACE)/$(OPERATOR_NAME)
 
@@ -113,14 +113,14 @@ CERT_MANAGER_VERSION ?= 1.12.14
 CERT_MANAGER_MANIFEST ?= \
 	https://github.com/cert-manager/cert-manager/releases/download/v$(CERT_MANAGER_VERSION)/cert-manager.yaml
 
-KUSTOMIZE_VERSION ?= 4.5.7
+KUSTOMIZE_VERSION ?= 5.4.3
 CONTROLLER_TOOLS_VERSION ?= 0.16.5
 GOLICENSE_VERSION ?= 1.29.0
 OPM_VERSION ?= 1.23.0
 #ENVTEST_VERSION is the version of controller-runtime release branch to fetch the envtest setup script (i.e. release-0.20)
-ENVTEST_VERSION ?= release-0.19
+ENVTEST_VERSION ?= release-0.21
 # ENVTEST_K8S_VERSION refers to the version of kubebuilder assets to be downloaded by envtest binary.
-ENVTEST_K8S_VERSION ?= 1.31.0
+ENVTEST_K8S_VERSION ?= 1.33.0
 
 # Scorecard ImagePullPolicy is hardcoded to IfNotPresent
 # See: https://github.com/operator-framework/operator-sdk/pull/4762
@@ -281,11 +281,11 @@ endef
 
 .PHONY: manager
 manager: manifests generate fmt vet ## Build the manager binary.
-	go build -o bin/manager internal/main.go
+	go build -o bin/manager cmd/main.go
 
 .PHONY: run
 run: manifests generate fmt vet ## Run against the configured Kubernetes cluster in ~/.kube/config
-	go run ./internal/main.go
+	go run ./cmd/main.go
 
 ifndef ignore-not-found
 ignore-not-found = false

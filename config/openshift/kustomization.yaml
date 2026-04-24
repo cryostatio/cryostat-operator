@@ -1,6 +1,20 @@
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 
+# Value of this field is prepended to the
+# names of all resources, e.g. a deployment named
+# "wordpress" becomes "alices-wordpress".
+# Note that it should also match with the prefix (text before '-') of the namespace
+# field above.
+namePrefix: cryostat-operator-
+
+# Labels to add to all resources and selectors.
+labels:
+- includeSelectors: true
+  pairs:
+    app.kubernetes.io/name: cryostat-operator
+
+# Generate service-serving cert for metrics
 resources:
 - cryostat-quickstart-jmx.yaml
 - cryostat-quickstart-autoconfig.yaml
@@ -11,9 +25,11 @@ resources:
 - console-plugin/deployment-cryostat-plugin.yaml
 - console-plugin/serviceaccount-cryostat-plugin.yaml
 - console-plugin/service-cryostat-plugin.yaml
+- metrics_cert_config_map.yaml
+- ../prometheus
 
-patchesStrategicMerge:
-- plugin_image_pull_patch.yaml
+patches:
+- path: plugin_image_pull_patch.yaml
 
 images:
 - name: console-plugin

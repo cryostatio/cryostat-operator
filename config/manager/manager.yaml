@@ -17,7 +17,6 @@ spec:
       annotations:
         kubectl.kubernetes.io/default-container: manager
     spec:
-      serviceAccountName: service-account
       securityContext:
         runAsNonRoot: true
         seccompProfile:
@@ -27,8 +26,11 @@ spec:
         - /manager
         args:
         - --leader-elect
+        - --health-probe-bind-address=:8081
         image: controller:latest
         name: manager
+        env: []
+        ports: []
         securityContext:
           allowPrivilegeEscalation: false
           capabilities:
@@ -46,9 +48,6 @@ spec:
             port: 8081
           initialDelaySeconds: 5
           periodSeconds: 10
-        env:
-        - name: WATCH_NAMESPACE
-          value: ""
         resources:
           limits:
             cpu: 1000m
@@ -56,4 +55,7 @@ spec:
           requests:
             cpu: 100m
             memory: 64Mi
+        volumeMounts: []
+      volumes: []
+      serviceAccountName: service-account
       terminationGracePeriodSeconds: 10

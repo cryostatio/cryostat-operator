@@ -382,10 +382,10 @@ func (t *pluginTestInput) getConsolePlugin(expected *consolev1.ConsolePlugin) *c
 }
 
 func (t *pluginTestInput) getConsole(expected *openshiftoperatorv1.Console) *openshiftoperatorv1.Console {
-	console := &openshiftoperatorv1.Console{}
-	err := t.client.Get(context.Background(), types.NamespacedName{Name: expected.Name}, console)
+	consoleCR := &openshiftoperatorv1.Console{}
+	err := t.client.Get(context.Background(), types.NamespacedName{Name: expected.Name}, consoleCR)
 	Expect(err).ToNot(HaveOccurred())
-	return console
+	return consoleCR
 }
 
 func (t *pluginTestInput) updateClusterVersionStatus(expected *configv1.ClusterVersion) {

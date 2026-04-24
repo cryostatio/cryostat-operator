@@ -84,10 +84,7 @@ func (r *TestResources) installOpenShiftCertManager() error {
 		return err
 	}
 	// The stable-v1 channel is available on OpenShift 4.12+
-	useStable := false
-	if version.GTE(semver.MustParse("4.12.0")) {
-		useStable = true
-	}
+	useStable := version.GTE(semver.MustParse("4.12.0"))
 
 	// Patch the OperatorHub config to enable the default catalog sources
 	hubPatch := `[{"op": "add", "path": "/spec/disableAllDefaultSources", "value": false}]`

@@ -179,7 +179,7 @@ func CryostatRecordingTest(bundle *apimanifests.Bundle, namespace string, openSh
 		return r.fail(fmt.Sprintf("failed to reach the application: %s", err.Error()))
 	}
 
-	apiClient := NewCryostatRESTClientset(base)
+	apiClient := r.NewCryostatRESTClientset(base)
 
 	// Create a custom target for test
 	targetOptions := &Target{

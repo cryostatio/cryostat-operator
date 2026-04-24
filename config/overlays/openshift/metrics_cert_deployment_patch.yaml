@@ -1,0 +1,28 @@
+# This patch adds the args, volumes, and ports to allow the manager to use the metrics-server certs.
+
+# Add the volumeMount for the metrics-server certs
+- op: add
+  path: /spec/template/spec/containers/0/volumeMounts/-
+  value:
+    mountPath: /var/run/secrets/io.cryostat/metrics-certs
+    name: metrics-certs
+    readOnly: true
+
+# Add the --metrics-cert-path argument for the metrics server
+- op: add
+  path: /spec/template/spec/containers/0/args/-
+  value: --metrics-cert-path=/var/run/secrets/io.cryostat/metrics-certs
+
+# Add the metrics-server certs volume configuration
+- op: add
+  path: /spec/template/spec/volumes/-
+  value:
+    name: metrics-certs
+    secret:
+      secretName: cryostat-operator-metrics-certs
+      optional: false
+      items:
+        - key: tls.crt
+          path: tls.crt
+        - key: tls.key
+          path: tls.key

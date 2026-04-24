@@ -17,7 +17,7 @@ package v1beta1_test
 import (
 	operatorv1beta1 "github.com/cryostatio/cryostat-operator/api/v1beta1"
 	operatorv1beta2 "github.com/cryostatio/cryostat-operator/api/v1beta2"
-	"github.com/cryostatio/cryostat-operator/internal/controllers/model"
+	"github.com/cryostatio/cryostat-operator/internal/controller/model"
 	"github.com/cryostatio/cryostat-operator/internal/test"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"

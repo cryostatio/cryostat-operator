@@ -30,7 +30,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
 	"k8s.io/apimachinery/pkg/util/wait"
-	"sigs.k8s.io/controller-runtime/pkg/client/config"
+	cfg "sigs.k8s.io/controller-runtime/pkg/client/config"
 
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes"
@@ -52,7 +52,7 @@ func (c *CryostatClientset) OperatorCRDs() *OperatorCRDClient {
 // NewClientset creates a CryostatClientset
 func NewClientset() (*CryostatClientset, error) {
 	// Get in-cluster REST config from pod
-	config, err := config.GetConfig()
+	config, err := cfg.GetConfig()
 	if err != nil {
 		return nil, err
 	}
@@ -211,10 +211,11 @@ func (c *CryostatRESTClientset) Credential() *CredentialClient {
 	return c.CredentialClient
 }
 
-func NewCryostatRESTClientset(base *url.URL) *CryostatRESTClientset {
+func (r *TestResources) NewCryostatRESTClientset(base *url.URL) *CryostatRESTClientset {
 	commonClient := &commonCryostatRESTClient{
-		Base:   base,
-		Client: NewHttpClient(),
+		Base:          base,
+		Client:        NewHttpClient(),
+		TestResources: r,
 	}
 
 	return &CryostatRESTClientset{
@@ -233,6 +234,7 @@ func NewCryostatRESTClientset(base *url.URL) *CryostatRESTClientset {
 type commonCryostatRESTClient struct {
 	Base *url.URL
 	*http.Client
+	*TestResources
 }
 
 // Client for Cryostat Target resources
@@ -241,15 +243,15 @@ type TargetClient struct {
 }
 
 func (client *TargetClient) List(ctx context.Context) ([]Target, error) {
-	url := client.Base.JoinPath("/api/v4/targets")
+	restURL := client.Base.JoinPath("/api/v4/targets")
 	header := make(http.Header)
 	header.Add("Accept", "*/*")
 
-	resp, err := SendRequest(ctx, client.Client, http.MethodGet, url.String(), nil, header)
+	resp, err := SendRequest(ctx, client.Client, http.MethodGet, restURL.String(), nil, header)
 	if err != nil {
 		return nil, err
 	}
-	defer resp.Body.Close()
+	defer client.closeStream(resp.Body)
 
 	if !StatusOK(resp.StatusCode) {
 		return nil, fmt.Errorf("API request failed with status code: %d, response body: %s, and headers:\n%s", resp.StatusCode, ReadError(resp), ReadHeader(resp))
@@ -265,17 +267,17 @@ func (client *TargetClient) List(ctx context.Context) ([]Target, error) {
 }
 
 func (client *TargetClient) Create(ctx context.Context, options *Target) (*Target, error) {
-	url := client.Base.JoinPath("/api/v4/targets")
+	restURL := client.Base.JoinPath("/api/v4/targets")
 	header := make(http.Header)
 	header.Add("Content-Type", "application/x-www-form-urlencoded")
 	header.Add("Accept", "*/*")
 	body := options.ToFormData()
 
-	resp, err := SendRequest(ctx, client.Client, http.MethodPost, url.String(), &body, header)
+	resp, err := SendRequest(ctx, client.Client, http.MethodPost, restURL.String(), &body, header)
 	if err != nil {
 		return nil, err
 	}
-	defer resp.Body.Close()
+	defer client.closeStream(resp.Body)
 
 	if !StatusOK(resp.StatusCode) {
 		return nil, fmt.Errorf("API request failed with status code: %d, response body: %s, and headers:\n%s", resp.StatusCode, ReadError(resp), ReadHeader(resp))
@@ -296,15 +298,15 @@ type RecordingClient struct {
 }
 
 func (client *RecordingClient) List(ctx context.Context, target *Target) ([]Recording, error) {
-	url := client.Base.JoinPath(fmt.Sprintf("/api/v4/targets/%d/recordings", target.Id))
+	restURL := client.Base.JoinPath(fmt.Sprintf("/api/v4/targets/%d/recordings", target.Id))
 	header := make(http.Header)
 	header.Add("Accept", "*/*")
 
-	resp, err := SendRequest(ctx, client.Client, http.MethodGet, url.String(), nil, header)
+	resp, err := SendRequest(ctx, client.Client, http.MethodGet, restURL.String(), nil, header)
 	if err != nil {
 		return nil, err
 	}
-	defer resp.Body.Close()
+	defer client.closeStream(resp.Body)
 
 	if !StatusOK(resp.StatusCode) {
 		return nil, fmt.Errorf("API request failed with status code: %d, response body: %s, and headers:\n%s", resp.StatusCode, ReadError(resp), ReadHeader(resp))
@@ -335,17 +337,17 @@ func (client *RecordingClient) Get(ctx context.Context, target *Target, recordin
 }
 
 func (client *RecordingClient) Create(ctx context.Context, target *Target, options *RecordingCreateOptions) (*Recording, error) {
-	url := client.Base.JoinPath(fmt.Sprintf("/api/v4/targets/%d/recordings", target.Id))
+	restURL := client.Base.JoinPath(fmt.Sprintf("/api/v4/targets/%d/recordings", target.Id))
 	body := options.ToFormData()
 	header := make(http.Header)
 	header.Add("Content-Type", "application/x-www-form-urlencoded")
 	header.Add("Accept", "*/*")
 
-	resp, err := SendRequest(ctx, client.Client, http.MethodPost, url.String(), &body, header)
+	resp, err := SendRequest(ctx, client.Client, http.MethodPost, restURL.String(), &body, header)
 	if err != nil {
 		return nil, err
 	}
-	defer resp.Body.Close()
+	defer client.closeStream(resp.Body)
 
 	if !StatusOK(resp.StatusCode) {
 		return nil, fmt.Errorf("API request failed with status code: %d, response body: %s, and headers:\n%s", resp.StatusCode, ReadError(resp), ReadHeader(resp))
@@ -361,17 +363,17 @@ func (client *RecordingClient) Create(ctx context.Context, target *Target, optio
 }
 
 func (client *RecordingClient) Archive(ctx context.Context, target *Target, recordingId uint32) (string, error) {
-	url := client.Base.JoinPath(fmt.Sprintf("/api/v4/targets/%d/recordings/%d", target.Id, recordingId))
+	restURL := client.Base.JoinPath(fmt.Sprintf("/api/v4/targets/%d/recordings/%d", target.Id, recordingId))
 	body := "SAVE"
 	header := make(http.Header)
 	header.Add("Content-Type", "text/plain")
 	header.Add("Accept", "*/*")
 
-	resp, err := SendRequest(ctx, client.Client, http.MethodPatch, url.String(), &body, header)
+	resp, err := SendRequest(ctx, client.Client, http.MethodPatch, restURL.String(), &body, header)
 	if err != nil {
 		return "", err
 	}
-	defer resp.Body.Close()
+	defer client.closeStream(resp.Body)
 
 	if !StatusOK(resp.StatusCode) {
 		return "", fmt.Errorf("API request failed with status code: %d, response body: %s, and headers:\n%s", resp.StatusCode, ReadError(resp), ReadHeader(resp))
@@ -386,17 +388,17 @@ func (client *RecordingClient) Archive(ctx context.Context, target *Target, reco
 }
 
 func (client *RecordingClient) Stop(ctx context.Context, target *Target, recordingId uint32) error {
-	url := client.Base.JoinPath(fmt.Sprintf("/api/v4/targets/%d/recordings/%d", target.Id, recordingId))
+	restURL := client.Base.JoinPath(fmt.Sprintf("/api/v4/targets/%d/recordings/%d", target.Id, recordingId))
 	body := "STOP"
 	header := make(http.Header)
 	header.Add("Content-Type", "text/plain")
 	header.Add("Accept", "*/*")
 
-	resp, err := SendRequest(ctx, client.Client, http.MethodPatch, url.String(), &body, header)
+	resp, err := SendRequest(ctx, client.Client, http.MethodPatch, restURL.String(), &body, header)
 	if err != nil {
 		return err
 	}
-	defer resp.Body.Close()
+	defer client.closeStream(resp.Body)
 
 	if !StatusOK(resp.StatusCode) {
 		return fmt.Errorf("API request failed with status code: %d, response body: %s, and headers:\n%s", resp.StatusCode, ReadError(resp), ReadHeader(resp))
@@ -406,14 +408,14 @@ func (client *RecordingClient) Stop(ctx context.Context, target *Target, recordi
 }
 
 func (client *RecordingClient) Delete(ctx context.Context, target *Target, recordingId uint32) error {
-	url := client.Base.JoinPath(fmt.Sprintf("/api/v4/targets/%d/recordings/%d", target.Id, recordingId))
+	restURL := client.Base.JoinPath(fmt.Sprintf("/api/v4/targets/%d/recordings/%d", target.Id, recordingId))
 	header := make(http.Header)
 
-	resp, err := SendRequest(ctx, client.Client, http.MethodDelete, url.String(), nil, header)
+	resp, err := SendRequest(ctx, client.Client, http.MethodDelete, restURL.String(), nil, header)
 	if err != nil {
 		return err
 	}
-	defer resp.Body.Close()
+	defer client.closeStream(resp.Body)
 
 	if !StatusOK(resp.StatusCode) {
 		return fmt.Errorf("API request failed with status code: %d, response body: %s, and headers:\n%s", resp.StatusCode, ReadError(resp), ReadHeader(resp))
@@ -435,7 +437,7 @@ func (client *RecordingClient) RequestReportGeneration(ctx context.Context, targ
 	if err != nil {
 		return nil, err
 	}
-	defer resp.Body.Close()
+	defer client.closeStream(resp.Body)
 
 	if !StatusOK(resp.StatusCode) {
 		return nil, fmt.Errorf("API request failed with status code: %d, response body: %s, and headers:\n%s", resp.StatusCode, ReadError(resp), ReadHeader(resp))
@@ -450,7 +452,7 @@ func (client *RecordingClient) RequestReportGeneration(ctx context.Context, targ
 }
 
 func (client *RecordingClient) ListArchives(ctx context.Context, target *Target) ([]Archive, error) {
-	url := client.Base.JoinPath("/api/v4/graphql")
+	restURL := client.Base.JoinPath("/api/v4/graphql")
 
 	query := &GraphQLQuery{
 		Query: `
@@ -489,11 +491,11 @@ func (client *RecordingClient) ListArchives(ctx context.Context, target *Target)
 	header.Add("Content-Type", "application/json")
 	header.Add("Accept", "*/*")
 
-	resp, err := SendRequest(ctx, client.Client, http.MethodPost, url.String(), &body, header)
+	resp, err := SendRequest(ctx, client.Client, http.MethodPost, restURL.String(), &body, header)
 	if err != nil {
 		return nil, err
 	}
-	defer resp.Body.Close()
+	defer client.closeStream(resp.Body)
 
 	if !StatusOK(resp.StatusCode) {
 		return nil, fmt.Errorf("API request failed with status code: %d, response body: %s, and headers:\n%s", resp.StatusCode, ReadError(resp), ReadHeader(resp))
@@ -513,16 +515,16 @@ type CredentialClient struct {
 }
 
 func (client *CredentialClient) Create(ctx context.Context, credential *Credential) error {
-	url := client.Base.JoinPath("/api/v4/credentials")
+	restURL := client.Base.JoinPath("/api/v4/credentials")
 	body := credential.ToFormData()
 	header := make(http.Header)
 	header.Add("Content-Type", "application/x-www-form-urlencoded")
 
-	resp, err := SendRequest(ctx, client.Client, http.MethodPost, url.String(), &body, header)
+	resp, err := SendRequest(ctx, client.Client, http.MethodPost, restURL.String(), &body, header)
 	if err != nil {
 		return err
 	}
-	defer resp.Body.Close()
+	defer client.closeStream(resp.Body)
 
 	if !StatusOK(resp.StatusCode) {
 		return fmt.Errorf("API request failed with status code: %d, response body: %s, and headers:\n%s", resp.StatusCode, ReadError(resp), ReadHeader(resp))
@@ -580,12 +582,12 @@ func NewHttpClient() *http.Client {
 	return client
 }
 
-func NewHttpRequest(ctx context.Context, method string, url string, body *string, header http.Header) (*http.Request, error) {
+func NewHttpRequest(ctx context.Context, method string, restURL string, body *string, header http.Header) (*http.Request, error) {
 	var reqBody io.Reader
 	if body != nil {
 		reqBody = strings.NewReader(*body)
 	}
-	req, err := http.NewRequestWithContext(ctx, method, url, reqBody)
+	req, err := http.NewRequestWithContext(ctx, method, restURL, reqBody)
 	if err != nil {
 		return nil, err
 	}
@@ -596,7 +598,7 @@ func NewHttpRequest(ctx context.Context, method string, url string, body *string
 	}
 
 	// Authentication for OpenShift SSO
-	config, err := config.GetConfig()
+	config, err := cfg.GetConfig()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get in-cluster configurations: %s", err.Error())
 	}
@@ -609,11 +611,11 @@ func StatusOK(statusCode int) bool {
 	return statusCode >= 200 && statusCode < 300
 }
 
-func SendRequest(ctx context.Context, httpClient *http.Client, method string, url string, body *string, header http.Header) (*http.Response, error) {
+func SendRequest(ctx context.Context, httpClient *http.Client, method string, restURL string, body *string, header http.Header) (*http.Response, error) {
 	var response *http.Response
 	err := wait.PollUntilContextCancel(ctx, time.Second, true, func(ctx context.Context) (done bool, err error) {
 		// Create a new request
-		req, err := NewHttpRequest(ctx, method, url, body, header)
+		req, err := NewHttpRequest(ctx, method, restURL, body, header)
 		if err != nil {
 			return false, fmt.Errorf("failed to create an http request: %s", err.Error())
 		}

@@ -1,8 +1,11 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
 resources:
 - ../../manifests
 - ../../openshift
 
-patchesJson6902:
+patches:
 - path: console_plugin_patch.yaml
   target:
     group: apps
@@ -10,3 +13,56 @@ patchesJson6902:
     kind: Deployment
     name: controller
     namespace: system
+# Generate service-serving cert for metrics
+- path: metrics_cert_service_patch.yaml
+  target:
+    version: v1
+    kind: Service
+    name: metrics-service
+    namespace: system
+- path: metrics_cert_deployment_patch.yaml
+  target:
+    group: apps
+    version: v1
+    kind: Deployment
+    name: controller
+    namespace: system
+- path: monitor_tls_patch.yaml
+  target:
+    kind: ServiceMonitor
+
+replacements:
+ - source: # Uncomment the following block to enable certificates for metrics
+     kind: Service
+     version: v1
+     name: metrics-service
+     fieldPath: metadata.name
+   targets:
+     - select: # Uncomment the following to set the Service name for TLS config in Prometheus ServiceMonitor
+         kind: ServiceMonitor
+         group: monitoring.coreos.com
+         version: v1
+         name: metrics-monitor
+       fieldPaths:
+         - spec.endpoints.0.tlsConfig.serverName
+       options:
+         delimiter: '.'
+         index: 0
+         create: true
+ - source:
+     kind: Service
+     version: v1
+     name: metrics-service
+     fieldPath: metadata.namespace
+   targets:
+     - select: # Uncomment the following to set the Service namespace for TLS in Prometheus ServiceMonitor
+         kind: ServiceMonitor
+         group: monitoring.coreos.com
+         version: v1
+         name: metrics-monitor
+       fieldPaths:
+         - spec.endpoints.0.tlsConfig.serverName
+       options:
+         delimiter: '.'
+         index: 1
+         create: true

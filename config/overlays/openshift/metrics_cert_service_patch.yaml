@@ -1,0 +1,4 @@
+# Add the annotation to create a service-serving cert
+- op: add
+  path: /metadata/annotations/service.beta.openshift.io~1serving-cert-secret-name
+  value: cryostat-operator-metrics-certs

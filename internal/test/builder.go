@@ -22,7 +22,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
-	"github.com/cryostatio/cryostat-operator/internal/controllers/common"
+	"github.com/cryostatio/cryostat-operator/internal/controller/common"
 )
 
 // TestCtrlBuilder is a fake ControllerBuilder to aid testing of

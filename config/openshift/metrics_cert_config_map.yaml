@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  annotations:
+    service.beta.openshift.io/inject-cabundle: "true"
+  labels:
+    control-plane: controller-manager
+    app.kubernetes.io/name: cryostat-operator
+    app.kubernetes.io/managed-by: kustomize
+  name: ca-bundle
+  namespace: system
+data: {}
