@@ -5068,8 +5068,8 @@ func (r *TestResources) NewApiServerWithApplicationURL() *configv1.APIServer {
 func (r *TestResources) NewCoreContainerResource(cr *model.CryostatInstance) *corev1.ResourceRequirements {
 	resources := &corev1.ResourceRequirements{
 		Requests: corev1.ResourceList{
-			corev1.ResourceCPU:    resource.MustParse("500m"),
-			corev1.ResourceMemory: resource.MustParse("384Mi"),
+			corev1.ResourceCPU:    resource.MustParse("1250m"),
+			corev1.ResourceMemory: resource.MustParse("512Mi"),
 		},
 		Limits: corev1.ResourceList{
 			corev1.ResourceCPU:    resource.MustParse("2000m"),
@@ -5106,12 +5106,12 @@ func (r *TestResources) NewDatasourceContainerResource(cr *model.CryostatInstanc
 func (r *TestResources) NewGrafanaContainerResource(cr *model.CryostatInstance) *corev1.ResourceRequirements {
 	resources := &corev1.ResourceRequirements{
 		Requests: corev1.ResourceList{
-			corev1.ResourceCPU:    resource.MustParse("50m"),
-			corev1.ResourceMemory: resource.MustParse("128Mi"),
+			corev1.ResourceCPU:    resource.MustParse("100m"),
+			corev1.ResourceMemory: resource.MustParse("192Mi"),
 		},
 		Limits: corev1.ResourceList{
-			corev1.ResourceCPU:    resource.MustParse("500m"),
-			corev1.ResourceMemory: resource.MustParse("256Mi"),
+			corev1.ResourceCPU:    resource.MustParse("1000m"),
+			corev1.ResourceMemory: resource.MustParse("384Mi"),
 		},
 	}
 
@@ -5125,12 +5125,12 @@ func (r *TestResources) NewGrafanaContainerResource(cr *model.CryostatInstance) 
 func (r *TestResources) NewStorageContainerResource(cr *model.CryostatInstance) *corev1.ResourceRequirements {
 	resources := &corev1.ResourceRequirements{
 		Requests: corev1.ResourceList{
-			corev1.ResourceCPU:    resource.MustParse("50m"),
-			corev1.ResourceMemory: resource.MustParse("256Mi"),
+			corev1.ResourceCPU:    resource.MustParse("500m"),
+			corev1.ResourceMemory: resource.MustParse("384Mi"),
 		},
 		Limits: corev1.ResourceList{
-			corev1.ResourceCPU:    resource.MustParse("500m"),
-			corev1.ResourceMemory: resource.MustParse("512Mi"),
+			corev1.ResourceCPU:    resource.MustParse("1000m"),
+			corev1.ResourceMemory: resource.MustParse("1Gi"),
 		},
 	}
 
@@ -5163,12 +5163,12 @@ func (r *TestResources) NewDatabaseContainerResource(cr *model.CryostatInstance)
 func (r *TestResources) NewAuthProxyContainerResource(cr *model.CryostatInstance) *corev1.ResourceRequirements {
 	resources := &corev1.ResourceRequirements{
 		Requests: corev1.ResourceList{
-			corev1.ResourceCPU:    resource.MustParse("50m"),
+			corev1.ResourceCPU:    resource.MustParse("100m"),
 			corev1.ResourceMemory: resource.MustParse("64Mi"),
 		},
 		Limits: corev1.ResourceList{
-			corev1.ResourceCPU:    resource.MustParse("500m"),
-			corev1.ResourceMemory: resource.MustParse("128Mi"),
+			corev1.ResourceCPU:    resource.MustParse("1000m"),
+			corev1.ResourceMemory: resource.MustParse("256Mi"),
 		},
 	}
 
@@ -5201,12 +5201,12 @@ func (r *TestResources) NewAgentProxyContainerResource(cr *model.CryostatInstanc
 func (r *TestResources) NewReportContainerResource(cr *model.CryostatInstance) *corev1.ResourceRequirements {
 	resources := &corev1.ResourceRequirements{
 		Requests: corev1.ResourceList{
-			corev1.ResourceCPU:    resource.MustParse("500m"),
+			corev1.ResourceCPU:    resource.MustParse("2000m"),
 			corev1.ResourceMemory: resource.MustParse("512Mi"),
 		},
 		Limits: corev1.ResourceList{
-			corev1.ResourceCPU:    resource.MustParse("1000m"),
-			corev1.ResourceMemory: resource.MustParse("1Gi"),
+			corev1.ResourceCPU:    resource.MustParse("4000m"),
+			corev1.ResourceMemory: resource.MustParse("2Gi"),
 		},
 	}
 
