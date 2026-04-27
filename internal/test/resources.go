@@ -61,6 +61,7 @@ type TestResources struct {
 	AllowAgentInsecure         bool
 	DatabaseSecret             *corev1.Secret
 	StorageSecret              *corev1.Secret
+	LogLevel                   string
 }
 
 func NewTestScheme() *runtime.Scheme {
@@ -1178,6 +1179,15 @@ func (r *TestResources) NewCryostatWithAgentInsecureAllowed() *model.CryostatIns
 	cr := r.NewCryostat()
 	cr.Spec.AgentOptions = &operatorv1beta2.AgentOptions{
 		AllowInsecure: true,
+	}
+	return cr
+}
+
+func (r *TestResources) NewCryostatWithLoggingOptions() *model.CryostatInstance {
+	cr := r.NewCryostat()
+	logLevel := "DEBUG"
+	cr.Spec.LoggingOptions = &operatorv1beta2.LoggingOptions{
+		CoreLogLevel: &logLevel,
 	}
 	return cr
 }
@@ -2706,7 +2716,7 @@ func hashAnnotations(secrets []*corev1.Secret, configMaps []*corev1.ConfigMap, a
 }
 
 func (r *TestResources) NewCoreEnvironmentVariables(reportsUrl string, ingress bool,
-	hasPortConfig bool, builtInDiscoveryDisabled bool, builtInPortConfigDisabled bool, dbSecretProvided bool) []corev1.EnvVar {
+	hasPortConfig bool, builtInDiscoveryDisabled bool, builtInPortConfigDisabled bool, dbSecretProvided bool, logLevel string) []corev1.EnvVar {
 	storageProtocol := "http"
 	storagePort := 8333
 	if r.TLS {
@@ -2716,7 +2726,7 @@ func (r *TestResources) NewCoreEnvironmentVariables(reportsUrl string, ingress b
 	envs := []corev1.EnvVar{
 		{
 			Name:  "QUARKUS_LOG_LEVEL",
-			Value: "INFO",
+			Value: logLevel,
 		},
 		{
 			Name:  "QUARKUS_HTTP_HOST",

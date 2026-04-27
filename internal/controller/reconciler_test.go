@@ -2220,6 +2220,18 @@ func (c *controllerTest) commonTests() {
 				})
 			})
 		})
+		Context("with logging options", func() {
+			BeforeEach(func() {
+				t.LogLevel = "DEBUG"
+				t.objs = append(t.objs, t.NewCryostatWithLoggingOptions().Object)
+			})
+			JustBeforeEach(func() {
+				t.reconcileCryostatFully()
+			})
+			It("should configure deployment with custom log level", func() {
+				t.expectMainDeployment()
+			})
+		})
 		Context("with Agent options", func() {
 			Context("with hostname verification disabled", func() {
 				BeforeEach(func() {
@@ -3950,11 +3962,16 @@ func (t *cryostatTestInput) checkMainPodTemplate(deployment *appsv1.Deployment, 
 		cr.Spec.TargetDiscoveryOptions.DisableBuiltInPortNumbers
 	dbSecretProvided := cr.Spec.DatabaseOptions != nil && cr.Spec.DatabaseOptions.SecretName != nil
 
+	logLevel := "INFO"
+	if t.LogLevel != "" {
+		logLevel = t.LogLevel
+	}
 	t.checkCoreContainer(&coreContainer, ingress, reportsUrl,
 		hasPortConfig,
 		builtInDiscoveryDisabled,
 		builtInPortConfigDisabled,
 		dbSecretProvided,
+		logLevel,
 		t.NewCoreContainerResource(cr), t.NewCoreSecurityContext(cr))
 
 	// Check that Grafana is configured properly, depending on the environment
@@ -4256,6 +4273,7 @@ func (t *cryostatTestInput) checkCoreContainer(container *corev1.Container, ingr
 	reportsUrl string,
 	hasPortConfig bool, builtInDiscoveryDisabled bool, builtInPortConfigDisabled bool,
 	dbSecretProvided bool,
+	logLevel string,
 	resources *corev1.ResourceRequirements,
 	securityContext *corev1.SecurityContext) {
 	Expect(container.Name).To(Equal(t.Name))
@@ -4265,7 +4283,7 @@ func (t *cryostatTestInput) checkCoreContainer(container *corev1.Container, ingr
 		Expect(container.Image).To(Equal(*t.EnvCoreImageTag))
 	}
 	Expect(container.Ports).To(ConsistOf(t.NewCorePorts()))
-	Expect(container.Env).To(ConsistOf(t.NewCoreEnvironmentVariables(reportsUrl, ingress, hasPortConfig, builtInDiscoveryDisabled, builtInPortConfigDisabled, dbSecretProvided)))
+	Expect(container.Env).To(ConsistOf(t.NewCoreEnvironmentVariables(reportsUrl, ingress, hasPortConfig, builtInDiscoveryDisabled, builtInPortConfigDisabled, dbSecretProvided, logLevel)))
 	Expect(container.EnvFrom).To(ConsistOf(t.NewCoreEnvFromSource()))
 	Expect(container.VolumeMounts).To(ConsistOf(t.NewCoreVolumeMounts()))
 	Expect(container.LivenessProbe).To(Equal(t.NewCoreLivenessProbe()))
