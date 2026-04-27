@@ -25,7 +25,7 @@ metadata:
     capabilities: Seamless Upgrades
     categories: Monitoring, Developer Tools
     containerImage: quay.io/cryostat/cryostat-operator:4.2.0-dev
-    createdAt: "2026-04-23T23:25:39Z"
+    createdAt: "2026-04-24T18:04:20Z"
     description: JVM monitoring and profiling tool
     operatorframework.io/initialization-resource: |-
       {
@@ -221,6 +221,23 @@ spec:
           - description: Filename within config map containing the template file.
             displayName: Filename
             path: eventTemplates[0].filename
+          - description: Options to configure logging for Cryostat components.
+            displayName: Logging Options
+            path: loggingOptions
+          - description: |-
+              Log level for the core Cryostat application.
+              Valid values are: "OFF", "ERROR", "WARN", "INFO", "DEBUG", "TRACE", "ALL"
+              Defaults to "INFO" if not specified.
+            displayName: Core Log Level
+            path: loggingOptions.coreLogLevel
+            x-descriptors:
+              - urn:alm:descriptor:com.tectonic.ui:select:OFF
+              - urn:alm:descriptor:com.tectonic.ui:select:ERROR
+              - urn:alm:descriptor:com.tectonic.ui:select:WARN
+              - urn:alm:descriptor:com.tectonic.ui:select:INFO
+              - urn:alm:descriptor:com.tectonic.ui:select:DEBUG
+              - urn:alm:descriptor:com.tectonic.ui:select:TRACE
+              - urn:alm:descriptor:com.tectonic.ui:select:ALL
           - description: |-
               Options to control how the operator exposes the application outside of the cluster,
               such as using an Ingress or Route.

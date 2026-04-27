@@ -128,6 +128,10 @@ type CryostatSpec struct {
 	// +optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Agent Options"
 	AgentOptions *AgentOptions `json:"agentOptions,omitempty"`
+	// Options to configure logging for Cryostat components.
+	// +optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Logging Options"
+	LoggingOptions *LoggingOptions `json:"loggingOptions,omitempty"`
 }
 
 type OperandMetadata struct {
@@ -922,4 +926,15 @@ type AgentOptions struct {
 	// +optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:com.tectonic.ui:resourceRequirements"}
 	Resources corev1.ResourceRequirements `json:"resources,omitempty"`
+}
+
+// LoggingOptions provides configuration for logging levels of Cryostat components.
+type LoggingOptions struct {
+	// Log level for the core Cryostat application.
+	// Valid values are: "OFF", "ERROR", "WARN", "INFO", "DEBUG", "TRACE", "ALL"
+	// Defaults to "INFO" if not specified.
+	// +optional
+	// +kubebuilder:validation:Enum=OFF;ERROR;WARN;INFO;DEBUG;TRACE;ALL
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Core Log Level",xDescriptors={"urn:alm:descriptor:com.tectonic.ui:select:OFF","urn:alm:descriptor:com.tectonic.ui:select:ERROR","urn:alm:descriptor:com.tectonic.ui:select:WARN","urn:alm:descriptor:com.tectonic.ui:select:INFO","urn:alm:descriptor:com.tectonic.ui:select:DEBUG","urn:alm:descriptor:com.tectonic.ui:select:TRACE","urn:alm:descriptor:com.tectonic.ui:select:ALL"}
+	CoreLogLevel *string `json:"coreLogLevel,omitempty"`
 }

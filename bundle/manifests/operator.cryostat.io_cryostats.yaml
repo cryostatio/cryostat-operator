@@ -5761,6 +5761,24 @@ spec:
                   - filename
                   type: object
                 type: array
+              loggingOptions:
+                description: Options to configure logging for Cryostat components.
+                properties:
+                  coreLogLevel:
+                    description: |-
+                      Log level for the core Cryostat application.
+                      Valid values are: "OFF", "ERROR", "WARN", "INFO", "DEBUG", "TRACE", "ALL"
+                      Defaults to "INFO" if not specified.
+                    enum:
+                    - "OFF"
+                    - ERROR
+                    - WARN
+                    - INFO
+                    - DEBUG
+                    - TRACE
+                    - ALL
+                    type: string
+                type: object
               networkOptions:
                 description: |-
                   Options to control how the operator exposes the application outside of the cluster,
