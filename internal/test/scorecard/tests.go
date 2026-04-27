@@ -292,7 +292,8 @@ func CryostatReportTest(bundle *apimanifests.Bundle, namespace string, openShift
 	port := int32(10000)
 	cr := r.newCryostatCR()
 	cr.Spec.ReportOptions = &operatorv1beta2.ReportConfiguration{
-		Replicas: 1,
+		Replicas:  1,
+		Resources: r.newBasicReportResourceConfig(),
 	}
 	cr.Spec.ServiceOptions = &operatorv1beta2.ServiceConfigList{
 		ReportsConfig: &operatorv1beta2.ReportsServiceConfig{

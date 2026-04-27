@@ -275,6 +275,7 @@ func (r *TestResources) newCryostatCR() *operatorv1beta2.Cryostat {
 				DatabaseConfig: &disabledPolicyConfig,
 				StorageConfig:  &disabledPolicyConfig,
 			},
+			Resources: r.newBasicResourceConfig(),
 		},
 	}
 	if !r.OpenShift {
@@ -303,6 +304,7 @@ func (r *TestResources) newMultiNamespaceCryostatCR() *operatorv1beta2.Cryostat 
 				DatabaseConfig: &disabledPolicyConfig,
 				StorageConfig:  &disabledPolicyConfig,
 			},
+			Resources: r.newBasicResourceConfig(),
 		},
 	}
 	if !r.OpenShift {
@@ -310,6 +312,94 @@ func (r *TestResources) newMultiNamespaceCryostatCR() *operatorv1beta2.Cryostat 
 	}
 
 	return cr
+}
+
+func (r *TestResources) newBasicResourceConfig() *operatorv1beta2.ResourceConfigList {
+	return &operatorv1beta2.ResourceConfigList{
+		CoreResources: corev1.ResourceRequirements{
+			Requests: corev1.ResourceList{
+				corev1.ResourceCPU:    resource.MustParse("500m"),
+				corev1.ResourceMemory: resource.MustParse("384Mi"),
+			},
+			Limits: corev1.ResourceList{
+				corev1.ResourceCPU:    resource.MustParse("2000m"),
+				corev1.ResourceMemory: resource.MustParse("1Gi"),
+			},
+		},
+		GrafanaResources: corev1.ResourceRequirements{
+			Requests: corev1.ResourceList{
+				corev1.ResourceCPU:    resource.MustParse("50m"),
+				corev1.ResourceMemory: resource.MustParse("128Mi"),
+			},
+			Limits: corev1.ResourceList{
+				corev1.ResourceCPU:    resource.MustParse("500m"),
+				corev1.ResourceMemory: resource.MustParse("256Mi"),
+			},
+		},
+		DataSourceResources: corev1.ResourceRequirements{
+			Requests: corev1.ResourceList{
+				corev1.ResourceCPU:    resource.MustParse("200m"),
+				corev1.ResourceMemory: resource.MustParse("200Mi"),
+			},
+			Limits: corev1.ResourceList{
+				corev1.ResourceCPU:    resource.MustParse("500m"),
+				corev1.ResourceMemory: resource.MustParse("500Mi"),
+			},
+		},
+		ObjectStorageResources: corev1.ResourceRequirements{
+			Requests: corev1.ResourceList{
+				corev1.ResourceCPU:    resource.MustParse("50m"),
+				corev1.ResourceMemory: resource.MustParse("256Mi"),
+			},
+			Limits: corev1.ResourceList{
+				corev1.ResourceCPU:    resource.MustParse("500m"),
+				corev1.ResourceMemory: resource.MustParse("512Mi"),
+			},
+		},
+		DatabaseResources: corev1.ResourceRequirements{
+			Requests: corev1.ResourceList{
+				corev1.ResourceCPU:    resource.MustParse("50m"),
+				corev1.ResourceMemory: resource.MustParse("64Mi"),
+			},
+			Limits: corev1.ResourceList{
+				corev1.ResourceCPU:    resource.MustParse("500m"),
+				corev1.ResourceMemory: resource.MustParse("200Mi"),
+			},
+		},
+		AuthProxyResources: corev1.ResourceRequirements{
+			Requests: corev1.ResourceList{
+				corev1.ResourceCPU:    resource.MustParse("50m"),
+				corev1.ResourceMemory: resource.MustParse("64Mi"),
+			},
+			Limits: corev1.ResourceList{
+				corev1.ResourceCPU:    resource.MustParse("500m"),
+				corev1.ResourceMemory: resource.MustParse("128Mi"),
+			},
+		},
+		AgentProxyResources: corev1.ResourceRequirements{
+			Requests: corev1.ResourceList{
+				corev1.ResourceCPU:    resource.MustParse("50m"),
+				corev1.ResourceMemory: resource.MustParse("64Mi"),
+			},
+			Limits: corev1.ResourceList{
+				corev1.ResourceCPU:    resource.MustParse("500m"),
+				corev1.ResourceMemory: resource.MustParse("200Mi"),
+			},
+		},
+	}
+}
+
+func (r *TestResources) newBasicReportResourceConfig() corev1.ResourceRequirements {
+	return corev1.ResourceRequirements{
+		Requests: corev1.ResourceList{
+			corev1.ResourceCPU:    resource.MustParse("500m"),
+			corev1.ResourceMemory: resource.MustParse("512Mi"),
+		},
+		Limits: corev1.ResourceList{
+			corev1.ResourceCPU:    resource.MustParse("1000m"),
+			corev1.ResourceMemory: resource.MustParse("1Gi"),
+		},
+	}
 }
 
 func configureIngress(name string, cryostatSpec *operatorv1beta2.CryostatSpec) {
