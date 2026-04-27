@@ -2715,6 +2715,10 @@ func (r *TestResources) NewCoreEnvironmentVariables(reportsUrl string, ingress b
 	optional := false
 	envs := []corev1.EnvVar{
 		{
+			Name:  "QUARKUS_LOG_LEVEL",
+			Value: "INFO",
+		},
+		{
 			Name:  "QUARKUS_HTTP_HOST",
 			Value: "localhost",
 		},
