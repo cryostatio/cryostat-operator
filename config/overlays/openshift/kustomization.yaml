@@ -4,6 +4,7 @@ kind: Kustomization
 resources:
 - ../../manifests
 - ../../openshift
+- ../../prometheus
 
 patches:
 - path: console_plugin_patch.yaml
