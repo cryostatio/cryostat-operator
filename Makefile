@@ -191,6 +191,9 @@ endif
 # Specify whether to run scorecard tests only (without setup)
 SCORECARD_TEST_ONLY ?= false
 
+# Output format for operator-sdk scorecard (text, json, xunit); see `operator-sdk scorecard --help`
+SCORECARD_OUTPUT_FORMAT ?= text
+
 ##@ General
 
 .PHONY: all
@@ -219,7 +222,7 @@ ifneq ($(SKIP_TESTS), true)
 	$(call scorecard-setup)
 	$(call scorecard-cleanup) ; \
 	trap cleanup EXIT ; \
-	$(OPERATOR_SDK) scorecard -n $(SCORECARD_NAMESPACE) -s cryostat-scorecard -w 20m $(BUNDLE_IMG) --pod-security=restricted $(SCORECARD_TEST_SELECTOR)
+	$(OPERATOR_SDK) scorecard -n $(SCORECARD_NAMESPACE) -s cryostat-scorecard -w 20m $(BUNDLE_IMG) --pod-security=restricted -o $(SCORECARD_OUTPUT_FORMAT) $(SCORECARD_TEST_SELECTOR)
 endif
 
 .PHONY: test-scorecard-local
