@@ -25,4 +25,4 @@ patches:
 images:
 - name: console-plugin
   newName: quay.io/cryostat/cryostat-openshift-console-plugin
-  newTag: latest
+  newTag: 4.2.0-dev
