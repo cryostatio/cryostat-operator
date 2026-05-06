@@ -24,8 +24,8 @@ metadata:
       ]
     capabilities: Seamless Upgrades
     categories: Monitoring, Developer Tools
-    containerImage: quay.io/cryostat/cryostat-operator:4.2.0-dev
-    createdAt: "2026-04-30T14:07:41Z"
+    containerImage: quay.io/cryostat/cryostat-operator:4.3.0-dev
+    createdAt: "2026-05-06T17:30:58Z"
     description: JVM monitoring and profiling tool
     operatorframework.io/initialization-resource: |-
       {
@@ -49,7 +49,7 @@ metadata:
     operatorframework.io/arch.amd64: supported
     operatorframework.io/arch.arm64: supported
     operatorframework.io/os.linux: supported
-  name: cryostat-operator.v4.2.0-dev
+  name: cryostat-operator.v4.3.0-dev
   namespace: placeholder
 spec:
   apiservicedefinitions: {}
@@ -1560,7 +1560,7 @@ spec:
                         value: registry.access.redhat.com/ubi9/nginx-124:latest
                       - name: RELATED_IMAGE_AGENT_INIT
                         value: quay.io/cryostat/cryostat-agent-init:latest
-                    image: quay.io/cryostat/cryostat-operator:4.2.0-dev
+                    image: quay.io/cryostat/cryostat-operator:4.3.0-dev
                     imagePullPolicy: Always
                     livenessProbe:
                       httpGet:
@@ -1725,7 +1725,7 @@ spec:
       name: agent-proxy
     - image: quay.io/cryostat/cryostat-agent-init:latest
       name: agent-init
-  version: 4.2.0-dev
+  version: 4.3.0-dev
   webhookdefinitions:
     - admissionReviewVersions:
         - v1
