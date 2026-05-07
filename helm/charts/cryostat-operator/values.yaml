@@ -1,0 +1,81 @@
+replicaCount: 2
+
+image: quay.io/cryostat/cryostat-operator:3.0.0
+pullPolicy: IfNotPresent
+port: "9443"
+
+relatedImages:
+  oauth2Proxy: quay.io/oauth2-proxy/oauth2-proxy:latest
+  openshiftOauthProxy: quay.io/cryostat/openshift-oauth-proxy:3.0.0
+  core: quay.io/cryostat/cryostat:3.0.0
+  datasource: quay.io/cryostat/jfr-datasource:3.0.0
+  grafana: quay.io/cryostat/cryostat-grafana-dashboard:3.0.0
+  reports: quay.io/cryostat/cryostat-reports:3.0.0
+  storage: quay.io/cryostat/cryostat-storage:3.0.0
+  database: quay.io/cryostat/cryostat-db:3.0.0
+
+extraEnv: {}
+
+livenessProbe:
+  httpGet:
+    path: /healthz
+    port: 8081
+  timeoutSeconds: 1
+  initialDelaySeconds: 15
+  periodSeconds: 20
+
+readinessProbe:
+  httpGet:
+    path: /readyz
+    port: 8081
+  timeoutSeconds: 1
+  initialDelaySeconds: 5
+  periodSeconds: 10
+
+podAnnotations: {}
+podLabels: {}
+
+podSecurityContext: {}
+
+securityContext: {}
+  # allowPrivilegeEscalation: false
+  # privileged: false
+  # runAsNonRoot: true
+  # capabilities:
+  #   drop:
+  #     - ALL
+
+resources: {}
+
+nodeSelector: {}
+
+tolerations: []
+
+affinity: {}
+
+podDisruptionBudget: {}
+  # Use only one of the two
+  # maxUnavailable: 1
+  # minAvailable: 1
+
+serviceAccount:
+  # Specifies whether a service account should be created
+  create: true
+  # Annotations to add to the service account
+  annotations: {}
+  # The name of the service account to use.
+  # If not set and create is true, a name is generated using the fullname template
+  name: ""
+
+certManager:
+  isCA: false
+  privateKey:
+    algorithm: RSA
+    size: 4096
+  renewBeforePercentage: 25
+  usages:
+    - digital signature
+    - key encipherment
+    - key agreement
+    - client auth
+    - server auth
