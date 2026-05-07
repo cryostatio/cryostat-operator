@@ -1,12 +1,6 @@
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 
-# Labels to add to all resources and selectors.
-labels:
-- includeSelectors: true
-  pairs:
-    app.kubernetes.io/name: cryostat-operator
-
 # Generate service-serving cert for metrics
 resources:
 - cryostat-quickstart-jmx.yaml
