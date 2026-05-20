@@ -393,6 +393,20 @@ fmt: add-license ## Run go fmt against code.
 vet: ## Run go vet against code.
 	go vet ./...
 
+.PHONY: golangci-lint
+GOLANGCI_LINT = $(LOCALBIN)/golangci-lint
+golangci-lint: $(GOLANGCI_LINT) ## Download golangci-lint locally if necessary.
+$(GOLANGCI_LINT): local-bin
+	@if test -x $(GOLANGCI_LINT) && ! $(GOLANGCI_LINT) version | grep -q $(GOLANGCI_LINT_VERSION); then \
+		echo "$(GOLANGCI_LINT) version is not expected $(GOLANGCI_LINT_VERSION). Removing it before installing."; \
+		rm -rf $(GOLANGCI_LINT); \
+	fi
+	test -s $(GOLANGCI_LINT) || \
+	{ \
+	set -e ;\
+	curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(LOCALBIN) v$(GOLANGCI_LINT_VERSION) ;\
+	}
+
 .PHONY: lint
 lint: golangci-lint ## Run golangci-lint against code.
 	$(GOLANGCI_LINT) run
@@ -547,20 +561,6 @@ else
 OPERATOR_SDK = $(shell which operator-sdk)
 endif
 endif
-
-.PHONY: golangci-lint
-GOLANGCI_LINT = $(LOCALBIN)/golangci-lint
-golangci-lint: $(GOLANGCI_LINT) ## Download golangci-lint locally if necessary.
-$(GOLANGCI_LINT): local-bin
-	@if test -x $(GOLANGCI_LINT) && ! $(GOLANGCI_LINT) version | grep -q $(GOLANGCI_LINT_VERSION); then \
-		echo "$(GOLANGCI_LINT) version is not expected $(GOLANGCI_LINT_VERSION). Removing it before installing."; \
-		rm -rf $(GOLANGCI_LINT); \
-	fi
-	test -s $(GOLANGCI_LINT) || \
-	{ \
-	set -e ;\
-	curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(LOCALBIN) v$(GOLANGCI_LINT_VERSION) ;\
-	}
 
 ##@ Deployment
 
