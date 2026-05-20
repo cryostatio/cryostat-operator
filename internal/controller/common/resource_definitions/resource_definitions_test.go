@@ -27,6 +27,12 @@ import (
 	"github.com/cryostatio/cryostat-operator/internal/controller/model"
 )
 
+const (
+	testInstanceName      string = "test-cryostat"
+	testNamespace         string = "test-namespace"
+	testStorageSecretName string = "test-storage-secret"
+)
+
 func TestResourceDefinitions(t *testing.T) {
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "Resource Definitions Suite")
@@ -39,10 +45,10 @@ var _ = Describe("newStorageEnvForCoreContainer", func() {
 	)
 
 	BeforeEach(func() {
-		secretName := "test-storage-secret"
+		secretName := testStorageSecretName
 		cr = &model.CryostatInstance{
-			Name:             "test-cryostat",
-			InstallNamespace: "test-namespace",
+			Name:             testInstanceName,
+			InstallNamespace: testNamespace,
 			Spec: &operatorv1beta2.CryostatSpec{
 				ObjectStorageOptions: &operatorv1beta2.ObjectStorageOptions{
 					SecretName: &secretName,
@@ -65,7 +71,7 @@ var _ = Describe("newStorageEnvForCoreContainer", func() {
 		BeforeEach(func() {
 			// For managed storage, ObjectStorageOptions should be nil
 			cr.Spec.ObjectStorageOptions = nil
-			cr.Status.StorageSecret = "test-storage-secret"
+			cr.Status.StorageSecret = testStorageSecretName
 		})
 
 		It("should set default presigned transfers enabled", func() {
@@ -95,7 +101,7 @@ var _ = Describe("newStorageEnvForCoreContainer", func() {
 						URL:                           nil, // nil URL means managed storage
 					},
 				}
-				cr.Status.StorageSecret = "test-storage-secret"
+				cr.Status.StorageSecret = testStorageSecretName
 			})
 
 			It("should set presigned transfers to false", func() {
@@ -118,7 +124,7 @@ var _ = Describe("newStorageEnvForCoreContainer", func() {
 						URL:                           nil, // nil URL means managed storage
 					},
 				}
-				cr.Status.StorageSecret = "test-storage-secret"
+				cr.Status.StorageSecret = testStorageSecretName
 			})
 
 			It("should set presigned transfers to true", func() {
@@ -141,7 +147,7 @@ var _ = Describe("newStorageEnvForCoreContainer", func() {
 						URL:                       nil, // nil URL means managed storage
 					},
 				}
-				cr.Status.StorageSecret = "test-storage-secret"
+				cr.Status.StorageSecret = testStorageSecretName
 			})
 
 			It("should set presigned downloads to false", func() {
@@ -164,7 +170,7 @@ var _ = Describe("newStorageEnvForCoreContainer", func() {
 						URL:                       nil, // nil URL means managed storage
 					},
 				}
-				cr.Status.StorageSecret = "test-storage-secret"
+				cr.Status.StorageSecret = testStorageSecretName
 			})
 
 			It("should set presigned downloads to true", func() {
@@ -189,7 +195,7 @@ var _ = Describe("newStorageEnvForCoreContainer", func() {
 						URL:                           nil, // nil URL means managed storage
 					},
 				}
-				cr.Status.StorageSecret = "test-storage-secret"
+				cr.Status.StorageSecret = testStorageSecretName
 			})
 
 			It("should set both environment variables correctly", func() {
@@ -331,7 +337,7 @@ var _ = Describe("newStorageEnvForCoreContainer", func() {
 						Region: &region,
 					},
 				}
-				cr.Status.StorageSecret = "test-storage-secret"
+				cr.Status.StorageSecret = testStorageSecretName
 			})
 
 			It("should treat it as managed storage and succeed", func() {
