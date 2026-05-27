@@ -12,4 +12,4 @@ spec:
         - name: MIN_OPENSHIFT_VERSION
           value: "4.19.0"
         - name: MAX_OPENSHIFT_VERSION
-          value: "99.99.0"
+          value: "4.21.0"

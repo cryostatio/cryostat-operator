@@ -8,4 +8,4 @@ spec:
     spec:
       containers:
       - name: cryostat-plugin
-        imagePullPolicy: "Always"
+        imagePullPolicy: "IfNotPresent"
