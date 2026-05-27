@@ -194,6 +194,12 @@ SCORECARD_TEST_ONLY ?= false
 # Output format for operator-sdk scorecard (text, json, xunit); see `operator-sdk scorecard --help`
 SCORECARD_OUTPUT_FORMAT ?= text
 
+# Optional file path to write scorecard results to (in addition to stdout)
+SCORECARD_OUTPUT_FILE ?=
+ifneq ($(SCORECARD_OUTPUT_FILE),)
+SCORECARD_TEE := | tee $(SCORECARD_OUTPUT_FILE)
+endif
+
 ##@ General
 
 .PHONY: all
@@ -222,7 +228,7 @@ ifneq ($(SKIP_TESTS), true)
 	$(call scorecard-setup)
 	$(call scorecard-cleanup) ; \
 	trap cleanup EXIT ; \
-	$(OPERATOR_SDK) scorecard -n $(SCORECARD_NAMESPACE) -s cryostat-scorecard -w 20m $(BUNDLE_IMG) --pod-security=restricted -o $(SCORECARD_OUTPUT_FORMAT) $(SCORECARD_TEST_SELECTOR)
+	$(OPERATOR_SDK) scorecard -n $(SCORECARD_NAMESPACE) -s cryostat-scorecard -w 20m $(BUNDLE_IMG) --pod-security=restricted -o $(SCORECARD_OUTPUT_FORMAT) $(SCORECARD_TEST_SELECTOR) $(SCORECARD_TEE)
 endif
 
 .PHONY: test-scorecard-local
@@ -277,7 +283,7 @@ function cleanup { \
 endef
 
 define scorecard-local
-	SCORECARD_NAMESPACE=$(SCORECARD_NAMESPACE) BUNDLE_DIR=./bundle go run internal/images/custom-scorecard-tests/main.go $${SCORECARD_TEST_SELECTION} | sed 's/\\n/\n/g'
+	SCORECARD_NAMESPACE=$(SCORECARD_NAMESPACE) BUNDLE_DIR=./bundle go run internal/images/custom-scorecard-tests/main.go $${SCORECARD_TEST_SELECTION} | sed 's/\\n/\n/g' $(SCORECARD_TEE)
 endef
 
 ##@ Build
