@@ -16,4 +16,4 @@ resources:
 images:
 - name: controller
   newName: quay.io/cryostat/cryostat-operator
-  newTag: 4.2.0-dev
+  newTag: 4.2.0
