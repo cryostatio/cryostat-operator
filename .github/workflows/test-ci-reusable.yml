@@ -30,7 +30,7 @@ jobs:
       matrix:
         image: [cryostat-operator, cryostat-operator-bundle, cryostat-operator-scorecard]
     steps:
-    - uses: r26d/ghcr-delete-image-action@v1.4.1
+    - uses: r26d/ghcr-delete-image-action@9039322147055f1ee3f6359826701390d6b297aa # v1.4.1
       with:
         owner: ${{ github.repository_owner }}
         name: ${{ matrix.image }}
@@ -42,11 +42,11 @@ jobs:
   controller-test:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v6
+    - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
       with:
         repository: ${{ inputs.repository }}
         ref: ${{ inputs.ref }}
-    - uses: actions/setup-go@v6
+    - uses: actions/setup-go@4a3601121dd01d1626a1e23e37211e3254c1c06c # v6.4.0
       with:
         go-version: '1.24.*'
     - name: Run controller tests
@@ -63,7 +63,7 @@ jobs:
   scorecard-test:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v6
+    - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
       with:
         repository: ${{ inputs.repository }}
         ref: ${{ inputs.ref }}
@@ -75,7 +75,7 @@ jobs:
         make scorecard-build
     - name: Push scorecard image to ghcr.io for test
       id: push-scorecard-to-ghcr
-      uses: redhat-actions/push-to-registry@v2
+      uses: redhat-actions/push-to-registry@5ed88d269cf581ea9ef6dd6806d01562096bee9c # v2.8
       with:
         image: cryostat-operator-scorecard
         tags: ${{ inputs.tag }}
@@ -89,7 +89,7 @@ jobs:
         make oci-build
     - name: Push operator image to ghcr.io for test
       id: push-operator-to-ghcr
-      uses: redhat-actions/push-to-registry@v2
+      uses: redhat-actions/push-to-registry@5ed88d269cf581ea9ef6dd6806d01562096bee9c # v2.8
       with:
         image: cryostat-operator
         tags: ${{ inputs.tag }}
@@ -104,7 +104,7 @@ jobs:
         make bundle bundle-build
     - name: Push bundle image to ghcr.io for test
       id: push-bundle-to-ghcr
-      uses: redhat-actions/push-to-registry@v2
+      uses: redhat-actions/push-to-registry@5ed88d269cf581ea9ef6dd6806d01562096bee9c # v2.8
       with:
         image: cryostat-operator-bundle
         tags: ${{ inputs.tag }}
@@ -112,7 +112,7 @@ jobs:
         username: ${{ github.repository_owner }}
         password: ${{ secrets.GITHUB_TOKEN }}
     - name: Set up Kind cluster
-      uses: helm/kind-action@v1.14.0
+      uses: helm/kind-action@ef37e7f390d99f746eb8b610417061a60e82a6cc # v1.14.0
       with:
         config: .github/kind-config.yaml
         cluster_name: ci-${{ github.run_id }}
@@ -139,7 +139,7 @@ jobs:
       run: curl -sL https://github.com/operator-framework/operator-lifecycle-manager/releases/download/v0.28.0/install.sh | bash -s v0.28.0
     - name: Install Cert Manager
       run: make cert_manager
-    - uses: redhat-actions/podman-login@v1
+    - uses: redhat-actions/podman-login@4934294ad0449894bcd1e9f191899d7292469603 # v1.7
       with:
         registry: ghcr.io
         username: ${{ github.repository_owner }}
