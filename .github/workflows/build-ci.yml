@@ -44,7 +44,7 @@ jobs:
         fi
     - name: Push to quay.io
       id: push-to-quay
-      uses: redhat-actions/push-to-registry@v2
+      uses: redhat-actions/push-to-registry@5ed88d269cf581ea9ef6dd6806d01562096bee9c # v2.8
       with:
         image: cryostat-operator
         tags: ${{ steps.tag-image.outputs.tags }}
@@ -84,7 +84,7 @@ jobs:
         echo "tags=${TAGS[@]}" >> $GITHUB_OUTPUT
     - name: Push to quay.io
       id: push-to-quay
-      uses: redhat-actions/push-to-registry@v2
+      uses: redhat-actions/push-to-registry@5ed88d269cf581ea9ef6dd6806d01562096bee9c # v2.8
       with:
         image: cryostat-operator-bundle
         tags: ${{ steps.tag-image.outputs.tags }}
@@ -126,7 +126,7 @@ jobs:
       if: ${{ steps.check-tag-exists.outputs.exist == 'false' }}
     - name: Push to quay.io
       id: push-to-quay
-      uses: redhat-actions/push-to-registry@v2
+      uses: redhat-actions/push-to-registry@5ed88d269cf581ea9ef6dd6806d01562096bee9c # v2.8
       with:
         image: cryostat-operator-scorecard
         tags: ${{ steps.get-image-tag.outputs.tag }}

@@ -75,7 +75,7 @@ jobs:
         make scorecard-build
     - name: Push scorecard image to ghcr.io for test
       id: push-scorecard-to-ghcr
-      uses: redhat-actions/push-to-registry@v2
+      uses: redhat-actions/push-to-registry@5ed88d269cf581ea9ef6dd6806d01562096bee9c # v2.8
       with:
         image: cryostat-operator-scorecard
         tags: ${{ inputs.tag }}
@@ -89,7 +89,7 @@ jobs:
         make oci-build
     - name: Push operator image to ghcr.io for test
       id: push-operator-to-ghcr
-      uses: redhat-actions/push-to-registry@v2
+      uses: redhat-actions/push-to-registry@5ed88d269cf581ea9ef6dd6806d01562096bee9c # v2.8
       with:
         image: cryostat-operator
         tags: ${{ inputs.tag }}
@@ -104,7 +104,7 @@ jobs:
         make bundle bundle-build
     - name: Push bundle image to ghcr.io for test
       id: push-bundle-to-ghcr
-      uses: redhat-actions/push-to-registry@v2
+      uses: redhat-actions/push-to-registry@5ed88d269cf581ea9ef6dd6806d01562096bee9c # v2.8
       with:
         image: cryostat-operator-bundle
         tags: ${{ inputs.tag }}
@@ -139,7 +139,7 @@ jobs:
       run: curl -sL https://github.com/operator-framework/operator-lifecycle-manager/releases/download/v0.28.0/install.sh | bash -s v0.28.0
     - name: Install Cert Manager
       run: make cert_manager
-    - uses: redhat-actions/podman-login@v1
+    - uses: redhat-actions/podman-login@4934294ad0449894bcd1e9f191899d7292469603 # v1.7
       with:
         registry: ghcr.io
         username: ${{ github.repository_owner }}
