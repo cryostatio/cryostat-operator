@@ -305,6 +305,8 @@ func (r *Reconciler) reconcileAgentProxyConfig(ctx context.Context, cr *model.Cr
 			"/api/v4/credentials",
 			"/api/beta/recordings",
 			"/api/beta/diagnostics/heapdump/upload",
+			"/api/beta/discovery/credential_exists",
+			"/api/beta/targets",
 			"/health",
 		},
 	}
