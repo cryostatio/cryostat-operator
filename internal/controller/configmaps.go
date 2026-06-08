@@ -300,14 +300,14 @@ func (r *Reconciler) reconcileAgentProxyConfig(ctx context.Context, cr *model.Cr
 		HealthPort:    constants.AgentProxyHealthPort,
 		CryostatPort:  constants.CryostatHTTPContainerPort,
 		AllowedPathPrefixes: []string{
+			"/health",
+			"/api/v4/credentials",
 			"/api/v4/discovery",
 			"/api/v4.2/discovery",
-			"/api/v4/credentials",
+			"/api/beta/diagnostics",
+			"/api/beta/discovery",
 			"/api/beta/recordings",
-			"/api/beta/diagnostics/heapdump/upload",
-			"/api/beta/discovery/credential_exists",
 			"/api/beta/targets",
-			"/health",
 		},
 	}
 	if tls != nil {
