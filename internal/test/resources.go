@@ -5348,6 +5348,22 @@ http {
 			proxy_pass http://127.0.0.1:8181$request_uri;
 		}
 
+		location /api/beta/discovery/credential_exists/ {
+			proxy_pass http://127.0.0.1:8181$request_uri;
+		}
+
+		location = /api/beta/discovery/credential_exists {
+			proxy_pass http://127.0.0.1:8181$request_uri;
+		}
+
+		location /api/beta/targets/ {
+			proxy_pass http://127.0.0.1:8181$request_uri;
+		}
+
+		location = /api/beta/targets {
+			proxy_pass http://127.0.0.1:8181$request_uri;
+		}
+
 		location /health/ {
 			proxy_pass http://127.0.0.1:8181$request_uri;
 		}
@@ -5446,6 +5462,22 @@ http {
 		}
 
 		location = /api/beta/diagnostics/heapdump/upload {
+			proxy_pass http://127.0.0.1:8181$request_uri;
+		}
+
+		location /api/beta/discovery/credential_exists/ {
+			proxy_pass http://127.0.0.1:8181$request_uri;
+		}
+
+		location = /api/beta/discovery/credential_exists {
+			proxy_pass http://127.0.0.1:8181$request_uri;
+		}
+
+		location /api/beta/targets/ {
+			proxy_pass http://127.0.0.1:8181$request_uri;
+		}
+
+		location = /api/beta/targets {
 			proxy_pass http://127.0.0.1:8181$request_uri;
 		}
 
