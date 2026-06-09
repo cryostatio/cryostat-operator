@@ -18,6 +18,7 @@ import (
 	"context"
 	"fmt"
 	"net/url"
+	"strings"
 	"time"
 
 	certv1 "github.com/cert-manager/cert-manager/pkg/apis/certmanager/v1"
@@ -2704,6 +2705,111 @@ func (c *controllerTest) commonTests() {
 				})
 				It("should update the target namespaces in Status", func() {
 					t.expectTargetNamespaces()
+				})
+			})
+
+			Context("when changing target namespaces", func() {
+				var originalDeployment *appsv1.Deployment
+				var updatedDeployment *appsv1.Deployment
+
+				BeforeEach(func() {
+					t.TargetNamespaces = targetNamespaces
+				})
+
+				JustBeforeEach(func() {
+					// Get the deployment after initial reconciliation
+					originalDeployment = &appsv1.Deployment{}
+					err := t.Client.Get(context.Background(), types.NamespacedName{Name: t.Name, Namespace: t.Namespace}, originalDeployment)
+					Expect(err).ToNot(HaveOccurred())
+
+					// Update target namespaces to add a new one
+					newTargetNS := "multi-test-three"
+					t.objs = append(t.objs, t.NewOtherNamespace(newTargetNS))
+					err = t.Client.Create(context.Background(), t.NewOtherNamespace(newTargetNS))
+					Expect(err).ToNot(HaveOccurred())
+
+					t.TargetNamespaces = append(targetNamespaces, newTargetNS)
+					cr := t.getCryostatInstance()
+					cr.Spec.TargetNamespaces = t.TargetNamespaces
+					t.updateCryostatInstance(cr)
+
+					// Reconcile again
+					t.reconcileCryostatFully()
+
+					// Get the deployment after update
+					updatedDeployment = &appsv1.Deployment{}
+					err = t.Client.Get(context.Background(), types.NamespacedName{Name: t.Name, Namespace: t.Namespace}, updatedDeployment)
+					Expect(err).ToNot(HaveOccurred())
+				})
+
+				Context("with built-in discovery disabled", func() {
+					BeforeEach(func() {
+						t.objs = append(t.objs, t.NewCryostatWithBuiltInDiscoveryDisabled().Object)
+					})
+
+					It("should NOT modify the Deployment spec", func() {
+						Expect(originalDeployment.Spec).To(Equal(updatedDeployment.Spec),
+							"Deployment spec should not change when built-in discovery is disabled")
+					})
+
+					It("should NOT include discovery namespace env vars", func() {
+						deployment := &appsv1.Deployment{}
+						err := t.Client.Get(context.Background(), types.NamespacedName{Name: t.Name, Namespace: t.Namespace}, deployment)
+						Expect(err).ToNot(HaveOccurred())
+
+						coreContainer := &deployment.Spec.Template.Spec.Containers[0]
+						for _, env := range coreContainer.Env {
+							Expect(env.Name).ToNot(Equal("CRYOSTAT_DISCOVERY_KUBERNETES_NAMESPACES"),
+								"CRYOSTAT_DISCOVERY_KUBERNETES_NAMESPACES should not be present when built-in discovery is disabled")
+						}
+					})
+
+					It("should update RBAC for the new namespace", func() {
+						t.expectRBAC()
+					})
+
+					It("should update the target namespaces in Status", func() {
+						t.expectTargetNamespaces()
+					})
+				})
+
+				Context("with built-in discovery enabled (default)", func() {
+					BeforeEach(func() {
+						t.objs = append(t.objs, t.NewCryostat().Object)
+					})
+
+					It("should modify the Deployment spec", func() {
+						Expect(originalDeployment.Spec).ToNot(Equal(updatedDeployment.Spec),
+							"Deployment spec should change when built-in discovery is enabled")
+					})
+
+					It("should include updated discovery namespace env vars", func() {
+						deployment := &appsv1.Deployment{}
+						err := t.Client.Get(context.Background(), types.NamespacedName{Name: t.Name, Namespace: t.Namespace}, deployment)
+						Expect(err).ToNot(HaveOccurred())
+
+						coreContainer := &deployment.Spec.Template.Spec.Containers[0]
+						var foundNamespacesEnv bool
+						for _, env := range coreContainer.Env {
+							if env.Name == "CRYOSTAT_DISCOVERY_KUBERNETES_NAMESPACES" {
+								foundNamespacesEnv = true
+								expectedValue := strings.Join(t.TargetNamespaces, ",")
+								Expect(env.Value).To(Equal(expectedValue),
+									"CRYOSTAT_DISCOVERY_KUBERNETES_NAMESPACES should contain all target namespaces")
+								break
+							}
+						}
+						Expect(foundNamespacesEnv).To(BeTrue(),
+							"CRYOSTAT_DISCOVERY_KUBERNETES_NAMESPACES should be present when built-in discovery is enabled")
+					})
+
+					It("should update RBAC for the new namespace", func() {
+						t.expectRBAC()
+					})
+
+					It("should update the target namespaces in Status", func() {
+						t.expectTargetNamespaces()
+					})
 				})
 			})
 		})
