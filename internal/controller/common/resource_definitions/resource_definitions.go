@@ -1965,24 +1965,29 @@ func newK8SDiscoveryEnvForCoreContainer(cr *model.CryostatInstance) []corev1.Env
 			k8sDiscoveryPortNumbers = ""
 		}
 	}
-	return []corev1.EnvVar{
+	vars := []corev1.EnvVar{
 		{
 			Name:  "CRYOSTAT_DISCOVERY_KUBERNETES_ENABLED",
 			Value: fmt.Sprintf("%t", k8sDiscoveryEnabled),
 		},
-		{
-			Name:  "CRYOSTAT_DISCOVERY_KUBERNETES_NAMESPACES",
-			Value: strings.Join(cr.TargetNamespaces, ","),
-		},
-		{
-			Name:  "CRYOSTAT_DISCOVERY_KUBERNETES_PORT_NAMES",
-			Value: k8sDiscoveryPortNames,
-		},
-		{
-			Name:  "CRYOSTAT_DISCOVERY_KUBERNETES_PORT_NUMBERS",
-			Value: k8sDiscoveryPortNumbers,
-		},
 	}
+	if k8sDiscoveryEnabled {
+		vars = append(vars,
+			corev1.EnvVar{
+				Name:  "CRYOSTAT_DISCOVERY_KUBERNETES_NAMESPACES",
+				Value: strings.Join(cr.TargetNamespaces, ","),
+			},
+			corev1.EnvVar{
+				Name:  "CRYOSTAT_DISCOVERY_KUBERNETES_PORT_NAMES",
+				Value: k8sDiscoveryPortNames,
+			},
+			corev1.EnvVar{
+				Name:  "CRYOSTAT_DISCOVERY_KUBERNETES_PORT_NUMBERS",
+				Value: k8sDiscoveryPortNumbers,
+			},
+		)
+	}
+	return vars
 }
 
 func newGrafanaEnvForCoreContainer(specs *ServiceSpecs) []corev1.EnvVar {

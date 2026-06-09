@@ -2817,10 +2817,6 @@ func (r *TestResources) NewCoreEnvironmentVariables(reportsUrl string, ingress b
 			Value: "10",
 		},
 		{
-			Name:  "CRYOSTAT_DISCOVERY_KUBERNETES_NAMESPACES",
-			Value: strings.Join(r.TargetNamespaces, ","),
-		},
-		{
 			Name:  "GRAFANA_DATASOURCE_URL",
 			Value: "http://127.0.0.1:8989",
 		},
@@ -3278,6 +3274,17 @@ func (r *TestResources) NewTargetDiscoveryEnvVars(hasPortConfig bool, builtInDis
 			Value: fmt.Sprintf("%t", !builtInDiscoveryDisabled),
 		},
 	}
+
+	if builtInDiscoveryDisabled {
+		return envs
+	}
+
+	envs = append(envs,
+		corev1.EnvVar{
+			Name:  "CRYOSTAT_DISCOVERY_KUBERNETES_NAMESPACES",
+			Value: strings.Join(r.TargetNamespaces, ","),
+		},
+	)
 
 	if hasPortConfig {
 		envs = append(envs,
