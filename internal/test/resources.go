@@ -5323,14 +5323,6 @@ http {
 			proxy_pass http://127.0.0.1:8181$request_uri;
 		}
 
-		location /api/v4/credentials/ {
-			proxy_pass http://127.0.0.1:8181$request_uri;
-		}
-
-		location = /api/v4/credentials {
-			proxy_pass http://127.0.0.1:8181$request_uri;
-		}
-
 		location /api/v4/discovery/ {
 			proxy_pass http://127.0.0.1:8181$request_uri;
 		}
@@ -5347,19 +5339,19 @@ http {
 			proxy_pass http://127.0.0.1:8181$request_uri;
 		}
 
+		location /api/v4.3/discovery/ {
+			proxy_pass http://127.0.0.1:8181$request_uri;
+		}
+
+		location = /api/v4.3/discovery {
+			proxy_pass http://127.0.0.1:8181$request_uri;
+		}
+
 		location /api/beta/diagnostics/ {
 			proxy_pass http://127.0.0.1:8181$request_uri;
 		}
 
 		location = /api/beta/diagnostics {
-			proxy_pass http://127.0.0.1:8181$request_uri;
-		}
-
-		location /api/beta/discovery/ {
-			proxy_pass http://127.0.0.1:8181$request_uri;
-		}
-
-		location = /api/beta/discovery {
 			proxy_pass http://127.0.0.1:8181$request_uri;
 		}
 
@@ -5440,14 +5432,6 @@ http {
 			proxy_pass http://127.0.0.1:8181$request_uri;
 		}
 
-		location /api/v4/credentials/ {
-			proxy_pass http://127.0.0.1:8181$request_uri;
-		}
-
-		location = /api/v4/credentials {
-			proxy_pass http://127.0.0.1:8181$request_uri;
-		}
-
 		location /api/v4/discovery/ {
 			proxy_pass http://127.0.0.1:8181$request_uri;
 		}
@@ -5464,19 +5448,19 @@ http {
 			proxy_pass http://127.0.0.1:8181$request_uri;
 		}
 
+		location /api/v4.3/discovery/ {
+			proxy_pass http://127.0.0.1:8181$request_uri;
+		}
+
+		location = /api/v4.3/discovery {
+			proxy_pass http://127.0.0.1:8181$request_uri;
+		}
+
 		location /api/beta/diagnostics/ {
 			proxy_pass http://127.0.0.1:8181$request_uri;
 		}
 
 		location = /api/beta/diagnostics {
-			proxy_pass http://127.0.0.1:8181$request_uri;
-		}
-
-		location /api/beta/discovery/ {
-			proxy_pass http://127.0.0.1:8181$request_uri;
-		}
-
-		location = /api/beta/discovery {
 			proxy_pass http://127.0.0.1:8181$request_uri;
 		}
 
