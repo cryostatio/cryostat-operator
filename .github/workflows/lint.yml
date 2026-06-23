@@ -20,4 +20,4 @@ jobs:
       - name: Run linter
         uses: golangci/golangci-lint-action@82606bf257cbaff209d206a39f5134f0cfbfd2ee # v9.2.1
         with:
-          version: v2.1.0
+          version: v2.1.6
