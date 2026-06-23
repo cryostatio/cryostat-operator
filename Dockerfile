@@ -1,5 +1,5 @@
 # Build the manager binary
-FROM registry.access.redhat.com/ubi9/go-toolset:9.8-1782219569 as builder
+FROM registry.access.redhat.com/ubi9/go-toolset:9.8-1782219569@sha256:16e8f98fb6f83ee327388d5603892b0021562e65c399ed75d344d3d70b81fd26 as builder
 ARG TARGETOS
 ARG TARGETARCH
 
@@ -25,7 +25,7 @@ COPY internal/webhook/ internal/webhook/
 # by leaving it empty we can ensure that the container and binary shipped on it will have the same platform.
 RUN CGO_ENABLED=0 GOOS=${TARGETOS:-linux} GOARCH=${TARGETARCH} GO111MODULE=on go build -a -o manager cmd/main.go
 
-FROM registry.access.redhat.com/ubi9/ubi-minimal:latest
+FROM registry.access.redhat.com/ubi9/ubi-minimal:latest@sha256:850143255ee0d1915f09aaa09f6ed31f24086ba605c323badfbefa95b8c52b0e
 WORKDIR /
 COPY --from=builder /opt/app-root/src/manager .
 USER 65532:65532
