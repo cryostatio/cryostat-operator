@@ -22,5 +22,18 @@
   "major": {
     "dependencyDashboardApproval": true
   },
-  "stopUpdatingLabel": "blocked"
+  "minor": {
+    "dependencyDashboardApproval": true
+  },
+  "stopUpdatingLabel": "blocked",
+  "packageRules": [
+    {
+      "description": "Allow floating tags and disable digest pinning in kustomization image patches",
+      "matchDatasources": ["docker"],
+      "matchFileNames": [
+        "config/*/kustomization.yaml"
+      ],
+      "pinDigests": false
+    }
+  ]
 }
