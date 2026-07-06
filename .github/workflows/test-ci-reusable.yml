@@ -52,7 +52,7 @@ jobs:
     - name: Run controller tests
       run: make test-envtest
     - name: Set latest commit status as ${{ job.status }}
-      uses: myrotvorets/set-commit-status-action@ed8c6cea514d4af0551ec36b2a223f323e8f2a2c # master
+      uses: myrotvorets/set-commit-status-action@0eae800fc349cbcab86e3252bfb2a79cf327d0c0 # master
       if: always()
       with:
         sha: ${{ inputs.sha }}
@@ -153,7 +153,7 @@ jobs:
         BUNDLE_IMG="${{ steps.push-bundle-to-ghcr.outputs.registry-path }}" \
         make test-scorecard
     - name: Set latest commit status as ${{ job.status }}
-      uses: myrotvorets/set-commit-status-action@ed8c6cea514d4af0551ec36b2a223f323e8f2a2c # master
+      uses: myrotvorets/set-commit-status-action@0eae800fc349cbcab86e3252bfb2a79cf327d0c0 # master
       if: always()
       with:
         sha: ${{ inputs.sha }}
