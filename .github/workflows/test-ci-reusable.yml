@@ -52,7 +52,7 @@ jobs:
     - name: Run controller tests
       run: make test-envtest
     - name: Set latest commit status as ${{ job.status }}
-      uses: myrotvorets/set-commit-status-action@0eae800fc349cbcab86e3252bfb2a79cf327d0c0 # master
+      uses: daltonbr/set-commit-status-action@6e8342da330a0fe2a5b25fb8da947cedb27372f2 # v3.0.0
       if: always()
       with:
         sha: ${{ inputs.sha }}
