@@ -1657,7 +1657,7 @@ func newEnvForCoreContainer(cr *model.CryostatInstance, specs *ServiceSpecs, tls
 		)
 	}
 
-	storageEnv, err := newStorageEnvForCoreContainer(cr, specs)
+	storageEnv, err := NewStorageEnvForCoreContainer(cr, specs)
 	if err != nil {
 		return nil, err
 	}
@@ -1708,7 +1708,7 @@ func newDatabaseEnvForCoreContainer(cr *model.CryostatInstance, tls *TLSConfig) 
 	return envs
 }
 
-func newStorageEnvForCoreContainer(cr *model.CryostatInstance, specs *ServiceSpecs) ([]corev1.EnvVar, error) {
+func NewStorageEnvForCoreContainer(cr *model.CryostatInstance, specs *ServiceSpecs) ([]corev1.EnvVar, error) {
 	optional := false
 	secretName := getStorageSecret(cr)
 	envs := []corev1.EnvVar{
@@ -1761,15 +1761,22 @@ func newStorageEnvForCoreContainer(cr *model.CryostatInstance, specs *ServiceSpe
 				Name:  "QUARKUS_S3_AWS_REGION",
 				Value: "us-east-1",
 			},
-			{
-				Name:  "STORAGE_PRESIGNED_TRANSFERS_ENABLED",
-				Value: "true",
-			},
-			{
-				Name:  "STORAGE_PRESIGNED_DOWNLOADS_ENABLED",
-				Value: "false",
-			},
 		}...)
+
+		disablePresignedFileTransfers := false
+		if cr.Spec.ObjectStorageOptions != nil && cr.Spec.ObjectStorageOptions.Provider != nil && cr.Spec.ObjectStorageOptions.Provider.DisablePresignedFileTransfers != nil {
+			disablePresignedFileTransfers = *cr.Spec.ObjectStorageOptions.Provider.DisablePresignedFileTransfers
+		}
+		envs = append(envs, corev1.EnvVar{
+			Name:  "STORAGE_PRESIGNED_TRANSFERS_ENABLED",
+			Value: strconv.FormatBool(!disablePresignedFileTransfers),
+		})
+		if cr.Spec.ObjectStorageOptions != nil && cr.Spec.ObjectStorageOptions.Provider != nil && cr.Spec.ObjectStorageOptions.Provider.DisablePresignedDownloads != nil {
+			envs = append(envs, corev1.EnvVar{
+				Name:  "STORAGE_PRESIGNED_DOWNLOADS_ENABLED",
+				Value: strconv.FormatBool(!*cr.Spec.ObjectStorageOptions.Provider.DisablePresignedDownloads),
+			})
+		}
 	} else {
 		if cr.Spec.ObjectStorageOptions.Provider.URL == nil {
 			return nil, fmt.Errorf("cr.Spec.ObjectStorageOptions was not nil, but cr.Spec.ObjectStorageOptions.Provider.URL was nil")
