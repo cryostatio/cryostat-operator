@@ -26,7 +26,7 @@ jobs:
   build-operator:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+    - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
     - name: Build operator image
       run: |
         IMAGE_NAMESPACE=${{ env.CI_REGISTRY }} SKIP_TESTS=true PLATFORMS=${{ env.CI_PLATFORMS }} MANIFEST_PUSH=false make oci-buildx
@@ -61,7 +61,7 @@ jobs:
       matrix:
         bundle_mode: ['k8s', 'ocp']
     steps:
-    - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+    - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
     - name: Build bundle image
       run: IMAGE_NAMESPACE=${{ env.CI_REGISTRY }} BUNDLE_MODE=${{ matrix.bundle_mode }} make bundle bundle-build
     - name: Tag image
@@ -98,7 +98,7 @@ jobs:
   build-scorecard:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+    - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
     - name: Get scorecard image tag
       id: get-image-tag
       run: |
