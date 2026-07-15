@@ -33,7 +33,7 @@ COPY internal/test/scorecard/ internal/test/scorecard/
 RUN CGO_ENABLED=0 GOOS=${TARGETOS:-linux} GOARCH=${TARGETARCH} GO111MODULE=on go build -a -o cryostat-scorecard-tests \
     internal/images/custom-scorecard-tests/main.go
 
-FROM registry.access.redhat.com/ubi9/ubi-minimal:latest@sha256:463cae32c6f6f5594b11a5c22de275016bd8545ce58a6373388e8b24f13fc15c
+FROM registry.access.redhat.com/ubi9/ubi-minimal:latest@sha256:062c52ff973065752b0965787649db2bcf551a6c727a00e95a3eb42cebadbdab
 
 ENV TEST=/usr/local/bin/cryostat-scorecard-tests \
     USER_UID=1001 \
