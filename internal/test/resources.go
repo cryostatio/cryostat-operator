@@ -3699,11 +3699,48 @@ func (r *TestResources) NewStorageLivenessProbe() *corev1.Probe {
 		ProbeHandler: corev1.ProbeHandler{
 			HTTPGet: &corev1.HTTPGetAction{
 				Port:   intstr.IntOrString{IntVal: port},
-				Path:   "/status",
+				Path:   "/healthz",
 				Scheme: protocol,
 			},
 		},
 		FailureThreshold: 2,
+	}
+}
+
+func (r *TestResources) NewStorageStartupProbe() *corev1.Probe {
+	protocol := corev1.URISchemeHTTP
+	port := int32(8333)
+
+	if r.TLS {
+		protocol = corev1.URISchemeHTTPS
+	}
+	return &corev1.Probe{
+		ProbeHandler: corev1.ProbeHandler{
+			HTTPGet: &corev1.HTTPGetAction{
+				Port:   intstr.IntOrString{IntVal: port},
+				Path:   "/healthz",
+				Scheme: protocol,
+			},
+		},
+		FailureThreshold: 13,
+	}
+}
+
+func (r *TestResources) NewStorageReadinessProbe() *corev1.Probe {
+	protocol := corev1.URISchemeHTTP
+	port := int32(8333)
+
+	if r.TLS {
+		protocol = corev1.URISchemeHTTPS
+	}
+	return &corev1.Probe{
+		ProbeHandler: corev1.ProbeHandler{
+			HTTPGet: &corev1.HTTPGetAction{
+				Port:   intstr.IntOrString{IntVal: port},
+				Path:   "/readyz",
+				Scheme: protocol,
+			},
+		},
 	}
 }
 

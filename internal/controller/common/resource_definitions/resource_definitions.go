@@ -2213,10 +2213,17 @@ func NewStorageContainer(cr *model.CryostatInstance, imageTag string, tls *TLSCo
 		}
 	}
 
-	probeHandler := corev1.ProbeHandler{
+	livenessProbeHandler := corev1.ProbeHandler{
 		HTTPGet: &corev1.HTTPGetAction{
 			Port:   intstr.IntOrString{IntVal: livenessProbePort},
-			Path:   "/status",
+			Path:   "/healthz",
+			Scheme: livenessProbeScheme,
+		},
+	}
+	readinessProbeHandler := corev1.ProbeHandler{
+		HTTPGet: &corev1.HTTPGetAction{
+			Port:   intstr.IntOrString{IntVal: livenessProbePort},
+			Path:   "/readyz",
 			Scheme: livenessProbeScheme,
 		},
 	}
@@ -2231,12 +2238,15 @@ func NewStorageContainer(cr *model.CryostatInstance, imageTag string, tls *TLSCo
 		Args:            args,
 		Ports:           ports,
 		LivenessProbe: &corev1.Probe{
-			ProbeHandler:     probeHandler,
+			ProbeHandler:     livenessProbeHandler,
 			FailureThreshold: 2,
 		},
 		StartupProbe: &corev1.Probe{
-			ProbeHandler:     probeHandler,
+			ProbeHandler:     livenessProbeHandler,
 			FailureThreshold: 13,
+		},
+		ReadinessProbe: &corev1.Probe{
+			ProbeHandler: readinessProbeHandler,
 		},
 		Resources: *NewStorageContainerResource(cr),
 	}

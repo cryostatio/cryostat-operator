@@ -4512,6 +4512,8 @@ func (t *cryostatTestInput) checkStorageContainer(container *corev1.Container, r
 	Expect(container.EnvFrom).To(BeEmpty())
 	Expect(container.VolumeMounts).To(ConsistOf(t.NewStorageVolumeMounts()))
 	Expect(container.LivenessProbe).To(Equal(t.NewStorageLivenessProbe()))
+	Expect(container.StartupProbe).To(Equal(t.NewStorageStartupProbe()))
+	Expect(container.ReadinessProbe).To(Equal(t.NewStorageReadinessProbe()))
 	Expect(container.SecurityContext).To(Equal(securityContext))
 
 	test.ExpectResourceRequirements(&container.Resources, resources)
