@@ -13,7 +13,7 @@
 # limitations under the License.
 
 # Build the manager binary
-FROM registry.access.redhat.com/ubi9/go-toolset:9.8-1784190466@sha256:f99dd81b20e5971ef9f63a51ac27cf0aa591ff9921d021490548b67fd9b17144 as builder
+FROM registry.access.redhat.com/ubi9/go-toolset:9.8-1784638038@sha256:981cd8d53cc230b928db75a697586f915da5d3ed6731eddb246ce8865e0b1400 as builder
 ARG TARGETOS
 ARG TARGETARCH
 
