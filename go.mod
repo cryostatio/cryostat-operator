@@ -5,7 +5,7 @@ go 1.25.0
 require (
 	github.com/blang/semver/v4 v4.0.0
 	github.com/cert-manager/cert-manager v1.18.6
-	github.com/go-logr/logr v1.4.3
+	github.com/go-logr/logr v1.4.4
 	github.com/google/go-cmp v0.7.0
 	github.com/onsi/ginkgo/v2 v2.22.0
 	github.com/onsi/gomega v1.36.1
