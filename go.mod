@@ -7,8 +7,8 @@ require (
 	github.com/cert-manager/cert-manager v1.18.6
 	github.com/go-logr/logr v1.4.3
 	github.com/google/go-cmp v0.7.0
-	github.com/onsi/ginkgo/v2 v2.22.0
-	github.com/onsi/gomega v1.36.1
+	github.com/onsi/ginkgo/v2 v2.22.2
+	github.com/onsi/gomega v1.36.2
 	github.com/openshift/api v0.0.0-20260107143020-50517c6f4bfd // release-4.20
 	github.com/operator-framework/api v0.34.0
 	k8s.io/api v0.33.9
@@ -39,7 +39,7 @@ require (
 	github.com/google/btree v1.1.3 // indirect
 	github.com/google/cel-go v0.26.0 // indirect
 	github.com/google/gnostic-models v0.6.9 // indirect
-	github.com/google/pprof v0.0.0-20241029153458-d1b30febd7db // indirect
+	github.com/google/pprof v0.0.0-20241210010833-40e02aabc2ad // indirect
 	github.com/google/uuid v1.6.0 // indirect
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.27.0 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
