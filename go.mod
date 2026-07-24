@@ -9,7 +9,7 @@ require (
 	github.com/google/go-cmp v0.7.0
 	github.com/onsi/ginkgo/v2 v2.22.0
 	github.com/onsi/gomega v1.36.1
-	github.com/openshift/api v0.0.0-20260107143020-50517c6f4bfd // release-4.20
+	github.com/openshift/api 18550f1a6d13 // release-4.20
 	github.com/operator-framework/api v0.34.0
 	k8s.io/api v0.33.9
 	k8s.io/apimachinery v0.33.9
