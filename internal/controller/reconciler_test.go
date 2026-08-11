@@ -4078,6 +4078,7 @@ func (t *cryostatTestInput) checkMainPodTemplate(deployment *appsv1.Deployment, 
 		builtInPortConfigDisabled,
 		dbSecretProvided,
 		logLevel,
+		cr.Spec.AuthorizationOptions,
 		t.NewCoreContainerResource(cr), t.NewCoreSecurityContext(cr))
 
 	// Check that Grafana is configured properly, depending on the environment
@@ -4380,6 +4381,7 @@ func (t *cryostatTestInput) checkCoreContainer(container *corev1.Container, ingr
 	hasPortConfig bool, builtInDiscoveryDisabled bool, builtInPortConfigDisabled bool,
 	dbSecretProvided bool,
 	logLevel string,
+	authOptions *operatorv1beta2.AuthorizationOptions,
 	resources *corev1.ResourceRequirements,
 	securityContext *corev1.SecurityContext) {
 	Expect(container.Name).To(Equal(t.Name))
@@ -4389,7 +4391,7 @@ func (t *cryostatTestInput) checkCoreContainer(container *corev1.Container, ingr
 		Expect(container.Image).To(Equal(*t.EnvCoreImageTag))
 	}
 	Expect(container.Ports).To(ConsistOf(t.NewCorePorts()))
-	Expect(container.Env).To(ConsistOf(t.NewCoreEnvironmentVariables(reportsUrl, ingress, hasPortConfig, builtInDiscoveryDisabled, builtInPortConfigDisabled, dbSecretProvided, logLevel)))
+	Expect(container.Env).To(ConsistOf(t.NewCoreEnvironmentVariables(reportsUrl, ingress, hasPortConfig, builtInDiscoveryDisabled, builtInPortConfigDisabled, dbSecretProvided, logLevel, authOptions)))
 	Expect(container.EnvFrom).To(ConsistOf(t.NewCoreEnvFromSource()))
 	Expect(container.VolumeMounts).To(ConsistOf(t.NewCoreVolumeMounts()))
 	Expect(container.LivenessProbe).To(Equal(t.NewCoreLivenessProbe()))
