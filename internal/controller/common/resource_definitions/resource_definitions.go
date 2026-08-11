@@ -1638,12 +1638,12 @@ func newEnvForCoreContainer(cr *model.CryostatInstance, specs *ServiceSpecs, tls
 		},
 	}
 
-	if openshift && !isOpenShiftAuthProxyDisabled(cr) {
+	if openshift && !isOpenShiftAuthProxyDisabled(cr) && !isBasicAuthEnabled(cr) {
 		envs = append(envs, corev1.EnvVar{
 			Name:  "CRYOSTAT_SECURITY_RBAC_MODE",
 			Value: "OPENSHIFT",
 		})
-	} else if !openshift && isBasicAuthEnabled(cr) {
+	} else if isBasicAuthEnabled(cr) {
 		envs = append(envs, corev1.EnvVar{
 			Name:  "CRYOSTAT_SECURITY_RBAC_MODE",
 			Value: "BASIC",
