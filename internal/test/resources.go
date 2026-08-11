@@ -2807,12 +2807,12 @@ func (r *TestResources) NewCoreEnvironmentVariables(reportsUrl string, ingress b
 	openShiftSSODisabled := authOptions != nil && authOptions.OpenShiftSSO != nil &&
 		authOptions.OpenShiftSSO.Disable != nil && *authOptions.OpenShiftSSO.Disable
 
-	if r.OpenShift && !openShiftSSODisabled {
+	if r.OpenShift && !openShiftSSODisabled && !basicAuthConfigured {
 		envs = append(envs, corev1.EnvVar{
 			Name:  "CRYOSTAT_SECURITY_RBAC_MODE",
 			Value: "OPENSHIFT",
 		})
-	} else if !r.OpenShift && basicAuthConfigured {
+	} else if basicAuthConfigured {
 		envs = append(envs, corev1.EnvVar{
 			Name:  "CRYOSTAT_SECURITY_RBAC_MODE",
 			Value: "BASIC",
