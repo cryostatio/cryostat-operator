@@ -132,8 +132,8 @@ func TestNewEnvForCoreContainer_RBACPermissions(t *testing.T) {
 	t.Run("keys that collide after normalization return an error", func(t *testing.T) {
 		// "targets:read" and "targets-read" both normalize to "TARGETS_READ", so they collide.
 		perms := map[string]string{
-			"targets:read":  "deployments:get",
-			"targets-read":  "pods:get",
+			"targets:read": "deployments:get",
+			"targets-read": "pods:get",
 		}
 		cr, specs := minimalCR(perms)
 
