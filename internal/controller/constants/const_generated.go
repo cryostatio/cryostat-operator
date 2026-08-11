@@ -14,7 +14,7 @@ const DefaultOAuth2ProxyImageTag = "quay.io/oauth2-proxy/oauth2-proxy:latest"
 const DefaultOpenShiftOAuthProxyImageTag = "quay.io/openshift/origin-oauth-proxy:latest"
 
 // Default image tag for the core application image
-const DefaultCoreImageTag = "quay.io/andrewazores/cryostat:4.3.0-fine-grained-permissions-4"
+const DefaultCoreImageTag = "quay.io/cryostat/cryostat:latest"
 
 // Default image tag for the JFR datasource image
 const DefaultDatasourceImageTag = "quay.io/cryostat/jfr-datasource:latest"
