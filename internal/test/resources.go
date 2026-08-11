@@ -2716,7 +2716,8 @@ func hashAnnotations(secrets []*corev1.Secret, configMaps []*corev1.ConfigMap, a
 }
 
 func (r *TestResources) NewCoreEnvironmentVariables(reportsUrl string, ingress bool,
-	hasPortConfig bool, builtInDiscoveryDisabled bool, builtInPortConfigDisabled bool, dbSecretProvided bool, logLevel string) []corev1.EnvVar {
+	hasPortConfig bool, builtInDiscoveryDisabled bool, builtInPortConfigDisabled bool, dbSecretProvided bool, logLevel string,
+	authOptions *operatorv1beta2.AuthorizationOptions) []corev1.EnvVar {
 	storageProtocol := "http"
 	storagePort := 8333
 	if r.TLS {
@@ -2801,6 +2802,38 @@ func (r *TestResources) NewCoreEnvironmentVariables(reportsUrl string, ingress b
 			Value: "/opt/cryostat.d/templates.d",
 		},
 	}
+	basicAuthConfigured := authOptions != nil && authOptions.BasicAuth != nil &&
+		authOptions.BasicAuth.Filename != nil && authOptions.BasicAuth.SecretName != nil
+	openShiftSSODisabled := authOptions != nil && authOptions.OpenShiftSSO != nil &&
+		authOptions.OpenShiftSSO.Disable != nil && *authOptions.OpenShiftSSO.Disable
+
+	if r.OpenShift && !openShiftSSODisabled {
+		envs = append(envs, corev1.EnvVar{
+			Name:  "CRYOSTAT_SECURITY_RBAC_MODE",
+			Value: "OPENSHIFT",
+		})
+	} else if !r.OpenShift && basicAuthConfigured {
+		envs = append(envs, corev1.EnvVar{
+			Name:  "CRYOSTAT_SECURITY_RBAC_MODE",
+			Value: "BASIC",
+		})
+	}
+
+	if authOptions != nil {
+		permKeys := make([]string, 0, len(authOptions.RBACPermissions))
+		for k := range authOptions.RBACPermissions {
+			permKeys = append(permKeys, k)
+		}
+		slices.Sort(permKeys)
+		for _, k := range permKeys {
+			envKey := strings.NewReplacer(":", "_", "-", "_").Replace(strings.ToUpper(k))
+			envs = append(envs, corev1.EnvVar{
+				Name:  "CRYOSTAT_SECURITY_RBAC_PERMISSIONS__" + envKey + "_",
+				Value: authOptions.RBACPermissions[k],
+			})
+		}
+	}
+
 	if r.EnableAudit != nil {
 		envs = append(envs, corev1.EnvVar{
 			Name:  "CRYOSTAT_AUDIT_ENABLED",
@@ -3338,11 +3371,11 @@ func (r *TestResources) NewAuthProxyArguments(authOptions *operatorv1beta2.Autho
 
 	accessReview := authzv1.ResourceAttributes{
 		Namespace:   r.Namespace,
-		Verb:        "create",
+		Verb:        "get",
 		Group:       "",
 		Version:     "",
 		Resource:    "pods",
-		Subresource: "exec",
+		Subresource: "",
 		Name:        "",
 	}
 	if openShiftSSOConfigured && authOptions.OpenShiftSSO.AccessReview != nil {
@@ -3362,7 +3395,7 @@ func (r *TestResources) NewAuthProxyArguments(authOptions *operatorv1beta2.Autho
 	}
 
 	args := []string{
-		"--pass-access-token=false",
+		"--pass-access-token=true",
 		"--pass-user-bearer-token=false",
 		"--pass-basic-auth=false",
 		"--upstream=http://localhost:8181/",

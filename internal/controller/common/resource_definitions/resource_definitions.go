@@ -1173,7 +1173,7 @@ func NewOpenShiftAuthProxyContainer(cr *model.CryostatInstance, specs *ServiceSp
 	}
 
 	args := []string{
-		"--pass-access-token=false",
+		"--pass-access-token=true",
 		"--pass-user-bearer-token=false",
 		"--pass-basic-auth=false",
 		fmt.Sprintf("--upstream=http://localhost:%d/", constants.CryostatHTTPContainerPort),
@@ -1292,11 +1292,11 @@ func getOpenShiftAccessReview(cr *model.CryostatInstance) authzv1.ResourceAttrib
 func getDefaultOpenShiftAccessRole(cr *model.CryostatInstance) authzv1.ResourceAttributes {
 	return authzv1.ResourceAttributes{
 		Namespace:   cr.InstallNamespace,
-		Verb:        "create",
+		Verb:        "get",
 		Group:       "",
 		Version:     "",
 		Resource:    "pods",
-		Subresource: "exec",
+		Subresource: "",
 		Name:        "",
 	}
 }
@@ -1537,7 +1537,7 @@ func NewCoreContainer(cr *model.CryostatInstance, specs *ServiceSpecs, imageTag 
 		}
 	}
 
-	envs, err := newEnvForCoreContainer(cr, specs, tls)
+	envs, err := newEnvForCoreContainer(cr, specs, tls, openshift)
 	if err != nil {
 		return nil, err
 	}
@@ -1566,7 +1566,7 @@ func NewCoreContainer(cr *model.CryostatInstance, specs *ServiceSpecs, imageTag 
 	}, nil
 }
 
-func newEnvForCoreContainer(cr *model.CryostatInstance, specs *ServiceSpecs, tls *TLSConfig) ([]corev1.EnvVar, error) {
+func newEnvForCoreContainer(cr *model.CryostatInstance, specs *ServiceSpecs, tls *TLSConfig, openshift bool) ([]corev1.EnvVar, error) {
 	// Default log level to INFO if not specified
 	logLevel := "INFO"
 	if cr.Spec.LoggingOptions != nil && cr.Spec.LoggingOptions.CoreLogLevel != nil {
@@ -1637,6 +1637,38 @@ func newEnvForCoreContainer(cr *model.CryostatInstance, specs *ServiceSpecs, tls
 			Value: "static",
 		},
 	}
+
+	if openshift && !isOpenShiftAuthProxyDisabled(cr) {
+		envs = append(envs, corev1.EnvVar{
+			Name:  "CRYOSTAT_SECURITY_RBAC_MODE",
+			Value: "OPENSHIFT",
+		})
+	} else if !openshift && isBasicAuthEnabled(cr) {
+		envs = append(envs, corev1.EnvVar{
+			Name:  "CRYOSTAT_SECURITY_RBAC_MODE",
+			Value: "BASIC",
+		})
+	}
+
+	if cr.Spec.AuthorizationOptions != nil {
+		// Sort keys for deterministic env var ordering; non-deterministic order
+		// causes spurious Deployment updates on every reconcile loop.
+		permKeys := make([]string, 0, len(cr.Spec.AuthorizationOptions.RBACPermissions))
+		for k := range cr.Spec.AuthorizationOptions.RBACPermissions {
+			permKeys = append(permKeys, k)
+		}
+		slices.Sort(permKeys)
+		for _, k := range permKeys {
+			// SmallRye Config env var mapping for a quoted property segment "a:b":
+			// cryostat.security.rbac.permissions."a:b" -> CRYOSTAT_SECURITY_RBAC_PERMISSIONS__A_B_
+			envKey := strings.NewReplacer(":", "_", "-", "_").Replace(strings.ToUpper(k))
+			envs = append(envs, corev1.EnvVar{
+				Name:  "CRYOSTAT_SECURITY_RBAC_PERMISSIONS__" + envKey + "_",
+				Value: cr.Spec.AuthorizationOptions.RBACPermissions[k],
+			})
+		}
+	}
+
 	if cr.Spec.EnableAudit != nil {
 		envs = append(envs, corev1.EnvVar{
 			Name:  "CRYOSTAT_AUDIT_ENABLED",

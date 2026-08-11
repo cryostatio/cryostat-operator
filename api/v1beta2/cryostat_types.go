@@ -692,6 +692,14 @@ type AuthorizationOptions struct {
 	// +optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:io.kubernetes:Secret"}
 	BasicAuth *SecretFile `json:"basicAuth,omitempty"`
+	// Per-permission mapping from Cryostat permission names to Kubernetes resource/verb pairs checked via
+	// SelfSubjectAccessReview. Only evaluated when CRYOSTAT_SECURITY_RBAC_MODE=OPENSHIFT.
+	// Keys use the form "<resourcetype>:<verb>" (e.g. "activerecordings:read").
+	// Values use the form "resource[/subresource]:verb" (e.g. "pods/exec:create", "deployments:get").
+	// When a key is absent the Cryostat application falls back to its compiled-in default (pods/exec:create).
+	// +optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="RBAC Permission Mapping"
+	RBACPermissions map[string]string `json:"rbacPermissions,omitempty"`
 }
 
 type OpenShiftSSOConfig struct {
@@ -702,7 +710,10 @@ type OpenShiftSSOConfig struct {
 	Disable *bool `json:"disable,omitempty"`
 	// The SubjectAccessReview or TokenAccessReview that all clients (users visiting the application via web browser as well
 	// as CLI utilities and other programs presenting Bearer auth tokens) must pass in order to access the application.
-	// If not specified, the default role required is "create pods/exec" in the Cryostat application's installation namespace.
+	// If not specified, the default role required is "get pods" in the Cryostat application's installation namespace.
+	// Cryostat applies further RBAC restrictions to specific API requests according to the resources affected by the
+	// request endpoint, so users and clients must possess appropriate roles for those requests in addition to the basic
+	// general access role specified here.
 	// +optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	AccessReview *authzv1.ResourceAttributes `json:"accessReview,omitempty"`
