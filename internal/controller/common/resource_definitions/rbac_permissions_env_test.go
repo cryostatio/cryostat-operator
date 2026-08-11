@@ -69,22 +69,21 @@ func TestNewEnvForCoreContainer_RBACPermissions(t *testing.T) {
 			{"CRYOSTAT_SECURITY_RBAC_PERMISSIONS__TARGETS_READ_", "deployments:get"},
 		}
 
-		found := map[string]string{}
+		var found []struct{ name, value string }
 		for _, e := range envs {
 			if strings.HasPrefix(e.Name, "CRYOSTAT_SECURITY_RBAC_PERMISSIONS__") {
-				found[e.Name] = e.Value
+				found = append(found, struct{ name, value string }{e.Name, e.Value})
 			}
 		}
 
 		if len(found) != len(expected) {
 			t.Fatalf("expected %d RBAC env vars, got %d: %v", len(expected), len(found), found)
 		}
-		for _, ex := range expected {
-			v, ok := found[ex.name]
-			if !ok {
-				t.Errorf("expected env var %q not present", ex.name)
-			} else if v != ex.value {
-				t.Errorf("env var %q: expected value %q, got %q", ex.name, ex.value, v)
+		for i, ex := range expected {
+			if found[i].name != ex.name {
+				t.Errorf("env var[%d]: expected name %q, got %q", i, ex.name, found[i].name)
+			} else if found[i].value != ex.value {
+				t.Errorf("env var[%d] %q: expected value %q, got %q", i, ex.name, ex.value, found[i].value)
 			}
 		}
 	})
