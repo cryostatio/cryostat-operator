@@ -1659,10 +1659,15 @@ func newEnvForCoreContainer(cr *model.CryostatInstance, specs *ServiceSpecs, tls
 			permKeys = append(permKeys, k)
 		}
 		slices.Sort(permKeys)
+		seenEnvKeys := make(map[string]string, len(permKeys))
 		for _, k := range permKeys {
 			// SmallRye Config env var mapping for a quoted property segment "a:b":
 			// cryostat.security.rbac.permissions."a:b" -> CRYOSTAT_SECURITY_RBAC_PERMISSIONS__A_B_
 			envKey := strings.NewReplacer(":", "_", "-", "_").Replace(strings.ToUpper(k))
+			if prior, ok := seenEnvKeys[envKey]; ok {
+				return nil, fmt.Errorf("rbacPermissions keys %q and %q both map to the same environment variable name %q", prior, k, envKey)
+			}
+			seenEnvKeys[envKey] = k
 			envs = append(envs, corev1.EnvVar{
 				Name:  "CRYOSTAT_SECURITY_RBAC_PERMISSIONS__" + envKey + "_",
 				Value: cr.Spec.AuthorizationOptions.RBACPermissions[k],
