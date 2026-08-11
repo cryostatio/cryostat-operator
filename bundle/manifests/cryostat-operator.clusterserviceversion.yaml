@@ -137,6 +137,9 @@ spec:
               Reference to a secret and file name containing the Basic authentication htpasswd file. If deploying on OpenShift this
               defines additional user accounts that can access the Cryostat application, on top of the OpenShift user accounts which
               pass the OpenShift SSO Roles checks. If not on OpenShift then this defines the only user accounts that have access.
+              Note: When BasicAuth is enabled on OpenShift, initial application entry remains governed by the authorization proxy's
+              access review (or htpasswd validation), but fine-grained in-application RBAC checks are disabled and access within
+              Cryostat becomes all-or-nothing for all authenticated users.
             displayName: Basic Auth
             path: authorizationOptions.basicAuth
             x-descriptors:
@@ -172,7 +175,8 @@ spec:
               - urn:alm:descriptor:com.tectonic.ui:booleanSwitch
           - description: |-
               Per-permission mapping from Cryostat permission names to Kubernetes resource/verb pairs checked via
-              SelfSubjectAccessReview. Only evaluated when CRYOSTAT_SECURITY_RBAC_MODE=OPENSHIFT.
+              SelfSubjectAccessReview. Evaluated when running on OpenShift with OpenShift SSO enabled and Basic authentication disabled.
+              When Basic authentication is enabled, fine-grained in-application RBAC checks are bypassed.
               Keys use the form "<resourcetype>:<verb>" (e.g. "activerecordings:read").
               Values use the form "resource[/subresource]:verb" (e.g. "pods/exec:create", "deployments:get").
               When a key is absent the Cryostat application falls back to its compiled-in default (pods/exec:create).
