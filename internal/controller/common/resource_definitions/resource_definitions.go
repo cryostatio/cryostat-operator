@@ -1172,8 +1172,9 @@ func NewOpenShiftAuthProxyContainer(cr *model.CryostatInstance, specs *ServiceSp
 		}
 	}
 
+	passAccessToken := !isOpenShiftAuthProxyDisabled(cr) && !isBasicAuthEnabled(cr)
 	args := []string{
-		"--pass-access-token=true",
+		fmt.Sprintf("--pass-access-token=%t", passAccessToken),
 		"--pass-user-bearer-token=false",
 		"--pass-basic-auth=false",
 		fmt.Sprintf("--upstream=http://localhost:%d/", constants.CryostatHTTPContainerPort),

@@ -3394,8 +3394,9 @@ func (r *TestResources) NewAuthProxyArguments(authOptions *operatorv1beta2.Autho
 		return nil, err
 	}
 
+	passAccessToken := !openShiftSSODisabled && !basicAuthConfigured
 	args := []string{
-		"--pass-access-token=true",
+		fmt.Sprintf("--pass-access-token=%t", passAccessToken),
 		"--pass-user-bearer-token=false",
 		"--pass-basic-auth=false",
 		"--upstream=http://localhost:8181/",
