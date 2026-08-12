@@ -704,6 +704,14 @@ type AuthorizationOptions struct {
 	// +optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="RBAC Permission Mapping"
 	RBACPermissions map[string]string `json:"rbacPermissions,omitempty"`
+	// Namespace used to scope Kubernetes access reviews when Cryostat runs in OpenShift RBAC mode.
+	// When set, access reviews are performed as namespace-scoped checks against the specified namespace,
+	// allowing users to be granted access via Role and RoleBinding instead of ClusterRole and ClusterRoleBinding.
+	// When empty, access reviews are cluster-scoped.
+	// Defaults to the Cryostat CR's installation namespace when a new CR is created.
+	// +optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="RBAC Namespace"
+	RBACNamespace *string `json:"rbacNamespace,omitempty"`
 }
 
 type OpenShiftSSOConfig struct {

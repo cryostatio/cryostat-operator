@@ -62,6 +62,7 @@ type TestResources struct {
 	DatabaseSecret             *corev1.Secret
 	StorageSecret              *corev1.Secret
 	LogLevel                   string
+	RBACNamespace              *string
 }
 
 func NewTestScheme() *runtime.Scheme {
@@ -122,6 +123,12 @@ func (r *TestResources) newCryostatSpec() operatorv1beta2.CryostatSpec {
 	}
 	if r.EnableAudit != nil {
 		spec.EnableAudit = r.EnableAudit
+	}
+	if r.RBACNamespace != nil {
+		if spec.AuthorizationOptions == nil {
+			spec.AuthorizationOptions = &operatorv1beta2.AuthorizationOptions{}
+		}
+		spec.AuthorizationOptions.RBACNamespace = r.RBACNamespace
 	}
 	return spec
 }
@@ -2816,6 +2823,13 @@ func (r *TestResources) NewCoreEnvironmentVariables(reportsUrl string, ingress b
 		envs = append(envs, corev1.EnvVar{
 			Name:  "CRYOSTAT_SECURITY_RBAC_MODE",
 			Value: "BASIC",
+		})
+	}
+
+	if r.RBACNamespace != nil && *r.RBACNamespace != "" {
+		envs = append(envs, corev1.EnvVar{
+			Name:  "CRYOSTAT_SECURITY_RBAC_NAMESPACE",
+			Value: *r.RBACNamespace,
 		})
 	}
 
