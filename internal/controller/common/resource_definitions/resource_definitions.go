@@ -1651,6 +1651,14 @@ func newEnvForCoreContainer(cr *model.CryostatInstance, specs *ServiceSpecs, tls
 		})
 	}
 
+	if cr.Spec.AuthorizationOptions != nil && cr.Spec.AuthorizationOptions.RBACNamespace != nil &&
+		*cr.Spec.AuthorizationOptions.RBACNamespace != "" {
+		envs = append(envs, corev1.EnvVar{
+			Name:  "CRYOSTAT_SECURITY_RBAC_NAMESPACE",
+			Value: *cr.Spec.AuthorizationOptions.RBACNamespace,
+		})
+	}
+
 	if cr.Spec.AuthorizationOptions != nil {
 		// Sort keys for deterministic env var ordering; non-deterministic order
 		// causes spurious Deployment updates on every reconcile loop.
