@@ -1651,11 +1651,13 @@ func newEnvForCoreContainer(cr *model.CryostatInstance, specs *ServiceSpecs, tls
 		})
 	}
 
-	if cr.Spec.AuthorizationOptions != nil && cr.Spec.AuthorizationOptions.RBACNamespace != nil &&
-		*cr.Spec.AuthorizationOptions.RBACNamespace != "" {
+	namespacedRBAC := cr.Spec.AuthorizationOptions == nil ||
+		cr.Spec.AuthorizationOptions.NamespacedRBACPermissions == nil ||
+		*cr.Spec.AuthorizationOptions.NamespacedRBACPermissions
+	if namespacedRBAC {
 		envs = append(envs, corev1.EnvVar{
 			Name:  "CRYOSTAT_SECURITY_RBAC_NAMESPACE",
-			Value: *cr.Spec.AuthorizationOptions.RBACNamespace,
+			Value: cr.InstallNamespace,
 		})
 	}
 

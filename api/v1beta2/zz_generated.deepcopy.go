@@ -129,9 +129,9 @@ func (in *AuthorizationOptions) DeepCopyInto(out *AuthorizationOptions) {
 			(*out)[key] = val
 		}
 	}
-	if in.RBACNamespace != nil {
-		in, out := &in.RBACNamespace, &out.RBACNamespace
-		*out = new(string)
+	if in.NamespacedRBACPermissions != nil {
+		in, out := &in.NamespacedRBACPermissions, &out.NamespacedRBACPermissions
+		*out = new(bool)
 		**out = **in
 	}
 }
