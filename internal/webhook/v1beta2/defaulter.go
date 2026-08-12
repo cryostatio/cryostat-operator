@@ -50,10 +50,9 @@ func (r *cryostatDefaulter) Default(ctx context.Context, obj runtime.Object) err
 		if cr.Spec.AuthorizationOptions == nil {
 			cr.Spec.AuthorizationOptions = &operatorv1beta2.AuthorizationOptions{}
 		}
-		if cr.Spec.AuthorizationOptions.RBACNamespace == nil {
-			r.log.Info("defaulting RBAC namespace", "name", cr.Name, "namespace", cr.Namespace)
-			ns := cr.Namespace
-			cr.Spec.AuthorizationOptions.RBACNamespace = &ns
+		if cr.Spec.AuthorizationOptions.NamespacedRBACPermissions == nil {
+			r.log.Info("defaulting namespaced RBAC permissions", "name", cr.Name, "namespace", cr.Namespace)
+			cr.Spec.AuthorizationOptions.NamespacedRBACPermissions = &[]bool{true}[0]
 		}
 	}
 	return nil
