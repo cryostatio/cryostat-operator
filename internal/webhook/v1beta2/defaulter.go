@@ -46,5 +46,15 @@ func (r *cryostatDefaulter) Default(ctx context.Context, obj runtime.Object) err
 		r.log.Info("defaulting audit logging", "name", cr.Name, "namespace", cr.Namespace)
 		cr.Spec.EnableAudit = &[]bool{true}[0]
 	}
+	if cr.CreationTimestamp.IsZero() && cr.ResourceVersion == "" {
+		if cr.Spec.AuthorizationOptions == nil {
+			cr.Spec.AuthorizationOptions = &operatorv1beta2.AuthorizationOptions{}
+		}
+		if cr.Spec.AuthorizationOptions.RBACNamespace == nil {
+			r.log.Info("defaulting RBAC namespace", "name", cr.Name, "namespace", cr.Namespace)
+			ns := cr.Namespace
+			cr.Spec.AuthorizationOptions.RBACNamespace = &ns
+		}
+	}
 	return nil
 }

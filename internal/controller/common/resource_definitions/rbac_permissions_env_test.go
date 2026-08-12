@@ -170,4 +170,81 @@ func TestNewEnvForCoreContainer_RBACPermissions(t *testing.T) {
 			}
 		}
 	})
+
+	t.Run("RBACNamespace set produces CRYOSTAT_SECURITY_RBAC_NAMESPACE env var", func(t *testing.T) {
+		ns := "my-namespace"
+		cr, specs := minimalCR(nil)
+		cr.Spec.AuthorizationOptions.RBACNamespace = &ns
+
+		envs, err := newEnvForCoreContainer(cr, specs, nil, false)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+
+		for _, e := range envs {
+			if e.Name == "CRYOSTAT_SECURITY_RBAC_NAMESPACE" {
+				if e.Value != ns {
+					t.Errorf("expected CRYOSTAT_SECURITY_RBAC_NAMESPACE=%q, got %q", ns, e.Value)
+				}
+				return
+			}
+		}
+		t.Errorf("CRYOSTAT_SECURITY_RBAC_NAMESPACE not found in env vars")
+	})
+
+	t.Run("empty-string RBACNamespace produces no CRYOSTAT_SECURITY_RBAC_NAMESPACE env var", func(t *testing.T) {
+		empty := ""
+		cr, specs := minimalCR(nil)
+		cr.Spec.AuthorizationOptions.RBACNamespace = &empty
+
+		envs, err := newEnvForCoreContainer(cr, specs, nil, false)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+
+		for _, e := range envs {
+			if e.Name == "CRYOSTAT_SECURITY_RBAC_NAMESPACE" {
+				t.Errorf("unexpected CRYOSTAT_SECURITY_RBAC_NAMESPACE env var when RBACNamespace is empty string")
+			}
+		}
+	})
+
+	t.Run("nil RBACNamespace produces no CRYOSTAT_SECURITY_RBAC_NAMESPACE env var", func(t *testing.T) {
+		cr, specs := minimalCR(nil)
+		// RBACNamespace is nil by default in minimalCR
+
+		envs, err := newEnvForCoreContainer(cr, specs, nil, false)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+
+		for _, e := range envs {
+			if e.Name == "CRYOSTAT_SECURITY_RBAC_NAMESPACE" {
+				t.Errorf("unexpected CRYOSTAT_SECURITY_RBAC_NAMESPACE env var when RBACNamespace is nil")
+			}
+		}
+	})
+
+	t.Run("nil AuthorizationOptions produces no CRYOSTAT_SECURITY_RBAC_NAMESPACE env var", func(t *testing.T) {
+		storageURL, _ := url.Parse("http://storage.svc:8333")
+		databaseURL, _ := url.Parse("http://database.svc:5432")
+		specs := &ServiceSpecs{StorageURL: storageURL, DatabaseURL: databaseURL}
+		cr := &model.CryostatInstance{
+			Name:             "cryostat",
+			InstallNamespace: "default",
+			Spec:             &operatorv1beta2.CryostatSpec{},
+			Status:           &operatorv1beta2.CryostatStatus{},
+		}
+
+		envs, err := newEnvForCoreContainer(cr, specs, nil, false)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+
+		for _, e := range envs {
+			if e.Name == "CRYOSTAT_SECURITY_RBAC_NAMESPACE" {
+				t.Errorf("unexpected CRYOSTAT_SECURITY_RBAC_NAMESPACE env var when AuthorizationOptions is nil")
+			}
+		}
+	})
 }
