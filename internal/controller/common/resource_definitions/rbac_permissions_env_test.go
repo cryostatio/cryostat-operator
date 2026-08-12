@@ -23,6 +23,8 @@ import (
 	"github.com/cryostatio/cryostat-operator/internal/controller/model"
 )
 
+const rbacNamespaceEnvVar = "CRYOSTAT_SECURITY_RBAC_NAMESPACE"
+
 // minimalCR builds the smallest CryostatInstance that lets newEnvForCoreContainer
 // reach (and return from) the AuthorizationOptions block without panicking.
 // specs must carry a non-nil StorageURL because DeployManagedStorage is true
@@ -128,6 +130,33 @@ func TestNewEnvForCoreContainer_RBACPermissions(t *testing.T) {
 		t.Errorf("expected env var %q not found in output", want)
 	})
 
+	t.Run("colon in multi-word key is normalized to underscore (regression: archivedrecordings:read)", func(t *testing.T) {
+		// Regression: the key "archivedrecordings:read" was reported to produce an
+		// env var name containing a literal colon, e.g.
+		// CRYOSTAT_SECURITY_RBAC_PERMISSIONS__ARCHIVEDRECORDINGS:READ_
+		// The colon must be replaced with an underscore.
+		perms := map[string]string{
+			"archivedrecordings:read": "pods:get",
+		}
+		cr, specs := minimalCR(perms)
+
+		envs, err := newEnvForCoreContainer(cr, specs, nil, false)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+
+		want := "CRYOSTAT_SECURITY_RBAC_PERMISSIONS__ARCHIVEDRECORDINGS_READ_"
+		for _, e := range envs {
+			if strings.Contains(e.Name, ":") {
+				t.Errorf("env var name %q contains a literal colon; colons must be normalized to underscores", e.Name)
+			}
+			if e.Name == want {
+				return
+			}
+		}
+		t.Errorf("expected env var %q not found in output", want)
+	})
+
 	t.Run("keys that collide after normalization return an error", func(t *testing.T) {
 		// "targets:read" and "targets-read" both normalize to "TARGETS_READ", so they collide.
 		perms := map[string]string{
@@ -150,7 +179,7 @@ func TestNewEnvForCoreContainer_RBACPermissions(t *testing.T) {
 		}
 	})
 
-	t.Run("nil AuthorizationOptions produces no RBAC env vars", func(t *testing.T) {
+	t.Run("nil AuthorizationOptions produces no RBAC permission env vars", func(t *testing.T) {
 		storageURL, _ := url.Parse("http://storage.svc:8333")
 		specs := &ServiceSpecs{StorageURL: storageURL}
 		cr := &model.CryostatInstance{
@@ -170,11 +199,12 @@ func TestNewEnvForCoreContainer_RBACPermissions(t *testing.T) {
 			}
 		}
 	})
+}
 
+func TestNewEnvForCoreContainer_NamespacedRBAC(t *testing.T) {
 	t.Run("NamespacedRBACPermissions nil (default) injects install namespace", func(t *testing.T) {
-		// nil treated as true — namespaced by default
 		cr, specs := minimalCR(nil)
-		// NamespacedRBACPermissions is nil by default
+		// NamespacedRBACPermissions is nil — treated as true (namespaced by default)
 
 		envs, err := newEnvForCoreContainer(cr, specs, nil, false)
 		if err != nil {
@@ -182,14 +212,14 @@ func TestNewEnvForCoreContainer_RBACPermissions(t *testing.T) {
 		}
 
 		for _, e := range envs {
-			if e.Name == "CRYOSTAT_SECURITY_RBAC_NAMESPACE" {
+			if e.Name == rbacNamespaceEnvVar {
 				if e.Value != cr.InstallNamespace {
-					t.Errorf("expected CRYOSTAT_SECURITY_RBAC_NAMESPACE=%q, got %q", cr.InstallNamespace, e.Value)
+					t.Errorf("expected %s=%q, got %q", rbacNamespaceEnvVar, cr.InstallNamespace, e.Value)
 				}
 				return
 			}
 		}
-		t.Errorf("CRYOSTAT_SECURITY_RBAC_NAMESPACE not found in env vars")
+		t.Errorf("%s not found in env vars", rbacNamespaceEnvVar)
 	})
 
 	t.Run("NamespacedRBACPermissions true injects install namespace", func(t *testing.T) {
@@ -202,17 +232,17 @@ func TestNewEnvForCoreContainer_RBACPermissions(t *testing.T) {
 		}
 
 		for _, e := range envs {
-			if e.Name == "CRYOSTAT_SECURITY_RBAC_NAMESPACE" {
+			if e.Name == rbacNamespaceEnvVar {
 				if e.Value != cr.InstallNamespace {
-					t.Errorf("expected CRYOSTAT_SECURITY_RBAC_NAMESPACE=%q, got %q", cr.InstallNamespace, e.Value)
+					t.Errorf("expected %s=%q, got %q", rbacNamespaceEnvVar, cr.InstallNamespace, e.Value)
 				}
 				return
 			}
 		}
-		t.Errorf("CRYOSTAT_SECURITY_RBAC_NAMESPACE not found in env vars")
+		t.Errorf("%s not found in env vars", rbacNamespaceEnvVar)
 	})
 
-	t.Run("NamespacedRBACPermissions false omits CRYOSTAT_SECURITY_RBAC_NAMESPACE", func(t *testing.T) {
+	t.Run("NamespacedRBACPermissions false omits namespace env var", func(t *testing.T) {
 		cr, specs := minimalCR(nil)
 		cr.Spec.AuthorizationOptions.NamespacedRBACPermissions = &[]bool{false}[0]
 
@@ -222,8 +252,8 @@ func TestNewEnvForCoreContainer_RBACPermissions(t *testing.T) {
 		}
 
 		for _, e := range envs {
-			if e.Name == "CRYOSTAT_SECURITY_RBAC_NAMESPACE" {
-				t.Errorf("unexpected CRYOSTAT_SECURITY_RBAC_NAMESPACE when NamespacedRBACPermissions=false")
+			if e.Name == rbacNamespaceEnvVar {
+				t.Errorf("unexpected %s when NamespacedRBACPermissions=false", rbacNamespaceEnvVar)
 			}
 		}
 	})
@@ -245,13 +275,13 @@ func TestNewEnvForCoreContainer_RBACPermissions(t *testing.T) {
 		}
 
 		for _, e := range envs {
-			if e.Name == "CRYOSTAT_SECURITY_RBAC_NAMESPACE" {
+			if e.Name == rbacNamespaceEnvVar {
 				if e.Value != cr.InstallNamespace {
-					t.Errorf("expected CRYOSTAT_SECURITY_RBAC_NAMESPACE=%q, got %q", cr.InstallNamespace, e.Value)
+					t.Errorf("expected %s=%q, got %q", rbacNamespaceEnvVar, cr.InstallNamespace, e.Value)
 				}
 				return
 			}
 		}
-		t.Errorf("CRYOSTAT_SECURITY_RBAC_NAMESPACE not found in env vars")
+		t.Errorf("%s not found in env vars", rbacNamespaceEnvVar)
 	})
 }
