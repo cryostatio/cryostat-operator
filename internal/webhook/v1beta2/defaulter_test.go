@@ -134,55 +134,55 @@ var _ = Describe("CryostatDefaulter", func() {
 		})
 	})
 
-	Context("without RBAC namespace set", func() {
+	Context("without namespaced RBAC permissions set", func() {
 		BeforeEach(func() {
 			t.objs = append(t.objs, t.NewCryostat().Object)
 		})
 
-		It("should default RBAC namespace to install namespace", func() {
+		It("should default namespaced RBAC permissions to true", func() {
 			result := t.getCryostat()
 			Expect(result.Spec.AuthorizationOptions).ToNot(BeNil())
-			Expect(result.Spec.AuthorizationOptions.RBACNamespace).ToNot(BeNil())
-			Expect(*result.Spec.AuthorizationOptions.RBACNamespace).To(Equal(t.Namespace))
+			Expect(result.Spec.AuthorizationOptions.NamespacedRBACPermissions).ToNot(BeNil())
+			Expect(*result.Spec.AuthorizationOptions.NamespacedRBACPermissions).To(BeTrue())
 		})
 	})
 
-	Context("with RBAC namespace explicitly set", func() {
+	Context("with namespaced RBAC permissions explicitly set to false", func() {
 		BeforeEach(func() {
-			ns := "custom-ns"
+			disabled := false
 			cr := t.NewCryostat()
 			cr.Spec.AuthorizationOptions = &operatorv1beta2.AuthorizationOptions{
-				RBACNamespace: &ns,
+				NamespacedRBACPermissions: &disabled,
 			}
 			t.objs = append(t.objs, cr.Object)
 		})
 
-		It("should preserve the user-supplied RBAC namespace", func() {
+		It("should preserve the user-supplied value", func() {
 			result := t.getCryostat()
 			Expect(result.Spec.AuthorizationOptions).ToNot(BeNil())
-			Expect(result.Spec.AuthorizationOptions.RBACNamespace).ToNot(BeNil())
-			Expect(*result.Spec.AuthorizationOptions.RBACNamespace).To(Equal("custom-ns"))
+			Expect(result.Spec.AuthorizationOptions.NamespacedRBACPermissions).ToNot(BeNil())
+			Expect(*result.Spec.AuthorizationOptions.NamespacedRBACPermissions).To(BeFalse())
 		})
 	})
 
-	Context("updating an existing Cryostat with unset RBAC namespace", func() {
+	Context("updating an existing Cryostat to clear namespaced RBAC permissions", func() {
 		BeforeEach(func() {
+			enabled := true
 			cr := t.NewCryostat()
-			ns := t.Namespace
 			cr.Spec.AuthorizationOptions = &operatorv1beta2.AuthorizationOptions{
-				RBACNamespace: &ns,
+				NamespacedRBACPermissions: &enabled,
 			}
 			t.objs = append(t.objs, cr.Object)
 		})
 
-		It("should not re-default RBAC namespace on update", func() {
+		It("should not re-default namespaced RBAC permissions on update", func() {
 			cr := t.getCryostat()
-			cr.Spec.AuthorizationOptions.RBACNamespace = nil
+			cr.Spec.AuthorizationOptions.NamespacedRBACPermissions = nil
 			err := t.client.Update(context.Background(), cr)
 			Expect(err).ToNot(HaveOccurred())
 
 			result := t.getCryostat()
-			Expect(result.Spec.AuthorizationOptions.RBACNamespace).To(BeNil())
+			Expect(result.Spec.AuthorizationOptions.NamespacedRBACPermissions).To(BeNil())
 		})
 	})
 
