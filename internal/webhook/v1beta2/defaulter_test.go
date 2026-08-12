@@ -134,6 +134,58 @@ var _ = Describe("CryostatDefaulter", func() {
 		})
 	})
 
+	Context("without RBAC namespace set", func() {
+		BeforeEach(func() {
+			t.objs = append(t.objs, t.NewCryostat().Object)
+		})
+
+		It("should default RBAC namespace to install namespace", func() {
+			result := t.getCryostat()
+			Expect(result.Spec.AuthorizationOptions).ToNot(BeNil())
+			Expect(result.Spec.AuthorizationOptions.RBACNamespace).ToNot(BeNil())
+			Expect(*result.Spec.AuthorizationOptions.RBACNamespace).To(Equal(t.Namespace))
+		})
+	})
+
+	Context("with RBAC namespace explicitly set", func() {
+		BeforeEach(func() {
+			ns := "custom-ns"
+			cr := t.NewCryostat()
+			cr.Spec.AuthorizationOptions = &operatorv1beta2.AuthorizationOptions{
+				RBACNamespace: &ns,
+			}
+			t.objs = append(t.objs, cr.Object)
+		})
+
+		It("should preserve the user-supplied RBAC namespace", func() {
+			result := t.getCryostat()
+			Expect(result.Spec.AuthorizationOptions).ToNot(BeNil())
+			Expect(result.Spec.AuthorizationOptions.RBACNamespace).ToNot(BeNil())
+			Expect(*result.Spec.AuthorizationOptions.RBACNamespace).To(Equal("custom-ns"))
+		})
+	})
+
+	Context("updating an existing Cryostat with unset RBAC namespace", func() {
+		BeforeEach(func() {
+			cr := t.NewCryostat()
+			ns := t.Namespace
+			cr.Spec.AuthorizationOptions = &operatorv1beta2.AuthorizationOptions{
+				RBACNamespace: &ns,
+			}
+			t.objs = append(t.objs, cr.Object)
+		})
+
+		It("should not re-default RBAC namespace on update", func() {
+			cr := t.getCryostat()
+			cr.Spec.AuthorizationOptions.RBACNamespace = nil
+			err := t.client.Update(context.Background(), cr)
+			Expect(err).ToNot(HaveOccurred())
+
+			result := t.getCryostat()
+			Expect(result.Spec.AuthorizationOptions.RBACNamespace).To(BeNil())
+		})
+	})
+
 	Context("updating an existing Cryostat with unset audit setting", func() {
 		BeforeEach(func() {
 			auditEnabled := true
