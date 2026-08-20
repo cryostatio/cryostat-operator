@@ -5687,6 +5687,37 @@ spec:
                           will also bypass the BasicAuth, if specified.
                         type: boolean
                     type: object
+                  rbacCacheOptions:
+                    description: Tuning options for the in-application RBAC permission
+                      caches (OpenShift RBAC mode only).
+                    properties:
+                      clientCacheExpireAfterAccess:
+                        description: |-
+                          Idle TTL for the per-user Kubernetes client cache, expressed as a Go duration string (e.g. "5m", "30s").
+                          A client that has not been accessed for this long is closed and evicted. Set to "0s" to disable
+                          the client cache entirely. When omitted the application default (5 minutes) is used.
+                        type: string
+                      clientCacheMaximumSize:
+                        description: |-
+                          Maximum number of per-user Kubernetes client instances to hold in cache. Set to "0" to disable
+                          the client cache entirely. When omitted the application default (1000) is used.
+                        format: int64
+                        minimum: 0
+                        type: integer
+                      decisionCacheMaximumSize:
+                        description: |-
+                          Maximum number of SSAR decisions to hold in cache. Set to "0" to disable the decision cache
+                          entirely. When omitted the application default (10000) is used.
+                        format: int64
+                        minimum: 0
+                        type: integer
+                      decisionCacheTTL:
+                        description: |-
+                          Write TTL for cached SelfSubjectAccessReview (SSAR) decisions, expressed as a Go duration string
+                          (e.g. "1m", "30s"). Reads do not reset the timer. Set to "0s" to disable the decision cache and
+                          always issue a fresh SSAR. When omitted the application default (1 minute) is used.
+                        type: string
+                    type: object
                   rbacPermissions:
                     additionalProperties:
                       type: string
@@ -5696,7 +5727,7 @@ spec:
                       When Basic authentication is enabled, fine-grained in-application RBAC checks are bypassed.
                       Keys use the form "<resourcetype>:<verb>" (e.g. "activerecordings:read").
                       Values use the form "resource[/subresource]:verb" (e.g. "pods/exec:create", "deployments:get").
-                      When a key is absent the Cryostat application falls back to its compiled-in default (pods/exec:create).
+                      When a key is absent the Cryostat application falls back to its default (pods/exec:create).
                     type: object
                 type: object
               automatedRules:

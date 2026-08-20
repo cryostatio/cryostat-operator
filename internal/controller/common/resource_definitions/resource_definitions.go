@@ -1716,6 +1716,7 @@ func newEnvForCoreContainer(cr *model.CryostatInstance, specs *ServiceSpecs, tls
 		newReportsEnvForCoreContainer(specs),
 		newInsightsEnvForCoreContainer(specs),
 		newTargetConnectionCacheEnvForCoreContainer(cr),
+		newRBACCacheEnvForCoreContainer(cr),
 		newK8SDiscoveryEnvForCoreContainer(cr),
 		newGrafanaEnvForCoreContainer(specs),
 		newAgentEnvForCoreContainer(cr),
@@ -1954,6 +1955,39 @@ func newInsightsEnvForCoreContainer(specs *ServiceSpecs) []corev1.EnvVar {
 			},
 		}
 		envs = append(envs, insightsEnvs...)
+	}
+	return envs
+}
+
+func newRBACCacheEnvForCoreContainer(cr *model.CryostatInstance) []corev1.EnvVar {
+	if cr.Spec.AuthorizationOptions == nil || cr.Spec.AuthorizationOptions.RBACCacheOptions == nil {
+		return nil
+	}
+	opts := cr.Spec.AuthorizationOptions.RBACCacheOptions
+	var envs []corev1.EnvVar
+	if opts.ClientCacheExpireAfterAccess != nil {
+		envs = append(envs, corev1.EnvVar{
+			Name:  "CRYOSTAT_SECURITY_RBAC_CACHE_EXPIRE_AFTER_ACCESS",
+			Value: *opts.ClientCacheExpireAfterAccess,
+		})
+	}
+	if opts.ClientCacheMaximumSize != nil {
+		envs = append(envs, corev1.EnvVar{
+			Name:  "CRYOSTAT_SECURITY_RBAC_CACHE_MAXIMUM_SIZE",
+			Value: strconv.FormatInt(*opts.ClientCacheMaximumSize, 10),
+		})
+	}
+	if opts.DecisionCacheTTL != nil {
+		envs = append(envs, corev1.EnvVar{
+			Name:  "CRYOSTAT_SECURITY_RBAC_DECISION_CACHE_TTL",
+			Value: *opts.DecisionCacheTTL,
+		})
+	}
+	if opts.DecisionCacheMaximumSize != nil {
+		envs = append(envs, corev1.EnvVar{
+			Name:  "CRYOSTAT_SECURITY_RBAC_DECISION_CACHE_MAXIMUM_SIZE",
+			Value: strconv.FormatInt(*opts.DecisionCacheMaximumSize, 10),
+		})
 	}
 	return envs
 }

@@ -700,7 +700,7 @@ type AuthorizationOptions struct {
 	// When Basic authentication is enabled, fine-grained in-application RBAC checks are bypassed.
 	// Keys use the form "<resourcetype>:<verb>" (e.g. "activerecordings:read").
 	// Values use the form "resource[/subresource]:verb" (e.g. "pods/exec:create", "deployments:get").
-	// When a key is absent the Cryostat application falls back to its compiled-in default (pods/exec:create).
+	// When a key is absent the Cryostat application falls back to its default (pods/exec:create).
 	// +optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="RBAC Permission Mapping"
 	RBACPermissions map[string]string `json:"rbacPermissions,omitempty"`
@@ -711,6 +711,41 @@ type AuthorizationOptions struct {
 	// +optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Namespaced RBAC Permissions",xDescriptors={"urn:alm:descriptor:com.tectonic.ui:booleanSwitch"}
 	NamespacedRBACPermissions *bool `json:"namespacedRBACPermissions,omitempty"`
+	// Tuning options for the in-application RBAC permission caches (OpenShift RBAC mode only).
+	// +optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="RBAC Cache Options",xDescriptors={"urn:alm:descriptor:com.tectonic.ui:advanced"}
+	RBACCacheOptions *RBACCacheOptions `json:"rbacCacheOptions,omitempty"`
+}
+
+// RBACCacheOptions controls the two in-process caches used by Cryostat's OpenShift RBAC subsystem.
+// All fields are optional; when omitted the Cryostat application's defaults apply
+// (5 minutes idle TTL / 1000 entries for the client cache; 1 minute write TTL / 10000 entries for
+// the decision cache).
+type RBACCacheOptions struct {
+	// Idle TTL for the per-user Kubernetes client cache, expressed as a Go duration string (e.g. "5m", "30s").
+	// A client that has not been accessed for this long is closed and evicted. Set to "0s" to disable
+	// the client cache entirely. When omitted the application default (5 minutes) is used.
+	// +optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Client Cache Expire-After-Access",xDescriptors={"urn:alm:descriptor:com.tectonic.ui:text"}
+	ClientCacheExpireAfterAccess *string `json:"clientCacheExpireAfterAccess,omitempty"`
+	// Maximum number of per-user Kubernetes client instances to hold in cache. Set to "0" to disable
+	// the client cache entirely. When omitted the application default (1000) is used.
+	// +optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Client Cache Maximum Size",xDescriptors={"urn:alm:descriptor:com.tectonic.ui:number"}
+	// +kubebuilder:validation:Minimum=0
+	ClientCacheMaximumSize *int64 `json:"clientCacheMaximumSize,omitempty"`
+	// Write TTL for cached SelfSubjectAccessReview (SSAR) decisions, expressed as a Go duration string
+	// (e.g. "1m", "30s"). Reads do not reset the timer. Set to "0s" to disable the decision cache and
+	// always issue a fresh SSAR. When omitted the application default (1 minute) is used.
+	// +optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Decision Cache TTL",xDescriptors={"urn:alm:descriptor:com.tectonic.ui:text"}
+	DecisionCacheTTL *string `json:"decisionCacheTTL,omitempty"`
+	// Maximum number of SSAR decisions to hold in cache. Set to "0" to disable the decision cache
+	// entirely. When omitted the application default (10000) is used.
+	// +optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Decision Cache Maximum Size",xDescriptors={"urn:alm:descriptor:com.tectonic.ui:number"}
+	// +kubebuilder:validation:Minimum=0
+	DecisionCacheMaximumSize *int64 `json:"decisionCacheMaximumSize,omitempty"`
 }
 
 type OpenShiftSSOConfig struct {
