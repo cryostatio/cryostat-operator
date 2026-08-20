@@ -700,10 +700,15 @@ type AuthorizationOptions struct {
 	// When Basic authentication is enabled, fine-grained in-application RBAC checks are bypassed.
 	// Keys use the form "<resourcetype>:<verb>" (e.g. "activerecordings:read").
 	// Values use the form "resource[/subresource]:verb" (e.g. "pods/exec:create", "deployments:get").
-	// When a key is absent the Cryostat application falls back to its default (pods/exec:create).
+	// When a key is absent the Cryostat application falls back to its default.
 	// +optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="RBAC Permission Mapping"
 	RBACPermissions map[string]string `json:"rbacPermissions,omitempty"`
+	// Default fallback Kubernetes resource/verb pairs used when a specific permission key is absent
+	// from RBACPermissions. Applied in OpenShift RBAC mode only.
+	// +optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="RBAC Default Permissions"
+	RBACDefaultPermissions *RBACDefaultPermissions `json:"rbacDefaultPermissions,omitempty"`
 	// When true (default), Kubernetes access reviews performed by Cryostat in OpenShift RBAC mode are
 	// scoped to the Cryostat CR's installation namespace, so users need only a Role and RoleBinding in
 	// that namespace. When false, access reviews are cluster-scoped and users must have a ClusterRole
@@ -715,6 +720,44 @@ type AuthorizationOptions struct {
 	// +optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="RBAC Cache Options",xDescriptors={"urn:alm:descriptor:com.tectonic.ui:advanced"}
 	RBACCacheOptions *RBACCacheOptions `json:"rbacCacheOptions,omitempty"`
+}
+
+// RBACDefaultPermissions defines verb-level (layer 2) and global catch-all (layer 3) fallback
+// Kubernetes resource/verb pairs for Cryostat's OpenShift RBAC permission resolution. The full
+// resolution order is:
+//
+//  1. Explicit per-permission entry in RBACPermissions (most specific)
+//  2. Verb-level defaults: DefaultReadPermission, DefaultWritePermission, DefaultDeletePermission
+//  3. Global catch-all: DefaultPermission
+//
+// All values use the form "resource[/subresource]:verb" (e.g. "pods/exec:create", "pods:get").
+// When a field is omitted the Cryostat application's default is used.
+type RBACDefaultPermissions struct {
+	// Fallback Kubernetes resource/verb applied to all Cryostat "*:read" permission checks that
+	// have no explicit entry in RBACPermissions. Uses the form "resource[/subresource]:verb"
+	// (e.g. "pods:get"). When omitted the application default is used.
+	// +optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Default Read Permission",xDescriptors={"urn:alm:descriptor:com.tectonic.ui:text"}
+	DefaultReadPermission *string `json:"defaultReadPermission,omitempty"`
+	// Fallback Kubernetes resource/verb applied to all Cryostat "*:write" permission checks that
+	// have no explicit entry in RBACPermissions. Uses the form "resource[/subresource]:verb"
+	// (e.g. "pods/exec:create"). When omitted the application default is used.
+	// +optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Default Write Permission",xDescriptors={"urn:alm:descriptor:com.tectonic.ui:text"}
+	DefaultWritePermission *string `json:"defaultWritePermission,omitempty"`
+	// Fallback Kubernetes resource/verb applied to all Cryostat "*:delete" permission checks that
+	// have no explicit entry in RBACPermissions. Uses the form "resource[/subresource]:verb"
+	// (e.g. "pods:delete"). When omitted the application default is used.
+	// +optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Default Delete Permission",xDescriptors={"urn:alm:descriptor:com.tectonic.ui:text"}
+	DefaultDeletePermission *string `json:"defaultDeletePermission,omitempty"`
+	// Global catch-all Kubernetes resource/verb applied when a permission check has no explicit
+	// entry in RBACPermissions and no matching verb-level default above. Uses the form
+	// "resource[/subresource]:verb" (e.g. "pods/exec:create"). When omitted the application
+	// default is used.
+	// +optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Default Permission (Catch-All)",xDescriptors={"urn:alm:descriptor:com.tectonic.ui:text"}
+	DefaultPermission *string `json:"defaultPermission,omitempty"`
 }
 
 // RBACCacheOptions controls the two in-process caches used by Cryostat's OpenShift RBAC subsystem.
