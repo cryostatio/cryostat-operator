@@ -1716,6 +1716,7 @@ func newEnvForCoreContainer(cr *model.CryostatInstance, specs *ServiceSpecs, tls
 		newReportsEnvForCoreContainer(specs),
 		newInsightsEnvForCoreContainer(specs),
 		newTargetConnectionCacheEnvForCoreContainer(cr),
+		newRBACDefaultPermissionsEnvForCoreContainer(cr),
 		newRBACCacheEnvForCoreContainer(cr),
 		newK8SDiscoveryEnvForCoreContainer(cr),
 		newGrafanaEnvForCoreContainer(specs),
@@ -1955,6 +1956,39 @@ func newInsightsEnvForCoreContainer(specs *ServiceSpecs) []corev1.EnvVar {
 			},
 		}
 		envs = append(envs, insightsEnvs...)
+	}
+	return envs
+}
+
+func newRBACDefaultPermissionsEnvForCoreContainer(cr *model.CryostatInstance) []corev1.EnvVar {
+	if cr.Spec.AuthorizationOptions == nil || cr.Spec.AuthorizationOptions.RBACDefaultPermissions == nil {
+		return nil
+	}
+	defaults := cr.Spec.AuthorizationOptions.RBACDefaultPermissions
+	var envs []corev1.EnvVar
+	if defaults.DefaultReadPermission != nil {
+		envs = append(envs, corev1.EnvVar{
+			Name:  "CRYOSTAT_SECURITY_RBAC_DEFAULT_READ_PERMISSION",
+			Value: *defaults.DefaultReadPermission,
+		})
+	}
+	if defaults.DefaultWritePermission != nil {
+		envs = append(envs, corev1.EnvVar{
+			Name:  "CRYOSTAT_SECURITY_RBAC_DEFAULT_WRITE_PERMISSION",
+			Value: *defaults.DefaultWritePermission,
+		})
+	}
+	if defaults.DefaultDeletePermission != nil {
+		envs = append(envs, corev1.EnvVar{
+			Name:  "CRYOSTAT_SECURITY_RBAC_DEFAULT_DELETE_PERMISSION",
+			Value: *defaults.DefaultDeletePermission,
+		})
+	}
+	if defaults.DefaultPermission != nil {
+		envs = append(envs, corev1.EnvVar{
+			Name:  "CRYOSTAT_SECURITY_RBAC_DEFAULT_PERMISSION",
+			Value: *defaults.DefaultPermission,
+		})
 	}
 	return envs
 }
