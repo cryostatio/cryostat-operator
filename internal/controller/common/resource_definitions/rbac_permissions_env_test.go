@@ -285,3 +285,99 @@ func TestNewEnvForCoreContainer_NamespacedRBAC(t *testing.T) {
 		t.Errorf("%s not found in env vars", rbacNamespaceEnvVar)
 	})
 }
+
+func TestNewRBACCacheEnvForCoreContainer(t *testing.T) {
+	t.Run("nil AuthorizationOptions produces no cache env vars", func(t *testing.T) {
+		cr := &model.CryostatInstance{
+			Name:             "cryostat",
+			InstallNamespace: "default",
+			Spec:             &operatorv1beta2.CryostatSpec{},
+			Status:           &operatorv1beta2.CryostatStatus{},
+		}
+		envs := newRBACCacheEnvForCoreContainer(cr)
+		if len(envs) != 0 {
+			t.Errorf("expected no cache env vars, got %v", envs)
+		}
+	})
+
+	t.Run("nil RBACCacheOptions produces no cache env vars", func(t *testing.T) {
+		cr, _ := minimalCR(nil)
+		envs := newRBACCacheEnvForCoreContainer(cr)
+		if len(envs) != 0 {
+			t.Errorf("expected no cache env vars, got %v", envs)
+		}
+	})
+
+	t.Run("all fields set produces all four env vars", func(t *testing.T) {
+		cr, _ := minimalCR(nil)
+		size1 := int64(500)
+		size2 := int64(5000)
+		cr.Spec.AuthorizationOptions.RBACCacheOptions = &operatorv1beta2.RBACCacheOptions{
+			ClientCacheExpireAfterAccess: strPtr("10m"),
+			ClientCacheMaximumSize:       &size1,
+			DecisionCacheTTL:             strPtr("2m"),
+			DecisionCacheMaximumSize:     &size2,
+		}
+
+		envs := newRBACCacheEnvForCoreContainer(cr)
+
+		expected := map[string]string{
+			"CRYOSTAT_SECURITY_RBAC_CACHE_EXPIRE_AFTER_ACCESS":   "10m",
+			"CRYOSTAT_SECURITY_RBAC_CACHE_MAXIMUM_SIZE":          "500",
+			"CRYOSTAT_SECURITY_RBAC_DECISION_CACHE_TTL":          "2m",
+			"CRYOSTAT_SECURITY_RBAC_DECISION_CACHE_MAXIMUM_SIZE": "5000",
+		}
+		if len(envs) != len(expected) {
+			t.Fatalf("expected %d env vars, got %d: %v", len(expected), len(envs), envs)
+		}
+		for _, e := range envs {
+			want, ok := expected[e.Name]
+			if !ok {
+				t.Errorf("unexpected env var %q", e.Name)
+			} else if e.Value != want {
+				t.Errorf("%s: expected %q, got %q", e.Name, want, e.Value)
+			}
+		}
+	})
+
+	t.Run("only DecisionCacheTTL set produces only that env var", func(t *testing.T) {
+		cr, _ := minimalCR(nil)
+		cr.Spec.AuthorizationOptions.RBACCacheOptions = &operatorv1beta2.RBACCacheOptions{
+			DecisionCacheTTL: strPtr("30s"),
+		}
+
+		envs := newRBACCacheEnvForCoreContainer(cr)
+
+		if len(envs) != 1 {
+			t.Fatalf("expected 1 env var, got %d: %v", len(envs), envs)
+		}
+		if envs[0].Name != "CRYOSTAT_SECURITY_RBAC_DECISION_CACHE_TTL" {
+			t.Errorf("unexpected env var name %q", envs[0].Name)
+		}
+		if envs[0].Value != "30s" {
+			t.Errorf("expected value %q, got %q", "30s", envs[0].Value)
+		}
+	})
+
+	t.Run("zero-value sizes are emitted when explicitly set to 0", func(t *testing.T) {
+		cr, _ := minimalCR(nil)
+		zero := int64(0)
+		cr.Spec.AuthorizationOptions.RBACCacheOptions = &operatorv1beta2.RBACCacheOptions{
+			ClientCacheMaximumSize:   &zero,
+			DecisionCacheMaximumSize: &zero,
+		}
+
+		envs := newRBACCacheEnvForCoreContainer(cr)
+
+		if len(envs) != 2 {
+			t.Fatalf("expected 2 env vars, got %d: %v", len(envs), envs)
+		}
+		for _, e := range envs {
+			if e.Value != "0" {
+				t.Errorf("%s: expected value \"0\", got %q", e.Name, e.Value)
+			}
+		}
+	})
+}
+
+func strPtr(s string) *string { return &s }
