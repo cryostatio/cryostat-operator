@@ -5731,6 +5731,37 @@ spec:
                           always issue a fresh SSAR. When omitted the application default (1 minute) is used.
                         type: string
                     type: object
+                  rbacDefaultPermissions:
+                    description: |-
+                      Default fallback Kubernetes resource/verb pairs used when a specific permission key is absent
+                      from RBACPermissions. Applied in OpenShift RBAC mode only.
+                    properties:
+                      defaultDeletePermission:
+                        description: |-
+                          Fallback Kubernetes resource/verb applied to all Cryostat "*:delete" permission checks that
+                          have no explicit entry in RBACPermissions. Uses the form "resource[/subresource]:verb"
+                          (e.g. "pods:delete"). When omitted the application default is used.
+                        type: string
+                      defaultPermission:
+                        description: |-
+                          Global catch-all Kubernetes resource/verb applied when a permission check has no explicit
+                          entry in RBACPermissions and no matching verb-level default above. Uses the form
+                          "resource[/subresource]:verb" (e.g. "pods/exec:create"). When omitted the application
+                          default is used.
+                        type: string
+                      defaultReadPermission:
+                        description: |-
+                          Fallback Kubernetes resource/verb applied to all Cryostat "*:read" permission checks that
+                          have no explicit entry in RBACPermissions. Uses the form "resource[/subresource]:verb"
+                          (e.g. "pods:get"). When omitted the application default is used.
+                        type: string
+                      defaultWritePermission:
+                        description: |-
+                          Fallback Kubernetes resource/verb applied to all Cryostat "*:write" permission checks that
+                          have no explicit entry in RBACPermissions. Uses the form "resource[/subresource]:verb"
+                          (e.g. "pods/exec:create"). When omitted the application default is used.
+                        type: string
+                    type: object
                   rbacPermissions:
                     additionalProperties:
                       type: string
@@ -5740,7 +5771,7 @@ spec:
                       When Basic authentication is enabled, fine-grained in-application RBAC checks are bypassed.
                       Keys use the form "<resourcetype>:<verb>" (e.g. "activerecordings:read").
                       Values use the form "resource[/subresource]:verb" (e.g. "pods/exec:create", "deployments:get").
-                      When a key is absent the Cryostat application falls back to its default (pods/exec:create).
+                      When a key is absent the Cryostat application falls back to its default.
                     type: object
                 type: object
               automatedRules:

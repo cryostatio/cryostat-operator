@@ -286,6 +286,98 @@ func TestNewEnvForCoreContainer_NamespacedRBAC(t *testing.T) {
 	})
 }
 
+func TestNewRBACDefaultPermissionsEnvForCoreContainer(t *testing.T) {
+	t.Run("nil AuthorizationOptions produces no default-permission env vars", func(t *testing.T) {
+		cr := &model.CryostatInstance{
+			Name:             "cryostat",
+			InstallNamespace: "default",
+			Spec:             &operatorv1beta2.CryostatSpec{},
+			Status:           &operatorv1beta2.CryostatStatus{},
+		}
+		envs := newRBACDefaultPermissionsEnvForCoreContainer(cr)
+		if len(envs) != 0 {
+			t.Errorf("expected no env vars, got %v", envs)
+		}
+	})
+
+	t.Run("nil RBACDefaultPermissions produces no env vars", func(t *testing.T) {
+		cr, _ := minimalCR(nil)
+		envs := newRBACDefaultPermissionsEnvForCoreContainer(cr)
+		if len(envs) != 0 {
+			t.Errorf("expected no env vars, got %v", envs)
+		}
+	})
+
+	t.Run("all four fields set produces all four env vars", func(t *testing.T) {
+		cr, _ := minimalCR(nil)
+		cr.Spec.AuthorizationOptions.RBACDefaultPermissions = &operatorv1beta2.RBACDefaultPermissions{
+			DefaultReadPermission:   strPtr("pods:get"),
+			DefaultWritePermission:  strPtr("pods/exec:create"),
+			DefaultDeletePermission: strPtr("pods:delete"),
+			DefaultPermission:       strPtr("pods/exec:create"),
+		}
+
+		envs := newRBACDefaultPermissionsEnvForCoreContainer(cr)
+
+		expected := map[string]string{
+			"CRYOSTAT_SECURITY_RBAC_DEFAULT_READ_PERMISSION":   "pods:get",
+			"CRYOSTAT_SECURITY_RBAC_DEFAULT_WRITE_PERMISSION":  "pods/exec:create",
+			"CRYOSTAT_SECURITY_RBAC_DEFAULT_DELETE_PERMISSION": "pods:delete",
+			"CRYOSTAT_SECURITY_RBAC_DEFAULT_PERMISSION":        "pods/exec:create",
+		}
+		if len(envs) != len(expected) {
+			t.Fatalf("expected %d env vars, got %d: %v", len(expected), len(envs), envs)
+		}
+		for _, e := range envs {
+			want, ok := expected[e.Name]
+			if !ok {
+				t.Errorf("unexpected env var %q", e.Name)
+			} else if e.Value != want {
+				t.Errorf("%s: expected %q, got %q", e.Name, want, e.Value)
+			}
+		}
+	})
+
+	t.Run("only DefaultReadPermission set produces only that env var", func(t *testing.T) {
+		cr, _ := minimalCR(nil)
+		cr.Spec.AuthorizationOptions.RBACDefaultPermissions = &operatorv1beta2.RBACDefaultPermissions{
+			DefaultReadPermission: strPtr("pods:get"),
+		}
+
+		envs := newRBACDefaultPermissionsEnvForCoreContainer(cr)
+
+		if len(envs) != 1 {
+			t.Fatalf("expected 1 env var, got %d: %v", len(envs), envs)
+		}
+		if envs[0].Name != "CRYOSTAT_SECURITY_RBAC_DEFAULT_READ_PERMISSION" {
+			t.Errorf("unexpected env var name %q", envs[0].Name)
+		}
+		if envs[0].Value != "pods:get" {
+			t.Errorf("expected value %q, got %q", "pods:get", envs[0].Value)
+		}
+	})
+
+	t.Run("empty string DefaultPermission is emitted (disables catch-all)", func(t *testing.T) {
+		cr, _ := minimalCR(nil)
+		empty := ""
+		cr.Spec.AuthorizationOptions.RBACDefaultPermissions = &operatorv1beta2.RBACDefaultPermissions{
+			DefaultPermission: &empty,
+		}
+
+		envs := newRBACDefaultPermissionsEnvForCoreContainer(cr)
+
+		if len(envs) != 1 {
+			t.Fatalf("expected 1 env var, got %d: %v", len(envs), envs)
+		}
+		if envs[0].Name != "CRYOSTAT_SECURITY_RBAC_DEFAULT_PERMISSION" {
+			t.Errorf("unexpected env var name %q", envs[0].Name)
+		}
+		if envs[0].Value != "" {
+			t.Errorf("expected empty value, got %q", envs[0].Value)
+		}
+	})
+}
+
 func TestNewRBACCacheEnvForCoreContainer(t *testing.T) {
 	t.Run("nil AuthorizationOptions produces no cache env vars", func(t *testing.T) {
 		cr := &model.CryostatInstance{
