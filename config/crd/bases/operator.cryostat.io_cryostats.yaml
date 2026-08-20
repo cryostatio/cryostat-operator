@@ -5696,6 +5696,7 @@ spec:
                           Idle TTL for the per-user Kubernetes client cache, expressed as a Go duration string (e.g. "5m", "30s").
                           A client that has not been accessed for this long is closed and evicted. Set to "0s" to disable
                           the client cache entirely. When omitted the application default (5 minutes) is used.
+                        pattern: ^(0|([0-9]+(\.[0-9]+)?(ns|us|ms|s|m|h))+)$
                         type: string
                       clientCacheMaximumSize:
                         description: |-
@@ -5716,6 +5717,7 @@ spec:
                           Write TTL for cached SelfSubjectAccessReview (SSAR) decisions, expressed as a Go duration string
                           (e.g. "1m", "30s"). Reads do not reset the timer. Set to "0s" to disable the decision cache and
                           always issue a fresh SSAR. When omitted the application default (1 minute) is used.
+                        pattern: ^(0|([0-9]+(\.[0-9]+)?(ns|us|ms|s|m|h))+)$
                         type: string
                     type: object
                   rbacDefaultPermissions:
@@ -5728,6 +5730,7 @@ spec:
                           Fallback Kubernetes resource/verb applied to all Cryostat "*:delete" permission checks that
                           have no explicit entry in RBACPermissions. Uses the form "resource[/subresource]:verb"
                           (e.g. "pods:delete"). When omitted the application default is used.
+                        pattern: ^[a-z][a-z0-9]*(/[a-z][a-z0-9]*)?:[a-z]+$
                         type: string
                       defaultPermission:
                         description: |-
@@ -5735,18 +5738,21 @@ spec:
                           entry in RBACPermissions and no matching verb-level default above. Uses the form
                           "resource[/subresource]:verb" (e.g. "pods/exec:create"). When omitted the application
                           default is used.
+                        pattern: ^[a-z][a-z0-9]*(/[a-z][a-z0-9]*)?:[a-z]+$
                         type: string
                       defaultReadPermission:
                         description: |-
                           Fallback Kubernetes resource/verb applied to all Cryostat "*:read" permission checks that
                           have no explicit entry in RBACPermissions. Uses the form "resource[/subresource]:verb"
                           (e.g. "pods:get"). When omitted the application default is used.
+                        pattern: ^[a-z][a-z0-9]*(/[a-z][a-z0-9]*)?:[a-z]+$
                         type: string
                       defaultWritePermission:
                         description: |-
                           Fallback Kubernetes resource/verb applied to all Cryostat "*:write" permission checks that
                           have no explicit entry in RBACPermissions. Uses the form "resource[/subresource]:verb"
                           (e.g. "pods/exec:create"). When omitted the application default is used.
+                        pattern: ^[a-z][a-z0-9]*(/[a-z][a-z0-9]*)?:[a-z]+$
                         type: string
                     type: object
                   rbacPermissions:
