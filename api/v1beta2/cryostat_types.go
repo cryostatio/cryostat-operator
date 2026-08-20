@@ -738,18 +738,21 @@ type RBACDefaultPermissions struct {
 	// (e.g. "pods:get"). When omitted the application default is used.
 	// +optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Default Read Permission",xDescriptors={"urn:alm:descriptor:com.tectonic.ui:text"}
+	// +kubebuilder:validation:Pattern=`^[a-z][a-z0-9]*(/[a-z][a-z0-9]*)?:[a-z]+$`
 	DefaultReadPermission *string `json:"defaultReadPermission,omitempty"`
 	// Fallback Kubernetes resource/verb applied to all Cryostat "*:write" permission checks that
 	// have no explicit entry in RBACPermissions. Uses the form "resource[/subresource]:verb"
 	// (e.g. "pods/exec:create"). When omitted the application default is used.
 	// +optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Default Write Permission",xDescriptors={"urn:alm:descriptor:com.tectonic.ui:text"}
+	// +kubebuilder:validation:Pattern=`^[a-z][a-z0-9]*(/[a-z][a-z0-9]*)?:[a-z]+$`
 	DefaultWritePermission *string `json:"defaultWritePermission,omitempty"`
 	// Fallback Kubernetes resource/verb applied to all Cryostat "*:delete" permission checks that
 	// have no explicit entry in RBACPermissions. Uses the form "resource[/subresource]:verb"
 	// (e.g. "pods:delete"). When omitted the application default is used.
 	// +optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Default Delete Permission",xDescriptors={"urn:alm:descriptor:com.tectonic.ui:text"}
+	// +kubebuilder:validation:Pattern=`^[a-z][a-z0-9]*(/[a-z][a-z0-9]*)?:[a-z]+$`
 	DefaultDeletePermission *string `json:"defaultDeletePermission,omitempty"`
 	// Global catch-all Kubernetes resource/verb applied when a permission check has no explicit
 	// entry in RBACPermissions and no matching verb-level default above. Uses the form
@@ -757,6 +760,7 @@ type RBACDefaultPermissions struct {
 	// default is used.
 	// +optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Default Permission (Catch-All)",xDescriptors={"urn:alm:descriptor:com.tectonic.ui:text"}
+	// +kubebuilder:validation:Pattern=`^[a-z][a-z0-9]*(/[a-z][a-z0-9]*)?:[a-z]+$`
 	DefaultPermission *string `json:"defaultPermission,omitempty"`
 }
 
@@ -770,6 +774,7 @@ type RBACCacheOptions struct {
 	// the client cache entirely. When omitted the application default (5 minutes) is used.
 	// +optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Client Cache Expire-After-Access",xDescriptors={"urn:alm:descriptor:com.tectonic.ui:text"}
+	// +kubebuilder:validation:Pattern=`^(0|([0-9]+(\.[0-9]+)?(ns|us|ms|s|m|h))+)$`
 	ClientCacheExpireAfterAccess *string `json:"clientCacheExpireAfterAccess,omitempty"`
 	// Maximum number of per-user Kubernetes client instances to hold in cache. Set to "0" to disable
 	// the client cache entirely. When omitted the application default (1000) is used.
@@ -782,6 +787,7 @@ type RBACCacheOptions struct {
 	// always issue a fresh SSAR. When omitted the application default (1 minute) is used.
 	// +optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Decision Cache TTL",xDescriptors={"urn:alm:descriptor:com.tectonic.ui:text"}
+	// +kubebuilder:validation:Pattern=`^(0|([0-9]+(\.[0-9]+)?(ns|us|ms|s|m|h))+)$`
 	DecisionCacheTTL *string `json:"decisionCacheTTL,omitempty"`
 	// Maximum number of SSAR decisions to hold in cache. Set to "0" to disable the decision cache
 	// entirely. When omitted the application default (10000) is used.
