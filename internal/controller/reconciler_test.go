@@ -4518,7 +4518,13 @@ func (t *cryostatTestInput) checkAgentProxyContainer(container *corev1.Container
 
 func (t *cryostatTestInput) checkAuthStripProxyContainer(container *corev1.Container, resources *corev1.ResourceRequirements, securityContext *corev1.SecurityContext) {
 	Expect(container.Name).To(Equal(t.Name + "-auth-strip-proxy"))
-	Expect(container.Image).To(HavePrefix("registry.access.redhat.com/ubi9/nginx-124:"))
+	imageTag := t.EnvAgentProxyImageTag
+	defaultPrefix := "registry.access.redhat.com/ubi9/nginx-124:"
+	if imageTag != nil {
+		Expect(container.Image).To(Equal(*imageTag))
+	} else {
+		Expect(container.Image).To(HavePrefix(defaultPrefix))
+	}
 	Expect(container.Ports).To(ConsistOf(t.NewAuthStripProxyPorts()))
 	Expect(container.Env).To(ConsistOf(t.NewAuthStripProxyEnvironmentVariables()))
 	Expect(container.EnvFrom).To(ConsistOf(t.NewAuthStripProxyEnvFromSource()))
