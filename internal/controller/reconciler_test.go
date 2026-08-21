@@ -4041,7 +4041,7 @@ func (t *cryostatTestInput) checkMainPodTemplate(deployment *appsv1.Deployment, 
 	Expect(template.Spec.SecurityContext).To(Equal(t.NewPodSecurityContext(cr)))
 
 	// Check that the networking environment variables are set correctly
-	Expect(template.Spec.Containers).To(HaveLen(6))
+	Expect(template.Spec.Containers).To(HaveLen(5))
 	coreContainer := template.Spec.Containers[0]
 	reportPort := int32(10000)
 	if cr.Spec.ServiceOptions != nil {
