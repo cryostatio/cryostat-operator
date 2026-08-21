@@ -1596,6 +1596,10 @@ func newEnvForCoreContainer(cr *model.CryostatInstance, specs *ServiceSpecs, tls
 			Value: "true",
 		},
 		{
+			Name:  "QUARKUS_HTTP_PROXY_TRUSTED_PROXIES",
+			Value: "localhost",
+		},
+		{
 			Name:  "QUARKUS_HTTP_PROXY_ENABLE_FORWARDED_HOST",
 			Value: "true",
 		},
