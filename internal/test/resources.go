@@ -2601,6 +2601,14 @@ func (r *TestResources) NewAgentProxyPorts() []corev1.ContainerPort {
 	}
 }
 
+func (r *TestResources) NewAuthStripProxyPorts() []corev1.ContainerPort {
+	return []corev1.ContainerPort{
+		{
+			ContainerPort: 8180,
+		},
+	}
+}
+
 func (r *TestResources) NewMainPodAnnotations() map[string]string {
 	annotations := map[string]string{}
 
@@ -2625,6 +2633,7 @@ func (r *TestResources) NewMainPodAnnotations() map[string]string {
 
 	configMaps := []*corev1.ConfigMap{
 		r.NewAgentProxyConfigMap(),
+		r.NewAuthStripProxyConfigMap(),
 	}
 
 	if !r.OpenShift {
@@ -3297,6 +3306,14 @@ func (r *TestResources) NewAgentProxyEnvFromSource() []corev1.EnvFromSource {
 	return []corev1.EnvFromSource{}
 }
 
+func (r *TestResources) NewAuthStripProxyEnvironmentVariables() []corev1.EnvVar {
+	return []corev1.EnvVar{}
+}
+
+func (r *TestResources) NewAuthStripProxyEnvFromSource() []corev1.EnvFromSource {
+	return []corev1.EnvFromSource{}
+}
+
 func (r *TestResources) NewCoreEnvFromSource() []corev1.EnvFromSource {
 	envsFrom := []corev1.EnvFromSource{}
 	return envsFrom
@@ -3414,7 +3431,7 @@ func (r *TestResources) NewAuthProxyArguments(authOptions *operatorv1beta2.Autho
 		fmt.Sprintf("--pass-access-token=%t", passAccessToken),
 		"--pass-user-bearer-token=false",
 		"--pass-basic-auth=false",
-		"--upstream=http://localhost:8181/",
+		"--upstream=http://localhost:8180/",
 		"--upstream=http://localhost:3000/grafana/",
 		// "--upstream=http://localhost:8333/storage/",
 		fmt.Sprintf("--openshift-service-account=%s", r.Name),
@@ -3454,6 +3471,12 @@ func (r *TestResources) NewAuthProxyArguments(authOptions *operatorv1beta2.Autho
 func (r *TestResources) NewAgentProxyCommand() []string {
 	return []string{
 		"nginx", "-c", "/etc/nginx-cryostat/nginx.conf", "-g", "daemon off;",
+	}
+}
+
+func (r *TestResources) NewAuthStripProxyCommand() []string {
+	return []string{
+		"nginx", "-c", "/etc/nginx-auth-strip/nginx.conf", "-g", "daemon off;",
 	}
 }
 
@@ -3594,6 +3617,16 @@ func (r *TestResources) NewAgentProxyVolumeMounts() []corev1.VolumeMount {
 		})
 
 	return mounts
+}
+
+func (r *TestResources) NewAuthStripProxyVolumeMounts() []corev1.VolumeMount {
+	return []corev1.VolumeMount{
+		{
+			Name:      "auth-strip-proxy-config",
+			MountPath: "/etc/nginx-auth-strip",
+			ReadOnly:  true,
+		},
+	}
 }
 
 func (r *TestResources) NewReportsVolumeMounts() []corev1.VolumeMount {
@@ -3828,6 +3861,18 @@ func (r *TestResources) NewAgentProxyLivenessProbe() *corev1.Probe {
 		ProbeHandler: corev1.ProbeHandler{
 			HTTPGet: &corev1.HTTPGetAction{
 				Port:   intstr.IntOrString{IntVal: 8281},
+				Path:   "/healthz",
+				Scheme: corev1.URISchemeHTTP,
+			},
+		},
+	}
+}
+
+func (r *TestResources) NewAuthStripProxyLivenessProbe() *corev1.Probe {
+	return &corev1.Probe{
+		ProbeHandler: corev1.ProbeHandler{
+			HTTPGet: &corev1.HTTPGetAction{
+				Port:   intstr.IntOrString{IntVal: 8180},
 				Path:   "/healthz",
 				Scheme: corev1.URISchemeHTTP,
 			},
@@ -4188,6 +4233,17 @@ func (r *TestResources) newVolumes(certProjections []corev1.VolumeProjection) []
 				},
 			},
 		},
+		{
+			Name: "auth-strip-proxy-config",
+			VolumeSource: corev1.VolumeSource{
+				ConfigMap: &corev1.ConfigMapVolumeSource{
+					LocalObjectReference: corev1.LocalObjectReference{
+						Name: r.Name + "-auth-strip-proxy",
+					},
+					DefaultMode: &readOnlymode,
+				},
+			},
+		},
 	}
 	projs := append([]corev1.VolumeProjection{}, certProjections...)
 	if r.TLS {
@@ -4518,6 +4574,10 @@ func (r *TestResources) NewAgentProxySecurityContext(cr *model.CryostatInstance)
 	if cr.Spec.SecurityOptions != nil && cr.Spec.SecurityOptions.AgentProxySecurityContext != nil {
 		return cr.Spec.SecurityOptions.AgentProxySecurityContext
 	}
+	return r.commonDefaultSecurityContext()
+}
+
+func (r *TestResources) NewAuthStripProxySecurityContext() *corev1.SecurityContext {
 	return r.commonDefaultSecurityContext()
 }
 
@@ -5291,6 +5351,10 @@ func (r *TestResources) NewAgentProxyContainerResource(cr *model.CryostatInstanc
 	return resources
 }
 
+func (r *TestResources) NewAuthStripProxyContainerResource(cr *model.CryostatInstance) *corev1.ResourceRequirements {
+	return r.NewAgentProxyContainerResource(cr)
+}
+
 func (r *TestResources) NewReportContainerResource(cr *model.CryostatInstance) *corev1.ResourceRequirements {
 	resources := &corev1.ResourceRequirements{
 		Requests: corev1.ResourceList{
@@ -5402,58 +5466,100 @@ http {
 		ssl_verify_client on;
 
 		location /health/ {
+			proxy_set_header X-Cryostat-Agent-Proxy "true";
+			proxy_set_header X-Forwarded-User "";
+			proxy_set_header X-Forwarded-Access-Token "";
 			proxy_pass http://127.0.0.1:8181$request_uri;
 		}
 
 		location = /health {
+			proxy_set_header X-Cryostat-Agent-Proxy "true";
+			proxy_set_header X-Forwarded-User "";
+			proxy_set_header X-Forwarded-Access-Token "";
 			proxy_pass http://127.0.0.1:8181$request_uri;
 		}
 
 		location /api/v4/discovery/ {
+			proxy_set_header X-Cryostat-Agent-Proxy "true";
+			proxy_set_header X-Forwarded-User "";
+			proxy_set_header X-Forwarded-Access-Token "";
 			proxy_pass http://127.0.0.1:8181$request_uri;
 		}
 
 		location = /api/v4/discovery {
+			proxy_set_header X-Cryostat-Agent-Proxy "true";
+			proxy_set_header X-Forwarded-User "";
+			proxy_set_header X-Forwarded-Access-Token "";
 			proxy_pass http://127.0.0.1:8181$request_uri;
 		}
 
 		location /api/v4.2/discovery/ {
+			proxy_set_header X-Cryostat-Agent-Proxy "true";
+			proxy_set_header X-Forwarded-User "";
+			proxy_set_header X-Forwarded-Access-Token "";
 			proxy_pass http://127.0.0.1:8181$request_uri;
 		}
 
 		location = /api/v4.2/discovery {
+			proxy_set_header X-Cryostat-Agent-Proxy "true";
+			proxy_set_header X-Forwarded-User "";
+			proxy_set_header X-Forwarded-Access-Token "";
 			proxy_pass http://127.0.0.1:8181$request_uri;
 		}
 
 		location /api/v4.3/discovery/ {
+			proxy_set_header X-Cryostat-Agent-Proxy "true";
+			proxy_set_header X-Forwarded-User "";
+			proxy_set_header X-Forwarded-Access-Token "";
 			proxy_pass http://127.0.0.1:8181$request_uri;
 		}
 
 		location = /api/v4.3/discovery {
+			proxy_set_header X-Cryostat-Agent-Proxy "true";
+			proxy_set_header X-Forwarded-User "";
+			proxy_set_header X-Forwarded-Access-Token "";
 			proxy_pass http://127.0.0.1:8181$request_uri;
 		}
 
 		location /api/beta/diagnostics/ {
+			proxy_set_header X-Cryostat-Agent-Proxy "true";
+			proxy_set_header X-Forwarded-User "";
+			proxy_set_header X-Forwarded-Access-Token "";
 			proxy_pass http://127.0.0.1:8181$request_uri;
 		}
 
 		location = /api/beta/diagnostics {
+			proxy_set_header X-Cryostat-Agent-Proxy "true";
+			proxy_set_header X-Forwarded-User "";
+			proxy_set_header X-Forwarded-Access-Token "";
 			proxy_pass http://127.0.0.1:8181$request_uri;
 		}
 
 		location /api/beta/recordings/ {
+			proxy_set_header X-Cryostat-Agent-Proxy "true";
+			proxy_set_header X-Forwarded-User "";
+			proxy_set_header X-Forwarded-Access-Token "";
 			proxy_pass http://127.0.0.1:8181$request_uri;
 		}
 
 		location = /api/beta/recordings {
+			proxy_set_header X-Cryostat-Agent-Proxy "true";
+			proxy_set_header X-Forwarded-User "";
+			proxy_set_header X-Forwarded-Access-Token "";
 			proxy_pass http://127.0.0.1:8181$request_uri;
 		}
 
 		location /api/beta/targets/ {
+			proxy_set_header X-Cryostat-Agent-Proxy "true";
+			proxy_set_header X-Forwarded-User "";
+			proxy_set_header X-Forwarded-Access-Token "";
 			proxy_pass http://127.0.0.1:8181$request_uri;
 		}
 
 		location = /api/beta/targets {
+			proxy_set_header X-Cryostat-Agent-Proxy "true";
+			proxy_set_header X-Forwarded-User "";
+			proxy_set_header X-Forwarded-Access-Token "";
 			proxy_pass http://127.0.0.1:8181$request_uri;
 		}
 
@@ -5511,58 +5617,100 @@ http {
 		listen [::]:8282;
 
 		location /health/ {
+			proxy_set_header X-Cryostat-Agent-Proxy "true";
+			proxy_set_header X-Forwarded-User "";
+			proxy_set_header X-Forwarded-Access-Token "";
 			proxy_pass http://127.0.0.1:8181$request_uri;
 		}
 
 		location = /health {
+			proxy_set_header X-Cryostat-Agent-Proxy "true";
+			proxy_set_header X-Forwarded-User "";
+			proxy_set_header X-Forwarded-Access-Token "";
 			proxy_pass http://127.0.0.1:8181$request_uri;
 		}
 
 		location /api/v4/discovery/ {
+			proxy_set_header X-Cryostat-Agent-Proxy "true";
+			proxy_set_header X-Forwarded-User "";
+			proxy_set_header X-Forwarded-Access-Token "";
 			proxy_pass http://127.0.0.1:8181$request_uri;
 		}
 
 		location = /api/v4/discovery {
+			proxy_set_header X-Cryostat-Agent-Proxy "true";
+			proxy_set_header X-Forwarded-User "";
+			proxy_set_header X-Forwarded-Access-Token "";
 			proxy_pass http://127.0.0.1:8181$request_uri;
 		}
 
 		location /api/v4.2/discovery/ {
+			proxy_set_header X-Cryostat-Agent-Proxy "true";
+			proxy_set_header X-Forwarded-User "";
+			proxy_set_header X-Forwarded-Access-Token "";
 			proxy_pass http://127.0.0.1:8181$request_uri;
 		}
 
 		location = /api/v4.2/discovery {
+			proxy_set_header X-Cryostat-Agent-Proxy "true";
+			proxy_set_header X-Forwarded-User "";
+			proxy_set_header X-Forwarded-Access-Token "";
 			proxy_pass http://127.0.0.1:8181$request_uri;
 		}
 
 		location /api/v4.3/discovery/ {
+			proxy_set_header X-Cryostat-Agent-Proxy "true";
+			proxy_set_header X-Forwarded-User "";
+			proxy_set_header X-Forwarded-Access-Token "";
 			proxy_pass http://127.0.0.1:8181$request_uri;
 		}
 
 		location = /api/v4.3/discovery {
+			proxy_set_header X-Cryostat-Agent-Proxy "true";
+			proxy_set_header X-Forwarded-User "";
+			proxy_set_header X-Forwarded-Access-Token "";
 			proxy_pass http://127.0.0.1:8181$request_uri;
 		}
 
 		location /api/beta/diagnostics/ {
+			proxy_set_header X-Cryostat-Agent-Proxy "true";
+			proxy_set_header X-Forwarded-User "";
+			proxy_set_header X-Forwarded-Access-Token "";
 			proxy_pass http://127.0.0.1:8181$request_uri;
 		}
 
 		location = /api/beta/diagnostics {
+			proxy_set_header X-Cryostat-Agent-Proxy "true";
+			proxy_set_header X-Forwarded-User "";
+			proxy_set_header X-Forwarded-Access-Token "";
 			proxy_pass http://127.0.0.1:8181$request_uri;
 		}
 
 		location /api/beta/recordings/ {
+			proxy_set_header X-Cryostat-Agent-Proxy "true";
+			proxy_set_header X-Forwarded-User "";
+			proxy_set_header X-Forwarded-Access-Token "";
 			proxy_pass http://127.0.0.1:8181$request_uri;
 		}
 
 		location = /api/beta/recordings {
+			proxy_set_header X-Cryostat-Agent-Proxy "true";
+			proxy_set_header X-Forwarded-User "";
+			proxy_set_header X-Forwarded-Access-Token "";
 			proxy_pass http://127.0.0.1:8181$request_uri;
 		}
 
 		location /api/beta/targets/ {
+			proxy_set_header X-Cryostat-Agent-Proxy "true";
+			proxy_set_header X-Forwarded-User "";
+			proxy_set_header X-Forwarded-Access-Token "";
 			proxy_pass http://127.0.0.1:8181$request_uri;
 		}
 
 		location = /api/beta/targets {
+			proxy_set_header X-Cryostat-Agent-Proxy "true";
+			proxy_set_header X-Forwarded-User "";
+			proxy_set_header X-Forwarded-Access-Token "";
 			proxy_pass http://127.0.0.1:8181$request_uri;
 		}
 
@@ -5615,6 +5763,45 @@ ssbzSibBsu/6iGtCOGEoXJf//////////wIBAg==
 	}
 }
 
+func (r *TestResources) NewAuthStripProxyConfigMap() *corev1.ConfigMap {
+	return &corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      r.Name + "-auth-strip-proxy",
+			Namespace: r.Namespace,
+		},
+		Data: map[string]string{
+			"nginx.conf": `worker_processes auto;
+error_log stderr notice;
+pid /run/nginx.pid;
+
+include /usr/share/nginx/modules/*.conf;
+
+events {
+    worker_connections 1024;
+}
+
+http {
+    access_log /dev/stdout;
+
+    server {
+        listen 8180;
+        listen [::]:8180;
+
+        location = /healthz {
+            return 200;
+        }
+
+        location / {
+            proxy_set_header X-Cryostat-Agent-Proxy "";
+            proxy_pass http://127.0.0.1:8181$request_uri;
+        }
+    }
+}
+`,
+		},
+	}
+}
+
 var alphaConfigTLS = `{
   "server": {
     "SecureBindAddress": "https://0.0.0.0:4180",
@@ -5633,7 +5820,7 @@ var alphaConfigTLS = `{
       {
         "id": "cryostat",
         "path": "/",
-        "uri": "http://localhost:8181"
+        "uri": "http://localhost:8180"
       },
       {
         "id": "grafana",
@@ -5671,7 +5858,7 @@ var alphaConfigNoTLS = `{
       {
         "id": "cryostat",
         "path": "/",
-        "uri": "http://localhost:8181"
+        "uri": "http://localhost:8180"
       },
       {
         "id": "grafana",
