@@ -353,6 +353,11 @@ events {
 http {
     access_log /dev/stdout;
 
+    map $http_upgrade $connection_upgrade {
+        default upgrade;
+        '' close;
+    }
+
     server {
         listen %d;
         listen [::]:%d;
@@ -365,6 +370,9 @@ http {
             allow 127.0.0.1;
             allow ::1;
             deny all;
+            proxy_http_version 1.1;
+            proxy_set_header Upgrade $http_upgrade;
+            proxy_set_header Connection $connection_upgrade;
             proxy_set_header X-Cryostat-Agent-Proxy "";
             proxy_set_header X-Forwarded-User $http_x_forwarded_user;
             proxy_set_header X-Forwarded-Access-Token $http_x_forwarded_access_token;
