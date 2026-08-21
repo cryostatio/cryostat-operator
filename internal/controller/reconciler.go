@@ -227,6 +227,10 @@ func (r *Reconciler) reconcileCryostat(ctx context.Context, cr *model.CryostatIn
 	if err != nil {
 		return reconcile.Result{}, err
 	}
+	err = r.reconcileAuthStripProxyConfig(ctx, cr)
+	if err != nil {
+		return reconcile.Result{}, err
+	}
 
 	serviceSpecs := &resources.ServiceSpecs{
 		InsightsURL: r.InsightsProxy,

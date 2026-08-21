@@ -93,7 +93,7 @@ func (r *Reconciler) reconcileOAuth2ProxyConfig(ctx context.Context, cr *model.C
 			{
 				Id:   "cryostat",
 				Path: "/",
-				Uri:  fmt.Sprintf("http://localhost:%d", constants.CryostatHTTPContainerPort),
+				Uri:  fmt.Sprintf("http://localhost:%d", constants.AuthStripProxyPort),
 			},
 			{
 				Id:   "grafana",
@@ -242,10 +242,16 @@ http {
 
 		{{ range .AllowedPathPrefixes -}}
 		location {{ . }}/ {
+			proxy_set_header X-Cryostat-Agent-Proxy "true";
+			proxy_set_header X-Forwarded-User "";
+			proxy_set_header X-Forwarded-Access-Token "";
 			proxy_pass http://127.0.0.1:{{ $.CryostatPort }}$request_uri;
 		}
 
 		location = {{ . }} {
+			proxy_set_header X-Cryostat-Agent-Proxy "true";
+			proxy_set_header X-Forwarded-User "";
+			proxy_set_header X-Forwarded-Access-Token "";
 			proxy_pass http://127.0.0.1:{{ $.CryostatPort }}$request_uri;
 		}
 
@@ -331,6 +337,51 @@ func (r *Reconciler) reconcileAgentProxyConfig(ctx context.Context, cr *model.Cr
 	// Add generated nginx.conf to config map
 	data[constants.AgentProxyConfigFileName] = buf.String()
 
+	return r.createOrUpdateConfigMap(ctx, cm, cr.Object, data)
+}
+
+const authStripProxyNginxConf = `worker_processes auto;
+error_log stderr notice;
+pid /run/nginx.pid;
+
+include /usr/share/nginx/modules/*.conf;
+
+events {
+    worker_connections 1024;
+}
+
+http {
+    access_log /dev/stdout;
+
+    server {
+        listen %d;
+        listen [::]:%d;
+
+        location = /healthz {
+            return 200;
+        }
+
+        location / {
+            proxy_set_header X-Cryostat-Agent-Proxy "";
+            proxy_pass http://127.0.0.1:%d$request_uri;
+        }
+    }
+}
+`
+
+func (r *Reconciler) reconcileAuthStripProxyConfig(ctx context.Context, cr *model.CryostatInstance) error {
+	cm := &corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      cr.Name + "-auth-strip-proxy",
+			Namespace: cr.InstallNamespace,
+		},
+	}
+
+	data := map[string]string{
+		constants.AuthStripProxyConfigFile: fmt.Sprintf(authStripProxyNginxConf,
+			constants.AuthStripProxyPort, constants.AuthStripProxyPort,
+			constants.CryostatHTTPContainerPort),
+	}
 	return r.createOrUpdateConfigMap(ctx, cm, cr.Object, data)
 }
 
