@@ -5792,6 +5792,9 @@ http {
         }
 
         location / {
+            allow 127.0.0.1;
+            allow ::1;
+            deny all;
             proxy_set_header X-Cryostat-Agent-Proxy "";
             proxy_pass http://127.0.0.1:8181$request_uri;
         }
