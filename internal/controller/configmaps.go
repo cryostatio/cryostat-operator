@@ -93,7 +93,7 @@ func (r *Reconciler) reconcileOAuth2ProxyConfig(ctx context.Context, cr *model.C
 			{
 				Id:   "cryostat",
 				Path: "/",
-				Uri:  fmt.Sprintf("http://localhost:%d", constants.CryostatHTTPContainerPort),
+				Uri:  fmt.Sprintf("http://localhost:%d", constants.AuthStripProxyPort),
 			},
 			{
 				Id:   "grafana",
@@ -337,6 +337,63 @@ func (r *Reconciler) reconcileAgentProxyConfig(ctx context.Context, cr *model.Cr
 	// Add generated nginx.conf to config map
 	data[constants.AgentProxyConfigFileName] = buf.String()
 
+	return r.createOrUpdateConfigMap(ctx, cm, cr.Object, data)
+}
+
+const authStripProxyNginxConf = `worker_processes auto;
+error_log stderr notice;
+pid /run/nginx.pid;
+
+include /usr/share/nginx/modules/*.conf;
+
+events {
+    worker_connections 1024;
+}
+
+http {
+    access_log /dev/stdout;
+
+    server {
+        listen %d;
+        listen [::]:%d;
+
+        location = /healthz {
+            return 200;
+        }
+
+        location / {
+            allow 127.0.0.1;
+            allow ::1;
+            deny all;
+            proxy_set_header X-Cryostat-Agent-Proxy "";
+            proxy_set_header X-Forwarded-User $http_x_forwarded_user;
+            proxy_set_header X-Forwarded-Access-Token $http_x_forwarded_access_token;
+            proxy_set_header X-Forwarded-For $http_x_forwarded_for;
+            proxy_set_header X-Forwarded-Host $http_x_forwarded_host;
+            proxy_set_header X-Forwarded-Port $http_x_forwarded_port;
+            proxy_set_header X-Forwarded-Proto $http_x_forwarded_proto;
+            proxy_set_header X-Forwarded-Email $http_x_forwarded_email;
+            proxy_set_header X-Forwarded-Preferred-Username $http_x_forwarded_preferred_username;
+            proxy_set_header X-Forwarded-Groups $http_x_forwarded_groups;
+            proxy_pass http://127.0.0.1:%d$request_uri;
+        }
+    }
+}
+`
+
+func (r *Reconciler) reconcileAuthStripProxyConfig(ctx context.Context, cr *model.CryostatInstance) error {
+	cm := &corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      cr.Name + "-auth-strip-proxy",
+			Namespace: cr.InstallNamespace,
+		},
+	}
+
+	data := map[string]string{
+		constants.AuthStripProxyConfigFile: fmt.Sprintf(authStripProxyNginxConf,
+			constants.AuthStripProxyPort, constants.AuthStripProxyPort,
+			constants.CryostatHTTPContainerPort),
+	}
 	return r.createOrUpdateConfigMap(ctx, cm, cr.Object, data)
 }
 

@@ -172,6 +172,7 @@ func resourceChecks() []resourceCheck {
 		{(*cryostatTestInput).expectStorageIngressNetworkPolicy, "storage networkpolicy"},
 		{(*cryostatTestInput).expectLockConfigMap, "lock config map"},
 		{(*cryostatTestInput).expectAgentProxyConfigMap, "agent proxy config map"},
+		{(*cryostatTestInput).expectAuthStripProxyConfigMap, "auth strip proxy config map"},
 		{(*cryostatTestInput).expectAgentGatewayService, "agent gateway service"},
 		{(*cryostatTestInput).expectAgentCallbackService, "agent callback service"},
 		{(*cryostatTestInput).expectOAuthCookieSecret, "OAuth2 cookie secret"},
@@ -1426,7 +1427,7 @@ func (c *controllerTest) commonTests() {
 				})
 				It("should set ImagePullPolicy to Always", func() {
 					containers := mainDeploy.Spec.Template.Spec.Containers
-					Expect(containers).To(HaveLen(5))
+					Expect(containers).To(HaveLen(6))
 					for _, container := range containers {
 						Expect(container.ImagePullPolicy).To(Equal(corev1.PullAlways))
 					}
@@ -1471,7 +1472,7 @@ func (c *controllerTest) commonTests() {
 				})
 				It("should set ImagePullPolicy to IfNotPresent", func() {
 					containers := mainDeploy.Spec.Template.Spec.Containers
-					Expect(containers).To(HaveLen(5))
+					Expect(containers).To(HaveLen(6))
 					for _, container := range containers {
 						fmt.Println(container.Image)
 						Expect(container.ImagePullPolicy).To(Equal(corev1.PullIfNotPresent))
@@ -1514,7 +1515,7 @@ func (c *controllerTest) commonTests() {
 				})
 				It("should set ImagePullPolicy to IfNotPresent", func() {
 					containers := mainDeploy.Spec.Template.Spec.Containers
-					Expect(containers).To(HaveLen(5))
+					Expect(containers).To(HaveLen(6))
 					for _, container := range containers {
 						Expect(container.ImagePullPolicy).To(Equal(corev1.PullIfNotPresent))
 					}
@@ -1556,7 +1557,7 @@ func (c *controllerTest) commonTests() {
 				})
 				It("should set ImagePullPolicy to Always", func() {
 					containers := mainDeploy.Spec.Template.Spec.Containers
-					Expect(containers).To(HaveLen(5))
+					Expect(containers).To(HaveLen(6))
 					for _, container := range containers {
 						Expect(container.ImagePullPolicy).To(Equal(corev1.PullAlways), "Container %s", container.Image)
 					}
@@ -1759,6 +1760,9 @@ func (c *controllerTest) commonTests() {
 			It("should create the agent proxy config map", func() {
 				t.expectAgentProxyConfigMap()
 			})
+			It("should create the auth strip proxy config map", func() {
+				t.expectAuthStripProxyConfigMap()
+			})
 		})
 		Context("with cert-manager not configured in CR", func() {
 			BeforeEach(func() {
@@ -1783,6 +1787,9 @@ func (c *controllerTest) commonTests() {
 			})
 			It("should create the agent proxy config map", func() {
 				t.expectAgentProxyConfigMap()
+			})
+			It("should create the auth strip proxy config map", func() {
+				t.expectAuthStripProxyConfigMap()
 			})
 		})
 		Context("with DISABLE_SERVICE_TLS=true", func() {
@@ -1817,6 +1824,9 @@ func (c *controllerTest) commonTests() {
 			It("should create the agent proxy config map", func() {
 				t.expectAgentProxyConfigMap()
 			})
+			It("should create the auth strip proxy config map", func() {
+				t.expectAuthStripProxyConfigMap()
+			})
 		})
 		Context("Disable cert-manager after being enabled", func() {
 			BeforeEach(func() {
@@ -1846,6 +1856,9 @@ func (c *controllerTest) commonTests() {
 			})
 			It("should create the agent proxy config map", func() {
 				t.expectAgentProxyConfigMap()
+			})
+			It("should create the auth strip proxy config map", func() {
+				t.expectAuthStripProxyConfigMap()
 			})
 		})
 		Context("Enable cert-manager after being disabled", func() {
@@ -1880,6 +1893,9 @@ func (c *controllerTest) commonTests() {
 			})
 			It("should create the agent proxy config map", func() {
 				t.expectAgentProxyConfigMap()
+			})
+			It("should create the auth strip proxy config map", func() {
+				t.expectAuthStripProxyConfigMap()
 			})
 		})
 		Context("cert-manager missing", func() {
@@ -3693,6 +3709,17 @@ func (t *cryostatTestInput) expectAgentProxyConfigMap() {
 	Expect(cm.Immutable).To(Equal(expected.Immutable))
 }
 
+func (t *cryostatTestInput) expectAuthStripProxyConfigMap() {
+	expected := t.NewAuthStripProxyConfigMap()
+	cm := &corev1.ConfigMap{}
+	err := t.Client.Get(context.Background(), types.NamespacedName{Name: expected.Name, Namespace: expected.Namespace}, cm)
+	Expect(err).ToNot(HaveOccurred())
+
+	t.checkMetadata(cm, expected)
+	Expect(cm.Data).To(Equal(expected.Data))
+	Expect(cm.Immutable).To(Equal(expected.Immutable))
+}
+
 func (t *cryostatTestInput) expectOAuth2ConfigMap() {
 	expected := t.NewOAuth2ProxyConfigMap()
 	cm := &corev1.ConfigMap{}
@@ -4055,7 +4082,7 @@ func (t *cryostatTestInput) checkMainPodTemplate(deployment *appsv1.Deployment, 
 	Expect(template.Spec.SecurityContext).To(Equal(t.NewPodSecurityContext(cr)))
 
 	// Check that the networking environment variables are set correctly
-	Expect(template.Spec.Containers).To(HaveLen(5))
+	Expect(template.Spec.Containers).To(HaveLen(6))
 	coreContainer := template.Spec.Containers[0]
 	reportPort := int32(10000)
 	if cr.Spec.ServiceOptions != nil {
@@ -4110,6 +4137,10 @@ func (t *cryostatTestInput) checkMainPodTemplate(deployment *appsv1.Deployment, 
 	// Check that Agent Proxy is configured properly
 	agentProxyContainer := template.Spec.Containers[4]
 	t.checkAgentProxyContainer(&agentProxyContainer, t.NewAgentProxyContainerResource(cr), t.NewAgentProxySecurityContext(cr))
+
+	// Check that Auth Strip Proxy is configured properly
+	authStripProxyContainer := template.Spec.Containers[5]
+	t.checkAuthStripProxyContainer(&authStripProxyContainer, t.NewAuthStripProxyContainerResource(cr), t.NewAuthStripProxySecurityContext())
 
 	// Check that the proper Service Account is set
 	Expect(template.Spec.ServiceAccountName).To(Equal(t.Name))
@@ -4495,6 +4526,26 @@ func (t *cryostatTestInput) checkAgentProxyContainer(container *corev1.Container
 	Expect(container.LivenessProbe).To(Equal(t.NewAgentProxyLivenessProbe()))
 	Expect(container.SecurityContext).To(Equal(securityContext))
 	Expect(container.Command).To(Equal(t.NewAgentProxyCommand()))
+
+	test.ExpectResourceRequirements(&container.Resources, resources)
+}
+
+func (t *cryostatTestInput) checkAuthStripProxyContainer(container *corev1.Container, resources *corev1.ResourceRequirements, securityContext *corev1.SecurityContext) {
+	Expect(container.Name).To(Equal(t.Name + "-auth-strip-proxy"))
+	imageTag := t.EnvAgentProxyImageTag
+	defaultPrefix := "registry.access.redhat.com/ubi9/nginx-124:"
+	if imageTag != nil {
+		Expect(container.Image).To(Equal(*imageTag))
+	} else {
+		Expect(container.Image).To(HavePrefix(defaultPrefix))
+	}
+	Expect(container.Ports).To(ConsistOf(t.NewAuthStripProxyPorts()))
+	Expect(container.Env).To(ConsistOf(t.NewAuthStripProxyEnvironmentVariables()))
+	Expect(container.EnvFrom).To(ConsistOf(t.NewAuthStripProxyEnvFromSource()))
+	Expect(container.VolumeMounts).To(ConsistOf(t.NewAuthStripProxyVolumeMounts()))
+	Expect(container.LivenessProbe).To(Equal(t.NewAuthStripProxyLivenessProbe()))
+	Expect(container.SecurityContext).To(Equal(securityContext))
+	Expect(container.Command).To(Equal(t.NewAuthStripProxyCommand()))
 
 	test.ExpectResourceRequirements(&container.Resources, resources)
 }

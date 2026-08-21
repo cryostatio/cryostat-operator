@@ -452,6 +452,7 @@ func NewPodForCR(cr *model.CryostatInstance, specs *ServiceSpecs, imageTags *Ima
 		NewJfrDatasourceContainer(cr, imageTags.DatasourceImageTag, specs, tls),
 		*authProxy,
 		newAgentProxyContainer(cr, imageTags.AgentProxyImageTag, tls),
+		newAuthStripProxyContainer(cr, imageTags.AgentProxyImageTag),
 	}
 
 	volumes := []corev1.Volume{}
@@ -642,7 +643,19 @@ func NewPodForCR(cr *model.CryostatInstance, specs *ServiceSpecs, imageTags *Ima
 		},
 	}
 
-	volumes = append(volumes, certVolume, agentProxyVolume)
+	authStripProxyVolume := corev1.Volume{
+		Name: "auth-strip-proxy-config",
+		VolumeSource: corev1.VolumeSource{
+			ConfigMap: &corev1.ConfigMapVolumeSource{
+				LocalObjectReference: corev1.LocalObjectReference{
+					Name: cr.Name + "-auth-strip-proxy",
+				},
+				DefaultMode: &readOnlyMode,
+			},
+		},
+	}
+
+	volumes = append(volumes, certVolume, agentProxyVolume, authStripProxyVolume)
 
 	if !openshift {
 		// if not deploying openshift oauth-proxy then we must be deploying oauth2_proxy instead
@@ -1177,7 +1190,7 @@ func NewOpenShiftAuthProxyContainer(cr *model.CryostatInstance, specs *ServiceSp
 		fmt.Sprintf("--pass-access-token=%t", passTokens),
 		fmt.Sprintf("--pass-user-bearer-token=%t", passTokens),
 		"--pass-basic-auth=false",
-		fmt.Sprintf("--upstream=http://localhost:%d/", constants.CryostatHTTPContainerPort),
+		fmt.Sprintf("--upstream=http://localhost:%d/", constants.AuthStripProxyPort),
 		fmt.Sprintf("--upstream=http://localhost:%d/grafana/", constants.GrafanaContainerPort),
 		fmt.Sprintf("--openshift-service-account=%s", cr.Name),
 		"--proxy-websockets=true",
@@ -2651,6 +2664,48 @@ func newAgentProxyContainerResource(cr *model.CryostatInstance) *corev1.Resource
 	common.PopulateResourceRequest(resources, defaultAgentProxyCpuRequest, defaultAgentProxyMemoryRequest,
 		defaultAgentProxyCpuLimit, defaultAgentProxyMemoryLimit)
 	return resources
+}
+
+func newAuthStripProxyContainer(cr *model.CryostatInstance, imageTag string) corev1.Container {
+	privEscalation := false
+	return corev1.Container{
+		Name:            cr.Name + "-auth-strip-proxy",
+		Image:           imageTag,
+		ImagePullPolicy: common.GetPullPolicy(imageTag),
+		Ports: []corev1.ContainerPort{
+			{
+				ContainerPort: constants.AuthStripProxyPort,
+			},
+		},
+		Command: []string{
+			"nginx",
+			"-c", path.Join(constants.AuthStripProxyConfigPath, constants.AuthStripProxyConfigFile),
+			"-g", "daemon off;",
+		},
+		LivenessProbe: &corev1.Probe{
+			ProbeHandler: corev1.ProbeHandler{
+				HTTPGet: &corev1.HTTPGetAction{
+					Path:   "/healthz",
+					Port:   intstr.FromInt32(constants.AuthStripProxyPort),
+					Scheme: corev1.URISchemeHTTP,
+				},
+			},
+		},
+		SecurityContext: &corev1.SecurityContext{
+			AllowPrivilegeEscalation: &privEscalation,
+			Capabilities: &corev1.Capabilities{
+				Drop: []corev1.Capability{constants.CapabilityAll},
+			},
+		},
+		Resources: *newAgentProxyContainerResource(cr),
+		VolumeMounts: []corev1.VolumeMount{
+			{
+				Name:      "auth-strip-proxy-config",
+				MountPath: constants.AuthStripProxyConfigPath,
+				ReadOnly:  true,
+			},
+		},
+	}
 }
 
 func getInternalDashboardURL() string {
