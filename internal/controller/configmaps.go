@@ -366,6 +366,15 @@ http {
             allow ::1;
             deny all;
             proxy_set_header X-Cryostat-Agent-Proxy "";
+            proxy_set_header X-Forwarded-User $http_x_forwarded_user;
+            proxy_set_header X-Forwarded-Access-Token $http_x_forwarded_access_token;
+            proxy_set_header X-Forwarded-For $http_x_forwarded_for;
+            proxy_set_header X-Forwarded-Host $http_x_forwarded_host;
+            proxy_set_header X-Forwarded-Port $http_x_forwarded_port;
+            proxy_set_header X-Forwarded-Proto $http_x_forwarded_proto;
+            proxy_set_header X-Forwarded-Email $http_x_forwarded_email;
+            proxy_set_header X-Forwarded-Preferred-Username $http_x_forwarded_preferred_username;
+            proxy_set_header X-Forwarded-Groups $http_x_forwarded_groups;
             proxy_pass http://127.0.0.1:%d$request_uri;
         }
     }
