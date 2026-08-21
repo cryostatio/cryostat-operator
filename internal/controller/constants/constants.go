@@ -32,7 +32,6 @@ const (
 	DatabasePort               int32  = 5432
 	AgentProxyContainerPort    int32  = 8282
 	AgentProxyHealthPort       int32  = 8281
-	AuthStripProxyPort         int32  = 8180
 	AgentCallbackContainerPort int32  = 9977
 	AgentCallbackPortName      string = "cryostat-cb" // Max 15 characters
 	LoopbackAddress            string = "127.0.0.1"
@@ -62,8 +61,6 @@ const (
 
 	AgentProxyConfigFilePath string = "/etc/nginx-cryostat"
 	AgentProxyConfigFileName string = "nginx.conf"
-	AuthStripProxyConfigPath string = "/etc/nginx-auth-strip"
-	AuthStripProxyConfigFile string = "nginx.conf"
 
 	AgentEmptyDirBasePath = "/tmp/cryostat-agent"
 	AgentJarPath          = AgentEmptyDirBasePath + "/cryostat-agent-shaded.jar"
