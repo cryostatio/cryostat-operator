@@ -1594,6 +1594,8 @@ func (c *controllerTest) commonTests() {
 				JustBeforeEach(func() {
 					err := t.Client.Delete(context.Background(), t.NewClusterRoleBinding())
 					Expect(err).ToNot(HaveOccurred())
+					err = t.Client.Delete(context.Background(), t.NewAuthDelegatorClusterRoleBinding())
+					Expect(err).ToNot(HaveOccurred())
 					t.reconcileDeletedCryostat()
 				})
 				It("should delete Cryostat", func() {
@@ -3590,11 +3592,23 @@ func (t *cryostatTestInput) expectRBAC() {
 	Expect(clusterBinding.GetAnnotations()).To(Equal(expectedClusterBinding.GetAnnotations()))
 	Expect(clusterBinding.Subjects).To(Equal(expectedClusterBinding.Subjects))
 	Expect(clusterBinding.RoleRef).To(Equal(expectedClusterBinding.RoleRef))
+
+	expectedAuthDelegator := t.NewAuthDelegatorClusterRoleBinding()
+	authDelegator := &rbacv1.ClusterRoleBinding{}
+	err = t.Client.Get(context.Background(), types.NamespacedName{Name: expectedAuthDelegator.Name}, authDelegator)
+	Expect(err).ToNot(HaveOccurred())
+	Expect(authDelegator.GetName()).To(Equal(expectedAuthDelegator.GetName()))
+	Expect(authDelegator.Subjects).To(Equal(expectedAuthDelegator.Subjects))
+	Expect(authDelegator.RoleRef).To(Equal(expectedAuthDelegator.RoleRef))
 }
 
 func (t *cryostatTestInput) checkClusterRoleBindingDeleted() {
 	clusterBinding := &rbacv1.ClusterRoleBinding{}
 	err := t.Client.Get(context.Background(), types.NamespacedName{Name: t.NewClusterRoleBinding().Name}, clusterBinding)
+	Expect(kerrors.IsNotFound(err)).To(BeTrue())
+
+	authDelegator := &rbacv1.ClusterRoleBinding{}
+	err = t.Client.Get(context.Background(), types.NamespacedName{Name: t.NewAuthDelegatorClusterRoleBinding().Name}, authDelegator)
 	Expect(kerrors.IsNotFound(err)).To(BeTrue())
 }
 
