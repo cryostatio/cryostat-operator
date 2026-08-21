@@ -3413,10 +3413,10 @@ func (r *TestResources) NewAuthProxyArguments(authOptions *operatorv1beta2.Autho
 		return nil, err
 	}
 
-	passAccessToken := !openShiftSSODisabled && !basicAuthConfigured
+	passTokens := !openShiftSSODisabled && !basicAuthConfigured
 	args := []string{
-		fmt.Sprintf("--pass-access-token=%t", passAccessToken),
-		"--pass-user-bearer-token=false",
+		fmt.Sprintf("--pass-access-token=%t", passTokens),
+		fmt.Sprintf("--pass-user-bearer-token=%t", passTokens),
 		"--pass-basic-auth=false",
 		"--upstream=http://localhost:8181/",
 		"--upstream=http://localhost:3000/grafana/",
@@ -4981,6 +4981,26 @@ func (r *TestResources) OtherClusterRoleBinding() *rbacv1.ClusterRoleBinding {
 	}
 }
 
+func (r *TestResources) NewAuthDelegatorClusterRoleBinding() *rbacv1.ClusterRoleBinding {
+	return &rbacv1.ClusterRoleBinding{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: r.getClusterUniqueNameForAuthDelegator(),
+		},
+		Subjects: []rbacv1.Subject{
+			{
+				Kind:      rbacv1.ServiceAccountKind,
+				Name:      r.Name,
+				Namespace: r.Namespace,
+			},
+		},
+		RoleRef: rbacv1.RoleRef{
+			APIGroup: "rbac.authorization.k8s.io",
+			Kind:     "ClusterRole",
+			Name:     "system:auth-delegator",
+		},
+	}
+}
+
 func (r *TestResources) NewProbeTemplateConfigMap() *corev1.ConfigMap {
 	return &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
@@ -5811,6 +5831,10 @@ func (r *TestResources) NewOAuth2ProxyConfigMapOld() *corev1.ConfigMap {
 
 func (r *TestResources) getClusterUniqueName() string {
 	return "cryostat-" + r.clusterUniqueSuffix("")
+}
+
+func (r *TestResources) getClusterUniqueNameForAuthDelegator() string {
+	return "cryostat-auth-delegator-" + r.clusterUniqueSuffix("")
 }
 
 func (r *TestResources) getClusterUniqueNameForCA() string {
