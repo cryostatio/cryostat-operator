@@ -121,7 +121,7 @@ OPM_VERSION ?= 1.23.0
 ENVTEST_VERSION ?= release-0.21
 # ENVTEST_K8S_VERSION refers to the version of kubebuilder assets to be downloaded by envtest binary.
 ENVTEST_K8S_VERSION ?= 1.33.0
-GOLANGCI_LINT_VERSION ?= 2.1.0
+GOLANGCI_LINT_VERSION ?= 2.7.2
 
 # Scorecard ImagePullPolicy is hardcoded to IfNotPresent
 # See: https://github.com/operator-framework/operator-sdk/pull/4762
