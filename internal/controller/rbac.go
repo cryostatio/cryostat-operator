@@ -217,6 +217,10 @@ func (r *Reconciler) newAuthDelegatorClusterRoleBinding(cr *model.CryostatInstan
 func (r *Reconciler) reconcileAuthDelegatorClusterRoleBinding(ctx context.Context, cr *model.CryostatInstance) error {
 	binding := r.newAuthDelegatorClusterRoleBinding(cr)
 
+	if !r.IsOpenShift || isOpenShiftSSODisabled(cr) || isBasicAuthEnabled(cr) {
+		return r.deleteClusterRoleBinding(ctx, binding)
+	}
+
 	sa := newServiceAccount(cr)
 	subjects := []rbacv1.Subject{
 		{
@@ -233,6 +237,20 @@ func (r *Reconciler) reconcileAuthDelegatorClusterRoleBinding(ctx context.Contex
 	}
 
 	return r.createOrUpdateClusterRoleBinding(ctx, binding, cr.Object, subjects, roleRef)
+}
+
+func isOpenShiftSSODisabled(cr *model.CryostatInstance) bool {
+	return cr.Spec.AuthorizationOptions != nil &&
+		cr.Spec.AuthorizationOptions.OpenShiftSSO != nil &&
+		cr.Spec.AuthorizationOptions.OpenShiftSSO.Disable != nil &&
+		*cr.Spec.AuthorizationOptions.OpenShiftSSO.Disable
+}
+
+func isBasicAuthEnabled(cr *model.CryostatInstance) bool {
+	return cr.Spec.AuthorizationOptions != nil &&
+		cr.Spec.AuthorizationOptions.BasicAuth != nil &&
+		cr.Spec.AuthorizationOptions.BasicAuth.SecretName != nil &&
+		cr.Spec.AuthorizationOptions.BasicAuth.Filename != nil
 }
 
 func (r *Reconciler) createOrUpdateServiceAccount(ctx context.Context, sa *corev1.ServiceAccount,

@@ -2831,6 +2831,138 @@ func (c *controllerTest) commonTests() {
 				})
 			})
 		})
+		Context("auth-delegator ClusterRoleBinding lifecycle", func() {
+			Context("with OpenShift SSO disabled", func() {
+				BeforeEach(func() {
+					cr := t.NewCryostat()
+					disable := true
+					if cr.Spec.AuthorizationOptions == nil {
+						cr.Spec.AuthorizationOptions = &operatorv1beta2.AuthorizationOptions{}
+					}
+					cr.Spec.AuthorizationOptions.OpenShiftSSO = &operatorv1beta2.OpenShiftSSOConfig{
+						Disable: &disable,
+					}
+					t.objs = append(t.objs, cr.Object)
+				})
+				JustBeforeEach(func() {
+					t.reconcileCryostatFully()
+				})
+				It("should not create the auth-delegator ClusterRoleBinding", func() {
+					t.checkAuthDelegatorClusterRoleBindingDeleted()
+				})
+			})
+			Context("with Basic authentication enabled", func() {
+				BeforeEach(func() {
+					cr := t.NewCryostat()
+					secretName := "my-htpasswd-secret"
+					filename := "htpasswd"
+					if cr.Spec.AuthorizationOptions == nil {
+						cr.Spec.AuthorizationOptions = &operatorv1beta2.AuthorizationOptions{}
+					}
+					cr.Spec.AuthorizationOptions.BasicAuth = &operatorv1beta2.SecretFile{
+						SecretName: &secretName,
+						Filename:   &filename,
+					}
+					t.objs = append(t.objs, cr.Object, &corev1.Secret{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      secretName,
+							Namespace: t.Namespace,
+						},
+						Data: map[string][]byte{
+							filename: []byte("testuser:$apr1$test"),
+						},
+					})
+				})
+				JustBeforeEach(func() {
+					t.reconcileCryostatFully()
+				})
+				It("should not create the auth-delegator ClusterRoleBinding", func() {
+					t.checkAuthDelegatorClusterRoleBindingDeleted()
+				})
+			})
+			Context("transitioning from default to Basic authentication", func() {
+				BeforeEach(func() {
+					t.objs = append(t.objs, t.NewCryostat().Object)
+				})
+				JustBeforeEach(func() {
+					t.reconcileCryostatFully()
+				})
+				It("should create and then remove the auth-delegator ClusterRoleBinding", func() {
+					authDelegator := &rbacv1.ClusterRoleBinding{}
+					err := t.Client.Get(context.Background(),
+						types.NamespacedName{Name: t.NewAuthDelegatorClusterRoleBinding().Name}, authDelegator)
+					Expect(err).ToNot(HaveOccurred())
+
+					secretName := "my-htpasswd-secret"
+					filename := "htpasswd"
+					err = t.Client.Create(context.Background(), &corev1.Secret{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      secretName,
+							Namespace: t.Namespace,
+						},
+						Data: map[string][]byte{
+							filename: []byte("testuser:$apr1$test"),
+						},
+					})
+					Expect(err).ToNot(HaveOccurred())
+
+					cr := t.getCryostatInstance()
+					if cr.Spec.AuthorizationOptions == nil {
+						cr.Spec.AuthorizationOptions = &operatorv1beta2.AuthorizationOptions{}
+					}
+					cr.Spec.AuthorizationOptions.BasicAuth = &operatorv1beta2.SecretFile{
+						SecretName: &secretName,
+						Filename:   &filename,
+					}
+					t.updateCryostatInstance(cr)
+					t.reconcileCryostatFully()
+
+					t.checkAuthDelegatorClusterRoleBindingDeleted()
+				})
+			})
+			Context("transitioning from Basic authentication to default", func() {
+				BeforeEach(func() {
+					cr := t.NewCryostat()
+					secretName := "my-htpasswd-secret"
+					filename := "htpasswd"
+					if cr.Spec.AuthorizationOptions == nil {
+						cr.Spec.AuthorizationOptions = &operatorv1beta2.AuthorizationOptions{}
+					}
+					cr.Spec.AuthorizationOptions.BasicAuth = &operatorv1beta2.SecretFile{
+						SecretName: &secretName,
+						Filename:   &filename,
+					}
+					t.objs = append(t.objs, cr.Object, &corev1.Secret{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      secretName,
+							Namespace: t.Namespace,
+						},
+						Data: map[string][]byte{
+							filename: []byte("testuser:$apr1$test"),
+						},
+					})
+				})
+				JustBeforeEach(func() {
+					t.reconcileCryostatFully()
+				})
+				It("should create the auth-delegator ClusterRoleBinding after removing Basic auth", func() {
+					t.checkAuthDelegatorClusterRoleBindingDeleted()
+
+					cr := t.getCryostatInstance()
+					cr.Spec.AuthorizationOptions.BasicAuth = nil
+					t.updateCryostatInstance(cr)
+					t.reconcileCryostatFully()
+
+					expected := t.NewAuthDelegatorClusterRoleBinding()
+					authDelegator := &rbacv1.ClusterRoleBinding{}
+					err := t.Client.Get(context.Background(),
+						types.NamespacedName{Name: expected.Name}, authDelegator)
+					Expect(err).ToNot(HaveOccurred())
+					Expect(authDelegator.Subjects).To(Equal(expected.Subjects))
+					Expect(authDelegator.RoleRef).To(Equal(expected.RoleRef))
+				})
+			})
+		})
 	})
 
 	Describe("reconciling a request in Kubernetes", func() {
@@ -3609,13 +3741,43 @@ func (t *cryostatTestInput) expectRBAC() {
 	Expect(clusterBinding.Subjects).To(Equal(expectedClusterBinding.Subjects))
 	Expect(clusterBinding.RoleRef).To(Equal(expectedClusterBinding.RoleRef))
 
-	expectedAuthDelegator := t.NewAuthDelegatorClusterRoleBinding()
+	if t.expectAuthDelegator() {
+		expectedAuthDelegator := t.NewAuthDelegatorClusterRoleBinding()
+		authDelegator := &rbacv1.ClusterRoleBinding{}
+		err = t.Client.Get(context.Background(), types.NamespacedName{Name: expectedAuthDelegator.Name}, authDelegator)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(authDelegator.GetName()).To(Equal(expectedAuthDelegator.GetName()))
+		Expect(authDelegator.Subjects).To(Equal(expectedAuthDelegator.Subjects))
+		Expect(authDelegator.RoleRef).To(Equal(expectedAuthDelegator.RoleRef))
+	} else {
+		t.checkAuthDelegatorClusterRoleBindingDeleted()
+	}
+}
+
+func (t *cryostatTestInput) expectAuthDelegator() bool {
+	if !t.OpenShift {
+		return false
+	}
+	cr := t.getCryostatInstance()
+	if cr.Spec.AuthorizationOptions != nil {
+		if cr.Spec.AuthorizationOptions.OpenShiftSSO != nil &&
+			cr.Spec.AuthorizationOptions.OpenShiftSSO.Disable != nil &&
+			*cr.Spec.AuthorizationOptions.OpenShiftSSO.Disable {
+			return false
+		}
+		if cr.Spec.AuthorizationOptions.BasicAuth != nil &&
+			cr.Spec.AuthorizationOptions.BasicAuth.SecretName != nil &&
+			cr.Spec.AuthorizationOptions.BasicAuth.Filename != nil {
+			return false
+		}
+	}
+	return true
+}
+
+func (t *cryostatTestInput) checkAuthDelegatorClusterRoleBindingDeleted() {
 	authDelegator := &rbacv1.ClusterRoleBinding{}
-	err = t.Client.Get(context.Background(), types.NamespacedName{Name: expectedAuthDelegator.Name}, authDelegator)
-	Expect(err).ToNot(HaveOccurred())
-	Expect(authDelegator.GetName()).To(Equal(expectedAuthDelegator.GetName()))
-	Expect(authDelegator.Subjects).To(Equal(expectedAuthDelegator.Subjects))
-	Expect(authDelegator.RoleRef).To(Equal(expectedAuthDelegator.RoleRef))
+	err := t.Client.Get(context.Background(), types.NamespacedName{Name: t.NewAuthDelegatorClusterRoleBinding().Name}, authDelegator)
+	Expect(kerrors.IsNotFound(err)).To(BeTrue())
 }
 
 func (t *cryostatTestInput) checkClusterRoleBindingDeleted() {
@@ -3623,9 +3785,7 @@ func (t *cryostatTestInput) checkClusterRoleBindingDeleted() {
 	err := t.Client.Get(context.Background(), types.NamespacedName{Name: t.NewClusterRoleBinding().Name}, clusterBinding)
 	Expect(kerrors.IsNotFound(err)).To(BeTrue())
 
-	authDelegator := &rbacv1.ClusterRoleBinding{}
-	err = t.Client.Get(context.Background(), types.NamespacedName{Name: t.NewAuthDelegatorClusterRoleBinding().Name}, authDelegator)
-	Expect(kerrors.IsNotFound(err)).To(BeTrue())
+	t.checkAuthDelegatorClusterRoleBindingDeleted()
 }
 
 func (t *cryostatTestInput) checkRoleBindingsDeleted() {
