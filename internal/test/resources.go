@@ -2762,10 +2762,6 @@ func (r *TestResources) NewCoreEnvironmentVariables(reportsUrl string, ingress b
 			Value: "true",
 		},
 		{
-			Name:  "QUARKUS_HTTP_PROXY_TRUSTED_PROXIES",
-			Value: "localhost",
-		},
-		{
 			Name:  "QUARKUS_HTTP_PROXY_ENABLE_FORWARDED_HOST",
 			Value: "true",
 		},
@@ -2822,6 +2818,12 @@ func (r *TestResources) NewCoreEnvironmentVariables(reportsUrl string, ingress b
 			Value: "/opt/cryostat.d/templates.d",
 		},
 	}
+	loopbackHosts := "localhost,127.0.0.1,::1"
+	envs = append(envs, corev1.EnvVar{
+		Name:  "QUARKUS_HTTP_PROXY_TRUSTED_PROXIES",
+		Value: loopbackHosts,
+	})
+
 	basicAuthConfigured := authOptions != nil && authOptions.BasicAuth != nil &&
 		authOptions.BasicAuth.Filename != nil && authOptions.BasicAuth.SecretName != nil
 	openShiftSSODisabled := authOptions != nil && authOptions.OpenShiftSSO != nil &&
@@ -2836,6 +2838,13 @@ func (r *TestResources) NewCoreEnvironmentVariables(reportsUrl string, ingress b
 		envs = append(envs, corev1.EnvVar{
 			Name:  "CRYOSTAT_SECURITY_RBAC_MODE",
 			Value: "BASIC",
+		})
+	}
+
+	if r.TLS {
+		envs = append(envs, corev1.EnvVar{
+			Name:  "CRYOSTAT_HTTP_PROXY_MTLS_TRUSTED_HOSTS",
+			Value: loopbackHosts,
 		})
 	}
 
