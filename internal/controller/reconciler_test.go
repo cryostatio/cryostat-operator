@@ -59,6 +59,11 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 )
 
+const (
+	testHTPasswdSecretName = "my-htpasswd-secret"
+	testHTPasswdFilename   = "htpasswd"
+)
+
 type controllerTest struct {
 	constructorFunc func(*controller.ReconcilerConfig) (controller.CommonReconciler, error)
 }
@@ -68,6 +73,28 @@ type cryostatTestInput struct {
 	objs       []ctrlclient.Object
 	test.TestReconcilerConfig
 	*test.TestResources
+}
+
+func ensureAuthorizationOptions(spec *operatorv1beta2.CryostatSpec) {
+	if spec.AuthorizationOptions == nil {
+		spec.AuthorizationOptions = &operatorv1beta2.AuthorizationOptions{}
+	}
+}
+
+func setBasicAuth(cr *model.CryostatInstance, secretName, filename string) {
+	ensureAuthorizationOptions(cr.Spec)
+	cr.Spec.AuthorizationOptions.BasicAuth = &operatorv1beta2.SecretFile{
+		SecretName: &secretName,
+		Filename:   &filename,
+	}
+}
+
+func disableOpenShiftSSO(cr *model.CryostatInstance) {
+	ensureAuthorizationOptions(cr.Spec)
+	disable := true
+	cr.Spec.AuthorizationOptions.OpenShiftSSO = &operatorv1beta2.OpenShiftSSOConfig{
+		Disable: &disable,
+	}
 }
 
 func (c *controllerTest) commonBeforeEach() *cryostatTestInput {
@@ -2835,13 +2862,7 @@ func (c *controllerTest) commonTests() {
 			Context("with OpenShift SSO disabled", func() {
 				BeforeEach(func() {
 					cr := t.NewCryostat()
-					disable := true
-					if cr.Spec.AuthorizationOptions == nil {
-						cr.Spec.AuthorizationOptions = &operatorv1beta2.AuthorizationOptions{}
-					}
-					cr.Spec.AuthorizationOptions.OpenShiftSSO = &operatorv1beta2.OpenShiftSSOConfig{
-						Disable: &disable,
-					}
+					disableOpenShiftSSO(cr)
 					t.objs = append(t.objs, cr.Object)
 				})
 				JustBeforeEach(func() {
@@ -2854,22 +2875,14 @@ func (c *controllerTest) commonTests() {
 			Context("with Basic authentication enabled", func() {
 				BeforeEach(func() {
 					cr := t.NewCryostat()
-					secretName := "my-htpasswd-secret"
-					filename := "htpasswd"
-					if cr.Spec.AuthorizationOptions == nil {
-						cr.Spec.AuthorizationOptions = &operatorv1beta2.AuthorizationOptions{}
-					}
-					cr.Spec.AuthorizationOptions.BasicAuth = &operatorv1beta2.SecretFile{
-						SecretName: &secretName,
-						Filename:   &filename,
-					}
+					setBasicAuth(cr, testHTPasswdSecretName, testHTPasswdFilename)
 					t.objs = append(t.objs, cr.Object, &corev1.Secret{
 						ObjectMeta: metav1.ObjectMeta{
-							Name:      secretName,
+							Name:      testHTPasswdSecretName,
 							Namespace: t.Namespace,
 						},
 						Data: map[string][]byte{
-							filename: []byte("testuser:$apr1$test"),
+							testHTPasswdFilename: []byte("testuser:$apr1$test"),
 						},
 					})
 				})
@@ -2893,27 +2906,19 @@ func (c *controllerTest) commonTests() {
 						types.NamespacedName{Name: t.NewAuthDelegatorClusterRoleBinding().Name}, authDelegator)
 					Expect(err).ToNot(HaveOccurred())
 
-					secretName := "my-htpasswd-secret"
-					filename := "htpasswd"
 					err = t.Client.Create(context.Background(), &corev1.Secret{
 						ObjectMeta: metav1.ObjectMeta{
-							Name:      secretName,
+							Name:      testHTPasswdSecretName,
 							Namespace: t.Namespace,
 						},
 						Data: map[string][]byte{
-							filename: []byte("testuser:$apr1$test"),
+							testHTPasswdFilename: []byte("testuser:$apr1$test"),
 						},
 					})
 					Expect(err).ToNot(HaveOccurred())
 
 					cr := t.getCryostatInstance()
-					if cr.Spec.AuthorizationOptions == nil {
-						cr.Spec.AuthorizationOptions = &operatorv1beta2.AuthorizationOptions{}
-					}
-					cr.Spec.AuthorizationOptions.BasicAuth = &operatorv1beta2.SecretFile{
-						SecretName: &secretName,
-						Filename:   &filename,
-					}
+					setBasicAuth(cr, testHTPasswdSecretName, testHTPasswdFilename)
 					t.updateCryostatInstance(cr)
 					t.reconcileCryostatFully()
 
@@ -2923,22 +2928,14 @@ func (c *controllerTest) commonTests() {
 			Context("transitioning from Basic authentication to default", func() {
 				BeforeEach(func() {
 					cr := t.NewCryostat()
-					secretName := "my-htpasswd-secret"
-					filename := "htpasswd"
-					if cr.Spec.AuthorizationOptions == nil {
-						cr.Spec.AuthorizationOptions = &operatorv1beta2.AuthorizationOptions{}
-					}
-					cr.Spec.AuthorizationOptions.BasicAuth = &operatorv1beta2.SecretFile{
-						SecretName: &secretName,
-						Filename:   &filename,
-					}
+					setBasicAuth(cr, testHTPasswdSecretName, testHTPasswdFilename)
 					t.objs = append(t.objs, cr.Object, &corev1.Secret{
 						ObjectMeta: metav1.ObjectMeta{
-							Name:      secretName,
+							Name:      testHTPasswdSecretName,
 							Namespace: t.Namespace,
 						},
 						Data: map[string][]byte{
-							filename: []byte("testuser:$apr1$test"),
+							testHTPasswdFilename: []byte("testuser:$apr1$test"),
 						},
 					})
 				})
