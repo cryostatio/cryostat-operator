@@ -1609,10 +1609,6 @@ func newEnvForCoreContainer(cr *model.CryostatInstance, specs *ServiceSpecs, tls
 			Value: "true",
 		},
 		{
-			Name:  "QUARKUS_HTTP_PROXY_TRUSTED_PROXIES",
-			Value: "localhost",
-		},
-		{
 			Name:  "QUARKUS_HTTP_PROXY_ENABLE_FORWARDED_HOST",
 			Value: "true",
 		},
@@ -1656,6 +1652,12 @@ func newEnvForCoreContainer(cr *model.CryostatInstance, specs *ServiceSpecs, tls
 		},
 	}
 
+	loopbackHosts := "localhost,127.0.0.1,::1"
+	envs = append(envs, corev1.EnvVar{
+		Name:  "QUARKUS_HTTP_PROXY_TRUSTED_PROXIES",
+		Value: loopbackHosts,
+	})
+
 	if openshift && !isOpenShiftAuthProxyDisabled(cr) && !isBasicAuthEnabled(cr) {
 		envs = append(envs, corev1.EnvVar{
 			Name:  "CRYOSTAT_SECURITY_RBAC_MODE",
@@ -1665,6 +1667,13 @@ func newEnvForCoreContainer(cr *model.CryostatInstance, specs *ServiceSpecs, tls
 		envs = append(envs, corev1.EnvVar{
 			Name:  "CRYOSTAT_SECURITY_RBAC_MODE",
 			Value: "BASIC",
+		})
+	}
+
+	if tls != nil {
+		envs = append(envs, corev1.EnvVar{
+			Name:  "CRYOSTAT_HTTP_PROXY_MTLS_TRUSTED_HOSTS",
+			Value: loopbackHosts,
 		})
 	}
 
