@@ -2818,7 +2818,7 @@ func (r *TestResources) NewCoreEnvironmentVariables(reportsUrl string, ingress b
 			Value: "/opt/cryostat.d/templates.d",
 		},
 	}
-	loopbackHosts := "localhost,127.0.0.1,::1"
+	loopbackHosts := "localhost,127.0.0.1"
 	envs = append(envs, corev1.EnvVar{
 		Name:  "QUARKUS_HTTP_PROXY_TRUSTED_PROXIES",
 		Value: loopbackHosts,
