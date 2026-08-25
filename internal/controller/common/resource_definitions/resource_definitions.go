@@ -1652,7 +1652,7 @@ func newEnvForCoreContainer(cr *model.CryostatInstance, specs *ServiceSpecs, tls
 		},
 	}
 
-	loopbackHosts := "localhost,127.0.0.1,::1"
+	loopbackHosts := "localhost,127.0.0.1"
 	envs = append(envs, corev1.EnvVar{
 		Name:  "QUARKUS_HTTP_PROXY_TRUSTED_PROXIES",
 		Value: loopbackHosts,
