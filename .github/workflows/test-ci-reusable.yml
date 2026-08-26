@@ -20,25 +20,8 @@ env:
 
 permissions:
   statuses: write
-  packages: write
 
 jobs:
-  clean-up-test-images:
-    runs-on: ubuntu-latest
-    needs: [scorecard-test]
-    strategy:
-      matrix:
-        image: [cryostat-operator, cryostat-operator-bundle, cryostat-operator-scorecard]
-    steps:
-    - uses: r26d/ghcr-delete-image-action@9039322147055f1ee3f6359826701390d6b297aa # v1.4.1
-      with:
-        owner: ${{ github.repository_owner }}
-        name: ${{ matrix.image }}
-        token: ${{ secrets.GITHUB_TOKEN }}
-        ignore-missing-package: true
-        tag-regex: ${{ inputs.tag }}
-        tagged-keep-latest: 0
-
   controller-test:
     runs-on: ubuntu-latest
     steps:
@@ -69,48 +52,20 @@ jobs:
         ref: ${{ inputs.ref }}
     - name: Build scorecard image for test
       run: |
-        CUSTOM_SCORECARD_IMG=ghcr.io/${{ github.repository_owner }}/cryostat-operator-scorecard:${{ inputs.tag }} \
+        CUSTOM_SCORECARD_IMG=${{ github.repository_owner }}/cryostat-operator-scorecard:${{ inputs.tag }} \
         PLATFORMS=linux/amd64 \
         MANIFEST_PUSH=false \
         make scorecard-build
-    - name: Push scorecard image to ghcr.io for test
-      id: push-scorecard-to-ghcr
-      uses: redhat-actions/push-to-registry@5ed88d269cf581ea9ef6dd6806d01562096bee9c # v2.8
-      with:
-        image: cryostat-operator-scorecard
-        tags: ${{ inputs.tag }}
-        registry: ghcr.io/${{ github.repository_owner }}
-        username: ${{ github.repository_owner }}
-        password: ${{ secrets.GITHUB_TOKEN }}
     - name: Build operator image for test
       run: |
-        OPERATOR_IMG=ghcr.io/${{ github.repository_owner }}/cryostat-operator:${{ inputs.tag }} \
+        OPERATOR_IMG=${{ github.repository_owner }}/cryostat-operator:${{ inputs.tag }} \
         SKIP_TESTS=true \
         make oci-build
-    - name: Push operator image to ghcr.io for test
-      id: push-operator-to-ghcr
-      uses: redhat-actions/push-to-registry@5ed88d269cf581ea9ef6dd6806d01562096bee9c # v2.8
-      with:
-        image: cryostat-operator
-        tags: ${{ inputs.tag }}
-        registry: ghcr.io/${{ github.repository_owner }}
-        username: ${{ github.repository_owner }}
-        password: ${{ secrets.GITHUB_TOKEN }}
     - name: Build bundle image for test
       run: |
-        yq -i '.spec.template.spec.imagePullSecrets = [{"name": "registry-key"}]' config/manager/manager.yaml
-        OPERATOR_IMG=${{ steps.push-operator-to-ghcr.outputs.registry-path }} \
-        BUNDLE_IMG=ghcr.io/${{ github.repository_owner }}/cryostat-operator-bundle:${{ inputs.tag }} \
+        OPERATOR_IMG=${{ github.repository_owner }}/cryostat-operator:${{ inputs.tag }} \
+        BUNDLE_IMG=${{ github.repository_owner }}/cryostat-operator-bundle:${{ inputs.tag }} \
         make bundle bundle-build
-    - name: Push bundle image to ghcr.io for test
-      id: push-bundle-to-ghcr
-      uses: redhat-actions/push-to-registry@5ed88d269cf581ea9ef6dd6806d01562096bee9c # v2.8
-      with:
-        image: cryostat-operator-bundle
-        tags: ${{ inputs.tag }}
-        registry: ghcr.io/${{ github.repository_owner }}
-        username: ${{ github.repository_owner }}
-        password: ${{ secrets.GITHUB_TOKEN }}
     - name: Set up Kind cluster
       uses: helm/kind-action@ef37e7f390d99f746eb8b610417061a60e82a6cc # v1.14.0
       with:
@@ -139,18 +94,20 @@ jobs:
       run: curl -sL https://github.com/operator-framework/operator-lifecycle-manager/releases/download/v0.28.0/install.sh | bash -s v0.28.0
     - name: Install Cert Manager
       run: make cert_manager
-    - uses: redhat-actions/podman-login@4934294ad0449894bcd1e9f191899d7292469603 # v1.7
-      with:
-        registry: ghcr.io
-        username: ${{ github.repository_owner }}
-        password: ${{ secrets.GITHUB_TOKEN }}
-        auth_file_path: $HOME/.docker/config.json
+    - name: Load test images into Kind cluster
+      run: |
+        CLUSTER_NAME=ci-${{ github.run_id }}
+        for img in \
+          "${{ github.repository_owner }}/cryostat-operator-scorecard:${{ inputs.tag }}" \
+          "${{ github.repository_owner }}/cryostat-operator:${{ inputs.tag }}" \
+          "${{ github.repository_owner }}/cryostat-operator-bundle:${{ inputs.tag }}"; do
+          podman save "$img" -o /tmp/image.tar
+          kind load image-archive /tmp/image.tar --name "$CLUSTER_NAME"
+          rm -f /tmp/image.tar
+        done
     - name: Run scorecard tests
       run: |
-        SCORECARD_REGISTRY_SERVER="ghcr.io" \
-        SCORECARD_REGISTRY_USERNAME="${{ github.repository_owner }}" \
-        SCORECARD_REGISTRY_PASSWORD="${{ secrets.GITHUB_TOKEN }}" \
-        BUNDLE_IMG="${{ steps.push-bundle-to-ghcr.outputs.registry-path }}" \
+        BUNDLE_IMG="${{ github.repository_owner }}/cryostat-operator-bundle:${{ inputs.tag }}" \
         make test-scorecard
     - name: Set latest commit status as ${{ job.status }}
       uses: daltonbr/set-commit-status-action@2a09190f6d04d912bca5ede8094b5d5dce303ebb # v3.0.1
