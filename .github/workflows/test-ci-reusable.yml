@@ -52,19 +52,19 @@ jobs:
         ref: ${{ inputs.ref }}
     - name: Build scorecard image for test
       run: |
-        CUSTOM_SCORECARD_IMG=${{ github.repository_owner }}/cryostat-operator-scorecard:${{ inputs.tag }} \
+        CUSTOM_SCORECARD_IMG=localhost/${{ github.repository_owner }}/cryostat-operator-scorecard:${{ inputs.tag }} \
         PLATFORMS=linux/amd64 \
         MANIFEST_PUSH=false \
         make scorecard-build
     - name: Build operator image for test
       run: |
-        OPERATOR_IMG=${{ github.repository_owner }}/cryostat-operator:${{ inputs.tag }} \
+        OPERATOR_IMG=localhost/${{ github.repository_owner }}/cryostat-operator:${{ inputs.tag }} \
         SKIP_TESTS=true \
         make oci-build
     - name: Build bundle image for test
       run: |
-        OPERATOR_IMG=${{ github.repository_owner }}/cryostat-operator:${{ inputs.tag }} \
-        BUNDLE_IMG=${{ github.repository_owner }}/cryostat-operator-bundle:${{ inputs.tag }} \
+        OPERATOR_IMG=localhost/${{ github.repository_owner }}/cryostat-operator:${{ inputs.tag }} \
+        BUNDLE_IMG=localhost/${{ github.repository_owner }}/cryostat-operator-bundle:${{ inputs.tag }} \
         make bundle bundle-build
     - name: Set up Kind cluster
       uses: helm/kind-action@ef37e7f390d99f746eb8b610417061a60e82a6cc # v1.14.0
@@ -98,16 +98,16 @@ jobs:
       run: |
         CLUSTER_NAME=ci-${{ github.run_id }}
         for img in \
-          "${{ github.repository_owner }}/cryostat-operator-scorecard:${{ inputs.tag }}" \
-          "${{ github.repository_owner }}/cryostat-operator:${{ inputs.tag }}" \
-          "${{ github.repository_owner }}/cryostat-operator-bundle:${{ inputs.tag }}"; do
+          "localhost/${{ github.repository_owner }}/cryostat-operator-scorecard:${{ inputs.tag }}" \
+          "localhost/${{ github.repository_owner }}/cryostat-operator:${{ inputs.tag }}" \
+          "localhost/${{ github.repository_owner }}/cryostat-operator-bundle:${{ inputs.tag }}"; do
           podman save "$img" -o /tmp/image.tar
           kind load image-archive /tmp/image.tar --name "$CLUSTER_NAME"
           rm -f /tmp/image.tar
         done
     - name: Run scorecard tests
       run: |
-        BUNDLE_IMG="${{ github.repository_owner }}/cryostat-operator-bundle:${{ inputs.tag }}" \
+        BUNDLE_IMG="localhost/${{ github.repository_owner }}/cryostat-operator-bundle:${{ inputs.tag }}" \
         make test-scorecard
     - name: Set latest commit status as ${{ job.status }}
       uses: daltonbr/set-commit-status-action@2a09190f6d04d912bca5ede8094b5d5dce303ebb # v3.0.1
