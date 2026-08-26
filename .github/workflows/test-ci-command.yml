@@ -20,18 +20,14 @@ jobs:
       if: ${{ contains(github.event.issue.labels.*.name, 'needs-triage') }}
       run: exit 1
     - name: Show warning if permission is denied
-      if: |
-        !(github.event.comment.author_association == 'MEMBER' || github.event.comment.author_association == 'OWNER')
-        && (!contains(github.event.issue.labels.*.name, 'safe-to-test') || github.event.issue.user.login != github.event.comment.user.login)
+      if: ${{ !(github.event.comment.author_association == 'MEMBER' || github.event.comment.author_association == 'OWNER') }}
       uses: thollander/actions-comment-pull-request@24bffb9b452ba05a4f3f77933840a6a841d1b32b # v3.0.1
       with:
         message: |-
           You do not have permission to run the /build_test command. Please ask @cryostatio/reviewers
           to resolve the issue.
     - name: Fail if command permission is denied
-      if: |
-        !(github.event.comment.author_association == 'MEMBER' || github.event.comment.author_association == 'OWNER')
-        && (!contains(github.event.issue.labels.*.name, 'safe-to-test') || github.event.issue.user.login != github.event.comment.user.login)
+      if: ${{ !(github.event.comment.author_association == 'MEMBER' || github.event.comment.author_association == 'OWNER') }}
       run: exit 1
     - name: React to comment
       uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
