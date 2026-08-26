@@ -89,7 +89,6 @@ jobs:
     needs: [get-test-image-tag, checkout-branch]
     permissions:
       statuses: write
-      packages: write
     with:
       repository: ${{ needs.checkout-branch.outputs.PR_repo }}
       ref: ${{ needs.checkout-branch.outputs.PR_head_ref }}
