@@ -29,6 +29,17 @@ jobs:
     - name: Fail if command permission is denied
       if: ${{ !(github.event.comment.author_association == 'MEMBER' || github.event.comment.author_association == 'OWNER') }}
       run: exit 1
+    - name: Remove safe-to-test label
+      if: ${{ contains(github.event.issue.labels.*.name, 'safe-to-test') }}
+      uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+      with:
+        script: |
+          github.rest.issues.removeLabel({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            issue_number: context.issue.number,
+            name: 'safe-to-test'
+          });
     - name: React to comment
       uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
       with:
