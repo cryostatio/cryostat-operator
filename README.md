@@ -251,7 +251,7 @@ validate that a set of *operand* images passes the scorecard suite without publi
 any scorecard-specific images. Supply the operand images under test via `OPERATOR_IMG`
 and `CORE_IMG` (and any other `RELATED_IMAGE_*` overrides), for example:
 
-```
+```bash
 CORE_IMG=quay.io/my-user/cryostat:my-feature-pr \
 OPERATOR_IMG=quay.io/my-user/cryostat-operator:my-feature-pr \
 make test-scorecard-local-kind
