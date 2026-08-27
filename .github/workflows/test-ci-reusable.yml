@@ -31,11 +31,11 @@ jobs:
         ref: ${{ inputs.ref }}
     - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
       with:
-        go-version: '1.26.*'
+        go-version: '1.25.*'
     - name: Run controller tests
       run: make test-envtest
     - name: Set latest commit status as ${{ job.status }}
-      uses: daltonbr/set-commit-status-action@b5ef7ba5279f7953ad1fa44f01f92fca82e65eb4 # v3.0.2
+      uses: daltonbr/set-commit-status-action@2a09190f6d04d912bca5ede8094b5d5dce303ebb # v3.0.1
       if: always()
       with:
         sha: ${{ inputs.sha }}
@@ -52,26 +52,33 @@ jobs:
       REGISTRY_NAME: kind-registry
       REGISTRY_PORT: 5000
       TAG: ${{ inputs.tag }}
+      OWNER: ${{ github.repository_owner }}
     steps:
     - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       with:
         repository: ${{ inputs.repository }}
         ref: ${{ inputs.ref }}
+    - name: Validate image tag
+      run: |
+        if ! printf '%s' "$TAG" | grep -Eq '^[a-zA-Z0-9_][a-zA-Z0-9._-]{0,127}$'; then
+          echo "Invalid image tag: '$TAG'" >&2
+          exit 1
+        fi
     - name: Build scorecard image for test
       run: |
-        CUSTOM_SCORECARD_IMG="$REGISTRY_NAME:$REGISTRY_PORT/${{ github.repository_owner }}/cryostat-operator-scorecard:$TAG" \
+        CUSTOM_SCORECARD_IMG="${REGISTRY_NAME}:${REGISTRY_PORT}/${OWNER}/cryostat-operator-scorecard:${TAG}" \
         PLATFORMS=linux/amd64 \
         MANIFEST_PUSH=false \
         make scorecard-build
     - name: Build operator image for test
       run: |
-        OPERATOR_IMG="$REGISTRY_NAME:$REGISTRY_PORT/${{ github.repository_owner }}/cryostat-operator:$TAG" \
+        OPERATOR_IMG="${REGISTRY_NAME}:${REGISTRY_PORT}/${OWNER}/cryostat-operator:${TAG}" \
         SKIP_TESTS=true \
         make oci-build
     - name: Build bundle image for test
       run: |
-        OPERATOR_IMG="$REGISTRY_NAME:$REGISTRY_PORT/${{ github.repository_owner }}/cryostat-operator:$TAG" \
-        BUNDLE_IMG="$REGISTRY_NAME:$REGISTRY_PORT/${{ github.repository_owner }}/cryostat-operator-bundle:$TAG" \
+        OPERATOR_IMG="${REGISTRY_NAME}:${REGISTRY_PORT}/${OWNER}/cryostat-operator:${TAG}" \
+        BUNDLE_IMG="${REGISTRY_NAME}:${REGISTRY_PORT}/${OWNER}/cryostat-operator-bundle:${TAG}" \
         make bundle bundle-build
     - name: Set up Kind cluster
       uses: helm/kind-action@06c1ae10762d3b9c1644e7fe69596ae519e015a2 # v1.15.0
@@ -92,15 +99,15 @@ jobs:
       run: make scorecard-kind-prereqs
     - name: Push test images to local registry
       run: |
-        make scorecard-kind-push SCORECARD_PUSH_IMAGES="$REGISTRY_NAME:$REGISTRY_PORT/${{ github.repository_owner }}/cryostat-operator-scorecard:$TAG $REGISTRY_NAME:$REGISTRY_PORT/${{ github.repository_owner }}/cryostat-operator:$TAG $REGISTRY_NAME:$REGISTRY_PORT/${{ github.repository_owner }}/cryostat-operator-bundle:$TAG"
+        make scorecard-kind-push SCORECARD_PUSH_IMAGES="${REGISTRY_NAME}:${REGISTRY_PORT}/${OWNER}/cryostat-operator-scorecard:${TAG} ${REGISTRY_NAME}:${REGISTRY_PORT}/${OWNER}/cryostat-operator:${TAG} ${REGISTRY_NAME}:${REGISTRY_PORT}/${OWNER}/cryostat-operator-bundle:${TAG}"
     - name: Run scorecard tests
       run: |
-        BUNDLE_IMG="$REGISTRY_NAME:$REGISTRY_PORT/${{ github.repository_owner }}/cryostat-operator-bundle:$TAG" \
+        BUNDLE_IMG="${REGISTRY_NAME}:${REGISTRY_PORT}/${OWNER}/cryostat-operator-bundle:${TAG}" \
         SCORECARD_BUNDLE="./bundle" \
         RUN_BUNDLE_EXTRA_ARGS="--use-http --skip-tls" \
         make test-scorecard
     - name: Set latest commit status as ${{ job.status }}
-      uses: daltonbr/set-commit-status-action@b5ef7ba5279f7953ad1fa44f01f92fca82e65eb4 # v3.0.2
+      uses: daltonbr/set-commit-status-action@2a09190f6d04d912bca5ede8094b5d5dce303ebb # v3.0.1
       if: always()
       with:
         sha: ${{ inputs.sha }}

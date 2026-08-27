@@ -158,14 +158,17 @@ SCORECARD_KIND_CLUSTER ?= cryostat-scorecard
 # kind cluster config providing the containerd config_path registry mirror and the
 # ingress-ready node label (used only when this target creates the cluster).
 SCORECARD_KIND_CONFIG ?= .github/kind-config.yaml
-# Local registry served to both the host and the cluster nodes. It is addressed by
-# container name rather than localhost so that a single image reference resolves
-# identically on the host (where `operator-sdk run bundle` renders the bundle) and
-# inside the cluster network (where the nodes pull). `scorecard-kind-registry`
-# arranges both halves of that; in CI helm/kind-action does the equivalent.
+# Local registry served to both the host and the cluster nodes. A single image
+# reference has to resolve in both places: on the host, where `operator-sdk run bundle`
+# renders the bundle, and inside the cluster, where the nodes pull. CI gets that from
+# helm/kind-action, which publishes the registry under its container name and adds a
+# matching hosts entry on the runner. Locally we cannot edit the developer's
+# /etc/hosts, so `scorecard-kind-registry` instead keeps the reference on localhost
+# (which the host resolves natively) and has each node's containerd mirror it to the
+# registry container's name on the kind network. Same outcome, no root required.
 SCORECARD_KIND_REGISTRY_NAME ?= kind-registry
 SCORECARD_KIND_REGISTRY_PORT ?= 5000
-SCORECARD_KIND_REGISTRY ?= $(SCORECARD_KIND_REGISTRY_NAME):$(SCORECARD_KIND_REGISTRY_PORT)
+SCORECARD_KIND_REGISTRY ?= localhost:$(SCORECARD_KIND_REGISTRY_PORT)
 SCORECARD_KIND_REGISTRY_IMAGE ?= quay.io/libpod/registry:2.8.2
 # Scorecard test image and bundle image, built locally and served from the local
 # registry. Tagged with the stable BUNDLE_VERSION (not the timestamped
@@ -180,10 +183,9 @@ SCORECARD_PUSH_IMAGES ?= $(SCORECARD_KIND_SCORECARD_IMG) $(SCORECARD_KIND_BUNDLE
 SCORECARD_KIND_INGRESS_HOST ?= testing.cryostat
 INGRESS_NGINX_MANIFEST ?= https://raw.githubusercontent.com/kubernetes/ingress-nginx/main/deploy/static/provider/kind/deploy.yaml
 OLM_VERSION ?= 0.28.0
-# Flags allowing a push to the plain-HTTP local registry. podman takes one per
-# invocation; docker has no equivalent flag and only auto-trusts registries whose
-# reference is literally localhost/127.0.0.1, so a docker-based IMAGE_BUILDER needs
-# $(SCORECARD_KIND_REGISTRY) listed under "insecure-registries" in daemon.json.
+# `docker push` treats localhost registries as insecure automatically; podman needs
+# an explicit flag to allow pushing to the plain-HTTP local registry. Keyed off the
+# image builder, which performs the push.
 ifeq ($(IMAGE_BUILDER),podman)
 SCORECARD_PUSH_FLAGS ?= --tls-verify=false
 else
@@ -372,24 +374,16 @@ scorecard-kind-cluster: ## Create (or reuse) the dedicated kind cluster for scor
 	$(CLUSTER_CLIENT) config use-context kind-$(SCORECARD_KIND_CLUSTER)
 
 .PHONY: scorecard-kind-registry
-scorecard-kind-registry: ## (Re)start the local registry on the kind network, point each node's containerd at it, and make its name resolvable from this host. Set SCORECARD_KIND_CLUSTER and KIND_RUNTIME to match the target cluster. Not needed in CI, where helm/kind-action does the equivalent.
+scorecard-kind-registry: ## (Re)start the local registry on the kind network and mirror $(SCORECARD_KIND_REGISTRY) to it in each node's containerd. Set SCORECARD_KIND_CLUSTER and KIND_RUNTIME to match the target cluster. Not needed in CI, where helm/kind-action sets up the equivalent registry.
 	@$(KIND_RUNTIME) rm -f $(SCORECARD_KIND_REGISTRY_NAME) >/dev/null 2>&1 || true
 	$(KIND_RUNTIME) run -d --restart=always --network kind -p $(SCORECARD_KIND_REGISTRY_PORT):5000 --name $(SCORECARD_KIND_REGISTRY_NAME) $(SCORECARD_KIND_REGISTRY_IMAGE)
-# Cluster side: nodes share the kind network, so the registry's container name already
-# resolves there; containerd just needs to be told the endpoint is plain HTTP.
+# The host reaches the registry on the published port; the nodes cannot, so mirror the
+# same reference to the registry container's name, which resolves on the kind network.
 	@for node in $$($(KIND) get nodes --name $(SCORECARD_KIND_CLUSTER)); do \
 		$(KIND_RUNTIME) exec "$$node" mkdir -p /etc/containerd/certs.d/$(SCORECARD_KIND_REGISTRY); \
-		printf '[host."http://%s"]\n' "$(SCORECARD_KIND_REGISTRY)" | \
+		printf '[host."http://%s:5000"]\n' "$(SCORECARD_KIND_REGISTRY_NAME)" | \
 			$(KIND_RUNTIME) exec -i "$$node" cp /dev/stdin /etc/containerd/certs.d/$(SCORECARD_KIND_REGISTRY)/hosts.toml; \
 	done
-# Host side: resolve the same name to the published port, so one image reference works
-# for both `$(IMAGE_BUILDER) push` and `operator-sdk run bundle`.
-	@if getent hosts $(SCORECARD_KIND_REGISTRY_NAME) >/dev/null 2>&1; then \
-		echo "'$(SCORECARD_KIND_REGISTRY_NAME)' already resolves on this host"; \
-	else \
-		echo "Adding '127.0.0.1 $(SCORECARD_KIND_REGISTRY_NAME)' to /etc/hosts (requires sudo)"; \
-		echo "127.0.0.1 $(SCORECARD_KIND_REGISTRY_NAME)" | sudo tee -a /etc/hosts >/dev/null; \
-	fi
 
 .PHONY: scorecard-kind-push
 scorecard-kind-push: ## Push the locally-built scorecard images ($$SCORECARD_PUSH_IMAGES) to the local registry.

@@ -239,10 +239,9 @@ required. It is a turnkey wrapper that:
 
 1. creates (or reuses) a kind cluster named `cryostat-scorecard`, configured with a
    containerd registry mirror;
-2. starts a local container registry (`kind-registry:5000`) reachable under that same
-   name from both the host and the cluster nodes, so a single image reference resolves
-   in both places (this requires a one-time `sudo` to append `127.0.0.1 kind-registry`
-   to `/etc/hosts`; the entry is left in place by `clean-scorecard-local-kind`);
+2. starts a local container registry, published to the host as `localhost:5000` and
+   mirrored to the same reference in each node's containerd, so one image reference
+   resolves both on the host and in the cluster;
 3. installs the cluster prerequisites: OLM, cert-manager, and ingress-nginx (with an
    in-cluster CoreDNS rewrite so the tests can reach Cryostat via its ingress);
 4. builds the scorecard test image and the operator bundle locally, pushes them to the
@@ -264,15 +263,13 @@ Run a subset of tests with `SCORECARD_TEST_SELECTION` (e.g.
 `make clean-scorecard-local-kind`.
 
 The container runtime backing kind is auto-detected from `IMAGE_BUILDER` (podman by
-default); set `KIND_RUNTIME=docker` if kind uses the docker provider. Because the
-registry is addressed by name rather than as `localhost`, docker does not treat it as
-insecure automatically: a docker-based `IMAGE_BUILDER` needs `kind-registry:5000` listed
-under `insecure-registries` in `daemon.json`. Under the rootless podman provider, run
-this as the only kind cluster on the host — creating it alongside another running kind
-cluster can disrupt cluster networking.
+default); set `KIND_RUNTIME=docker` if kind uses the docker provider. Under the rootless
+podman provider, run this as the only kind cluster on the host — creating it alongside
+another running kind cluster can disrupt cluster networking. Nothing here needs root.
 
 The `scorecard-kind-prereqs` and `scorecard-kind-push` targets are shared with the CI
 scorecard job, and all of these can be invoked individually against an existing cluster:
 `scorecard-kind-cluster`, `scorecard-kind-registry`, `scorecard-kind-prereqs`,
-`scorecard-kind-push` (see `make help`). CI does not use `scorecard-kind-registry`;
-`helm/kind-action`'s built-in `registry` support sets up the equivalent registry there.
+`scorecard-kind-push` (see `make help`). CI does not use `scorecard-kind-registry`:
+`helm/kind-action`'s built-in `registry` support provides the equivalent registry there,
+addressed as `kind-registry:5000` via the hosts entry the action adds on the runner.
