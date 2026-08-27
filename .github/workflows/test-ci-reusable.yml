@@ -74,50 +74,12 @@ jobs:
         wait: 1m
         ignore_failed_clean: true
     - name: Set up local image registry
-      run: |
-        CLUSTER_NAME=ci-${{ github.run_id }}
-        # Start a plain-HTTP registry, reachable from the runner host as localhost:5000.
-        # operator-sdk 'run bundle' renders the bundle image on the host, so a local
-        # registry serves both the host and cluster.
-        docker run -d --restart=always -p 5000:5000 --name kind-registry \
-          quay.io/libpod/registry:2.8.2
-        # Attach the registry to the kind network so cluster nodes can reach it by name.
-        docker network connect kind kind-registry
-        # Point each node's containerd at the registry for localhost:5000 pulls.
-        for node in $(kind get nodes --name "$CLUSTER_NAME"); do
-          docker exec "$node" mkdir -p /etc/containerd/certs.d/localhost:5000
-          echo '[host."http://kind-registry:5000"]' | \
-            docker exec -i "$node" cp /dev/stdin /etc/containerd/certs.d/localhost:5000/hosts.toml
-        done
-    - name: Set up Ingress Controller
-      run: |
-        # Install nginx ingress controller
-        kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/main/deploy/static/provider/kind/deploy.yaml
-        kubectl rollout status -w \
-          deployment/ingress-nginx-controller \
-          -n ingress-nginx --timeout 5m
-        
-        # Lower the number of worker processes
-        kubectl patch cm/ingress-nginx-controller \
-          --type merge \
-          -p '{"data":{"worker-processes":"1"}}' \
-          -n ingress-nginx
-
-        # Modify /etc/hosts to resolve hostnames
-        ip_address=$(docker inspect -f '{{range.NetworkSettings.Networks}}{{.IPAddress}}{{end}}' ci-${{ github.run_id }}-control-plane)
-        echo "$ip_address testing.cryostat" | sudo tee -a /etc/hosts
-    - name: Install Operator Lifecycle Manager
-      run: curl -sL https://github.com/operator-framework/operator-lifecycle-manager/releases/download/v0.28.0/install.sh | bash -s v0.28.0
-    - name: Install Cert Manager
-      run: make cert_manager
+      run: make scorecard-kind-registry SCORECARD_KIND_CLUSTER=ci-${{ github.run_id }} KIND_RUNTIME=docker
+    - name: Install cluster prerequisites (OLM, cert-manager, ingress-nginx)
+      run: make scorecard-kind-prereqs
     - name: Push test images to local registry
       run: |
-        for img in \
-          "localhost:5000/${{ github.repository_owner }}/cryostat-operator-scorecard:${{ inputs.tag }}" \
-          "localhost:5000/${{ github.repository_owner }}/cryostat-operator:${{ inputs.tag }}" \
-          "localhost:5000/${{ github.repository_owner }}/cryostat-operator-bundle:${{ inputs.tag }}"; do
-          podman push --tls-verify=false "$img"
-        done
+        make scorecard-kind-push SCORECARD_PUSH_IMAGES="localhost:5000/${{ github.repository_owner }}/cryostat-operator-scorecard:${{ inputs.tag }} localhost:5000/${{ github.repository_owner }}/cryostat-operator:${{ inputs.tag }} localhost:5000/${{ github.repository_owner }}/cryostat-operator-bundle:${{ inputs.tag }}"
     - name: Run scorecard tests
       run: |
         BUNDLE_IMG="localhost:5000/${{ github.repository_owner }}/cryostat-operator-bundle:${{ inputs.tag }}" \

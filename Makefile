@@ -140,6 +140,51 @@ SCORECARD_BUNDLE ?= $(BUNDLE_IMG)
 # pulling from a plain-HTTP local registry).
 RUN_BUNDLE_EXTRA_ARGS ?=
 
+# --- kind-based scorecard testing (shared by CI and test-scorecard-local-kind) ---
+# The scorecard-kind-* targets below set up a local registry mirror and cluster
+# prerequisites so the scorecard suite can run on kind, serving locally-built
+# scorecard/bundle images from a local registry rather than an external one.
+# `make test-scorecard-local-kind` composes them into a turnkey local run; the CI
+# workflow reuses the same targets against its helm/kind-action cluster.
+#
+# Local run example (operand images under test supplied via OPERATOR_IMG/CORE_IMG):
+#   CORE_IMG=quay.io/me/cryostat:my-pr OPERATOR_IMG=quay.io/me/cryostat-operator:my-pr make test-scorecard-local-kind
+KIND ?= kind
+# Container runtime that backs kind (docker or podman). Must match kind's provider
+# so the registry container can join the kind network. Defaults to IMAGE_BUILDER.
+KIND_RUNTIME ?= $(IMAGE_BUILDER)
+# Name of the kind cluster to target (CI overrides this with its run-scoped name).
+SCORECARD_KIND_CLUSTER ?= cryostat-scorecard
+# kind cluster config providing the containerd config_path registry mirror and the
+# ingress-ready node label (used only when this target creates the cluster).
+SCORECARD_KIND_CONFIG ?= .github/kind-config.yaml
+# Local registry served to both the host and the cluster nodes.
+SCORECARD_KIND_REGISTRY_NAME ?= kind-registry
+SCORECARD_KIND_REGISTRY_PORT ?= 5000
+SCORECARD_KIND_REGISTRY ?= localhost:$(SCORECARD_KIND_REGISTRY_PORT)
+SCORECARD_KIND_REGISTRY_IMAGE ?= quay.io/libpod/registry:2.8.2
+# Scorecard test image and bundle image, built locally and served from the local
+# registry. Tagged with the stable BUNDLE_VERSION (not the timestamped
+# CUSTOM_SCORECARD_VERSION) so the tag is identical across the recursive make calls
+# that build, push, and run.
+SCORECARD_KIND_SCORECARD_IMG ?= $(SCORECARD_KIND_REGISTRY)/cryostat-operator-scorecard:$(BUNDLE_VERSION)
+SCORECARD_KIND_BUNDLE_IMG ?= $(SCORECARD_KIND_REGISTRY)/cryostat-operator-bundle:$(BUNDLE_VERSION)
+# Images pushed to the local registry by `scorecard-kind-push` (CI adds the operator image).
+SCORECARD_PUSH_IMAGES ?= $(SCORECARD_KIND_SCORECARD_IMG) $(SCORECARD_KIND_BUNDLE_IMG)
+# Hostname the scorecard tests use to reach Cryostat; resolved in-cluster to the
+# ingress controller via a CoreDNS rewrite.
+SCORECARD_KIND_INGRESS_HOST ?= testing.cryostat
+INGRESS_NGINX_MANIFEST ?= https://raw.githubusercontent.com/kubernetes/ingress-nginx/main/deploy/static/provider/kind/deploy.yaml
+OLM_VERSION ?= 0.28.0
+# `docker push` treats localhost registries as insecure automatically; podman needs
+# an explicit flag to allow pushing to the plain-HTTP local registry. Keyed off the
+# image builder, which performs the push.
+ifeq ($(IMAGE_BUILDER),podman)
+SCORECARD_PUSH_FLAGS ?= --tls-verify=false
+else
+SCORECARD_PUSH_FLAGS ?=
+endif
+
 # Get the currently used golang install path (in GOPATH/bin, unless GOBIN is set)
 ifeq (,$(shell go env GOBIN))
 GOBIN=$(shell go env GOPATH)/bin
@@ -292,6 +337,83 @@ endef
 define scorecard-local
 	SCORECARD_NAMESPACE=$(SCORECARD_NAMESPACE) BUNDLE_DIR=./bundle go run internal/images/custom-scorecard-tests/main.go $${SCORECARD_TEST_SELECTION} | sed 's/\\n/\n/g' $(SCORECARD_TEE)
 endef
+
+.PHONY: test-scorecard-local-kind
+test-scorecard-local-kind: kustomize operator-sdk ## Run the scorecard suite on a dedicated local kind cluster, serving locally-built scorecard/bundle images from a local registry (no external registry needed). Supply OPERATOR_IMG and CORE_IMG for the operand images to validate.
+	$(MAKE) scorecard-kind-cluster
+	$(MAKE) scorecard-kind-registry
+	$(MAKE) scorecard-kind-prereqs
+	$(MAKE) scorecard-build CUSTOM_SCORECARD_IMG=$(SCORECARD_KIND_SCORECARD_IMG) PLATFORMS=linux/$(ARCH) MANIFEST_PUSH=false
+	$(MAKE) bundle bundle-build CUSTOM_SCORECARD_IMG=$(SCORECARD_KIND_SCORECARD_IMG) BUNDLE_IMG=$(SCORECARD_KIND_BUNDLE_IMG)
+	$(MAKE) scorecard-kind-push SCORECARD_PUSH_IMAGES="$(SCORECARD_KIND_SCORECARD_IMG) $(SCORECARD_KIND_BUNDLE_IMG)"
+	$(MAKE) test-scorecard \
+		BUNDLE_IMG=$(SCORECARD_KIND_BUNDLE_IMG) \
+		SCORECARD_BUNDLE=./bundle \
+		RUN_BUNDLE_EXTRA_ARGS="--use-http --skip-tls"
+
+.PHONY: clean-scorecard-local-kind
+clean-scorecard-local-kind: ## Delete the kind cluster and local registry created by test-scorecard-local-kind.
+	- $(KIND) delete cluster --name $(SCORECARD_KIND_CLUSTER)
+	- $(KIND_RUNTIME) rm -f $(SCORECARD_KIND_REGISTRY_NAME)
+
+.PHONY: scorecard-kind-cluster
+scorecard-kind-cluster: ## Create (or reuse) the dedicated kind cluster for scorecard testing and switch to its context.
+	@if $(KIND) get clusters 2>/dev/null | grep -qx "$(SCORECARD_KIND_CLUSTER)"; then \
+		echo "Reusing existing kind cluster '$(SCORECARD_KIND_CLUSTER)'"; \
+	else \
+		echo "Creating kind cluster '$(SCORECARD_KIND_CLUSTER)'"; \
+		$(KIND) create cluster --name $(SCORECARD_KIND_CLUSTER) --config $(SCORECARD_KIND_CONFIG); \
+	fi
+	$(CLUSTER_CLIENT) config use-context kind-$(SCORECARD_KIND_CLUSTER)
+
+.PHONY: scorecard-kind-registry
+scorecard-kind-registry: ## (Re)start the local registry on the kind network and point each node's containerd at it. Set SCORECARD_KIND_CLUSTER and KIND_RUNTIME to match the target cluster.
+	@$(KIND_RUNTIME) rm -f $(SCORECARD_KIND_REGISTRY_NAME) >/dev/null 2>&1 || true
+	$(KIND_RUNTIME) run -d --restart=always --network kind -p $(SCORECARD_KIND_REGISTRY_PORT):5000 --name $(SCORECARD_KIND_REGISTRY_NAME) $(SCORECARD_KIND_REGISTRY_IMAGE)
+	@for node in $$($(KIND) get nodes --name $(SCORECARD_KIND_CLUSTER)); do \
+		$(KIND_RUNTIME) exec "$$node" mkdir -p /etc/containerd/certs.d/$(SCORECARD_KIND_REGISTRY); \
+		printf '[host."http://%s:5000"]\n' "$(SCORECARD_KIND_REGISTRY_NAME)" | \
+			$(KIND_RUNTIME) exec -i "$$node" cp /dev/stdin /etc/containerd/certs.d/$(SCORECARD_KIND_REGISTRY)/hosts.toml; \
+	done
+
+.PHONY: scorecard-kind-push
+scorecard-kind-push: ## Push the locally-built scorecard images ($$SCORECARD_PUSH_IMAGES) to the local registry.
+	@for img in $(SCORECARD_PUSH_IMAGES); do \
+		echo "Pushing $$img"; \
+		$(IMAGE_BUILDER) push $(SCORECARD_PUSH_FLAGS) "$$img"; \
+	done
+
+.PHONY: scorecard-kind-prereqs
+scorecard-kind-prereqs: operator-sdk ## Install scorecard cluster prerequisites: OLM, cert-manager, ingress-nginx, and the CoreDNS rewrite.
+	@if $(OPERATOR_SDK) olm status >/dev/null 2>&1; then \
+		echo "OLM already installed"; \
+	else \
+		echo "Installing OLM $(OLM_VERSION)"; \
+		$(OPERATOR_SDK) olm install --version $(OLM_VERSION); \
+	fi
+	$(MAKE) cert_manager
+	$(CLUSTER_CLIENT) apply -f $(INGRESS_NGINX_MANIFEST)
+# Drop the controller's hostPort bindings. The scorecard tests reach the ingress via
+# its in-cluster ClusterIP (see scorecard-kind-coredns), so hostPort is unnecessary,
+# and its portmap CNI rules break kube-proxy service networking under rootless podman
+# (the controller then cannot reach the API and crash-loops).
+	-$(CLUSTER_CLIENT) patch deployment ingress-nginx-controller -n ingress-nginx --type=json \
+		-p '[{"op":"remove","path":"/spec/template/spec/containers/0/ports/0/hostPort"},{"op":"remove","path":"/spec/template/spec/containers/0/ports/1/hostPort"}]'
+	$(CLUSTER_CLIENT) rollout status -w deployment/ingress-nginx-controller -n ingress-nginx --timeout 5m
+	$(MAKE) scorecard-kind-coredns
+
+.PHONY: scorecard-kind-coredns
+scorecard-kind-coredns: ## Rewrite SCORECARD_KIND_INGRESS_HOST to the in-cluster ingress controller via CoreDNS so scorecard pods can reach Cryostat.
+	@if $(CLUSTER_CLIENT) get configmap coredns -n kube-system -o jsonpath='{.data.Corefile}' | grep -q "$(SCORECARD_KIND_INGRESS_HOST)"; then \
+		echo "CoreDNS already rewrites $(SCORECARD_KIND_INGRESS_HOST)"; \
+	else \
+		echo "Adding CoreDNS rewrite for $(SCORECARD_KIND_INGRESS_HOST)"; \
+		corefile=$$($(CLUSTER_CLIENT) get configmap coredns -n kube-system -o jsonpath='{.data.Corefile}' | \
+			sed '/\.:53 {/a\    rewrite name $(SCORECARD_KIND_INGRESS_HOST) ingress-nginx-controller.ingress-nginx.svc.cluster.local'); \
+		$(CLUSTER_CLIENT) create configmap coredns -n kube-system --from-literal=Corefile="$$corefile" --dry-run=client -o yaml | $(CLUSTER_CLIENT) apply -f -; \
+		$(CLUSTER_CLIENT) rollout restart deployment coredns -n kube-system; \
+		$(CLUSTER_CLIENT) rollout status -w deployment/coredns -n kube-system --timeout 2m; \
+	fi
 
 ##@ Build
 
