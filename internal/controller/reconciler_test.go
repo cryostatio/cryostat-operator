@@ -1437,7 +1437,7 @@ func (c *controllerTest) commonTests() {
 			})
 			It("should size the JFR cache from the volume size and default ratio", func() {
 				// floor(4096 MiB * 50 / 100) = 2048
-				t.expectCoreEnvVar("CRYOSTAT_JFR_ANALYSIS_CACHE_MAX_WEIGHT", "2048")
+				t.expectCoreCacheWeightEnvVar("2048")
 			})
 			It("should not set an ephemeral-storage limit when none is requested", func() {
 				t.expectCoreEphemeralStorageLimit(nil)
@@ -1452,7 +1452,7 @@ func (c *controllerTest) commonTests() {
 			})
 			It("should size the JFR cache using the custom percentage", func() {
 				// floor(4096 MiB * 25 / 100) = 1024
-				t.expectCoreEnvVar("CRYOSTAT_JFR_ANALYSIS_CACHE_MAX_WEIGHT", "1024")
+				t.expectCoreCacheWeightEnvVar("1024")
 			})
 		})
 		Context("with a scratch emptyDir configured", func() {
@@ -1473,7 +1473,7 @@ func (c *controllerTest) commonTests() {
 			})
 			It("should size the JFR cache from the EmptyDir size limit", func() {
 				// floor(2048 MiB * 50 / 100) = 1024
-				t.expectCoreEnvVar("CRYOSTAT_JFR_ANALYSIS_CACHE_MAX_WEIGHT", "1024")
+				t.expectCoreCacheWeightEnvVar("1024")
 			})
 		})
 		Context("with a scratch emptyDir explicitly disabled", func() {
@@ -1506,7 +1506,7 @@ func (c *controllerTest) commonTests() {
 			})
 			It("should size the JFR cache from the ephemeral-storage limit", func() {
 				// floor(6144 MiB * 50 / 100) = 3072
-				t.expectCoreEnvVar("CRYOSTAT_JFR_ANALYSIS_CACHE_MAX_WEIGHT", "3072")
+				t.expectCoreCacheWeightEnvVar("3072")
 			})
 		})
 		Context("with overridden image tags", func() {
@@ -4080,11 +4080,11 @@ func (t *cryostatTestInput) expectNoScratchVolume() {
 	}
 }
 
-func (t *cryostatTestInput) expectCoreEnvVar(name string, value string) {
+func (t *cryostatTestInput) expectCoreCacheWeightEnvVar(value string) {
 	deployment := t.getMainDeployment()
 	coreContainer := deployment.Spec.Template.Spec.Containers[0]
 	Expect(coreContainer.Env).To(ContainElement(corev1.EnvVar{
-		Name:  name,
+		Name:  "CRYOSTAT_JFR_ANALYSIS_CACHE_MAX_WEIGHT",
 		Value: value,
 	}))
 }
