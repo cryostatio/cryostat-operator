@@ -281,7 +281,7 @@ type StorageConfigurations struct {
 // VolumeClaimTemplate or EmptyDir should be specified; VolumeClaimTemplate is
 // preferred because a CSI-provisioned volume fails writes with ENOSPC when it
 // fills rather than causing the kubelet to evict the entire Pod.
-// +kubebuilder:validation:XValidation:rule="!(has(self.volumeClaimTemplate) && has(self.emptyDir) && self.emptyDir.enabled)",message="volumeClaimTemplate and an enabled emptyDir are mutually exclusive"
+// +kubebuilder:validation:XValidation:rule="!(has(self.volumeClaimTemplate) && has(self.emptyDir) && has(self.emptyDir.enabled) && self.emptyDir.enabled)",message="volumeClaimTemplate and an enabled emptyDir are mutually exclusive"
 // +kubebuilder:validation:XValidation:rule="!has(self.ephemeralStorageLimit) || !quantity(self.ephemeralStorageLimit).isLessThan(quantity('0'))",message="ephemeralStorageLimit must not be negative"
 type ScratchStorageConfiguration struct {
 	// Configuration for a generic ephemeral volume (a CSI-provisioned,

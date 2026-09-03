@@ -11987,7 +11987,7 @@ spec:
                     - message: volumeClaimTemplate and an enabled emptyDir are mutually
                         exclusive
                       rule: '!(has(self.volumeClaimTemplate) && has(self.emptyDir)
-                        && self.emptyDir.enabled)'
+                        && has(self.emptyDir.enabled) && self.emptyDir.enabled)'
                     - message: ephemeralStorageLimit must not be negative
                       rule: '!has(self.ephemeralStorageLimit) || !quantity(self.ephemeralStorageLimit).isLessThan(quantity(''0''))'
                 type: object
