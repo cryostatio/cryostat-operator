@@ -12002,7 +12002,7 @@ spec:
                       rule: '!(has(self.volumeClaimTemplate) && has(self.emptyDir)
                         && has(self.emptyDir.enabled) && self.emptyDir.enabled)'
                     - message: ephemeralStorageLimit must not be negative
-                      rule: '!has(self.ephemeralStorageLimit) || !quantity(self.ephemeralStorageLimit).isLessThan(quantity(''0''))'
+                      rule: '!has(self.ephemeralStorageLimit) || !quantity(string(self.ephemeralStorageLimit)).isLessThan(quantity(''0''))'
                 type: object
               targetConnectionCacheOptions:
                 description: Options to customize the target connections cache for
