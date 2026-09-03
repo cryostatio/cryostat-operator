@@ -759,6 +759,9 @@ func NewPodForCR(cr *model.CryostatInstance, specs *ServiceSpecs, imageTags *Ima
 		)
 	}
 
+	// Add the configured scratch volume backing the core container's /tmp, if any
+	volumes = append(volumes, newVolumeForScratch(cr)...)
+
 	var podSc *corev1.PodSecurityContext
 	if cr.Spec.SecurityOptions != nil && cr.Spec.SecurityOptions.PodSecurityContext != nil {
 		podSc = cr.Spec.SecurityOptions.PodSecurityContext
@@ -1419,6 +1422,17 @@ func NewCoreContainerResource(cr *model.CryostatInstance) *corev1.ResourceRequir
 	}
 	common.PopulateResourceRequest(resources, defaultCoreCpuRequest, defaultCoreMemoryRequest,
 		defaultCoreCpuLimit, defaultCoreMemoryLimit)
+
+	// Add the ephemeral-storage limit as a backstop for the core container's
+	// /tmp scratch space, if configured. This is applied after
+	// PopulateResourceRequest so it does not flip the "custom" flag and drop the
+	// default CPU/memory limits.
+	if scratch := getScratchConfig(cr); scratch != nil && scratch.EphemeralStorageLimit != nil {
+		if resources.Limits == nil {
+			resources.Limits = corev1.ResourceList{}
+		}
+		resources.Limits[corev1.ResourceEphemeralStorage] = *scratch.EphemeralStorageLimit
+	}
 	return resources
 }
 
@@ -1512,6 +1526,14 @@ func NewCoreContainer(cr *model.CryostatInstance, specs *ServiceSpecs, imageTag 
 			ReadOnly:  true,
 		}
 		mounts = append(mounts, tlsSecretMount)
+	}
+
+	// Mount the configured scratch volume over /tmp, if any
+	if scratchVolumeConfigured(cr) {
+		mounts = append(mounts, corev1.VolumeMount{
+			Name:      "tmp",
+			MountPath: "/tmp",
+		})
 	}
 
 	probeHandler := corev1.ProbeHandler{
@@ -1671,7 +1693,25 @@ func newEnvForCoreContainer(cr *model.CryostatInstance, specs *ServiceSpecs, tls
 		newK8SDiscoveryEnvForCoreContainer(cr),
 		newGrafanaEnvForCoreContainer(specs),
 		newAgentEnvForCoreContainer(cr),
+		newScratchEnvForCoreContainer(cr),
 	), nil
+}
+
+// newScratchEnvForCoreContainer sizes the JFR file-backed analysis on-disk JFR
+// cache to the configured scratch space, keeping the application's self-eviction
+// bound consistent with the space actually provisioned. When no scratch size is
+// available, the application's default cache size stands.
+func newScratchEnvForCoreContainer(cr *model.CryostatInstance) []corev1.EnvVar {
+	weight, ok := getScratchCacheMaxWeightMiB(getScratchConfig(cr))
+	if !ok {
+		return nil
+	}
+	return []corev1.EnvVar{
+		{
+			Name:  "CRYOSTAT_JFR_ANALYSIS_CACHE_MAX_WEIGHT",
+			Value: strconv.FormatInt(weight, 10),
+		},
+	}
 }
 
 func newDatabaseEnvForCoreContainer(cr *model.CryostatInstance, tls *TLSConfig) []corev1.EnvVar {
@@ -2615,6 +2655,122 @@ func newVolumeForStorage(cr *model.CryostatInstance) []corev1.Volume {
 			VolumeSource: volumeSource,
 		},
 	}
+}
+
+// defaultScratchCachePercentage is the percentage of the scratch volume
+// dedicated to the JFR file-backed analysis on-disk JFR cache when no
+// cachePercentage is configured.
+const defaultScratchCachePercentage = 50
+
+// bytesPerMiB is the number of bytes in one mebibyte.
+const bytesPerMiB = 1024 * 1024
+
+// getScratchConfig returns the scratch storage configuration, or nil if unset.
+func getScratchConfig(cr *model.CryostatInstance) *operatorv1beta2.ScratchStorageConfiguration {
+	if cr.Spec.StorageOptions == nil {
+		return nil
+	}
+	return cr.Spec.StorageOptions.Scratch
+}
+
+// scratchVolumeConfigured reports whether a volume should be mounted over the
+// core container's /tmp. This is only the case when a volume primitive (a
+// generic ephemeral volume or an EmptyDir) is configured; a scratch block that
+// only sets an ephemeral-storage limit does not mount a volume.
+func scratchVolumeConfigured(cr *model.CryostatInstance) bool {
+	scratch := getScratchConfig(cr)
+	if scratch == nil {
+		return false
+	}
+	return scratch.VolumeClaimTemplate != nil || scratch.EmptyDir != nil
+}
+
+// newVolumeForScratch returns the volume (if any) that backs the core
+// container's /tmp scratch space.
+func newVolumeForScratch(cr *model.CryostatInstance) []corev1.Volume {
+	scratch := getScratchConfig(cr)
+	if scratch == nil {
+		return nil
+	}
+
+	var volumeSource corev1.VolumeSource
+	switch {
+	case scratch.VolumeClaimTemplate != nil:
+		// Prefer a generic ephemeral volume: CSI-provisioned, Pod-scoped
+		volumeSource = corev1.VolumeSource{
+			Ephemeral: &corev1.EphemeralVolumeSource{
+				VolumeClaimTemplate: scratch.VolumeClaimTemplate,
+			},
+		}
+	case scratch.EmptyDir != nil:
+		var sizeLimit *resource.Quantity
+		if len(scratch.EmptyDir.SizeLimit) > 0 {
+			parsed, err := resource.ParseQuantity(scratch.EmptyDir.SizeLimit)
+			if err == nil {
+				sizeLimit = &parsed
+			}
+		}
+		volumeSource = corev1.VolumeSource{
+			EmptyDir: &corev1.EmptyDirVolumeSource{
+				Medium:    scratch.EmptyDir.Medium,
+				SizeLimit: sizeLimit,
+			},
+		}
+	default:
+		// Only an ephemeral-storage limit was configured; no volume to mount
+		return nil
+	}
+
+	return []corev1.Volume{
+		{
+			Name:         "tmp",
+			VolumeSource: volumeSource,
+		},
+	}
+}
+
+// getScratchVolumeSize returns the size the scratch space is bounded to, used to
+// derive the JFR cache cap. It prefers the size of a sized scratch volume (a
+// generic ephemeral volume's storage request or an EmptyDir's size limit), and
+// otherwise falls back to a configured ephemeral-storage limit. It returns false
+// if no size can be determined.
+func getScratchVolumeSize(scratch *operatorv1beta2.ScratchStorageConfiguration) (resource.Quantity, bool) {
+	if scratch == nil {
+		return resource.Quantity{}, false
+	}
+	if scratch.VolumeClaimTemplate != nil {
+		if size, ok := scratch.VolumeClaimTemplate.Spec.Resources.Requests[corev1.ResourceStorage]; ok && !size.IsZero() {
+			return size, true
+		}
+	}
+	if scratch.EmptyDir != nil && len(scratch.EmptyDir.SizeLimit) > 0 {
+		if size, err := resource.ParseQuantity(scratch.EmptyDir.SizeLimit); err == nil && !size.IsZero() {
+			return size, true
+		}
+	}
+	if scratch.EphemeralStorageLimit != nil && !scratch.EphemeralStorageLimit.IsZero() {
+		return *scratch.EphemeralStorageLimit, true
+	}
+	return resource.Quantity{}, false
+}
+
+// getScratchCacheMaxWeightMiB derives the value (in MiB) for the
+// CRYOSTAT_JFR_ANALYSIS_CACHE_MAX_WEIGHT environment variable from the scratch
+// configuration, computing floor(volumeSizeMiB * cachePercentage / 100). It
+// returns false if no scratch size is available to size the cache against, in
+// which case the application's default cache size should stand.
+func getScratchCacheMaxWeightMiB(scratch *operatorv1beta2.ScratchStorageConfiguration) (int64, bool) {
+	size, ok := getScratchVolumeSize(scratch)
+	if !ok {
+		return 0, false
+	}
+	percentage := int64(defaultScratchCachePercentage)
+	if scratch.CachePercentage != nil {
+		percentage = int64(*scratch.CachePercentage)
+	}
+	sizeMiB := size.Value() / bytesPerMiB
+	weight := sizeMiB * percentage / 100
+	return weight, true
 }
 
 func isBasicAuthEnabled(cr *model.CryostatInstance) bool {

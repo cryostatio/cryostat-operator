@@ -100,6 +100,68 @@ spec:
       sizeLimit: 1Gi
 ```
 
+#### Core Container Scratch Space
+The core Cryostat container uses `/tmp` as scratch space when materializing whole
+recording files on a local, seekable filesystem. This is required by several features:
+JFR file-backed analysis of archived recordings, local JFR file merging and splitting
+operations, and REST upload staging. By default `/tmp` is backed by the container
+runtime's ephemeral writable layer, which is bounded only by the node's available disk
+and, when exhausted, can cause the kubelet to evict the entire Cryostat Pod.
+
+Through the `spec.storageOptions.scratch` property, an administrator can relocate and
+bound this scratch space with a Kubernetes-managed volume mounted at `/tmp`. When this
+property is left unset, the default Kubernetes behavior (an unbounded, overlay-backed `/tmp`) is
+preserved.
+
+The preferred option is a generic ephemeral volume (`volumeClaimTemplate`), which is
+CSI-provisioned from a Storage Class and auto-created and auto-deleted with the Pod. A
+CSI-backed volume fails only the offending write with `ENOSPC` when it fills, rather than
+evicting the Pod.
+```yaml
+apiVersion: operator.cryostat.io/v1beta2
+kind: Cryostat
+metadata:
+  name: cryostat-sample
+spec:
+  storageOptions:
+    scratch:
+      volumeClaimTemplate:
+        spec:
+          accessModes:
+          - ReadWriteOnce
+          resources:
+            requests:
+              storage: 4Gi
+      cachePercentage: 50
+```
+An `emptyDir` is supported as a simpler fallback for clusters without dynamic
+provisioning. Note that exceeding an `emptyDir`'s `sizeLimit` causes the kubelet to evict
+the Pod.
+```yaml
+apiVersion: operator.cryostat.io/v1beta2
+kind: Cryostat
+metadata:
+  name: cryostat-sample
+spec:
+  storageOptions:
+    scratch:
+      emptyDir:
+        enabled: true
+        sizeLimit: 4Gi
+      cachePercentage: 50
+```
+The optional `cachePercentage` (defaults to `50`, valid range `1` to `99`) determines the
+percentage of the scratch volume dedicated to the JFR file-backed analysis on-disk JFR
+cache. The operator sizes the cache to `floor(volumeSize * cachePercentage / 100)`,
+leaving the remainder for local JFR file merging and splitting operations and upload
+staging. The largest single recording the JFR file-backed analysis features can process
+is `(cachePercentage / 100) * volumeSize`, so size the volume to at least the largest
+expected local JFR file merging and splitting operation.
+
+An optional `ephemeralStorageLimit` may be set as a backstop `ephemeral-storage` limit on
+the core container. It can be specified on its own (without a volume), in which case
+`cachePercentage` is applied against it instead of a volume size.
+
 ### Service Options
 The Cryostat operator creates two services: one for the core Cryostat application and (optionally) one for the cryostat-reports sidecars. These services are created by default as Cluster IP services. The core service exposes one ports `4180` for HTTP(S). The Reports service exposts port `10000` for HTTP(S) traffic. The service type, port numbers, labels and annotations can all be customized using the `spec.serviceOptions` property.
 ```yaml
