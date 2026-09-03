@@ -18,6 +18,23 @@ metadata:
             "reportOptions": {
               "replicas": 0
             },
+            "storageOptions": {
+              "scratch": {
+                "cachePercentage": 50,
+                "volumeClaimTemplate": {
+                  "spec": {
+                    "accessModes": [
+                      "ReadWriteOnce"
+                    ],
+                    "resources": {
+                      "requests": {
+                        "storage": "4Gi"
+                      }
+                    }
+                  }
+                }
+              }
+            },
             "trustedCertSecrets": []
           }
         }
@@ -25,7 +42,7 @@ metadata:
     capabilities: Seamless Upgrades
     categories: Monitoring, Developer Tools
     containerImage: quay.io/cryostat/cryostat-operator:4.3.0-dev
-    createdAt: "2026-05-06T17:30:58Z"
+    createdAt: "2026-09-03T16:10:24Z"
     description: JVM monitoring and profiling tool
     operatorframework.io/initialization-resource: |-
       {
@@ -699,7 +716,10 @@ spec:
               by the operator instead of a PVC.
             displayName: Empty Dir
             path: storageOptions.database.emptyDir
-          - description: When enabled, Cryostat will use EmptyDir volumes instead of a Persistent Volume Claim. Any PVC configurations will be ignored.
+          - description: |-
+              When enabled, an EmptyDir volume is created and used for this storage. Whether the EmptyDir
+              coexists with, replaces, or is mutually exclusive with any Persistent Volume Claim
+              configuration depends on the storage option this EmptyDir configures.
             displayName: Enabled
             path: storageOptions.database.emptyDir.enabled
             x-descriptors:
@@ -710,7 +730,7 @@ spec:
               "Memory" will mount the emptyDir on a tmpfs (RAM-backed filesystem).
             displayName: Medium
             path: storageOptions.database.emptyDir.medium
-          - description: The maximum memory limit for the emptyDir. Default is unbounded.
+          - description: The maximum capacity of the emptyDir. Default is unbounded.
             displayName: Size Limit
             path: storageOptions.database.emptyDir.sizeLimit
           - description: |-
@@ -742,7 +762,10 @@ spec:
               Deprecated: use storageOptions.database and storageOptions.objectStorage
             displayName: Empty Dir
             path: storageOptions.emptyDir
-          - description: When enabled, Cryostat will use EmptyDir volumes instead of a Persistent Volume Claim. Any PVC configurations will be ignored.
+          - description: |-
+              When enabled, an EmptyDir volume is created and used for this storage. Whether the EmptyDir
+              coexists with, replaces, or is mutually exclusive with any Persistent Volume Claim
+              configuration depends on the storage option this EmptyDir configures.
             displayName: Enabled
             path: storageOptions.emptyDir.enabled
             x-descriptors:
@@ -753,7 +776,7 @@ spec:
               "Memory" will mount the emptyDir on a tmpfs (RAM-backed filesystem).
             displayName: Medium
             path: storageOptions.emptyDir.medium
-          - description: The maximum memory limit for the emptyDir. Default is unbounded.
+          - description: The maximum capacity of the emptyDir. Default is unbounded.
             displayName: Size Limit
             path: storageOptions.emptyDir.sizeLimit
           - description: Configuration for the Persistent Volume Claim to be created by the operator for the object storage.
@@ -764,7 +787,10 @@ spec:
               by the operator instead of a PVC.
             displayName: Empty Dir
             path: storageOptions.objectStorage.emptyDir
-          - description: When enabled, Cryostat will use EmptyDir volumes instead of a Persistent Volume Claim. Any PVC configurations will be ignored.
+          - description: |-
+              When enabled, an EmptyDir volume is created and used for this storage. Whether the EmptyDir
+              coexists with, replaces, or is mutually exclusive with any Persistent Volume Claim
+              configuration depends on the storage option this EmptyDir configures.
             displayName: Enabled
             path: storageOptions.objectStorage.emptyDir.enabled
             x-descriptors:
@@ -775,7 +801,7 @@ spec:
               "Memory" will mount the emptyDir on a tmpfs (RAM-backed filesystem).
             displayName: Medium
             path: storageOptions.objectStorage.emptyDir.medium
-          - description: The maximum memory limit for the emptyDir. Default is unbounded.
+          - description: The maximum capacity of the emptyDir. Default is unbounded.
             displayName: Size Limit
             path: storageOptions.objectStorage.emptyDir.sizeLimit
           - description: |-
@@ -825,6 +851,79 @@ spec:
               no effect.
             displayName: Spec
             path: storageOptions.pvc.spec
+          - description: |-
+              Configuration for a Kubernetes-managed volume backing the core Cryostat
+              container's /tmp scratch space. Some Cryostat features (JFR file-backed
+              analysis of archived recordings, local JFR file merging and splitting
+              operations, and REST upload staging) materialize whole recording files
+              under /tmp on a seekable filesystem. When unset, /tmp is backed by the
+              container runtime's ephemeral writable layer, unbounded except by the
+              node's available disk. Configuring this relocates and bounds that scratch
+              space. This must be sized to at least the largest expected local JFR file
+              merging and splitting operation; note that the largest single recording the
+              JFR file-backed analysis features can process is
+              `(cachePercentage / 100) * volumeSize`.
+            displayName: Scratch
+            path: storageOptions.scratch
+          - description: |-
+              The percentage of the scratch volume dedicated to the JFR file-backed
+              analysis on-disk JFR cache. The operator derives the cache size cap from
+              this percentage and the configured volume size, leaving the remainder for
+              local JFR file merging and splitting operations and REST upload staging.
+              Defaults to `50`. The largest single recording the JFR file-backed analysis
+              features can process is `(cachePercentage / 100) * volumeSize`, so raise
+              this (or the volume size) to analyze larger recordings, and lower it to
+              leave more room for merging, splitting, and uploads.
+            displayName: Cache Percentage
+            path: storageOptions.scratch.cachePercentage
+            x-descriptors:
+              - urn:alm:descriptor:com.tectonic.ui:number
+          - description: |-
+              Configuration for an EmptyDir mounted at /tmp, as a simpler fallback for
+              clusters without dynamic provisioning. Note that exceeding an EmptyDir's
+              SizeLimit causes the kubelet to evict the Pod, unlike a CSI volume which
+              fails only the offending write.
+              This is optional and mutually exclusive with volumeClaimTemplate: configuring
+              both an enabled emptyDir and a volumeClaimTemplate is rejected. When neither
+              is set, /tmp falls back to the container runtime's overlay layer, bounded by
+              ephemeralStorageLimit if specified.
+            displayName: Empty Dir
+            path: storageOptions.scratch.emptyDir
+          - description: |-
+              When enabled, an EmptyDir volume is created and used for this storage. Whether the EmptyDir
+              coexists with, replaces, or is mutually exclusive with any Persistent Volume Claim
+              configuration depends on the storage option this EmptyDir configures.
+            displayName: Enabled
+            path: storageOptions.scratch.emptyDir.enabled
+            x-descriptors:
+              - urn:alm:descriptor:com.tectonic.ui:booleanSwitch
+          - description: |-
+              Unless specified, the emptyDir volume will be mounted on
+              the same storage medium backing the node. Setting this field to
+              "Memory" will mount the emptyDir on a tmpfs (RAM-backed filesystem).
+            displayName: Medium
+            path: storageOptions.scratch.emptyDir.medium
+          - description: The maximum capacity of the emptyDir. Default is unbounded.
+            displayName: Size Limit
+            path: storageOptions.scratch.emptyDir.sizeLimit
+          - description: |-
+              An optional ephemeral-storage limit to set on the core container as a
+              backstop for any writes that still reach the container runtime's overlay
+              layer. When no sized scratch volume is configured, this limit is also used
+              as the basis for the CachePercentage calculation. Leaving this unset
+              preserves the default behavior of no ephemeral-storage limit.
+            displayName: Ephemeral Storage Limit
+            path: storageOptions.scratch.ephemeralStorageLimit
+          - description: |-
+              Configuration for a generic ephemeral volume (a CSI-provisioned,
+              Pod-scoped Persistent Volume Claim) mounted at /tmp. This is the
+              preferred option: capacity is provisioned from a StorageClass rather than
+              the node's runtime overlay partition, and the volume is auto-created and
+              auto-deleted with the Pod.
+              This is optional and mutually exclusive with an enabled emptyDir:
+              configuring both is rejected.
+            displayName: Volume Claim Template
+            path: storageOptions.scratch.volumeClaimTemplate
           - description: Options to customize the target connections cache for the Cryostat application.
             displayName: Target Connection Cache Options
             path: targetConnectionCacheOptions
