@@ -10939,9 +10939,10 @@ spec:
                           by the operator instead of a PVC.
                         properties:
                           enabled:
-                            description: When enabled, Cryostat will use EmptyDir
-                              volumes instead of a Persistent Volume Claim. Any PVC
-                              configurations will be ignored.
+                            description: |-
+                              When enabled, an EmptyDir volume is created and used for this storage. Whether the EmptyDir
+                              coexists with, replaces, or is mutually exclusive with any Persistent Volume Claim
+                              configuration depends on the storage option this EmptyDir configures.
                             type: boolean
                           medium:
                             description: |-
@@ -11191,9 +11192,10 @@ spec:
                       Deprecated: use storageOptions.database and storageOptions.objectStorage
                     properties:
                       enabled:
-                        description: When enabled, Cryostat will use EmptyDir volumes
-                          instead of a Persistent Volume Claim. Any PVC configurations
-                          will be ignored.
+                        description: |-
+                          When enabled, an EmptyDir volume is created and used for this storage. Whether the EmptyDir
+                          coexists with, replaces, or is mutually exclusive with any Persistent Volume Claim
+                          configuration depends on the storage option this EmptyDir configures.
                         type: boolean
                       medium:
                         description: |-
@@ -11217,9 +11219,10 @@ spec:
                           by the operator instead of a PVC.
                         properties:
                           enabled:
-                            description: When enabled, Cryostat will use EmptyDir
-                              volumes instead of a Persistent Volume Claim. Any PVC
-                              configurations will be ignored.
+                            description: |-
+                              When enabled, an EmptyDir volume is created and used for this storage. Whether the EmptyDir
+                              coexists with, replaces, or is mutually exclusive with any Persistent Volume Claim
+                              configuration depends on the storage option this EmptyDir configures.
                             type: boolean
                           medium:
                             description: |-
@@ -11719,11 +11722,16 @@ spec:
                           clusters without dynamic provisioning. Note that exceeding an EmptyDir's
                           SizeLimit causes the kubelet to evict the Pod, unlike a CSI volume which
                           fails only the offending write.
+                          This is optional and mutually exclusive with volumeClaimTemplate: configuring
+                          both an enabled emptyDir and a volumeClaimTemplate is rejected. When neither
+                          is set, /tmp falls back to the container runtime's overlay layer, bounded by
+                          ephemeralStorageLimit if specified.
                         properties:
                           enabled:
-                            description: When enabled, Cryostat will use EmptyDir
-                              volumes instead of a Persistent Volume Claim. Any PVC
-                              configurations will be ignored.
+                            description: |-
+                              When enabled, an EmptyDir volume is created and used for this storage. Whether the EmptyDir
+                              coexists with, replaces, or is mutually exclusive with any Persistent Volume Claim
+                              configuration depends on the storage option this EmptyDir configures.
                             type: boolean
                           medium:
                             description: |-
@@ -11756,6 +11764,8 @@ spec:
                           preferred option: capacity is provisioned from a StorageClass rather than
                           the node's runtime overlay partition, and the volume is auto-created and
                           auto-deleted with the Pod.
+                          This is optional and mutually exclusive with an enabled emptyDir:
+                          configuring both is rejected.
                         properties:
                           metadata:
                             description: |-

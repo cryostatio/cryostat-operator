@@ -42,7 +42,7 @@ metadata:
     capabilities: Seamless Upgrades
     categories: Monitoring, Developer Tools
     containerImage: quay.io/cryostat/cryostat-operator:4.3.0-dev
-    createdAt: "2026-09-03T15:21:51Z"
+    createdAt: "2026-09-03T15:30:40Z"
     description: JVM monitoring and profiling tool
     operatorframework.io/initialization-resource: |-
       {
@@ -716,7 +716,10 @@ spec:
               by the operator instead of a PVC.
             displayName: Empty Dir
             path: storageOptions.database.emptyDir
-          - description: When enabled, Cryostat will use EmptyDir volumes instead of a Persistent Volume Claim. Any PVC configurations will be ignored.
+          - description: |-
+              When enabled, an EmptyDir volume is created and used for this storage. Whether the EmptyDir
+              coexists with, replaces, or is mutually exclusive with any Persistent Volume Claim
+              configuration depends on the storage option this EmptyDir configures.
             displayName: Enabled
             path: storageOptions.database.emptyDir.enabled
             x-descriptors:
@@ -759,7 +762,10 @@ spec:
               Deprecated: use storageOptions.database and storageOptions.objectStorage
             displayName: Empty Dir
             path: storageOptions.emptyDir
-          - description: When enabled, Cryostat will use EmptyDir volumes instead of a Persistent Volume Claim. Any PVC configurations will be ignored.
+          - description: |-
+              When enabled, an EmptyDir volume is created and used for this storage. Whether the EmptyDir
+              coexists with, replaces, or is mutually exclusive with any Persistent Volume Claim
+              configuration depends on the storage option this EmptyDir configures.
             displayName: Enabled
             path: storageOptions.emptyDir.enabled
             x-descriptors:
@@ -781,7 +787,10 @@ spec:
               by the operator instead of a PVC.
             displayName: Empty Dir
             path: storageOptions.objectStorage.emptyDir
-          - description: When enabled, Cryostat will use EmptyDir volumes instead of a Persistent Volume Claim. Any PVC configurations will be ignored.
+          - description: |-
+              When enabled, an EmptyDir volume is created and used for this storage. Whether the EmptyDir
+              coexists with, replaces, or is mutually exclusive with any Persistent Volume Claim
+              configuration depends on the storage option this EmptyDir configures.
             displayName: Enabled
             path: storageOptions.objectStorage.emptyDir.enabled
             x-descriptors:
@@ -874,9 +883,16 @@ spec:
               clusters without dynamic provisioning. Note that exceeding an EmptyDir's
               SizeLimit causes the kubelet to evict the Pod, unlike a CSI volume which
               fails only the offending write.
+              This is optional and mutually exclusive with volumeClaimTemplate: configuring
+              both an enabled emptyDir and a volumeClaimTemplate is rejected. When neither
+              is set, /tmp falls back to the container runtime's overlay layer, bounded by
+              ephemeralStorageLimit if specified.
             displayName: Empty Dir
             path: storageOptions.scratch.emptyDir
-          - description: When enabled, Cryostat will use EmptyDir volumes instead of a Persistent Volume Claim. Any PVC configurations will be ignored.
+          - description: |-
+              When enabled, an EmptyDir volume is created and used for this storage. Whether the EmptyDir
+              coexists with, replaces, or is mutually exclusive with any Persistent Volume Claim
+              configuration depends on the storage option this EmptyDir configures.
             displayName: Enabled
             path: storageOptions.scratch.emptyDir.enabled
             x-descriptors:
@@ -904,6 +920,8 @@ spec:
               preferred option: capacity is provisioned from a StorageClass rather than
               the node's runtime overlay partition, and the volume is auto-created and
               auto-deleted with the Pod.
+              This is optional and mutually exclusive with an enabled emptyDir:
+              configuring both is rejected.
             displayName: Volume Claim Template
             path: storageOptions.scratch.volumeClaimTemplate
           - description: Options to customize the target connections cache for the Cryostat application.
