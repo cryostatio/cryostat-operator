@@ -289,6 +289,8 @@ type ScratchStorageConfiguration struct {
 	// preferred option: capacity is provisioned from a StorageClass rather than
 	// the node's runtime overlay partition, and the volume is auto-created and
 	// auto-deleted with the Pod.
+	// This is optional and mutually exclusive with an enabled emptyDir:
+	// configuring both is rejected.
 	// +optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	VolumeClaimTemplate *corev1.PersistentVolumeClaimTemplate `json:"volumeClaimTemplate,omitempty"`
@@ -296,6 +298,10 @@ type ScratchStorageConfiguration struct {
 	// clusters without dynamic provisioning. Note that exceeding an EmptyDir's
 	// SizeLimit causes the kubelet to evict the Pod, unlike a CSI volume which
 	// fails only the offending write.
+	// This is optional and mutually exclusive with volumeClaimTemplate: configuring
+	// both an enabled emptyDir and a volumeClaimTemplate is rejected. When neither
+	// is set, /tmp falls back to the container runtime's overlay layer, bounded by
+	// ephemeralStorageLimit if specified.
 	// +optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	EmptyDir *EmptyDirConfig `json:"emptyDir,omitempty"`
@@ -598,7 +604,9 @@ type PersistentVolumeClaimConfig struct {
 // configure an EmptyDir to be created and managed
 // by the operator.
 type EmptyDirConfig struct {
-	// When enabled, Cryostat will use EmptyDir volumes instead of a Persistent Volume Claim. Any PVC configurations will be ignored.
+	// When enabled, an EmptyDir volume is created and used for this storage. Whether the EmptyDir
+	// coexists with, replaces, or is mutually exclusive with any Persistent Volume Claim
+	// configuration depends on the storage option this EmptyDir configures.
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:com.tectonic.ui:booleanSwitch"}
 	Enabled bool `json:"enabled,omitempty"`
 	// Unless specified, the emptyDir volume will be mounted on
