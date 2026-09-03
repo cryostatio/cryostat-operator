@@ -26,6 +26,27 @@
     "dependencyDashboardApproval": true
   },
   "stopUpdatingLabel": "blocked",
+  "customManagers": [
+    {
+      "customType": "regex",
+      "managerFilePatterns": ["/\\.github/workflows/lint\\.yml$/"],
+      "matchStrings": [
+        "version: (?<currentValue>v\\S+)"
+      ],
+      "datasourceTemplate": "github-releases",
+      "depNameTemplate": "golangci/golangci-lint"
+    },
+    {
+      "customType": "regex",
+      "managerFilePatterns": ["/^Makefile$/"],
+      "matchStrings": [
+        "GOLANGCI_LINT_VERSION \\?= (?<currentValue>\\S+)"
+      ],
+      "datasourceTemplate": "github-releases",
+      "depNameTemplate": "golangci/golangci-lint",
+      "extractVersionTemplate": "^v?(?<version>.*)$"
+    }
+  ],
   "packageRules": [
     {
       "description": "Allow floating tags and disable digest pinning in kustomization image patches",

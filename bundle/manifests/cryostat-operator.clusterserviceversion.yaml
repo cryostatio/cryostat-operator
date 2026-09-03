@@ -25,7 +25,7 @@ metadata:
     capabilities: Seamless Upgrades
     categories: Monitoring, Developer Tools
     containerImage: quay.io/cryostat/cryostat-operator:4.3.0-dev
-    createdAt: "2026-05-06T17:30:58Z"
+    createdAt: "2026-08-20T14:25:57Z"
     description: JVM monitoring and profiling tool
     operatorframework.io/initialization-resource: |-
       {
@@ -137,6 +137,9 @@ spec:
               Reference to a secret and file name containing the Basic authentication htpasswd file. If deploying on OpenShift this
               defines additional user accounts that can access the Cryostat application, on top of the OpenShift user accounts which
               pass the OpenShift SSO Roles checks. If not on OpenShift then this defines the only user accounts that have access.
+              Note: When BasicAuth is enabled on OpenShift, initial application entry remains governed by the authorization proxy's
+              access review (or htpasswd validation), but fine-grained in-application RBAC checks are disabled and access within
+              Cryostat becomes all-or-nothing for all authenticated users.
             displayName: Basic Auth
             path: authorizationOptions.basicAuth
             x-descriptors:
@@ -151,13 +154,25 @@ spec:
             path: authorizationOptions.basicAuth.secretName
             x-descriptors:
               - urn:alm:descriptor:io.kubernetes:Secret
+          - description: |-
+              When true (default), Kubernetes access reviews performed by Cryostat in OpenShift RBAC mode are
+              scoped to the Cryostat CR's installation namespace, so users need only a Role and RoleBinding in
+              that namespace. When false, access reviews are cluster-scoped and users must have a ClusterRole
+              and ClusterRoleBinding.
+            displayName: Namespaced RBAC Permissions
+            path: authorizationOptions.namespacedRBACPermissions
+            x-descriptors:
+              - urn:alm:descriptor:com.tectonic.ui:booleanSwitch
           - description: Configuration for OpenShift RBAC to define which OpenShift user accounts may access the Cryostat application.
             displayName: OpenShift SSO
             path: authorizationOptions.openShiftSSO
           - description: |-
               The SubjectAccessReview or TokenAccessReview that all clients (users visiting the application via web browser as well
               as CLI utilities and other programs presenting Bearer auth tokens) must pass in order to access the application.
-              If not specified, the default role required is "create pods/exec" in the Cryostat application's installation namespace.
+              If not specified, the default role required is "get pods" in the Cryostat application's installation namespace.
+              Cryostat applies further RBAC restrictions to specific API requests according to the resources affected by the
+              request endpoint, so users and clients must possess appropriate roles for those requests in addition to the basic
+              general access role specified here.
             displayName: Access Review
             path: authorizationOptions.openShiftSSO.accessReview
           - description: |-
@@ -167,6 +182,88 @@ spec:
             path: authorizationOptions.openShiftSSO.disable
             x-descriptors:
               - urn:alm:descriptor:com.tectonic.ui:booleanSwitch
+          - description: Tuning options for the in-application RBAC permission caches (OpenShift RBAC mode only).
+            displayName: RBAC Cache Options
+            path: authorizationOptions.rbacCacheOptions
+            x-descriptors:
+              - urn:alm:descriptor:com.tectonic.ui:advanced
+          - description: |-
+              Idle TTL for the per-user Kubernetes client cache, expressed as a Go duration string (e.g. "5m", "30s").
+              A client that has not been accessed for this long is closed and evicted. Set to "0s" to disable
+              the client cache entirely. When omitted the application default (5 minutes) is used.
+            displayName: Client Cache Expire-After-Access
+            path: authorizationOptions.rbacCacheOptions.clientCacheExpireAfterAccess
+            x-descriptors:
+              - urn:alm:descriptor:com.tectonic.ui:text
+          - description: |-
+              Maximum number of per-user Kubernetes client instances to hold in cache. Set to "0" to disable
+              the client cache entirely. When omitted the application default (1000) is used.
+            displayName: Client Cache Maximum Size
+            path: authorizationOptions.rbacCacheOptions.clientCacheMaximumSize
+            x-descriptors:
+              - urn:alm:descriptor:com.tectonic.ui:number
+          - description: |-
+              Maximum number of SSAR decisions to hold in cache. Set to "0" to disable the decision cache
+              entirely. When omitted the application default (10000) is used.
+            displayName: Decision Cache Maximum Size
+            path: authorizationOptions.rbacCacheOptions.decisionCacheMaximumSize
+            x-descriptors:
+              - urn:alm:descriptor:com.tectonic.ui:number
+          - description: |-
+              Write TTL for cached SelfSubjectAccessReview (SSAR) decisions, expressed as a Go duration string
+              (e.g. "1m", "30s"). Reads do not reset the timer. Set to "0s" to disable the decision cache and
+              always issue a fresh SSAR. When omitted the application default (1 minute) is used.
+            displayName: Decision Cache TTL
+            path: authorizationOptions.rbacCacheOptions.decisionCacheTTL
+            x-descriptors:
+              - urn:alm:descriptor:com.tectonic.ui:text
+          - description: |-
+              Default fallback Kubernetes resource/verb pairs used when a specific permission key is absent
+              from RBACPermissions. Applied in OpenShift RBAC mode only.
+            displayName: RBAC Default Permissions
+            path: authorizationOptions.rbacDefaultPermissions
+          - description: |-
+              Fallback Kubernetes resource/verb applied to all Cryostat "*:delete" permission checks that
+              have no explicit entry in RBACPermissions. Uses the form "resource[/subresource]:verb"
+              (e.g. "pods:delete"). When omitted the application default is used.
+            displayName: Default Delete Permission
+            path: authorizationOptions.rbacDefaultPermissions.defaultDeletePermission
+            x-descriptors:
+              - urn:alm:descriptor:com.tectonic.ui:text
+          - description: |-
+              Global catch-all Kubernetes resource/verb applied when a permission check has no explicit
+              entry in RBACPermissions and no matching verb-level default above. Uses the form
+              "resource[/subresource]:verb" (e.g. "pods/exec:create"). When omitted the application
+              default is used.
+            displayName: Default Permission (Catch-All)
+            path: authorizationOptions.rbacDefaultPermissions.defaultPermission
+            x-descriptors:
+              - urn:alm:descriptor:com.tectonic.ui:text
+          - description: |-
+              Fallback Kubernetes resource/verb applied to all Cryostat "*:read" permission checks that
+              have no explicit entry in RBACPermissions. Uses the form "resource[/subresource]:verb"
+              (e.g. "pods:get"). When omitted the application default is used.
+            displayName: Default Read Permission
+            path: authorizationOptions.rbacDefaultPermissions.defaultReadPermission
+            x-descriptors:
+              - urn:alm:descriptor:com.tectonic.ui:text
+          - description: |-
+              Fallback Kubernetes resource/verb applied to all Cryostat "*:write" permission checks that
+              have no explicit entry in RBACPermissions. Uses the form "resource[/subresource]:verb"
+              (e.g. "pods/exec:create"). When omitted the application default is used.
+            displayName: Default Write Permission
+            path: authorizationOptions.rbacDefaultPermissions.defaultWritePermission
+            x-descriptors:
+              - urn:alm:descriptor:com.tectonic.ui:text
+          - description: |-
+              Per-permission mapping from Cryostat permission names to Kubernetes resource/verb pairs checked via
+              SelfSubjectAccessReview. Evaluated when running on OpenShift with OpenShift SSO enabled and Basic authentication disabled.
+              When Basic authentication is enabled, fine-grained in-application RBAC checks are bypassed.
+              Keys use the form "<resourcetype>:<verb>" (e.g. "activerecordings:read").
+              Values use the form "resource[/subresource]:verb" (e.g. "pods/exec:create", "deployments:get").
+              When a key is absent the Cryostat application falls back to its default.
+            displayName: RBAC Permission Mapping
+            path: authorizationOptions.rbacPermissions
           - description: List of Automated Rule Json Files to preconfigure in Cryostat.
             displayName: Automated Rules
             path: automatedRules

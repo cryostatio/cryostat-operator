@@ -452,6 +452,7 @@ func NewPodForCR(cr *model.CryostatInstance, specs *ServiceSpecs, imageTags *Ima
 		NewJfrDatasourceContainer(cr, imageTags.DatasourceImageTag, specs, tls),
 		*authProxy,
 		newAgentProxyContainer(cr, imageTags.AgentProxyImageTag, tls),
+		newAuthStripProxyContainer(cr, imageTags.AgentProxyImageTag),
 	}
 
 	volumes := []corev1.Volume{}
@@ -642,7 +643,19 @@ func NewPodForCR(cr *model.CryostatInstance, specs *ServiceSpecs, imageTags *Ima
 		},
 	}
 
-	volumes = append(volumes, certVolume, agentProxyVolume)
+	authStripProxyVolume := corev1.Volume{
+		Name: "auth-strip-proxy-config",
+		VolumeSource: corev1.VolumeSource{
+			ConfigMap: &corev1.ConfigMapVolumeSource{
+				LocalObjectReference: corev1.LocalObjectReference{
+					Name: cr.Name + "-auth-strip-proxy",
+				},
+				DefaultMode: &readOnlyMode,
+			},
+		},
+	}
+
+	volumes = append(volumes, certVolume, agentProxyVolume, authStripProxyVolume)
 
 	if !openshift {
 		// if not deploying openshift oauth-proxy then we must be deploying oauth2_proxy instead
@@ -1172,11 +1185,12 @@ func NewOpenShiftAuthProxyContainer(cr *model.CryostatInstance, specs *ServiceSp
 		}
 	}
 
+	passTokens := !isOpenShiftAuthProxyDisabled(cr) && !isBasicAuthEnabled(cr)
 	args := []string{
-		"--pass-access-token=false",
-		"--pass-user-bearer-token=false",
+		fmt.Sprintf("--pass-access-token=%t", passTokens),
+		fmt.Sprintf("--pass-user-bearer-token=%t", passTokens),
 		"--pass-basic-auth=false",
-		fmt.Sprintf("--upstream=http://localhost:%d/", constants.CryostatHTTPContainerPort),
+		fmt.Sprintf("--upstream=http://localhost:%d/", constants.AuthStripProxyPort),
 		fmt.Sprintf("--upstream=http://localhost:%d/grafana/", constants.GrafanaContainerPort),
 		fmt.Sprintf("--openshift-service-account=%s", cr.Name),
 		"--proxy-websockets=true",
@@ -1292,11 +1306,11 @@ func getOpenShiftAccessReview(cr *model.CryostatInstance) authzv1.ResourceAttrib
 func getDefaultOpenShiftAccessRole(cr *model.CryostatInstance) authzv1.ResourceAttributes {
 	return authzv1.ResourceAttributes{
 		Namespace:   cr.InstallNamespace,
-		Verb:        "create",
+		Verb:        "get",
 		Group:       "",
 		Version:     "",
 		Resource:    "pods",
-		Subresource: "exec",
+		Subresource: "",
 		Name:        "",
 	}
 }
@@ -1537,7 +1551,7 @@ func NewCoreContainer(cr *model.CryostatInstance, specs *ServiceSpecs, imageTag 
 		}
 	}
 
-	envs, err := newEnvForCoreContainer(cr, specs, tls)
+	envs, err := newEnvForCoreContainer(cr, specs, tls, openshift)
 	if err != nil {
 		return nil, err
 	}
@@ -1566,7 +1580,7 @@ func NewCoreContainer(cr *model.CryostatInstance, specs *ServiceSpecs, imageTag 
 	}, nil
 }
 
-func newEnvForCoreContainer(cr *model.CryostatInstance, specs *ServiceSpecs, tls *TLSConfig) ([]corev1.EnvVar, error) {
+func newEnvForCoreContainer(cr *model.CryostatInstance, specs *ServiceSpecs, tls *TLSConfig, openshift bool) ([]corev1.EnvVar, error) {
 	// Default log level to INFO if not specified
 	logLevel := "INFO"
 	if cr.Spec.LoggingOptions != nil && cr.Spec.LoggingOptions.CoreLogLevel != nil {
@@ -1637,6 +1651,66 @@ func newEnvForCoreContainer(cr *model.CryostatInstance, specs *ServiceSpecs, tls
 			Value: "static",
 		},
 	}
+
+	loopbackHosts := "localhost,127.0.0.1"
+	envs = append(envs, corev1.EnvVar{
+		Name:  "QUARKUS_HTTP_PROXY_TRUSTED_PROXIES",
+		Value: loopbackHosts,
+	})
+
+	if openshift && !isOpenShiftAuthProxyDisabled(cr) && !isBasicAuthEnabled(cr) {
+		envs = append(envs, corev1.EnvVar{
+			Name:  "CRYOSTAT_SECURITY_RBAC_MODE",
+			Value: "OPENSHIFT",
+		})
+	} else if isBasicAuthEnabled(cr) {
+		envs = append(envs, corev1.EnvVar{
+			Name:  "CRYOSTAT_SECURITY_RBAC_MODE",
+			Value: "BASIC",
+		})
+	}
+
+	if tls != nil {
+		envs = append(envs, corev1.EnvVar{
+			Name:  "CRYOSTAT_HTTP_PROXY_MTLS_TRUSTED_HOSTS",
+			Value: loopbackHosts,
+		})
+	}
+
+	namespacedRBAC := cr.Spec.AuthorizationOptions == nil ||
+		cr.Spec.AuthorizationOptions.NamespacedRBACPermissions == nil ||
+		*cr.Spec.AuthorizationOptions.NamespacedRBACPermissions
+	if namespacedRBAC {
+		envs = append(envs, corev1.EnvVar{
+			Name:  "CRYOSTAT_SECURITY_RBAC_NAMESPACE",
+			Value: cr.InstallNamespace,
+		})
+	}
+
+	if cr.Spec.AuthorizationOptions != nil {
+		// Sort keys for deterministic env var ordering; non-deterministic order
+		// causes spurious Deployment updates on every reconcile loop.
+		permKeys := make([]string, 0, len(cr.Spec.AuthorizationOptions.RBACPermissions))
+		for k := range cr.Spec.AuthorizationOptions.RBACPermissions {
+			permKeys = append(permKeys, k)
+		}
+		slices.Sort(permKeys)
+		seenEnvKeys := make(map[string]string, len(permKeys))
+		for _, k := range permKeys {
+			// SmallRye Config env var mapping for a quoted property segment "a:b":
+			// cryostat.security.rbac.permissions."a:b" -> CRYOSTAT_SECURITY_RBAC_PERMISSIONS__A_B_
+			envKey := strings.NewReplacer(":", "_", "-", "_").Replace(strings.ToUpper(k))
+			if prior, ok := seenEnvKeys[envKey]; ok {
+				return nil, fmt.Errorf("rbacPermissions keys %q and %q both map to the same environment variable name %q", prior, k, envKey)
+			}
+			seenEnvKeys[envKey] = k
+			envs = append(envs, corev1.EnvVar{
+				Name:  "CRYOSTAT_SECURITY_RBAC_PERMISSIONS__" + envKey + "_",
+				Value: cr.Spec.AuthorizationOptions.RBACPermissions[k],
+			})
+		}
+	}
+
 	if cr.Spec.EnableAudit != nil {
 		envs = append(envs, corev1.EnvVar{
 			Name:  "CRYOSTAT_AUDIT_ENABLED",
@@ -1668,6 +1742,8 @@ func newEnvForCoreContainer(cr *model.CryostatInstance, specs *ServiceSpecs, tls
 		newReportsEnvForCoreContainer(specs),
 		newInsightsEnvForCoreContainer(specs),
 		newTargetConnectionCacheEnvForCoreContainer(cr),
+		newRBACDefaultPermissionsEnvForCoreContainer(cr),
+		newRBACCacheEnvForCoreContainer(cr),
 		newK8SDiscoveryEnvForCoreContainer(cr),
 		newGrafanaEnvForCoreContainer(specs),
 		newAgentEnvForCoreContainer(cr),
@@ -1906,6 +1982,72 @@ func newInsightsEnvForCoreContainer(specs *ServiceSpecs) []corev1.EnvVar {
 			},
 		}
 		envs = append(envs, insightsEnvs...)
+	}
+	return envs
+}
+
+func newRBACDefaultPermissionsEnvForCoreContainer(cr *model.CryostatInstance) []corev1.EnvVar {
+	if cr.Spec.AuthorizationOptions == nil || cr.Spec.AuthorizationOptions.RBACDefaultPermissions == nil {
+		return nil
+	}
+	defaults := cr.Spec.AuthorizationOptions.RBACDefaultPermissions
+	var envs []corev1.EnvVar
+	if defaults.DefaultReadPermission != nil {
+		envs = append(envs, corev1.EnvVar{
+			Name:  "CRYOSTAT_SECURITY_RBAC_DEFAULT_READ_PERMISSION",
+			Value: *defaults.DefaultReadPermission,
+		})
+	}
+	if defaults.DefaultWritePermission != nil {
+		envs = append(envs, corev1.EnvVar{
+			Name:  "CRYOSTAT_SECURITY_RBAC_DEFAULT_WRITE_PERMISSION",
+			Value: *defaults.DefaultWritePermission,
+		})
+	}
+	if defaults.DefaultDeletePermission != nil {
+		envs = append(envs, corev1.EnvVar{
+			Name:  "CRYOSTAT_SECURITY_RBAC_DEFAULT_DELETE_PERMISSION",
+			Value: *defaults.DefaultDeletePermission,
+		})
+	}
+	if defaults.DefaultPermission != nil {
+		envs = append(envs, corev1.EnvVar{
+			Name:  "CRYOSTAT_SECURITY_RBAC_DEFAULT_PERMISSION",
+			Value: *defaults.DefaultPermission,
+		})
+	}
+	return envs
+}
+
+func newRBACCacheEnvForCoreContainer(cr *model.CryostatInstance) []corev1.EnvVar {
+	if cr.Spec.AuthorizationOptions == nil || cr.Spec.AuthorizationOptions.RBACCacheOptions == nil {
+		return nil
+	}
+	opts := cr.Spec.AuthorizationOptions.RBACCacheOptions
+	var envs []corev1.EnvVar
+	if opts.ClientCacheExpireAfterAccess != nil {
+		envs = append(envs, corev1.EnvVar{
+			Name:  "CRYOSTAT_SECURITY_RBAC_CACHE_EXPIRE_AFTER_ACCESS",
+			Value: *opts.ClientCacheExpireAfterAccess,
+		})
+	}
+	if opts.ClientCacheMaximumSize != nil {
+		envs = append(envs, corev1.EnvVar{
+			Name:  "CRYOSTAT_SECURITY_RBAC_CACHE_MAXIMUM_SIZE",
+			Value: strconv.FormatInt(*opts.ClientCacheMaximumSize, 10),
+		})
+	}
+	if opts.DecisionCacheTTL != nil {
+		envs = append(envs, corev1.EnvVar{
+			Name:  "CRYOSTAT_SECURITY_RBAC_DECISION_CACHE_TTL",
+			Value: *opts.DecisionCacheTTL,
+		})
+	}
+	if opts.DecisionCacheMaximumSize != nil {
+		envs = append(envs, corev1.EnvVar{
+			Name:  "CRYOSTAT_SECURITY_RBAC_DECISION_CACHE_MAXIMUM_SIZE",
+			Value: strconv.FormatInt(*opts.DecisionCacheMaximumSize, 10),
+		})
 	}
 	return envs
 }
@@ -2531,6 +2673,48 @@ func newAgentProxyContainerResource(cr *model.CryostatInstance) *corev1.Resource
 	common.PopulateResourceRequest(resources, defaultAgentProxyCpuRequest, defaultAgentProxyMemoryRequest,
 		defaultAgentProxyCpuLimit, defaultAgentProxyMemoryLimit)
 	return resources
+}
+
+func newAuthStripProxyContainer(cr *model.CryostatInstance, imageTag string) corev1.Container {
+	privEscalation := false
+	return corev1.Container{
+		Name:            cr.Name + "-auth-strip-proxy",
+		Image:           imageTag,
+		ImagePullPolicy: common.GetPullPolicy(imageTag),
+		Ports: []corev1.ContainerPort{
+			{
+				ContainerPort: constants.AuthStripProxyPort,
+			},
+		},
+		Command: []string{
+			"nginx",
+			"-c", path.Join(constants.AuthStripProxyConfigPath, constants.AuthStripProxyConfigFile),
+			"-g", "daemon off;",
+		},
+		LivenessProbe: &corev1.Probe{
+			ProbeHandler: corev1.ProbeHandler{
+				HTTPGet: &corev1.HTTPGetAction{
+					Path:   "/healthz",
+					Port:   intstr.FromInt32(constants.AuthStripProxyPort),
+					Scheme: corev1.URISchemeHTTP,
+				},
+			},
+		},
+		SecurityContext: &corev1.SecurityContext{
+			AllowPrivilegeEscalation: &privEscalation,
+			Capabilities: &corev1.Capabilities{
+				Drop: []corev1.Capability{constants.CapabilityAll},
+			},
+		},
+		Resources: *newAgentProxyContainerResource(cr),
+		VolumeMounts: []corev1.VolumeMount{
+			{
+				Name:      "auth-strip-proxy-config",
+				MountPath: constants.AuthStripProxyConfigPath,
+				ReadOnly:  true,
+			},
+		},
+	}
 }
 
 func getInternalDashboardURL() string {

@@ -49,11 +49,19 @@ func (r *Reconciler) reconcileRBAC(ctx context.Context, cr *model.CryostatInstan
 	if err != nil {
 		return err
 	}
+	err = r.reconcileAuthDelegatorClusterRoleBinding(ctx, cr)
+	if err != nil {
+		return err
+	}
 	return nil
 }
 
 func (r *Reconciler) finalizeRBAC(ctx context.Context, cr *model.CryostatInstance) error {
 	err := r.deleteClusterRoleBinding(ctx, r.newClusterRoleBinding(cr))
+	if err != nil {
+		return err
+	}
+	err = r.deleteClusterRoleBinding(ctx, r.newAuthDelegatorClusterRoleBinding(cr))
 	if err != nil {
 		return err
 	}
@@ -196,6 +204,53 @@ func (r *Reconciler) reconcileClusterRoleBinding(ctx context.Context, cr *model.
 	}
 
 	return r.createOrUpdateClusterRoleBinding(ctx, binding, cr.Object, subjects, roleRef)
+}
+
+func (r *Reconciler) newAuthDelegatorClusterRoleBinding(cr *model.CryostatInstance) *rbacv1.ClusterRoleBinding {
+	return &rbacv1.ClusterRoleBinding{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: common.ClusterUniqueNameWithPrefix(r.gvk, "auth-delegator", cr.Name, cr.InstallNamespace),
+		},
+	}
+}
+
+func (r *Reconciler) reconcileAuthDelegatorClusterRoleBinding(ctx context.Context, cr *model.CryostatInstance) error {
+	binding := r.newAuthDelegatorClusterRoleBinding(cr)
+
+	if !r.IsOpenShift || isOpenShiftSSODisabled(cr) || isBasicAuthEnabled(cr) {
+		return r.deleteClusterRoleBinding(ctx, binding)
+	}
+
+	sa := newServiceAccount(cr)
+	subjects := []rbacv1.Subject{
+		{
+			Kind:      rbacv1.ServiceAccountKind,
+			Name:      sa.Name,
+			Namespace: sa.Namespace,
+		},
+	}
+
+	roleRef := &rbacv1.RoleRef{
+		APIGroup: "rbac.authorization.k8s.io",
+		Kind:     "ClusterRole",
+		Name:     "system:auth-delegator",
+	}
+
+	return r.createOrUpdateClusterRoleBinding(ctx, binding, cr.Object, subjects, roleRef)
+}
+
+func isOpenShiftSSODisabled(cr *model.CryostatInstance) bool {
+	return cr.Spec.AuthorizationOptions != nil &&
+		cr.Spec.AuthorizationOptions.OpenShiftSSO != nil &&
+		cr.Spec.AuthorizationOptions.OpenShiftSSO.Disable != nil &&
+		*cr.Spec.AuthorizationOptions.OpenShiftSSO.Disable
+}
+
+func isBasicAuthEnabled(cr *model.CryostatInstance) bool {
+	return cr.Spec.AuthorizationOptions != nil &&
+		cr.Spec.AuthorizationOptions.BasicAuth != nil &&
+		cr.Spec.AuthorizationOptions.BasicAuth.SecretName != nil &&
+		cr.Spec.AuthorizationOptions.BasicAuth.Filename != nil
 }
 
 func (r *Reconciler) createOrUpdateServiceAccount(ctx context.Context, sa *corev1.ServiceAccount,
