@@ -15,6 +15,7 @@
 package main
 
 import (
+	"context"
 	"crypto/tls"
 	"flag"
 	"fmt"
@@ -33,12 +34,14 @@ import (
 	consolev1 "github.com/openshift/api/console/v1"
 	openshiftoperatorv1 "github.com/openshift/api/operator/v1"
 	routev1 "github.com/openshift/api/route/v1"
+	tlspkg "github.com/openshift/controller-runtime-common/pkg/tls"
 
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/certwatcher"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 	"sigs.k8s.io/controller-runtime/pkg/metrics/filters"
@@ -120,6 +123,49 @@ func main() {
 	flag.Parse()
 
 	ctrl.SetLogger(zap.New(zap.UseFlagOptions(&opts)))
+
+	// Get rest config early so we can detect the platform before creating the manager
+	restConfig := ctrl.GetConfigOrDie()
+
+	// Create discovery client for platform detection
+	dc, err := discovery.NewDiscoveryClientForConfig(restConfig)
+	if err != nil {
+		setupLog.Error(err, "failed to create discovery client")
+		os.Exit(1)
+	}
+
+	openShift, err := isOpenShift(dc, forceOpenShift)
+	if err != nil {
+		setupLog.Error(err, "could not determine whether manager is running on OpenShift")
+		os.Exit(1)
+	}
+	environment := "Kubernetes"
+	if openShift {
+		environment = "OpenShift"
+	}
+	setupLog.Info(fmt.Sprintf("detected %s environment", environment))
+
+	// On OpenShift, fetch the cluster TLS profile and apply to operator servers
+	var initialTLSProfile *configv1.TLSProfileSpec
+	if openShift {
+		ctx := context.Background()
+		cl, err := client.New(restConfig, client.Options{Scheme: scheme})
+		if err != nil {
+			setupLog.Error(err, "failed to create bootstrap client for TLS profile")
+			os.Exit(1)
+		}
+		profile, err := tlspkg.FetchAPIServerTLSProfile(ctx, cl)
+		if err != nil {
+			setupLog.Error(err, "failed to fetch API Server TLS profile")
+			os.Exit(1)
+		}
+		initialTLSProfile = &profile
+		tlsConfigFn, unsupported := tlspkg.NewTLSConfigFromProfile(profile)
+		if len(unsupported) > 0 {
+			setupLog.Info("TLS profile contains ciphers unsupported by Go that will be ignored", "unsupported", unsupported)
+		}
+		tlsOpts = append([]func(*tls.Config){tlsConfigFn}, tlsOpts...)
+	}
 
 	// if the enable-http2 flag is false (the default), http/2 should be disabled
 	// due to its vulnerabilities. More specifically, disabling http/2 will
@@ -205,7 +251,7 @@ func main() {
 		})
 	}
 
-	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
+	mgr, err := ctrl.NewManager(restConfig, ctrl.Options{
 		Scheme:                 scheme,
 		Metrics:                metricsServerOptions,
 		WebhookServer:          webhookServer,
@@ -228,24 +274,6 @@ func main() {
 		setupLog.Error(err, "unable to start manager")
 		os.Exit(1)
 	}
-
-	// To look for particular resource types on the API server
-	dc, err := discovery.NewDiscoveryClientForConfig(mgr.GetConfig())
-	if err != nil {
-		setupLog.Error(err, "failed to create discovery client")
-		os.Exit(1)
-	}
-
-	openShift, err := isOpenShift(dc, forceOpenShift)
-	if err != nil {
-		setupLog.Error(err, "could not determine whether manager is running on OpenShift")
-		os.Exit(1)
-	}
-	environment := "Kubernetes"
-	if openShift {
-		environment = "OpenShift"
-	}
-	setupLog.Info(fmt.Sprintf("detected %s environment", environment))
 
 	certManager, err := isCertManagerInstalled(dc)
 	if err != nil {
@@ -363,6 +391,32 @@ func main() {
 	if err := mgr.AddReadyzCheck("readyz", healthz.Ping); err != nil {
 		setupLog.Error(err, "unable to set up ready check")
 		os.Exit(1)
+	}
+
+	// Set up SecurityProfileWatcher on OpenShift to restart on TLS profile changes
+	if openShift {
+		ctx := context.Background()
+		adherence, err := tlspkg.FetchAPIServerTLSAdherencePolicy(ctx, mgr.GetClient())
+		if err != nil {
+			setupLog.Info("could not fetch TLS adherence policy, continuing without", "error", err)
+		}
+		watcher := &tlspkg.SecurityProfileWatcher{
+			Client:                    mgr.GetClient(),
+			InitialTLSProfileSpec:     *initialTLSProfile,
+			InitialTLSAdherencePolicy: adherence,
+			OnProfileChange: func(_ context.Context, _, _ configv1.TLSProfileSpec) {
+				setupLog.Info("cluster TLS profile changed, restarting")
+				os.Exit(0)
+			},
+			OnAdherencePolicyChange: func(_ context.Context, _, _ configv1.TLSAdherencePolicy) {
+				setupLog.Info("cluster TLS adherence policy changed, restarting")
+				os.Exit(0)
+			},
+		}
+		if err := watcher.SetupWithManager(mgr); err != nil {
+			setupLog.Error(err, "unable to set up TLS security profile watcher")
+			os.Exit(1)
+		}
 	}
 
 	setupLog.Info("starting manager", "version", constants.OperatorVersion)

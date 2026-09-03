@@ -60,7 +60,7 @@ func TestNewEnvForCoreContainer_RBACPermissions(t *testing.T) {
 		}
 		cr, specs := minimalCR(perms)
 
-		envs, err := newEnvForCoreContainer(cr, specs, nil, false, nil)
+		envs, err := newEnvForCoreContainer(cr, specs, nil, false, nil, nil)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -97,7 +97,7 @@ func TestNewEnvForCoreContainer_RBACPermissions(t *testing.T) {
 		}
 		cr, specs := minimalCR(perms)
 
-		envs, err := newEnvForCoreContainer(cr, specs, nil, false, nil)
+		envs, err := newEnvForCoreContainer(cr, specs, nil, false, nil, nil)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -117,7 +117,7 @@ func TestNewEnvForCoreContainer_RBACPermissions(t *testing.T) {
 		}
 		cr, specs := minimalCR(perms)
 
-		envs, err := newEnvForCoreContainer(cr, specs, nil, false, nil)
+		envs, err := newEnvForCoreContainer(cr, specs, nil, false, nil, nil)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -141,7 +141,7 @@ func TestNewEnvForCoreContainer_RBACPermissions(t *testing.T) {
 		}
 		cr, specs := minimalCR(perms)
 
-		envs, err := newEnvForCoreContainer(cr, specs, nil, false, nil)
+		envs, err := newEnvForCoreContainer(cr, specs, nil, false, nil, nil)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -166,7 +166,7 @@ func TestNewEnvForCoreContainer_RBACPermissions(t *testing.T) {
 		}
 		cr, specs := minimalCR(perms)
 
-		_, err := newEnvForCoreContainer(cr, specs, nil, false, nil)
+		_, err := newEnvForCoreContainer(cr, specs, nil, false, nil, nil)
 		if err == nil {
 			t.Fatal("expected an error for colliding RBAC permission keys, got nil")
 		}
@@ -190,7 +190,7 @@ func TestNewEnvForCoreContainer_RBACPermissions(t *testing.T) {
 			Status:           &operatorv1beta2.CryostatStatus{},
 		}
 
-		envs, err := newEnvForCoreContainer(cr, specs, nil, false, nil)
+		envs, err := newEnvForCoreContainer(cr, specs, nil, false, nil, nil)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -207,7 +207,7 @@ func TestNewEnvForCoreContainer_NamespacedRBAC(t *testing.T) {
 		cr, specs := minimalCR(nil)
 		// NamespacedRBACPermissions is nil — treated as true (namespaced by default)
 
-		envs, err := newEnvForCoreContainer(cr, specs, nil, false, nil)
+		envs, err := newEnvForCoreContainer(cr, specs, nil, false, nil, nil)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -227,7 +227,7 @@ func TestNewEnvForCoreContainer_NamespacedRBAC(t *testing.T) {
 		cr, specs := minimalCR(nil)
 		cr.Spec.AuthorizationOptions.NamespacedRBACPermissions = &[]bool{true}[0]
 
-		envs, err := newEnvForCoreContainer(cr, specs, nil, false, nil)
+		envs, err := newEnvForCoreContainer(cr, specs, nil, false, nil, nil)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -247,7 +247,7 @@ func TestNewEnvForCoreContainer_NamespacedRBAC(t *testing.T) {
 		cr, specs := minimalCR(nil)
 		cr.Spec.AuthorizationOptions.NamespacedRBACPermissions = &[]bool{false}[0]
 
-		envs, err := newEnvForCoreContainer(cr, specs, nil, false, nil)
+		envs, err := newEnvForCoreContainer(cr, specs, nil, false, nil, nil)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -270,7 +270,7 @@ func TestNewEnvForCoreContainer_NamespacedRBAC(t *testing.T) {
 			Status:           &operatorv1beta2.CryostatStatus{},
 		}
 
-		envs, err := newEnvForCoreContainer(cr, specs, nil, false, nil)
+		envs, err := newEnvForCoreContainer(cr, specs, nil, false, nil, nil)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}

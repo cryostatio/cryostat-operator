@@ -416,7 +416,7 @@ func (c *controllerTest) commonTests() {
 
 				Expect(sa.Annotations).To(Equal(map[string]string{
 					"hello": "world",
-					"serviceaccounts.openshift.io/oauth-redirectreference.route": fmt.Sprintf(`{"metadata":{"creationTimestamp":null},"reference":{"group":"","kind":"Route","name":"%s"}}`, t.Name),
+					"serviceaccounts.openshift.io/oauth-redirectreference.route": fmt.Sprintf(`{"metadata":{},"reference":{"group":"","kind":"Route","name":"%s"}}`, t.Name),
 				}))
 
 				Expect(sa.Labels).To(Equal(map[string]string{
@@ -3182,12 +3182,17 @@ func (c *controllerTest) commonTests() {
 			})
 
 			It("should watch specified resources", func() {
-				Expect(t.ControllerBuilder.WatchesCalls).To(HaveLen(len(expectedResources)))
-				resources := make([]ctrlclient.Object, 0, len(expectedResources))
+				allExpected := make([]ctrlclient.Object, len(expectedResources))
+				copy(allExpected, expectedResources)
+				if t.OpenShift {
+					allExpected = append(allExpected, &configv1.APIServer{})
+				}
+				Expect(t.ControllerBuilder.WatchesCalls).To(HaveLen(len(allExpected)))
+				resources := make([]ctrlclient.Object, 0, len(allExpected))
 				for _, watch := range t.ControllerBuilder.WatchesCalls {
 					resources = append(resources, watch.Object)
 				}
-				Expect(resources).To(ConsistOf(expectedResources))
+				Expect(resources).To(ConsistOf(allExpected))
 			})
 
 			Context("filtering by labels", func() {
@@ -3195,12 +3200,16 @@ func (c *controllerTest) commonTests() {
 				var obj ctrlclient.Object
 
 				JustBeforeEach(func() {
-					Expect(t.ControllerBuilder.WatchesCalls).To(HaveLen(len(expectedResources)))
 					Expect(t.ControllerBuilder.Predicates).To(HaveLen(len(expectedResources)))
+					var targetNSWatches int
 					for _, watch := range t.ControllerBuilder.WatchesCalls {
-						Expect(watch.Opts).To(HaveLen(1))
-						Expect(watch.Opts[0]).To(BeAssignableToTypeOf(builder.Predicates{}))
+						if len(watch.Opts) > 0 {
+							targetNSWatches++
+							Expect(watch.Opts).To(HaveLen(1))
+							Expect(watch.Opts[0]).To(BeAssignableToTypeOf(builder.Predicates{}))
+						}
 					}
+					Expect(targetNSWatches).To(Equal(len(expectedResources)))
 					pred = t.ControllerBuilder.Predicates[0]
 				})
 
@@ -3253,11 +3262,10 @@ func (c *controllerTest) commonTests() {
 				var obj ctrlclient.Object
 
 				JustBeforeEach(func() {
-					Expect(t.ControllerBuilder.WatchesCalls).To(HaveLen(len(expectedResources)))
 					Expect(t.ControllerBuilder.MapFuncs).To(HaveLen(len(expectedResources)))
-					for i, watch := range t.ControllerBuilder.WatchesCalls {
+					for i := 0; i < len(t.ControllerBuilder.MapFuncs); i++ {
+						watch := t.ControllerBuilder.WatchesCalls[i]
 						Expect(watch.EventHandler).ToNot(BeNil())
-						// Check that the handler uses the expected underlying type
 						mapFunc := t.ControllerBuilder.MapFuncs[i]
 						expectedHandler := handler.EnqueueRequestsFromMapFunc(mapFunc)
 						Expect(watch.EventHandler).To(BeAssignableToTypeOf(expectedHandler))
@@ -3783,6 +3791,103 @@ func (c *controllerTest) kubernetesTests() {
 			It("should have added the extra label and annotation to deployments and pods", func() {
 				t.expectMainDeploymentHasExtraMetadata()
 				t.expectReportsDeploymentHasExtraMetadata()
+			})
+		})
+	})
+
+	Describe("setting up with manager", func() {
+		BeforeEach(func() {
+			t = c.commonBeforeEach()
+			t.TargetNamespaces = []string{t.Namespace}
+		})
+
+		JustBeforeEach(func() {
+			c.commonJustBeforeEach(t)
+			// Create a default manager, not called
+			mgr, err := manager.New(cfg, manager.Options{})
+			Expect(err).ToNot(HaveOccurred())
+			err = t.reconciler.SetupWithManager(mgr)
+			Expect(err).ToNot(HaveOccurred())
+		})
+
+		JustAfterEach(func() {
+			c.commonJustAfterEach(t)
+		})
+
+		It("should watch Cryostat CRs", func() {
+			Expect(t.ControllerBuilder.ForCalls).To(HaveLen(1))
+			args := t.ControllerBuilder.ForCalls[0]
+			Expect(args.Object).To(BeAssignableToTypeOf(t.NewCryostat().Object))
+			Expect(args.Opts).To(BeEmpty())
+		})
+
+		It("should call Complete", func() {
+			Expect(t.ControllerBuilder.CompleteCalled).To(BeTrue())
+		})
+
+		Context("for owned resources", func() {
+			var ownsResources []ctrlclient.Object
+
+			BeforeEach(func() {
+				ownsResources = []ctrlclient.Object{
+					&appsv1.Deployment{},
+					&corev1.Service{},
+					&corev1.ConfigMap{},
+					&corev1.Secret{},
+					&corev1.PersistentVolumeClaim{},
+					&corev1.ServiceAccount{},
+					&rbacv1.Role{},
+					&rbacv1.RoleBinding{},
+					&netv1.Ingress{},
+				}
+			})
+
+			expectOwnedResources := func() {
+				It("should watch objects owned by Cryostat CRs", func() {
+					Expect(t.ControllerBuilder.OwnsCalls).To(HaveLen(len(ownsResources)))
+					resources := make([]ctrlclient.Object, 0, len(ownsResources))
+					for _, call := range t.ControllerBuilder.OwnsCalls {
+						resources = append(resources, call.Object)
+						Expect(call.Opts).To(BeEmpty())
+					}
+					Expect(resources).To(ConsistOf(ownsResources))
+				})
+			}
+
+			Context("cert-manager installed", func() {
+				BeforeEach(func() {
+					ownsResources = append(ownsResources, &certv1.Certificate{}, &certv1.Issuer{})
+				})
+				Context("on OpenShift", func() {
+					BeforeEach(func() {
+						ownsResources = append(ownsResources, &openshiftv1.Route{})
+					})
+					expectOwnedResources()
+				})
+				Context("on Kubernetes", func() {
+					BeforeEach(func() {
+						t.OpenShift = false
+					})
+					expectOwnedResources()
+				})
+			})
+
+			Context("cert-manager missing", func() {
+				BeforeEach(func() {
+					t.CertManagerMissing = true
+				})
+				Context("on OpenShift", func() {
+					BeforeEach(func() {
+						ownsResources = append(ownsResources, &openshiftv1.Route{})
+					})
+					expectOwnedResources()
+				})
+				Context("on Kubernetes", func() {
+					BeforeEach(func() {
+						t.OpenShift = false
+					})
+					expectOwnedResources()
+				})
 			})
 		})
 	})

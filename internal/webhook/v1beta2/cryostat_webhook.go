@@ -29,13 +29,12 @@ var cryostatlog = logf.Log.WithName("cryostat-resource")
 // +kubebuilder:webhook:path=/validate-operator-cryostat-io-v1beta2-cryostat,mutating=false,failurePolicy=fail,sideEffects=None,groups=operator.cryostat.io,resources=cryostats,verbs=create;update,versions=v1beta2,name=vcryostat.kb.io,admissionReviewVersions=v1
 
 func SetupWebhookWithManager(mgr ctrl.Manager, apiType runtime.Object) error {
-	return ctrl.NewWebhookManagedBy(mgr).
-		For(apiType).
-		WithValidator(&cryostatValidator{
+	return ctrl.NewWebhookManagedBy(mgr, apiType).
+		WithCustomValidator(&cryostatValidator{
 			client: mgr.GetClient(),
 			log:    &cryostatlog,
 		}).
-		WithDefaulter(&cryostatDefaulter{
+		WithCustomDefaulter(&cryostatDefaulter{
 			log: &cryostatlog,
 		}).
 		Complete()

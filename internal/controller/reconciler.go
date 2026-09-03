@@ -27,10 +27,12 @@ import (
 	operatorv1beta2 "github.com/cryostatio/cryostat-operator/api/v1beta2"
 	common "github.com/cryostatio/cryostat-operator/internal/controller/common"
 	resources "github.com/cryostatio/cryostat-operator/internal/controller/common/resource_definitions"
+	"github.com/cryostatio/cryostat-operator/internal/controller/common/tlsprofile"
 	"github.com/cryostatio/cryostat-operator/internal/controller/constants"
 	"github.com/cryostatio/cryostat-operator/internal/controller/model"
 	"github.com/go-logr/logr"
 	"github.com/google/go-cmp/cmp"
+	configv1 "github.com/openshift/api/config/v1"
 	openshiftv1 "github.com/openshift/api/route/v1"
 	securityv1 "github.com/openshift/api/security/v1"
 	appsv1 "k8s.io/api/apps/v1"
@@ -48,6 +50,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
@@ -219,11 +222,21 @@ func (r *Reconciler) reconcileCryostat(ctx context.Context, cr *model.CryostatIn
 		return reconcile.Result{}, err
 	}
 
+	// Fetch the cluster TLS security profile on OpenShift
+	var operandTLS *tlsprofile.OperandTLSConfig
+	if r.IsOpenShift {
+		operandTLS, err = tlsprofile.FetchAndBuild(ctx, r.Client)
+		if err != nil {
+			reqLogger.Error(err, "Failed to fetch cluster TLS profile, using defaults")
+			operandTLS = nil
+		}
+	}
+
 	err = r.reconcileOAuth2ProxyConfig(ctx, cr, tlsConfig)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
-	err = r.reconcileAgentProxyConfig(ctx, cr, tlsConfig)
+	err = r.reconcileAgentProxyConfig(ctx, cr, tlsConfig, operandTLS)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
@@ -257,22 +270,22 @@ func (r *Reconciler) reconcileCryostat(ctx context.Context, cr *model.CryostatIn
 		return reconcile.Result{}, err
 	}
 
-	err = r.reconcileDatabase(ctx, reqLogger, cr, tlsConfig, imageTags, serviceSpecs, *fsGroup)
+	err = r.reconcileDatabase(ctx, reqLogger, cr, tlsConfig, operandTLS, imageTags, serviceSpecs, *fsGroup)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
 
-	err = r.reconcileStorage(ctx, reqLogger, cr, tlsConfig, imageTags, serviceSpecs, *fsGroup)
+	err = r.reconcileStorage(ctx, reqLogger, cr, tlsConfig, operandTLS, imageTags, serviceSpecs, *fsGroup)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
 
-	err = r.reconcileReports(ctx, reqLogger, cr, tlsConfig, imageTags, serviceSpecs)
+	err = r.reconcileReports(ctx, reqLogger, cr, tlsConfig, operandTLS, imageTags, serviceSpecs)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
 
-	deployment, err := resources.NewDeploymentForCR(cr, serviceSpecs, imageTags, tlsConfig, *fsGroup, r.IsOpenShift)
+	deployment, err := resources.NewDeploymentForCR(cr, serviceSpecs, imageTags, tlsConfig, operandTLS, *fsGroup, r.IsOpenShift)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
@@ -332,7 +345,30 @@ func (r *Reconciler) setupWithManager(c common.ControllerBuilder, impl reconcile
 		return err
 	}
 
+	// On OpenShift, watch the APIServer resource for TLS profile changes
+	if r.IsOpenShift {
+		c = c.Watches(&configv1.APIServer{}, handler.EnqueueRequestsFromMapFunc(
+			func(ctx context.Context, obj client.Object) []reconcile.Request {
+				return r.allCryostatRequests(ctx)
+			}),
+		)
+	}
+
 	return c.Complete(impl)
+}
+
+func (r *Reconciler) allCryostatRequests(ctx context.Context) []reconcile.Request {
+	cryostats := &operatorv1beta2.CryostatList{}
+	if err := r.Client.List(ctx, cryostats); err != nil {
+		return nil
+	}
+	requests := make([]reconcile.Request, 0, len(cryostats.Items))
+	for i := range cryostats.Items {
+		requests = append(requests, reconcile.Request{
+			NamespacedName: client.ObjectKeyFromObject(&cryostats.Items[i]),
+		})
+	}
+	return requests
 }
 
 func (r *Reconciler) finalizeCryostat(ctx context.Context, cr *model.CryostatInstance) error {
@@ -409,7 +445,7 @@ func (r *Reconciler) configureTLS(ctx context.Context, cr *model.CryostatInstanc
 }
 
 func (r *Reconciler) reconcileReports(ctx context.Context, reqLogger logr.Logger, cr *model.CryostatInstance,
-	tls *resources.TLSConfig, imageTags *resources.ImageTags, serviceSpecs *resources.ServiceSpecs) error {
+	tls *resources.TLSConfig, operandTLS *tlsprofile.OperandTLSConfig, imageTags *resources.ImageTags, serviceSpecs *resources.ServiceSpecs) error {
 	reqLogger.Info("Spec", "Reports", cr.Spec.ReportOptions)
 
 	desired := int32(0)
@@ -425,7 +461,7 @@ func (r *Reconciler) reconcileReports(ctx context.Context, reqLogger logr.Logger
 	if err != nil {
 		return err
 	}
-	deployment := resources.NewDeploymentForReports(cr, imageTags, serviceSpecs, tls, r.IsOpenShift)
+	deployment := resources.NewDeploymentForReports(cr, imageTags, serviceSpecs, tls, operandTLS, r.IsOpenShift)
 	if desired == 0 {
 		if err := r.Delete(ctx, deployment); err != nil && !kerrors.IsNotFound(err) {
 			return err
@@ -457,7 +493,7 @@ func (r *Reconciler) reconcileReports(ctx context.Context, reqLogger logr.Logger
 	return nil
 }
 
-func (r *Reconciler) reconcileDatabase(ctx context.Context, reqLogger logr.Logger, cr *model.CryostatInstance, tls *resources.TLSConfig, imageTags *resources.ImageTags, serviceSpecs *resources.ServiceSpecs, fsGroup int64) error {
+func (r *Reconciler) reconcileDatabase(ctx context.Context, reqLogger logr.Logger, cr *model.CryostatInstance, tls *resources.TLSConfig, operandTLS *tlsprofile.OperandTLSConfig, imageTags *resources.ImageTags, serviceSpecs *resources.ServiceSpecs, fsGroup int64) error {
 	reqLogger.Info("Spec", "Database", cr.Spec.DatabaseOptions)
 
 	err := r.reconcileDatabasePVC(ctx, cr)
@@ -472,7 +508,7 @@ func (r *Reconciler) reconcileDatabase(ctx context.Context, reqLogger logr.Logge
 	if err != nil {
 		return err
 	}
-	deployment := resources.NewDeploymentForDatabase(cr, imageTags, tls, r.IsOpenShift, fsGroup)
+	deployment := resources.NewDeploymentForDatabase(cr, imageTags, tls, operandTLS, r.IsOpenShift, fsGroup)
 
 	err = r.createOrUpdateDeployment(ctx, deployment, cr.Object)
 	if err != nil {
@@ -488,7 +524,7 @@ func (r *Reconciler) reconcileDatabase(ctx context.Context, reqLogger logr.Logge
 	return nil
 }
 
-func (r *Reconciler) reconcileStorage(ctx context.Context, reqLogger logr.Logger, cr *model.CryostatInstance, tls *resources.TLSConfig,
+func (r *Reconciler) reconcileStorage(ctx context.Context, reqLogger logr.Logger, cr *model.CryostatInstance, tls *resources.TLSConfig, operandTLS *tlsprofile.OperandTLSConfig,
 	imageTags *resources.ImageTags, serviceSpecs *resources.ServiceSpecs, fsGroup int64) error {
 	reqLogger.Info("Spec", "Storage", cr.Spec.StorageOptions)
 
@@ -506,7 +542,7 @@ func (r *Reconciler) reconcileStorage(ctx context.Context, reqLogger logr.Logger
 		return err
 	}
 
-	deployment := resources.NewDeploymentForStorage(cr, imageTags, tls, r.IsOpenShift, fsGroup)
+	deployment := resources.NewDeploymentForStorage(cr, imageTags, tls, operandTLS, r.IsOpenShift, fsGroup)
 	deployManagedStorage := resources.DeployManagedStorage(cr)
 	if !deployManagedStorage {
 		serviceSpecs.StorageURL, err = url.Parse(*cr.Spec.ObjectStorageOptions.Provider.URL)
