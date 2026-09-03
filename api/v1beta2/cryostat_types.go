@@ -281,6 +281,8 @@ type StorageConfigurations struct {
 // VolumeClaimTemplate or EmptyDir should be specified; VolumeClaimTemplate is
 // preferred because a CSI-provisioned volume fails writes with ENOSPC when it
 // fills rather than causing the kubelet to evict the entire Pod.
+// +kubebuilder:validation:XValidation:rule="!(has(self.volumeClaimTemplate) && has(self.emptyDir) && self.emptyDir.enabled)",message="volumeClaimTemplate and an enabled emptyDir are mutually exclusive"
+// +kubebuilder:validation:XValidation:rule="!has(self.ephemeralStorageLimit) || !quantity(self.ephemeralStorageLimit).isLessThan(quantity('0'))",message="ephemeralStorageLimit must not be negative"
 type ScratchStorageConfiguration struct {
 	// Configuration for a generic ephemeral volume (a CSI-provisioned,
 	// Pod-scoped Persistent Volume Claim) mounted at /tmp. This is the
@@ -605,7 +607,7 @@ type EmptyDirConfig struct {
 	// +optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	Medium corev1.StorageMedium `json:"medium,omitempty"`
-	// The maximum memory limit for the emptyDir. Default is unbounded.
+	// The maximum capacity of the emptyDir. Default is unbounded.
 	// +optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	// +kubebuilder:validation:Pattern=^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
