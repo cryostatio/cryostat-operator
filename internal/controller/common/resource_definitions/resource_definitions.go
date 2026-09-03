@@ -2673,16 +2673,23 @@ func getScratchConfig(cr *model.CryostatInstance) *operatorv1beta2.ScratchStorag
 	return cr.Spec.StorageOptions.Scratch
 }
 
+// scratchEmptyDirEnabled reports whether an EmptyDir is configured and enabled
+// for the scratch space, matching the database and object storage behavior of
+// honoring the EmptyDir's Enabled flag.
+func scratchEmptyDirEnabled(scratch *operatorv1beta2.ScratchStorageConfiguration) bool {
+	return scratch != nil && scratch.EmptyDir != nil && scratch.EmptyDir.Enabled
+}
+
 // scratchVolumeConfigured reports whether a volume should be mounted over the
 // core container's /tmp. This is only the case when a volume primitive (a
-// generic ephemeral volume or an EmptyDir) is configured; a scratch block that
-// only sets an ephemeral-storage limit does not mount a volume.
+// generic ephemeral volume or an enabled EmptyDir) is configured; a scratch
+// block that only sets an ephemeral-storage limit does not mount a volume.
 func scratchVolumeConfigured(cr *model.CryostatInstance) bool {
 	scratch := getScratchConfig(cr)
 	if scratch == nil {
 		return false
 	}
-	return scratch.VolumeClaimTemplate != nil || scratch.EmptyDir != nil
+	return scratch.VolumeClaimTemplate != nil || scratchEmptyDirEnabled(scratch)
 }
 
 // newVolumeForScratch returns the volume (if any) that backs the core
@@ -2702,7 +2709,7 @@ func newVolumeForScratch(cr *model.CryostatInstance) []corev1.Volume {
 				VolumeClaimTemplate: scratch.VolumeClaimTemplate,
 			},
 		}
-	case scratch.EmptyDir != nil:
+	case scratchEmptyDirEnabled(scratch):
 		var sizeLimit *resource.Quantity
 		if len(scratch.EmptyDir.SizeLimit) > 0 {
 			parsed, err := resource.ParseQuantity(scratch.EmptyDir.SizeLimit)
@@ -2743,7 +2750,7 @@ func getScratchVolumeSize(scratch *operatorv1beta2.ScratchStorageConfiguration) 
 			return size, true
 		}
 	}
-	if scratch.EmptyDir != nil && len(scratch.EmptyDir.SizeLimit) > 0 {
+	if scratchEmptyDirEnabled(scratch) && len(scratch.EmptyDir.SizeLimit) > 0 {
 		if size, err := resource.ParseQuantity(scratch.EmptyDir.SizeLimit); err == nil && !size.IsZero() {
 			return size, true
 		}

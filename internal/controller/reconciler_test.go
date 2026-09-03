@@ -1448,6 +1448,20 @@ func (c *controllerTest) commonTests() {
 				t.expectCoreEnvVar("CRYOSTAT_JFR_ANALYSIS_CACHE_MAX_WEIGHT", "1024")
 			})
 		})
+		Context("with a scratch emptyDir explicitly disabled", func() {
+			BeforeEach(func() {
+				t.objs = append(t.objs, t.NewCryostatWithScratchEmptyDirDisabled().Object)
+			})
+			JustBeforeEach(func() {
+				t.reconcileCryostatFully()
+			})
+			It("should not mount a scratch volume over /tmp", func() {
+				t.expectNoScratchVolume()
+			})
+			It("should not set the JFR cache weight env var", func() {
+				t.expectNoCoreEnvVar("CRYOSTAT_JFR_ANALYSIS_CACHE_MAX_WEIGHT")
+			})
+		})
 		Context("with only a scratch ephemeral-storage limit configured", func() {
 			BeforeEach(func() {
 				t.objs = append(t.objs, t.NewCryostatWithScratchEphemeralStorageLimitOnly().Object)
