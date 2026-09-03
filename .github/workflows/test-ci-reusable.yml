@@ -35,7 +35,7 @@ jobs:
     - name: Run controller tests
       run: make test-envtest
     - name: Set latest commit status as ${{ job.status }}
-      uses: daltonbr/set-commit-status-action@2a09190f6d04d912bca5ede8094b5d5dce303ebb # v3.0.1
+      uses: daltonbr/set-commit-status-action@b5ef7ba5279f7953ad1fa44f01f92fca82e65eb4 # v3.0.2
       if: always()
       with:
         sha: ${{ inputs.sha }}
@@ -110,7 +110,7 @@ jobs:
         BUNDLE_IMG="localhost/${{ github.repository_owner }}/cryostat-operator-bundle:${{ inputs.tag }}" \
         make test-scorecard
     - name: Set latest commit status as ${{ job.status }}
-      uses: daltonbr/set-commit-status-action@2a09190f6d04d912bca5ede8094b5d5dce303ebb # v3.0.1
+      uses: daltonbr/set-commit-status-action@b5ef7ba5279f7953ad1fa44f01f92fca82e65eb4 # v3.0.2
       if: always()
       with:
         sha: ${{ inputs.sha }}
