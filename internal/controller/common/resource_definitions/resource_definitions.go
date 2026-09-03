@@ -1427,7 +1427,8 @@ func NewCoreContainerResource(cr *model.CryostatInstance) *corev1.ResourceRequir
 	// /tmp scratch space, if configured. This is applied after
 	// PopulateResourceRequest so it does not flip the "custom" flag and drop the
 	// default CPU/memory limits.
-	if scratch := getScratchConfig(cr); scratch != nil && scratch.EphemeralStorageLimit != nil {
+	if scratch := getScratchConfig(cr); scratch != nil && scratch.EphemeralStorageLimit != nil &&
+		scratch.EphemeralStorageLimit.Sign() >= 0 {
 		if resources.Limits == nil {
 			resources.Limits = corev1.ResourceList{}
 		}

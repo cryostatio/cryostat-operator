@@ -10963,8 +10963,8 @@ spec:
                               "Memory" will mount the emptyDir on a tmpfs (RAM-backed filesystem).
                             type: string
                           sizeLimit:
-                            description: The maximum memory limit for the emptyDir.
-                              Default is unbounded.
+                            description: The maximum capacity of the emptyDir. Default
+                              is unbounded.
                             pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                             type: string
                         type: object
@@ -11215,7 +11215,7 @@ spec:
                           "Memory" will mount the emptyDir on a tmpfs (RAM-backed filesystem).
                         type: string
                       sizeLimit:
-                        description: The maximum memory limit for the emptyDir. Default
+                        description: The maximum capacity of the emptyDir. Default
                           is unbounded.
                         pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                         type: string
@@ -11241,8 +11241,8 @@ spec:
                               "Memory" will mount the emptyDir on a tmpfs (RAM-backed filesystem).
                             type: string
                           sizeLimit:
-                            description: The maximum memory limit for the emptyDir.
-                              Default is unbounded.
+                            description: The maximum capacity of the emptyDir. Default
+                              is unbounded.
                             pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                             type: string
                         type: object
@@ -11745,8 +11745,8 @@ spec:
                               "Memory" will mount the emptyDir on a tmpfs (RAM-backed filesystem).
                             type: string
                           sizeLimit:
-                            description: The maximum memory limit for the emptyDir.
-                              Default is unbounded.
+                            description: The maximum capacity of the emptyDir. Default
+                              is unbounded.
                             pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                             type: string
                         type: object
@@ -11986,6 +11986,13 @@ spec:
                         - spec
                         type: object
                     type: object
+                    x-kubernetes-validations:
+                    - message: volumeClaimTemplate and an enabled emptyDir are mutually
+                        exclusive
+                      rule: '!(has(self.volumeClaimTemplate) && has(self.emptyDir)
+                        && self.emptyDir.enabled)'
+                    - message: ephemeralStorageLimit must not be negative
+                      rule: '!has(self.ephemeralStorageLimit) || !quantity(self.ephemeralStorageLimit).isLessThan(quantity(''0''))'
                 type: object
               targetConnectionCacheOptions:
                 description: Options to customize the target connections cache for

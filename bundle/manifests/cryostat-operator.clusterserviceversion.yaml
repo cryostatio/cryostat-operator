@@ -42,7 +42,7 @@ metadata:
     capabilities: Seamless Upgrades
     categories: Monitoring, Developer Tools
     containerImage: quay.io/cryostat/cryostat-operator:4.3.0-dev
-    createdAt: "2026-05-06T17:30:58Z"
+    createdAt: "2026-09-03T15:21:51Z"
     description: JVM monitoring and profiling tool
     operatorframework.io/initialization-resource: |-
       {
@@ -727,7 +727,7 @@ spec:
               "Memory" will mount the emptyDir on a tmpfs (RAM-backed filesystem).
             displayName: Medium
             path: storageOptions.database.emptyDir.medium
-          - description: The maximum memory limit for the emptyDir. Default is unbounded.
+          - description: The maximum capacity of the emptyDir. Default is unbounded.
             displayName: Size Limit
             path: storageOptions.database.emptyDir.sizeLimit
           - description: |-
@@ -770,7 +770,7 @@ spec:
               "Memory" will mount the emptyDir on a tmpfs (RAM-backed filesystem).
             displayName: Medium
             path: storageOptions.emptyDir.medium
-          - description: The maximum memory limit for the emptyDir. Default is unbounded.
+          - description: The maximum capacity of the emptyDir. Default is unbounded.
             displayName: Size Limit
             path: storageOptions.emptyDir.sizeLimit
           - description: Configuration for the Persistent Volume Claim to be created by the operator for the object storage.
@@ -792,7 +792,7 @@ spec:
               "Memory" will mount the emptyDir on a tmpfs (RAM-backed filesystem).
             displayName: Medium
             path: storageOptions.objectStorage.emptyDir.medium
-          - description: The maximum memory limit for the emptyDir. Default is unbounded.
+          - description: The maximum capacity of the emptyDir. Default is unbounded.
             displayName: Size Limit
             path: storageOptions.objectStorage.emptyDir.sizeLimit
           - description: |-
@@ -887,7 +887,7 @@ spec:
               "Memory" will mount the emptyDir on a tmpfs (RAM-backed filesystem).
             displayName: Medium
             path: storageOptions.scratch.emptyDir.medium
-          - description: The maximum memory limit for the emptyDir. Default is unbounded.
+          - description: The maximum capacity of the emptyDir. Default is unbounded.
             displayName: Size Limit
             path: storageOptions.scratch.emptyDir.sizeLimit
           - description: |-
