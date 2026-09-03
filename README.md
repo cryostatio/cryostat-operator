@@ -214,6 +214,8 @@ OperatorHub will eventually receive.
 ### Requirements
 - (optional) [oc](https://www.okd.io/download.html)
 - (optional) [crc](https://github.com/code-ready/crc)
+- (optional, for `test-scorecard-local-kind`) [kind](https://kind.sigs.k8s.io/) and
+  `docker` or `podman`
 
 ### Instructions
 
@@ -228,3 +230,43 @@ Before the scorecard tests are run, all cryostat and cryostat-operator
 resources will be deleted to ensure a clean slate.
 
 `make test` will run all tests.
+
+#### Scorecard testing on a local kind cluster
+
+`make test-scorecard-local-kind` runs the scorecard suite end-to-end against a
+dedicated [kind](https://kind.sigs.k8s.io/) cluster, with no external image registry
+required. It is a turnkey wrapper that:
+
+1. creates (or reuses) a kind cluster named `cryostat-scorecard`, configured with a
+   containerd registry mirror;
+2. starts a local container registry (`localhost:5000`) reachable from both the host
+   and the cluster nodes;
+3. installs the cluster prerequisites: OLM, cert-manager, and ingress-nginx (with an
+   in-cluster CoreDNS rewrite so the tests can reach Cryostat via its ingress);
+4. builds the scorecard test image and the operator bundle locally, pushes them to the
+   local registry, and runs the scorecard suite against the on-disk `./bundle`.
+
+Because the scorecard test image and bundle are served from the local registry, you can
+validate that a set of *operand* images passes the scorecard suite without publishing
+any scorecard-specific images. Supply the operand images under test via `OPERATOR_IMG`
+and `CORE_IMG` (and any other `RELATED_IMAGE_*` overrides), for example:
+
+```bash
+CORE_IMG=quay.io/my-user/cryostat:my-feature-pr \
+OPERATOR_IMG=quay.io/my-user/cryostat-operator:my-feature-pr \
+make test-scorecard-local-kind
+```
+
+Run a subset of tests with `SCORECARD_TEST_SELECTION` (e.g.
+`SCORECARD_TEST_SELECTION=cryostat-cr`), and tear everything down afterwards with
+`make clean-scorecard-local-kind`.
+
+The container runtime backing kind is auto-detected from `IMAGE_BUILDER` (podman by
+default); set `KIND_RUNTIME=docker` if kind uses the docker provider. Under the rootless
+podman provider, run this as the only kind cluster on the host — creating it alongside
+another running kind cluster can disrupt cluster networking.
+
+The same underlying targets are reused by the CI scorecard job, and can be invoked
+individually against an existing cluster: `scorecard-kind-cluster`,
+`scorecard-kind-registry`, `scorecard-kind-prereqs`, `scorecard-kind-push` (see
+`make help`).

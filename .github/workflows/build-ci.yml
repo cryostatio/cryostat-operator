@@ -12,6 +12,9 @@ on:
       - v[0-9]+.[0-9]+
       - cryostat-v[0-9]+.[0-9]+
 
+permissions:
+  contents: read
+
 env:
   CI_USER: cryostat+bot
   CI_REGISTRY: quay.io/cryostat
@@ -27,6 +30,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      with:
+        persist-credentials: false
     - name: Build operator image
       run: |
         IMAGE_NAMESPACE=${{ env.CI_REGISTRY }} SKIP_TESTS=true PLATFORMS=${{ env.CI_PLATFORMS }} MANIFEST_PUSH=false make oci-buildx
@@ -62,6 +67,8 @@ jobs:
         bundle_mode: ['k8s', 'ocp']
     steps:
     - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      with:
+        persist-credentials: false
     - name: Build bundle image
       run: IMAGE_NAMESPACE=${{ env.CI_REGISTRY }} BUNDLE_MODE=${{ matrix.bundle_mode }} make bundle bundle-build
     - name: Tag image
@@ -99,6 +106,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      with:
+        persist-credentials: false
     - name: Get scorecard image tag
       id: get-image-tag
       run: |
