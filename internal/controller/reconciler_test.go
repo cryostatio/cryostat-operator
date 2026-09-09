@@ -59,6 +59,11 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 )
 
+const (
+	testHTPasswdSecretName = "my-htpasswd-secret"
+	testHTPasswdFilename   = "htpasswd"
+)
+
 type controllerTest struct {
 	constructorFunc func(*controller.ReconcilerConfig) (controller.CommonReconciler, error)
 }
@@ -68,6 +73,28 @@ type cryostatTestInput struct {
 	objs       []ctrlclient.Object
 	test.TestReconcilerConfig
 	*test.TestResources
+}
+
+func ensureAuthorizationOptions(spec *operatorv1beta2.CryostatSpec) {
+	if spec.AuthorizationOptions == nil {
+		spec.AuthorizationOptions = &operatorv1beta2.AuthorizationOptions{}
+	}
+}
+
+func setBasicAuth(cr *model.CryostatInstance, secretName, filename string) {
+	ensureAuthorizationOptions(cr.Spec)
+	cr.Spec.AuthorizationOptions.BasicAuth = &operatorv1beta2.SecretFile{
+		SecretName: &secretName,
+		Filename:   &filename,
+	}
+}
+
+func disableOpenShiftSSO(cr *model.CryostatInstance) {
+	ensureAuthorizationOptions(cr.Spec)
+	disable := true
+	cr.Spec.AuthorizationOptions.OpenShiftSSO = &operatorv1beta2.OpenShiftSSOConfig{
+		Disable: &disable,
+	}
 }
 
 func (c *controllerTest) commonBeforeEach() *cryostatTestInput {
@@ -172,6 +199,7 @@ func resourceChecks() []resourceCheck {
 		{(*cryostatTestInput).expectStorageIngressNetworkPolicy, "storage networkpolicy"},
 		{(*cryostatTestInput).expectLockConfigMap, "lock config map"},
 		{(*cryostatTestInput).expectAgentProxyConfigMap, "agent proxy config map"},
+		{(*cryostatTestInput).expectAuthStripProxyConfigMap, "auth strip proxy config map"},
 		{(*cryostatTestInput).expectAgentGatewayService, "agent gateway service"},
 		{(*cryostatTestInput).expectAgentCallbackService, "agent callback service"},
 		{(*cryostatTestInput).expectOAuthCookieSecret, "OAuth2 cookie secret"},
@@ -1426,7 +1454,7 @@ func (c *controllerTest) commonTests() {
 				})
 				It("should set ImagePullPolicy to Always", func() {
 					containers := mainDeploy.Spec.Template.Spec.Containers
-					Expect(containers).To(HaveLen(5))
+					Expect(containers).To(HaveLen(6))
 					for _, container := range containers {
 						Expect(container.ImagePullPolicy).To(Equal(corev1.PullAlways))
 					}
@@ -1471,7 +1499,7 @@ func (c *controllerTest) commonTests() {
 				})
 				It("should set ImagePullPolicy to IfNotPresent", func() {
 					containers := mainDeploy.Spec.Template.Spec.Containers
-					Expect(containers).To(HaveLen(5))
+					Expect(containers).To(HaveLen(6))
 					for _, container := range containers {
 						fmt.Println(container.Image)
 						Expect(container.ImagePullPolicy).To(Equal(corev1.PullIfNotPresent))
@@ -1514,7 +1542,7 @@ func (c *controllerTest) commonTests() {
 				})
 				It("should set ImagePullPolicy to IfNotPresent", func() {
 					containers := mainDeploy.Spec.Template.Spec.Containers
-					Expect(containers).To(HaveLen(5))
+					Expect(containers).To(HaveLen(6))
 					for _, container := range containers {
 						Expect(container.ImagePullPolicy).To(Equal(corev1.PullIfNotPresent))
 					}
@@ -1556,7 +1584,7 @@ func (c *controllerTest) commonTests() {
 				})
 				It("should set ImagePullPolicy to Always", func() {
 					containers := mainDeploy.Spec.Template.Spec.Containers
-					Expect(containers).To(HaveLen(5))
+					Expect(containers).To(HaveLen(6))
 					for _, container := range containers {
 						Expect(container.ImagePullPolicy).To(Equal(corev1.PullAlways), "Container %s", container.Image)
 					}
@@ -1593,6 +1621,8 @@ func (c *controllerTest) commonTests() {
 			Context("ClusterRoleBinding does not exist", func() {
 				JustBeforeEach(func() {
 					err := t.Client.Delete(context.Background(), t.NewClusterRoleBinding())
+					Expect(err).ToNot(HaveOccurred())
+					err = t.Client.Delete(context.Background(), t.NewAuthDelegatorClusterRoleBinding())
 					Expect(err).ToNot(HaveOccurred())
 					t.reconcileDeletedCryostat()
 				})
@@ -1757,6 +1787,9 @@ func (c *controllerTest) commonTests() {
 			It("should create the agent proxy config map", func() {
 				t.expectAgentProxyConfigMap()
 			})
+			It("should create the auth strip proxy config map", func() {
+				t.expectAuthStripProxyConfigMap()
+			})
 		})
 		Context("with cert-manager not configured in CR", func() {
 			BeforeEach(func() {
@@ -1781,6 +1814,9 @@ func (c *controllerTest) commonTests() {
 			})
 			It("should create the agent proxy config map", func() {
 				t.expectAgentProxyConfigMap()
+			})
+			It("should create the auth strip proxy config map", func() {
+				t.expectAuthStripProxyConfigMap()
 			})
 		})
 		Context("with DISABLE_SERVICE_TLS=true", func() {
@@ -1815,6 +1851,9 @@ func (c *controllerTest) commonTests() {
 			It("should create the agent proxy config map", func() {
 				t.expectAgentProxyConfigMap()
 			})
+			It("should create the auth strip proxy config map", func() {
+				t.expectAuthStripProxyConfigMap()
+			})
 		})
 		Context("Disable cert-manager after being enabled", func() {
 			BeforeEach(func() {
@@ -1844,6 +1883,9 @@ func (c *controllerTest) commonTests() {
 			})
 			It("should create the agent proxy config map", func() {
 				t.expectAgentProxyConfigMap()
+			})
+			It("should create the auth strip proxy config map", func() {
+				t.expectAuthStripProxyConfigMap()
 			})
 		})
 		Context("Enable cert-manager after being disabled", func() {
@@ -1878,6 +1920,9 @@ func (c *controllerTest) commonTests() {
 			})
 			It("should create the agent proxy config map", func() {
 				t.expectAgentProxyConfigMap()
+			})
+			It("should create the auth strip proxy config map", func() {
+				t.expectAuthStripProxyConfigMap()
 			})
 		})
 		Context("cert-manager missing", func() {
@@ -2813,6 +2858,108 @@ func (c *controllerTest) commonTests() {
 				})
 			})
 		})
+		Context("auth-delegator ClusterRoleBinding lifecycle", func() {
+			Context("with OpenShift SSO disabled", func() {
+				BeforeEach(func() {
+					cr := t.NewCryostat()
+					disableOpenShiftSSO(cr)
+					t.objs = append(t.objs, cr.Object)
+				})
+				JustBeforeEach(func() {
+					t.reconcileCryostatFully()
+				})
+				It("should not create the auth-delegator ClusterRoleBinding", func() {
+					t.checkAuthDelegatorClusterRoleBindingDeleted()
+				})
+			})
+			Context("with Basic authentication enabled", func() {
+				BeforeEach(func() {
+					cr := t.NewCryostat()
+					setBasicAuth(cr, testHTPasswdSecretName, testHTPasswdFilename)
+					t.objs = append(t.objs, cr.Object, &corev1.Secret{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      testHTPasswdSecretName,
+							Namespace: t.Namespace,
+						},
+						Data: map[string][]byte{
+							testHTPasswdFilename: []byte("testuser:$apr1$test"),
+						},
+					})
+				})
+				JustBeforeEach(func() {
+					t.reconcileCryostatFully()
+				})
+				It("should not create the auth-delegator ClusterRoleBinding", func() {
+					t.checkAuthDelegatorClusterRoleBindingDeleted()
+				})
+			})
+			Context("transitioning from default to Basic authentication", func() {
+				BeforeEach(func() {
+					t.objs = append(t.objs, t.NewCryostat().Object)
+				})
+				JustBeforeEach(func() {
+					t.reconcileCryostatFully()
+				})
+				It("should create and then remove the auth-delegator ClusterRoleBinding", func() {
+					authDelegator := &rbacv1.ClusterRoleBinding{}
+					err := t.Client.Get(context.Background(),
+						types.NamespacedName{Name: t.NewAuthDelegatorClusterRoleBinding().Name}, authDelegator)
+					Expect(err).ToNot(HaveOccurred())
+
+					err = t.Client.Create(context.Background(), &corev1.Secret{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      testHTPasswdSecretName,
+							Namespace: t.Namespace,
+						},
+						Data: map[string][]byte{
+							testHTPasswdFilename: []byte("testuser:$apr1$test"),
+						},
+					})
+					Expect(err).ToNot(HaveOccurred())
+
+					cr := t.getCryostatInstance()
+					setBasicAuth(cr, testHTPasswdSecretName, testHTPasswdFilename)
+					t.updateCryostatInstance(cr)
+					t.reconcileCryostatFully()
+
+					t.checkAuthDelegatorClusterRoleBindingDeleted()
+				})
+			})
+			Context("transitioning from Basic authentication to default", func() {
+				BeforeEach(func() {
+					cr := t.NewCryostat()
+					setBasicAuth(cr, testHTPasswdSecretName, testHTPasswdFilename)
+					t.objs = append(t.objs, cr.Object, &corev1.Secret{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      testHTPasswdSecretName,
+							Namespace: t.Namespace,
+						},
+						Data: map[string][]byte{
+							testHTPasswdFilename: []byte("testuser:$apr1$test"),
+						},
+					})
+				})
+				JustBeforeEach(func() {
+					t.reconcileCryostatFully()
+				})
+				It("should create the auth-delegator ClusterRoleBinding after removing Basic auth", func() {
+					t.checkAuthDelegatorClusterRoleBindingDeleted()
+
+					cr := t.getCryostatInstance()
+					cr.Spec.AuthorizationOptions.BasicAuth = nil
+					t.updateCryostatInstance(cr)
+					t.reconcileCryostatFully()
+
+					expected := t.NewAuthDelegatorClusterRoleBinding()
+					authDelegator := &rbacv1.ClusterRoleBinding{}
+					err := t.Client.Get(context.Background(),
+						types.NamespacedName{Name: expected.Name}, authDelegator)
+					Expect(err).ToNot(HaveOccurred())
+					Expect(authDelegator.Subjects).To(Equal(expected.Subjects))
+					Expect(authDelegator.RoleRef).To(Equal(expected.RoleRef))
+				})
+			})
+		})
 	})
 
 	Describe("reconciling a request in Kubernetes", func() {
@@ -3590,12 +3737,52 @@ func (t *cryostatTestInput) expectRBAC() {
 	Expect(clusterBinding.GetAnnotations()).To(Equal(expectedClusterBinding.GetAnnotations()))
 	Expect(clusterBinding.Subjects).To(Equal(expectedClusterBinding.Subjects))
 	Expect(clusterBinding.RoleRef).To(Equal(expectedClusterBinding.RoleRef))
+
+	if t.expectAuthDelegator() {
+		expectedAuthDelegator := t.NewAuthDelegatorClusterRoleBinding()
+		authDelegator := &rbacv1.ClusterRoleBinding{}
+		err = t.Client.Get(context.Background(), types.NamespacedName{Name: expectedAuthDelegator.Name}, authDelegator)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(authDelegator.GetName()).To(Equal(expectedAuthDelegator.GetName()))
+		Expect(authDelegator.Subjects).To(Equal(expectedAuthDelegator.Subjects))
+		Expect(authDelegator.RoleRef).To(Equal(expectedAuthDelegator.RoleRef))
+	} else {
+		t.checkAuthDelegatorClusterRoleBindingDeleted()
+	}
+}
+
+func (t *cryostatTestInput) expectAuthDelegator() bool {
+	if !t.OpenShift {
+		return false
+	}
+	cr := t.getCryostatInstance()
+	if cr.Spec.AuthorizationOptions != nil {
+		if cr.Spec.AuthorizationOptions.OpenShiftSSO != nil &&
+			cr.Spec.AuthorizationOptions.OpenShiftSSO.Disable != nil &&
+			*cr.Spec.AuthorizationOptions.OpenShiftSSO.Disable {
+			return false
+		}
+		if cr.Spec.AuthorizationOptions.BasicAuth != nil &&
+			cr.Spec.AuthorizationOptions.BasicAuth.SecretName != nil &&
+			cr.Spec.AuthorizationOptions.BasicAuth.Filename != nil {
+			return false
+		}
+	}
+	return true
+}
+
+func (t *cryostatTestInput) checkAuthDelegatorClusterRoleBindingDeleted() {
+	authDelegator := &rbacv1.ClusterRoleBinding{}
+	err := t.Client.Get(context.Background(), types.NamespacedName{Name: t.NewAuthDelegatorClusterRoleBinding().Name}, authDelegator)
+	Expect(kerrors.IsNotFound(err)).To(BeTrue())
 }
 
 func (t *cryostatTestInput) checkClusterRoleBindingDeleted() {
 	clusterBinding := &rbacv1.ClusterRoleBinding{}
 	err := t.Client.Get(context.Background(), types.NamespacedName{Name: t.NewClusterRoleBinding().Name}, clusterBinding)
 	Expect(kerrors.IsNotFound(err)).To(BeTrue())
+
+	t.checkAuthDelegatorClusterRoleBindingDeleted()
 }
 
 func (t *cryostatTestInput) checkRoleBindingsDeleted() {
@@ -3670,6 +3857,17 @@ func (t *cryostatTestInput) expectLockConfigMap() {
 
 func (t *cryostatTestInput) expectAgentProxyConfigMap() {
 	expected := t.NewAgentProxyConfigMap()
+	cm := &corev1.ConfigMap{}
+	err := t.Client.Get(context.Background(), types.NamespacedName{Name: expected.Name, Namespace: expected.Namespace}, cm)
+	Expect(err).ToNot(HaveOccurred())
+
+	t.checkMetadata(cm, expected)
+	Expect(cm.Data).To(Equal(expected.Data))
+	Expect(cm.Immutable).To(Equal(expected.Immutable))
+}
+
+func (t *cryostatTestInput) expectAuthStripProxyConfigMap() {
+	expected := t.NewAuthStripProxyConfigMap()
 	cm := &corev1.ConfigMap{}
 	err := t.Client.Get(context.Background(), types.NamespacedName{Name: expected.Name, Namespace: expected.Namespace}, cm)
 	Expect(err).ToNot(HaveOccurred())
@@ -4041,7 +4239,7 @@ func (t *cryostatTestInput) checkMainPodTemplate(deployment *appsv1.Deployment, 
 	Expect(template.Spec.SecurityContext).To(Equal(t.NewPodSecurityContext(cr)))
 
 	// Check that the networking environment variables are set correctly
-	Expect(template.Spec.Containers).To(HaveLen(5))
+	Expect(template.Spec.Containers).To(HaveLen(6))
 	coreContainer := template.Spec.Containers[0]
 	reportPort := int32(10000)
 	if cr.Spec.ServiceOptions != nil {
@@ -4078,6 +4276,7 @@ func (t *cryostatTestInput) checkMainPodTemplate(deployment *appsv1.Deployment, 
 		builtInPortConfigDisabled,
 		dbSecretProvided,
 		logLevel,
+		cr.Spec.AuthorizationOptions,
 		t.NewCoreContainerResource(cr), t.NewCoreSecurityContext(cr))
 
 	// Check that Grafana is configured properly, depending on the environment
@@ -4095,6 +4294,10 @@ func (t *cryostatTestInput) checkMainPodTemplate(deployment *appsv1.Deployment, 
 	// Check that Agent Proxy is configured properly
 	agentProxyContainer := template.Spec.Containers[4]
 	t.checkAgentProxyContainer(&agentProxyContainer, t.NewAgentProxyContainerResource(cr), t.NewAgentProxySecurityContext(cr))
+
+	// Check that Auth Strip Proxy is configured properly
+	authStripProxyContainer := template.Spec.Containers[5]
+	t.checkAuthStripProxyContainer(&authStripProxyContainer, t.NewAuthStripProxyContainerResource(cr), t.NewAuthStripProxySecurityContext())
 
 	// Check that the proper Service Account is set
 	Expect(template.Spec.ServiceAccountName).To(Equal(t.Name))
@@ -4380,6 +4583,7 @@ func (t *cryostatTestInput) checkCoreContainer(container *corev1.Container, ingr
 	hasPortConfig bool, builtInDiscoveryDisabled bool, builtInPortConfigDisabled bool,
 	dbSecretProvided bool,
 	logLevel string,
+	authOptions *operatorv1beta2.AuthorizationOptions,
 	resources *corev1.ResourceRequirements,
 	securityContext *corev1.SecurityContext) {
 	Expect(container.Name).To(Equal(t.Name))
@@ -4389,7 +4593,7 @@ func (t *cryostatTestInput) checkCoreContainer(container *corev1.Container, ingr
 		Expect(container.Image).To(Equal(*t.EnvCoreImageTag))
 	}
 	Expect(container.Ports).To(ConsistOf(t.NewCorePorts()))
-	Expect(container.Env).To(ConsistOf(t.NewCoreEnvironmentVariables(reportsUrl, ingress, hasPortConfig, builtInDiscoveryDisabled, builtInPortConfigDisabled, dbSecretProvided, logLevel)))
+	Expect(container.Env).To(ConsistOf(t.NewCoreEnvironmentVariables(reportsUrl, ingress, hasPortConfig, builtInDiscoveryDisabled, builtInPortConfigDisabled, dbSecretProvided, logLevel, authOptions)))
 	Expect(container.EnvFrom).To(ConsistOf(t.NewCoreEnvFromSource()))
 	Expect(container.VolumeMounts).To(ConsistOf(t.NewCoreVolumeMounts()))
 	Expect(container.LivenessProbe).To(Equal(t.NewCoreLivenessProbe()))
@@ -4479,6 +4683,26 @@ func (t *cryostatTestInput) checkAgentProxyContainer(container *corev1.Container
 	Expect(container.LivenessProbe).To(Equal(t.NewAgentProxyLivenessProbe()))
 	Expect(container.SecurityContext).To(Equal(securityContext))
 	Expect(container.Command).To(Equal(t.NewAgentProxyCommand()))
+
+	test.ExpectResourceRequirements(&container.Resources, resources)
+}
+
+func (t *cryostatTestInput) checkAuthStripProxyContainer(container *corev1.Container, resources *corev1.ResourceRequirements, securityContext *corev1.SecurityContext) {
+	Expect(container.Name).To(Equal(t.Name + "-auth-strip-proxy"))
+	imageTag := t.EnvAgentProxyImageTag
+	defaultPrefix := "registry.access.redhat.com/ubi9/nginx-124:"
+	if imageTag != nil {
+		Expect(container.Image).To(Equal(*imageTag))
+	} else {
+		Expect(container.Image).To(HavePrefix(defaultPrefix))
+	}
+	Expect(container.Ports).To(ConsistOf(t.NewAuthStripProxyPorts()))
+	Expect(container.Env).To(ConsistOf(t.NewAuthStripProxyEnvironmentVariables()))
+	Expect(container.EnvFrom).To(ConsistOf(t.NewAuthStripProxyEnvFromSource()))
+	Expect(container.VolumeMounts).To(ConsistOf(t.NewAuthStripProxyVolumeMounts()))
+	Expect(container.LivenessProbe).To(Equal(t.NewAuthStripProxyLivenessProbe()))
+	Expect(container.SecurityContext).To(Equal(securityContext))
+	Expect(container.Command).To(Equal(t.NewAuthStripProxyCommand()))
 
 	test.ExpectResourceRequirements(&container.Resources, resources)
 }

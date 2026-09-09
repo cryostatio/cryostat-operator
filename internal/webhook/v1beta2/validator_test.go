@@ -154,6 +154,133 @@ var _ = Describe("CryostatValidator", func() {
 				expectErrInvalidTrustedCertEntry(err)
 			})
 		})
+
+		Context("creates a Cryostat with invalid rbacPermissions keys", func() {
+			BeforeEach(func() {
+				cr.Spec.AuthorizationOptions = &operatorv1beta2.AuthorizationOptions{
+					RBACPermissions: map[string]string{
+						"UPPERCASE:read": "pods:get",
+					},
+				}
+			})
+
+			It("should reject a key with uppercase letters", func() {
+				err := t.client.Create(ctx, cr.Object)
+				expectErrInvalidRBACPermissionKey(err)
+			})
+		})
+
+		Context("creates a Cryostat with invalid rbacPermissions values", func() {
+			BeforeEach(func() {
+				cr.Spec.AuthorizationOptions = &operatorv1beta2.AuthorizationOptions{
+					RBACPermissions: map[string]string{
+						"recordings:read": "Pods:Get",
+					},
+				}
+			})
+
+			It("should reject a value with uppercase letters", func() {
+				err := t.client.Create(ctx, cr.Object)
+				expectErrInvalidRBACPermissionValue(err)
+			})
+		})
+
+		Context("creates a Cryostat with a rbacPermissions key missing colon", func() {
+			BeforeEach(func() {
+				cr.Spec.AuthorizationOptions = &operatorv1beta2.AuthorizationOptions{
+					RBACPermissions: map[string]string{
+						"recordings": "pods:get",
+					},
+				}
+			})
+
+			It("should reject a key without a colon separator", func() {
+				err := t.client.Create(ctx, cr.Object)
+				expectErrInvalidRBACPermissionKey(err)
+			})
+		})
+
+		Context("creates a Cryostat with invalid rbacDefaultPermissions", func() {
+			BeforeEach(func() {
+				invalidVal := "Pods/Exec:Create"
+				cr.Spec.AuthorizationOptions = &operatorv1beta2.AuthorizationOptions{
+					RBACDefaultPermissions: &operatorv1beta2.RBACDefaultPermissions{
+						DefaultReadPermission: &invalidVal,
+					},
+				}
+			})
+
+			It("should reject a default permission with uppercase letters", func() {
+				err := t.client.Create(ctx, cr.Object)
+				expectErrInvalidRBACDefault(err, "defaultReadPermission")
+			})
+		})
+
+		Context("creates a Cryostat with an invalid clientCacheExpireAfterAccess duration", func() {
+			BeforeEach(func() {
+				badDur := "5minutes"
+				cr.Spec.AuthorizationOptions = &operatorv1beta2.AuthorizationOptions{
+					RBACCacheOptions: &operatorv1beta2.RBACCacheOptions{
+						ClientCacheExpireAfterAccess: &badDur,
+					},
+				}
+			})
+
+			It("should reject a duration that Go cannot parse", func() {
+				err := t.client.Create(ctx, cr.Object)
+				expectErrInvalidDuration(err, "clientCacheExpireAfterAccess")
+			})
+		})
+
+		Context("creates a Cryostat with an invalid decisionCacheTTL duration", func() {
+			BeforeEach(func() {
+				badDur := "2hours"
+				cr.Spec.AuthorizationOptions = &operatorv1beta2.AuthorizationOptions{
+					RBACCacheOptions: &operatorv1beta2.RBACCacheOptions{
+						DecisionCacheTTL: &badDur,
+					},
+				}
+			})
+
+			It("should reject a duration that Go cannot parse", func() {
+				err := t.client.Create(ctx, cr.Object)
+				expectErrInvalidDuration(err, "decisionCacheTTL")
+			})
+		})
+
+		Context("creates a Cryostat with valid rbacPermissions", func() {
+			BeforeEach(func() {
+				cr.Spec.AuthorizationOptions = &operatorv1beta2.AuthorizationOptions{
+					RBACPermissions: map[string]string{
+						"activerecordings:read":   "pods:get",
+						"activerecordings:create": "pods/exec:create",
+					},
+				}
+			})
+
+			It("should allow valid permission entries", func() {
+				err := t.client.Create(ctx, cr.Object)
+				Expect(err).ToNot(HaveOccurred())
+			})
+		})
+
+		Context("creates a Cryostat with valid cache duration strings", func() {
+			BeforeEach(func() {
+				expiry := "5m"
+				ttl := "1m30s"
+				cr.Spec.AuthorizationOptions = &operatorv1beta2.AuthorizationOptions{
+					RBACCacheOptions: &operatorv1beta2.RBACCacheOptions{
+						ClientCacheExpireAfterAccess: &expiry,
+						DecisionCacheTTL:             &ttl,
+					},
+				}
+			})
+
+			It("should allow valid Go duration strings", func() {
+				err := t.client.Create(ctx, cr.Object)
+				Expect(err).ToNot(HaveOccurred())
+			})
+		})
 	})
 
 	Context("unauthorized user", func() {
@@ -225,4 +352,26 @@ func expectErrInvalidTrustedCertEntry(actual error) {
 	Expect(kerrors.IsInvalid(actual)).To(BeTrue(), "expected Invalid API error")
 	Expect(actual.Error()).To(ContainSubstring("spec.trustedCertSecrets[0]"))
 	Expect(actual.Error()).To(ContainSubstring("exactly one of secretName or configMapName must be specified"))
+}
+
+func expectErrInvalidRBACPermissionKey(actual error) {
+	Expect(kerrors.IsInvalid(actual)).To(BeTrue(), "expected Invalid API error")
+	Expect(actual.Error()).To(ContainSubstring("spec.authorizationOptions.rbacPermissions"))
+	Expect(actual.Error()).To(ContainSubstring("key must use the form"))
+}
+
+func expectErrInvalidRBACPermissionValue(actual error) {
+	Expect(kerrors.IsInvalid(actual)).To(BeTrue(), "expected Invalid API error")
+	Expect(actual.Error()).To(ContainSubstring("spec.authorizationOptions.rbacPermissions"))
+	Expect(actual.Error()).To(ContainSubstring("value must use the form"))
+}
+
+func expectErrInvalidRBACDefault(actual error, fieldName string) {
+	Expect(kerrors.IsInvalid(actual)).To(BeTrue(), "expected Invalid API error")
+	Expect(actual.Error()).To(ContainSubstring("spec.authorizationOptions.rbacDefaultPermissions." + fieldName))
+}
+
+func expectErrInvalidDuration(actual error, fieldName string) {
+	Expect(kerrors.IsInvalid(actual)).To(BeTrue(), "expected Invalid API error")
+	Expect(actual.Error()).To(ContainSubstring("spec.authorizationOptions.rbacCacheOptions." + fieldName))
 }
