@@ -10,3 +10,13 @@ spec:
   reportOptions:
     replicas: 0
   networkPolicies: {}
+  storageOptions:
+    scratch:
+      volumeClaimTemplate:
+        spec:
+          accessModes:
+          - ReadWriteOnce
+          resources:
+            requests:
+              storage: 4Gi
+      cachePercentage: 50
