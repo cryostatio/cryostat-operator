@@ -133,6 +133,12 @@ export CUSTOM_SCORECARD_IMG ?= $(IMAGE_TAG_BASE)-scorecard:$(CUSTOM_SCORECARD_VE
 DEPLOY_NAMESPACE ?= cryostat-operator-system
 TARGET_NAMESPACES ?= $(DEPLOY_NAMESPACE) # A space-separated list of target namespaces
 SCORECARD_NAMESPACE ?= cryostat-operator-scorecard
+# Bundle passed to `operator-sdk scorecard`. May be a bundle image or an on-disk
+# bundle directory (e.g. ./bundle); a directory avoids a host-side image pull.
+SCORECARD_BUNDLE ?= $(BUNDLE_IMG)
+# Extra flags passed to `operator-sdk run bundle` (e.g. --use-http --skip-tls when
+# pulling from a plain-HTTP local registry).
+RUN_BUNDLE_EXTRA_ARGS ?=
 
 # Get the currently used golang install path (in GOPATH/bin, unless GOBIN is set)
 ifeq (,$(shell go env GOBIN))
@@ -229,7 +235,7 @@ ifneq ($(SKIP_TESTS), true)
 	$(call scorecard-setup)
 	$(call scorecard-cleanup) ; \
 	trap cleanup EXIT ; \
-	$(OPERATOR_SDK) scorecard -n $(SCORECARD_NAMESPACE) -s cryostat-scorecard -w 20m $(BUNDLE_IMG) --pod-security=restricted -o $(SCORECARD_OUTPUT_FORMAT) $(SCORECARD_TEST_SELECTOR) $(SCORECARD_TEE)
+	$(OPERATOR_SDK) scorecard -n $(SCORECARD_NAMESPACE) -s cryostat-scorecard -w 20m $(SCORECARD_BUNDLE) --pod-security=restricted -o $(SCORECARD_OUTPUT_FORMAT) $(SCORECARD_TEST_SELECTOR) $(SCORECARD_TEE)
 endif
 
 .PHONY: test-scorecard-local
@@ -268,7 +274,7 @@ $(KUSTOMIZE) build internal/images/custom-scorecard-tests/rbac/ | $(CLUSTER_CLIE
 		--docker-username="$(SCORECARD_REGISTRY_USERNAME)" --docker-password="$(SCORECARD_REGISTRY_PASSWORD)"; \
 	$(CLUSTER_CLIENT) patch sa cryostat-scorecard -n $(SCORECARD_NAMESPACE) -p '{"imagePullSecrets": [{"name": "registry-key"}]}'; \
 fi
-$(OPERATOR_SDK) run bundle -n $(SCORECARD_NAMESPACE) --timeout 20m $(BUNDLE_IMG) --security-context-config=restricted --verbose $(SCORECARD_ARGS)
+$(OPERATOR_SDK) run bundle -n $(SCORECARD_NAMESPACE) --timeout 20m $(BUNDLE_IMG) --security-context-config=restricted --verbose $(SCORECARD_ARGS) $(RUN_BUNDLE_EXTRA_ARGS)
 endef
 
 define scorecard-cleanup

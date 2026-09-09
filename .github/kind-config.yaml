@@ -1,5 +1,11 @@
 kind: Cluster
 apiVersion: kind.x-k8s.io/v1alpha4
+# Read per-registry hosts.toml files so cluster nodes
+# resolve localhost:5000 pulls to the local registry.
+containerdConfigPatches:
+- |-
+  [plugins."io.containerd.grpc.v1.cri".registry]
+    config_path = "/etc/containerd/certs.d"
 nodes:
 - role: control-plane
   kubeadmConfigPatches:
