@@ -48,20 +48,22 @@ import (
 )
 
 type TestResources struct {
-	Name                       string
-	Namespace                  string
-	TLS                        bool
-	ExternalTLS                bool
-	OpenShift                  bool
-	ReportReplicas             int32
-	TargetNamespaces           []string
-	EnableAudit                *bool
-	InsightsURL                string
-	DisableAgentHostnameVerify bool
-	AllowAgentInsecure         bool
-	DatabaseSecret             *corev1.Secret
-	StorageSecret              *corev1.Secret
-	LogLevel                   string
+	Name                          string
+	Namespace                     string
+	TLS                           bool
+	ExternalTLS                   bool
+	OpenShift                     bool
+	ReportReplicas                int32
+	TargetNamespaces              []string
+	EnableAudit                   *bool
+	InsightsURL                   string
+	DisableAgentHostnameVerify    bool
+	AllowAgentInsecure            bool
+	DatabaseSecret                *corev1.Secret
+	StorageSecret                 *corev1.Secret
+	LogLevel                      string
+	DisablePresignedFileTransfers *bool
+	DisablePresignedDownloads     *bool
 }
 
 func NewTestScheme() *runtime.Scheme {
@@ -2836,15 +2838,23 @@ func (r *TestResources) NewCoreEnvironmentVariables(reportsUrl string, ingress b
 			Name:  "AWS_SECRET_ACCESS_KEY",
 			Value: "$(QUARKUS_S3_AWS_CREDENTIALS_STATIC_PROVIDER_SECRET_ACCESS_KEY)",
 		},
-		{
-			Name:  "STORAGE_PRESIGNED_TRANSFERS_ENABLED",
-			Value: "true",
-		},
-		{
-			Name:  "STORAGE_PRESIGNED_DOWNLOADS_ENABLED",
-			Value: "false",
-		},
 	}...)
+
+	disablePresignedFileTransfers := false
+	if r.DisablePresignedFileTransfers != nil {
+		disablePresignedFileTransfers = *r.DisablePresignedFileTransfers
+	}
+	envs = append(envs, corev1.EnvVar{
+		Name:  "STORAGE_PRESIGNED_TRANSFERS_ENABLED",
+		Value: fmt.Sprintf("%t", !disablePresignedFileTransfers),
+	})
+
+	if r.DisablePresignedDownloads != nil {
+		envs = append(envs, corev1.EnvVar{
+			Name:  "STORAGE_PRESIGNED_DOWNLOADS_ENABLED",
+			Value: fmt.Sprintf("%t", !*r.DisablePresignedDownloads),
+		})
+	}
 	if r.TLS {
 		envs = append(envs,
 			corev1.EnvVar{
