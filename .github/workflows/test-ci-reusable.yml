@@ -45,6 +45,12 @@ jobs:
   
   scorecard-test:
     runs-on: ubuntu-latest
+    env:
+      # Passed to helm/kind-action below, which starts the registry under this name
+      # and appends a 127.0.0.1 hosts entry for it, so $REGISTRY_NAME:$REGISTRY_PORT
+      # resolves both from the runner host and from within the cluster network.
+      REGISTRY_NAME: kind-registry
+      REGISTRY_PORT: 5000
     steps:
     - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       with:
@@ -52,19 +58,19 @@ jobs:
         ref: ${{ inputs.ref }}
     - name: Build scorecard image for test
       run: |
-        CUSTOM_SCORECARD_IMG=localhost:5000/${{ github.repository_owner }}/cryostat-operator-scorecard:${{ inputs.tag }} \
+        CUSTOM_SCORECARD_IMG=$REGISTRY_NAME:$REGISTRY_PORT/${{ github.repository_owner }}/cryostat-operator-scorecard:${{ inputs.tag }} \
         PLATFORMS=linux/amd64 \
         MANIFEST_PUSH=false \
         make scorecard-build
     - name: Build operator image for test
       run: |
-        OPERATOR_IMG=localhost:5000/${{ github.repository_owner }}/cryostat-operator:${{ inputs.tag }} \
+        OPERATOR_IMG=$REGISTRY_NAME:$REGISTRY_PORT/${{ github.repository_owner }}/cryostat-operator:${{ inputs.tag }} \
         SKIP_TESTS=true \
         make oci-build
     - name: Build bundle image for test
       run: |
-        OPERATOR_IMG=localhost:5000/${{ github.repository_owner }}/cryostat-operator:${{ inputs.tag }} \
-        BUNDLE_IMG=localhost:5000/${{ github.repository_owner }}/cryostat-operator-bundle:${{ inputs.tag }} \
+        OPERATOR_IMG=$REGISTRY_NAME:$REGISTRY_PORT/${{ github.repository_owner }}/cryostat-operator:${{ inputs.tag }} \
+        BUNDLE_IMG=$REGISTRY_NAME:$REGISTRY_PORT/${{ github.repository_owner }}/cryostat-operator-bundle:${{ inputs.tag }} \
         make bundle bundle-build
     - name: Set up Kind cluster
       uses: helm/kind-action@06c1ae10762d3b9c1644e7fe69596ae519e015a2 # v1.15.0
@@ -73,22 +79,13 @@ jobs:
         cluster_name: ci-${{ github.run_id }}
         wait: 1m
         ignore_failed_clean: true
-    - name: Set up local image registry
-      run: |
-        CLUSTER_NAME=ci-${{ github.run_id }}
-        # Start a plain-HTTP registry, reachable from the runner host as localhost:5000.
-        # operator-sdk 'run bundle' renders the bundle image on the host, so a local
-        # registry serves both the host and cluster.
-        docker run -d --restart=always -p 5000:5000 --name kind-registry \
-          quay.io/libpod/registry:2.8.2
-        # Attach the registry to the kind network so cluster nodes can reach it by name.
-        docker network connect kind kind-registry
-        # Point each node's containerd at the registry for localhost:5000 pulls.
-        for node in $(kind get nodes --name "$CLUSTER_NAME"); do
-          docker exec "$node" mkdir -p /etc/containerd/certs.d/localhost:5000
-          echo '[host."http://kind-registry:5000"]' | \
-            docker exec -i "$node" cp /dev/stdin /etc/containerd/certs.d/localhost:5000/hosts.toml
-        done
+        # Plain-HTTP registry serving both the runner host and the cluster nodes:
+        # operator-sdk 'run bundle' renders the bundle image on the host, while the
+        # cluster pulls the operator and scorecard images.
+        registry: true
+        registry_name: ${{ env.REGISTRY_NAME }}
+        registry_port: ${{ env.REGISTRY_PORT }}
+        registry_image: quay.io/libpod/registry:2.8.2
     - name: Set up Ingress Controller
       run: |
         # Install nginx ingress controller
@@ -113,14 +110,14 @@ jobs:
     - name: Push test images to local registry
       run: |
         for img in \
-          "localhost:5000/${{ github.repository_owner }}/cryostat-operator-scorecard:${{ inputs.tag }}" \
-          "localhost:5000/${{ github.repository_owner }}/cryostat-operator:${{ inputs.tag }}" \
-          "localhost:5000/${{ github.repository_owner }}/cryostat-operator-bundle:${{ inputs.tag }}"; do
+          "$REGISTRY_NAME:$REGISTRY_PORT/${{ github.repository_owner }}/cryostat-operator-scorecard:${{ inputs.tag }}" \
+          "$REGISTRY_NAME:$REGISTRY_PORT/${{ github.repository_owner }}/cryostat-operator:${{ inputs.tag }}" \
+          "$REGISTRY_NAME:$REGISTRY_PORT/${{ github.repository_owner }}/cryostat-operator-bundle:${{ inputs.tag }}"; do
           podman push --tls-verify=false "$img"
         done
     - name: Run scorecard tests
       run: |
-        BUNDLE_IMG="localhost:5000/${{ github.repository_owner }}/cryostat-operator-bundle:${{ inputs.tag }}" \
+        BUNDLE_IMG="$REGISTRY_NAME:$REGISTRY_PORT/${{ github.repository_owner }}/cryostat-operator-bundle:${{ inputs.tag }}" \
         SCORECARD_BUNDLE="./bundle" \
         RUN_BUNDLE_EXTRA_ARGS="--use-http --skip-tls" \
         make test-scorecard
