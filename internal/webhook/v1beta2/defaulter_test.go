@@ -134,6 +134,58 @@ var _ = Describe("CryostatDefaulter", func() {
 		})
 	})
 
+	Context("without namespaced RBAC permissions set", func() {
+		BeforeEach(func() {
+			t.objs = append(t.objs, t.NewCryostat().Object)
+		})
+
+		It("should default namespaced RBAC permissions to true", func() {
+			result := t.getCryostat()
+			Expect(result.Spec.AuthorizationOptions).ToNot(BeNil())
+			Expect(result.Spec.AuthorizationOptions.NamespacedRBACPermissions).ToNot(BeNil())
+			Expect(*result.Spec.AuthorizationOptions.NamespacedRBACPermissions).To(BeTrue())
+		})
+	})
+
+	Context("with namespaced RBAC permissions explicitly set to false", func() {
+		BeforeEach(func() {
+			disabled := false
+			cr := t.NewCryostat()
+			cr.Spec.AuthorizationOptions = &operatorv1beta2.AuthorizationOptions{
+				NamespacedRBACPermissions: &disabled,
+			}
+			t.objs = append(t.objs, cr.Object)
+		})
+
+		It("should preserve the user-supplied value", func() {
+			result := t.getCryostat()
+			Expect(result.Spec.AuthorizationOptions).ToNot(BeNil())
+			Expect(result.Spec.AuthorizationOptions.NamespacedRBACPermissions).ToNot(BeNil())
+			Expect(*result.Spec.AuthorizationOptions.NamespacedRBACPermissions).To(BeFalse())
+		})
+	})
+
+	Context("updating an existing Cryostat to clear namespaced RBAC permissions", func() {
+		BeforeEach(func() {
+			enabled := true
+			cr := t.NewCryostat()
+			cr.Spec.AuthorizationOptions = &operatorv1beta2.AuthorizationOptions{
+				NamespacedRBACPermissions: &enabled,
+			}
+			t.objs = append(t.objs, cr.Object)
+		})
+
+		It("should not re-default namespaced RBAC permissions on update", func() {
+			cr := t.getCryostat()
+			cr.Spec.AuthorizationOptions.NamespacedRBACPermissions = nil
+			err := t.client.Update(context.Background(), cr)
+			Expect(err).ToNot(HaveOccurred())
+
+			result := t.getCryostat()
+			Expect(result.Spec.AuthorizationOptions.NamespacedRBACPermissions).To(BeNil())
+		})
+	})
+
 	Context("updating an existing Cryostat with unset audit setting", func() {
 		BeforeEach(func() {
 			auditEnabled := true
