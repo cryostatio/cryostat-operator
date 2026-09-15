@@ -1376,6 +1376,111 @@ func (c *controllerTest) commonTests() {
 				t.expectStorageEmptyDir(t.NewCustomStorageEmptyDir())
 			})
 		})
+		Context("with no scratch volume configured", func() {
+			BeforeEach(func() {
+				t.objs = append(t.objs, t.NewCryostat().Object)
+			})
+			JustBeforeEach(func() {
+				t.reconcileCryostatFully()
+			})
+			It("should not mount a scratch volume over /tmp", func() {
+				t.expectNoScratchVolume()
+			})
+			It("should not set the JFR cache weight env var", func() {
+				t.expectNoCoreEnvVar("CRYOSTAT_JFR_ANALYSIS_CACHE_MAX_WEIGHT")
+			})
+			It("should not set an ephemeral-storage limit", func() {
+				t.expectCoreEphemeralStorageLimit(nil)
+			})
+		})
+		Context("with a scratch volumeClaimTemplate configured", func() {
+			BeforeEach(func() {
+				t.objs = append(t.objs, t.NewCryostatWithScratchVolumeClaimTemplate().Object)
+			})
+			JustBeforeEach(func() {
+				t.reconcileCryostatFully()
+			})
+			It("should mount a generic ephemeral volume over /tmp", func() {
+				t.expectScratchVolume(corev1.VolumeSource{
+					Ephemeral: &corev1.EphemeralVolumeSource{
+						VolumeClaimTemplate: t.NewScratchVolumeClaimTemplate(),
+					},
+				})
+			})
+			It("should size the JFR cache from the volume size and default ratio", func() {
+				// floor(4096 MiB * 50 / 100) = 2048
+				t.expectCoreCacheWeightEnvVar("2048")
+			})
+			It("should not set an ephemeral-storage limit when none is requested", func() {
+				t.expectCoreEphemeralStorageLimit(nil)
+			})
+		})
+		Context("with a scratch volumeClaimTemplate and a custom cachePercentage", func() {
+			BeforeEach(func() {
+				t.objs = append(t.objs, t.NewCryostatWithScratchVolumeClaimTemplateCustomPercentage().Object)
+			})
+			JustBeforeEach(func() {
+				t.reconcileCryostatFully()
+			})
+			It("should size the JFR cache using the custom percentage", func() {
+				// floor(4096 MiB * 25 / 100) = 1024
+				t.expectCoreCacheWeightEnvVar("1024")
+			})
+		})
+		Context("with a scratch emptyDir configured", func() {
+			BeforeEach(func() {
+				t.objs = append(t.objs, t.NewCryostatWithScratchEmptyDir().Object)
+			})
+			JustBeforeEach(func() {
+				t.reconcileCryostatFully()
+			})
+			It("should mount an EmptyDir over /tmp", func() {
+				sizeLimit := resource.MustParse("2Gi")
+				t.expectScratchVolume(corev1.VolumeSource{
+					EmptyDir: &corev1.EmptyDirVolumeSource{
+						Medium:    corev1.StorageMediumMemory,
+						SizeLimit: &sizeLimit,
+					},
+				})
+			})
+			It("should size the JFR cache from the EmptyDir size limit", func() {
+				// floor(2048 MiB * 50 / 100) = 1024
+				t.expectCoreCacheWeightEnvVar("1024")
+			})
+		})
+		Context("with a scratch emptyDir explicitly disabled", func() {
+			BeforeEach(func() {
+				t.objs = append(t.objs, t.NewCryostatWithScratchEmptyDirDisabled().Object)
+			})
+			JustBeforeEach(func() {
+				t.reconcileCryostatFully()
+			})
+			It("should not mount a scratch volume over /tmp", func() {
+				t.expectNoScratchVolume()
+			})
+			It("should not set the JFR cache weight env var", func() {
+				t.expectNoCoreEnvVar("CRYOSTAT_JFR_ANALYSIS_CACHE_MAX_WEIGHT")
+			})
+		})
+		Context("with only a scratch ephemeral-storage limit configured", func() {
+			BeforeEach(func() {
+				t.objs = append(t.objs, t.NewCryostatWithScratchEphemeralStorageLimitOnly().Object)
+			})
+			JustBeforeEach(func() {
+				t.reconcileCryostatFully()
+			})
+			It("should not mount a scratch volume over /tmp", func() {
+				t.expectNoScratchVolume()
+			})
+			It("should set the ephemeral-storage limit while preserving CPU/memory limits", func() {
+				limit := resource.MustParse("6Gi")
+				t.expectCoreEphemeralStorageLimit(&limit)
+			})
+			It("should size the JFR cache from the ephemeral-storage limit", func() {
+				// floor(6144 MiB * 50 / 100) = 3072
+				t.expectCoreCacheWeightEnvVar("3072")
+			})
+		})
 		Context("with overridden image tags", func() {
 			var mainDeploy, databaseDeploy, storageDeploy, reportsDeploy *appsv1.Deployment
 			BeforeEach(func() {
@@ -3736,6 +3841,77 @@ func (t *cryostatTestInput) expectStorageEmptyDir(expectedEmptyDir *corev1.Empty
 	// Compare to desired spec
 	Expect(emptyDir.Medium).To(Equal(expectedEmptyDir.Medium))
 	Expect(emptyDir.SizeLimit).To(Equal(expectedEmptyDir.SizeLimit))
+}
+
+func (t *cryostatTestInput) getMainDeployment() *appsv1.Deployment {
+	deployment := &appsv1.Deployment{}
+	err := t.Client.Get(context.Background(), types.NamespacedName{Name: t.Name, Namespace: t.Namespace}, deployment)
+	Expect(err).ToNot(HaveOccurred())
+	return deployment
+}
+
+func (t *cryostatTestInput) expectScratchVolume(expected corev1.VolumeSource) {
+	deployment := t.getMainDeployment()
+
+	var found *corev1.Volume
+	for i := range deployment.Spec.Template.Spec.Volumes {
+		if deployment.Spec.Template.Spec.Volumes[i].Name == "tmp" {
+			found = &deployment.Spec.Template.Spec.Volumes[i]
+			break
+		}
+	}
+	Expect(found).ToNot(BeNil(), "expected a scratch volume named \"tmp\"")
+	Expect(found.VolumeSource).To(Equal(expected))
+
+	// The core container should mount the scratch volume over /tmp
+	coreContainer := deployment.Spec.Template.Spec.Containers[0]
+	Expect(coreContainer.VolumeMounts).To(ContainElement(corev1.VolumeMount{
+		Name:      "tmp",
+		MountPath: "/tmp",
+	}))
+}
+
+func (t *cryostatTestInput) expectNoScratchVolume() {
+	deployment := t.getMainDeployment()
+	for _, volume := range deployment.Spec.Template.Spec.Volumes {
+		Expect(volume.Name).ToNot(Equal("tmp"))
+	}
+	coreContainer := deployment.Spec.Template.Spec.Containers[0]
+	for _, mount := range coreContainer.VolumeMounts {
+		Expect(mount.MountPath).ToNot(Equal("/tmp"))
+	}
+}
+
+func (t *cryostatTestInput) expectCoreCacheWeightEnvVar(value string) {
+	deployment := t.getMainDeployment()
+	coreContainer := deployment.Spec.Template.Spec.Containers[0]
+	Expect(coreContainer.Env).To(ContainElement(corev1.EnvVar{
+		Name:  "CRYOSTAT_JFR_ANALYSIS_CACHE_MAX_WEIGHT",
+		Value: value,
+	}))
+}
+
+func (t *cryostatTestInput) expectNoCoreEnvVar(name string) {
+	deployment := t.getMainDeployment()
+	coreContainer := deployment.Spec.Template.Spec.Containers[0]
+	for _, env := range coreContainer.Env {
+		Expect(env.Name).ToNot(Equal(name))
+	}
+}
+
+func (t *cryostatTestInput) expectCoreEphemeralStorageLimit(expected *resource.Quantity) {
+	deployment := t.getMainDeployment()
+	coreContainer := deployment.Spec.Template.Spec.Containers[0]
+	limit, ok := coreContainer.Resources.Limits[corev1.ResourceEphemeralStorage]
+	if expected == nil {
+		Expect(ok).To(BeFalse(), "expected no ephemeral-storage limit")
+		return
+	}
+	Expect(ok).To(BeTrue(), "expected an ephemeral-storage limit")
+	Expect(limit.Value()).To(Equal(expected.Value()))
+	// Setting the ephemeral-storage limit must not drop the default CPU/memory limits
+	Expect(coreContainer.Resources.Limits).To(HaveKey(corev1.ResourceCPU))
+	Expect(coreContainer.Resources.Limits).To(HaveKey(corev1.ResourceMemory))
 }
 
 func (t *cryostatTestInput) expectDatabaseSecret() {

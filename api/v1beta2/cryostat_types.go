@@ -18,6 +18,7 @@ import (
 	authzv1 "k8s.io/api/authorization/v1"
 	corev1 "k8s.io/api/core/v1"
 	netv1 "k8s.io/api/networking/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/conversion"
 )
@@ -257,8 +258,74 @@ type StorageConfigurations struct {
 	// Configuration for the Persistent Volume Claim to be created by the operator for the object storage.
 	// +optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
-	ObjectStorage              *StorageConfiguration `json:"objectStorage,omitempty"`
+	ObjectStorage *StorageConfiguration `json:"objectStorage,omitempty"`
+	// Configuration for a Kubernetes-managed volume backing the core Cryostat
+	// container's /tmp scratch space. Some Cryostat features (JFR file-backed
+	// analysis of archived recordings, local JFR file merging and splitting
+	// operations, and REST upload staging) materialize whole recording files
+	// under /tmp on a seekable filesystem. When unset, /tmp is backed by the
+	// container runtime's ephemeral writable layer, unbounded except by the
+	// node's available disk. Configuring this relocates and bounds that scratch
+	// space. This must be sized to at least the largest expected local JFR file
+	// merging and splitting operation; note that the largest single recording the
+	// JFR file-backed analysis features can process is
+	// `(cachePercentage / 100) * volumeSize`.
+	// +optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec
+	Scratch                    *ScratchStorageConfiguration `json:"scratch,omitempty"`
 	LegacyStorageConfiguration `json:",inline"`
+}
+
+// ScratchStorageConfiguration configures a Kubernetes-managed volume to back
+// the core Cryostat container's /tmp scratch space. At most one of
+// VolumeClaimTemplate or EmptyDir should be specified; VolumeClaimTemplate is
+// preferred because a CSI-provisioned volume fails writes with ENOSPC when it
+// fills rather than causing the kubelet to evict the entire Pod.
+// +kubebuilder:validation:XValidation:rule="!(has(self.volumeClaimTemplate) && has(self.emptyDir) && has(self.emptyDir.enabled) && self.emptyDir.enabled)",message="volumeClaimTemplate and an enabled emptyDir are mutually exclusive"
+// +kubebuilder:validation:XValidation:rule="!has(self.ephemeralStorageLimit) || !quantity(string(self.ephemeralStorageLimit)).isLessThan(quantity('0'))",message="ephemeralStorageLimit must not be negative"
+type ScratchStorageConfiguration struct {
+	// Configuration for a generic ephemeral volume (a CSI-provisioned,
+	// Pod-scoped Persistent Volume Claim) mounted at /tmp. This is the
+	// preferred option: capacity is provisioned from a StorageClass rather than
+	// the node's runtime overlay partition, and the volume is auto-created and
+	// auto-deleted with the Pod.
+	// This is optional and mutually exclusive with an enabled emptyDir:
+	// configuring both is rejected.
+	// +optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec
+	VolumeClaimTemplate *corev1.PersistentVolumeClaimTemplate `json:"volumeClaimTemplate,omitempty"`
+	// Configuration for an EmptyDir mounted at /tmp, as a simpler fallback for
+	// clusters without dynamic provisioning. Note that exceeding an EmptyDir's
+	// SizeLimit causes the kubelet to evict the Pod, unlike a CSI volume which
+	// fails only the offending write.
+	// This is optional and mutually exclusive with volumeClaimTemplate: configuring
+	// both an enabled emptyDir and a volumeClaimTemplate is rejected. When neither
+	// is set, /tmp falls back to the container runtime's overlay layer, bounded by
+	// ephemeralStorageLimit if specified.
+	// +optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec
+	EmptyDir *EmptyDirConfig `json:"emptyDir,omitempty"`
+	// An optional ephemeral-storage limit to set on the core container as a
+	// backstop for any writes that still reach the container runtime's overlay
+	// layer. When no sized scratch volume is configured, this limit is also used
+	// as the basis for the CachePercentage calculation. Leaving this unset
+	// preserves the default behavior of no ephemeral-storage limit.
+	// +optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec
+	EphemeralStorageLimit *resource.Quantity `json:"ephemeralStorageLimit,omitempty"`
+	// The percentage of the scratch volume dedicated to the JFR file-backed
+	// analysis on-disk JFR cache. The operator derives the cache size cap from
+	// this percentage and the configured volume size, leaving the remainder for
+	// local JFR file merging and splitting operations and REST upload staging.
+	// Defaults to `50`. The largest single recording the JFR file-backed analysis
+	// features can process is `(cachePercentage / 100) * volumeSize`, so raise
+	// this (or the volume size) to analyze larger recordings, and lower it to
+	// leave more room for merging, splitting, and uploads.
+	// +optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:com.tectonic.ui:number"}
+	// +kubebuilder:validation:Minimum=1
+	// +kubebuilder:validation:Maximum=99
+	CachePercentage *int32 `json:"cachePercentage,omitempty"`
 }
 
 // StorageConfiguration provides customization to the storage created by the
@@ -537,7 +604,9 @@ type PersistentVolumeClaimConfig struct {
 // configure an EmptyDir to be created and managed
 // by the operator.
 type EmptyDirConfig struct {
-	// When enabled, Cryostat will use EmptyDir volumes instead of a Persistent Volume Claim. Any PVC configurations will be ignored.
+	// When enabled, an EmptyDir volume is created and used for this storage. Whether the EmptyDir
+	// coexists with, replaces, or is mutually exclusive with any Persistent Volume Claim
+	// configuration depends on the storage option this EmptyDir configures.
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:com.tectonic.ui:booleanSwitch"}
 	Enabled bool `json:"enabled,omitempty"`
 	// Unless specified, the emptyDir volume will be mounted on
@@ -546,7 +615,7 @@ type EmptyDirConfig struct {
 	// +optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	Medium corev1.StorageMedium `json:"medium,omitempty"`
-	// The maximum memory limit for the emptyDir. Default is unbounded.
+	// The maximum capacity of the emptyDir. Default is unbounded.
 	// +optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	// +kubebuilder:validation:Pattern=^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$

@@ -564,6 +564,79 @@ func (r *TestResources) NewCryostatWithEmptyDirSpecBoth() *model.CryostatInstanc
 	return cr
 }
 
+func (r *TestResources) NewCryostatWithScratchVolumeClaimTemplate() *model.CryostatInstance {
+	cr := r.NewCryostat()
+	cr.Spec.StorageOptions = &operatorv1beta2.StorageConfigurations{
+		Scratch: &operatorv1beta2.ScratchStorageConfiguration{
+			VolumeClaimTemplate: r.NewScratchVolumeClaimTemplate(),
+		},
+	}
+	return cr
+}
+
+func (r *TestResources) NewCryostatWithScratchVolumeClaimTemplateCustomPercentage() *model.CryostatInstance {
+	cr := r.NewCryostat()
+	percentage := int32(25)
+	cr.Spec.StorageOptions = &operatorv1beta2.StorageConfigurations{
+		Scratch: &operatorv1beta2.ScratchStorageConfiguration{
+			VolumeClaimTemplate: r.NewScratchVolumeClaimTemplate(),
+			CachePercentage:     &percentage,
+		},
+	}
+	return cr
+}
+
+func (r *TestResources) NewCryostatWithScratchEmptyDir() *model.CryostatInstance {
+	cr := r.NewCryostat()
+	cr.Spec.StorageOptions = &operatorv1beta2.StorageConfigurations{
+		Scratch: &operatorv1beta2.ScratchStorageConfiguration{
+			EmptyDir: &operatorv1beta2.EmptyDirConfig{
+				Enabled:   true,
+				Medium:    "Memory",
+				SizeLimit: "2Gi",
+			},
+		},
+	}
+	return cr
+}
+
+func (r *TestResources) NewCryostatWithScratchEmptyDirDisabled() *model.CryostatInstance {
+	cr := r.NewCryostat()
+	cr.Spec.StorageOptions = &operatorv1beta2.StorageConfigurations{
+		Scratch: &operatorv1beta2.ScratchStorageConfiguration{
+			EmptyDir: &operatorv1beta2.EmptyDirConfig{
+				Enabled:   false,
+				SizeLimit: "2Gi",
+			},
+		},
+	}
+	return cr
+}
+
+func (r *TestResources) NewCryostatWithScratchEphemeralStorageLimitOnly() *model.CryostatInstance {
+	cr := r.NewCryostat()
+	limit := resource.MustParse("6Gi")
+	cr.Spec.StorageOptions = &operatorv1beta2.StorageConfigurations{
+		Scratch: &operatorv1beta2.ScratchStorageConfiguration{
+			EphemeralStorageLimit: &limit,
+		},
+	}
+	return cr
+}
+
+func (r *TestResources) NewScratchVolumeClaimTemplate() *corev1.PersistentVolumeClaimTemplate {
+	return &corev1.PersistentVolumeClaimTemplate{
+		Spec: corev1.PersistentVolumeClaimSpec{
+			AccessModes: []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce},
+			Resources: corev1.VolumeResourceRequirements{
+				Requests: corev1.ResourceList{
+					corev1.ResourceStorage: resource.MustParse("4Gi"),
+				},
+			},
+		},
+	}
+}
+
 func (r *TestResources) NewCryostatWithCoreSvc() *model.CryostatInstance {
 	svcType := corev1.ServiceTypeNodePort
 	httpPort := int32(8080)
