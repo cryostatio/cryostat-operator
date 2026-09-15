@@ -51,6 +51,7 @@ jobs:
       # resolves both from the runner host and from within the cluster network.
       REGISTRY_NAME: kind-registry
       REGISTRY_PORT: 5000
+      TAG: ${{ inputs.tag }}
     steps:
     - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       with:
@@ -58,19 +59,19 @@ jobs:
         ref: ${{ inputs.ref }}
     - name: Build scorecard image for test
       run: |
-        CUSTOM_SCORECARD_IMG=$REGISTRY_NAME:$REGISTRY_PORT/${{ github.repository_owner }}/cryostat-operator-scorecard:${{ inputs.tag }} \
+        CUSTOM_SCORECARD_IMG="$REGISTRY_NAME:$REGISTRY_PORT/${{ github.repository_owner }}/cryostat-operator-scorecard:$TAG" \
         PLATFORMS=linux/amd64 \
         MANIFEST_PUSH=false \
         make scorecard-build
     - name: Build operator image for test
       run: |
-        OPERATOR_IMG=$REGISTRY_NAME:$REGISTRY_PORT/${{ github.repository_owner }}/cryostat-operator:${{ inputs.tag }} \
+        OPERATOR_IMG="$REGISTRY_NAME:$REGISTRY_PORT/${{ github.repository_owner }}/cryostat-operator:$TAG" \
         SKIP_TESTS=true \
         make oci-build
     - name: Build bundle image for test
       run: |
-        OPERATOR_IMG=$REGISTRY_NAME:$REGISTRY_PORT/${{ github.repository_owner }}/cryostat-operator:${{ inputs.tag }} \
-        BUNDLE_IMG=$REGISTRY_NAME:$REGISTRY_PORT/${{ github.repository_owner }}/cryostat-operator-bundle:${{ inputs.tag }} \
+        OPERATOR_IMG="$REGISTRY_NAME:$REGISTRY_PORT/${{ github.repository_owner }}/cryostat-operator:$TAG" \
+        BUNDLE_IMG="$REGISTRY_NAME:$REGISTRY_PORT/${{ github.repository_owner }}/cryostat-operator-bundle:$TAG" \
         make bundle bundle-build
     - name: Set up Kind cluster
       uses: helm/kind-action@06c1ae10762d3b9c1644e7fe69596ae519e015a2 # v1.15.0
@@ -110,14 +111,14 @@ jobs:
     - name: Push test images to local registry
       run: |
         for img in \
-          "$REGISTRY_NAME:$REGISTRY_PORT/${{ github.repository_owner }}/cryostat-operator-scorecard:${{ inputs.tag }}" \
-          "$REGISTRY_NAME:$REGISTRY_PORT/${{ github.repository_owner }}/cryostat-operator:${{ inputs.tag }}" \
-          "$REGISTRY_NAME:$REGISTRY_PORT/${{ github.repository_owner }}/cryostat-operator-bundle:${{ inputs.tag }}"; do
+          "$REGISTRY_NAME:$REGISTRY_PORT/${{ github.repository_owner }}/cryostat-operator-scorecard:$TAG" \
+          "$REGISTRY_NAME:$REGISTRY_PORT/${{ github.repository_owner }}/cryostat-operator:$TAG" \
+          "$REGISTRY_NAME:$REGISTRY_PORT/${{ github.repository_owner }}/cryostat-operator-bundle:$TAG"; do
           podman push --tls-verify=false "$img"
         done
     - name: Run scorecard tests
       run: |
-        BUNDLE_IMG="$REGISTRY_NAME:$REGISTRY_PORT/${{ github.repository_owner }}/cryostat-operator-bundle:${{ inputs.tag }}" \
+        BUNDLE_IMG="$REGISTRY_NAME:$REGISTRY_PORT/${{ github.repository_owner }}/cryostat-operator-bundle:$TAG" \
         SCORECARD_BUNDLE="./bundle" \
         RUN_BUNDLE_EXTRA_ARGS="--use-http --skip-tls" \
         make test-scorecard
