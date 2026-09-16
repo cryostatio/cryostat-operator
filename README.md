@@ -172,7 +172,7 @@ eyJhbGciOiJSUzI1NiIsImtpZCI6IkhYZC13eDdGVGwyQzdGNVpZVndScEZ2VmRxWTlzbnBUUG9HRkJp
 ## BUILDING
 
 ### Requirements
-- `go` v1.24+
+- `go` (see `go.mod` version)
 - [`operator-sdk`](https://github.com/operator-framework/operator-sdk) v1.42.0
 - `podman` or `docker`
 - [`jq`](https://stedolan.github.io/jq/) v1.6+
