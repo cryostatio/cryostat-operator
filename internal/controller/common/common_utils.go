@@ -17,11 +17,11 @@ package common
 import (
 	"cmp"
 	"context"
+	"crypto/rand"
 	"crypto/sha256"
 	"encoding/json"
 	"fmt"
 	"hash/fnv"
-	"math/rand"
 	"os"
 	"regexp"
 	"slices"
@@ -45,7 +45,7 @@ type OSUtils interface {
 	GetEnv(name string) string
 	GetEnvOrDefault(name string, defaultVal string) string
 	GetFileContents(path string) ([]byte, error)
-	// GenPasswd returns pseudorandom material. Implementations must not emit "$", '"', or "\":
+	// GenPasswd returns random material. Implementations must not emit "$", '"', or "\":
 	// see DefaultOSUtils.GenPasswd
 	GenPasswd(length int) string
 }
@@ -73,7 +73,10 @@ func (o *DefaultOSUtils) GetFileContents(path string) ([]byte, error) {
 	return os.ReadFile(path)
 }
 
-// GenPasswd generates a psuedorandom password of a given length.
+// GenPasswd generates a cryptographically random password of a given length.
+//
+// The alphabet is exactly 64 characters, so each 6-bit chunk of a random byte maps onto it
+// without modulo bias.
 //
 // The alphabet below should not be expanded without careful consideration. Generated values
 // may be rendered into an nginx directive by reconcileProvenanceSecret (secrets.go), and nginx
@@ -87,8 +90,10 @@ func (o *DefaultOSUtils) GetFileContents(path string) ([]byte, error) {
 func (o *DefaultOSUtils) GenPasswd(length int) string {
 	chars := "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_"
 	b := make([]byte, length)
+	// rand.Read fills b entirely or panics, so the result never falls back to weaker material
+	rand.Read(b)
 	for i := range b {
-		b[i] = chars[rand.Intn(len(chars))]
+		b[i] = chars[b[i]&0x3F]
 	}
 	return string(b)
 }
