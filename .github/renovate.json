@@ -49,6 +49,13 @@
   ],
   "packageRules": [
     {
+      "description": "Keep the go directive in go.mod up to date, since the gomod manager leaves it alone by default. go.mod is the single source of truth for the Go version; CI workflows read it via setup-go's go-version-file",
+      "matchManagers": ["gomod"],
+      "matchDepTypes": ["golang"],
+      "rangeStrategy": "bump",
+      "groupName": "go"
+    },
+    {
       "description": "Allow floating tags and disable digest pinning in kustomization image patches",
       "matchDatasources": ["docker"],
       "matchFileNames": [
