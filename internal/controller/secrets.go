@@ -34,7 +34,71 @@ func (r *Reconciler) reconcileSecrets(ctx context.Context, cr *model.CryostatIns
 	if err := r.reconcileDatabaseConnectionSecret(ctx, cr); err != nil {
 		return err
 	}
+	if err := r.reconcileAgentGatewaySecret(ctx, cr); err != nil {
+		return err
+	}
+	if err := r.reconcileUserProxySecret(ctx, cr); err != nil {
+		return err
+	}
 	return r.reconcileStorageSecret(ctx, cr)
+}
+
+// reconcileAgentGatewaySecret generates the shared secret that the agent gateway stamps onto
+// every request it forwards, and that the Cryostat core container compares against.
+func (r *Reconciler) reconcileAgentGatewaySecret(ctx context.Context, cr *model.CryostatInstance) error {
+	return r.reconcileProvenanceSecret(ctx, cr, constants.AgentGatewaySecretNameSuffix,
+		constants.AgentGatewaySecretKey, constants.AgentGatewayConfFileName,
+		constants.AgentGatewayAuthHeader)
+}
+
+// reconcileUserProxySecret generates the shared secret that the auth-strip proxy stamps onto
+// every request it forwards. It is deliberately distinct from the agent gateway's secret: a
+// single shared value would prove only that "some Operator-rendered proxy forwarded this",
+// which is precisely the distinction that matters.
+func (r *Reconciler) reconcileUserProxySecret(ctx context.Context, cr *model.CryostatInstance) error {
+	return r.reconcileProvenanceSecret(ctx, cr, constants.UserProxySecretNameSuffix,
+		constants.UserProxySecretKey, constants.UserProxyConfFileName,
+		constants.UserProxyAuthHeader)
+}
+
+// reconcileProvenanceSecret generates a Secret holding a proxy hop's provenance stamp. The
+// Secret carries two keys derived from one value: the raw secret, passed to the Cryostat core
+// container by secretKeyRef, and a one-line nginx include that stamps it as a header. Two keys
+// rather than one because nginx cannot interpolate a file or environment variable into a
+// directive value.
+func (r *Reconciler) reconcileProvenanceSecret(ctx context.Context, cr *model.CryostatInstance,
+	nameSuffix string, secretKey string, confFileName string, header string) error {
+	secret := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      cr.Name + nameSuffix,
+			Namespace: cr.InstallNamespace,
+		},
+	}
+
+	return r.createOrUpdateSecret(ctx, secret, cr.Object, func() error {
+		if secret.StringData == nil {
+			secret.StringData = map[string]string{}
+		}
+
+		// Reuse the existing value across reconciles; rotating it would break every
+		// in-flight request until both the proxy and core containers restarted together.
+		// Read it back from Data, which the client populates, rather than the write-only
+		// StringData.
+		value := string(secret.Data[secretKey])
+		if len(value) == 0 {
+			value = r.GenPasswd(32)
+			secret.StringData[secretKey] = value
+		}
+
+		// Re-render the nginx include unconditionally: it is derived, and an upgrade from
+		// a version that did not write this key must backfill it.
+		//
+		// %q escapes for Go, not for nginx. It is safe only because GenPasswd's alphabet
+		// cannot produce "$", '"', or "\", each of which nginx treats specially inside a
+		// double-quoted directive value. See common.DefaultOSUtils.GenPasswd.
+		secret.StringData[confFileName] = fmt.Sprintf("proxy_set_header %s %q;\n", header, value)
+		return nil
+	})
 }
 
 func (r *Reconciler) reconcileAuthProxyCookieSecret(ctx context.Context, cr *model.CryostatInstance) error {

@@ -21,6 +21,7 @@ import (
 
 	operatorv1beta2 "github.com/cryostatio/cryostat-operator/api/v1beta2"
 	"github.com/cryostatio/cryostat-operator/internal/controller/model"
+	corev1 "k8s.io/api/core/v1"
 )
 
 const rbacNamespaceEnvVar = "CRYOSTAT_SECURITY_RBAC_NAMESPACE"
@@ -473,3 +474,65 @@ func TestNewRBACCacheEnvForCoreContainer(t *testing.T) {
 }
 
 func strPtr(s string) *string { return &s }
+
+const agentPermissionsEnvVar = "CRYOSTAT_SECURITY_RBAC_AGENT_PERMISSIONS"
+
+func findEnvValue(envs []corev1.EnvVar, name string) (string, bool) {
+	for _, e := range envs {
+		if e.Name == name {
+			return e.Value, true
+		}
+	}
+	return "", false
+}
+
+func TestNewAgentEnvForCoreContainer_AgentPermissions(t *testing.T) {
+	t.Run("AgentOptions nil omits the env var", func(t *testing.T) {
+		cr, _ := minimalCR(nil)
+
+		if _, found := findEnvValue(newAgentEnvForCoreContainer(cr), agentPermissionsEnvVar); found {
+			t.Errorf("%s should not be set when AgentOptions is nil", agentPermissionsEnvVar)
+		}
+	})
+
+	t.Run("AgentPermissions nil omits the env var, deferring to Cryostat's default set", func(t *testing.T) {
+		cr, _ := minimalCR(nil)
+		cr.Spec.AgentOptions = &operatorv1beta2.AgentOptions{}
+
+		if _, found := findEnvValue(newAgentEnvForCoreContainer(cr), agentPermissionsEnvVar); found {
+			t.Errorf("%s should not be set when AgentPermissions is nil", agentPermissionsEnvVar)
+		}
+	})
+
+	t.Run("AgentPermissions set replaces the default set", func(t *testing.T) {
+		cr, _ := minimalCR(nil)
+		cr.Spec.AgentOptions = &operatorv1beta2.AgentOptions{
+			AgentPermissions: []string{"discoveryplugins:write", "activerecordings:read"},
+		}
+
+		value, found := findEnvValue(newAgentEnvForCoreContainer(cr), agentPermissionsEnvVar)
+		if !found {
+			t.Fatalf("%s not found in env vars", agentPermissionsEnvVar)
+		}
+		if expected := "discoveryplugins:write,activerecordings:read"; value != expected {
+			t.Errorf("expected %s=%q, got %q", agentPermissionsEnvVar, expected, value)
+		}
+	})
+
+	t.Run("an explicitly empty AgentPermissions grants the Agent nothing", func(t *testing.T) {
+		cr, _ := minimalCR(nil)
+		cr.Spec.AgentOptions = &operatorv1beta2.AgentOptions{
+			AgentPermissions: []string{},
+		}
+
+		// != nil rather than len() > 0: an empty list must reach Cryostat as an empty
+		// value rather than falling back to the built-in default permission set.
+		value, found := findEnvValue(newAgentEnvForCoreContainer(cr), agentPermissionsEnvVar)
+		if !found {
+			t.Fatalf("%s not found in env vars", agentPermissionsEnvVar)
+		}
+		if value != "" {
+			t.Errorf("expected %s to be empty, got %q", agentPermissionsEnvVar, value)
+		}
+	})
+}

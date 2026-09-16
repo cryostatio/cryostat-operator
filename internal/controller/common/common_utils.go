@@ -45,6 +45,8 @@ type OSUtils interface {
 	GetEnv(name string) string
 	GetEnvOrDefault(name string, defaultVal string) string
 	GetFileContents(path string) ([]byte, error)
+	// GenPasswd returns pseudorandom material. Implementations must not emit "$", '"', or "\":
+	// see DefaultOSUtils.GenPasswd
 	GenPasswd(length int) string
 }
 
@@ -72,6 +74,17 @@ func (o *DefaultOSUtils) GetFileContents(path string) ([]byte, error) {
 }
 
 // GenPasswd generates a psuedorandom password of a given length.
+//
+// The alphabet below should not be expanded without careful consideration. Generated values
+// may be rendered into an nginx directive by reconcileProvenanceSecret (secrets.go), and nginx
+// interpolates "$" inside a double-quoted directive value while '"' and "\" terminate or
+// escape it. A value containing any of the three would be silently mangled into a different
+// stamped secret than the one Cryostat is configured with, or would produce a config that
+// nginx refuses to load. The current alphabet cannot emit them, so Go's %q verb is sufficient.
+// there
+//
+// Widening this alphabet is therefore not a local change: %q escapes for Go, not for nginx, so
+// any new character outside [a-zA-Z0-9-_] requires escaping at each rendering site first.
 func (o *DefaultOSUtils) GenPasswd(length int) string {
 	chars := "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_"
 	b := make([]byte, length)
