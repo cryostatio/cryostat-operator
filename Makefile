@@ -416,7 +416,7 @@ $(GOLANGCI_LINT): local-bin
 	test -s $(GOLANGCI_LINT) || \
 	{ \
 	set -e ;\
-	curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(LOCALBIN) v$(GOLANGCI_LINT_VERSION) ;\
+	curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/v$(GOLANGCI_LINT_VERSION)/install.sh | sh -s -- -b $(LOCALBIN) v$(GOLANGCI_LINT_VERSION) ;\
 	}
 
 .PHONY: lint
