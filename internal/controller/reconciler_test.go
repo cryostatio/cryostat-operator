@@ -1822,116 +1822,6 @@ func (c *controllerTest) commonTests() {
 				t.expectAuthStripProxyConfigMap()
 			})
 		})
-		Context("with agent gateway provenance stamps", func() {
-			BeforeEach(func() {
-				t.objs = append(t.objs, t.NewCryostat().Object)
-			})
-			JustBeforeEach(func() {
-				t.reconcileCryostatFully()
-			})
-			It("should stamp the gateway provenance header for every allow-listed prefix", func() {
-				cm := &corev1.ConfigMap{}
-				err := t.Client.Get(context.Background(), types.NamespacedName{
-					Name: t.Name + "-agent-proxy", Namespace: t.Namespace}, cm)
-				Expect(err).ToNot(HaveOccurred())
-				conf := cm.Data["nginx.conf"]
-
-				// The stamp is applied once at the server level, and is inherited by every
-				// location only because no location declares a proxy_set_header of its own.
-				// If a location ever gains one, the stamp and the X-Forwarded-* clearing are
-				// silently dropped for that path.
-				Expect(conf).To(ContainSubstring(
-					"include /var/run/secrets/operator.cryostat.io/agent-gateway/agent-auth.conf;"))
-				serverBlock := conf[:strings.Index(conf, "location /health/ {")]
-				Expect(serverBlock).To(ContainSubstring(
-					"include /var/run/secrets/operator.cryostat.io/agent-gateway/agent-auth.conf;"))
-				Expect(serverBlock).To(ContainSubstring(`proxy_set_header X-Cryostat-User-Proxy-Auth "";`))
-				Expect(serverBlock).To(ContainSubstring("underscores_in_headers off;"))
-
-				// Every identity header the strip hop asserts must be blanked here, not just
-				// the two Cryostat reads for identity today. An agent has no user identity to
-				// assert, and the asymmetry is a trap for whoever next reads one of these for
-				// audit or display.
-				for _, header := range constants.OAuthProxyIdentityHeaders {
-					Expect(serverBlock).To(ContainSubstring(
-						fmt.Sprintf("proxy_set_header %s \"\";", header)),
-						"gateway does not clear %s", header)
-				}
-
-				for _, prefix := range []string{"/health", "/api/v4/discovery", "/api/v4.2/discovery",
-					"/api/v4.3/discovery", "/api/beta/diagnostics", "/api/beta/recordings",
-					"/api/beta/targets"} {
-					for _, location := range []string{
-						fmt.Sprintf("location %s/ {", prefix),
-						fmt.Sprintf("location = %s {", prefix),
-					} {
-						idx := strings.Index(conf, location)
-						Expect(idx).To(BeNumerically(">", 0), "missing %s", location)
-						body := conf[idx : idx+strings.Index(conf[idx:], "}")]
-						Expect(body).ToNot(ContainSubstring("proxy_set_header"),
-							"%s declares its own proxy_set_header, which drops the server-level stamp",
-							location)
-					}
-				}
-			})
-			It("should stamp the user path and clear the agent stamp at the strip hop", func() {
-				cm := &corev1.ConfigMap{}
-				err := t.Client.Get(context.Background(), types.NamespacedName{
-					Name: t.Name + "-auth-strip-proxy", Namespace: t.Namespace}, cm)
-				Expect(err).ToNot(HaveOccurred())
-				conf := cm.Data["nginx.conf"]
-
-				Expect(conf).To(ContainSubstring(
-					"include /var/run/secrets/operator.cryostat.io/user-proxy/user-auth.conf;"))
-				Expect(conf).To(ContainSubstring(`proxy_set_header X-Cryostat-Agent-Auth "";`))
-				// The strip hop must never stamp the agent path's header
-				Expect(conf).ToNot(ContainSubstring(`proxy_set_header X-Cryostat-User-Proxy-Auth ""`))
-
-				// Each identity header is re-sourced from this hop's own view of the
-				// request, so that a client-supplied value cannot survive it.
-				for _, header := range constants.OAuthProxyIdentityHeaders {
-					Expect(conf).To(ContainSubstring(fmt.Sprintf("proxy_set_header %s %s;",
-						header, constants.NginxHTTPVariable(header))),
-						"strip hop does not re-source %s", header)
-				}
-			})
-			It("should not cap the size of user-path uploads", func() {
-				cm := &corev1.ConfigMap{}
-				err := t.Client.Get(context.Background(), types.NamespacedName{
-					Name: t.Name + "-auth-strip-proxy", Namespace: t.Namespace}, cm)
-				Expect(err).ToNot(HaveOccurred())
-
-				// Without this, nginx's 1m default applies and a JFR recording over 1 MiB
-				// uploaded to POST /api/v4/recordings is rejected with 413 before Cryostat
-				// sees it. The agent gateway sets the same, so the limit would otherwise
-				// differ between the two paths to the same endpoint.
-				Expect(cm.Data["nginx.conf"]).To(ContainSubstring("client_max_body_size 0;"))
-			})
-			It("should generate two distinct secrets", func() {
-				agent := t.getSecret(t.Name + "-agent-gateway")
-				user := t.getSecret(t.Name + "-user-proxy")
-				Expect(agent.Data["AGENT_GATEWAY_SECRET"]).ToNot(BeEmpty())
-				Expect(user.Data["USER_PROXY_SECRET"]).ToNot(BeEmpty())
-				Expect(agent.Data["AGENT_GATEWAY_SECRET"]).ToNot(Equal(user.Data["USER_PROXY_SECRET"]))
-			})
-			It("should keep each include file matching its own key across reconciles", func() {
-				agentValue := string(t.getSecret(t.Name + "-agent-gateway").Data["AGENT_GATEWAY_SECRET"])
-				userValue := string(t.getSecret(t.Name + "-user-proxy").Data["USER_PROXY_SECRET"])
-
-				t.reconcileCryostatFully()
-
-				agent := t.getSecret(t.Name + "-agent-gateway")
-				user := t.getSecret(t.Name + "-user-proxy")
-				// Generate-once: rotating either value would break every in-flight request
-				// until both containers restarted together
-				Expect(string(agent.Data["AGENT_GATEWAY_SECRET"])).To(Equal(agentValue))
-				Expect(string(user.Data["USER_PROXY_SECRET"])).To(Equal(userValue))
-				Expect(string(agent.Data["agent-auth.conf"])).To(Equal(
-					fmt.Sprintf("proxy_set_header X-Cryostat-Agent-Auth %q;\n", agentValue)))
-				Expect(string(user.Data["user-auth.conf"])).To(Equal(
-					fmt.Sprintf("proxy_set_header X-Cryostat-User-Proxy-Auth %q;\n", userValue)))
-			})
-		})
 		Context("with DISABLE_SERVICE_TLS=true", func() {
 			BeforeEach(func() {
 				disableTLS := true
@@ -3075,6 +2965,385 @@ func (c *controllerTest) commonTests() {
 		})
 	})
 
+	c.gatewayProvenanceTests()
+
+	c.kubernetesTests()
+
+	Describe("setting up with manager", func() {
+		BeforeEach(func() {
+			t = c.commonBeforeEach()
+			t.TargetNamespaces = []string{t.Namespace}
+		})
+
+		JustBeforeEach(func() {
+			c.commonJustBeforeEach(t)
+			// Create a default manager, not called
+			mgr, err := manager.New(cfg, manager.Options{})
+			Expect(err).ToNot(HaveOccurred())
+			err = t.reconciler.SetupWithManager(mgr)
+			Expect(err).ToNot(HaveOccurred())
+		})
+
+		JustAfterEach(func() {
+			c.commonJustAfterEach(t)
+		})
+
+		It("should watch Cryostat CRs", func() {
+			Expect(t.ControllerBuilder.ForCalls).To(HaveLen(1))
+			args := t.ControllerBuilder.ForCalls[0]
+			Expect(args.Object).To(BeAssignableToTypeOf(t.NewCryostat().Object))
+			Expect(args.Opts).To(BeEmpty())
+		})
+
+		It("should call Complete", func() {
+			Expect(t.ControllerBuilder.CompleteCalled).To(BeTrue())
+		})
+
+		Context("for owned resources", func() {
+			var ownsResources []ctrlclient.Object
+
+			BeforeEach(func() {
+				ownsResources = []ctrlclient.Object{
+					&appsv1.Deployment{},
+					&corev1.Service{},
+					&corev1.ConfigMap{},
+					&corev1.Secret{},
+					&corev1.PersistentVolumeClaim{},
+					&corev1.ServiceAccount{},
+					&rbacv1.Role{},
+					&rbacv1.RoleBinding{},
+					&netv1.Ingress{},
+				}
+			})
+
+			expectOwnedResources := func() {
+				It("should watch objects owned by Cryostat CRs", func() {
+					Expect(t.ControllerBuilder.OwnsCalls).To(HaveLen(len(ownsResources)))
+					resources := make([]ctrlclient.Object, 0, len(ownsResources))
+					for _, call := range t.ControllerBuilder.OwnsCalls {
+						resources = append(resources, call.Object)
+						Expect(call.Opts).To(BeEmpty())
+					}
+					Expect(resources).To(ConsistOf(ownsResources))
+				})
+			}
+
+			Context("cert-manager installed", func() {
+				BeforeEach(func() {
+					ownsResources = append(ownsResources, &certv1.Certificate{}, &certv1.Issuer{})
+				})
+				Context("on OpenShift", func() {
+					BeforeEach(func() {
+						ownsResources = append(ownsResources, &openshiftv1.Route{})
+					})
+					expectOwnedResources()
+				})
+				Context("on Kubernetes", func() {
+					BeforeEach(func() {
+						t.OpenShift = false
+					})
+					expectOwnedResources()
+				})
+			})
+
+			Context("cert-manager missing", func() {
+				BeforeEach(func() {
+					t.CertManagerMissing = true
+				})
+				Context("on OpenShift", func() {
+					BeforeEach(func() {
+						ownsResources = append(ownsResources, &openshiftv1.Route{})
+					})
+					expectOwnedResources()
+				})
+				Context("on Kubernetes", func() {
+					BeforeEach(func() {
+						t.OpenShift = false
+					})
+					expectOwnedResources()
+				})
+			})
+		})
+
+		Context("watches in target namespaces", func() {
+			var expectedResources []ctrlclient.Object
+
+			BeforeEach(func() {
+				expectedResources = []ctrlclient.Object{
+					&rbacv1.RoleBinding{},
+					&corev1.Secret{},
+					&corev1.Service{},
+				}
+			})
+
+			It("should watch specified resources", func() {
+				Expect(t.ControllerBuilder.WatchesCalls).To(HaveLen(len(expectedResources)))
+				resources := make([]ctrlclient.Object, 0, len(expectedResources))
+				for _, watch := range t.ControllerBuilder.WatchesCalls {
+					resources = append(resources, watch.Object)
+				}
+				Expect(resources).To(ConsistOf(expectedResources))
+			})
+
+			Context("filtering by labels", func() {
+				var pred predicate.Predicate
+				var obj ctrlclient.Object
+
+				JustBeforeEach(func() {
+					Expect(t.ControllerBuilder.WatchesCalls).To(HaveLen(len(expectedResources)))
+					Expect(t.ControllerBuilder.Predicates).To(HaveLen(len(expectedResources)))
+					for _, watch := range t.ControllerBuilder.WatchesCalls {
+						Expect(watch.Opts).To(HaveLen(1))
+						Expect(watch.Opts[0]).To(BeAssignableToTypeOf(builder.Predicates{}))
+					}
+					pred = t.ControllerBuilder.Predicates[0]
+				})
+
+				Context("with both labels present", func() {
+					BeforeEach(func() {
+						obj = t.NewAgentCertSecretCopy("foo")
+					})
+
+					It("should accept", func() {
+						t.expectPredicateToAccept(pred, obj)
+					})
+				})
+
+				Context("with name label missing", func() {
+					BeforeEach(func() {
+						obj = t.NewAgentCertSecretCopy("foo")
+						delete(obj.GetLabels(), "operator.cryostat.io/name")
+					})
+
+					It("should reject", func() {
+						t.expectPredicateToReject(pred, obj)
+					})
+				})
+
+				Context("with namespace label missing", func() {
+					BeforeEach(func() {
+						obj = t.NewAgentCertSecretCopy("foo")
+						delete(obj.GetLabels(), "operator.cryostat.io/namespace")
+					})
+
+					It("should reject", func() {
+						t.expectPredicateToReject(pred, obj)
+					})
+				})
+
+				Context("both labels missing", func() {
+					BeforeEach(func() {
+						obj = t.NewAgentCertSecret("foo")
+						delete(obj.GetLabels(), "operator.cryostat.io/name")
+					})
+
+					It("should reject", func() {
+						t.expectPredicateToReject(pred, obj)
+					})
+				})
+			})
+
+			Context("handling events", func() {
+				var handlerFunc handler.MapFunc
+				var obj ctrlclient.Object
+
+				JustBeforeEach(func() {
+					Expect(t.ControllerBuilder.WatchesCalls).To(HaveLen(len(expectedResources)))
+					Expect(t.ControllerBuilder.MapFuncs).To(HaveLen(len(expectedResources)))
+					for i, watch := range t.ControllerBuilder.WatchesCalls {
+						Expect(watch.EventHandler).ToNot(BeNil())
+						// Check that the handler uses the expected underlying type
+						mapFunc := t.ControllerBuilder.MapFuncs[i]
+						expectedHandler := handler.EnqueueRequestsFromMapFunc(mapFunc)
+						Expect(watch.EventHandler).To(BeAssignableToTypeOf(expectedHandler))
+					}
+					handlerFunc = t.ControllerBuilder.MapFuncs[0]
+				})
+
+				Context("with both labels present", func() {
+					BeforeEach(func() {
+						obj = t.NewAgentCertSecretCopy("foo")
+					})
+
+					It("should accept", func() {
+						result := handlerFunc(context.Background(), obj)
+						Expect(result).To(ConsistOf(newReconcileRequest(t.Namespace, t.Name)))
+					})
+				})
+
+				Context("with name label missing", func() {
+					BeforeEach(func() {
+						obj = t.NewAgentCertSecretCopy("foo")
+						delete(obj.GetLabels(), "operator.cryostat.io/name")
+					})
+
+					It("should reject", func() {
+						result := handlerFunc(context.Background(), obj)
+						Expect(result).To(BeEmpty())
+					})
+				})
+
+				Context("with namespace label missing", func() {
+					BeforeEach(func() {
+						obj = t.NewAgentCertSecretCopy("foo")
+						delete(obj.GetLabels(), "operator.cryostat.io/namespace")
+					})
+
+					It("should reject", func() {
+						result := handlerFunc(context.Background(), obj)
+						Expect(result).To(BeEmpty())
+					})
+				})
+
+				Context("both labels missing", func() {
+					BeforeEach(func() {
+						obj = t.NewAgentCertSecret("foo")
+						delete(obj.GetLabels(), "operator.cryostat.io/name")
+					})
+
+					It("should reject", func() {
+						result := handlerFunc(context.Background(), obj)
+						Expect(result).To(BeEmpty())
+					})
+				})
+			})
+		})
+	})
+}
+
+func (c *controllerTest) gatewayProvenanceTests() {
+	var t *cryostatTestInput
+
+	Describe("reconciling a request in OpenShift", func() {
+		BeforeEach(func() {
+			t = c.commonBeforeEach()
+			t.TargetNamespaces = []string{t.Namespace}
+		})
+
+		JustBeforeEach(func() {
+			c.commonJustBeforeEach(t)
+		})
+
+		JustAfterEach(func() {
+			c.commonJustAfterEach(t)
+		})
+
+		Context("with agent gateway provenance stamps", func() {
+			BeforeEach(func() {
+				t.objs = append(t.objs, t.NewCryostat().Object)
+			})
+			JustBeforeEach(func() {
+				t.reconcileCryostatFully()
+			})
+			It("should stamp the gateway provenance header for every allow-listed prefix", func() {
+				cm := &corev1.ConfigMap{}
+				err := t.Client.Get(context.Background(), types.NamespacedName{
+					Name: t.Name + "-agent-proxy", Namespace: t.Namespace}, cm)
+				Expect(err).ToNot(HaveOccurred())
+				conf := cm.Data["nginx.conf"]
+
+				// The stamp is applied once at the server level, and is inherited by every
+				// location only because no location declares a proxy_set_header of its own.
+				// If a location ever gains one, the stamp and the X-Forwarded-* clearing are
+				// silently dropped for that path.
+				Expect(conf).To(ContainSubstring(
+					"include /var/run/secrets/operator.cryostat.io/agent-gateway/agent-auth.conf;"))
+				serverBlock := conf[:strings.Index(conf, "location /health/ {")]
+				Expect(serverBlock).To(ContainSubstring(
+					"include /var/run/secrets/operator.cryostat.io/agent-gateway/agent-auth.conf;"))
+				Expect(serverBlock).To(ContainSubstring(`proxy_set_header X-Cryostat-User-Proxy-Auth "";`))
+				Expect(serverBlock).To(ContainSubstring("underscores_in_headers off;"))
+
+				// Every identity header the strip hop asserts must be blanked here, not just
+				// the two Cryostat reads for identity today. An agent has no user identity to
+				// assert, and the asymmetry is a trap for whoever next reads one of these for
+				// audit or display.
+				for _, header := range constants.OAuthProxyIdentityHeaders {
+					Expect(serverBlock).To(ContainSubstring(
+						fmt.Sprintf("proxy_set_header %s \"\";", header)),
+						"gateway does not clear %s", header)
+				}
+
+				for _, prefix := range []string{"/health", "/api/v4/discovery", "/api/v4.2/discovery",
+					"/api/v4.3/discovery", "/api/beta/diagnostics", "/api/beta/recordings",
+					"/api/beta/targets"} {
+					for _, location := range []string{
+						fmt.Sprintf("location %s/ {", prefix),
+						fmt.Sprintf("location = %s {", prefix),
+					} {
+						idx := strings.Index(conf, location)
+						Expect(idx).To(BeNumerically(">", 0), "missing %s", location)
+						body := conf[idx : idx+strings.Index(conf[idx:], "}")]
+						Expect(body).ToNot(ContainSubstring("proxy_set_header"),
+							"%s declares its own proxy_set_header, which drops the server-level stamp",
+							location)
+					}
+				}
+			})
+			It("should stamp the user path and clear the agent stamp at the strip hop", func() {
+				cm := &corev1.ConfigMap{}
+				err := t.Client.Get(context.Background(), types.NamespacedName{
+					Name: t.Name + "-auth-strip-proxy", Namespace: t.Namespace}, cm)
+				Expect(err).ToNot(HaveOccurred())
+				conf := cm.Data["nginx.conf"]
+
+				Expect(conf).To(ContainSubstring(
+					"include /var/run/secrets/operator.cryostat.io/user-proxy/user-auth.conf;"))
+				Expect(conf).To(ContainSubstring(`proxy_set_header X-Cryostat-Agent-Auth "";`))
+				// The strip hop must never stamp the agent path's header
+				Expect(conf).ToNot(ContainSubstring(`proxy_set_header X-Cryostat-User-Proxy-Auth ""`))
+
+				// Each identity header is re-sourced from this hop's own view of the
+				// request, so that a client-supplied value cannot survive it.
+				for _, header := range constants.OAuthProxyIdentityHeaders {
+					Expect(conf).To(ContainSubstring(fmt.Sprintf("proxy_set_header %s %s;",
+						header, constants.NginxHTTPVariable(header))),
+						"strip hop does not re-source %s", header)
+				}
+			})
+			It("should not cap the size of user-path uploads", func() {
+				cm := &corev1.ConfigMap{}
+				err := t.Client.Get(context.Background(), types.NamespacedName{
+					Name: t.Name + "-auth-strip-proxy", Namespace: t.Namespace}, cm)
+				Expect(err).ToNot(HaveOccurred())
+
+				// Without this, nginx's 1m default applies and a JFR recording over 1 MiB
+				// uploaded to POST /api/v4/recordings is rejected with 413 before Cryostat
+				// sees it. The agent gateway sets the same, so the limit would otherwise
+				// differ between the two paths to the same endpoint.
+				Expect(cm.Data["nginx.conf"]).To(ContainSubstring("client_max_body_size 0;"))
+			})
+			It("should generate two distinct secrets", func() {
+				agent := t.getSecret(t.Name + "-agent-gateway")
+				user := t.getSecret(t.Name + "-user-proxy")
+				Expect(agent.Data["AGENT_GATEWAY_SECRET"]).ToNot(BeEmpty())
+				Expect(user.Data["USER_PROXY_SECRET"]).ToNot(BeEmpty())
+				Expect(agent.Data["AGENT_GATEWAY_SECRET"]).ToNot(Equal(user.Data["USER_PROXY_SECRET"]))
+			})
+			It("should keep each include file matching its own key across reconciles", func() {
+				agentValue := string(t.getSecret(t.Name + "-agent-gateway").Data["AGENT_GATEWAY_SECRET"])
+				userValue := string(t.getSecret(t.Name + "-user-proxy").Data["USER_PROXY_SECRET"])
+
+				t.reconcileCryostatFully()
+
+				agent := t.getSecret(t.Name + "-agent-gateway")
+				user := t.getSecret(t.Name + "-user-proxy")
+				// Generate-once: rotating either value would break every in-flight request
+				// until both containers restarted together
+				Expect(string(agent.Data["AGENT_GATEWAY_SECRET"])).To(Equal(agentValue))
+				Expect(string(user.Data["USER_PROXY_SECRET"])).To(Equal(userValue))
+				Expect(string(agent.Data["agent-auth.conf"])).To(Equal(
+					fmt.Sprintf("proxy_set_header X-Cryostat-Agent-Auth %q;\n", agentValue)))
+				Expect(string(user.Data["user-auth.conf"])).To(Equal(
+					fmt.Sprintf("proxy_set_header X-Cryostat-User-Proxy-Auth %q;\n", userValue)))
+			})
+		})
+	})
+}
+
+func (c *controllerTest) kubernetesTests() {
+	var t *cryostatTestInput
+
 	Describe("reconciling a request in Kubernetes", func() {
 		BeforeEach(func() {
 			t = c.commonBeforeEach()
@@ -3409,247 +3678,6 @@ func (c *controllerTest) commonTests() {
 			It("should have added the extra label and annotation to deployments and pods", func() {
 				t.expectMainDeploymentHasExtraMetadata()
 				t.expectReportsDeploymentHasExtraMetadata()
-			})
-		})
-	})
-
-	Describe("setting up with manager", func() {
-		BeforeEach(func() {
-			t = c.commonBeforeEach()
-			t.TargetNamespaces = []string{t.Namespace}
-		})
-
-		JustBeforeEach(func() {
-			c.commonJustBeforeEach(t)
-			// Create a default manager, not called
-			mgr, err := manager.New(cfg, manager.Options{})
-			Expect(err).ToNot(HaveOccurred())
-			err = t.reconciler.SetupWithManager(mgr)
-			Expect(err).ToNot(HaveOccurred())
-		})
-
-		JustAfterEach(func() {
-			c.commonJustAfterEach(t)
-		})
-
-		It("should watch Cryostat CRs", func() {
-			Expect(t.ControllerBuilder.ForCalls).To(HaveLen(1))
-			args := t.ControllerBuilder.ForCalls[0]
-			Expect(args.Object).To(BeAssignableToTypeOf(t.NewCryostat().Object))
-			Expect(args.Opts).To(BeEmpty())
-		})
-
-		It("should call Complete", func() {
-			Expect(t.ControllerBuilder.CompleteCalled).To(BeTrue())
-		})
-
-		Context("for owned resources", func() {
-			var ownsResources []ctrlclient.Object
-
-			BeforeEach(func() {
-				ownsResources = []ctrlclient.Object{
-					&appsv1.Deployment{},
-					&corev1.Service{},
-					&corev1.ConfigMap{},
-					&corev1.Secret{},
-					&corev1.PersistentVolumeClaim{},
-					&corev1.ServiceAccount{},
-					&rbacv1.Role{},
-					&rbacv1.RoleBinding{},
-					&netv1.Ingress{},
-				}
-			})
-
-			expectOwnedResources := func() {
-				It("should watch objects owned by Cryostat CRs", func() {
-					Expect(t.ControllerBuilder.OwnsCalls).To(HaveLen(len(ownsResources)))
-					resources := make([]ctrlclient.Object, 0, len(ownsResources))
-					for _, call := range t.ControllerBuilder.OwnsCalls {
-						resources = append(resources, call.Object)
-						Expect(call.Opts).To(BeEmpty())
-					}
-					Expect(resources).To(ConsistOf(ownsResources))
-				})
-			}
-
-			Context("cert-manager installed", func() {
-				BeforeEach(func() {
-					ownsResources = append(ownsResources, &certv1.Certificate{}, &certv1.Issuer{})
-				})
-				Context("on OpenShift", func() {
-					BeforeEach(func() {
-						ownsResources = append(ownsResources, &openshiftv1.Route{})
-					})
-					expectOwnedResources()
-				})
-				Context("on Kubernetes", func() {
-					BeforeEach(func() {
-						t.OpenShift = false
-					})
-					expectOwnedResources()
-				})
-			})
-
-			Context("cert-manager missing", func() {
-				BeforeEach(func() {
-					t.CertManagerMissing = true
-				})
-				Context("on OpenShift", func() {
-					BeforeEach(func() {
-						ownsResources = append(ownsResources, &openshiftv1.Route{})
-					})
-					expectOwnedResources()
-				})
-				Context("on Kubernetes", func() {
-					BeforeEach(func() {
-						t.OpenShift = false
-					})
-					expectOwnedResources()
-				})
-			})
-		})
-
-		Context("watches in target namespaces", func() {
-			var expectedResources []ctrlclient.Object
-
-			BeforeEach(func() {
-				expectedResources = []ctrlclient.Object{
-					&rbacv1.RoleBinding{},
-					&corev1.Secret{},
-					&corev1.Service{},
-				}
-			})
-
-			It("should watch specified resources", func() {
-				Expect(t.ControllerBuilder.WatchesCalls).To(HaveLen(len(expectedResources)))
-				resources := make([]ctrlclient.Object, 0, len(expectedResources))
-				for _, watch := range t.ControllerBuilder.WatchesCalls {
-					resources = append(resources, watch.Object)
-				}
-				Expect(resources).To(ConsistOf(expectedResources))
-			})
-
-			Context("filtering by labels", func() {
-				var pred predicate.Predicate
-				var obj ctrlclient.Object
-
-				JustBeforeEach(func() {
-					Expect(t.ControllerBuilder.WatchesCalls).To(HaveLen(len(expectedResources)))
-					Expect(t.ControllerBuilder.Predicates).To(HaveLen(len(expectedResources)))
-					for _, watch := range t.ControllerBuilder.WatchesCalls {
-						Expect(watch.Opts).To(HaveLen(1))
-						Expect(watch.Opts[0]).To(BeAssignableToTypeOf(builder.Predicates{}))
-					}
-					pred = t.ControllerBuilder.Predicates[0]
-				})
-
-				Context("with both labels present", func() {
-					BeforeEach(func() {
-						obj = t.NewAgentCertSecretCopy("foo")
-					})
-
-					It("should accept", func() {
-						t.expectPredicateToAccept(pred, obj)
-					})
-				})
-
-				Context("with name label missing", func() {
-					BeforeEach(func() {
-						obj = t.NewAgentCertSecretCopy("foo")
-						delete(obj.GetLabels(), "operator.cryostat.io/name")
-					})
-
-					It("should reject", func() {
-						t.expectPredicateToReject(pred, obj)
-					})
-				})
-
-				Context("with namespace label missing", func() {
-					BeforeEach(func() {
-						obj = t.NewAgentCertSecretCopy("foo")
-						delete(obj.GetLabels(), "operator.cryostat.io/namespace")
-					})
-
-					It("should reject", func() {
-						t.expectPredicateToReject(pred, obj)
-					})
-				})
-
-				Context("both labels missing", func() {
-					BeforeEach(func() {
-						obj = t.NewAgentCertSecret("foo")
-						delete(obj.GetLabels(), "operator.cryostat.io/name")
-					})
-
-					It("should reject", func() {
-						t.expectPredicateToReject(pred, obj)
-					})
-				})
-			})
-
-			Context("handling events", func() {
-				var handlerFunc handler.MapFunc
-				var obj ctrlclient.Object
-
-				JustBeforeEach(func() {
-					Expect(t.ControllerBuilder.WatchesCalls).To(HaveLen(len(expectedResources)))
-					Expect(t.ControllerBuilder.MapFuncs).To(HaveLen(len(expectedResources)))
-					for i, watch := range t.ControllerBuilder.WatchesCalls {
-						Expect(watch.EventHandler).ToNot(BeNil())
-						// Check that the handler uses the expected underlying type
-						mapFunc := t.ControllerBuilder.MapFuncs[i]
-						expectedHandler := handler.EnqueueRequestsFromMapFunc(mapFunc)
-						Expect(watch.EventHandler).To(BeAssignableToTypeOf(expectedHandler))
-					}
-					handlerFunc = t.ControllerBuilder.MapFuncs[0]
-				})
-
-				Context("with both labels present", func() {
-					BeforeEach(func() {
-						obj = t.NewAgentCertSecretCopy("foo")
-					})
-
-					It("should accept", func() {
-						result := handlerFunc(context.Background(), obj)
-						Expect(result).To(ConsistOf(newReconcileRequest(t.Namespace, t.Name)))
-					})
-				})
-
-				Context("with name label missing", func() {
-					BeforeEach(func() {
-						obj = t.NewAgentCertSecretCopy("foo")
-						delete(obj.GetLabels(), "operator.cryostat.io/name")
-					})
-
-					It("should reject", func() {
-						result := handlerFunc(context.Background(), obj)
-						Expect(result).To(BeEmpty())
-					})
-				})
-
-				Context("with namespace label missing", func() {
-					BeforeEach(func() {
-						obj = t.NewAgentCertSecretCopy("foo")
-						delete(obj.GetLabels(), "operator.cryostat.io/namespace")
-					})
-
-					It("should reject", func() {
-						result := handlerFunc(context.Background(), obj)
-						Expect(result).To(BeEmpty())
-					})
-				})
-
-				Context("both labels missing", func() {
-					BeforeEach(func() {
-						obj = t.NewAgentCertSecret("foo")
-						delete(obj.GetLabels(), "operator.cryostat.io/name")
-					})
-
-					It("should reject", func() {
-						result := handlerFunc(context.Background(), obj)
-						Expect(result).To(BeEmpty())
-					})
-				})
 			})
 		})
 	})
