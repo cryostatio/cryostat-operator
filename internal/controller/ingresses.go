@@ -22,6 +22,7 @@ import (
 	operatorv1beta2 "github.com/cryostatio/cryostat-operator/api/v1beta2"
 	common "github.com/cryostatio/cryostat-operator/internal/controller/common"
 	"github.com/cryostatio/cryostat-operator/internal/controller/common/resource_definitions"
+	"github.com/cryostatio/cryostat-operator/internal/controller/constants"
 	"github.com/cryostatio/cryostat-operator/internal/controller/model"
 	netv1 "k8s.io/api/networking/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -104,7 +105,7 @@ func configureCoreIngress(cr *model.CryostatInstance) *operatorv1beta2.NetworkCo
 		config = cr.Spec.NetworkOptions.CoreConfig
 	}
 
-	configureIngress(config, cr.Name, "cryostat")
+	configureIngress(config, cr.Name, constants.ComponentCryostat)
 	return config
 }
 
@@ -117,8 +118,8 @@ func configureIngress(config *operatorv1beta2.NetworkConfiguration, appLabel str
 	}
 
 	// Add required labels, overriding any user-specified labels with the same keys
-	config.Labels["app"] = appLabel
-	config.Labels["component"] = componentLabel
+	config.Labels[constants.LabelKeyApp] = appLabel
+	config.Labels[constants.LabelKeyComponent] = componentLabel
 }
 
 func (r *Reconciler) deleteIngress(ctx context.Context, ingress *netv1.Ingress) error {

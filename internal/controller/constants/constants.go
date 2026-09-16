@@ -43,6 +43,23 @@ const (
 	HttpsScheme                string = "https"
 	HttpsPortName              string = HttpsScheme
 	LabelAppName               string = "cryostat"
+
+	// Label and annotation keys applied to operator-managed resources
+	LabelKeyApp          string = "app"
+	LabelKeyKind         string = "kind"
+	LabelKeyComponent    string = "component"
+	LabelKeyK8sAppName   string = "app.kubernetes.io/name"
+	AnnotationConnectsTo string = "app.openshift.io/connects-to"
+
+	// Values of the "component" label, identifying the Cryostat component a resource belongs to
+	ComponentCryostat string = "cryostat"
+	ComponentDatabase string = "database"
+	ComponentStorage  string = "storage"
+	ComponentReports  string = "reports"
+
+	// DefaultStorageAccessKey is the access key Cryostat uses to authenticate with its object storage
+	DefaultStorageAccessKey string = "cryostat"
+
 	// CAKey is the key for a CA certificate within a TLS secret
 	CAKey = certMeta.TLSCAKey
 	// ALL capability to drop for restricted pod security. See:

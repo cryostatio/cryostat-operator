@@ -21,6 +21,7 @@ import (
 	operatorv1beta2 "github.com/cryostatio/cryostat-operator/api/v1beta2"
 	"github.com/cryostatio/cryostat-operator/internal/controller/common"
 	resources "github.com/cryostatio/cryostat-operator/internal/controller/common/resource_definitions"
+	"github.com/cryostatio/cryostat-operator/internal/controller/constants"
 	"github.com/cryostatio/cryostat-operator/internal/controller/model"
 	corev1 "k8s.io/api/core/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
@@ -87,7 +88,7 @@ func (r *Reconciler) reconcileDatabasePVC(ctx context.Context, cr *model.Cryosta
 }
 
 func (r *Reconciler) reconcileStoragePVC(ctx context.Context, cr *model.CryostatInstance) error {
-	name := "storage"
+	name := constants.ComponentStorage
 	var cfg *operatorv1beta2.StorageConfiguration
 	if cr.Spec.StorageOptions != nil {
 		cfg = cr.Spec.StorageOptions.ObjectStorage
@@ -159,7 +160,7 @@ func configurePVC(name string, cfg *operatorv1beta2.StorageConfiguration, defaul
 	}
 
 	// Add "app" label. This will override any user-specified "app" label.
-	config.Labels["app"] = name
+	config.Labels[constants.LabelKeyApp] = name
 
 	// Apply any applicable spec defaults. Don't apply a default storage class name, since nil
 	// may be intentionally specified.

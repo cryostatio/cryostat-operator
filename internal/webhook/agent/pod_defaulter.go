@@ -62,6 +62,8 @@ const (
 	kib                         = int32(1024)
 	mib                         = 1024 * kib
 	defaultHarvesterExitMaxSize = 20 * mib
+	agentInitContainerName      = "cryostat-agent-init"
+	agentTLSKeyAlias            = "cryostat"
 )
 
 // Default optionally mutates a pod to inject the Cryostat agent
@@ -138,13 +140,13 @@ func (r *podMutator) Default(ctx context.Context, obj runtime.Object) error {
 	nonRoot := true
 	imageTag := r.getImageTag()
 	pod.Spec.InitContainers = append(pod.Spec.InitContainers, corev1.Container{
-		Name:            "cryostat-agent-init",
+		Name:            agentInitContainerName,
 		Image:           imageTag,
 		ImagePullPolicy: common.GetPullPolicy(imageTag),
 		Command:         []string{"cp", "-v", "/cryostat/agent/cryostat-agent-shaded.jar", constants.AgentJarPath},
 		VolumeMounts: []corev1.VolumeMount{
 			{
-				Name:      "cryostat-agent-init",
+				Name:      agentInitContainerName,
 				MountPath: constants.AgentEmptyDirBasePath,
 			},
 		},
@@ -162,7 +164,7 @@ func (r *podMutator) Default(ctx context.Context, obj runtime.Object) error {
 	// Add emptyDir volume to copy agent into, and mount it
 	sizeLimit := resource.MustParse(agentMaxSizeBytes)
 	pod.Spec.Volumes = append(pod.Spec.Volumes, corev1.Volume{
-		Name: "cryostat-agent-init",
+		Name: agentInitContainerName,
 		VolumeSource: corev1.VolumeSource{
 			EmptyDir: &corev1.EmptyDirVolumeSource{
 				SizeLimit: &sizeLimit,
@@ -206,7 +208,7 @@ func (r *podMutator) Default(ctx context.Context, obj runtime.Object) error {
 	}
 
 	container.VolumeMounts = append(container.VolumeMounts, corev1.VolumeMount{
-		Name:      "cryostat-agent-init",
+		Name:      agentInitContainerName,
 		MountPath: constants.AgentEmptyDirBasePath,
 		ReadOnly:  true,
 	})
@@ -353,7 +355,7 @@ func (r *podMutator) Default(ctx context.Context, obj runtime.Object) error {
 			},
 			corev1.EnvVar{
 				Name:  "CRYOSTAT_AGENT_WEBCLIENT_TLS_TRUSTSTORE_CERT_0__ALIAS",
-				Value: "cryostat",
+				Value: agentTLSKeyAlias,
 			},
 		)
 
@@ -369,7 +371,7 @@ func (r *podMutator) Default(ctx context.Context, obj runtime.Object) error {
 			},
 			corev1.EnvVar{
 				Name:  "CRYOSTAT_AGENT_WEBSERVER_TLS_CERT_ALIAS",
-				Value: "cryostat",
+				Value: agentTLSKeyAlias,
 			},
 			corev1.EnvVar{
 				Name:  "CRYOSTAT_AGENT_WEBSERVER_TLS_KEY_PATH",
@@ -381,7 +383,7 @@ func (r *podMutator) Default(ctx context.Context, obj runtime.Object) error {
 			},
 			corev1.EnvVar{
 				Name:  "CRYOSTAT_AGENT_WEBSERVER_TLS_KEY_ALIAS",
-				Value: "cryostat",
+				Value: agentTLSKeyAlias,
 			},
 		)
 	} else {

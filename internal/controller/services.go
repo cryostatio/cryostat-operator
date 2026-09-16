@@ -44,8 +44,8 @@ func (r *Reconciler) reconcileCoreService(ctx context.Context, cr *model.Cryosta
 
 	err := r.createOrUpdateService(ctx, svc, cr.Object, &config.ServiceConfig, func() error {
 		svc.Spec.Selector = map[string]string{
-			"app":       cr.Name,
-			"component": "cryostat",
+			constants.LabelKeyApp:       cr.Name,
+			constants.LabelKeyComponent: constants.ComponentCryostat,
 		}
 		appProtocol := constants.HttpPortName
 		if tls != nil {
@@ -88,8 +88,8 @@ func (r *Reconciler) reconcileReportsService(ctx context.Context, cr *model.Cryo
 	}
 	err := r.createOrUpdateService(ctx, svc, cr.Object, &config.ServiceConfig, func() error {
 		svc.Spec.Selector = map[string]string{
-			"app":       cr.Name,
-			"component": "reports",
+			constants.LabelKeyApp:       cr.Name,
+			constants.LabelKeyComponent: constants.ComponentReports,
 		}
 		svc.Spec.Ports = []corev1.ServicePort{
 			{
@@ -131,8 +131,8 @@ func (r *Reconciler) reconcileAgentGatewayService(ctx context.Context, cr *model
 
 	return r.createOrUpdateService(ctx, svc, cr.Object, &config.ServiceConfig, func() error {
 		svc.Spec.Selector = map[string]string{
-			"app":       cr.Name,
-			"component": "cryostat",
+			constants.LabelKeyApp:       cr.Name,
+			constants.LabelKeyComponent: constants.ComponentCryostat,
 		}
 		svc.Spec.Ports = []corev1.ServicePort{
 			{
@@ -158,8 +158,8 @@ func (r *Reconciler) reconcileDatabaseService(ctx context.Context, cr *model.Cry
 	port := *config.DatabasePort
 	err := r.createOrUpdateService(ctx, svc, cr.Object, &config.ServiceConfig, func() error {
 		svc.Spec.Selector = map[string]string{
-			"app":       cr.Name,
-			"component": "database",
+			constants.LabelKeyApp:       cr.Name,
+			constants.LabelKeyComponent: constants.ComponentDatabase,
 		}
 		svc.Spec.Ports = []corev1.ServicePort{
 			{
@@ -204,8 +204,8 @@ func (r *Reconciler) reconcileStorageService(ctx context.Context, cr *model.Cryo
 	}
 	err := r.createOrUpdateService(ctx, svc, cr.Object, &config.ServiceConfig, func() error {
 		svc.Spec.Selector = map[string]string{
-			"app":       cr.Name,
-			"component": "storage",
+			constants.LabelKeyApp:       cr.Name,
+			constants.LabelKeyComponent: constants.ComponentStorage,
 		}
 		svc.Spec.Ports = []corev1.ServicePort{
 			{
@@ -304,7 +304,7 @@ func configureCoreService(cr *model.CryostatInstance) *operatorv1beta2.CoreServi
 	}
 
 	// Apply common service defaults
-	configureService(&config.ServiceConfig, cr.Name, "cryostat")
+	configureService(&config.ServiceConfig, cr.Name, constants.ComponentCryostat)
 
 	// Apply default HTTP and JMX port if not provided
 	if config.HTTPPort == nil {
@@ -367,7 +367,7 @@ func configureStorageService(cr *model.CryostatInstance) *operatorv1beta2.Storag
 	}
 
 	// Apply common service defaults
-	configureService(&config.ServiceConfig, cr.Name, "storage")
+	configureService(&config.ServiceConfig, cr.Name, constants.ComponentStorage)
 
 	// Apply default HTTP port if not provided
 	if config.HTTPPort == nil {
@@ -433,8 +433,8 @@ func configureMetadata(config *operatorv1beta2.ResourceMetadata, appLabel string
 	}
 
 	// Add required labels, overriding any user-specified labels with the same keys
-	config.Labels["app"] = appLabel
-	config.Labels["component"] = componentLabel
+	config.Labels[constants.LabelKeyApp] = appLabel
+	config.Labels[constants.LabelKeyComponent] = componentLabel
 	config.Labels["app.kubernetes.io/name"] = constants.LabelAppName
 	config.Labels["app.kubernetes.io/instance"] = appLabel
 	config.Labels["app.kubernetes.io/component"] = componentLabel

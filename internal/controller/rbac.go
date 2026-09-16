@@ -21,6 +21,7 @@ import (
 	"fmt"
 
 	"github.com/cryostatio/cryostat-operator/internal/controller/common"
+	"github.com/cryostatio/cryostat-operator/internal/controller/constants"
 	"github.com/cryostatio/cryostat-operator/internal/controller/model"
 	"github.com/google/go-cmp/cmp"
 	oauthv1 "github.com/openshift/api/oauth/v1"
@@ -31,6 +32,9 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
+
+// clusterRoleKind is the Kind referenced by RoleRefs pointing at a ClusterRole
+const clusterRoleKind = "ClusterRole"
 
 func (r *Reconciler) reconcileRBAC(ctx context.Context, cr *model.CryostatInstance) error {
 	err := r.reconcileServiceAccount(ctx, cr)
@@ -80,7 +84,7 @@ func newServiceAccount(cr *model.CryostatInstance) *corev1.ServiceAccount {
 func (r *Reconciler) reconcileServiceAccount(ctx context.Context, cr *model.CryostatInstance) error {
 	sa := newServiceAccount(cr)
 	labels := map[string]string{
-		"app": cr.Name,
+		constants.LabelKeyApp: cr.Name,
 	}
 	annotations := map[string]string{}
 	// If running on OpenShift, set the route reference as an annotation.
@@ -141,8 +145,8 @@ func (r *Reconciler) reconcileRoleBinding(ctx context.Context, cr *model.Cryosta
 	for _, ns := range cr.TargetNamespaces {
 		binding := r.newRoleBinding(cr, ns)
 		roleRef := &rbacv1.RoleRef{
-			APIGroup: "rbac.authorization.k8s.io",
-			Kind:     "ClusterRole",
+			APIGroup: rbacv1.GroupName,
+			Kind:     clusterRoleKind,
 			Name:     "cryostat-operator-cryostat-namespaced",
 		}
 
@@ -198,8 +202,8 @@ func (r *Reconciler) reconcileClusterRoleBinding(ctx context.Context, cr *model.
 	}
 
 	roleRef := &rbacv1.RoleRef{
-		APIGroup: "rbac.authorization.k8s.io",
-		Kind:     "ClusterRole",
+		APIGroup: rbacv1.GroupName,
+		Kind:     clusterRoleKind,
 		Name:     clusterRoleName,
 	}
 
@@ -231,8 +235,8 @@ func (r *Reconciler) reconcileAuthDelegatorClusterRoleBinding(ctx context.Contex
 	}
 
 	roleRef := &rbacv1.RoleRef{
-		APIGroup: "rbac.authorization.k8s.io",
-		Kind:     "ClusterRole",
+		APIGroup: rbacv1.GroupName,
+		Kind:     clusterRoleKind,
 		Name:     "system:auth-delegator",
 	}
 
