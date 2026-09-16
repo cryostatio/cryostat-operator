@@ -101,7 +101,7 @@ func (c *controllerTest) commonBeforeEach() *cryostatTestInput {
 	auditEnabled := true
 	t := &cryostatTestInput{
 		TestReconcilerConfig: test.TestReconcilerConfig{
-			GeneratedPasswords: []string{"auth_cookie_secret", "connection_key", "encryption_key", "object_storage", "keystore"},
+			GeneratedPasswords: []string{"auth_cookie_secret", "connection_key", "encryption_key", "agent_gateway_secret", "user_proxy_secret", "object_storage", "keystore"},
 			ControllerBuilder:  &test.TestCtrlBuilder{},
 		},
 		TestResources: &test.TestResources{
@@ -203,6 +203,8 @@ func resourceChecks() []resourceCheck {
 		{(*cryostatTestInput).expectAgentGatewayService, "agent gateway service"},
 		{(*cryostatTestInput).expectAgentCallbackService, "agent callback service"},
 		{(*cryostatTestInput).expectOAuthCookieSecret, "OAuth2 cookie secret"},
+		{(*cryostatTestInput).expectAgentGatewaySecret, "agent gateway secret"},
+		{(*cryostatTestInput).expectUserProxySecret, "user proxy secret"},
 	}
 }
 
@@ -1819,6 +1821,88 @@ func (c *controllerTest) commonTests() {
 				t.expectAuthStripProxyConfigMap()
 			})
 		})
+		Context("with agent gateway provenance stamps", func() {
+			BeforeEach(func() {
+				t.objs = append(t.objs, t.NewCryostat().Object)
+			})
+			JustBeforeEach(func() {
+				t.reconcileCryostatFully()
+			})
+			It("should stamp the gateway provenance header for every allow-listed prefix", func() {
+				cm := &corev1.ConfigMap{}
+				err := t.Client.Get(context.Background(), types.NamespacedName{
+					Name: t.Name + "-agent-proxy", Namespace: t.Namespace}, cm)
+				Expect(err).ToNot(HaveOccurred())
+				conf := cm.Data["nginx.conf"]
+
+				// The stamp is applied once at the server level, and is inherited by every
+				// location only because no location declares a proxy_set_header of its own.
+				// If a location ever gains one, the stamp and the X-Forwarded-* clearing are
+				// silently dropped for that path.
+				Expect(conf).To(ContainSubstring(
+					"include /var/run/secrets/operator.cryostat.io/agent-gateway/agent-auth.conf;"))
+				serverBlock := conf[:strings.Index(conf, "location /health/ {")]
+				Expect(serverBlock).To(ContainSubstring(
+					"include /var/run/secrets/operator.cryostat.io/agent-gateway/agent-auth.conf;"))
+				Expect(serverBlock).To(ContainSubstring(`proxy_set_header X-Forwarded-User "";`))
+				Expect(serverBlock).To(ContainSubstring(`proxy_set_header X-Forwarded-Access-Token "";`))
+				Expect(serverBlock).To(ContainSubstring(`proxy_set_header X-Cryostat-User-Proxy-Auth "";`))
+				Expect(serverBlock).To(ContainSubstring("underscores_in_headers off;"))
+
+				for _, prefix := range []string{"/health", "/api/v4/discovery", "/api/v4.2/discovery",
+					"/api/v4.3/discovery", "/api/beta/diagnostics", "/api/beta/recordings",
+					"/api/beta/targets"} {
+					for _, location := range []string{
+						fmt.Sprintf("location %s/ {", prefix),
+						fmt.Sprintf("location = %s {", prefix),
+					} {
+						idx := strings.Index(conf, location)
+						Expect(idx).To(BeNumerically(">", 0), "missing %s", location)
+						body := conf[idx : idx+strings.Index(conf[idx:], "}")]
+						Expect(body).ToNot(ContainSubstring("proxy_set_header"),
+							"%s declares its own proxy_set_header, which drops the server-level stamp",
+							location)
+					}
+				}
+			})
+			It("should stamp the user path and clear the agent stamp at the strip hop", func() {
+				cm := &corev1.ConfigMap{}
+				err := t.Client.Get(context.Background(), types.NamespacedName{
+					Name: t.Name + "-auth-strip-proxy", Namespace: t.Namespace}, cm)
+				Expect(err).ToNot(HaveOccurred())
+				conf := cm.Data["nginx.conf"]
+
+				Expect(conf).To(ContainSubstring(
+					"include /var/run/secrets/operator.cryostat.io/user-proxy/user-auth.conf;"))
+				Expect(conf).To(ContainSubstring(`proxy_set_header X-Cryostat-Agent-Auth "";`))
+				// The strip hop must never stamp the agent path's header
+				Expect(conf).ToNot(ContainSubstring(`proxy_set_header X-Cryostat-User-Proxy-Auth ""`))
+			})
+			It("should generate two distinct secrets", func() {
+				agent := t.getSecret(t.Name + "-agent-gateway")
+				user := t.getSecret(t.Name + "-user-proxy")
+				Expect(agent.Data["AGENT_GATEWAY_SECRET"]).ToNot(BeEmpty())
+				Expect(user.Data["USER_PROXY_SECRET"]).ToNot(BeEmpty())
+				Expect(agent.Data["AGENT_GATEWAY_SECRET"]).ToNot(Equal(user.Data["USER_PROXY_SECRET"]))
+			})
+			It("should keep each include file matching its own key across reconciles", func() {
+				agentValue := string(t.getSecret(t.Name + "-agent-gateway").Data["AGENT_GATEWAY_SECRET"])
+				userValue := string(t.getSecret(t.Name + "-user-proxy").Data["USER_PROXY_SECRET"])
+
+				t.reconcileCryostatFully()
+
+				agent := t.getSecret(t.Name + "-agent-gateway")
+				user := t.getSecret(t.Name + "-user-proxy")
+				// Generate-once: rotating either value would break every in-flight request
+				// until both containers restarted together
+				Expect(string(agent.Data["AGENT_GATEWAY_SECRET"])).To(Equal(agentValue))
+				Expect(string(user.Data["USER_PROXY_SECRET"])).To(Equal(userValue))
+				Expect(string(agent.Data["agent-auth.conf"])).To(Equal(
+					fmt.Sprintf("proxy_set_header X-Cryostat-Agent-Auth %q;\n", agentValue)))
+				Expect(string(user.Data["user-auth.conf"])).To(Equal(
+					fmt.Sprintf("proxy_set_header X-Cryostat-User-Proxy-Auth %q;\n", userValue)))
+			})
+		})
 		Context("with DISABLE_SERVICE_TLS=true", func() {
 			BeforeEach(func() {
 				disableTLS := true
@@ -2235,7 +2319,7 @@ func (c *controllerTest) commonTests() {
 		})
 		Context("with secret provided for database", func() {
 			BeforeEach(func() {
-				t.GeneratedPasswords = []string{"auth_cookie_secret", "object_storage", "keystore"}
+				t.GeneratedPasswords = []string{"auth_cookie_secret", "agent_gateway_secret", "user_proxy_secret", "object_storage", "keystore"}
 				t.DatabaseSecret = t.NewCustomDatabaseSecret()
 				t.objs = append(t.objs, t.NewCryostatWithDatabaseSecretProvided().Object, t.DatabaseSecret)
 			})
@@ -3968,6 +4052,33 @@ func (t *cryostatTestInput) expectOAuthCookieSecret() {
 	// Compare to desired spec
 	t.checkMetadata(secret, expectedSecret)
 	Expect(secret.Data).To(Equal(expectedSecret.Data))
+}
+
+func (t *cryostatTestInput) expectAgentGatewaySecret() {
+	t.expectProvenanceSecret(t.NewAgentGatewaySecret())
+}
+
+func (t *cryostatTestInput) expectUserProxySecret() {
+	t.expectProvenanceSecret(t.NewUserProxySecret())
+}
+
+func (t *cryostatTestInput) expectProvenanceSecret(expectedSecret *corev1.Secret) {
+	secret := &corev1.Secret{}
+	err := t.Client.Get(context.Background(), types.NamespacedName{Name: expectedSecret.Name,
+		Namespace: expectedSecret.Namespace}, secret)
+	Expect(err).ToNot(HaveOccurred())
+
+	// Compare to desired spec
+	t.checkMetadata(secret, expectedSecret)
+	Expect(secret.Data).To(Equal(expectedSecret.Data))
+}
+
+// getSecret fetches the named Secret from the install namespace
+func (t *cryostatTestInput) getSecret(name string) *corev1.Secret {
+	secret := &corev1.Secret{}
+	err := t.Client.Get(context.Background(), types.NamespacedName{Name: name, Namespace: t.Namespace}, secret)
+	Expect(err).ToNot(HaveOccurred())
+	return secret
 }
 
 func (t *cryostatTestInput) expectCoreService() {

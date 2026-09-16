@@ -2615,6 +2615,7 @@ func (r *TestResources) NewMainPodAnnotations() map[string]string {
 	secrets := []*corev1.Secret{
 		r.NewStorageSecret(),
 		r.NewAuthProxyCookieSecret(),
+		r.NewUserProxySecret(),
 	}
 	if r.DatabaseSecret != nil {
 		secrets = append(secrets, r.DatabaseSecret)
@@ -2628,6 +2629,7 @@ func (r *TestResources) NewMainPodAnnotations() map[string]string {
 			r.NewCertSecret(r.NewDatabaseCert()),
 			r.NewCertSecret(r.NewStorageCert()),
 			r.NewCertSecret(r.NewAgentProxyCert()),
+			r.NewAgentGatewaySecret(),
 		)
 	}
 
@@ -2818,10 +2820,22 @@ func (r *TestResources) NewCoreEnvironmentVariables(reportsUrl string, ingress b
 			Value: "/opt/cryostat.d/templates.d",
 		},
 	}
-	loopbackHosts := "localhost,127.0.0.1"
 	envs = append(envs, corev1.EnvVar{
 		Name:  "QUARKUS_HTTP_PROXY_TRUSTED_PROXIES",
-		Value: loopbackHosts,
+		Value: "localhost,127.0.0.1",
+	})
+
+	envs = append(envs, corev1.EnvVar{
+		Name: "CRYOSTAT_SECURITY_USER_PROXY_SECRET",
+		ValueFrom: &corev1.EnvVarSource{
+			SecretKeyRef: &corev1.SecretKeySelector{
+				LocalObjectReference: corev1.LocalObjectReference{
+					Name: r.Name + "-user-proxy",
+				},
+				Key:      "USER_PROXY_SECRET",
+				Optional: &optional,
+			},
+		},
 	})
 
 	basicAuthConfigured := authOptions != nil && authOptions.BasicAuth != nil &&
@@ -2843,8 +2857,16 @@ func (r *TestResources) NewCoreEnvironmentVariables(reportsUrl string, ingress b
 
 	if r.TLS {
 		envs = append(envs, corev1.EnvVar{
-			Name:  "CRYOSTAT_HTTP_PROXY_MTLS_TRUSTED_HOSTS",
-			Value: loopbackHosts,
+			Name: "CRYOSTAT_SECURITY_AGENT_GATEWAY_SECRET",
+			ValueFrom: &corev1.EnvVarSource{
+				SecretKeyRef: &corev1.SecretKeySelector{
+					LocalObjectReference: corev1.LocalObjectReference{
+						Name: r.Name + "-agent-gateway",
+					},
+					Key:      "AGENT_GATEWAY_SECRET",
+					Optional: &optional,
+				},
+			},
 		})
 	}
 
@@ -3315,6 +3337,32 @@ func (r *TestResources) NewAuthProxyCookieSecret() *corev1.Secret {
 	}
 }
 
+func (r *TestResources) NewAgentGatewaySecret() *corev1.Secret {
+	return &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      r.Name + "-agent-gateway",
+			Namespace: r.Namespace,
+		},
+		Data: map[string][]byte{
+			"AGENT_GATEWAY_SECRET": []byte("agent_gateway_secret"),
+			"agent-auth.conf":      []byte("proxy_set_header X-Cryostat-Agent-Auth \"agent_gateway_secret\";\n"),
+		},
+	}
+}
+
+func (r *TestResources) NewUserProxySecret() *corev1.Secret {
+	return &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      r.Name + "-user-proxy",
+			Namespace: r.Namespace,
+		},
+		Data: map[string][]byte{
+			"USER_PROXY_SECRET": []byte("user_proxy_secret"),
+			"user-auth.conf":    []byte("proxy_set_header X-Cryostat-User-Proxy-Auth \"user_proxy_secret\";\n"),
+		},
+	}
+}
+
 func (r *TestResources) NewAgentProxyEnvFromSource() []corev1.EnvFromSource {
 	return []corev1.EnvFromSource{}
 }
@@ -3622,6 +3670,14 @@ func (r *TestResources) NewAgentProxyVolumeMounts() []corev1.VolumeMount {
 		})
 	}
 
+	if r.TLS {
+		mounts = append(mounts, corev1.VolumeMount{
+			Name:      "agent-gateway-secret",
+			MountPath: "/var/run/secrets/operator.cryostat.io/agent-gateway",
+			ReadOnly:  true,
+		})
+	}
+
 	mounts = append(mounts,
 		corev1.VolumeMount{
 			Name:      "agent-proxy-config",
@@ -3637,6 +3693,11 @@ func (r *TestResources) NewAuthStripProxyVolumeMounts() []corev1.VolumeMount {
 		{
 			Name:      "auth-strip-proxy-config",
 			MountPath: "/etc/nginx-auth-strip",
+			ReadOnly:  true,
+		},
+		{
+			Name:      "user-proxy-secret",
+			MountPath: "/var/run/secrets/operator.cryostat.io/user-proxy",
 			ReadOnly:  true,
 		},
 	}
@@ -4257,6 +4318,26 @@ func (r *TestResources) newVolumes(certProjections []corev1.VolumeProjection) []
 				},
 			},
 		},
+		{
+			Name: "user-proxy-secret",
+			VolumeSource: corev1.VolumeSource{
+				Secret: &corev1.SecretVolumeSource{
+					SecretName:  r.Name + "-user-proxy",
+					DefaultMode: &readOnlymode,
+				},
+			},
+		},
+	}
+	if r.TLS {
+		volumes = append(volumes, corev1.Volume{
+			Name: "agent-gateway-secret",
+			VolumeSource: corev1.VolumeSource{
+				Secret: &corev1.SecretVolumeSource{
+					SecretName:  r.Name + "-agent-gateway",
+					DefaultMode: &readOnlymode,
+				},
+			},
+		})
 	}
 	projs := append([]corev1.VolumeProjection{}, certProjections...)
 	if r.TLS {
@@ -5498,101 +5579,81 @@ http {
 		ssl_client_certificate /var/run/secrets/operator.cryostat.io/%s-agent-tls/ca.crt;
 		ssl_verify_client on;
 
+		# Reject header names containing underscores, so a client cannot smuggle
+		# X_Cryostat_Agent_Auth past a check written against the dashed form.
+		underscores_in_headers off;
+
+		# Provenance stamp. Mounted from the agent gateway Secret; contains exactly
+		#   proxy_set_header X-Cryostat-Agent-Auth "<secret>";
+		# This overwrites any value the client supplied, because proxy_set_header replaces
+		# rather than appends.
+		include /var/run/secrets/operator.cryostat.io/agent-gateway/agent-auth.conf;
+
+		# Clear the human-path identity headers. Without this an agent could assert
+		# X-Forwarded-User and receive a permissive identity in BASIC mode, which is
+		# strictly more than the Agent principal is meant to have.
+		proxy_set_header X-Forwarded-User "";
+		proxy_set_header X-Forwarded-Access-Token "";
+		# ...and any other path's own stamp, which only that path's own hop may apply.
+		proxy_set_header X-Cryostat-User-Proxy-Auth "";
+
+		# These directives are inherited into the location blocks below only because those
+		# blocks declare no proxy_set_header of their own: nginx's directive inheritance is
+		# replace-at-level, not merge. Adding a proxy_set_header to any location below would
+		# silently drop the stamp and the clearing above for that path.
 		location /health/ {
-			proxy_set_header X-Cryostat-Agent-Proxy "true";
-			proxy_set_header X-Forwarded-User "";
-			proxy_set_header X-Forwarded-Access-Token "";
 			proxy_pass http://127.0.0.1:8181$request_uri;
 		}
 
 		location = /health {
-			proxy_set_header X-Cryostat-Agent-Proxy "true";
-			proxy_set_header X-Forwarded-User "";
-			proxy_set_header X-Forwarded-Access-Token "";
 			proxy_pass http://127.0.0.1:8181$request_uri;
 		}
 
 		location /api/v4/discovery/ {
-			proxy_set_header X-Cryostat-Agent-Proxy "true";
-			proxy_set_header X-Forwarded-User "";
-			proxy_set_header X-Forwarded-Access-Token "";
 			proxy_pass http://127.0.0.1:8181$request_uri;
 		}
 
 		location = /api/v4/discovery {
-			proxy_set_header X-Cryostat-Agent-Proxy "true";
-			proxy_set_header X-Forwarded-User "";
-			proxy_set_header X-Forwarded-Access-Token "";
 			proxy_pass http://127.0.0.1:8181$request_uri;
 		}
 
 		location /api/v4.2/discovery/ {
-			proxy_set_header X-Cryostat-Agent-Proxy "true";
-			proxy_set_header X-Forwarded-User "";
-			proxy_set_header X-Forwarded-Access-Token "";
 			proxy_pass http://127.0.0.1:8181$request_uri;
 		}
 
 		location = /api/v4.2/discovery {
-			proxy_set_header X-Cryostat-Agent-Proxy "true";
-			proxy_set_header X-Forwarded-User "";
-			proxy_set_header X-Forwarded-Access-Token "";
 			proxy_pass http://127.0.0.1:8181$request_uri;
 		}
 
 		location /api/v4.3/discovery/ {
-			proxy_set_header X-Cryostat-Agent-Proxy "true";
-			proxy_set_header X-Forwarded-User "";
-			proxy_set_header X-Forwarded-Access-Token "";
 			proxy_pass http://127.0.0.1:8181$request_uri;
 		}
 
 		location = /api/v4.3/discovery {
-			proxy_set_header X-Cryostat-Agent-Proxy "true";
-			proxy_set_header X-Forwarded-User "";
-			proxy_set_header X-Forwarded-Access-Token "";
 			proxy_pass http://127.0.0.1:8181$request_uri;
 		}
 
 		location /api/beta/diagnostics/ {
-			proxy_set_header X-Cryostat-Agent-Proxy "true";
-			proxy_set_header X-Forwarded-User "";
-			proxy_set_header X-Forwarded-Access-Token "";
 			proxy_pass http://127.0.0.1:8181$request_uri;
 		}
 
 		location = /api/beta/diagnostics {
-			proxy_set_header X-Cryostat-Agent-Proxy "true";
-			proxy_set_header X-Forwarded-User "";
-			proxy_set_header X-Forwarded-Access-Token "";
 			proxy_pass http://127.0.0.1:8181$request_uri;
 		}
 
 		location /api/beta/recordings/ {
-			proxy_set_header X-Cryostat-Agent-Proxy "true";
-			proxy_set_header X-Forwarded-User "";
-			proxy_set_header X-Forwarded-Access-Token "";
 			proxy_pass http://127.0.0.1:8181$request_uri;
 		}
 
 		location = /api/beta/recordings {
-			proxy_set_header X-Cryostat-Agent-Proxy "true";
-			proxy_set_header X-Forwarded-User "";
-			proxy_set_header X-Forwarded-Access-Token "";
 			proxy_pass http://127.0.0.1:8181$request_uri;
 		}
 
 		location /api/beta/targets/ {
-			proxy_set_header X-Cryostat-Agent-Proxy "true";
-			proxy_set_header X-Forwarded-User "";
-			proxy_set_header X-Forwarded-Access-Token "";
 			proxy_pass http://127.0.0.1:8181$request_uri;
 		}
 
 		location = /api/beta/targets {
-			proxy_set_header X-Cryostat-Agent-Proxy "true";
-			proxy_set_header X-Forwarded-User "";
-			proxy_set_header X-Forwarded-Access-Token "";
 			proxy_pass http://127.0.0.1:8181$request_uri;
 		}
 
@@ -5649,101 +5710,75 @@ http {
 		listen 8282;
 		listen [::]:8282;
 
+		# Reject header names containing underscores, so a client cannot smuggle
+		# X_Cryostat_Agent_Auth past a check written against the dashed form.
+		underscores_in_headers off;
+
+		# Clear the human-path identity headers. Without this an agent could assert
+		# X-Forwarded-User and receive a permissive identity in BASIC mode, which is
+		# strictly more than the Agent principal is meant to have.
+		proxy_set_header X-Forwarded-User "";
+		proxy_set_header X-Forwarded-Access-Token "";
+		# ...and any other path's own stamp, which only that path's own hop may apply.
+		proxy_set_header X-Cryostat-User-Proxy-Auth "";
+
+		# These directives are inherited into the location blocks below only because those
+		# blocks declare no proxy_set_header of their own: nginx's directive inheritance is
+		# replace-at-level, not merge. Adding a proxy_set_header to any location below would
+		# silently drop the stamp and the clearing above for that path.
 		location /health/ {
-			proxy_set_header X-Cryostat-Agent-Proxy "true";
-			proxy_set_header X-Forwarded-User "";
-			proxy_set_header X-Forwarded-Access-Token "";
 			proxy_pass http://127.0.0.1:8181$request_uri;
 		}
 
 		location = /health {
-			proxy_set_header X-Cryostat-Agent-Proxy "true";
-			proxy_set_header X-Forwarded-User "";
-			proxy_set_header X-Forwarded-Access-Token "";
 			proxy_pass http://127.0.0.1:8181$request_uri;
 		}
 
 		location /api/v4/discovery/ {
-			proxy_set_header X-Cryostat-Agent-Proxy "true";
-			proxy_set_header X-Forwarded-User "";
-			proxy_set_header X-Forwarded-Access-Token "";
 			proxy_pass http://127.0.0.1:8181$request_uri;
 		}
 
 		location = /api/v4/discovery {
-			proxy_set_header X-Cryostat-Agent-Proxy "true";
-			proxy_set_header X-Forwarded-User "";
-			proxy_set_header X-Forwarded-Access-Token "";
 			proxy_pass http://127.0.0.1:8181$request_uri;
 		}
 
 		location /api/v4.2/discovery/ {
-			proxy_set_header X-Cryostat-Agent-Proxy "true";
-			proxy_set_header X-Forwarded-User "";
-			proxy_set_header X-Forwarded-Access-Token "";
 			proxy_pass http://127.0.0.1:8181$request_uri;
 		}
 
 		location = /api/v4.2/discovery {
-			proxy_set_header X-Cryostat-Agent-Proxy "true";
-			proxy_set_header X-Forwarded-User "";
-			proxy_set_header X-Forwarded-Access-Token "";
 			proxy_pass http://127.0.0.1:8181$request_uri;
 		}
 
 		location /api/v4.3/discovery/ {
-			proxy_set_header X-Cryostat-Agent-Proxy "true";
-			proxy_set_header X-Forwarded-User "";
-			proxy_set_header X-Forwarded-Access-Token "";
 			proxy_pass http://127.0.0.1:8181$request_uri;
 		}
 
 		location = /api/v4.3/discovery {
-			proxy_set_header X-Cryostat-Agent-Proxy "true";
-			proxy_set_header X-Forwarded-User "";
-			proxy_set_header X-Forwarded-Access-Token "";
 			proxy_pass http://127.0.0.1:8181$request_uri;
 		}
 
 		location /api/beta/diagnostics/ {
-			proxy_set_header X-Cryostat-Agent-Proxy "true";
-			proxy_set_header X-Forwarded-User "";
-			proxy_set_header X-Forwarded-Access-Token "";
 			proxy_pass http://127.0.0.1:8181$request_uri;
 		}
 
 		location = /api/beta/diagnostics {
-			proxy_set_header X-Cryostat-Agent-Proxy "true";
-			proxy_set_header X-Forwarded-User "";
-			proxy_set_header X-Forwarded-Access-Token "";
 			proxy_pass http://127.0.0.1:8181$request_uri;
 		}
 
 		location /api/beta/recordings/ {
-			proxy_set_header X-Cryostat-Agent-Proxy "true";
-			proxy_set_header X-Forwarded-User "";
-			proxy_set_header X-Forwarded-Access-Token "";
 			proxy_pass http://127.0.0.1:8181$request_uri;
 		}
 
 		location = /api/beta/recordings {
-			proxy_set_header X-Cryostat-Agent-Proxy "true";
-			proxy_set_header X-Forwarded-User "";
-			proxy_set_header X-Forwarded-Access-Token "";
 			proxy_pass http://127.0.0.1:8181$request_uri;
 		}
 
 		location /api/beta/targets/ {
-			proxy_set_header X-Cryostat-Agent-Proxy "true";
-			proxy_set_header X-Forwarded-User "";
-			proxy_set_header X-Forwarded-Access-Token "";
 			proxy_pass http://127.0.0.1:8181$request_uri;
 		}
 
 		location = /api/beta/targets {
-			proxy_set_header X-Cryostat-Agent-Proxy "true";
-			proxy_set_header X-Forwarded-User "";
-			proxy_set_header X-Forwarded-Access-Token "";
 			proxy_pass http://127.0.0.1:8181$request_uri;
 		}
 
@@ -5836,7 +5871,10 @@ http {
             proxy_http_version 1.1;
             proxy_set_header Upgrade $http_upgrade;
             proxy_set_header Connection $connection_upgrade;
-            proxy_set_header X-Cryostat-Agent-Proxy "";
+            # Stamp this path. Overwrites any client-supplied value, as at the gateway.
+            include /var/run/secrets/operator.cryostat.io/user-proxy/user-auth.conf;
+            # Clear the other paths' stamps, which only their own hops may apply.
+            proxy_set_header X-Cryostat-Agent-Auth "";
             proxy_set_header X-Forwarded-User $http_x_forwarded_user;
             proxy_set_header X-Forwarded-Access-Token $http_x_forwarded_access_token;
             proxy_set_header X-Forwarded-For $http_x_forwarded_for;
