@@ -2708,26 +2708,24 @@ func hashAnnotations(secrets []*corev1.Secret, configMaps []*corev1.ConfigMap, a
 	slices.SortFunc(secrets, func(s1, s2 *corev1.Secret) int {
 		return strings.Compare(s1.Name, s2.Name)
 	})
-	secretData := []byte{}
+	secretHash := sha256.New()
 	for _, secret := range secrets {
 		buf, err := json.Marshal(secret.Data)
 		gomega.Expect(err).ToNot(gomega.HaveOccurred())
-		secretData = append(secretData, buf...)
+		secretHash.Write(buf)
 	}
-	annotations["io.cryostat/secret-hash"] = fmt.Sprintf("%x", sha256.Sum256(secretData))
+	annotations["io.cryostat/secret-hash"] = fmt.Sprintf("%x", secretHash.Sum([]byte{}))
 
 	// Build the config-map-hash annotation
 	slices.SortFunc(configMaps, func(c1, c2 *corev1.ConfigMap) int {
 		return strings.Compare(c1.Name, c2.Name)
 	})
-	configData := []byte{}
+	hash := fnv.New128()
 	for _, cm := range configMaps {
 		buf, err := json.Marshal(cm.Data)
 		gomega.Expect(err).ToNot(gomega.HaveOccurred())
-		configData = append(configData, buf...)
+		hash.Write(buf)
 	}
-	hash := fnv.New128()
-	hash.Write(configData)
 	annotations["io.cryostat/config-map-hash"] = fmt.Sprintf("%x", hash.Sum([]byte{}))
 }
 
