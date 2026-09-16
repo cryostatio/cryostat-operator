@@ -90,8 +90,11 @@ func (o *DefaultOSUtils) GetFileContents(path string) ([]byte, error) {
 func (o *DefaultOSUtils) GenPasswd(length int) string {
 	chars := "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_"
 	b := make([]byte, length)
-	// rand.Read fills b entirely or panics, so the result never falls back to weaker material
-	rand.Read(b)
+	// Never return partially-filled or weaker material: a short read would silently produce a
+	// low-entropy secret, so fail loudly instead.
+	if _, err := rand.Read(b); err != nil {
+		panic(fmt.Errorf("failed to read cryptographically secure random bytes: %w", err))
+	}
 	for i := range b {
 		b[i] = chars[b[i]&0x3F]
 	}
