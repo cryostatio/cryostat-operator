@@ -477,9 +477,9 @@ func strPtr(s string) *string { return &s }
 
 const agentPermissionsEnvVar = "CRYOSTAT_SECURITY_RBAC_AGENT_PERMISSIONS"
 
-func findEnvValue(envs []corev1.EnvVar, name string) (string, bool) {
+func findAgentPermissionsEnv(envs []corev1.EnvVar) (string, bool) {
 	for _, e := range envs {
-		if e.Name == name {
+		if e.Name == agentPermissionsEnvVar {
 			return e.Value, true
 		}
 	}
@@ -490,7 +490,7 @@ func TestNewAgentEnvForCoreContainer_AgentPermissions(t *testing.T) {
 	t.Run("AgentOptions nil omits the env var", func(t *testing.T) {
 		cr, _ := minimalCR(nil)
 
-		if _, found := findEnvValue(newAgentEnvForCoreContainer(cr), agentPermissionsEnvVar); found {
+		if _, found := findAgentPermissionsEnv(newAgentEnvForCoreContainer(cr)); found {
 			t.Errorf("%s should not be set when AgentOptions is nil", agentPermissionsEnvVar)
 		}
 	})
@@ -499,7 +499,7 @@ func TestNewAgentEnvForCoreContainer_AgentPermissions(t *testing.T) {
 		cr, _ := minimalCR(nil)
 		cr.Spec.AgentOptions = &operatorv1beta2.AgentOptions{}
 
-		if _, found := findEnvValue(newAgentEnvForCoreContainer(cr), agentPermissionsEnvVar); found {
+		if _, found := findAgentPermissionsEnv(newAgentEnvForCoreContainer(cr)); found {
 			t.Errorf("%s should not be set when AgentPermissions is nil", agentPermissionsEnvVar)
 		}
 	})
@@ -510,7 +510,7 @@ func TestNewAgentEnvForCoreContainer_AgentPermissions(t *testing.T) {
 			AgentPermissions: []string{"discoveryplugins:write", "activerecordings:read"},
 		}
 
-		value, found := findEnvValue(newAgentEnvForCoreContainer(cr), agentPermissionsEnvVar)
+		value, found := findAgentPermissionsEnv(newAgentEnvForCoreContainer(cr))
 		if !found {
 			t.Fatalf("%s not found in env vars", agentPermissionsEnvVar)
 		}
@@ -527,7 +527,7 @@ func TestNewAgentEnvForCoreContainer_AgentPermissions(t *testing.T) {
 
 		// != nil rather than len() > 0: an empty list must reach Cryostat as an empty
 		// value rather than falling back to the built-in default permission set.
-		value, found := findEnvValue(newAgentEnvForCoreContainer(cr), agentPermissionsEnvVar)
+		value, found := findAgentPermissionsEnv(newAgentEnvForCoreContainer(cr))
 		if !found {
 			t.Fatalf("%s not found in env vars", agentPermissionsEnvVar)
 		}
