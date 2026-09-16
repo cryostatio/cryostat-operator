@@ -15,6 +15,8 @@
 package constants
 
 import (
+	"strings"
+
 	certMeta "github.com/cert-manager/cert-manager/pkg/apis/meta/v1"
 	corev1 "k8s.io/api/core/v1"
 )
@@ -150,6 +152,33 @@ const (
 var ProvenanceHeaders = []string{
 	AgentGatewayAuthHeader,
 	UserProxyAuthHeader,
+}
+
+// OAuthProxyIdentityHeaders lists the headers by which the OAuth proxies assert *who the
+// caller is*. Unlike the X-Forwarded-For/Host/Port/Proto family, which describes the
+// connection and is parsed by Quarkus, every header here is an identity claim.
+//
+// Only the auth-strip proxy may assert them, and it re-sources each one from its own
+// $http_* so that a client cannot supply its own. The agent gateway blanks all of them:
+// an agent has no user identity to assert, and a forwarded claim would at best confuse an
+// audit record and at worst be read as identity by a future endpoint.
+//
+// Both hops render from this one slice so the two lists cannot drift apart. That drift is
+// what this list exists to prevent: the gateway previously blanked only the first two,
+// leaving the rest to pass through from the agent untouched.
+var OAuthProxyIdentityHeaders = []string{
+	"X-Forwarded-User",
+	"X-Forwarded-Access-Token",
+	"X-Forwarded-Email",
+	"X-Forwarded-Preferred-Username",
+	"X-Forwarded-Groups",
+}
+
+// NginxHTTPVariable returns the nginx $http_* variable holding the client-supplied value of
+// the given header, e.g. "X-Forwarded-Preferred-Username" -> "$http_x_forwarded_preferred_username".
+// nginx derives these by lowercasing the header name and replacing dashes with underscores.
+func NginxHTTPVariable(header string) string {
+	return "$http_" + strings.ReplaceAll(strings.ToLower(header), "-", "_")
 }
 
 // ClearedProvenanceHeaders returns the provenance headers that a proxy hop must blank,

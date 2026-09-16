@@ -22,6 +22,7 @@ import (
 	"time"
 
 	certv1 "github.com/cert-manager/cert-manager/pkg/apis/certmanager/v1"
+	"github.com/cryostatio/cryostat-operator/internal/controller/constants"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	gomegatypes "github.com/onsi/gomega/types"
@@ -1844,10 +1845,18 @@ func (c *controllerTest) commonTests() {
 				serverBlock := conf[:strings.Index(conf, "location /health/ {")]
 				Expect(serverBlock).To(ContainSubstring(
 					"include /var/run/secrets/operator.cryostat.io/agent-gateway/agent-auth.conf;"))
-				Expect(serverBlock).To(ContainSubstring(`proxy_set_header X-Forwarded-User "";`))
-				Expect(serverBlock).To(ContainSubstring(`proxy_set_header X-Forwarded-Access-Token "";`))
 				Expect(serverBlock).To(ContainSubstring(`proxy_set_header X-Cryostat-User-Proxy-Auth "";`))
 				Expect(serverBlock).To(ContainSubstring("underscores_in_headers off;"))
+
+				// Every identity header the strip hop asserts must be blanked here, not just
+				// the two Cryostat reads for identity today. An agent has no user identity to
+				// assert, and the asymmetry is a trap for whoever next reads one of these for
+				// audit or display.
+				for _, header := range constants.OAuthProxyIdentityHeaders {
+					Expect(serverBlock).To(ContainSubstring(
+						fmt.Sprintf("proxy_set_header %s \"\";", header)),
+						"gateway does not clear %s", header)
+				}
 
 				for _, prefix := range []string{"/health", "/api/v4/discovery", "/api/v4.2/discovery",
 					"/api/v4.3/discovery", "/api/beta/diagnostics", "/api/beta/recordings",
@@ -1877,6 +1886,26 @@ func (c *controllerTest) commonTests() {
 				Expect(conf).To(ContainSubstring(`proxy_set_header X-Cryostat-Agent-Auth "";`))
 				// The strip hop must never stamp the agent path's header
 				Expect(conf).ToNot(ContainSubstring(`proxy_set_header X-Cryostat-User-Proxy-Auth ""`))
+
+				// Each identity header is re-sourced from this hop's own view of the
+				// request, so that a client-supplied value cannot survive it.
+				for _, header := range constants.OAuthProxyIdentityHeaders {
+					Expect(conf).To(ContainSubstring(fmt.Sprintf("proxy_set_header %s %s;",
+						header, constants.NginxHTTPVariable(header))),
+						"strip hop does not re-source %s", header)
+				}
+			})
+			It("should not cap the size of user-path uploads", func() {
+				cm := &corev1.ConfigMap{}
+				err := t.Client.Get(context.Background(), types.NamespacedName{
+					Name: t.Name + "-auth-strip-proxy", Namespace: t.Namespace}, cm)
+				Expect(err).ToNot(HaveOccurred())
+
+				// Without this, nginx's 1m default applies and a JFR recording over 1 MiB
+				// uploaded to POST /api/v4/recordings is rejected with 413 before Cryostat
+				// sees it. The agent gateway sets the same, so the limit would otherwise
+				// differ between the two paths to the same endpoint.
+				Expect(cm.Data["nginx.conf"]).To(ContainSubstring("client_max_body_size 0;"))
 			})
 			It("should generate two distinct secrets", func() {
 				agent := t.getSecret(t.Name + "-agent-gateway")

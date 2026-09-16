@@ -5591,9 +5591,14 @@ http {
 
 		# Clear the human-path identity headers. Without this an agent could assert
 		# X-Forwarded-User and receive a permissive identity in BASIC mode, which is
-		# strictly more than the Agent principal is meant to have.
+		# strictly more than the Agent principal is meant to have. The rest carry no
+		# authorization weight today, but an agent has no user identity to assert and
+		# forwarding one is a trap for whoever next reads it for audit or display.
 		proxy_set_header X-Forwarded-User "";
 		proxy_set_header X-Forwarded-Access-Token "";
+		proxy_set_header X-Forwarded-Email "";
+		proxy_set_header X-Forwarded-Preferred-Username "";
+		proxy_set_header X-Forwarded-Groups "";
 		# ...and any other path's own stamp, which only that path's own hop may apply.
 		proxy_set_header X-Cryostat-User-Proxy-Auth "";
 
@@ -5716,9 +5721,14 @@ http {
 
 		# Clear the human-path identity headers. Without this an agent could assert
 		# X-Forwarded-User and receive a permissive identity in BASIC mode, which is
-		# strictly more than the Agent principal is meant to have.
+		# strictly more than the Agent principal is meant to have. The rest carry no
+		# authorization weight today, but an agent has no user identity to assert and
+		# forwarding one is a trap for whoever next reads it for audit or display.
 		proxy_set_header X-Forwarded-User "";
 		proxy_set_header X-Forwarded-Access-Token "";
+		proxy_set_header X-Forwarded-Email "";
+		proxy_set_header X-Forwarded-Preferred-Username "";
+		proxy_set_header X-Forwarded-Groups "";
 		# ...and any other path's own stamp, which only that path's own hop may apply.
 		proxy_set_header X-Cryostat-User-Proxy-Auth "";
 
@@ -5851,6 +5861,12 @@ events {
 http {
     access_log /dev/stdout;
 
+    # No body limit, matching the agent gateway. nginx defaults to 1m, which would cap
+    # every user-path upload -- notably POST /api/v4/recordings, where a JFR file over
+    # 1 MiB would be rejected with 413 before Cryostat ever saw it. This hop exists to
+    # scrub headers; limiting request size is not part of its job.
+    client_max_body_size 0;
+
     map $http_upgrade $connection_upgrade {
         default upgrade;
         '' close;
@@ -5875,15 +5891,18 @@ http {
             include /var/run/secrets/operator.cryostat.io/user-proxy/user-auth.conf;
             # Clear the other paths' stamps, which only their own hops may apply.
             proxy_set_header X-Cryostat-Agent-Auth "";
+            # Re-source each identity header from this hop's own view of the request, so
+            # that oauth-proxy's value survives and a client-supplied one cannot. Rendered
+            # from the same list the gateway blanks, so the two cannot drift.
             proxy_set_header X-Forwarded-User $http_x_forwarded_user;
             proxy_set_header X-Forwarded-Access-Token $http_x_forwarded_access_token;
+            proxy_set_header X-Forwarded-Email $http_x_forwarded_email;
+            proxy_set_header X-Forwarded-Preferred-Username $http_x_forwarded_preferred_username;
+            proxy_set_header X-Forwarded-Groups $http_x_forwarded_groups;
             proxy_set_header X-Forwarded-For $http_x_forwarded_for;
             proxy_set_header X-Forwarded-Host $http_x_forwarded_host;
             proxy_set_header X-Forwarded-Port $http_x_forwarded_port;
             proxy_set_header X-Forwarded-Proto $http_x_forwarded_proto;
-            proxy_set_header X-Forwarded-Email $http_x_forwarded_email;
-            proxy_set_header X-Forwarded-Preferred-Username $http_x_forwarded_preferred_username;
-            proxy_set_header X-Forwarded-Groups $http_x_forwarded_groups;
             proxy_pass http://127.0.0.1:8181$request_uri;
         }
     }
