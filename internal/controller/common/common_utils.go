@@ -81,7 +81,6 @@ func (o *DefaultOSUtils) GetFileContents(path string) ([]byte, error) {
 // escape it. A value containing any of the three would be silently mangled into a different
 // stamped secret than the one Cryostat is configured with, or would produce a config that
 // nginx refuses to load. The current alphabet cannot emit them, so Go's %q verb is sufficient.
-// there
 //
 // Widening this alphabet is therefore not a local change: %q escapes for Go, not for nginx, so
 // any new character outside [a-zA-Z0-9-_] requires escaping at each rendering site first.

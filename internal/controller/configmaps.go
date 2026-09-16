@@ -175,6 +175,8 @@ type nginxConfParams struct {
 	AgentAuthIncludeFile string
 	// Provenance headers stamped by some other hop, which this one must blank
 	ClearedHeaders []string
+	// OAuth proxy identity headers, which only the auth-strip hop may assert
+	IdentityHeaders []string
 }
 
 // Reference: https://ssl-config.mozilla.org
@@ -260,9 +262,12 @@ http {
 		{{ end -}}
 		# Clear the human-path identity headers. Without this an agent could assert
 		# X-Forwarded-User and receive a permissive identity in BASIC mode, which is
-		# strictly more than the Agent principal is meant to have.
-		proxy_set_header X-Forwarded-User "";
-		proxy_set_header X-Forwarded-Access-Token "";
+		# strictly more than the Agent principal is meant to have. The rest carry no
+		# authorization weight today, but an agent has no user identity to assert and
+		# forwarding one is a trap for whoever next reads it for audit or display.
+		{{ range .IdentityHeaders -}}
+		proxy_set_header {{ . }} "";
+		{{ end -}}
 		# ...and any other path's own stamp, which only that path's own hop may apply.
 		{{ range .ClearedHeaders -}}
 		proxy_set_header {{ . }} "";
@@ -339,7 +344,8 @@ func (r *Reconciler) reconcileAgentProxyConfig(ctx context.Context, cr *model.Cr
 			"/api/beta/recordings",
 			"/api/beta/targets",
 		},
-		ClearedHeaders: constants.ClearedProvenanceHeaders(constants.AgentGatewayAuthHeader),
+		ClearedHeaders:  constants.ClearedProvenanceHeaders(constants.AgentGatewayAuthHeader),
+		IdentityHeaders: constants.OAuthProxyIdentityHeaders,
 	}
 	if tls != nil {
 		params.TLSEnabled = true
@@ -380,11 +386,15 @@ type authStripProxyConfParams struct {
 	UserAuthIncludeFile string
 	// Provenance headers stamped by some other hop, which this one must blank
 	ClearedHeaders []string
+	// OAuth proxy identity headers, which this hop re-sources from its own view of the request
+	IdentityHeaders []string
 }
 
-// A text/template rather than a format string, so that the provenance header lists can be
-// rendered from the same constants.ProvenanceHeaders slice the agent gateway's config uses.
-var authStripProxyNginxConf = template.Must(template.New("").Parse(`worker_processes auto;
+// A text/template rather than a format string, so that the provenance and identity header
+// lists can be rendered from the same constants slices the agent gateway's config uses.
+var authStripProxyNginxConf = template.Must(template.New("").
+	Funcs(template.FuncMap{"nginxVar": constants.NginxHTTPVariable}).
+	Parse(`worker_processes auto;
 error_log stderr notice;
 pid /run/nginx.pid;
 
@@ -396,6 +406,12 @@ events {
 
 http {
     access_log /dev/stdout;
+
+    # No body limit, matching the agent gateway. nginx defaults to 1m, which would cap
+    # every user-path upload -- notably POST /api/v4/recordings, where a JFR file over
+    # 1 MiB would be rejected with 413 before Cryostat ever saw it. This hop exists to
+    # scrub headers; limiting request size is not part of its job.
+    client_max_body_size 0;
 
     map $http_upgrade $connection_upgrade {
         default upgrade;
@@ -423,15 +439,16 @@ http {
             {{ range .ClearedHeaders -}}
             proxy_set_header {{ . }} "";
             {{ end -}}
-            proxy_set_header X-Forwarded-User $http_x_forwarded_user;
-            proxy_set_header X-Forwarded-Access-Token $http_x_forwarded_access_token;
+            # Re-source each identity header from this hop's own view of the request, so
+            # that oauth-proxy's value survives and a client-supplied one cannot. Rendered
+            # from the same list the gateway blanks, so the two cannot drift.
+            {{ range .IdentityHeaders -}}
+            proxy_set_header {{ . }} {{ nginxVar . }};
+            {{ end -}}
             proxy_set_header X-Forwarded-For $http_x_forwarded_for;
             proxy_set_header X-Forwarded-Host $http_x_forwarded_host;
             proxy_set_header X-Forwarded-Port $http_x_forwarded_port;
             proxy_set_header X-Forwarded-Proto $http_x_forwarded_proto;
-            proxy_set_header X-Forwarded-Email $http_x_forwarded_email;
-            proxy_set_header X-Forwarded-Preferred-Username $http_x_forwarded_preferred_username;
-            proxy_set_header X-Forwarded-Groups $http_x_forwarded_groups;
             proxy_pass http://127.0.0.1:{{ .CryostatPort }}$request_uri;
         }
     }
@@ -452,7 +469,8 @@ func (r *Reconciler) reconcileAuthStripProxyConfig(ctx context.Context, cr *mode
 		CryostatPort: constants.CryostatHTTPContainerPort,
 		UserAuthIncludeFile: path.Join(constants.UserProxySecretMountPath,
 			constants.UserProxyConfFileName),
-		ClearedHeaders: constants.ClearedProvenanceHeaders(constants.UserProxyAuthHeader),
+		ClearedHeaders:  constants.ClearedProvenanceHeaders(constants.UserProxyAuthHeader),
+		IdentityHeaders: constants.OAuthProxyIdentityHeaders,
 	})
 	if err != nil {
 		return err
