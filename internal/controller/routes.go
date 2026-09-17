@@ -23,6 +23,7 @@ import (
 	operatorv1beta2 "github.com/cryostatio/cryostat-operator/api/v1beta2"
 	common "github.com/cryostatio/cryostat-operator/internal/controller/common"
 	"github.com/cryostatio/cryostat-operator/internal/controller/common/resource_definitions"
+	"github.com/cryostatio/cryostat-operator/internal/controller/constants"
 	"github.com/cryostatio/cryostat-operator/internal/controller/model"
 	routev1 "github.com/openshift/api/route/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -138,7 +139,7 @@ func configureCoreRoute(cr *model.CryostatInstance) *operatorv1beta2.NetworkConf
 		config = cr.Spec.NetworkOptions.CoreConfig
 	}
 
-	configureRoute(config, cr.Name, "cryostat")
+	configureRoute(config, cr.Name, constants.ComponentCryostat)
 	return config
 }
 
@@ -151,6 +152,6 @@ func configureRoute(config *operatorv1beta2.NetworkConfiguration, appLabel strin
 	}
 
 	// Add required labels, overriding any user-specified labels with the same keys
-	config.Labels["app"] = appLabel
-	config.Labels["component"] = componentLabel
+	config.Labels[constants.LabelKeyApp] = appLabel
+	config.Labels[constants.LabelKeyComponent] = componentLabel
 }

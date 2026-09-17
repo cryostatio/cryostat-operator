@@ -112,6 +112,25 @@ const (
 	OAuth2ConfigFilePath              string = "/etc/oauth2_proxy/alpha_config"
 	DatabaseName                      string = "cryostat"
 	SecretMountPrefix                 string = "/var/run/secrets/operator.cryostat.io"
+
+	// Names of the volumes holding each component's TLS secret
+	authProxyTLSVolumeName string = "auth-proxy-tls-secret"
+	storageTLSVolumeName   string = "storage-tls-secret"
+	databaseTLSVolumeName  string = "database-tls-secret"
+
+	// Environment variable names shared by multiple containers
+	quarkusHTTPHostEnvVar           string = "QUARKUS_HTTP_HOST"
+	quarkusHTTPPortEnvVar           string = "QUARKUS_HTTP_PORT"
+	rbacDefaultReadPermissionEnvVar string = "CRYOSTAT_SECURITY_RBAC_DEFAULT_READ_PERMISSION"
+	rbacDefaultPermissionEnvVar     string = "CRYOSTAT_SECURITY_RBAC_DEFAULT_PERMISSION"
+	rbacDecisionCacheTTLEnvVar      string = "CRYOSTAT_SECURITY_RBAC_DECISION_CACHE_TTL"
+
+	// Boolean environment variable values
+	envVarTrue  string = "true"
+	envVarFalse string = "false"
+
+	// healthPath is the HTTP path used by container health probes
+	healthPath string = "/healthz"
 )
 
 func createMapCopy(in map[string]string) map[string]string {
@@ -134,9 +153,9 @@ func createMetadataCopy(in *operatorv1beta2.ResourceMetadata) operatorv1beta2.Re
 
 func CorePodLabels(cr *model.CryostatInstance) map[string]string {
 	return map[string]string{
-		"app":       cr.Name,
-		"kind":      "cryostat",
-		"component": "cryostat",
+		constants.LabelKeyApp:       cr.Name,
+		constants.LabelKeyKind:      constants.ComponentCryostat,
+		constants.LabelKeyComponent: constants.ComponentCryostat,
 	}
 }
 
@@ -146,13 +165,13 @@ func NewDeploymentForCR(cr *model.CryostatInstance, specs *ServiceSpecs, imageTa
 	replicas := int32(1)
 
 	defaultDeploymentLabels := map[string]string{
-		"app":                    cr.Name,
-		"kind":                   "cryostat",
-		"component":              "cryostat",
-		"app.kubernetes.io/name": "cryostat",
+		constants.LabelKeyApp:        cr.Name,
+		constants.LabelKeyKind:       constants.ComponentCryostat,
+		constants.LabelKeyComponent:  constants.ComponentCryostat,
+		constants.LabelKeyK8sAppName: constants.ComponentCryostat,
 	}
 	defaultDeploymentAnnotations := map[string]string{
-		"app.openshift.io/connects-to": constants.OperatorDeploymentName,
+		constants.AnnotationConnectsTo: constants.OperatorDeploymentName,
 	}
 	defaultPodLabels := CorePodLabels(cr)
 	operandMeta := operatorv1beta2.OperandMetadata{
@@ -195,9 +214,9 @@ func NewDeploymentForCR(cr *model.CryostatInstance, specs *ServiceSpecs, imageTa
 			// Selector is immutable, avoid modifying if possible
 			Selector: &metav1.LabelSelector{
 				MatchLabels: map[string]string{
-					"app":       cr.Name,
-					"kind":      "cryostat",
-					"component": "cryostat",
+					constants.LabelKeyApp:       cr.Name,
+					constants.LabelKeyKind:      constants.ComponentCryostat,
+					constants.LabelKeyComponent: constants.ComponentCryostat,
 				},
 			},
 			Template: corev1.PodTemplateSpec{
@@ -214,9 +233,9 @@ func NewDeploymentForCR(cr *model.CryostatInstance, specs *ServiceSpecs, imageTa
 
 func DatabasePodLabels(cr *model.CryostatInstance) map[string]string {
 	return map[string]string{
-		"app":       cr.Name,
-		"kind":      "cryostat",
-		"component": "database",
+		constants.LabelKeyApp:       cr.Name,
+		constants.LabelKeyKind:      constants.ComponentCryostat,
+		constants.LabelKeyComponent: constants.ComponentDatabase,
 	}
 }
 
@@ -225,13 +244,13 @@ func NewDeploymentForDatabase(cr *model.CryostatInstance, imageTags *ImageTags, 
 	replicas := int32(1)
 
 	defaultDeploymentLabels := map[string]string{
-		"app":                    cr.Name,
-		"kind":                   "cryostat",
-		"component":              "database",
-		"app.kubernetes.io/name": "cryostat-database",
+		constants.LabelKeyApp:        cr.Name,
+		constants.LabelKeyKind:       constants.ComponentCryostat,
+		constants.LabelKeyComponent:  constants.ComponentDatabase,
+		constants.LabelKeyK8sAppName: "cryostat-database",
 	}
 	defaultDeploymentAnnotations := map[string]string{
-		"app.openshift.io/connects-to": cr.Name,
+		constants.AnnotationConnectsTo: cr.Name,
 	}
 	defaultPodLabels := DatabasePodLabels(cr)
 	operandMeta := operatorv1beta2.OperandMetadata{
@@ -270,9 +289,9 @@ func NewDeploymentForDatabase(cr *model.CryostatInstance, imageTags *ImageTags, 
 			// Selector is immutable, avoid modifying if possible
 			Selector: &metav1.LabelSelector{
 				MatchLabels: map[string]string{
-					"app":       cr.Name,
-					"kind":      "cryostat",
-					"component": "database",
+					constants.LabelKeyApp:       cr.Name,
+					constants.LabelKeyKind:      constants.ComponentCryostat,
+					constants.LabelKeyComponent: constants.ComponentDatabase,
 				},
 			},
 			Template: corev1.PodTemplateSpec{
@@ -289,9 +308,9 @@ func NewDeploymentForDatabase(cr *model.CryostatInstance, imageTags *ImageTags, 
 
 func StoragePodLabels(cr *model.CryostatInstance) map[string]string {
 	return map[string]string{
-		"app":       cr.Name,
-		"kind":      "cryostat",
-		"component": "storage",
+		constants.LabelKeyApp:       cr.Name,
+		constants.LabelKeyKind:      constants.ComponentCryostat,
+		constants.LabelKeyComponent: constants.ComponentStorage,
 	}
 }
 
@@ -299,13 +318,13 @@ func NewDeploymentForStorage(cr *model.CryostatInstance, imageTags *ImageTags, t
 	replicas := int32(1)
 
 	defaultDeploymentLabels := map[string]string{
-		"app":                    cr.Name,
-		"kind":                   "cryostat",
-		"component":              "storage",
-		"app.kubernetes.io/name": "cryostat-storage",
+		constants.LabelKeyApp:        cr.Name,
+		constants.LabelKeyKind:       constants.ComponentCryostat,
+		constants.LabelKeyComponent:  constants.ComponentStorage,
+		constants.LabelKeyK8sAppName: "cryostat-storage",
 	}
 	defaultDeploymentAnnotations := map[string]string{
-		"app.openshift.io/connects-to": cr.Name,
+		constants.AnnotationConnectsTo: cr.Name,
 	}
 	defaultPodLabels := StoragePodLabels(cr)
 	operandMeta := operatorv1beta2.OperandMetadata{
@@ -344,9 +363,9 @@ func NewDeploymentForStorage(cr *model.CryostatInstance, imageTags *ImageTags, t
 			// Selector is immutable, avoid modifying if possible
 			Selector: &metav1.LabelSelector{
 				MatchLabels: map[string]string{
-					"app":       cr.Name,
-					"kind":      "cryostat",
-					"component": "storage",
+					constants.LabelKeyApp:       cr.Name,
+					constants.LabelKeyKind:      constants.ComponentCryostat,
+					constants.LabelKeyComponent: constants.ComponentStorage,
 				},
 			},
 			Template: corev1.PodTemplateSpec{
@@ -363,9 +382,9 @@ func NewDeploymentForStorage(cr *model.CryostatInstance, imageTags *ImageTags, t
 
 func ReportsPodLabels(cr *model.CryostatInstance) map[string]string {
 	return map[string]string{
-		"app":       cr.Name,
-		"kind":      "cryostat",
-		"component": "reports",
+		constants.LabelKeyApp:       cr.Name,
+		constants.LabelKeyKind:      constants.ComponentCryostat,
+		constants.LabelKeyComponent: constants.ComponentReports,
 	}
 }
 
@@ -377,13 +396,13 @@ func NewDeploymentForReports(cr *model.CryostatInstance, imageTags *ImageTags, s
 	}
 
 	defaultDeploymentLabels := map[string]string{
-		"app":                    cr.Name,
-		"kind":                   "cryostat",
-		"component":              "reports",
-		"app.kubernetes.io/name": "cryostat-reports",
+		constants.LabelKeyApp:        cr.Name,
+		constants.LabelKeyKind:       constants.ComponentCryostat,
+		constants.LabelKeyComponent:  constants.ComponentReports,
+		constants.LabelKeyK8sAppName: "cryostat-reports",
 	}
 	defaultDeploymentAnnotations := map[string]string{
-		"app.openshift.io/connects-to": cr.Name,
+		constants.AnnotationConnectsTo: cr.Name,
 	}
 	defaultPodLabels := ReportsPodLabels(cr)
 	operandMeta := operatorv1beta2.OperandMetadata{
@@ -422,9 +441,9 @@ func NewDeploymentForReports(cr *model.CryostatInstance, imageTags *ImageTags, s
 			// Selector is immutable, avoid modifying if possible
 			Selector: &metav1.LabelSelector{
 				MatchLabels: map[string]string{
-					"app":       cr.Name,
-					"kind":      "cryostat",
-					"component": "reports",
+					constants.LabelKeyApp:       cr.Name,
+					constants.LabelKeyKind:      constants.ComponentCryostat,
+					constants.LabelKeyComponent: constants.ComponentReports,
 				},
 			},
 			Template: corev1.PodTemplateSpec{
@@ -523,7 +542,7 @@ func NewPodForCR(cr *model.CryostatInstance, specs *ServiceSpecs, imageTags *Ima
 
 		volumes = append(volumes,
 			corev1.Volume{
-				Name: "auth-proxy-tls-secret",
+				Name: authProxyTLSVolumeName,
 				VolumeSource: corev1.VolumeSource{
 					Secret: &corev1.SecretVolumeSource{
 						SecretName:  tls.CryostatSecret,
@@ -574,7 +593,7 @@ func NewPodForCR(cr *model.CryostatInstance, specs *ServiceSpecs, imageTags *Ima
 
 		storageMountPrefix := "s3"
 		storageSecretVolume := corev1.Volume{
-			Name: "storage-tls-secret",
+			Name: storageTLSVolumeName,
 			VolumeSource: corev1.VolumeSource{
 				Secret: &corev1.SecretVolumeSource{
 					SecretName:  tls.StorageSecret,
@@ -597,7 +616,7 @@ func NewPodForCR(cr *model.CryostatInstance, specs *ServiceSpecs, imageTags *Ima
 		volumes = append(volumes, storageSecretVolume)
 
 		dbTlsVolume := corev1.Volume{
-			Name: "database-tls-secret",
+			Name: databaseTLSVolumeName,
 			VolumeSource: corev1.VolumeSource{
 				Secret: &corev1.SecretVolumeSource{
 					SecretName:  tls.DatabaseSecret,
@@ -823,7 +842,7 @@ func NewPodForDatabase(cr *model.CryostatInstance, imageTags *ImageTags, tls *TL
 	if tls != nil {
 		readOnlyMode := int32(0440)
 		secretVolume := corev1.Volume{
-			Name: "database-tls-secret",
+			Name: databaseTLSVolumeName,
 			VolumeSource: corev1.VolumeSource{
 				Secret: &corev1.SecretVolumeSource{
 					SecretName:  tls.DatabaseSecret,
@@ -888,7 +907,7 @@ func NewPodForStorage(cr *model.CryostatInstance, imageTags *ImageTags, tls *TLS
 	readOnlyMode := int32(0440)
 	if tls != nil {
 		secretVolume := corev1.Volume{
-			Name: "storage-tls-secret",
+			Name: storageTLSVolumeName,
 			VolumeSource: corev1.VolumeSource{
 				Secret: &corev1.SecretVolumeSource{
 					SecretName:  tls.StorageSecret,
@@ -961,7 +980,7 @@ func NewPodForReports(cr *model.CryostatInstance, imageTags *ImageTags, serviceS
 
 	envs := []corev1.EnvVar{
 		{
-			Name:  "QUARKUS_HTTP_HOST",
+			Name:  quarkusHTTPHostEnvVar,
 			Value: "0.0.0.0",
 		},
 	}
@@ -1062,7 +1081,7 @@ func NewPodForReports(cr *model.CryostatInstance, imageTags *ImageTags, serviceS
 		livenessProbeScheme = corev1.URISchemeHTTPS
 	} else {
 		envs = append(envs, corev1.EnvVar{
-			Name:  "QUARKUS_HTTP_PORT",
+			Name:  quarkusHTTPPortEnvVar,
 			Value: strconv.Itoa(int(constants.ReportsContainerPort)),
 		})
 	}
@@ -1240,7 +1259,7 @@ func NewOpenShiftAuthProxyContainer(cr *model.CryostatInstance, specs *ServiceSp
 		)
 
 		volumeMounts = append(volumeMounts, corev1.VolumeMount{
-			Name:      "auth-proxy-tls-secret",
+			Name:      authProxyTLSVolumeName,
 			MountPath: path.Join(SecretMountPrefix, tls.CryostatSecret),
 			ReadOnly:  true,
 		})
@@ -1352,7 +1371,7 @@ func NewOAuth2ProxyContainer(cr *model.CryostatInstance, specs *ServiceSpecs, im
 	livenessProbeScheme := corev1.URISchemeHTTP
 	if tls != nil {
 		volumeMounts = append(volumeMounts, corev1.VolumeMount{
-			Name:      "auth-proxy-tls-secret",
+			Name:      authProxyTLSVolumeName,
 			MountPath: path.Join(SecretMountPrefix, tls.CryostatSecret),
 			ReadOnly:  true,
 		})
@@ -1458,7 +1477,7 @@ func NewCoreContainer(cr *model.CryostatInstance, specs *ServiceSpecs, imageTag 
 	if tls != nil {
 		mounts = append(mounts,
 			corev1.VolumeMount{
-				Name:      "storage-tls-secret",
+				Name:      storageTLSVolumeName,
 				MountPath: "/truststore/storage",
 				ReadOnly:  true,
 			},
@@ -1521,7 +1540,7 @@ func NewCoreContainer(cr *model.CryostatInstance, specs *ServiceSpecs, imageTag 
 	if tls != nil {
 		tlsPath := path.Join(SecretMountPrefix, tls.DatabaseSecret)
 		tlsSecretMount := corev1.VolumeMount{
-			Name:      "database-tls-secret",
+			Name:      databaseTLSVolumeName,
 			MountPath: tlsPath,
 			ReadOnly:  true,
 		}
@@ -1593,28 +1612,28 @@ func newEnvForCoreContainer(cr *model.CryostatInstance, specs *ServiceSpecs, tls
 			Value: logLevel,
 		},
 		{
-			Name:  "QUARKUS_HTTP_HOST",
+			Name:  quarkusHTTPHostEnvVar,
 			Value: "localhost",
 		},
 		{
-			Name:  "QUARKUS_HTTP_PORT",
+			Name:  quarkusHTTPPortEnvVar,
 			Value: "8181",
 		},
 		{
 			Name:  "QUARKUS_HTTP_PROXY_PROXY_ADDRESS_FORWARDING",
-			Value: "true",
+			Value: envVarTrue,
 		},
 		{
 			Name:  "QUARKUS_HTTP_PROXY_ALLOW_X_FORWARDED",
-			Value: "true",
+			Value: envVarTrue,
 		},
 		{
 			Name:  "QUARKUS_HTTP_PROXY_ENABLE_FORWARDED_HOST",
-			Value: "true",
+			Value: envVarTrue,
 		},
 		{
 			Name:  "QUARKUS_HTTP_PROXY_ENABLE_FORWARDED_PREFIX",
-			Value: "true",
+			Value: envVarTrue,
 		},
 		{
 			Name:  "QUARKUS_HIBERNATE_ORM_DATABASE_GENERATION",
@@ -1626,7 +1645,7 @@ func newEnvForCoreContainer(cr *model.CryostatInstance, specs *ServiceSpecs, tls
 		},
 		{
 			Name:  "QUARKUS_DATASOURCE_USERNAME",
-			Value: "cryostat",
+			Value: DatabaseName,
 		},
 		{
 			Name:  "CRYOSTAT_CONFIG_PATH",
@@ -1831,7 +1850,7 @@ func newStorageEnvForCoreContainer(cr *model.CryostatInstance, specs *ServiceSpe
 			},
 			{
 				Name:  "QUARKUS_S3_PATH_STYLE_ACCESS",
-				Value: "true",
+				Value: envVarTrue,
 			},
 			{
 				Name:  "QUARKUS_S3_AWS_REGION",
@@ -1839,11 +1858,11 @@ func newStorageEnvForCoreContainer(cr *model.CryostatInstance, specs *ServiceSpe
 			},
 			{
 				Name:  "STORAGE_PRESIGNED_TRANSFERS_ENABLED",
-				Value: "true",
+				Value: envVarTrue,
 			},
 			{
 				Name:  "STORAGE_PRESIGNED_DOWNLOADS_ENABLED",
-				Value: "false",
+				Value: envVarFalse,
 			},
 		}...)
 	} else {
@@ -1994,7 +2013,7 @@ func newRBACDefaultPermissionsEnvForCoreContainer(cr *model.CryostatInstance) []
 	var envs []corev1.EnvVar
 	if defaults.DefaultReadPermission != nil {
 		envs = append(envs, corev1.EnvVar{
-			Name:  "CRYOSTAT_SECURITY_RBAC_DEFAULT_READ_PERMISSION",
+			Name:  rbacDefaultReadPermissionEnvVar,
 			Value: *defaults.DefaultReadPermission,
 		})
 	}
@@ -2012,7 +2031,7 @@ func newRBACDefaultPermissionsEnvForCoreContainer(cr *model.CryostatInstance) []
 	}
 	if defaults.DefaultPermission != nil {
 		envs = append(envs, corev1.EnvVar{
-			Name:  "CRYOSTAT_SECURITY_RBAC_DEFAULT_PERMISSION",
+			Name:  rbacDefaultPermissionEnvVar,
 			Value: *defaults.DefaultPermission,
 		})
 	}
@@ -2039,7 +2058,7 @@ func newRBACCacheEnvForCoreContainer(cr *model.CryostatInstance) []corev1.EnvVar
 	}
 	if opts.DecisionCacheTTL != nil {
 		envs = append(envs, corev1.EnvVar{
-			Name:  "CRYOSTAT_SECURITY_RBAC_DECISION_CACHE_TTL",
+			Name:  rbacDecisionCacheTTLEnvVar,
 			Value: *opts.DecisionCacheTTL,
 		})
 	}
@@ -2163,14 +2182,14 @@ func newAgentEnvForCoreContainer(cr *model.CryostatInstance) []corev1.EnvVar {
 					// TODO This should eventually be replaced by an agent-specific toggle.
 					// See: https://github.com/cryostatio/cryostat/issues/778
 					Name:  "QUARKUS_REST_CLIENT_VERIFY_HOST",
-					Value: "false",
+					Value: envVarFalse,
 				})
 		}
 		if cr.Spec.AgentOptions.AllowInsecure {
 			envs = append(envs,
 				corev1.EnvVar{
 					Name:  "CRYOSTAT_AGENT_TLS_REQUIRED",
-					Value: "false",
+					Value: envVarFalse,
 				},
 			)
 		}
@@ -2192,7 +2211,7 @@ func NewGrafanaContainer(cr *model.CryostatInstance, imageTag string, tls *TLSCo
 	envs := []corev1.EnvVar{
 		{
 			Name:  "GF_AUTH_ANONYMOUS_ENABLED",
-			Value: "true",
+			Value: envVarTrue,
 		},
 		{
 			Name:  "GF_SERVER_DOMAIN",
@@ -2200,7 +2219,7 @@ func NewGrafanaContainer(cr *model.CryostatInstance, imageTag string, tls *TLSCo
 		},
 		{
 			Name:  "GF_SERVER_SERVE_FROM_SUB_PATH",
-			Value: "true",
+			Value: envVarTrue,
 		},
 		{
 			Name:  "JFR_DATASOURCE_URL",
@@ -2280,7 +2299,7 @@ func NewStorageContainer(cr *model.CryostatInstance, imageTag string, tls *TLSCo
 		},
 		{
 			Name:  "CRYOSTAT_ACCESS_KEY",
-			Value: "cryostat",
+			Value: constants.DefaultStorageAccessKey,
 		},
 		{
 			Name:  "DATA_DIR",
@@ -2334,7 +2353,7 @@ func NewStorageContainer(cr *model.CryostatInstance, imageTag string, tls *TLSCo
 		)
 
 		tlsSecretMount := corev1.VolumeMount{
-			Name:      "storage-tls-secret",
+			Name:      storageTLSVolumeName,
 			MountPath: path.Join(SecretMountPrefix, tls.StorageSecret),
 			ReadOnly:  true,
 		}
@@ -2358,7 +2377,7 @@ func NewStorageContainer(cr *model.CryostatInstance, imageTag string, tls *TLSCo
 	livenessProbeHandler := corev1.ProbeHandler{
 		HTTPGet: &corev1.HTTPGetAction{
 			Port:   intstr.IntOrString{IntVal: livenessProbePort},
-			Path:   "/healthz",
+			Path:   healthPath,
 			Scheme: livenessProbeScheme,
 		},
 	}
@@ -2429,11 +2448,11 @@ func NewDatabaseContainer(cr *model.CryostatInstance, imageTag string, tls *TLSC
 		},
 		{
 			Name:  "POSTGRESQL_USER",
-			Value: "cryostat",
+			Value: DatabaseName,
 		},
 		{
 			Name:  "POSTGRESQL_DATABASE",
-			Value: "cryostat",
+			Value: DatabaseName,
 		},
 		{
 			Name: "POSTGRESQL_PASSWORD",
@@ -2473,7 +2492,7 @@ func NewDatabaseContainer(cr *model.CryostatInstance, imageTag string, tls *TLSC
 	if tls != nil {
 		tlsPath := path.Join(SecretMountPrefix, tls.DatabaseSecret)
 		tlsSecretMount := corev1.VolumeMount{
-			Name:      "database-tls-secret",
+			Name:      databaseTLSVolumeName,
 			MountPath: tlsPath,
 			ReadOnly:  true,
 		}
@@ -2502,7 +2521,7 @@ func NewDatabaseContainer(cr *model.CryostatInstance, imageTag string, tls *TLSC
 		ReadinessProbe: &corev1.Probe{
 			ProbeHandler: corev1.ProbeHandler{
 				Exec: &corev1.ExecAction{
-					Command: []string{"pg_isready", "-U", "cryostat", "-d", "cryostat"},
+					Command: []string{"pg_isready", "-U", DatabaseName, "-d", DatabaseName},
 				},
 			},
 		},
@@ -2539,11 +2558,11 @@ func NewJfrDatasourceContainer(cr *model.CryostatInstance, imageTag string, serv
 
 	envs := []corev1.EnvVar{
 		{
-			Name:  "QUARKUS_HTTP_HOST",
+			Name:  quarkusHTTPHostEnvVar,
 			Value: constants.LoopbackAddress,
 		},
 		{
-			Name:  "QUARKUS_HTTP_PORT",
+			Name:  quarkusHTTPPortEnvVar,
 			Value: strconv.Itoa(int(constants.DatasourceContainerPort)),
 		},
 	}
@@ -2552,7 +2571,7 @@ func NewJfrDatasourceContainer(cr *model.CryostatInstance, imageTag string, serv
 	if tls != nil {
 		tlsPath := path.Join(SecretMountPrefix, tls.StorageSecret)
 		tlsSecretMount := corev1.VolumeMount{
-			Name:      "storage-tls-secret",
+			Name:      storageTLSVolumeName,
 			MountPath: tlsPath,
 			ReadOnly:  true,
 		}
@@ -2653,7 +2672,7 @@ func newAgentProxyContainer(cr *model.CryostatInstance, imageTag string, tls *TL
 		LivenessProbe: &corev1.Probe{
 			ProbeHandler: corev1.ProbeHandler{
 				HTTPGet: &corev1.HTTPGetAction{
-					Path:   "/healthz",
+					Path:   healthPath,
 					Port:   intstr.FromInt32(constants.AgentProxyHealthPort),
 					Scheme: corev1.URISchemeHTTP,
 				},
@@ -2694,7 +2713,7 @@ func newAuthStripProxyContainer(cr *model.CryostatInstance, imageTag string) cor
 		LivenessProbe: &corev1.Probe{
 			ProbeHandler: corev1.ProbeHandler{
 				HTTPGet: &corev1.HTTPGetAction{
-					Path:   "/healthz",
+					Path:   healthPath,
 					Port:   intstr.FromInt32(constants.AuthStripProxyPort),
 					Scheme: corev1.URISchemeHTTP,
 				},

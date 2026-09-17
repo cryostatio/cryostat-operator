@@ -91,7 +91,7 @@ func (r *Reconciler) reconcileOAuth2ProxyConfig(ctx context.Context, cr *model.C
 		Server: alphaConfigServer{},
 		UpstreamConfig: alphaConfigUpstreamConfig{ProxyRawPath: true, Upstreams: []alphaConfigUpstream{
 			{
-				Id:   "cryostat",
+				Id:   constants.ComponentCryostat,
 				Path: "/",
 				Uri:  fmt.Sprintf("http://localhost:%d", constants.AuthStripProxyPort),
 			},
@@ -101,7 +101,7 @@ func (r *Reconciler) reconcileOAuth2ProxyConfig(ctx context.Context, cr *model.C
 				Uri:  fmt.Sprintf("http://localhost:%d", constants.GrafanaContainerPort),
 			},
 			{
-				Id:              "storage",
+				Id:              constants.ComponentStorage,
 				Path:            "^/storage/(.*)$",
 				RewriteTarget:   "/$1",
 				Uri:             fmt.Sprintf("http://localhost:%d", constants.StoragePort),

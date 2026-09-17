@@ -121,7 +121,7 @@ OPM_VERSION ?= 1.23.0
 ENVTEST_VERSION ?= release-0.21
 # ENVTEST_K8S_VERSION refers to the version of kubebuilder assets to be downloaded by envtest binary.
 ENVTEST_K8S_VERSION ?= 1.33.0
-GOLANGCI_LINT_VERSION ?= 2.10.1
+GOLANGCI_LINT_VERSION ?= 2.12.2
 
 # Scorecard ImagePullPolicy is hardcoded to IfNotPresent
 # See: https://github.com/operator-framework/operator-sdk/pull/4762
@@ -416,7 +416,7 @@ $(GOLANGCI_LINT): local-bin
 	test -s $(GOLANGCI_LINT) || \
 	{ \
 	set -e ;\
-	curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(LOCALBIN) v$(GOLANGCI_LINT_VERSION) ;\
+	curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/v$(GOLANGCI_LINT_VERSION)/install.sh | sh -s -- -b $(LOCALBIN) v$(GOLANGCI_LINT_VERSION) ;\
 	}
 
 .PHONY: lint

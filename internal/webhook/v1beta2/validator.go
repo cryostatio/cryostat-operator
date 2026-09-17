@@ -18,6 +18,7 @@ import (
 	"context"
 	"fmt"
 	"regexp"
+	"slices"
 	"strings"
 	"time"
 
@@ -137,12 +138,11 @@ func validateAuthorizationOptions(authz *operatorv1beta2.AuthorizationOptions) f
 		return nil
 	}
 	authzPath := field.NewPath("spec", "authorizationOptions")
-	var errs field.ErrorList
-
-	errs = append(errs, validateRBACPermissions(authz.RBACPermissions, authzPath.Child("rbacPermissions"))...)
-	errs = append(errs, validateRBACDefaultPermissions(authz.RBACDefaultPermissions, authzPath.Child("rbacDefaultPermissions"))...)
-	errs = append(errs, validateRBACCacheOptions(authz.RBACCacheOptions, authzPath.Child("rbacCacheOptions"))...)
-	return errs
+	return slices.Concat(
+		validateRBACPermissions(authz.RBACPermissions, authzPath.Child("rbacPermissions")),
+		validateRBACDefaultPermissions(authz.RBACDefaultPermissions, authzPath.Child("rbacDefaultPermissions")),
+		validateRBACCacheOptions(authz.RBACCacheOptions, authzPath.Child("rbacCacheOptions")),
+	)
 }
 
 func validateRBACPermissions(perms map[string]string, fldPath *field.Path) field.ErrorList {

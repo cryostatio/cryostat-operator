@@ -136,7 +136,7 @@ func (r *Reconciler) reconcileStorageSecret(ctx context.Context, cr *model.Cryos
 
 		// Password is generated, so don't regenerate it when updating
 		r.setDataIfNotPresent(secret, storageSecretAccessKey, func() string {
-			return "cryostat"
+			return constants.DefaultStorageAccessKey
 		})
 		r.setDataIfNotPresent(secret, storageSecretPassKey, func() string {
 			return r.GenPasswd(32)

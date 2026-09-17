@@ -36,6 +36,12 @@ linters:
           - dupl
           - lll
         path: internal/*
+      # Test code and the shared test fixtures are full of repeated literals
+      # (resource names, labels, env var names) that are clearer inline than
+      # behind constants.
+      - linters:
+          - goconst
+        path: (_test\.go|(^|/)test/)
     paths:
       - third_party$
       - builtin$
