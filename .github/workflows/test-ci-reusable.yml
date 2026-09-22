@@ -29,6 +29,7 @@ jobs:
       with:
         repository: ${{ inputs.repository }}
         ref: ${{ inputs.ref }}
+        persist-credentials: false
     - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
       with:
         go-version-file: go.mod
@@ -52,26 +53,34 @@ jobs:
       REGISTRY_NAME: kind-registry
       REGISTRY_PORT: 5000
       TAG: ${{ inputs.tag }}
+      OWNER: ${{ github.repository_owner }}
     steps:
     - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       with:
         repository: ${{ inputs.repository }}
         ref: ${{ inputs.ref }}
+        persist-credentials: false
+    - name: Validate image tag
+      run: |
+        if ! printf '%s' "$TAG" | grep -Eq '^[a-zA-Z0-9_][a-zA-Z0-9._-]{0,127}$'; then
+          echo "Invalid image tag: '$TAG'" >&2
+          exit 1
+        fi
     - name: Build scorecard image for test
       run: |
-        CUSTOM_SCORECARD_IMG="$REGISTRY_NAME:$REGISTRY_PORT/${{ github.repository_owner }}/cryostat-operator-scorecard:$TAG" \
+        CUSTOM_SCORECARD_IMG="${REGISTRY_NAME}:${REGISTRY_PORT}/${OWNER}/cryostat-operator-scorecard:${TAG}" \
         PLATFORMS=linux/amd64 \
         MANIFEST_PUSH=false \
         make scorecard-build
     - name: Build operator image for test
       run: |
-        OPERATOR_IMG="$REGISTRY_NAME:$REGISTRY_PORT/${{ github.repository_owner }}/cryostat-operator:$TAG" \
+        OPERATOR_IMG="${REGISTRY_NAME}:${REGISTRY_PORT}/${OWNER}/cryostat-operator:${TAG}" \
         SKIP_TESTS=true \
         make oci-build
     - name: Build bundle image for test
       run: |
-        OPERATOR_IMG="$REGISTRY_NAME:$REGISTRY_PORT/${{ github.repository_owner }}/cryostat-operator:$TAG" \
-        BUNDLE_IMG="$REGISTRY_NAME:$REGISTRY_PORT/${{ github.repository_owner }}/cryostat-operator-bundle:$TAG" \
+        OPERATOR_IMG="${REGISTRY_NAME}:${REGISTRY_PORT}/${OWNER}/cryostat-operator:${TAG}" \
+        BUNDLE_IMG="${REGISTRY_NAME}:${REGISTRY_PORT}/${OWNER}/cryostat-operator-bundle:${TAG}" \
         make bundle bundle-build
     - name: Set up Kind cluster
       uses: helm/kind-action@06c1ae10762d3b9c1644e7fe69596ae519e015a2 # v1.15.0
@@ -82,43 +91,20 @@ jobs:
         ignore_failed_clean: true
         # Plain-HTTP registry serving both the runner host and the cluster nodes:
         # operator-sdk 'run bundle' renders the bundle image on the host, while the
-        # cluster pulls the operator and scorecard images.
+        # cluster pulls the operator and scorecard images. This stands in for the
+        # `scorecard-kind-registry` make target used by the local kind flow.
         registry: true
         registry_name: ${{ env.REGISTRY_NAME }}
         registry_port: ${{ env.REGISTRY_PORT }}
         registry_image: quay.io/libpod/registry:2.8.2
-    - name: Set up Ingress Controller
-      run: |
-        # Install nginx ingress controller
-        kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/main/deploy/static/provider/kind/deploy.yaml
-        kubectl rollout status -w \
-          deployment/ingress-nginx-controller \
-          -n ingress-nginx --timeout 5m
-        
-        # Lower the number of worker processes
-        kubectl patch cm/ingress-nginx-controller \
-          --type merge \
-          -p '{"data":{"worker-processes":"1"}}' \
-          -n ingress-nginx
-
-        # Modify /etc/hosts to resolve hostnames
-        ip_address=$(docker inspect -f '{{range.NetworkSettings.Networks}}{{.IPAddress}}{{end}}' ci-${{ github.run_id }}-control-plane)
-        echo "$ip_address testing.cryostat" | sudo tee -a /etc/hosts
-    - name: Install Operator Lifecycle Manager
-      run: curl -sL https://github.com/operator-framework/operator-lifecycle-manager/releases/download/v0.28.0/install.sh | bash -s v0.28.0
-    - name: Install Cert Manager
-      run: make cert_manager
+    - name: Install cluster prerequisites (OLM, cert-manager, ingress-nginx)
+      run: make scorecard-kind-prereqs
     - name: Push test images to local registry
       run: |
-        for img in \
-          "$REGISTRY_NAME:$REGISTRY_PORT/${{ github.repository_owner }}/cryostat-operator-scorecard:$TAG" \
-          "$REGISTRY_NAME:$REGISTRY_PORT/${{ github.repository_owner }}/cryostat-operator:$TAG" \
-          "$REGISTRY_NAME:$REGISTRY_PORT/${{ github.repository_owner }}/cryostat-operator-bundle:$TAG"; do
-          podman push --tls-verify=false "$img"
-        done
+        make scorecard-kind-push SCORECARD_PUSH_IMAGES="${REGISTRY_NAME}:${REGISTRY_PORT}/${OWNER}/cryostat-operator-scorecard:${TAG} ${REGISTRY_NAME}:${REGISTRY_PORT}/${OWNER}/cryostat-operator:${TAG} ${REGISTRY_NAME}:${REGISTRY_PORT}/${OWNER}/cryostat-operator-bundle:${TAG}"
     - name: Run scorecard tests
       run: |
-        BUNDLE_IMG="$REGISTRY_NAME:$REGISTRY_PORT/${{ github.repository_owner }}/cryostat-operator-bundle:$TAG" \
+        BUNDLE_IMG="${REGISTRY_NAME}:${REGISTRY_PORT}/${OWNER}/cryostat-operator-bundle:${TAG}" \
         SCORECARD_BUNDLE="./bundle" \
         RUN_BUNDLE_EXTRA_ARGS="--use-http --skip-tls" \
         make test-scorecard
