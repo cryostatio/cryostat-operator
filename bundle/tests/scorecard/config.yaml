@@ -79,6 +79,16 @@ stages:
         mountPath: {}
   - entrypoint:
     - cryostat-scorecard-tests
+    - console-plugin
+    image: quay.io/cryostat/cryostat-operator-scorecard:4.3.0-20260506173058
+    labels:
+      suite: cryostat
+      test: console-plugin
+    storage:
+      spec:
+        mountPath: {}
+  - entrypoint:
+    - cryostat-scorecard-tests
     - cryostat-cr
     image: quay.io/cryostat/cryostat-operator-scorecard:4.3.0-20260506173058
     labels:

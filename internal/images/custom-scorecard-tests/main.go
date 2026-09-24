@@ -95,6 +95,7 @@ type testFn func(*apimanifests.Bundle, string, bool) *scapiv1alpha3.TestResult
 func testLookup() map[string]testFn {
 	m := make(map[string]testFn)
 	m[tests.OperatorInstallTestName] = tests.OperatorInstallTest
+	m[tests.ConsolePluginTestName] = tests.ConsolePluginTest
 	m[tests.CryostatCRTestName] = tests.CryostatCRTest
 	m[tests.CryostatMultiNamespaceTestName] = tests.CryostatMultiNamespaceTest
 	m[tests.CryostatRecordingTestName] = tests.CryostatRecordingTest
