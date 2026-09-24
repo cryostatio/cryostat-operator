@@ -26,6 +26,7 @@ RUN go mod download
 
 # Copy the go source
 COPY api/ api/
+COPY internal/controller/constants/ internal/controller/constants/
 COPY internal/images/custom-scorecard-tests/main.go internal/images/custom-scorecard-tests/main.go
 COPY internal/test/scorecard/ internal/test/scorecard/
 
