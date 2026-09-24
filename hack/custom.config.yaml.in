@@ -16,6 +16,16 @@
   value:
     entrypoint:
     - cryostat-scorecard-tests
+    - console-plugin
+    image: "${CUSTOM_SCORECARD_IMG}"
+    labels:
+      suite: cryostat
+      test: console-plugin
+- op: add
+  path: /stages/1/tests/-
+  value:
+    entrypoint:
+    - cryostat-scorecard-tests
     - cryostat-cr
     image: "${CUSTOM_SCORECARD_IMG}"
     labels:
