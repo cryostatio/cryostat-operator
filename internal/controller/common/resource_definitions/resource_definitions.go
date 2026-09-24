@@ -674,7 +674,34 @@ func NewPodForCR(cr *model.CryostatInstance, specs *ServiceSpecs, imageTags *Ima
 		},
 	}
 
-	volumes = append(volumes, certVolume, agentProxyVolume, authStripProxyVolume)
+	// The auth-strip proxy's provenance stamp. Unguarded: the user path's integrity does not
+	// depend on client certificate verification, and the strip hop exists in every deployment.
+	userProxySecretVolume := corev1.Volume{
+		Name: constants.UserProxySecretVolumeName,
+		VolumeSource: corev1.VolumeSource{
+			Secret: &corev1.SecretVolumeSource{
+				SecretName:  cr.Name + constants.UserProxySecretNameSuffix,
+				DefaultMode: &readOnlyMode,
+			},
+		},
+	}
+
+	volumes = append(volumes, certVolume, agentProxyVolume, authStripProxyVolume, userProxySecretVolume)
+
+	if tls != nil {
+		// The agent gateway's provenance stamp. Guarded by tls != nil: with TLS disabled the
+		// gateway performs no client certificate verification, so it has no business vouching
+		// for anything and the Agent principal must remain unreachable.
+		volumes = append(volumes, corev1.Volume{
+			Name: constants.AgentGatewaySecretVolumeName,
+			VolumeSource: corev1.VolumeSource{
+				Secret: &corev1.SecretVolumeSource{
+					SecretName:  cr.Name + constants.AgentGatewaySecretNameSuffix,
+					DefaultMode: &readOnlyMode,
+				},
+			},
+		})
+	}
 
 	if !openshift {
 		// if not deploying openshift oauth-proxy then we must be deploying oauth2_proxy instead
@@ -1671,10 +1698,29 @@ func newEnvForCoreContainer(cr *model.CryostatInstance, specs *ServiceSpecs, tls
 		},
 	}
 
-	loopbackHosts := "localhost,127.0.0.1"
+	// Gates Quarkus's ForwardedParser. Without it X-Forwarded-For/-Proto/-Host would be
+	// honoured from any source and audit records would carry a client-chosen address. This
+	// is unrelated to either provenance stamp below.
 	envs = append(envs, corev1.EnvVar{
 		Name:  "QUARKUS_HTTP_PROXY_TRUSTED_PROXIES",
-		Value: loopbackHosts,
+		Value: "localhost,127.0.0.1",
+	})
+
+	// The user path's provenance stamp, so Cryostat can verify that a request was forwarded
+	// by the auth-strip proxy rather than merely assume it from the absence of an agent
+	// stamp. Unguarded: the strip hop exists in every Operator deployment.
+	optional := false
+	envs = append(envs, corev1.EnvVar{
+		Name: "CRYOSTAT_SECURITY_USER_PROXY_SECRET",
+		ValueFrom: &corev1.EnvVarSource{
+			SecretKeyRef: &corev1.SecretKeySelector{
+				LocalObjectReference: corev1.LocalObjectReference{
+					Name: cr.Name + constants.UserProxySecretNameSuffix,
+				},
+				Key:      constants.UserProxySecretKey,
+				Optional: &optional,
+			},
+		},
 	})
 
 	if openshift && !isOpenShiftAuthProxyDisabled(cr) && !isBasicAuthEnabled(cr) {
@@ -1690,9 +1736,20 @@ func newEnvForCoreContainer(cr *model.CryostatInstance, specs *ServiceSpecs, tls
 	}
 
 	if tls != nil {
+		// The agent gateway's provenance stamp. Guarded by tls != nil, matching the volume
+		// mount: with TLS disabled the gateway verifies no client certificate, so the Agent
+		// principal must remain unreachable. An unset value fails closed in Cryostat.
 		envs = append(envs, corev1.EnvVar{
-			Name:  "CRYOSTAT_HTTP_PROXY_MTLS_TRUSTED_HOSTS",
-			Value: loopbackHosts,
+			Name: "CRYOSTAT_SECURITY_AGENT_GATEWAY_SECRET",
+			ValueFrom: &corev1.EnvVarSource{
+				SecretKeyRef: &corev1.SecretKeySelector{
+					LocalObjectReference: corev1.LocalObjectReference{
+						Name: cr.Name + constants.AgentGatewaySecretNameSuffix,
+					},
+					Key:      constants.AgentGatewaySecretKey,
+					Optional: &optional,
+				},
+			},
 		})
 	}
 
@@ -2193,6 +2250,17 @@ func newAgentEnvForCoreContainer(cr *model.CryostatInstance) []corev1.EnvVar {
 				},
 			)
 		}
+		if cr.Spec.AgentOptions.AgentPermissions != nil {
+			// != nil rather than len() > 0, so that an explicitly empty list reaches
+			// Cryostat as an empty value (granting the Agent principal nothing) instead
+			// of falling back to Cryostat's built-in default permission set.
+			envs = append(envs,
+				corev1.EnvVar{
+					Name:  "CRYOSTAT_SECURITY_RBAC_AGENT_PERMISSIONS",
+					Value: strings.Join(cr.Spec.AgentOptions.AgentPermissions, ","),
+				},
+			)
+		}
 	}
 	return envs
 }
@@ -2648,6 +2716,13 @@ func newAgentProxyContainer(cr *model.CryostatInstance, imageTag string, tls *TL
 			MountPath: path.Join(SecretMountPrefix, tls.AgentProxySecret),
 			ReadOnly:  true,
 		})
+		// Mount the provenance stamp this gateway applies to every request it forwards.
+		// Only when TLS is enabled: see newVolumes.
+		mounts = append(mounts, corev1.VolumeMount{
+			Name:      constants.AgentGatewaySecretVolumeName,
+			MountPath: constants.AgentGatewaySecretMountPath,
+			ReadOnly:  true,
+		})
 	}
 
 	return corev1.Container{
@@ -2730,6 +2805,14 @@ func newAuthStripProxyContainer(cr *model.CryostatInstance, imageTag string) cor
 			{
 				Name:      "auth-strip-proxy-config",
 				MountPath: constants.AuthStripProxyConfigPath,
+				ReadOnly:  true,
+			},
+			{
+				// The provenance stamp this hop applies to every request it forwards.
+				// Deliberately not the agent gateway's: neither proxy holds the other's
+				// secret, so neither can mint the other's principal.
+				Name:      constants.UserProxySecretVolumeName,
+				MountPath: constants.UserProxySecretMountPath,
 				ReadOnly:  true,
 			},
 		},
