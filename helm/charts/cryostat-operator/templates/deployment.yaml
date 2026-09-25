@@ -1,0 +1,94 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "cryostat-operator.fullname" . }}
+  labels:
+    {{- include "cryostat-operator.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "cryostat-operator.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      {{- with .Values.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      labels:
+        {{- include "cryostat-operator.selectorLabels" . | nindent 8 }}
+        {{- with .Values.podLabels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+    spec:
+      serviceAccountName: {{ include "cryostat-operator.serviceAccountName" . }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      containers:
+      - name: manager
+        image: {{ .Values.image }}
+        imagePullPolicy: {{ .Values.pullPolicy }}
+        command:
+        - /manager
+        args:
+        - "--leader-elect"
+        - "--health-probe-bind-address=:8081"
+        - "--metrics-bind-address=127.0.0.1:8080"
+        securityContext:
+          {{- toYaml .Values.securityContext | nindent 12 }}
+        env:
+        - name: RELATED_IMAGE_OAUTH2_PROXY
+          value: {{ .Values.relatedImages.oauth2Proxy }}
+        - name: RELATED_IMAGE_OPENSHIFT_OAUTH_PROXY
+          value: {{ .Values.relatedImages.openshiftOauthProxy }}
+        - name: RELATED_IMAGE_CORE
+          value: {{ .Values.relatedImages.core }}
+        - name: RELATED_IMAGE_DATASOURCE
+          value: {{ .Values.relatedImages.datasource }}
+        - name: RELATED_IMAGE_GRAFANA
+          value: {{ .Values.relatedImages.grafana }}
+        - name: RELATED_IMAGE_REPORTS
+          value: {{ .Values.relatedImages.reports }}
+        - name: RELATED_IMAGE_STORAGE
+          value: {{ .Values.relatedImages.storage }}
+        - name: RELATED_IMAGE_DATABASE
+          value: {{ .Values.relatedImages.database }}
+        - name: WATCH_NAMESPACE
+          value: ""
+        - name: OPERATOR_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        {{- with .Values.extraEnv }}
+          {{- . | toYaml | trim | nindent 12 }}
+        {{- end }}
+        ports:
+        - containerPort: {{ .Values.port }}
+          name: webhook-server
+          protocol: TCP
+        livenessProbe:
+          {{- toYaml .Values.livenessProbe | nindent 12 }}
+        readinessProbe:
+          {{- toYaml .Values.readinessProbe | nindent 12 }}
+        resources:
+          {{- toYaml .Values.resources | nindent 12 }}
+        volumeMounts:
+        - mountPath: /tmp/k8s-webhook-server/serving-certs
+          name: webhook-cert
+          readOnly: true
+      volumes:
+      - name: webhook-cert
+        secret:
+          secretName: {{ include "cryostat-operator.fullname" . }}-service-cert
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
