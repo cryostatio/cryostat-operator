@@ -27,6 +27,7 @@ import (
 
 const (
 	OperatorInstallTestName        string = "operator-install"
+	ConsolePluginTestName          string = "console-plugin"
 	CryostatCRTestName             string = "cryostat-cr"
 	CryostatMultiNamespaceTestName string = "cryostat-multi-namespace"
 	CryostatRecordingTestName      string = "cryostat-recording"
