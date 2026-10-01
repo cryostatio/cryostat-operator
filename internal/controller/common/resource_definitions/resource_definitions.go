@@ -2988,7 +2988,7 @@ func getScratchCacheMaxWeightMiB(scratch *operatorv1beta2.ScratchStorageConfigur
 		return 0, false
 	}
 	percentage := int64(defaultScratchCachePercentage)
-	if scratch.CachePercentage != nil {
+	if scratch != nil && scratch.CachePercentage != nil {
 		percentage = int64(*scratch.CachePercentage)
 	}
 	sizeMiB := size.Value() / bytesPerMiB

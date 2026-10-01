@@ -310,7 +310,7 @@ type ScratchStorageConfiguration struct {
 	// preserves the default behavior of no ephemeral-storage limit.
 	// +optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
-	// +kubebuilder:validation:Pattern=^(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+	// +kubebuilder:validation:Pattern=^(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?[0-9]+))?$
 	EphemeralStorageLimit string `json:"ephemeralStorageLimit,omitempty"`
 	// The percentage of the scratch volume dedicated to the JFR file-backed
 	// analysis on-disk JFR cache. The operator derives the cache size cap from
@@ -617,7 +617,7 @@ type EmptyDirConfig struct {
 	// The maximum capacity of the emptyDir. Default is unbounded.
 	// +optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
-	// +kubebuilder:validation:Pattern=^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+	// +kubebuilder:validation:Pattern=^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?[0-9]+))?$
 	SizeLimit string `json:"sizeLimit,omitempty"`
 }
 
