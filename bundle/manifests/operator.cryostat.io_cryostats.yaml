@@ -11058,7 +11058,7 @@ spec:
                           sizeLimit:
                             description: The maximum capacity of the emptyDir. Default
                               is unbounded.
-                            pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                            pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?[0-9]+))?$
                             type: string
                         type: object
                       pvc:
@@ -11311,7 +11311,7 @@ spec:
                       sizeLimit:
                         description: The maximum capacity of the emptyDir. Default
                           is unbounded.
-                        pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                        pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?[0-9]+))?$
                         type: string
                     type: object
                   objectStorage:
@@ -11338,7 +11338,7 @@ spec:
                           sizeLimit:
                             description: The maximum capacity of the emptyDir. Default
                               is unbounded.
-                            pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                            pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?[0-9]+))?$
                             type: string
                         type: object
                       pvc:
@@ -11847,7 +11847,7 @@ spec:
                           sizeLimit:
                             description: The maximum capacity of the emptyDir. Default
                               is unbounded.
-                            pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                            pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?[0-9]+))?$
                             type: string
                         type: object
                       ephemeralStorageLimit:
@@ -11857,7 +11857,7 @@ spec:
                           layer. When no sized scratch volume is configured, this limit is also used
                           as the basis for the CachePercentage calculation. Leaving this unset
                           preserves the default behavior of no ephemeral-storage limit.
-                        pattern: ^(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                        pattern: ^(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?[0-9]+))?$
                         type: string
                       volumeClaimTemplate:
                         description: |-
