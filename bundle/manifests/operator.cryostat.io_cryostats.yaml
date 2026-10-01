@@ -11851,17 +11851,14 @@ spec:
                             type: string
                         type: object
                       ephemeralStorageLimit:
-                        anyOf:
-                        - type: integer
-                        - type: string
                         description: |-
                           An optional ephemeral-storage limit to set on the core container as a
                           backstop for any writes that still reach the container runtime's overlay
                           layer. When no sized scratch volume is configured, this limit is also used
                           as the basis for the CachePercentage calculation. Leaving this unset
                           preserves the default behavior of no ephemeral-storage limit.
-                        pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
-                        x-kubernetes-int-or-string: true
+                        pattern: ^(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                        type: string
                       volumeClaimTemplate:
                         description: |-
                           Configuration for a generic ephemeral volume (a CSI-provisioned,
@@ -12093,8 +12090,6 @@ spec:
                         exclusive
                       rule: '!(has(self.volumeClaimTemplate) && has(self.emptyDir)
                         && has(self.emptyDir.enabled) && self.emptyDir.enabled)'
-                    - message: ephemeralStorageLimit must not be negative
-                      rule: '!has(self.ephemeralStorageLimit) || !quantity(string(self.ephemeralStorageLimit)).isLessThan(quantity(''0''))'
                 type: object
               targetConnectionCacheOptions:
                 description: Options to customize the target connections cache for

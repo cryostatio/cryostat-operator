@@ -1083,11 +1083,6 @@ func (in *ScratchStorageConfiguration) DeepCopyInto(out *ScratchStorageConfigura
 		*out = new(EmptyDirConfig)
 		**out = **in
 	}
-	if in.EphemeralStorageLimit != nil {
-		in, out := &in.EphemeralStorageLimit, &out.EphemeralStorageLimit
-		x := (*in).DeepCopy()
-		*out = &x
-	}
 	if in.CachePercentage != nil {
 		in, out := &in.CachePercentage, &out.CachePercentage
 		*out = new(int32)

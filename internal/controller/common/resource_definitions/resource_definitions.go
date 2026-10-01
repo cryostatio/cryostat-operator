@@ -1460,12 +1460,13 @@ func NewCoreContainerResource(cr *model.CryostatInstance) *corev1.ResourceRequir
 	// /tmp scratch space, if configured. This is applied after
 	// PopulateResourceRequest so it does not flip the "custom" flag and drop the
 	// default CPU/memory limits.
-	if scratch := getScratchConfig(cr); scratch != nil && scratch.EphemeralStorageLimit != nil &&
-		scratch.EphemeralStorageLimit.Sign() >= 0 {
-		if resources.Limits == nil {
-			resources.Limits = corev1.ResourceList{}
+	if scratch := getScratchConfig(cr); scratch != nil && len(scratch.EphemeralStorageLimit) > 0 {
+		if limit, err := resource.ParseQuantity(scratch.EphemeralStorageLimit); err == nil && limit.Sign() >= 0 {
+			if resources.Limits == nil {
+				resources.Limits = corev1.ResourceList{}
+			}
+			resources.Limits[corev1.ResourceEphemeralStorage] = limit
 		}
-		resources.Limits[corev1.ResourceEphemeralStorage] = *scratch.EphemeralStorageLimit
 	}
 	return resources
 }
@@ -1593,7 +1594,9 @@ func NewCoreContainer(cr *model.CryostatInstance, specs *ServiceSpecs, imageTag 
 		}
 	}
 
-	envs, err := newEnvForCoreContainer(cr, specs, tls, openshift)
+	resources := NewCoreContainerResource(cr)
+
+	envs, err := newEnvForCoreContainer(cr, specs, tls, openshift, resources)
 	if err != nil {
 		return nil, err
 	}
@@ -1609,7 +1612,7 @@ func NewCoreContainer(cr *model.CryostatInstance, specs *ServiceSpecs, imageTag 
 			},
 		},
 		Env:       envs,
-		Resources: *NewCoreContainerResource(cr),
+		Resources: *resources,
 		LivenessProbe: &corev1.Probe{
 			ProbeHandler: probeHandler,
 		},
@@ -1622,7 +1625,8 @@ func NewCoreContainer(cr *model.CryostatInstance, specs *ServiceSpecs, imageTag 
 	}, nil
 }
 
-func newEnvForCoreContainer(cr *model.CryostatInstance, specs *ServiceSpecs, tls *TLSConfig, openshift bool) ([]corev1.EnvVar, error) {
+func newEnvForCoreContainer(cr *model.CryostatInstance, specs *ServiceSpecs, tls *TLSConfig, openshift bool,
+	coreResources *corev1.ResourceRequirements) ([]corev1.EnvVar, error) {
 	// Default log level to INFO if not specified
 	logLevel := "INFO"
 	if cr.Spec.LoggingOptions != nil && cr.Spec.LoggingOptions.CoreLogLevel != nil {
@@ -1789,16 +1793,25 @@ func newEnvForCoreContainer(cr *model.CryostatInstance, specs *ServiceSpecs, tls
 		newK8SDiscoveryEnvForCoreContainer(cr),
 		newGrafanaEnvForCoreContainer(specs),
 		newAgentEnvForCoreContainer(cr),
-		newScratchEnvForCoreContainer(cr),
+		newScratchEnvForCoreContainer(cr, coreResources),
 	), nil
 }
 
 // newScratchEnvForCoreContainer sizes the JFR file-backed analysis on-disk JFR
 // cache to the configured scratch space, keeping the application's self-eviction
-// bound consistent with the space actually provisioned. When no scratch size is
-// available, the application's default cache size stands.
-func newScratchEnvForCoreContainer(cr *model.CryostatInstance) []corev1.EnvVar {
-	weight, ok := getScratchCacheMaxWeightMiB(getScratchConfig(cr))
+// bound consistent with the space actually provisioned. When no sized scratch
+// volume is configured, the core container's effective ephemeral-storage limit
+// (which may come from the scratch configuration or be set directly on the CR's
+// resources) is used instead. When neither source provides a size, the
+// application's default cache size stands.
+func newScratchEnvForCoreContainer(cr *model.CryostatInstance, coreResources *corev1.ResourceRequirements) []corev1.EnvVar {
+	var effectiveLimit *resource.Quantity
+	if coreResources != nil && coreResources.Limits != nil {
+		if limit, ok := coreResources.Limits[corev1.ResourceEphemeralStorage]; ok {
+			effectiveLimit = &limit
+		}
+	}
+	weight, ok := getScratchCacheMaxWeightMiB(getScratchConfig(cr), effectiveLimit)
 	if !ok {
 		return nil
 	}
@@ -2943,24 +2956,23 @@ func newVolumeForScratch(cr *model.CryostatInstance) []corev1.Volume {
 // getScratchVolumeSize returns the size the scratch space is bounded to, used to
 // derive the JFR cache cap. It prefers the size of a sized scratch volume (a
 // generic ephemeral volume's storage request or an EmptyDir's size limit), and
-// otherwise falls back to a configured ephemeral-storage limit. It returns false
-// if no size can be determined.
-func getScratchVolumeSize(scratch *operatorv1beta2.ScratchStorageConfiguration) (resource.Quantity, bool) {
-	if scratch == nil {
-		return resource.Quantity{}, false
-	}
-	if scratch.VolumeClaimTemplate != nil {
-		if size, ok := scratch.VolumeClaimTemplate.Spec.Resources.Requests[corev1.ResourceStorage]; ok && !size.IsZero() {
-			return size, true
+// otherwise falls back to the core container's effective ephemeral-storage
+// limit. It returns false if no size can be determined.
+func getScratchVolumeSize(scratch *operatorv1beta2.ScratchStorageConfiguration, effectiveEphemeralStorageLimit *resource.Quantity) (resource.Quantity, bool) {
+	if scratch != nil {
+		if scratch.VolumeClaimTemplate != nil {
+			if size, ok := scratch.VolumeClaimTemplate.Spec.Resources.Requests[corev1.ResourceStorage]; ok && !size.IsZero() {
+				return size, true
+			}
+		}
+		if scratchEmptyDirEnabled(scratch) && len(scratch.EmptyDir.SizeLimit) > 0 {
+			if size, err := resource.ParseQuantity(scratch.EmptyDir.SizeLimit); err == nil && !size.IsZero() {
+				return size, true
+			}
 		}
 	}
-	if scratchEmptyDirEnabled(scratch) && len(scratch.EmptyDir.SizeLimit) > 0 {
-		if size, err := resource.ParseQuantity(scratch.EmptyDir.SizeLimit); err == nil && !size.IsZero() {
-			return size, true
-		}
-	}
-	if scratch.EphemeralStorageLimit != nil && !scratch.EphemeralStorageLimit.IsZero() {
-		return *scratch.EphemeralStorageLimit, true
+	if effectiveEphemeralStorageLimit != nil && !effectiveEphemeralStorageLimit.IsZero() {
+		return *effectiveEphemeralStorageLimit, true
 	}
 	return resource.Quantity{}, false
 }
@@ -2970,8 +2982,8 @@ func getScratchVolumeSize(scratch *operatorv1beta2.ScratchStorageConfiguration) 
 // configuration, computing floor(volumeSizeMiB * cachePercentage / 100). It
 // returns false if no scratch size is available to size the cache against, in
 // which case the application's default cache size should stand.
-func getScratchCacheMaxWeightMiB(scratch *operatorv1beta2.ScratchStorageConfiguration) (int64, bool) {
-	size, ok := getScratchVolumeSize(scratch)
+func getScratchCacheMaxWeightMiB(scratch *operatorv1beta2.ScratchStorageConfiguration, effectiveEphemeralStorageLimit *resource.Quantity) (int64, bool) {
+	size, ok := getScratchVolumeSize(scratch, effectiveEphemeralStorageLimit)
 	if !ok {
 		return 0, false
 	}
