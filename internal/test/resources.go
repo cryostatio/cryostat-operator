@@ -622,10 +622,9 @@ func (r *TestResources) NewCryostatWithScratchEmptyDirDisabled() *model.Cryostat
 
 func (r *TestResources) NewCryostatWithScratchEphemeralStorageLimitOnly() *model.CryostatInstance {
 	cr := r.NewCryostat()
-	limit := resource.MustParse("6Gi")
 	cr.Spec.StorageOptions = &operatorv1beta2.StorageConfigurations{
 		Scratch: &operatorv1beta2.ScratchStorageConfiguration{
-			EphemeralStorageLimit: &limit,
+			EphemeralStorageLimit: "6Gi",
 		},
 	}
 	return cr
