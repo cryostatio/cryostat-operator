@@ -1032,6 +1032,31 @@ type AgentOptions struct {
 	// +optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:com.tectonic.ui:resourceRequirements"}
 	Resources corev1.ResourceRequirements `json:"resources,omitempty"`
+	// Overrides the set of Cryostat permissions granted to requests arriving through the
+	// Agent gateway. Each entry is a "resource:verb" pair, e.g. "activerecordings:read".
+	// When omitted, Cryostat's built-in default set applies. Specifying this field replaces
+	// the default set entirely rather than adding to it, so that an administrator can
+	// narrow the Agent's capabilities. For example, omitting "archivedrecordings:write"
+	// prevents Agents from pushing recordings via the Harvester, requiring users to pull
+	// recordings through the main Cryostat API with their own credentials. An explicitly
+	// empty list grants the Agent no permissions at all: Agents can still authenticate, but
+	// every authorized endpoint denies them.
+	// This narrows the Agent principal only. It has no effect on the human user path, and it
+	// is not a substitute for per-namespace scoping: a narrowed Agent principal is still
+	// cluster-wide in its reach.
+	// Narrowing breaks Agent features visibly, and failures surface as 403 responses in Agent
+	// logs rather than as validation errors on this resource. Dropping "discoveryplugins:write"
+	// stops Agent registration outright, dropping "archivedrecordings:write" disables Harvester
+	// pushes, and dropping "heapdumps:write" blocks the Agent's heap dump collection feature.
+	// The Agent principal's permission check is applied independently of the authorization
+	// mode, so this field remains meaningful when Basic authentication is enabled. It has no
+	// effect when Cryostat's RBAC mode is PERMISSIVE, because in that mode every request,
+	// including a gateway-stamped one, receives an all-granting identity before the Agent
+	// path is consulted.
+	// +optional
+	// +kubebuilder:validation:items:Pattern=`^[a-z0-9]+(/[a-z0-9]+)?:[a-z]+$`
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Agent Permissions"
+	AgentPermissions []string `json:"agentPermissions,omitempty"`
 }
 
 // LoggingOptions provides configuration for logging levels of Cryostat components.

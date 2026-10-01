@@ -17,11 +17,11 @@ package common
 import (
 	"cmp"
 	"context"
+	"crypto/rand"
 	"crypto/sha256"
 	"encoding/json"
 	"fmt"
 	"hash/fnv"
-	"math/rand"
 	"os"
 	"regexp"
 	"slices"
@@ -45,6 +45,8 @@ type OSUtils interface {
 	GetEnv(name string) string
 	GetEnvOrDefault(name string, defaultVal string) string
 	GetFileContents(path string) ([]byte, error)
+	// GenPasswd returns random material. Implementations must not emit "$", '"', or "\":
+	// see DefaultOSUtils.GenPasswd
 	GenPasswd(length int) string
 }
 
@@ -71,12 +73,30 @@ func (o *DefaultOSUtils) GetFileContents(path string) ([]byte, error) {
 	return os.ReadFile(path)
 }
 
-// GenPasswd generates a psuedorandom password of a given length.
+// GenPasswd generates a cryptographically random password of a given length.
+//
+// The alphabet is exactly 64 characters, so each 6-bit chunk of a random byte maps onto it
+// without modulo bias.
+//
+// The alphabet below should not be expanded without careful consideration. Generated values
+// may be rendered into an nginx directive by reconcileProvenanceSecret (secrets.go), and nginx
+// interpolates "$" inside a double-quoted directive value while '"' and "\" terminate or
+// escape it. A value containing any of the three would be silently mangled into a different
+// stamped secret than the one Cryostat is configured with, or would produce a config that
+// nginx refuses to load. The current alphabet cannot emit them, so Go's %q verb is sufficient.
+//
+// Widening this alphabet is therefore not a local change: %q escapes for Go, not for nginx, so
+// any new character outside [a-zA-Z0-9-_] requires escaping at each rendering site first.
 func (o *DefaultOSUtils) GenPasswd(length int) string {
 	chars := "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_"
 	b := make([]byte, length)
+	// Never return partially-filled or weaker material: a short read would silently produce a
+	// low-entropy secret, so fail loudly instead.
+	if _, err := rand.Read(b); err != nil {
+		panic(fmt.Errorf("failed to read cryptographically secure random bytes: %w", err))
+	}
 	for i := range b {
-		b[i] = chars[rand.Intn(len(chars))]
+		b[i] = chars[b[i]&0x3F]
 	}
 	return string(b)
 }
