@@ -18,7 +18,6 @@ import (
 	authzv1 "k8s.io/api/authorization/v1"
 	corev1 "k8s.io/api/core/v1"
 	netv1 "k8s.io/api/networking/v1"
-	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/conversion"
 )
@@ -282,7 +281,6 @@ type StorageConfigurations struct {
 // preferred because a CSI-provisioned volume fails writes with ENOSPC when it
 // fills rather than causing the kubelet to evict the entire Pod.
 // +kubebuilder:validation:XValidation:rule="!(has(self.volumeClaimTemplate) && has(self.emptyDir) && has(self.emptyDir.enabled) && self.emptyDir.enabled)",message="volumeClaimTemplate and an enabled emptyDir are mutually exclusive"
-// +kubebuilder:validation:XValidation:rule="!has(self.ephemeralStorageLimit) || !quantity(string(self.ephemeralStorageLimit)).isLessThan(quantity('0'))",message="ephemeralStorageLimit must not be negative"
 type ScratchStorageConfiguration struct {
 	// Configuration for a generic ephemeral volume (a CSI-provisioned,
 	// Pod-scoped Persistent Volume Claim) mounted at /tmp. This is the
@@ -312,7 +310,8 @@ type ScratchStorageConfiguration struct {
 	// preserves the default behavior of no ephemeral-storage limit.
 	// +optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
-	EphemeralStorageLimit *resource.Quantity `json:"ephemeralStorageLimit,omitempty"`
+	// +kubebuilder:validation:Pattern=^(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?[0-9]+))?$
+	EphemeralStorageLimit string `json:"ephemeralStorageLimit,omitempty"`
 	// The percentage of the scratch volume dedicated to the JFR file-backed
 	// analysis on-disk JFR cache. The operator derives the cache size cap from
 	// this percentage and the configured volume size, leaving the remainder for
@@ -618,7 +617,7 @@ type EmptyDirConfig struct {
 	// The maximum capacity of the emptyDir. Default is unbounded.
 	// +optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
-	// +kubebuilder:validation:Pattern=^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+	// +kubebuilder:validation:Pattern=^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?[0-9]+))?$
 	SizeLimit string `json:"sizeLimit,omitempty"`
 }
 
