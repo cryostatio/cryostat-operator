@@ -123,6 +123,18 @@ metadata:
   name: cryostat-scorecard
 rules:
 - apiGroups:
+  - console.openshift.io
+  resources:
+  - consoleplugins
+  verbs:
+  - get
+- apiGroups:
+  - operator.openshift.io
+  resources:
+  - consoles
+  verbs:
+  - get
+- apiGroups:
   - config.openshift.io
   resources:
   - operatorhubs
