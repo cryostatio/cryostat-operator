@@ -58,6 +58,10 @@ type OperandTLSConfig struct {
 	SeaweedMinVersion string
 	// SeaweedCipherSuites is a comma-separated list of IANA cipher names for SeaweedFS.
 	SeaweedCipherSuites string
+	// AgentMinVersion is the min TLS version for the Cryostat agent in Java format (e.g. "TLSv1.2").
+	AgentMinVersion string
+	// AgentCipherSuites is a comma-separated list of IANA cipher names for the Cryostat agent.
+	AgentCipherSuites string
 }
 
 // FetchAndBuild fetches the cluster API Server TLS profile and builds an OperandTLSConfig.
@@ -93,6 +97,8 @@ func BuildFromSpec(spec configv1.TLSProfileSpec) (*OperandTLSConfig, error) {
 		PostgresCiphers:     strings.Join(opensslCiphers, ":"),
 		SeaweedMinVersion:   minVersionToSeaweed(minVersion),
 		SeaweedCipherSuites: strings.Join(ianaCiphers, ","),
+		AgentMinVersion:     minVersionToPostgres(minVersion),
+		AgentCipherSuites:   strings.Join(ianaCiphers, ","),
 	}, nil
 }
 

@@ -19,6 +19,7 @@ import (
 
 	operatorv1beta2 "github.com/cryostatio/cryostat-operator/api/v1beta2"
 	"github.com/cryostatio/cryostat-operator/internal/controller/common"
+	"github.com/cryostatio/cryostat-operator/internal/controller/common/tlsprofile"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
@@ -42,6 +43,7 @@ type AgentWebhook interface {
 type AgentWebhookConfig struct {
 	InitImageTag *string
 	FIPSEnabled  bool
+	OperandTLS   *tlsprofile.OperandTLSConfig
 	common.OSUtils
 }
 
