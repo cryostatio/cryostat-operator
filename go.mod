@@ -1,6 +1,6 @@
 module github.com/cryostatio/cryostat-operator
 
-go 1.26.6
+go 1.26.8
 
 require (
 	github.com/blang/semver/v4 v4.0.0
