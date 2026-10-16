@@ -24,6 +24,7 @@ import (
 	"text/template"
 
 	resources "github.com/cryostatio/cryostat-operator/internal/controller/common/resource_definitions"
+	"github.com/cryostatio/cryostat-operator/internal/controller/common/tlsprofile"
 	"github.com/cryostatio/cryostat-operator/internal/controller/constants"
 	"github.com/cryostatio/cryostat-operator/internal/controller/model"
 	corev1 "k8s.io/api/core/v1"
@@ -177,6 +178,10 @@ type nginxConfParams struct {
 	ClearedHeaders []string
 	// OAuth proxy identity headers, which only the auth-strip hop may assert
 	IdentityHeaders []string
+	// Space-separated TLS protocol versions (e.g. "TLSv1.2 TLSv1.3")
+	SSLProtocols string
+	// Colon-separated cipher list for ssl_ciphers directive
+	SSLCiphers string
 }
 
 // Reference: https://ssl-config.mozilla.org
@@ -224,8 +229,8 @@ http {
 		ssl_dhparam {{ .DHParamFile }};
 
 		# intermediate configuration
-		ssl_protocols TLSv1.2 TLSv1.3;
-		ssl_ciphers ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-ECDSA-CHACHA20-POLY1305:ECDHE-RSA-CHACHA20-POLY1305:DHE-RSA-AES128-GCM-SHA256:DHE-RSA-AES256-GCM-SHA384:DHE-RSA-CHACHA20-POLY1305;
+		ssl_protocols {{ .SSLProtocols }};
+		ssl_ciphers {{ .SSLCiphers }};
 		ssl_prefer_server_ciphers off;
 
 		# HSTS (ngx_http_headers_module is required) (63072000 seconds)
@@ -320,7 +325,7 @@ ssbzSibBsu/6iGtCOGEoXJf//////////wIBAg==
 -----END DH PARAMETERS-----`
 )
 
-func (r *Reconciler) reconcileAgentProxyConfig(ctx context.Context, cr *model.CryostatInstance, tls *resources.TLSConfig) error {
+func (r *Reconciler) reconcileAgentProxyConfig(ctx context.Context, cr *model.CryostatInstance, tls *resources.TLSConfig, operandTLS *tlsprofile.OperandTLSConfig) error {
 	cm := &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      cr.Name + "-agent-proxy",
@@ -347,6 +352,21 @@ func (r *Reconciler) reconcileAgentProxyConfig(ctx context.Context, cr *model.Cr
 		ClearedHeaders:  constants.ClearedProvenanceHeaders(constants.AgentGatewayAuthHeader),
 		IdentityHeaders: constants.OAuthProxyIdentityHeaders,
 	}
+
+	// Default nginx TLS settings (Mozilla intermediate profile)
+	params.SSLProtocols = "TLSv1.2 TLSv1.3"
+	params.SSLCiphers = "ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-ECDSA-CHACHA20-POLY1305:ECDHE-RSA-CHACHA20-POLY1305:DHE-RSA-AES128-GCM-SHA256:DHE-RSA-AES256-GCM-SHA384:DHE-RSA-CHACHA20-POLY1305"
+	if operandTLS != nil {
+		params.SSLProtocols = operandTLS.NginxProtocols
+		// ssl_ciphers only applies to TLS 1.2 and below. When the profile is
+		// TLS 1.3-only (e.g. Modern), the list is empty and the hardcoded
+		// default is retained. It is harmless because no TLS 1.2 connections
+		// will be accepted under that protocol configuration.
+		if operandTLS.NginxCiphers != "" {
+			params.SSLCiphers = operandTLS.NginxCiphers
+		}
+	}
+
 	if tls != nil {
 		params.TLSEnabled = true
 		// Only stamp when client certificates are actually verified. With TLS disabled the

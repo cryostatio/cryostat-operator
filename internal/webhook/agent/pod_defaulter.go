@@ -28,7 +28,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -43,7 +42,7 @@ type podMutator struct {
 	common.ReconcilerTLS
 }
 
-var _ admission.CustomDefaulter = &podMutator{}
+var _ admission.Defaulter[*corev1.Pod] = &podMutator{}
 
 const (
 	agentArg                    = "-javaagent:" + constants.AgentJarPath
@@ -67,12 +66,7 @@ const (
 )
 
 // Default optionally mutates a pod to inject the Cryostat agent
-func (r *podMutator) Default(ctx context.Context, obj runtime.Object) error {
-	pod, ok := obj.(*corev1.Pod)
-	if !ok {
-		return fmt.Errorf("expected a Pod, but received a %T", obj)
-	}
-
+func (r *podMutator) Default(ctx context.Context, pod *corev1.Pod) error {
 	// Check for required labels and return early if missing.
 	// This should not happen because such pods are filtered out by Kubernetes server-side due to our object selector.
 	if !metav1.HasLabel(pod.ObjectMeta, constants.AgentLabelCryostatName) || !metav1.HasLabel(pod.ObjectMeta, constants.AgentLabelCryostatNamespace) {

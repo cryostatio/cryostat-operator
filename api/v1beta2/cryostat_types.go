@@ -678,10 +678,6 @@ type CryostatList struct {
 	Items           []Cryostat `json:"items"`
 }
 
-func init() {
-	SchemeBuilder.Register(&Cryostat{}, &CryostatList{})
-}
-
 // DefaultCertificateKey will be used when looking up the certificate within a secret,
 // if a key is not manually specified.
 const DefaultCertificateKey = corev1.TLSCertKey

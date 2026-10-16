@@ -25,6 +25,7 @@ import (
 
 	operatorv1beta2 "github.com/cryostatio/cryostat-operator/api/v1beta2"
 	common "github.com/cryostatio/cryostat-operator/internal/controller/common"
+	"github.com/cryostatio/cryostat-operator/internal/controller/common/tlsprofile"
 	"github.com/cryostatio/cryostat-operator/internal/controller/constants"
 	"github.com/cryostatio/cryostat-operator/internal/controller/model"
 	appsv1 "k8s.io/api/apps/v1"
@@ -160,7 +161,7 @@ func CorePodLabels(cr *model.CryostatInstance) map[string]string {
 }
 
 func NewDeploymentForCR(cr *model.CryostatInstance, specs *ServiceSpecs, imageTags *ImageTags,
-	tls *TLSConfig, fsGroup int64, openshift bool) (*appsv1.Deployment, error) {
+	tls *TLSConfig, operandTLS *tlsprofile.OperandTLSConfig, fsGroup int64, openshift bool) (*appsv1.Deployment, error) {
 	// Force one replica to avoid lock file and PVC contention
 	replicas := int32(1)
 
@@ -204,7 +205,7 @@ func NewDeploymentForCR(cr *model.CryostatInstance, specs *ServiceSpecs, imageTa
 	}
 	common.MergeLabelsAndAnnotations(&podTemplateMeta, defaultPodLabels, nil)
 
-	pod, err := NewPodForCR(cr, specs, imageTags, tls, fsGroup, openshift)
+	pod, err := NewPodForCR(cr, specs, imageTags, tls, operandTLS, fsGroup, openshift)
 	if err != nil {
 		return nil, err
 	}
@@ -240,7 +241,7 @@ func DatabasePodLabels(cr *model.CryostatInstance) map[string]string {
 }
 
 func NewDeploymentForDatabase(cr *model.CryostatInstance, imageTags *ImageTags, tls *TLSConfig,
-	openshift bool, fsGroup int64) *appsv1.Deployment {
+	operandTLS *tlsprofile.OperandTLSConfig, openshift bool, fsGroup int64) *appsv1.Deployment {
 	replicas := int32(1)
 
 	defaultDeploymentLabels := map[string]string{
@@ -296,7 +297,7 @@ func NewDeploymentForDatabase(cr *model.CryostatInstance, imageTags *ImageTags, 
 			},
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: podTemplateMeta,
-				Spec:       *NewPodForDatabase(cr, imageTags, tls, openshift, fsGroup),
+				Spec:       *NewPodForDatabase(cr, imageTags, tls, operandTLS, openshift, fsGroup),
 			},
 			Replicas: &replicas,
 			Strategy: appsv1.DeploymentStrategy{
@@ -314,7 +315,7 @@ func StoragePodLabels(cr *model.CryostatInstance) map[string]string {
 	}
 }
 
-func NewDeploymentForStorage(cr *model.CryostatInstance, imageTags *ImageTags, tls *TLSConfig, openshift bool, fsGroup int64) *appsv1.Deployment {
+func NewDeploymentForStorage(cr *model.CryostatInstance, imageTags *ImageTags, tls *TLSConfig, operandTLS *tlsprofile.OperandTLSConfig, openshift bool, fsGroup int64) *appsv1.Deployment {
 	replicas := int32(1)
 
 	defaultDeploymentLabels := map[string]string{
@@ -370,7 +371,7 @@ func NewDeploymentForStorage(cr *model.CryostatInstance, imageTags *ImageTags, t
 			},
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: podTemplateMeta,
-				Spec:       *NewPodForStorage(cr, imageTags, tls, openshift, fsGroup),
+				Spec:       *NewPodForStorage(cr, imageTags, tls, operandTLS, openshift, fsGroup),
 			},
 			Replicas: &replicas,
 			Strategy: appsv1.DeploymentStrategy{
@@ -389,7 +390,7 @@ func ReportsPodLabels(cr *model.CryostatInstance) map[string]string {
 }
 
 func NewDeploymentForReports(cr *model.CryostatInstance, imageTags *ImageTags, serviceSpecs *ServiceSpecs, tls *TLSConfig,
-	openshift bool) *appsv1.Deployment {
+	operandTLS *tlsprofile.OperandTLSConfig, openshift bool) *appsv1.Deployment {
 	replicas := int32(0)
 	if cr.Spec.ReportOptions != nil {
 		replicas = cr.Spec.ReportOptions.Replicas
@@ -448,7 +449,7 @@ func NewDeploymentForReports(cr *model.CryostatInstance, imageTags *ImageTags, s
 			},
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: podTemplateMeta,
-				Spec:       *NewPodForReports(cr, imageTags, serviceSpecs, tls, openshift),
+				Spec:       *NewPodForReports(cr, imageTags, serviceSpecs, tls, operandTLS, openshift),
 			},
 			Replicas: &replicas,
 		},
@@ -456,12 +457,12 @@ func NewDeploymentForReports(cr *model.CryostatInstance, imageTags *ImageTags, s
 }
 
 func NewPodForCR(cr *model.CryostatInstance, specs *ServiceSpecs, imageTags *ImageTags,
-	tls *TLSConfig, fsGroup int64, openshift bool) (*corev1.PodSpec, error) {
+	tls *TLSConfig, operandTLS *tlsprofile.OperandTLSConfig, fsGroup int64, openshift bool) (*corev1.PodSpec, error) {
 	authProxy, err := NewAuthProxyContainer(cr, specs, imageTags.OAuth2ProxyImageTag, imageTags.OpenShiftOAuthProxyImageTag, tls, openshift)
 	if err != nil {
 		return nil, err
 	}
-	coreContainer, err := NewCoreContainer(cr, specs, imageTags.CoreImageTag, tls, openshift)
+	coreContainer, err := NewCoreContainer(cr, specs, imageTags.CoreImageTag, tls, operandTLS, openshift)
 	if err != nil {
 		return nil, err
 	}
@@ -864,8 +865,8 @@ func NewPodForCR(cr *model.CryostatInstance, specs *ServiceSpecs, imageTags *Ima
 	}, nil
 }
 
-func NewPodForDatabase(cr *model.CryostatInstance, imageTags *ImageTags, tls *TLSConfig, openshift bool, fsGroup int64) *corev1.PodSpec {
-	container := []corev1.Container{NewDatabaseContainer(cr, imageTags.DatabaseImageTag, tls)}
+func NewPodForDatabase(cr *model.CryostatInstance, imageTags *ImageTags, tls *TLSConfig, operandTLS *tlsprofile.OperandTLSConfig, openshift bool, fsGroup int64) *corev1.PodSpec {
+	container := []corev1.Container{NewDatabaseContainer(cr, imageTags.DatabaseImageTag, tls, operandTLS)}
 
 	volumes := newVolumeForDatabase(cr)
 
@@ -929,8 +930,8 @@ func DeployManagedStorage(cr *model.CryostatInstance) bool {
 		cr.Spec.ObjectStorageOptions.Provider.URL == nil
 }
 
-func NewPodForStorage(cr *model.CryostatInstance, imageTags *ImageTags, tls *TLSConfig, openshift bool, fsGroup int64) *corev1.PodSpec {
-	container := []corev1.Container{NewStorageContainer(cr, imageTags.StorageImageTag, tls)}
+func NewPodForStorage(cr *model.CryostatInstance, imageTags *ImageTags, tls *TLSConfig, operandTLS *tlsprofile.OperandTLSConfig, openshift bool, fsGroup int64) *corev1.PodSpec {
+	container := []corev1.Container{NewStorageContainer(cr, imageTags.StorageImageTag, tls, operandTLS)}
 
 	volumes := newVolumeForStorage(cr)
 
@@ -998,7 +999,7 @@ func NewReportContainerResource(cr *model.CryostatInstance) *corev1.ResourceRequ
 	return resources
 }
 
-func NewPodForReports(cr *model.CryostatInstance, imageTags *ImageTags, serviceSpecs *ServiceSpecs, tls *TLSConfig, openshift bool) *corev1.PodSpec {
+func NewPodForReports(cr *model.CryostatInstance, imageTags *ImageTags, serviceSpecs *ServiceSpecs, tls *TLSConfig, operandTLS *tlsprofile.OperandTLSConfig, openshift bool) *corev1.PodSpec {
 	resources := NewReportContainerResource(cr)
 	cpus := resources.Requests.Cpu().Value() // Round to 1 if cpu request < 1000m
 	if limits := resources.Limits; limits != nil {
@@ -1088,6 +1089,12 @@ func NewPodForReports(cr *model.CryostatInstance, imageTags *ImageTags, serviceS
 			tlsConfigName,
 			path.Join(SecretMountPrefix, tls.ReportsSecret, corev1.TLSPrivateKeyKey),
 		)
+
+		if operandTLS != nil {
+			javaOpts += fmt.Sprintf(" -Dquarkus.tls.%s.protocols=%s", tlsConfigName, operandTLS.QuarkusProtocols)
+			javaOpts += fmt.Sprintf(" -Dquarkus.tls.%s.cipher-suites=%s", tlsConfigName, operandTLS.QuarkusCipherSuites)
+		}
+
 		tlsSecretMount := corev1.VolumeMount{
 			Name:      "reports-tls-secret",
 			MountPath: path.Join(SecretMountPrefix, tls.ReportsSecret),
@@ -1507,7 +1514,7 @@ const (
 )
 
 func NewCoreContainer(cr *model.CryostatInstance, specs *ServiceSpecs, imageTag string,
-	tls *TLSConfig, openshift bool) (*corev1.Container, error) {
+	tls *TLSConfig, operandTLS *tlsprofile.OperandTLSConfig, openshift bool) (*corev1.Container, error) {
 
 	mounts := []corev1.VolumeMount{
 		{
@@ -1623,7 +1630,7 @@ func NewCoreContainer(cr *model.CryostatInstance, specs *ServiceSpecs, imageTag 
 
 	resources := NewCoreContainerResource(cr)
 
-	envs, err := newEnvForCoreContainer(cr, specs, tls, openshift, resources)
+	envs, err := newEnvForCoreContainer(cr, specs, tls, openshift, resources, operandTLS)
 	if err != nil {
 		return nil, err
 	}
@@ -1653,7 +1660,7 @@ func NewCoreContainer(cr *model.CryostatInstance, specs *ServiceSpecs, imageTag 
 }
 
 func newEnvForCoreContainer(cr *model.CryostatInstance, specs *ServiceSpecs, tls *TLSConfig, openshift bool,
-	coreResources *corev1.ResourceRequirements) ([]corev1.EnvVar, error) {
+	coreResources *corev1.ResourceRequirements, operandTLS *tlsprofile.OperandTLSConfig) ([]corev1.EnvVar, error) {
 	// Default log level to INFO if not specified
 	logLevel := "INFO"
 	if cr.Spec.LoggingOptions != nil && cr.Spec.LoggingOptions.CoreLogLevel != nil {
@@ -1830,6 +1837,19 @@ func newEnvForCoreContainer(cr *model.CryostatInstance, specs *ServiceSpecs, tls
 			corev1.EnvVar{
 				Name:  "SSL_KEYSTORE_PASS_FILE",
 				Value: path.Join(SecretMountPrefix, "client-tls", tls.KeystorePassSecret, constants.KeystorePassFile),
+			},
+		)
+	}
+
+	if operandTLS != nil {
+		envs = append(envs,
+			corev1.EnvVar{
+				Name:  "QUARKUS_TLS_PROTOCOLS",
+				Value: operandTLS.QuarkusProtocols,
+			},
+			corev1.EnvVar{
+				Name:  "QUARKUS_TLS_CIPHER_SUITES",
+				Value: operandTLS.QuarkusCipherSuites,
 			},
 		)
 	}
@@ -2410,7 +2430,7 @@ func NewStorageContainerResource(cr *model.CryostatInstance) *corev1.ResourceReq
 	return resources
 }
 
-func NewStorageContainer(cr *model.CryostatInstance, imageTag string, tls *TLSConfig) corev1.Container {
+func NewStorageContainer(cr *model.CryostatInstance, imageTag string, tls *TLSConfig, operandTLS *tlsprofile.OperandTLSConfig) corev1.Container {
 	var containerSc *corev1.SecurityContext
 	secretName := cr.Name + "-storage"
 	optional := false
@@ -2447,6 +2467,19 @@ func NewStorageContainer(cr *model.CryostatInstance, imageTag string, tls *TLSCo
 				},
 			},
 		},
+	}
+
+	if operandTLS != nil {
+		envs = append(envs,
+			corev1.EnvVar{
+				Name:  "WEED_TLS_MIN_VERSION",
+				Value: operandTLS.SeaweedMinVersion,
+			},
+			corev1.EnvVar{
+				Name:  "WEED_TLS_CIPHER_SUITES",
+				Value: operandTLS.SeaweedCipherSuites,
+			},
+		)
 	}
 
 	mounts := []corev1.VolumeMount{
@@ -2545,7 +2578,7 @@ func NewDatabaseContainerResource(cr *model.CryostatInstance) *corev1.ResourceRe
 	return resources
 }
 
-func NewDatabaseContainer(cr *model.CryostatInstance, imageTag string, tls *TLSConfig) corev1.Container {
+func NewDatabaseContainer(cr *model.CryostatInstance, imageTag string, tls *TLSConfig, operandTLS *tlsprofile.OperandTLSConfig) corev1.Container {
 	var containerSc *corev1.SecurityContext
 	if cr.Spec.SecurityOptions != nil && cr.Spec.SecurityOptions.DatabaseSecurityContext != nil {
 		containerSc = cr.Spec.SecurityOptions.DatabaseSecurityContext
@@ -2625,6 +2658,21 @@ func NewDatabaseContainer(cr *model.CryostatInstance, imageTag string, tls *TLSC
 			"-c", fmt.Sprintf("ssl_cert_file=%s", path.Join(tlsPath, corev1.TLSCertKey)),
 			"-c", fmt.Sprintf("ssl_key_file=%s", path.Join(tlsPath, corev1.TLSPrivateKeyKey)),
 		)
+
+		if operandTLS != nil {
+			args = append(args,
+				"-c", fmt.Sprintf("ssl_min_protocol_version=%s", operandTLS.PostgresMinVersion),
+			)
+			// ssl_ciphers only applies to TLS 1.2 and below. When the profile
+			// is TLS 1.3-only (e.g. Modern), the list is empty and omitting
+			// the parameter lets PostgreSQL use its built-in defaults, which
+			// are irrelevant since no TLS 1.2 connections will be accepted.
+			if operandTLS.PostgresCiphers != "" {
+				args = append(args,
+					"-c", fmt.Sprintf("ssl_ciphers=%s", operandTLS.PostgresCiphers),
+				)
+			}
+		}
 	}
 
 	return corev1.Container{

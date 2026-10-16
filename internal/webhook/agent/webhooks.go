@@ -19,8 +19,6 @@ import (
 
 	operatorv1beta2 "github.com/cryostatio/cryostat-operator/api/v1beta2"
 	"github.com/cryostatio/cryostat-operator/internal/controller/common"
-	appsv1 "k8s.io/api/apps/v1"
-	corev1 "k8s.io/api/core/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
@@ -68,7 +66,7 @@ func (r *agentWebhook) SetupWebhookWithManager(mgr ctrl.Manager) error {
 		return err
 	}
 
-	deploymentWebhook := admission.WithCustomDefaulter(mgr.GetScheme(), &appsv1.Deployment{}, &deploymentMutator{
+	deploymentWebhook := admission.WithDefaulter(mgr.GetScheme(), &deploymentMutator{
 		client: mgr.GetClient(),
 		config: r.AgentWebhookConfig,
 		log:    &deploymentWebhookLog,
@@ -79,7 +77,7 @@ func (r *agentWebhook) SetupWebhookWithManager(mgr ctrl.Manager) error {
 		}),
 	}).WithRecoverPanic(true)
 
-	webhook := admission.WithCustomDefaulter(mgr.GetScheme(), &corev1.Pod{}, &podMutator{
+	webhook := admission.WithDefaulter(mgr.GetScheme(), &podMutator{
 		client: mgr.GetClient(),
 		config: r.AgentWebhookConfig,
 		log:    &podWebhookLog,
