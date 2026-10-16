@@ -429,15 +429,15 @@ func main() {
 	}
 }
 
-func isOpenShift(client discovery.DiscoveryInterface, forceOpenShift bool) (bool, error) {
+func isOpenShift(dc discovery.DiscoveryInterface, forceOpenShift bool) (bool, error) {
 	if forceOpenShift {
 		return true, nil
 	}
-	return discovery.IsResourceEnabled(client, routev1.GroupVersion.WithResource("routes"))
+	return discovery.IsResourceEnabled(dc, routev1.GroupVersion.WithResource("routes"))
 }
 
-func isCertManagerInstalled(client discovery.DiscoveryInterface) (bool, error) {
-	return discovery.IsResourceEnabled(client, certv1.SchemeGroupVersion.WithResource("issuers"))
+func isCertManagerInstalled(dc discovery.DiscoveryInterface) (bool, error) {
+	return discovery.IsResourceEnabled(dc, certv1.SchemeGroupVersion.WithResource("issuers"))
 }
 
 func newReconcilerConfig(mgr ctrl.Manager, logName string, eventRecorderName string, openShift bool,

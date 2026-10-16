@@ -24,6 +24,22 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
+// OpenShift API TLS version names (from configv1.TLSProtocolVersion constants).
+const (
+	versionTLS10 = "VersionTLS10"
+	versionTLS11 = "VersionTLS11"
+	versionTLS12 = "VersionTLS12"
+	versionTLS13 = "VersionTLS13"
+)
+
+// TLS protocol version strings used by operands (nginx, Quarkus, PostgreSQL, SeaweedFS).
+const (
+	protoTLS10 = "TLSv1.0"
+	protoTLS11 = "TLSv1.1"
+	protoTLS12 = "TLSv1.2"
+	protoTLS13 = "TLSv1.3"
+)
+
 // OperandTLSConfig holds TLS configuration in formats suitable for each operand component.
 type OperandTLSConfig struct {
 	// NginxProtocols is a space-separated protocol list for nginx ssl_protocols directive.
@@ -116,10 +132,10 @@ func protocolsFromMinVersion(minVersion string) []string {
 		name string
 		rank int
 	}{
-		{"TLSv1.3", 4},
-		{"TLSv1.2", 3},
-		{"TLSv1.1", 2},
-		{"TLSv1.0", 1},
+		{protoTLS13, 4},
+		{protoTLS12, 3},
+		{protoTLS11, 2},
+		{protoTLS10, 1},
 	}
 
 	minRank := versionRank(minVersion)
@@ -130,20 +146,20 @@ func protocolsFromMinVersion(minVersion string) []string {
 		}
 	}
 	if len(result) == 0 {
-		return []string{"TLSv1.2", "TLSv1.3"}
+		return []string{protoTLS12, protoTLS13}
 	}
 	return result
 }
 
 func versionRank(v string) int {
 	switch v {
-	case "VersionTLS10":
+	case versionTLS10:
 		return 1
-	case "VersionTLS11":
+	case versionTLS11:
 		return 2
-	case "VersionTLS12":
+	case versionTLS12:
 		return 3
-	case "VersionTLS13":
+	case versionTLS13:
 		return 4
 	default:
 		return 3
@@ -152,28 +168,28 @@ func versionRank(v string) int {
 
 func minVersionToPostgres(v string) string {
 	switch v {
-	case "VersionTLS10":
+	case versionTLS10:
 		return "TLSv1"
-	case "VersionTLS11":
-		return "TLSv1.1"
-	case "VersionTLS12":
-		return "TLSv1.2"
-	case "VersionTLS13":
-		return "TLSv1.3"
+	case versionTLS11:
+		return protoTLS11
+	case versionTLS12:
+		return protoTLS12
+	case versionTLS13:
+		return protoTLS13
 	default:
-		return "TLSv1.2"
+		return protoTLS12
 	}
 }
 
 func minVersionToSeaweed(v string) string {
 	switch v {
-	case "VersionTLS10":
+	case versionTLS10:
 		return "TLS 1.0"
-	case "VersionTLS11":
+	case versionTLS11:
 		return "TLS 1.1"
-	case "VersionTLS12":
+	case versionTLS12:
 		return "TLS 1.2"
-	case "VersionTLS13":
+	case versionTLS13:
 		return "TLS 1.3"
 	default:
 		return "TLS 1.2"
@@ -238,6 +254,8 @@ func FetchAPIServerTLSProfile(ctx context.Context, cl client.Client) (*configv1.
 //
 // TestOpensslToIANAMapCoversAllProfiles verifies this map covers every cipher
 // in the built-in OpenShift TLS profiles.
+//
+//nolint:goconst // Cipher names are lookup table keys; extracting constants would reduce readability.
 var opensslToIANAMap = map[string]string{
 	"ECDHE-ECDSA-AES128-GCM-SHA256": "TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256",
 	"ECDHE-RSA-AES128-GCM-SHA256":   "TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256",
