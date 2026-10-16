@@ -198,6 +198,13 @@ func opensslToIANA(names []string) []string {
 // ssl_ciphers and PostgreSQL ssl_ciphers — does not handle TLS 1.3 suites. Those
 // suites are configured through a separate OpenSSL API and are typically always
 // available when TLS 1.3 is enabled.
+//
+// The naming distinction comes from RFC 8446 (TLS 1.3), which removed key exchange
+// from cipher suite definitions. TLS 1.2 IANA names follow TLS_<KX>_WITH_<Cipher>_<MAC>
+// (RFC 5246), while TLS 1.3 names follow TLS_<AEAD>_<Hash> with no "_WITH_". In
+// practice, the OpenShift TLS profiles use OpenSSL-format names for TLS 1.2 ciphers
+// (e.g. "ECDHE-RSA-AES128-GCM-SHA256") which never start with "TLS_", so the
+// "_WITH_" check is a safety net for IANA-format input.
 func filterTLS12Ciphers(ciphers []string) []string {
 	out := make([]string, 0, len(ciphers))
 	for _, c := range ciphers {
