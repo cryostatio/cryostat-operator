@@ -225,8 +225,8 @@ func (r *Reconciler) reconcileCryostat(ctx context.Context, cr *model.CryostatIn
 	if r.IsOpenShift {
 		operandTLS, err = tlsprofile.FetchAndBuild(ctx, r.Client)
 		if err != nil {
-			reqLogger.Error(err, "Failed to fetch cluster TLS profile, using defaults")
-			operandTLS = nil
+			reqLogger.Error(err, "Failed to fetch cluster TLS profile")
+			return reconcile.Result{}, err
 		}
 	}
 
