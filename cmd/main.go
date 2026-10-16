@@ -354,7 +354,7 @@ func main() {
 	}
 	// nolint:goconst
 	if os.Getenv("ENABLE_WEBHOOKS") != "false" {
-		if err = webhook.SetupWebhookWithManager(mgr, &operatorv1beta2.Cryostat{}); err != nil {
+		if err = webhook.SetupWebhookWithManager(mgr); err != nil {
 			setupLog.Error(err, "unable to create webhook", "webhook", "Cryostat")
 			os.Exit(1)
 		}

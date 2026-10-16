@@ -27,7 +27,6 @@ import (
 	authnv1 "k8s.io/api/authentication/v1"
 	authzv1 "k8s.io/api/authorization/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -44,20 +43,20 @@ type cryostatValidator struct {
 	log    *logr.Logger
 }
 
-var _ admission.CustomValidator = &cryostatValidator{}
+var _ admission.Validator[*operatorv1beta2.Cryostat] = &cryostatValidator{}
 
 // ValidateCreate validates a Create operation on a Cryostat
-func (r *cryostatValidator) ValidateCreate(ctx context.Context, obj runtime.Object) (admission.Warnings, error) {
-	return r.validate(ctx, obj, "create")
+func (r *cryostatValidator) ValidateCreate(ctx context.Context, cr *operatorv1beta2.Cryostat) (admission.Warnings, error) {
+	return r.validate(ctx, cr, "create")
 }
 
-// ValidateCreate validates an Update operation on a Cryostat
-func (r *cryostatValidator) ValidateUpdate(ctx context.Context, oldObj, newObj runtime.Object) (admission.Warnings, error) {
-	return r.validate(ctx, newObj, "update")
+// ValidateUpdate validates an Update operation on a Cryostat
+func (r *cryostatValidator) ValidateUpdate(ctx context.Context, oldCR, newCR *operatorv1beta2.Cryostat) (admission.Warnings, error) {
+	return r.validate(ctx, newCR, "update")
 }
 
-// ValidateCreate validates a Delete operation on a Cryostat
-func (r *cryostatValidator) ValidateDelete(ctx context.Context, obj runtime.Object) (admission.Warnings, error) {
+// ValidateDelete validates a Delete operation on a Cryostat
+func (r *cryostatValidator) ValidateDelete(ctx context.Context, cr *operatorv1beta2.Cryostat) (admission.Warnings, error) {
 	// Nothing to validate on deletion
 	return nil, nil
 }
@@ -80,11 +79,7 @@ func (e *ErrNotPermitted) Error() string {
 
 var _ error = &ErrNotPermitted{}
 
-func (r *cryostatValidator) validate(ctx context.Context, obj runtime.Object, op string) (admission.Warnings, error) {
-	cr, ok := obj.(*operatorv1beta2.Cryostat)
-	if !ok {
-		return nil, fmt.Errorf("expected a Cryostat, but received a %T", obj)
-	}
+func (r *cryostatValidator) validate(ctx context.Context, cr *operatorv1beta2.Cryostat, op string) (admission.Warnings, error) {
 	r.log.Info(fmt.Sprintf("validate %s", op), "name", cr.Name, "namespace", cr.Namespace)
 
 	// Validate RBAC fields before checking namespace permissions.

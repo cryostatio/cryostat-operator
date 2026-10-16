@@ -15,7 +15,7 @@
 package webhook
 
 import (
-	"k8s.io/apimachinery/pkg/runtime"
+	operatorv1beta2 "github.com/cryostatio/cryostat-operator/api/v1beta2"
 	ctrl "sigs.k8s.io/controller-runtime"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 )
@@ -28,13 +28,13 @@ var cryostatlog = logf.Log.WithName("cryostat-resource")
 // +kubebuilder:webhook:path=/mutate-operator-cryostat-io-v1beta2-cryostat,mutating=true,failurePolicy=fail,sideEffects=None,groups=operator.cryostat.io,resources=cryostats,verbs=create;update,versions=v1beta2,name=mcryostat.kb.io,admissionReviewVersions=v1
 // +kubebuilder:webhook:path=/validate-operator-cryostat-io-v1beta2-cryostat,mutating=false,failurePolicy=fail,sideEffects=None,groups=operator.cryostat.io,resources=cryostats,verbs=create;update,versions=v1beta2,name=vcryostat.kb.io,admissionReviewVersions=v1
 
-func SetupWebhookWithManager(mgr ctrl.Manager, apiType runtime.Object) error {
-	return ctrl.NewWebhookManagedBy(mgr, apiType).
-		WithCustomValidator(&cryostatValidator{
+func SetupWebhookWithManager(mgr ctrl.Manager) error {
+	return ctrl.NewWebhookManagedBy(mgr, &operatorv1beta2.Cryostat{}).
+		WithValidator(&cryostatValidator{
 			client: mgr.GetClient(),
 			log:    &cryostatlog,
 		}).
-		WithCustomDefaulter(&cryostatDefaulter{
+		WithDefaulter(&cryostatDefaulter{
 			log: &cryostatlog,
 		}).
 		Complete()

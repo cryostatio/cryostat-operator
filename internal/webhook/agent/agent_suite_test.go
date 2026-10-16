@@ -111,7 +111,7 @@ var _ = BeforeSuite(func() {
 	})
 	Expect(err).NotTo(HaveOccurred())
 
-	err = webhook.SetupWebhookWithManager(mgr, &operatorv1beta2.Cryostat{})
+	err = webhook.SetupWebhookWithManager(mgr)
 	Expect(err).NotTo(HaveOccurred())
 
 	agentWebhookConfig = &agent.AgentWebhookConfig{
