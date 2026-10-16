@@ -32,7 +32,6 @@ import (
 	"github.com/cryostatio/cryostat-operator/internal/controller/model"
 	"github.com/go-logr/logr"
 	"github.com/google/go-cmp/cmp"
-	configv1 "github.com/openshift/api/config/v1"
 	openshiftv1 "github.com/openshift/api/route/v1"
 	securityv1 "github.com/openshift/api/security/v1"
 	appsv1 "k8s.io/api/apps/v1"
@@ -50,7 +49,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
-	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
@@ -345,30 +343,7 @@ func (r *Reconciler) setupWithManager(c common.ControllerBuilder, impl reconcile
 		return err
 	}
 
-	// On OpenShift, watch the APIServer resource for TLS profile changes
-	if r.IsOpenShift {
-		c = c.Watches(&configv1.APIServer{}, handler.EnqueueRequestsFromMapFunc(
-			func(ctx context.Context, obj client.Object) []reconcile.Request {
-				return r.allCryostatRequests(ctx)
-			}),
-		)
-	}
-
 	return c.Complete(impl)
-}
-
-func (r *Reconciler) allCryostatRequests(ctx context.Context) []reconcile.Request {
-	cryostats := &operatorv1beta2.CryostatList{}
-	if err := r.Client.List(ctx, cryostats); err != nil {
-		return nil
-	}
-	requests := make([]reconcile.Request, 0, len(cryostats.Items))
-	for i := range cryostats.Items {
-		requests = append(requests, reconcile.Request{
-			NamespacedName: client.ObjectKeyFromObject(&cryostats.Items[i]),
-		})
-	}
-	return requests
 }
 
 func (r *Reconciler) finalizeCryostat(ctx context.Context, cr *model.CryostatInstance) error {

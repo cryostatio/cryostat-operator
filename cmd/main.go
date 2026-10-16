@@ -393,7 +393,10 @@ func main() {
 		os.Exit(1)
 	}
 
-	// Set up SecurityProfileWatcher on OpenShift to restart on TLS profile changes
+	// Set up SecurityProfileWatcher on OpenShift to restart on TLS profile changes.
+	// The restart causes controller-runtime to re-list all Cryostat CRs on startup,
+	// which enqueues a reconcile for each one. The reconciler then fetches the new
+	// TLS profile and updates operand Deployments and ConfigMaps accordingly.
 	if openShift {
 		ctx := context.Background()
 		adherence, err := tlspkg.FetchAPIServerTLSAdherencePolicy(ctx, mgr.GetClient())

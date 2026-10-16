@@ -3182,17 +3182,12 @@ func (c *controllerTest) commonTests() {
 			})
 
 			It("should watch specified resources", func() {
-				allExpected := make([]ctrlclient.Object, len(expectedResources))
-				copy(allExpected, expectedResources)
-				if t.OpenShift {
-					allExpected = append(allExpected, &configv1.APIServer{})
-				}
-				Expect(t.ControllerBuilder.WatchesCalls).To(HaveLen(len(allExpected)))
-				resources := make([]ctrlclient.Object, 0, len(allExpected))
+				Expect(t.ControllerBuilder.WatchesCalls).To(HaveLen(len(expectedResources)))
+				resources := make([]ctrlclient.Object, 0, len(expectedResources))
 				for _, watch := range t.ControllerBuilder.WatchesCalls {
 					resources = append(resources, watch.Object)
 				}
-				Expect(resources).To(ConsistOf(allExpected))
+				Expect(resources).To(ConsistOf(expectedResources))
 			})
 
 			Context("filtering by labels", func() {
