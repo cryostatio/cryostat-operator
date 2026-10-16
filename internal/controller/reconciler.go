@@ -44,7 +44,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/client-go/tools/record"
+	"k8s.io/client-go/tools/events"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
@@ -61,7 +61,7 @@ type ReconcilerConfig struct {
 	Scheme                 *runtime.Scheme
 	IsOpenShift            bool
 	IsCertManagerInstalled bool
-	EventRecorder          record.EventRecorder
+	EventRecorder          events.EventRecorder
 	RESTMapper             meta.RESTMapper
 	InsightsProxy          *url.URL // Only defined if Insights is enabled
 	FIPSEnabled            bool

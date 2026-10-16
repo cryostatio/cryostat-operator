@@ -146,7 +146,7 @@ func (r *Reconciler) reconcileDatabaseConnectionSecret(ctx context.Context, cr *
 
 	// If the CR status contains the secret name, emit an Event in case the configured secret's name does not match.
 	if len(cr.Status.DatabaseSecret) > 0 && cr.Status.DatabaseSecret != secretName {
-		r.EventRecorder.Event(cr.Object, corev1.EventTypeWarning, eventDatabaseSecretMismatchedType, eventDatabaseMismatchMsg)
+		r.EventRecorder.Eventf(cr.Object, nil, corev1.EventTypeWarning, eventDatabaseSecretMismatchedType, eventDatabaseSecretMismatchedType, eventDatabaseMismatchMsg)
 		return errDatabaseSecretUpdated
 	}
 

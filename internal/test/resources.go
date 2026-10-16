@@ -2075,7 +2075,7 @@ func (r *TestResources) NewCryostatCert() *certv1.Certificate {
 					Profile: certv1.Modern2023PKCS12Profile,
 				},
 			},
-			IssuerRef: certMeta.ObjectReference{
+			IssuerRef: certMeta.IssuerReference{
 				Name: r.Name + "-ca",
 			},
 			Usages: []certv1.KeyUsage{
@@ -2121,7 +2121,7 @@ func (r *TestResources) NewReportsCert() *certv1.Certificate {
 				fmt.Sprintf(r.Name+"-reports.%s.svc.cluster.local", r.Namespace),
 			},
 			SecretName: r.Name + "-reports-tls",
-			IssuerRef: certMeta.ObjectReference{
+			IssuerRef: certMeta.IssuerReference{
 				Name: r.Name + "-ca",
 			},
 			Usages: []certv1.KeyUsage{
@@ -2147,7 +2147,7 @@ func (r *TestResources) NewDatabaseCert() *certv1.Certificate {
 				fmt.Sprintf(r.Name+"-database.%s.svc.cluster.local", r.Namespace),
 			},
 			SecretName: r.Name + "-database-tls",
-			IssuerRef: certMeta.ObjectReference{
+			IssuerRef: certMeta.IssuerReference{
 				Name: r.Name + "-ca",
 			},
 			Usages: []certv1.KeyUsage{
@@ -2179,7 +2179,7 @@ func (r *TestResources) NewAgentProxyCert() *certv1.Certificate {
 				fmt.Sprintf(r.Name+"-agent.%s.svc.cluster.local", r.Namespace),
 			},
 			SecretName: r.Name + "-agent-tls",
-			IssuerRef: certMeta.ObjectReference{
+			IssuerRef: certMeta.IssuerReference{
 				Name: r.Name + "-ca",
 			},
 			Usages: []certv1.KeyUsage{
@@ -2205,7 +2205,7 @@ func (r *TestResources) NewStorageCert() *certv1.Certificate {
 				fmt.Sprintf(r.Name+"-storage.%s.svc.cluster.local", r.Namespace),
 			},
 			SecretName: r.Name + "-storage-tls",
-			IssuerRef: certMeta.ObjectReference{
+			IssuerRef: certMeta.IssuerReference{
 				Name: r.Name + "-ca",
 			},
 			Usages: []certv1.KeyUsage{
@@ -2233,7 +2233,7 @@ func (r *TestResources) NewCACert() *certv1.Certificate {
 		Spec: certv1.CertificateSpec{
 			CommonName: "cryostat-ca-cert-manager",
 			SecretName: r.getClusterUniqueNameForCA(),
-			IssuerRef: certMeta.ObjectReference{
+			IssuerRef: certMeta.IssuerReference{
 				Name: r.Name + "-self-signed",
 			},
 			IsCA: true,
@@ -2261,7 +2261,7 @@ func (r *TestResources) NewAgentCert(namespace string) *certv1.Certificate {
 				fmt.Sprintf("*.%s.%s.svc", r.GetAgentServiceName(), namespace),
 			},
 			SecretName: name,
-			IssuerRef: certMeta.ObjectReference{
+			IssuerRef: certMeta.IssuerReference{
 				Name: r.Name + "-ca",
 			},
 			Usages: []certv1.KeyUsage{

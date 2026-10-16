@@ -448,7 +448,7 @@ func newReconcilerConfig(mgr ctrl.Manager, logName string, eventRecorderName str
 		Scheme:                 mgr.GetScheme(),
 		IsOpenShift:            openShift,
 		IsCertManagerInstalled: certManager,
-		EventRecorder:          mgr.GetEventRecorderFor(eventRecorderName),
+		EventRecorder:          mgr.GetEventRecorder(eventRecorderName),
 		RESTMapper:             mgr.GetRESTMapper(),
 		InsightsProxy:          insightsURL,
 		NewControllerBuilder:   common.NewControllerBuilder,
