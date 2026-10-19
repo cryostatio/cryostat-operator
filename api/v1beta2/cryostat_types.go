@@ -257,8 +257,74 @@ type StorageConfigurations struct {
 	// Configuration for the Persistent Volume Claim to be created by the operator for the object storage.
 	// +optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
-	ObjectStorage              *StorageConfiguration `json:"objectStorage,omitempty"`
+	ObjectStorage *StorageConfiguration `json:"objectStorage,omitempty"`
+	// Configuration for a Kubernetes-managed volume backing the core Cryostat
+	// container's /tmp scratch space. Some Cryostat features (JFR file-backed
+	// analysis of archived recordings, local JFR file merging and splitting
+	// operations, and REST upload staging) materialize whole recording files
+	// under /tmp on a seekable filesystem. When unset, /tmp is backed by the
+	// container runtime's ephemeral writable layer, unbounded except by the
+	// node's available disk. Configuring this relocates and bounds that scratch
+	// space. This must be sized to at least the largest expected local JFR file
+	// merging and splitting operation; note that the largest single recording the
+	// JFR file-backed analysis features can process is
+	// `(cachePercentage / 100) * volumeSize`.
+	// +optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec
+	Scratch                    *ScratchStorageConfiguration `json:"scratch,omitempty"`
 	LegacyStorageConfiguration `json:",inline"`
+}
+
+// ScratchStorageConfiguration configures a Kubernetes-managed volume to back
+// the core Cryostat container's /tmp scratch space. At most one of
+// VolumeClaimTemplate or EmptyDir should be specified; VolumeClaimTemplate is
+// preferred because a CSI-provisioned volume fails writes with ENOSPC when it
+// fills rather than causing the kubelet to evict the entire Pod.
+// +kubebuilder:validation:XValidation:rule="!(has(self.volumeClaimTemplate) && has(self.emptyDir) && has(self.emptyDir.enabled) && self.emptyDir.enabled)",message="volumeClaimTemplate and an enabled emptyDir are mutually exclusive"
+type ScratchStorageConfiguration struct {
+	// Configuration for a generic ephemeral volume (a CSI-provisioned,
+	// Pod-scoped Persistent Volume Claim) mounted at /tmp. This is the
+	// preferred option: capacity is provisioned from a StorageClass rather than
+	// the node's runtime overlay partition, and the volume is auto-created and
+	// auto-deleted with the Pod.
+	// This is optional and mutually exclusive with an enabled emptyDir:
+	// configuring both is rejected.
+	// +optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec
+	VolumeClaimTemplate *corev1.PersistentVolumeClaimTemplate `json:"volumeClaimTemplate,omitempty"`
+	// Configuration for an EmptyDir mounted at /tmp, as a simpler fallback for
+	// clusters without dynamic provisioning. Note that exceeding an EmptyDir's
+	// SizeLimit causes the kubelet to evict the Pod, unlike a CSI volume which
+	// fails only the offending write.
+	// This is optional and mutually exclusive with volumeClaimTemplate: configuring
+	// both an enabled emptyDir and a volumeClaimTemplate is rejected. When neither
+	// is set, /tmp falls back to the container runtime's overlay layer, bounded by
+	// ephemeralStorageLimit if specified.
+	// +optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec
+	EmptyDir *EmptyDirConfig `json:"emptyDir,omitempty"`
+	// An optional ephemeral-storage limit to set on the core container as a
+	// backstop for any writes that still reach the container runtime's overlay
+	// layer. When no sized scratch volume is configured, this limit is also used
+	// as the basis for the CachePercentage calculation. Leaving this unset
+	// preserves the default behavior of no ephemeral-storage limit.
+	// +optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec
+	// +kubebuilder:validation:Pattern=^(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?[0-9]+))?$
+	EphemeralStorageLimit string `json:"ephemeralStorageLimit,omitempty"`
+	// The percentage of the scratch volume dedicated to the JFR file-backed
+	// analysis on-disk JFR cache. The operator derives the cache size cap from
+	// this percentage and the configured volume size, leaving the remainder for
+	// local JFR file merging and splitting operations and REST upload staging.
+	// Defaults to `50`. The largest single recording the JFR file-backed analysis
+	// features can process is `(cachePercentage / 100) * volumeSize`, so raise
+	// this (or the volume size) to analyze larger recordings, and lower it to
+	// leave more room for merging, splitting, and uploads.
+	// +optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:com.tectonic.ui:number"}
+	// +kubebuilder:validation:Minimum=1
+	// +kubebuilder:validation:Maximum=99
+	CachePercentage *int32 `json:"cachePercentage,omitempty"`
 }
 
 // StorageConfiguration provides customization to the storage created by the
@@ -537,7 +603,9 @@ type PersistentVolumeClaimConfig struct {
 // configure an EmptyDir to be created and managed
 // by the operator.
 type EmptyDirConfig struct {
-	// When enabled, Cryostat will use EmptyDir volumes instead of a Persistent Volume Claim. Any PVC configurations will be ignored.
+	// When enabled, an EmptyDir volume is created and used for this storage. Whether the EmptyDir
+	// coexists with, replaces, or is mutually exclusive with any Persistent Volume Claim
+	// configuration depends on the storage option this EmptyDir configures.
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:com.tectonic.ui:booleanSwitch"}
 	Enabled bool `json:"enabled,omitempty"`
 	// Unless specified, the emptyDir volume will be mounted on
@@ -546,10 +614,10 @@ type EmptyDirConfig struct {
 	// +optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	Medium corev1.StorageMedium `json:"medium,omitempty"`
-	// The maximum memory limit for the emptyDir. Default is unbounded.
+	// The maximum capacity of the emptyDir. Default is unbounded.
 	// +optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
-	// +kubebuilder:validation:Pattern=^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+	// +kubebuilder:validation:Pattern=^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?[0-9]+))?$
 	SizeLimit string `json:"sizeLimit,omitempty"`
 }
 
@@ -1032,6 +1100,31 @@ type AgentOptions struct {
 	// +optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,xDescriptors={"urn:alm:descriptor:com.tectonic.ui:resourceRequirements"}
 	Resources corev1.ResourceRequirements `json:"resources,omitempty"`
+	// Overrides the set of Cryostat permissions granted to requests arriving through the
+	// Agent gateway. Each entry is a "resource:verb" pair, e.g. "activerecordings:read".
+	// When omitted, Cryostat's built-in default set applies. Specifying this field replaces
+	// the default set entirely rather than adding to it, so that an administrator can
+	// narrow the Agent's capabilities. For example, omitting "archivedrecordings:write"
+	// prevents Agents from pushing recordings via the Harvester, requiring users to pull
+	// recordings through the main Cryostat API with their own credentials. An explicitly
+	// empty list grants the Agent no permissions at all: Agents can still authenticate, but
+	// every authorized endpoint denies them.
+	// This narrows the Agent principal only. It has no effect on the human user path, and it
+	// is not a substitute for per-namespace scoping: a narrowed Agent principal is still
+	// cluster-wide in its reach.
+	// Narrowing breaks Agent features visibly, and failures surface as 403 responses in Agent
+	// logs rather than as validation errors on this resource. Dropping "discoveryplugins:write"
+	// stops Agent registration outright, dropping "archivedrecordings:write" disables Harvester
+	// pushes, and dropping "heapdumps:write" blocks the Agent's heap dump collection feature.
+	// The Agent principal's permission check is applied independently of the authorization
+	// mode, so this field remains meaningful when Basic authentication is enabled. It has no
+	// effect when Cryostat's RBAC mode is PERMISSIVE, because in that mode every request,
+	// including a gateway-stamped one, receives an all-granting identity before the Agent
+	// path is consulted.
+	// +optional
+	// +kubebuilder:validation:items:Pattern=`^[a-z0-9]+(/[a-z0-9]+)?:[a-z]+$`
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Agent Permissions"
+	AgentPermissions []string `json:"agentPermissions,omitempty"`
 }
 
 // LoggingOptions provides configuration for logging levels of Cryostat components.

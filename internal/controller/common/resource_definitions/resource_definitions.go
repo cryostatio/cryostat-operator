@@ -674,7 +674,34 @@ func NewPodForCR(cr *model.CryostatInstance, specs *ServiceSpecs, imageTags *Ima
 		},
 	}
 
-	volumes = append(volumes, certVolume, agentProxyVolume, authStripProxyVolume)
+	// The auth-strip proxy's provenance stamp. Unguarded: the user path's integrity does not
+	// depend on client certificate verification, and the strip hop exists in every deployment.
+	userProxySecretVolume := corev1.Volume{
+		Name: constants.UserProxySecretVolumeName,
+		VolumeSource: corev1.VolumeSource{
+			Secret: &corev1.SecretVolumeSource{
+				SecretName:  cr.Name + constants.UserProxySecretNameSuffix,
+				DefaultMode: &readOnlyMode,
+			},
+		},
+	}
+
+	volumes = append(volumes, certVolume, agentProxyVolume, authStripProxyVolume, userProxySecretVolume)
+
+	if tls != nil {
+		// The agent gateway's provenance stamp. Guarded by tls != nil: with TLS disabled the
+		// gateway performs no client certificate verification, so it has no business vouching
+		// for anything and the Agent principal must remain unreachable.
+		volumes = append(volumes, corev1.Volume{
+			Name: constants.AgentGatewaySecretVolumeName,
+			VolumeSource: corev1.VolumeSource{
+				Secret: &corev1.SecretVolumeSource{
+					SecretName:  cr.Name + constants.AgentGatewaySecretNameSuffix,
+					DefaultMode: &readOnlyMode,
+				},
+			},
+		})
+	}
 
 	if !openshift {
 		// if not deploying openshift oauth-proxy then we must be deploying oauth2_proxy instead
@@ -790,6 +817,9 @@ func NewPodForCR(cr *model.CryostatInstance, specs *ServiceSpecs, imageTags *Ima
 			},
 		)
 	}
+
+	// Add the configured scratch volume backing the core container's /tmp, if any
+	volumes = append(volumes, newVolumeForScratch(cr)...)
 
 	var podSc *corev1.PodSecurityContext
 	if cr.Spec.SecurityOptions != nil && cr.Spec.SecurityOptions.PodSecurityContext != nil {
@@ -1452,6 +1482,19 @@ func NewCoreContainerResource(cr *model.CryostatInstance) *corev1.ResourceRequir
 	}
 	common.PopulateResourceRequest(resources, defaultCoreCpuRequest, defaultCoreMemoryRequest,
 		defaultCoreCpuLimit, defaultCoreMemoryLimit)
+
+	// Add the ephemeral-storage limit as a backstop for the core container's
+	// /tmp scratch space, if configured. This is applied after
+	// PopulateResourceRequest so it does not flip the "custom" flag and drop the
+	// default CPU/memory limits.
+	if scratch := getScratchConfig(cr); scratch != nil && len(scratch.EphemeralStorageLimit) > 0 {
+		if limit, err := resource.ParseQuantity(scratch.EphemeralStorageLimit); err == nil && limit.Sign() >= 0 {
+			if resources.Limits == nil {
+				resources.Limits = corev1.ResourceList{}
+			}
+			resources.Limits[corev1.ResourceEphemeralStorage] = limit
+		}
+	}
 	return resources
 }
 
@@ -1547,6 +1590,14 @@ func NewCoreContainer(cr *model.CryostatInstance, specs *ServiceSpecs, imageTag 
 		mounts = append(mounts, tlsSecretMount)
 	}
 
+	// Mount the configured scratch volume over /tmp, if any
+	if scratchVolumeConfigured(cr) {
+		mounts = append(mounts, corev1.VolumeMount{
+			Name:      "tmp",
+			MountPath: "/tmp",
+		})
+	}
+
 	probeHandler := corev1.ProbeHandler{
 		Exec: &corev1.ExecAction{
 			Command: []string{
@@ -1570,7 +1621,9 @@ func NewCoreContainer(cr *model.CryostatInstance, specs *ServiceSpecs, imageTag 
 		}
 	}
 
-	envs, err := newEnvForCoreContainer(cr, specs, tls, openshift)
+	resources := NewCoreContainerResource(cr)
+
+	envs, err := newEnvForCoreContainer(cr, specs, tls, openshift, resources)
 	if err != nil {
 		return nil, err
 	}
@@ -1586,7 +1639,7 @@ func NewCoreContainer(cr *model.CryostatInstance, specs *ServiceSpecs, imageTag 
 			},
 		},
 		Env:       envs,
-		Resources: *NewCoreContainerResource(cr),
+		Resources: *resources,
 		LivenessProbe: &corev1.Probe{
 			ProbeHandler: probeHandler,
 		},
@@ -1599,7 +1652,8 @@ func NewCoreContainer(cr *model.CryostatInstance, specs *ServiceSpecs, imageTag 
 	}, nil
 }
 
-func newEnvForCoreContainer(cr *model.CryostatInstance, specs *ServiceSpecs, tls *TLSConfig, openshift bool) ([]corev1.EnvVar, error) {
+func newEnvForCoreContainer(cr *model.CryostatInstance, specs *ServiceSpecs, tls *TLSConfig, openshift bool,
+	coreResources *corev1.ResourceRequirements) ([]corev1.EnvVar, error) {
 	// Default log level to INFO if not specified
 	logLevel := "INFO"
 	if cr.Spec.LoggingOptions != nil && cr.Spec.LoggingOptions.CoreLogLevel != nil {
@@ -1671,10 +1725,29 @@ func newEnvForCoreContainer(cr *model.CryostatInstance, specs *ServiceSpecs, tls
 		},
 	}
 
-	loopbackHosts := "localhost,127.0.0.1"
+	// Gates Quarkus's ForwardedParser. Without it X-Forwarded-For/-Proto/-Host would be
+	// honoured from any source and audit records would carry a client-chosen address. This
+	// is unrelated to either provenance stamp below.
 	envs = append(envs, corev1.EnvVar{
 		Name:  "QUARKUS_HTTP_PROXY_TRUSTED_PROXIES",
-		Value: loopbackHosts,
+		Value: "localhost,127.0.0.1",
+	})
+
+	// The user path's provenance stamp, so Cryostat can verify that a request was forwarded
+	// by the auth-strip proxy rather than merely assume it from the absence of an agent
+	// stamp. Unguarded: the strip hop exists in every Operator deployment.
+	optional := false
+	envs = append(envs, corev1.EnvVar{
+		Name: "CRYOSTAT_SECURITY_USER_PROXY_SECRET",
+		ValueFrom: &corev1.EnvVarSource{
+			SecretKeyRef: &corev1.SecretKeySelector{
+				LocalObjectReference: corev1.LocalObjectReference{
+					Name: cr.Name + constants.UserProxySecretNameSuffix,
+				},
+				Key:      constants.UserProxySecretKey,
+				Optional: &optional,
+			},
+		},
 	})
 
 	if openshift && !isOpenShiftAuthProxyDisabled(cr) && !isBasicAuthEnabled(cr) {
@@ -1690,9 +1763,20 @@ func newEnvForCoreContainer(cr *model.CryostatInstance, specs *ServiceSpecs, tls
 	}
 
 	if tls != nil {
+		// The agent gateway's provenance stamp. Guarded by tls != nil, matching the volume
+		// mount: with TLS disabled the gateway verifies no client certificate, so the Agent
+		// principal must remain unreachable. An unset value fails closed in Cryostat.
 		envs = append(envs, corev1.EnvVar{
-			Name:  "CRYOSTAT_HTTP_PROXY_MTLS_TRUSTED_HOSTS",
-			Value: loopbackHosts,
+			Name: "CRYOSTAT_SECURITY_AGENT_GATEWAY_SECRET",
+			ValueFrom: &corev1.EnvVarSource{
+				SecretKeyRef: &corev1.SecretKeySelector{
+					LocalObjectReference: corev1.LocalObjectReference{
+						Name: cr.Name + constants.AgentGatewaySecretNameSuffix,
+					},
+					Key:      constants.AgentGatewaySecretKey,
+					Optional: &optional,
+				},
+			},
 		})
 	}
 
@@ -1766,7 +1850,34 @@ func newEnvForCoreContainer(cr *model.CryostatInstance, specs *ServiceSpecs, tls
 		newK8SDiscoveryEnvForCoreContainer(cr),
 		newGrafanaEnvForCoreContainer(specs),
 		newAgentEnvForCoreContainer(cr),
+		newScratchEnvForCoreContainer(cr, coreResources),
 	), nil
+}
+
+// newScratchEnvForCoreContainer sizes the JFR file-backed analysis on-disk JFR
+// cache to the configured scratch space, keeping the application's self-eviction
+// bound consistent with the space actually provisioned. When no sized scratch
+// volume is configured, the core container's effective ephemeral-storage limit
+// (which may come from the scratch configuration or be set directly on the CR's
+// resources) is used instead. When neither source provides a size, the
+// application's default cache size stands.
+func newScratchEnvForCoreContainer(cr *model.CryostatInstance, coreResources *corev1.ResourceRequirements) []corev1.EnvVar {
+	var effectiveLimit *resource.Quantity
+	if coreResources != nil && coreResources.Limits != nil {
+		if limit, ok := coreResources.Limits[corev1.ResourceEphemeralStorage]; ok {
+			effectiveLimit = &limit
+		}
+	}
+	weight, ok := getScratchCacheMaxWeightMiB(getScratchConfig(cr), effectiveLimit)
+	if !ok {
+		return nil
+	}
+	return []corev1.EnvVar{
+		{
+			Name:  "CRYOSTAT_JFR_ANALYSIS_CACHE_MAX_WEIGHT",
+			Value: strconv.FormatInt(weight, 10),
+		},
+	}
 }
 
 func newDatabaseEnvForCoreContainer(cr *model.CryostatInstance, tls *TLSConfig) []corev1.EnvVar {
@@ -2190,6 +2301,17 @@ func newAgentEnvForCoreContainer(cr *model.CryostatInstance) []corev1.EnvVar {
 				corev1.EnvVar{
 					Name:  "CRYOSTAT_AGENT_TLS_REQUIRED",
 					Value: envVarFalse,
+				},
+			)
+		}
+		if cr.Spec.AgentOptions.AgentPermissions != nil {
+			// != nil rather than len() > 0, so that an explicitly empty list reaches
+			// Cryostat as an empty value (granting the Agent principal nothing) instead
+			// of falling back to Cryostat's built-in default permission set.
+			envs = append(envs,
+				corev1.EnvVar{
+					Name:  "CRYOSTAT_SECURITY_RBAC_AGENT_PERMISSIONS",
+					Value: strings.Join(cr.Spec.AgentOptions.AgentPermissions, ","),
 				},
 			)
 		}
@@ -2648,6 +2770,13 @@ func newAgentProxyContainer(cr *model.CryostatInstance, imageTag string, tls *TL
 			MountPath: path.Join(SecretMountPrefix, tls.AgentProxySecret),
 			ReadOnly:  true,
 		})
+		// Mount the provenance stamp this gateway applies to every request it forwards.
+		// Only when TLS is enabled: see newVolumes.
+		mounts = append(mounts, corev1.VolumeMount{
+			Name:      constants.AgentGatewaySecretVolumeName,
+			MountPath: constants.AgentGatewaySecretMountPath,
+			ReadOnly:  true,
+		})
 	}
 
 	return corev1.Container{
@@ -2730,6 +2859,14 @@ func newAuthStripProxyContainer(cr *model.CryostatInstance, imageTag string) cor
 			{
 				Name:      "auth-strip-proxy-config",
 				MountPath: constants.AuthStripProxyConfigPath,
+				ReadOnly:  true,
+			},
+			{
+				// The provenance stamp this hop applies to every request it forwards.
+				// Deliberately not the agent gateway's: neither proxy holds the other's
+				// secret, so neither can mint the other's principal.
+				Name:      constants.UserProxySecretVolumeName,
+				MountPath: constants.UserProxySecretMountPath,
 				ReadOnly:  true,
 			},
 		},
@@ -2818,6 +2955,128 @@ func newVolumeForStorage(cr *model.CryostatInstance) []corev1.Volume {
 			VolumeSource: volumeSource,
 		},
 	}
+}
+
+// defaultScratchCachePercentage is the percentage of the scratch volume
+// dedicated to the JFR file-backed analysis on-disk JFR cache when no
+// cachePercentage is configured.
+const defaultScratchCachePercentage = 50
+
+// bytesPerMiB is the number of bytes in one mebibyte.
+const bytesPerMiB = 1024 * 1024
+
+// getScratchConfig returns the scratch storage configuration, or nil if unset.
+func getScratchConfig(cr *model.CryostatInstance) *operatorv1beta2.ScratchStorageConfiguration {
+	if cr.Spec.StorageOptions == nil {
+		return nil
+	}
+	return cr.Spec.StorageOptions.Scratch
+}
+
+// scratchEmptyDirEnabled reports whether an EmptyDir is configured and enabled
+// for the scratch space, matching the database and object storage behavior of
+// honoring the EmptyDir's Enabled flag.
+func scratchEmptyDirEnabled(scratch *operatorv1beta2.ScratchStorageConfiguration) bool {
+	return scratch != nil && scratch.EmptyDir != nil && scratch.EmptyDir.Enabled
+}
+
+// scratchVolumeConfigured reports whether a volume should be mounted over the
+// core container's /tmp. This is only the case when a volume primitive (a
+// generic ephemeral volume or an enabled EmptyDir) is configured; a scratch
+// block that only sets an ephemeral-storage limit does not mount a volume.
+func scratchVolumeConfigured(cr *model.CryostatInstance) bool {
+	scratch := getScratchConfig(cr)
+	if scratch == nil {
+		return false
+	}
+	return scratch.VolumeClaimTemplate != nil || scratchEmptyDirEnabled(scratch)
+}
+
+// newVolumeForScratch returns the volume (if any) that backs the core
+// container's /tmp scratch space.
+func newVolumeForScratch(cr *model.CryostatInstance) []corev1.Volume {
+	scratch := getScratchConfig(cr)
+	if scratch == nil {
+		return nil
+	}
+
+	var volumeSource corev1.VolumeSource
+	switch {
+	case scratch.VolumeClaimTemplate != nil:
+		// Prefer a generic ephemeral volume: CSI-provisioned, Pod-scoped
+		volumeSource = corev1.VolumeSource{
+			Ephemeral: &corev1.EphemeralVolumeSource{
+				VolumeClaimTemplate: scratch.VolumeClaimTemplate,
+			},
+		}
+	case scratchEmptyDirEnabled(scratch):
+		var sizeLimit *resource.Quantity
+		if len(scratch.EmptyDir.SizeLimit) > 0 {
+			parsed, err := resource.ParseQuantity(scratch.EmptyDir.SizeLimit)
+			if err == nil {
+				sizeLimit = &parsed
+			}
+		}
+		volumeSource = corev1.VolumeSource{
+			EmptyDir: &corev1.EmptyDirVolumeSource{
+				Medium:    scratch.EmptyDir.Medium,
+				SizeLimit: sizeLimit,
+			},
+		}
+	default:
+		// Only an ephemeral-storage limit was configured; no volume to mount
+		return nil
+	}
+
+	return []corev1.Volume{
+		{
+			Name:         "tmp",
+			VolumeSource: volumeSource,
+		},
+	}
+}
+
+// getScratchVolumeSize returns the size the scratch space is bounded to, used to
+// derive the JFR cache cap. It prefers the size of a sized scratch volume (a
+// generic ephemeral volume's storage request or an EmptyDir's size limit), and
+// otherwise falls back to the core container's effective ephemeral-storage
+// limit. It returns false if no size can be determined.
+func getScratchVolumeSize(scratch *operatorv1beta2.ScratchStorageConfiguration, effectiveEphemeralStorageLimit *resource.Quantity) (resource.Quantity, bool) {
+	if scratch != nil {
+		if scratch.VolumeClaimTemplate != nil {
+			if size, ok := scratch.VolumeClaimTemplate.Spec.Resources.Requests[corev1.ResourceStorage]; ok && !size.IsZero() {
+				return size, true
+			}
+		}
+		if scratchEmptyDirEnabled(scratch) && len(scratch.EmptyDir.SizeLimit) > 0 {
+			if size, err := resource.ParseQuantity(scratch.EmptyDir.SizeLimit); err == nil && !size.IsZero() {
+				return size, true
+			}
+		}
+	}
+	if effectiveEphemeralStorageLimit != nil && !effectiveEphemeralStorageLimit.IsZero() {
+		return *effectiveEphemeralStorageLimit, true
+	}
+	return resource.Quantity{}, false
+}
+
+// getScratchCacheMaxWeightMiB derives the value (in MiB) for the
+// CRYOSTAT_JFR_ANALYSIS_CACHE_MAX_WEIGHT environment variable from the scratch
+// configuration, computing floor(volumeSizeMiB * cachePercentage / 100). It
+// returns false if no scratch size is available to size the cache against, in
+// which case the application's default cache size should stand.
+func getScratchCacheMaxWeightMiB(scratch *operatorv1beta2.ScratchStorageConfiguration, effectiveEphemeralStorageLimit *resource.Quantity) (int64, bool) {
+	size, ok := getScratchVolumeSize(scratch, effectiveEphemeralStorageLimit)
+	if !ok {
+		return 0, false
+	}
+	percentage := int64(defaultScratchCachePercentage)
+	if scratch != nil && scratch.CachePercentage != nil {
+		percentage = int64(*scratch.CachePercentage)
+	}
+	sizeMiB := size.Value() / bytesPerMiB
+	weight := sizeMiB * percentage / 100
+	return weight, true
 }
 
 func isBasicAuthEnabled(cr *model.CryostatInstance) bool {

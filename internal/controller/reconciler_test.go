@@ -22,6 +22,7 @@ import (
 	"time"
 
 	certv1 "github.com/cert-manager/cert-manager/pkg/apis/certmanager/v1"
+	"github.com/cryostatio/cryostat-operator/internal/controller/constants"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	gomegatypes "github.com/onsi/gomega/types"
@@ -101,7 +102,7 @@ func (c *controllerTest) commonBeforeEach() *cryostatTestInput {
 	auditEnabled := true
 	t := &cryostatTestInput{
 		TestReconcilerConfig: test.TestReconcilerConfig{
-			GeneratedPasswords: []string{"auth_cookie_secret", "connection_key", "encryption_key", "object_storage", "keystore"},
+			GeneratedPasswords: []string{"auth_cookie_secret", "connection_key", "encryption_key", "agent_gateway_secret", "user_proxy_secret", "object_storage", "keystore"},
 			ControllerBuilder:  &test.TestCtrlBuilder{},
 		},
 		TestResources: &test.TestResources{
@@ -203,6 +204,8 @@ func resourceChecks() []resourceCheck {
 		{(*cryostatTestInput).expectAgentGatewayService, "agent gateway service"},
 		{(*cryostatTestInput).expectAgentCallbackService, "agent callback service"},
 		{(*cryostatTestInput).expectOAuthCookieSecret, "OAuth2 cookie secret"},
+		{(*cryostatTestInput).expectAgentGatewaySecret, "agent gateway secret"},
+		{(*cryostatTestInput).expectUserProxySecret, "user proxy secret"},
 	}
 }
 
@@ -1404,6 +1407,111 @@ func (c *controllerTest) commonTests() {
 				t.expectStorageEmptyDir(t.NewCustomStorageEmptyDir())
 			})
 		})
+		Context("with no scratch volume configured", func() {
+			BeforeEach(func() {
+				t.objs = append(t.objs, t.NewCryostat().Object)
+			})
+			JustBeforeEach(func() {
+				t.reconcileCryostatFully()
+			})
+			It("should not mount a scratch volume over /tmp", func() {
+				t.expectNoScratchVolume()
+			})
+			It("should not set the JFR cache weight env var", func() {
+				t.expectNoCoreEnvVar("CRYOSTAT_JFR_ANALYSIS_CACHE_MAX_WEIGHT")
+			})
+			It("should not set an ephemeral-storage limit", func() {
+				t.expectCoreEphemeralStorageLimit(nil)
+			})
+		})
+		Context("with a scratch volumeClaimTemplate configured", func() {
+			BeforeEach(func() {
+				t.objs = append(t.objs, t.NewCryostatWithScratchVolumeClaimTemplate().Object)
+			})
+			JustBeforeEach(func() {
+				t.reconcileCryostatFully()
+			})
+			It("should mount a generic ephemeral volume over /tmp", func() {
+				t.expectScratchVolume(corev1.VolumeSource{
+					Ephemeral: &corev1.EphemeralVolumeSource{
+						VolumeClaimTemplate: t.NewScratchVolumeClaimTemplate(),
+					},
+				})
+			})
+			It("should size the JFR cache from the volume size and default ratio", func() {
+				// floor(4096 MiB * 50 / 100) = 2048
+				t.expectCoreCacheWeightEnvVar("2048")
+			})
+			It("should not set an ephemeral-storage limit when none is requested", func() {
+				t.expectCoreEphemeralStorageLimit(nil)
+			})
+		})
+		Context("with a scratch volumeClaimTemplate and a custom cachePercentage", func() {
+			BeforeEach(func() {
+				t.objs = append(t.objs, t.NewCryostatWithScratchVolumeClaimTemplateCustomPercentage().Object)
+			})
+			JustBeforeEach(func() {
+				t.reconcileCryostatFully()
+			})
+			It("should size the JFR cache using the custom percentage", func() {
+				// floor(4096 MiB * 25 / 100) = 1024
+				t.expectCoreCacheWeightEnvVar("1024")
+			})
+		})
+		Context("with a scratch emptyDir configured", func() {
+			BeforeEach(func() {
+				t.objs = append(t.objs, t.NewCryostatWithScratchEmptyDir().Object)
+			})
+			JustBeforeEach(func() {
+				t.reconcileCryostatFully()
+			})
+			It("should mount an EmptyDir over /tmp", func() {
+				sizeLimit := resource.MustParse("2Gi")
+				t.expectScratchVolume(corev1.VolumeSource{
+					EmptyDir: &corev1.EmptyDirVolumeSource{
+						Medium:    corev1.StorageMediumMemory,
+						SizeLimit: &sizeLimit,
+					},
+				})
+			})
+			It("should size the JFR cache from the EmptyDir size limit", func() {
+				// floor(2048 MiB * 50 / 100) = 1024
+				t.expectCoreCacheWeightEnvVar("1024")
+			})
+		})
+		Context("with a scratch emptyDir explicitly disabled", func() {
+			BeforeEach(func() {
+				t.objs = append(t.objs, t.NewCryostatWithScratchEmptyDirDisabled().Object)
+			})
+			JustBeforeEach(func() {
+				t.reconcileCryostatFully()
+			})
+			It("should not mount a scratch volume over /tmp", func() {
+				t.expectNoScratchVolume()
+			})
+			It("should not set the JFR cache weight env var", func() {
+				t.expectNoCoreEnvVar("CRYOSTAT_JFR_ANALYSIS_CACHE_MAX_WEIGHT")
+			})
+		})
+		Context("with only a scratch ephemeral-storage limit configured", func() {
+			BeforeEach(func() {
+				t.objs = append(t.objs, t.NewCryostatWithScratchEphemeralStorageLimitOnly().Object)
+			})
+			JustBeforeEach(func() {
+				t.reconcileCryostatFully()
+			})
+			It("should not mount a scratch volume over /tmp", func() {
+				t.expectNoScratchVolume()
+			})
+			It("should set the ephemeral-storage limit while preserving CPU/memory limits", func() {
+				limit := resource.MustParse("6Gi")
+				t.expectCoreEphemeralStorageLimit(&limit)
+			})
+			It("should size the JFR cache from the ephemeral-storage limit", func() {
+				// floor(6144 MiB * 50 / 100) = 3072
+				t.expectCoreCacheWeightEnvVar("3072")
+			})
+		})
 		Context("with overridden image tags", func() {
 			var mainDeploy, databaseDeploy, storageDeploy, reportsDeploy *appsv1.Deployment
 			BeforeEach(func() {
@@ -2235,7 +2343,7 @@ func (c *controllerTest) commonTests() {
 		})
 		Context("with secret provided for database", func() {
 			BeforeEach(func() {
-				t.GeneratedPasswords = []string{"auth_cookie_secret", "object_storage", "keystore"}
+				t.GeneratedPasswords = []string{"auth_cookie_secret", "agent_gateway_secret", "user_proxy_secret", "object_storage", "keystore"}
 				t.DatabaseSecret = t.NewCustomDatabaseSecret()
 				t.objs = append(t.objs, t.NewCryostatWithDatabaseSecretProvided().Object, t.DatabaseSecret)
 			})
@@ -2962,6 +3070,385 @@ func (c *controllerTest) commonTests() {
 		})
 	})
 
+	c.gatewayProvenanceTests()
+
+	c.kubernetesTests()
+
+	Describe("setting up with manager", func() {
+		BeforeEach(func() {
+			t = c.commonBeforeEach()
+			t.TargetNamespaces = []string{t.Namespace}
+		})
+
+		JustBeforeEach(func() {
+			c.commonJustBeforeEach(t)
+			// Create a default manager, not called
+			mgr, err := manager.New(cfg, manager.Options{})
+			Expect(err).ToNot(HaveOccurred())
+			err = t.reconciler.SetupWithManager(mgr)
+			Expect(err).ToNot(HaveOccurred())
+		})
+
+		JustAfterEach(func() {
+			c.commonJustAfterEach(t)
+		})
+
+		It("should watch Cryostat CRs", func() {
+			Expect(t.ControllerBuilder.ForCalls).To(HaveLen(1))
+			args := t.ControllerBuilder.ForCalls[0]
+			Expect(args.Object).To(BeAssignableToTypeOf(t.NewCryostat().Object))
+			Expect(args.Opts).To(BeEmpty())
+		})
+
+		It("should call Complete", func() {
+			Expect(t.ControllerBuilder.CompleteCalled).To(BeTrue())
+		})
+
+		Context("for owned resources", func() {
+			var ownsResources []ctrlclient.Object
+
+			BeforeEach(func() {
+				ownsResources = []ctrlclient.Object{
+					&appsv1.Deployment{},
+					&corev1.Service{},
+					&corev1.ConfigMap{},
+					&corev1.Secret{},
+					&corev1.PersistentVolumeClaim{},
+					&corev1.ServiceAccount{},
+					&rbacv1.Role{},
+					&rbacv1.RoleBinding{},
+					&netv1.Ingress{},
+				}
+			})
+
+			expectOwnedResources := func() {
+				It("should watch objects owned by Cryostat CRs", func() {
+					Expect(t.ControllerBuilder.OwnsCalls).To(HaveLen(len(ownsResources)))
+					resources := make([]ctrlclient.Object, 0, len(ownsResources))
+					for _, call := range t.ControllerBuilder.OwnsCalls {
+						resources = append(resources, call.Object)
+						Expect(call.Opts).To(BeEmpty())
+					}
+					Expect(resources).To(ConsistOf(ownsResources))
+				})
+			}
+
+			Context("cert-manager installed", func() {
+				BeforeEach(func() {
+					ownsResources = append(ownsResources, &certv1.Certificate{}, &certv1.Issuer{})
+				})
+				Context("on OpenShift", func() {
+					BeforeEach(func() {
+						ownsResources = append(ownsResources, &openshiftv1.Route{})
+					})
+					expectOwnedResources()
+				})
+				Context("on Kubernetes", func() {
+					BeforeEach(func() {
+						t.OpenShift = false
+					})
+					expectOwnedResources()
+				})
+			})
+
+			Context("cert-manager missing", func() {
+				BeforeEach(func() {
+					t.CertManagerMissing = true
+				})
+				Context("on OpenShift", func() {
+					BeforeEach(func() {
+						ownsResources = append(ownsResources, &openshiftv1.Route{})
+					})
+					expectOwnedResources()
+				})
+				Context("on Kubernetes", func() {
+					BeforeEach(func() {
+						t.OpenShift = false
+					})
+					expectOwnedResources()
+				})
+			})
+		})
+
+		Context("watches in target namespaces", func() {
+			var expectedResources []ctrlclient.Object
+
+			BeforeEach(func() {
+				expectedResources = []ctrlclient.Object{
+					&rbacv1.RoleBinding{},
+					&corev1.Secret{},
+					&corev1.Service{},
+				}
+			})
+
+			It("should watch specified resources", func() {
+				Expect(t.ControllerBuilder.WatchesCalls).To(HaveLen(len(expectedResources)))
+				resources := make([]ctrlclient.Object, 0, len(expectedResources))
+				for _, watch := range t.ControllerBuilder.WatchesCalls {
+					resources = append(resources, watch.Object)
+				}
+				Expect(resources).To(ConsistOf(expectedResources))
+			})
+
+			Context("filtering by labels", func() {
+				var pred predicate.Predicate
+				var obj ctrlclient.Object
+
+				JustBeforeEach(func() {
+					Expect(t.ControllerBuilder.WatchesCalls).To(HaveLen(len(expectedResources)))
+					Expect(t.ControllerBuilder.Predicates).To(HaveLen(len(expectedResources)))
+					for _, watch := range t.ControllerBuilder.WatchesCalls {
+						Expect(watch.Opts).To(HaveLen(1))
+						Expect(watch.Opts[0]).To(BeAssignableToTypeOf(builder.Predicates{}))
+					}
+					pred = t.ControllerBuilder.Predicates[0]
+				})
+
+				Context("with both labels present", func() {
+					BeforeEach(func() {
+						obj = t.NewAgentCertSecretCopy("foo")
+					})
+
+					It("should accept", func() {
+						t.expectPredicateToAccept(pred, obj)
+					})
+				})
+
+				Context("with name label missing", func() {
+					BeforeEach(func() {
+						obj = t.NewAgentCertSecretCopy("foo")
+						delete(obj.GetLabels(), "operator.cryostat.io/name")
+					})
+
+					It("should reject", func() {
+						t.expectPredicateToReject(pred, obj)
+					})
+				})
+
+				Context("with namespace label missing", func() {
+					BeforeEach(func() {
+						obj = t.NewAgentCertSecretCopy("foo")
+						delete(obj.GetLabels(), "operator.cryostat.io/namespace")
+					})
+
+					It("should reject", func() {
+						t.expectPredicateToReject(pred, obj)
+					})
+				})
+
+				Context("both labels missing", func() {
+					BeforeEach(func() {
+						obj = t.NewAgentCertSecret("foo")
+						delete(obj.GetLabels(), "operator.cryostat.io/name")
+					})
+
+					It("should reject", func() {
+						t.expectPredicateToReject(pred, obj)
+					})
+				})
+			})
+
+			Context("handling events", func() {
+				var handlerFunc handler.MapFunc
+				var obj ctrlclient.Object
+
+				JustBeforeEach(func() {
+					Expect(t.ControllerBuilder.WatchesCalls).To(HaveLen(len(expectedResources)))
+					Expect(t.ControllerBuilder.MapFuncs).To(HaveLen(len(expectedResources)))
+					for i, watch := range t.ControllerBuilder.WatchesCalls {
+						Expect(watch.EventHandler).ToNot(BeNil())
+						// Check that the handler uses the expected underlying type
+						mapFunc := t.ControllerBuilder.MapFuncs[i]
+						expectedHandler := handler.EnqueueRequestsFromMapFunc(mapFunc)
+						Expect(watch.EventHandler).To(BeAssignableToTypeOf(expectedHandler))
+					}
+					handlerFunc = t.ControllerBuilder.MapFuncs[0]
+				})
+
+				Context("with both labels present", func() {
+					BeforeEach(func() {
+						obj = t.NewAgentCertSecretCopy("foo")
+					})
+
+					It("should accept", func() {
+						result := handlerFunc(context.Background(), obj)
+						Expect(result).To(ConsistOf(newReconcileRequest(t.Namespace, t.Name)))
+					})
+				})
+
+				Context("with name label missing", func() {
+					BeforeEach(func() {
+						obj = t.NewAgentCertSecretCopy("foo")
+						delete(obj.GetLabels(), "operator.cryostat.io/name")
+					})
+
+					It("should reject", func() {
+						result := handlerFunc(context.Background(), obj)
+						Expect(result).To(BeEmpty())
+					})
+				})
+
+				Context("with namespace label missing", func() {
+					BeforeEach(func() {
+						obj = t.NewAgentCertSecretCopy("foo")
+						delete(obj.GetLabels(), "operator.cryostat.io/namespace")
+					})
+
+					It("should reject", func() {
+						result := handlerFunc(context.Background(), obj)
+						Expect(result).To(BeEmpty())
+					})
+				})
+
+				Context("both labels missing", func() {
+					BeforeEach(func() {
+						obj = t.NewAgentCertSecret("foo")
+						delete(obj.GetLabels(), "operator.cryostat.io/name")
+					})
+
+					It("should reject", func() {
+						result := handlerFunc(context.Background(), obj)
+						Expect(result).To(BeEmpty())
+					})
+				})
+			})
+		})
+	})
+}
+
+func (c *controllerTest) gatewayProvenanceTests() {
+	var t *cryostatTestInput
+
+	Describe("reconciling a request in OpenShift", func() {
+		BeforeEach(func() {
+			t = c.commonBeforeEach()
+			t.TargetNamespaces = []string{t.Namespace}
+		})
+
+		JustBeforeEach(func() {
+			c.commonJustBeforeEach(t)
+		})
+
+		JustAfterEach(func() {
+			c.commonJustAfterEach(t)
+		})
+
+		Context("with agent gateway provenance stamps", func() {
+			BeforeEach(func() {
+				t.objs = append(t.objs, t.NewCryostat().Object)
+			})
+			JustBeforeEach(func() {
+				t.reconcileCryostatFully()
+			})
+			It("should stamp the gateway provenance header for every allow-listed prefix", func() {
+				cm := &corev1.ConfigMap{}
+				err := t.Client.Get(context.Background(), types.NamespacedName{
+					Name: t.Name + "-agent-proxy", Namespace: t.Namespace}, cm)
+				Expect(err).ToNot(HaveOccurred())
+				conf := cm.Data["nginx.conf"]
+
+				// The stamp is applied once at the server level, and is inherited by every
+				// location only because no location declares a proxy_set_header of its own.
+				// If a location ever gains one, the stamp and the X-Forwarded-* clearing are
+				// silently dropped for that path.
+				Expect(conf).To(ContainSubstring(
+					"include /var/run/secrets/operator.cryostat.io/agent-gateway/agent-auth.conf;"))
+				serverBlock := conf[:strings.Index(conf, "location /health/ {")]
+				Expect(serverBlock).To(ContainSubstring(
+					"include /var/run/secrets/operator.cryostat.io/agent-gateway/agent-auth.conf;"))
+				Expect(serverBlock).To(ContainSubstring(`proxy_set_header X-Cryostat-User-Proxy-Auth "";`))
+				Expect(serverBlock).To(ContainSubstring("underscores_in_headers off;"))
+
+				// Every identity header the strip hop asserts must be blanked here, not just
+				// the two Cryostat reads for identity today. An agent has no user identity to
+				// assert, and the asymmetry is a trap for whoever next reads one of these for
+				// audit or display.
+				for _, header := range constants.OAuthProxyIdentityHeaders {
+					Expect(serverBlock).To(ContainSubstring(
+						fmt.Sprintf("proxy_set_header %s \"\";", header)),
+						"gateway does not clear %s", header)
+				}
+
+				for _, prefix := range []string{"/health", "/api/v4/discovery", "/api/v4.2/discovery",
+					"/api/v4.3/discovery", "/api/beta/diagnostics", "/api/beta/recordings",
+					"/api/beta/targets"} {
+					for _, location := range []string{
+						fmt.Sprintf("location %s/ {", prefix),
+						fmt.Sprintf("location = %s {", prefix),
+					} {
+						idx := strings.Index(conf, location)
+						Expect(idx).To(BeNumerically(">", 0), "missing %s", location)
+						body := conf[idx : idx+strings.Index(conf[idx:], "}")]
+						Expect(body).ToNot(ContainSubstring("proxy_set_header"),
+							"%s declares its own proxy_set_header, which drops the server-level stamp",
+							location)
+					}
+				}
+			})
+			It("should stamp the user path and clear the agent stamp at the strip hop", func() {
+				cm := &corev1.ConfigMap{}
+				err := t.Client.Get(context.Background(), types.NamespacedName{
+					Name: t.Name + "-auth-strip-proxy", Namespace: t.Namespace}, cm)
+				Expect(err).ToNot(HaveOccurred())
+				conf := cm.Data["nginx.conf"]
+
+				Expect(conf).To(ContainSubstring(
+					"include /var/run/secrets/operator.cryostat.io/user-proxy/user-auth.conf;"))
+				Expect(conf).To(ContainSubstring(`proxy_set_header X-Cryostat-Agent-Auth "";`))
+				// The strip hop must never stamp the agent path's header
+				Expect(conf).ToNot(ContainSubstring(`proxy_set_header X-Cryostat-User-Proxy-Auth ""`))
+
+				// Each identity header is re-sourced from this hop's own view of the
+				// request, so that a client-supplied value cannot survive it.
+				for _, header := range constants.OAuthProxyIdentityHeaders {
+					Expect(conf).To(ContainSubstring(fmt.Sprintf("proxy_set_header %s %s;",
+						header, constants.NginxHTTPVariable(header))),
+						"strip hop does not re-source %s", header)
+				}
+			})
+			It("should not cap the size of user-path uploads", func() {
+				cm := &corev1.ConfigMap{}
+				err := t.Client.Get(context.Background(), types.NamespacedName{
+					Name: t.Name + "-auth-strip-proxy", Namespace: t.Namespace}, cm)
+				Expect(err).ToNot(HaveOccurred())
+
+				// Without this, nginx's 1m default applies and a JFR recording over 1 MiB
+				// uploaded to POST /api/v4/recordings is rejected with 413 before Cryostat
+				// sees it. The agent gateway sets the same, so the limit would otherwise
+				// differ between the two paths to the same endpoint.
+				Expect(cm.Data["nginx.conf"]).To(ContainSubstring("client_max_body_size 0;"))
+			})
+			It("should generate two distinct secrets", func() {
+				agent := t.getSecret(t.Name + "-agent-gateway")
+				user := t.getSecret(t.Name + "-user-proxy")
+				Expect(agent.Data["AGENT_GATEWAY_SECRET"]).ToNot(BeEmpty())
+				Expect(user.Data["USER_PROXY_SECRET"]).ToNot(BeEmpty())
+				Expect(agent.Data["AGENT_GATEWAY_SECRET"]).ToNot(Equal(user.Data["USER_PROXY_SECRET"]))
+			})
+			It("should keep each include file matching its own key across reconciles", func() {
+				agentValue := string(t.getSecret(t.Name + "-agent-gateway").Data["AGENT_GATEWAY_SECRET"])
+				userValue := string(t.getSecret(t.Name + "-user-proxy").Data["USER_PROXY_SECRET"])
+
+				t.reconcileCryostatFully()
+
+				agent := t.getSecret(t.Name + "-agent-gateway")
+				user := t.getSecret(t.Name + "-user-proxy")
+				// Generate-once: rotating either value would break every in-flight request
+				// until both containers restarted together
+				Expect(string(agent.Data["AGENT_GATEWAY_SECRET"])).To(Equal(agentValue))
+				Expect(string(user.Data["USER_PROXY_SECRET"])).To(Equal(userValue))
+				Expect(string(agent.Data["agent-auth.conf"])).To(Equal(
+					fmt.Sprintf("proxy_set_header X-Cryostat-Agent-Auth %q;\n", agentValue)))
+				Expect(string(user.Data["user-auth.conf"])).To(Equal(
+					fmt.Sprintf("proxy_set_header X-Cryostat-User-Proxy-Auth %q;\n", userValue)))
+			})
+		})
+	})
+}
+
+func (c *controllerTest) kubernetesTests() {
+	var t *cryostatTestInput
+
 	Describe("reconciling a request in Kubernetes", func() {
 		BeforeEach(func() {
 			t = c.commonBeforeEach()
@@ -3296,247 +3783,6 @@ func (c *controllerTest) commonTests() {
 			It("should have added the extra label and annotation to deployments and pods", func() {
 				t.expectMainDeploymentHasExtraMetadata()
 				t.expectReportsDeploymentHasExtraMetadata()
-			})
-		})
-	})
-
-	Describe("setting up with manager", func() {
-		BeforeEach(func() {
-			t = c.commonBeforeEach()
-			t.TargetNamespaces = []string{t.Namespace}
-		})
-
-		JustBeforeEach(func() {
-			c.commonJustBeforeEach(t)
-			// Create a default manager, not called
-			mgr, err := manager.New(cfg, manager.Options{})
-			Expect(err).ToNot(HaveOccurred())
-			err = t.reconciler.SetupWithManager(mgr)
-			Expect(err).ToNot(HaveOccurred())
-		})
-
-		JustAfterEach(func() {
-			c.commonJustAfterEach(t)
-		})
-
-		It("should watch Cryostat CRs", func() {
-			Expect(t.ControllerBuilder.ForCalls).To(HaveLen(1))
-			args := t.ControllerBuilder.ForCalls[0]
-			Expect(args.Object).To(BeAssignableToTypeOf(t.NewCryostat().Object))
-			Expect(args.Opts).To(BeEmpty())
-		})
-
-		It("should call Complete", func() {
-			Expect(t.ControllerBuilder.CompleteCalled).To(BeTrue())
-		})
-
-		Context("for owned resources", func() {
-			var ownsResources []ctrlclient.Object
-
-			BeforeEach(func() {
-				ownsResources = []ctrlclient.Object{
-					&appsv1.Deployment{},
-					&corev1.Service{},
-					&corev1.ConfigMap{},
-					&corev1.Secret{},
-					&corev1.PersistentVolumeClaim{},
-					&corev1.ServiceAccount{},
-					&rbacv1.Role{},
-					&rbacv1.RoleBinding{},
-					&netv1.Ingress{},
-				}
-			})
-
-			expectOwnedResources := func() {
-				It("should watch objects owned by Cryostat CRs", func() {
-					Expect(t.ControllerBuilder.OwnsCalls).To(HaveLen(len(ownsResources)))
-					resources := make([]ctrlclient.Object, 0, len(ownsResources))
-					for _, call := range t.ControllerBuilder.OwnsCalls {
-						resources = append(resources, call.Object)
-						Expect(call.Opts).To(BeEmpty())
-					}
-					Expect(resources).To(ConsistOf(ownsResources))
-				})
-			}
-
-			Context("cert-manager installed", func() {
-				BeforeEach(func() {
-					ownsResources = append(ownsResources, &certv1.Certificate{}, &certv1.Issuer{})
-				})
-				Context("on OpenShift", func() {
-					BeforeEach(func() {
-						ownsResources = append(ownsResources, &openshiftv1.Route{})
-					})
-					expectOwnedResources()
-				})
-				Context("on Kubernetes", func() {
-					BeforeEach(func() {
-						t.OpenShift = false
-					})
-					expectOwnedResources()
-				})
-			})
-
-			Context("cert-manager missing", func() {
-				BeforeEach(func() {
-					t.CertManagerMissing = true
-				})
-				Context("on OpenShift", func() {
-					BeforeEach(func() {
-						ownsResources = append(ownsResources, &openshiftv1.Route{})
-					})
-					expectOwnedResources()
-				})
-				Context("on Kubernetes", func() {
-					BeforeEach(func() {
-						t.OpenShift = false
-					})
-					expectOwnedResources()
-				})
-			})
-		})
-
-		Context("watches in target namespaces", func() {
-			var expectedResources []ctrlclient.Object
-
-			BeforeEach(func() {
-				expectedResources = []ctrlclient.Object{
-					&rbacv1.RoleBinding{},
-					&corev1.Secret{},
-					&corev1.Service{},
-				}
-			})
-
-			It("should watch specified resources", func() {
-				Expect(t.ControllerBuilder.WatchesCalls).To(HaveLen(len(expectedResources)))
-				resources := make([]ctrlclient.Object, 0, len(expectedResources))
-				for _, watch := range t.ControllerBuilder.WatchesCalls {
-					resources = append(resources, watch.Object)
-				}
-				Expect(resources).To(ConsistOf(expectedResources))
-			})
-
-			Context("filtering by labels", func() {
-				var pred predicate.Predicate
-				var obj ctrlclient.Object
-
-				JustBeforeEach(func() {
-					Expect(t.ControllerBuilder.WatchesCalls).To(HaveLen(len(expectedResources)))
-					Expect(t.ControllerBuilder.Predicates).To(HaveLen(len(expectedResources)))
-					for _, watch := range t.ControllerBuilder.WatchesCalls {
-						Expect(watch.Opts).To(HaveLen(1))
-						Expect(watch.Opts[0]).To(BeAssignableToTypeOf(builder.Predicates{}))
-					}
-					pred = t.ControllerBuilder.Predicates[0]
-				})
-
-				Context("with both labels present", func() {
-					BeforeEach(func() {
-						obj = t.NewAgentCertSecretCopy("foo")
-					})
-
-					It("should accept", func() {
-						t.expectPredicateToAccept(pred, obj)
-					})
-				})
-
-				Context("with name label missing", func() {
-					BeforeEach(func() {
-						obj = t.NewAgentCertSecretCopy("foo")
-						delete(obj.GetLabels(), "operator.cryostat.io/name")
-					})
-
-					It("should reject", func() {
-						t.expectPredicateToReject(pred, obj)
-					})
-				})
-
-				Context("with namespace label missing", func() {
-					BeforeEach(func() {
-						obj = t.NewAgentCertSecretCopy("foo")
-						delete(obj.GetLabels(), "operator.cryostat.io/namespace")
-					})
-
-					It("should reject", func() {
-						t.expectPredicateToReject(pred, obj)
-					})
-				})
-
-				Context("both labels missing", func() {
-					BeforeEach(func() {
-						obj = t.NewAgentCertSecret("foo")
-						delete(obj.GetLabels(), "operator.cryostat.io/name")
-					})
-
-					It("should reject", func() {
-						t.expectPredicateToReject(pred, obj)
-					})
-				})
-			})
-
-			Context("handling events", func() {
-				var handlerFunc handler.MapFunc
-				var obj ctrlclient.Object
-
-				JustBeforeEach(func() {
-					Expect(t.ControllerBuilder.WatchesCalls).To(HaveLen(len(expectedResources)))
-					Expect(t.ControllerBuilder.MapFuncs).To(HaveLen(len(expectedResources)))
-					for i, watch := range t.ControllerBuilder.WatchesCalls {
-						Expect(watch.EventHandler).ToNot(BeNil())
-						// Check that the handler uses the expected underlying type
-						mapFunc := t.ControllerBuilder.MapFuncs[i]
-						expectedHandler := handler.EnqueueRequestsFromMapFunc(mapFunc)
-						Expect(watch.EventHandler).To(BeAssignableToTypeOf(expectedHandler))
-					}
-					handlerFunc = t.ControllerBuilder.MapFuncs[0]
-				})
-
-				Context("with both labels present", func() {
-					BeforeEach(func() {
-						obj = t.NewAgentCertSecretCopy("foo")
-					})
-
-					It("should accept", func() {
-						result := handlerFunc(context.Background(), obj)
-						Expect(result).To(ConsistOf(newReconcileRequest(t.Namespace, t.Name)))
-					})
-				})
-
-				Context("with name label missing", func() {
-					BeforeEach(func() {
-						obj = t.NewAgentCertSecretCopy("foo")
-						delete(obj.GetLabels(), "operator.cryostat.io/name")
-					})
-
-					It("should reject", func() {
-						result := handlerFunc(context.Background(), obj)
-						Expect(result).To(BeEmpty())
-					})
-				})
-
-				Context("with namespace label missing", func() {
-					BeforeEach(func() {
-						obj = t.NewAgentCertSecretCopy("foo")
-						delete(obj.GetLabels(), "operator.cryostat.io/namespace")
-					})
-
-					It("should reject", func() {
-						result := handlerFunc(context.Background(), obj)
-						Expect(result).To(BeEmpty())
-					})
-				})
-
-				Context("both labels missing", func() {
-					BeforeEach(func() {
-						obj = t.NewAgentCertSecret("foo")
-						delete(obj.GetLabels(), "operator.cryostat.io/name")
-					})
-
-					It("should reject", func() {
-						result := handlerFunc(context.Background(), obj)
-						Expect(result).To(BeEmpty())
-					})
-				})
 			})
 		})
 	})
@@ -3936,6 +4182,77 @@ func (t *cryostatTestInput) expectStorageEmptyDir(expectedEmptyDir *corev1.Empty
 	Expect(emptyDir.SizeLimit).To(Equal(expectedEmptyDir.SizeLimit))
 }
 
+func (t *cryostatTestInput) getMainDeployment() *appsv1.Deployment {
+	deployment := &appsv1.Deployment{}
+	err := t.Client.Get(context.Background(), types.NamespacedName{Name: t.Name, Namespace: t.Namespace}, deployment)
+	Expect(err).ToNot(HaveOccurred())
+	return deployment
+}
+
+func (t *cryostatTestInput) expectScratchVolume(expected corev1.VolumeSource) {
+	deployment := t.getMainDeployment()
+
+	var found *corev1.Volume
+	for i := range deployment.Spec.Template.Spec.Volumes {
+		if deployment.Spec.Template.Spec.Volumes[i].Name == "tmp" {
+			found = &deployment.Spec.Template.Spec.Volumes[i]
+			break
+		}
+	}
+	Expect(found).ToNot(BeNil(), "expected a scratch volume named \"tmp\"")
+	Expect(found.VolumeSource).To(Equal(expected))
+
+	// The core container should mount the scratch volume over /tmp
+	coreContainer := deployment.Spec.Template.Spec.Containers[0]
+	Expect(coreContainer.VolumeMounts).To(ContainElement(corev1.VolumeMount{
+		Name:      "tmp",
+		MountPath: "/tmp",
+	}))
+}
+
+func (t *cryostatTestInput) expectNoScratchVolume() {
+	deployment := t.getMainDeployment()
+	for _, volume := range deployment.Spec.Template.Spec.Volumes {
+		Expect(volume.Name).ToNot(Equal("tmp"))
+	}
+	coreContainer := deployment.Spec.Template.Spec.Containers[0]
+	for _, mount := range coreContainer.VolumeMounts {
+		Expect(mount.MountPath).ToNot(Equal("/tmp"))
+	}
+}
+
+func (t *cryostatTestInput) expectCoreCacheWeightEnvVar(value string) {
+	deployment := t.getMainDeployment()
+	coreContainer := deployment.Spec.Template.Spec.Containers[0]
+	Expect(coreContainer.Env).To(ContainElement(corev1.EnvVar{
+		Name:  "CRYOSTAT_JFR_ANALYSIS_CACHE_MAX_WEIGHT",
+		Value: value,
+	}))
+}
+
+func (t *cryostatTestInput) expectNoCoreEnvVar(name string) {
+	deployment := t.getMainDeployment()
+	coreContainer := deployment.Spec.Template.Spec.Containers[0]
+	for _, env := range coreContainer.Env {
+		Expect(env.Name).ToNot(Equal(name))
+	}
+}
+
+func (t *cryostatTestInput) expectCoreEphemeralStorageLimit(expected *resource.Quantity) {
+	deployment := t.getMainDeployment()
+	coreContainer := deployment.Spec.Template.Spec.Containers[0]
+	limit, ok := coreContainer.Resources.Limits[corev1.ResourceEphemeralStorage]
+	if expected == nil {
+		Expect(ok).To(BeFalse(), "expected no ephemeral-storage limit")
+		return
+	}
+	Expect(ok).To(BeTrue(), "expected an ephemeral-storage limit")
+	Expect(limit.Value()).To(Equal(expected.Value()))
+	// Setting the ephemeral-storage limit must not drop the default CPU/memory limits
+	Expect(coreContainer.Resources.Limits).To(HaveKey(corev1.ResourceCPU))
+	Expect(coreContainer.Resources.Limits).To(HaveKey(corev1.ResourceMemory))
+}
+
 func (t *cryostatTestInput) expectDatabaseSecret() {
 	secret := &corev1.Secret{}
 	err := t.Client.Get(context.Background(), types.NamespacedName{Name: t.Name + "-db", Namespace: t.Namespace}, secret)
@@ -3968,6 +4285,33 @@ func (t *cryostatTestInput) expectOAuthCookieSecret() {
 	// Compare to desired spec
 	t.checkMetadata(secret, expectedSecret)
 	Expect(secret.Data).To(Equal(expectedSecret.Data))
+}
+
+func (t *cryostatTestInput) expectAgentGatewaySecret() {
+	t.expectProvenanceSecret(t.NewAgentGatewaySecret())
+}
+
+func (t *cryostatTestInput) expectUserProxySecret() {
+	t.expectProvenanceSecret(t.NewUserProxySecret())
+}
+
+func (t *cryostatTestInput) expectProvenanceSecret(expectedSecret *corev1.Secret) {
+	secret := &corev1.Secret{}
+	err := t.Client.Get(context.Background(), types.NamespacedName{Name: expectedSecret.Name,
+		Namespace: expectedSecret.Namespace}, secret)
+	Expect(err).ToNot(HaveOccurred())
+
+	// Compare to desired spec
+	t.checkMetadata(secret, expectedSecret)
+	Expect(secret.Data).To(Equal(expectedSecret.Data))
+}
+
+// getSecret fetches the named Secret from the install namespace
+func (t *cryostatTestInput) getSecret(name string) *corev1.Secret {
+	secret := &corev1.Secret{}
+	err := t.Client.Get(context.Background(), types.NamespacedName{Name: name, Namespace: t.Namespace}, secret)
+	Expect(err).ToNot(HaveOccurred())
+	return secret
 }
 
 func (t *cryostatTestInput) expectCoreService() {
