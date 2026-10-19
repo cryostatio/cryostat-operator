@@ -214,6 +214,7 @@ OperatorHub will eventually receive.
 ### Requirements
 - (optional) [oc](https://www.okd.io/download.html)
 - (optional) [crc](https://github.com/code-ready/crc)
+- (for `test-scorecard-local`) `docker` or `podman`
 - (optional, for `test-scorecard-local-kind`) [kind](https://kind.sigs.k8s.io/) and
   `docker` or `podman`
 
@@ -225,6 +226,20 @@ not, requiring no cluster connection.
 `make test-scorecard` will run the Operator SDK's scorecard test suite. This requires a
 Kubernetes or OpenShift cluster to be available and logged in with your `kubectl` or `oc`
 client. The recommended setup for development testing is CodeReady Containers (`crc`).
+
+`make test-scorecard-local` runs the custom scorecard tests from the local source
+against `BUNDLE_IMG`. It uses `IMAGE_BUILDER` (`podman` by default, or `docker`) to
+pull the bundle and copy its manifests and metadata into a temporary directory.
+The container and temporary directory are removed when the tests finish. There is
+no need to regenerate `./bundle` when switching bundle images. For example:
+
+```sh
+BUNDLE_IMG=quay.io/cryostat/cryostat-operator-bundle:latest-ocp \
+SCORECARD_TEST_SELECTION=console-plugin make test-scorecard-local
+```
+
+With `SCORECARD_TEST_ONLY=true`, set `BUNDLE_IMG` to the bundle already installed
+in `SCORECARD_NAMESPACE`.
 
 Before the scorecard tests are run, all cryostat and cryostat-operator
 resources will be deleted to ensure a clean slate.
