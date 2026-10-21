@@ -16,11 +16,10 @@ package tlsprofile
 
 import (
 	"context"
-	"fmt"
 	"strings"
 
 	configv1 "github.com/openshift/api/config/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	openshifttls "github.com/openshift/controller-runtime-common/pkg/tls"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -61,28 +60,16 @@ type OperandTLSConfig struct {
 }
 
 // FetchAndBuild fetches the cluster API Server TLS profile and builds an OperandTLSConfig.
-// Returns nil if the profile is not set (defaults).
 func FetchAndBuild(ctx context.Context, cl client.Client) (*OperandTLSConfig, error) {
-	apiServer := &configv1.APIServer{}
-	if err := cl.Get(ctx, client.ObjectKey{Name: "cluster"}, apiServer); err != nil {
-		return nil, fmt.Errorf("get APIServer config: %w", err)
-	}
-
-	profile := apiServer.Spec.TLSSecurityProfile
-	if profile == nil {
-		profile = &configv1.TLSSecurityProfile{Type: configv1.TLSProfileIntermediateType}
-	}
-
-	return BuildFromProfile(profile)
-}
-
-// BuildFromProfile builds an OperandTLSConfig from a TLSSecurityProfile.
-func BuildFromProfile(profile *configv1.TLSSecurityProfile) (*OperandTLSConfig, error) {
-	spec, err := resolveSpec(profile)
+	spec, err := openshifttls.FetchAPIServerTLSProfile(ctx, cl)
 	if err != nil {
 		return nil, err
 	}
+	return BuildFromSpec(spec)
+}
 
+// BuildFromSpec builds an OperandTLSConfig from a resolved TLSProfileSpec.
+func BuildFromSpec(spec configv1.TLSProfileSpec) (*OperandTLSConfig, error) {
 	minVersion := string(spec.MinTLSVersion)
 	ciphers := spec.Ciphers
 
@@ -102,27 +89,6 @@ func BuildFromProfile(profile *configv1.TLSSecurityProfile) (*OperandTLSConfig, 
 		SeaweedMinVersion:   minVersionToSeaweed(minVersion),
 		SeaweedCipherSuites: strings.Join(opensslToIANA(ciphers), ","),
 	}, nil
-}
-
-func resolveSpec(profile *configv1.TLSSecurityProfile) (*configv1.TLSProfileSpec, error) {
-	switch profile.Type {
-	case configv1.TLSProfileOldType,
-		configv1.TLSProfileIntermediateType,
-		configv1.TLSProfileModernType:
-		spec, ok := configv1.TLSProfiles[profile.Type]
-		if !ok {
-			return nil, fmt.Errorf("unknown built-in TLS profile type: %s", profile.Type)
-		}
-		return spec, nil
-	case configv1.TLSProfileCustomType:
-		if profile.Custom == nil {
-			return nil, fmt.Errorf("custom profile specified but Custom is nil")
-		}
-		return &profile.Custom.TLSProfileSpec, nil
-	default:
-		spec := configv1.TLSProfiles[configv1.TLSProfileIntermediateType]
-		return spec, nil
-	}
 }
 
 // protocolsFromMinVersion returns the list of TLS protocol version strings
@@ -230,17 +196,6 @@ func filterTLS12Ciphers(ciphers []string) []string {
 		out = append(out, c)
 	}
 	return out
-}
-
-// FetchAPIServerTLSProfile fetches the APIServer resource for use by the reconciler.
-func FetchAPIServerTLSProfile(ctx context.Context, cl client.Client) (*configv1.TLSSecurityProfile, error) {
-	apiServer := &configv1.APIServer{
-		ObjectMeta: metav1.ObjectMeta{Name: "cluster"},
-	}
-	if err := cl.Get(ctx, client.ObjectKeyFromObject(apiServer), apiServer); err != nil {
-		return nil, fmt.Errorf("get APIServer config: %w", err)
-	}
-	return apiServer.Spec.TLSSecurityProfile, nil
 }
 
 // opensslToIANAMap maps OpenSSL cipher suite names (used in OpenShift TLS profiles)

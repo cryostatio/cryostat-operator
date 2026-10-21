@@ -63,12 +63,10 @@ var _ = Describe("filterTLS12Ciphers", func() {
 	})
 })
 
-var _ = Describe("BuildFromProfile", func() {
+var _ = Describe("BuildFromSpec", func() {
 	It("should populate all fields for the Intermediate profile", func() {
-		profile := &configv1.TLSSecurityProfile{
-			Type: configv1.TLSProfileIntermediateType,
-		}
-		config, err := BuildFromProfile(profile)
+		spec := *configv1.TLSProfiles[configv1.TLSProfileIntermediateType]
+		config, err := BuildFromSpec(spec)
 		Expect(err).ToNot(HaveOccurred())
 		Expect(config.NginxProtocols).ToNot(BeEmpty())
 		Expect(config.QuarkusCipherSuites).ToNot(BeEmpty())
