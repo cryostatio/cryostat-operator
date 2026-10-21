@@ -1078,21 +1078,36 @@ func NewPodForReports(cr *model.CryostatInstance, imageTags *ImageTags, serviceS
 			)
 		}
 
-		tlsConfigName := "https"
-		javaOpts += fmt.Sprintf(" -Dquarkus.http.tls-configuration-name=%s", tlsConfigName)
-		javaOpts += fmt.Sprintf(" -Dquarkus.tls.%s.reload-period=%s", tlsConfigName, "1h")
-		javaOpts += fmt.Sprintf(" -Dquarkus.tls.%s.key-store.pem.0.cert=%s",
-			tlsConfigName,
-			path.Join(SecretMountPrefix, tls.ReportsSecret, corev1.TLSCertKey),
-		)
-		javaOpts += fmt.Sprintf(" -Dquarkus.tls.%s.key-store.pem.0.key=%s",
-			tlsConfigName,
-			path.Join(SecretMountPrefix, tls.ReportsSecret, corev1.TLSPrivateKeyKey),
+		tlsEnvs = append(tlsEnvs,
+			corev1.EnvVar{
+				Name:  "QUARKUS_HTTP_TLS_CONFIGURATION_NAME",
+				Value: "https",
+			},
+			corev1.EnvVar{
+				Name:  "QUARKUS_TLS__HTTPS__RELOAD_PERIOD",
+				Value: "1h",
+			},
+			corev1.EnvVar{
+				Name:  "QUARKUS_TLS__HTTPS__KEY_STORE_PEM__0__CERT",
+				Value: path.Join(SecretMountPrefix, tls.ReportsSecret, corev1.TLSCertKey),
+			},
+			corev1.EnvVar{
+				Name:  "QUARKUS_TLS__HTTPS__KEY_STORE_PEM__0__KEY",
+				Value: path.Join(SecretMountPrefix, tls.ReportsSecret, corev1.TLSPrivateKeyKey),
+			},
 		)
 
 		if operandTLS != nil {
-			javaOpts += fmt.Sprintf(" -Dquarkus.tls.%s.protocols=%s", tlsConfigName, operandTLS.QuarkusProtocols)
-			javaOpts += fmt.Sprintf(" -Dquarkus.tls.%s.cipher-suites=%s", tlsConfigName, operandTLS.QuarkusCipherSuites)
+			tlsEnvs = append(tlsEnvs,
+				corev1.EnvVar{
+					Name:  "QUARKUS_TLS__HTTPS__PROTOCOLS",
+					Value: operandTLS.QuarkusProtocols,
+				},
+				corev1.EnvVar{
+					Name:  "QUARKUS_TLS__HTTPS__CIPHER_SUITES",
+					Value: operandTLS.QuarkusCipherSuites,
+				},
+			)
 		}
 
 		tlsSecretMount := corev1.VolumeMount{

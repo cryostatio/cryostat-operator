@@ -3193,13 +3193,6 @@ func (r *TestResources) NewReportsEnvironmentVariables(resources *corev1.Resourc
 		}
 	}
 	opts := fmt.Sprintf("-XX:+PrintCommandLineFlags -XX:ActiveProcessorCount=%d -Dorg.openjdk.jmc.flightrecorder.parser.singlethreaded=%t", cpus, cpus < 2)
-	if r.TLS {
-		opts += " -Dquarkus.http.tls-configuration-name=https -Dquarkus.tls.https.reload-period=1h -Dquarkus.tls.https.key-store.pem.0.cert=/var/run/secrets/operator.cryostat.io/cryostat-reports-tls/tls.crt -Dquarkus.tls.https.key-store.pem.0.key=/var/run/secrets/operator.cryostat.io/cryostat-reports-tls/tls.key"
-		if r.OpenShift {
-			opts += " -Dquarkus.tls.https.protocols=TLSv1.3,TLSv1.2"
-			opts += " -Dquarkus.tls.https.cipher-suites=TLS_AES_128_GCM_SHA256,TLS_AES_256_GCM_SHA384,TLS_CHACHA20_POLY1305_SHA256,TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256,TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256"
-		}
-	}
 	envs := []corev1.EnvVar{
 		{
 			Name:  "QUARKUS_HTTP_HOST",
@@ -3223,8 +3216,29 @@ func (r *TestResources) NewReportsEnvironmentVariables(resources *corev1.Resourc
 		}, corev1.EnvVar{
 			Name:  "CRYOSTAT_STORAGE_TLS_CERT_PATH",
 			Value: fmt.Sprintf("/var/run/secrets/operator.cryostat.io/%s-storage-tls/tls.crt", r.Name),
+		}, corev1.EnvVar{
+			Name:  "QUARKUS_HTTP_TLS_CONFIGURATION_NAME",
+			Value: "https",
+		}, corev1.EnvVar{
+			Name:  "QUARKUS_TLS__HTTPS__RELOAD_PERIOD",
+			Value: "1h",
+		}, corev1.EnvVar{
+			Name:  "QUARKUS_TLS__HTTPS__KEY_STORE_PEM__0__CERT",
+			Value: fmt.Sprintf("/var/run/secrets/operator.cryostat.io/%s-reports-tls/tls.crt", r.Name),
+		}, corev1.EnvVar{
+			Name:  "QUARKUS_TLS__HTTPS__KEY_STORE_PEM__0__KEY",
+			Value: fmt.Sprintf("/var/run/secrets/operator.cryostat.io/%s-reports-tls/tls.key", r.Name),
 		},
 		)
+		if r.OpenShift {
+			envs = append(envs, corev1.EnvVar{
+				Name:  "QUARKUS_TLS__HTTPS__PROTOCOLS",
+				Value: "TLSv1.3,TLSv1.2",
+			}, corev1.EnvVar{
+				Name:  "QUARKUS_TLS__HTTPS__CIPHER_SUITES",
+				Value: "TLS_AES_128_GCM_SHA256,TLS_AES_256_GCM_SHA384,TLS_CHACHA20_POLY1305_SHA256,TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256,TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256",
+			})
+		}
 	} else {
 		envs = append(envs, corev1.EnvVar{
 			Name:  "QUARKUS_HTTP_PORT",
