@@ -42,7 +42,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/validation/field"
-	"k8s.io/client-go/tools/record"
+	"k8s.io/client-go/tools/events"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	ctrlclient "sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
@@ -156,7 +156,7 @@ func (t *cryostatTestInput) newReconcilerConfig(scheme *runtime.Scheme, client c
 		Client:                 test.NewClientWithTimestamp(test.NewTestClient(client, t.TestResources)),
 		Scheme:                 scheme,
 		IsOpenShift:            t.OpenShift,
-		EventRecorder:          record.NewFakeRecorder(1024),
+		EventRecorder:          events.NewFakeRecorder(1024),
 		RESTMapper:             test.NewTESTRESTMapper(),
 		Log:                    logger,
 		ReconcilerTLS:          test.NewTestReconcilerTLS(&t.TestReconcilerConfig),
@@ -416,7 +416,7 @@ func (c *controllerTest) commonTests() {
 
 				Expect(sa.Annotations).To(Equal(map[string]string{
 					"hello": "world",
-					"serviceaccounts.openshift.io/oauth-redirectreference.route": fmt.Sprintf(`{"metadata":{"creationTimestamp":null},"reference":{"group":"","kind":"Route","name":"%s"}}`, t.Name),
+					"serviceaccounts.openshift.io/oauth-redirectreference.route": fmt.Sprintf(`{"metadata":{},"reference":{"group":"","kind":"Route","name":"%s"}}`, t.Name),
 				}))
 
 				Expect(sa.Labels).To(Equal(map[string]string{
@@ -1352,7 +1352,7 @@ func (c *controllerTest) commonTests() {
 					}).WithTimeout(time.Minute).WithPolling(time.Millisecond).Should(BeTrue())
 				})
 				It("should emit a PersistentVolumeClaimInvalid event", func() {
-					recorder := t.reconciler.GetConfig().EventRecorder.(*record.FakeRecorder)
+					recorder := t.reconciler.GetConfig().EventRecorder.(*events.FakeRecorder)
 					var eventMsg string
 					Expect(recorder.Events).To(Receive(&eventMsg))
 					Expect(eventMsg).To(ContainSubstring("PersistentVolumeClaimInvalid"))
@@ -2047,7 +2047,7 @@ func (c *controllerTest) commonTests() {
 					Expect(err).To(HaveOccurred())
 				})
 				It("should emit a CertManagerUnavailable Event", func() {
-					recorder := t.reconciler.GetConfig().EventRecorder.(*record.FakeRecorder)
+					recorder := t.reconciler.GetConfig().EventRecorder.(*events.FakeRecorder)
 					var eventMsg string
 					Expect(recorder.Events).To(Receive(&eventMsg))
 					Expect(eventMsg).To(ContainSubstring("CertManagerUnavailable"))
@@ -2067,7 +2067,7 @@ func (c *controllerTest) commonTests() {
 					Expect(err).ToNot(HaveOccurred())
 				})
 				It("should not emit a CertManagerUnavailable Event", func() {
-					recorder := t.reconciler.GetConfig().EventRecorder.(*record.FakeRecorder)
+					recorder := t.reconciler.GetConfig().EventRecorder.(*events.FakeRecorder)
 					Expect(recorder.Events).ToNot(Receive())
 				})
 				It("should set TLSSetupComplete Condition", func() {

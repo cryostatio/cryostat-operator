@@ -16,11 +16,9 @@ package webhook
 
 import (
 	"context"
-	"fmt"
 
 	operatorv1beta2 "github.com/cryostatio/cryostat-operator/api/v1beta2"
 	"github.com/go-logr/logr"
-	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 )
 
@@ -28,14 +26,10 @@ type cryostatDefaulter struct {
 	log *logr.Logger
 }
 
-var _ admission.CustomDefaulter = &cryostatDefaulter{}
+var _ admission.Defaulter[*operatorv1beta2.Cryostat] = &cryostatDefaulter{}
 
 // Default applies default values to a Cryostat
-func (r *cryostatDefaulter) Default(ctx context.Context, obj runtime.Object) error {
-	cr, ok := obj.(*operatorv1beta2.Cryostat)
-	if !ok {
-		return fmt.Errorf("expected a Cryostat, but received a %T", obj)
-	}
+func (r *cryostatDefaulter) Default(ctx context.Context, cr *operatorv1beta2.Cryostat) error {
 	r.log.Info("defaulting Cryostat", "name", cr.Name, "namespace", cr.Namespace)
 
 	if cr.Spec.TargetNamespaces == nil {

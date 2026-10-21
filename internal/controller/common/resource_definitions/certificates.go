@@ -65,7 +65,7 @@ func NewCryostatCACert(gvk *schema.GroupVersionKind, cr *model.CryostatInstance)
 		Spec: certv1.CertificateSpec{
 			CommonName: constants.CryostatCATLSCommonName,
 			SecretName: common.ClusterUniqueNameWithPrefix(gvk, "ca", cr.Name, cr.InstallNamespace),
-			IssuerRef: certMeta.ObjectReference{
+			IssuerRef: certMeta.IssuerReference{
 				Name: cr.Name + "-self-signed",
 			},
 			IsCA: true,
@@ -99,7 +99,7 @@ func NewCryostatCert(cr *model.CryostatInstance, keystoreSecretName string) *cer
 					Profile: certv1.Modern2023PKCS12Profile,
 				},
 			},
-			IssuerRef: certMeta.ObjectReference{
+			IssuerRef: certMeta.IssuerReference{
 				Name: cr.Name + "-ca",
 			},
 			Usages: append(certv1.DefaultKeyUsages(),
@@ -124,7 +124,7 @@ func NewReportsCert(cr *model.CryostatInstance) *certv1.Certificate {
 				fmt.Sprintf("%s-reports.%s.svc.cluster.local", cr.Name, cr.InstallNamespace),
 			},
 			SecretName: cr.Name + "-reports-tls",
-			IssuerRef: certMeta.ObjectReference{
+			IssuerRef: certMeta.IssuerReference{
 				Name: cr.Name + "-ca",
 			},
 			Usages: append(certv1.DefaultKeyUsages(),
@@ -148,7 +148,7 @@ func NewDatabaseCert(cr *model.CryostatInstance) *certv1.Certificate {
 				fmt.Sprintf("%s-database.%s.svc.cluster.local", cr.Name, cr.InstallNamespace),
 			},
 			SecretName: cr.Name + "-database-tls",
-			IssuerRef: certMeta.ObjectReference{
+			IssuerRef: certMeta.IssuerReference{
 				Name: cr.Name + "-ca",
 			},
 			Usages: append(certv1.DefaultKeyUsages(),
@@ -172,7 +172,7 @@ func NewStorageCert(cr *model.CryostatInstance) *certv1.Certificate {
 				fmt.Sprintf("%s-storage.%s.svc.cluster.local", cr.Name, cr.InstallNamespace),
 			},
 			SecretName: cr.Name + "-storage-tls",
-			IssuerRef: certMeta.ObjectReference{
+			IssuerRef: certMeta.IssuerReference{
 				Name: cr.Name + "-ca",
 			},
 			Usages: append(certv1.DefaultKeyUsages(),
@@ -197,7 +197,7 @@ func NewAgentCert(cr *model.CryostatInstance, namespace string, gvk *schema.Grou
 				fmt.Sprintf("*.%s.%s.svc", svcName, namespace),
 			},
 			SecretName: name,
-			IssuerRef: certMeta.ObjectReference{
+			IssuerRef: certMeta.IssuerReference{
 				Name: cr.Name + "-ca",
 			},
 			Usages: append(certv1.DefaultKeyUsages(),
@@ -223,7 +223,7 @@ func NewAgentProxyCert(cr *model.CryostatInstance) *certv1.Certificate {
 				fmt.Sprintf("%s.%s.svc.cluster.local", svcName, cr.InstallNamespace),
 			},
 			SecretName: cr.Name + "-agent-tls",
-			IssuerRef: certMeta.ObjectReference{
+			IssuerRef: certMeta.IssuerReference{
 				Name: cr.Name + "-ca",
 			},
 			Usages: append(certv1.DefaultKeyUsages(),

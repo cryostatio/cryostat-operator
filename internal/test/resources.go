@@ -2075,7 +2075,7 @@ func (r *TestResources) NewCryostatCert() *certv1.Certificate {
 					Profile: certv1.Modern2023PKCS12Profile,
 				},
 			},
-			IssuerRef: certMeta.ObjectReference{
+			IssuerRef: certMeta.IssuerReference{
 				Name: r.Name + "-ca",
 			},
 			Usages: []certv1.KeyUsage{
@@ -2121,7 +2121,7 @@ func (r *TestResources) NewReportsCert() *certv1.Certificate {
 				fmt.Sprintf(r.Name+"-reports.%s.svc.cluster.local", r.Namespace),
 			},
 			SecretName: r.Name + "-reports-tls",
-			IssuerRef: certMeta.ObjectReference{
+			IssuerRef: certMeta.IssuerReference{
 				Name: r.Name + "-ca",
 			},
 			Usages: []certv1.KeyUsage{
@@ -2147,7 +2147,7 @@ func (r *TestResources) NewDatabaseCert() *certv1.Certificate {
 				fmt.Sprintf(r.Name+"-database.%s.svc.cluster.local", r.Namespace),
 			},
 			SecretName: r.Name + "-database-tls",
-			IssuerRef: certMeta.ObjectReference{
+			IssuerRef: certMeta.IssuerReference{
 				Name: r.Name + "-ca",
 			},
 			Usages: []certv1.KeyUsage{
@@ -2179,7 +2179,7 @@ func (r *TestResources) NewAgentProxyCert() *certv1.Certificate {
 				fmt.Sprintf(r.Name+"-agent.%s.svc.cluster.local", r.Namespace),
 			},
 			SecretName: r.Name + "-agent-tls",
-			IssuerRef: certMeta.ObjectReference{
+			IssuerRef: certMeta.IssuerReference{
 				Name: r.Name + "-ca",
 			},
 			Usages: []certv1.KeyUsage{
@@ -2205,7 +2205,7 @@ func (r *TestResources) NewStorageCert() *certv1.Certificate {
 				fmt.Sprintf(r.Name+"-storage.%s.svc.cluster.local", r.Namespace),
 			},
 			SecretName: r.Name + "-storage-tls",
-			IssuerRef: certMeta.ObjectReference{
+			IssuerRef: certMeta.IssuerReference{
 				Name: r.Name + "-ca",
 			},
 			Usages: []certv1.KeyUsage{
@@ -2233,7 +2233,7 @@ func (r *TestResources) NewCACert() *certv1.Certificate {
 		Spec: certv1.CertificateSpec{
 			CommonName: "cryostat-ca-cert-manager",
 			SecretName: r.getClusterUniqueNameForCA(),
-			IssuerRef: certMeta.ObjectReference{
+			IssuerRef: certMeta.IssuerReference{
 				Name: r.Name + "-self-signed",
 			},
 			IsCA: true,
@@ -2261,7 +2261,7 @@ func (r *TestResources) NewAgentCert(namespace string) *certv1.Certificate {
 				fmt.Sprintf("*.%s.%s.svc", r.GetAgentServiceName(), namespace),
 			},
 			SecretName: name,
-			IssuerRef: certMeta.ObjectReference{
+			IssuerRef: certMeta.IssuerReference{
 				Name: r.Name + "-ca",
 			},
 			Usages: []certv1.KeyUsage{
@@ -3030,6 +3030,19 @@ func (r *TestResources) NewCoreEnvironmentVariables(reportsUrl string, ingress b
 		})
 	}
 
+	if r.OpenShift {
+		envs = append(envs,
+			corev1.EnvVar{
+				Name:  "QUARKUS_TLS_PROTOCOLS",
+				Value: "TLSv1.3,TLSv1.2",
+			},
+			corev1.EnvVar{
+				Name:  "QUARKUS_TLS_CIPHER_SUITES",
+				Value: "TLS_AES_128_GCM_SHA256,TLS_AES_256_GCM_SHA384,TLS_CHACHA20_POLY1305_SHA256,TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256,TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256",
+			},
+		)
+	}
+
 	envs = append(envs, r.NewTargetDiscoveryEnvVars(hasPortConfig, builtInDiscoveryDisabled, builtInPortConfigDisabled)...)
 
 	secretName := r.NewDatabaseSecret().Name
@@ -3180,9 +3193,6 @@ func (r *TestResources) NewReportsEnvironmentVariables(resources *corev1.Resourc
 		}
 	}
 	opts := fmt.Sprintf("-XX:+PrintCommandLineFlags -XX:ActiveProcessorCount=%d -Dorg.openjdk.jmc.flightrecorder.parser.singlethreaded=%t", cpus, cpus < 2)
-	if r.TLS {
-		opts += " -Dquarkus.http.tls-configuration-name=https -Dquarkus.tls.https.reload-period=1h -Dquarkus.tls.https.key-store.pem.0.cert=/var/run/secrets/operator.cryostat.io/cryostat-reports-tls/tls.crt -Dquarkus.tls.https.key-store.pem.0.key=/var/run/secrets/operator.cryostat.io/cryostat-reports-tls/tls.key"
-	}
 	envs := []corev1.EnvVar{
 		{
 			Name:  "QUARKUS_HTTP_HOST",
@@ -3206,8 +3216,29 @@ func (r *TestResources) NewReportsEnvironmentVariables(resources *corev1.Resourc
 		}, corev1.EnvVar{
 			Name:  "CRYOSTAT_STORAGE_TLS_CERT_PATH",
 			Value: fmt.Sprintf("/var/run/secrets/operator.cryostat.io/%s-storage-tls/tls.crt", r.Name),
+		}, corev1.EnvVar{
+			Name:  "QUARKUS_HTTP_TLS_CONFIGURATION_NAME",
+			Value: "https",
+		}, corev1.EnvVar{
+			Name:  "QUARKUS_TLS__HTTPS__RELOAD_PERIOD",
+			Value: "1h",
+		}, corev1.EnvVar{
+			Name:  "QUARKUS_TLS__HTTPS__KEY_STORE_PEM__0__CERT",
+			Value: fmt.Sprintf("/var/run/secrets/operator.cryostat.io/%s-reports-tls/tls.crt", r.Name),
+		}, corev1.EnvVar{
+			Name:  "QUARKUS_TLS__HTTPS__KEY_STORE_PEM__0__KEY",
+			Value: fmt.Sprintf("/var/run/secrets/operator.cryostat.io/%s-reports-tls/tls.key", r.Name),
 		},
 		)
+		if r.OpenShift {
+			envs = append(envs, corev1.EnvVar{
+				Name:  "QUARKUS_TLS__HTTPS__PROTOCOLS",
+				Value: "TLSv1.3,TLSv1.2",
+			}, corev1.EnvVar{
+				Name:  "QUARKUS_TLS__HTTPS__CIPHER_SUITES",
+				Value: "TLS_AES_128_GCM_SHA256,TLS_AES_256_GCM_SHA384,TLS_CHACHA20_POLY1305_SHA256,TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256,TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256",
+			})
+		}
 	} else {
 		envs = append(envs, corev1.EnvVar{
 			Name:  "QUARKUS_HTTP_PORT",
@@ -3251,6 +3282,18 @@ func (r *TestResources) NewStorageEnvironmentVariables() []corev1.EnvVar {
 				},
 			},
 		},
+	}
+	if r.OpenShift {
+		envs = append(envs,
+			corev1.EnvVar{
+				Name:  "WEED_TLS_MIN_VERSION",
+				Value: "TLS 1.2",
+			},
+			corev1.EnvVar{
+				Name:  "WEED_TLS_CIPHER_SUITES",
+				Value: "TLS_AES_128_GCM_SHA256,TLS_AES_256_GCM_SHA384,TLS_CHACHA20_POLY1305_SHA256,TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256,TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256",
+			},
+		)
 	}
 	return envs
 }
@@ -3329,6 +3372,14 @@ func (r *TestResources) NewDatabaseArgs() []string {
 			"-c",
 			fmt.Sprintf("ssl_key_file=/var/run/secrets/operator.cryostat.io/%s-database-tls/%s", r.Name, corev1.TLSPrivateKeyKey),
 		)
+		if r.OpenShift {
+			args = append(args,
+				"-c",
+				"ssl_min_protocol_version=TLSv1.2",
+				"-c",
+				"ssl_ciphers=ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-ECDSA-CHACHA20-POLY1305:ECDHE-RSA-CHACHA20-POLY1305",
+			)
+		}
 	}
 
 	return args
@@ -4981,7 +5032,7 @@ func (r *TestResources) NewServiceAccount() *corev1.ServiceAccount {
 	var annotations map[string]string
 	if r.OpenShift {
 		annotations = map[string]string{
-			"serviceaccounts.openshift.io/oauth-redirectreference.route": fmt.Sprintf(`{"metadata":{"creationTimestamp":null},"reference":{"group":"","kind":"Route","name":"%s"}}`, r.Name),
+			"serviceaccounts.openshift.io/oauth-redirectreference.route": fmt.Sprintf(`{"metadata":{},"reference":{"group":"","kind":"Route","name":"%s"}}`, r.Name),
 		}
 	}
 
@@ -5632,8 +5683,8 @@ http {
 		ssl_dhparam /etc/nginx-cryostat/dhparam.pem;
 
 		# intermediate configuration
-		ssl_protocols TLSv1.2 TLSv1.3;
-		ssl_ciphers ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-ECDSA-CHACHA20-POLY1305:ECDHE-RSA-CHACHA20-POLY1305:DHE-RSA-AES128-GCM-SHA256:DHE-RSA-AES256-GCM-SHA384:DHE-RSA-CHACHA20-POLY1305;
+		ssl_protocols %s;
+		ssl_ciphers %s;
 		ssl_prefer_server_ciphers off;
 
 		# HSTS (ngx_http_headers_module is required) (63072000 seconds)
@@ -5885,8 +5936,14 @@ http {
 func (r *TestResources) NewAgentProxyConfigMap() *corev1.ConfigMap {
 	var data map[string]string
 	if r.TLS {
+		sslProtocols := "TLSv1.2 TLSv1.3"
+		sslCiphers := "ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-ECDSA-CHACHA20-POLY1305:ECDHE-RSA-CHACHA20-POLY1305:DHE-RSA-AES128-GCM-SHA256:DHE-RSA-AES256-GCM-SHA384:DHE-RSA-CHACHA20-POLY1305"
+		if r.OpenShift {
+			sslProtocols = "TLSv1.3 TLSv1.2"
+			sslCiphers = "ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-ECDSA-CHACHA20-POLY1305:ECDHE-RSA-CHACHA20-POLY1305"
+		}
 		data = map[string]string{
-			"nginx.conf": fmt.Sprintf(nginxFormatTLS, r.Name, r.Namespace, r.Name, r.Name, r.Name, r.Name),
+			"nginx.conf": fmt.Sprintf(nginxFormatTLS, r.Name, r.Namespace, r.Name, r.Name, sslProtocols, sslCiphers, r.Name, r.Name),
 			"dhparam.pem": `-----BEGIN DH PARAMETERS-----
 MIIBCAKCAQEA//////////+t+FRYortKmq/cViAnPTzx2LnFg84tNpWp4TZBFGQz
 +8yTnc4kmz75fS/jY2MMddj2gbICrsRhetPfHtXV/WVhJDP1H18GbtCFY2VVPe0a

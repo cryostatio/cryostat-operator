@@ -68,7 +68,7 @@ func (r *Reconciler) reconcilePVC(ctx context.Context, cr *model.CryostatInstanc
 		// If the API server says the PVC is invalid, emit a warning event
 		// to inform the user.
 		if kerrors.IsInvalid(err) {
-			r.EventRecorder.Event(cr.Object, corev1.EventTypeWarning, eventPersistentVolumeClaimInvalidType, err.Error())
+			r.EventRecorder.Eventf(cr.Object, nil, corev1.EventTypeWarning, eventPersistentVolumeClaimInvalidType, eventPersistentVolumeClaimInvalidType, "%s", err.Error())
 		}
 		return err
 	}

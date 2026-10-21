@@ -26,7 +26,6 @@ import (
 	"github.com/go-logr/logr"
 	appsv1 "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -41,16 +40,11 @@ type deploymentMutator struct {
 	common.ReconcilerTLS
 }
 
-var _ admission.CustomDefaulter = &deploymentMutator{}
+var _ admission.Defaulter[*appsv1.Deployment] = &deploymentMutator{}
 
 // Default optionally mutates a deployment to propagate the agent autoconfig labels
 // to pods within. The Pod mutator webhook will take care of the rest.
-func (r *deploymentMutator) Default(ctx context.Context, obj runtime.Object) error {
-	deployment, ok := obj.(*appsv1.Deployment)
-	if !ok {
-		return fmt.Errorf("expected a Deployment, but received a %T", obj)
-	}
-
+func (r *deploymentMutator) Default(ctx context.Context, deployment *appsv1.Deployment) error {
 	// Look up Cryostat
 	cr := &operatorv1beta2.Cryostat{}
 	err := r.client.Get(ctx, types.NamespacedName{

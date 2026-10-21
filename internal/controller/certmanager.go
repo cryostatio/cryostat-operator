@@ -49,7 +49,7 @@ func (r *Reconciler) setupTLS(ctx context.Context, cr *model.CryostatInstance) (
 		return nil, err
 	}
 	if !available {
-		r.EventRecorder.Event(cr.Object, corev1.EventTypeWarning, eventCertManagerUnavailableType, eventCertManagerUnavailableMsg)
+		r.EventRecorder.Eventf(cr.Object, nil, corev1.EventTypeWarning, eventCertManagerUnavailableType, eventCertManagerUnavailableType, eventCertManagerUnavailableMsg)
 		return nil, errCertManagerMissing
 	}
 
