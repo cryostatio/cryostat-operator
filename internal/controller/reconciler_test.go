@@ -416,7 +416,7 @@ func (c *controllerTest) commonTests() {
 
 				Expect(sa.Annotations).To(Equal(map[string]string{
 					"hello": "world",
-					"serviceaccounts.openshift.io/oauth-redirectreference.route": fmt.Sprintf(`{"metadata":{"creationTimestamp":null},"reference":{"group":"","kind":"Route","name":"%s"}}`, t.Name),
+					"serviceaccounts.openshift.io/oauth-redirectreference.route": fmt.Sprintf(`{"metadata":{},"reference":{"group":"","kind":"Route","name":"%s"}}`, t.Name),
 				}))
 
 				Expect(sa.Labels).To(Equal(map[string]string{
