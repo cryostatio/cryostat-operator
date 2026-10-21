@@ -16,6 +16,7 @@ package tlsprofile
 
 import (
 	"context"
+	"fmt"
 	"strings"
 
 	configv1 "github.com/openshift/api/config/v1"
@@ -78,16 +79,20 @@ func BuildFromSpec(spec configv1.TLSProfileSpec) (*OperandTLSConfig, error) {
 	// PostgreSQL ssl_ciphers) only handles TLS 1.2 and below. TLS 1.3
 	// cipher suites are configured separately and must be excluded here.
 	opensslCiphers := filterTLS12Ciphers(ciphers)
+	ianaCiphers := opensslToIANA(ciphers)
+	if len(ciphers) > 0 && len(ianaCiphers) == 0 {
+		return nil, fmt.Errorf("TLS profile contains no cipher suites recognized by the operands")
+	}
 
 	return &OperandTLSConfig{
 		NginxProtocols:      strings.Join(protocols, " "),
 		NginxCiphers:        strings.Join(opensslCiphers, ":"),
 		QuarkusProtocols:    strings.Join(protocols, ","),
-		QuarkusCipherSuites: strings.Join(opensslToIANA(ciphers), ","),
+		QuarkusCipherSuites: strings.Join(ianaCiphers, ","),
 		PostgresMinVersion:  minVersionToPostgres(minVersion),
 		PostgresCiphers:     strings.Join(opensslCiphers, ":"),
 		SeaweedMinVersion:   minVersionToSeaweed(minVersion),
-		SeaweedCipherSuites: strings.Join(opensslToIANA(ciphers), ","),
+		SeaweedCipherSuites: strings.Join(ianaCiphers, ","),
 	}, nil
 }
 

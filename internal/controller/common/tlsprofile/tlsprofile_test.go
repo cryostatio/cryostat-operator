@@ -73,4 +73,24 @@ var _ = Describe("BuildFromSpec", func() {
 		Expect(config.PostgresMinVersion).ToNot(BeEmpty())
 		Expect(config.SeaweedMinVersion).ToNot(BeEmpty())
 	})
+
+	It("should return an error when all ciphers are unrecognized", func() {
+		spec := configv1.TLSProfileSpec{
+			Ciphers:       []string{"UNKNOWN-CIPHER-1", "UNKNOWN-CIPHER-2"},
+			MinTLSVersion: configv1.VersionTLS12,
+		}
+		_, err := BuildFromSpec(spec)
+		Expect(err).To(HaveOccurred())
+		Expect(err.Error()).To(ContainSubstring("no cipher suites recognized"))
+	})
+
+	It("should succeed when some ciphers are unrecognized", func() {
+		spec := configv1.TLSProfileSpec{
+			Ciphers:       []string{"UNKNOWN-CIPHER", "ECDHE-RSA-AES128-GCM-SHA256"},
+			MinTLSVersion: configv1.VersionTLS12,
+		}
+		config, err := BuildFromSpec(spec)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(config.QuarkusCipherSuites).To(Equal("TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256"))
+	})
 })
