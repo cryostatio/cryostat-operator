@@ -342,7 +342,21 @@ function cleanup { \
 endef
 
 define scorecard-local
-	SCORECARD_NAMESPACE=$(SCORECARD_NAMESPACE) BUNDLE_DIR=./bundle go run internal/images/custom-scorecard-tests/main.go $${SCORECARD_TEST_SELECTION} | sed 's/\\n/\n/g' $(SCORECARD_TEE)
+	( \
+	bundle_dir=$$(mktemp -d); \
+	bundle_container=; \
+	cleanup_bundle() { \
+		if [ -n "$$bundle_container" ]; then \
+			$(IMAGE_BUILDER) rm -f "$$bundle_container" >/dev/null || true; \
+		fi; \
+		rm -rf "$$bundle_dir"; \
+	}; \
+	trap cleanup_bundle EXIT; \
+	bundle_container=$$($(IMAGE_BUILDER) create --pull=always "$(BUNDLE_IMG)" /bin/true); \
+	$(IMAGE_BUILDER) cp "$$bundle_container:/manifests" "$$bundle_dir/manifests"; \
+	$(IMAGE_BUILDER) cp "$$bundle_container:/metadata" "$$bundle_dir/metadata"; \
+	SCORECARD_NAMESPACE=$(SCORECARD_NAMESPACE) BUNDLE_DIR="$$bundle_dir" go run internal/images/custom-scorecard-tests/main.go $${SCORECARD_TEST_SELECTION} | sed 's/\\n/\n/g' $(SCORECARD_TEE); \
+	)
 endef
 
 .PHONY: test-scorecard-local-kind
