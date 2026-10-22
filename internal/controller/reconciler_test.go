@@ -55,6 +55,7 @@ import (
 
 	operatorv1beta2 "github.com/cryostatio/cryostat-operator/api/v1beta2"
 	"github.com/cryostatio/cryostat-operator/internal/controller"
+	"github.com/cryostatio/cryostat-operator/internal/controller/common/tlsprofile"
 	"github.com/cryostatio/cryostat-operator/internal/controller/model"
 	"github.com/cryostatio/cryostat-operator/internal/test"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
@@ -152,6 +153,11 @@ func (t *cryostatTestInput) newReconcilerConfig(scheme *runtime.Scheme, client c
 		Expect(err).ToNot(HaveOccurred())
 		insightsURL = parsed
 	}
+	var operandTLS *tlsprofile.OperandTLSConfig
+	if t.OpenShift {
+		spec := *configv1.TLSProfiles[configv1.TLSProfileIntermediateType]
+		operandTLS, _ = tlsprofile.BuildFromSpec(spec)
+	}
 	return &controller.ReconcilerConfig{
 		Client:                 test.NewClientWithTimestamp(test.NewTestClient(client, t.TestResources)),
 		Scheme:                 scheme,
@@ -162,6 +168,7 @@ func (t *cryostatTestInput) newReconcilerConfig(scheme *runtime.Scheme, client c
 		ReconcilerTLS:          test.NewTestReconcilerTLS(&t.TestReconcilerConfig),
 		InsightsProxy:          insightsURL,
 		IsCertManagerInstalled: !t.CertManagerMissing,
+		OperandTLS:             operandTLS,
 		NewControllerBuilder:   test.NewControllerBuilder(&t.TestReconcilerConfig),
 		OSUtils:                test.NewTestOSUtils(&t.TestReconcilerConfig),
 	}

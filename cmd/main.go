@@ -350,7 +350,7 @@ func main() {
 	}
 
 	config := newReconcilerConfig(mgr, "Cryostat", "cryostat-controller", openShift, certManager,
-		insightsURL)
+		insightsURL, operandTLS)
 	cryostatController, err := controller.NewCryostatReconciler(config)
 	if err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "Cryostat")
@@ -450,7 +450,7 @@ func isCertManagerInstalled(dc discovery.DiscoveryInterface) (bool, error) {
 }
 
 func newReconcilerConfig(mgr ctrl.Manager, logName string, eventRecorderName string, openShift bool,
-	certManager bool, insightsURL *url.URL) *controller.ReconcilerConfig {
+	certManager bool, insightsURL *url.URL, operandTLS *tlsprofile.OperandTLSConfig) *controller.ReconcilerConfig {
 	return &controller.ReconcilerConfig{
 		Client:                 mgr.GetClient(),
 		Log:                    ctrl.Log.WithName("controller").WithName(logName),
@@ -460,6 +460,7 @@ func newReconcilerConfig(mgr ctrl.Manager, logName string, eventRecorderName str
 		EventRecorder:          mgr.GetEventRecorder(eventRecorderName),
 		RESTMapper:             mgr.GetRESTMapper(),
 		InsightsProxy:          insightsURL,
+		OperandTLS:             operandTLS,
 		NewControllerBuilder:   common.NewControllerBuilder,
 		ReconcilerTLS: common.NewReconcilerTLS(&common.ReconcilerTLSConfig{
 			Client: mgr.GetClient(),

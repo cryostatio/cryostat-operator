@@ -15,13 +15,10 @@
 package tlsprofile
 
 import (
-	"context"
 	"fmt"
 	"strings"
 
 	configv1 "github.com/openshift/api/config/v1"
-	openshifttls "github.com/openshift/controller-runtime-common/pkg/tls"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 // OpenShift API TLS version names (from configv1.TLSProtocolVersion constants).
@@ -62,15 +59,6 @@ type OperandTLSConfig struct {
 	AgentMinVersion string
 	// AgentCipherSuites is a comma-separated list of IANA cipher names for the Cryostat agent.
 	AgentCipherSuites string
-}
-
-// FetchAndBuild fetches the cluster API Server TLS profile and builds an OperandTLSConfig.
-func FetchAndBuild(ctx context.Context, cl client.Client) (*OperandTLSConfig, error) {
-	spec, err := openshifttls.FetchAPIServerTLSProfile(ctx, cl)
-	if err != nil {
-		return nil, err
-	}
-	return BuildFromSpec(spec)
 }
 
 // BuildFromSpec builds an OperandTLSConfig from a resolved TLSProfileSpec.

@@ -64,6 +64,7 @@ type ReconcilerConfig struct {
 	EventRecorder          events.EventRecorder
 	RESTMapper             meta.RESTMapper
 	InsightsProxy          *url.URL // Only defined if Insights is enabled
+	OperandTLS             *tlsprofile.OperandTLSConfig
 	FIPSEnabled            bool
 	NewControllerBuilder   func(ctrl.Manager) common.ControllerBuilder
 	common.ReconcilerTLS
@@ -220,21 +221,11 @@ func (r *Reconciler) reconcileCryostat(ctx context.Context, cr *model.CryostatIn
 		return reconcile.Result{}, err
 	}
 
-	// Fetch the cluster TLS security profile on OpenShift
-	var operandTLS *tlsprofile.OperandTLSConfig
-	if r.IsOpenShift {
-		operandTLS, err = tlsprofile.FetchAndBuild(ctx, r.Client)
-		if err != nil {
-			reqLogger.Error(err, "Failed to fetch cluster TLS profile")
-			return reconcile.Result{}, err
-		}
-	}
-
 	err = r.reconcileOAuth2ProxyConfig(ctx, cr, tlsConfig)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
-	err = r.reconcileAgentProxyConfig(ctx, cr, tlsConfig, operandTLS)
+	err = r.reconcileAgentProxyConfig(ctx, cr, tlsConfig, r.OperandTLS)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
@@ -268,22 +259,22 @@ func (r *Reconciler) reconcileCryostat(ctx context.Context, cr *model.CryostatIn
 		return reconcile.Result{}, err
 	}
 
-	err = r.reconcileDatabase(ctx, reqLogger, cr, tlsConfig, operandTLS, imageTags, serviceSpecs, *fsGroup)
+	err = r.reconcileDatabase(ctx, reqLogger, cr, tlsConfig, r.OperandTLS, imageTags, serviceSpecs, *fsGroup)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
 
-	err = r.reconcileStorage(ctx, reqLogger, cr, tlsConfig, operandTLS, imageTags, serviceSpecs, *fsGroup)
+	err = r.reconcileStorage(ctx, reqLogger, cr, tlsConfig, r.OperandTLS, imageTags, serviceSpecs, *fsGroup)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
 
-	err = r.reconcileReports(ctx, reqLogger, cr, tlsConfig, operandTLS, imageTags, serviceSpecs)
+	err = r.reconcileReports(ctx, reqLogger, cr, tlsConfig, r.OperandTLS, imageTags, serviceSpecs)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
 
-	deployment, err := resources.NewDeploymentForCR(cr, serviceSpecs, imageTags, tlsConfig, operandTLS, *fsGroup, r.IsOpenShift)
+	deployment, err := resources.NewDeploymentForCR(cr, serviceSpecs, imageTags, tlsConfig, r.OperandTLS, *fsGroup, r.IsOpenShift)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
