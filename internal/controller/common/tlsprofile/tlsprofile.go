@@ -85,7 +85,7 @@ func BuildFromSpec(spec configv1.TLSProfileSpec) (*OperandTLSConfig, error) {
 		PostgresCiphers:     strings.Join(opensslCiphers, ":"),
 		SeaweedMinVersion:   minVersionToSeaweed(minVersion),
 		SeaweedCipherSuites: strings.Join(ianaCiphers, ","),
-		AgentMinVersion:     minVersionToPostgres(minVersion),
+		AgentMinVersion:     minVersionToAgent(minVersion),
 		AgentCipherSuites:   strings.Join(ianaCiphers, ","),
 	}, nil
 }
@@ -135,6 +135,23 @@ func minVersionToPostgres(v string) string {
 	switch v {
 	case versionTLS10:
 		return "TLSv1"
+	case versionTLS11:
+		return protoTLS11
+	case versionTLS12:
+		return protoTLS12
+	case versionTLS13:
+		return protoTLS13
+	default:
+		return protoTLS12
+	}
+}
+
+// minVersionToAgent converts an OpenShift API TLS version name to the
+// "TLSv1.x" protocol string used by the Cryostat agent.
+func minVersionToAgent(v string) string {
+	switch v {
+	case versionTLS10:
+		return protoTLS10
 	case versionTLS11:
 		return protoTLS11
 	case versionTLS12:
