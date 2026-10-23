@@ -53,6 +53,7 @@ import (
 	"github.com/cryostatio/cryostat-operator/internal/console"
 	"github.com/cryostatio/cryostat-operator/internal/controller"
 	"github.com/cryostatio/cryostat-operator/internal/controller/common"
+	"github.com/cryostatio/cryostat-operator/internal/controller/common/tlsprofile"
 	"github.com/cryostatio/cryostat-operator/internal/controller/constants"
 	"github.com/cryostatio/cryostat-operator/internal/fips"
 	"github.com/cryostatio/cryostat-operator/internal/webhook/agent"
@@ -147,6 +148,7 @@ func main() {
 
 	// On OpenShift, fetch the cluster TLS profile and apply to operator servers
 	var initialTLSProfile *configv1.TLSProfileSpec
+	var operandTLS *tlsprofile.OperandTLSConfig
 	if openShift {
 		ctx := context.Background()
 		cl, err := client.New(restConfig, client.Options{Scheme: scheme})
@@ -165,6 +167,12 @@ func main() {
 			setupLog.Info("TLS profile contains ciphers unsupported by Go that will be ignored", "unsupported", unsupported)
 		}
 		tlsOpts = append([]func(*tls.Config){tlsConfigFn}, tlsOpts...)
+
+		operandTLS, err = tlsprofile.BuildFromSpec(profile)
+		if err != nil {
+			setupLog.Error(err, "failed to build operand TLS config from profile")
+			os.Exit(1)
+		}
 	}
 
 	// if the enable-http2 flag is false (the default), http/2 should be disabled
@@ -342,7 +350,7 @@ func main() {
 	}
 
 	config := newReconcilerConfig(mgr, "Cryostat", "cryostat-controller", openShift, certManager,
-		insightsURL)
+		insightsURL, operandTLS)
 	cryostatController, err := controller.NewCryostatReconciler(config)
 	if err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "Cryostat")
@@ -360,6 +368,7 @@ func main() {
 		}
 		agentWebhook := agent.NewAgentWebhook(&agent.AgentWebhookConfig{
 			FIPSEnabled: fipsEnabled,
+			OperandTLS:  operandTLS,
 		})
 		if err = agentWebhook.SetupWebhookWithManager(mgr); err != nil {
 			setupLog.Error(err, "unable to create webhook", "webhook", "Pod")
@@ -441,7 +450,7 @@ func isCertManagerInstalled(dc discovery.DiscoveryInterface) (bool, error) {
 }
 
 func newReconcilerConfig(mgr ctrl.Manager, logName string, eventRecorderName string, openShift bool,
-	certManager bool, insightsURL *url.URL) *controller.ReconcilerConfig {
+	certManager bool, insightsURL *url.URL, operandTLS *tlsprofile.OperandTLSConfig) *controller.ReconcilerConfig {
 	return &controller.ReconcilerConfig{
 		Client:                 mgr.GetClient(),
 		Log:                    ctrl.Log.WithName("controller").WithName(logName),
@@ -451,6 +460,7 @@ func newReconcilerConfig(mgr ctrl.Manager, logName string, eventRecorderName str
 		EventRecorder:          mgr.GetEventRecorder(eventRecorderName),
 		RESTMapper:             mgr.GetRESTMapper(),
 		InsightsProxy:          insightsURL,
+		OperandTLS:             operandTLS,
 		NewControllerBuilder:   common.NewControllerBuilder,
 		ReconcilerTLS: common.NewReconcilerTLS(&common.ReconcilerTLSConfig{
 			Client: mgr.GetClient(),

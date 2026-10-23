@@ -34,6 +34,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 )
 
+// fipsMinTLSVersion is the minimum TLS version required for FIPS compliance.
+const fipsMinTLSVersion = "TLSv1.3"
+
 type podMutator struct {
 	client client.Client
 	log    *logr.Logger
@@ -389,16 +392,40 @@ func (r *podMutator) Default(ctx context.Context, pod *corev1.Pod) error {
 			})
 	}
 
-	if r.config.FIPSEnabled {
-		// Force usage for TLSv1.3 for FIPS compatibility
+	if r.config.OperandTLS != nil {
+		minVersion := r.config.OperandTLS.AgentMinVersion
+		if r.config.FIPSEnabled {
+			// FIPS requires TLSv1.3 as the minimum version
+			minVersion = fipsMinTLSVersion
+		}
 		container.Env = append(container.Env,
 			corev1.EnvVar{
-				Name:  "CRYOSTAT_AGENT_WEBCLIENT_TLS_VERSION",
-				Value: "TLSv1.3",
+				Name:  "CRYOSTAT_AGENT_WEBCLIENT_TLS_MIN_VERSION",
+				Value: minVersion,
 			},
 			corev1.EnvVar{
-				Name:  "CRYOSTAT_AGENT_WEBSERVER_TLS_VERSION",
-				Value: "TLSv1.3",
+				Name:  "CRYOSTAT_AGENT_WEBCLIENT_TLS_CIPHERS",
+				Value: r.config.OperandTLS.AgentCipherSuites,
+			},
+			corev1.EnvVar{
+				Name:  "CRYOSTAT_AGENT_WEBSERVER_TLS_MIN_VERSION",
+				Value: minVersion,
+			},
+			corev1.EnvVar{
+				Name:  "CRYOSTAT_AGENT_WEBSERVER_TLS_CIPHERS",
+				Value: r.config.OperandTLS.AgentCipherSuites,
+			},
+		)
+	} else if r.config.FIPSEnabled {
+		// No TLS profile but FIPS requires TLSv1.3 as the minimum version
+		container.Env = append(container.Env,
+			corev1.EnvVar{
+				Name:  "CRYOSTAT_AGENT_WEBCLIENT_TLS_MIN_VERSION",
+				Value: fipsMinTLSVersion,
+			},
+			corev1.EnvVar{
+				Name:  "CRYOSTAT_AGENT_WEBSERVER_TLS_MIN_VERSION",
+				Value: fipsMinTLSVersion,
 			},
 		)
 	}

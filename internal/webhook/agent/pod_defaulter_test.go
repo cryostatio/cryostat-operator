@@ -21,11 +21,13 @@ import (
 
 	operatorv1beta2 "github.com/cryostatio/cryostat-operator/api/v1beta2"
 	"github.com/cryostatio/cryostat-operator/internal/controller/common"
+	"github.com/cryostatio/cryostat-operator/internal/controller/common/tlsprofile"
 	"github.com/cryostatio/cryostat-operator/internal/controller/model"
 	"github.com/cryostatio/cryostat-operator/internal/test"
 	webhooktests "github.com/cryostatio/cryostat-operator/internal/webhook/agent/test"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	configv1 "github.com/openshift/api/config/v1"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -565,6 +567,42 @@ var _ = Describe("PodDefaulter", func() {
 				})
 
 				ExpectPod()
+			})
+
+			Context("on an OpenShift cluster with TLS profile", func() {
+				BeforeEach(func() {
+					spec := *configv1.TLSProfiles[configv1.TLSProfileIntermediateType]
+					operandTLS, err := tlsprofile.BuildFromSpec(spec)
+					Expect(err).ToNot(HaveOccurred())
+					agentWebhookConfig.OperandTLS = operandTLS
+					t.IsOpenShift = true
+
+					t.objs = append(t.objs, t.NewCryostat().Object)
+					originalPod = t.NewPod()
+					expectedPod = t.NewMutatedPod()
+				})
+
+				AfterEach(func() {
+					agentWebhookConfig.OperandTLS = nil
+					t.IsOpenShift = false
+				})
+
+				ExpectPod()
+
+				Context("with FIPS enabled", func() {
+					BeforeEach(func() {
+						agentWebhookConfig.FIPSEnabled = true
+						t.IsFIPS = true
+						expectedPod = t.NewMutatedPod()
+					})
+
+					AfterEach(func() {
+						agentWebhookConfig.FIPSEnabled = false
+						t.IsFIPS = false
+					})
+
+					ExpectPod()
+				})
 			})
 		})
 

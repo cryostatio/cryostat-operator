@@ -30,7 +30,8 @@ import (
 )
 
 type AgentWebhookTestResources struct {
-	IsFIPS bool
+	IsFIPS      bool
+	IsOpenShift bool
 	*test.TestResources
 }
 
@@ -896,14 +897,38 @@ func (r *AgentWebhookTestResources) newMutatedContainer(original *corev1.Contain
 			})
 	}
 
-	if r.IsFIPS {
+	if r.IsOpenShift {
+		minVersion := "TLSv1.2"
+		if r.IsFIPS {
+			minVersion = "TLSv1.3"
+		}
+		tlsEnvs := []corev1.EnvVar{
+			{
+				Name:  "CRYOSTAT_AGENT_WEBCLIENT_TLS_MIN_VERSION",
+				Value: minVersion,
+			},
+			{
+				Name:  "CRYOSTAT_AGENT_WEBCLIENT_TLS_CIPHERS",
+				Value: "TLS_AES_128_GCM_SHA256,TLS_AES_256_GCM_SHA384,TLS_CHACHA20_POLY1305_SHA256,TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256,TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256",
+			},
+			{
+				Name:  "CRYOSTAT_AGENT_WEBSERVER_TLS_MIN_VERSION",
+				Value: minVersion,
+			},
+			{
+				Name:  "CRYOSTAT_AGENT_WEBSERVER_TLS_CIPHERS",
+				Value: "TLS_AES_128_GCM_SHA256,TLS_AES_256_GCM_SHA384,TLS_CHACHA20_POLY1305_SHA256,TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256,TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256",
+			},
+		}
+		container.Env = append(container.Env, tlsEnvs...)
+	} else if r.IsFIPS {
 		fipsEnvs := []corev1.EnvVar{
 			{
-				Name:  "CRYOSTAT_AGENT_WEBCLIENT_TLS_VERSION",
+				Name:  "CRYOSTAT_AGENT_WEBCLIENT_TLS_MIN_VERSION",
 				Value: "TLSv1.3",
 			},
 			{
-				Name:  "CRYOSTAT_AGENT_WEBSERVER_TLS_VERSION",
+				Name:  "CRYOSTAT_AGENT_WEBSERVER_TLS_MIN_VERSION",
 				Value: "TLSv1.3",
 			},
 		}

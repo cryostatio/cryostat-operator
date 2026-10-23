@@ -15,13 +15,10 @@
 package tlsprofile
 
 import (
-	"context"
 	"fmt"
 	"strings"
 
 	configv1 "github.com/openshift/api/config/v1"
-	openshifttls "github.com/openshift/controller-runtime-common/pkg/tls"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 // OpenShift API TLS version names (from configv1.TLSProtocolVersion constants).
@@ -58,15 +55,10 @@ type OperandTLSConfig struct {
 	SeaweedMinVersion string
 	// SeaweedCipherSuites is a comma-separated list of IANA cipher names for SeaweedFS.
 	SeaweedCipherSuites string
-}
-
-// FetchAndBuild fetches the cluster API Server TLS profile and builds an OperandTLSConfig.
-func FetchAndBuild(ctx context.Context, cl client.Client) (*OperandTLSConfig, error) {
-	spec, err := openshifttls.FetchAPIServerTLSProfile(ctx, cl)
-	if err != nil {
-		return nil, err
-	}
-	return BuildFromSpec(spec)
+	// AgentMinVersion is the min TLS version for the Cryostat agent in Java format (e.g. "TLSv1.2").
+	AgentMinVersion string
+	// AgentCipherSuites is a comma-separated list of IANA cipher names for the Cryostat agent.
+	AgentCipherSuites string
 }
 
 // BuildFromSpec builds an OperandTLSConfig from a resolved TLSProfileSpec.
@@ -93,6 +85,8 @@ func BuildFromSpec(spec configv1.TLSProfileSpec) (*OperandTLSConfig, error) {
 		PostgresCiphers:     strings.Join(opensslCiphers, ":"),
 		SeaweedMinVersion:   minVersionToSeaweed(minVersion),
 		SeaweedCipherSuites: strings.Join(ianaCiphers, ","),
+		AgentMinVersion:     minVersionToAgent(minVersion),
+		AgentCipherSuites:   strings.Join(ianaCiphers, ","),
 	}, nil
 }
 
@@ -141,6 +135,23 @@ func minVersionToPostgres(v string) string {
 	switch v {
 	case versionTLS10:
 		return "TLSv1"
+	case versionTLS11:
+		return protoTLS11
+	case versionTLS12:
+		return protoTLS12
+	case versionTLS13:
+		return protoTLS13
+	default:
+		return protoTLS12
+	}
+}
+
+// minVersionToAgent converts an OpenShift API TLS version name to the
+// "TLSv1.x" protocol string used by the Cryostat agent.
+func minVersionToAgent(v string) string {
+	switch v {
+	case versionTLS10:
+		return protoTLS10
 	case versionTLS11:
 		return protoTLS11
 	case versionTLS12:
