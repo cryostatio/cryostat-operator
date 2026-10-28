@@ -2822,6 +2822,10 @@ func (r *TestResources) NewCoreEnvironmentVariables(reportsUrl string, ingress b
 			Value: "localhost",
 		},
 		{
+			Name:  "QUARKUS_HTTP_HOST_VALIDATION_REQUIRE_LOCALHOST",
+			Value: "false",
+		},
+		{
 			Name:  "QUARKUS_HTTP_PORT",
 			Value: "8181",
 		},
