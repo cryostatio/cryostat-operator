@@ -1692,6 +1692,16 @@ func newEnvForCoreContainer(cr *model.CryostatInstance, specs *ServiceSpecs, tls
 			Value: "localhost",
 		},
 		{
+			// Quarkus 3.40+ automatically enables Host header validation when quarkus.http.host
+			// is a localhost name, rejecting any request whose resolved host (including via
+			// X-Forwarded-Host) is not localhost. Since the auth-strip proxy forwards the
+			// original X-Forwarded-Host from the route, disable the automatic localhost
+			// restriction so that external hostnames are accepted.
+			// See https://github.com/quarkusio/quarkus/issues/55770
+			Name:  "QUARKUS_HTTP_HOST_VALIDATION_REQUIRE_LOCALHOST",
+			Value: envVarFalse,
+		},
+		{
 			Name:  quarkusHTTPPortEnvVar,
 			Value: "8181",
 		},
