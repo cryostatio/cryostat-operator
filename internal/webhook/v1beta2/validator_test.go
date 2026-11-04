@@ -338,6 +338,38 @@ var _ = Describe("CryostatValidator", func() {
 				Expect(err).ToNot(HaveOccurred())
 			})
 		})
+
+		Context("updates a Cryostat that is being deleted", func() {
+			BeforeEach(func() {
+				// A finalizer keeps the object present after it is marked for
+				// deletion, allowing an update to be issued while the deletion
+				// timestamp is set (e.g. finalizer removal during an uninstall).
+				cr.Object.SetFinalizers([]string{"operator.cryostat.io/cryostat.finalizer"})
+				t.objs = append(t.objs, cr.Object)
+			})
+
+			JustBeforeEach(func() {
+				err := t.client.Delete(ctx, cr.Object)
+				Expect(err).ToNot(HaveOccurred())
+				err = t.client.Get(ctx, ctrlclient.ObjectKeyFromObject(cr.Object), cr.Object)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(cr.Object.GetDeletionTimestamp()).ToNot(BeNil())
+			})
+
+			JustAfterEach(func() {
+				// Remove the finalizer so the object can be garbage collected.
+				err := t.client.Get(ctx, ctrlclient.ObjectKeyFromObject(cr.Object), cr.Object)
+				if err == nil {
+					cr.Object.SetFinalizers(nil)
+					Expect(t.client.Update(ctx, cr.Object)).To(Succeed())
+				}
+			})
+
+			It("should allow the request even without create permissions", func() {
+				err := saClient.Update(ctx, cr.Object)
+				Expect(err).ToNot(HaveOccurred())
+			})
+		})
 	})
 
 })

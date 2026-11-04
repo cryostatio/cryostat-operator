@@ -52,6 +52,14 @@ func (r *cryostatValidator) ValidateCreate(ctx context.Context, cr *operatorv1be
 
 // ValidateUpdate validates an Update operation on a Cryostat
 func (r *cryostatValidator) ValidateUpdate(ctx context.Context, oldCR, newCR *operatorv1beta2.Cryostat) (admission.Warnings, error) {
+	// Skip validation once the object is being deleted. Updates that occur
+	// during deletion (e.g. the operator removing its finalizer, or the garbage
+	// collector progressing a foreground cascading delete) must not be gated on
+	// create permissions in the target namespaces. Otherwise the finalizer can
+	// never be removed and the Cryostat is stuck terminating.
+	if newCR.GetDeletionTimestamp() != nil {
+		return nil, nil
+	}
 	return r.validate(ctx, newCR, "update")
 }
 
