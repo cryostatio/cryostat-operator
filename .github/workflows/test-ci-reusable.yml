@@ -83,7 +83,7 @@ jobs:
         BUNDLE_IMG="${REGISTRY_NAME}:${REGISTRY_PORT}/${OWNER}/cryostat-operator-bundle:${TAG}" \
         make bundle bundle-build
     - name: Set up Kind cluster
-      uses: helm/kind-action@1544676c07bb3570fcb70166beaa07c4528fd4aa # v1.15.1
+      uses: helm/kind-action@ea822c7bf1874f08e5a491df991c228edffc3376 # v1.15.2
       with:
         config: .github/kind-config.yaml
         cluster_name: ci-${{ github.run_id }}
