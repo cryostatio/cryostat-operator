@@ -365,9 +365,25 @@ var _ = Describe("CryostatValidator", func() {
 				}
 			})
 
-			It("should allow the request even without create permissions", func() {
+			It("should allow a metadata-only update even without create permissions", func() {
 				err := saClient.Update(ctx, cr.Object)
 				Expect(err).ToNot(HaveOccurred())
+			})
+
+			It("should still validate the spec on a spec change during deletion", func() {
+				cryostat, ok := cr.Object.(*operatorv1beta2.Cryostat)
+				Expect(ok).To(BeTrue())
+				// Attempt to widen the target namespaces while the CR is being
+				// deleted; this must not bypass validation.
+				cryostat.Spec.TargetNamespaces = append(cryostat.Spec.TargetNamespaces,
+					namespaceWithSuffix("unauthorized"))
+
+				err := saClient.Update(ctx, cr.Object)
+				Expect(err).To(HaveOccurred())
+				// Validation runs again; the SA lacks create permission in
+				// otherNS (the first unauthorized target namespace), so the
+				// update is rejected.
+				expectErrNotPermitted(err, "update", otherNS)
 			})
 		})
 	})

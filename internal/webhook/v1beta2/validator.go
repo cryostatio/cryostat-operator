@@ -26,6 +26,7 @@ import (
 	"github.com/go-logr/logr"
 	authnv1 "k8s.io/api/authentication/v1"
 	authzv1 "k8s.io/api/authorization/v1"
+	"k8s.io/apimachinery/pkg/api/equality"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/validation/field"
@@ -52,12 +53,15 @@ func (r *cryostatValidator) ValidateCreate(ctx context.Context, cr *operatorv1be
 
 // ValidateUpdate validates an Update operation on a Cryostat
 func (r *cryostatValidator) ValidateUpdate(ctx context.Context, oldCR, newCR *operatorv1beta2.Cryostat) (admission.Warnings, error) {
-	// Skip validation once the object is being deleted. Updates that occur
-	// during deletion (e.g. the operator removing its finalizer, or the garbage
-	// collector progressing a foreground cascading delete) must not be gated on
-	// create permissions in the target namespaces. Otherwise the finalizer can
-	// never be removed and the Cryostat is stuck terminating.
-	if newCR.GetDeletionTimestamp() != nil {
+	// Skip validation for metadata-only updates once the object is being
+	// deleted. Updates that occur during deletion (e.g. the operator removing
+	// its finalizer, or the garbage collector progressing a foreground
+	// cascading delete) must not be gated on create permissions in the target
+	// namespaces. Otherwise the finalizer can never be removed and the Cryostat
+	// is stuck terminating. Spec changes are still validated, even during
+	// deletion, so an unauthorized user cannot widen the target namespaces that
+	// the finalizer logic acts on.
+	if newCR.GetDeletionTimestamp() != nil && equality.Semantic.DeepEqual(oldCR.Spec, newCR.Spec) {
 		return nil, nil
 	}
 	return r.validate(ctx, newCR, "update")
