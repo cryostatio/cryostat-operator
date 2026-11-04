@@ -59,6 +59,12 @@ type OperandTLSConfig struct {
 	AgentMinVersion string
 	// AgentCipherSuites is a comma-separated list of IANA cipher names for the Cryostat agent.
 	AgentCipherSuites string
+	// OpenShiftOAuthProxyMinVersion is the min TLS version for the OpenShift oauth-proxy in
+	// Go version-name format (e.g. "VersionTLS12"), matching the OpenShift API's MinTLSVersion.
+	OpenShiftOAuthProxyMinVersion string
+	// OpenShiftOAuthProxyCipherSuites is a comma-separated list of IANA cipher names for the
+	// OpenShift oauth-proxy.
+	OpenShiftOAuthProxyCipherSuites string
 }
 
 // BuildFromSpec builds an OperandTLSConfig from a resolved TLSProfileSpec.
@@ -87,6 +93,11 @@ func BuildFromSpec(spec configv1.TLSProfileSpec) (*OperandTLSConfig, error) {
 		SeaweedCipherSuites: strings.Join(ianaCiphers, ","),
 		AgentMinVersion:     minVersionToAgent(minVersion),
 		AgentCipherSuites:   strings.Join(ianaCiphers, ","),
+		// The OpenShift oauth-proxy consumes the OpenShift API version-name format
+		// ("VersionTLS12"/"VersionTLS13") directly via its --tls-min-version flag, and
+		// comma-separated IANA cipher names via --tls-cipher-suites.
+		OpenShiftOAuthProxyMinVersion:   minVersion,
+		OpenShiftOAuthProxyCipherSuites: strings.Join(ianaCiphers, ","),
 	}, nil
 }
 

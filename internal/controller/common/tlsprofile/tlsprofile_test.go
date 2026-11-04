@@ -72,6 +72,21 @@ var _ = Describe("BuildFromSpec", func() {
 		Expect(config.QuarkusCipherSuites).ToNot(BeEmpty())
 		Expect(config.PostgresMinVersion).ToNot(BeEmpty())
 		Expect(config.SeaweedMinVersion).ToNot(BeEmpty())
+		Expect(config.OpenShiftOAuthProxyMinVersion).ToNot(BeEmpty())
+		Expect(config.OpenShiftOAuthProxyCipherSuites).ToNot(BeEmpty())
+	})
+
+	It("should expose the OpenShift oauth-proxy min version in Go version-name format", func() {
+		spec := configv1.TLSProfileSpec{
+			Ciphers:       []string{"ECDHE-RSA-AES128-GCM-SHA256"},
+			MinTLSVersion: configv1.VersionTLS13,
+		}
+		config, err := BuildFromSpec(spec)
+		Expect(err).ToNot(HaveOccurred())
+		// The oauth-proxy --tls-min-version flag consumes the OpenShift API
+		// version name verbatim, unlike the agent/Postgres "TLSv1.x" format.
+		Expect(config.OpenShiftOAuthProxyMinVersion).To(Equal("VersionTLS13"))
+		Expect(config.OpenShiftOAuthProxyCipherSuites).To(Equal("TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256"))
 	})
 
 	It("should return an error when all ciphers are unrecognized", func() {
