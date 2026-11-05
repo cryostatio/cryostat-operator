@@ -25,7 +25,7 @@ COPY internal/webhook/ internal/webhook/
 # by leaving it empty we can ensure that the container and binary shipped on it will have the same platform.
 RUN CGO_ENABLED=0 GOOS=${TARGETOS:-linux} GOARCH=${TARGETARCH} GO111MODULE=on go build -a -o manager cmd/main.go
 
-FROM registry.access.redhat.com/ubi9/ubi-minimal:latest@sha256:dfa0eb04abc59221544e74862432496add1f491f915c9b531880f91affc0e12c
+FROM registry.access.redhat.com/ubi9/ubi-minimal:latest@sha256:4b79c93106c14ad1c234907f83441ff0e4f8d24e78426a36e159098e9f7e6fa5
 WORKDIR /
 COPY --from=builder /opt/app-root/src/manager .
 USER 65532:65532
