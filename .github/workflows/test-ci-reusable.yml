@@ -36,7 +36,7 @@ jobs:
     - name: Run controller tests
       run: make test-envtest
     - name: Set latest commit status as ${{ job.status }}
-      uses: daltonbr/set-commit-status-action@b5ef7ba5279f7953ad1fa44f01f92fca82e65eb4 # v3.0.2
+      uses: daltonbr/set-commit-status-action@d406aa91fdad4a523a6188b77b5e4b762008fbb1 # v3.1.0
       if: always()
       with:
         sha: ${{ inputs.sha }}
@@ -109,7 +109,7 @@ jobs:
         RUN_BUNDLE_EXTRA_ARGS="--use-http --skip-tls" \
         make test-scorecard
     - name: Set latest commit status as ${{ job.status }}
-      uses: daltonbr/set-commit-status-action@b5ef7ba5279f7953ad1fa44f01f92fca82e65eb4 # v3.0.2
+      uses: daltonbr/set-commit-status-action@d406aa91fdad4a523a6188b77b5e4b762008fbb1 # v3.1.0
       if: always()
       with:
         sha: ${{ inputs.sha }}
