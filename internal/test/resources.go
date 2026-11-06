@@ -3644,6 +3644,11 @@ func (r *TestResources) NewAuthProxyArguments(authOptions *operatorv1beta2.Autho
 			"--https-address=0.0.0.0:4180",
 			fmt.Sprintf("--tls-cert=/var/run/secrets/operator.cryostat.io/%s/%s", r.Name+"-tls", corev1.TLSCertKey),
 			fmt.Sprintf("--tls-key=/var/run/secrets/operator.cryostat.io/%s/%s", r.Name+"-tls", corev1.TLSPrivateKeyKey),
+			// The reconciler builds the operand TLS config from the cluster's
+			// Intermediate profile (see newReconcilerConfig in the tests), which is
+			// applied to the oauth-proxy via --tls-min-version/--tls-cipher-suites.
+			"--tls-min-version=VersionTLS12",
+			"--tls-cipher-suites=TLS_AES_128_GCM_SHA256,TLS_AES_256_GCM_SHA384,TLS_CHACHA20_POLY1305_SHA256,TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256,TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256",
 		)
 	} else {
 		args = append(args,

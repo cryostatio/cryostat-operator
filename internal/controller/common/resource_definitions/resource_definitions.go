@@ -458,7 +458,7 @@ func NewDeploymentForReports(cr *model.CryostatInstance, imageTags *ImageTags, s
 
 func NewPodForCR(cr *model.CryostatInstance, specs *ServiceSpecs, imageTags *ImageTags,
 	tls *TLSConfig, operandTLS *tlsprofile.OperandTLSConfig, fsGroup int64, openshift bool) (*corev1.PodSpec, error) {
-	authProxy, err := NewAuthProxyContainer(cr, specs, imageTags.OAuth2ProxyImageTag, imageTags.OpenShiftOAuthProxyImageTag, tls, openshift)
+	authProxy, err := NewAuthProxyContainer(cr, specs, imageTags.OAuth2ProxyImageTag, imageTags.OpenShiftOAuthProxyImageTag, tls, operandTLS, openshift)
 	if err != nil {
 		return nil, err
 	}
@@ -1234,15 +1234,15 @@ func NewAuthProxyContainerResource(cr *model.CryostatInstance) *corev1.ResourceR
 }
 
 func NewAuthProxyContainer(cr *model.CryostatInstance, specs *ServiceSpecs, oauth2ProxyImageTag string, openshiftAuthProxyImageTag string,
-	tls *TLSConfig, openshift bool) (*corev1.Container, error) {
+	tls *TLSConfig, operandTLS *tlsprofile.OperandTLSConfig, openshift bool) (*corev1.Container, error) {
 	if openshift {
-		return NewOpenShiftAuthProxyContainer(cr, specs, openshiftAuthProxyImageTag, tls)
+		return NewOpenShiftAuthProxyContainer(cr, specs, openshiftAuthProxyImageTag, tls, operandTLS)
 	}
 	return NewOAuth2ProxyContainer(cr, specs, oauth2ProxyImageTag, tls)
 }
 
 func NewOpenShiftAuthProxyContainer(cr *model.CryostatInstance, specs *ServiceSpecs, imageTag string,
-	tls *TLSConfig) (*corev1.Container, error) {
+	tls *TLSConfig, operandTLS *tlsprofile.OperandTLSConfig) (*corev1.Container, error) {
 	var containerSc *corev1.SecurityContext
 	if cr.Spec.SecurityOptions != nil && cr.Spec.SecurityOptions.AuthProxySecurityContext != nil {
 		containerSc = cr.Spec.SecurityOptions.AuthProxySecurityContext
@@ -1309,6 +1309,17 @@ func NewOpenShiftAuthProxyContainer(cr *model.CryostatInstance, specs *ServiceSp
 			fmt.Sprintf("--tls-cert=%s", path.Join(SecretMountPrefix, tls.CryostatSecret, corev1.TLSCertKey)),
 			fmt.Sprintf("--tls-key=%s", path.Join(SecretMountPrefix, tls.CryostatSecret, corev1.TLSPrivateKeyKey)),
 		)
+
+		if operandTLS != nil {
+			args = append(args,
+				fmt.Sprintf("--tls-min-version=%s", operandTLS.OpenShiftOAuthProxyMinVersion),
+			)
+			if operandTLS.OpenShiftOAuthProxyCipherSuites != "" {
+				args = append(args,
+					fmt.Sprintf("--tls-cipher-suites=%s", operandTLS.OpenShiftOAuthProxyCipherSuites),
+				)
+			}
+		}
 
 		volumeMounts = append(volumeMounts, corev1.VolumeMount{
 			Name:      authProxyTLSVolumeName,
