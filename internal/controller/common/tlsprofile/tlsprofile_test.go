@@ -16,6 +16,7 @@ package tlsprofile
 
 import (
 	"fmt"
+	"strings"
 
 	configv1 "github.com/openshift/api/config/v1"
 
@@ -87,6 +88,45 @@ var _ = Describe("BuildFromSpec", func() {
 		// version name verbatim, unlike the agent/Postgres "TLSv1.x" format.
 		Expect(config.OpenShiftOAuthProxyMinVersion).To(Equal("VersionTLS13"))
 		Expect(config.OpenShiftOAuthProxyCipherSuites).To(Equal("TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256"))
+	})
+
+	It("should raise the OpenShift oauth-proxy min version to TLS 1.2 for the Old profile", func() {
+		// The Old profile is MinTLSVersion VersionTLS10, which the oauth-proxy
+		// rejects; it must be clamped to its TLS 1.2 floor.
+		spec := *configv1.TLSProfiles[configv1.TLSProfileOldType]
+		Expect(spec.MinTLSVersion).To(Equal(configv1.VersionTLS10))
+		config, err := BuildFromSpec(spec)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(config.OpenShiftOAuthProxyMinVersion).To(Equal("VersionTLS12"))
+	})
+
+	It("should filter out OpenShift oauth-proxy ciphers the proxy does not recognize", func() {
+		// The Old profile includes 3DES, static-RSA, and CBC-SHA256/384 ciphers
+		// that the oauth-proxy rejects. The result must be a non-empty subset
+		// containing only forward-secret suites the proxy accepts.
+		spec := *configv1.TLSProfiles[configv1.TLSProfileOldType]
+		config, err := BuildFromSpec(spec)
+		Expect(err).ToNot(HaveOccurred())
+		result := strings.Split(config.OpenShiftOAuthProxyCipherSuites, ",")
+		Expect(result).ToNot(BeEmpty())
+		for _, name := range result {
+			Expect(oauthProxyCipherSuiteNames).To(HaveKey(name))
+		}
+		Expect(config.OpenShiftOAuthProxyCipherSuites).ToNot(ContainSubstring("3DES"))
+		Expect(config.OpenShiftOAuthProxyCipherSuites).ToNot(ContainSubstring("TLS_RSA_WITH"))
+	})
+
+	It("should leave the OpenShift oauth-proxy ciphers empty when none are recognized", func() {
+		// A Custom profile listing only ciphers the proxy rejects must yield an
+		// empty string so the operator omits the --tls-cipher-suites flag rather
+		// than crashing the proxy.
+		spec := configv1.TLSProfileSpec{
+			Ciphers:       []string{"DES-CBC3-SHA", "AES128-SHA"},
+			MinTLSVersion: configv1.VersionTLS12,
+		}
+		config, err := BuildFromSpec(spec)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(config.OpenShiftOAuthProxyCipherSuites).To(BeEmpty())
 	})
 
 	It("should return an error when all ciphers are unrecognized", func() {

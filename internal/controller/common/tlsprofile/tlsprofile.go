@@ -15,6 +15,7 @@
 package tlsprofile
 
 import (
+	"crypto/tls"
 	"fmt"
 	"strings"
 
@@ -95,9 +96,12 @@ func BuildFromSpec(spec configv1.TLSProfileSpec) (*OperandTLSConfig, error) {
 		AgentCipherSuites:   strings.Join(ianaCiphers, ","),
 		// The OpenShift oauth-proxy consumes the OpenShift API version-name format
 		// ("VersionTLS12"/"VersionTLS13") directly via its --tls-min-version flag, and
-		// comma-separated IANA cipher names via --tls-cipher-suites.
-		OpenShiftOAuthProxyMinVersion:   minVersion,
-		OpenShiftOAuthProxyCipherSuites: strings.Join(ianaCiphers, ","),
+		// comma-separated IANA cipher names via --tls-cipher-suites. Unlike the other
+		// operands, the proxy only supports TLS 1.2+ and a restricted cipher set, and
+		// rejects its entire config (crashing) if given anything else, so both are
+		// constrained to what it accepts.
+		OpenShiftOAuthProxyMinVersion:   minVersionToOAuthProxy(minVersion),
+		OpenShiftOAuthProxyCipherSuites: strings.Join(filterOAuthProxyCiphers(ianaCiphers), ","),
 	}, nil
 }
 
@@ -172,6 +176,45 @@ func minVersionToAgent(v string) string {
 	default:
 		return protoTLS12
 	}
+}
+
+// minVersionToOAuthProxy converts an OpenShift API TLS version name to the
+// version name accepted by the OpenShift oauth-proxy's --tls-min-version flag.
+// The proxy only recognizes "VersionTLS12" and "VersionTLS13" (see its
+// tlsVersionMap), so lower minimums (TLS 1.0/1.1) are raised to the proxy's
+// TLS 1.2 floor. The proxy cannot be configured below TLS 1.2 regardless of the
+// cluster profile.
+func minVersionToOAuthProxy(v string) string {
+	if v == versionTLS13 {
+		return versionTLS13
+	}
+	return versionTLS12
+}
+
+// oauthProxyCipherSuiteNames is the set of IANA cipher suite names recognized by
+// the OpenShift oauth-proxy. The proxy builds its accepted set from the Go
+// standard library's tls.CipherSuites() (the secure, implemented suites), and
+// rejects its entire configuration if handed any other name. We filter against
+// the same source so our list stays in lockstep with what the proxy accepts
+// across Go upgrades.
+var oauthProxyCipherSuiteNames = func() map[string]bool {
+	m := make(map[string]bool)
+	for _, cs := range tls.CipherSuites() {
+		m[cs.Name] = true
+	}
+	return m
+}()
+
+// filterOAuthProxyCiphers keeps only the IANA cipher names that the OpenShift
+// oauth-proxy recognizes (see oauthProxyCipherSuiteNames), preserving order.
+func filterOAuthProxyCiphers(ianaCiphers []string) []string {
+	out := make([]string, 0, len(ianaCiphers))
+	for _, c := range ianaCiphers {
+		if oauthProxyCipherSuiteNames[c] {
+			out = append(out, c)
+		}
+	}
+	return out
 }
 
 func minVersionToSeaweed(v string) string {
