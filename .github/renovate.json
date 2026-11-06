@@ -66,12 +66,18 @@
       "enabled": true
     },
     {
-      "description": "Allow go.mod patch version updates on release branches, ungated by the dependency dashboard",
+      "description": "Allow go.mod updates on release branches so Renovate can classify their update type; non-patch updates are disabled below.",
       "matchBaseBranches": ["/^cryostat-v.*/"],
       "matchManagers": ["gomod"],
-      "matchUpdateTypes": ["patch"],
       "enabled": true,
       "dependencyDashboardApproval": false
+    },
+    {
+      "description": "Disable non-patch go.mod updates on release branches",
+      "matchBaseBranches": ["/^cryostat-v.*/"],
+      "matchManagers": ["gomod"],
+      "matchUpdateTypes": ["major", "minor", "digest", "pin", "pinDigest", "lockFileMaintenance", "rollback", "bump", "replacement"],
+      "enabled": false
     },
     {
       "description": "Keep the go directive in go.mod up to date, since the gomod manager leaves it alone by default. go.mod is the single source of truth for the Go version; CI workflows read it via setup-go's go-version-file",
