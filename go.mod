@@ -12,9 +12,9 @@ require (
 	github.com/openshift/api v0.0.0-20261015124049-70586205d5fa // release-5.0
 	github.com/openshift/controller-runtime-common v0.0.0-20260813135806-e1187ec555fc // release-5.0
 	github.com/operator-framework/api v0.34.0
-	k8s.io/api v0.36.2
-	k8s.io/apimachinery v0.36.2
-	k8s.io/client-go v0.36.2
+	k8s.io/api v0.36.6
+	k8s.io/apimachinery v0.36.6
+	k8s.io/client-go v0.36.6
 	sigs.k8s.io/controller-runtime v0.24.1
 )
 
@@ -103,7 +103,7 @@ require (
 	k8s.io/component-base v0.36.2 // indirect
 	k8s.io/klog/v2 v2.140.0 // indirect
 	k8s.io/kube-openapi v0.0.0-20260519202549-bbf5c5577288 // indirect
-	k8s.io/streaming v0.36.2 // indirect
+	k8s.io/streaming v0.36.6 // indirect
 	k8s.io/utils v0.0.0-20260707023825-cf1189d6abe3 // indirect
 	sigs.k8s.io/apiserver-network-proxy/konnectivity-client v0.34.0 // indirect
 	sigs.k8s.io/gateway-api v1.6.0 // indirect
