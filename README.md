@@ -246,6 +246,87 @@ resources will be deleted to ensure a clean slate.
 
 `make test` will run all tests.
 
+#### Agent Scorecard tests
+
+`cryostat-agent` deploys the sample Java application with a bundled Cryostat Agent,
+configures mutual TLS using the Cryostat CA, waits for Agent registration, and runs
+the recording lifecycle used by `cryostat-recording`. `cryostat-agent-autoconfig`
+deploys an image without the Agent and labels only the Deployment. It verifies
+that the Deployment webhook propagates the labels and the Pod webhook injects the
+Agent while preserving the application's JVM options, then checks registration
+and runs the same recording lifecycle. Both tests call Cryostat through its
+authenticated in-cluster Service. Neither application exposes remote JMX.
+Application, init-container, and Cryostat logs are included in the test output.
+Sample resources are owned by the test's Cryostat CR and removed with it.
+
+`make scorecard-build` also builds the two sample images. They use the Agent JAR
+from `AGENT_INIT_IMG`, matching the Operator's injection artifact. CI builds and
+publishes the applications with the Scorecard image tag; the kind flow builds and
+serves them from its local registry. Override `SCORECARD_SAMPLE_IMG` and
+`SCORECARD_AGENT_IMG` to change the image references embedded in the test binary.
+For tests run directly from source, use `CRYOSTAT_SCORECARD_SAMPLE_IMAGE` and
+`CRYOSTAT_SCORECARD_AGENT_IMAGE` to select those built images:
+
+```sh
+MANIFEST_PUSH=false make scorecard-app-build \
+  SCORECARD_SAMPLE_IMG=quay.io/me/scorecard-app:test \
+  SCORECARD_AGENT_IMG=quay.io/me/scorecard-agent-app:test
+# Make these images available to the cluster before running the tests.
+CRYOSTAT_SCORECARD_SAMPLE_IMAGE=quay.io/me/scorecard-app:test \
+CRYOSTAT_SCORECARD_AGENT_IMAGE=quay.io/me/scorecard-agent-app:test \
+SCORECARD_TEST_SELECTION="cryostat-agent cryostat-agent-autoconfig" \
+make test-scorecard-local
+```
+
+#### Publishing the Agent Scorecard images
+
+The complete suite needs three images: `cryostat-operator-scorecard` (the test
+runner), `cryostat-operator-scorecard-app` (the application without an Agent), and
+`cryostat-operator-scorecard-agent-app` (the application with a bundled Agent).
+Create public repositories for these names in a Quay namespace where you have
+write access. Public visibility lets the test cluster pull them without an
+additional pull secret. Use your own namespace for PR testing; publishing under
+`quay.io/cryostat` requires permission to those repositories.
+
+Use the Go version in `go.mod` and the Operator SDK version in `Makefile`
+(`bin/operator-sdk` takes precedence over a globally installed SDK). From the
+repository root, choose one fresh tag and use it for all three images:
+
+```sh
+export SCORECARD_IMAGE_NAMESPACE=quay.io/jtolentino1 # Replace with your namespace
+export CUSTOM_SCORECARD_VERSION="5.0.0-$(date -u +%Y%m%d%H%M%S)"
+export CUSTOM_SCORECARD_IMG="${SCORECARD_IMAGE_NAMESPACE}/cryostat-operator-scorecard:${CUSTOM_SCORECARD_VERSION}"
+export SCORECARD_SAMPLE_IMG="${SCORECARD_IMAGE_NAMESPACE}/cryostat-operator-scorecard-app:${CUSTOM_SCORECARD_VERSION}"
+export SCORECARD_AGENT_IMG="${SCORECARD_IMAGE_NAMESPACE}/cryostat-operator-scorecard-agent-app:${CUSTOM_SCORECARD_VERSION}"
+
+make scorecard-build IMAGE_BUILDER=podman \
+  PLATFORMS=linux/amd64,linux/arm64 MANIFEST_PUSH=false
+make bundle
+```
+
+The build embeds the sample image references in the runner. `make bundle`
+regenerates `bundle/tests/scorecard/config.yaml` from the updated Scorecard
+configuration; it does not publish an image. Review the generated diff, including
+that file and `config/scorecard/patches/custom.config.yaml`, before including the
+updated Scorecard configuration in the PR.
+For an AMD64-only test cluster, `PLATFORMS=linux/amd64` also works.
+
+After the build and bundle regeneration succeed, publish the two sample images
+first, then the runner:
+
+```sh
+podman login quay.io
+podman manifest push --all "$SCORECARD_SAMPLE_IMG" "docker://$SCORECARD_SAMPLE_IMG"
+podman manifest push --all "$SCORECARD_AGENT_IMG" "docker://$SCORECARD_AGENT_IMG"
+podman manifest push --all "$CUSTOM_SCORECARD_IMG" "docker://$CUSTOM_SCORECARD_IMG"
+```
+
+These commands upload container images. Git commits and pushes are separate.
+Once the change is merged upstream, the publishing workflow builds and publishes
+the checked-in tag under `quay.io/cryostat` if its runner image does not already
+exist. Before merge, you can publish the images yourself or ask a maintainer to
+publish them, then use the published runner reference in both Scorecard configs.
+
 #### Scorecard testing on a local kind cluster
 
 `make test-scorecard-local-kind` runs the scorecard suite end-to-end against a
