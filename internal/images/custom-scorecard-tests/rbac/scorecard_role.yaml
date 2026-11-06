@@ -59,6 +59,7 @@ rules:
   - secrets
   verbs:
   - get
+  - patch
 # Permissions for default OAuth configurations
 - apiGroups:
   - operator.cryostat.io
@@ -109,6 +110,13 @@ rules:
   - statefulsets
   verbs:
   - get
+# Permissions for Agent sample applications, owned by their Cryostat CR.
+- apiGroups:
+  - cert-manager.io
+  resources:
+  - certificates
+  verbs:
+  - create
 # Permissions to retrieve container logs
 - apiGroups:
   - ""
