@@ -12,6 +12,7 @@
     ":separatePatchReleases",
     ":gomod"
   ],
+  "baseBranchPatterns": ["main", "/^cryostat-v.*/"],
   "reviewersFromCodeOwners": true,
   "labels": [
     "dependencies",
@@ -48,6 +49,30 @@
     }
   ],
   "packageRules": [
+    {
+      "description": "Dockerfile base image updates are never gated by the dependency dashboard, on any branch",
+      "matchManagers": ["dockerfile"],
+      "dependencyDashboardApproval": false
+    },
+    {
+      "description": "Disable all dependency updates on release branches except Dockerfile base images; other updates there are handled via Mergify backport",
+      "matchBaseBranches": ["/^cryostat-v.*/"],
+      "enabled": false
+    },
+    {
+      "description": "Allow Dockerfile base image updates on release branches",
+      "matchBaseBranches": ["/^cryostat-v.*/"],
+      "matchManagers": ["dockerfile"],
+      "enabled": true
+    },
+    {
+      "description": "Allow go.mod patch version updates on release branches, ungated by the dependency dashboard",
+      "matchBaseBranches": ["/^cryostat-v.*/"],
+      "matchManagers": ["gomod"],
+      "matchUpdateTypes": ["patch"],
+      "enabled": true,
+      "dependencyDashboardApproval": false
+    },
     {
       "description": "Keep the go directive in go.mod up to date, since the gomod manager leaves it alone by default. go.mod is the single source of truth for the Go version; CI workflows read it via setup-go's go-version-file",
       "matchManagers": ["gomod"],
