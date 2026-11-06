@@ -74,9 +74,7 @@ OAUTH2_PROXY_VERSION ?= latest
 export OAUTH2_PROXY_IMG ?= $(OAUTH2_PROXY_NAMESPACE)/$(OAUTH2_PROXY_NAME):$(OAUTH2_PROXY_VERSION)
 OPENSHIFT_OAUTH_PROXY_NAMESPACE ?= quay.io/openshift
 OPENSHIFT_OAUTH_PROXY_NAME ?= origin-oauth-proxy
-# 5.0 is the first release with --tls-min-version/--tls-cipher-suites support
-# (openshift/oauth-proxy#372), required to honor the cluster TLS security profile.
-OPENSHIFT_OAUTH_PROXY_VERSION ?= 5.0
+OPENSHIFT_OAUTH_PROXY_VERSION ?= latest
 export OPENSHIFT_OAUTH_PROXY_IMG ?= $(OPENSHIFT_OAUTH_PROXY_NAMESPACE)/$(OPENSHIFT_OAUTH_PROXY_NAME):$(OPENSHIFT_OAUTH_PROXY_VERSION)
 DATASOURCE_NAMESPACE ?= $(DEFAULT_NAMESPACE)
 DATASOURCE_NAME ?= jfr-datasource
