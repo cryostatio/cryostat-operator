@@ -8,7 +8,7 @@ OS = $(shell go env GOOS)
 ARCH = $(shell go env GOARCH)
 
 # Current Operator version
-export OPERATOR_VERSION ?= 4.3.0-dev
+export OPERATOR_VERSION ?= 5.0.0-dev
 IMAGE_VERSION ?= $(OPERATOR_VERSION)
 BUNDLE_VERSION ?= $(IMAGE_VERSION)
 DEFAULT_NAMESPACE ?= quay.io/cryostat
@@ -127,7 +127,7 @@ GOLANGCI_LINT_VERSION ?= 2.12.2
 # See: https://github.com/operator-framework/operator-sdk/pull/4762
 #
 # Suffix is the timestamp of the image build, compute with: date -u '+%Y%m%d%H%M%S'
-CUSTOM_SCORECARD_VERSION ?= 4.3.0-$(shell date -u '+%Y%m%d%H%M%S')
+CUSTOM_SCORECARD_VERSION ?= 5.0.0-$(shell date -u '+%Y%m%d%H%M%S')
 # Freeze the timestamp so the runner, app images and generated bundle use one tag.
 CUSTOM_SCORECARD_VERSION := $(CUSTOM_SCORECARD_VERSION)
 export SCORECARD_SAMPLE_IMG ?= $(IMAGE_TAG_BASE)-scorecard-app:$(CUSTOM_SCORECARD_VERSION)

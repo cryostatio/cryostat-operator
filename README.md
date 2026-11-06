@@ -294,7 +294,7 @@ repository root, choose one fresh tag and use it for all three images:
 
 ```sh
 export SCORECARD_IMAGE_NAMESPACE=quay.io/jtolentino1 # Replace with your namespace
-export CUSTOM_SCORECARD_VERSION="4.3.0-$(date -u +%Y%m%d%H%M%S)"
+export CUSTOM_SCORECARD_VERSION="5.0.0-$(date -u +%Y%m%d%H%M%S)"
 export CUSTOM_SCORECARD_IMG="${SCORECARD_IMAGE_NAMESPACE}/cryostat-operator-scorecard:${CUSTOM_SCORECARD_VERSION}"
 export SCORECARD_SAMPLE_IMG="${SCORECARD_IMAGE_NAMESPACE}/cryostat-operator-scorecard-app:${CUSTOM_SCORECARD_VERSION}"
 export SCORECARD_AGENT_IMG="${SCORECARD_IMAGE_NAMESPACE}/cryostat-operator-scorecard-agent-app:${CUSTOM_SCORECARD_VERSION}"
