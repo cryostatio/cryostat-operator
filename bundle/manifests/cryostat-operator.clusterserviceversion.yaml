@@ -42,7 +42,7 @@ metadata:
     capabilities: Seamless Upgrades
     categories: Monitoring, Developer Tools
     containerImage: quay.io/cryostat/cryostat-operator:4.3.0-dev
-    createdAt: "2026-10-15T20:16:45Z"
+    createdAt: "2026-11-06T16:29:47Z"
     description: JVM monitoring and profiling tool
     operatorframework.io/initialization-resource: |-
       {
@@ -1763,7 +1763,7 @@ spec:
                       - name: RELATED_IMAGE_OAUTH2_PROXY
                         value: quay.io/oauth2-proxy/oauth2-proxy:latest
                       - name: RELATED_IMAGE_OPENSHIFT_OAUTH_PROXY
-                        value: quay.io/openshift/origin-oauth-proxy:latest
+                        value: quay.io/openshift/origin-oauth-proxy:5.0
                       - name: RELATED_IMAGE_CORE
                         value: quay.io/cryostat/cryostat:latest
                       - name: RELATED_IMAGE_DATASOURCE
@@ -1927,7 +1927,7 @@ spec:
   relatedImages:
     - image: quay.io/oauth2-proxy/oauth2-proxy:latest
       name: oauth2-proxy
-    - image: quay.io/openshift/origin-oauth-proxy:latest
+    - image: quay.io/openshift/origin-oauth-proxy:5.0
       name: openshift-oauth-proxy
     - image: quay.io/cryostat/cryostat:latest
       name: core
