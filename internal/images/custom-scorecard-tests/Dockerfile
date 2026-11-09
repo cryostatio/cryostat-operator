@@ -13,7 +13,7 @@
 # limitations under the License.
 
 # Build the manager binary
-FROM registry.access.redhat.com/ubi9/go-toolset:9.8-1793736700@sha256:c2bd0309bf78ae317024fdfc5602a31704e0dba9572f6d4b0bd4b681033dc965 as builder
+FROM registry.access.redhat.com/ubi9/go-toolset:9.8-1794208260@sha256:0e3894cea4fc077084245e8aa2befc8a7d91a4f60fbf850f0b5b555cbe62ee26 as builder
 ARG TARGETOS
 ARG TARGETARCH
 ARG SCORECARD_SAMPLE_IMG=quay.io/redhat-java-monitoring/cryostat-operator-scorecard-app:latest
@@ -37,7 +37,7 @@ RUN CGO_ENABLED=0 GOOS=${TARGETOS:-linux} GOARCH=${TARGETARCH} GO111MODULE=on go
     -ldflags "-X github.com/cryostatio/cryostat-operator/internal/test/scorecard.SampleApplicationImage=${SCORECARD_SAMPLE_IMG} -X github.com/cryostatio/cryostat-operator/internal/test/scorecard.BundledAgentApplicationImage=${SCORECARD_AGENT_IMG}" \
     internal/images/custom-scorecard-tests/main.go
 
-FROM registry.access.redhat.com/ubi9/ubi-minimal:latest@sha256:4b79c93106c14ad1c234907f83441ff0e4f8d24e78426a36e159098e9f7e6fa5
+FROM registry.access.redhat.com/ubi9/ubi-minimal:latest@sha256:f26ef64172ea61f5ac5ba4be8c5c738bf8760b22b3e5148ce7b40f7308ab32db
 
 ENV TEST=/usr/local/bin/cryostat-scorecard-tests \
     USER_UID=1001 \
