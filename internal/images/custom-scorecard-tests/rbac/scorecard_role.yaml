@@ -50,6 +50,12 @@ rules:
 - apiGroups:
   - operator.cryostat.io
   resources:
+  - cryostats/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - operator.cryostat.io
+  resources:
   - cryostats/status
   verbs:
   - get
@@ -58,6 +64,7 @@ rules:
   resources:
   - secrets
   verbs:
+  - delete
   - get
   - patch
 # Permissions for default OAuth configurations
