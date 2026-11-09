@@ -35,7 +35,15 @@ const (
 	CryostatAgentAutoConfigTestName string = "cryostat-agent-autoconfig"
 	CryostatConfigChangeTestName    string = "cryostat-config-change"
 	CryostatReportTestName          string = "cryostat-report"
+	CryostatRBACTestName            string = "cryostat-rbac"
 )
+
+// rbacSkipReason explains why the fine-grained RBAC test cannot carry signal on
+// Kubernetes. It is logged verbatim in the skip branch so that a green run on a
+// non-OpenShift cluster is not mistaken for passing RBAC coverage.
+const rbacSkipReason = "skipping cryostat-rbac: Cryostat's fine-grained RBAC is only enforced" +
+	" when deployed on OpenShift. This test always passes on non-OpenShift Kubernetes since" +
+	" Cryostat will trivially pass all RBAC lookups as noops."
 
 // OperatorInstallTest checks that the operator installed correctly
 func OperatorInstallTest(bundle *apimanifests.Bundle, namespace string, openShiftCertManager bool) *scapiv1alpha3.TestResult {
@@ -203,6 +211,70 @@ func CryostatRecordingTest(bundle *apimanifests.Bundle, namespace string, openSh
 	if err := r.exerciseRecording(ctx, apiClient, target); err != nil {
 		return r.fail(err.Error())
 	}
+
+	return r.TestResult
+}
+
+// CryostatRBACTest checks that the fine-grained RBAC permission mappings configured on a
+// Cryostat CR are enforced by the deployed Cryostat application.
+//
+// Four ServiceAccounts form a monotone privilege ladder over archived recordings - none,
+// read, read+write, read+write+delete - expressed as Kubernetes Roles over synthetic
+// resources that the CR's rbacPermissions map onto Cryostat's archivedrecordings
+// permissions. Each ServiceAccount then exercises all three permissions against both the
+// REST and the GraphQL surface.
+//
+// The test is a no-op on Kubernetes: see rbacSkipReason.
+func CryostatRBACTest(bundle *apimanifests.Bundle, namespace string, openShiftCertManager bool) *scapiv1alpha3.TestResult {
+	r := newTestResources(CryostatRBACTestName, namespace)
+
+	err := r.setupCRTestResources(openShiftCertManager)
+	if err != nil {
+		return r.fail(fmt.Sprintf("failed to set up %s test: %s", CryostatRBACTestName, err.Error()))
+	}
+	if !r.OpenShift {
+		r.Log += rbacSkipReason + "\n"
+		return r.TestResult
+	}
+	defer r.cleanupAndLogs()
+
+	setupCtx, cancelSetup := context.WithTimeout(context.Background(), testTimeout)
+	defer cancelSetup()
+
+	levels := rbacPrivilegeLevels()
+	defer r.cleanupRBACSubjects(levels)
+	err = r.setupRBACSubjects(setupCtx, levels)
+	if err != nil {
+		return r.fail(fmt.Sprintf("failed to set up RBAC subjects: %s", err.Error()))
+	}
+
+	cr, err := r.createAndWaitTillCryostatAvailable(r.newRBACCryostatCR())
+	if err != nil {
+		return r.fail(fmt.Sprintf("%s test failed: %s", CryostatRBACTestName, err.Error()))
+	}
+	err = r.StartLogs(cr)
+	if err != nil {
+		r.Log += fmt.Sprintf("failed to retrieve logs for the application: %s\n", err.Error())
+	}
+
+	base, err := url.Parse(cr.Status.ApplicationURL)
+	if err != nil {
+		return r.fail(fmt.Sprintf("application URL is invalid: %s", err.Error()))
+	}
+	err = r.waitTillCryostatReady(base)
+	if err != nil {
+		return r.fail(fmt.Sprintf("failed to reach the application: %s", err.Error()))
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), testTimeout)
+	defer cancel()
+
+	fixture, err := r.setupRBACFixture(ctx, base)
+	if err != nil {
+		return r.fail(fmt.Sprintf("failed to set up recordings for %s test: %s", CryostatRBACTestName, err.Error()))
+	}
+
+	r.assertRBACMatrix(ctx, base, fixture, levels)
 
 	return r.TestResult
 }

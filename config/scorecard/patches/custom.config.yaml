@@ -92,3 +92,13 @@
     labels:
       suite: cryostat
       test: cryostat-agent-autoconfig
+- op: add
+  path: /stages/1/tests/-
+  value:
+    entrypoint:
+    - cryostat-scorecard-tests
+    - cryostat-rbac
+    image: "quay.io/cryostat/cryostat-operator-scorecard:5.0.0-20261109194800"
+    labels:
+      suite: cryostat
+      test: cryostat-rbac
