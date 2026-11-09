@@ -19,7 +19,10 @@ import (
 	"errors"
 	"net/url"
 	"strconv"
+	"strings"
 )
+
+const graphQLForbiddenMessage = "Forbidden"
 
 type HealthResponse struct {
 	CryostatVersion      string `json:"cryostatVersion"`
@@ -88,14 +91,15 @@ type Recording struct {
 	DownloadURL string `json:"downloadUrl"`
 	ReportURL   string `json:"reportUrl"`
 	Id          uint32 `json:"id"`
-	Name        string `json:"name"`
-	StartTime   uint64 `json:"startTime"`
-	State       string `json:"state"`
-	Duration    int32  `json:"duration"`
-	Continuous  bool   `json:"continuous"`
-	ToDisk      bool   `json:"toDisk"`
-	MaxSize     int32  `json:"maxSize"`
-	MaxAge      int32  `json:"maxAge"`
+	RemoteId   uint32 `json:"remoteId"`
+	Name       string `json:"name"`
+	StartTime  uint64 `json:"startTime"`
+	State      string `json:"state"`
+	Duration   int32  `json:"duration"`
+	Continuous bool   `json:"continuous"`
+	ToDisk     bool   `json:"toDisk"`
+	MaxSize    int32  `json:"maxSize"`
+	MaxAge     int32  `json:"maxAge"`
 }
 
 type Archive struct {
@@ -135,10 +139,44 @@ func (query *GraphQLQuery) ToJSON() ([]byte, error) {
 	return json.Marshal(query)
 }
 
+// GraphQLError is a single entry of a GraphQL response's "errors" array.
+type GraphQLError struct {
+	Message string `json:"message"`
+}
+
+// GraphQLErrors is the error portion of any GraphQL response, shared by the response types
+// below so that permission denials can be detected without modelling the "data" payload.
+type GraphQLErrors struct {
+	Errors []GraphQLError `json:"errors,omitempty"`
+}
+
+// Denied reports whether the response carries a permission denial raised by Cryostat's
+// GraphQL security interceptor.
+func (r *GraphQLErrors) Denied() bool {
+	return r.ErrorMatching(graphQLForbiddenMessage) != nil
+}
+
+// ErrorMatching returns the first error whose message contains the given substring, or nil.
+func (r *GraphQLErrors) ErrorMatching(substring string) *GraphQLError {
+	for i := range r.Errors {
+		if strings.Contains(r.Errors[i].Message, substring) {
+			return &r.Errors[i]
+		}
+	}
+	return nil
+}
+
+// Messages returns all error messages, for inclusion in assertion failure output.
+func (r *GraphQLErrors) Messages() []string {
+	messages := make([]string, 0, len(r.Errors))
+	for _, e := range r.Errors {
+		messages = append(messages, e.Message)
+	}
+	return messages
+}
+
 type ArchiveGraphQLResponse struct {
-	Errors []struct {
-		Message string `json:"message"`
-	} `json:"errors,omitempty"`
+	GraphQLErrors
 	Data struct {
 		TargetNodes []struct {
 			Target struct {
@@ -148,4 +186,27 @@ type ArchiveGraphQLResponse struct {
 			} `json:"target"`
 		} `json:"targetNodes"`
 	} `json:"data"`
+}
+
+// ArchivedRecordingsGraphQLResponse models the top-level "archivedRecordings" query, which
+// requires only archivedrecordings:read. The nested doPutMetadata and doDelete fields are
+// resolvers on the ArchivedRecording type and are guarded by archivedrecordings:write and
+// archivedrecordings:delete respectively.
+type ArchivedRecordingsGraphQLResponse struct {
+	GraphQLErrors
+	Data struct {
+		ArchivedRecordings struct {
+			Data []ArchivedRecordingNode `json:"data"`
+		} `json:"archivedRecordings"`
+	} `json:"data"`
+}
+
+// ArchivedRecordingNode is an archived recording as returned by the top-level
+// "archivedRecordings" GraphQL query, including the results of the mutation resolvers the
+// RBAC test nests underneath it.
+type ArchivedRecordingNode struct {
+	Name          string   `json:"name"`
+	JvmId         string   `json:"jvmId"`
+	DoPutMetadata *Archive `json:"doPutMetadata,omitempty"`
+	DoDelete      *Archive `json:"doDelete,omitempty"`
 }

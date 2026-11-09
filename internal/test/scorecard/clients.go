@@ -211,10 +211,20 @@ func (c *CryostatRESTClientset) Credential() *CredentialClient {
 	return c.CredentialClient
 }
 
+// NewCryostatRESTClientset creates a Cryostat API clientset that authenticates as the
+// scorecard pod's own ServiceAccount.
 func (r *TestResources) NewCryostatRESTClientset(base *url.URL) *CryostatRESTClientset {
+	return r.NewCryostatRESTClientsetWithToken(base, "")
+}
+
+// NewCryostatRESTClientsetWithToken creates a Cryostat API clientset that authenticates with
+// the given bearer token. An empty token falls back to the scorecard pod's own
+// ServiceAccount token, so this is equivalent to NewCryostatRESTClientset.
+func (r *TestResources) NewCryostatRESTClientsetWithToken(base *url.URL, token string) *CryostatRESTClientset {
 	commonClient := &commonCryostatRESTClient{
 		Base:          base,
 		Client:        NewHttpClient(),
+		Token:         token,
 		TestResources: r,
 	}
 
@@ -234,6 +244,9 @@ func (r *TestResources) NewCryostatRESTClientset(base *url.URL) *CryostatRESTCli
 type commonCryostatRESTClient struct {
 	Base *url.URL
 	*http.Client
+	// Token is the bearer token presented to the Cryostat auth proxy. When empty, the
+	// scorecard pod's own in-cluster ServiceAccount token is used instead.
+	Token string
 	*TestResources
 }
 
@@ -247,7 +260,7 @@ func (client *TargetClient) List(ctx context.Context) ([]Target, error) {
 	header := make(http.Header)
 	header.Add("Accept", "*/*")
 
-	resp, err := SendRequest(ctx, client.Client, http.MethodGet, restURL.String(), nil, header)
+	resp, err := SendRequestWithToken(ctx, client.Client, http.MethodGet, restURL.String(), nil, header, client.Token)
 	if err != nil {
 		return nil, err
 	}
@@ -273,7 +286,7 @@ func (client *TargetClient) Create(ctx context.Context, options *Target) (*Targe
 	header.Add("Accept", "*/*")
 	body := options.ToFormData()
 
-	resp, err := SendRequest(ctx, client.Client, http.MethodPost, restURL.String(), &body, header)
+	resp, err := SendRequestWithToken(ctx, client.Client, http.MethodPost, restURL.String(), &body, header, client.Token)
 	if err != nil {
 		return nil, err
 	}
@@ -302,7 +315,7 @@ func (client *RecordingClient) List(ctx context.Context, target *Target) ([]Reco
 	header := make(http.Header)
 	header.Add("Accept", "*/*")
 
-	resp, err := SendRequest(ctx, client.Client, http.MethodGet, restURL.String(), nil, header)
+	resp, err := SendRequestWithToken(ctx, client.Client, http.MethodGet, restURL.String(), nil, header, client.Token)
 	if err != nil {
 		return nil, err
 	}
@@ -343,7 +356,7 @@ func (client *RecordingClient) Create(ctx context.Context, target *Target, optio
 	header.Add("Content-Type", "application/x-www-form-urlencoded")
 	header.Add("Accept", "*/*")
 
-	resp, err := SendRequest(ctx, client.Client, http.MethodPost, restURL.String(), &body, header)
+	resp, err := SendRequestWithToken(ctx, client.Client, http.MethodPost, restURL.String(), &body, header, client.Token)
 	if err != nil {
 		return nil, err
 	}
@@ -369,7 +382,7 @@ func (client *RecordingClient) Archive(ctx context.Context, target *Target, reco
 	header.Add("Content-Type", "text/plain")
 	header.Add("Accept", "*/*")
 
-	resp, err := SendRequest(ctx, client.Client, http.MethodPatch, restURL.String(), &body, header)
+	resp, err := SendRequestWithToken(ctx, client.Client, http.MethodPatch, restURL.String(), &body, header, client.Token)
 	if err != nil {
 		return "", err
 	}
@@ -394,7 +407,7 @@ func (client *RecordingClient) Stop(ctx context.Context, target *Target, recordi
 	header.Add("Content-Type", "text/plain")
 	header.Add("Accept", "*/*")
 
-	resp, err := SendRequest(ctx, client.Client, http.MethodPatch, restURL.String(), &body, header)
+	resp, err := SendRequestWithToken(ctx, client.Client, http.MethodPatch, restURL.String(), &body, header, client.Token)
 	if err != nil {
 		return err
 	}
@@ -411,7 +424,7 @@ func (client *RecordingClient) Delete(ctx context.Context, target *Target, recor
 	restURL := client.Base.JoinPath(fmt.Sprintf("/api/v4/targets/%d/recordings/%d", target.Id, recordingId))
 	header := make(http.Header)
 
-	resp, err := SendRequest(ctx, client.Client, http.MethodDelete, restURL.String(), nil, header)
+	resp, err := SendRequestWithToken(ctx, client.Client, http.MethodDelete, restURL.String(), nil, header, client.Token)
 	if err != nil {
 		return err
 	}
@@ -433,7 +446,7 @@ func (client *RecordingClient) RequestReportGeneration(ctx context.Context, targ
 
 	header := make(http.Header)
 
-	resp, err := SendRequest(ctx, client.Client, http.MethodGet, reportURL.String(), nil, header)
+	resp, err := SendRequestWithToken(ctx, client.Client, http.MethodGet, reportURL.String(), nil, header, client.Token)
 	if err != nil {
 		return nil, err
 	}
@@ -491,7 +504,7 @@ func (client *RecordingClient) ListArchives(ctx context.Context, target *Target)
 	header.Add("Content-Type", "application/json")
 	header.Add("Accept", "*/*")
 
-	resp, err := SendRequest(ctx, client.Client, http.MethodPost, restURL.String(), &body, header)
+	resp, err := SendRequestWithToken(ctx, client.Client, http.MethodPost, restURL.String(), &body, header, client.Token)
 	if err != nil {
 		return nil, err
 	}
@@ -526,7 +539,7 @@ func (client *CredentialClient) Create(ctx context.Context, credential *Credenti
 	header := make(http.Header)
 	header.Add("Content-Type", "application/x-www-form-urlencoded")
 
-	resp, err := SendRequest(ctx, client.Client, http.MethodPost, restURL.String(), &body, header)
+	resp, err := SendRequestWithToken(ctx, client.Client, http.MethodPost, restURL.String(), &body, header, client.Token)
 	if err != nil {
 		return err
 	}
@@ -588,7 +601,14 @@ func NewHttpClient() *http.Client {
 	return client
 }
 
+// NewHttpRequest builds a request authenticated as the scorecard pod's own ServiceAccount.
 func NewHttpRequest(ctx context.Context, method string, restURL string, body *string, header http.Header) (*http.Request, error) {
+	return NewHttpRequestWithToken(ctx, method, restURL, body, header, "")
+}
+
+// NewHttpRequestWithToken builds a request authenticated with the given bearer token. An
+// empty token falls back to the scorecard pod's own in-cluster ServiceAccount token.
+func NewHttpRequestWithToken(ctx context.Context, method string, restURL string, body *string, header http.Header, token string) (*http.Request, error) {
 	var reqBody io.Reader
 	if body != nil {
 		reqBody = strings.NewReader(*body)
@@ -604,12 +624,15 @@ func NewHttpRequest(ctx context.Context, method string, restURL string, body *st
 	}
 
 	// Authentication for OpenShift SSO
-	config, err := cfg.GetConfig()
-	if err != nil {
-		return nil, fmt.Errorf("failed to get in-cluster configurations: %s", err.Error())
+	if len(token) == 0 {
+		config, err := cfg.GetConfig()
+		if err != nil {
+			return nil, fmt.Errorf("failed to get in-cluster configurations: %s", err.Error())
+		}
+		token = config.BearerToken
 	}
 
-	req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", config.BearerToken))
+	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", token))
 	return req, nil
 }
 
@@ -617,11 +640,20 @@ func StatusOK(statusCode int) bool {
 	return statusCode >= 200 && statusCode < 300
 }
 
+// SendRequest sends a request authenticated as the scorecard pod's own ServiceAccount,
+// retrying while the connection is closed by the peer.
 func SendRequest(ctx context.Context, httpClient *http.Client, method string, restURL string, body *string, header http.Header) (*http.Response, error) {
+	return SendRequestWithToken(ctx, httpClient, method, restURL, body, header, "")
+}
+
+// SendRequestWithToken sends a request authenticated with the given bearer token, retrying
+// while the connection is closed by the peer. An empty token falls back to the scorecard
+// pod's own in-cluster ServiceAccount token.
+func SendRequestWithToken(ctx context.Context, httpClient *http.Client, method string, restURL string, body *string, header http.Header, token string) (*http.Response, error) {
 	var response *http.Response
 	err := wait.PollUntilContextCancel(ctx, time.Second, true, func(ctx context.Context) (done bool, err error) {
 		// Create a new request
-		req, err := NewHttpRequest(ctx, method, restURL, body, header)
+		req, err := NewHttpRequestWithToken(ctx, method, restURL, body, header, token)
 		if err != nil {
 			return false, fmt.Errorf("failed to create an http request: %s", err.Error())
 		}
