@@ -43,10 +43,10 @@ import (
 )
 
 // SampleApplicationImage is the bare workload image, set alongside the Scorecard image at build time.
-var SampleApplicationImage = "quay.io/cryostat/cryostat-operator-scorecard-app:latest"
+var SampleApplicationImage = "quay.io/redhat-java-monitoring/cryostat-operator-scorecard-app:latest"
 
 // BundledAgentApplicationImage contains the same Agent JAR used for injection.
-var BundledAgentApplicationImage = "quay.io/cryostat/cryostat-operator-scorecard-agent-app:latest"
+var BundledAgentApplicationImage = "quay.io/redhat-java-monitoring/cryostat-operator-scorecard-agent-app:latest"
 
 const sampleAgentTLSPath = "/var/run/secrets/scorecard-agent"
 

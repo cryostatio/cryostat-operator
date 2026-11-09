@@ -134,29 +134,6 @@ jobs:
         MANIFEST_PUSH=false \
           make scorecard-build
       if: ${{ steps.check-tag-exists.outputs.exist == 'false' }}
-    - name: Tag sample applications for local source tests
-      if: ${{ steps.check-tag-exists.outputs.exist == 'false' && github.ref == 'refs/heads/main' }}
-      run: |
-        podman tag ${{ env.CI_REGISTRY }}/cryostat-operator-scorecard-app:${{ steps.get-image-tag.outputs.tag }} ${{ env.CI_REGISTRY }}/cryostat-operator-scorecard-app:latest
-        podman tag ${{ env.CI_REGISTRY }}/cryostat-operator-scorecard-agent-app:${{ steps.get-image-tag.outputs.tag }} ${{ env.CI_REGISTRY }}/cryostat-operator-scorecard-agent-app:latest
-    - name: Push Scorecard sample applications to quay.io
-      uses: redhat-actions/push-to-registry@5ed88d269cf581ea9ef6dd6806d01562096bee9c # v2.8
-      with:
-        image: cryostat-operator-scorecard-app
-        tags: ${{ steps.get-image-tag.outputs.tag }}${{ github.ref == 'refs/heads/main' && ' latest' || '' }}
-        registry: ${{ env.CI_REGISTRY }}
-        username: ${{ env.CI_USER }}
-        password: ${{ secrets.REGISTRY_PASSWORD }}
-      if: ${{ steps.check-tag-exists.outputs.exist == 'false' && github.repository_owner == 'cryostatio' }}
-    - name: Push bundled-Agent sample application to quay.io
-      uses: redhat-actions/push-to-registry@5ed88d269cf581ea9ef6dd6806d01562096bee9c # v2.8
-      with:
-        image: cryostat-operator-scorecard-agent-app
-        tags: ${{ steps.get-image-tag.outputs.tag }}${{ github.ref == 'refs/heads/main' && ' latest' || '' }}
-        registry: ${{ env.CI_REGISTRY }}
-        username: ${{ env.CI_USER }}
-        password: ${{ secrets.REGISTRY_PASSWORD }}
-      if: ${{ steps.check-tag-exists.outputs.exist == 'false' && github.repository_owner == 'cryostatio' }}
     - name: Push to quay.io
       id: push-to-quay
       uses: redhat-actions/push-to-registry@5ed88d269cf581ea9ef6dd6806d01562096bee9c # v2.8

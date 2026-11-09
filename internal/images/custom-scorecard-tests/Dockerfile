@@ -16,8 +16,8 @@
 FROM registry.access.redhat.com/ubi9/go-toolset:9.8-1793736700@sha256:c2bd0309bf78ae317024fdfc5602a31704e0dba9572f6d4b0bd4b681033dc965 as builder
 ARG TARGETOS
 ARG TARGETARCH
-ARG SCORECARD_SAMPLE_IMG=quay.io/cryostat/cryostat-operator-scorecard-app:latest
-ARG SCORECARD_AGENT_IMG=quay.io/cryostat/cryostat-operator-scorecard-agent-app:latest
+ARG SCORECARD_SAMPLE_IMG=quay.io/redhat-java-monitoring/cryostat-operator-scorecard-app:latest
+ARG SCORECARD_AGENT_IMG=quay.io/redhat-java-monitoring/cryostat-operator-scorecard-agent-app:latest
 
 # Copy the Go Modules manifests
 COPY go.mod go.mod

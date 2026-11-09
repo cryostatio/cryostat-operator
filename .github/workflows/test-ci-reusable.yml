@@ -69,8 +69,6 @@ jobs:
     - name: Build scorecard image for test
       run: |
         CUSTOM_SCORECARD_IMG="${REGISTRY_NAME}:${REGISTRY_PORT}/${OWNER}/cryostat-operator-scorecard:${TAG}" \
-        SCORECARD_SAMPLE_IMG="${REGISTRY_NAME}:${REGISTRY_PORT}/${OWNER}/cryostat-operator-scorecard-app:${TAG}" \
-        SCORECARD_AGENT_IMG="${REGISTRY_NAME}:${REGISTRY_PORT}/${OWNER}/cryostat-operator-scorecard-agent-app:${TAG}" \
         PLATFORMS=linux/amd64 \
         MANIFEST_PUSH=false \
         make scorecard-build
@@ -103,7 +101,7 @@ jobs:
       run: make scorecard-kind-prereqs
     - name: Push test images to local registry
       run: |
-        make scorecard-kind-push SCORECARD_PUSH_IMAGES="${REGISTRY_NAME}:${REGISTRY_PORT}/${OWNER}/cryostat-operator-scorecard:${TAG} ${REGISTRY_NAME}:${REGISTRY_PORT}/${OWNER}/cryostat-operator:${TAG} ${REGISTRY_NAME}:${REGISTRY_PORT}/${OWNER}/cryostat-operator-bundle:${TAG} ${REGISTRY_NAME}:${REGISTRY_PORT}/${OWNER}/cryostat-operator-scorecard-app:${TAG} ${REGISTRY_NAME}:${REGISTRY_PORT}/${OWNER}/cryostat-operator-scorecard-agent-app:${TAG}"
+        make scorecard-kind-push SCORECARD_PUSH_IMAGES="${REGISTRY_NAME}:${REGISTRY_PORT}/${OWNER}/cryostat-operator-scorecard:${TAG} ${REGISTRY_NAME}:${REGISTRY_PORT}/${OWNER}/cryostat-operator:${TAG} ${REGISTRY_NAME}:${REGISTRY_PORT}/${OWNER}/cryostat-operator-bundle:${TAG}"
     - name: Run scorecard tests
       run: |
         BUNDLE_IMG="${REGISTRY_NAME}:${REGISTRY_PORT}/${OWNER}/cryostat-operator-bundle:${TAG}" \
