@@ -3784,7 +3784,7 @@ func (c *controllerTest) rbacRenderingTests() {
 			})
 
 			It("should not create the main deployment", func() {
-				t.reconcileUntilError()
+				Expect(t.reconcileUntilError()).To(HaveOccurred())
 
 				deployment := &appsv1.Deployment{}
 				err := t.Client.Get(context.Background(),

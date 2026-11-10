@@ -549,43 +549,42 @@ func (r *TestResources) sendGraphQLRequest(ctx context.Context, base *url.URL, q
 }
 
 // checkREST issues a Cryostat REST request as the given privilege level and records whether
-// the response matched the expectation. It returns true when it did.
+// the response matched the expectation.
 //
 // A denied request is 403. An allowed but malformed one is 400. A 401 is called out
 // separately because it means the auth proxy rejected the token before Cryostat evaluated
 // any permission, which is a different failure from a permission denial.
 func (r *TestResources) checkREST(ctx context.Context, level *rbacPrivilegeLevel, permission string,
-	method string, requestURL *url.URL, body *string, header http.Header) bool {
+	method string, requestURL *url.URL, body *string, header http.Header) {
 	allowed := level.Allows(permission)
 	label := fmt.Sprintf("REST %s %s as %s, expecting %s", method, requestURL.Path, level.Name, rbacExpectation(allowed))
 
 	resp, err := SendRequestWithToken(ctx, NewHttpClient(), method, requestURL.String(), body, header, level.Token)
 	if err != nil {
 		r.logError(fmt.Sprintf("%s: request failed: %s", label, err.Error()))
-		return false
+		return
 	}
 	defer r.closeStream(resp.Body)
 
 	if resp.StatusCode == http.StatusUnauthorized {
 		r.logError(fmt.Sprintf("%s: got 401, so the auth proxy rejected the token before Cryostat"+
 			" evaluated %s; check that the ServiceAccount passes the proxy's access review", label, permission))
-		return false
+		return
 	}
 	if allowed && !StatusOK(resp.StatusCode) {
 		r.logError(fmt.Sprintf("%s: got %d, want 2xx; body: %s", label, resp.StatusCode, ReadError(resp)))
-		return false
+		return
 	}
 	if !allowed && resp.StatusCode != http.StatusForbidden {
 		r.logError(fmt.Sprintf("%s: got %d, want 403; body: %s", label, resp.StatusCode, ReadError(resp)))
-		return false
+		return
 	}
 
 	r.Log += fmt.Sprintf("%s: got %d, as expected\n", label, resp.StatusCode)
-	return true
 }
 
 // checkGraphQL issues a Cryostat GraphQL request as the given privilege level and records
-// whether the response matched the expectation. It returns true when it did.
+// whether the response matched the expectation.
 //
 // Unlike the REST surface, a GraphQL permission denial is HTTP 200 with a populated "errors"
 // array: Cryostat's GraphQL security interceptor aborts the operation by throwing a
@@ -593,42 +592,41 @@ func (r *TestResources) checkREST(ctx context.Context, level *rbacPrivilegeLevel
 // code therefore carries no authorization signal here, and the assertion is on the presence
 // or absence of a "Forbidden" error instead.
 func (r *TestResources) checkGraphQL(ctx context.Context, level *rbacPrivilegeLevel, permission string,
-	base *url.URL, query *GraphQLQuery, response *ArchivedRecordingsGraphQLResponse) bool {
+	base *url.URL, query *GraphQLQuery, response *ArchivedRecordingsGraphQLResponse) {
 	allowed := level.Allows(permission)
 	label := fmt.Sprintf("GraphQL %s as %s, expecting %s", permission, level.Name, rbacExpectation(allowed))
 
 	status, body, err := r.sendGraphQLRequest(ctx, base, query, level.Token, response)
 	if err != nil {
 		r.logError(fmt.Sprintf("%s: %s", label, err.Error()))
-		return false
+		return
 	}
 	if status == http.StatusUnauthorized {
 		r.logError(fmt.Sprintf("%s: got 401, so the auth proxy rejected the token before Cryostat"+
 			" evaluated %s; check that the ServiceAccount passes the proxy's access review", label, permission))
-		return false
+		return
 	}
 	if status != http.StatusOK {
 		r.logError(fmt.Sprintf("%s: got HTTP %d, want 200; GraphQL denials are reported in the"+
 			" response body, not the status code; body: %s", label, status, body))
-		return false
+		return
 	}
 
 	denied := response.Denied()
 	if allowed && denied {
 		r.logError(fmt.Sprintf("%s: denied; errors: %v", label, response.Messages()))
-		return false
+		return
 	}
 	if !allowed && !denied {
 		r.logError(fmt.Sprintf("%s: not denied; errors: %v, body: %s", label, response.Messages(), body))
-		return false
+		return
 	}
 	if allowed && len(response.Errors) > 0 {
 		r.logError(fmt.Sprintf("%s: allowed but the response carries errors: %v", label, response.Messages()))
-		return false
+		return
 	}
 
 	r.Log += fmt.Sprintf("%s: %s, as expected\n", label, rbacExpectation(allowed))
-	return true
 }
 
 // rbacExpectation renders an expected outcome for inclusion in log and error messages.
