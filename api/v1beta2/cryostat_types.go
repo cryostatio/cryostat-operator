@@ -1075,7 +1075,7 @@ type StorageBucketNameOptions struct {
 	// The name of the bucket used to store JVM unified log dumps.
 	// +optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
-	UnifiedLogs *string `json:"logs,omitempty"`
+	UnifiedLogs *string `json:"unifiedlogs,omitempty"`
 	// The name of the bucket used to storage JVM thread dumps.
 	// +optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec

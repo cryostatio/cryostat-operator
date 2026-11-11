@@ -6346,10 +6346,6 @@ spec:
                         description: The name of the bucket used to store JMC Agent
                           Probe templates.
                         type: string
-                      logs:
-                        description: The name of the bucket used to store JVM unified
-                          log dumps.
-                        type: string
                       metadata:
                         description: The name of the bucket used to storage metadata
                           for other objects (ex. archived recordings). This is only
@@ -6359,6 +6355,10 @@ spec:
                       threadDumps:
                         description: The name of the bucket used to storage JVM thread
                           dumps.
+                        type: string
+                      unifiedlogs:
+                        description: The name of the bucket used to store JVM unified
+                          log dumps.
                         type: string
                     type: object
                 type: object

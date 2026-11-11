@@ -319,7 +319,7 @@ func (r *TestResources) NewCryostatWithCustomizedStorageBucketNames() *model.Cry
 	threadDumps := "f"
 	metadata := "z"
 	heapDumpReports := "g"
-	logs := "h"
+	unifiedlogs := "h"
 	cr.Spec.ObjectStorageOptions = &operatorv1beta2.ObjectStorageOptions{
 		Provider: &operatorv1beta2.ObjectStorageProviderOptions{
 			URL:    &providerUrl,
@@ -334,7 +334,7 @@ func (r *TestResources) NewCryostatWithCustomizedStorageBucketNames() *model.Cry
 			ThreadDumps:            &threadDumps,
 			Metadata:               &metadata,
 			HeapDumpReports:        &heapDumpReports,
-			UnifiedLogs:            &logs,
+			UnifiedLogs:            &unifiedlogs,
 		},
 	}
 	return cr
