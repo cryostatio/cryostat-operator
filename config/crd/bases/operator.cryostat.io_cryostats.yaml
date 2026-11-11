@@ -6334,6 +6334,10 @@ spec:
                         description: The name of the bucket used to store custom Event
                           Templates.
                         type: string
+                      heapDumpReports:
+                        description: The name of the bucket used to store Heap Dump
+                          Automated Analysis reports.
+                        type: string
                       heapDumps:
                         description: The name of the bucket used to store JVM heap
                           dumps.
@@ -6341,6 +6345,10 @@ spec:
                       jmcAgentProbeTemplates:
                         description: The name of the bucket used to store JMC Agent
                           Probe templates.
+                        type: string
+                      logs:
+                        description: The name of the bucket used to store JVM unified
+                          log dumps.
                         type: string
                       metadata:
                         description: The name of the bucket used to storage metadata

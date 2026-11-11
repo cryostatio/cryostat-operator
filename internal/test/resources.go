@@ -333,8 +333,8 @@ func (r *TestResources) NewCryostatWithCustomizedStorageBucketNames() *model.Cry
 			HeapDumps:              &heapDumps,
 			ThreadDumps:            &threadDumps,
 			Metadata:               &metadata,
-			HeapDumpReports:		&heapDumpReports,
-			UnifiedLogs:			&logs,
+			HeapDumpReports:        &heapDumpReports,
+			UnifiedLogs:            &logs,
 		},
 	}
 	return cr

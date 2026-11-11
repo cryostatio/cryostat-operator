@@ -1222,11 +1222,11 @@ func (c *controllerTest) commonTests() {
 						Value: "z",
 					},
 					{
-						Name: "CRYOSTAT_SERVICES_HEAP_DUMP_REPORTS_STORAGE_CACHE_NAME",
+						Name:  "CRYOSTAT_SERVICES_HEAP_DUMP_REPORTS_STORAGE_CACHE_NAME",
 						Value: "g",
 					},
 					{
-						Name: "STORAGE_BUCKETS_UNIFIED_LOGS_NAME",
+						Name:  "STORAGE_BUCKETS_UNIFIED_LOGS_NAME",
 						Value: "h",
 					},
 				})
