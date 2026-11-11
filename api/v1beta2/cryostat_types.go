@@ -1068,6 +1068,14 @@ type StorageBucketNameOptions struct {
 	// +optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
 	HeapDumps *string `json:"heapDumps,omitempty"`
+	// The name of the bucket used to store Heap Dump Automated Analysis reports.
+	// +optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec
+	HeapDumpReports *string `json:"heapDumpReports,omitempty"`
+	// The name of the bucket used to store JVM unified log dumps.
+	// +optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec
+	UnifiedLogs *string `json:"logs,omitempty"`
 	// The name of the bucket used to storage JVM thread dumps.
 	// +optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec

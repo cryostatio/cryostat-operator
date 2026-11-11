@@ -318,6 +318,8 @@ func (r *TestResources) NewCryostatWithCustomizedStorageBucketNames() *model.Cry
 	heapDumps := "e"
 	threadDumps := "f"
 	metadata := "z"
+	heapDumpReports := "g"
+	logs := "h"
 	cr.Spec.ObjectStorageOptions = &operatorv1beta2.ObjectStorageOptions{
 		Provider: &operatorv1beta2.ObjectStorageProviderOptions{
 			URL:    &providerUrl,
@@ -331,6 +333,8 @@ func (r *TestResources) NewCryostatWithCustomizedStorageBucketNames() *model.Cry
 			HeapDumps:              &heapDumps,
 			ThreadDumps:            &threadDumps,
 			Metadata:               &metadata,
+			HeapDumpReports:		&heapDumpReports,
+			UnifiedLogs:			&logs,
 		},
 	}
 	return cr
@@ -3256,7 +3260,7 @@ func (r *TestResources) NewStorageEnvironmentVariables() []corev1.EnvVar {
 	envs := []corev1.EnvVar{
 		{
 			Name:  "CRYOSTAT_BUCKETS",
-			Value: "archivedrecordings,archivedreports,eventtemplates,probes,heapdumps,threaddumps,logs",
+			Value: "archivedrecordings,archivedreports,eventtemplates,probes,heapdumps,threaddumps,heapdumpreports,logs",
 		},
 		{
 			Name:  "CRYOSTAT_ACCESS_KEY",
