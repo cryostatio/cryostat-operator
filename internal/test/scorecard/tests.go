@@ -269,7 +269,7 @@ func CryostatRBACTest(bundle *apimanifests.Bundle, namespace string, openShiftCe
 	ctx, cancel := context.WithTimeout(context.Background(), testTimeout)
 	defer cancel()
 
-	fixture, err := r.setupRBACFixture(ctx, base)
+	fixture, err := r.setupRBACFixture(ctx, cr, base)
 	if err != nil {
 		return r.fail(fmt.Sprintf("failed to set up recordings for %s test: %s", CryostatRBACTestName, err.Error()))
 	}
