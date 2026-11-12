@@ -87,6 +87,7 @@ jobs:
       with:
         config: .github/kind-config.yaml
         cluster_name: ci-${{ github.run_id }}
+        node_image: mirror.gcr.io/kindest/node:v1.37.0@sha256:a1ed56cfb0e7b93589bdf97c8cd566405a265939e3620fc4f5de89adff580ae5
         wait: 1m
         ignore_failed_clean: true
         # Plain-HTTP registry serving both the runner host and the cluster nodes:
