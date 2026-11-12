@@ -41,13 +41,8 @@ metadata:
       ]
     capabilities: Seamless Upgrades
     categories: Monitoring, Developer Tools
-<<<<<<< HEAD
     containerImage: quay.io/cryostat/cryostat-operator:4.3.0-dev
-    createdAt: "2026-11-06T19:42:49Z"
-=======
-    containerImage: quay.io/cryostat/cryostat-operator:5.0.0-dev
-    createdAt: "2026-11-11T23:48:01Z"
->>>>>>> ae92c4b (fix(storage): Add missing Storage bucket name configuration (#1584))
+    createdAt: "2026-11-12T15:58:36Z"
     description: JVM monitoring and profiling tool
     operatorframework.io/initialization-resource: |-
       {
