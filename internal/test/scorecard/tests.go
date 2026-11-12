@@ -26,17 +26,17 @@ import (
 )
 
 const (
-	OperatorInstallTestName         string = "operator-install"
-	ConsolePluginTestName           string = "console-plugin"
-	CryostatCRTestName              string = "cryostat-cr"
-	CryostatMultiNamespaceTestName  string = "cryostat-multi-namespace"
-	CryostatRecordingTestName       string = "cryostat-recording"
-	CryostatAgentTestName           string = "cryostat-agent"
-	CryostatAgentAutoConfigTestName string = "cryostat-agent-autoconfig"
-	CryostatConfigChangeTestName    string = "cryostat-config-change"
-	CryostatReportTestName          string = "cryostat-report"
-	CryostatRBACTestName            string = "cryostat-rbac"
-	CryostatRBACIsolationTestName   string = "cryostat-rbac-isolation"
+	OperatorInstallTestName                string = "operator-install"
+	ConsolePluginTestName                  string = "console-plugin"
+	CryostatCRTestName                     string = "cryostat-cr"
+	CryostatMultiNamespaceTestName         string = "cryostat-multi-namespace"
+	CryostatRecordingTestName              string = "cryostat-recording"
+	CryostatAgentTestName                  string = "cryostat-agent"
+	CryostatAgentAutoConfigTestName        string = "cryostat-agent-autoconfig"
+	CryostatConfigChangeTestName           string = "cryostat-config-change"
+	CryostatReportTestName                 string = "cryostat-report"
+	CryostatRBACArchivedRecordingsTestName string = "cryostat-rbac-archivedrecordings"
+	CryostatRBACIsolationTestName          string = "cryostat-rbac-isolation"
 )
 
 // rbacSkipReason explains why an OpenShift-only fine-grained RBAC test cannot carry signal
@@ -218,7 +218,7 @@ func CryostatRecordingTest(bundle *apimanifests.Bundle, namespace string, openSh
 	return r.TestResult
 }
 
-// CryostatRBACTest checks that the fine-grained RBAC permission mappings configured on a
+// CryostatRBACArchivedRecordingsTest checks that the fine-grained RBAC permission mappings configured on a
 // Cryostat CR are enforced by the deployed Cryostat application.
 //
 // Four ServiceAccounts form a monotone privilege ladder over archived recordings - none,
@@ -228,15 +228,15 @@ func CryostatRecordingTest(bundle *apimanifests.Bundle, namespace string, openSh
 // REST and the GraphQL surface.
 //
 // The test is a no-op on Kubernetes: see rbacSkipReason.
-func CryostatRBACTest(bundle *apimanifests.Bundle, namespace string, openShiftCertManager bool) *scapiv1alpha3.TestResult {
-	r := newTestResources(CryostatRBACTestName, namespace)
+func CryostatRBACArchivedRecordingsTest(bundle *apimanifests.Bundle, namespace string, openShiftCertManager bool) *scapiv1alpha3.TestResult {
+	r := newTestResources(CryostatRBACArchivedRecordingsTestName, namespace)
 
 	err := r.setupCRTestResources(openShiftCertManager)
 	if err != nil {
-		return r.fail(fmt.Sprintf("failed to set up %s test: %s", CryostatRBACTestName, err.Error()))
+		return r.fail(fmt.Sprintf("failed to set up %s test: %s", CryostatRBACArchivedRecordingsTestName, err.Error()))
 	}
 	if !r.OpenShift {
-		r.Log += rbacSkipReason(CryostatRBACTestName) + "\n"
+		r.Log += rbacSkipReason(CryostatRBACArchivedRecordingsTestName) + "\n"
 		return r.TestResult
 	}
 	defer r.cleanupAndLogs()
@@ -253,7 +253,7 @@ func CryostatRBACTest(bundle *apimanifests.Bundle, namespace string, openShiftCe
 
 	cr, err := r.createAndWaitTillCryostatAvailable(r.newRBACCryostatCR(archivedRecordingsRBACPermissions()))
 	if err != nil {
-		return r.fail(fmt.Sprintf("%s test failed: %s", CryostatRBACTestName, err.Error()))
+		return r.fail(fmt.Sprintf("%s test failed: %s", CryostatRBACArchivedRecordingsTestName, err.Error()))
 	}
 	err = r.StartLogs(cr)
 	if err != nil {
@@ -274,7 +274,7 @@ func CryostatRBACTest(bundle *apimanifests.Bundle, namespace string, openShiftCe
 
 	fixture, err := r.setupRBACFixture(ctx, cr, base)
 	if err != nil {
-		return r.fail(fmt.Sprintf("failed to set up recordings for %s test: %s", CryostatRBACTestName, err.Error()))
+		return r.fail(fmt.Sprintf("failed to set up recordings for %s test: %s", CryostatRBACArchivedRecordingsTestName, err.Error()))
 	}
 
 	r.assertRBACMatrix(ctx, base, fixture, rbacArchivesResource, levels, archivedRecordingsAssertions())

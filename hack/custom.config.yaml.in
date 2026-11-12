@@ -96,11 +96,11 @@
   value:
     entrypoint:
     - cryostat-scorecard-tests
-    - cryostat-rbac
+    - cryostat-rbac-archivedrecordings
     image: "${CUSTOM_SCORECARD_IMG}"
     labels:
       suite: cryostat
-      test: cryostat-rbac
+      test: cryostat-rbac-archivedrecordings
 - op: add
   path: /stages/1/tests/-
   value:
