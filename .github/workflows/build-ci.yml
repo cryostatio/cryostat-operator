@@ -126,6 +126,19 @@ jobs:
         fi
         echo "${CI_SCORECARD_IMG}:${{ steps.get-image-tag.outputs.tag }} exists: $EXIST"
         echo "exist=$EXIST" >> $GITHUB_OUTPUT
+    - uses: DamianReeves/write-file-action@6929a9a6d1807689191dcc8bbe62b54d70a32b42 # v1.3
+      with:
+        path: /home/runner/.config/containers/registries.conf.d/999-block-docker-io.conf
+        write-mode: overwrite
+        contents: |
+          [[registry]]
+          location = "docker.io"
+          blocked = true
+      if: ${{ steps.check-tag-exists.outputs.exist == 'false' }}
+    - uses: docker/setup-qemu-action@99012661954931238ded8c8b007157a8430204e1 # v4.4.0
+      with:
+        image: mirror.gcr.io/tonistiigi/binfmt:qemu-v10.2.3@sha256:400a4873b838d1b89194d982c45e5fb3cda4593fbfd7e08a02e76b03b21166f0
+      if: ${{ steps.check-tag-exists.outputs.exist == 'false' }}
     - name: Build scorecard image
       run: |
         CUSTOM_SCORECARD_IMG=${CI_SCORECARD_IMG}:${{ steps.get-image-tag.outputs.tag }} \
