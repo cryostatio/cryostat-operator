@@ -28,6 +28,7 @@ import (
 
 	operatorv1beta2 "github.com/cryostatio/cryostat-operator/api/v1beta2"
 	"github.com/cryostatio/cryostat-operator/internal/controller/constants"
+	appsv1 "k8s.io/api/apps/v1"
 	authnv1 "k8s.io/api/authentication/v1"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
@@ -437,47 +438,63 @@ func (f *rbacFixture) Peek() *ArchivedRecordingNode {
 	return &f.Archives[0]
 }
 
-// setupRBACFixture performs the privileged part of the archivedrecordings test as the
-// scorecard pod's own ServiceAccount: it deploys a sample application with an
-// auto-configured Agent, waits for it to register as a target, then starts a continuous
-// recording and archives it repeatedly, so that each privilege level has live and archived
-// recordings to act on.
+// setupRBACAgentTarget deploys a sample application with an auto-configured Agent and waits
+// for it to register as a target, as the scorecard pod's own ServiceAccount. It is the shared
+// first step of every RBAC fixture that needs a live target: archivedrecordings and the
+// diagnostics resources (thread dumps, heap dumps, unified logs) alike.
 //
 // An Agent target is used rather than a synthetic JMX one so the fixture is discovered
 // through real registration, the same path the privilege levels exercise, instead of being
-// synthesized through POST /targets.
-func (r *TestResources) setupRBACFixture(ctx context.Context, cr *operatorv1beta2.Cryostat, base *url.URL) (*rbacFixture, error) {
+// synthesized through POST /targets. The caller is responsible for deferring
+// r.logApplication(deployment.Name) itself, so that it fires when the caller's own setup (not
+// just this step) returns.
+func (r *TestResources) setupRBACAgentTarget(ctx context.Context, cr *operatorv1beta2.Cryostat, base *url.URL) (*appsv1.Deployment, *Target, error) {
 	apiClient := r.NewCryostatRESTClientset(base)
 
 	deployment := r.newAgentApplication(cr, true)
 	deployed, err := r.Client.AppsV1().Deployments(r.Namespace).Create(ctx, deployment, metav1.CreateOptions{})
 	if err != nil {
-		return nil, fmt.Errorf("failed to deploy the RBAC fixture's sample application: %w", err)
+		return nil, nil, fmt.Errorf("failed to deploy the RBAC fixture's sample application: %w", err)
 	}
-	defer r.logApplication(deployment.Name)
 	for _, key := range []string{constants.AgentLabelCryostatName, constants.AgentLabelCryostatNamespace} {
 		if deployed.Spec.Template.Labels[key] != deployment.Labels[key] {
-			return nil, fmt.Errorf("Deployment webhook did not propagate %s to the Pod template", key)
+			return nil, nil, fmt.Errorf("Deployment webhook did not propagate %s to the Pod template", key)
 		}
 	}
 	if err := r.waitForDeploymentAvailability(ctx, deployment.Name, r.Namespace); err != nil {
-		return nil, fmt.Errorf("RBAC fixture's sample application did not become available: %w", err)
+		return nil, nil, fmt.Errorf("RBAC fixture's sample application did not become available: %w", err)
 	}
 
 	pods, err := r.Client.CoreV1().Pods(r.Namespace).List(ctx, metav1.ListOptions{LabelSelector: "app=" + deployment.Name})
 	if err != nil {
-		return nil, fmt.Errorf("failed to list RBAC fixture's sample application Pods: %w", err)
+		return nil, nil, fmt.Errorf("failed to list RBAC fixture's sample application Pods: %w", err)
 	}
 	if len(pods.Items) != 1 {
-		return nil, fmt.Errorf("expected one RBAC fixture sample application Pod, got %d", len(pods.Items))
+		return nil, nil, fmt.Errorf("expected one RBAC fixture sample application Pod, got %d", len(pods.Items))
 	}
 	pod := &pods.Items[0]
 
 	target, err := waitForAgentTarget(ctx, apiClient.Targets(), pod.Name)
 	if err != nil {
-		return nil, fmt.Errorf("Agent did not register with Cryostat: %w", err)
+		return nil, nil, fmt.Errorf("Agent did not register with Cryostat: %w", err)
 	}
 	r.Log += fmt.Sprintf("Agent registered target: %+v\n", target)
+
+	return deployment, target, nil
+}
+
+// setupRBACFixture performs the privileged part of the archivedrecordings test as the
+// scorecard pod's own ServiceAccount: on top of setupRBACAgentTarget, it starts a continuous
+// recording and archives it repeatedly, so that each privilege level has live and archived
+// recordings to act on.
+func (r *TestResources) setupRBACFixture(ctx context.Context, cr *operatorv1beta2.Cryostat, base *url.URL) (*rbacFixture, error) {
+	apiClient := r.NewCryostatRESTClientset(base)
+
+	deployment, target, err := r.setupRBACAgentTarget(ctx, cr, base)
+	if err != nil {
+		return nil, err
+	}
+	defer r.logApplication(deployment.Name)
 
 	recording, err := apiClient.Recordings().Create(ctx, target, &RecordingCreateOptions{
 		RecordingName: "scorecard_rbac_rec",
@@ -592,6 +609,38 @@ func (r *TestResources) sendGraphQLRequest(ctx context.Context, base *url.URL, q
 		return resp.StatusCode, string(raw), fmt.Errorf("failed to unmarshal GraphQL response %q: %w", raw, err)
 	}
 	return resp.StatusCode, string(raw), nil
+}
+
+// sendPrivilegedJSON issues a REST request as the scorecard pod's own ServiceAccount and, on
+// a 2xx response, decodes the JSON body into result (if result is non-nil). It is used by the
+// privileged setup step of the diagnostics and automated rules ladder tests, which have no
+// dedicated client type the way archived recordings does.
+func (r *TestResources) sendPrivilegedJSON(ctx context.Context, method string, requestURL *url.URL, body *string, result any) error {
+	header := make(http.Header)
+	header.Set("Accept", "*/*")
+	if body != nil {
+		header.Set("Content-Type", "application/json")
+	}
+
+	resp, err := SendRequestWithToken(ctx, NewHttpClient(), method, requestURL.String(), body, header, "")
+	if err != nil {
+		return fmt.Errorf("%s %s failed: %w", method, requestURL.Path, err)
+	}
+	defer r.closeStream(resp.Body)
+
+	raw, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return fmt.Errorf("failed to read %s %s response body: %w", method, requestURL.Path, err)
+	}
+	if !StatusOK(resp.StatusCode) {
+		return fmt.Errorf("%s %s failed with status %d: %s", method, requestURL.Path, resp.StatusCode, raw)
+	}
+	if result != nil && len(raw) > 0 {
+		if err := json.Unmarshal(raw, result); err != nil {
+			return fmt.Errorf("failed to unmarshal %s %s response %q: %w", method, requestURL.Path, raw, err)
+		}
+	}
+	return nil
 }
 
 // rbacGomegaT adapts TestResources to Gomega's minimal testing interface
