@@ -42,6 +42,12 @@ const (
 	CryostatRBACHeapDumpsTestName          string = "cryostat-rbac-heapdumps"
 	CryostatRBACUnifiedLogsTestName        string = "cryostat-rbac-unifiedlogs"
 	CryostatRBACAutomatedRulesTestName     string = "cryostat-rbac-automatedrules"
+	CryostatRBACCredentialsTestName        string = "cryostat-rbac-credentials"
+	CryostatRBACEventTemplatesTestName     string = "cryostat-rbac-eventtemplates"
+	CryostatRBACTargetVisibilityTestName   string = "cryostat-rbac-targetvisibility"
+	CryostatRBACNamespaceScopeTestName     string = "cryostat-rbac-namespacescope"
+	CryostatRBACAccessReviewTestName       string = "cryostat-rbac-accessreview"
+	CryostatRBACPrecedenceTestName         string = "cryostat-rbac-precedence"
 )
 
 // rbacSkipReason explains why an OpenShift-only fine-grained RBAC test cannot carry signal

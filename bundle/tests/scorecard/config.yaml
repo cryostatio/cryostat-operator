@@ -217,6 +217,66 @@ stages:
     storage:
       spec:
         mountPath: {}
+  - entrypoint:
+    - cryostat-scorecard-tests
+    - cryostat-rbac-credentials
+    image: quay.io/cryostat/cryostat-operator-scorecard:5.0.0-20261109194800
+    labels:
+      suite: cryostat
+      test: cryostat-rbac-credentials
+    storage:
+      spec:
+        mountPath: {}
+  - entrypoint:
+    - cryostat-scorecard-tests
+    - cryostat-rbac-eventtemplates
+    image: quay.io/cryostat/cryostat-operator-scorecard:5.0.0-20261109194800
+    labels:
+      suite: cryostat
+      test: cryostat-rbac-eventtemplates
+    storage:
+      spec:
+        mountPath: {}
+  - entrypoint:
+    - cryostat-scorecard-tests
+    - cryostat-rbac-targetvisibility
+    image: quay.io/cryostat/cryostat-operator-scorecard:5.0.0-20261109194800
+    labels:
+      suite: cryostat
+      test: cryostat-rbac-targetvisibility
+    storage:
+      spec:
+        mountPath: {}
+  - entrypoint:
+    - cryostat-scorecard-tests
+    - cryostat-rbac-namespacescope
+    image: quay.io/cryostat/cryostat-operator-scorecard:5.0.0-20261109194800
+    labels:
+      suite: cryostat
+      test: cryostat-rbac-namespacescope
+    storage:
+      spec:
+        mountPath: {}
+  - entrypoint:
+    - cryostat-scorecard-tests
+    - cryostat-rbac-accessreview
+    image: quay.io/cryostat/cryostat-operator-scorecard:5.0.0-20261109194800
+    labels:
+      suite: cryostat
+      test: cryostat-rbac-accessreview
+    storage:
+      spec:
+        mountPath: {}
+  - entrypoint:
+    - cryostat-scorecard-tests
+    - cryostat-rbac-precedence
+    image: quay.io/cryostat/cryostat-operator-scorecard:5.0.0-20261109194800
+    labels:
+      suite: cryostat
+      test: cryostat-rbac-precedence
+    storage:
+      spec:
+        mountPath: {}
 storage:
   spec:
     mountPath: {}

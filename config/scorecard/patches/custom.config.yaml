@@ -152,3 +152,63 @@
     labels:
       suite: cryostat
       test: cryostat-rbac-automatedrules
+- op: add
+  path: /stages/1/tests/-
+  value:
+    entrypoint:
+    - cryostat-scorecard-tests
+    - cryostat-rbac-credentials
+    image: "quay.io/cryostat/cryostat-operator-scorecard:5.0.0-20261109194800"
+    labels:
+      suite: cryostat
+      test: cryostat-rbac-credentials
+- op: add
+  path: /stages/1/tests/-
+  value:
+    entrypoint:
+    - cryostat-scorecard-tests
+    - cryostat-rbac-eventtemplates
+    image: "quay.io/cryostat/cryostat-operator-scorecard:5.0.0-20261109194800"
+    labels:
+      suite: cryostat
+      test: cryostat-rbac-eventtemplates
+- op: add
+  path: /stages/1/tests/-
+  value:
+    entrypoint:
+    - cryostat-scorecard-tests
+    - cryostat-rbac-targetvisibility
+    image: "quay.io/cryostat/cryostat-operator-scorecard:5.0.0-20261109194800"
+    labels:
+      suite: cryostat
+      test: cryostat-rbac-targetvisibility
+- op: add
+  path: /stages/1/tests/-
+  value:
+    entrypoint:
+    - cryostat-scorecard-tests
+    - cryostat-rbac-namespacescope
+    image: "quay.io/cryostat/cryostat-operator-scorecard:5.0.0-20261109194800"
+    labels:
+      suite: cryostat
+      test: cryostat-rbac-namespacescope
+- op: add
+  path: /stages/1/tests/-
+  value:
+    entrypoint:
+    - cryostat-scorecard-tests
+    - cryostat-rbac-accessreview
+    image: "quay.io/cryostat/cryostat-operator-scorecard:5.0.0-20261109194800"
+    labels:
+      suite: cryostat
+      test: cryostat-rbac-accessreview
+- op: add
+  path: /stages/1/tests/-
+  value:
+    entrypoint:
+    - cryostat-scorecard-tests
+    - cryostat-rbac-precedence
+    image: "quay.io/cryostat/cryostat-operator-scorecard:5.0.0-20261109194800"
+    labels:
+      suite: cryostat
+      test: cryostat-rbac-precedence

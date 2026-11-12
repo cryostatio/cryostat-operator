@@ -263,3 +263,14 @@ type UnifiedLogSession struct {
 type Rule struct {
 	Name string `json:"name"`
 }
+
+// CredentialResponse is a stored credential as returned by POST /api/v4/credentials.
+type CredentialResponse struct {
+	Id uint32 `json:"id"`
+}
+
+// EventTemplate is a custom event template as returned by the /api/v4/event_templates
+// endpoints.
+type EventTemplate struct {
+	Name string `json:"name"`
+}

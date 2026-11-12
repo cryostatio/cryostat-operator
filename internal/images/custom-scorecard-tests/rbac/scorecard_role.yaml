@@ -172,6 +172,13 @@ rules:
   - cryostataudit
   - cryostatunifiedlogs
   - cryostatautomatedrules
+  - cryostatcredentials
+  - cryostateventtemplates
+  - cryostatdiscoverynodes
+  - cryostataccessreviewgate
+  - cryostatprecedenceexplicit
+  - cryostatprecedenceverbdefault
+  - cryostatprecedencecatchall
   verbs:
   - get
   - update
@@ -237,4 +244,24 @@ rules:
   verbs:
   - create
   - delete
+  - get
+# Permissions for the cryostat-rbac-namespacescope test, which proves that
+# NamespacedRBACPermissions: false makes Cryostat's SSAR cluster-scoped: it must create and
+# bind a ClusterRole (not just a namespaced Role) for the ServiceAccount expected to pass, and
+# must itself hold the equivalent cluster-scoped grant on the synthetic resource first, to
+# satisfy Kubernetes' privilege-escalation prevention when creating that ClusterRoleBinding.
+- apiGroups:
+  - rbac.authorization.k8s.io
+  resources:
+  - clusterroles
+  - clusterrolebindings
+  verbs:
+  - create
+  - delete
+  - get
+- apiGroups:
+  - ""
+  resources:
+  - cryostatnamespacescope
+  verbs:
   - get

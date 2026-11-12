@@ -617,10 +617,21 @@ func (r *TestResources) sendGraphQLRequest(ctx context.Context, base *url.URL, q
 // privileged setup step of the diagnostics and automated rules ladder tests, which have no
 // dedicated client type the way archived recordings does.
 func (r *TestResources) sendPrivilegedJSON(ctx context.Context, method string, requestURL *url.URL, body *string, result any) error {
+	contentType := ""
+	if body != nil {
+		contentType = "application/json"
+	}
+	return r.sendPrivilegedRequest(ctx, method, requestURL, contentType, body, result)
+}
+
+// sendPrivilegedRequest is sendPrivilegedJSON generalized over the request body's content
+// type, for privileged setup steps whose request body isn't JSON (e.g. the form-encoded and
+// multipart POSTs credentials and event templates expect).
+func (r *TestResources) sendPrivilegedRequest(ctx context.Context, method string, requestURL *url.URL, contentType string, body *string, result any) error {
 	header := make(http.Header)
 	header.Set("Accept", "*/*")
-	if body != nil {
-		header.Set("Content-Type", "application/json")
+	if contentType != "" {
+		header.Set("Content-Type", contentType)
 	}
 
 	resp, err := SendRequestWithToken(ctx, NewHttpClient(), method, requestURL.String(), body, header, "")
