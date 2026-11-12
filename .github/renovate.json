@@ -46,6 +46,28 @@
       "datasourceTemplate": "github-releases",
       "depNameTemplate": "golangci/golangci-lint",
       "extractVersionTemplate": "^v?(?<version>.*)$"
+    },
+    {
+      "customType": "regex",
+      "description": "Track the pinned tonistiigi/binfmt QEMU image passed to docker/setup-qemu-action, independently of the action's own pinned digest",
+      "managerFilePatterns": ["/^\\.github/workflows/.+\\.ya?ml$/"],
+      "matchStrings": [
+        "image:\\s+mirror\\.gcr\\.io/tonistiigi/binfmt:(?<currentValue>qemu-v[^@\\s]+)@(?<currentDigest>sha256:[a-f0-9]+)"
+      ],
+      "depNameTemplate": "tonistiigi/binfmt",
+      "datasourceTemplate": "docker",
+      "versioningTemplate": "regex:^qemu-v(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)$"
+    },
+    {
+      "customType": "regex",
+      "description": "Track the pinned kindest/node image passed to helm/kind-action's node_image input, independently of the action's own pinned digest",
+      "managerFilePatterns": ["/^\\.github/workflows/.+\\.ya?ml$/"],
+      "matchStrings": [
+        "node_image:\\s+mirror\\.gcr\\.io/kindest/node:(?<currentValue>v[^@\\s]+)@(?<currentDigest>sha256:[a-f0-9]+)"
+      ],
+      "depNameTemplate": "kindest/node",
+      "datasourceTemplate": "docker",
+      "versioningTemplate": "semver-coerced"
     }
   ],
   "packageRules": [
