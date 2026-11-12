@@ -38,12 +38,14 @@ const (
 	CryostatRBACTestName            string = "cryostat-rbac"
 )
 
-// rbacSkipReason explains why the fine-grained RBAC test cannot carry signal on
-// Kubernetes. It is logged verbatim in the skip branch so that a green run on a
+// rbacSkipReason explains why an OpenShift-only fine-grained RBAC test cannot carry signal
+// on Kubernetes. It is logged verbatim in the skip branch so that a green run on a
 // non-OpenShift cluster is not mistaken for passing RBAC coverage.
-const rbacSkipReason = "skipping cryostat-rbac: Cryostat's fine-grained RBAC is only enforced" +
-	" when deployed on OpenShift. This test always passes on non-OpenShift Kubernetes since" +
-	" Cryostat will trivially pass all RBAC lookups as noops."
+func rbacSkipReason(testName string) string {
+	return fmt.Sprintf("skipping %s: Cryostat's fine-grained RBAC is only enforced"+
+		" when deployed on OpenShift. This test always passes on non-OpenShift Kubernetes since"+
+		" Cryostat will trivially pass all RBAC lookups as noops.", testName)
+}
 
 // OperatorInstallTest checks that the operator installed correctly
 func OperatorInstallTest(bundle *apimanifests.Bundle, namespace string, openShiftCertManager bool) *scapiv1alpha3.TestResult {
@@ -233,7 +235,7 @@ func CryostatRBACTest(bundle *apimanifests.Bundle, namespace string, openShiftCe
 		return r.fail(fmt.Sprintf("failed to set up %s test: %s", CryostatRBACTestName, err.Error()))
 	}
 	if !r.OpenShift {
-		r.Log += rbacSkipReason + "\n"
+		r.Log += rbacSkipReason(CryostatRBACTestName) + "\n"
 		return r.TestResult
 	}
 	defer r.cleanupAndLogs()
