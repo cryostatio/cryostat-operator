@@ -101,3 +101,13 @@
     labels:
       suite: cryostat
       test: cryostat-rbac
+- op: add
+  path: /stages/1/tests/-
+  value:
+    entrypoint:
+    - cryostat-scorecard-tests
+    - cryostat-rbac-isolation
+    image: "${CUSTOM_SCORECARD_IMG}"
+    labels:
+      suite: cryostat
+      test: cryostat-rbac-isolation
