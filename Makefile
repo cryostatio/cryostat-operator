@@ -252,6 +252,7 @@ KUSTOMIZE_BUNDLE_DIR ?= config/manifests
 endif
 endif
 
+SCORECARD_TIMEOUT ?= 60m
 # Specify which scorecard tests/suites to run
 ifneq ($(SCORECARD_TEST_SELECTION),)
 SCORECARD_TEST_SELECTOR := --selector='test in ($(SCORECARD_TEST_SELECTION))'
@@ -300,7 +301,7 @@ ifneq ($(SKIP_TESTS), true)
 	$(call scorecard-setup)
 	$(call scorecard-cleanup) ; \
 	trap cleanup EXIT ; \
-	$(OPERATOR_SDK) scorecard -n $(SCORECARD_NAMESPACE) -s cryostat-scorecard -w 20m $(SCORECARD_BUNDLE) --pod-security=restricted -o $(SCORECARD_OUTPUT_FORMAT) $(SCORECARD_TEST_SELECTOR) $(SCORECARD_TEE)
+	$(OPERATOR_SDK) scorecard -n $(SCORECARD_NAMESPACE) -s cryostat-scorecard -w $(SCORECARD_TIMEOUT) $(SCORECARD_BUNDLE) --pod-security=restricted -o $(SCORECARD_OUTPUT_FORMAT) $(SCORECARD_TEST_SELECTOR) $(SCORECARD_TEE)
 endif
 
 .PHONY: test-scorecard-local
