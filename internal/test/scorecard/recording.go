@@ -17,7 +17,10 @@ package scorecard
 import (
 	"context"
 	"fmt"
+	"strconv"
 	"time"
+
+	"k8s.io/apimachinery/pkg/util/wait"
 )
 
 // exerciseRecording runs the same recording lifecycle for JMX and Agent targets.
@@ -68,13 +71,13 @@ func (r *TestResources) exerciseRecording(ctx context.Context, apiClient *Cryost
 	}
 	r.Log += fmt.Sprintf("recording archival job ID for the recording %s at: %s\n", rec.Name, archiveJobID)
 
-	// TODO: Poll until this recording appears in the archive list, failing on timeout.
-	// Archival is asynchronous, so the first list response may still be empty.
-	archives, err := apiClient.Recordings().ListArchives(ctx, target)
+	// Archival is asynchronous: require this recording's archive to appear before
+	// continuing, rather than just accepting the archival job submission.
+	archive, err := waitForArchivedRecording(ctx, apiClient.Recordings(), target, rec)
 	if err != nil {
-		return fmt.Errorf("failed to list archives: %s", err.Error())
+		return err
 	}
-	r.Log += fmt.Sprintf("current list of archives: %+v\n", archives)
+	r.Log += fmt.Sprintf("archived recording is available: %+v\n", archive)
 
 	reportJobId, err := apiClient.Recordings().RequestReportGeneration(ctx, target, rec)
 	if err != nil {
@@ -119,4 +122,32 @@ func (r *TestResources) exerciseRecording(ctx context.Context, apiClient *Cryost
 	}
 
 	return nil
+}
+
+func waitForArchivedRecording(ctx context.Context, c *RecordingClient, target *Target, recording *Recording) (*Archive, error) {
+	ctx, cancel := context.WithTimeout(ctx, time.Minute)
+	defer cancel()
+	var found *Archive
+	err := wait.PollUntilContextCancel(ctx, time.Second, true, func(ctx context.Context) (bool, error) {
+		archives, err := c.ListArchives(ctx, target)
+		if err != nil {
+			return false, err
+		}
+		for _, archive := range archives {
+			if archive.Size == 0 {
+				continue
+			}
+			for _, label := range archive.Metadata.Labels {
+				if label.Key == "activeRecordingId" && label.Value == strconv.FormatUint(uint64(recording.Id), 10) {
+					found = &archive
+					return true, nil
+				}
+			}
+		}
+		return false, nil
+	})
+	if err != nil {
+		return nil, fmt.Errorf("waiting for archive of recording %s (ID %d): %w", recording.Name, recording.Id, err)
+	}
+	return found, nil
 }

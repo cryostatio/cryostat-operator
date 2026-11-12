@@ -507,6 +507,12 @@ func (client *RecordingClient) ListArchives(ctx context.Context, target *Target)
 		return nil, fmt.Errorf("failed to read response body: %s", err.Error())
 	}
 
+	if len(graphQLResponse.Errors) > 0 {
+		return nil, fmt.Errorf("archive query failed: %s", graphQLResponse.Errors[0].Message)
+	}
+	if len(graphQLResponse.Data.TargetNodes) != 1 {
+		return nil, fmt.Errorf("expected one target in archive query for target %d, got %d", target.Id, len(graphQLResponse.Data.TargetNodes))
+	}
 	return graphQLResponse.Data.TargetNodes[0].Target.ArchivedRecordings.Data, nil
 }
 

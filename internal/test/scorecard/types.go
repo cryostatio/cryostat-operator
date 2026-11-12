@@ -136,6 +136,9 @@ func (query *GraphQLQuery) ToJSON() ([]byte, error) {
 }
 
 type ArchiveGraphQLResponse struct {
+	Errors []struct {
+		Message string `json:"message"`
+	} `json:"errors,omitempty"`
 	Data struct {
 		TargetNodes []struct {
 			Target struct {

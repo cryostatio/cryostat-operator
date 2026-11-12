@@ -18,6 +18,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"net"
 	"net/url"
 	"os"
 	"strings"
@@ -72,7 +73,13 @@ func agentRecordingTest(namespace string, openShiftCertManager, autoConfig bool)
 	}
 	defer r.cleanupAndLogs()
 
-	cr, err := r.createAndWaitTillCryostatAvailable(r.newCryostatCR())
+	cryostat := r.newCryostatCR()
+	if !autoConfig {
+		// The bundled Agent calls back through its Pod IP, which is allocated after
+		// its certificate is issued. Keep CA trust while disabling hostname checks.
+		cryostat.Spec.AgentOptions = &operatorv1beta2.AgentOptions{DisableHostnameVerification: true}
+	}
+	cr, err := r.createAndWaitTillCryostatAvailable(cryostat)
 	if err != nil {
 		return r.fail(fmt.Sprintf("failed to deploy Cryostat: %s", err))
 	}
@@ -127,6 +134,12 @@ func agentRecordingTest(namespace string, openShiftCertManager, autoConfig bool)
 	target, err := waitForAgentTarget(ctx, apiClient.Targets(), pod.Name)
 	if err != nil {
 		return r.fail(fmt.Sprintf("Agent did not register with Cryostat: %s", err))
+	}
+	if !autoConfig {
+		expectedCallback := "https://" + net.JoinHostPort(pod.Status.PodIP, fmt.Sprint(constants.AgentCallbackContainerPort))
+		if target.ConnectUrl != expectedCallback {
+			return r.fail(fmt.Sprintf("expected bundled Agent callback %s, got %s", expectedCallback, target.ConnectUrl))
+		}
 	}
 	r.Log += fmt.Sprintf("Agent registered target: %+v\n", target)
 	if err := r.exerciseRecording(ctx, apiClient, target); err != nil {
@@ -193,15 +206,12 @@ func (r *TestResources) newAgentApplication(cr *operatorv1beta2.Cryostat, autoCo
 		container.Image = BundledAgentApplicationImage
 	}
 	container.Env[0].Value += " -javaagent:/opt/cryostat/cryostat-agent-shaded.jar"
-	// The callback Service selects the test's single replica. With multiple replicas,
-	// requests could reach the wrong stateful Agent.
-	// TODO: Use the downward API's Pod IP for the callback and configure TLS hostname
-	// verification accordingly before extending this test to multiple replicas.
 	container.Env = append(container.Env,
 		corev1.EnvVar{Name: "SCORECARD_POD_NAME", ValueFrom: &corev1.EnvVarSource{FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.name"}}},
+		corev1.EnvVar{Name: "SCORECARD_POD_IP", ValueFrom: &corev1.EnvVarSource{FieldRef: &corev1.ObjectFieldSelector{FieldPath: "status.podIP"}}},
 		corev1.EnvVar{Name: "CRYOSTAT_AGENT_APP_NAME", Value: "$(SCORECARD_POD_NAME)"},
 		corev1.EnvVar{Name: "CRYOSTAT_AGENT_BASEURI", Value: fmt.Sprintf("https://%s-agent.%s.svc:%d", cr.Name, cr.Namespace, constants.AgentProxyContainerPort)},
-		corev1.EnvVar{Name: "CRYOSTAT_AGENT_CALLBACK", Value: fmt.Sprintf("https://%s.%s.svc:%d", name, r.Namespace, constants.AgentCallbackContainerPort)},
+		corev1.EnvVar{Name: "CRYOSTAT_AGENT_CALLBACK", Value: fmt.Sprintf("https://$(SCORECARD_POD_IP):%d", constants.AgentCallbackContainerPort)},
 		corev1.EnvVar{Name: "CRYOSTAT_AGENT_API_WRITES_ENABLED", Value: "true"},
 		corev1.EnvVar{Name: "CRYOSTAT_AGENT_WEBSERVER_PORT", Value: fmt.Sprint(constants.AgentCallbackContainerPort)},
 		corev1.EnvVar{Name: "CRYOSTAT_AGENT_WEBCLIENT_TLS_CLIENT_AUTH_CERT_PATH", Value: sampleAgentTLSPath + "/tls.crt"},
@@ -241,7 +251,7 @@ func (r *TestResources) createBundledAgentTLS(ctx context.Context, cr *operatorv
 		ObjectMeta: metav1.ObjectMeta{Name: deployment.Name, Namespace: r.Namespace, OwnerReferences: deployment.OwnerReferences},
 		Spec: certv1.CertificateSpec{
 			SecretName: deployment.Name,
-			DNSNames:   []string{fmt.Sprintf("%s.%s.svc", deployment.Name, r.Namespace)},
+			DNSNames:   []string{deployment.Name},
 			IssuerRef:  certmeta.IssuerReference{Name: cr.Name + "-ca", Kind: "Issuer"},
 			PrivateKey: &certv1.CertificatePrivateKey{Algorithm: certv1.RSAKeyAlgorithm},
 			Usages:     []certv1.KeyUsage{certv1.UsageDigitalSignature, certv1.UsageKeyEncipherment, certv1.UsageServerAuth, certv1.UsageClientAuth},
@@ -276,15 +286,7 @@ func (r *TestResources) createBundledAgentTLS(ctx context.Context, cr *operatorv
 	}); err != nil {
 		return fmt.Errorf("waiting for sample Agent certificate: %w", err)
 	}
-	_, err = r.Client.CoreV1().Services(r.Namespace).Create(ctx, &corev1.Service{
-		ObjectMeta: metav1.ObjectMeta{Name: deployment.Name, Namespace: r.Namespace, OwnerReferences: deployment.OwnerReferences},
-		Spec: corev1.ServiceSpec{
-			Selector:                 deployment.Spec.Selector.MatchLabels,
-			PublishNotReadyAddresses: true, // Agent registration can precede application readiness.
-			Ports:                    []corev1.ServicePort{{Name: constants.AgentCallbackPortName, Port: constants.AgentCallbackContainerPort, TargetPort: intstr.FromInt32(constants.AgentCallbackContainerPort)}},
-		},
-	}, metav1.CreateOptions{})
-	return err
+	return nil
 }
 
 // Agent targets must be discovered through registration, never synthesized through

@@ -40,6 +40,10 @@ func healthyResponse(_ *http.Response, _ *scapiv1alpha3.TestResult) (bool, error
 	return true, nil
 }
 
+// Simulate /health requests failing during Cryostat startup, then succeeding.
+// Verify that transient connection errors are retried and recovery is detected.
+// Check that persistent failures stop at the deadline and log the cause.
+// Configuration errors and HTTP 401 responses must fail without retries.
 var _ = Describe("Health polling", func() {
 	DescribeTable("retries startup connection errors", func(startupError error) {
 		// Fail the first request at the transport layer, then forward the retry to
