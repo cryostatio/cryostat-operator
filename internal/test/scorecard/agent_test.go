@@ -24,6 +24,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
+	"github.com/cryostatio/cryostat-operator/internal/cryostatapi"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -43,13 +44,13 @@ var _ = Describe("Agent registration", func() {
 				http.Error(w, "starting", http.StatusServiceUnavailable)
 				return
 			}
-			targets := []Target{
+			targets := []cryostatapi.Target{
 				{Id: 1, Alias: "application-pod", ConnectUrl: "service:jmx:rmi:///jndi/rmi://localhost:9091/jmxrmi"},
 				{Id: 2, Alias: "different-pod", ConnectUrl: "https://another-app:9977"},
 				{Id: 0, Alias: "application-pod", ConnectUrl: "https://uninitialized:9977"},
 			}
 			if call >= 3 {
-				targets = append(targets, Target{Id: 3, Alias: "application-pod", ConnectUrl: "https://agent:9977"})
+				targets = append(targets, cryostatapi.Target{Id: 3, Alias: "application-pod", ConnectUrl: "https://agent:9977"})
 			}
 			Expect(json.NewEncoder(w).Encode(targets)).To(Succeed())
 		})
@@ -63,7 +64,7 @@ var _ = Describe("Agent registration", func() {
 
 	It("times out without falling back to a JMX target", func() {
 		api := testCryostatAPI(func(w http.ResponseWriter, _ *http.Request) {
-			Expect(json.NewEncoder(w).Encode([]Target{{Id: 1, Alias: "application-pod", ConnectUrl: "service:jmx:rmi://localhost:9091"}})).To(Succeed())
+			Expect(json.NewEncoder(w).Encode([]cryostatapi.Target{{Id: 1, Alias: "application-pod", ConnectUrl: "service:jmx:rmi://localhost:9091"}})).To(Succeed())
 		})
 		ctx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
 		defer cancel()
@@ -103,7 +104,7 @@ var _ = Describe("Recording lifecycle", func() {
 		api := testCryostatAPI(func(w http.ResponseWriter, request *http.Request) {
 			switch request.Method {
 			case http.MethodPost:
-				Expect(json.NewEncoder(w).Encode(Recording{Id: 7, Name: "scorecard_test_rec", State: "RUNNING"})).To(Succeed())
+				Expect(json.NewEncoder(w).Encode(cryostatapi.Recording{Id: 7, Name: "scorecard_test_rec", State: "RUNNING"})).To(Succeed())
 			case http.MethodGet:
 				_, err := w.Write([]byte("[]"))
 				Expect(err).ToNot(HaveOccurred())
@@ -113,7 +114,7 @@ var _ = Describe("Recording lifecycle", func() {
 		})
 		ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 		defer cancel()
-		err := newTestResources("test", "test").exerciseRecording(ctx, api, &Target{Id: 1})
+		err := newTestResources("test", "test").exerciseRecording(ctx, api, &cryostatapi.Target{Id: 1})
 		Expect(err).To(MatchError(ContainSubstring("not found in recording list")))
 	})
 })

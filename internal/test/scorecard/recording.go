@@ -20,13 +20,14 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/cryostatio/cryostat-operator/internal/cryostatapi"
 	"k8s.io/apimachinery/pkg/util/wait"
 )
 
 // exerciseRecording runs the same recording lifecycle for JMX and Agent targets.
-func (r *TestResources) exerciseRecording(ctx context.Context, apiClient *CryostatRESTClientset, target *Target) error {
+func (r *TestResources) exerciseRecording(ctx context.Context, apiClient *CryostatRESTClientset, target *cryostatapi.Target) error {
 	// Create a recording
-	options := &RecordingCreateOptions{
+	options := &cryostatapi.RecordingCreateOptions{
 		RecordingName: "scorecard_test_rec",
 		Events:        "template=ALL",
 		Duration:      0, // Continuous
@@ -124,10 +125,10 @@ func (r *TestResources) exerciseRecording(ctx context.Context, apiClient *Cryost
 	return nil
 }
 
-func waitForArchivedRecording(ctx context.Context, c *RecordingClient, target *Target, recording *Recording) (*Archive, error) {
+func waitForArchivedRecording(ctx context.Context, c *RecordingClient, target *cryostatapi.Target, recording *cryostatapi.Recording) (*cryostatapi.Archive, error) {
 	ctx, cancel := context.WithTimeout(ctx, time.Minute)
 	defer cancel()
-	var found *Archive
+	var found *cryostatapi.Archive
 	err := wait.PollUntilContextCancel(ctx, time.Second, true, func(ctx context.Context) (bool, error) {
 		archives, err := c.ListArchives(ctx, target)
 		if err != nil {

@@ -21,6 +21,7 @@ import (
 	"time"
 
 	operatorv1beta2 "github.com/cryostatio/cryostat-operator/api/v1beta2"
+	"github.com/cryostatio/cryostat-operator/internal/cryostatapi"
 	scapiv1alpha3 "github.com/operator-framework/api/pkg/apis/scorecard/v1alpha3"
 	apimanifests "github.com/operator-framework/api/pkg/manifests"
 )
@@ -196,7 +197,7 @@ func CryostatRecordingTest(bundle *apimanifests.Bundle, namespace string, openSh
 	apiClient := r.NewCryostatRESTClientset(base)
 
 	// Create a custom target for test
-	targetOptions := &Target{
+	targetOptions := &cryostatapi.Target{
 		ConnectUrl: "service:jmx:rmi:///jndi/rmi://localhost:0/jmxrmi",
 		Alias:      "customTarget",
 	}
