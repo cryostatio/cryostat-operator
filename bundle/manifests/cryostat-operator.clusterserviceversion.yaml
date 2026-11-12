@@ -42,7 +42,7 @@ metadata:
     capabilities: Seamless Upgrades
     categories: Monitoring, Developer Tools
     containerImage: quay.io/cryostat/cryostat-operator:4.3.0-dev
-    createdAt: "2026-11-06T19:42:49Z"
+    createdAt: "2026-11-12T15:58:36Z"
     description: JVM monitoring and profiling tool
     operatorframework.io/initialization-resource: |-
       {
@@ -545,6 +545,9 @@ spec:
           - description: The name of the bucket used to store custom Event Templates.
             displayName: Event Templates
             path: objectStorageOptions.storageBucketNameOptions.eventTemplates
+          - description: The name of the bucket used to store Heap Dump Automated Analysis reports.
+            displayName: Heap Dump Reports
+            path: objectStorageOptions.storageBucketNameOptions.heapDumpReports
           - description: The name of the bucket used to store JVM heap dumps.
             displayName: Heap Dumps
             path: objectStorageOptions.storageBucketNameOptions.heapDumps
@@ -557,6 +560,9 @@ spec:
           - description: The name of the bucket used to storage JVM thread dumps.
             displayName: Thread Dumps
             path: objectStorageOptions.storageBucketNameOptions.threadDumps
+          - description: The name of the bucket used to store JVM unified log dumps.
+            displayName: Unified Logs
+            path: objectStorageOptions.storageBucketNameOptions.unifiedlogs
           - description: Options to configure the Cryostat deployments and pods metadata
             displayName: Operand metadata
             path: operandMetadata
