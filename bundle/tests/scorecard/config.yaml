@@ -167,6 +167,16 @@ stages:
     storage:
       spec:
         mountPath: {}
+  - entrypoint:
+    - cryostat-scorecard-tests
+    - cryostat-rbac-isolation
+    image: quay.io/andrewazores/cryostat-operator-scorecard:5.0.0-rbac20261112124323
+    labels:
+      suite: cryostat
+      test: cryostat-rbac-isolation
+    storage:
+      spec:
+        mountPath: {}
 storage:
   spec:
     mountPath: {}

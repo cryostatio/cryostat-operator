@@ -36,6 +36,7 @@ const (
 	CryostatConfigChangeTestName    string = "cryostat-config-change"
 	CryostatReportTestName          string = "cryostat-report"
 	CryostatRBACTestName            string = "cryostat-rbac"
+	CryostatRBACIsolationTestName   string = "cryostat-rbac-isolation"
 )
 
 // rbacSkipReason explains why an OpenShift-only fine-grained RBAC test cannot carry signal
