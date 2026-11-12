@@ -2126,6 +2126,18 @@ func newStorageEnvForCoreContainer(cr *model.CryostatInstance, specs *ServiceSpe
 					Value: *cr.Spec.ObjectStorageOptions.StorageBucketNameOptions.Metadata,
 				})
 			}
+			if cr.Spec.ObjectStorageOptions.StorageBucketNameOptions.HeapDumpReports != nil {
+				envs = append(envs, corev1.EnvVar{
+					Name:  "CRYOSTAT_SERVICES_HEAP_DUMP_REPORTS_STORAGE_CACHE_NAME",
+					Value: *cr.Spec.ObjectStorageOptions.StorageBucketNameOptions.HeapDumpReports,
+				})
+			}
+			if cr.Spec.ObjectStorageOptions.StorageBucketNameOptions.UnifiedLogs != nil {
+				envs = append(envs, corev1.EnvVar{
+					Name:  "STORAGE_BUCKETS_UNIFIED_LOGS_NAME",
+					Value: *cr.Spec.ObjectStorageOptions.StorageBucketNameOptions.UnifiedLogs,
+				})
+			}
 		}
 
 		tlsTrustAll := false
@@ -2473,7 +2485,7 @@ func NewStorageContainer(cr *model.CryostatInstance, imageTag string, tls *TLSCo
 	envs := []corev1.EnvVar{
 		{
 			Name:  "CRYOSTAT_BUCKETS",
-			Value: "archivedrecordings,archivedreports,eventtemplates,probes,heapdumps,threaddumps,logs",
+			Value: "archivedrecordings,archivedreports,eventtemplates,probes,heapdumps,threaddumps,heapdumpreports,logs",
 		},
 		{
 			Name:  "CRYOSTAT_ACCESS_KEY",

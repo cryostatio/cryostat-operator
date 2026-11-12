@@ -1279,6 +1279,16 @@ func (in *StorageBucketNameOptions) DeepCopyInto(out *StorageBucketNameOptions) 
 		*out = new(string)
 		**out = **in
 	}
+	if in.HeapDumpReports != nil {
+		in, out := &in.HeapDumpReports, &out.HeapDumpReports
+		*out = new(string)
+		**out = **in
+	}
+	if in.UnifiedLogs != nil {
+		in, out := &in.UnifiedLogs, &out.UnifiedLogs
+		*out = new(string)
+		**out = **in
+	}
 	if in.ThreadDumps != nil {
 		in, out := &in.ThreadDumps, &out.ThreadDumps
 		*out = new(string)
