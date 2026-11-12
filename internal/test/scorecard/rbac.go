@@ -23,6 +23,9 @@ import (
 	"net/url"
 	"time"
 
+	"github.com/onsi/gomega"
+	"github.com/onsi/gomega/types"
+
 	operatorv1beta2 "github.com/cryostatio/cryostat-operator/api/v1beta2"
 	"github.com/cryostatio/cryostat-operator/internal/controller/constants"
 	authnv1 "k8s.io/api/authentication/v1"
@@ -591,42 +594,71 @@ func (r *TestResources) sendGraphQLRequest(ctx context.Context, base *url.URL, q
 	return resp.StatusCode, string(raw), nil
 }
 
-// checkREST issues a Cryostat REST request as the given privilege level and records whether
-// the response matched allowed, the expected outcome for the permission under test.
+// rbacGomegaT adapts TestResources to Gomega's minimal testing interface
+// (gomega/types.GomegaTestingT), so a failed Gomega matcher records its failure message via
+// r.logError instead of stopping the process the way a real *testing.T's Fatalf would. A
+// scorecard test has no *testing.T to begin with, and the RBAC matrix needs every assertion
+// to run regardless of earlier ones failing, so the adapter's Fatalf deliberately returns
+// rather than halting.
+type rbacGomegaT struct {
+	r *TestResources
+}
+
+func (t *rbacGomegaT) Helper() {}
+
+func (t *rbacGomegaT) Fatalf(format string, args ...any) {
+	t.r.logError(fmt.Sprintf(format, args...))
+}
+
+var _ types.GomegaTestingT = (*rbacGomegaT)(nil)
+
+// checkREST issues a Cryostat REST request as the given privilege level and asserts, via
+// Gomega matchers, that the response matched allowed, the expected outcome for the
+// permission under test.
 //
 // A denied request is 403. An allowed but malformed one is 400. A 401 is called out
 // separately because it means the auth proxy rejected the token before Cryostat evaluated
 // any permission, which is a different failure from a permission denial.
 func (r *TestResources) checkREST(ctx context.Context, level *rbacPrivilegeLevel, allowed bool, permission string,
 	method string, requestURL *url.URL, body *string, header http.Header) {
+	g := gomega.NewWithT(&rbacGomegaT{r: r})
 	label := fmt.Sprintf("REST %s %s as %s, expecting %s", method, requestURL.Path, level.Name, rbacExpectation(allowed))
 
 	resp, err := SendRequestWithToken(ctx, NewHttpClient(), method, requestURL.String(), body, header, level.Token)
-	if err != nil {
-		r.logError(fmt.Sprintf("%s: request failed: %s", label, err.Error()))
+	if !g.Expect(err).To(gomega.Succeed(), func() string {
+		return fmt.Sprintf("%s: request failed", label)
+	}) {
 		return
 	}
 	defer r.closeStream(resp.Body)
 
-	if resp.StatusCode == http.StatusUnauthorized {
-		r.logError(fmt.Sprintf("%s: got 401, so the auth proxy rejected the token before Cryostat"+
-			" evaluated %s; check that the ServiceAccount passes the proxy's access review", label, permission))
+	if !g.Expect(resp.StatusCode).ToNot(gomega.Equal(http.StatusUnauthorized), func() string {
+		return fmt.Sprintf("%s: got 401, so the auth proxy rejected the token before Cryostat"+
+			" evaluated %s; check that the ServiceAccount passes the proxy's access review", label, permission)
+	}) {
 		return
 	}
-	if allowed && !StatusOK(resp.StatusCode) {
-		r.logError(fmt.Sprintf("%s: got %d, want 2xx; body: %s", label, resp.StatusCode, ReadError(resp)))
-		return
-	}
-	if !allowed && resp.StatusCode != http.StatusForbidden {
-		r.logError(fmt.Sprintf("%s: got %d, want 403; body: %s", label, resp.StatusCode, ReadError(resp)))
-		return
+
+	if allowed {
+		if !g.Expect(StatusOK(resp.StatusCode)).To(gomega.BeTrue(), func() string {
+			return fmt.Sprintf("%s: got %d, want 2xx; body: %s", label, resp.StatusCode, ReadError(resp))
+		}) {
+			return
+		}
+	} else {
+		if !g.Expect(resp.StatusCode).To(gomega.Equal(http.StatusForbidden), func() string {
+			return fmt.Sprintf("%s: got %d, want 403; body: %s", label, resp.StatusCode, ReadError(resp))
+		}) {
+			return
+		}
 	}
 
 	r.Log += fmt.Sprintf("%s: got %d, as expected\n", label, resp.StatusCode)
 }
 
-// checkGraphQL issues a Cryostat GraphQL request as the given privilege level and records
-// whether the response matched allowed, the expected outcome for the permission under test.
+// checkGraphQL issues a Cryostat GraphQL request as the given privilege level and asserts,
+// via Gomega matchers, that the response matched allowed, the expected outcome for the
+// permission under test.
 //
 // Unlike the REST surface, a GraphQL permission denial is HTTP 200 with a populated "errors"
 // array: Cryostat's GraphQL security interceptor aborts the operation by throwing a
@@ -635,36 +667,46 @@ func (r *TestResources) checkREST(ctx context.Context, level *rbacPrivilegeLevel
 // or absence of a "Forbidden" error instead.
 func (r *TestResources) checkGraphQL(ctx context.Context, level *rbacPrivilegeLevel, allowed bool, permission string,
 	base *url.URL, query *GraphQLQuery, response *ArchivedRecordingsGraphQLResponse) {
+	g := gomega.NewWithT(&rbacGomegaT{r: r})
 	label := fmt.Sprintf("GraphQL %s as %s, expecting %s", permission, level.Name, rbacExpectation(allowed))
 
 	status, body, err := r.sendGraphQLRequest(ctx, base, query, level.Token, response)
-	if err != nil {
-		r.logError(fmt.Sprintf("%s: %s", label, err.Error()))
+	if !g.Expect(err).To(gomega.Succeed(), func() string {
+		return fmt.Sprintf("%s: %s", label, err)
+	}) {
 		return
 	}
-	if status == http.StatusUnauthorized {
-		r.logError(fmt.Sprintf("%s: got 401, so the auth proxy rejected the token before Cryostat"+
-			" evaluated %s; check that the ServiceAccount passes the proxy's access review", label, permission))
+	if !g.Expect(status).ToNot(gomega.Equal(http.StatusUnauthorized), func() string {
+		return fmt.Sprintf("%s: got 401, so the auth proxy rejected the token before Cryostat"+
+			" evaluated %s; check that the ServiceAccount passes the proxy's access review", label, permission)
+	}) {
 		return
 	}
-	if status != http.StatusOK {
-		r.logError(fmt.Sprintf("%s: got HTTP %d, want 200; GraphQL denials are reported in the"+
-			" response body, not the status code; body: %s", label, status, body))
+	if !g.Expect(status).To(gomega.Equal(http.StatusOK), func() string {
+		return fmt.Sprintf("%s: got HTTP %d, want 200; GraphQL denials are reported in the"+
+			" response body, not the status code; body: %s", label, status, body)
+	}) {
 		return
 	}
 
 	denied := response.Denied()
-	if allowed && denied {
-		r.logError(fmt.Sprintf("%s: denied; errors: %v", label, response.Messages()))
-		return
-	}
-	if !allowed && !denied {
-		r.logError(fmt.Sprintf("%s: not denied; errors: %v, body: %s", label, response.Messages(), body))
-		return
-	}
-	if allowed && len(response.Errors) > 0 {
-		r.logError(fmt.Sprintf("%s: allowed but the response carries errors: %v", label, response.Messages()))
-		return
+	if allowed {
+		if !g.Expect(denied).To(gomega.BeFalse(), func() string {
+			return fmt.Sprintf("%s: denied; errors: %v", label, response.Messages())
+		}) {
+			return
+		}
+		if !g.Expect(response.Errors).To(gomega.BeEmpty(), func() string {
+			return fmt.Sprintf("%s: allowed but the response carries errors: %v", label, response.Messages())
+		}) {
+			return
+		}
+	} else {
+		if !g.Expect(denied).To(gomega.BeTrue(), func() string {
+			return fmt.Sprintf("%s: not denied; errors: %v, body: %s", label, response.Messages(), body)
+		}) {
+			return
+		}
 	}
 
 	r.Log += fmt.Sprintf("%s: %s, as expected\n", label, rbacExpectation(allowed))
