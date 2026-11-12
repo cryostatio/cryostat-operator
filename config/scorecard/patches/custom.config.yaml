@@ -98,7 +98,7 @@
     entrypoint:
     - cryostat-scorecard-tests
     - cryostat-rbac-archivedrecordings
-    image: "quay.io/andrewazores/cryostat-operator-scorecard:5.0.0-rbac20261112131532"
+    image: "quay.io/cryostat/cryostat-operator-scorecard:5.0.0-20261109194800"
     labels:
       suite: cryostat
       test: cryostat-rbac-archivedrecordings
@@ -108,7 +108,7 @@
     entrypoint:
     - cryostat-scorecard-tests
     - cryostat-rbac-isolation
-    image: "quay.io/andrewazores/cryostat-operator-scorecard:5.0.0-rbac20261112131532"
+    image: "quay.io/cryostat/cryostat-operator-scorecard:5.0.0-20261109194800"
     labels:
       suite: cryostat
       test: cryostat-rbac-isolation
@@ -118,7 +118,7 @@
     entrypoint:
     - cryostat-scorecard-tests
     - cryostat-rbac-threaddumps
-    image: "quay.io/andrewazores/cryostat-operator-scorecard:5.0.0-rbac20261112131532"
+    image: "quay.io/cryostat/cryostat-operator-scorecard:5.0.0-20261109194800"
     labels:
       suite: cryostat
       test: cryostat-rbac-threaddumps
@@ -128,7 +128,7 @@
     entrypoint:
     - cryostat-scorecard-tests
     - cryostat-rbac-heapdumps
-    image: "quay.io/andrewazores/cryostat-operator-scorecard:5.0.0-rbac20261112131532"
+    image: "quay.io/cryostat/cryostat-operator-scorecard:5.0.0-20261109194800"
     labels:
       suite: cryostat
       test: cryostat-rbac-heapdumps
@@ -138,7 +138,7 @@
     entrypoint:
     - cryostat-scorecard-tests
     - cryostat-rbac-unifiedlogs
-    image: "quay.io/andrewazores/cryostat-operator-scorecard:5.0.0-rbac20261112131532"
+    image: "quay.io/cryostat/cryostat-operator-scorecard:5.0.0-20261109194800"
     labels:
       suite: cryostat
       test: cryostat-rbac-unifiedlogs
@@ -148,7 +148,7 @@
     entrypoint:
     - cryostat-scorecard-tests
     - cryostat-rbac-automatedrules
-    image: "quay.io/andrewazores/cryostat-operator-scorecard:5.0.0-rbac20261112131532"
+    image: "quay.io/cryostat/cryostat-operator-scorecard:5.0.0-20261109194800"
     labels:
       suite: cryostat
       test: cryostat-rbac-automatedrules
