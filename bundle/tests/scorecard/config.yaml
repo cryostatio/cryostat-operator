@@ -177,6 +177,46 @@ stages:
     storage:
       spec:
         mountPath: {}
+  - entrypoint:
+    - cryostat-scorecard-tests
+    - cryostat-rbac-threaddumps
+    image: quay.io/andrewazores/cryostat-operator-scorecard:5.0.0-rbac20261112131532
+    labels:
+      suite: cryostat
+      test: cryostat-rbac-threaddumps
+    storage:
+      spec:
+        mountPath: {}
+  - entrypoint:
+    - cryostat-scorecard-tests
+    - cryostat-rbac-heapdumps
+    image: quay.io/andrewazores/cryostat-operator-scorecard:5.0.0-rbac20261112131532
+    labels:
+      suite: cryostat
+      test: cryostat-rbac-heapdumps
+    storage:
+      spec:
+        mountPath: {}
+  - entrypoint:
+    - cryostat-scorecard-tests
+    - cryostat-rbac-unifiedlogs
+    image: quay.io/andrewazores/cryostat-operator-scorecard:5.0.0-rbac20261112131532
+    labels:
+      suite: cryostat
+      test: cryostat-rbac-unifiedlogs
+    storage:
+      spec:
+        mountPath: {}
+  - entrypoint:
+    - cryostat-scorecard-tests
+    - cryostat-rbac-automatedrules
+    image: quay.io/andrewazores/cryostat-operator-scorecard:5.0.0-rbac20261112131532
+    labels:
+      suite: cryostat
+      test: cryostat-rbac-automatedrules
+    storage:
+      spec:
+        mountPath: {}
 storage:
   spec:
     mountPath: {}

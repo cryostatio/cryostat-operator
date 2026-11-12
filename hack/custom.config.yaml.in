@@ -111,3 +111,43 @@
     labels:
       suite: cryostat
       test: cryostat-rbac-isolation
+- op: add
+  path: /stages/1/tests/-
+  value:
+    entrypoint:
+    - cryostat-scorecard-tests
+    - cryostat-rbac-threaddumps
+    image: "${CUSTOM_SCORECARD_IMG}"
+    labels:
+      suite: cryostat
+      test: cryostat-rbac-threaddumps
+- op: add
+  path: /stages/1/tests/-
+  value:
+    entrypoint:
+    - cryostat-scorecard-tests
+    - cryostat-rbac-heapdumps
+    image: "${CUSTOM_SCORECARD_IMG}"
+    labels:
+      suite: cryostat
+      test: cryostat-rbac-heapdumps
+- op: add
+  path: /stages/1/tests/-
+  value:
+    entrypoint:
+    - cryostat-scorecard-tests
+    - cryostat-rbac-unifiedlogs
+    image: "${CUSTOM_SCORECARD_IMG}"
+    labels:
+      suite: cryostat
+      test: cryostat-rbac-unifiedlogs
+- op: add
+  path: /stages/1/tests/-
+  value:
+    entrypoint:
+    - cryostat-scorecard-tests
+    - cryostat-rbac-automatedrules
+    image: "${CUSTOM_SCORECARD_IMG}"
+    labels:
+      suite: cryostat
+      test: cryostat-rbac-automatedrules
