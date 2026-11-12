@@ -68,7 +68,8 @@ func (r *TestResources) exerciseRecording(ctx context.Context, apiClient *Cryost
 	}
 	r.Log += fmt.Sprintf("recording archival job ID for the recording %s at: %s\n", rec.Name, archiveJobID)
 
-	// The archive list might be empty (not yet available) but we are not verifying anything here.
+	// TODO: Poll until this recording appears in the archive list, failing on timeout.
+	// Archival is asynchronous, so the first list response may still be empty.
 	archives, err := apiClient.Recordings().ListArchives(ctx, target)
 	if err != nil {
 		return fmt.Errorf("failed to list archives: %s", err.Error())
