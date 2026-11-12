@@ -206,6 +206,10 @@ func (r *TestResources) newAgentApplication(cr *operatorv1beta2.Cryostat, autoCo
 		container.Image = BundledAgentApplicationImage
 	}
 	container.Env[0].Value += " -javaagent:/opt/cryostat/cryostat-agent-shaded.jar"
+	// The callback Service selects the test's single replica. With multiple replicas,
+	// requests could reach the wrong stateful Agent.
+	// TODO: Use the downward API's Pod IP for the callback and configure TLS hostname
+	// verification accordingly before extending this test to multiple replicas.
 	container.Env = append(container.Env,
 		corev1.EnvVar{Name: "SCORECARD_POD_NAME", ValueFrom: &corev1.EnvVarSource{FieldRef: &corev1.ObjectFieldSelector{FieldPath: "metadata.name"}}},
 		corev1.EnvVar{Name: "SCORECARD_POD_IP", ValueFrom: &corev1.EnvVarSource{FieldRef: &corev1.ObjectFieldSelector{FieldPath: "status.podIP"}}},

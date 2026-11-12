@@ -34,6 +34,8 @@ import (
 // Require newly created recordings to appear as RUNNING in the recording list.
 var _ = Describe("Agent registration", func() {
 	It("selects only the matching HTTP target after Cryostat and the Agent become ready", func() {
+		// The fake API first returns 503, then only ineligible targets (JMX, another
+		// Pod, or an uninitialized ID), and finally the matching HTTP Agent target.
 		var calls atomic.Int32
 		api := testCryostatAPI(func(w http.ResponseWriter, request *http.Request) {
 			Expect(request.Method).To(Equal(http.MethodGet))
