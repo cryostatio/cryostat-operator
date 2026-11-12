@@ -19,10 +19,12 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"time"
 
 	"github.com/cryostatio/cryostat-operator/internal/cryostatapi"
 	scapiv1alpha3 "github.com/operator-framework/api/pkg/apis/scorecard/v1alpha3"
 	apimanifests "github.com/operator-framework/api/pkg/manifests"
+	"k8s.io/apimachinery/pkg/util/wait"
 )
 
 // Synthetic Kubernetes resource name backing unifiedlogs.
@@ -81,10 +83,33 @@ func (r *TestResources) setupRBACUnifiedLogFixture(ctx context.Context, base *ur
 		return "", "", fmt.Errorf("failed to enable unified logging: %w", err)
 	}
 
-	pullBody := ""
-	var session cryostatapi.UnifiedLogSession
+	// The session is logging the "gc" category, so it has nothing to collect until a GC
+	// actually runs. Trigger one explicitly, the same way Cryostat's own integration tests
+	// do, rather than waiting on one to happen incidentally.
+	gcBody := ""
+	if err := r.sendPrivilegedJSON(ctx, http.MethodPost,
+		base.JoinPath(fmt.Sprintf("/api/beta/diagnostics/targets/%d/gc", target.Id)), &gcBody, nil); err != nil {
+		return "", "", fmt.Errorf("failed to trigger garbage collection: %w", err)
+	}
+
+	// Pulling before the GC's log line has been collected and flushed succeeds with 204 and
+	// an empty session (no logId). Poll until a real one is available.
 	pullURL := base.JoinPath(fmt.Sprintf("/api/beta/diagnostics/targets/%d/unified-logging/pull", target.Id))
-	if err := r.sendPrivilegedJSON(ctx, http.MethodPost, pullURL, &pullBody, &session); err != nil {
+	var session cryostatapi.UnifiedLogSession
+	err = wait.PollUntilContextCancel(ctx, 2*time.Second, true, func(ctx context.Context) (bool, error) {
+		pullBody := ""
+		var attempt cryostatapi.UnifiedLogSession
+		if err := r.sendPrivilegedJSON(ctx, http.MethodPost, pullURL, &pullBody, &attempt); err != nil {
+			return false, err
+		}
+		if attempt.LogId == "" {
+			r.Log += "waiting for a unified log to become available to pull\n"
+			return false, nil
+		}
+		session = attempt
+		return true, nil
+	})
+	if err != nil {
 		return "", "", fmt.Errorf("failed to pull a unified log: %w", err)
 	}
 	r.Log += fmt.Sprintf("created a unified log: %+v\n", session)
