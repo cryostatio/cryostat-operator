@@ -6347,6 +6347,10 @@ spec:
                         description: The name of the bucket used to store custom Event
                           Templates.
                         type: string
+                      heapDumpReports:
+                        description: The name of the bucket used to store Heap Dump
+                          Automated Analysis reports.
+                        type: string
                       heapDumps:
                         description: The name of the bucket used to store JVM heap
                           dumps.
@@ -6364,6 +6368,10 @@ spec:
                       threadDumps:
                         description: The name of the bucket used to storage JVM thread
                           dumps.
+                        type: string
+                      unifiedlogs:
+                        description: The name of the bucket used to store JVM unified
+                          log dumps.
                         type: string
                     type: object
                 type: object
