@@ -167,6 +167,11 @@ rules:
   - cryostatrecordings
   - cryostattargets
   - cryostatnothing
+  - cryostatthreaddumps
+  - cryostatheapdumps
+  - cryostataudit
+  - cryostatunifiedlogs
+  - cryostatautomatedrules
   verbs:
   - get
   - update

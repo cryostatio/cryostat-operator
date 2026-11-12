@@ -105,6 +105,10 @@ func testLookup() map[string]testFn {
 	m[tests.CryostatReportTestName] = tests.CryostatReportTest
 	m[tests.CryostatRBACArchivedRecordingsTestName] = tests.CryostatRBACArchivedRecordingsTest
 	m[tests.CryostatRBACIsolationTestName] = tests.CryostatRBACIsolationTest
+	m[tests.CryostatRBACThreadDumpsTestName] = tests.CryostatRBACThreadDumpsTest
+	m[tests.CryostatRBACHeapDumpsTestName] = tests.CryostatRBACHeapDumpsTest
+	m[tests.CryostatRBACUnifiedLogsTestName] = tests.CryostatRBACUnifiedLogsTest
+	m[tests.CryostatRBACAutomatedRulesTestName] = tests.CryostatRBACAutomatedRulesTest
 	return m
 }
 
