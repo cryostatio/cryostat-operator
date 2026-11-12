@@ -24,6 +24,7 @@ import (
 	"time"
 
 	operatorv1beta2 "github.com/cryostatio/cryostat-operator/api/v1beta2"
+	"github.com/cryostatio/cryostat-operator/internal/controller/constants"
 	authnv1 "k8s.io/api/authentication/v1"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
@@ -416,22 +417,45 @@ func (f *rbacFixture) Peek() *ArchivedRecordingNode {
 }
 
 // setupRBACFixture performs the privileged part of the test as the scorecard pod's own
-// ServiceAccount: it registers a target, starts a continuous recording and archives it
-// repeatedly, so that each privilege level has live and archived recordings to act on.
-func (r *TestResources) setupRBACFixture(ctx context.Context, base *url.URL) (*rbacFixture, error) {
+// ServiceAccount: it deploys a sample application with an auto-configured Agent, waits for
+// it to register as a target, then starts a continuous recording and archives it repeatedly,
+// so that each privilege level has live and archived recordings to act on.
+//
+// An Agent target is used rather than a synthetic JMX one so the fixture is discovered
+// through real registration, the same path the privilege levels exercise, instead of being
+// synthesized through POST /targets.
+func (r *TestResources) setupRBACFixture(ctx context.Context, cr *operatorv1beta2.Cryostat, base *url.URL) (*rbacFixture, error) {
 	apiClient := r.NewCryostatRESTClientset(base)
 
-	target, err := apiClient.Targets().Create(ctx, &Target{
-		ConnectUrl: "service:jmx:rmi:///jndi/rmi://localhost:0/jmxrmi",
-		Alias:      "rbacTarget",
-	})
+	deployment := r.newAgentApplication(cr, true)
+	deployed, err := r.Client.AppsV1().Deployments(r.Namespace).Create(ctx, deployment, metav1.CreateOptions{})
 	if err != nil {
-		return nil, fmt.Errorf("failed to create a target: %w", err)
+		return nil, fmt.Errorf("failed to deploy the RBAC fixture's sample application: %w", err)
 	}
-	r.Log += fmt.Sprintf("created a custom target: %+v\n", target)
+	defer r.logApplication(deployment.Name)
+	for _, key := range []string{constants.AgentLabelCryostatName, constants.AgentLabelCryostatNamespace} {
+		if deployed.Spec.Template.Labels[key] != deployment.Labels[key] {
+			return nil, fmt.Errorf("Deployment webhook did not propagate %s to the Pod template", key)
+		}
+	}
+	if err := r.waitForDeploymentAvailability(ctx, deployment.Name, r.Namespace); err != nil {
+		return nil, fmt.Errorf("RBAC fixture's sample application did not become available: %w", err)
+	}
 
-	// Give Cryostat a moment to discover itself
-	time.Sleep(2 * time.Second)
+	pods, err := r.Client.CoreV1().Pods(r.Namespace).List(ctx, metav1.ListOptions{LabelSelector: "app=" + deployment.Name})
+	if err != nil {
+		return nil, fmt.Errorf("failed to list RBAC fixture's sample application Pods: %w", err)
+	}
+	if len(pods.Items) != 1 {
+		return nil, fmt.Errorf("expected one RBAC fixture sample application Pod, got %d", len(pods.Items))
+	}
+	pod := &pods.Items[0]
+
+	target, err := waitForAgentTarget(ctx, apiClient.Targets(), pod.Name)
+	if err != nil {
+		return nil, fmt.Errorf("Agent did not register with Cryostat: %w", err)
+	}
+	r.Log += fmt.Sprintf("Agent registered target: %+v\n", target)
 
 	recording, err := apiClient.Recordings().Create(ctx, target, &RecordingCreateOptions{
 		RecordingName: "scorecard_rbac_rec",
