@@ -243,12 +243,12 @@ func CryostatRBACTest(bundle *apimanifests.Bundle, namespace string, openShiftCe
 
 	levels := rbacPrivilegeLevels()
 	defer r.cleanupRBACSubjects(levels)
-	err = r.setupRBACSubjects(setupCtx, levels)
+	err = r.setupRBACSubjects(setupCtx, rbacArchivesResource, archivedRecordingsSupportingRules(), levels)
 	if err != nil {
 		return r.fail(fmt.Sprintf("failed to set up RBAC subjects: %s", err.Error()))
 	}
 
-	cr, err := r.createAndWaitTillCryostatAvailable(r.newRBACCryostatCR())
+	cr, err := r.createAndWaitTillCryostatAvailable(r.newRBACCryostatCR(archivedRecordingsRBACPermissions()))
 	if err != nil {
 		return r.fail(fmt.Sprintf("%s test failed: %s", CryostatRBACTestName, err.Error()))
 	}
@@ -274,7 +274,7 @@ func CryostatRBACTest(bundle *apimanifests.Bundle, namespace string, openShiftCe
 		return r.fail(fmt.Sprintf("failed to set up recordings for %s test: %s", CryostatRBACTestName, err.Error()))
 	}
 
-	r.assertRBACMatrix(ctx, base, fixture, levels)
+	r.assertRBACMatrix(ctx, base, fixture, rbacArchivesResource, levels, archivedRecordingsAssertions())
 
 	return r.TestResult
 }
