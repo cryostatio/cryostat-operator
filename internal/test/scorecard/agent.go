@@ -28,6 +28,7 @@ import (
 	certmeta "github.com/cert-manager/cert-manager/pkg/apis/meta/v1"
 	operatorv1beta2 "github.com/cryostatio/cryostat-operator/api/v1beta2"
 	"github.com/cryostatio/cryostat-operator/internal/controller/constants"
+	"github.com/cryostatio/cryostat-operator/internal/cryostatapi"
 	scapiv1alpha3 "github.com/operator-framework/api/pkg/apis/scorecard/v1alpha3"
 	apimanifests "github.com/operator-framework/api/pkg/manifests"
 	appsv1 "k8s.io/api/apps/v1"
@@ -291,8 +292,8 @@ func (r *TestResources) createBundledAgentTLS(ctx context.Context, cr *operatorv
 
 // Agent targets must be discovered through registration, never synthesized through
 // POST /targets or selected from another workload's JMX endpoint.
-func waitForAgentTarget(ctx context.Context, c *TargetClient, podName string) (*Target, error) {
-	var found *Target
+func waitForAgentTarget(ctx context.Context, c *TargetClient, podName string) (*cryostatapi.Target, error) {
+	var found *cryostatapi.Target
 	var lastErr error
 	err := wait.PollUntilContextCancel(ctx, time.Second, true, func(ctx context.Context) (bool, error) {
 		targets, err := c.List(ctx)

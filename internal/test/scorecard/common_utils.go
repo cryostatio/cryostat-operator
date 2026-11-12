@@ -26,6 +26,7 @@ import (
 	"time"
 
 	operatorv1beta2 "github.com/cryostatio/cryostat-operator/api/v1beta2"
+	"github.com/cryostatio/cryostat-operator/internal/cryostatapi"
 	scapiv1alpha3 "github.com/operator-framework/api/pkg/apis/scorecard/v1alpha3"
 
 	appsv1 "k8s.io/api/apps/v1"
@@ -507,7 +508,7 @@ func (r *TestResources) createAndWaitTillCryostatAvailable(cr *operatorv1beta2.C
 
 func (r *TestResources) waitTillCryostatReady(base *url.URL) error {
 	return r.sendHealthRequest(base, func(resp *http.Response, result *scapiv1alpha3.TestResult) (done bool, err error) {
-		health := &HealthResponse{}
+		health := &cryostatapi.HealthResponse{}
 		err = ReadJSON(resp, health)
 		if err != nil {
 			return false, fmt.Errorf("failed to read response body: %s", err.Error())

@@ -28,6 +28,7 @@ import (
 
 	operatorv1beta2 "github.com/cryostatio/cryostat-operator/api/v1beta2"
 	"github.com/cryostatio/cryostat-operator/internal/controller/constants"
+	"github.com/cryostatio/cryostat-operator/internal/cryostatapi"
 	appsv1 "k8s.io/api/apps/v1"
 	authnv1 "k8s.io/api/authentication/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -409,17 +410,17 @@ func (r *TestResources) cleanupRBACSubjects(levels []*rbacPrivilegeLevel) {
 // assertions to act on.
 type rbacFixture struct {
 	// Target is the Cryostat target the live recording belongs to.
-	Target *Target
+	Target *cryostatapi.Target
 	// Recording is the live continuous recording that the write assertions archive.
-	Recording *Recording
+	Recording *cryostatapi.Recording
 	// Archives are the archived recordings available to the delete assertions, in the
 	// order they will be consumed.
-	Archives []ArchivedRecordingNode
+	Archives []cryostatapi.ArchivedRecordingNode
 }
 
 // Take removes and returns the next archived recording, for an assertion that is expected to
 // delete it. Returns nil when the fixture has been exhausted.
-func (f *rbacFixture) Take() *ArchivedRecordingNode {
+func (f *rbacFixture) Take() *cryostatapi.ArchivedRecordingNode {
 	if len(f.Archives) == 0 {
 		return nil
 	}
@@ -431,7 +432,7 @@ func (f *rbacFixture) Take() *ArchivedRecordingNode {
 // Peek returns the next archived recording without consuming it, for an assertion that is
 // expected to be denied and therefore to leave it in place. Returns nil when the fixture has
 // been exhausted.
-func (f *rbacFixture) Peek() *ArchivedRecordingNode {
+func (f *rbacFixture) Peek() *cryostatapi.ArchivedRecordingNode {
 	if len(f.Archives) == 0 {
 		return nil
 	}
@@ -448,7 +449,7 @@ func (f *rbacFixture) Peek() *ArchivedRecordingNode {
 // synthesized through POST /targets. The caller is responsible for deferring
 // r.logApplication(deployment.Name) itself, so that it fires when the caller's own setup (not
 // just this step) returns.
-func (r *TestResources) setupRBACAgentTarget(ctx context.Context, cr *operatorv1beta2.Cryostat, base *url.URL) (*appsv1.Deployment, *Target, error) {
+func (r *TestResources) setupRBACAgentTarget(ctx context.Context, cr *operatorv1beta2.Cryostat, base *url.URL) (*appsv1.Deployment, *cryostatapi.Target, error) {
 	apiClient := r.NewCryostatRESTClientset(base)
 
 	deployment := r.newAgentApplication(cr, true)
@@ -496,7 +497,7 @@ func (r *TestResources) setupRBACFixture(ctx context.Context, cr *operatorv1beta
 	}
 	defer r.logApplication(deployment.Name)
 
-	recording, err := apiClient.Recordings().Create(ctx, target, &RecordingCreateOptions{
+	recording, err := apiClient.Recordings().Create(ctx, target, &cryostatapi.RecordingCreateOptions{
 		RecordingName: "scorecard_rbac_rec",
 		Events:        "template=ALL",
 		Duration:      0, // Continuous
@@ -517,7 +518,7 @@ func (r *TestResources) setupRBACFixture(ctx context.Context, cr *operatorv1beta
 	}
 
 	// Archiving is asynchronous: the PATCH returns a job ID and the file appears later.
-	var archives []ArchivedRecordingNode
+	var archives []cryostatapi.ArchivedRecordingNode
 	err = wait.PollUntilContextCancel(ctx, time.Second, true, func(ctx context.Context) (bool, error) {
 		found, err := r.listArchivedRecordings(ctx, base, "")
 		if err != nil {
@@ -544,8 +545,8 @@ func (r *TestResources) setupRBACFixture(ctx context.Context, cr *operatorv1beta
 
 // listArchivedRecordings runs the top-level archivedRecordings GraphQL query as the
 // scorecard pod's own ServiceAccount, optionally filtered to a single recording name.
-func (r *TestResources) listArchivedRecordings(ctx context.Context, base *url.URL, name string) ([]ArchivedRecordingNode, error) {
-	query := &GraphQLQuery{
+func (r *TestResources) listArchivedRecordings(ctx context.Context, base *url.URL, name string) ([]cryostatapi.ArchivedRecordingNode, error) {
+	query := &cryostatapi.GraphQLQuery{
 		Query: `
 			query ArchivedRecordings($name: String) {
 				archivedRecordings(filter: { name: $name }) {
@@ -564,7 +565,7 @@ func (r *TestResources) listArchivedRecordings(ctx context.Context, base *url.UR
 		query.Variables["name"] = name
 	}
 
-	response := &ArchivedRecordingsGraphQLResponse{}
+	response := &cryostatapi.ArchivedRecordingsGraphQLResponse{}
 	status, body, err := r.sendGraphQLRequest(ctx, base, query, "", response)
 	if err != nil {
 		return nil, err
@@ -581,7 +582,7 @@ func (r *TestResources) listArchivedRecordings(ctx context.Context, base *url.UR
 // sendGraphQLRequest posts a GraphQL query with the given bearer token and decodes the
 // response into result. It returns the HTTP status code and the raw response body alongside,
 // so that callers can report an unexpected status without a second read of the body.
-func (r *TestResources) sendGraphQLRequest(ctx context.Context, base *url.URL, query *GraphQLQuery, token string, result any) (int, string, error) {
+func (r *TestResources) sendGraphQLRequest(ctx context.Context, base *url.URL, query *cryostatapi.GraphQLQuery, token string, result any) (int, string, error) {
 	queryJSON, err := query.ToJSON()
 	if err != nil {
 		return 0, "", fmt.Errorf("failed to construct GraphQL query: %w", err)
@@ -715,7 +716,7 @@ func (r *TestResources) checkREST(ctx context.Context, level *rbacPrivilegeLevel
 // code therefore carries no authorization signal here, and the assertion is on the presence
 // or absence of a "Forbidden" error instead.
 func (r *TestResources) checkGraphQL(ctx context.Context, level *rbacPrivilegeLevel, allowed bool, permission string,
-	base *url.URL, query *GraphQLQuery, response *ArchivedRecordingsGraphQLResponse) {
+	base *url.URL, query *cryostatapi.GraphQLQuery, response *cryostatapi.ArchivedRecordingsGraphQLResponse) {
 	g := gomega.NewWithT(&rbacGomegaT{r: r})
 	label := fmt.Sprintf("GraphQL %s as %s, expecting %s", permission, level.Name, rbacExpectation(allowed))
 
@@ -773,8 +774,8 @@ func rbacExpectation(allowed bool) string {
 // doPutMetadata resolver hangs off the ArchivedRecording type, so it is reached through the
 // archivedRecordings query; the filter narrows that query to a single recording so that the
 // resolver runs exactly once.
-func rbacPutMetadataQuery(name string) *GraphQLQuery {
-	return &GraphQLQuery{
+func rbacPutMetadataQuery(name string) *cryostatapi.GraphQLQuery {
+	return &cryostatapi.GraphQLQuery{
 		Query: `
 			query RBACPutMetadata($name: String!, $labels: [Entry_String_StringInput]) {
 				archivedRecordings(filter: { name: $name }) {
@@ -800,8 +801,8 @@ func rbacPutMetadataQuery(name string) *GraphQLQuery {
 // rbacDeleteQuery builds the GraphQL request exercising archivedrecordings:delete. As with
 // doPutMetadata, the doDelete resolver is reached through the archivedRecordings query and
 // the filter narrows it to the single recording the caller intends to delete.
-func rbacDeleteQuery(name string) *GraphQLQuery {
-	return &GraphQLQuery{
+func rbacDeleteQuery(name string) *cryostatapi.GraphQLQuery {
+	return &cryostatapi.GraphQLQuery{
 		Query: `
 			query RBACDelete($name: String!) {
 				archivedRecordings(filter: { name: $name }) {
@@ -822,8 +823,8 @@ func rbacDeleteQuery(name string) *GraphQLQuery {
 }
 
 // rbacListQuery builds the GraphQL request exercising archivedrecordings:read.
-func rbacListQuery() *GraphQLQuery {
-	return &GraphQLQuery{
+func rbacListQuery() *cryostatapi.GraphQLQuery {
+	return &cryostatapi.GraphQLQuery{
 		Query: `
 			query RBACList {
 				archivedRecordings {
@@ -905,7 +906,7 @@ func (r *TestResources) assertRESTWrite(ctx context.Context, base *url.URL, fixt
 // turns only on archivedrecordings:delete. A level expected to succeed consumes an archived
 // recording from the fixture; a level expected to be denied leaves it in place.
 func (r *TestResources) assertRESTDelete(ctx context.Context, base *url.URL, fixture *rbacFixture, level *rbacPrivilegeLevel) {
-	var archive *ArchivedRecordingNode
+	var archive *cryostatapi.ArchivedRecordingNode
 	if level.CanDelete {
 		archive = fixture.Take()
 	} else {
@@ -925,7 +926,7 @@ func (r *TestResources) assertRESTDelete(ctx context.Context, base *url.URL, fix
 // assertGraphQLRead checks archivedrecordings:read via the top-level archivedRecordings
 // query.
 func (r *TestResources) assertGraphQLRead(ctx context.Context, base *url.URL, level *rbacPrivilegeLevel) {
-	r.checkGraphQL(ctx, level, level.CanRead, rbacArchivedRecordingsReadPermission, base, rbacListQuery(), &ArchivedRecordingsGraphQLResponse{})
+	r.checkGraphQL(ctx, level, level.CanRead, rbacArchivedRecordingsReadPermission, base, rbacListQuery(), &cryostatapi.ArchivedRecordingsGraphQLResponse{})
 }
 
 // assertGraphQLWrite checks archivedrecordings:write via the doPutMetadata resolver. Updating
@@ -937,14 +938,14 @@ func (r *TestResources) assertGraphQLWrite(ctx context.Context, base *url.URL, f
 		r.logError(fmt.Sprintf("GraphQL %s as %s: no archived recording left to act on", rbacArchivedRecordingsWritePermission, level.Name))
 		return
 	}
-	r.checkGraphQL(ctx, level, level.CanWrite, rbacArchivedRecordingsWritePermission, base, rbacPutMetadataQuery(archive.Name), &ArchivedRecordingsGraphQLResponse{})
+	r.checkGraphQL(ctx, level, level.CanWrite, rbacArchivedRecordingsWritePermission, base, rbacPutMetadataQuery(archive.Name), &cryostatapi.ArchivedRecordingsGraphQLResponse{})
 }
 
 // assertGraphQLDelete checks archivedrecordings:delete via the doDelete resolver. A level
 // expected to succeed consumes an archived recording from the fixture; a level expected to
 // be denied leaves it in place.
 func (r *TestResources) assertGraphQLDelete(ctx context.Context, base *url.URL, fixture *rbacFixture, level *rbacPrivilegeLevel) {
-	var archive *ArchivedRecordingNode
+	var archive *cryostatapi.ArchivedRecordingNode
 	if level.CanDelete {
 		archive = fixture.Take()
 	} else {
@@ -954,5 +955,5 @@ func (r *TestResources) assertGraphQLDelete(ctx context.Context, base *url.URL, 
 		r.logError(fmt.Sprintf("GraphQL %s as %s: no archived recording left to act on", rbacArchivedRecordingsDeletePermission, level.Name))
 		return
 	}
-	r.checkGraphQL(ctx, level, level.CanDelete, rbacArchivedRecordingsDeletePermission, base, rbacDeleteQuery(archive.Name), &ArchivedRecordingsGraphQLResponse{})
+	r.checkGraphQL(ctx, level, level.CanDelete, rbacArchivedRecordingsDeletePermission, base, rbacDeleteQuery(archive.Name), &cryostatapi.ArchivedRecordingsGraphQLResponse{})
 }

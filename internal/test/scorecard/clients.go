@@ -26,6 +26,7 @@ import (
 	"time"
 
 	operatorv1beta2 "github.com/cryostatio/cryostat-operator/api/v1beta2"
+	"github.com/cryostatio/cryostat-operator/internal/cryostatapi"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
@@ -255,7 +256,7 @@ type TargetClient struct {
 	*commonCryostatRESTClient
 }
 
-func (client *TargetClient) List(ctx context.Context) ([]Target, error) {
+func (client *TargetClient) List(ctx context.Context) ([]cryostatapi.Target, error) {
 	restURL := client.Base.JoinPath("/api/v4/targets")
 	header := make(http.Header)
 	header.Add("Accept", "*/*")
@@ -270,7 +271,7 @@ func (client *TargetClient) List(ctx context.Context) ([]Target, error) {
 		return nil, fmt.Errorf("API request failed with status code: %d, response body: %s, and headers:\n%s", resp.StatusCode, ReadError(resp), ReadHeader(resp))
 	}
 
-	targets := make([]Target, 0)
+	targets := make([]cryostatapi.Target, 0)
 	err = ReadJSON(resp, &targets)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read response body: %s", err.Error())
@@ -279,7 +280,7 @@ func (client *TargetClient) List(ctx context.Context) ([]Target, error) {
 	return targets, nil
 }
 
-func (client *TargetClient) Create(ctx context.Context, options *Target) (*Target, error) {
+func (client *TargetClient) Create(ctx context.Context, options *cryostatapi.Target) (*cryostatapi.Target, error) {
 	restURL := client.Base.JoinPath("/api/v4/targets")
 	header := make(http.Header)
 	header.Add("Content-Type", "application/x-www-form-urlencoded")
@@ -296,7 +297,7 @@ func (client *TargetClient) Create(ctx context.Context, options *Target) (*Targe
 		return nil, fmt.Errorf("API request failed with status code: %d, response body: %s, and headers:\n%s", resp.StatusCode, ReadError(resp), ReadHeader(resp))
 	}
 
-	targetResp := &Target{}
+	targetResp := &cryostatapi.Target{}
 	err = ReadJSON(resp, targetResp)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read response body: %s", err.Error())
@@ -310,7 +311,7 @@ type RecordingClient struct {
 	*commonCryostatRESTClient
 }
 
-func (client *RecordingClient) List(ctx context.Context, target *Target) ([]Recording, error) {
+func (client *RecordingClient) List(ctx context.Context, target *cryostatapi.Target) ([]cryostatapi.Recording, error) {
 	restURL := client.Base.JoinPath(fmt.Sprintf("/api/v4/targets/%d/recordings", target.Id))
 	header := make(http.Header)
 	header.Add("Accept", "*/*")
@@ -325,7 +326,7 @@ func (client *RecordingClient) List(ctx context.Context, target *Target) ([]Reco
 		return nil, fmt.Errorf("API request failed with status code: %d, response body: %s, and headers:\n%s", resp.StatusCode, ReadError(resp), ReadHeader(resp))
 	}
 
-	recordings := make([]Recording, 0)
+	recordings := make([]cryostatapi.Recording, 0)
 	err = ReadJSON(resp, &recordings)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read response body: %s", err.Error())
@@ -334,7 +335,7 @@ func (client *RecordingClient) List(ctx context.Context, target *Target) ([]Reco
 	return recordings, nil
 }
 
-func (client *RecordingClient) Get(ctx context.Context, target *Target, recordingName string) (*Recording, error) {
+func (client *RecordingClient) Get(ctx context.Context, target *cryostatapi.Target, recordingName string) (*cryostatapi.Recording, error) {
 	recordings, err := client.List(ctx, target)
 	if err != nil {
 		return nil, err
@@ -349,7 +350,7 @@ func (client *RecordingClient) Get(ctx context.Context, target *Target, recordin
 	return nil, fmt.Errorf("recording %s does not exist for target %s", recordingName, target.ConnectUrl)
 }
 
-func (client *RecordingClient) Create(ctx context.Context, target *Target, options *RecordingCreateOptions) (*Recording, error) {
+func (client *RecordingClient) Create(ctx context.Context, target *cryostatapi.Target, options *cryostatapi.RecordingCreateOptions) (*cryostatapi.Recording, error) {
 	restURL := client.Base.JoinPath(fmt.Sprintf("/api/v4/targets/%d/recordings", target.Id))
 	body := options.ToFormData()
 	header := make(http.Header)
@@ -366,7 +367,7 @@ func (client *RecordingClient) Create(ctx context.Context, target *Target, optio
 		return nil, fmt.Errorf("API request failed with status code: %d, response body: %s, and headers:\n%s", resp.StatusCode, ReadError(resp), ReadHeader(resp))
 	}
 
-	recording := &Recording{}
+	recording := &cryostatapi.Recording{}
 	err = ReadJSON(resp, recording)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read response body: %s", err.Error())
@@ -375,7 +376,7 @@ func (client *RecordingClient) Create(ctx context.Context, target *Target, optio
 	return recording, err
 }
 
-func (client *RecordingClient) Archive(ctx context.Context, target *Target, recordingId uint32) (string, error) {
+func (client *RecordingClient) Archive(ctx context.Context, target *cryostatapi.Target, recordingId uint32) (string, error) {
 	restURL := client.Base.JoinPath(fmt.Sprintf("/api/v4/targets/%d/recordings/%d", target.Id, recordingId))
 	body := "SAVE"
 	header := make(http.Header)
@@ -400,7 +401,7 @@ func (client *RecordingClient) Archive(ctx context.Context, target *Target, reco
 	return bodyAsString, nil
 }
 
-func (client *RecordingClient) Stop(ctx context.Context, target *Target, recordingId uint32) error {
+func (client *RecordingClient) Stop(ctx context.Context, target *cryostatapi.Target, recordingId uint32) error {
 	restURL := client.Base.JoinPath(fmt.Sprintf("/api/v4/targets/%d/recordings/%d", target.Id, recordingId))
 	body := "STOP"
 	header := make(http.Header)
@@ -420,7 +421,7 @@ func (client *RecordingClient) Stop(ctx context.Context, target *Target, recordi
 	return nil
 }
 
-func (client *RecordingClient) Delete(ctx context.Context, target *Target, recordingId uint32) error {
+func (client *RecordingClient) Delete(ctx context.Context, target *cryostatapi.Target, recordingId uint32) error {
 	restURL := client.Base.JoinPath(fmt.Sprintf("/api/v4/targets/%d/recordings/%d", target.Id, recordingId))
 	header := make(http.Header)
 
@@ -437,7 +438,7 @@ func (client *RecordingClient) Delete(ctx context.Context, target *Target, recor
 	return nil
 }
 
-func (client *RecordingClient) RequestReportGeneration(ctx context.Context, target *Target, recording *Recording) (*string, error) {
+func (client *RecordingClient) RequestReportGeneration(ctx context.Context, target *cryostatapi.Target, recording *cryostatapi.Recording) (*string, error) {
 	if len(recording.ReportURL) < 1 {
 		return nil, fmt.Errorf("report URL is not available")
 	}
@@ -464,10 +465,10 @@ func (client *RecordingClient) RequestReportGeneration(ctx context.Context, targ
 	return &report, nil
 }
 
-func (client *RecordingClient) ListArchives(ctx context.Context, target *Target) ([]Archive, error) {
+func (client *RecordingClient) ListArchives(ctx context.Context, target *cryostatapi.Target) ([]cryostatapi.Archive, error) {
 	restURL := client.Base.JoinPath("/api/v4/graphql")
 
-	query := &GraphQLQuery{
+	query := &cryostatapi.GraphQLQuery{
 		Query: `
 			query ArchivedRecordingsForTarget($id: BigInteger!) {
 				targetNodes(filter: { targetIds: [$id] }) {
@@ -514,7 +515,7 @@ func (client *RecordingClient) ListArchives(ctx context.Context, target *Target)
 		return nil, fmt.Errorf("API request failed with status code: %d, response body: %s, and headers:\n%s", resp.StatusCode, ReadError(resp), ReadHeader(resp))
 	}
 
-	graphQLResponse := &ArchiveGraphQLResponse{}
+	graphQLResponse := &cryostatapi.ArchiveGraphQLResponse{}
 	err = ReadJSON(resp, graphQLResponse)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read response body: %s", err.Error())
@@ -533,7 +534,7 @@ type CredentialClient struct {
 	*commonCryostatRESTClient
 }
 
-func (client *CredentialClient) Create(ctx context.Context, credential *Credential) error {
+func (client *CredentialClient) Create(ctx context.Context, credential *cryostatapi.Credential) error {
 	restURL := client.Base.JoinPath("/api/v4/credentials")
 	body := credential.ToFormData()
 	header := make(http.Header)

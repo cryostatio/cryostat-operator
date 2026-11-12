@@ -23,6 +23,8 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+
+	"github.com/cryostatio/cryostat-operator/internal/cryostatapi"
 )
 
 func writeArchives(w http.ResponseWriter, archives []map[string]any) {
@@ -65,7 +67,7 @@ var _ = Describe("Recording archival", func() {
 		})
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
-		archive, err := waitForArchivedRecording(ctx, api.Recordings(), &Target{Id: 17}, &Recording{Id: 7, Name: "scorecard_test_rec"})
+		archive, err := waitForArchivedRecording(ctx, api.Recordings(), &cryostatapi.Target{Id: 17}, &cryostatapi.Recording{Id: 7, Name: "scorecard_test_rec"})
 		Expect(err).ToNot(HaveOccurred())
 		Expect(archive.Size).To(Equal(uint32(2048)))
 		Expect(calls.Load()).To(Equal(int32(3)))
@@ -77,7 +79,7 @@ var _ = Describe("Recording archival", func() {
 		})
 		ctx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
 		defer cancel()
-		archive, err := waitForArchivedRecording(ctx, api.Recordings(), &Target{Id: 17}, &Recording{Id: 7, Name: "scorecard_test_rec"})
+		archive, err := waitForArchivedRecording(ctx, api.Recordings(), &cryostatapi.Target{Id: 17}, &cryostatapi.Recording{Id: 7, Name: "scorecard_test_rec"})
 		Expect(archive).To(BeNil())
 		Expect(err).To(MatchError(ContainSubstring("waiting for archive of recording scorecard_test_rec (ID 7)")))
 		Expect(err).To(MatchError(context.DeadlineExceeded))
@@ -91,7 +93,7 @@ var _ = Describe("Recording archival", func() {
 		})
 		ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 		defer cancel()
-		archive, err := waitForArchivedRecording(ctx, api.Recordings(), &Target{Id: 17}, &Recording{Id: 7})
+		archive, err := waitForArchivedRecording(ctx, api.Recordings(), &cryostatapi.Target{Id: 17}, &cryostatapi.Recording{Id: 7})
 		Expect(archive).To(BeNil())
 		Expect(err).To(MatchError(ContainSubstring("403")))
 		Expect(calls.Load()).To(Equal(int32(1)))
@@ -104,7 +106,7 @@ var _ = Describe("Recording archival", func() {
 		})
 		ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 		defer cancel()
-		archive, err := waitForArchivedRecording(ctx, api.Recordings(), &Target{Id: 17}, &Recording{Id: 7})
+		archive, err := waitForArchivedRecording(ctx, api.Recordings(), &cryostatapi.Target{Id: 17}, &cryostatapi.Recording{Id: 7})
 		Expect(archive).To(BeNil())
 		Expect(err).To(MatchError(ContainSubstring(message)))
 	},

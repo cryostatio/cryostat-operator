@@ -159,11 +159,11 @@ stages:
         mountPath: {}
   - entrypoint:
     - cryostat-scorecard-tests
-    - cryostat-rbac
+    - cryostat-rbac-archivedrecordings
     image: quay.io/cryostat/cryostat-operator-scorecard:5.0.0-20261109194800
     labels:
       suite: cryostat
-      test: cryostat-rbac
+      test: cryostat-rbac-archivedrecordings
     storage:
       spec:
         mountPath: {}
