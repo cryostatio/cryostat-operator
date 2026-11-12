@@ -131,8 +131,8 @@ rules:
   - pods/log
   verbs:
   - get
-# Permissions for the cryostat-rbac test, which builds a privilege ladder of
-# ServiceAccounts and masquerades as each one against the Cryostat API.
+# Permissions for the cryostat-rbac* tests, which each build a privilege ladder of
+# ServiceAccounts and masquerade as each one against the Cryostat API.
 - apiGroups:
   - ""
   resources:
@@ -157,7 +157,7 @@ rules:
   - delete
   - get
 # Synthetic resources in the core API group, used as the targets of the Cryostat
-# permission mappings the cryostat-rbac test configures.
+# permission mappings the cryostat-rbac* tests configure.
 # The resources do not exist in the API server's resource registry and rely on
 # RBAC rule-matching for these synthetic resources.
 - apiGroups:
