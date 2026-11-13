@@ -10,7 +10,10 @@
     ":separateMajorReleases",
     ":separateMultipleMinorReleases",
     ":separatePatchReleases",
-    ":gomod"
+    ":gomod",
+    "github>cryostatio/cryostat:.github/renovate/release-branch.json//lockdown",
+    "github>cryostatio/cryostat:.github/renovate/release-branch.json(gomod)",
+    "github>cryostatio/cryostat:.github/renovate/release-branch.json(dockerfile)"
   ],
   "baseBranchPatterns": ["main", "/^cryostat-v.*/"],
   "reviewersFromCodeOwners": true,
@@ -77,29 +80,11 @@
       "dependencyDashboardApproval": false
     },
     {
-      "description": "Disable all dependency updates on release branches except Dockerfile base images; other updates there are handled via Mergify backport",
-      "matchBaseBranches": ["/^cryostat-v.*/"],
-      "enabled": false
-    },
-    {
-      "description": "Allow Dockerfile base image updates on release branches",
-      "matchBaseBranches": ["/^cryostat-v.*/"],
-      "matchManagers": ["dockerfile"],
-      "enabled": true
-    },
-    {
-      "description": "Allow go.mod updates on release branches so Renovate can classify their update type; non-patch updates are disabled below.",
-      "matchBaseBranches": ["/^cryostat-v.*/"],
+      "description": "Allow go.mod minor updates on main without dashboard approval",
+      "matchBaseBranches": ["main"],
       "matchManagers": ["gomod"],
-      "enabled": true,
+      "matchUpdateTypes": ["minor"],
       "dependencyDashboardApproval": false
-    },
-    {
-      "description": "Disable non-patch go.mod updates on release branches",
-      "matchBaseBranches": ["/^cryostat-v.*/"],
-      "matchManagers": ["gomod"],
-      "matchUpdateTypes": ["major", "minor", "digest", "pin", "pinDigest", "lockFileMaintenance", "rollback", "bump", "replacement"],
-      "enabled": false
     },
     {
       "description": "Keep the go directive in go.mod up to date, since the gomod manager leaves it alone by default. go.mod is the single source of truth for the Go version; CI workflows read it via setup-go's go-version-file",
