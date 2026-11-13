@@ -3145,6 +3145,8 @@ func (c *controllerTest) commonTests() {
 
 	c.gatewayProvenanceTests()
 
+	c.rbacRenderingTests()
+
 	c.kubernetesTests()
 
 	Describe("setting up with manager", func() {
@@ -3514,6 +3516,280 @@ func (c *controllerTest) gatewayProvenanceTests() {
 					fmt.Sprintf("proxy_set_header X-Cryostat-Agent-Auth %q;\n", agentValue)))
 				Expect(string(user.Data["user-auth.conf"])).To(Equal(
 					fmt.Sprintf("proxy_set_header X-Cryostat-User-Proxy-Auth %q;\n", userValue)))
+			})
+		})
+	})
+}
+
+// coreContainerEnv returns the environment of the core container on the reconciled main
+// Deployment. The core container is index 0; see checkMainDeployment.
+func (t *cryostatTestInput) coreContainerEnv() []corev1.EnvVar {
+	deployment := &appsv1.Deployment{}
+	err := t.Client.Get(context.Background(),
+		types.NamespacedName{Name: t.Name, Namespace: t.Namespace}, deployment)
+	Expect(err).ToNot(HaveOccurred())
+	return deployment.Spec.Template.Spec.Containers[0].Env
+}
+
+// reconcileUntilError drives the reconciler until it returns an error, and returns that
+// error. The first pass only adds the finalizer and requeues, and later passes wait on
+// certificates, so an error raised while building the Deployment does not surface on the
+// first call to reconcile.
+func (t *cryostatTestInput) reconcileUntilError() error {
+	for i := 0; i < 100; i++ {
+		_, err := t.reconcile()
+		if err != nil {
+			return err
+		}
+	}
+	Fail("reconcile never returned an error")
+	return nil
+}
+
+// envNamesWithPrefix returns, in order, the names of the env vars whose name starts with
+// prefix. Order is significant: newEnvForCoreContainer sorts the RBAC permission keys so
+// that repeated reconciles produce an identical Deployment.
+func envNamesWithPrefix(envs []corev1.EnvVar, prefix string) []string {
+	names := make([]string, 0)
+	for _, e := range envs {
+		if strings.HasPrefix(e.Name, prefix) {
+			names = append(names, e.Name)
+		}
+	}
+	return names
+}
+
+// rbacRenderingTests covers the path from a Cryostat CR's AuthorizationOptions through the
+// reconciler and onto the core container of the deployed workload.
+//
+// The unit tests in internal/controller/common/resource_definitions exercise the
+// env-building functions directly against a hand-built CryostatInstance. These cover the
+// wiring instead: a field that is added to the CRD and rendered by a builder function, but
+// never reached from NewDeploymentForCR, passes those unit tests and fails here.
+func (c *controllerTest) rbacRenderingTests() {
+	var t *cryostatTestInput
+
+	Describe("rendering RBAC authorization options onto the core container", func() {
+		BeforeEach(func() {
+			t = c.commonBeforeEach()
+		})
+
+		JustBeforeEach(func() {
+			c.commonJustBeforeEach(t)
+		})
+
+		JustAfterEach(func() {
+			c.commonJustAfterEach(t)
+		})
+
+		Context("with a complete fine-grained RBAC configuration", func() {
+			BeforeEach(func() {
+				cr := t.NewCryostat()
+				cacheSize := int64(0)
+				zero := "0s"
+				read := "cryostatarchives:get"
+				write := "cryostatarchives:update"
+				del := "cryostatarchives:delete"
+				catchAll := "cryostatnothing:get"
+				ensureAuthorizationOptions(cr.Spec)
+				cr.Spec.AuthorizationOptions.RBACPermissions = map[string]string{
+					"archivedrecordings:read":   read,
+					"archivedrecordings:write":  write,
+					"archivedrecordings:delete": del,
+					"activerecordings:read":     "cryostatrecordings:get",
+				}
+				cr.Spec.AuthorizationOptions.RBACDefaultPermissions = &operatorv1beta2.RBACDefaultPermissions{
+					DefaultReadPermission:   &read,
+					DefaultWritePermission:  &write,
+					DefaultDeletePermission: &del,
+					DefaultPermission:       &catchAll,
+				}
+				cr.Spec.AuthorizationOptions.RBACCacheOptions = &operatorv1beta2.RBACCacheOptions{
+					ClientCacheExpireAfterAccess: &zero,
+					ClientCacheMaximumSize:       &cacheSize,
+					DecisionCacheTTL:             &zero,
+					DecisionCacheMaximumSize:     &cacheSize,
+				}
+				t.objs = append(t.objs, cr.Object)
+			})
+
+			JustBeforeEach(func() {
+				t.reconcileCryostatFully()
+			})
+
+			It("should render each permission mapping as its own env var", func() {
+				env := t.coreContainerEnv()
+				Expect(env).To(ContainElement(corev1.EnvVar{
+					Name:  "CRYOSTAT_SECURITY_RBAC_PERMISSIONS__ARCHIVEDRECORDINGS_READ_",
+					Value: "cryostatarchives:get",
+				}))
+				Expect(env).To(ContainElement(corev1.EnvVar{
+					Name:  "CRYOSTAT_SECURITY_RBAC_PERMISSIONS__ARCHIVEDRECORDINGS_WRITE_",
+					Value: "cryostatarchives:update",
+				}))
+				Expect(env).To(ContainElement(corev1.EnvVar{
+					Name:  "CRYOSTAT_SECURITY_RBAC_PERMISSIONS__ARCHIVEDRECORDINGS_DELETE_",
+					Value: "cryostatarchives:delete",
+				}))
+				Expect(env).To(ContainElement(corev1.EnvVar{
+					Name:  "CRYOSTAT_SECURITY_RBAC_PERMISSIONS__ACTIVERECORDINGS_READ_",
+					Value: "cryostatrecordings:get",
+				}))
+			})
+
+			It("should order the permission env vars by key", func() {
+				// Map iteration order is random. Without the sort in
+				// newEnvForCoreContainer the Deployment spec differs between reconciles,
+				// and the operator rewrites it on every loop.
+				Expect(envNamesWithPrefix(t.coreContainerEnv(),
+					"CRYOSTAT_SECURITY_RBAC_PERMISSIONS__")).To(Equal([]string{
+					"CRYOSTAT_SECURITY_RBAC_PERMISSIONS__ACTIVERECORDINGS_READ_",
+					"CRYOSTAT_SECURITY_RBAC_PERMISSIONS__ARCHIVEDRECORDINGS_DELETE_",
+					"CRYOSTAT_SECURITY_RBAC_PERMISSIONS__ARCHIVEDRECORDINGS_READ_",
+					"CRYOSTAT_SECURITY_RBAC_PERMISSIONS__ARCHIVEDRECORDINGS_WRITE_",
+				}))
+			})
+
+			It("should produce an identical core container env on a repeated reconcile", func() {
+				before := t.coreContainerEnv()
+				t.reconcileCryostatFully()
+				Expect(t.coreContainerEnv()).To(Equal(before))
+			})
+
+			It("should render the verb-level and catch-all defaults", func() {
+				env := t.coreContainerEnv()
+				Expect(env).To(ContainElement(corev1.EnvVar{
+					Name:  "CRYOSTAT_SECURITY_RBAC_DEFAULT_READ_PERMISSION",
+					Value: "cryostatarchives:get",
+				}))
+				Expect(env).To(ContainElement(corev1.EnvVar{
+					Name:  "CRYOSTAT_SECURITY_RBAC_DEFAULT_WRITE_PERMISSION",
+					Value: "cryostatarchives:update",
+				}))
+				Expect(env).To(ContainElement(corev1.EnvVar{
+					Name:  "CRYOSTAT_SECURITY_RBAC_DEFAULT_DELETE_PERMISSION",
+					Value: "cryostatarchives:delete",
+				}))
+				Expect(env).To(ContainElement(corev1.EnvVar{
+					Name:  "CRYOSTAT_SECURITY_RBAC_DEFAULT_PERMISSION",
+					Value: "cryostatnothing:get",
+				}))
+			})
+
+			It("should render the cache tuning options, including explicit zeroes", func() {
+				// A zero size disables the cache. It has to survive as "0" rather than
+				// being dropped as an empty value, or the application silently keeps its
+				// default cache and stale RBAC decisions outlive the test that set this.
+				env := t.coreContainerEnv()
+				Expect(env).To(ContainElement(corev1.EnvVar{
+					Name:  "CRYOSTAT_SECURITY_RBAC_CACHE_EXPIRE_AFTER_ACCESS",
+					Value: "0s",
+				}))
+				Expect(env).To(ContainElement(corev1.EnvVar{
+					Name:  "CRYOSTAT_SECURITY_RBAC_CACHE_MAXIMUM_SIZE",
+					Value: "0",
+				}))
+				Expect(env).To(ContainElement(corev1.EnvVar{
+					Name:  "CRYOSTAT_SECURITY_RBAC_DECISION_CACHE_TTL",
+					Value: "0s",
+				}))
+				Expect(env).To(ContainElement(corev1.EnvVar{
+					Name:  "CRYOSTAT_SECURITY_RBAC_DECISION_CACHE_MAXIMUM_SIZE",
+					Value: "0",
+				}))
+			})
+
+			It("should scope access reviews to the install namespace by default", func() {
+				Expect(t.coreContainerEnv()).To(ContainElement(corev1.EnvVar{
+					Name:  "CRYOSTAT_SECURITY_RBAC_NAMESPACE",
+					Value: t.Namespace,
+				}))
+			})
+
+			It("should select OpenShift RBAC mode", func() {
+				// The mapping env vars above are inert in any other mode, so this
+				// assertion is what makes the rest of this Context meaningful.
+				Expect(t.coreContainerEnv()).To(ContainElement(corev1.EnvVar{
+					Name:  "CRYOSTAT_SECURITY_RBAC_MODE",
+					Value: "OPENSHIFT",
+				}))
+			})
+		})
+
+		Context("with no authorization options", func() {
+			BeforeEach(func() {
+				t.objs = append(t.objs, t.NewCryostat().Object)
+			})
+
+			JustBeforeEach(func() {
+				t.reconcileCryostatFully()
+			})
+
+			It("should render no permission, default or cache env vars", func() {
+				env := t.coreContainerEnv()
+				for _, prefix := range []string{
+					"CRYOSTAT_SECURITY_RBAC_PERMISSIONS__",
+					"CRYOSTAT_SECURITY_RBAC_DEFAULT_",
+					"CRYOSTAT_SECURITY_RBAC_CACHE_",
+					"CRYOSTAT_SECURITY_RBAC_DECISION_CACHE_",
+				} {
+					Expect(envNamesWithPrefix(env, prefix)).To(BeEmpty(),
+						"unexpected env vars with prefix %s", prefix)
+				}
+			})
+
+			It("should still scope access reviews to the install namespace", func() {
+				Expect(t.coreContainerEnv()).To(ContainElement(corev1.EnvVar{
+					Name:  "CRYOSTAT_SECURITY_RBAC_NAMESPACE",
+					Value: t.Namespace,
+				}))
+			})
+		})
+
+		Context("with namespaced RBAC permissions disabled", func() {
+			BeforeEach(func() {
+				cr := t.NewCryostat()
+				namespaced := false
+				ensureAuthorizationOptions(cr.Spec)
+				cr.Spec.AuthorizationOptions.NamespacedRBACPermissions = &namespaced
+				t.objs = append(t.objs, cr.Object)
+			})
+
+			JustBeforeEach(func() {
+				t.reconcileCryostatFully()
+			})
+
+			It("should omit the namespace env var so access reviews are cluster-scoped", func() {
+				Expect(envNamesWithPrefix(t.coreContainerEnv(),
+					"CRYOSTAT_SECURITY_RBAC_NAMESPACE")).To(BeEmpty())
+			})
+		})
+
+		Context("with permission keys that collide after normalization", func() {
+			BeforeEach(func() {
+				cr := t.NewCryostat()
+				ensureAuthorizationOptions(cr.Spec)
+				// Both normalize to TARGETS_READ.
+				cr.Spec.AuthorizationOptions.RBACPermissions = map[string]string{
+					"targets:read": "deployments:get",
+					"targets-read": "pods:get",
+				}
+				t.objs = append(t.objs, cr.Object)
+			})
+
+			It("should fail the reconcile rather than deploy an arbitrary winner", func() {
+				err := t.reconcileUntilError()
+				Expect(err.Error()).To(ContainSubstring("TARGETS_READ"))
+				Expect(err.Error()).To(ContainSubstring("rbacPermissions"))
+			})
+
+			It("should not create the main deployment", func() {
+				Expect(t.reconcileUntilError()).To(HaveOccurred())
+
+				deployment := &appsv1.Deployment{}
+				err := t.Client.Get(context.Background(),
+					types.NamespacedName{Name: t.Name, Namespace: t.Namespace}, deployment)
+				Expect(kerrors.IsNotFound(err)).To(BeTrue())
 			})
 		})
 	})

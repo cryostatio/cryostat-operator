@@ -71,3 +71,143 @@
     labels:
       suite: cryostat
       test: cryostat-report
+- op: add
+  path: /stages/1/tests/-
+  value:
+    entrypoint:
+    - cryostat-scorecard-tests
+    - cryostat-agent
+    image: "${CUSTOM_SCORECARD_IMG}"
+    labels:
+      suite: cryostat
+      test: cryostat-agent
+- op: add
+  path: /stages/1/tests/-
+  value:
+    entrypoint:
+    - cryostat-scorecard-tests
+    - cryostat-agent-autoconfig
+    image: "${CUSTOM_SCORECARD_IMG}"
+    labels:
+      suite: cryostat
+      test: cryostat-agent-autoconfig
+- op: add
+  path: /stages/1/tests/-
+  value:
+    entrypoint:
+    - cryostat-scorecard-tests
+    - cryostat-rbac-archivedrecordings
+    image: "${CUSTOM_SCORECARD_IMG}"
+    labels:
+      suite: cryostat
+      test: cryostat-rbac-archivedrecordings
+- op: add
+  path: /stages/1/tests/-
+  value:
+    entrypoint:
+    - cryostat-scorecard-tests
+    - cryostat-rbac-isolation
+    image: "${CUSTOM_SCORECARD_IMG}"
+    labels:
+      suite: cryostat
+      test: cryostat-rbac-isolation
+- op: add
+  path: /stages/1/tests/-
+  value:
+    entrypoint:
+    - cryostat-scorecard-tests
+    - cryostat-rbac-threaddumps
+    image: "${CUSTOM_SCORECARD_IMG}"
+    labels:
+      suite: cryostat
+      test: cryostat-rbac-threaddumps
+- op: add
+  path: /stages/1/tests/-
+  value:
+    entrypoint:
+    - cryostat-scorecard-tests
+    - cryostat-rbac-heapdumps
+    image: "${CUSTOM_SCORECARD_IMG}"
+    labels:
+      suite: cryostat
+      test: cryostat-rbac-heapdumps
+- op: add
+  path: /stages/1/tests/-
+  value:
+    entrypoint:
+    - cryostat-scorecard-tests
+    - cryostat-rbac-unifiedlogs
+    image: "${CUSTOM_SCORECARD_IMG}"
+    labels:
+      suite: cryostat
+      test: cryostat-rbac-unifiedlogs
+- op: add
+  path: /stages/1/tests/-
+  value:
+    entrypoint:
+    - cryostat-scorecard-tests
+    - cryostat-rbac-automatedrules
+    image: "${CUSTOM_SCORECARD_IMG}"
+    labels:
+      suite: cryostat
+      test: cryostat-rbac-automatedrules
+- op: add
+  path: /stages/1/tests/-
+  value:
+    entrypoint:
+    - cryostat-scorecard-tests
+    - cryostat-rbac-credentials
+    image: "${CUSTOM_SCORECARD_IMG}"
+    labels:
+      suite: cryostat
+      test: cryostat-rbac-credentials
+- op: add
+  path: /stages/1/tests/-
+  value:
+    entrypoint:
+    - cryostat-scorecard-tests
+    - cryostat-rbac-eventtemplates
+    image: "${CUSTOM_SCORECARD_IMG}"
+    labels:
+      suite: cryostat
+      test: cryostat-rbac-eventtemplates
+- op: add
+  path: /stages/1/tests/-
+  value:
+    entrypoint:
+    - cryostat-scorecard-tests
+    - cryostat-rbac-targetvisibility
+    image: "${CUSTOM_SCORECARD_IMG}"
+    labels:
+      suite: cryostat
+      test: cryostat-rbac-targetvisibility
+- op: add
+  path: /stages/1/tests/-
+  value:
+    entrypoint:
+    - cryostat-scorecard-tests
+    - cryostat-rbac-namespacescope
+    image: "${CUSTOM_SCORECARD_IMG}"
+    labels:
+      suite: cryostat
+      test: cryostat-rbac-namespacescope
+- op: add
+  path: /stages/1/tests/-
+  value:
+    entrypoint:
+    - cryostat-scorecard-tests
+    - cryostat-rbac-accessreview
+    image: "${CUSTOM_SCORECARD_IMG}"
+    labels:
+      suite: cryostat
+      test: cryostat-rbac-accessreview
+- op: add
+  path: /stages/1/tests/-
+  value:
+    entrypoint:
+    - cryostat-scorecard-tests
+    - cryostat-rbac-precedence
+    image: "${CUSTOM_SCORECARD_IMG}"
+    labels:
+      suite: cryostat
+      test: cryostat-rbac-precedence

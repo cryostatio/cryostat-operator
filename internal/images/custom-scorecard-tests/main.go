@@ -99,8 +99,22 @@ func testLookup() map[string]testFn {
 	m[tests.CryostatCRTestName] = tests.CryostatCRTest
 	m[tests.CryostatMultiNamespaceTestName] = tests.CryostatMultiNamespaceTest
 	m[tests.CryostatRecordingTestName] = tests.CryostatRecordingTest
+	m[tests.CryostatAgentTestName] = tests.CryostatAgentTest
+	m[tests.CryostatAgentAutoConfigTestName] = tests.CryostatAgentAutoConfigTest
 	m[tests.CryostatConfigChangeTestName] = tests.CryostatConfigChangeTest
 	m[tests.CryostatReportTestName] = tests.CryostatReportTest
+	m[tests.CryostatRBACArchivedRecordingsTestName] = tests.CryostatRBACArchivedRecordingsTest
+	m[tests.CryostatRBACIsolationTestName] = tests.CryostatRBACIsolationTest
+	m[tests.CryostatRBACThreadDumpsTestName] = tests.CryostatRBACThreadDumpsTest
+	m[tests.CryostatRBACHeapDumpsTestName] = tests.CryostatRBACHeapDumpsTest
+	m[tests.CryostatRBACUnifiedLogsTestName] = tests.CryostatRBACUnifiedLogsTest
+	m[tests.CryostatRBACAutomatedRulesTestName] = tests.CryostatRBACAutomatedRulesTest
+	m[tests.CryostatRBACCredentialsTestName] = tests.CryostatRBACCredentialsTest
+	m[tests.CryostatRBACEventTemplatesTestName] = tests.CryostatRBACEventTemplatesTest
+	m[tests.CryostatRBACTargetVisibilityTestName] = tests.CryostatRBACTargetVisibilityTest
+	m[tests.CryostatRBACNamespaceScopeTestName] = tests.CryostatRBACNamespaceScopeTest
+	m[tests.CryostatRBACAccessReviewTestName] = tests.CryostatRBACAccessReviewTest
+	m[tests.CryostatRBACPrecedenceTestName] = tests.CryostatRBACPrecedenceTest
 	return m
 }
 

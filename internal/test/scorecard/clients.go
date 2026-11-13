@@ -26,6 +26,7 @@ import (
 	"time"
 
 	operatorv1beta2 "github.com/cryostatio/cryostat-operator/api/v1beta2"
+	"github.com/cryostatio/cryostat-operator/internal/cryostatapi"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
@@ -211,10 +212,20 @@ func (c *CryostatRESTClientset) Credential() *CredentialClient {
 	return c.CredentialClient
 }
 
+// NewCryostatRESTClientset creates a Cryostat API clientset that authenticates as the
+// scorecard pod's own ServiceAccount.
 func (r *TestResources) NewCryostatRESTClientset(base *url.URL) *CryostatRESTClientset {
+	return r.NewCryostatRESTClientsetWithToken(base, "")
+}
+
+// NewCryostatRESTClientsetWithToken creates a Cryostat API clientset that authenticates with
+// the given bearer token. An empty token falls back to the scorecard pod's own
+// ServiceAccount token, so this is equivalent to NewCryostatRESTClientset.
+func (r *TestResources) NewCryostatRESTClientsetWithToken(base *url.URL, token string) *CryostatRESTClientset {
 	commonClient := &commonCryostatRESTClient{
 		Base:          base,
 		Client:        NewHttpClient(),
+		Token:         token,
 		TestResources: r,
 	}
 
@@ -234,6 +245,9 @@ func (r *TestResources) NewCryostatRESTClientset(base *url.URL) *CryostatRESTCli
 type commonCryostatRESTClient struct {
 	Base *url.URL
 	*http.Client
+	// Token is the bearer token presented to the Cryostat auth proxy. When empty, the
+	// scorecard pod's own in-cluster ServiceAccount token is used instead.
+	Token string
 	*TestResources
 }
 
@@ -242,12 +256,12 @@ type TargetClient struct {
 	*commonCryostatRESTClient
 }
 
-func (client *TargetClient) List(ctx context.Context) ([]Target, error) {
+func (client *TargetClient) List(ctx context.Context) ([]cryostatapi.Target, error) {
 	restURL := client.Base.JoinPath("/api/v4/targets")
 	header := make(http.Header)
 	header.Add("Accept", "*/*")
 
-	resp, err := SendRequest(ctx, client.Client, http.MethodGet, restURL.String(), nil, header)
+	resp, err := SendRequestWithToken(ctx, client.Client, http.MethodGet, restURL.String(), nil, header, client.Token)
 	if err != nil {
 		return nil, err
 	}
@@ -257,7 +271,7 @@ func (client *TargetClient) List(ctx context.Context) ([]Target, error) {
 		return nil, fmt.Errorf("API request failed with status code: %d, response body: %s, and headers:\n%s", resp.StatusCode, ReadError(resp), ReadHeader(resp))
 	}
 
-	targets := make([]Target, 0)
+	targets := make([]cryostatapi.Target, 0)
 	err = ReadJSON(resp, &targets)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read response body: %s", err.Error())
@@ -266,14 +280,14 @@ func (client *TargetClient) List(ctx context.Context) ([]Target, error) {
 	return targets, nil
 }
 
-func (client *TargetClient) Create(ctx context.Context, options *Target) (*Target, error) {
+func (client *TargetClient) Create(ctx context.Context, options *cryostatapi.Target) (*cryostatapi.Target, error) {
 	restURL := client.Base.JoinPath("/api/v4/targets")
 	header := make(http.Header)
 	header.Add("Content-Type", "application/x-www-form-urlencoded")
 	header.Add("Accept", "*/*")
 	body := options.ToFormData()
 
-	resp, err := SendRequest(ctx, client.Client, http.MethodPost, restURL.String(), &body, header)
+	resp, err := SendRequestWithToken(ctx, client.Client, http.MethodPost, restURL.String(), &body, header, client.Token)
 	if err != nil {
 		return nil, err
 	}
@@ -283,7 +297,7 @@ func (client *TargetClient) Create(ctx context.Context, options *Target) (*Targe
 		return nil, fmt.Errorf("API request failed with status code: %d, response body: %s, and headers:\n%s", resp.StatusCode, ReadError(resp), ReadHeader(resp))
 	}
 
-	targetResp := &Target{}
+	targetResp := &cryostatapi.Target{}
 	err = ReadJSON(resp, targetResp)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read response body: %s", err.Error())
@@ -297,12 +311,12 @@ type RecordingClient struct {
 	*commonCryostatRESTClient
 }
 
-func (client *RecordingClient) List(ctx context.Context, target *Target) ([]Recording, error) {
+func (client *RecordingClient) List(ctx context.Context, target *cryostatapi.Target) ([]cryostatapi.Recording, error) {
 	restURL := client.Base.JoinPath(fmt.Sprintf("/api/v4/targets/%d/recordings", target.Id))
 	header := make(http.Header)
 	header.Add("Accept", "*/*")
 
-	resp, err := SendRequest(ctx, client.Client, http.MethodGet, restURL.String(), nil, header)
+	resp, err := SendRequestWithToken(ctx, client.Client, http.MethodGet, restURL.String(), nil, header, client.Token)
 	if err != nil {
 		return nil, err
 	}
@@ -312,7 +326,7 @@ func (client *RecordingClient) List(ctx context.Context, target *Target) ([]Reco
 		return nil, fmt.Errorf("API request failed with status code: %d, response body: %s, and headers:\n%s", resp.StatusCode, ReadError(resp), ReadHeader(resp))
 	}
 
-	recordings := make([]Recording, 0)
+	recordings := make([]cryostatapi.Recording, 0)
 	err = ReadJSON(resp, &recordings)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read response body: %s", err.Error())
@@ -321,7 +335,7 @@ func (client *RecordingClient) List(ctx context.Context, target *Target) ([]Reco
 	return recordings, nil
 }
 
-func (client *RecordingClient) Get(ctx context.Context, target *Target, recordingName string) (*Recording, error) {
+func (client *RecordingClient) Get(ctx context.Context, target *cryostatapi.Target, recordingName string) (*cryostatapi.Recording, error) {
 	recordings, err := client.List(ctx, target)
 	if err != nil {
 		return nil, err
@@ -336,14 +350,14 @@ func (client *RecordingClient) Get(ctx context.Context, target *Target, recordin
 	return nil, fmt.Errorf("recording %s does not exist for target %s", recordingName, target.ConnectUrl)
 }
 
-func (client *RecordingClient) Create(ctx context.Context, target *Target, options *RecordingCreateOptions) (*Recording, error) {
+func (client *RecordingClient) Create(ctx context.Context, target *cryostatapi.Target, options *cryostatapi.RecordingCreateOptions) (*cryostatapi.Recording, error) {
 	restURL := client.Base.JoinPath(fmt.Sprintf("/api/v4/targets/%d/recordings", target.Id))
 	body := options.ToFormData()
 	header := make(http.Header)
 	header.Add("Content-Type", "application/x-www-form-urlencoded")
 	header.Add("Accept", "*/*")
 
-	resp, err := SendRequest(ctx, client.Client, http.MethodPost, restURL.String(), &body, header)
+	resp, err := SendRequestWithToken(ctx, client.Client, http.MethodPost, restURL.String(), &body, header, client.Token)
 	if err != nil {
 		return nil, err
 	}
@@ -353,7 +367,7 @@ func (client *RecordingClient) Create(ctx context.Context, target *Target, optio
 		return nil, fmt.Errorf("API request failed with status code: %d, response body: %s, and headers:\n%s", resp.StatusCode, ReadError(resp), ReadHeader(resp))
 	}
 
-	recording := &Recording{}
+	recording := &cryostatapi.Recording{}
 	err = ReadJSON(resp, recording)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read response body: %s", err.Error())
@@ -362,14 +376,14 @@ func (client *RecordingClient) Create(ctx context.Context, target *Target, optio
 	return recording, err
 }
 
-func (client *RecordingClient) Archive(ctx context.Context, target *Target, recordingId uint32) (string, error) {
+func (client *RecordingClient) Archive(ctx context.Context, target *cryostatapi.Target, recordingId uint32) (string, error) {
 	restURL := client.Base.JoinPath(fmt.Sprintf("/api/v4/targets/%d/recordings/%d", target.Id, recordingId))
 	body := "SAVE"
 	header := make(http.Header)
 	header.Add("Content-Type", "text/plain")
 	header.Add("Accept", "*/*")
 
-	resp, err := SendRequest(ctx, client.Client, http.MethodPatch, restURL.String(), &body, header)
+	resp, err := SendRequestWithToken(ctx, client.Client, http.MethodPatch, restURL.String(), &body, header, client.Token)
 	if err != nil {
 		return "", err
 	}
@@ -387,14 +401,14 @@ func (client *RecordingClient) Archive(ctx context.Context, target *Target, reco
 	return bodyAsString, nil
 }
 
-func (client *RecordingClient) Stop(ctx context.Context, target *Target, recordingId uint32) error {
+func (client *RecordingClient) Stop(ctx context.Context, target *cryostatapi.Target, recordingId uint32) error {
 	restURL := client.Base.JoinPath(fmt.Sprintf("/api/v4/targets/%d/recordings/%d", target.Id, recordingId))
 	body := "STOP"
 	header := make(http.Header)
 	header.Add("Content-Type", "text/plain")
 	header.Add("Accept", "*/*")
 
-	resp, err := SendRequest(ctx, client.Client, http.MethodPatch, restURL.String(), &body, header)
+	resp, err := SendRequestWithToken(ctx, client.Client, http.MethodPatch, restURL.String(), &body, header, client.Token)
 	if err != nil {
 		return err
 	}
@@ -407,11 +421,11 @@ func (client *RecordingClient) Stop(ctx context.Context, target *Target, recordi
 	return nil
 }
 
-func (client *RecordingClient) Delete(ctx context.Context, target *Target, recordingId uint32) error {
+func (client *RecordingClient) Delete(ctx context.Context, target *cryostatapi.Target, recordingId uint32) error {
 	restURL := client.Base.JoinPath(fmt.Sprintf("/api/v4/targets/%d/recordings/%d", target.Id, recordingId))
 	header := make(http.Header)
 
-	resp, err := SendRequest(ctx, client.Client, http.MethodDelete, restURL.String(), nil, header)
+	resp, err := SendRequestWithToken(ctx, client.Client, http.MethodDelete, restURL.String(), nil, header, client.Token)
 	if err != nil {
 		return err
 	}
@@ -424,7 +438,7 @@ func (client *RecordingClient) Delete(ctx context.Context, target *Target, recor
 	return nil
 }
 
-func (client *RecordingClient) RequestReportGeneration(ctx context.Context, target *Target, recording *Recording) (*string, error) {
+func (client *RecordingClient) RequestReportGeneration(ctx context.Context, target *cryostatapi.Target, recording *cryostatapi.Recording) (*string, error) {
 	if len(recording.ReportURL) < 1 {
 		return nil, fmt.Errorf("report URL is not available")
 	}
@@ -433,7 +447,7 @@ func (client *RecordingClient) RequestReportGeneration(ctx context.Context, targ
 
 	header := make(http.Header)
 
-	resp, err := SendRequest(ctx, client.Client, http.MethodGet, reportURL.String(), nil, header)
+	resp, err := SendRequestWithToken(ctx, client.Client, http.MethodGet, reportURL.String(), nil, header, client.Token)
 	if err != nil {
 		return nil, err
 	}
@@ -451,10 +465,10 @@ func (client *RecordingClient) RequestReportGeneration(ctx context.Context, targ
 	return &report, nil
 }
 
-func (client *RecordingClient) ListArchives(ctx context.Context, target *Target) ([]Archive, error) {
+func (client *RecordingClient) ListArchives(ctx context.Context, target *cryostatapi.Target) ([]cryostatapi.Archive, error) {
 	restURL := client.Base.JoinPath("/api/v4/graphql")
 
-	query := &GraphQLQuery{
+	query := &cryostatapi.GraphQLQuery{
 		Query: `
 			query ArchivedRecordingsForTarget($id: BigInteger!) {
 				targetNodes(filter: { targetIds: [$id] }) {
@@ -491,7 +505,7 @@ func (client *RecordingClient) ListArchives(ctx context.Context, target *Target)
 	header.Add("Content-Type", "application/json")
 	header.Add("Accept", "*/*")
 
-	resp, err := SendRequest(ctx, client.Client, http.MethodPost, restURL.String(), &body, header)
+	resp, err := SendRequestWithToken(ctx, client.Client, http.MethodPost, restURL.String(), &body, header, client.Token)
 	if err != nil {
 		return nil, err
 	}
@@ -501,12 +515,18 @@ func (client *RecordingClient) ListArchives(ctx context.Context, target *Target)
 		return nil, fmt.Errorf("API request failed with status code: %d, response body: %s, and headers:\n%s", resp.StatusCode, ReadError(resp), ReadHeader(resp))
 	}
 
-	graphQLResponse := &ArchiveGraphQLResponse{}
+	graphQLResponse := &cryostatapi.ArchiveGraphQLResponse{}
 	err = ReadJSON(resp, graphQLResponse)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read response body: %s", err.Error())
 	}
 
+	if len(graphQLResponse.Errors) > 0 {
+		return nil, fmt.Errorf("archive query failed: %s", graphQLResponse.Errors[0].Message)
+	}
+	if len(graphQLResponse.Data.TargetNodes) != 1 {
+		return nil, fmt.Errorf("expected one target in archive query for target %d, got %d", target.Id, len(graphQLResponse.Data.TargetNodes))
+	}
 	return graphQLResponse.Data.TargetNodes[0].Target.ArchivedRecordings.Data, nil
 }
 
@@ -514,13 +534,13 @@ type CredentialClient struct {
 	*commonCryostatRESTClient
 }
 
-func (client *CredentialClient) Create(ctx context.Context, credential *Credential) error {
+func (client *CredentialClient) Create(ctx context.Context, credential *cryostatapi.Credential) error {
 	restURL := client.Base.JoinPath("/api/v4/credentials")
 	body := credential.ToFormData()
 	header := make(http.Header)
 	header.Add("Content-Type", "application/x-www-form-urlencoded")
 
-	resp, err := SendRequest(ctx, client.Client, http.MethodPost, restURL.String(), &body, header)
+	resp, err := SendRequestWithToken(ctx, client.Client, http.MethodPost, restURL.String(), &body, header, client.Token)
 	if err != nil {
 		return err
 	}
@@ -582,7 +602,14 @@ func NewHttpClient() *http.Client {
 	return client
 }
 
+// NewHttpRequest builds a request authenticated as the scorecard pod's own ServiceAccount.
 func NewHttpRequest(ctx context.Context, method string, restURL string, body *string, header http.Header) (*http.Request, error) {
+	return NewHttpRequestWithToken(ctx, method, restURL, body, header, "")
+}
+
+// NewHttpRequestWithToken builds a request authenticated with the given bearer token. An
+// empty token falls back to the scorecard pod's own in-cluster ServiceAccount token.
+func NewHttpRequestWithToken(ctx context.Context, method string, restURL string, body *string, header http.Header, token string) (*http.Request, error) {
 	var reqBody io.Reader
 	if body != nil {
 		reqBody = strings.NewReader(*body)
@@ -598,12 +625,15 @@ func NewHttpRequest(ctx context.Context, method string, restURL string, body *st
 	}
 
 	// Authentication for OpenShift SSO
-	config, err := cfg.GetConfig()
-	if err != nil {
-		return nil, fmt.Errorf("failed to get in-cluster configurations: %s", err.Error())
+	if len(token) == 0 {
+		config, err := cfg.GetConfig()
+		if err != nil {
+			return nil, fmt.Errorf("failed to get in-cluster configurations: %s", err.Error())
+		}
+		token = config.BearerToken
 	}
 
-	req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", config.BearerToken))
+	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", token))
 	return req, nil
 }
 
@@ -611,11 +641,20 @@ func StatusOK(statusCode int) bool {
 	return statusCode >= 200 && statusCode < 300
 }
 
+// SendRequest sends a request authenticated as the scorecard pod's own ServiceAccount,
+// retrying while the connection is closed by the peer.
 func SendRequest(ctx context.Context, httpClient *http.Client, method string, restURL string, body *string, header http.Header) (*http.Response, error) {
+	return SendRequestWithToken(ctx, httpClient, method, restURL, body, header, "")
+}
+
+// SendRequestWithToken sends a request authenticated with the given bearer token, retrying
+// while the connection is closed by the peer. An empty token falls back to the scorecard
+// pod's own in-cluster ServiceAccount token.
+func SendRequestWithToken(ctx context.Context, httpClient *http.Client, method string, restURL string, body *string, header http.Header, token string) (*http.Response, error) {
 	var response *http.Response
 	err := wait.PollUntilContextCancel(ctx, time.Second, true, func(ctx context.Context) (done bool, err error) {
 		// Create a new request
-		req, err := NewHttpRequest(ctx, method, restURL, body, header)
+		req, err := NewHttpRequestWithToken(ctx, method, restURL, body, header, token)
 		if err != nil {
 			return false, fmt.Errorf("failed to create an http request: %s", err.Error())
 		}

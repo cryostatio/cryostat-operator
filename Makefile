@@ -128,6 +128,15 @@ GOLANGCI_LINT_VERSION ?= 2.12.2
 #
 # Suffix is the timestamp of the image build, compute with: date -u '+%Y%m%d%H%M%S'
 CUSTOM_SCORECARD_VERSION ?= 5.0.0-$(shell date -u '+%Y%m%d%H%M%S')
+# Freeze the timestamp so the runner and generated bundle use one tag.
+CUSTOM_SCORECARD_VERSION := $(CUSTOM_SCORECARD_VERSION)
+# Sample applications are maintained and published by cryostatio/test-applications.
+SCORECARD_APPLICATIONS_DIR ?=
+SCORECARD_SAMPLE_NAMESPACE ?= quay.io/redhat-java-monitoring
+SCORECARD_SAMPLE_VERSION ?= latest
+export SCORECARD_SAMPLE_IMG ?= $(SCORECARD_SAMPLE_NAMESPACE)/cryostat-operator-scorecard-app:$(SCORECARD_SAMPLE_VERSION)
+export SCORECARD_AGENT_IMG ?= $(SCORECARD_SAMPLE_NAMESPACE)/cryostat-operator-scorecard-agent-app:$(SCORECARD_SAMPLE_VERSION)
+SCORECARD_IMAGE_LDFLAGS = -X github.com/cryostatio/cryostat-operator/internal/test/scorecard.SampleApplicationImage=$(SCORECARD_SAMPLE_IMG) -X github.com/cryostatio/cryostat-operator/internal/test/scorecard.BundledAgentApplicationImage=$(SCORECARD_AGENT_IMG)
 export CUSTOM_SCORECARD_IMG ?= $(IMAGE_TAG_BASE)-scorecard:$(CUSTOM_SCORECARD_VERSION)
 
 DEPLOY_NAMESPACE ?= cryostat-operator-system
@@ -175,9 +184,13 @@ SCORECARD_KIND_REGISTRY_IMAGE ?= quay.io/libpod/registry:2.8.2
 # CUSTOM_SCORECARD_VERSION) so the tag is identical across the recursive make calls
 # that build, push, and run.
 SCORECARD_KIND_SCORECARD_IMG ?= $(SCORECARD_KIND_REGISTRY)/cryostat-operator-scorecard:$(BUNDLE_VERSION)
+# Use published samples unless a local test-applications checkout is supplied.
+SCORECARD_KIND_SAMPLE_IMG ?= $(if $(strip $(SCORECARD_APPLICATIONS_DIR)),$(SCORECARD_KIND_REGISTRY)/cryostat-operator-scorecard-app:$(BUNDLE_VERSION),$(SCORECARD_SAMPLE_IMG))
+SCORECARD_KIND_AGENT_IMG ?= $(if $(strip $(SCORECARD_APPLICATIONS_DIR)),$(SCORECARD_KIND_REGISTRY)/cryostat-operator-scorecard-agent-app:$(BUNDLE_VERSION),$(SCORECARD_AGENT_IMG))
+SCORECARD_KIND_APPLICATION_IMAGES = $(if $(strip $(SCORECARD_APPLICATIONS_DIR)),$(SCORECARD_KIND_SAMPLE_IMG) $(SCORECARD_KIND_AGENT_IMG))
 SCORECARD_KIND_BUNDLE_IMG ?= $(SCORECARD_KIND_REGISTRY)/cryostat-operator-bundle:$(BUNDLE_VERSION)
 # Images pushed to the local registry by `scorecard-kind-push` (CI adds the operator image).
-SCORECARD_PUSH_IMAGES ?= $(SCORECARD_KIND_SCORECARD_IMG) $(SCORECARD_KIND_BUNDLE_IMG)
+SCORECARD_PUSH_IMAGES ?= $(SCORECARD_KIND_SCORECARD_IMG) $(SCORECARD_KIND_BUNDLE_IMG) $(SCORECARD_KIND_APPLICATION_IMAGES)
 # Hostname the scorecard tests use to reach Cryostat; resolved in-cluster to the
 # ingress controller via a CoreDNS rewrite.
 SCORECARD_KIND_INGRESS_HOST ?= testing.cryostat
@@ -239,6 +252,7 @@ KUSTOMIZE_BUNDLE_DIR ?= config/manifests
 endif
 endif
 
+SCORECARD_TIMEOUT ?= 60m
 # Specify which scorecard tests/suites to run
 ifneq ($(SCORECARD_TEST_SELECTION),)
 SCORECARD_TEST_SELECTOR := --selector='test in ($(SCORECARD_TEST_SELECTION))'
@@ -287,7 +301,7 @@ ifneq ($(SKIP_TESTS), true)
 	$(call scorecard-setup)
 	$(call scorecard-cleanup) ; \
 	trap cleanup EXIT ; \
-	$(OPERATOR_SDK) scorecard -n $(SCORECARD_NAMESPACE) -s cryostat-scorecard -w 20m $(SCORECARD_BUNDLE) --pod-security=restricted -o $(SCORECARD_OUTPUT_FORMAT) $(SCORECARD_TEST_SELECTOR) $(SCORECARD_TEE)
+	$(OPERATOR_SDK) scorecard -n $(SCORECARD_NAMESPACE) -s cryostat-scorecard -w $(SCORECARD_TIMEOUT) $(SCORECARD_BUNDLE) --pod-security=restricted -o $(SCORECARD_OUTPUT_FORMAT) $(SCORECARD_TEST_SELECTOR) $(SCORECARD_TEE)
 endif
 
 .PHONY: test-scorecard-local
@@ -364,9 +378,12 @@ test-scorecard-local-kind: kustomize operator-sdk ## Run the scorecard suite on 
 	$(MAKE) scorecard-kind-cluster
 	$(MAKE) scorecard-kind-registry
 	$(MAKE) scorecard-kind-prereqs
-	$(MAKE) scorecard-build CUSTOM_SCORECARD_IMG=$(SCORECARD_KIND_SCORECARD_IMG) PLATFORMS=linux/$(ARCH) MANIFEST_PUSH=false
+ifneq ($(strip $(SCORECARD_APPLICATIONS_DIR)),)
+	$(MAKE) scorecard-app-build SCORECARD_SAMPLE_IMG=$(SCORECARD_KIND_SAMPLE_IMG) SCORECARD_AGENT_IMG=$(SCORECARD_KIND_AGENT_IMG) PLATFORMS=linux/$(ARCH) MANIFEST_PUSH=false
+endif
+	$(MAKE) scorecard-build CUSTOM_SCORECARD_IMG=$(SCORECARD_KIND_SCORECARD_IMG) SCORECARD_SAMPLE_IMG=$(SCORECARD_KIND_SAMPLE_IMG) SCORECARD_AGENT_IMG=$(SCORECARD_KIND_AGENT_IMG) PLATFORMS=linux/$(ARCH) MANIFEST_PUSH=false
 	$(MAKE) bundle bundle-build CUSTOM_SCORECARD_IMG=$(SCORECARD_KIND_SCORECARD_IMG) BUNDLE_IMG=$(SCORECARD_KIND_BUNDLE_IMG)
-	$(MAKE) scorecard-kind-push SCORECARD_PUSH_IMAGES="$(SCORECARD_KIND_SCORECARD_IMG) $(SCORECARD_KIND_BUNDLE_IMG)"
+	$(MAKE) scorecard-kind-push SCORECARD_PUSH_IMAGES="$(SCORECARD_KIND_SCORECARD_IMG) $(SCORECARD_KIND_BUNDLE_IMG) $(SCORECARD_KIND_APPLICATION_IMAGES)"
 	$(MAKE) test-scorecard \
 		BUNDLE_IMG=$(SCORECARD_KIND_BUNDLE_IMG) \
 		SCORECARD_BUNDLE=./bundle \
@@ -455,7 +472,7 @@ endif
 .PHONY: custom-scorecard-tests
 custom-scorecard-tests: fmt vet ## Build the custom scorecard binary.
 	cd internal/images/custom-scorecard-tests/ && \
-	go build -o bin/cryostat-scorecard-tests main.go
+	go build -ldflags "$(SCORECARD_IMAGE_LDFLAGS)" -o bin/cryostat-scorecard-tests main.go
 
 .PHONY: scorecard-build
 scorecard-build: custom-scorecard-tests ## Build the custom scorecard OCI image.
@@ -466,10 +483,10 @@ scorecard-build: custom-scorecard-tests ## Build the custom scorecard OCI image.
 ifeq ($(IMAGE_BUILDER), docker)
 	- $(IMAGE_BUILDER) buildx create --name project-v3-builder
 	$(IMAGE_BUILDER) buildx use project-v3-builder
-	- $(IMAGE_BUILDER) buildx build --push --platform=$(PLATFORMS) --tag $(CUSTOM_SCORECARD_IMG) -f internal/images/custom-scorecard-tests/Dockerfile.cross .
+	- $(IMAGE_BUILDER) buildx build --push --platform=$(PLATFORMS) --build-arg SCORECARD_SAMPLE_IMG=$(SCORECARD_SAMPLE_IMG) --build-arg SCORECARD_AGENT_IMG=$(SCORECARD_AGENT_IMG) --tag $(CUSTOM_SCORECARD_IMG) -f internal/images/custom-scorecard-tests/Dockerfile.cross .
 	- $(IMAGE_BUILDER) buildx rm project-v3-builder
 else ifeq ($(IMAGE_BUILDER), podman)
-	BUILDAH_FORMAT=docker $(IMAGE_BUILDER) build -f internal/images/custom-scorecard-tests/Dockerfile.cross --manifest $(CUSTOM_SCORECARD_IMG) --platform $(PLATFORMS) . ; \
+	BUILDAH_FORMAT=docker $(IMAGE_BUILDER) build -f internal/images/custom-scorecard-tests/Dockerfile.cross --build-arg SCORECARD_SAMPLE_IMG=$(SCORECARD_SAMPLE_IMG) --build-arg SCORECARD_AGENT_IMG=$(SCORECARD_AGENT_IMG) --manifest $(CUSTOM_SCORECARD_IMG) --platform $(PLATFORMS) . && \
 	if [ "${MANIFEST_PUSH}" = "true" ] ; then \
 		$(IMAGE_BUILDER) manifest push $(CUSTOM_SCORECARD_IMG) $(CUSTOM_SCORECARD_IMG) ; \
 	fi
@@ -477,6 +494,21 @@ else
 	$(error unsupported IMAGE_BUILDER: $(IMAGE_BUILDER))
 endif
 	rm internal/images/custom-scorecard-tests/Dockerfile.cross
+
+.PHONY: scorecard-app-build
+scorecard-app-build: ## Build sample images from SCORECARD_APPLICATIONS_DIR, a test-applications checkout.
+	@{ test -f "$(SCORECARD_APPLICATIONS_DIR)/scorecard/build.bash" && test -f "$(SCORECARD_APPLICATIONS_DIR)/scorecard-agent/build.bash"; } || \
+		{ echo "Set SCORECARD_APPLICATIONS_DIR to a test-applications checkout containing the Scorecard samples." >&2; exit 1; }
+ifeq ($(IMAGE_BUILDER),podman)
+	platforms="$(PLATFORMS)"; \
+	export ARCHS="$${platforms//linux\//}"; \
+	export ARCHS="$${ARCHS//,/ }"; \
+	export AGENT_INIT_IMG="$(AGENT_INIT_IMG)" PUSH_MANIFEST="$(MANIFEST_PUSH)" TAGS=""; \
+	APP_IMAGE="$(SCORECARD_SAMPLE_IMG)" bash "$(SCORECARD_APPLICATIONS_DIR)/scorecard/build.bash"; \
+	APP_IMAGE="$(SCORECARD_AGENT_IMG)" bash "$(SCORECARD_APPLICATIONS_DIR)/scorecard-agent/build.bash"
+else
+	$(error scorecard-app-build requires IMAGE_BUILDER=podman, as used by test-applications)
+endif
 
 .PHONY: oci-build
 oci-build: manifests generate fmt vet test-envtest ## Build OCI image for the manager.

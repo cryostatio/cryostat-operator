@@ -22,9 +22,11 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"syscall"
 	"time"
 
 	operatorv1beta2 "github.com/cryostatio/cryostat-operator/api/v1beta2"
+	"github.com/cryostatio/cryostat-operator/internal/cryostatapi"
 	scapiv1alpha3 "github.com/operator-framework/api/pkg/apis/scorecard/v1alpha3"
 
 	appsv1 "k8s.io/api/apps/v1"
@@ -506,7 +508,7 @@ func (r *TestResources) createAndWaitTillCryostatAvailable(cr *operatorv1beta2.C
 
 func (r *TestResources) waitTillCryostatReady(base *url.URL) error {
 	return r.sendHealthRequest(base, func(resp *http.Response, result *scapiv1alpha3.TestResult) (done bool, err error) {
-		health := &HealthResponse{}
+		health := &cryostatapi.HealthResponse{}
 		err = ReadJSON(resp, health)
 		if err != nil {
 			return false, fmt.Errorf("failed to read response body: %s", err.Error())
@@ -544,12 +546,14 @@ func (r *TestResources) waitTillReportReady(port int32) error {
 }
 
 func (r *TestResources) sendHealthRequest(base *url.URL, healthCheck func(resp *http.Response, result *scapiv1alpha3.TestResult) (done bool, err error)) error {
-	client := NewHttpClient()
-
 	ctx, cancel := context.WithTimeout(context.Background(), testTimeout)
 	defer cancel()
 
-	err := wait.PollUntilContextCancel(ctx, time.Second, true, func(ctx context.Context) (done bool, err error) {
+	return r.pollHealth(ctx, NewHttpClient(), base, healthCheck)
+}
+
+func (r *TestResources) pollHealth(ctx context.Context, client *http.Client, base *url.URL, healthCheck func(resp *http.Response, result *scapiv1alpha3.TestResult) (done bool, err error)) error {
+	return wait.PollUntilContextCancel(ctx, time.Second, true, func(ctx context.Context) (done bool, err error) {
 		url := base.JoinPath("/health")
 		req, err := NewHttpRequest(ctx, http.MethodGet, url.String(), nil, make(http.Header))
 		if err != nil {
@@ -559,7 +563,10 @@ func (r *TestResources) sendHealthRequest(base *url.URL, healthCheck func(resp *
 
 		resp, err := client.Do(req)
 		if err != nil {
-			if errors.Is(err, io.EOF) {
+			// Deployment availability can precede Service endpoint updates or a
+			// proxy restart. Keep polling these startup failures until the deadline.
+			if errors.Is(err, io.EOF) || errors.Is(err, syscall.ECONNREFUSED) || errors.Is(err, syscall.ECONNRESET) {
+				r.Log += fmt.Sprintf("application is not yet reachable at %s: %s\n", base.String(), err)
 				return false, nil // Retry
 			}
 			return false, err
@@ -575,7 +582,6 @@ func (r *TestResources) sendHealthRequest(base *url.URL, healthCheck func(resp *
 		}
 		return healthCheck(resp, r.TestResult)
 	})
-	return err
 }
 
 func (r *TestResources) updateAndWaitTillCryostatAvailable(cr *operatorv1beta2.Cryostat) (*operatorv1beta2.Cryostat, error) {
