@@ -649,6 +649,10 @@ func (r *TestResources) checkGraphQL(ctx context.Context, level *rbacPrivilegeLe
 		r.logError(fmt.Sprintf("%s: allowed but the response carries errors: %v", label, response.Messages()))
 		return
 	}
+	if allowed && permission != rbacReadPermission && len(response.Data.ArchivedRecordings.Data) == 0 {
+		r.logError(fmt.Sprintf("%s: allowed but no archived recording matched, so the mutation did not run", label))
+		return
+	}
 
 	r.Log += fmt.Sprintf("%s: %s, as expected\n", label, rbacExpectation(allowed))
 }
