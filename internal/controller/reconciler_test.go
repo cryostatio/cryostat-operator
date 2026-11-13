@@ -1214,22 +1214,80 @@ func (c *controllerTest) commonTests() {
 						Value: "e",
 					},
 					{
-						Name:  "STORAGE_BUCKETS_THREAD_DUMPS_NAME",
+						Name:  "CRYOSTAT_SERVICES_HEAP_DUMP_REPORTS_STORAGE_CACHE_NAME",
 						Value: "f",
 					},
 					{
-						Name:  "STORAGE_BUCKETS_METADATA_NAME",
-						Value: "z",
-					},
-					{
-						Name:  "CRYOSTAT_SERVICES_HEAP_DUMP_REPORTS_STORAGE_CACHE_NAME",
+						Name:  "STORAGE_BUCKETS_THREAD_DUMPS_NAME",
 						Value: "g",
 					},
 					{
-						Name:  "STORAGE_BUCKETS_UNIFIED_LOGS_NAME",
+						Name:  "STORAGE_BUCKETS_METADATA_NAME",
 						Value: "h",
 					},
+					{
+						Name:  "STORAGE_BUCKETS_UNIFIED_LOGS_NAME",
+						Value: "i",
+					},
 				})
+			})
+		})
+		Context("with managed storage bucket names configuration", func() {
+			BeforeEach(func() {
+				t.objs = append(t.objs, t.NewCryostatWithCustomizedManagedStorageBucketNames().Object)
+			})
+			JustBeforeEach(func() {
+				t.reconcileCryostatFully()
+			})
+			It("Should update the core deployment", func() {
+				t.checkCoreHasEnvironmentVariables([]corev1.EnvVar{
+					{
+						Name:  "STORAGE_BUCKETS_ARCHIVES_NAME",
+						Value: "a",
+					},
+					{
+						Name:  "CRYOSTAT_SERVICES_REPORTS_STORAGE_CACHE_NAME",
+						Value: "b",
+					},
+					{
+						Name:  "STORAGE_BUCKETS_EVENT_TEMPLATES_NAME",
+						Value: "c",
+					},
+					{
+						Name:  "STORAGE_BUCKETS_PROBE_TEMPLATES_NAME",
+						Value: "d",
+					},
+					{
+						Name:  "STORAGE_BUCKETS_HEAP_DUMPS_NAME",
+						Value: "e",
+					},
+					{
+						Name:  "CRYOSTAT_SERVICES_HEAP_DUMP_REPORTS_STORAGE_CACHE_NAME",
+						Value: "f",
+					},
+					{
+						Name:  "STORAGE_BUCKETS_THREAD_DUMPS_NAME",
+						Value: "g",
+					},
+					{
+						Name:  "STORAGE_BUCKETS_METADATA_NAME",
+						Value: "h",
+					},
+					{
+						Name:  "STORAGE_BUCKETS_UNIFIED_LOGS_NAME",
+						Value: "i",
+					},
+				})
+			})
+			It("Should create the storage buckets with the configured names", func() {
+				deployment := &appsv1.Deployment{}
+				err := t.Client.Get(context.Background(), types.NamespacedName{Name: t.Name + "-storage", Namespace: t.Namespace}, deployment)
+				Expect(err).ToNot(HaveOccurred())
+				container := deployment.Spec.Template.Spec.Containers[0]
+				Expect(container.Env).To(ContainElements(corev1.EnvVar{
+					Name:  "CRYOSTAT_BUCKETS",
+					Value: "a,b,c,d,e,f,g,h,i",
+				}))
 			})
 		})
 		Context("with custom PVC spec overriding all defaults", func() {

@@ -1047,43 +1047,53 @@ type ObjectStorageProviderOptions struct {
 	MetadataMode *string `json:"metadataMode,omitempty"`
 }
 
+// StorageBucketNameOptions fields are tagged with two additional,
+// non-serialized tags that the operator uses to dynamically derive the
+// object storage container's bucket list and the core container's env vars
+// without a separate, hand-maintained mapping table:
+//   - cryostatDefaultBucket: the bucket name used when the field is unset
+//   - cryostatBucketEnvVar: the core container env var that must be pointed
+//     at the resulting bucket name whenever this field is overridden
+//
+// Neither tag is read by controller-gen/kubebuilder, so they have no effect
+// on the generated CRD schema.
 type StorageBucketNameOptions struct {
 	// The name of the bucket used to store Archived JFR files.
 	// +optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
-	ArchivedRecordings *string `json:"archivedRecordings,omitempty"`
+	ArchivedRecordings *string `json:"archivedRecordings,omitempty" cryostatDefaultBucket:"archivedrecordings" cryostatBucketEnvVar:"STORAGE_BUCKETS_ARCHIVES_NAME"`
 	// The name of the bucket used to store a cache of Automated Analysis reports attached to Archived JFR files.
 	// +optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
-	ArchivedReports *string `json:"archivedReports,omitempty"`
+	ArchivedReports *string `json:"archivedReports,omitempty" cryostatDefaultBucket:"archivedreports" cryostatBucketEnvVar:"CRYOSTAT_SERVICES_REPORTS_STORAGE_CACHE_NAME"`
 	// The name of the bucket used to store custom Event Templates.
 	// +optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
-	EventTemplates *string `json:"eventTemplates,omitempty"`
+	EventTemplates *string `json:"eventTemplates,omitempty" cryostatDefaultBucket:"eventtemplates" cryostatBucketEnvVar:"STORAGE_BUCKETS_EVENT_TEMPLATES_NAME"`
 	// The name of the bucket used to store JMC Agent Probe templates.
 	// +optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
-	JMCAgentProbeTemplates *string `json:"jmcAgentProbeTemplates,omitempty"`
+	JMCAgentProbeTemplates *string `json:"jmcAgentProbeTemplates,omitempty" cryostatDefaultBucket:"probes" cryostatBucketEnvVar:"STORAGE_BUCKETS_PROBE_TEMPLATES_NAME"`
 	// The name of the bucket used to store JVM heap dumps.
 	// +optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
-	HeapDumps *string `json:"heapDumps,omitempty"`
+	HeapDumps *string `json:"heapDumps,omitempty" cryostatDefaultBucket:"heapdumps" cryostatBucketEnvVar:"STORAGE_BUCKETS_HEAP_DUMPS_NAME"`
 	// The name of the bucket used to store Heap Dump Automated Analysis reports.
 	// +optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
-	HeapDumpReports *string `json:"heapDumpReports,omitempty"`
+	HeapDumpReports *string `json:"heapDumpReports,omitempty" cryostatDefaultBucket:"heapdumpreports" cryostatBucketEnvVar:"CRYOSTAT_SERVICES_HEAP_DUMP_REPORTS_STORAGE_CACHE_NAME"`
 	// The name of the bucket used to store JVM unified log dumps.
 	// +optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
-	UnifiedLogs *string `json:"unifiedlogs,omitempty"`
+	UnifiedLogs *string `json:"unifiedlogs,omitempty" cryostatDefaultBucket:"logs" cryostatBucketEnvVar:"STORAGE_BUCKETS_UNIFIED_LOGS_NAME"`
 	// The name of the bucket used to storage JVM thread dumps.
 	// +optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
-	ThreadDumps *string `json:"threadDumps,omitempty"`
+	ThreadDumps *string `json:"threadDumps,omitempty" cryostatDefaultBucket:"threaddumps" cryostatBucketEnvVar:"STORAGE_BUCKETS_THREAD_DUMPS_NAME"`
 	// The name of the bucket used to storage metadata for other objects (ex. archived recordings). This is only used if the .spec.objectStorageOptions.provider.metadataMode is set to 'bucket'.
 	// +optional
 	// +operator-sdk:csv:customresourcedefinitions:type=spec
-	Metadata *string `json:"metadata,omitempty"`
+	Metadata *string `json:"metadata,omitempty" cryostatDefaultBucket:"metadata" cryostatBucketEnvVar:"STORAGE_BUCKETS_METADATA_NAME"`
 }
 
 // AgentOptions provides customization for how the operator configures Cryostat Agents.
