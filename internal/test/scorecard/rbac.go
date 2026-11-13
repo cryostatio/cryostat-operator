@@ -435,7 +435,7 @@ func (r *TestResources) setupRBACFixture(ctx context.Context, cr *operatorv1beta
 	defer r.logApplication(deployment.Name)
 	for _, key := range []string{constants.AgentLabelCryostatName, constants.AgentLabelCryostatNamespace} {
 		if deployed.Spec.Template.Labels[key] != deployment.Labels[key] {
-			return nil, fmt.Errorf("Deployment webhook did not propagate %s to the Pod template", key)
+			return nil, fmt.Errorf("deployment webhook did not propagate %s to the Pod template", key)
 		}
 	}
 	if err := r.waitForDeploymentAvailability(ctx, deployment.Name, r.Namespace); err != nil {
@@ -453,7 +453,7 @@ func (r *TestResources) setupRBACFixture(ctx context.Context, cr *operatorv1beta
 
 	target, err := waitForAgentTarget(ctx, apiClient.Targets(), pod.Name)
 	if err != nil {
-		return nil, fmt.Errorf("Agent did not register with Cryostat: %w", err)
+		return nil, fmt.Errorf("agent did not register with Cryostat: %w", err)
 	}
 	r.Log += fmt.Sprintf("Agent registered target: %+v\n", target)
 
