@@ -2424,65 +2424,49 @@ func NewStorageContainerResource(cr *model.CryostatInstance) *corev1.ResourceReq
 	return resources
 }
 
-// storageBucketFieldSpec ties a StorageBucketNameOptions field to the default
-// bucket name used when unset, and the core container env var that must be
-// pointed at the resulting bucket name.
-type storageBucketFieldSpec struct {
-	FieldName   string
-	DefaultName string
-	EnvVar      string
-}
+// storageBucketOptionsType is reflected over to discover the customizable
+// buckets, so adding, removing, or renaming a StorageBucketNameOptions field
+// (api/v1beta2/cryostat_types.go) is the only change needed here: its
+// `cryostatDefaultBucket` and `cryostatBucketEnvVar` tags carry the default
+// bucket name and the core container env var that must track it, so there is
+// no separate field-name mapping table to keep in sync.
+var storageBucketOptionsType = reflect.TypeOf(operatorv1beta2.StorageBucketNameOptions{})
 
-// storageBucketFieldSpecs is the single source of truth mapping each
-// customizable bucket to its default name and the core container env var
-// that needs to agree with whatever name the bucket actually ends up with,
-// whether that's the default or a user override.
-var storageBucketFieldSpecs = []storageBucketFieldSpec{
-	{"ArchivedRecordings", "archivedrecordings", "STORAGE_BUCKETS_ARCHIVES_NAME"},
-	{"ArchivedReports", "archivedreports", "CRYOSTAT_SERVICES_REPORTS_STORAGE_CACHE_NAME"},
-	{"EventTemplates", "eventtemplates", "STORAGE_BUCKETS_EVENT_TEMPLATES_NAME"},
-	{"JMCAgentProbeTemplates", "probes", "STORAGE_BUCKETS_PROBE_TEMPLATES_NAME"},
-	{"HeapDumps", "heapdumps", "STORAGE_BUCKETS_HEAP_DUMPS_NAME"},
-	{"HeapDumpReports", "heapdumpreports", "CRYOSTAT_SERVICES_HEAP_DUMP_REPORTS_STORAGE_CACHE_NAME"},
-	{"ThreadDumps", "threaddumps", "STORAGE_BUCKETS_THREAD_DUMPS_NAME"},
-	{"Metadata", "metadata", "STORAGE_BUCKETS_METADATA_NAME"},
-	{"UnifiedLogs", "logs", "STORAGE_BUCKETS_UNIFIED_LOGS_NAME"},
-}
+const (
+	bucketDefaultTag = "cryostatDefaultBucket"
+	bucketEnvVarTag  = "cryostatBucketEnvVar"
+)
 
-// storageBucketFieldValue reads the named *string field off opts via
-// reflection, so storageBucketFieldSpecs stays the only place that lists
-// the StorageBucketNameOptions fields.
-func storageBucketFieldValue(opts *operatorv1beta2.StorageBucketNameOptions, fieldName string) *string {
-	if opts == nil {
-		return nil
+func storageBucketOptionsValue(cr *model.CryostatInstance) reflect.Value {
+	if cr.Spec.ObjectStorageOptions == nil || cr.Spec.ObjectStorageOptions.StorageBucketNameOptions == nil {
+		return reflect.Value{}
 	}
-	v := reflect.ValueOf(*opts).FieldByName(fieldName)
-	if !v.IsValid() || v.IsNil() {
-		return nil
-	}
-	return v.Interface().(*string)
-}
-
-func storageBucketOptions(cr *model.CryostatInstance) *operatorv1beta2.StorageBucketNameOptions {
-	if cr.Spec.ObjectStorageOptions == nil {
-		return nil
-	}
-	return cr.Spec.ObjectStorageOptions.StorageBucketNameOptions
+	return reflect.ValueOf(*cr.Spec.ObjectStorageOptions.StorageBucketNameOptions)
 }
 
 // storageBucketNames returns the bucket names the storage container should
-// create, applying any user-provided overrides.
+// create, applying any user-provided overrides. The result is sorted and
+// deduplicated (mirroring the cryostat-helm chart's "join sortAlpha uniq"
+// approach), so the list is stable regardless of struct field declaration
+// order and collapses any bucket names a user happens to reuse.
 func storageBucketNames(cr *model.CryostatInstance) []string {
-	opts := storageBucketOptions(cr)
-	names := make([]string, 0, len(storageBucketFieldSpecs))
-	for _, spec := range storageBucketFieldSpecs {
-		if val := storageBucketFieldValue(opts, spec.FieldName); val != nil {
-			names = append(names, *val)
-		} else {
-			names = append(names, spec.DefaultName)
+	opts := storageBucketOptionsValue(cr)
+	names := make([]string, 0, storageBucketOptionsType.NumField())
+	for i := 0; i < storageBucketOptionsType.NumField(); i++ {
+		field := storageBucketOptionsType.Field(i)
+		defaultName, ok := field.Tag.Lookup(bucketDefaultTag)
+		if !ok {
+			continue
 		}
+		if opts.IsValid() {
+			if val, _ := opts.Field(i).Interface().(*string); val != nil {
+				defaultName = *val
+			}
+		}
+		names = append(names, defaultName)
 	}
-	return names
+	slices.Sort(names)
+	return slices.Compact(names)
 }
 
 // storageBucketNameEnvVars returns the core container env vars that point
@@ -2491,15 +2475,19 @@ func storageBucketNames(cr *model.CryostatInstance) []string {
 // bucket names are honoured consistently with the buckets actually created
 // by the storage container.
 func storageBucketNameEnvVars(cr *model.CryostatInstance) []corev1.EnvVar {
-	opts := storageBucketOptions(cr)
-	if opts == nil {
+	opts := storageBucketOptionsValue(cr)
+	if !opts.IsValid() {
 		return nil
 	}
 	var envs []corev1.EnvVar
-	for _, spec := range storageBucketFieldSpecs {
-		if val := storageBucketFieldValue(opts, spec.FieldName); val != nil {
+	for i := 0; i < storageBucketOptionsType.NumField(); i++ {
+		envVar, ok := storageBucketOptionsType.Field(i).Tag.Lookup(bucketEnvVarTag)
+		if !ok {
+			continue
+		}
+		if val, _ := opts.Field(i).Interface().(*string); val != nil {
 			envs = append(envs, corev1.EnvVar{
-				Name:  spec.EnvVar,
+				Name:  envVar,
 				Value: *val,
 			})
 		}
