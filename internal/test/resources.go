@@ -316,15 +316,43 @@ func (r *TestResources) NewCryostatWithCustomizedStorageBucketNames() *model.Cry
 	eventTemplates := "c"
 	probeTemplates := "d"
 	heapDumps := "e"
-	threadDumps := "f"
-	metadata := "z"
-	heapDumpReports := "g"
-	unifiedlogs := "h"
+	heapDumpReports := "f"
+	threadDumps := "g"
+	metadata := "h"
+	unifiedlogs := "i"
 	cr.Spec.ObjectStorageOptions = &operatorv1beta2.ObjectStorageOptions{
 		Provider: &operatorv1beta2.ObjectStorageProviderOptions{
 			URL:    &providerUrl,
 			Region: &region,
 		},
+		StorageBucketNameOptions: &operatorv1beta2.StorageBucketNameOptions{
+			ArchivedRecordings:     &archivedRecordings,
+			ArchivedReports:        &archivedReports,
+			EventTemplates:         &eventTemplates,
+			JMCAgentProbeTemplates: &probeTemplates,
+			HeapDumps:              &heapDumps,
+			ThreadDumps:            &threadDumps,
+			Metadata:               &metadata,
+			HeapDumpReports:        &heapDumpReports,
+			UnifiedLogs:            &unifiedlogs,
+		},
+	}
+	return cr
+}
+
+func (r *TestResources) NewCryostatWithCustomizedManagedStorageBucketNames() *model.CryostatInstance {
+	cr := r.NewCryostat()
+
+	archivedRecordings := "a"
+	archivedReports := "b"
+	eventTemplates := "c"
+	probeTemplates := "d"
+	heapDumps := "e"
+	heapDumpReports := "f"
+	threadDumps := "g"
+	metadata := "h"
+	unifiedlogs := "i"
+	cr.Spec.ObjectStorageOptions = &operatorv1beta2.ObjectStorageOptions{
 		StorageBucketNameOptions: &operatorv1beta2.StorageBucketNameOptions{
 			ArchivedRecordings:     &archivedRecordings,
 			ArchivedReports:        &archivedReports,
@@ -3260,7 +3288,7 @@ func (r *TestResources) NewStorageEnvironmentVariables() []corev1.EnvVar {
 	envs := []corev1.EnvVar{
 		{
 			Name:  "CRYOSTAT_BUCKETS",
-			Value: "archivedrecordings,archivedreports,eventtemplates,probes,heapdumps,threaddumps,heapdumpreports,logs",
+			Value: "archivedrecordings,archivedreports,eventtemplates,probes,heapdumps,heapdumpreports,threaddumps,metadata,logs",
 		},
 		{
 			Name:  "CRYOSTAT_ACCESS_KEY",

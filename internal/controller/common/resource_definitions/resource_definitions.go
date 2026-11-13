@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"net/url"
 	"path"
+	"reflect"
 	"slices"
 	"strconv"
 	"strings"
@@ -2083,63 +2084,6 @@ func newStorageEnvForCoreContainer(cr *model.CryostatInstance, specs *ServiceSpe
 			Value: metadataMode,
 		})
 
-		if cr.Spec.ObjectStorageOptions.StorageBucketNameOptions != nil {
-			if cr.Spec.ObjectStorageOptions.StorageBucketNameOptions.ArchivedRecordings != nil {
-				envs = append(envs, corev1.EnvVar{
-					Name:  "STORAGE_BUCKETS_ARCHIVES_NAME",
-					Value: *cr.Spec.ObjectStorageOptions.StorageBucketNameOptions.ArchivedRecordings,
-				})
-			}
-			if cr.Spec.ObjectStorageOptions.StorageBucketNameOptions.ArchivedReports != nil {
-				envs = append(envs, corev1.EnvVar{
-					Name:  "CRYOSTAT_SERVICES_REPORTS_STORAGE_CACHE_NAME",
-					Value: *cr.Spec.ObjectStorageOptions.StorageBucketNameOptions.ArchivedReports,
-				})
-			}
-			if cr.Spec.ObjectStorageOptions.StorageBucketNameOptions.EventTemplates != nil {
-				envs = append(envs, corev1.EnvVar{
-					Name:  "STORAGE_BUCKETS_EVENT_TEMPLATES_NAME",
-					Value: *cr.Spec.ObjectStorageOptions.StorageBucketNameOptions.EventTemplates,
-				})
-			}
-			if cr.Spec.ObjectStorageOptions.StorageBucketNameOptions.JMCAgentProbeTemplates != nil {
-				envs = append(envs, corev1.EnvVar{
-					Name:  "STORAGE_BUCKETS_PROBE_TEMPLATES_NAME",
-					Value: *cr.Spec.ObjectStorageOptions.StorageBucketNameOptions.JMCAgentProbeTemplates,
-				})
-			}
-			if cr.Spec.ObjectStorageOptions.StorageBucketNameOptions.HeapDumps != nil {
-				envs = append(envs, corev1.EnvVar{
-					Name:  "STORAGE_BUCKETS_HEAP_DUMPS_NAME",
-					Value: *cr.Spec.ObjectStorageOptions.StorageBucketNameOptions.HeapDumps,
-				})
-			}
-			if cr.Spec.ObjectStorageOptions.StorageBucketNameOptions.ThreadDumps != nil {
-				envs = append(envs, corev1.EnvVar{
-					Name:  "STORAGE_BUCKETS_THREAD_DUMPS_NAME",
-					Value: *cr.Spec.ObjectStorageOptions.StorageBucketNameOptions.ThreadDumps,
-				})
-			}
-			if cr.Spec.ObjectStorageOptions.StorageBucketNameOptions.Metadata != nil {
-				envs = append(envs, corev1.EnvVar{
-					Name:  "STORAGE_BUCKETS_METADATA_NAME",
-					Value: *cr.Spec.ObjectStorageOptions.StorageBucketNameOptions.Metadata,
-				})
-			}
-			if cr.Spec.ObjectStorageOptions.StorageBucketNameOptions.HeapDumpReports != nil {
-				envs = append(envs, corev1.EnvVar{
-					Name:  "CRYOSTAT_SERVICES_HEAP_DUMP_REPORTS_STORAGE_CACHE_NAME",
-					Value: *cr.Spec.ObjectStorageOptions.StorageBucketNameOptions.HeapDumpReports,
-				})
-			}
-			if cr.Spec.ObjectStorageOptions.StorageBucketNameOptions.UnifiedLogs != nil {
-				envs = append(envs, corev1.EnvVar{
-					Name:  "STORAGE_BUCKETS_UNIFIED_LOGS_NAME",
-					Value: *cr.Spec.ObjectStorageOptions.StorageBucketNameOptions.UnifiedLogs,
-				})
-			}
-		}
-
 		tlsTrustAll := false
 		if cr.Spec.ObjectStorageOptions.Provider != nil && cr.Spec.ObjectStorageOptions.Provider.TLSTrustAll != nil {
 			tlsTrustAll = *cr.Spec.ObjectStorageOptions.Provider.TLSTrustAll
@@ -2151,6 +2095,8 @@ func newStorageEnvForCoreContainer(cr *model.CryostatInstance, specs *ServiceSpe
 			})
 		}
 	}
+
+	envs = append(envs, storageBucketNameEnvVars(cr)...)
 
 	return envs, nil
 }
@@ -2478,6 +2424,89 @@ func NewStorageContainerResource(cr *model.CryostatInstance) *corev1.ResourceReq
 	return resources
 }
 
+// storageBucketFieldSpec ties a StorageBucketNameOptions field to the default
+// bucket name used when unset, and the core container env var that must be
+// pointed at the resulting bucket name.
+type storageBucketFieldSpec struct {
+	FieldName   string
+	DefaultName string
+	EnvVar      string
+}
+
+// storageBucketFieldSpecs is the single source of truth mapping each
+// customizable bucket to its default name and the core container env var
+// that needs to agree with whatever name the bucket actually ends up with,
+// whether that's the default or a user override.
+var storageBucketFieldSpecs = []storageBucketFieldSpec{
+	{"ArchivedRecordings", "archivedrecordings", "STORAGE_BUCKETS_ARCHIVES_NAME"},
+	{"ArchivedReports", "archivedreports", "CRYOSTAT_SERVICES_REPORTS_STORAGE_CACHE_NAME"},
+	{"EventTemplates", "eventtemplates", "STORAGE_BUCKETS_EVENT_TEMPLATES_NAME"},
+	{"JMCAgentProbeTemplates", "probes", "STORAGE_BUCKETS_PROBE_TEMPLATES_NAME"},
+	{"HeapDumps", "heapdumps", "STORAGE_BUCKETS_HEAP_DUMPS_NAME"},
+	{"HeapDumpReports", "heapdumpreports", "CRYOSTAT_SERVICES_HEAP_DUMP_REPORTS_STORAGE_CACHE_NAME"},
+	{"ThreadDumps", "threaddumps", "STORAGE_BUCKETS_THREAD_DUMPS_NAME"},
+	{"Metadata", "metadata", "STORAGE_BUCKETS_METADATA_NAME"},
+	{"UnifiedLogs", "logs", "STORAGE_BUCKETS_UNIFIED_LOGS_NAME"},
+}
+
+// storageBucketFieldValue reads the named *string field off opts via
+// reflection, so storageBucketFieldSpecs stays the only place that lists
+// the StorageBucketNameOptions fields.
+func storageBucketFieldValue(opts *operatorv1beta2.StorageBucketNameOptions, fieldName string) *string {
+	if opts == nil {
+		return nil
+	}
+	v := reflect.ValueOf(*opts).FieldByName(fieldName)
+	if !v.IsValid() || v.IsNil() {
+		return nil
+	}
+	return v.Interface().(*string)
+}
+
+func storageBucketOptions(cr *model.CryostatInstance) *operatorv1beta2.StorageBucketNameOptions {
+	if cr.Spec.ObjectStorageOptions == nil {
+		return nil
+	}
+	return cr.Spec.ObjectStorageOptions.StorageBucketNameOptions
+}
+
+// storageBucketNames returns the bucket names the storage container should
+// create, applying any user-provided overrides.
+func storageBucketNames(cr *model.CryostatInstance) []string {
+	opts := storageBucketOptions(cr)
+	names := make([]string, 0, len(storageBucketFieldSpecs))
+	for _, spec := range storageBucketFieldSpecs {
+		if val := storageBucketFieldValue(opts, spec.FieldName); val != nil {
+			names = append(names, *val)
+		} else {
+			names = append(names, spec.DefaultName)
+		}
+	}
+	return names
+}
+
+// storageBucketNameEnvVars returns the core container env vars that point
+// Cryostat at user-overridden bucket names. This applies regardless of
+// whether storage is managed or external, so a managed deployment's custom
+// bucket names are honoured consistently with the buckets actually created
+// by the storage container.
+func storageBucketNameEnvVars(cr *model.CryostatInstance) []corev1.EnvVar {
+	opts := storageBucketOptions(cr)
+	if opts == nil {
+		return nil
+	}
+	var envs []corev1.EnvVar
+	for _, spec := range storageBucketFieldSpecs {
+		if val := storageBucketFieldValue(opts, spec.FieldName); val != nil {
+			envs = append(envs, corev1.EnvVar{
+				Name:  spec.EnvVar,
+				Value: *val,
+			})
+		}
+	}
+	return envs
+}
+
 func NewStorageContainer(cr *model.CryostatInstance, imageTag string, tls *TLSConfig, operandTLS *tlsprofile.OperandTLSConfig) corev1.Container {
 	var containerSc *corev1.SecurityContext
 	secretName := cr.Name + "-storage"
@@ -2485,7 +2514,7 @@ func NewStorageContainer(cr *model.CryostatInstance, imageTag string, tls *TLSCo
 	envs := []corev1.EnvVar{
 		{
 			Name:  "CRYOSTAT_BUCKETS",
-			Value: "archivedrecordings,archivedreports,eventtemplates,probes,heapdumps,threaddumps,heapdumpreports,logs",
+			Value: strings.Join(storageBucketNames(cr), ","),
 		},
 		{
 			Name:  "CRYOSTAT_ACCESS_KEY",
