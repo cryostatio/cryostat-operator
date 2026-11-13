@@ -52,7 +52,7 @@ var _ = Describe("Recording archival", func() {
 		api := testCryostatAPI(func(w http.ResponseWriter, request *http.Request) {
 			Expect(request.Method).To(Equal(http.MethodPost))
 			Expect(request.URL.Path).To(Equal("/api/v4/graphql"))
-			var query GraphQLQuery
+			var query cryostatapi.GraphQLQuery
 			Expect(json.NewDecoder(request.Body).Decode(&query)).To(Succeed())
 			Expect(query.Variables["id"]).To(Equal(float64(17)))
 			archives := []map[string]any{}
