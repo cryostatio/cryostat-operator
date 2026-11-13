@@ -16,6 +16,8 @@
 FROM registry.access.redhat.com/ubi9/go-toolset:9.9-1794518352@sha256:4053e919374d739ee6b0007e412d89256b0bd065e0bc690c2b3905bbaab6500e as builder
 ARG TARGETOS
 ARG TARGETARCH
+ARG SCORECARD_SAMPLE_IMG=quay.io/redhat-java-monitoring/cryostat-operator-scorecard-app:latest
+ARG SCORECARD_AGENT_IMG=quay.io/redhat-java-monitoring/cryostat-operator-scorecard-agent-app:latest
 
 # Copy the Go Modules manifests
 COPY go.mod go.mod
@@ -32,6 +34,7 @@ COPY internal/test/scorecard/ internal/test/scorecard/
 
 # Build
 RUN CGO_ENABLED=0 GOOS=${TARGETOS:-linux} GOARCH=${TARGETARCH} GO111MODULE=on go build -a -o cryostat-scorecard-tests \
+    -ldflags "-X github.com/cryostatio/cryostat-operator/internal/test/scorecard.SampleApplicationImage=${SCORECARD_SAMPLE_IMG} -X github.com/cryostatio/cryostat-operator/internal/test/scorecard.BundledAgentApplicationImage=${SCORECARD_AGENT_IMG}" \
     internal/images/custom-scorecard-tests/main.go
 
 FROM registry.access.redhat.com/ubi9/ubi-minimal:latest@sha256:baafce2d34783a28b4a472779f304e97e00f9d35c99553bc53b068b14344d9a9

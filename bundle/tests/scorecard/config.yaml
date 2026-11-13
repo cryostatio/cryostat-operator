@@ -70,7 +70,7 @@ stages:
   - entrypoint:
     - cryostat-scorecard-tests
     - operator-install
-    image: quay.io/cryostat/cryostat-operator-scorecard:4.3.0-20260924191035
+    image: quay.io/cryostat/cryostat-operator-scorecard:5.0.0-20261109194800
     labels:
       suite: cryostat
       test: operator-install
@@ -80,7 +80,7 @@ stages:
   - entrypoint:
     - cryostat-scorecard-tests
     - console-plugin
-    image: quay.io/cryostat/cryostat-operator-scorecard:4.3.0-20260924191035
+    image: quay.io/cryostat/cryostat-operator-scorecard:5.0.0-20261109194800
     labels:
       suite: cryostat
       test: console-plugin
@@ -90,7 +90,7 @@ stages:
   - entrypoint:
     - cryostat-scorecard-tests
     - cryostat-cr
-    image: quay.io/cryostat/cryostat-operator-scorecard:4.3.0-20260924191035
+    image: quay.io/cryostat/cryostat-operator-scorecard:5.0.0-20261109194800
     labels:
       suite: cryostat
       test: cryostat-cr
@@ -100,7 +100,7 @@ stages:
   - entrypoint:
     - cryostat-scorecard-tests
     - cryostat-multi-namespace
-    image: quay.io/cryostat/cryostat-operator-scorecard:4.3.0-20260924191035
+    image: quay.io/cryostat/cryostat-operator-scorecard:5.0.0-20261109194800
     labels:
       suite: cryostat
       test: cryostat-multi-namespace
@@ -110,7 +110,7 @@ stages:
   - entrypoint:
     - cryostat-scorecard-tests
     - cryostat-recording
-    image: quay.io/cryostat/cryostat-operator-scorecard:4.3.0-20260924191035
+    image: quay.io/cryostat/cryostat-operator-scorecard:5.0.0-20261109194800
     labels:
       suite: cryostat
       test: cryostat-recording
@@ -120,7 +120,7 @@ stages:
   - entrypoint:
     - cryostat-scorecard-tests
     - cryostat-config-change
-    image: quay.io/cryostat/cryostat-operator-scorecard:4.3.0-20260924191035
+    image: quay.io/cryostat/cryostat-operator-scorecard:5.0.0-20261109194800
     labels:
       suite: cryostat
       test: cryostat-config-change
@@ -130,10 +130,40 @@ stages:
   - entrypoint:
     - cryostat-scorecard-tests
     - cryostat-report
-    image: quay.io/cryostat/cryostat-operator-scorecard:4.3.0-20260924191035
+    image: quay.io/cryostat/cryostat-operator-scorecard:5.0.0-20261109194800
     labels:
       suite: cryostat
       test: cryostat-report
+    storage:
+      spec:
+        mountPath: {}
+  - entrypoint:
+    - cryostat-scorecard-tests
+    - cryostat-agent
+    image: quay.io/cryostat/cryostat-operator-scorecard:5.0.0-20261109194800
+    labels:
+      suite: cryostat
+      test: cryostat-agent
+    storage:
+      spec:
+        mountPath: {}
+  - entrypoint:
+    - cryostat-scorecard-tests
+    - cryostat-agent-autoconfig
+    image: quay.io/cryostat/cryostat-operator-scorecard:5.0.0-20261109194800
+    labels:
+      suite: cryostat
+      test: cryostat-agent-autoconfig
+    storage:
+      spec:
+        mountPath: {}
+  - entrypoint:
+    - cryostat-scorecard-tests
+    - cryostat-rbac
+    image: quay.io/cryostat/cryostat-operator-scorecard:5.0.0-20261109194800
+    labels:
+      suite: cryostat
+      test: cryostat-rbac
     storage:
       spec:
         mountPath: {}

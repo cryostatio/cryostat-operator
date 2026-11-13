@@ -26,14 +26,24 @@ import (
 )
 
 const (
-	OperatorInstallTestName        string = "operator-install"
-	ConsolePluginTestName          string = "console-plugin"
-	CryostatCRTestName             string = "cryostat-cr"
-	CryostatMultiNamespaceTestName string = "cryostat-multi-namespace"
-	CryostatRecordingTestName      string = "cryostat-recording"
-	CryostatConfigChangeTestName   string = "cryostat-config-change"
-	CryostatReportTestName         string = "cryostat-report"
+	OperatorInstallTestName         string = "operator-install"
+	ConsolePluginTestName           string = "console-plugin"
+	CryostatCRTestName              string = "cryostat-cr"
+	CryostatMultiNamespaceTestName  string = "cryostat-multi-namespace"
+	CryostatRecordingTestName       string = "cryostat-recording"
+	CryostatAgentTestName           string = "cryostat-agent"
+	CryostatAgentAutoConfigTestName string = "cryostat-agent-autoconfig"
+	CryostatConfigChangeTestName    string = "cryostat-config-change"
+	CryostatReportTestName          string = "cryostat-report"
+	CryostatRBACTestName            string = "cryostat-rbac"
 )
+
+// rbacSkipReason explains why the fine-grained RBAC test cannot carry signal on
+// Kubernetes. It is logged verbatim in the skip branch so that a green run on a
+// non-OpenShift cluster is not mistaken for passing RBAC coverage.
+const rbacSkipReason = "skipping cryostat-rbac: Cryostat's fine-grained RBAC is only enforced" +
+	" when deployed on OpenShift. This test always passes on non-OpenShift Kubernetes since" +
+	" Cryostat will trivially pass all RBAC lookups as noops."
 
 // OperatorInstallTest checks that the operator installed correctly
 func OperatorInstallTest(bundle *apimanifests.Bundle, namespace string, openShiftCertManager bool) *scapiv1alpha3.TestResult {
@@ -193,89 +203,78 @@ func CryostatRecordingTest(bundle *apimanifests.Bundle, namespace string, openSh
 	}
 	r.Log += fmt.Sprintf("created a custom target: %+v\n", target)
 
-	// Wait for Cryostat to update the discovery tree
+	// Wait for Cryostat to update the discovery tree.
 	time.Sleep(2 * time.Second)
 
-	// Create a recording
-	options := &RecordingCreateOptions{
-		RecordingName: "scorecard_test_rec",
-		Events:        "template=ALL",
-		Duration:      0, // Continuous
-		ToDisk:        true,
-		MaxSize:       0,
-		MaxAge:        0,
+	ctx, cancel := context.WithTimeout(context.Background(), testTimeout)
+	defer cancel()
+	if err := r.exerciseRecording(ctx, apiClient, target); err != nil {
+		return r.fail(err.Error())
 	}
-	rec, err := apiClient.Recordings().Create(context.Background(), target, options)
-	if err != nil {
-		return r.fail(fmt.Sprintf("failed to create a recording: %s", err.Error()))
-	}
-	r.Log += fmt.Sprintf("created a recording: %+v\n", rec)
 
-	// View the current recording list after creating one
-	recs, err := apiClient.Recordings().List(context.Background(), target)
-	if err != nil {
-		return r.fail(fmt.Sprintf("failed to list recordings: %s", err.Error()))
-	}
-	r.Log += fmt.Sprintf("current list of recordings: %+v\n", recs)
+	return r.TestResult
+}
 
-	// Allow the recording to run for 30s
-	time.Sleep(30 * time.Second)
+// CryostatRBACTest checks that the fine-grained RBAC permission mappings configured on a
+// Cryostat CR are enforced by the deployed Cryostat application.
+//
+// Four ServiceAccounts form a monotone privilege ladder over archived recordings - none,
+// read, read+write, read+write+delete - expressed as Kubernetes Roles over synthetic
+// resources that the CR's rbacPermissions map onto Cryostat's archivedrecordings
+// permissions. Each ServiceAccount then exercises all three permissions against both the
+// REST and the GraphQL surface.
+//
+// The test is a no-op on Kubernetes: see rbacSkipReason.
+func CryostatRBACTest(bundle *apimanifests.Bundle, namespace string, openShiftCertManager bool) *scapiv1alpha3.TestResult {
+	r := newTestResources(CryostatRBACTestName, namespace)
 
-	// Archive the recording
-	archiveJobID, err := apiClient.Recordings().Archive(context.Background(), target, rec.Id)
+	err := r.setupCRTestResources(openShiftCertManager)
 	if err != nil {
-		return r.fail(fmt.Sprintf("failed to archive the recording: %s", err.Error()))
+		return r.fail(fmt.Sprintf("failed to set up %s test: %s", CryostatRBACTestName, err.Error()))
 	}
-	r.Log += fmt.Sprintf("recording archival job ID for the recording %s at: %s\n", rec.Name, archiveJobID)
+	if !r.OpenShift {
+		r.Log += rbacSkipReason + "\n"
+		return r.TestResult
+	}
+	defer r.cleanupAndLogs()
 
-	// The archive list might be empty (not yet available) but we are not verifying anything here.
-	archives, err := apiClient.Recordings().ListArchives(context.Background(), target)
-	if err != nil {
-		return r.fail(fmt.Sprintf("failed to list archives: %s", err.Error()))
-	}
-	r.Log += fmt.Sprintf("current list of archives: %+v\n", archives)
+	setupCtx, cancelSetup := context.WithTimeout(context.Background(), testTimeout)
+	defer cancelSetup()
 
-	reportJobId, err := apiClient.Recordings().RequestReportGeneration(context.Background(), target, rec)
+	levels := rbacPrivilegeLevels()
+	defer r.cleanupRBACSubjects(levels)
+	err = r.setupRBACSubjects(setupCtx, levels)
 	if err != nil {
-		return r.fail(fmt.Sprintf("failed to generate report for the recording: %s", err.Error()))
+		return r.fail(fmt.Sprintf("failed to set up RBAC subjects: %s", err.Error()))
 	}
-	r.Log += fmt.Sprintf("report generation job ID for the recording %s: %+v\n", rec.Name, *reportJobId)
 
-	// Stop the recording
-	err = apiClient.Recordings().Stop(context.Background(), target, rec.Id)
+	cr, err := r.createAndWaitTillCryostatAvailable(r.newRBACCryostatCR())
 	if err != nil {
-		return r.fail(fmt.Sprintf("failed to stop the recording %s: %s", rec.Name, err.Error()))
+		return r.fail(fmt.Sprintf("%s test failed: %s", CryostatRBACTestName, err.Error()))
 	}
-	// Get the recording to verify its state
-	rec, err = apiClient.Recordings().Get(context.Background(), target, rec.Name)
+	err = r.StartLogs(cr)
 	if err != nil {
-		return r.fail(fmt.Sprintf("failed to get the recordings: %s", err.Error()))
+		r.Log += fmt.Sprintf("failed to retrieve logs for the application: %s\n", err.Error())
 	}
-	if rec.State != "STOPPED" {
-		return r.fail(fmt.Sprintf("expect recording %s to have state STOPPED but found %s", rec.Name, rec.State))
-	}
-	r.Log += fmt.Sprintf("stopped the recording: %s\n", rec.Name)
 
-	// Delete the recording
-	err = apiClient.Recordings().Delete(context.Background(), target, rec.Id)
+	base, err := url.Parse(cr.Status.ApplicationURL)
 	if err != nil {
-		return r.fail(fmt.Sprintf("failed to delete the recording %s: %s", rec.Name, err.Error()))
+		return r.fail(fmt.Sprintf("application URL is invalid: %s", err.Error()))
 	}
-	r.Log += fmt.Sprintf("deleted the recording: %s\n", rec.Name)
-
-	// View the current recording list after deleting one
-	recs, err = apiClient.Recordings().List(context.Background(), target)
+	err = r.waitTillCryostatReady(base)
 	if err != nil {
-		return r.fail(fmt.Sprintf("failed to list recordings: %s", err.Error()))
+		return r.fail(fmt.Sprintf("failed to reach the application: %s", err.Error()))
 	}
-	r.Log += fmt.Sprintf("current list of recordings: %+v\n", recs)
 
-	// Verify that the recording is deleted
-	for _, recording := range recs {
-		if recording.Id == rec.Id {
-			return r.fail(fmt.Sprintf("expect recording %s to be deleted but found %+v", rec.Name, recording))
-		}
+	ctx, cancel := context.WithTimeout(context.Background(), testTimeout)
+	defer cancel()
+
+	fixture, err := r.setupRBACFixture(ctx, cr, base)
+	if err != nil {
+		return r.fail(fmt.Sprintf("failed to set up recordings for %s test: %s", CryostatRBACTestName, err.Error()))
 	}
+
+	r.assertRBACMatrix(ctx, base, fixture, levels)
 
 	return r.TestResult
 }

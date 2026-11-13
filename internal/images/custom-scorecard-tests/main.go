@@ -99,8 +99,11 @@ func testLookup() map[string]testFn {
 	m[tests.CryostatCRTestName] = tests.CryostatCRTest
 	m[tests.CryostatMultiNamespaceTestName] = tests.CryostatMultiNamespaceTest
 	m[tests.CryostatRecordingTestName] = tests.CryostatRecordingTest
+	m[tests.CryostatAgentTestName] = tests.CryostatAgentTest
+	m[tests.CryostatAgentAutoConfigTestName] = tests.CryostatAgentAutoConfigTest
 	m[tests.CryostatConfigChangeTestName] = tests.CryostatConfigChangeTest
 	m[tests.CryostatReportTestName] = tests.CryostatReportTest
+	m[tests.CryostatRBACTestName] = tests.CryostatRBACTest
 	return m
 }
 
