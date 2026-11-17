@@ -56,16 +56,6 @@ func rbacUnifiedLogsRBACPermissions() map[string]string {
 	}
 }
 
-// listFsUnifiedLogs runs the filesystem-level unified log listing as the scorecard pod's own
-// ServiceAccount.
-func (r *TestResources) listFsUnifiedLogs(ctx context.Context, base *url.URL) ([]cryostatapi.ArchivedUnifiedLogDirectory, error) {
-	var dirs []cryostatapi.ArchivedUnifiedLogDirectory
-	if err := r.sendPrivilegedJSON(ctx, http.MethodGet, base.JoinPath("/api/beta/diagnostics/fs/unified-logs"), nil, &dirs); err != nil {
-		return nil, err
-	}
-	return dirs, nil
-}
-
 // setupRBACUnifiedLogFixture enables a unified logging session on the target and immediately
 // pulls it into storage as the scorecard pod's own ServiceAccount, producing one unified log
 // artifact for the ladder's write and delete assertions to act on.
