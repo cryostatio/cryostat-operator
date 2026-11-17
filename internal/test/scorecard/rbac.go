@@ -769,7 +769,7 @@ func (r *TestResources) checkGraphQL(ctx context.Context, level *rbacPrivilegeLe
 			return
 		}
 	}
-	if allowed && permission != rbacReadPermission && len(response.Data.ArchivedRecordings.Data) == 0 {
+	if allowed && permission != rbacArchivedRecordingsReadPermission && len(response.Data.ArchivedRecordings.Data) == 0 {
 		r.logError(fmt.Sprintf("%s: allowed but no archived recording matched, so the mutation did not run", label))
 		return
 	}
