@@ -8,7 +8,11 @@
     entrypoint:
     - cryostat-scorecard-tests
     - operator-install
+<<<<<<< HEAD
     image: "quay.io/cryostat/cryostat-operator-scorecard:4.3.0-20261105210841"
+=======
+    image: "quay.io/cryostat/cryostat-operator-scorecard:5.0.0-20261109194800"
+>>>>>>> 9e9dafc (test(scorecard): cover Cryostat Agent and auto-configuration (#1535))
     labels:
       suite: cryostat
       test: operator-install
@@ -18,7 +22,11 @@
     entrypoint:
     - cryostat-scorecard-tests
     - console-plugin
+<<<<<<< HEAD
     image: "quay.io/cryostat/cryostat-operator-scorecard:4.3.0-20261105210841"
+=======
+    image: "quay.io/cryostat/cryostat-operator-scorecard:5.0.0-20261109194800"
+>>>>>>> 9e9dafc (test(scorecard): cover Cryostat Agent and auto-configuration (#1535))
     labels:
       suite: cryostat
       test: console-plugin
@@ -28,7 +36,11 @@
     entrypoint:
     - cryostat-scorecard-tests
     - cryostat-cr
+<<<<<<< HEAD
     image: "quay.io/cryostat/cryostat-operator-scorecard:4.3.0-20261105210841"
+=======
+    image: "quay.io/cryostat/cryostat-operator-scorecard:5.0.0-20261109194800"
+>>>>>>> 9e9dafc (test(scorecard): cover Cryostat Agent and auto-configuration (#1535))
     labels:
       suite: cryostat
       test: cryostat-cr
@@ -38,7 +50,11 @@
     entrypoint:
     - cryostat-scorecard-tests
     - cryostat-multi-namespace
+<<<<<<< HEAD
     image: "quay.io/cryostat/cryostat-operator-scorecard:4.3.0-20261105210841"
+=======
+    image: "quay.io/cryostat/cryostat-operator-scorecard:5.0.0-20261109194800"
+>>>>>>> 9e9dafc (test(scorecard): cover Cryostat Agent and auto-configuration (#1535))
     labels:
       suite: cryostat
       test: cryostat-multi-namespace
@@ -48,7 +64,11 @@
     entrypoint:
     - cryostat-scorecard-tests
     - cryostat-recording
+<<<<<<< HEAD
     image: "quay.io/cryostat/cryostat-operator-scorecard:4.3.0-20261105210841"
+=======
+    image: "quay.io/cryostat/cryostat-operator-scorecard:5.0.0-20261109194800"
+>>>>>>> 9e9dafc (test(scorecard): cover Cryostat Agent and auto-configuration (#1535))
     labels:
       suite: cryostat
       test: cryostat-recording
@@ -58,7 +78,11 @@
     entrypoint:
     - cryostat-scorecard-tests
     - cryostat-config-change
+<<<<<<< HEAD
     image: "quay.io/cryostat/cryostat-operator-scorecard:4.3.0-20261105210841"
+=======
+    image: "quay.io/cryostat/cryostat-operator-scorecard:5.0.0-20261109194800"
+>>>>>>> 9e9dafc (test(scorecard): cover Cryostat Agent and auto-configuration (#1535))
     labels:
       suite: cryostat
       test: cryostat-config-change
@@ -68,7 +92,31 @@
     entrypoint:
     - cryostat-scorecard-tests
     - cryostat-report
+<<<<<<< HEAD
     image: "quay.io/cryostat/cryostat-operator-scorecard:4.3.0-20261105210841"
+=======
+    image: "quay.io/cryostat/cryostat-operator-scorecard:5.0.0-20261109194800"
+>>>>>>> 9e9dafc (test(scorecard): cover Cryostat Agent and auto-configuration (#1535))
     labels:
       suite: cryostat
       test: cryostat-report
+- op: add
+  path: /stages/1/tests/-
+  value:
+    entrypoint:
+    - cryostat-scorecard-tests
+    - cryostat-agent
+    image: "quay.io/cryostat/cryostat-operator-scorecard:5.0.0-20261109194800"
+    labels:
+      suite: cryostat
+      test: cryostat-agent
+- op: add
+  path: /stages/1/tests/-
+  value:
+    entrypoint:
+    - cryostat-scorecard-tests
+    - cryostat-agent-autoconfig
+    image: "quay.io/cryostat/cryostat-operator-scorecard:5.0.0-20261109194800"
+    labels:
+      suite: cryostat
+      test: cryostat-agent-autoconfig

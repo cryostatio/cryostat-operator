@@ -26,13 +26,15 @@ import (
 )
 
 const (
-	OperatorInstallTestName        string = "operator-install"
-	ConsolePluginTestName          string = "console-plugin"
-	CryostatCRTestName             string = "cryostat-cr"
-	CryostatMultiNamespaceTestName string = "cryostat-multi-namespace"
-	CryostatRecordingTestName      string = "cryostat-recording"
-	CryostatConfigChangeTestName   string = "cryostat-config-change"
-	CryostatReportTestName         string = "cryostat-report"
+	OperatorInstallTestName         string = "operator-install"
+	ConsolePluginTestName           string = "console-plugin"
+	CryostatCRTestName              string = "cryostat-cr"
+	CryostatMultiNamespaceTestName  string = "cryostat-multi-namespace"
+	CryostatRecordingTestName       string = "cryostat-recording"
+	CryostatAgentTestName           string = "cryostat-agent"
+	CryostatAgentAutoConfigTestName string = "cryostat-agent-autoconfig"
+	CryostatConfigChangeTestName    string = "cryostat-config-change"
+	CryostatReportTestName          string = "cryostat-report"
 )
 
 // OperatorInstallTest checks that the operator installed correctly
@@ -193,88 +195,13 @@ func CryostatRecordingTest(bundle *apimanifests.Bundle, namespace string, openSh
 	}
 	r.Log += fmt.Sprintf("created a custom target: %+v\n", target)
 
-	// Wait for Cryostat to update the discovery tree
+	// Wait for Cryostat to update the discovery tree.
 	time.Sleep(2 * time.Second)
 
-	// Create a recording
-	options := &RecordingCreateOptions{
-		RecordingName: "scorecard_test_rec",
-		Events:        "template=ALL",
-		Duration:      0, // Continuous
-		ToDisk:        true,
-		MaxSize:       0,
-		MaxAge:        0,
-	}
-	rec, err := apiClient.Recordings().Create(context.Background(), target, options)
-	if err != nil {
-		return r.fail(fmt.Sprintf("failed to create a recording: %s", err.Error()))
-	}
-	r.Log += fmt.Sprintf("created a recording: %+v\n", rec)
-
-	// View the current recording list after creating one
-	recs, err := apiClient.Recordings().List(context.Background(), target)
-	if err != nil {
-		return r.fail(fmt.Sprintf("failed to list recordings: %s", err.Error()))
-	}
-	r.Log += fmt.Sprintf("current list of recordings: %+v\n", recs)
-
-	// Allow the recording to run for 30s
-	time.Sleep(30 * time.Second)
-
-	// Archive the recording
-	archiveJobID, err := apiClient.Recordings().Archive(context.Background(), target, rec.Id)
-	if err != nil {
-		return r.fail(fmt.Sprintf("failed to archive the recording: %s", err.Error()))
-	}
-	r.Log += fmt.Sprintf("recording archival job ID for the recording %s at: %s\n", rec.Name, archiveJobID)
-
-	// The archive list might be empty (not yet available) but we are not verifying anything here.
-	archives, err := apiClient.Recordings().ListArchives(context.Background(), target)
-	if err != nil {
-		return r.fail(fmt.Sprintf("failed to list archives: %s", err.Error()))
-	}
-	r.Log += fmt.Sprintf("current list of archives: %+v\n", archives)
-
-	reportJobId, err := apiClient.Recordings().RequestReportGeneration(context.Background(), target, rec)
-	if err != nil {
-		return r.fail(fmt.Sprintf("failed to generate report for the recording: %s", err.Error()))
-	}
-	r.Log += fmt.Sprintf("report generation job ID for the recording %s: %+v\n", rec.Name, *reportJobId)
-
-	// Stop the recording
-	err = apiClient.Recordings().Stop(context.Background(), target, rec.Id)
-	if err != nil {
-		return r.fail(fmt.Sprintf("failed to stop the recording %s: %s", rec.Name, err.Error()))
-	}
-	// Get the recording to verify its state
-	rec, err = apiClient.Recordings().Get(context.Background(), target, rec.Name)
-	if err != nil {
-		return r.fail(fmt.Sprintf("failed to get the recordings: %s", err.Error()))
-	}
-	if rec.State != "STOPPED" {
-		return r.fail(fmt.Sprintf("expect recording %s to have state STOPPED but found %s", rec.Name, rec.State))
-	}
-	r.Log += fmt.Sprintf("stopped the recording: %s\n", rec.Name)
-
-	// Delete the recording
-	err = apiClient.Recordings().Delete(context.Background(), target, rec.Id)
-	if err != nil {
-		return r.fail(fmt.Sprintf("failed to delete the recording %s: %s", rec.Name, err.Error()))
-	}
-	r.Log += fmt.Sprintf("deleted the recording: %s\n", rec.Name)
-
-	// View the current recording list after deleting one
-	recs, err = apiClient.Recordings().List(context.Background(), target)
-	if err != nil {
-		return r.fail(fmt.Sprintf("failed to list recordings: %s", err.Error()))
-	}
-	r.Log += fmt.Sprintf("current list of recordings: %+v\n", recs)
-
-	// Verify that the recording is deleted
-	for _, recording := range recs {
-		if recording.Id == rec.Id {
-			return r.fail(fmt.Sprintf("expect recording %s to be deleted but found %+v", rec.Name, recording))
-		}
+	ctx, cancel := context.WithTimeout(context.Background(), testTimeout)
+	defer cancel()
+	if err := r.exerciseRecording(ctx, apiClient, target); err != nil {
+		return r.fail(err.Error())
 	}
 
 	return r.TestResult
