@@ -11,9 +11,9 @@
     ":separateMultipleMinorReleases",
     ":separatePatchReleases",
     ":gomod",
-    "github>cryostatio/cryostat//.github/renovate/release-branch:lockdown",
-    "github>cryostatio/cryostat//.github/renovate/release-branch:(gomod)",
-    "github>cryostatio/cryostat//.github/renovate/release-branch:(dockerfile)"
+    "github>cryostatio/cryostat//.github/renovate/release-branch/lockdown",
+    "github>cryostatio/cryostat//.github/renovate/release-branch/default(gomod)",
+    "github>cryostatio/cryostat//.github/renovate/release-branch/default(dockerfile)"
   ],
   "baseBranchPatterns": ["main", "/^cryostat-v.*/"],
   "reviewersFromCodeOwners": true,
