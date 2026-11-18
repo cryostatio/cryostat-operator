@@ -141,6 +141,7 @@ jobs:
       if: ${{ steps.check-tag-exists.outputs.exist == 'false' }}
     - name: Build scorecard image
       run: |
+        CUSTOM_SCORECARD_VERSION=${{ steps.get-image-tag.outputs.tag }} \
         CUSTOM_SCORECARD_IMG=${CI_SCORECARD_IMG}:${{ steps.get-image-tag.outputs.tag }} \
         PLATFORMS=${{ env.CI_PLATFORMS }} \
         MANIFEST_PUSH=false \
