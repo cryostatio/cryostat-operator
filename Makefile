@@ -127,10 +127,7 @@ GOLANGCI_LINT_VERSION ?= 2.12.2
 # See: https://github.com/operator-framework/operator-sdk/pull/4762
 #
 # Suffix is the timestamp of the image build, compute with: date -u '+%Y%m%d%H%M%S'
-<<<<<<< HEAD
 CUSTOM_SCORECARD_VERSION ?= 4.3.0-$(shell date -u '+%Y%m%d%H%M%S')
-=======
-CUSTOM_SCORECARD_VERSION ?= 5.0.0-$(shell date -u '+%Y%m%d%H%M%S')
 # Freeze the timestamp so the runner and generated bundle use one tag.
 CUSTOM_SCORECARD_VERSION := $(CUSTOM_SCORECARD_VERSION)
 # Sample applications are maintained and published by cryostatio/test-applications.
@@ -140,7 +137,6 @@ SCORECARD_SAMPLE_VERSION ?= latest
 export SCORECARD_SAMPLE_IMG ?= $(SCORECARD_SAMPLE_NAMESPACE)/cryostat-operator-scorecard-app:$(SCORECARD_SAMPLE_VERSION)
 export SCORECARD_AGENT_IMG ?= $(SCORECARD_SAMPLE_NAMESPACE)/cryostat-operator-scorecard-agent-app:$(SCORECARD_SAMPLE_VERSION)
 SCORECARD_IMAGE_LDFLAGS = -X github.com/cryostatio/cryostat-operator/internal/test/scorecard.SampleApplicationImage=$(SCORECARD_SAMPLE_IMG) -X github.com/cryostatio/cryostat-operator/internal/test/scorecard.BundledAgentApplicationImage=$(SCORECARD_AGENT_IMG)
->>>>>>> 9e9dafc (test(scorecard): cover Cryostat Agent and auto-configuration (#1535))
 export CUSTOM_SCORECARD_IMG ?= $(IMAGE_TAG_BASE)-scorecard:$(CUSTOM_SCORECARD_VERSION)
 
 DEPLOY_NAMESPACE ?= cryostat-operator-system
