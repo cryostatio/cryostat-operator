@@ -19,5 +19,9 @@ jobs:
         with:
           persist-credentials: false
 
+      # Name the config file explicitly rather than relying on auto-discovery, which
+      # exits 0 after validating nothing if the file is ever moved or renamed. Naming a
+      # file makes the validator treat it as self-hosted global config, so --no-global
+      # is required to keep validating it as a repository config.
       - name: Run validator
-        run: npx --yes --package renovate -- renovate-config-validator
+        run: npx --yes --package renovate -- renovate-config-validator --no-global .github/renovate.json
