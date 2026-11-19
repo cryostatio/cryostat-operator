@@ -3,6 +3,8 @@
 SHELL := /usr/bin/env bash -o pipefail
 .SHELLFLAGS = -ec
 
+comma := ,
+
 # OS information
 OS = $(shell go env GOOS)
 ARCH = $(shell go env GOARCH)
@@ -369,7 +371,7 @@ define scorecard-local
 	bundle_container=$$($(IMAGE_BUILDER) create --pull=always "$(BUNDLE_IMG)" /bin/true); \
 	$(IMAGE_BUILDER) cp "$$bundle_container:/manifests" "$$bundle_dir/manifests"; \
 	$(IMAGE_BUILDER) cp "$$bundle_container:/metadata" "$$bundle_dir/metadata"; \
-	SCORECARD_NAMESPACE=$(SCORECARD_NAMESPACE) BUNDLE_DIR="$$bundle_dir" go run internal/images/custom-scorecard-tests/main.go $${SCORECARD_TEST_SELECTION} | sed 's/\\n/\n/g' $(SCORECARD_TEE); \
+	SCORECARD_NAMESPACE=$(SCORECARD_NAMESPACE) BUNDLE_DIR="$$bundle_dir" go run internal/images/custom-scorecard-tests/main.go $(subst $(comma), ,$(SCORECARD_TEST_SELECTION)) | sed 's/\\n/\n/g' $(SCORECARD_TEE); \
 	)
 endef
 
