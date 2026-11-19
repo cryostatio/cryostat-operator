@@ -284,7 +284,7 @@ them from its local registry:
 SCORECARD_APPLICATIONS_DIR=/path/to/test-applications \
 OPERATOR_IMG=quay.io/cryostat/cryostat-operator:latest \
 CORE_IMG=quay.io/cryostat/cryostat:latest \
-SCORECARD_TEST_SELECTION=cryostat-agent,cryostat-agent-autoconfig \
+SCORECARD_TEST_SELECTION="cryostat-agent cryostat-agent-autoconfig" \
 make test-scorecard-local-kind
 ```
 
