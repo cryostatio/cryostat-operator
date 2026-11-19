@@ -23,8 +23,13 @@ import (
 	"net/url"
 	"time"
 
+	"github.com/onsi/gomega"
+	"github.com/onsi/gomega/types"
+
 	operatorv1beta2 "github.com/cryostatio/cryostat-operator/api/v1beta2"
 	"github.com/cryostatio/cryostat-operator/internal/controller/constants"
+	"github.com/cryostatio/cryostat-operator/internal/cryostatapi"
+	appsv1 "k8s.io/api/apps/v1"
 	authnv1 "k8s.io/api/authentication/v1"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
@@ -46,15 +51,15 @@ const (
 	rbacTargetsResource    = "cryostattargets"
 	// rbacDenyResource backs the deny-by-default catch-all. It is granted to the scorecard
 	// pod's own ServiceAccount, which performs the privileged setup, and to none of the
-	// test ServiceAccounts, so every Cryostat permission the test does not map explicitly
-	// is denied to every test ServiceAccount.
+	// test ServiceAccounts, so every Cryostat permission a test does not map explicitly is
+	// denied to every test ServiceAccount.
 	rbacDenyResource = "cryostatnothing"
 )
 
 const (
-	// rbacSubjectPrefix prefixes the ServiceAccount, Role and RoleBinding names the test
-	// creates. It is distinct from the Cryostat CR's name so that none of these collide
-	// with resources the operator creates for the CR.
+	// rbacSubjectPrefix prefixes the ServiceAccount, Role and RoleBinding names a test
+	// creates. It is distinct from the Cryostat CR's name so that none of these collide with
+	// resources the operator creates for the CR.
 	rbacSubjectPrefix = "scorecard-rbac"
 	// rbacEntryRoleName is the shared Role granting the auth proxy's entry-gate
 	// permission. Every test ServiceAccount is bound to it; without it the proxy rejects
@@ -75,21 +80,21 @@ const (
 	rbacArchiveInterval = 2 * time.Second
 )
 
-// rbacPrivilegeLevel is one rung of the privilege ladder the test exercises.
+// rbacPrivilegeLevel is one rung of a resource's privilege ladder.
 //
-// Every level is granted the same supporting permissions - the auth proxy entry gate,
-// targets:read and activerecordings:read/write - so that the verbs held on the synthetic
-// cryostatarchives resource are the only variable between levels. Each assertion failure is
-// therefore attributable to exactly one archivedrecordings permission rather than to an
-// incidental gap in a supporting one.
+// Every level is granted the same supporting permissions - at minimum the auth proxy's entry
+// gate - so that the verbs held on the resource under test are the only variable between
+// levels. Each assertion failure is therefore attributable to exactly one permission rather
+// than to an incidental gap in a supporting one.
 type rbacPrivilegeLevel struct {
 	// Name identifies the level and is the suffix of its ServiceAccount, Role and
 	// RoleBinding names.
 	Name string
-	// ArchiveVerbs are the Kubernetes verbs granted on rbacArchivesResource.
-	ArchiveVerbs []string
+	// Verbs are the Kubernetes verbs granted on the synthetic resource backing the
+	// permission under test.
+	Verbs []string
 	// CanRead, CanWrite and CanDelete are the expected outcomes of the corresponding
-	// archivedrecordings permission checks on both the REST and GraphQL surfaces.
+	// read/write/delete permission checks on both the REST and GraphQL surfaces.
 	CanRead   bool
 	CanWrite  bool
 	CanDelete bool
@@ -102,72 +107,106 @@ func (l *rbacPrivilegeLevel) ServiceAccountName() string {
 	return fmt.Sprintf("%s-%s", rbacSubjectPrefix, l.Name)
 }
 
-// Allows reports whether the level is expected to be granted the given Cryostat permission.
-func (l *rbacPrivilegeLevel) Allows(permission string) bool {
-	switch permission {
-	case rbacReadPermission:
-		return l.CanRead
-	case rbacWritePermission:
-		return l.CanWrite
-	case rbacDeletePermission:
-		return l.CanDelete
-	}
-	return false
-}
-
-// The Cryostat permission names whose enforcement the test asserts.
+// The Cryostat permission names whose enforcement the archivedrecordings ladder test
+// asserts.
 const (
-	rbacReadPermission   = "archivedrecordings:read"
-	rbacWritePermission  = "archivedrecordings:write"
-	rbacDeletePermission = "archivedrecordings:delete"
+	rbacArchivedRecordingsReadPermission   = "archivedrecordings:read"
+	rbacArchivedRecordingsWritePermission  = "archivedrecordings:write"
+	rbacArchivedRecordingsDeletePermission = "archivedrecordings:delete"
 )
 
-// rbacPrivilegeLevels returns the privilege ladder, in ascending order of privilege.
+// rbacLadderVerbs names the Kubernetes verb that unlocks each rung of a standard
+// none/read/write/delete privilege ladder, for a resource using Cryostat's conventional
+// get/update/delete verb mapping.
+type rbacLadderVerbs struct {
+	Read, Write, Delete string
+}
+
+// newRBACPrivilegeLadder returns the standard four-rung privilege ladder, in ascending order
+// of privilege, for a resource whose Kubernetes verbs are given by verbs.
 //
-// The ladder is monotone: each level holds everything the level below it holds. Cryostat's
-// GraphQL mutations for archived recordings (doPutMetadata, doDelete) are resolvers nested
-// under the archivedRecordings query, which itself requires archivedrecordings:read, so a
-// write-without-read level would be unable to reach them and the GraphQL half of the matrix
-// could not be exercised.
-//
-// The bottom rung holds no archive verbs at all. Without it every level would expect
-// archivedrecordings:read to be allowed, and a regression that granted read unconditionally
-// would go unnoticed.
-func rbacPrivilegeLevels() []*rbacPrivilegeLevel {
+// The ladder is monotone: each level holds everything the level below it holds, so a
+// write-without-read level is never constructed - which matters for resources (such as
+// archivedrecordings) whose write/delete operations are only reachable through a read-gated
+// GraphQL query. The bottom rung holds no verbs at all, so that a regression granting read
+// unconditionally does not go unnoticed.
+func newRBACPrivilegeLadder(verbs rbacLadderVerbs) []*rbacPrivilegeLevel {
 	return []*rbacPrivilegeLevel{
 		{
-			Name:         "none",
-			ArchiveVerbs: []string{},
+			Name: "none",
 		},
 		{
-			Name:         "read",
-			ArchiveVerbs: []string{"get"},
-			CanRead:      true,
+			Name:    "read",
+			Verbs:   []string{verbs.Read},
+			CanRead: true,
 		},
 		{
-			Name:         "write",
-			ArchiveVerbs: []string{"get", "update"},
-			CanRead:      true,
-			CanWrite:     true,
+			Name:     "write",
+			Verbs:    []string{verbs.Read, verbs.Write},
+			CanRead:  true,
+			CanWrite: true,
 		},
 		{
-			Name:         "full",
-			ArchiveVerbs: []string{"get", "update", "delete"},
-			CanRead:      true,
-			CanWrite:     true,
-			CanDelete:    true,
+			Name:      "full",
+			Verbs:     []string{verbs.Read, verbs.Write, verbs.Delete},
+			CanRead:   true,
+			CanWrite:  true,
+			CanDelete: true,
 		},
 	}
 }
 
-// newRBACCryostatCR builds the Cryostat CR for the RBAC test.
+// rbacPrivilegeLevels returns the archivedrecordings privilege ladder.
 //
-// The mappings point every permission the test depends on at a synthetic resource, and the
-// defaults deny everything else. All four default fields must be set: Cryostat resolves a
-// permission through the explicit mapping, then the verb-level default, then the global
-// catch-all, so setting only the catch-all would leave the application's own verb-level
-// defaults (pods/exec:create) in effect and the catch-all unreachable.
-func (r *TestResources) newRBACCryostatCR() *operatorv1beta2.Cryostat {
+// Cryostat's GraphQL mutations for archived recordings (doPutMetadata, doDelete) are
+// resolvers nested under the archivedRecordings query, which itself requires
+// archivedrecordings:read, so a write-without-read level would be unable to reach them and
+// the GraphQL half of the matrix could not be exercised. The standard ladder already keeps
+// read cumulative, so this holds without any special-casing here.
+func rbacPrivilegeLevels() []*rbacPrivilegeLevel {
+	return newRBACPrivilegeLadder(rbacLadderVerbs{Read: "get", Write: "update", Delete: "delete"})
+}
+
+// archivedRecordingsRBACPermissions is the explicit permission mapping for the
+// archivedrecordings ladder test: every permission the test depends on, mapped onto a
+// synthetic resource.
+func archivedRecordingsRBACPermissions() map[string]string {
+	return map[string]string{
+		rbacArchivedRecordingsReadPermission:   rbacArchivesResource + ":get",
+		rbacArchivedRecordingsWritePermission:  rbacArchivesResource + ":update",
+		rbacArchivedRecordingsDeletePermission: rbacArchivesResource + ":delete",
+		"activerecordings:read":                rbacRecordingsResource + ":get",
+		"activerecordings:write":               rbacRecordingsResource + ":update",
+		"targets:read":                         rbacTargetsResource + ":get",
+	}
+}
+
+// archivedRecordingsSupportingRules are the Kubernetes rules every privilege level holds
+// regardless of ladder position, so that the verbs on rbacArchivesResource remain the only
+// variable between levels.
+func archivedRecordingsSupportingRules() []rbacv1.PolicyRule {
+	return []rbacv1.PolicyRule{
+		{
+			APIGroups: []string{""},
+			Resources: []string{rbacTargetsResource},
+			Verbs:     []string{"get"},
+		},
+		{
+			APIGroups: []string{""},
+			Resources: []string{rbacRecordingsResource},
+			Verbs:     []string{"get", "update"},
+		},
+	}
+}
+
+// newRBACCryostatCR builds a Cryostat CR configured for an RBAC ladder test: every entry in
+// permissions is mapped explicitly, and everything else is denied by default.
+//
+// All four default fields must be set: Cryostat resolves a permission through the explicit
+// mapping, then the verb-level default, then the global catch-all, so setting only the
+// catch-all would leave the application's own verb-level defaults (pods/exec:create) in
+// effect and the catch-all unreachable.
+func (r *TestResources) newRBACCryostatCR(permissions map[string]string) *operatorv1beta2.Cryostat {
 	cr := r.newCryostatCR()
 
 	denyAll := rbacDenyResource + ":get"
@@ -178,14 +217,7 @@ func (r *TestResources) newRBACCryostatCR() *operatorv1beta2.Cryostat {
 		// Scope Cryostat's access reviews to the install namespace, so a Role and
 		// RoleBinding there are sufficient and no cluster-scoped grants are needed.
 		NamespacedRBACPermissions: &namespaced,
-		RBACPermissions: map[string]string{
-			rbacReadPermission:       rbacArchivesResource + ":get",
-			rbacWritePermission:      rbacArchivesResource + ":update",
-			rbacDeletePermission:     rbacArchivesResource + ":delete",
-			"activerecordings:read":  rbacRecordingsResource + ":get",
-			"activerecordings:write": rbacRecordingsResource + ":update",
-			"targets:read":           rbacTargetsResource + ":get",
-		},
+		RBACPermissions:           permissions,
 		RBACDefaultPermissions: &operatorv1beta2.RBACDefaultPermissions{
 			DefaultReadPermission:   &denyAll,
 			DefaultWritePermission:  &denyAll,
@@ -207,10 +239,12 @@ func (r *TestResources) newRBACCryostatCR() *operatorv1beta2.Cryostat {
 // setupRBACSubjects creates a ServiceAccount, Role and RoleBinding per privilege level plus
 // the shared entry-gate Role, then mints a bearer token for each ServiceAccount.
 //
-// The Roles grant only permissions the scorecard ServiceAccount itself holds, so Kubernetes'
-// privilege-escalation prevention is satisfied without granting the scorecard
-// ServiceAccount the escalate or bind verbs on roles.
-func (r *TestResources) setupRBACSubjects(ctx context.Context, levels []*rbacPrivilegeLevel) error {
+// supportingRules are granted to every level's Role regardless of ladder position, so that
+// the verbs on resource remain the only variable between levels. The Roles grant only
+// permissions the scorecard ServiceAccount itself holds, so Kubernetes' privilege-escalation
+// prevention is satisfied without granting the scorecard ServiceAccount the escalate or bind
+// verbs on roles.
+func (r *TestResources) setupRBACSubjects(ctx context.Context, resource string, supportingRules []rbacv1.PolicyRule, levels []*rbacPrivilegeLevel) error {
 	entryRole := &rbacv1.Role{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      rbacEntryRoleName,
@@ -242,27 +276,15 @@ func (r *TestResources) setupRBACSubjects(ctx context.Context, levels []*rbacPri
 			return fmt.Errorf("failed to create ServiceAccount %s: %w", name, err)
 		}
 
-		// The supporting permissions every level holds, so that the verbs on
-		// rbacArchivesResource remain the only variable between levels.
-		rules := []rbacv1.PolicyRule{
-			{
-				APIGroups: []string{""},
-				Resources: []string{rbacTargetsResource},
-				Verbs:     []string{"get"},
-			},
-			{
-				APIGroups: []string{""},
-				Resources: []string{rbacRecordingsResource},
-				Verbs:     []string{"get", "update"},
-			},
-		}
-		// A PolicyRule must name at least one verb, so the bottom rung of the ladder gets
-		// no rule for the archives resource rather than one with an empty verb list.
-		if len(level.ArchiveVerbs) > 0 {
+		rules := make([]rbacv1.PolicyRule, len(supportingRules))
+		copy(rules, supportingRules)
+		// A PolicyRule must name at least one verb, so the bottom rung of the ladder gets no
+		// rule for resource rather than one with an empty verb list.
+		if len(level.Verbs) > 0 {
 			rules = append(rules, rbacv1.PolicyRule{
 				APIGroups: []string{""},
-				Resources: []string{rbacArchivesResource},
-				Verbs:     level.ArchiveVerbs,
+				Resources: []string{resource},
+				Verbs:     level.Verbs,
 			})
 		}
 
@@ -328,7 +350,7 @@ func (r *TestResources) setupRBACSubjects(ctx context.Context, levels []*rbacPri
 		}
 		level.Token = token
 
-		r.Log += fmt.Sprintf("created ServiceAccount %s with %s verbs %v\n", name, rbacArchivesResource, level.ArchiveVerbs)
+		r.Log += fmt.Sprintf("created ServiceAccount %s with %s verbs %v\n", name, resource, level.Verbs)
 	}
 
 	return nil
@@ -384,20 +406,21 @@ func (r *TestResources) cleanupRBACSubjects(levels []*rbacPrivilegeLevel) {
 	}
 }
 
-// rbacFixture is the state the privileged setup produces for the assertions to act on.
+// rbacFixture is the state the privileged setup produces for the archivedrecordings
+// assertions to act on.
 type rbacFixture struct {
 	// Target is the Cryostat target the live recording belongs to.
-	Target *Target
+	Target *cryostatapi.Target
 	// Recording is the live continuous recording that the write assertions archive.
-	Recording *Recording
+	Recording *cryostatapi.Recording
 	// Archives are the archived recordings available to the delete assertions, in the
 	// order they will be consumed.
-	Archives []ArchivedRecordingNode
+	Archives []cryostatapi.ArchivedRecordingNode
 }
 
 // Take removes and returns the next archived recording, for an assertion that is expected to
 // delete it. Returns nil when the fixture has been exhausted.
-func (f *rbacFixture) Take() *ArchivedRecordingNode {
+func (f *rbacFixture) Take() *cryostatapi.ArchivedRecordingNode {
 	if len(f.Archives) == 0 {
 		return nil
 	}
@@ -409,55 +432,72 @@ func (f *rbacFixture) Take() *ArchivedRecordingNode {
 // Peek returns the next archived recording without consuming it, for an assertion that is
 // expected to be denied and therefore to leave it in place. Returns nil when the fixture has
 // been exhausted.
-func (f *rbacFixture) Peek() *ArchivedRecordingNode {
+func (f *rbacFixture) Peek() *cryostatapi.ArchivedRecordingNode {
 	if len(f.Archives) == 0 {
 		return nil
 	}
 	return &f.Archives[0]
 }
 
-// setupRBACFixture performs the privileged part of the test as the scorecard pod's own
-// ServiceAccount: it deploys a sample application with an auto-configured Agent, waits for
-// it to register as a target, then starts a continuous recording and archives it repeatedly,
-// so that each privilege level has live and archived recordings to act on.
+// setupRBACAgentTarget deploys a sample application with an auto-configured Agent and waits
+// for it to register as a target, as the scorecard pod's own ServiceAccount. It is the shared
+// first step of every RBAC fixture that needs a live target: archivedrecordings and the
+// diagnostics resources (thread dumps, heap dumps, unified logs) alike.
 //
 // An Agent target is used rather than a synthetic JMX one so the fixture is discovered
 // through real registration, the same path the privilege levels exercise, instead of being
-// synthesized through POST /targets.
-func (r *TestResources) setupRBACFixture(ctx context.Context, cr *operatorv1beta2.Cryostat, base *url.URL) (*rbacFixture, error) {
+// synthesized through POST /targets. The caller is responsible for deferring
+// r.logApplication(deployment.Name) itself, so that it fires when the caller's own setup (not
+// just this step) returns.
+func (r *TestResources) setupRBACAgentTarget(ctx context.Context, cr *operatorv1beta2.Cryostat, base *url.URL) (*appsv1.Deployment, *cryostatapi.Target, error) {
 	apiClient := r.NewCryostatRESTClientset(base)
 
 	deployment := r.newAgentApplication(cr, true)
 	deployed, err := r.Client.AppsV1().Deployments(r.Namespace).Create(ctx, deployment, metav1.CreateOptions{})
 	if err != nil {
-		return nil, fmt.Errorf("failed to deploy the RBAC fixture's sample application: %w", err)
+		return nil, nil, fmt.Errorf("failed to deploy the RBAC fixture's sample application: %w", err)
 	}
-	defer r.logApplication(deployment.Name)
 	for _, key := range []string{constants.AgentLabelCryostatName, constants.AgentLabelCryostatNamespace} {
 		if deployed.Spec.Template.Labels[key] != deployment.Labels[key] {
-			return nil, fmt.Errorf("deployment webhook did not propagate %s to the Pod template", key)
+			return nil, nil, fmt.Errorf("deployment webhook did not propagate %s to the Pod template", key)
 		}
 	}
 	if err := r.waitForDeploymentAvailability(ctx, deployment.Name, r.Namespace); err != nil {
-		return nil, fmt.Errorf("RBAC fixture's sample application did not become available: %w", err)
+		return nil, nil, fmt.Errorf("rBAC fixture's sample application did not become available: %w", err)
 	}
 
 	pods, err := r.Client.CoreV1().Pods(r.Namespace).List(ctx, metav1.ListOptions{LabelSelector: "app=" + deployment.Name})
 	if err != nil {
-		return nil, fmt.Errorf("failed to list RBAC fixture's sample application Pods: %w", err)
+		return nil, nil, fmt.Errorf("failed to list RBAC fixture's sample application Pods: %w", err)
 	}
 	if len(pods.Items) != 1 {
-		return nil, fmt.Errorf("expected one RBAC fixture sample application Pod, got %d", len(pods.Items))
+		return nil, nil, fmt.Errorf("expected one RBAC fixture sample application Pod, got %d", len(pods.Items))
 	}
 	pod := &pods.Items[0]
 
 	target, err := waitForAgentTarget(ctx, apiClient.Targets(), pod.Name)
 	if err != nil {
-		return nil, fmt.Errorf("agent did not register with Cryostat: %w", err)
+		return nil, nil, fmt.Errorf("agent did not register with Cryostat: %w", err)
 	}
 	r.Log += fmt.Sprintf("Agent registered target: %+v\n", target)
 
-	recording, err := apiClient.Recordings().Create(ctx, target, &RecordingCreateOptions{
+	return deployment, target, nil
+}
+
+// setupRBACFixture performs the privileged part of the archivedrecordings test as the
+// scorecard pod's own ServiceAccount: on top of setupRBACAgentTarget, it starts a continuous
+// recording and archives it repeatedly, so that each privilege level has live and archived
+// recordings to act on.
+func (r *TestResources) setupRBACFixture(ctx context.Context, cr *operatorv1beta2.Cryostat, base *url.URL) (*rbacFixture, error) {
+	apiClient := r.NewCryostatRESTClientset(base)
+
+	deployment, target, err := r.setupRBACAgentTarget(ctx, cr, base)
+	if err != nil {
+		return nil, err
+	}
+	defer r.logApplication(deployment.Name)
+
+	recording, err := apiClient.Recordings().Create(ctx, target, &cryostatapi.RecordingCreateOptions{
 		RecordingName: "scorecard_rbac_rec",
 		Events:        "template=ALL",
 		Duration:      0, // Continuous
@@ -478,7 +518,7 @@ func (r *TestResources) setupRBACFixture(ctx context.Context, cr *operatorv1beta
 	}
 
 	// Archiving is asynchronous: the PATCH returns a job ID and the file appears later.
-	var archives []ArchivedRecordingNode
+	var archives []cryostatapi.ArchivedRecordingNode
 	err = wait.PollUntilContextCancel(ctx, time.Second, true, func(ctx context.Context) (bool, error) {
 		found, err := r.listArchivedRecordings(ctx, base, "")
 		if err != nil {
@@ -505,8 +545,8 @@ func (r *TestResources) setupRBACFixture(ctx context.Context, cr *operatorv1beta
 
 // listArchivedRecordings runs the top-level archivedRecordings GraphQL query as the
 // scorecard pod's own ServiceAccount, optionally filtered to a single recording name.
-func (r *TestResources) listArchivedRecordings(ctx context.Context, base *url.URL, name string) ([]ArchivedRecordingNode, error) {
-	query := &GraphQLQuery{
+func (r *TestResources) listArchivedRecordings(ctx context.Context, base *url.URL, name string) ([]cryostatapi.ArchivedRecordingNode, error) {
+	query := &cryostatapi.GraphQLQuery{
 		Query: `
 			query ArchivedRecordings($name: String) {
 				archivedRecordings(filter: { name: $name }) {
@@ -525,7 +565,7 @@ func (r *TestResources) listArchivedRecordings(ctx context.Context, base *url.UR
 		query.Variables["name"] = name
 	}
 
-	response := &ArchivedRecordingsGraphQLResponse{}
+	response := &cryostatapi.ArchivedRecordingsGraphQLResponse{}
 	status, body, err := r.sendGraphQLRequest(ctx, base, query, "", response)
 	if err != nil {
 		return nil, err
@@ -542,7 +582,7 @@ func (r *TestResources) listArchivedRecordings(ctx context.Context, base *url.UR
 // sendGraphQLRequest posts a GraphQL query with the given bearer token and decodes the
 // response into result. It returns the HTTP status code and the raw response body alongside,
 // so that callers can report an unexpected status without a second read of the body.
-func (r *TestResources) sendGraphQLRequest(ctx context.Context, base *url.URL, query *GraphQLQuery, token string, result any) (int, string, error) {
+func (r *TestResources) sendGraphQLRequest(ctx context.Context, base *url.URL, query *cryostatapi.GraphQLQuery, token string, result any) (int, string, error) {
 	queryJSON, err := query.ToJSON()
 	if err != nil {
 		return 0, "", fmt.Errorf("failed to construct GraphQL query: %w", err)
@@ -572,84 +612,164 @@ func (r *TestResources) sendGraphQLRequest(ctx context.Context, base *url.URL, q
 	return resp.StatusCode, string(raw), nil
 }
 
-// checkREST issues a Cryostat REST request as the given privilege level and records whether
-// the response matched the expectation.
+// sendPrivilegedJSON issues a REST request as the scorecard pod's own ServiceAccount and, on
+// a 2xx response, decodes the JSON body into result (if result is non-nil). It is used by the
+// privileged setup step of the diagnostics and automated rules ladder tests, which have no
+// dedicated client type the way archived recordings does.
+func (r *TestResources) sendPrivilegedJSON(ctx context.Context, method string, requestURL *url.URL, body *string, result any) error {
+	contentType := ""
+	if body != nil {
+		contentType = "application/json"
+	}
+	return r.sendPrivilegedRequest(ctx, method, requestURL, contentType, body, result)
+}
+
+// sendPrivilegedRequest is sendPrivilegedJSON generalized over the request body's content
+// type, for privileged setup steps whose request body isn't JSON (e.g. the form-encoded and
+// multipart POSTs credentials and event templates expect).
+func (r *TestResources) sendPrivilegedRequest(ctx context.Context, method string, requestURL *url.URL, contentType string, body *string, result any) error {
+	header := make(http.Header)
+	header.Set("Accept", "*/*")
+	if contentType != "" {
+		header.Set("Content-Type", contentType)
+	}
+
+	resp, err := SendRequestWithToken(ctx, NewHttpClient(), method, requestURL.String(), body, header, "")
+	if err != nil {
+		return fmt.Errorf("%s %s failed: %w", method, requestURL.Path, err)
+	}
+	defer r.closeStream(resp.Body)
+
+	raw, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return fmt.Errorf("failed to read %s %s response body: %w", method, requestURL.Path, err)
+	}
+	if !StatusOK(resp.StatusCode) {
+		return fmt.Errorf("%s %s failed with status %d: %s", method, requestURL.Path, resp.StatusCode, raw)
+	}
+	if result != nil && len(raw) > 0 {
+		if err := json.Unmarshal(raw, result); err != nil {
+			return fmt.Errorf("failed to unmarshal %s %s response %q: %w", method, requestURL.Path, raw, err)
+		}
+	}
+	return nil
+}
+
+// rbacGomegaT adapts TestResources to Gomega's minimal testing interface
+// (gomega/types.GomegaTestingT), so a failed Gomega matcher records its failure message via
+// r.logError instead of stopping the process the way a real *testing.T's Fatalf would. A
+// scorecard test has no *testing.T to begin with, and the RBAC matrix needs every assertion
+// to run regardless of earlier ones failing, so the adapter's Fatalf deliberately returns
+// rather than halting.
+type rbacGomegaT struct {
+	r *TestResources
+}
+
+func (t *rbacGomegaT) Helper() {}
+
+func (t *rbacGomegaT) Fatalf(format string, args ...any) {
+	t.r.logError(fmt.Sprintf(format, args...))
+}
+
+var _ types.GomegaTestingT = (*rbacGomegaT)(nil)
+
+// checkREST issues a Cryostat REST request as the given privilege level and asserts, via
+// Gomega matchers, that the response matched allowed, the expected outcome for the
+// permission under test.
 //
 // A denied request is 403. An allowed but malformed one is 400. A 401 is called out
 // separately because it means the auth proxy rejected the token before Cryostat evaluated
 // any permission, which is a different failure from a permission denial.
-func (r *TestResources) checkREST(ctx context.Context, level *rbacPrivilegeLevel, permission string,
+func (r *TestResources) checkREST(ctx context.Context, level *rbacPrivilegeLevel, allowed bool, permission string,
 	method string, requestURL *url.URL, body *string, header http.Header) {
-	allowed := level.Allows(permission)
+	g := gomega.NewWithT(&rbacGomegaT{r: r})
 	label := fmt.Sprintf("REST %s %s as %s, expecting %s", method, requestURL.Path, level.Name, rbacExpectation(allowed))
 
 	resp, err := SendRequestWithToken(ctx, NewHttpClient(), method, requestURL.String(), body, header, level.Token)
-	if err != nil {
-		r.logError(fmt.Sprintf("%s: request failed: %s", label, err.Error()))
+	if !g.Expect(err).To(gomega.Succeed(), func() string {
+		return fmt.Sprintf("%s: request failed", label)
+	}) {
 		return
 	}
 	defer r.closeStream(resp.Body)
 
-	if resp.StatusCode == http.StatusUnauthorized {
-		r.logError(fmt.Sprintf("%s: got 401, so the auth proxy rejected the token before Cryostat"+
-			" evaluated %s; check that the ServiceAccount passes the proxy's access review", label, permission))
+	if !g.Expect(resp.StatusCode).ToNot(gomega.Equal(http.StatusUnauthorized), func() string {
+		return fmt.Sprintf("%s: got 401, so the auth proxy rejected the token before Cryostat"+
+			" evaluated %s; check that the ServiceAccount passes the proxy's access review", label, permission)
+	}) {
 		return
 	}
-	if allowed && !StatusOK(resp.StatusCode) {
-		r.logError(fmt.Sprintf("%s: got %d, want 2xx; body: %s", label, resp.StatusCode, ReadError(resp)))
-		return
-	}
-	if !allowed && resp.StatusCode != http.StatusForbidden {
-		r.logError(fmt.Sprintf("%s: got %d, want 403; body: %s", label, resp.StatusCode, ReadError(resp)))
-		return
+
+	if allowed {
+		if !g.Expect(StatusOK(resp.StatusCode)).To(gomega.BeTrue(), func() string {
+			return fmt.Sprintf("%s: got %d, want 2xx; body: %s", label, resp.StatusCode, ReadError(resp))
+		}) {
+			return
+		}
+	} else {
+		if !g.Expect(resp.StatusCode).To(gomega.Equal(http.StatusForbidden), func() string {
+			return fmt.Sprintf("%s: got %d, want 403; body: %s", label, resp.StatusCode, ReadError(resp))
+		}) {
+			return
+		}
 	}
 
 	r.Log += fmt.Sprintf("%s: got %d, as expected\n", label, resp.StatusCode)
 }
 
-// checkGraphQL issues a Cryostat GraphQL request as the given privilege level and records
-// whether the response matched the expectation.
+// checkGraphQL issues a Cryostat GraphQL request as the given privilege level and asserts,
+// via Gomega matchers, that the response matched allowed, the expected outcome for the
+// permission under test.
 //
 // Unlike the REST surface, a GraphQL permission denial is HTTP 200 with a populated "errors"
 // array: Cryostat's GraphQL security interceptor aborts the operation by throwing a
 // GraphQLException, which SmallRye renders as an ordinary GraphQL error response. The status
 // code therefore carries no authorization signal here, and the assertion is on the presence
 // or absence of a "Forbidden" error instead.
-func (r *TestResources) checkGraphQL(ctx context.Context, level *rbacPrivilegeLevel, permission string,
-	base *url.URL, query *GraphQLQuery, response *ArchivedRecordingsGraphQLResponse) {
-	allowed := level.Allows(permission)
+func (r *TestResources) checkGraphQL(ctx context.Context, level *rbacPrivilegeLevel, allowed bool, permission string,
+	base *url.URL, query *cryostatapi.GraphQLQuery, response *cryostatapi.ArchivedRecordingsGraphQLResponse) {
+	g := gomega.NewWithT(&rbacGomegaT{r: r})
 	label := fmt.Sprintf("GraphQL %s as %s, expecting %s", permission, level.Name, rbacExpectation(allowed))
 
 	status, body, err := r.sendGraphQLRequest(ctx, base, query, level.Token, response)
-	if err != nil {
-		r.logError(fmt.Sprintf("%s: %s", label, err.Error()))
+	if !g.Expect(err).To(gomega.Succeed(), func() string {
+		return fmt.Sprintf("%s: %s", label, err)
+	}) {
 		return
 	}
-	if status == http.StatusUnauthorized {
-		r.logError(fmt.Sprintf("%s: got 401, so the auth proxy rejected the token before Cryostat"+
-			" evaluated %s; check that the ServiceAccount passes the proxy's access review", label, permission))
+	if !g.Expect(status).ToNot(gomega.Equal(http.StatusUnauthorized), func() string {
+		return fmt.Sprintf("%s: got 401, so the auth proxy rejected the token before Cryostat"+
+			" evaluated %s; check that the ServiceAccount passes the proxy's access review", label, permission)
+	}) {
 		return
 	}
-	if status != http.StatusOK {
-		r.logError(fmt.Sprintf("%s: got HTTP %d, want 200; GraphQL denials are reported in the"+
-			" response body, not the status code; body: %s", label, status, body))
+	if !g.Expect(status).To(gomega.Equal(http.StatusOK), func() string {
+		return fmt.Sprintf("%s: got HTTP %d, want 200; GraphQL denials are reported in the"+
+			" response body, not the status code; body: %s", label, status, body)
+	}) {
 		return
 	}
 
 	denied := response.Denied()
-	if allowed && denied {
-		r.logError(fmt.Sprintf("%s: denied; errors: %v", label, response.Messages()))
-		return
+	if allowed {
+		if !g.Expect(denied).To(gomega.BeFalse(), func() string {
+			return fmt.Sprintf("%s: denied; errors: %v", label, response.Messages())
+		}) {
+			return
+		}
+		if !g.Expect(response.Errors).To(gomega.BeEmpty(), func() string {
+			return fmt.Sprintf("%s: allowed but the response carries errors: %v", label, response.Messages())
+		}) {
+			return
+		}
+	} else {
+		if !g.Expect(denied).To(gomega.BeTrue(), func() string {
+			return fmt.Sprintf("%s: not denied; errors: %v, body: %s", label, response.Messages(), body)
+		}) {
+			return
+		}
 	}
-	if !allowed && !denied {
-		r.logError(fmt.Sprintf("%s: not denied; errors: %v, body: %s", label, response.Messages(), body))
-		return
-	}
-	if allowed && len(response.Errors) > 0 {
-		r.logError(fmt.Sprintf("%s: allowed but the response carries errors: %v", label, response.Messages()))
-		return
-	}
-	if allowed && permission != rbacReadPermission && len(response.Data.ArchivedRecordings.Data) == 0 {
+	if allowed && permission != rbacArchivedRecordingsReadPermission && len(response.Data.ArchivedRecordings.Data) == 0 {
 		r.logError(fmt.Sprintf("%s: allowed but no archived recording matched, so the mutation did not run", label))
 		return
 	}
@@ -669,8 +789,8 @@ func rbacExpectation(allowed bool) string {
 // doPutMetadata resolver hangs off the ArchivedRecording type, so it is reached through the
 // archivedRecordings query; the filter narrows that query to a single recording so that the
 // resolver runs exactly once.
-func rbacPutMetadataQuery(name string) *GraphQLQuery {
-	return &GraphQLQuery{
+func rbacPutMetadataQuery(name string) *cryostatapi.GraphQLQuery {
+	return &cryostatapi.GraphQLQuery{
 		Query: `
 			query RBACPutMetadata($name: String!, $labels: [Entry_String_StringInput]) {
 				archivedRecordings(filter: { name: $name }) {
@@ -696,8 +816,8 @@ func rbacPutMetadataQuery(name string) *GraphQLQuery {
 // rbacDeleteQuery builds the GraphQL request exercising archivedrecordings:delete. As with
 // doPutMetadata, the doDelete resolver is reached through the archivedRecordings query and
 // the filter narrows it to the single recording the caller intends to delete.
-func rbacDeleteQuery(name string) *GraphQLQuery {
-	return &GraphQLQuery{
+func rbacDeleteQuery(name string) *cryostatapi.GraphQLQuery {
+	return &cryostatapi.GraphQLQuery{
 		Query: `
 			query RBACDelete($name: String!) {
 				archivedRecordings(filter: { name: $name }) {
@@ -718,8 +838,8 @@ func rbacDeleteQuery(name string) *GraphQLQuery {
 }
 
 // rbacListQuery builds the GraphQL request exercising archivedrecordings:read.
-func rbacListQuery() *GraphQLQuery {
-	return &GraphQLQuery{
+func rbacListQuery() *cryostatapi.GraphQLQuery {
+	return &cryostatapi.GraphQLQuery{
 		Query: `
 			query RBACList {
 				archivedRecordings {
@@ -733,21 +853,45 @@ func rbacListQuery() *GraphQLQuery {
 	}
 }
 
-// assertRBACMatrix runs every assertion in the privilege matrix: each privilege level
-// against each of archivedrecordings read, write and delete, on both the REST and GraphQL
-// surfaces. Failures are accumulated rather than returned, so that one unexpected outcome
-// does not hide the rest of the matrix.
-func (r *TestResources) assertRBACMatrix(ctx context.Context, base *url.URL, fixture *rbacFixture, levels []*rbacPrivilegeLevel) {
+// rbacAssertion is one permission check run against a privilege level, used to compose a
+// resource's REST and GraphQL privilege matrix.
+type rbacAssertion func(r *TestResources, ctx context.Context, base *url.URL, fixture *rbacFixture, level *rbacPrivilegeLevel)
+
+// archivedRecordingsAssertions returns the archivedrecordings privilege matrix: every
+// privilege level is checked against read, write and delete, on both the REST and GraphQL
+// surfaces.
+func archivedRecordingsAssertions() []rbacAssertion {
+	return []rbacAssertion{
+		func(r *TestResources, ctx context.Context, base *url.URL, fixture *rbacFixture, level *rbacPrivilegeLevel) {
+			r.assertRESTRead(ctx, base, level)
+		},
+		func(r *TestResources, ctx context.Context, base *url.URL, fixture *rbacFixture, level *rbacPrivilegeLevel) {
+			r.assertRESTWrite(ctx, base, fixture, level)
+		},
+		func(r *TestResources, ctx context.Context, base *url.URL, fixture *rbacFixture, level *rbacPrivilegeLevel) {
+			r.assertRESTDelete(ctx, base, fixture, level)
+		},
+		func(r *TestResources, ctx context.Context, base *url.URL, fixture *rbacFixture, level *rbacPrivilegeLevel) {
+			r.assertGraphQLRead(ctx, base, level)
+		},
+		func(r *TestResources, ctx context.Context, base *url.URL, fixture *rbacFixture, level *rbacPrivilegeLevel) {
+			r.assertGraphQLWrite(ctx, base, fixture, level)
+		},
+		func(r *TestResources, ctx context.Context, base *url.URL, fixture *rbacFixture, level *rbacPrivilegeLevel) {
+			r.assertGraphQLDelete(ctx, base, fixture, level)
+		},
+	}
+}
+
+// assertRBACMatrix runs every assertion in a resource's privilege matrix against every
+// privilege level, in order. Failures are accumulated rather than returned, so that one
+// unexpected outcome does not hide the rest of the matrix.
+func (r *TestResources) assertRBACMatrix(ctx context.Context, base *url.URL, fixture *rbacFixture, resource string, levels []*rbacPrivilegeLevel, assertions []rbacAssertion) {
 	for _, level := range levels {
-		r.Log += fmt.Sprintf("\n--- privilege level %q (%s verbs %v) ---\n", level.Name, rbacArchivesResource, level.ArchiveVerbs)
-
-		r.assertRESTRead(ctx, base, level)
-		r.assertRESTWrite(ctx, base, fixture, level)
-		r.assertRESTDelete(ctx, base, fixture, level)
-
-		r.assertGraphQLRead(ctx, base, level)
-		r.assertGraphQLWrite(ctx, base, fixture, level)
-		r.assertGraphQLDelete(ctx, base, fixture, level)
+		r.Log += fmt.Sprintf("\n--- privilege level %q (%s verbs %v) ---\n", level.Name, resource, level.Verbs)
+		for _, assertion := range assertions {
+			assertion(r, ctx, base, fixture, level)
+		}
 	}
 }
 
@@ -756,7 +900,7 @@ func (r *TestResources) assertRBACMatrix(ctx context.Context, base *url.URL, fix
 func (r *TestResources) assertRESTRead(ctx context.Context, base *url.URL, level *rbacPrivilegeLevel) {
 	header := make(http.Header)
 	header.Set("Accept", "*/*")
-	r.checkREST(ctx, level, rbacReadPermission, http.MethodGet, base.JoinPath("/api/v4/recordings"), nil, header)
+	r.checkREST(ctx, level, level.CanRead, rbacArchivedRecordingsReadPermission, http.MethodGet, base.JoinPath("/api/v4/recordings"), nil, header)
 }
 
 // assertRESTWrite checks archivedrecordings:write via PATCH of a live recording with the
@@ -769,7 +913,7 @@ func (r *TestResources) assertRESTWrite(ctx context.Context, base *url.URL, fixt
 	header.Set("Accept", "*/*")
 	body := "SAVE"
 	requestURL := base.JoinPath(fmt.Sprintf("/api/v4/targets/%d/recordings/%d", fixture.Target.Id, fixture.Recording.RemoteId))
-	r.checkREST(ctx, level, rbacWritePermission, http.MethodPatch, requestURL, &body, header)
+	r.checkREST(ctx, level, level.CanWrite, rbacArchivedRecordingsWritePermission, http.MethodPatch, requestURL, &body, header)
 }
 
 // assertRESTDelete checks archivedrecordings:delete via DELETE of an archived recording. The
@@ -777,27 +921,27 @@ func (r *TestResources) assertRESTWrite(ctx context.Context, base *url.URL, fixt
 // turns only on archivedrecordings:delete. A level expected to succeed consumes an archived
 // recording from the fixture; a level expected to be denied leaves it in place.
 func (r *TestResources) assertRESTDelete(ctx context.Context, base *url.URL, fixture *rbacFixture, level *rbacPrivilegeLevel) {
-	var archive *ArchivedRecordingNode
+	var archive *cryostatapi.ArchivedRecordingNode
 	if level.CanDelete {
 		archive = fixture.Take()
 	} else {
 		archive = fixture.Peek()
 	}
 	if archive == nil {
-		r.logError(fmt.Sprintf("REST %s as %s: no archived recording left to act on", rbacDeletePermission, level.Name))
+		r.logError(fmt.Sprintf("REST %s as %s: no archived recording left to act on", rbacArchivedRecordingsDeletePermission, level.Name))
 		return
 	}
 
 	header := make(http.Header)
 	header.Set("Accept", "*/*")
 	requestURL := base.JoinPath("/api/beta/fs/recordings", archive.JvmId, archive.Name)
-	r.checkREST(ctx, level, rbacDeletePermission, http.MethodDelete, requestURL, nil, header)
+	r.checkREST(ctx, level, level.CanDelete, rbacArchivedRecordingsDeletePermission, http.MethodDelete, requestURL, nil, header)
 }
 
 // assertGraphQLRead checks archivedrecordings:read via the top-level archivedRecordings
 // query.
 func (r *TestResources) assertGraphQLRead(ctx context.Context, base *url.URL, level *rbacPrivilegeLevel) {
-	r.checkGraphQL(ctx, level, rbacReadPermission, base, rbacListQuery(), &ArchivedRecordingsGraphQLResponse{})
+	r.checkGraphQL(ctx, level, level.CanRead, rbacArchivedRecordingsReadPermission, base, rbacListQuery(), &cryostatapi.ArchivedRecordingsGraphQLResponse{})
 }
 
 // assertGraphQLWrite checks archivedrecordings:write via the doPutMetadata resolver. Updating
@@ -806,25 +950,25 @@ func (r *TestResources) assertGraphQLRead(ctx context.Context, base *url.URL, le
 func (r *TestResources) assertGraphQLWrite(ctx context.Context, base *url.URL, fixture *rbacFixture, level *rbacPrivilegeLevel) {
 	archive := fixture.Peek()
 	if archive == nil {
-		r.logError(fmt.Sprintf("GraphQL %s as %s: no archived recording left to act on", rbacWritePermission, level.Name))
+		r.logError(fmt.Sprintf("GraphQL %s as %s: no archived recording left to act on", rbacArchivedRecordingsWritePermission, level.Name))
 		return
 	}
-	r.checkGraphQL(ctx, level, rbacWritePermission, base, rbacPutMetadataQuery(archive.Name), &ArchivedRecordingsGraphQLResponse{})
+	r.checkGraphQL(ctx, level, level.CanWrite, rbacArchivedRecordingsWritePermission, base, rbacPutMetadataQuery(archive.Name), &cryostatapi.ArchivedRecordingsGraphQLResponse{})
 }
 
 // assertGraphQLDelete checks archivedrecordings:delete via the doDelete resolver. A level
 // expected to succeed consumes an archived recording from the fixture; a level expected to
 // be denied leaves it in place.
 func (r *TestResources) assertGraphQLDelete(ctx context.Context, base *url.URL, fixture *rbacFixture, level *rbacPrivilegeLevel) {
-	var archive *ArchivedRecordingNode
+	var archive *cryostatapi.ArchivedRecordingNode
 	if level.CanDelete {
 		archive = fixture.Take()
 	} else {
 		archive = fixture.Peek()
 	}
 	if archive == nil {
-		r.logError(fmt.Sprintf("GraphQL %s as %s: no archived recording left to act on", rbacDeletePermission, level.Name))
+		r.logError(fmt.Sprintf("GraphQL %s as %s: no archived recording left to act on", rbacArchivedRecordingsDeletePermission, level.Name))
 		return
 	}
-	r.checkGraphQL(ctx, level, rbacDeletePermission, base, rbacDeleteQuery(archive.Name), &ArchivedRecordingsGraphQLResponse{})
+	r.checkGraphQL(ctx, level, level.CanDelete, rbacArchivedRecordingsDeletePermission, base, rbacDeleteQuery(archive.Name), &cryostatapi.ArchivedRecordingsGraphQLResponse{})
 }

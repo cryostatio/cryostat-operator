@@ -284,7 +284,7 @@ them from its local registry:
 SCORECARD_APPLICATIONS_DIR=/path/to/test-applications \
 OPERATOR_IMG=quay.io/cryostat/cryostat-operator:latest \
 CORE_IMG=quay.io/cryostat/cryostat:latest \
-SCORECARD_TEST_SELECTION=cryostat-agent,cryostat-agent-autoconfig \
+SCORECARD_TEST_SELECTION="cryostat-agent,cryostat-agent-autoconfig" \
 make test-scorecard-local-kind
 ```
 
@@ -301,7 +301,7 @@ MANIFEST_PUSH=false make scorecard-app-build \
 # Make these images available to the cluster before running the tests.
 CRYOSTAT_SCORECARD_SAMPLE_IMAGE=quay.io/me/scorecard-app:test \
 CRYOSTAT_SCORECARD_AGENT_IMAGE=quay.io/me/scorecard-agent-app:test \
-SCORECARD_TEST_SELECTION="cryostat-agent cryostat-agent-autoconfig" \
+SCORECARD_TEST_SELECTION="cryostat-agent,cryostat-agent-autoconfig" \
 make test-scorecard-local
 ```
 

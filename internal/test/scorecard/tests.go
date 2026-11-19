@@ -21,29 +21,43 @@ import (
 	"time"
 
 	operatorv1beta2 "github.com/cryostatio/cryostat-operator/api/v1beta2"
+	"github.com/cryostatio/cryostat-operator/internal/cryostatapi"
 	scapiv1alpha3 "github.com/operator-framework/api/pkg/apis/scorecard/v1alpha3"
 	apimanifests "github.com/operator-framework/api/pkg/manifests"
 )
 
 const (
-	OperatorInstallTestName         string = "operator-install"
-	ConsolePluginTestName           string = "console-plugin"
-	CryostatCRTestName              string = "cryostat-cr"
-	CryostatMultiNamespaceTestName  string = "cryostat-multi-namespace"
-	CryostatRecordingTestName       string = "cryostat-recording"
-	CryostatAgentTestName           string = "cryostat-agent"
-	CryostatAgentAutoConfigTestName string = "cryostat-agent-autoconfig"
-	CryostatConfigChangeTestName    string = "cryostat-config-change"
-	CryostatReportTestName          string = "cryostat-report"
-	CryostatRBACTestName            string = "cryostat-rbac"
+	OperatorInstallTestName                string = "operator-install"
+	ConsolePluginTestName                  string = "console-plugin"
+	CryostatCRTestName                     string = "cryostat-cr"
+	CryostatMultiNamespaceTestName         string = "cryostat-multi-namespace"
+	CryostatRecordingTestName              string = "cryostat-recording"
+	CryostatAgentTestName                  string = "cryostat-agent"
+	CryostatAgentAutoConfigTestName        string = "cryostat-agent-autoconfig"
+	CryostatConfigChangeTestName           string = "cryostat-config-change"
+	CryostatReportTestName                 string = "cryostat-report"
+	CryostatRBACArchivedRecordingsTestName string = "cryostat-rbac-archivedrecordings"
+	CryostatRBACIsolationTestName          string = "cryostat-rbac-isolation"
+	CryostatRBACThreadDumpsTestName        string = "cryostat-rbac-threaddumps"
+	CryostatRBACHeapDumpsTestName          string = "cryostat-rbac-heapdumps"
+	CryostatRBACUnifiedLogsTestName        string = "cryostat-rbac-unifiedlogs"
+	CryostatRBACAutomatedRulesTestName     string = "cryostat-rbac-automatedrules"
+	CryostatRBACCredentialsTestName        string = "cryostat-rbac-credentials"
+	CryostatRBACEventTemplatesTestName     string = "cryostat-rbac-eventtemplates"
+	CryostatRBACTargetVisibilityTestName   string = "cryostat-rbac-targetvisibility"
+	CryostatRBACNamespaceScopeTestName     string = "cryostat-rbac-namespacescope"
+	CryostatRBACAccessReviewTestName       string = "cryostat-rbac-accessreview"
+	CryostatRBACPrecedenceTestName         string = "cryostat-rbac-precedence"
 )
 
-// rbacSkipReason explains why the fine-grained RBAC test cannot carry signal on
-// Kubernetes. It is logged verbatim in the skip branch so that a green run on a
+// rbacSkipReason explains why an OpenShift-only fine-grained RBAC test cannot carry signal
+// on Kubernetes. It is logged verbatim in the skip branch so that a green run on a
 // non-OpenShift cluster is not mistaken for passing RBAC coverage.
-const rbacSkipReason = "skipping cryostat-rbac: Cryostat's fine-grained RBAC is only enforced" +
-	" when deployed on OpenShift. This test always passes on non-OpenShift Kubernetes since" +
-	" Cryostat will trivially pass all RBAC lookups as noops."
+func rbacSkipReason(testName string) string {
+	return fmt.Sprintf("skipping %s: Cryostat's fine-grained RBAC is only enforced"+
+		" when deployed on OpenShift. This test always passes on non-OpenShift Kubernetes since"+
+		" Cryostat will trivially pass all RBAC lookups as noops.", testName)
+}
 
 // OperatorInstallTest checks that the operator installed correctly
 func OperatorInstallTest(bundle *apimanifests.Bundle, namespace string, openShiftCertManager bool) *scapiv1alpha3.TestResult {
@@ -193,7 +207,7 @@ func CryostatRecordingTest(bundle *apimanifests.Bundle, namespace string, openSh
 	apiClient := r.NewCryostatRESTClientset(base)
 
 	// Create a custom target for test
-	targetOptions := &Target{
+	targetOptions := &cryostatapi.Target{
 		ConnectUrl: "service:jmx:rmi:///jndi/rmi://localhost:0/jmxrmi",
 		Alias:      "customTarget",
 	}
@@ -215,7 +229,7 @@ func CryostatRecordingTest(bundle *apimanifests.Bundle, namespace string, openSh
 	return r.TestResult
 }
 
-// CryostatRBACTest checks that the fine-grained RBAC permission mappings configured on a
+// CryostatRBACArchivedRecordingsTest checks that the fine-grained RBAC permission mappings configured on a
 // Cryostat CR are enforced by the deployed Cryostat application.
 //
 // Four ServiceAccounts form a monotone privilege ladder over archived recordings - none,
@@ -225,15 +239,15 @@ func CryostatRecordingTest(bundle *apimanifests.Bundle, namespace string, openSh
 // REST and the GraphQL surface.
 //
 // The test is a no-op on Kubernetes: see rbacSkipReason.
-func CryostatRBACTest(bundle *apimanifests.Bundle, namespace string, openShiftCertManager bool) *scapiv1alpha3.TestResult {
-	r := newTestResources(CryostatRBACTestName, namespace)
+func CryostatRBACArchivedRecordingsTest(bundle *apimanifests.Bundle, namespace string, openShiftCertManager bool) *scapiv1alpha3.TestResult {
+	r := newTestResources(CryostatRBACArchivedRecordingsTestName, namespace)
 
 	err := r.setupCRTestResources(openShiftCertManager)
 	if err != nil {
-		return r.fail(fmt.Sprintf("failed to set up %s test: %s", CryostatRBACTestName, err.Error()))
+		return r.fail(fmt.Sprintf("failed to set up %s test: %s", CryostatRBACArchivedRecordingsTestName, err.Error()))
 	}
 	if !r.OpenShift {
-		r.Log += rbacSkipReason + "\n"
+		r.Log += rbacSkipReason(CryostatRBACArchivedRecordingsTestName) + "\n"
 		return r.TestResult
 	}
 	defer r.cleanupAndLogs()
@@ -243,14 +257,14 @@ func CryostatRBACTest(bundle *apimanifests.Bundle, namespace string, openShiftCe
 
 	levels := rbacPrivilegeLevels()
 	defer r.cleanupRBACSubjects(levels)
-	err = r.setupRBACSubjects(setupCtx, levels)
+	err = r.setupRBACSubjects(setupCtx, rbacArchivesResource, archivedRecordingsSupportingRules(), levels)
 	if err != nil {
 		return r.fail(fmt.Sprintf("failed to set up RBAC subjects: %s", err.Error()))
 	}
 
-	cr, err := r.createAndWaitTillCryostatAvailable(r.newRBACCryostatCR())
+	cr, err := r.createAndWaitTillCryostatAvailable(r.newRBACCryostatCR(archivedRecordingsRBACPermissions()))
 	if err != nil {
-		return r.fail(fmt.Sprintf("%s test failed: %s", CryostatRBACTestName, err.Error()))
+		return r.fail(fmt.Sprintf("%s test failed: %s", CryostatRBACArchivedRecordingsTestName, err.Error()))
 	}
 	err = r.StartLogs(cr)
 	if err != nil {
@@ -271,10 +285,10 @@ func CryostatRBACTest(bundle *apimanifests.Bundle, namespace string, openShiftCe
 
 	fixture, err := r.setupRBACFixture(ctx, cr, base)
 	if err != nil {
-		return r.fail(fmt.Sprintf("failed to set up recordings for %s test: %s", CryostatRBACTestName, err.Error()))
+		return r.fail(fmt.Sprintf("failed to set up recordings for %s test: %s", CryostatRBACArchivedRecordingsTestName, err.Error()))
 	}
 
-	r.assertRBACMatrix(ctx, base, fixture, levels)
+	r.assertRBACMatrix(ctx, base, fixture, rbacArchivesResource, levels, archivedRecordingsAssertions())
 
 	return r.TestResult
 }
