@@ -70,11 +70,7 @@ stages:
   - entrypoint:
     - cryostat-scorecard-tests
     - operator-install
-<<<<<<< HEAD
     image: quay.io/cryostat/cryostat-operator-scorecard:4.3.0-20261118180820
-=======
-    image: quay.io/cryostat/cryostat-operator-scorecard:5.0.0-20261117175605
->>>>>>> a132663 (test(rbac): scorecard test and additional controller tests (#1554))
     labels:
       suite: cryostat
       test: operator-install
@@ -84,11 +80,7 @@ stages:
   - entrypoint:
     - cryostat-scorecard-tests
     - console-plugin
-<<<<<<< HEAD
     image: quay.io/cryostat/cryostat-operator-scorecard:4.3.0-20261118180820
-=======
-    image: quay.io/cryostat/cryostat-operator-scorecard:5.0.0-20261117175605
->>>>>>> a132663 (test(rbac): scorecard test and additional controller tests (#1554))
     labels:
       suite: cryostat
       test: console-plugin
@@ -98,11 +90,7 @@ stages:
   - entrypoint:
     - cryostat-scorecard-tests
     - cryostat-cr
-<<<<<<< HEAD
     image: quay.io/cryostat/cryostat-operator-scorecard:4.3.0-20261118180820
-=======
-    image: quay.io/cryostat/cryostat-operator-scorecard:5.0.0-20261117175605
->>>>>>> a132663 (test(rbac): scorecard test and additional controller tests (#1554))
     labels:
       suite: cryostat
       test: cryostat-cr
@@ -112,11 +100,7 @@ stages:
   - entrypoint:
     - cryostat-scorecard-tests
     - cryostat-multi-namespace
-<<<<<<< HEAD
     image: quay.io/cryostat/cryostat-operator-scorecard:4.3.0-20261118180820
-=======
-    image: quay.io/cryostat/cryostat-operator-scorecard:5.0.0-20261117175605
->>>>>>> a132663 (test(rbac): scorecard test and additional controller tests (#1554))
     labels:
       suite: cryostat
       test: cryostat-multi-namespace
@@ -126,11 +110,7 @@ stages:
   - entrypoint:
     - cryostat-scorecard-tests
     - cryostat-recording
-<<<<<<< HEAD
     image: quay.io/cryostat/cryostat-operator-scorecard:4.3.0-20261118180820
-=======
-    image: quay.io/cryostat/cryostat-operator-scorecard:5.0.0-20261117175605
->>>>>>> a132663 (test(rbac): scorecard test and additional controller tests (#1554))
     labels:
       suite: cryostat
       test: cryostat-recording
@@ -140,11 +120,7 @@ stages:
   - entrypoint:
     - cryostat-scorecard-tests
     - cryostat-config-change
-<<<<<<< HEAD
     image: quay.io/cryostat/cryostat-operator-scorecard:4.3.0-20261118180820
-=======
-    image: quay.io/cryostat/cryostat-operator-scorecard:5.0.0-20261117175605
->>>>>>> a132663 (test(rbac): scorecard test and additional controller tests (#1554))
     labels:
       suite: cryostat
       test: cryostat-config-change
@@ -154,11 +130,7 @@ stages:
   - entrypoint:
     - cryostat-scorecard-tests
     - cryostat-report
-<<<<<<< HEAD
     image: quay.io/cryostat/cryostat-operator-scorecard:4.3.0-20261118180820
-=======
-    image: quay.io/cryostat/cryostat-operator-scorecard:5.0.0-20261117175605
->>>>>>> a132663 (test(rbac): scorecard test and additional controller tests (#1554))
     labels:
       suite: cryostat
       test: cryostat-report
@@ -168,11 +140,7 @@ stages:
   - entrypoint:
     - cryostat-scorecard-tests
     - cryostat-agent
-<<<<<<< HEAD
     image: quay.io/cryostat/cryostat-operator-scorecard:4.3.0-20261118180820
-=======
-    image: quay.io/cryostat/cryostat-operator-scorecard:5.0.0-20261117175605
->>>>>>> a132663 (test(rbac): scorecard test and additional controller tests (#1554))
     labels:
       suite: cryostat
       test: cryostat-agent
@@ -182,11 +150,7 @@ stages:
   - entrypoint:
     - cryostat-scorecard-tests
     - cryostat-agent-autoconfig
-<<<<<<< HEAD
     image: quay.io/cryostat/cryostat-operator-scorecard:4.3.0-20261118180820
-=======
-    image: quay.io/cryostat/cryostat-operator-scorecard:5.0.0-20261117175605
->>>>>>> a132663 (test(rbac): scorecard test and additional controller tests (#1554))
     labels:
       suite: cryostat
       test: cryostat-agent-autoconfig
@@ -196,7 +160,7 @@ stages:
   - entrypoint:
     - cryostat-scorecard-tests
     - cryostat-rbac
-    image: quay.io/cryostat/cryostat-operator-scorecard:5.0.0-20261117175605
+    image: quay.io/cryostat/cryostat-operator-scorecard:4.3.0-20261118180820
     labels:
       suite: cryostat
       test: cryostat-rbac
