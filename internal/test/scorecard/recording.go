@@ -65,7 +65,7 @@ func (r *TestResources) exerciseRecording(ctx context.Context, apiClient *Cryost
 	}
 
 	// Archive the recording
-	archiveJobID, err := apiClient.Recordings().Archive(ctx, target, rec.Id)
+	archiveJobID, err := apiClient.Recordings().Archive(ctx, target, rec.RemoteId)
 	if err != nil {
 		return fmt.Errorf("failed to archive the recording: %s", err.Error())
 	}
@@ -86,7 +86,7 @@ func (r *TestResources) exerciseRecording(ctx context.Context, apiClient *Cryost
 	r.Log += fmt.Sprintf("report generation job ID for the recording %s: %+v\n", rec.Name, *reportJobId)
 
 	// Stop the recording
-	err = apiClient.Recordings().Stop(ctx, target, rec.Id)
+	err = apiClient.Recordings().Stop(ctx, target, rec.RemoteId)
 	if err != nil {
 		return fmt.Errorf("failed to stop the recording %s: %s", rec.Name, err.Error())
 	}
@@ -101,7 +101,7 @@ func (r *TestResources) exerciseRecording(ctx context.Context, apiClient *Cryost
 	r.Log += fmt.Sprintf("stopped the recording: %s\n", rec.Name)
 
 	// Delete the recording
-	err = apiClient.Recordings().Delete(ctx, target, rec.Id)
+	err = apiClient.Recordings().Delete(ctx, target, rec.RemoteId)
 	if err != nil {
 		return fmt.Errorf("failed to delete the recording %s: %s", rec.Name, err.Error())
 	}

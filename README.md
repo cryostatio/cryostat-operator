@@ -307,20 +307,13 @@ make test-scorecard-local
 
 #### Publishing the Agent Scorecard images
 
-Merge and publish the sample applications from `test-applications` before using
-them in a published runner. That repository's publishing workflow uses its
-existing `redhat-java-monitoring` robot account; the Operator workflow publishes
-only the Scorecard runner. Personal Quay write access to the sample repositories
-is unnecessary when CI publishes them. Confirm that both new repositories are
-public so test clusters can pull the images without an additional pull secret.
-
 Use the Go version in `go.mod` and the Operator SDK version in `Makefile`
 (`bin/operator-sdk` takes precedence over a globally installed SDK). From the
 Operator repository root, build the runner with the published sample references:
 
 ```sh
 export CUSTOM_SCORECARD_VERSION="5.0.0-$(date -u +%Y%m%d%H%M%S)"
-export CUSTOM_SCORECARD_IMG="quay.io/jtolentino1/cryostat-operator-scorecard:${CUSTOM_SCORECARD_VERSION}"
+export CUSTOM_SCORECARD_IMG="quay.io/cryostat/cryostat-operator-scorecard:${CUSTOM_SCORECARD_VERSION}"
 # Prefer a published version/date tag or digest when preparing a runner release.
 export SCORECARD_SAMPLE_IMG="quay.io/redhat-java-monitoring/cryostat-operator-scorecard-app:<published-tag>"
 export SCORECARD_AGENT_IMG="quay.io/redhat-java-monitoring/cryostat-operator-scorecard-agent-app:<published-tag>"
@@ -350,9 +343,7 @@ Once the Operator change is merged upstream, its publishing workflow builds and
 publishes the checked-in runner tag under `quay.io/cryostat` if it does not already
 exist. Before merge, use the local Kind flow to validate the runner and replace
 the build-number placeholders in both Scorecard configs with a fresh timestamped
-tag. The publishing workflow creates that tag after merge; manual publication is
-optional. The sample images must be published from `test-applications` before the
-Operator PR's Agent tests can pass using the default image references.
+tag.
 
 #### Scorecard testing on a local kind cluster
 
