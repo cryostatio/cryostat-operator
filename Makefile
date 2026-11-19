@@ -322,6 +322,28 @@ else
 endif
 endif
 
+.PHONY: test-scorecard-local-list
+test-scorecard-local-list: ## List available local scorecard tests as a comma-separated list.
+	@go run internal/images/custom-scorecard-tests/main.go -list 2>&1 | sed -n 's/.*available tests: \(.*\)$$/\1/p' | sed 's/, /,/g' || true
+
+.PHONY: test-scorecard-list
+test-scorecard-list: ## List available scorecard tests from bundle image as a comma-separated list.
+	@( \
+	bundle_dir=$$(mktemp -d); \
+	bundle_container=; \
+	cleanup_bundle() { \
+		if [ -n "$$bundle_container" ]; then \
+			$(IMAGE_BUILDER) rm -f "$$bundle_container" >/dev/null || true; \
+		fi; \
+		rm -rf "$$bundle_dir"; \
+	}; \
+	trap cleanup_bundle EXIT; \
+	bundle_container=$$($(IMAGE_BUILDER) create --pull=always "$(BUNDLE_IMG)" /bin/true); \
+	$(IMAGE_BUILDER) cp "$$bundle_container:/manifests" "$$bundle_dir/manifests"; \
+	$(IMAGE_BUILDER) cp "$$bundle_container:/metadata" "$$bundle_dir/metadata"; \
+	BUNDLE_DIR="$$bundle_dir" go run internal/images/custom-scorecard-tests/main.go -list 2>&1 | sed -n 's/.*available tests: \(.*\)$$/\1/p' | sed 's/, /,/g' || true; \
+	)
+
 .PHONY: clean-scorecard
 clean-scorecard: operator-sdk ## Clean up scorecard resources.
 	- $(call scorecard-cleanup); cleanup
