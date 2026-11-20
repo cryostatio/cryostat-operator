@@ -8,11 +8,7 @@
     entrypoint:
     - cryostat-scorecard-tests
     - operator-install
-<<<<<<< HEAD
     image: "quay.io/cryostat/cryostat-operator-scorecard:4.3.0-20261119180659"
-=======
-    image: "quay.io/cryostat/cryostat-operator-scorecard:5.0.0-20261119170114"
->>>>>>> 40568b6 (test(rbac): extended fine-grained RBAC scorecard tests (#1615))
     labels:
       suite: cryostat
       test: operator-install
@@ -22,11 +18,7 @@
     entrypoint:
     - cryostat-scorecard-tests
     - console-plugin
-<<<<<<< HEAD
     image: "quay.io/cryostat/cryostat-operator-scorecard:4.3.0-20261119180659"
-=======
-    image: "quay.io/cryostat/cryostat-operator-scorecard:5.0.0-20261119170114"
->>>>>>> 40568b6 (test(rbac): extended fine-grained RBAC scorecard tests (#1615))
     labels:
       suite: cryostat
       test: console-plugin
@@ -36,11 +28,7 @@
     entrypoint:
     - cryostat-scorecard-tests
     - cryostat-cr
-<<<<<<< HEAD
     image: "quay.io/cryostat/cryostat-operator-scorecard:4.3.0-20261119180659"
-=======
-    image: "quay.io/cryostat/cryostat-operator-scorecard:5.0.0-20261119170114"
->>>>>>> 40568b6 (test(rbac): extended fine-grained RBAC scorecard tests (#1615))
     labels:
       suite: cryostat
       test: cryostat-cr
@@ -50,11 +38,7 @@
     entrypoint:
     - cryostat-scorecard-tests
     - cryostat-multi-namespace
-<<<<<<< HEAD
     image: "quay.io/cryostat/cryostat-operator-scorecard:4.3.0-20261119180659"
-=======
-    image: "quay.io/cryostat/cryostat-operator-scorecard:5.0.0-20261119170114"
->>>>>>> 40568b6 (test(rbac): extended fine-grained RBAC scorecard tests (#1615))
     labels:
       suite: cryostat
       test: cryostat-multi-namespace
@@ -64,11 +48,7 @@
     entrypoint:
     - cryostat-scorecard-tests
     - cryostat-recording
-<<<<<<< HEAD
     image: "quay.io/cryostat/cryostat-operator-scorecard:4.3.0-20261119180659"
-=======
-    image: "quay.io/cryostat/cryostat-operator-scorecard:5.0.0-20261119170114"
->>>>>>> 40568b6 (test(rbac): extended fine-grained RBAC scorecard tests (#1615))
     labels:
       suite: cryostat
       test: cryostat-recording
@@ -78,11 +58,7 @@
     entrypoint:
     - cryostat-scorecard-tests
     - cryostat-config-change
-<<<<<<< HEAD
     image: "quay.io/cryostat/cryostat-operator-scorecard:4.3.0-20261119180659"
-=======
-    image: "quay.io/cryostat/cryostat-operator-scorecard:5.0.0-20261119170114"
->>>>>>> 40568b6 (test(rbac): extended fine-grained RBAC scorecard tests (#1615))
     labels:
       suite: cryostat
       test: cryostat-config-change
@@ -92,11 +68,7 @@
     entrypoint:
     - cryostat-scorecard-tests
     - cryostat-report
-<<<<<<< HEAD
     image: "quay.io/cryostat/cryostat-operator-scorecard:4.3.0-20261119180659"
-=======
-    image: "quay.io/cryostat/cryostat-operator-scorecard:5.0.0-20261119170114"
->>>>>>> 40568b6 (test(rbac): extended fine-grained RBAC scorecard tests (#1615))
     labels:
       suite: cryostat
       test: cryostat-report
@@ -106,11 +78,7 @@
     entrypoint:
     - cryostat-scorecard-tests
     - cryostat-agent
-<<<<<<< HEAD
     image: "quay.io/cryostat/cryostat-operator-scorecard:4.3.0-20261119180659"
-=======
-    image: "quay.io/cryostat/cryostat-operator-scorecard:5.0.0-20261119170114"
->>>>>>> 40568b6 (test(rbac): extended fine-grained RBAC scorecard tests (#1615))
     labels:
       suite: cryostat
       test: cryostat-agent
@@ -120,11 +88,7 @@
     entrypoint:
     - cryostat-scorecard-tests
     - cryostat-agent-autoconfig
-<<<<<<< HEAD
     image: "quay.io/cryostat/cryostat-operator-scorecard:4.3.0-20261119180659"
-=======
-    image: "quay.io/cryostat/cryostat-operator-scorecard:5.0.0-20261119170114"
->>>>>>> 40568b6 (test(rbac): extended fine-grained RBAC scorecard tests (#1615))
     labels:
       suite: cryostat
       test: cryostat-agent-autoconfig
@@ -133,13 +97,8 @@
   value:
     entrypoint:
     - cryostat-scorecard-tests
-<<<<<<< HEAD
     - cryostat-rbac
     image: "quay.io/cryostat/cryostat-operator-scorecard:4.3.0-20261119180659"
-=======
-    - cryostat-rbac-archivedrecordings
-    image: "quay.io/cryostat/cryostat-operator-scorecard:5.0.0-20261119170114"
->>>>>>> 40568b6 (test(rbac): extended fine-grained RBAC scorecard tests (#1615))
     labels:
       suite: cryostat
       test: cryostat-rbac-archivedrecordings

@@ -41,13 +41,8 @@ metadata:
       ]
     capabilities: Seamless Upgrades
     categories: Monitoring, Developer Tools
-<<<<<<< HEAD
     containerImage: quay.io/cryostat/cryostat-operator:4.3.0-dev
     createdAt: "2026-11-19T18:07:02Z"
-=======
-    containerImage: quay.io/cryostat/cryostat-operator:5.0.0-dev
-    createdAt: "2026-11-19T17:01:18Z"
->>>>>>> 40568b6 (test(rbac): extended fine-grained RBAC scorecard tests (#1615))
     description: JVM monitoring and profiling tool
     operatorframework.io/initialization-resource: |-
       {
