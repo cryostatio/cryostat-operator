@@ -131,8 +131,8 @@ rules:
   - pods/log
   verbs:
   - get
-# Permissions for the cryostat-rbac test, which builds a privilege ladder of
-# ServiceAccounts and masquerades as each one against the Cryostat API.
+# Permissions for the cryostat-rbac* tests, which each build a privilege ladder of
+# ServiceAccounts and masquerade as each one against the Cryostat API.
 - apiGroups:
   - ""
   resources:
@@ -157,7 +157,7 @@ rules:
   - delete
   - get
 # Synthetic resources in the core API group, used as the targets of the Cryostat
-# permission mappings the cryostat-rbac test configures.
+# permission mappings the cryostat-rbac* tests configure.
 # The resources do not exist in the API server's resource registry and rely on
 # RBAC rule-matching for these synthetic resources.
 - apiGroups:
@@ -167,6 +167,18 @@ rules:
   - cryostatrecordings
   - cryostattargets
   - cryostatnothing
+  - cryostatthreaddumps
+  - cryostatheapdumps
+  - cryostataudit
+  - cryostatunifiedlogs
+  - cryostatautomatedrules
+  - cryostatcredentials
+  - cryostateventtemplates
+  - cryostatdiscoverynodes
+  - cryostataccessreviewgate
+  - cryostatprecedenceexplicit
+  - cryostatprecedenceverbdefault
+  - cryostatprecedencecatchall
   verbs:
   - get
   - update
@@ -232,4 +244,24 @@ rules:
   verbs:
   - create
   - delete
+  - get
+# Permissions for the cryostat-rbac-namespacescope test, which proves that
+# NamespacedRBACPermissions: false makes Cryostat's SSAR cluster-scoped: it must create and
+# bind a ClusterRole (not just a namespaced Role) for the ServiceAccount expected to pass, and
+# must itself hold the equivalent cluster-scoped grant on the synthetic resource first, to
+# satisfy Kubernetes' privilege-escalation prevention when creating that ClusterRoleBinding.
+- apiGroups:
+  - rbac.authorization.k8s.io
+  resources:
+  - clusterroles
+  - clusterrolebindings
+  verbs:
+  - create
+  - delete
+  - get
+- apiGroups:
+  - ""
+  resources:
+  - cryostatnamespacescope
+  verbs:
   - get

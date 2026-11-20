@@ -3,6 +3,8 @@
 SHELL := /usr/bin/env bash -o pipefail
 .SHELLFLAGS = -ec
 
+comma := ,
+
 # OS information
 OS = $(shell go env GOOS)
 ARCH = $(shell go env GOARCH)
@@ -252,6 +254,7 @@ KUSTOMIZE_BUNDLE_DIR ?= config/manifests
 endif
 endif
 
+SCORECARD_TIMEOUT ?= 60m
 # Specify which scorecard tests/suites to run
 ifneq ($(SCORECARD_TEST_SELECTION),)
 SCORECARD_TEST_SELECTOR := --selector='test in ($(SCORECARD_TEST_SELECTION))'
@@ -300,7 +303,7 @@ ifneq ($(SKIP_TESTS), true)
 	$(call scorecard-setup)
 	$(call scorecard-cleanup) ; \
 	trap cleanup EXIT ; \
-	$(OPERATOR_SDK) scorecard -n $(SCORECARD_NAMESPACE) -s cryostat-scorecard -w 20m $(SCORECARD_BUNDLE) --pod-security=restricted -o $(SCORECARD_OUTPUT_FORMAT) $(SCORECARD_TEST_SELECTOR) $(SCORECARD_TEE)
+	$(OPERATOR_SDK) scorecard -n $(SCORECARD_NAMESPACE) -s cryostat-scorecard -w $(SCORECARD_TIMEOUT) $(SCORECARD_BUNDLE) --pod-security=restricted -o $(SCORECARD_OUTPUT_FORMAT) $(SCORECARD_TEST_SELECTOR) $(SCORECARD_TEE)
 endif
 
 .PHONY: test-scorecard-local
@@ -318,6 +321,28 @@ else
 	$(call scorecard-local)
 endif
 endif
+
+.PHONY: test-scorecard-local-list
+test-scorecard-local-list: ## List available local scorecard tests as a comma-separated list.
+	@go run internal/images/custom-scorecard-tests/main.go -list 2>&1 | sed -n 's/.*available tests: \(.*\)$$/\1/p' | sed 's/, /,/g' || true
+
+.PHONY: test-scorecard-list
+test-scorecard-list: ## List available scorecard tests from bundle image as a comma-separated list.
+	@( \
+	bundle_dir=$$(mktemp -d); \
+	bundle_container=; \
+	cleanup_bundle() { \
+		if [ -n "$$bundle_container" ]; then \
+			$(IMAGE_BUILDER) rm -f "$$bundle_container" >/dev/null || true; \
+		fi; \
+		rm -rf "$$bundle_dir"; \
+	}; \
+	trap cleanup_bundle EXIT; \
+	bundle_container=$$($(IMAGE_BUILDER) create --pull=always "$(BUNDLE_IMG)" /bin/true); \
+	$(IMAGE_BUILDER) cp "$$bundle_container:/manifests" "$$bundle_dir/manifests"; \
+	$(IMAGE_BUILDER) cp "$$bundle_container:/metadata" "$$bundle_dir/metadata"; \
+	BUNDLE_DIR="$$bundle_dir" go run internal/images/custom-scorecard-tests/main.go -list 2>&1 | sed -n 's/.*available tests: \(.*\)$$/\1/p' | sed 's/, /,/g' || true; \
+	)
 
 .PHONY: clean-scorecard
 clean-scorecard: operator-sdk ## Clean up scorecard resources.
@@ -368,7 +393,7 @@ define scorecard-local
 	bundle_container=$$($(IMAGE_BUILDER) create --pull=always "$(BUNDLE_IMG)" /bin/true); \
 	$(IMAGE_BUILDER) cp "$$bundle_container:/manifests" "$$bundle_dir/manifests"; \
 	$(IMAGE_BUILDER) cp "$$bundle_container:/metadata" "$$bundle_dir/metadata"; \
-	SCORECARD_NAMESPACE=$(SCORECARD_NAMESPACE) BUNDLE_DIR="$$bundle_dir" go run internal/images/custom-scorecard-tests/main.go $${SCORECARD_TEST_SELECTION} | sed 's/\\n/\n/g' $(SCORECARD_TEE); \
+	SCORECARD_NAMESPACE=$(SCORECARD_NAMESPACE) BUNDLE_DIR="$$bundle_dir" go run internal/images/custom-scorecard-tests/main.go $(subst $(comma), ,$(SCORECARD_TEST_SELECTION)) | sed 's/\\n/\n/g' $(SCORECARD_TEE); \
 	)
 endef
 

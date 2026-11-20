@@ -12,7 +12,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package scorecard
+// Package cryostatapi models the shapes of Cryostat's own REST and GraphQL APIs: request
+// bodies, response payloads, and the small helpers (form encoding, GraphQL error inspection)
+// that go with them. It has no dependency on Kubernetes, the operator, or any particular test
+// framework, so it can be reused by any scorecard test, or any other Go code, that needs to
+// talk to a running Cryostat instance.
+package cryostatapi
 
 import (
 	"encoding/json"
@@ -202,11 +207,70 @@ type ArchivedRecordingsGraphQLResponse struct {
 }
 
 // ArchivedRecordingNode is an archived recording as returned by the top-level
-// "archivedRecordings" GraphQL query, including the results of the mutation resolvers the
-// RBAC test nests underneath it.
+// "archivedRecordings" GraphQL query, including the results of mutation resolvers nested
+// underneath it (such as doPutMetadata and doDelete).
 type ArchivedRecordingNode struct {
 	Name          string   `json:"name"`
 	JvmId         string   `json:"jvmId"`
 	DoPutMetadata *Archive `json:"doPutMetadata,omitempty"`
 	DoDelete      *Archive `json:"doDelete,omitempty"`
+}
+
+// ArchivedThreadDumpDirectory is one target's thread dumps, as returned by
+// GET /api/beta/diagnostics/fs/threaddumps.
+type ArchivedThreadDumpDirectory struct {
+	JvmId       string            `json:"jvmId"`
+	ThreadDumps []ThreadDumpEntry `json:"threadDumps"`
+}
+
+type ThreadDumpEntry struct {
+	JvmId        string `json:"jvmId"`
+	ThreadDumpId string `json:"threadDumpId"`
+}
+
+// ArchivedHeapDumpDirectory is one target's heap dumps, as returned by
+// GET /api/beta/diagnostics/fs/heapdumps.
+type ArchivedHeapDumpDirectory struct {
+	JvmId     string          `json:"jvmId"`
+	HeapDumps []HeapDumpEntry `json:"heapDumps"`
+}
+
+type HeapDumpEntry struct {
+	JvmId      string `json:"jvmId"`
+	HeapDumpId string `json:"heapDumpId"`
+}
+
+// ArchivedUnifiedLogDirectory is one target's unified logs, as returned by
+// GET /api/beta/diagnostics/fs/unified-logs.
+type ArchivedUnifiedLogDirectory struct {
+	JvmId       string            `json:"jvmId"`
+	UnifiedLogs []UnifiedLogEntry `json:"unifiedLogs"`
+}
+
+type UnifiedLogEntry struct {
+	JvmId string `json:"jvmId"`
+	LogId string `json:"logId"`
+}
+
+// UnifiedLogSession is the response to enabling or pulling a unified logging session, as
+// returned by POST .../unified-logging and POST .../unified-logging/pull.
+type UnifiedLogSession struct {
+	JvmId string `json:"jvmId"`
+	LogId string `json:"logId"`
+}
+
+// Rule is an automated rule, as returned by the /api/v4/rules endpoints.
+type Rule struct {
+	Name string `json:"name"`
+}
+
+// CredentialResponse is a stored credential as returned by POST /api/v4/credentials.
+type CredentialResponse struct {
+	Id uint32 `json:"id"`
+}
+
+// EventTemplate is a custom event template as returned by the /api/v4/event_templates
+// endpoints.
+type EventTemplate struct {
+	Name string `json:"name"`
 }
