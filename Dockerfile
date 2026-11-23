@@ -1,5 +1,5 @@
 # Build the manager binary
-FROM docker.io/library/golang:1.17 as builder
+FROM docker.io/library/golang:1.17@sha256:87262e4a4c7db56158a80a18fefdc4fee5accc41b59cde821e691d05541bbb18 as builder
 
 WORKDIR /workspace
 # Copy the Go Modules manifests
@@ -17,7 +17,7 @@ COPY internal/controllers/ internal/controllers/
 # Build
 RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 GO111MODULE=on go build -a -o manager internal/main.go
 
-FROM registry.access.redhat.com/ubi8/ubi-minimal:latest
+FROM registry.access.redhat.com/ubi8/ubi-minimal:latest@sha256:44750adffaa77b9841122dd93b20f41a14473b0345918cfa110538a84a45e888
 WORKDIR /
 COPY --from=builder /workspace/manager .
 USER 65532:65532
