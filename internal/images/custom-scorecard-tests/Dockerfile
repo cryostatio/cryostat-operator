@@ -35,7 +35,7 @@
 # SOFTWARE.
 
 # Build the manager binary
-FROM docker.io/library/golang:1.18 as builder
+FROM docker.io/library/golang:1.18@sha256:50c889275d26f816b5314fc99f55425fa76b18fcaf16af255f5d57f09e1f48da as builder
 
 WORKDIR /workspace
 # Copy the Go Modules manifests
@@ -53,7 +53,7 @@ COPY internal/test/scorecard/ internal/test/scorecard/
 RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 GO111MODULE=on go build -a -o cryostat-scorecard-tests \
     internal/images/custom-scorecard-tests/main.go
 
-FROM registry.access.redhat.com/ubi8/ubi-minimal:latest
+FROM registry.access.redhat.com/ubi8/ubi-minimal:latest@sha256:44750adffaa77b9841122dd93b20f41a14473b0345918cfa110538a84a45e888
 
 ENV TEST=/usr/local/bin/cryostat-scorecard-tests \
     USER_UID=1001 \
