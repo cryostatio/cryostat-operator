@@ -7,7 +7,7 @@ require (
 	github.com/cert-manager/cert-manager v1.21.3
 	github.com/go-logr/logr v1.4.4
 	github.com/google/go-cmp v0.7.0
-	github.com/onsi/ginkgo/v2 v2.28.3
+	github.com/onsi/ginkgo/v2 v2.34.0
 	github.com/onsi/gomega v1.40.0
 	github.com/openshift/api v0.0.0-20261015124049-70586205d5fa // release-5.0
 	github.com/openshift/controller-runtime-common v0.0.0-20260813135806-e1187ec555fc // release-5.0
