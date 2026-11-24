@@ -5,7 +5,7 @@ go 1.18
 require (
 	github.com/go-logr/logr v1.2.0
 	github.com/google/go-cmp v0.5.6
-	github.com/jetstack/cert-manager v1.7.1
+	github.com/jetstack/cert-manager v1.7.3
 	github.com/onsi/ginkgo v1.16.5
 	github.com/onsi/gomega v1.18.1
 	github.com/openshift/api v0.0.0-20220712151050-2647eb31dee7 // release-4.11
