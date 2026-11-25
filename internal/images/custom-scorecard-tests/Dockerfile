@@ -38,7 +38,7 @@ RUN CGO_ENABLED=0 GOOS=${TARGETOS:-linux} GOARCH=${TARGETARCH} GO111MODULE=on go
     -ldflags "-X github.com/cryostatio/cryostat-operator/internal/test/scorecard.SampleApplicationImage=${SCORECARD_SAMPLE_IMG} -X github.com/cryostatio/cryostat-operator/internal/test/scorecard.BundledAgentApplicationImage=${SCORECARD_AGENT_IMG}" \
     internal/images/custom-scorecard-tests/main.go
 
-FROM registry.access.redhat.com/ubi9/ubi-minimal:latest@sha256:baafce2d34783a28b4a472779f304e97e00f9d35c99553bc53b068b14344d9a9
+FROM registry.access.redhat.com/ubi9/ubi-minimal:latest@sha256:08d4c70f1baf6537a0728656cf7942d561e74a35916509d205b6519861266352
 
 ENV TEST=/usr/local/bin/cryostat-scorecard-tests \
     USER_UID=1001 \
